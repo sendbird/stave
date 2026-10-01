@@ -76,21 +76,6 @@ test("composer keeps its draft through model inspection and records input respon
     await stave.page.getByRole("button", { name: /^Model:/ }).click();
     await stave.page.keyboard.press("Escape");
     await expect(editor).toHaveText(draft);
-    await stave.page.getByTestId("advisor-mode-pill").click();
-    const advisor = stave.page.getByTestId("advisor-mode-options");
-    const efforts = advisor.getByRole("radiogroup", {
-      name: "Reasoning effort",
-    });
-    const selectedEffort = efforts.getByRole("radio", { checked: true });
-    await selectedEffort.focus();
-    await stave.page.keyboard.press("ArrowRight");
-    await expect(efforts.getByRole("radio", { checked: true })).toBeFocused();
-    await advisor.screenshot({
-      animations: "disabled",
-      path: testInfo.outputPath("advisor-keyboard-choice.png"),
-    });
-    await stave.page.keyboard.press("Escape");
-    await expect(editor).toHaveText(draft);
     await stave.page.evaluate(() =>
       document.documentElement.classList.remove("dark"),
     );

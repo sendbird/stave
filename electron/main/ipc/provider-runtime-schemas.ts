@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ProviderAccountProfileIdSchema } from "../../../src/lib/providers/provider-accounts";
-import { WORKER_PRESET_IDS } from "../../../src/lib/providers/worker-preset-ids";
 import { MAX_BOUND_SECRETS } from "../../../src/lib/secrets/secrets";
 
 export const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
@@ -201,53 +200,22 @@ export const RuntimeOptionsObjectSchema = z
       .union([z.literal("manual"), z.literal("auto")])
       .optional(),
     kiroResumeSessionId: z.string().max(500).optional(),
-    advisorTarget: z
-      .object({
-        providerId: ManagedExecutionProviderIdSchema,
-        model: z.string().trim().min(1).max(200),
-        // Optional: absent means the Advisor follows the model's provider
-        // default. Codex's legacy "minimal" is not accepted here because it is
-        // not selectable, and `resolveAdvisorEffort` would collapse it anyway.
-        effort: z
-          .union([
-            z.literal("low"),
-            z.literal("medium"),
-            z.literal("high"),
-            z.literal("xhigh"),
-            z.literal("max"),
-            z.literal("ultra"),
-          ])
-          .optional(),
-      })
-      .strict()
-      .optional(),
-    // Per-turn on-demand Advisor consult budget. Bounds mirror
-    // `normalizeAdvisorConsultLimit`; the main process re-normalizes anyway.
-    advisorConsultLimit: z.number().int().min(1).max(20).optional(),
-    // Worker mode intent, already narrowed to the active provider. Shape only:
-    // whether this model may actually run as a worker on this primary is
-    // semantic and is re-proved by `resolveWorkerProfile` in the main process.
-    workerIntent: z
-      .object({
-        mode: z.literal("task-executor"),
-        presetId: z.string().trim().pipe(z.enum(WORKER_PRESET_IDS)),
-        // "auto" defers to the preset's per-provider recommendation.
-        workerModel: z.string().trim().min(1).max(200),
-        workerEffort: z.union([
-          z.literal("auto"),
-          z.literal("low"),
-          z.literal("medium"),
-          z.literal("high"),
-          z.literal("xhigh"),
-          z.literal("max"),
-          z.literal("ultra"),
-        ]),
-        description: z.string().trim().max(600).optional(),
-        instructions: z.string().trim().max(8_000).optional(),
-        tools: z.array(z.string().trim().min(1).max(120)).max(40).optional(),
-        maxTurns: z.number().int().min(1).max(200).optional(),
-      })
-      .strict()
+    nativeSubagents: z
+      .array(
+        z
+          .object({
+            name: z.string().trim().min(1).max(80),
+            label: z.string().trim().min(1).max(200),
+            description: z.string().max(2_000),
+            instructions: z.string().max(20_000),
+            model: z.string().trim().min(1).max(200).optional(),
+            effort: z.string().trim().min(1).max(20).optional(),
+            tools: z.array(z.string().trim().min(1).max(120)).max(40).optional(),
+            maxTurns: z.number().int().min(1).max(200).optional(),
+          })
+          .strict(),
+      )
+      .max(8)
       .optional(),
     agentInstructions: z.string().max(12_000).optional(),
     responseStylePrompt: z.string().max(10_000).optional(),

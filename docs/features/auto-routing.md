@@ -106,8 +106,8 @@ validation. **Reset rules to defaults** explicitly replaces them with the
 current six-rule table while preserving other settings.
 
 The table has four primary rules (sensitive, complex, ordinary, bounded), an
-Advisor default, and a delegated-task default. Worker defaults remain under
-the Worker preset unless a Worker rule is configured. Custom rules can still
+advisor-role default kept for saved profiles, and a delegated-task default.
+Custom rules can still
 match task class, skill, role, complexity, sensitivity, and usage. Their
 primary routes obey eligibility and capability requirements.
 

@@ -1,5 +1,4 @@
 import { webContents } from "electron";
-import type { AdvisorConsultRequest } from "../../src/lib/providers/advisor-evidence";
 import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
 import type {
   HostCraneReleaseTaskControlArgs,
@@ -482,29 +481,6 @@ export async function releaseTaskParent(args: {
   taskId: string;
 }) {
   return invokeLocalMcp<{ released: boolean }>("release-task-parent", args);
-}
-
-/**
- * Bridges the `stave_consult_advisor` Local MCP tool to the host service.
- *
- * The consult grant registry is a module-level map in the process that minted
- * the grant — the host-service child, where provider turns run. Resolving the
- * key here in the Electron main process would always miss, so every consult
- * would fail with `unknown-consult-key` regardless of the armed advisor.
- */
-export async function consultAdvisor(args: AdvisorConsultRequest) {
-  return invokeHostService("provider.consult-advisor", args);
-}
-
-/** The Worker grant registry lives beside provider turns in the host service. */
-export async function runAcpWorker(args: {
-  workerKey: string;
-  task: string;
-  context?: string;
-}) {
-  return invokeHostService("provider.run-acp-worker", args, {
-    timeoutMs: null,
-  });
 }
 
 export async function respondApproval(args: {

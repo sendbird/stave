@@ -12,18 +12,14 @@ import type {
 } from "@/lib/lens/lens.types";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
 import type {
-  AdvisorTarget,
-  AdvisorTargetByProvider,
   ClaudePluginMode,
   ClaudeSettingSource,
   ProviderId,
 } from "@/lib/providers/provider.types";
-import { DEFAULT_ADVISOR_CONSULT_LIMIT } from "@/lib/providers/advisor";
 import {
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
   type AuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
-import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 import type { PrMergeMethod } from "@/lib/pr-status";
 import type { ComposerControlPlacements } from "@/lib/composer-controls";
 import type { ModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
@@ -258,7 +254,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    */
   playbooksUnreadable: UnreadablePlaybook[];
   /**
-   * Custom agents: saved worker definitions the user made or duplicated.
+   * Custom agents: saved agent definitions the user made or duplicated.
    * Built-in agents live in code and repository agents in files, so only
    * these are saved. See `src/lib/agents/library.ts`.
    */
@@ -398,36 +394,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * In-progress turns can still finish. On by default.
    */
   blockTurnsWhenAccountLimitReached: boolean;
-  /**
-   * Whether new tasks arm the isolated read-only Advisor the primary consults
-   * on demand. Split from the target so turning the default off keeps the
-   * configured pick instead of erasing it.
-   */
-  advisorEnabled: boolean;
-  /**
-   * The Advisor pick new tasks inherit, remembered while `advisorEnabled` is
-   * false. `null` means nothing has been configured yet.
-   */
-  advisorTarget: AdvisorTarget | null;
-  /**
-   * Default Advisor model and effort per provider, so both providers can be
-   * set up before either is armed and switching between them is not a
-   * destructive edit. Mirrors the per-task memory of the same name.
-   */
-  advisorTargetByProvider: AdvisorTargetByProvider;
-  /** Per-turn on-demand Advisor consult budget (1–20). */
-  advisorConsultLimit: number;
-  /**
-   * Whether new tasks arm Worker mode by default. Tasks may override in either
-   * direction from the composer.
-   */
-  workerEnabled: boolean;
-  /**
-   * Default worker configuration per provider: preset, model, effort, and any
-   * user-edited description/instructions/tools. Keyed by provider because the
-   * providers have different worker catalogs, effort scales, and adapters.
-   */
-  workerConfigByProvider: Partial<Record<ProviderId, WorkerProviderConfig>>;
   /** Optional outbound-only Crane dispatch connector. Secrets stay in Electron main. */
   craneConnector: CraneConnectorSettings;
   /** Martin workspace sync toggles. Secrets stay in Electron main. */
@@ -803,14 +769,6 @@ export const defaultSettings: AppSettings = {
   claudeSandboxCredentialEnvVars: "",
   claudeTaskBudgetTokens: 0,
   blockTurnsWhenAccountLimitReached: true,
-  advisorEnabled: false,
-  advisorTarget: null,
-  advisorTargetByProvider: {},
-  advisorConsultLimit: DEFAULT_ADVISOR_CONSULT_LIMIT,
-  // Off by default: Worker mode changes how a turn spends tokens, so it must be
-  // an explicit opt-in rather than something a user discovers on their bill.
-  workerEnabled: false,
-  workerConfigByProvider: {},
   craneConnector: {
     ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
     repositoryMappings: [],

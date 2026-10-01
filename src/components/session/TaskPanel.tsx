@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FlowPanel } from "@/components/agents/FlowPanel";
 import { MissionPanel } from "@/components/missions/MissionPanel";
 import { WakeUpSection } from "@/components/missions/WakeUpSection";
-import { TeamSection } from "@/components/team/TeamSection";
 import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState } from "@/lib/missions/domain";
 import { isAgentRun } from "@/lib/missions/agent-run";
@@ -23,6 +22,7 @@ import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import { useAppStore } from "@/store/app.store";
 import { useTaskMission } from "@/store/missions-store";
 import { TaskResultReviews } from "./TaskResultReviews";
+import { SubagentsSection } from "./SubagentsSection";
 import { TurnActivityPanel } from "./TurnActivityPanel";
 
 /**
@@ -48,7 +48,7 @@ export function TaskPanel() {
   if (!workspaceId || !taskId || !task) {
     return (
       <p className={sx(styles.empty)}>
-        Open a task to see its activity, progress, team and results.
+        Open a task to see its activity, progress, subagents and results.
       </p>
     );
   }
@@ -74,7 +74,7 @@ export function TaskPanelView(props: {
   workspaceId: string;
   taskId: string;
   repositoryPath: string | null;
-  /** A managed task's Team is read-only until the user takes over. */
+  /** A managed task's subagents are read-only until the user takes over. */
   managed: boolean;
   mission: MissionDetail | undefined;
   tab: TaskPanelTab;
@@ -126,14 +126,16 @@ export function TaskPanelView(props: {
       </TabsContent>
       <TabsContent value="team" xstyle={[styles.panel, styles.panelScroll]}>
         {repositoryPath ? (
-          <TeamSection
+          <SubagentsSection
             key={scopeKey}
-            target={{ workspaceId, taskId, repositoryPath }}
+            workspaceId={workspaceId}
+            taskId={taskId}
+            repositoryPath={repositoryPath}
             readOnly={props.managed}
           />
         ) : (
           <p className={sx(styles.notice)}>
-            Advisor, workers and delegated tasks are available in a local repository task.
+            Subagents are available in a local repository task.
           </p>
         )}
       </TabsContent>
@@ -162,7 +164,7 @@ function TaskTabMark(props: {
     case "progress":
       return <ProgressMark mission={props.mission} />;
     case "team":
-      return <TeamMark taskId={props.taskId} />;
+      return <SubagentsMark taskId={props.taskId} />;
     case "results":
       return <ResultsMark workspaceId={props.workspaceId} taskId={props.taskId} />;
   }
@@ -191,7 +193,7 @@ function ProgressMark(props: { mission: MissionDetail | undefined }) {
   return null;
 }
 
-function TeamMark(props: { taskId: string }) {
+function SubagentsMark(props: { taskId: string }) {
   const graph = useAppStore(
     (state) =>
       state.providerTurnActivityByTask[props.taskId]?.workGraph ??

@@ -427,47 +427,6 @@ describe("host task turn synchronization", () => {
       turnId,
       providerId: "codex",
       model: "gpt-5.6",
-      sequence: 3,
-      eventType: "advisor_activity",
-      done: false,
-      activityEvents: [
-        {
-          type: "advisor_activity",
-          phase: "started",
-          primaryProviderId: "codex",
-          primaryModel: "gpt-5.6",
-          advisorProviderId: "claude-code",
-          advisorModel: "claude-fable-5-1",
-          isolation: "claude-ephemeral-read-only",
-          timeoutMs: 90_000,
-          at: 1_700_000_000_000,
-        },
-        {
-          type: "advisor_activity",
-          phase: "failed",
-          primaryProviderId: "codex",
-          advisorProviderId: "claude-code",
-          advisorModel: "claude-fable-5-1",
-          at: 1_700_000_006_700,
-          durationMs: 6_700,
-          detail: "Advisor configuration failed.",
-        },
-      ],
-    });
-
-    expect(useAppStore.getState().advisorExchangeByTask[taskId]).toMatchObject({
-      turnId,
-      outcome: "failed",
-      settledConsults: 1,
-      advisorProviderId: "claude-code",
-    });
-
-    await useAppStore.getState().syncHostTaskTurn({
-      workspaceId,
-      taskId,
-      turnId,
-      providerId: "codex",
-      model: "gpt-5.6",
       sequence: 5,
       eventType: "tool_result",
       done: false,

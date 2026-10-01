@@ -28,7 +28,6 @@ import {
   REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
   RepositoryMemoryKindSchema,
 } from "../../src/lib/repository-memory";
-import { registerCollaborationTools } from "./stave-collaboration-tools";
 import { proposeMissionForGrant } from "./proposals-service";
 import { registerMissionTools } from "./stave-mission-tools";
 import { registerProjectTools } from "./stave-project-tools";
@@ -94,7 +93,6 @@ import {
   addWorkspaceTodo,
   appendWorkspaceNotes,
   clearWorkspaceNotes,
-  consultAdvisor,
   createWorkspace,
   forgetRepositoryMemory,
   getWorkspaceInformation,
@@ -108,7 +106,6 @@ import {
   replaceWorkspaceNotes,
   registerRepository,
   respondUserInput,
-  runAcpWorker,
   runTask,
   setWorkspaceCustomField,
   updateWorkspaceStorybookResourceAccess,
@@ -736,10 +733,6 @@ function createToolServer(options?: {
     },
   );
 
-  registerCollaborationTools(server, options?.turnGrants ?? {}, {
-    consultAdvisor,
-    runAcpWorker,
-  });
   registerMissionTools(server, options?.turnGrants ?? {}, {
     getMissionForGrant,
     reportMissionStage,
@@ -757,7 +750,7 @@ function createToolServer(options?: {
     "stave_delegate_task",
     {
       description:
-        "Delegate work from this task to a durable child Stave task, optionally on the other provider. For a second opinion, a review or research, pass `access: \"read-only\"`: the child cannot change files, runs in parallel with other work in this workspace, and needs no approvals. Only the ids and `prompt` are required; the provider and effort default to this task's, and the child runs one turn in this workspace. The delegation is recorded on the run ledger and identified by `(parentTaskId, delegationKey)`; omit the key and the same call returns the same child instead of creating a second one.",
+        "Start a subagent: a durable Stave task that does part of this task's work, optionally on the other provider. Only `prompt` is required inside a Stave turn; this task, its workspace, provider and effort are filled in, and an id naming another task is refused. For a second opinion, a review or research pass `access: \"read-only\"`: the subagent cannot change files, runs in parallel in this workspace, needs no approvals, and its answer is returned as `child.result`. A writing subagent runs in its own worktree. An answer that arrives later is in your next turn under Subagent results; there is no need to read the subagent's task. The same call returns the same subagent instead of starting a second one.",
       inputSchema: DelegateTaskToolInputSchema.shape,
     },
     async (input) => {
@@ -777,7 +770,7 @@ function createToolServer(options?: {
     "stave_list_delegated_tasks",
     {
       description:
-        "List the delegated tasks a task delegated, with identity, phase and terminal reason. Never returns a child's transcript.",
+        "List this task's subagents with identity, phase, terminal reason and bounded answer. Never returns a subagent's transcript.",
       inputSchema: {
         parentTaskId: z.string().min(1).optional().describe("Omit inside a Stave turn: the calling task is used."),
         includeFinished: z
@@ -801,7 +794,7 @@ function createToolServer(options?: {
     "stave_stop_delegated_task",
     {
       description:
-        "Stop a delegated task. The ledger row is cancelled durably; the delegated task is asked to stop as a best effort.",
+        "Stop a subagent. The ledger row is cancelled durably; the subagent's task is asked to stop as a best effort.",
       inputSchema: {
         parentTaskId: z.string().min(1).optional().describe("Omit inside a Stave turn: the calling task is used."),
         delegationKey: z
@@ -823,7 +816,7 @@ function createToolServer(options?: {
   server.registerTool(
     "stave_follow_up_delegated_task",
     {
-      description: "Continue an owned delegated task with a bounded follow-up. Read stave_list_delegated_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
+      description: "Continue an open subagent with a bounded follow-up. Read stave_list_delegated_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
       inputSchema: { ...DelegatedTaskFollowUpArgsSchema.shape, parentTaskId: DelegatedTaskFollowUpArgsSchema.shape.parentTaskId.optional() },
     },
     async (input) => toStructuredResult({

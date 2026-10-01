@@ -17,8 +17,6 @@ import { listProviderIds } from "@/lib/providers/model-catalog";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
-import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
-import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
 import { PromptInputContextMeter } from "@/components/ai-elements/prompt-input-context-meter";
 import { TooltipProvider } from "@/components/ui";
 import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
@@ -43,16 +41,7 @@ import {
   PREVIEW_MODEL,
   PREVIEW_WORK_ITEMS,
   createPreviewActivity,
-  createPreviewAdvisorArm,
 } from "./fixtures";
-import {
-  buildWorkerRuntimeIntent,
-  resolveWorkerArmState,
-  resolveWorkerProfile,
-  type WorkerEffortPreference,
-  type WorkerPresetId,
-  type WorkerProviderConfig,
-} from "@/lib/providers/worker-mode";
 
 const PREVIEW_TODOS = [
   {
@@ -152,12 +141,8 @@ export function ComposerFramePreviewApp() {
   >("enabled");
   const [providerMode, setProviderMode] =
     useState<ProviderModePresetId>("guided");
-  const [advisorEnabled, setAdvisorEnabled] = useState(true);
-  const [advisorOpen, setAdvisorOpen] = useState(false);
-  const [workerEnabled, setWorkerEnabled] = useState(false);
-  const [workerOpen, setWorkerOpen] = useState(false);
   // The selector lists Models and Agents; with an agent running the task the
-  // trigger splits into agent | model and the Worker is gone.
+  // trigger splits into agent | model.
   const autoOn = previewParams.get("auto") !== "off";
   const modelOptions = useMemo<ModelSelectorOption[]>(
     () => [
@@ -186,17 +171,10 @@ export function ComposerFramePreviewApp() {
       setEffort(picked);
     },
   });
-  const agentic = agentChoice.current !== null;
   useEffect(() => {
     useAppStore.setState({ repositoryPath: "/tmp/preview-repo" });
     void useAgentAssignmentsStore.getState().load();
   }, []);
-  const [workerConfig, setWorkerConfig] = useState<WorkerProviderConfig>({
-    presetId: "verified-patch",
-    model: "auto",
-    effort: "auto",
-  });
-
   useEffect(() => {
     document.title = "Composer frame mock";
     // `&theme=<built-in theme id>` renders under that theme.
@@ -207,30 +185,6 @@ export function ComposerFramePreviewApp() {
 
   const activity = useMemo(() => createPreviewActivity(), []);
 
-  const advisorArm = useMemo(
-    () => createPreviewAdvisorArm(advisorEnabled),
-    [advisorEnabled],
-  );
-  const workerArm = useMemo(
-    () =>
-      resolveWorkerArmState({
-        providerId: "claude-code",
-        overrides: {
-          workerEnabled,
-          workerConfigByProvider: { "claude-code": workerConfig },
-        },
-      }),
-    [workerConfig, workerEnabled],
-  );
-  const workerResolution = useMemo(
-    () =>
-      resolveWorkerProfile({
-        providerId: "claude-code",
-        primaryModel: PREVIEW_MODEL.model,
-        intent: buildWorkerRuntimeIntent(workerArm),
-      }),
-    [workerArm],
-  );
   const providerModeStatus = useMemo(() => {
     const presentation = resolveClaudeProviderModePresentation({
       settings: buildClaudeProviderModeSettingsPatch({
@@ -354,50 +308,8 @@ export function ComposerFramePreviewApp() {
                   providerModePresets={CLAUDE_PROVIDER_MODE_PRESETS}
                   activeProviderModePresetId={providerMode}
                   onProviderModeSelect={setProviderMode}
-                  advisorActive={advisorEnabled}
-                  advisorControl={
-                    <PromptInputAdvisorPill
-                      arm={advisorArm}
-                      primaryProviderId="claude-code"
-                      primaryModel={PREVIEW_MODEL.model}
-                      selectedProviderId="claude-code"
-                      advisorModelOptions={[PREVIEW_MODEL.model]}
-                      open={advisorOpen}
-                      onOpenChange={setAdvisorOpen}
-                      onSetEnabled={setAdvisorEnabled}
-                      onSelectProvider={() => {}}
-                      onSelectModel={() => {}}
-                      onSelectEffort={() => {}}
-                    />
-                  }
                   modelPickerAgents={buildModelPickerAgents(agentChoice, { locked: false })}
                   assignOnSend={agentChoice.assignOnSend}
-                  workerActive={!agentic && workerEnabled}
-                  workerControl={
-                    agentic ? null : (
-                    <PromptInputWorkerPill
-                      arm={workerArm}
-                      resolution={workerResolution}
-                      primaryProviderId="claude-code"
-                      primaryModel={PREVIEW_MODEL.model}
-                      open={workerOpen}
-                      onOpenChange={setWorkerOpen}
-                      onToggle={() => setWorkerEnabled((value) => !value)}
-                      onSelectPreset={(presetId: WorkerPresetId) =>
-                        setWorkerConfig((current) => ({
-                          ...current,
-                          presetId,
-                        }))
-                      }
-                      onSelectModel={(model) =>
-                        setWorkerConfig((current) => ({ ...current, model }))
-                      }
-                      onSelectEffort={(effort: WorkerEffortPreference) =>
-                        setWorkerConfig((current) => ({ ...current, effort }))
-                      }
-                    />
-                    )
-                  }
                   runtimeStatusItems={[
                     {
                       id: "sandbox",

@@ -8,11 +8,7 @@ import {
   toClaudeSdkMcpServerConfig,
   withUnattendedAutomationAuthorization,
 } from "../electron/main/stave-local-mcp-manifest";
-import {
-  HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS,
-  resolveHostServiceRequestTimeoutMs,
-} from "../electron/main/host-service-request-timeouts";
-import { resolveAdvisorTimeoutMs } from "../src/lib/providers/advisor";
+import { DELEGATED_TASK_WAIT_MAX_SECONDS } from "../src/lib/runs/delegated-task";
 
 const manifest = {
   version: 1 as const,
@@ -30,10 +26,10 @@ const manifest = {
 };
 
 describe("Stave Local MCP unattended automation authorization", () => {
-  test("scopes an ACP stdio connection to the Worker tool", () => {
+  test("scopes an ACP stdio connection to an allowlist", () => {
     expect(
       toAcpStdioMcpServerConfig(manifest, {
-        allowedToolNames: ["stave_run_worker", "stave_run_worker"],
+        allowedToolNames: ["stave_get_task", "stave_get_task"],
       }),
     ).toEqual({
       name: "stave-local-mcp",
@@ -42,14 +38,12 @@ describe("Stave Local MCP unattended automation authorization", () => {
       env: [
         { name: "ELECTRON_RUN_AS_NODE", value: "1" },
         { name: "STAVE_LOCAL_MCP_OWNER_PID", value: "123" },
-        { name: "STAVE_ADVISOR_GRANT_KEY", value: "" },
-        { name: "STAVE_WORKER_GRANT_KEY", value: "" },
         { name: "STAVE_MISSION_GRANT_KEY", value: "" },
         { name: "STAVE_PROJECT_GRANT_KEY", value: "" },
         { name: "STAVE_CALLER_GRANT_KEY", value: "" },
         {
           name: "STAVE_MCP_ALLOWED_TOOLS",
-          value: "stave_run_worker",
+          value: "stave_get_task",
         },
       ],
     });
@@ -63,8 +57,6 @@ describe("Stave Local MCP unattended automation authorization", () => {
       env: [
         { name: "ELECTRON_RUN_AS_NODE", value: "1" },
         { name: "STAVE_LOCAL_MCP_OWNER_PID", value: "123" },
-        { name: "STAVE_ADVISOR_GRANT_KEY", value: "" },
-        { name: "STAVE_WORKER_GRANT_KEY", value: "" },
         { name: "STAVE_MISSION_GRANT_KEY", value: "" },
         { name: "STAVE_PROJECT_GRANT_KEY", value: "" },
         { name: "STAVE_CALLER_GRANT_KEY", value: "" },
@@ -74,20 +66,20 @@ describe("Stave Local MCP unattended automation authorization", () => {
 
   test("binds Claude and ACP calls through transport fields without changing the endpoint", () => {
     const sdk = toClaudeSdkMcpServerConfig(manifest, {
-      turnGrants: { consultKey: "advisor-live" },
+      turnGrants: { callerKey: "caller-live" },
     });
     expect(sdk.url).toBe(manifest.url);
-    expect(sdk.headers["x-stave-advisor-key"]).toBe("advisor-live");
-    expect(sdk.headers["x-stave-worker-key"]).toBe("");
+    expect(sdk.headers["x-stave-caller-key"]).toBe("caller-live");
+    expect(sdk.headers["x-stave-mission-key"]).toBe("");
     const acp = toAcpStdioMcpServerConfig(manifest, {
-      turnGrants: { workerKey: "worker-live" },
+      turnGrants: { callerKey: "caller-live" },
     });
     expect(acp.env).toContainEqual({
-      name: "STAVE_WORKER_GRANT_KEY",
-      value: "worker-live",
+      name: "STAVE_CALLER_GRANT_KEY",
+      value: "caller-live",
     });
     expect(acp.env).toContainEqual({
-      name: "STAVE_ADVISOR_GRANT_KEY",
+      name: "STAVE_MISSION_GRANT_KEY",
       value: "",
     });
   });
@@ -97,7 +89,7 @@ describe("Stave Local MCP unattended automation authorization", () => {
       turnGrants: { missionKey: "mission-live" },
     });
     expect(sdk.headers["x-stave-mission-key"]).toBe("mission-live");
-    expect(sdk.headers["x-stave-advisor-key"]).toBe("");
+    expect(sdk.headers["x-stave-caller-key"]).toBe("");
     const idle = toClaudeSdkMcpServerConfig(manifest, { turnGrants: {} });
     // An explicit empty value clears a capability a resumed client retained.
     expect(idle.headers["x-stave-mission-key"]).toBe("");
@@ -172,28 +164,8 @@ describe("Stave Local MCP unattended automation authorization", () => {
     });
   });
 
-  test("keeps the timeout ladder ordered innermost-first", () => {
-    // Each layer must outlast the one it wraps, so the innermost deadline is
-    // the one that reports. Any inversion here means a caller gives up on work
-    // that is still legitimately running, which is exactly the bug this
-    // ordering was added to prevent.
-    const slowestAdvisorCall = Math.max(
-      ...(["low", "medium", "high", "xhigh", "max", "ultra"] as const).map(
-        (effort) =>
-          resolveAdvisorTimeoutMs({
-            providerId: "codex",
-            model: "gpt-5.6-sol",
-            effort,
-          }),
-      ),
-    );
-    const backstop = resolveHostServiceRequestTimeoutMs({
-      method: "provider.consult-advisor",
-    });
-
-    expect(backstop).toBe(HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS);
-    expect(slowestAdvisorCall).toBeLessThan(backstop as number);
-    expect(backstop as number).toBeLessThan(STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS);
+  test("outlasts the longest tool-owned wait so the tool reports first", () => {
+    expect(DELEGATED_TASK_WAIT_MAX_SECONDS * 1_000).toBeLessThan(STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS);
   });
 });
 

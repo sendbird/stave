@@ -1,5 +1,7 @@
 import type { AgentAssignment } from "../../src/lib/agents/assign";
 import { agentRuntimeOptions, compileTaskAgentRole } from "../../src/lib/agents/runtime-options";
+import { compileNativeSubagents } from "../../src/lib/agents/native-subagents";
+import type { AgentConfig } from "../../src/lib/agents/schema";
 import { resolveTurnPolicy, type TurnPolicy } from "../../src/lib/policy/turn-policy";
 import { AgentTurnProvenanceSchema, type AgentInstructionDelivery, type AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { BridgeEvent, StreamTurnArgs } from "./types";
@@ -20,6 +22,8 @@ export function prepareTaskAgentTurn(args: {
   assignment: AgentAssignment;
   hasDelivery: (delivery: AgentInstructionDelivery) => boolean;
   recordDelivery: (delivery: AgentInstructionDelivery) => void;
+  /** The agents a main Agent may call as in-turn subagents. */
+  library?: readonly AgentConfig[];
 }): TaskAgentTurn {
   const { turn, assignment } = args;
   const compiled = compileTaskAgentRole({
@@ -39,9 +43,17 @@ export function prepareTaskAgentTurn(args: {
     providerId: turn.providerId, options: { ...base, ...instructions }, root: turn.cwd ?? "",
     actor: { kind: "agent", access: compiled.permission === "read-only" ? "read-only" : "full" },
   }) : undefined;
-  const runtimeOptions = { ...base, ...(compiled.role === "primary"
+  // Only a main Agent calls in-turn subagents; a subagent runs one level deep.
+  const nativeSubagents = compiled.role === "primary" && (turn.providerId === "claude-code" || turn.providerId === "codex")
+    ? compileNativeSubagents({
+        lead: assignment.agent, library: args.library ?? [], providerId: turn.providerId, standards: assignment.standards,
+      })
+    : [];
+  const { nativeSubagents: _requested, ...baseWithoutSubagents } = base;
+  const runtimeOptions = { ...baseWithoutSubagents, ...(compiled.role === "primary"
     ? { ...instructions, ...turnPolicy?.options }
-    : { agentInstructions: compiled.promptPreamble }) };
+    : { agentInstructions: compiled.promptPreamble }),
+    ...(nativeSubagents.length > 0 ? { nativeSubagents } : {}) };
   const promptPreamble = compiled.role === "primary" ? compiled.promptPreamble : undefined;
   const applied: AgentTurnProvenance["permission"]["applied"] = {};
   const providerKeys = {

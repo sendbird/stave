@@ -1,11 +1,6 @@
 import { ipcMain } from "electron";
 import { WorkspaceDirectionDraftScopeSchema, SaveWorkspaceDirectionDraftSchema } from "../../../src/lib/workspace-resume-brief";
 import {
-  ClearAcceptedDelegationDraftSchema,
-  LoadDelegationDraftSchema,
-  SaveDelegationDraftSchema,
-} from "../../../src/lib/collaboration/delegation-draft";
-import {
   ListResultReviewsArgsSchema,
   SetResultReviewedArgsSchema,
   SetResultsReviewedArgsSchema,
@@ -54,43 +49,6 @@ export function registerPersistenceHandlers() {
     store.directionDrafts.save(parsed.data.workspaceId, parsed.data.draft);
     return { ok: true };
   });
-  ipcMain.handle(
-    "persistence:load-delegation-draft",
-    async (_event, args: unknown) => {
-      const parsed = LoadDelegationDraftSchema.safeParse(args);
-      if (!parsed.success) return { ok: false, draft: null };
-      const store = await ensurePersistenceReady();
-      return {
-        ok: true,
-        draft: store.delegationDrafts.load(parsed.data.scope),
-      };
-    },
-  );
-  ipcMain.handle(
-    "persistence:save-delegation-draft",
-    async (_event, args: unknown) => {
-      const parsed = SaveDelegationDraftSchema.safeParse(args);
-      if (!parsed.success) return { ok: false };
-      const store = await ensurePersistenceReady();
-      store.delegationDrafts.save(parsed.data.scope, parsed.data.draft);
-      return { ok: true };
-    },
-  );
-  ipcMain.handle(
-    "persistence:clear-accepted-delegation-draft",
-    async (_event, args: unknown) => {
-      const parsed = ClearAcceptedDelegationDraftSchema.safeParse(args);
-      if (!parsed.success) return { ok: false, cleared: false };
-      const store = await ensurePersistenceReady();
-      return {
-        ok: true,
-        cleared: store.delegationDrafts.clearAccepted(
-          parsed.data.scope,
-          parsed.data.delegationKey,
-        ),
-      };
-    },
-  );
   ipcMain.handle("persistence:list-result-reviews", async (_event, args: unknown) => {
     const parsed = ListResultReviewsArgsSchema.safeParse(args ?? {});
     if (!parsed.success) return { ok: false, results: [], total: 0, hasMore: false };

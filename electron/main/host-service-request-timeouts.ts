@@ -14,16 +14,6 @@ export const HOST_SERVICE_DEFAULT_REQUEST_TIMEOUT_MS = 10 * 60_000;
 export const HOST_SERVICE_READY_TIMEOUT_MS = 60_000;
 
 /**
- * Backstop for one Advisor consult.
- *
- * Exported because it is a rung on a ladder, not a local detail: every caller
- * *above* this one — the host-service client, the MCP tool-call deadline handed
- * to primaries, the stdio proxy — has to sit above it, so the innermost layer
- * is always the one that reports. See `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS`.
- */
-export const HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS = 30 * 60_000;
-
-/**
  * `null` means "no backstop": user-paced turns, streaming reads, OAuth logins
  * and long-lived script runs have no meaningful upper bound.
  */
@@ -31,11 +21,6 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   Record<HostServiceMethod, number | null>
 > = {
   "service.shutdown": 30_000,
-  // One Advisor consult is bounded by `resolveAdvisorTimeoutMs`, which tops out
-  // at 25 minutes for the `ultra` tier. The backstop stays bounded but must sit
-  // above that ceiling, otherwise it would pre-empt the runtime's own
-  // `advisor-timeout` outcome with a transport error the primary cannot read.
-  "provider.consult-advisor": HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS,
   // The native compact waiter owns a ten-minute deadline. Let its structured
   // failure reach the Runtime settings caller before the transport expires.
   "provider.compact-codex-thread": 11 * 60_000,

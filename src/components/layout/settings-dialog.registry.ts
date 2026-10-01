@@ -1,12 +1,4 @@
 import { z } from "zod";
-import {
-  ADVISOR_SETTING_FIELD_ID,
-  DEFAULT_ADVISOR_CONSULT_LIMIT,
-} from "@/lib/providers/advisor";
-import {
-  getSdkModelOptions,
-  toHumanModelName,
-} from "@/lib/providers/model-catalog";
 import type { AppSettings } from "@/store/app-settings";
 import { CraneConnectorSettingsSchema } from "@/lib/crane-connector/types";
 import {
@@ -52,41 +44,6 @@ export interface SettingDefinition<
   importExport: "include" | "exclude";
 }
 
-const AdvisorEffortSchema = z.enum([
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-  "ultra",
-]);
-
-const AdvisorPickSchema = z
-  .object({
-    providerId: z.enum(["claude-code", "codex"]),
-    model: z.string().trim().min(1).max(200),
-    // Absent means "follow the model's provider default", so the field is
-    // optional rather than defaulted — see `resolveAdvisorEffort`.
-    effort: AdvisorEffortSchema.optional(),
-  })
-  .strict();
-
-const AdvisorTargetSchema = AdvisorPickSchema.nullable();
-
-const AdvisorTargetByProviderSchema = z.object({
-  "claude-code": AdvisorPickSchema.omit({ providerId: true }).optional(),
-  codex: AdvisorPickSchema.omit({ providerId: true }).optional(),
-});
-
-const ADVISOR_MODEL_SEARCH_KEYWORDS = (
-  ["claude-code", "codex"] as const
-).flatMap((providerId) =>
-  getSdkModelOptions({ providerId }).flatMap((model) => [
-    model,
-    toHumanModelName({ model }),
-  ]),
-);
-
 const AutoRoutingProfileSchema = z
   .custom<AutoRoutingProfile>(
     (value) => typeof value === "object" && value !== null,
@@ -128,8 +85,6 @@ export const settingDefinitions = [
       "balanced",
       "budget guard",
       "eligible models",
-      "advisor",
-      "worker",
       "delegate",
     ],
     schema: AutoRoutingProfileSchema,
@@ -139,87 +94,6 @@ export const settingDefinitions = [
     applyMode: "next-turn",
     importExport: "include",
   } satisfies SettingDefinition<"autoRoutingProfile">,
-  {
-    key: "advisorTarget",
-    sectionId: "providers",
-    fieldId: ADVISOR_SETTING_FIELD_ID,
-    title: "Advisor",
-    description:
-      "Arm an isolated read-only Claude or Codex Advisor the primary can consult on demand during its turn.",
-    keywords: [
-      "advisor",
-      "on demand",
-      "second opinion",
-      "review",
-      "consult",
-      "read only",
-      "claude",
-      "claude advisor",
-      "codex",
-      "codex advisor",
-      "fable",
-      "astra",
-      "model",
-      ...ADVISOR_MODEL_SEARCH_KEYWORDS,
-    ],
-    schema: AdvisorTargetSchema,
-    defaultValue: null,
-    scope: "app",
-    sensitivity: "plain",
-    applyMode: "next-turn",
-    importExport: "include",
-  } satisfies SettingDefinition<"advisorTarget">,
-  {
-    key: "advisorEnabled",
-    sectionId: "providers",
-    fieldId: ADVISOR_SETTING_FIELD_ID,
-    title: "Arm an Advisor by default",
-    description:
-      "Whether new tasks start with the default Advisor armed. Off keeps the configured provider, model, and effort for later.",
-    keywords: ["advisor", "default", "arm", "by default", "on", "off"],
-    schema: z.boolean(),
-    defaultValue: false,
-    scope: "app",
-    sensitivity: "plain",
-    applyMode: "next-turn",
-    importExport: "include",
-  } satisfies SettingDefinition<"advisorEnabled">,
-  {
-    key: "advisorTargetByProvider",
-    sectionId: "providers",
-    fieldId: ADVISOR_SETTING_FIELD_ID,
-    title: "Advisor defaults per provider",
-    description:
-      "Default Advisor model and effort remembered separately for each provider, so both can be configured before either is armed.",
-    keywords: [
-      "advisor",
-      "per provider",
-      "advisor default",
-      "advisor effort",
-      "remembered",
-    ],
-    schema: AdvisorTargetByProviderSchema,
-    defaultValue: {},
-    scope: "app",
-    sensitivity: "plain",
-    applyMode: "next-turn",
-    importExport: "include",
-  } satisfies SettingDefinition<"advisorTargetByProvider">,
-  {
-    key: "advisorConsultLimit",
-    sectionId: "providers",
-    fieldId: ADVISOR_SETTING_FIELD_ID,
-    title: "Advisor consults per turn",
-    description:
-      "How many times the primary may consult the armed Advisor in a single turn.",
-    keywords: ["advisor", "consult", "limit", "budget", "per turn"],
-    schema: z.number().int().min(1).max(20),
-    defaultValue: DEFAULT_ADVISOR_CONSULT_LIMIT,
-    scope: "app",
-    sensitivity: "plain",
-    applyMode: "next-turn",
-    importExport: "include",
-  } satisfies SettingDefinition<"advisorConsultLimit">,
   {
     key: "blockTurnsWhenAccountLimitReached",
     sectionId: "providers",
@@ -250,62 +124,6 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "include",
   } satisfies SettingDefinition<"blockTurnsWhenAccountLimitReached">,
-  {
-    key: "workerEnabled",
-    sectionId: "providers",
-    fieldId: "settings-field-worker",
-    title: "Worker mode",
-    description:
-      "Let a high-tier primary delegate bounded implementation work to a cheaper same-provider worker.",
-    keywords: [
-      "worker",
-      "worker mode",
-      "subagent",
-      "sub agent",
-      "delegate",
-      "delegation",
-      "task executor",
-      "orchestrate",
-      "preset",
-      "luna",
-      "haiku",
-      "sonnet",
-      "effort",
-      "cost",
-    ],
-    schema: z.boolean(),
-    defaultValue: false,
-    scope: "app",
-    sensitivity: "plain",
-    applyMode: "next-turn",
-    importExport: "include",
-  } satisfies SettingDefinition<"workerEnabled">,
-  {
-    key: "workerConfigByProvider",
-    sectionId: "providers",
-    fieldId: "settings-field-worker",
-    title: "Worker configuration",
-    description:
-      "Per-provider worker preset, model, reasoning effort, description, and instructions.",
-    keywords: [
-      "worker model",
-      "worker effort",
-      "worker instructions",
-      "worker description",
-      "worker preset",
-      "subagent model",
-      "delegation",
-    ],
-    // Loose on purpose: the authoritative shape lives in `worker-mode.ts` and is
-    // re-normalized on load, so a stricter mirror here would only add a second
-    // place to forget when a preset field is added.
-    schema: z.record(z.string(), z.unknown()),
-    defaultValue: {},
-    scope: "app",
-    sensitivity: "plain",
-    applyMode: "next-turn",
-    importExport: "include",
-  } satisfies SettingDefinition<"workerConfigByProvider">,
   {
     key: "auxiliaryInferencePolicy",
     sectionId: "auxiliaryInference",

@@ -1503,8 +1503,7 @@ function requestNeedsCliDiscovery(method: string) {
     method === "provider.ack-stream-turn" ||
     method === "provider.steer-turn" ||
     method === "provider.respond-approval" ||
-    method === "provider.respond-user-input" ||
-    method === "provider.skip-advisor"
+    method === "provider.respond-user-input"
   ) {
     return false;
   }
@@ -1726,21 +1725,6 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.abort-turn":
       await respond(request.id, providerRuntime.abortTurn(request.params));
-      return;
-    case "provider.skip-advisor":
-      await respond(request.id, providerRuntime.skipAdvisor(request.params));
-      return;
-    case "provider.consult-advisor":
-      await respond(
-        request.id,
-        await providerRuntime.consultAdvisor(request.params),
-      );
-      return;
-    case "provider.run-acp-worker":
-      await respond(
-        request.id,
-        await providerRuntime.runAcpWorker(request.params),
-      );
       return;
     case "provider.cleanup-task":
       await respond(request.id, providerRuntime.cleanupTask(request.params));

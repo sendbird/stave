@@ -176,6 +176,25 @@ export function resolveTurnPolicy(input: {
 }
 
 /**
+ * A turn started through `stave_run_task` from inside a Stave turn runs at
+ * most at that turn's autonomy, so a read-only or asking turn cannot reach
+ * write access or skip prompts by starting another task.
+ */
+export function capSpawnedTurnOptions(args: {
+  providerId: ProviderId;
+  root: string;
+  options: ProviderRuntimeOptions;
+  spawnedBy?: { autonomy: Autonomy | null };
+}): ProviderRuntimeOptions {
+  if (!args.spawnedBy) return args.options;
+  const policy = resolveTurnPolicy({
+    providerId: args.providerId, options: args.options, root: args.root,
+    actor: { kind: "spawned", caller: args.spawnedBy.autonomy },
+  });
+  return { ...args.options, ...policy.options };
+}
+
+/**
  * Runtime options that decide what a turn may do without asking. A Stave
  * Local MCP caller cannot set them: a spawned turn takes them from the user's
  * settings and the resolver above. Binary and plugin paths are here because

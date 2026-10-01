@@ -115,15 +115,6 @@ describe("Agent platform boundaries", () => {
       deferred: 0,
     });
 
-    // A worker is turn-scoped: it has no durable record to reconcile.
-    const workerImports = importedModules(
-      readSource("src/lib/providers/worker-mode.ts"),
-    );
-    expect(
-      workerImports.filter((specifier) =>
-        /run-ledger-store|runs\/delegated-task|persistence\//.test(specifier),
-      ),
-    ).toEqual([]);
   });
 
   test("a wake-up never creates a task: it only adds a turn to one that exists", () => {

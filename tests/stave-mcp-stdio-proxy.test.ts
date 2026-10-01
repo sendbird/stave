@@ -118,7 +118,7 @@ describe("stave-mcp-stdio-proxy", () => {
           fs.writeFileSync(capturePath, JSON.stringify({
             accept: req.headers.accept ?? "",
             authorization: req.headers.authorization ?? "",
-            workerKey: req.headers["x-stave-worker-key"] ?? "",
+            callerKey: req.headers["x-stave-caller-key"] ?? "",
             body: Buffer.concat(chunks).toString("utf8"),
           }));
           setTimeout(() => {
@@ -161,7 +161,7 @@ describe("stave-mcp-stdio-proxy", () => {
     ], {
       cwd: REPO_ROOT,
       env: proxyEnv(tempHome, {
-        STAVE_WORKER_GRANT_KEY: "transport-worker-grant",
+        STAVE_CALLER_GRANT_KEY: "transport-caller-grant",
       }),
       stdin: "pipe",
       stdout: "pipe",
@@ -197,15 +197,15 @@ describe("stave-mcp-stdio-proxy", () => {
     const requestCapture = JSON.parse(await readFile(requestCapturePath, "utf8")) as {
       accept: string;
       authorization: string;
-      workerKey: string;
+      callerKey: string;
       body: string;
     };
 
     expect(exitCode).toBe(0);
     expect(requestCapture.authorization).toBe("Bearer test-token");
-    expect(requestCapture.workerKey).toBe("transport-worker-grant");
-    expect(requestCapture.body).not.toContain("transport-worker-grant");
-    expect(stdout + stderr).not.toContain("transport-worker-grant");
+    expect(requestCapture.callerKey).toBe("transport-caller-grant");
+    expect(requestCapture.body).not.toContain("transport-caller-grant");
+    expect(stdout + stderr).not.toContain("transport-caller-grant");
     expect(requestCapture.accept).toContain("application/json");
     expect(requestCapture.accept).toContain("text/event-stream");
     expect(JSON.parse(requestCapture.body)).toEqual({

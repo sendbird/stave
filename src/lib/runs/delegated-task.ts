@@ -364,6 +364,8 @@ export const DelegatedTaskSummarySchema = z
     delegatedWorkspaceId: RunIdSchema,
     delegatedTurnId: RunIdSchema.nullable(),
     providerId: z.enum(["claude-code", "codex"]),
+    /** The saved agent the subagent runs as, when it runs as one. */
+    agentConfigId: z.string().trim().min(1).max(80).optional(),
     /** The model and effort the delegation asked for at admission time. */
     requestedModel: z.string().trim().min(1).max(200).optional(),
     requestedEffort: DelegatedTaskEffortSchema.optional(),
@@ -563,6 +565,7 @@ export function toDelegatedTaskSummary(args: {
       acceptedDetail?.effort,
     );
   const requested = {
+    ...(acceptedDetail?.agentConfigId ? { agentConfigId: acceptedDetail.agentConfigId } : {}),
     ...(requestedModel.success && requestedModel.data !== undefined
       ? { requestedModel: requestedModel.data }
       : {}),

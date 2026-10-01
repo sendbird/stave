@@ -21,11 +21,6 @@ import {
   formatModelPrice,
   MODEL_PRICING,
 } from "@/lib/providers/model-catalog";
-import { resolveAdvisorAutoTarget } from "@/lib/providers/advisor";
-import {
-  resolveRoutedWorkerModel,
-  resolveWorkerProfile,
-} from "@/lib/providers/worker-mode";
 
 function signals(overrides: Partial<RouterSignals> = {}): RouterSignals {
   return {
@@ -246,88 +241,6 @@ describe("role helpers", () => {
     });
   });
 
-  test("resolveAdvisorAutoTarget resolves `auto` and passes concrete targets through", () => {
-    expect(
-      resolveAdvisorAutoTarget({
-        target: { providerId: "claude-code", model: "auto" },
-        profile: balanced,
-        primaryProviderId: "claude-code",
-        primaryModel: DEFAULT_CLAUDE_OPUS_MODEL,
-      }),
-    ).toEqual({ providerId: "codex", model: "gpt-6-astra", effort: "medium" });
-    const pinned = { providerId: "codex" as const, model: "gpt-6-sol" };
-    expect(
-      resolveAdvisorAutoTarget({ target: pinned, profile: balanced, primaryProviderId: "claude-code" }),
-    ).toBe(pinned);
-  });
-
-  test("worker resolution keeps the preset model unless a worker rule matches", () => {
-    expect(
-      resolveRoutedWorkerModel({
-        profile: balanced,
-        providerId: "claude-code",
-        primaryModel: DEFAULT_CLAUDE_OPUS_MODEL,
-      }),
-    ).toBeNull();
-    const routed: AutoRoutingProfile = {
-      ...balanced,
-      rules: [
-        {
-          id: "worker-light",
-          when: { role: "worker" },
-          then: { providerId: "any-eligible", model: "claude-haiku-4-5" },
-          reason: "Workers run on the light model.",
-          enabled: true,
-        },
-        ...balanced.rules,
-      ],
-    };
-    expect(
-      resolveRoutedWorkerModel({
-        profile: routed,
-        providerId: "claude-code",
-        primaryModel: DEFAULT_CLAUDE_OPUS_MODEL,
-      }),
-    ).toMatchObject({ model: "claude-haiku-4-5", ruleId: "worker-light" });
-    const resolution = resolveWorkerProfile({
-      providerId: "claude-code",
-      primaryModel: DEFAULT_CLAUDE_OPUS_MODEL,
-      intent: {
-        mode: "task-executor",
-        presetId: "verified-patch",
-        workerModel: "auto",
-        workerEffort: "auto",
-      },
-      autoRoutingProfile: routed,
-    });
-    expect(resolution.status).toBe("ready");
-    if (resolution.status === "ready") {
-      expect(resolution.profile.resolvedWorkerModel).toBe("claude-haiku-4-5");
-      expect(resolution.profile.resolvedWorkerEffort).toBeNull();
-    }
-  });
-
-  test("a routed worker model that cannot run as a worker is ignored", () => {
-    const routed: AutoRoutingProfile = {
-      ...balanced,
-      rules: [
-        {
-          id: "worker-astra",
-          when: { role: "worker" },
-          then: { providerId: "codex", model: "gpt-6-astra" },
-          reason: "",
-          enabled: true,
-        },
-      ],
-    };
-    expect(
-      resolveRoutedWorkerModel({
-        profile: routed,
-        providerId: "codex",
-        primaryModel: "gpt-6-sol",
-      }),
-    ).toBeNull();
-  });
 });
 
 describe("validation and migration", () => {

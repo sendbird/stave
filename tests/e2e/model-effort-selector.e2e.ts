@@ -662,68 +662,6 @@ test("keeps the Kiro provider settings usable at a narrow viewport", async ({
   expect(runtimeCardWidth).toBeGreaterThan(320);
 });
 
-test("configures Cursor and Kiro Worker models from runtime catalogs", async ({
-  page,
-}, testInfo) => {
-  await seedWorkspace(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
-
-  await page.getByRole("button", { name: "open-settings" }).click();
-  const settings = page.getByRole("dialog", { name: "Settings" });
-  await settings.getByRole("button", { name: "Providers" }).click();
-  const workerCard = settings.locator("#settings-field-worker");
-  await expect(workerCard).toBeVisible();
-
-  const cursorTab = workerCard.getByRole("tab", { name: "Cursor" });
-  const kiroTab = workerCard.getByRole("tab", { name: "Kiro" });
-  await expect(cursorTab).toBeVisible();
-  await expect(kiroTab).toBeVisible();
-  await cursorTab.click();
-
-  let modelTrigger = workerCard.getByRole("combobox", {
-    name: "Worker model",
-  });
-  await modelTrigger.click();
-  await page
-    .getByRole("option", {
-      name: /GPT 5\.4\[context=272k,reasoning=high,fast=true\]/,
-    })
-    .click();
-  await expect(modelTrigger).toContainText(
-    "GPT 5.4[context=272k,reasoning=high,fast=true]",
-  );
-  await expect(
-    workerCard.getByRole("combobox", { name: "Worker effort" }),
-  ).toContainText("Auto");
-
-  await cursorTab.focus();
-  await cursorTab.press("ArrowRight");
-  await expect(kiroTab).toBeFocused();
-  await kiroTab.press("Enter");
-  await expect(kiroTab).toHaveAttribute("aria-selected", "true");
-  modelTrigger = workerCard.getByRole("combobox", { name: "Worker model" });
-  await modelTrigger.click();
-  await page.getByRole("option", { name: /Kiro Fixture Model/ }).click();
-  await expect(modelTrigger).toContainText("Kiro Fixture Model");
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await workerCard.scrollIntoViewIfNeeded();
-  expect(
-    await settings.evaluate(
-      (element) => element.scrollWidth <= element.clientWidth,
-    ),
-  ).toBe(true);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth,
-    ),
-  ).toBe(false);
-  await workerCard.screenshot({
-    path: testInfo.outputPath("worker-provider-settings.png"),
-  });
-});
-
 test("hides and pins models from Settings without losing them from the catalog", async ({
   page,
 }) => {

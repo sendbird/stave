@@ -10,12 +10,6 @@ import type {
   UserInputQuestion,
 } from "@/types/chat";
 import type { SkillPromptContext } from "@/lib/skills/types";
-// Type-only, matching the `@/types/chat` cycle above: `worker-mode` imports
-// `ProviderId` from here, so the cycle is erased at compile time.
-import type {
-  WorkerExecutionMetadata,
-  WorkerRuntimeIntent,
-} from "@/lib/providers/worker-mode";
 
 export type ProviderId = "claude-code" | "codex" | "cursor" | "kiro";
 export type ManagedExecutionProviderId = Exclude<ProviderId, "cursor" | "kiro">;
@@ -56,7 +50,8 @@ export type ProviderAppToolApprovalMode =
 export type ProviderWebSearchMode = "disabled" | "cached" | "live" | "indexed";
 
 /**
- * Usage attributable to one delegated Advisor or Worker execution.
+ * Usage attributable to one delegated execution. `advisor` and `worker` name
+ * the retired in-turn delegations; usage saved by earlier builds keeps them.
  *
  * The turn-level `usage` event remains the billing total. These records are a
  * persisted breakdown only, so consumers must never add them to that total a
@@ -144,76 +139,6 @@ export interface ProviderAvailabilityResponse {
   version?: string;
   capabilities: ProviderRuntimeCapabilities;
 }
-
-/**
- * Effort tiers an Advisor target may pin, as the union of both providers'
- * scales. Declared here rather than derived from `ProviderRuntimeOptions` so a
- * persisted Advisor target can never carry Codex's legacy `"minimal"`, which is
- * no longer selectable anywhere in the UI.
- *
- * Which tiers are actually offered is provider- and model-specific; see
- * `resolveAdvisorEffort` for the single point that validates and clamps one.
- */
-export type AdvisorEffort =
-  "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-
-export interface AdvisorTarget {
-  providerId: ManagedExecutionProviderId;
-  model: string;
-  /**
-   * Explicit effort for the Advisor call. Omitted means "follow the model's
-   * provider default", which is what every target did before the tier became
-   * selectable — so an absent value is a real choice, not a missing one.
-   */
-  effort?: AdvisorEffort;
-}
-
-/**
- * A provider's remembered Advisor pick, without the provider itself. Kept per
- * provider so choosing a Codex advisor never overwrites which Claude model the
- * task would go back to — the two catalogs and effort scales share nothing.
- */
-export interface AdvisorProviderPreference {
-  model: string;
-  effort?: AdvisorEffort;
-}
-
-export type AdvisorTargetByProvider = Partial<
-  Record<ManagedExecutionProviderId, AdvisorProviderPreference>
->;
-
-/**
- * Advisor lifecycle phases carried by the `advisor_activity` provider event.
- * See `src/lib/providers/advisor-activity.ts` for the reducer and the rationale
- * behind keeping `completed` and `applied` separate.
- */
-export type AdvisorActivityPhase =
-  /**
-   * The turn granted the primary an Advisor it may consult. Emitted once per
-   * turn, before any consult, so a turn where the primary never asks is still
-   * visibly *armed* rather than indistinguishable from no Advisor at all.
-   */
-  | "armed"
-  | "started"
-  /**
-   * The advisor is still working. A heartbeat rather than a lifecycle step: it
-   * can fire many times inside one consult and never settles it. Exists because
-   * a consult is otherwise completely silent for its whole duration — a high
-   * effort tier can think for minutes, and without this the UI cannot tell a
-   * working advisor from a wedged one.
-   */
-  | "progress"
-  | "completed"
-  | "failed"
-  | "timeout"
-  | "aborted"
-  | "skipped";
-
-/** How the runtime actually isolated the advisor call. */
-export type AdvisorIsolationMode =
-  | "claude-tools-disabled"
-  | "codex-ephemeral-read-only"
-  | "codex-role-session-read-only";
 
 export interface ProviderSteerTurnRequest {
   turnId: string;
@@ -975,56 +900,6 @@ export type NormalizedProviderEvent =
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
   | {
-      /**
-       * Structured advisor lifecycle signal. Replaces string-sniffing a
-       * `system` trace, and is the only channel that can distinguish "advisor
-       * produced advice" from "advice reached the primary prompt".
-       */
-      type: "advisor_activity";
-      phase: AdvisorActivityPhase;
-      /**
-       * Identity of one on-demand consult. Events sharing an `exchangeId`
-       * describe the same consult; a `started` with a new id opens a new card.
-       */
-      exchangeId?: string;
-      /** 1-based index of this consult within the turn. */
-      consultIndex?: number;
-      /** Per-turn consult budget the primary was granted. */
-      consultLimit?: number;
-      /** Question the primary asked, bounded by the runtime. Only on `started`. */
-      question?: string;
-      /** Provider running the primary turn that asked for advice. */
-      primaryProviderId: ProviderId;
-      /** Primary model id, so "a different model answered" is verifiable. */
-      primaryModel?: string;
-      /** Advisor provider. Absent when the configured target was unusable. */
-      advisorProviderId?: ManagedExecutionProviderId;
-      advisorModel?: string;
-      /**
-       * Effort the runtime actually requested, after defaulting and clamping.
-       * Reported rather than re-derived in the renderer for the same reason as
-       * `isolation`: the UI must not claim a tier the call did not use.
-       */
-      advisorEffort?: AdvisorEffort;
-      isolation?: AdvisorIsolationMode;
-      /** Wall-clock timestamp of this phase, from the main process. */
-      at: number;
-      /** Advisor deadline, reported on `started` so the UI can count down. */
-      timeoutMs?: number;
-      durationMs?: number;
-      /** Advisor-authored advice. Only on `completed`. */
-      advice?: string;
-      adviceChars?: number;
-      /** Failure, timeout, or skip reason. */
-      detail?: string;
-      inputTokens?: number;
-      outputTokens?: number;
-      cacheReadTokens?: number;
-      cacheCreationTokens?: number;
-      totalCostUsd?: number;
-      sessionReused?: boolean;
-    }
-  | {
       type: "history_boundary";
       accountProfileId?: string;
       providerId: ProviderId;
@@ -1061,7 +936,6 @@ export type NormalizedProviderEvent =
       input: string;
       output?: string;
       state: ToolUsePart["state"];
-      workerExecution?: WorkerExecutionMetadata;
       /**
        * Provider-owned identity of the agent this event is *about* — the agent
        * a delegating call spawned (Codex's child `agentThreadId`). The work
@@ -1117,7 +991,6 @@ export type NormalizedProviderEvent =
       input?: string;
       /** See the main-process `approval` event: an allow-always option exists. */
       supportsAllowAlways?: boolean;
-      workerExecution?: WorkerExecutionMetadata;
       /**
        * See `tool.ownerAgentId`: the subagent whose work is stopped until this
        * is answered. Absent means the main loop asked.
@@ -1306,26 +1179,11 @@ export interface ProviderRuntimeOptions {
   kiroApprovalMode?: "manual" | "auto";
   kiroResumeSessionId?: string;
   /**
-   * Optional Stave-managed, isolated read-only Advisor the primary model may
-   * consult on demand during the turn. Runtimes must clear this before invoking
-   * the primary provider so an Advisor can never recursively launch another
-   * Advisor.
+   * In-turn subagents the task's agent may call, compiled by the host from
+   * the agent's `canCall` list (`native-subagents.ts`). Set only for a task
+   * that runs as an agent; the host drops any other value.
    */
-  advisorTarget?: AdvisorTarget;
-  /**
-   * Maximum on-demand Advisor consults the primary may make in this turn.
-   * Normalized through `normalizeAdvisorConsultLimit` (default 5, max 20).
-   */
-  advisorConsultLimit?: number;
-  /**
-   * Worker mode intent for this turn, already narrowed to the active provider.
-   *
-   * Deliberately the *intent* rather than a resolved profile: the renderer must
-   * not be trusted to decide which model may run as a worker, so the main
-   * process re-resolves this through `resolveWorkerProfile` against the real
-   * primary model and installed runtime before building the native call.
-   */
-  workerIntent?: WorkerRuntimeIntent;
+  nativeSubagents?: import("@/lib/agents/native-subagents").NativeSubagentDefinition[];
   /**
    * Instructions of the Agent this task runs as (the main agent of the task),
    * compiled from its saved config by `src/lib/agents/compile.ts`. Claude and

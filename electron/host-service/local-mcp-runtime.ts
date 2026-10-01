@@ -1,4 +1,4 @@
-import { resolveTurnPolicy, type Autonomy } from "../../src/lib/policy/turn-policy";
+import { capSpawnedTurnOptions } from "../../src/lib/policy/turn-policy";
 import { taskControlGate } from "./task-control-gate";
 import { attachTurnReceiptToSession } from "./local-mcp-turn-receipt-projection";
 import { displayTurnReceipt } from "../../src/lib/providers/turn-terminal-receipt";
@@ -1679,25 +1679,6 @@ export async function createWorkspace(args: {
   } satisfies CreatedWorkspaceInfo;
 }
 
-/**
- * A turn started through `stave_run_task` from inside a Stave turn runs at
- * most at that turn's autonomy, so a read-only or asking turn cannot reach
- * write access or skip prompts by starting another task.
- */
-function capSpawnedTurnOptions(args: {
-  providerId: ProviderId;
-  root: string;
-  options: ProviderRuntimeOptions;
-  spawnedBy?: { autonomy: Autonomy | null };
-}): ProviderRuntimeOptions {
-  if (!args.spawnedBy) return args.options;
-  const policy = resolveTurnPolicy({
-    providerId: args.providerId, options: args.options, root: args.root,
-    actor: { kind: "spawned", caller: args.spawnedBy.autonomy },
-  });
-  return { ...args.options, ...policy.options };
-}
-
 export async function runTask(args: Parameters<typeof runTaskImpl>[0]) {
   const release = taskControlGate.acquireStart(args.taskId);
   try { return await runTaskImpl(args); } finally { release(); }
@@ -1726,8 +1707,7 @@ async function runTaskImpl(args: {
   retrievedContextParts?: CanonicalRetrievedContextPart[];
   /** Set only by the mission supervisor; the provider runtime mints the grant. */
   missionStage?: import("../../src/lib/missions/domain").MissionStageIdentity;
-  /** The Stave turn that called `stave_run_task`; caps this turn's autonomy. */
-  spawnedBy?: { taskId: string; autonomy: Autonomy | null };
+  spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null }; // the calling turn caps this one
 }) {
   const controlGeneration = taskControlGate.capture(args.taskId);
   const { repositories } = await loadNormalizedRepositories();
@@ -1911,13 +1891,10 @@ async function runTaskImpl(args: {
           ].join("\n"),
         }
       : null;
-  // A task that started subagents sees where they stand, and the answers that
-  // arrived since its last turn began, so an agent run continues without reading them.
+  // Subagent states and the answers that arrived since this task's last turn began.
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
-    resultsSince: ensureHostServicePersistenceReady().listTurns({
-      workspaceId: args.workspaceId, taskId: task.id, limit: 1,
-    })[0]?.createdAt ?? null,
+    resultsSince: ensureHostServicePersistenceReady().listTurns({ workspaceId: args.workspaceId, taskId: task.id, limit: 1 })[0]?.createdAt ?? null,
   });
   const repositoryMemoryPart = buildRepositoryMemoryPartForTurn({
     repositoryPath: registration.project.repositoryPath,
@@ -2037,26 +2014,21 @@ async function runTaskImpl(args: {
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
       ...(args.missionStage ? { missionStage: args.missionStage } : {}),
-      runtimeOptions: capSpawnedTurnOptions({
-        providerId: provider,
-        root: workspacePath,
-        spawnedBy: args.spawnedBy,
-        options: {
-          ...(isExternallyManagedTask(task)
-            ? resolveManagedTaskRuntimeOptions({
-                providerId: provider,
-                defaultPermissionOptions: userSettingsPermissionOptions(provider, store.delegationPolicies?.loadSettings()),
-                ...(args.runtimeOptions
-                  ? { runtimeOptions: args.runtimeOptions }
-                  : {}),
-                defaultProviderTimeoutMs: normalizeProviderTimeoutMs({
-                  value: store.loadAutomationProviderTimeoutMs(),
-                }),
-              })
-            : args.runtimeOptions),
-          model,
-        },
-      }),
+      runtimeOptions: capSpawnedTurnOptions({ providerId: provider, root: workspacePath, spawnedBy: args.spawnedBy, options: {
+        ...(isExternallyManagedTask(task)
+          ? resolveManagedTaskRuntimeOptions({
+              providerId: provider,
+              defaultPermissionOptions: userSettingsPermissionOptions(provider, store.delegationPolicies?.loadSettings()),
+              ...(args.runtimeOptions
+                ? { runtimeOptions: args.runtimeOptions }
+                : {}),
+              defaultProviderTimeoutMs: normalizeProviderTimeoutMs({
+                value: store.loadAutomationProviderTimeoutMs(),
+              }),
+            })
+          : args.runtimeOptions),
+        model,
+      } }),
     },
     {
       onEvent: (event) => {
@@ -2285,7 +2257,6 @@ export async function getTaskSupervisionSnapshot(args: {
       taskId: args.taskId,
       limit: 40,
     })?.messages ?? session.messagesByTask[args.taskId] ?? []);
-
 
   return {
     workspaceId: args.workspaceId,

@@ -121,18 +121,6 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
-} else if (preview === "collaboration") {
-  void import("@/dev/collaboration-preview").then(
-    ({ CollaborationPreview }) => {
-      root.render(
-        <StrictMode>
-          <StaveDesignProvider>
-            <CollaborationPreview />
-          </StaveDesignProvider>
-        </StrictMode>,
-      );
-    },
-  );
 } else if (preview === "agent-messages") {
   void import("@/dev/agent-preview").then(({ AgentPreviewApp }) => {
     root.render(
@@ -143,18 +131,6 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
-} else if (preview === "advisor-worker-live") {
-  void import("@/dev/advisor-worker-live-preview").then(
-    ({ AdvisorWorkerLivePreview }) => {
-      root.render(
-        <StrictMode>
-          <StaveDesignProvider>
-            <AdvisorWorkerLivePreview />
-          </StaveDesignProvider>
-        </StrictMode>,
-      );
-    },
-  );
 } else if (preview === "model-auto-tab") {
   void import("@/dev/model-auto-tab-preview").then(
     ({ ModelAutoTabPreview }) => {

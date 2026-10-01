@@ -66,7 +66,7 @@ describe("task-context workspace schemas", () => {
       "connectedBrowserTab",
     );
   });
-  test("corrupt saved pins and worker preset keep the task draft and its textual evidence", () => {
+  test("corrupt saved pins and a retired worker config keep the task draft and its textual evidence", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {
         ...createWorkspaceBase(),
@@ -103,10 +103,8 @@ describe("task-context workspace schemas", () => {
       content: "The header is cramped",
       summary: "Fix spacing",
     });
-    expect(draft?.runtimeOverrides?.workerConfigByProvider?.codex).toEqual({
-      model: "preserved-model",
-      presetId: undefined,
-    });
+    // The retired Worker configuration is dropped, not a reason to reject the draft.
+    expect(draft?.runtimeOverrides).not.toHaveProperty("workerConfigByProvider");
   });
   test("accepts legacy session ids and persisted session cursors", () => {
     const parsed = parseWorkspaceShell({
@@ -254,16 +252,12 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.providerSessionByTask["task-kiro"]?.kiro).toBe(
       "kiro-session-1",
     );
+    // A tool part saved with the retired Worker metadata still reads, without it.
     expect(parsed?.messagesByTask["task-kiro"]?.[0]?.parts[1]).toMatchObject({
       type: "tool_use",
-      workerExecution: {
-        providerId: "kiro",
-        requestedWorkerModel: "auto",
-        resolvedWorkerModel: "configured-worker",
-        workerModelSource: "preset",
-        runtimeWorkerModel: "runtime-worker",
-      },
+      toolUseId: "worker-1",
     });
+    expect(parsed?.messagesByTask["task-kiro"]?.[0]?.parts[1]).not.toHaveProperty("workerExecution");
   });
 
   test("preserves recommended user-input options across workspace parsing", () => {

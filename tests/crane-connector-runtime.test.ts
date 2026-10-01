@@ -52,7 +52,6 @@ const CODEX_RUNTIME: CraneDispatchRuntimeChoice = {
   codexWebSearch: "live",
   codexReasoningEffort: "xhigh",
   codexFastMode: false,
-  advisorTarget: null,
 };
 const ENABLED_CONFIG = {
   enabled: true,
@@ -433,12 +432,6 @@ describe("CraneConnectorRuntime", () => {
         codexWebSearch: "live",
         codexReasoningEffort: "xhigh",
         codexFastMode: false,
-        advisorTarget: {
-          providerId: "claude-code",
-          model: "claude-fable-5-1",
-          effort: "max",
-        },
-        advisorConsultLimit: 3,
       },
     });
 
@@ -465,15 +458,6 @@ describe("CraneConnectorRuntime", () => {
         // so every Crane kickoff silently ran at the provider SDK default.
         codexReasoningEffort: "xhigh",
         codexFastMode: false,
-        advisorTarget: {
-          providerId: "claude-code",
-          model: "claude-fable-5-1",
-          effort: "max",
-        },
-        // Regression guard alongside the effort one above: a Crane dispatch
-        // used to drop the approver's consult budget and fall back to the
-        // runtime default of 5.
-        advisorConsultLimit: 3,
       },
       retrievedContextParts: [
         expect.objectContaining({ sourceId: "crane:CRANE-42" }),
@@ -554,7 +538,6 @@ describe("CraneConnectorRuntime", () => {
         codexWebSearch: "live",
         codexReasoningEffort: "xhigh",
         codexFastMode: false,
-        advisorTarget: null,
       },
     });
 
@@ -607,7 +590,6 @@ describe("CraneConnectorRuntime", () => {
         codexWebSearch: "live",
         codexReasoningEffort: "xhigh",
         codexFastMode: false,
-        advisorTarget: null,
       },
     });
     harness.setTaskCompleted();
@@ -661,7 +643,6 @@ describe("CraneConnectorRuntime", () => {
         codexWebSearch: "live",
         codexReasoningEffort: "xhigh",
         codexFastMode: false,
-        advisorTarget: null,
       },
     });
 
@@ -702,7 +683,6 @@ describe("CraneConnectorRuntime", () => {
         codexWebSearch: "live",
         codexReasoningEffort: "xhigh",
         codexFastMode: false,
-        advisorTarget: null,
       },
     });
 
@@ -782,7 +762,6 @@ describe("CraneConnectorRuntime", () => {
         codexWebSearch: "live",
         codexReasoningEffort: "xhigh",
         codexFastMode: false,
-        advisorTarget: null,
       },
     });
     harness.setTaskCompleted();
@@ -832,7 +811,6 @@ describe("CraneConnectorRuntime", () => {
           codexWebSearch: "live",
           codexReasoningEffort: "xhigh",
           codexFastMode: false,
-          advisorTarget: null,
         },
       }),
     ).rejects.toMatchObject({ code: "network_unavailable" });

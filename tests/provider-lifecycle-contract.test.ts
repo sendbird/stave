@@ -13,7 +13,7 @@ type Scenario =
 
 type AdapterArgs = {
   prompt?: string;
-  staveTurnGrants?: { workerKey?: string; consultKey?: string };
+  staveTurnGrants?: { callerKey?: string };
   onEvent?: (event: BridgeEvent) => void;
   registerAbort?: (abort: () => void) => void;
   registerApprovalResponder?: (responder: () => { ok: true }) => void;
@@ -118,7 +118,6 @@ mock.module("../electron/providers/cursor/cursor-acp-profile", () => ({
     capabilities: {},
   }),
   streamCursorWithAcp: runMockAdapter,
-  streamCursorWorkerWithAcp: runMockAdapter,
 }));
 
 mock.module("../electron/providers/kiro/kiro-acp-profile", () => ({
@@ -128,7 +127,6 @@ mock.module("../electron/providers/kiro/kiro-acp-profile", () => ({
     capabilities: {},
   }),
   streamKiroWithAcp: runMockAdapter,
-  streamKiroWorkerWithAcp: runMockAdapter,
 }));
 
 mock.module("../electron/providers/connected-tool-status", () => ({
@@ -179,6 +177,7 @@ function runStream(args: {
   providerId: ProviderId;
   timeoutMs?: number;
   runtimeOptions?: ProviderRuntimeOptions;
+  taskId?: string;
 }) {
   const events: BridgeEvent[] = [];
   let finish: (() => void) | undefined;
@@ -192,6 +191,7 @@ function runStream(args: {
       providerId: args.providerId,
       prompt: "test lifecycle",
       turnId,
+      ...(args.taskId ? { taskId: args.taskId } : {}),
       runtimeOptions: {
         ...args.runtimeOptions,
         ...(args.timeoutMs ? { providerTimeoutMs: args.timeoutMs } : {}),
@@ -301,64 +301,16 @@ for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
   });
 }
 
-for (const providerId of ["cursor", "kiro"] as const) {
-  test(`${providerId} primary receives a turn-scoped Worker tool grant`, async () => {
-    adapterState.scenario = "duplicate-terminal";
-    const model = `${providerId}-fixture-model`;
-    const turn = runStream({
-      providerId,
-      runtimeOptions: {
-        model,
-        workerIntent: {
-          mode: "task-executor",
-          presetId: "verified-patch",
-          workerModel: model,
-          workerEffort: "auto",
-        },
-      },
-    });
-    await turn.done;
-
-    expect(adapterState.lastArgs?.prompt).toContain("stave_run_worker");
-    const workerKey =
-      adapterState.lastArgs?.staveTurnGrants?.workerKey;
-    expect(adapterState.lastArgs?.prompt).not.toContain(workerKey!);
-    expect(workerKey).toBeTruthy();
-    expect(
-      await providerRuntime.runAcpWorker({
-        workerKey: workerKey!,
-        task: "Attempt reuse after the parent turn",
-      }),
-    ).toMatchObject({ ok: false, code: "unknown-worker-key" });
-    await runStream({ providerId }).done;
-    expect(adapterState.lastArgs?.staveTurnGrants).toEqual({});
-    expect(adapterState.lastArgs?.prompt).not.toContain("Worker mode is on");
-  });
-}
-
-test("Stop revokes a Worker connection before the primary finishes exiting", async () => {
+test("a task turn names itself to Local MCP only while it runs", async () => {
+  const { resolveCallerGrant } = await import("../electron/providers/caller-grants");
   adapterState.scenario = "wait-for-abort";
-  const turn = runStream({
-    providerId: "cursor",
-    runtimeOptions: {
-      model: "cursor-fixture-model",
-      workerIntent: {
-        mode: "task-executor",
-        presetId: "verified-patch",
-        workerModel: "cursor-fixture-model",
-        workerEffort: "auto",
-      },
-    },
-  });
+  const turn = runStream({ providerId: "codex", taskId: "caller-task" });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  const workerKey = adapterState.lastArgs?.staveTurnGrants?.workerKey;
-  expect(workerKey).toBeTruthy();
+  const callerKey = adapterState.lastArgs?.staveTurnGrants?.callerKey;
+  expect(callerKey).toBeTruthy();
+  expect(adapterState.lastArgs?.prompt).not.toContain(callerKey!);
+  expect(resolveCallerGrant(callerKey!)).toMatchObject({ taskId: "caller-task", providerId: "codex" });
   expect(providerRuntime.abortTurn({ turnId: turn.turnId }).ok).toBe(true);
-  expect(
-    await providerRuntime.runAcpWorker({
-      workerKey: workerKey!,
-      task: "Late call after Stop",
-    }),
-  ).toMatchObject({ ok: false, code: "unknown-worker-key" });
+  expect(resolveCallerGrant(callerKey!)).toBeNull();
   await turn.done;
 });
