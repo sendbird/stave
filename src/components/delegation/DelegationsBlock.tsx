@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   countDelegationExchanges,
@@ -72,6 +72,7 @@ export interface DelegationsBlockProps {
   /** Draw the tree rail under a primary row. */
   nested?: boolean;
   renderExtraActions?: (exchange: DelegationExchange) => ReactNode;
+  renderRowFooter?: (exchange: DelegationExchange) => ReactNode;
   statusNoteFor?: (exchange: DelegationExchange) => string | undefined;
   busyExchangeId?: string | null;
   /** Rows that open expanded on first render. */
@@ -126,8 +127,7 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
       ) : null}
       <div className={sx(styles.blockList)}>
         {exchanges.map((exchange) => (
-          <ExchangeRow
-            key={exchange.id}
+          <Fragment key={exchange.id}><ExchangeRow
             exchange={exchange}
             nowMs={nowMs}
             nested={props.nested}
@@ -138,7 +138,7 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
             extraActions={props.renderExtraActions?.(exchange)}
             statusNote={props.statusNoteFor?.(exchange)}
             busy={props.busyExchangeId === exchange.id}
-          />
+          />{props.renderRowFooter?.(exchange)}</Fragment>
         ))}
       </div>
       {props.children}

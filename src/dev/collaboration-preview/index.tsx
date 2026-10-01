@@ -1,6 +1,8 @@
 import { ChildListingProbe } from "./listing-probe";
+import { ChildAttentionProbe, installChildAttentionFixture } from "./child-attention-fixture";
+import { TaskWorkPanel } from "@/components/session/TaskWorkPanel";
 import { TaskResultReviews } from "@/components/session/TaskResultReviews";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { TeamSection } from "@/components/team/TeamSection";
 import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
 import { ActionButton } from "@/components/system/ActionButton";
@@ -77,6 +79,8 @@ function CollaborationPreviewContent() {
   const [dark, setDark] = useState(true);
   const search = new URLSearchParams(location.search);
   const inspector = search.has("inspector");
+  const managed = search.has("managed");
+  const attention = search.has("attention");
   const agentEvidence = search.has("agentEvidence");
   const panelWidth = Number(search.get("panelWidth"));
   // Keep the root class in the same commit as the preview control state so the
@@ -84,7 +88,7 @@ function CollaborationPreviewContent() {
   useLayoutEffect(() => {
     applyThemeClass({ enabled: dark });
   }, [dark]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const inspectorMessage = inspector
       ? {
           ...message,
@@ -124,8 +128,8 @@ function CollaborationPreviewContent() {
           provider: "codex",
           updatedAt: new Date().toISOString(),
           unread: false,
-          controlMode: "interactive",
-          controlOwner: "stave",
+          controlMode: managed ? "managed" : "interactive",
+          controlOwner: managed ? "external" : "stave",
         },
       ],
       messagesByTask: { [target.taskId]: [inspectorMessage] },
@@ -227,7 +231,8 @@ function CollaborationPreviewContent() {
           }
         : {}),
     });
-  }, [inspector]);
+    return attention ? installChildAttentionFixture() : undefined;
+  }, [attention, inspector, managed]);
   return (
     <main className={sx(cp.page)}>
       <div className={sx(cp.container)}>
@@ -239,6 +244,7 @@ function CollaborationPreviewContent() {
             {dark ? "Light theme" : "Dark theme"}
           </ActionButton>
         </div>
+        {attention ? <ChildAttentionProbe /> : null}
         {search.has("resultReview") ? (
           <TaskResultReviews
             workspaceId={target.workspaceId}
@@ -256,7 +262,7 @@ function CollaborationPreviewContent() {
             <TurnActivityPanel />
           </div>
         ) : (
-          <TeamSection target={target} />
+          managed ? <TaskWorkPanel kind="team" /> : <TeamSection target={target} />
         )}
       </div>
     </main>

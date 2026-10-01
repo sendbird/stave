@@ -277,6 +277,12 @@ export function TaskResultReviews(props: {
     ...(filter === "pending" ? { pendingOnly: true } : {}),
   });
   useEffect(() => {
+    if (loading || error) return;
+    // Reviewing the last row may remove the page itself (21 pending -> 20).
+    const lastOffset = Math.max(0, Math.ceil(page.total / PAGE_SIZE) - 1) * PAGE_SIZE;
+    if (offset > lastOffset) setOffset(lastOffset);
+  }, [error, loading, offset, page.total]);
+  useEffect(() => {
     // A row that paged or filtered out of view must not stay "expanded".
     if (expandedId && !page.results.some((row) => row.id === expandedId)) {
       setExpandedId(null);

@@ -5,6 +5,8 @@ import {
   RunHistoryRow,
   TaskResultReviews,
 } from "@/components/session/TaskResultReviews";
+import { ExchangeDetail } from "@/components/delegation/ExchangeDetail";
+import { fromWorkerExchange } from "@/lib/delegation/exchange";
 import { DelegateTaskForm } from "@/components/team/DelegateTaskForm";
 import { TeamSection } from "@/components/team/TeamSection";
 import { Accordion } from "@/components/ui/accordion";
@@ -82,7 +84,7 @@ test("collaboration puts the delegation entry before history controls", () => {
   );
 
   expect(html.indexOf("Delegate a task")).toBeLessThan(
-    html.indexOf("Every advisor consult"),
+    html.indexOf("Filter delegations"),
   );
   expect(html.indexOf("Delegate a task")).toBeLessThan(html.indexOf("All"));
 });
@@ -109,4 +111,25 @@ test("delegate form opens with the routed assignee summarised and the model cont
     "Auto → GPT-6.1 Sol · Medium effort (Auto) · Use user permissions · Separate worktree",
   );
   expect(html).not.toContain("Codex · Auto →");
+});
+
+
+test("managed Team still renders history filters while new delegation is restricted", () => {
+  const html = renderToStaticMarkup(createElement(TeamSection, {
+    target: { taskId: "managed", workspaceId: "w", repositoryPath: "/tmp/p" }, readOnly: true,
+  }));
+  expect(html).toContain("Managed task. Take over to change delegations.");
+  expect(html).toContain("Filter delegations");
+  expect(html).toContain("Export report");
+  expect(html).not.toContain("New delegation");
+});
+
+
+test("finished execution detail prioritizes the returned result and folds assignment diagnostics", () => {
+  const exchange = fromWorkerExchange({ id: "worker", model: "gpt-6.1-sol", state: "output-available", assignment: "Review cancellation", result: "Cancellation verified", progress: ["Inspected cancellation"], at: 1, endedAt: 2 });
+  const html = renderToStaticMarkup(createElement(ExchangeDetail, { exchange, nowMs: 3, resultFirst: true }));
+  expect(html.indexOf("Cancellation verified")).toBeLessThan(html.indexOf("Review cancellation"));
+  expect(html).toMatch(/<details><summary[^>]*>Assignment and execution details/);
+  expect(html.indexOf("Inspected cancellation")).toBeGreaterThan(html.indexOf("<details>"));
+  expect(html).not.toMatch(/<details open/);
 });

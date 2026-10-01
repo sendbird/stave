@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DelegatedTaskRowsSurface } from "@/components/session/DelegatedTaskRows";
+import { DelegatedTaskRowActions, DelegatedTaskRowsSurface } from "@/components/session/DelegatedTaskRows";
 import {
   DELEGATED_TASK_DETACHED_REASON,
   type DelegatedTaskActionResponse,
@@ -149,4 +149,16 @@ describe("DelegatedTaskRowsSurface", () => {
       "The child was retried after this control was shown.",
     );
   });
+});
+
+
+test("managed Team controls allow opening a child while restricting mutation", () => {
+  for (const phase of ["waiting", "running", "failed"] as const) {
+    const html = renderToStaticMarkup(createElement(DelegatedTaskRowActions, {
+      child: buildChild({ phase }), busy: false, readOnly: true,
+      onOpen: () => {}, onFollowUp: () => {}, onRetry: () => {}, onStop: () => {}, onDetach: () => {},
+    }));
+    expect(html).toContain("Open");
+    for (const control of ["Follow-up", "Stop", "Retry", "Detach"]) expect(html).not.toContain(control);
+  }
 });
