@@ -9,6 +9,7 @@
  * standalone mission does, with its own sign-offs.
  */
 import { z } from "zod";
+import { ProjectTaskLinkSchema, ProjectIntegrationSchema } from "./task-integration";
 import { PlaybookSchema } from "@/lib/playbooks/schema";
 import { SCHEDULES, type Schedule } from "@/lib/schedules";
 
@@ -134,6 +135,9 @@ export const ProjectSchema = z
     coordinator: z.object({ workspaceId: IdSchema, taskId: IdSchema }).strict(),
     settings: ProjectSettingsSchema,
     state: z.enum(PROJECT_STATES),
+    /** Optional references do not change the task's execution ownership or permissions. */
+    taskLinks: z.array(ProjectTaskLinkSchema).max(50).optional(),
+    integration: ProjectIntegrationSchema.nullable().optional(),
     /** The coordinator's latest summary of where the project stands. */
     summary: z.string().max(PROJECT_LIMITS.note).nullable(),
     reasonDetail: z.string().max(500).nullable(),
@@ -183,6 +187,9 @@ export type MissionProposal = z.infer<typeof MissionProposalSchema>;
 
 export const PROJECT_EVENT_KINDS = [
   "project-created",
+  "task-linked",
+  "task-unlinked",
+  "integration-recorded",
   "proposal-created",
   "proposal-approved",
   "proposal-rejected",

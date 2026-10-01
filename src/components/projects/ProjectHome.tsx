@@ -26,6 +26,7 @@ import type { ProjectDetail } from "@/lib/projects/api";
 import type { MissionProposal } from "@/lib/projects/domain";
 import { useAppStore } from "@/store/app.store";
 import { countProjectNeeds, useProjectsStore } from "@/store/projects-store";
+import { ProjectTaskIntegration } from "./ProjectTaskIntegration";
 import { ProjectDetailTabs } from "./ProjectDetailTabs";
 import { Lane, MissionRow, PendingStartRow, ProposalRow, missionNeedsYou } from "./ProjectRows";
 import { describeTriggers } from "./ProjectStartsWhen";
@@ -45,6 +46,7 @@ const STATE_BADGE = {
  * what the project learned, collected and is allowed to do.
  */
 const TRIGGER_REASONS = {
+  "linked-task": "a linked task update",
   "issue-assigned": "an assigned issue",
   "pull-request": "pull request feedback",
   schedule: "its scheduled check-in",
@@ -194,6 +196,7 @@ export function ProjectHome({
                     items: [
                       {
                         label: "Mark the goal met",
+                        disabled: busy || Boolean(project.taskLinks?.length && detail.integrationStatus !== "accepted"),
                         icon: <CircleCheck />,
                         onSelect: () => void runCommand("end", { projectId: project.id, outcome: "completed" }),
                       },
@@ -254,6 +257,8 @@ export function ProjectHome({
             </Tooltip>
           </span>
         </section>
+
+        <ProjectTaskIntegration key={project.id} detail={detail} busy={busy} onOpen={open} />
 
         <Lane title="Needs you" count={pending.length + waiting.length} empty="Nothing waits for you.">
           {pending.map((proposal) => (

@@ -12,6 +12,9 @@ import { isOpenProjectState, type Project, type ProjectCreateInput } from "@/lib
 export type ProjectDetailTab = "memory" | "library" | "starts-when" | "settings";
 
 type CommandName =
+  | "linkTask"
+  | "unlinkTask"
+  | "recordIntegration"
   | "approveProposal"
   | "rejectProposal"
   | "pause"
@@ -170,7 +173,10 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => {
         failureById: { ...state.failureById, [projectId]: null },
       }));
       const call = api[command] as (value: typeof args) => Promise<ProjectResponse>;
-      const response = await call(args).catch(
+      const response = await Promise.resolve().then(() => {
+        if (typeof call !== "function") throw new Error("Restart Stave to use the updated project coordination controls.");
+        return call(args);
+      }).catch(
         (error: unknown): ProjectResponse => ({
           ok: false,
           project: null,

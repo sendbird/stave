@@ -62,7 +62,7 @@ export function ProjectsEmpty(props: { onCreate: () => void }) {
           </IconTile>
           <h2 className={sx(styles.emptyTitle)}>Hand Stave a goal, not just a task</h2>
           <p className={sx(styles.emptyText)}>
-            A project takes a goal that needs several missions — moving a set of screens, a migration, a feature in parts.
+            Coordinate existing tasks and missions toward a goal — moving a set of screens, a migration, a feature in parts.
             Its coordinator plans the missions, starts them on separate worktrees once you approve, reads their reports and
             proposes what comes next.
           </p>
@@ -224,7 +224,7 @@ export function ProjectsView(props: { loadCoordinatorMessages?: CoordinatorMessa
             <h1 className={sx(centerStyles.headerTitle)}>Projects</h1>
           </div>
           <p className={sx(centerStyles.headerSubtitle)}>
-            Goals that take several missions. A coordinator plans them; you approve, sign off and review.
+            Coordinate tasks and missions toward a goal. You approve, sign off and review.
           </p>
         </div>
         <div className={sx(centerStyles.headerActions)}>

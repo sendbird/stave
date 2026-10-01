@@ -521,6 +521,9 @@ export type HostMissionAction =
  * project grant key instead of a project id.
  */
 export type HostProjectAction =
+  | "link-task"
+  | "unlink-task"
+  | "record-integration"
   | "list"
   | "get"
   | "create"

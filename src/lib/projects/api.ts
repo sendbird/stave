@@ -1,6 +1,7 @@
 /**
  * The renderer ↔ host contract for projects: `window.api.projects`.
  */
+import type { LinkProjectTaskArgs, RecordProjectIntegrationArgs, ProjectTaskView, ProjectTaskCandidate } from "./task-integration";
 import type { MissionUsage } from "@/lib/missions/usage";
 import type { MissionReport } from "@/lib/missions/report";
 import type { MissionState, StageStatus } from "@/lib/missions/domain";
@@ -17,6 +18,9 @@ import type {
 
 export const PROJECT_IPC = Object.freeze({
   list: "projects:list",
+  linkTask: "projects:link-task",
+  unlinkTask: "projects:unlink-task",
+  recordIntegration: "projects:record-integration",
   get: "projects:get",
   create: "projects:create",
   approveProposal: "projects:approve-proposal",
@@ -71,6 +75,10 @@ export interface ProjectDetail {
   events: ProjectEvent[];
   /** The coordinator task as it is now: whether it can take a message and is answering. */
   coordinatorState?: ProjectCoordinatorState;
+  linkedTasks?: ProjectTaskView[];
+  taskCandidates?: ProjectTaskCandidate[];
+  integrationSnapshot?: string;
+  integrationStatus?: "not-recorded" | "pending" | "accepted" | "stale";
 }
 
 export interface ProjectCoordinatorState {
@@ -101,6 +109,9 @@ export interface ProjectResponse {
 
 export interface ProjectsBridgeApi {
   list: (args?: { openOnly?: boolean }) => Promise<{ ok: boolean; projects: Project[]; message?: string }>;
+  linkTask: (args: LinkProjectTaskArgs) => Promise<ProjectResponse>;
+  unlinkTask: (args: { projectId: string; taskId: string }) => Promise<ProjectResponse>;
+  recordIntegration: (args: RecordProjectIntegrationArgs) => Promise<ProjectResponse>;
   get: (args: { projectId: string }) => Promise<ProjectResponse>;
   create: (args: ProjectCreateInput) => Promise<ProjectResponse>;
   /** `providerId` and `model` change where the proposal runs before it starts; a null model is the provider default. */
