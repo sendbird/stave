@@ -41,6 +41,14 @@ test("the run reads as who runs it, then its figures", () => {
   expect(html).toContain("1 turn reported no usage, so the total may be low.");
 });
 
+test("a mission on the user's own settings says so instead of Manual", () => {
+  const html = render({
+    consent: { checkIns: "plan-and-publishing", permissionMode: "manual", authorizedEffectStageIds: [] },
+  });
+  expect(html).toContain("Your permission settings");
+  expect(html).not.toContain("Manual");
+});
+
 test("a provider that reports tokens only shows tokens, and a near budget says where it stops", () => {
   const html = render(
     { fingerprint: { providerId: "codex", model: "gpt-6-sol" } as never, turnCount: 25 },

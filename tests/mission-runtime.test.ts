@@ -97,6 +97,7 @@ function createHarness(options: {
   hangTurnStarts?: boolean;
   performAction?: MissionRuntimeDependencies["performAction"];
   updatePullRequestBody?: MissionRuntimeDependencies["updatePullRequestBody"];
+  userPermissionOptions?: MissionRuntimeDependencies["userPermissionOptions"];
   workspacePath?: string;
 } = {}) {
   const store = options.store ?? new MissionStore(new Database(":memory:"));
@@ -179,6 +180,7 @@ function createHarness(options: {
     }),
     ...(options.performAction ? { performAction: options.performAction } : {}),
     ...(options.updatePullRequestBody ? { updatePullRequestBody: options.updatePullRequestBody } : {}),
+    ...(options.userPermissionOptions ? { userPermissionOptions: options.userPermissionOptions } : {}),
     notifyMissionProblem: ({ mission, detail }) => {
       notifications.push(detail);
       log.push(`notify:${mission.leadTaskId}`);
@@ -244,6 +246,43 @@ async function startedMission(
   await harness.tick();
   return detail.mission.id;
 }
+
+describe("mission runtime: permissions a turn runs with", () => {
+  const USER_SETTINGS = {
+    "claude-code": { claudePermissionMode: "auto" as const, claudeSandboxEnabled: false },
+    codex: { codexApprovalPolicy: "never" as const, codexFileAccess: "danger-full-access" as const },
+  };
+  const userPermissionOptions = (providerId: string) =>
+    USER_SETTINGS[providerId as keyof typeof USER_SETTINGS];
+  const manual = { checkIns: "when-stuck" as const, permissionMode: "manual" as const, authorizedEffectStageIds: [] };
+
+  test("a Your settings (manual) mission turn uses the user's Claude settings", async () => {
+    const harness = createHarness({ userPermissionOptions });
+    await startedMission(harness, startInput({ consent: manual }));
+    expect(harness.runCalls[0]?.runtimeOptions).toEqual(USER_SETTINGS["claude-code"]);
+  });
+
+  test("a Your settings (manual) mission turn uses the user's Codex settings", async () => {
+    const harness = createHarness({ userPermissionOptions });
+    harness.setSnapshot({ providerId: "codex", model: "gpt-5" });
+    await startedMission(harness, startInput({ consent: manual }));
+    expect(harness.runCalls[0]?.fingerprint.providerId).toBe("codex");
+    expect(harness.runCalls[0]?.runtimeOptions).toEqual(USER_SETTINGS.codex);
+  });
+
+  test("Auto and Guided keep their explicit consent over the user's settings", async () => {
+    const guided = createHarness({ userPermissionOptions });
+    await startedMission(guided);
+    expect(guided.runCalls[0]?.runtimeOptions).toEqual({
+      claudePermissionMode: "default",
+      claudeAllowDangerouslySkipPermissions: false,
+    });
+    const auto = createHarness({ userPermissionOptions });
+    auto.setSnapshot({ providerId: "codex", model: "gpt-5" });
+    await startedMission(auto, startInput({ consent: { ...manual, permissionMode: "auto" } }));
+    expect(auto.runCalls[0]?.runtimeOptions).toEqual({ codexApprovalPolicy: "never" });
+  });
+});
 
 describe("mission runtime: starting", () => {
   test("refuses unsupported runtimes, archived tasks, missing Local MCP and a second mission", async () => {

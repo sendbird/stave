@@ -1,5 +1,4 @@
 import { taskControlGate } from "./task-control-gate";
-import { normalizedPermissionOptions } from "../../src/lib/runs/delegation-policy";
 import { attachTurnReceiptToSession } from "./local-mcp-turn-receipt-projection";
 import { displayTurnReceipt } from "../../src/lib/providers/turn-terminal-receipt";
 import { ChatMessageSchema } from "../../src/lib/task-context/schemas";
@@ -114,6 +113,7 @@ import {
 import {
   MANAGED_TASK_APPROVAL_TIMEOUT_MS,
   resolveManagedTaskRuntimeOptions,
+  userSettingsPermissionOptions,
 } from "../../src/lib/providers/managed-task-runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import {
@@ -2017,7 +2017,7 @@ async function runTaskImpl(args: {
         ...(isExternallyManagedTask(task)
           ? resolveManagedTaskRuntimeOptions({
               providerId: provider,
-              defaultPermissionOptions: provider === "claude-code" || provider === "codex" ? normalizedPermissionOptions(provider, store.delegationPolicies?.loadSettings()?.[provider] ?? {}) : undefined,
+              defaultPermissionOptions: userSettingsPermissionOptions(provider, store.delegationPolicies?.loadSettings()),
               ...(args.runtimeOptions
                 ? { runtimeOptions: args.runtimeOptions }
                 : {}),

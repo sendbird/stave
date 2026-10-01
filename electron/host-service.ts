@@ -76,7 +76,7 @@ import {
   submitGitHubPullRequestReview,
 } from "./host-service/github-pr-review-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
-import { runSupervisedTurn } from "./host-service/supervised-turn";
+import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
@@ -621,6 +621,8 @@ const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
   getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
   runSupervisedTurn,
+  // A wake-up has no consent of its own: it runs with the user's settings.
+  userPermissionOptions: loadUserPermissionOptions,
   // Wiring this is what makes completion observable at all: without it the
   // capability probe reports `unsupported` and a completion wake-up is
   // refused rather than left waiting for an event that never arrives.

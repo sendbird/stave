@@ -286,11 +286,19 @@ export function describeMissionBadge(detail: MissionDetail): { label: string; to
   }
 }
 
+/** `manual` is stored as is; people see it as "Your settings". */
 export const MISSION_PERMISSION_LABELS: Record<Mission["consent"]["permissionMode"], string> = {
   auto: "Auto",
   guided: "Guided",
-  manual: "Manual",
+  manual: "Your settings",
 };
+
+/** The permissions line of a mission summary. */
+export function describeMissionPermissions(permissionMode: Mission["consent"]["permissionMode"]): string {
+  return permissionMode === "manual"
+    ? "Your permission settings"
+    : `${MISSION_PERMISSION_LABELS[permissionMode]} permissions`;
+}
 
 /** The primary button names what happens when it is pressed. */
 export function describeSignOffAction(stage: PlaybookStage): string {

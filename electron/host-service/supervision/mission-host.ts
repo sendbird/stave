@@ -16,7 +16,7 @@ import { countActiveDelegatedTasks } from "../delegated-task-signals";
 import * as localMcpRuntime from "../local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
 import { fetchGitHubPrStatus, readScmPrBody, updateScmPrBody } from "../scm-runtime";
-import { runSupervisedTurn } from "../supervised-turn";
+import { loadUserPermissionOptions, runSupervisedTurn } from "../supervised-turn";
 import { createLocalMcpReachabilityProbe } from "./local-mcp-reachability";
 import {
   classifyMissionTurnEnding,
@@ -99,6 +99,7 @@ export function createHostMissionRuntime(args: {
     getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
     listRecentTurns: (turnArgs) => persistence.listTurns(turnArgs),
     runSupervisedTurn,
+    userPermissionOptions: loadUserPermissionOptions,
     completeInterruptedTurn: (turnId) => persistence.completeInterruptedTurn({ id: turnId }),
     countActiveDelegatedTasks: (taskId) => countActiveDelegatedTasks({ parentTaskId: taskId }),
     isReportingAvailable: async (options) => {

@@ -60,6 +60,7 @@ function createHarness(args?: {
   /** Omit entirely to model a supervisor with no run-ledger reader wired. */
   completions?: TaskCompletionSignal[];
   omitCompletionReader?: boolean;
+  userPermissionOptions?: (providerId: string) => Record<string, unknown> | undefined;
 }) {
   const store = new WakeUpStore(new Database(":memory:"));
   let completions: TaskCompletionSignal[] = args?.completions ?? [];
@@ -75,6 +76,7 @@ function createHarness(args?: {
     taskId: string;
     prompt: string;
     fingerprint?: { providerId: string; model: string };
+    runtimeOptions?: unknown;
     retrievedContextParts?: unknown[];
   }> = [];
   const wakeFailures: Array<{
@@ -133,6 +135,9 @@ function createHarness(args?: {
             return completions;
           },
         }),
+    ...(args?.userPermissionOptions
+      ? { userPermissionOptions: args.userPermissionOptions }
+      : {}),
     runSupervisedTurn: async (runArgs) => {
       runCalls.push(runArgs);
       if (runError) {
@@ -646,6 +651,57 @@ describe("supervisor runtime", () => {
     expect(
       harness.store.listOccurrences({ wakeUpId: wakeUp.id }),
     ).toEqual([]);
+  });
+});
+
+describe("supervisor runtime — permissions a wake-up runs with", () => {
+  const USER_SETTINGS: Record<string, Record<string, unknown>> = {
+    "claude-code": { claudePermissionMode: "auto", claudeSandboxEnabled: false },
+    codex: { codexApprovalPolicy: "never", codexFileAccess: "danger-full-access" },
+  };
+  const userPermissionOptions = (providerId: string) => USER_SETTINGS[providerId];
+
+  async function fireScheduled(harness: ReturnType<typeof createHarness>) {
+    await harness.runtime.create(createInput());
+    harness.runtime.start();
+    await harness.drain();
+    harness.setNow("2026-08-10T01:00:00.000Z");
+    await harness.tick();
+    return harness.getRunCalls();
+  }
+
+  test("a scheduled wake-up runs with the user's Claude settings", async () => {
+    const calls = await fireScheduled(createHarness({ userPermissionOptions }));
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.fingerprint?.providerId).toBe("claude-code");
+    expect(calls[0]?.runtimeOptions).toEqual(USER_SETTINGS["claude-code"]);
+  });
+
+  test("a scheduled wake-up runs with the user's Codex settings", async () => {
+    const harness = createHarness({ userPermissionOptions });
+    harness.setSnapshot({ providerId: "codex", model: "gpt-5" });
+    const calls = await fireScheduled(harness);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.fingerprint?.providerId).toBe("codex");
+    expect(calls[0]?.runtimeOptions).toEqual(USER_SETTINGS.codex);
+  });
+
+  test("a completion wake-up runs with the user's settings too", async () => {
+    const harness = createHarness({
+      completions: [completionSignal()],
+      userPermissionOptions,
+    });
+    await harness.runtime.create(createInput({ trigger: { kind: "completion" } }));
+    harness.runtime.start();
+    await harness.drain();
+    expect(harness.getRunCalls()).toHaveLength(1);
+    expect(harness.getRunCalls()[0]?.runtimeOptions).toEqual(USER_SETTINGS["claude-code"]);
+  });
+
+  test("passes no permissions when no settings reader is wired", async () => {
+    const calls = await fireScheduled(createHarness());
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).not.toHaveProperty("runtimeOptions");
   });
 });
 

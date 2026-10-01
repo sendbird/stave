@@ -63,7 +63,7 @@ const PERMISSION_OPTIONS: ReadonlyArray<{ value: AutomationPermissionMode; label
     description: "The agent works without asking; the mission still stops at your sign-offs and at steps you did not allow.",
   },
   { value: "guided", label: "Guided", description: "The agent asks before sensitive actions, and the mission waits for each answer." },
-  { value: "manual", label: "Manual", description: "Follows this task's own permission settings." },
+  { value: "manual", label: "Your settings", description: "Uses your provider permission settings." },
 ];
 
 /** Mounted once; renders the sheet while a start request is open. */
