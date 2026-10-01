@@ -365,7 +365,7 @@ describe("provider turn status helpers", () => {
       turnId: "turn-1",
       providerId: "codex",
       now: 2000,
-      events: [{ type: "done" }],
+      events: [{ type: "text", text: "Finished" }, { type: "done" }],
     });
 
     expect(clearedByDone).toEqual({});
@@ -514,7 +514,7 @@ describe("provider turn status helpers", () => {
       turnId: "turn-1",
       providerId: "codex",
       now: 3000,
-      events: [{ type: "thinking", text: "Retry succeeded" }],
+      events: [{ type: "text", text: "Retry succeeded" }],
     });
     const completed = applyProviderTurnActivityEvents({
       activityByTask: recovered,

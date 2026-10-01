@@ -1,3 +1,5 @@
+import { attachTurnReceiptToSession } from "./local-mcp-turn-receipt-projection";
+import { displayTurnReceipt } from "../../src/lib/providers/turn-terminal-receipt";
 import { ChatMessageSchema } from "../../src/lib/task-context/schemas";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
@@ -23,7 +25,6 @@ import {
   repositoryLocalMcpTaskTurnActivityEvent,
   type LocalMcpTaskTurnUpdate,
 } from "../../src/lib/local-mcp/task-turn-update";
-import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-status";
 import {
   applyDetectedWorkspaceResources,
   detectWorkspaceResourcesInText,
@@ -127,7 +128,7 @@ import {
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
   createLocalMcpTurnJournal,
-  resolveTargetedTurnError,
+  projectTurnStatus,
 } from "./local-mcp-turn-journal";
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
@@ -181,6 +182,8 @@ export interface TaskStatusResult {
   latestTurnId: string | null;
   latestTurnCompletedAt: string | null;
   latestTurnError: string | null;
+  latestTurnOutcome?:
+    import("../persistence/turn-terminal-receipt").TurnTerminalOutcome | null;
   messageCount: number;
   latestAssistantText: string | null;
   pendingApprovals: Array<{
@@ -1224,8 +1227,9 @@ async function persistTurnCompletedNotification(args: {
   if (args.session.activeTurnIdsByTask[args.taskId]) {
     return;
   }
-  const outcome = terminalTurnErrorById.has(args.turnId)
-    ? "failed" : classifyProviderTurnStopReason(args.event.stop_reason);
+  const outcome = ensureHostServicePersistenceReady()
+    .getTurnReceipt(args.turnId)?.outcome ?? "unknown";
+  if (outcome === "unknown") return;
   if (outcome === "cancelled") return;
 
   const { repositories } = await loadNormalizedRepositories();
@@ -1312,6 +1316,9 @@ async function handleProviderEvent(args: {
       terminalTurnErrorById.delete(oldestTurnId);
     }
   }
+  if (args.event.type === "done") {
+    store.completeTurn({ id: args.turnId, usage: takeTurnUsage(args.turnId) });
+  }
   const applied = applyProviderEventsToWorkspaceSession({
     session,
     taskId: args.taskId,
@@ -1320,6 +1327,11 @@ async function handleProviderEvent(args: {
     model: args.model,
     turnId: args.turnId,
   });
+  if (args.event.type === "done") {
+    applied.session = attachTurnReceiptToSession(
+      applied.session, args.taskId, args.turnId, store.getTurnReceipt(args.turnId),
+    );
+  }
   cacheWorkspaceSession(args.workspaceId, applied.session);
   let appliedSession = trimResidentTaskMessages({
     workspaceId: args.workspaceId,
@@ -1384,10 +1396,6 @@ async function handleProviderEvent(args: {
       provider: args.provider,
       event: args.event,
       session: appliedSession,
-    });
-    store.completeTurn({
-      id: args.turnId,
-      usage: takeTurnUsage(args.turnId),
     });
   }
 }
@@ -2050,6 +2058,9 @@ export async function runTask(args: {
               sequence: eventSequence,
               eventType: event.type,
               done: event.type === "done",
+              ...(event.type === "done"
+                ? { terminalReceipt: displayTurnReceipt(store.getTurnReceipt(turnId)) }
+                : {}),
               ...(activityEvent ? { activityEvents: [activityEvent] } : {}),
             });
           })
@@ -2124,27 +2135,12 @@ export async function getTaskStatus(args: {
     turnId: args.turnId,
   });
   const latestTurn = recentTurns[0] ?? null;
-  const targetedTurnError =
-    args.turnId && latestTurn
-      ? resolveTargetedTurnError({
-          completedAt: latestTurn.completedAt,
-          events: store.getStreamEvents({ turnId: latestTurn.id }),
-        })
-      : null;
   const messages = decodeTaskMessages(
     store.loadTaskMessagesPage({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
       limit: 120,
     })?.messages ?? session.messagesByTask[args.taskId] ?? []);
-
-  const latestAssistantText =
-    [...messages]
-      .reverse()
-      .find(
-        (message) =>
-          message.role === "assistant" && message.content.trim().length > 0,
-      )?.content ?? null;
 
   return {
     workspaceId: args.workspaceId,
@@ -2155,11 +2151,12 @@ export async function getTaskStatus(args: {
     activeTurnId: session.activeTurnIdsByTask[task.id] ?? null,
     latestTurnId: latestTurn?.id ?? null,
     latestTurnCompletedAt: latestTurn?.completedAt ?? null,
-    latestTurnError: latestTurn
-      ? (terminalTurnErrorById.get(latestTurn.id) ?? targetedTurnError ?? null)
-      : null,
     messageCount: messages.length,
-    latestAssistantText,
+    ...projectTurnStatus({
+      turn: latestTurn, messages, targeted: !!args.turnId,
+      memoryError: latestTurn ? terminalTurnErrorById.get(latestTurn.id) ?? null : null,
+      readEvents: (turnId) => store.getStreamEvents({ turnId }),
+    }),
     pendingApprovals: findPendingApprovals(messages),
     pendingUserInputs: findPendingUserInputs(messages),
   } satisfies TaskStatusResult;
@@ -2500,9 +2497,11 @@ export async function stopManagedTaskTurn(args: {
       },
     });
     terminalTurnErrorById.set(activeTurnId, MANAGED_TASK_STOP_NOTICE);
+    localMcpTurnJournal.flush(activeTurnId);
     ensureHostServicePersistenceReady().completeTurn({
       id: activeTurnId,
       usage: takeTurnUsage(activeTurnId),
+      stopReason: "user_abort",
     });
     await queueWorkspaceSessionPersist({
       workspaceId: args.workspaceId,

@@ -204,6 +204,8 @@ export function describeRetainedTurnHeadline(outcome: RetainedTurnOutcome) {
       return "Turn stopped";
     case "completed":
       return "Turn finished";
+    case "unknown":
+      return "Turn result unknown";
   }
 }
 
