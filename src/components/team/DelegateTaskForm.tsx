@@ -48,15 +48,24 @@ export interface CollaborationTarget {
 
 const CUSTOM_MODEL = "__custom__";
 
-const PERMISSION_OPTIONS: ReadonlyArray<{
-  value: DelegationDraft["permissionProfile"];
+type DelegationAccess = NonNullable<DelegationDraft["access"]>;
+
+/** The two postures a delegation can ask for; `summary` names it in the plan line. */
+const ACCESS_OPTIONS: ReadonlyArray<{
+  value: DelegationAccess;
   label: string;
+  summary: string;
 }> = [
-  { value: "inherit", label: "Use user permissions" },
-  { value: "guided", label: "Guided · ask when needed" },
-  { value: "manual", label: "Manual · provider approval defaults" },
-  { value: "auto", label: "Automatic · within user permissions" },
+  { value: "inherit", label: "Same as yours", summary: "Your permissions" },
+  { value: "read-only", label: "Read only", summary: "Read only" },
 ];
+
+function accessOption(draft: DelegationDraft) {
+  return (
+    ACCESS_OPTIONS.find((option) => option.value === draft.access) ??
+    ACCESS_OPTIONS[0]!
+  );
+}
 
 function catalogFor(providerId: DelegationDraft["providerId"]) {
   return providerId === "codex"
@@ -202,9 +211,7 @@ export function describeDelegationPlan(
       : routedEffort
         ? `${routedEffort} effort (Auto)`
         : "Default effort",
-    findOptionLabel(PERMISSION_OPTIONS, draft.permissionProfile).split(
-      " · ",
-    )[0],
+    accessOption(draft).summary,
     draft.isolated ? "Separate worktree" : "Shares your files",
   ].join(" · ");
 }
@@ -623,20 +630,25 @@ export function DelegateTaskForm({
                   controlOnly
                   id={`${formId}-permissions`}
                   size="sm"
-                  value={draft.permissionProfile}
+                  value={accessOption(draft).value}
                   onChange={(event) =>
                     change({
-                      permissionProfile: event.target
-                        .value as DelegationDraft["permissionProfile"],
+                      access: event.target.value as DelegationAccess,
                     })
                   }
                 >
-                  {PERMISSION_OPTIONS.map((option) => (
+                  {ACCESS_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
                   ))}
                 </NativeSelect>
+                {draft.access === "read-only" ? (
+                  <span {...stylex.props(form.caption)}>
+                    Cannot change files and never asks for approval, so it
+                    can run beside other work in the same files.
+                  </span>
+                ) : null}
               </label>
               <label {...stylex.props(form.checkboxLabel)}>
                 <Checkbox
@@ -646,7 +658,7 @@ export function DelegateTaskForm({
                 />
                 <span>
                   Work in a separate Git worktree
-                  {!draft.isolated ? (
+                  {!draft.isolated && draft.access !== "read-only" ? (
                     <span {...stylex.props(form.checkboxNote, styles.warning)}>
                       Off: the task edits your files directly, and concurrent
                       edits can conflict.
