@@ -4,16 +4,22 @@ import type { AgentRunDoneWhenLine, DoneWhenStatus } from "@/lib/missions/agent-
 import { missionStyles as styles } from "./missions.styles";
 
 const PRESENTATION = {
-  "met-verified": { icon: CircleCheck, mark: styles.toneDone, label: styles.toneDone },
   "met-reported": { icon: CircleCheck, mark: styles.toneDone, label: styles.muted },
   unmet: { icon: CircleX, mark: styles.toneAttention, label: styles.toneAttention },
   unverified: { icon: CircleDashed, mark: styles.toneIdle, label: styles.toneIdle },
 } as const satisfies Record<DoneWhenStatus, unknown>;
 
-/** The Done when lines of an agent run, each with what backs it. */
-export function AgentRunDoneWhen({ lines }: { lines: readonly AgentRunDoneWhenLine[] }) {
-  if (lines.length === 0) return null;
+/**
+ * The Done when lines of an agent run with the agent's status, then the checks
+ * Stave itself saw succeed. The two stay apart: no criterion is linked to a check.
+ */
+export function AgentRunDoneWhen({ lines, staveChecks = [] }: {
+  lines: readonly AgentRunDoneWhenLine[];
+  staveChecks?: readonly string[];
+}) {
+  if (lines.length === 0 && staveChecks.length === 0) return null;
   return (
+    <>
     <ul className={sx(styles.checkList)} aria-label="Done when">
       {lines.map((line) => {
         const presentation = PRESENTATION[line.status];
@@ -29,5 +35,12 @@ export function AgentRunDoneWhen({ lines }: { lines: readonly AgentRunDoneWhenLi
         );
       })}
     </ul>
+    {staveChecks.length > 0 ? (
+      <p className={sx(styles.checkNote, styles.inline)} aria-label="Checked by Stave">
+        <CircleCheck aria-hidden className={sx(styles.iconSm, styles.toneDone)} />
+        Checked by Stave · {staveChecks.join(" · ")}
+      </p>
+    ) : null}
+    </>
   );
 }

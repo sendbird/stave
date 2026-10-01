@@ -109,7 +109,7 @@ export function AgentRunDetailView(props: {
             {met} of {result.doneWhen.length} met
           </span>
         </div>
-        <AgentRunDoneWhen lines={result.doneWhen} />
+        <AgentRunDoneWhen lines={result.doneWhen} staveChecks={result.staveChecks} />
       </section>
 
       {status.state === "ready" ? (

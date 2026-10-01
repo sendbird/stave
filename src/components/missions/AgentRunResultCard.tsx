@@ -83,7 +83,7 @@ export function AgentRunResultCardView(props: { detail: MissionDetail; now: numb
         <>
           <div className={sx(styles.group)}>
             <p className={sx(missionStyles.groupLabel)}>Done when</p>
-            <AgentRunDoneWhen lines={result.doneWhen} />
+            <AgentRunDoneWhen lines={result.doneWhen} staveChecks={result.staveChecks} />
           </div>
           <AgentRunOutcome result={result} actions={actions} />
         </>

@@ -115,10 +115,9 @@ export function agentRunDuration(detail: MissionDetail, now: number): string {
   return formatRunDuration(end - Date.parse(mission.createdAt));
 }
 
-export type DoneWhenStatus = "met-verified" | "met-reported" | "unmet" | "unverified";
+export type DoneWhenStatus = "met-reported" | "unmet" | "unverified";
 
 export const DONE_WHEN_LABELS: Record<DoneWhenStatus, string> = {
-  "met-verified": "Met · verified by Stave",
   "met-reported": "Met · agent reported",
   unmet: "Not met",
   unverified: "Not verified",
@@ -128,24 +127,6 @@ export interface AgentRunDoneWhenLine {
   text: string;
   status: DoneWhenStatus;
   label: string;
-}
-
-function normalize(text: string) {
-  return text.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-/**
- * Whether a check Stave saw succeed on the current work backs the criterion:
- * its command appears in the criterion, or its label and the criterion
- * contain one another. A criterion carries no evidence link of its own.
- */
-function backedByStave(text: string, verified: readonly ClassifiedEvidence[]) {
-  const wanted = normalize(text);
-  return verified.some((evidence) => {
-    if (evidence.command && wanted.includes(normalize(evidence.command))) return true;
-    const label = normalize(evidence.label);
-    return label.length > 0 && (wanted.includes(label) || label.includes(wanted));
-  });
 }
 
 /** The latest report of the run's one stage, with what Stave saw of it. */
@@ -159,13 +140,12 @@ function reportOf(detail: MissionDetail) {
 
 /**
  * The run's Done when: the criteria the agent reported, else the assignment's
- * own line. Each carries what backs it. Stave verified a criterion only when
- * it saw a matching check succeed (`isVerifiedEvidence`); the agent's word
- * alone reads "agent reported".
+ * own line, each with the agent's status. A criterion carries no link to the
+ * checks that would prove it, so a line never claims Stave verified it;
+ * `describeStaveChecks` lists what Stave itself saw succeed, separately.
  */
 export function describeDoneWhen(detail: MissionDetail): AgentRunDoneWhenLine[] {
-  const { stage, record, evidence } = reportOf(detail);
-  const verified = evidence.filter(isVerifiedEvidence);
+  const { stage, record } = reportOf(detail);
   const line = (text: string, status: DoneWhenStatus): AgentRunDoneWhenLine => ({
     text,
     status,
@@ -174,21 +154,22 @@ export function describeDoneWhen(detail: MissionDetail): AgentRunDoneWhenLine[] 
   const criteria = collectAcceptanceCriteria(detail, true);
   if (criteria.length > 0) {
     return criteria.map((criterion) =>
-      line(
-        criterion.text,
-        criterion.status === "met"
-          ? backedByStave(criterion.text, verified)
-            ? "met-verified"
-            : "met-reported"
-          : criterion.status,
-      ),
+      line(criterion.text, criterion.status === "met" ? "met-reported" : criterion.status),
     );
   }
   const text = stage?.kind === "ai" ? stage.doneWhen : (stage?.title ?? "");
   if (!text) return [];
   // No criteria were reported: the stage's own line holds once it reports complete.
-  const done = record?.status === "completed";
-  return [line(text, done ? (verified.length > 0 ? "met-verified" : "met-reported") : "unverified")];
+  return [line(text, record?.status === "completed" ? "met-reported" : "unverified")];
+}
+
+/** The checks Stave saw succeed on the current work, by command or label, once each. */
+export function describeStaveChecks(detail: MissionDetail): string[] {
+  const names = reportOf(detail)
+    .evidence.filter(isVerifiedEvidence)
+    .map((evidence) => (evidence.command ?? evidence.label).trim())
+    .filter((name) => name.length > 0);
+  return [...new Set(names)];
 }
 
 export interface AgentRunChanges {
@@ -229,6 +210,8 @@ export interface AgentRunResult {
   status: AgentRunStatus;
   duration: string;
   doneWhen: AgentRunDoneWhenLine[];
+  /** Checks Stave itself saw succeed; empty when it saw none. */
+  staveChecks: string[];
   changes: AgentRunChanges | null;
   pullRequest: AgentRunPullRequest | null;
   summary: string | null;
@@ -241,6 +224,7 @@ export function describeAgentRunResult(detail: MissionDetail, now: number): Agen
     status: describeAgentRunStatus(detail),
     duration: agentRunDuration(detail, now),
     doneWhen: describeDoneWhen(detail),
+    staveChecks: describeStaveChecks(detail),
     changes: describeAgentRunChanges(detail),
     pullRequest: findAgentRunPullRequest(detail),
     summary: reportOf(detail).report?.summary ?? null,

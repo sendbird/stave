@@ -82,7 +82,7 @@ describe("agent run result card", () => {
     expect(html).toContain('data-testid="agent-run-result"');
     expect(html).toContain("Ready");
     expect(html).toContain("Implementer · 23m");
-    expect(html).toContain("Met · verified by Stave");
+    expect(html).toContain("Checked by Stave");
     expect(html).toContain("Met · agent reported");
     expect(html).toContain("Not verified");
     expect(html).toContain("7 files");
@@ -136,7 +136,7 @@ describe("agent run in the Progress tab", () => {
     expect(html).toContain("Implementer");
     expect(html).toContain("Ready");
     expect(html).toContain("Done when");
-    expect(html).toContain("Met · verified by Stave");
+    expect(html).toContain("Checked by Stave");
     expect(html).toContain("Run report");
     expect(html).toContain("Run figures");
     expect(html).toContain("Ask for changes");

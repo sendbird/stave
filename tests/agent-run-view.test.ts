@@ -51,9 +51,14 @@ describe("agent run result", () => {
   test("Done when says what backs each line", () => {
     expect(describeDoneWhen(runs.ready).map((line) => [line.text, line.label])).toEqual([
       ["The table scrolls below 640px", "Met · agent reported"],
-      ["bun run typecheck passes", "Met · verified by Stave"],
+      ["bun run typecheck passes", "Met · agent reported"],
       ["The invoice table has the same fix", "Not verified"],
     ]);
+  });
+
+  test("no criterion claims Stave verified it; Stave's own checks are listed apart", () => {
+    expect(describeDoneWhen(runs.ready).some((line) => line.label.includes("Stave"))).toBe(false);
+    expect(describeAgentRunResult(runs.ready, NOW).staveChecks.length).toBeGreaterThan(0);
   });
 
   test("a run that reported no criteria shows the assignment's own line", () => {
