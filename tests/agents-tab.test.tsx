@@ -82,6 +82,62 @@ describe("agents view", () => {
   });
 });
 
+describe("agent detail hierarchy", () => {
+  const chipsOf = async (agent: ReturnType<typeof getBuiltinAgent>) => {
+    const { AgentProfileHeader } = await import("../src/components/agents/AgentProfileHeader");
+    const html = renderToStaticMarkup(createElement(AgentProfileHeader, { agent: agent! }));
+    return [...html.matchAll(/<span class="[^"]*">([^<]+)<\/span>/g)].map((match) => match[1]);
+  };
+
+  test("the header says the model once and only flags Read only", async () => {
+    const reviewer = getBuiltinAgent("reviewer")!;
+    expect(await chipsOf(reviewer)).toEqual(["Built-in", "Auto", "Read only"]);
+    expect(await chipsOf(getBuiltinAgent("implementer")!)).toEqual(["Built-in", "Auto"]);
+    const pinned = { ...reviewer, permission: "auto" as const, model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-5" } };
+    expect(await chipsOf(pinned)).toEqual(["Built-in", "gpt-5"]);
+  });
+
+  test("activity shows relative last used and no zero-value tiles", async () => {
+    const { AgentActivity } = await import("../src/components/agents/AgentActivity");
+    const row = (id: string, state: string, createdAt: string) =>
+      ({ id, state, createdAt, taskId: null, assignment: "Do it" }) as never;
+    const html = renderToStaticMarkup(
+      createElement(AgentActivity, {
+        assignments: [row("a", "started", new Date(Date.now() - 3 * 86_400_000).toISOString()), row("b", "failed", "2019-01-01T00:00:00.000Z")],
+      }),
+    );
+    expect(html).toContain("2 assignments");
+    expect(html).toContain("1 couldn&#x27;t start");
+    expect(html).toContain("Last used");
+    expect(html).toContain("3 days ago");
+    expect(html).not.toContain(">0<");
+    expect(html).not.toContain("running");
+    expect(html).not.toContain("need you");
+  });
+
+  test("learned suggestions are a single line with nothing to review", async () => {
+    const { AgentSuggestions } = await import("../src/components/agents/AgentSuggestions");
+    const agent = duplicateAgent(getBuiltinAgent("implementer")!, []);
+    const render = (learning: boolean) =>
+      renderToStaticMarkup(
+        createElement(AgentSuggestions, {
+          agent,
+          learning,
+          suggestions: [],
+          onLearningChange: () => {},
+          onApply: () => {},
+          onDismiss: () => {},
+        }),
+      );
+    const on = render(true);
+    expect(on).toContain("Learned suggestions");
+    expect(on).toContain("None yet.");
+    expect(on).toContain("Learn from my corrections");
+    expect(on).not.toContain("<ul");
+    expect(render(false)).toContain("Learning is off.");
+  });
+});
+
 describe("start work entry points", () => {
   test("an issue opens Kickoff with the ticket as the work source", async () => {
     const { assignTrackerIssueToAgent } = await import("../src/components/layout/issues/assign-issue-to-agent");

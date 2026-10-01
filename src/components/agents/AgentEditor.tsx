@@ -121,6 +121,8 @@ export function AgentEditor(props: {
   onSave: (agent: AgentConfig) => string | null;
   onCancel?: () => void;
   saveLabel?: string;
+  /** Inside a padded detail tab: drop the page padding the standalone editor carries. */
+  embedded?: boolean;
 }) {
   const [draft, setDraftState] = useState(props.agent);
   const [formError, setFormError] = useState<string | null>(null);
@@ -136,7 +138,7 @@ export function AgentEditor(props: {
   const setModel = (model: AgentModel) => setDraft({ ...draft, model });
 
   return (
-    <div className={sx(styles.editor)}>
+    <div className={sx(props.embedded ? agentStyles.pane : styles.editor)}>
       <Section title="Profile" first>
         <dl className={sx(styles.properties)}>
           <dt className={sx(styles.propertyLabel)}>Name</dt>

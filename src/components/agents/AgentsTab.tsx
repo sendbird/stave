@@ -208,11 +208,11 @@ function AgentDetail(props: {
   );
 
   const settingsTab = (
-    <>
+    <div className={sx(agentStyles.pane, agentStyles.tabPane)}>
       {editable ? (
-        <AgentEditor key={agent.id} agent={agent} onSave={props.onSave} />
+        <AgentEditor key={agent.id} agent={agent} onSave={props.onSave} embedded />
       ) : (
-        <div className={sx(styles.editor)}>
+        <div>
           <dl className={sx(styles.properties)}>
             <dt className={sx(styles.propertyLabel)}>Source</dt>
             <dd className={sx(styles.propertyValue)}>
@@ -244,12 +244,22 @@ function AgentDetail(props: {
           </dl>
         </div>
       )}
-      <div className={sx(styles.editor)}>
-        <ProviderSupport agent={agent} />
-        <ImportNotes notes={props.notes} />
-        <ExportAgent agent={agent} rootPath={props.rootPath} />
-      </div>
-    </>
+      {editable ? (
+        <AgentSuggestions
+          agent={agent}
+          suggestions={suggestions}
+          learning={learning}
+          onLearningChange={setLearning}
+          onApply={(suggestion, instructions) => {
+            if (!props.onSave({ ...agent, instructions })) dismissSuggestion(suggestion);
+          }}
+          onDismiss={dismissSuggestion}
+        />
+      ) : null}
+      <ProviderSupport agent={agent} />
+      <ImportNotes notes={props.notes} />
+      <ExportAgent agent={agent} rootPath={props.rootPath} />
+    </div>
   );
 
   const tabs = [
@@ -258,7 +268,7 @@ function AgentDetail(props: {
       value: "history",
       label: "History",
       content: (
-        <div className={sx(styles.editor)}>
+        <div className={sx(agentStyles.pane, agentStyles.tabPane)}>
           {editable ? (
             <AgentHistory
               agent={agent}
@@ -276,7 +286,7 @@ function AgentDetail(props: {
 
   return (
     <div className={sx(styles.scroll)}>
-      <div className={sx(styles.editor)}>
+      <div className={sx(styles.editor, agentStyles.detail)}>
         <div className={sx(styles.heading)}>
           <AgentProfileHeader agent={agent} />
           <div className={sx(styles.headingActions)}>
@@ -307,25 +317,7 @@ function AgentDetail(props: {
             ) : null}
           </div>
         </div>
-      </div>
-      {editable ? (
-        <div className={sx(styles.editor)}>
-          <AgentSuggestions
-            agent={agent}
-            suggestions={suggestions}
-            learning={learning}
-            onLearningChange={setLearning}
-            onApply={(suggestion, instructions) => {
-              if (!props.onSave({ ...agent, instructions })) dismissSuggestion(suggestion);
-            }}
-            onDismiss={dismissSuggestion}
-          />
-        </div>
-      ) : null}
-      <div className={sx(styles.editor)}>
         <AgentActivity assignments={assignments} />
-      </div>
-      <div className={sx(styles.editor)}>
         <Tabs variant="line" items={tabs} defaultValue={initialAgentDetailTab()} />
       </div>
     </div>
