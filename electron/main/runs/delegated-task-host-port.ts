@@ -1,3 +1,4 @@
+import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
 import { buildDelegatedTaskRuntimeOptions } from "../../../src/lib/runs/delegated-task-runtime";
 import type { DelegatedTaskHostPort } from "./delegated-task-coordinator";
 
@@ -35,6 +36,9 @@ export interface DelegatedTaskHostTaskStatus {
   latestTurnId: string | null;
   latestTurnCompletedAt: string | null;
   latestTurnError: string | null;
+  latestTurnOutcome?:
+    | import("../../persistence/turn-terminal-receipt").TurnTerminalOutcome
+    | null;
 }
 
 export interface DelegatedTaskHostPortDependencies {
@@ -142,8 +146,12 @@ export function createDelegatedTaskHostPort(
           const status = await dependencies.getTaskStatus({
             workspaceId: args.workspaceId,
             taskId: args.taskId,
+            turnId: args.turnId,
           });
-          if (status.activeTurnId !== args.turnId) {
+          if (
+            status.latestTurnId === args.turnId &&
+            status.latestTurnCompletedAt
+          ) {
             settle();
             return;
           }
@@ -174,11 +182,28 @@ export function createDelegatedTaskHostPort(
   }) => {
     try {
       const status = await dependencies.getTaskStatus(args);
-      return status.latestTurnId === args.turnId
-        ? status.latestTurnError
-        : null;
+      if (status.latestTurnId !== args.turnId || !status.latestTurnCompletedAt)
+        return new DelegatedTaskTurnError(
+          "The provider turn's terminal result is unavailable.",
+          "unknown",
+        );
+      if (status.latestTurnOutcome === "unknown")
+        return new DelegatedTaskTurnError(
+          "The provider turn's terminal result is unknown.",
+          "unknown",
+        );
+      if (status.latestTurnOutcome === "cancelled")
+        return new DelegatedTaskTurnError(
+          status.latestTurnError ??
+            "Provider turn was interrupted before it completed.",
+          "cancelled",
+        );
+      return status.latestTurnError;
     } catch {
-      return null;
+      return new DelegatedTaskTurnError(
+        "The provider turn's terminal result is unavailable.",
+        "unknown",
+      );
     }
   };
 
@@ -214,11 +239,12 @@ export function createDelegatedTaskHostPort(
       };
     },
 
-    async getTaskStatus({ workspaceId, taskId }) {
+    async getTaskStatus({ workspaceId, taskId, turnId }) {
       try {
         const status = await dependencies.getTaskStatus({
           workspaceId,
           taskId,
+          ...(turnId ? { turnId } : {}),
         });
         return {
           ok: true,
@@ -226,6 +252,7 @@ export function createDelegatedTaskHostPort(
           latestTurnId: status.latestTurnId,
           latestTurnCompletedAt: status.latestTurnCompletedAt,
           latestTurnError: status.latestTurnError,
+          latestTurnOutcome: status.latestTurnOutcome,
         };
       } catch (error) {
         // The host runtime throws `Task not found:` / `Workspace not found:`
@@ -250,6 +277,7 @@ export function createDelegatedTaskHostPort(
       permissionProfile,
       permissionPolicy,
       parentTaskId,
+      onStarted,
     }) {
       const started = await dependencies.startTaskTurn({
         workspaceId,
@@ -266,6 +294,7 @@ export function createDelegatedTaskHostPort(
           permissionPolicy,
         }),
       });
+      onStarted?.(started.turnId);
       // The delegation settles on the turn's *end*, so resolve only then. A
       // stop or cancel during this wait ends the turn (which resolves the
       // wait naturally) and moves the ledger row to a terminal phase first,
@@ -285,7 +314,7 @@ export function createDelegatedTaskHostPort(
         // terminal error fails the delegation with that error. A turn ended
         // by the parent's own stop lands here too, but by then the row is
         // already cancelled and the coordinator records nothing further.
-        throw new Error(turnError);
+        throw turnError instanceof Error ? turnError : new Error(turnError);
       }
       return { turnId: started.turnId };
     },

@@ -1,3 +1,6 @@
+import {
+  createTurnReceipt, observeTurnEvent, finishTurnReceipt,
+} from "@/lib/providers/turn-terminal-receipt";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { sanitizeMessagePartPayload } from "@/lib/file-context-sanitization";
 import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
@@ -488,6 +491,7 @@ function inheritNativeTurnIdentity(args: {
         }
       : {}),
     ...(from.turnId ? { turnId: from.turnId } : {}),
+    ...(from.terminalReceipt ? { terminalReceipt: from.terminalReceipt } : {}),
     ...(from.nativeProviderSessionId
       ? { nativeProviderSessionId: from.nativeProviderSessionId }
       : {}),
@@ -730,7 +734,26 @@ function finalizeAssistantMessage(args: {
   };
 }
 
+/** Keep exact-turn observations through transcript row splits and renderer reloads. */
 export function appendProviderEventToAssistant(args: {
+  message: ChatMessage;
+  event: NormalizedProviderEvent;
+}): ChatMessage {
+  let receipt = observeTurnEvent(
+    args.message.terminalReceipt ?? createTurnReceipt(), args.event, false,
+  );
+  if (args.event.type === "done") {
+    receipt = finishTurnReceipt(
+      receipt, buildRecentTimestamp(), undefined, !!args.message.terminalReceipt,
+    );
+  }
+  return appendProviderEventContentToAssistant({
+    ...args,
+    message: { ...args.message, terminalReceipt: receipt },
+  });
+}
+
+function appendProviderEventContentToAssistant(args: {
   message: ChatMessage;
   event: NormalizedProviderEvent;
 }): ChatMessage {
@@ -1310,7 +1333,7 @@ export function replayProviderEventsToTaskState(args: {
 
       // Strip raw <proposed_plan> tags that leaked into the streaming
       // message so the prior assistant bubble isn't garbled.
-      const cleanedTarget = stripPlanTagsFromMessage(
+      let cleanedTarget = stripPlanTagsFromMessage(
         stripTextSegmentFromMessage({
           message: target,
           segmentId: event.sourceSegmentId,
@@ -1321,6 +1344,12 @@ export function replayProviderEventsToTaskState(args: {
         hasRenderableAssistantContent({ message: cleanedTarget });
 
       if (shouldAppendSeparatePlanMessage) {
+        cleanedTarget = {
+          ...cleanedTarget,
+          terminalReceipt: observeTurnEvent(
+            cleanedTarget.terminalReceipt ?? createTurnReceipt(), event, false,
+          ),
+        };
         const finalizedTarget = releaseTurnUsage(
           finalizeAssistantMessage({ message: cleanedTarget }),
         );

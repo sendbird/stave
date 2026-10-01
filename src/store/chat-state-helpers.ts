@@ -1,3 +1,4 @@
+import { createTurnReceipt } from "@/lib/providers/turn-terminal-receipt";
 import { sanitizeFileContextPayload } from "@/lib/file-context-sanitization";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
@@ -369,6 +370,7 @@ export function buildPendingProviderTurnState(args: {
     content: "",
     startedAt: buildRecentTimestamp(),
     isStreaming: true,
+    terminalReceipt: createTurnReceipt(),
     parts: [],
   };
   const nextMessages = [...current, userMessage, assistantMessage];

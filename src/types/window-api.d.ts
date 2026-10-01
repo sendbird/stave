@@ -2161,6 +2161,7 @@ interface WindowPersistenceApi {
       providerId: ProviderId;
       createdAt: string;
       completedAt: string | null;
+      terminalReceipt?: import("@/lib/providers/turn-terminal-receipt").TurnTerminalReceipt | null;
     }>;
   }>;
   listActiveWorkspaceTurns?: (args: {
@@ -2175,6 +2176,7 @@ interface WindowPersistenceApi {
       providerId: ProviderId;
       createdAt: string;
       completedAt: string | null;
+      terminalReceipt?: import("@/lib/providers/turn-terminal-receipt").TurnTerminalReceipt | null;
     }>;
   }>;
   listLatestWorkspaceTurns?: (args: {
@@ -2189,6 +2191,7 @@ interface WindowPersistenceApi {
       providerId: ProviderId;
       createdAt: string;
       completedAt: string | null;
+      terminalReceipt?: import("@/lib/providers/turn-terminal-receipt").TurnTerminalReceipt | null;
     }>;
   }>;
   /**

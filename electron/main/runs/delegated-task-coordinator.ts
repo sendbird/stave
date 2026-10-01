@@ -1,4 +1,5 @@
 import type { DelegationPermissionPolicy } from "../../../src/lib/runs/delegation-policy";
+import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import {
@@ -148,13 +149,20 @@ export interface DelegatedTaskHostPort {
    * close one. They are kept apart in the contract so a host that is still
    * starting up cannot be read as a child that disappeared.
    */
-  getTaskStatus(args: { workspaceId: string; taskId: string }): Promise<
+  getTaskStatus(args: {
+    workspaceId: string;
+    taskId: string;
+    turnId?: string;
+  }): Promise<
     | {
         ok: true;
         activeTurnId: string | null;
         latestTurnId: string | null;
         latestTurnCompletedAt: string | null;
         latestTurnError: string | null;
+        latestTurnOutcome?:
+          | import("../../persistence/turn-terminal-receipt").TurnTerminalOutcome
+          | null;
       }
     | { ok: false; reason: "missing" | "unavailable" }
   >;
@@ -174,6 +182,8 @@ export interface DelegatedTaskHostPort {
      * ledger. The ledger remains the source of truth for the delegation itself.
      */
     parentTaskId: string;
+    /** Persist the exact execution identity before waiting for completion. */
+    onStarted?: (turnId: string) => void;
   }): Promise<{ turnId: string }>;
   stopTask(args: { workspaceId: string; taskId: string }): Promise<unknown>;
   /**
@@ -204,7 +214,9 @@ interface DelegatedTaskCoordinatorDependencies {
   /** The commit checked out at a path; null when it cannot be read. Needed for `expectedHead`. */
   resolvePermissionPolicy?: (args: { parentTaskId: string; delegatedTaskId: string; providerId: "claude-code" | "codex"; permissionProfile?: DelegatedTaskPermissionProfile; agentConfigId?: string }) => Promise<DelegationPermissionPolicy>;
   readHead?: (workspacePath: string) => Promise<string | null>;
-  applyAgent?: (args: DelegateTaskArgs) => Promise<
+  applyAgent?: (
+    args: DelegateTaskArgs,
+  ) => Promise<
     | { ok: true; args: DelegateTaskArgs; agentContentHash: string }
     | { ok: false; message: string }
   >;
@@ -467,6 +479,12 @@ export function createDelegatedTaskCoordinator(
       lifecycle: DelegatedTaskLifecycle;
     };
   }) => {
+    args.target = { ...args.target, turnId: null };
+    args.ledger.setRunStepTarget({
+      runId: args.runId,
+      stepId: args.stepId,
+      target: args.target,
+    });
     const started = (async () => {
       try {
         const result = await dependencies.host.runTask({
@@ -480,6 +498,23 @@ export function createDelegatedTaskCoordinator(
           effort: args.turn.effort,
           permissionProfile: args.turn.permissionProfile,
           permissionPolicy: args.turn.permissionPolicy,
+          onStarted: (turnId) => {
+            const current = args.ledger.getRunAggregate({
+              runId: args.runId,
+              stepId: args.stepId,
+            });
+            if (
+              current?.step.executionId !== args.executionId ||
+              !isActiveDelegatedTaskPhase(current.step.status)
+            )
+              return;
+            args.target.turnId = turnId;
+            args.ledger.setRunStepTarget({
+              runId: args.runId,
+              stepId: args.stepId,
+              target: { ...args.target, turnId },
+            });
+          },
         });
         settleAfterTurn({
           ledger: args.ledger,
@@ -497,7 +532,27 @@ export function createDelegatedTaskCoordinator(
           runId: args.runId,
           stepId: args.stepId,
         });
-        if (current && !isActiveDelegatedTaskPhase(current.step.status)) {
+        if (!current || current.step.executionId !== args.executionId || !isActiveDelegatedTaskPhase(current.step.status)) {
+          return;
+        }
+        if (error instanceof DelegatedTaskTurnError) {
+          if (error.outcome === "cancelled")
+            args.ledger.cancelRunStep({
+              runId: args.runId,
+              stepId: args.stepId,
+              expectedExecutionId: args.executionId,
+              idempotencyKey: `child:${args.executionId}:cancelled`,
+              error: error.message,
+              now: now(),
+            });
+          else
+            args.ledger.interruptRunStep({
+              runId: args.runId,
+              stepId: args.stepId,
+              idempotencyKey: `child:${args.executionId}:unknown`,
+              error: error.message,
+              now: now(),
+            });
           return;
         }
         args.ledger.failRunStep({
@@ -567,6 +622,7 @@ export function createDelegatedTaskCoordinator(
         .getTaskStatus({
           workspaceId: target.workspaceId,
           taskId: target.taskId,
+          ...(target.turnId ? { turnId: target.turnId } : {}),
         })
         .catch(() => ({ ok: false, reason: "unavailable" }) as const);
       if (!status.ok) {
@@ -589,7 +645,10 @@ export function createDelegatedTaskCoordinator(
         // own task surface, not to this delegation's receipts.
         continue;
       }
-      if (status.activeTurnId) {
+      if (
+        status.activeTurnId &&
+        (!target.turnId || status.activeTurnId === target.turnId)
+      ) {
         // The child is genuinely still working — typically across a restart,
         // where no in-process watcher will settle the row when its turn ends.
         // Counting it as deferred keeps `ensureReconciled` unsettled, so the
@@ -609,6 +668,20 @@ export function createDelegatedTaskCoordinator(
         status.latestTurnCompletedAt &&
         Date.parse(status.latestTurnCompletedAt) < Date.parse(claimedAt),
       );
+      if (!staleLatestTurn && status.latestTurnOutcome === "cancelled") {
+        const transition = ledger.cancelRunStep({
+          runId: aggregate.run.id,
+          stepId: aggregate.step.id,
+          expectedExecutionId: executionId,
+          idempotencyKey: `restart:${executionId}:cancelled`,
+          error:
+            status.latestTurnError ??
+            "Provider turn was interrupted before it completed.",
+          now: now(),
+        });
+        reconciled += transition.accepted ? 1 : 0;
+        continue;
+      }
       if (!staleLatestTurn && status.latestTurnError) {
         const transition = ledger.failRunStep({
           runId: aggregate.run.id,
@@ -628,7 +701,9 @@ export function createDelegatedTaskCoordinator(
       if (
         !staleLatestTurn &&
         status.latestTurnId &&
-        status.latestTurnCompletedAt
+        status.latestTurnCompletedAt &&
+        status.latestTurnOutcome !== "unknown" &&
+        (!target.turnId || status.latestTurnId === target.turnId)
       ) {
         const transition = settleAfterTurn({
           ledger,
@@ -909,7 +984,7 @@ export function createDelegatedTaskCoordinator(
     const target: RunStepTarget = {
       taskId: delegatedTaskId,
       workspaceId: delegatedWorkspaceId,
-      turnId: existingSummary?.delegatedTurnId ?? null,
+      turnId: null,
       providerId: args.providerId,
     };
     const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId, providerId: args.providerId, permissionProfile: args.permissionProfile, agentConfigId: args.agentConfigId });

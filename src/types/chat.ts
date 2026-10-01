@@ -394,6 +394,7 @@ export interface ChatMessage {
   isStreaming?: boolean;
   /** Terminal provider reason for this exact turn, persisted with the row. */
   terminalStopReason?: string;
+  terminalReceipt?: import("@/lib/providers/turn-terminal-receipt").TurnTerminalReceipt;
   isPlanResponse?: boolean;
   planText?: string;
   planReview?: {
