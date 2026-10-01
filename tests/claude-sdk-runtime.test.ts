@@ -2173,7 +2173,7 @@ describe("buildClaudeQueryOptions", () => {
       failIfUnavailable: true,
       allowUnsandboxedCommands: false,
       autoAllowBashIfSandboxed: false,
-      filesystem: { denyWrite: ["/"] },
+      filesystem: { denyWrite: [workspaceRoot] },
     });
     expect(options).toMatchObject({
       permissionMode: "dontAsk",
