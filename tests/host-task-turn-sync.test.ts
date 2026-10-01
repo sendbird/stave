@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
+import { parseWorkspaceShell } from "@/lib/task-context/schemas";
 import {
   applyHostTaskTurnSync,
   restoreActiveTurnStreaming,
@@ -91,6 +92,39 @@ function buildUpdate(args: { workspaceId?: string; taskId: string }) {
 }
 
 describe("applyHostTaskTurnSync", () => {
+  test("restored delegation identity keeps host progress from changing renderer selection", () => {
+    const parent = buildTask({ id: "task-parent", controlMode: "interactive", controlOwner: "stave" });
+    const child = buildTask({ id: "task-child", parentTaskId: parent.id });
+    const parsed = parseWorkspaceShell({ payload: {
+      ...emptySession({ tasks: [child, parent], activeTaskId: parent.id }),
+      messageCountByTask: { [child.id]: 1 },
+    } });
+    expect(parsed?.tasks.find(task => task.id === child.id)?.parentTaskId).toBe(parent.id);
+    for (const selected of [parent.id, child.id, ""]) {
+      let session = emptySession({
+        tasks: selected === child.id ? [child, parent] : [parent],
+        activeTaskId: selected,
+        openTaskTabIds: selected ? [selected] : [],
+        activeSurface: { kind: "task", taskId: selected },
+      });
+      for (const eventType of ["started", "text", "done"] as const) {
+        const result = applyHostTaskTurnSync({
+          state: buildState({ session }),
+          loaded: {
+            persistedSession: emptySession({ tasks: parsed!.tasks, activeTaskId: parent.id }),
+            persistedActiveTurnId: eventType === "done" ? undefined : "turn-1",
+            messages: [], messageCount: 1,
+          },
+          update: { ...buildUpdate({ taskId: child.id }), eventType, done: eventType === "done" },
+        });
+        expect(result.statePatch.activeTaskId).toBeUndefined();
+        expect(result.syncedSession.activeTaskId).toBe(selected);
+        expect(result.syncedSession.openTaskTabIds).toEqual(session.openTaskTabIds);
+        session = result.syncedSession;
+      }
+    }
+  });
+
   test("opens and activates a tab for a host-created managed task", () => {
     const existing = buildTask({
       id: "task-existing",
