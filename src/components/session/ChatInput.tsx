@@ -81,6 +81,7 @@ import {
   isTaskManaged,
 } from "@/lib/tasks";
 import { buildLocalChangeReviewPrompt } from "@/lib/local-change-review";
+import { usePendingAutoRoutingStore } from "@/store/pending-auto-routing-store";
 import { useAppStore } from "@/store/app.store";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import {
@@ -243,7 +244,12 @@ function BaseChatInput() {
   const activeTurnId = useAppStore(
     (state) => state.activeTurnIdsByTask[activeTaskId] ?? null,
   );
-  const isTurnActive = Boolean(activeTurnId);
+  // A send waiting on Auto's classifier has no turn yet, but to the user it is
+  // already running: Stop and Esc must reach it (abortTaskTurn cancels it).
+  const autoRoutePending = usePendingAutoRoutingStore((state) =>
+    Boolean(state.byTaskId[activeTaskId]),
+  );
+  const isTurnActive = Boolean(activeTurnId) || autoRoutePending;
   const latestMessageIsPlanResponse = useAppStore((state) => {
     const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
     const lastMessage = messages[messages.length - 1];
@@ -479,6 +485,7 @@ function BaseChatInput() {
         providerId: activeProvider,
         available: autoRoutingEnabled,
         stanceLabel: STANCE_LABELS[autoRoutingStance],
+        pending: autoRoutePending,
         routed:
           autoRoutingEnabled &&
           autoRoutingDecisionRecord &&
@@ -497,6 +504,7 @@ function BaseChatInput() {
       }),
     [
       activeProvider,
+      autoRoutePending,
       autoRoutingDecisionRecord,
       autoRoutingEnabled,
       autoRoutingStance,

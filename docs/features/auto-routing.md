@@ -63,10 +63,14 @@ Each request has a 30-second deadline including readiness checks, one selected
 provider, and at most one model execution. Unavailable authentication, invalid
 JSON, timeout, or failure produces a conservative local route. Cancellation
 interrupts classification and prevents the primary turn from starting.
-Classification adds latency; the deadline is not a model speed guarantee. A
-progress notice appears after 500ms with a Cancel action. Failures show an
-explicit fallback notice. Successful classifications determine the route even
-when they take several seconds.
+Classification adds latency; the deadline is not a model speed guarantee.
+Successful classifications determine the route even when they take several
+seconds.
+
+While classification runs, the prompt appears in the conversation right away
+and the composer shows Stop. After 500ms a status line under the prompt shows
+the wait and a **Start now** action, which stops waiting and routes with local
+rules. Stop (or Esc) cancels the send and returns the prompt to the composer.
 
 Only bounded context is sent: up to 4,000 prompt characters and the last six
 messages with up to 500 characters each. Successful results are cached for
@@ -108,7 +112,12 @@ Historical model choice is evidence of preference, not proof of quality.
 ## Decision records
 
 The composer and turn details show the chosen model, effort, rule, signals,
-and classification source. Routed decisions do not display invented
+and classification source. Each routed response starts with one route line,
+for example `Auto → Opus 5 · High · Implement · 2.4s`, naming the routed
+model, the task class, and the classifier wait; **Why** opens the recorded
+rule and signals. A local-rules fallback is marked on that line instead of in
+a notification, and the line names the model that actually answered when the
+runtime ran a different one. Routed decisions do not display invented
 confidence percentages. Manual selections and disabled Auto retain their
 existing behavior, and the selected model still passes the ordinary
 account-usage guard before execution.

@@ -45,6 +45,8 @@ export interface AutoRoutingModelResolution {
   ruleReason?: string;
   taskClass?: string;
   stance?: string;
+  /** Wall time spent waiting on the classifier, when one ran for this turn. */
+  classifierElapsedMs?: number;
 }
 
 export type ProviderHistoryForkBoundary = "thread" | "turn" | "message";
