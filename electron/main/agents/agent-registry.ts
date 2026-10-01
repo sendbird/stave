@@ -8,6 +8,7 @@
  */
 import { normalizeCustomAgents, listAgents } from "../../../src/lib/agents/library";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
+import { currentAgentId } from "../../../src/lib/agents/starters";
 import { DEFAULT_MY_STANDARDS, normalizeMyStandards, type MyStandards } from "../../../src/lib/agents/standards";
 
 let customAgents: AgentConfig[] = [];
@@ -43,5 +44,6 @@ export function getCustomAgents(): readonly AgentConfig[] {
 
 /** An active agent by id, custom first, then built-in; null when none or archived. */
 export function findAgent(agentConfigId: string): AgentConfig | null {
-  return listAgents({ custom: customAgents, activeOnly: true }).find((agent) => agent.id === agentConfigId) ?? null;
+  const id = currentAgentId(agentConfigId);
+  return listAgents({ custom: customAgents, activeOnly: true }).find((agent) => agent.id === id) ?? null;
 }

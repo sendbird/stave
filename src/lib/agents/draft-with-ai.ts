@@ -4,10 +4,13 @@
  * prompt and turns the answer into an agent the schema accepts. The result is
  * always an unsaved draft the user reviews in the editor.
  *
- * Pure. The call itself lives in `src/store/agent-draft-runtime.ts`.
+ * The reply style every built-in agent shares is added to the instructions, so
+ * a drafted agent writes back the same way. Pure. The call itself lives in `src/store/agent-draft-runtime.ts`.
  */
 import { extractJsonObject } from "@/lib/playbooks/draft-with-ai";
+import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
 import { blankCustomAgent } from "./library";
+import { SHARED_STYLE } from "./starters";
 import {
   AGENT_COLORS,
   AGENT_CONFIG_LIMITS,
@@ -31,7 +34,8 @@ export function buildAgentDraftPrompt(description: string): string {
     '  "instructions": string (5-15 short lines: how it works, what it checks before it reports, what it never does),',
     `  "permission": ${AGENT_PERMISSIONS.map((value) => `"${value}"`).join(" | ")},`,
     `  "workspace": ${AGENT_WORKSPACES.map((value) => `"${value}"`).join(" | ")},`,
-    `  "color": ${AGENT_COLORS.map((value) => `"${value}"`).join(" | ")}`,
+    `  "color": ${AGENT_COLORS.map((value) => `"${value}"`).join(" | ")},`,
+    `  "taskClass": ${TASK_CLASSES.map((value) => `"${value}"`).join(" | ")} (the kind of work, which picks the model)`,
     "}",
     "",
     "Rules:",
@@ -53,6 +57,13 @@ function asText(value: unknown, max: number): string {
 
 function pick<T extends string>(values: readonly T[], value: unknown): T | undefined {
   return values.find((candidate) => candidate === value);
+}
+
+/** Adds the shared reply style once, within the instruction limit. */
+function withSharedStyle(instructions: string): string {
+  if (instructions.includes(SHARED_STYLE)) return instructions;
+  const room = AGENT_CONFIG_LIMITS.instructions - SHARED_STYLE.length - 2;
+  return `${instructions.slice(0, Math.max(0, room)).trimEnd()}\n\n${SHARED_STYLE}`;
 }
 
 export type AgentDraftResult = { ok: true; agent: AgentConfig } | { ok: false; message: string };
@@ -81,12 +92,15 @@ export function parseAgentDraft(text: string, takenIds: Iterable<string>): Agent
   const permission = pick(AGENT_PERMISSIONS, raw.permission) ?? base.permission;
   const workspace = permission === "read-only" ? "same-workspace" : (pick(AGENT_WORKSPACES, raw.workspace) ?? base.workspace);
   const color = pick(AGENT_COLORS, raw.color);
+  const taskClass = pick(TASK_CLASSES, raw.taskClass);
   const candidate: AgentConfig = {
     ...base,
     description: asText(raw.useWhen, AGENT_CONFIG_LIMITS.description) || base.description,
-    instructions,
+    instructions: withSharedStyle(instructions),
+    model: taskClass ? { mode: "auto", taskClass } : base.model,
     permission,
     workspace,
+    ...(permission === "read-only" ? { report: ["summary", "findings", "limitations"] as AgentConfig["report"] } : {}),
     ...(color ? { appearance: { color } } : {}),
   };
   const parsed = AgentConfigSchema.safeParse(candidate);

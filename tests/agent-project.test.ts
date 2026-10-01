@@ -18,7 +18,12 @@ function harness(settings: { agents?: string[] | null } = {}) {
   const grants = new Map<string, ProjectGrant>();
   const recorded: Array<Parameters<NonNullable<ProjectRuntimeDependencies["recordTaskAgent"]>>[0]> = [];
   const started: MissionStartInput[] = [];
-  const reviewer = { ...duplicateAgent(getBuiltinAgent("reviewer")!, []), id: "reviewer-copy", name: "Reviewer copy" };
+  const reviewer = {
+    ...duplicateAgent(getBuiltinAgent("reviewer")!, []),
+    id: "reviewer-copy",
+    name: "Reviewer copy",
+    usableAs: ["worker" as const, "delegate" as const],
+  };
   const deps: ProjectRuntimeDependencies = {
     store,
     missions,
@@ -94,7 +99,7 @@ describe("a project's agents", () => {
     await expect(h.start("researcher")).rejects.toThrow("not one of this project's agents");
     const readOnly = harness({ agents: null });
     await readOnly.create();
-    // A Reviewer copy keeps the built-in's Worker and Delegated task uses only.
+    // A Reviewer copy limited to Worker and Delegated task uses cannot be a main agent.
     await expect(readOnly.start("reviewer-copy")).rejects.toThrow("not usable as a main agent");
     expect([...h.started, ...readOnly.started]).toHaveLength(0);
   });
