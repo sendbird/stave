@@ -59,7 +59,7 @@ export function resolveHostDelegationPolicy(args: {
  * that provider's prompt-free options. A profile the caller narrowed to
  * (`manual`/`guided`) and a read-only helper are left as resolved.
  */
-function helperAutonomyPolicy(
+export function helperAutonomyPolicy(
   providerId: "claude-code" | "codex",
   parent: { providerId: "claude-code" | "codex"; options: Record<string, unknown> } | null | undefined,
   profile: "inherit" | "auto" | "guided" | "manual" | undefined,

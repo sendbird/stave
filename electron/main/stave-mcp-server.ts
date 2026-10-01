@@ -976,7 +976,7 @@ function createToolServer(options?: {
           id,
           input: mcpAutomationUpdateInput(
             input,
-            (await listAutomations()).find((automation) => automation.id === id),
+            (await listAutomations()).automations.find((automation) => automation.id === id),
           ),
         }),
       }),
