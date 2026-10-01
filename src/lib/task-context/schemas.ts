@@ -627,6 +627,7 @@ const TaskSchema = z.object({
   id: z.string(),
   title: z.string(),
   titleManuallySet: z.boolean().optional(),
+  parentTaskId: z.string().nullable().optional(),
   provider: ProviderIdSchema,
   updatedAt: z.string(),
   unread: z.boolean(),
