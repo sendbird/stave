@@ -55,12 +55,14 @@ complete theme contract. Avoid utility overrides of primitive internals.
 ## Collaboration behavior
 
 Turn Activity contains live and retained turn activity, headed by the Mission
-bar while the task runs a mission. Task Results and Mission are distinct
-right-rail destinations; the Mission panel shows the task's mission above its
-team (Advisor, workers and delegated tasks), and the task tab context menu opens
-either destination for that exact task. There is no composer shortcut row and no
-second inspector-tab store. Record views load only while their destination is
-mounted; changing task identity remounts the view. Delayed listings remain
+bar while the task runs a mission. The right rail has one Task panel with four
+tabs: Activity (turn activity), Progress (the mission while the task has one,
+otherwise the flow), Team (Advisor, workers and delegated tasks) and Results
+(run history). The task tab context menu opens the panel on the matching tab
+for that exact task. There is no composer shortcut row and no second
+inspector-tab store: the selected tab is layout state, and a retired panel id
+in a saved layout is read as the tab that replaced it. Record views load only
+while their tab is mounted; changing task identity remounts the view. Delayed listings remain
 invalidated when scope changes or a listing is disabled. No extra transcript
 store is created. Collaboration uses separated task, consultation and worker
 sections without category tabs or a containing surface card. Assignments and
@@ -173,7 +175,7 @@ settings invalidate responses from the old configuration.
 
 The implementation owners are `ChatInput.tsx`, the `ai-elements/prompt-input*`
 and model selector components, `composer-workspace-bar.tsx`, `TurnActivity.tsx`,
-`TurnActivityPanel.tsx`, and the workspace pane host. Shared behavior and styles
+`TurnActivityPanel.tsx`, `TaskPanel.tsx`, and the workspace pane host. Shared behavior and styles
 belong in the system layer; product-specific composition stays with these owners.
 Inspect existing task activity and collaboration projections together before
 adding another competing progress summary or transcript subscription.

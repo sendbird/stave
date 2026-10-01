@@ -1,6 +1,5 @@
 import { ChildListingProbe } from "./listing-probe";
 import { ChildAttentionProbe, installChildAttentionFixture } from "./child-attention-fixture";
-import { TaskWorkPanel } from "@/components/session/TaskWorkPanel";
 import { TaskResultReviews } from "@/components/session/TaskResultReviews";
 import { useLayoutEffect, useState } from "react";
 import { TeamSection } from "@/components/team/TeamSection";
@@ -262,7 +261,7 @@ function CollaborationPreviewContent() {
             <TurnActivityPanel />
           </div>
         ) : (
-          managed ? <TaskWorkPanel kind="team" /> : <TeamSection target={target} />
+          <TeamSection target={target} readOnly={managed} />
         )}
       </div>
     </main>

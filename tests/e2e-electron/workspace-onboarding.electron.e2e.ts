@@ -37,16 +37,18 @@ test("first-run project action and task examples remain keyboard accessible", as
     await expect(guide.locator("details")).toHaveCount(0);
     await stave.page.screenshot({ path: testInfo.outputPath("first-task.png") });
     await stave.page
-      .getByRole("button", { name: "Turn Activity", exact: true })
+      .getByRole("button", { name: "Task", exact: true })
       .click();
+    const taskSections = stave.page.getByRole("tablist", {
+      name: "Task sections",
+    });
+    await expect(taskSections).toBeVisible();
     await expect(
       stave.page.getByRole("tablist", { name: "Task inspection" }),
     ).toHaveCount(0);
-    await stave.page
-      .getByRole("button", { name: "Mission", exact: true })
-      .click();
+    await taskSections.getByRole("tab", { name: /^Progress/ }).click();
     await expect(
-      stave.page.getByRole("heading", { name: "Delegated tasks", exact: true }),
+      stave.page.getByRole("region", { name: "Flow", exact: true }),
     ).toBeVisible();
     await expect(editor).toContainText("Help me change this behavior.");
     const endpoint = await waitForStaveMcpEndpoint(stave.userDataDir);
@@ -74,22 +76,16 @@ test("first-run project action and task examples remain keyboard accessible", as
     await expect(
       stave.page.getByRole("navigation", { name: "Task activity shortcuts" }),
     ).toHaveCount(0);
-    await stave.page
-      .getByRole("button", { name: "Task Results", exact: true })
-      .click();
+    await taskSections.getByRole("tab", { name: /^Results/ }).click();
     await expect(
       stave.page.getByRole("region", { name: "Task results" }),
     ).toBeVisible();
     await expect(editor).toContainText("Help me change this behavior.");
-    await stave.page
-      .getByRole("button", { name: "Turn Activity", exact: true })
-      .click();
+    await taskSections.getByRole("tab", { name: /^Activity/ }).click();
     await expect(
       stave.page.getByRole("button", { name: "Export report", exact: true }),
     ).toHaveCount(0);
-    await stave.page
-      .getByRole("button", { name: "Mission", exact: true })
-      .click();
+    await taskSections.getByRole("tab", { name: /^Progress/ }).click();
     await stave.page.screenshot({
       path: testInfo.outputPath("task-collaboration.png"),
       animations: "disabled",

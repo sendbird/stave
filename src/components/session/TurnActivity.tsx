@@ -109,6 +109,7 @@ import {
   type ProviderTurnWorkItem,
   type RetainedTurnOutcome,
 } from "@/lib/providers/turn-status";
+import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { buildDelegatedTaskExpectedIdentity } from "@/lib/runs/delegated-task-view";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
@@ -331,9 +332,7 @@ function ActiveTurnActivity(props: {
       // Moving into the panel must also surface it, or the activity would
       // silently vanish until the user finds the rail icon.
       if (next === "panel") {
-        setLayout({
-          patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "activity" },
-        });
+        setLayout({ patch: taskPanelLayoutPatch("activity") });
       }
     },
     [setLayout, updateSettings],

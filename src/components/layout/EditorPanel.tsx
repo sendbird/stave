@@ -18,8 +18,7 @@ import { hasSourceControlStagedChanges, type SourceControlStatusItem } from "@/l
 import { resolveWorkspaceTodoStatus } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
-import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
-import { TaskWorkPanel } from "@/components/session/TaskWorkPanel";
+import { TaskPanel } from "@/components/session/TaskPanel";
 import { RightRailPanelShell } from "./RightRailPanelShell";
 import { layoutShellStyles } from "./layout-shell.styles";
 import * as stylex from "@stylexjs/stylex";
@@ -1109,8 +1108,7 @@ export function EditorPanel(props: EditorPanelProps) {
           {rightTab === "scripts" ? (
             <WorkspaceScriptsPanel onOpenSettings={props.onOpenSettings} />
           ) : null}
-          {rightTab === "activity" ? <TurnActivityPanel /> : null}
-          {rightTab === "results" || rightTab === "mission" || rightTab === "flow" || rightTab === "team" ? <TaskWorkPanel kind={rightTab} /> : null}
+          {rightTab === "task" ? <TaskPanel /> : null}
         </RightRailPanelShell>
       </div>
       <ConfirmDialog

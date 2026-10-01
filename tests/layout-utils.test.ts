@@ -13,6 +13,7 @@ function baseLayout(): LayoutState {
     explorerPanelWidth: 300,
     sidebarOverlayVisible: false,
     sidebarOverlayTab: "explorer",
+    taskPanelTab: "activity",
     terminalDocked: false,
     editorDiffMode: false,
     editorMarkdownPreviewMode: false,

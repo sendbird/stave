@@ -36,8 +36,7 @@ Start a [mission](missions.md) with it and Stave runs the stages for you. A
 ### Entry Points
 
 - Agents → **Playbooks**.
-- **Manage playbooks** in the command palette, in the Start mission sheet and
-  in the Mission panel.
+- **Manage playbooks** in the command palette and in the Start mission sheet.
 
 ### Editor
 

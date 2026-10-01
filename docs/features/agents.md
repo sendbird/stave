@@ -263,10 +263,11 @@ built-in agent, is listed under **agent files were not used** with the reason.
 A repository file never replaces an agent you made or a built-in one; rename
 the agent in the file to use it. Duplicate a repository agent to edit a copy.
 
-### Flow panel
+### Flow
 
-The right rail's **Flow** panel shows one task's flow. Every task has a base
-flow, drawn from records that already exist:
+The **Progress** tab of the right rail's Task panel shows one task's flow while
+the task has no [mission](missions.md); once it has one, the mission takes that
+place. Every task has a base flow, drawn from records that already exist:
 
 - **Request** — the first message that opened the task.
 - **Plan** — the latest plan or todo list the provider reported, with how many
@@ -282,17 +283,15 @@ A **Waiting for approval** or **Waiting for your answer** step appears whenever
 the task is waiting on you. A task with no messages yet says it is waiting for
 the first message.
 
-When a task is assigned to an agent, the **assignment** heads the flow. When a
-mission runs it, each mission stage shows its state and evidence (verified by
-Stave or agent reported), and the base steps of the stage that is running now
-nest under it; the delegated tasks that branched off a stage hang from it.
+When a task is assigned to an agent, the **assignment** heads the flow, and the
+task's delegated tasks follow the base steps as nodes of their own.
 **Timeline** lists when a node started, was asked for changes, retried and
-ended. The panel only reads the records that already exist; it changes nothing.
+ended. The flow only reads the records that already exist; it changes nothing.
 
 For a task assigned to an agent, **What it received** lists the version of the
 agent the task runs (a short content hash), each instruction source that went
 in, and how firmly the instructions, tool limits, model and permission are held
-on that provider. If the agent was edited after the task started, the panel
+on that provider. If the agent was edited after the task started, the flow
 says so: later turns keep the version used, and assigning again uses the edit.
 
 ### Fleet

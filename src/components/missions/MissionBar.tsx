@@ -14,6 +14,7 @@ import {
 } from "@/lib/missions/mission-view";
 import { describeToolActivity, nextNowLine, NOW_LINE_MIN_INTERVAL_MS, type NowLineState } from "@/lib/missions/now-line";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
+import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
 import { useMissionsStore } from "@/store/missions-store";
 import { StageStatusIcon } from "./StageStatusIcon";
@@ -262,7 +263,7 @@ export function MissionBar(props: { variant?: "docked" | "panel"; framed?: boole
         busy,
         onTakeOver: () => void runCommand("takeOver", { missionId }),
         onResume: () => void runCommand("resume", { missionId }),
-        onOpenPanel: () => setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "mission" } }),
+        onOpenPanel: () => setLayout({ patch: taskPanelLayoutPatch("progress") }),
       }}
     />
   );

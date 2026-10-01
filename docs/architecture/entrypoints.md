@@ -154,7 +154,8 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
    role before native execution; `src/lib/agents/turn-provenance.ts` validates
    safe per-turn identity and configuration evidence. Replay preserves that
    event through compaction; Run overview shows recorded facts only.
-4. `src/components/agents/` for the Agents tab and the Flow panel, with
+4. `src/components/agents/` for the Agents tab and the flow view in the Task
+   panel's Progress tab, with
    `src/lib/agents/flow-view.ts` projecting the flow
 5. `docs/features/agents.md` for the user flow and
    `docs/architecture/agent-platform-taxonomy.md` for the vocabulary and

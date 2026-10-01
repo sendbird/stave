@@ -104,6 +104,18 @@
       ]
     },
     {
+      "id": "right-rail-task-panel",
+      "description": "Maps a saved right-rail layout that names the retired Turn Activity, Task Results, Mission, Flow or Team panel ids to the Task panel and the tab that replaced each, so the panel a user left open survives the merge.",
+      "introducedAfter": "0.21.2",
+      "removeInVersion": "0.24.0",
+      "files": [
+        "src/store/layout.utils.ts"
+      ],
+      "tests": [
+        "tests/right-rail-panel-migration.test.ts"
+      ]
+    },
+    {
       "id": "repository-memory-tables",
       "description": "Renames the path-scoped project_memories and project_memory_settings tables to repository_memories and repository_memory_settings so the projects feature can create its own project_memories table.",
       "introducedAfter": "0.21.0",

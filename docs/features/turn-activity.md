@@ -4,8 +4,8 @@
 
 Turn Activity shows the live work behind the current agent turn, including
 running tools, delegated tasks, todos, and elapsed time. Choose a compact docked
-shelf, a larger draggable card, or a full-height right-rail panel when you
-need more room to follow a busy turn.
+shelf, a larger draggable card, or the **Activity** tab of the right rail's
+Task panel when you need more room to follow a busy turn.
 
 ## When To Use It
 
@@ -33,15 +33,36 @@ need more room to follow a busy turn.
 
 - The default `Docked` surface appears above the prompt input while a turn is
   active.
-- The right rail includes a `Turn Activity` panel icon. Opening it shows the
+- The right rail's **Task** panel opens on its **Activity** tab. It shows the
   current panel view or offers a button to move the activity there.
+
+### The Task Panel
+
+The right rail's **Task** panel is the one place for the active task. Its tabs:
+
+- **Activity**: this panel view of Turn Activity — the current turn, or the
+  last one once it ends.
+- **Progress**: the task's [mission](missions.md) while it has one — running,
+  paused or ended — and otherwise its flow (Request → Plan → Changes →
+  Verification → Pull request), with the task's wake-up under either.
+- **Team**: the task's Advisor consults, workers and
+  [delegated tasks](delegated-tasks.md).
+- **Results**: the run history, one entry per finished run.
+
+A tab can carry a small mark from data the app already holds: a dot on
+**Activity** while the turn runs or waits on you, a dot on **Progress** when the
+mission needs you or is blocked, the number of running agents on **Team**, and
+the number of unreviewed runs on **Results**. The tab you choose is kept with
+the layout, so the panel reopens where you left it, and a task tab's context
+menu opens it straight to **Results**, **Progress** or **Team**.
 
 ### Key Controls
 
 - `Dock turn activity above the input`: return to the compact composer shelf.
 - `Float turn activity over the chat`: show a larger card in the message pane.
-- `Show turn activity in the side panel`: move the activity into the right rail
-  and open that panel automatically. The panel keeps the activity list expanded.
+- `Show turn activity in the side panel`: move the activity into the Task
+  panel's **Activity** tab and open it automatically. The panel keeps the
+  activity list expanded.
 - In `Floating`, drag the card header. The position is retained for the next
   session and is kept reachable if the window is resized.
 
@@ -173,8 +194,8 @@ row when it is narrower.
 
 ### Read a turn back after it ends
 
-1. Select `Panel` from the activity header, or open the `Turn Activity`
-   right-rail panel.
+1. Select `Panel` from the activity header, or open the Task panel's
+   **Activity** tab.
 2. Let the turn finish. The list stays, headed `Last turn`.
 3. Choose a row to jump to that step's input and output in the conversation.
 
@@ -218,8 +239,8 @@ row when it is narrower.
 - Symptom: no shelf appears above the prompt input.
 - Cause: the current placement is `Floating` or `Panel`, or there is no active
   turn yet.
-- Fix: open the `Turn Activity` right-rail panel and choose `Show turn
-  activity here`, or start a turn and select `Docked` from its header.
+- Fix: open the Task panel's **Activity** tab and choose `Show here`, or start
+  a turn and select `Docked` from its header.
 
 ## Related Docs
 

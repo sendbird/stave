@@ -39,8 +39,8 @@ happened, why, and what proves it.
 4. Click the primary button — it says where the mission will stop, for example
    **Start — asks before Build and Ready for review**.
 
-The Mission bar appears above the composer and the Mission panel opens on the
-right.
+The Mission bar appears above the composer and the right rail's Task panel
+opens on **Progress**.
 
 ## Interface Walkthrough
 
@@ -49,7 +49,6 @@ right.
 - **Hand off** in the composer controls, or `!shortcut` for a playbook with a
   shortcut.
 - **Start mission…** in the command palette.
-- **Start a mission** in the Mission panel of a task without one.
 - **Playbook** in [Workspace Kickoff](workspace-kickoff.md) and in the
   [Issues](issues.md) kickoff sheet: Stave prepares the workspace and task,
   then opens the Start sheet on it.
@@ -120,11 +119,12 @@ the turns used of the limit and what the mission has spent, such as
 - **Review changes** opens Source Control.
 - **Ask for changes** sends a note and runs the last AI stage again.
 
-### Mission panel
+### Mission in the Task panel
 
-![The Mission panel: goal, state, stage track, acceptance criteria, the stage timeline, and the turns and spend](../screenshots/mission-panel.png)
+![The mission in the Task panel: goal, state, stage track, acceptance criteria, the stage timeline, and the turns and spend](../screenshots/mission-panel.png)
 
-The Mission tab in the right rail:
+The **Progress** tab of the right rail's Task panel, while the task has a
+mission (a task without one shows its flow there):
 
 - The goal, a state badge (**Running**, **Needs you**, **Blocked**,
   **Stuck**, **Paused**, **Completed**), and the stage track.
@@ -182,7 +182,8 @@ A quiet divider marks every turn a mission started, with the reason, such as
 
 ### Mission report
 
-When a mission ends, its report tops the Mission panel and Task Results:
+When a mission ends, its report tops the Task panel's **Progress** and
+**Results** tabs:
 outcome, figures (duration, stages, turns, verified evidence, what it spent), links,
 decisions, what is still open, what was left behind, and how much the mission
 needed you. **Copy Markdown** and **Add to PR description** act on it, and
@@ -232,7 +233,7 @@ agent stopped reporting.
 
 ### Recover a stuck or blocked stage
 
-1. Open the Mission panel; the stage says why it stopped.
+1. Open the Task panel's **Progress** tab; the stage says why it stopped.
 2. Answer the question in the task, or fix what it names.
 3. Click **Retry stage**, or **Skip stage** to move on.
 
@@ -266,7 +267,8 @@ agent stopped reporting.
 - A mission a start condition started on its own runs with its playbook's
   permissions (Auto unless the playbook says otherwise) and allows none of the
   steps that act outside this machine: a stage that publishes, opens a pull
-  request or runs a script waits for your consent in the Mission panel.
+  request or runs a script waits for your consent in the Task panel's
+  **Progress** tab.
 
 ## Troubleshooting
 
