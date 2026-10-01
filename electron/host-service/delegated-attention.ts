@@ -38,16 +38,16 @@ export function publishesInteractionNotifications(
 }
 
 /**
- * Follows each ancestor's own delegation in the run ledger, which stays the
- * source of truth for `parentTaskId`, up to the task no delegation owns. A
+ * The delegation chain above a child, nearest first and the root last. Each
+ * step reads the ancestor's own delegation from the run ledger, which stays the
+ * source of truth for `parentTaskId`, until a task no delegation owns. A
  * detached delegation ends the chain: that child carries on as its own root.
  */
-function resolveRootTaskId(parentTaskId: string) {
+function resolveAncestorTaskIds(parentTaskId: string) {
   const store = ensureHostServicePersistenceReady();
-  const seen = new Set([parentTaskId]);
-  let rootTaskId = parentTaskId;
-  for (let depth = 0; depth < MAX_DELEGATION_DEPTH; depth += 1) {
-    const taskId = rootTaskId;
+  const chain = [parentTaskId];
+  while (chain.length < MAX_DELEGATION_DEPTH) {
+    const taskId = chain[chain.length - 1]!;
     const owner = store
       .listRunAggregatesByOwnedTask({ taskId, limit: DELEGATED_TASK_LIST_LIMIT })
       .map((aggregate) => toDelegatedTaskSummary(aggregate))
@@ -56,13 +56,12 @@ function resolveRootTaskId(parentTaskId: string) {
           summary?.delegatedTaskId === taskId &&
           summary.reason !== DELEGATED_TASK_DETACHED_REASON,
       );
-    if (!owner || seen.has(owner.parentTaskId)) {
+    if (!owner || chain.includes(owner.parentTaskId)) {
       break;
     }
-    rootTaskId = owner.parentTaskId;
-    seen.add(rootTaskId);
+    chain.push(owner.parentTaskId);
   }
-  return rootTaskId;
+  return chain;
 }
 
 /** Same-workspace delegation is the common case, so the child's session is read first. */
@@ -113,11 +112,11 @@ export function describeInteractionAttribution(args: {
   if (!parentTaskId) {
     return { title: null, payload: { ...control, parentTaskId: null } };
   }
-  let rootTaskId = parentTaskId;
+  let ancestorTaskIds = [parentTaskId];
   let root: ReturnType<typeof findRootTask> = null;
   try {
-    rootTaskId = resolveRootTaskId(parentTaskId);
-    root = findRootTask({ ...args, rootTaskId });
+    ancestorTaskIds = resolveAncestorTaskIds(parentTaskId);
+    root = findRootTask({ ...args, rootTaskId: ancestorTaskIds[ancestorTaskIds.length - 1]! });
   } catch (error) {
     // Attribution is best effort; the request itself must still be published.
     console.warn("[stave-mcp] delegated attention root lookup failed", error, {
@@ -130,7 +129,9 @@ export function describeInteractionAttribution(args: {
     payload: {
       ...control,
       parentTaskId,
-      rootTaskId,
+      // Every task above the child, so each of them can answer it.
+      ancestorTaskIds,
+      rootTaskId: ancestorTaskIds[ancestorTaskIds.length - 1]!,
       rootWorkspaceId: root?.workspaceId ?? null,
       rootWorkspaceName: root?.workspaceName ?? null,
       rootTaskTitle: root?.taskTitle ?? null,

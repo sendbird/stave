@@ -1018,7 +1018,8 @@ describe("local MCP runtime runTask", () => {
       for (let attempt = 0; attempt < 40 && persistedNotifications.length < offset + 2; attempt += 1) {
         await Bun.sleep(0);
       }
-      const root = { parentTaskId: "delegation-middle", rootTaskId: "delegation-root", rootWorkspaceId: RECONCILE_WORKSPACE_ID,
+      const root = { parentTaskId: "delegation-middle", ancestorTaskIds: ["delegation-middle", "delegation-root"],
+        rootTaskId: "delegation-root", rootWorkspaceId: RECONCILE_WORKSPACE_ID,
         rootWorkspaceName: "reconcile", rootTaskTitle: "Consult two models", controlMode: "managed", controlOwner: "external" };
       // The child keeps the request identity; only the attribution names the root.
       const child = { repositoryPath: REPOSITORY_PATH, workspaceId: WORKSPACE_ID, taskId: result.taskId, turnId: result.turnId,

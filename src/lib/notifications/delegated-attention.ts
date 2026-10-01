@@ -71,6 +71,22 @@ export function resolveNotificationOpenTarget<
   };
 }
 
+/** True when `taskId` is the root or any task between it and the requesting child. */
+export function isDelegatedAttentionFor(
+  notification: Pick<AppNotification, "kind" | "taskId" | "payload">,
+  taskId: string,
+) {
+  const root = getDelegatedAttentionRoot(notification);
+  if (!root || !taskId) {
+    return false;
+  }
+  const ancestors = notification.payload.ancestorTaskIds;
+  return (
+    root.taskId === taskId ||
+    (Array.isArray(ancestors) && ancestors.includes(taskId))
+  );
+}
+
 export interface DelegatedInteractionRequest {
   notificationId: string;
   /** The child's request, as the identity-checked respond path expects it. */
@@ -81,13 +97,13 @@ export interface DelegatedInteractionRequest {
 }
 
 /**
- * Open requests raised anywhere below `rootTaskId`, oldest first so the one
- * closest to auto-denying is answered first. The root's own requests are not
- * included: its composer already renders them.
+ * Open requests raised by any task `taskId` delegated, directly or further
+ * down, oldest first so the one closest to auto-denying is answered first. The
+ * task's own requests are not included: its composer already renders them.
  */
 export function selectDelegatedInteractionRequests(args: {
   notifications: readonly AppNotification[];
-  rootTaskId: string;
+  taskId: string;
   repositoryPath: string | null;
   now: number;
 }): DelegatedInteractionRequest[] {
@@ -97,7 +113,7 @@ export function selectDelegatedInteractionRequests(args: {
       notification.resolvedAt ||
       (notification.expiresAt && Date.parse(notification.expiresAt) <= args.now) ||
       notification.repositoryPath !== args.repositoryPath ||
-      getDelegatedAttentionRoot(notification)?.taskId !== args.rootTaskId
+      !isDelegatedAttentionFor(notification, args.taskId)
     ) {
       continue;
     }

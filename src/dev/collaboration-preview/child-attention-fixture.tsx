@@ -12,7 +12,7 @@ const child: DelegatedTaskSummary = { runId: "attention-run", stepId: "attention
 const task: Task = { id: child.delegatedTaskId, title: "Implementation", provider: "codex", updatedAt: new Date().toISOString(), unread: false,
   controlMode: "managed", controlOwner: "external", parentTaskId: child.parentTaskId };
 // What the host attributes a child's request to: the root of its delegation chain.
-const root = { parentTaskId: child.parentTaskId, rootTaskId: child.parentTaskId, rootWorkspaceId: "preview-workspace",
+const root = { parentTaskId: child.parentTaskId, ancestorTaskIds: [child.parentTaskId], rootTaskId: child.parentTaskId, rootWorkspaceId: "preview-workspace",
   rootWorkspaceName: "Preview", rootTaskTitle: "Preview", controlMode: "managed", controlOwner: "external" };
 const requests = ["first", "second", "question"];
 function message(request: string): ChatMessage {

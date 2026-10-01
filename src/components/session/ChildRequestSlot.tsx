@@ -72,7 +72,7 @@ export function ChildRequestSlot(props: { taskId: string }) {
     () =>
       selectDelegatedInteractionRequests({
         notifications,
-        rootTaskId: props.taskId,
+        taskId: props.taskId,
         repositoryPath,
         now: Date.now(),
       }),

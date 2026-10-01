@@ -21,7 +21,7 @@ const messages: ChatMessage[] = [
     parts: [{ type: "user_input", requestId: "question-1", toolName: "request_user_input", state: "input-requested",
       questions: [{ question: "Which branch?", header: "Branch", options: [{ label: "Current", description: "Keep it here." }] }] }] },
 ];
-const root = { parentTaskId: "parent", rootTaskId: "parent", rootWorkspaceId: "parent-workspace",
+const root = { parentTaskId: "parent", ancestorTaskIds: ["parent"], rootTaskId: "parent", rootWorkspaceId: "parent-workspace",
   rootWorkspaceName: "Parent", rootTaskTitle: "Consult two models" };
 function notification(overrides: Partial<AppNotification> & Pick<AppNotification, "id" | "kind">): AppNotification {
   return { title: "Consult two models", body: "", repositoryPath: REPOSITORY_PATH, repositoryName: "project",
@@ -72,7 +72,7 @@ describe("child requests in the parent composer", () => {
     const { ChildRequestView, findChildPendingRequest } = await import("@/components/session/ChildRequestSlot");
     const { selectDelegatedInteractionRequests } = await import("@/lib/notifications/delegated-attention");
     const notifications = [questionNotification, approvalNotification];
-    const requests = selectDelegatedInteractionRequests({ notifications, rootTaskId: "parent",
+    const requests = selectDelegatedInteractionRequests({ notifications, taskId: "parent",
       repositoryPath: REPOSITORY_PATH, now: Date.parse(NOW) });
     const current = requests[0]!;
     const pending = findChildPendingRequest({ expected: current.identity, messages, activeTurnId: "child-turn" });
@@ -87,8 +87,8 @@ describe("child requests in the parent composer", () => {
     expect(html).toContain("Approve");
     expect(html).toContain("+1 more");
     // The child itself, or an unrelated task, has nothing to answer on a child's behalf.
-    for (const rootTaskId of ["child", "elsewhere"]) {
-      expect(selectDelegatedInteractionRequests({ notifications, rootTaskId, repositoryPath: REPOSITORY_PATH,
+    for (const taskId of ["child", "elsewhere"]) {
+      expect(selectDelegatedInteractionRequests({ notifications, taskId, repositoryPath: REPOSITORY_PATH,
         now: Date.parse(NOW) })).toEqual([]);
     }
     // A request from another turn renders without controls.
@@ -100,7 +100,7 @@ describe("child requests in the parent composer", () => {
     const { respondToChildInteraction } = await import("@/components/team/respond-child-interaction");
     const { selectDelegatedInteractionRequests } = await import("@/lib/notifications/delegated-attention");
     const select = () => selectDelegatedInteractionRequests({ notifications: useAppStore.getState().notifications,
-      rootTaskId: "parent", repositoryPath: REPOSITORY_PATH, now: Date.parse(NOW) });
+      taskId: "parent", repositoryPath: REPOSITORY_PATH, now: Date.parse(NOW) });
     const request = select()[0]!;
     expect(request.identity).toEqual({ repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child",
       turnId: "child-turn", kind: "approval", requestId: "approval-1", messageId: "approval-message" });

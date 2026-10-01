@@ -8,7 +8,7 @@ import {
 import type { AppNotification } from "@/lib/notifications/notification.types";
 
 const NOW = "2026-10-01T00:00:00.000Z";
-const root = { parentTaskId: "middle", rootTaskId: "root", rootWorkspaceId: "root-workspace",
+const root = { parentTaskId: "middle", ancestorTaskIds: ["middle", "root"], rootTaskId: "root", rootWorkspaceId: "root-workspace",
   rootWorkspaceName: "Root workspace", rootTaskTitle: "Consult two models" };
 
 function childApproval(overrides: Partial<AppNotification> = {}): AppNotification {
@@ -46,12 +46,16 @@ describe("delegated attention", () => {
       childApproval({ id: "answered", resolvedAt: NOW }),
       childApproval({ id: "expired", expiresAt: "2026-09-30T00:00:00.000Z" }),
       childApproval({ id: "other-project", repositoryPath: "/tmp/other" }),
-      childApproval({ id: "other-root", payload: { ...root, rootTaskId: "another-root" } }),
+      childApproval({ id: "other-root", payload: { ...root, ancestorTaskIds: ["another-root"], rootTaskId: "another-root" } }),
       childApproval({ id: "no-turn", turnId: null }),
     ];
-    const requests = selectDelegatedInteractionRequests({ notifications, rootTaskId: "root",
+    const select = (taskId: string) => selectDelegatedInteractionRequests({ notifications, taskId,
       repositoryPath: "/tmp/project", now: Date.parse(NOW) });
+    const requests = select("root");
     expect(requests.map((request) => request.notificationId)).toEqual(["child-approval", "newer"]);
+    // The task between the root and the child sees the same requests; the child does not.
+    expect(select("middle").map((request) => request.notificationId)).toEqual(["child-approval", "newer"]);
+    expect(select("child")).toEqual([]);
     expect(requests[0]).toMatchObject({ childTaskTitle: "Review cache", providerId: "codex", identity: {
       repositoryPath: "/tmp/project", workspaceId: "child-workspace", taskId: "child", turnId: "child-turn",
       kind: "approval", requestId: "approval-1", messageId: "message-1" } });
