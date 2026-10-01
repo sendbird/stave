@@ -9,7 +9,10 @@ import {
 import {
   buildUsageHeadlineWindows,
   headlineUsagePercent,
+  resolveWindowTimeLeftRatio,
+  type StatusBarUsageProvider,
 } from "@/components/layout/status-bar-usage.utils";
+import { QuotaTimeLeftClock } from "@/components/layout/QuotaTimeLeftClock";
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
 import {
@@ -26,7 +29,7 @@ import type {
   ProviderId,
 } from "@/lib/providers/provider.types";
 
-type UsageProvider = "claude" | "codex" | "cursor" | "kiro";
+type UsageProvider = StatusBarUsageProvider;
 
 /** The meter labels its segments by display name; the policy keys on the id. */
 const USAGE_PROVIDER_IDS: Record<UsageProvider, ProviderId> = {
@@ -400,12 +403,27 @@ export function StatusBarUsageSegment({
         {headlineWindows.length === 0 ? (
           <span className={sx(statusBarUsageStyles.triggerMono)}>—</span>
         ) : (
-          headlineWindows.map((window) => (
-            <span key={window.short} className={sx(statusBarUsageStyles.triggerMono)}>
-              {window.short ? `${window.short} ` : ""}
-              {formatPercent(window.usedPercent)}
-            </span>
-          ))
+          headlineWindows.map((window) => {
+            const timeLeftRatio = resolveWindowTimeLeftRatio({
+              resetsAt: window.resetsAt,
+              windowMs: window.windowMs,
+            });
+            return (
+              <span
+                key={window.short}
+                className={sx(
+                  statusBarUsageStyles.triggerMono,
+                  statusBarUsageStyles.triggerWindow,
+                )}
+              >
+                {window.short ? `${window.short} ` : ""}
+                {formatPercent(window.usedPercent)}
+                {timeLeftRatio === null ? null : (
+                  <QuotaTimeLeftClock timeLeftRatio={timeLeftRatio} size={11} />
+                )}
+              </span>
+            );
+          })
         )}
       </PopoverTrigger>
       <PopoverContent

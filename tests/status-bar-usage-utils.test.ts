@@ -31,7 +31,7 @@ describe("status bar usage headline", () => {
         provider: "claude",
         claude: claudeSnapshot(),
       }),
-    ).toEqual([
+    ).toMatchObject([
       { short: "5h", usedPercent: 45 },
       { short: "7d", usedPercent: 72 },
     ]);
@@ -54,7 +54,7 @@ describe("status bar usage headline", () => {
         provider: "claude",
         claude: claudeSnapshot({ session: null }),
       }),
-    ).toEqual([{ short: "7d", usedPercent: 72 }]);
+    ).toMatchObject([{ short: "7d", usedPercent: 72 }]);
     expect(
       buildUsageHeadlineWindows({
         provider: "claude",
@@ -63,7 +63,7 @@ describe("status bar usage headline", () => {
           error: "not signed in",
         }),
       }),
-    ).toEqual([]);
+    ).toMatchObject([]);
   });
 
   test("keeps Codex collapsed to its first bucket", () => {
@@ -82,7 +82,7 @@ describe("status bar usage headline", () => {
       ],
       error: null,
     };
-    expect(buildUsageHeadlineWindows({ provider: "codex", codex })).toEqual([
+    expect(buildUsageHeadlineWindows({ provider: "codex", codex })).toMatchObject([
       { short: "", usedPercent: 31 },
     ]);
   });
@@ -113,10 +113,10 @@ describe("status bar usage headline", () => {
       overagesEnabled: false,
       error: null,
     };
-    expect(buildUsageHeadlineWindows({ provider: "cursor", cursor })).toEqual([
+    expect(buildUsageHeadlineWindows({ provider: "cursor", cursor })).toMatchObject([
       { short: "", usedPercent: 38 },
     ]);
-    expect(buildUsageHeadlineWindows({ provider: "kiro", kiro })).toEqual([
+    expect(buildUsageHeadlineWindows({ provider: "kiro", kiro })).toMatchObject([
       { short: "", usedPercent: 64 },
     ]);
   });
