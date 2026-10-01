@@ -64,4 +64,30 @@ describe("ActivityDetailDialog live child attribution", () => {
       delegatedTaskId: "delegated-task",
     })).toEqual([]);
   });
+
+  // Regression for React error #185: the dialog reads this selector through a
+  // Zustand v5 hook, so an unchanged state must yield the same reference.
+  test("returns a stable reference for every empty fallback", () => {
+    const state = {
+      activeWorkspaceId: "parent-workspace",
+      messagesByTask: {},
+      taskWorkspaceIdById: { "uncached-task": "child-workspace" },
+      workspaceRuntimeCacheById: {},
+    };
+    const cases = [
+      { parentTaskId: "parent-task" },
+      { parentTaskId: "parent-task", delegatedTaskId: "unattributed-task" },
+      {
+        parentTaskId: "parent-task",
+        delegatedTaskId: "active-task",
+        delegatedWorkspaceId: "parent-workspace",
+      },
+      { parentTaskId: "parent-task", delegatedTaskId: "uncached-task" },
+    ];
+    for (const args of cases) {
+      const first = selectActivityMessages({ state, ...args });
+      expect(first).toEqual([]);
+      expect(selectActivityMessages({ state, ...args })).toBe(first);
+    }
+  });
 });
