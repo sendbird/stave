@@ -2,6 +2,8 @@ import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { AgentsTab } from "@/components/agents/AgentsTab";
 import { AgentsView } from "@/components/agents/AgentsView";
+import { AgentAvatar } from "@/components/agents/AgentAvatar";
+import { AGENT_COLORS } from "@/lib/agents/schema";
 import { DeleteAgentDialog } from "@/components/agents/DeleteAgentDialog";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
@@ -23,6 +25,8 @@ import { useAgentsUiStore } from "@/store/agents-ui-store";
  * `&surface=1` renders the whole Agents surface (Agents / Playbooks / My
  * standards) instead of the tab. `&new=1` opens the New agent dialog,
  * `&edit=1` selects the custom agent so its sectioned editor shows, and
+ * `&avatars=1` shows every avatar hue at each size (with and without the
+ * provider mark), next to a round person mark, and
  * `&delete=1` opens the delete dialog with a blocking playbook reference. Use
  * `?stavePreview=kickoff&agent=1` to see the Kickoff dialog with an agent
  * preselected.
@@ -110,6 +114,29 @@ function installBridgeStubs() {
   };
 }
 
+const AVATAR_SIZES = ["xs", "sm", "md", "lg"] as const;
+
+function AvatarSheet() {
+  return (
+    <div className={sx(styles.sheet)} data-testid="avatar-sheet">
+      {AGENT_COLORS.map((color) => (
+        <div key={color} className={sx(styles.sheetRow)}>
+          <span className={sx(styles.sheetLabel)}>{color}</span>
+          {AVATAR_SIZES.map((size) => (
+            <AgentAvatar key={size} agent={{ id: color, name: `${color} agent`, appearance: { color } }} size={size} aria-label={null} />
+          ))}
+          <AgentAvatar agent={{ id: color, name: `${color} agent`, appearance: { color } }} size="md" providerId="claude-code" status="running" aria-label={null} />
+          <AgentAvatar agent={{ id: color, name: `${color} agent`, appearance: { color } }} size="md" providerId="codex" status="needs-you" aria-label={null} />
+        </div>
+      ))}
+      <div className={sx(styles.sheetRow)}>
+        <span className={sx(styles.sheetLabel)}>person</span>
+        <span className={sx(styles.person)}>JK</span>
+      </div>
+    </div>
+  );
+}
+
 export function AgentsPreview() {
   const theme = params.get("theme");
   const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === theme) ?? null;
@@ -168,7 +195,8 @@ export function AgentsPreview() {
   return (
     <main className={sx(styles.page)}>
       <div className={sx(styles.frame)}>
-        {seeded ? (params.get("surface") === "1" ? <AgentsView /> : <AgentsTab />) : null}
+        {seeded && params.get("avatars") === "1" ? <AvatarSheet /> : null}
+        {seeded && params.get("avatars") !== "1" ? (params.get("surface") === "1" ? <AgentsView /> : <AgentsTab />) : null}
         {seeded && showDelete && custom ? (
           <DeleteAgentDialog
             open
@@ -196,4 +224,18 @@ const styles = stylex.create({
     color: vars["--ads-color-text"],
   },
   frame: { flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" },
+  sheet: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"], padding: vars["--ads-space-24"] },
+  sheetRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-16"] },
+  sheetLabel: { width: 64, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
+  person: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 28,
+    height: 28,
+    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--ads-color-surface-tint"],
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-caption"],
+  },
 });
