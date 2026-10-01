@@ -165,9 +165,9 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
     if (insights.summary.ended === 0) return <p className={sx(styles.empty)}>No run ended in the last {period} days.</p>;
     return (
       <>
-        <OutcomeStrip summary={insights.summary} />
+        <OutcomeStrip summary={insights.summary} days={insights.days} />
         <Figures summary={insights.summary} />
-        <Reasons summary={insights.summary} />
+        <Reasons summary={insights.summary} days={insights.days} />
         <AgentTable insights={insights} now={now} onOpen={open} />
       </>
     );

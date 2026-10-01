@@ -1,9 +1,8 @@
-import { Fragment, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronRight, ListChecks, OctagonAlert, Timer, Users } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { StateIcon } from "@/components/ads/components/StateIcon";
 import { type WorkState } from "@/components/ads/components/state-vocabulary";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   RUN_END_REASON_LABELS,
@@ -18,6 +17,7 @@ import {
 import { formatAge } from "@/lib/missions/mission-view";
 import { formatCostUsd } from "@/lib/missions/usage";
 import { formatRunDuration } from "@/lib/missions/agent-run-view";
+import { ResultsCard } from "./ResultsCard";
 import { resultsStyles as styles } from "./results.styles";
 
 /**
@@ -44,83 +44,86 @@ const cost = (value: number | null) => (value === null ? "—" : formatCostUsd(v
 const ago = (iso: string, now: number) => `${formatAge(now - Date.parse(iso))} ago`;
 
 /** Runs ended, split by outcome with the share that came out ready. */
-export function OutcomeStrip({ summary }: { summary: ResultsSummary }) {
+export function OutcomeStrip({ summary, days }: { summary: ResultsSummary; days: number }) {
   return (
-    <section className={sx(styles.strip)} aria-label="Outcomes">
-      <div className={sx(styles.stripHead)}>
-        <p className={sx(styles.stripTotal)}>
-          {summary.ended} {summary.ended === 1 ? "run" : "runs"} ended
-        </p>
-        <ul className={sx(styles.counts)}>
-          {RUN_OUTCOMES.map((outcome) => (
-            <li key={outcome} className={sx(styles.count)}>
-              <StateIcon state={OUTCOME_STATE[outcome]} />
-              {summary[outcome]}
-              <span className={sx(styles.countWord)}>{OUTCOME_LABEL[outcome].toLowerCase()}</span>
-            </li>
-          ))}
-        </ul>
-        <p className={sx(styles.rate)}>
-          {formatReadyRate(summary.readyRate)} <span className={sx(styles.rateWord)}>ready</span>
-        </p>
-      </div>
+    <ResultsCard id="results-outcomes" icon={ListChecks} title="Outcomes" subtitle={`ended runs · ${days} d`} meta={`n = ${summary.ended}`}>
+      <p className={sx(styles.headline)}>
+        <span className={sx(styles.headlineValue)}>
+          {summary.ready} / {summary.ended}
+        </span>
+        <span className={sx(styles.accentLabel)}>ready / ended</span>
+        <span className={sx(styles.headlineRate)}>{formatReadyRate(summary.readyRate)}</span>
+      </p>
       <ul className={sx(styles.bar)} aria-hidden>
         {RUN_OUTCOMES.filter((outcome) => summary[outcome] > 0).map((outcome) => (
           <li key={outcome} className={sx(styles.barSegment, BAR_STYLE[outcome])} style={{ flexGrow: summary[outcome] }} />
         ))}
       </ul>
-    </section>
+      <ul className={sx(styles.legend)}>
+        {RUN_OUTCOMES.map((outcome) => (
+          <li key={outcome} className={sx(styles.legendRow)}>
+            <StateIcon state={OUTCOME_STATE[outcome]} />
+            <span className={sx(styles.legendLabel)}>{OUTCOME_LABEL[outcome]}</span>
+            <span className={sx(styles.legendValue)}>{summary[outcome]}</span>
+          </li>
+        ))}
+      </ul>
+    </ResultsCard>
   );
 }
 
 /** Time and cost per ready result, and how much the runs needed you. */
 export function Figures({ summary }: { summary: ResultsSummary }) {
-  const figures: Array<{ label: string; value: string; note?: string }> = [
-    { label: "Time to ready (median)", value: summary.medianReadyMs === null ? "—" : formatRunDuration(summary.medianReadyMs) },
+  const figures: Array<{ label: string; value: string; unit: string; note?: string }> = [
+    { label: "Time to ready", value: summary.medianReadyMs === null ? "—" : formatRunDuration(summary.medianReadyMs), unit: "median" },
     {
-      label: "Cost per ready result",
+      label: "Cost",
       value: cost(summary.costPerReady),
+      unit: "per ready result",
       note: summary.unreportedCost > 0 ? `${summary.unreportedCost} ${summary.unreportedCost === 1 ? "run" : "runs"} not reported` : undefined,
     },
-    { label: "Corrections per run", value: summary.correctionsPerRun === null ? "—" : String(summary.correctionsPerRun) },
+    { label: "Corrections", value: summary.correctionsPerRun === null ? "—" : String(summary.correctionsPerRun), unit: "per run" },
   ];
   return (
-    <dl className={sx(styles.figures)}>
-      {figures.map((figure) => (
-        <div key={figure.label} className={sx(styles.figure)}>
-          <dt className={sx(styles.figureLabel)}>{figure.label}</dt>
-          <dd className={sx(styles.figureValue)}>
-            {figure.value}
-            {figure.note ? <span className={sx(styles.figureNote)}> · {figure.note}</span> : null}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <ResultsCard id="results-figures" icon={Timer} title="Figures" subtitle="ready results · medians">
+      <dl className={sx(styles.figures)}>
+        {figures.map((figure) => (
+          <div key={figure.label} className={sx(styles.figure)}>
+            <dt className={sx(styles.figureLabel)}>{figure.label}</dt>
+            <dd className={sx(styles.figureValue)}>
+              {figure.value}
+              <span className={sx(styles.accentLabel)}>{figure.unit}</span>
+            </dd>
+            {figure.note ? <dd className={sx(styles.figureNote)}>{figure.note}</dd> : null}
+          </div>
+        ))}
+      </dl>
+    </ResultsCard>
   );
 }
 
 /** Why runs did not finish, most common first. */
-export function Reasons({ summary }: { summary: ResultsSummary }) {
+export function Reasons({ summary, days }: { summary: ResultsSummary; days: number }) {
   if (summary.reasons.length === 0) return null;
   // Each bar is that reason's share of the runs that did not finish, so equal counts do not all read as full.
   const total = summary.reasons.reduce((sum, item) => sum + item.count, 0);
   return (
-    <section className={sx(styles.section)} aria-labelledby="results-reasons">
-      <h2 id="results-reasons" className={sx(styles.sectionTitle)}>
-        Why runs did not finish
-      </h2>
+    <ResultsCard id="results-reasons" icon={OctagonAlert} title="Why runs did not finish" subtitle={`unfinished runs · ${days} d`} meta={`n = ${total}`}>
       <ul className={sx(styles.reasons)}>
         {summary.reasons.map(({ reason, count }) => (
           <li key={reason} className={sx(styles.reason)}>
-            <span>{RUN_END_REASON_LABELS[reason]}</span>
-            <span className={sx(styles.reasonCount)}>{count}</span>
-            <span className={sx(styles.reasonTrack)} aria-hidden>
-              <span className={sx(styles.reasonFill)} style={{ display: "block", inlineSize: `${(count / total) * 100}%` }} />
+            <span className={sx(styles.legendRow)}>
+              <span className={sx(styles.swatch)} aria-hidden />
+              <span className={sx(styles.legendLabel)}>{RUN_END_REASON_LABELS[reason]}</span>
+              <span className={sx(styles.legendValue)}>{count}</span>
+            </span>
+            <span className={sx(styles.track)} aria-hidden>
+              <span className={sx(styles.fill)} style={{ inlineSize: `${(count / total) * 100}%` }} />
             </span>
           </li>
         ))}
       </ul>
-    </section>
+    </ResultsCard>
   );
 }
 
@@ -163,70 +166,60 @@ function AgentRow({
   const [open, setOpen] = useState(false);
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
-    <Fragment>
-      <tr>
-        <td className={sx(styles.td, styles.tdName)}>
-          <Button layout="host" variant="quiet" xstyle={styles.rowButton} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-            <Chevron aria-hidden className={sx(styles.chevron)} />
-            <span className={sx(styles.rowName)} title={row.name}>
-              {row.name}
-            </span>
-            {row.kind === "playbook" ? <span className={sx(styles.rowKind)}>playbook</span> : null}
-          </Button>
-        </td>
-        <td className={sx(styles.td)}>{formatReadyRate(row.readyRate)}</td>
-        <td className={sx(styles.td)}>{cost(row.medianCostUsd)}</td>
-        <td className={sx(styles.td)}>{row.correctionsPerRun}</td>
-        <td className={sx(styles.td)}>
-          <span className={sx(styles.cells)} role="img" aria-label={describeLast(row.last)}>
-            {row.last.map((outcome, index) => (
-              <StateIcon key={index} state={OUTCOME_STATE[outcome]} size="xs" />
-            ))}
-          </span>
-        </td>
-      </tr>
+    <li className={sx(styles.agent)}>
+      <Button layout="host" variant="quiet" xstyle={styles.rowButton} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+        <Chevron aria-hidden className={sx(styles.chevron)} />
+        <span className={sx(styles.rowName)} title={row.name}>
+          {row.name}
+        </span>
+        {row.kind === "playbook" ? <span className={sx(styles.rowKind)}>playbook</span> : null}
+        <span className={sx(styles.rowValue)}>{formatReadyRate(row.readyRate)}</span>
+      </Button>
+      <div className={sx(styles.agentBody)}>
+        <span className={sx(styles.track)} aria-hidden>
+          <span className={sx(styles.fill, styles.fillReady)} style={{ inlineSize: `${row.readyRate * 100}%` }} />
+        </span>
+        <dl className={sx(styles.facts)}>
+          <div className={sx(styles.fact)}>
+            <dt className={sx(styles.factLabel)}>Median cost</dt>
+            <dd className={sx(styles.factValue)}>{cost(row.medianCostUsd)}</dd>
+          </div>
+          <div className={sx(styles.fact)}>
+            <dt className={sx(styles.factLabel)}>Corrections</dt>
+            <dd className={sx(styles.factValue)}>{row.correctionsPerRun}</dd>
+          </div>
+          <div className={sx(styles.fact)}>
+            <dt className={sx(styles.factLabel)}>Last 10</dt>
+            <dd className={sx(styles.factValue)}>
+              <span className={sx(styles.cells)} role="img" aria-label={describeLast(row.last)}>
+                {row.last.map((outcome, index) => (
+                  <StateIcon key={index} state={OUTCOME_STATE[outcome]} size="xs" />
+                ))}
+              </span>
+            </dd>
+          </div>
+        </dl>
+      </div>
       {open ? (
-        <tr>
-          <td colSpan={5} className={sx(styles.runsCell)}>
-            <ul className={sx(styles.runs)} aria-label={`${row.name} runs`}>
-              {runs.slice(0, 10).map((run) => (
-                <RunRow key={run.missionId} run={run} now={now} onOpen={onOpen} />
-              ))}
-            </ul>
-          </td>
-        </tr>
+        <ul className={sx(styles.runs)} aria-label={`${row.name} runs`}>
+          {runs.slice(0, 10).map((run) => (
+            <RunRow key={run.missionId} run={run} now={now} onOpen={onOpen} />
+          ))}
+        </ul>
       ) : null}
-    </Fragment>
+    </li>
   );
 }
 
 /** One row per agent or playbook; a row opens its recent runs, and a run opens its report. */
 export function AgentTable({ insights, now, onOpen }: { insights: MissionInsights; now: number; onOpen: (run: ResultRun) => void }) {
   return (
-    <section className={sx(styles.section)} aria-labelledby="results-agents">
-      <h2 id="results-agents" className={sx(styles.sectionTitle)}>
-        Agents
-      </h2>
-      <div className={sx(styles.tableFrame)}>
-        <table className={sx(styles.table)}>
-          <thead>
-            <tr>
-              <th scope="col" className={sx(styles.th, styles.thName)}>
-                <VisuallyHidden>Agent or playbook</VisuallyHidden>
-              </th>
-              <th scope="col" className={sx(styles.th)}>Ready</th>
-              <th scope="col" className={sx(styles.th)}>Median cost</th>
-              <th scope="col" className={sx(styles.th)}>Corrections</th>
-              <th scope="col" className={sx(styles.th)}>Last 10</th>
-            </tr>
-          </thead>
-          <tbody>
-            {insights.agents.map((row) => (
-              <AgentRow key={row.key} row={row} runs={insights.runs.filter((run) => `${run.kind}:${run.name}` === row.key)} now={now} onOpen={onOpen} />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <ResultsCard id="results-agents" icon={Users} title="Agents" subtitle={`ready rate · last 10 · ${insights.days} d`} meta={`n = ${insights.summary.ended}`}>
+      <ul className={sx(styles.agents)}>
+        {insights.agents.map((row) => (
+          <AgentRow key={row.key} row={row} runs={insights.runs.filter((run) => `${run.kind}:${run.name}` === row.key)} now={now} onOpen={onOpen} />
+        ))}
+      </ul>
+    </ResultsCard>
   );
 }

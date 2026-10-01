@@ -33,10 +33,12 @@ const insights = aggregateMissionInsights(
 
 describe("results page", () => {
   test("the strip shows each outcome with its shape and the ready share", () => {
-    const html = renderToStaticMarkup(createElement(OutcomeStrip, { summary: insights.summary }));
-    expect(html).toContain("4 runs ended");
-    expect(html).toContain("2");
-    for (const word of ["ready", "rework", "failed", "stopped"]) expect(html).toContain(word);
+    const html = renderToStaticMarkup(createElement(OutcomeStrip, { summary: insights.summary, days: 30 }));
+    expect(html).toContain("2 / 4");
+    expect(html).toContain("ready / ended");
+    expect(html).toContain("n = 4");
+    expect(html).toContain("ended runs · 30 d");
+    for (const word of ["Ready", "Rework", "Failed", "Stopped"]) expect(html).toContain(word);
     expect(html).toContain("50%");
     // Shapes carry the meaning, not only color.
     expect(html).toContain("lucide-circle-check");
@@ -46,16 +48,16 @@ describe("results page", () => {
 
   test("time and cost per ready result say how many runs reported no cost, and omit activity counts", () => {
     const html = renderToStaticMarkup(createElement(Figures, { summary: insights.summary }));
-    expect(html).toContain("Time to ready (median)");
-    expect(html).toContain("Cost per ready result");
+    expect(html).toContain("Time to ready");
+    expect(html).toContain("per ready result");
     expect(html).toContain("1 run not reported");
-    expect(html).toContain("Corrections per run");
+    expect(html).toContain("Corrections");
     for (const omitted of ["lines", "messages", "streak", "tokens"]) expect(html.toLowerCase()).not.toContain(omitted);
   });
 
   test("reasons are listed with counts and the section disappears without any", () => {
-    expect(renderToStaticMarkup(createElement(Reasons, { summary: insights.summary }))).toContain("Turn cap reached");
-    expect(renderToStaticMarkup(createElement(Reasons, { summary: aggregateMissionInsights([sample("a")], 7).summary }))).toBe("");
+    expect(renderToStaticMarkup(createElement(Reasons, { summary: insights.summary, days: 30 }))).toContain("Turn cap reached");
+    expect(renderToStaticMarkup(createElement(Reasons, { summary: aggregateMissionInsights([sample("a")], 7).summary, days: 7 }))).toBe("");
   });
 
   test("each agent gets a row with ready rate, median cost, corrections and a described last-10", () => {
