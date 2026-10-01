@@ -124,7 +124,13 @@ export const RunStepTargetSchema = z
     taskId: RunIdSchema,
     workspaceId: RunIdSchema,
     turnId: RunIdSchema.nullable(),
+    turnExecutionId: RunIdSchema.optional(),
     providerId: z.enum(["claude-code", "codex"]),
+    writerLease: z.object({
+      workspacePath: z.string().min(1).max(4_000),
+      leaseId: RunIdSchema,
+      state: z.enum(["held", "released"]),
+    }).strict().optional(),
   })
   .strict();
 export type RunStepTarget = z.infer<typeof RunStepTargetSchema>;
@@ -454,7 +460,9 @@ export function refineRunStepTarget(args: {
   }
   const next: RunStepTarget = {
     ...target,
-    turnId: target.turnId ?? step.target?.turnId ?? null,
+    turnId: target.turnExecutionId !== step.target?.turnExecutionId
+      ? target.turnId
+      : target.turnId ?? step.target?.turnId ?? null,
   };
   if (step.target && sameRunStepTarget(step.target, next)) {
     return { changed: false, step };
@@ -470,7 +478,9 @@ function sameRunStepTarget(left: RunStepTarget, right: RunStepTarget) {
     left.taskId === right.taskId &&
     left.workspaceId === right.workspaceId &&
     left.turnId === right.turnId &&
-    left.providerId === right.providerId
+    left.turnExecutionId === right.turnExecutionId &&
+    left.providerId === right.providerId &&
+    JSON.stringify(left.writerLease) === JSON.stringify(right.writerLease)
   );
 }
 

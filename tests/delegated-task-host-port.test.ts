@@ -165,6 +165,8 @@ function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
     cancelRunStep: (args) => store.cancelStep(args),
     interruptRunStep: (args) => store.interruptStep(args),
     setRunStepTarget: (args) => store.setStepTarget(args),
+    listHeldWriterRunAggregates: () => store.listHeldWriterAggregates(),
+    acquireRunWriterLease: (args) => store.acquireWriterLease(args),
     listRunReceipts: (args) => store.listReceipts(args),
     listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
     listActiveRunAggregatesByStepKind: (args) =>
@@ -187,6 +189,7 @@ function createHarness() {
       pollIntervalMs: 20,
     }),
     concurrencyLimit: 3,
+    canonicalWorkspacePath: async (workspacePath) => workspacePath,
     now: () => new Date(Date.UTC(2026, 7, 10, 0, 0, clock++)).toISOString(),
     createExecutionId: () => `execution-${clock}`,
   });
@@ -361,6 +364,7 @@ describe("delegated task host port", () => {
         pollIntervalMs: 5,
       }),
       concurrencyLimit: 3,
+      canonicalWorkspacePath: async (workspacePath) => workspacePath,
       createExecutionId: () => "execution-poll",
     });
     await coordinator.delegate(delegateArgs({ delegationKey: "poll-only" }));
@@ -449,6 +453,7 @@ test("live child cancellation and unknown completion preserve ledger outcomes", 
       getLedger: () => createLedgerPort(harness.store),
       host,
       concurrencyLimit: 3,
+      canonicalWorkspacePath: async (workspacePath) => workspacePath,
       createExecutionId: () => `execution-${outcome}`,
     });
     await coordinator.delegate(delegateArgs());

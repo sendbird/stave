@@ -276,6 +276,7 @@ export const DelegatedTaskRejectionReasonSchema = z.enum([
   "stale-identity",
   "step-conflict",
   "workspace-unavailable",
+  "workspace-writer-busy",
 ]);
 export type DelegatedTaskRejectionReason = z.infer<
   typeof DelegatedTaskRejectionReasonSchema
@@ -545,6 +546,8 @@ const DELEGATED_TASK_REJECTION_MESSAGES: Record<DelegatedTaskRejectionReason, st
       "The delegation changed while this action was being applied.",
     "workspace-unavailable":
       "The child's workspace could not be reached. Try again once it is available.",
+    "workspace-writer-busy":
+      "Another managed child is writing in this workspace. Wait for it to finish or choose a new worktree.",
   };
 
 export function describeDelegatedTaskRejection(reason: DelegatedTaskRejectionReason) {
