@@ -20,7 +20,6 @@ import {
 import {
   describeToolOperationLabel,
   isTodoToolName,
-  TOOL_DELEGATION_LABEL,
 } from "@/lib/providers/tool-activity";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import {

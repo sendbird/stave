@@ -4,10 +4,7 @@ import {
   formatHookSourcePreview,
   normalizeHookEventToken,
 } from "@/lib/providers/hook-activity";
-import {
-  describeAgentIdentity,
-  formatExchangeDuration,
-} from "@/lib/delegation/format";
+import { formatExchangeDuration } from "@/lib/delegation/format";
 import { truncateWorkText } from "@/lib/providers/subagent-identity";
 import { resolveToolProviderDetail } from "@/lib/providers/tool-activity";
 import type {

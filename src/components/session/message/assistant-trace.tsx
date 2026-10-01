@@ -43,9 +43,6 @@ import {
 import { sx } from "@/components/ads/utils/stylex";
 import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import { isStaveToolName } from "@/lib/tool-display-name";
-import { describeAgentIdentity } from "@/lib/delegation/format";
-import { useScopedTaskId } from "@/components/session/task-scope-context";
-import { useAppStore } from "@/store/app.store";
 import {
   isProviderFailureRecoveryEligible,
   parseProviderErrorNotice,

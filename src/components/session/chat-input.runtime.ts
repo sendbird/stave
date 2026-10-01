@@ -1,7 +1,7 @@
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import type { PromptInputGoalStatus } from "@/components/ai-elements/prompt-input-goal-status";
 import { resolveEffectiveCodexFileAccessMode } from "@/lib/providers/codex-runtime-options";
-import { getProviderDescriptor, listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
+import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import type {
   ProviderGoalSnapshot,
   ProviderId,

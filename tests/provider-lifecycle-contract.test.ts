@@ -314,3 +314,14 @@ test("a task turn names itself to Local MCP only while it runs", async () => {
   expect(resolveCallerGrant(callerKey!)).toBeNull();
   await turn.done;
 });
+
+test("in-turn subagents come only from the task's agent; a supplied list is dropped", async () => {
+  adapterState.scenario = "duplicate-terminal";
+  await runStream({
+    providerId: "claude-code",
+    runtimeOptions: { nativeSubagents: [{ name: "x", label: "X", description: "d", instructions: "i" }] },
+  }).done;
+  const options = (adapterState.lastArgs as { runtimeOptions?: Record<string, unknown> } | undefined)?.runtimeOptions;
+  expect(options).toBeDefined();
+  expect(options).not.toHaveProperty("nativeSubagents");
+});
