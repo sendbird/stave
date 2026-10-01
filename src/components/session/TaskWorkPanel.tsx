@@ -69,7 +69,7 @@ export function TaskWorkPanel({ kind }: { kind: TaskWorkPanelKind }) {
       <p className={sx(styles.empty)}>Open a task to see its {kindLabel}.</p>
     );
   }
-  const teamAvailable = Boolean(repositoryPath) && !isTaskManaged(task);
+  const teamAvailable = Boolean(repositoryPath);
   return (
     <div className={sx(styles.panel)}>
       <TaskWorkPanelHeader title={task.title} />
@@ -97,6 +97,7 @@ export function TaskWorkPanel({ kind }: { kind: TaskWorkPanelKind }) {
           <Team
             key={`${workspaceId}:${taskId}`}
             target={{ workspaceId, taskId, repositoryPath: repositoryPath! }}
+            readOnly={isTaskManaged(task)}
           />
         ) : (
           <p className={sx(styles.notice)}>

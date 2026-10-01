@@ -31,6 +31,7 @@ import {
 } from "@/components/session/DelegatedTaskRows";
 import { DelegationsBlock } from "@/components/delegation/DelegationsBlock";
 import { isRoutedDecision, RouteTrace } from "@/components/auto-routing";
+import { isDelegatedTaskInTurn } from "@/lib/work-graph/delegated-task-scope";
 import type { AutoRoutingDecisionRecord } from "@/store/auto-routing";
 import {
   selectDelegationExchanges,
@@ -1150,7 +1151,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         advisorSnapshot: props.advisorExchange ?? null,
         activeTurnId: props.activeTurnId,
         workerWorkItems: props.workItems,
-        delegatedTasks: childController.children,
+        delegatedTasks: childController.children.filter((child) => isDelegatedTaskInTurn(child, props.workGraph)),
         childBlockedByDelegationKey: childController.blockedByDelegationKey,
         advisorOptions: {
           canCancel: advisorCanCancel,
@@ -1170,6 +1171,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       props.advisorExchange,
       props.hasAdvisorConsultLog,
       props.workItems,
+      props.workGraph,
       turnConsults,
     ],
   );
@@ -1546,15 +1548,13 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 repositoryPath={props.repositoryPath}
                 className={sx(styles.childBlockLead)}
               />
-              {/* Who runs this turn and why, before what they are doing. The
-                  docked shelf is short, so it opens folded to the one-line
-                  answer; the taller hosts show the chain. */}
+              {/* The model decision opens on demand so current activity stays visible. */}
               {props.autoRouting ? (
                 <RouteTrace
                   record={props.autoRouting}
                   budgetStepDownAt={props.autoRoutingBudgetStepDownAt}
                   providerAvailability={props.providerAvailability}
-                  defaultCollapsed={variant === "docked"}
+                  defaultCollapsed
                   className={sx(styles.childBlock)}
                   data-testid="turn-activity-route"
                 />
@@ -1622,14 +1622,15 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
           </div>
         ) : null}
         {isListOpen && variant === "panel" && props.executionSummary ? (
-          <TaskExecutionSummarySurface
-            compact
-            layout="panel"
-            summary={props.executionSummary}
-            showLatestActivity={false}
-            omitKeys={["elapsed", "agents"]}
-            xstyle={styles.summaryPinned}
-          />
+          <div className={sx(styles.summaryPinned)}>
+            <TaskExecutionSummarySurface compact layout="panel" summary={props.executionSummary}
+              showLatestActivity={false} omitKeys={["elapsed", "agents", "usage", "account-limit", "headroom"]} />
+            <details data-testid="turn-activity-metrics">
+              <summary className={sx(styles.metricsToggle)}>Usage and limits</summary>
+              <TaskExecutionSummarySurface compact layout="panel" summary={props.executionSummary}
+                showLatestActivity={false} omitKeys={["elapsed", "agents", "changes", "verification"]} />
+            </details>
+          </div>
         ) : null}
       </section>
       {detailSelection && props.taskId ? <ActivityDetailDialog

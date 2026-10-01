@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui/button";
 import { formatAdvisorSpend } from "@/components/session/advisor-consult-log.utils";
@@ -46,6 +46,8 @@ const RESULT_LABEL: Record<DelegationExchange["kind"], string> = {
 export interface ExchangeDetailProps {
   exchange: DelegationExchange;
   nowMs: number;
+  /** Finished execution views lead with the return and fold execution metadata. */
+  resultFirst?: boolean;
   onAction?: (action: DelegationActionId, exchange: DelegationExchange) => void;
   /** Extra sections rendered after Spend and before Actions. */
   children?: ReactNode;
@@ -70,8 +72,8 @@ function Section(props: { label: string; children: ReactNode; testId?: string })
 }
 
 /**
- * One detail body for every exchange, in one fixed order: Identity → Ask →
- * Outcome → Timeline → Setup → Spend → Actions. The advisor card, the consult
+ * One detail body for every exchange. Finished inspectors lead with the return
+ * and keep assignment, timeline, setup and spend under execution details. The advisor card, the consult
  * log and the Delegations panel all render this, so a fact shown in one is
  * shown — in the same place — in the others.
  */
@@ -171,88 +173,22 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
       spend.outputTokens !== undefined ||
       spend.totalCostUsd !== undefined);
 
-  return (
-    <div
-      className={sx(styles.detail)}
-      data-testid={props["data-testid"] ?? "exchange-detail"}
-      data-exchange-kind={exchange.kind}
-    >
-      <div className={sx(styles.section)}>
-        <div className={sx(styles.sectionRow)}>
-          <AgentIdentity
-            role={exchange.identity.role}
-            providerId={exchange.identity.providerId}
-            model={exchange.identity.model}
-            effort={exchange.identity.effort}
-            source={exchange.identity.source}
-            showSource
-          />
-          {primary ? (
-            <span className={sx(styles.meta)}>
-              asked by{" "}
-              {describeAgentIdentity({
-                providerId: primary.providerId,
-                model: primary.model,
-              }).text}
-            </span>
-          ) : null}
-        </div>
-      </div>
+  const progress = (
+    <Fragment>
+      {exchange.outcome.progress && exchange.outcome.progress.length > 0 ? (
+        <ul className={sx(styles.progressList)}>
+          {exchange.outcome.progress.map((line, index) => (
+            <li key={`${index}:${line}`} className={sx(styles.meta)}>
+              {line}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </Fragment>
+  );
 
-      <Section label={ASK_LABEL[exchange.kind]}>
-        <p className={sx(styles.prose)}>{exchange.ask}</p>
-      </Section>
-
-      <div className={sx(styles.section)}>
-        <div className={sx(styles.sectionRow)}>
-          <p className={sx(styles.label)}>Outcome</p>
-          <ExchangeStatusBadge
-            status={exchange.outcome.status}
-            data-testid="exchange-detail-status"
-            suffix={elapsedMs !== null ? formatExchangeDuration(elapsedMs) : undefined}
-          />
-          {deadline ? (
-            <span
-              className={sx(
-                styles.meta,
-                deadline.passed && styles.rowDeadlinePassed,
-              )}
-            >
-              {deadline.passed
-                ? "Deadline passed · waiting on runtime"
-                : deadline.label}
-            </span>
-          ) : null}
-        </div>
-        {props.statusNote ? (
-          <p className={sx(styles.meta)}>{props.statusNote}</p>
-        ) : null}
-        {errorText ? (
-          <p className={sx(styles.prose, styles.proseDanger)}>{errorText}</p>
-        ) : null}
-        {resultText ? (
-          <>
-            <p className={sx(styles.label)}>{RESULT_LABEL[exchange.kind]}</p>
-            <p className={sx(styles.prose)}>{resultText}</p>
-          </>
-        ) : null}
-        {exchange.outcome.progress && exchange.outcome.progress.length > 0 ? (
-          <ul className={sx(styles.progressList)}>
-            {exchange.outcome.progress.map((line, index) => (
-              <li key={`${index}:${line}`} className={sx(styles.meta)}>
-                {line}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {exchange.outcome.checks && exchange.outcome.checks.length > 0 ? (
-          <>
-            <p className={sx(styles.label)}>Did the advisor system work?</p>
-            <CheckList checks={exchange.outcome.checks} />
-          </>
-        ) : null}
-      </div>
-
+  const diagnostics = (
+    <Fragment>
       {exchange.timing.startedAt !== null ? (
         <Section label="Timeline">
           {exchange.timing.stages.length > 0 ? (
@@ -295,6 +231,89 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
           ) : null}
         </Section>
       ) : null}
+    </Fragment>
+  );
+
+  return (
+    <div
+      className={sx(styles.detail)}
+      data-testid={props["data-testid"] ?? "exchange-detail"}
+      data-exchange-kind={exchange.kind}
+    >
+      <div className={sx(styles.section)}>
+        <div className={sx(styles.sectionRow)}>
+          <AgentIdentity
+            role={exchange.identity.role}
+            providerId={exchange.identity.providerId}
+            model={exchange.identity.model}
+            effort={exchange.identity.effort}
+            source={exchange.identity.source}
+            showSource
+          />
+          {primary ? (
+            <span className={sx(styles.meta)}>
+              asked by{" "}
+              {describeAgentIdentity({
+                providerId: primary.providerId,
+                model: primary.model,
+              }).text}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      {!props.resultFirst || live ? <Section label={ASK_LABEL[exchange.kind]}>
+        <p className={sx(styles.prose)}>{exchange.ask}</p>
+      </Section> : null}
+
+      <div className={sx(styles.section)}>
+        <div className={sx(styles.sectionRow)}>
+          <p className={sx(styles.label)}>Outcome</p>
+          <ExchangeStatusBadge
+            status={exchange.outcome.status}
+            data-testid="exchange-detail-status"
+            suffix={elapsedMs !== null ? formatExchangeDuration(elapsedMs) : undefined}
+          />
+          {deadline ? (
+            <span
+              className={sx(
+                styles.meta,
+                deadline.passed && styles.rowDeadlinePassed,
+              )}
+            >
+              {deadline.passed
+                ? "Deadline passed · waiting on runtime"
+                : deadline.label}
+            </span>
+          ) : null}
+        </div>
+        {props.statusNote ? (
+          <p className={sx(styles.meta)}>{props.statusNote}</p>
+        ) : null}
+        {errorText ? (
+          <p className={sx(styles.prose, styles.proseDanger)}>{errorText}</p>
+        ) : null}
+        {resultText ? (
+          <>
+            <p className={sx(styles.label)}>{RESULT_LABEL[exchange.kind]}</p>
+            <p className={sx(styles.prose)}>{resultText}</p>
+          </>
+        ) : null}
+        {!props.resultFirst || live ? progress : null}
+        {exchange.outcome.checks && exchange.outcome.checks.length > 0 ? (
+          <>
+            <p className={sx(styles.label)}>Did the advisor system work?</p>
+            <CheckList checks={exchange.outcome.checks} />
+          </>
+        ) : null}
+      </div>
+
+      {props.resultFirst && !live ? <details>
+        <summary className={sx(styles.diagnosticToggle)}>Assignment and execution details</summary>
+        <Section label={ASK_LABEL[exchange.kind]}><p className={sx(styles.prose)}>{exchange.ask}</p></Section>
+        {progress}
+        {diagnostics}
+      </details> : diagnostics}
 
       {props.children}
 
