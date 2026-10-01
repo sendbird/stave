@@ -4,7 +4,7 @@ import {
   DEFAULT_KICKOFF_SOURCE_CONFIGS,
 } from "@/lib/workspace-kickoff";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui";
+import { Button, Toaster } from "@/components/ui";
 import { KickoffDialog } from "@/components/layout/KickoffDialog";
 import { duplicateAgent } from "@/lib/agents/library";
 import { getBuiltinAgent } from "@/lib/agents/starters";
@@ -15,7 +15,8 @@ import { useAppStore } from "@/store/app.store";
 // `?stavePreview=kickoff` renders the real dialog with local fixture state and
 // no worktree or provider writes. `&agent=1` preselects a saved agent as the
 // worker (Who = Agent) in both phases, for screenshots, with the agents bridge
-// stubbed so no IPC is made.
+// stubbed so no IPC is made. `&auto=1` turns Stave Auto on, so the first task
+// offers Auto and an Auto-routing agent routes each turn.
 const params = new URLSearchParams(window.location.search);
 const PREVIEW_AGENT = {
   ...duplicateAgent(getBuiltinAgent("implementer")!, []),
@@ -76,11 +77,13 @@ useAppStore.setState({
 if (withAgent) {
   useAppStore.getState().updateSettings({ patch: { customAgents: [PREVIEW_AGENT] } });
 }
+if (params.get("auto") === "1") {
+  useAppStore.getState().updateSettings({ patch: { autoRoutingEnabled: true } });
+}
 
 function installBridgeStub() {
   const api = ((window as { api?: Record<string, unknown> }).api ??= {});
   api.agents = {
-    assign: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
     recordTask: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
     releaseTask: async () => ({ ok: true, value: null }),
     listAssignments: async () => ({ ok: true, value: [] }),
@@ -124,6 +127,7 @@ export function KickoffPreview() {
         Dark
       </Button>
       <KickoffDialog open={open} onOpenChange={setOpen} />
+      <Toaster />
     </>
   );
 }

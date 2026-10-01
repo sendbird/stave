@@ -26,6 +26,19 @@ immediately. When it is off, the prompt remains ready in the new task composer.
 The selected model, effort, and Codex Fast mode stay attached to that task in
 either case. The Fast dropdown appears only when the first task uses Codex.
 
+While Stave Auto is turned on in Settings, the model control also offers
+**Auto**, and starts on it. The task then stays on Auto: Stave picks the model
+and effort for the first turn and every later one, so the effort and Fast
+controls are hidden. Pick a model to pin one instead.
+
+**Who** can hand the first task to a saved [agent](agents.md) instead. With an
+agent, **Start now** on the first screen starts the work right away through the
+same start as **Create and start**, from the source as Skip AI reads it. An
+agent that works in the current workspace gets a new task there instead of a
+worktree. An agent whose model is Auto-routing follows Stave Auto the same way
+when it is on; see the agents page for where an agent's task runs and which
+permissions apply.
+
 To hand the first task to a [mission](missions.md) instead, pick a
 **Playbook** for it (Claude and Codex tasks). Stave creates the workspace and
 the task, then opens **Start a mission** on it with the prompt as the

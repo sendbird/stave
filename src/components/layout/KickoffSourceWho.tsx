@@ -10,29 +10,32 @@ import {
 import { sx } from "@/components/ads/utils/stylex";
 import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import type { AgentConfig } from "@/lib/agents/schema";
-import type { ProviderId } from "@/lib/providers/provider.types";
-import { useAssignAgent } from "@/components/agents/useAssignAgent";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
-import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 
 const ME = "me";
 
+/** Start now on the source screen; the dialog owns the start itself. */
+export interface KickoffStartNowProps {
+  canStart: boolean;
+  busy: boolean;
+  /** Where and how it runs, or why it cannot start yet. */
+  hint: string | null;
+  onStart: () => void;
+}
+
 /**
  * "Who" on the source phase: run the work yourself, or hand it to a saved
- * agent. With an agent, a quick "Start now" runs `agents.assign` directly from
- * the source text and offers to open the task it made, next to the deliberate
+ * agent. With an agent, "Start now" starts the work right away through the
+ * same start as the review screen's Create, next to the deliberate
  * "Resolve source" / "Skip AI" prepare step.
  */
 export function KickoffSourceWho(props: {
-  /** Same routing inputs as the Review phase, so both show one route. */
-  preferredProviderId: ProviderId;
-  choice: "auto" | ProviderId;
   agents: readonly AgentConfig[];
   who: "me" | "agent";
   agentId: string | null;
   onWhoChange: (who: "me" | "agent") => void;
   onAgentChange: (agentId: string) => void;
-  sourceText: string;
+  startNow: KickoffStartNowProps;
   disabled?: boolean;
 }) {
   const agent = props.agents.find((candidate) => candidate.id === props.agentId) ?? null;
@@ -67,55 +70,27 @@ export function KickoffSourceWho(props: {
         </SelectContent>
       </Select>
       {props.who === "agent" && agent ? (
-        <KickoffStartNow
-          agent={agent}
-          sourceText={props.sourceText}
-          preferredProviderId={props.preferredProviderId}
-          choice={props.choice}
-        />
+        <div className={sx(kickoffStyles.startNow)}>
+          <div className={sx(kickoffStyles.startNowRow)}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!props.startNow.canStart}
+              onClick={props.startNow.onStart}
+            >
+              <Rocket className={sx(kickoffStyles.buttonIcon)} />
+              {props.startNow.busy ? "Starting…" : "Start now"}
+            </Button>
+          </div>
+          {props.startNow.hint ? (
+            <p className={sx(kickoffStyles.hint)}>{props.startNow.hint}</p>
+          ) : null}
+        </div>
       ) : (
         <p className={sx(kickoffStyles.hint)}>
           Prepare the workspace and its first task, or pick an agent to start work now.
         </p>
       )}
-    </div>
-  );
-}
-
-function KickoffStartNow(props: {
-  agent: AgentConfig;
-  sourceText: string;
-  preferredProviderId: ProviderId;
-  choice: "auto" | ProviderId;
-}) {
-  const assign = useAssignAgent(props.agent, {
-    preferredProviderId: props.preferredProviderId,
-    choice: props.choice,
-  });
-  const canStart = !assign.blocked && !assign.busy && props.sourceText.trim().length > 0;
-  return (
-    <div className={sx(kickoffStyles.startNow)}>
-      <div className={sx(kickoffStyles.startNowRow)}>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!canStart}
-          onClick={() => void assign.submit(props.sourceText)}
-        >
-          <Rocket className={sx(kickoffStyles.buttonIcon)} />
-          {assign.busy ? "Starting…" : "Start now"}
-        </Button>
-        {assign.started?.taskId ? (
-          <Button type="button" variant="ghost" onClick={() => void assign.openTask()}>
-            Open task
-          </Button>
-        ) : null}
-      </div>
-      <p className={sx(kickoffStyles.hint)}>
-        {assign.message ??
-          assign.blocked ??
-          `${PROVIDER_LABELS[assign.route.providerId] ?? assign.route.providerId} · ${assign.route.model ?? "default model"} — starts a task now without the workspace preview.`}
-      </p>
     </div>
   );
 }

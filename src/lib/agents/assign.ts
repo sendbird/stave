@@ -3,15 +3,15 @@ import { MY_STANDARDS_MAX_CHARS } from "./standards";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { AgentConfigSchema, type AgentConfig } from "./schema";
-import { hashAgentContent, type AgentReceivedInstruction, type AgentSupportEntry } from "./compile";
+import type { AgentReceivedInstruction, AgentSupportEntry } from "./compile";
 
 /**
  * Assign: hand one piece of work to an Agent as its main agent.
  *
- * An assignment is the durable record of that hand-off: which request, which
- * agent version, and the workspace and task intake made for it. It owns the
- * start only. Once the task's first turn (or mission) has started, the task,
- * the mission and Fleet own what happens next; the assignment keeps the links.
+ * An assignment is the durable record of that hand-off: which agent version a
+ * task runs as, with which standards. Kickoff (or a mission, or the agentic
+ * composer) creates the task and its first turn the ordinary way; the
+ * assignment only records who the task runs as, and every later turn reads it.
  *
  * Naming: the entity is `AgentAssignment`; its request text is `assignment`,
  * the same word a mission uses for the same text.
@@ -25,34 +25,10 @@ export const ASSIGNMENT_LIMITS = {
   title: 120,
 } as const;
 
-/** What the renderer sends. The agent itself travels with the request: custom agents live in settings. */
-export const AssignAgentInputSchema = z
-  .object({
-    /** Stable per click; repeats of the same request return the same assignment. */
-    requestId: z
-      .string()
-      .trim()
-      .min(1)
-      .max(ASSIGNMENT_LIMITS.requestId)
-      .regex(/^[A-Za-z0-9._:-]+$/),
-    agent: AgentConfigSchema,
-    assignment: z.string().trim().min(1).max(ASSIGNMENT_LIMITS.assignment),
-    /** Provider and model after the renderer applied auto-routing; a fixed agent model wins. */
-    providerId: z.enum(PROVIDER_IDS),
-    model: z.string().trim().min(1).max(200).nullable().optional(),
-    /** Where to work: a repository for a new worktree, or the current workspace. */
-    repositoryPath: z.string().trim().min(1).max(4096),
-    currentWorkspaceId: z.string().trim().min(1).max(200).optional(),
-    /** The user's "My standards" at the moment of assigning, when turned on. */
-    standards: z.string().trim().min(1).max(MY_STANDARDS_MAX_CHARS).optional(),
-  })
-  .strict();
-export type AssignAgentInput = z.infer<typeof AssignAgentInputSchema>;
-
 /**
- * What the renderer sends to record that a task Kickoff already created runs
- * as an agent. Unlike an assign request, the workspace and task already exist,
- * so the ids travel with it and the host only writes the assignment row.
+ * What the renderer sends to record that a task Kickoff created runs as an
+ * agent. The workspace and task already exist, so the ids travel with it and
+ * the host only writes the assignment row.
  */
 export const RecordTaskAgentInputSchema = z
   .object({
@@ -132,38 +108,4 @@ export interface AgentAssignment {
   support: AgentSupportEntry[];
   createdAt: string;
   updatedAt: string;
-}
-
-export function hashAssignRequest(input: AssignAgentInput): string {
-  return hashAgentContent({
-    agent: hashAgentContent(input.agent),
-    assignment: input.assignment,
-    providerId: input.providerId,
-    model: input.model ?? null,
-    repositoryPath: input.repositoryPath,
-    currentWorkspaceId: input.currentWorkspaceId ?? null,
-    standards: input.standards ?? null,
-  });
-}
-
-function slug(text: string, max: number) {
-  return (
-    text
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, max) || "work"
-  );
-}
-
-/** `agent/<agent>-<what>-<id>`: readable in the branch list, unique per assignment. */
-export function assignmentBranchName(args: { agentConfigId: string; assignment: string; assignmentId: string }) {
-  const suffix = args.assignmentId.replace(/[^a-z0-9]/gi, "").slice(0, 8).toLowerCase();
-  return `agent/${slug(args.agentConfigId, 24)}-${slug(args.assignment.split("\n")[0]!, 32)}-${suffix}`;
-}
-
-export function assignmentTitle(args: { agentName: string; assignment: string }) {
-  const line = args.assignment.split("\n")[0]!.trim();
-  const title = `${args.agentName}: ${line}`;
-  return title.length > ASSIGNMENT_LIMITS.title ? `${title.slice(0, ASSIGNMENT_LIMITS.title - 1)}…` : title;
 }

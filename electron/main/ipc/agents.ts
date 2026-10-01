@@ -1,12 +1,12 @@
 import { ipcMain, webContents } from "electron";
 import { z } from "zod";
 import { AGENT_IPC, type AgentInvokeResult, type HostAgentAction } from "../../../src/lib/agents/api";
-import { AssignAgentInputSchema, RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../../src/lib/agents/assign";
+import { RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../../src/lib/agents/assign";
 import { invokeHostService, onHostServiceEvent, onHostServiceReady } from "../host-service-client";
 import { getCustomAgents, getMyStandards, setCustomAgents, setMyStandards } from "../agents/agent-registry";
 
 /**
- * Main-process bridge for agents. The host validates an assign request again;
+ * Main-process bridge for agents. The host validates each request again;
  * main checks its shape first so a malformed renderer call never reaches it.
  */
 
@@ -46,17 +46,6 @@ export function registerAgentHandlers() {
       }
     });
   }
-  ipcMain.handle(AGENT_IPC.assign, async (_event, args: unknown) => {
-    const parsed = AssignAgentInputSchema.safeParse(args);
-    if (!parsed.success) {
-      return { ok: false, code: "invalid", message: parsed.error.issues[0]?.message ?? "The assignment request was not valid." };
-    }
-    try {
-      return await invokeAgent("assign", parsed.data);
-    } catch (error) {
-      return failed(error, "The work could not be assigned.");
-    }
-  });
   ipcMain.handle(AGENT_IPC.recordTask, async (_event, args: unknown) => {
     const parsed = RecordTaskAgentInputSchema.safeParse(args);
     if (!parsed.success) {

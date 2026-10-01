@@ -462,6 +462,13 @@ export const kickoffStyles = stylex.create({
       "@media (min-width: 40rem)": "minmax(0, 1fr) 10rem",
     },
   },
+  /** The model alone, when Stave Auto also owns the effort controls. */
+  runtimeGridSingle: {
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      "@media (min-width: 40rem)": "minmax(0, 1fr)",
+    },
+  },
   runtimeSide: {
     display: "grid",
     alignContent: "start",

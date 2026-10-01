@@ -11,9 +11,7 @@ import { activeStandards, normalizeMyStandards } from "../../../src/lib/agents/s
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { taskAgentRuntimeOptions } from "../../../src/lib/agents/runtime-options";
 import { setTaskPromptPrefixResolver, setTaskRuntimeOptionsResolver } from "../../providers/runtime";
-import * as localMcpRuntime from "../local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
-import { runSupervisedTurn } from "../supervised-turn";
 import { AssignError, createAssignRuntime, type AssignRuntime } from "./assign-runtime";
 
 export function createHostAssignRuntime(args: {
@@ -22,16 +20,6 @@ export function createHostAssignRuntime(args: {
   const persistence = ensureHostServicePersistenceReady();
   const runtime = createAssignRuntime({
     store: persistence.agentAssignments,
-    createWorktree: async ({ repositoryPath, name, label }) => {
-      // Creating a workspace on a branch that already has one returns that
-      // workspace; the ids known before tell intake it was not new.
-      const repositories = await localMcpRuntime.listKnownRepositories();
-      const known = new Set(repositories.flatMap((repository) => repository.workspaces.map((workspace) => workspace.id)));
-      const created = await localMcpRuntime.createWorkspace({ repositoryPath, name, label, mode: "branch" });
-      return { workspaceId: created.workspaceId, existed: known.has(created.workspaceId) };
-    },
-    createIdleTask: (task) => localMcpRuntime.createIdleTask(task),
-    runFirstTurn: (turn) => runSupervisedTurn(turn),
     emitChanged: (row) => args.emitChanged({ assignmentId: row.id, state: row.state }),
   });
   return {
@@ -47,7 +35,7 @@ export function createHostAssignRuntime(args: {
       });
       // A task recorded before its first turn, or switched to another agent,
       // owes a prompt-channel provider the agent's instructions once.
-      setTaskPromptPrefixResolver(({ taskId, providerId }) => runtime.takeTaskPreamble(taskId, providerId));
+      setTaskPromptPrefixResolver(({ taskId, providerId }) => runtime.prepareTaskPreamble(taskId, providerId));
     },
   };
 }
@@ -82,8 +70,6 @@ export async function invokeAgentAction(
 ): Promise<AgentInvokeResult<unknown>> {
   try {
     switch (action) {
-      case "assign":
-        return { ok: true, value: await runtime.assign(args) };
       case "record-task": {
         const value = RecordTaskAgentInputSchema.parse(args);
         return {

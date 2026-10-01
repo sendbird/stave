@@ -19,6 +19,22 @@ export function describeAgent(agent: AgentConfig): string {
   return [model, AGENT_WORKSPACE_LABELS[agent.workspace], AGENT_PERMISSION_LABELS[agent.permission]].join(" · ");
 }
 
+/**
+ * What a task started as the agent may do, in the words the assign surfaces
+ * show. An Auto agent adds no limit: the task runs on the user's own
+ * permission settings. The others are ceilings over those settings.
+ */
+export function describeAgentPermissionForTask(permission: AgentConfig["permission"]): string {
+  switch (permission) {
+    case "auto":
+      return "Your permission settings";
+    case "read-only":
+      return "Read only";
+    default:
+      return `Up to ${AGENT_PERMISSION_LABELS[permission]}`;
+  }
+}
+
 export function describeUsableAs(agent: AgentConfig): string {
   return agent.usableAs.map((role) => AGENT_ROLE_LABELS[role]).join(", ");
 }

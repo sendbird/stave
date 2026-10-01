@@ -483,3 +483,93 @@ describe("kickoff records the task's agent before its first turn", () => {
     expect(order).toEqual(["create", "record"]);
   });
 });
+
+describe("kickoff for an agent that works in the current workspace", () => {
+  function currentWorkspaceState(order: string[], overrides: Record<string, unknown> = {}) {
+    const state: any = {
+      activeWorkspaceId: "ws-here",
+      activeTaskId: "previous-task",
+      createWorkspace: async () => {
+        order.push("create-workspace");
+        return { ok: true as const, taskId: "t1", workspaceId: "w1" };
+      },
+      createTask: ({ title }: { title: string }) => {
+        order.push(`create-task:${title}`);
+        state.activeTaskId = "new-task";
+      },
+      setTaskProvider: ({ taskId, provider }: { taskId: string; provider: string }) => {
+        order.push(`provider:${taskId}:${provider}`);
+      },
+      updatePromptDraft: ({ taskId, patch }: any) => {
+        order.push(`draft:${taskId}:${patch.runtimeOverrides?.autoRouting === true ? "auto" : "pinned"}`);
+      },
+      sendUserMessage: async ({ taskId, providerOverride }: any) => {
+        order.push(`send:${taskId}:${providerOverride}`);
+        return { status: "started" as const };
+      },
+      ...overrides,
+    };
+    return state;
+  }
+
+  test("adds a task where the user is, records the agent, then sends like any first task", async () => {
+    const order: string[] = [];
+    const state = currentWorkspaceState(order);
+    const result = await runWorkspaceKickoff({
+      input: {
+        proposal: proposal(),
+        startFirstTask: true,
+        firstTaskProvider: "codex",
+        firstTaskRuntimeOverrides: { autoRouting: true },
+        target: { kind: "current-workspace", workspaceId: "ws-here" },
+        beforeFirstTurn: async ({ workspaceId, taskId }) => {
+          order.push(`record:${workspaceId}:${taskId}`);
+        },
+      },
+      getState: () => state,
+    });
+    expect(result).toMatchObject({ ok: true, workspaceId: "ws-here", taskId: "new-task", startup: "started" });
+    expect(order).toEqual([
+      `create-task:${proposal().firstTaskTitle}`,
+      "provider:new-task:codex",
+      "draft:new-task:auto",
+      "record:ws-here:new-task",
+      "send:new-task:codex",
+    ]);
+  });
+
+  test("refuses when the user moved to another workspace, creating nothing", async () => {
+    const order: string[] = [];
+    const result = await runWorkspaceKickoff({
+      input: {
+        proposal: proposal(),
+        startFirstTask: true,
+        firstTaskProvider: "codex",
+        target: { kind: "current-workspace", workspaceId: "ws-elsewhere" },
+      },
+      getState: () => currentWorkspaceState(order),
+    });
+    expect(result.ok).toBe(false);
+    expect(order).toEqual([]);
+  });
+
+  test("a failed record keeps the task's prompt ready and says a task, not a workspace, was made", async () => {
+    const order: string[] = [];
+    const state = currentWorkspaceState(order);
+    const result = await runWorkspaceKickoff({
+      input: {
+        proposal: proposal(),
+        startFirstTask: true,
+        firstTaskProvider: "codex",
+        target: { kind: "current-workspace", workspaceId: "ws-here" },
+        beforeFirstTurn: async () => {
+          throw new Error("record refused");
+        },
+      },
+      getState: () => state,
+    });
+    expect(result.startup).toBe("blocked");
+    expect(result.message).toStartWith("Task created.");
+    expect(order.some((step) => step.startsWith("send:"))).toBe(false);
+  });
+});

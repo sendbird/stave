@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import type { AgentsBridgeApi } from "@/lib/agents/api";
 import type { AgentAssignment } from "@/lib/agents/assign";
+import type { TaskClass } from "@/lib/providers/auto-routing-profile";
 
 export type TaskAgent = Pick<
   AgentAssignment,
@@ -32,6 +33,8 @@ export type TaskAgent = Pick<
   agentPermission: AgentAssignment["agent"]["permission"];
   /** The recorded agent's colour, so its avatar matches the Agents surface. */
   agentAppearance: AgentAssignment["agent"]["appearance"];
+  /** The task class an auto-model agent routes as; Stave Auto uses it on every turn. */
+  agentTaskClass: TaskClass | null;
 };
 
 interface AgentAssignmentsState {
@@ -62,6 +65,7 @@ export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]):
       agentName: row.agentName,
       agentPermission: row.agent.permission,
       agentAppearance: row.agent.appearance,
+      agentTaskClass: row.agent.model.mode === "auto" ? (row.agent.model.taskClass ?? null) : null,
       agentContentHash: row.agentContentHash,
       received: row.received,
       support: row.support,

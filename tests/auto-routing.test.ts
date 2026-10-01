@@ -456,3 +456,71 @@ describe("resolveProviderStickiness", () => {
     ).toBe("codex");
   });
 });
+
+describe("a task running as an agent", () => {
+  const starter = buildStarterProfile("starter-balanced");
+  const docsFrontier = {
+    id: "docs-frontier",
+    when: { taskClass: "docs" as const },
+    then: { providerId: "any-eligible" as const, tier: "frontier" as const, effort: "medium" },
+    reason: "Documentation runs on the most capable model.",
+    enabled: true,
+  };
+  const profile = (classifier: boolean) => ({
+    ...starter,
+    signals: { ...starter.signals, classifier },
+    rules: [docsFrontier, ...starter.rules],
+  });
+  const decide = (args: {
+    intent?: "explain" | "unknown";
+    risk?: "normal" | "high";
+    classifier?: boolean;
+    taskClassHint?: "docs";
+  }) =>
+    resolveAutoRoutingDecision({
+      settings: { ...AUTO_SETTINGS, autoRoutingProfile: profile(args.classifier ?? true) },
+      runtimeOverrides: { autoRouting: true },
+      currentProviderId: "claude-code",
+      currentModel: DEFAULT_CLAUDE_SONNET_MODEL,
+      prompt: "Explain why saving the settings fails",
+      history: [],
+      classifyRoute: async () => ({
+        version: 1,
+        intent: args.intent ?? "explain",
+        complexity: "low",
+        risk: args.risk ?? "normal",
+        continuity: "new",
+        evidenceCodes: ["explicit_request"],
+      }),
+      ...(args.taskClassHint ? { taskClassHint: args.taskClassHint } : {}),
+    });
+
+  test("a confident classification wins over the agent's task class", async () => {
+    const asAgent = await decide({ taskClassHint: "docs" });
+    expect(asAgent.taskClass).toBe("research");
+    expect(asAgent.rationale).not.toContain("routed as the agent's");
+  });
+
+  test("the agent's task class fills in when the intent is unclear", async () => {
+    const plain = await decide({ intent: "unknown" });
+    expect(plain.ruleId).not.toBe("docs-frontier");
+    const asAgent = await decide({ intent: "unknown", taskClassHint: "docs" });
+    expect(asAgent.taskClass).toBe("docs");
+    expect(asAgent.ruleId).toBe("docs-frontier");
+    expect(asAgent.model).toBe(CLAUDE_FABLE_MODEL);
+    expect(asAgent.rationale).toContain("routed as the agent's docs work");
+  });
+
+  test("the agent's task class replaces the keyword guess when classification is off", async () => {
+    const plain = await decide({ classifier: false });
+    expect(plain.taskClass).not.toBe("docs");
+    const asAgent = await decide({ classifier: false, taskClassHint: "docs" });
+    expect(asAgent.taskClass).toBe("docs");
+  });
+
+  test("a safety escalation still wins over the agent's task class", async () => {
+    const sensitive = await decide({ intent: "unknown", risk: "high", taskClassHint: "docs" });
+    expect(sensitive.taskClass).toBe("safety-critical");
+    expect(sensitive.rationale).not.toContain("routed as the agent's");
+  });
+});
