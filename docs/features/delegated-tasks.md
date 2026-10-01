@@ -129,7 +129,8 @@ agents, or would run with more permission than the delegating task's own
 agent. A retry runs as the same agent.
 
 `expectedHead` pins same-workspace work to a commit: the child does not start
-when the workspace HEAD differs, and a retry keeps the pin.
+when the workspace HEAD differs, and a retry keeps the pin. The commit is
+checked after workspace admission, immediately before the child starts.
 
 ### Model And Effort
 
@@ -235,6 +236,23 @@ may have running at once (default 3, maximum 16).
   ends. Remove it through the normal workspace controls.
 
 ## Troubleshooting
+
+### The delegation was refused with `workspace-writer-busy`
+
+- Cause: another managed child has reserved the same physical workspace for
+  writing. The refusal identifies the current child, parent and attempt.
+- Fix: wait for that child's turn to end, or choose a separate worktree.
+  Stop and Detach keep the reservation until the host confirms the running
+  turn ended; an unavailable or unknown outcome remains guarded.
+  A restart before the child's turn identity was recorded also remains guarded
+  because Stave cannot safely identify a terminal turn to release it.
+- Different worktrees may run in parallel. Children with resolved Codex
+  read-only file access do not reserve a writer slot. Permission profile names
+  and Claude plan mode do not establish read-only tool access.
+- This coordinates managed child admission. It does not isolate files,
+  constrain tool paths, or prevent ordinary direct tasks and parent turns from
+  writing. Legacy active children without lease metadata are checked against
+  their actual workspace and remain guarded when their outcome is unknown.
 
 ### The delegation was refused with `invalid-ownership`
 

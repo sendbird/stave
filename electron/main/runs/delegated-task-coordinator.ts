@@ -4,6 +4,7 @@ import type { AgentPermission } from "../../../src/lib/agents/schema";
 import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
+import { realpath } from "node:fs/promises";
 import {
   buildDelegatedTaskArtifactRef,
   buildDelegatedTaskPolicy,
@@ -114,7 +115,14 @@ export interface DelegatedTaskLedgerPort {
     runId: string;
     stepId: string;
     target: RunStepTarget;
+    expectedExecutionId?: string;
+    expectedLeaseId?: string;
+    expectedTurnExecutionId?: string;
   }): boolean;
+  listHeldWriterRunAggregates(): Array<{ run: RunRecord; step: RunStepRecord }>;
+  acquireRunWriterLease(args: {
+    runId: string; stepId: string; executionId: string; target: RunStepTarget;
+  }): { accepted: boolean; writerHolder?: { run: RunRecord; step: RunStepRecord } };
   listRunAggregatesByOrigin(args: {
     originKind: string;
     originId: string;
@@ -220,6 +228,7 @@ interface DelegatedTaskCoordinatorDependencies {
     target: RunStepTarget; repositoryPath: string; prompt: string; model?: string;
   }) => Promise<void>;
   readHead?: (workspacePath: string) => Promise<string | null>;
+  canonicalWorkspacePath?: (workspacePath: string) => Promise<string>;
   applyAgent?: (
     args: DelegateTaskArgs,
   ) => Promise<
@@ -303,6 +312,7 @@ const TRANSITION_REASONS: ReadonlySet<string> = new Set([
   // the distinction is what lets a refused control say why it was refused.
   "stale-execution",
   "step-conflict",
+  "workspace-writer-busy",
 ]);
 
 function toRejectionReason(reason: string): DelegatedTaskRejectionReason {
@@ -412,6 +422,52 @@ export function createDelegatedTaskCoordinator(
     }
   };
 
+  const writerBusy = (holder: { run: RunRecord; step: RunStepRecord }, child: DelegatedTaskSummary | null) =>
+    rejected("workspace-writer-busy", child,
+      `Workspace is busy with child ${holder.step.target?.taskId ?? holder.step.id} (parent ${holder.run.origin.id}, attempt ${holder.step.attempt}). Wait for it to finish or choose a new worktree.`);
+
+  const leaseTarget = async (target: RunStepTarget, policy?: DelegationPermissionPolicy): Promise<RunStepTarget> => {
+    const turnExecutionId = randomUUID();
+    // Permission profile and Claude plan mode do not prove that tools cannot write.
+    if (target.providerId === "codex" && policy?.options.codexFileAccess === "read-only")
+      return { ...target, turnExecutionId, writerLease: undefined, turnId: null };
+    const workspace = await dependencies.host.resolveWorkspace({ workspaceId: target.workspaceId });
+    if (!workspace) throw new Error("The child's workspace could not be reached.");
+    const workspacePath = await (dependencies.canonicalWorkspacePath ?? realpath)(workspace.workspacePath);
+    return { ...target, turnExecutionId, turnId: null, writerLease: { workspacePath, leaseId: turnExecutionId, state: "held" } };
+  };
+
+  const releaseLease = (ledger: DelegatedTaskLedgerPort, runId: string, stepId: string, executionId: string, target: RunStepTarget) => {
+    if (!target.writerLease) return;
+    ledger.setRunStepTarget({ runId, stepId, expectedExecutionId: executionId,
+      expectedLeaseId: target.writerLease.leaseId,
+      expectedTurnExecutionId: target.turnExecutionId,
+      target: { ...target, writerLease: { ...target.writerLease, state: "released" } } });
+  };
+
+  const legacyWriterHolder = async (ledger: DelegatedTaskLedgerPort, target: RunStepTarget) => {
+    if (!target.writerLease) return null;
+    for (const aggregate of ledger.listActiveRunAggregatesByStepKind({ kind: DELEGATED_TASK_STEP_KIND })) {
+      const previous = aggregate.step.target;
+      if (!previous || previous.writerLease || previous.turnExecutionId) continue;
+      const policy = acceptedReceiptForRun(ledger, aggregate.run.id, aggregate.step.attempt)?.detail?.permissionPolicy;
+      if (previous.providerId === "codex" && policy?.options.codexFileAccess === "read-only") continue;
+      // Old rows need no migration. Resolve their actual workspace before admitting
+      // another writer; unavailable identity or terminal evidence remains guarded.
+      const location = await dependencies.host.resolveWorkspace({ workspaceId: previous.workspaceId }).catch(() => null);
+      const canonical = location && await (dependencies.canonicalWorkspacePath ?? realpath)(location.workspacePath).catch(() => null);
+      if (canonical && canonical !== target.writerLease.workspacePath) continue;
+      const status = await dependencies.host.getTaskStatus({ workspaceId: previous.workspaceId, taskId: previous.taskId, ...(previous.turnId ? { turnId: previous.turnId } : {}) }).catch(() => null);
+      if (status?.ok && previous.turnId && status.activeTurnId !== previous.turnId && status.latestTurnId === previous.turnId && status.latestTurnCompletedAt && status.latestTurnOutcome && status.latestTurnOutcome !== "unknown") {
+        await reconcile();
+        const fresh = ledger.getRunAggregate({ runId: aggregate.run.id, stepId: aggregate.step.id });
+        if (!fresh || !isActiveDelegatedTaskPhase(fresh.step.status) || (fresh.step.status === "waiting" && summaryFromAggregate(ledger, fresh)?.lifecycle === "detached")) continue;
+      }
+      return aggregate;
+    }
+    return null;
+  };
+
   /**
    * Turn the child's terminal outcome into ledger receipts. `one-turn` closes
    * the run; `detached` parks it in `waiting` so the delegated task stays open for
@@ -429,11 +485,18 @@ export function createDelegatedTaskCoordinator(
     permissionPolicy?: DelegationPermissionPolicy;
   }) => {
     const timestamp = now();
+    const current = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
+    if (!current || current.step.executionId !== args.executionId || current.step.target?.turnExecutionId !== args.target.turnExecutionId)
+      return { accepted: false as const, reason: "stale-execution" as const, run: current?.run ?? null, step: current?.step ?? null, receipts: [] as [] };
     args.ledger.setRunStepTarget({
       runId: args.runId,
       stepId: args.stepId,
       target: { ...args.target, turnId: args.turnId },
+      expectedExecutionId: args.executionId,
+      expectedLeaseId: args.target.writerLease?.leaseId,
+      expectedTurnExecutionId: args.target.turnExecutionId,
     });
+    releaseLease(args.ledger, args.runId, args.stepId, args.executionId, { ...args.target, turnId: args.turnId });
     if (args.lifecycle === "detached") {
       // Keyed per turn and allowed to re-enter `waiting`: a detached child
       // parks in `waiting` between turns, so a follow-up turn's completion
@@ -494,6 +557,9 @@ export function createDelegatedTaskCoordinator(
       runId: args.runId,
       stepId: args.stepId,
       target: args.target,
+      expectedExecutionId: args.executionId,
+      expectedLeaseId: args.target.writerLease?.leaseId,
+      expectedTurnExecutionId: args.target.turnExecutionId,
     });
     const started = (async () => {
       try {
@@ -522,7 +588,7 @@ export function createDelegatedTaskCoordinator(
             });
             if (
               current?.step.executionId !== args.executionId ||
-              !isActiveDelegatedTaskPhase(current.step.status)
+              current.step.target?.turnExecutionId !== args.target.turnExecutionId
             )
               return;
             args.target.turnId = turnId;
@@ -530,7 +596,12 @@ export function createDelegatedTaskCoordinator(
               runId: args.runId,
               stepId: args.stepId,
               target: { ...args.target, turnId },
+              expectedExecutionId: args.executionId,
+              expectedLeaseId: args.target.writerLease?.leaseId,
+              expectedTurnExecutionId: args.target.turnExecutionId,
             });
+            if (current.step.status === "cancelled" && current.step.error !== DELEGATED_TASK_DETACHED_REASON)
+              void dependencies.host.stopTask({ workspaceId: args.target.workspaceId, taskId: args.target.taskId }).catch((error) => reportError(error, { scope: "cancel-started-child", runId: args.runId }));
           },
         });
         settleAfterTurn({
@@ -545,11 +616,20 @@ export function createDelegatedTaskCoordinator(
           permissionPolicy: args.turn.permissionPolicy,
         });
       } catch (error) {
+        // A rejected startup or a verified cancellation can release immediately.
+        // Transport loss after startup keeps the lease until status reconciliation.
+        if (!args.target.turnId || (error instanceof DelegatedTaskTurnError && error.outcome === "cancelled")) {
+          releaseLease(args.ledger, args.runId, args.stepId, args.executionId, args.target);
+        } else {
+          const terminal = await dependencies.host.getTaskStatus({ workspaceId: args.target.workspaceId, taskId: args.target.taskId, turnId: args.target.turnId }).catch(() => null);
+          if (terminal?.ok && terminal.latestTurnId === args.target.turnId && terminal.latestTurnCompletedAt && terminal.latestTurnOutcome && terminal.latestTurnOutcome !== "unknown")
+            releaseLease(args.ledger, args.runId, args.stepId, args.executionId, args.target);
+        }
         const current = args.ledger.getRunAggregate({
           runId: args.runId,
           stepId: args.stepId,
         });
-        if (!current || current.step.executionId !== args.executionId || !isActiveDelegatedTaskPhase(current.step.status)) {
+        if (!current || current.step.executionId !== args.executionId || current.step.target?.turnExecutionId !== args.target.turnExecutionId || !isActiveDelegatedTaskPhase(current.step.status)) {
           return;
         }
         if (error instanceof DelegatedTaskTurnError) {
@@ -610,11 +690,22 @@ export function createDelegatedTaskCoordinator(
    */
   const reconcile = async () => {
     const ledger = await getLedger();
+    let heldDeferred = 0;
+    for (const held of ledger.listHeldWriterRunAggregates()) {
+      if (inFlightByStepId.has(held.step.id)) continue;
+      const target = held.step.target!;
+      const separatelyCounted = !isActiveDelegatedTaskPhase(held.step.status) || (held.step.status === "waiting" && !inFlightByStepId.has(held.step.id));
+      if (!target.turnId || !held.step.executionId) { heldDeferred += separatelyCounted ? 1 : 0; continue; }
+      const status = await dependencies.host.getTaskStatus({ workspaceId: target.workspaceId, taskId: target.taskId, turnId: target.turnId }).catch(() => null);
+      if (status?.ok && status.activeTurnId !== target.turnId && status.latestTurnId === target.turnId && status.latestTurnCompletedAt && status.latestTurnOutcome && status.latestTurnOutcome !== "unknown")
+        releaseLease(ledger, held.run.id, held.step.id, held.step.executionId, target);
+      else heldDeferred += separatelyCounted ? 1 : 0;
+    }
     const aggregates = ledger.listActiveRunAggregatesByStepKind({
       kind: DELEGATED_TASK_STEP_KIND,
     });
     let reconciled = 0;
-    let deferred = 0;
+    let deferred = heldDeferred;
     for (const aggregate of aggregates) {
       const summary = summaryFromAggregate(ledger, aggregate);
       const target = aggregate.step.target;
@@ -970,21 +1061,8 @@ export function createDelegatedTaskCoordinator(
     // ── Pinned commit ───────────────────────────────────────────────────
     // Work meant for one commit never starts against another: a review that
     // ran on a later HEAD would report on code nobody asked about.
-    if (args.expectedHead) {
-      if (args.workspace.mode !== "same-workspace") {
-        return rejected("invalid-request", null, "A pinned commit needs the child to work in the same workspace.");
-      }
-      const head = dependencies.readHead ? await dependencies.readHead(parentWorkspace.workspacePath).catch(() => null) : null;
-      const expected = args.expectedHead.toLowerCase();
-      if (!head || !(head.toLowerCase().startsWith(expected) || expected.startsWith(head.toLowerCase()))) {
-        return rejected(
-          "head-mismatch",
-          null,
-          head
-            ? `The workspace is at ${head.slice(0, 12)}, not ${args.expectedHead.slice(0, 12)}. Nothing was started.`
-            : "The workspace commit could not be read, so the pinned work was not started.",
-        );
-      }
+    if (args.expectedHead && args.workspace.mode !== "same-workspace") {
+      return rejected("invalid-request", null, "A pinned commit needs the child to work in the same workspace.");
     }
     // A retry reuses the workspace the delegation already owns; only a first
     // attempt may cut a new worktree.
@@ -1001,13 +1079,17 @@ export function createDelegatedTaskCoordinator(
 
     const delegatedTaskId =
       existingSummary?.delegatedTaskId ?? deriveDelegatedTaskId(runId);
-    const target: RunStepTarget = {
+    let target: RunStepTarget = {
       taskId: delegatedTaskId,
       workspaceId: delegatedWorkspaceId,
       turnId: null,
       providerId: args.providerId,
     };
     const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId, providerId: args.providerId, permissionProfile: args.permissionProfile, agentConfigId: args.agentConfigId, agentPermission: agentAssignment?.snapshot.agent.permission });
+    try { target = await leaseTarget(target, permissionPolicy); }
+    catch { return rejected("workspace-unavailable", existingSummary); }
+    const legacyHolder = await legacyWriterHolder(ledger, target);
+    if (legacyHolder) return writerBusy(legacyHolder, existingSummary);
     const timestamp = now();
     const executionId = createExecutionId();
     const attempt = existing ? existing.step.attempt : 0;
@@ -1059,6 +1141,8 @@ export function createDelegatedTaskCoordinator(
     });
 
     if (!transition.accepted) {
+      if ("writerHolder" in transition && transition.writerHolder)
+        return writerBusy(transition.writerHolder, existingSummary);
       return rejected(
         toRejectionReason(transition.reason),
         summaryFromTransition(ledger, transition) ?? existingSummary,
@@ -1070,6 +1154,17 @@ export function createDelegatedTaskCoordinator(
         duplicate: true,
         child: child ?? existingSummary,
       });
+    }
+
+    if (args.expectedHead) {
+      const workspace = await dependencies.host.resolveWorkspace({ workspaceId: delegatedWorkspaceId });
+      const head = workspace && dependencies.readHead ? await dependencies.readHead(workspace.workspacePath).catch(() => null) : null;
+      const expected = args.expectedHead.toLowerCase();
+      if (!head || !(head.toLowerCase().startsWith(expected) || expected.startsWith(head.toLowerCase()))) {
+        releaseLease(ledger, runId, stepId, executionId, target);
+        ledger.failRunStep({ runId, stepId, executionId, idempotencyKey: `child:${executionId}:head-mismatch`, error: "The workspace commit changed before admitted work could start.", now: now() });
+        return rejected("head-mismatch", summaryFromAggregate(ledger, ledger.getRunAggregate({ runId, stepId })!), "The workspace commit changed before admitted work could start. Nothing was started.");
+      }
     }
 
     runChildTurn({
@@ -1177,7 +1272,8 @@ export function createDelegatedTaskCoordinator(
       if (!resolved.ok) {
         return resolved.rejection;
       }
-      const target = resolved.step.target;
+      let target = resolved.step.target;
+      const previousTarget = target;
       const executionId = resolved.step.executionId;
       if (
         !resolveDelegatedTaskControls(resolved.child).canFollowUp ||
@@ -1195,6 +1291,28 @@ export function createDelegatedTaskCoordinator(
       if (inFlightByStepId.has(resolved.stepId)) return rejected("already-active", resolved.child);
       const fresh = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });
       if (!fresh || fresh.step.executionId !== executionId || fresh.step.status !== "waiting") return rejected("stale-execution", resolved.child);
+      try { target = await leaseTarget(target, permissionPolicy); }
+      catch { return rejected("workspace-unavailable", resolved.child); }
+      const legacyHolder = await legacyWriterHolder(resolved.ledger, target);
+      if (legacyHolder) return writerBusy(legacyHolder, resolved.child);
+      if (inFlightByStepId.has(resolved.stepId)) return rejected("already-active", resolved.child);
+      const admission = resolved.ledger.acquireRunWriterLease({ runId: resolved.runId, stepId: resolved.stepId, executionId, target });
+      if (!admission.accepted) return admission.writerHolder ? writerBusy(admission.writerHolder, resolved.child) : rejected("stale-execution", resolved.child);
+      if (originalClaim?.detail?.expectedHead) {
+        const workspace = await dependencies.host.resolveWorkspace({ workspaceId: target.workspaceId });
+        const head = workspace && dependencies.readHead ? await dependencies.readHead(workspace.workspacePath).catch(() => null) : null;
+        const expected = originalClaim.detail.expectedHead.toLowerCase();
+        const current = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });
+        if (!current || current.step.executionId !== executionId || current.step.target?.turnExecutionId !== target.turnExecutionId || current.step.status !== "waiting") {
+          releaseLease(resolved.ledger, resolved.runId, resolved.stepId, executionId, target);
+          return rejected("stale-execution", resolved.child);
+        }
+        if (!head || !(head.toLowerCase().startsWith(expected) || expected.startsWith(head.toLowerCase()))) {
+          releaseLease(resolved.ledger, resolved.runId, resolved.stepId, executionId, target);
+          resolved.ledger.setRunStepTarget({ runId: resolved.runId, stepId: resolved.stepId, target: previousTarget!, expectedExecutionId: executionId, expectedTurnExecutionId: target.turnExecutionId });
+          return rejected("head-mismatch", resolved.child);
+        }
+      }
       runChildTurn({
         ledger: resolved.ledger,
         runId: resolved.runId,
