@@ -50,7 +50,7 @@ function normalizeStopReason(message: ChatMessage | null) {
   return message?.terminalStopReason?.trim().toLowerCase() ?? "";
 }
 
-function resolveRunStatus(args: {
+export function resolveRunStatus(args: {
   activeTurnId: string | null;
   activity: ProviderTurnActivitySnapshot | null;
   retained: RetainedTurnActivity | null;
@@ -75,6 +75,20 @@ function resolveRunStatus(args: {
     return { label: "Running", tone: "active" };
   }
 
+  const receipt = args.message?.terminalReceipt ??
+    args.retained?.snapshot.terminalReceipt;
+  if (receipt?.completedAt) {
+    if (receipt.outcome === "failed") return { label: "Failed", tone: "danger" };
+    if (receipt.outcome === "cancelled") return { label: "Stopped", tone: "neutral" };
+    if (receipt.outcome === "completed") return { label: "Completed", tone: "success" };
+    return { label: "Ended", detail: "Completion status was not reported", tone: "neutral" };
+  }
+  if (
+    (args.activity?.completedAt && args.activity.turnError) ||
+    args.retained?.outcome === "failed"
+  ) {
+    return { label: "Failed", tone: "danger" };
+  }
   const stopReason = normalizeStopReason(args.message);
   if (stopReason && classifyProviderTurnStopReason(stopReason) === "failed") {
     return { label: "Failed", tone: "danger" };
@@ -94,12 +108,6 @@ function resolveRunStatus(args: {
       detail: `Provider stop: ${stopReason}`,
       tone: "neutral",
     };
-  }
-  if (args.activity?.completedAt && args.activity.turnError) {
-    return { label: "Failed", tone: "danger" };
-  }
-  if (args.retained?.outcome === "failed") {
-    return { label: "Failed", tone: "danger" };
   }
   if (args.retained?.outcome === "stopped") {
     return { label: "Stopped", tone: "neutral" };

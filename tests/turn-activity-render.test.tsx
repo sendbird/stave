@@ -1177,6 +1177,16 @@ describe("TurnActivity", () => {
       expect(html).toContain("1m 30s");
     });
 
+    test("keeps an unknown result neutral instead of showing completion", () => {
+      const html = renderToStaticMarkup(
+        createElement(TurnActivitySurface, { ...finishedTurn, replayOutcome: "unknown" }),
+      );
+      expect(html).toContain('data-replay="unknown"');
+      expect(html).toContain("Turn result unknown");
+      expect(html).not.toContain("Turn finished");
+      expect(html).toContain("lucide-circle ");
+    });
+
     test("reports a stopped and a failed turn differently", () => {
       expect(
         renderToStaticMarkup(

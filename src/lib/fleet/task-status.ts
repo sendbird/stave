@@ -96,6 +96,10 @@ function latestAssistantFailureNeedsAttention(messages: ChatMessage[]) {
     return false;
   }
 
+  if (latestMessage.terminalReceipt?.completedAt) {
+    return latestMessage.terminalReceipt.outcome === "failed";
+  }
+
   let lastErrorIndex = -1;
   latestMessage.parts.forEach((part, index) => {
     if (isProviderErrorSystemPart(part)) {

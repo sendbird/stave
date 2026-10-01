@@ -20,6 +20,9 @@ type TaskStatus = {
   latestTurnId: string | null;
   latestTurnCompletedAt: string | null;
   latestTurnError: string | null;
+  latestTurnOutcome?:
+    | import("../electron/persistence/turn-terminal-receipt").TurnTerminalOutcome
+    | null;
 };
 
 const IDLE_STATUS: TaskStatus = {
@@ -52,6 +55,7 @@ function createHost(
     runTask?: (args: {
       workspaceId: string;
       taskId: string;
+      onStarted?: (turnId: string) => void;
     }) => Promise<{ turnId: string }>;
     knownWorkspaces?: Record<string, string>;
   } = {},
@@ -63,6 +67,7 @@ function createHost(
   const statusByTaskId = new Map<string, TaskStatus>([
     [PARENT_TASK, IDLE_STATUS],
   ]);
+  const statusByTurnId = new Map<string, TaskStatus>();
   let hostUnavailable = false;
   const knownWorkspaces = new Map(
     Object.entries(
@@ -86,11 +91,14 @@ function createHost(
       knownWorkspaces.set(workspaceId, workspacePath);
       return { workspaceId, workspacePath, repositoryPath: REPOSITORY_PATH };
     },
-    async getTaskStatus({ taskId }) {
+    async getTaskStatus({ taskId, turnId }) {
       if (hostUnavailable) {
         return { ok: false, reason: "unavailable" };
       }
-      return statusByTaskId.get(taskId) ?? { ok: false, reason: "missing" };
+      return (
+        (turnId ? statusByTurnId.get(turnId) : null) ??
+        statusByTaskId.get(taskId) ?? { ok: false, reason: "missing" }
+      );
     },
     async runTask(args) {
       runTaskCalls.push({ ...args });
@@ -116,6 +124,7 @@ function createHost(
     releaseTaskParentCalls,
     createWorkspaceCalls,
     statusByTaskId,
+    statusByTurnId,
     setHostUnavailable: (value: boolean) => {
       hostUnavailable = value;
     },
@@ -205,11 +214,15 @@ describe("delegated task coordinator", () => {
     expect(second.duplicate).toBe(true);
     expect(third.duplicate).toBe(true);
     expect(harness.runTaskCalls).toHaveLength(1);
-    expect(second.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
-    expect(third.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
-    expect(await harness.coordinator.list({ parentTaskId: PARENT_TASK })).toHaveLength(
-      1,
+    expect(second.child?.delegatedTaskId).toBe(
+      first.child?.delegatedTaskId ?? "",
     );
+    expect(third.child?.delegatedTaskId).toBe(
+      first.child?.delegatedTaskId ?? "",
+    );
+    expect(
+      await harness.coordinator.list({ parentTaskId: PARENT_TASK }),
+    ).toHaveLength(1);
   });
 
   test("the same key with a different prompt is refused instead of silently reused", async () => {
@@ -442,7 +455,9 @@ describe("delegated task coordinator", () => {
         runId: completed?.runId ?? "",
         stepId: completed?.stepId ?? "",
       })?.step.resultArtifactRef,
-    ).toBe(`stave://workspace/${PARENT_WORKSPACE}/task/${delegatedTaskId}/turn/turn-7`);
+    ).toBe(
+      `stave://workspace/${PARENT_WORKSPACE}/task/${delegatedTaskId}/turn/turn-7`,
+    );
   });
 
   test("a child that vanished across a restart is interrupted, not forgotten", async () => {
@@ -533,7 +548,9 @@ describe("delegated task coordinator", () => {
     expect(failed?.reason).toBe("Provider exploded");
     expect(retried.accepted).toBe(true);
     expect(retried.duplicate).toBe(false);
-    expect(retried.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
+    expect(retried.child?.delegatedTaskId).toBe(
+      first.child?.delegatedTaskId ?? "",
+    );
     expect(settled?.phase).toBe("completed");
     expect(settled?.attempt).toBe(2);
   });
@@ -1007,4 +1024,91 @@ describe("child permission profiles", () => {
       }).model,
     ).toBe("gpt-5.3-codex");
   });
+});
+
+test("restart reconciles the delegated execution even when another turn is active", async () => {
+  const harness = createHarness({
+    runTask: (args) => {
+      args.onStarted?.("delegated-turn");
+      return new Promise(() => {});
+    },
+  });
+  const started = await harness.coordinator.delegate(delegateArgs());
+  const taskId = started.child!.delegatedTaskId;
+  harness.statusByTaskId.set(taskId, {
+    ...IDLE_STATUS,
+    activeTurnId: "later-user-turn",
+    latestTurnId: "later-user-turn",
+  });
+  harness.statusByTurnId.set("delegated-turn", {
+    ...IDLE_STATUS,
+    activeTurnId: "later-user-turn",
+    latestTurnId: "delegated-turn",
+    latestTurnCompletedAt: "2026-10-01T00:00:00Z",
+    latestTurnError: "Provider exploded",
+    latestTurnOutcome: "failed",
+  });
+  const restarted = harness.restart();
+  await restarted.reconcile();
+  expect(
+    (
+      await restarted.get({
+        parentTaskId: PARENT_TASK,
+        delegationKey: "review-docs",
+      })
+    )?.phase,
+  ).toBe("failed");
+});
+
+test("restart interrupts legacy unknown evidence instead of declaring completion", async () => {
+  const harness = createHarness({
+    runTask: (args) => {
+      args.onStarted?.("legacy-turn");
+      return new Promise(() => {});
+    },
+  });
+  await harness.coordinator.delegate(delegateArgs());
+  harness.statusByTurnId.set("legacy-turn", {
+    ...IDLE_STATUS,
+    latestTurnId: "legacy-turn",
+    latestTurnCompletedAt: "2026-10-01T00:00:00Z",
+    latestTurnOutcome: "unknown",
+  });
+  const restarted = harness.restart();
+  await restarted.reconcile();
+  expect(
+    (
+      await restarted.get({
+        parentTaskId: PARENT_TASK,
+        delegationKey: "review-docs",
+      })
+    )?.phase,
+  ).toBe("interrupted");
+});
+
+test("restart preserves cancellation rather than recording provider failure", async () => {
+  const harness = createHarness({
+    runTask: (args) => {
+      args.onStarted?.("cancelled-turn");
+      return new Promise(() => {});
+    },
+  });
+  await harness.coordinator.delegate(delegateArgs());
+  harness.statusByTurnId.set("cancelled-turn", {
+    ...IDLE_STATUS,
+    latestTurnId: "cancelled-turn",
+    latestTurnCompletedAt: "2026-10-01T00:00:00Z",
+    latestTurnError: "Provider turn was interrupted before it completed.",
+    latestTurnOutcome: "cancelled",
+  });
+  const restarted = harness.restart();
+  await restarted.reconcile();
+  expect(
+    (
+      await restarted.get({
+        parentTaskId: PARENT_TASK,
+        delegationKey: "review-docs",
+      })
+    )?.phase,
+  ).toBe("cancelled");
 });

@@ -1,4 +1,10 @@
 import {
+  createTurnReceipt,
+  observeTurnEvent,
+  finishTurnReceipt,
+  type TurnTerminalReceipt,
+} from "../electron/persistence/turn-terminal-receipt";
+import {
   afterAll,
   afterEach,
   beforeAll,
@@ -50,6 +56,7 @@ type PersistedTurn = {
   providerId: "claude-code" | "codex";
   createdAt: string;
   completedAt: string | null;
+  terminalReceipt?: TurnTerminalReceipt;
 };
 
 const startTurnStreamCalls: unknown[] = [];
@@ -240,6 +247,7 @@ const fakeStore = {
       )
       .reverse()
       .slice(0, limit ?? 5),
+  getTurnReceipt: (id: string) => persistedTurnsById.get(id)?.terminalReceipt ?? null,
   beginTurn: (turn: Omit<PersistedTurn, "createdAt" | "completedAt">) => {
     persistedTurnsById.set(turn.id, {
       ...turn,
@@ -948,6 +956,37 @@ describe("local MCP runtime runTask", () => {
     ).toEqual(["error", "done"]);
   });
 
+  test("empty durable receipt publishes Fleet failure and matches task status", async () => {
+    const offset = persistedNotifications.length;
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "empty result",
+    });
+    const turn = persistedTurnsById.get(result.turnId)!;
+    turn.terminalReceipt = finishTurnReceipt(
+      observeTurnEvent(createTurnReceipt(), { type: "done" }),
+      new Date().toISOString(),
+    );
+    startTurnStreamHandlers.at(-1)?.onEvent?.({ type: "done" });
+    for (
+      let attempt = 0;
+      attempt < 30 && persistedNotifications.length === offset;
+      attempt += 1
+    )
+      await Bun.sleep(0);
+    expect(persistedNotifications.slice(offset)).toMatchObject([
+      { kind: "task.turn_failed", turnId: result.turnId },
+    ]);
+    const status = await runtime.getTaskStatus({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+    });
+    expect(status.latestTurnOutcome).toBe("failed");
+    expect(status.latestTurnError).toBe(
+      "Provider turn ended without a response.",
+    );
+  });
+
   test("releases completed locally managed task control", async () => {
     const result = await runtime.releaseLocallyManagedTaskControl({
       workspaceId: RELEASE_WORKSPACE_ID,
@@ -1149,7 +1188,9 @@ describe("local MCP runtime Information panel auto-fill and dedup", () => {
         workspaceId: WORKSPACE_ID,
         notes: "Persist before notifying",
       });
-      expect(result.workspaceInformation.notes).toBe("Persist before notifying");
+      expect(result.workspaceInformation.notes).toBe(
+        "Persist before notifying",
+      );
       expect(observed.at(-1)).toEqual({
         workspaceId: WORKSPACE_ID,
         notes: "Persist before notifying",
@@ -1332,11 +1373,29 @@ describe("local MCP project memory curation", () => {
       const page = await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID, query: "terminal" });
       expect(page.memories).toHaveLength(1);
       expect(page.nextOffset).toBeNull();
-      const foreign = store.remember({ repositoryPath: "/tmp/other-project", kind: "fact", content: "Foreign memory.", confidence: 0.9 })!;
-      await expect(runtime.rememberRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: foreign.memory.id, kind: "fact", content: "Overwrite attempt." })).rejects.toThrow(/not found/);
+      const foreign = store.remember({
+        repositoryPath: "/tmp/other-project",
+        kind: "fact",
+        content: "Foreign memory.",
+        confidence: 0.9,
+      })!;
+      await expect(
+        runtime.rememberRepositoryMemory({
+          workspaceId: WORKSPACE_ID,
+          memoryId: foreign.memory.id,
+          kind: "fact",
+          content: "Overwrite attempt.",
+        }),
+      ).rejects.toThrow(/not found/);
       expect(store.get(foreign.memory.id)?.content).toBe("Foreign memory.");
-      await runtime.forgetRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: first.memory!.id });
-      expect((await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID })).memories).toEqual([]);
+      await runtime.forgetRepositoryMemory({
+        workspaceId: WORKSPACE_ID,
+        memoryId: first.memory!.id,
+      });
+      expect(
+        (await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID }))
+          .memories,
+      ).toEqual([]);
     } finally {
       for (const key of Object.keys(methods)) Reflect.deleteProperty(fakeStore, key);
     }

@@ -75,7 +75,9 @@ function createFakeTaskBackend() {
       return startedTurns[count - 1]!;
     },
     endTurn(turnId: string, options: { error?: string | null } = {}) {
-      const turn = startedTurns.find((candidate) => candidate.turnId === turnId);
+      const turn = startedTurns.find(
+        (candidate) => candidate.turnId === turnId,
+      );
       if (!turn || turn.completedAt) {
         throw new Error(`no active turn ${turnId}`);
       }
@@ -244,9 +246,7 @@ describe("delegated task host port", () => {
 
   test("a detached delegation parks waiting only after the turn ends", async () => {
     const harness = createHarness();
-    await harness.coordinator.delegate(
-      delegateArgs({ lifecycle: "detached" }),
-    );
+    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
     const turn = await harness.backend.waitForTurnStart(1);
     expect((await getChild(harness.coordinator)).phase).toBe("running");
 
@@ -280,9 +280,7 @@ describe("delegated task host port", () => {
 
   test("a follow-up during the active turn is refused without a terminal failed row", async () => {
     const harness = createHarness();
-    await harness.coordinator.delegate(
-      delegateArgs({ lifecycle: "detached" }),
-    );
+    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
     const firstTurn = await harness.backend.waitForTurnStart(1);
     harness.backend.endTurn(firstTurn.turnId);
     await harness.coordinator.waitForInFlight();
@@ -377,4 +375,86 @@ describe("delegated task host port", () => {
     expect(settled?.phase).toBe("completed");
     expect(settled?.delegatedTurnId).toBe(turn.turnId);
   });
+});
+
+test("poll waits for durable completion after the active turn is cleared", async () => {
+  const backend = createFakeTaskBackend();
+  let durable = false;
+  const host = createDelegatedTaskHostPort({
+    ...backend,
+    pollIntervalMs: 2,
+    subscribeTaskTurnUpdated: () => () => {},
+    getTaskStatus: async (args) => {
+      const turn = backend.startedTurns.at(-1);
+      if (args.taskId === PARENT_TASK) return backend.getTaskStatus(args);
+      return {
+        activeTurnId: null,
+        latestTurnId: turn?.turnId ?? null,
+        latestTurnCompletedAt: durable ? "2026-10-01T00:00:00Z" : null,
+        latestTurnError: null,
+        latestTurnOutcome: durable ? "completed" : null,
+      };
+    },
+  });
+  let settled = false;
+  const running = host
+    .runTask({
+      workspaceId: PARENT_WORKSPACE,
+      taskId: "child",
+      parentTaskId: PARENT_TASK,
+      prompt: "reply",
+      providerId: "codex",
+      permissionProfile: "guided",
+    })
+    .then(() => {
+      settled = true;
+    });
+  await backend.waitForTurnStart(1);
+  await Bun.sleep(10);
+  expect(settled).toBe(false);
+  durable = true;
+  await running;
+  expect(settled).toBe(true);
+});
+
+test("running delegation durably records its started turn before settlement", async () => {
+  const harness = createHarness();
+  await harness.coordinator.delegate(delegateArgs());
+  const turn = await harness.backend.waitForTurnStart(1);
+  const child = await getChild(harness.coordinator);
+  expect(child.phase).toBe("running");
+  expect(child.delegatedTurnId).toBe(turn.turnId);
+  harness.backend.endTurn(turn.turnId);
+  await harness.coordinator.waitForInFlight();
+});
+
+test("live child cancellation and unknown completion preserve ledger outcomes", async () => {
+  for (const [outcome, phase] of [
+    ["cancelled", "cancelled"],
+    ["unknown", "interrupted"],
+  ] as const) {
+    const harness = createHarness();
+    const host = createDelegatedTaskHostPort({
+      ...harness.backend,
+      getTaskStatus: async (args) => ({
+        ...(await harness.backend.getTaskStatus(args)),
+        latestTurnOutcome: outcome,
+        latestTurnError:
+          outcome === "cancelled"
+            ? "Provider turn was interrupted before it completed."
+            : null,
+      }),
+    });
+    const coordinator = createDelegatedTaskCoordinator({
+      getLedger: () => createLedgerPort(harness.store),
+      host,
+      concurrencyLimit: 3,
+      createExecutionId: () => `execution-${outcome}`,
+    });
+    await coordinator.delegate(delegateArgs());
+    const turn = await harness.backend.waitForTurnStart(1);
+    harness.backend.endTurn(turn.turnId);
+    await coordinator.waitForInFlight();
+    expect((await getChild(coordinator)).phase).toBe(phase);
+  }
 });

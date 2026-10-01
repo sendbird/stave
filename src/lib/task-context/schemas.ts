@@ -1,3 +1,4 @@
+import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { ModelExecutionSchema } from "@/lib/providers/model-execution";
 import { WORKER_PRESET_IDS } from "../providers/worker-preset-ids";
 import {
@@ -553,6 +554,7 @@ export const ChatMessageSchema = z.object({
   completedAt: z.string().optional(),
   isStreaming: z.boolean().optional(),
   terminalStopReason: z.string().optional(),
+  terminalReceipt: TurnTerminalReceiptSchema.optional().catch(undefined),
   isPlanResponse: z.boolean().optional(),
   planText: z.string().optional(),
   planReview: z
