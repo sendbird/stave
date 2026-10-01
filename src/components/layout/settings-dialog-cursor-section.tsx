@@ -102,8 +102,7 @@ export function SettingsCursorSection() {
           />
           <p className={sx(cursorSectionStyles.note)}>
             Guided uses Cursor's own Auto-review classifier, so which calls it
-            runs unattended is decided by Cursor, not Stave. Worker runs always
-            stay on Manual.
+            runs unattended is decided by Cursor, not Stave.
           </p>
         </LabeledField>
         <LabeledField

@@ -9,7 +9,6 @@ import {
 import { chatAreaStyles } from "./chat-area.styles";
 import { sx } from "../ads/utils/stylex";
 import { memo, useCallback, useEffect, useRef, type MouseEvent } from "react";
-import { AdvisorConsultLogHost } from "@/components/session/AdvisorConsultLogDialog";
 import { ChatInput } from "@/components/session/ChatInput";
 import { TaskStartGuide } from "@/components/session/TaskStartGuide";
 import { ChatPanel } from "@/components/session/ChatPanel";
@@ -379,7 +378,6 @@ function ChatAreaImpl(props: ChatAreaProps) {
               triggers: the exchange card clears on a linger timer and the
               activity shelf is keyed per turn, so a dialog owned by either
               would disappear while it was being read. */}
-          <AdvisorConsultLogHost />
         </div>
         <ChatAreaComposerDock />
       </div>

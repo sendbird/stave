@@ -3,8 +3,6 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 import type { ComposerControlPlacements } from "@/lib/composer-controls";
-import type { AdvisorArmState } from "@/lib/providers/advisor";
-import type { WorkerArmState } from "@/lib/providers/worker-mode";
 
 const originalWindowDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
@@ -70,7 +68,6 @@ async function renderToolbar(
     composerControlPlacements?: ComposerControlPlacements;
     planMode?: boolean;
     thinkingMode?: "adaptive" | "enabled" | "disabled";
-    advisorActive?: boolean;
     value?: string;
     onEnhancePrompt?: () => void;
     promptEnhancementPending?: boolean;
@@ -301,84 +298,10 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain("Opus 5");
   });
 
-  test("opens Advisor state and options from one button", async () => {
-    setWindowContext();
-    const [{ PromptInputAdvisorPill }, { TooltipProvider }] = await Promise.all(
-      [
-        import("@/components/ai-elements/prompt-input-advisor-mode"),
-        import("@/components/ui"),
-      ],
-    );
-    const claudeTarget = {
-      providerId: "claude-code" as const,
-      model: "claude-opus-4-8",
-    };
-    const arm: AdvisorArmState = {
-      enabled: false,
-      target: null,
-      effectiveTarget: claudeTarget,
-      overridden: true,
-      targetByProvider: {
-        "claude-code": claudeTarget,
-        codex: { providerId: "codex", model: "gpt-5.6-sol" },
-      },
-    };
-    const html = renderToStaticMarkup(
-      createElement(
-        TooltipProvider,
-        null,
-        createElement(PromptInputAdvisorPill, {
-          arm,
-          primaryProviderId: "claude-code",
-          primaryModel: MODEL_OPTION.model,
-          selectedProviderId: "claude-code",
-          advisorModelOptions: [MODEL_OPTION.model],
-          open: false,
-          onSetEnabled: () => {},
-          onSelectProvider: () => {},
-          onSelectModel: () => {},
-          onSelectEffort: () => {},
-        }),
-      ),
-    );
-
-    expect((html.match(/<button/g) ?? []).length).toBe(1);
-    expect(html).toContain('aria-label="Configure Advisor ·');
-    expect(html).not.toContain("Choose which model advises");
-  });
-
-  test("opens Worker state and options from one button", async () => {
-    setWindowContext();
-    const [{ PromptInputWorkerPill }, { TooltipProvider }] = await Promise.all([
-      import("@/components/ai-elements/prompt-input-worker-mode"),
-      import("@/components/ui"),
-    ]);
-    const arm: WorkerArmState = {
-      enabled: false,
-      config: { presetId: "verified-patch", model: "auto", effort: "auto" },
-      overridden: true,
-    };
-    const html = renderToStaticMarkup(
-      createElement(
-        TooltipProvider,
-        null,
-        createElement(PromptInputWorkerPill, {
-          arm,
-          resolution: { status: "off" },
-          primaryProviderId: "claude-code",
-          primaryModel: MODEL_OPTION.model,
-          open: false,
-          onToggle: () => {},
-          onSelectPreset: () => {},
-          onSelectModel: () => {},
-          onSelectEffort: () => {},
-        }),
-      ),
-    );
-
-    expect((html.match(/<button/g) ?? []).length).toBe(1);
-    expect(html).toContain('aria-label="Configure Worker mode ·');
-    expect(html).not.toContain("Choose the worker preset");
+  test("offers no Advisor or Worker control", async () => {
+    const html = await renderToolbar();
+    expect(html).not.toContain("Advisor");
+    expect(html).not.toContain("Worker");
   });
   test("hosts every status-shelf control as a bare, shared-pill button", async () => {
     setWindowContext();

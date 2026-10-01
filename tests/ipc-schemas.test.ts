@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { WORKER_PRESET_IDS } from "@/lib/providers/worker-preset-ids";
-import { WORKER_PRESETS } from "@/lib/providers/worker-mode";
 import {
   ClaudeFileRewindArgsSchema,
   ClaudeSessionForkArgsSchema,
@@ -67,31 +65,12 @@ describe("provider IPC schemas", () => {
     }
   });
 
-  test("only cataloged worker presets cross the runtime boundary for either provider", () => {
-    expect(WORKER_PRESETS.map((preset) => preset.id).sort()).toEqual(
-      [...WORKER_PRESET_IDS].sort(),
-    );
-    for (const providerId of ["claude-code", "codex"]) {
-      const request = (presetId: string) => ({
-        providerId,
-        prompt: "Inspect the changes",
-        runtimeOptions: {
-          workerIntent: {
-            mode: "task-executor",
-            presetId,
-            workerModel: "auto",
-            workerEffort: "auto",
-          },
-        },
-      });
-      for (const presetId of WORKER_PRESET_IDS) {
-        expect(StreamTurnArgsSchema.safeParse(request(presetId)).success).toBe(
-          true,
-        );
-      }
-      expect(
-        StreamTurnArgsSchema.safeParse(request("unknown-preset")).success,
-      ).toBe(false);
+  test("retired Advisor and Worker runtime options no longer cross the boundary", () => {
+    for (const runtimeOptions of [
+      { advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" } },
+      { workerIntent: { mode: "task-executor", presetId: "scout", workerModel: "auto", workerEffort: "auto" } },
+    ]) {
+      expect(StreamTurnArgsSchema.safeParse({ providerId: "claude-code", prompt: "x", runtimeOptions }).success).toBe(false);
     }
   });
   test("validates prompt-enhancement requests", () => {
@@ -336,58 +315,7 @@ describe("provider IPC schemas", () => {
     ).toBe(false);
   });
 
-  test("validates the provider-neutral Advisor target", () => {
-    expect(
-      StreamTurnArgsSchema.safeParse({
-        providerId: "claude-code",
-        prompt: "continue",
-        runtimeOptions: {
-          advisorTarget: {
-            providerId: "codex",
-            model: "gpt-5.6-terra",
-          },
-        },
-      }).success,
-    ).toBe(true);
-    expect(
-      StreamTurnArgsSchema.safeParse({
-        providerId: "codex",
-        prompt: "continue",
-        runtimeOptions: {
-          advisorTarget: {
-            providerId: "claude-code",
-            model: "",
-          },
-        },
-      }).success,
-    ).toBe(false);
-  });
 
-  test("accepts an optional advisor effort and rejects an unselectable one", () => {
-    const parse = (effort: unknown) =>
-      StreamTurnArgsSchema.safeParse({
-        providerId: "claude-code",
-        prompt: "continue",
-        runtimeOptions: {
-          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol", effort },
-        },
-      }).success;
-
-    expect(parse("ultra")).toBe(true);
-    // "minimal" is Codex's legacy tier: unselectable, and collapsed to "low"
-    // before any call, so it must not cross the IPC boundary as a pin.
-    expect(parse("minimal")).toBe(false);
-    expect(parse("insane")).toBe(false);
-    expect(
-      StreamTurnArgsSchema.safeParse({
-        providerId: "claude-code",
-        prompt: "continue",
-        runtimeOptions: {
-          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
-        },
-      }).success,
-    ).toBe(true);
-  });
 
   test("accepts Claude xhigh effort in runtime options", () => {
     const parsed = StreamTurnArgsSchema.safeParse({
@@ -472,17 +400,11 @@ describe("provider IPC schemas", () => {
                   state: "output-available",
                   elapsedSeconds: 19,
                   progressMessages: ["Reading schemas", "Checking snapshots"],
+                  // Saved by a build that still had Worker mode.
                   workerExecution: {
                     providerId: "codex",
-                    primaryModel: "gpt-5.6-sol",
                     presetId: "verified-patch",
                     workerModel: "gpt-5.6-terra",
-                    requestedWorkerModel: "auto",
-                    resolvedWorkerModel: "gpt-5.6-terra",
-                    workerModelSource: "preset",
-                    workerModelRationale:
-                      "Recorded by the Worker selection producer.",
-                    runtimeWorkerModel: "gpt-5.6-terra-20260901",
                     workerEffort: "max",
                   },
                 },
@@ -511,18 +433,6 @@ describe("provider IPC schemas", () => {
       state: "output-available",
       elapsedSeconds: 19,
       progressMessages: ["Reading schemas", "Checking snapshots"],
-      workerExecution: {
-        providerId: "codex",
-        primaryModel: "gpt-5.6-sol",
-        presetId: "verified-patch",
-        workerModel: "gpt-5.6-terra",
-        requestedWorkerModel: "auto",
-        resolvedWorkerModel: "gpt-5.6-terra",
-        workerModelSource: "preset",
-        workerModelRationale: "Recorded by the Worker selection producer.",
-        runtimeWorkerModel: "gpt-5.6-terra-20260901",
-        workerEffort: "max",
-      },
     });
   });
 
@@ -883,7 +793,6 @@ function kickoffArgs(overrides: Record<string, unknown> = {}) {
       claudeAllowUnsandboxedCommands: false,
       claudeAllowDangerouslySkipPermissions: false,
       claudeEffort: "medium",
-      advisorTarget: null,
     },
     instruction: "Fix the failing login redirect.",
     startMode: "run",

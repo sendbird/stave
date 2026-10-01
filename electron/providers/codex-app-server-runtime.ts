@@ -79,11 +79,6 @@ import {
 } from "./codex-app-server-mcp-status";
 import { readStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
-import { resolveCodexWorkerProfile } from "./codex-runtime-config";
-import {
-  buildWorkerExecutionMetadata,
-  type WorkerExecutionMetadata,
-} from "../../src/lib/providers/worker-mode";
 import {
   getCodexMcpConfigPathGroups,
   McpConfigRefreshTracker,
@@ -420,12 +415,8 @@ function serializeCodexMcpToolCallArguments(value: unknown) {
 
 function buildCodexMcpToolCallInputEvent(
   item: CodexMcpToolCallItem,
-  workerExecution?: WorkerExecutionMetadata | null,
 ): Extract<BridgeEvent, { type: "tool" }> {
   const itemId = typeof item.id === "string" ? item.id : "";
-  const normalizedToolName = `${item.server ?? "mcp"}:${item.tool ?? "tool"}`
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
   return {
     type: "tool",
     ...(itemId ? { toolUseId: itemId } : {}),
@@ -435,9 +426,6 @@ function buildCodexMcpToolCallInputEvent(
       maxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
     }),
     state: "input-available",
-    ...(workerExecution && normalizedToolName.endsWith("spawnagent")
-      ? { workerExecution }
-      : {}),
   };
 }
 
@@ -1752,12 +1740,6 @@ export async function streamCodexWithAppServer(
       runtimeOptions?.providerBrowserAutoFallbackDomains,
     ),
   });
-  const workerProfile = secondaryReadOnly
-    ? null
-    : resolveCodexWorkerProfile({ runtimeOptions });
-  const workerExecution = workerProfile
-    ? buildWorkerExecutionMetadata(workerProfile)
-    : null;
   const codexCapabilities = getCodexVersionCapabilities(codexExecutablePath);
 
   // A per-turn process lets Codex resolve MCP bearer_token_env_var settings
@@ -1879,18 +1861,6 @@ export async function streamCodexWithAppServer(
       secondaryReadOnly || nativeSlashCommandTurn
         ? null
         : await readStaveLocalMcpManifest();
-    if (
-      args.staveTurnGrants?.advisorArmed &&
-      !staveLocalMcpManifest &&
-      !secondaryReadOnly
-    ) {
-      const events = buildCodexTerminalFailureEvents({
-        message:
-          "Advisor is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
-      });
-      events.forEach((event) => args.onEvent?.(event));
-      return events;
-    }
     const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
       base: {
         ...(secondaryConfigOverrides ?? {}),
@@ -2067,7 +2037,6 @@ export async function streamCodexWithAppServer(
       /** Same opener contract as commands, for Codex's file edits. */
       const startedFileChangeIds = new Set<string>();
       const workerActivity = createCodexWorkerActivityMapper({
-        workerExecution,
         inputMaxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
         outputMaxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
       });
@@ -2676,7 +2645,7 @@ export async function streamCodexWithAppServer(
             }
             startedMcpToolCallIds.add(itemId);
             emitBridgeEvent(
-              buildCodexMcpToolCallInputEvent(item, workerExecution),
+              buildCodexMcpToolCallInputEvent(item),
             );
             return;
           }
@@ -3029,7 +2998,7 @@ export async function streamCodexWithAppServer(
                 const completedEvents: BridgeEvent[] = [];
                 if (!itemId || !startedMcpToolCallIds.delete(itemId)) {
                   completedEvents.push(
-                    buildCodexMcpToolCallInputEvent(mcpItem, workerExecution),
+                    buildCodexMcpToolCallInputEvent(mcpItem),
                   );
                 }
                 completedEvents.push({

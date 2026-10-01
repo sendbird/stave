@@ -20,9 +20,7 @@ import {
   formatResolvedRouteLabel,
 } from "@/lib/providers/auto-routing-profile";
 import { formatAutoRoutingSignalSummary } from "@/lib/routing/auto-routing";
-import { formatAdvisorRuntimeStatusValue } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import { toast } from "@/components/ui";
-import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { buildCommandPaletteItems } from "@/lib/commands";
 import {
   CLAUDE_PROVIDER_MODE_PRESETS,
@@ -40,7 +38,6 @@ import {
   type ProviderModePresetDefinition,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
-import { resolveAdvisorArmState } from "@/lib/providers/advisor";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import {
   buildModelEffortRuntimeOverrides,
@@ -98,7 +95,6 @@ import {
   buildChatInputGoalStatus,
   buildChatInputRuntimeStatusItems,
   buildCommandCatalogRuntimeOptions,
-  describeWorkerRuntimeSummary,
 } from "./chat-input.runtime";
 import { useScopedTaskId } from "./task-scope-context";
 import {
@@ -208,21 +204,6 @@ function BaseChatInput() {
     (state) =>
       state.promptDraftByTask[activeTaskId || "draft:session"]
         ?.runtimeOverrides,
-  );
-  const settingsAdvisorEnabled = useAppStore(
-    (state) => state.settings.advisorEnabled,
-  );
-  const settingsAdvisorTarget = useAppStore(
-    (state) => state.settings.advisorTarget,
-  );
-  const settingsAdvisorTargetByProvider = useAppStore(
-    (state) => state.settings.advisorTargetByProvider,
-  );
-  const settingsWorkerEnabled = useAppStore(
-    (state) => state.settings.workerEnabled,
-  );
-  const settingsWorkerConfigByProvider = useAppStore(
-    (state) => state.settings.workerConfigByProvider,
   );
   const workspaceCwd = useAppStore(
     (state) =>
@@ -623,50 +604,9 @@ function BaseChatInput() {
       }),
     [activeProvider, activeProviderGoal],
   );
-  const advisorRuntimeSummary = useMemo(
-    () => {
-      if (!managedExecutionProvider) {
-        return "Unavailable";
-      }
-      return formatAdvisorRuntimeStatusValue(
-        resolveAdvisorArmState({
-          overrides: promptDraftRuntimeOverrides,
-          settingsTarget: settingsAdvisorTarget,
-          settingsEnabled: settingsAdvisorEnabled,
-          settingsTargetByProvider: settingsAdvisorTargetByProvider,
-        }),
-      );
-    },
-    [
-      managedExecutionProvider,
-      promptDraftRuntimeOverrides,
-      settingsAdvisorEnabled,
-      settingsAdvisorTarget,
-      settingsAdvisorTargetByProvider,
-    ],
-  );
-  // Resolved separately from the composer's copy: the runtime bar lives in a
-  // different component, and reporting a stale shape here would contradict the
-  // pill sitting a few pixels away.
-  const taskRunsAsAgent = useAgentAssignmentsStore((state) => Boolean(state.byTaskId[activeTaskId]));
-  const workerRuntimeSummary = useMemo(
-    () =>
-      describeWorkerRuntimeSummary({
-        runsAsAgent: taskRunsAsAgent,
-        providerId: activeProvider,
-        primaryModel: activeModel,
-        overrides: promptDraftRuntimeOverrides,
-        settingsConfig: settingsWorkerConfigByProvider?.[activeProvider],
-        settingsEnabled: settingsWorkerEnabled,
-        runtimeModels: providerModelCatalogs.catalogs[activeProvider].models,
-      }),
-    [activeModel, activeProvider, taskRunsAsAgent, promptDraftRuntimeOverrides, providerModelCatalogs.catalogs, settingsWorkerConfigByProvider, settingsWorkerEnabled],
-  );
   const runtimeStatusItems = useMemo(() => {
     return buildChatInputRuntimeStatusItems({
       activeProvider,
-      advisorSummary: advisorRuntimeSummary,
-      workerSummary: workerRuntimeSummary,
       providerTimeoutMs,
       claudePermissionMode: effectiveClaudePermissionMode,
       claudeAllowDangerouslySkipPermissions,
@@ -693,8 +633,6 @@ function BaseChatInput() {
     });
   }, [
     activeProvider,
-    advisorRuntimeSummary,
-    workerRuntimeSummary,
     claudeAllowDangerouslySkipPermissions,
     claudeAgentProgressSummaries,
     claudeAllowUnsandboxedCommands,

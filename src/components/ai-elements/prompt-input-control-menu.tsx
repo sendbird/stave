@@ -147,8 +147,8 @@ export function ComposerControlPlacementList(args: {
 
       <p className={sx(controlMenuStyles.footerNote)}>
         A control set to Tray or Off returns to the toolbar while it is active,
-        so an armed Advisor or a forced Thinking mode is never running out of
-        sight.
+        so plan mode, bound secrets or a forced Thinking mode is never running
+        out of sight.
       </p>
 
       {isDefault ? null : (

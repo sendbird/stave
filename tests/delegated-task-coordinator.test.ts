@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import {
   createDelegatedTaskCoordinator,
@@ -48,12 +47,11 @@ function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
     cancelRunStep: (args) => store.cancelStep(args),
     interruptRunStep: (args) => store.interruptStep(args),
     setRunStepTarget: (args) => store.setStepTarget(args),
-    listHeldWriterRunAggregates: () => store.listHeldWriterAggregates(),
-    acquireRunWriterLease: (args) => store.acquireWriterLease(args),
     listRunReceipts: (args) => store.listReceipts(args),
     listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
     listActiveRunAggregatesByStepKind: (args) =>
       store.listActiveAggregatesByStepKind(args),
+    listRunAggregatesByOwnedTask: (args) => store.listAggregatesByOwnedTask(args),
   };
 }
 
@@ -143,7 +141,6 @@ function createHarness(
     /** Resolve with the real policy, pinning it per delegated task like the host store does. */
     realPolicy?: boolean;
     parentDefaults?: { providerId: "claude-code" | "codex"; effort?: DelegatedTaskEffort } | null;
-    canonicalWorkspacePath?: (workspacePath: string) => Promise<string>;
     readHead?: (workspacePath: string) => Promise<string | null>;
   } = {},
 ) {
@@ -157,7 +154,6 @@ function createHarness(
       getLedger: () => createLedgerPort(store),
       host: hostHarness.host,
       concurrencyLimit: options.concurrencyLimit ?? 3,
-      canonicalWorkspacePath: options.canonicalWorkspacePath ?? (async (workspacePath) => workspacePath),
       readHead: options.readHead,
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
@@ -208,98 +204,45 @@ function delegateArgs(
   };
 }
 
-describe("managed workspace writer admission", () => {
-  test("real filesystem symlinks resolve to one physical writer workspace", async () => {
-    await mkdir(REPOSITORY_PATH, { recursive: true });
-    const directory = await mkdtemp(`${REPOSITORY_PATH}/writer-admission-`);
-    try {
-      await mkdir(`${directory}/work`);
-      await symlink(`${directory}/work`, `${directory}/alias`);
-      const harness = createHarness({ runTask: () => new Promise(() => {}), canonicalWorkspacePath: realpath,
-        knownWorkspaces: { [PARENT_WORKSPACE]: `${directory}/work`, alias: `${directory}/alias` },
-      });
-      harness.statusByTaskId.set("second-parent", IDLE_STATUS);
-      expect((await harness.coordinator.delegate(delegateArgs())).accepted).toBe(true);
-      expect((await harness.restart().delegate(delegateArgs({ parentTaskId: "second-parent", parentWorkspaceId: "alias" }))).reason).toBe("workspace-writer-busy");
-      expect(harness.runTaskCalls).toHaveLength(1);
-    } finally { await rm(directory, { recursive: true, force: true }); }
-  });
+describe("writer isolation", () => {
+  const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
 
-  test("separate coordinators atomically refuse simultaneous parents on one actual workspace", async () => {
-    const harness = createHarness({
-      runTask: () => new Promise(() => {}),
-      knownWorkspaces: { [PARENT_WORKSPACE]: `${REPOSITORY_PATH}/work`, alias: `${REPOSITORY_PATH}/alias` },
-      canonicalWorkspacePath: async () => `${REPOSITORY_PATH}/work`,
-    });
-    harness.statusByTaskId.set("second-parent", IDLE_STATUS);
-    const responses = await Promise.all([
-      harness.coordinator.delegate(delegateArgs()),
-      harness.restart().delegate(delegateArgs({ parentTaskId: "second-parent", parentWorkspaceId: "alias" })),
-    ]);
-    expect(responses.filter((response) => response.accepted)).toHaveLength(1);
-    const busy = responses.find((response) => !response.accepted)!;
-    const holder = responses.find((response) => response.accepted)!;
-    expect(busy.reason).toBe("workspace-writer-busy");
-    expect(busy.message).toContain(holder.child!.delegatedTaskId);
-    expect(busy.message).toContain("new worktree");
-    expect(harness.runTaskCalls).toHaveLength(1);
-    expect(harness.store.listHeldWriterAggregates()).toHaveLength(1);
-    expect(harness.store.listAggregatesByOrigin({ originKind: "task", originId: busy === responses[0] ? PARENT_TASK : "second-parent", limit: 10 })).toEqual([]);
-  });
-
-  test("different worktrees run in parallel, including direct parent turns", async () => {
-    const harness = createHarness({ runTask: () => new Promise(() => {}), knownWorkspaces: {
-      [PARENT_WORKSPACE]: `${REPOSITORY_PATH}/first`, other: `${REPOSITORY_PATH}/second`,
-    } });
-    harness.statusByTaskId.set(PARENT_TASK, { ...IDLE_STATUS, activeTurnId: "direct-parent-turn" });
-    harness.statusByTaskId.set("second-parent", IDLE_STATUS);
-    expect((await harness.coordinator.delegate(delegateArgs())).accepted).toBe(true);
-    expect((await harness.coordinator.delegate(delegateArgs({ parentTaskId: "second-parent", parentWorkspaceId: "other" }))).accepted).toBe(true);
-    expect(harness.stopTaskCalls).toEqual([]);
-    expect(harness.runTaskCalls).toHaveLength(2);
-  });
-
-  test("a newly created worktree is guarded when a later parent targets it", async () => {
-    const harness = createHarness({ runTask: () => new Promise(() => {}) });
-    const first = await harness.coordinator.delegate(delegateArgs({ workspace: { mode: "new-worktree", name: "writer" } }));
-    harness.statusByTaskId.set("second-parent", IDLE_STATUS);
-    const second = await harness.coordinator.delegate(delegateArgs({ parentTaskId: "second-parent", parentWorkspaceId: first.child!.delegatedWorkspaceId }));
-    expect(second.reason).toBe("workspace-writer-busy");
+  test("a writing subagent gets its own worktree; a read-only one stays in this workspace", async () => {
+    const harness = createHarness({ realPolicy: true, parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}) });
+    const writer = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser." }, caller);
+    const reader = await harness.coordinator.delegateFromTool({ prompt: "Review the parser.", access: "read-only", wait: false }, caller);
     expect(harness.createWorkspaceCalls).toHaveLength(1);
-    expect(harness.runTaskCalls).toHaveLength(1);
-  });
-
-  test("proven Codex read-only can run beside a Claude writer", async () => {
-    const harness = createHarness({ readOnly: true, runTask: () => new Promise(() => {}) });
-    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", permissionProfile: "manual", delegationKey: "writer" }))).accepted).toBe(true);
-    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "codex", delegationKey: "reader" }))).accepted).toBe(true);
-    expect(harness.store.listHeldWriterAggregates()).toHaveLength(1);
-  });
-
-  test("two Claude read-only consults in one workspace run in parallel and hold no writer slot", async () => {
-    const harness = createHarness({ realPolicy: true, runTask: () => new Promise(() => {}) });
-    for (const model of ["claude-opus-4-5", "claude-sonnet-4-5"]) {
-      const response = await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", access: "read-only", model, delegationKey: `consult-${model}` }));
-      expect(response.accepted).toBe(true);
-    }
+    expect(String(harness.createWorkspaceCalls[0]!.name)).toStartWith("subagent-fix-the-parser-");
+    expect(writer.child!.delegatedWorkspaceId).not.toBe(PARENT_WORKSPACE);
+    expect(reader.child!.delegatedWorkspaceId).toBe(PARENT_WORKSPACE);
     expect(harness.runTaskCalls).toHaveLength(2);
-    expect(harness.store.listHeldWriterAggregates()).toEqual([]);
-    for (const call of harness.runTaskCalls)
-      expect(call.permissionPolicy).toMatchObject({ access: "read-only", options: { claudePermissionMode: "dontAsk", claudeSandboxReadOnly: true } });
   });
 
-  test("a Claude read-only consult runs beside a writer; a second writer is still refused", async () => {
+  test("work pinned to a commit stays in this workspace", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, readHead: async () => "abc1234", runTask: () => new Promise(() => {}) });
+    const pinned = await harness.coordinator.delegateFromTool({ prompt: "Review abc1234.", expectedHead: "abc1234" }, caller);
+    expect(pinned).toMatchObject({ accepted: true, child: { delegatedWorkspaceId: PARENT_WORKSPACE } });
+    expect(harness.createWorkspaceCalls).toHaveLength(0);
+  });
+
+  test("an explicit same-workspace writer is refused while another writer runs; readers are not", async () => {
     const harness = createHarness({ realPolicy: true, runTask: () => new Promise(() => {}) });
     expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", delegationKey: "writer" }))).accepted).toBe(true);
     expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", access: "read-only", delegationKey: "reader" }))).accepted).toBe(true);
-    // Profile names and plan mode do not prove read-only access.
-    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", permissionProfile: "guided", delegationKey: "another-writer" }))).reason).toBe("workspace-writer-busy");
-    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "codex", permissionProfile: "manual", delegationKey: "codex-writer" }))).reason).toBe("workspace-writer-busy");
-    expect(harness.store.listHeldWriterAggregates()).toHaveLength(1);
+    const busy = await harness.coordinator.delegate(delegateArgs({ providerId: "codex", delegationKey: "second-writer" }));
+    expect(busy.reason).toBe("workspace-writer-busy");
+    expect(busy.message).toContain("new worktree");
     expect(harness.runTaskCalls).toHaveLength(2);
   });
 
-  test("a parked read-only consult takes its follow-up beside an active writer", async () => {
+  test("a writer may follow once the earlier writer finished", async () => {
+    const harness = createHarness({ realPolicy: true });
+    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", delegationKey: "writer" }))).accepted).toBe(true);
+    await harness.coordinator.waitForInFlight();
+    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", delegationKey: "next-writer" }))).accepted).toBe(true);
+  });
+
+  test("a parked read-only subagent takes its follow-up beside an active writer", async () => {
     let calls = 0;
     const harness = createHarness({ realPolicy: true, runTask: async ({ onStarted }) => {
       const turnId = `turn-${++calls}`; onStarted?.(turnId);
@@ -312,204 +255,14 @@ describe("managed workspace writer admission", () => {
       expected: { delegatedTaskId: reader.child!.delegatedTaskId, delegatedWorkspaceId: reader.child!.delegatedWorkspaceId, attempt: 1 } });
     expect(follow.accepted).toBe(true);
     expect(harness.runTaskCalls.at(-1)!.permissionPolicy).toMatchObject({ access: "read-only", source: "recorded-delegation" });
-    expect(harness.store.listHeldWriterAggregates()).toHaveLength(1);
   });
 
-  test("failed startup releases admission so another child can start", async () => {
-    let calls = 0;
-    const harness = createHarness({ runTask: async () => {
-      if (++calls === 1) throw new Error("Could not start provider");
-      return { turnId: "second-turn" };
-    } });
-    await harness.coordinator.delegate(delegateArgs());
-    await harness.coordinator.waitForInFlight();
-    expect(harness.store.listHeldWriterAggregates()).toEqual([]);
-    expect((await harness.coordinator.delegate(delegateArgs({ delegationKey: "second" }))).accepted).toBe(true);
-    await harness.coordinator.waitForInFlight();
-  });
-
-  test("ledger stop keeps the writer guarded until actual turn completion", async () => {
-    let finish!: (result: { turnId: string }) => void;
-    const harness = createHarness({ runTask: async ({ onStarted }) => {
-      onStarted?.("writing-turn");
-      return new Promise((resolve) => { finish = resolve; });
-    } });
-    await harness.coordinator.delegate(delegateArgs());
-    await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
-    expect((await harness.coordinator.delegate(delegateArgs({ delegationKey: "second" }))).reason).toBe("workspace-writer-busy");
-    finish({ turnId: "writing-turn" });
-    await harness.coordinator.waitForInFlight();
-    expect(harness.store.listHeldWriterAggregates()).toEqual([]);
-    expect((await harness.coordinator.delegate(delegateArgs({ delegationKey: "second" }))).accepted).toBe(true);
-    finish({ turnId: "writing-turn" });
-    await harness.coordinator.waitForInFlight();
-  });
-
-  test("restart with unavailable host keeps a cancelled writer guarded", async () => {
-    const harness = createHarness({ runTask: async ({ onStarted }) => {
-      onStarted?.("writing-turn"); return new Promise(() => {});
-    } });
-    await harness.coordinator.delegate(delegateArgs());
-    await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
-    harness.setHostUnavailable(true);
-    const restarted = harness.restart();
-    expect((await restarted.reconcile()).deferred).toBe(1);
-    expect(harness.store.listHeldWriterAggregates()).toHaveLength(1);
-  });
-
-  test("detach during startup keeps the child running and admission held", async () => {
-    let started!: (turnId: string) => void;
-    let finish!: (result: { turnId: string }) => void;
-    const harness = createHarness({ runTask: async ({ onStarted }) => {
-      started = onStarted!; return new Promise((resolve) => { finish = resolve; });
-    } });
-    await harness.coordinator.delegate(delegateArgs());
-    await harness.coordinator.detach({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
-    started("detached-turn");
-    expect(harness.stopTaskCalls).toEqual([]);
-    expect((await harness.coordinator.delegate(delegateArgs({ delegationKey: "second" }))).reason).toBe("workspace-writer-busy");
-    finish({ turnId: "detached-turn" });
-    await harness.coordinator.waitForInFlight();
-    expect(harness.store.listHeldWriterAggregates()).toEqual([]);
-  });
-
-  test("parked follow-up reacquires the same workspace and refuses an active writer", async () => {
-    let calls = 0;
-    let finish!: (result: { turnId: string }) => void;
-    const harness = createHarness({ runTask: async ({ onStarted }) => {
-      const turnId = `turn-${++calls}`; onStarted?.(turnId);
-      if (calls === 2) return new Promise((resolve) => { finish = resolve; });
-      return { turnId };
-    } });
-    const initial = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
-    await harness.coordinator.waitForInFlight();
-    const initialTarget = harness.store.getAggregate({ runId: initial.child!.runId, stepId: initial.child!.stepId })!.step.target!;
-    await harness.coordinator.delegate(delegateArgs({ delegationKey: "writer" }));
-    const follow = { parentTaskId: PARENT_TASK, delegationKey: "review-docs", prompt: "Follow up", expected: { delegatedTaskId: initial.child!.delegatedTaskId, delegatedWorkspaceId: initial.child!.delegatedWorkspaceId, attempt: 1 } };
-    expect((await harness.coordinator.followUp(follow)).reason).toBe("workspace-writer-busy");
-    finish({ turnId: "turn-2" });
-    await harness.coordinator.waitForInFlight();
-    expect((await harness.coordinator.followUp(follow)).accepted).toBe(true);
-    await harness.coordinator.waitForInFlight();
-    expect(harness.store.setStepTarget({ runId: initial.child!.runId, stepId: initial.child!.stepId, expectedExecutionId: "execution-1", expectedLeaseId: initialTarget.writerLease!.leaseId, target: initialTarget })).toBe(false);
-    expect(harness.store.getAggregate({ runId: initial.child!.runId, stepId: initial.child!.stepId })!.step.target!.turnId).toBe("turn-3");
-  });
-
-  test("HEAD is rechecked after admission and moved work never starts", async () => {
-    let leaseObserved = false;
-    const harness = createHarness({ readHead: async () => {
-      leaseObserved = harness.store.listHeldWriterAggregates().length === 1;
-      return "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    } });
-    const result = await harness.coordinator.delegate(delegateArgs({ expectedHead: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }));
-    expect(leaseObserved).toBe(true);
-    expect(result.reason).toBe("head-mismatch");
-    expect(harness.runTaskCalls).toEqual([]);
-    expect(harness.store.listHeldWriterAggregates()).toEqual([]);
-  });
-
-  test("legacy active rows guard aliases of the same workspace without a migration", async () => {
-    const harness = createHarness({ runTask: async ({ onStarted }) => { onStarted?.("legacy-turn"); return new Promise(() => {}); },
-      knownWorkspaces: { [PARENT_WORKSPACE]: `${REPOSITORY_PATH}/work`, alias: `${REPOSITORY_PATH}/alias` },
-      canonicalWorkspacePath: async () => `${REPOSITORY_PATH}/work`,
-    });
-    const first = await harness.coordinator.delegate(delegateArgs());
-    const aggregate = harness.store.getAggregate({ runId: first.child!.runId, stepId: first.child!.stepId })!;
-    harness.store.setStepTarget({ runId: aggregate.run.id, stepId: aggregate.step.id, target: { ...aggregate.step.target!, writerLease: undefined, turnExecutionId: undefined } });
-    harness.statusByTaskId.set(first.child!.delegatedTaskId, { ...IDLE_STATUS, activeTurnId: "legacy-turn" });
-    harness.statusByTaskId.set("second-parent", IDLE_STATUS);
-    const result = await harness.restart().delegate(delegateArgs({ parentTaskId: "second-parent", parentWorkspaceId: "alias" }));
-    expect(result.reason).toBe("workspace-writer-busy");
-    expect(harness.runTaskCalls).toHaveLength(1);
-    expect(harness.store.getAggregate({ runId: aggregate.run.id, stepId: aggregate.step.id })!.step.target!.writerLease).toBeUndefined();
-  });
-
-  test("unavailable legacy child remains guarded while another workspace is usable", async () => {
-    const harness = createHarness({ runTask: async ({ onStarted }) => { onStarted?.("legacy-turn"); return new Promise(() => {}); },
-      knownWorkspaces: { [PARENT_WORKSPACE]: `${REPOSITORY_PATH}/work`, other: `${REPOSITORY_PATH}/other` },
-    });
-    const first = await harness.coordinator.delegate(delegateArgs());
-    const aggregate = harness.store.getAggregate({ runId: first.child!.runId, stepId: first.child!.stepId })!;
-    harness.store.setStepTarget({ runId: aggregate.run.id, stepId: aggregate.step.id, target: { ...aggregate.step.target!, writerLease: undefined, turnExecutionId: undefined } });
-    const originalStatus = harness.host.getTaskStatus;
-    harness.host.getTaskStatus = async (args) => args.taskId === first.child!.delegatedTaskId ? { ok: false, reason: "unavailable" } : originalStatus(args);
-    harness.statusByTaskId.set("second-parent", IDLE_STATUS);
-    const restarted = harness.restart();
-    expect((await restarted.delegate(delegateArgs({ delegationKey: "same" }))).reason).toBe("workspace-writer-busy");
-    expect((await restarted.delegate(delegateArgs({ parentTaskId: "second-parent", parentWorkspaceId: "other" }))).accepted).toBe(true);
-    expect(harness.runTaskCalls).toHaveLength(2);
-  });
-
-  test("recorded read-only legacy child does not reserve a writer lease", async () => {
-    const harness = createHarness({ readOnly: true, runTask: async ({ onStarted }) => { onStarted?.("legacy-reader"); return new Promise(() => {}); } });
-    const first = await harness.coordinator.delegate(delegateArgs());
-    const aggregate = harness.store.getAggregate({ runId: first.child!.runId, stepId: first.child!.stepId })!;
-    harness.store.setStepTarget({ runId: aggregate.run.id, stepId: aggregate.step.id, target: { ...aggregate.step.target!, turnExecutionId: undefined } });
-    harness.statusByTaskId.set(first.child!.delegatedTaskId, { ...IDLE_STATUS, activeTurnId: "legacy-reader" });
-    expect((await harness.restart().delegate(delegateArgs({ providerId: "claude-code", delegationKey: "writer" }))).accepted).toBe(true);
-    expect(harness.runTaskCalls).toHaveLength(2);
-  });
-
-  test("legacy completion arriving during admission settles before transactional writer claim", async () => {
-    const harness = createHarness({ runTask: async ({ onStarted }) => { onStarted?.("legacy-turn"); return new Promise(() => {}); } });
-    const first = await harness.coordinator.delegate(delegateArgs());
-    const aggregate = harness.store.getAggregate({ runId: first.child!.runId, stepId: first.child!.stepId })!;
-    harness.store.setStepTarget({ runId: aggregate.run.id, stepId: aggregate.step.id, target: { ...aggregate.step.target!, writerLease: undefined, turnExecutionId: undefined } });
-    const originalStatus = harness.host.getTaskStatus;
-    let reads = 0;
-    harness.host.getTaskStatus = async (args) => args.taskId !== first.child!.delegatedTaskId ? originalStatus(args) : ++reads === 1
-      ? { ...IDLE_STATUS, activeTurnId: "legacy-turn" }
-      : { ...IDLE_STATUS, latestTurnId: "legacy-turn", latestTurnCompletedAt: "2026-08-11T00:00:00.000Z", latestTurnOutcome: "completed" };
-    expect((await harness.restart().delegate(delegateArgs({ delegationKey: "second" }))).accepted).toBe(true);
-    expect(harness.store.getAggregate({ runId: aggregate.run.id, stepId: aggregate.step.id })!.step.status).toBe("completed");
-  });
-
-  test("pinned follow-up rechecks HEAD after admission and preserves the parked identity", async () => {
-    let head = "a".repeat(40);
-    let heldDuringRead = false;
-    const harness = createHarness({ readHead: async () => { heldDuringRead = harness.store.listHeldWriterAggregates().length === 1; return head; } });
-    const first = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached", expectedHead: head }));
-    await harness.coordinator.waitForInFlight();
-    const parked = harness.store.getAggregate({ runId: first.child!.runId, stepId: first.child!.stepId })!.step.target;
-    head = "b".repeat(40);
-    const result = await harness.coordinator.followUp({ parentTaskId: PARENT_TASK, delegationKey: "review-docs", prompt: "Follow up", expected: {
-      delegatedTaskId: first.child!.delegatedTaskId, delegatedWorkspaceId: first.child!.delegatedWorkspaceId, attempt: 1,
-    } });
-    expect(result.reason).toBe("head-mismatch");
-    expect(heldDuringRead).toBe(true);
-    expect(harness.runTaskCalls).toHaveLength(1);
-    expect(harness.store.listHeldWriterAggregates()).toEqual([]);
-    expect(harness.store.getAggregate({ runId: first.child!.runId, stepId: first.child!.stepId })!.step.target).toEqual(parked);
-  });
-
-  test("late failure of an older turn cannot fail or release a newer follow-up", async () => {
-    let calls = 0;
-    let rejectOld!: (error: Error) => void;
-    let finishNew!: (result: { turnId: string }) => void;
-    const harness = createHarness({ runTask: async ({ onStarted }) => {
-      onStarted?.(`turn-${++calls}`);
-      return calls === 1 ? new Promise((_resolve, reject) => { rejectOld = reject; })
-        : new Promise((resolve) => { finishNew = resolve; });
-    } });
-    const initial = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
-    const aggregate = harness.store.getAggregate({ runId: initial.child!.runId, stepId: initial.child!.stepId })!;
-    harness.store.markStepWaiting({ runId: aggregate.run.id, stepId: aggregate.step.id, executionId: aggregate.step.executionId!, idempotencyKey: "observed-terminal", now: "2026-08-11T00:00:00.000Z" });
-    harness.store.setStepTarget({ runId: aggregate.run.id, stepId: aggregate.step.id, target: { ...aggregate.step.target!, writerLease: { ...aggregate.step.target!.writerLease!, state: "released" } } });
-    harness.statusByTurnId.set("turn-1", { ...IDLE_STATUS, latestTurnId: "turn-1", latestTurnCompletedAt: "2026-08-11T00:00:00.000Z", latestTurnOutcome: "completed" });
-    const restarted = harness.restart();
-    const follow = await restarted.followUp({ parentTaskId: PARENT_TASK, delegationKey: "review-docs", prompt: "Follow up", expected: {
-      delegatedTaskId: initial.child!.delegatedTaskId, delegatedWorkspaceId: initial.child!.delegatedWorkspaceId, attempt: 1,
-    } });
-    expect(follow.accepted).toBe(true);
-    rejectOld(new Error("Late transport failure"));
-    await harness.coordinator.waitForInFlight();
-    const fresh = harness.store.getAggregate({ runId: aggregate.run.id, stepId: aggregate.step.id })!;
-    expect(fresh.step.status).toBe("waiting");
-    expect(fresh.step.target!.turnId).toBe("turn-2");
-    expect(fresh.step.target!.writerLease!.state).toBe("held");
-    finishNew({ turnId: "turn-2" });
-    await restarted.waitForInFlight();
-    expect(harness.store.listHeldWriterAggregates()).toEqual([]);
+  test("a row saved with a writer lease by an earlier build still reads", async () => {
+    const harness = createHarness({ runTask: () => new Promise(() => {}) });
+    const created = await harness.coordinator.delegate(delegateArgs());
+    harness.store["db"].prepare("UPDATE run_steps SET target_json = json_set(target_json, '$.writerLease', json('{\"workspacePath\":\"/tmp/x\",\"leaseId\":\"l\",\"state\":\"held\"}'))").run();
+    const listed = await harness.restart().list({ parentTaskId: PARENT_TASK, includeFinished: true });
+    expect(listed[0]?.delegatedTaskId).toBe(created.child!.delegatedTaskId);
   });
 });
 
@@ -1374,10 +1127,10 @@ describe("stave_delegate_task defaults", () => {
     ...overrides,
   });
 
-  test("the tool schema requires only the ids and the prompt and offers access, not profiles", () => {
+  test("the tool schema requires only the prompt and offers access, not profiles", () => {
     const shape = DelegateTaskToolInputSchema.shape;
     const required = Object.entries(shape).filter(([, field]) => !field.isOptional()).map(([name]) => name);
-    expect(required.sort()).toEqual(["parentTaskId", "parentWorkspaceId", "prompt", "repositoryPath"]);
+    expect(required.sort()).toEqual(["prompt"]);
     expect(shape.access.unwrap().options).toEqual(["inherit", "read-only"]);
     expect(shape.access.description).toContain("read-only");
     expect(shape.permissionProfile.description).toContain("Deprecated");
@@ -1418,6 +1171,75 @@ describe("stave_delegate_task defaults", () => {
     expect(harness.policyCalls[0]).toMatchObject({ access: "inherit", requestedProfile: "guided" });
     expect(harness.policyCalls[0]!.permissionProfile).toBeUndefined();
     expect(harness.runTaskCalls[0]!.permissionPolicy).toMatchObject({ requestedProfile: "guided", access: "inherit", options: { claudePermissionMode: "default" } });
+  });
+
+  test("inside a Stave turn the caller grant names the parent and a spoofed parentTaskId is refused", async () => {
+    const harness = createHarness({ realPolicy: true, parentDefaults: { providerId: "codex" } });
+    const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
+    harness.statusByTaskId.set("someone-else", IDLE_STATUS);
+    const spoofed = await harness.coordinator.delegateFromTool({ prompt: "Review.", parentTaskId: "someone-else" }, caller);
+    expect(spoofed).toMatchObject({ accepted: false, reason: "invalid-ownership" });
+    expect(spoofed.message).toContain("calling task");
+    const otherWorkspace = await harness.coordinator.delegateFromTool({ prompt: "Review.", parentWorkspaceId: "elsewhere" }, caller);
+    expect(otherWorkspace).toMatchObject({ accepted: false, reason: "invalid-ownership" });
+    expect(harness.runTaskCalls).toHaveLength(0);
+    // Ids are optional: the grant fills the task, its workspace and the project path.
+    const granted = await harness.coordinator.delegateFromTool({ prompt: "Review.", access: "read-only" }, caller);
+    expect(granted).toMatchObject({ accepted: true, child: { parentTaskId: PARENT_TASK, delegatedWorkspaceId: PARENT_WORKSPACE } });
+  });
+
+  test("a subagent cannot start subagents of its own", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}) });
+    const child = await harness.coordinator.delegateFromTool(toolInput({ access: "read-only", wait: false }));
+    const childTaskId = child.child!.delegatedTaskId;
+    harness.statusByTaskId.set(childTaskId, IDLE_STATUS);
+    const nested = await harness.coordinator.delegateFromTool({ prompt: "Go deeper." }, { taskId: childTaskId, workspaceId: PARENT_WORKSPACE });
+    expect(nested).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(nested.message).toContain("cannot start subagents");
+  });
+
+  test("two read-only subagents on Claude and Codex run in parallel in one workspace and answer inline", async () => {
+    let live = 0;
+    let peak = 0;
+    const harness = createHarness({ realPolicy: true, parentDefaults: { providerId: "claude-code" }, runTask: async (args) => {
+      live += 1; peak = Math.max(peak, live);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      live -= 1;
+      const turnId = `turn-${args.taskId}`;
+      args.onStarted?.(turnId);
+      return { turnId, responseText: `answer from ${(args as { providerId?: string }).providerId}` };
+    } });
+    const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
+    const [claude, codex] = await Promise.all([
+      harness.coordinator.delegateFromTool({ prompt: "Review the parser.", access: "read-only" }, caller),
+      harness.coordinator.delegateFromTool({ prompt: "Review the parser.", access: "read-only", provider: "codex" }, caller),
+    ]);
+    expect(peak).toBe(2);
+    expect(claude).toMatchObject({ accepted: true, message: null, child: { phase: "completed", delegatedWorkspaceId: PARENT_WORKSPACE, result: "answer from claude-code" } });
+    expect(codex).toMatchObject({ accepted: true, child: { phase: "completed", delegatedWorkspaceId: PARENT_WORKSPACE, result: "answer from codex" } });
+    // The same answers are on the list the next turn reads.
+    const listed = await harness.coordinator.list({ parentTaskId: PARENT_TASK, includeFinished: true });
+    expect(listed.map((child) => child.result).sort()).toEqual(["answer from claude-code", "answer from codex"]);
+  });
+
+  test("a wait that ends first leaves the subagent running and says where the answer goes", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}) });
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Slow review.", access: "read-only", wait: 1 }, { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE });
+    expect(response).toMatchObject({ accepted: true, child: { phase: "running" } });
+    expect(response.message).toContain("Subagent results");
+  });
+
+  test("a writing subagent does not wait unless asked", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}) });
+    const started = Date.now();
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Fix it." }, { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE });
+    expect(response).toMatchObject({ accepted: true, message: null });
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+
+  test("outside a Stave turn the ids are still required", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" } });
+    expect(await harness.coordinator.delegateFromTool({ prompt: "Review." })).toMatchObject({ accepted: false, reason: "invalid-request" });
   });
 
   test("an unknown parent provider asks for one instead of guessing", async () => {

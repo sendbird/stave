@@ -500,7 +500,7 @@ function buildTabContextMenuItems(
         action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "progress"),
       });
       items.push({
-        label: "View team",
+        label: "View subagents",
         action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "team"),
       });
     }

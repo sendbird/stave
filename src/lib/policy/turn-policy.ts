@@ -129,6 +129,18 @@ function autonomousOptions(providerId: ProviderId, options: ProviderRuntimeOptio
   return {};
 }
 
+/**
+ * The prompting options for a turn lowered to `ask` from settings that would
+ * not ask (a spawned turn whose caller asks): Claude's default mode and Codex
+ * approvals on request. Settings that already ask stay as set.
+ */
+function askOptions(providerId: ProviderId, options: ProviderRuntimeOptions): Partial<ProviderRuntimeOptions> {
+  if (autonomyOfOptions(providerId, options) !== "autonomous") return {};
+  if (providerId === "claude-code") return { claudePermissionMode: "default", claudeAllowDangerouslySkipPermissions: false };
+  if (providerId === "codex") return { codexApprovalPolicy: "on-request", codexAutoApproveStaveLocalMcpTools: false };
+  return {};
+}
+
 export function resolveTurnPolicy(input: {
   providerId: ProviderId;
   actor: TurnActor;
@@ -144,7 +156,7 @@ export function resolveTurnPolicy(input: {
       ? readOnlyOptions(input.providerId, options)
       : autonomy === "autonomous"
         ? autonomousOptions(input.providerId, options)
-        : {};
+        : askOptions(input.providerId, options);
   const merged = { ...options, ...overrides };
   return {
     autonomy,
@@ -161,6 +173,25 @@ export function resolveTurnPolicy(input: {
           ? "user-settings"
           : input.actor.kind,
   };
+}
+
+/**
+ * A turn started through `stave_run_task` from inside a Stave turn runs at
+ * most at that turn's autonomy, so a read-only or asking turn cannot reach
+ * write access or skip prompts by starting another task.
+ */
+export function capSpawnedTurnOptions(args: {
+  providerId: ProviderId;
+  root: string;
+  options: ProviderRuntimeOptions;
+  spawnedBy?: { autonomy: Autonomy | null };
+}): ProviderRuntimeOptions {
+  if (!args.spawnedBy) return args.options;
+  const policy = resolveTurnPolicy({
+    providerId: args.providerId, options: args.options, root: args.root,
+    actor: { kind: "spawned", caller: args.spawnedBy.autonomy },
+  });
+  return { ...args.options, ...policy.options };
 }
 
 /**

@@ -1,9 +1,10 @@
 import { parseMarkdownFrontmatter } from "@/lib/markdown-frontmatter";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { WORKER_EFFORT_ORDER, type WorkerEffort } from "@/lib/providers/worker-mode";
 import { hashAgentContent } from "./compile";
 import { parseToml, type TomlValue } from "./toml-lite";
 import {
+  AGENT_EFFORT_ORDER,
+  type AgentEffort,
   AGENT_CONFIG_LIMITS,
   AGENT_CONFIG_VERSION,
   AgentConfigSchema,
@@ -157,8 +158,8 @@ function takeBoolean(fields: Fields, key: string): boolean | undefined {
   return value === "true" ? true : value === "false" ? false : undefined;
 }
 
-function toEffort(value: string | undefined): WorkerEffort | undefined {
-  return WORKER_EFFORT_ORDER.find((effort) => effort === value);
+function toEffort(value: string | undefined): AgentEffort | undefined {
+  return AGENT_EFFORT_ORDER.find((effort) => effort === value);
 }
 
 function slugify(value: string): string {
@@ -184,7 +185,7 @@ interface Draft {
   description?: string;
   instructions?: string;
   model?: string;
-  effort?: WorkerEffort;
+  effort?: AgentEffort;
   allow?: string[];
   deny?: string[];
   maxTurns?: number;

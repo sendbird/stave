@@ -170,7 +170,7 @@ function acceptedExecution(args: {
 }): SecondaryRunExecuteResponse {
   if (!args.transition.accepted) {
     return rejectedExecution(
-      args.transition.reason === "workspace-writer-busy" ? "invalid-state" : args.transition.reason,
+      args.transition.reason,
       toAggregate(args.transition),
     );
   }

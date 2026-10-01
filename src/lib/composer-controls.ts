@@ -13,8 +13,6 @@ export const COMPOSER_CONTROL_IDS = [
   "providerMode",
   "thinking",
   "fast",
-  "advisor",
-  "worker",
   "review",
   "secrets",
   "macro",
@@ -51,8 +49,6 @@ export const COMPOSER_CONTROL_LABELS: Record<ComposerControlId, string> = {
   providerMode: "Provider mode",
   thinking: "Thinking",
   fast: "Fast mode",
-  advisor: "Advisor",
-  worker: "Worker",
   review: "Review",
   secrets: "Secrets",
   macro: "Macros",
@@ -67,9 +63,6 @@ export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
     providerMode: "Manual, Guided, or Auto permission preset.",
     thinking: "Cycle extended thinking. Claude only.",
     fast: "Fast toggle inside the model picker. Codex and Cursor.",
-    advisor: "Arm a second model to review the prompt before it runs.",
-    worker:
-      "Delegate bounded implementation work to a cheaper same-provider model.",
     review: "Review uncommitted local changes.",
     secrets: "Bind secrets into this run's environment.",
     macro:
@@ -119,8 +112,6 @@ const COMPOSER_CONTROLS_WITH_OWN_TOOLTIP = new Set<ComposerControlId>([
   "plan",
   "providerMode",
   "thinking",
-  "advisor",
-  "worker",
   "runtime",
 ]);
 
@@ -172,8 +163,6 @@ export function collectActiveComposerControls(args: {
   planMode?: boolean;
   thinkingMode?: "adaptive" | "enabled" | "disabled" | null;
   fastMode?: boolean;
-  advisorArmed?: boolean;
-  workerArmed?: boolean;
   runtimeTone?: "default" | "custom" | "warning";
   boundSecretCount?: number;
 }): ComposerControlId[] {
@@ -187,12 +176,6 @@ export function collectActiveComposerControls(args: {
   }
   if (args.fastMode) {
     active.push("fast");
-  }
-  if (args.advisorArmed) {
-    active.push("advisor");
-  }
-  if (args.workerArmed) {
-    active.push("worker");
   }
   if ((args.boundSecretCount ?? 0) > 0) {
     active.push("secrets");
@@ -261,7 +244,7 @@ export function resolveComposerControlLayout(args: {
  * Fast stays inside the model picker.
  * Right wing — next to Send — is the provider's own surface: plan mode, the
  * permission preset, and extended thinking are settings of the model run.
- * Bottom status bar is Stave's own tooling (advisor, worker, review, secrets,
+ * Bottom status bar is Stave's own tooling (review, secrets,
  * macros, compare) plus the runtime readout, which stays last so it sits with
  * the workspace and branch it describes.
  * Left wing has no default tenant; an id added later lands there until it is
@@ -274,8 +257,6 @@ const COMPOSER_FRAME_RIGHT_CONTROL_IDS = new Set<ComposerControlId>([
   "thinking",
 ]);
 const COMPOSER_FRAME_STATUS_CONTROL_IDS = new Set<ComposerControlId>([
-  "advisor",
-  "worker",
   "review",
   "secrets",
   "macro",

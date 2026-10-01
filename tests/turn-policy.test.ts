@@ -128,6 +128,12 @@ describe("turn policy mapping: helpers, spawned turns, other providers", () => {
     expect(resolve("claude-code", { kind: "spawned", caller: "ask" }, { claudePermissionMode: "auto" }).autonomy).toBe("ask");
     expect(resolve("codex", { kind: "spawned", caller: "autonomous" }, { codexApprovalPolicy: "untrusted" }).autonomy).toBe("ask");
     expect(resolve("codex", { kind: "spawned", caller: "read-only" }, { codexApprovalPolicy: "never" }).autonomy).toBe("read-only");
+    // Lowered to ask, settings that would not ask are made to ask.
+    expect(resolve("claude-code", { kind: "spawned", caller: "ask" }, { claudePermissionMode: "bypassPermissions", claudeAllowDangerouslySkipPermissions: true }).options)
+      .toEqual({ claudePermissionMode: "default", claudeAllowDangerouslySkipPermissions: false });
+    expect(resolve("codex", { kind: "spawned", caller: "ask" }, { codexApprovalPolicy: "never", codexFileAccess: "workspace-write" }).options)
+      .toMatchObject({ codexApprovalPolicy: "on-request" });
+    expect(resolve("claude-code", { kind: "spawned", caller: "ask" }, { claudePermissionMode: "acceptEdits" }).options).toEqual({});
   });
 
   test("Cursor keeps the user's settings; a read-only Cursor agent keeps its ceiling", () => {

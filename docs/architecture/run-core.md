@@ -3,7 +3,7 @@
 The run core is Stave's smallest durable substrate for bounded, non-interactive,
 read-only background provider execution. Its first and current consumer is
 Compare Judge. It is not a generic workflow engine or a prerequisite for
-Fleet, Advisor, or Crane.
+Fleet, subagents, or Crane.
 
 The read-only limit belongs to the executor, not to the ledger: the ledger is
 shared bookkeeping and is meant to gain further clients rather than be copied.
@@ -220,8 +220,8 @@ The current planned features intentionally use different paths:
 
 - Fleet projects existing live state, durable notifications, and PR state; it
   does not launch provider work.
-- Advisor is an in-turn consult the primary requests on demand and contributes
-  advice as tool results inside the same normal turn.
+- A subagent is either an in-turn provider subagent or a delegated task, which
+  the run ledger records as its own client (`delegated-task` runs).
 - Crane dispatch creates a normal locally approved task that may require
   filesystem writes, provider approvals, and local user input.
 

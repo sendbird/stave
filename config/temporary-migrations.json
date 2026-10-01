@@ -137,6 +137,18 @@
         "scripts/codemods/rename-repositories.ts"
       ],
       "tests": []
+    },
+    {
+      "id": "retired-advisor-crane-memory",
+      "description": "Drops the advisor key from Crane team runtime memory saved while the Advisor existed, so the strict mapping schema keeps the mapping.",
+      "introducedAfter": "0.21.2",
+      "removeInVersion": "0.24.0",
+      "files": [
+        "src/lib/crane-connector/types.ts"
+      ],
+      "tests": [
+        "tests/crane-advisor-memory-migration.test.ts"
+      ]
     }
   ]
 }

@@ -574,20 +574,17 @@ export async function resolveAcpSharedMcpServers(args: {
 
 /**
  * In-app Cursor and Kiro primary turns attach the full Local MCP catalog the
- * same way Claude and Codex do. An empty allowlist is deliberate: the older
- * Worker-only allowlist made workspace tools invisible on ordinary chats.
+ * same way Claude and Codex do. An empty allowlist is deliberate: every Stave
+ * tool is visible on an ordinary chat.
  */
 export async function resolveAcpEmbeddedStaveLocalMcpServers(args?: {
-  requiredForWorker?: boolean;
   turnGrants?: StaveTurnGrants;
 }) {
-  const servers = await resolveAcpStaveLocalMcpServers({
-    allowedToolNames: [],
-    turnGrants: args?.turnGrants,
-  });
   return {
-    servers,
-    workerUnavailable: Boolean(args?.requiredForWorker) && servers.length === 0,
+    servers: await resolveAcpStaveLocalMcpServers({
+      allowedToolNames: [],
+      turnGrants: args?.turnGrants,
+    }),
   };
 }
 

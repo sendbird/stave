@@ -426,30 +426,6 @@ export function KeyboardShortcutsDrawer({
             sequences: [["Shift", "Tab"]],
           },
           {
-            label: "Toggle Advisor",
-            description:
-              "Arm or disarm this task's Advisor. While a turn is waiting on the Advisor, this also skips it and lets the turn continue.",
-            sequences: [["Alt", "A"]],
-          },
-          {
-            label: "Open Advisor picker",
-            description:
-              "Choose which provider, model, and effort advises this task.",
-            sequences: [["Alt", "Shift", "A"]],
-          },
-          {
-            label: "Toggle Worker mode",
-            description:
-              "Arm or disarm this task's worker. The primary keeps planning and reviewing; the worker implements.",
-            sequences: [["Alt", "W"]],
-          },
-          {
-            label: "Open Worker picker",
-            description:
-              "Choose the worker preset, model, and reasoning effort for this task.",
-            sequences: [["Alt", "Shift", "W"]],
-          },
-          {
             label: "Dialog primary action",
             description:
               "Run Save/Create/Open/Confirm in the active dialog. Use modifier+Enter in multiline fields.",

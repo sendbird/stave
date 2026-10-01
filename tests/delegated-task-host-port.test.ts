@@ -165,8 +165,6 @@ function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
     cancelRunStep: (args) => store.cancelStep(args),
     interruptRunStep: (args) => store.interruptStep(args),
     setRunStepTarget: (args) => store.setStepTarget(args),
-    listHeldWriterRunAggregates: () => store.listHeldWriterAggregates(),
-    acquireRunWriterLease: (args) => store.acquireWriterLease(args),
     listRunReceipts: (args) => store.listReceipts(args),
     listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
     listActiveRunAggregatesByStepKind: (args) =>

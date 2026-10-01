@@ -167,7 +167,6 @@ describe("read-only delegation access", () => {
   test("every Stave Local MCP tool is classified for read-only children", () => {
     const sources = [
       "electron/main/stave-mcp-server.ts",
-      "electron/main/stave-collaboration-tools.ts",
       "electron/main/browser/browser-tools.ts",
     ].map((file) => readFileSync(file, "utf8")).join("\n");
     const registered = new Set([

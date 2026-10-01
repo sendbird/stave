@@ -1,7 +1,6 @@
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { DelegateTaskArgs } from "@/lib/runs/delegated-task";
-import type { WorkerPresetId, WorkerProviderConfig } from "@/lib/providers/worker-mode";
-import { isWorkerPresetId, workerToolsEnforced } from "@/lib/providers/worker-mode";
+import type { NativeSubagentDefinition } from "./native-subagents";
 import type { TaskClass } from "@/lib/providers/auto-routing-profile";
 import { agentPermissionSupport } from "./permission";
 import {
@@ -16,7 +15,7 @@ import {
 /**
  * Compiles an agent snapshot into the start options the existing executors
  * already accept. It adds no execution path of its own: a main-agent turn, a
- * delegated task and a Worker keep running exactly where they run today.
+ * delegated task and an in-turn subagent run where they always run.
  *
  * Pure and deterministic. A limit a provider cannot enforce is never dropped
  * silently: it is written into the instructions and reported as `instructed`
@@ -88,8 +87,8 @@ export interface CompiledDelegate extends CompiledBase {
 
 export interface CompiledWorker extends CompiledBase {
   role: "worker";
-  /** Handed to the existing Worker builders unchanged. */
-  workerConfig: WorkerProviderConfig;
+  /** The in-turn subagent definition the lead's provider registers. */
+  subagent: NativeSubagentDefinition;
 }
 
 export type CompiledAgent = CompiledPrimary | CompiledDelegate | CompiledWorker;
@@ -176,7 +175,7 @@ function modelSupport(model: AgentModelResolution): AgentSupportEntry {
 
 /**
  * Which tool limits the runtime enforces, per role:
- * - worker: the allowlist, where Worker mode enforces tools (Claude today).
+ * - worker: the allowlist, which Claude enforces on an in-turn subagent.
  * - primary: the denylist on Claude (`claudeDisallowedTools`); nothing else.
  * - delegate: nothing; delegated tasks take no per-task tool list.
  * Anything not enforced is stated in the instructions and reported here.
@@ -187,7 +186,7 @@ function toolSupport(agent: AgentConfig, providerId: ProviderId, role: AgentRole
   if (!hasAllow && !hasDeny) return null;
   const enforced =
     role === "worker"
-      ? workerToolsEnforced(providerId) && !hasDeny
+      ? providerId === "claude-code" && !hasDeny
       : role === "primary"
         ? providerId === "claude-code" && !hasAllow
         : false;
@@ -317,19 +316,17 @@ export function compileAgent(args: {
   const fixed = model.source === "fixed" ? model : null;
 
   if (role === "worker") {
-    const workerConfig: WorkerProviderConfig = {
-      ...(agent.workerPresetId && isWorkerPresetId(agent.workerPresetId)
-        ? { presetId: agent.workerPresetId as WorkerPresetId }
-        : {
-            description: agent.description,
-            instructions: renderInstructions(agent, toolsInstructed, standards),
-            ...(agent.tools.allow ? { tools: [...agent.tools.allow] } : {}),
-            ...(agent.tools.maxTurns ? { maxTurns: agent.tools.maxTurns } : {}),
-          }),
+    const subagent: NativeSubagentDefinition = {
+      name: agent.id,
+      label: agent.name,
+      description: agent.description,
+      instructions: renderInstructions(agent, toolsInstructed, standards),
+      ...(agent.tools.allow ? { tools: [...agent.tools.allow] } : {}),
+      ...(agent.tools.maxTurns ? { maxTurns: agent.tools.maxTurns } : {}),
       ...(fixed?.model ? { model: fixed.model } : {}),
-      ...(fixed?.effort ? { effort: fixed.effort as WorkerProviderConfig["effort"] } : {}),
+      ...(fixed?.effort ? { effort: fixed.effort } : {}),
     };
-    return { ok: true, compiled: { ...base, role, workerConfig } };
+    return { ok: true, compiled: { ...base, role, subagent } };
   }
 
   if (role === "delegate") {

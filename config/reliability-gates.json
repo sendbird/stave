@@ -151,7 +151,7 @@
     {
       "id": "agent-platform-boundaries",
       "title": "Agent platform layers stay distinct",
-      "invariant": "An automation cannot target an existing task, a wake-up must target one and cannot mint one on either trigger, the supervisor records wake-ups without importing the ledger that records delegated execution, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a delegated task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
+      "invariant": "An automation cannot target an existing task, a wake-up must target one and cannot mint one on either trigger, the supervisor records wake-ups without importing the ledger that records delegated execution, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a delegated task survives a restart while an in-turn subagent never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
       "testFiles": [
         "tests/agent-platform-boundaries.test.ts",
         "tests/delegated-task-coordinator.test.ts",
@@ -185,6 +185,26 @@
         "electron/main/runs/delegated-task-coordinator.ts",
         "electron/main/ipc/runs.ts",
         "docs/features/delegated-tasks.md"
+      ]
+    },
+    {
+      "id": "subagent-caller-and-writer-isolation",
+      "title": "A subagent call acts only for its own task, and writers never share a checkout",
+      "invariant": "Every task turn carries a host-minted caller grant that resolves only while the turn runs; a subagent tool takes the calling task from it, refuses a parentTaskId or workspace naming another task, and refuses a subagent starting subagents of its own; a turn started through stave_run_task never runs with more autonomy than its caller; a writing subagent gets its own worktree unless the same workspace is asked for, which is refused while another writing subagent is live there; read-only subagents run in parallel in the caller's workspace and return their bounded answer inline and in the caller's next turn.",
+      "testFiles": [
+        "tests/caller-grants.test.ts",
+        "tests/delegated-task-coordinator.test.ts",
+        "tests/delegated-task-receipts.test.ts",
+        "tests/turn-policy.test.ts",
+        "tests/provider-lifecycle-contract.test.ts"
+      ],
+      "assertionRefs": [
+        "electron/providers/caller-grants.ts",
+        "electron/main/stave-mcp-caller.ts",
+        "electron/main/runs/delegated-task-coordinator.ts",
+        "src/lib/policy/turn-policy.ts",
+        "src/lib/task-context/delegated-task-receipts.ts",
+        "docs/architecture/agent-platform-taxonomy.md"
       ]
     },
     {

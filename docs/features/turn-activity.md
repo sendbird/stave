@@ -45,16 +45,16 @@ The right rail's **Task** panel is the one place for the active task. Its tabs:
 - **Progress**: the task's [mission](missions.md) while it has one — running,
   paused or ended — and otherwise its flow (Request → Plan → Changes →
   Verification → Pull request), with the task's wake-up under either.
-- **Team**: the task's Advisor consults, workers and
-  [delegated tasks](delegated-tasks.md).
+- **Subagents**: every agent the task called, in its turn or as a
+  [delegated task](delegated-tasks.md), with its state and answer.
 - **Results**: the run history, one entry per finished run.
 
 A tab can carry a small mark from data the app already holds: a dot on
 **Activity** while the turn runs or waits on you, a dot on **Progress** when the
-mission needs you or is blocked, the number of running agents on **Team**, and
+mission needs you or is blocked, the number of running agents on **Subagents**, and
 the number of unreviewed runs on **Results**. The tab you choose is kept with
 the layout, so the panel reopens where you left it, and a task tab's context
-menu opens it straight to **Results**, **Progress** or **Team**.
+menu opens it straight to **Results**, **Progress** or **Subagents**.
 
 ### Key Controls
 
@@ -81,7 +81,7 @@ slot instead.
   conversation to that tool call and focuses it, so a suspicious step in the
   list leads straight to its input and output.
 - Rows without a tool call behind them — todos, `Approval needed`, `Activity
-  paused`, the Advisor slot — stay plain text rather than becoming buttons that
+  paused` — stay plain text rather than becoming buttons that
   navigate nowhere.
 - A finished row shows how long its step took. When the provider reports no
   duration, the row derives one from the step's own start and end, so the
@@ -131,10 +131,6 @@ drops them before they reach the window.
 - A row is never titled from a tool's arguments. Only fields a provider defines
   as labels can name a row, so an MCP call carrying a `name` argument shows the
   tool it called rather than that argument's value.
-- A delegation that ran as a configured Worker is marked once. The `Worker`
-  prefix is added only when the title names the delegated task, so a provider
-  that reports nothing but "worker" gives a row reading `Worker`, not
-  `Worker · Worker`.
 
 ### Hooks That Run More Than Once
 

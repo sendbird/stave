@@ -23,7 +23,6 @@ const settings = {
   claudeAllowUnsandboxedCommands: true,
   claudeSandboxCredentialFiles: "",
   claudeSandboxCredentialEnvVars: "",
-  advisorTarget: null,
   claudeEffort: "medium",
   claudeThinkingMode: "adaptive",
   claudeAgentProgressSummaries: true,
@@ -330,106 +329,11 @@ describe("buildProviderRuntimeOptions", () => {
     );
   });
 
-  test("forwards an explicit cross-provider Advisor target for normal user turns", () => {
-    expect(
-      buildProviderRuntimeOptions({
-        provider: "claude-code",
-        model: "claude-sonnet-5",
-        includeAdvisor: true,
-        settings: {
-          ...settings,
-          advisorTarget: {
-            providerId: "codex",
-            model: "gpt-5.6-terra",
-          },
-        },
-        providerSession: null,
-      }),
-    ).toMatchObject({
-      model: "claude-sonnet-5",
-      advisorTarget: {
-        providerId: "codex",
-        model: "gpt-5.6-terra",
-      },
-    });
-  });
-
-  test("a default-off Advisor stays off even though the pick is remembered", () => {
-    const runtimeOptions = buildProviderRuntimeOptions({
-      provider: "claude-code",
-      model: "claude-sonnet-5",
-      includeAdvisor: true,
-      settings: {
-        ...settings,
-        advisorEnabled: false,
-        advisorTarget: {
-          providerId: "codex",
-          model: "gpt-5.6-terra",
-        },
-      },
-      providerSession: null,
-    });
-
-    expect(runtimeOptions).not.toHaveProperty("advisorTarget");
-  });
-
-  test("omits Advisor from generic helper calls unless explicitly included", () => {
-    const runtimeOptions = buildProviderRuntimeOptions({
-      provider: "claude-code",
-      model: "claude-sonnet-5",
-      settings: {
-        ...settings,
-        advisorTarget: {
-          providerId: "claude-code",
-          model: "claude-fable-5-1",
-        },
-      },
-      providerSession: null,
-    });
-
-    expect(runtimeOptions).not.toHaveProperty("advisorTarget");
-  });
-
-  test("forwards a Cursor Worker intent only for a primary conversation turn", () => {
-    const primary = buildProviderRuntimeOptions({
-      provider: "cursor",
-      model: "cursor-worker-model",
-      settings: {
-        ...settings,
-        workerEnabled: false,
-        workerConfigByProvider: {},
-      },
-      providerSession: null,
-      includeAdvisor: true,
-      workerRuntimeOverrides: {
-        workerEnabled: true,
-        workerConfigByProvider: {
-          cursor: {
-            presetId: "scout",
-            model: "cursor-worker-model",
-          },
-        },
-      },
-    });
-    expect(primary.workerIntent).toMatchObject({
-      mode: "task-executor",
-      presetId: "scout",
-      workerModel: "cursor-worker-model",
-    });
-
-    const utility = buildProviderRuntimeOptions({
-      provider: "cursor",
-      model: "cursor-worker-model",
-      settings: {
-        ...settings,
-        workerEnabled: true,
-        workerConfigByProvider: {},
-      },
-      providerSession: null,
-      includeAdvisor: false,
-      workerRuntimeOverrides: { workerEnabled: true },
-    });
-    expect(utility.workerIntent).toBeUndefined();
+  test("sends no Advisor or Worker runtime option", () => {
+    const options = buildProviderRuntimeOptions({ provider: "claude-code", model: "claude-sonnet-4-6", settings });
+    expect(options).not.toHaveProperty("advisorTarget");
+    expect(options).not.toHaveProperty("workerIntent");
+    expect(options).not.toHaveProperty("nativeSubagents");
   });
 
   test("limits resume ids to the active provider in direct turns", () => {
@@ -470,68 +374,6 @@ describe("buildProviderRuntimeOptions", () => {
       codexFileAccess: "workspace-write",
       codexPlanMode: false,
     });
-  });
-});
-
-describe("advisor arming in runtime options", () => {
-  const advisorSettings = {
-    ...settings,
-    advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
-  };
-
-  test("carries the Settings default for a task with no override", () => {
-    expect(
-      buildProviderRuntimeOptions({
-        provider: "claude-code",
-        model: "claude-sonnet-5",
-        includeAdvisor: true,
-        settings: advisorSettings as never,
-      }).advisorTarget,
-    ).toEqual({ providerId: "codex", model: "gpt-5.6-sol" });
-  });
-
-  test("a task that disarmed the advisor sends no target", () => {
-    expect(
-      buildProviderRuntimeOptions({
-        provider: "claude-code",
-        model: "claude-sonnet-5",
-        includeAdvisor: true,
-        advisorRuntimeOverrides: { advisorEnabled: false },
-        settings: advisorSettings as never,
-      }).advisorTarget,
-    ).toBeUndefined();
-  });
-
-  test("a task can arm the advisor while the Settings default is off", () => {
-    expect(
-      buildProviderRuntimeOptions({
-        provider: "codex",
-        model: "gpt-5.6-terra",
-        includeAdvisor: true,
-        advisorRuntimeOverrides: {
-          advisorEnabled: true,
-          advisorTarget: {
-            providerId: "claude-code",
-            model: "claude-fable-5-1",
-          },
-        },
-        settings: settings as never,
-      }).advisorTarget,
-    ).toEqual({ providerId: "claude-code", model: "claude-fable-5-1" });
-  });
-
-  test("utility turns stay advisor-free even with a task override", () => {
-    expect(
-      buildProviderRuntimeOptions({
-        provider: "claude-code",
-        model: "claude-sonnet-5",
-        advisorRuntimeOverrides: {
-          advisorEnabled: true,
-          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
-        },
-        settings: advisorSettings as never,
-      }).advisorTarget,
-    ).toBeUndefined();
   });
 });
 

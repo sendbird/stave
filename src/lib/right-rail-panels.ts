@@ -48,7 +48,7 @@ export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
  * The Task panel's tabs. One rail entry answers "what is this task doing,
  * what does it need from me, what did it produce": Activity is the live or
  * last turn, Progress is the mission when the task has one and the flow
- * overview otherwise, Team is its advisor, workers and delegated tasks, and
+ * overview otherwise, Subagents (tab id `team`) is every agent it called, and
  * Results is its run history.
  */
 export type TaskPanelTab = "activity" | "progress" | "team" | "results";
@@ -59,7 +59,7 @@ export const TASK_PANEL_TABS: ReadonlyArray<{
 }> = [
   { id: "activity", label: "Activity" },
   { id: "progress", label: "Progress" },
-  { id: "team", label: "Team" },
+  { id: "team", label: "Subagents" },
   { id: "results", label: "Results" },
 ];
 

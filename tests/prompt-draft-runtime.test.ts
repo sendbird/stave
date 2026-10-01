@@ -417,12 +417,6 @@ describe("prompt-draft runtime state", () => {
       codexReasoningEffort: "ultra",
       cursorMode: "plan",
       autoRouting: true,
-      advisorEnabled: true,
-      advisorTarget: {
-        providerId: "claude-code",
-        model: "claude-opus-4-6",
-        effort: "high",
-      },
     });
   });
 
@@ -519,7 +513,7 @@ describe("prompt-draft runtime state", () => {
     });
   });
 
-  test("drops a corrupt advisor target instead of rejecting the workspace", () => {
+  test("drops retired Advisor and Worker overrides instead of rejecting the workspace", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: snapshotWithDraftOverrides({
         codexPlanMode: true,
@@ -533,77 +527,5 @@ describe("prompt-draft runtime state", () => {
     expect(parsed?.promptDraftByTask["task-1"]?.runtimeOverrides).toEqual({
       codexPlanMode: true,
     });
-  });
-});
-
-describe("advisor overrides in draft equality", () => {
-  test("an advisor arming change is not diffed away as unchanged", () => {
-    expect(
-      arePromptDraftRuntimeOverridesEqual(
-        { advisorEnabled: true },
-        { advisorEnabled: false },
-      ),
-    ).toBe(false);
-    expect(arePromptDraftRuntimeOverridesEqual({ advisorEnabled: true }, {})).toBe(
-      false,
-    );
-  });
-
-  test("an advisor model change is not diffed away as unchanged", () => {
-    expect(
-      arePromptDraftRuntimeOverridesEqual(
-        { advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" } },
-        { advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" } },
-      ),
-    ).toBe(false);
-    expect(
-      arePromptDraftRuntimeOverridesEqual(
-        { advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" } },
-        { advisorTarget: { providerId: "claude-code", model: "gpt-5.6-sol" } },
-      ),
-    ).toBe(false);
-  });
-
-  test("equal advisor arming compares equal", () => {
-    const target = { providerId: "codex" as const, model: "gpt-5.6-sol" };
-    expect(
-      arePromptDraftRuntimeOverridesEqual(
-        { advisorEnabled: true, advisorTarget: { ...target } },
-        { advisorEnabled: true, advisorTarget: { ...target } },
-      ),
-    ).toBe(true);
-  });
-});
-
-describe("advisor target equality", () => {
-  const base = { providerId: "codex" as const, model: "gpt-5.6-sol" };
-
-  test("a changed effort is a real change", () => {
-    // `updatePromptDraft` drops writes this reports as unchanged, so treating
-    // effort as invisible would make the tier control silently do nothing.
-    expect(
-      arePromptDraftRuntimeOverridesEqual(
-        { advisorEnabled: true, advisorTarget: { ...base, effort: "low" } },
-        { advisorEnabled: true, advisorTarget: { ...base, effort: "max" } },
-      ),
-    ).toBe(false);
-  });
-
-  test("pinning a tier differs from following the model default", () => {
-    expect(
-      arePromptDraftRuntimeOverridesEqual(
-        { advisorTarget: base },
-        { advisorTarget: { ...base, effort: "xhigh" } },
-      ),
-    ).toBe(false);
-  });
-
-  test("identical targets still compare equal", () => {
-    expect(
-      arePromptDraftRuntimeOverridesEqual(
-        { advisorEnabled: true, advisorTarget: { ...base, effort: "low" } },
-        { advisorEnabled: true, advisorTarget: { ...base, effort: "low" } },
-      ),
-    ).toBe(true);
   });
 });

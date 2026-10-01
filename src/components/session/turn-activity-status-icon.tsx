@@ -1,5 +1,4 @@
 import {
-  ArrowLeftRight,
   Bot,
   CheckCircle2,
   Circle,
@@ -34,9 +33,6 @@ export const TURN_ACTIVITY_ICONS: Record<TurnActivityIconKey, LucideIcon> = {
   pause: CirclePause,
   plan: ListChecks,
   subagent: Bot,
-  // Same glyph as the composer's Advisor pill: the row and the control that
-  // armed it must be recognisably the same feature.
-  advisor: ArrowLeftRight,
   todo: ClipboardList,
   tool: Wrench,
   hook: Webhook,

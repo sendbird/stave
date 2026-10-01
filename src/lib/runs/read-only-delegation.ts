@@ -82,8 +82,6 @@ export const DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_respond_user_input",
   "stave_martin_link_project",
   "stave_martin_unlink_project",
-  "stave_consult_advisor",
-  "stave_run_worker",
   "stave_report_stage",
   "stave_block_stage",
   "stave_propose_mission",

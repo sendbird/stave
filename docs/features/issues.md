@@ -74,7 +74,7 @@ Keys are ignored while you are typing in a field, and while the kickoff sheet is
 1. Select the ticket and press `Enter`.
 2. **Where it runs** — the repository defaults to the mapping for the ticket's team or Jira project, then to the repository you last used for that source, then to the open repository. Choose a new workspace (the branch name is proposed from the ticket key and title, and honours the repository's branch naming rule) or an existing one.
 3. **What to do** — the instruction is prefilled from the ticket title, link, and description. Edit it freely; *Reset to ticket* restores the generated text.
-4. **How it runs** — provider, model, reasoning effort, autonomy preset, and Advisor, exactly as in the Crane approval dialog. *Remember for `<SCOPE>`* stores the repository and model choice for that team or Jira project; access levels always re-derive from your current settings.
+4. **How it runs** — provider, model, reasoning effort and autonomy preset, exactly as in the Crane approval dialog. *Remember for `<SCOPE>`* stores the repository and model choice for that team or Jira project; access levels always re-derive from your current settings.
 5. **How it starts** — *Start now* runs the turn immediately. *Stage prompt only* prepares the workspace and drops the prompt in the composer for you to send. Pick a **Playbook** instead of *No playbook — one task* to make the ticket a [mission](missions.md): Stave prepares the workspace and task, then opens **Start a mission** with the instruction as the assignment.
 6. For a Crane ticket, *Report progress to Crane* registers a Crane job so the ticket shows as running in Stave. It is available only when the run starts now, and only while the Crane connector is on.
 

@@ -19,18 +19,8 @@ function sortStrings(values: readonly string[]) {
 }
 
 describe("provider runtime contracts", () => {
-  test("preserves every primary provider on advisor activity while validating the advisor target", () => {
-    for (const primaryProviderId of ["claude-code", "codex", "cursor", "kiro"]) {
-      const event = {
-        type: "advisor_activity",
-        phase: "started",
-        primaryProviderId,
-        advisorProviderId: "codex",
-        at: 1,
-      };
-      expect(NormalizedProviderEventSchema.safeParse(event).success).toBe(true);
-      expect(NormalizedProviderEventSchema.safeParse({ ...event, advisorProviderId: "unsupported" }).success).toBe(false);
-    }
+  test("an advisor_activity event saved by an earlier build is dropped, not parsed", () => {
+    expect(NormalizedProviderEventSchema.safeParse({ type: "advisor_activity", phase: "started", primaryProviderId: "codex", at: 1 }).success).toBe(false);
   });
 
   test("keeps runtime option keys aligned with the IPC schema", () => {

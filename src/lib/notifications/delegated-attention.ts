@@ -138,7 +138,7 @@ export function selectDelegatedInteractionRequests(args: {
         requestId,
         messageId: getNotificationInteractionMessageId(notification),
       },
-      childTaskTitle: readId(notification.taskTitle) ?? "Delegated task",
+      childTaskTitle: readId(notification.taskTitle) ?? "Subagent",
       providerId: notification.providerId,
       createdAt: notification.createdAt,
     });

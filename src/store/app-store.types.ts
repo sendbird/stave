@@ -13,12 +13,6 @@ import type {
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import type { UpdateModelRuntimePreferenceArgs } from "@/lib/providers/model-runtime-preferences";
-import type { AdvisorExchangeByTask } from "@/lib/providers/advisor-activity";
-import type {
-  AdvisorConsultLogByTask,
-  AdvisorConsultVerdict,
-  AdvisorVerdictTallyByModel,
-} from "@/lib/providers/advisor-consult-log";
 import type {
   ProviderTurnActivitySnapshot,
   RetainedTurnActivityByTask,
@@ -241,35 +235,6 @@ export interface AppState
    * `RETAINED_TURN_ACTIVITY_LIMIT` tasks.
    */
   retainedTurnActivityByTask: RetainedTurnActivityByTask;
-  /**
-   * Latest primary <-> Advisor exchange per task, in memory only.
-   *
-   * Kept out of `messagesByTask` on purpose: the advice text must never become
-   * a persisted assistant response, and the observability surface must not
-   * depend on transcript rendering.
-   */
-  advisorExchangeByTask: AdvisorExchangeByTask;
-  /**
-   * Every consult of the session, newest first per task, in memory only.
-   *
-   * The exchange map above holds one snapshot per task, so a second consult in
-   * the same turn overwrites the first and the floating card auto-hides a few
-   * seconds later. This is the only place the question and the advice survive
-   * long enough to be reviewed.
-   */
-  advisorConsultLogByTask: AdvisorConsultLogByTask;
-  /**
-   * The user's verdicts rolled up per advisor model, not per task, so it
-   * outlives ring eviction and reads as "how has this advisor been doing".
-   */
-  advisorVerdictTallyByModel: AdvisorVerdictTallyByModel;
-  /**
-   * Which task's consult log is open, and which consult is selected in it.
-   * Store-held so exactly one dialog is open across split-pane chat areas, and
-   * so the short-lived triggers (the linger-timed card, the per-turn shelf) can
-   * open a dialog that outlives them.
-   */
-  advisorConsultLogView: { taskId: string; entryKey: string | null } | null;
   nativeSessionReadyByTask: Record<string, boolean>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
@@ -641,25 +606,10 @@ export interface AppState
      */
     queuedTurnId?: string;
     /**
-     * What kind of turn this is, which decides whether the task's Advisor
-     * arming applies.
-     *
-     * Required rather than optional on purpose. The Advisor is a blocking
-     * cross-model call the user pays for on every armed turn, so an optional
-     * flag would default new call sites into paying for it silently — the
-     * "utility turns stay advisor-free by construction, not by remembering"
-     * rule that already governs `buildProviderRuntimeOptions`, enforced at the
-     * one entry point that was still opting everything in.
-     *
-     * - `"conversation"` — the task's own dialogue, authored by the user in a
-     *   composer surface: typing, dispatching a queued follow-up, approving a
-     *   plan, replying from the Fleet panel. Advisor arming applies.
-     * - `"utility"` — a purpose-built turn that is not the task's dialogue:
-     *   compare runs, workspace kickoff, a local-change review sent to an
-     *   explicitly chosen reviewer model. Never runs the Advisor. For compare
-     *   runs this is correctness rather than cost — silently consulting a
-     *   third model inside each arm would contaminate the comparison the user
-     *   asked for. For a chosen reviewer it would contradict the choice.
+     * What kind of turn this is. `"conversation"` is the task's own dialogue
+     * (typing, a queued follow-up, a plan approval, a Fleet reply);
+     * `"utility"` is a purpose-built turn that is not (compare runs, kickoff,
+     * a review sent to a chosen reviewer model).
      */
     turnOrigin: "conversation" | "utility";
     /**
@@ -708,23 +658,6 @@ export interface AppState
   syncDelegatedTasksIntoTurnGraph: (args: {
     taskId: string;
     children: readonly DelegatedTaskSummary[];
-  }) => void;
-  /**
-   * Cancels only the Advisor preflight for the task's active turn. The primary
-   * turn keeps running, so escaping a slow advisor is not an abort.
-   */
-  skipTaskAdvisor: (args: { taskId: string }) => void;
-  /** Dismisses the task's Advisor exchange card without touching the turn. */
-  dismissAdvisorExchange: (args: { taskId: string }) => void;
-  /** Opens the session consult log, optionally focused on one consult. */
-  openAdvisorConsultLog: (args: { taskId: string; entryKey?: string }) => void;
-  selectAdvisorConsultLogEntry: (args: { entryKey: string }) => void;
-  closeAdvisorConsultLog: () => void;
-  /** Records the user's own call on a consult. Set-only; there is no deselect. */
-  setAdvisorConsultVerdict: (args: {
-    taskId: string;
-    entryKey: string;
-    verdict: AdvisorConsultVerdict;
   }) => void;
   resolveApproval: (args: {
     taskId: string;

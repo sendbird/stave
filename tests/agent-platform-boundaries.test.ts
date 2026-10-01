@@ -89,8 +89,6 @@ describe("Agent platform boundaries", () => {
         cancelRunStep: (args) => store.cancelStep(args),
         interruptRunStep: (args) => store.interruptStep(args),
         setRunStepTarget: (args) => store.setStepTarget(args),
-        listHeldWriterRunAggregates: () => store.listHeldWriterAggregates(),
-        acquireRunWriterLease: (args) => store.acquireWriterLease(args),
         listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
         listActiveRunAggregatesByStepKind: (args) =>
           store.listActiveAggregatesByStepKind(args),
@@ -117,15 +115,6 @@ describe("Agent platform boundaries", () => {
       deferred: 0,
     });
 
-    // A worker is turn-scoped: it has no durable record to reconcile.
-    const workerImports = importedModules(
-      readSource("src/lib/providers/worker-mode.ts"),
-    );
-    expect(
-      workerImports.filter((specifier) =>
-        /run-ledger-store|runs\/delegated-task|persistence\//.test(specifier),
-      ),
-    ).toEqual([]);
   });
 
   test("a wake-up never creates a task: it only adds a turn to one that exists", () => {
