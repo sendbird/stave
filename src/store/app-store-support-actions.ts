@@ -2,6 +2,7 @@ import { createProviderSupportActions } from "./app-store-provider-actions";
 import type { StoreApi } from "zustand";
 import { workspaceFsAdapter } from "@/lib/fs";
 import type { AppNotification } from "@/lib/notifications/notification.types";
+import { resolveNotificationOpenTarget } from "@/lib/notifications/delegated-attention";
 import {
   isNotificationAttentionKind,
   isNotificationUnread,
@@ -102,9 +103,12 @@ export function createSupportActions(args: {
   } = args;
 
   const openNotificationContextInternal = async (
-    notification: AppNotification,
+    source: AppNotification,
     options: { targetSurface?: "task" | "fleet" } = {},
   ): Promise<NotificationContextOpenResult> => {
+    // A delegated child's request opens its root task, whose composer answers
+    // it; the child's workspace is never switched to.
+    const notification = resolveNotificationOpenTarget(source, get().taskWorkspaceIdById);
     const repositoryPath = notification.repositoryPath?.trim();
     if (repositoryPath && repositoryPath !== get().repositoryPath) {
       await get().openRepository({ repositoryPath });
@@ -633,9 +637,12 @@ export function createSupportActions(args: {
       if (!taskId) {
         return;
       }
+      // The request may belong to a delegated child outside the opened workspace.
+      const workspaceId = notification.workspaceId?.trim() || latestState.activeWorkspaceId;
+      const session = getWorkspaceSessionForState({ state: latestState, workspaceId });
 
       const locatedApproval = findPendingApprovalMessageByRequestId({
-        messages: latestState.messagesByTask[taskId] ?? [],
+        messages: session?.messagesByTask[taskId] ?? [],
         requestId: notification.action.requestId,
       });
 

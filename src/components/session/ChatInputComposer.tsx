@@ -152,6 +152,7 @@ import { useShallow } from "zustand/react/shallow";
 import { buildChatInputGoalStatus } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
 import { MissionSignOffSlot } from "@/components/missions/SignOffCard";
+import { ChildRequestSlot } from "./ChildRequestSlot";
 import { ManagedTaskTakeoverNotice } from "./ManagedTaskTakeoverNotice";
 import {
   resolveManagedTaskComposerAccess,
@@ -1604,6 +1605,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             }}
           />
         ) : <MissionSignOffSlot />}
+        <ChildRequestSlot taskId={args.activeTaskId} />
         {isSteerSubmitting ? (
           <div
             className={sx(chatInputStyles.steerRow)}

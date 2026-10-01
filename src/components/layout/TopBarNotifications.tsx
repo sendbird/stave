@@ -31,9 +31,9 @@ import { CountBadge } from "@/components/system/CountBadge";
 import {
   getNextNotificationView,
   type NotificationView,
+  describeNotificationRow,
   shouldShowNotificationApprovalActions,
 } from "@/components/layout/top-bar-notifications.utils";
-import { buildNotificationDetail } from "@/lib/notifications/notification.utils";
 import { formatTaskUpdatedAt, isTaskArchived } from "@/lib/tasks";
 import {
   isNotificationUnread,
@@ -477,18 +477,18 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
               <>
                 {visibleNotifications.map((notification) => {
                   const unread = isNotificationUnread(notification);
+                  const row = describeNotificationRow(notification);
                   const locationLabel = buildLocationLabel({
                     repositoryName: notification.repositoryName,
-                    workspaceName: notification.workspaceName,
+                    workspaceName: row.workspaceName,
                   });
                   const showApprovalActions =
                     shouldShowNotificationApprovalActions({
                       unread,
                       action: notification.action,
                     });
-                  const notificationTask = notification.taskId
-                    ? (tasks.find((task) => task.id === notification.taskId) ??
-                      null)
+                  const notificationTask = row.taskId
+                    ? (tasks.find((task) => task.id === row.taskId) ?? null)
                     : null;
                   const taskIsArchived = isTaskArchived(
                     notificationTask ?? { archivedAt: null },
@@ -506,8 +506,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                       notification.taskTitle ??
                       "this task")
                     : null;
-                  const notificationDetail =
-                    buildNotificationDetail(notification);
+                  const notificationDetail = row.detail;
 
                   return (
                     <div
@@ -553,8 +552,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                                   <p
                                     className={sx(notificationsStyles.rowTitle)}
                                   >
-                                    {notification.taskTitle ??
-                                      notification.title}
+                                    {row.title}
                                   </p>
                                   <span
                                     className={sx(notificationsStyles.rowTime)}

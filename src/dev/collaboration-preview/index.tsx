@@ -1,5 +1,6 @@
 import { ChildListingProbe } from "./listing-probe";
 import { ChildAttentionProbe, installChildAttentionFixture } from "./child-attention-fixture";
+import { ChildRequestSlot } from "@/components/session/ChildRequestSlot";
 import { TaskWorkPanel } from "@/components/session/TaskWorkPanel";
 import { TaskResultReviews } from "@/components/session/TaskResultReviews";
 import { useLayoutEffect, useState } from "react";
@@ -245,6 +246,13 @@ function CollaborationPreviewContent() {
           </ActionButton>
         </div>
         {attention ? <ChildAttentionProbe /> : null}
+        {attention ? (
+          // The parent composer's approval slot, as ChatInputComposer mounts it.
+          <div role="group" aria-label="Parent composer">
+            <p className={sx(cp.caption)}>Parent composer approval slot</p>
+            <ChildRequestSlot taskId={target.taskId} />
+          </div>
+        ) : null}
         {search.has("resultReview") ? (
           <TaskResultReviews
             workspaceId={target.workspaceId}

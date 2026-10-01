@@ -14,6 +14,18 @@ import {
   test,
 } from "bun:test";
 import { getTurnModelInfoLabel } from "@/lib/providers/turn-model-info";
+import {
+  buildDelegatedTaskPolicy,
+  buildDelegatedTaskRunId,
+  buildDelegatedTaskStepId,
+} from "@/lib/runs/delegated-task";
+import {
+  createPendingRun,
+  createPendingRunStep,
+  RUN_LEDGER_SCHEMA_VERSION,
+  type RunRecord,
+  type RunStepRecord,
+} from "@/lib/runs/run-domain";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
 
 // Regression: the host-service local MCP `runTask` builds a pending provider
@@ -76,6 +88,10 @@ const persistedTurnEventsById = new Map<
   }>
 >();
 const persistedNotifications: unknown[] = [];
+const delegationAggregatesByOwnedTaskId = new Map<
+  string,
+  Array<{ run: RunRecord; step: RunStepRecord }>
+>();
 const rendererSelectedTaskByWorkspaceId = new Map<string, string>();
 const persistedDeltaSelections: Array<{ taskId: string; activeTaskId?: string }> = [];
 let persistedProviderTimeoutMs: number | null = null;
@@ -179,6 +195,10 @@ const fakeStore = {
   // delegate nothing, so an empty ledger is the honest answer; without it the
   // runtime falls back and logs a read failure on each run.
   listRunAggregatesByOrigin: () => [],
+  // The ledger rows that own a task, which is how a delegated child's request
+  // is traced back to the task the person is working in.
+  listRunAggregatesByOwnedTask: ({ taskId }: { taskId: string }) =>
+    delegationAggregatesByOwnedTaskId.get(taskId) ?? [],
   loadWorkspaceShell: ({ workspaceId }: { workspaceId: string }) => {
     const snapshot = loadFakeWorkspaceSnapshot(workspaceId);
     return {
@@ -969,6 +989,53 @@ describe("local MCP runtime runTask", () => {
           );
         }),
     ).toEqual([]);
+  });
+
+  test("publishes a delegated child's approval and question once, attributed to the root task", async () => {
+    // root (another worktree) → middle (delegated) → child (this request).
+    const now = "2026-01-01T00:00:00.000Z";
+    const runId = buildDelegatedTaskRunId({ parentTaskId: "delegation-root", delegationKey: "consult" });
+    delegationAggregatesByOwnedTaskId.set("delegation-middle", [{
+      run: createPendingRun({ id: runId, kind: "delegated-task", origin: { kind: "task", id: "delegation-root" },
+        ownership: { repositoryPath: REPOSITORY_PATH, workspaceId: WORKSPACE_ID, taskId: "delegation-middle" },
+        policy: buildDelegatedTaskPolicy("one-turn"),
+        provenance: { createdBy: "delegated-task-coordinator", schemaVersion: RUN_LEDGER_SCHEMA_VERSION }, now }),
+      step: createPendingRunStep({ id: buildDelegatedTaskStepId(runId), runId, kind: "delegated-task-turn",
+        target: { taskId: "delegation-middle", workspaceId: WORKSPACE_ID, turnId: null, providerId: "codex" },
+        dependencyIds: [], inputHash: "c".repeat(64), now }),
+    }]);
+    const previousRootRows = persistedTasksByWorkspaceId.get(RECONCILE_WORKSPACE_ID);
+    persistedTasksByWorkspaceId.set(RECONCILE_WORKSPACE_ID, [{ id: "delegation-root", title: "Consult two models",
+      provider: "codex", updatedAt: now, unread: false, archivedAt: null }]);
+    try {
+      const offset = persistedNotifications.length;
+      const result = await runtime.runTask({ workspaceId: WORKSPACE_ID, parentTaskId: "delegation-middle",
+        prompt: "Review the cache layer", provider: "claude-code" });
+      const handler = startTurnStreamHandlers.at(-1);
+      handler?.onEvent?.({ type: "approval", toolName: "Bash", requestId: "child-approval-1", description: "rg cache src" });
+      handler?.onEvent?.({ type: "user_input", toolName: "AskUserQuestion", requestId: "child-input-1",
+        questions: [{ key: "scope", question: "Which layer?", header: "Scope", options: [] }] });
+      for (let attempt = 0; attempt < 40 && persistedNotifications.length < offset + 2; attempt += 1) {
+        await Bun.sleep(0);
+      }
+      const root = { parentTaskId: "delegation-middle", ancestorTaskIds: ["delegation-middle", "delegation-root"],
+        rootTaskId: "delegation-root", rootWorkspaceId: RECONCILE_WORKSPACE_ID,
+        rootWorkspaceName: "reconcile", rootTaskTitle: "Consult two models", controlMode: "managed", controlOwner: "external" };
+      // The child keeps the request identity; only the attribution names the root.
+      const child = { repositoryPath: REPOSITORY_PATH, workspaceId: WORKSPACE_ID, taskId: result.taskId, turnId: result.turnId,
+        title: "Consult two models", taskTitle: "Review the cache layer" };
+      expect(persistedNotifications.slice(offset)).toMatchObject([
+        { ...child, kind: "task.approval_requested", action: { type: "approval", requestId: "child-approval-1" },
+          payload: root, dedupeKey: `task.approval_requested:${result.turnId}:child-approval-1` },
+        { ...child, kind: "task.user_input_requested", payload: { ...root, requestId: "child-input-1" },
+          dedupeKey: `task.user_input_requested:${result.turnId}:child-input-1` },
+      ]);
+      handler?.onEvent?.({ type: "done" });
+    } finally {
+      delegationAggregatesByOwnedTaskId.clear();
+      if (previousRootRows) persistedTasksByWorkspaceId.set(RECONCILE_WORKSPACE_ID, previousRootRows);
+      else persistedTasksByWorkspaceId.delete(RECONCILE_WORKSPACE_ID);
+    }
   });
 
   test("persists terminal events and reports a targeted no-response failure", async () => {

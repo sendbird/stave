@@ -171,6 +171,53 @@ describe("notification routing", () => {
     expect(useAppStore.getState().notifications[0]?.readAt).toBeNull();
   });
 
+  test("routes a delegated child's request to its root task without opening the child workspace", async () => {
+    const switched: string[] = [];
+    useAppStore.setState((current) => ({
+      notifications: [
+        {
+          id: "notification-child-approval",
+          kind: "task.approval_requested",
+          title: "Current Task",
+          body: "Bash: rg cache",
+          repositoryPath: "/tmp/project-a",
+          repositoryName: "project-a",
+          workspaceId: "workspace-child",
+          workspaceName: "Child Workspace",
+          taskId: "task-child",
+          taskTitle: "Child Task",
+          turnId: "turn-child",
+          providerId: "codex",
+          action: { type: "approval", requestId: "approval-child", messageId: "message-child" },
+          payload: { parentTaskId: "task-current", rootTaskId: "task-current", rootWorkspaceId: "workspace-1" },
+          createdAt: "2026-06-18T01:05:00.000Z",
+          readAt: null,
+        },
+        ...current.notifications,
+      ],
+      // The child's worktree is known, so only the root target keeps it closed.
+      workspaces: [
+        ...current.workspaces,
+        { id: "workspace-child", name: "Child Workspace", updatedAt: "2026-06-18T01:05:00.000Z" },
+      ],
+      activeTaskId: "task-blocked",
+      activeSurface: { kind: "task", taskId: "task-blocked" },
+      switchWorkspace: async ({ workspaceId }) => {
+        switched.push(workspaceId);
+      },
+    }));
+
+    const result = await useAppStore.getState().openNotificationContext({
+      notificationId: "notification-child-approval",
+      targetSurface: "task",
+    });
+
+    expect(result).toEqual({ status: "opened" });
+    expect(switched).toEqual([]);
+    expect(useAppStore.getState().activeWorkspaceId).toBe("workspace-1");
+    expect(useAppStore.getState().activeTaskId).toBe("task-current");
+  });
+
   test("routes a completed notification to its exact task", async () => {
     const result = await useAppStore.getState().openNotificationContext({
       notificationId: "notification-completed",
