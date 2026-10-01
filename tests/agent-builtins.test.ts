@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { BUILTIN_AGENT_WORKFLOWS, BUILTIN_AGENT_WORKFLOW_IDS } from "@/lib/agents/builtin-workflows";
 import { importAgentFile } from "@/lib/agents/import";
 import { blankCustomAgent, listAgents, upsertCustomAgent } from "@/lib/agents/library";
 import { selectableMainAgents } from "@/lib/agents/selector-choice";
@@ -46,16 +45,15 @@ describe("built-in agents", () => {
     expect(blankCustomAgent({ name: "Planner", takenIds: [] }).id).not.toBe("planner");
   });
 
-  test("each general agent has recommended workflow stages with a done-when", () => {
-    expect([...BUILTIN_AGENT_WORKFLOW_IDS].sort()).toEqual([...ORDER].sort());
-    for (const id of BUILTIN_AGENT_WORKFLOW_IDS) {
-      const stages = BUILTIN_AGENT_WORKFLOWS[id];
-      expect(stages.length).toBeGreaterThanOrEqual(3);
-      for (const stage of stages) {
-        expect(stage.title.length).toBeGreaterThan(0);
-        expect(stage.doneWhen.length).toBeGreaterThan(0);
-      }
-    }
+  test("Shipper, UI Polisher and Debugger follow a workflow; the rest run as one stage", () => {
+    expect(ORDER.filter((id) => getBuiltinAgent(id)!.workflow)).toEqual(["debugger", "ui-polisher", "shipper"]);
+    expect(getBuiltinAgent("shipper")!.workflow!.map((stage) => stage.title)).toEqual([
+      "Validate",
+      "Open draft PR",
+      "Watch checks",
+      "Ready for review",
+    ]);
+    for (const id of ["implementer", "researcher"]) expect(getBuiltinAgent(id)!.workflow).toBeUndefined();
   });
 });
 

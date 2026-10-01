@@ -8,7 +8,7 @@ import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState } from "@/lib/missions/domain";
 import { isAgentRun } from "@/lib/missions/agent-run";
 import { AGENT_RUN_STATE_TONES, describeAgentRunStatus, agentRunDuration } from "@/lib/missions/agent-run-view";
-import { describeMissionStatusLine, projectMissionStages } from "@/lib/missions/mission-view";
+import { describeMissionStatusLine, projectMissionStages, type MissionStageRow } from "@/lib/missions/mission-view";
 import { describeUsageShort } from "@/lib/missions/usage";
 import { useFleetMissionsStore } from "@/store/fleet-missions-store";
 import { StageStatusIcon } from "./StageStatusIcon";
@@ -33,7 +33,7 @@ export function FleetMissionStrip(props: { workspaceId: string; onOpen: (taskId:
   const detail = useFleetMissionsStore((state) => pickActiveMission(state.details, props.workspaceId));
   const rows = useMemo(() => (detail ? projectMissionStages(detail, new Date(detail.mission.updatedAt)) : []), [detail]);
   if (!detail) return null;
-  if (isAgentRun(detail.mission)) return <FleetAgentRunStrip detail={detail} onOpen={props.onOpen} />;
+  if (isAgentRun(detail.mission)) return <FleetAgentRunStrip detail={detail} rows={rows} onOpen={props.onOpen} />;
   const line = describeMissionStatusLine(detail);
   const paused = detail.mission.state === "paused";
   const current = rows[detail.mission.currentStageIndex]!;
@@ -68,13 +68,14 @@ export function FleetMissionStrip(props: { workspaceId: string; onOpen: (taskId:
   );
 }
 
-/** A Fleet card's line for an agent run: the agent and its state; no stage rail for one stage. */
-function FleetAgentRunStrip(props: { detail: MissionDetail; onOpen: (taskId: string) => void }) {
-  const { detail } = props;
+/** A Fleet card's line for an agent run: the agent and its state, and its stage rail when it has stages. */
+function FleetAgentRunStrip(props: { detail: MissionDetail; rows: readonly MissionStageRow[]; onOpen: (taskId: string) => void }) {
+  const { detail, rows } = props;
   const status = describeAgentRunStatus(detail);
   const spent = describeUsageShort(detail.usage);
   const now = useNow(isActiveMissionState(detail.mission.state));
   const elapsed = agentRunDuration(detail, now);
+  const staged = rows.length > 1;
   return (
     <Button
       layout="host"
@@ -94,10 +95,14 @@ function FleetAgentRunStrip(props: { detail: MissionDetail; onOpen: (taskId: str
           </span>
         </span>
         <span className={sx(styles.position)}>
+          {staged ? `${detail.mission.currentStageIndex + 1}/${rows.length} · ` : ""}
           {elapsed}
           {spent ? ` · ${spent}` : ""}
         </span>
       </span>
+      {staged ? (
+        <StageTrack rows={rows} labels="never" live={false} paused={detail.mission.state === "paused"} />
+      ) : null}
     </Button>
   );
 }

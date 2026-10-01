@@ -1,3 +1,4 @@
+import { getBuiltinAgent } from "@/lib/agents/starters";
 import { buildAgentRunStartInput } from "@/lib/missions/agent-run";
 import type { MissionDetail } from "@/lib/missions/api";
 import { createMission, type MissionStageRecord } from "@/lib/missions/domain";
@@ -5,7 +6,8 @@ import { buildMissionReport } from "@/lib/missions/report";
 
 /**
  * Agent runs for the mission preview and the render tests: working, needs
- * you, stuck, ready (with a pull request), and failed. Times count from
+ * you, stuck, ready (with a pull request), failed, and a run of an agent
+ * with a workflow at its second stage. Times count from
  * `start`, so tests are exact and the preview looks recent.
  */
 export const AGENT_RUN_ASSIGNMENT = "Fix the billing table overflow on narrow screens.";
@@ -110,5 +112,41 @@ export function buildAgentRunFixtures(start: Date) {
     { status: "cancelled", endedAt: at(41), detail: "The run stopped at its turn limit." },
   );
   const stopped = detail({ state: "cancelled", updatedAt: at(9) }, { status: "cancelled", endedAt: at(9) });
-  return { working, needsYou, stuck, ready, failed: ended(failed, at(41)), stopped };
+  const staged = createMission({
+    id: "agent-run-workflow-preview",
+    input: buildAgentRunStartInput({
+      workspaceId: "preview-workspace",
+      taskId: "preview-task",
+      agent: getBuiltinAgent("debugger")!,
+      assignment: "The export button throws on an empty invoice list.",
+      now: start,
+    }),
+    repositoryPath: "/tmp/preview-project",
+    fingerprint: { providerId: "claude-code", model: "sonnet" },
+    now: start,
+  });
+  const reproduced: MissionStageRecord = {
+    ...staged.upserts[0]!,
+    status: "completed",
+    startedAt: at(0),
+    endedAt: at(3),
+    reportRevision: 1,
+    report: {
+      outcome: "complete",
+      summary: "An empty list makes the export read the first row of nothing.",
+      decisions: [],
+      evidence: [],
+      artifacts: [],
+      reportedAt: at(3),
+      turnId: "turn-1",
+    },
+  };
+  const workflow: MissionDetail = {
+    mission: { ...staged.mission, currentStageIndex: 1, turnCount: 2, updatedAt: at(4) },
+    stages: [reproduced, { ...reproduced, stageId: "cause", status: "running", startedAt: at(4), endedAt: null, report: null, reportRevision: 0 }],
+    events: [],
+    report: null,
+    usage: { turns: 2, measuredTurns: 2, inputTokens: 41_000, outputTokens: 6_200, costUsd: 0.42 },
+  };
+  return { working, needsYou, stuck, ready, failed: ended(failed, at(41)), stopped, workflow };
 }

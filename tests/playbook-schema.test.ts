@@ -136,7 +136,7 @@ describe("playbook schema", () => {
   test("opens a draft PR at most once, before checks and ready for review", () => {
     expect(
       issuesOf(playbook({ stages: [action("a", "open-draft-pr"), action("b", "open-draft-pr")] })),
-    ).toEqual(["stages.1: A playbook can open a draft PR only once."]);
+    ).toEqual(["stages.1: Open a draft PR only once."]);
     expect(
       issuesOf(playbook({ stages: [watchChecks, action("open", "open-draft-pr")] })),
     ).toEqual(['stages.0: "Watch checks" must come after "Open draft PR".']);

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { PanelRightOpen } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { TextShimmer } from "@/components/ads/components/TextShimmer";
@@ -5,7 +6,9 @@ import { Tooltip } from "@/components/ads/components/Tooltip";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { AGENT_RUN_STATE_TONES, agentRunDuration, describeAgentRunStatus } from "@/lib/missions/agent-run-view";
+import { projectMissionStages } from "@/lib/missions/mission-view";
 import { StageStatusIcon } from "./StageStatusIcon";
+import { StageTrack } from "./StageTrack";
 import type { AgentRunActions } from "./useAgentRunActions";
 import { missionBarStyles as styles } from "./mission-bar.styles";
 import { missionStyles } from "./missions.styles";
@@ -15,7 +18,8 @@ export const TAKE_CONTROL_HINT = "Ends the run and keeps this task in Chat, on t
 /**
  * The status line over the composer while an agent run is active:
  * `Working · 4m`, or `Needs you` with what the run waits on, with Stop and
- * Take control. A run has one implicit stage, so it shows no stage track.
+ * Take control. A run of an agent with a workflow adds its stage track; a
+ * one-stage run shows none.
  */
 export function AgentRunBarView(props: {
   detail: MissionDetail;
@@ -34,6 +38,13 @@ export function AgentRunBarView(props: {
   const showNow = status.state === "working" && props.nowPhrase !== null;
   const detailText = status.state === "needs-you" ? status.reason : showNow ? props.nowPhrase : null;
   const elapsed = agentRunDuration(detail, props.now);
+  const staged = detail.mission.playbook.stages.length > 1;
+  const rows = useMemo(
+    () => (staged ? projectMissionStages(detail, new Date(props.now)) : null),
+    [detail, props.now, staged],
+  );
+  const current = rows?.[detail.mission.currentStageIndex] ?? null;
+  const paused = detail.mission.state === "paused";
   return (
     <section
       className={cx(
@@ -63,6 +74,7 @@ export function AgentRunBarView(props: {
             </span>
             {/* The elapsed time comes first: a narrow bar truncates the end. */}
             <span className={sx(styles.headlineDetail)}>{` · ${elapsed}`}</span>
+            {current ? <span className={sx(styles.headlineDetail)}>{` · ${current.stage.title}`}</span> : null}
             {detailText ? (
               <span className={sx(styles.headlineDetail)}>
                 {" · "}
@@ -70,6 +82,16 @@ export function AgentRunBarView(props: {
               </span>
             ) : null}
           </p>
+          {current && rows ? (
+            <span className={sx(styles.meta)}>
+              <span aria-hidden>
+                {current.index + 1}/{rows.length}
+              </span>
+              <span className={sx(missionStyles.visuallyHidden)}>
+                Stage {current.index + 1} of {rows.length}
+              </span>
+            </span>
+          ) : null}
           <span className={sx(styles.actions)}>
             {actions.onStop ? (
               <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onStop} xstyle={styles.quietButton}>
@@ -106,8 +128,13 @@ export function AgentRunBarView(props: {
           </span>
         </div>
       </div>
+      {rows ? (
+        <div className={sx(styles.track)}>
+          <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} />
+        </div>
+      ) : null}
       <p className={sx(missionStyles.visuallyHidden)} aria-live="polite">
-        {`${status.agentName}: ${status.label}`}
+        {`${status.agentName}: ${status.label}${current ? `, stage ${current.index + 1} of ${rows!.length}: ${current.stage.title}` : ""}`}
       </p>
     </section>
   );

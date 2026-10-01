@@ -17,6 +17,8 @@ import type { MissionStageGrant } from "../electron/providers/mission-grants";
 import type { PullRequestCheck } from "../src/lib/missions/checks";
 import { currentStageRecord, EMPTY_STAGE_FACTS, listExternalEffectStages, type StageFacts } from "../src/lib/missions/domain";
 import { createPlaybookFromStarter, findPlaybookStarter } from "../src/lib/playbooks/starters";
+import { buildAgentRunStartInput } from "../src/lib/missions/agent-run";
+import { getBuiltinAgent } from "../src/lib/agents/starters";
 
 /*
  * Design scenarios A1, A4 and A5 end to end through the host runtime and the
@@ -311,5 +313,31 @@ describe("mission scenarios", () => {
     expect(harness.mission(missionId)).toMatchObject({ state: "completed", fingerprint: { providerId: "codex" } });
     // Mission turns run with the consent's permissions on Codex too.
     expect(harness.runCalls[0]!.runtimeOptions).toMatchObject({ codexApprovalPolicy: "untrusted" });
+  });
+
+  test("an agent with a three-stage workflow runs stage by stage, one report each", async () => {
+    const harness = scenarioHarness("claude-code");
+    const debuggerAgent = getBuiltinAgent("debugger")!;
+    const detail = await harness.runtime.startMission(
+      buildAgentRunStartInput({
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        agent: debuggerAgent,
+        assignment: "The export button throws.",
+        now: new Date(START),
+      }),
+    );
+    const missionId = detail.mission.id;
+    expect(detail.mission.playbook.stages.map((stage) => stage.id)).toEqual(["reproduce", "cause", "fix"]);
+    await harness.runtime.requestTick();
+    for (const stageId of ["reproduce", "cause", "fix"]) {
+      expect(harness.current(missionId)).toMatchObject({ stageId, status: "running" });
+      expect(harness.runCalls.at(-1)!.prompt).toContain(`: ${debuggerAgent.workflow!.find((stage) => stage.id === stageId)!.title}`);
+      await report(harness, `Finished ${stageId}.`);
+    }
+    // Only when stuck: no sign-off between stages, and the run completes.
+    expect(harness.mission(missionId).state).toBe("completed");
+    const reported = harness.store.getAggregate(missionId)!.stages.filter((record) => record.report);
+    expect(reported.map((record) => record.stageId).sort()).toEqual(["cause", "fix", "reproduce"]);
   });
 });

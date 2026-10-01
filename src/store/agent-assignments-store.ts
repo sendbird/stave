@@ -38,6 +38,9 @@ export type TaskAgent = Pick<
   agentTaskClass: TaskClass | null;
   /** The model a fixed-model agent declares; its default route and not a user pin. */
   agentFixedModel: FixedAgentModel | null;
+  /** The recorded agent's workflow and check-ins, which its runs follow. */
+  agentWorkflow: AgentAssignment["agent"]["workflow"];
+  agentCheckIns: AgentAssignment["agent"]["checkIns"];
 };
 
 interface AgentAssignmentsState {
@@ -76,6 +79,8 @@ export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]):
       agentAppearance: row.agent.appearance,
       agentTaskClass: row.agent.model.mode === "auto" ? (row.agent.model.taskClass ?? null) : null,
       agentFixedModel: fixedModelOf(row.agent),
+      agentWorkflow: row.agent.workflow,
+      agentCheckIns: row.agent.checkIns,
       agentContentHash: row.agentContentHash,
       received: row.received,
       support: row.support,

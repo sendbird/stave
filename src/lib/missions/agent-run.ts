@@ -1,9 +1,10 @@
 /**
  * Agent runs: an Agent-mode prompt runs on the mission engine instead of as a
- * single turn. The run is a mission with an implicit one-stage playbook built
- * from the task's agent; it completes only through the stage report, checks
- * in only when stuck, and ends when the user stops it or the task stops
- * running as the agent.
+ * single turn. The run is a mission whose playbook is built from the task's
+ * agent: the agent's workflow when it has one, else one implicit "Work"
+ * stage. It completes only through the stage reports, checks in as the
+ * agent's "Check in with me" says (only when stuck by default), and ends when
+ * the user stops it or the task stops running as the agent.
  *
  * The agent's instructions are not copied into the stage: the task's agent
  * assignment delivers them on every turn, and its turns resolve as the agent
@@ -14,9 +15,11 @@
  *
  * Pure: no clock, no I/O. Callers pass `now`.
  */
-import type { AgentConfig } from "@/lib/agents/schema";
+import { DEFAULT_AGENT_CHECK_INS, type AgentConfig } from "@/lib/agents/schema";
 import { PLAYBOOK_LIMITS, PLAYBOOK_VERSION, type Playbook } from "@/lib/playbooks/schema";
-import { MISSION_LIMITS, type Mission, type MissionStartInput } from "./domain";
+import { MISSION_LIMITS, stageHasExternalEffect, type Mission, type MissionStartInput } from "./domain";
+
+type RunAgent = Pick<AgentConfig, "name" | "workflow" | "checkIns">;
 
 export const AGENT_RUN_PLAYBOOK_ID = "agent-run";
 export const AGENT_RUN_STAGE_ID = "work";
@@ -39,11 +42,11 @@ function clip(value: string, max: number) {
 }
 
 /**
- * The implicit playbook of an agent run: one AI stage, "Work". `doneWhen` is
- * the assignment's own criteria when the user gave any.
+ * The playbook of an agent run: the agent's workflow, or one AI stage, "Work",
+ * whose `doneWhen` is the assignment's own criteria when the user gave any.
  */
 export function buildAgentRunPlaybook(args: {
-  agent: Pick<AgentConfig, "name">;
+  agent: RunAgent;
   doneWhen?: string | null;
   now: Date;
 }): Playbook {
@@ -54,10 +57,10 @@ export function buildAgentRunPlaybook(args: {
     id: AGENT_RUN_PLAYBOOK_ID,
     name: clip(args.agent.name, PLAYBOOK_LIMITS.name),
     purpose: clip(`Carry out the user's assignment as ${args.agent.name}.`, PLAYBOOK_LIMITS.purpose),
-    checkIns: "when-stuck",
+    checkIns: args.agent.checkIns ?? DEFAULT_AGENT_CHECK_INS,
     // The agent may hand bounded parts to helpers; its own `canCall` decides which.
     team: "workers",
-    stages: [
+    stages: args.agent.workflow?.length ? structuredClone(args.agent.workflow) : [
       {
         id: AGENT_RUN_STAGE_ID,
         title: "Work",
@@ -74,23 +77,28 @@ export function buildAgentRunPlaybook(args: {
 /**
  * What starting an agent run asks the mission engine for. Consent is the
  * user's own settings (`manual`); the agent actor makes the turns autonomous
- * at the host turn entry. No external-effect stage exists, so none is
- * authorized, and the default turn cap applies.
+ * at the host turn entry. Assigning work to an agent that checks in only when
+ * stuck authorizes its workflow's publish and Stave action stages; under any
+ * other check-in level each of those stages asks first. The default turn cap
+ * applies.
  */
 export function buildAgentRunStartInput(args: {
   workspaceId: string;
   taskId: string;
-  agent: Pick<AgentConfig, "name">;
+  agent: RunAgent;
   assignment: string;
   doneWhen?: string | null;
   now: Date;
 }): MissionStartInput {
+  const playbook = buildAgentRunPlaybook({ agent: args.agent, doneWhen: args.doneWhen, now: args.now });
+  const authorizedEffectStageIds =
+    playbook.checkIns === "when-stuck" ? playbook.stages.filter(stageHasExternalEffect).map((stage) => stage.id) : [];
   return {
     workspaceId: args.workspaceId,
     leadTaskId: args.taskId,
-    playbook: buildAgentRunPlaybook({ agent: args.agent, doneWhen: args.doneWhen, now: args.now }),
+    playbook,
     assignment: args.assignment.trim(),
-    consent: { checkIns: "when-stuck", permissionMode: "manual", authorizedEffectStageIds: [] },
+    consent: { checkIns: playbook.checkIns, permissionMode: "manual", authorizedEffectStageIds },
     origin: "agent",
   };
 }

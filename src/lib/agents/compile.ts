@@ -223,8 +223,29 @@ function toolLimitSentence(agent: AgentConfig): string | null {
   return parts.length ? parts.join(" ") : null;
 }
 
-function renderInstructions(agent: AgentConfig, includeToolSentence: boolean, standards?: string): string {
+/**
+ * A helper (an in-turn subagent or a delegated task) has no run to drive its
+ * workflow stage by stage, so its AI stages are written as an ordered list.
+ * Stave action stages are left to the run that owns publishing.
+ */
+function workflowSentence(agent: AgentConfig): string | null {
+  const stages = (agent.workflow ?? []).filter((stage) => stage.kind === "ai");
+  if (stages.length < 2) return null;
+  return [
+    "Work in these stages, in order:",
+    ...stages.map((stage, index) => `${index + 1}. ${stage.title}: ${stage.instruction} Done when: ${stage.doneWhen}`),
+  ].join("\n");
+}
+
+function renderInstructions(
+  agent: AgentConfig,
+  includeToolSentence: boolean,
+  standards?: string,
+  includeWorkflow = false,
+): string {
   const lines = [`# Agent: ${agent.name}`, agent.instructions];
+  const workflow = includeWorkflow ? workflowSentence(agent) : null;
+  if (workflow) lines.push(workflow);
   // The user's own standards follow the agent's instructions and never replace them.
   if (standards) lines.push(`## My standards\n\n${standards}`);
   if (includeToolSentence) {
@@ -320,7 +341,7 @@ export function compileAgent(args: {
       name: agent.id,
       label: agent.name,
       description: agent.description,
-      instructions: renderInstructions(agent, toolsInstructed, standards),
+      instructions: renderInstructions(agent, toolsInstructed, standards, true),
       ...(agent.tools.allow ? { tools: [...agent.tools.allow] } : {}),
       ...(agent.tools.maxTurns ? { maxTurns: agent.tools.maxTurns } : {}),
       ...(fixed?.model ? { model: fixed.model } : {}),
@@ -342,7 +363,7 @@ export function compileAgent(args: {
           ...(fixed ? { effort: toDelegateEffort(fixed.effort) } : {}),
           workspaceMode: agent.workspace,
         },
-        promptPreamble: renderInstructions(agent, true, standards),
+        promptPreamble: renderInstructions(agent, true, standards, true),
       },
     };
   }
