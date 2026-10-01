@@ -940,6 +940,63 @@ Rules:
 Claude's system prompt keeps its own cache boundary
 (`SYSTEM_PROMPT_DYNAMIC_BOUNDARY`); nothing here changes that.
 
+## Turn autonomy and hard guardrails
+
+`runProviderTurn` (`electron/providers/runtime.ts`) resolves one turn policy
+for every turn before it reaches a provider, through
+`electron/providers/turn-policy-entry.ts` and the pure resolver
+`src/lib/policy/turn-policy.ts`. Composer, agent, delegated, mission, wake-up
+and `stave_run_task` turns all pass through it; secondary read-only runs keep
+their fixed posture. The resolved policy rides on the host-owned
+`StreamTurnArgs.turnPolicy` field (never part of the renderer IPC schema), and
+its option overrides are merged into `runtimeOptions`. The resolved options are
+what delegation records as the parent's effective policy, so helpers inherit
+the parent's autonomy and never more.
+
+| Autonomy | Claude | Codex |
+| --- | --- | --- |
+| `ask` (your preset prompts) | Your settings, unchanged | Your settings, unchanged |
+| `autonomous` (Auto/Bypass, Codex `never`, or an agent task) | Bypass stays Bypass; Plan and Don't Ask stay; otherwise `auto`. Stave's `canUseTool` allows any handed-over call that is not a guardrail, a user ask rule, a question or a Stave respond tool. Sandboxed turns set `sandbox.autoAllowBashIfSandboxed`. | `approvalPolicy: never`; `workspace-write` rooted at the workspace, or your `danger-full-access`; network as set; Stave Local MCP tools auto-approved except respond tools |
+| `read-only` (read-only agent or delegation) | The read-only delegation posture (`dontAsk`, edit tools off, read-only sandbox) | `read-only`, `never`, network off |
+
+A main Agent's saved permission is no longer a ceiling: `read-only` maps to
+the read-only posture, any other saved value to full access (no data
+migration). A delegated Agent's read-only permission becomes `access:
+"read-only"`; cross-provider helpers of an autonomous parent are lifted to the
+target provider's autonomous options (`electron/host-service/delegation-policy.ts`).
+Cursor and Kiro keep the user's settings except for a read-only agent.
+
+Hard guardrails (provider-specific enforcement):
+
+- **Claude**: `electron/providers/claude-guardrail-hook.ts` registers a
+  PreToolUse hook first in `hooks.PreToolUse` for every non-read-only primary
+  turn. It returns `ask` (never `deny`) for G1 writes outside the workspace
+  root (temp dirs allowed), G2 protected credential paths and variables (the
+  user's sandbox credential lists plus a baseline such as `~/.ssh`, `~/.aws`,
+  `~/.netrc`), and G3 irreversible remote effects (force-push to a default or
+  protected branch, `git push --delete`/`:ref`/`--mirror`/`--prune`, package
+  publishing, `gh release create|delete|upload|edit`, `gh repo delete`,
+  `gh api -X DELETE`, `sudo`). Hooks run before the permission mode, so the
+  `ask` reaches `canUseTool` under Bypass too (verified live with Claude Code
+  2.1.286); `canUseTool` re-checks the guardrail and skips every automatic
+  answer for it. Bash matching is literal (quotes, `cd`, redirects and
+  here-documents are understood; variables and scripts are not); the sandbox
+  bounds the rest when enabled.
+- **Codex**: G1 is the `workspace-write` sandbox root; G4
+  (`request_user_input`) is native. The App Server protocol (schema checked
+  against Codex CLI 0.159.3; the recorded baseline is 0.145.0) exposes exec
+  policy only as approval-time amendments and rule files under the Codex home,
+  not as per-thread config, so Stave does not enforce G2 reads or G3 for Codex.
+  With network on, an autonomous Codex turn can push or publish. This is a
+  known gap.
+
+Stave Local MCP: `stave_run_task` rejects permission runtime options
+(`PERMISSION_RUNTIME_OPTION_KEYS`), automations created by MCP are saved
+paused and cannot be unattended or bypass, `stave_respond_approval` is not
+served, and Claude's prompt-free modes no longer allow every Stave tool
+(`isPromptFreeStaveLocalMcpTool`: `auto` excludes respond tools, `dontAsk`
+allows only read tools).
+
 ## Claude runtime
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.
