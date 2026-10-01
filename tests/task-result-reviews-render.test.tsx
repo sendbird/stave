@@ -84,7 +84,7 @@ test("collaboration puts the delegation entry before history controls", () => {
   );
 
   expect(html.indexOf("Delegate a task")).toBeLessThan(
-    html.indexOf("Every advisor consult"),
+    html.indexOf("Filter delegations"),
   );
   expect(html.indexOf("Delegate a task")).toBeLessThan(html.indexOf("All"));
 });
@@ -118,8 +118,7 @@ test("managed Team still renders history filters while new delegation is restric
   const html = renderToStaticMarkup(createElement(TeamSection, {
     target: { taskId: "managed", workspaceId: "w", repositoryPath: "/tmp/p" }, readOnly: true,
   }));
-  expect(html).toContain("managed externally");
-  expect(html).toContain("Every advisor consult");
+  expect(html).toContain("Managed task. Take over to change delegations.");
   expect(html).toContain("Filter delegations");
   expect(html).toContain("Export report");
   expect(html).not.toContain("New delegation");

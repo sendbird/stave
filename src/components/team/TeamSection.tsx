@@ -363,7 +363,7 @@ export function TeamSection({ target, readOnly = false }: { target: Collaboratio
       {...stylex.props(styles.minZero, styles.panelStack)}
     >
       {readOnly ? <p {...stylex.props(styles.body, styles.muted)} role="status">
-        This task is managed externally. Collaboration history is available here; take over the task to change its delegations.
+        Managed task. Take over to change delegations.
       </p> : <div {...stylex.props(styles.delegateEntry)}>
         <DelegateTaskForm
           key={target.taskId}
@@ -371,10 +371,6 @@ export function TeamSection({ target, readOnly = false }: { target: Collaboratio
           onCreated={listing.actions.refresh}
         />
       </div>}
-
-      <p {...stylex.props(styles.body, styles.muted)}>
-        Every advisor consult, worker run and delegated task for this task
-      </p>
 
       <div {...stylex.props(styles.toolbar)}>
         <div

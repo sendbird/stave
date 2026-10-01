@@ -458,11 +458,11 @@ export function FleetTaskControlPanel(args: {
       <div className={sx(styles.header)}>
         <div className={sx(styles.headerText)}>
           <h3 className={sx(styles.title)}>
-            {task?.title || args.target.taskTitle || "Task controls"}
+            {args.interactionOnly ? (args.expectedInteraction?.kind === "approval" ? "Approval requested" : "Question") : task?.title || args.target.taskTitle || "Task controls"}
           </h3>
-          <p className={sx(styles.subtitle)}>
-            {args.interactionOnly ? "Answer this request while keeping the parent task open." : "Review activity, answer requests, or direct the running agent."}
-          </p>
+          {!args.interactionOnly ? <p className={sx(styles.subtitle)}>
+            Review activity, answer requests, or direct the running agent.
+          </p> : null}
         </div>
         <div className={sx(styles.headerActions)}>
           {!args.interactionOnly ? <Button
@@ -480,7 +480,7 @@ export function FleetTaskControlPanel(args: {
             size="icon-sm"
             variant="ghost"
             xstyle={styles.closeAction}
-            aria-label="Close task controls"
+            aria-label={args.interactionOnly ? "Close request" : "Close task controls"}
             onClick={closePanel}
           >
             <X className={sx(styles.closeIcon)} aria-hidden="true" />

@@ -23,7 +23,7 @@ test("reviewing the last of 21 pending runs returns to the remaining 20", async 
 
 test("managed Team keeps history readable and finished details lead with the result", async ({ page }) => {
   await page.goto("/?stavePreview=collaboration&managed=1");
-  await expect(page.getByText(/This task is managed externally/)).toBeVisible();
+  await expect(page.getByText(/Managed task/)).toBeVisible();
   await expect(page.getByRole("group", { name: "Filter delegations" })).toBeVisible();
   await expect(page.getByRole("button", { name: "New delegation", exact: true })).toHaveCount(0);
   await page.locator('[data-exchange-kind="worker"] button[aria-haspopup="dialog"]').click();
