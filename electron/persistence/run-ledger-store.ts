@@ -17,7 +17,6 @@ import {
   type RunStepTarget,
   type RunStepTransition,
 } from "../../src/lib/runs/run-domain";
-import { isReadOnlyDelegationPolicy } from "../../src/lib/runs/delegation-policy";
 
 interface RunLedgerStatement {
   get: (...params: unknown[]) => unknown;
@@ -118,8 +117,7 @@ type RunLedgerPersistenceRejectionReason =
   | "input-mismatch"
   | "not-found"
   | "run-conflict"
-  | "step-conflict"
-  | "workspace-writer-busy";
+  | "step-conflict";
 
 export type RunLedgerTransitionResult =
   | RunStepTransition
@@ -129,7 +127,6 @@ export type RunLedgerTransitionResult =
       run: RunRecord | null;
       step: RunStepRecord | null;
       receipts: [];
-      writerHolder?: { run: RunRecord; step: RunStepRecord };
     };
 
 function parseJson(value: string) {
@@ -629,10 +626,6 @@ export class RunLedgerStore {
         now: args.now,
       });
       if (transition.accepted && !transition.duplicate) {
-        const holder = this.findWriterHolder(incomingStep.target);
-        if (holder) {
-          return { accepted: false, reason: "workspace-writer-busy", run, step, receipts: [], writerHolder: holder };
-        }
         transition.step = RunStepRecordSchema.parse({ ...transition.step, target: incomingStep.target });
       }
       if (insertRun) this.insertRun(incomingRun);
@@ -857,49 +850,6 @@ export class RunLedgerStore {
     });
   }
 
-  /** Held leases survive ledger cancellation until the actual child turn ends. */
-  listHeldWriterAggregates() {
-    const rows = this.db.prepare(`SELECT ${RUN_STEP_COLUMNS} FROM run_steps
-      WHERE json_extract(target_json, '$.writerLease.state') = 'held'
-      ORDER BY run_id, id`).all() as RunStepRow[];
-    return rows.flatMap((row) => {
-      const step = mapRunStepRow(row);
-      const run = this.getRun(step.runId);
-      return run ? [{ run, step }] : [];
-    });
-  }
-
-  private findWriterHolder(target: RunStepTarget | null) {
-    const lease = target?.writerLease;
-    if (!lease || lease.state !== "held") return null;
-    const held = this.listHeldWriterAggregates().find(({ step }) =>
-      step.target?.writerLease?.workspacePath === lease.workspacePath &&
-      step.target.writerLease.leaseId !== lease.leaseId,
-    ) ?? null;
-    if (held) return held;
-    // Same-workspace legacy claims are checked inside the transaction too.
-    return this.listActiveAggregatesByStepKind({ kind: "delegated-task-turn" }).find(({ run, step }) => {
-      if (!step.target || step.target.writerLease || step.target.turnExecutionId || step.status === "waiting" || step.target.workspaceId !== target.workspaceId) return false;
-      const policy = this.listReceipts({ runId: run.id }).find((receipt) => receipt.type === "accepted" && receipt.detail?.attempt === step.attempt)?.detail?.permissionPolicy;
-      return !isReadOnlyDelegationPolicy(step.target.providerId, policy);
-    }) ?? null;
-  }
-
-  /** Atomically re-admit a parked child's next turn; no queue or new scheduler. */
-  acquireWriterLease(args: {
-    runId: string; stepId: string; executionId: string; target: RunStepTarget;
-  }): { accepted: boolean; writerHolder?: { run: RunRecord; step: RunStepRecord } } {
-    const target = RunStepTargetSchema.parse(args.target);
-    return this.db.transaction(() => {
-      const current = this.getAggregate(args);
-      if (!current || current.step.executionId !== args.executionId || current.step.status !== "waiting")
-        return { accepted: false };
-      const writerHolder = this.findWriterHolder(target);
-      if (writerHolder) return { accepted: false, writerHolder };
-      return { accepted: this.setStepTarget({ ...args, target, expectedExecutionId: args.executionId }) };
-    })();
-  }
-
   /**
    * Elaborate a step's delegation target once the delegated work reports its
    * own identity. Repointing at a different task is refused, so a stale
@@ -910,7 +860,6 @@ export class RunLedgerStore {
     stepId: string;
     target: RunStepTarget;
     expectedExecutionId?: string;
-    expectedLeaseId?: string;
     expectedTurnExecutionId?: string;
   }): boolean {
     const target = RunStepTargetSchema.parse(args.target);
@@ -921,8 +870,7 @@ export class RunLedgerStore {
       });
       if (!aggregate ||
         (args.expectedExecutionId !== undefined && aggregate.step.executionId !== args.expectedExecutionId) ||
-        (args.expectedTurnExecutionId !== undefined && aggregate.step.target?.turnExecutionId !== args.expectedTurnExecutionId) ||
-        (args.expectedLeaseId !== undefined && aggregate.step.target?.writerLease?.leaseId !== args.expectedLeaseId)) {
+        (args.expectedTurnExecutionId !== undefined && aggregate.step.target?.turnExecutionId !== args.expectedTurnExecutionId)) {
         return false;
       }
       const refined = refineRunStepTarget({ step: aggregate.step, target });

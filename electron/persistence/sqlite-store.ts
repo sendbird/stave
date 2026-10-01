@@ -1763,8 +1763,6 @@ export class SqliteStore {
     return this.runLedger.setStepTarget(args);
   }
 
-  listHeldWriterRunAggregates = () => this.runLedger.listHeldWriterAggregates();
-  acquireRunWriterLease = (args: Parameters<RunLedgerStore["acquireWriterLease"]>[0]) => this.runLedger.acquireWriterLease(args);
 
   interruptRunStep(args: Parameters<RunLedgerStore["interruptStep"]>[0]) {
     return this.runLedger.interruptStep(args);

@@ -129,13 +129,10 @@ export const RunStepTargetSchema = z
     turnId: RunIdSchema.nullable(),
     turnExecutionId: RunIdSchema.optional(),
     providerId: z.enum(["claude-code", "codex"]),
-    writerLease: z.object({
-      workspacePath: z.string().min(1).max(4_000),
-      leaseId: RunIdSchema,
-      state: z.enum(["held", "released"]),
-    }).strict().optional(),
   })
-  .strict();
+  // Not strict: rows from builds that leased a shared writer workspace carry a
+  // `writerLease` that is now meaningless and is dropped on read.
+  .strip();
 export type RunStepTarget = z.infer<typeof RunStepTargetSchema>;
 
 export const RunStepRecordSchema = z
@@ -501,8 +498,7 @@ function sameRunStepTarget(left: RunStepTarget, right: RunStepTarget) {
     left.workspaceId === right.workspaceId &&
     left.turnId === right.turnId &&
     left.turnExecutionId === right.turnExecutionId &&
-    left.providerId === right.providerId &&
-    JSON.stringify(left.writerLease) === JSON.stringify(right.writerLease)
+    left.providerId === right.providerId
   );
 }
 

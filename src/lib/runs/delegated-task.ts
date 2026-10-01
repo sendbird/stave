@@ -213,7 +213,7 @@ export const DelegateTaskToolInputSchema = z.object({
     ])
     .optional()
     .describe(
-      "Where the child runs. Defaults to the same workspace; use `new-worktree` for edits that must stay isolated.",
+      "Where the subagent runs. Defaults to a new worktree for a writer and this workspace for a read-only subagent or pinned work. A writer in this workspace is refused while another writing subagent runs here.",
     ),
   title: z.string().optional().describe("Optional delegated task title."),
   delegationKey: z
@@ -685,7 +685,7 @@ const DELEGATED_TASK_REJECTION_MESSAGES: Record<DelegatedTaskRejectionReason, st
     "workspace-unavailable":
       "The child's workspace could not be reached. Try again once it is available.",
     "workspace-writer-busy":
-      "Another managed child is writing in this workspace. Wait for it to finish or choose a new worktree.",
+      "Another subagent is writing in this workspace. Run this one in a new worktree, or wait for it to finish.",
   };
 
 export function describeDelegatedTaskRejection(reason: DelegatedTaskRejectionReason) {

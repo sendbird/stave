@@ -89,8 +89,6 @@ describe("Agent platform boundaries", () => {
         cancelRunStep: (args) => store.cancelStep(args),
         interruptRunStep: (args) => store.interruptStep(args),
         setRunStepTarget: (args) => store.setStepTarget(args),
-        listHeldWriterRunAggregates: () => store.listHeldWriterAggregates(),
-        acquireRunWriterLease: (args) => store.acquireWriterLease(args),
         listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
         listActiveRunAggregatesByStepKind: (args) =>
           store.listActiveAggregatesByStepKind(args),
