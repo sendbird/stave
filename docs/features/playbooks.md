@@ -146,10 +146,10 @@ but is not saved until you click **Save playbook**. **Cancel**, closing the
 panel or opening another playbook stops a draft in progress; a late answer
 never replaces what you edited since.
 
-### Mission insights
+### Results
 
-**Mission insights**, pinned above the playbook list, compares how missions
-went per playbook and per provider (see [Missions](missions.md#mission-insights)).
+How missions went per playbook is on the **Results** page (see
+[Missions](missions.md#results)).
 
 ## Common Workflows
 

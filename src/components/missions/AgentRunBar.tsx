@@ -50,7 +50,7 @@ export function AgentRunBarView(props: {
       <div className={sx(styles.sizer)}>
         <div className={sx(styles.header)}>
           <span className={sx(styles.mark)}>
-            <StageStatusIcon tone={AGENT_RUN_STATE_TONES[status.state]} xstyle={styles.markIcon} />
+            <StageStatusIcon tone={AGENT_RUN_STATE_TONES[status.state]} state={status.state} xstyle={styles.markIcon} />
           </span>
           <p className={sx(styles.headline)}>
             <span

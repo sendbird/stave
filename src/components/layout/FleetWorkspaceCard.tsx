@@ -1,14 +1,8 @@
 import { FleetMissionStrip } from "@/components/missions/FleetMissionStrip";
 import { Button as AdsButton } from "@/components/ads/components/Button";
-import {
-  AlertTriangle,
-  ArrowRight,
-  CircleDashed,
-  GitBranch,
-  Moon,
-  ShieldCheck,
-  UserRound,
-} from "lucide-react";
+import { ArrowRight, GitBranch, Moon } from "lucide-react";
+import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
+import type { StatusDotTone } from "@/components/ads/components/StatusDot";
 import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -122,46 +116,46 @@ function getStatusPriority(status: FleetDisplayStatus) {
     : compareFleetTaskStatus(status, "waiting-input");
 }
 
-const FLEET_STATUS_VISUAL: Record<
-  FleetDisplayStatus,
-  { label: string; icon: ReactNode; tone: StyleXValue }
-> = {
-  "waiting-input": {
-    label: "Awaiting input",
-    icon: <UserRound className={sx(styles.statusIcon)} aria-hidden="true" />,
-    tone: styles.toneWarning,
-  },
-  "waiting-approval": {
-    label: "Awaiting approval",
-    icon: <ShieldCheck className={sx(styles.statusIcon)} aria-hidden="true" />,
-    tone: styles.toneWarning,
-  },
-  error: {
-    label: "Error",
-    icon: (
-      <AlertTriangle className={sx(styles.statusIcon)} aria-hidden="true" />
-    ),
-    tone: styles.toneDanger,
-  },
-  running: {
-    label: "Running",
-    // A live turn gets the canonical activity mark, not a static glyph: the
-    // row already names the state, so the loader carries the "still moving"
-    // half of it.
-    icon: <Loader aria-hidden="true" size="xs" variant="pulse" />,
-    tone: styles.toneAccent,
-  },
-  idle: {
-    label: "Idle",
-    icon: <CircleDashed className={sx(styles.statusIcon)} aria-hidden="true" />,
-    tone: styles.toneMuted,
-  },
-  unknown: {
-    label: "Not loaded",
-    icon: <CircleDashed className={sx(styles.statusIcon)} aria-hidden="true" />,
-    tone: styles.toneMuted,
-  },
+const FLEET_WORK_STATE: Record<FleetDisplayStatus, WorkState> = {
+  "waiting-input": "needs-you",
+  "waiting-approval": "approval",
+  error: "failed",
+  running: "working",
+  idle: "idle",
+  unknown: "unknown",
 };
+
+const FLEET_TONE_STYLE: Partial<Record<StatusDotTone, StyleXValue>> = {
+  warning: styles.toneWarning,
+  danger: styles.toneDanger,
+  accent: styles.toneAccent,
+  muted: styles.toneMuted,
+};
+
+/**
+ * Each Fleet status reads its glyph, tone and word from the shared work-state
+ * vocabulary. A live turn gets the activity mark, not a static glyph: the row
+ * already names the state, so the loader carries the "still moving" half of it.
+ */
+const FLEET_STATUS_VISUAL = Object.fromEntries(
+  (Object.entries(FLEET_WORK_STATE) as Array<[FleetDisplayStatus, WorkState]>).map(([status, state]) => {
+    const visual = WORK_STATE[state];
+    const Icon = visual.icon;
+    return [
+      status,
+      {
+        label: visual.label,
+        icon:
+          state === "working" ? (
+            <Loader aria-hidden="true" size="xs" variant="pulse" />
+          ) : (
+            <Icon className={sx(styles.statusIcon)} aria-hidden="true" />
+          ),
+        tone: FLEET_TONE_STYLE[visual.tone] ?? styles.toneMuted,
+      },
+    ];
+  }),
+) as Record<FleetDisplayStatus, { label: string; icon: ReactNode; tone: StyleXValue }>;
 
 function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
   const label = getProviderLabel({ providerId: provider });

@@ -11,6 +11,7 @@ import {
   Keyboard,
   Layers3,
   LibraryBig,
+  ChartNoAxesColumn,
   ListTodo,
   PanelLeft,
   PanelRight,
@@ -132,6 +133,7 @@ export interface CommandPaletteCommandHandlers {
   openAutomationCenter: () => void;
   openIssues: () => void;
   openAgents: () => void;
+  openResults: () => void;
   newAgent: () => void;
   startWorkWithAgent: () => void;
   refreshTrackerIssues: () => Promise<void> | void;
@@ -480,6 +482,24 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       ],
       shortcut: `${args.modifierLabel}+K G`,
       run: args.commands.openAgents,
+      source: "core",
+    }),
+  },
+  {
+    id: "navigation.results",
+    title: "Open Results",
+    description: "See how ended agent runs and missions came out.",
+    group: "navigation",
+    icon: ChartNoAxesColumn,
+    keywords: ["results", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],
+    build: (args) => ({
+      id: "navigation.results",
+      title: "Open Results",
+      subtitle: "Outcomes, time and cost of ended agent runs.",
+      group: "navigation",
+      icon: ChartNoAxesColumn,
+      keywords: ["results", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],
+      run: args.commands.openResults,
       source: "core",
     }),
   },

@@ -73,7 +73,7 @@ export function AgentRunResultCardView(props: { detail: MissionDetail; now: numb
       data-testid={ready ? "agent-run-result" : "agent-run-reason"}
     >
       <div className={sx(styles.header)}>
-        <StageStatusIcon tone={AGENT_RUN_STATE_TONES[status.state]} />
+        <StageStatusIcon tone={AGENT_RUN_STATE_TONES[status.state]} state={status.state} />
         <p className={sx(styles.headline)}>
           <span className={sx(styles.headlineState)}>{status.label}</span>
           <span className={sx(styles.headlineMeta)}>{` · ${meta}`}</span>

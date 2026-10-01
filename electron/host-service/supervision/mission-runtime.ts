@@ -97,7 +97,7 @@ import {
   SLACK_THREAD_URL,
 } from "../../../src/lib/missions/report-markdown";
 import { sumTurnUsage, type MissionUsage, type TurnUsageSample } from "../../../src/lib/missions/usage";
-import { aggregateMissionInsights, type MissionInsights } from "../../../src/lib/missions/insights";
+import { aggregateMissionInsights, countRunEvents, type MissionInsights } from "../../../src/lib/missions/insights";
 import { agentRunEndCause, isAgentRun } from "../../../src/lib/missions/agent-run";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../../../src/lib/providers/provider.types";
 import type { MissionStore } from "../../persistence/mission-store";
@@ -1161,13 +1161,17 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         .listRecentMissions(200)
         .filter((mission) => !isActiveMissionState(mission.state) && Date.parse(mission.updatedAt) >= since)
         .map((mission) => ({
-          playbookName: mission.playbook.name,
+          missionId: mission.id,
+          workspaceId: mission.workspaceId,
+          leadTaskId: mission.leadTaskId,
+          name: mission.playbook.name,
+          kind: isAgentRun(mission) ? ("agent" as const) : ("playbook" as const),
           providerId: mission.fingerprint.providerId,
           state: mission.state,
-          metrics: computeMissionMetrics({
-            providerId: mission.fingerprint.providerId,
-            events: store.listRecentEvents(mission.id, MISSION_LIMITS.maxRetainedEvents),
-          }),
+          stopReason: mission.stopReason,
+          startedAt: mission.createdAt,
+          endedAt: mission.updatedAt,
+          counts: countRunEvents(store.listRecentEvents(mission.id, MISSION_LIMITS.maxRetainedEvents)),
           usage: usageOf(mission) ?? null,
         }));
       return aggregateMissionInsights(samples, days);

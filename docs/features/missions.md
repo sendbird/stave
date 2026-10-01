@@ -199,15 +199,22 @@ needed you. **Copy Markdown** and **Add to PR description** act on it, and
   with your Slack tools. It changes no files and waits while the task is in a
   turn.
 
-### Mission insights
+### Results
 
-**Agents → Playbooks → Mission insights** shows how missions that ended
-in the last 7, 30 or 90 days went: for each provider, then for each playbook
-on each provider — completion, replies from you, reminders to report and
-stuck stages per mission, how long sign-offs waited, and the cost of each
-mission where the provider reports one. Fewer replies and reminders mean a
-playbook carried the work on its own; reminders and stuck stages show where an
-agent stopped reporting.
+**Results** (the Fleet header link, or **Open Results** in the command
+palette) shows how agent runs and playbook missions that ended in the last 7,
+30 or 90 days came out:
+
+- **Outcomes**: ready, rework (the result needed requested changes), failed
+  (Stave stopped the run) and stopped (you stopped it), with the share ready.
+- **Time to ready** (median) and **cost per ready result**, with how many runs
+  reported no cost (Codex reports tokens only).
+- **Why runs did not finish**, one cause per run: stuck stage, turn cap
+  reached, expired, task unavailable, turn failed, or stopped by you.
+- **Corrections per run**: your replies, requested changes and reminders.
+- **Agents**: one row per agent or playbook with ready rate, median cost,
+  corrections and its last ten outcomes. A row opens its recent runs, and a run
+  opens its report.
 
 ### Fleet and notifications
 

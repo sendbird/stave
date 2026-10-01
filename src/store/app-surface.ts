@@ -1,7 +1,7 @@
 /**
  * App-level surfaces swap out the main content column while the sidebar, top
- * bar, and right rail stay mounted. Fleet View, Automations, Issues and
- * Projects are peers here: exactly one of them can own the column at a time.
+ * bar, and right rail stay mounted. Fleet View, Automations, Issues,
+ * Projects, Agents and Results are peers here: exactly one of them can own the column at a time.
  */
 export type AppActiveSurface =
   | { kind: "workspace" }
@@ -9,7 +9,8 @@ export type AppActiveSurface =
   | { kind: "automation-center" }
   | { kind: "issues" }
   | { kind: "projects" }
-  | { kind: "agents" };
+  | { kind: "agents" }
+  | { kind: "results" };
 
 export type AppOverlaySurfaceKind = Exclude<
   AppActiveSurface["kind"],
@@ -36,6 +37,9 @@ export const PROJECTS_APP_SURFACE = {
 export const AGENTS_APP_SURFACE = {
   kind: "agents",
 } satisfies AppActiveSurface;
+export const RESULTS_APP_SURFACE = {
+  kind: "results",
+} satisfies AppActiveSurface;
 
 const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   "fleet-view": FLEET_VIEW_APP_SURFACE,
@@ -43,6 +47,7 @@ const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   issues: ISSUES_APP_SURFACE,
   projects: PROJECTS_APP_SURFACE,
   agents: AGENTS_APP_SURFACE,
+  results: RESULTS_APP_SURFACE,
 };
 
 export function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
@@ -71,6 +76,8 @@ export interface AppSurfaceActions {
   openAgents: () => void;
   closeAgents: () => void;
   toggleAgents: () => void;
+  openResults: () => void;
+  closeResults: () => void;
 }
 
 type AppSurfaceState = { activeAppSurface: AppActiveSurface };
@@ -124,5 +131,7 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
     openAgents: open("agents"),
     closeAgents: close("agents"),
     toggleAgents: toggle("agents"),
+    openResults: open("results"),
+    closeResults: close("results"),
   };
 }

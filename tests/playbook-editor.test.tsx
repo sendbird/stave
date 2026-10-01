@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PreStartChecks } from "../src/components/missions/PreStartChecks";
-import { MissionInsightsFailure } from "../src/components/playbooks/MissionInsights";
 import { PlaybookEditor, PlaybookSaveBanner } from "../src/components/playbooks/PlaybookEditor";
 import { UnreadablePlaybooksNotice } from "../src/components/playbooks/PlaybooksTab";
 import { StageRow } from "../src/components/playbooks/StageRow";
@@ -164,16 +163,6 @@ describe("playbook library notices", () => {
     expect(html).toContain("“Request → PR”");
     expect(html).toContain("keeps them aside unchanged");
     expect(renderToStaticMarkup(createElement(UnreadablePlaybooksNotice, { entries: [] }))).toBe("");
-  });
-
-  test("insights that fail to load explain why and offer a retry", () => {
-    const html = renderToStaticMarkup(
-      createElement(MissionInsightsFailure, { message: "The database is locked.", onRetry: () => {} }),
-    );
-    expect(html).toContain("Mission insights could not be read");
-    expect(html).toContain("The database is locked.");
-    expect(html).toContain("Try again");
-    expect(html).not.toContain("available in the desktop app");
   });
 });
 

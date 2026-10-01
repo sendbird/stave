@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, BarChart3, BookOpen, CalendarClock, Hand, Plus, Sparkles, Zap } from "lucide-react";
+import { AlertCircle, BookOpen, CalendarClock, Hand, Plus, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { Select } from "@/components/ads/components/Select";
@@ -21,7 +21,6 @@ import { createPlaybookFromStarter, PLAYBOOK_STARTERS, type PlaybookStarter } fr
 import { useAppStore } from "@/store/app.store";
 import { usePlaybookDraftsStore } from "@/store/playbook-drafts-store";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
-import { MissionInsightsView, type MissionInsightsLoader } from "./MissionInsights";
 import { PlaybookEditor } from "./PlaybookEditor";
 import { describeStartsWhen } from "@/lib/playbooks/starts-when";
 import { playbookStyles as styles } from "./playbooks.styles";
@@ -109,15 +108,12 @@ export function UnreadablePlaybooksNotice(props: { entries: readonly UnreadableP
   );
 }
 
-/** The pinned entry above the playbooks: how missions went. */
-const INSIGHTS_ID = "__mission-insights__";
-
 /**
  * The Playbooks tab of the Automations center: saved ways of working on the
  * left, the one being edited on the right. Unsaved edits stay with their
  * playbook while you look at another one, or at another Automations tab.
  */
-export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {}) {
+export function PlaybooksTab() {
   const saved = useAppStore((state) => state.settings.playbooks);
   const unreadable = useAppStore((state) => state.settings.playbooksUnreadable);
   const macros = useAppStore((state) => state.settings.macros);
@@ -167,8 +163,7 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
   }, [all, query]);
   const macroShortcuts = useMemo(() => new Map(macros.map((macro) => [macro.slug, macro.label])), [macros]);
 
-  const showingInsights = selectedId === INSIGHTS_ID;
-  const selected = showingInsights ? null : (all.find((playbook) => playbook.id === selectedId) ?? all[0] ?? null);
+  const selected = all.find((playbook) => playbook.id === selectedId) ?? all[0] ?? null;
   const selectedSaved = selected ? (saved.find((playbook) => playbook.id === selected.id) ?? null) : null;
   const draft = selected ? (drafts[selected.id] ?? selected) : null;
   // Draft with AI opens once, with the playbook it was asked for.
@@ -282,7 +277,6 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
   }
 
   const pickerOptions = [
-    { value: INSIGHTS_ID, label: "Mission insights" },
     ...all.map((playbook) => ({ value: playbook.id, label: (drafts[playbook.id] ?? playbook).name })),
   ];
 
@@ -302,20 +296,6 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
           </div>
           {newMenu}
         </div>
-        <Button
-          layout="host"
-          variant="quiet"
-          press="none"
-          aria-current={showingInsights ? "true" : undefined}
-          xstyle={[styles.card, showingInsights && styles.cardActive]}
-          onClick={() => setSelectedId(INSIGHTS_ID)}
-        >
-          <span className={sx(styles.cardTitleRow)}>
-            <BarChart3 aria-hidden className={sx(styles.chipIcon)} />
-            <span className={sx(styles.cardTitle)}>Mission insights</span>
-          </span>
-          <span className={sx(styles.cardMeta)}>How missions went</span>
-        </Button>
         <UnreadablePlaybooksNotice entries={unreadable} />
         <p className={sx(styles.listLabel)}>Playbooks</p>
         <ul className={sx(styles.list)}>
@@ -358,20 +338,6 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
         </ul>
         {libraryFull ? <p className={sx(styles.hint, styles.listNote)}>{libraryFull}</p> : null}
       </aside>
-      {showingInsights ? (
-        <div className={sx(styles.detail)}>
-          <div className={sx(styles.compactPicker)}>
-            <Select
-              size="sm"
-              aria-label="Playbook"
-              value={INSIGHTS_ID}
-              options={pickerOptions}
-              onValueChange={(value) => setSelectedId(String(value))}
-            />
-          </div>
-          <MissionInsightsView load={props.loadInsights} />
-        </div>
-      ) : null}
       {selected && draft ? (
         <div className={sx(styles.detail)}>
           <div className={sx(styles.compactPicker)}>

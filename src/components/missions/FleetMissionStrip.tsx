@@ -85,7 +85,7 @@ function FleetAgentRunStrip(props: { detail: MissionDetail; onOpen: (taskId: str
       onClick={() => props.onOpen(detail.mission.leadTaskId)}
     >
       <span className={sx(styles.head)}>
-        <StageStatusIcon tone={AGENT_RUN_STATE_TONES[status.state]} />
+        <StageStatusIcon tone={AGENT_RUN_STATE_TONES[status.state]} state={status.state} />
         <span className={sx(styles.text)}>
           <span className={sx(styles.title)}>{status.agentName}</span>
           <span className={sx(status.state === "needs-you" ? styles.waiting : styles.muted)}>

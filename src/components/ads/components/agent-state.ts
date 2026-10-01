@@ -1,5 +1,6 @@
 import type { BadgeTone } from "./Badge";
 import type { StatusDotTone } from "./StatusDot";
+import { WORK_STATE, type WorkState } from "./state-vocabulary";
 
 /** Badge tones used by the shared agent-state vocabulary. */
 export type AgentStatusTone = Exclude<BadgeTone, "info" | "warm">;
@@ -57,43 +58,42 @@ export const agentStateLabel: Record<AgentRunState, string> = {
   skipped: "Skipped",
 };
 
-/** Semantic tone for a run state, for status-bearing `Badge` compositions. */
-export const agentStateTone: Record<AgentRunState, AgentStatusTone> = {
-  approval: "warning",
-  canceled: "neutral",
-  checkpointed: "accent",
-  completed: "success",
-  denied: "danger",
-  done: "success",
-  error: "danger",
-  failed: "danger",
-  interrupted: "warning",
-  pending: "neutral",
-  queued: "neutral",
-  retrying: "accent",
-  resumed: "accent",
-  running: "accent",
-  skipped: "warning",
+/**
+ * The shared work state (`state-vocabulary.ts`) each run state stands for. The
+ * tone and glyph of a run state come from that state, so a tool row, a Fleet
+ * card and a mission badge show the same shape for the same thing. States the
+ * vocabulary has no word for map to the nearest one: a denied request failed,
+ * an interrupted run stopped, and a checkpoint is work that is ready.
+ */
+export const agentStateWorkState: Record<AgentRunState, WorkState> = {
+  approval: "approval",
+  canceled: "stopped",
+  checkpointed: "ready",
+  completed: "ready",
+  denied: "failed",
+  done: "ready",
+  error: "failed",
+  failed: "failed",
+  interrupted: "stopped",
+  pending: "queued",
+  queued: "queued",
+  retrying: "working",
+  resumed: "working",
+  running: "working",
+  skipped: "skipped",
 };
 
+const stateEntries = Object.entries(agentStateWorkState) as Array<[AgentRunState, WorkState]>;
+
+/** Semantic tone for a run state, for status-bearing `Badge` compositions. */
+export const agentStateTone = Object.fromEntries(
+  stateEntries.map(([state, work]) => [state, WORK_STATE[work].tone]),
+) as Record<AgentRunState, AgentStatusTone>;
+
 /** The same tone narrowed to what `StatusDot` accepts. */
-export const agentStateDotTone: Record<AgentRunState, StatusDotTone> = {
-  approval: "warning",
-  canceled: "neutral",
-  checkpointed: "accent",
-  completed: "success",
-  denied: "danger",
-  done: "success",
-  error: "danger",
-  failed: "danger",
-  interrupted: "warning",
-  pending: "neutral",
-  queued: "neutral",
-  retrying: "accent",
-  resumed: "accent",
-  running: "accent",
-  skipped: "warning",
-};
+export const agentStateDotTone: Record<AgentRunState, StatusDotTone> = Object.fromEntries(
+  stateEntries.map(([state, work]) => [state, WORK_STATE[work].tone]),
+) as Record<AgentRunState, StatusDotTone>;
 
 /**
  * Whether a state is one the user has to *do* something about, or one that

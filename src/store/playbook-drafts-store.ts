@@ -9,7 +9,7 @@ import type { Playbook } from "@/lib/playbooks/schema";
 interface PlaybookDraftsState {
   /** Unsaved edits by playbook id, including new playbooks never saved. */
   drafts: Record<string, Playbook>;
-  /** The playbook (or the insights entry) the tab shows; null shows the first. */
+  /** The playbook the tab shows; null shows the first. */
   selectedId: string | null;
   /** The playbook that opens with Draft with AI showing. */
   draftingId: string | null;

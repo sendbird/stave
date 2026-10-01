@@ -91,6 +91,16 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
+} else if (preview === "results") {
+  void import("@/dev/results-preview").then(({ ResultsPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <ResultsPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
 } else if (preview === "agents") {
   void import("@/dev/agents-preview").then(({ AgentsPreview }) => {
     root.render(
