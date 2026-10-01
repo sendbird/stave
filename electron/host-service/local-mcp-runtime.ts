@@ -1,3 +1,7 @@
+import { taskControlGate } from "./task-control-gate";
+import { normalizedPermissionOptions } from "../../src/lib/runs/delegation-policy";
+import { attachTurnReceiptToSession } from "./local-mcp-turn-receipt-projection";
+import { displayTurnReceipt } from "../../src/lib/providers/turn-terminal-receipt";
 import { ChatMessageSchema } from "../../src/lib/task-context/schemas";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
@@ -23,7 +27,6 @@ import {
   repositoryLocalMcpTaskTurnActivityEvent,
   type LocalMcpTaskTurnUpdate,
 } from "../../src/lib/local-mcp/task-turn-update";
-import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-status";
 import {
   applyDetectedWorkspaceResources,
   detectWorkspaceResourcesInText,
@@ -127,7 +130,7 @@ import {
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
   createLocalMcpTurnJournal,
-  resolveTargetedTurnError,
+  projectTurnStatus,
 } from "./local-mcp-turn-journal";
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
@@ -181,6 +184,8 @@ export interface TaskStatusResult {
   latestTurnId: string | null;
   latestTurnCompletedAt: string | null;
   latestTurnError: string | null;
+  latestTurnOutcome?:
+    import("../persistence/turn-terminal-receipt").TurnTerminalOutcome | null;
   messageCount: number;
   latestAssistantText: string | null;
   pendingApprovals: Array<{
@@ -1057,10 +1062,7 @@ async function persistApprovalNotification(args: {
   });
 }
 
-/**
- * Pending auto-deny deadlines for approvals raised inside a managed task,
- * keyed by `${turnId}:${requestId}`.
- */
+/** Pending managed approval deadlines, keyed by turn and request identity. */
 const managedApprovalAutoDenyTimers = new Map<string, NodeJS.Timeout>();
 
 function managedApprovalAutoDenyKey(args: {
@@ -1095,14 +1097,7 @@ function clearManagedApprovalAutoDeny(args: {
   }
 }
 
-/**
- * Arms the deadlock guard for a managed task's approval.
- *
- * Managed tasks intentionally raise no approval notification, so a prompt-mode
- * approval can sit unanswered forever and the summoning agent never hears back.
- * Denying after the deadline turns that silent hang into a tool error the
- * running agent can report on.
- */
+/** A managed approval expires if neither the user nor controller answers. */
 function scheduleManagedApprovalAutoDeny(args: {
   workspaceId: string;
   taskId: string;
@@ -1224,8 +1219,9 @@ async function persistTurnCompletedNotification(args: {
   if (args.session.activeTurnIdsByTask[args.taskId]) {
     return;
   }
-  const outcome = terminalTurnErrorById.has(args.turnId)
-    ? "failed" : classifyProviderTurnStopReason(args.event.stop_reason);
+  const outcome = ensureHostServicePersistenceReady()
+    .getTurnReceipt(args.turnId)?.outcome ?? "unknown";
+  if (outcome === "unknown") return;
   if (outcome === "cancelled") return;
 
   const { repositories } = await loadNormalizedRepositories();
@@ -1312,6 +1308,9 @@ async function handleProviderEvent(args: {
       terminalTurnErrorById.delete(oldestTurnId);
     }
   }
+  if (args.event.type === "done") {
+    store.completeTurn({ id: args.turnId, usage: takeTurnUsage(args.turnId) });
+  }
   const applied = applyProviderEventsToWorkspaceSession({
     session,
     taskId: args.taskId,
@@ -1320,6 +1319,11 @@ async function handleProviderEvent(args: {
     model: args.model,
     turnId: args.turnId,
   });
+  if (args.event.type === "done") {
+    applied.session = attachTurnReceiptToSession(
+      applied.session, args.taskId, args.turnId, store.getTurnReceipt(args.turnId),
+    );
+  }
   cacheWorkspaceSession(args.workspaceId, applied.session);
   let appliedSession = trimResidentTaskMessages({
     workspaceId: args.workspaceId,
@@ -1384,10 +1388,6 @@ async function handleProviderEvent(args: {
       provider: args.provider,
       event: args.event,
       session: appliedSession,
-    });
-    store.completeTurn({
-      id: args.turnId,
-      usage: takeTurnUsage(args.turnId),
     });
   }
 }
@@ -1678,7 +1678,12 @@ export async function createWorkspace(args: {
   } satisfies CreatedWorkspaceInfo;
 }
 
-export async function runTask(args: {
+export async function runTask(args: Parameters<typeof runTaskImpl>[0]) {
+  const release = taskControlGate.acquireStart(args.taskId);
+  try { return await runTaskImpl(args); } finally { release(); }
+}
+
+async function runTaskImpl(args: {
   workspaceId: string;
   prompt: string;
   taskId?: string;
@@ -1702,6 +1707,7 @@ export async function runTask(args: {
   /** Set only by the mission supervisor; the provider runtime mints the grant. */
   missionStage?: import("../../src/lib/missions/domain").MissionStageIdentity;
 }) {
+  const controlGeneration = taskControlGate.capture(args.taskId);
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
     repositories,
@@ -1747,12 +1753,7 @@ export async function runTask(args: {
     }
   }
 
-  // A delegation pre-mints its delegated task id on the run ledger before the
-  // delegated task exists, so the coordinator path (parentTaskId set) may name a
-  // task that is not in this workspace yet — it is created below with that
-  // exact id so the ledger row and the task row agree on identity. Every
-  // other caller passing taskId means "continue this task", where a miss is
-  // an error.
+  // Delegations pre-mint a child id; other task ids must already exist.
   const delegationTaskId =
     args.parentTaskId?.trim() && args.taskId?.trim()
       ? args.taskId.trim()
@@ -1776,6 +1777,10 @@ export async function runTask(args: {
       providerId: provider,
     });
 
+  if (task && args.parentTaskId && !isTaskManaged(task)) {
+    throw new Error("The delegated task was taken over; its controller cannot reclaim it.");
+  }
+  if (task) taskControlGate.assertCurrent(task.id, controlGeneration);
   const requestedControlMode = args.controlMode ?? "managed";
   const requestedControlOwner = args.controlOwner ?? "external";
   const requestedSourceContexts = args.retrievedContextParts ?? [];
@@ -1993,6 +1998,7 @@ export async function runTask(args: {
     providerId: provider,
   });
 
+  taskControlGate.assertCurrent(task.id, controlGeneration);
   const started = providerRuntime.startTurnStream(
     {
       turnId,
@@ -2010,12 +2016,10 @@ export async function runTask(args: {
         ...(isExternallyManagedTask(task)
           ? resolveManagedTaskRuntimeOptions({
               providerId: provider,
+              defaultPermissionOptions: provider === "claude-code" || provider === "codex" ? normalizedPermissionOptions(provider, store.delegationPolicies?.loadSettings()?.[provider] ?? {}) : undefined,
               ...(args.runtimeOptions
                 ? { runtimeOptions: args.runtimeOptions }
                 : {}),
-              // The renderer syncs Settings.providerTimeoutMs into this key
-              // via automations.setProviderTimeout. Managed turns run in the
-              // host and otherwise never see that setting.
               defaultProviderTimeoutMs: normalizeProviderTimeoutMs({
                 value: store.loadAutomationProviderTimeoutMs(),
               }),
@@ -2050,6 +2054,9 @@ export async function runTask(args: {
               sequence: eventSequence,
               eventType: event.type,
               done: event.type === "done",
+              ...(event.type === "done"
+                ? { terminalReceipt: displayTurnReceipt(store.getTurnReceipt(turnId)) }
+                : {}),
               ...(activityEvent ? { activityEvents: [activityEvent] } : {}),
             });
           })
@@ -2124,27 +2131,12 @@ export async function getTaskStatus(args: {
     turnId: args.turnId,
   });
   const latestTurn = recentTurns[0] ?? null;
-  const targetedTurnError =
-    args.turnId && latestTurn
-      ? resolveTargetedTurnError({
-          completedAt: latestTurn.completedAt,
-          events: store.getStreamEvents({ turnId: latestTurn.id }),
-        })
-      : null;
   const messages = decodeTaskMessages(
     store.loadTaskMessagesPage({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
       limit: 120,
     })?.messages ?? session.messagesByTask[args.taskId] ?? []);
-
-  const latestAssistantText =
-    [...messages]
-      .reverse()
-      .find(
-        (message) =>
-          message.role === "assistant" && message.content.trim().length > 0,
-      )?.content ?? null;
 
   return {
     workspaceId: args.workspaceId,
@@ -2155,11 +2147,12 @@ export async function getTaskStatus(args: {
     activeTurnId: session.activeTurnIdsByTask[task.id] ?? null,
     latestTurnId: latestTurn?.id ?? null,
     latestTurnCompletedAt: latestTurn?.completedAt ?? null,
-    latestTurnError: latestTurn
-      ? (terminalTurnErrorById.get(latestTurn.id) ?? targetedTurnError ?? null)
-      : null,
     messageCount: messages.length,
-    latestAssistantText,
+    ...projectTurnStatus({
+      turn: latestTurn, messages, targeted: !!args.turnId,
+      memoryError: latestTurn ? terminalTurnErrorById.get(latestTurn.id) ?? null : null,
+      readEvents: (turnId) => store.getStreamEvents({ turnId }),
+    }),
     pendingApprovals: findPendingApprovals(messages),
     pendingUserInputs: findPendingUserInputs(messages),
   } satisfies TaskStatusResult;
@@ -2500,9 +2493,11 @@ export async function stopManagedTaskTurn(args: {
       },
     });
     terminalTurnErrorById.set(activeTurnId, MANAGED_TASK_STOP_NOTICE);
+    localMcpTurnJournal.flush(activeTurnId);
     ensureHostServicePersistenceReady().completeTurn({
       id: activeTurnId,
       usage: takeTurnUsage(activeTurnId),
+      stopReason: "user_abort",
     });
     await queueWorkspaceSessionPersist({
       workspaceId: args.workspaceId,
@@ -2524,8 +2519,12 @@ export async function takeOverManagedTaskControl(args: {
   taskId: string;
   sourceContexts?: CanonicalRetrievedContextPart[];
 }) {
-  await stopManagedTaskTurn(args);
-  return releaseManagedTaskControl(args);
+  const finish = taskControlGate.beginTakeover(args.taskId);
+  try {
+    await taskControlGate.waitForStart(args.taskId);
+    await stopManagedTaskTurn(args);
+    return await releaseManagedTaskControl(args);
+  } finally { finish(); }
 }
 
 function findApprovalMessage(args: {

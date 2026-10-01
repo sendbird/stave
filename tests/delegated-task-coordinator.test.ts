@@ -20,6 +20,9 @@ type TaskStatus = {
   latestTurnId: string | null;
   latestTurnCompletedAt: string | null;
   latestTurnError: string | null;
+  latestTurnOutcome?:
+    | import("../electron/persistence/turn-terminal-receipt").TurnTerminalOutcome
+    | null;
 };
 
 const IDLE_STATUS: TaskStatus = {
@@ -52,6 +55,7 @@ function createHost(
     runTask?: (args: {
       workspaceId: string;
       taskId: string;
+      onStarted?: (turnId: string) => void;
     }) => Promise<{ turnId: string }>;
     knownWorkspaces?: Record<string, string>;
   } = {},
@@ -63,6 +67,7 @@ function createHost(
   const statusByTaskId = new Map<string, TaskStatus>([
     [PARENT_TASK, IDLE_STATUS],
   ]);
+  const statusByTurnId = new Map<string, TaskStatus>();
   let hostUnavailable = false;
   const knownWorkspaces = new Map(
     Object.entries(
@@ -86,11 +91,14 @@ function createHost(
       knownWorkspaces.set(workspaceId, workspacePath);
       return { workspaceId, workspacePath, repositoryPath: REPOSITORY_PATH };
     },
-    async getTaskStatus({ taskId }) {
+    async getTaskStatus({ taskId, turnId }) {
       if (hostUnavailable) {
         return { ok: false, reason: "unavailable" };
       }
-      return statusByTaskId.get(taskId) ?? { ok: false, reason: "missing" };
+      return (
+        (turnId ? statusByTurnId.get(turnId) : null) ??
+        statusByTaskId.get(taskId) ?? { ok: false, reason: "missing" }
+      );
     },
     async runTask(args) {
       runTaskCalls.push({ ...args });
@@ -116,6 +124,7 @@ function createHost(
     releaseTaskParentCalls,
     createWorkspaceCalls,
     statusByTaskId,
+    statusByTurnId,
     setHostUnavailable: (value: boolean) => {
       hostUnavailable = value;
     },
@@ -205,11 +214,15 @@ describe("delegated task coordinator", () => {
     expect(second.duplicate).toBe(true);
     expect(third.duplicate).toBe(true);
     expect(harness.runTaskCalls).toHaveLength(1);
-    expect(second.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
-    expect(third.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
-    expect(await harness.coordinator.list({ parentTaskId: PARENT_TASK })).toHaveLength(
-      1,
+    expect(second.child?.delegatedTaskId).toBe(
+      first.child?.delegatedTaskId ?? "",
     );
+    expect(third.child?.delegatedTaskId).toBe(
+      first.child?.delegatedTaskId ?? "",
+    );
+    expect(
+      await harness.coordinator.list({ parentTaskId: PARENT_TASK }),
+    ).toHaveLength(1);
   });
 
   test("the same key with a different prompt is refused instead of silently reused", async () => {
@@ -442,7 +455,9 @@ describe("delegated task coordinator", () => {
         runId: completed?.runId ?? "",
         stepId: completed?.stepId ?? "",
       })?.step.resultArtifactRef,
-    ).toBe(`stave://workspace/${PARENT_WORKSPACE}/task/${delegatedTaskId}/turn/turn-7`);
+    ).toBe(
+      `stave://workspace/${PARENT_WORKSPACE}/task/${delegatedTaskId}/turn/turn-7`,
+    );
   });
 
   test("a child that vanished across a restart is interrupted, not forgotten", async () => {
@@ -533,7 +548,9 @@ describe("delegated task coordinator", () => {
     expect(failed?.reason).toBe("Provider exploded");
     expect(retried.accepted).toBe(true);
     expect(retried.duplicate).toBe(false);
-    expect(retried.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
+    expect(retried.child?.delegatedTaskId).toBe(
+      first.child?.delegatedTaskId ?? "",
+    );
     expect(settled?.phase).toBe("completed");
     expect(settled?.attempt).toBe(2);
   });
@@ -746,7 +763,7 @@ describe("delegated task coordinator", () => {
 
   test("a follow-up turn writes its own receipt instead of vanishing as a duplicate", async () => {
     const harness = createHarness();
-    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached", model: "requested-model", effort: "high" }));
     await harness.coordinator.waitForInFlight();
     const parked = await harness.coordinator.get({
       parentTaskId: PARENT_TASK,
@@ -767,6 +784,7 @@ describe("delegated task coordinator", () => {
       },
     });
     await harness.coordinator.waitForInFlight();
+    expect(harness.runTaskCalls.at(-1)).toMatchObject({ model: "requested-model", effort: "high" });
     const settled = await harness.coordinator.get({
       parentTaskId: PARENT_TASK,
       delegationKey: "review-docs",
@@ -883,106 +901,15 @@ describe("delegated task coordinator", () => {
 });
 
 describe("child permission profiles", () => {
-  test("a profile is resolved from itself, never from the parent", () => {
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "codex",
-        permissionProfile: "guided",
-      }),
-    ).toMatchObject({
-      codexApprovalPolicy: "untrusted",
-      codexFileAccess: "workspace-write",
-      codexNetworkAccess: false,
-    });
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "claude-code",
-        permissionProfile: "guided",
-      }),
-    ).toMatchObject({
-      claudePermissionMode: "default",
-      claudeAllowUnsandboxedCommands: false,
-      claudeAllowDangerouslySkipPermissions: false,
-    });
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "claude-code",
-        permissionProfile: "auto",
-      }),
-    ).toMatchObject({ claudePermissionMode: "bypassPermissions" });
+  test("a profile cannot widen provider defaults without a user policy", () => {
+    expect(buildDelegatedTaskRuntimeOptions({ providerId: "codex", permissionProfile: "auto" })).toMatchObject({ codexApprovalPolicy: "untrusted", codexAutoApproveStaveLocalMcpTools: false });
+    expect(buildDelegatedTaskRuntimeOptions({ providerId: "claude-code", permissionProfile: "auto" })).toMatchObject({ claudePermissionMode: "default", claudeAllowDangerouslySkipPermissions: false });
   });
-
-  test("an unattended child can answer Stave MCP prompts on both providers", () => {
-    // Nobody is watching a child run, so neither provider may leave it sitting
-    // on an approval prompt. Claude expresses that as a permission-mode bypass;
-    // Codex needs the elicitation auto-approve flag on top of its approval
-    // policy, because elicitation is a separate channel that `never` does not
-    // cover and an unanswered request is auto-declined on timeout.
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "codex",
-        permissionProfile: "auto",
-      }),
-    ).toMatchObject({
-      codexApprovalPolicy: "never",
-      codexAutoApproveStaveLocalMcpTools: true,
-    });
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "claude-code",
-        permissionProfile: "auto",
-      }),
-    ).toMatchObject({ claudePermissionMode: "bypassPermissions" });
-
-    // Supervised profiles must not gain the flag: those children are meant to
-    // surface their approvals. Asserted through
-    // `resolveManagedTaskRuntimeOptions` because that is what actually reaches
-    // the provider — a child always runs as an externally managed task, so an
-    // *absent* flag would be defaulted to `true` there and silently override
-    // the profile. Only an explicit `false` survives.
-    for (const permissionProfile of ["guided", "manual"] as const) {
-      const options = buildDelegatedTaskRuntimeOptions({
-        providerId: "codex",
-        permissionProfile,
-      });
-      expect(options.codexAutoApproveStaveLocalMcpTools).toBe(false);
-      expect(
-        resolveManagedTaskRuntimeOptions({
-          providerId: "codex",
-          runtimeOptions: options,
-        }).codexAutoApproveStaveLocalMcpTools,
-      ).toBe(false);
-    }
-
-    // The unattended profile keeps its `true` through the same layer.
-    expect(
-      resolveManagedTaskRuntimeOptions({
-        providerId: "codex",
-        runtimeOptions: buildDelegatedTaskRuntimeOptions({
-          providerId: "codex",
-          permissionProfile: "auto",
-        }),
-      }),
-    ).toMatchObject({
-      codexApprovalPolicy: "never",
-      codexAutoApproveStaveLocalMcpTools: true,
-    });
-
-    // Claude states every permission field explicitly, so the managed-task
-    // resolver has nothing left to default for a supervised child either.
-    expect(
-      resolveManagedTaskRuntimeOptions({
-        providerId: "claude-code",
-        runtimeOptions: buildDelegatedTaskRuntimeOptions({
-          providerId: "claude-code",
-          permissionProfile: "guided",
-        }),
-      }),
-    ).toMatchObject({
-      claudePermissionMode: "default",
-      claudeAllowUnsandboxedCommands: false,
-      claudeAllowDangerouslySkipPermissions: false,
-    });
+  test("managed ownership preserves inherited native auto and scoped MCP settings", () => {
+    const runtimeOptions = buildDelegatedTaskRuntimeOptions({ providerId: "claude-code", permissionPolicy: { providerId: "claude-code", source: "parent-turn", requestedProfile: "inherit", options: { claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false } } });
+    expect(resolveManagedTaskRuntimeOptions({ providerId: "claude-code", runtimeOptions }).claudePermissionMode).toBe("auto");
+    const codexOptions = buildDelegatedTaskRuntimeOptions({ providerId: "codex", permissionPolicy: { providerId: "codex", source: "parent-turn", requestedProfile: "inherit", options: { codexApprovalPolicy: "never", codexAutoApproveStaveLocalMcpTools: true } } });
+    expect(resolveManagedTaskRuntimeOptions({ providerId: "codex", runtimeOptions: codexOptions }).codexAutoApproveStaveLocalMcpTools).toBe(true);
   });
 
   test("no secret binding can reach a child through its profile", () => {
@@ -1007,4 +934,91 @@ describe("child permission profiles", () => {
       }).model,
     ).toBe("gpt-5.3-codex");
   });
+});
+
+test("restart reconciles the delegated execution even when another turn is active", async () => {
+  const harness = createHarness({
+    runTask: (args) => {
+      args.onStarted?.("delegated-turn");
+      return new Promise(() => {});
+    },
+  });
+  const started = await harness.coordinator.delegate(delegateArgs());
+  const taskId = started.child!.delegatedTaskId;
+  harness.statusByTaskId.set(taskId, {
+    ...IDLE_STATUS,
+    activeTurnId: "later-user-turn",
+    latestTurnId: "later-user-turn",
+  });
+  harness.statusByTurnId.set("delegated-turn", {
+    ...IDLE_STATUS,
+    activeTurnId: "later-user-turn",
+    latestTurnId: "delegated-turn",
+    latestTurnCompletedAt: "2026-10-01T00:00:00Z",
+    latestTurnError: "Provider exploded",
+    latestTurnOutcome: "failed",
+  });
+  const restarted = harness.restart();
+  await restarted.reconcile();
+  expect(
+    (
+      await restarted.get({
+        parentTaskId: PARENT_TASK,
+        delegationKey: "review-docs",
+      })
+    )?.phase,
+  ).toBe("failed");
+});
+
+test("restart interrupts legacy unknown evidence instead of declaring completion", async () => {
+  const harness = createHarness({
+    runTask: (args) => {
+      args.onStarted?.("legacy-turn");
+      return new Promise(() => {});
+    },
+  });
+  await harness.coordinator.delegate(delegateArgs());
+  harness.statusByTurnId.set("legacy-turn", {
+    ...IDLE_STATUS,
+    latestTurnId: "legacy-turn",
+    latestTurnCompletedAt: "2026-10-01T00:00:00Z",
+    latestTurnOutcome: "unknown",
+  });
+  const restarted = harness.restart();
+  await restarted.reconcile();
+  expect(
+    (
+      await restarted.get({
+        parentTaskId: PARENT_TASK,
+        delegationKey: "review-docs",
+      })
+    )?.phase,
+  ).toBe("interrupted");
+});
+
+test("restart preserves cancellation rather than recording provider failure", async () => {
+  const harness = createHarness({
+    runTask: (args) => {
+      args.onStarted?.("cancelled-turn");
+      return new Promise(() => {});
+    },
+  });
+  await harness.coordinator.delegate(delegateArgs());
+  harness.statusByTurnId.set("cancelled-turn", {
+    ...IDLE_STATUS,
+    latestTurnId: "cancelled-turn",
+    latestTurnCompletedAt: "2026-10-01T00:00:00Z",
+    latestTurnError: "Provider turn was interrupted before it completed.",
+    latestTurnOutcome: "cancelled",
+  });
+  const restarted = harness.restart();
+  await restarted.reconcile();
+  expect(
+    (
+      await restarted.get({
+        parentTaskId: PARENT_TASK,
+        delegationKey: "review-docs",
+      })
+    )?.phase,
+  ).toBe("cancelled");
 });

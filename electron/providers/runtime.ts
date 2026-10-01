@@ -816,6 +816,9 @@ type TaskRuntimeOptionsResolver = (args: {
 }) => Partial<NonNullable<StreamTurnArgs["runtimeOptions"]>>;
 
 let taskRuntimeOptionsResolver: TaskRuntimeOptionsResolver | null = null;
+let taskPermissionObserver: ((args: { taskId: string; providerId: StreamTurnArgs["providerId"]; options: NonNullable<StreamTurnArgs["runtimeOptions"]> }) => void) | null = null;
+export function setTaskPermissionObserver(observer: typeof taskPermissionObserver) { taskPermissionObserver = observer; }
+
 
 export function setTaskRuntimeOptionsResolver(resolver: TaskRuntimeOptionsResolver | null) {
   taskRuntimeOptionsResolver = resolver;
@@ -847,6 +850,14 @@ function withTaskRuntimeOptions<T extends StreamTurnArgs>(args: T): T {
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
   const release = workspaceExecutionGate.acquire(rawArgs);
   try {
+    // Delegation follows the user's turn policy before the Agent's direct-access ceiling.
+    if (rawArgs.taskId && !rawArgs.executionPolicy) {
+      taskPermissionObserver?.({
+        taskId: rawArgs.taskId,
+        providerId: rawArgs.providerId,
+        options: rawArgs.runtimeOptions ?? {},
+      });
+    }
     const prepared = rawArgs.taskId && !rawArgs.executionPolicy
       ? taskPromptPrefixResolver?.({ taskId: rawArgs.taskId, providerId: rawArgs.providerId })
       : null;

@@ -1,3 +1,5 @@
+import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-status";
+import type { TurnTerminalReceipt } from "../persistence/turn-terminal-receipt";
 import type { BridgeEvent } from "../providers/types";
 import type { PersistedTurnStreamEvent } from "../persistence/turn-event-payload";
 
@@ -31,10 +33,13 @@ export function createLocalMcpTurnJournal(args: {
     turnId: string;
     events: PendingTurnEvent[];
   }) => void;
-  onPersistError?: (error: unknown, context: {
-    turnId: string;
-    count: number;
-  }) => void;
+  onPersistError?: (
+    error: unknown,
+    context: {
+      turnId: string;
+      count: number;
+    },
+  ) => void;
   now?: () => number;
   staleBufferMs?: number;
   maxBufferedTurns?: number;
@@ -97,6 +102,7 @@ export function createLocalMcpTurnJournal(args: {
   }
 
   return {
+    flush,
     append(input: PendingTurnEvent & { turnId: string }) {
       const timestamp = now();
       const pending = pendingTurnEventsById.get(input.turnId) ?? {
@@ -127,13 +133,15 @@ export function createLocalMcpTurnJournal(args: {
 
 export function resolveTargetedTurnError(args: {
   completedAt: string | null;
+  receipt?: TurnTerminalReceipt | null;
   events: PersistedTurnStreamEvent[];
 }) {
   if (!args.completedAt) {
     return null;
   }
+  if (args.receipt?.completedAt) return args.receipt.error;
   if (args.events.length === 0) {
-    return "Provider turn ended without emitting a response.";
+    return null;
   }
 
   let lastError: Extract<BridgeEvent, { type: "error" }> | null = null;
@@ -163,17 +171,84 @@ export function resolveTargetedTurnError(args: {
     }
   }
 
-  if (stopReason === "runtime_failure") {
+  if (classifyProviderTurnStopReason(stopReason ?? undefined) === "failed") {
     return lastError?.message || "Provider runtime failed before responding.";
   }
-  if (stopReason === "user_abort") {
+  if (classifyProviderTurnStopReason(stopReason ?? undefined) === "cancelled") {
     return "Provider turn was interrupted before it completed.";
   }
-  if (lastError && (!lastError.recoverable || !outputObserved)) {
+  if (lastError && !lastError.recoverable) {
     return lastError.message;
   }
-  if (!outputObserved) {
-    return "Provider turn ended without a response.";
-  }
+  // Legacy retained events cannot prove absence: compaction removed output.
+  if (!outputObserved) return null;
   return null;
+}
+
+export function resolveTargetedTurnOutcome(args: {
+  completedAt: string | null;
+  receipt?: TurnTerminalReceipt | null;
+  events: PersistedTurnStreamEvent[];
+}): import("../persistence/turn-terminal-receipt").TurnTerminalOutcome | null {
+  if (!args.completedAt) return null;
+  if (args.receipt?.completedAt) return args.receipt.outcome;
+  const error = resolveTargetedTurnError(args);
+  if (error)
+    return args.events.some(
+      (entry) =>
+        entry.event?.type === "done" &&
+        classifyProviderTurnStopReason(entry.event.stop_reason) === "cancelled",
+    )
+      ? "cancelled"
+      : "failed";
+  // Missing/truncated retained output is unknown for pre-receipt turns.
+  return args.events.some((entry) => {
+    const event = entry.event;
+    return (
+      event &&
+      ((event.type === "text" && event.text.trim().length > 0) ||
+        event.type === "tool" ||
+        event.type === "tool_result" ||
+        event.type === "diff" ||
+        event.type === "plan_ready")
+    );
+  })
+    ? "completed"
+    : "unknown";
+}
+
+export function projectTurnStatus(args: {
+  turn: import("../persistence/types").PersistenceTurnSummary | null;
+  messages: import("../../src/types/chat").ChatMessage[];
+  targeted: boolean;
+  memoryError: string | null;
+  readEvents: (turnId: string) => PersistedTurnStreamEvent[];
+}) {
+  const result = args.turn
+    ? {
+        completedAt: args.turn.completedAt,
+        receipt: args.turn.terminalReceipt,
+        events: args.turn.terminalReceipt ? [] : args.readEvents(args.turn.id),
+      }
+    : null;
+  return {
+    latestTurnError: result
+      ? result.receipt?.completedAt
+        ? resolveTargetedTurnError(result)
+        : (args.memoryError ?? resolveTargetedTurnError(result))
+      : null,
+    latestTurnOutcome: result ? resolveTargetedTurnOutcome(result) : null,
+    latestAssistantText:
+      [...args.messages]
+        .reverse()
+        .find(
+          (message) =>
+            message.role === "assistant" &&
+            message.content.trim().length > 0 &&
+            (!args.targeted || message.turnId === args.turn?.id),
+        )?.content ??
+      (args.targeted
+        ? (args.turn?.terminalReceipt?.responseText ?? null)
+        : null),
+  };
 }

@@ -136,6 +136,7 @@ export interface LocalMcpTaskTurnUpdate {
   eventType: "started" | NormalizedProviderEvent["type"];
   done: boolean;
   activityEvents?: LocalMcpTaskTurnActivityEvent[];
+  terminalReceipt?: import("@/lib/providers/turn-terminal-receipt").TurnTerminalReceipt | null;
 }
 
 /** Preserve projected activity when the renderer coalesces SQLite reloads. */

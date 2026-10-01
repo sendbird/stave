@@ -142,7 +142,7 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   }),
 }));
 
-const { providerRuntime, setTaskPromptPrefixResolver } = await import("../electron/providers/runtime");
+const { providerRuntime, setTaskPromptPrefixResolver, setTaskRuntimeOptionsResolver, setTaskPermissionObserver } = await import("../electron/providers/runtime");
 const {
   consultAdvisor,
   clearAdvisorConsultGrantsForTest,
@@ -275,6 +275,8 @@ afterEach(async () => {
   primaryEmitsEvents = true;
   duringPrimaryTurn = null;
   setTaskPromptPrefixResolver(null);
+  setTaskRuntimeOptionsResolver(null);
+  setTaskPermissionObserver(null);
   await providerRuntime.shutdown();
 });
 
@@ -829,4 +831,24 @@ describe("task instructions survive failed startup", () => {
     expect(acknowledged).toBe(1);
   });
 
+});
+
+
+test("delegation observes the user's policy while Agent instructions and ceiling reach the primary", async () => {
+  let observed: StreamTurnArgs["runtimeOptions"] | null = null;
+  let acknowledged = 0;
+  setTaskPermissionObserver(({ options }) => { observed = options; });
+  setTaskRuntimeOptionsResolver(() => ({ codexFileAccess: "read-only", codexApprovalPolicy: "on-request" }));
+  setTaskPromptPrefixResolver(() => ({ prefix: "Saved Agent instructions", acknowledge: () => { acknowledged += 1; } }));
+  duringPrimaryTurn = async (args) => {
+    expect(args.prompt).toContain("Saved Agent instructions");
+    expect(args.runtimeOptions).toMatchObject({ codexFileAccess: "read-only", codexApprovalPolicy: "on-request" });
+    args.onEvent?.({ type: "text", text: "Primary response" });
+  };
+  await providerRuntime.streamTurn({
+    taskId: "agent-delegation-policy", providerId: "codex", cwd: TEST_WORKSPACE_CWD,
+    prompt: "Do the work", runtimeOptions: { codexFileAccess: "danger-full-access", codexApprovalPolicy: "never" },
+  });
+  expect(observed).toMatchObject({ codexFileAccess: "danger-full-access", codexApprovalPolicy: "never" });
+  expect(acknowledged).toBe(1);
 });

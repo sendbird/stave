@@ -34,7 +34,7 @@ function ledger(store: RunLedgerStore): DelegatedTaskLedgerPort {
   };
 }
 
-function harness(options: { head?: string | null; parentPermission?: AgentPermission | null; allowed?: string[] | null } = {}) {
+function harness(options: { head?: string | null; parentPermission?: AgentPermission | null; allowed?: string[] | null; parentCanCall?: string[] | null } = {}) {
   const store = new RunLedgerStore(new Database(":memory:"));
   const runs: Array<Record<string, unknown>> = [];
   const host: DelegatedTaskHostPort = {
@@ -68,6 +68,7 @@ function harness(options: { head?: string | null; parentPermission?: AgentPermis
         args,
         agent,
         parentPermission: options.parentPermission ?? null,
+        parentCanCall: options.parentCanCall,
         allowedAgentIds: options.allowed ?? null,
       });
       return result.ok ? { ok: true, args: result.args, agentContentHash: result.snapshot.contentHash } : { ok: false, message: result.message };
@@ -116,6 +117,18 @@ describe("delegating to an agent", () => {
     expect(widened).toMatchObject({ accepted: false, reason: "agent-refused" });
     await Bun.sleep(5);
     expect([...outside.runs, ...readOnlyParent.runs]).toHaveLength(0);
+  });
+
+  test("host Can call authority lets a read-only coordinator delegate within user child permissions", async () => {
+    const authorized = harness({ parentPermission: "read-only", parentCanCall: ["implementer"] });
+    const response = await authorized.coordinator.delegate(args({ agentConfigId: "implementer", permissionProfile: "guided" }));
+    await authorized.coordinator.waitForInFlight();
+    expect(response.accepted).toBe(true);
+    expect(authorized.runs).toHaveLength(1);
+    expect(authorized.runs[0]!.permissionProfile).toBe("guided");
+    const denied = harness({ parentPermission: "read-only", parentCanCall: [] });
+    expect((await denied.coordinator.delegate(args({ agentConfigId: "implementer" }))).accepted).toBe(false);
+    expect(denied.runs).toHaveLength(0);
   });
 
   test("a delegation without an agent is unchanged", async () => {

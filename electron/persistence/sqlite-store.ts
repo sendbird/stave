@@ -1,3 +1,11 @@
+import { DelegationPolicyStore } from "./delegation-policy-store";
+import {
+  insertTurnEventWithReceipt,
+  finalizeTurnReceipt,
+  getTurnReceipt,
+  readTurnStreamEvents,
+} from "./turn-receipt-store";
+import { createTurnReceipt, parseTurnReceipt } from "./turn-terminal-receipt";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdirSync, rmSync, statfsSync } from "node:fs";
@@ -41,8 +49,6 @@ import type { ProviderId } from "../../src/lib/providers/provider.types";
 import type { AutomationState } from "../../src/lib/automations";
 import type { BridgeEvent } from "../providers/types";
 import {
-  parseTurnEventPayload,
-  prepareTurnEventPayload,
   type PersistedTurnStreamEvent,
 } from "./turn-event-payload";
 import { RunLedgerStore } from "./run-ledger-store";
@@ -82,7 +88,6 @@ import {
   shouldRunFullVacuumMigration,
   type SqliteStorageMetrics,
 } from "./sqlite-maintenance-policy";
-
 interface WorkspaceMetaRow {
   id: string;
   name: string;
@@ -134,6 +139,7 @@ interface TurnSummaryRow {
   created_at: string;
   completed_at: string | null;
   usage_json: string | null;
+  receipt_json: string | null;
 }
 
 interface LocalMcpRequestLogRow {
@@ -183,6 +189,7 @@ export class SqliteStore {
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly delegationDrafts: DelegationDraftStore;
+  readonly delegationPolicies: DelegationPolicyStore;
   readonly missions: MissionStore;
   readonly projects: ProjectStore;
   readonly agentAssignments: AgentAssignmentStore;
@@ -190,9 +197,7 @@ export class SqliteStore {
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
   private onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
-
   get closed() { return this._closed; }
-
   constructor(args: {
     dbPath: string;
     onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
@@ -228,6 +233,7 @@ export class SqliteStore {
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
     this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
     this.delegationDrafts = new DelegationDraftStore(this.db);
+    this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
     this.trackerIssues = new TrackerIssuesStore(this.db, {
@@ -436,6 +442,11 @@ export class SqliteStore {
       this.db.exec("ALTER TABLE turns ADD COLUMN usage_json TEXT");
     } catch {
       // column already exists
+    }
+    try {
+      this.db.exec("ALTER TABLE turns ADD COLUMN receipt_json TEXT");
+    } catch {
+      // column already exists; older turns deliberately retain unknown evidence.
     }
     try {
       this.db.exec("ALTER TABLE notifications ADD COLUMN expires_at TEXT");
@@ -2341,17 +2352,25 @@ export class SqliteStore {
     this.db
       .prepare(
         `
-      INSERT INTO turns (id, workspace_id, task_id, provider_id, created_at, completed_at)
-      VALUES (?, ?, ?, ?, ?, NULL)
+      INSERT INTO turns (id, workspace_id, task_id, provider_id, created_at, completed_at, receipt_json)
+      VALUES (?, ?, ?, ?, ?, NULL, ?)
     `,
       )
-      .run(args.id, args.workspaceId, args.taskId, args.providerId, createdAt);
+      .run(
+        args.id,
+        args.workspaceId,
+        args.taskId,
+        args.providerId,
+        createdAt,
+        JSON.stringify(createTurnReceipt()),
+      );
   }
 
   completeTurn(args: {
     id: string;
     completedAt?: string;
     usage?: PersistenceTurnUsage | null;
+    stopReason?: string;
   }) {
     if (this._closed) {
       return;
@@ -2366,12 +2385,12 @@ export class SqliteStore {
           usageJson
             ? `
         UPDATE turns
-        SET completed_at = ?, usage_json = ?
+        SET completed_at = COALESCE(completed_at, ?), usage_json = ?
         WHERE id = ?
       `
             : `
         UPDATE turns
-        SET completed_at = ?
+        SET completed_at = COALESCE(completed_at, ?)
         WHERE id = ?
       `,
         )
@@ -2380,6 +2399,7 @@ export class SqliteStore {
             ? [completedAt, usageJson, args.id]
             : [completedAt, args.id]),
         );
+      finalizeTurnReceipt(this.db, args.id, completedAt, args.stopReason);
       this.compactCompletedTurnEvents(args.id);
     });
     tx();
@@ -2411,11 +2431,16 @@ export class SqliteStore {
         .run(completedAt, args.id);
       closed = Number(result.changes ?? 0) > 0;
       if (closed) {
+        finalizeTurnReceipt(this.db, args.id, completedAt, "user_abort");
         this.compactCompletedTurnEvents(args.id);
       }
     });
     tx();
     return closed;
+  }
+
+  getTurnReceipt(turnId: string) {
+    return getTurnReceipt(this.db, turnId);
   }
 
   private compactCompletedTurnEvents(turnId: string) {
@@ -2501,8 +2526,10 @@ export class SqliteStore {
     if (this._closed) {
       return;
     }
-    this.insertTurnEventRow(args);
-    this.pruneActiveTurnEvents(args.turnId);
+    this.db.transaction(() => {
+      this.insertTurnEventRow(args);
+      this.pruneActiveTurnEvents(args.turnId);
+    })();
   }
 
   /**
@@ -2539,23 +2566,7 @@ export class SqliteStore {
     event: BridgeEvent;
     createdAt?: string;
   }) {
-    const createdAt = args.createdAt ?? new Date().toISOString();
-    const prepared = prepareTurnEventPayload(args.event);
-    this.db
-      .prepare(
-        `
-      INSERT OR IGNORE INTO turn_events (id, turn_id, sequence, event_type, payload_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `,
-      )
-      .run(
-        `${args.turnId}-${args.sequence}`,
-        args.turnId,
-        args.sequence,
-        prepared.eventType,
-        prepared.payloadJson,
-        createdAt,
-      );
+    insertTurnEventWithReceipt(this.db, args);
   }
 
   /**
@@ -2567,31 +2578,7 @@ export class SqliteStore {
     turnId: string;
     sinceSequence?: number;
   }): PersistedTurnStreamEvent[] {
-    const sinceSequence = args.sinceSequence ?? 0;
-    const rows = this.db
-      .prepare(
-        `
-      SELECT sequence, event_type, payload_json
-      FROM turn_events
-      WHERE turn_id = ? AND sequence > ?
-      ORDER BY sequence ASC
-    `,
-      )
-      .all(args.turnId, sinceSequence) as Array<{
-      sequence: number;
-      event_type: string;
-      payload_json: string;
-    }>;
-
-    return rows.map((row) => {
-      const parsed = parseTurnEventPayload(row.payload_json);
-      return {
-        sequence: row.sequence,
-        eventType: row.event_type,
-        event: parsed.event,
-        truncated: parsed.truncated,
-      };
-    });
+    return readTurnStreamEvents(this.db, args);
   }
 
   listTurns(args: {
@@ -2612,7 +2599,8 @@ export class SqliteStore {
         turns.provider_id,
         turns.created_at,
         turns.completed_at,
-        turns.usage_json
+        turns.usage_json,
+        turns.receipt_json
       FROM turns
       WHERE turns.workspace_id = ? AND turns.task_id = ?
         ${turnId ? "AND turns.id = ?" : ""}
@@ -2634,6 +2622,7 @@ export class SqliteStore {
       createdAt: row.created_at,
       completedAt: row.completed_at,
       usage: parsePersistedTurnUsage(row.usage_json),
+      terminalReceipt: parseTurnReceipt(row.receipt_json),
     }));
   }
 
@@ -2645,7 +2634,7 @@ export class SqliteStore {
     const rows = this.db
       .prepare(
         `
-      SELECT id, workspace_id, task_id, provider_id, created_at, completed_at, usage_json
+      SELECT id, workspace_id, task_id, provider_id, created_at, completed_at, usage_json, receipt_json
       FROM (
         SELECT
           turns.id,
@@ -2655,6 +2644,7 @@ export class SqliteStore {
           turns.created_at,
           turns.completed_at,
           turns.usage_json,
+          turns.receipt_json,
           ROW_NUMBER() OVER (
             PARTITION BY turns.task_id
             ORDER BY turns.created_at DESC, turns.id DESC
@@ -2677,6 +2667,7 @@ export class SqliteStore {
       createdAt: row.created_at,
       completedAt: row.completed_at,
       usage: parsePersistedTurnUsage(row.usage_json),
+      terminalReceipt: parseTurnReceipt(row.receipt_json),
     }));
   }
 
@@ -2688,7 +2679,7 @@ export class SqliteStore {
     const rows = this.db
       .prepare(
         `
-      SELECT id, workspace_id, task_id, provider_id, created_at, completed_at, usage_json
+      SELECT id, workspace_id, task_id, provider_id, created_at, completed_at, usage_json, receipt_json
       FROM (
         SELECT
           turns.id,
@@ -2698,6 +2689,7 @@ export class SqliteStore {
           turns.created_at,
           turns.completed_at,
           turns.usage_json,
+          turns.receipt_json,
           ROW_NUMBER() OVER (
             PARTITION BY turns.task_id
             ORDER BY turns.created_at DESC, turns.id DESC
@@ -2720,6 +2712,7 @@ export class SqliteStore {
       createdAt: row.created_at,
       completedAt: row.completed_at,
       usage: parsePersistedTurnUsage(row.usage_json),
+      terminalReceipt: parseTurnReceipt(row.receipt_json),
     }));
   }
 
