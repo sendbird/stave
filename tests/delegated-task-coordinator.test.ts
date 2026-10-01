@@ -9,7 +9,7 @@ import {
 } from "../electron/main/runs/delegated-task-coordinator";
 import { buildDelegatedTaskRuntimeOptions } from "../src/lib/runs/delegated-task-runtime";
 import { resolveManagedTaskRuntimeOptions } from "../src/lib/providers/managed-task-runtime";
-import type { DelegateTaskArgs, DelegatedTaskEffort } from "../src/lib/runs/delegated-task";
+import { DelegateTaskToolInputSchema, type DelegateTaskArgs, type DelegatedTaskEffort } from "../src/lib/runs/delegated-task";
 import {
   resolveDelegationPermissionPolicy,
   type DelegationPermissionPolicy,
@@ -1372,6 +1372,15 @@ describe("stave_delegate_task defaults", () => {
     parentTaskId: PARENT_TASK,
     prompt: "Review the docs.",
     ...overrides,
+  });
+
+  test("the tool schema requires only the ids and the prompt and offers access, not profiles", () => {
+    const shape = DelegateTaskToolInputSchema.shape;
+    const required = Object.entries(shape).filter(([, field]) => !field.isOptional()).map(([name]) => name);
+    expect(required.sort()).toEqual(["parentTaskId", "parentWorkspaceId", "prompt", "repositoryPath"]);
+    expect(shape.access.unwrap().options).toEqual(["inherit", "read-only"]);
+    expect(shape.access.description).toContain("read-only");
+    expect(shape.permissionProfile.description).toContain("Deprecated");
   });
 
   test("omitted provider, lifecycle, workspace and key resolve to the parent's defaults, idempotently", async () => {
