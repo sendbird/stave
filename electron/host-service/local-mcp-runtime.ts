@@ -18,6 +18,10 @@ import type {
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
 import { listDelegatedTaskSummaries } from "./delegated-task-signals";
+import {
+  describeInteractionAttribution,
+  publishesInteractionNotifications,
+} from "./delegated-attention";
 import { buildDelegatedTaskReceiptsRetrievedContext } from "../../src/lib/task-context/delegated-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
 import { toPersistenceTurnUsage } from "../persistence/turn-usage";
@@ -104,8 +108,6 @@ import type {
 } from "../../src/types/chat";
 import {
   findWorkspaceTaskOrThrow,
-  getTaskControlMode,
-  getTaskControlOwner,
   isExternallyManagedTask,
   isTaskManaged,
   MANAGED_TASK_STOP_NOTICE,
@@ -1021,7 +1023,7 @@ async function persistApprovalNotification(args: {
   const task =
     args.session.tasks.find((candidate) => candidate.id === args.taskId) ??
     null;
-  if (!task || isExternallyManagedTask(task)) {
+  if (!task || !publishesInteractionNotifications(task)) {
     return;
   }
   const taskTitle = task.title || "Task";
@@ -1032,10 +1034,13 @@ async function persistApprovalNotification(args: {
   if (!location) {
     return;
   }
+  const attribution = describeInteractionAttribution({
+    task, workspaceId: args.workspaceId, sessionTasks: args.session.tasks, repository: registration?.project ?? null,
+  });
   await persistNotification({
     id: randomUUID(),
     kind: "task.approval_requested",
-    title: taskTitle,
+    title: attribution.title ?? taskTitle,
     body: `${args.event.toolName}: ${args.event.description}`,
     repositoryPath: registration?.project.repositoryPath ?? null,
     repositoryName: registration?.project.repositoryName ?? null,
@@ -1053,11 +1058,7 @@ async function persistApprovalNotification(args: {
     payload: {
       toolName: args.event.toolName,
       description: args.event.description,
-      controlMode: getTaskControlMode(task),
-      controlOwner: getTaskControlOwner(task),
-      // Lets Fleet keep a delegated child's request visible even though the
-      // task is externally managed. Carries only the parent's task id.
-      parentTaskId: task.parentTaskId ?? null,
+      ...attribution.payload,
     },
     dedupeKey: `task.approval_requested:${args.turnId}:${args.event.requestId}`,
   });
@@ -1156,7 +1157,7 @@ async function persistUserInputNotification(args: {
   const task =
     args.session.tasks.find((candidate) => candidate.id === args.taskId) ??
     null;
-  if (!task || isExternallyManagedTask(task)) {
+  if (!task || !publishesInteractionNotifications(task)) {
     return;
   }
   const location = findPendingUserInputMessageByRequestId({
@@ -1178,11 +1179,13 @@ async function persistUserInputNotification(args: {
     (args.event.questions.length > 1
       ? `${args.event.questions.length} questions`
       : "User input requested");
-
+  const attribution = describeInteractionAttribution({
+    task, workspaceId: args.workspaceId, sessionTasks: args.session.tasks, repository: registration?.project ?? null,
+  });
   await persistNotification({
     id: randomUUID(),
     kind: "task.user_input_requested",
-    title: task.title || "Task",
+    title: attribution.title ?? (task.title || "Task"),
     body: `${args.event.toolName}: ${question}`,
     repositoryPath: registration?.project.repositoryPath ?? null,
     repositoryName: registration?.project.repositoryName ?? null,
@@ -1199,11 +1202,7 @@ async function persistUserInputNotification(args: {
       questionCount: args.event.questions.length,
       requestId: args.event.requestId,
       messageId: location.messageId,
-      controlMode: getTaskControlMode(task),
-      controlOwner: getTaskControlOwner(task),
-      // Lets Fleet keep a delegated child's request visible even though the
-      // task is externally managed. Carries only the parent's task id.
-      parentTaskId: task.parentTaskId ?? null,
+      ...attribution.payload,
     },
     dedupeKey: `task.user_input_requested:${args.turnId}:${args.event.requestId}`,
   });
