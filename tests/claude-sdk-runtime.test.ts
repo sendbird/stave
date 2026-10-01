@@ -32,6 +32,9 @@ import {
   isReadOnlyMcpLeafToolName,
   shouldRedirectClaudePreloadedSkillToolUse,
   shouldDenyClaudeToolInPlanMode,
+  shouldKeepClaudeReadOnlyPrompt,
+  describeClaudeAutoModeFallback,
+  resolveClaudeAutoModeAvailability,
   buildClaudeSubagentProgressEvent,
   SubagentProgressTracker,
   waitForClaudeToolDecision,
@@ -1323,7 +1326,7 @@ describe("Claude permission mode decisions", () => {
     }
   });
 
-  test("still prompts for read-only built-in tools outside plan/bypass modes", () => {
+  test("still prompts for read-only built-in tools in default and acceptEdits modes", () => {
     // In default mode the user explicitly asked to be consulted — Read should
     // still prompt there.
     expect(
@@ -1332,21 +1335,61 @@ describe("Claude permission mode decisions", () => {
         toolName: "Read",
       }),
     ).toBe("prompt");
-    // In acceptEdits/auto the read-only fast-path is intentionally not taken,
-    // because those modes only relax *mutating* tool approvals; this test pins
-    // the current behaviour so future relaxations are deliberate.
+    // acceptEdits only relaxes *mutating* file approvals; this pins the
+    // current behaviour so future relaxations are deliberate.
     expect(
       resolveClaudePermissionModeDecision({
         permissionMode: "acceptEdits",
         toolName: "Read",
       }),
     ).toBe("prompt");
+  });
+
+  test("auto mode allows the read-only built-ins plan mode allows when the CLI hands them over", () => {
+    for (const toolName of [
+      "Read",
+      "Grep",
+      "Glob",
+      "LS",
+      "NotebookRead",
+      "WebFetch",
+      "WebSearch",
+      "BashOutput",
+      "TodoRead",
+    ]) {
+      expect(
+        resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName }),
+      ).toBe("allow");
+      expect(
+        shouldAutoAllowClaudeTool({ permissionMode: "auto", toolName }),
+      ).toBe(true);
+    }
+  });
+
+  test("auto mode keeps Bash and unknown tools on the prompt when the CLI hands them over", () => {
+    for (const toolName of ["Bash", "Task", "mcp__github__create_issue"]) {
+      expect(
+        resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName }),
+      ).toBe("prompt");
+    }
+  });
+
+  test("auto mode keeps the prompt for a read that must reach a person", () => {
     expect(
       resolveClaudePermissionModeDecision({
         permissionMode: "auto",
         toolName: "Read",
+        keepReadOnlyPrompt: true,
       }),
     ).toBe("prompt");
+    // The flag belongs to the auto fast path only: plan mode is unchanged.
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "plan",
+        toolName: "Read",
+        keepReadOnlyPrompt: true,
+      }),
+    ).toBe("allow");
   });
 
   test("decision function still returns prompt for Bash in plan mode", () => {
@@ -3083,5 +3126,213 @@ describe("parseClaudeQuestionList", () => {
     expect(questions[0]?.options[0]?.recommended).toBeUndefined();
     expect(questions[0]?.options[1]?.recommended).toBe(true);
     expect(questions[0]?.defaultValue).toBe("Switch");
+  });
+});
+
+describe("Claude auto-mode read-only fast path and deny rules", () => {
+  const base = {
+    cwd: "/tmp/stave-auto-workspace",
+    homeDir: "/tmp/stave-auto-home",
+  };
+
+  test("lets an ordinary workspace read through", () => {
+    expect(
+      shouldKeepClaudeReadOnlyPrompt({
+        ...base,
+        toolName: "Read",
+        input: { file_path: "/tmp/stave-auto-workspace/src/index.ts" },
+        protectedCredentialFiles: ["~/.config/service/credentials.json"],
+      }),
+    ).toBe(false);
+    expect(
+      shouldKeepClaudeReadOnlyPrompt({
+        ...base,
+        toolName: "Grep",
+        input: { pattern: "TODO" },
+        protectedCredentialFiles: ["~/.config/service/credentials.json"],
+      }),
+    ).toBe(false);
+    expect(
+      shouldKeepClaudeReadOnlyPrompt({
+        ...base,
+        toolName: "WebSearch",
+        input: { query: "bun test" },
+      }),
+    ).toBe(false);
+  });
+
+  test("keeps asking when a user ask rule or the CLI requires a person", () => {
+    expect(
+      shouldKeepClaudeReadOnlyPrompt({
+        ...base,
+        toolName: "Read",
+        input: { file_path: "/tmp/stave-auto-workspace/.env" },
+        matchedAskRule: { source: "userSettings", toolName: "Read" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldKeepClaudeReadOnlyPrompt({
+        ...base,
+        toolName: "Read",
+        input: { file_path: "/tmp/stave-auto-workspace/.env" },
+        defaultToNo: true,
+      }),
+    ).toBe(true);
+  });
+
+  test("never auto-allows a disallowed tool", () => {
+    for (const rule of ["WebFetch", "webfetch", "WebFetch(domain:example.com)"]) {
+      expect(
+        shouldKeepClaudeReadOnlyPrompt({
+          ...base,
+          toolName: "WebFetch",
+          input: { url: "https://example.com" },
+          disallowedTools: [rule],
+        }),
+      ).toBe(true);
+    }
+  });
+
+  test("never auto-allows reading or searching a protected credential path", () => {
+    const protectedCredentialFiles = [
+      "~/.config/service/credentials.json",
+      "secrets/deploy-key",
+    ];
+    const kept = (toolName: string, input: Record<string, unknown>) =>
+      shouldKeepClaudeReadOnlyPrompt({
+        ...base,
+        toolName,
+        input,
+        protectedCredentialFiles,
+      });
+    // The file itself, by absolute, home-relative and workspace-relative path.
+    expect(
+      kept("Read", { file_path: "/tmp/stave-auto-home/.config/service/credentials.json" }),
+    ).toBe(true);
+    expect(kept("Read", { file_path: "~/.config/service/credentials.json" })).toBe(true);
+    expect(kept("Read", { file_path: "secrets/deploy-key" })).toBe(true);
+    // A directory that contains it.
+    expect(kept("Grep", { pattern: "token", path: "~/.config" })).toBe(true);
+    expect(kept("LS", { path: "/tmp/stave-auto-home" })).toBe(true);
+    expect(kept("Glob", { pattern: "~/.config/**/*.json" })).toBe(true);
+    // Searching the workspace that holds a protected file.
+    expect(kept("Grep", { pattern: "token" })).toBe(true);
+    // A read with no recognizable target cannot be checked.
+    expect(kept("Read", {})).toBe(true);
+    // Unrelated paths stay on the fast path.
+    expect(kept("Read", { file_path: "~/.config/other/settings.json" })).toBe(false);
+  });
+
+  test("auto mode still hands deny rules to the CLI, which applies them before Stave is asked", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      permissionMode: "auto",
+      runtimeOptions: {
+        claudePermissionMode: "auto",
+        claudeDisallowedTools: ["Read", "WebFetch"],
+        claudeSandboxEnabled: true,
+        claudeSandboxCredentialFiles: ["/tmp/service-token"],
+      },
+    });
+    expect(options.permissionMode).toBe("auto");
+    expect(options.disallowedTools).toEqual(["Read", "WebFetch"]);
+    expect(options.sandbox).toMatchObject({
+      enabled: true,
+      credentials: { files: [{ path: "/tmp/service-token", mode: "deny" }] },
+    });
+    expect(
+      resolveClaudeDisallowedTools({
+        permissionMode: "auto",
+        runtimeDisallowedTools: ["Read"],
+      }),
+    ).toEqual(["Read"]);
+  });
+
+  test("a disallowed or protected read is not allowed in auto mode even if it reaches Stave", () => {
+    const keepReadOnlyPrompt = shouldKeepClaudeReadOnlyPrompt({
+      ...base,
+      toolName: "Read",
+      input: { file_path: "/tmp/stave-auto-workspace/README.md" },
+      disallowedTools: ["Read"],
+    });
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "auto",
+        toolName: "Read",
+        keepReadOnlyPrompt,
+      }),
+    ).not.toBe("allow");
+    // dontAsk keeps denying outright.
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "dontAsk",
+        toolName: "Bash",
+      }),
+    ).toBe("deny");
+  });
+});
+
+describe("Claude auto-mode availability notice", () => {
+  const models = [
+    { value: "default", resolvedModel: "claude-sonnet-5", supportsAutoMode: true },
+    { value: "opus", resolvedModel: "claude-opus-5-5", supportsAutoMode: true },
+    { value: "haiku", resolvedModel: "claude-haiku-5" },
+  ];
+
+  test("reports a model without the SDK's supportsAutoMode flag as unavailable", () => {
+    const availability = resolveClaudeAutoModeAvailability({
+      initPermissionMode: "auto",
+      initModel: "claude-haiku-5",
+      models,
+    });
+    expect(availability).toBe("unavailable-model");
+    expect(describeClaudeAutoModeFallback(availability)).toBe(
+      "Auto isn't available for this model; Claude will ask before actions.",
+    );
+  });
+
+  test("matches the session model by alias, canonical id or a 1M variant", () => {
+    for (const initModel of ["claude-opus-5-5", "opus", "claude-opus-5-5[1m]"]) {
+      expect(
+        resolveClaudeAutoModeAvailability({ initPermissionMode: "auto", initModel, models }),
+      ).toBe("available");
+    }
+    expect(describeClaudeAutoModeFallback("available")).toBeNull();
+  });
+
+  test("reports a CLI that fell back from the requested auto mode", () => {
+    const availability = resolveClaudeAutoModeAvailability({
+      initPermissionMode: "default",
+      initModel: "claude-opus-5-5",
+    });
+    expect(availability).toBe("unavailable");
+    expect(describeClaudeAutoModeFallback(availability)).toBe(
+      "Auto isn't available right now; Claude will ask before actions.",
+    );
+  });
+
+  test("does not guess when the SDK says nothing usable", () => {
+    // No model list yet.
+    expect(
+      resolveClaudeAutoModeAvailability({ initPermissionMode: "auto", initModel: "claude-haiku-5" }),
+    ).toBe("unknown");
+    // A CLI that predates the flag sets it on no row at all.
+    expect(
+      resolveClaudeAutoModeAvailability({
+        initPermissionMode: "auto",
+        initModel: "claude-haiku-5",
+        models: [{ value: "haiku", resolvedModel: "claude-haiku-5" }],
+      }),
+    ).toBe("unknown");
+    // No row for the session's model.
+    expect(
+      resolveClaudeAutoModeAvailability({
+        initPermissionMode: "auto",
+        initModel: "claude-custom-gateway-model",
+        models,
+      }),
+    ).toBe("unknown");
+    expect(describeClaudeAutoModeFallback("unknown")).toBeNull();
   });
 });

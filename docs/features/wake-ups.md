@@ -184,6 +184,15 @@ than left to `runTask`'s default, because "wake this task" means wake it as
 itself: a Codex task resumed under the product default would put a different
 agent into the same conversation, mid-thread.
 
+### Permissions
+
+A wake-up has no consent of its own, so its turn runs with your provider
+permission settings for the task's provider (Claude or Codex) — the same ones
+your own turns use, as synced to the host for delegation — read when it fires.
+Before any settings were synced, it uses guarded defaults (Claude `default`
+with the sandbox on; Codex `untrusted`, workspace-write, network off), never
+the runtime's wider fallbacks.
+
 ## Occurrences
 
 Every firing, deferral, and skip is recorded with an idempotency key of

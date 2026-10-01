@@ -54,7 +54,10 @@ import {
 } from "../../src/lib/supervision/wake-up-policy";
 import { validateFleetQueueAction } from "../../src/lib/fleet/control-plane";
 import { refuseWakeUpForMission } from "../../src/lib/supervision/automatic-turn-owner";
-import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
+import type {
+  CanonicalRetrievedContextPart,
+  ProviderRuntimeOptions,
+} from "../../src/lib/providers/provider.types";
 import type { TaskSupervisionSnapshot } from "./local-mcp-runtime";
 
 /**
@@ -106,8 +109,19 @@ interface WakeUpRuntimeDependencies {
      * caller's default provider.
      */
     fingerprint?: { providerId: WakeUp["fingerprint"]["providerId"]; model: string };
+    /** The user's own provider permission settings; see `userPermissionOptions`. */
+    runtimeOptions?: ProviderRuntimeOptions;
     retrievedContextParts?: CanonicalRetrievedContextPart[];
   }) => Promise<{ turnId: string }>;
+  /**
+   * The user's own provider permission settings for the woken task's
+   * provider. A wake-up has no consent of its own, so its turn runs as the
+   * user's turns do rather than on the runtime's fallbacks. Absent (tests and
+   * headless callers): the turn passes no permissions.
+   */
+  userPermissionOptions?: (
+    providerId: WakeUp["fingerprint"]["providerId"],
+  ) => ProviderRuntimeOptions | undefined;
   /**
    * The other half of "exactly one follow-up turn OR one terminal
    * notification". A wake-up whose turn never started has consumed a durable
@@ -265,6 +279,13 @@ export function createWakeUpRuntime(
       return removed;
     },
   };
+  /** Read at fire time, so a settings change applies to the next wake. */
+  function userRuntimeOptions(wakeUp: WakeUp) {
+    const runtimeOptions = dependencies.userPermissionOptions?.(
+      wakeUp.fingerprint.providerId,
+    );
+    return runtimeOptions ? { runtimeOptions } : {};
+  }
   function announce(wakeUp: Pick<WakeUp, "id" | "workspaceId" | "taskId">) {
     try {
       dependencies.emitChanged?.({
@@ -642,6 +663,7 @@ export function createWakeUpRuntime(
         taskId: wakeUp.taskId,
         prompt: wakeUp.prompt,
         fingerprint: wakeUp.fingerprint,
+        ...userRuntimeOptions(wakeUp),
         retrievedContextParts: [
           buildCompletionContextPart({
             wakeUp,
@@ -790,6 +812,7 @@ export function createWakeUpRuntime(
         taskId: wakeUp.taskId,
         prompt: wakeUp.prompt,
         fingerprint: wakeUp.fingerprint,
+        ...userRuntimeOptions(wakeUp),
         retrievedContextParts: [
           buildWakeUpContextPart({
             wakeUp,

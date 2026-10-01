@@ -11,7 +11,7 @@ const THREAD = "https://acme.slack.com/archives/C123ABC/p1727000000123456";
 
 function runtimeHarness() {
   const store = new MissionStore(new Database(":memory:"));
-  const turns: Array<{ taskId: string; prompt: string }> = [];
+  const turns: Array<{ taskId: string; prompt: string; runtimeOptions: unknown }> = [];
   let busy = false;
   const runtime = createMissionRuntime({
     store,
@@ -29,9 +29,11 @@ function runtimeHarness() {
     }),
     listRecentTurns: () => [],
     runSupervisedTurn: async (args) => {
-      turns.push({ taskId: args.taskId, prompt: args.prompt });
+      turns.push({ taskId: args.taskId, prompt: args.prompt, runtimeOptions: args.runtimeOptions });
       return { turnId: `turn-${turns.length}` };
     },
+    userPermissionOptions: (providerId) =>
+      providerId === "claude-code" ? { claudePermissionMode: "auto", claudeSandboxEnabled: false } : undefined,
     completeInterruptedTurn: () => true,
     countActiveDelegatedTasks: () => 0,
     isReportingAvailable: async () => true,
@@ -85,6 +87,8 @@ describe("sharing a mission report to Slack", () => {
     expect(turn.taskId).toBe("task-1");
     expect(turn.prompt).toContain(THREAD);
     expect(turn.prompt).toContain("Mission cancelled");
+    // The ended mission's consent no longer applies: the user's own settings do.
+    expect(turn.runtimeOptions).toEqual({ claudePermissionMode: "auto", claudeSandboxEnabled: false });
     expect(h.store.listEventsByKind(missionId, ["report-shared"])).toHaveLength(1);
   });
 });

@@ -27,6 +27,12 @@ export {
   shouldDenyClaudeToolInPlanMode,
   shouldDenyClaudeToolInSecondaryReadOnly,
 } from "./claude-permission-policy";
+import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./claude-auto-mode";
+export {
+  describeClaudeAutoModeFallback,
+  resolveClaudeAutoModeAvailability,
+  shouldKeepClaudeReadOnlyPrompt,
+} from "./claude-auto-mode";
 import { spawn as spawnResourceProcess } from "node:child_process";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import { createClaudeContextUsageTracker } from "./claude-context-usage";
@@ -125,6 +131,7 @@ import {
   type ClaudeNativeImageBlock,
 } from "./native-image-input";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
+import os from "node:os";
 import path from "node:path";
 import {
   canExecutePath,
@@ -3302,6 +3309,8 @@ export async function streamClaudeWithSdk(
     // in the PlanViewer for review), so the turn must wind down; further tool
     // calls are denied so the agent stops and the turn can complete.
     let planPresentedInTurn = false;
+    // Auto mode only: says once when Claude's own classifier is unavailable.
+    const claudeAutoModeNotice = createClaudeAutoModeNotice();
     const approvalDecisionTimeoutMs = resolveClaudeApprovalDecisionTimeoutMs({
       envValue: process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS,
     });
@@ -3601,6 +3610,21 @@ export async function streamClaudeWithSdk(
           const permissionModeDecision = resolveClaudePermissionModeDecision({
             permissionMode: claudePermissionMode,
             toolName,
+            ...(claudePermissionMode === "auto"
+              ? {
+                  keepReadOnlyPrompt: shouldKeepClaudeReadOnlyPrompt({
+                    toolName,
+                    input: normalizedInput,
+                    cwd: runtimeCwd,
+                    homeDir: os.homedir(),
+                    matchedAskRule: options.matchedAskRule,
+                    defaultToNo: options.defaultToNo,
+                    disallowedTools: queryOptions?.disallowedTools,
+                    protectedCredentialFiles:
+                      args.runtimeOptions?.claudeSandboxCredentialFiles,
+                  }),
+                }
+              : {}),
           });
 
           if (permissionModeDecision === "allow") {
@@ -3729,6 +3753,13 @@ export async function streamClaudeWithSdk(
               normalizedInput,
               denialMessage: `Claude trusted ${toolName}.`,
             });
+          }
+
+          const autoModeNotice = claudePermissionMode === "auto" ? claudeAutoModeNotice.take() : null;
+          if (autoModeNotice) {
+            const noticeEvent: BridgeEvent = { type: "system", content: autoModeNotice };
+            eventCollector.append(noticeEvent);
+            args.onEvent?.(noticeEvent);
           }
 
           const approvalEvent: BridgeEvent = {
@@ -3927,6 +3958,9 @@ export async function streamClaudeWithSdk(
             sessionId: (message as SDKSystemMessage).session_id,
             mcpScopeKey: claudeMcpScopeKey,
           });
+        }
+        if (claudePermissionMode === "auto" && !secondaryReadOnly) {
+          claudeAutoModeNotice.observeInit(message as SDKSystemMessage, stream);
         }
       }
       if (

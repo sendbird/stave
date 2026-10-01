@@ -352,6 +352,7 @@ export function shouldDenyClaudeToolInPlanMode(args: {
 export function resolveClaudePermissionModeDecision(args: {
   permissionMode: ClaudePermissionMode;
   toolName: string;
+  keepReadOnlyPrompt?: boolean; // auto only: see `claude-auto-mode.ts`
 }) {
   const normalizedToolName = args.toolName.trim().toLowerCase();
   // AskUserQuestion requests information, not permission to perform an action.
@@ -380,12 +381,12 @@ export function resolveClaudePermissionModeDecision(args: {
   ) {
     return "allow" as const;
   }
-  // Plan mode is read-only by construction: mutating tools are hard-denied in
-  // the canUseTool callback, so every remaining Claude Code built-in read tool
-  // can be auto-allowed. Prompting the user for each Read/Grep/Glob call in a
-  // read-only mode is redundant friction.
+  // Plan mode is read-only by construction (mutating tools are hard-denied in
+  // canUseTool). Auto reaches here only when the CLI hands a call over, and
+  // already lets edits through. Either way asking about each read is noise.
   if (
-    args.permissionMode === "plan" &&
+    (args.permissionMode === "plan" ||
+      (args.permissionMode === "auto" && args.keepReadOnlyPrompt !== true)) &&
     CLAUDE_READ_ONLY_BUILTIN_TOOL_NAMES.has(normalizedToolName)
   ) {
     return "allow" as const;

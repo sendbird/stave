@@ -4,7 +4,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import type { Mission } from "@/lib/missions/domain";
-import { formatAge, MISSION_PERMISSION_LABELS } from "@/lib/missions/mission-view";
+import { describeMissionPermissions, formatAge } from "@/lib/missions/mission-view";
 import { formatCostUsd, formatTokenCount, type MissionUsage } from "@/lib/missions/usage";
 import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -116,7 +116,7 @@ export function MissionRunSummary(props: MissionRunSummaryProps) {
               </>
             )}
             <PermissionIcon aria-hidden className={sx(styles.contextIcon)} />
-            {MISSION_PERMISSION_LABELS[permissionMode]} permissions
+            {describeMissionPermissions(permissionMode)}
           </span>
         </span>
       </div>
