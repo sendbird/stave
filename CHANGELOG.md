@@ -1,3 +1,13 @@
+## [0.22.1](https://github.com/sendbird/stave/compare/v0.22.0...v0.22.1) (2026-10-02)
+
+### Features
+
+* Results shows each section as a compact observability card: a titled header with a short monospace subtitle and sample size, headline numbers in "value / reference" form, and legend rows with right-aligned values. Color marks data only, and the agents table stacks at narrow widths instead of scrolling sideways.
+
+### References
+
+* [#637](https://github.com/sendbird/stave/pull/637)
+
 ## [0.22.0](https://github.com/sendbird/stave/compare/v0.21.2...v0.22.0) (2026-10-01)
 
 ### Features
