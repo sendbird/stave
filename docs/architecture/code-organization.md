@@ -28,6 +28,22 @@ them.
 
 Additional focused owners:
 
+Optional provider discovery lives in `electron/providers/optional-provider-tooling.ts`;
+`src/lib/providers/provider-readiness-store.ts` supplies Tooling, catalogs, and
+usage surfaces. `src/store/app-store-provider-actions.ts` owns availability and
+usage refresh actions. Focused checks are `tests/optional-provider-tooling.test.ts`,
+`tests/provider-readiness.test.ts`, and `tests/kiro-usage-connection.test.ts`.
+
+Provider account registration uses `src/lib/providers/provider-accounts.ts` for
+shared types and strict schemas. `electron/provider-accounts/registry.ts` owns
+nonsecret metadata and directory resolution; `environment.ts` applies native
+profile environments. `electron/main/ipc/provider-accounts.ts` owns validated
+CRUD and login requests, and `electron/host-service/provider-account-login.ts`
+launches isolated login PTYs through the terminal runtime. Focused checks are
+`tests/provider-account-registry.test.ts`,
+`tests/provider-account-environment.test.ts`, and
+`tests/provider-account-ipc.test.ts`.
+
 | Domain | Owner and boundary | Focused tests to start with |
 | --- | --- | --- |
 | Claude SDK events | `electron/providers/claude-event-mapping.ts` translates SDK events using supplied tracker/plan state; `claude-sdk-runtime.ts` owns turn state and rate-limit observation side effects; `src/lib/session/provider-event-replay.ts` and `src/lib/work-graph/work-graph-reducer.ts` consume normalized events and correlate tool results with earlier tool calls | `tests/claude-sdk-runtime.test.ts`, `tests/claude-rate-limits-observation.test.ts`; inspect replay or work-graph tests when their state changes |

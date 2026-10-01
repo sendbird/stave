@@ -1,3 +1,4 @@
+import { withProviderAccountScope } from "../../provider-accounts/runtime-scope";
 import type { CodexUsageSnapshot } from "../../../src/lib/providers/provider.types";
 import { getCodexAppServerClientFromRuntimeOptions } from "../codex-app-server-runtime";
 import {
@@ -20,6 +21,7 @@ export async function fetchCodexUsageSnapshot(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   force?: boolean;
 }): Promise<CodexUsageSnapshot> {
+  return withProviderAccountScope(args.runtimeOptions, async () => {
   try {
     const buckets = await resolveCodexRateLimitBuckets({
       force: args.force,
@@ -36,4 +38,5 @@ export async function fetchCodexUsageSnapshot(args: {
       error: error instanceof Error ? error.message : String(error),
     };
   }
+  });
 }

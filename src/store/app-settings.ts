@@ -125,6 +125,8 @@ import type {
 import { DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE } from "@/types/chat";
 
 export interface AppSettings extends WorkspaceKickoffSettings {
+  claudeAccountProfileId?: string;
+  codexAccountProfileId?: string;
   showPresetBar: boolean;
   themeMode: "light" | "dark" | "system";
   /** ID of the active custom theme preset, or `null` for the default. */
@@ -936,6 +938,6 @@ export function normalizePersistedLensSettings(
 
 export function createDefaultProviderAvailability() {
   return Object.fromEntries(
-    listProviderIds().map((providerId) => [providerId, true] as const),
+    listProviderIds().map((providerId) => [providerId, providerId !== "cursor" && providerId !== "kiro"] as const),
   ) as Record<ProviderId, boolean>;
 }

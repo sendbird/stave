@@ -267,3 +267,13 @@ describe("buildReadOnlyAuxRuntimeOptions", () => {
     ).not.toHaveProperty("model");
   });
 });
+
+
+test("read-only auxiliary work captures the selected account even without an explicit model", () => {
+  const accountSelection = { claudeAccountProfileId: "11111111-1111-4111-8111-111111111111" };
+  const options = buildReadOnlyAuxRuntimeOptions({ providerId: "claude-code", accountSelection });
+  accountSelection.claudeAccountProfileId = "22222222-2222-4222-8222-222222222222";
+  expect(options.claudeAccountProfileId).toBe("11111111-1111-4111-8111-111111111111");
+  expect(options.codexAccountProfileId).toBe("system-default");
+  expect(options.claudeAllowedTools).toEqual([]);
+});

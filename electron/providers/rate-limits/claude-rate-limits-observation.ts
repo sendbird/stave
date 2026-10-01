@@ -1,3 +1,4 @@
+import { providerAccountKey } from "../../provider-accounts/runtime-scope";
 import type {
   ClaudeUsageSnapshot,
   ClaudeUsageWindow,
@@ -105,7 +106,7 @@ export function recordClaudeRateLimitObservation(args: {
   now?: number;
 }): boolean {
   return recordPushedUsageReading<ClaudeUsageSnapshot>({
-    key: CLAUDE_USAGE_READ_KEY,
+    key: providerAccountKey("claude-code", CLAUDE_USAGE_READ_KEY),
     now: args.now,
     update: (snapshot) =>
       applyClaudeRateLimitObservation({

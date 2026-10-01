@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import {
   AdvisorEvidenceSchema,
   type AdvisorConsultRequest,
@@ -47,6 +49,7 @@ function buildAdvisorSessionLaneKey(grant: AdvisorConsultGrant) {
   return JSON.stringify([
     grant.taskId,
     grant.target.providerId,
+    currentProviderAccountId(grant.target.providerId),
     grant.target.model,
     resolveAdvisorEffort(grant.target),
     grant.cwd,
@@ -138,6 +141,7 @@ export type AdvisorConsultGrant = {
 };
 
 type ActiveGrant = AdvisorConsultGrant & {
+  runInTurnScope: ReturnType<typeof AsyncLocalStorage.snapshot>;
   used: number;
   revoked: boolean;
   /** Cancel handle for the single in-flight consult, if any. */
@@ -171,6 +175,8 @@ export function registerAdvisorConsultGrant(
   const nativeSessionId = readAdvisorSessionLane(sessionLaneKey);
   const active: ActiveGrant = {
     ...grant,
+    // Later MCP requests must retain this turn's accounts and private Gateway credential.
+    runInTurnScope: AsyncLocalStorage.snapshot(),
     used: 0,
     revoked: false,
     inFlightSkip: null,
@@ -373,7 +379,7 @@ export async function consultAdvisor(
   );
   grant.pausePhase({ phase: pauseKey });
   try {
-    const result = await runAdvisorCall({
+    const result = await grant.runInTurnScope(() => runAdvisorCall({
       target: grant.target,
       prompt: buildAdvisorConsultPrompt({
         question,
@@ -416,7 +422,7 @@ export async function consultAdvisor(
       },
       runners: grant.runners ?? defaultRunnersOverride,
       timeoutMs,
-    });
+    }));
     if (result.usage && !grant.revoked) {
       grant.addUsage(result.usage);
     }

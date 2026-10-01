@@ -72,6 +72,7 @@ describe("buildStandaloneCliCreateSessionArgs", () => {
     expect(args.runtimeOptions).toEqual({
       claudeBinaryPath: "/opt/claude",
       claudePermissionMode: "auto",
+      claudeAccountProfileId: "system-default",
     });
   });
 

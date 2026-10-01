@@ -8,6 +8,21 @@ import {
   listProviderIds,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { SYSTEM_ACCOUNT_PROFILE_ID } from "./provider-accounts";
+
+export function getProviderSessionEntry(args: { sessions?: TaskProviderSessionState; providerId: ProviderId; accountProfileId?: string }) {
+  if (args.accountProfileId && args.accountProfileId !== SYSTEM_ACCOUNT_PROFILE_ID && (args.providerId === "codex" || args.providerId === "claude-code")) {
+    return args.sessions?.accounts?.[args.accountProfileId]?.[args.providerId];
+  }
+  return args.sessions?.[args.providerId];
+}
+
+export function setProviderSessionEntry(args: { sessions?: TaskProviderSessionState; providerId: ProviderId; accountProfileId?: string; entry: TaskProviderSessionEntry }): TaskProviderSessionState {
+  if (args.accountProfileId && args.accountProfileId !== SYSTEM_ACCOUNT_PROFILE_ID && (args.providerId === "codex" || args.providerId === "claude-code")) {
+    return { ...args.sessions, accounts: { ...args.sessions?.accounts, [args.accountProfileId]: { ...args.sessions?.accounts?.[args.accountProfileId], [args.providerId]: args.entry } } };
+  }
+  return { ...args.sessions, [args.providerId]: args.entry };
+}
 
 export const providerSessionOrder: ProviderId[] = listProviderIds();
 
@@ -30,19 +45,21 @@ export function normalizeProviderSessionEntry(
 }
 
 export function getProviderSessionId(args: {
+  accountProfileId?: string;
   sessions?: TaskProviderSessionState;
   providerId: ProviderId;
 }): string | null {
   return normalizeProviderSessionEntry(
-    args.sessions?.[args.providerId],
+    getProviderSessionEntry(args),
   )?.nativeSessionId ?? null;
 }
 
 export function getProviderSessionCursor(args: {
+  accountProfileId?: string;
   sessions?: TaskProviderSessionState;
   providerId: ProviderId;
 }): ProviderSessionCursor | null {
-  return normalizeProviderSessionEntry(args.sessions?.[args.providerId]);
+  return normalizeProviderSessionEntry(getProviderSessionEntry(args));
 }
 
 export function rememberProviderSession(args: {
@@ -77,18 +94,24 @@ export function advanceProviderSessionCursor(args: {
 export function listProviderSessions(args: {
   sessions?: TaskProviderSessionState;
 }) {
-  return providerSessionOrder.flatMap((providerId) => {
-    const nativeSessionId = getProviderSessionId({
-      sessions: args.sessions,
-      providerId,
-    });
-
-    return nativeSessionId
-      ? [{ providerId, nativeSessionId }]
-      : [];
-  });
+  const profiles = [SYSTEM_ACCOUNT_PROFILE_ID, ...Object.keys(args.sessions?.accounts ?? {})];
+  return profiles.flatMap((accountProfileId) => providerSessionOrder.flatMap((providerId) => {
+    if (accountProfileId !== SYSTEM_ACCOUNT_PROFILE_ID && providerId !== "claude-code" && providerId !== "codex") return [];
+    const nativeSessionId = getProviderSessionId({ sessions: args.sessions, providerId, accountProfileId });
+    return nativeSessionId ? [{ providerId, nativeSessionId, accountProfileId }] : [];
+  }));
 }
 
 export function getProviderSessionLabel(args: { providerId: ProviderId }) {
   return getProviderSessionLabelFromCatalog(args);
+}
+
+export function removeProviderSessionEntry(args: { sessions?: TaskProviderSessionState; providerId: ProviderId; accountProfileId?: string }): TaskProviderSessionState {
+  const next = { ...args.sessions };
+  if (args.accountProfileId && args.accountProfileId !== SYSTEM_ACCOUNT_PROFILE_ID && (args.providerId === "codex" || args.providerId === "claude-code")) {
+    const account = { ...next.accounts?.[args.accountProfileId] };
+    delete account[args.providerId];
+    next.accounts = { ...next.accounts, [args.accountProfileId]: account };
+  } else delete next[args.providerId];
+  return next;
 }

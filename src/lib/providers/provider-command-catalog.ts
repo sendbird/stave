@@ -25,8 +25,8 @@ export interface ProviderCommandCatalogResponse {
 const MAX_PROVIDER_COMMAND_CATALOG_CACHE_ENTRIES = 32;
 const providerCommandCatalogCache = new Map<string, ProviderCommandCatalogState>();
 
-function toCatalogCacheKey(args: { providerId: ProviderId; cwd?: string }) {
-  return `${args.providerId}:${args.cwd?.trim() || "<default>"}`;
+function toCatalogCacheKey(args: { providerId: ProviderId; cwd?: string; accountProfileId?: string }) {
+  return JSON.stringify([args.providerId, args.accountProfileId ?? "system-default", args.cwd?.trim() || "<default>"]);
 }
 
 export function getInitialProviderCommandCatalog(args: { providerId: ProviderId }): ProviderCommandCatalogState {
@@ -47,7 +47,7 @@ export function getInitialProviderCommandCatalog(args: { providerId: ProviderId 
   };
 }
 
-export function getCachedProviderCommandCatalog(args: { providerId: ProviderId; cwd?: string }) {
+export function getCachedProviderCommandCatalog(args: { providerId: ProviderId; cwd?: string; accountProfileId?: string }) {
   const cacheKey = toCatalogCacheKey(args);
   const cached = providerCommandCatalogCache.get(cacheKey);
   if (cached) {
@@ -63,6 +63,7 @@ export function getCachedProviderCommandCatalog(args: { providerId: ProviderId; 
 export function setCachedProviderCommandCatalog(args: {
   providerId: ProviderId;
   cwd?: string;
+  accountProfileId?: string;
   catalog: ProviderCommandCatalogState;
 }) {
   const cacheKey = toCatalogCacheKey(args);

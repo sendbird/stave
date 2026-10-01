@@ -1,3 +1,4 @@
+import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
 import { z } from "zod";
 import {
   RunIdSchema,
@@ -12,6 +13,8 @@ import {
 
 export const SecondaryRunRuntimeHintsSchema = z
   .object({
+    claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+    codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     claudeBinaryPath: z.string().trim().min(1).max(4096).optional(),
     claudeEffort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
     claudeThinkingMode: z.enum(["adaptive", "enabled", "disabled"]).optional(),

@@ -27,6 +27,8 @@ export interface StandaloneCliState {
    */
   adoptedFolderPath: string | null;
   nativeSessionIdByTab: Partial<Record<StandaloneCliTabId, string>>;
+  accountProfileIdByTab: Partial<Record<StandaloneCliTabId, string>>;
+  pinTabAccount: (tabId: StandaloneCliTabId, accountProfileId: string) => void;
   openOverlay: () => void;
   closeOverlay: () => void;
   toggleOverlay: () => void;
@@ -48,7 +50,7 @@ function isStandaloneCliTabId(candidate: string): candidate is StandaloneCliTabI
 
 type PersistedStandaloneCliState = Pick<
   StandaloneCliState,
-  "activeTabId" | "adoptedFolderPath" | "nativeSessionIdByTab"
+  "activeTabId" | "adoptedFolderPath" | "nativeSessionIdByTab" | "accountProfileIdByTab"
 >;
 
 /**
@@ -104,9 +106,10 @@ const initialState = {
   activeTabId: "claude-code" as StandaloneCliTabId,
   adoptedFolderPath: null,
   nativeSessionIdByTab: {},
+  accountProfileIdByTab: {},
 } satisfies Pick<
   StandaloneCliState,
-  "open" | "activeTabId" | "adoptedFolderPath" | "nativeSessionIdByTab"
+  "open" | "activeTabId" | "adoptedFolderPath" | "nativeSessionIdByTab" | "accountProfileIdByTab"
 >;
 
 export const useStandaloneCliStore = create<StandaloneCliState>()(
@@ -120,6 +123,7 @@ export const useStandaloneCliStore = create<StandaloneCliState>()(
 
       setActiveTab: ({ tabId }) => set({ activeTabId: tabId }),
 
+      pinTabAccount: (tabId, accountProfileId) => set(state => ({ accountProfileIdByTab: { ...state.accountProfileIdByTab, [tabId]: state.accountProfileIdByTab[tabId] ?? accountProfileId } })),
       setTabNativeSession: ({ tabId, nativeSessionId }) => {
         if (!isStandaloneCliTabId(tabId)) {
           return;
@@ -177,7 +181,7 @@ export const useStandaloneCliStore = create<StandaloneCliState>()(
           STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY,
         );
 
-        set({ adoptedFolderPath: normalized, nativeSessionIdByTab: {} });
+        set({ adoptedFolderPath: normalized, nativeSessionIdByTab: {}, accountProfileIdByTab: {} });
       },
 
       reset: () => set({ ...initialState }),
@@ -189,6 +193,7 @@ export const useStandaloneCliStore = create<StandaloneCliState>()(
         activeTabId: state.activeTabId,
         adoptedFolderPath: state.adoptedFolderPath,
         nativeSessionIdByTab: state.nativeSessionIdByTab,
+        accountProfileIdByTab: state.accountProfileIdByTab,
       }),
     },
   ),

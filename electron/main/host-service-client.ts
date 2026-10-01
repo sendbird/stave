@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { resolveHostGatewayCredential } from "./provider-gateway-credential";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -368,6 +369,7 @@ class HostServiceClient {
     params: HostServiceRequestMap[TMethod],
     options?: HostServiceInvokeOptions,
   ): Promise<HostServiceResponseMap[TMethod]> {
+    const gatewayCredential = await resolveHostGatewayCredential(params);
     await this.ensureStarted();
     if (
       !this.child ||
@@ -385,6 +387,7 @@ class HostServiceClient {
       id: requestId,
       method,
       params,
+      ...(gatewayCredential ? { gatewayCredential } : {}),
     };
     const serializedRequest = serializeJsonFramedMessage(request);
     if (

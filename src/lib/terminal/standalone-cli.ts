@@ -1,3 +1,4 @@
+import { selectedProviderAccount, type ProviderAccountSelection } from "@/lib/providers/provider-account-selection";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   buildTerminalSessionSlotKey,
@@ -41,6 +42,7 @@ export const STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY =
 export type StandaloneCliTabId = (typeof STANDALONE_CLI_TAB_IDS)[number];
 
 export interface StandaloneCliTab {
+  accountProfileId?: string;
   id: StandaloneCliTabId;
   title: string;
   cwd: string;
@@ -82,10 +84,13 @@ export function buildStandaloneCliSlotKey(tabId: StandaloneCliTabId) {
 export function buildStandaloneCliTabs(args: {
   folderPath: string;
   nativeSessionIdByTab: Partial<Record<StandaloneCliTabId, string>>;
+  accountProfileIdByTab?: Partial<Record<StandaloneCliTabId, string>>;
+  defaults?: ProviderAccountSelection;
 }): StandaloneCliTab[] {
   return STANDALONE_CLI_TAB_IDS.map((tabId) => ({
     id: tabId,
     title: STANDALONE_CLI_TAB_TITLE[tabId],
+    accountProfileId: args.accountProfileIdByTab?.[tabId] ?? (args.nativeSessionIdByTab[tabId] ? "system-default" : selectedProviderAccount(tabId, args.defaults)),
     cwd: args.folderPath,
     ...(args.nativeSessionIdByTab[tabId]
       ? { nativeSessionId: args.nativeSessionIdByTab[tabId] }

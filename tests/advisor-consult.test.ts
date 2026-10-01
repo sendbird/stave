@@ -7,6 +7,8 @@ import {
 } from "../electron/providers/advisor-consult";
 import type { AdvisorRunnerDependencies } from "../electron/providers/advisor-runtime";
 import type { BridgeEvent } from "../electron/providers/types";
+import { currentProviderAccountId, withProviderAccountScope } from "../electron/provider-accounts/runtime-scope";
+import { gatewayCredentialAvailable, withGatewayCredential } from "../electron/provider-accounts/gateway-runtime";
 
 type UsageEvent = Extract<BridgeEvent, { type: "usage" }>;
 type AdvisorActivityEvent = Extract<BridgeEvent, { type: "advisor_activity" }>;
@@ -110,6 +112,45 @@ afterEach(() => {
 });
 
 describe("consultAdvisor", () => {
+  test.each(["claude-code", "codex"] as const)("captures the turn account and isolates %s Advisor sessions", async (providerId) => {
+    const seen: Array<{ account: string; credential: boolean; resume?: string }> = [];
+    const run = async (args: { resumeSessionId?: string }) => {
+      await Promise.resolve();
+      const account = currentProviderAccountId(providerId);
+      seen.push({ account, credential: gatewayCredentialAvailable(), resume: args.resumeSessionId });
+      return { ok: true, text: "Advice", nativeSessionId: `session-${account}` };
+    };
+    const target = { providerId, model: providerId === "claude-code" ? TARGET.model : "gpt-6.1-sol" };
+    for (const [index, account] of ["account-a", "account-b", "account-a"].entries()) {
+      const harness = createGrant({
+        consultKey: `account-grant-${index}`,
+        taskId: "same-task",
+        runners: {
+          runClaude: run, runCodex: run,
+          getCodexModelCatalog: createUnusedRunner("Static model must not query the catalog."),
+        },
+      });
+      harness.grant.target = target;
+      const handle = withGatewayCredential({ profileId: account, token: "fixture-key" }, () =>
+        withProviderAccountScope({ claudeAccountProfileId: account, codexAccountProfileId: account }, () =>
+          registerAdvisorConsultGrant(harness.grant)));
+      // MCP arrives later in a separate host request with unrelated defaults.
+      await withGatewayCredential(undefined, () => withProviderAccountScope({
+        claudeAccountProfileId: "system-default", codexAccountProfileId: "system-default",
+      }, async () => {
+        expect(await consultAdvisor({ consultKey: harness.grant.consultKey, question: "Review" })).toMatchObject({ ok: true });
+        expect(currentProviderAccountId(providerId)).toBe("system-default");
+        expect(gatewayCredentialAvailable()).toBe(false);
+      }));
+      handle.revoke();
+    }
+    expect(seen).toEqual([
+      { account: "account-a", credential: true, resume: undefined },
+      { account: "account-b", credential: true, resume: undefined },
+      { account: "account-a", credential: true, resume: "session-account-a" },
+    ]);
+  });
+
   test("validates evidence before spending the grant and passes it to the runner", async () => {
     const prompts: string[] = [];
     const harness = createGrant({

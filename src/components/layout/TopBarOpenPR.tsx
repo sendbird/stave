@@ -520,7 +520,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 promptTemplate: promptPrDescription,
                 workspaceContext: workspaceContext || undefined,
                 runtimeOptions: {
-                  ...buildReadOnlyAuxRuntimeOptions({
+                  ...buildReadOnlyAuxRuntimeOptions({ accountSelection: useAppStore.getState().settings,
                     providerId: prDescriptionLane.providerId,
                     model: prDescriptionLane.model,
                     effortOverrides: prDescriptionLane.effortOverrides,
@@ -835,7 +835,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           ? prePrReviewCodexModel
           : prePrReviewClaudeModel);
       const reviewRuntimeOptions = {
-        ...buildReadOnlyAuxRuntimeOptions({
+        ...buildReadOnlyAuxRuntimeOptions({ accountSelection: useAppStore.getState().settings,
           providerId: prePrReviewLane.providerId,
           model: reviewModel,
           effortOverrides: prePrReviewLane.effortOverrides,

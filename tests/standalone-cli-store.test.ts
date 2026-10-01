@@ -218,3 +218,15 @@ describe("standalone cli folder adoption", () => {
     }
   });
 });
+
+
+test("account pin survives a second launch and resets only when the folder changes", async () => {
+  const store = useStandaloneCliStore;
+  const deps = { closeSessionsBySlotPrefix: async () => ({ ok: true }) };
+  await store.getState().adoptFolder({ folderPath: "/tmp/original" }, deps);
+  store.getState().pinTabAccount("codex", "11111111-1111-4111-8111-111111111111");
+  store.getState().pinTabAccount("codex", "22222222-2222-4222-8222-222222222222");
+  expect(store.getState().accountProfileIdByTab.codex).toBe("11111111-1111-4111-8111-111111111111");
+  await store.getState().adoptFolder({ folderPath: "/tmp/replacement" }, deps);
+  expect(store.getState().accountProfileIdByTab).toEqual({});
+});

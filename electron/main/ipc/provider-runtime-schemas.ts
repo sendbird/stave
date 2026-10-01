@@ -1,15 +1,11 @@
 import { z } from "zod";
+import { ProviderAccountProfileIdSchema } from "../../../src/lib/providers/provider-accounts";
 import { WORKER_PRESET_IDS } from "../../../src/lib/providers/worker-preset-ids";
 import { MAX_BOUND_SECRETS } from "../../../src/lib/secrets/secrets";
 
 export const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 
-export const ProviderIdSchema = z.union([
-  z.literal("claude-code"),
-  z.literal("codex"),
-  z.literal("cursor"),
-  z.literal("kiro"),
-]);
+export const ProviderIdSchema = z.enum(["claude-code", "codex", "cursor", "kiro"]);
 
 export const ManagedExecutionProviderIdSchema = z.union([
   z.literal("claude-code"),
@@ -18,6 +14,8 @@ export const ManagedExecutionProviderIdSchema = z.union([
 
 export const RuntimeOptionsObjectSchema = z
   .object({
+    claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+    codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     model: z.string().max(200).optional(),
     chatStreamingEnabled: z.boolean().optional(),
     debug: z.boolean().optional(),

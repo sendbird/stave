@@ -1,3 +1,5 @@
+import { currentProviderAccountId, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
+import { currentClaudeGateway, validateClaudeGatewayModel } from "../provider-accounts/gateway-runtime";
 import { createClaudeModelResolutionTracker } from "./claude-model-resolution";
 import {
   buildClaudeDenyPermissionResult,
@@ -86,7 +88,6 @@ import type {
   ClaudeInstalledPluginsResponse,
   ClaudeMcpStatusResponse,
   ClaudePluginReloadResponse,
-  ClaudeSessionForkResponse,
   ProviderMutationResponse,
 } from "../../src/lib/providers/provider.types";
 import {
@@ -249,11 +250,8 @@ export function resolveClaudeExecutablePath(
   });
 }
 
-export function buildClaudeEnv(args: { executablePath: string; cwd?: string }) {
-  return buildClaudeCliEnv({
-    executablePath: args.executablePath,
-    cwd: args.cwd,
-  });
+export function buildClaudeEnv(args: { executablePath: string; cwd?: string; accountProfileId?: string }) {
+  return buildClaudeCliEnv(args);
 }
 
 function buildClaudeDiagnostics(args: {
@@ -557,6 +555,7 @@ async function resolveClaudeEnabledPluginsForQuery(args: {
       args.claudeConfigDir ??
       buildClaudeEnv({
         executablePath: args.claudeExecutablePath,
+        accountProfileId: args.runtimeOptions?.claudeAccountProfileId,
         cwd: args.cwd,
       }).CLAUDE_CONFIG_DIR;
     const inventory = await resolveClaudeInstalledPlugins({
@@ -1079,6 +1078,13 @@ export function buildClaudeQueryOptions(args: {
    */
   secretEnv?: Record<string, string>;
 }): Options {
+  const gateway = currentClaudeGateway(args.runtimeOptions?.claudeAccountProfileId);
+  if (gateway) {
+    const model = validateClaudeGatewayModel(args.runtimeOptions?.model, args.runtimeOptions?.claudeAccountProfileId);
+    const claudeFallbackModel = args.runtimeOptions?.claudeFallbackModel?.split(",").filter(Boolean)
+      .map(fallback => validateClaudeGatewayModel(fallback.trim(), args.runtimeOptions?.claudeAccountProfileId)).join(",");
+    args = { ...args, runtimeOptions: { ...args.runtimeOptions, model, claudeFallbackModel, claudeSettingSources: [] } };
+  }
   const permissionMode =
     args.permissionMode ??
     resolveClaudePermissionMode({
@@ -1172,6 +1178,8 @@ export function buildClaudeQueryOptions(args: {
           permissionMode,
         })
       : undefined;
+  if (gateway) for (const worker of Object.values(workerAgents ?? {}))
+    if (worker.model && worker.model !== "inherit") worker.model = validateClaudeGatewayModel(worker.model, args.runtimeOptions?.claudeAccountProfileId);
   const fallbackModel = resolveClaudeFallbackModel({
     model: args.runtimeOptions?.model,
     fallbackModel: args.runtimeOptions?.claudeFallbackModel,
@@ -1366,6 +1374,7 @@ export function buildClaudeQueryOptions(args: {
       ...buildClaudeEnv({
         executablePath: args.claudeExecutablePath,
         cwd: args.cwd,
+        accountProfileId: args.runtimeOptions?.claudeAccountProfileId,
       }),
     },
     ...(args.claudeExecutablePath.length > 0
@@ -1848,10 +1857,11 @@ export function buildClaudeReadOnlyPromptOptions(args: {
   claudeExecutablePath: string;
   resumeSessionId?: string;
 }): Options {
+  const model = validateClaudeGatewayModel(args.model);
   return {
     abortController: args.abortController,
     cwd: args.cwd,
-    model: args.model,
+    model,
     ...(args.effort &&
     modelAcceptsExplicitEffort({
       providerId: "claude-code",
@@ -2042,103 +2052,7 @@ export async function runClaudeReadOnlyPrompt(args: {
   }
 }
 
-export async function forkClaudeSession(args: {
-  sessionId: string;
-  upToMessageId: string;
-  title?: string;
-  cwd?: string;
-}): Promise<ClaudeSessionForkResponse> {
-  try {
-    const mod = await getPrewarmedSdkModule();
-    if (!mod.forkSession) {
-      return {
-        ok: false,
-        detail: "Claude SDK forkSession() is unavailable.",
-      };
-    }
-
-    const dir = args.cwd && path.isAbsolute(args.cwd) ? args.cwd : undefined;
-    const sourceMessages = mod.getSessionMessages
-      ? await mod
-          .getSessionMessages(args.sessionId, {
-            ...(dir ? { dir } : {}),
-          })
-          .catch(() => [])
-      : [];
-    const result = await mod.forkSession(args.sessionId, {
-      ...(dir ? { dir } : {}),
-      upToMessageId: args.upToMessageId,
-      ...(args.title?.trim() ? { title: args.title.trim() } : {}),
-    });
-    const forkedMessages = mod.getSessionMessages
-      ? await mod
-          .getSessionMessages(result.sessionId, {
-            ...(dir ? { dir } : {}),
-          })
-          .catch(() => [])
-      : [];
-    const targetIndex = sourceMessages.findIndex(
-      (message) => message.uuid === args.upToMessageId,
-    );
-    const sourceThroughTarget =
-      targetIndex >= 0 ? sourceMessages.slice(0, targetIndex + 1) : [];
-    const messageIdMap = Object.fromEntries(
-      sourceThroughTarget.flatMap((message, index) => {
-        const forkedMessage = forkedMessages[index];
-        return forkedMessage &&
-          message.type === "assistant" &&
-          forkedMessage.type === message.type
-          ? [[message.uuid, forkedMessage.uuid] as const]
-          : [];
-      }),
-    );
-    const lastAssistantMessageId = forkedMessages
-      .filter((message) => message.type === "assistant")
-      .at(-1)?.uuid;
-
-    return {
-      ok: true,
-      detail: "Forked Claude session.",
-      sessionId: result.sessionId,
-      ...(lastAssistantMessageId ? { lastAssistantMessageId } : {}),
-      ...(Object.keys(messageIdMap).length > 0 ? { messageIdMap } : {}),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      detail: `Claude session fork failed: ${toText(error)}`,
-    };
-  }
-}
-
-export async function renameClaudeSession(args: {
-  sessionId: string;
-  title: string;
-  cwd?: string;
-}): Promise<ProviderMutationResponse> {
-  try {
-    const mod = await getPrewarmedSdkModule();
-    if (!mod.renameSession) {
-      return {
-        ok: false,
-        detail: "Claude SDK renameSession() is unavailable.",
-      };
-    }
-    const dir = args.cwd && path.isAbsolute(args.cwd) ? args.cwd : undefined;
-    await mod.renameSession(args.sessionId, args.title, {
-      ...(dir ? { dir } : {}),
-    });
-    return {
-      ok: true,
-      detail: "Renamed Claude session.",
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      detail: `Claude session rename failed: ${toText(error)}`,
-    };
-  }
-}
+export { forkClaudeSession, renameClaudeSession } from "../provider-accounts/claude-session-operations";
 
 const sessionIdByTask = new Map<string, string>();
 const sessionMcpScopeByTask = new Map<string, string>();
@@ -2175,6 +2089,7 @@ function toClaudeCommandCatalogKey(args: {
   const settingSources = args.runtimeOptions?.claudeSettingSources;
   const pluginOverrides = args.runtimeOptions?.claudePluginOverrides ?? {};
   return JSON.stringify([
+    currentProviderAccountId("claude-code"),
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd(),
     args.runtimeOptions?.claudeBinaryPath ?? "",
     Array.isArray(settingSources) ? [...settingSources].sort() : null,
@@ -2541,16 +2456,16 @@ export async function reloadClaudePlugins(args: {
 }
 
 export function cleanupClaudeTask(taskId: string) {
-  sessionIdByTask.delete(taskId);
-  sessionMcpScopeByTask.delete(taskId);
-  activeRunByTask.delete(taskId);
+  for (const map of [sessionIdByTask, sessionMcpScopeByTask, activeRunByTask]) {
+    for (const key of map.keys()) if (providerAccountKeyMatchesTask(key, taskId)) map.delete(key);
+  }
 }
 
 function resolveSessionId(args: {
   taskId?: string;
   fallbackSessionId?: string;
 }) {
-  const taskKey = args.taskId ?? "default";
+  const taskKey = providerAccountKey("claude-code", args.taskId ?? "default");
   return sessionIdByTask.get(taskKey) ?? args.fallbackSessionId?.trim();
 }
 
@@ -2563,7 +2478,7 @@ function rememberSessionId(args: {
   if (!nextSessionId) {
     return;
   }
-  const taskKey = args.taskId ?? "default";
+  const taskKey = providerAccountKey("claude-code", args.taskId ?? "default");
   sessionIdByTask.set(taskKey, nextSessionId);
   if (args.mcpScopeKey) {
     sessionMcpScopeByTask.set(taskKey, args.mcpScopeKey);
@@ -2935,7 +2850,7 @@ async function createClaudeMcpControlQuery(args: {
 
   return {
     runtimeCwd,
-    scopeKey: `${claudeExecutablePath}\u0000${runtimeCwd}`,
+    scopeKey: providerAccountKey("claude-code", `${claudeExecutablePath}\u0000${runtimeCwd}`),
     stream,
   };
 }
@@ -3184,7 +3099,7 @@ export async function streamClaudeWithSdk(
     registerSteerResponder?: (responder: ProviderSteerResponder) => void;
   },
 ): Promise<BridgeEvent[] | null> {
-  const taskKey = args.taskId ?? "default";
+  const taskKey = providerAccountKey("claude-code", args.taskId ?? "default");
   const previousRun = activeRunByTask.get(taskKey) ?? Promise.resolve();
   let releaseCurrentRun!: () => void;
   const currentRun = new Promise<void>((resolve) => {
@@ -4290,7 +4205,8 @@ export async function suggestClaudePRDescription(args: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: args.model?.trim() || "claude-haiku-4-5",
+        model: validateClaudeGatewayModel(args.model?.trim() || "claude-haiku-4-5"),
+        ...(currentClaudeGateway() ? { settingSources: [] } : {}),
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),
@@ -4366,7 +4282,8 @@ export async function reviewClaudeWorktreeDiff(args: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: args.model?.trim() || "claude-sonnet-5",
+        model: validateClaudeGatewayModel(args.model?.trim() || "claude-sonnet-5"),
+        ...(currentClaudeGateway() ? { settingSources: [] } : {}),
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),
