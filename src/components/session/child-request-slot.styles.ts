@@ -36,6 +36,11 @@ export const childRequestSlotStyles = stylex.create({
     margin: 0,
     minWidth: 0,
   },
+  eyebrow: {
+    color: vars["--ads-color-text-subtle"],
+    flex: "0 0 auto",
+    whiteSpace: "nowrap",
+  },
   childTitle: {
     color: vars["--ads-color-text"],
     fontWeight: vars["--ads-font-weight-medium"],
@@ -49,6 +54,7 @@ export const childRequestSlotStyles = stylex.create({
     flex: "0 0 auto",
     fontSize: vars["--ads-font-size-micro"],
     marginInlineStart: "auto",
+    whiteSpace: "nowrap",
   },
   status: {
     color: vars["--ads-color-text-muted"],

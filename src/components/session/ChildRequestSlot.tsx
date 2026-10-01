@@ -188,15 +188,14 @@ export function ChildRequestView(props: {
     >
       <div className={sx(styles.header)}>
         <p className={sx(styles.attribution)}>
+          <span className={sx(styles.eyebrow)}>Delegated task</span>
           <span className={sx(styles.childTitle)} title={props.childTitle}>
             {props.childTitle}
           </span>
           <AgentIdentity compact providerId={props.providerId} model={pending?.model} />
         </p>
         {props.queuedCount > 0 ? (
-          <span className={sx(styles.queued)}>
-            +{props.queuedCount} more from delegated tasks
-          </span>
+          <span className={sx(styles.queued)}>+{props.queuedCount} more</span>
         ) : null}
       </div>
       {pending?.part.type === "approval" ? (

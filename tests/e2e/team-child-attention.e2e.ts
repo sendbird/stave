@@ -43,3 +43,19 @@ test("replacement message and child turn cannot take a response prepared for ano
   await expect(page.getByLabel("Selected task", { exact: true })).toHaveText("preview-parent");
   await expect(page.getByLabel("Selected workspace", { exact: true })).toHaveText("preview-workspace");
 });
+
+test("parent composer answers a child's approval, attributed to the child, without changing its selection", async ({ page }) => {
+  await page.goto("/?stavePreview=collaboration&managed=1&attention=1");
+  const slot = page.getByRole("region", { name: "Requests from delegated tasks", exact: true });
+  await expect(slot.getByText("Implementation", { exact: true })).toBeVisible();
+  await expect(slot.getByText("Run first verification command", { exact: true })).toBeVisible();
+  await expect(slot.getByText("+2 more", { exact: true })).toBeVisible();
+  await slot.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(document.body.dataset.attentionResponses ?? "[]"))).toEqual([
+    { kind: "approval", workspaceId: "attention-workspace", taskId: "attention-child", requestId: "first", approved: true },
+  ]);
+  // The answered request leaves the slot; the next child request takes its place.
+  await expect(slot.getByText("Which branch should receive the result?", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Selected task", { exact: true })).toHaveText("preview-parent");
+  await expect(page.getByLabel("Selected workspace", { exact: true })).toHaveText("preview-workspace");
+});

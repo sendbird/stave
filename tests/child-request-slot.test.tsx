@@ -85,7 +85,7 @@ describe("child requests in the parent composer", () => {
     expect(html).toContain("Shell");
     expect(html).toContain("Run focused tests");
     expect(html).toContain("Approve");
-    expect(html).toContain("+1 more from delegated tasks");
+    expect(html).toContain("+1 more");
     // The child itself, or an unrelated task, has nothing to answer on a child's behalf.
     for (const rootTaskId of ["child", "elsewhere"]) {
       expect(selectDelegatedInteractionRequests({ notifications, rootTaskId, repositoryPath: REPOSITORY_PATH,
