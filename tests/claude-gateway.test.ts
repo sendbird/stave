@@ -54,13 +54,21 @@ describe("Claude Gateway connections", () => {
     const resolve = async (id: string) => { calls++; expect(id).toBe(secretId); return { id, value: "fixture-gateway-key" }; };
     expect(await resolveHostGatewayCredential({ providerId: "claude-code", runtimeOptions: { claudeAccountProfileId: profile.id } }, resolve)).toEqual({ profileId: profile.id, token: "fixture-gateway-key" });
     expect(await resolveHostGatewayCredential({ providerId: "codex", runtimeOptions: { claudeAccountProfileId: profile.id } }, resolve)).toBeUndefined();
-    expect(calls).toBe(1);
+    expect(await resolveHostGatewayCredential({ providerId: "codex", runtimeOptions: {
+      claudeAccountProfileId: profile.id, advisorTarget: { providerId: "claude-code" },
+    } }, resolve)).toEqual({ profileId: profile.id, token: "fixture-gateway-key" });
+    expect(calls).toBe(2);
     expect(await resolveHostGatewayCredential({ input: { providerId: "claude-code", runtimeHints: { claudeAccountProfileId: profile.id } } }, async () => null)).toEqual({ profileId: profile.id });
     expect(await resolveHostGatewayCredential({ claudeAccountProfileId: profile.id }, async () => { throw new Error("fixture-sensitive-error"); })).toEqual({ profileId: profile.id });
     inGateway(profile.id, undefined, () => expect(() => validateClaudeGatewayModel(gateway.models[0])).toThrow("API key is unavailable"));
     const native = registry.create({ providerId: "claude-code", label: "Native" });
     expect(await resolveHostGatewayCredential({ claudeAccountProfileId: native.id }, resolve)).toBeUndefined();
-    expect(calls).toBe(1);
+    expect(calls).toBe(2);
+    registry.remove({ providerId: "claude-code", id: profile.id });
+    expect(await resolveHostGatewayCredential({ providerId: "codex", runtimeOptions: {
+      claudeAccountProfileId: profile.id, advisorTarget: { providerId: "claude-code" },
+    } }, resolve)).toEqual({ profileId: profile.id });
+    expect(calls).toBe(2);
   });
 
   test("concurrent SDK requests isolate credentials, preserve tools and streaming, and restrict model fallback", async () => {
