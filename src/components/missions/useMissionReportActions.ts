@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { isAgentRun } from "@/lib/missions/agent-run";
 import type { MissionDetail } from "@/lib/missions/api";
 import type { MissionReport } from "@/lib/missions/report";
 import {
@@ -111,7 +112,8 @@ export function useMissionReportActions(detail: MissionDetail | undefined): Miss
         return `Saved ${facts.length} ${facts.length === 1 ? "decision" : "decisions"} as memory candidates. Review them in Memory.`;
       };
     }
-    actions.saveAsPlaybook = async () => saveMissionPlaybook(mission.playbook);
+    // An agent run's playbook is implicit: there is nothing to save.
+    if (!isAgentRun(mission)) actions.saveAsPlaybook = async () => saveMissionPlaybook(mission.playbook);
     actions.suggestedSlackThread = findSlackThreadUrl(mission.assignment);
     actions.shareToSlack = async (threadUrl) => {
       const api = window.api?.missions;

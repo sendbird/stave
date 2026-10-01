@@ -9,6 +9,8 @@ import { WakeUpSection } from "@/components/missions/WakeUpSection";
 import { TeamSection } from "@/components/team/TeamSection";
 import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState } from "@/lib/missions/domain";
+import { isAgentRun } from "@/lib/missions/agent-run";
+import { describeAgentRunStatus } from "@/lib/missions/agent-run-view";
 import { describeMissionBadge } from "@/lib/missions/mission-view";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import {
@@ -183,7 +185,7 @@ function ActivityMark(props: { taskId: string }) {
 function ProgressMark(props: { mission: MissionDetail | undefined }) {
   const { mission } = props;
   if (!mission || !isActiveMissionState(mission.mission.state)) return null;
-  const badge = describeMissionBadge(mission);
+  const badge = isAgentRun(mission.mission) ? describeAgentRunStatus(mission) : describeMissionBadge(mission);
   if (badge.tone === "warning") return <Mark tone="warning" label={badge.label} />;
   if (badge.tone === "danger") return <Mark tone="danger" label={badge.label} />;
   return null;

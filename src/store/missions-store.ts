@@ -327,6 +327,30 @@ export function useMissionTurnDivider(workspaceId: string, taskId: string, turnI
 }
 
 /**
+ * The agent run that started a turn of the task, or null when no mission did
+ * or the mission is a playbook's. Returns the stored mission, so it is safe as
+ * a selector result.
+ */
+export function selectAgentRunForTurn(
+  state: Pick<MissionsState, "missionIdsByTask" | "dividersByMission" | "details">,
+  workspaceId: string,
+  taskId: string,
+  turnId: string | undefined,
+): Mission | null {
+  if (!turnId) return null;
+  for (const id of state.missionIdsByTask[missionTaskKey(workspaceId, taskId)] ?? []) {
+    if (!state.dividersByMission[id]?.has(turnId)) continue;
+    const mission = state.details[id]?.mission;
+    return mission && isAgentRun(mission) ? mission : null;
+  }
+  return null;
+}
+
+export function useAgentRunForTurn(workspaceId: string, taskId: string, turnId: string | undefined) {
+  return useMissionsStore((state) => selectAgentRunForTurn(state, workspaceId, taskId, turnId));
+}
+
+/**
  * Whether a change event announces a mission that just started, as opposed
  * to one this store has not loaded yet. Until the workspace has loaded,
  * nothing counts as new.

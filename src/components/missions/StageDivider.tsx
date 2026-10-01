@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Target } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
-import { useMissionTurnDivider } from "@/store/missions-store";
+import { useAgentRunForTurn, useMissionTurnDivider } from "@/store/missions-store";
 import { missionStyles as styles } from "./missions.styles";
 
 /** "Stage 3 · Verify — started automatically…" → the stage and the reason. */
@@ -17,12 +17,14 @@ export function splitDividerText(text: string): { stage: string; reason: string 
  * A quiet transcript divider before a turn a mission started, such as
  * "Stage 3 · Verify — started automatically after Build reported done".
  * Built from mission events, never from message text; renders nothing for
- * any other turn.
+ * any other turn, or for a turn of an agent run.
  */
 export const StageDivider = memo(function StageDivider(props: { taskId: string; turnId: string | undefined }) {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const text = useMissionTurnDivider(workspaceId, props.taskId, props.turnId);
-  if (!text) return null;
+  // An agent run has one implicit stage; its turns need no stage divider.
+  const agentRun = useAgentRunForTurn(workspaceId, props.taskId, props.turnId);
+  if (!text || agentRun) return null;
   return <StageDividerView text={text} />;
 });
 
