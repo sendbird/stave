@@ -18,6 +18,22 @@ decisions are recorded in
 
 The renderer submits a selected provider and model with each turn. `electron/main/ipc/provider.ts` validates the request, forwards it into the dedicated desktop `host-service` child process, and `electron/providers/runtime.ts` dispatches to the matching provider runtime.
 
+### Optional provider discovery
+
+Cursor and Kiro model options and account usage meters follow the native status
+shown in Settings > Tooling. Discovery checks the executable, ACP support, and
+native login together, sharing a bounded probe and a one-minute cache. Missing,
+unsupported, logged-out, and initially unverified providers have no new model
+options or account-usage reads. Tooling remains available to diagnose and repair
+them. Existing tasks retain their selected provider, model, and effort.
+
+A failed status check after a successful one retains the last catalog and usage
+as unverified, pauses reads, and excludes the provider from new automatic
+selection. A usage endpoint failure alone does not hide authenticated models;
+exhausted quota remains visible. Startup, window focus, binary changes, periodic
+discovery, and Tooling Refresh update status. Late replies cannot repopulate a
+catalog or usage meter after a detected logout or configuration change.
+
 ## Cursor Agent ACP runtime
 
 Cursor is available for interactive primary task turns. Stave starts a

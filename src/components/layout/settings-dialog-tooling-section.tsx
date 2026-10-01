@@ -22,6 +22,9 @@ import type {
   ToolingStatusState,
 } from "@/lib/tooling-status";
 import { useAppStore } from "@/store/app.store";
+import { publishProviderTooling, useProviderReadinessStore } from "@/lib/providers/provider-readiness-store";
+import { providerConfigurationKey } from "@/lib/providers/provider-readiness";
+import { providerToolingStatePatch } from "@/store/provider-tooling";
 import {
   InfoRow,
   SectionStack,
@@ -275,6 +278,7 @@ export function ToolingSection() {
     detail: "Refreshing native tooling status...",
   });
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const readiness = useProviderReadinessStore((state) => state.providers);
 
   useEffect(() => {
     const getStatus = window.api?.tooling?.getStatus;
@@ -306,6 +310,9 @@ export function ToolingSection() {
         if (cancelled) {
           return;
         }
+        const runtimeOptions = { cursorBinaryPath, kiroBinaryPath };
+        for (const tool of snapshot.tools) publishProviderTooling(tool, runtimeOptions);
+        useAppStore.setState(providerToolingStatePatch(useAppStore.getState()));
         setViewState({
           status: "ready",
           snapshot,
@@ -410,7 +417,7 @@ export function ToolingSection() {
               {snapshot.tools.map((tool) => (
                 <ToolCard
                   key={tool.id}
-                  tool={tool}
+                  tool={(tool.id === "cursor" || tool.id === "kiro") && readiness[tool.id]?.configurationKey === providerConfigurationKey(tool.id, { cursorBinaryPath, kiroBinaryPath }) ? readiness[tool.id]!.tool : tool}
                   canOpenTerminal={Boolean(workspaceCwd)}
                   onOpenTerminal={handleOpenTerminal}
                   onCopyRepairCommand={handleCopyRepairCommand}

@@ -136,6 +136,7 @@ export interface ProviderWorkGraphCapabilities {
 }
 
 export interface ProviderAvailabilityResponse {
+  toolingStatus?: import("../tooling-status").ToolingStatusEntry;
   ok: boolean;
   available: boolean;
   detail: string;

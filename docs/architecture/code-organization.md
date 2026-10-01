@@ -28,6 +28,12 @@ them.
 
 Additional focused owners:
 
+Optional provider discovery lives in `electron/providers/optional-provider-tooling.ts`;
+`src/lib/providers/provider-readiness-store.ts` supplies Tooling, catalogs, and
+usage surfaces. `src/store/app-store-provider-actions.ts` owns availability and
+usage refresh actions. Focused checks are `tests/optional-provider-tooling.test.ts`,
+`tests/provider-readiness.test.ts`, and `tests/kiro-usage-connection.test.ts`.
+
 | Domain | Owner and boundary | Focused tests to start with |
 | --- | --- | --- |
 | Claude SDK events | `electron/providers/claude-event-mapping.ts` translates SDK events using supplied tracker/plan state; `claude-sdk-runtime.ts` owns turn state and rate-limit observation side effects; `src/lib/session/provider-event-replay.ts` and `src/lib/work-graph/work-graph-reducer.ts` consume normalized events and correlate tool results with earlier tool calls | `tests/claude-sdk-runtime.test.ts`, `tests/claude-rate-limits-observation.test.ts`; inspect replay or work-graph tests when their state changes |

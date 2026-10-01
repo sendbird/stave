@@ -53,6 +53,7 @@ import {
   type AppSettings,
 } from "@/store/app-settings";
 import type { AppState } from "@/store/app-store.types";
+import { providerToolingStatePatch } from "./provider-tooling";
 import {
   normalizeAutoRoutingEligibleModels,
   normalizeAutoRoutingObjective,
@@ -693,6 +694,10 @@ export function createSettingsActions(args: {
             console.warn("[automations] failed to sync provider timeout", error);
           });
         }
+      }
+      if (normalizedPatch.cursorBinaryPath !== undefined || normalizedPatch.kiroBinaryPath !== undefined) {
+        set(providerToolingStatePatch(get()));
+        void get().refreshProviderAvailability();
       }
 
       // ── apply custom theme ────────────────────────────────────────

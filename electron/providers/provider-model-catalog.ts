@@ -6,18 +6,20 @@ import type {
 import { getCodexModelCatalog } from "./codex-app-server-runtime";
 import { getCursorModelCatalog } from "./cursor/cursor-model-catalog";
 import { getKiroModelCatalog } from "./kiro/kiro-model-catalog";
+import { isOptionalProvider } from "../../src/lib/providers/provider-readiness";
+import { optionalProviderReadKey } from "./optional-provider-tooling";
 
 export async function getProviderModelCatalog(args: {
   providerId: ProviderId;
   cwd?: string;
   runtimeOptions?: ProviderRuntimeOptions;
 }): Promise<ProviderModelCatalogResponse> {
-  if (args.providerId === "cursor") {
-    return getCursorModelCatalog(args);
-  }
-
-  if (args.providerId === "kiro") {
-    return getKiroModelCatalog(args);
+  if (isOptionalProvider(args.providerId)) {
+    const key = optionalProviderReadKey(args.providerId, args.runtimeOptions);
+    const unavailable = { providerId: args.providerId, ok: false, detail: "Verify installation and login in Settings > Tooling before loading models.", models: [] };
+    if (!key) return unavailable;
+    const result = await (args.providerId === "cursor" ? getCursorModelCatalog(args) : getKiroModelCatalog(args));
+    return key === optionalProviderReadKey(args.providerId, args.runtimeOptions) ? result : unavailable;
   }
 
   if (args.providerId === "codex") {

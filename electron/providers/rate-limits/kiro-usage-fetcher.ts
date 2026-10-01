@@ -38,6 +38,7 @@ const KiroUsageResponseSchema = z
 
 type KiroUsageConnection = {
   executablePath: string;
+  identity: string;
   client: AcpProtocolClient;
   sessionId: string;
 };
@@ -160,6 +161,7 @@ export function mapKiroUsageResponse(raw: unknown): KiroUsageSnapshot | null {
 async function createConnection(args: {
   executablePath: string;
   cwd: string;
+  identity: string;
 }): Promise<KiroUsageConnection> {
   const client = new AcpProtocolClient({
     command: args.executablePath,
@@ -179,6 +181,7 @@ async function createConnection(args: {
     });
     return {
       executablePath: args.executablePath,
+      identity: args.identity,
       client,
       sessionId: session.sessionId,
     };
@@ -191,8 +194,9 @@ async function createConnection(args: {
 async function getConnection(args: {
   executablePath: string;
   cwd: string;
+  identity: string;
 }): Promise<KiroUsageConnection> {
-  if (activeConnection?.executablePath === args.executablePath) {
+  if (activeConnection?.identity === args.identity) {
     return activeConnection;
   }
   if (!connecting) {
@@ -202,16 +206,20 @@ async function getConnection(args: {
       return connection;
     });
   }
+  const request = connecting;
+  let connection: KiroUsageConnection;
   try {
-    return await connecting;
+    connection = await request;
   } finally {
-    connecting = null;
+    if (connecting === request) connecting = null;
   }
+  return connection.identity === args.identity ? connection : getConnection(args);
 }
 
 export async function fetchKiroUsageSnapshot(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  usageIdentity?: string;
 }): Promise<KiroUsageSnapshot> {
   const executablePath = resolveKiroExecutablePath({
     explicitPath: args.runtimeOptions?.kiroBinaryPath,
@@ -220,8 +228,9 @@ export async function fetchKiroUsageSnapshot(args: {
     return unavailable("Kiro CLI was not found.");
   }
   const cwd = args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  const identity = args.usageIdentity ?? executablePath;
   try {
-    const connection = await getConnection({ executablePath, cwd });
+    const connection = await getConnection({ executablePath, cwd, identity });
     const response = await connection.client.request(
       "_kiro.dev/commands/execute",
       {
@@ -230,13 +239,13 @@ export async function fetchKiroUsageSnapshot(args: {
       },
       KiroUsageResponseSchema,
     );
-    armIdleClose();
+    if (activeConnection?.identity === identity) armIdleClose();
     return (
       mapKiroUsageResponse(response) ??
       unavailable("Kiro usage response was not recognized.")
     );
   } catch {
-    resetActiveConnection();
+    if (activeConnection?.identity === identity) resetActiveConnection();
     return unavailable("Kiro usage is unavailable. Sign in and retry.");
   }
 }

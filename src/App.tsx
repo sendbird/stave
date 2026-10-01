@@ -334,6 +334,8 @@ export default function App() {
           ? { kiroBinaryPath: state.settings.kiroBinaryPath }
           : {}),
       };
+      await useAppStore.getState().refreshProviderAvailability();
+      if (cancelled) return;
       void primeProviderModelCatalogs({
         cwd:
           state.workspacePathById[state.activeWorkspaceId] ??
@@ -345,8 +347,11 @@ export default function App() {
       if (cancelled) {
         return;
       }
-      void useAppStore.getState().refreshProviderAvailability();
     })();
+    const onProviderFocus = () => {
+      void useAppStore.getState().refreshProviderAvailability();
+    };
+    window.addEventListener("focus", onProviderFocus);
     const providerTimer = window.setInterval(() => {
       void useAppStore.getState().refreshProviderAvailability();
     }, 60000);
@@ -357,6 +362,7 @@ export default function App() {
       cancelled = true;
       unsubscribeBootstrapStatus?.();
       window.clearInterval(providerTimer);
+      window.removeEventListener("focus", onProviderFocus);
       window.clearInterval(workspaceTimer);
     };
   }, []);

@@ -30,6 +30,8 @@ export type WorkspaceSyncState =
   | "unknown";
 
 export interface ToolingStatusEntry {
+  /** Timestamp of the provider probe, retained when discovery is deduplicated. */
+  checkedAt?: string;
   id: ToolingStatusId;
   label: string;
   state: ToolingStatusState;

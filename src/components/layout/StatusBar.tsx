@@ -12,6 +12,7 @@ import {
   subscribeRateLimitsPollWake,
 } from "@/lib/providers/rate-limits-poll-policy";
 import { useAppStore } from "@/store/app.store";
+import { providerSurfaceVisible, useProviderReadinessStore } from "@/lib/providers/provider-readiness-store";
 import * as stylex from "@stylexjs/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
 
@@ -23,10 +24,14 @@ import { layoutShellStyles } from "./layout-shell.styles";
  */
 export function StatusBar() {
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
-  const providerAvailability = useAppStore(
-    (state) => state.providerAvailability,
+  const providerAvailability = useAppStore((state) => state.providerAvailability);
+  const readiness = useProviderReadinessStore((state) => state.providers);
+  const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
+  const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
+  const runtimeOptions = { cursorBinaryPath, kiroBinaryPath };
+  const usageProviders = listCliConnectedUsageProviders(providerAvailability).filter(
+    (provider) => (provider !== "cursor" && provider !== "kiro") || providerSurfaceVisible(provider, runtimeOptions),
   );
-  const usageProviders = listCliConnectedUsageProviders(providerAvailability);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -101,7 +106,7 @@ export function StatusBar() {
       unsubscribeWake();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [refreshRateLimits]);
+  }, [refreshRateLimits, readiness, cursorBinaryPath, kiroBinaryPath]);
 
   return (
     <div {...stylex.props(layoutShellStyles.statusBar)}>

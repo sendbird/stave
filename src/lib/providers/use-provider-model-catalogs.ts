@@ -1,5 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { registerCursorModelDisplayNames } from "@/lib/providers/cursor-model-id";
+import {
+  providerReadiness,
+  providerReadsAllowed,
+  providerSurfaceVisible,
+  useProviderReadinessStore,
+} from "./provider-readiness-store";
 import {
   getSdkModelOptions,
   getProviderDescriptor,
@@ -29,20 +35,21 @@ export interface ProviderModelCatalogState {
 
 type CachedProviderModelCatalog = ProviderModelCatalogState & {
   fetchedAt: number;
+  generation?: number;
 };
 
 const catalogCache = new Map<string, CachedProviderModelCatalog>();
-const catalogInflight = new Map<
-  string,
-  Promise<CachedProviderModelCatalog>
->();
+const catalogInflight = new Map<string, Promise<CachedProviderModelCatalog>>();
 
 function fallbackEntries(providerId: ProviderId): ProviderModelCatalogEntry[] {
   const descriptor = getProviderDescriptor({ providerId });
   return getSdkModelOptions({ providerId }).map((model) => ({
     model,
     displayName: toHumanModelName({ model }),
-    description: providerId === "codex" ? "Runtime support unconfirmed. You can still select this model." : "",
+    description:
+      providerId === "codex"
+        ? "Runtime support unconfirmed. You can still select this model."
+        : "",
     hidden: false,
     isDefault: model === descriptor.defaultModel,
     defaultEffort: null,
@@ -120,7 +127,16 @@ export function mergeProviderModelCatalogEntries(args: {
     merged.set(model, {
       ...entry,
       model,
-      ...(args.providerId === "codex" ? { description: ["Listed by the current Codex runtime.", entry.description].filter(Boolean).join(" ") } : {}),
+      ...(args.providerId === "codex"
+        ? {
+            description: [
+              "Listed by the current Codex runtime.",
+              entry.description,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          }
+        : {}),
       // `auto` is the default row for these providers; leaving the runtime's
       // moving default set here would reshuffle the picker's featured rows
       // every time the session's selection changed.
@@ -190,14 +206,37 @@ export async function loadProviderModelCatalog(args: {
 
   const key = cacheKey(args);
   const cached = catalogCache.get(key);
+  const generation = providerReadiness(
+    args.providerId,
+    args.runtimeOptions,
+  )?.generation;
+  if (!providerReadsAllowed(args.providerId, args.runtimeOptions)) {
+    if (cached && providerSurfaceVisible(args.providerId, args.runtimeOptions))
+      return {
+        ...cached,
+        detail:
+          "Status unverified. Showing the last model catalog; refresh Tooling to retry.",
+      };
+    catalogCache.delete(key);
+    return {
+      status: "idle",
+      models: [],
+      entries: [],
+      detail: "Verify installation and login in Settings > Tooling.",
+      isDynamic: false,
+      fetchedAt: 0,
+    };
+  }
   if (
     !args.force &&
     cached &&
+    cached.generation === generation &&
     Date.now() - cached.fetchedAt <= PROVIDER_MODEL_CATALOG_TTL_MS
   ) {
     return cached;
   }
-  const inflight = catalogInflight.get(key);
+  const inflightKey = `${key}:${generation ?? "default"}`;
+  const inflight = catalogInflight.get(inflightKey);
   if (inflight) {
     return inflight;
   }
@@ -212,6 +251,7 @@ export async function loadProviderModelCatalog(args: {
         detail: "Using the built-in model catalog.",
         isDynamic: false,
         fetchedAt: Date.now(),
+        generation,
       };
     }
     try {
@@ -220,6 +260,20 @@ export async function loadProviderModelCatalog(args: {
         ...(args.cwd ? { cwd: args.cwd } : {}),
         ...(args.runtimeOptions ? { runtimeOptions: args.runtimeOptions } : {}),
       });
+      if (
+        !providerReadsAllowed(args.providerId, args.runtimeOptions) ||
+        generation !==
+          providerReadiness(args.providerId, args.runtimeOptions)?.generation
+      ) {
+        return {
+          status: "idle",
+          models: [],
+          entries: [],
+          detail: "Provider status changed during model discovery.",
+          isDynamic: false,
+          fetchedAt: 0,
+        };
+      }
       const entries = mergeProviderModelCatalogEntries({
         providerId: args.providerId,
         dynamicEntries: result.ok ? result.models : [],
@@ -231,6 +285,7 @@ export async function loadProviderModelCatalog(args: {
         entries: [...result.models, ...entries],
       });
       const next: CachedProviderModelCatalog = {
+        generation,
         status: result.ok ? "ready" : "error",
         models: entries.map((entry) => entry.model),
         entries,
@@ -241,7 +296,20 @@ export async function loadProviderModelCatalog(args: {
       catalogCache.set(key, next);
       return next;
     } catch (error) {
+      if (
+        generation !==
+        providerReadiness(args.providerId, args.runtimeOptions)?.generation
+      )
+        return {
+          status: "idle",
+          models: [],
+          entries: [],
+          detail: "Provider status changed during model discovery.",
+          isDynamic: false,
+          fetchedAt: 0,
+        };
       const next: CachedProviderModelCatalog = {
+        generation,
         status: "error",
         models: fallback.map((entry) => entry.model),
         entries: fallback,
@@ -255,10 +323,10 @@ export async function loadProviderModelCatalog(args: {
       catalogCache.set(key, next);
       return next;
     } finally {
-      catalogInflight.delete(key);
+      catalogInflight.delete(inflightKey);
     }
   })();
-  catalogInflight.set(key, promise);
+  catalogInflight.set(inflightKey, promise);
   return promise;
 }
 
@@ -286,19 +354,23 @@ export function useProviderModelCatalogs(args: {
 }) {
   const [revision, setRevision] = useState(0);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const readiness = useProviderReadinessStore((state) => state.providers);
+  const lastRefreshNonce = useRef(0);
 
   useEffect(() => {
     if (!args.enabled) {
       return;
     }
     let cancelled = false;
+    const force = refreshNonce !== lastRefreshNonce.current;
+    lastRefreshNonce.current = refreshNonce;
     void Promise.all(
       listProviderDescriptors().map((descriptor) =>
         loadProviderModelCatalog({
           providerId: descriptor.id,
           cwd: args.cwd,
           runtimeOptions: args.runtimeOptions,
-          force: refreshNonce > 0,
+          force,
         }),
       ),
     ).then(() => {
@@ -309,7 +381,7 @@ export function useProviderModelCatalogs(args: {
     return () => {
       cancelled = true;
     };
-  }, [args.cwd, args.enabled, args.runtimeOptions, refreshNonce]);
+  }, [args.cwd, args.enabled, args.runtimeOptions, refreshNonce, readiness]);
 
   return useMemo(() => {
     const catalogs = {} as Record<ProviderId, ProviderModelCatalogState>;
@@ -322,7 +394,26 @@ export function useProviderModelCatalogs(args: {
           runtimeOptions: args.runtimeOptions,
         }),
       );
-      catalogs[descriptor.id] = cached ?? {
+      if (!providerReadsAllowed(descriptor.id, args.runtimeOptions)) {
+        catalogs[descriptor.id] =
+          cached && providerSurfaceVisible(descriptor.id, args.runtimeOptions)
+            ? {
+                ...cached,
+                detail: "Status unverified. Showing the last model catalog.",
+              }
+            : {
+                status: "idle",
+                models: [],
+                entries: [],
+                detail: "Verify installation and login in Settings > Tooling.",
+                isDynamic: false,
+              };
+        continue;
+      }
+      catalogs[descriptor.id] = (cached?.generation ===
+      providerReadiness(descriptor.id, args.runtimeOptions)?.generation
+        ? cached
+        : undefined) ?? {
         status:
           descriptor.modelCatalogSource === "runtime" && args.enabled
             ? "loading"
@@ -338,5 +429,5 @@ export function useProviderModelCatalogs(args: {
       revision,
       refresh: () => setRefreshNonce((value) => value + 1),
     };
-  }, [args.cwd, args.enabled, args.runtimeOptions, revision]);
+  }, [args.cwd, args.enabled, args.runtimeOptions, revision, readiness]);
 }

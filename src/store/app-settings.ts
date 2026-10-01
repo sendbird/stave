@@ -936,6 +936,6 @@ export function normalizePersistedLensSettings(
 
 export function createDefaultProviderAvailability() {
   return Object.fromEntries(
-    listProviderIds().map((providerId) => [providerId, true] as const),
+    listProviderIds().map((providerId) => [providerId, providerId !== "cursor" && providerId !== "kiro"] as const),
   ) as Record<ProviderId, boolean>;
 }
