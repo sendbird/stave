@@ -33,6 +33,8 @@ import {
   shouldRedirectClaudePreloadedSkillToolUse,
   shouldDenyClaudeToolInPlanMode,
   shouldKeepClaudeReadOnlyPrompt,
+  describeClaudeAutoModeFallback,
+  resolveClaudeAutoModeAvailability,
   buildClaudeSubagentProgressEvent,
   SubagentProgressTracker,
   waitForClaudeToolDecision,
@@ -3268,5 +3270,69 @@ describe("Claude auto-mode read-only fast path and deny rules", () => {
         toolName: "Bash",
       }),
     ).toBe("deny");
+  });
+});
+
+describe("Claude auto-mode availability notice", () => {
+  const models = [
+    { value: "default", resolvedModel: "claude-sonnet-5", supportsAutoMode: true },
+    { value: "opus", resolvedModel: "claude-opus-5-5", supportsAutoMode: true },
+    { value: "haiku", resolvedModel: "claude-haiku-5" },
+  ];
+
+  test("reports a model without the SDK's supportsAutoMode flag as unavailable", () => {
+    const availability = resolveClaudeAutoModeAvailability({
+      initPermissionMode: "auto",
+      initModel: "claude-haiku-5",
+      models,
+    });
+    expect(availability).toBe("unavailable-model");
+    expect(describeClaudeAutoModeFallback(availability)).toBe(
+      "Auto isn't available for this model; Claude will ask before actions.",
+    );
+  });
+
+  test("matches the session model by alias, canonical id or a 1M variant", () => {
+    for (const initModel of ["claude-opus-5-5", "opus", "claude-opus-5-5[1m]"]) {
+      expect(
+        resolveClaudeAutoModeAvailability({ initPermissionMode: "auto", initModel, models }),
+      ).toBe("available");
+    }
+    expect(describeClaudeAutoModeFallback("available")).toBeNull();
+  });
+
+  test("reports a CLI that fell back from the requested auto mode", () => {
+    const availability = resolveClaudeAutoModeAvailability({
+      initPermissionMode: "default",
+      initModel: "claude-opus-5-5",
+    });
+    expect(availability).toBe("unavailable");
+    expect(describeClaudeAutoModeFallback(availability)).toBe(
+      "Auto isn't available right now; Claude will ask before actions.",
+    );
+  });
+
+  test("does not guess when the SDK says nothing usable", () => {
+    // No model list yet.
+    expect(
+      resolveClaudeAutoModeAvailability({ initPermissionMode: "auto", initModel: "claude-haiku-5" }),
+    ).toBe("unknown");
+    // A CLI that predates the flag sets it on no row at all.
+    expect(
+      resolveClaudeAutoModeAvailability({
+        initPermissionMode: "auto",
+        initModel: "claude-haiku-5",
+        models: [{ value: "haiku", resolvedModel: "claude-haiku-5" }],
+      }),
+    ).toBe("unknown");
+    // No row for the session's model.
+    expect(
+      resolveClaudeAutoModeAvailability({
+        initPermissionMode: "auto",
+        initModel: "claude-custom-gateway-model",
+        models,
+      }),
+    ).toBe("unknown");
+    expect(describeClaudeAutoModeFallback("unknown")).toBeNull();
   });
 });

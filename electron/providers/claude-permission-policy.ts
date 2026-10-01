@@ -531,6 +531,78 @@ export function resolveClaudePermissionModeDecision(args: {
   return "prompt" as const;
 }
 
+/**
+ * Whether Claude's own auto classifier runs for this session, from what the
+ * SDK reports and nothing else:
+ *
+ * - `unavailable`: the session's init message reports a mode other than the
+ *   `auto` Stave asked for, so the CLI fell back
+ * - `unavailable-model`: the model list carries `supportsAutoMode` (the CLI
+ *   sets it only when true) and none of the rows for the session's model has it
+ * - `unknown`: the SDK said nothing usable — no model list, a CLI that predates
+ *   the flag, or no row for the session's model — so no notice is guessed
+ */
+export type ClaudeAutoModeAvailability =
+  | "available"
+  | "unavailable"
+  | "unavailable-model"
+  | "unknown";
+
+function normalizeClaudeModelIdForAutoMode(value: unknown) {
+  return typeof value === "string"
+    ? value.trim().toLowerCase().replace(/\[1m\]$/, "")
+    : "";
+}
+
+export function resolveClaudeAutoModeAvailability(args: {
+  initPermissionMode?: string | null;
+  initModel?: string | null;
+  models?: ReadonlyArray<{
+    value?: string;
+    resolvedModel?: string;
+    supportsAutoMode?: boolean;
+  }> | null;
+}): ClaudeAutoModeAvailability {
+  if (args.initPermissionMode && args.initPermissionMode !== "auto") {
+    return "unavailable";
+  }
+  const models = args.models ?? [];
+  // The CLI emits the flag only for models that support auto mode, so a list
+  // with no flag at all says nothing (an older CLI) rather than "unsupported".
+  if (!models.some((model) => model.supportsAutoMode === true)) {
+    return "unknown";
+  }
+  const sessionModel = normalizeClaudeModelIdForAutoMode(args.initModel);
+  if (!sessionModel) {
+    return "unknown";
+  }
+  const rows = models.filter(
+    (model) =>
+      normalizeClaudeModelIdForAutoMode(model.resolvedModel) === sessionModel ||
+      normalizeClaudeModelIdForAutoMode(model.value) === sessionModel,
+  );
+  if (rows.length === 0) {
+    return "unknown";
+  }
+  return rows.some((model) => model.supportsAutoMode === true)
+    ? "available"
+    : "unavailable-model";
+}
+
+/** The one notice a turn shows when Auto falls back to asking; null otherwise. */
+export function describeClaudeAutoModeFallback(
+  availability: ClaudeAutoModeAvailability,
+): string | null {
+  switch (availability) {
+    case "unavailable-model":
+      return "Auto isn't available for this model; Claude will ask before actions.";
+    case "unavailable":
+      return "Auto isn't available right now; Claude will ask before actions.";
+    default:
+      return null;
+  }
+}
+
 export function shouldAutoAllowClaudeTool(args: {
   toolName: string;
   permissionMode?: ClaudePermissionMode;

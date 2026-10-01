@@ -14,6 +14,9 @@ import {
   shouldDenyClaudeToolInSecondaryReadOnly,
   shouldKeepClaudeReadOnlyPrompt,
   validateClaudePermissionResult,
+  describeClaudeAutoModeFallback,
+  resolveClaudeAutoModeAvailability,
+  type ClaudeAutoModeAvailability,
   type ClaudePermissionMode,
   type ClaudePermissionResult,
 } from "./claude-permission-policy";
@@ -28,6 +31,8 @@ export {
   shouldDenyClaudeToolInPlanMode,
   shouldDenyClaudeToolInSecondaryReadOnly,
   shouldKeepClaudeReadOnlyPrompt,
+  describeClaudeAutoModeFallback,
+  resolveClaudeAutoModeAvailability,
 } from "./claude-permission-policy";
 import { spawn as spawnResourceProcess } from "node:child_process";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
@@ -3305,6 +3310,10 @@ export async function streamClaudeWithSdk(
     // in the PlanViewer for review), so the turn must wind down; further tool
     // calls are denied so the agent stops and the turn can complete.
     let planPresentedInTurn = false;
+    // Auto mode only: what the SDK reported about Claude's own classifier, and
+    // whether this turn already said that Auto fell back to asking.
+    let claudeAutoModeAvailability: ClaudeAutoModeAvailability = "unknown";
+    let claudeAutoModeFallbackAnnounced = false;
     const approvalDecisionTimeoutMs = resolveClaudeApprovalDecisionTimeoutMs({
       envValue: process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS,
     });
@@ -3749,6 +3758,22 @@ export async function streamClaudeWithSdk(
             });
           }
 
+          // The first prompt of an Auto turn whose classifier is unavailable
+          // says why Claude is asking, once.
+          const autoModeFallbackNotice =
+            claudePermissionMode === "auto" && !claudeAutoModeFallbackAnnounced
+              ? describeClaudeAutoModeFallback(claudeAutoModeAvailability)
+              : null;
+          if (autoModeFallbackNotice) {
+            claudeAutoModeFallbackAnnounced = true;
+            const noticeEvent: BridgeEvent = {
+              type: "system",
+              content: autoModeFallbackNotice,
+            };
+            eventCollector.append(noticeEvent);
+            args.onEvent?.(noticeEvent);
+          }
+
           const approvalEvent: BridgeEvent = {
             type: "approval",
             toolName,
@@ -3945,6 +3970,31 @@ export async function streamClaudeWithSdk(
             sessionId: (message as SDKSystemMessage).session_id,
             mcpScopeKey: claudeMcpScopeKey,
           });
+        }
+        if (claudePermissionMode === "auto" && !secondaryReadOnly) {
+          const initMessage = message as SDKSystemMessage;
+          claudeAutoModeAvailability = resolveClaudeAutoModeAvailability({
+            initPermissionMode: initMessage.permissionMode,
+            initModel: initMessage.model,
+          });
+          // The model list rides the initialize response the SDK already
+          // holds; read it without delaying the stream.
+          const initializationQuery = stream;
+          if (
+            claudeAutoModeAvailability === "unknown" &&
+            typeof initializationQuery?.initializationResult === "function"
+          ) {
+            void initializationQuery
+              .initializationResult()
+              .then((initialization) => {
+                claudeAutoModeAvailability = resolveClaudeAutoModeAvailability({
+                  initPermissionMode: initMessage.permissionMode,
+                  initModel: initMessage.model,
+                  models: initialization?.models,
+                });
+              })
+              .catch(() => undefined);
+          }
         }
       }
       if (
