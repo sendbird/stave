@@ -1,4 +1,5 @@
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
+import { normalizeClaudeModelId } from "./claude-model-requirements";
 import {
   clampCodexEffortToModel,
   resolveDefaultClaudeEffortForModel,
@@ -124,7 +125,7 @@ export function modelAcceptsExplicitEffort(args: {
 }) {
   return !(
     args.providerId === "claude-code" &&
-    /^claude-haiku-/.test(args.model.trim())
+    /^claude-haiku-/.test(normalizeClaudeModelId(args.model))
   );
 }
 

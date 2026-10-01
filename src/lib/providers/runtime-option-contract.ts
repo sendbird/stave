@@ -193,6 +193,8 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "debug",
   "providerTimeoutMs",
   "claudeBinaryPath",
+  "claudeAccountProfileId",
+  "codexAccountProfileId",
   "claudePermissionMode",
   "claudePlanModeApprovalScope",
   "claudeAllowDangerouslySkipPermissions",

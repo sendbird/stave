@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { ProviderAccountRegistry } from "../electron/provider-accounts/registry";
 import { workspaceExecutionGate } from "../electron/shared/workspace-execution-gate";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
@@ -819,6 +823,32 @@ describe("terminal runtime slot lifecycle", () => {
     });
   });
 
+  test("native login uses an ephemeral PTY and retains output only while the session is alive", async () => {
+    const snapshotWrites: unknown[] = [];
+    let snapshotReads = 0;
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+      persistence: {
+        saveTerminalSnapshot: (args) => { snapshotWrites.push(args); },
+        loadTerminalSnapshot: () => { snapshotReads++; return { screen_state: "old login output", updated_at: "fixture" }; },
+        deleteTerminalSnapshot: () => {},
+      },
+    });
+    const input = { providerId: "codex" as const, profileId: "system-default", workspaceId: "workspace-1", workspacePath: "/tmp/workspace" };
+    const created = runtime.createProviderLoginSession(input);
+    expect(created.ok).toBe(true);
+    expect(fakeSpawnCalls.at(-1)?.args).toEqual(["login"]);
+    expect(created.nativeSessionId).toBeUndefined();
+    expect(snapshotReads).toBe(0);
+    fakePtys.at(-1)!.fireData("Open the native login link\r\n");
+    expect(runtime.readSession({ sessionId: created.sessionId! }).output).toContain("Open the native login link");
+    expect(runtime.createProviderLoginSession(input).sessionId).toBe(created.sessionId);
+    await runtime.attachSession({ sessionId: created.sessionId!, deliveryMode: "push" });
+    await runtime.closeSession({ sessionId: created.sessionId! });
+    expect(snapshotWrites).toEqual([]);
+    expect(fakePtys.at(-1)!.destroyed).toBe(true);
+  });
+
   test("creates Claude CLI sessions with a reusable native session id", () => {
     const runtime = createTerminalRuntime({
       emitEvent: async () => {},
@@ -1228,4 +1258,30 @@ test("workspace stop preserves a similarly prefixed owner and blocks all provide
     }
     expect(runtime.createSession(args).ok).toBe(false);
   } finally { workspaceExecutionGate.resume(args.workspaceId); await runtime.cleanupAll(); }
+});
+
+
+test("CLI reuse validates its captured account and rejects a removed profile", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "stave-cli-identity-"));
+  const originalUserData = process.env.STAVE_USER_DATA_PATH;
+  process.env.STAVE_USER_DATA_PATH = root;
+  const registry = new ProviderAccountRegistry(root);
+  const profile = registry.create({ providerId: "claude-code", label: "A" });
+  const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+  let sessionId: string | undefined;
+  try {
+    const args = { workspaceId: "workspace-1", workspacePath: "/tmp/workspace", cliSessionTabId: "account-tab", providerId: "claude-code" as const, contextMode: "workspace" as const, taskId: null, taskTitle: null, runtimeOptions: { claudeAccountProfileId: profile.id } };
+    const created = runtime.createCliSession(args);
+    expect(created.ok).toBe(true);
+    sessionId = created.sessionId;
+    expect(runtime.createCliSession(args).sessionId).toBe(sessionId);
+    expect(runtime.createCliSession({ ...args, runtimeOptions: { claudeAccountProfileId: "system-default" } })).toMatchObject({ ok: false, stderr: "This CLI tab belongs to another account. Open a new CLI tab." });
+    registry.remove({ providerId: "claude-code", id: profile.id });
+    expect(runtime.createCliSession(args).ok).toBe(false);
+  } finally {
+    if (sessionId) runtime.closeSession({ sessionId });
+    if (originalUserData === undefined) delete process.env.STAVE_USER_DATA_PATH;
+    else process.env.STAVE_USER_DATA_PATH = originalUserData;
+    rmSync(root, { recursive: true, force: true });
+  }
 });

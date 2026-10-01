@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { StatusBarMemorySegment } from "@/components/layout/StatusBarMemorySegment";
 import { StatusBarUsageSegment } from "@/components/layout/StatusBarUsageSegment";
 import { listCliConnectedUsageProviders } from "@/components/layout/status-bar-usage.utils";
@@ -12,6 +13,7 @@ import {
   subscribeRateLimitsPollWake,
 } from "@/lib/providers/rate-limits-poll-policy";
 import { useAppStore } from "@/store/app.store";
+import { providerSurfaceVisible, useProviderReadinessStore } from "@/lib/providers/provider-readiness-store";
 import * as stylex from "@stylexjs/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
 
@@ -23,10 +25,17 @@ import { layoutShellStyles } from "./layout-shell.styles";
  */
 export function StatusBar() {
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
-  const providerAvailability = useAppStore(
-    (state) => state.providerAvailability,
+  const profiles = useProviderAccounts(state => state.profiles);
+  const claudeAccountProfileId = useAppStore(state => state.settings.claudeAccountProfileId);
+  const gateway = profiles.find(profile => profile.id === claudeAccountProfileId)?.gateway;
+  const providerAvailability = useAppStore((state) => state.providerAvailability);
+  const readiness = useProviderReadinessStore((state) => state.providers);
+  const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
+  const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
+  const runtimeOptions = { cursorBinaryPath, kiroBinaryPath };
+  const usageProviders = listCliConnectedUsageProviders(providerAvailability).filter(
+    (provider) => (provider !== "cursor" && provider !== "kiro") || providerSurfaceVisible(provider, runtimeOptions),
   );
-  const usageProviders = listCliConnectedUsageProviders(providerAvailability);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -101,13 +110,15 @@ export function StatusBar() {
       unsubscribeWake();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [refreshRateLimits]);
+  }, [refreshRateLimits, readiness, cursorBinaryPath, kiroBinaryPath]);
 
   return (
     <div {...stylex.props(layoutShellStyles.statusBar)}>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>
         {usageProviders.map((provider) => (
-          <StatusBarUsageSegment key={provider} provider={provider} />
+          provider === "claude" && gateway
+            ? <span key={provider} title="Usage and charges are managed by your Gateway. Subscription quota is unavailable.">Claude · API billing</span>
+            : <StatusBarUsageSegment key={provider} provider={provider} />
         ))}
       </div>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>

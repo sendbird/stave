@@ -1,3 +1,4 @@
+import { getProviderSessionCursor, setProviderSessionEntry } from "../src/lib/providers/provider-sessions";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 interface StorageLike {
@@ -32,7 +33,7 @@ afterEach(async () => {
 });
 
 describe("conversation thread store actions", () => {
-  test("forks a Claude task at the selected native assistant message", async () => {
+  test.each(["system-default", "11111111-1111-4111-8111-111111111111"])("forks a Claude task at the selected native assistant message (%s)", async (accountProfileId) => {
     const forkCalls: unknown[] = [];
     (globalThis as { window?: unknown }).window = {
       localStorage: createMemoryStorage(),
@@ -58,6 +59,7 @@ describe("conversation thread store actions", () => {
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState({
       ...useAppStore.getInitialState(),
+      settings: { ...useAppStore.getInitialState().settings, claudeAccountProfileId: "22222222-2222-4222-8222-222222222222", codexAccountProfileId: "22222222-2222-4222-8222-222222222222" },
       workspaces: [
         {
           id: "ws-1",
@@ -87,6 +89,7 @@ describe("conversation thread store actions", () => {
             role: "assistant",
             model: "claude-sonnet-5",
             providerId: "claude-code",
+            nativeAccountProfileId: accountProfileId,
             nativeProviderSessionId: "session-old",
             nativeProviderTurnId: "assistant-old",
             content: "Earlier session",
@@ -97,6 +100,7 @@ describe("conversation thread store actions", () => {
             role: "assistant",
             model: "claude-sonnet-5",
             providerId: "claude-code",
+            nativeAccountProfileId: accountProfileId,
             nativeProviderSessionId: "session-source",
             nativeProviderTurnId: "assistant-source-1",
             content: "First",
@@ -107,6 +111,7 @@ describe("conversation thread store actions", () => {
             role: "assistant",
             model: "claude-sonnet-5",
             providerId: "claude-code",
+            nativeAccountProfileId: accountProfileId,
             nativeProviderSessionId: "session-source",
             nativeProviderTurnId: "assistant-source-2",
             content: "Second",
@@ -117,6 +122,7 @@ describe("conversation thread store actions", () => {
             role: "assistant",
             model: "claude-sonnet-5",
             providerId: "claude-code",
+            nativeAccountProfileId: accountProfileId,
             nativeProviderSessionId: "session-source",
             nativeProviderTurnId: "assistant-source-3",
             content: "Later",
@@ -126,9 +132,7 @@ describe("conversation thread store actions", () => {
       },
       messageCountByTask: { "task-1": 4 },
       providerSessionByTask: {
-        "task-1": {
-          "claude-code": { nativeSessionId: "session-source" },
-        },
+        "task-1": setProviderSessionEntry({ providerId: "claude-code", accountProfileId, entry: { nativeSessionId: "session-source" } }),
       },
       taskWorkspaceIdById: { "task-1": "ws-1" },
       flushActiveWorkspaceSnapshot: async () => {},
@@ -141,6 +145,7 @@ describe("conversation thread store actions", () => {
     expect(result.ok).toBe(true);
     expect(forkCalls).toEqual([
       {
+        runtimeOptions: { claudeAccountProfileId: accountProfileId, claudeBinaryPath: undefined, codexBinaryPath: undefined },
         sessionId: "session-source",
         upToMessageId: "assistant-source-2",
         title: "Source task (fork)",
@@ -166,13 +171,13 @@ describe("conversation thread store actions", () => {
       { session: "session-fork", turn: "assistant-fork-2" },
     ]);
     expect(
-      state.providerSessionByTask[forkedTaskId ?? ""]?.["claude-code"],
+      getProviderSessionCursor({ sessions: state.providerSessionByTask[forkedTaskId ?? ""], providerId: "claude-code", accountProfileId }),
     ).toMatchObject({
       nativeSessionId: "session-fork",
     });
   });
 
-  test("forks only the selected Codex session and selects Codex for the new task", async () => {
+  test.each(["system-default", "11111111-1111-4111-8111-111111111111"])("forks only the selected Codex session and selects Codex for the new task (%s)", async (accountProfileId) => {
     const forkCalls: unknown[] = [];
     const renameCalls: unknown[] = [];
     (globalThis as { window?: unknown }).window = {
@@ -206,13 +211,15 @@ describe("conversation thread store actions", () => {
       role: "assistant" as const,
       model: "gpt-5.6-terra",
       providerId: "codex" as const,
-      nativeProviderSessionId: args.sessionId,
+      nativeAccountProfileId: accountProfileId,
+            nativeProviderSessionId: args.sessionId,
       nativeProviderTurnId: args.turnId,
       content: args.id,
       parts: [{ type: "text" as const, text: args.id }],
     });
     useAppStore.setState({
       ...useAppStore.getInitialState(),
+      settings: { ...useAppStore.getInitialState().settings, claudeAccountProfileId: "22222222-2222-4222-8222-222222222222", codexAccountProfileId: "22222222-2222-4222-8222-222222222222" },
       activeWorkspaceId: "ws-1",
       activeTaskId: "task-1",
       tasks: [
@@ -253,9 +260,7 @@ describe("conversation thread store actions", () => {
       },
       messageCountByTask: { "task-1": 4 },
       providerSessionByTask: {
-        "task-1": {
-          codex: { nativeSessionId: "thread-source" },
-        },
+        "task-1": setProviderSessionEntry({ providerId: "codex", accountProfileId, entry: { nativeSessionId: "thread-source" } }),
       },
       taskWorkspaceIdById: { "task-1": "ws-1" },
       flushActiveWorkspaceSnapshot: async () => {},
@@ -267,7 +272,7 @@ describe("conversation thread store actions", () => {
 
     expect(result.ok).toBe(true);
     expect(forkCalls).toEqual([
-      { threadId: "thread-source", lastTurnId: "turn-source-2" },
+      { threadId: "thread-source", lastTurnId: "turn-source-2", runtimeOptions: { codexAccountProfileId: accountProfileId, claudeBinaryPath: undefined, codexBinaryPath: undefined } },
     ]);
     const forkedTaskId = result.ok ? result.taskId : undefined;
     const state = useAppStore.getState();
@@ -285,11 +290,11 @@ describe("conversation thread store actions", () => {
       { session: "thread-fork", turn: "turn-fork-2" },
     ]);
     expect(renameCalls).toEqual([
-      { threadId: "thread-fork", name: "Mixed task (fork)" },
+      { threadId: "thread-fork", name: "Mixed task (fork)", runtimeOptions: { codexAccountProfileId: accountProfileId, claudeBinaryPath: undefined, codexBinaryPath: undefined } },
     ]);
   });
 
-  test("rolls Codex back and truncates the local task at the same response", async () => {
+  test.each(["system-default", "11111111-1111-4111-8111-111111111111"])("rolls Codex back and truncates the local task at the same response (%s)", async (accountProfileId) => {
     const rollbackCalls: unknown[] = [];
     const truncateCalls: unknown[] = [];
     const cleanupCalls: unknown[] = [];
@@ -324,13 +329,15 @@ describe("conversation thread store actions", () => {
       role: "assistant" as const,
       model: "gpt-5.6-terra",
       providerId: "codex" as const,
-      nativeProviderSessionId: "thread-1",
+      nativeAccountProfileId: accountProfileId,
+            nativeProviderSessionId: "thread-1",
       nativeProviderTurnId: turnId,
       content: id,
       parts: [{ type: "text" as const, text: id }],
     });
     useAppStore.setState({
       ...useAppStore.getInitialState(),
+      settings: { ...useAppStore.getInitialState().settings, claudeAccountProfileId: "22222222-2222-4222-8222-222222222222", codexAccountProfileId: "22222222-2222-4222-8222-222222222222" },
       activeWorkspaceId: "ws-1",
       activeTaskId: "task-1",
       tasks: [
@@ -354,10 +361,7 @@ describe("conversation thread store actions", () => {
       },
       messageCountByTask: { "task-1": 3 },
       providerSessionByTask: {
-        "task-1": {
-          codex: { nativeSessionId: "thread-1" },
-          "claude-code": { nativeSessionId: "session-later" },
-        },
+        "task-1": setProviderSessionEntry({ sessions: { "claude-code": { nativeSessionId: "session-later" } }, providerId: "codex", accountProfileId, entry: { nativeSessionId: "thread-1" } }),
       },
       taskWorkspaceIdById: { "task-1": "ws-1" },
       flushActiveWorkspaceSnapshot: async () => {},
@@ -368,7 +372,7 @@ describe("conversation thread store actions", () => {
       .rollbackConversationToMessage({ taskId: "task-1", messageId: "m-2" });
 
     expect(result.ok).toBe(true);
-    expect(rollbackCalls).toEqual([{ threadId: "thread-1", numTurns: 1 }]);
+    expect(rollbackCalls).toEqual([{ threadId: "thread-1", numTurns: 1, runtimeOptions: { codexAccountProfileId: accountProfileId, claudeBinaryPath: undefined, codexBinaryPath: undefined } }]);
     expect(truncateCalls).toEqual([
       { workspaceId: "ws-1", taskId: "task-1", messageId: "m-2" },
     ]);
@@ -378,12 +382,11 @@ describe("conversation thread store actions", () => {
       state.messagesByTask["task-1"]?.map((message) => message.id),
     ).toEqual(["m-1", "m-2"]);
     expect(state.messageCountByTask["task-1"]).toBe(2);
-    expect(state.providerSessionByTask["task-1"]).toEqual({
-      codex: {
+    expect(state.providerSessionByTask["task-1"]).toEqual(setProviderSessionEntry({ providerId: "codex", accountProfileId, entry: {
         nativeSessionId: "thread-1",
         syncedThroughMessageId: "m-2",
       },
-    });
+    }));
   });
 
   test("truncates later Claude messages when Codex is already at the selected turn", async () => {
@@ -534,6 +537,7 @@ describe("conversation thread store actions", () => {
     expect(useAppStore.getState().tasks[0]?.title).toBe("After");
     expect(claudeCalls).toEqual([
       {
+        runtimeOptions: { claudeAccountProfileId: "system-default", codexAccountProfileId: "system-default", claudeBinaryPath: undefined, codexBinaryPath: undefined },
         sessionId: "session-1",
         title: "After",
         cwd: "/tmp/workspace",
@@ -541,6 +545,7 @@ describe("conversation thread store actions", () => {
     ]);
     expect(codexCalls).toEqual([
       {
+        runtimeOptions: { claudeAccountProfileId: "system-default", codexAccountProfileId: "system-default", claudeBinaryPath: undefined, codexBinaryPath: undefined },
         threadId: "thread-1",
         name: "After",
       },

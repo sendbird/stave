@@ -169,13 +169,14 @@ export function createNativeSessionDiscovery(args: {
     sessionId: string;
     cwd: string;
     startedAtMs: number;
+    codexHome?: string;
   }) {
     const session = sessions.get(args.sessionId);
     if (!session || session.nativeSessionId) {
       return;
     }
 
-    const sessionsRoot = path.join(homedir(), ".agents", "codex", "sessions");
+    const sessionsRoot = path.join(args.codexHome || path.join(homedir(), ".codex"), "sessions");
     if (!existsSync(sessionsRoot)) {
       return;
     }

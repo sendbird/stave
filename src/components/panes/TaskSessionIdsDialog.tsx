@@ -19,6 +19,7 @@ import {
   getProviderSessionLabel,
   listProviderSessions,
 } from "@/lib/providers/provider-sessions";
+import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { useAppStore } from "@/store/app.store";
 
 interface TaskSessionIdsDialogProps {
@@ -30,6 +31,8 @@ export function TaskSessionIdsDialog({
   taskId,
   onOpenChange,
 }: TaskSessionIdsDialogProps) {
+  useLoadProviderAccounts();
+  const profiles = useProviderAccounts((state) => state.profiles);
   const [copiedSessionIdKey, setCopiedSessionIdKey] = useState<string | null>(
     null,
   );
@@ -112,21 +115,23 @@ export function TaskSessionIdsDialog({
             </div>
           ) : (
             sessionRows.map((row) => {
+              const key = `${row.providerId}:${row.accountProfileId}`;
+              const account = profiles.find(p => p.providerId === row.providerId && p.id === row.accountProfileId)?.label ?? row.accountProfileId;
               const label = getProviderSessionLabel({
                 providerId: row.providerId,
               });
               return (
                 <SessionIdentifierRow
-                  key={row.providerId}
-                  label={label}
+                  key={key}
+                  label={`${label} · ${account}`}
                   providerLabel={getProviderLabel({
                     providerId: row.providerId,
                   })}
                   value={row.nativeSessionId}
-                  copied={copiedSessionIdKey === row.providerId}
+                  copied={copiedSessionIdKey === key}
                   onCopy={() =>
                     void copySessionIdentifier({
-                      key: row.providerId,
+                      key,
                       label,
                       value: row.nativeSessionId,
                     })

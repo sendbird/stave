@@ -1,3 +1,5 @@
+import { getProviderAccountRegistry } from "../provider-accounts/registry";
+import { currentProviderAccountId, providerAccountKey, withProviderAccountScope } from "../provider-accounts/runtime-scope";
 import { createCodexModelResolutionTracker } from "./codex-model-resolution";
 import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate";
 import { beginCodexInterruptedThreadCleanup, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
@@ -315,8 +317,8 @@ interface PendingUserInputRequest {
   elicitationFields?: ElicitationFieldDescriptor[];
 }
 
-function buildCodexEnv(args: { executablePath?: string } = {}) {
-  return buildCodexCliEnv({ executablePath: args.executablePath });
+function buildCodexEnv(args: { executablePath?: string; accountProfileId?: string } = {}) {
+  return buildCodexCliEnv(args);
 }
 
 async function refreshCodexChatgptAuthTokens(args: {
@@ -487,7 +489,7 @@ class CodexAppServerClient {
       Boolean(this.startupPromise) ||
       this.pendingResponses.size > 0 ||
       this.listeners.size > 0 ||
-      (activeCodexTurnsByExecutable.get(this.executablePath) ?? 0) > 0,
+      (activeCodexTurnsByExecutable.get(providerAccountKey("codex", this.executablePath, this.accountProfileId)) ?? 0) > 0,
     retire: () => this.dispose("Closed idle Codex App Server."),
     unsubscribe: async (threadId) => {
       await this.sendRequest(
@@ -508,6 +510,7 @@ class CodexAppServerClient {
   constructor(
     private readonly executablePath: string,
     private readonly secretEnv: Record<string, string> = {},
+    private readonly accountProfileId = currentProviderAccountId("codex"),
   ) {}
 
   async ensureStarted() {
@@ -517,7 +520,7 @@ class CodexAppServerClient {
     if (this.startupPromise) {
       return this.startupPromise;
     }
-    this.startupPromise = this.start();
+    this.startupPromise = withProviderAccountScope({ codexAccountProfileId: this.accountProfileId }, () => this.start());
     try {
       await this.startupPromise;
     } finally {
@@ -620,7 +623,7 @@ class CodexAppServerClient {
         // Stave runtime variable. Mirrors `buildClaudeQueryOptions`.
         env: {
           ...stripReservedSecretEnvNames(this.secretEnv),
-          ...buildCodexEnv({ executablePath: this.executablePath }),
+          ...buildCodexEnv({ executablePath: this.executablePath, accountProfileId: this.accountProfileId }),
         },
         cwd: process.cwd(),
       },
@@ -846,9 +849,13 @@ class CodexAppServerClient {
   }
 
   private dispatchMessage(message: JsonRpcMessage) {
+    withProviderAccountScope({ codexAccountProfileId: this.accountProfileId }, () => this.dispatchAccountMessage(message));
+  }
+
+  private dispatchAccountMessage(message: JsonRpcMessage) {
     this.lifetime.observe(message);
     try {
-      codexMcpManagement.captureNotification(this.executablePath, message);
+      codexMcpManagement.captureNotification(this.executablePath, message, this.accountProfileId);
     } catch (error) {
       // Diagnostics capture must never break protocol dispatch.
       console.warn(
@@ -938,12 +945,13 @@ class CodexAppServerClient {
 
 function getCodexAppServerClient(args: { executablePath: string }) {
   const executablePath = args.executablePath.trim();
-  const existing = clientByExecutablePath.get(executablePath);
+  if (currentProviderAccountId("codex") !== "system-default") getProviderAccountRegistry().resolveDirectory({ providerId: "codex", profileId: currentProviderAccountId("codex") });
+  const existing = clientByExecutablePath.get(providerAccountKey("codex", executablePath));
   if (existing) {
     return existing;
   }
   const client = new CodexAppServerClient(executablePath);
-  clientByExecutablePath.set(executablePath, client);
+  clientByExecutablePath.set(providerAccountKey("codex", executablePath), client);
   return client;
 }
 
@@ -963,9 +971,9 @@ export function disposeAllCodexAppServerClients(
 
 function restartCodexAppServerForMcpConfigChange(executablePath: string) {
   clientByExecutablePath
-    .get(executablePath)
+    .get(providerAccountKey("codex", executablePath))
     ?.dispose("Restarting Codex App Server after MCP configuration change.");
-  clientByExecutablePath.delete(executablePath);
+  clientByExecutablePath.delete(providerAccountKey("codex", executablePath));
   forgetCodexInstructionProfilesForExecutable(executablePath);
 }
 
@@ -1001,13 +1009,13 @@ function finishCodexTurn(
 ) {
   transientClient?.dispose("Closed secret-bound Codex App Server.");
   const activeTurns =
-    (activeCodexTurnsByExecutable.get(executablePath) ?? 1) - 1;
+    (activeCodexTurnsByExecutable.get(providerAccountKey("codex", executablePath)) ?? 1) - 1;
   if (activeTurns > 0) {
-    activeCodexTurnsByExecutable.set(executablePath, activeTurns);
+    activeCodexTurnsByExecutable.set(providerAccountKey("codex", executablePath), activeTurns);
     return;
   }
-  activeCodexTurnsByExecutable.delete(executablePath);
-  if (pendingMcpRefreshExecutables.delete(executablePath)) {
+  activeCodexTurnsByExecutable.delete(providerAccountKey("codex", executablePath));
+  if (pendingMcpRefreshExecutables.delete(providerAccountKey("codex", executablePath))) {
     restartCodexAppServerForMcpConfigChange(executablePath);
   }
 }
@@ -1025,9 +1033,7 @@ export function getCodexAppServerClientFromRuntimeOptions(args: {
   if (!executablePath) {
     throw new Error("Codex executable not found.");
   }
-  return getCodexAppServerClient({
-    executablePath,
-  });
+  return withProviderAccountScope(args.runtimeOptions, () => getCodexAppServerClient({ executablePath }));
 }
 
 const codexMcpManagement = createCodexMcpManagement({
@@ -1788,8 +1794,8 @@ export async function streamCodexWithAppServer(
   if (globalMcpRefresh.changed || projectMcpRefresh.changed) {
     // App Server reads config.toml at process start and resumed threads retain
     // their MCP catalog, so restart and force fresh native threads.
-    if ((activeCodexTurnsByExecutable.get(codexExecutablePath) ?? 0) > 0) {
-      pendingMcpRefreshExecutables.add(codexExecutablePath);
+    if ((activeCodexTurnsByExecutable.get(providerAccountKey("codex", codexExecutablePath)) ?? 0) > 0) {
+      pendingMcpRefreshExecutables.add(providerAccountKey("codex", codexExecutablePath));
     } else {
       restartCodexAppServerForMcpConfigChange(codexExecutablePath);
     }
@@ -1803,8 +1809,8 @@ export async function streamCodexWithAppServer(
     transientSecretClient ??
     getCodexAppServerClient({ executablePath: codexExecutablePath });
   activeCodexTurnsByExecutable.set(
-    codexExecutablePath,
-    (activeCodexTurnsByExecutable.get(codexExecutablePath) ?? 0) + 1,
+    providerAccountKey("codex", codexExecutablePath),
+    (activeCodexTurnsByExecutable.get(providerAccountKey("codex", codexExecutablePath)) ?? 0) + 1,
   );
   let releaseResourceOwner = () => {};
   try {

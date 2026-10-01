@@ -1,3 +1,4 @@
+import { snapshotProviderAccounts, type ProviderAccountSelection } from "@/lib/providers/provider-account-selection";
 import { resolveModelEffortFromSettings } from "@/lib/providers/model-effort";
 import type { ModelRuntimePreferenceSettings } from "@/lib/providers/model-runtime-preferences";
 import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-annotation-attachment";
@@ -72,8 +73,9 @@ export function buildQueuedTurnFromDraft(args: {
   providerId?: PromptDraftQueuedTurn["providerId"];
   model?: string;
   autoRouting?: boolean;
-  settings?: ModelRuntimePreferenceSettings;
+  settings?: ModelRuntimePreferenceSettings & ProviderAccountSelection;
 }): PromptDraftQueuedTurn {
+  const accounts = snapshotProviderAccounts({ ...args.settings, ...args.draft.runtimeOverrides });
   const id =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
@@ -88,6 +90,7 @@ export function buildQueuedTurnFromDraft(args: {
     // dispatch as Cursor Auto.
     return {
       id,
+      ...accounts,
       queuedAt,
       sourceTurnId: args.sourceTurnId,
       content,
@@ -117,6 +120,7 @@ export function buildQueuedTurnFromDraft(args: {
       : undefined);
   return {
     id,
+    ...accounts,
     queuedAt,
     sourceTurnId: args.sourceTurnId,
     content,
@@ -160,6 +164,7 @@ function parseCodexGoalSetObjective(content: string): string | null {
  * retarget the continuation.
  */
 export function buildCodexGoalQueuedTurns(args: {
+  accounts?: ProviderAccountSelection;
   provider: ProviderId;
   content: string;
   turnId: string;
@@ -173,6 +178,7 @@ export function buildCodexGoalQueuedTurns(args: {
   }
   return [
     {
+      ...snapshotProviderAccounts(args.accounts),
       id: `codex-goal-${args.turnId}`,
       queuedAt: buildRecentTimestamp(),
       sourceTurnId: args.turnId,

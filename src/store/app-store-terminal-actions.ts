@@ -1,3 +1,4 @@
+import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import type { StoreApi } from "zustand";
 import { buildPanePanelId } from "@/lib/panes/types";
 import { isTaskArchived } from "@/lib/tasks";
@@ -134,6 +135,7 @@ function buildCliSessionHandoffSummary(args: {
 }
 
 function createCliSessionTabRecord(args: {
+  accountProfileId?: string;
   provider: "claude-code" | "codex";
   contextMode: CliSessionContextMode;
   cwd: string;
@@ -162,6 +164,7 @@ function createCliSessionTabRecord(args: {
     id: crypto.randomUUID(),
     title,
     provider: args.provider,
+    accountProfileId: args.accountProfileId,
     contextMode: args.contextMode,
     linkedTaskId: args.linkedTaskId,
     linkedTaskTitle: args.linkedTaskTitle ?? null,
@@ -258,6 +261,7 @@ export function createTerminalActions(args: {
       }
 
       const nextTab = createCliSessionTabRecord({
+        accountProfileId: selectedProviderAccount(provider, state.settings),
         provider,
         contextMode,
         cwd: workspacePath,

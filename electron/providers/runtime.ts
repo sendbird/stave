@@ -1,3 +1,5 @@
+import { providerAccountEventMapper } from "../provider-accounts/events";
+import { withProviderAccountScope, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import {
   buildClaudeEnv,
@@ -110,7 +112,7 @@ const codexMissionChannelKeyByTask = new Map<string, string>();
 const codexProjectChannelKeyByTask = new Map<string, string>();
 
 function getProviderTaskKey(taskId?: string) {
-  return taskId?.trim() || DEFAULT_PROVIDER_TASK_KEY;
+  return providerAccountKey("codex", taskId?.trim() || DEFAULT_PROVIDER_TASK_KEY);
 }
 
 function getOrCreateCodexAdvisorChannelKey(taskId?: string) {
@@ -485,9 +487,9 @@ function appendStreamEvent(session: ActiveStreamSession, event: BridgeEvent) {
 }
 
 function cleanupProviderTaskState(taskId: string) {
-  codexAdvisorChannelKeyByTask.delete(getProviderTaskKey(taskId));
-  codexMissionChannelKeyByTask.delete(getProviderTaskKey(taskId));
-  codexProjectChannelKeyByTask.delete(getProviderTaskKey(taskId));
+  for (const map of [codexAdvisorChannelKeyByTask, codexMissionChannelKeyByTask, codexProjectChannelKeyByTask]) {
+    for (const key of map.keys()) if (providerAccountKeyMatchesTask(key, taskId)) map.delete(key);
+  }
   cleanupAdvisorSessionsForTask(taskId);
   cleanupAcpWorkerSessionsForTask(taskId);
   cleanupClaudeTask(taskId);
@@ -861,7 +863,13 @@ function withTaskRuntimeOptions<T extends StreamTurnArgs>(rawArgs: T): T {
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
   const args = withTaskRuntimeOptions(rawArgs);
   const release = workspaceExecutionGate.acquire(args);
-  try { return await runProviderTurnImpl(args); } finally { release(); }
+  try {
+    return await withProviderAccountScope(args.runtimeOptions, async () => {
+      const stamp = providerAccountEventMapper(args);
+      const events = await runProviderTurnImpl({ ...args, onEvent: (event) => args.onEvent?.(stamp(event)) });
+      return events.map(stamp);
+    });
+  } finally { release(); }
 }
 
 async function runProviderTurnImpl(
@@ -1563,8 +1571,10 @@ export const providerRuntime: ProviderRuntime = {
       retainedBytes: 0,
     };
     activeStreams.set(streamId, session);
+    const stamp = providerAccountEventMapper(args);
     const deliveryLifecycle = createProviderTurnLifecycle({
-      onEvent: (event) => {
+      onEvent: (rawEvent) => {
+        const event = stamp(rawEvent);
         if (shouldBufferForPolling) {
           appendStreamEvent(session, event);
         }

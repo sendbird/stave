@@ -1,3 +1,4 @@
+import { createProviderSupportActions } from "./app-store-provider-actions";
 import type { StoreApi } from "zustand";
 import { workspaceFsAdapter } from "@/lib/fs";
 import type { AppNotification } from "@/lib/notifications/notification.types";
@@ -10,9 +11,6 @@ import {
   type GitHubPrPayload,
   type WorkspacePrInfo,
 } from "@/lib/pr-status";
-import { mergeRateLimitsSnapshots } from "@/lib/providers/account-usage-block";
-import { listProviderIds } from "@/lib/providers/model-catalog";
-import { createEmptyProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
 import {
   buildReviewFeedbackFileContexts,
   formatReviewFeedbackPrompt,
@@ -102,7 +100,6 @@ export function createSupportActions(args: {
     incrementWorkspaceSnapshotVersion,
     normalizeSharedSkillsHomeSetting,
   } = args;
-  let providerAvailabilityRefreshInFlight: Promise<void> | null = null;
 
   const openNotificationContextInternal = async (
     notification: AppNotification,
@@ -483,113 +480,7 @@ export function createSupportActions(args: {
         };
       });
     },
-    refreshRateLimits: async (args) => {
-      const getSnapshot = window.api?.provider?.getRateLimitsSnapshot;
-      if (!getSnapshot) {
-        return;
-      }
-      const requestedAt = Date.now();
-      set({ rateLimitsLoading: true, rateLimitsError: null });
-      try {
-        const snapshot = await getSnapshot({
-          providers: args?.providers,
-          ...(args?.force ? { force: true } : {}),
-          ...(args?.reason ? { reason: args.reason } : {}),
-        });
-        set((state) => {
-          const providers = (
-            args?.providers?.length ? args.providers : listProviderIds()
-          ).filter(
-            (providerId) =>
-              requestedAt >=
-              (state.rateLimitsUpdatedAtByProvider[providerId] ?? 0),
-          );
-          if (providers.length === 0) return { rateLimitsLoading: false };
-          return {
-            rateLimitsSnapshot: mergeRateLimitsSnapshots({
-              current: state.rateLimitsSnapshot,
-              incoming: snapshot,
-              providers,
-            }),
-            rateLimitsUpdatedAtByProvider: {
-              ...state.rateLimitsUpdatedAtByProvider,
-              ...Object.fromEntries(
-                providers.map((providerId) => [providerId, requestedAt]),
-              ),
-            },
-            rateLimitsLoading: false,
-          };
-        });
-      } catch (error) {
-        set({
-          rateLimitsLoading: false,
-          rateLimitsError:
-            error instanceof Error ? error.message : String(error),
-        });
-      }
-    },
-    refreshProviderAvailability: () => {
-      const checkAvailability = window.api?.provider?.checkAvailability;
-      if (!checkAvailability) {
-        return Promise.resolve();
-      }
-      if (providerAvailabilityRefreshInFlight) {
-        return providerAvailabilityRefreshInFlight;
-      }
-      const settings = get().settings;
-      const runtimeOptions = {
-        claudeBinaryPath: settings.claudeBinaryPath || undefined,
-        codexBinaryPath: settings.codexBinaryPath || undefined,
-        cursorBinaryPath: settings.cursorBinaryPath || undefined,
-        kiroBinaryPath: settings.kiroBinaryPath || undefined,
-      };
-      const settingsAreCurrent = () => {
-        const current = get().settings;
-        return Object.entries(runtimeOptions).every(
-          ([key, value]) =>
-            (current[key as keyof typeof runtimeOptions] || undefined) ===
-            value,
-        );
-      };
-      const refresh = Promise.all(
-        listProviderIds().map(async (providerId) => {
-          try {
-            const result = await checkAvailability({
-              providerId,
-              runtimeOptions,
-            });
-            if (!result.ok || !settingsAreCurrent()) return;
-            // A slow or unavailable sibling must not hold back ready models.
-            // Keep the user's selected model and update only this provider.
-            set((state) => ({
-              providerAvailability: {
-                ...state.providerAvailability,
-                [providerId]: result.available,
-              },
-              providerRuntimeCapabilities: {
-                ...state.providerRuntimeCapabilities,
-                [providerId]:
-                  result.capabilities ??
-                  createEmptyProviderRuntimeCapabilities(),
-              },
-            }));
-          } catch {
-            // A failed read cannot establish that a provider was uninstalled.
-            // Preserve its last known state until discovery succeeds.
-          }
-        }),
-      )
-        .then(() => undefined)
-        .finally(() => {
-          if (providerAvailabilityRefreshInFlight === refresh) {
-            providerAvailabilityRefreshInFlight = null;
-            if (!settingsAreCurrent())
-              return get().refreshProviderAvailability();
-          }
-        });
-      providerAvailabilityRefreshInFlight = refresh;
-      return refresh;
-    },
+    ...createProviderSupportActions({ set, get }),
     refreshSkillCatalog: async (args = {}) => {
       const getCatalog = window.api?.skills?.getCatalog;
       const fallbackWorkspacePath =

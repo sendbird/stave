@@ -1,3 +1,4 @@
+import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -114,8 +115,10 @@ export function ActivityDetailDialog(props: {
   const tool = allMessages.flatMap(message => message.parts).find(part => part.type === "tool_use" && part.toolUseId === toolUseId);
   const agentId = node?.agentId ?? exchange?.ref.agentId ?? (tool?.type === "tool_use" ? tool.agentId : undefined);
   const provider = exchange?.identity.providerId ?? props.graph?.providerId;
-  const cursor = provider ? sessions?.[provider] : undefined;
-  const sessionId = typeof cursor === "string" ? cursor : cursor?.nativeSessionId;
+  const owner = allMessages.find(message => message.parts.some(part => part.type === "tool_use" && part.toolUseId === toolUseId));
+  const accountProfileId = owner?.nativeAccountProfileId ?? "system-default";
+  const cursor = provider ? getProviderSessionCursor({ sessions, providerId: provider, accountProfileId }) : null;
+  const sessionId = owner?.nativeProviderSessionId ?? cursor?.nativeSessionId;
   const live = exchange ? ["running", "queued"].includes(exchange.outcome.status) : tool?.type === "tool_use" && ["input-streaming", "input-available"].includes(tool.state);
   const canReadProviderHistory = !delegatedTaskId && Boolean(
     agentId &&
@@ -167,7 +170,7 @@ export function ActivityDetailDialog(props: {
     void (async () => {
       const collected = new Map<string, AgentHistoryEntry>();
       for (let pageOffset = 0; pageOffset <= offset; pageOffset += 100) {
-        const result = await read({ providerId: provider, sessionId, agentId, cwd: props.repositoryPath!, offset: pageOffset, limit: 100, ...(binary ? { codexBinaryPath: binary } : {}) });
+        const result = await read({ accountProfileId, providerId: provider, sessionId, agentId, cwd: props.repositoryPath!, offset: pageOffset, limit: 100, ...(binary ? { codexBinaryPath: binary } : {}) });
         if (cancelled) return;
         setHistoryResponse(result);
         setError(result.ok ? "" : result.detail);
@@ -179,7 +182,7 @@ export function ActivityDetailDialog(props: {
     })().catch(error => { if (!cancelled) setError(String(error)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [agentId, sessionId, provider, props.repositoryPath, binary, offset, historyRefresh, canReadProviderHistory]);
+  }, [agentId, sessionId, accountProfileId, provider, props.repositoryPath, binary, offset, historyRefresh, canReadProviderHistory]);
 
   useEffect(() => {
     if (!live || !canReadProviderHistory || loading) return;

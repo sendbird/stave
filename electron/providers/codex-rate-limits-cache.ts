@@ -1,3 +1,4 @@
+import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import type { CodexRateLimitSnapshot } from "../../src/lib/providers/provider.types";
 import { mapCodexRateLimitBuckets } from "./codex-snapshot-mappers";
 
@@ -32,7 +33,7 @@ export interface CodexRateLimitsCacheEntry {
   source: CodexRateLimitsCacheSource;
 }
 
-let cachedEntry: CodexRateLimitsCacheEntry | null = null;
+const cachedEntries = new Map<string, CodexRateLimitsCacheEntry>();
 
 export function recordCodexRateLimits(args: {
   buckets: CodexRateLimitSnapshot[];
@@ -44,16 +45,16 @@ export function recordCodexRateLimits(args: {
     source: args.source,
     updatedAt: args.now ?? Date.now(),
   };
-  cachedEntry = entry;
+  cachedEntries.set(currentProviderAccountId("codex"), entry);
   return entry;
 }
 
 export function readCodexRateLimitsCache(): CodexRateLimitsCacheEntry | null {
-  return cachedEntry;
+  return cachedEntries.get(currentProviderAccountId("codex")) ?? null;
 }
 
 export function clearCodexRateLimitsCache() {
-  cachedEntry = null;
+  cachedEntries.clear();
 }
 
 export function isCodexRateLimitsCacheFresh(args: {
@@ -80,7 +81,7 @@ export async function resolveCodexRateLimitBuckets(args: {
 }): Promise<CodexRateLimitSnapshot[]> {
   const now = args.now ?? Date.now();
   const maxAgeMs = args.maxAgeMs ?? CODEX_RATE_LIMITS_ACTIVE_REFRESH_MS;
-  const probe = { entry: cachedEntry, now, maxAgeMs };
+  const probe = { entry: readCodexRateLimitsCache(), now, maxAgeMs };
   if (!args.force && isCodexRateLimitsCacheFresh(probe)) {
     return probe.entry.buckets;
   }

@@ -1,3 +1,4 @@
+import { ProviderAccountPicker } from "@/components/layout/ProviderAccountPicker";
 import { PromptInput } from "@/components/ai-elements";
 import { ComposerContextDock } from "@/components/session/ComposerContextDock";
 import { ComposerWorkspaceBar } from "@/components/session/composer-workspace-bar";
@@ -1638,6 +1639,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             <TurnActivity />
           </RenderProfiler>
         )}
+        <ProviderAccountPicker providerId={args.activeProvider} />
         <PromptInput
           framed={useFramedComposer}
           frameTop={

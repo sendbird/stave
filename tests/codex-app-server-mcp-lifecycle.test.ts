@@ -461,6 +461,40 @@ const DEFAULT_SCENARIO_EVENT_TYPES = [
   "tool_result",
 ];
 
+test("native account clients isolate processes and reject removed registrations before reuse", async () => {
+  const runtime = await import("../electron/providers/codex-app-server-runtime");
+  const { ProviderAccountRegistry } = await import("../electron/provider-accounts/registry");
+  const directory = await mkdtemp(path.join(tmpdir(), "stave-account-clients-"));
+  tempDirectories.push(directory);
+  const previous = process.env.STAVE_USER_DATA_PATH;
+  process.env.STAVE_USER_DATA_PATH = directory;
+  try {
+    const registry = new ProviderAccountRegistry(directory);
+    const a = registry.create({ providerId: "codex", label: "Account A" });
+    const b = registry.create({ providerId: "codex", label: "Account B" });
+    const clientFor = (profileId: string) => runtime.getCodexAppServerClientFromRuntimeOptions({ runtimeOptions: { codexBinaryPath: process.execPath, codexAccountProfileId: profileId } });
+    const first = clientFor(a.id);
+    const second = clientFor(b.id);
+    expect(first).not.toBe(second);
+    expect(clientFor(a.id)).toBe(first);
+    await Promise.all([first.request("account/read", {}), second.request("account/read", {})]);
+    expect(new Set(fakeChildren.map((child) => child.spawnEnv.CODEX_HOME))).toEqual(new Set([a.configDirectory, b.configDirectory]));
+    const { currentProviderAccountId } = await import("../electron/provider-accounts/runtime-scope");
+    const observed: string[] = [];
+    const unsubscribe = first.subscribe(() => observed.push(currentProviderAccountId("codex")));
+    fakeChildren.find((child) => child.spawnEnv.CODEX_HOME === a.configDirectory)!.stdout.emit("data", JSON.stringify({ jsonrpc: "2.0", method: "account/rateLimits/updated", params: {} }) + "\n");
+    unsubscribe();
+    expect(observed).toEqual([a.id]);
+    registry.remove({ providerId: "codex", id: a.id });
+    expect(() => clientFor(a.id)).toThrow();
+    expect(clientFor(b.id)).toBe(second);
+  } finally {
+    runtime.disposeAllCodexAppServerClients();
+    if (previous === undefined) delete process.env.STAVE_USER_DATA_PATH;
+    else process.env.STAVE_USER_DATA_PATH = previous;
+  }
+});
+
 async function awaitUnrefDeadline<T>(promise: Promise<T>): Promise<T> {
   // The runtime timer is unref'd; keep this fake process test alive until it fires.
   const keepAlive = setInterval(() => {}, 100);
