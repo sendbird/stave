@@ -1,5 +1,5 @@
 /**
- * How a wake-up reads on the task surfaces: its trigger, where it stands, and
+ * How a task's check-back schedule reads on the task surfaces: its trigger, where it stands, and
  * why when it paused or stopped. Pure.
  */
 import { formatAutomationSchedule } from "@/lib/automations";
@@ -15,7 +15,7 @@ function formatIn(ms: number) {
 }
 
 export function describeWakeUpTrigger(wakeUp: WakeUp): string {
-  if (wakeUp.trigger.kind !== "schedule") return "When delegated work finishes";
+  if (wakeUp.trigger.kind !== "schedule") return "When subagents finish";
   // "Every 1 hour" reads as "Every hour".
   return formatAutomationSchedule(wakeUp.trigger.schedule).replace(/^Every 1 (\w+)/, "Every $1");
 }
@@ -29,7 +29,7 @@ export function describeWakeUpStatus(summary: WakeUpSummary, now: number): WakeU
   switch (summary.state) {
     case "scheduled":
       if (summary.triggerKind === "completion") {
-        return { text: "Waiting for delegated work to finish", tone: "active" };
+        return { text: "Waiting for subagents to finish", tone: "active" };
       }
       return summary.nextRunAt
         ? { text: `Next run ${formatIn(Date.parse(summary.nextRunAt) - now)}`, tone: "active" }
@@ -43,6 +43,6 @@ export function describeWakeUpStatus(summary: WakeUpSummary, now: number): WakeU
 
 export function describeWakeUpHistory(summary: WakeUpSummary): string | null {
   if (summary.occurrenceCount === 0 && summary.skippedCount === 0) return null;
-  const ran = `Woke the task ${summary.occurrenceCount} ${summary.occurrenceCount === 1 ? "time" : "times"}`;
+  const ran = `Checked ${summary.occurrenceCount} ${summary.occurrenceCount === 1 ? "time" : "times"}`;
   return summary.skippedCount > 0 ? `${ran} · ${summary.skippedCount} skipped` : ran;
 }

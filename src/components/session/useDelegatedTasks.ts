@@ -19,7 +19,7 @@ import {
 const EMPTY_CHILDREN: readonly DelegatedTaskSummary[] = [];
 
 const DELEGATED_TASK_UNAVAILABLE =
-  "Delegated tasks are not available in this build. Open the desktop app to manage them.";
+  "Subagents are not available in this build. Open the desktop app to manage them.";
 
 export interface DelegatedTaskActionResult {
   ok: boolean;

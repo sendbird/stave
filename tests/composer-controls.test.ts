@@ -10,24 +10,30 @@ import {
 describe("normalizeComposerControlPlacements", () => {
   test("returns an empty map for non-object input", () => {
     expect(normalizeComposerControlPlacements(null)).toEqual({});
-    expect(normalizeComposerControlPlacements("advisor")).toEqual({});
-    expect(normalizeComposerControlPlacements(["advisor"])).toEqual({});
+    expect(normalizeComposerControlPlacements("secrets")).toEqual({});
+    expect(normalizeComposerControlPlacements(["secrets"])).toEqual({});
   });
 
   test("drops unknown control ids and unknown placements", () => {
     expect(
       normalizeComposerControlPlacements({
-        advisor: "hidden",
+        secrets: "hidden",
         notAControl: "hidden",
         review: "somewhere-else",
       }),
-    ).toEqual({ advisor: "hidden" });
+    ).toEqual({ secrets: "hidden" });
+  });
+
+  test("drops the retired Advisor and Worker placements", () => {
+    expect(
+      normalizeComposerControlPlacements({ advisor: "hidden", worker: "overflow", review: "overflow" }),
+    ).toEqual({ review: "overflow" });
   });
 
   test("keeps the map sparse so a control added later defaults to visible", () => {
     expect(
       normalizeComposerControlPlacements({
-        advisor: "toolbar",
+        secrets: "toolbar",
         review: "overflow",
       }),
     ).toEqual({ review: "overflow" });
@@ -49,7 +55,7 @@ describe("normalizeComposerControlPlacements", () => {
       "toolbar",
       "hidden",
     ]);
-    expect(composerControlPlacementOptions("advisor")).toEqual([
+    expect(composerControlPlacementOptions("secrets")).toEqual([
       "toolbar",
       "overflow",
       "hidden",
@@ -82,12 +88,11 @@ describe("collectActiveComposerControls", () => {
     expect(
       collectActiveComposerControls({
         planMode: true,
-        advisorArmed: true,
         fastMode: true,
         runtimeTone: "warning",
         boundSecretCount: 2,
       }),
-    ).toEqual(["plan", "fast", "advisor", "secrets", "runtime"]);
+    ).toEqual(["plan", "fast", "secrets", "runtime"]);
   });
 });
 
@@ -97,7 +102,7 @@ describe("resolveComposerControlLayout", () => {
     expect(layout.overflow).toEqual([]);
     expect(layout.hidden).toEqual([]);
     expect(layout.forced).toEqual([]);
-    expect(layout.toolbar).toContain("advisor");
+    expect(layout.toolbar).toContain("secrets");
   });
 
   test("routes configured controls into the tray and out of sight", () => {
@@ -111,26 +116,26 @@ describe("resolveComposerControlLayout", () => {
   });
 
   test("pulls a demoted control back onto the toolbar while it is active", () => {
-    // An armed Advisor bills a preflight every turn; hiding the pill must not
-    // hide that.
+    // Bound secrets change what the next turn can reach; hiding the control
+    // must not hide that.
     const layout = resolveComposerControlLayout({
-      placements: { advisor: "hidden", thinking: "overflow" },
-      activeIds: ["advisor", "thinking"],
+      placements: { secrets: "hidden", thinking: "overflow" },
+      activeIds: ["secrets", "thinking"],
     });
-    expect(layout.toolbar).toContain("advisor");
+    expect(layout.toolbar).toContain("secrets");
     expect(layout.toolbar).toContain("thinking");
     expect(layout.hidden).toEqual([]);
     expect(layout.overflow).toEqual([]);
-    expect(layout.forced).toEqual(["thinking", "advisor"]);
+    expect(layout.forced).toEqual(["thinking", "secrets"]);
   });
 
   test("still reports the configured placement while a control is forced", () => {
     const layout = resolveComposerControlLayout({
-      placements: { advisor: "hidden" },
-      activeIds: ["advisor"],
+      placements: { secrets: "hidden" },
+      activeIds: ["secrets"],
     });
     // The editor has to show what the user chose, not the temporary promotion.
-    expect(layout.placementById.advisor).toBe("hidden");
+    expect(layout.placementById.secrets).toBe("hidden");
   });
 
   test("excludes controls that have nothing to render this frame", () => {
@@ -145,11 +150,11 @@ describe("resolveComposerControlLayout", () => {
 
   test("an unavailable control is not force-promoted by a stale active flag", () => {
     const layout = resolveComposerControlLayout({
-      placements: { advisor: "hidden" },
-      activeIds: ["advisor"],
-      unavailableIds: ["advisor"],
+      placements: { secrets: "hidden" },
+      activeIds: ["secrets"],
+      unavailableIds: ["secrets"],
     });
-    expect(layout.toolbar).not.toContain("advisor");
+    expect(layout.toolbar).not.toContain("secrets");
     expect(layout.forced).toEqual([]);
   });
 });
@@ -160,7 +165,7 @@ describe("partitionComposerFrameToolbar", () => {
       partitionComposerFrameToolbar([
         "plan",
         "fast",
-        "advisor",
+        "secrets",
         "runtime",
         "review",
         "macro",
@@ -171,7 +176,7 @@ describe("partitionComposerFrameToolbar", () => {
       right: ["plan", "thinking"],
       // Order is the caller's; the real toolbar is built in id order, which
       // puts the runtime readout last.
-      status: ["advisor", "runtime", "review", "macro"],
+      status: ["secrets", "runtime", "review", "macro"],
     });
   });
 

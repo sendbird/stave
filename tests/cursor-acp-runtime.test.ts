@@ -7,7 +7,6 @@ import {
   isCursorAgentPingTimeout,
 } from "../electron/providers/cursor/cursor-agent-transport";
 import {
-  streamCursorWorkerWithAcp,
   streamCursorWithAcp,
 } from "../electron/providers/cursor/cursor-acp-profile";
 import { mapCursorAcpModelCatalog } from "../electron/providers/cursor/cursor-model-catalog";
@@ -77,28 +76,6 @@ function waitForEvent(
 }
 
 describe("Cursor ACP runtime", () => {
-  test("runs a Worker in a fresh scoped ACP session with its selected model", async () => {
-    const events = await streamCursorWorkerWithAcp({
-      prompt: "Do one bounded task",
-      cwd: import.meta.dir,
-      model: "fixture-model",
-      runtimeOptions: { cursorBinaryPath: process.execPath },
-      requestIdScope: "worker:fixture",
-      acpArgsForTest: [fixturePath, "standard"],
-    });
-
-    expect(events).toContainEqual({
-      type: "model_resolved",
-      resolvedProviderId: "cursor",
-      resolvedModel: "fixture-model",
-    });
-    expect(events).toContainEqual({
-      type: "text",
-      text: "Fixture response",
-      segmentId: "message-1",
-    });
-  });
-
   test("maps parameterized catalogs to bare models plus advertised efforts", () => {
     expect(
       mapCursorAcpModelCatalog({

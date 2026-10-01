@@ -2,7 +2,6 @@ import { z } from "zod";
 import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { WORKER_EFFORT_ORDER } from "@/lib/providers/worker-mode";
 
 /**
  * An agent config is a saved worker definition: who does the work. The
@@ -45,17 +44,21 @@ export const DEFAULT_AGENT_CONCURRENCY = 2;
  * Where an agent can be used. The words are the auto-routing roles Stave
  * already has, so one vocabulary covers routing and agents:
  * - `primary`: the main agent of a task, or a mission's lead task.
- * - `worker`: the turn-scoped Worker inside another task's turn.
- * - `delegate`: a durable delegated task recorded on the run ledger.
+ * - `worker`: an in-turn subagent inside another agent's turn.
+ * - `delegate`: a durable subagent, its own task on the run ledger.
  */
 export const AGENT_ROLES = ["primary", "worker", "delegate"] as const;
 export type AgentRole = (typeof AGENT_ROLES)[number];
 
 export const AGENT_ROLE_LABELS: Readonly<Record<AgentRole, string>> = {
   primary: "Main agent",
-  worker: "Worker",
-  delegate: "Delegated task",
+  worker: "Subagent in a turn",
+  delegate: "Subagent as a task",
 };
+
+/** Effort tiers an agent may fix, low to high, across both providers' scales. */
+export const AGENT_EFFORT_ORDER = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
+export type AgentEffort = (typeof AGENT_EFFORT_ORDER)[number];
 
 /** Same words as a delegated task's workspace strategy. */
 export const AGENT_WORKSPACES = ["new-worktree", "same-workspace"] as const;
@@ -150,7 +153,7 @@ export const AgentModelSchema = z.discriminatedUnion("mode", [
       mode: z.literal("fixed"),
       providerId: z.enum(PROVIDER_IDS),
       model: z.string().trim().min(1).max(AGENT_CONFIG_LIMITS.model).optional(),
-      effort: z.enum(WORKER_EFFORT_ORDER).optional(),
+      effort: z.enum(AGENT_EFFORT_ORDER).optional(),
     })
     .strict(),
   z

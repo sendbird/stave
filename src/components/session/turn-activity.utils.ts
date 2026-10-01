@@ -1,17 +1,10 @@
 import type { TodoItem } from "@/components/ai-elements/todo";
 import {
-  formatAdvisorDuration,
-  type AdvisorExchangeSnapshot,
-} from "@/lib/providers/advisor-activity";
-import {
   describeHookEventLabel,
   formatHookSourcePreview,
   normalizeHookEventToken,
 } from "@/lib/providers/hook-activity";
-import {
-  describeAgentIdentity,
-  formatExchangeDuration,
-} from "@/lib/delegation/format";
+import { formatExchangeDuration } from "@/lib/delegation/format";
 import { truncateWorkText } from "@/lib/providers/subagent-identity";
 import { resolveToolProviderDetail } from "@/lib/providers/tool-activity";
 import type {
@@ -31,7 +24,6 @@ export type TurnActivityIconKey =
   | "pause"
   | "plan"
   | "subagent"
-  | "advisor"
   | "tool"
   | "hook"
   | "todo";
@@ -78,14 +70,6 @@ export interface TurnActivityItem {
    * transcript can actually reveal, so it doubles as "this row is clickable".
    */
   toolUseId?: string;
-  /**
-   * A detail surface this row opens instead of revealing a transcript entry.
-   *
-   * Separate from `toolUseId` on purpose: that field asserts "the transcript
-   * can reveal this call", and borrowing it for the advisor row would put a
-   * row in the transcript-reveal path that has nothing to reveal.
-   */
-  detailSurface?: "advisor-consult-log";
   iconKey: TurnActivityIconKey;
 }
 
@@ -95,20 +79,12 @@ export interface TurnActivityItem {
  * One place decides, so the row component branches on the result rather than
  * re-deriving "is this clickable" from two fields that mean different things.
  */
-export type TurnActivityRowActivation =
-  | { kind: "tool"; toolUseId: string }
-  | { kind: "advisor-log" };
+export type TurnActivityRowActivation = { kind: "tool"; toolUseId: string };
 
 export function resolveTurnActivityRowActivation(
   item: TurnActivityItem,
 ): TurnActivityRowActivation | null {
-  if (item.toolUseId) {
-    return { kind: "tool", toolUseId: item.toolUseId };
-  }
-  if (item.detailSurface === "advisor-consult-log") {
-    return { kind: "advisor-log" };
-  }
-  return null;
+  return item.toolUseId ? { kind: "tool", toolUseId: item.toolUseId } : null;
 }
 
 export interface TurnActivitySummary {
@@ -297,108 +273,6 @@ export function promoteFirstPendingTodoForActiveTurn(
       ? { ...todo, status: "in_progress" as const, promoted: true }
       : todo,
   );
-}
-
-/** `Claude · Sonnet 4.6 · high`, or null when the runtime named no target. */
-function describeAdvisorIdentity(snapshot: AdvisorExchangeSnapshot) {
-  if (!snapshot.advisorProviderId) {
-    return null;
-  }
-  return describeAgentIdentity({
-    providerId: snapshot.advisorProviderId,
-    model: snapshot.advisorModel,
-    effort: snapshot.advisorEffort,
-  }).text;
-}
-
-/**
- * The Advisor's row in the turn shelf.
- *
- * On-demand consults are the one delegation the user cannot predict: the model
- * decides whether to spend one at all. So the row exists from the moment the
- * turn is armed, and its title always states the count — a turn that consulted
- * nobody says so, instead of looking exactly like a turn with no Advisor.
- *
- * The floating exchange card still owns the detail (question, advice, checks);
- * this row exists so every delegation this turn made is countable in one place.
- */
-export function describeAdvisorTurnActivityItem(
-  snapshot: AdvisorExchangeSnapshot,
-  options?: {
-    /**
-     * The task has archived consults to open. Gated on log emptiness rather
-     * than on this turn's outcome, so a merely-armed turn whose task consulted
-     * earlier still offers a way back to those consults.
-     */
-    hasConsultLog?: boolean;
-  },
-): TurnActivityItem {
-  const identity = describeAdvisorIdentity(snapshot);
-  const limit = snapshot.consultLimit;
-  const duration =
-    snapshot.durationMs === undefined
-      ? null
-      : formatAdvisorDuration(snapshot.durationMs);
-
-  if (snapshot.outcome === "armed") {
-    return {
-      id: "advisor",
-      status: "pending",
-      title: "Advisor armed · 0 consults",
-      detail: identity
-        ? `${identity} · available if the primary asks`
-        : "Available if the primary asks",
-      ...(limit ? { badge: `0/${limit}` } : {}),
-      ...(options?.hasConsultLog
-        ? { detailSurface: "advisor-consult-log" as const }
-        : {}),
-      iconKey: "advisor",
-    };
-  }
-
-  const index = snapshot.consultIndex ?? snapshot.settledConsults;
-  const countLabel = limit ? `${index}/${limit}` : `${index}`;
-  if (snapshot.outcome === "pending") {
-    // No count badge: the title already carries `n/limit`, and the same
-    // number twice on one row read as two different facts.
-    return {
-      id: "advisor",
-      status: "running",
-      title: `Advisor consult ${countLabel}`,
-      detail: snapshot.question ?? identity ?? "Waiting on the advisor",
-      ...(options?.hasConsultLog
-        ? { detailSurface: "advisor-consult-log" as const }
-        : {}),
-      iconKey: "advisor",
-    };
-  }
-
-  const failed = snapshot.outcome === "failed" || snapshot.outcome === "timeout";
-  const outcomeDetail =
-    snapshot.outcome === "completed"
-      ? `Advice returned${duration ? ` in ${duration}` : ""}`
-      : snapshot.outcome === "timeout"
-        ? `Timed out${duration ? ` after ${duration}` : ""}; the turn continued`
-        : snapshot.outcome === "failed"
-          ? `Failed${duration ? ` after ${duration}` : ""}; the turn continued`
-          : snapshot.outcome === "skipped"
-            ? "Consult cancelled; the turn continued"
-            : "Turn cancelled during a consult";
-  return {
-    id: "advisor",
-    // A failed consult is not a failed turn — the primary keeps going — but it
-    // is the one advisor outcome worth surfacing in the collapsed header.
-    status: failed ? "failed" : "completed",
-    title: `Advisor · ${snapshot.settledConsults} consult${
-      snapshot.settledConsults === 1 ? "" : "s"
-    }`,
-    detail: identity ? `${outcomeDetail} · ${identity}` : outcomeDetail,
-    ...(limit ? { badge: `${snapshot.settledConsults}/${limit}` } : {}),
-    ...(options?.hasConsultLog
-      ? { detailSurface: "advisor-consult-log" as const }
-      : {}),
-    iconKey: "advisor",
-  };
 }
 
 /**
@@ -636,14 +510,6 @@ export function buildTurnActivityItems(args: {
   /** Turn start, used to place each work row on the turn's own timeline. */
   turnStartedAt?: number | null;
   /**
-   * This turn's Advisor grant, if one was minted. Rendered here rather than
-   * only in the floating card so subagents, delegated tasks and consults are all
-   * countable from the same shelf.
-   */
-  advisor?: AdvisorExchangeSnapshot | null;
-  /** The task has archived consults, so the advisor row can open the log. */
-  hasAdvisorConsultLog?: boolean;
-  /**
    * A chat-level approval/user-input card is already on screen, so the shelf
    * skips its own row rather than saying the same thing twice.
    */
@@ -694,16 +560,6 @@ export function buildTurnActivityItems(args: {
       title: "Preparing the plan",
       iconKey: "plan",
     });
-  }
-  if (args.advisor) {
-    // Fixed slot ahead of provider work: the row appears when the turn is
-    // armed and only changes text afterwards, so it never reorders the list
-    // mid-turn the way an insertion at consult time would.
-    items.push(
-      describeAdvisorTurnActivityItem(args.advisor, {
-        hasConsultLog: args.hasAdvisorConsultLog ?? false,
-      }),
-    );
   }
   for (const item of args.workItems) {
     if (item.kind === "hook") {

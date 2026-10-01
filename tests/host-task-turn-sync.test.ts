@@ -72,8 +72,6 @@ function buildState(args: {
     taskWorkspaceIdById: {},
     providerTurnActivityByTask: {},
     retainedTurnActivityByTask: {},
-    advisorExchangeByTask: {},
-    advisorConsultLogByTask: {},
     workspaceSnapshotVersion: 4,
   };
 }

@@ -4,16 +4,10 @@ import type { LensAnnotation } from "@/lib/lens/lens.types";
 // Type-only, and `provider.types` imports this module the same way, so the
 // cycle is erased at compile time rather than existing at runtime.
 import type {
-  AdvisorTarget,
-  AdvisorTargetByProvider,
   AutoRoutingModelResolution,
   DelegatedExecutionUsage,
   ProviderId,
 } from "@/lib/providers/provider.types";
-import type {
-  WorkerExecutionMetadata,
-  WorkerProviderConfig,
-} from "@/lib/providers/worker-mode";
 import type { WorkspaceInformationReference } from "@/lib/workspace-information-references";
 
 export type MessageRole = "user" | "assistant";
@@ -115,37 +109,6 @@ export interface PromptDraftRuntimeOverrides {
    * families). Legacy drafts without it still use model-name inference.
    */
   modelProviderId?: ProviderId;
-  /**
-   * Per-task Advisor arming. Absent inherits the Settings default (a configured
-   * `settings.advisorTarget` means "armed by default"). `false` disarms only
-   * this task and deliberately keeps `advisorTarget`, so re-arming restores the
-   * previous pick instead of silently falling back to the global one.
-   */
-  advisorEnabled?: boolean;
-  /**
-   * Per-task Advisor target. Kept task-local so arming one task never changes
-   * which model advises another task.
-   */
-  advisorTarget?: AdvisorTarget;
-  /**
-   * Per-task Advisor pick remembered per provider, so the composer can offer
-   * each provider's model and effort while the Advisor is off and switching
-   * provider restores that provider's own choice instead of resetting it to
-   * the catalog default. `advisorTarget` stays the single armed pick.
-   */
-  advisorTargetByProvider?: AdvisorTargetByProvider;
-  /**
-   * Per-task Worker mode arming. Absent inherits the Settings default. `false`
-   * disarms only this task and deliberately keeps `workerConfigByProvider`, so
-   * re-arming restores the previous preset/model/effort rather than resetting.
-   */
-  workerEnabled?: boolean;
-  /**
-   * Per-task worker configuration, keyed by provider. Keyed rather than flat so
-   * switching providers never overwrites another provider's choice — their
-   * worker catalogs, effort scales, and execution adapters differ.
-   */
-  workerConfigByProvider?: Partial<Record<ProviderId, WorkerProviderConfig>>;
   /**
    * Ids of vault secrets bound to this task for env injection. Persists in the
    * workspace snapshot so a binding survives restart. Ids only — never values.
@@ -268,7 +231,6 @@ export interface ToolUsePart extends MessagePartBase {
   elapsedSeconds?: number;
   /** Progress messages streamed from a running subagent (Agent tool only). */
   progressMessages?: string[];
-  workerExecution?: WorkerExecutionMetadata;
 }
 
 export interface CodeDiffPart extends MessagePartBase {
@@ -294,7 +256,6 @@ export interface ApprovalPart extends MessagePartBase {
   input?: string;
   /** See the `approval` provider event: an allow-always option exists. */
   supportsAllowAlways?: boolean;
-  workerExecution?: WorkerExecutionMetadata;
   requestId: string;
   state:
     | "approval-requested"

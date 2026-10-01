@@ -226,7 +226,6 @@
     "src/components/scripts/ScriptEntryCard.tsx": 0,
     "src/components/scripts/ScriptHooksTab.tsx": 0,
     "src/components/scripts/ScriptsManager.tsx": 0,
-    "src/components/session/AdvisorConsultLogDialog.tsx": 0,
     "src/components/session/ConversationTurnRail.tsx": 0,
     "src/components/session/PlanViewer.tsx": 0,
     "src/components/session/TaskSourceContextNotice.tsx": 0,

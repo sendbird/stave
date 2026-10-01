@@ -59,12 +59,12 @@ describe("local MCP task turn activity projection", () => {
   });
 
   test("preserves projected events while renderer reloads are coalesced", () => {
-    const advisor = repositoryLocalMcpTaskTurnActivityEvent({
-      type: "advisor_activity",
-      phase: "started",
-      primaryProviderId: "codex",
-      advisorProviderId: "claude-code",
-      at: 1_700_000_000_000,
+    const hook = repositoryLocalMcpTaskTurnActivityEvent({
+      type: "hook_activity",
+      hookId: "hook-1",
+      hookName: "lint",
+      hookEvent: "PostToolUse",
+      status: "running",
     });
     const tool = repositoryLocalMcpTaskTurnActivityEvent({
       type: "tool",
@@ -76,8 +76,8 @@ describe("local MCP task turn activity projection", () => {
 
     const merged = mergeLocalMcpTaskTurnUpdates(
       update({
-        activityEvents: advisor ? [advisor] : [],
-        eventType: "advisor_activity",
+        activityEvents: hook ? [hook] : [],
+        eventType: "hook_activity",
       }),
       update({
         sequence: 2,
@@ -87,7 +87,7 @@ describe("local MCP task turn activity projection", () => {
 
     expect(merged.sequence).toBe(2);
     expect(merged.activityEvents?.map((event) => event.type)).toEqual([
-      "advisor_activity",
+      "hook_activity",
       "tool",
     ]);
   });

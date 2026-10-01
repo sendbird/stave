@@ -104,7 +104,7 @@ export function SettingsDelegationSection() {
       id="settings-field-delegation"
       tabIndex={-1}
       title="Delegation (delegated tasks)"
-      description="Let a task hand durable work to a child Stave task — its own workspace, conversation and permissions, recorded on the run ledger and able to survive a restart. Unlike Worker mode, a child outlives the turn that created it."
+      description="Let a task hand work to a subagent that is its own Stave task — its own workspace, conversation and permissions, recorded on the run ledger and able to survive a restart."
       titleAccessory={
         <Badge
           variant={
@@ -147,8 +147,8 @@ export function SettingsDelegationSection() {
           ))}
         </ul>
         <p className={sx(delegationStyles.paragraphSpaced)}>
-          Delegation and Advisor consults both reach the model as Local MCP
-          tools, so a task can only delegate while that server is running.
+          Delegation reaches the model as Local MCP tools, so a task can only
+          start subagents while that server is running.
         </p>
         <Button
           type="button"

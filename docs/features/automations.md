@@ -1,13 +1,21 @@
-# Automations
+# Schedules (start a task)
 
 ## Summary
 
-- Automations schedule repeatable Claude or Codex work from Stave.
-- Each run creates a normal task conversation, so you can inspect the result, answer an approval request, or continue the work manually.
+- Schedules is the one surface for work that runs on its own. It lists two kinds
+  in one list: **Start a task** (this page: a repository, an agent, a prompt and
+  a cadence) and **Check back on a task** (see [Check-back schedules](wake-ups.md)).
+- Each row shows name, agent, cadence, last result and next run, with `Run now`
+  and `Pause` on the row. A check-back has no `Run now`.
+- A start-a-task run creates a normal task conversation, so you can inspect the
+  result, answer an approval request, or continue the work manually.
+- Underneath, a start-a-task schedule is still an automation record, and a
+  check-back is a wake-up record. The Local MCP tool names (`stave_*_automation*`,
+  `stave_*_wake_up*`) are unchanged.
 
 ## When To Use It
 
-- Use an automation for recurring repository reviews, status summaries, maintenance checks, or other prompts that should run at a regular interval.
+- Use a start-a-task schedule for recurring repository reviews, status summaries, maintenance checks, or other prompts that should run at a regular interval.
 - Use Workspace Scripts instead when the work is a deterministic shell command or long-running local service rather than an AI task.
 
 ## Before You Start
@@ -19,9 +27,9 @@
 
 ## Quick Start
 
-1. Open `Automations` from the workflow icon in the global navigation
+1. Open `Schedules` from the workflow icon in the global navigation
    bar at the top right, or press `Cmd/Ctrl+K` then `A`.
-2. Select `New automation`.
+2. Select `New schedule` and keep `New task in a repository` under Where.
 3. Enter the automation name and complete task instructions.
 4. Pick a cadence preset such as `Daily`, `Weekdays`, or `Weekends`.
 5. Pick a permission mode: `Auto`, `Guided`, or `Manual`.
@@ -35,11 +43,11 @@
 
 ### Entry Points
 
-- Automations is a full-window surface, like Fleet View. It replaces
+- Schedules is a full-window surface, like Fleet View. It replaces
   the main content column while the sidebar, top bar, and right rail stay in
   place. `Escape` or the header `X` closes it.
 - Open it from the workflow icon in the global navigation bar, from the command
-  palette (`Open Automations`), or with `Cmd/Ctrl+K` then `A`.
+  palette (`Open Schedules`), or with `Cmd/Ctrl+K` then `A`.
 - It remains available without selecting a task or workspace because automations
   can target any registered repository.
 
@@ -50,15 +58,17 @@ and the run history are never stacked in one scroll view. Playbooks and agents
 now live on their own **Agents** surface (see [Playbooks](playbooks.md) and
 [Agents](agents.md)).
 
-- `Automations`: the saved automation list on the left, and the selected
-  automation's configuration on the right. The detail pane shows the latest run
+- `Schedules`: every schedule (both kinds) on the left, and the selected
+  schedule's configuration on the right. The detail pane shows the latest run
   status only; the full history lives in the other tab.
 - `Run history`: every recorded run on the left, filtered by status and by
   automation, and the selected run's full detail on the right.
 
 ### Key Controls
 
-- `New automation`: creates an automation.
+- `New schedule`: opens one sheet with What (agent and prompt), Where (a new
+  task in a repository, or an existing task) and When (a cadence, or when
+  subagents finish). `An existing task` creates a check-back instead.
 - `Run now`: starts an independent run immediately.
 - `Edit`: changes any saved specification.
 - `View run history`: switches to the `Run history` tab pre-filtered to the

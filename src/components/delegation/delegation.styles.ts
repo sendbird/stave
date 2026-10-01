@@ -172,42 +172,6 @@ export const delegationStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
   },
 
-  /* ── CheckList ─────────────────────────────────────────────────────── */
-  checkList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-  },
-  checkItem: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: vars["--ads-space-8"],
-  },
-  checkBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  checkLabel: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: 1.45,
-    margin: 0,
-  },
-  checkLabelFail: {
-    color: vars["--ads-color-danger-text"],
-    fontWeight: vars["--ads-font-weight-medium"],
-  },
-  checkDetail: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: 1.45,
-    margin: 0,
-    overflowWrap: "break-word",
-  },
-
   /* ── ExchangeRow ───────────────────────────────────────────────────── */
   row: {
     borderRadius: vars["--ads-radius-panel"],

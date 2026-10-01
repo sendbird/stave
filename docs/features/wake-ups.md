@@ -1,4 +1,11 @@
-# Wake-ups
+# Check-back schedules (wake-ups)
+
+In the app this is the **Check back on a task** kind of [Schedule](automations.md):
+it appears in the same Schedules list as start-a-task schedules, is created from
+the same sheet (Where: `An existing task`) or from a task tab's `Check back…`
+menu item, and is called a wake-up only in code, storage and the MCP tool names.
+A task has at most one; `Check back…` on a task that has one edits it. Rows offer
+`Pause` and `Resume`; there is no `Run now`.
 
 A wake-up resumes one existing task, in the same provider session — either on a
 schedule or when work that task delegated finishes. It is the "keep going

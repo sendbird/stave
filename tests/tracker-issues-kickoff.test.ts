@@ -28,7 +28,6 @@ const RUNTIME: CraneDispatchRuntimeChoice = {
   codexWebSearch: "live",
   codexReasoningEffort: "xhigh",
   codexFastMode: false,
-  advisorTarget: null,
 };
 
 const NEW_WORKSPACE: CraneDispatchWorkspaceChoice = {

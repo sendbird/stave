@@ -60,6 +60,7 @@ import {
 } from "@/lib/panes/types";
 import { canTakeOverTask, isTaskArchived, isTaskManaged } from "@/lib/tasks";
 import { closeTerminalSessionForTab } from "@/lib/terminal/terminal-session-cleanup";
+import { useScheduleRequestStore } from "@/store/schedule-request-store";
 import { useAppStore } from "@/store/app.store";
 import {
   buildEditorBulkClosePlan,
@@ -500,8 +501,18 @@ function buildTabContextMenuItems(
         action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "progress"),
       });
       items.push({
-        label: "View team",
+        label: "View subagents",
         action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "team"),
+      });
+      items.push({
+        label: "Check back…",
+        disabled: task?.provider !== "claude-code" && task?.provider !== "codex",
+        action: () => {
+          useScheduleRequestStore
+            .getState()
+            .requestCheckBack({ workspaceId: store.activeWorkspaceId, taskId: surface.taskId });
+          store.openAutomationCenter();
+        },
       });
     }
     if (isManagedTask) {

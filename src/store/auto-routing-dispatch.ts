@@ -1,4 +1,3 @@
-import { resolveAdvisorAutoTarget } from "@/lib/providers/advisor";
 import {
   formatResolvedRouteLabel,
   type TaskClass,
@@ -8,17 +7,10 @@ import type {
   NormalizedProviderEvent,
   ProviderId,
 } from "@/lib/providers/provider.types";
-import {
-  resolveRoutedWorkerModel,
-  WORKER_AUTO_VALUE,
-} from "@/lib/providers/worker-mode";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import type { AppState } from "@/store/app-store.types";
 import {
-  computeRouterSignals,
   resolveAutoRoutingDecision,
-  resolveBudgetUsedPercentByProvider,
-  resolveRoutingProviderAvailability,
   type AutoRoutingDecision,
 } from "@/lib/routing/auto-routing";
 import { buildOutgoingUserMessage } from "@/store/chat-state-helpers";
@@ -247,91 +239,6 @@ export async function resolveAutoRoutingForSend(args: {
   }
 }
 
-/**
- * Advisor and Worker picks left on `auto` resolve through the same role table
- * before the runtime options are built, so the runtime only ever sees concrete
- * models. Returns the draft overrides unchanged when nothing was routed.
- */
-export function resolveDelegatedRuntimeOverrides(args: {
-  state: RoutingState;
-  overrides: PromptDraft["runtimeOverrides"];
-  provider: ProviderId;
-  activeModel: string;
-  prompt: string;
-  fileContextCount: number;
-}): PromptDraft["runtimeOverrides"] {
-  const { state, overrides, provider } = args;
-  const budgetUsedPercentByProvider = resolveBudgetUsedPercentByProvider(
-    state.rateLimitsSnapshot,
-  );
-  // An advisor consult runs a real turn, so it has to respect the same
-  // usage-exhaustion failover the primary route uses.
-  const routingAvailability =
-    resolveRoutingProviderAvailability({
-      profile: state.settings.autoRoutingProfile,
-      providerAvailability: state.providerAvailability,
-      rateLimitsSnapshot: state.rateLimitsSnapshot,
-    }) ?? state.providerAvailability;
-  const advisorTarget = resolveAdvisorAutoTarget({
-    target: overrides?.advisorTarget ?? state.settings.advisorTarget,
-    profile: state.settings.autoRoutingProfile,
-    primaryProviderId: provider,
-    primaryModel: args.activeModel,
-    budgetUsedPercent: budgetUsedPercentByProvider[provider],
-    providerAvailability: routingAvailability,
-    signals: computeRouterSignals({
-      prompt: args.prompt,
-      fileContextCount: args.fileContextCount,
-      history: [],
-      currentProviderId: provider,
-      currentModel: args.activeModel,
-      profile: state.settings.autoRoutingProfile,
-      phase:
-        overrides?.claudePermissionMode === "plan" || overrides?.codexPlanMode
-          ? "plan"
-          : "execute",
-      rateLimitsSnapshot: state.rateLimitsSnapshot,
-      providerAvailability: state.providerAvailability,
-    }).signals,
-  });
-  const workerConfig =
-    overrides?.workerConfigByProvider?.[provider] ??
-    state.settings.workerConfigByProvider?.[provider];
-  const routedWorker =
-    (workerConfig?.model ?? WORKER_AUTO_VALUE) === WORKER_AUTO_VALUE
-      ? resolveRoutedWorkerModel({
-          profile: state.settings.autoRoutingProfile,
-          providerId: provider,
-          primaryModel: args.activeModel,
-          budgetUsedPercent: budgetUsedPercentByProvider[provider],
-        })
-      : null;
-  const needsAdvisor =
-    advisorTarget !== null &&
-    advisorTarget !== (overrides?.advisorTarget ?? state.settings.advisorTarget);
-  if (!needsAdvisor && !routedWorker) {
-    return overrides;
-  }
-  return {
-    ...(overrides ?? {}),
-    ...(needsAdvisor ? { advisorTarget } : {}),
-    ...(routedWorker
-      ? {
-          workerConfigByProvider: {
-            ...(overrides?.workerConfigByProvider ?? {}),
-            [provider]: {
-              ...(workerConfig ?? {}),
-              model: routedWorker.model,
-              ...(routedWorker.effort &&
-              (workerConfig?.effort ?? WORKER_AUTO_VALUE) === WORKER_AUTO_VALUE
-                ? { effort: routedWorker.effort }
-                : {}),
-            },
-          },
-        }
-      : {}),
-  };
-}
 
 /** The `model_resolved` event a routed send records first on its turn; null when nothing was routed. */
 export function buildAutoRoutingModelResolvedEvent(args: {

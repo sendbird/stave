@@ -114,7 +114,6 @@ export function MessagePartRenderer(args: {
             output={part.output}
             state={part.state}
             progressMessages={part.progressMessages}
-            workerExecution={part.workerExecution}
           />
         );
       }

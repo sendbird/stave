@@ -4,7 +4,8 @@ import { compileAgent, snapshotAgent } from "@/lib/agents/compile";
 import { applyAgentToDelegation } from "@/lib/agents/delegate";
 import { exportAgentFile } from "@/lib/agents/export";
 import { duplicateAgent } from "@/lib/agents/library";
-import { agentWorkerConfig, taskAgentRuntimeOptions } from "@/lib/agents/runtime-options";
+import { taskAgentRuntimeOptions } from "@/lib/agents/runtime-options";
+import { compileNativeSubagents } from "@/lib/agents/native-subagents";
 import { activeStandards, normalizeMyStandards } from "@/lib/agents/standards";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 
@@ -34,7 +35,9 @@ describe("my standards", () => {
     expect(taskAgentRuntimeOptions({ agent: researcher, providerId: "codex" }).agentInstructions).not.toContain("My standards");
 
     const copy = duplicateAgent(getBuiltinAgent("reviewer")!, []);
-    expect(agentWorkerConfig(copy, "claude-code", STANDARDS)?.instructions).toContain(STANDARDS);
+    const lead = getBuiltinAgent("lead") ?? getBuiltinAgent("implementer")!;
+    const [subagent] = compileNativeSubagents({ lead: { ...lead, canCall: [copy.id] }, library: [copy], providerId: "claude-code", standards: STANDARDS });
+    expect(subagent?.instructions).toContain(STANDARDS);
     const delegated = applyAgentToDelegation({
       args: {
         repositoryPath: "/tmp/r",

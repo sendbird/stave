@@ -6,9 +6,8 @@ import {
   TaskResultReviews,
 } from "@/components/session/TaskResultReviews";
 import { ExchangeDetail } from "@/components/delegation/ExchangeDetail";
-import { fromWorkerExchange } from "@/lib/delegation/exchange";
-import { DelegateTaskForm } from "@/components/team/DelegateTaskForm";
-import { TeamSection } from "@/components/team/TeamSection";
+import { fromDelegatedTask } from "@/lib/delegation/exchange";
+import { SubagentsSection } from "@/components/session/SubagentsSection";
 import { Accordion } from "@/components/ui/accordion";
 import type { ResultReview } from "@/lib/reviews/result-review";
 
@@ -62,71 +61,22 @@ test("run history rows lead with the result before review metadata", () => {
   );
 });
 
-test("delegate form mounts collapsed behind a body-size header and toggle", () => {
+test("the Subagents tab says what it lists before any subagent exists", () => {
   const html = renderToStaticMarkup(
-    createElement(DelegateTaskForm, {
-      target: { taskId: "t", workspaceId: "w", repositoryPath: "/tmp/p" },
-      onCreated: () => {},
-    }),
+    createElement(SubagentsSection, { taskId: "t", workspaceId: "w", repositoryPath: "/tmp/p" }),
   );
-  expect(html).toContain("Delegate a task");
-  expect(html).toContain("Hand a bounded assignment to another model");
-  expect(html).toContain("New delegation");
-  expect(html).not.toContain("<select");
-  expect(html).not.toContain("<textarea");
+  expect(html).toMatch(/Loading subagents|No subagents yet/);
+  expect(html).not.toContain("Advisor");
+  expect(html).not.toContain("Worker");
 });
-
-test("collaboration puts the delegation entry before history controls", () => {
-  const html = renderToStaticMarkup(
-    createElement(TeamSection, {
-      target: { taskId: "t", workspaceId: "w", repositoryPath: "/tmp/p" },
-    }),
-  );
-
-  expect(html.indexOf("Delegate a task")).toBeLessThan(
-    html.indexOf("Filter delegations"),
-  );
-  expect(html.indexOf("Delegate a task")).toBeLessThan(html.indexOf("All"));
-});
-
-test("delegate form opens with the routed assignee summarised and the model controls hidden", () => {
-  const html = renderToStaticMarkup(
-    createElement(DelegateTaskForm, {
-      target: { taskId: "t", workspaceId: "w", repositoryPath: "/tmp/p" },
-      onCreated: () => {},
-      defaultOpen: true,
-    }),
-  );
-  expect(html).toContain(">Assignment<");
-  expect(html).toContain('autofocus=""');
-  expect(html).toContain("Who runs it");
-  expect(html).toContain("Guardrails");
-  // Only Permissions is a select until the user asks to change the model.
-  expect(html.match(/<select/g)?.length).toBe(1);
-  expect(html).not.toContain(">Effort<");
-  expect(html).toContain(">Change<");
-  expect(html).toContain('data-agent-identity="GPT-6.1 Sol · Medium"');
-  expect(html).toContain(">Auto<");
-  expect(html).toContain(
-    "Auto → GPT-6.1 Sol · Medium effort (Auto) · Your permissions · Separate worktree",
-  );
-  expect(html).not.toContain("Codex · Auto →");
-});
-
-
-test("managed Team still renders history filters while new delegation is restricted", () => {
-  const html = renderToStaticMarkup(createElement(TeamSection, {
-    target: { taskId: "managed", workspaceId: "w", repositoryPath: "/tmp/p" }, readOnly: true,
-  }));
-  expect(html).toContain("Managed task. Take over to change delegations.");
-  expect(html).toContain("Filter delegations");
-  expect(html).toContain("Export report");
-  expect(html).not.toContain("New delegation");
-});
-
 
 test("finished execution detail prioritizes the returned result and folds assignment diagnostics", () => {
-  const exchange = fromWorkerExchange({ id: "worker", model: "gpt-6.1-sol", state: "output-available", assignment: "Review cancellation", result: "Cancellation verified", progress: ["Inspected cancellation"], at: 1, endedAt: 2 });
+  const exchange = { ...fromDelegatedTask({
+    runId: "child-task:t:review", stepId: "child-task:t:review:turn", parentTaskId: "t", delegationKey: "review",
+    delegatedTaskId: "c", delegatedWorkspaceId: "w", delegatedTurnId: "turn", providerId: "codex", lifecycle: "one-turn",
+    phase: "completed", reason: null, attempt: 1, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:02.000Z",
+    completedAt: "2026-08-10T00:00:02.000Z", result: "Cancellation verified",
+  }, { prompt: "Review cancellation" }), outcome: { status: "returned" as const, result: "Cancellation verified", progress: ["Inspected cancellation"] } };
   const html = renderToStaticMarkup(createElement(ExchangeDetail, { exchange, nowMs: 3, resultFirst: true }));
   expect(html.indexOf("Cancellation verified")).toBeLessThan(html.indexOf("Review cancellation"));
   expect(html).toMatch(/<details><summary[^>]*>Assignment and execution details/);

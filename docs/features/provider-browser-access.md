@@ -63,7 +63,7 @@ browser never qualifies for another fallback. Stave also holds off when the
 turn was aborted, when the user has a queued follow-up of their own, when the
 turn is not the task's own dialogue (compare arms, kickoffs), and whenever the
 three hard blocks above apply. The follow-up runs as a utility turn, so it
-never re-runs the task's armed Advisor.
+never starts a subagent.
 
 While the fallback is on and the browser is not attached, a blocked `WebFetch`
 also gets a note telling the model to stop retrying the host and report what is

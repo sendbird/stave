@@ -8,8 +8,15 @@ import {
 import { autonomyOfOptions, resolveTurnPolicy } from "../../src/lib/policy/turn-policy";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { setTaskPermissionObserver } from "../providers/runtime";
+import { randomBytes } from "node:crypto";
+import { resolveCallerGrant, setCallerGrantSecretSource, type CallerGrant } from "../providers/caller-grants";
 
 export function registerDelegationPolicyObserver() {
+  setCallerGrantSecretSource(() =>
+    ensureHostServicePersistenceReady().delegationPolicies.loadOrCreateCallerGrantSecret(
+      () => randomBytes(32).toString("hex"),
+    ),
+  );
   setTaskPermissionObserver(({ taskId, providerId, options }) =>
     ensureHostServicePersistenceReady().delegationPolicies.saveEffective(
       taskId,
@@ -84,4 +91,9 @@ export function resolveHostDelegationDefaults(args: { parentTaskId: string }) {
   return ensureHostServicePersistenceReady().delegationPolicies.loadParentTurnDefaults(
     args.parentTaskId,
   );
+}
+
+/** The calling task and turn behind a Local MCP caller key; null once the turn ended. */
+export function resolveHostCallerGrant(args: { callerKey: string }): CallerGrant | null {
+  return resolveCallerGrant(args.callerKey);
 }

@@ -15,11 +15,6 @@ import {
   type RetainedTurnActivityByTask,
 } from "@/lib/providers/turn-status";
 import {
-  applyAdvisorActivityEvents,
-  type AdvisorExchangeByTask,
-} from "@/lib/providers/advisor-activity";
-import type { AdvisorConsultLogByTask } from "@/lib/providers/advisor-consult-log";
-import {
   createWorkspaceSessionStateFromAppState,
   type WorkspaceRuntimeStatePatch,
 } from "@/store/workspace-runtime-state";
@@ -85,8 +80,6 @@ type HostTaskTurnStoreState = Parameters<
     ProviderTurnActivitySnapshot | undefined
   >;
   retainedTurnActivityByTask: RetainedTurnActivityByTask;
-  advisorExchangeByTask: AdvisorExchangeByTask;
-  advisorConsultLogByTask: AdvisorConsultLogByTask;
   workspaceSnapshotVersion: number;
 };
 
@@ -285,21 +278,6 @@ export function applyHostTaskTurnSync(args: {
     taskId: args.update.taskId,
     snapshot: reduced.retiredSnapshot,
   });
-  // A host batch carries the same hazard as a renderer flush: several complete
-  // consults can arrive at once, so the archive happens inside the fold rather
-  // than by comparing the exchange map on either side of it.
-  const advisor = args.update.activityEvents?.length
-    ? applyAdvisorActivityEvents({
-        exchangeByTask: args.state.advisorExchangeByTask,
-        logByTask: args.state.advisorConsultLogByTask,
-        taskId: args.update.taskId,
-        turnId: args.update.turnId,
-        events: args.update.activityEvents,
-      })
-    : {
-        exchangeByTask: args.state.advisorExchangeByTask,
-        logByTask: args.state.advisorConsultLogByTask,
-      };
   const sharedPatch = {
     hostOwnedTurnIdsByTask: {
       ...args.state.hostOwnedTurnIdsByTask,
@@ -307,8 +285,6 @@ export function applyHostTaskTurnSync(args: {
     },
     providerTurnActivityByTask,
     retainedTurnActivityByTask,
-    advisorExchangeByTask: advisor.exchangeByTask,
-    advisorConsultLogByTask: advisor.logByTask,
     taskWorkspaceIdById: {
       ...args.state.taskWorkspaceIdById,
       [args.update.taskId]: args.update.workspaceId,
@@ -350,8 +326,6 @@ export function applyHostTaskTurnSync(args: {
         ProviderTurnActivitySnapshot | undefined
       >;
       retainedTurnActivityByTask: RetainedTurnActivityByTask;
-      advisorExchangeByTask: AdvisorExchangeByTask;
-      advisorConsultLogByTask: AdvisorConsultLogByTask;
       activeAppSurface?: AppActiveSurface;
     },
     syncedSession: merged.session,

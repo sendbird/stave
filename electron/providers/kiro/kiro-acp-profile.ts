@@ -105,9 +105,8 @@ export async function streamKiroWithAcp(
   const secretEnv = args.runtimeOptions?.boundSecretIds?.length
     ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
     : {};
-  const { servers: staveLocalMcpServers, workerUnavailable } =
+  const { servers: staveLocalMcpServers } =
     await resolveAcpEmbeddedStaveLocalMcpServers({
-      requiredForWorker: Boolean(args.staveTurnGrants?.workerKey),
       turnGrants: args.staveTurnGrants,
     });
   const mcpServers = await resolveAcpTurnMcpServers({
@@ -116,13 +115,6 @@ export async function streamKiroWithAcp(
     env: { ...process.env, ...secretEnv },
     staveLocalMcpServers,
   });
-  if (workerUnavailable) {
-    const events = unavailableEvents(
-      "Worker is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
-    );
-    events.forEach((event) => args.onEvent?.(event));
-    return events;
-  }
   return streamAcpProviderTurn({
     turn: args,
     profile: {
@@ -148,67 +140,6 @@ export async function streamKiroWithAcp(
         fallback: KIRO_APPROVAL_TIMEOUT_DEFAULT_MS,
       }),
       ...(mcpServers.length > 0 ? { mcpServers } : {}),
-      createExtensionRuntime: createKiroExtensionRuntime,
-    },
-  });
-}
-
-/** Same-task Worker lane. No secrets or nested MCP servers. */
-export async function streamKiroWorkerWithAcp(args: {
-  prompt: string;
-  cwd: string;
-  model: string;
-  effort?: NonNullable<StreamTurnArgs["runtimeOptions"]>["kiroEffort"];
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  requestIdScope: string;
-  resumeSessionId?: string;
-  acpArgsForTest?: readonly string[];
-  onEvent?: (event: BridgeEvent) => void;
-  registerAbort?: (aborter: () => void) => void;
-  registerApprovalResponder?: AcpProviderStreamTurnArgs["registerApprovalResponder"];
-}) {
-  const executablePath = resolveKiroExecutablePath({
-    explicitPath: args.runtimeOptions?.kiroBinaryPath,
-  });
-  if (!executablePath) {
-    return unavailableEvents("Kiro CLI was not found for the armed Worker.");
-  }
-  const runtimeCwd = path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
-  return streamAcpProviderTurn({
-    turn: {
-      providerId: "kiro",
-      prompt: args.prompt,
-      cwd: runtimeCwd,
-      runtimeOptions: {
-        model: args.model,
-        ...(args.runtimeOptions?.kiroBinaryPath
-          ? { kiroBinaryPath: args.runtimeOptions.kiroBinaryPath }
-          : {}),
-      },
-      onEvent: args.onEvent,
-      registerAbort: args.registerAbort,
-      registerApprovalResponder: args.registerApprovalResponder,
-    },
-    profile: {
-      providerId: "kiro",
-      displayName: "Kiro Worker",
-      command: executablePath,
-      // Manual on purpose: a nested Worker must not inherit the primary turn's
-      // blanket approval grant. Worker approvals surface in the parent UI.
-      commandArgs:
-        args.acpArgsForTest ?? buildKiroAcpCommandArgs(args.effort, "manual"),
-      cwd: runtimeCwd,
-      env: buildKiroCliEnv({ executablePath }),
-      resumeSessionId: args.resumeSessionId,
-      requestedModel: args.model.trim() || "auto",
-      modelSetter: "legacy-set-model",
-      promptParameterName: "prompt+content",
-      authenticationHelp: "Run `kiro-cli login` if authentication has expired.",
-      decisionTimeoutMs: parsePositiveIntEnv({
-        value: process.env.STAVE_KIRO_APPROVAL_TIMEOUT_MS,
-        fallback: KIRO_APPROVAL_TIMEOUT_DEFAULT_MS,
-      }),
-      requestIdScope: args.requestIdScope,
       createExtensionRuntime: createKiroExtensionRuntime,
     },
   });

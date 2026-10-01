@@ -18,7 +18,7 @@ const STATUS_TONES = {
   ended: styles.toneIdle,
 } as const;
 
-/** The task's wake-up: trigger, where it stands and why, with its controls. */
+/** The task's schedule: trigger, where it stands and why, with its controls. */
 export function WakeUpSection(props: { workspaceId: string; taskId: string }) {
   const entry = useTaskWakeUp(props.workspaceId, props.taskId);
   const wakeUpId = entry?.wakeUp.id ?? "";
@@ -55,14 +55,14 @@ export function WakeUpSectionView(props: {
   const Icon = summary.state === "scheduled" ? AlarmClock : AlarmClockOff;
   const busy = props.busy;
   return (
-    <section className={sx(styles.section, styles.sectionRule)} aria-label="Wake-up" data-testid="wake-up-section">
+    <section className={sx(styles.section, styles.sectionRule)} aria-label="Schedule" data-testid="wake-up-section">
       <div className={sx(styles.sectionHeader)}>
         <AlarmClock aria-hidden className={sx(styles.sectionIcon)} />
-        <h3 className={sx(styles.sectionTitle)}>Wake-up</h3>
+        <h3 className={sx(styles.sectionTitle)}>Schedule</h3>
         <div className={sx(styles.actions)}>
           {confirmingRemove ? (
             <>
-              <span className={sx(styles.notice)}>Remove this wake-up?</span>
+              <span className={sx(styles.notice)}>Remove this schedule?</span>
               <Button size="xs" variant="danger" disabled={busy} onClick={props.onRemove}>
                 Remove
               </Button>

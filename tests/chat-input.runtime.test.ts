@@ -12,7 +12,6 @@ const updateSettings = () => {};
 
 const baseArgs = {
   activeProvider: "codex" as const,
-  advisorSummary: "Off",
   providerTimeoutMs: 3600000,
   claudePermissionMode: "acceptEdits" as const,
   claudePermissionModeBeforePlan: null,
@@ -188,55 +187,5 @@ describe("chat-input runtime helpers", () => {
       claudeBinaryPath: "/opt/homebrew/bin/claude",
       claudeSettingSources: ["user", "project"],
     });
-  });
-});
-
-describe("advisor row in the runtime summary", () => {
-  function findAdvisor(items: ReturnType<typeof buildChatInputRuntimeStatusItems>) {
-    return items.find((item) => item.id === "advisor");
-  }
-
-  test("both providers report the advisor pair, since either can advise", () => {
-    for (const activeProvider of ["codex", "claude-code"] as const) {
-      expect(
-        findAdvisor(
-          buildChatInputRuntimeStatusItems({
-            ...baseArgs,
-            activeProvider,
-            claudeSettingSources: ["project"],
-            claudeTaskBudgetTokens: 0,
-            advisorSummary: "Claude · Claude Fable 5.1",
-          }),
-        ),
-      ).toEqual({
-        id: "advisor",
-        label: "Advisor",
-        value: "Claude · Claude Fable 5.1",
-      });
-    }
-  });
-
-  test("an armed advisor makes the runtime profile read as a custom setup", () => {
-    expect(
-      getPromptInputRuntimeProfile([
-        { id: "advisor", label: "Advisor", value: "Codex · GPT-5.6 Sol" },
-      ]).label,
-    ).toBe("Custom");
-  });
-
-  test("an off advisor leaves the profile alone", () => {
-    expect(
-      getPromptInputRuntimeProfile([
-        { id: "advisor", label: "Advisor", value: "Off" },
-      ]).label,
-    ).toBe("Safe");
-  });
-
-  test("an armed advisor is never mistaken for elevated access", () => {
-    expect(
-      getPromptInputRuntimeProfile([
-        { id: "advisor", label: "Advisor", value: "Codex · GPT-5.6 Sol" },
-      ]).tone,
-    ).not.toBe("warning");
   });
 });

@@ -102,7 +102,7 @@ function isCustomRuntimeItem(item: PromptInputRuntimeStatusItem) {
     return true;
   }
 
-  if (item.id === "task-budget" || item.id === "advisor") {
+  if (item.id === "task-budget") {
     return item.value.trim().toLowerCase() !== "off";
   }
 

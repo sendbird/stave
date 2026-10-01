@@ -329,9 +329,8 @@ export async function streamCursorWithAcp(
   const secretEnv = args.runtimeOptions?.boundSecretIds?.length
     ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
     : {};
-  const { servers: staveLocalMcpServers, workerUnavailable } =
+  const { servers: staveLocalMcpServers } =
     await resolveAcpEmbeddedStaveLocalMcpServers({
-      requiredForWorker: Boolean(args.staveTurnGrants?.workerKey),
       turnGrants: args.staveTurnGrants,
     });
   const mcpServers = await resolveAcpTurnMcpServers({
@@ -340,13 +339,6 @@ export async function streamCursorWithAcp(
     env: { ...process.env, ...secretEnv },
     staveLocalMcpServers,
   });
-  if (workerUnavailable) {
-    const events = unavailableEvents(
-      "Worker is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
-    );
-    events.forEach((event) => args.onEvent?.(event));
-    return events;
-  }
   return streamAcpProviderTurn({
     turn: args,
     profile: {
@@ -377,79 +369,6 @@ export async function streamCursorWithAcp(
       ...(mcpServers.length > 0 ? { mcpServers } : {}),
       createExtensionRuntime: (extensionArgs) =>
         createCursorExtensionRuntime(extensionArgs, "interactive"),
-    },
-  });
-}
-
-/** Same-task Worker lane. No secrets or nested MCP servers. */
-export async function streamCursorWorkerWithAcp(args: {
-  prompt: string;
-  cwd: string;
-  model: string;
-  effort?: "low" | "medium" | "high" | "xhigh" | "max" | "ultra" | null;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  requestIdScope: string;
-  resumeSessionId?: string;
-  acpArgsForTest?: readonly string[];
-  onEvent?: (event: BridgeEvent) => void;
-  registerAbort?: (aborter: () => void) => void;
-  registerApprovalResponder?: AcpProviderStreamTurnArgs["registerApprovalResponder"];
-}) {
-  const executablePath = resolveCursorAgentExecutablePath({
-    explicitPath: args.runtimeOptions?.cursorBinaryPath,
-  });
-  if (!executablePath) {
-    return unavailableEvents(
-      "Cursor Agent CLI was not found for the armed Worker.",
-    );
-  }
-  const runtimeCwd = path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
-  return streamAcpProviderTurn({
-    turn: {
-      providerId: "cursor",
-      prompt: args.prompt,
-      cwd: runtimeCwd,
-      runtimeOptions: {
-        model: args.model,
-        ...(args.runtimeOptions?.cursorBinaryPath
-          ? { cursorBinaryPath: args.runtimeOptions.cursorBinaryPath }
-          : {}),
-      },
-      onEvent: args.onEvent,
-      registerAbort: args.registerAbort,
-      registerApprovalResponder: args.registerApprovalResponder,
-    },
-    profile: {
-      providerId: "cursor",
-      displayName: "Cursor Worker",
-      command: executablePath,
-      // Manual on purpose: a nested Worker must not inherit the primary turn's
-      // blanket approval grant. Worker approvals surface in the parent UI.
-      commandArgs: args.acpArgsForTest ?? buildCursorAcpCommandArgs("manual"),
-      cwd: runtimeCwd,
-      env: buildCursorAgentEnv({ executablePath }),
-      resumeSessionId: args.resumeSessionId,
-      requestedMode: "agent",
-      requestedModel: args.model.trim() || "auto",
-      requestedEffort:
-        args.effort === "ultra"
-          ? "max"
-          : (args.effort ?? args.runtimeOptions?.cursorEffort),
-      requestedFast: args.runtimeOptions?.cursorFastMode,
-      parameterizedModelPicker: true,
-      modelSetter: "config-option",
-      authenticationMethodId: CURSOR_AUTH_METHOD_ID,
-      authenticationHelp: "Run `agent login` if authentication has expired.",
-      interpretStderr: interpretCursorAgentStderr,
-      interpretFailure: interpretCursorAgentFailure,
-      interpretAgentText: interpretCursorAgentText,
-      decisionTimeoutMs: parsePositiveIntEnv({
-        value: process.env.STAVE_CURSOR_APPROVAL_TIMEOUT_MS,
-        fallback: CURSOR_APPROVAL_TIMEOUT_DEFAULT_MS,
-      }),
-      requestIdScope: args.requestIdScope,
-      createExtensionRuntime: (extensionArgs) =>
-        createCursorExtensionRuntime(extensionArgs, "worker"),
     },
   });
 }

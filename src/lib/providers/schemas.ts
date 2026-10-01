@@ -1,7 +1,6 @@
 import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
 import { ModelExecutionSchema } from "./model-execution";
 import { AutoRoutingModelResolutionSchema } from "./model-resolution";
-import { WORKER_PRESET_IDS } from "./worker-preset-ids";
 import { z } from "zod";
 import type { NormalizedProviderEvent } from "./provider.types";
 
@@ -100,10 +99,6 @@ const ProviderIdSchema = z.union([
   z.literal("cursor"),
   z.literal("kiro"),
 ]);
-const ManagedExecutionProviderIdSchema = z.union([
-  z.literal("claude-code"),
-  z.literal("codex"),
-]);
 
 const DelegatedUsageEventSchema = z.object({
   type: z.literal("delegated_usage"),
@@ -125,61 +120,6 @@ const DelegatedUsageEventSchema = z.object({
   sessionReused: z.boolean().optional(),
 });
 
-/**
- * Both providers' effort scales. Codex's legacy `"minimal"` is deliberately
- * absent: `resolveAdvisorEffort` collapses it to `"low"` before the call, so an
- * event carrying it would name a tier the Advisor never ran at.
- */
-const AdvisorEffortSchema = z.union([
-  z.literal("low"),
-  z.literal("medium"),
-  z.literal("high"),
-  z.literal("xhigh"),
-  z.literal("max"),
-  z.literal("ultra"),
-]);
-
-const AdvisorActivityEventSchema = z.object({
-  type: z.literal("advisor_activity"),
-  phase: z.union([
-    z.literal("armed"),
-    z.literal("started"),
-    z.literal("progress"),
-    z.literal("completed"),
-    z.literal("failed"),
-    z.literal("timeout"),
-    z.literal("aborted"),
-    z.literal("skipped"),
-  ]),
-  exchangeId: z.string().optional(),
-  consultIndex: z.number().optional(),
-  consultLimit: z.number().optional(),
-  question: z.string().optional(),
-  primaryProviderId: ProviderIdSchema,
-  primaryModel: z.string().optional(),
-  advisorProviderId: ManagedExecutionProviderIdSchema.optional(),
-  advisorModel: z.string().optional(),
-  advisorEffort: AdvisorEffortSchema.optional(),
-  isolation: z
-    .union([
-      z.literal("claude-tools-disabled"),
-      z.literal("codex-ephemeral-read-only"),
-      z.literal("codex-role-session-read-only"),
-    ])
-    .optional(),
-  at: z.number(),
-  timeoutMs: z.number().optional(),
-  durationMs: z.number().optional(),
-  advice: z.string().optional(),
-  adviceChars: z.number().optional(),
-  detail: z.string().optional(),
-  inputTokens: z.number().optional(),
-  outputTokens: z.number().optional(),
-  cacheReadTokens: z.number().optional(),
-  cacheCreationTokens: z.number().optional(),
-  totalCostUsd: z.number().optional(),
-  sessionReused: z.boolean().optional(),
-});
 
 const HistoryBoundaryEventSchema = z.object({
   type: z.literal("history_boundary"),
@@ -224,33 +164,6 @@ const ToolStateSchema = z.union([
   z.literal("output-error"),
 ]);
 
-const WorkerExecutionMetadataSchema = z.object({
-  providerId: ProviderIdSchema,
-  primaryModel: z.string(),
-  presetId: z.enum(WORKER_PRESET_IDS),
-  workerModel: z.string(),
-  requestedWorkerModel: z.string().optional(),
-  resolvedWorkerModel: z.string().optional(),
-  workerModelSource: z
-    .union([
-      z.literal("explicit"),
-      z.literal("preset"),
-      z.literal("provider-default"),
-    ])
-    .optional(),
-  workerModelRationale: z.string().optional(),
-  runtimeWorkerModel: z.string().optional(),
-  workerEffort: z.union([
-    z.literal("low"),
-    z.literal("medium"),
-    z.literal("high"),
-    z.literal("xhigh"),
-    z.literal("max"),
-    z.literal("ultra"),
-    z.null(),
-  ]),
-});
-
 const ToolEventSchema = z.object({
   type: z.literal("tool"),
   toolUseId: z.string().optional(),
@@ -258,7 +171,6 @@ const ToolEventSchema = z.object({
   input: z.string(),
   output: z.string().optional(),
   state: ToolStateSchema,
-  workerExecution: WorkerExecutionMetadataSchema.optional(),
   agentId: z.string().optional(),
   ownerAgentId: z.string().optional(),
   parentToolUseId: z.string().optional(),
@@ -301,7 +213,6 @@ const ApprovalEventSchema = z.object({
   description: z.string(),
   input: z.string().optional(),
   supportsAllowAlways: z.boolean().optional(),
-  workerExecution: WorkerExecutionMetadataSchema.optional(),
   ownerAgentId: z.string().optional(),
 });
 
@@ -416,7 +327,6 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   context_usage: ContextUsageEventSchema,
   delegated_usage: DelegatedUsageEventSchema,
   prompt_suggestions: PromptSuggestionsEventSchema,
-  advisor_activity: AdvisorActivityEventSchema,
   history_boundary: HistoryBoundaryEventSchema,
   permission_denial: PermissionDenialEventSchema,
   hook_activity: HookActivityEventSchema,
@@ -445,7 +355,6 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.context_usage,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.delegated_usage,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.prompt_suggestions,
-  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.advisor_activity,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.history_boundary,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.permission_denial,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.hook_activity,

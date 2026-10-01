@@ -28,32 +28,12 @@ These controls are product-facing workflow settings. They are the fastest way to
 
 You can also confirm the effective state from the runtime chips near the composer.
 
-## Optional Advisor
+## Second opinions
 
-The Advisor card at the top of `Settings → Providers` arms a read-only second
-opinion the primary model can request on demand during normal chat turns:
-
-1. Choose `Off`, `Claude`, or `Codex`.
-2. If enabled, select a model from that provider's catalog and, optionally,
-   the per-turn consult budget.
-3. Check the configured executor → Advisor pair shown in the card.
-
-The Advisor is isolated from the primary conversation session and cannot edit
-files or use network access. It may reuse its own Advisor session within the same
-task; earlier exchanges do not establish the current state of files. Its bounded advice
-returns to the primary as the `stave_consult_advisor` tool result. If a
-consult is unavailable, fails, or times out, Stave records a small trace and
-the primary continues; it does not silently switch models. Native slash
-commands and internal helper turns never receive a consult grant.
-
-The consult tool accepts optional `evidence` alongside the existing `question`
-and `context`: constraints, a diff reference, source-labelled code/diff excerpts,
-reported check results, and missing evidence. These are caller-supplied claims,
-not independent verification. The Advisor is asked to separate recommendations,
-supporting evidence, risks, and required checks, and to identify missing or
-truncated evidence. It cannot inspect a file merely because its path was supplied.
-Invalid or oversized structured evidence is rejected before a model call and
-does not consume a consult. Legacy question/context calls remain supported.
+A second opinion is a read-only subagent: ask the agent for one, and it calls
+`stave_delegate_task` with `access: "read-only"`, which never edits files or
+asks for approval and returns the answer inline. See
+[Delegated tasks](delegated-tasks.md#read-only-consults).
 
 ## Recommended Starting Points
 
@@ -172,9 +152,6 @@ Kiro exposes the same Approval Preset with two tiers.
 There is no partial-trust tier: Kiro's CLI accepts unknown tool names for a
 partial grant without reporting an error, so Stave does not offer a setting it
 cannot verify.
-
-For both Cursor and Kiro, a Worker run always stays on `Manual` even when the
-primary turn is set to `Auto`, and its approvals surface in the parent turn.
 
 ## Quick Start
 

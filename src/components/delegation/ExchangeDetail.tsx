@@ -1,7 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui/button";
-import { formatAdvisorSpend } from "@/components/session/advisor-consult-log.utils";
 import {
   resolveExchangeElapsedMs,
   type DelegationActionId,
@@ -13,7 +12,6 @@ import {
   formatExchangeDuration,
 } from "@/lib/delegation/format";
 import { AgentIdentity } from "./AgentIdentity";
-import { CheckList } from "./CheckList";
 import { ExchangeStatusBadge } from "./ExchangeStatusBadge";
 import { KeyValueGrid, type KeyValueItem } from "./KeyValueGrid";
 import { StageTimeline } from "./StageTimeline";
@@ -24,24 +22,30 @@ const SOURCE_COPY: Record<
   string
 > = {
   auto: "Automatic routing",
-  preset: "Worker preset",
+  preset: "Preset",
   explicit: "Explicit model",
   "provider-default": "Provider default",
 };
 
 const ASK_LABEL: Record<DelegationExchange["kind"], string> = {
-  advisor: "Question asked",
-  worker: "Assignment",
-  "delegated-task": "Delegation",
+  "delegated-task": "Assignment",
   subagent: "Assignment",
 };
 
 const RESULT_LABEL: Record<DelegationExchange["kind"], string> = {
-  advisor: "Advice returned",
-  worker: "Returned result",
-  "delegated-task": "Outcome",
+  "delegated-task": "Answer",
   subagent: "Outcome",
 };
+
+/** `120 in · 40 out · 10 cache read · $0.0123`. */
+function formatSpend(spend: NonNullable<DelegationExchange["outcome"]["spend"]>): string {
+  const cache = [
+    spend.cacheReadTokens ? `${spend.cacheReadTokens} cache read` : null,
+    spend.cacheCreationTokens ? `${spend.cacheCreationTokens} cache write` : null,
+  ].filter(Boolean).join(" · ");
+  const cost = spend.totalCostUsd === undefined ? "" : ` · $${spend.totalCostUsd.toFixed(4)}`;
+  return `${spend.inputTokens ?? 0} in · ${spend.outputTokens ?? 0} out${cache ? ` · ${cache}` : ""}${cost}`;
+}
 
 export interface ExchangeDetailProps {
   exchange: DelegationExchange;
@@ -53,7 +57,7 @@ export interface ExchangeDetailProps {
   children?: ReactNode;
   /** Extra controls rendered in the Actions row. */
   extraActions?: ReactNode;
-  /** Note under the status, e.g. why an unresolved consult has no result. */
+  /** Note under the status, e.g. why an action was refused. */
   statusNote?: string;
   /** Footnote under the spend grid. */
   spendFootnote?: string;
@@ -73,9 +77,9 @@ function Section(props: { label: string; children: ReactNode; testId?: string })
 
 /**
  * One detail body for every exchange. Finished inspectors lead with the return
- * and keep assignment, timeline, setup and spend under execution details. The advisor card, the consult
- * log and the Delegations panel all render this, so a fact shown in one is
- * shown — in the same place — in the others.
+ * and keep assignment, timeline, setup and spend under execution details.
+ * Every subagent surface renders this, so a fact shown in one is shown — in
+ * the same place — in the others.
  */
 export function ExchangeDetail(props: ExchangeDetailProps) {
   const { exchange, nowMs } = props;
@@ -93,8 +97,8 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
 
   const setupItems: KeyValueItem[] = [];
   if (exchange.identity.modelEvidence) setupItems.push({ key: "modelEvidence", label: "Model source", value: exchange.identity.modelEvidence });
-  if (exchange.kind !== "advisor") setupItems.push({ key: "effortEvidence", label: "Effort source", value: exchange.identity.effort ? "Requested or configured; runtime execution not reported" : "Not reported" });
-  if (exchange.kind === "advisor" || exchange.setup.isolation) {
+  setupItems.push({ key: "effortEvidence", label: "Effort source", value: exchange.identity.effort ? "Requested or configured; runtime execution not reported" : "Not reported" });
+  if (exchange.setup.isolation) {
     setupItems.push({
       key: "isolation",
       label: "Isolation",
@@ -107,10 +111,8 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
     value: exchange.identity.effort
       ? describeAgentIdentity({ effort: exchange.identity.effort }).effortLabel
       : "Not reported",
-    "data-testid":
-      exchange.kind === "advisor" ? "advisor-exchange-effort" : undefined,
   });
-  if (exchange.kind === "advisor" || exchange.setup.deadlineMs !== undefined) {
+  if (exchange.setup.deadlineMs !== undefined) {
     setupItems.push({
       key: "deadline",
       label: "Deadline",
@@ -125,23 +127,6 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
       key: "selection",
       label: "Selection",
       value: SOURCE_COPY[exchange.identity.source],
-    });
-  }
-  if (exchange.setup.presetLabel) {
-    setupItems.push({
-      key: "preset",
-      label: "Preset",
-      value: exchange.setup.presetLabel,
-    });
-  }
-  if (
-    exchange.setup.consultIndex !== undefined &&
-    exchange.setup.consultLimit !== undefined
-  ) {
-    setupItems.push({
-      key: "budget",
-      label: "Consult budget",
-      value: `${exchange.setup.consultIndex} of ${exchange.setup.consultLimit}`,
     });
   }
   if (exchange.setup.attempt !== undefined) {
@@ -218,13 +203,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
       {hasSpend && spend ? (
         <Section label="Spend">
           <p className={sx(styles.gridValue)}>
-            {formatAdvisorSpend({
-              inputTokens: spend.inputTokens ?? 0,
-              outputTokens: spend.outputTokens ?? 0,
-              cacheReadTokens: spend.cacheReadTokens,
-              cacheCreationTokens: spend.cacheCreationTokens,
-              totalCostUsd: spend.totalCostUsd ?? null,
-            })}
+            {formatSpend(spend)}
           </p>
           {props.spendFootnote ? (
             <p className={sx(styles.meta)}>{props.spendFootnote}</p>
@@ -300,12 +279,6 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
           </>
         ) : null}
         {!props.resultFirst || live ? progress : null}
-        {exchange.outcome.checks && exchange.outcome.checks.length > 0 ? (
-          <>
-            <p className={sx(styles.label)}>Did the advisor system work?</p>
-            <CheckList checks={exchange.outcome.checks} />
-          </>
-        ) : null}
       </div>
 
       {props.resultFirst && !live ? <details>
@@ -324,7 +297,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
               key={action.id}
               type="button"
               size="xs"
-              variant={action.id === "cancel" || action.id === "stop" ? "outline" : "ghost"}
+              variant={action.id === "stop" ? "outline" : "ghost"}
               disabled={props.busy}
               data-exchange-action={action.id}
               onClick={() => props.onAction?.(action.id, exchange)}

@@ -1,5 +1,3 @@
-import type { AdvisorExchangeByTask } from "@/lib/providers/advisor-activity";
-import type { AdvisorConsultLogByTask } from "@/lib/providers/advisor-consult-log";
 import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type {
   ProviderTurnActivitySnapshot,
@@ -26,13 +24,6 @@ export interface TaskTurnRuntimeEntries {
    * here too rather than occupying one of the few retained slots.
    */
   retainedTurnActivityByTask: RetainedTurnActivityByTask;
-  advisorExchangeByTask: AdvisorExchangeByTask;
-  /**
-   * The task's archived consults. Shed with the task, unlike
-   * `advisorVerdictTallyByModel`, which is keyed by advisor model rather than
-   * by task and so has nothing to drop here.
-   */
-  advisorConsultLogByTask: AdvisorConsultLogByTask;
   hostOwnedTurnIdsByTask: Record<string, string | undefined>;
   /**
    * Outgoing messages that failed to send. A task that has left the app can no
@@ -86,20 +77,6 @@ export function removeTaskTurnRuntimeEntries(args: {
   );
   if (retainedTurnActivityByTask) {
     patch.retainedTurnActivityByTask = retainedTurnActivityByTask;
-  }
-  const advisorExchangeByTask = removeRecordEntries(
-    args.state.advisorExchangeByTask,
-    args.taskIds,
-  );
-  if (advisorExchangeByTask) {
-    patch.advisorExchangeByTask = advisorExchangeByTask;
-  }
-  const advisorConsultLogByTask = removeRecordEntries(
-    args.state.advisorConsultLogByTask,
-    args.taskIds,
-  );
-  if (advisorConsultLogByTask) {
-    patch.advisorConsultLogByTask = advisorConsultLogByTask;
   }
   const hostOwnedTurnIdsByTask = removeRecordEntries(
     args.state.hostOwnedTurnIdsByTask,

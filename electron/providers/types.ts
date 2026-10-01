@@ -4,9 +4,6 @@ import type { StaveTurnGrants } from "./stave-turn-grants";
 import type { TurnPolicy } from "../../src/lib/policy/turn-policy";
 import type { MissionStageIdentity } from "../../src/lib/missions/domain";
 import type {
-  AdvisorActivityPhase,
-  AdvisorEffort,
-  AdvisorIsolationMode,
   CanonicalConversationRequest,
   ProviderAvailabilityResponse,
   ProviderGoalSnapshot,
@@ -14,11 +11,7 @@ import type {
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
 } from "../../src/lib/providers/provider.types";
-import type { AdvisorConsultOutcome } from "./advisor-consult";
-import type { AdvisorConsultRequest } from "../../src/lib/providers/advisor-evidence";
-import type { AcpWorkerOutcome } from "./acp/acp-worker-runtime";
 import type { UserInputQuestion } from "../../src/types/chat";
-import type { WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
 import type {
   ConnectedToolStatusRequest,
   ConnectedToolStatusResponse,
@@ -162,41 +155,6 @@ export type BridgeEvent =
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
   | {
-      /** Structured advisor lifecycle signal. Mirrors `NormalizedProviderEvent`. */
-      type: "advisor_activity";
-      phase: AdvisorActivityPhase;
-      /** Identity of one consult; absent on the turn-level `armed` event. */
-      exchangeId?: string;
-      /** 1-based index of this consult within the turn. */
-      consultIndex?: number;
-      /** Per-turn consult budget the primary was granted. */
-      consultLimit?: number;
-      /** Question the primary asked, bounded by the runtime. */
-      question?: string;
-      primaryProviderId: ProviderId;
-      /** Primary model id, so "a different model answered" is verifiable. */
-      primaryModel?: string;
-      advisorProviderId?: ManagedExecutionProviderId;
-      advisorModel?: string;
-      /** Tier the call carries, after defaulting and clamping. */
-      advisorEffort?: AdvisorEffort;
-      isolation?: AdvisorIsolationMode;
-      at: number;
-      timeoutMs?: number;
-      durationMs?: number;
-      advice?: string;
-      adviceChars?: number;
-      injectedChars?: number;
-      injectedPartIndex?: number;
-      detail?: string;
-      inputTokens?: number;
-      outputTokens?: number;
-      cacheReadTokens?: number;
-      cacheCreationTokens?: number;
-      totalCostUsd?: number;
-      sessionReused?: boolean;
-    }
-  | {
       type: "history_boundary";
       accountProfileId?: string;
       providerId: ProviderId;
@@ -237,7 +195,6 @@ export type BridgeEvent =
         | "input-available"
         | "output-available"
         | "output-error";
-      workerExecution?: WorkerExecutionMetadata;
       /**
        * Provider-owned identity of the agent this event is *about* — the agent
        * a delegating call spawned (Codex's child `agentThreadId`). The work
@@ -290,7 +247,6 @@ export type BridgeEvent =
        * unblocking this one call.
        */
       supportsAllowAlways?: boolean;
-      workerExecution?: WorkerExecutionMetadata;
       /**
        * See `tool.ownerAgentId`: the subagent whose work is stopped until this
        * is answered. Absent means the main loop asked.
@@ -373,28 +329,6 @@ export interface ProviderRuntime {
     message?: string;
   };
   abortTurn: (args: { turnId: string }) => { ok: boolean; message: string };
-  /**
-   * Cancels only the Advisor preflight for a turn. The primary turn continues
-   * with an `advisor_activity` `skipped` phase, so a slow advisor never forces
-   * the user to abort work they still want.
-   */
-  skipAdvisor: (args: { turnId: string }) => { ok: boolean; message: string };
-  /**
-   * Runs one on-demand Advisor consult against a turn-scoped grant.
-   *
-   * Exposed on the runtime because the grant registry is process-local: grants
-   * are minted here, in the host-service child, while the
-   * `stave_consult_advisor` Local MCP tool is served from the Electron main
-   * process. Main must cross the boundary rather than consult a registry that
-   * is, in its own process, permanently empty.
-   */
-  consultAdvisor: (args: AdvisorConsultRequest) => Promise<AdvisorConsultOutcome>;
-  /** Executes one task through an active turn-scoped ACP Worker grant. */
-  runAcpWorker: (args: {
-    workerKey: string;
-    task: string;
-    context?: string;
-  }) => Promise<AcpWorkerOutcome>;
   cleanupTask: (args: { taskId: string }) => { ok: boolean; message: string };
   respondApproval: (args: {
     turnId: string;

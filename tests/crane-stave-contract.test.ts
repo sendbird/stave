@@ -197,7 +197,6 @@ describe("Crane Stave dispatch V1 contract", () => {
           codexWebSearch: "live",
           codexReasoningEffort: "xhigh",
           codexFastMode: false,
-          advisorTarget: null,
         },
       }).success,
     ).toBe(true);
@@ -225,7 +224,6 @@ describe("Crane Stave dispatch V1 contract", () => {
         claudeSandboxEnabled: false,
         claudeAllowUnsandboxedCommands: true,
         claudeAllowDangerouslySkipPermissions: false,
-        advisorTarget: null,
       },
     };
     expect(CraneDispatchApproveArgsSchema.safeParse(claudeBase).success).toBe(
@@ -254,7 +252,6 @@ describe("Crane Stave dispatch V1 contract", () => {
       codexNetworkAccess: false,
       codexApprovalPolicy: "on-request",
       codexWebSearch: "cached",
-      advisorTarget: null,
     };
     expect(
       CraneDispatchApproveArgsSchema.safeParse({

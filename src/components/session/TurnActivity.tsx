@@ -58,11 +58,6 @@ import {
   WorkGraphTree,
   type WorkGraphControlRequest,
 } from "@/components/session/WorkGraphTree";
-import type { AdvisorExchangeSnapshot } from "@/lib/providers/advisor-activity";
-import {
-  selectAdvisorConsultLog,
-  type AdvisorConsultLogEntry,
-} from "@/lib/providers/advisor-consult-log";
 import {
   buildTurnActivityItems,
   countTurnActivityItems,
@@ -123,7 +118,6 @@ import type { ChatMessage, PromptDraft } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
-const EMPTY_CONSULTS: readonly AdvisorConsultLogEntry[] = [];
 const DELEGATED_TASKS_UNAVAILABLE = {
   ok: false as const,
   error: "Delegated task controls are unavailable on this surface.",
@@ -261,8 +255,6 @@ function ActiveTurnActivity(props: {
     activeTurnId,
     activity,
     retainedActivity,
-    advisorExchange,
-    advisorConsults,
     expandedByDefault,
     verification,
     rateLimits,
@@ -284,11 +276,6 @@ function ActiveTurnActivity(props: {
       state.activeTurnIdsByTask[taskId] ?? null,
       state.providerTurnActivityByTask[taskId] ?? null,
       state.retainedTurnActivityByTask[taskId] ?? null,
-      state.advisorExchangeByTask[taskId] ?? null,
-      // The stable per-task entry array: it changes a handful of times per
-      // turn (once per consult step), and the shelf's Agents block needs every
-      // consult of the turn, not only the latest snapshot.
-      selectAdvisorConsultLog(state.advisorConsultLogByTask, taskId),
       state.settings.turnActivityExpandedByDefault,
       state.turnVerificationByWorkspace[state.activeWorkspaceId] ?? null,
       state.rateLimitsSnapshot,
@@ -312,20 +299,6 @@ function ActiveTurnActivity(props: {
     },
     [focusTranscriptTool, taskId],
   );
-  const openAdvisorConsultLog = useAppStore(
-    (state) => state.openAdvisorConsultLog,
-  );
-  const handleOpenAdvisorLog = useCallback(
-    (entryKey?: string) => {
-      openAdvisorConsultLog({ taskId, ...(entryKey ? { entryKey } : {}) });
-    },
-    [openAdvisorConsultLog, taskId],
-  );
-  const skipTaskAdvisor = useAppStore((state) => state.skipTaskAdvisor);
-  const handleCancelAdvisorConsult = useCallback(() => {
-    skipTaskAdvisor({ taskId });
-  }, [skipTaskAdvisor, taskId]);
-  const hasAdvisorConsultLog = advisorConsults.length > 0;
   const handlePlacementChange = useCallback(
     (next: TurnActivityPlacement) => {
       updateSettings({ patch: { turnActivityPlacement: next } });
@@ -587,18 +560,6 @@ function ActiveTurnActivity(props: {
     currentActivity?.workGraph ?? null,
     TURN_ACTIVITY_CONTENT_THROTTLE_MS,
   );
-  // Scoped to the turn this shelf is showing. The advisor slice keeps the last
-  // turn's record until the next one starts, and attributing it to a new turn
-  // would credit that turn with consults it never made. Not throttled: consults
-  // arrive a handful of times per turn, not per frame.
-  const turnAdvisorExchange = useMemo(() => {
-    const shelfTurnId = activeTurnId ?? currentActivity?.turnId ?? null;
-    if (!advisorExchange || !shelfTurnId) {
-      return null;
-    }
-    return advisorExchange.turnId === shelfTurnId ? advisorExchange : null;
-  }, [activeTurnId, advisorExchange, currentActivity?.turnId]);
-
   // The task keeps only its latest decision. A retained turn replayed after a
   // newer send would otherwise show the newer route, so the record has to
   // predate the turn it is drawn under.
@@ -629,7 +590,6 @@ function ActiveTurnActivity(props: {
       isPlanPreparing,
       workItems: throttledWorkItems,
       todos: throttledTodos,
-      advisorExchange: turnAdvisorExchange,
       workGraph: throttledWorkGraph,
       // A finished turn's agents cannot be stopped, so replay shows the tree
       // without controls rather than buttons that can only report a refusal.
@@ -643,10 +603,6 @@ function ActiveTurnActivity(props: {
       hasPendingInteractionCard,
       executionSummary,
       onSelectTool: handleSelectTool,
-      hasAdvisorConsultLog,
-      advisorConsults,
-      onOpenAdvisorLog: handleOpenAdvisorLog,
-      ...(replay ? {} : { onCancelAdvisorConsult: handleCancelAdvisorConsult }),
       taskId,
       workspaceId: activeWorkspaceId,
       repositoryPath,
@@ -656,7 +612,6 @@ function ActiveTurnActivity(props: {
     activeProvider,
     activeTurnId,
     activeWorkspaceId,
-    advisorConsults,
     budgetStepDownAt,
     providerAvailability,
     turnAutoRouting,
@@ -665,11 +620,8 @@ function ActiveTurnActivity(props: {
     currentActivity,
     expandedByDefault,
     executionSummary,
-    handleCancelAdvisorConsult,
-    handleOpenAdvisorLog,
     handleSelectTool,
     handleWorkGraphControl,
-    hasAdvisorConsultLog,
     hasPendingInteractionCard,
     isPlanPreparing,
     repositoryPath,
@@ -680,7 +632,6 @@ function ActiveTurnActivity(props: {
     throttledTodos,
     throttledWorkGraph,
     throttledWorkItems,
-    turnAdvisorExchange,
   ]);
   // Keep the last visible snapshot around for one exit animation so the shelf
   // shrinks away instead of yanking the composer down when a turn ends.
@@ -894,11 +845,6 @@ interface TurnActivitySurfaceProps {
   workItems: ProviderTurnWorkItem[];
   todos: TurnActivityTodo[];
   /**
-   * This turn's Advisor grant, if one was minted. The shelf counts consults;
-   * the floating exchange card still owns each consult's detail.
-   */
-  advisorExchange?: AdvisorExchangeSnapshot | null;
-  /**
    * The same turn seen as a tree. Passed separately from `activity` because the
    * shelf's turn-level state stays live while row content is throttled, and the
    * tree belongs to the throttled half.
@@ -932,21 +878,6 @@ interface TurnActivitySurfaceProps {
    * stay inert, so this never turns a todo or a status row into a dead button.
    */
   onSelectTool?: (toolUseId: string) => void;
-  /**
-   * The task has archived consults, so the advisor row opens the consult log.
-   * Gated on the log rather than on this turn, so a turn that armed the Advisor
-   * without consulting it still reaches earlier consults.
-   */
-  hasAdvisorConsultLog?: boolean;
-  /**
-   * The task's archived consults (stable store array). The Agents block shows
-   * every consult of this turn as its own row, not only the latest snapshot.
-   */
-  advisorConsults?: readonly AdvisorConsultLogEntry[];
-  /** Opens the session consult log, focused on one consult when given. */
-  onOpenAdvisorLog?: (entryKey?: string) => void;
-  /** Cancels the consult in flight; absent on replay, where nothing can be. */
-  onCancelAdvisorConsult?: () => void;
   /**
    * The routing decision that picked this turn's model, when Auto made one.
    * Drawn as the Route block so the shelf says who is running and why before
@@ -1101,8 +1032,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         todos: props.todos,
         workItems: props.workItems,
         turnStartedAt: activityStartedAt,
-        advisor: props.advisorExchange ?? null,
-        hasAdvisorConsultLog: props.hasAdvisorConsultLog ?? false,
         hasPendingInteractionCard: props.hasPendingInteractionCard,
       }),
     [
@@ -1113,8 +1042,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       activityTurnErrorRecoverable,
       hasActivity,
       isStalled,
-      props.advisorExchange,
-      props.hasAdvisorConsultLog,
       props.hasPendingInteractionCard,
       props.isPlanPreparing,
       props.todos,
@@ -1133,29 +1060,11 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     source: props.delegatedTasks ?? EMPTY_CHILD_SOURCE,
     repositoryPath: props.repositoryPath,
   });
-  const turnConsults = useMemo(
-    () =>
-      (props.advisorConsults ?? EMPTY_CONSULTS).filter(
-        (entry) => entry.snapshot.turnId === props.activeTurnId,
-      ),
-    [props.activeTurnId, props.advisorConsults],
-  );
-  const advisorCanCancel =
-    props.onCancelAdvisorConsult !== undefined &&
-    props.advisorExchange?.outcome === "pending";
   const delegationExchanges = useMemo(
     () =>
       selectDelegationExchanges({
-        consults: turnConsults,
-        advisorSnapshot: props.advisorExchange ?? null,
-        activeTurnId: props.activeTurnId,
-        workerWorkItems: props.workItems,
         delegatedTasks: childController.children.filter((child) => isDelegatedTaskInTurn(child, props.workGraph)),
         childBlockedByDelegationKey: childController.blockedByDelegationKey,
-        advisorOptions: {
-          canCancel: advisorCanCancel,
-          hasConsultLog: props.hasAdvisorConsultLog,
-        },
       }).map((exchange) =>
         // The shared delegated-task action row renders the real controls.
         exchange.kind === "delegated-task"
@@ -1163,42 +1072,16 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
           : exchange,
       ),
     [
-      advisorCanCancel,
       childController.blockedByDelegationKey,
       childController.children,
-      props.activeTurnId,
-      props.advisorExchange,
-      props.hasAdvisorConsultLog,
-      props.workItems,
       props.workGraph,
-      turnConsults,
     ],
   );
   const hasDelegationRows = delegationExchanges.length > 0;
-  const hasAdvisorExchangeRow = delegationExchanges.some(
-    (exchange) => exchange.kind === "advisor",
-  );
-  const workerWorkItemIds = useMemo(
-    () =>
-      new Set(
-        props.workItems
-          .filter((item) => item.workerExecution)
-          .map((item) => `work:${item.id}`),
-      ),
-    [props.workItems],
-  );
-  const onOpenAdvisorLog = props.onOpenAdvisorLog;
-  const onCancelAdvisorConsult = props.onCancelAdvisorConsult;
   const onSelectTool = props.onSelectTool;
   const handleDelegationAction = useCallback(
     (action: DelegationActionId, exchange: DelegationExchange) => {
       switch (action) {
-        case "cancel":
-          onCancelAdvisorConsult?.();
-          return;
-        case "open-log":
-          onOpenAdvisorLog?.(exchange.ref.entryKey);
-          return;
         case "show-in-conversation":
           if (exchange.ref.toolUseId) {
             onSelectTool?.(exchange.ref.toolUseId);
@@ -1208,7 +1091,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
           return;
       }
     },
-    [onCancelAdvisorConsult, onOpenAdvisorLog, onSelectTool],
+    [onSelectTool],
   );
   const renderDelegationExtraActions = useCallback(
     (exchange: DelegationExchange) => {
@@ -1242,47 +1125,11 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         : undefined,
     [childController.errorByDelegationKey],
   );
-  // A consult in flight opens expanded where there is room, so Cancel and the
-  // deadline are one glance away — what the retired floating card offered.
-  const defaultExpandedDelegationIds = useMemo(
-    () =>
-      new Set(
-        variant === "docked"
-          ? []
-          : delegationExchanges
-              .filter(
-                (exchange) =>
-                  exchange.kind === "advisor" &&
-                  exchange.outcome.status === "running",
-              )
-              .map((exchange) => exchange.id),
-      ),
-    [delegationExchanges, variant],
-  );
-
-  // Rows the Agents block already renders leave the flat list: the advisor
-  // consult row, worker runs, and (when the tree has rows) subagents.
+  // Subagents the tree already renders leave the flat list.
   const visibleActivityItems = useMemo(
     () =>
-      activityItems.filter((item) => {
-        if (hasWorkGraphRows && item.iconKey === "subagent") {
-          return false;
-        }
-        if (hasAdvisorExchangeRow && item.id === "advisor") {
-          return false;
-        }
-        if (hasDelegationRows && workerWorkItemIds.has(item.id)) {
-          return false;
-        }
-        return true;
-      }),
-    [
-      activityItems,
-      hasAdvisorExchangeRow,
-      hasDelegationRows,
-      hasWorkGraphRows,
-      workerWorkItemIds,
-    ],
+      activityItems.filter((item) => !(hasWorkGraphRows && item.iconKey === "subagent")),
+    [activityItems, hasWorkGraphRows],
   );
   const flatCounts = useMemo(
     () => countTurnActivityItems(activityItems),
@@ -1563,14 +1410,13 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   key={item.id}
                   item={item}
                   onSelectTool={props.onSelectTool}
-                  onInspect={props.taskId && item.id !== "advisor" ? () => setDetailSelection({ title: item.title, toolUseId: item.toolUseId, detail: [item.detail, item.providerDetail].filter(Boolean).join("\n") }) : undefined}
-                  onOpenAdvisorLog={props.onOpenAdvisorLog}
+                  onInspect={props.taskId ? () => setDetailSelection({ title: item.title, toolUseId: item.toolUseId, detail: [item.detail, item.providerDetail].filter(Boolean).join("\n") }) : undefined}
                   showStartOffset={variant === "panel"}
                   expandCopy={variant === "panel"}
                 />
               ))}
-              {/* One "Agents" block: delegations the user armed (advisor,
-                  worker, delegated tasks) and the provider's own agent tree share a
+              {/* One "Agents" block: the subagents this turn started and the
+                  provider's own agent tree share a
                   header instead of stacking two lists that both say "agents". */}
               <DelegationsBlock
                 exchanges={delegationExchanges}
@@ -1586,7 +1432,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                     ? `delegated-task:${childController.busyDelegationKey}`
                     : null
                 }
-                defaultExpandedIds={defaultExpandedDelegationIds}
                 className={sx(styles.childBlock)}
               >
                 {hasWorkGraphRows ? (
@@ -1698,14 +1543,12 @@ const TurnActivityRow = memo(function TurnActivityRow({
   item,
   onSelectTool,
   onInspect,
-  onOpenAdvisorLog,
   showStartOffset,
   expandCopy,
 }: {
   item: TurnActivityItem;
   onSelectTool?: (toolUseId: string) => void;
   onInspect?: () => void;
-  onOpenAdvisorLog?: (entryKey?: string) => void;
   /**
    * Roomy placements also print where in the turn the row started. The docked
    * shelf is one composer-width line and cannot spare the column.
@@ -1728,9 +1571,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
   const handler = onInspect ? { onClick: onInspect, reveal: false } :
     activation?.kind === "tool" && onSelectTool
       ? { onClick: () => onSelectTool(activation.toolUseId), reveal: true }
-      : activation?.kind === "advisor-log" && onOpenAdvisorLog
-        ? { onClick: () => onOpenAdvisorLog(), reveal: false }
-        : null;
+      : null;
   const baseTitle = [item.title, detail, providerDetail]
     .filter((segment): segment is string => Boolean(segment))
     .join(" · ");
@@ -1842,7 +1683,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
       // `revealable` stays tool-only: it means "the transcript has this call".
       {...(handler.reveal
         ? { "data-turn-activity-revealable": "true" }
-        : { "data-turn-activity-opens": "advisor-consult-log" })}
+        : { "data-turn-activity-opens": "detail" })}
       xstyle={[
         surfaceChrome.quietIconButton,
         focusRing.ring,
@@ -1853,7 +1694,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
       title={
         handler.reveal
           ? `${baseTitle} — show in conversation`
-          : `${baseTitle} — view all consults`
+          : `${baseTitle} — details`
       }
       onClick={handler.onClick}
     >

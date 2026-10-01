@@ -72,7 +72,6 @@ import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
-import { DelegationDraftStore } from "./delegation-drafts";
 // temporary-migration: repository-persisted-state
 import { migrateLegacyRepositoryEntries } from "../../src/store/legacy-repository-state";
 import type { RepositoryMemoryKind } from "../../src/lib/repository-memory";
@@ -188,7 +187,6 @@ export class SqliteStore {
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly directionDrafts: WorkspaceDirectionDraftStore;
-  readonly delegationDrafts: DelegationDraftStore;
   readonly delegationPolicies: DelegationPolicyStore;
   readonly missions: MissionStore;
   readonly projects: ProjectStore;
@@ -232,7 +230,6 @@ export class SqliteStore {
     this.resultReviews = new ResultReviewStore(this.db);
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
     this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
-    this.delegationDrafts = new DelegationDraftStore(this.db);
     this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
@@ -1763,8 +1760,6 @@ export class SqliteStore {
     return this.runLedger.setStepTarget(args);
   }
 
-  listHeldWriterRunAggregates = () => this.runLedger.listHeldWriterAggregates();
-  acquireRunWriterLease = (args: Parameters<RunLedgerStore["acquireWriterLease"]>[0]) => this.runLedger.acquireWriterLease(args);
 
   interruptRunStep(args: Parameters<RunLedgerStore["interruptStep"]>[0]) {
     return this.runLedger.interruptStep(args);

@@ -1,9 +1,9 @@
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { createHash } from "node:crypto";
 import {
-  buildWorkerPrimaryInstructions,
-  resolveWorkerProfile,
-} from "../../src/lib/providers/worker-mode";
+  buildNativeSubagentBriefing,
+  MAX_CONCURRENT_NATIVE_SUBAGENTS,
+} from "../../src/lib/agents/native-subagents";
 import type { StreamTurnArgs } from "./types";
 
 // ChatGPT desktop installs bundled Codex plugins into the shared CODEX_HOME.
@@ -139,65 +139,26 @@ export async function resolveCodexNativeBrowserPluginEnabled(args: {
 }
 
 /**
- * Resolves Worker mode for a Codex turn.
- *
- * Codex has no per-spawn model override reachable from the App Server, so the
- * worker is pinned through `[agents]` defaults instead and the primary is told
- * to delegate through developer instructions. Both halves resolve from this one
- * function so the config and the prose can never describe different workers.
+ * Config overrides for a Codex turn whose agent can call in-turn subagents:
+ * one level deep, and at most `MAX_CONCURRENT_NATIVE_SUBAGENTS` at once.
+ * Codex counts the lead thread in the concurrency limit. The App Server has no
+ * per-spawn model override, so each subagent runs on Codex's default.
  */
-export function resolveCodexWorkerProfile(args: {
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}) {
-  const intent = args.runtimeOptions?.workerIntent;
-  if (!intent) {
-    return null;
-  }
-  const resolution = resolveWorkerProfile({
-    providerId: "codex",
-    primaryModel: args.runtimeOptions?.model ?? "",
-    intent,
-  });
-  return resolution.status === "ready" ? resolution.profile : null;
-}
-
-/**
- * Config overrides that pin the Codex worker.
- *
- * Verified against codex-cli 0.145.0's `AgentsToml`. `default_subagent_model`
- * is the documented way to pin a spawned agent's model — `spawn_agent`'s own
- * tool description states that spawned agents inherit the preferred default
- * unless an explicit override is given, and the App Server exposes no way to
- * give that override.
- */
-export function buildCodexWorkerConfigOverrides(args: {
+export function buildCodexSubagentConfigOverrides(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }): Record<string, string | boolean | number> {
-  const profile = resolveCodexWorkerProfile(args);
-  if (!profile) {
+  if (!args.runtimeOptions?.nativeSubagents?.length) {
     return {};
   }
   return {
-    "agents.default_subagent_model": profile.resolvedWorkerModel,
-    ...(profile.resolvedWorkerEffort
-      ? {
-          "agents.default_subagent_reasoning_effort":
-            profile.resolvedWorkerEffort,
-        }
-      : {}),
-    // MVP ceiling. One foreground worker keeps Stop coherent: there is exactly
-    // one child to cancel before the parent is considered stopped.
-    // Codex counts the primary thread in this limit.
-    "agents.max_concurrent_threads_per_session": profile.maxConcurrency + 1,
-    // Depth 1 stops a worker from spawning its own workers, which would escape
-    // the concurrency cap and make attribution meaningless.
+    "agents.max_concurrent_threads_per_session": MAX_CONCURRENT_NATIVE_SUBAGENTS + 1,
     "agents.max_depth": 1,
   };
 }
 
 export function buildCodexDeveloperInstructions(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  /** See `buildCodexConfigOverrides`: a secondary read-only run never delegates. */
+  /** A secondary read-only run never calls subagents. */
   secondaryReadOnly?: boolean;
   /**
    * Whether the Stave local MCP is registered with Codex for this thread. The
@@ -226,22 +187,13 @@ export function buildCodexDeveloperInstructions(args: {
   if (args.hasStaveLocalMcp) {
     parts.push(CODEX_STAVE_LENS_INSTRUCTIONS);
   }
-  const workerProfile = args.secondaryReadOnly
+  // Codex has no per-agent definitions, so the subagents travel as prose the
+  // lead passes on when it spawns one.
+  const subagents = args.secondaryReadOnly
     ? null
-    : resolveCodexWorkerProfile(args);
-  if (workerProfile) {
-    parts.push(buildWorkerPrimaryInstructions(workerProfile));
-    // Codex cannot enforce a per-worker tool allowlist, so the preset's brief
-    // has to travel as prose the primary passes on.
-    parts.push(
-      [
-        "### Worker brief",
-        "",
-        `When you delegate, hand the worker this contract verbatim as part of its task:`,
-        "",
-        workerProfile.instructions,
-      ].join("\n"),
-    );
+    : buildNativeSubagentBriefing(args.runtimeOptions?.nativeSubagents ?? []);
+  if (subagents) {
+    parts.push(subagents);
   }
   const combined = parts.join("\n\n").trim();
   return combined.length > 0 ? combined : undefined;

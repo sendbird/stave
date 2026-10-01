@@ -23,34 +23,11 @@ import {
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
 import { useComposerFrameFits } from "@/hooks/use-composer-frame-fits";
-import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
-import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
 import {
   buildModelPickerAgents,
   useTaskAgentChoice,
 } from "@/components/ai-elements/prompt-input-agent-control";
-import {
-  buildWorkerEffortPatch,
-  buildWorkerModelPatch,
-  buildWorkerPresetPatch,
-  buildWorkerTogglePatch,
-} from "@/components/ai-elements/prompt-input-worker-mode.utils";
-import {
-  buildWorkerRuntimeIntent,
-  resolveWorkerArmState,
-  resolveWorkerProfile,
-} from "@/lib/providers/worker-mode";
-import { resolveWorkerShortcutAction } from "@/lib/worker-shortcuts";
-import { useComposerChord } from "./useComposerChord";
-import {
-  buildAdvisorEffortPatch,
-  buildAdvisorEnabledPatch,
-  buildAdvisorModelPatch,
-  buildAdvisorProviderPatch,
-  buildAdvisorTogglePatch,
-} from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
-import { resolveAdvisorShortcutAction } from "@/lib/advisor-shortcuts";
 import {
   CompareRunPrepareDialog,
   type CompareRunPreparation,
@@ -90,20 +67,8 @@ import {
   type ProviderModePresetDefinition,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
-import {
-  resolveAdvisorArmState,
-  resolveAdvisorSelectedProviderId,
-} from "@/lib/providers/advisor";
-import { isAdvisorExchangeBlocking } from "@/lib/providers/advisor-activity";
-import {
-  describeLocalMcpBlock,
-  useLocalMcpReadiness,
-} from "@/lib/local-mcp-readiness";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
-  getProviderDescriptor,
-  getSdkModelOptions,
-  isManagedExecutionProviderId,
   providerSupportsMidTurnSteering,
 } from "@/lib/providers/model-catalog";
 import { type ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
@@ -111,7 +76,6 @@ import {
   addTrustedToolEntry,
   buildTrustedToolEntryForApproval,
 } from "@/lib/providers/trusted-tools";
-import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import {
   formatProviderTurnIdleDuration,
   resolveProviderTurnDisplayState,
@@ -275,15 +239,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     trustedTools,
     lensVisualCommentScreenshotsAsImageContext,
     workspaceInformation,
-    settingsAdvisorEnabled,
-    settingsAdvisorTarget,
-    settingsAdvisorTargetByProvider,
-    settingsCodexBinaryPath,
-    skipTaskAdvisor,
     composerControlPlacements,
     composerLayout,
-    settingsWorkerEnabled,
-    settingsWorkerConfigByProvider,
     macros,
     applyMacroToDraft,
   ] = useAppStore(
@@ -307,15 +264,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           state.settings.trustedTools,
           state.settings.lensVisualCommentScreenshotsAsImageContext,
           state.workspaceInformation,
-          state.settings.advisorEnabled,
-          state.settings.advisorTarget,
-          state.settings.advisorTargetByProvider,
-          state.settings.codexBinaryPath,
-          state.skipTaskAdvisor,
           state.settings.composerControlPlacements,
           state.settings.composerLayout,
-          state.settings.workerEnabled,
-          state.settings.workerConfigByProvider,
           state.settings.macros,
           state.applyMacroToDraft,
         ] as const,
@@ -357,162 +307,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   const providerTurnActivity = useAppStore(
     (state) => state.providerTurnActivityByTask[args.activeTaskId] ?? null,
   );
-  // A boolean, not the snapshot: the pill only needs to know whether the turn
-  // is currently parked on the Advisor, and the monitor owns the detail.
-  const advisorBlockingTurn = useAppStore((state) => {
-    const snapshot = state.advisorExchangeByTask[args.activeTaskId];
-    return snapshot ? isAdvisorExchangeBlocking(snapshot) : false;
-  });
-  const advisorArm = useMemo(
-    () =>
-      resolveAdvisorArmState({
-        overrides: promptDraft.runtimeOverrides,
-        settingsTarget: settingsAdvisorTarget,
-        settingsEnabled: settingsAdvisorEnabled,
-        settingsTargetByProvider: settingsAdvisorTargetByProvider,
-      }),
-    [
-      promptDraft.runtimeOverrides,
-      settingsAdvisorEnabled,
-      settingsAdvisorTarget,
-      settingsAdvisorTargetByProvider,
-    ],
-  );
-  const managedActiveProvider = isManagedExecutionProviderId(
-    args.activeProvider,
-  )
-    ? args.activeProvider
-    : "claude-code";
-  const workerActiveProvider = args.activeProvider;
-  const workerRuntimeModels = useMemo(
-    () =>
-      args.modelOptions
-        .filter(
-          (option) =>
-            !option.isAuto &&
-            option.available &&
-            option.providerId === workerActiveProvider,
-        )
-        .map((option) => option.model),
-    [args.modelOptions, workerActiveProvider],
-  );
-  const [advisorPickerOpen, setAdvisorPickerOpen] = useState(false);
-  // Consults travel over Local MCP, so an armed Advisor with a broken link is
-  // silently inert. Read only while the Advisor is armed or being configured —
-  // there is nothing to warn about otherwise.
-  const localMcpReadiness = useLocalMcpReadiness({
-    enabled:
-      isManagedExecutionProviderId(args.activeProvider) &&
-      (advisorArm.enabled || advisorPickerOpen),
-    primaryProviderId: managedActiveProvider,
-    refreshKey: advisorPickerOpen,
-  });
-  const advisorConsultBlock = useMemo(
-    () =>
-      advisorArm.enabled
-        ? describeLocalMcpBlock({
-            readiness: localMcpReadiness.readiness,
-            capability: "Advisor consults",
-          })
-        : null,
-    [advisorArm.enabled, localMcpReadiness.readiness],
-  );
-  // Which provider the picker configures. Independent of arming, so a task can
-  // be set up before the Advisor is turned on.
-  const advisorSelectedProviderId = resolveAdvisorSelectedProviderId({
-    arm: advisorArm,
-    primaryProviderId: args.activeProvider,
-  });
-  // Codex advertises models dynamically, so the list is only worth fetching
-  // once the user actually opens the picker on a Codex advisor.
-  const advisorCodexCatalog = useCodexModelCatalog({
-    enabled: advisorPickerOpen && advisorSelectedProviderId === "codex",
-    codexBinaryPath: settingsCodexBinaryPath,
-  });
-  const advisorModelOptions = useMemo(() => {
-    const providerId = advisorSelectedProviderId;
-    const catalog: readonly string[] =
-      providerId === "codex"
-        ? advisorCodexCatalog.models
-        : getSdkModelOptions({ providerId });
-    const selected = advisorArm.targetByProvider[providerId].model;
-    // Keep a persisted-but-unlisted model visible so the picker always shows
-    // what is actually configured instead of silently disagreeing with it.
-    return !catalog.includes(selected) ? [selected, ...catalog] : [...catalog];
-  }, [
-    advisorArm.targetByProvider,
-    advisorCodexCatalog.models,
-    advisorSelectedProviderId,
-  ]);
-
-  const workerArm = useMemo(
-    () =>
-      resolveWorkerArmState({
-        providerId: workerActiveProvider,
-        overrides: promptDraft.runtimeOverrides,
-        settingsConfig: settingsWorkerConfigByProvider?.[workerActiveProvider],
-        settingsEnabled: settingsWorkerEnabled,
-      }),
-    [
-      workerActiveProvider,
-      promptDraft.runtimeOverrides,
-      settingsWorkerConfigByProvider,
-      settingsWorkerEnabled,
-    ],
-  );
-  // Resolved here rather than inside the pill so the composer shows exactly what
-  // the turn would send — including "unavailable" for an ineligible primary.
-  const workerResolution = useMemo(
-    () =>
-      resolveWorkerProfile({
-        providerId: workerActiveProvider,
-        primaryModel: args.selectedModelOption.model,
-        intent: buildWorkerRuntimeIntent(workerArm),
-        runtimeModels: workerRuntimeModels,
-      }),
-    [
-      args.selectedModelOption.model,
-      workerActiveProvider,
-      workerArm,
-      workerRuntimeModels,
-    ],
-  );
-  const [workerPickerOpen, setWorkerPickerOpen] = useState(false);
-  const workerLocalMcpReadiness = useLocalMcpReadiness({
-    enabled:
-      (workerActiveProvider === "cursor" || workerActiveProvider === "kiro") &&
-      (workerArm.enabled || workerPickerOpen),
-    primaryProviderId: workerActiveProvider,
-    refreshKey: workerPickerOpen,
-  });
-  const workerExecutionBlock = useMemo(
-    () =>
-      workerArm.enabled &&
-      (workerActiveProvider === "cursor" || workerActiveProvider === "kiro")
-        ? describeLocalMcpBlock({
-            readiness: workerLocalMcpReadiness.readiness,
-            capability: "Worker calls",
-          })
-        : null,
-    [
-      workerActiveProvider,
-      workerArm.enabled,
-      workerLocalMcpReadiness.readiness,
-    ],
-  );
-
-  // Shared by the Advisor and Worker controls: both write task-local runtime
-  // overrides through the same merge, so they must share the commit-first fix.
-  function applyRuntimeOverrides(runtimeOverrides: PromptDraftRuntimeOverrides) {
-    // Commit first: `updatePromptDraft` merges onto the stored draft, so an
-    // uncommitted composer edit would otherwise be dropped by the patch.
-    commitCurrentDraftText();
-    updatePromptDraft({
-      taskId: args.providerSelectionTarget,
-      patch: { runtimeOverrides },
-    });
-  }
-
   function handleApplyMacro(request: {
     macroId: string;
     draftText: string;
@@ -598,7 +392,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   const isInputBlocked = pendingApproval != null || pendingUserInput != null;
   // The selector lists Models and Agents. A model is Chat and releases the
   // task's agent; an agent is Agent mode and picks its own model. A task that
-  // runs as an agent has no Worker: the agent calls other agents itself.
+  // runs as an agent calls other agents (its subagents) itself.
   const agentChoice = useTaskAgentChoice({
     taskId: args.activeTaskId,
     selectedModel: args.selectedModelOption,
@@ -611,58 +405,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   const modelPickerAgents = buildModelPickerAgents(agentChoice, {
     locked: isInputBlocked || args.isTurnActive,
   });
-  const workerOffered =
-    !agentChoice.current &&
-    getProviderDescriptor({ providerId: args.activeProvider }).capabilities.worker;
   const isSteerSubmitting = pendingSteerTaskIdsRef.current.has(
     args.providerSelectionTarget,
   );
-
-  // Owned by the host, not the pill: placement can demote the Advisor into the
-  // ⋯ tray or hide it, and a shortcut that dies with its button is worse than
-  // no shortcut. Toggling arms the Advisor, which force-shows the pill anyway;
-  // opening the picker force-shows it via `advisorPickerOpen`.
-  function handleAdvisorToggle() {
-    const patch = buildAdvisorTogglePatch({
-      overrides: promptDraft.runtimeOverrides,
-      arm: advisorArm,
-    });
-    if (!patch) {
-      // Nothing is configured to arm, so the picker is the only honest
-      // response to a toggle request.
-      setAdvisorPickerOpen(true);
-      return;
-    }
-    applyRuntimeOverrides(patch);
-    // Turning the Advisor off while it is holding the turn has to release the
-    // turn too, otherwise the control silently means "next time" at the one
-    // moment the user wants it to mean now.
-    if (advisorArm.enabled && advisorBlockingTurn) {
-      skipTaskAdvisor({ taskId: args.activeTaskId });
-    }
-  }
-  function handleWorkerToggle() {
-    applyRuntimeOverrides(
-      buildWorkerTogglePatch({
-        overrides: promptDraft.runtimeOverrides,
-        arm: workerArm,
-      }),
-    );
-  }
-  // Advisor and Worker chords share one gate: both go quiet while the input is
-  // blocked on an approval or a question. A task that runs as an agent offers
-  // no Worker.
-  const composerChordsEnabled = args.windowShortcutsEnabled && !isInputBlocked;
-  useComposerChord({
-    enabled: composerChordsEnabled,
-    resolve: resolveAdvisorShortcutAction,
-    handle: (action) => (action === "picker" ? setAdvisorPickerOpen(true) : handleAdvisorToggle()),
-  });
-  useComposerChord({
-    enabled: composerChordsEnabled && workerOffered,
-    resolve: resolveWorkerShortcutAction,
-    handle: (action) => (action === "picker" ? setWorkerPickerOpen(true) : handleWorkerToggle()),
-  });
 
   function setSteerSubmissionPending(taskId: string, pending: boolean) {
     if (pending) {
@@ -1665,109 +1410,11 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           onComposerControlPlacementsChange={(next) =>
             updateSettings({ patch: { composerControlPlacements: next } })
           }
-          advisorActive={
-            isManagedExecutionProviderId(args.activeProvider) &&
-            (advisorArm.enabled || advisorPickerOpen)
-          }
-          workerActive={workerOffered && (workerArm.enabled || workerPickerOpen)}
           secretsActive={
             (promptDraft.runtimeOverrides?.boundSecretIds?.length ?? 0) > 0
           }
-          advisorControl={
-            isManagedExecutionProviderId(args.activeProvider) ? (
-            <PromptInputAdvisorPill
-              arm={advisorArm}
-              primaryProviderId={args.activeProvider}
-              primaryModel={args.selectedModelOption.model}
-              selectedProviderId={advisorSelectedProviderId}
-              advisorModelOptions={advisorModelOptions}
-              blocking={advisorBlockingTurn}
-              consultBlock={advisorConsultBlock}
-              disabled={isInputBlocked}
-              open={advisorPickerOpen}
-              onOpenChange={setAdvisorPickerOpen}
-              onSetEnabled={(enabled) => {
-                applyRuntimeOverrides(
-                  buildAdvisorEnabledPatch({
-                    overrides: promptDraft.runtimeOverrides,
-                    arm: advisorArm,
-                    providerId: advisorSelectedProviderId,
-                    enabled,
-                  }),
-                );
-                // Disarming while the Advisor holds the turn has to release the
-                // turn too, otherwise the switch silently means "next time" at
-                // the one moment the user wants it to mean now.
-                if (!enabled && advisorBlockingTurn) {
-                  skipTaskAdvisor({ taskId: args.activeTaskId });
-                }
-              }}
-              onSelectProvider={(providerId) => {
-                applyRuntimeOverrides(
-                  buildAdvisorProviderPatch({
-                    overrides: promptDraft.runtimeOverrides,
-                    arm: advisorArm,
-                    providerId,
-                  }),
-                );
-              }}
-              onSelectModel={(model) => {
-                applyRuntimeOverrides(
-                  buildAdvisorModelPatch({
-                    overrides: promptDraft.runtimeOverrides,
-                    arm: advisorArm,
-                    providerId: advisorSelectedProviderId,
-                    model,
-                  }),
-                );
-              }}
-              onSelectEffort={(effort) => {
-                applyRuntimeOverrides(
-                  buildAdvisorEffortPatch({
-                    overrides: promptDraft.runtimeOverrides,
-                    arm: advisorArm,
-                    providerId: advisorSelectedProviderId,
-                    effort,
-                  }),
-                );
-              }}
-            />
-            ) : null
-          }
           modelPickerAgents={modelPickerAgents}
           assignOnSend={agentChoice.assignOnSend}
-          workerControl={
-            workerOffered ? (
-            <PromptInputWorkerPill
-              arm={workerArm}
-              resolution={workerResolution}
-              primaryProviderId={workerActiveProvider}
-              primaryModel={args.selectedModelOption.model}
-              runtimeModels={workerRuntimeModels}
-              executionBlock={workerExecutionBlock}
-              disabled={isInputBlocked}
-              open={workerPickerOpen}
-              onOpenChange={setWorkerPickerOpen}
-              onToggle={handleWorkerToggle}
-              onSelectPreset={(presetId) => {
-                applyRuntimeOverrides(
-                  buildWorkerPresetPatch({
-                    overrides: promptDraft.runtimeOverrides,
-                    providerId: workerActiveProvider,
-                    presetId,
-                  }),
-                );
-              }}
-              onSelectAgent={(patch) => applyRuntimeOverrides(patch(promptDraft.runtimeOverrides))}
-              onSelectModel={(model) =>
-                applyRuntimeOverrides(buildWorkerModelPatch({ overrides: promptDraft.runtimeOverrides, providerId: workerActiveProvider, model }))
-              }
-              onSelectEffort={(effort) =>
-                applyRuntimeOverrides(buildWorkerEffortPatch({ overrides: promptDraft.runtimeOverrides, providerId: workerActiveProvider, effort }))
-              }
-            />
-            ) : null
-          }
           macroQuickPicks={
             args.isTurnActive ? null : (
               <MacroQuickPicks

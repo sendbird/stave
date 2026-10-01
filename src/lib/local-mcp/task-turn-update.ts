@@ -87,14 +87,13 @@ function compactToolInput(input: string) {
 /**
  * Keep host-owned turn activity live without sending transcript-sized payloads
  * through Electron IPC. The renderer still reloads durable messages from
- * SQLite; this projection carries only the fields needed by the Advisor and
- * Turn activity surfaces.
+ * SQLite; this projection carries only the fields needed by the Turn activity
+ * surfaces.
  */
 export function repositoryLocalMcpTaskTurnActivityEvent(
   event: NormalizedProviderEvent,
 ): LocalMcpTaskTurnActivityEvent | undefined {
   switch (event.type) {
-    case "advisor_activity":
     case "hook_activity":
     case "tool_progress":
     case "subagent_progress":

@@ -39,10 +39,10 @@ export function resolveAutomaticTurnOwner(
 }
 
 export const MISSION_ACTIVE_WAKE_UP_DETAIL =
-  "A mission is running on this task. This wake-up resumes when the mission ends.";
+  "A mission is running on this task. This schedule resumes when the mission ends.";
 
 export const MISSION_ACTIVE_WAKE_UP_REFUSAL =
-  "This task is running a mission, which starts its turns. Add a wake-up after the mission ends.";
+  "This task is running a mission, which starts its turns. Add a schedule after the mission ends.";
 
 export const SECOND_MISSION_REFUSAL =
   "This task is already running a mission. Cancel it or wait for it to end before starting another.";

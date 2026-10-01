@@ -2,7 +2,6 @@ import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
 import { AgentTurnProvenanceSchema } from "@/lib/agents/turn-provenance";
 import { ModelExecutionSchema } from "@/lib/providers/model-execution";
-import { WORKER_PRESET_IDS } from "../providers/worker-preset-ids";
 import {
   PersistedLensAnnotationSchema,
   LENS_CAPTURE_LIMITS,
@@ -48,33 +47,6 @@ const ThinkingPartSchema = z.object({
   completedAt: z.string().optional(),
 });
 
-const WorkerExecutionMetadataSchema = z.object({
-  providerId: ProviderIdSchema,
-  primaryModel: z.string(),
-  presetId: z.enum(WORKER_PRESET_IDS),
-  workerModel: z.string(),
-  requestedWorkerModel: z.string().optional(),
-  resolvedWorkerModel: z.string().optional(),
-  workerModelSource: z
-    .union([
-      z.literal("explicit"),
-      z.literal("preset"),
-      z.literal("provider-default"),
-    ])
-    .optional(),
-  workerModelRationale: z.string().optional(),
-  runtimeWorkerModel: z.string().optional(),
-  workerEffort: z.union([
-    z.literal("low"),
-    z.literal("medium"),
-    z.literal("high"),
-    z.literal("xhigh"),
-    z.literal("max"),
-    z.literal("ultra"),
-    z.null(),
-  ]),
-});
-
 const ToolUsePartSchema = z.object({
   type: z.literal("tool_use"),
   agentId: z.string().optional(),
@@ -87,7 +59,6 @@ const ToolUsePartSchema = z.object({
   exitCode: z.number().int().nullable().optional(),
   elapsedSeconds: z.number().optional(),
   progressMessages: z.array(z.string()).optional(),
-  workerExecution: WorkerExecutionMetadataSchema.optional(),
   state: z.union([
     z.literal("input-streaming"),
     z.literal("input-available"),
@@ -345,115 +316,6 @@ const PromptDraftRuntimeOverridesSchema = z.object({
   autoRouting: z.boolean().optional(),
   autoRoutingPlanMode: z.boolean().optional(),
   boundSecretIds: z.array(z.string().uuid()).optional(),
-  // Per-task Advisor arming. `advisorEnabled` is stored separately from
-  // `advisorTarget` so turning the Advisor off keeps the remembered model.
-  // Both carry `.catch(undefined)`: a malformed value must degrade to
-  // "unset" rather than failing this object, because that failure would
-  // propagate up and reject the whole workspace snapshot (see note below).
-  advisorEnabled: z.boolean().optional().catch(undefined),
-  advisorTarget: z
-    .object({
-      providerId: ManagedExecutionProviderIdSchema,
-      model: z.string().trim().min(1).max(200),
-      // Absent means "follow the model's provider default". Codex's legacy
-      // "minimal" is not accepted; `resolveAdvisorEffort` collapses it to
-      // "low" before any call, so persisting it would name a tier that
-      // never runs.
-      effort: z
-        .union([
-          z.literal("low"),
-          z.literal("medium"),
-          z.literal("high"),
-          z.literal("xhigh"),
-          z.literal("max"),
-          z.literal("ultra"),
-        ])
-        .optional(),
-    })
-    .optional()
-    .catch(undefined),
-  // Remembered per-provider Advisor pick, so the composer can configure a
-  // provider that is not armed. Same `.catch(undefined)` discipline: a corrupt
-  // entry must degrade to "unset" instead of rejecting the snapshot.
-  advisorTargetByProvider: z
-    .record(
-      ManagedExecutionProviderIdSchema,
-      z
-        .object({
-          model: z.string().trim().min(1).max(200),
-          effort: z
-            .union([
-              z.literal("low"),
-              z.literal("medium"),
-              z.literal("high"),
-              z.literal("xhigh"),
-              z.literal("max"),
-              z.literal("ultra"),
-            ])
-            .optional()
-            .catch(undefined),
-        })
-        .optional()
-        .catch(undefined),
-    )
-    .optional()
-    .catch(undefined),
-  // Per-task Worker mode arming, stored separately from the per-provider
-  // config for the same reason as the Advisor: turning Worker mode off must
-  // keep the remembered preset/model/effort. Same `.catch(undefined)`
-  // discipline — a malformed worker config degrades to "unset" instead of
-  // rejecting the whole workspace snapshot.
-  workerEnabled: z.boolean().optional().catch(undefined),
-  workerConfigByProvider: z
-    .record(
-      ProviderIdSchema,
-      // Every field catches independently: a corrupt tool list must not
-      // discard a good model choice sitting beside it.
-      z
-        .object({
-          presetId: z
-            .string()
-            .trim()
-            .pipe(z.enum(WORKER_PRESET_IDS))
-            .optional()
-            .catch(undefined),
-          model: z.string().trim().min(1).max(200).optional().catch(undefined),
-          effort: z
-            .union([
-              z.literal("auto"),
-              z.literal("low"),
-              z.literal("medium"),
-              z.literal("high"),
-              z.literal("xhigh"),
-              z.literal("max"),
-              z.literal("ultra"),
-            ])
-            .optional()
-            .catch(undefined),
-          description: z.string().trim().max(600).optional().catch(undefined),
-          instructions: z
-            .string()
-            .trim()
-            .max(8_000)
-            .optional()
-            .catch(undefined),
-          tools: z
-            .array(z.string().trim().min(1).max(120))
-            .max(40)
-            .optional()
-            .catch(undefined),
-          maxTurns: z
-            .number()
-            .int()
-            .min(1)
-            .max(200)
-            .optional()
-            .catch(undefined),
-        })
-        .catch({}),
-    )
-    .optional()
-    .catch(undefined),
 });
 // NOTE: deliberately NOT `.strict()`. `parseWorkspaceSnapshot` is all-or-nothing,
 // so one unrecognized key here rejects the ENTIRE workspace snapshot — every task,

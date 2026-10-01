@@ -138,7 +138,7 @@ function DelegatedUsageDetails(props: {
         <div key={entry.executionId} className={sx(styles.entry)}>
           <div className={sx(styles.entryHeader)}>
             <span className={sx(styles.entryLabel)}>
-              {entry.role === "advisor" ? "Advisor" : "Worker"}
+              Subagent
             </span>
             <span className={sx(styles.entryMeta)}>
               {getProviderLabel({ providerId: entry.providerId })} ·{" "}

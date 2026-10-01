@@ -65,11 +65,10 @@ import {
  */
 function resolveAgentExecution(event: Extract<NormalizedProviderEvent, { type: "tool" }>): Partial<AgentNode> {
   const input = parseToolInput(event.input);
-  const worker = event.workerExecution;
-  const model = worker?.runtimeWorkerModel ?? worker?.resolvedWorkerModel ?? worker?.workerModel ?? input?.model;
-  const effort = worker?.workerEffort ?? input?.reasoning_effort ?? input?.effort;
+  const model = input?.model;
+  const effort = input?.reasoning_effort ?? input?.effort;
   return {
-    ...(typeof model === "string" && model ? { model, modelEvidence: worker?.runtimeWorkerModel ? "reported" as const : worker ? "configured" as const : "requested" as const } : {}),
+    ...(typeof model === "string" && model ? { model, modelEvidence: "requested" as const } : {}),
     ...(typeof effort === "string" && effort ? { effort } : {}),
   };
 }

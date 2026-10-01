@@ -49,21 +49,21 @@ describe("wake-ups on the task surfaces", () => {
     expect(describeWakeUpTrigger(WAKE_UP)).toBe("Every hour");
     expect(
       describeWakeUpTrigger({ ...WAKE_UP, trigger: { kind: "completion" } } as WakeUp),
-    ).toBe("When delegated work finishes");
+    ).toBe("When subagents finish");
     expect(describeWakeUpStatus(summary(), NOW)).toEqual({ text: "Next run in 12m", tone: "active" });
     expect(
       describeWakeUpStatus(
         summary({
           state: "paused",
-          reason: "A mission is running on this task. This wake-up resumes when the mission ends.",
+          reason: "A mission is running on this task. This schedule resumes when the mission ends.",
         }),
         NOW,
       ).text,
-    ).toBe("Paused · A mission is running on this task. This wake-up resumes when the mission ends.");
+    ).toBe("Paused · A mission is running on this task. This schedule resumes when the mission ends.");
     expect(describeWakeUpStatus(summary({ triggerKind: "completion", nextRunAt: null }), NOW).text).toBe(
-      "Waiting for delegated work to finish",
+      "Waiting for subagents to finish",
     );
-    expect(describeWakeUpHistory(summary())).toBe("Woke the task 3 times · 1 skipped");
+    expect(describeWakeUpHistory(summary())).toBe("Checked 3 times · 1 skipped");
     expect(describeWakeUpHistory(summary({ occurrenceCount: 0, skippedCount: 0 }))).toBeNull();
   });
 
@@ -78,7 +78,7 @@ describe("wake-ups on the task surfaces", () => {
         }),
       );
     const scheduled = render(summary());
-    expect(scheduled).toContain("Wake-up");
+    expect(scheduled).toContain("Schedule");
     expect(scheduled).toContain("Every hour");
     expect(scheduled).toContain(">Pause<");
     expect(scheduled).toContain(">Remove<");
