@@ -21,6 +21,12 @@ continuations reuse recent user context and keep a capable model. Local
 sensitive-word matching is deliberately conservative; a discussion of a
 sensitive topic can therefore escalate when model classification is disabled or unavailable.
 
+A task that runs as an [agent](agents.md) whose model is Auto-routing with a
+task class uses that class as a fallback: a confident classification still
+decides, and the agent's class applies when the intent is unclear or when
+classification is unavailable (in place of local keyword matching). A safety
+escalation always wins.
+
 The current provider stays selected unless switching is enabled or a custom
 rule explicitly selects another provider. Reviews and slash commands do not
 automatically change providers or force a light model.
