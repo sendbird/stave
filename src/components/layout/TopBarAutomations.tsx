@@ -37,8 +37,8 @@ export function TopBarAutomations(props: { noDragStyle: CSSProperties }) {
             style={props.noDragStyle}
             aria-label={
               isAutomationCenterActive
-                ? "close-automation-center"
-                : "open-automation-center"
+                ? "close-schedules"
+                : "open-schedules"
             }
             aria-pressed={isAutomationCenterActive}
             onClick={toggleAutomationCenter}
@@ -49,8 +49,8 @@ export function TopBarAutomations(props: { noDragStyle: CSSProperties }) {
       </TooltipTrigger>
       <TooltipContent side="bottom">
         {isAutomationCenterActive
-          ? "Close Automations"
-          : "Automations"}
+          ? "Close Schedules"
+          : "Schedules"}
       </TooltipContent>
     </Tooltip>
   );

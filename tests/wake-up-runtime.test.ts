@@ -563,7 +563,7 @@ describe("supervisor runtime", () => {
     await harness.runtime.create(createInput());
 
     await expect(harness.runtime.create(createInput())).rejects.toThrow(
-      "already has a wake-up",
+      "already has a schedule",
     );
   });
 
@@ -1359,7 +1359,7 @@ describe("one source of automatic turns per task", () => {
     harness.setActiveMissionTask("task-1");
 
     await expect(harness.runtime.update({ id: wakeUp.id, input: createInput() })).rejects.toThrow(
-      "This task is running a mission, which starts its turns. Add a wake-up after the mission ends.",
+      "This task is running a mission, which starts its turns. Add a schedule after the mission ends.",
     );
     harness.store.remove(wakeUp.id);
     await expect(harness.runtime.create(createInput())).rejects.toThrow("running a mission");

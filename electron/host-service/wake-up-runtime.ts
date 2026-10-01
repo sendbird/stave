@@ -214,7 +214,7 @@ function buildWakeUpContextPart(args: {
     sourceId: "stave:wake-up",
     title: "Scheduled Wake",
     content: [
-      "A Stave wake-up started this turn on a schedule. The user did not type this message and may not be watching.",
+      "A Stave schedule started this turn. The user did not type this message and may not be watching.",
       `This is occurrence ${args.occurrenceNumber}${cap}, scheduled for ${args.dueAt}.`,
       "Report material changes only. Do not ask a question you cannot get answered — if you are blocked, say what is blocking you and stop.",
     ].join("\n"),
@@ -246,7 +246,7 @@ function buildCompletionContextPart(args: {
     sourceId: "stave:wake-up",
     title: "Delegated Work Finished",
     content: [
-      "A Stave wake-up started this turn because work this task delegated finished. The user did not type this message and may not be watching.",
+      "A Stave schedule started this turn because this task's subagents finished. The user did not type this message and may not be watching.",
       `This is occurrence ${args.occurrenceNumber}${cap}.`,
       args.completions.length === 1
         ? "One delegated run finished:"
@@ -317,7 +317,7 @@ export function createWakeUpRuntime(
   function requireWakeUp(id: string) {
     const wakeUp = persistence.getWakeUp(id);
     if (!wakeUp) {
-      throw new Error(`Wake-up not found: ${id}`);
+      throw new Error(`Schedule not found: ${id}`);
     }
     return wakeUp;
   }
@@ -834,12 +834,12 @@ export function createWakeUpRuntime(
       // skipped a beat.
       const detail = describeTurnFailure(
         error,
-        "Failed to start the wake-up turn.",
+        "Failed to start the scheduled turn.",
       );
       recordUnreportedOccurrence({ occurrence: fired.occurrence, detail });
       await reportWakeFailure({
         wakeUp,
-        detail: `A scheduled wake-up for ${decision.dueAt} could not start: ${detail}`,
+        detail: `A schedule for ${decision.dueAt} could not start: ${detail}`,
       });
     }
     persistence.pruneWakeUpOccurrences({ wakeUpId: wakeUp.id });
@@ -907,13 +907,13 @@ export function createWakeUpRuntime(
         continue;
       }
       const detail =
-        "Stave stopped before this wake-up reached the task, so it was consumed without a turn.";
+        "Stave stopped before this schedule reached the task, so it was consumed without a turn.";
       for (const occurrence of lost) {
         recordUnreportedOccurrence({ occurrence, detail });
       }
       await reportWakeFailure({
         wakeUp,
-        detail: `${lost.length === 1 ? "One wake-up" : `${lost.length} wake-ups`} were lost when Stave stopped: ${detail}`,
+        detail: `${lost.length === 1 ? "One schedule" : `${lost.length} schedules`} were lost when Stave stopped: ${detail}`,
       });
     }
   }
@@ -983,7 +983,7 @@ export function createWakeUpRuntime(
       throw new Error("This task has no resolved provider yet.");
     }
     if (snapshot.providerId !== "claude-code" && snapshot.providerId !== "codex") {
-      throw new Error("Automatic task wake-ups are available for Claude and Codex tasks.");
+      throw new Error("Check-back schedules are available for Claude and Codex tasks.");
     }
     return { ...snapshot, providerId: snapshot.providerId, model: snapshot.model, repositoryPath: snapshot.repositoryPath };
   }
@@ -1002,7 +1002,7 @@ export function createWakeUpRuntime(
     }
     if (probeCompletionObservability(args.snapshot) === "unsupported") {
       throw new Error(
-        "Stave cannot observe when this task's delegated work finishes, so a completion wake-up would never fire. Use a schedule trigger.",
+        "Stave cannot observe when this task's delegated work finishes, so a subagent-completion schedule would never run. Use a cadence.",
       );
     }
   }
@@ -1035,7 +1035,7 @@ export function createWakeUpRuntime(
         const existing = persistence.getWakeUpByTaskId(input.taskId);
         if (existing && existing.state !== "stopped") {
           throw new Error(
-            "This task already has a wake-up. Update or remove it first.",
+            "This task already has a schedule. Update or remove it first.",
           );
         }
         const snapshot = await requireSupervisableTask({
@@ -1070,7 +1070,7 @@ export function createWakeUpRuntime(
           // reason, and an update quietly rescheduling it would erase that
           // reason. Creating a fresh wake-up replaces a stopped one instead.
           throw new Error(
-            `This wake-up stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,
+            `This schedule stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,
           );
         }
         if (
@@ -1078,7 +1078,7 @@ export function createWakeUpRuntime(
           input.workspaceId !== current.workspaceId
         ) {
           throw new Error(
-            "A wake-up cannot be moved to another task. Remove it and add one there.",
+            "A schedule cannot be moved to another task. Remove it and add one there.",
           );
         }
         const snapshot = await requireSupervisableTask({
@@ -1116,7 +1116,7 @@ export function createWakeUpRuntime(
       enqueue(() => {
         const current = requireWakeUp(id);
         if (current.state === "stopped") {
-          throw new Error("This wake-up already stopped.");
+          throw new Error("This schedule already stopped.");
         }
         return persistence.upsertWakeUp({
           ...current,
@@ -1133,7 +1133,7 @@ export function createWakeUpRuntime(
         refuseWhileMissionActive(current.taskId);
         if (current.state === "stopped") {
           throw new Error(
-            `This wake-up stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,
+            `This schedule stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,
           );
         }
         return persistence.upsertWakeUp(

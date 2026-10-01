@@ -71,7 +71,7 @@ const PERMISSION_MODE_ICON: Record<
   manual: SlidersHorizontal,
 };
 
-function SectionHeading(props: {
+export function SectionHeading(props: {
   title: string;
   description?: string;
   detail?: string;
@@ -93,7 +93,7 @@ function SectionHeading(props: {
   );
 }
 
-function FormLabel(props: {
+export function FormLabel(props: {
   label: string;
   description?: string;
   children: React.ReactNode;
@@ -144,11 +144,16 @@ function RuntimeSwitch(props: {
   );
 }
 
-function CadenceSection(props: {
-  draft: AutomationUpsertInput;
-  onDraftChange: (draft: AutomationUpsertInput) => void;
+type CadenceDraft = Pick<AutomationUpsertInput, "schedule" | "enabled">;
+
+/** The "When" of a schedule. `manual` offers "Manual only" (start-a-task schedules). */
+export function CadenceSection<T extends CadenceDraft>(props: {
+  draft: T;
+  onDraftChange: (draft: T) => void;
+  manual?: boolean;
 }) {
   const { draft } = props;
+  const manual = props.manual ?? true;
   const preset = detectAutomationCadencePreset({
     schedule: draft.schedule,
     enabled: draft.enabled,
@@ -214,11 +219,11 @@ function CadenceSection(props: {
   return (
     <section className={sx(editorStyles.section)}>
       <SectionHeading
-        title="Cadence"
+        title="When"
         description="Pick a common rhythm, or switch to Custom for an exact interval."
       />
-      <div className={sx(editorStyles.chipRow)} role="group" aria-label="Cadence">
-        {AUTOMATION_CADENCE_PRESETS.map((candidate) => {
+      <div className={sx(editorStyles.chipRow)} role="group" aria-label="When">
+        {AUTOMATION_CADENCE_PRESETS.filter((candidate) => manual || candidate !== "manual").map((candidate) => {
           const active = candidate === preset;
           return (
             <Button
@@ -381,7 +386,7 @@ function CadenceSection(props: {
             </>
           ) : (
             <span className={sx(editorStyles.summaryStrong)}>
-              Manual only — this automation runs when you press Run now.
+              Manual only — this schedule runs when you press Run now.
             </span>
           )}
         </span>
@@ -623,6 +628,8 @@ export function AutomationEditor(props: {
   informationOptions: WorkspaceInformationReferenceOption[];
   informationLoading: boolean;
   saving: boolean;
+  /** "Start a task / Check back on a task" choice; shown when creating. */
+  kindSwitch?: React.ReactNode;
   onDraftChange: (draft: AutomationUpsertInput) => void;
   onInformationCreated: (option: WorkspaceInformationReferenceOption) => void;
   onCancel: () => void;
@@ -711,10 +718,10 @@ export function AutomationEditor(props: {
       <div className={sx(editorStyles.header)}>
         <div className={sx(editorStyles.headerText)}>
           <div className={sx(editorStyles.headerTitle)}>
-            {props.automationId ? "Edit automation" : "New automation"}
+            {props.automationId ? "Edit schedule" : "New schedule"}
           </div>
           <div className={sx(editorStyles.headerSubtitle)}>
-            Runs in a fresh task while the Stave desktop app is open.
+            Starts a fresh task while the Stave desktop app is open.
           </div>
         </div>
         <div className={sx(editorStyles.headerActions)}>
@@ -741,7 +748,7 @@ export function AutomationEditor(props: {
       <div className={sx(editorStyles.body)}>
         <div className={sx(editorStyles.bodyColumn)}>
           <section className={sx(editorStyles.section)}>
-            <SectionHeading title="Task" />
+            <SectionHeading title="What" />
             <FormLabel label="Name">
               <Input
                 value={props.draft.name}
@@ -773,6 +780,52 @@ export function AutomationEditor(props: {
             </FormLabel>
           </section>
 
+          <section className={sx(editorStyles.section)}>
+            <SectionHeading
+              title="Where"
+              description="Starts a new task in this repository's Default Workspace each time."
+            />
+            {props.kindSwitch}
+            <Select
+              value={environmentValue}
+              onValueChange={(value) => {
+                const selected = props.environmentOptions.find(
+                  (option) => option.value === value,
+                );
+                if (!selected) {
+                  return;
+                }
+                props.onDraftChange({
+                  ...props.draft,
+                  environment: {
+                    kind: "repository",
+                    workspaceId: selected.workspaceId,
+                    path: selected.path,
+                    repositoryPath: selected.repositoryPath,
+                    label: selected.label,
+                  },
+                  informationReferences: [],
+                });
+              }}
+            >
+              <SelectTrigger className={sx(editorStyles.repositorySelect)}>
+                <SelectValue placeholder="Select a repository" />
+              </SelectTrigger>
+              <SelectContent>
+                {props.environmentOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {props.draft.environment.path ? (
+              <div className={sx(editorStyles.environmentPath)}>
+                {props.draft.environment.path}
+              </div>
+            ) : null}
+          </section>
+
           <CadenceSection
             draft={props.draft}
             onDraftChange={props.onDraftChange}
@@ -784,7 +837,7 @@ export function AutomationEditor(props: {
           />
 
           <section className={sx(editorStyles.section)}>
-            <SectionHeading title="Model" />
+            <SectionHeading title="Agent" />
             <ProviderModelPicker
               selectedProvider={runtime.provider}
               selectedModel={runtime.model}
@@ -845,51 +898,6 @@ export function AutomationEditor(props: {
                 xstyle={editorStyles.concurrencyControl}
               />
             </FormLabel>
-          </section>
-
-          <section className={sx(editorStyles.section)}>
-            <SectionHeading
-              title="Repository"
-              description="The provider always runs from this repository root in its Default Workspace."
-            />
-            <Select
-              value={environmentValue}
-              onValueChange={(value) => {
-                const selected = props.environmentOptions.find(
-                  (option) => option.value === value,
-                );
-                if (!selected) {
-                  return;
-                }
-                props.onDraftChange({
-                  ...props.draft,
-                  environment: {
-                    kind: "repository",
-                    workspaceId: selected.workspaceId,
-                    path: selected.path,
-                    repositoryPath: selected.repositoryPath,
-                    label: selected.label,
-                  },
-                  informationReferences: [],
-                });
-              }}
-            >
-              <SelectTrigger className={sx(editorStyles.repositorySelect)}>
-                <SelectValue placeholder="Select a repository" />
-              </SelectTrigger>
-              <SelectContent>
-                {props.environmentOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {props.draft.environment.path ? (
-              <div className={sx(editorStyles.environmentPath)}>
-                {props.draft.environment.path}
-              </div>
-            ) : null}
           </section>
 
           <section className={sx(editorStyles.section)}>

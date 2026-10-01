@@ -807,7 +807,9 @@ ipcRenderer.on(WAKE_UP_IPC.changed, (_event, payload: WakeUpChangedEvent) => {
 });
 
 const wakeUpsApi: WakeUpsBridgeApi = {
-  list: (args) => ipcRenderer.invoke(WAKE_UP_IPC.list, args),
+  list: (args) => ipcRenderer.invoke(WAKE_UP_IPC.list, args ?? {}),
+  create: (input) => ipcRenderer.invoke(WAKE_UP_IPC.create, input),
+  update: (args) => ipcRenderer.invoke(WAKE_UP_IPC.update, args),
   setPaused: (args) => ipcRenderer.invoke(WAKE_UP_IPC.setPaused, args),
   remove: (args) => ipcRenderer.invoke(WAKE_UP_IPC.remove, args),
   subscribeChanged: (listener) => {

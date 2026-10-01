@@ -711,14 +711,14 @@ export function decideWakeUpAction(args: {
     return {
       action: "stop",
       reason: "task-unavailable",
-      detail: "The task this wake-up watches no longer exists.",
+      detail: "The task this schedule checks back on no longer exists.",
     };
   }
   if (observation.taskArchived) {
     return {
       action: "stop",
       reason: "task-unavailable",
-      detail: "The task this wake-up watches was archived.",
+      detail: "The task this schedule checks back on was archived.",
     };
   }
   // A completion wake-up that cannot observe completion never fires. Saying so
@@ -732,14 +732,14 @@ export function decideWakeUpAction(args: {
       action: "stop",
       reason: "completion-unobservable",
       detail:
-        "Stave cannot observe when this task's delegated work finishes, so this wake-up would never fire.",
+        "Stave cannot observe when this task's subagents finish, so this schedule would never run.",
     };
   }
   if (wakeUp.expiresAt && Date.parse(wakeUp.expiresAt) <= now.getTime()) {
     return {
       action: "stop",
       reason: "expired",
-      detail: `This wake-up expired at ${wakeUp.expiresAt}.`,
+      detail: `This schedule expired at ${wakeUp.expiresAt}.`,
     };
   }
   if (
@@ -749,7 +749,7 @@ export function decideWakeUpAction(args: {
     return {
       action: "stop",
       reason: "occurrence-cap-reached",
-      detail: `This wake-up reached its limit of ${wakeUp.maxOccurrences} occurrences.`,
+      detail: `This schedule reached its limit of ${wakeUp.maxOccurrences} occurrences.`,
     };
   }
 
@@ -829,7 +829,7 @@ export function decideWakeUpAction(args: {
       return {
         action: "defer",
         dueAt: latestCompletionInstant(observation.completions, now),
-        detail: "The task is mid-turn; the completion wake-up waits for it to finish.",
+        detail: "The task is mid-turn; the schedule waits for it to finish.",
       };
     }
     return {
@@ -862,7 +862,7 @@ export function decideWakeUpAction(args: {
     return {
       action: "defer",
       dueAt: due.dueAt,
-      detail: "The task is mid-turn; the wake-up waits for it to finish.",
+      detail: "The task is mid-turn; the schedule waits for it to finish.",
     };
   }
 
@@ -959,7 +959,7 @@ export function applyWakeUpDecision(args: {
           ...fired,
           state: "stopped",
           stopReason: "occurrence-cap-reached",
-          reasonDetail: `This wake-up reached its limit of ${fired.maxOccurrences} occurrences.`,
+          reasonDetail: `This schedule reached its limit of ${fired.maxOccurrences} occurrences.`,
           nextRunAt: null,
         };
       }
@@ -971,7 +971,7 @@ export function applyWakeUpDecision(args: {
           ...fired,
           state: "stopped",
           stopReason: "expired",
-          reasonDetail: `This wake-up expired at ${fired.expiresAt}.`,
+          reasonDetail: `This schedule expired at ${fired.expiresAt}.`,
           nextRunAt: null,
         };
       }
@@ -1004,7 +1004,7 @@ export function applyWakeUpDecision(args: {
           ...woken,
           state: "stopped",
           stopReason: "occurrence-cap-reached",
-          reasonDetail: `This wake-up reached its limit of ${woken.maxOccurrences} occurrences.`,
+          reasonDetail: `This schedule reached its limit of ${woken.maxOccurrences} occurrences.`,
         };
       }
       return woken;

@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
 
-test("schedule controls persist without executing and returning from Automations preserves the task draft", async ({}, testInfo) => {
+test("schedule controls persist without executing and returning from Schedules preserves the task draft", async ({}, testInfo) => {
   const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-acceptance-"));
   const stave = await launchStave();
   try {
@@ -33,8 +33,8 @@ test("schedule controls persist without executing and returning from Automations
     await stave.page.getByRole("button", { name: "Open Stave menu" }).click();
     await stave.page.getByRole("menuitem", { name: /Command Palette/ }).click();
     const palette = stave.page.getByRole("dialog", { name: "Command Palette" });
-    await palette.getByPlaceholder("Find a command, task, workspace, or setting…").fill("Open Automations");
-    await palette.getByText("Open Automations", { exact: true }).click();
+    await palette.getByPlaceholder("Find a command, task, workspace, or setting…").fill("Open Schedules");
+    await palette.getByText("Open Schedules", { exact: true }).click();
     await expect(stave.page.getByText(/Runs while Stave is open/)).toBeVisible();
     await stave.page.getByText("Document review", { exact: true }).first().click();
     await stave.page.getByRole("button", { name: "Enable schedule", exact: true }).click();
@@ -46,7 +46,7 @@ test("schedule controls persist without executing and returning from Automations
     const state = await stave.page.evaluate(() => window.api.automations!.list!());
     expect(state.snapshot.automations.find(item => item.id === automation.id)?.enabled).toBe(false);
     expect(state.snapshot.runs).toHaveLength(0);
-    await stave.page.getByTitle("Close Automations", { exact: true }).click();
+    await stave.page.getByTitle("Close Schedules", { exact: true }).click();
     await expect(editor).toContainText("Draft a document describing the release changes.");
   } finally {
     await stave.close();

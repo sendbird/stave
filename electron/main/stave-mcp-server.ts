@@ -837,7 +837,7 @@ function createToolServer(options?: {
     "stave_list_wake_ups",
     {
       description:
-        "List wake-ups and their waiting, paused, or stopped state. A wake-up resumes an existing task on a schedule in the same session; it never creates a task.",
+        "List check-back schedules and their waiting, paused, or stopped state. A check-back schedule resumes an existing task in the same session; it never creates a task.",
       inputSchema: {
         workspaceId: z
           .string()
@@ -856,9 +856,9 @@ function createToolServer(options?: {
     "stave_get_wake_up",
     {
       description:
-        "Read one wake-up with its recent occurrences, including why an occurrence fired, deferred, or was skipped.",
+        "Read one check-back schedule with its recent occurrences, including why an occurrence fired, deferred, or was skipped.",
       inputSchema: {
-        id: z.string().min(1).describe("Wake-up id."),
+        id: z.string().min(1).describe("Check-back schedule id."),
       },
     },
     async ({ id }) => toStructuredResult(await getWakeUp({ id })),
@@ -868,10 +868,10 @@ function createToolServer(options?: {
     "stave_create_wake_up",
     {
       description:
-        "Attach a wake-up to an existing task so it wakes in the same session — on a schedule, or when work that task delegated finishes. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its delegated tasks return. To run something on a schedule in a NEW task each time, create an automation instead.",
+        "Attach a check-back schedule to an existing task so it resumes in the same session — on a cadence, or when its subagents finish. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its subagents return. To start a NEW task on a schedule each time, create a start-a-task schedule (stave_create_automation) instead.",
       inputSchema: {
         input: WakeUpUpsertInputSchema.describe(
-          "Wake-up definition. `taskId` must name a task that already exists. A completion trigger without `maxOccurrences` is capped by default so the wake chain cannot recurse forever.",
+          "Check-back schedule definition. `taskId` must name a task that already exists. A completion trigger without `maxOccurrences` is capped by default so the chain cannot recurse forever.",
         ),
       },
     },
@@ -885,11 +885,11 @@ function createToolServer(options?: {
     "stave_update_wake_up",
     {
       description:
-        "Replace a wake-up's prompt, trigger, expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
+        "Replace a check-back schedule's prompt, trigger, expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
       inputSchema: {
-        id: z.string().min(1).describe("Wake-up id."),
+        id: z.string().min(1).describe("Check-back schedule id."),
         input: WakeUpUpsertInputSchema.describe(
-          "Complete next wake-up definition. It must target the same task.",
+          "Complete next check-back schedule definition. It must target the same task.",
         ),
       },
     },
@@ -903,12 +903,12 @@ function createToolServer(options?: {
     "stave_set_wake_up_paused",
     {
       description:
-        "Pause or resume a wake-up without deleting it. Resuming schedules the next occurrence from now, and is refused for a wake-up that already stopped.",
+        "Pause or resume a check-back schedule without deleting it. Resuming schedules the next occurrence from now, and is refused for one that already stopped.",
       inputSchema: {
-        id: z.string().min(1).describe("Wake-up id."),
+        id: z.string().min(1).describe("Check-back schedule id."),
         paused: z
           .boolean()
-          .describe("True to pause the wake-up, false to resume it."),
+          .describe("True to pause the schedule, false to resume it."),
       },
     },
     async ({ id, paused }) =>
@@ -923,9 +923,9 @@ function createToolServer(options?: {
     "stave_remove_wake_up",
     {
       description:
-        "Delete a wake-up and its occurrence history. The task itself is untouched.",
+        "Delete a check-back schedule and its occurrence history. The task itself is untouched.",
       inputSchema: {
-        id: z.string().min(1).describe("Wake-up id."),
+        id: z.string().min(1).describe("Check-back schedule id."),
       },
     },
     async ({ id }) => toStructuredResult(await removeWakeUp({ id })),
@@ -935,7 +935,7 @@ function createToolServer(options?: {
     "stave_list_automations",
     {
       description:
-        "List saved Stave automations and their recent run history so an agent can inspect existing automation specs before creating, updating, or deleting them.",
+        "List saved start-a-task schedules (automations) and their recent run history so an agent can inspect existing specs before creating, updating, or deleting them.",
     },
     async () =>
       toStructuredResult({
@@ -947,7 +947,7 @@ function createToolServer(options?: {
     "stave_create_automation",
     {
       description:
-        "Create a saved Stave automation from a complete automation spec. Use this when a user asks the AI to set up a recurring Claude or Codex workflow. It is saved paused: tell the user to turn it on in the Automations panel. Unattended and bypass settings are rejected.",
+        "Create a saved start-a-task schedule (automation) from a complete spec. Use this when a user asks the AI to set up a recurring Claude or Codex workflow. It is saved paused: tell the user to turn it on in Schedules. Unattended and bypass settings are rejected.",
       inputSchema: {
         input: AutomationUpsertInputSchema.describe("Complete automation spec."),
       },

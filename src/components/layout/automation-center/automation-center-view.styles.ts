@@ -222,7 +222,7 @@ export const centerStyles = stylex.create({
     flexGrow: 1,
     gridTemplateColumns: {
       default: "repeat(1, minmax(0, 1fr))",
-      "@media (min-width: 48rem)": "minmax(260px, 340px) minmax(0, 1fr)",
+      "@media (min-width: 48rem)": "minmax(380px, 520px) minmax(0, 1fr)",
     },
     minBlockSize: 0,
     overflow: "hidden",
