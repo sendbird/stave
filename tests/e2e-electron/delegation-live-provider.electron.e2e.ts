@@ -121,6 +121,7 @@ test("ordinary direct work and an inherited read-only delegation persist across 
     const afterRestart = await readEvidence();
     assertEvidence(afterRestart);
     await expect(stave.page.locator(`.dv-tab.dv-active-tab [data-pane-tab-chip="task:${parentTaskId}"]`)).toBeVisible();
+    await expect(stave.page.getByText(directMarker, { exact: true })).toBeVisible();
     expect(afterRestart.receipts).toEqual(beforeRestart.receipts);
     expect(afterRestart.turns.turns).toEqual(beforeRestart.turns.turns);
     const restored = await stave.page.evaluate(async parentTaskId => window.api.runs!.listDelegatedTasks!({ parentTaskId, includeFinished: true }), parentTaskId);
