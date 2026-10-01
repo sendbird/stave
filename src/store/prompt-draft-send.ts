@@ -1,3 +1,4 @@
+import { snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import { buildModelEffortRuntimeOverrides } from "@/lib/providers/model-effort";
 import {
   buildClearedPromptDraftWithQueuedNextTurn,
@@ -77,6 +78,7 @@ function queuedTurnDispatchOverrides(args: {
     return {
       runtimeOverrides: {
         ...rest,
+        ...snapshotProviderAccounts(queuedTurn),
         autoRouting: true,
         autoRoutingPlanMode: queuedTurn.autoRoutingPlanMode === true,
       },
@@ -94,6 +96,7 @@ function queuedTurnDispatchOverrides(args: {
   return {
     runtimeOverrides: {
       ...rest,
+      ...snapshotProviderAccounts(queuedTurn),
       // A pinned provider/model must not inherit a later switch to Auto.
       autoRouting: false,
       ...(queuedTurn.model

@@ -1,3 +1,5 @@
+import { inspectOptionalProviderTooling } from "../optional-provider-tooling";
+import { toolingAllowsProviderReads } from "../../../src/lib/providers/provider-readiness";
 import path from "node:path";
 import { resolveBoundSecretEnv } from "../../main/browser/secret-service";
 import {
@@ -5,7 +7,6 @@ import {
   resolveAcpTurnMcpServers,
 } from "../acp/acp-shared-mcp";
 import {
-  createEmptyProviderRuntimeCapabilities,
   extractRuntimeVersion,
   resolveProviderRuntimeCapabilities,
 } from "../../../src/lib/providers/runtime-capabilities";
@@ -29,7 +30,7 @@ import {
   buildCursorAgentEnv,
   resolveCursorAgentExecutablePath,
 } from "../cursor-cli-env";
-import { parsePositiveIntEnv, runExecutableProbe } from "../runtime-shared";
+import { parsePositiveIntEnv } from "../runtime-shared";
 import type { BridgeEvent, StreamTurnArgs } from "../types";
 import {
   buildCursorPlanResponse,
@@ -279,43 +280,20 @@ function createCursorExtensionRuntime(
 export async function describeCursorAvailability(
   args: { runtimeOptions?: StreamTurnArgs["runtimeOptions"] } = {},
 ) {
-  const executablePath = resolveCursorAgentExecutablePath({
-    explicitPath: args.runtimeOptions?.cursorBinaryPath,
+  const toolingStatus = await inspectOptionalProviderTooling({
+    providerId: "cursor",
+    cursorBinaryPath: args.runtimeOptions?.cursorBinaryPath,
   });
-  if (!executablePath) {
-    return {
-      available: false,
-      detail:
-        "Cursor Agent CLI not found from runtime override, STAVE_CURSOR_AGENT_PATH, STAVE_CURSOR_AGENT_CMD, login-shell PATH, or home-bin candidates. Install the Agent CLI or configure its path.",
-      capabilities: createEmptyProviderRuntimeCapabilities(),
-    };
-  }
-
-  const env = buildCursorAgentEnv({ executablePath });
-  const [versionProbe, acpProbe, authProbe] = await Promise.all([
-    runExecutableProbe({ executablePath, commandArgs: ["--version"], env }),
-    runExecutableProbe({ executablePath, commandArgs: ["acp", "--help"], env }),
-    runExecutableProbe({ executablePath, commandArgs: ["status"], env }),
-  ]);
-  const available =
-    versionProbe.status === 0 &&
-    acpProbe.status === 0 &&
-    authProbe.status === 0;
-  const version = extractRuntimeVersion(versionProbe.text);
-  const detail = available
-    ? `Resolved authenticated Cursor Agent CLI: ${executablePath}`
-    : authProbe.status !== 0
-      ? "Cursor Agent CLI is installed but not authenticated. Run `agent login` and retry."
-      : acpProbe.status !== 0
-        ? "Cursor Agent CLI is installed but its ACP subcommand is unavailable. Update the Agent CLI and retry."
-        : `Cursor Agent CLI probe failed: ${executablePath}`;
+  const available = toolingAllowsProviderReads(toolingStatus);
+  const version = extractRuntimeVersion(toolingStatus.version ?? "");
   return {
     available,
-    detail,
+    detail: toolingStatus.detail,
+    toolingStatus,
     ...(version ? { version } : {}),
     capabilities: resolveProviderRuntimeCapabilities({
       providerId: "cursor",
-      versionText: versionProbe.text,
+      versionText: toolingStatus.version ?? "",
       available,
     }),
   };

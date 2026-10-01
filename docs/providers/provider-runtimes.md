@@ -18,6 +18,98 @@ decisions are recorded in
 
 The renderer submits a selected provider and model with each turn. `electron/main/ipc/provider.ts` validates the request, forwards it into the dedicated desktop `host-service` child process, and `electron/providers/runtime.ts` dispatches to the matching provider runtime.
 
+### Optional provider discovery
+
+Cursor and Kiro model options and account usage meters follow the native status
+shown in Settings > Tooling. Discovery checks the executable, ACP support, and
+native login together, sharing a bounded probe and a one-minute cache. Missing,
+unsupported, logged-out, and initially unverified providers have no new model
+options or account-usage reads. Tooling remains available to diagnose and repair
+them. Existing tasks retain their selected provider, model, and effort.
+
+A failed status check after a successful one retains the last catalog and usage
+as unverified, pauses reads, and excludes the provider from new automatic
+selection. A usage endpoint failure alone does not hide authenticated models;
+exhausted quota remains visible. Startup, window focus, binary changes, periodic
+discovery, and Tooling Refresh update status. Late replies cannot repopulate a
+catalog or usage meter after a detected logout or configuration change.
+
+### Native account profiles and execution
+
+The desktop bridge exposes `window.api.providerAccounts` for Claude and Codex
+profile registration, renaming, removal, and native login. Each provider keeps
+an immutable **System default** profile that follows the existing environment
+and native login. Registration creates an app-managed configuration directory
+or references an existing absolute directory in place. Profile IDs are opaque;
+labels can change, while a registered directory stays attached to its ID.
+
+Electron main stores only nonsecret metadata in
+`<app-data>/provider-accounts.json`, using an atomic replacement and restrictive
+file permissions. Native credentials and session files stay in the provider's
+directory. Removing a registration retains that directory and its contents.
+Duplicate directories, including symlink aliases, are rejected. Invalid storage
+and missing, removed, mismatched, or redirected profiles fail explicitly.
+
+`providerAccounts.login` starts `claude auth login` or `codex login` in a dedicated
+terminal session with that profile's `CLAUDE_CONFIG_DIR` or `CODEX_HOME`. It returns
+only a terminal session ID. The existing terminal bridge owns output, input,
+attachment, and closure. Login sessions buffer output until attached and use
+separate slots for each resolved profile and executable. Their output is retained
+in memory while alive and excluded from persisted terminal snapshots. A launch failure leaves
+other profiles and running sessions intact. Native login itself remains owned
+by the provider; Stave does not read or copy its credential files.
+
+Custom profile environments select their configuration directory before MCP
+environment discovery and reapply it after hydration. They omit inherited
+provider API keys, OAuth tokens, and endpoint overrides. System default preserves
+those existing settings. Bound vault secrets cannot override `STAVE_USER_DATA_PATH`,
+`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, or `CODEX_HOME`.
+
+Conversation requests accept `claudeAccountProfileId` and
+`codexAccountProfileId`. Omitted IDs retain System default behavior. The host
+captures both selections in request-local async context, and each primary turn
+captures its selection before asynchronous dispatch. Native child environments,
+Codex App Server clients, Claude session maps, MCP observations, model catalog
+cache keys, and usage reads are separated by profile. Reusing a Codex client
+revalidates the registration; removing a profile prevents new requests without
+terminating a turn already running on it.
+
+Native session cursors for custom profiles are stored under
+`providerSession.accounts[profileId][providerId]`; existing top-level entries
+remain System default. Session and terminal events carry their originating
+profile ID, including synthesized terminal failures. Queue entries capture both
+profile IDs, including explicit System default, so changing a selection does not
+retarget an already queued turn. Account selection changes invalidate displayed
+usage, and late usage responses cannot replace the new selection's readings.
+Custom Claude usage reads search only the selected configuration directory and
+its scoped keychain service, without falling back to default credentials.
+
+Settings > Tooling provides account registration, label editing, removal, and
+native sign-in terminals for Claude and Codex. Leave the directory blank for a
+managed profile, or register an existing absolute configuration directory.
+Removing a profile keeps its local files. The composer and Tooling account
+selectors set the global default for **new turns** for that provider across tasks;
+running turns, queued messages, and open CLI sessions retain their captured
+account. An unavailable registration fails explicitly rather than silently
+switching to System default.
+
+Message provenance carries the originating profile for native fork, rollback,
+file rewind, and saved agent-history reads. Task rename updates each linked
+native session. Claude SDK filesystem operations run in disposable Node workers
+with isolated environments because the SDK helpers do not accept a configuration
+directory. They never change the host process environment.
+
+Workspace and standalone CLI tabs persist the account they first launched with.
+Legacy resumed tabs use System default. Live slot reuse checks account identity
+and registration; Codex session discovery reads the launched `CODEX_HOME`.
+Closing and reopening an existing tab does not switch it to the latest default.
+Create a new workspace CLI tab to use a different account.
+
+The login bridge reports process creation, not authentication success. Complete
+the native flow and close its terminal to refresh status and usage. Login output
+is not stored as a terminal transcript. Real multi-account login, cancellation,
+expiry, and restart flows require separate desktop verification.
+
 ## Cursor Agent ACP runtime
 
 Cursor is available for interactive primary task turns. Stave starts a
@@ -1569,3 +1661,52 @@ Provider model-change events also carry optional `modelExecution` evidence
 it across same-turn message splits. The run overview exposes the evidence inside
 a closed Model details disclosure without adding a confirmation step. Older
 messages remain valid without this optional evidence.
+
+### Claude Gateway connections
+
+Settings > Tooling > Claude accounts can register a separate Gateway connection.
+Choose an Anthropic-compatible HTTPS base URL or the Vercel AI Gateway preset,
+enter the exact Claude model IDs, and select an API key already saved in
+Settings > Secrets. The base URL precedes `/v1/messages`; the preset uses
+`https://ai-gateway.vercel.sh/claude-code`. See the
+[Gateway SDK setup](https://vercel.com/docs/ai-gateway/coding-agents/claude-code)
+and [Claude gateway guidance](https://code.claude.com/docs/en/llm-gateway).
+Codex, Cursor, and Kiro retain their existing native authentication paths.
+
+A connection gets its own managed Claude configuration directory and profile ID.
+Its endpoint, model list, and secret reference are immutable; create another
+connection to change the destination. The referenced secret can be rotated in
+Secrets. Only nonsecret metadata is stored in the account registry. Electron
+main resolves the key and passes it through the private host-service envelope,
+never through renderer runtime options, provider events, or diagnostics. Each
+request has an isolated credential scope. Removed registrations and missing or
+locked keys prevent new inference rather than falling back to subscription auth.
+Running turns and open CLI sessions retain their launch connection.
+
+Selecting a Gateway explicitly selects API billing. The composer labels this
+choice, and the status bar replaces the subscription meter with an API billing
+label. Subscription usage endpoints are not queried for Gateway connections.
+Charges and limits are managed by the Gateway. Stave does not automatically
+switch from a subscription to a Gateway when quota is exhausted.
+
+Only configured models appear in the Gateway catalog. Native IDs can resolve
+to a configured ID for the same model with a routing prefix; a different model
+is never substituted. Explicit fallback and Worker models must also belong to
+the connection. Auxiliary requests using an unconfigured model fail explicitly;
+include the models used by your auxiliary settings in the connection. The child
+environment pins implicit small/subagent model aliases to the first configured
+model. Gateway queries and CLI sessions disable native settings sources to
+prevent local environment or credential helpers from overriding the connection;
+Stave's explicit runtime permissions and MCP configuration still apply.
+Provider authentication environment names are reserved against task-bound
+secret overrides. Use a connection's saved-secret reference for Gateway auth.
+
+**Check model list** performs a bounded authenticated `GET /v1/models` request
+without following redirects or issuing inference. It reports only configured
+IDs advertised by the endpoint and does not return raw response bodies. Some
+compatible endpoints do not implement model discovery. A successful check does
+not establish tool, streaming, reasoning, cancellation, or billing compatibility.
+Those capabilities require an authorized real turn against the chosen endpoint.
+Local tests cover request isolation, missing credentials, exclusive catalogs,
+SDK tool/stream/cancel options, model requirements, and failure redaction; live
+Gateway and multi-account acceptance remains a separate verification step.

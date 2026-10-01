@@ -218,6 +218,7 @@ describe("normalizeEnvVarName", () => {
     expect(isReservedEnvVarName("STAVE_LOCAL_MCP_TOKEN")).toBe(true);
     expect(() => normalizeEnvVarName("PATH")).toThrow("reserved");
     expect(() => normalizeEnvVarName("CLAUDE_CONFIG_DIR")).toThrow("reserved");
+    expect(() => normalizeEnvVarName("STAVE_USER_DATA_PATH")).toThrow("reserved");
   });
 });
 

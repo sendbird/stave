@@ -19,6 +19,7 @@ import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
+import { registerProviderAccountHandlers } from "./provider-accounts";
 import { registerRunHandlers } from "./runs";
 import { registerAutomationHandlers } from "./automations";
 import { registerScmHandlers } from "./scm";
@@ -36,6 +37,7 @@ export function registerHandlers() {
   registerWindowHandlers();
   registerDiagnosticsHandlers();
   registerProviderHandlers();
+  registerProviderAccountHandlers();
   registerRunHandlers();
   registerAutomationHandlers();
   registerMissionHandlers();

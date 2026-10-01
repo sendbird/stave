@@ -26,6 +26,7 @@ export interface WorkspaceTerminalTab {
 export type CliSessionContextMode = "workspace" | "active-task";
 
 export interface WorkspaceCliSessionTab {
+  accountProfileId?: string;
   id: string;
   title: string;
   provider: ManagedExecutionProviderId;

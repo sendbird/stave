@@ -8,6 +8,8 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 
 export interface ResolvedPromptDraftRuntimeState {
+  claudeAccountProfileId?: string;
+  codexAccountProfileId?: string;
   claudePermissionMode: ClaudePermissionMode;
   claudePermissionModeBeforePlan: ClaudePermissionModeBeforePlan;
   claudeEffort?: PromptDraftRuntimeOverrides["claudeEffort"];
@@ -62,6 +64,8 @@ export function resolvePromptDraftRuntimeState(args: {
 }): ResolvedPromptDraftRuntimeState {
   const runtimeOverrides = args.promptDraft?.runtimeOverrides;
   return {
+    claudeAccountProfileId: runtimeOverrides?.claudeAccountProfileId ?? args.fallback.claudeAccountProfileId,
+    codexAccountProfileId: runtimeOverrides?.codexAccountProfileId ?? args.fallback.codexAccountProfileId,
     claudePermissionMode:
       runtimeOverrides?.claudePermissionMode ??
       args.fallback.claudePermissionMode,
@@ -331,6 +335,8 @@ export function arePromptDraftRuntimeOverridesEqual(
   right?: PromptDraftRuntimeOverrides,
 ) {
   return (
+    left?.claudeAccountProfileId === right?.claudeAccountProfileId &&
+    left?.codexAccountProfileId === right?.codexAccountProfileId &&
     left?.model === right?.model &&
     left?.modelProviderId === right?.modelProviderId &&
     left?.claudePermissionMode === right?.claudePermissionMode &&

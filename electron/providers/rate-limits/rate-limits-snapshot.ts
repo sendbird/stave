@@ -1,3 +1,5 @@
+import { providerAccountKey, withProviderAccountScope } from "../../provider-accounts/runtime-scope";
+import { currentClaudeGateway } from "../../provider-accounts/gateway-runtime";
 import { emptyRateLimitsSnapshot } from "../../../src/lib/providers/account-usage-block";
 import type {
   ProviderId,
@@ -9,6 +11,8 @@ import { fetchCodexUsageSnapshot } from "./codex-usage-fetcher";
 import { fetchCursorUsageSnapshot } from "./cursor-usage-fetcher";
 import { fetchKiroUsageSnapshot } from "./kiro-usage-fetcher";
 import { readProviderUsage } from "./usage-read-policy";
+import { isOptionalProvider } from "../../../src/lib/providers/provider-readiness";
+import { optionalProviderReadKey } from "../optional-provider-tooling";
 
 /**
  * Who asked for a forced read. A manual refresh is floored so the button
@@ -77,28 +81,37 @@ export async function getRateLimitsSnapshot(args: {
   force?: boolean;
   reason?: RateLimitsForceReason;
   fetchers?: Partial<UsageFetchers>;
+  optionalReadKey?: typeof optionalProviderReadKey;
 }): Promise<RateLimitsSnapshotResponse> {
+  return withProviderAccountScope(args.runtimeOptions, async () => {
   const providers = args.providers;
   const force = args.force;
   const fetchers = { ...defaultFetchers, ...args.fetchers };
   const forceFloorMs = args.reason === "dispatch-guard" ? 0 : undefined;
   const empty = emptyRateLimitsSnapshot();
 
-  function read<K extends keyof UsageFetchers>(
+  async function read<K extends keyof UsageFetchers>(
     key: K,
     providerId: ProviderId,
     request: () => Promise<RateLimitsSnapshotResponse[K]>,
   ): Promise<RateLimitsSnapshotResponse[K]> {
     if (!shouldFetchProvider(providerId, providers)) {
-      return Promise.resolve(empty[key]);
+      return empty[key];
     }
-    return readProviderUsage({
-      key: providerId,
+    if (providerId === "claude-code" && currentClaudeGateway())
+      return { ...empty[key], error: "Gateway API billing: subscription quota is not available." };
+    const readKey = isOptionalProvider(providerId)
+      ? (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions)
+      : providerAccountKey(providerId, providerId);
+    if (!readKey) return empty[key];
+    const value = await readProviderUsage({
+      key: readKey,
       force,
       forceFloorMs,
       classify: classifySnapshot,
       request,
     }).catch(() => empty[key]);
+    return isOptionalProvider(providerId) && readKey !== (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions) ? empty[key] : value;
   }
 
   const [claude, codex, cursor, kiro] = await Promise.all([
@@ -109,7 +122,11 @@ export async function getRateLimitsSnapshot(args: {
       fetchers.codex({ runtimeOptions: args.runtimeOptions, force }),
     ),
     read("cursor", "cursor", () => fetchers.cursor()),
-    read("kiro", "kiro", () => fetchers.kiro(args)),
+    read("kiro", "kiro", () => fetchers.kiro({
+      ...args,
+      usageIdentity: (args.optionalReadKey ?? optionalProviderReadKey)("kiro", args.runtimeOptions) ?? undefined,
+    })),
   ]);
   return { claude, codex, cursor, kiro };
+  });
 }

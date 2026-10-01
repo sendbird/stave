@@ -68,6 +68,7 @@ export async function runUtilityTextTurn(args: {
         providerId: lane.providerId,
         prompt: args.prompt,
         runtimeOptions: buildReadOnlyAuxRuntimeOptions({
+          accountSelection: state.settings,
           providerId: lane.providerId,
           model: lane.model,
           effortOverrides: lane.effortOverrides,

@@ -9,6 +9,7 @@ import type {
  */
 export function buildCliSessionRuntimeOptions(args: {
   providerId: ProviderId;
+  accountProfileId?: string;
   claudeBinaryPath?: string | null;
   codexBinaryPath?: string | null;
   cursorBinaryPath?: string | null;
@@ -26,9 +27,10 @@ export function buildCliSessionRuntimeOptions(args: {
         // Claude CLI sessions always boot in native auto mode. The host-service
         // downgrades older Claude CLI builds that do not support it.
         claudePermissionMode: "auto",
+        ...(args.accountProfileId ? { claudeAccountProfileId: args.accountProfileId } : {}),
       };
     case "codex":
-      return codexBinaryPath ? { codexBinaryPath } : undefined;
+      return args.accountProfileId || codexBinaryPath ? { codexBinaryPath: codexBinaryPath || undefined, ...(args.accountProfileId ? { codexAccountProfileId: args.accountProfileId } : {}) } : undefined;
     case "cursor":
       return cursorBinaryPath ? { cursorBinaryPath } : undefined;
     case "kiro":

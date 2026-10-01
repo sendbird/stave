@@ -30,6 +30,7 @@ import {
 } from "@/lib/providers/model-visibility";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
+import { providerReadsAllowed } from "@/lib/providers/provider-readiness-store";
 import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
 import { SettingsCard } from "./settings-dialog.shared";
@@ -118,6 +119,7 @@ function ModelVisibilityProviderPanel(args: {
   options: readonly ModelSelectorOption[];
   visibility: ModelVisibility;
   catalogDetail?: string;
+  unverified?: boolean;
   onChange: (visibility: ModelVisibility) => void;
 }) {
   const rows = useMemo(
@@ -145,6 +147,7 @@ function ModelVisibilityProviderPanel(args: {
 
   return (
     <div className={sx(styles.panel)}>
+      {args.unverified && <p className={sx(styles.panelSummary)}>Status unverified. Refresh Settings &gt; Tooling to verify these models.</p>}
       <div className={sx(styles.panelHead)}>
         <p className={sx(styles.panelSummary)}>
           {visibleCount} of {rows.length} shown by default
@@ -343,6 +346,7 @@ export function SettingsModelVisibilitySection() {
               options={optionsByProvider.get(providerId) ?? []}
               visibility={modelVisibility}
               catalogDetail={modelCatalogs.catalogs[providerId].detail}
+              unverified={!providerReadsAllowed(providerId, catalogRuntimeOptions)}
               onChange={(visibility) =>
                 updateSettings({ patch: { modelVisibility: visibility } })
               }
