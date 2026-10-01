@@ -98,7 +98,7 @@ export function describeAgentRunStatus(detail: MissionDetail): AgentRunStatus {
     case "stuck":
       return make("needs-you", "warning", record.detail ?? "The run stopped making progress.", "retry-stage");
     case "awaiting-sign-off":
-      return make("needs-you", "warning", "The run is waiting for you.");
+      return make("needs-you", "warning", stage ? `Waiting for you to start ${stage.title}.` : "The run is waiting for you.");
     default:
       return make("working", "accent");
   }
