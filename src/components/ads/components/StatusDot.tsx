@@ -3,6 +3,7 @@ import type * as React from "react";
 
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
+import { WORK_STATE, type WorkState } from "./state-vocabulary";
 
 export type StatusDotStatus =
   | "queued"
@@ -59,12 +60,21 @@ export type StatusDotProps = StatusDotBaseProps &
   ) &
   XstyleProp;
 
+/** The shared work state each lifecycle status stands for. */
+export const statusDotWorkState: Record<StatusDotStatus, WorkState> = {
+  canceled: "stopped",
+  error: "failed",
+  queued: "queued",
+  ready: "ready",
+  running: "working",
+};
+
 const statusText: Record<StatusDotStatus, string> = {
-  canceled: "Canceled",
-  error: "Error",
-  queued: "Queued",
-  ready: "Ready",
-  running: "Running",
+  canceled: WORK_STATE.stopped.label,
+  error: WORK_STATE.failed.label,
+  queued: WORK_STATE.queued.label,
+  ready: WORK_STATE.ready.label,
+  running: WORK_STATE.working.label,
 };
 
 /**
@@ -102,9 +112,10 @@ export function StatusDot({
       className={sx(
         styles.dot,
         sizeStyles[size],
-        status != null && dotToneStyles[status],
+        status != null && status !== "queued" && toneStyles[WORK_STATE[statusDotWorkState[status]].tone],
+        status === "queued" && styles.queued,
         tone != null && toneStyles[tone],
-        status === "running" && styles.pulsing,
+        status != null && WORK_STATE[statusDotWorkState[status]].pulses && styles.pulsing,
         ringTone != null && ringStyles[ringTone],
       )}
     />
@@ -137,11 +148,11 @@ export function StatusDot({
 }
 
 const statusRingTone: Record<StatusDotStatus, StatusDotTone> = {
-  canceled: "muted",
-  error: "danger",
-  queued: "neutral",
-  ready: "success",
-  running: "info",
+  canceled: WORK_STATE.stopped.tone,
+  error: WORK_STATE.failed.tone,
+  queued: WORK_STATE.queued.tone,
+  ready: WORK_STATE.ready.tone,
+  running: WORK_STATE.working.tone,
 };
 
 const pulse = stylex.keyframes({
@@ -189,27 +200,7 @@ const styles = stylex.create({
     borderWidth: 1.5,
     color: vars["--ads-color-text-subtle"],
   },
-  running: {
-    color: vars["--ads-color-info"],
-  },
-  ready: {
-    color: vars["--ads-color-success"],
-  },
-  error: {
-    color: vars["--ads-color-danger"],
-  },
-  canceled: {
-    color: vars["--ads-color-text-subtle"],
-  },
 });
-
-const dotToneStyles = {
-  canceled: styles.canceled,
-  error: styles.error,
-  queued: styles.queued,
-  ready: styles.ready,
-  running: styles.running,
-} as const;
 
 const sizeStyles = stylex.create({
   sm: { blockSize: 6, inlineSize: 6 },

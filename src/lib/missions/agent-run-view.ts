@@ -7,6 +7,7 @@
  * Pure. Used by the mission surfaces in `src/components/missions/` for runs
  * marked `origin: "agent"`; a playbook mission keeps its own copy.
  */
+import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
 import type { MissionDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
 import { latestStageRecord, type MissionStopReason } from "./domain";
@@ -16,12 +17,13 @@ import { describeUsageShort } from "./usage";
 
 export type AgentRunState = "working" | "needs-you" | "ready" | "failed" | "stopped";
 
+/** The words are the shared work-state vocabulary's. */
 export const AGENT_RUN_STATE_LABELS: Record<AgentRunState, string> = {
-  working: "Working",
-  "needs-you": "Needs you",
-  ready: "Ready",
-  failed: "Failed",
-  stopped: "Stopped",
+  working: WORK_STATE.working.label,
+  "needs-you": WORK_STATE["needs-you"].label,
+  ready: WORK_STATE.ready.label,
+  failed: WORK_STATE.failed.label,
+  stopped: WORK_STATE.stopped.label,
 };
 
 const STOP_REASON_TEXT: Record<MissionStopReason, string> = {
