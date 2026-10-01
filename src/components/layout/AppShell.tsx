@@ -290,7 +290,7 @@ export function AppShell() {
     },
     [openRepository, repositoryPath],
   );
-  // Issues, the composer's `!assign`, and an agent's "Start work…" open Kickoff
+  // Issues, the composer's `!assign`, and an agent's "Assign…" open Kickoff
   // through the agents UI store; the dialog itself reads and clears the preset.
   const kickoffRequestNonce = useAgentsUiStore(
     (state) => state.kickoffRequest?.nonce ?? null,

@@ -286,7 +286,7 @@ function AgentDetail(props: {
                 onClick={() => useAgentsUiStore.getState().openKickoffWithAgent({ agentConfigId: agent.id })}
               >
                 <Rocket aria-hidden />
-                Start work…
+                Assign…
               </Button>
             ) : null}
             <Button size="sm" variant="quiet" onClick={props.onDuplicate}>

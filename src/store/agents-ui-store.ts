@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 /**
  * What Kickoff opens with when work is handed to it from elsewhere: an issue,
- * the composer's `!assign`, an agent's "Start work…", or the command palette.
+ * the composer's `!assign`, an agent's "Assign…", or the command palette.
  * Frozen at open time, so moving between tasks or issues while the dialog is
  * up never retargets it. A rising `nonce` reopens Kickoff with a new request
  * even when the dialog is already open.

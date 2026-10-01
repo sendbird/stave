@@ -36,13 +36,13 @@ describe("agents view", () => {
     ]);
   });
 
-  test("the tab renders the list and a Start work button for the first agent", () => {
+  test("the tab renders the list and an Assign button for the first agent", () => {
     const html = renderToStaticMarkup(createElement(AgentsTab));
     expect(html).toContain('data-testid="agents-tab"');
     expect(html).toContain("Implementer");
-    // The embedded Assign panel is gone; the detail offers Start work… which
+    // The embedded Assign panel is gone; the detail offers Assign… which
     // opens Kickoff.
-    expect(html).toContain("Start work");
+    expect(html).toContain("Assign…");
     // The agent's assignments section is titled "Work" (was "Recent work").
     expect(html).toContain(">Work<");
     expect(html).not.toContain("Recent work");

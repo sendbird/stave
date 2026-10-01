@@ -42,7 +42,7 @@ Open the **Agents** surface from the sidebar, the command palette
 2. Press **New agent** and say what it should do in one line, then **Draft
    agent**. Review the draft in the editor and save it. You can also start
    blank or copy an existing agent, or **Duplicate** any agent to edit a copy.
-3. Press **Start work…** in the agent's header. Kickoff opens with the agent
+3. Press **Assign…** in the agent's header. Kickoff opens with the agent
    preselected as the worker.
 4. Describe the work as the kickoff source, then **Assign** (or leave the
    first task ready without starting).
@@ -219,7 +219,7 @@ What you pick decides how the task runs:
 ### Usable as
 
 A custom agent's **Usable as** chooses where it can be used: **Main agent**
-(Start work / Kickoff), **Subagent in a turn** (called inside a lead agent's
+(Assign / Kickoff), **Subagent in a turn** (called inside a lead agent's
 turn) and **Subagent as a task** (a delegated task). Duplicate the built-in
 **Reviewer** and turn on **Main agent** to start work with it directly.
 
