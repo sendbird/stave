@@ -1,3 +1,4 @@
+import path from "node:path";
 import { z } from "zod";
 import {
   DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
@@ -38,8 +39,11 @@ const CLAUDE_AUTO_ALLOWED_TOOL_NAMES = new Set(["exitplanmode"]);
  * In plan mode these are safe to auto-allow — the whole point of plan mode is
  * that only read-only work is permitted, so surfacing an approval prompt for
  * each Read/Grep/Glob/WebFetch/WebSearch/BashOutput/NotebookRead call is pure
- * noise. Bash is intentionally excluded: even "read-only" commands can have
- * network side effects, so we keep prompting for it.
+ * noise. Auto mode auto-allows them too (unless the call must reach a person,
+ * see `shouldKeepClaudeReadOnlyPrompt`): Auto already lets edits through, so
+ * asking about each read when the CLI hands one over was backwards. Bash is
+ * intentionally excluded: even "read-only" commands can have network side
+ * effects, so we keep prompting for it.
  *
  * TodoWrite is included because it only mutates the in-session todo tracker —
  * no filesystem write — so blocking it in plan mode just broke the agent's
@@ -349,9 +353,129 @@ export function shouldDenyClaudeToolInPlanMode(args: {
   return typeof command === "string" && isMutatingClaudeBashCommand(command);
 }
 
+/** The input key that names the file or directory a read-only built-in reads. */
+const CLAUDE_READ_ONLY_TOOL_PATH_KEYS: Readonly<Record<string, string>> = {
+  read: "file_path",
+  notebookread: "notebook_path",
+  grep: "path",
+  glob: "path",
+  ls: "path",
+};
+/** Grep and Glob search the working directory when they name no path. */
+const CLAUDE_CWD_SEARCH_TOOL_NAMES = new Set(["grep", "glob"]);
+
+function resolveClaudeToolPath(args: {
+  value: string;
+  cwd: string;
+  homeDir: string;
+}) {
+  const trimmed = args.value.trim();
+  const expanded =
+    trimmed === "~"
+      ? args.homeDir
+      : trimmed.startsWith("~/")
+        ? path.join(args.homeDir, trimmed.slice(2))
+        : trimmed;
+  return path.resolve(args.cwd, expanded);
+}
+
+function claudePathsOverlap(left: string, right: string) {
+  const isWithin = (child: string, parent: string) => {
+    const relative = path.relative(parent, child);
+    return (
+      relative === "" ||
+      (!relative.startsWith("..") && !path.isAbsolute(relative))
+    );
+  };
+  return isWithin(left, right) || isWithin(right, left);
+}
+
+/**
+ * Whether a read-only built-in call must still reach a person in auto mode,
+ * exactly as it did before auto mode auto-allowed reads. Each case is the
+ * user's own narrower setting or the CLI saying a person must answer:
+ *
+ * - a user ask rule forced the prompt (`matchedAskRule`)
+ * - the CLI marked the ask default-to-no (`defaultToNo`)
+ * - the tool is in the turn's disallowed tools (the CLI normally removes it
+ *   before it can be called; this keeps the fast path from ever outranking it)
+ * - it reads, or searches a directory containing, a protected credential
+ *   file. The sandbox credential list guards sandboxed commands only, so the
+ *   fast path must not become a way around it.
+ */
+export function shouldKeepClaudeReadOnlyPrompt(args: {
+  toolName: string;
+  input: Record<string, unknown>;
+  cwd: string;
+  homeDir: string;
+  matchedAskRule?: unknown;
+  defaultToNo?: boolean;
+  disallowedTools?: readonly string[];
+  protectedCredentialFiles?: readonly string[];
+}): boolean {
+  const normalizedToolName = args.toolName.trim().toLowerCase();
+  if (args.matchedAskRule || args.defaultToNo === true) {
+    return true;
+  }
+  if (
+    args.disallowedTools?.some(
+      (rule) =>
+        rule.trim().split("(")[0]?.trim().toLowerCase() === normalizedToolName,
+    )
+  ) {
+    return true;
+  }
+  const protectedPaths = (args.protectedCredentialFiles ?? [])
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) =>
+      resolveClaudeToolPath({ value: entry, cwd: args.cwd, homeDir: args.homeDir }),
+    );
+  const pathKey = CLAUDE_READ_ONLY_TOOL_PATH_KEYS[normalizedToolName];
+  if (protectedPaths.length === 0 || !pathKey) {
+    return false;
+  }
+  const rawPath = args.input[pathKey];
+  const targets: string[] = [];
+  if (typeof rawPath === "string" && rawPath.trim()) {
+    targets.push(
+      resolveClaudeToolPath({ value: rawPath, cwd: args.cwd, homeDir: args.homeDir }),
+    );
+  } else if (CLAUDE_CWD_SEARCH_TOOL_NAMES.has(normalizedToolName)) {
+    targets.push(path.resolve(args.cwd));
+  } else {
+    // A read with no recognizable target cannot be checked: keep asking.
+    return true;
+  }
+  // An absolute or home-relative Glob pattern names its own search root.
+  const pattern = args.input.pattern;
+  if (
+    normalizedToolName === "glob" &&
+    typeof pattern === "string" &&
+    /^(?:\/|~(?:\/|$))/.test(pattern.trim())
+  ) {
+    const staticPrefix = pattern.trim().split(/[*?[{]/)[0] ?? "";
+    targets.push(
+      resolveClaudeToolPath({
+        value: staticPrefix || "/",
+        cwd: args.cwd,
+        homeDir: args.homeDir,
+      }),
+    );
+  }
+  return targets.some((target) =>
+    protectedPaths.some((protectedPath) => claudePathsOverlap(target, protectedPath)),
+  );
+}
+
 export function resolveClaudePermissionModeDecision(args: {
   permissionMode: ClaudePermissionMode;
   toolName: string;
+  /**
+   * From `shouldKeepClaudeReadOnlyPrompt`. Consulted only by the auto-mode
+   * read-only fast path; every other decision ignores it.
+   */
+  keepReadOnlyPrompt?: boolean;
 }) {
   const normalizedToolName = args.toolName.trim().toLowerCase();
   // AskUserQuestion requests information, not permission to perform an action.
@@ -386,6 +510,17 @@ export function resolveClaudePermissionModeDecision(args: {
   // read-only mode is redundant friction.
   if (
     args.permissionMode === "plan" &&
+    CLAUDE_READ_ONLY_BUILTIN_TOOL_NAMES.has(normalizedToolName)
+  ) {
+    return "allow" as const;
+  }
+  // Auto mode reaches here when the CLI hands a call over instead of letting
+  // its own classifier decide (the classifier is unavailable for the model or
+  // plan, or it chose to ask). The same read-only built-ins plan mode allows
+  // run without asking; Bash and everything else keeps the prompt.
+  if (
+    args.permissionMode === "auto" &&
+    args.keepReadOnlyPrompt !== true &&
     CLAUDE_READ_ONLY_BUILTIN_TOOL_NAMES.has(normalizedToolName)
   ) {
     return "allow" as const;

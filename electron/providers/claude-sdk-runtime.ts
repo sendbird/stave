@@ -12,6 +12,7 @@ import {
   shouldDenyClaudePostPlanTool,
   shouldDenyClaudeToolInPlanMode,
   shouldDenyClaudeToolInSecondaryReadOnly,
+  shouldKeepClaudeReadOnlyPrompt,
   validateClaudePermissionResult,
   type ClaudePermissionMode,
   type ClaudePermissionResult,
@@ -26,6 +27,7 @@ export {
   shouldDenyClaudePostPlanTool,
   shouldDenyClaudeToolInPlanMode,
   shouldDenyClaudeToolInSecondaryReadOnly,
+  shouldKeepClaudeReadOnlyPrompt,
 } from "./claude-permission-policy";
 import { spawn as spawnResourceProcess } from "node:child_process";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
@@ -125,6 +127,7 @@ import {
   type ClaudeNativeImageBlock,
 } from "./native-image-input";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
+import os from "node:os";
 import path from "node:path";
 import {
   canExecutePath,
@@ -3601,6 +3604,21 @@ export async function streamClaudeWithSdk(
           const permissionModeDecision = resolveClaudePermissionModeDecision({
             permissionMode: claudePermissionMode,
             toolName,
+            ...(claudePermissionMode === "auto"
+              ? {
+                  keepReadOnlyPrompt: shouldKeepClaudeReadOnlyPrompt({
+                    toolName,
+                    input: normalizedInput,
+                    cwd: runtimeCwd,
+                    homeDir: os.homedir(),
+                    matchedAskRule: options.matchedAskRule,
+                    defaultToNo: options.defaultToNo,
+                    disallowedTools: queryOptions?.disallowedTools,
+                    protectedCredentialFiles:
+                      args.runtimeOptions?.claudeSandboxCredentialFiles,
+                  }),
+                }
+              : {}),
           });
 
           if (permissionModeDecision === "allow") {
