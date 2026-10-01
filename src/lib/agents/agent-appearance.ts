@@ -4,6 +4,9 @@ import { AGENT_COLORS, type AgentColor, type AgentConfig } from "./schema";
  * An agent's avatar identity, derived from its config. Pure so the disc's
  * colour and initials are decided and tested here, not in the component.
  *
+ * The avatar is a rounded square with a soft tint of the hue and readable ink
+ * (people and models stay round, so an agent reads as one at a glance).
+ *
  * Colours are named hues (`AgentColor`); each maps to an existing
  * `--ads-chart-*` token in `AGENT_COLOR_CHART_INDEX`, so a theme moves avatar
  * hues with the rest of its palette and no new colour token is introduced.
@@ -52,6 +55,25 @@ export function derivedAgentColor(id: string): AgentColor {
 /** The colour an agent shows: its chosen one, otherwise a stable derived one. */
 export function agentColor(agent: Pick<AgentConfig, "id" | "appearance">): AgentColor {
   return agent.appearance?.color ?? derivedAgentColor(agent.id);
+}
+
+/**
+ * How much of the hue goes into the avatar's soft fill (over the surface) and
+ * into its ink (over the body text colour). Mixing in oklab keeps each hue's
+ * lightness where the mix puts it, so the ink stays dark on a light surface and
+ * light on a dark one. At these shares every named hue holds at least 4.5:1 in
+ * the light, dark and high-contrast themes (`tests/agent-appearance.test.tsx`).
+ */
+export const AGENT_AVATAR_FILL_SHARE = 18;
+export const AGENT_AVATAR_INK_SHARE = 55;
+
+/** The soft fill and readable ink an agent's avatar paints, as CSS colours. */
+export function agentAvatarTone(agent: Pick<AgentConfig, "id" | "appearance">): { fill: string; ink: string } {
+  const hue = agentColorToken(agent);
+  return {
+    fill: `color-mix(in oklab, ${hue} ${AGENT_AVATAR_FILL_SHARE}%, var(--ads-color-surface))`,
+    ink: `color-mix(in oklab, ${hue} ${AGENT_AVATAR_INK_SHARE}%, var(--ads-color-text))`,
+  };
 }
 
 /** The chart token that paints an agent's avatar. */
