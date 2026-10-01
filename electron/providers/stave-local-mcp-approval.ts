@@ -1,3 +1,5 @@
+import { READ_ONLY_DELEGATION_STAVE_TOOLS } from "../../src/lib/runs/read-only-delegation";
+
 /**
  * The Stave Local MCP tools that are safe enough to run without ever asking the
  * user, regardless of the provider's permission posture.
@@ -116,4 +118,38 @@ export function isAlwaysAllowedStaveLocalMcpTool(toolName: string) {
   return STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES.has(
     normalizeStaveLocalMcpToolName(toolName),
   );
+}
+
+/**
+ * Stave tools that answer another task's prompt. An agent never grants
+ * consent for another task, so no permission mode or autonomy answers these
+ * on its own; they always reach the user. (`stave_respond_approval` is not
+ * served to MCP clients at all; it stays listed in case an old client asks.)
+ */
+const STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES = new Set([
+  "stave_respond_approval",
+  "stave_respond_user_input",
+]);
+
+export function isNeverAutoApprovedStaveLocalMcpTool(toolName: string) {
+  return STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES.has(
+    normalizeStaveLocalMcpToolName(toolName),
+  );
+}
+
+/**
+ * Which Stave tools Claude's prompt-free modes run without asking. `auto`
+ * runs every Stave tool except the respond tools: spawn tools are capped by
+ * the host (a spawned turn never gets wider than the user's settings) and
+ * schedules a model creates are saved disabled. `dontAsk` runs only the tools
+ * that read Stave state; it denies the rest rather than starting work.
+ */
+export function isPromptFreeStaveLocalMcpTool(
+  toolName: string,
+  permissionMode: "auto" | "dontAsk",
+) {
+  const leaf = normalizeStaveLocalMcpToolName(toolName);
+  return permissionMode === "auto"
+    ? !STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES.has(leaf)
+    : (READ_ONLY_DELEGATION_STAVE_TOOLS as readonly string[]).includes(leaf);
 }

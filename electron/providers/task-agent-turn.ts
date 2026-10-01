@@ -1,12 +1,14 @@
 import type { AgentAssignment } from "../../src/lib/agents/assign";
-import { compileTaskAgentRole, compiledTaskAgentRuntimeOptions } from "../../src/lib/agents/runtime-options";
-import { agentPermissionOverrides } from "../../src/lib/agents/permission";
+import { agentRuntimeOptions, compileTaskAgentRole } from "../../src/lib/agents/runtime-options";
+import { resolveTurnPolicy, type TurnPolicy } from "../../src/lib/policy/turn-policy";
 import { AgentTurnProvenanceSchema, type AgentInstructionDelivery, type AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { BridgeEvent, StreamTurnArgs } from "./types";
 
 /** One saved assignment owns the policy and evidence for this task turn. */
 export interface TaskAgentTurn {
   runtimeOptions: NonNullable<StreamTurnArgs["runtimeOptions"]>;
+  /** A main Agent's resolved autonomy; absent for a delegate, whose delegation already resolved it. */
+  turnPolicy?: TurnPolicy;
   provenance: AgentTurnProvenance;
   observe: (event: BridgeEvent) => BridgeEvent | null;
   prepareSessionPrompt: (sessionId: string, resumed: boolean) => string | null;
@@ -29,10 +31,16 @@ export function prepareTaskAgentTurn(args: {
     throw new Error("The task's saved Agent identity is inconsistent.");
   }
   const base = turn.runtimeOptions ?? {};
-  // Delegation policy has already been resolved by its host authority. Its Agent
-  // snapshot supplies instructions, without applying a primary permission cap.
+  // A main Agent runs autonomously unless it is read only (`turn-policy.ts`);
+  // its saved permission is no longer a ceiling. Delegation policy has already
+  // been resolved by its host authority, so a delegate only adds instructions.
+  const instructions = compiled.role === "primary" ? agentRuntimeOptions(compiled, base) : {};
+  const turnPolicy = compiled.role === "primary" ? resolveTurnPolicy({
+    providerId: turn.providerId, options: { ...base, ...instructions }, root: turn.cwd ?? "",
+    actor: { kind: "agent", access: compiled.permission === "read-only" ? "read-only" : "full" },
+  }) : undefined;
   const runtimeOptions = { ...base, ...(compiled.role === "primary"
-    ? compiledTaskAgentRuntimeOptions(compiled, turn.providerId, base)
+    ? { ...instructions, ...turnPolicy?.options }
     : { agentInstructions: compiled.promptPreamble }) };
   const promptPreamble = compiled.role === "primary" ? compiled.promptPreamble : undefined;
   const applied: AgentTurnProvenance["permission"]["applied"] = {};
@@ -56,9 +64,7 @@ export function prepareTaskAgentTurn(args: {
     effort: ({ "claude-code": runtimeOptions.claudeEffort, codex: runtimeOptions.codexReasoningEffort,
       cursor: runtimeOptions.cursorEffort, kiro: runtimeOptions.kiroEffort })[turn.providerId] ?? null,
     permission: {
-      source: compiled.role === "delegate" ? "delegation-policy" : Object.keys(agentPermissionOverrides({
-        permission: compiled.permission, providerId: turn.providerId, options: base,
-      })).length ? "agent-ceiling" : "user-settings",
+      source: compiled.role === "delegate" ? "delegation-policy" : "agent-autonomy",
       agentLimit: compiled.permission,
       support: (compiled.role === "delegate" && compiled.permission === "read-only") ||
         compiled.support.find((entry) => entry.field === "permission")?.level === "instructed"
@@ -80,6 +86,7 @@ export function prepareTaskAgentTurn(args: {
   });
   return {
     runtimeOptions,
+    ...(turnPolicy ? { turnPolicy } : {}),
     provenance,
     observe(event) {
       if (event.type === "provider_session") sessionId = event.nativeSessionId;

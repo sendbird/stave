@@ -13,7 +13,8 @@ export const AgentTurnProvenanceSchema = z.object({
   model: z.string().max(200).nullable(),
   effort: z.string().max(80).nullable(),
   permission: z.object({
-    source: z.enum(["user-settings", "agent-ceiling", "delegation-policy"]),
+    // `agent-ceiling` is kept so turns recorded before agent autonomy still parse.
+    source: z.enum(["user-settings", "agent-ceiling", "agent-autonomy", "delegation-policy"]),
     agentLimit: z.enum(["auto", "guided", "manual", "read-only"]),
     support: z.enum(["enforced", "instructed"]),
     applied: z.object({

@@ -93,6 +93,7 @@ import {
 } from "./provider-turn-lifecycle";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "../../src/lib/providers/runtime-option-contract";
 import type { TaskAgentTurn } from "./task-agent-turn";
+import { applyTurnPolicy } from "./turn-policy-entry";
 
 const sdkTurnTimeoutMs = Number(
   process.env.STAVE_PROVIDER_TIMEOUT_MS ?? DEFAULT_PROVIDER_TIMEOUT_MS,
@@ -825,19 +826,20 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
   const release = workspaceExecutionGate.acquire(rawArgs);
   let preparingPolicy = true;
   try {
-    // Delegation follows the user's turn policy before the Agent's direct-access ceiling.
-    if (rawArgs.taskId && !rawArgs.executionPolicy) {
-      taskPermissionObserver?.({
-        taskId: rawArgs.taskId,
-        providerId: rawArgs.providerId,
-        options: rawArgs.runtimeOptions ?? {},
-      });
-    }
     const agentTurn = rawArgs.taskId && !rawArgs.executionPolicy
       ? taskAgentTurnResolver?.(rawArgs) ?? null : null;
+    const turnArgs = applyTurnPolicy(agentTurn
+      ? { ...rawArgs, runtimeOptions: agentTurn.runtimeOptions } : rawArgs, agentTurn?.turnPolicy);
+    // Delegation inherits the resolved policy, so a helper gets this turn's autonomy and never more.
+    if (turnArgs.taskId && turnArgs.turnPolicy) {
+      taskPermissionObserver?.({
+        taskId: turnArgs.taskId,
+        providerId: turnArgs.providerId,
+        options: turnArgs.runtimeOptions ?? {},
+      });
+    }
     preparingPolicy = false;
-    return await runScopedProviderTurn(agentTurn
-      ? { ...rawArgs, runtimeOptions: agentTurn.runtimeOptions } : rawArgs, agentTurn);
+    return await runScopedProviderTurn(turnArgs, agentTurn);
   } catch (error) {
     if (!preparingPolicy) throw error;
     // Mandatory task policy cannot fail open or escape the stream's terminal contract.
