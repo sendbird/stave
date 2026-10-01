@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { WORKER_PRESET_IDS } from "../../../src/lib/providers/worker-preset-ids";
 import {
   ProviderIdSchema,
   RuntimeOptionsSchema,
@@ -38,35 +37,6 @@ const UserInputQuestionSchema = z
   })
   .strict();
 
-const WorkerExecutionMetadataSchema = z
-  .object({
-    providerId: ProviderIdSchema,
-    primaryModel: z.string().max(200),
-    presetId: z.enum(WORKER_PRESET_IDS),
-    workerModel: z.string().max(200),
-    requestedWorkerModel: z.string().max(200).optional(),
-    resolvedWorkerModel: z.string().max(200).optional(),
-    workerModelSource: z
-      .union([
-        z.literal("explicit"),
-        z.literal("preset"),
-        z.literal("provider-default"),
-      ])
-      .optional(),
-    workerModelRationale: z.string().max(4_000).optional(),
-    runtimeWorkerModel: z.string().max(200).optional(),
-    workerEffort: z.union([
-      z.literal("low"),
-      z.literal("medium"),
-      z.literal("high"),
-      z.literal("xhigh"),
-      z.literal("max"),
-      z.literal("ultra"),
-      z.null(),
-    ]),
-  })
-  .strict();
-
 const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
   z
     .object({
@@ -96,7 +66,6 @@ const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
         z.literal("output-available"),
         z.literal("output-error"),
       ]),
-      workerExecution: WorkerExecutionMetadataSchema.optional(),
     })
     .strict(),
   z
@@ -127,7 +96,6 @@ const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
       toolName: z.string().max(200),
       description: z.string().max(5000),
       input: z.string().max(500_000).optional(),
-      workerExecution: WorkerExecutionMetadataSchema.optional(),
       requestId: z.string().max(200),
       state: z.union([
         z.literal("approval-requested"),

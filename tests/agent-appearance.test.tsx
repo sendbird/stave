@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { darkThemeValues, highContrastThemeValues, lightThemeValues } from "@/components/ads/tokens/theme-values";
+import { AgentAvatar } from "@/components/agents/AgentAvatar";
+import { contrastRatio, mixOklab, parseCssColor } from "@/lib/themes/contrast";
 import {
+  AGENT_AVATAR_FILL_SHARE,
+  AGENT_AVATAR_INK_SHARE,
+  agentAvatarTone,
   AGENT_COLOR_CHART_INDEX,
   agentColor,
   agentColorToken,
@@ -55,6 +61,41 @@ describe("agent appearance", () => {
     expect(agentInitials("UI Maintainer")).toBe("UM");
     expect(agentInitials("Reviewer")).toBe("RE");
     expect(agentInitials("   ")).toBe("?");
+  });
+});
+
+describe("agent avatar", () => {
+  const themes = { light: lightThemeValues, dark: darkThemeValues, "high contrast": highContrastThemeValues };
+
+  test("initials hold 4.5:1 on the soft fill for every hue in every theme", () => {
+    const failures: string[] = [];
+    for (const [theme, values] of Object.entries(themes)) {
+      const surface = parseCssColor(values["--ads-color-surface"])!;
+      const text = parseCssColor(values["--ads-color-text"])!;
+      for (const color of AGENT_COLORS) {
+        const hue = parseCssColor(values[`--ads-chart-${AGENT_COLOR_CHART_INDEX[color]}` as keyof typeof values])!;
+        const fill = mixOklab(surface, hue, AGENT_AVATAR_FILL_SHARE / 100);
+        const ink = mixOklab(text, hue, AGENT_AVATAR_INK_SHARE / 100);
+        const ratio = contrastRatio(ink, fill);
+        if (ratio < 4.5) failures.push(`${theme} ${color} ${ratio.toFixed(2)}:1`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  test("the tone mixes the agent's own hue into the fill and the ink", () => {
+    const tone = agentAvatarTone(custom({ appearance: { color: "green" } }));
+    expect(tone.fill).toContain("var(--ads-chart-3)");
+    expect(tone.ink).toContain("var(--ads-chart-3)");
+  });
+
+  test("an agent is a rounded square; a provider mark appears only when asked", () => {
+    const agent = custom();
+    const plain = renderToStaticMarkup(createElement(AgentAvatar, { agent, size: "sm" }));
+    const withProvider = renderToStaticMarkup(createElement(AgentAvatar, { agent, size: "sm", providerId: "codex" }));
+    expect(plain).not.toContain("<img");
+    expect(withProvider).toContain("<img");
+    expect(withProvider).toContain("--agent-avatar-fill");
   });
 });
 

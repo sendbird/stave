@@ -152,4 +152,20 @@ describe("record-task", () => {
   });
 
 
+
+  test("a main agent's turn carries its canCall agents as in-turn subagents, and nothing else does", () => {
+    const library = ["scout", "sweep", "second-pair"].map((id) => getBuiltinAgent(id)!);
+    const { runtime } = harness({ listAgents: () => library });
+    const lead = { ...getBuiltinAgent("implementer")!, canCall: ["scout", "second-pair"] };
+    runtime.recordTaskAgent({
+      requestId: "kickoff:lead", taskId: "task-lead", workspaceId: "ws-1", repositoryPath: "/tmp/repo",
+      agent: lead, providerId: "codex", model: null, assignment: "Fix it",
+    });
+    const forged = [{ name: "x", label: "X", description: "", instructions: "" }];
+    const turn = runtime.prepareTurn({ turnId: "turn-1", taskId: "task-lead", providerId: "codex", prompt: "go", cwd: "/tmp/repo",
+      runtimeOptions: { nativeSubagents: forged } });
+    expect(turn?.runtimeOptions.nativeSubagents?.map((entry) => entry.name)).toEqual(["scout", "second-pair"]);
+    // A task without an agent gets no turn policy here, and the provider runtime drops a supplied list.
+    expect(runtime.prepareTurn({ turnId: "turn-2", taskId: "task-none", providerId: "codex", prompt: "go", cwd: "/tmp/repo" })).toBeNull();
+  });
 });

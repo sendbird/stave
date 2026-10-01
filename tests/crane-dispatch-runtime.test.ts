@@ -9,14 +9,10 @@ import {
   listCraneEffortOptions,
   reseedCraneAccessForProvider,
   resolveCraneDispatchAccessDefaults,
-  resolveCraneDispatchAdvisorChoice,
-  resolveCraneDispatchAdvisorDefaults,
-  resolveCraneDispatchAdvisorTarget,
   resolveCraneDispatchEffort,
   resolveCraneDispatchFastMode,
   resolveCraneDispatchModelDefaults,
   resolveCraneDispatchModelSwitch,
-  selectCraneDispatchAdvisorTarget,
   type CraneDispatchAccessState,
 } from "@/lib/crane-connector/dispatch-runtime";
 import { CraneDispatchApprovalResponseSchema } from "@/lib/crane-connector/types";
@@ -30,13 +26,6 @@ const SETTINGS = {
   claudeEffort: "high",
   codexReasoningEffort: "xhigh",
 } satisfies typeof defaultSettings;
-
-const ADVISOR_SETTINGS_OFF = {
-  advisorEnabled: false,
-  advisorTarget: null,
-  advisorTargetByProvider: {},
-  advisorConsultLimit: 5,
-};
 
 const GUIDED_CLAUDE_ACCESS: CraneDispatchAccessState = {
   claudePermissionMode: "acceptEdits",
@@ -113,7 +102,6 @@ describe("Crane dispatch runtime", () => {
       },
       access: GUIDED_CLAUDE_ACCESS,
       providerTimeoutMs: 43_200_000,
-      advisor: null,
     });
     expect(claudeRuntime).toMatchObject({
       provider: "claude-code",
@@ -129,7 +117,6 @@ describe("Crane dispatch runtime", () => {
       },
       access: GUIDED_CLAUDE_ACCESS,
       providerTimeoutMs: 43_200_000,
-      advisor: null,
     });
     expect(codexRuntime).toMatchObject({
       provider: "codex",
@@ -181,7 +168,6 @@ describe("Crane dispatch runtime", () => {
         },
         access: GUIDED_CLAUDE_ACCESS,
         providerTimeoutMs: 43_200_000,
-        advisor: null,
       }),
     ).toMatchObject({ claudeEffort: "high" });
   });
@@ -254,7 +240,6 @@ describe("Crane dispatch runtime", () => {
         },
         access: manual,
         providerTimeoutMs: 43_200_000,
-        advisor: null,
       }),
     ).toMatchObject({
       claudeSandboxEnabled: true,
@@ -277,7 +262,6 @@ describe("Crane dispatch runtime", () => {
         },
         access: codexManual,
         providerTimeoutMs: 43_200_000,
-        advisor: null,
       }),
     ).toMatchObject({ codexWebSearch: "disabled" });
   });
@@ -438,13 +422,7 @@ describe("Crane dispatch runtime", () => {
       codexWebSearch: "live",
     } satisfies typeof defaultSettings;
     expect(
-      buildCraneTeamRuntimeMemory({
-        model: remembered,
-        advisor: resolveCraneDispatchAdvisorDefaults({
-          settings: ADVISOR_SETTINGS_OFF,
-          primaryProviderId: "codex",
-        }),
-      }),
+      buildCraneTeamRuntimeMemory({ model: remembered }),
     ).not.toHaveProperty("codexFileAccess");
     expect(
       detectCraneAutonomyPreset({
@@ -469,256 +447,6 @@ describe("Crane dispatch runtime", () => {
       providerId: "codex",
       model: "gpt-5.6",
       effort: "xhigh",
-    });
-  });
-
-  describe("advisor", () => {
-    test("inherits the Stave default instead of always starting off", () => {
-      // The regression this replaces: the dialog hardcoded "off", so a user
-      // with a configured global Advisor silently lost it on every dispatch.
-      const advisor = resolveCraneDispatchAdvisorDefaults({
-        settings: {
-          advisorEnabled: true,
-          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
-          advisorTargetByProvider: {},
-          advisorConsultLimit: 5,
-        },
-        primaryProviderId: "claude-code",
-      });
-      expect(advisor.enabled).toBe(true);
-      expect(advisor.providerId).toBe("codex");
-      expect(resolveCraneDispatchAdvisorTarget(advisor)).toMatchObject({
-        providerId: "codex",
-        model: "gpt-5.6-sol",
-      });
-    });
-
-    test("inherits the settings default for the provider it is not armed with", () => {
-      const advisor = resolveCraneDispatchAdvisorDefaults({
-        settings: {
-          advisorEnabled: false,
-          advisorTarget: null,
-          advisorTargetByProvider: {
-            "claude-code": { model: "claude-fable-5-1", effort: "max" },
-          },
-          advisorConsultLimit: 5,
-        },
-        primaryProviderId: "codex",
-      });
-      // Nothing armed, so it opens opposite the primary — and finds the
-      // per-provider default configured in Settings rather than the catalog
-      // floor.
-      expect(advisor.enabled).toBe(false);
-      expect(advisor.providerId).toBe("claude-code");
-      expect(advisor.targetByProvider["claude-code"]).toMatchObject({
-        model: "claude-fable-5-1",
-        effort: "max",
-      });
-    });
-
-    test("distinguishes a team with no advisor memory from one explicitly off", () => {
-      const settings = {
-        advisorEnabled: true,
-        advisorTarget: { providerId: "codex" as const, model: "gpt-5.6-sol" },
-        advisorTargetByProvider: {},
-        advisorConsultLimit: 5,
-      };
-      const memory = {
-        provider: "codex" as const,
-        model: "gpt-5.6",
-        effort: "xhigh" as const,
-      };
-
-      // Mapped before the Advisor became rememberable: the key is absent, so
-      // the global default still applies rather than reading as "off".
-      expect(
-        resolveCraneDispatchAdvisorDefaults({
-          settings,
-          memory,
-          primaryProviderId: "codex",
-        }).enabled,
-      ).toBe(true);
-
-      // An explicit null is the team saying "no Advisor", which must survive a
-      // default that is on.
-      expect(
-        resolveCraneDispatchAdvisorDefaults({
-          settings,
-          memory: { ...memory, advisor: null },
-          primaryProviderId: "codex",
-        }).enabled,
-      ).toBe(false);
-
-      // An explicit target wins over the Stave default target.
-      const remembered = resolveCraneDispatchAdvisorDefaults({
-        settings,
-        memory: {
-          ...memory,
-          advisor: { providerId: "claude-code", model: "claude-fable-5-1" },
-        },
-        primaryProviderId: "codex",
-      });
-      expect(remembered.enabled).toBe(true);
-      expect(resolveCraneDispatchAdvisorTarget(remembered)).toMatchObject({
-        providerId: "claude-code",
-        model: "claude-fable-5-1",
-      });
-    });
-
-    test("keeps each provider's pick when the provider is switched back", () => {
-      let advisor = resolveCraneDispatchAdvisorDefaults({
-        settings: ADVISOR_SETTINGS_OFF,
-        primaryProviderId: "claude-code",
-      });
-      advisor = selectCraneDispatchAdvisorTarget({
-        advisor,
-        target: { providerId: "codex", model: "gpt-5.6-sol", effort: "high" },
-      });
-      advisor = selectCraneDispatchAdvisorTarget({
-        advisor,
-        target: {
-          providerId: "claude-code",
-          model: "claude-fable-5-1",
-          effort: "max",
-        },
-      });
-
-      // Switching provider must not reset the other side to the catalog
-      // default, which is what a single flat target would have done.
-      expect(advisor.targetByProvider.codex).toMatchObject({
-        model: "gpt-5.6-sol",
-        effort: "high",
-      });
-      expect(advisor.targetByProvider["claude-code"]).toMatchObject({
-        model: "claude-fable-5-1",
-        effort: "max",
-      });
-    });
-
-    test("configuring an advisor while off does not arm it", () => {
-      const seeded = resolveCraneDispatchAdvisorDefaults({
-        settings: ADVISOR_SETTINGS_OFF,
-        primaryProviderId: "claude-code",
-      });
-      const configured = selectCraneDispatchAdvisorTarget({
-        advisor: seeded,
-        target: { providerId: "codex", model: "gpt-5.6-sol" },
-      });
-      expect(configured.enabled).toBe(false);
-      expect(resolveCraneDispatchAdvisorTarget(configured)).toBeNull();
-    });
-
-    test("remembers an advisor-free dispatch as an explicit null", () => {
-      const model = {
-        providerId: "codex" as const,
-        model: "gpt-5.6",
-        effort: "xhigh" as const,
-        codexFastMode: false,
-      };
-      const off = resolveCraneDispatchAdvisorDefaults({
-        settings: ADVISOR_SETTINGS_OFF,
-        primaryProviderId: "codex",
-      });
-      // `null`, not absent: absent would re-inherit the global default on the
-      // team's next job and undo the choice being remembered.
-      expect(buildCraneTeamRuntimeMemory({ model, advisor: off })).toMatchObject(
-        { advisor: null },
-      );
-
-      const armed = selectCraneDispatchAdvisorTarget({
-        advisor: { ...off, enabled: true },
-        target: { providerId: "claude-code", model: "claude-fable-5-1" },
-      });
-      expect(
-        buildCraneTeamRuntimeMemory({ model, advisor: armed }).advisor,
-      ).toMatchObject({ providerId: "claude-code", model: "claude-fable-5-1" });
-    });
-
-    test("sends the advisor effort and consult budget through the IPC schema", () => {
-      const runtime = buildCraneDispatchRuntimeChoice({
-        model: {
-          providerId: "codex",
-          model: "gpt-5.6",
-          effort: "xhigh",
-          codexFastMode: false,
-        },
-        access: GUIDED_CLAUDE_ACCESS,
-        providerTimeoutMs: 43_200_000,
-        advisor: resolveCraneDispatchAdvisorChoice({
-          advisor: selectCraneDispatchAdvisorTarget({
-            advisor: {
-              ...resolveCraneDispatchAdvisorDefaults({
-                settings: ADVISOR_SETTINGS_OFF,
-                primaryProviderId: "codex",
-              }),
-              enabled: true,
-            },
-            target: {
-              providerId: "claude-code",
-              model: "claude-fable-5-1",
-              effort: "max",
-            },
-          }),
-          consultLimit: 2,
-        }),
-      });
-
-      // The effort used to be stripped by the strict schema, and the budget was
-      // never sent at all, so a dispatch silently ran at the model default with
-      // the runtime's own ceiling of 5.
-      expect(runtime).toMatchObject({
-        advisorTarget: {
-          providerId: "claude-code",
-          model: "claude-fable-5-1",
-          effort: "max",
-        },
-        advisorConsultLimit: 2,
-      });
-      expect(
-        CraneDispatchApprovalResponseSchema.safeParse({
-          jobId: "job-1",
-          repositoryPath: "/tmp/project",
-          workspace: { strategy: "new", branchName: "crane/atl-2" },
-          runtime,
-        }).success,
-      ).toBe(true);
-    });
-
-    test("rejects an advisor target with no consult budget beside it", () => {
-      const base = {
-        jobId: "job-1",
-        repositoryPath: "/tmp/project",
-        workspace: { strategy: "new", branchName: "crane/atl-2" },
-        runtime: buildCraneDispatchRuntimeChoice({
-          model: {
-            providerId: "codex",
-            model: "gpt-5.6",
-            effort: "xhigh",
-            codexFastMode: false,
-          },
-          access: GUIDED_CLAUDE_ACCESS,
-          providerTimeoutMs: 43_200_000,
-          advisor: null,
-        }),
-      };
-
-      // A hand-built payload is the case the refinement guards: the builder
-      // cannot produce it, but the main process parses whatever arrives.
-      expect(
-        CraneDispatchApprovalResponseSchema.safeParse({
-          ...base,
-          runtime: {
-            ...base.runtime,
-            advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
-          },
-        }).success,
-      ).toBe(false);
-      expect(
-        CraneDispatchApprovalResponseSchema.safeParse({
-          ...base,
-          runtime: { ...base.runtime, advisorConsultLimit: 3 },
-        }).success,
-      ).toBe(false);
     });
   });
 });

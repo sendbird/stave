@@ -52,12 +52,12 @@ export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { 
       ) : null}
       {wakeUpShown ? (
         wakeUp.summary.state === "scheduled" ? (
-          <AlarmClock role="img" aria-label="Wake-up scheduled" className={sx(styles.icon, styles.toneIdle)}>
-            <title>Wake-up scheduled</title>
+          <AlarmClock role="img" aria-label="Schedule on" className={sx(styles.icon, styles.toneIdle)}>
+            <title>Schedule on</title>
           </AlarmClock>
         ) : (
-          <AlarmClockOff role="img" aria-label="Wake-up paused" className={sx(styles.icon, styles.toneIdle)}>
-            <title>Wake-up paused</title>
+          <AlarmClockOff role="img" aria-label="Schedule paused" className={sx(styles.icon, styles.toneIdle)}>
+            <title>Schedule paused</title>
           </AlarmClockOff>
         )
       ) : null}

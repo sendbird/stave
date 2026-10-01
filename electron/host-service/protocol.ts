@@ -21,14 +21,11 @@ import type {
   GitHubPrReviewEvent,
   GitHubPrReviewSubmitResult,
 } from "../../src/lib/github-pr-review";
-import type { AdvisorConsultOutcome } from "../providers/advisor-consult";
 import type {
   MissionChangedEvent,
   MissionInvokeResult,
 } from "../../src/lib/missions/api";
 import type { ProjectChangedEvent, ProjectInvokeResult } from "../../src/lib/projects/api";
-import type { AdvisorConsultRequest } from "../../src/lib/providers/advisor-evidence";
-import type { AcpWorkerOutcome } from "../providers/acp/acp-worker-runtime";
 import type {
   CanonicalRetrievedContextPart,
   CodexAppServerSnapshotResponse,
@@ -462,6 +459,7 @@ export type HostLocalMcpAction =
   | "run-task"
   | "resolve-delegation-policy"
   | "resolve-delegation-defaults"
+  | "resolve-caller-grant"
   | "sync-delegation-permission-settings"
   | "get-task-status"
   | "release-task-parent"
@@ -644,15 +642,6 @@ export interface HostServiceRequestMap {
   };
   "provider.abort-turn": {
     turnId: string;
-  };
-  "provider.skip-advisor": {
-    turnId: string;
-  };
-  "provider.consult-advisor": AdvisorConsultRequest;
-  "provider.run-acp-worker": {
-    workerKey: string;
-    task: string;
-    context?: string;
   };
   "provider.cleanup-task": {
     taskId: string;
@@ -1135,9 +1124,6 @@ export interface HostServiceResponseMap {
   "provider.read-stream-turn": HostProviderReadStreamResult;
   "provider.ack-stream-turn": HostProviderMutationResult;
   "provider.abort-turn": HostProviderMutationResult;
-  "provider.skip-advisor": HostProviderMutationResult;
-  "provider.consult-advisor": AdvisorConsultOutcome;
-  "provider.run-acp-worker": AcpWorkerOutcome;
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;

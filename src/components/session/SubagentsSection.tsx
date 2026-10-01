@@ -1,0 +1,241 @@
+import * as stylex from "@stylexjs/stylex";
+import { useMemo } from "react";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { ExchangeStatusBadge } from "@/components/delegation/ExchangeStatusBadge";
+import { ActionButton } from "@/components/system/ActionButton";
+import { listAgents } from "@/lib/agents/library";
+import {
+  isDelegationExchangeLive,
+  partitionDelegationExchanges,
+  selectDelegationExchanges,
+  type DelegationExchange,
+} from "@/lib/delegation/exchange";
+import { toHumanModelName } from "@/lib/providers/model-catalog";
+import { resolveDelegatedTaskControls, type DelegatedTaskSummary } from "@/lib/runs/delegated-task";
+import { useAppStore } from "@/store/app.store";
+import { useDelegatedTaskRowController } from "./DelegatedTaskRows";
+import { useDelegatedTasks } from "./useDelegatedTasks";
+
+/** A delegation key reads as its prompt once the derived digest is dropped. */
+function describeWork(child: DelegatedTaskSummary, title: string | undefined) {
+  if (title) return title;
+  const readable = child.delegationKey.replace(/-[0-9a-f]{12}$/, "").replace(/[-_.]+/g, " ").trim();
+  return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : child.delegationKey;
+}
+
+/**
+ * The Task panel's Subagents tab: every agent this task called, durable
+ * (a Stave task, possibly on the other provider or in its own worktree) or
+ * in-turn (a provider subagent), as one list with live rows first. A row says
+ * who the subagent is, what it is doing and how it stands, and offers only
+ * Open transcript and Stop; its answer folds under the row.
+ */
+export function SubagentsSection(props: {
+  workspaceId: string;
+  taskId: string;
+  repositoryPath: string;
+  /** A managed task's subagents are read-only until the user takes over. */
+  readOnly?: boolean;
+}) {
+  const listing = useDelegatedTasks({
+    parentTaskId: props.taskId,
+    parentWorkspaceId: props.workspaceId,
+    repositoryPath: props.repositoryPath,
+  });
+  const source = useMemo(
+    () => ({ children: listing.children, actions: listing.actions }),
+    [listing.actions, listing.children],
+  );
+  const controller = useDelegatedTaskRowController({ source, repositoryPath: props.repositoryPath });
+  const graph = useAppStore(
+    (state) =>
+      state.providerTurnActivityByTask[props.taskId]?.workGraph ??
+      state.retainedTurnActivityByTask[props.taskId]?.snapshot.workGraph ??
+      null,
+  );
+  const customAgents = useAppStore((state) => state.settings.customAgents);
+  const tasks = useAppStore((state) => state.tasks);
+  const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
+  const agentNames = useMemo(
+    () => new Map(listAgents({ custom: customAgents }).map((agent) => [agent.id, agent.name])),
+    [customAgents],
+  );
+  const rows = useMemo(() => {
+    const exchanges = selectDelegationExchanges({
+      delegatedTasks: controller.children,
+      childBlockedByDelegationKey: controller.blockedByDelegationKey,
+      workGraph: graph,
+      includeSubagents: true,
+    });
+    const { live, settled } = partitionDelegationExchanges(exchanges);
+    return [...live, ...settled.reverse()];
+  }, [controller.blockedByDelegationKey, controller.children, graph]);
+
+  if (rows.length === 0) {
+    return (
+      <p className={sx(styles.muted)} role={listing.loading ? "status" : undefined}>
+        {listing.loading
+          ? "Loading subagents…"
+          : listing.error ?? "No subagents yet. An agent calls one when part of its work fits another agent or model."}
+      </p>
+    );
+  }
+  return (
+    <ul aria-label="Subagents" className={sx(styles.list)} data-testid="subagents-list">
+      {rows.map((exchange) => {
+        const child = exchange.ref.delegationKey && exchange.kind === "delegated-task"
+          ? controller.children.find((row) => row.delegationKey === exchange.ref.delegationKey)
+          : undefined;
+        return (
+          <SubagentRow
+            key={exchange.id}
+            exchange={exchange}
+            who={whoLabel(exchange, child, agentNames)}
+            what={child ? describeWork(child, tasks.find((task) => task.id === child.delegatedTaskId)?.title) : exchange.ask}
+            canStop={Boolean(child && !props.readOnly && resolveDelegatedTaskControls(child).canStop)}
+            busy={Boolean(child && controller.busyDelegationKey === child.delegationKey)}
+            error={child ? controller.errorByDelegationKey[child.delegationKey] : undefined}
+            onOpen={child
+              ? () => controller.onOpen(child)
+              : exchange.ref.toolUseId
+                ? () => focusTranscriptTool({ taskId: props.taskId, toolUseId: exchange.ref.toolUseId! })
+                : undefined}
+            onStop={child ? () => controller.onStop(child) : undefined}
+          />
+        );
+      })}
+    </ul>
+  );
+}
+
+function whoLabel(
+  exchange: DelegationExchange,
+  child: DelegatedTaskSummary | undefined,
+  agentNames: ReadonlyMap<string, string>,
+) {
+  const agent = child?.agentConfigId ? agentNames.get(child.agentConfigId) : undefined;
+  if (agent) return agent;
+  const model = exchange.identity.model;
+  if (model) return toHumanModelName({ model });
+  return exchange.kind === "subagent" ? exchange.title : "Subagent";
+}
+
+function SubagentRow(props: {
+  exchange: DelegationExchange;
+  who: string;
+  what: string;
+  canStop: boolean;
+  busy: boolean;
+  error?: string;
+  onOpen?: () => void;
+  onStop?: () => void;
+}) {
+  const { exchange } = props;
+  const answer = exchange.outcome.error ?? exchange.outcome.result;
+  return (
+    <li className={sx(styles.row)} data-subagent-kind={exchange.kind}>
+      <div className={sx(styles.head)}>
+        <span className={sx(styles.who)}>{props.who}</span>
+        <ExchangeStatusBadge status={exchange.outcome.status} />
+      </div>
+      <p className={sx(styles.what)}>{props.what}</p>
+      {answer && !isDelegationExchangeLive(exchange) ? (
+        <details className={sx(styles.answer)}>
+          <summary className={sx(styles.answerSummary)}>
+            {exchange.outcome.error ? "Why it stopped" : "Answer"}
+          </summary>
+          <p className={sx(styles.answerText)}>{answer}</p>
+        </details>
+      ) : null}
+      {props.error ? <p role="alert" className={sx(styles.error)}>{props.error}</p> : null}
+      {props.onOpen || props.canStop ? (
+        <div className={sx(styles.actions)}>
+          {props.onOpen ? (
+            <ActionButton size="md" weight="quiet" xstyle={styles.target} onClick={props.onOpen}>
+              Open transcript
+            </ActionButton>
+          ) : null}
+          {props.canStop && props.onStop ? (
+            <ActionButton size="md" weight="quiet" tone="danger" xstyle={styles.target} disabled={props.busy} onClick={props.onStop}>
+              Stop
+            </ActionButton>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+const styles = stylex.create({
+  list: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+  },
+  row: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-4"],
+    minWidth: 0,
+    paddingBlock: vars["--ads-space-8"],
+    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomStyle: "solid",
+    borderBottomColor: vars["--ads-color-border-subtle"],
+  },
+  head: {
+    display: "flex",
+    alignItems: "center",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+  },
+  who: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--ads-color-text"],
+  },
+  what: {
+    margin: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--ads-color-text-muted"],
+    overflowWrap: "anywhere",
+  },
+  answer: { minWidth: 0 },
+  answerSummary: {
+    cursor: "pointer",
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
+  },
+  answerText: {
+    margin: 0,
+    marginBlockStart: vars["--ads-space-4"],
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--ads-color-text"],
+  },
+  error: {
+    margin: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-danger-text"],
+  },
+  actions: { display: "flex", gap: vars["--ads-space-8"] },
+  // Row controls are used often from a narrow rail: keep a 40px target.
+  target: { minBlockSize: 40 },
+  muted: {
+    margin: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--ads-color-text-muted"],
+  },
+});

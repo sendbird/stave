@@ -343,25 +343,6 @@ interface PromptInputProps {
   }) => void;
   onUserInputDeny?: (args: { messageId: string }) => void;
   /**
-   * Advisor arming control. A slot rather than typed props because it is driven
-   * entirely by task-scoped store state, and it renders during an active turn
-   * (unlike the secrets and compare slots) so a blocked turn stays
-   * explainable.
-   */
-  advisorControl?: ReactNode;
-  /**
-   * Whether the Advisor is armed. The pill is a slot, so the toolbar cannot
-   * read its state — but placement has to, or a demoted Advisor would bill a
-   * preflight with nothing on screen saying so.
-   */
-  advisorActive?: boolean;
-  /**
-   * Worker mode control. Same slot rationale as the Advisor: task-scoped store
-   * state, and it must stay readable during an active turn so a running worker
-   * is always attributable.
-   */
-  workerControl?: ReactNode;
-  /**
    * Agents offered inside the model picker, which splits into agent and model
    * segments while an agent runs the task. Absent where the picker lists
    * models only; no control moves.
@@ -369,11 +350,6 @@ interface PromptInputProps {
   modelPickerAgents?: ModelPickerAgents;
   /** The next send assigns the task's agent: the send button reads Assign, then Send. */
   assignOnSend?: boolean;
-  /**
-   * Whether Worker mode is armed. Placement has to know, or a demoted Worker
-   * pill would spend a second model with nothing on screen saying so.
-   */
-  workerActive?: boolean;
   /**
    * Secrets and Compare are separate slots rather than one fragment: placement
    * is per-control, and a fragment cannot be routed to two different
@@ -931,12 +907,8 @@ export function PromptInput(args: PromptInputProps) {
     pendingUserInput,
     onUserInputSubmit,
     onUserInputDeny,
-    advisorControl,
-    advisorActive,
-    workerControl,
     modelPickerAgents,
     assignOnSend,
-    workerActive,
     secretsControl,
     secretsActive,
     macroControl,
@@ -2367,8 +2339,6 @@ export function PromptInput(args: PromptInputProps) {
   if (!onPlanModeChange) unavailableComposerControls.push("plan");
   if (!providerModeStatus) unavailableComposerControls.push("providerMode");
   if (!onThinkingModeChange) unavailableComposerControls.push("thinking");
-  if (!advisorControl) unavailableComposerControls.push("advisor");
-  if (!workerControl) unavailableComposerControls.push("worker");
   if (!hasReviewControl) unavailableComposerControls.push("review");
   if (!secretsControl) unavailableComposerControls.push("secrets");
   if (!macroControl) unavailableComposerControls.push("macro");
@@ -2389,8 +2359,6 @@ export function PromptInput(args: PromptInputProps) {
       planMode,
       thinkingMode,
       fastMode,
-      advisorArmed: advisorActive,
-      workerArmed: workerActive,
       runtimeTone: runtimeProfile.tone,
       boundSecretCount: secretsActive ? 1 : 0,
     }),
@@ -2477,8 +2445,6 @@ export function PromptInput(args: PromptInputProps) {
         <TooltipContent side="top">{`Thinking: ${thinkingMode ?? "adaptive"}`}</TooltipContent>
       </Tooltip>
     ) : null,
-    advisor: advisorControl,
-    worker: workerControl,
     review: hasReviewControl ? (
       <LocalChangeReviewDialog
         workspaceCwd={workspaceCwd}
@@ -2712,7 +2678,7 @@ export function PromptInput(args: PromptInputProps) {
           align={useComposerWings ? "end" : "start"}
           side="top"
           sideOffset={10}
-          // The tray hosts controls that open dialogs (Review, Advisor,
+          // The tray hosts controls that open dialogs (Review,
           // Compare, ...). Base UI portals those dialogs into this popover's
           // portal node, so a tray on the popover band (`z-[90]`) would paint
           // over the dialog band (`z-[80]`) it just opened. Composer-anchored

@@ -17,6 +17,7 @@ import {
   AGENT_PERMISSION_LABELS,
   AGENT_PERMISSIONS,
   AGENT_REPORT_SECTIONS,
+  AGENT_EFFORT_ORDER,
   AGENT_ROLE_LABELS,
   AGENT_ROLES,
   AGENT_WORKSPACE_LABELS,
@@ -29,7 +30,6 @@ import {
 import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
 import { CLAUDE_SDK_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, listProviderIds } from "@/lib/providers/model-catalog";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
-import { WORKER_EFFORT_ORDER } from "@/lib/providers/worker-mode";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { agentStyles } from "./agents.styles";
@@ -255,10 +255,10 @@ export function AgentEditor(props: {
                   value={draft.model.effort ?? ""}
                   options={[
                     { value: "", label: "Provider default" },
-                    ...WORKER_EFFORT_ORDER.map((value) => ({ value, label: value })),
+                    ...AGENT_EFFORT_ORDER.map((value) => ({ value, label: value })),
                   ]}
                   onValueChange={(value) =>
-                    setModel({ ...(draft.model as Extract<AgentModel, { mode: "fixed" }>), effort: value ? (String(value) as (typeof WORKER_EFFORT_ORDER)[number]) : undefined })
+                    setModel({ ...(draft.model as Extract<AgentModel, { mode: "fixed" }>), effort: value ? (String(value) as (typeof AGENT_EFFORT_ORDER)[number]) : undefined })
                   }
                 />
               </dd>

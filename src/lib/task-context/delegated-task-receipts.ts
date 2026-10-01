@@ -5,19 +5,34 @@ import {
 } from "@/lib/runs/delegated-task";
 
 const MAX_RENDERED_CHILDREN = 20;
+const MAX_RESULT_CHARS = 2_000;
+const MAX_RESULTS_TOTAL_CHARS = 8_000;
 
 function truncate(value: string, maxLength: number) {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
+/** The newest start of an assistant turn in a history, as a results cut-off. */
+export function latestTurnStartedAt(
+  history: readonly { role: string; startedAt?: string }[],
+): string | null {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const message = history[index]!;
+    if (message.role === "assistant" && message.startedAt) return message.startedAt;
+  }
+  return null;
+}
+
 /**
- * The parent's view of what it delegated: who the child is, what phase it is in
- * and why it ended. The child's transcript is deliberately absent — a parent
- * that wants the conversation opens the delegated task, and a receipt that carried
- * output would make the ledger a second, unbounded message store.
+ * What the task's subagents did, as its next turn sees it: each subagent's
+ * identity, phase and reason, and the bounded answer of every subagent that
+ * finished since `resultsSince` (the previous turn's start), so the caller
+ * never has to read a child task to collect its result. Answers it already
+ * saw are left out to keep repeated turns small.
  */
 export function buildDelegatedTaskReceiptsRetrievedContext(args: {
   children: DelegatedTaskSummary[];
+  resultsSince?: string | null;
 }): CanonicalRetrievedContextPart | null {
   if (args.children.length === 0) {
     return null;
@@ -30,33 +45,43 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
     );
   });
   const rendered = ordered.slice(0, MAX_RENDERED_CHILDREN);
+  let resultBudget = MAX_RESULTS_TOTAL_CHARS;
   const lines = rendered.flatMap((child) => {
     const head = [
-      `- delegation: ${child.delegationKey}`,
+      `- subagent: ${child.delegationKey}`,
       `phase: ${child.phase}`,
       `lifecycle: ${child.lifecycle}`,
       `provider: ${child.providerId}`,
     ].join(" | ");
-    const identity = `  delegated task: ${child.delegatedTaskId} in workspace ${child.delegatedWorkspaceId}`;
+    const identity = `  task: ${child.delegatedTaskId} in workspace ${child.delegatedWorkspaceId}`;
     const reason = child.reason
       ? [`  reason: ${truncate(child.reason, 300)}`]
       : [];
-    return [head, identity, ...reason];
+    const fresh = child.result &&
+      (!args.resultsSince || child.updatedAt > args.resultsSince) && resultBudget > 0;
+    const result = fresh
+      ? truncate(child.result!, Math.min(MAX_RESULT_CHARS, resultBudget))
+      : null;
+    if (result) resultBudget -= result.length;
+    return [
+      head,
+      identity,
+      ...reason,
+      ...(result ? ["  result:", ...result.split("\n").map((line) => `    ${line}`)] : []),
+    ];
   });
   const omitted = ordered.length - rendered.length;
 
   return {
     type: "retrieved_context",
     sourceId: "stave:delegated-tasks",
-    title: "Delegated Delegated Tasks",
+    title: "Subagent results",
     content: [
-      "Delegated tasks this task delegated, as recorded on the run ledger.",
-      "Identity, phase and reason only — a child's transcript is never included here.",
-      "Use `stave_list_delegated_tasks` for a fresh read and `stave_stop_delegated_task` to stop one.",
-      "Read `stave_get_task` with the delegated task and workspace ids to collect its latest answer. Use `stave_follow_up_delegated_task` with the fresh expected identity to request clarification or further work. Review results before reporting the parent complete.",
+      "Subagents this task started, as recorded on the run ledger, with the answer of each one that finished since your last turn.",
+      "Review results before reporting the task complete. Use `stave_follow_up_delegated_task` to ask an open subagent for more, and `stave_stop_delegated_task` to stop one.",
       "",
       ...lines,
-      ...(omitted > 0 ? ["", `(${omitted} older delegations omitted)`] : []),
+      ...(omitted > 0 ? ["", `(${omitted} older subagents omitted)`] : []),
     ].join("\n"),
   };
 }

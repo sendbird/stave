@@ -8,7 +8,7 @@ import {
 import {
   buildCodexDeveloperInstructions,
   buildCodexPluginConfigOverrides,
-  buildCodexWorkerConfigOverrides,
+  buildCodexSubagentConfigOverrides,
 } from "./codex-runtime-config";
 import { buildExecutableLookupEnv } from "./executable-path";
 import { parseBooleanEnv } from "./runtime-shared";
@@ -89,7 +89,7 @@ export function buildCodexConfigOverrides(args: {
   /** See `buildCodexDeveloperInstructions`: gates the Lens instruction block. */
   hasStaveLocalMcp?: boolean;
 }) {
-  const workerRuntimeOptions = args.secondaryReadOnly
+  const subagentRuntimeOptions = args.secondaryReadOnly
     ? undefined
     : args.runtimeOptions;
   const config: CodexConfigOverrides = {
@@ -100,10 +100,10 @@ export function buildCodexConfigOverrides(args: {
           baseEnv: buildExecutableLookupEnv(),
         })
       : {}),
-    // Pins the Worker-mode subagent. Empty when Worker mode is off or fails
-    // semantic resolution, so the solo path stays byte-identical.
-    ...buildCodexWorkerConfigOverrides({
-      runtimeOptions: workerRuntimeOptions,
+    // Bounds the task agent's in-turn subagents. Empty without them, so the
+    // solo path stays byte-identical.
+    ...buildCodexSubagentConfigOverrides({
+      runtimeOptions: subagentRuntimeOptions,
     }),
   };
   const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;

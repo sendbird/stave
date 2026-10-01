@@ -57,25 +57,18 @@ complete theme contract. Avoid utility overrides of primitive internals.
 Turn Activity contains live and retained turn activity, headed by the Mission
 bar while the task runs a mission. The right rail has one Task panel with four
 tabs: Activity (turn activity), Progress (the mission while the task has one,
-otherwise the flow), Team (Advisor, workers and delegated tasks) and Results
+otherwise the flow), Subagents (every agent the task called; tab id `team`) and Results
 (run history). The task tab context menu opens the panel on the matching tab
 for that exact task. There is no composer shortcut row and no second
 inspector-tab store: the selected tab is layout state, and a retired panel id
 in a saved layout is read as the tab that replaced it. Record views load only
 while their tab is mounted; changing task identity remounts the view. Delayed listings remain
 invalidated when scope changes or a listing is disabled. No extra transcript
-store is created. Collaboration uses separated task, consultation and worker
-sections without category tabs or a containing surface card. Assignments and
-answers are visible; execution metadata remains secondary disclosure.
-
-Advisor exchanges prefer retained runtime snapshots. When unavailable, the panel
-projects question/answer tool pairs from the loaded canonical conversation.
-Worker rows show bounded assignments, returned outputs, and reported progress.
-Requested preference, selected target, and runtime-reported model are distinct.
-An absent runtime model stays unreported; narrative selection reasons appear
-only when recorded by the selection producer.
-They do not invent a provider-native worker transcript or expose grant-bearing
-raw inputs. Reports include their coverage limits and are downloaded explicitly.
+store is created. The Subagents tab lists durable and in-turn subagents as one
+list, live first: who (agent or model), what it is doing and its state, with
+the answer folded under the row and Open transcript / Stop as its only
+controls. It never invents a provider-native transcript or exposes
+grant-bearing raw inputs.
 
 Cross-provider work uses the existing durable child coordinator. Native workers
 retain their provider-specific boundaries. A child follow-up must carry its
@@ -145,9 +138,8 @@ models, automatic routing, and keyboard shortcuts retain their contracts.
 Provider selection colors resolve through existing theme tokens. Model, Fast,
 and expanded-context controls remain separate buttons in their existing lane.
 
-Advisor and Worker effort rows share `ChoiceChips`; their model rows share
-`ComposerOptionModelRow`. The general-purpose model dialog uses the same effort
-choice.
+Effort rows share `ChoiceChips`; model rows share `ComposerOptionModelRow`.
+The general-purpose model dialog uses the same effort choice.
 Higher effort allows more reasoning and can take longer; the interface does not
 promise better results from that setting alone. Selecting a model never sends
 the prompt or discards its draft.

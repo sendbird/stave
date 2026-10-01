@@ -1,9 +1,8 @@
 import {
   turnGrantHeaders,
-  ADVISOR_GRANT_ENV,
   MISSION_GRANT_ENV,
   PROJECT_GRANT_ENV,
-  WORKER_GRANT_ENV,
+  CALLER_GRANT_ENV,
   type StaveTurnGrants,
 } from "../providers/stave-turn-grants";
 import { existsSync, promises as fs, readFileSync } from "node:fs";
@@ -11,7 +10,6 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { StaveLocalMcpManifest } from "../../src/lib/local-mcp";
-import { HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS } from "./host-service-request-timeouts";
 
 export const STAVE_LOCAL_MCP_SERVER_NAME = "stave-local-mcp";
 
@@ -20,19 +18,12 @@ export const STAVE_LOCAL_MCP_SERVER_NAME = "stave-local-mcp";
  *
  * Supplied explicitly because the client default is both short and *hard*: the
  * Claude Agent SDK falls back to a 60s wall clock per tool call that progress
- * notifications do not extend. Omitting this silently capped every Stave tool
- * at a minute — an Advisor consult, whose own deadline runs from 2 to 10
- * minutes by effort tier, would finish and bill normally while the client had
- * already walked away, and its advice was discarded with no error anywhere.
- *
- * Sits one minute above the host-service backstop so the ladder stays ordered
- * innermost-first: advisor deadline < host-service backstop < this. That way a
- * slow consult surfaces Stave's own `advisor-timeout` explanation instead of a
- * transport abort the primary cannot interpret. Note the SDK also clamps this
- * *up* to 60s, so it can never be configured below the old effective value.
+ * notifications do not extend. Some Stave tools legitimately run longer — a
+ * workspace cut with its init command, or `stave_delegate_task` waiting up to
+ * `DELEGATED_TASK_WAIT_MAX_SECONDS` for a subagent's answer — so the deadline
+ * sits well above both and the tool's own bound is the one that reports.
  */
-export const STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS =
-  HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS + 60_000;
+export const STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS = 31 * 60_000;
 export const STAVE_UNATTENDED_AUTOMATION_QUERY_PARAM =
   "staveUnattendedAutomation";
 
@@ -324,20 +315,16 @@ export function toAcpStdioMcpServerConfig(
       // follows the shared manifest to another (or a dead) Stave instance.
       { name: STAVE_LOCAL_MCP_OWNER_PID_ENV, value: String(manifest.pid) },
       {
-        name: ADVISOR_GRANT_ENV,
-        value: options?.turnGrants?.consultKey ?? "",
-      },
-      {
-        name: WORKER_GRANT_ENV,
-        value: options?.turnGrants?.workerKey ?? "",
-      },
-      {
         name: MISSION_GRANT_ENV,
         value: options?.turnGrants?.missionKey ?? "",
       },
       {
         name: PROJECT_GRANT_ENV,
         value: options?.turnGrants?.projectKey ?? "",
+      },
+      {
+        name: CALLER_GRANT_ENV,
+        value: options?.turnGrants?.callerKey ?? "",
       },
       ...(allowedToolNames.length > 0
         ? [

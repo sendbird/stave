@@ -1,10 +1,4 @@
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
-import type { AdvisorArmState } from "@/lib/providers/advisor";
-import { listManagedExecutionProviderIds } from "@/lib/providers/model-catalog";
-import type {
-  AdvisorTarget,
-  ManagedExecutionProviderId,
-} from "@/lib/providers/provider.types";
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
@@ -64,26 +58,6 @@ export function createPreviewActivity(): ProviderTurnActivitySnapshot {
   };
 }
 
-export function createPreviewAdvisorArm(enabled: boolean): AdvisorArmState {
-  const target: AdvisorTarget = {
-    providerId: "claude-code",
-    model: PREVIEW_MODEL.model,
-  };
-  const targetByProvider = Object.fromEntries(
-    listManagedExecutionProviderIds().map((providerId) => [
-      providerId,
-      { ...target, providerId },
-    ]),
-  ) as Record<ManagedExecutionProviderId, AdvisorTarget>;
-
-  return {
-    enabled,
-    target: enabled ? target : null,
-    effectiveTarget: enabled ? target : null,
-    overridden: true,
-    targetByProvider,
-  };
-}
 
 /** Enough macros to fill the left wing's quick-pick limit in the preview. */
 export const PREVIEW_MACROS = [

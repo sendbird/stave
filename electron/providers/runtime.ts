@@ -52,47 +52,16 @@ import {
   PROVIDER_STEER_ACK_TIMEOUT_MS,
   waitForSteerDelivery,
 } from "../../src/lib/providers/steer-delivery";
-import {
-  appendAdvisorConsultBriefing,
-  normalizeAdvisorConsultLimit,
-  normalizeAdvisorTarget,
-  shouldRunAdvisor,
-  ADVISOR_BRIEFING_SOURCE_ID,
-  withoutAdvisorTarget,
-} from "../../src/lib/providers/advisor";
-import {
-  buildAdvisorArmedEvent,
-  createAdvisorUsageMerger,
-  mergeAdvisorUsage,
-} from "./advisor-runtime";
-import {
-  cleanupAdvisorSessionsForTask,
-  consultAdvisor,
-  registerAdvisorConsultGrant,
-} from "./advisor-consult";
-import {
-  cleanupAcpWorkerSessionsForTask,
-  disposeAllAcpWorkerGrants,
-  registerAcpWorkerGrant,
-  runAcpWorker,
-} from "./acp/acp-worker-runtime";
-import { getProviderModelCatalog } from "./provider-model-catalog";
 import { registerMissionGrant } from "./mission-grants";
 import { projectIdForCoordinatorTask, registerProjectGrant } from "./project-grants";
 import { createProviderApprovalRouter } from "./provider-approval-router";
-import {
-  WORKER_BRIEFING_SOURCE_ID,
-  appendAcpWorkerBriefing,
-  buildAcpWorkerPrimaryInstructions,
-  resolveWorkerProfile,
-  type ResolvedWorkerProfile,
-} from "../../src/lib/providers/worker-mode";
 import {
   createProviderTurnLifecycle,
   type ProviderTurnLifecycleSnapshot,
 } from "./provider-turn-lifecycle";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "../../src/lib/providers/runtime-option-contract";
 import type { TaskAgentTurn } from "./task-agent-turn";
+import { registerCallerGrant } from "./caller-grants";
 import { applyTurnPolicy } from "./turn-policy-entry";
 
 const sdkTurnTimeoutMs = Number(
@@ -102,11 +71,10 @@ const COMPLETED_STREAM_TTL_MS = 60 * 1000;
 const ACTIVE_STREAM_RETAINED_BYTES_MAX = 512 * 1024;
 const BATCH_TURN_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const DEFAULT_PROVIDER_TASK_KEY = "default";
-const codexAdvisorChannelKeyByTask = new Map<string, string>();
 /**
  * A resumed Codex thread keeps the Local MCP connection and tool catalog it
  * started with, so a changed grant key starts a fresh thread. The mission key
- * is therefore stable per task, like the Advisor's, and later turns keep
+ * is therefore stable per task, and later turns keep
  * sending it with no active grant behind it.
  */
 const codexMissionChannelKeyByTask = new Map<string, string>();
@@ -115,18 +83,6 @@ const codexProjectChannelKeyByTask = new Map<string, string>();
 
 function getProviderTaskKey(taskId?: string) {
   return providerAccountKey("codex", taskId?.trim() || DEFAULT_PROVIDER_TASK_KEY);
-}
-
-function getOrCreateCodexAdvisorChannelKey(taskId?: string) {
-  if (!taskId?.trim()) return randomUUID();
-  const taskKey = getProviderTaskKey(taskId);
-  const existing = codexAdvisorChannelKeyByTask.get(taskKey);
-  if (existing) {
-    return existing;
-  }
-  const consultKey = randomUUID();
-  codexAdvisorChannelKeyByTask.set(taskKey, consultKey);
-  return consultKey;
 }
 
 function getOrCreateCodexProjectChannelKey(taskId: string) {
@@ -192,12 +148,6 @@ type ActiveRuntimeSession = {
     text: string;
     clientMessageId?: string;
   }) => Promise<ProviderResponderResult>;
-  /**
-   * Cancels the in-flight advisor consult while keeping the primary turn.
-   * Separate from `abort` so escaping a slow advisor never costs the user
-   * their whole turn. Returns `false` when no consult is running.
-   */
-  skipAdvisor?: () => boolean;
   timeoutController?: TurnTimeoutController;
 };
 
@@ -238,7 +188,6 @@ function upsertActiveSession(args: {
   respondApproval?: ActiveRuntimeSession["respondApproval"];
   respondUserInput?: ActiveRuntimeSession["respondUserInput"];
   steer?: ActiveRuntimeSession["steer"];
-  skipAdvisor?: ActiveRuntimeSession["skipAdvisor"];
   timeoutController?: TurnTimeoutController;
 }) {
   const current = activeSessions.get(args.turnId);
@@ -251,7 +200,6 @@ function upsertActiveSession(args: {
     respondApproval: args.respondApproval ?? current?.respondApproval,
     respondUserInput: args.respondUserInput ?? current?.respondUserInput,
     steer: args.steer ?? current?.steer,
-    skipAdvisor: args.skipAdvisor ?? current?.skipAdvisor,
     timeoutController: args.timeoutController ?? current?.timeoutController,
   });
 }
@@ -290,11 +238,6 @@ function abortActive(args: { turnId: string }) {
 
 function clearActiveTurnState(args: { turnId: string }) {
   activeSessions.delete(args.turnId);
-}
-
-function skipAdvisorForTurn(args: { turnId: string }) {
-  const skip = activeSessions.get(args.turnId)?.skipAdvisor;
-  return skip ? skip() : false;
 }
 
 function summarizeActiveTurns() {
@@ -489,11 +432,9 @@ function appendStreamEvent(session: ActiveStreamSession, event: BridgeEvent) {
 }
 
 function cleanupProviderTaskState(taskId: string) {
-  for (const map of [codexAdvisorChannelKeyByTask, codexMissionChannelKeyByTask, codexProjectChannelKeyByTask]) {
+  for (const map of [codexMissionChannelKeyByTask, codexProjectChannelKeyByTask]) {
     for (const key of map.keys()) if (providerAccountKeyMatchesTask(key, taskId)) map.delete(key);
   }
-  cleanupAdvisorSessionsForTask(taskId);
-  cleanupAcpWorkerSessionsForTask(taskId);
   cleanupClaudeTask(taskId);
   cleanupCodexAppServerTask(taskId);
 }
@@ -828,8 +769,11 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
   try {
     const agentTurn = rawArgs.taskId && !rawArgs.executionPolicy
       ? taskAgentTurnResolver?.(rawArgs) ?? null : null;
+    // In-turn subagents come only from the task's agent; any other value is dropped.
+    const { nativeSubagents: _unowned, ...ownOptions } = rawArgs.runtimeOptions ?? {};
     const turnArgs = applyTurnPolicy(agentTurn
-      ? { ...rawArgs, runtimeOptions: agentTurn.runtimeOptions } : rawArgs, agentTurn?.turnPolicy);
+      ? { ...rawArgs, runtimeOptions: agentTurn.runtimeOptions }
+      : { ...rawArgs, ...(rawArgs.runtimeOptions ? { runtimeOptions: ownOptions } : {}) }, agentTurn?.turnPolicy);
     // Delegation inherits the resolved policy, so a helper gets this turn's autonomy and never more.
     if (turnArgs.taskId && turnArgs.turnPolicy) {
       taskPermissionObserver?.({
@@ -872,18 +816,9 @@ async function runProviderTurnImpl(
     onEvent: args.onEvent,
   });
   if (agentTurn) lifecycle.emit({ type: "agent_provenance", provenance: agentTurn.provenance });
-  /**
-   * Set once the advisor usage mapper exists. Terminal `done` events synthesised
-   * here bypass the per-event mapper, so without this flush the advisor's tokens
-   * were billed but never reported whenever the turn timed out or aborted.
-   */
-  let flushAdvisorUsage: (() => BridgeEvent[]) | null = null;
   const finishLifecycle = (
     reason: "completed" | "runtime_failure" | "user_abort",
   ) => {
-    for (const event of flushAdvisorUsage?.() ?? []) {
-      lifecycle.emit(event);
-    }
     lifecycle.finish(reason);
     lastCompletedLifecycleSnapshot = lifecycle.snapshot();
     return lifecycle.events();
@@ -1001,22 +936,15 @@ async function runProviderTurnImpl(
       args.executionPolicy !== "secondary-read-only" &&
       args.providerId === "codex",
   );
-  const retainedCodexAdvisorChannelKey = retainsCodexChannels
-    ? codexAdvisorChannelKeyByTask.get(getProviderTaskKey(args.taskId))
-    : undefined;
   const retainedCodexMissionChannelKey = retainsCodexChannels
     ? codexMissionChannelKeyByTask.get(getProviderTaskKey(args.taskId))
     : undefined;
   const retainedCodexProjectChannelKey = retainsCodexChannels
     ? codexProjectChannelKeyByTask.get(getProviderTaskKey(args.taskId))
     : undefined;
-  let effectiveArgs: typeof args = {
+  const effectiveArgs: typeof args = {
     ...args,
-    runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
     staveTurnGrants: {
-      ...(retainedCodexAdvisorChannelKey
-        ? { consultKey: retainedCodexAdvisorChannelKey, advisorArmed: false }
-        : {}),
       ...(retainedCodexMissionChannelKey
         ? { missionKey: retainedCodexMissionChannelKey }
         : {}),
@@ -1024,254 +952,14 @@ async function runProviderTurnImpl(
         ? { projectKey: retainedCodexProjectChannelKey }
         : {}),
     },
-    ...(args.conversation
-      ? {
-          conversation: {
-            ...args.conversation,
-            contextParts: args.conversation.contextParts.filter(
-              (part) =>
-                part.type !== "retrieved_context" ||
-                (part.sourceId !== ADVISOR_BRIEFING_SOURCE_ID &&
-                  part.sourceId !== WORKER_BRIEFING_SOURCE_ID),
-            ),
-          },
-        }
-      : {}),
   };
-  // Sum of delegated model usage this turn. This includes Advisor consults and
-  // ACP Workers, and is read lazily so late usage is included in the primary
-  // turn's final total.
-  let accumulatedDelegatedUsage:
-    Extract<BridgeEvent, { type: "usage" }> | undefined;
-  let advisorGrantHandle: ReturnType<
-    typeof registerAdvisorConsultGrant
-  > | null = null;
-  const revokeAdvisorGrant = () => {
-    advisorGrantHandle?.revoke();
-    advisorGrantHandle = null;
-  };
-  const advisorTarget = normalizeAdvisorTarget(
-    args.runtimeOptions?.advisorTarget,
-  );
-  if (
-    args.executionPolicy !== "secondary-read-only" &&
-    (args.providerId === "claude-code" || args.providerId === "codex") &&
-    advisorTarget &&
-    shouldRunAdvisor({
-      conversation: effectiveArgs.conversation,
-      target: advisorTarget,
-    }) &&
-    effectiveArgs.conversation
-  ) {
-    // On-demand Advisor: instead of a blocking preflight, mint a turn-scoped
-    // consult grant and brief the primary on how to use it. The primary calls
-    // the `stave_consult_advisor` Local MCP tool on its scoped connection whenever
-    // it wants a second opinion; each consult streams its own
-    // `advisor_activity` exchange into this turn.
-    const consultKey =
-      args.providerId === "codex"
-        ? getOrCreateCodexAdvisorChannelKey(args.taskId)
-        : randomUUID();
-    const consultLimit = normalizeAdvisorConsultLimit(
-      args.runtimeOptions?.advisorConsultLimit,
-    );
-    advisorGrantHandle = registerAdvisorConsultGrant({
-      consultKey,
-      turnId,
-      requireTurnId: args.providerId === "codex" && Boolean(args.taskId?.trim()),
-      ...(args.taskId ? { taskId: args.taskId } : {}),
-      target: advisorTarget,
-      primaryProviderId: args.providerId,
-      ...(args.runtimeOptions?.model
-        ? { primaryModel: args.runtimeOptions.model }
-        : {}),
-      consultLimit,
-      cwd: args.cwd ?? process.cwd(),
-      runtimeOptions: {
-        ...(args.runtimeOptions?.claudeBinaryPath
-          ? { claudeBinaryPath: args.runtimeOptions.claudeBinaryPath }
-          : {}),
-        ...(args.runtimeOptions?.codexBinaryPath
-          ? { codexBinaryPath: args.runtimeOptions.codexBinaryPath }
-          : {}),
-      },
-      emit: (event) => lifecycle.emit(event),
-      // A consult is another model's latency, not the primary provider's
-      // generation budget. The per-exchange phase pause keeps a 90s consult
-      // from consuming the whole `providerTimeoutMs`.
-      pausePhase: (pauseArgs) => timeoutController.pausePhase(pauseArgs),
-      resumePhase: (pauseArgs) => timeoutController.resumePhase(pauseArgs),
-      addUsage: (usage) => {
-        accumulatedDelegatedUsage = accumulatedDelegatedUsage
-          ? mergeAdvisorUsage(accumulatedDelegatedUsage, usage)
-          : usage;
-      },
-    });
-    const grantHandle = advisorGrantHandle;
-    upsertActiveSession({
-      turnId,
-      providerId: args.providerId,
-      taskId: args.taskId,
-      skipAdvisor: () => grantHandle.skipInFlight(),
-    });
-    // Announce the grant before the primary starts: a turn whose primary never
-    // consults must still be visibly armed, otherwise "no consult" and "no
-    // Advisor" look identical in every surface.
-    lifecycle.emit(
-      buildAdvisorArmedEvent({
-        primaryProviderId: args.providerId,
-        ...(args.runtimeOptions?.model
-          ? { primaryModel: args.runtimeOptions.model }
-          : {}),
-        target: advisorTarget,
-        at: Date.now(),
-        consultLimit,
-      }),
-    );
-    const injection = appendAdvisorConsultBriefing({
-      conversation: effectiveArgs.conversation,
-      target: advisorTarget,
-      consultLimit,
-      turnId,
-    });
-    effectiveArgs = {
-      ...effectiveArgs,
-      conversation: injection.conversation,
-      staveTurnGrants: {
-        ...effectiveArgs.staveTurnGrants,
-        consultKey,
-        advisorArmed: true,
-      },
-    };
-  }
-
-  let acpWorkerGrant: {
-    workerKey: string;
-    profile: ResolvedWorkerProfile & { provider: "cursor" | "kiro" };
-  } | null = null;
-  let acpWorkerUnavailableDetail: string | null = null;
-  if (
-    args.executionPolicy !== "secondary-read-only" &&
-    (args.providerId === "cursor" || args.providerId === "kiro") &&
-    args.runtimeOptions?.workerIntent
-  ) {
-    try {
-      const catalog = await getProviderModelCatalog({
-        providerId: args.providerId,
-        cwd: args.cwd,
-        runtimeOptions: {
-          ...(args.runtimeOptions.cursorBinaryPath
-            ? { cursorBinaryPath: args.runtimeOptions.cursorBinaryPath }
-            : {}),
-          ...(args.runtimeOptions.kiroBinaryPath
-            ? { kiroBinaryPath: args.runtimeOptions.kiroBinaryPath }
-            : {}),
-        },
-      });
-      const resolution = resolveWorkerProfile({
-        providerId: args.providerId,
-        primaryModel: args.runtimeOptions.model?.trim() || "auto",
-        intent: args.runtimeOptions.workerIntent,
-        runtimeModels: catalog.models
-          .filter((model) => !model.hidden)
-          .map((model) => model.model),
-      });
-      if (
-        resolution.status === "ready" &&
-        resolution.profile.executionAdapter === "acp-tool"
-      ) {
-        const workerKey = randomUUID();
-        acpWorkerGrant = {
-          workerKey,
-          profile: {
-            ...resolution.profile,
-            provider: args.providerId,
-          },
-        };
-        effectiveArgs = effectiveArgs.conversation
-          ? {
-              ...effectiveArgs,
-              conversation: appendAcpWorkerBriefing({
-                conversation: effectiveArgs.conversation,
-                profile: resolution.profile,
-              }),
-            }
-          : {
-              ...effectiveArgs,
-              prompt: [
-                effectiveArgs.prompt,
-                buildAcpWorkerPrimaryInstructions({
-                  profile: resolution.profile,
-                }),
-              ]
-                .filter(Boolean)
-                .join("\n\n"),
-            };
-      } else if (resolution.status === "unavailable") {
-        acpWorkerUnavailableDetail = resolution.detail;
-      }
-    } catch {
-      acpWorkerUnavailableDetail =
-        "The runtime model catalog could not be loaded. Refresh provider availability and try again.";
-    }
-  }
-
-  const mapUsageForDownstream = createAdvisorUsageMerger(
-    () => accumulatedDelegatedUsage,
-  );
-  flushAdvisorUsage = mapUsageForDownstream.flush;
   const emittedPrimaryEvents: BridgeEvent[] = [];
   const emitPrimaryEvent = (event: BridgeEvent) => {
     const provenance = agentTurn?.observe(event);
     if (provenance) lifecycle.emit(provenance);
     emittedPrimaryEvents.push(event);
-    for (const mappedEvent of mapUsageForDownstream(event)) {
-      lifecycle.emit(mappedEvent);
-    }
+    lifecycle.emit(event);
   };
-  let acpWorkerGrantHandle: ReturnType<typeof registerAcpWorkerGrant> | null =
-    null;
-  const revokeAcpWorkerGrant = () => {
-    acpWorkerGrantHandle?.revoke();
-    acpWorkerGrantHandle = null;
-  };
-  if (acpWorkerUnavailableDetail) {
-    emitPrimaryEvent({
-      type: "error",
-      message: `Worker is unavailable for this turn: ${acpWorkerUnavailableDetail}`,
-      recoverable: true,
-    });
-  }
-  if (acpWorkerGrant) {
-    effectiveArgs.staveTurnGrants = {
-      ...effectiveArgs.staveTurnGrants,
-      workerKey: acpWorkerGrant.workerKey,
-    };
-    acpWorkerGrantHandle = registerAcpWorkerGrant({
-      workerKey: acpWorkerGrant.workerKey,
-      turnId,
-      ...(args.taskId ? { taskId: args.taskId } : {}),
-      profile: acpWorkerGrant.profile,
-      cwd: args.cwd ?? process.cwd(),
-      runtimeOptions: {
-        ...(args.runtimeOptions?.cursorBinaryPath
-          ? { cursorBinaryPath: args.runtimeOptions.cursorBinaryPath }
-          : {}),
-        ...(args.runtimeOptions?.kiroBinaryPath
-          ? { kiroBinaryPath: args.runtimeOptions.kiroBinaryPath }
-          : {}),
-      },
-      emit: wrapStreamOnEvent(emitPrimaryEvent),
-      pausePhase: (pauseArgs) => timeoutController.pausePhase(pauseArgs),
-      resumePhase: (pauseArgs) => timeoutController.resumePhase(pauseArgs),
-      addUsage: (usage) => {
-        accumulatedDelegatedUsage = accumulatedDelegatedUsage
-          ? mergeAdvisorUsage(accumulatedDelegatedUsage, usage)
-          : usage;
-      },
-      registerApprovalResponder: approvalRouter.registerNested,
-    });
-  }
   // A mission turn reports its stage through Local MCP. The grant names the
   // stage attempt, so the host resolves identity from the key and the model
   // never passes it. Missions run on Claude and Codex tasks only.
@@ -1323,9 +1011,25 @@ async function runProviderTurnImpl(
       projectKey,
     };
   }
+  // Every task turn names itself to Local MCP, so a tool resolves its caller
+  // from the host instead of trusting the ids a model passes.
+  const callerGrantHandle = missionTaskId && args.executionPolicy !== "secondary-read-only"
+    ? registerCallerGrant({
+        taskId: missionTaskId,
+        turnId,
+        workspaceId: args.workspaceId?.trim() || null,
+        providerId: args.providerId,
+        autonomy: args.turnPolicy?.autonomy ?? null,
+      })
+    : null;
+  if (callerGrantHandle) {
+    effectiveArgs.staveTurnGrants = {
+      ...effectiveArgs.staveTurnGrants,
+      callerKey: callerGrantHandle.key,
+    };
+  }
   revokeTurnGrants = () => {
-    revokeAdvisorGrant();
-    revokeAcpWorkerGrant();
+    callerGrantHandle?.revoke();
     missionGrantHandle?.revoke();
     missionGrantHandle = null;
     projectGrantHandle?.revoke();
@@ -1695,17 +1399,6 @@ export const providerRuntime: ProviderRuntime = {
     }
     return { ok: true, message: "Provider turn aborted." };
   },
-  skipAdvisor: ({ turnId }) => {
-    const ok = skipAdvisorForTurn({ turnId });
-    if (!ok) {
-      return { ok: false, message: "No Advisor preflight is running." };
-    }
-    return { ok: true, message: "Advisor preflight skipped." };
-  },
-  // The grant registry lives in this process because this is where grants are
-  // minted; the Local MCP tool reaches it through `provider.consult-advisor`.
-  consultAdvisor: (args) => consultAdvisor(args),
-  runAcpWorker: (args) => runAcpWorker(args),
   cleanupTask: ({ taskId }) => {
     clearActiveTaskSessions({ taskId });
     cleanupProviderTaskState(taskId);
@@ -1830,7 +1523,6 @@ export const providerRuntime: ProviderRuntime = {
         taskIds.add(session.taskId);
       }
     }
-    disposeAllAcpWorkerGrants();
 
     // Wait for in-flight turn promises so their `.finally()` → `onDone()`
     // callbacks complete *before* the caller closes the persistence layer.
@@ -1844,7 +1536,6 @@ export const providerRuntime: ProviderRuntime = {
     if (completedStreamExpiryTimer) clearTimeout(completedStreamExpiryTimer);
     completedStreamExpiryTimer = null;
     activeTurnPromises.clear();
-    codexAdvisorChannelKeyByTask.clear();
     codexMissionChannelKeyByTask.clear();
     codexProjectChannelKeyByTask.clear();
     cleanupProviderTaskState(DEFAULT_PROVIDER_TASK_KEY);

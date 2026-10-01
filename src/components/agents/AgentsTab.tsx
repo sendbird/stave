@@ -280,7 +280,7 @@ function AgentDetail(props: {
             ) : null}
             <Button size="sm" variant="quiet" onClick={props.onDuplicate}>
               <Copy aria-hidden />
-              Duplicate
+              {editable ? "Duplicate" : "Duplicate and edit"}
             </Button>
             {editable ? (
               <>
@@ -369,7 +369,8 @@ export function AgentsTab() {
   const repository = useRepositoryAgents(rootPath);
   const repositoryAgents = useMemo(() => repository.scan.agents.map((entry) => entry.agent), [repository.scan]);
   const agents = useMemo(() => listAgents({ custom, repository: repositoryAgents }), [custom, repositoryAgents]);
-  const templates = useMemo(() => agents.filter((agent) => agent.source !== "custom"), [agents]);
+  // Worker presets are narrow, worker-only roles: not a useful place to start a new agent.
+  const templates = useMemo(() => agents.filter((agent) => agent.source !== "custom" && !agent.workerPresetId), [agents]);
   const takenIds = useMemo(() => agents.map((agent) => agent.id), [agents]);
   const problems = useMemo(
     () => [...repository.scan.problems, ...hiddenRepositoryAgents({ custom, repository: repositoryAgents })],

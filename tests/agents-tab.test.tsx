@@ -32,6 +32,7 @@ describe("agents view", () => {
     expect(groups.map((group) => group.label)).toEqual(["Custom", "Built-in"]);
     expect(groupAgents(listAgents({ custom: [] }), "commit").flatMap((group) => group.agents.map((agent) => agent.id))).toEqual([
       "reviewer",
+      "shipper",
     ]);
   });
 

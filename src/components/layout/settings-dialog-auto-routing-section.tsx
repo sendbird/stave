@@ -83,8 +83,8 @@ const PROVIDER_SELECTORS: ReadonlyArray<{ value: RouteProviderSelector; label: s
 const EFFORT_VALUES = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
 const ROLE_HINTS: Readonly<Record<RouterRole, string>> = {
   primary: "Rules without a role apply here. First match wins, top to bottom.",
-  advisor: "Decides the Advisor when its target is left on Auto.",
-  worker: "Consulted before the worker preset's own model when the worker is on Auto.",
+  advisor: "No longer used: second opinions are read-only subagents.",
+  worker: "No longer used: in-turn subagents run on their agent's model.",
   delegate: "Seeds the model and effort a delegated task starts with.",
 };
 

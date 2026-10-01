@@ -1,4 +1,3 @@
-import type { WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
 import type { BridgeEvent } from "./types";
 import { appendBoundedText, truncateBufferedText } from "./provider-buffering";
 import { isRecord } from "./codex-app-server-json";
@@ -109,7 +108,6 @@ function foreignToolOutput(item: ForeignToolItem, bufferedOutput: string) {
 
 function buildCollabInput(
   item: CollabToolCallItem,
-  workerExecution: WorkerExecutionMetadata | null,
   inputMaxBytes: number,
   identity: {
     agentId: string;
@@ -143,9 +141,6 @@ function buildCollabInput(
       inputMaxBytes,
     ),
     state: "input-available",
-    ...(workerExecution && toolName === "spawn_agent"
-      ? { workerExecution }
-      : {}),
     ...(identity.agentId ? { agentId: identity.agentId } : {}),
     ...(identity.parentToolUseId
       ? { parentToolUseId: identity.parentToolUseId }
@@ -183,7 +178,6 @@ function buildCollabResult(
 }
 
 export function createCodexWorkerActivityMapper(args: {
-  workerExecution: WorkerExecutionMetadata | null;
   inputMaxBytes: number;
   outputMaxBytes: number;
 }) {
@@ -280,9 +274,6 @@ export function createCodexWorkerActivityMapper(args: {
                 ...(agentThreadId ? { agentThreadId } : {}),
               }),
               state: "input-available",
-              ...(args.workerExecution
-                ? { workerExecution: args.workerExecution }
-                : {}),
               ...(agentThreadId ? { agentId: agentThreadId } : {}),
             },
           ],
@@ -305,7 +296,6 @@ export function createCodexWorkerActivityMapper(args: {
         events: [
           buildCollabInput(
             item,
-            args.workerExecution,
             args.inputMaxBytes,
             buildCollabIdentity(item),
           ),
@@ -333,7 +323,6 @@ export function createCodexWorkerActivityMapper(args: {
             ? [
                 buildCollabInput(
                   item,
-                  args.workerExecution,
                   args.inputMaxBytes,
                   buildCollabIdentity(item),
                 ),

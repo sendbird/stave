@@ -3,18 +3,13 @@ import {
   describeAgentIdentity,
   describeDeadline,
   describeExchangeStatus,
-  exchangeStatusFromAdvisorOutcome,
   exchangeStatusFromDelegatedTaskPhase,
   exchangeStatusFromToolState,
   exchangeStatusFromWorkGraphStatus,
   formatEffortLabel,
   formatExchangeDuration,
 } from "@/lib/delegation/format";
-import { formatAdvisorDuration } from "@/lib/providers/advisor-activity";
 import { formatTurnActivityElapsedSeconds } from "@/components/session/turn-activity.utils";
-import { describeAdvisorParticipant } from "@/components/session/advisor-exchange.utils";
-import { describeDelegationPlan } from "@/components/team/DelegateTaskForm";
-import { createEmptyDelegationDraft } from "@/lib/collaboration/delegation-draft";
 
 describe("formatExchangeDuration", () => {
   test("uses one scale from sub-second to hours", () => {
@@ -33,9 +28,7 @@ describe("formatExchangeDuration", () => {
     expect(formatExchangeDuration(-500)).toBe("0s");
   });
 
-  test("the advisor and turn-activity formatters share the implementation", () => {
-    expect(formatAdvisorDuration(2_400)).toBe(formatExchangeDuration(2_400));
-    expect(formatAdvisorDuration(64_000)).toBe("1m 4s");
+  test("the turn-activity formatter shares the implementation", () => {
     expect(formatTurnActivityElapsedSeconds(64)).toBe("1m 4s");
     expect(formatTurnActivityElapsedSeconds(4)).toBe("4s");
     expect(formatTurnActivityElapsedSeconds(3_720)).toBe("1h 2m");
@@ -106,21 +99,6 @@ describe("describeAgentIdentity", () => {
     expect(formatEffortLabel("ultra")).toBe("Ultra");
     expect(formatEffortLabel("custom")).toBe("Custom");
   });
-
-  test("the advisor participant line goes through the same vocabulary", () => {
-    expect(
-      describeAdvisorParticipant({
-        providerId: "codex",
-        model: "gpt-5.6-sol",
-      }),
-    ).toBe("GPT-5.6 Sol");
-    expect(describeAdvisorParticipant({})).toBe("Not resolved");
-  });
-
-  test("the delegation plan names the provider from the catalog", () => {
-    const draft = { ...createEmptyDelegationDraft(), providerId: "codex" as const };
-    expect(describeDelegationPlan(draft).startsWith("Codex · ")).toBe(true);
-  });
 });
 
 describe("exchange status vocabulary", () => {
@@ -132,16 +110,6 @@ describe("exchange status vocabulary", () => {
     });
     expect(describeExchangeStatus("running").settled).toBe(false);
     expect(describeExchangeStatus("timed_out").label).toBe("Timed out");
-  });
-
-  test("adapts advisor outcomes", () => {
-    expect(exchangeStatusFromAdvisorOutcome("pending")).toBe("running");
-    expect(exchangeStatusFromAdvisorOutcome("completed")).toBe("returned");
-    expect(exchangeStatusFromAdvisorOutcome("timeout")).toBe("timed_out");
-    expect(exchangeStatusFromAdvisorOutcome("skipped")).toBe("cancelled");
-    expect(exchangeStatusFromAdvisorOutcome("aborted")).toBe("cancelled");
-    expect(exchangeStatusFromAdvisorOutcome("armed")).toBe("queued");
-    expect(exchangeStatusFromAdvisorOutcome("unresolved")).toBe("unresolved");
   });
 
   test("adapts transcript tool states", () => {

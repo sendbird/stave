@@ -41,7 +41,6 @@ import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
-import { resolvePromptDraftModelForProvider } from "@/store/prompt-draft-runtime";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -61,8 +60,6 @@ import {
   CodexBinaryPathCard,
 } from "./settings-dialog-developer-section";
 import { ClaudeInstalledPluginsField } from "./settings-dialog-claude-plugins";
-import { SettingsAdvisorSection } from "./settings-dialog-advisor-section";
-import { SettingsWorkerSection } from "./settings-dialog-worker-section";
 import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettingsCard";
 import { SettingsDelegationSection } from "./settings-dialog-delegation-section";
 import { SettingsCursorSection } from "./settings-dialog-cursor-section";
@@ -618,8 +615,6 @@ function ProviderModePresetButtons(args: {
 
 export function ProvidersSection() {
   const [
-    modelClaude,
-    modelCursor,
     claudePermissionMode,
     claudePlanModeApprovalScope,
     claudeAllowDangerouslySkipPermissions,
@@ -628,12 +623,6 @@ export function ProvidersSection() {
     claudeSandboxCredentialFiles,
     claudeSandboxCredentialEnvVars,
     claudeTaskBudgetTokens,
-    advisorEnabled,
-    advisorTarget,
-    advisorTargetByProvider,
-    advisorConsultLimit,
-    workerEnabled,
-    workerConfigByProvider,
     claudeSettingSources,
     claudeEffort,
     claudeThinkingMode,
@@ -660,10 +649,6 @@ export function ProvidersSection() {
     codexReasoningSummarySupport,
     codexFastMode,
     trustedTools,
-    draftProvider,
-    codexBinaryPath,
-    activeTaskProvider,
-    activeTaskModelOverride,
     providerBrowserAutoFallback,
     providerBrowserAutoFallbackDomains,
     claudeRuntimeCapabilities,
@@ -672,8 +657,6 @@ export function ProvidersSection() {
     useShallow(
       (state) =>
         [
-          state.settings.modelClaude,
-          state.settings.modelCursor,
           state.settings.claudePermissionMode,
           state.settings.claudePlanModeApprovalScope,
           state.settings.claudeAllowDangerouslySkipPermissions,
@@ -682,12 +665,6 @@ export function ProvidersSection() {
           state.settings.claudeSandboxCredentialFiles,
           state.settings.claudeSandboxCredentialEnvVars,
           state.settings.claudeTaskBudgetTokens,
-          state.settings.advisorEnabled,
-          state.settings.advisorTarget,
-          state.settings.advisorTargetByProvider,
-          state.settings.advisorConsultLimit,
-          state.settings.workerEnabled,
-          state.settings.workerConfigByProvider,
           state.settings.claudeSettingSources,
           state.settings.claudeEffort,
           state.settings.claudeThinkingMode,
@@ -714,12 +691,6 @@ export function ProvidersSection() {
           state.settings.codexReasoningSummarySupport,
           state.settings.codexFastMode,
           state.settings.trustedTools,
-          state.draftProvider,
-          state.settings.codexBinaryPath,
-          state.tasks.find((task) => task.id === state.activeTaskId)
-            ?.provider ?? null,
-          state.promptDraftByTask[state.activeTaskId]?.runtimeOverrides
-            ?.model ?? null,
           state.settings.providerBrowserAutoFallback,
           state.settings.providerBrowserAutoFallbackDomains,
           state.providerRuntimeCapabilities["claude-code"],
@@ -783,19 +754,6 @@ export function ProvidersSection() {
     !codexRuntimeCapabilities.webSearchModes.includes("indexed")
       ? "cached"
       : codexWebSearch;
-  const executorProvider = activeTaskProvider ?? draftProvider;
-  const executorModel = resolvePromptDraftModelForProvider({
-    providerId: executorProvider,
-    runtimeOverrides: activeTaskModelOverride
-      ? { model: activeTaskModelOverride }
-      : undefined,
-    fallbackModel:
-      executorProvider === "claude-code"
-        ? modelClaude
-        : executorProvider === "codex"
-          ? modelCodex
-          : modelCursor,
-  });
   const toggleClaudeSettingSource = (source: "user" | "project" | "local") => {
     updateSettings({
       patch: {
@@ -835,22 +793,6 @@ export function ProvidersSection() {
             patch: { providerBrowserAutoFallbackDomains: value },
           })
         }
-      />
-      <SettingsAdvisorSection
-        advisorEnabled={advisorEnabled}
-        advisorTarget={advisorTarget}
-        advisorTargetByProvider={advisorTargetByProvider}
-        advisorConsultLimit={advisorConsultLimit}
-        codexBinaryPath={codexBinaryPath}
-        executorProvider={executorProvider}
-        executorModel={executorModel}
-        executorIsActiveTask={activeTaskProvider !== null}
-        onChange={(patch) => updateSettings({ patch })}
-      />
-      <SettingsWorkerSection
-        workerEnabled={workerEnabled}
-        workerConfigByProvider={workerConfigByProvider}
-        onChange={(patch) => updateSettings({ patch })}
       />
       <SettingsDelegationSection />
       <SettingsCard

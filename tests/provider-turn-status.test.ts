@@ -1189,45 +1189,6 @@ describe("provider turn status helpers", () => {
     expect(tracked["task-1"]?.orderedWorkItemIds).toEqual(["bash-1"]);
   });
 
-  test("does not prefix a delegation already named Worker", () => {
-    const started = startProviderTurnActivity({
-      activityByTask: {},
-      taskId: "task-1",
-      turnId: "turn-1",
-      providerId: "cursor",
-      now: 1000,
-    });
-    const tracked = applyProviderTurnActivityEvents({
-      activityByTask: started,
-      taskId: "task-1",
-      turnId: "turn-1",
-      providerId: "cursor",
-      now: 2000,
-      events: [
-        {
-          type: "tool",
-          toolUseId: "worker-1",
-          // ACP agents name the delegation tool `Worker`, which used to yield
-          // a row reading `Worker · Worker`.
-          toolName: "Worker",
-          input: "Sweep the callers",
-          state: "input-available",
-          workerExecution: {
-            providerId: "codex",
-            primaryModel: "gpt-5.6-sol",
-            presetId: "verified-patch",
-            workerModel: "gpt-5.6-terra",
-            workerEffort: "max",
-          },
-        },
-      ],
-    });
-
-    const item = tracked["task-1"]?.workItemsById["worker-1"];
-    expect(item?.title).toBe("Worker");
-    expect(item?.kind).toBe("subagent");
-  });
-
   test("tracks plain tool calls with input-derived detail and a bounded tail", () => {
     const started = startProviderTurnActivity({
       activityByTask: {},

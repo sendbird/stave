@@ -3,8 +3,8 @@ import type { StaveLocalMcpStatus } from "@/lib/local-mcp";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
 /**
- * Whether the agent-facing Local MCP tools (`stave_consult_advisor`,
- * `stave_delegate_task`, …) can actually be called right now.
+ * Whether the agent-facing Local MCP tools (`stave_delegate_task`, …) can
+ * actually be called right now.
  *
  * Both capabilities are armed in one place and delivered in another: the user
  * arms them in the composer or Settings, but the tool only reaches the model

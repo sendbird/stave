@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
-import { formatWorkerExecutionMetadata, type WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import { ToolInput, ToolOutput, getStatusBadge } from "./tool";
 import { subagentStyles as s } from "./subagent.styles";
 
@@ -26,7 +25,6 @@ interface SubagentCardProps extends HTMLAttributes<HTMLDivElement> {
   defaultOpen?: boolean;
   /** Live progress messages streamed from the running subagent. */
   progressMessages?: string[];
-  workerExecution?: WorkerExecutionMetadata;
 }
 
 export function parseSubagentToolInput(args: { input: string }): ParsedSubagentToolInput {
@@ -76,7 +74,7 @@ function firstLine(text: string): string {
   return idx === -1 ? text : text.slice(0, idx);
 }
 
-export function SubagentCard({ className, input, output, state, defaultOpen = false, progressMessages, workerExecution, ...props }: SubagentCardProps) {
+export function SubagentCard({ className, input, output, state, defaultOpen = false, progressMessages, ...props }: SubagentCardProps) {
   const [open, setOpen] = useState(defaultOpen);
   const details = useMemo(() => parseSubagentToolInput({ input }), [input]);
   const title = details.description ?? details.subagentType ?? "Subagent activity";
@@ -101,9 +99,8 @@ export function SubagentCard({ className, input, output, state, defaultOpen = fa
           <div className={sx(s.titleRow)}>
             <span className={sx(s.kindLabel)}>
               <Bot className={sx(s.kindIcon)} />
-              {workerExecution ? "Worker" : "Subagent"}
+              Subagent
             </span>
-            {workerExecution ? <Badge variant="outline">{formatWorkerExecutionMetadata(workerExecution)}</Badge> : null}
             {details.subagentType ? <Badge variant="secondary">{details.subagentType}</Badge> : null}
           </div>
           <p className={sx(s.title)}>{title}</p>

@@ -1,5 +1,10 @@
 import { AGENT_CONFIG_VERSION, AgentConfigSchema, MAX_AGENT_CONFIGS, type AgentConfig, type AgentSource } from "./schema";
-import { BUILTIN_AGENTS } from "./starters";
+import { BUILTIN_AGENTS, RETIRED_BUILTIN_AGENT_ALIASES } from "./starters";
+
+/** Ids a custom agent cannot take: every built-in, and the retired ones that still resolve. */
+function reservedAgentIds(): string[] {
+  return [...BUILTIN_AGENTS.map((agent) => agent.id), ...Object.keys(RETIRED_BUILTIN_AGENT_ALIASES)];
+}
 
 /**
  * The agent list the product shows, and the rules for the custom agents kept
@@ -31,7 +36,7 @@ export function normalizeCustomAgents(input: unknown): { agents: AgentConfig[]; 
   if (!Array.isArray(input)) return { agents: [], rejected: [{ value: input, issues: ["Saved agents are not a list."] }] };
   const agents: AgentConfig[] = [];
   const rejected: UnreadableAgent[] = [];
-  const seen = new Set<string>(BUILTIN_AGENTS.map((agent) => agent.id));
+  const seen = new Set<string>(reservedAgentIds());
   for (const candidate of input) {
     const parsed = AgentConfigSchema.safeParse(candidate);
     if (!parsed.success) {
@@ -142,7 +147,7 @@ function uniqueId(base: string, taken: ReadonlySet<string>) {
  * A copy of a Worker preset mirror stops being a mirror: it has its own text.
  */
 export function duplicateAgent(agent: AgentConfig, takenIds: Iterable<string>): AgentConfig {
-  const taken = new Set([...takenIds, ...BUILTIN_AGENTS.map((builtin) => builtin.id)]);
+  const taken = new Set([...takenIds, ...reservedAgentIds()]);
   const { origin: _origin, workerPresetId: _workerPresetId, ...rest } = agent;
   return AgentConfigSchema.parse({
     ...rest,
@@ -160,7 +165,7 @@ export function duplicateAgent(agent: AgentConfig, takenIds: Iterable<string>): 
  * id is derived from the name and made unique against `takenIds`.
  */
 export function blankCustomAgent(args: { name: string; takenIds: Iterable<string> }): AgentConfig {
-  const taken = new Set([...args.takenIds, ...BUILTIN_AGENTS.map((builtin) => builtin.id)]);
+  const taken = new Set([...args.takenIds, ...reservedAgentIds()]);
   const stem = args.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -186,7 +191,7 @@ export function blankCustomAgent(args: { name: string; takenIds: Iterable<string
 export function upsertCustomAgent(list: readonly AgentConfig[], agent: AgentConfig): AgentConfig[] {
   const parsed = AgentConfigSchema.parse(agent);
   if (parsed.source !== "custom") throw new Error("Only custom agents can be saved.");
-  if (BUILTIN_AGENTS.some((builtin) => builtin.id === parsed.id)) throw new Error(`"${parsed.id}" is a built-in agent id.`);
+  if (reservedAgentIds().includes(parsed.id)) throw new Error(`"${parsed.id}" is a built-in agent id.`);
   const index = list.findIndex((candidate) => candidate.id === parsed.id);
   if (index < 0) {
     if (list.length >= MAX_AGENT_CONFIGS) throw new Error(`You have ${MAX_AGENT_CONFIGS} custom agents, the most Stave keeps.`);

@@ -39,6 +39,8 @@ export interface DelegatedTaskHostTaskStatus {
   latestTurnOutcome?:
     | import("../../persistence/turn-terminal-receipt").TurnTerminalOutcome
     | null;
+  /** The targeted turn's final answer, when the turn wrote one. */
+  latestAssistantText?: string | null;
 }
 
 export interface DelegatedTaskHostPortDependencies {
@@ -174,37 +176,38 @@ export function createDelegatedTaskHostPort(
       void check();
     });
 
-  /** The turn's terminal error, if it ended with one. Best effort. */
-  const readTurnError = async (args: {
-    workspaceId: string;
-    taskId: string;
-    turnId: string;
-  }) => {
-    try {
-      const status = await dependencies.getTaskStatus(args);
-      if (status.latestTurnId !== args.turnId || !status.latestTurnCompletedAt)
-        return new DelegatedTaskTurnError(
-          "The provider turn's terminal result is unavailable.",
-          "unknown",
-        );
-      if (status.latestTurnOutcome === "unknown")
-        return new DelegatedTaskTurnError(
-          "The provider turn's terminal result is unknown.",
-          "unknown",
-        );
-      if (status.latestTurnOutcome === "cancelled")
-        return new DelegatedTaskTurnError(
-          status.latestTurnError ??
-            "Provider turn was interrupted before it completed.",
-          "cancelled",
-        );
-      return status.latestTurnError;
-    } catch {
+  const turnError = (args: { turnId: string }, status: DelegatedTaskHostTaskStatus) => {
+    if (status.latestTurnId !== args.turnId || !status.latestTurnCompletedAt)
       return new DelegatedTaskTurnError(
         "The provider turn's terminal result is unavailable.",
         "unknown",
       );
-    }
+    if (status.latestTurnOutcome === "unknown")
+      return new DelegatedTaskTurnError(
+        "The provider turn's terminal result is unknown.",
+        "unknown",
+      );
+    if (status.latestTurnOutcome === "cancelled")
+      return new DelegatedTaskTurnError(
+        status.latestTurnError ??
+          "Provider turn was interrupted before it completed.",
+        "cancelled",
+      );
+    return status.latestTurnError;
+  };
+
+  /** The turn's terminal error, if it ended with one, else its answer. Best effort. */
+  const readTurnResult = async (args: {
+    workspaceId: string;
+    taskId: string;
+    turnId: string;
+  }): Promise<{ error: DelegatedTaskTurnError | string | null; responseText?: string }> => {
+    const status = await dependencies.getTaskStatus(args).catch(() => null);
+    const error = status ? turnError(args, status) : new DelegatedTaskTurnError(
+      "The provider turn's terminal result is unavailable.",
+      "unknown",
+    );
+    return { error, ...(status?.latestAssistantText ? { responseText: status.latestAssistantText } : {}) };
   };
 
   return {
@@ -253,6 +256,7 @@ export function createDelegatedTaskHostPort(
           latestTurnCompletedAt: status.latestTurnCompletedAt,
           latestTurnError: status.latestTurnError,
           latestTurnOutcome: status.latestTurnOutcome,
+          latestAssistantText: status.latestAssistantText ?? null,
         };
       } catch (error) {
         // The host runtime throws `Task not found:` / `Workspace not found:`
@@ -304,19 +308,19 @@ export function createDelegatedTaskHostPort(
         taskId,
         turnId: started.turnId,
       });
-      const turnError = await readTurnError({
+      const result = await readTurnResult({
         workspaceId,
         taskId,
         turnId: started.turnId,
       });
-      if (turnError) {
+      if (result.error) {
         // Mirrors the restart reconcile path: a turn that ended with a
         // terminal error fails the delegation with that error. A turn ended
         // by the parent's own stop lands here too, but by then the row is
         // already cancelled and the coordinator records nothing further.
-        throw turnError instanceof Error ? turnError : new Error(turnError);
+        throw result.error instanceof Error ? result.error : new Error(result.error);
       }
-      return { turnId: started.turnId };
+      return { turnId: started.turnId, ...(result.responseText ? { responseText: result.responseText } : {}) };
     },
 
     async stopTask(args) {

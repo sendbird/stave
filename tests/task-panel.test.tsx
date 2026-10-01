@@ -77,7 +77,7 @@ test("the rail has one Task entry whose tabs replace the five task panels", () =
   expect(TASK_PANEL_TABS.map((tab) => tab.label)).toEqual([
     "Activity",
     "Progress",
-    "Team",
+    "Subagents",
     "Results",
   ]);
 });
@@ -130,16 +130,13 @@ test("a direct task's Progress carries no mission upsell", () => {
   expect(html).not.toContain("Manage playbooks");
 });
 
-test("Team hosts the delegations section for a repository task, read-only when managed", () => {
+test("Subagents lists the task's subagents for a repository task", () => {
   expect(render({ tab: "team" })).toContain("available in a local repository task");
 
-  let html = render({ tab: "team", repositoryPath: "/tmp/repo" });
-  expect(selectedTab(html)).toBe("Team");
-  expect(html).toContain('data-testid="delegations-panel"');
-  expect(html).not.toContain("Managed task. Take over to change delegations.");
-
-  html = render({ tab: "team", repositoryPath: "/tmp/repo", managed: true });
-  expect(html).toContain("Managed task. Take over to change delegations.");
+  const html = render({ tab: "team", repositoryPath: "/tmp/repo" });
+  expect(selectedTab(html)).toBe("Subagents");
+  expect(html).toMatch(/Loading subagents|No subagents yet/);
+  expect(html).not.toContain("Advisor");
 });
 
 test("Progress marks a mission that needs the user", () => {
@@ -160,7 +157,7 @@ test("Progress marks a mission that needs the user", () => {
 test("the connected panel asks for a task when none is open", () => {
   useAppStore.setState({ activeTaskId: "", tasks: [] } as never);
   expect(renderToStaticMarkup(createElement(TaskPanel))).toContain(
-    "Open a task to see its activity, progress, team and results.",
+    "Open a task to see its activity, progress, subagents and results.",
   );
 });
 

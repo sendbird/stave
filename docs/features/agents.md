@@ -6,8 +6,8 @@ An agent is who runs a task: its instructions, how it picks a model, the tools
 it may use, whether it is read only, and where it works. Assign work to an agent
 and Stave makes the task — in a new worktree or in the current workspace — and
 starts it. Every later turn of that task runs as the same version of the agent.
-A Worker is different: a helper a task's model hands one piece of work to
-within a turn.
+An agent can also be a **subagent**: an agent another agent calls for one
+piece of its work, inside its turn or as a delegated task.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
 own start. A task that runs as an Agent runs **autonomously**: no routine
@@ -174,9 +174,8 @@ The composer's selector (`Alt+P`) always has two sections and one search box:
 that can run a task). Typing in the search also lists the agents that match.
 What you pick decides how the task runs:
 
-- **A model is Chat.** The model runs the task with the task's own permissions
-  and its Worker, as it always did. If an agent was running the task, picking a
-  model ends it.
+- **A model is Chat.** The model runs the task with the task's own permissions,
+  as it always did. If an agent was running the task, picking a model ends it.
 - **An agent is Agent mode.** The agent runs the task from the next turn and
   picks its own model: Stave Auto routes every turn, using the agent's task
   class as its starting point. An agent with a fixed model uses it as its
@@ -193,22 +192,21 @@ What you pick decides how the task runs:
   as, and each agent's History counts the turns it ran. Choosing another
   agent is locked while a turn runs or waits for an answer, and a switch to an
   agent with a wider permission asks first.
-- A task that runs as an agent has no Worker. The agent hands work to other
-  agents itself through delegation.
+- A task that runs as an agent calls other agents itself, as subagents.
 
-### Usable as and the Worker picker
+### Usable as
 
 A custom agent's **Usable as** chooses where it can be used: **Main agent**
-(Start work / Kickoff), **Worker** (the composer's Worker mode) and **Delegated
-task**. Duplicate the built-in **Reviewer** and turn on **Main agent** to start
-work with it directly.
+(Start work / Kickoff), **Subagent in a turn** (called inside a lead agent's
+turn) and **Subagent as a task** (a delegated task). Duplicate the built-in
+**Reviewer** and turn on **Main agent** to start work with it directly.
 
-Custom agents usable as a Worker appear under **Agents as Worker** in the
-composer's Worker menu. A Worker agent takes on part of a turn while the task
-keeps its own model; to have an agent run the whole task, use the model
-picker's **Agents** tab. Picking one copies its instructions and tool list into
-this task's Worker; edit the agent and pick it again to refresh the copy.
-Picking a preset afterwards clears it.
+Every turn of a task that runs as an agent registers the agents it may call
+as its in-turn subagents: its **Can call** list, or every agent usable as a
+subagent in a turn when the list is open, at most eight. Claude calls them with
+the Agent tool, under the lead's permissions; Codex starts them with
+`spawn_agent` from the instructions Stave hands it. Either way they run one
+level deep and their answers come back into the turn.
 
 ### Can call
 
@@ -225,7 +223,7 @@ files leave **Can call** out.
 **My standards**, its own tab on the Agents surface, holds your own rules for
 every agent you run — how you want code written, reviewed or reported. Turned
 on, they are added after each agent's instructions when you assign work,
-delegate to an agent or pick one as a Worker. A task keeps the standards it
+delegate to an agent or it runs as a subagent. A task keeps the standards it
 started with; **What it received** lists them as a source. They stay in your
 settings and are never written into an exported agent file.
 
@@ -307,7 +305,7 @@ Fleet's search finds its tasks.
 | Works in | New worktree, Current workspace | New worktree uses Kickoff's branch (Start now takes the one Skip AI proposes); Current workspace adds a task where you are |
 | Permission | Read only, or full access (saved as Manual, Guided or Auto) | Read only keeps every turn in the read-only posture and works in the current workspace; any other value runs autonomously |
 | Model | Auto-routing, or a fixed provider, model and effort | With Stave Auto on, the task stays on Auto and every turn is routed, with the agent's task class as the fallback; with it off, your routing rules pick one model and effort for the task when it starts |
-| Usable as | Main agent, Worker, Delegated task | Built-in Worker presets are usable only as a Worker |
+| Usable as | Main agent, Subagent in a turn, Subagent as a task | Built-in subagents (Scout, Sweep, …) are usable only in a turn |
 
 ## Behavior Details
 

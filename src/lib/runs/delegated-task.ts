@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  RUN_RESPONSE_TEXT_MAX_CHARS,
   RunIdSchema,
   RunRecordSchema,
   RunStatusSchema,
@@ -29,6 +30,18 @@ export const DELEGATED_TASK_RUN_ID_PREFIX = "child-task";
 export const DELEGATED_TASK_DEFAULT_CONCURRENCY_LIMIT = 3;
 export const DELEGATED_TASK_MAX_CONCURRENCY_LIMIT = 16;
 export const DELEGATED_TASK_LIST_LIMIT = 50;
+/** How long `stave_delegate_task` may hold the caller for an answer. */
+export const DELEGATED_TASK_WAIT_DEFAULT_SECONDS = 120;
+export const DELEGATED_TASK_WAIT_MAX_SECONDS = 180;
+
+/** Seconds a delegate call waits: read-only subagents wait unless told not to. */
+export function resolveDelegatedTaskWaitSeconds(
+  wait: boolean | number | undefined,
+  access: DelegationAccess | undefined,
+): number {
+  if (typeof wait === "number") return Math.min(Math.max(1, Math.floor(wait)), DELEGATED_TASK_WAIT_MAX_SECONDS);
+  return (wait ?? access === "read-only") ? DELEGATED_TASK_WAIT_DEFAULT_SECONDS : 0;
+}
 
 /**
  * Omission inherits host-resolved user permissions. Explicit profiles only
@@ -162,12 +175,18 @@ export const DelegateTaskToolInputSchema = z.object({
   repositoryPath: z
     .string()
     .min(1)
-    .describe("Project root path that owns the parent workspace."),
+    .optional()
+    .describe("Omit inside a Stave turn. Project root path that owns the parent workspace."),
   parentWorkspaceId: z
     .string()
     .min(1)
-    .describe("Workspace id of the delegating (parent) task."),
-  parentTaskId: z.string().min(1).describe("Id of the delegating task."),
+    .optional()
+    .describe("Omit inside a Stave turn. Workspace id of the calling task."),
+  parentTaskId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Omit inside a Stave turn: the calling task is used, and any other id is refused."),
   prompt: z.string().min(1).describe("Prompt to run in the delegated task."),
   access: DelegatedTaskAccessSchema.optional().describe(
     "Use `read-only` for second opinions, reviews and research: the child cannot change files, runs in parallel with other work in this workspace, and needs no approvals. `inherit` (default) runs with this task's own permissions for the same provider, otherwise the target provider's user settings.",
@@ -194,7 +213,7 @@ export const DelegateTaskToolInputSchema = z.object({
     ])
     .optional()
     .describe(
-      "Where the child runs. Defaults to the same workspace; use `new-worktree` for edits that must stay isolated.",
+      "Where the subagent runs. Defaults to a new worktree for a writer and this workspace for a read-only subagent or pinned work. A writer in this workspace is refused while another writing subagent runs here.",
     ),
   title: z.string().optional().describe("Optional delegated task title."),
   delegationKey: z
@@ -225,6 +244,12 @@ export const DelegateTaskToolInputSchema = z.object({
   permissionProfile: DelegatedTaskPermissionProfileSchema.optional().describe(
     "Deprecated and ignored; use `access`.",
   ),
+  wait: z
+    .union([z.boolean(), z.number().int().min(1).max(DELEGATED_TASK_WAIT_MAX_SECONDS)])
+    .optional()
+    .describe(
+      `Wait for the subagent's answer and return it as \`child.result\`. Defaults to true for read-only subagents and false otherwise. true waits up to ${DELEGATED_TASK_WAIT_DEFAULT_SECONDS} s; a number waits that many seconds (max ${DELEGATED_TASK_WAIT_MAX_SECONDS}). A subagent still working when the wait ends keeps running, and its answer arrives with this task's next turn under Subagent results.`,
+    ),
 });
 export type DelegateTaskToolInput = z.infer<typeof DelegateTaskToolInputSchema>;
 
@@ -339,6 +364,8 @@ export const DelegatedTaskSummarySchema = z
     delegatedWorkspaceId: RunIdSchema,
     delegatedTurnId: RunIdSchema.nullable(),
     providerId: z.enum(["claude-code", "codex"]),
+    /** The saved agent the subagent runs as, when it runs as one. */
+    agentConfigId: z.string().trim().min(1).max(80).optional(),
     /** The model and effort the delegation asked for at admission time. */
     requestedModel: z.string().trim().min(1).max(200).optional(),
     requestedEffort: DelegatedTaskEffortSchema.optional(),
@@ -349,9 +376,25 @@ export const DelegatedTaskSummarySchema = z
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
     completedAt: z.string().datetime().nullable(),
+    /** The subagent's final answer for its latest turn, bounded; absent until a turn ends. */
+    result: z.string().max(RUN_RESPONSE_TEXT_MAX_CHARS).optional(),
   })
   .strict();
 export type DelegatedTaskSummary = z.infer<typeof DelegatedTaskSummarySchema>;
+
+/** The answer the latest settled turn of the current execution recorded, if any. */
+export function delegatedTaskResultText(
+  receipts: ReadonlyArray<Pick<RunReceiptRecord, "type" | "detail" | "executionId">>,
+  step: Pick<RunStepRecord, "executionId">,
+): string | null {
+  for (let index = receipts.length - 1; index >= 0; index -= 1) {
+    const receipt = receipts[index]!;
+    if ((receipt.type === "completed" || receipt.type === "waiting") &&
+        receipt.executionId === step.executionId && receipt.detail?.responseText)
+      return receipt.detail.responseText;
+  }
+  return null;
+}
 
 export const DelegatedTaskRejectionReasonSchema = z.enum([
   "already-active",
@@ -492,6 +535,7 @@ export function toDelegatedTaskSummary(args: {
   run: RunRecord;
   step: RunStepRecord;
   acceptedReceipt?: Pick<RunReceiptRecord, "type" | "detail"> | null;
+  resultText?: string | null;
 }): DelegatedTaskSummary | null {
   const run = RunRecordSchema.parse(args.run);
   const step = RunStepRecordSchema.parse(args.step);
@@ -521,6 +565,7 @@ export function toDelegatedTaskSummary(args: {
       acceptedDetail?.effort,
     );
   const requested = {
+    ...(acceptedDetail?.agentConfigId ? { agentConfigId: acceptedDetail.agentConfigId } : {}),
     ...(requestedModel.success && requestedModel.data !== undefined
       ? { requestedModel: requestedModel.data }
       : {}),
@@ -545,6 +590,7 @@ export function toDelegatedTaskSummary(args: {
     createdAt: run.createdAt,
     updatedAt: step.updatedAt,
     completedAt: step.completedAt,
+    ...(args.resultText ? { result: args.resultText } : {}),
   });
   return parsed.success ? parsed.data : null;
 }
@@ -642,7 +688,7 @@ const DELEGATED_TASK_REJECTION_MESSAGES: Record<DelegatedTaskRejectionReason, st
     "workspace-unavailable":
       "The child's workspace could not be reached. Try again once it is available.",
     "workspace-writer-busy":
-      "Another managed child is writing in this workspace. Wait for it to finish or choose a new worktree.",
+      "Another subagent is writing in this workspace. Run this one in a new worktree, or wait for it to finish.",
   };
 
 export function describeDelegatedTaskRejection(reason: DelegatedTaskRejectionReason) {

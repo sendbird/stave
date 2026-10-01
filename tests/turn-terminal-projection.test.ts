@@ -125,8 +125,7 @@ for (const provider of ["claude-code", "codex", "cursor", "kiro"] as const) {
         ...session, activeWorkspaceId: "workspace", layout: { terminalDocked: false },
         hostOwnedTurnIdsByTask: {}, workspaceRuntimeCacheById: {},
         taskWorkspaceIdById: {}, providerTurnActivityByTask: {},
-        retainedTurnActivityByTask: {}, advisorExchangeByTask: {},
-        advisorConsultLogByTask: {}, workspaceSnapshotVersion: 0,
+        retainedTurnActivityByTask: {},        workspaceSnapshotVersion: 0,
       };
       const projectedSession = attachTurnReceiptToSession(session, "task", "turn", receipt);
       const synced = applyHostTaskTurnSync({
@@ -189,7 +188,7 @@ test("late host completion cannot retire a newer active attempt", () => {
     ...session, activeWorkspaceId: "workspace", layout: { terminalDocked: false },
     hostOwnedTurnIdsByTask: {}, workspaceRuntimeCacheById: {}, taskWorkspaceIdById: {},
     providerTurnActivityByTask: activity, retainedTurnActivityByTask: {},
-    advisorExchangeByTask: {}, advisorConsultLogByTask: {}, workspaceSnapshotVersion: 0,
+    workspaceSnapshotVersion: 0,
   };
   const oldReceipt = finishTurnReceipt(
     observeTurnEvent(createTurnReceipt(), { type: "done" }), "2026-10-01",

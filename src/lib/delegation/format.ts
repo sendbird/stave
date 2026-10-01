@@ -1,4 +1,3 @@
-import type { AdvisorExchangeOutcome } from "@/lib/providers/advisor-activity";
 import {
   getProviderLabel,
   toHumanModelName,
@@ -42,7 +41,7 @@ export interface AgentIdentityDescription {
   modelLabel: string | null;
   /** Title-case effort; `null` when no effort was reported. */
   effortLabel: string | null;
-  /** Role label as given, e.g. `Advisor`. */
+  /** Role label as given, e.g. `Subagent`. */
   roleLabel: string | null;
   /** `Claude Opus 5 · High`; the provider leads only when no model is known. */
   text: string;
@@ -135,33 +134,6 @@ export function describeExchangeStatus(
 
 export function isExchangeStatusLive(status: ExchangeStatus) {
   return !EXCHANGE_STATUS_DESCRIPTIONS[status].settled;
-}
-
-/**
- * Advisor outcomes onto the shared vocabulary. `armed` is a turn-level grant
- * and not an exchange, so it reads as queued; `unresolved` is the consult
- * log's name for a pending consult whose turn already ended.
- */
-export function exchangeStatusFromAdvisorOutcome(
-  outcome: AdvisorExchangeOutcome | "unresolved",
-): ExchangeStatus {
-  switch (outcome) {
-    case "armed":
-      return "queued";
-    case "pending":
-      return "running";
-    case "completed":
-      return "returned";
-    case "failed":
-      return "failed";
-    case "timeout":
-      return "timed_out";
-    case "aborted":
-    case "skipped":
-      return "cancelled";
-    case "unresolved":
-      return "unresolved";
-  }
 }
 
 /** Transcript tool-part states (`input-streaming`, `output-error`, …). */

@@ -146,12 +146,11 @@ mission (a task without one shows its flow there):
   turn reported no usage.
 - The task's wake-up, the other thing that can start turns on the task.
 
-The task's Advisor consults, workers and delegated tasks are in the **Team**
-tab next to it, also reachable with **View team** in the task pane's menu.
+The task's subagents are in the **Subagents** tab next to it.
 
 ### Acceptance and check evidence
 
-A finished provider turn or worker does not complete a stage by itself. The
+A finished provider turn or subagent does not complete a stage by itself. The
 current turn must report completion, and any required criteria authored for
 that stage must be reported **Met**. Criteria for the overall goal are checked
 at the final stage; a Build stage can hand off to Test while future checks are

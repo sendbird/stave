@@ -27,7 +27,7 @@ export function RememberTeamDefaultsField(
         </label>
         <p className={sx(dispatchFieldStyles.rowDescription)}>
           Stored only in Stave. Future {props.scopeLabel} jobs preselect this
-          repository, model, effort, and Advisor. Access settings always re-derive
+          repository, model and effort. Access settings always re-derive
           from your current Stave settings.
         </p>
       </div>

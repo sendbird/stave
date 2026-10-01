@@ -97,13 +97,6 @@ import type {
   ClaudePluginReloadResponse,
   ProviderMutationResponse,
 } from "../../src/lib/providers/provider.types";
-import {
-  buildWorkerExecutionMetadata,
-  buildWorkerPrimaryInstructions,
-  resolveWorkerProfile,
-  toClaudeWorkerEffort,
-  type ResolvedWorkerProfile,
-} from "../../src/lib/providers/worker-mode";
 import type {
   AgentDefinition,
   CanUseTool,
@@ -400,56 +393,33 @@ function collectClaudeActivatedSkillSlugs(args: {
 }
 
 /**
- * Builds the single named worker registered for Worker mode.
+ * Registers the task agent's in-turn subagents (its `canCall` agents) as
+ * Claude `agents`, so the lead calls them with the Agent tool.
  *
- * Returns `undefined` whenever the intent is absent or fails semantic
- * resolution, so an unsupported primary/model combination degrades to the
- * normal solo path rather than silently spawning a different tier.
- *
- * Three guarantees are load-bearing here:
- *
- * - `background` is never set. Stave's turn loop cannot deliver a background
- *   completion notification, and the SDK strips most tools from background
- *   subagents anyway, so the worker must stay foreground.
- * - `permissionMode` mirrors the parent turn, so a plan/read-only turn cannot
- *   gain write capability by delegating.
- * - `effort` is omitted when the resolver reports `null`, because Haiku-class
- *   models reject the field outright.
+ * - `background` is never set: Stave's turn loop cannot deliver a background
+ *   completion notification, so every subagent stays foreground.
+ * - `permissionMode` mirrors the lead turn, so a read-only or asking turn
+ *   cannot gain write access by calling a subagent.
+ * - `effort` is passed only for tiers Claude accepts.
  */
-export function buildClaudeWorkerAgents(args: {
+const CLAUDE_SUBAGENT_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
+export function buildClaudeNativeSubagentAgents(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   permissionMode: ClaudePermissionMode;
 }): Record<string, AgentDefinition> | undefined {
-  const intent = args.runtimeOptions?.workerIntent;
-  if (!intent) {
-    return undefined;
-  }
-  const resolution = resolveWorkerProfile({
-    providerId: "claude-code",
-    primaryModel: args.runtimeOptions?.model ?? "",
-    intent,
-  });
-  if (resolution.status !== "ready") {
-    return undefined;
-  }
-  const { profile } = resolution;
-  // `AgentDefinition.effort` has no `ultra` tier, so narrow before assigning.
-  const effort = toClaudeWorkerEffort(profile.resolvedWorkerEffort);
-  return {
-    [profile.workerName]: {
-      description: profile.description,
-      prompt: profile.instructions,
-      model: profile.resolvedWorkerModel,
-      ...(effort ? { effort } : {}),
-      ...(profile.tools && profile.tools.length > 0
-        ? { tools: [...profile.tools] }
-        : {}),
-      ...(profile.maxTurns !== null ? { maxTurns: profile.maxTurns } : {}),
-      // Inherit rather than widen: the worker runs under the parent's policy so
-      // approvals and denials keep attributing to the same turn.
-      permissionMode: args.permissionMode,
-    },
-  };
+  const definitions = args.runtimeOptions?.nativeSubagents ?? [];
+  if (definitions.length === 0) return undefined;
+  return Object.fromEntries(definitions.map((definition) => [definition.name, {
+    description: definition.description,
+    prompt: definition.instructions,
+    ...(definition.model ? { model: definition.model } : {}),
+    ...(definition.effort && CLAUDE_SUBAGENT_EFFORTS.has(definition.effort)
+      ? { effort: definition.effort as NonNullable<AgentDefinition["effort"]> }
+      : {}),
+    ...(definition.tools?.length ? { tools: [...definition.tools] } : {}),
+    ...(definition.maxTurns ? { maxTurns: definition.maxTurns } : {}),
+    permissionMode: args.permissionMode,
+  } satisfies AgentDefinition]));
 }
 
 async function resolveEmbeddedStaveLocalMcpServers(options?: {
@@ -458,11 +428,6 @@ async function resolveEmbeddedStaveLocalMcpServers(options?: {
 }): Promise<Record<string, McpServerConfig> | undefined> {
   const manifest = await readStaveLocalMcpManifest();
   if (!manifest) {
-    if (options?.turnGrants?.consultKey) {
-      throw new Error(
-        "Advisor is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
-      );
-    }
     return undefined;
   }
   return {
@@ -1061,10 +1026,10 @@ export function buildClaudeQueryOptions(args: {
   includePartialMessages?: boolean;
   promptSuggestions?: boolean;
   /**
-   * Set only by the conversation turn. Gates Worker-mode agent registration so
-   * utility and control queries sharing these runtime options never spend one.
+   * Set only by the conversation turn. Gates subagent registration so utility
+   * and control queries sharing these runtime options never spend one.
    */
-  workerModeEligible?: boolean;
+  subagentsEligible?: boolean;
   canUseTool?: CanUseTool;
   mcpServers?: Record<string, McpServerConfig>;
   /**
@@ -1179,21 +1144,18 @@ export function buildClaudeQueryOptions(args: {
   const pluginConfigs = resolveClaudePluginConfigs(
     args.runtimeOptions?.claudePluginPaths,
   );
-  // Opt-in rather than inferred. Most callers of this builder are utility and
-  // control queries (command catalog, context usage, plugin reload, MCP
-  // control) which share the caller's runtime options but must never spend a
-  // worker; only the conversation turn sets `workerModeEligible`. Secondary
-  // read-only turns stay excluded even when they ask, since a worker would be a
-  // second write-capable actor inside a turn that exists only to observe.
-  const workerAgents =
-    args.workerModeEligible && !args.secondaryReadOnly
-      ? buildClaudeWorkerAgents({
+  // Opt-in rather than inferred: utility and control queries share the
+  // caller's runtime options but must never spend a subagent, and a secondary
+  // read-only run exists only to observe.
+  const subagentAgents =
+    args.subagentsEligible && !args.secondaryReadOnly
+      ? buildClaudeNativeSubagentAgents({
           runtimeOptions: args.runtimeOptions,
           permissionMode,
         })
       : undefined;
-  if (gateway) for (const worker of Object.values(workerAgents ?? {}))
-    if (worker.model && worker.model !== "inherit") worker.model = validateClaudeGatewayModel(worker.model, args.runtimeOptions?.claudeAccountProfileId);
+  if (gateway) for (const subagent of Object.values(subagentAgents ?? {}))
+    if (subagent.model && subagent.model !== "inherit") subagent.model = validateClaudeGatewayModel(subagent.model, args.runtimeOptions?.claudeAccountProfileId);
   const fallbackModel = resolveClaudeFallbackModel({
     model: args.runtimeOptions?.model,
     fallbackModel: args.runtimeOptions?.claudeFallbackModel,
@@ -1343,10 +1305,9 @@ export function buildClaudeQueryOptions(args: {
     ...(args.runtimeOptions?.claudeAgentName
       ? { agent: args.runtimeOptions.claudeAgentName }
       : {}),
-    // Registers the Worker-mode task executor. Deliberately `agents` (available
-    // to delegate to) and not `agent` (replaces the main loop) — the primary has
-    // to stay in charge of planning and integration.
-    ...(workerAgents ? { agents: workerAgents } : {}),
+    // The task agent's in-turn subagents. Deliberately `agents` (available to
+    // call) and not `agent` (replaces the main loop): the lead stays in charge.
+    ...(subagentAgents ? { agents: subagentAgents } : {}),
     ...(settingSources !== undefined ? { settingSources } : {}),
     // Always-on: force Agent-tool subagents to run in the foreground so a
     // turn can never end waiting for a background-completion notification
@@ -1816,32 +1777,6 @@ export function mapClaudeMessageToEvents(
 
 export type { ClaudeOwnerAgentIdResolver } from "./claude-event-mapping";
 
-export function attachClaudeWorkerExecutionMetadata(args: {
-  events: BridgeEvent[];
-  profile: ResolvedWorkerProfile | null;
-}): BridgeEvent[] {
-  const profile = args.profile;
-  if (!profile) return args.events;
-  const workerExecution = buildWorkerExecutionMetadata(profile);
-  return args.events.map((event) => {
-    if (
-      event.type !== "tool" ||
-      !["agent", "task"].includes(event.toolName.toLowerCase())
-    ) {
-      return event;
-    }
-    try {
-      const input = JSON.parse(event.input) as Record<string, unknown>;
-      const subagentType = input.subagent_type ?? input.subagentType;
-      return subagentType === profile.workerName
-        ? { ...event, workerExecution }
-        : event;
-    } catch {
-      return event;
-    }
-  });
-}
-
 export function resolveClaudeTurnStopReason(args: {
   message: ClaudeIncomingMessage;
   currentStopReason?: string;
@@ -1993,12 +1928,11 @@ export async function runClaudeReadOnlyPrompt(args: {
   >;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   signal?: AbortSignal;
-  /** Reuses the isolated Advisor lane without sharing the primary session. */
+  /** Resumes an isolated read-only lane without sharing the primary session. */
   resumeSessionId?: string;
   /**
-   * Caller-facing name used in failure text. This helper is shared by the
-   * Advisor, commit-message generation, task naming, and route classification,
-   * so hardcoding "Advisor" leaked advisor wording into unrelated toasts.
+   * Caller-facing name used in failure text. This helper is shared by
+   * commit-message generation, task naming and route classification.
    */
   label?: string;
   /** Provider-safe progress metadata used by bounded callers for diagnostics. */
@@ -3261,16 +3195,6 @@ export async function streamClaudeWithSdk(
     requireCompactResumeSession(
       args.conversation?.input.content ?? args.prompt, existingSessionId,
     );
-    // Resolved once and reused for both the system prompt and the agent
-    // registration, so the brief can never describe a worker the query did not
-    // actually register.
-    const workerResolution = secondaryReadOnly
-      ? { status: "off" as const }
-      : resolveWorkerProfile({
-          providerId: "claude-code",
-          primaryModel: args.runtimeOptions?.model ?? "",
-          intent: args.runtimeOptions?.workerIntent,
-        });
     const resolvedMcpServers = secondaryReadOnly
       ? { mcpServers: undefined, hasStaveLocalMcp: false }
       : await resolveClaudeMcpServersForQuery({
@@ -3290,13 +3214,6 @@ export async function streamClaudeWithSdk(
       // Gates the Lens block: its tools only exist when the Stave local MCP
       // is registered, so this must be resolved before the prompt is built.
       hasStaveLocalMcp: resolvedMcpServers.hasStaveLocalMcp,
-      ...(workerResolution.status === "ready"
-        ? {
-            workerInstructions: buildWorkerPrimaryInstructions(
-              workerResolution.profile,
-            ),
-          }
-        : {}),
     });
     const turnEnabledPlugins = await resolveClaudeEnabledPluginsForQuery({
       cwd: runtimeCwd,
@@ -3404,7 +3321,7 @@ export async function streamClaudeWithSdk(
         systemPrompt: claudeSystemPrompt,
         includePartialMessages: true,
         promptSuggestions: true,
-        workerModeEligible: true,
+        subagentsEligible: true,
         mcpServers: resolvedMcpServers.mcpServers,
         ...(turnEnabledPlugins ? { enabledPlugins: turnEnabledPlugins } : {}),
         secondaryReadOnly,
@@ -4092,11 +4009,6 @@ export async function streamClaudeWithSdk(
       const contextUsage = trackContextUsage(message);
       if (contextUsage) normalizedEvents.push(contextUsage);
       compactTracker.observe(normalizedEvents);
-      normalizedEvents = attachClaudeWorkerExecutionMetadata({
-        events: normalizedEvents,
-        profile:
-          workerResolution.status === "ready" ? workerResolution.profile : null,
-      });
       // Deduplicate: if text/thinking already came through stream_event deltas, skip the
       // full assistant message duplicates (they contain the same content assembled).
       if (

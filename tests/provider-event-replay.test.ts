@@ -199,45 +199,6 @@ describe("appendProviderEventToAssistant", () => {
     });
   });
 
-  test("persists Worker execution metadata on the spawned tool part", () => {
-    const message = appendProviderEventToAssistant({
-      message: createMessage(),
-      event: {
-        type: "tool",
-        toolUseId: "worker-1",
-        toolName: "collaboration:spawn_agent",
-        input: '{"task_name":"review"}',
-        state: "input-available",
-        workerExecution: {
-          providerId: "codex",
-          primaryModel: "gpt-5.6-sol",
-          presetId: "verified-patch",
-          workerModel: "gpt-5.6-terra",
-          requestedWorkerModel: "auto",
-          resolvedWorkerModel: "gpt-5.6-terra",
-          workerModelSource: "preset",
-          workerModelRationale: "Selected by the configured task route.",
-          runtimeWorkerModel: "gpt-5.6-terra-20260901",
-          workerEffort: "max",
-        },
-      },
-    });
-
-    expect(message.parts[0]).toMatchObject({
-      type: "tool_use",
-      workerExecution: {
-        workerModel: "gpt-5.6-terra",
-        requestedWorkerModel: "auto",
-        resolvedWorkerModel: "gpt-5.6-terra",
-        workerModelSource: "preset",
-        workerModelRationale: "Selected by the configured task route.",
-        runtimeWorkerModel: "gpt-5.6-terra-20260901",
-        workerEffort: "max",
-      },
-    });
-    expect(message.delegatedUsage).toBeUndefined();
-  });
-
   test("persists and incrementally enriches delegated cache usage", () => {
     let message = appendProviderEventToAssistant({
       message: createMessage(),

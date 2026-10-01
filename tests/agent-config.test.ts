@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { WORKER_PRESETS, getWorkerPreset } from "@/lib/providers/worker-mode";
+import { SUBAGENT_PRESETS } from "@/lib/agents/subagent-presets";
+import { compileNativeSubagents } from "@/lib/agents/native-subagents";
 import { AgentConfigListSchema, AgentConfigSchema, type AgentConfig } from "@/lib/agents/schema";
 import { BUILTIN_AGENTS, getBuiltinAgent } from "@/lib/agents/starters";
 import { compileAgent, hashAgentContent, snapshotAgent } from "@/lib/agents/compile";
@@ -63,9 +64,9 @@ describe("agent config schema", () => {
   });
 });
 
-describe("built-in Worker preset mirrors", () => {
-  test("each Worker preset has a worker-only built-in with the same id and text", () => {
-    for (const preset of WORKER_PRESETS) {
+describe("built-in subagents", () => {
+  test("each subagent preset has an in-turn-only built-in with the same id and text", () => {
+    for (const preset of SUBAGENT_PRESETS) {
       const spec = getBuiltinAgent(preset.id);
       expect(spec).toBeDefined();
       expect(spec!.usableAs).toEqual(["worker"]);
@@ -75,13 +76,21 @@ describe("built-in Worker preset mirrors", () => {
     }
   });
 
-  test("compiling a mirror as a worker selects the preset without overrides", () => {
+  test("compiling a built-in as an in-turn subagent carries its own text and tools", () => {
     const snapshot = snapshotAgent(getBuiltinAgent("scout")!);
     const result = compileAgent({ snapshot, role: "worker", providerId: "claude-code" });
     expect(result.ok).toBe(true);
     if (!result.ok || result.compiled.role !== "worker") throw new Error("expected worker");
-    expect(result.compiled.workerConfig).toEqual({ presetId: "scout" });
-    expect(getWorkerPreset("scout").id).toBe("scout");
+    expect(result.compiled.subagent).toMatchObject({ name: "scout", label: "Scout", tools: ["Read", "Grep", "Glob"] });
+    expect(result.compiled.subagent.instructions).toContain("change nothing");
+  });
+
+  test("a lead's canCall list decides its in-turn subagents; absent means any", () => {
+    const lead = customAgent({ id: "lead", canCall: ["scout", "second-pair"] });
+    const library = [lead, ...["scout", "sweep", "second-pair"].map((id) => getBuiltinAgent(id)!)];
+    expect(compileNativeSubagents({ lead, library, providerId: "codex" }).map((entry) => entry.name)).toEqual(["scout", "second-pair"]);
+    const open = compileNativeSubagents({ lead: { ...lead, canCall: undefined }, library, providerId: "codex" });
+    expect(open.map((entry) => entry.name)).toEqual(["scout", "sweep", "second-pair"]);
   });
 
   test("a mirror refuses main-agent and delegated work", () => {
@@ -192,13 +201,12 @@ describe("compileAgent", () => {
     expect(result.compiled.promptPreamble).toContain("Do not modify files.");
   });
 
-  test("a user agent as a worker becomes Worker overrides, with the denylist stated", () => {
+  test("a user agent as an in-turn subagent states its denylist and keeps its model", () => {
     const result = compileAgent({ snapshot: snapshotAgent(customAgent()), role: "worker", providerId: "claude-code" });
     if (!result.ok || result.compiled.role !== "worker") throw new Error("expected worker");
-    expect(result.compiled.workerConfig.presetId).toBeUndefined();
-    expect(result.compiled.workerConfig.description).toBe(customAgent().description);
-    expect(result.compiled.workerConfig.instructions).toContain("Do not use these tools: WebFetch.");
-    expect(result.compiled.workerConfig.model).toBe("claude-sonnet-5");
+    expect(result.compiled.subagent.description).toBe(customAgent().description);
+    expect(result.compiled.subagent.instructions).toContain("Do not use these tools: WebFetch.");
+    expect(result.compiled.subagent.model).toBe("claude-sonnet-5");
   });
 
   test("received instructions name the snapshot hash and each skill", () => {

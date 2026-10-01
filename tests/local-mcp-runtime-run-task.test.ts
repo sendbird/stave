@@ -657,19 +657,19 @@ describe("local MCP runtime runTask", () => {
       });
 
       startTurnStreamHandlers.at(-1)?.onEvent?.({
-        type: "advisor_activity",
-        phase: "started",
-        primaryProviderId: "codex",
-        advisorProviderId: "claude-code",
-        at: 1_700_000_000_000,
+        type: "hook_activity",
+        hookId: "hook-1",
+        hookName: "lint",
+        hookEvent: "PostToolUse",
+        status: "running",
       });
       for (let attempt = 0; attempt < 20 && updates.length < 3; attempt += 1) {
         await Bun.sleep(0);
       }
       expect(updates.at(-1)).toMatchObject({
         sequence: 2,
-        eventType: "advisor_activity",
-        activityEvents: [{ type: "advisor_activity", phase: "started" }],
+        eventType: "hook_activity",
+        activityEvents: [{ type: "hook_activity", status: "running" }],
       });
       expect(
         lastUpsertSnapshotByWorkspaceId

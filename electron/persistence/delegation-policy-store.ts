@@ -107,6 +107,14 @@ export class DelegationPolicyStore {
       effort: effort.success ? effort.data : null,
     });
   }
+  /** The host secret caller grants are derived from (`caller-grants.ts`); created once. */
+  loadOrCreateCallerGrantSecret(create: () => string): string {
+    const raw = this.read("subagents.caller-grant-secret");
+    if (typeof raw === "string" && raw.length >= 32) return raw;
+    const secret = create();
+    this.write("subagents.caller-grant-secret", secret);
+    return secret;
+  }
   /** The provider and effort of the parent's latest Claude or Codex turn. */
   loadParentTurnDefaults(taskId: string): {
     providerId: "claude-code" | "codex";

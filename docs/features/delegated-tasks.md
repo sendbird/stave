@@ -2,10 +2,11 @@
 
 ## Summary
 
-A task can hand work to a **delegated task**: a real, durable Stave task created
-on its behalf, optionally on the other provider and in its own worktree. The
-delegation is recorded on the run ledger, so the parent can trust what it is
-told about the child — including after a restart.
+A task can hand work to a **subagent**. The durable kind is a **delegated
+task**: a real Stave task created on its behalf, optionally on the other
+provider and in its own worktree. The delegation is recorded on the run ledger,
+so the parent can trust what it is told about the child — including after a
+restart — and the child's answer comes back to the parent on its own.
 
 ## When To Use It
 
@@ -20,37 +21,32 @@ told about the child — including after a restart.
   for approval, so several can run beside each other and beside other work in
   the same workspace.
 
-Prefer **Worker mode** when the delegated work only needs to last for the
-current turn: a worker is turn-scoped and never survives a restart. Prefer an
-**automation** when the work should recur on a schedule rather than be handed off
-once.
+An agent's **in-turn subagents** (its `canCall` agents, run by the provider
+inside the turn) cover work that only needs to last for the current turn; they
+never survive a restart. Prefer an **automation** when the work should recur on
+a schedule rather than be handed off once.
 
 ## Before You Start
 
-- Use **Collaboration & workflows → Team** in a task or Fleet control panel,
-  or the **Team** tab of the right rail's Task panel, which lists the task's
-  Advisor consults, workers and delegated tasks.
-  Agent-driven delegation additionally requires the Stave Local MCP server
-  (Settings → Local MCP).
+- The **Subagents** tab of the right rail's Task panel lists every subagent the
+  task called, durable or in-turn. Delegation requires the Stave Local MCP
+  server (Settings → Local MCP).
 - The parent task's workspace must belong to a registered repository. A delegation
   is refused when the parent task, its workspace, and the repository path do not
   agree.
 
 ## Quick Start
 
-Open **Collaboration & workflows → Team → Delegate a task to another model**.
-Specify the assignment, provider, optional model, permissions, and file isolation.
-Permissions are **Same as yours** (the default) or **Read only**. The form
-defaults to a separate Git worktree and keeps the child available for
-follow-up. Uncheck that option for a single-turn assignment. Release the child
-when the assignment is finished.
-
-Alternatively, ask the agent in the parent task to delegate, for example:
+Ask the agent in the parent task to delegate, for example:
 
 > Get a read-only second opinion on this plan from Codex.
 
-The agent calls `stave_delegate_task`. The child appears as a normal task in its
-workspace, and the parent gets back the child's identity and phase.
+The agent calls `stave_delegate_task`. A read-only call waits for the answer
+(up to two minutes by default, three at most) and returns it as `child.result`.
+A writing subagent starts in its own worktree and the call returns at once.
+Either way, an answer that arrives later is part of the parent's next turn
+under **Subagent results**, so the agent never has to read the child task to
+collect it.
 
 ## Interface Walkthrough
 
@@ -64,17 +60,18 @@ Local MCP tools:
 - `stave_stop_delegated_task` — stop one delegation.
 - `stave_follow_up_delegated_task` — request more work on a waiting, ongoing child,
   using the exact identity returned by the latest listing.
-- `stave_get_task` — collect the latest assistant answer and pending requests.
 
-The collaboration panel provides creation, conversation navigation, follow-up,
-stop, retry, and release controls. Turn Activity retains its compact child rows.
-Settings → Providers → Delegation documents provider availability and per-call
-parameters. The UI's delivery retry keeps the same delegation identity when a
-transport response is lost, so retrying does not create a second child.
+Inside a Stave turn these tools take the calling task from the host's caller
+grant: the parent ids are optional, and a `parentTaskId` that names another task
+is refused with `invalid-ownership`. A subagent cannot start subagents of its
+own. A client Stave did not start (a terminal CLI with your token) names the
+parent explicitly.
 
-The Workflows & tools tab separates goals (workflows), reusable instructions
-(macros), runtime launch settings (presets), and workspace commands/services.
-Adding instructions preserves the current draft and never sends it automatically.
+The Subagents tab shows each subagent's agent (or model), what it is doing and
+its state, folds its answer under the row, and offers Open transcript and Stop.
+Turn Activity retains its compact child rows with follow-up, retry and release
+controls. Settings → Providers → Delegation documents provider availability and
+per-call parameters.
 
 A child does not appear as a peer in workspace task lists, counts, or Fleet
 roll-ups — it is shown under its parent instead, so one delegated unit of work is
@@ -113,15 +110,16 @@ attempt, the phase changed, the child's turn ended — the action is refused wit
 `stale-identity` reason and a sentence explaining it, instead of applying to
 whatever replaced it.
 
-`stave_delegate_task` needs the parent's repository, workspace and task ids and
-a `prompt`. Everything else is optional:
+`stave_delegate_task` needs only a `prompt` inside a Stave turn. Everything else
+is optional:
 
 | Field | Meaning |
 | --- | --- |
 | `access` | `inherit` (default) uses the effective same-provider parent policy, or the target provider's user settings when crossing providers. `read-only` is the [read-only posture](#read-only-consults). Bound secrets, sessions and browser authorization are never inherited. |
 | `provider` | `claude-code` or `codex`. Defaults to the parent task's provider; a parent on another provider must name one. |
 | `lifecycle` | `one-turn` (default) finishes the delegation when the child's first turn ends. `detached` keeps the child open until it is stopped. |
-| `workspace` | `same-workspace` (default), or `new-worktree` with a name and optional base branch. |
+| `workspace` | `new-worktree` (default for a writer) with a name and optional base branch, or `same-workspace` (default for a read-only subagent or work pinned with `expectedHead`). A writer in the same workspace is refused while another writing subagent is live there. |
+| `wait` | `true` waits up to 120 seconds for the answer and returns it as `child.result`; a number waits that many seconds (max 180); `false` returns at once. Defaults to `true` for read-only and `false` otherwise. The subagent keeps running when the wait ends. |
 | `delegationKey` | Idempotency key, unique within the parent task. The same key always names the same child. Omitted, it is derived from the parent task, provider, model and prompt, so sending the same call again returns the same child. |
 | `retry` | Start a new attempt on a delegation that already ended without succeeding. |
 
@@ -184,7 +182,7 @@ checked after workspace admission, immediately before the child starts.
 Two optional runtime choices ride along: `model` overrides the child's model, and
 `effort` picks its reasoning tier (`low`–`max`, plus Codex's `ultra`). An effort
 the child's provider or model does not accept steps down to the nearest tier
-below it rather than being rejected — the same clamp the Advisor uses. An
+below it rather than being rejected. An
 omitted effort follows the parent turn's effort when the child runs on the same
 provider, and otherwise keeps the automation default (`medium`). Bounded briefs
 often do better on a cheaper model at `high`+ effort than on a bigger model at
@@ -218,8 +216,9 @@ delegation changes phase — including phase changes driven by the child's own
 turns, which are pushed rather than polled.
 
 The agent can call `stave_list_delegated_tasks` for the same summary. It is also
-injected into the parent's context automatically before each of its turns, so an
-agent that delegated work sees where its children stand without asking.
+injected into the parent's context automatically before each of its turns as
+**Subagent results**, with the bounded answer of every subagent that finished
+since the previous turn, so an agent that delegated work never asks for it.
 
 ### Answer A Child's Question
 
@@ -240,8 +239,7 @@ working there. It appears in these places:
 - **Notifications.** The item reads as the root task, with the delegated task
   named in its detail. Opening it focuses the root task rather than the
   child's workspace.
-- **Fleet and the Team panel.** Fleet keeps the request on the delegated task,
-  and the Team panel lists it under the child's row.
+- **Fleet.** Fleet keeps the request on the delegated task.
 
 A request answered in any of these places, in the child itself, by the agent
 through `stave_respond_approval`, or auto-denied, disappears from all of them.
@@ -292,12 +290,12 @@ may have running at once (default 3, maximum 16).
 
 ## Limitations And Advanced Options
 
-- A parent never receives the child's transcript. Receipts carry identity, phase
-  and terminal reason only; open the delegated task to read the conversation.
+- A parent never receives the child's transcript. Receipts carry identity, phase,
+  terminal reason and the child's final answer, bounded to 4,000 characters;
+  open the delegated task to read the conversation.
 - A cancelled delegation is not restarted by `retry`. Use a new delegation key.
 - Watching and steering a child is available in the UI, but *creating* one is
-  not: delegation is driven by the MCP tools, so a child is always started by an
-  agent rather than by a button.
+  not: a subagent is always started by an agent rather than by a button.
 - Detaching is one-way. A released delegation cannot be re-claimed; the child
   continues as an ordinary task.
 - Creating a `new-worktree` child leaves the worktree in place when the child
@@ -307,31 +305,23 @@ may have running at once (default 3, maximum 16).
 
 ### The delegation was refused with `workspace-writer-busy`
 
-- Cause: another managed child has reserved the same physical workspace for
-  writing. The refusal identifies the current child, parent and attempt.
-- Fix: wait for that child's turn to end, or choose a separate worktree.
-  Stop and Detach keep the reservation until the host confirms the running
-  turn ended; an unavailable or unknown outcome remains guarded.
-  A restart before the child's turn identity was recorded also remains guarded
-  because Stave cannot safely identify a terminal turn to release it.
-- Different worktrees may run in parallel. Read-only children (a resolved
-  Codex `read-only` file access, or the full Claude read-only posture) do not
-  reserve a writer slot, so they run beside each other and beside one writer.
+- Cause: the call asked for a writing subagent in the same workspace while
+  another writing subagent is live there. The refusal names that subagent.
+- Fix: omit `workspace` so the writer gets its own worktree, or wait for the
+  other one to finish. Read-only subagents (a resolved Codex `read-only` file
+  access, or the full Claude read-only posture) never count as writers.
   Permission profile names and Claude plan mode do not establish read-only
   tool access.
-- This coordinates managed child admission. It does not isolate files,
-  constrain tool paths, or prevent ordinary direct tasks and parent turns from
-  writing. Legacy active children without lease metadata are checked against
-  their actual workspace and remain guarded when their outcome is unknown.
 
 ### The delegation was refused with `invalid-ownership`
 
 - Symptom: `stave_delegate_task` returns `accepted: false`,
   `reason: "invalid-ownership"`.
-- Cause: the parent task id, the parent workspace id, and the repository path do
-  not describe the same place.
-- Fix: read them from the current task's context block rather than assembling
-  them by hand.
+- Cause: inside a Stave turn, the call named a parent task or workspace that is
+  not the calling task's. Outside one, the parent task id, the parent workspace
+  id, and the repository path do not describe the same place.
+- Fix: inside a turn, omit the ids. Outside one, read them from the task's
+  context block rather than assembling them by hand.
 
 ### The delegation was refused with `concurrency-limit-reached`
 

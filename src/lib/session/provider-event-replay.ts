@@ -102,7 +102,6 @@ function createToolPart(args: {
   input: string;
   output?: string;
   state: ToolUsePart["state"];
-  workerExecution?: ToolUsePart["workerExecution"];
 }): ToolUsePart {
   return sanitizeMessagePartPayload({
     type: "tool_use",
@@ -114,7 +113,6 @@ function createToolPart(args: {
     input: args.input,
     output: args.output,
     state: args.state,
-    workerExecution: args.workerExecution,
   });
 }
 
@@ -139,7 +137,6 @@ function createApprovalPart(args: {
   description: string;
   input?: string;
   supportsAllowAlways?: boolean;
-  workerExecution?: ApprovalPart["workerExecution"];
 }): ApprovalPart {
   return sanitizeMessagePartPayload({
     type: "approval",
@@ -148,7 +145,6 @@ function createApprovalPart(args: {
     description: args.description,
     ...(args.input ? { input: args.input } : {}),
     ...(args.supportsAllowAlways ? { supportsAllowAlways: true } : {}),
-    ...(args.workerExecution ? { workerExecution: args.workerExecution } : {}),
     state: "approval-requested",
   });
 }
@@ -205,7 +201,6 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "goal_status":
     case "history_boundary":
     case "hook_activity":
-    case "advisor_activity":
     case "agent_provenance":
     case "model_resolved":
     case "done":
@@ -345,9 +340,6 @@ function normalizeEventToPart(args: {
     case "delegated_usage":
     case "history_boundary":
     case "hook_activity":
-    // Advisor lifecycle lives in its own store slice, never in the transcript:
-    // the advice text must not become a persisted assistant response.
-    case "advisor_activity":
       return null;
     case "permission_denial": {
       const reason = event.reason?.trim() || event.message.trim();
@@ -368,7 +360,6 @@ function normalizeEventToPart(args: {
         input: event.input,
         output: event.output,
         state: event.state,
-        workerExecution: event.workerExecution,
       });
     case "diff":
       return createDiffPart({
@@ -384,7 +375,6 @@ function normalizeEventToPart(args: {
         description: event.description,
         input: event.input,
         supportsAllowAlways: event.supportsAllowAlways,
-        workerExecution: event.workerExecution,
       });
     case "user_input":
       return createUserInputPart({
@@ -1236,7 +1226,7 @@ export function replayProviderEventsToTaskState(args: {
       continue;
     }
 
-    if (event.type === "hook_activity" || event.type === "advisor_activity") {
+    if (event.type === "hook_activity") {
       continue;
     }
 

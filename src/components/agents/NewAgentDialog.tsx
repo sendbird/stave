@@ -20,10 +20,10 @@ export type RunAgentDraft = (
 ) => Promise<AgentDraftResult>;
 
 /**
- * "New agent". The main path is one line about the job: the utility model
- * drafts the name, Use when, instructions and access, and the editor opens
- * with that draft. Starting blank or from a template (a built-in or
- * repository agent) stays one step below. Every path produces an unsaved
+ * "New agent". The main path is one sentence about the job (Enter drafts it):
+ * the utility model drafts the name, Use when, instructions and access, and the
+ * editor opens with that draft. Duplicating a built-in or repository agent, or
+ * starting blank, stays one step below. Every path produces an unsaved
  * draft — nothing is stored until the editor saves it. Closing the dialog
  * cancels a draft in progress so a late answer never opens the editor.
  */
@@ -86,7 +86,7 @@ export function NewAgentDialog(props: {
       }}
       width="md"
       title="New agent"
-      description="Say what it should do and review the draft. Nothing is saved until you save the editor."
+      description="Describe the job in a sentence, or duplicate an agent. Nothing is saved until you save the editor."
     >
       <section className={sx(styles.draftPanel)} aria-label="Describe the agent">
         <Textarea
@@ -101,7 +101,7 @@ export function NewAgentDialog(props: {
           error={failure ?? undefined}
           onChange={(event) => setDescription(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
               void submit();
             }
@@ -128,29 +128,9 @@ export function NewAgentDialog(props: {
         </div>
       </section>
 
-      <p className={sx(styles.listLabel, styles.listLabelFlush)}>Or start blank</p>
-      <div className={sx(agentStyles.blankRow)}>
-        <TextField
-          size="sm"
-          controlOnly
-          aria-label="Name"
-          value={name}
-          placeholder="Name, e.g. Docs writer"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={!trimmedName}
-          onClick={() => create(blankCustomAgent({ name: trimmedName, takenIds: props.takenIds }))}
-        >
-          Start blank
-        </Button>
-      </div>
-
       {props.templates.length > 0 ? (
         <>
-          <p className={sx(styles.listLabel, styles.listLabelFlush)}>Or copy an existing agent</p>
+          <p className={sx(styles.listLabel, styles.listLabelFlush)}>Or duplicate one and edit it</p>
           <div className={sx(styles.templates)}>
             {props.templates.map((template) => (
               <Button
@@ -176,6 +156,26 @@ export function NewAgentDialog(props: {
           </div>
         </>
       ) : null}
+      <p className={sx(styles.listLabel, styles.listLabelFlush)}>Or start blank</p>
+      <div className={sx(agentStyles.blankRow)}>
+        <TextField
+          size="sm"
+          controlOnly
+          aria-label="Name"
+          value={name}
+          placeholder="Name, e.g. Docs writer"
+          onChange={(event) => setName(event.target.value)}
+        />
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!trimmedName}
+          onClick={() => create(blankCustomAgent({ name: trimmedName, takenIds: props.takenIds }))}
+        >
+          Start blank
+        </Button>
+      </div>
+
     </Dialog>
   );
 }

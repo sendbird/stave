@@ -31,6 +31,8 @@ export class AssignError extends Error {
 export interface AssignRuntimeDependencies {
   store: Pick<AgentAssignmentStore, "create" | "update" | "get" | "getByRequestId" | "getByTaskId" | "list" | "listInState">;
   emitChanged?: (assignment: AgentAssignment) => void;
+  /** The active agent library, for a main Agent's in-turn subagents. */
+  listAgents?: () => readonly AgentAssignment["agent"][];
   now?: () => Date;
   newId?: () => string;
 }
@@ -93,7 +95,7 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       if (!row) return null;
       // Capture once, independently of a later release or assignment switch.
       return prepareTaskAgentTurn({
-        turn, assignment: row,
+        turn, assignment: row, library: deps.listAgents?.() ?? [],
         hasDelivery: (delivery) => (row.instructionDeliveries ?? []).some((entry) =>
           entry.providerId === delivery.providerId && entry.nativeSessionId === delivery.nativeSessionId &&
           entry.agentContentHash === delivery.agentContentHash),

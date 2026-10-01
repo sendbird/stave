@@ -135,12 +135,12 @@ describe("composer control placement setting", () => {
   test("an explicit new-format entry wins over the legacy flag", async () => {
     const { useAppStore } = await rehydrateWithPersistedSettings({
       codexFastModeVisible: false,
-      composerControlPlacements: { fast: "toolbar", advisor: "overflow" },
+      composerControlPlacements: { fast: "toolbar", review: "overflow" },
     });
     // `fast: "toolbar"` normalizes away as the default, and the legacy flag
     // must not resurrect it as hidden.
     expect(useAppStore.getState().settings.composerControlPlacements).toEqual({
-      advisor: "overflow",
+      review: "overflow",
     });
   });
 });

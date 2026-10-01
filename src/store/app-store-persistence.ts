@@ -19,13 +19,6 @@ import {
   normalizeNotificationSoundVolume,
 } from "@/lib/notifications/notification-sound";
 import { normalizePromptCommentShortcut } from "@/lib/prompt-comment-shortcuts";
-import {
-  normalizeAdvisorConsultLimit,
-  normalizeAdvisorTargetByProvider,
-  normalizePersistedAdvisorEnabled,
-  normalizePersistedAdvisorTarget,
-} from "@/lib/providers/advisor";
-import { normalizeWorkerConfigByProvider } from "@/lib/providers/worker-mode";
 import { normalizeModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
 import { normalizeModelVisibility } from "@/lib/providers/model-visibility";
 import {
@@ -662,26 +655,6 @@ export function createAppStorePersistenceOptions() {
       state.settings.taskPresets = migratedModelDefaults.taskPresets;
       state.settings.settingsModelMigrationVersion =
         migratedModelDefaults.version;
-      state.settings.advisorTarget =
-        normalizePersistedAdvisorTarget(persistedSettings);
-      // Read after the target: a snapshot written before the Advisor default
-      // had its own switch expressed "on" as a configured target.
-      state.settings.advisorEnabled = normalizePersistedAdvisorEnabled({
-        persistedSettings,
-        target: state.settings.advisorTarget,
-      });
-      state.settings.advisorTargetByProvider = normalizeAdvisorTargetByProvider(
-        state.settings.advisorTargetByProvider,
-      );
-      state.settings.advisorConsultLimit = normalizeAdvisorConsultLimit(
-        state.settings.advisorConsultLimit,
-      );
-      delete raw.claudeAdvisorModel;
-      // Re-normalized on load rather than trusted: a config written by a newer
-      // build can name a preset or effort this build does not know.
-      state.settings.workerConfigByProvider = normalizeWorkerConfigByProvider(
-        state.settings.workerConfigByProvider,
-      );
       state.settings.providerTimeoutMs = normalizeProviderTimeoutMs({
         value: state.settings.providerTimeoutMs,
       });
