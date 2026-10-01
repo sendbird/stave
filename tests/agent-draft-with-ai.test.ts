@@ -7,6 +7,22 @@ describe("describe to create", () => {
     expect(prompt).toContain("Reviews PRs for missing tests.");
     expect(prompt).toContain('"read-only"');
     expect(prompt).toContain('"new-worktree"');
+    expect(prompt).toContain('"ci-fix"');
+  });
+
+  test("a drafted agent gets the shared reply style once and a task class", () => {
+    const result = parseAgentDraft(
+      '{"name":"Docs writer","instructions":"You write docs.","permission":"read-only","taskClass":"docs"}',
+      [],
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.agent.instructions).toContain("You write docs.");
+    expect(result.agent.instructions.match(/Separate facts from inference/g)).toHaveLength(1);
+    expect(result.agent.model).toEqual({ mode: "auto", taskClass: "docs" });
+    expect(result.agent.report).toEqual(["summary", "findings", "limitations"]);
+    const again = parseAgentDraft(JSON.stringify({ name: "Docs writer", instructions: result.agent.instructions }), []);
+    expect(again.ok && again.agent.instructions.match(/Separate facts from inference/g)).toHaveLength(1);
   });
 
   test("an answer becomes an unsaved custom agent with a unique id", () => {

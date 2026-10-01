@@ -19,7 +19,7 @@ import {
  */
 
 /** Shared by every general agent, so the way an agent writes back is the same whichever one ran. */
-const SHARED_STYLE =
+export const SHARED_STYLE =
   "Reply in the user's language, outcome first, in plain words and short. Separate facts from inference, say what you did not verify, and finish the whole scope.";
 
 const READ_ONLY_DENY = ["Edit", "Write", "NotebookEdit"];
