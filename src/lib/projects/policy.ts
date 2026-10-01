@@ -44,7 +44,7 @@ export interface ProjectObservation {
 export interface ProjectTrigger {
   /** Stable per occurrence, so one occurrence wakes the coordinator once. */
   id: string;
-  kind: "issue-assigned" | "pull-request" | "schedule";
+  kind: "issue-assigned" | "pull-request" | "schedule" | "linked-task";
   /** One line for the coordinator, such as "ACME-12 · Fix login (url)". */
   summary: string;
 }
@@ -174,7 +174,7 @@ export function collectPendingTriggers(events: readonly ProjectEvent[]): Project
     if (event.kind !== "trigger-observed" || event.detail.baseline === true) continue;
     const { triggerId, triggerKind, summary } = event.detail;
     if (typeof triggerId !== "string" || delivered.has(triggerId) || typeof summary !== "string") continue;
-    if (triggerKind !== "issue-assigned" && triggerKind !== "pull-request" && triggerKind !== "schedule") continue;
+    if (triggerKind !== "issue-assigned" && triggerKind !== "pull-request" && triggerKind !== "schedule" && triggerKind !== "linked-task") continue;
     pending.push({ id: triggerId, kind: triggerKind, summary });
   }
   return pending;
@@ -217,6 +217,7 @@ export function isStaveCoordinatorPrompt(text: string): boolean {
 }
 
 const TRIGGER_LABELS: Record<ProjectTrigger["kind"], string> = {
+  "linked-task": "Linked task changed",
   "issue-assigned": "Issue assigned to the user",
   "pull-request": "Pull request",
   schedule: "Scheduled check-in",

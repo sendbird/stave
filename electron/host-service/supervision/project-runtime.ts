@@ -11,6 +11,8 @@
  *
  * Used by: `electron/host-service/supervision/project-host.ts`.
  */
+import { createProjectTaskIntegration, type ProjectTaskSnapshot, type ProjectTaskPorts } from "./project-task-integration";
+import type { ProjectTaskCandidate, LinkProjectTaskArgs, RecordProjectIntegrationArgs } from "../../../src/lib/projects/task-integration";
 import { randomUUID } from "node:crypto";
 import { runIntake } from "./intake";
 import { isUsableAs, type AgentConfig } from "../../../src/lib/agents/schema";
@@ -31,7 +33,6 @@ import { PLAYBOOK_STARTERS, createPlaybookFromStarter } from "../../../src/lib/p
 import type {
   ProjectChangedEvent,
   ProjectDetail,
-  ProjectInvokeResult,
   ProjectLibraryItem,
   ProjectMissionView,
 } from "../../../src/lib/projects/api";
@@ -80,7 +81,6 @@ import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../.
 import type { ProjectStore } from "../../persistence/project-store";
 import type { MissionStore } from "../../persistence/mission-store";
 import type { ProjectGrant } from "../../providers/project-grants";
-import type { HostProjectAction } from "../protocol";
 
 const DEFAULT_TICK_MS = 10_000;
 /** The reason a project paused because Stave quit; only these resume on relaunch. */
@@ -136,6 +136,9 @@ export interface CoordinatorSnapshot {
 }
 
 export interface ProjectRuntimeDependencies {
+  readWorkspaceRevision?: ProjectTaskPorts["readWorkspaceRevision"];
+  readProjectTask?: (target: { workspaceId: string; taskId: string }) => Promise<ProjectTaskSnapshot>;
+  listProjectTaskCandidates?: (repositoryPath: string) => Promise<ProjectTaskCandidate[]>;
   store: ProjectStorePort;
   /** The active agents the host knows, for a project's Agents. Absent: none. */
   listAgents?: () => readonly AgentConfig[];
@@ -211,6 +214,9 @@ export interface ProjectRuntime {
   /** A mission changed; ticks when it belongs to a project. */
   notifyMissionChanged: (args: { missionId: string }) => void;
   list: (args?: { openOnly?: boolean }) => Promise<{ projects: Project[] }>;
+  linkTask: (args: LinkProjectTaskArgs) => Promise<ProjectDetail>;
+  unlinkTask: (args: { projectId: string; taskId: string }) => Promise<ProjectDetail>;
+  recordIntegration: (args: RecordProjectIntegrationArgs) => Promise<ProjectDetail>;
   get: (args: { projectId: string }) => Promise<ProjectDetail>;
   create: (args: unknown) => Promise<ProjectDetail>;
   /** With `providerId` or `model`, the user changed where the proposal runs before starting it. */
@@ -382,6 +388,13 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     return starter ? createPlaybookFromStarter(starter, { now: now(), id: `starter_${starter.id}` }) : null;
   }
 
+  const taskIntegration = createProjectTaskIntegration({
+    project: requireProject, readTask: deps.readProjectTask, listCandidates: deps.listProjectTaskCandidates,
+    repository: deps.resolveRepositoryPath, save: updateProject, now,
+    readWorkspaceRevision: deps.readWorkspaceRevision,
+    missionRevisions: (projectId) => deps.missions.listMissionsForProject(projectId).map(mission => [mission.id, mission.state, mission.updatedAt]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+  });
+
   async function detailOf(projectId: string): Promise<ProjectDetail> {
     const project = requireProject(projectId);
     const missions: ProjectMissionView[] = [];
@@ -425,6 +438,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       memories: store.listMemories(projectId),
       library,
       events: store.listEvents(projectId, 100),
+      ...(await taskIntegration.view(project)),
       coordinatorState: {
         available: Boolean(coordinator?.exists && !coordinator.archived),
         busy: Boolean(coordinator?.activeTurnId),
@@ -667,7 +681,10 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
 
   async function tickProject(projectId: string) {
     const watched = store.getProject(projectId);
-    if (watched?.state === "active") collectScheduleTrigger(watched);
+    if (watched?.state === "active") {
+      collectScheduleTrigger(watched);
+      if (watched.taskLinks?.length) recordTriggers(watched, await taskIntegration.changes(watched));
+    }
     for (let round = 0; round < MAX_ACTIONS_PER_PROJECT_TICK; round += 1) {
       const project = store.getProject(projectId);
       if (!project) return;
@@ -849,6 +866,9 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       return null;
     },
     get: ({ projectId }) => detailOf(projectId),
+    linkTask: (args) => enqueue(async () => { await taskIntegration.link(args); return detailOf(args.projectId); }),
+    unlinkTask: (args) => enqueue(async () => { await taskIntegration.unlink(args); return detailOf(args.projectId); }),
+    recordIntegration: (args) => enqueue(async () => { await taskIntegration.record(args); return detailOf(args.projectId); }),
 
     create: (rawInput) =>
       enqueue(async () => {
@@ -943,6 +963,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       enqueue(async () => {
         const project = requireProject(projectId);
         if (!isOpenProjectState(project.state)) refuse("The project has already ended.", "stale");
+        if (outcome === "completed") await taskIntegration.requireAccepted(project);
         updateProject(project, { state: outcome, reasonDetail: null }, { kind: "ended", detail: { outcome } });
         refreshCoordinators();
         return detailOf(projectId);
@@ -1033,6 +1054,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
 
     getForGrant: async ({ projectKey }) => {
       const { project } = requireGrant(projectKey);
+      const linked = await taskIntegration.view(project, false);
       return buildProjectBriefing({
         project,
         missions: aggregatesOf(project.id).map(snapshotOf),
@@ -1040,6 +1062,8 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         playbooks: playbookOptions(),
         memories: store.listMemories(project.id),
         agents: projectAgents(project),
+        linkedTasks: linked.linkedTasks,
+        integration: { status: linked.integrationStatus, ownerTaskId: project.integration?.ownerTaskId ?? null, summary: project.integration?.summary ?? null, unresolved: project.integration?.unresolved ?? [] },
       });
     },
 
@@ -1133,65 +1157,4 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
   return runtime;
 }
 
-/** Serializes a thrown refusal the way the host returns every project action. */
-export async function invokeProjectRuntime<T>(work: () => Promise<T>): Promise<ProjectInvokeResult<T>> {
-  try {
-    return { ok: true, value: await work() };
-  } catch (error) {
-    if (error instanceof ProjectCommandError) return { ok: false, code: error.code, message: error.message };
-    if (error && typeof error === "object" && "issues" in error) {
-      return { ok: false, code: "invalid-args", message: "The project request was not valid." };
-    }
-    return { ok: false, code: "failed", message: error instanceof Error ? error.message : "The project request failed." };
-  }
-}
-
-/** Routes a host `project.invoke` request to the runtime. */
-export function invokeProjectAction(
-  runtime: ProjectRuntime,
-  action: HostProjectAction,
-  args: unknown,
-): Promise<ProjectInvokeResult<unknown>> {
-  return invokeProjectRuntime(() => dispatchProject(runtime, action, args));
-}
-
-function dispatchProject(runtime: ProjectRuntime, action: HostProjectAction, args: unknown): Promise<unknown> {
-  // The main process validates renderer arguments; tools pass their key.
-  const value = (args ?? {}) as never;
-  switch (action) {
-    case "list":
-      return runtime.list(value);
-    case "get":
-      return runtime.get(value);
-    case "create":
-      return runtime.create(args);
-    case "approve-proposal":
-      return runtime.approveProposal(value);
-    case "observe-issues":
-      return runtime.observeIssues(value);
-    case "message-coordinator":
-      return runtime.messageCoordinator(value);
-    case "reject-proposal":
-      return runtime.rejectProposal(value);
-    case "pause":
-      return runtime.pause(value);
-    case "resume":
-      return runtime.resume(value);
-    case "end":
-      return runtime.end(value);
-    case "update-settings":
-      return runtime.updateSettings(value);
-    case "set-memory-status":
-      return runtime.setMemoryStatus(value);
-    case "sync-playbooks":
-      return runtime.syncPlaybooks(value);
-    case "get-for-grant":
-      return runtime.getForGrant(value);
-    case "start-mission-for-grant":
-      return runtime.startMissionForGrant(value);
-    case "get-mission-report-for-grant":
-      return runtime.getMissionReportForGrant(value);
-    case "note-for-grant":
-      return runtime.noteForGrant(value);
-  }
-}
+export { invokeProjectRuntime, invokeProjectAction } from "./project-runtime-actions";

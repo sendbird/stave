@@ -3,6 +3,7 @@
  * instruction, the tool names, the read-oriented runtime options its turns
  * run with, and the briefing `stave_get_project` returns. Pure.
  */
+import type { ProjectTaskView } from "./task-integration";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import type { MissionProposal, MissionProviderId, Project, ProjectMemory } from "./domain";
 import { PROJECT_MISSION_MODELS } from "./models";
@@ -31,6 +32,7 @@ export function buildCoordinatorInstruction(project: Pick<Project, "name" | "goa
     project.settings.askBeforeStarting
       ? "  Each start becomes a proposal the user approves in the project; say what you proposed and why."
       : `  Missions start right away, up to ${project.settings.parallelLimit} at a time.`,
+    "- Linked ordinary tasks are references only: their dependencies do not grant permission to start or change them. Successful runs alone do not accept integration; the user reviews the combined result.",
     "- A mission's task may run as one of the project's agents: pass its id as `agentConfigId`. Pick the one whose use-when fits the piece.",
     `- When missions change, read their reports with ${PROJECT_TOOL_NAMES.getReport}, never their transcripts.`,
     `- Record what the project learned, and a one-line status, with ${PROJECT_TOOL_NAMES.note}.`,
@@ -87,6 +89,8 @@ export interface ProjectBriefing {
   /** The models `stave_start_mission` accepts, per provider. */
   models: Record<MissionProviderId, readonly string[]>;
   memory: string[];
+  linkedTasks?: ProjectTaskView[];
+  integration?: { status: string; ownerTaskId: string | null; summary: string | null; unresolved: string[] };
 }
 
 export function buildProjectBriefing(args: {
@@ -95,6 +99,8 @@ export function buildProjectBriefing(args: {
   proposals: readonly MissionProposal[];
   playbooks: readonly PlaybookOption[];
   memories: readonly ProjectMemory[];
+  linkedTasks?: ProjectTaskView[];
+  integration?: ProjectBriefing["integration"];
   agents?: ReadonlyArray<{ id: string; name: string; description: string }>;
 }): ProjectBriefing {
   return {
@@ -123,6 +129,7 @@ export function buildProjectBriefing(args: {
     playbooks: [...args.playbooks],
     agents: (args.agents ?? []).map((agent) => ({ id: agent.id, name: agent.name, useWhen: agent.description })),
     models: PROJECT_MISSION_MODELS,
+    ...(args.linkedTasks?.length ? { linkedTasks: args.linkedTasks, integration: args.integration } : {}),
     memory: args.memories.filter((memory) => memory.status === "accepted").map((memory) => memory.content),
   };
 }

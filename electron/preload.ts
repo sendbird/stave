@@ -866,6 +866,9 @@ ipcRenderer.on(PROJECT_IPC.changed, (_event, payload: ProjectChangedEvent) => {
 });
 
 const projectsApi: ProjectsBridgeApi = {
+  linkTask: (args) => ipcRenderer.invoke(PROJECT_IPC.linkTask, args),
+  unlinkTask: (args) => ipcRenderer.invoke(PROJECT_IPC.unlinkTask, args),
+  recordIntegration: (args) => ipcRenderer.invoke(PROJECT_IPC.recordIntegration, args),
   list: (args) => ipcRenderer.invoke(PROJECT_IPC.list, args),
   get: (args) => ipcRenderer.invoke(PROJECT_IPC.get, args),
   create: (args) => ipcRenderer.invoke(PROJECT_IPC.create, args),

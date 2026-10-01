@@ -4,6 +4,8 @@
  *
  * Used by: `electron/host-service.ts`.
  */
+import { readProjectTask, listProjectTaskCandidates } from "./project-task-host";
+import { readWorkspaceRevision } from "./workspace-revision";
 import type { ProjectChangedEvent } from "../../../src/lib/projects/api";
 import type { ProjectPullRequestSignal } from "../../../src/lib/projects/policy";
 import type { Playbook } from "../../../src/lib/playbooks/schema";
@@ -59,6 +61,8 @@ export function createHostProjectRuntime(args: {
   const persistence = ensureHostServicePersistenceReady();
   return createProjectRuntime({
     store: persistence.projects,
+    readProjectTask,
+    listProjectTaskCandidates,
     listAgents: hostAgents,
     ...(args.recordTaskAgent ? { recordTaskAgent: args.recordTaskAgent } : {}),
     missions: persistence.missions,
@@ -81,6 +85,10 @@ export function createHostProjectRuntime(args: {
         fingerprint: turn.fingerprint as Parameters<typeof runSupervisedTurn>[0]["fingerprint"],
       }),
     resolveRepositoryPath,
+    readWorkspaceRevision: async workspaceId => {
+      const cwd = await resolveWorkspacePath(workspaceId);
+      return cwd ? readWorkspaceRevision(cwd) : { status: "unknown", reason: "unavailable" };
+    },
     createMissionWorkspace: async ({ repositoryPath, name, label }) => {
       // Creating a workspace on a branch that already has one returns that
       // workspace; the ids known before tell the runtime it was not new.

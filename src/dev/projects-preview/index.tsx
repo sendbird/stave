@@ -12,6 +12,8 @@ import type { ChatMessage } from "@/types/chat";
 import { createPlaybookFromStarter, findPlaybookStarter } from "@/lib/playbooks/starters";
 import { applyThemeClass } from "@/lib/themes/apply";
 import { useProjectsStore } from "@/store/projects-store";
+import { projectTaskIntegrationFixture } from "./task-integration-fixture";
+import { ProjectTaskIntegration } from "@/components/projects/ProjectTaskIntegration";
 
 /*
  * Dev-only preview of the Projects surface: `?stavePreview=projects`. Add
@@ -177,18 +179,28 @@ const conversation: ChatMessage[] = [
 
 export function ProjectsPreview() {
   const [dark, setDark] = useState(() => params.get("theme") === "dark");
+  const selectedDetail = useProjectsStore(state => state.details[project.id]);
+  const busy = useProjectsStore(state => Boolean(state.pendingById[project.id]));
   useLayoutEffect(() => {
     applyThemeClass({ enabled: dark });
   }, [dark]);
   useLayoutEffect(() => {
     const empty = params.get("empty") === "1";
+    const fixture = params.get("taskIntegration") === "1" ? projectTaskIntegrationFixture(detail) : null;
+    const api = window.api;
+    const previous = api?.projects;
+    if (fixture && api) api.projects = fixture.bridge;
     useProjectsStore.setState({
       loaded: true,
       projects: empty ? [] : [project, { ...project, id: "p2", name: "Checkout reliability", state: "paused" }],
-      details: empty ? {} : { [project.id]: detail },
+      details: empty ? {} : { [project.id]: fixture?.detail ?? detail },
       selectedId: empty ? null : project.id,
     });
+    return () => { if (fixture && api) api.projects = previous; };
   }, []);
+  if (params.get("taskIntegrationOnly") === "1") return <main className={sx(styles.page, styles.integrationOnly)}>
+    <ProjectTaskIntegration detail={selectedDetail ?? detail} busy={busy} onOpen={() => {}} />
+  </main>;
   return (
     <main className={sx(styles.page)}>
       <aside className={sx(styles.sidebar)}>
@@ -220,4 +232,5 @@ const styles = stylex.create({
   },
   caption: { margin: 0, marginTop: vars["--ads-space-16"], fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
   surface: { flex: "1 1 auto", minWidth: 0, display: "flex", flexDirection: "column" },
+  integrationOnly: { display: "block", padding: vars["--ads-space-16"], height: "auto", minHeight: "100vh" },
 });

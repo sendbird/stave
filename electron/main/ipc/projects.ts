@@ -1,3 +1,4 @@
+import { LinkProjectTaskArgsSchema, UnlinkProjectTaskArgsSchema, RecordProjectIntegrationArgsSchema } from "../../../src/lib/projects/task-integration";
 import { ipcMain } from "electron";
 import { z } from "zod";
 import { PROJECT_IPC, type ProjectDetail, type ProjectResponse } from "../../../src/lib/projects/api";
@@ -70,6 +71,9 @@ function handleCommand(channel: string, action: HostProjectAction, schema: z.Zod
 export function registerProjectHandlers() {
   ensureProjectEventBridge();
   ensureProjectIssueBridge();
+  handleCommand(PROJECT_IPC.linkTask, "link-task", LinkProjectTaskArgsSchema);
+  handleCommand(PROJECT_IPC.unlinkTask, "unlink-task", UnlinkProjectTaskArgsSchema);
+  handleCommand(PROJECT_IPC.recordIntegration, "record-integration", RecordProjectIntegrationArgsSchema);
   handleCommand(PROJECT_IPC.get, "get", ProjectIdArgsSchema);
   handleCommand(PROJECT_IPC.create, "create", ProjectCreateInputSchema);
   handleCommand(PROJECT_IPC.approveProposal, "approve-proposal", ApproveArgsSchema);

@@ -182,10 +182,33 @@ review**. **Accept** the ones that should hold. Every later mission of the
 project receives accepted memory as context; missions outside the project
 never do. Turn on **Accept decisions automatically** to skip the review.
 
+### Coordinate existing tasks
+
+Use **Linked tasks → Link a task** to reference ordinary tasks from the same
+repository. Choose their dependencies to make the integration order visible.
+Links do not start work, change permissions, or block a task from running on
+its own. Missions keep their existing proposal and sign-off flow.
+
+Choose a linked task as the **Integration owner** and record the combined
+result, acceptance criteria, evidence references and unresolved items. A
+finished task run or an agent report alone does not accept integration. Review
+the evidence, mark every criterion met and choose **Accept combined result**.
+Missing, archived or running tasks and unresolved items prevent acceptance.
+The review records the current work revision, including HEAD, staged changes
+and bounded dirty/untracked file contents when they can be read. Later task,
+mission, commit or file changes
+make it outdated and require another review. Linked tasks remain references:
+their transcripts and execution permissions are not shared with the coordinator.
+If file state cannot be verified, Stave says so and records a review of task
+records and your evidence. Document and question tasks can still be reviewed
+without adding a code-verification requirement.
+
 ### Finish a project
 
 When the goal is met, choose ⋯ → **Mark the goal met**. Running missions
 continue on their own; the coordinator stops waking.
+When ordinary tasks are linked, first accept the current combined result in
+**Integration**. Successful individual runs do not complete the project.
 
 ## Files And Data
 
@@ -234,6 +257,43 @@ again; the same start is never replayed on its own.
 The Projects view shows the reason and **Try again** instead of the first-run
 page when the project list (or one project) cannot be read. Try again; if it
 keeps failing, restart Stave.
+
+## Reproducible Evaluation
+
+Compare runs on the same repository revision, task class, model, permission
+policy and acceptance criteria. Keep a baseline fixture and reset the worktree
+between runs; record the run/turn IDs and evidence references.
+
+| Path | Check before calling the result accepted |
+| --- | --- |
+| Direct task | Compare its completion receipt with the explicit criteria and unresolved items. |
+| Agent task | Repeat the direct-task checks and record the selected agent/runtime configuration. |
+| Delegation | Review the child result separately from the parent's combined result; record each approval or question and its reason. |
+| Mission | Check stage evidence, required sign-offs, and whether later workspace changes invalidate acceptance. |
+| Project integration | Confirm linked work, dependencies, integration owner, current snapshot, evidence source and separate user review. |
+
+For each run, record criteria met/unmet/unverified, false completion (a claimed
+completion with unmet or unverified criteria), explicit user correction,
+approval/question reason, elapsed time and provider-reported cost. An ordinary
+follow-up is not automatically a correction. Unknown cost stays unknown:
+`Spent` aggregates reported mission costs, so a mixed-provider amount can be
+a partial known total; the coordinator and linked ordinary tasks are outside
+that total. Compare cost only alongside its measured/unreported coverage.
+
+The existing project limits cover concurrent mission starts and automatic
+coordinator wakes in the last 24 hours since resume; they are not a dollar
+budget. Triggers are deduplicated, and task links start no work. Mission
+decisions become memory candidates until accepted, unless the user enabled
+automatic acceptance. There is no aggregate improvement score or automatic
+intervention-quality counter; derive evaluation rows from the recorded events
+and reviewed evidence instead of inventing improvement statistics.
+
+Focused reproducible checks: [integration contracts](../../tests/project-task-integration.test.ts),
+[workspace freshness](../../tests/workspace-revision.test.ts),
+[wake budget](../../tests/project-policy.test.ts),
+[trigger deduplication](../../tests/project-triggers.test.ts),
+[memory approval](../../tests/project-memory-library.test.ts), and
+[reported usage](../../tests/mission-usage.test.ts).
 
 ## Related Docs
 
