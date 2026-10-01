@@ -1,5 +1,5 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
-import { AlertCircle, Bot, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
+import { AlertCircle, Bot, ChevronDown, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -30,7 +30,9 @@ import { sx } from "@/components/ads/utils/stylex";
 import { modelEffortSelectorStyles as styles } from "./model-effort-selector.styles";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import type { AgentConfig } from "@/lib/agents/schema";
+import type { AgentModelRoute } from "@/lib/agents/selector-choice";
 import { SelectionRail } from "@/components/system/SelectionRail";
+import { AgentRouteRow, describeAgentRoute } from "./agent-route-row";
 import { AutoRoutingProfileList } from "./auto-routing-profile-list";
 import { CursorModelConfigList } from "./cursor-model-config-list";
 import { ModelEffortGrid } from "./model-effort-grid";
@@ -50,6 +52,7 @@ import {
   isClaudeContext1MModel,
   listDefaultModelOptions,
   listModelEfforts,
+  planPickerRail,
   resolveClaudeContextOption,
   resolveDefaultModelEffort,
   supportsClaudeContextToggle,
@@ -68,20 +71,45 @@ import {
  */
 const AUTO_TAB = "auto" as const;
 /**
- * Agentic tasks only: the agent the task runs as. First on the rail, above the
- * providers: an agent picks its own model, so it answers "who" before "which
- * model". Its body comes from the caller (`agents.renderPanel`).
+ * The agents a task can run as. Last on the rail, under the Models group: a
+ * model answers "which model", an agent answers "who", and picking one is
+ * Agent mode. Its body comes from the caller (`agents.renderPanel`).
  */
 const AGENTS_TAB = "agents" as const;
 type RailValue = ProviderId | typeof AUTO_TAB | typeof AGENTS_TAB;
 
-/** What the picker needs to offer agents: its Agents tab and the trigger's identity. */
+/** Which of the two popovers is open: the model and agent selector, or the agent's pin picker. */
+type PanelMode = "selector" | "pin";
+
+type ModelSelection = {
+  selection: ModelSelectorOption;
+  effort?: ModelEffortValue;
+  fastMode?: boolean;
+};
+
+/**
+ * What the picker needs to offer agents: the Agents section, the trigger's
+ * two segments and the pin. Without it the picker lists models only.
+ */
 export interface ModelPickerAgents {
-  /** The agent the task runs as now, for the trigger; null when the picked model runs it. */
+  /** The agent the task runs as now; null for a Chat task, where the picked model runs it. */
   active: Pick<AgentConfig, "id" | "name" | "appearance"> | null;
+  /** How the agent's turns pick their model; null in Chat. */
+  route: AgentModelRoute | null;
+  /** The agent declares a model of its own, which "Back to Auto" returns to. */
+  fixedModel: boolean;
+  /** Stave Auto is on, so the agent can route by itself and a pin can be lifted. */
+  autoAvailable: boolean;
   count: number;
-  /** The Agents tab body; `close` closes the picker after a choice. */
-  renderPanel: (close: () => void) => ReactNode;
+  /**
+   * The Agents list. `tab` is the Agents section, `matches` the agents that
+   * match a model search; `close` closes the picker after a choice.
+   */
+  renderPanel: (args: { variant: "tab" | "matches"; query: string; close: () => void }) => ReactNode;
+  /** A model in the pin picker: it binds the agent's turns and leaves the agent assigned. */
+  onPin: (args: ModelSelection) => void;
+  /** "Back to Auto": lifts the pin. */
+  onUnpin: () => void;
 }
 
 export interface ModelSelectorCatalogState {
@@ -106,7 +134,7 @@ interface ModelEffortSelectorProps {
    */
   modelVisibility?: ModelVisibility;
   onRefreshCatalogs?: () => void;
-  /** Agentic tasks: offer agents on the rail and show the task's agent on the trigger. */
+  /** Offer agents on the rail, and split the trigger in two while an agent runs the task. */
   agents?: ModelPickerAgents;
   onFastModeChange?: (enabled: boolean) => void;
   onSelect: (args: {
@@ -282,13 +310,19 @@ function CatalogNotice(args: {
 }
 
 export function ModelEffortSelector(args: ModelEffortSelectorProps) {
-  const [open, setOpen] = useState(false);
+  const [openPanel, setOpenPanel] = useState<PanelMode | null>(null);
+  const open = openPanel !== null;
+  // The pin picker lists concrete models for the agent's turns: no Agents
+  // section and no Auto tab, and a pick pins instead of switching to Chat.
+  const pinMode = openPanel === "pin";
+  const setOpen = (next: boolean) => setOpenPanel(next ? "selector" : null);
   const [query, setQuery] = useState("");
   const [showAllModels, setShowAllModels] = useState(false);
   // Two pieces of state on purpose: `railValue` is the tab that is showing, and
   // `providerId` remembers the last *provider* tab so leaving Auto and coming
   // back lands on the model list the user was reading, not on a reset.
-  const agentActive = Boolean(args.agents?.active);
+  const agent = args.agents?.active ?? null;
+  const agentActive = agent !== null;
   const [railValue, setRailValue] = useState<RailValue>(() =>
     agentActive ? AGENTS_TAB : args.value.isAuto ? AUTO_TAB : args.value.providerId,
   );
@@ -301,6 +335,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const handledOpenTokenRef = useRef(args.openToken);
   const resetHandledForOpenRef = useRef(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const pinTriggerRef = useRef<HTMLButtonElement | null>(null);
   const updateModelRuntimePreference = useAppStore(
     (state) => state.updateModelRuntimePreference,
   );
@@ -335,8 +370,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const autoOption = args.options.find((option) => option.isAuto);
   const isAutoTab = railValue === AUTO_TAB;
   const isAgentsTab = railValue === AGENTS_TAB;
-  // Neither Auto nor Agents has a model list to search.
+  // Auto has no list to search, and the Agents tab has no model list.
   const isListTab = !isAutoTab && !isAgentsTab;
+  const searchesAgents = Boolean(args.agents) && !pinMode;
   const providerIds = useMemo(
     () =>
       listProviderIds().filter((candidate) =>
@@ -510,10 +546,17 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         patch: { context1M: isClaudeContext1MModel(option.model) },
       });
     }
-    args.onSelect({
+    const picked = {
       selection: option,
       ...(effort ? { effort } : {}),
-    });
+    };
+    // In the pin picker the pick binds the agent's turns; anywhere else a
+    // model is Chat and the host releases the task's agent.
+    if (pinMode && args.agents) {
+      args.agents.onPin(picked);
+    } else {
+      args.onSelect(picked);
+    }
     setOpen(false);
   };
 
@@ -551,14 +594,19 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       return;
     }
     resetHandledForOpenRef.current = true;
+    const startProviderId = args.value.isAuto
+      ? (providerIds[0] ?? "claude-code")
+      : args.value.providerId;
     setRailValue(
-      agentActive ? AGENTS_TAB : args.value.isAuto ? AUTO_TAB : args.value.providerId,
+      pinMode
+        ? startProviderId
+        : agentActive
+          ? AGENTS_TAB
+          : args.value.isAuto
+            ? AUTO_TAB
+            : args.value.providerId,
     );
-    setProviderId(
-      args.value.isAuto
-        ? (providerIds[0] ?? "claude-code")
-        : args.value.providerId,
-    );
+    setProviderId(startProviderId);
     setContext1M(isClaudeContext1MModel(args.value.model));
     setQuery("");
     setShowAllModels(false);
@@ -568,6 +616,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     args.value.model,
     args.value.providerId,
     open,
+    pinMode,
     providerIds,
   ]);
 
@@ -582,313 +631,433 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       return;
     }
     handledOpenTokenRef.current = args.openToken;
-    setOpen(true);
+    setOpenPanel("selector");
   }, [args.disabled, args.openToken]);
+
+  // The same popover content serves both triggers; only one is ever open.
+  const popoverContent = (
+    <PopoverContent
+      align="start"
+      side="top"
+      sideOffset={8}
+      collisionPadding={8}
+      collisionAvoidance={{
+        side: "shift",
+        align: "shift",
+        fallbackAxisSide: "none",
+      }}
+      finalFocus={pinMode ? pinTriggerRef : triggerRef}
+      aria-label={pinMode ? "Model for the agent" : "Model and effort selector"}
+      // Search + footer chrome is ~7.5rem. Each model row is ~3.5rem
+      // (min-h-11 plus row padding/gap), so 25rem keeps five rows in
+      // view and everything below reachable by scrolling.
+      xstyle={styles.popover}
+      className="model-effort-popover"
+    >
+      <Tabs
+        value={railValue}
+        onValueChange={(value) => showTab(value as RailValue)}
+        orientation="vertical"
+        xstyle={styles.tabs}
+      >
+        <SelectionRail
+          label={searchesAgents ? "Model providers and agents" : "Model provider"}
+          value={railValue}
+          onPreview={(value) => showTab(value as RailValue)}
+          items={planPickerRail({
+            providerIds,
+            hasAuto: Boolean(autoOption) && !pinMode,
+            hasAgents: searchesAgents,
+          }).map((tab) => {
+            if (tab.kind === "auto") {
+              return {
+                value: AUTO_TAB,
+                label: "Stave Auto",
+                icon: (
+                  <Sparkles
+                    className={sx(styles.railAutoIcon)}
+                    aria-hidden="true"
+                  />
+                ),
+              };
+            }
+            if (tab.kind === "agents") {
+              return {
+                value: AGENTS_TAB,
+                label: "Agents",
+                icon: (
+                  <Bot
+                    className={sx(styles.railAutoIcon)}
+                    aria-hidden="true"
+                  />
+                ),
+                count: args.agents?.count ?? 0,
+                noun: "agents",
+                heading: tab.heading,
+              };
+            }
+            const candidate = tab.value as ProviderId;
+            const providerModels = args.options.filter(
+              (option) => !option.isAuto && option.providerId === candidate,
+            );
+            return {
+              value: candidate as string,
+              label: getProviderLabel({ providerId: candidate }),
+              icon: (
+                <ModelIcon
+                  providerId={candidate}
+                  className={sx(styles.railIcon)}
+                />
+              ),
+              count:
+                candidate === "cursor"
+                  ? groupCursorModelOptions(providerModels).length
+                  : providerModels.length,
+              heading: tab.heading,
+            };
+          })}
+        />
+
+        <div className={sx(styles.panel)}>
+          {pinMode && agent && args.agents?.route ? (
+            <AgentRouteRow
+              agentName={agent.name}
+              route={args.agents.route}
+              fixedModel={args.agents.fixedModel}
+              autoAvailable={args.agents.autoAvailable}
+              onSelect={() => {
+                if (args.agents?.route === "pinned") args.agents.onUnpin();
+                setOpen(false);
+              }}
+            />
+          ) : null}
+          {!isAutoTab ? (
+            <div className={sx(styles.searchBar)}>
+              <div className={sx(styles.searchField)}>
+                <Search
+                  className={sx(styles.searchIcon)}
+                  aria-hidden="true"
+                />
+                <Input
+                  autoFocus
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  aria-label={searchesAgents ? "Search models and agents" : "Search models"}
+                  placeholder={searchesAgents ? "Search models and agents" : "Search models"}
+                  className={sx(styles.searchInput)}
+                />
+              </div>
+              {isListTab && args.onRefreshCatalogs && catalog && isRuntimeCatalog ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Refresh model catalog"
+                  title="Refresh model catalog"
+                  disabled={args.disabled || catalog.status === "loading"}
+                  onClick={() => args.onRefreshCatalogs?.()}
+                  className={sx(styles.actionButton)}
+                >
+                  <RefreshCcw
+                    className={sx(
+                      styles.refreshIcon,
+                      catalog.status === "loading" &&
+                        styles.refreshIconSpinning,
+                    )}
+                    aria-hidden="true"
+                  />
+                  <span className={sx(styles.refreshLabel)}>Refresh</span>
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {isListTab ? (
+            <CatalogNotice
+              catalog={catalog}
+              selectedMissing={selectedMissing}
+              onRefresh={args.onRefreshCatalogs}
+            />
+          ) : null}
+
+          {searchesAgents && args.agents ? (
+            <TabsContent value={AGENTS_TAB} xstyle={styles.tabContentAuto}>
+              {isAgentsTab
+                ? args.agents.renderPanel({ variant: "tab", query, close: () => setOpen(false) })
+                : null}
+            </TabsContent>
+          ) : null}
+
+          {autoOption && !pinMode ? (
+            <TabsContent value={AUTO_TAB} xstyle={styles.tabContentAuto}>
+              {isAutoTab ? (
+                <AutoRoutingProfileList
+                  {...(autoOption.description
+                    ? { description: autoOption.description }
+                    : {})}
+                  available={autoOption.available}
+                  selected={Boolean(args.value.isAuto)}
+                  disabled={args.disabled}
+                  onChoose={() => chooseModel(autoOption)}
+                />
+              ) : null}
+            </TabsContent>
+          ) : null}
+
+          {providerIds.map((candidate) => (
+            <TabsContent
+              key={candidate}
+              value={candidate}
+              xstyle={styles.tabContent}
+            >
+              {candidate === providerId ? (
+                <>
+                  {visibleOptions.length === 0 ? (
+                  <div className={sx(styles.empty)}>
+                    {query.trim().length > 0
+                      ? "No models match this search."
+                      : "Every model for this provider is turned off. Show all models below, or re-enable them in Settings › Models."}
+                  </div>
+                ) : (
+                  <>
+                    {providerId === "cursor" && !hideCursorVariantList ? (
+                      <CursorModelConfigList
+                        options={visibleOptions}
+                        selectedModelKey={
+                          !args.value.isAuto &&
+                          args.value.providerId === providerId
+                            ? args.value.key
+                            : undefined
+                        }
+                        disabled={args.disabled}
+                        onChoose={chooseModel}
+                      />
+                    ) : null}
+                    <ModelEffortGrid
+                      providerId={providerId}
+                      options={effortfulOptions}
+                      selectedModelKey={
+                        !args.value.isAuto &&
+                        args.value.providerId === providerId
+                          ? args.value.key
+                          : undefined
+                      }
+                      selectedEffort={
+                        args.value.providerId === providerId
+                          ? selectedEffort
+                          : undefined
+                      }
+                      disabled={args.disabled}
+                      onChoose={chooseModel}
+                    />
+                    <ModelOnlyList
+                      providerId={providerId}
+                      options={effortlessOptions}
+                      selectedModelKey={
+                        !args.value.isAuto &&
+                        args.value.providerId === providerId
+                          ? args.value.key
+                          : undefined
+                      }
+                      disabled={args.disabled}
+                      onChoose={chooseModel}
+                    />
+                  </>
+                )}
+                  {/* One search box for both sections: agents that match
+                      the model search sit under the model results. */}
+                  {searchesAgents && args.agents && query.trim().length > 0
+                    ? args.agents.renderPanel({ variant: "matches", query, close: () => setOpen(false) })
+                    : null}
+                </>
+              ) : null}
+            </TabsContent>
+          ))}
+
+          {canToggleAllModels && isListTab ? (
+            <div className={sx(styles.showAllFooter)}>
+              <AdsButton
+                layout="host"
+                type="button"
+                onClick={() => setShowAllModels((value) => !value)}
+                xstyle={styles.showAllButton}
+              >
+                <span>
+                  {showAllModels
+                    ? "Show current models"
+                    : "Show all models"}
+                </span>
+                <span className={sx(styles.showAllCount)}>
+                  {showAllModels
+                    ? defaultProviderOptions.length
+                    : providerOptions.length}
+                </span>
+              </AdsButton>
+            </div>
+          ) : null}
+        </div>
+      </Tabs>
+    </PopoverContent>
+  );
+
+  // The effort rides on both trigger forms.
+  const effortSuffix = selectedEffortLabel ? (
+    <>
+      <span aria-hidden="true" className={sx(styles.triggerDot)}>
+        ·
+      </span>
+      <span className={sx(styles.triggerEffort)}>{selectedEffortLabel}</span>
+    </>
+  ) : null;
 
   return (
     // Three independent buttons, not a segmented control. Fast and 1M are
     // toggles that happen to sit beside the model they qualify — they are not
     // parts of one object — so they keep their own rounding and their own gap
     // instead of borrowing the model button's corners across a hairline.
+    //
+    // While an agent runs the task the model button becomes one control with
+    // two segments: who works, and which model its turns use.
     <div
       role="group"
       data-model-effort-control="true"
       aria-label="Model controls"
       className={sx(styles.group)}
     >
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <AdsButton
-              layout="host"
-              ref={triggerRef}
-              type="button"
-              disabled={args.disabled}
-              aria-label={
-                (args.agents?.active ? `Runs as ${args.agents.active.name}. ` : "") +
-                (args.value.isAuto
-                  ? "Model: Stave Auto. Stave chooses the provider, model, and effort."
-                  : `Model: ${displayLabel}${
-                      selectedEffortLabel
-                        ? `. Effort: ${selectedEffortLabel}`
-                        : ""
-                    }`)
-              }
-              data-agent-active={args.agents?.active ? "true" : undefined}
-              title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
-              xstyle={[styles.trigger, open && styles.triggerOpen]}
-            />
-          }
+      {agent && args.agents ? (
+        <div
+          role="group"
+          aria-label="Agent and model"
+          data-agent-segments="true"
+          className={sx(styles.segments)}
         >
-          {args.agents?.active ? (
-            <>
-              <AgentAvatar agent={args.agents.active} size="xs" aria-label={null} />
-              <span className={sx(styles.triggerLabel, styles.triggerAgent)}>{args.agents.active.name}</span>
-              <span aria-hidden="true" className={sx(styles.triggerDot)}>
-                ·
-              </span>
-            </>
-          ) : null}
-          {args.value.isAuto ? (
-            <Sparkles className={sx(styles.triggerAccentIcon)} />
-          ) : (
-            <ModelIcon
-              providerId={args.value.providerId}
-              model={args.value.model}
-              className={sx(styles.triggerIcon)}
-            />
-          )}
-          <span className={sx(styles.triggerLabel)}>{displayLabel}</span>
-          {selectedEffortLabel ? (
-            <>
-              <span aria-hidden="true" className={sx(styles.triggerDot)}>
-                ·
-              </span>
-              <span className={sx(styles.triggerEffort)}>
-                {selectedEffortLabel}
-              </span>
-            </>
-          ) : null}
-        </PopoverTrigger>
-
-        <PopoverContent
-          align="start"
-          side="top"
-          sideOffset={8}
-          collisionPadding={8}
-          collisionAvoidance={{
-            side: "shift",
-            align: "shift",
-            fallbackAxisSide: "none",
-          }}
-          finalFocus={triggerRef}
-          aria-label="Model and effort selector"
-          // Search + footer chrome is ~7.5rem. Each model row is ~3.5rem
-          // (min-h-11 plus row padding/gap), so 25rem keeps five rows in
-          // view and everything below reachable by scrolling.
-          xstyle={styles.popover}
-          className="model-effort-popover"
-        >
-          <Tabs
-            value={railValue}
-            onValueChange={(value) => showTab(value as RailValue)}
-            orientation="vertical"
-            xstyle={styles.tabs}
-          >
-            <SelectionRail
-              label="Model provider"
-              value={railValue}
-              onPreview={(value) => showTab(value as RailValue)}
-              items={[
-                ...(args.agents
-                  ? [
-                      {
-                        value: AGENTS_TAB,
-                        label: "Agents",
-                        icon: <Bot className={sx(styles.railAutoIcon)} aria-hidden="true" />,
-                        count: args.agents.count,
-                      },
-                    ]
-                  : []),
-                ...providerIds.map((candidate) => {
-                  const providerModels = args.options.filter(
-                    (option) =>
-                      !option.isAuto && option.providerId === candidate,
-                  );
-                  return {
-                    value: candidate as string,
-                    label: getProviderLabel({ providerId: candidate }),
-                    icon: (
-                      <ModelIcon
-                        providerId={candidate}
-                        className={sx(styles.railIcon)}
-                      />
-                    ),
-                    count:
-                      candidate === "cursor"
-                        ? groupCursorModelOptions(providerModels).length
-                        : providerModels.length,
-                  };
-                }),
-                // Last, below every provider: Auto spans them rather than
-                // sitting among them.
-                ...(autoOption
-                  ? [
-                      {
-                        value: AUTO_TAB,
-                        label: "Stave Auto",
-                        icon: (
-                          <Sparkles
-                            className={sx(styles.railAutoIcon)}
-                            aria-hidden="true"
-                          />
-                        ),
-                      },
-                    ]
-                  : []),
-              ]}
-            />
-
-            <div className={sx(styles.panel)}>
-              {isListTab ? (
-                <div className={sx(styles.searchBar)}>
-                  <div className={sx(styles.searchField)}>
-                    <Search
-                      className={sx(styles.searchIcon)}
-                      aria-hidden="true"
-                    />
-                    <Input
-                      autoFocus
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      aria-label="Search models"
-                      placeholder="Search models"
-                      className={sx(styles.searchInput)}
-                    />
-                  </div>
-                  {args.onRefreshCatalogs && catalog && isRuntimeCatalog ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      aria-label="Refresh model catalog"
-                      title="Refresh model catalog"
-                      disabled={args.disabled || catalog.status === "loading"}
-                      onClick={() => args.onRefreshCatalogs?.()}
-                      className={sx(styles.actionButton)}
-                    >
-                      <RefreshCcw
-                        className={sx(
-                          styles.refreshIcon,
-                          catalog.status === "loading" &&
-                            styles.refreshIconSpinning,
-                        )}
-                        aria-hidden="true"
-                      />
-                      <span className={sx(styles.refreshLabel)}>Refresh</span>
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {isListTab ? (
-                <CatalogNotice
-                  catalog={catalog}
-                  selectedMissing={selectedMissing}
-                  onRefresh={args.onRefreshCatalogs}
+          <Popover open={openPanel === "selector"} onOpenChange={setOpen}>
+            <PopoverTrigger
+              render={
+                <AdsButton
+                  layout="host"
+                  ref={triggerRef}
+                  type="button"
+                  disabled={args.disabled}
+                  aria-label={`Agent: ${agent.name}. Open the model and agent selector.`}
+                  data-agent-active="true"
+                  title="Open model and agent selector (Alt+P). Use Alt+1..0 for mapped models."
+                  xstyle={[
+                    styles.trigger,
+                    styles.segment,
+                    styles.segmentStart,
+                    openPanel === "selector" && styles.triggerOpen,
+                  ]}
                 />
-              ) : null}
-
-              {args.agents ? (
-                <TabsContent value={AGENTS_TAB} xstyle={styles.tabContentAuto}>
-                  {isAgentsTab ? args.agents.renderPanel(() => setOpen(false)) : null}
-                </TabsContent>
-              ) : null}
-
-              {autoOption ? (
-                <TabsContent value={AUTO_TAB} xstyle={styles.tabContentAuto}>
-                  {isAutoTab ? (
-                    <AutoRoutingProfileList
-                      {...(autoOption.description
-                        ? { description: autoOption.description }
-                        : {})}
-                      available={autoOption.available}
-                      selected={Boolean(args.value.isAuto)}
-                      disabled={args.disabled}
-                      onChoose={() => chooseModel(autoOption)}
-                    />
+              }
+            >
+              <AgentAvatar agent={agent} size="xs" aria-label={null} />
+              <span className={sx(styles.triggerLabel, styles.triggerAgent)}>
+                {agent.name}
+              </span>
+              <ChevronDown aria-hidden="true" className={sx(styles.segmentChevron)} />
+            </PopoverTrigger>
+            {popoverContent}
+          </Popover>
+          <span aria-hidden="true" className={sx(styles.segmentDivider)} />
+          <Popover
+            open={pinMode}
+            onOpenChange={(next) => setOpenPanel(next ? "pin" : null)}
+          >
+            <PopoverTrigger
+              render={
+                <AdsButton
+                  layout="host"
+                  ref={pinTriggerRef}
+                  type="button"
+                  disabled={args.disabled}
+                  aria-label={
+                    args.value.isAuto
+                      ? `Model: Stave Auto. ${agent.name} chooses the model for each turn.`
+                      : `Model: ${displayLabel}. ${
+                          args.agents.route === "pinned" ? "Pinned" : "Set"
+                        } for ${agent.name}${
+                          selectedEffortLabel
+                            ? `. Effort: ${selectedEffortLabel}`
+                            : ""
+                        }`
+                  }
+                  data-agent-route={args.agents.route ?? undefined}
+                  title={`Choose the model for ${agent.name}`}
+                  xstyle={[
+                    styles.trigger,
+                    styles.segment,
+                    styles.segmentEnd,
+                    pinMode && styles.triggerOpen,
+                  ]}
+                />
+              }
+            >
+              {args.value.isAuto ? (
+                <Sparkles className={sx(styles.triggerAccentIcon)} />
+              ) : (
+                <>
+                  {args.agents.route === "pinned" && args.agents.autoAvailable ? (
+                    <>
+                      <span className={sx(styles.segmentPinned)}>Pinned</span>
+                      <span aria-hidden="true" className={sx(styles.triggerDot)}>
+                        ·
+                      </span>
+                    </>
                   ) : null}
-                </TabsContent>
-              ) : null}
+                  <ModelIcon
+                    providerId={args.value.providerId}
+                    model={args.value.model}
+                    className={sx(styles.triggerIcon)}
+                  />
+                </>
+              )}
+              <span className={sx(styles.triggerLabel)}>{displayLabel}</span>
+              {effortSuffix}
+              <ChevronDown aria-hidden="true" className={sx(styles.segmentChevron)} />
+            </PopoverTrigger>
+            {popoverContent}
+          </Popover>
+        </div>
+      ) : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            render={
+              <AdsButton
+                layout="host"
+                ref={triggerRef}
+                type="button"
+                disabled={args.disabled}
+                aria-label={
+                  args.value.isAuto
+                    ? "Model: Stave Auto. Stave chooses the provider, model, and effort."
+                    : `Model: ${displayLabel}${
+                        selectedEffortLabel
+                          ? `. Effort: ${selectedEffortLabel}`
+                          : ""
+                      }`
+                }
+                title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
+                xstyle={[styles.trigger, open && styles.triggerOpen]}
+              />
+            }
+          >
+            {args.value.isAuto ? (
+              <Sparkles className={sx(styles.triggerAccentIcon)} />
+            ) : (
+              <ModelIcon
+                providerId={args.value.providerId}
+                model={args.value.model}
+                className={sx(styles.triggerIcon)}
+              />
+            )}
+            <span className={sx(styles.triggerLabel)}>{displayLabel}</span>
+            {effortSuffix}
+          </PopoverTrigger>
+          {popoverContent}
+        </Popover>
+      )}
 
-              {providerIds.map((candidate) => (
-                <TabsContent
-                  key={candidate}
-                  value={candidate}
-                  xstyle={styles.tabContent}
-                >
-                  {candidate === providerId ? (
-                    visibleOptions.length === 0 ? (
-                      <div className={sx(styles.empty)}>
-                        {query.trim().length > 0
-                          ? "No models match this search."
-                          : "Every model for this provider is turned off. Show all models below, or re-enable them in Settings › Models."}
-                      </div>
-                    ) : (
-                      <>
-                        {providerId === "cursor" && !hideCursorVariantList ? (
-                          <CursorModelConfigList
-                            options={visibleOptions}
-                            selectedModelKey={
-                              !args.value.isAuto &&
-                              args.value.providerId === providerId
-                                ? args.value.key
-                                : undefined
-                            }
-                            disabled={args.disabled}
-                            onChoose={chooseModel}
-                          />
-                        ) : null}
-                        <ModelEffortGrid
-                          providerId={providerId}
-                          options={effortfulOptions}
-                          selectedModelKey={
-                            !args.value.isAuto &&
-                            args.value.providerId === providerId
-                              ? args.value.key
-                              : undefined
-                          }
-                          selectedEffort={
-                            args.value.providerId === providerId
-                              ? selectedEffort
-                              : undefined
-                          }
-                          disabled={args.disabled}
-                          onChoose={chooseModel}
-                        />
-                        <ModelOnlyList
-                          providerId={providerId}
-                          options={effortlessOptions}
-                          selectedModelKey={
-                            !args.value.isAuto &&
-                            args.value.providerId === providerId
-                              ? args.value.key
-                              : undefined
-                          }
-                          disabled={args.disabled}
-                          onChoose={chooseModel}
-                        />
-                      </>
-                    )
-                  ) : null}
-                </TabsContent>
-              ))}
-
-              {canToggleAllModels && isListTab ? (
-                <div className={sx(styles.showAllFooter)}>
-                  <AdsButton
-                    layout="host"
-                    type="button"
-                    onClick={() => setShowAllModels((value) => !value)}
-                    xstyle={styles.showAllButton}
-                  >
-                    <span>
-                      {showAllModels
-                        ? "Show current models"
-                        : "Show all models"}
-                    </span>
-                    <span className={sx(styles.showAllCount)}>
-                      {showAllModels
-                        ? defaultProviderOptions.length
-                        : providerOptions.length}
-                    </span>
-                  </AdsButton>
-                </div>
-              ) : null}
-            </div>
-          </Tabs>
-        </PopoverContent>
-      </Popover>
 
       {!args.value.isAuto &&
       (args.value.providerId === "codex" ||

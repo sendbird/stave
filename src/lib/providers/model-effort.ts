@@ -252,6 +252,19 @@ export function getModelEffortLabel(args: {
   )?.label;
 }
 
+/**
+ * Stave Auto in the draft: route when the turn is sent, so the draft holds no
+ * model. An agent that leaves its model to Stave Auto uses the same draft.
+ */
+export function buildAutoRoutingSelectionOverrides(args: {
+  runtimeOverrides?: PromptDraftRuntimeOverrides;
+  /** Plan phase: Auto routes a planning turn as plan work. */
+  planMode: boolean;
+}): PromptDraftRuntimeOverrides {
+  const { model: _model, modelProviderId: _modelProviderId, ...rest } = args.runtimeOverrides ?? {};
+  return { ...rest, autoRouting: true, autoRoutingPlanMode: args.planMode };
+}
+
 /** Snapshot the selector choice so a stale draft cannot override it at send. */
 export function buildModelSelectionRuntimeOverrides(args: {
   runtimeOverrides?: PromptDraftRuntimeOverrides;

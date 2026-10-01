@@ -1,19 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot } from "lucide-react";
-import { Button, toast } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import {
   ComposerOptionCard,
   ComposerOptionMenuCallout,
   ComposerOptionMenuHint,
-  ComposerOptionMenuSettingsLink,
+  ComposerOptionMenuSection,
 } from "@/components/ai-elements/composer-option-menu";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
+import {
+  createAgentChoiceActions,
+  optionForFixedModel,
+  type AgentChoiceContext,
+  type ModelSelectArgs,
+} from "@/components/ai-elements/agent-choice-actions";
 import type { ModelPickerAgents } from "@/components/ai-elements/model-effort-selector";
 import { AGENT_PERMISSION_LABELS, type AgentConfig } from "@/lib/agents/schema";
 import { activeStandards } from "@/lib/agents/standards";
-import { planComposerAgentChoice, selectableMainAgents } from "@/lib/agents/task-mode";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import {
+  awaitsFirstAgentTurn,
+  fixedModelOf,
+  matchAgents,
+  resolveAgentModelRoute,
+  selectableMainAgents,
+} from "@/lib/agents/selector-choice";
 import { useAgentAssignmentsStore, useAgentAssignmentsSync, type TaskAgent } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { sx } from "../ads/utils/stylex";
@@ -24,204 +34,225 @@ export function fixedAgentModelOption(
   agent: Pick<AgentConfig, "model">,
   options: readonly ModelSelectorOption[],
 ): ModelSelectorOption | null {
-  if (agent.model.mode !== "fixed") return null;
-  const { providerId, model } = agent.model;
-  return (
-    options.find((option) => option.available && option.providerId === providerId && (!model || option.model === model)) ??
-    null
-  );
+  return optionForFixedModel(fixedModelOf(agent), options);
 }
 
-type Choice = AgentConfig | null;
-
 /**
- * The task's agent choice for agentic tasks: which agent it runs as, the
- * agents it can switch to, and the switch itself. Choosing applies from the
- * next turn (the host records it; every later turn resolves it). `null` is
- * "No agent": the task runs on the model the user picks. A choice that widens
- * what the task may do waits for a confirm.
+ * The task's side of the selector: which agent runs it, the agents it can
+ * switch to, and what each choice does. Picking a model is Chat (it releases
+ * the agent), picking an agent is Agent mode (it records the agent and leaves
+ * the model to Stave Auto or to the agent), and a pin is a model that binds
+ * the agent's turns without releasing it. See `selector-choice.ts` for the
+ * rules and `agent-choice-actions.ts` for what each choice does.
+ *
+ * Choices apply from the next turn: the host records the agent, every later
+ * turn resolves it. A switch between agents that widens what the task may do
+ * waits for a confirm.
  */
 export function useTaskAgentChoice(props: {
   taskId: string;
-  providerId: ProviderId;
-  model: string;
+  /** The composer's model value: Stave Auto while the draft routes, else the model the draft holds. */
+  selectedModel: ModelSelectorOption;
   modelOptions: readonly ModelSelectorOption[];
-  onModelSelect: (selection: ModelSelectorOption) => void;
+  /** Puts a model into the task's draft. It never touches the task's agent. */
+  onModelSelect: (args: ModelSelectArgs) => void;
 }) {
   useAgentAssignmentsSync();
-  const current = useAgentAssignmentsStore((state) => state.byTaskId[props.taskId]);
+  const current = useAgentAssignmentsStore((state) => state.byTaskId[props.taskId]) ?? null;
   const loadAssignments = useAgentAssignmentsStore((state) => state.load);
+  const applyAssignment = useAgentAssignmentsStore((state) => state.apply);
   const customAgents = useAppStore((state) => state.settings.customAgents);
   const myStandards = useAppStore((state) => state.settings.myStandards);
   const repositoryPath = useAppStore((state) => state.repositoryPath);
   const workspaceId = useAppStore((state) => state.taskWorkspaceIdById[props.taskId] ?? state.activeWorkspaceId);
   const taskTitle = useAppStore((state) => state.tasks.find((task) => task.id === props.taskId)?.title ?? "");
   const hasTurns = useAppStore((state) => (state.messagesByTask[props.taskId]?.length ?? 0) > 0);
+  const assignmentId = current?.assignmentId;
+  const assignOnSend = useAppStore((state) =>
+    awaitsFirstAgentTurn({ assignmentId, messages: state.messagesByTask[props.taskId] }),
+  );
   const choices = useMemo(() => selectableMainAgents(customAgents), [customAgents]);
-  const [pending, setPending] = useState<{ agent: Choice } | null>(null);
+  const [pending, setPending] = useState<{ agent: AgentConfig } | null>(null);
   const [busy, setBusy] = useState(false);
+  // A choice awaits the host; it then writes the draft from the newest render's
+  // context, not the one the click saw.
+  const context: AgentChoiceContext = {
+    taskId: props.taskId,
+    selectedModel: props.selectedModel,
+    modelOptions: props.modelOptions,
+    hasTurns,
+    current,
+    repositoryPath,
+    workspaceId,
+    taskTitle,
+    standards: activeStandards(myStandards),
+    api: typeof window === "undefined" ? null : (window.api?.agents ?? null),
+    onModelSelect: props.onModelSelect,
+    applyAssignment,
+    reload: () => void loadAssignments(),
+    setPending,
+    setBusy,
+  };
+  const latest = useRef(context);
+  useEffect(() => {
+    latest.current = context;
+  });
+  const actions = useMemo(() => createAgentChoiceActions(() => latest.current), []);
 
-  async function apply(next: Choice): Promise<boolean> {
-    const api = typeof window === "undefined" ? null : window.api?.agents;
-    if (!api) {
-      toast.error("Changing the task's agent is unavailable here.");
-      return false;
-    }
-    setBusy(true);
-    try {
-      if (!next) {
-        const outcome = await api.releaseTask({ taskId: props.taskId });
-        if (!outcome.ok) throw new Error(outcome.message);
-      } else {
-        if (!repositoryPath) throw new Error("Open a repository before choosing an agent.");
-        // A fixed model moves the picker; switching providers mid-task is left to the user.
-        const fixed = fixedAgentModelOption(next, props.modelOptions);
-        const moveModel = fixed && (!hasTurns || fixed.providerId === props.providerId) ? fixed : null;
-        if (moveModel) props.onModelSelect(moveModel);
-        const route = moveModel
-          ? { providerId: moveModel.providerId, model: moveModel.model }
-          : { providerId: props.providerId, model: props.model };
-        const standards = activeStandards(myStandards);
-        const outcome = await api.recordTask({
-          requestId: `composer:${crypto.randomUUID()}`,
-          taskId: props.taskId,
-          workspaceId,
-          repositoryPath,
-          agent: next,
-          assignment: taskTitle.trim() || `Runs as ${next.name}`,
-          providerId: route.providerId,
-          model: route.model,
-          ...(standards ? { standards } : {}),
-        });
-        if (!outcome.ok) throw new Error(outcome.message);
-      }
-      await loadAssignments();
-      setPending(null);
-      return true;
-    } catch (error) {
-      toast.error("The task's agent was not changed", {
-        description: error instanceof Error ? error.message : undefined,
-      });
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /** Resolves true when the choice is done (applied or unchanged), false while it waits or failed. */
-  async function choose(next: Choice): Promise<boolean> {
-    const plan = planComposerAgentChoice({
-      current: current ? { agentConfigId: current.agentConfigId, permission: current.agentPermission } : null,
-      next,
-    });
-    if (plan === "keep") {
-      setPending(null);
-      return true;
-    }
-    if (plan === "confirm") {
-      setPending({ agent: next });
-      return false;
-    }
-    return apply(next);
-  }
+  const route = current
+    ? resolveAgentModelRoute({
+        fixed: current.agentFixedModel,
+        autoRouting: props.selectedModel.isAuto === true,
+        providerId: props.selectedModel.providerId,
+        model: props.selectedModel.model,
+      })
+    : null;
 
   return {
-    current: current ?? null,
+    current,
     choices,
     pending,
     busy,
-    choose,
-    confirm: () => (pending ? apply(pending.agent) : Promise.resolve(false)),
+    route,
+    autoAvailable: props.modelOptions.some((option) => option.isAuto && option.available),
+    /** The next send assigns the agent; later sends are plain sends. */
+    assignOnSend,
+    choose: actions.choose,
+    confirm: () => (pending ? actions.apply(pending.agent) : Promise.resolve(false)),
     cancel: () => setPending(null),
+    selectModel: actions.selectModel,
+    pin: actions.pin,
+    unpin: actions.unpin,
   };
 }
 
 export type TaskAgentChoice = ReturnType<typeof useTaskAgentChoice>;
 
-export function taskAgentIdentity(current: TaskAgent | null): ModelPickerAgents["active"] {
+export function taskAgentIdentity(current: TaskAgent | null): NonNullable<ModelPickerAgents["active"]> | null {
   return current ? { id: current.agentConfigId, name: current.agentName, appearance: current.agentAppearance } : null;
 }
 
-const NO_AGENT_LABEL = "No agent";
+/** What the model selector needs from the task's agent choice. */
+export function buildModelPickerAgents(choice: TaskAgentChoice, opts: { locked: boolean }): ModelPickerAgents {
+  const { current } = choice;
+  return {
+    active: taskAgentIdentity(current),
+    route: choice.route,
+    fixedModel: current?.agentFixedModel != null,
+    autoAvailable: choice.autoAvailable,
+    count: choice.choices.length,
+    renderPanel: ({ variant, query, close }) => (
+      <ModelPickerAgentPanel choice={choice} variant={variant} query={query} disabled={opts.locked} onDone={close} />
+    ),
+    onPin: choice.pin,
+    onUnpin: choice.unpin,
+  };
+}
 
 /**
- * The model picker's Agents tab: "No agent" (the picked model runs the task,
- * with a Worker available) and every agent the task can run as.
+ * The selector's Agents section: every agent the task can run as, filtered by
+ * the selector's search. `matches` is the compact form under a model search:
+ * the matching agents only, headed, and nothing when none match.
  */
-export function ModelPickerAgentPanel(props: { choice: TaskAgentChoice; disabled?: boolean; onDone: () => void }) {
+export function ModelPickerAgentPanel(props: {
+  choice: TaskAgentChoice;
+  query: string;
+  variant: "tab" | "matches";
+  disabled?: boolean;
+  onDone: () => void;
+}) {
   const { choice } = props;
-  const currentLabel = choice.current?.agentName ?? NO_AGENT_LABEL;
+  const openAgents = useAppStore((state) => state.openAgents);
+  const currentLabel = choice.current?.agentName ?? "";
+  const agents = useMemo(() => matchAgents(choice.choices, props.query), [choice.choices, props.query]);
   // The panel scrolls; bring the confirm (and its Switch button) into view.
   const confirmRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (choice.pending) confirmRef.current?.scrollIntoView?.({ block: "nearest" });
   }, [choice.pending]);
-  const pick = (next: Choice) => {
+  const pick = (next: AgentConfig) => {
     if (props.disabled) return;
     void choice.choose(next).then((done) => done && props.onDone());
   };
-  return (
-    <div className={sx(styles.panel)} data-testid="composer-agent-options">
-      <div role="listbox" aria-label="Agents" className={sx(styles.list)}>
+  const list = (
+    <div role="listbox" aria-label="Agents" className={sx(styles.list)}>
+      {agents.map((agent) => (
         <ComposerOptionCard
-          label={NO_AGENT_LABEL}
-          summary="The model you pick runs the task, with a Worker if you arm one."
-          icon={<Bot aria-hidden className={sx(styles.icon)} />}
-          active={!choice.current}
-          onSelect={() => pick(null)}
-          testId="composer-agent-none"
+          key={agent.id}
+          label={agent.name}
+          summary={agent.description}
+          description={AGENT_PERMISSION_LABELS[agent.permission]}
+          icon={<AgentAvatar agent={agent} size="xs" aria-label={null} />}
+          active={choice.current?.agentConfigId === agent.id}
+          onSelect={() => pick(agent)}
+          testId={`composer-agent-${agent.id}`}
         />
-        {choice.choices.map((agent) => (
-          <ComposerOptionCard
-            key={agent.id}
-            label={agent.name}
-            summary={agent.description}
-            description={AGENT_PERMISSION_LABELS[agent.permission]}
-            icon={<AgentAvatar agent={agent} size="xs" aria-label={null} />}
-            active={choice.current?.agentConfigId === agent.id}
-            onSelect={() => pick(agent)}
-            testId={`composer-agent-${agent.id}`}
-          />
-        ))}
-      </div>
-
+      ))}
+      {agents.length === 0 && props.variant === "tab" ? (
+        <p className={sx(styles.empty)}>No agents match this search.</p>
+      ) : null}
+    </div>
+  );
+  const callouts = (
+    <>
       {choice.pending ? (
         <div ref={confirmRef}>
-        <ComposerOptionMenuCallout tone="warning" testId="composer-agent-confirm">
-          {choice.pending.agent
-            ? `${choice.pending.agent.name} may do more than ${currentLabel} (${AGENT_PERMISSION_LABELS[choice.pending.agent.permission]}).`
-            : `Without an agent the task runs with its own permissions, which may allow more than ${currentLabel}.`}{" "}
-          Switch from the next turn?
-          <span className={sx(styles.confirmActions)}>
-            <Button type="button" size="sm" variant="ghost" onClick={choice.cancel}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={choice.busy || props.disabled}
-              onClick={() => void choice.confirm().then((done) => done && props.onDone())}
-            >
-              Switch
-            </Button>
-          </span>
-        </ComposerOptionMenuCallout>
+          <ComposerOptionMenuCallout tone="warning" testId="composer-agent-confirm">
+            {choice.pending.agent.name} may do more than {currentLabel} (
+            {AGENT_PERMISSION_LABELS[choice.pending.agent.permission]}). Switch from the next turn?
+            <span className={sx(styles.confirmActions)}>
+              <Button type="button" size="sm" variant="ghost" onClick={choice.cancel}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={choice.busy || props.disabled}
+                onClick={() => void choice.confirm().then((done) => done && props.onDone())}
+              >
+                Switch
+              </Button>
+            </span>
+          </ComposerOptionMenuCallout>
         </div>
       ) : null}
-
       {props.disabled ? (
         <ComposerOptionMenuCallout tone="note" testId="composer-agent-locked">
           Finish or answer the current turn to switch agents.
         </ComposerOptionMenuCallout>
       ) : null}
+    </>
+  );
 
+  if (props.variant === "matches") {
+    if (agents.length === 0 && !choice.pending) return null;
+    return (
+      <div className={sx(styles.matches)} data-testid="composer-agent-matches">
+        <ComposerOptionMenuSection title="Agents">{list}</ComposerOptionMenuSection>
+        {callouts}
+      </div>
+    );
+  }
+  return (
+    <div className={sx(styles.panel)} data-testid="composer-agent-options">
+      {list}
+      {callouts}
       <ComposerOptionMenuHint>
-        Applies from the next turn; earlier turns keep the agent they ran as. The agent's model policy picks the model;
-        a model you pick on a provider tab overrides it. It calls other agents itself, so there is no Worker.
+        Applies from the next turn; earlier turns keep the agent they ran as. An agent picks its own model through
+        Stave Auto, or uses the one it declares. Pin a model beside the agent, or pick a model to go back to Chat.
       </ComposerOptionMenuHint>
-      <ComposerOptionMenuSettingsLink section="chat" testId="composer-agent-open-settings">
-        Running tasks as agents is experimental. Turn it off in Settings → Chat → Agents.
-      </ComposerOptionMenuSettingsLink>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className={sx(styles.manage)}
+        onClick={() => {
+          openAgents();
+          props.onDone();
+        }}
+      >
+        Manage agents…
+      </Button>
     </div>
   );
 }

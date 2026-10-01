@@ -26,11 +26,9 @@ import { useComposerFrameFits } from "@/hooks/use-composer-frame-fits";
 import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
 import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
 import {
-  ModelPickerAgentPanel,
-  taskAgentIdentity,
+  buildModelPickerAgents,
   useTaskAgentChoice,
 } from "@/components/ai-elements/prompt-input-agent-control";
-import type { ModelPickerAgents } from "@/components/ai-elements/model-effort-selector";
 import {
   buildWorkerEffortPatch,
   buildWorkerModelPatch,
@@ -447,32 +445,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     advisorSelectedProviderId,
   ]);
 
-  // Agentic tasks (experimental): the model picker also offers agents. A task
-  // that runs as one has no Worker; the agent calls other agents itself.
-  const agenticTasks = useAppStore((state) => state.settings.taskMode === "agentic");
-  const agentChoice = useTaskAgentChoice({
-    taskId: args.activeTaskId,
-    providerId: args.activeProvider,
-    model: args.selectedModelOption.model,
-    modelOptions: args.modelOptions,
-    onModelSelect: (selection) => {
-      commitCurrentDraftText();
-      args.onModelSelect({ selection });
-    },
-  });
-  const modelPickerAgents: ModelPickerAgents | undefined = agenticTasks
-    ? {
-        active: taskAgentIdentity(agentChoice.current),
-        count: agentChoice.choices.length,
-        renderPanel: (close) => (
-          // Read at render time: the input's blocked state is resolved further down.
-          <ModelPickerAgentPanel choice={agentChoice} disabled={isInputBlocked || args.isTurnActive} onDone={close} />
-        ),
-      }
-    : undefined;
-  const workerOffered =
-    !(agenticTasks && agentChoice.current) &&
-    getProviderDescriptor({ providerId: args.activeProvider }).capabilities.worker;
   const workerArm = useMemo(
     () =>
       resolveWorkerArmState({
@@ -624,6 +596,24 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     [activeTaskMessages],
   );
   const isInputBlocked = pendingApproval != null || pendingUserInput != null;
+  // The selector lists Models and Agents. A model is Chat and releases the
+  // task's agent; an agent is Agent mode and picks its own model. A task that
+  // runs as an agent has no Worker: the agent calls other agents itself.
+  const agentChoice = useTaskAgentChoice({
+    taskId: args.activeTaskId,
+    selectedModel: args.selectedModelOption,
+    modelOptions: args.modelOptions,
+    onModelSelect: (selectionArgs) => {
+      commitCurrentDraftText();
+      args.onModelSelect(selectionArgs);
+    },
+  });
+  const modelPickerAgents = buildModelPickerAgents(agentChoice, {
+    locked: isInputBlocked || args.isTurnActive,
+  });
+  const workerOffered =
+    !agentChoice.current &&
+    getProviderDescriptor({ providerId: args.activeProvider }).capabilities.worker;
   const isSteerSubmitting = pendingSteerTaskIdsRef.current.has(
     args.providerSelectionTarget,
   );
@@ -660,7 +650,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     );
   }
   // Advisor and Worker chords share one gate: both go quiet while the input is
-  // blocked on an approval or a question. Agentic tasks offer no Worker.
+  // blocked on an approval or a question. A task that runs as an agent offers
+  // no Worker.
   const composerChordsEnabled = args.windowShortcutsEnabled && !isInputBlocked;
   useComposerChord({
     enabled: composerChordsEnabled,
@@ -1744,6 +1735,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             ) : null
           }
           modelPickerAgents={modelPickerAgents}
+          assignOnSend={agentChoice.assignOnSend}
           workerControl={
             workerOffered ? (
             <PromptInputWorkerPill
@@ -2049,10 +2041,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               });
             }
           }}
-          onModelSelect={(selectionArgs) => {
-            commitCurrentDraftText();
-            args.onModelSelect(selectionArgs);
-          }}
+          onModelSelect={agentChoice.selectModel}
           fastMode={args.fastMode}
           onFastModeChange={
             args.onFastModeChange

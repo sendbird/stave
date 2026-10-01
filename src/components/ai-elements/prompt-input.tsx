@@ -362,10 +362,13 @@ interface PromptInputProps {
    */
   workerControl?: ReactNode;
   /**
-   * Agentic tasks only: agents offered inside the model picker, which then
-   * shows the agent the task runs as. Absent otherwise; no control moves.
+   * Agents offered inside the model picker, which splits into agent and model
+   * segments while an agent runs the task. Absent where the picker lists
+   * models only; no control moves.
    */
   modelPickerAgents?: ModelPickerAgents;
+  /** The next send assigns the task's agent: the send button reads Assign, then Send. */
+  assignOnSend?: boolean;
   /**
    * Whether Worker mode is armed. Placement has to know, or a demoted Worker
    * pill would spend a second model with nothing on screen saying so.
@@ -932,6 +935,7 @@ export function PromptInput(args: PromptInputProps) {
     advisorActive,
     workerControl,
     modelPickerAgents,
+    assignOnSend,
     workerActive,
     secretsControl,
     secretsActive,
@@ -4483,7 +4487,9 @@ export function PromptInput(args: PromptInputProps) {
                           : "Queue next turn"
                         : isQueueNextMode
                           ? "Queue next turn"
-                          : "Send"
+                          : assignOnSend
+                            ? "Assign"
+                            : "Send"
                     }
                   >
                     <Send className={sx(promptInputStyles.icon35)} />
@@ -4503,7 +4509,9 @@ export function PromptInput(args: PromptInputProps) {
                           : "Queue"
                         : isQueueNextMode
                           ? "Queue next turn"
-                          : "Send"}
+                          : assignOnSend
+                            ? "Assign"
+                            : "Send"}
                       <KbdGroup>
                         <Kbd>↵</Kbd>
                       </KbdGroup>

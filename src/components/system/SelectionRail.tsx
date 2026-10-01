@@ -2,7 +2,7 @@ import { focusRing } from "../ads/recipes/focus-ring";
 import { transition } from "../ads/recipes/transition";
 import { Tabs } from "@base-ui/react/tabs";
 import * as stylex from "@stylexjs/stylex";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { vars } from "../ads/tokens/tokens.stylex";
 
 /** Vertical category navigation inside an existing Base UI tabs root. */
@@ -18,6 +18,10 @@ export function SelectionRail({
     label: string;
     icon: ReactNode;
     count?: number;
+    /** What `count` counts, for the tab's name; defaults to "models". */
+    noun?: string;
+    /** Names the group of tabs that starts here. Hidden when the rail is narrow. */
+    heading?: string;
   }[];
   value: string;
   onPreview?: (value: string) => void;
@@ -25,21 +29,27 @@ export function SelectionRail({
   return (
     <Tabs.List aria-label={label} {...stylex.props(styles.rail)}>
       {items.map((item) => (
-        <Tabs.Tab
-          key={item.value}
-          value={item.value}
-          aria-label={`${item.label}${item.count === undefined ? "" : `, ${item.count} models`}`}
-          onPointerEnter={(event) => {
-            if (event.pointerType === "mouse") onPreview?.(item.value);
-          }}
-          {...stylex.props(styles.tab, focusRing.ringInset, transition.control, value === item.value && styles.selected)}
-        >
-          {item.icon}
-          <span {...stylex.props(styles.label)}>{item.label}</span>
-          {item.count !== undefined ? (
-            <span {...stylex.props(styles.count)}>{item.count}</span>
+        <Fragment key={item.value}>
+          {item.heading ? (
+            <span aria-hidden="true" {...stylex.props(styles.heading)}>
+              {item.heading}
+            </span>
           ) : null}
-        </Tabs.Tab>
+          <Tabs.Tab
+            value={item.value}
+            aria-label={`${item.label}${item.count === undefined ? "" : `, ${item.count} ${item.noun ?? "models"}`}`}
+            onPointerEnter={(event) => {
+              if (event.pointerType === "mouse") onPreview?.(item.value);
+            }}
+            {...stylex.props(styles.tab, focusRing.ringInset, transition.control, value === item.value && styles.selected)}
+          >
+            {item.icon}
+            <span {...stylex.props(styles.label)}>{item.label}</span>
+            {item.count !== undefined ? (
+              <span {...stylex.props(styles.count)}>{item.count}</span>
+            ) : null}
+          </Tabs.Tab>
+        </Fragment>
       ))}
     </Tabs.List>
   );
@@ -58,6 +68,17 @@ const styles = stylex.create({
     borderRightStyle: "solid",
     borderRightColor: vars["--ads-color-border"],
     backgroundColor: vars["--ads-color-canvas"],
+  },
+  heading: {
+    display: { default: "block", "@media (max-width: 479px)": "none" },
+    flexShrink: 0,
+    paddingInline: 8,
+    paddingBlockStart: 4,
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: 550,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: vars["--ads-color-text-muted"],
   },
   tab: {
     display: "flex",

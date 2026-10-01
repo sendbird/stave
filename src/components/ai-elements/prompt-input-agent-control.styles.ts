@@ -17,6 +17,20 @@ export const agentControlStyles = stylex.create({
     flexDirection: "column",
     gap: vars["--ads-space-2"],
   },
+  // The agents that match a model search, under the model results.
+  matches: {
+    display: "grid",
+    gap: vars["--ads-space-8"],
+    paddingBottom: vars["--ads-space-8"],
+  },
+  empty: {
+    margin: 0,
+    paddingBlock: vars["--ads-space-16"],
+    textAlign: "center",
+    fontSize: vars["--ads-font-size-body"],
+    color: vars["--ads-color-text-muted"],
+  },
+  manage: { justifySelf: "start" },
   icon: { width: 16, height: 16, flexShrink: 0 },
   confirmActions: {
     display: "flex",

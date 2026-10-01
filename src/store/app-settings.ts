@@ -5,7 +5,6 @@
  * max-lines ratchet. `app.store` re-exports the public names.
  */
 import { DEFAULT_MY_STANDARDS, type MyStandards } from "@/lib/agents/standards";
-import { DEFAULT_TASK_MODE, type TaskMode } from "@/lib/agents/task-mode";
 import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import type {
   LensAgentPresentationMode,
@@ -281,11 +280,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   agentLearningDisabled: string[];
   /** Personal instructions added to every agent run; see `src/lib/agents/standards.ts`. */
   myStandards: MyStandards;
-  /**
-   * Model-based tasks (default) or agentic tasks (experimental), where the
-   * composer picks the agent a task runs as. See `src/lib/agents/task-mode.ts`.
-   */
-  taskMode: TaskMode;
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
@@ -736,7 +730,6 @@ export const defaultSettings: AppSettings = {
   agentSuggestions: {},
   agentLearningDisabled: [],
   myStandards: DEFAULT_MY_STANDARDS,
-  taskMode: DEFAULT_TASK_MODE,
   permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ModelPickerAgentPanel,
-  taskAgentIdentity,
+  buildModelPickerAgents,
   useTaskAgentChoice,
 } from "@/components/ai-elements/prompt-input-agent-control";
 import { getBuiltinAgent } from "@/lib/agents/starters";
@@ -79,13 +78,12 @@ export function ComposerFramePreviewApp() {
   const [advisorOpen, setAdvisorOpen] = useState(false);
   const [workerEnabled, setWorkerEnabled] = useState(false);
   const [workerOpen, setWorkerOpen] = useState(false);
-  // Agentic tasks: the model picker offers agents; with one running the task
-  // its trigger shows the agent and the Worker is gone.
+  // The model picker always offers agents; with one running the task its
+  // trigger splits into agent | model and the Worker is gone.
   const [agentic, setAgentic] = useState(false);
   const agentChoice = useTaskAgentChoice({
     taskId: PREVIEW_TASK_ID,
-    providerId: "claude-code",
-    model: PREVIEW_MODEL.model,
+    selectedModel: PREVIEW_MODEL,
     modelOptions: [],
     onModelSelect: () => {},
   });
@@ -101,6 +99,7 @@ export function ComposerFramePreviewApp() {
               agentPermission: researcher.permission,
               agentAppearance: researcher.appearance,
               agentTaskClass: researcher.model.mode === "auto" ? (researcher.model.taskClass ?? null) : null,
+              agentFixedModel: null,
               agentContentHash: "preview",
               received: [],
               support: [],
@@ -205,7 +204,7 @@ export function ComposerFramePreviewApp() {
               xstyle={[f.toggle, agentic && f.toggleActive]}
               onClick={() => setAgentic((value) => !value)}
             >
-              {agentic ? "Agentic" : "Model"}
+              {agentic ? "Agent" : "Chat"}
             </Button>
             <span className={sx(f.statusNote)}>
               {framed ? "frame on" : "frame off"}
@@ -295,15 +294,7 @@ export function ComposerFramePreviewApp() {
                       onSelectEffort={() => {}}
                     />
                   }
-                  modelPickerAgents={
-                    agentic
-                      ? {
-                          active: taskAgentIdentity(agentChoice.current),
-                          count: agentChoice.choices.length,
-                          renderPanel: (close) => <ModelPickerAgentPanel choice={agentChoice} onDone={close} />,
-                        }
-                      : undefined
-                  }
+                  modelPickerAgents={buildModelPickerAgents(agentChoice, { locked: false })}
                   workerActive={!agentic && workerEnabled}
                   workerControl={
                     agentic ? null : (

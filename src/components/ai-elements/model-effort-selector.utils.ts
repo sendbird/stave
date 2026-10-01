@@ -531,3 +531,31 @@ export function collapseClaudeContextOptions(args: {
   }
   return collapsed;
 }
+
+export interface PickerRailTab {
+  kind: "provider" | "auto" | "agents";
+  /** The tab's value; a provider id for provider tabs. */
+  value: string;
+  /** Names the group that starts at this tab. */
+  heading?: "Models" | "Agents";
+}
+
+/**
+ * The selector rail's tabs, in order. Models first — the providers, then Stave
+ * Auto, which spans them — and Agents last. The group headings appear only
+ * when the rail offers both groups; a models-only rail has none.
+ */
+export function planPickerRail(args: {
+  providerIds: readonly string[];
+  hasAuto: boolean;
+  hasAgents: boolean;
+}): PickerRailTab[] {
+  const tabs: PickerRailTab[] = args.providerIds.map((value, index) => ({
+    kind: "provider",
+    value,
+    ...(args.hasAgents && index === 0 ? { heading: "Models" as const } : {}),
+  }));
+  if (args.hasAuto) tabs.push({ kind: "auto", value: "auto" });
+  if (args.hasAgents) tabs.push({ kind: "agents", value: "agents", heading: "Agents" });
+  return tabs;
+}

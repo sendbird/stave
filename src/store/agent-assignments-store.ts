@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import type { AgentsBridgeApi } from "@/lib/agents/api";
 import type { AgentAssignment } from "@/lib/agents/assign";
+import { fixedModelOf, type FixedAgentModel } from "@/lib/agents/selector-choice";
 import type { TaskClass } from "@/lib/providers/auto-routing-profile";
 
 export type TaskAgent = Pick<
@@ -35,12 +36,20 @@ export type TaskAgent = Pick<
   agentAppearance: AgentAssignment["agent"]["appearance"];
   /** The task class an auto-model agent routes as; Stave Auto uses it on every turn. */
   agentTaskClass: TaskClass | null;
+  /** The model a fixed-model agent declares; its default route and not a user pin. */
+  agentFixedModel: FixedAgentModel | null;
 };
 
 interface AgentAssignmentsState {
   byTaskId: Record<string, TaskAgent>;
   loaded: boolean;
   load: () => Promise<void>;
+  /**
+   * Applies one assignment the renderer just recorded or ended, so the task's
+   * surfaces and its draft change in the same render instead of waiting for
+   * the next `load`.
+   */
+  apply: (row: AgentAssignment) => void;
 }
 
 /** The most assignments one load reads; older tasks lose their badge first. */
@@ -66,6 +75,7 @@ export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]):
       agentPermission: row.agent.permission,
       agentAppearance: row.agent.appearance,
       agentTaskClass: row.agent.model.mode === "auto" ? (row.agent.model.taskClass ?? null) : null,
+      agentFixedModel: fixedModelOf(row.agent),
       agentContentHash: row.agentContentHash,
       received: row.received,
       support: row.support,
@@ -91,6 +101,14 @@ export const useAgentAssignmentsStore = create<AgentAssignmentsState>()((set) =>
     const result = await api.listAssignments({ limit: LOAD_LIMIT }).catch(() => null);
     if (!result?.ok) return;
     set({ byTaskId: indexAssignmentsByTask(result.value), loaded: true });
+  },
+  apply: (row) => {
+    if (!row.taskId) return;
+    const taskId = row.taskId;
+    set((state) => {
+      const { [taskId]: _previous, ...rest } = state.byTaskId;
+      return { byTaskId: { ...rest, ...indexAssignmentsByTask([row]) } };
+    });
   },
 }));
 
