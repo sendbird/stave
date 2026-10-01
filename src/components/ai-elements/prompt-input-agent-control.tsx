@@ -238,8 +238,8 @@ export function ModelPickerAgentPanel(props: {
       {list}
       {callouts}
       <ComposerOptionMenuHint>
-        Applies from the next turn; earlier turns keep the agent they ran as. An agent picks its own model through
-        Stave Auto, or uses the one it declares. Pin a model beside the agent, or pick a model to go back to Chat.
+        Applies from the next turn. An agent picks its own model through Stave Auto; pin one beside the agent. Pick
+        a model to go back to Chat.
       </ComposerOptionMenuHint>
       <Button
         type="button"

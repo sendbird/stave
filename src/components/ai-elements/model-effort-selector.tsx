@@ -811,8 +811,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
               xstyle={styles.tabContent}
             >
               {candidate === providerId ? (
-                <>
-                  {visibleOptions.length === 0 ? (
+                visibleOptions.length === 0 ? (
                   <div className={sx(styles.empty)}>
                     {query.trim().length > 0
                       ? "No models match this search."
@@ -863,14 +862,20 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                       onChoose={chooseModel}
                     />
                   </>
-                )}
-                  {/* One search box for both sections: agents that match
-                      the model search sit under the model results. */}
-                  {searchesAgents && args.agents && query.trim().length > 0
-                    ? args.agents.renderPanel({ variant: "matches", query, close: () => setOpen(false) })
-                    : null}
-                </>
+                )
               ) : null}
+              {/* One search box for both sections: agents that match the
+                  model search sit under the model results. */}
+              {candidate === providerId &&
+              searchesAgents &&
+              args.agents &&
+              query.trim().length > 0
+                ? args.agents.renderPanel({
+                    variant: "matches",
+                    query,
+                    close: () => setOpen(false),
+                  })
+                : null}
             </TabsContent>
           ))}
 
