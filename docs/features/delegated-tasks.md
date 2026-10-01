@@ -176,13 +176,34 @@ agent that delegated work sees where its children stand without asking.
 
 ### Answer A Child's Question
 
-A child that needs an approval or an answer raises it as an ordinary interaction
-request, attributed to the delegated task and routed to the workspace the child runs
-in. It appears in Fleet and in the sidebar like any other request.
+A child that needs an approval or an answer raises an interaction request that
+stays the child's: it is answered against the child's own task, turn and
+request. Stave publishes it once, attributed to the root of the delegation
+chain (the task that started the first delegation), so it reaches the person
+working there. It appears in these places:
+
+- **The root task's composer.** The approval slot above the prompt, where the
+  task's own approvals appear, shows the oldest open request from any
+  delegated descendant. It names the delegated task and the provider and
+  model that asked, and offers the usual Approve/Reject or answer controls.
+  Answering there responds to the child without selecting it or switching
+  workspaces, including for a child running in its own worktree. Further
+  requests wait behind it as `+N more`.
+- **Notifications.** The item reads as the root task, with the delegated task
+  named in its detail. Opening it focuses the root task rather than the
+  child's workspace.
+- **Fleet and the Team panel.** Fleet keeps the request on the delegated task,
+  and the Team panel lists it under the child's row.
+
+A request answered in any of these places, in the child itself, by the agent
+through `stave_respond_approval`, or auto-denied, disappears from all of them.
+The response is only sent while the child still shows the same request in the
+same turn; anything else reads as answered or expired.
 
 This matters because nothing outside Stave is watching a child: the person who
 owns the parent is the only one who can answer, and an unanswered approval
-auto-denies after a few minutes.
+auto-denies after a few minutes. A task driven by a real external controller,
+with no delegating parent, still publishes no notification for its requests.
 
 ### Stop, Detach, Or Retry A Child
 
@@ -284,7 +305,8 @@ may have running at once (default 3, maximum 16).
 - Symptom: a delegated task reports a denied action nobody answered.
 - Cause: child interaction requests expire like any other; an unanswered
   approval auto-denies after a few minutes.
-- Fix: use the provider's user permissions for work that should run
+- Fix: answer from the root task's composer, where child requests appear while
+  they are open. Use the provider's user permissions for work that should run
   unattended, and reserve `guided` for children being watched.
 
 ### A child shows `interrupted` after a restart
