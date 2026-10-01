@@ -48,6 +48,8 @@ type RuntimeSettings = Pick<
   | "providerDebugStream"
   | "providerTimeoutMs"
   | "claudeBinaryPath"
+  | "claudeAccountProfileId"
+  | "codexAccountProfileId"
   | "claudePermissionMode"
   | "claudePlanModeApprovalScope"
   | "claudeAllowDangerouslySkipPermissions"
@@ -279,10 +281,12 @@ export function buildProviderRuntimeOptions(args: {
   const claudeResumeSessionId = getProviderSessionId({
     sessions: providerSession ?? undefined,
     providerId: "claude-code",
+    accountProfileId: settings.claudeAccountProfileId,
   });
   const codexResumeThreadId = getProviderSessionId({
     sessions: providerSession ?? undefined,
     providerId: "codex",
+    accountProfileId: settings.codexAccountProfileId,
   });
   const cursorResumeSessionId = getProviderSessionId({
     sessions: providerSession ?? undefined,
@@ -317,6 +321,8 @@ export function buildProviderRuntimeOptions(args: {
     debug: settings.providerDebugStream,
     providerTimeoutMs: settings.providerTimeoutMs,
     claudeBinaryPath: settings.claudeBinaryPath || undefined,
+    claudeAccountProfileId: settings.claudeAccountProfileId,
+    codexAccountProfileId: settings.codexAccountProfileId,
     claudePermissionMode: settings.claudePermissionMode,
     claudePlanModeApprovalScope: settings.claudePlanModeApprovalScope,
     claudeAllowDangerouslySkipPermissions:

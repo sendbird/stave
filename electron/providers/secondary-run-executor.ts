@@ -140,6 +140,8 @@ export function buildSecondaryProviderRuntimeOptions(args: {
   const hints = args.runtimeHints ?? {};
   const common: ProviderRuntimeOptions = {
     model: args.model,
+    claudeAccountProfileId: hints.claudeAccountProfileId,
+    codexAccountProfileId: hints.codexAccountProfileId,
     chatStreamingEnabled: false,
     providerTimeoutMs: args.policy.timeoutMs,
     responseStylePrompt: undefined,

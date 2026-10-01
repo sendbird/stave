@@ -1,4 +1,5 @@
 import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
+import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
 import { ModelExecutionSchema } from "@/lib/providers/model-execution";
 import { WORKER_PRESET_IDS } from "../providers/worker-preset-ids";
 import {
@@ -265,6 +266,8 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
 ]);
 
 const PromptDraftRuntimeOverridesSchema = z.object({
+  claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+  codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
   model: z.string().optional(),
   modelProviderId: ProviderIdSchema.optional(),
   claudePermissionMode: z
@@ -467,6 +470,8 @@ const PromptDraftQueuedNextTurnSchema = z
 
 const PromptDraftQueuedTurnSchema = z
   .object({
+    claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+    codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     id: z.string(),
     queuedAt: z.string(),
     sourceTurnId: z.string().optional(),
@@ -529,6 +534,7 @@ export const ChatMessageSchema = z.object({
     z.literal("user"),
   ]),
   nativeProviderSessionId: z.string().optional(),
+  nativeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
   nativeProviderTurnId: z.string().optional(),
   turnId: z.string().optional(),
   modelResolution: AutoRoutingModelResolutionSchema.optional().catch(undefined),
@@ -656,6 +662,7 @@ const TaskProviderSessionEntrySchema = z.union([
 ]);
 
 const TaskProviderSessionStateSchema = z.object({
+  accounts: z.record(z.string(), z.object({ "claude-code": TaskProviderSessionEntrySchema.optional(), codex: TaskProviderSessionEntrySchema.optional() })).optional(),
   "claude-code": TaskProviderSessionEntrySchema.optional(),
   codex: TaskProviderSessionEntrySchema.optional(),
   cursor: TaskProviderSessionEntrySchema.optional(),
@@ -711,6 +718,7 @@ const WorkspaceTerminalTabSchema = z
   }));
 
 const WorkspaceCliSessionTabSchema = z.object({
+  accountProfileId: ProviderAccountProfileIdSchema.optional(),
   id: z.string(),
   title: z.string(),
   provider: ManagedExecutionProviderIdSchema,

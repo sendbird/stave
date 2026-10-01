@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { currentClaudeGateway, validateClaudeGatewayModel } from "../provider-accounts/gateway-runtime";
 import type { ProviderId } from "../providers/types";
 import type { ProviderRuntimeOptions } from "../../src/lib/providers/provider.types";
 import {
@@ -57,6 +58,8 @@ export function buildCliSessionLaunch(args: {
 
   switch (providerId) {
     case "claude-code": {
+      const gateway = currentClaudeGateway(runtimeOptions?.claudeAccountProfileId);
+      const gatewayModel = gateway ? validateClaudeGatewayModel(runtimeOptions?.model, runtimeOptions?.claudeAccountProfileId) : undefined;
       const executablePath = resolveClaudeCliExecutablePath({
         explicitPath: runtimeOptions?.claudeBinaryPath,
       });
@@ -81,6 +84,7 @@ export function buildCliSessionLaunch(args: {
         ok: true,
         executablePath,
         commandArgs: [
+          ...(gatewayModel ? ["--model", gatewayModel, "--setting-sources", ""] : []),
           ...(claudeAutoModeSupported ? ["--enable-auto-mode"] : []),
           "--permission-mode",
           claudePermissionMode,
@@ -88,7 +92,7 @@ export function buildCliSessionLaunch(args: {
             ? ["--resume", nativeSessionId]
             : ["--session-id", nativeSessionId]),
         ],
-        env: buildClaudeCliEnv({ executablePath, cwd }),
+        env: buildClaudeCliEnv({ executablePath, cwd, accountProfileId: runtimeOptions?.claudeAccountProfileId }),
         nativeSessionId,
       };
     }
@@ -109,7 +113,7 @@ export function buildCliSessionLaunch(args: {
         commandArgs: requestedNativeSessionId
           ? ["resume", requestedNativeSessionId]
           : undefined,
-        env: buildCodexCliEnv({ executablePath, cwd }),
+        env: buildCodexCliEnv({ executablePath, cwd, accountProfileId: runtimeOptions?.codexAccountProfileId }),
         ...(requestedNativeSessionId
           ? { nativeSessionId: requestedNativeSessionId }
           : { discovery: "codex" as const }),

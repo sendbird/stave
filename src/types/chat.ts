@@ -91,6 +91,8 @@ export const DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE: ClaudePlanModeApprovalScop
   "bashTaskAndMcp";
 
 export interface PromptDraftRuntimeOverrides {
+  claudeAccountProfileId?: string;
+  codexAccountProfileId?: string;
   claudePermissionMode?: ClaudePermissionMode;
   claudePermissionModeBeforePlan?: ClaudePermissionModeBeforePlan;
   claudeEffort?: "low" | "medium" | "high" | "xhigh" | "max";
@@ -169,6 +171,8 @@ export interface PromptDraftQueuedNextTurn {
 }
 
 export interface PromptDraftQueuedTurn {
+  claudeAccountProfileId?: string;
+  codexAccountProfileId?: string;
   id: string;
   queuedAt: string;
   sourceTurnId?: string;
@@ -377,6 +381,7 @@ export interface ChatMessage {
    * newer session after a task has switched or reset providers.
    */
   nativeProviderSessionId?: string;
+  nativeAccountProfileId?: string;
   /**
    * Native provider turn/message identifier used for point-in-time fork and
    * rollback actions. For Claude this is SDKAssistantMessage.uuid; for Codex

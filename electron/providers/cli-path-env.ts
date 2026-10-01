@@ -27,6 +27,8 @@ import {
   getCodexMcpConfigPathGroups,
 } from "./mcp-config-refresh";
 import { readMcpEnvVarNames, type McpEnvProvider } from "./mcp-env";
+import { resolveProviderAccountEnvironment } from "../provider-accounts/environment";
+import { applyClaudeGatewayEnvironment } from "../provider-accounts/gateway-runtime";
 
 const CLAUDE_LOOKUP_PATHS = [
   `${homedir()}/.claude/local`,
@@ -528,6 +530,7 @@ export function resolveClaudeCliExecutablePath(
 
 export function buildClaudeCliEnv(args: {
   executablePath: string;
+  accountProfileId?: string;
   cwd?: string;
   mcpConfigPaths?: readonly string[];
   resolver?: (args: { key: string }) => string | null;
@@ -544,6 +547,12 @@ export function buildClaudeCliEnv(args: {
     resolver: args.resolver,
   });
 
+  const applyAccount = resolveProviderAccountEnvironment({
+    providerId: "claude-code",
+    profileId: args.accountProfileId,
+    env,
+  });
+  applyAccount(env);
   const mcpConfigPaths =
     args.mcpConfigPaths ??
     getClaudeMcpConfigPaths({
@@ -561,12 +570,13 @@ export function buildClaudeCliEnv(args: {
   if (args.cwd) {
     env = buildRepositoryShellEnv({ cwd: args.cwd, baseEnv: env });
   }
-  return env;
+  return applyClaudeGatewayEnvironment(applyAccount(env), args.accountProfileId);
 }
 
 export function buildCodexCliEnv(
   args: {
     executablePath?: string;
+    accountProfileId?: string;
     cwd?: string;
     mcpConfigPaths?: readonly string[];
     resolver?: (args: { key: string }) => string | null;
@@ -587,6 +597,12 @@ export function buildCodexCliEnv(
     resolver: args.resolver,
   });
 
+  const applyAccount = resolveProviderAccountEnvironment({
+    providerId: "codex",
+    profileId: args.accountProfileId,
+    env,
+  });
+  applyAccount(env);
   const mcpConfigPathGroups = getCodexMcpConfigPathGroups({
     cwd: args.cwd ?? process.cwd(),
     codexHome: env.CODEX_HOME,
@@ -604,6 +620,7 @@ export function buildCodexCliEnv(
   if (args.cwd) {
     env = buildRepositoryShellEnv({ cwd: args.cwd, baseEnv: env });
   }
+  applyAccount(env);
   return Object.fromEntries(
     Object.entries(env).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",

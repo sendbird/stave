@@ -1,4 +1,5 @@
 import type { HostProposalAction } from "./supervision/proposal-runtime";
+import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
 import type { AgentInvokeResult, HostAgentAction } from "../../src/lib/agents/api";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../../src/lib/performance/workspace-execution";
@@ -558,6 +559,7 @@ export interface HostServiceRequestMap {
   "service.get-resource-metrics": undefined;
   "terminal.create-session": TerminalCreateSessionArgs;
   "terminal.create-cli-session": CliSessionCreateSessionArgs;
+  "terminal.create-provider-login-session": ProviderAccountLoginArgs;
   "terminal.create-cursor-chat-id": { cwd: string; cursorBinaryPath?: string };
   "terminal.write-session": {
     sessionId: string;
@@ -689,6 +691,7 @@ export interface HostServiceRequestMap {
     upToMessageId: string;
     title?: string;
     cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.rewind-claude-files": {
     sessionId: string;
@@ -701,6 +704,7 @@ export interface HostServiceRequestMap {
     sessionId: string;
     title: string;
     cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.reload-claude-plugins": {
     cwd?: string;
@@ -1080,6 +1084,7 @@ export interface HostServiceResponseMap {
   "service.get-resource-metrics": HostServiceResourceMetrics;
   "terminal.create-session": HostTerminalCreateSessionResult;
   "terminal.create-cli-session": HostTerminalCreateSessionResult;
+  "terminal.create-provider-login-session": HostTerminalCreateSessionResult;
   "terminal.create-cursor-chat-id": {
     ok: boolean;
     chatId?: string;
@@ -1311,6 +1316,8 @@ export interface HostServiceReadyEnvelope {
 }
 
 export interface HostServiceRequestEnvelope<TMethod extends HostServiceMethod> {
+  /** Internal main-to-host credential; never included in a response or renderer API. */
+  gatewayCredential?: import("../provider-accounts/gateway-runtime").GatewayCredential;
   type: "request";
   id: number;
   method: TMethod;

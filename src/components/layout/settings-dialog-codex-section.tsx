@@ -1,3 +1,4 @@
+import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import {
   Button,
   Tabs,
@@ -71,20 +72,18 @@ export function CodexSection() {
         ] as const,
     ),
   );
+  const accountProfileId = useAppStore(s => s.settings.codexAccountProfileId);
   const currentThreadId = activeTaskId
     ? getProviderSessionId({
         sessions: providerSessionByTask[activeTaskId],
         providerId: "codex",
+        accountProfileId,
       })
     : null;
   const workspaceCwd =
     workspacePathById[activeWorkspaceId] ?? repositoryPath ?? undefined;
   const trimmedBinaryPath = codexBinaryPath.trim();
-  const runtimeOptions = useMemo(
-    () =>
-      trimmedBinaryPath ? { codexBinaryPath: trimmedBinaryPath } : undefined,
-    [trimmedBinaryPath],
-  );
+  const runtimeOptions = useAccountRuntimeOptions(useMemo(() => ({ codexBinaryPath: trimmedBinaryPath || undefined }), [trimmedBinaryPath]));
   const codexModelCatalog = useCodexModelCatalog({
     enabled: true,
     codexBinaryPath,

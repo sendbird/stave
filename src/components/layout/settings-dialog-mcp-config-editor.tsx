@@ -56,10 +56,10 @@ function getRuntimeOptions(
 ) {
   return {
     ...(providers.includes("claude-code")
-      ? { claudeBinaryPath: options.claude.claudeBinaryPath }
+      ? { claudeBinaryPath: options.claude.claudeBinaryPath, claudeAccountProfileId: options.claude.claudeAccountProfileId }
       : {}),
     ...(providers.includes("codex")
-      ? { codexBinaryPath: options.codex.codexBinaryPath }
+      ? { codexBinaryPath: options.codex.codexBinaryPath, codexAccountProfileId: options.codex.codexAccountProfileId }
       : {}),
     ...(providers.includes("cursor")
       ? { cursorBinaryPath: options.cursor.cursorBinaryPath }

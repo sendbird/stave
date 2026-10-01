@@ -95,11 +95,13 @@ export type BridgeEvent =
   | { type: "text"; text: string; segmentId?: string }
   | {
       type: "provider_session";
+      accountProfileId?: string;
       providerId: ProviderId;
       nativeSessionId: string;
     }
   | {
       type: "provider_turn";
+      accountProfileId?: string;
       providerId: ProviderId;
       nativeSessionId: string;
       nativeTurnId: string;
@@ -187,6 +189,7 @@ export type BridgeEvent =
     }
   | {
       type: "history_boundary";
+      accountProfileId?: string;
       providerId: ProviderId;
       boundaryKind: "thread" | "turn" | "message";
       nativeId: string;
@@ -336,7 +339,7 @@ export type BridgeEvent =
       modelExecution?: ModelExecution;
     }
   | { type: "error"; message: string; recoverable: boolean }
-  | { type: "done"; stop_reason?: string };
+  | { type: "done"; stop_reason?: string; accountProfileId?: string };
 
 export interface ProviderRuntime {
   streamTurn: (args: StreamTurnArgs) => Promise<BridgeEvent[]>;

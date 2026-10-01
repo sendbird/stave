@@ -118,6 +118,7 @@ describe("usage read CLI boundary", () => {
 
   test("one provider throwing does not blank the other three", async () => {
     const snapshot = await getRateLimitsSnapshot({
+      optionalReadKey: (id) => id,
       fetchers: {
         ...fetchers,
         cursor: async () => {

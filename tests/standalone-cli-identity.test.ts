@@ -118,3 +118,16 @@ describe("standalone cli identity", () => {
     ]);
   });
 });
+
+
+test("restored and pinned CLI tabs keep their account when the default changes", () => {
+  const A = "11111111-1111-4111-8111-111111111111";
+  const B = "22222222-2222-4222-8222-222222222222";
+  const build = (nativeSessionIdByTab: { codex?: string }, accountProfileIdByTab?: { codex?: string }) => buildStandaloneCliTabs({
+    folderPath: "/tmp/workspace", nativeSessionIdByTab, accountProfileIdByTab, defaults: { codexAccountProfileId: B },
+  }).find(tab => tab.id === "codex");
+  expect(build({ codex: "legacy" })?.accountProfileId).toBe("system-default");
+  expect(build({ codex: "thread-a" }, { codex: A })?.accountProfileId).toBe(A);
+  expect(build({}, { codex: A })?.accountProfileId).toBe(A);
+  expect(build({})?.accountProfileId).toBe(B);
+});

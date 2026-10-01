@@ -1,3 +1,5 @@
+import { ProviderAccountsSettings } from "./ProviderAccountsSettings";
+import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { CODEX_MODEL_AVAILABILITY_GUIDANCE } from "@/lib/providers/codex-model-requirements";
 import { getClaudeModelVersionGuidance } from "@/lib/providers/claude-model-requirements";
 import { useEffect, useState } from "react";
@@ -22,6 +24,9 @@ import type {
   ToolingStatusState,
 } from "@/lib/tooling-status";
 import { useAppStore } from "@/store/app.store";
+import { publishProviderTooling, useProviderReadinessStore } from "@/lib/providers/provider-readiness-store";
+import { providerConfigurationKey } from "@/lib/providers/provider-readiness";
+import { providerToolingStatePatch } from "@/store/provider-tooling";
 import {
   InfoRow,
   SectionStack,
@@ -263,6 +268,7 @@ export function ToolingSection() {
         ] as const,
     ),
   );
+  const accountOptions = useAccountRuntimeOptions();
   const workspaceCwd =
     workspacePathById[activeWorkspaceId] ?? repositoryPath ?? null;
   const [viewState, setViewState] = useState<{
@@ -275,6 +281,7 @@ export function ToolingSection() {
     detail: "Refreshing native tooling status...",
   });
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const readiness = useProviderReadinessStore((state) => state.providers);
 
   useEffect(() => {
     const getStatus = window.api?.tooling?.getStatus;
@@ -298,6 +305,7 @@ export function ToolingSection() {
       try {
         const snapshot = await getStatus({
           cwd: workspaceCwd ?? undefined,
+          ...accountOptions,
           claudeBinaryPath: claudeBinaryPath || undefined,
           codexBinaryPath: codexBinaryPath || undefined,
           cursorBinaryPath: cursorBinaryPath || undefined,
@@ -306,6 +314,9 @@ export function ToolingSection() {
         if (cancelled) {
           return;
         }
+        const runtimeOptions = { cursorBinaryPath, kiroBinaryPath };
+        for (const tool of snapshot.tools) publishProviderTooling(tool, runtimeOptions);
+        useAppStore.setState(providerToolingStatePatch(useAppStore.getState()));
         setViewState({
           status: "ready",
           snapshot,
@@ -334,6 +345,7 @@ export function ToolingSection() {
     codexBinaryPath,
     cursorBinaryPath,
     kiroBinaryPath,
+    accountOptions,
     refreshNonce,
     workspaceCwd,
   ]);
@@ -383,6 +395,7 @@ export function ToolingSection() {
   return (
     <>
       <SectionStack>
+        <ProviderAccountsSettings />
         <SettingsCard
           title="Native Tooling Status"
           description="These checks mirror the native binaries and auth surfaces Stave uses for provider turns, PR actions, and terminal-backed workflows."
@@ -410,7 +423,7 @@ export function ToolingSection() {
               {snapshot.tools.map((tool) => (
                 <ToolCard
                   key={tool.id}
-                  tool={tool}
+                  tool={(tool.id === "cursor" || tool.id === "kiro") && readiness[tool.id]?.configurationKey === providerConfigurationKey(tool.id, { cursorBinaryPath, kiroBinaryPath }) ? readiness[tool.id]!.tool : tool}
                   canOpenTerminal={Boolean(workspaceCwd)}
                   onOpenTerminal={handleOpenTerminal}
                   onCopyRepairCommand={handleCopyRepairCommand}

@@ -1,3 +1,5 @@
+import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
+import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import {
   useCallback,
   useDeferredValue,
@@ -184,6 +186,8 @@ function BaseChatInput() {
   );
   const draftProvider = useAppStore((state) => state.draftProvider);
   const activeProvider = activeTask?.provider ?? draftProvider;
+  const accountOptions = useAccountRuntimeOptions();
+  const commandAccountId = selectedProviderAccount(activeProvider, accountOptions);
   const managedExecutionProvider = isManagedExecutionProviderId(activeProvider)
     ? activeProvider
     : null;
@@ -869,6 +873,7 @@ function BaseChatInput() {
       setCachedProviderCommandCatalog({
         providerId: activeProvider,
         cwd: workspaceCwd,
+        accountProfileId: commandAccountId,
         catalog: nextCatalog,
       });
       return () => {
@@ -888,6 +893,7 @@ function BaseChatInput() {
       setCachedProviderCommandCatalog({
         providerId: activeProvider,
         cwd: workspaceCwd,
+        accountProfileId: commandAccountId,
         catalog: nextCatalog,
       });
       return () => {
@@ -905,6 +911,7 @@ function BaseChatInput() {
     setCachedProviderCommandCatalog({
       providerId: activeProvider,
       cwd: workspaceCwd,
+      accountProfileId: commandAccountId,
       catalog: loadingCatalog,
     });
 
@@ -917,7 +924,7 @@ function BaseChatInput() {
     void getCommandCatalog({
       providerId: activeProvider,
       cwd: workspaceCwd,
-      runtimeOptions,
+      runtimeOptions: { ...runtimeOptions, ...accountOptions },
     })
       .then((response) => {
         if (cancelled) {
@@ -931,6 +938,7 @@ function BaseChatInput() {
         setCachedProviderCommandCatalog({
           providerId: activeProvider,
           cwd: workspaceCwd,
+          accountProfileId: commandAccountId,
           catalog: nextCatalog,
         });
       })
@@ -946,6 +954,7 @@ function BaseChatInput() {
         setCachedProviderCommandCatalog({
           providerId: activeProvider,
           cwd: workspaceCwd,
+          accountProfileId: commandAccountId,
           catalog: nextCatalog,
         });
       });
@@ -960,6 +969,8 @@ function BaseChatInput() {
     // handshakes (Figma, Slack) around the first message of a session.
   }, [
     activeProvider,
+    commandAccountId,
+    accountOptions,
     claudeBinaryPath,
     claudeSettingSources,
     providerCommandCatalogRefreshNonce,
