@@ -38,6 +38,12 @@ import {
 } from "@/components/session/chat-panel.utils";
 import { ConversationPlanCard } from "@/components/session/ConversationPlanCard";
 import { FailedOutgoingMessages } from "@/components/session/FailedOutgoingMessages";
+import {
+  AutoRouteLine,
+  PendingAutoRouteStatus,
+} from "@/components/session/AutoRouteLine";
+import { autoRouteLineStyles } from "@/components/session/auto-route-line.styles";
+import { usePendingAutoRoutingStore } from "@/store/pending-auto-routing-store";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   getTurnModelInfoLabel,
@@ -138,6 +144,8 @@ interface MessageRowProps {
     nativeProviderTurnId?: string;
     model: string;
     modelInfo?: ChatMessage["modelInfo"];
+    modelResolution?: ChatMessage["modelResolution"];
+    modelExecution?: ChatMessage["modelExecution"];
     content: string;
     displayContent?: string;
     startedAt?: string;
@@ -345,6 +353,12 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               : styles.shellUser,
           )}
         >
+          {message.role === "assistant" && message.modelResolution ? (
+            <AutoRouteLine
+              resolution={message.modelResolution}
+              message={message}
+            />
+          ) : null}
           <MessageContent
             className={
               message.role === "assistant"
@@ -557,6 +571,44 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   );
 });
 
+/**
+ * A send still waiting on Auto's classifier: the prompt as it will appear once
+ * the turn starts, with the route status where the response will stream. The
+ * turn-start update replaces this with the real rows in the same tick.
+ */
+function PendingAutoRouteTurn(props: {
+  taskId: string;
+  chatStreamingEnabled: boolean;
+  showInterimMessages: boolean;
+  traceExpansionMode: "auto" | "manual";
+}) {
+  const pending = usePendingAutoRoutingStore(
+    (state) => state.byTaskId[props.taskId],
+  );
+  if (!pending) {
+    return null;
+  }
+  return (
+    <div
+      className={sx(autoRouteLineStyles.pendingTurn)}
+      data-testid="pending-auto-route-turn"
+    >
+      <MessageRow
+        taskId={props.taskId}
+        chatStreamingEnabled={props.chatStreamingEnabled}
+        showInterimMessages={props.showInterimMessages}
+        traceExpansionMode={props.traceExpansionMode}
+        message={pending.userMessage}
+      />
+      <Message from="assistant">
+        <div className={sx(styles.shell, styles.shellAssistant)}>
+          <PendingAutoRouteStatus pending={pending} />
+        </div>
+      </Message>
+    </div>
+  );
+}
+
 function ChatPanelMessageList(props: {
   scrollActivationKey?: string | number;
 }) {
@@ -587,6 +639,12 @@ function ChatPanelMessageList(props: {
   const hasFailedSends = useAppStore(
     (state) => (state.failedSendsByTask[taskId]?.length ?? 0) > 0,
   );
+  // The pending row's identity and phase, as a primitive: it keys the
+  // bottom-pin so the row stays in view as it appears and changes.
+  const pendingAutoRouteKey = usePendingAutoRoutingStore((state) => {
+    const pending = state.byTaskId[taskId];
+    return pending ? `${pending.id}:${pending.phase}` : null;
+  });
   const providerSession = useAppStore(
     (state) => state.providerSessionByTask[taskId] ?? EMPTY_PROVIDER_SESSION,
   );
@@ -677,7 +735,7 @@ function ChatPanelMessageList(props: {
     () => getMessageScrollFingerprint(visibleMessages.at(-1)),
     [visibleMessages],
   );
-  const autoScrollKey = `${visibleMessages.length}:${lastVisibleMessageScrollFingerprint}`;
+  const autoScrollKey = `${visibleMessages.length}:${lastVisibleMessageScrollFingerprint}:${pendingAutoRouteKey ?? ""}`;
   const forceScrollKey = [
     scrollToLatestMessageRequestNonce,
     latestVisibleMessageId ?? "none",
@@ -995,7 +1053,9 @@ function ChatPanelMessageList(props: {
             title="Loading conversation"
             description="Fetching the latest messages for this task."
           />
-        ) : visibleMessages.length === 0 && !hasFailedSends ? (
+        ) : visibleMessages.length === 0 &&
+          !hasFailedSends &&
+          !pendingAutoRouteKey ? (
           <TaskStartGuide />
         ) : (
           <ConversationVirtualList
@@ -1029,6 +1089,12 @@ function ChatPanelMessageList(props: {
           />
         )}
         <FailedOutgoingMessages taskId={taskId} />
+        <PendingAutoRouteTurn
+          taskId={taskId}
+          chatStreamingEnabled={chatStreamingEnabled}
+          showInterimMessages={showInterimMessages}
+          traceExpansionMode={traceExpansionMode}
+        />
       </ConversationContent>
       {showConversationTurnRail ? (
         <ConversationTurnRail

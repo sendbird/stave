@@ -1,7 +1,15 @@
 import { toast } from "../src/lib/notifications/toast";
 import { expect, test, spyOn } from "bun:test";
 import { defaultSettings } from "../src/store/app-settings";
-import { cancelPendingAutoRouting, resolveAutoRoutingForSend } from "../src/store/auto-routing-dispatch";
+import {
+  buildAutoRoutingModelResolution,
+  cancelPendingAutoRouting,
+  resolveAutoRoutingForSend,
+  shouldClassifyAutoRoute,
+  skipPendingAutoRoutingClassifier,
+} from "../src/store/auto-routing-dispatch";
+import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "../src/store/auto-routing";
+import { AutoRoutingModelResolutionSchema } from "../src/lib/providers/model-resolution";
 import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
 
 test("default Auto dispatch uses the classifier bridge and preserves Plan intent", async () => {
@@ -39,54 +47,109 @@ test("default Auto dispatch uses the classifier bridge and preserves Plan intent
   }
 });
 
-test("cancelled classification never returns a dispatch decision and permits a fresh send", async () => {
-  const previousWindow = globalThis.window;
-  const notice = spyOn(toast, "info").mockReturnValue("routing-notice");
-  const dismiss = spyOn(toast, "dismiss").mockImplementation(() => {});
+function buildHangingClassifierArgs(taskId: string) {
+  const profile = buildStarterProfile("starter-balanced");
+  return {
+    profile,
+    args: {
+      taskId,
+      state: {
+        settings: { ...defaultSettings, autoRoutingEnabled: true,
+          autoRoutingProfile: { ...profile, signals: { ...profile.signals, classifier: true } } },
+        providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false },
+        rateLimitsSnapshot: null,
+      },
+      promptDraft: { text: "fix typo", attachedFilePaths: [], attachments: [],
+        runtimeOverrides: { autoRouting: true } },
+      provider: "codex" as const, activeModel: "gpt-5.6-sol", prompt: "fix typo",
+      history: [], fileContextCount: 0, workspaceCwd: "/tmp/routing-test",
+    },
+  };
+}
+
+function installHangingClassifier() {
   let started!: () => void;
   const classifierStarted = new Promise<void>((resolve) => { started = resolve; });
-  let cancelledRequest = "";
-  const profile = buildStarterProfile("starter-balanced");
-  const args = {
-    taskId: "route-cancellation-test",
-    state: {
-      settings: { ...defaultSettings, autoRoutingEnabled: true,
-        autoRoutingProfile: { ...profile, signals: { ...profile.signals, classifier: true } } },
-      providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false },
-      rateLimitsSnapshot: null,
-    },
-    promptDraft: { text: "fix typo", runtimeOverrides: { autoRouting: true } },
-    provider: "codex" as const, activeModel: "gpt-5.6-sol", prompt: "fix typo",
-    history: [], fileContextCount: 0, workspaceCwd: "/tmp/routing-test",
-  };
+  const cancelledRequests: string[] = [];
   globalThis.window = { api: { provider: {
     classifyRoute: () => { started(); return new Promise(() => {}); },
     cancelRouteClassification: async ({ requestId }: { requestId: string }) => {
-      cancelledRequest = requestId;
+      cancelledRequests.push(requestId);
       return { ok: true };
     },
   } } } as unknown as Window & typeof globalThis;
+  return { classifierStarted, cancelledRequests };
+}
+
+test("cancelled classification never returns a dispatch decision and permits a fresh send", async () => {
+  const previousWindow = globalThis.window;
+  const info = spyOn(toast, "info");
+  const warning = spyOn(toast, "warning");
+  const { profile, args } = buildHangingClassifierArgs("route-cancellation-test");
+  const { classifierStarted, cancelledRequests } = installHangingClassifier();
   try {
     const pending = resolveAutoRoutingForSend(args);
     await classifierStarted;
     await expect(resolveAutoRoutingForSend(args)).rejects.toMatchObject({ name: "AbortError" });
-    await Bun.sleep(550);
-    expect(notice).toHaveBeenCalledTimes(1);
-    const cancel = notice.mock.calls[0]?.[1]?.action;
-    expect(cancel?.label).toBe("Cancel");
-    cancel?.onClick({} as never);
+    expect(cancelPendingAutoRouting(args.taskId)).toBe(true);
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
-    expect(dismiss).toHaveBeenCalledWith("routing-notice");
-    expect(cancelledRequest).toMatch(/^[a-f0-9-]{36}$/);
+    expect(cancelledRequests[0]).toMatch(/^[a-f0-9-]{36}$/);
     expect(cancelPendingAutoRouting(args.taskId)).toBe(false);
+    // The wait is shown in the transcript, never as a notification.
+    expect(info).not.toHaveBeenCalled();
+    expect(warning).not.toHaveBeenCalled();
     const next = await resolveAutoRoutingForSend({ ...args, state: { ...args.state,
       settings: { ...args.state.settings, autoRoutingProfile: { ...profile, signals: { ...profile.signals, classifier: false } } } } });
     expect(next?.model).toBe("gpt-6-luna");
     expect(next?.source).toBe("heuristic");
+    expect(next?.classifierElapsedMs).toBeUndefined();
   } finally {
     cancelPendingAutoRouting(args.taskId);
     globalThis.window = previousWindow;
-    notice.mockRestore();
-    dismiss.mockRestore();
+    info.mockRestore();
+    warning.mockRestore();
   }
+});
+
+test("skipping the classifier resolves on local rules without a notification", async () => {
+  const previousWindow = globalThis.window;
+  const warning = spyOn(toast, "warning");
+  const { args } = buildHangingClassifierArgs("route-skip-test");
+  const { classifierStarted, cancelledRequests } = installHangingClassifier();
+  try {
+    expect(skipPendingAutoRoutingClassifier(args.taskId)).toBe(false);
+    const pending = resolveAutoRoutingForSend(args);
+    await classifierStarted;
+    expect(skipPendingAutoRoutingClassifier(args.taskId)).toBe(true);
+    expect(skipPendingAutoRoutingClassifier(args.taskId)).toBe(false);
+    const decision = await pending;
+    expect(decision?.source).toBe("classifier_fallback");
+    expect(decision?.rationale.startsWith(AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE)).toBe(true);
+    expect(typeof decision?.classifierElapsedMs).toBe("number");
+    expect(cancelledRequests).toHaveLength(1);
+    expect(warning).not.toHaveBeenCalled();
+    expect(cancelPendingAutoRouting(args.taskId)).toBe(false);
+    const resolution = decision
+      ? buildAutoRoutingModelResolution({ decision, provider: decision.providerId, model: decision.model })
+      : null;
+    expect(resolution?.classifierElapsedMs).toBe(decision?.classifierElapsedMs);
+    expect(AutoRoutingModelResolutionSchema.safeParse(resolution).success).toBe(true);
+  } finally {
+    cancelPendingAutoRouting(args.taskId);
+    globalThis.window = previousWindow;
+    warning.mockRestore();
+  }
+});
+
+test("only a classifier-backed Auto send waits in the pending state", () => {
+  const profile = buildStarterProfile("starter-balanced");
+  const settings = { ...defaultSettings, autoRoutingEnabled: true,
+    autoRoutingProfile: { ...profile, signals: { ...profile.signals, classifier: true } } };
+  const draft = { text: "x", attachedFilePaths: [], attachments: [], runtimeOverrides: { autoRouting: true } };
+  expect(shouldClassifyAutoRoute({ settings, promptDraft: draft })).toBe(true);
+  expect(shouldClassifyAutoRoute({ settings: { ...settings, autoRoutingEnabled: false }, promptDraft: draft })).toBe(false);
+  expect(shouldClassifyAutoRoute({ settings, promptDraft: { ...draft, runtimeOverrides: { autoRouting: false } } })).toBe(false);
+  expect(shouldClassifyAutoRoute({ settings, promptDraft: { ...draft, runtimeOverrides: { autoRouting: true, model: "gpt-5.6-sol" } } })).toBe(false);
+  expect(shouldClassifyAutoRoute({ settings: { ...settings,
+    autoRoutingProfile: { ...profile, signals: { ...profile.signals, classifier: false } } }, promptDraft: draft })).toBe(false);
 });

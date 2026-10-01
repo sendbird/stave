@@ -220,19 +220,12 @@ export function buildLocalCommandResponseState(args: {
   };
 }
 
-export function buildPendingProviderTurnState(args: {
-  tasks: Task[];
-  messagesByTask: Record<string, ChatMessage[]>;
-  messageCountByTask: Record<string, number>;
-  activeTurnIdsByTask: Record<string, string | undefined>;
-  taskWorkspaceIdById: Record<string, string>;
-  workspaceSnapshotVersion: number;
-  taskId: string;
-  taskWorkspaceId: string;
-  turnId: string;
-  provider: ProviderId;
-  activeModel: string;
-  modelInfo?: TurnModelInfo;
+/**
+ * The user row a send inserts. Also drawn ahead of the turn while Auto is
+ * still choosing a model, so both renders must come from this one builder.
+ */
+export function buildOutgoingUserMessage(args: {
+  id: string;
   content: string;
   displayContent?: string;
   displayParts?: MessagePart[];
@@ -248,21 +241,7 @@ export function buildPendingProviderTurnState(args: {
     mimeType: string;
   }>;
   dispatchedFromQueue?: boolean;
-}) {
-  const current = args.messagesByTask[args.taskId] ?? [];
-  // Anchor new IDs to the durable total; `current` may be a trimmed tail window.
-  const baseMessageCount = Math.max(
-    current.length,
-    args.messageCountByTask[args.taskId] ?? 0,
-  );
-  const userMessageId = buildMessageId({
-    taskId: args.taskId,
-    count: baseMessageCount,
-  });
-  const assistantMessageId = buildMessageId({
-    taskId: args.taskId,
-    count: baseMessageCount + 1,
-  });
+}): ChatMessage {
   const userParts: MessagePart[] = [];
 
   if (args.fileContexts) {
@@ -312,8 +291,8 @@ export function buildPendingProviderTurnState(args: {
     }
   }
 
-  const userMessage: ChatMessage = {
-    id: userMessageId,
+  return {
+    id: args.id,
     role: "user",
     model: "user",
     providerId: "user",
@@ -326,6 +305,60 @@ export function buildPendingProviderTurnState(args: {
     ...(displayParts && displayParts.length > 0 ? { displayParts } : {}),
     ...(args.dispatchedFromQueue ? { dispatchedFromQueue: true } : {}),
   };
+}
+
+export function buildPendingProviderTurnState(args: {
+  tasks: Task[];
+  messagesByTask: Record<string, ChatMessage[]>;
+  messageCountByTask: Record<string, number>;
+  activeTurnIdsByTask: Record<string, string | undefined>;
+  taskWorkspaceIdById: Record<string, string>;
+  workspaceSnapshotVersion: number;
+  taskId: string;
+  taskWorkspaceId: string;
+  turnId: string;
+  provider: ProviderId;
+  activeModel: string;
+  modelInfo?: TurnModelInfo;
+  content: string;
+  displayContent?: string;
+  displayParts?: MessagePart[];
+  fileContexts?: Array<{
+    filePath: string;
+    content: string;
+    language: string;
+    instruction?: string;
+  }>;
+  imageContexts?: Array<{
+    dataUrl: string;
+    label: string;
+    mimeType: string;
+  }>;
+  dispatchedFromQueue?: boolean;
+}) {
+  const current = args.messagesByTask[args.taskId] ?? [];
+  // Anchor new IDs to the durable total; `current` may be a trimmed tail window.
+  const baseMessageCount = Math.max(
+    current.length,
+    args.messageCountByTask[args.taskId] ?? 0,
+  );
+  const userMessageId = buildMessageId({
+    taskId: args.taskId,
+    count: baseMessageCount,
+  });
+  const assistantMessageId = buildMessageId({
+    taskId: args.taskId,
+    count: baseMessageCount + 1,
+  });
+  const userMessage = buildOutgoingUserMessage({
+    id: userMessageId,
+    content: args.content,
+    displayContent: args.displayContent,
+    displayParts: args.displayParts,
+    fileContexts: args.fileContexts,
+    imageContexts: args.imageContexts,
+    dispatchedFromQueue: args.dispatchedFromQueue,
+  });
 
   const assistantMessage: ChatMessage = {
     id: assistantMessageId,

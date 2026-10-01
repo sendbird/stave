@@ -32,6 +32,11 @@ import type {
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
 export const AUTO_ROUTING_CLASSIFIER_TIMEOUT_MS = ROUTE_CLASSIFICATION_DEADLINE_MS;
+/** Rationale lead for a fallback the user asked for by skipping the classifier. */
+export const AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE =
+  "Classification skipped; conservative routing";
+export const AUTO_ROUTING_CLASSIFIER_UNAVAILABLE_RATIONALE =
+  "Classification unavailable; conservative routing";
 export const AUTO_ROUTING_TINY_PROMPT_TOKEN_LIMIT = 12;
 export const AUTO_ROUTING_FILE_CONTEXT_TIER_UP_THRESHOLD = 4;
 export const AUTO_ROUTING_LONG_PROMPT_TOKEN_LIMIT = 120;
@@ -237,6 +242,8 @@ export interface AutoRoutingDecision {
   signals: AutoRoutingSignalSummary;
   providerChanged: boolean;
   stick: boolean;
+  /** Wall time spent waiting on the classifier, when one ran for this send. */
+  classifierElapsedMs?: number;
   claudeEffort?: NonNullable<ProviderRuntimeOptions["claudeEffort"]>;
   codexReasoningEffort?: NonNullable<
     ProviderRuntimeOptions["codexReasoningEffort"]
@@ -283,6 +290,12 @@ export interface ResolveAutoRoutingDecisionArgs {
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   classifierTimeoutMs?: number;
   signal?: AbortSignal;
+  /**
+   * Ends only the classifier wait. Unlike `signal`, the decision still
+   * resolves — from local rules — so the caller can start the turn without
+   * the classifier's answer.
+   */
+  classifierSignal?: AbortSignal;
   classifyRoute?: (
     args: AutoRoutingClassifierRequest,
     signal?: AbortSignal,
@@ -407,12 +420,17 @@ async function classifyWithTimeout(args: {
   request: AutoRoutingClassifierRequest;
   classifyRoute: NonNullable<ResolveAutoRoutingDecisionArgs["classifyRoute"]>;
   timeoutMs: number;
-  signal?: AbortSignal;
+  signals: readonly (AbortSignal | undefined)[];
 }) {
   const controller = new AbortController();
   const abort = () => controller.abort();
-  args.signal?.addEventListener("abort", abort, { once: true });
-  if (args.signal?.aborted) controller.abort();
+  const signals = args.signals.filter(
+    (signal): signal is AbortSignal => signal !== undefined,
+  );
+  for (const signal of signals) {
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) controller.abort();
+  }
   let finish: (value: null) => void = () => {};
   const cancelled = new Promise<null>((resolve) => { finish = resolve; });
   controller.signal.addEventListener("abort", () => finish(null), { once: true });
@@ -429,7 +447,7 @@ async function classifyWithTimeout(args: {
     return null;
   } finally {
     clearTimeout(timer);
-    args.signal?.removeEventListener("abort", abort);
+    for (const signal of signals) signal.removeEventListener("abort", abort);
   }
 }
 
@@ -993,7 +1011,7 @@ export async function resolveAutoRoutingDecision(
         fileContextCount,
         phase: args.phase,
       },
-      signal: args.signal,
+      signals: [args.signal, args.classifierSignal],
       classifyRoute: args.classifyRoute,
       timeoutMs:
         args.classifierTimeoutMs ?? AUTO_ROUTING_CLASSIFIER_TIMEOUT_MS,
@@ -1045,9 +1063,15 @@ export async function resolveAutoRoutingDecision(
   });
 
   const confidence = null;
+  const classifierSkipped =
+    !classifier && args.classifierSignal?.aborted === true;
   const rationale = classifier
     ? `${classifier.intent}, ${classifier.complexity} complexity, ${classifier.risk} risk, ${classifier.continuity}`
-    : source === "classifier_fallback" ? "Classification unavailable; conservative routing" : heuristic.rationale;
+    : source === "classifier_fallback"
+      ? classifierSkipped
+        ? AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE
+        : AUTO_ROUTING_CLASSIFIER_UNAVAILABLE_RATIONALE
+      : heuristic.rationale;
 
   return buildDecision({
     providerId: route.providerId,

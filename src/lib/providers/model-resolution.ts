@@ -38,5 +38,6 @@ export const AutoRoutingModelResolutionSchema = z
     ruleReason: z.string().trim().max(1_000).optional(),
     taskClass: z.string().trim().max(40).optional(),
     stance: z.string().trim().max(40).optional(),
+    classifierElapsedMs: z.number().int().min(0).max(600_000).optional(),
   })
   .strict() satisfies z.ZodType<AutoRoutingModelResolution>;

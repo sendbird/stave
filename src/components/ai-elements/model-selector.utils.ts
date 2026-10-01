@@ -94,19 +94,24 @@ export function buildAutoModelSelectorOption(args: {
    */
   routed?: { label: string; description: string } | null;
   stanceLabel?: string;
+  /** A send is waiting on the classifier; the previous route no longer applies. */
+  pending?: boolean;
 }): ModelSelectorOption {
   return {
     key: "auto",
     providerId: args.providerId,
     model: "",
-    label: args.routed
-      ? `Auto → ${args.routed.label}`
-      : args.stanceLabel
-        ? `Auto · ${args.stanceLabel}`
-        : "Auto",
-    description:
-      args.routed?.description ??
-      "Stave chooses the provider, model, and effort.",
+    label: args.pending
+      ? "Auto · Choosing…"
+      : args.routed
+        ? `Auto → ${args.routed.label}`
+        : args.stanceLabel
+          ? `Auto · ${args.stanceLabel}`
+          : "Auto",
+    description: args.pending
+      ? "Auto is choosing the model for this request."
+      : (args.routed?.description ??
+        "Stave chooses the provider, model, and effort."),
     isAuto: true,
     available: args.available ?? true,
   };

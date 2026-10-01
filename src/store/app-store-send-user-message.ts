@@ -19,8 +19,9 @@ import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
 import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
+import { endPendingAutoRoute } from "@/store/pending-auto-routing-store";
 import {
-  buildAutoRoutingModelResolution,
+  buildAutoRoutingModelResolvedEvent,
   isAutoRoutingUnavailableForSend,
   resolveAutoRoutingForSend,
   resolveDelegatedRuntimeOverrides,
@@ -856,6 +857,9 @@ export function createSendUserMessageAction(args: {
         history: latestHistory,
         fileContextCount: resolvedFileContexts.length,
         workspaceCwd,
+        // The classifier can take seconds; the transcript shows the prompt meanwhile.
+        pendingRow: { turnId, message: { content: promptContent, displayContent: promptDisplayContent, displayParts: promptDisplayParts,
+          fileContexts: resolvedFileContexts, imageContexts: resolvedImageContexts, dispatchedFromQueue: Boolean(queuedTurnToSend) } },
       });
       const afterRouting = get();
       const routedSession = getWorkspaceSessionForState({
@@ -1280,6 +1284,8 @@ export function createSendUserMessageAction(args: {
           });
         }
       }
+      // Same tick as the row insert: Auto's pending row hands straight over.
+      endPendingAutoRoute({ taskId: resolvedTaskId, id: turnId });
 
       const turnActivityStartedAt = Date.now();
       // The usage meter's cadence is driven by real turn activity rather
@@ -1630,19 +1636,8 @@ export function createSendUserMessageAction(args: {
         turnId,
       });
 
-      if (autoRoutingDecision && autoRoutingDecision.source !== "disabled") {
-        const modelResolution = buildAutoRoutingModelResolution({
-          decision: autoRoutingDecision,
-          provider,
-          model: activeModel,
-        });
-        providerTurnEventController.handleEvent({
-          type: "model_resolved",
-          resolvedProviderId: provider,
-          resolvedModel: activeModel,
-          ...(modelResolution ? { modelResolution } : {}),
-        });
-      }
+      const routedModelEvent = buildAutoRoutingModelResolvedEvent({ decision: autoRoutingDecision, provider, model: activeModel });
+      if (routedModelEvent) providerTurnEventController.handleEvent(routedModelEvent);
 
       runProviderTurn({
         turnId,
@@ -1691,6 +1686,8 @@ export function createSendUserMessageAction(args: {
         draft: promptDraft,
         error,
       });
+    } finally {
+      endPendingAutoRoute({ taskId: resolvedTaskId, id: turnId });
     }
   };
 }
