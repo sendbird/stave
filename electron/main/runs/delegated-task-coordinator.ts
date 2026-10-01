@@ -1,4 +1,4 @@
-import type { DelegationPermissionPolicy } from "../../../src/lib/runs/delegation-policy";
+import { isReadOnlyDelegationPolicy, type DelegationPermissionPolicy } from "../../../src/lib/runs/delegation-policy";
 import type { AgentSnapshot } from "../../../src/lib/agents/compile";
 import type { AgentPermission } from "../../../src/lib/agents/schema";
 import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
@@ -12,6 +12,7 @@ import {
   buildDelegatedTaskStepId,
   DelegatedTaskActionResponseSchema,
   DelegateTaskArgsSchema,
+  DelegateTaskToolInputSchema,
   DelegatedTaskDetachArgsSchema,
   DelegatedTaskFollowUpArgsSchema,
   DelegatedTaskListArgsSchema,
@@ -31,6 +32,8 @@ import {
   validateDelegatedTaskIdentity,
   type DelegatedTaskActionResponse,
   type DelegateTaskArgs,
+  type DelegatedTaskAccess,
+  type DelegatedTaskEffort,
   type DelegatedTaskExpectedIdentity,
   type DelegatedTaskLifecycle,
   type DelegatedTaskPermissionProfile,
@@ -222,7 +225,15 @@ interface DelegatedTaskCoordinatorDependencies {
    * agent is refused, because it cannot be honoured.
    */
   /** The commit checked out at a path; null when it cannot be read. Needed for `expectedHead`. */
-  resolvePermissionPolicy?: (args: { parentTaskId: string; delegatedTaskId: string; providerId: "claude-code" | "codex"; permissionProfile?: DelegatedTaskPermissionProfile; agentConfigId?: string; agentPermission?: AgentPermission }) => Promise<DelegationPermissionPolicy>;
+  resolvePermissionPolicy?: (args: { parentTaskId: string; delegatedTaskId: string; providerId: "claude-code" | "codex"; permissionProfile?: DelegatedTaskPermissionProfile; access?: DelegatedTaskAccess; requestedProfile?: DelegatedTaskPermissionProfile; agentConfigId?: string; agentPermission?: AgentPermission }) => Promise<DelegationPermissionPolicy>;
+  /**
+   * The provider and effort of the parent's latest turn, for what a tool call
+   * leaves out. Null (or absent) when unknown: the call must then name a provider.
+   */
+  resolveParentDefaults?: (args: { parentTaskId: string }) => Promise<{
+    providerId: "claude-code" | "codex";
+    effort?: DelegatedTaskEffort;
+  } | null>;
   recordAgentAssignment?: (args: {
     snapshot: AgentSnapshot; standards?: string; executionId: string;
     target: RunStepTarget; repositoryPath: string; prompt: string; model?: string;
@@ -246,12 +257,37 @@ function hashDelegatedTaskInput(args: DelegateTaskArgs, agentContentHash?: strin
         model: args.model ?? null,
         effort: args.effort ?? null,
         permissionProfile: args.permissionProfile ?? "inherit",
+        // Only when narrowed, so hashes recorded before `access` existed still match.
+        ...(args.access === "read-only" ? { access: args.access } : {}),
         lifecycle: args.lifecycle,
         workspace: args.workspace,
         ...(agentContentHash ? { agentContentHash } : {}),
       }),
     )
     .digest("hex");
+}
+
+/**
+ * The key a tool call gets when it names none: readable from the prompt, and
+ * fixed by everything that makes it a different request — the parent, the
+ * provider, the model and the prompt — so sending the same call again names
+ * the same child instead of starting a second one.
+ */
+export function deriveDelegationKey(args: {
+  parentTaskId: string;
+  providerId: "claude-code" | "codex";
+  model?: string;
+  prompt: string;
+}) {
+  const digest = createHash("sha256")
+    .update(JSON.stringify([args.parentTaskId, args.providerId, args.model ?? null, args.prompt]))
+    .digest("hex");
+  const slug = args.prompt
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, 40)
+    .replace(/^-+|-+$/g, "");
+  return `${slug || "task"}-${digest.slice(0, 12)}`;
 }
 
 /**
@@ -428,8 +464,9 @@ export function createDelegatedTaskCoordinator(
 
   const leaseTarget = async (target: RunStepTarget, policy?: DelegationPermissionPolicy): Promise<RunStepTarget> => {
     const turnExecutionId = randomUUID();
-    // Permission profile and Claude plan mode do not prove that tools cannot write.
-    if (target.providerId === "codex" && policy?.options.codexFileAccess === "read-only")
+    // Only a resolved read-only posture proves that tools cannot write; profile names
+    // and Claude plan mode do not.
+    if (isReadOnlyDelegationPolicy(target.providerId, policy))
       return { ...target, turnExecutionId, writerLease: undefined, turnId: null };
     const workspace = await dependencies.host.resolveWorkspace({ workspaceId: target.workspaceId });
     if (!workspace) throw new Error("The child's workspace could not be reached.");
@@ -451,7 +488,7 @@ export function createDelegatedTaskCoordinator(
       const previous = aggregate.step.target;
       if (!previous || previous.writerLease || previous.turnExecutionId) continue;
       const policy = acceptedReceiptForRun(ledger, aggregate.run.id, aggregate.step.attempt)?.detail?.permissionPolicy;
-      if (previous.providerId === "codex" && policy?.options.codexFileAccess === "read-only") continue;
+      if (isReadOnlyDelegationPolicy(previous.providerId, policy)) continue;
       // Old rows need no migration. Resolve their actual workspace before admitting
       // another writer; unavailable identity or terminal evidence remains guarded.
       const location = await dependencies.host.resolveWorkspace({ workspaceId: previous.workspaceId }).catch(() => null);
@@ -961,6 +998,7 @@ export function createDelegatedTaskCoordinator(
 
   const delegateChild = async (
     rawArgs: unknown,
+    defaults: { inheritedEffort?: DelegatedTaskEffort } = {},
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskArgsSchema.safeParse(rawArgs);
     if (!parsed.success) {
@@ -978,15 +1016,24 @@ export function createDelegatedTaskCoordinator(
       agentContentHash = applied.agentContentHash;
       if (applied.snapshot) agentAssignment = { snapshot: applied.snapshot, standards: applied.standards };
     }
+    // An effort the agent fixed is explicit; the parent's only fills a gap.
+    const effort = args.effort ?? defaults.inheritedEffort;
     return withParentDelegationLock(args.parentTaskId, () =>
-      admitDelegation(args, agentContentHash, agentAssignment),
+      admitDelegation(args, agentContentHash, agentAssignment, effort),
     );
   };
 
+  /**
+   * `effort` is the tier the child runs at: the requested one, or the one it
+   * inherited. Only the requested one is part of the input hash, the same way
+   * an inherited permission policy is not, so a retry sent after the parent
+   * changed effort still names the same delegation.
+   */
   const admitDelegation = async (
     args: DelegateTaskArgs,
     agentContentHash: string | null = null,
     agentAssignment?: { snapshot: AgentSnapshot; standards?: string },
+    effort: DelegatedTaskEffort | undefined = args.effort,
   ): Promise<DelegatedTaskActionResponse> => {
     const runId = buildDelegatedTaskRunId({
       parentTaskId: args.parentTaskId,
@@ -1085,7 +1132,7 @@ export function createDelegatedTaskCoordinator(
       turnId: null,
       providerId: args.providerId,
     };
-    const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId, providerId: args.providerId, permissionProfile: args.permissionProfile, agentConfigId: args.agentConfigId, agentPermission: agentAssignment?.snapshot.agent.permission });
+    const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId, providerId: args.providerId, permissionProfile: args.permissionProfile, ...(args.access ? { access: args.access } : {}), ...(args.requestedPermissionProfile ? { requestedProfile: args.requestedPermissionProfile } : {}), agentConfigId: args.agentConfigId, agentPermission: agentAssignment?.snapshot.agent.permission });
     try { target = await leaseTarget(target, permissionPolicy); }
     catch { return rejected("workspace-unavailable", existingSummary); }
     const legacyHolder = await legacyWriterHolder(ledger, target);
@@ -1129,8 +1176,9 @@ export function createDelegatedTaskCoordinator(
       detail: {
         providerId: args.providerId,
         ...(args.model ? { model: args.model } : {}),
-        ...(args.effort ? { effort: args.effort } : {}),
+        ...(effort ? { effort } : {}),
         permissionProfile: args.permissionProfile,
+        ...(args.access ? { access: args.access } : {}),
         ...(permissionPolicy ? { permissionPolicy } : {}),
         workspaceMode: args.workspace.mode,
         ...(args.agentConfigId ? { agentConfigId: args.agentConfigId } : {}),
@@ -1180,7 +1228,7 @@ export function createDelegatedTaskCoordinator(
         prompt: args.prompt,
         title: args.title,
         model: args.model,
-        effort: args.effort,
+        effort,
         permissionProfile: args.permissionProfile,
         permissionPolicy,
         lifecycle: args.lifecycle,
@@ -1190,8 +1238,60 @@ export function createDelegatedTaskCoordinator(
     return accepted({ duplicate: false, child });
   };
 
+  /**
+   * `stave_delegate_task`: a model supplies only what matters. The provider
+   * and effort default to the parent's, the child to one turn in the same
+   * workspace, and the key to one derived from the request. A legacy
+   * `permissionProfile` is accepted but no longer applied — `guided` and
+   * `manual` made every child tool call prompt — and is kept as provenance.
+   */
+  const delegateFromTool = async (
+    rawInput: unknown,
+  ): Promise<DelegatedTaskActionResponse> => {
+    const parsed = DelegateTaskToolInputSchema.safeParse(rawInput);
+    if (!parsed.success) return rejected("invalid-request");
+    const input = parsed.data;
+    const parent =
+      input.provider && input.effort
+        ? null
+        : await (dependencies.resolveParentDefaults?.({ parentTaskId: input.parentTaskId }) ?? Promise.resolve(null))
+            .catch(() => null);
+    const providerId = input.provider ?? parent?.providerId;
+    if (!providerId)
+      return rejected("invalid-request", null, "Name a provider: this task's provider could not be determined.");
+    const prompt = input.prompt.trim();
+    const model = input.model?.trim() || undefined;
+    const legacyProfile = input.permissionProfile;
+    return delegateChild(
+      {
+        repositoryPath: input.repositoryPath,
+        parentWorkspaceId: input.parentWorkspaceId,
+        parentTaskId: input.parentTaskId,
+        delegationKey:
+          input.delegationKey ??
+          deriveDelegationKey({ parentTaskId: input.parentTaskId.trim(), providerId, model, prompt }),
+        prompt,
+        ...(input.title ? { title: input.title } : {}),
+        providerId,
+        ...(model ? { model } : {}),
+        ...(input.effort ? { effort: input.effort } : {}),
+        access: input.access ?? "inherit",
+        ...(legacyProfile === "guided" || legacyProfile === "manual"
+          ? { requestedPermissionProfile: legacyProfile }
+          : {}),
+        lifecycle: input.lifecycle ?? "one-turn",
+        workspace: input.workspace ?? { mode: "same-workspace" },
+        ...(input.expectedHead ? { expectedHead: input.expectedHead } : {}),
+        ...(input.agentConfigId ? { agentConfigId: input.agentConfigId } : {}),
+        retry: input.retry ?? false,
+      },
+      { inheritedEffort: parent?.providerId === providerId ? parent.effort : undefined },
+    );
+  };
+
   return {
     delegate: delegateChild,
+    delegateFromTool,
 
     /**
      * A fresh attempt on a delegation that ended without succeeding. Provider
@@ -1243,6 +1343,7 @@ export function createDelegatedTaskCoordinator(
           args.permissionProfile ??
           originalClaim?.detail?.permissionProfile ??
           "inherit",
+        ...(originalClaim?.detail?.access ? { access: originalClaim.detail.access } : {}),
         // The retry runs as the same agent, applied to the new prompt again.
         ...(originalClaim?.detail?.agentConfigId ? { agentConfigId: originalClaim.detail.agentConfigId } : {}),
         // A pinned delegation stays pinned: a retry after the workspace moved is refused.
