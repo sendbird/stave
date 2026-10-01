@@ -10,7 +10,14 @@ A Worker is different: a helper a task's model hands one piece of work to
 within a turn.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
-own start, and the permission you see is only the default the task starts with.
+own start. A main Agent's permission narrows the task's settings when needed;
+delegated Agents use the delegation policy resolved by the host.
+
+**Run overview → Run details** shows the Agent version captured for that turn,
+the permission source and whether instruction delivery was confirmed. The run's
+model remains the provider's reported model. Older turns without Agent evidence
+stay unspecified. History marks a saved version **Assigned** when an assignment
+references it; that label does not count completed turns.
 
 ## When To Use It
 

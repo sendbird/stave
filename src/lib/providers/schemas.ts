@@ -1,3 +1,4 @@
+import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
 import { ModelExecutionSchema } from "./model-execution";
 import { AutoRoutingModelResolutionSchema } from "./model-resolution";
 import { WORKER_PRESET_IDS } from "./worker-preset-ids";
@@ -407,6 +408,7 @@ const SubagentProgressEventSchema = z.object({
 export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   thinking: ThinkingEventSchema,
   text: TextEventSchema,
+  agent_provenance: z.object({ type: z.literal("agent_provenance"), provenance: AgentTurnProvenanceSchema }).strict(),
   provider_session: ProviderSessionEventSchema,
   provider_turn: ProviderTurnEventSchema,
   goal_status: GoalStatusEventSchema,
@@ -435,6 +437,7 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
 export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.thinking,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.text,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.agent_provenance,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_session,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_turn,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.goal_status,

@@ -48,6 +48,24 @@ When adding or renaming a normalized provider event:
 - update replay handlers in `src/lib/session/provider-event-replay.ts`
 - verify downstream event consumers and tests still handle the event
 
+Assigned task turns compile one immutable `AgentAssignment` before provider
+execution. A missing assignment means a direct task; an unreadable assignment,
+invalid saved configuration, or unavailable mandatory constraint ends with one
+failed terminal before native startup. Secondary analysis does not resolve the
+task's Agent. Delegated snapshots compile as delegates and retain the host's
+resolved delegation permission policy.
+
+`agent_provenance` carries assignment identity, role, content hash, requested
+model/effort, allowlisted configured permissions, and instruction delivery facts.
+It contains no instruction prose, secret bindings, or environment values.
+Native model evidence remains in `model_resolved` and `modelExecution`. Replay
+pins identity to the exact Stave turn, preserves it through split rows and SQL
+compaction, and never derives missing historical evidence from today's Agent.
+Claude and Codex receive instructions each turn. ACP delivers after its actual
+session decision; only a confirmed resumed session with the same provider and
+Agent version may reuse known delivery. Failed startup and fresh sessions never
+consume or infer delivery.
+
 ## Window API Contract
 
 Any change to `window.api` must be checked across:

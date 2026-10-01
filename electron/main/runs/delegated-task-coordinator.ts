@@ -1,4 +1,6 @@
 import type { DelegationPermissionPolicy } from "../../../src/lib/runs/delegation-policy";
+import type { AgentSnapshot } from "../../../src/lib/agents/compile";
+import type { AgentPermission } from "../../../src/lib/agents/schema";
 import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
@@ -212,17 +214,21 @@ interface DelegatedTaskCoordinatorDependencies {
    * agent is refused, because it cannot be honoured.
    */
   /** The commit checked out at a path; null when it cannot be read. Needed for `expectedHead`. */
-  resolvePermissionPolicy?: (args: { parentTaskId: string; delegatedTaskId: string; providerId: "claude-code" | "codex"; permissionProfile?: DelegatedTaskPermissionProfile; agentConfigId?: string }) => Promise<DelegationPermissionPolicy>;
+  resolvePermissionPolicy?: (args: { parentTaskId: string; delegatedTaskId: string; providerId: "claude-code" | "codex"; permissionProfile?: DelegatedTaskPermissionProfile; agentConfigId?: string; agentPermission?: AgentPermission }) => Promise<DelegationPermissionPolicy>;
+  recordAgentAssignment?: (args: {
+    snapshot: AgentSnapshot; standards?: string; executionId: string;
+    target: RunStepTarget; repositoryPath: string; prompt: string; model?: string;
+  }) => Promise<void>;
   readHead?: (workspacePath: string) => Promise<string | null>;
   applyAgent?: (
     args: DelegateTaskArgs,
   ) => Promise<
-    | { ok: true; args: DelegateTaskArgs; agentContentHash: string }
+    | { ok: true; args: DelegateTaskArgs; agentContentHash: string; snapshot?: AgentSnapshot; standards?: string }
     | { ok: false; message: string }
   >;
 }
 
-function hashDelegatedTaskInput(args: DelegateTaskArgs) {
+function hashDelegatedTaskInput(args: DelegateTaskArgs, agentContentHash?: string | null) {
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -233,6 +239,7 @@ function hashDelegatedTaskInput(args: DelegateTaskArgs) {
         permissionProfile: args.permissionProfile ?? "inherit",
         lifecycle: args.lifecycle,
         workspace: args.workspace,
+        ...(agentContentHash ? { agentContentHash } : {}),
       }),
     )
     .digest("hex");
@@ -469,6 +476,9 @@ export function createDelegatedTaskCoordinator(
     executionId: string;
     target: RunStepTarget;
     scope: "start-child" | "follow-up-child";
+    agentAssignment?: {
+      snapshot: AgentSnapshot; standards?: string; repositoryPath: string;
+    };
     turn: {
       prompt: string;
       title?: string;
@@ -487,6 +497,13 @@ export function createDelegatedTaskCoordinator(
     });
     const started = (async () => {
       try {
+        if (args.agentAssignment) {
+          if (!dependencies.recordAgentAssignment) throw new Error("Delegated Agent snapshots cannot be recorded.");
+          await dependencies.recordAgentAssignment({
+            ...args.agentAssignment, executionId: args.executionId, target: args.target,
+            prompt: args.turn.prompt, model: args.turn.model,
+          });
+        }
         const result = await dependencies.host.runTask({
           workspaceId: args.target.workspaceId,
           taskId: args.target.taskId,
@@ -860,6 +877,7 @@ export function createDelegatedTaskCoordinator(
     }
     let args = parsed.data;
     let agentContentHash: string | null = null;
+    let agentAssignment: { snapshot: AgentSnapshot; standards?: string } | undefined;
     if (args.agentConfigId) {
       const applied = dependencies.applyAgent
         ? await dependencies.applyAgent(args).catch((error: unknown) => ({ ok: false as const, message: String(error) }))
@@ -867,15 +885,17 @@ export function createDelegatedTaskCoordinator(
       if (!applied.ok) return rejected("agent-refused", null, applied.message.slice(0, 500));
       args = applied.args;
       agentContentHash = applied.agentContentHash;
+      if (applied.snapshot) agentAssignment = { snapshot: applied.snapshot, standards: applied.standards };
     }
     return withParentDelegationLock(args.parentTaskId, () =>
-      admitDelegation(args, agentContentHash),
+      admitDelegation(args, agentContentHash, agentAssignment),
     );
   };
 
   const admitDelegation = async (
     args: DelegateTaskArgs,
     agentContentHash: string | null = null,
+    agentAssignment?: { snapshot: AgentSnapshot; standards?: string },
   ): Promise<DelegatedTaskActionResponse> => {
     const runId = buildDelegatedTaskRunId({
       parentTaskId: args.parentTaskId,
@@ -987,7 +1007,7 @@ export function createDelegatedTaskCoordinator(
       turnId: null,
       providerId: args.providerId,
     };
-    const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId, providerId: args.providerId, permissionProfile: args.permissionProfile, agentConfigId: args.agentConfigId });
+    const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId, providerId: args.providerId, permissionProfile: args.permissionProfile, agentConfigId: args.agentConfigId, agentPermission: agentAssignment?.snapshot.agent.permission });
     const timestamp = now();
     const executionId = createExecutionId();
     const attempt = existing ? existing.step.attempt : 0;
@@ -1014,7 +1034,7 @@ export function createDelegatedTaskCoordinator(
         kind: DELEGATED_TASK_STEP_KIND,
         target,
         dependencyIds: [],
-        inputHash: hashDelegatedTaskInput(args),
+        inputHash: hashDelegatedTaskInput(args, agentContentHash),
         now: timestamp,
       }),
       executionId,
@@ -1060,6 +1080,7 @@ export function createDelegatedTaskCoordinator(
       executionId,
       target,
       scope: "start-child",
+      ...(agentAssignment ? { agentAssignment: { ...agentAssignment, repositoryPath: args.repositoryPath } } : {}),
       turn: {
         prompt: args.prompt,
         title: args.title,
@@ -1168,7 +1189,8 @@ export function createDelegatedTaskCoordinator(
       if (inFlightByStepId.has(resolved.stepId)) {
         return rejected("already-active", resolved.child);
       }
-      const originalClaim = resolved.ledger.listRunReceipts({ runId: resolved.runId }).find((receipt) => receipt.type === "accepted");
+      const originalClaim = [...resolved.ledger.listRunReceipts({ runId: resolved.runId })]
+        .reverse().find((receipt) => receipt.type === "accepted");
       const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId: target.taskId, providerId: target.providerId, permissionProfile: args.permissionProfile, agentConfigId: originalClaim?.detail?.agentConfigId });
       if (inFlightByStepId.has(resolved.stepId)) return rejected("already-active", resolved.child);
       const fresh = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });

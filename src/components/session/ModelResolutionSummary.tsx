@@ -1,4 +1,5 @@
 import type { ModelExecution } from "@/lib/providers/model-execution";
+import type { AgentTurnProvenance } from "@/lib/agents/turn-provenance";
 import { sx } from "../ads/utils/stylex";
 import { resultStyles as styles } from "./result-review.styles";
 import type {
@@ -61,15 +62,33 @@ export function formatActualRunModel(actual: ActualRunModel) {
     .join(" · ");
 }
 
+function formatAgentPermissions(provenance: AgentTurnProvenance) {
+  const applied = provenance.permission.applied;
+  const values = [
+    applied.codexFileAccess ? `Files: ${applied.codexFileAccess}` : null,
+    applied.codexApprovalPolicy ? `Approval: ${applied.codexApprovalPolicy}` : null,
+    applied.claudePermissionMode ? `Mode: ${applied.claudePermissionMode}` : null,
+    applied.cursorMode ? `Mode: ${applied.cursorMode}` : null,
+    applied.cursorApprovalMode ? `Approval: ${applied.cursorApprovalMode}` : null,
+    applied.kiroApprovalMode ? `Approval: ${applied.kiroApprovalMode}` : null,
+    applied.codexNetworkAccess === undefined ? null : `Network: ${applied.codexNetworkAccess ? "on" : "off"}`,
+    applied.claudeAllowDangerouslySkipPermissions === undefined ? null
+      : `Skip approvals: ${applied.claudeAllowDangerouslySkipPermissions ? "on" : "off"}`,
+    applied.claudeDisallowedTools?.length ? `Denied tools: ${applied.claudeDisallowedTools.join(", ")}` : null,
+  ].filter(Boolean);
+  return values.join(" · ") || "Provider defaults; values not reported";
+}
+
 /** Recorded model facts only; callers may reuse this in live or saved runs. */
 export function ModelResolutionSummary(props: {
   actual: ActualRunModel | null;
   resolution?: AutoRoutingModelResolution;
+  agentProvenance?: AgentTurnProvenance;
   /** Hide run identity and a routed target that the surrounding header repeats. */
   showModelFacts?: boolean;
 }) {
   const showModelFacts = props.showModelFacts !== false;
-  if (!props.actual && !props.resolution) {
+  if (!props.actual && !props.resolution && !props.agentProvenance) {
     return (
       <p className={sx(styles.caption)}>Actual model has not been reported</p>
     );
@@ -85,6 +104,38 @@ export function ModelResolutionSummary(props: {
 
   return (
     <dl className={sx(styles.modelFacts)}>
+      {props.agentProvenance ? (
+        <>
+          <dt className={sx(styles.muted)}>{props.agentProvenance.role === "delegate" ? "Delegated Agent" : "Assigned main Agent"}</dt>
+          <dd className={sx(styles.modelValue)}>{props.agentProvenance.agentName}</dd>
+          <dt className={sx(styles.muted)}>Agent version</dt>
+          <dd className={sx(styles.modelValue)} title={props.agentProvenance.agentContentHash}>
+            {props.agentProvenance.agentContentHash.slice(0, 12)}
+          </dd>
+          <dt className={sx(styles.muted)}>Permission source</dt>
+          <dd className={sx(styles.modelReason)}>
+            {props.agentProvenance.permission.source === "delegation-policy" ? "Delegation policy"
+              : props.agentProvenance.permission.source === "agent-ceiling" ? "Agent ceiling" : "User settings"}
+            {props.agentProvenance.permission.source === "agent-ceiling"
+              ? ` · ${props.agentProvenance.permission.agentLimit}` : null}
+            {props.agentProvenance.permission.support === "instructed" ? " · Asked in instructions" : ""}
+          </dd>
+          <dt className={sx(styles.muted)}>Agent instructions</dt>
+          <dd className={sx(styles.modelReason)}>
+            {props.agentProvenance.instructions.status === "configured" ? "Configured; delivery not confirmed"
+              : props.agentProvenance.instructions.status === "retained-session" ? "Already delivered to this session"
+              : "Delivered"}
+          </dd>
+          <dt className={sx(styles.muted)}>Configured permissions</dt>
+          <dd className={sx(styles.modelReason)}>{formatAgentPermissions(props.agentProvenance)}</dd>
+          {props.agentProvenance.effort && props.agentProvenance.effort !== props.actual?.modelInfo?.effort ? (
+            <>
+              <dt className={sx(styles.muted)}>Requested effort</dt>
+              <dd className={sx(styles.modelValue)}>{props.agentProvenance.effort}</dd>
+            </>
+          ) : null}
+        </>
+      ) : null}
       {showModelFacts ? (
         <>
           <dt className={sx(styles.muted)}>Run model</dt>

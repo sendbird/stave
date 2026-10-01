@@ -1,5 +1,6 @@
 import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
+import { AgentTurnProvenanceSchema } from "@/lib/agents/turn-provenance";
 import { ModelExecutionSchema } from "@/lib/providers/model-execution";
 import { WORKER_PRESET_IDS } from "../providers/worker-preset-ids";
 import {
@@ -540,6 +541,7 @@ export const ChatMessageSchema = z.object({
   turnId: z.string().optional(),
   modelResolution: AutoRoutingModelResolutionSchema.optional().catch(undefined),
   modelExecution: ModelExecutionSchema.optional().catch(undefined),
+  agentProvenance: AgentTurnProvenanceSchema.optional().catch(undefined),
   modelInfo: z
     .object({
       effort: z.union([

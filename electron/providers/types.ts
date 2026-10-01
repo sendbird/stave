@@ -1,3 +1,4 @@
+import type { AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
 import type { StaveTurnGrants } from "./stave-turn-grants";
 import type { MissionStageIdentity } from "../../src/lib/missions/domain";
@@ -91,6 +92,7 @@ export type ProviderSteerResponder = (args: {
 }) => Promise<ProviderResponderResult>;
 
 export type BridgeEvent =
+  | { type: "agent_provenance"; provenance: AgentTurnProvenance }
   | { type: "thinking"; text: string; isStreaming?: boolean }
   | { type: "text"; text: string; segmentId?: string }
   | {

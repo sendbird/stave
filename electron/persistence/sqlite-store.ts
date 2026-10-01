@@ -531,6 +531,7 @@ export class SqliteStore {
                 'done',
                 'provider_turn',
                 'provider_session',
+                'agent_provenance',
                 'goal_status',
                 'plan_ready'
               )
@@ -2457,6 +2458,7 @@ export class SqliteStore {
             'done',
             'provider_turn',
             'provider_session',
+            'agent_provenance',
             'goal_status',
             'plan_ready'
           )
@@ -2481,6 +2483,7 @@ export class SqliteStore {
             'done',
             'provider_turn',
             'provider_session',
+            'agent_provenance',
             'goal_status',
             'plan_ready'
           )
@@ -2493,6 +2496,7 @@ export class SqliteStore {
                 'done',
                 'provider_turn',
                 'provider_session',
+                'agent_provenance',
                 'goal_status',
                 'plan_ready'
               )

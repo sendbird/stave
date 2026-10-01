@@ -14,6 +14,7 @@ import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
+import type { AgentTurnProvenance } from "@/lib/agents/turn-provenance";
 import type {
   AutoRoutingModelResolution,
   ProviderId,
@@ -235,6 +236,7 @@ export function TaskRunOverview() {
       status={status}
       actualModel={actualModel}
       resolution={resolution}
+      agentProvenance={message?.agentProvenance}
       runTurnId={runTurnId}
     />
   );
@@ -250,6 +252,7 @@ export function TaskRunOverviewView(props: {
   status: RunStatus;
   actualModel: ActualRunModel | null;
   resolution?: AutoRoutingModelResolution;
+  agentProvenance?: AgentTurnProvenance;
   runTurnId?: string | null;
 }) {
   const { actualModel, resolution, runTurnId, status, title } = props;
@@ -269,7 +272,7 @@ export function TaskRunOverviewView(props: {
   // "Running" repeats what the activity headline below already says in words,
   // so the status only speaks when the run ended or needs something.
   const restingTone = status.tone === "active" ? null : status.tone;
-  const hasRoutingDetails = Boolean(resolution || actualModel?.modelExecution);
+  const hasRoutingDetails = Boolean(resolution || actualModel?.modelExecution || props.agentProvenance);
 
   const headerRow = (
     <>
@@ -318,12 +321,13 @@ export function TaskRunOverviewView(props: {
           className={sx(styles.modelDetails)}
         >
           <summary className={sx(styles.disclosure, focusRing.ring)}>
-            {resolution ? "Routing details" : "Model details"}
+            {props.agentProvenance ? "Run details" : resolution ? "Routing details" : "Model details"}
           </summary>
           <div className={sx(styles.modelContent)}>
             <ModelResolutionSummary
               actual={actualModel}
               resolution={resolution}
+              agentProvenance={props.agentProvenance}
               showModelFacts={false}
             />
           </div>

@@ -1,3 +1,4 @@
+import type { AgentInstructionDelivery } from "./turn-provenance";
 import { z } from "zod";
 import { MY_STANDARDS_MAX_CHARS } from "./standards";
 import { listProviderIds } from "@/lib/providers/model-catalog";
@@ -43,6 +44,7 @@ export const RecordTaskAgentInputSchema = z
     workspaceId: z.string().trim().min(1).max(200),
     repositoryPath: z.string().trim().min(1).max(4096),
     agent: AgentConfigSchema,
+    role: z.enum(["primary", "delegate"]).optional(),
     assignment: z.string().trim().min(1).max(ASSIGNMENT_LIMITS.assignment),
     /** Provider and model after the renderer applied auto-routing; a fixed agent model wins. */
     providerId: z.enum(PROVIDER_IDS),
@@ -82,6 +84,8 @@ export interface AgentAssignment {
   /** "Version used": the agent exactly as it was at the start, and its hash. */
   agentContentHash: string;
   agent: AgentConfig;
+  /** Older assignments are primary; delegated snapshots never use the primary compiler. */
+  role?: "primary" | "delegate";
   assignment: string;
   providerId: ProviderId;
   model: string | null;
@@ -95,12 +99,8 @@ export interface AgentAssignment {
   detail: string | null;
   /** The user's standards the task started with; later turns keep them. */
   standards?: string | null;
-  /**
-   * The agent's instructions still have to reach a provider that takes them
-   * in the prompt (Cursor, Kiro). Set on tasks another starter made; the
-   * next primary turn prepends them once and clears it.
-   */
-  preambleDue?: boolean;
+  /** Sessions that received this assignment version; missing history is never inferred. */
+  instructionDeliveries?: AgentInstructionDelivery[];
   /** Set when the user moved the task off this agent; later turns no longer run as it. */
   endedAt?: string | null;
   /** "What it received". */

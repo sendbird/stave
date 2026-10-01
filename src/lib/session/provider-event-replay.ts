@@ -206,6 +206,7 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "history_boundary":
     case "hook_activity":
     case "advisor_activity":
+    case "agent_provenance":
     case "model_resolved":
     case "done":
       return false;
@@ -422,6 +423,7 @@ function normalizeEventToPart(args: {
     case "context_usage":
     case "prompt_suggestions":
     case "plan_ready":
+    case "agent_provenance":
     case "model_resolved":
     case "done":
       return null;
@@ -493,6 +495,7 @@ function inheritNativeTurnIdentity(args: {
         }
       : {}),
     ...(from.turnId ? { turnId: from.turnId } : {}),
+    ...(from.agentProvenance ? { agentProvenance: from.agentProvenance } : {}),
     ...(from.terminalReceipt ? { terminalReceipt: from.terminalReceipt } : {}),
     ...(from.nativeProviderSessionId
       ? { nativeProviderSessionId: from.nativeProviderSessionId }
@@ -938,6 +941,19 @@ function appendProviderEventContentToAssistant(args: {
       planText: normalizedPlanText,
       planReview: args.event.review,
     };
+  }
+
+  if (args.event.type === "agent_provenance") {
+    const provenance = args.event.provenance;
+    const existing = message.agentProvenance;
+    if (message.turnId !== provenance.turnId || (existing &&
+        (existing.assignmentId !== provenance.assignmentId ||
+          existing.agentContentHash !== provenance.agentContentHash))) return message;
+    if (existing && existing.instructions.status !== "configured" && provenance.instructions.status === "configured") return message;
+    // Delivery may advance; the sealed configuration must never be rewritten.
+    return { ...message, agentProvenance: existing
+      ? { ...existing, instructions: provenance.instructions }
+      : provenance };
   }
 
   if (args.event.type === "model_resolved") {

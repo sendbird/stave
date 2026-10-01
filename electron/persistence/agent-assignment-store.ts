@@ -25,11 +25,17 @@ interface Row {
   body_json: string;
 }
 
-function parse(row: unknown): AgentAssignment | null {
+function parse(row: unknown, mandatory = false): AgentAssignment | null {
   if (!row) return null;
   try {
-    return JSON.parse((row as Row).body_json) as AgentAssignment;
+    const parsed = JSON.parse((row as Row).body_json) as AgentAssignment;
+    if (mandatory && (!parsed || typeof parsed !== "object" ||
+        !parsed.id || !parsed.agentContentHash || !parsed.agentConfigId || !parsed.agentName || !parsed.agent)) {
+      throw new Error("Invalid Agent assignment");
+    }
+    return parsed;
   } catch (error) {
+    if (mandatory) throw new Error("The task's saved Agent assignment could not be read.");
     console.warn("[agents] skipped an unreadable assignment row", error);
     return null;
   }
@@ -97,6 +103,7 @@ export class AgentAssignmentStore {
   getByTaskId(taskId: string): AgentAssignment | null {
     return parse(
       this.db.prepare(`SELECT body_json FROM agent_assignments WHERE task_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`).get(taskId),
+      true,
     );
   }
 
