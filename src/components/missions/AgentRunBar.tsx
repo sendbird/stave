@@ -61,13 +61,14 @@ export function AgentRunBarView(props: {
             >
               {status.label}
             </span>
+            {/* The elapsed time comes first: a narrow bar truncates the end. */}
+            <span className={sx(styles.headlineDetail)}>{` · ${elapsed}`}</span>
             {detailText ? (
               <span className={sx(styles.headlineDetail)}>
                 {" · "}
                 {showNow ? <TextShimmer active={!props.reducedMotion}>{detailText}</TextShimmer> : detailText}
               </span>
             ) : null}
-            <span className={sx(styles.headlineDetail)}>{` · ${elapsed}`}</span>
           </p>
           <span className={sx(styles.actions)}>
             {actions.onStop ? (

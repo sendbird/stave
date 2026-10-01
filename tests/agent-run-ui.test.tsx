@@ -109,7 +109,7 @@ describe("agent run result card", () => {
     const html = card(runs.failed);
     expect(html).toContain('data-testid="agent-run-reason"');
     expect(html).toContain("Failed");
-    expect(html).toContain("The run used all 60 turns before it finished.");
+    expect(html).toContain("The run used all 30 turns before it finished.");
     expect(html).toContain("Retry");
     expect(html).toContain("Take control");
     expect(html).not.toContain("Ask for changes");
@@ -155,7 +155,7 @@ describe("agent run in the Progress tab", () => {
     const failed = panel(runs.failed);
     expect(failed).toContain("Failed");
     expect(failed).toContain("Retry");
-    expect(failed).toContain("The run used all 60 turns before it finished.");
+    expect(failed).toContain("The run used all 30 turns before it finished.");
   });
 
   test("a playbook mission keeps its stage list", () => {

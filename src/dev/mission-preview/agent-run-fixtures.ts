@@ -103,8 +103,8 @@ export function buildAgentRunFixtures(start: Date) {
     {
       state: "stopped",
       stopReason: "turn-cap-reached",
-      reasonDetail: "The run used all 60 turns before it finished.",
-      turnCount: 60,
+      reasonDetail: "The run used all 30 turns before it finished.",
+      turnCount: 30,
       updatedAt: at(41),
     },
     { status: "cancelled", endedAt: at(41), detail: "The run stopped at its turn limit." },

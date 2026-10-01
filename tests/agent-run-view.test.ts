@@ -36,7 +36,7 @@ describe("agent run state", () => {
     expect(describeAgentRunStatus(runs.failed)).toMatchObject({
       state: "failed",
       label: "Failed",
-      reason: "The run used all 60 turns before it finished.",
+      reason: "The run used all 30 turns before it finished.",
       recovery: "new-run",
     });
   });
