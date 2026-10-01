@@ -9,7 +9,11 @@ import {
 } from "../electron/main/runs/delegated-task-coordinator";
 import { buildDelegatedTaskRuntimeOptions } from "../src/lib/runs/delegated-task-runtime";
 import { resolveManagedTaskRuntimeOptions } from "../src/lib/providers/managed-task-runtime";
-import type { DelegateTaskArgs } from "../src/lib/runs/delegated-task";
+import { DelegateTaskToolInputSchema, type DelegateTaskArgs, type DelegatedTaskEffort } from "../src/lib/runs/delegated-task";
+import {
+  resolveDelegationPermissionPolicy,
+  type DelegationPermissionPolicy,
+} from "../src/lib/runs/delegation-policy";
 
 const REPOSITORY_PATH = "/tmp/stave";
 const PARENT_WORKSPACE = "workspace-parent";
@@ -136,12 +140,17 @@ function createHost(
 
 function createHarness(
   options: Parameters<typeof createHost>[0] & { concurrencyLimit?: number; readOnly?: boolean;
+    /** Resolve with the real policy, pinning it per delegated task like the host store does. */
+    realPolicy?: boolean;
+    parentDefaults?: { providerId: "claude-code" | "codex"; effort?: DelegatedTaskEffort } | null;
     canonicalWorkspacePath?: (workspacePath: string) => Promise<string>;
     readHead?: (workspacePath: string) => Promise<string | null>;
   } = {},
 ) {
   const store = new RunLedgerStore(new Database(":memory:"));
   const hostHarness = createHost(options);
+  const recordedPolicies = new Map<string, DelegationPermissionPolicy>();
+  const policyCalls: Array<Record<string, unknown>> = [];
   let clock = 0;
   const createCoordinator = () =>
     createDelegatedTaskCoordinator({
@@ -150,12 +159,29 @@ function createHarness(
       concurrencyLimit: options.concurrencyLimit ?? 3,
       canonicalWorkspacePath: options.canonicalWorkspacePath ?? (async (workspacePath) => workspacePath),
       readHead: options.readHead,
-      resolvePermissionPolicy: options.readOnly ? async () => ({ providerId: "codex", source: "provider-settings", requestedProfile: "inherit", options: { codexFileAccess: "read-only" } }) : undefined,
+      resolvePermissionPolicy: options.realPolicy
+        ? async (args) => {
+            policyCalls.push({ ...args });
+            const policy = resolveDelegationPermissionPolicy({
+              providerId: args.providerId,
+              permissionProfile: args.permissionProfile,
+              access: args.access,
+              requestedProfile: args.requestedProfile,
+              recorded: recordedPolicies.get(args.delegatedTaskId) ?? null,
+            });
+            recordedPolicies.set(args.delegatedTaskId, policy);
+            return policy;
+          }
+        : options.readOnly ? async () => ({ providerId: "codex", source: "provider-settings", requestedProfile: "inherit", options: { codexFileAccess: "read-only" } }) : undefined,
+      ...(options.parentDefaults !== undefined
+        ? { resolveParentDefaults: async () => options.parentDefaults ?? null }
+        : {}),
       now: () => new Date(Date.UTC(2026, 7, 10, 0, 0, clock++)).toISOString(),
       createExecutionId: () => `execution-${clock}`,
     });
   return {
     store,
+    policyCalls,
     coordinator: createCoordinator(),
     // A restart is a fresh coordinator over the same durable ledger: nothing of
     // the previous process's in-flight state survives.
@@ -243,11 +269,49 @@ describe("managed workspace writer admission", () => {
     expect(harness.runTaskCalls).toHaveLength(1);
   });
 
-  test("proven Codex read-only can run beside a Claude writer; profiles cannot prove read-only", async () => {
+  test("proven Codex read-only can run beside a Claude writer", async () => {
     const harness = createHarness({ readOnly: true, runTask: () => new Promise(() => {}) });
     expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", permissionProfile: "manual", delegationKey: "writer" }))).accepted).toBe(true);
     expect((await harness.coordinator.delegate(delegateArgs({ providerId: "codex", delegationKey: "reader" }))).accepted).toBe(true);
+    expect(harness.store.listHeldWriterAggregates()).toHaveLength(1);
+  });
+
+  test("two Claude read-only consults in one workspace run in parallel and hold no writer slot", async () => {
+    const harness = createHarness({ realPolicy: true, runTask: () => new Promise(() => {}) });
+    for (const model of ["claude-opus-4-5", "claude-sonnet-4-5"]) {
+      const response = await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", access: "read-only", model, delegationKey: `consult-${model}` }));
+      expect(response.accepted).toBe(true);
+    }
+    expect(harness.runTaskCalls).toHaveLength(2);
+    expect(harness.store.listHeldWriterAggregates()).toEqual([]);
+    for (const call of harness.runTaskCalls)
+      expect(call.permissionPolicy).toMatchObject({ access: "read-only", options: { claudePermissionMode: "dontAsk", claudeSandboxReadOnly: true } });
+  });
+
+  test("a Claude read-only consult runs beside a writer; a second writer is still refused", async () => {
+    const harness = createHarness({ realPolicy: true, runTask: () => new Promise(() => {}) });
+    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", delegationKey: "writer" }))).accepted).toBe(true);
+    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", access: "read-only", delegationKey: "reader" }))).accepted).toBe(true);
+    // Profile names and plan mode do not prove read-only access.
     expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", permissionProfile: "guided", delegationKey: "another-writer" }))).reason).toBe("workspace-writer-busy");
+    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "codex", permissionProfile: "manual", delegationKey: "codex-writer" }))).reason).toBe("workspace-writer-busy");
+    expect(harness.store.listHeldWriterAggregates()).toHaveLength(1);
+    expect(harness.runTaskCalls).toHaveLength(2);
+  });
+
+  test("a parked read-only consult takes its follow-up beside an active writer", async () => {
+    let calls = 0;
+    const harness = createHarness({ realPolicy: true, runTask: async ({ onStarted }) => {
+      const turnId = `turn-${++calls}`; onStarted?.(turnId);
+      return calls === 1 ? { turnId } : new Promise(() => {});
+    } });
+    const reader = await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", access: "read-only", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", delegationKey: "writer" }))).accepted).toBe(true);
+    const follow = await harness.coordinator.followUp({ parentTaskId: PARENT_TASK, delegationKey: "review-docs", prompt: "And the tests?", permissionProfile: "guided",
+      expected: { delegatedTaskId: reader.child!.delegatedTaskId, delegatedWorkspaceId: reader.child!.delegatedWorkspaceId, attempt: 1 } });
+    expect(follow.accepted).toBe(true);
+    expect(harness.runTaskCalls.at(-1)!.permissionPolicy).toMatchObject({ access: "read-only", source: "recorded-delegation" });
     expect(harness.store.listHeldWriterAggregates()).toHaveLength(1);
   });
 
@@ -1299,4 +1363,97 @@ test("restart preserves cancellation rather than recording provider failure", as
       })
     )?.phase,
   ).toBe("cancelled");
+});
+
+describe("stave_delegate_task defaults", () => {
+  const toolInput = (overrides: Record<string, unknown> = {}) => ({
+    repositoryPath: REPOSITORY_PATH,
+    parentWorkspaceId: PARENT_WORKSPACE,
+    parentTaskId: PARENT_TASK,
+    prompt: "Review the docs.",
+    ...overrides,
+  });
+
+  test("the tool schema requires only the ids and the prompt and offers access, not profiles", () => {
+    const shape = DelegateTaskToolInputSchema.shape;
+    const required = Object.entries(shape).filter(([, field]) => !field.isOptional()).map(([name]) => name);
+    expect(required.sort()).toEqual(["parentTaskId", "parentWorkspaceId", "prompt", "repositoryPath"]);
+    expect(shape.access.unwrap().options).toEqual(["inherit", "read-only"]);
+    expect(shape.access.description).toContain("read-only");
+    expect(shape.permissionProfile.description).toContain("Deprecated");
+  });
+
+  test("omitted provider, lifecycle, workspace and key resolve to the parent's defaults, idempotently", async () => {
+    const harness = createHarness({ realPolicy: true, parentDefaults: { providerId: "claude-code", effort: "high" } });
+    const first = await harness.coordinator.delegateFromTool(toolInput({ access: "read-only" }));
+    expect(first).toMatchObject({ accepted: true, duplicate: false });
+    expect(first.child).toMatchObject({ providerId: "claude-code", lifecycle: "one-turn", delegatedWorkspaceId: PARENT_WORKSPACE, requestedEffort: "high" });
+    expect(first.child!.delegationKey).toMatch(/^review-the-docs-[0-9a-f]{12}$/);
+    expect(harness.runTaskCalls[0]).toMatchObject({ providerId: "claude-code", effort: "high", workspaceId: PARENT_WORKSPACE });
+    expect(harness.policyCalls[0]).toMatchObject({ access: "read-only" });
+    await harness.coordinator.waitForInFlight();
+    const second = await harness.coordinator.delegateFromTool(toolInput({ access: "read-only" }));
+    expect(second).toMatchObject({ accepted: true, duplicate: true });
+    expect(second.child!.delegatedTaskId).toBe(first.child!.delegatedTaskId);
+    expect(harness.runTaskCalls).toHaveLength(1);
+    // A different model is a different request, so a parallel consult gets its own child.
+    const other = await harness.coordinator.delegateFromTool(toolInput({ access: "read-only", model: "claude-sonnet-4-5" }));
+    expect(other).toMatchObject({ accepted: true, duplicate: false });
+    expect(other.child!.delegationKey).not.toBe(first.child!.delegationKey);
+  });
+
+  test("effort is inherited only by a same-provider child and an explicit choice wins", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "claude-code", effort: "max" } });
+    await harness.coordinator.delegateFromTool(toolInput({ provider: "codex", workspace: { mode: "new-worktree", name: "codex-review" } }));
+    await harness.coordinator.delegateFromTool(toolInput({ prompt: "Second opinion.", effort: "low", workspace: { mode: "new-worktree", name: "claude-review" } }));
+    expect(harness.runTaskCalls[0]).toMatchObject({ providerId: "codex" });
+    expect(harness.runTaskCalls[0]!.effort).toBeUndefined();
+    expect(harness.runTaskCalls[1]).toMatchObject({ providerId: "claude-code", effort: "low" });
+  });
+
+  test("a legacy permissionProfile is accepted, recorded as provenance and not applied", async () => {
+    const harness = createHarness({ realPolicy: true, parentDefaults: { providerId: "claude-code" } });
+    const response = await harness.coordinator.delegateFromTool(toolInput({ permissionProfile: "guided" }));
+    expect(response.accepted).toBe(true);
+    expect(harness.policyCalls[0]).toMatchObject({ access: "inherit", requestedProfile: "guided" });
+    expect(harness.policyCalls[0]!.permissionProfile).toBeUndefined();
+    expect(harness.runTaskCalls[0]!.permissionPolicy).toMatchObject({ requestedProfile: "guided", access: "inherit", options: { claudePermissionMode: "default" } });
+  });
+
+  test("an unknown parent provider asks for one instead of guessing", async () => {
+    const harness = createHarness({ parentDefaults: null });
+    const response = await harness.coordinator.delegateFromTool(toolInput());
+    expect(response).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(response.message).toContain("Name a provider");
+    expect((await harness.coordinator.delegateFromTool(toolInput({ provider: "codex" }))).accepted).toBe(true);
+  });
+});
+
+test("a retry asks for the access and inherited effort the delegation was created with", async () => {
+  let attempts = 0;
+  const harness = createHarness({
+    realPolicy: true,
+    parentDefaults: { providerId: "codex", effort: "xhigh" },
+    runTask: async () => {
+      if (++attempts === 1) throw new Error("Provider exploded");
+      return { turnId: `turn-${attempts}` };
+    },
+  });
+  const created = await harness.coordinator.delegateFromTool({
+    repositoryPath: REPOSITORY_PATH, parentWorkspaceId: PARENT_WORKSPACE, parentTaskId: PARENT_TASK,
+    prompt: "Research the flaky test.", access: "read-only",
+  });
+  await harness.coordinator.waitForInFlight();
+  const failed = await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: created.child!.delegationKey });
+  expect(failed?.phase).toBe("failed");
+  // Renewed parent permissions do not reach the retry: the store pins it, and the request repeats it.
+  const retried = await harness.coordinator.retry({
+    repositoryPath: REPOSITORY_PATH, parentWorkspaceId: PARENT_WORKSPACE, parentTaskId: PARENT_TASK,
+    delegationKey: created.child!.delegationKey, prompt: "Try again.",
+    expected: { delegatedTaskId: failed!.delegatedTaskId, delegatedWorkspaceId: failed!.delegatedWorkspaceId, attempt: failed!.attempt },
+  });
+  expect(retried.accepted).toBe(true);
+  await harness.coordinator.waitForInFlight();
+  expect(harness.policyCalls.at(-1)).toMatchObject({ access: "read-only" });
+  expect(harness.runTaskCalls[1]).toMatchObject({ effort: "xhigh", permissionPolicy: { access: "read-only", options: { codexFileAccess: "read-only", codexApprovalPolicy: "never" } } });
 });

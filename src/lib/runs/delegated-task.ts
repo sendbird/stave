@@ -9,6 +9,7 @@ import {
   type RunRecord,
   type RunStepRecord,
 } from "./run-domain";
+import { DelegationAccessSchema, type DelegationAccess } from "./delegation-policy";
 
 /**
  * Delegated tasks are the run ledger's second client. A delegation is one durable
@@ -42,6 +43,15 @@ export const DelegatedTaskPermissionProfileSchema = z.enum([
 export type DelegatedTaskPermissionProfile = z.infer<
   typeof DelegatedTaskPermissionProfileSchema
 >;
+
+/**
+ * The access a delegation asks for. `inherit` is the parent's own policy for
+ * the same provider (otherwise the target provider's user settings);
+ * `read-only` never writes and never asks, so it may run beside other work in
+ * the same workspace. Resolved per provider in `delegation-policy.ts`.
+ */
+export const DelegatedTaskAccessSchema = DelegationAccessSchema;
+export type DelegatedTaskAccess = DelegationAccess;
 
 /**
  * `one-turn` closes the run when the child's first turn ends. `detached` parks
@@ -104,6 +114,13 @@ export const DelegateTaskArgsSchema = z
     model: z.string().trim().min(1).max(200).optional(),
     effort: DelegatedTaskEffortSchema.optional(),
     permissionProfile: DelegatedTaskPermissionProfileSchema.optional(),
+    /** Omitted means `inherit`. */
+    access: DelegatedTaskAccessSchema.optional(),
+    /**
+     * Provenance only: a profile an older caller named that is no longer
+     * applied. Recorded on the resolved policy; it never restricts or grants.
+     */
+    requestedPermissionProfile: DelegatedTaskPermissionProfileSchema.optional(),
     lifecycle: DelegatedTaskLifecycleSchema,
     workspace: DelegatedTaskWorkspaceStrategySchema,
     /**
@@ -132,6 +149,84 @@ export const DelegateTaskArgsSchema = z
   })
   .strict();
 export type DelegateTaskArgs = z.infer<typeof DelegateTaskArgsSchema>;
+
+/**
+ * What `stave_delegate_task` accepts from a model. Everything a delegation can
+ * infer is optional and filled by the coordinator's `delegateFromTool`: the
+ * provider and effort from the parent's turn, a one-turn child in the same
+ * workspace, and a key derived from the request. The permission choice is
+ * `access` alone, so a model cannot pick a posture that prompts on every tool.
+ * The coordinator validates the result again as `DelegateTaskArgs`.
+ */
+export const DelegateTaskToolInputSchema = z.object({
+  repositoryPath: z
+    .string()
+    .min(1)
+    .describe("Project root path that owns the parent workspace."),
+  parentWorkspaceId: z
+    .string()
+    .min(1)
+    .describe("Workspace id of the delegating (parent) task."),
+  parentTaskId: z.string().min(1).describe("Id of the delegating task."),
+  prompt: z.string().min(1).describe("Prompt to run in the delegated task."),
+  access: DelegatedTaskAccessSchema.optional().describe(
+    "Use `read-only` for second opinions, reviews and research: the child cannot change files, runs in parallel with other work in this workspace, and needs no approvals. `inherit` (default) runs with this task's own permissions for the same provider, otherwise the target provider's user settings.",
+  ),
+  provider: z
+    .enum(["claude-code", "codex"])
+    .optional()
+    .describe("Provider the child runs on. Defaults to this task's provider."),
+  model: z.string().optional().describe("Optional model override for the child."),
+  effort: DelegatedTaskEffortSchema.optional().describe(
+    "Optional reasoning-effort tier. Defaults to this task's effort when the child runs on the same provider, otherwise the automation default (`medium`). Clamped to what the child's provider and model accept (`ultra` is Codex-only; Claude steps it down to `max`).",
+  ),
+  lifecycle: DelegatedTaskLifecycleSchema.optional().describe(
+    "`one-turn` (default) finishes the delegation when the child's first turn ends. `detached` keeps the child open for follow-ups until it is stopped.",
+  ),
+  workspace: z
+    .union([
+      z.object({ mode: z.literal("same-workspace") }),
+      z.object({
+        mode: z.literal("new-worktree"),
+        name: z.string().min(1).describe("Workspace name for the new worktree."),
+        fromBranch: z.string().optional().describe("Base branch."),
+      }),
+    ])
+    .optional()
+    .describe(
+      "Where the child runs. Defaults to the same workspace; use `new-worktree` for edits that must stay isolated.",
+    ),
+  title: z.string().optional().describe("Optional delegated task title."),
+  delegationKey: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Optional idempotency key, unique within the parent task (letters, digits, dot, underscore and hyphen). Omitted, one is derived from the provider, model and prompt, so sending the same call again returns the same child instead of starting a second one.",
+    ),
+  expectedHead: z
+    .string()
+    .optional()
+    .describe(
+      "Commit the child must find checked out (same-workspace only), for work that is about one commit such as a review. Not started when the workspace HEAD differs.",
+    ),
+  agentConfigId: z
+    .string()
+    .optional()
+    .describe(
+      "Run the child as this saved agent. Its instructions go ahead of the prompt and the narrower permission of this request and the agent wins. Refused when the agent is not usable as a delegated task, is not one of the project's agents, or would run wider than this task's own agent.",
+    ),
+  retry: z
+    .boolean()
+    .optional()
+    .describe(
+      "Start a new attempt when this delegation already ended without succeeding. Ignored while it is still running.",
+    ),
+  permissionProfile: DelegatedTaskPermissionProfileSchema.optional().describe(
+    "Deprecated and ignored; use `access`.",
+  ),
+});
+export type DelegateTaskToolInput = z.infer<typeof DelegateTaskToolInputSchema>;
 
 export const DelegatedTaskListArgsSchema = z
   .object({

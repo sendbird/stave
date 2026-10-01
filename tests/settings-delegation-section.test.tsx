@@ -16,8 +16,9 @@ describe("Settings → Providers → Delegation", () => {
 
   test("lists every parameter with whether it is required", () => {
     for (const parameter of [
+      "prompt",
+      "access",
       "provider",
-      "permissionProfile",
       "lifecycle",
       "workspace",
       "model",
@@ -27,9 +28,12 @@ describe("Settings → Providers → Delegation", () => {
     }
     expect(html).toContain("required");
     expect(html).toContain("optional");
-    // The defaults matter more than the names: an omitted effort is the case
-    // users hit without realising they made a choice.
-    expect(html).toContain("Defaults to medium");
+    // The defaults matter more than the names: an omitted effort or provider
+    // is the case users hit without realising they made a choice.
+    expect(html).toContain("Defaults to this task&#x27;s effort on the same provider, otherwise medium");
+    expect(html).toContain("Defaults to this task&#x27;s provider");
+    expect(html).toContain("read-only for second opinions");
+    expect(html).not.toContain("permissionProfile");
   });
 
   test("reports availability per provider rather than claiming readiness", () => {

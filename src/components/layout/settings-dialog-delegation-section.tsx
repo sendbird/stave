@@ -15,10 +15,10 @@ import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
 
 /**
  * Each knob a delegation carries, and what it does when the agent leaves it
- * out. This is a *reference*, not a form: delegation parameters are per-call by
- * design — a child's authority must be declared by the delegation that creates
- * it, never inherited from the parent or from a global default that the agent
- * cannot see when it decides what to ask for.
+ * out. This is a *reference*, not a form: delegation parameters are per call,
+ * and what a call leaves out follows the delegating task — its provider,
+ * effort and permissions, which the agent can see — never a global default
+ * hidden from the agent when it decides what to ask for.
  */
 const DELEGATION_PARAMETERS: ReadonlyArray<{
   name: string;
@@ -26,28 +26,32 @@ const DELEGATION_PARAMETERS: ReadonlyArray<{
   detail: string;
 }> = [
   {
-    name: "provider",
+    name: "prompt",
     required: true,
-    detail:
-      "Claude or Codex. Never inherited, so a delegation always states which model family it wants.",
+    detail: "What the child should do.",
   },
   {
-    name: "permissionProfile",
-    required: true,
+    name: "access",
+    required: false,
     detail:
-      "auto · guided · manual. Never inherited: a child cannot quietly gain the parent's authority.",
+      "read-only for second opinions, reviews and research: the child cannot change files, needs no approvals, and runs beside other work in the same workspace. Defaults to inherit: this task's permissions on the same provider, otherwise that provider's user settings.",
+  },
+  {
+    name: "provider",
+    required: false,
+    detail: "Claude or Codex. Defaults to this task's provider.",
   },
   {
     name: "lifecycle",
-    required: true,
+    required: false,
     detail:
-      "one-turn ends the delegation when the child's first turn ends; detached keeps the child open until stopped.",
+      "Defaults to one-turn, which ends the delegation when the child's first turn ends; detached keeps the child open until stopped.",
   },
   {
     name: "workspace",
-    required: true,
+    required: false,
     detail:
-      "Same workspace, or a new worktree on its own branch for work that must stay isolated.",
+      "Defaults to the same workspace. A new worktree on its own branch keeps edits isolated.",
   },
   {
     name: "model",
@@ -58,7 +62,7 @@ const DELEGATION_PARAMETERS: ReadonlyArray<{
     name: "effort",
     required: false,
     detail:
-      "low → max (Codex also has ultra), clamped to what the child's model accepts. Defaults to medium. A bounded brief often does better on a cheaper model at high effort.",
+      "low → max (Codex also has ultra), clamped to what the child's model accepts. Defaults to this task's effort on the same provider, otherwise medium. A bounded brief often does better on a cheaper model at high effort.",
   },
 ];
 
@@ -173,12 +177,13 @@ export function SettingsDelegationSection() {
           <code className={sx(delegationStyles.code)}>stave_delegate_task</code>
           during its turn, so you steer it by asking — for example{" "}
           <span className={sx(delegationStyles.emphasis)}>
-            &ldquo;delegate the docs review to a Codex task in a new
-            worktree, guided permissions, one turn, at high effort&rdquo;
+            &ldquo;get a read-only second opinion on this plan from Codex at
+            high effort&rdquo;
           </span>
-          . Every parameter below is per delegation; Stave keeps no global
-          default, because a child&apos;s provider and permissions must be
-          declared by the request that creates it rather than inherited.
+          . Only the prompt is required: anything a delegation leaves out
+          follows this task&apos;s provider, effort and permissions, and the
+          child runs one turn in this workspace. Settings holds no global
+          default for any of it.
         </p>
         <ul className={sx(delegationStyles.detailList)}>
           {DELEGATION_PARAMETERS.map((parameter) => (

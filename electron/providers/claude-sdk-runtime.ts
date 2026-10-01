@@ -1105,18 +1105,24 @@ export function buildClaudeQueryOptions(args: {
       value: process.env.STAVE_CLAUDE_ALLOW_DANGEROUSLY_SKIP_PERMISSIONS,
       fallback: permissionMode === "bypassPermissions",
     });
+  // Restrictive only, so it overrides the sandbox toggles rather than merging
+  // with them: a read-only delegated task must not depend on the user's setting.
+  const claudeSandboxReadOnly =
+    args.runtimeOptions?.claudeSandboxReadOnly === true;
   const claudeSandboxEnabled =
-    args.runtimeOptions?.claudeSandboxEnabled ??
-    parseBooleanEnv({
-      value: process.env.STAVE_CLAUDE_SANDBOX_ENABLED,
-      fallback: false,
-    });
+    claudeSandboxReadOnly ||
+    (args.runtimeOptions?.claudeSandboxEnabled ??
+      parseBooleanEnv({
+        value: process.env.STAVE_CLAUDE_SANDBOX_ENABLED,
+        fallback: false,
+      }));
   const claudeAllowUnsandboxedCommands =
-    args.runtimeOptions?.claudeAllowUnsandboxedCommands ??
-    parseBooleanEnv({
-      value: process.env.STAVE_CLAUDE_ALLOW_UNSANDBOXED_COMMANDS,
-      fallback: true,
-    });
+    !claudeSandboxReadOnly &&
+    (args.runtimeOptions?.claudeAllowUnsandboxedCommands ??
+      parseBooleanEnv({
+        value: process.env.STAVE_CLAUDE_ALLOW_UNSANDBOXED_COMMANDS,
+        fallback: true,
+      }));
   const credentialFiles = Array.from(
     new Set(
       (args.runtimeOptions?.claudeSandboxCredentialFiles ?? [])
@@ -1231,14 +1237,28 @@ export function buildClaudeQueryOptions(args: {
           allowAllUnixSockets: false,
           allowLocalBinding: false,
         },
+        // Deny writes to the workspace rather than the filesystem root: the
+        // CLI records each command's working directory in its temp dir, and a
+        // root-wide deny turns every Bash result into an error. Outside the
+        // workspace the sandbox already allows no writes beyond that temp dir.
         filesystem: {
-          denyWrite: [path.parse(args.cwd).root],
+          denyWrite: [path.resolve(args.cwd)],
         },
         ...(sandboxCredentials ? { credentials: sandboxCredentials } : {}),
       }
     : {
         enabled: claudeSandboxEnabled,
         allowUnsandboxedCommands: claudeAllowUnsandboxedCommands,
+        // Fail closed and never treat "sandboxed" as approval, so only the
+        // turn's explicit allowlist runs; workspace writes are denied either way
+        // (see the read-only secondary sandbox above for why not the root).
+        ...(claudeSandboxReadOnly
+          ? {
+              failIfUnavailable: true,
+              autoAllowBashIfSandboxed: false,
+              filesystem: { denyWrite: [path.resolve(args.cwd)] },
+            }
+          : {}),
         ...(sandboxCredentials ? { credentials: sandboxCredentials } : {}),
       };
 

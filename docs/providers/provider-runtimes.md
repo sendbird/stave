@@ -1000,6 +1000,14 @@ Claude-specific runtime controls come from the UI and runtime options:
 - sandbox enabled
 - allow unsandboxed commands
 - sandbox credential file paths and environment-variable names (deny-only)
+- read-only sandbox (`claudeSandboxReadOnly`, restrictive only and set by
+  read-only delegated tasks): forces the sandbox on with no unsandboxed escape,
+  denies writes to the workspace from sandboxed commands (the CLI's own temp
+  directory stays writable so each command can record its working directory),
+  fails closed when the
+  sandbox is unavailable, and turns off the SDK's `autoAllowBashIfSandboxed`
+  default so only the turn's allowlist runs. Codex needs no equivalent: its
+  `read-only` file access is already a write-denying sandbox.
 - setting sources
 - task budget
 - prompt suggestions (Settings toggle, default on; it can only turn suggestions off — background lanes, secondary runs, and control queries never request them regardless of the setting)

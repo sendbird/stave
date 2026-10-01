@@ -15,6 +15,10 @@ told about the child — including after a restart.
   a Codex child, or the reverse).
 - For work that should be isolated in its own worktree instead of sharing the
   parent's checkout.
+- For a second opinion, a review or research from another model. A
+  [read-only](#read-only-consults) child never changes files and never asks
+  for approval, so several can run beside each other and beside other work in
+  the same workspace.
 
 Prefer **Worker mode** when the delegated work only needs to last for the
 current turn: a worker is turn-scoped and never survives a restart. Prefer an
@@ -36,14 +40,14 @@ once.
 
 Open **Collaboration & workflows → Team → Delegate a task to another model**.
 Specify the assignment, provider, optional model, permissions, and file isolation.
-The default uses guided permissions and a separate Git worktree, and keeps the
-child available for follow-up. Uncheck that option for a single-turn assignment.
-Release the child when the assignment is finished.
+Permissions are **Same as yours** (the default) or **Read only**. The form
+defaults to a separate Git worktree and keeps the child available for
+follow-up. Uncheck that option for a single-turn assignment. Release the child
+when the assignment is finished.
 
 Alternatively, ask the agent in the parent task to delegate, for example:
 
-> Delegate the docs review to a Codex child in a new worktree, guided
-> permissions, one turn, delegation key `docs-review`.
+> Get a read-only second opinion on this plan from Codex.
 
 The agent calls `stave_delegate_task`. The child appears as a normal task in its
 workspace, and the parent gets back the child's identity and phase.
@@ -99,7 +103,8 @@ the attempt is refused rather than changing the permission boundary.
 Ordinary managed `stave_run_task` calls also fill omitted permission fields from
 the target provider's user settings. Its explicit runtime options retain the
 existing override contract, including trusted Mission consent; that raw runtime
-API is distinct from a delegated `permissionProfile`, which is always a ceiling.
+API is distinct from a delegation's `access`, which can only keep or narrow the
+inherited policy.
 
 Every control is prepared against the identity the row was rendered from (child
 task, workspace, attempt, phase, turn) and is re-validated in the main process
@@ -108,22 +113,64 @@ attempt, the phase changed, the child's turn ended — the action is refused wit
 `stale-identity` reason and a sentence explaining it, instead of applying to
 whatever replaced it.
 
-`stave_delegate_task` requires the choices that must never be inherited:
+`stave_delegate_task` needs the parent's repository, workspace and task ids and
+a `prompt`. Everything else is optional:
 
 | Field | Meaning |
 | --- | --- |
-| `delegationKey` | Caller-chosen idempotency key, unique within the parent task. The same key always names the same child. |
-| `provider` | `claude-code` or `codex`. Required — never inherited from the parent. |
-| `permissionProfile` | Optional: omit or use `inherit` for the effective same-provider parent policy, or the target provider's user settings when crossing providers. `guided`/`manual` are restrictions; `auto` cannot widen user authority. Bound secrets, sessions and browser authorization are never inherited. |
-| `lifecycle` | `one-turn` finishes the delegation when the child's first turn ends. `detached` keeps the child open until it is stopped. |
-| `workspace` | `same-workspace`, or `new-worktree` with a name and optional base branch. |
+| `access` | `inherit` (default) uses the effective same-provider parent policy, or the target provider's user settings when crossing providers. `read-only` is the [read-only posture](#read-only-consults). Bound secrets, sessions and browser authorization are never inherited. |
+| `provider` | `claude-code` or `codex`. Defaults to the parent task's provider; a parent on another provider must name one. |
+| `lifecycle` | `one-turn` (default) finishes the delegation when the child's first turn ends. `detached` keeps the child open until it is stopped. |
+| `workspace` | `same-workspace` (default), or `new-worktree` with a name and optional base branch. |
+| `delegationKey` | Idempotency key, unique within the parent task. The same key always names the same child. Omitted, it is derived from the parent task, provider, model and prompt, so sending the same call again returns the same child. |
 | `retry` | Start a new attempt on a delegation that already ended without succeeding. |
+
+`permissionProfile` is no longer offered to agents. A call from an older client
+that still sends it is accepted: `inherit` and `auto` mean `inherit`, and
+`guided` or `manual` are recorded on the child's policy for provenance but no
+longer applied, because they made every tool call in the child ask for
+approval.
+
+### Read-Only Consults
+
+`access: "read-only"` asks for a child that cannot change files and never asks
+for approval. Stave resolves it per provider:
+
+- **Codex:** `read-only` file access, approval `never`, network off, and Stave
+  Local MCP auto-approval off.
+- **Claude:** `dontAsk` with an allowlist of reads — `Read`, `Grep`, `Glob`,
+  `LS`, `NotebookRead`, `WebFetch`, `WebSearch`, read-only Git commands
+  (`git status`, `diff`, `log`, `show`, `blame`, `rev-parse`, `ls-files`,
+  `grep`) and Stave tools that only read Stave state. Everything else is denied
+  without a prompt. The edit tools, `AskUserQuestion` and every Stave tool that
+  edits workspace information, memory or schedules, starts or answers a task,
+  or drives the browser are removed outright, and Bash runs in a sandbox that
+  denies filesystem writes and fails closed where no sandbox is available.
+
+The posture never exceeds the policy the child would otherwise inherit: denied
+tools and sandbox credential deny lists carry over, and the parent's mode,
+approvals and allowlist cannot add to it. Profile and agent ceilings are not
+applied on top, because a posture that cannot write and auto-runs only reads
+is already within every one of them; a `plan` or `dontAsk` parent can delegate
+read-only without the combination being refused. The resolved `access` is
+recorded on the child's policy, and once a child is read-only its follow-ups
+and retries stay read-only.
+
+Limits:
+
+- Allow rules that Claude settings files already grant still apply to tools
+  outside this list, such as another MCP server's tools. A Bash rule there
+  still runs inside the write-denying sandbox.
+- Codex has no per-tool filter for Stave Local MCP, so a read-only Codex child
+  can still use the Stave tools that are always allowed (workspace notes,
+  todos, memory and automation definitions). None of them touch files.
+
 
 ### Run As An Agent
 
 A delegation may name a saved agent (`agentConfigId`). The agent's
-instructions go ahead of the prompt and the narrower of the requested
-permission profile and the agent's wins. It is refused, with the reason, when
+instructions go ahead of the prompt and the agent's permission is a ceiling on
+what the child inherits; a read-only request stays read-only. It is refused, with the reason, when
 the agent is not usable as a delegated task, is not one of the project's
 agents, or would run with more permission than the delegating task's own
 agent. A retry runs as the same agent.
@@ -137,31 +184,31 @@ checked after workspace admission, immediately before the child starts.
 Two optional runtime choices ride along: `model` overrides the child's model, and
 `effort` picks its reasoning tier (`low`–`max`, plus Codex's `ultra`). An effort
 the child's provider or model does not accept steps down to the nearest tier
-below it rather than being rejected — the same clamp the Advisor uses — and an
-omitted effort keeps the automation default (`medium`). Bounded briefs often do
-better on a cheaper model at `high`+ effort than on a bigger model at the
-default tier. Both are recorded on the claim receipt, so a retry reuses them.
+below it rather than being rejected — the same clamp the Advisor uses. An
+omitted effort follows the parent turn's effort when the child runs on the same
+provider, and otherwise keeps the automation default (`medium`). Bounded briefs
+often do better on a cheaper model at `high`+ effort than on a bigger model at
+the default tier. Both are recorded on the claim receipt, so a retry reuses
+them, including an inherited effort.
 
 Neither has a global default in Settings, and that is deliberate rather than
-missing: a child's provider, permissions and workspace must be declared by the
-delegation that creates it, so an agent choosing a cheap child for a bounded
-brief is making one decision the request can be read back from. A hidden default
-would move part of that decision somewhere the delegating agent never sees, and
-somewhere the receipt could not prove. Steer them in the request instead —
-"delegate this to a Codex child at `high` effort" — and read the result back in
-the Delegation card or the delegated task row.
+missing: what a delegation leaves out follows the delegating task, which the
+agent can see, rather than a hidden setting the receipt could not prove. Steer
+them in the request — "ask a Codex child at `high` effort" — and read the
+result back in the Delegation card or the delegated task row.
 
 ## Common Workflows
 
 ### Delegate Something
 
-1. Choose a `delegationKey` that describes the work (`docs-review`,
+1. Call `stave_delegate_task` with the prompt, and `access: "read-only"` for a
+   consult. Name a provider, lifecycle or workspace only when the parent's
+   defaults are not what you want.
+2. Optionally choose a `delegationKey` that describes the work (`docs-review`,
    `migrate-tests`).
-2. Call `stave_delegate_task` with the provider, permission profile, lifecycle
-   and workspace strategy.
-3. Calling it again with the same key returns the same child instead of creating
-   a second one. Calling it with the same key but a different prompt is refused
-   (`input-mismatch`) rather than silently ignored.
+3. Calling it again with the same inputs returns the same child instead of
+   creating a second one. Calling it with the same key but a different prompt is
+   refused (`input-mismatch`) rather than silently ignored.
 
 ### Check On A Child
 
@@ -195,9 +242,8 @@ ordinary task nobody is delegating to — including in the task listings: detach
 clears the delegation stamp on the child's task row, so the child reappears in
 ordinary workspace listings instead of staying hidden behind its former parent
 forever. Retrying starts a fresh attempt on the
-same child, reading provider, lifecycle, workspace, model, effort and permission
-profile
-back from the delegation so a retry cannot quietly become a different delegation
+same child, reading provider, lifecycle, workspace, model, effort, access and
+permission profile back from the delegation so a retry cannot quietly become a different delegation
 reusing the key. Only the prompt is expected to change — a retry may carry new
 instructions without tripping the `input-mismatch` guard, which continues to
 refuse a *non-retry* delegate under the same key with different inputs.
@@ -246,9 +292,11 @@ may have running at once (default 3, maximum 16).
   turn ended; an unavailable or unknown outcome remains guarded.
   A restart before the child's turn identity was recorded also remains guarded
   because Stave cannot safely identify a terminal turn to release it.
-- Different worktrees may run in parallel. Children with resolved Codex
-  read-only file access do not reserve a writer slot. Permission profile names
-  and Claude plan mode do not establish read-only tool access.
+- Different worktrees may run in parallel. Read-only children (a resolved
+  Codex `read-only` file access, or the full Claude read-only posture) do not
+  reserve a writer slot, so they run beside each other and beside one writer.
+  Permission profile names and Claude plan mode do not establish read-only
+  tool access.
 - This coordinates managed child admission. It does not isolate files,
   constrain tool paths, or prevent ordinary direct tasks and parent turns from
   writing. Legacy active children without lease metadata are checked against
@@ -285,7 +333,7 @@ may have running at once (default 3, maximum 16).
 - Cause: child interaction requests expire like any other; an unanswered
   approval auto-denies after a few minutes.
 - Fix: use the provider's user permissions for work that should run
-  unattended, and reserve `guided` for children being watched.
+  unattended, or `access: "read-only"` for a consult, which never asks.
 
 ### A child shows `interrupted` after a restart
 

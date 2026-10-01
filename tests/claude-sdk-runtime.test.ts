@@ -2197,6 +2197,41 @@ describe("buildClaudeQueryOptions", () => {
     });
   });
 
+  test("a read-only sandbox overrides the toggles, denies writes and auto-allows nothing", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: {
+        claudePermissionMode: "dontAsk",
+        claudeSandboxEnabled: false,
+        claudeAllowUnsandboxedCommands: true,
+        claudeSandboxReadOnly: true,
+        claudeAllowedTools: ["Read", "Bash(git status:*)"],
+        claudeDisallowedTools: ["Edit", "Write"],
+      },
+    });
+
+    expect(options.sandbox).toMatchObject({
+      enabled: true,
+      failIfUnavailable: true,
+      allowUnsandboxedCommands: false,
+      autoAllowBashIfSandboxed: false,
+      filesystem: { denyWrite: [workspaceRoot] },
+    });
+    expect(options).toMatchObject({
+      permissionMode: "dontAsk",
+      allowedTools: ["Read", "Bash(git status:*)"],
+      disallowedTools: ["Edit", "Write"],
+    });
+    const ordinary = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: { claudeSandboxEnabled: true },
+    });
+    expect(ordinary.sandbox).not.toHaveProperty("filesystem");
+    expect(ordinary.sandbox).not.toHaveProperty("autoAllowBashIfSandboxed");
+  });
+
   test("does not let injected secrets override runtime-owned environment", () => {
     const options = buildClaudeQueryOptions({
       cwd: workspaceRoot,
