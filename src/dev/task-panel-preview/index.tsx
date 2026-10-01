@@ -7,6 +7,12 @@ import { sx } from "@/components/ads/utils/stylex";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import type { MissionDetail } from "@/lib/missions/api";
+import {
+  createMission,
+  listExternalEffectStages,
+  type MissionStageRecord,
+} from "@/lib/missions/domain";
+import { createPlaybookFromStarter, findPlaybookStarter } from "@/lib/playbooks/starters";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
 import { isTaskPanelTab, type TaskPanelTab } from "@/lib/right-rail-panels";
 import type { ResultReview } from "@/lib/reviews/result-review";
@@ -190,66 +196,65 @@ const MISSION_AGENT: TaskAgent = {
   updatedAt: "2026-09-29T10:00:20.000Z",
 } as unknown as TaskAgent;
 
+const MISSION_START = new Date(Date.now() - 22 * 60_000);
+const at = (minutes: number) => new Date(MISSION_START.getTime() + minutes * 60_000).toISOString();
+
+/** A real mission from the request-to-PR starter, two stages in, so every surface reads it. */
 function missionDetail(): MissionDetail {
-  const stage = (id: string, title: string) => ({
-    id,
-    kind: "ai",
-    title,
-    instruction: "x",
-    doneWhen: "y",
+  const playbook = createPlaybookFromStarter(findPlaybookStarter("request-to-pr")!, {
+    now: MISSION_START,
+    id: "playbook_task_panel_preview",
   });
-  return {
-    mission: {
-      id: "mission-task-panel-1",
+  const created = createMission({
+    id: "mission-task-panel-1",
+    input: {
       workspaceId: WORKSPACE_ID,
       leadTaskId: MISSION_TASK_ID,
-      state: "running",
-      currentStageIndex: 1,
-      createdAt: "2026-09-29T10:00:00.000Z",
-      updatedAt: "2026-09-29T10:06:00.000Z",
+      playbook,
       assignment: "Add pagination to the /users API endpoint and open a PR.",
-      turnCount: 3,
-      playbook: {
-        name: "Request → PR",
-        stages: [stage("plan", "Plan"), stage("build", "Build"), stage("pr", "Open PR")],
+      consent: {
+        checkIns: "plan-and-publishing",
+        permissionMode: "guided",
+        authorizedEffectStageIds: listExternalEffectStages(playbook).map((stage) => stage.id),
       },
     },
+    repositoryPath: REPOSITORY_PATH,
+    fingerprint: { providerId: "claude-code", model: "sonnet" },
+    now: MISSION_START,
+  });
+  const record = (stageId: string, patch: Partial<MissionStageRecord>): MissionStageRecord => ({
+    ...created.upserts[0]!,
+    stageId,
+    ...patch,
+  });
+  const [first, second] = playbook.stages;
+  return {
+    mission: { ...created.mission, currentStageIndex: 1, turnCount: 3 },
     stages: [
-      {
-        stageId: "plan",
-        attempt: 1,
+      record(first!.id, {
         status: "completed",
-        startedAt: "2026-09-29T10:01:00.000Z",
-        endedAt: "2026-09-29T10:05:00.000Z",
-        detail: null,
-        feedback: null,
+        startedAt: at(0),
+        endedAt: at(3),
+        reportRevision: 1,
         report: {
           outcome: "complete",
-          summary: "Planned the pagination change.",
-          evidence: [{ label: "tests", kind: "check", command: "bun test" }],
-          decisions: [],
+          summary: "Planned the pagination change: a limit and offset pair on the users router.",
+          decisions: [{ decision: "Offset pagination", reason: "The client already sends page numbers." }],
+          evidence: [{ label: "Typecheck", kind: "check", command: "bun run typecheck" }],
+          artifacts: [],
           acceptanceCriteria: [
             { text: "/users accepts limit and offset", status: "met" },
             { text: "The default page size is documented", status: "unverified" },
           ],
+          reportedAt: at(3),
+          turnId: "turn-1",
         },
-        facts: { toolCalls: [], commands: [{ command: "bun test", exitCode: 0 }] },
-      },
-      {
-        stageId: "build",
-        attempt: 1,
-        status: "running",
-        startedAt: "2026-09-29T10:06:00.000Z",
-        endedAt: null,
-        detail: null,
-        feedback: null,
-        report: null,
-        facts: null,
-      },
+      }),
+      record(second!.id, { status: "running", startedAt: at(4) }),
     ],
     events: [],
     report: null,
-  } as unknown as MissionDetail;
+  };
 }
 
 /** A live turn with one running subagent, so Activity has rows and Team has a count. */

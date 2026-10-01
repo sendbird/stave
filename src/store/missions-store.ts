@@ -213,7 +213,7 @@ export const useMissionsStore = create<MissionsState>()((set, get) => {
           ok: false,
           mission: null,
           code: "failed",
-          message: "Stave could not confirm that the mission started. Check the Mission panel before trying again.",
+          message: "Stave could not confirm that the mission started. Check the task's Progress tab before trying again.",
         };
       }
     },

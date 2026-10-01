@@ -97,7 +97,7 @@ describe("Mission bar", () => {
       createElement(MissionBarView, { detail: detailAtBuild(), nowPhrase: null, now: NOW, reducedMotion: false, actions }),
     );
     expect(running).toContain(">Take over<");
-    expect(running).toContain('aria-label="Open the Mission panel"');
+    expect(running).toContain('aria-label="Open Progress in the Task panel"');
     expect(running).not.toContain(">Resume<");
     const base = detailAtBuild();
     const takenOver = renderToStaticMarkup(

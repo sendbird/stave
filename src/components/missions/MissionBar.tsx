@@ -210,12 +210,12 @@ export function MissionBarView(props: {
               </Button>
             ) : null}
             {actions.onOpenPanel ? (
-              <Tooltip content="Open the Mission panel">
+              <Tooltip content="Open Progress in the Task panel">
                 <Button
                   variant="quiet"
                   size="iconSm"
                   iconOnly
-                  aria-label="Open the Mission panel"
+                  aria-label="Open Progress in the Task panel"
                   onClick={actions.onOpenPanel}
                   xstyle={styles.quietButton}
                 >
