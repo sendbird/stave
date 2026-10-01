@@ -108,7 +108,9 @@ describe("agent run send path", () => {
     const { args, state } = sendArgs();
     expect(await startAgentRunForSend(args)).toBeNull();
     expect(bridge.started).toHaveLength(1);
-    expect(state().promptDraftByTask["task-1"]?.text).toBe("Add CSV export.");
+    // The draft is cleared before the start is requested, as for any send; the
+    // send path then runs the captured prompt as a plain turn.
+    expect(state().promptDraftByTask["task-1"]?.text).toBe("");
   });
 
   test("attachments and a running turn keep the plain paths", async () => {

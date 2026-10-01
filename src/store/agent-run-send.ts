@@ -40,13 +40,7 @@ function hasNonTextAttachments(draft: Pick<PromptDraft, "attachedFilePaths" | "a
   );
 }
 
-/**
- * Starts an agent run for this send when it should start one. Returns the
- * send's result once the run started, or null for a plain turn: Chat, a run
- * already active, a turn running, or a start the host refused (the prompt
- * then runs as a single turn, as before agent runs).
- */
-export async function startAgentRunForSend(args: {
+type AgentRunSendArgs = {
   set: (update: (state: AppState) => Partial<AppState>) => void;
   workspaceId: string;
   taskId: string;
@@ -59,9 +53,22 @@ export async function startAgentRunForSend(args: {
   turnOrigin: "conversation" | "utility";
   preservePromptDraft?: boolean;
   now?: Date;
-}): Promise<SendUserMessageResult | null> {
+};
+
+/**
+ * Decides synchronously whether this send starts an agent run, so a Chat send
+ * keeps its synchronous path (the submitted draft is cleared before any await,
+ * and a workspace switch cannot revive it). Returns null for a plain turn —
+ * Chat, a run already active, a turn running — or the start to await. The
+ * draft is cleared before the start is requested; a start the host refuses
+ * resolves to null and the prompt runs as a single turn, as before agent runs.
+ */
+export function prepareAgentRunForSend(
+  args: AgentRunSendArgs,
+): (() => Promise<SendUserMessageResult | null>) | null {
   const agent = useAgentAssignmentsStore.getState().byTaskId[args.taskId];
-  const active = bridge?.activeMission(args.workspaceId, args.taskId);
+  const activeBridge = bridge;
+  const active = activeBridge?.activeMission(args.workspaceId, args.taskId);
   const plan = planAgentPromptSend({
     taskRunsAsAgent: Boolean(agent),
     runActive: Boolean(active),
@@ -72,22 +79,7 @@ export async function startAgentRunForSend(args: {
     prompt: args.prompt,
     hasAttachments: args.extraContextCount > 0 || hasNonTextAttachments(args.promptDraft),
   });
-  if (plan.kind !== "start-run" || !agent || !bridge) return null;
-  const response = await bridge
-    .start(
-      buildAgentRunStartInput({
-        workspaceId: args.workspaceId,
-        taskId: args.taskId,
-        agent: { name: agent.agentName },
-        assignment: args.prompt,
-        now: args.now ?? new Date(),
-      }),
-    )
-    .catch((): MissionCommandResponse => ({ ok: false, mission: null }));
-  if (!response.ok || !response.mission) {
-    if (response.message) toast.info("Sent as a single turn", { description: response.message });
-    return null;
-  }
+  if (plan.kind !== "start-run" || !agent || !activeBridge) return null;
   if (!args.preservePromptDraft) {
     args.set((state) => ({
       promptDraftByTask: {
@@ -96,7 +88,30 @@ export async function startAgentRunForSend(args: {
       },
     }));
   }
-  return { status: "run-started", taskId: args.taskId, workspaceId: args.workspaceId, missionId: response.mission.mission.id };
+  return async () => {
+    const response = await activeBridge
+      .start(
+        buildAgentRunStartInput({
+          workspaceId: args.workspaceId,
+          taskId: args.taskId,
+          agent: { name: agent.agentName },
+          assignment: args.prompt,
+          now: args.now ?? new Date(),
+        }),
+      )
+      .catch((): MissionCommandResponse => ({ ok: false, mission: null }));
+    if (!response.ok || !response.mission) {
+      if (response.message) toast.info("Sent as a single turn", { description: response.message });
+      return null;
+    }
+    return { status: "run-started", taskId: args.taskId, workspaceId: args.workspaceId, missionId: response.mission.mission.id };
+  };
+}
+
+/** `prepareAgentRunForSend` and its start in one call. */
+export async function startAgentRunForSend(args: AgentRunSendArgs): Promise<SendUserMessageResult | null> {
+  const start = prepareAgentRunForSend(args);
+  return start ? await start() : null;
 }
 
 const stoppingTaskIds = new Set<string>();
