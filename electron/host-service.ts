@@ -583,6 +583,8 @@ const automationRuntime = createAutomationRuntime({
   },
 });
 const missionRuntime = createHostMissionRuntime({
+  // Read on each tick, after `assignRuntime` below exists.
+  taskAgent: (taskId) => assignRuntime.agentForTask(taskId),
   emitChanged: (event) => {
     emitEvent("mission.changed", event);
     // A project follows its missions: a change may wake its coordinator.

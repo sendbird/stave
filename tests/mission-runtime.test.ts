@@ -31,6 +31,14 @@ import { readWorkspaceRevision } from "../electron/host-service/supervision/work
 import { observeWorkspaceScript } from "../electron/host-service/supervision/workspace-script-verification";
 import { createMissionActionExecutor, type MissionScmPort } from "../electron/host-service/supervision/mission-actions";
 import { runCommandArgs } from "../electron/main/utils/command";
+import { createAgentRunRouter } from "../electron/host-service/supervision/agent-run-route-host";
+import type { AgentConfig } from "../src/lib/agents/schema";
+import { buildAgentRunStartInput } from "../src/lib/missions/agent-run";
+import { missionWorkQueueLane } from "../src/lib/missions/lanes";
+import { resolveTurnPolicy } from "../src/lib/policy/turn-policy";
+import { buildStarterProfile, DEFAULT_AUTO_ROUTING_PROFILE_ID } from "../src/lib/providers/auto-routing-profile";
+import { AgentRouteSettingsSchema, routeAgentRunTurn } from "../src/lib/routing/agent-run-route";
+import type { PromptDraftRuntimeOverrides } from "../src/types/chat";
 
 const START = "2026-09-26T10:00:00.000Z";
 
@@ -99,6 +107,8 @@ function createHarness(options: {
   updatePullRequestBody?: MissionRuntimeDependencies["updatePullRequestBody"];
   userPermissionOptions?: MissionRuntimeDependencies["userPermissionOptions"];
   workspacePath?: string;
+  /** More dependencies, such as an agent run's router. */
+  extra?: Partial<MissionRuntimeDependencies>;
 } = {}) {
   const store = options.store ?? new MissionStore(new Database(":memory:"));
   const turnPrefix = options.turnPrefix ?? "turn";
@@ -192,6 +202,7 @@ function createHarness(options: {
     now: () => clock,
     setInterval: (() => 0) as unknown as typeof globalThis.setInterval,
     clearInterval: () => {},
+    ...options.extra,
   });
 
   return {
@@ -958,5 +969,206 @@ describe("mission runtime: host dispatch", () => {
     expect(
       await invokeMissionRuntime(harness.runtime, "list", { workspaceId: "ws-1" }),
     ).toMatchObject({ ok: true, value: { missions: [{ id: detail.mission.id }] } });
+  });
+});
+
+describe("mission runtime: agent runs", () => {
+  const USER = {
+    "claude-code": { claudePermissionMode: "default" as const },
+    codex: { codexApprovalPolicy: "on-request" as const },
+  };
+  const ROUTE_SETTINGS = AgentRouteSettingsSchema.parse({
+    routing: {
+      autoRoutingEnabled: true,
+      autoRoutingUseClassifier: false,
+      autoRoutingObjective: 50,
+      autoRoutingSafetyEscalation: true,
+      autoRoutingAllowProviderSwitch: false,
+      autoRoutingEligibleClaudeModels: [],
+      autoRoutingEligibleCodexModels: [],
+      autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
+    },
+    classifier: null,
+  });
+  const AGENT = { model: { mode: "auto", taskClass: "implement" } } as AgentConfig;
+  const runInput = () =>
+    buildAgentRunStartInput({
+      workspaceId: "ws-1",
+      taskId: "task-1",
+      agent: { name: "Implementer" },
+      assignment: "Add CSV export to the billing page.",
+      now: new Date(START),
+    });
+
+  function agentRunHarness(options: { store?: MissionStore; turns?: MissionTurnRow[]; turnPrefix?: string } = {}) {
+    let draft: PromptDraftRuntimeOverrides = { autoRouting: true };
+    let runsAsAgent = true;
+    const endings = new Map<string, "completed" | "stopped" | "failed">();
+    const router = createAgentRunRouter({
+      readTask: async () => ({ providerId: "claude-code", model: "sonnet" }),
+      readDraft: () => draft,
+      readMessages: () => [],
+      readSettings: () => ROUTE_SETTINGS,
+      resolveWorkspacePath: async () => "/tmp/repo-ws",
+      classify: async () => ({ ok: false }),
+    });
+    const harness = createHarness({
+      ...options,
+      userPermissionOptions: (providerId) => USER[providerId as keyof typeof USER],
+      extra: {
+        routeAgentTurn: (args) => router({ ...args, agent: AGENT }),
+        taskRunsAsAgent: () => runsAsAgent,
+        readTurnEnding: (turnId) => endings.get(turnId) ?? "completed",
+      },
+    });
+    return {
+      ...harness,
+      setDraft: (next: PromptDraftRuntimeOverrides) => {
+        draft = next;
+      },
+      release: () => {
+        runsAsAgent = false;
+      },
+      stopTurn: (turnId: string) => {
+        endings.set(turnId, "stopped");
+        harness.endTurn(turnId);
+      },
+    };
+  }
+
+  test("the first turn starts on the routed model and resolves autonomous as the agent", async () => {
+    const harness = agentRunHarness();
+    const missionId = await startedMission(harness, runInput());
+    const expected = await routeAgentRunTurn({
+      agent: AGENT,
+      draft: { autoRouting: true },
+      current: { providerId: "claude-code", model: "sonnet" },
+      settings: ROUTE_SETTINGS,
+      prompt: "Add CSV export to the billing page.",
+      history: [],
+    });
+    expect(harness.runCalls).toHaveLength(1);
+    const call = harness.runCalls[0]!;
+    expect(call.fingerprint).toEqual({ providerId: expected.providerId, model: expected.model });
+    expect(call.missionStage).toEqual({ missionId, stageId: "work", attempt: 1 });
+    expect(call.prompt).toContain("Add CSV export to the billing page.");
+    // The run passes the user's settings; the agent actor makes them prompt-free.
+    const root = "/tmp/repo-ws";
+    expect(resolveTurnPolicy({ providerId: expected.providerId, actor: { kind: "chat" }, options: call.runtimeOptions, root }).autonomy).toBe("ask");
+    expect(
+      resolveTurnPolicy({ providerId: expected.providerId, actor: { kind: "agent", access: "full" }, options: call.runtimeOptions, root }).autonomy,
+    ).toBe("autonomous");
+    expect(harness.store.listEventsByKind(missionId, ["turn-started"])[0]?.detail).toMatchObject({
+      route: "auto",
+      model: `${expected.providerId}:${expected.model}`,
+    });
+  });
+
+  test("a turn without a report gets the nudge, routed again, then the run is stuck and needs the user", async () => {
+    const harness = agentRunHarness();
+    const missionId = await startedMission(harness, runInput());
+    // The pin the user picked mid-run applies to the next host turn, and the
+    // model it moves the task to is the route at work, not drift.
+    harness.setDraft({ model: "opus", modelProviderId: "claude-code" });
+    harness.setSnapshot({ model: "opus" });
+    harness.endTurn("turn-1");
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(2);
+    expect(harness.runCalls[1]!.prompt).toContain('without reporting the stage "Work"');
+    expect(harness.runCalls[1]!.fingerprint).toEqual({ providerId: "claude-code", model: "opus" });
+    expect(harness.aggregate(missionId).mission.state).toBe("running");
+
+    harness.endTurn("turn-2");
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(2);
+    expect(harness.current(missionId).status).toBe("stuck");
+    expect(
+      missionWorkQueueLane({
+        state: "running",
+        pauseReason: null,
+        currentStageStatus: harness.current(missionId).status,
+        hasOpenPullRequestAwaitingReview: false,
+      }),
+    ).toBe("action-required");
+  });
+
+  test("a user turn steers the run, which continues after it on a routed turn", async () => {
+    const harness = agentRunHarness();
+    const missionId = await startedMission(harness, runInput());
+    harness.endTurn("turn-1");
+    await harness.tick();
+    harness.endTurn("turn-2");
+    await harness.tick();
+    expect(harness.current(missionId).status).toBe("stuck");
+
+    harness.userTurn("user-1");
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(2);
+    harness.endTurn("user-1");
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(3);
+    expect(harness.runCalls[2]!.retrievedContextParts[0]?.content).toContain("The user replied during this stage");
+    expect(harness.store.listEventsByKind(missionId, ["turn-started"]).at(-1)?.detail).toMatchObject({
+      reason: "continue-after-user",
+      route: "auto",
+    });
+  });
+
+  test("completes only through the stage report", async () => {
+    const harness = agentRunHarness();
+    const missionId = await startedMission(harness, runInput());
+    await harness.runtime.reportStage({ missionKey: "key-turn-1", report: COMPLETE });
+    harness.endTurn("turn-1");
+    await harness.tick();
+    expect(harness.aggregate(missionId).mission.state).toBe("completed");
+    expect(harness.runCalls).toHaveLength(1);
+  });
+
+  test("stopping the run's turn cancels the run instead of nudging", async () => {
+    const harness = agentRunHarness();
+    const missionId = await startedMission(harness, runInput());
+    harness.stopTurn("turn-1");
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(1);
+    expect(harness.aggregate(missionId).mission.state).toBe("cancelled");
+    expect(harness.current(missionId)).toMatchObject({ status: "cancelled", detail: "You stopped the run." });
+    expect(harness.store.listEventsByKind(missionId, ["mission-ended"])[0]?.detail).toMatchObject({ endedBy: "stopped" });
+  });
+
+  test("moving the task to a model (Chat) cancels the run", async () => {
+    const harness = agentRunHarness();
+    const missionId = await startedMission(harness, runInput());
+    harness.release();
+    await harness.tick();
+    expect(harness.aggregate(missionId).mission.state).toBe("cancelled");
+    expect(harness.current(missionId).detail).toBe("The task no longer runs as an agent.");
+  });
+
+  test("a playbook mission ignores the agent-run endings and pauses on drift as before", async () => {
+    const harness = agentRunHarness();
+    const missionId = await startedMission(harness);
+    harness.release();
+    harness.setSnapshot({ model: "opus" });
+    harness.stopTurn("turn-1");
+    await harness.tick();
+    expect(harness.aggregate(missionId).mission).toMatchObject({ state: "paused", pauseReason: "runtime-changed" });
+    expect(harness.runCalls[0]!.fingerprint).toEqual({ providerId: "claude-code", model: "sonnet" });
+  });
+
+  test("an active run resumes after a restart on a routed turn", async () => {
+    const store = new MissionStore(new Database(":memory:"));
+    const turns: MissionTurnRow[] = [];
+    const first = agentRunHarness({ store, turns });
+    const missionId = await startedMission(first, runInput());
+    const restarted = agentRunHarness({ store, turns, turnPrefix: "resumed" });
+    restarted.runtime.start();
+    await restarted.tick();
+    expect(restarted.aggregate(missionId).mission.origin).toBe("agent");
+    expect(restarted.runCalls).toHaveLength(1);
+    expect(restarted.runCalls[0]!.retrievedContextParts[0]?.content).toContain("Stave stopped while the previous turn");
+    expect(store.listEventsByKind(missionId, ["turn-started"]).at(-1)?.detail).toMatchObject({
+      reason: "resume-after-restart",
+      route: "auto",
+    });
   });
 });

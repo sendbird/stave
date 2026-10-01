@@ -58,6 +58,7 @@ import {
   createMission,
   currentStageRecord,
   EMPTY_STAGE_FACTS,
+  formatMissionFingerprint,
   MISSION_LIMITS,
   isActiveMissionState,
   MissionCommandError,
@@ -97,6 +98,7 @@ import {
 } from "../../../src/lib/missions/report-markdown";
 import { sumTurnUsage, type MissionUsage, type TurnUsageSample } from "../../../src/lib/missions/usage";
 import { aggregateMissionInsights, type MissionInsights } from "../../../src/lib/missions/insights";
+import { agentRunEndCause, isAgentRun } from "../../../src/lib/missions/agent-run";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../../../src/lib/providers/provider.types";
 import type { MissionStore } from "../../persistence/mission-store";
 import type { MissionStageGrant } from "../../providers/mission-grants";
@@ -218,10 +220,28 @@ export interface MissionRuntimeDependencies {
     taskId: string;
     turnId: string;
   }) => { completed: boolean; usage: TurnUsageSample | null } | null;
+  /**
+   * Routes a turn of an agent run (`origin: "agent"`): the runtime and effort
+   * it starts with, through Stave Auto and the task's pin or agent model.
+   * Absent or null: the mission's fingerprint, as for a playbook mission.
+   */
+  routeAgentTurn?: (args: { mission: Mission; prompt: string }) => Promise<MissionTurnRoute | null>;
+  /** Whether the task still runs as an agent. An agent run ends once it does not. Absent: it does. */
+  taskRunsAsAgent?: (taskId: string) => boolean;
+  /** How a turn ended. An agent run ends when the user stopped its turn. Absent: never read. */
+  readTurnEnding?: (turnId: string) => "completed" | "stopped" | "failed";
   emitChanged?: (event: MissionChangedEvent) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
   clearInterval?: typeof globalThis.clearInterval;
+}
+
+/** The runtime one agent-run turn starts on, and why. */
+export interface MissionTurnRoute {
+  fingerprint: MissionFingerprint;
+  runtimeOptions: ProviderRuntimeOptions;
+  route: string;
+  rationale: string;
 }
 
 export interface MissionReportReceipt {
@@ -635,6 +655,53 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     }
   }
 
+  /** How each ended turn ended; it never changes, so each is read once. */
+  const turnEndings = new Map<string, "completed" | "stopped" | "failed">();
+  function turnEnding(turnId: string) {
+    if (!deps.readTurnEnding) return null;
+    let ending = turnEndings.get(turnId);
+    if (!ending) {
+      ending = deps.readTurnEnding(turnId);
+      turnEndings.set(turnId, ending);
+      if (turnEndings.size > 500) turnEndings.delete(turnEndings.keys().next().value!);
+    }
+    return ending;
+  }
+
+  /** An agent run's route for its next turn; null keeps the mission's fingerprint. */
+  async function routeAgentTurn(mission: Mission): Promise<MissionTurnRoute | null> {
+    if (!deps.routeAgentTurn) return null;
+    try {
+      // The assignment is the work every turn of the run continues; the
+      // classifier reads the task's recent history for continuity.
+      return await deps.routeAgentTurn({ mission, prompt: mission.assignment });
+    } catch (error) {
+      console.warn("[missions] could not route an agent run turn; using the task's model", error, {
+        missionId: mission.id,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Ends an active agent run the user stopped, or whose task stopped running
+   * as the agent. True when it ended. The transcript stays as it is.
+   */
+  function endAgentRunIfLeft(aggregate: MissionAggregate, observation: MissionObservation): boolean {
+    const { mission } = aggregate;
+    if (!isAgentRun(mission)) return false;
+    const last = observation.lastEndedTurn;
+    const cause = agentRunEndCause({
+      taskRunsAsAgent: deps.taskRunsAsAgent?.(mission.leadTaskId) ?? true,
+      lastEndedTurn: last,
+      lastTurnEnding: last?.startedBy === "mission" && !last.interrupted ? turnEnding(last.turnId) : null,
+      turnActive: Boolean(observation.leadTask.activeTurn),
+    });
+    if (!cause) return false;
+    applyChange(cancelMission({ aggregate, now: now(), endedBy: cause }));
+    return true;
+  }
+
   /**
    * Starts one mission turn. Stage turns carry the stage identity, which mints
    * the reporting grant; a turn a Stave action asked for reports nothing and
@@ -651,6 +718,8 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
   ) {
     const { mission } = aggregate;
     const before = currentStageRecord(aggregate);
+    // Routed before anything is recorded, so a slow classifier leaves no half-started turn.
+    const routed = isAgentRun(mission) ? await routeAgentTurn(mission) : null;
     const change = applyMissionDecision({ aggregate, decision, now: now() });
     let startHeadSha = before.startHeadSha;
     if (!startHeadSha) {
@@ -677,7 +746,14 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         {
           kind: "turn-started",
           idempotencyKey: turnKey,
-          detail: { stageId: before.stageId, attempt: before.attempt, reason },
+          detail: {
+            stageId: before.stageId,
+            attempt: before.attempt,
+            reason,
+            ...(routed
+              ? { route: routed.route, model: formatMissionFingerprint(routed.fingerprint), rationale: routed.rationale.slice(0, 300) }
+              : {}),
+          },
         },
       ],
     });
@@ -690,14 +766,17 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         workspaceId: mission.workspaceId,
         taskId: mission.leadTaskId,
         prompt,
-        fingerprint: mission.fingerprint,
-        runtimeOptions: missionPermissionRuntimeOptions(
-          mission.fingerprint.providerId,
-          mission.consent.permissionMode,
-          mission.consent.permissionMode === "manual"
-            ? deps.userPermissionOptions?.(mission.fingerprint.providerId)
-            : undefined,
-        ),
+        fingerprint: routed?.fingerprint ?? mission.fingerprint,
+        runtimeOptions: {
+          ...missionPermissionRuntimeOptions(
+            routed?.fingerprint.providerId ?? mission.fingerprint.providerId,
+            mission.consent.permissionMode,
+            mission.consent.permissionMode === "manual"
+              ? deps.userPermissionOptions?.(routed?.fingerprint.providerId ?? mission.fingerprint.providerId)
+              : undefined,
+          ),
+          ...routed?.runtimeOptions,
+        },
         retrievedContextParts: [
           buildMissionTurnContextPart({ aggregate: started, reason }),
           ...projectContextParts(started.mission),
@@ -789,6 +868,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       step += 1
     ) {
       const { observation, turns } = await observe(aggregate);
+      if (endAgentRunIfLeft(aggregate, observation)) return;
       aggregate = await refreshFacts(aggregate, observation, turns);
       const decision = decideMissionAction({ aggregate, observation, now: now() });
       switch (decision.action) {

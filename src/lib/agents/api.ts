@@ -52,5 +52,6 @@ export interface AgentsBridgeApi {
   listAssignments: (args?: AgentAssignmentsListArgs) => Promise<AgentInvokeResult<AgentAssignment[]>>;
   subscribeChanged: (listener: () => void) => () => void;
   /** Hands main and the host the saved custom agents; they only read this copy. */
-  sync: (args: { customAgents: unknown[]; myStandards?: unknown }) => Promise<{ ok: boolean }>;
+  /** `routeSettings`: the Stave Auto settings host-started agent-run turns route with. */
+  sync: (args: { customAgents: unknown[]; myStandards?: unknown; routeSettings?: unknown }) => Promise<{ ok: boolean }>;
 }

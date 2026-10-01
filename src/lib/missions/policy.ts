@@ -414,7 +414,9 @@ export function decideMissionAction(args: {
   if (!lead.identity.ok) {
     return pauseFor(mission, "task-identity-changed", lead.identity.reason);
   }
-  if (lead.fingerprint && !missionFingerprintsMatch(mission.fingerprint, lead.fingerprint)) {
+  // An agent run's model is routed per turn, so a different model on the
+  // lead task is the route at work, not drift.
+  if (mission.origin !== "agent" && lead.fingerprint && !missionFingerprintsMatch(mission.fingerprint, lead.fingerprint)) {
     return pauseFor(
       mission,
       "runtime-changed",

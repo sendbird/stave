@@ -5,6 +5,9 @@
  * Used by: `electron/host-service.ts`.
  */
 import { hostAgents } from "./assign-host";
+import { createAgentRunRouter } from "./agent-run-route-host";
+import type { AgentConfig } from "../../../src/lib/agents/schema";
+import { classifyUtilityRoute } from "../../providers/utility-inference";
 import { readWorkspaceRevision } from "./workspace-revision";
 import { observeWorkspaceScript } from "./workspace-script-verification";
 import type { MissionChangedEvent } from "../../../src/lib/missions/api";
@@ -81,8 +84,20 @@ async function resolveWorkspacePath(workspaceId: string) {
 
 export function createHostMissionRuntime(args: {
   emitChanged: (event: MissionChangedEvent) => void;
+  /** The agent a task runs as, or null. An agent run routes by it and ends without it. */
+  taskAgent?: (taskId: string) => AgentConfig | null;
 }) {
   const persistence = ensureHostServicePersistenceReady();
+  const readTurnEnding = (turnId: string) => classifyMissionTurnEnding(persistence.getStreamEvents({ turnId }));
+  const routeAgentRun = createAgentRunRouter({
+    readTask: localMcpRuntime.getTaskSupervisionSnapshot,
+    readDraft: ({ workspaceId, taskId }) =>
+      persistence.loadWorkspaceShell({ workspaceId })?.promptDraftByTask?.[taskId]?.runtimeOverrides,
+    readMessages: (messageArgs) => persistence.loadTaskMessagesPage(messageArgs)?.messages ?? [],
+    readSettings: () => persistence.delegationPolicies.loadRouteSettings(),
+    resolveWorkspacePath,
+    classify: (request) => classifyUtilityRoute(request),
+  });
   const reachability = createLocalMcpReachabilityProbe({
     readManifest: readStaveLocalMcpManifest,
   });
@@ -91,7 +106,7 @@ export function createHostMissionRuntime(args: {
     scm: createScmMissionPort(),
     resolveWorkspacePath,
     runScript: runMissionScript,
-    readTurnEnding: (turnId) => classifyMissionTurnEnding(persistence.getStreamEvents({ turnId })),
+    readTurnEnding,
   });
   return createMissionRuntime({
     store: persistence.missions,
@@ -166,6 +181,10 @@ export function createHostMissionRuntime(args: {
       const [turn] = persistence.listTurns({ workspaceId, taskId, turnId });
       return turn ? { completed: Boolean(turn.completedAt), usage: turn.usage ?? null } : null;
     },
+    routeAgentTurn: (turnArgs) =>
+      routeAgentRun({ ...turnArgs, agent: args.taskAgent?.(turnArgs.mission.leadTaskId) ?? null }),
+    ...(args.taskAgent ? { taskRunsAsAgent: (taskId: string) => args.taskAgent!(taskId) !== null } : {}),
+    readTurnEnding,
     emitChanged: args.emitChanged,
   });
 }

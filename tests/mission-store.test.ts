@@ -131,6 +131,25 @@ describe("mission store", () => {
     warn.mockRestore();
   });
 
+  test("an agent run keeps its origin, and a database from before agent runs gains the column", () => {
+    const legacy = new Database(":memory:");
+    legacy.exec(`CREATE TABLE missions (
+      id TEXT PRIMARY KEY, repository_path TEXT NOT NULL, workspace_id TEXT NOT NULL, lead_task_id TEXT NOT NULL,
+      project_id TEXT, playbook_json TEXT NOT NULL, assignment TEXT NOT NULL, consent_json TEXT NOT NULL,
+      fingerprint_json TEXT NOT NULL, state TEXT NOT NULL, pause_reason TEXT, stop_reason TEXT, reason_detail TEXT,
+      current_stage_index INTEGER NOT NULL, turn_count INTEGER NOT NULL DEFAULT 0, max_turns INTEGER NOT NULL DEFAULT 30,
+      expires_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+    const upgraded = new MissionStore(legacy);
+    const playbookMission = startChange("mission-old", "task-old");
+    expect(upgraded.create(playbookMission, MISSION_NOW)).toEqual({ ok: true });
+    expect(upgraded.getAggregate("mission-old")?.mission.origin).toBeUndefined();
+    const run = startChange("mission-run", "task-run");
+    const agentRun = { ...run, mission: { ...run.mission, origin: "agent" as const } };
+    expect(upgraded.create(agentRun, MISSION_NOW)).toEqual({ ok: true });
+    expect(new MissionStore(legacy).getAggregate("mission-run")?.mission.origin).toBe("agent");
+    legacy.close();
+  });
+
   test("bootstrap is idempotent", () => {
     store.create(startChange(), MISSION_NOW);
     const again = new MissionStore(database);
