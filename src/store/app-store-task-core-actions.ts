@@ -1,10 +1,10 @@
+import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import type { StoreApi } from "zustand";
 import {
   loadAllTaskMessages,
   loadWorkspaceShellForRestore,
-  type TaskProviderSessionState,
 } from "@/lib/db/workspaces.db";
-import { getProviderSessionId } from "@/lib/providers/provider-sessions";
+import { getProviderSessionId, listProviderSessions, removeProviderSessionEntry } from "@/lib/providers/provider-sessions";
 import {
   collectMartinTriggerContext,
   notifyMartinInformationEdited,
@@ -394,8 +394,10 @@ export function createTaskCoreActions(args: {
     },
     clearTaskProviderSession: ({ taskId, providerId }) => {
       set((state) => {
+        const accountProfileId = selectedProviderAccount(providerId, state.settings);
         const currentSession = state.providerSessionByTask[taskId];
         const existingSessionId = getProviderSessionId({
+          accountProfileId,
           sessions: currentSession,
           providerId,
         });
@@ -403,10 +405,7 @@ export function createTaskCoreActions(args: {
           return state;
         }
 
-        const nextTaskSession: TaskProviderSessionState = {
-          ...currentSession,
-        };
-        delete nextTaskSession[providerId];
+        const nextTaskSession = removeProviderSessionEntry({ sessions: currentSession, providerId, accountProfileId });
         const providerGoalByTask =
           providerId === "codex"
             ? (() => {
@@ -423,6 +422,7 @@ export function createTaskCoreActions(args: {
           activeProvider !== undefined &&
           Boolean(
             getProviderSessionId({
+              accountProfileId: selectedProviderAccount(activeProvider, state.settings),
               sessions: nextTaskSession,
               providerId: activeProvider,
             }),
@@ -663,39 +663,14 @@ export function createTaskCoreActions(args: {
         undefined;
       const renameRequests: Array<Promise<{ ok: boolean; detail: string }>> =
         [];
-      const claudeSessionId = getProviderSessionId({
-        sessions: providerSession,
-        providerId: "claude-code",
-      });
-      const renameClaudeSession = window.api?.provider?.renameClaudeSession;
-      if (claudeSessionId && renameClaudeSession) {
-        renameRequests.push(
-          renameClaudeSession({
-            sessionId: claudeSessionId,
-            title: nativeSessionTitle,
-            ...(cwd ? { cwd } : {}),
-          }),
-        );
-      }
-      const codexThreadId = getProviderSessionId({
-        sessions: providerSession,
-        providerId: "codex",
-      });
-      const renameCodexThread = window.api?.provider?.renameCodexThread;
-      if (codexThreadId && renameCodexThread) {
-        renameRequests.push(
-          renameCodexThread({
-            threadId: codexThreadId,
-            name: nativeSessionTitle,
-            ...(stateBefore.settings.codexBinaryPath
-              ? {
-                  runtimeOptions: {
-                    codexBinaryPath: stateBefore.settings.codexBinaryPath,
-                  },
-                }
-              : {}),
-          }),
-        );
+      for (const session of listProviderSessions({ sessions: providerSession })) {
+        const runtimeOptions = { claudeAccountProfileId: session.accountProfileId, codexAccountProfileId: session.accountProfileId,
+          claudeBinaryPath: stateBefore.settings.claudeBinaryPath || undefined, codexBinaryPath: stateBefore.settings.codexBinaryPath || undefined };
+        if (session.providerId === "claude-code" && window.api?.provider?.renameClaudeSession) {
+          renameRequests.push(window.api.provider.renameClaudeSession({ sessionId: session.nativeSessionId, title: nativeSessionTitle, cwd, runtimeOptions }));
+        } else if (session.providerId === "codex" && window.api?.provider?.renameCodexThread) {
+          renameRequests.push(window.api.provider.renameCodexThread({ threadId: session.nativeSessionId, name: nativeSessionTitle, runtimeOptions }));
+        }
       }
       if (renameRequests.length > 0) {
         void Promise.all(renameRequests)
@@ -934,6 +909,7 @@ export function createTaskCoreActions(args: {
         };
       }
       const sessionId = getProviderSessionId({
+        accountProfileId: message.nativeAccountProfileId,
         sessions: state.providerSessionByTask[taskId],
         providerId: "claude-code",
       });
@@ -963,6 +939,7 @@ export function createTaskCoreActions(args: {
         dryRun,
         cwd,
         runtimeOptions: {
+          claudeAccountProfileId: message.nativeAccountProfileId ?? "system-default",
           claudeBinaryPath: state.settings.claudeBinaryPath || undefined,
         },
       });

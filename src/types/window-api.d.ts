@@ -1,4 +1,5 @@
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
+import type { ProviderAccountsBridgeApi } from "@/lib/providers/provider-accounts";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
 import type { RepositoryMemoryControlsApi } from "@/lib/repository-memory-settings";
@@ -385,6 +386,7 @@ interface WindowProviderApi {
     upToMessageId: string;
     title?: string;
     cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<ClaudeSessionForkResponse>;
   rewindClaudeFiles?: (args: {
     sessionId: string;
@@ -397,6 +399,7 @@ interface WindowProviderApi {
     sessionId: string;
     title: string;
     cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<ProviderMutationResponse>;
   listClaudeInstalledPlugins?: (args: {
     cwd?: string;
@@ -2973,6 +2976,7 @@ interface WindowApi {
   platform?: NodeJS.Platform;
   runs?: WindowRunsApi;
   provider?: WindowProviderApi;
+  providerAccounts?: ProviderAccountsBridgeApi;
   persistence?: WindowPersistenceApi;
   fs?: WindowFsApi;
   skills?: WindowSkillsApi;

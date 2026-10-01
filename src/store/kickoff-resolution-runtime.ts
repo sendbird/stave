@@ -109,7 +109,7 @@ export async function resolveKickoffModel<T>(args: {
         runtimeHints:
           args.providerId === "codex"
             ? {
-                codexBinaryPath: args.runtimeOptions.codexBinaryPath,
+                codexAccountProfileId: args.runtimeOptions.codexAccountProfileId, codexBinaryPath: args.runtimeOptions.codexBinaryPath,
                 codexReasoningEffort:
                   args.runtimeOptions.codexReasoningEffort === "minimal"
                     ? "low"
@@ -117,7 +117,7 @@ export async function resolveKickoffModel<T>(args: {
                 codexFastMode: args.runtimeOptions.codexFastMode,
               }
             : {
-                claudeBinaryPath: args.runtimeOptions.claudeBinaryPath,
+                claudeAccountProfileId: args.runtimeOptions.claudeAccountProfileId, claudeBinaryPath: args.runtimeOptions.claudeBinaryPath,
                 claudeEffort: args.runtimeOptions.claudeEffort,
               },
       },

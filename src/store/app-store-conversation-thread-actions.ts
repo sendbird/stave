@@ -1,9 +1,10 @@
+import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
 import type { StoreApi } from "zustand";
 import {
   loadAllTaskMessages,
   truncateTaskMessagesAfter,
 } from "@/lib/db/workspaces.db";
-import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
+import { getProviderSessionCursor, setProviderSessionEntry } from "@/lib/providers/provider-sessions";
 import {
   buildConversationTurnActionStateByMessageId,
   toProviderSessionTitle,
@@ -62,6 +63,7 @@ function cloneForkMessages(args: {
   targetIndex: number;
   providerId: "claude-code" | "codex";
   sourceNativeSessionId: string;
+  accountProfileId: string;
   nativeSessionId: string;
   claudeMessageIdMap?: Record<string, string>;
   claudeLastAssistantMessageId?: string;
@@ -75,6 +77,7 @@ function cloneForkMessages(args: {
       (message) =>
         message.role === "assistant" &&
         message.providerId === "codex" &&
+        (message.nativeAccountProfileId ?? SYSTEM_ACCOUNT_PROFILE_ID) === args.accountProfileId &&
         (!message.nativeProviderSessionId ||
           message.nativeProviderSessionId === args.sourceNativeSessionId),
     );
@@ -96,6 +99,7 @@ function cloneForkMessages(args: {
     if (
       message.role !== "assistant" ||
       message.providerId !== args.providerId ||
+      (message.nativeAccountProfileId ?? SYSTEM_ACCOUNT_PROFILE_ID) !== args.accountProfileId ||
       (message.nativeProviderSessionId &&
         message.nativeProviderSessionId !== args.sourceNativeSessionId)
     ) {
@@ -177,6 +181,8 @@ export function createConversationThreadActions(args: {
         return failure("The selected provider response could not be found.");
       }
 
+      const accountProfileId = target.nativeAccountProfileId ?? SYSTEM_ACCOUNT_PROFILE_ID;
+      const accountOptions = { ...(target.providerId === "claude-code" ? { claudeAccountProfileId: accountProfileId } : { codexAccountProfileId: accountProfileId }), claudeBinaryPath: stateBefore.settings.claudeBinaryPath || undefined, codexBinaryPath: stateBefore.settings.codexBinaryPath || undefined };
       const providerSession = stateBefore.providerSessionByTask[taskId];
       const actionState = buildConversationTurnActionStateByMessageId({
         messages: completeMessages,
@@ -187,6 +193,7 @@ export function createConversationThreadActions(args: {
         return failure(actionState?.reason ?? "Fork is unavailable here.");
       }
       const sessionCursor = getProviderSessionCursor({
+        accountProfileId,
         sessions: providerSession,
         providerId: target.providerId,
       });
@@ -209,6 +216,7 @@ export function createConversationThreadActions(args: {
           return failure("Claude session fork controls are unavailable.");
         }
         const result = await forkClaudeSession({
+          runtimeOptions: accountOptions,
           sessionId: sessionCursor.nativeSessionId,
           upToMessageId: target.nativeProviderTurnId,
           title: nativeSessionTitle,
@@ -228,13 +236,7 @@ export function createConversationThreadActions(args: {
         const result = await forkCodexThread({
           threadId: sessionCursor.nativeSessionId,
           lastTurnId: target.nativeProviderTurnId,
-          ...(stateBefore.settings.codexBinaryPath
-            ? {
-                runtimeOptions: {
-                  codexBinaryPath: stateBefore.settings.codexBinaryPath,
-                },
-              }
-            : {}),
+          runtimeOptions: accountOptions,
         });
         if (!result.ok || !result.threadId) {
           return failure(result.detail);
@@ -248,6 +250,7 @@ export function createConversationThreadActions(args: {
         targetIndex,
         providerId: target.providerId,
         sourceNativeSessionId: sessionCursor.nativeSessionId,
+        accountProfileId,
         nativeSessionId,
         claudeMessageIdMap,
         claudeLastAssistantMessageId,
@@ -295,12 +298,9 @@ export function createConversationThreadActions(args: {
         },
         providerSessionByTask: {
           ...state.providerSessionByTask,
-          [nextTaskId]: {
-            [target.providerId]: {
-              nativeSessionId,
-              syncedThroughMessageId: cloned.clonedTargetMessageId,
-            },
-          },
+          [nextTaskId]: setProviderSessionEntry({ providerId: target.providerId as "codex" | "claude-code", accountProfileId,
+            entry: { nativeSessionId, syncedThroughMessageId: cloned.clonedTargetMessageId },
+          }),
         },
         providerGoalByTask: {
           ...state.providerGoalByTask,
@@ -324,13 +324,7 @@ export function createConversationThreadActions(args: {
           ?.renameCodexThread?.({
             threadId: nativeSessionId,
             name: nativeSessionTitle,
-            ...(stateBefore.settings.codexBinaryPath
-              ? {
-                  runtimeOptions: {
-                    codexBinaryPath: stateBefore.settings.codexBinaryPath,
-                  },
-                }
-              : {}),
+          runtimeOptions: accountOptions,
           })
           .catch(() => {
             // The fork is already usable; native title sync is best-effort.
@@ -366,6 +360,8 @@ export function createConversationThreadActions(args: {
         return failure("The selected response could not be found.");
       }
 
+      const accountProfileId = target.nativeAccountProfileId ?? SYSTEM_ACCOUNT_PROFILE_ID;
+      const accountOptions = { ...(target.providerId === "claude-code" ? { claudeAccountProfileId: accountProfileId } : { codexAccountProfileId: accountProfileId }), claudeBinaryPath: stateBefore.settings.claudeBinaryPath || undefined, codexBinaryPath: stateBefore.settings.codexBinaryPath || undefined };
       const providerSession = stateBefore.providerSessionByTask[taskId];
       const actionState = buildConversationTurnActionStateByMessageId({
         messages: completeMessages,
@@ -381,6 +377,7 @@ export function createConversationThreadActions(args: {
         );
       }
       const sessionCursor = getProviderSessionCursor({
+        accountProfileId,
         sessions: providerSession,
         providerId: "codex",
       });
@@ -396,13 +393,7 @@ export function createConversationThreadActions(args: {
         const result = await rollbackCodexThread({
           threadId: sessionCursor.nativeSessionId,
           numTurns: actionState.rollbackTurnCount,
-          ...(stateBefore.settings.codexBinaryPath
-            ? {
-                runtimeOptions: {
-                  codexBinaryPath: stateBefore.settings.codexBinaryPath,
-                },
-              }
-            : {}),
+          runtimeOptions: accountOptions,
         });
         if (!result.ok) {
           return failure(result.detail);
@@ -442,12 +433,9 @@ export function createConversationThreadActions(args: {
         },
         providerSessionByTask: {
           ...state.providerSessionByTask,
-          [taskId]: {
-            codex: {
-              nativeSessionId: sessionCursor.nativeSessionId,
-              syncedThroughMessageId: messageId,
-            },
-          },
+          [taskId]: setProviderSessionEntry({ providerId: "codex", accountProfileId,
+            entry: { nativeSessionId: sessionCursor.nativeSessionId, syncedThroughMessageId: messageId },
+          }),
         },
         providerGoalByTask: {
           ...state.providerGoalByTask,

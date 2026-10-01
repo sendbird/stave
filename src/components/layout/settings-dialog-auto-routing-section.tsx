@@ -45,7 +45,7 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
+import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
 import {
   computeRouterSignals,
   formatAutoRoutingSignalSummary,
@@ -378,10 +378,14 @@ export function SettingsAutoRoutingSection(props: {
   const autoRoutingEnabled = useAppStore((state) => state.settings.autoRoutingEnabled);
   const profile = useAppStore((state) => state.settings.autoRoutingProfile);
   const codexBinaryPath = useAppStore((state) => state.settings.codexBinaryPath);
+  const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
+  const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
   const providerAvailability = useAppStore((state) => state.providerAvailability);
   const rateLimitsSnapshot = useAppStore((state) => state.rateLimitsSnapshot);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const codexModelCatalog = useCodexModelCatalog({ enabled: true, codexBinaryPath });
+  const catalogOptions = useMemo(() => ({ codexBinaryPath, cursorBinaryPath, kiroBinaryPath }), [codexBinaryPath, cursorBinaryPath, kiroBinaryPath]);
+  const { catalogs } = useProviderModelCatalogs({ enabled: true, runtimeOptions: catalogOptions });
+  const codexModelCatalog = catalogs.codex;
 
   const modelsByProvider = useMemo<Partial<Record<ProviderId, readonly string[]>>>(
     () => ({
@@ -390,10 +394,10 @@ export function SettingsAutoRoutingSection(props: {
         codexModelCatalog.models.length > 0
           ? codexModelCatalog.models
           : getSdkModelOptions({ providerId: "codex" }),
-      cursor: getSdkModelOptions({ providerId: "cursor" }),
-      kiro: getSdkModelOptions({ providerId: "kiro" }),
+      cursor: catalogs.cursor.models,
+      kiro: catalogs.kiro.models,
     }),
-    [codexModelCatalog.models],
+    [codexModelCatalog.models, catalogs.cursor.models, catalogs.kiro.models],
   );
 
   const commit = (next: AutoRoutingProfile) =>

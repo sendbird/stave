@@ -1,3 +1,4 @@
+import { providerAccountKey } from "../provider-accounts/runtime-scope";
 import type { StreamTurnArgs } from "./types";
 import type {
   CodexMcpOauthLoginResponse,
@@ -154,13 +155,14 @@ export function createCodexMcpManagement(
   function captureNotification(
     executablePath: string,
     message: CodexMcpRuntimeNotification,
+    accountProfileId?: string,
   ) {
     const observation = parseCodexMcpRuntimeNotification(message);
     if (!observation) {
       return;
     }
     const byServer =
-      observationsByExecutable.get(executablePath) ??
+      observationsByExecutable.get(providerAccountKey("codex", executablePath, accountProfileId)) ??
       new Map<string, CodexMcpRuntimeObservation>();
     const previous = byServer.get(observation.name);
     byServer.set(observation.name, {
@@ -173,7 +175,7 @@ export function createCodexMcpManagement(
           }
         : {}),
     });
-    observationsByExecutable.set(executablePath, byServer);
+    observationsByExecutable.set(providerAccountKey("codex", executablePath, accountProfileId), byServer);
   }
 
   async function getRuntimeStatus(args: {
@@ -197,7 +199,7 @@ export function createCodexMcpManagement(
         "mcpServerStatus/list",
         { detail: "full" },
       );
-      const observations = observationsByExecutable.get(executablePath);
+      const observations = observationsByExecutable.get(providerAccountKey("codex", executablePath));
       const servers = (response.data ?? []).map((server) => {
         const snapshot = mapCodexMcpStatusSnapshot(server);
         const observation = observations?.get(snapshot.name);

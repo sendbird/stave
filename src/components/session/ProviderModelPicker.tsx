@@ -10,13 +10,19 @@ import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   getDefaultModelForProvider,
   getProviderLabel,
-  getSdkModelOptions,
   listProviderIds,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { providerModelPickerStyles as styles } from "./provider-model-picker.styles";
+import {
+  providerReadsAllowed,
+  providerSurfaceVisible,
+  useProviderReadinessStore,
+} from "@/lib/providers/provider-readiness-store";
+import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
+import { useAppStore } from "@/store/app.store";
 
 /**
  * Reusable provider + model selector duo.
@@ -52,18 +58,29 @@ export function pickDefaultModelForProvider(providerId: ProviderId): string {
 }
 
 export function ProviderModelPicker(args: ProviderModelPickerProps) {
-  const providerIds = useMemo(() => listProviderIds(), []);
+  const readiness = useProviderReadinessStore((state) => state.providers);
+  const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
+  const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
+  const runtimeOptions = useMemo(
+    () => ({ cursorBinaryPath, kiroBinaryPath }),
+    [cursorBinaryPath, kiroBinaryPath],
+  );
+  const { catalogs } = useProviderModelCatalogs({ enabled: true, runtimeOptions });
+  const providerIds = listProviderIds().filter(
+    (id) => id === args.selectedProvider || providerSurfaceVisible(id, runtimeOptions),
+  );
   const providerModels = useMemo(
     () =>
       [
         ...new Set([
           args.selectedModel,
-          ...getSdkModelOptions({ providerId: args.selectedProvider }),
+          ...catalogs[args.selectedProvider].models,
         ]),
       ].filter(Boolean),
-    [args.selectedModel, args.selectedProvider],
+    [args.selectedModel, args.selectedProvider, catalogs, readiness],
   );
-  const providerAvailable = args.providerAvailable !== false;
+  const providerAvailable = args.providerAvailable !== false &&
+    providerReadsAllowed(args.selectedProvider, runtimeOptions);
   return (
     <div
       className={cx(
@@ -92,6 +109,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
             <SelectItem
               key={providerId}
               value={providerId}
+              disabled={!providerReadsAllowed(providerId, runtimeOptions)}
               className={sx(styles.item)}
             >
               <span className={sx(styles.itemInner)}>
@@ -109,7 +127,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
       <Select
         value={args.selectedModel}
         onValueChange={(value) => args.onModelChange(value)}
-        disabled={args.disabled}
+        disabled={args.disabled || !providerAvailable}
       >
         <SelectTrigger
           aria-label={`${args.ariaLabel ?? "Model"} model`}

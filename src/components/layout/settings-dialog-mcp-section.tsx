@@ -472,6 +472,8 @@ function McpServerConnectionsCard() {
               provider.listMcpServerConfigs!({
                 cwd: workspaceCwd,
                 runtimeOptions: {
+                  claudeAccountProfileId: runtimeOptions.claude.claudeAccountProfileId,
+                  codexAccountProfileId: runtimeOptions.codex.codexAccountProfileId,
                   claudeBinaryPath: runtimeOptions.claude.claudeBinaryPath,
                   codexBinaryPath: runtimeOptions.codex.codexBinaryPath,
                   cursorBinaryPath: runtimeOptions.cursor.cursorBinaryPath,

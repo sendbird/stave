@@ -1,3 +1,4 @@
+import { runClaudeSessionOperation } from "../provider-accounts/claude-session-operations";
 import { isAbsolute } from "node:path";
 import {
   AgentHistoryRequestSchema, boundHistoryEntries, mapAgentHistory,
@@ -14,14 +15,12 @@ export async function readAgentHistory(input: AgentHistoryRequest): Promise<Agen
   const args = parsed.data;
   try {
     if (args.providerId === "claude-code") {
-      const sdk = await import("@anthropic-ai/claude-agent-sdk");
-      const agents = await sdk.listSubagents(args.sessionId, { dir: args.cwd });
-      if (!agents.includes(args.agentId)) {
-        return { ok: false, detail: "This agent's saved transcript is not available in this session.", entries: [] };
-      }
-      const messages = await sdk.getSubagentMessages(args.sessionId, args.agentId, {
-        dir: args.cwd, offset: args.offset, limit: args.limit + 1,
+      const result = await runClaudeSessionOperation<{ ok: boolean; detail: string; messages?: unknown[] }>("agent-history", {
+        sessionId: args.sessionId, agentId: args.agentId, cwd: args.cwd, offset: args.offset, limit: args.limit + 1,
+        runtimeOptions: { claudeAccountProfileId: args.accountProfileId ?? "system-default", claudeBinaryPath: args.claudeBinaryPath },
       });
+      if (!result.ok) return { ok: false, detail: result.detail, entries: [] };
+      const messages = result.messages ?? [];
       return {
         ok: true, detail: "Saved subagent conversation",
         entries: boundHistoryEntries(mapAgentHistory("claude-code", messages.slice(0, args.limit))),
@@ -30,7 +29,7 @@ export async function readAgentHistory(input: AgentHistoryRequest): Promise<Agen
     }
     const response = await readCodexThread({
       threadId: args.agentId, includeTurns: true,
-      runtimeOptions: args.codexBinaryPath ? { codexBinaryPath: args.codexBinaryPath } : undefined,
+      runtimeOptions: { codexBinaryPath: args.codexBinaryPath, codexAccountProfileId: args.accountProfileId ?? "system-default" },
     });
     if (!response.ok || !response.thread) return { ok: false, detail: response.detail, entries: [] };
     const raw = response.thread.raw;

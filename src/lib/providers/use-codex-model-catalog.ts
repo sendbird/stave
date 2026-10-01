@@ -1,3 +1,4 @@
+import { useAccountRuntimeOptions } from "./use-provider-accounts";
 import { useEffect, useMemo, useState } from "react";
 import {
   getSdkModelOptions,
@@ -52,13 +53,13 @@ const codexModelCatalogInflight = new Map<
   Promise<CodexModelCatalogCacheEntry>
 >();
 
-function getCacheKey(binaryPath?: string | null) {
+function getCacheKey(binaryPath?: string | null, accountProfileId = "system-default") {
   const trimmed = binaryPath?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : "<default>";
+  return JSON.stringify([accountProfileId, trimmed || "<default>"]);
 }
 
-function getCachedEntry(binaryPath?: string | null) {
-  const cacheKey = getCacheKey(binaryPath);
+function getCachedEntry(binaryPath?: string | null, accountProfileId?: string) {
+  const cacheKey = getCacheKey(binaryPath, accountProfileId);
   const cached = codexModelCatalogCache.get(cacheKey);
   if (!cached) {
     return null;
@@ -71,10 +72,11 @@ function getCachedEntry(binaryPath?: string | null) {
 
 async function loadCodexModelCatalog(args: {
   binaryPath?: string | null;
+  accountProfileId?: string;
   force?: boolean;
 }) {
-  const cacheKey = getCacheKey(args.binaryPath);
-  const cached = !args.force ? getCachedEntry(args.binaryPath) : null;
+  const cacheKey = getCacheKey(args.binaryPath, args.accountProfileId);
+  const cached = !args.force ? getCachedEntry(args.binaryPath, args.accountProfileId) : null;
   if (cached) {
     return cached;
   }
@@ -102,10 +104,7 @@ async function loadCodexModelCatalog(args: {
 
     try {
       const result = await getCodexModelCatalog({
-        runtimeOptions:
-          args.binaryPath && args.binaryPath.trim().length > 0
-            ? { codexBinaryPath: args.binaryPath.trim() }
-            : undefined,
+        runtimeOptions: { codexAccountProfileId: args.accountProfileId, codexBinaryPath: args.binaryPath?.trim() || undefined },
       });
       const visibleEntries = result.models.filter((model) => !model.hidden).map(entry => ({
         ...entry,
@@ -201,10 +200,13 @@ export function useCodexModelCatalog(args: {
   enabled?: boolean;
   codexBinaryPath?: string | null;
 }) {
+  const { codexAccountProfileId } = useAccountRuntimeOptions();
+  const cacheKey = getCacheKey(args.codexBinaryPath, codexAccountProfileId);
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const [state, setState] = useState<CodexModelCatalogState>(() => {
-    const cached = getCachedEntry(args.codexBinaryPath);
+  const [state, setState] = useState<CodexModelCatalogState & { cacheKey: string }>(() => {
+    const cached = getCachedEntry(args.codexBinaryPath, codexAccountProfileId);
     return {
+      cacheKey,
       status: cached?.status ?? "idle",
       models: cached?.models ?? FALLBACK_CODEX_MODELS,
       entries: cached?.entries ?? [],
@@ -219,23 +221,26 @@ export function useCodexModelCatalog(args: {
     }
 
     let cancelled = false;
-    const cached = getCachedEntry(args.codexBinaryPath);
-    setState((current) => ({
+    const cached = getCachedEntry(args.codexBinaryPath, codexAccountProfileId);
+    setState({
+      cacheKey,
       status: cached?.status ?? "loading",
-      models: cached?.models ?? current.models,
-      entries: cached?.entries ?? current.entries,
-      detail: cached?.detail ?? current.detail,
-      isDynamic: cached?.dynamic ?? current.isDynamic,
-    }));
+      models: cached?.models ?? FALLBACK_CODEX_MODELS,
+      entries: cached?.entries ?? [],
+      detail: cached?.detail ?? "",
+      isDynamic: cached?.dynamic ?? false,
+    });
 
     void loadCodexModelCatalog({
       binaryPath: args.codexBinaryPath,
+      accountProfileId: codexAccountProfileId,
       force: refreshNonce > 0,
     }).then((entry) => {
       if (cancelled) {
         return;
       }
       setState({
+        cacheKey,
         status: entry.status,
         models: entry.models,
         entries: entry.entries,
@@ -247,13 +252,13 @@ export function useCodexModelCatalog(args: {
     return () => {
       cancelled = true;
     };
-  }, [args.codexBinaryPath, args.enabled, refreshNonce]);
+  }, [args.codexBinaryPath, args.enabled, codexAccountProfileId, refreshNonce, cacheKey]);
 
   return useMemo(
     () => ({
-      ...state,
+      ...(state.cacheKey === cacheKey ? state : { status: "loading" as const, models: FALLBACK_CODEX_MODELS, entries: [], detail: "", isDynamic: false }),
       refresh: () => setRefreshNonce((value) => value + 1),
     }),
-    [state],
+    [state, cacheKey],
   );
 }

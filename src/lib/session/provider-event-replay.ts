@@ -4,6 +4,8 @@ import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
 import { isProviderNativeSlashCommandInput } from "@/lib/providers/provider-request-translators";
 import {
   advanceProviderSessionCursor,
+  getProviderSessionEntry,
+  setProviderSessionEntry,
   getProviderSessionId,
   rememberProviderSession,
 } from "@/lib/providers/provider-sessions";
@@ -934,6 +936,7 @@ export function appendProviderEventToAssistant(args: {
   if (args.event.type === "provider_turn") {
     return {
       ...message,
+      nativeAccountProfileId: args.event.accountProfileId,
       nativeProviderSessionId: args.event.nativeSessionId,
       nativeProviderTurnId: args.event.nativeTurnId,
     };
@@ -1167,15 +1170,16 @@ export function replayProviderEventsToTaskState(args: {
       const currentSessionId = getProviderSessionId({
         sessions: nextProviderSession,
         providerId: event.providerId,
+        accountProfileId: event.accountProfileId,
       });
       if (currentSessionId !== event.nativeSessionId) {
-        nextProviderSession = {
-          ...nextProviderSession,
-          [event.providerId]: rememberProviderSession({
-            current: nextProviderSession?.[event.providerId],
+        nextProviderSession = setProviderSessionEntry({
+          sessions: nextProviderSession, providerId: event.providerId, accountProfileId: event.accountProfileId,
+          entry: rememberProviderSession({
+            current: getProviderSessionEntry({ sessions: nextProviderSession, providerId: event.providerId, accountProfileId: event.accountProfileId }),
             nativeSessionId: event.nativeSessionId,
           }),
-        };
+        });
         changed = true;
       }
       if (!nextNativeSessionReady) {
@@ -1265,7 +1269,7 @@ export function replayProviderEventsToTaskState(args: {
         ) {
           current = current.map((message, index) =>
             index === targetIndex
-              ? { ...message, providerBoundary: nextBoundary }
+              ? { ...message, nativeAccountProfileId: event.accountProfileId, providerBoundary: nextBoundary }
               : message,
           );
           changed = true;
@@ -1419,18 +1423,15 @@ export function replayProviderEventsToTaskState(args: {
           );
         const advancedSession = canAdvanceCursor
           ? advanceProviderSessionCursor({
-              current: nextProviderSession?.[args.provider],
+              current: getProviderSessionEntry({ sessions: nextProviderSession, providerId: args.provider, accountProfileId: event.accountProfileId }),
               syncedThroughMessageId: updated.id,
             })
           : undefined;
         if (
           advancedSession &&
-          advancedSession !== nextProviderSession?.[args.provider]
+          advancedSession !== getProviderSessionEntry({ sessions: nextProviderSession, providerId: args.provider, accountProfileId: event.accountProfileId })
         ) {
-          nextProviderSession = {
-            ...nextProviderSession,
-            [args.provider]: advancedSession,
-          };
+          nextProviderSession = setProviderSessionEntry({ sessions: nextProviderSession, providerId: args.provider, accountProfileId: event.accountProfileId, entry: advancedSession });
         }
         nextActiveTurnId = undefined;
       }

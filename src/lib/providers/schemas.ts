@@ -17,6 +17,7 @@ const TextEventSchema = z.object({
 });
 
 const ProviderSessionEventSchema = z.object({
+  accountProfileId: z.string().optional(),
   type: z.literal("provider_session"),
   providerId: z.union([
     z.literal("claude-code"),
@@ -29,6 +30,7 @@ const ProviderSessionEventSchema = z.object({
 
 const ProviderTurnEventSchema = z.object({
   type: z.literal("provider_turn"),
+  accountProfileId: z.string().optional(),
   providerId: z.union([
     z.literal("claude-code"),
     z.literal("codex"),
@@ -180,6 +182,7 @@ const AdvisorActivityEventSchema = z.object({
 
 const HistoryBoundaryEventSchema = z.object({
   type: z.literal("history_boundary"),
+  accountProfileId: z.string().optional(),
   providerId: ProviderIdSchema,
   boundaryKind: z.union([
     z.literal("thread"),
@@ -379,6 +382,7 @@ const ErrorEventSchema = z.object({
 
 const DoneEventSchema = z.object({
   type: z.literal("done"),
+  accountProfileId: z.string().optional(),
   stop_reason: z.string().optional(),
 });
 
