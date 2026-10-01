@@ -27,14 +27,15 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Delegated task | A durable subagent: a Stave task created on another task's behalf, possibly on the other provider or in its own worktree, recorded on the run ledger. The relation stays parent/child (`parentTaskId`); the older words "child task" are retired. Run ids keep the persisted `child-task:<parent>:<key>` format. |
 | Issue | A ticket from a connected tracker (Jira, Crane), listed on the Issues surface and started as a Stave task from there. Code: `TrackerIssue`. "Task" is reserved for Stave conversations; Crane's own API keeps calling its items tasks. |
 | Repository | A registered folder that holds workspaces. Code: `repositoryPath`. The older word "project" is retired for it. |
-| Playbook | A saved way of working: ordered stages, each with an instruction and a "Done when" condition. It grants no permissions. Code: `src/lib/playbooks/`. |
-| Stage | One step of a playbook: an AI stage (a turn with an instruction) or a Stave action (open a draft PR, watch checks, mark ready), which Stave performs itself. |
-| Check-ins | How often a mission stops for the user's sign-off: every stage, plan and publishing (the default), or only when stuck. |
+| Workflow | An agent's ordered stages, each an AI stage with an instruction and a "Done when" condition or a Stave action. A run of the agent follows them; an agent without one runs one "Work" stage. It grants no permissions. Code: `AgentConfig.workflow`, validated with the stage schema in `src/lib/playbooks/schema.ts`. |
+| Stage | One step of a workflow: an AI stage (a turn with an instruction, optionally done by another agent) or a Stave action (open a draft PR, watch checks, mark ready, run a script), which Stave performs itself. |
+| Check in with me | Where a run waits for the user's sign-off between stages: only when stuck (the agent default), before publishing, or every stage. Code: `AgentConfig.checkIns`, the engine's `CheckIns` (`when-stuck`, `plan-and-publishing`, `every-stage`). |
+| Playbook | Retired as a user concept: a saved playbook became a custom agent with that workflow (`playbooks-to-agent-workflows`). Saved playbooks stay as read-only data for deprecated projects and start conditions. Code keeps `Playbook` as the mission engine's run plan. |
 | Sign-off | The user's approval before a stage starts. "Ask for changes" reruns the previous AI stage with feedback. |
-| Mission | One run of a playbook on one lead task the user already owns. Code: `src/lib/missions/`. |
+| Mission | Engine word, not shown to users for agent runs: one run of a plan of stages on one lead task the user already owns — an agent run (`origin: "agent"`) or a legacy playbook mission. Code: `src/lib/missions/`. |
 | Stage report | What the agent reports for a stage through `stave_report_stage` or `stave_block_stage`. Its evidence is "Verified by Stave" only when Stave saw the cited call succeed; otherwise "Agent reported". |
 | Mission report | The summary a mission leaves when it ends: stages, decisions, evidence, links, and, for a partial run, what it left behind. |
-| Project | Reserved for the goal-level coordinator that starts parallel missions. Not a registered folder. |
+| Project | The goal-level coordinator that starts parallel missions. Deprecated: shown only to a user who has one, no new projects, to be removed in a later release. Not a registered folder. |
 | Agent | A saved worker definition: instructions, skills, a model choice, tool limits, a default permission and a workspace. Built-in, Custom, or From repository. It grants no permissions and starts nothing. Code: `AgentConfig` in `src/lib/agents/`, referenced as `agentConfigId` — never `agentId`, which names a provider worker on normalized events, and never `AgentDefinition`, the Claude Agent SDK's subagent type. |
 | Agent role | Where an agent can be used: `primary` (Main agent of a task), `worker` (an in-turn subagent), `delegate` (a delegated task). The same words as the auto-routing roles. Code: `usableAs`. |
 | Agent snapshot | The copy of an agent taken when work starts, with its content hash ("Version used"). Later edits never reach a run. |
@@ -141,7 +142,7 @@ reason. Two axes:
 | --- | --- | --- |
 | Time — run again | — | Automation (new task per occurrence) / Wake-up (same task, same session) |
 | Delegation — hand work off | In-turn subagent (Layer 1) | Delegated tasks (cross-provider, normal tasks + ledger receipts) |
-| Procedure — follow a playbook | — | Mission (same task, ordered stages, sign-offs) |
+| Procedure — follow a workflow | — | Agent run (same task, the agent's ordered stages, check-ins) |
 
 Automation is the only concept that lives outside a task: it mints tasks.
 Everything else in this layer attaches to one existing task.
@@ -222,8 +223,8 @@ whose name repeats it.
 8. A mission advances exactly one lead task and never creates a task.
 9. A stage completes only through a recorded stage report or a Stave action
    result; an ended turn alone never completes a stage.
-10. A saved playbook never grants permissions; every mission start records its
-    own consent.
+10. A saved agent or playbook never grants permissions; every run start records
+    its own consent.
 11. At most one supervisor entry starts automatic turns on a task at a time.
 12. A project starts work only as missions through intake; its coordinator
     edits no files. Its start conditions (an assigned issue, pull request
@@ -255,9 +256,11 @@ narrow the default permission it is read with, and it never takes the id of a
 custom or built-in agent, so a cloned repository cannot change what an agent
 the user already trusts is told.
 
-Statement 10 is asserted at the Start sheet: the consent chosen there is what
-the mission stores and what its turns run with, and the playbook's saved
-permission default only preselects the sheet. Every statement is fully
+Statement 10 is asserted at the run start (`src/lib/missions/agent-run.ts`):
+the run records the user's own permission settings and the agent's check-ins,
+its turns take permissions from that consent only, and a publish or Stave
+action stage is authorized at start only when the agent checks in only when
+stuck. Every statement is fully
 asserted. The two statements that were earlier written ahead of their
 capability landed inside the boundary rather than beside it, which is what
 recording them early was for:

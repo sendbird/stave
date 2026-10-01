@@ -1,19 +1,23 @@
-# Missions
+# Agent Runs And Their Stages
 
 ## Summary
 
-A mission hands one outcome to Stave. You pick a playbook and say what you
-want; Stave runs the playbook's stages on the task one after another — asks
-the agent for each stage, opens the draft pull request, watches its checks —
-and stops only where you asked to sign off or when something needs you.
+When you assign work to an agent, Stave runs it stage by stage. An agent with
+a **workflow** follows its stages — asks the agent for each AI stage, opens the
+draft pull request, watches its checks, marks it ready — and stops only where
+its **Check in with me** setting says, or when something needs you. An agent
+without a workflow runs one stage that plans its own steps.
 
-You get fewer "now verify it", "now open the PR" prompts, and a record of what
-happened, why, and what proves it.
+Inside Stave this engine is called a *mission*; the product shows the agent,
+its stages and its result. Playbook missions started before playbooks folded
+into agents finish as they are, and their surfaces keep working.
 
 ## When To Use It
 
-- The work has a shape you repeat: understand the request, build, verify, open
-  a pull request, get the checks green, request review.
+- The work has a shape you repeat: reproduce, fix, verify; or validate, open a
+  pull request, get the checks green, request review. Give an agent that
+  workflow (Agents → an agent → **Workflow**) or use a built-in that has one
+  (Debugger, UI Polisher, Shipper).
 - You want the task to keep moving while you do something else, and to be told
   only when it needs a decision.
 - For a one-off question or a small edit, send a normal message instead. For
@@ -24,75 +28,44 @@ happened, why, and what proves it.
 
 - The task runs on Claude or Codex.
 - Stave's local tools are on (Settings → Developer → Local MCP). The agent
-  reports each stage through them; without them a mission cannot start.
-- For playbooks with pull request stages, the GitHub CLI is signed in
+  reports each stage through them; without them a run cannot start.
+- For workflows with pull request stages, the GitHub CLI is signed in
   (`gh auth login`).
 
 ## Quick Start
 
-1. Type the outcome in the composer, for example
-   `Fix the billing table overflow on narrow screens.`
-2. Click **Hand off** in the composer's controls (or type `!` and pick a
-   playbook shortcut).
-3. In **Start a mission**, check the playbook, the stages that will ask you,
-   and **Before you start**.
-4. Click the primary button — it says where the mission will stop, for example
-   **Start — asks before Build and Ready for review**.
-
-The Mission bar appears above the composer and the right rail's Task panel
-opens on **Progress**.
+1. Pick an agent in the composer's selector (`Alt+P` → **Agents**), or run
+   **Assign to an agent…** from the command palette.
+2. Type the outcome, for example
+   `Fix the billing table overflow on narrow screens.`, and send.
+3. The run starts at once. With more than one stage, the status line above the
+   composer shows the stage track and the Task panel's **Progress** lists each
+   stage and its report.
 
 ## Interface Walkthrough
 
 ### Entry Points
 
-- **Hand off** in the composer controls, or `!shortcut` for a playbook with a
-  shortcut.
-- **Start mission…** in the command palette.
-- **Playbook** in [Workspace Kickoff](workspace-kickoff.md) and in the
-  [Issues](issues.md) kickoff sheet: Stave prepares the workspace and task,
-  then opens the Start sheet on it.
-- **Start mission** in a playbook's editor (Agents → Playbooks).
-- **Start** or **Kick off** on a proposed mission in
-  [Issues → Proposed](issues.md#proposed-missions). A playbook's
-  [start conditions](playbooks.md#start-conditions) propose missions there,
-  and can start pull request and scheduled missions on their own.
+- The composer's selector, **Agents** section, then send.
+- **Assign to an agent…** in the command palette, or `!assign` in the
+  composer.
+- **Who** in [Workspace Kickoff](workspace-kickoff.md): pick an agent and
+  click **Assign**.
 
-### Start a mission
+### Check in with me
 
-![The Start a mission sheet: the assignment, the playbook with Start at and each stage's check-in, check-ins, and the stages that act outside this machine](../screenshots/start-mission-sheet.png)
+An agent's **Check in with me** decides where a run waits for you between
+stages:
 
-- **What should this mission achieve?** The assignment. Paste a Slack thread
-  or issue link, or describe the outcome.
-- **Playbook** and its stages. Each stage says **Starts now**, **Automatic**
-  or **Asks you**; a globe marks a stage that acts outside this machine.
-- **Start at**: begin with a later stage when the earlier work is already
-  done, for example **3. Verify** after you built the change yourself. Earlier
-  stages show **Skipped**, are recorded as not run, and the button says where
-  the mission starts (**Start at Verify — asks before Ready for review**).
-  Starting signs off the stage you start at, so it does not ask again, unless
-  it acts outside this machine and its checkbox below is unchecked.
-  Starting after **Open draft PR** needs a pull request that already exists.
-- **Check-ins**: **Every stage**, **Plan and publishing** (asks before the
-  stage after a plan, before publishing and before requesting review), or
-  **Only when stuck**.
-- **Acts outside this machine**: one checkbox per stage that pushes, opens or
-  updates a pull request, or writes a message or ticket. An unchecked stage
-  always asks you first.
-- **Permissions for this mission**: **Auto**, **Guided** or **Your settings**.
-  Auto, the default, lets the agent work without asking; the mission still
-  stops at your sign-offs and at the steps above you did not allow. Guided asks
-  before sensitive actions and waits for each answer. Your settings uses your
-  provider permission settings, as your own turns do (guarded defaults if none
-  were synced yet). This is recorded for this start only; a saved playbook
-  never grants permissions. Sharing an ended mission's report also runs with
-  your settings.
-- **Edit stages for this mission**: change the stages this time only, or
-  **Save as a new playbook**.
-- **Before you start**: the task, a running mission, Stave's local tools, the
-  GitHub CLI, an open pull request for the branch (which the mission
-  continues), and uncommitted files (start on top of them only after you say
-  so).
+- **Only when stuck** (default): never, unless a stage is blocked or stuck.
+  Assigning the work is the go-ahead for the workflow's publishing stages.
+- **Before publishing**: before the stage after a plan, before a publish
+  stage and before **Ready for review**; every stage that acts outside this
+  machine asks first.
+- **Every stage**: before each stage after the first.
+
+A run records your own permission settings for its turns; a saved agent never
+grants permissions.
 
 ### Mission bar
 
@@ -153,12 +126,12 @@ The task's subagents are in the **Subagents** tab next to it.
 A finished provider turn or subagent does not complete a stage by itself. The
 current turn must report completion, and any required criteria authored for
 that stage must be reported **Met**. Criteria for the overall goal are checked
-at the final stage; a Build stage can hand off to Test while future checks are
+at the final stage; a Build stage can pass to Test while future checks are
 still pending. A simple answer or documentation stage requires no shell check
-unless its playbook explicitly requires one. Manual sign-off and Skip remain
+unless its workflow explicitly requires one. Manual sign-off and Skip remain
 available.
 
-Playbook stage criteria support `text`, optional `required` (true by default),
+Workflow stage criteria support `text`, optional `required` (true by default),
 and optional `verification`. AI stages use `agent-report`: this records the
 agent's assessment. Required `stave-check` criteria belong to a **Run script**
 action stage; omitting verification on that action has the same meaning. Other
@@ -192,8 +165,6 @@ needed you. **Copy Markdown** and **Add to PR description** act on it, and
 **More** holds the rest:
 
 - **Save decisions to memory**, as memory candidates you review.
-- **Save as playbook**: the playbook this mission ran, with its edits for this
-  run, saved for next time.
 - **Share to Slack…**: paste a thread link (the one in the assignment is
   filled in) and the mission's task posts the report there once, as a reply,
   with your Slack tools. It changes no files and waits while the task is in a
@@ -228,12 +199,6 @@ palette) shows how agent runs and playbook missions that ended in the last 7,
 
 ## Common Workflows
 
-### Hand off from the composer
-
-1. Write the outcome in the composer.
-2. Click **Hand off**, check the sheet, and start.
-3. Keep working elsewhere; answer the sign-offs from the card or from Fleet.
-
 ### Steer a running mission
 
 - Reply in the task to add guidance; the stage continues with it.
@@ -251,8 +216,8 @@ palette) shows how agent runs and playbook missions that ended in the last 7,
 - Missions are stored in Stave's local database with their stage records and
   events. Nothing is sent anywhere except what the stages themselves do (pull
   requests on GitHub, messages through your own tools).
-- The playbook is copied into the mission when it starts; later edits to the
-  playbook do not change a running mission.
+- The agent's workflow is copied into the run when it starts; later edits to
+  the agent do not change a running run.
 
 ## Limitations And Advanced Options
 
@@ -314,8 +279,9 @@ palette) shows how agent runs and playbook missions that ended in the last 7,
 
 ## Related Docs
 
-- [Playbooks](playbooks.md)
-- [Projects](projects.md) — goals that take several missions, planned by a coordinator
+- [Agents](agents.md) — an agent's Workflow and Check in with me
+- [Playbooks (retired)](playbooks.md)
+- [Projects](projects.md) — deprecated
 - [Wake-ups](wake-ups.md) — a mission pauses its task's wake-up while it runs
 - [Notifications](notifications.md)
 - [Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md)

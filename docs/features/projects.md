@@ -1,5 +1,11 @@
 # Projects
 
+> **Deprecated.** Existing projects keep working, but new ones cannot be
+> started, and projects will be removed in a later release. **Projects** shows
+> in the sidebar and the command palette only while you have a project. For a
+> goal in parts, assign it to the **Lead** agent, which splits it across other
+> agents; for a repeatable shape, give an agent a [workflow](agents.md#workflow).
+
 ## Summary
 
 A project takes a goal that needs several missions — moving a set of screens,
@@ -20,7 +26,7 @@ never edits files; the work happens in [missions](missions.md).
   across those missions.
 - Decisions made in one piece should carry into the next ("use the shared
   Table component").
-- For a single outcome, start a [mission](missions.md) directly. For
+- For a single outcome, assign it to an [agent](agents.md). For
   scheduled work, use an [automation](automations.md).
 
 ## Before You Start
@@ -30,19 +36,13 @@ never edits files; the work happens in [missions](missions.md).
   mission reports its stages through them.
 - The coordinator runs on a Claude or Codex task: a new one, or the task in
   view.
-- The playbooks the coordinator may pick are your saved playbooks and the
-  starter templates (Agents → Playbooks).
+- The playbooks the coordinator may pick are the playbooks you saved before
+  they folded into agents, and the starter templates.
 
 ## Quick Start
 
-1. Open **Projects** in the sidebar (or **New project…** in the command
-   palette).
-2. Click **New project**, name it and say what done looks like in **Goal**.
-3. Pick the **Coordinator**: **New Claude task**, **New Codex task** or
-   **Task in view**. Leave **Ask before starting each mission** on.
-4. Click **Create and plan**. The coordinator reads the goal and proposes
-   missions (a task in view that is answering plans once that turn ends).
-5. In **Needs you**, check each proposal's playbook and click **Start
+1. Open **Projects** in the sidebar and pick an existing project.
+2. In **Needs you**, check each proposal's playbook and click **Start
    mission**. Each one starts on a new worktree.
 
 ## Interface Walkthrough
@@ -50,9 +50,10 @@ never edits files; the work happens in [missions](missions.md).
 ### Entry Points
 
 - **Projects** in the sidebar, under Fleet View, with each open project and
-  the number of things that need you. With the sidebar collapsed, the
-  Projects icon on the rail has a dot when something needs you.
-- **Open projects** and **New project…** in the command palette.
+  the number of things that need you, while you have a project. With the
+  sidebar collapsed, the Projects icon on the rail has a dot when something
+  needs you.
+- **Open projects** in the command palette, while you have a project.
 - The project count in the Fleet View header.
 - The Information panel of the coordinator's workspace and of every mission
   workspace: a card names the project, what needs you, and opens the project

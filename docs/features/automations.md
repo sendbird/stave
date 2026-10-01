@@ -54,8 +54,8 @@
 ### Layout
 
 The surface has two tabs, each a list-plus-detail split so the automation list
-and the run history are never stacked in one scroll view. Playbooks and agents
-now live on their own **Agents** surface (see [Playbooks](playbooks.md) and
+and the run history are never stacked in one scroll view. Agents and their
+workflows live on their own **Agents** surface (see [Playbooks (retired)](playbooks.md) and
 [Agents](agents.md)).
 
 - `Schedules`: every schedule (both kinds) on the left, and the selected
@@ -193,5 +193,5 @@ without requiring a new automation.
 - [Provider Sandbox and Approval](provider-sandbox-and-approval.md)
 - [Workspace Scripts](workspace-scripts.md)
 - [Latest Turn Summary](workspace-latest-turn-summary.md)
-- [Playbooks](playbooks.md)
+- [Playbooks (retired)](playbooks.md)
 - [Missions](missions.md)
