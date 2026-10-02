@@ -9,7 +9,8 @@ describe("Settings → Providers → Delegation", () => {
   test("names the capability that has no arming control", () => {
     // Delegation is the one agent-driven capability with no pill to discover,
     // so the card has to say what it is and how it is triggered.
-    expect(html).toContain("Delegation (delegated tasks)");
+    expect(html).toContain("Delegated tasks");
+    expect(html).toContain("There is no switch to turn on");
     expect(html).toContain("stave_delegate_task");
     expect(html).toContain("There is no button");
   });

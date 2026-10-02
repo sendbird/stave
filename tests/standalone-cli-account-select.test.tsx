@@ -32,7 +32,8 @@ describe("listStandaloneCliAccountOptions", () => {
 // renderToStaticMarkup is a server render, and zustand v5 hands React the
 // store's initial snapshot there, so these renders always see the built-in
 // "System default" profiles. Which profiles a tab offers is covered by
-// listStandaloneCliAccountOptions above.
+// listStandaloneCliAccountOptions above, and when a picker draws by
+// tests/provider-account-visibility.test.ts.
 describe("StandaloneCliAccountSelect", () => {
   const globalWithWindow = globalThis as { window?: unknown };
   let previousWindow: unknown;
@@ -56,17 +57,15 @@ describe("StandaloneCliAccountSelect", () => {
     );
   }
 
-  test("shows the account the active tab runs under", () => {
-    const markup = render({ tabId: "claude-code", value: "system-default", onValueChange: () => {} });
-
-    expect(markup).toContain('aria-label="Claude Code account for this tab"');
-    expect(markup).toContain("System default");
-    expect(markup).not.toContain("Account unavailable");
+  test("draws no one-option select when System default is the only account", () => {
+    expect(render({ tabId: "claude-code", value: "system-default", onValueChange: () => {} })).toBe("");
+    expect(render({ tabId: "codex", value: "system-default", onValueChange: () => {} })).toBe("");
   });
 
-  test("names a pinned account that no longer exists instead of guessing", () => {
+  test("keeps the select for a pinned account that no longer exists, named as unavailable", () => {
     const markup = render({ tabId: "codex", value: "codex-removed", onValueChange: () => {} });
 
+    expect(markup).toContain('aria-label="Codex account for this tab"');
     expect(markup).toContain("Account unavailable");
   });
 

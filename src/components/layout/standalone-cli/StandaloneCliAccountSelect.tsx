@@ -13,6 +13,7 @@ import {
   useLoadProviderAccounts,
   useProviderAccounts,
 } from "@/lib/providers/use-provider-accounts";
+import { shouldShowProviderAccountPicker } from "@/lib/providers/provider-account-selection";
 import {
   getStandaloneCliTabTitle,
   listStandaloneCliAccountOptions,
@@ -23,6 +24,8 @@ import {
  * The account the active tab's CLI runs under. Picking another one restarts
  * that tab under the new account with a fresh conversation, because a running
  * CLI cannot change accounts and the old conversation belongs to the old one.
+ * Drawn only when there is another account to pick, or when the tab is pinned
+ * to an account that was removed and needs a way back.
  */
 export function StandaloneCliAccountSelect(props: {
   tabId: StandaloneCliTabId;
@@ -40,7 +43,10 @@ export function StandaloneCliAccountSelect(props: {
 
   const accountsBridge =
     typeof window === "undefined" ? undefined : window.api?.providerAccounts;
-  if (!accountsBridge || options.length === 0) {
+  if (
+    !accountsBridge ||
+    !shouldShowProviderAccountPicker({ options, selectedId: props.value })
+  ) {
     return null;
   }
 
@@ -61,7 +67,7 @@ export function StandaloneCliAccountSelect(props: {
           size="sm"
           className={sx(styles.accountSelect)}
           aria-label={`${getStandaloneCliTabTitle(props.tabId)} account for this tab`}
-          title="Switching accounts ends this session and starts a new conversation after confirmation."
+          title="Run this tab under another account. Stave asks first, because switching ends this session and starts a new conversation."
         >
           <SelectValue>{selected?.label ?? "Account unavailable"}</SelectValue>
         </SelectTrigger>

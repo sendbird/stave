@@ -103,8 +103,8 @@ export function SettingsDelegationSection() {
     <SettingsCard
       id="settings-field-delegation"
       tabIndex={-1}
-      title="Delegation (delegated tasks)"
-      description="Let a task hand work to a subagent that is its own Stave task — its own workspace, conversation and permissions, recorded on the run ledger and able to survive a restart."
+      title="Delegated tasks"
+      description="An agent can hand work to a new Stave task with its own conversation and permissions, recorded on the run ledger and kept across restarts. There is no switch to turn on: ask the agent to delegate, and this card shows whether it can."
       titleAccessory={
         <Badge
           variant={

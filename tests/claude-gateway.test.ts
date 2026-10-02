@@ -6,13 +6,13 @@ import { ProviderAccountRegistry } from "../electron/provider-accounts/registry"
 import { withProviderAccountScope } from "../electron/provider-accounts/runtime-scope";
 import { withGatewayCredential, validateClaudeGatewayModel } from "../electron/provider-accounts/gateway-runtime";
 import { resolveHostGatewayCredential } from "../electron/main/provider-gateway-credential";
-import { checkClaudeGateway } from "../electron/main/claude-gateway-check";
+import { checkClaudeGateway, gatewayRoutingModelId } from "../electron/main/claude-gateway-check";
 import { buildClaudeQueryOptions, buildClaudeReadOnlyPromptOptions } from "../electron/providers/claude-sdk-runtime";
 import { buildClaudeCliEnv } from "../electron/providers/cli-path-env";
 import { getProviderModelCatalog } from "../electron/providers/provider-model-catalog";
 import { getRateLimitsSnapshot } from "../electron/providers/rate-limits/rate-limits-snapshot";
 import { createProviderAccountLoginSession } from "../electron/host-service/provider-account-login";
-import { ClaudeGatewaySchema } from "../src/lib/providers/claude-gateway";
+import { CLAUDE_GATEWAY_PRESET_MODEL, CLAUDE_GATEWAY_PRESET_URL, ClaudeGatewaySchema } from "../src/lib/providers/claude-gateway";
 import { RuntimeOptionsObjectSchema } from "../electron/main/ipc/provider-runtime-schemas";
 
 const secretId = "11111111-1111-4111-8111-111111111111";
@@ -141,5 +141,27 @@ describe("Claude Gateway connections", () => {
       expect(result.ok).toBe(false);
       expect(JSON.stringify(result)).not.toContain("fixture-sensitive-error");
     }
+  });
+
+  test("the Vercel preset's own model passes against the picker IDs its endpoint lists", async () => {
+    // Shape of GET https://ai-gateway.vercel.sh/claude-code/v1/models (public, 2026-10-02):
+    // every ID carries the display-only `claude-code/` prefix, and 1M-context models end in `[1m]`.
+    const listed = ["claude-code/anthropic/claude-sonnet-5[1m]", "claude-code/anthropic/claude-haiku-4.5", "claude-code/moonshotai/kimi-k3[1m]"];
+    const request = (async () => new Response(JSON.stringify({ data: listed.map(id => ({ id })) }))) as typeof fetch;
+    const preset = { baseUrl: CLAUDE_GATEWAY_PRESET_URL, secretId, models: [CLAUDE_GATEWAY_PRESET_MODEL] };
+    expect(ClaudeGatewaySchema.safeParse(preset).success).toBe(true);
+    expect(await checkClaudeGateway({ gateway: preset, token: "fixture", request })).toMatchObject({ ok: true, models: [CLAUDE_GATEWAY_PRESET_MODEL] });
+
+    // A model the endpoint does not list still fails, and the message names it.
+    const missing = await checkClaudeGateway({ gateway: { ...preset, models: [CLAUDE_GATEWAY_PRESET_MODEL, "anthropic/claude-opus-5"] }, token: "fixture", request });
+    expect(missing).toMatchObject({ ok: false, models: [CLAUDE_GATEWAY_PRESET_MODEL] });
+    expect(missing.message).toContain("anthropic/claude-opus-5");
+  });
+
+  test("routing IDs drop only the display prefix and context marker, never the creator", () => {
+    expect(gatewayRoutingModelId("claude-code/anthropic/claude-sonnet-5[1m]")).toBe("anthropic/claude-sonnet-5");
+    expect(gatewayRoutingModelId("anthropic/claude-haiku-4.5")).toBe("anthropic/claude-haiku-4.5");
+    // A bare ID is a different request to the endpoint, so it is not treated as listed.
+    expect(gatewayRoutingModelId("claude-sonnet-5")).not.toBe(gatewayRoutingModelId("claude-code/anthropic/claude-sonnet-5[1m]"));
   });
 });

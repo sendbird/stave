@@ -1,9 +1,10 @@
 import { FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/ads/components/Button";
 import { ActionButton } from "@/components/system/ActionButton";
 import { OpenPathDialog } from "./OpenPathDialog";
-import { useAppStore } from "@/store/app.store";
+import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 import { workspaceWelcomeStyles as styles } from "./workspace-welcome.styles";
 
 export function WorkspaceWelcome() {
@@ -61,6 +62,27 @@ export function WorkspaceWelcome() {
             checks, then request changes or take the next action.
           </li>
         </ol>
+        <p className={sx(styles.actionHint)}>
+          Stave uses the Claude and Codex sign-ins on this computer. To add
+          another, open{" "}
+          <Button
+            type="button"
+            size="xs"
+            variant="link"
+            flushInline
+            xstyle={styles.inlineLink}
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
+                  detail: { section: "tooling" },
+                }),
+              )
+            }
+          >
+            account settings
+          </Button>
+          .
+        </p>
       </div>
       <OpenPathDialog
         open={open}

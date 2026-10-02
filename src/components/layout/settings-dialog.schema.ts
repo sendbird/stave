@@ -344,8 +344,17 @@ export const settingsSections = [
     id: "tooling",
     label: "Tooling",
     icon: Shield,
-    description: "Local tool health and install checks.",
-    keywords: ["status", "dependencies", "doctor"],
+    description:
+      "Claude and Codex accounts, API gateways, and local tool health checks.",
+    keywords: [
+      "status",
+      "dependencies",
+      "doctor",
+      "account",
+      "sign in",
+      "login",
+      "gateway",
+    ],
   },
   {
     id: "lens",

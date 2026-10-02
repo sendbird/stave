@@ -4,6 +4,13 @@ import { sx } from "@/components/ads/utils/stylex";
 import { AGENT_CHECK_IN_LABELS, DEFAULT_AGENT_CHECK_INS, type AgentConfig } from "@/lib/agents/schema";
 import { applyCheckIns } from "@/lib/playbooks/library";
 import { CHECK_INS, type CheckIns, type PlaybookStage } from "@/lib/playbooks/schema";
+
+/** What a run does at each check-in level, read from `deriveStageSignOff`. */
+const CHECK_IN_EFFECTS: Readonly<Record<CheckIns, string>> = {
+  "when-stuck": "The run goes through every stage on its own and stops only when a stage is blocked or stuck.",
+  "plan-and-publishing": "The run waits for you after a plan stage and before it publishes or marks a pull request ready.",
+  "every-stage": "The run waits for you before each stage after the first.",
+};
 import { StageList } from "../playbooks/StageList";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 
@@ -59,6 +66,9 @@ export function AgentWorkflowField(props: {
             />
           </dd>
         </dl>
+      ) : null}
+      {value.stages.length > 1 ? (
+        <p className={sx(styles.hint)}>{CHECK_IN_EFFECTS[checkIns]} A stage's hand toggle overrides this for that stage.</p>
       ) : null}
     </>
   );

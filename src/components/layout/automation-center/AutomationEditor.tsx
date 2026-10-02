@@ -223,7 +223,7 @@ export function CadenceSection<T extends CadenceDraft>(props: {
       {props.heading === false ? null : (
         <SectionHeading
           title="When"
-          description="Pick a common rhythm, or switch to Custom for an exact interval."
+          description="Runs only while Stave is open. A run missed while Stave was closed happens once when it opens; Custom sets an exact interval."
         />
       )}
       <div className={sx(editorStyles.chipRow)} role="group" aria-label="When">

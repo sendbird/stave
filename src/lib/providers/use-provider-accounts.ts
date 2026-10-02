@@ -10,9 +10,11 @@ const defaults: ProviderAccountProfile[] = ["claude-code", "codex"].map((provide
 let refreshGeneration = 0;
 export const useProviderAccounts = create<{
   profiles: ProviderAccountProfile[]; error: string | null; loading: boolean;
+  /** True once a list from the account registry has arrived, not just the built-in defaults. */
+  loaded: boolean;
   refresh: () => Promise<void>;
 }>((set) => ({
-  profiles: defaults, error: null, loading: false,
+  profiles: defaults, error: null, loading: false, loaded: false,
   refresh: async () => {
     if (!window.api?.providerAccounts) return;
     const generation = ++refreshGeneration;
@@ -20,7 +22,7 @@ export const useProviderAccounts = create<{
     try {
       const result = await window.api.providerAccounts.list();
       if (generation !== refreshGeneration) return;
-      if (result.ok) set({ profiles: result.profiles });
+      if (result.ok) set({ profiles: result.profiles, loaded: true });
       else set({ error: result.message });
     } catch (error) { if (generation === refreshGeneration) set({ error: String(error) }); }
     finally { if (generation === refreshGeneration) set({ loading: false }); }

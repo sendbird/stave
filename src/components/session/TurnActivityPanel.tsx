@@ -35,11 +35,11 @@ function LiveTurnActivityPanel() {
           className={sx(styles.placeholder)}
         >
           <p className={sx(styles.placeholderText)}>
-            Detailed activity is{" "}
             {placement === "floating"
-              ? "floating over the chat"
-              : "docked above the prompt input"}
-            .
+              ? "While a turn runs, its activity floats over the chat and the run bar sits above the prompt."
+              : "While a turn runs, its activity and the run bar show above the prompt."}{" "}
+            Moving them here applies to every task; the activity header moves
+            them back.
           </p>
           <ActionButton
             size="xs"
@@ -47,7 +47,7 @@ function LiveTurnActivityPanel() {
               updateSettings({ patch: { turnActivityPlacement: "panel" } })
             }
           >
-            Show here
+            Move here
           </ActionButton>
         </div>
       </div>

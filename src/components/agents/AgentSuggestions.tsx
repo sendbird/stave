@@ -93,7 +93,9 @@ export function AgentSuggestions(props: {
         <div className={sx(styles.sectionHeader, agentStyles.suggestionsLineText)}>
           <h3 className={sx(styles.sectionTitle, agentStyles.suggestionsLineTitle)}>Learned suggestions</h3>
           <span className={sx(styles.hint)}>
-            {props.learning ? "None yet. A correction you make in a task shows up here." : "Learning is off."}
+            {props.learning
+              ? "None yet. When you correct this agent in a task, a suggested change to its instructions appears here. Each corrected task uses one utility-model request."
+              : "Learning is off. Your corrections are not reviewed and nothing is suggested."}
           </span>
         </div>
         {learningSwitch}

@@ -1,6 +1,7 @@
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
+import { controlHeights } from "@/components/ads/recipes/control-metrics";
 import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import { StandaloneCliAccountSelect } from "@/components/layout/standalone-cli/StandaloneCliAccountSelect";
 import {
@@ -395,20 +396,25 @@ export function StandaloneCliTerminal(props: {
           where it would occlude a full-screen TUI's top-right corner and
           swallow every click in that region. */}
       <div className={sx(styles.terminalHeader)}>
-        <StandaloneCliAccountSelect
-          tabId={activeTab.id}
-          value={activeAccountProfileId}
-          onValueChange={switchActiveTabAccount}
-        />
-        <AdsButton
-          layout="host"
-          type="button"
-          aria-label="Restart CLI session"
-          xstyle={styles.restartButton}
-          onClick={restartActiveSession}
-        >
-          Restart
-        </AdsButton>
+        {/* The row keeps the account select's height whether or not the tab
+            draws one (Cursor, Kiro, or a single account), so switching tabs
+            never moves the terminal. */}
+        <div className={sx(styles.terminalHeaderRow, controlHeights.sm)}>
+          <StandaloneCliAccountSelect
+            tabId={activeTab.id}
+            value={activeAccountProfileId}
+            onValueChange={switchActiveTabAccount}
+          />
+          <AdsButton
+            layout="host"
+            type="button"
+            aria-label="Restart CLI session"
+            xstyle={styles.restartButton}
+            onClick={restartActiveSession}
+          >
+            Restart
+          </AdsButton>
+        </div>
       </div>
       <div className={TERMINAL_SURFACE_PANEL_CLASS_NAME}>
         <div className={TERMINAL_SURFACE_VIEWPORT_CLASS_NAME}>

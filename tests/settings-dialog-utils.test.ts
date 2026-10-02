@@ -146,4 +146,19 @@ describe("settings field registry", () => {
     expect(matchesSettingsField(definition!, "credits")).toBe(true);
     expect(searchSettingsFields("stop turns at 100")).toEqual([definition!]);
   });
+
+  test("finds the account and gateway cards by the words people type", () => {
+    const fieldIds = (query: string) => searchSettingsFields(query).map((field) => field.fieldId);
+    expect(fieldIds("sign in")).toEqual(
+      expect.arrayContaining(["settings-field-claude-accounts", "settings-field-codex-accounts"]),
+    );
+    expect(fieldIds("login codex")).toContain("settings-field-codex-accounts");
+    for (const query of ["vercel", "api key", "base url", "gateway"]) {
+      expect(fieldIds(query)).toContain("settings-field-claude-gateway");
+    }
+    // Profile ids are machine-local, so account choices never travel in an export.
+    for (const field of settingDefinitions.filter((candidate) => candidate.sectionId === "tooling")) {
+      expect(field.importExport).toBe("exclude");
+    }
+  });
 });

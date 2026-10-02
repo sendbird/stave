@@ -8,6 +8,7 @@ import {
   SYSTEM_ACCOUNT_PROFILE_ID,
   type ProviderAccountProfile,
 } from "@/lib/providers/provider-accounts";
+import { canSwitchProviderAccount } from "@/lib/providers/provider-account-selection";
 
 export const FIVE_HOURS_MS = 5 * 3_600_000;
 export const SEVEN_DAYS_MS = 7 * 24 * 3_600_000;
@@ -223,6 +224,6 @@ export function resolveStatusBarAccountView(args: {
     selected,
     triggerLabel,
     gateway,
-    canSwitch: options.length > 1,
+    canSwitch: canSwitchProviderAccount(options),
   };
 }
