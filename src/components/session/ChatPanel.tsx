@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Conversation,
+  ConversationColumn,
   ConversationContent,
   ConversationScrollButton,
   ConversationVirtualList,
@@ -757,6 +758,10 @@ function ChatPanelMessageList(props: {
     totalMessageCount,
     taskMessagesLoading,
   });
+  // With no rows the content pads itself; once the list draws, the list pads
+  // its items and the rows after it take the column instead.
+  const usesInnerLayout =
+    visibleMessages.length === 0 && !showConversationLoadingState;
   const liveStreamingMessageId = activeTurnId
     ? visibleMessages.at(-1)?.id
     : undefined;
@@ -999,9 +1004,7 @@ function ChatPanelMessageList(props: {
         forceScrollScopeKey={scrollContextKey}
         manualScrollIntentRef={manualScrollIntentRef}
         restoreScrollPosition={restoreItemIndex != null}
-        withInnerLayout={
-          visibleMessages.length === 0 && !showConversationLoadingState
-        }
+        withInnerLayout={usesInnerLayout}
         onScrollPositionChange={({ atBottom, container }) => {
           const nextActiveRailMessageId = atBottom
             ? turnRailItems.at(-1)?.messageId
@@ -1118,14 +1121,16 @@ function ChatPanelMessageList(props: {
             )}
           />
         )}
-        <AgentRunResultCard taskId={taskId} />
-        <FailedOutgoingMessages taskId={taskId} />
-        <PendingAutoRouteTurn
-          taskId={taskId}
-          chatStreamingEnabled={chatStreamingEnabled}
-          showInterimMessages={showInterimMessages}
-          traceExpansionMode={traceExpansionMode}
-        />
+        <ConversationColumn flush={usesInnerLayout}>
+          <AgentRunResultCard taskId={taskId} />
+          <FailedOutgoingMessages taskId={taskId} />
+          <PendingAutoRouteTurn
+            taskId={taskId}
+            chatStreamingEnabled={chatStreamingEnabled}
+            showInterimMessages={showInterimMessages}
+            traceExpansionMode={traceExpansionMode}
+          />
+        </ConversationColumn>
       </ConversationContent>
       {showConversationTurnRail ? (
         <ConversationTurnRail

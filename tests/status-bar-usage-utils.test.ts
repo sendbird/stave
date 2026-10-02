@@ -3,7 +3,12 @@ import { describe, expect, test } from "bun:test";
 import {
   buildUsageHeadlineWindows,
   headlineUsagePercent,
+  resolveStatusBarAccountView,
 } from "../src/components/layout/status-bar-usage.utils";
+import {
+  SYSTEM_ACCOUNT_PROFILE_ID,
+  type ProviderAccountProfile,
+} from "../src/lib/providers/provider-accounts";
 import type {
   ClaudeUsageSnapshot,
   CodexUsageSnapshot,
@@ -131,5 +136,72 @@ describe("status bar usage headline", () => {
       ),
     ).toBe(72);
     expect(headlineUsagePercent([])).toBeNull();
+  });
+});
+
+describe("status bar account", () => {
+  const system: ProviderAccountProfile = {
+    id: SYSTEM_ACCOUNT_PROFILE_ID,
+    providerId: "claude-code",
+    label: "System default",
+    kind: "system",
+  };
+  const work: ProviderAccountProfile = {
+    id: "11111111-1111-4111-8111-111111111111",
+    providerId: "claude-code",
+    label: "Work",
+    kind: "managed",
+  };
+  const codex: ProviderAccountProfile = { ...system, providerId: "codex" };
+
+  test("a single default account draws no switch and names nothing", () => {
+    const view = resolveStatusBarAccountView({
+      providerId: "claude-code",
+      profiles: [system, codex],
+      selectedId: SYSTEM_ACCOUNT_PROFILE_ID,
+    });
+    expect(view.canSwitch).toBe(false);
+    expect(view.triggerLabel).toBeNull();
+    expect(view.options).toEqual([system]);
+  });
+
+  test("names the account on the meter only off the default", () => {
+    const profiles = [system, work, codex];
+    expect(
+      resolveStatusBarAccountView({
+        providerId: "claude-code",
+        profiles,
+        selectedId: SYSTEM_ACCOUNT_PROFILE_ID,
+      }),
+    ).toMatchObject({ canSwitch: true, triggerLabel: null });
+    expect(
+      resolveStatusBarAccountView({
+        providerId: "claude-code",
+        profiles,
+        selectedId: work.id,
+      }),
+    ).toMatchObject({ canSwitch: true, triggerLabel: "Work", gateway: false });
+  });
+
+  test("a gateway reads as API billing and a removed account says so", () => {
+    const gateway: ProviderAccountProfile = {
+      ...work,
+      label: "Gateway",
+      gateway: { baseUrl: "https://gateway.example", models: ["claude-opus-5-5"] } as never,
+    };
+    expect(
+      resolveStatusBarAccountView({
+        providerId: "claude-code",
+        profiles: [system, gateway],
+        selectedId: gateway.id,
+      }),
+    ).toMatchObject({ gateway: true, triggerLabel: "API billing" });
+    expect(
+      resolveStatusBarAccountView({
+        providerId: "claude-code",
+        profiles: [system],
+        selectedId: work.id,
+      }),
+    ).toMatchObject({ selected: null, triggerLabel: "Account unavailable" });
   });
 });

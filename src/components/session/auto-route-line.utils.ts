@@ -2,6 +2,7 @@ import { TASK_CLASS_LABELS, type TaskClass } from "@/lib/providers/auto-routing-
 import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
 import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
 import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "@/lib/routing/auto-routing";
+import type { PendingAutoRoute } from "@/store/pending-auto-routing-store";
 import type { ChatMessage } from "@/types/chat";
 
 /** Classifier waits shorter than this draw nothing, so a fast answer never flickers. */
@@ -88,4 +89,32 @@ export function buildAutoRouteLineView(args: {
     .filter(Boolean)
     .join(", ");
   return { modelLabel, taskLabel, fallback, elapsedLabel, ranLabel, description };
+}
+
+/** The pending line, in the same slots the recorded line will fill. */
+export interface PendingAutoRouteView {
+  /** `Opus 5 · High` once the router has answered; the model slot until then is empty. */
+  target: string | null;
+  phrase: string;
+  /** Only a classifier wait can be cut short. */
+  canSkip: boolean;
+}
+
+export function buildPendingAutoRouteView(
+  pending: Pick<PendingAutoRoute, "phase" | "skipped" | "routedLabel">,
+): PendingAutoRouteView {
+  if (pending.phase === "starting") {
+    return { target: pending.routedLabel ?? null, phrase: "Starting", canSkip: false };
+  }
+  return pending.skipped
+    ? { target: null, phrase: "Using local rules", canSkip: false }
+    : { target: null, phrase: "Choosing a model", canSkip: true };
+}
+
+/**
+ * Whole seconds for a wait still running: a tenths clock flickers next to the
+ * route mark. Nothing under a second, where the line has only just appeared.
+ */
+export function formatPendingRouteElapsed(ms: number): string | null {
+  return ms < 1_000 ? null : `${Math.floor(ms / 1_000)}s`;
 }

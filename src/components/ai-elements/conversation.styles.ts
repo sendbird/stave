@@ -40,6 +40,18 @@ export const conversationStyles = stylex.create({
       "@media (min-width: 640px)": vars["--ads-space-20"],
     },
   },
+  // Rows drawn after the virtual list (the pending send, failed sends, the
+  // agent result) sit outside `listContainer`, so they take the same measure
+  // here; otherwise they span the whole panel and touch its edges.
+  column: {
+    marginInline: "auto",
+    width: "100%",
+    maxWidth: "72rem",
+    paddingInline: {
+      default: vars["--ads-space-12"],
+      "@media (min-width: 640px)": vars["--ads-space-20"],
+    },
+  },
   listItem: {
     paddingBottom: vars["--ads-space-12"],
     ":last-child": {

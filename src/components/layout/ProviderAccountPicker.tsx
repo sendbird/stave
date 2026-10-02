@@ -15,7 +15,7 @@ export function ProviderAccountPicker({ providerId }: { providerId: ProviderId }
   if (providerId !== "claude-code" && providerId !== "codex") return null;
   const options = profiles.filter((p) => p.providerId === providerId);
   return <div className={sx(styles.picker)}>
-    <span>Account for new turns</span>
+    <span>Active account</span>
     <Select value={value} onValueChange={(id) => { if (id) update({ patch: providerId === "codex" ? { codexAccountProfileId: id } : { claudeAccountProfileId: id } }); }}>
       <SelectTrigger size="sm" className={sx(styles.pickerSelect)} aria-label={`${providerId === "codex" ? "Codex" : "Claude"} account for new turns`}><SelectValue>{options.find(p => p.id === value)?.label ?? "Account unavailable"}</SelectValue></SelectTrigger>
       <SelectContent>{options.map(p => <SelectItem key={p.id} value={p.id}>{p.label}{p.gateway ? " · API billing" : ""}</SelectItem>)}</SelectContent>

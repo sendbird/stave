@@ -10,9 +10,14 @@ import {
 import {
   buildUsageHeadlineWindows,
   headlineUsagePercent,
+  resolveStatusBarAccountView,
   resolveWindowTimeLeftRatio,
+  statusBarAccountProviderId,
   type StatusBarUsageProvider,
 } from "@/components/layout/status-bar-usage.utils";
+import { StatusBarAccountSection } from "@/components/layout/StatusBarAccountSection";
+import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
+import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { QuotaTimeLeftClock } from "@/components/layout/QuotaTimeLeftClock";
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
@@ -372,6 +377,21 @@ export function StatusBarUsageSegment({
     kiro: kiroSnapshot,
   });
   const headlinePercent = headlineUsagePercent(headlineWindows);
+  const accountProviderId = statusBarAccountProviderId(provider);
+  const profiles = useProviderAccounts((state) => state.profiles);
+  const selectedAccountId = useAppStore((state) =>
+    accountProviderId ? selectedProviderAccount(accountProviderId, state.settings) : null,
+  );
+  const account =
+    accountProviderId && selectedAccountId && window.api?.providerAccounts
+      ? resolveStatusBarAccountView({
+          providerId: accountProviderId,
+          profiles,
+          selectedId: selectedAccountId,
+        })
+      : null;
+  // A gateway bills per request, so there is no subscription quota to meter.
+  const gateway = account?.gateway === true;
 
   return (
     <Popover
@@ -408,8 +428,12 @@ export function StatusBarUsageSegment({
               : usageToneStyle(clampUsagePercent(headlinePercent)),
           )}
         />
-        <span>{label[provider]}{stale ? " (unverified)" : ""}</span>
-        {headlineWindows.length === 0 ? (
+        <span>
+          {label[provider]}
+          {account?.triggerLabel ? ` · ${account.triggerLabel}` : ""}
+          {stale ? " (unverified)" : ""}
+        </span>
+        {gateway ? null : headlineWindows.length === 0 ? (
           <span className={sx(statusBarUsageStyles.triggerMono)}>—</span>
         ) : (
           headlineWindows.map((window) => {
@@ -444,7 +468,7 @@ export function StatusBarUsageSegment({
       >
         <div className={sx(statusBarUsageStyles.popoverHeader)}>
           <span className={sx(statusBarUsageStyles.popoverTitle)}>{label[provider]} Usage</span>
-          <Button
+          {gateway ? null : <Button
             variant="ghost"
             size="sm"
             xstyle={statusBarUsageStyles.refreshButton}
@@ -464,10 +488,15 @@ export function StatusBarUsageSegment({
                 loading && statusBarUsageStyles.refreshIconSpinning,
               )}
             />
-          </Button>
+          </Button>}
         </div>
         <div className={sx(statusBarUsageStyles.popoverBody)}>
-          {provider === "claude" ? (
+          {gateway ? (
+            <p className={sx(statusBarUsageStyles.note)}>
+              Usage and charges are managed by your Gateway. Subscription quota
+              is unavailable.
+            </p>
+          ) : provider === "claude" ? (
             <ClaudeDetail snapshot={claudeSnapshot} />
           ) : provider === "codex" ? (
             <CodexDetail snapshot={codexSnapshot} />
@@ -477,6 +506,13 @@ export function StatusBarUsageSegment({
             <AccountDetail provider="kiro" snapshot={kiroSnapshot} />
           )}
         </div>
+        {account && accountProviderId ? (
+          <StatusBarAccountSection
+            providerId={accountProviderId}
+            providerName={label[provider]}
+            view={account}
+          />
+        ) : null}
       </PopoverContent>
     </Popover>
   );

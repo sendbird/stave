@@ -87,10 +87,12 @@ its scoped keychain service, without falling back to default credentials.
 Settings > Tooling provides account registration, label editing, removal, and
 native sign-in terminals for Claude and Codex. Leave the directory blank for a
 managed profile, or register an existing absolute configuration directory.
-Removing a profile keeps its local files. The composer and Tooling account
-selectors set the global default for **new turns** for that provider across tasks;
-running turns, queued messages, and open CLI sessions retain their captured
-account. An unavailable registration fails explicitly rather than silently
+Removing a profile keeps its local files. The Tooling account selector and the
+status bar usage meter set the global default for **new turns** for that
+provider across tasks; running turns, queued messages, and open CLI sessions
+retain their captured account. The meter lists accounts only when a provider has
+more than one, and names the account beside the provider only when it is not
+System default or is an API-billing gateway. An unavailable registration fails explicitly rather than silently
 switching to System default.
 
 Message provenance carries the originating profile for native fork, rollback,
