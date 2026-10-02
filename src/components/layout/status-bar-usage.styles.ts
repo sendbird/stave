@@ -25,10 +25,11 @@ export const statusBarUsageStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  // Interface font with tabular figures, as in the strip: mono set the
+  // `14% used · resets in 1h 7m` line wide enough to clip the window's name.
   windowValue: {
     color: vars["--ads-color-text-subtle"],
     flexShrink: 0,
-    fontFamily: vars["--ads-font-mono"],
     fontVariantNumeric: "tabular-nums",
   },
   meterTrack: {
@@ -65,7 +66,7 @@ export const statusBarUsageStyles = stylex.create({
     justifyContent: "space-between",
   },
   amountLabel: { color: vars["--ads-color-text-muted"] },
-  amountValue: { color: vars["--ads-color-text-subtle"], fontFamily: vars["--ads-font-mono"] },
+  amountValue: { color: vars["--ads-color-text-subtle"], fontVariantNumeric: "tabular-nums" },
 
   trigger: {
     // Radius from the token, not `0`: this is a hoverable control, and a square
@@ -83,6 +84,8 @@ export const statusBarUsageStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     gap: 6,
     height: 24,
+    // The small Button's 32px floor would overhang the 28px bar.
+    minHeight: 24,
     paddingInline: vars["--ads-space-8"],
   },
   triggerDot: {
@@ -104,7 +107,7 @@ export const statusBarUsageStyles = stylex.create({
     gap: 0,
     overflow: "hidden",
     padding: 0,
-    width: 288,
+    width: 304,
   },
   popoverHeader: {
     alignItems: "center",
@@ -141,7 +144,25 @@ export const statusBarUsageStyles = stylex.create({
     },
     animationTimingFunction: "linear",
   },
-  popoverBody: { padding: vars["--ads-space-12"] },
+  popoverBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-12"],
+    padding: vars["--ads-space-12"],
+  },
+  pendingNote: { alignItems: "center", display: "flex", gap: vars["--ads-space-8"] },
+  limitNote: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
+  // Spend sits under its own hairline: it is a different kind of number from
+  // the quota above it, and it stays when the quota is unavailable.
+  spendSection: {
+    borderTopColor: vars["--ads-color-border"],
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    padding: vars["--ads-space-12"],
+  },
   // The meter's foot: the account switch and its settings link, set off from
   // the usage numbers by the same hairline the header uses. It hosts rows, so
   // it takes the popup row padding (4px) and the rows' own 8px inset lands
@@ -171,6 +192,7 @@ export const statusBarUsageStyles = stylex.create({
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
   },
+  accountHint: { fontWeight: vars["--ads-font-weight-regular"] },
   // A ghost Button laid out as the last menu row: full width, text on the
   // rows' 8px inset rather than centred.
   manageAccounts: {

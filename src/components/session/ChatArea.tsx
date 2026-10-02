@@ -33,7 +33,10 @@ import { isTaskArchived, isTaskManaged } from "@/lib/tasks";
 import { RenderProfiler } from "@/lib/render-profiler";
 import { TaskScopeProvider } from "@/components/session/task-scope-context";
 import { useAppStore } from "@/store/app.store";
-import { usePendingAutoRoutingStore } from "@/store/pending-auto-routing-store";
+import {
+  selectHasPendingSend,
+  usePendingAutoRoutingStore,
+} from "@/store/pending-auto-routing-store";
 import { useShallow } from "zustand/react/shallow";
 
 const EMPTY_MESSAGES: readonly unknown[] = [];
@@ -187,8 +190,9 @@ function ChatAreaImpl(props: ChatAreaProps) {
   const hasFailedSends = useAppStore(
     (state) => (state.failedSendsByTask[activeTaskId]?.length ?? 0) > 0,
   );
-  const hasPendingAutoRoute = usePendingAutoRoutingStore((state) =>
-    Boolean(state.byTaskId[activeTaskId]),
+  // Waiting on Auto's classifier, or an Agent-mode prompt on its run.
+  const hasPendingSend = usePendingAutoRoutingStore((state) =>
+    selectHasPendingSend(state, activeTaskId),
   );
   const viewMode = resolveChatAreaViewMode({
     repositoryPath,
@@ -197,7 +201,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
     hasSelectedWorkspace,
     hasSelectedTask,
     activeTaskMessageCount,
-    hasUnsentPrompt: hasFailedSends || hasPendingAutoRoute,
+    hasUnsentPrompt: hasFailedSends || hasPendingSend,
   });
   const hydratingRepositoryCopy = resolveHydratingRepositoryCopy({
     persistenceBootstrapPhase,
@@ -375,9 +379,10 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <RenderProfiler id="PlanViewer">
               <PlanViewer />
             </RenderProfiler>
-            {/* Floating placement of the turn activity shelf. Renders only
-                when `settings.turnActivityPlacement === "floating"`; the
-                docked copy in ChatInput bows out symmetrically. */}
+            {/* The floating card of the turn's details. Renders only when
+                `settings.turnActivityPlacement === "floating"` and the
+                composer shelf's toggle has it open; the run line itself stays
+                on the shelf. */}
             <RenderProfiler id="TurnActivityFloating">
               <TurnActivity host="floating" />
             </RenderProfiler>

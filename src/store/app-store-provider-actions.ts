@@ -11,6 +11,7 @@ import {
   publishProviderTooling,
 } from "@/lib/providers/provider-readiness-store";
 import { createEmptyProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
+import { adjustRateLimitsInFlight } from "./rate-limits-account-reset";
 
 export function createProviderSupportActions(args: {
   set: StoreApi<AppState>["setState"];
@@ -42,7 +43,14 @@ export function createProviderSupportActions(args: {
           providerReadiness(id, runtimeOptions)?.generation,
         ]),
       );
-      set({ rateLimitsLoading: true, rateLimitsError: null });
+      set((state) => ({
+        rateLimitsLoading: true,
+        rateLimitsError: null,
+        rateLimitsInFlightByProvider: adjustRateLimitsInFlight(state.rateLimitsInFlightByProvider, requestedProviders, 1),
+      }));
+      const settled = (state: AppState) => ({
+        rateLimitsInFlightByProvider: adjustRateLimitsInFlight(state.rateLimitsInFlightByProvider, requestedProviders, -1),
+      });
       try {
         const snapshot = await getSnapshot({
           providers: requestedProviders,
@@ -70,8 +78,9 @@ export function createProviderSupportActions(args: {
               requestedAt >=
                 (state.rateLimitsUpdatedAtByProvider[providerId] ?? 0),
           );
-          if (providers.length === 0) return { rateLimitsLoading: false };
+          if (providers.length === 0) return { rateLimitsLoading: false, ...settled(state) };
           return {
+            ...settled(state),
             rateLimitsSnapshot: mergeRateLimitsSnapshots({
               current: state.rateLimitsSnapshot,
               incoming: snapshot,
@@ -87,11 +96,12 @@ export function createProviderSupportActions(args: {
           };
         });
       } catch (error) {
-        set({
+        set((state) => ({
+          ...settled(state),
           rateLimitsLoading: false,
           rateLimitsError:
             error instanceof Error ? error.message : String(error),
-        });
+        }));
       }
     },
     refreshProviderAvailability: () => {

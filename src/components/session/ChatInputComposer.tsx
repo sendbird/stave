@@ -38,7 +38,6 @@ import {
   subscribeComparePreparationRequest,
 } from "@/components/compare/compare-prepare-request";
 import {
-  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +45,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Kbd,
   toast,
   Tooltip,
   TooltipContent,
@@ -75,10 +73,7 @@ import {
   addTrustedToolEntry,
   buildTrustedToolEntryForApproval,
 } from "@/lib/providers/trusted-tools";
-import {
-  formatProviderTurnIdleDuration,
-  resolveProviderTurnDisplayState,
-} from "@/lib/providers/turn-status";
+import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import {
   cx,
@@ -124,7 +119,10 @@ import {
   resolvePastedFileAbsolutePath,
   toWorkspaceRelativeFilePath,
 } from "./chat-input.attachments";
-import { TurnActivity } from "./TurnActivity";
+import { ComposerShelf } from "./composer-shelf/ComposerShelf";
+import { reorderQueuedTurns } from "./composer-shelf/composer-shelf.utils";
+import type { QueuedTurnMove } from "./composer-shelf/ShelfQueue";
+import { useComposerShelfQueue } from "./composer-shelf/use-composer-shelf-queue";
 import {
   buildApprovalGuidancePrompt,
   canApplyPromptEnhancementResult,
@@ -474,13 +472,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     isTurnActive: args.isTurnActive && providerTurnDisplayState !== "stalled",
     canSteerActiveTurn,
   });
-  const stalledDurationLabel = useMemo(
-    () =>
-      providerTurnDisplayState === "stalled"
-        ? formatProviderTurnIdleDuration({ activity: providerTurnActivity })
-        : null,
-    [providerTurnActivity, providerTurnDisplayState],
-  );
   const promptHistoryEntries = useMemo(
     () => getPromptHistoryEntries(activeTaskMessages),
     [activeTaskMessages],
@@ -929,6 +920,18 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     });
   }
 
+  // Reorders what is queued now, read from the store, so a dispatch that
+  // landed mid-drag is never written back.
+  function reorderQueuedTurn(move: QueuedTurnMove) {
+    const current =
+      useAppStore.getState().promptDraftByTask[args.providerSelectionTarget]
+        ?.queuedTurns ?? [];
+    const next = reorderQueuedTurns(current, move);
+    if (next !== current) {
+      updateNonTextPromptDraft({ queuedTurns: [...next] });
+    }
+  }
+
   // Manually dispatch one staged queued turn while no turn is running (e.g.
   // after the user interrupted the run that would have auto-dispatched it).
   // The composer draft stays untouched; only the item leaves the queue.
@@ -996,6 +999,37 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       setSteerSubmissionPending(submissionTaskId, false);
     }
   }
+
+  const composerDisabled =
+    isInputBlocked || isSteerSubmitting || managedTaskComposerAccess.disabled;
+  const shelfQueue = useComposerShelfQueue({
+    listId: args.providerSelectionTarget,
+    queuedTurns,
+    queuedNextTurn,
+    submitMode: managedTaskComposerAccess.submitMode,
+    disabled: composerDisabled,
+    isTurnActive: args.isTurnActive,
+    canSteerQueuedTurn: canSteerQueuedTurns,
+    selectedModel: args.selectedModelOption,
+    modelOptions: args.modelOptions,
+    onSteer: (itemId) => void steerQueuedTurnNow(itemId),
+    onSend: (itemId) => void sendQueuedTurnNow(itemId),
+    onUpdate: updateQueuedTurn,
+    onRemove: removeQueuedTurn,
+    onReorder: reorderQueuedTurn,
+    onClearAll: () => {
+      cancelPendingDraftSave();
+      updatePromptDraft({
+        taskId: args.providerSelectionTarget,
+        patch: { queuedNextTurn: undefined, queuedTurns: undefined },
+      });
+    },
+  });
+  const composerShelf = (
+    <RenderProfiler id="ComposerShelf">
+      <ComposerShelf framed={useFramedComposer} steering={isSteerSubmitting} queue={shelfQueue} />
+    </RenderProfiler>
+  );
 
   const filePicker = window.api?.fs?.pickFiles;
   const workspaceRootPath = args.workspaceCwd?.trim() || undefined;
@@ -1341,50 +1375,12 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           />
         ) : <MissionSignOffSlot />}
         <ChildRequestSlot taskId={args.activeTaskId} />
-        {isSteerSubmitting ? (
-          <div
-            className={sx(chatInputStyles.steerRow)}
-            role="status"
-            aria-live="polite"
-          >
-            <span
-              className={sx(chatInputStyles.steerDot)}
-              aria-hidden
-            />
-            <span>Steering · waiting for provider acknowledgement</span>
-          </div>
-        ) : null}
-        {providerTurnDisplayState === "stalled" ? (
-          <div className={sx(chatInputStyles.stalledBanner)}>
-            <div className={sx(chatInputStyles.stalledInner)}>
-              <Badge variant="warning" className={sx(chatInputStyles.stalledBadge)}>
-                Stalled
-              </Badge>
-              <span>
-                No provider events for {stalledDurationLabel ?? "a while"}. This
-                run may be stuck. Press <Kbd>Esc</Kbd> or use stop to interrupt
-                it — or just send a new message to interrupt this run and
-                continue.
-              </span>
-            </div>
-          </div>
-        ) : null}
-        {useFramedComposer ? null : (
-          // Classic mode is the shipped stack: a full-measure activity shelf
-          // sitting directly on a full-measure card.
-          <RenderProfiler id="TurnActivity">
-            <TurnActivity />
-          </RenderProfiler>
-        )}
+        {/* Steering, a stalled turn and the queue are rows and tones of the one
+            shelf; classic mode stacks it on the card, the frame tucks it in. */}
+        {useFramedComposer ? null : composerShelf}
         <PromptInput
           framed={useFramedComposer}
-          frameTop={
-            useFramedComposer ? (
-              <RenderProfiler id="TurnActivity">
-                <TurnActivity frameInset />
-              </RenderProfiler>
-            ) : undefined
-          }
+          frameTop={useFramedComposer ? composerShelf : undefined}
           frameBottom={useFramedComposer ? <ComposerWorkspaceBar /> : undefined}
           focusToken={`${args.providerSelectionTarget}:${focusNonce}`}
           value={draftText}
@@ -1397,11 +1393,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             handlePromptEnhancementRevealComplete
           }
           onBlur={commitCurrentDraftText}
-          disabled={
-            isInputBlocked ||
-            isSteerSubmitting ||
-            managedTaskComposerAccess.disabled
-          }
+          disabled={composerDisabled}
           windowShortcutsEnabled={args.windowShortcutsEnabled}
           isTurnActive={args.isTurnActive}
           composerControlPlacements={composerControlPlacements}
@@ -1603,25 +1595,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             )
           }
           submitMode={managedTaskComposerAccess.submitMode}
-          queuedNextTurn={queuedNextTurn}
-          queuedTurns={queuedTurns}
           promptBatch={promptBatch}
           promptCommentShortcut={promptCommentShortcut}
           steerQueueEnterAction={steerQueueEnterAction}
-          onClearQueuedNextTurn={
-            queuedNextTurn || queuedTurns.length > 0
-              ? () => {
-                  cancelPendingDraftSave();
-                  updatePromptDraft({
-                    taskId: args.providerSelectionTarget,
-                    patch: {
-                      queuedNextTurn: undefined,
-                      queuedTurns: undefined,
-                    },
-                  });
-                }
-              : undefined
-          }
           selectedModel={args.selectedModelOption}
           modelOptions={args.modelOptions}
           modelCatalogs={args.modelCatalogs}
@@ -1659,11 +1635,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           onRemovePromptBatchItem={({ itemId }) =>
             removePromptBatchItem(itemId)
           }
-          onUpdateQueuedTurn={updateQueuedTurn}
-          onRemoveQueuedTurn={({ itemId }) => removeQueuedTurn(itemId)}
-          onSendQueuedTurn={({ itemId }) => void sendQueuedTurnNow(itemId)}
-          canSteerQueuedTurn={canSteerQueuedTurns}
-          onSteerQueuedTurn={({ itemId }) => void steerQueuedTurnNow(itemId)}
           onSuggestionSelect={async (suggestion) => {
             cancelPendingDraftSave();
             useAppStore.getState().requestTaskScrollToLatest({

@@ -23,8 +23,6 @@ import {
 import type {
   Attachment,
   PromptDraftBatchItem,
-  PromptDraftQueuedTurn,
-  PromptDraftQueuedNextTurn,
   UserInputPart,
 } from "@/types/chat";
 import {
@@ -80,7 +78,6 @@ import {
   toast,
 } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
-import { PromptInputQueuedTurns } from "./prompt-input-queued-turns";
 import { UserInputCard } from "./user-input-card";
 import type {
   CommandPaletteItem,
@@ -253,8 +250,6 @@ interface PromptInputProps {
    * `submitCurrentMessage`'s `intent` param.
    */
   submitMode?: "send" | "queue-next" | "steer-or-queue";
-  queuedNextTurn?: PromptDraftQueuedNextTurn | null;
-  queuedTurns?: readonly PromptDraftQueuedTurn[];
   promptBatch?: readonly PromptDraftBatchItem[];
   promptCommentShortcut?: PromptCommentShortcut;
   /**
@@ -373,28 +368,6 @@ interface PromptInputProps {
   }) => void | Promise<void>;
   onStagePromptBatch?: () => void;
   onRemovePromptBatchItem?: (args: { itemId: string }) => void;
-  onUpdateQueuedTurn?: (args: { itemId: string; content: string }) => void;
-  onRemoveQueuedTurn?: (args: { itemId: string }) => void;
-  /**
-   * Dispatch one queued turn immediately. Only offered while the composer is
-   * in plain "send" mode (idle or stalled turn) — during an active turn the
-   * queue drains automatically on completion instead.
-   */
-  onSendQueuedTurn?: (args: { itemId: string }) => void;
-  /**
-   * Push one queued turn into the response that is currently streaming, so a
-   * message that landed in the queue mid-turn does not have to wait for that
-   * turn to finish. Only offered while a turn is active and the host reports
-   * the turn as steerable via `canSteerQueuedTurn`.
-   */
-  onSteerQueuedTurn?: (args: { itemId: string }) => void;
-  /**
-   * Whether the active turn accepts mid-turn steering at all (setting on,
-   * provider supports it, turn live and not stalled). Attachment eligibility
-   * is decided per queue item, not here.
-   */
-  canSteerQueuedTurn?: boolean;
-  onClearQueuedNextTurn?: () => void;
   onAbort?: () => void;
 }
 
@@ -837,8 +810,6 @@ export function PromptInput(args: PromptInputProps) {
     minimal = false,
     isTurnActive,
     submitMode = "send",
-    queuedNextTurn,
-    queuedTurns = [],
     promptBatch = [],
     promptCommentShortcut = DEFAULT_PROMPT_COMMENT_SHORTCUT,
     steerQueueEnterAction = DEFAULT_STEER_QUEUE_ENTER_ACTION,
@@ -916,12 +887,6 @@ export function PromptInput(args: PromptInputProps) {
     onSubmit,
     onStagePromptBatch,
     onRemovePromptBatchItem,
-    onUpdateQueuedTurn,
-    onRemoveQueuedTurn,
-    onSendQueuedTurn,
-    onSteerQueuedTurn,
-    canSteerQueuedTurn = false,
-    onClearQueuedNextTurn,
     onAbort,
   } = args;
   const isMobile = useIsMobile();
@@ -943,24 +908,6 @@ export function PromptInput(args: PromptInputProps) {
     value,
     onComplete: onPromptEnhancementRevealComplete,
   });
-  const legacyQueuedTurns = useMemo<readonly PromptDraftQueuedTurn[]>(
-    () =>
-      queuedNextTurn?.content?.trim()
-        ? [
-            {
-              id: `legacy-${queuedNextTurn.queuedAt}`,
-              queuedAt: queuedNextTurn.queuedAt,
-              sourceTurnId: queuedNextTurn.sourceTurnId,
-              content: queuedNextTurn.content,
-              attachedFilePaths: [],
-              attachments: [],
-            },
-          ]
-        : [],
-    [queuedNextTurn],
-  );
-  const visibleQueuedTurns =
-    queuedTurns.length > 0 ? queuedTurns : legacyQueuedTurns;
   const imageAttachments = useMemo(
     () =>
       (attachments ?? []).filter(
@@ -1005,17 +952,6 @@ export function PromptInput(args: PromptInputProps) {
     attachedFilePaths.length +
     standaloneImageAttachments.length +
     workspaceInformationAttachments.length;
-  const queuedFileCount = visibleQueuedTurns.reduce(
-    (count, item) => count + item.attachedFilePaths.length,
-    0,
-  );
-  const queuedImageCount = visibleQueuedTurns.reduce(
-    (count, item) =>
-      count +
-      item.attachments.filter((attachment) => attachment.kind === "image")
-        .length,
-    0,
-  );
   const lensCommentCount = lensAnnotationAttachments.reduce(
     (count, attachment) =>
       count + (attachment.annotations?.length ?? attachment.count),
@@ -1079,10 +1015,6 @@ export function PromptInput(args: PromptInputProps) {
   const agentSelectorNonce = useAgentsUiStore((state) => state.agentSelectorNonce);
   const handledAgentSelectorNonce = useRef(agentSelectorNonce);
   const [agentsOpenToken, setAgentsOpenToken] = useState<number | undefined>(undefined);
-  const [editingQueuedTurnId, setEditingQueuedTurnId] = useState<string | null>(
-    null,
-  );
-  const [editingQueuedTurnContent, setEditingQueuedTurnContent] = useState("");
   const promptEditorRef = useRef<PromptLexicalEditorHandle | null>(null);
   usePromptEnhancementScrollReset({
     editorRef: promptEditorRef,
@@ -1157,22 +1089,6 @@ export function PromptInput(args: PromptInputProps) {
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
   const isQueueNextMode = submitMode === "queue-next";
   const isSteerOrQueueMode = submitMode === "steer-or-queue";
-  // Manual queued-turn dispatch is only offered in plain "send" mode (no live
-  // turn, or a stalled one about to be replaced) and only for store-backed
-  // queue items — the legacy single-item fallback has no dispatchable id.
-  const canSendQueuedTurnNow =
-    Boolean(onSendQueuedTurn) &&
-    submitMode === "send" &&
-    !interactionsDisabled &&
-    queuedTurns.length > 0;
-  // Steering a queued item into the live turn is the mirror image: offered
-  // only while a turn IS running, and again only for store-backed items.
-  const canSteerQueuedTurnNow =
-    Boolean(onSteerQueuedTurn) &&
-    canSteerQueuedTurn &&
-    isTurnActive &&
-    !interactionsDisabled &&
-    queuedTurns.length > 0;
   const modifierLabel = useMemo(
     () =>
       typeof navigator !== "undefined" &&
@@ -2741,41 +2657,6 @@ export function PromptInput(args: PromptInputProps) {
                 />
               ))}
             </Suggestions>
-          ) : null}
-          {visibleQueuedTurns.length > 0 ? (
-            <PromptInputQueuedTurns
-              queuedTurns={visibleQueuedTurns}
-              selectedModel={selectedModel}
-              modelOptions={modelOptions}
-              isTurnActive={Boolean(isTurnActive)}
-              canSteerQueuedTurnNow={Boolean(canSteerQueuedTurnNow)}
-              canSendQueuedTurnNow={canSendQueuedTurnNow}
-              queuedFileCount={queuedFileCount}
-              queuedImageCount={queuedImageCount}
-              editingQueuedTurnId={editingQueuedTurnId}
-              editingQueuedTurnContent={editingQueuedTurnContent}
-              onEditingQueuedTurnContentChange={setEditingQueuedTurnContent}
-              onStartEdit={(item) => {
-                setEditingQueuedTurnId(item.id);
-                setEditingQueuedTurnContent(item.content);
-              }}
-              onCancelEdit={() => {
-                setEditingQueuedTurnId(null);
-                setEditingQueuedTurnContent("");
-              }}
-              onSaveEdit={(itemId) => {
-                onUpdateQueuedTurn?.({
-                  itemId,
-                  content: editingQueuedTurnContent.trim(),
-                });
-                setEditingQueuedTurnId(null);
-                setEditingQueuedTurnContent("");
-              }}
-              onClearAll={onClearQueuedNextTurn}
-              onSteer={(itemId) => onSteerQueuedTurn?.({ itemId })}
-              onSend={(itemId) => onSendQueuedTurn?.({ itemId })}
-              onRemove={(itemId) => onRemoveQueuedTurn?.({ itemId })}
-            />
           ) : null}
           <Popover
             open={activePalette !== null}

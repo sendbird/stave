@@ -24,8 +24,12 @@ import { isActiveMissionState, latestStageRecord, type Mission } from "@/lib/mis
 import { buildMissionTurnDividers, isOlderMissionDetail } from "@/lib/missions/mission-view";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { isAgentRun } from "@/lib/missions/agent-run";
+import { describeAgentRunStatus, resolveAgentRunFirstPrompt } from "@/lib/missions/agent-run-view";
 import { registerAgentRunBridge } from "@/store/agent-run-send";
 import { useAppStore } from "@/store/app.store";
+import type { ChatMessage } from "@/types/chat";
+
+const NO_MESSAGES: ChatMessage[] = [];
 
 type CommandName =
   | "signOff"
@@ -278,6 +282,34 @@ registerAgentRunBridge({
   },
   start: (input) => useMissionsStore.getState().startMission(input),
   cancel: (missionId) => useMissionsStore.getState().runCommand("cancel", { missionId }),
+  watchFirstPrompt: ({ taskId, missionId }, onEnd) => {
+    // Both stores notify synchronously, so the pending row ends in the same
+    // render the run's row arrives in. Unchanged inputs skip the scan.
+    let lastMessages: unknown = null;
+    let lastDetail: unknown = null;
+    let done = false;
+    const check = () => {
+      if (done) return;
+      const messages = useAppStore.getState().messagesByTask[taskId] ?? NO_MESSAGES;
+      const detail = useMissionsStore.getState().details[missionId];
+      if (messages === lastMessages && detail === lastDetail) return;
+      lastMessages = messages;
+      lastDetail = detail;
+      const state = resolveAgentRunFirstPrompt({ missionId, messages, detail });
+      if (state === "pending") return;
+      done = true;
+      stopApp();
+      stopMissions();
+      onEnd(
+        state === "landed"
+          ? { outcome: "landed" }
+          : { outcome: "ended", reason: detail ? describeAgentRunStatus(detail).reason : null },
+      );
+    };
+    const stopApp = useAppStore.subscribe(check);
+    const stopMissions = useMissionsStore.subscribe(check);
+    check();
+  },
 });
 
 /** The task's mission detail, or undefined. Returns the stored reference. */

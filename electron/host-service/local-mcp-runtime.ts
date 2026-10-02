@@ -1707,6 +1707,7 @@ async function runTaskImpl(args: {
   retrievedContextParts?: CanonicalRetrievedContextPart[];
   /** Set only by the mission supervisor; the provider runtime mints the grant. */
   missionStage?: import("../../src/lib/missions/domain").MissionStageIdentity;
+  agentRunPrompt?: import("../../src/types/chat").AgentRunPromptProvenance; // mission supervisor only: marks the user row
   spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null }; // the calling turn caps this one
 }) {
   const controlGeneration = taskControlGate.capture(args.taskId);
@@ -1948,14 +1949,10 @@ async function runTaskImpl(args: {
     // reload from this persisted row, so omitting it left the footer on the
     // model name alone.
     ...(args.runtimeOptions
-      ? {
-          modelInfo: resolveTurnModelInfo({
-            providerId: provider,
-            runtimeOptions: args.runtimeOptions,
-          }),
-        }
+      ? { modelInfo: resolveTurnModelInfo({ providerId: provider, runtimeOptions: args.runtimeOptions }) }
       : {}),
     content: args.prompt,
+    ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),
   });
   session = cacheWorkspaceSession(args.workspaceId, {
     ...session,

@@ -1,4 +1,4 @@
-import { emptyRateLimitsSnapshot } from "@/lib/providers/account-usage-block";
+import { providersWithChangedAccount, resetRateLimitsForProviders } from "@/store/rate-limits-account-reset";
 import type { StoreApi } from "zustand";
 import { normalizeMyStandards } from "@/lib/agents/standards";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
@@ -650,10 +650,12 @@ export function createSettingsActions(args: {
         ) {
           return state;
         }
+        // Only the provider whose account changed loses its numbers.
+        const switched = providersWithChangedAccount(state.settings, nextSettings);
         const nextState: Partial<AppState> = {
           settings: nextSettings,
-          ...(nextSettings.claudeAccountProfileId !== state.settings.claudeAccountProfileId || nextSettings.codexAccountProfileId !== state.settings.codexAccountProfileId
-            ? { rateLimitsSnapshot: emptyRateLimitsSnapshot(), rateLimitsUpdatedAtByProvider: {}, rateLimitsError: null } : {}),
+          ...(switched.length > 0
+            ? { ...resetRateLimitsForProviders(state, switched), rateLimitsError: null } : {}),
         };
         if (nextIsDark !== null) {
           nextState.isDarkMode = nextIsDark;
@@ -673,7 +675,9 @@ export function createSettingsActions(args: {
         }
       }
       if (normalizedPatch.claudeAccountProfileId !== undefined || normalizedPatch.codexAccountProfileId !== undefined) {
-        void get().refreshRateLimits();
+        const providers = (["claude-code", "codex"] as const).filter((providerId) =>
+          providerId === "codex" ? normalizedPatch.codexAccountProfileId !== undefined : normalizedPatch.claudeAccountProfileId !== undefined);
+        void get().refreshRateLimits({ providers: [...providers] });
         void get().refreshProviderAvailability();
       }
       if (normalizedPatch.cursorBinaryPath !== undefined || normalizedPatch.kiroBinaryPath !== undefined) {

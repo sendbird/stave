@@ -174,16 +174,17 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Show optional examples and saved-context links when starting a task. */
   showTaskStartExamples: boolean;
   /**
-   * Open the turn activity shelf (above the prompt input) expanded by default
-   * so every tracked activity is visible without a click. Users can still
-   * collapse it manually for the current turn; the next turn re-applies this
-   * default.
+   * Open a run's details when it starts (the list under the composer shelf's
+   * run line, or the floating card) instead of the one-line summary alone.
+   * A manual toggle lasts for that run; the next run re-applies this default.
+   * Off by default: the run line already says what is happening.
    */
   turnActivityExpandedByDefault: boolean;
   /**
-   * Where the turn activity surface renders: docked above the prompt input
-   * (default), floating as a draggable card over the message pane, or inside
-   * the right rail's Activity panel for a full-height view.
+   * Where a run's details open. The one-line run summary always sits on the
+   * composer shelf; `docked` unfolds the list under it (default), `floating`
+   * shows a draggable card over the message pane, and `panel` sends the
+   * shelf's toggle to the Task panel's Activity tab.
    */
   turnActivityPlacement: TurnActivityPlacement;
   /**
@@ -668,7 +669,7 @@ export const defaultSettings: AppSettings = {
   showInterimMessages: false,
   showConversationTurnRail: true,
   showTaskStartExamples: true,
-  turnActivityExpandedByDefault: true,
+  turnActivityExpandedByDefault: false,
   turnActivityPlacement: "docked",
   composerLayout: "framed",
   composerControlPlacements: {},
