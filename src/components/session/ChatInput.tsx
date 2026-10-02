@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   buildAutoModelSelectorOption,
+  buildModelEnrichmentFromCatalogs,
   buildModelSelectorOptions,
   buildModelSelectorValue,
   type ModelSelectorOption,
@@ -507,35 +508,10 @@ function BaseChatInput() {
         description: providerModelCatalogs.catalogs[activeProvider].entries.find((entry) => entry.model === activeModel)?.description,
         available: activeProviderAvailable,
       });
-  const modelEnrichment = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        label?: string;
-        description?: string;
-        isDefault?: boolean;
-        defaultEffort?: string;
-        supportedEfforts?: readonly string[];
-      }
-    >();
-    for (const [providerId, catalog] of Object.entries(
-      providerModelCatalogs.catalogs,
-    )) {
-      for (const entry of catalog.entries) {
-        const id = entry.model.trim();
-        if (id) {
-          map.set(`${providerId}:${id}`, {
-            label: entry.displayName || undefined,
-            description: entry.description || undefined,
-            isDefault: entry.isDefault || undefined,
-            defaultEffort: entry.defaultEffort || undefined,
-            supportedEfforts: entry.supportedEfforts,
-          });
-        }
-      }
-    }
-    return map.size > 0 ? map : undefined;
-  }, [providerModelCatalogs.catalogs]);
+  const modelEnrichment = useMemo(
+    () => buildModelEnrichmentFromCatalogs(providerModelCatalogs.catalogs),
+    [providerModelCatalogs.catalogs],
+  );
   const modelOptions = useMemo<ModelSelectorOption[]>(
     () => [
       autoModelOption,

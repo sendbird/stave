@@ -1,4 +1,5 @@
 import { ProviderAccountsSettings } from "./ProviderAccountsSettings";
+import { ApiConnectionsSettings } from "./ApiConnectionsSettings";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { CODEX_MODEL_AVAILABILITY_GUIDANCE } from "@/lib/providers/codex-model-requirements";
 import { getClaudeModelVersionGuidance } from "@/lib/providers/claude-model-requirements";
@@ -396,6 +397,7 @@ export function ToolingSection() {
     <>
       <SectionStack>
         <ProviderAccountsSettings />
+        <ApiConnectionsSettings />
         <SettingsCard
           title="Native Tooling Status"
           description="These checks mirror the native binaries and auth surfaces Stave uses for provider turns, PR actions, and terminal-backed workflows."

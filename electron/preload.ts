@@ -2,6 +2,7 @@ import { PROPOSAL_IPC, type ProposalsBridgeApi } from "../src/lib/missions/propo
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
 import { providerAccountsApi } from "./provider-accounts/preload";
+import { apiConnectionsApi } from "./provider-accounts/api-connections-preload";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
@@ -3496,4 +3497,5 @@ contextBridge.exposeInMainWorld("api", {
       }>,
   },
   providerAccounts: providerAccountsApi,
+  apiConnections: apiConnectionsApi,
 });

@@ -1,5 +1,5 @@
 import { providerAccountKey, withProviderAccountScope } from "../../provider-accounts/runtime-scope";
-import { currentClaudeGateway } from "../../provider-accounts/gateway-runtime";
+import { currentClaudeGateway, peekApiConnection } from "../../provider-accounts/gateway-runtime";
 import { emptyRateLimitsSnapshot } from "../../../src/lib/providers/account-usage-block";
 import type {
   ProviderId,
@@ -98,8 +98,8 @@ export async function getRateLimitsSnapshot(args: {
     if (!shouldFetchProvider(providerId, providers)) {
       return empty[key];
     }
-    if (providerId === "claude-code" && currentClaudeGateway())
-      return { ...empty[key], error: "Gateway API billing: subscription quota is not available." };
+    if ((providerId === "claude-code" && currentClaudeGateway()) || (providerId === "codex" && peekApiConnection("codex")))
+      return { ...empty[key], error: "API billing through an API connection: subscription quota is not available." };
     const readKey = isOptionalProvider(providerId)
       ? (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions)
       : providerAccountKey(providerId, providerId);

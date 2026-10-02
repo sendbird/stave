@@ -5,7 +5,7 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import { DEFAULT_MODEL_SHORTCUT_KEYS } from "@/lib/providers/model-shortcuts";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import type { ProviderId, ProviderModelCatalogEntry } from "@/lib/providers/provider.types";
 
 export interface ModelSelectorOption {
   key: string;
@@ -18,6 +18,10 @@ export interface ModelSelectorOption {
   available: boolean;
   defaultEffort?: string;
   supportedEfforts?: readonly string[];
+  /** Sub-group under the runtime, such as an API connection's "<name> · API billing". */
+  group?: string;
+  /** Short tag beside the label, such as "experimental". */
+  badge?: string;
 }
 
 export function shouldOpenModelSelector(args: {
@@ -44,6 +48,8 @@ function buildModelSelectorOption(args: {
   isDefault?: boolean;
   defaultEffort?: string;
   supportedEfforts?: readonly string[];
+  group?: string;
+  badge?: string;
 }): ModelSelectorOption {
   return {
     key: `${args.providerId}:${args.model}`,
@@ -60,6 +66,8 @@ function buildModelSelectorOption(args: {
     defaultEffort: args.defaultEffort,
     supportedEfforts: args.supportedEfforts,
     available: args.available ?? true,
+    ...(args.group ? { group: args.group } : {}),
+    ...(args.badge ? { badge: args.badge } : {}),
   };
 }
 
@@ -123,6 +131,31 @@ export interface ModelEnrichment {
   isDefault?: boolean;
   defaultEffort?: string;
   supportedEfforts?: readonly string[];
+  group?: string;
+  badge?: string;
+}
+
+/** Picker enrichment keyed `${providerId}:${model}` from each runtime's catalog entries. */
+export function buildModelEnrichmentFromCatalogs(
+  catalogs: Partial<Record<ProviderId, { entries: readonly ProviderModelCatalogEntry[] }>>,
+): Map<string, ModelEnrichment> | undefined {
+  const map = new Map<string, ModelEnrichment>();
+  for (const [providerId, catalog] of Object.entries(catalogs)) {
+    for (const entry of catalog?.entries ?? []) {
+      const id = entry.model.trim();
+      if (!id) continue;
+      map.set(`${providerId}:${id}`, {
+        label: entry.displayName || undefined,
+        description: entry.description || undefined,
+        isDefault: entry.isDefault || undefined,
+        defaultEffort: entry.defaultEffort || undefined,
+        supportedEfforts: entry.supportedEfforts,
+        group: entry.group,
+        badge: entry.badge,
+      });
+    }
+  }
+  return map.size > 0 ? map : undefined;
 }
 
 export function buildModelSelectorOptions(args: {
@@ -147,6 +180,8 @@ export function buildModelSelectorOptions(args: {
         isDefault: enrichment?.isDefault,
         defaultEffort: enrichment?.defaultEffort,
         supportedEfforts: enrichment?.supportedEfforts,
+        group: enrichment?.group,
+        badge: enrichment?.badge,
       });
     }),
   );

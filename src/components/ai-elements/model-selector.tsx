@@ -39,6 +39,7 @@ import {
 
 export {
   buildAutoModelSelectorOption,
+  buildModelEnrichmentFromCatalogs,
   buildModelSelectorOptions,
   buildModelSelectorValue,
   buildRecommendedModelSelectorOptions,
@@ -99,19 +100,21 @@ export function ModelSelector(args: ModelSelectorProps) {
     [options],
   );
 
+  // One group per runtime, plus one per labeled sub-group (an API connection)
+  // under the runtime that serves it.
   const groupedOptions = useMemo(() => {
-    const groups: Record<string, ModelSelectorOption[]> = {};
+    const groups = new Map<string, { providerId: ModelSelectorOption["providerId"]; group?: string; options: ModelSelectorOption[] }>();
     for (const option of options) {
       if (option.isAuto || recommendedOptionKeys.has(option.key)) {
         continue;
       }
-      const bucket = groups[option.providerId] ?? [];
-      bucket.push(option);
-      groups[option.providerId] = bucket;
+      const key = `${option.providerId}\u0000${option.group ?? ""}`;
+      const bucket = groups.get(key) ?? { providerId: option.providerId, group: option.group, options: [] };
+      bucket.options.push(option);
+      groups.set(key, bucket);
     }
-    return listProviderIds()
-      .map((providerId) => [providerId, groups[providerId] ?? []] as const)
-      .filter(([, providerOptions]) => providerOptions.length > 0);
+    return listProviderIds().flatMap((providerId) =>
+      [...groups.values()].filter((group) => group.providerId === providerId));
   }, [options, recommendedOptionKeys]);
 
   const effortEnabled = effort !== undefined && !value.isAuto;
@@ -175,6 +178,9 @@ export function ModelSelector(args: ModelSelectorProps) {
           <span className={sx(styles.optionLabel)}>{option.label}</span>
           {option.isDefault ? (
             <span className={sx(styles.optionDefaultBadge)}>default</span>
+          ) : null}
+          {option.badge ? (
+            <span className={sx(styles.optionNoticeBadge)} title={option.description}>{option.badge}</span>
           ) : null}
         </span>
         <span className={sx(styles.optionDescription)}>
@@ -274,12 +280,17 @@ export function ModelSelector(args: ModelSelectorProps) {
             {recommendedOptions.length > 0 && groupedOptions.length > 0 ? (
               <CommandSeparator />
             ) : null}
-            {groupedOptions.map(([providerId, providerOptions]) => (
+            {groupedOptions.map(({ providerId, group, options: groupOptions }) => (
               <CommandGroup
-                key={providerId}
-                heading={getProviderLabel({ providerId, variant: "full" })}
+                key={`${providerId}:${group ?? ""}`}
+                heading={group ? (
+                  <span className={sx(styles.groupHeading)}>
+                    <span>{getProviderLabel({ providerId, variant: "full" })}</span>
+                    <span className={sx(styles.groupHeadingMeta)}>{group}</span>
+                  </span>
+                ) : getProviderLabel({ providerId, variant: "full" })}
               >
-                {providerOptions.map(renderOption)}
+                {groupOptions.map(renderOption)}
               </CommandGroup>
             ))}
           </CommandList>

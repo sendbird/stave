@@ -11,7 +11,6 @@ import { AccountsGuideButton } from "./AccountsGuideButton";
 import { ProviderAccountPicker } from "./ProviderAccountPicker";
 import { ProviderAccountAddForm } from "./ProviderAccountAddForm";
 import { ProviderAccountLoginTerminal } from "./ProviderAccountLoginTerminal";
-import { ClaudeGatewaySettings } from "./ClaudeGatewaySettings";
 import { ProviderAccountIdentityLine } from "./ProviderAccountIdentityLine";
 import { ProviderAccountSetupSharing } from "./ProviderAccountSetupSharing";
 import { useProviderAccountIdentities } from "@/lib/providers/use-provider-account-identity";
@@ -99,7 +98,7 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
   >
     <div className={sx(styles.stack)}>
       <ProviderAccountPicker providerId={providerId} />
-      {profiles.filter(p => p.providerId === providerId).map(p => <AccountRow key={p.id} profile={p} name={name} run={run} login={login} busy={busy} signingIn={loginSession?.profileId === p.id} />)}
+      {profiles.filter(p => p.providerId === providerId && !p.apiConnection).map(p => <AccountRow key={p.id} profile={p} name={name} run={run} login={login} busy={busy} signingIn={loginSession?.profileId === p.id} />)}
       <ProviderAccountAddForm providerId={providerId} name={name} busy={busy} run={run} login={login} />
       {error && <p role="alert" className={sx(styles.error)}>{error}</p>}
       {loginSession && <div className={sx(styles.stack)}>
@@ -113,7 +112,6 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
         <ProviderAccountLoginTerminal key={loginSession.id} sessionId={loginSession.id} />
         <p className={sx(styles.muted)}>Follow the steps in the terminal; it may open your browser. When it says you are signed in, close the terminal. Stave then checks who is signed in and refreshes usage for the account new turns use.</p>
       </div>}
-      {providerId === "claude-code" && <ClaudeGatewaySettings />}
     </div>
   </SettingsCard>;
 }

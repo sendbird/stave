@@ -1,5 +1,6 @@
 import { useAccountRuntimeOptions, useProviderAccounts } from "./use-provider-accounts";
 import { selectedProviderAccount } from "./provider-account-selection";
+import { buildApiConnectionCatalogEntries } from "./api-connection-models";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { registerCursorModelDisplayNames } from "@/lib/providers/cursor-model-id";
 import {
@@ -43,18 +44,18 @@ type CachedProviderModelCatalog = ProviderModelCatalogState & {
 const catalogCache = new Map<string, CachedProviderModelCatalog>();
 const catalogInflight = new Map<string, Promise<CachedProviderModelCatalog>>();
 
-/** Registered Gateway models are an exclusive catalog, never merged with native defaults. */
+/** An API connection's pinned models are an exclusive catalog, never merged with native defaults. */
 export function configuredGatewayCatalog(args: {
   providerId: ProviderId; runtimeOptions?: ProviderRuntimeOptions;
 }): CachedProviderModelCatalog | undefined {
-  if (args.providerId !== "claude-code") return undefined;
-  const gateway = useProviderAccounts.getState().profiles.find(profile =>
-    profile.providerId === "claude-code" && profile.id === selectedProviderAccount("claude-code", args.runtimeOptions))?.gateway;
-  if (!gateway) return undefined;
+  if (args.providerId !== "claude-code" && args.providerId !== "codex") return undefined;
+  const profile = useProviderAccounts.getState().profiles.find(candidate =>
+    candidate.providerId === args.providerId && candidate.id === selectedProviderAccount(args.providerId, args.runtimeOptions));
+  if (!profile?.gateway) return undefined;
+  const entries = buildApiConnectionCatalogEntries({ runtime: args.providerId, profile });
   return {
-    status: "ready", models: gateway.models,
-    entries: gateway.models.map((model, index) => ({ model, displayName: model, description: "Gateway · API billing", hidden: false, isDefault: index === 0, defaultEffort: null, supportedEfforts: [] })),
-    detail: "Configured Gateway models; endpoint support is unverified until checked.",
+    status: "ready", models: entries.map((entry) => entry.model), entries,
+    detail: "Models pinned on the API connection; gateway support is unverified until checked.",
     isDynamic: true, fetchedAt: Date.now(),
   };
 }

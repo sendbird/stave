@@ -407,6 +407,10 @@ export interface ProviderModelCatalogEntry {
   isDefault: boolean;
   defaultEffort: string | null;
   supportedEfforts: string[];
+  /** Picker group under the runtime, such as "Company gateway · API billing". */
+  group?: string;
+  /** Short tag beside the name, such as "experimental". */
+  badge?: string;
 }
 
 export interface ProviderModelCatalogResponse {

@@ -1,20 +1,23 @@
 import { z } from "zod";
+import { ApiConnectionModelIdSchema, HttpsBaseUrlSchema, VERCEL_AI_GATEWAY } from "./api-connections";
 
-export const CLAUDE_GATEWAY_PRESET_URL = "https://ai-gateway.vercel.sh/claude-code";
+export const CLAUDE_GATEWAY_PRESET_URL = VERCEL_AI_GATEWAY.endpoints["claude-code"];
 /** The model the Vercel AI Gateway preset starts with, in the gateway's routing form. */
 export const CLAUDE_GATEWAY_PRESET_MODEL = "anthropic/claude-sonnet-5";
 
-export const ClaudeGatewayModelSchema = z.string().trim().max(200)
-  .regex(/^(?:claude-code\/)?(?:anthropic\/)?claude-[a-z0-9][a-z0-9.\[\]-]*$/);
+/**
+ * Any gateway model ID, Claude or not. Non-Claude models are experimental in
+ * Claude Code (see `isExperimentalApiConnectionModel`), not rejected.
+ */
+export const ClaudeGatewayModelSchema = ApiConnectionModelIdSchema;
 
+/**
+ * The Claude runtime's view of an API connection: its Claude Code endpoint,
+ * key reference and pinned model IDs. Also the shape older builds stored on a
+ * Claude account profile before connections were shared with Codex.
+ */
 export const ClaudeGatewaySchema = z.object({
-  baseUrl: z.string().trim().max(2048).url().refine(value => {
-    try {
-      const url = new URL(value);
-      return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash;
-    } catch { return false; }
-  }, "Use an HTTPS base URL without credentials, query parameters, or a fragment.")
-    .transform(value => value.replace(/\/+$/, "")),
+  baseUrl: HttpsBaseUrlSchema,
   secretId: z.uuid(),
   models: z.array(ClaudeGatewayModelSchema).min(1).max(50)
     .refine(values => new Set(values).size === values.length, "Model IDs must be unique."),

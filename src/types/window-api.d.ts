@@ -1,5 +1,6 @@
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
 import type { ProviderAccountsBridgeApi } from "@/lib/providers/provider-accounts";
+import type { ApiConnectionsBridgeApi } from "@/lib/providers/api-connections";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
 import type { RepositoryMemoryControlsApi } from "@/lib/repository-memory-settings";
@@ -2968,6 +2969,8 @@ interface WindowApi {
   runs?: WindowRunsApi;
   provider?: WindowProviderApi;
   providerAccounts?: ProviderAccountsBridgeApi;
+  /** App-level API connections shared by Claude Code and Codex. */
+  apiConnections?: ApiConnectionsBridgeApi;
   persistence?: WindowPersistenceApi;
   fs?: WindowFsApi;
   skills?: WindowSkillsApi;

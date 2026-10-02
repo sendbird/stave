@@ -26,7 +26,7 @@ import {
   type AutoRoutingProfile,
 } from "@/lib/providers/auto-routing-profile";
 import {
-  CLAUDE_GATEWAY_FIELD_ID,
+  API_CONNECTIONS_FIELD_ID,
   PROVIDER_ACCOUNTS_FIELD_ID,
 } from "@/lib/providers/accounts-guide";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
@@ -348,7 +348,8 @@ export const settingDefinitions = [
     importExport: "exclude",
   } satisfies SettingDefinition<"martinSync">,
   // Account selections are machine-local profile ids, so they never travel in
-  // an export. The gateway is a Claude account too: picking it selects it.
+  // an export. An API connection is an account under each runtime it serves:
+  // picking it selects it.
   {
     key: "claudeAccountProfileId",
     sectionId: "tooling",
@@ -411,14 +412,15 @@ export const settingDefinitions = [
   {
     key: "claudeAccountProfileId",
     sectionId: "tooling",
-    fieldId: CLAUDE_GATEWAY_FIELD_ID,
-    title: "Claude API gateway",
+    fieldId: API_CONNECTIONS_FIELD_ID,
+    title: "API connections",
     description:
-      "Send Claude turns through an API gateway such as Vercel AI Gateway, billed per token instead of your Claude subscription.",
+      "Send Claude and Codex turns through a gateway such as Vercel AI Gateway with one key, billed per token instead of a subscription.",
     keywords: [
       "gateway",
       "api gateway",
       "ai gateway",
+      "api connection",
       "vercel",
       "api key",
       "base url",
@@ -427,7 +429,14 @@ export const settingDefinitions = [
       "endpoint",
       "proxy",
       "anthropic_base_url",
+      "model_provider",
       "llm gateway",
+      "open models",
+      "kimi",
+      "glm",
+      "qwen",
+      "deepseek",
+      "gpt-oss",
     ],
     schema: z.string().optional(),
     defaultValue: SYSTEM_ACCOUNT_PROFILE_ID,

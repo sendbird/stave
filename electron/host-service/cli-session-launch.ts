@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { currentClaudeGateway, validateClaudeGatewayModel } from "../provider-accounts/gateway-runtime";
+import { buildCodexApiConnectionCliArgs } from "../providers/codex-api-connection";
 import type { ProviderId } from "../providers/types";
 import type { ProviderRuntimeOptions } from "../../src/lib/providers/provider.types";
 import {
@@ -107,12 +108,14 @@ export function buildCliSessionLaunch(args: {
             "Codex executable not found. Check Codex CLI installation or the configured binary path.",
         };
       }
+      // An API connection routes through config overrides; the key reaches the CLI through its env.
+      const connectionArgs = buildCodexApiConnectionCliArgs(runtimeOptions?.model, runtimeOptions?.codexAccountProfileId);
       return {
         ok: true,
         executablePath,
         commandArgs: requestedNativeSessionId
-          ? ["resume", requestedNativeSessionId]
-          : undefined,
+          ? ["resume", ...connectionArgs, requestedNativeSessionId]
+          : connectionArgs.length > 0 ? connectionArgs : undefined,
         env: buildCodexCliEnv({ executablePath, cwd, accountProfileId: runtimeOptions?.codexAccountProfileId }),
         ...(requestedNativeSessionId
           ? { nativeSessionId: requestedNativeSessionId }

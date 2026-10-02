@@ -20,6 +20,7 @@ import { registerPersistenceHandlers } from "./persistence";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerProviderAccountHandlers } from "./provider-accounts";
+import { registerApiConnectionHandlers } from "./api-connections";
 import { registerProviderAccountIdentityHandlers } from "./provider-account-identity";
 import { registerProviderAccountSetupHandlers } from "./provider-account-setup";
 import { registerRunHandlers } from "./runs";
@@ -40,6 +41,7 @@ export function registerHandlers() {
   registerDiagnosticsHandlers();
   registerProviderHandlers();
   registerProviderAccountHandlers();
+  registerApiConnectionHandlers();
   registerProviderAccountIdentityHandlers();
   registerProviderAccountSetupHandlers();
   registerRunHandlers();
