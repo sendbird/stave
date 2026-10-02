@@ -90,7 +90,10 @@ export const autoRouteLineStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars["--ads-space-16"],
-    paddingTop: vars["--ads-space-16"],
+    // After the list, the last row carries the list's 24px tail; a real row
+    // would sit only the 12px row gap below it, so pull up by the difference
+    // and the real row lands where this one was.
+    marginTop: `calc(${vars["--ads-space-12"]} - ${vars["--ads-space-24"]})`,
     // The same room below as the list's last row, so the composer does not
     // crowd the pending line.
     paddingBottom: vars["--ads-space-24"],
@@ -100,6 +103,7 @@ export const autoRouteLineStyles = stylex.create({
   // first list row's own top padding (`chatPanelStyles.rowFirst`), so the real
   // row lands exactly where this one was.
   pendingTurnFirst: {
+    marginTop: 0,
     paddingTop: {
       default: 0,
       "@media (min-width: 40rem)": vars["--ads-space-4"],
