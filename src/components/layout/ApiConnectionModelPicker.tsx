@@ -94,7 +94,7 @@ export function ApiConnectionModelPicker(props: {
             </Button>} />)}
         </ul>}
       {props.servesClaude && <p className={sx(accountStyles.muted)}>
-        Claude Code runs background requests and subagents on the first pinned Claude model. Other models are {CLAUDE_CODE_EXPERIMENTAL_MODEL_LABEL.toLowerCase()}: {CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON}
+        Claude Code runs background requests and subagents on the first pinned Claude model. Other models are experimental in Claude Code: {CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON}
       </p>}
     </div>
     {discover && <div className={sx(accountStyles.stackTight)}>
