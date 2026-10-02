@@ -10,6 +10,9 @@ import { fromDelegatedTask } from "@/lib/delegation/exchange";
 import { SubagentsSection } from "@/components/session/SubagentsSection";
 import { Accordion } from "@/components/ui/accordion";
 import type { ResultReview } from "@/lib/reviews/result-review";
+import { ResultFileSnapshots } from "@/components/session/ResultFileSnapshots";
+import { RunTurnTranscript } from "@/components/session/RunTurnDialog";
+import type { ChatMessage } from "@/types/chat";
 
 test("run history opens as a filterable list with its purpose stated up front", () => {
   const html = renderToStaticMarkup(
@@ -82,4 +85,60 @@ test("finished execution detail prioritizes the returned result and folds assign
   expect(html).toMatch(/<details><summary[^>]*>Assignment and execution details/);
   expect(html.indexOf("Inspected cancellation")).toBeGreaterThan(html.indexOf("<details>"));
   expect(html).not.toMatch(/<details open/);
+});
+
+test("a run's reported files read like the conversation's changed files, without Accept or Reject", () => {
+  const html = renderToStaticMarkup(
+    createElement(ResultFileSnapshots, {
+      taskId: "task",
+      evidence: {
+        messageId: "message",
+        providerId: "claude-code",
+        model: "claude-sonnet-5",
+        answer: "Done.",
+        answerTruncated: false,
+        files: ["src/a.ts", "src/b.ts"],
+        filesTruncated: false,
+        snapshots: [
+          { filePath: "src/a.ts", oldContent: "a\n", newContent: "a\nb\n", status: "pending", truncated: false },
+        ],
+      },
+    }),
+  );
+  expect(html).toContain("Files this run changed");
+  expect(html).toContain("1 file edited");
+  expect(html).toContain("1 more · contents not saved");
+  expect(html).toContain("src/b.ts");
+  expect(html).toContain("Open All");
+  expect(html).not.toContain("Accept");
+  expect(html).not.toContain("Reject");
+  expect(html).not.toContain("pending");
+});
+
+test("the run transcript renders the prompt and the run with the conversation's components", () => {
+  const messages: ChatMessage[] = [
+    { id: "u", role: "user", model: "", providerId: "user", content: "Tighten the sidebar", parts: [] },
+    {
+      id: "a",
+      role: "assistant",
+      model: "claude-sonnet-5",
+      providerId: "claude-code",
+      content: "",
+      turnId: "turn",
+      parts: [
+        { type: "tool_use", toolName: "Bash", input: JSON.stringify({ command: "bun run typecheck" }), state: "output-available", output: "ok" },
+        { type: "text", text: "Done:\n\n- gaps are **8px**" },
+      ],
+    } as ChatMessage,
+  ];
+  const html = renderToStaticMarkup(
+    createElement(RunTurnTranscript, { messages, taskId: "task", turnId: "turn" }),
+  );
+  expect(html).toContain('aria-label="Run transcript"');
+  expect(html).toContain("Tighten the sidebar");
+  expect(html).toContain("is-user");
+  expect(html).toContain("is-assistant");
+  expect(html).toContain("<strong");
+  expect(html).toContain("data-turn-model-chip");
+  expect(html.indexOf("Tighten the sidebar")).toBeLessThan(html.indexOf("gaps are"));
 });

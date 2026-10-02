@@ -71,7 +71,14 @@ store is created. The Subagents tab lists durable and in-turn subagents as one
 list, live first: who (agent or model), what it is doing and its state, with
 the answer folded under the row and Open transcript / Stop as its only
 controls. It never invents a provider-native transcript or exposes
-grant-bearing raw inputs.
+grant-bearing raw inputs. Answers quoted outside the conversation (a subagent's
+answer, a Results run's final answer) render with the conversation's Markdown
+renderer at the panel's type size and collapse behind Show all when long. A
+Results run lists its files as the conversation's changed-file rows (read-only)
+and keeps ids and model resolution under Run details; Show the turn opens the
+run read-only with the conversation's components, from the open conversation
+or, once it has left that window, from saved history through the same paged
+message loader.
 
 Cross-provider work uses the existing durable child coordinator. Native workers
 retain their provider-specific boundaries. A child follow-up must carry its

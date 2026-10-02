@@ -38,9 +38,13 @@ export const chatPanelFileBlocksStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-medium"],
   },
   shrink0: { flexShrink: 0 },
+  // A grid item of the card: without `minWidth: 0` its min-content (an
+  // unbroken path row) widened it past a narrow card, and the card's
+  // `overflow: hidden` then cut the counts, state and chevron off the row.
   divideList: {
     display: "flex",
     flexDirection: "column",
+    minWidth: 0,
   },
   rowWrapper: {
     borderTopWidth: vars["--ads-border-width-hairline"],

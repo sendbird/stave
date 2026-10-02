@@ -49,8 +49,12 @@ function resolveChatBlockFilePath(args: {
   };
 }
 
-function getFileChangeStatusPriority(status: FileChangeSummaryRow["status"]) {
+function getFileChangeStatusPriority(
+  status: FileChangeSummaryRow["status"] | undefined,
+) {
   switch (status) {
+    case undefined:
+      return 0;
     case "failed":
       return 3;
     case "skipped":
@@ -103,8 +107,14 @@ export function ChangedFilesBlock(args: {
   taskId: string;
   messageId: string;
   startIndex?: number;
+  /**
+   * Saved changes shown outside their message (a run's results): the diff and
+   * Open in Editor stay, Accept and Reject do not, because the parts are not
+   * the message's own and their indexes would resolve the wrong change.
+   */
+  readOnly?: boolean;
 }) {
-  const { parts, taskId, messageId, startIndex = 0 } = args;
+  const { parts, taskId, messageId, startIndex = 0, readOnly = false } = args;
   const resolveDiff = useAppStore((state) => state.resolveDiff);
   const openDiffInEditor = useAppStore((state) => state.openDiffInEditor);
   const workspaceCwd = useAppStore(
@@ -139,8 +149,11 @@ export function ChangedFilesBlock(args: {
     [rows],
   );
   const pendingCount = useMemo(
-    () => parts.filter((part) => isPendingDiffStatus(part.status)).length,
-    [parts],
+    () =>
+      readOnly
+        ? 0
+        : parts.filter((part) => isPendingDiffStatus(part.status)).length,
+    [parts, readOnly],
   );
 
   function toggleRow(index: number) {
@@ -203,7 +216,8 @@ export function ChangedFilesBlock(args: {
       <div className={sx(styles.divideList)}>
         {rows.map((row, index) => {
           const isOpen = openRows.includes(index);
-          const isPendingDiff = isPendingDiffStatus(row.part.status);
+          const isPendingDiff =
+            !readOnly && isPendingDiffStatus(row.part.status);
           return (
             <div
               key={`${row.openFilePath}-${index}`}
@@ -298,7 +312,15 @@ export function ChangedFilesBlock(args: {
   );
 }
 
-export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
+/** A file row; `status` is absent when only the path was recorded. */
+type FileListRow = Pick<FileChangeSummaryRow, "filePath"> &
+  Partial<Pick<FileChangeSummaryRow, "status">>;
+
+export function FileChangeSummaryBlock(args: {
+  rows: readonly FileListRow[];
+  /** Replaces the "N files changed" header. */
+  title?: string;
+}) {
   const { rows } = args;
   const openFileFromTree = useAppStore((state) => state.openFileFromTree);
   const workspaceCwd = useAppStore(
@@ -312,7 +334,7 @@ export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
     const dedupedRows = new Map<
       string,
       {
-        row: FileChangeSummaryRow;
+        row: FileListRow;
         displayFilePath: string;
         openFilePath: string;
       }
@@ -359,8 +381,8 @@ export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
       <div className={sx(styles.cardHeader)}>
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleBody)}>
-            {normalizedRows.length}{" "}
-            {normalizedRows.length === 1 ? "file" : "files"} changed
+            {args.title ??
+              `${normalizedRows.length} ${normalizedRows.length === 1 ? "file" : "files"} changed`}
           </span>
           {appliedCount > 0 ? (
             <Badge variant="success">{appliedCount} applied</Badge>
@@ -384,7 +406,7 @@ export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
           >
             <FileChangeSummary
               path={displayFilePath}
-              state={toFileChangeRunState(row.status)}
+              state={row.status ? toFileChangeRunState(row.status) : undefined}
             />
             <Button
               type="button"

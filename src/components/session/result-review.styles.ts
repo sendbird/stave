@@ -90,14 +90,10 @@ export const resultStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars["--ads-space-8"],
+    minWidth: 0,
     paddingInline: vars["--ads-space-12"],
     paddingBottom: vars["--ads-space-8"],
   },
-  // A saved answer has no length bound of its own, so an expanded run used to
-  // push every later run — and the panel footer — kilopixels down the scroller.
-  // The cap belongs to the payload: the row header and the follow-up action
-  // stay on screen while the answer scrolls inside its own box.
-  evidenceViewport: { minWidth: 0 },
   rowActions: {
     display: "flex",
     flexWrap: "wrap",
@@ -219,33 +215,48 @@ export const resultStyles = stylex.create({
   },
   // Container step for the whole evidence block, including the reviewed
   // answer — the panel's actual payload. At Caption it demoted the payload
-  // below the summary that introduces it; the descendants that are genuinely
-  // metadata (`filePath`, `snapshotSummary`, `code`) restate Caption locally.
+  // below the summary that introduces it; the run details restate Caption
+  // locally. The accordion body paints muted ink, and the answer is content,
+  // not a caption, so the block restates the text color. `minWidth: 0` lets a
+  // fenced block in the answer scroll inside the panel instead of widening it.
   evidence: {
     display: "flex",
     flexDirection: "column",
     gap: vars["--ads-space-8"],
+    minWidth: 0,
     paddingBlock: vars["--ads-space-12"],
     fontSize: vars["--ads-font-size-body"],
+    color: vars["--ads-color-text"],
   },
   evidenceHeading: { fontWeight: vars["--ads-font-weight-medium"] },
-  evidenceDescription: { marginBlock: vars["--ads-space-8"], color: vars["--ads-color-text-muted"] },
-  answer: {
-    whiteSpace: "pre-wrap",
-    overflowWrap: "break-word",
-    lineHeight: vars["--ads-line-height-relaxed"],
+  evidenceDescription: { color: vars["--ads-color-text-muted"] },
+  // The answer leads the expanded run: its heading, then the answer as the
+  // conversation renders it (collapsed when long), then any shortening note.
+  answerSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
   },
-  excerptNotice: { marginTop: vars["--ads-space-8"], color: vars["--ads-color-text-muted"] },
+  answerHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: vars["--ads-space-8"],
+  },
+  answerAction: { flexShrink: 0 },
+  answerHeading: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-2"],
+    minWidth: 0,
+  },
   files: {
     marginTop: vars["--ads-space-12"],
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
-  },
-  filePath: {
-    wordBreak: "break-all",
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
   },
   muted: { color: vars["--ads-color-text-muted"] },
   reference: {
@@ -258,58 +269,6 @@ export const resultStyles = stylex.create({
   resolution: { marginBottom: vars["--ads-space-12"] },
   runId: { wordBreak: "break-all", paddingBlock: vars["--ads-space-4"] },
   messageId: { wordBreak: "break-all" },
-  snapshot: {
-    minWidth: 0,
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: vars["--ads-color-border"],
-    paddingBlock: vars["--ads-space-8"],
-  },
-  snapshotSummary: {
-    cursor: "pointer",
-    wordBreak: "break-all",
-    borderRadius: vars["--ads-radius-mark"],
-    paddingBlock: vars["--ads-space-4"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
-  },
-  snapshotContent: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-12"],
-    paddingTop: vars["--ads-space-8"],
-  },
-  snapshotSide: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
-  code: {
-    maxHeight: "12rem",
-    overflow: "auto",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-all",
-    borderRadius: vars["--ads-radius-control"],
-    backgroundColor: vars["--ads-color-surface-tint"],
-    padding: vars["--ads-space-8"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
-    color: vars["--ads-color-text"],
-  },
-  snapshots: { marginTop: vars["--ads-space-12"], minWidth: 0 },
-  snapshotsHeading: {
-    marginBottom: vars["--ads-space-4"],
-    fontWeight: vars["--ads-font-weight-medium"],
-  },
-  snapshotsDescription: {
-    marginBottom: vars["--ads-space-8"],
-    color: vars["--ads-color-text-muted"],
-  },
-  uncaptured: {
-    wordBreak: "break-all",
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: vars["--ads-color-border"],
-    paddingBlock: vars["--ads-space-8"],
-  },
-  mono: { fontFamily: vars["--ads-font-mono"] },
   modelFacts: {
     display: "grid",
     gridTemplateColumns: "auto minmax(0, 1fr)",

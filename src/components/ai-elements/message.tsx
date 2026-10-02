@@ -36,6 +36,11 @@ import {
 } from "./code-block";
 import { MarkdownMessage, MessageFileLink } from "./message-markdown";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
+import {
+  scaleMessageCodeFontSize,
+  scaleMessageFontSize,
+  useMessageTextScale,
+} from "./message-text-scale";
 import { PromptTokenChip } from "./prompt-token-chip";
 import { parsePromptTokenSegments } from "@/lib/prompt-token-chips";
 
@@ -146,20 +151,33 @@ export function MessageResponse({
   style,
   ...props
 }: MessageResponseProps) {
-  const [openFileFromTree, messageFontSize, messageCodeFontSize, workspaceCwd] =
-    useAppStore(
-      useShallow(
-        (state) =>
-          [
-            state.openFileFromTree,
-            state.settings.messageFontSize,
-            state.settings.messageCodeFontSize,
-            state.workspacePathById[state.activeWorkspaceId] ??
-              state.repositoryPath ??
-              "",
-          ] as const,
-      ),
-    );
+  const [
+    openFileFromTree,
+    settingsMessageFontSize,
+    settingsMessageCodeFontSize,
+    workspaceCwd,
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.openFileFromTree,
+          state.settings.messageFontSize,
+          state.settings.messageCodeFontSize,
+          state.workspacePathById[state.activeWorkspaceId] ??
+            state.repositoryPath ??
+            "",
+        ] as const,
+    ),
+  );
+  const textScale = useMessageTextScale();
+  const messageFontSize = scaleMessageFontSize(
+    textScale,
+    settingsMessageFontSize,
+  );
+  const messageCodeFontSize = scaleMessageCodeFontSize(
+    textScale,
+    settingsMessageCodeFontSize,
+  );
   const content = typeof children === "string" ? children : "";
   const tokenSegments = useMemo(
     () =>

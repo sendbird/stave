@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui/button";
+import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import {
   resolveExchangeElapsedMs,
   type DelegationActionId,
@@ -77,7 +78,8 @@ function Section(props: { label: string; children: ReactNode; testId?: string })
 
 /**
  * One detail body for every exchange. Finished inspectors lead with the return
- * and keep assignment, timeline, setup and spend under execution details.
+ * and keep assignment, timeline, setup and spend under execution details. The
+ * assignment and the answer render with the conversation's Markdown renderer.
  * Every subagent surface renders this, so a fact shown in one is shown — in
  * the same place — in the others.
  */
@@ -242,7 +244,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
       </div>
 
       {!props.resultFirst || live ? <Section label={ASK_LABEL[exchange.kind]}>
-        <p className={sx(styles.prose)}>{exchange.ask}</p>
+        <CollapsibleResponse text={exchange.ask} label="the assignment" />
       </Section> : null}
 
       <div className={sx(styles.section)}>
@@ -275,7 +277,10 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
         {resultText ? (
           <>
             <p className={sx(styles.label)}>{RESULT_LABEL[exchange.kind]}</p>
-            <p className={sx(styles.prose)}>{resultText}</p>
+            <CollapsibleResponse
+              text={resultText}
+              label={`the ${RESULT_LABEL[exchange.kind].toLowerCase()}`}
+            />
           </>
         ) : null}
         {!props.resultFirst || live ? progress : null}
@@ -283,7 +288,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
 
       {props.resultFirst && !live ? <details>
         <summary className={sx(styles.diagnosticToggle)}>Assignment and execution details</summary>
-        <Section label={ASK_LABEL[exchange.kind]}><p className={sx(styles.prose)}>{exchange.ask}</p></Section>
+        <Section label={ASK_LABEL[exchange.kind]}><CollapsibleResponse text={exchange.ask} label="the assignment" /></Section>
         {progress}
         {diagnostics}
       </details> : diagnostics}

@@ -1,88 +1,75 @@
+import { useMemo } from "react";
 import { sx } from "../ads/utils/stylex";
 import { resultStyles as styles } from "./result-review.styles";
-import { focusRing } from "../ads/recipes/focus-ring";
-import { useState } from "react";
 import type { ResultEvidence } from "@/lib/reviews/result-evidence";
+import type { CodeDiffPart } from "@/types/chat";
+import {
+  ChangedFilesBlock,
+  FileChangeSummaryBlock,
+} from "./chat-panel-file-blocks";
 
-type Snapshot = NonNullable<ResultEvidence["snapshots"]>[number];
-
-function FileSnapshot({ snapshot }: { snapshot: Snapshot }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <details
-      className={sx(styles.snapshot)}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary className={sx(styles.snapshotSummary, focusRing.ring)}>
-        {snapshot.filePath}
-      </summary>
-      {open ? (
-        <div className={sx(styles.snapshotContent)}>
-          <p className={sx(styles.muted)}>
-            Last recorded change for this file ·{" "}
-            {snapshot.status === "accepted"
-              ? "Applied"
-              : snapshot.status === "rejected"
-                ? "Rejected"
-                : "Proposed"}
-          </p>
-          {snapshot.truncated ? (
-            <p className={sx(styles.muted)}>
-              Only excerpts were saved. These do not show the complete change.
-            </p>
-          ) : null}
-          {(["oldContent", "newContent"] as const).map((side) => (
-            <div key={side} className={sx(styles.snapshotSide)}>
-              <p className={sx(styles.evidenceHeading)}>
-                {side === "oldContent" ? "Before" : "After"}
-              </p>
-              <pre
-                tabIndex={0}
-                aria-label={`${side === "oldContent" ? "Before" : "After"}: ${snapshot.filePath}`}
-                className={sx(styles.code, focusRing.ring)}
-              >
-                {snapshot[side] || "(empty)"}
-              </pre>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </details>
-  );
-}
-
+/**
+ * The files a run reported, as the conversation lists changed files: a saved
+ * change opens to its diff and into the editor, a file whose contents were
+ * not saved keeps its path and opens as it is now. Read-only — Accept and
+ * Reject belong to the message, not to its results.
+ */
 export function ResultFileSnapshots({
   evidence,
+  taskId,
 }: {
   evidence: ResultEvidence;
+  taskId: string;
 }) {
-  if (!evidence.snapshots?.length) return null;
+  const snapshots = evidence.snapshots;
+  const parts = useMemo<CodeDiffPart[]>(
+    () =>
+      (snapshots ?? []).map((snapshot) => ({
+        type: "code_diff",
+        filePath: snapshot.filePath,
+        oldContent: snapshot.oldContent,
+        newContent: snapshot.newContent,
+        status: snapshot.status,
+      })),
+    [snapshots],
+  );
+  const pathOnly = useMemo(() => {
+    const saved = new Set(snapshots?.map((snapshot) => snapshot.filePath));
+    return evidence.files
+      .filter((file) => !saved.has(file))
+      .map((filePath) => ({ filePath }));
+  }, [evidence.files, snapshots]);
+  if (evidence.files.length === 0 && parts.length === 0) return null;
+  const excerpted = Boolean(snapshots?.some((snapshot) => snapshot.truncated));
   return (
-    <div className={sx(styles.snapshots)}>
-      <h4 className={sx(styles.snapshotsHeading)}>Recorded file changes</h4>
-      <p className={sx(styles.snapshotsDescription)}>
-        Saved from this run’s reported changes. These are historical contents;
-        they do not verify the current workspace or include unreported changes.
-      </p>
-      {evidence.snapshotsTruncated ? (
-        <p className={sx(styles.snapshotsDescription)}>
-          Some changes or content were omitted from this snapshot.
-        </p>
+    <div className={sx(styles.files)}>
+      <h4 className={sx(styles.evidenceHeading)}>Files this run changed</h4>
+      {parts.length > 0 ? (
+        <ChangedFilesBlock
+          parts={parts}
+          taskId={taskId}
+          messageId={evidence.messageId}
+          readOnly
+        />
       ) : null}
-      {evidence.snapshots.map((snapshot) => (
-        <FileSnapshot key={snapshot.filePath} snapshot={snapshot} />
-      ))}
-      {evidence.files
-        .filter(
-          (file) =>
-            !evidence.snapshots!.some((snapshot) => snapshot.filePath === file),
-        )
-        .map((file) => (
-          <p key={file} className={sx(styles.uncaptured)}>
-            <span className={sx(styles.mono)}>{file}</span> · Contents not
-            captured
-          </p>
-        ))}
+      {pathOnly.length > 0 ? (
+        <FileChangeSummaryBlock
+          rows={pathOnly}
+          title={
+            parts.length > 0
+              ? `${pathOnly.length} more · contents not saved`
+              : `${pathOnly.length} ${pathOnly.length === 1 ? "file" : "files"} · contents not saved`
+          }
+        />
+      ) : null}
+      <p className={sx(styles.muted)}>
+        {excerpted
+          ? "Some changes were saved as excerpts, so their diffs are partial. "
+          : ""}
+        Saved when the run ended; the files may have changed since
+        {evidence.filesTruncated ? ", and the recorded list is incomplete" : ""}
+        .
+      </p>
     </div>
   );
 }
