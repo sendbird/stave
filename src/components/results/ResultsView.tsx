@@ -41,11 +41,21 @@ async function loadReport(missionId: string): Promise<MissionReport | null> {
   return response.mission?.report ?? null;
 }
 
-type ResultsState =
+export type ResultsState =
   | { status: "loading" }
   | { status: "unavailable" }
   | { status: "failed"; message: string }
-  | { status: "ready"; insights: MissionInsights };
+  /** `reloading`: a new period or retry is being read; the shown figures are the previous ones. */
+  | { status: "ready"; insights: MissionInsights; reloading: boolean };
+
+/**
+ * The state while a read is in flight. Figures already on the page stay (a
+ * period switch must not collapse four cards into "Reading runs…" and back);
+ * only a page with nothing to show yet says it is reading.
+ */
+export function beginResultsLoad(previous: ResultsState): ResultsState {
+  return previous.status === "ready" ? { ...previous, reloading: true } : { status: "loading" };
+}
 
 /** Reading the results failed: why, and a way to try again. */
 export function ResultsFailure(props: { message: string; onRetry: () => void }) {
@@ -114,10 +124,10 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
 
   useEffect(() => {
     let cancelled = false;
-    setState({ status: "loading" });
+    setState(beginResultsLoad);
     load(Number(period)).then(
       (result) => {
-        if (!cancelled) setState(result ? { status: "ready", insights: result } : { status: "unavailable" });
+        if (!cancelled) setState(result ? { status: "ready", insights: result, reloading: false } : { status: "unavailable" });
       },
       (error: unknown) => {
         if (cancelled) return;
@@ -162,7 +172,7 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
     }
     if (state.status === "failed") return <ResultsFailure message={state.message} onRetry={() => setAttempt((count) => count + 1)} />;
     if (!insights) return <p className={sx(styles.note)}>Results are available in the desktop app.</p>;
-    if (insights.summary.ended === 0) return <p className={sx(styles.empty)}>No run ended in the last {period} days.</p>;
+    if (insights.summary.ended === 0) return <p className={sx(styles.empty)}>No run ended in the last {insights.days} days.</p>;
     return (
       <>
         <OutcomeStrip summary={insights.summary} days={insights.days} />
@@ -193,7 +203,12 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
         </div>
       </header>
       <div className={sx(styles.scroll)}>
-        <div className={sx(styles.page)}>{renderBody()}</div>
+        <div
+          className={sx(styles.page, state.status === "ready" && state.reloading && styles.pageReloading)}
+          aria-busy={state.status === "loading" || (state.status === "ready" && state.reloading)}
+        >
+          {renderBody()}
+        </div>
       </div>
       <ReportDialog state={report} onClose={() => setReport(null)} />
     </div>

@@ -17,7 +17,9 @@ import { useScheduleRequestStore } from "@/store/schedule-request-store";
  * `&theme=dark` or `&theme=<built-in theme id>` renders under that theme;
  * `&select=check-back` selects the first check-back, `&new=1` opens the new
  * schedule sheet, `&checkback=1` opens it on an existing task (the task menu's
- * Check back… item), `&empty=1` shows the empty state.
+ * Check back… item), `&empty=1` shows the empty state, `&only=check-backs`
+ * lists check-backs and no start-a-task schedules, `&fail=check-backs` makes
+ * the check-back list fail, and `&slow=check-backs` answers it after 1.5s.
  */
 const params = new URLSearchParams(window.location.search);
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -125,20 +127,26 @@ const summaries = (): WakeUpSummary[] =>
 
 function installBridgeStubs() {
   const empty = params.get("empty") === "1";
+  const onlyCheckBacks = params.get("only") === "check-backs";
   const api = ((window as { api?: Record<string, unknown> }).api ??= {});
   api.automations = {
     list: async () => ({
       ok: true,
-      snapshot: { automations: empty ? [] : AUTOMATIONS, runs: empty ? [] : RUNS },
+      snapshot: {
+        automations: empty || onlyCheckBacks ? [] : AUTOMATIONS,
+        runs: empty || onlyCheckBacks ? [] : RUNS,
+      },
     }),
     listInformationReferences: async () => ({ ok: true, options: [] }),
   };
   api.wakeUps = {
-    list: async () => ({
-      ok: true,
-      wakeUps: empty ? [] : WAKE_UPS,
-      summaries: empty ? [] : summaries(),
-    }),
+    list: async () => {
+      if (params.get("slow") === "check-backs") await new Promise((resolve) => setTimeout(resolve, 1_500));
+      if (params.get("fail") === "check-backs") {
+        return { ok: false, wakeUps: [], summaries: [], message: "The schedule store is locked by another process." };
+      }
+      return { ok: true, wakeUps: empty ? [] : WAKE_UPS, summaries: empty ? [] : summaries() };
+    },
     create: async () => ({ ok: true, wakeUp: WAKE_UPS[0] ?? null }),
     update: async () => ({ ok: true, wakeUp: WAKE_UPS[0] ?? null }),
     setPaused: async () => ({ ok: true, wakeUp: WAKE_UPS[0] ?? null }),

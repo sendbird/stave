@@ -13,6 +13,8 @@ export const resultsStyles = stylex.create({
     paddingBlock: vars["--ads-space-24"],
     paddingInline: vars["--ads-space-24"],
   },
+  // The previous period's figures while the new one is read: still there, visibly not current.
+  pageReloading: { opacity: 0.6 },
   note: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
   /* Card */
   card: {
@@ -73,10 +75,6 @@ export const resultsStyles = stylex.create({
   },
   bar: { display: "flex", gap: 2, blockSize: 8, margin: 0, padding: 0, listStyle: "none" },
   barSegment: { minInlineSize: 4, borderRadius: vars["--ads-radius-mark"] },
-  barReady: { backgroundColor: vars["--ads-color-success"] },
-  barRework: { backgroundColor: vars["--ads-color-border-strong"] },
-  barFailed: { backgroundColor: vars["--ads-color-text-subtle"] },
-  barStopped: { backgroundColor: vars["--ads-color-border"] },
 
   /* Legend rows: swatch or state shape, label, value */
   legend: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(10rem, 1fr))", columnGap: vars["--ads-space-24"], rowGap: vars["--ads-space-8"], margin: 0, padding: 0, listStyle: "none" },
@@ -187,4 +185,15 @@ export const resultsStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
   },
   toolbar: { display: "flex", alignItems: "center", gap: vars["--ads-space-12"] },
+});
+
+/** Bar segments in the tone their outcome's state icon wears (`StateIcon`), so the bar and legend agree. */
+export const resultsBarToneStyles = stylex.create({
+  neutral: { backgroundColor: vars["--ads-color-text-subtle"] },
+  muted: { backgroundColor: vars["--ads-color-text-muted"] },
+  accent: { backgroundColor: vars["--ads-color-accent"] },
+  info: { backgroundColor: vars["--ads-color-info"] },
+  warning: { backgroundColor: vars["--ads-color-warning"] },
+  success: { backgroundColor: vars["--ads-color-success"] },
+  danger: { backgroundColor: vars["--ads-color-danger"] },
 });

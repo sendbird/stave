@@ -6,12 +6,14 @@ import { ActionButton } from "@/components/system/ActionButton";
 import { ResultsView } from "@/components/results/ResultsView";
 import { buildAgentRunFixtures } from "@/dev/mission-preview/agent-run-fixtures";
 import { aggregateMissionInsights, type ResultSample, type RunEventCounts } from "@/lib/missions/insights";
-import { applyThemeClass } from "@/lib/themes/apply";
+import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
+import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 
 /*
  * Dev-only preview of the Results page: `?stavePreview=results`. Add
- * `&theme=dark`, `&width=384` to narrow the frame, `&state=empty|failed|loading`
- * for the other states, and `&period=7|30|90`.
+ * `&theme=dark` or `&theme=<built-in theme id>`, `&width=384` to narrow the
+ * frame, `&state=empty|failed|loading` for the other states, `&period=7|30|90`,
+ * and `&delay=<ms>` to slow every read (a period switch then shows the reload).
  */
 const params = new URLSearchParams(window.location.search);
 
@@ -59,16 +61,20 @@ function samples(): ResultSample[] {
 }
 
 export function ResultsPreview() {
-  const [dark, setDark] = useState(() => params.get("theme") === "dark");
+  const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === params.get("theme")) ?? null;
+  const [dark, setDark] = useState(() => params.get("theme") === "dark" || builtinTheme?.baseMode === "dark");
   useLayoutEffect(() => {
     applyThemeClass({ enabled: dark });
-  }, [dark]);
+    applyCustomTheme({ theme: builtinTheme });
+  }, [dark, builtinTheme]);
   const fixtures = useMemo(() => buildAgentRunFixtures(new Date(NOW - 3_600_000)), []);
   const state = params.get("state");
   const periodParam = params.get("period");
   const width = Number(params.get("width")) || null;
   const load = useMemo(
     () => async (days: number) => {
+      const delay = Number(params.get("delay")) || 0;
+      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
       if (state === "failed") throw new Error("The mission database is locked.");
       if (state === "loading") return new Promise<never>(() => {});
       const inPeriod = state === "empty" ? [] : samples().filter((sample) => Date.parse(sample.endedAt) >= NOW - days * 86_400_000);

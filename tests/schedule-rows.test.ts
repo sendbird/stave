@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { AutomationRun, AutomationSpec } from "../src/lib/automations";
-import { buildScheduleRows, formatScheduleCadence } from "../src/lib/schedule-rows";
+import {
+  buildScheduleRows,
+  formatScheduleCadence,
+  resolveScheduleSelection,
+  scheduleListState,
+} from "../src/lib/schedule-rows";
 import type { WakeUp, WakeUpSummary } from "../src/lib/supervision/wake-up-policy";
 
 function automation(patch: Partial<AutomationSpec> = {}): AutomationSpec {
@@ -75,7 +80,7 @@ describe("schedule rows", () => {
     expect(checkBack.nextRunAt).toBe("2026-10-02T11:00:00.000Z");
   });
 
-  test("an automation that has not run says so, and a manual one has no next run", () => {
+  test("an automation that has not run says so, and a manual one says Manual once", () => {
     const [row] = buildScheduleRows({
       automations: [automation({ enabled: false })],
       runs: [],
@@ -84,7 +89,9 @@ describe("schedule rows", () => {
       taskTitleById: new Map(),
     });
     expect(row?.lastResult.label).toBe("Not run yet");
-    expect(row?.cadence).toBe("Manual only");
+    // The state reads "Manual"; no cadence or next-run note repeats it.
+    expect(row?.cadence).toBeNull();
+    expect(row?.nextNote).toBeNull();
     expect(row?.nextRunAt).toBeNull();
     expect(row?.state).toBe("manual");
     expect(row?.toggle).toBe("resume");
@@ -119,6 +126,47 @@ describe("schedule rows", () => {
     });
     expect(rows.map((row) => row.id)).toEqual(["r", "p", "s"]);
     expect(rows.map((row) => row.toggle)).toEqual(["pause", "resume", null]);
+    // The state already says Paused / Stopped, so the next-run slot stays empty.
+    expect(rows.map((row) => row.nextNote)).toEqual([null, null, null]);
+  });
+});
+
+describe("schedule selection", () => {
+  const rows = buildScheduleRows({
+    automations: [],
+    runs: [],
+    wakeUps: [wakeUp({ id: "a" }), wakeUp({ id: "b", nextRunAt: "2026-10-02T12:00:00.000Z" })],
+    summaries: [],
+    taskTitleById: new Map(),
+  });
+
+  test("a list of only check-backs opens on the first one", () => {
+    expect(resolveScheduleSelection(rows, null)?.key).toBe("check-back:a");
+  });
+
+  test("keeps the picked row while it exists and falls back once it is gone", () => {
+    expect(resolveScheduleSelection(rows, "check-back:b")?.key).toBe("check-back:b");
+    expect(resolveScheduleSelection(rows, "start:removed")?.key).toBe("check-back:a");
+    expect(resolveScheduleSelection([], "check-back:b")).toBeNull();
+  });
+});
+
+describe("schedule list state", () => {
+  const base = { rowCount: 0, automationsLoaded: true, checkBacksLoaded: true, failed: false };
+
+  test("waits for both sources before calling the list empty", () => {
+    expect(scheduleListState({ ...base, checkBacksLoaded: false })).toBe("loading");
+    expect(scheduleListState({ ...base, automationsLoaded: false })).toBe("loading");
+    expect(scheduleListState(base)).toBe("empty");
+  });
+
+  test("a failed read is shown as the failure, not as no schedules", () => {
+    expect(scheduleListState({ ...base, failed: true })).toBe("failed");
+  });
+
+  test("rows on screen stay through a reload or a failed refresh", () => {
+    expect(scheduleListState({ ...base, rowCount: 2, checkBacksLoaded: false })).toBe("rows");
+    expect(scheduleListState({ ...base, rowCount: 2, failed: true })).toBe("rows");
   });
 });
 

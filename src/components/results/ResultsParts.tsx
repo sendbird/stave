@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, ListChecks, OctagonAlert, Timer, Users } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { StateIcon } from "@/components/ads/components/StateIcon";
-import { type WorkState } from "@/components/ads/components/state-vocabulary";
+import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   RUN_END_REASON_LABELS,
@@ -18,7 +18,7 @@ import { formatAge } from "@/lib/missions/mission-view";
 import { formatCostUsd } from "@/lib/missions/usage";
 import { formatRunDuration } from "@/lib/missions/agent-run-view";
 import { ResultsCard } from "./ResultsCard";
-import { resultsStyles as styles } from "./results.styles";
+import { resultsBarToneStyles, resultsStyles as styles } from "./results.styles";
 
 /**
  * An outcome wears the shared work-state shape: a result you had to correct is
@@ -38,7 +38,10 @@ export const OUTCOME_LABEL: Record<RunOutcome, string> = {
   stopped: "Stopped",
 };
 
-const BAR_STYLE = { ready: styles.barReady, rework: styles.barRework, failed: styles.barFailed, stopped: styles.barStopped } as const;
+/** The tone a bar segment paints: the same one its outcome's state icon wears in the legend. */
+export function outcomeTone(outcome: RunOutcome) {
+  return WORK_STATE[OUTCOME_STATE[outcome]].tone;
+}
 
 const cost = (value: number | null) => (value === null ? "—" : formatCostUsd(value));
 const ago = (iso: string, now: number) => `${formatAge(now - Date.parse(iso))} ago`;
@@ -56,7 +59,7 @@ export function OutcomeStrip({ summary, days }: { summary: ResultsSummary; days:
       </p>
       <ul className={sx(styles.bar)} aria-hidden>
         {RUN_OUTCOMES.filter((outcome) => summary[outcome] > 0).map((outcome) => (
-          <li key={outcome} className={sx(styles.barSegment, BAR_STYLE[outcome])} style={{ flexGrow: summary[outcome] }} />
+          <li key={outcome} className={sx(styles.barSegment, resultsBarToneStyles[outcomeTone(outcome)])} style={{ flexGrow: summary[outcome] }} />
         ))}
       </ul>
       <ul className={sx(styles.legend)}>

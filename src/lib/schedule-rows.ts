@@ -43,10 +43,11 @@ export interface ScheduleRow {
   /** One line under the name, when it adds something. */
   detail: string | null;
   agent: string;
-  cadence: string;
+  /** When it runs; null for a manual schedule, whose state already says so. */
+  cadence: string | null;
   state: ScheduleState;
   lastResult: ScheduleLastResult;
-  /** ISO instant of the next run; otherwise `nextNote` says why not. */
+  /** ISO instant of the next run; otherwise `nextNote` says why not, when the state does not. */
   nextRunAt: string | null;
   nextNote: string | null;
   canRunNow: boolean;
@@ -84,13 +85,13 @@ export function automationScheduleRow(
     name: automation.name,
     detail: automation.environment.label,
     agent: automation.runtime.model,
-    cadence: automation.enabled ? formatScheduleCadence(automation.schedule) : "Manual only",
+    cadence: automation.enabled ? formatScheduleCadence(automation.schedule) : null,
     state: automation.enabled ? "on" : "manual",
     lastResult: latestRun
       ? { ...(result ?? RUN_RESULT.running), at: latestRun.completedAt ?? latestRun.startedAt }
       : { label: "Not run yet", tone: "neutral", at: null },
     nextRunAt: automation.enabled ? automation.nextRunAt : null,
-    nextNote: automation.enabled ? null : "Run it yourself",
+    nextNote: null,
     canRunNow: true,
     toggle: automation.enabled ? "pause" : "resume",
   };
@@ -104,14 +105,8 @@ export function wakeUpScheduleRow(
   const state: ScheduleState = wakeUp.state === "scheduled" ? "on" : wakeUp.state;
   const completion = wakeUp.trigger.kind === "completion";
   const checked = wakeUp.occurrenceCount;
-  const nextNote =
-    wakeUp.state === "paused"
-      ? "Paused"
-      : wakeUp.state === "stopped"
-        ? "Stopped"
-        : completion
-          ? "Waiting"
-          : null;
+  // Paused and stopped are the row's state; repeating them as the next run says nothing new.
+  const nextNote = wakeUp.state === "scheduled" && completion ? "Waiting" : null;
   return {
     key: `check-back:${wakeUp.id}`,
     kind: "check-back",
@@ -160,4 +155,33 @@ export function buildScheduleRows(args: {
     (left, right) =>
       rank(left) - rank(right) || time(left) - time(right) || left.name.localeCompare(right.name),
   );
+}
+
+/**
+ * The row the detail pane shows: the one the user picked while it still
+ * exists, otherwise the first row of either kind, so a list of only
+ * check-backs opens on one instead of an empty pane.
+ */
+export function resolveScheduleSelection(rows: readonly ScheduleRow[], pickedKey: string | null): ScheduleRow | null {
+  return (pickedKey ? rows.find((row) => row.key === pickedKey) : undefined) ?? rows[0] ?? null;
+}
+
+export type ScheduleListState = "loading" | "failed" | "empty" | "rows";
+
+/**
+ * What the list area shows. Rows already on screen stay through a reload or a
+ * failed refresh. Until both sources have answered, an empty list is
+ * "loading", not "no schedules"; when one failed it is "failed", so the error
+ * is the message instead of an empty state that hides it.
+ */
+export function scheduleListState(args: {
+  rowCount: number;
+  /** Each source has answered at least once, with data or an error. */
+  automationsLoaded: boolean;
+  checkBacksLoaded: boolean;
+  failed: boolean;
+}): ScheduleListState {
+  if (args.rowCount > 0) return "rows";
+  if (!args.automationsLoaded || !args.checkBacksLoaded) return "loading";
+  return args.failed ? "failed" : "empty";
 }

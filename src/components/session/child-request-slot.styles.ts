@@ -21,8 +21,15 @@ export const childRequestSlotStyles = stylex.create({
     marginBottom: vars["--ads-space-12"],
     padding: "0.625rem",
   },
+  // A question set is capped like the task's own questions in the composer, so
+  // a long one scrolls inside the card instead of pushing its actions away.
+  sectionCapped: {
+    maxHeight: "min(60vh, 34rem)",
+    minHeight: 0,
+  },
   header: {
     alignItems: "center",
+    flexShrink: 0,
     color: vars["--ads-color-text-muted"],
     display: "flex",
     fontSize: vars["--ads-font-size-caption"],
