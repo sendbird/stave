@@ -1,9 +1,10 @@
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { MissionBarView } from "@/components/missions/MissionBar";
+import { ComposerShelfSurface } from "@/components/session/composer-shelf/ComposerShelf";
 import { MissionDetailView } from "@/components/missions/MissionPanel";
 import { MissionReportView } from "@/components/missions/MissionReportView";
 import { SignOffCard } from "@/components/missions/SignOffCard";
@@ -276,15 +277,16 @@ export function MissionPreview() {
             <section key={id} className={sx(styles.case)} data-preview-case={id}>
               <p className={sx(styles.caption)}>{label}</p>
               <div className={sx(styles.composerStack)}>
-                <MissionBarView
-                  detail={value}
-                  nowPhrase={phrase}
-                  now={now}
-                  reducedMotion={false}
-                  actions={actions}
-                  agentActions={agentActions ?? undefined}
-                />
-                <MockTurnShelf />
+                <ComposerShelfSurface>
+                  <MissionBarView
+                    detail={value}
+                    nowPhrase={phrase}
+                    now={now}
+                    reducedMotion={false}
+                    actions={actions}
+                    agentActions={agentActions ?? undefined}
+                  />
+                </ComposerShelfSurface>
                 <MockComposer placeholder="Reply…" />
               </div>
             </section>
@@ -359,8 +361,7 @@ export function MissionPreview() {
             <StageDividerView text="Stage 3 · Verify — started automatically after Build reported done" />
             <p className={sx(styles.message)}>Running the project checks, then a visual pass at 375, 768 and 1280px.</p>
             <div className={sx(styles.composerStack)}>
-              <MissionBarView detail={live} nowPhrase="Running the tests" now={now} reducedMotion={false} actions={actions} />
-              <MockTurnShelf />
+              <ComposerShelfSurface><MissionBarView detail={live} nowPhrase="Running the tests" now={now} reducedMotion={false} actions={actions} /></ComposerShelfSurface>
               <MockComposer placeholder="Reply to guide Verify — the mission carries on" />
             </div>
           </div>
@@ -371,7 +372,7 @@ export function MissionPreview() {
           <div className={sx(styles.chat)}>
             <SignOffCard detail={signOff} onSignOff={() => {}} onAskForChanges={() => {}} onReviewChanges={() => {}} />
             <div className={sx(styles.composerStack)}>
-              <MissionBarView detail={signOff} nowPhrase={null} now={now} reducedMotion={false} actions={actions} />
+              <ComposerShelfSurface><MissionBarView detail={signOff} nowPhrase={null} now={now} reducedMotion={false} actions={actions} /></ComposerShelfSurface>
               <MockComposer placeholder="Reply…" />
             </div>
           </div>
@@ -388,7 +389,7 @@ export function MissionPreview() {
           <section key={label} className={sx(styles.case)} data-preview-case={label}>
             <p className={sx(styles.caption)}>{label}</p>
             <div className={sx(styles.composerStack)}>
-              <MissionBarView detail={value} nowPhrase={null} now={now} reducedMotion={false} actions={actions} />
+              <ComposerShelfSurface><MissionBarView detail={value} nowPhrase={null} now={now} reducedMotion={false} actions={actions} /></ComposerShelfSurface>
               <MockComposer placeholder="Reply…" />
             </div>
           </section>
@@ -397,7 +398,7 @@ export function MissionPreview() {
         <section className={sx(styles.case, styles.narrow)} data-preview-case="Narrow">
           <p className={sx(styles.caption)}>Narrow width, reduced motion</p>
           <div className={sx(styles.composerStack)}>
-            <MissionBarView detail={live} nowPhrase="Editing files" now={now} reducedMotion actions={actions} />
+            <ComposerShelfSurface><MissionBarView detail={live} nowPhrase="Editing files" now={now} reducedMotion actions={actions} /></ComposerShelfSurface>
             <MockComposer placeholder="Reply…" />
           </div>
         </section>
@@ -500,19 +501,7 @@ export function MissionPreview() {
   );
 }
 
-/** Stand-ins for the turn shelf and the composer card, for the stacking. */
-function MockTurnShelf() {
-  return (
-    <div className={cx("turn-activity-surface", sx(styles.shelf))}>
-      <span className={sx(styles.shelfDot)} aria-hidden />
-      <span className={sx(styles.shelfText)}>
-        <strong>Running tests</strong> · bun test tests/billing
-      </span>
-      <span className={sx(styles.shelfCount)}>3/7</span>
-    </div>
-  );
-}
-
+/** A stand-in for the composer card, for the stacking. */
 function MockComposer({ placeholder }: { placeholder: string }) {
   return <div className={sx(styles.composer)}>{placeholder}</div>;
 }
@@ -574,30 +563,6 @@ const styles = stylex.create({
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
   },
-  shelf: {
-    position: "relative",
-    zIndex: 0,
-    display: "flex",
-    alignItems: "center",
-    gap: "0.625rem",
-    minHeight: "2.75rem",
-    marginInline: vars["--ads-space-12"],
-    marginBottom: "-0.75rem",
-    paddingInline: vars["--ads-space-12"],
-    paddingBottom: "0.75rem",
-    borderStartStartRadius: vars["--ads-radius-frame"],
-    borderStartEndRadius: vars["--ads-radius-frame"],
-    fontSize: vars["--ads-font-size-body"],
-  },
-  shelfDot: {
-    width: 24,
-    height: 24,
-    flex: "0 0 auto",
-    borderRadius: vars["--ads-radius-full"],
-    backgroundImage: `radial-gradient(circle, ${vars["--ads-color-accent"]} 0 4px, transparent 5px)`,
-  },
-  shelfText: { flex: "1 1 auto", color: vars["--ads-color-text-muted"] },
-  shelfCount: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
   composer: {
     position: "relative",
     zIndex: 10,

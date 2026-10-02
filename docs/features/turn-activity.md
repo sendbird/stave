@@ -2,46 +2,116 @@
 
 ## Summary
 
-Turn Activity shows the live work behind the current agent turn, including
-running tools, delegated tasks, todos, and elapsed time. Choose a compact docked
-shelf, a larger draggable card, or the **Activity** tab of the right rail's
-Task panel when you need more room to follow a busy turn.
+Turn Activity shows the live work behind the current agent turn: running
+tools, delegated tasks, todos, and elapsed time. While anything is in flight,
+a one-line summary sits on the **composer shelf** directly above the prompt
+input, with the queue of messages waiting to send beneath it. The details —
+every row the turn reported — open inline under that line, in a floating card
+over the chat, or in the **Activity** tab of the right rail's Task panel.
 
 ## When To Use It
 
-- Use `Docked` for a quick status check while writing the next prompt.
-- Use `Floating` when the activity list should stay visible over the chat.
-- Use `Panel` when a long or data-heavy activity list needs the full right rail,
+- Glance at the run line while writing the next prompt: what is running, the
+  to-do progress, how long it has gone, and whether it needs you.
+- Open the details inline (`Above the prompt`) for a quick look at the rows.
+- Use `Floating card` when the rows should stay visible over the chat.
+- Use `Task panel` when a long or data-heavy turn needs the full right rail,
   or when the turn has already ended and you still want to read what it did.
 
 ## Before You Start
 
-- Start or open a task with an active turn so the activity surface has content.
-- Expand the right rail if you want to open the panel directly.
+- Start or open a task with an active turn so the shelf has something to say.
+- Expand the right rail if you want to open the Task panel directly.
 
 ## Quick Start
 
-1. Start a turn and find the Turn Activity shelf above the prompt input.
-2. In its header, choose the floating-card or right-rail icon to change the
-   placement.
-3. In `Floating`, drag the header to position the card over the chat.
-4. Choose the docked icon from the activity header to return to the shelf.
+1. Start a turn. The run line appears above the prompt input:
+   `Working · Edit file · ChatInput.tsx`, the to-do progress, the elapsed time
+   and **Stop**.
+2. Choose the chevron at the end of the line to unfold the turn's rows under
+   it, and choose it again to fold them away.
+3. Choose the panel button beside it to open the Task panel on **Activity**.
+4. To change where the chevron opens the details, open **Settings → Chat** and
+   pick **Open Run Details In**.
 
 ## Interface Walkthrough
 
-### Entry Points
+### The Composer Shelf
 
-- The default `Docked` surface appears above the prompt input while a turn is
-  active.
-- The right rail's **Task** panel opens on its **Activity** tab. It shows the
-  current panel view or offers a button to move the activity there.
+The shelf is one surface tucked behind the top of the prompt input, with up to
+two rows divided by a hairline. It takes no room while nothing is in flight.
+
+| State | Shelf |
+| --- | --- |
+| Idle | Nothing. A queue left after you stopped a turn keeps its own row. |
+| A turn is running | The run line: a status mark, `Working · <current step>`, the to-do count and cells, the elapsed time, **Stop**, the panel button and the details toggle. |
+| Running with queued messages | The run line, then the queue line. |
+| Waiting on an approval or a question | The request's card asks above the shelf; the run line turns amber and reads `Waiting for approval` or `Waiting for your input` without asking again. The details stay folded behind the card. |
+| Stalled | The run line turns amber and reads `Stalled · No updates for 2m`, with how to stop or interrupt it. |
+| Steering | `Steering · Waiting for the provider to accept your message` until the provider takes the steer. |
+| Provider retry or failure | `Retrying` in amber, or `Failed` in red with the reason; a failed turn stays for a few seconds, then the shelf leaves. |
+| An agent run | The agent's line replaces the turn's: see [With An Agent Run](#with-an-agent-run). |
+
+There is exactly one status line for a run. The Task panel's **Activity** tab
+lists the rows without repeating it, and its run header names only an ended
+run's outcome.
+
+### Where The Details Open
+
+**Settings → Chat → Open Run Details In** decides what the details toggle at
+the end of the run line does. The run line itself stays above the prompt
+input whichever you pick, and its panel button always opens the Task panel.
+
+- `Above the prompt` (default): the chevron unfolds the turn's rows under the
+  run line, inside the shelf.
+- `Floating card`: the toggle shows or hides a draggable card over the chat.
+  Drag it by its grip; the position is retained for the next session and kept
+  reachable if the window is resized. The card's close button hides it again.
+- `Task panel`: there is no chevron; the panel button opens the Task panel's
+  **Activity** tab.
+
+**Open Run Details** (off by default) opens the details when a run starts. A
+toggle during a run lasts until that run ends; the next run starts from the
+setting again. Stave saves every setting with its value, so an install that
+already had this switch keeps the value it had; turn it off once in Settings
+to start runs folded.
+
+### The Queue
+
+A message sent while a turn runs waits in the queue line under the run line:
+`2 queued · <the next message>`, with **Steer** to push it into the running
+response now (or **Send** when no turn is running). A queued message that will
+go to another model than the composer's says `as <model>`.
+
+Choose the chevron to open the queue, in the order it sends:
+
+- Hover or focus a row for **Steer**, **Send**, **Edit** and **Delete**. Edit
+  keeps the message in its place; Enter saves and Esc cancels.
+- Drag a row by its grip to change the order.
+- A row bound for another model says `Sends as <model>, not <composer model>`;
+  a row with files or images counts them.
+- **Clear all** empties the queue.
+
+Messages with attachments cannot be steered, so they wait for the current
+response to finish.
+
+### Narrow Composers
+
+The shelf reads the composer's own width, not the window's:
+
+- 560px and wider: the full line.
+- Narrower: the to-do cells, the stage track and the panel button give way.
+  The count moves into the words (`Working · 3/7 · Edit file`, or
+  `Debugger · Cause 2/3`), Stop and the details toggle stay, and Steer keeps
+  its icon. When the Task panel is the only way to the details, its button
+  stays.
 
 ### The Task Panel
 
 The right rail's **Task** panel is the one place for the active task. Its tabs:
 
-- **Activity**: this panel view of Turn Activity — the current turn, or the
-  last one once it ends.
+- **Activity**: the turn's rows — the current turn, or the last one once it
+  ends — under every placement.
 - **Progress**: the task's [mission](missions.md) while it has one — running,
   paused or ended — and otherwise its flow (Request → Plan → Changes →
   Verification → Pull request), with the task's wake-up under either.
@@ -56,24 +126,24 @@ the number of unreviewed runs on **Results**. The tab you choose is kept with
 the layout, so the panel reopens where you left it, and a task tab's context
 menu opens it straight to **Results**, **Progress** or **Subagents**.
 
-### Key Controls
+### With An Agent Run
 
-- `Dock turn activity above the input`: return to the compact composer shelf.
-- `Float turn activity over the chat`: show a larger card in the message pane.
-- `Show turn activity in the side panel`: move the activity into the Task
-  panel's **Activity** tab and open it automatically. The panel keeps the
-  activity list expanded.
-- In `Floating`, drag the card header. The position is retained for the next
-  session and is kept reachable if the window is resized.
+While a task runs an agent or a [mission](missions.md), its line heads the
+shelf for the whole run, between turns included, and the turn it is running
+never draws a second status:
 
-### With A Mission
+- The agent's name, `Working` or `Needs you` with what it waits on, and the
+  current step while a turn runs.
+- An agent with a workflow draws its stages as the compact track, naming the
+  stage and where it stands (`Cause 2/3`); a one-stage run shows its turn's
+  to-dos.
+- **Stop**, **Take control**, and **Retry** while a stage is stuck; a playbook
+  mission offers **Take over** and **Resume** instead.
+- The panel button opens **Progress**; the details toggle unfolds the current
+  turn's rows.
 
-On a task running a [mission](missions.md), the Mission bar heads the
-activity and stays up between turns: the current stage, what it is doing, and
-**Take over**. With `Docked` or `Floating` it tucks under the turn shelf or the
-composer like a shelf of its own; with `Panel` it sits at the top of the
-panel. A stage that waits for your sign-off asks in the composer's approval
-slot instead.
+A stage that waits for your sign-off asks in its card above the shelf; the
+line says the run needs you without repeating the question.
 
 ### Activity Rows
 
@@ -86,10 +156,11 @@ slot instead.
 - A finished row shows how long its step took. When the provider reports no
   duration, the row derives one from the step's own start and end, so the
   column is filled for both providers instead of only for Claude.
-- In `Panel`, each work row also shows how far into the turn it started, such
-  as `+1m 30s`. The docked shelf is one composer width and omits that column.
-- In `Panel`, tool, event, and agent rows wrap titles and details so a long
-  path or command stays readable. The docked shelf keeps each field to one
+- In the Task panel, each work row also shows how far into the turn it started,
+  such as `+1m 30s`. The inline list is one composer width and omits that
+  column.
+- In the Task panel, tool, event, and agent rows wrap titles and details so a
+  long path or command stays readable. The inline list keeps each field to one
   ellipsized line.
 
 ### Provider-Specific Detail
@@ -142,12 +213,14 @@ badge — instead of listing a row per run.
 - The row's status is the most urgent of its handlers, so one failure among
   several is still visible at a glance.
 - When a handler fails, the row says so — `1 of 2 handlers failed`.
-- The duration is the longest handler's, and in `Panel` the start offset is the
-  earliest handler's, so the row spans the whole group rather than one member.
+- The duration is the longest handler's, and in the Task panel the start offset
+  is the earliest handler's, so the row spans the whole group rather than one
+  member.
 
 ### The Last Turn
 
-When a turn ends, `Panel` keeps it on screen instead of emptying. The header
+When a turn ends, the Task panel's **Activity** tab keeps it on screen instead
+of emptying. The header
 shows a `Last turn` marker and names the outcome — `Turn finished`, `Turn
 stopped`, or `Turn failed` — and the rows, agent tree, timings and metrics stay
 exactly as the turn left them. The next turn replaces it.
@@ -158,7 +231,7 @@ exactly as the turn left them. The next turn replaces it.
 - Rows still lead to their tool call in the conversation.
 - The agent tree is read-only here. Delegated tasks that outlive the turn keep
   their full controls in the delegated task rows below it.
-- `Docked` and `Floating` clear when the turn ends, as before. The docked shelf
+- The composer shelf and the floating card clear when the turn ends. The shelf
   has to give the composer its space back, and a floating card would leave a
   finished turn hanging over the chat with no reason to go away.
 
@@ -168,7 +241,7 @@ The activity list ends with a six-tile metrics grid: `Elapsed`, `Changes`,
 `Verification`, `Usage`, `Agents`, and `Headroom`. `Headroom` combines the
 remaining context tokens and the account limit usage, so the grid divides
 evenly across the 2-, 3-, and 6-column layouts instead of leaving a stray tile.
-In `Panel`, the four outcome tiles (`Changes`, `Verification`, `Usage`,
+In the Task panel, the four outcome tiles (`Changes`, `Verification`, `Usage`,
 `Headroom`) sit on the rail floor instead of scrolling with the rows. They
 stay two-up while the rail is at least `24rem` wide, and stack one tile per
 row when it is narrower.
@@ -184,40 +257,42 @@ row when it is narrower.
 
 ### Follow a busy turn
 
-1. Select `Panel` from the activity header.
-2. Keep the right rail open while tools and delegated tasks update.
-3. Return to `Docked` when you only need a compact status indicator.
+1. Choose the panel button on the run line.
+2. Keep the right rail open while tools and delegated tasks update; the run
+   line above the prompt keeps the state and **Stop**.
+3. To make the chevron open the panel every time, pick `Task panel` under
+   **Settings → Chat → Open Run Details In**.
 
 ### Read a turn back after it ends
 
-1. Select `Panel` from the activity header, or open the Task panel's
-   **Activity** tab.
+1. Open the Task panel's **Activity** tab.
 2. Let the turn finish. The list stays, headed `Last turn`.
 3. Choose a row to jump to that step's input and output in the conversation.
 
-### Keep activity visible while reading chat
+### Steer or reorder what is queued
 
-1. Select `Floating`.
-2. Drag the header to an open corner of the message pane.
-3. Expand the list when you need to inspect more work items.
+1. Send a follow-up while a turn runs; it joins the queue line.
+2. Choose **Steer** to push the next message into the running response, or
+   open the queue and drag rows into the order they should send.
 
 ## Files And Data
 
-- The placement preference is stored with the app settings and defaults to
-  `Docked`.
+- **Open Run Details In** is stored with the app settings and defaults to
+  `Above the prompt`; **Open Run Details** defaults to off.
 - A manually dragged floating position is stored with the layout state.
+- The details toggle's state lasts for the current run only and is not saved.
 
 ## Limitations And Advanced Options
 
-- Only one Turn Activity surface is shown at a time; changing placement moves
-  the existing surface rather than creating a second copy.
+- The run line is always above the prompt input; only the details move.
 - `Floating` is positioned within the chat area and may be clamped after a
-  window resize so its header remains reachable.
+  window resize so its grip remains reachable.
 - A busy turn keeps only its most recent plain tool calls, so the oldest of
   them leave the list while subagents and delegated tasks stay. The limit is the
   same in every placement.
 - Choosing a row whose message is no longer loaded in the conversation does
   nothing. Load the older messages first, then choose the row again.
+- Dragging a queued message needs a pointer; there is no keyboard reorder.
 - `Headroom` reports remaining context only when the provider states it. A
   live turn usually shows the account limit alone.
 - Only the most recent turn is kept, only for the last several tasks you ran
@@ -230,13 +305,19 @@ row when it is narrower.
 
 ## Troubleshooting
 
-### The activity list is not visible
+### The details do not open under the run line
 
-- Symptom: no shelf appears above the prompt input.
-- Cause: the current placement is `Floating` or `Panel`, or there is no active
-  turn yet.
-- Fix: open the Task panel's **Activity** tab and choose `Show here`, or start
-  a turn and select `Docked` from its header.
+- Symptom: the run line shows, but there is no chevron.
+- Cause: **Open Run Details In** is `Task panel`, or an approval or question
+  card is waiting above the shelf.
+- Fix: use the panel button, answer the card, or pick `Above the prompt` in
+  **Settings → Chat**.
+
+### The details open by themselves at every turn
+
+- Cause: **Open Run Details** is on (an install that had the earlier
+  "expanded" switch on keeps it).
+- Fix: turn it off in **Settings → Chat**.
 
 ## Related Docs
 

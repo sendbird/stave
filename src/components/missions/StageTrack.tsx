@@ -15,8 +15,8 @@ import { missionStyles } from "./missions.styles";
  * Assistive technology reads the bar's value ("Stage 3 of 6, Verify,
  * running") and an ordered list of every stage with its status.
  *
- * Shared by the Mission bar, the agent run bar, the Mission panel and Fleet
- * cards, so every surface draws the same run the same way.
+ * Shared by the composer shelf's run line, the Mission panel and Fleet cards,
+ * so every surface draws the same run the same way.
  */
 export function StageTrack(props: {
   rows: readonly MissionStageRow[];
@@ -27,9 +27,11 @@ export function StageTrack(props: {
   paused?: boolean;
   /** The run's own verdict when its stages do not name it, such as a stopped mission. */
   tone?: StageTone;
+  /** The percent beside the track. A one-line host that names the count already drops it. */
+  showPercent?: boolean;
   "aria-label"?: string;
 }) {
-  const { rows, live = true, size = "sm", paused = false, tone } = props;
+  const { rows, live = true, size = "sm", paused = false, tone, showPercent = true } = props;
   const progress = useMemo(() => projectStageProgress(rows, { paused, tone }), [rows, paused, tone]);
   if (!progress) return null;
   const { current } = progress;
@@ -45,6 +47,7 @@ export function StageTrack(props: {
         title={`${progress.count} · ${current.stage.title} — ${progress.statusLabel}`}
         live={live}
         size={size}
+        showPercent={showPercent}
         aria-label={props["aria-label"] ? `${props["aria-label"]} progress` : "Stage progress"}
       />
       <ol className={sx(missionStyles.visuallyHidden)} aria-label={props["aria-label"] ?? "Stages"}>

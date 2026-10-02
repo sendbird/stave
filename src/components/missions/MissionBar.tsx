@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CirclePause, PanelRightOpen } from "lucide-react";
+import { CirclePause } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { TextShimmer } from "@/components/ads/components/TextShimmer";
 import { Tooltip } from "@/components/ads/components/Tooltip";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState } from "@/lib/missions/domain";
 import {
@@ -23,8 +23,13 @@ import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
 import { useNow, usePrefersReducedMotion, useScopedTaskMission } from "./useMission";
-import { missionBarStyles as styles } from "./mission-bar.styles";
-import { missionStyles } from "./missions.styles";
+import type { ShelfTodoProgress } from "@/components/session/composer-shelf/composer-shelf.utils";
+import { shelfStyles } from "@/components/session/composer-shelf/composer-shelf.styles";
+import {
+  ShelfRunLine,
+  ShelfRunText,
+  type ShelfRunDetailToggle,
+} from "@/components/session/composer-shelf/ShelfRunLine";
 
 const STAGE_HOLD_MS = 3_000;
 
@@ -80,21 +85,26 @@ export interface MissionBarActions {
   busy?: boolean;
 }
 
-type MissionBarViewProps = {
+/** What the composer shelf adds to a mission's line: where its details open, and a one-stage run's to-dos. */
+export interface MissionLineShelfProps {
+  /** `wide` once the shelf also offers the details inline. */
+  panelKeep?: "always" | "wide";
+  detailToggle?: ShelfRunDetailToggle | null;
+  todo?: ShelfTodoProgress | null;
+  reasonShownElsewhere?: boolean;
+}
+
+type MissionBarViewProps = MissionLineShelfProps & {
   detail: MissionDetail;
   nowPhrase: string | null;
   now: number;
   reducedMotion: boolean;
-  /** `docked` is a shelf over the composer; `panel` a flat header in the Activity panel. */
-  variant?: "docked" | "panel";
-  /** Docked inside the composer frame, which owns the final tuck. */
-  framed?: boolean;
   actions?: MissionBarActions;
-  /** What an agent run's bar offers; a playbook mission uses `actions`. */
+  /** What an agent run's line offers; a playbook mission uses `actions`. */
   agentActions?: AgentRunActions;
 };
 
-/** The bar of a mission: the stage track for a playbook, a status line for an agent run. */
+/** A mission's line in the composer shelf: the stage track for a playbook, the agent's status for an agent run. */
 export function MissionBarView(props: MissionBarViewProps) {
   return isAgentRun(props.detail.mission) ? (
     <AgentRunBarView {...props} actions={props.agentActions} onOpenPanel={props.actions?.onOpenPanel} />
@@ -104,7 +114,7 @@ export function MissionBarView(props: MissionBarViewProps) {
 }
 
 function PlaybookMissionBarView(props: MissionBarViewProps) {
-  const { detail, now, actions = {}, variant = "docked" } = props;
+  const { detail, now, actions = {} } = props;
   const { mission } = detail;
   const rows = useMemo(() => projectMissionStages(detail, new Date(now)), [detail, now]);
   const current = rows[mission.currentStageIndex]!;
@@ -142,111 +152,86 @@ function PlaybookMissionBarView(props: MissionBarViewProps) {
   const paused = mission.state === "paused";
   const userPaused = paused && (mission.pauseReason === "paused-by-user" || mission.pauseReason === "taken-over");
   const elapsed = formatAge(now - Date.parse(mission.createdAt));
+  const stateInk =
+    line.tone === "attention"
+      ? shelfStyles.labelDanger
+      : line.tone === "waiting"
+        ? shelfStyles.labelWaiting
+        : shelfStyles.strong;
 
   return (
-    <section
-      className={cx(
-        variant === "docked" ? "turn-activity-surface" : undefined,
-        sx(
-          variant === "docked" ? styles.tray : styles.flat,
-          variant === "docked" && (props.framed ? styles.trayFramed : styles.trayStandalone),
-        ),
-      )}
-      aria-label={`Mission: ${mission.playbook.name}`}
-      title={`${mission.playbook.name} · ${mission.assignment.split("\n")[0]}`}
-      data-testid="mission-bar"
-    >
-      <div className={sx(styles.sizer)}>
-        <div className={sx(styles.header)}>
-          <span className={sx(styles.mark)}>
-            <StageStatusIcon
-              tone={held ? "done" : line.tone}
-              icon={paused && !held ? CirclePause : undefined}
-              xstyle={styles.markIcon}
-            />
-          </span>
-          <p className={sx(styles.headline)}>
-            <span className={sx(styles.headlineTitle)}>{title}</span>
-            {state ? (
-              <span
-                className={sx(
-                  line.tone === "attention"
-                    ? styles.headlineAttention
-                    : line.tone === "waiting"
-                      ? styles.headlineWaiting
-                      : styles.headlineState,
-                )}
+    <ShelfRunLine
+      testId="mission-bar"
+      dataState={held ? "done" : line.tone}
+      ariaLabel={`Mission: ${mission.playbook.name}`}
+      announcement={announcement}
+      mark={
+        <StageStatusIcon
+          tone={held ? "done" : line.tone}
+          icon={paused && !held ? CirclePause : undefined}
+          xstyle={shelfStyles.markIcon}
+        />
+      }
+      text={
+        <ShelfRunText
+          label={title}
+          // The line spends its width on the present; identity is in the title.
+          title={`${mission.playbook.name} · ${mission.assignment.split("\n")[0]}`}
+          narrow={`${current.index + 1}/${rows.length}`}
+          parts={[
+            state ? <span className={sx(stateInk)}>{state}</span> : null,
+            showNow && detailText ? (
+              <TextShimmer active={!props.reducedMotion}>{detailText}</TextShimmer>
+            ) : (
+              detailText
+            ),
+            age,
+          ]}
+        />
+      }
+      progress={
+        <span className={sx(shelfStyles.track)}>
+          <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} showPercent={false} />
+        </span>
+      }
+      meta={<span title="Time since the mission started">{elapsed}</span>}
+      actions={
+        <>
+          {mission.state === "running" && actions.onTakeOver ? (
+            <Tooltip content={TAKE_OVER_HINT}>
+              <Button
+                variant="quiet"
+                size="xs"
+                disabled={actions.busy}
+                onClick={actions.onTakeOver}
+                xstyle={shelfStyles.quiet}
               >
-                {" · "}
-                {state}
-              </span>
-            ) : null}
-            {detailText || age ? (
-              <span className={sx(styles.headlineDetail)}>
-                {detailText ? " · " : ""}
-                {showNow && detailText ? (
-                  <TextShimmer active={!props.reducedMotion}>{detailText}</TextShimmer>
-                ) : (
-                  detailText
-                )}
-                {age ? ` · ${age}` : ""}
-              </span>
-            ) : null}
-          </p>
-          {/* Where the mission stands is on the track below; the header keeps its age. */}
-          <span className={sx(styles.meta)}>
-            <span className={sx(styles.metaWide)} title="Time since the mission started">
-              {elapsed}
-            </span>
-          </span>
-          <span className={sx(styles.actions)}>
-            {mission.state === "running" && actions.onTakeOver ? (
-              <Tooltip content={TAKE_OVER_HINT}>
-                <Button
-                  variant="quiet"
-                  size="xs"
-                  disabled={actions.busy}
-                  onClick={actions.onTakeOver}
-                  xstyle={styles.quietButton}
-                >
-                  Take over
-                </Button>
-              </Tooltip>
-            ) : null}
-            {userPaused && actions.onResume ? (
-              <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onResume}>
-                Resume
+                Take over
               </Button>
-            ) : null}
-            {actions.onOpenPanel ? (
-              <Tooltip content="Open Progress in the Task panel">
-                <Button
-                  variant="quiet"
-                  size="iconSm"
-                  iconOnly
-                  aria-label="Open Progress in the Task panel"
-                  onClick={actions.onOpenPanel}
-                  xstyle={styles.quietButton}
-                >
-                  <PanelRightOpen aria-hidden />
-                </Button>
-              </Tooltip>
-            ) : null}
-          </span>
-        </div>
-      </div>
-      <div className={sx(styles.track)}>
-        <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} />
-      </div>
-      <p className={sx(missionStyles.visuallyHidden)} aria-live="polite">
-        {announcement}
-      </p>
-    </section>
+            </Tooltip>
+          ) : null}
+          {userPaused && actions.onResume ? (
+            <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onResume}>
+              Resume
+            </Button>
+          ) : null}
+        </>
+      }
+      panel={
+        actions.onOpenPanel
+          ? { label: "Open Progress in the Task panel", onOpen: actions.onOpenPanel, keep: props.panelKeep ?? "always" }
+          : null
+      }
+      detail={props.detailToggle ?? null}
+    />
   );
 }
 
-/** The Mission bar for the scoped task: shown while its mission is active. */
-export function MissionBar(props: { variant?: "docked" | "panel"; framed?: boolean }) {
+/**
+ * The run line of the scoped task's active mission, or nothing. The composer
+ * shelf mounts it whenever one is active, between turns included.
+ */
+export function MissionBar(props: MissionLineShelfProps) {
   const { detail, taskId } = useScopedTaskMission();
   const active = Boolean(detail && isActiveMissionState(detail.mission.state));
   const nowPhrase = useAppStore((state) =>
@@ -263,12 +248,11 @@ export function MissionBar(props: { variant?: "docked" | "panel"; framed?: boole
   if (!detail || !active) return null;
   return (
     <MissionBarView
+      {...props}
       detail={detail}
       nowPhrase={shownPhrase}
       now={now}
       reducedMotion={reducedMotion}
-      variant={props.variant}
-      framed={props.framed}
       agentActions={agentActions}
       actions={{
         busy,

@@ -7,6 +7,7 @@ import { AgentRunInstructions } from "@/components/missions/AgentRunPrompt";
 import { AgentRunResultCardView } from "@/components/missions/AgentRunResultCard";
 import { FleetMissionStrip } from "@/components/missions/FleetMissionStrip";
 import { MissionBarView } from "@/components/missions/MissionBar";
+import { ComposerShelfSurface } from "@/components/session/composer-shelf/ComposerShelf";
 import { MissionDetailView } from "@/components/missions/MissionPanel";
 import { compileMissionStagePrompt } from "@/lib/missions/briefing";
 import type { MissionDetail } from "@/lib/missions/api";
@@ -69,14 +70,16 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         <section key={id} className={sx(styles.case)} data-preview-case={id}>
           <p className={sx(styles.caption)}>{label}</p>
           <div className={sx(styles.stack)}>
-            <MissionBarView
-              detail={detail}
-              nowPhrase={phrase}
-              now={now}
-              reducedMotion={false}
-              agentActions={runActions}
-              actions={{ onOpenPanel: () => {} }}
-            />
+            <ComposerShelfSurface>
+              <MissionBarView
+                detail={detail}
+                nowPhrase={phrase}
+                now={now}
+                reducedMotion={false}
+                agentActions={runActions}
+                actions={{ onOpenPanel: () => {} }}
+              />
+            </ComposerShelfSurface>
             <div className={sx(styles.composer)}>Tell the agent something…</div>
           </div>
         </section>

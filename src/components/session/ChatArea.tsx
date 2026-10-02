@@ -379,9 +379,10 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <RenderProfiler id="PlanViewer">
               <PlanViewer />
             </RenderProfiler>
-            {/* Floating placement of the turn activity shelf. Renders only
-                when `settings.turnActivityPlacement === "floating"`; the
-                docked copy in ChatInput bows out symmetrically. */}
+            {/* The floating card of the turn's details. Renders only when
+                `settings.turnActivityPlacement === "floating"` and the
+                composer shelf's toggle has it open; the run line itself stays
+                on the shelf. */}
             <RenderProfiler id="TurnActivityFloating">
               <TurnActivity host="floating" />
             </RenderProfiler>

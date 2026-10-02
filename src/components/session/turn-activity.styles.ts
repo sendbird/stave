@@ -54,6 +54,19 @@ export const turnActivityStyles = stylex.create({
   stackFloating: {
     position: "relative",
   },
+  // The list inside the composer shelf: the shelf is already on screen, so
+  // the list only fades in. No transform, so nothing slides under the line.
+  stackInlineEnter: {
+    animationName: {
+      default: rowIn,
+      "@media (prefers-reduced-motion: reduce)": "none",
+    },
+    animationDuration: {
+      default: vars["--ads-motion-duration-normal"],
+      "@media (prefers-reduced-motion: reduce)": "0ms",
+    },
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
+  },
   stackPanel: {
     display: "flex",
     flex: 1,
@@ -250,19 +263,6 @@ export const turnActivityStyles = stylex.create({
     fontVariantNumeric: "tabular-nums",
   },
 
-  // ── Placement controls ──────────────────────────────────────────────
-  placementGroup: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    gap: "0.125rem",
-  },
-  placementButton: {
-    color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
-    },
-  },
   chevron: {
     height: 14,
     width: 14,
@@ -277,6 +277,52 @@ export const turnActivityStyles = stylex.create({
   },
   listDocked: {
     maxHeight: "min(12rem, 28vh)",
+  },
+  // Under the shelf's run line, divided from it by a hairline. Taller than the
+  // old shelf list: it is opened on purpose and closes with the same toggle.
+  listInline: {
+    backgroundColor: "transparent",
+    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 50%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    maxHeight: "min(16rem, 34vh)",
+  },
+  listEmpty: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    margin: 0,
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-12"],
+  },
+  // ── Floating card grip ──────────────────────────────────────────────
+  floatingGrip: {
+    alignItems: "center",
+    borderBottomColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 50%, transparent)`,
+    borderBottomStyle: "solid",
+    borderBottomWidth: vars["--ads-border-width-hairline"],
+    display: "flex",
+    flexShrink: 0,
+    gap: vars["--ads-space-8"],
+    minHeight: "2rem",
+    paddingInlineEnd: vars["--ads-space-4"],
+    paddingInlineStart: vars["--ads-space-12"],
+  },
+  floatingGripIcon: {
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    height: 14,
+    width: 14,
+  },
+  floatingGripTitle: {
+    color: vars["--ads-color-text-muted"],
+    flex: 1,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    margin: 0,
+    minWidth: 0,
+  },
+  floatingGripClose: {
+    color: vars["--ads-color-text-muted"],
   },
   listFloating: {
     maxHeight: "min(24rem, 55vh)",

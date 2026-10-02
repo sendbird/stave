@@ -13,6 +13,7 @@ import {
   type ComposerLayoutMode,
 } from "@/store/app-settings";
 import { useAppStore } from "@/store/app.store";
+import { TurnActivityFields } from "./settings-dialog-turn-activity-fields";
 import {
   ChoiceButtons,
   DraftInput,
@@ -35,7 +36,6 @@ export function ChatSection() {
     reasoningExpansionMode,
     showInterimMessages,
     showConversationTurnRail,
-    turnActivityExpandedByDefault,
     composerLayout,
     composerControlPlacements,
     steerQueueEnterAction,
@@ -54,7 +54,6 @@ export function ChatSection() {
           state.settings.reasoningExpansionMode,
           state.settings.showInterimMessages,
           state.settings.showConversationTurnRail,
-          state.settings.turnActivityExpandedByDefault,
           state.settings.composerLayout,
           state.settings.composerControlPlacements,
           state.settings.steerQueueEnterAction,
@@ -232,16 +231,7 @@ export function ChatSection() {
               })
             }
           />
-          <SwitchField
-            title="Expand Turn Activity"
-            description="Keep the turn activity shelf above the prompt input expanded while a turn runs, so agents, tools, and todos stay visible. Turn this off to show only the headline row."
-            checked={turnActivityExpandedByDefault}
-            onCheckedChange={(checked) =>
-              updateSettings({
-                patch: { turnActivityExpandedByDefault: checked },
-              })
-            }
-          />
+          <TurnActivityFields />
         </SettingsCard>
         <SettingsCard
           title="Composer Controls"
@@ -249,7 +239,7 @@ export function ChatSection() {
         >
           <LabeledField
             title="Composer Layout"
-            description="Framed raises the input card and hangs four bars off it: turn activity above, workspace and runtime below, and the control shelves beside it. Classic is the previous stack, with every control in the toolbar row. A narrow composer falls back to Classic either way."
+            description="Framed raises the input card and hangs four bars off it: the run and queue shelf above, workspace and runtime below, and the control shelves beside it. Classic is the previous stack, with every control in the toolbar row. A narrow composer falls back to Classic either way."
           >
             <ChoiceButtons<ComposerLayoutMode>
               value={normalizeComposerLayoutMode(composerLayout)}
