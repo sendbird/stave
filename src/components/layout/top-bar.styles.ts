@@ -28,29 +28,19 @@ export const topBarControlStyles = stylex.create({
     height: vars["--ads-control-height-sm"],
     lineHeight: vars["--ads-line-height-control"],
     paddingInline: vars["--ads-space-8"],
+    // One line at one height. A host-layout button does not get the ADS
+    // control's `nowrap`, so a two-word label ("Commit graph") inside a
+    // shrinking tooltip wrapper would otherwise break and spill over its
+    // neighbour on a tight bar.
+    whiteSpace: "nowrap",
   },
-  /** Bordered chrome fill shared by the path chip, branch chip, and buttons. */
+  /** Bordered chrome fill shared by the path chip, branch chip, Commit graph, and buttons. */
   surface: {
     backgroundColor: {
       default: vars["--ads-color-canvas"],
       ":hover": vars["--ads-color-overlay-hover"],
     },
     borderColor: vars["--ads-color-border-subtle"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
-  },
-  /**
-   * The same box without the border: an action (Commit graph) beside the
-   * bordered location chips, so the chips read as where you are and the
-   * coloured PR trigger as the one primary action.
-   */
-  quiet: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
-    },
-    borderColor: "transparent",
     borderStyle: "solid",
     borderWidth: vars["--ads-border-width-hairline"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
@@ -144,7 +134,8 @@ export const topBarStyles = stylex.create({
     borderStartStartRadius: 0,
   },
   pathMenu: { minWidth: 184 },
-  // Geometry and type come from `topBarControlStyles`; nothing left to say.
+  // Geometry, type and fill come from `topBarControlStyles`; only the
+  // disabled fade (no active workspace) is local, as on the PR trigger.
   gitGraphButton: {
     opacity: { default: 1, ":disabled": vars["--ads-opacity-disabled"] },
   },
