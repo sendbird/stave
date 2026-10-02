@@ -3,6 +3,8 @@ import { useCallback, useMemo } from "react";
 import { vars } from "../ads/tokens/tokens.stylex";
 import { sx } from "../ads/utils/stylex";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StateIcon } from "@/components/ads/components/StateIcon";
+import { RightRailPanelHeader } from "@/components/layout/RightRailPanelShell";
 import { FlowPanel } from "@/components/agents/FlowPanel";
 import { MissionPanel } from "@/components/missions/MissionPanel";
 import { WakeUpSection } from "@/components/missions/WakeUpSection";
@@ -14,6 +16,7 @@ import { describeMissionBadge } from "@/lib/missions/mission-view";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import {
   isTaskPanelTab,
+  RIGHT_RAIL_PANEL_TITLES,
   TASK_PANEL_TABS,
   type TaskPanelTab,
 } from "@/lib/right-rail-panels";
@@ -23,13 +26,23 @@ import { useAppStore } from "@/store/app.store";
 import { useTaskMission } from "@/store/missions-store";
 import { TaskResultReviews } from "./TaskResultReviews";
 import { SubagentsSection } from "./SubagentsSection";
+import { TaskPanelEmpty } from "./TaskPanelEmpty";
 import { TurnActivityPanel } from "./TurnActivityPanel";
+import {
+  resolveActivityTabMark,
+  resolveProgressTabMark,
+  resolveResultsTabMark,
+  resolveSubagentsTabMark,
+  type TaskTabMark,
+} from "./task-panel-marks";
 
 /**
  * The right rail's Task panel: what the active task is doing, what it needs
  * from the user and what it produced, as four tabs. The selected tab is layout
  * state, so every opener names the tab it wants and a reopened rail returns to
- * the tab it left.
+ * the tab it left. The tabs sit in the rail's one panel bar (the shell is told
+ * `ownHeader`), so the panel spends 46px on chrome instead of a title bar plus
+ * a tab bar.
  */
 export function TaskPanel() {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
@@ -46,11 +59,7 @@ export function TaskPanel() {
     [setLayout],
   );
   if (!workspaceId || !taskId || !task) {
-    return (
-      <p className={sx(styles.empty)}>
-        Open a task to see its activity, progress, subagents and results.
-      </p>
-    );
+    return <TaskPanelEmpty hasWorkspace={Boolean(workspaceId)} />;
   }
   return (
     <TaskPanelView
@@ -92,21 +101,24 @@ export function TaskPanelView(props: {
       }}
       xstyle={styles.tabs}
     >
-      <div className={sx(styles.bar)}>
+      <RightRailPanelHeader>
+        <h2 className={sx(styles.srOnly)}>{RIGHT_RAIL_PANEL_TITLES.task}</h2>
         <TabsList aria-label="Task sections" xstyle={styles.tabList}>
           {TASK_PANEL_TABS.map((item) => (
             <TabsTrigger key={item.id} value={item.id} xstyle={styles.tab}>
               {item.label}
-              <TaskTabMark
-                tab={item.id}
-                workspaceId={workspaceId}
-                taskId={taskId}
-                mission={props.mission}
-              />
+              <span className={sx(styles.markSlot)}>
+                <TaskTabMark
+                  tab={item.id}
+                  workspaceId={workspaceId}
+                  taskId={taskId}
+                  mission={props.mission}
+                />
+              </span>
             </TabsTrigger>
           ))}
         </TabsList>
-      </div>
+      </RightRailPanelHeader>
       <TabsContent value="activity" xstyle={[styles.panel, styles.panelFill]}>
         <TurnActivityPanel />
       </TabsContent>
@@ -178,19 +190,14 @@ function ActivityMark(props: { taskId: string }) {
     (state) =>
       state.providerTurnActivityByTask[props.taskId]?.pendingInteraction ?? null,
   );
-  if (pending === "approval") return <Mark tone="warning" label="Approval needed" />;
-  if (pending === "user_input") return <Mark tone="warning" label="Input needed" />;
-  if (running) return <Mark tone="accent" label="Running" />;
-  return null;
+  return <Mark mark={resolveActivityTabMark({ running, pendingInteraction: pending })} />;
 }
 
 function ProgressMark(props: { mission: MissionDetail | undefined }) {
   const { mission } = props;
   if (!mission || !isActiveMissionState(mission.mission.state)) return null;
   const badge = isAgentRun(mission.mission) ? describeAgentRunStatus(mission) : describeMissionBadge(mission);
-  if (badge.tone === "warning") return <Mark tone="warning" label={badge.label} />;
-  if (badge.tone === "danger") return <Mark tone="danger" label={badge.label} />;
-  return null;
+  return <Mark mark={resolveProgressTabMark(badge)} />;
 }
 
 function SubagentsMark(props: { taskId: string }) {
@@ -204,9 +211,7 @@ function SubagentsMark(props: { taskId: string }) {
     () => (graph ? summarizeWorkGraph(graph).runningCount : 0),
     [graph],
   );
-  return running > 0 ? (
-    <Mark tone="accent" count={running} label={`${running} running`} />
-  ) : null;
+  return <Mark mark={resolveSubagentsTabMark(running)} />;
 }
 
 function ResultsMark(props: { workspaceId: string; taskId: string }) {
@@ -217,118 +222,113 @@ function ResultsMark(props: { workspaceId: string; taskId: string }) {
     includeEvidence: false,
     limit: 1,
   });
-  return page.total > 0 ? (
-    <Mark tone="accent" count={page.total} label={`${page.total} to review`} />
-  ) : null;
+  return <Mark mark={resolveResultsTabMark(page.total)} />;
 }
 
-/** A dot says a state; a count says how many. Either reads as part of the tab. */
-function Mark(props: {
-  tone: "accent" | "warning" | "danger";
-  label: string;
-  count?: number;
-}) {
-  if (props.count === undefined) {
+/**
+ * A state is its shared glyph, a quantity is a count. Both hang at the
+ * label's end outside the tab's layout, so neither moves a label when it
+ * comes or goes.
+ */
+function Mark(props: { mark: TaskTabMark | null }) {
+  const { mark } = props;
+  if (!mark) return null;
+  if (mark.kind === "state") {
     return (
-      <span
-        role="img"
-        aria-label={props.label}
-        title={props.label}
-        className={sx(styles.dot, dotTones[props.tone])}
-      />
+      <span title={mark.label} className={sx(styles.markGlyph)}>
+        <StateIcon state={mark.state} size="xs" label={mark.label} />
+      </span>
     );
   }
   return (
-    <span title={props.label} className={sx(styles.count, countTones[props.tone])}>
-      {props.count > 99 ? "99+" : props.count}
+    <span role="img" title={mark.label} aria-label={mark.label} className={sx(styles.count)}>
+      {mark.text}
     </span>
   );
 }
 
+/** Room after the last tab for its mark: the 12px glyph or a one-digit count. */
+const MARK_OVERHANG = 14;
+
 const styles = stylex.create({
-  empty: {
-    padding: vars["--ads-space-16"],
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
-  },
   notice: {
     margin: 0,
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-normal"],
     color: vars["--ads-color-text-muted"],
   },
-  tabs: { height: "100%", minHeight: 0, gap: 0 },
-  // The bar owns the rule so it spans the panel; a `line` list is shrink-wrapped
-  // and its own inset hairline would stop after the last label.
-  bar: {
-    flexShrink: 0,
-    paddingInline: vars["--ads-space-12"],
-    borderBottomWidth: vars["--ads-border-width-hairline"],
-    borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border-subtle"],
+  // Only the selected tab's view is mounted, so the root has exactly two
+  // children: the bar and the one panel that fills the rest.
+  tabs: {
+    gap: 0,
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gridTemplateRows: "auto minmax(0, 1fr)",
+    height: "100%",
+    minHeight: 0,
   },
+  srOnly: {
+    blockSize: 1,
+    borderWidth: 0,
+    clip: "rect(0 0 0 0)",
+    clipPath: "inset(50%)",
+    inlineSize: 1,
+    insetBlockStart: 0,
+    insetInlineStart: 0,
+    margin: -1,
+    overflow: "hidden",
+    padding: 0,
+    position: "absolute",
+    whiteSpace: "nowrap",
+  },
+  // The list fills the bar's height and runs one hairline past it, so the
+  // active underline covers the bar's own rule. Its end padding is the room
+  // the last tab's mark hangs into. A rail narrower than the four labels
+  // scrolls the strip sideways instead of clipping Results.
   tabList: {
     borderRadius: 0,
     boxShadow: "none",
     gap: vars["--ads-space-16"],
-    height: 36,
     marginBlockEnd: `calc(-1 * ${vars["--ads-border-width-hairline"]})`,
+    minWidth: 0,
+    overflowX: "auto",
+    overflowY: "hidden",
     padding: 0,
+    paddingInlineEnd: MARK_OVERHANG,
+    scrollbarWidth: "none",
   },
-  tab: { flex: "none", gap: vars["--ads-space-4"], paddingInline: 0 },
+  tab: { flex: "none", overflow: "visible", paddingInline: 0, position: "relative" },
+  // A mark sits like a superscript at the label's end, in the gap before the
+  // next tab, so it takes no width: a mark arriving or leaving never moves a
+  // label, and the strip still fits the default 300px rail. It is a fixed
+  // size whatever it says.
+  markSlot: {
+    alignItems: "center",
+    display: "inline-flex",
+    height: 14,
+    insetBlockStart: "calc(50% - 15px)",
+    insetInlineStart: "calc(100% + 1px)",
+    pointerEvents: "none",
+    position: "absolute",
+  },
+  markGlyph: { display: "inline-flex" },
   panel: { minHeight: 0, minWidth: 0 },
   // Activity hosts the live list with its own scroll and floor; the record
-  // views scroll as one column.
+  // views scroll as one column. Their text starts on the tab labels' edge.
   panelFill: { display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" },
-  panelScroll: { height: "100%", overflowY: "auto", padding: vars["--ads-space-16"] },
-  progress: { display: "flex", flexDirection: "column", gap: vars["--ads-space-20"] },
-  dot: {
-    flex: "none",
-    width: 6,
-    height: 6,
-    borderRadius: vars["--ads-radius-full"],
+  panelScroll: {
+    height: "100%",
+    overflowY: "auto",
+    paddingBlock: vars["--ads-space-16"],
+    paddingInline: vars["--ads-space-12"],
   },
+  progress: { display: "flex", flexDirection: "column", gap: vars["--ads-space-20"] },
+  // A count is a figure, not a pill: in the accent ink, at the micro step,
+  // with tabular digits, so it reads as the tab's number and fits the gap.
   count: {
-    alignItems: "center",
-    borderColor: "transparent",
-    borderRadius: vars["--ads-radius-full"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    display: "inline-flex",
-    flex: "none",
+    color: vars["--ads-color-accent"],
     fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-semibold"],
-    justifyContent: "center",
     lineHeight: 1,
-    minBlockSize: 16,
-    minInlineSize: 16,
-    paddingInline: vars["--ads-space-4"],
-  },
-});
-
-const dotTones = stylex.create({
-  accent: { backgroundColor: vars["--ads-color-accent"] },
-  warning: { backgroundColor: vars["--ads-color-warning"] },
-  danger: { backgroundColor: vars["--ads-color-danger"] },
-});
-
-// The same pairs `CountBadge` settled on: the one declared foreground for a
-// solid accent fill, and the soft warning fill whose text step is legible in
-// every theme where body ink on saturated amber was not.
-const countTones = stylex.create({
-  accent: {
-    backgroundColor: vars["--ads-color-accent"],
-    color: vars["--ads-color-accent-text"],
-  },
-  warning: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-    borderColor: vars["--ads-color-warning-border"],
-    color: vars["--ads-color-warning-text"],
-  },
-  danger: {
-    backgroundColor: vars["--ads-color-danger"],
-    color: vars["--ads-color-accent-text"],
   },
 });

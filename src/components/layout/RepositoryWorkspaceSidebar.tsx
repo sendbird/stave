@@ -73,6 +73,7 @@ import { type SidebarWorkQueueLane } from "@/lib/fleet/sidebar-work-queue";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { useSidebarWorkQueueGroups } from "./useSidebarWorkQueueGroups";
+import { SidebarEmptyState } from "@/components/layout/SidebarEmptyState";
 import { SidebarPrimaryNav, SidebarPrimaryNavCollapsed } from "./SidebarPrimaryNav";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
@@ -1005,19 +1006,13 @@ export function RepositoryWorkspaceSidebar(args: {
                 ) : null}
               </div>
               {repositories.length === 0 ? (
-                <div className={sx(repositorySidebarStyles.emptyState)}>
-                  No repositories yet.
-                </div>
+                <SidebarEmptyState kind="no-repositories" onOpenRepository={() => setOpenPathDialogOpen(true)} />
               ) : visibleRepositories.length === 0 ? (
-                <div className={sx(repositorySidebarStyles.emptyState)}>
-                  No matching workspaces.
-                </div>
+                <SidebarEmptyState kind="no-matches" query={workspaceSearchQuery} onClearSearch={() => setWorkspaceSearchQuery("")} />
               ) : isWorkQueueView ? (
                 <div className={sx(repositorySidebarStyles.navStack)}>
                   {workQueueGroups.length === 0 ? (
-                    <div className={sx(repositorySidebarStyles.emptyState)}>
-                      No workspaces yet.
-                    </div>
+                    <SidebarEmptyState kind="no-workspaces" />
                   ) : (
                     workQueueGroups.map((group) => {
                       const laneCollapsed =

@@ -1023,6 +1023,7 @@ export function EditorPanel(props: EditorPanelProps) {
       <div {...stylex.props(layoutShellStyles.editorPanelBody)}>
         <RightRailPanelShell
           panelId={rightTab}
+          ownHeader={rightTab === "task"}
           actions={
             rightTab === "information" ? (
               <WorkspaceInformationSectionMenu />

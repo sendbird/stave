@@ -627,7 +627,7 @@ export function TaskPanelPreview() {
       </p>
       {seeded ? (
         <div className={sx(styles.frame)} style={{ width: panelWidth }} data-testid="task-panel-frame">
-          <RightRailPanelShell panelId="task">
+          <RightRailPanelShell panelId="task" ownHeader>
             <TaskPanel />
           </RightRailPanelShell>
         </div>

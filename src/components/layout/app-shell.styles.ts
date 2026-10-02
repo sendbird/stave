@@ -12,6 +12,7 @@ const SM = "@media (min-width: 40rem)";
  * instead of a descendant selector. The DOM shape is unchanged.
  */
 const SASH_COLOR = "--staveResizerSashColor";
+const SASH_WIDTH = "--staveResizerSashWidth";
 
 export const appShellStyles = stylex.create({
   overlayFallback: {
@@ -65,12 +66,16 @@ export const appShellStyles = stylex.create({
 
   shellRow: { display: "flex", flex: 1, minHeight: 0, minWidth: 0 },
 
+  // At rest the sash is the panel's hairline; under the pointer it thickens
+  // to a 3px accent bar, so the 9px hit area announces itself as a handle
+  // (`col-resize`, a "double-click to reset" title) before it is dragged.
   resizer: {
     [SASH_COLOR]: {
       default: vars["--ads-color-border-subtle"],
-      ":hover": vars["--ads-color-accent-soft"],
+      ":hover": vars["--ads-color-accent"],
       ":active": vars["--ads-color-accent"],
     },
+    [SASH_WIDTH]: { default: "1px", ":hover": "3px", ":active": "3px" },
     cursor: "col-resize",
     display: { default: "none", [LG]: "block" },
     flexShrink: 0,
@@ -85,7 +90,7 @@ export const appShellStyles = stylex.create({
     insetInlineStart: "50%",
     position: "absolute",
     transform: "translateX(-50%)",
-    width: 1,
+    width: `var(${SASH_WIDTH}, 1px)`,
   },
 
   appSurface: {

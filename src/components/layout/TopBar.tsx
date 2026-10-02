@@ -278,7 +278,7 @@ export function TopBar() {
                   size="sm"
                   xstyle={[
                     topBarControlStyles.control,
-                    topBarControlStyles.surface,
+                    topBarControlStyles.quiet,
                     topBarStyles.gitGraphButton,
                   ]}
                   style={TOP_BAR_NO_DRAG_STYLE}
@@ -287,7 +287,9 @@ export function TopBar() {
                   aria-label={COMMIT_GRAPH_TITLE}
                 >
                   <GitGraph />
-                  <span>{COMMIT_GRAPH_TITLE}</span>
+                  <span className={sx(topBarStyles.collapsibleLabel)}>
+                    {COMMIT_GRAPH_TITLE}
+                  </span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
@@ -312,16 +314,23 @@ export function TopBar() {
           ) : null}
         </div>
 
-        {hasRepositoryContext ? (
-          <TopBarFleetAttention noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
-        ) : null}
-        <TopBarIssues noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
-        <TopBarAutomations noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
-        <TopBarStandaloneCli noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
-        {hasRepositoryContext ? (
-          <TopBarNotifications noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
-        ) : null}
-        <TopBarUpdate noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+        {/* Surfaces the bar opens, then the tools and alerts that stay with
+            the window: two groups with a rule between them, one geometry. */}
+        <div className={sx(topBarStyles.actionGroup)} role="group" aria-label="Views">
+          {hasRepositoryContext ? (
+            <TopBarFleetAttention noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+          ) : null}
+          <TopBarIssues noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+          <TopBarAutomations noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+        </div>
+        <span className={sx(layoutShellStyles.windowDivider)} aria-hidden="true" />
+        <div className={sx(topBarStyles.actionGroup)} role="group" aria-label="Tools">
+          <TopBarStandaloneCli noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+          {hasRepositoryContext ? (
+            <TopBarNotifications noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+          ) : null}
+          <TopBarUpdate noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+        </div>
         {IS_MAC ? null : (
           <div
             className={sx(topBarStyles.windowControls)}

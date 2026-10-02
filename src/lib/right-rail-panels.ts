@@ -56,11 +56,13 @@ export type TaskPanelTab = "activity" | "progress" | "team" | "results";
 export const TASK_PANEL_TABS: ReadonlyArray<{
   id: TaskPanelTab;
   label: string;
+  /** One line for the empty panel, which lists what each tab will show. */
+  description: string;
 }> = [
-  { id: "activity", label: "Activity" },
-  { id: "progress", label: "Progress" },
-  { id: "team", label: "Subagents" },
-  { id: "results", label: "Results" },
+  { id: "activity", label: "Activity", description: "The live turn, step by step" },
+  { id: "progress", label: "Progress", description: "The mission's stages, or the task's flow" },
+  { id: "team", label: "Subagents", description: "Every agent the task called" },
+  { id: "results", label: "Results", description: "Each run's answer and changes, to review" },
 ];
 
 export const DEFAULT_TASK_PANEL_TAB: TaskPanelTab = "activity";
