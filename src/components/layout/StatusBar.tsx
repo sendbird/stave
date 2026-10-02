@@ -17,6 +17,7 @@ import {
 } from "@/components/layout/status-bar-usage-strip.utils";
 import { usageStripStyles } from "@/components/layout/status-bar-usage-strip.styles";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
+import { isRateLimitsReadPending } from "@/store/rate-limits-account-reset";
 import { resolveEarliestAccountUsageResetAtMs } from "@/lib/providers/account-usage-block";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -70,6 +71,8 @@ export function StatusBar() {
   const codexAccountProfileId = useAppStore((state) => state.settings.codexAccountProfileId);
   const profiles = useProviderAccounts((state) => state.profiles);
   const spendByProvider = useTurnSpend((state) => state.byProvider);
+  const rateLimitsUpdatedAtByProvider = useAppStore((state) => state.rateLimitsUpdatedAtByProvider);
+  const rateLimitsInFlightByProvider = useAppStore((state) => state.rateLimitsInFlightByProvider);
   // Every segment is described here, not inside each one, because the full
   // strip shows only when all of them fit: the width rule needs the set.
   const usageSegments = usageProviders.map((provider) => {
@@ -100,6 +103,13 @@ export function StatusBar() {
       stale:
         (provider === "cursor" || provider === "kiro") &&
         readiness[provider]?.stale === true,
+      pending: isRateLimitsReadPending(
+        {
+          rateLimitsUpdatedAtByProvider,
+          rateLimitsInFlightByProvider,
+        },
+        STATUS_BAR_USAGE_PROVIDER_IDS[provider],
+      ),
     });
     return { segment, account };
   });

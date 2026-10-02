@@ -164,6 +164,7 @@ describe("strip segment", () => {
       account: subscription,
       spend: { providerId: "claude-code", todayUsd: 0.1, monthUsd: 4.2, monthTurns: 12 },
       stale: false,
+      pending: false,
     });
     expect(segment.name).toBe("Claude · Work");
     expect(segment.cost).toEqual({ todayUsd: 0.1, monthUsd: 4.2, monthTurns: 12, meaning: "api-value" });
@@ -175,9 +176,44 @@ describe("strip segment", () => {
       account: null,
       spend: undefined,
       stale: false,
+      pending: false,
     });
     expect(codex.name).toBe("Codex");
     expect(codex.cost).toBeNull();
+  });
+
+  test("a provider waiting on its first reading says so; a gateway never waits", () => {
+    const reading = buildUsageStripSegment({
+      provider: "codex",
+      providerName: "Codex",
+      windows: [],
+      account: null,
+      spend: undefined,
+      stale: false,
+      pending: true,
+    });
+    expect(reading.pending).toBe(true);
+    expect(describeUsageSegmentForAssistiveTech(reading, NOW)).toBe("Codex usage: reading usage");
+    const gateway = buildUsageStripSegment({
+      provider: "claude",
+      providerName: "Claude",
+      windows: [],
+      account: { ...subscription, triggerLabel: "API billing", gateway: true },
+      spend: undefined,
+      stale: false,
+      pending: true,
+    });
+    expect(gateway.pending).toBe(false);
+    const withNumbers = buildUsageStripSegment({
+      provider: "codex",
+      providerName: "Codex",
+      windows: [window()],
+      account: null,
+      spend: undefined,
+      stale: false,
+      pending: true,
+    });
+    expect(withNumbers.pending).toBe(false);
   });
 
   test("a gateway has no quota windows and its cost is spend", () => {
@@ -188,6 +224,7 @@ describe("strip segment", () => {
       account: { ...subscription, triggerLabel: "API billing", gateway: true },
       spend: { providerId: "claude-code", todayUsd: 1.5, monthUsd: 30, monthTurns: 40 },
       stale: false,
+      pending: false,
     });
     expect(segment.windows).toEqual([]);
     expect(segment.cost?.meaning).toBe("spend");
@@ -222,6 +259,7 @@ describe("responsive mode", () => {
       cost: { todayUsd: 0.1, monthUsd: 4.2, monthTurns: 3, meaning: "api-value" },
       gateway: false,
       stale: false,
+      pending: false,
       ...patch,
     };
   }

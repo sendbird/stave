@@ -221,6 +221,8 @@ export interface UsageStripSegmentModel {
   cost: UsageStripCost | null;
   gateway: boolean;
   stale: boolean;
+  /** Nothing to show yet: the first reading for the current account is on its way. */
+  pending: boolean;
 }
 
 export function buildUsageStripSegment(args: {
@@ -230,6 +232,7 @@ export function buildUsageStripSegment(args: {
   account: StatusBarAccountView | null;
   spend: ProviderTurnSpend | undefined;
   stale: boolean;
+  pending: boolean;
 }): UsageStripSegmentModel {
   const gateway = args.account?.gateway === true;
   const label = args.account?.triggerLabel;
@@ -250,6 +253,8 @@ export function buildUsageStripSegment(args: {
         : null,
     gateway,
     stale: args.stale,
+    // Only when there is nothing to show yet; a gateway is never read at all.
+    pending: !gateway && args.pending && args.windows.length === 0,
   };
 }
 
@@ -308,7 +313,8 @@ export function estimateUsageStripSegmentRem(segment: UsageStripSegmentModel): n
   let rem = SEGMENT_INSET_REM + textRem(segment.name);
   if (segment.stale) rem += textRem(" (unverified)");
   if (segment.windows.length === 0 && !segment.gateway) {
-    rem += PART_GAP_REM + textRem("—");
+    // A dash, or a spinner while the first reading is on its way.
+    rem += PART_GAP_REM + GLYPH_REM;
   }
   for (const window of segment.windows) {
     const context = [window.label || null, `resets ${widestCountdown(window.windowMs)}`]
@@ -357,5 +363,6 @@ export function describeUsageSegmentForAssistiveTech(
     const { amount } = formatStripCost(segment.cost);
     parts.push(`${amount} today`);
   }
+  if (segment.pending) parts.unshift("reading usage");
   return `${segment.name} usage${parts.length ? `: ${parts.join("; ")}` : ""}`;
 }

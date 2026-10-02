@@ -41,8 +41,10 @@ breakpoint), `StatusBarUsageStripItems.tsx` and `StatusBarUsageDetails.tsx` rend
 the entries and the popover body. Spend comes from
 `electron/persistence/turn-spend-store.ts` through `persistence:summarize-turn-spend`
 (`src/lib/providers/turn-spend.ts` owns the arguments schema and local period
-bounds). Focused checks are `tests/status-bar-usage-strip.test.ts`,
-`tests/turn-spend.test.ts`, and `tests/status-bar-usage-utils.test.ts`.
+bounds). `src/store/rate-limits-account-reset.ts` resets one provider's usage on
+an account switch and tracks reads in flight. Focused checks are
+`tests/status-bar-usage-strip.test.ts`, `tests/turn-spend.test.ts`,
+`tests/rate-limits-account-reset.test.ts`, and `tests/status-bar-usage-utils.test.ts`.
 
 Provider account registration uses `src/lib/providers/provider-accounts.ts` for
 shared types and strict schemas. `electron/provider-accounts/registry.ts` owns

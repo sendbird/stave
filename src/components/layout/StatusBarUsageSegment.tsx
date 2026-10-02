@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import {
   Button,
+  Loader,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -13,7 +14,9 @@ import {
   ClaudeDetail,
   CodexDetail,
   TurnSpendDetail,
+  UsageAccountNote,
   UsageLimitNote,
+  UsageReadPending,
 } from "@/components/layout/StatusBarUsageDetails";
 import {
   UsageCostItem,
@@ -79,7 +82,9 @@ export function StatusBarUsageSegment({
     }
   }, [providerId, stale]);
   const snapshot = useAppStore((state) => state.rateLimitsSnapshot);
-  const loading = useAppStore((state) => state.rateLimitsLoading);
+  const reading = useAppStore(
+    (state) => (state.rateLimitsInFlightByProvider[providerId] ?? 0) > 0,
+  );
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
   const blockAtLimit = useAppStore(
     (state) => state.settings.blockTurnsWhenAccountLimitReached,
@@ -88,6 +93,8 @@ export function StatusBarUsageSegment({
   const headlinePercent = headlineUsagePercent(segment.windows);
   const accountProviderId = statusBarAccountProviderId(provider);
   const multipleAccounts = (account?.options.length ?? 0) > 1;
+  // Name whose numbers these are only when there is another account they could be.
+  const accountLabel = multipleAccounts ? (account?.selected?.label ?? null) : null;
   const gateway = segment.gateway;
 
   return (
@@ -134,7 +141,11 @@ export function StatusBarUsageSegment({
           {stale ? " (unverified)" : ""}
         </span>
         {gateway ? null : segment.windows.length === 0 ? (
-          <span className={sx(statusBarUsageStyles.triggerMono)}>—</span>
+          segment.pending ? (
+            <Loader aria-hidden size="xs" variant="spinner" />
+          ) : (
+            <span className={sx(statusBarUsageStyles.triggerMono)}>—</span>
+          )
         ) : (
           segment.windows.map((window) => (
             <UsageWindowItem
@@ -184,7 +195,7 @@ export function StatusBarUsageSegment({
             <RefreshCw
               className={sx(
                 statusBarUsageStyles.refreshIcon,
-                loading && statusBarUsageStyles.refreshIconSpinning,
+                reading && statusBarUsageStyles.refreshIconSpinning,
               )}
             />
           </Button>}
@@ -195,6 +206,8 @@ export function StatusBarUsageSegment({
               Usage and charges are managed by your Gateway. Subscription quota
               is unavailable.
             </p>
+          ) : segment.pending ? (
+            <UsageReadPending providerName={providerName} accountLabel={accountLabel} />
           ) : (
             <>
               {provider === "claude" ? (
@@ -208,6 +221,9 @@ export function StatusBarUsageSegment({
                   now={now}
                 />
               )}
+              {accountLabel && segment.windows.length > 0 ? (
+                <UsageAccountNote accountLabel={accountLabel} />
+              ) : null}
               {segment.windows.length > 0 ? (
                 <UsageLimitNote
                   providerName={providerName}

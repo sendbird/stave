@@ -1,3 +1,4 @@
+import { Loader } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
 import {
@@ -110,9 +111,6 @@ export function ClaudeDetail({
           now={now}
         />
       ))}
-      <p className={sx(statusBarUsageStyles.noteFaint)}>
-        source: {snapshot.source}
-      </p>
     </div>
   );
 }
@@ -302,10 +300,37 @@ export function AccountDetail({
             : "disabled"}
         </p>
       ) : null}
-      <p className={sx(statusBarUsageStyles.noteFaint)}>
-        source: {snapshot.source}
-      </p>
     </div>
+  );
+}
+
+/**
+ * Shown while the first reading for the current account is on its way — at
+ * startup or right after an account switch — in place of "unavailable".
+ */
+export function UsageReadPending({
+  providerName,
+  accountLabel,
+}: {
+  providerName: string;
+  accountLabel: string | null;
+}) {
+  return (
+    <p className={sx(statusBarUsageStyles.note, statusBarUsageStyles.pendingNote)}>
+      <Loader aria-hidden size="xs" variant="spinner" />
+      {accountLabel
+        ? `Reading ${providerName} usage for the ${accountLabel} account…`
+        : `Reading ${providerName} usage…`}
+    </p>
+  );
+}
+
+/** Whose numbers these are, when the provider has more than one account. */
+export function UsageAccountNote({ accountLabel }: { accountLabel: string }) {
+  return (
+    <p className={sx(statusBarUsageStyles.noteFaint)}>
+      Usage for the {accountLabel} account.
+    </p>
   );
 }
 

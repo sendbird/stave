@@ -79,8 +79,9 @@ Native session cursors for custom profiles are stored under
 remain System default. Session and terminal events carry their originating
 profile ID, including synthesized terminal failures. Queue entries capture both
 profile IDs, including explicit System default, so changing a selection does not
-retarget an already queued turn. Account selection changes invalidate displayed
-usage, and late usage responses cannot replace the new selection's readings.
+retarget an already queued turn. Account selection changes invalidate that
+provider's displayed usage only (other providers keep their readings), and late
+usage responses cannot replace the new selection's readings.
 Custom Claude usage reads search only the selected configuration directory and
 its scoped keychain service, without falling back to default credentials.
 
@@ -1219,7 +1220,15 @@ wall-clock time), and what happens at 100%. With Stop turns at 100% usage on
 and running turns finish; with it off, Stave keeps sending turns. Stave does not
 switch accounts on its own; the popover says so and offers the account switch.
 The popover lists every window, the same 100% rule, and the spend breakdown with
-the number of turns behind it.
+the number of turns behind it. When a provider has more than one account, it
+names the account the numbers belong to.
+
+While a provider has no reading for its current account yet (at startup or right
+after an account switch) and a read is in flight, its segment shows a spinner and
+the popover says it is reading that account's usage, instead of "unavailable".
+`rateLimitsInFlightByProvider` counts reads per provider for this; the switch
+clears and re-reads only the provider whose account changed
+(`src/store/rate-limits-account-reset.ts`).
 
 
 ## September 2026 model catalog

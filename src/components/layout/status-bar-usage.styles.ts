@@ -150,6 +150,7 @@ export const statusBarUsageStyles = stylex.create({
     gap: vars["--ads-space-12"],
     padding: vars["--ads-space-12"],
   },
+  pendingNote: { alignItems: "center", display: "flex", gap: vars["--ads-space-8"] },
   limitNote: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
   // Spend sits under its own hairline: it is a different kind of number from
   // the quota above it, and it stays when the quota is unavailable.
@@ -191,6 +192,7 @@ export const statusBarUsageStyles = stylex.create({
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
   },
+  accountHint: { fontWeight: vars["--ads-font-weight-regular"] },
   // A ghost Button laid out as the last menu row: full width, text on the
   // rows' 8px inset rather than centred.
   manageAccounts: {
