@@ -54,6 +54,8 @@ export const resourceStyles = stylex.create({
   },
   triggerBar: {
     height: 24,
+    // The small Button's 32px floor overhung the 24px status bar row.
+    minHeight: 24,
     gap: 6,
     // Hoverable target: the overlay wash needs the control radius.
     borderRadius: vars["--ads-radius-control"],

@@ -809,44 +809,40 @@ export const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
     isDefault: args.isDefault,
   });
 
-  const hasMetaActions = Boolean(args.shortcutLabel) || respondingTaskCount > 0;
-
+  // The shortcut is a hover/focus hint over the line's end: no width at rest.
   return (
     <span className={sx(repositorySidebarStyles.metaGrid)}>
       <span className={sx(repositorySidebarStyles.metaIconSlot)}>
         <GitBranch className={sx(repositorySidebarStyles.metaIcon)} />
       </span>
       <span className={sx(repositorySidebarStyles.metaBody)}>
-        <span className={sx(repositorySidebarStyles.metaBranch)}>
-          {branchLabel}
-        </span>
-        {hasMetaActions ? (
+        <span className={sx(repositorySidebarStyles.metaBranch)}>{branchLabel}</span>
+        {respondingTaskCount > 0 ? (
           <span
             className={sx(
               repositorySidebarStyles.metaActions,
               transition.fade,
-              getWorkspaceRespondingCountVisibilityStyle({
-                hasHoverActions: args.hasHoverActions,
-                isClosing: args.isClosing,
-              }),
+              getWorkspaceRespondingCountVisibilityStyle({ hasHoverActions: args.hasHoverActions, isClosing: args.isClosing }),
             )}
           >
-            {args.shortcutLabel ? (
-              <WorkspaceShortcutChip
-                modifier={workspaceShortcutModifierLabel}
-                label={args.shortcutLabel}
-                className={sx(repositorySidebarStyles.metaShortcutChip)}
-              />
-            ) : null}
-            {respondingTaskCount > 0 ? (
-              <Badge
-                variant="outline"
-                tone="accent"
-                className={sx(repositorySidebarStyles.respondingBadgeInline)}
-              >
-                {respondingTaskCount}
-              </Badge>
-            ) : null}
+            <Badge variant="outline" tone="accent" className={sx(repositorySidebarStyles.respondingBadgeInline)}>
+              {respondingTaskCount}
+            </Badge>
+          </span>
+        ) : null}
+        {args.shortcutLabel ? (
+          <span
+            className={sx(
+              repositorySidebarStyles.metaShortcutReveal,
+              transition.fade,
+              getWorkspaceHoverActionVisibilityStyle({ isClosing: args.isClosing }),
+            )}
+          >
+            <WorkspaceShortcutChip
+              modifier={workspaceShortcutModifierLabel}
+              label={args.shortcutLabel}
+              className={sx(repositorySidebarStyles.metaShortcutChip)}
+            />
           </span>
         ) : null}
       </span>

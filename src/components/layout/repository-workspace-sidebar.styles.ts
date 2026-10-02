@@ -187,7 +187,7 @@ export const repositorySidebarStyles = stylex.create({
   },
   queueButtonActive: { backgroundColor: accent12, color: vars["--ads-color-text"] },
   queueButtonIdle: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-selection-fill"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },
   queueLabel: {
@@ -213,7 +213,7 @@ export const repositorySidebarStyles = stylex.create({
   // box is `controlHeightXs` by token so the density axis reaches it.
   laneButton: {
     alignItems: "center",
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-selection-fill"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
     borderRadius: vars["--ads-radius-control"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
     display: "flex",
@@ -365,13 +365,14 @@ export const repositorySidebarStyles = stylex.create({
     justifyContent: "center",
     width: 16,
   },
+  // 12px beside the 12px branch line, the size of the identity glyph above it.
   metaIcon: {
     color: vars["--ads-color-text-subtle"],
     flexShrink: 0,
-    height: 16,
-    width: 16,
+    height: 12,
+    width: 12,
   },
-  metaBody: { alignItems: "center", display: "flex", gap: 6, minWidth: 0 },
+  metaBody: { alignItems: "center", display: "flex", gap: 6, minWidth: 0, position: "relative" },
   metaBranch: {
     flex: 1,
     minWidth: 0,
@@ -385,6 +386,14 @@ export const repositorySidebarStyles = stylex.create({
     flexShrink: 0,
     gap: 6,
     marginInlineStart: "auto",
+  },
+  // Laid over the end of the branch line; `rowActionsReveal` fades it in.
+  metaShortcutReveal: {
+    alignItems: "center",
+    display: "flex",
+    insetBlock: 0,
+    insetInlineEnd: 0,
+    position: "absolute",
   },
   metaShortcutChip: {
     flexShrink: 0,
@@ -512,7 +521,7 @@ export const repositorySidebarStyles = stylex.create({
     color: vars["--ads-color-text"],
   },
   collapsedButtonIdle: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-selection-fill"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
   },
   chromeButton: {
     borderRadius: vars["--ads-radius-control"],
@@ -523,7 +532,7 @@ export const repositorySidebarStyles = stylex.create({
     width: 32,
   },
   chromeButtonSidebar: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-selection-fill"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
     borderRadius: vars["--ads-radius-control"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
     height: 32,
@@ -580,7 +589,7 @@ export const repositorySidebarStyles = stylex.create({
   collapsedWorkspaceIdle: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-selection-fill"],
+      ":hover": vars["--ads-color-overlay-hover"],
     },
     borderColor: { default: "transparent", ":hover": vars["--ads-color-border"] },
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
@@ -588,12 +597,13 @@ export const repositorySidebarStyles = stylex.create({
 
   navStack: { display: "flex", flexDirection: "column", gap: 2 },
   navStackSpaced: { marginBlockEnd: vars["--ads-space-8"] },
+  // The 12px gap puts the label on the same edge as the search text below.
   navButton: {
     alignItems: "center",
     borderRadius: vars["--ads-radius-control"],
     display: "flex",
     fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-8"],
+    gap: vars["--ads-space-12"],
     height: 32,
     paddingInline: vars["--ads-space-8"],
     width: "100%",
@@ -604,7 +614,7 @@ export const repositorySidebarStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-medium"],
   },
   navButtonIdle: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-selection-fill"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },
 
@@ -676,17 +686,6 @@ export const repositorySidebarStyles = stylex.create({
     width: 24,
   },
 
-  emptyState: {
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
-    borderStyle: "dashed",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
-    paddingBlock: vars["--ads-space-16"],
-    paddingInline: vars["--ads-space-12"],
-  },
-
   repositoryStack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
   repositorySectionDragging: {
     backgroundColor: vars["--ads-color-selection-fill"],
@@ -749,8 +748,8 @@ export const repositorySidebarStyles = stylex.create({
     alignItems: "center",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-selection-fill"],
-      ":focus-within": vars["--ads-color-selection-fill"],
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":focus-within": vars["--ads-color-overlay-hover"],
     },
     borderRadius: vars["--ads-radius-control"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
@@ -846,22 +845,19 @@ export const repositorySidebarStyles = stylex.create({
     pointerEvents: `var(${REPOSITORY_COUNT_EVENTS}, auto)`,
     transform: `translateX(var(${REPOSITORY_COUNT_SHIFT}, 0px))`,
   },
+  // A figure in a fixed, end-aligned slot rather than a boxed pill: the
+  // count is secondary text, and one width keeps every name's edge still.
   repositoryCount: {
     alignItems: "center",
-    backgroundColor: vars["--ads-color-overlay-hover"],
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-mark"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text-muted"],
+    color: vars["--ads-color-text-subtle"],
     display: "inline-flex",
     fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-medium"],
     height: 20,
-    justifyContent: "center",
-    minWidth: 20,
-    paddingInline: 6,
+    justifyContent: "flex-end",
+    minWidth: 24,
+    paddingInlineEnd: vars["--ads-space-4"],
   },
   repositoryActions: {
     alignItems: "center",
@@ -949,12 +945,14 @@ export const repositorySidebarStyles = stylex.create({
       width: 12,
     },
   },
+  // Hover is the neutral wash, never a fill or a box: only the active row is
+  // filled and outlined, so it stays the one row that reads as selected.
   workspaceRowIdle: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-selection-fill"],
+      ":hover": vars["--ads-color-overlay-hover"],
     },
-    borderColor: { default: "transparent", ":hover": vars["--ads-color-border-subtle"] },
+    borderColor: "transparent",
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },
   workspaceRowDragging: {

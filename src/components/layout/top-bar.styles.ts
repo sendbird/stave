@@ -40,6 +40,21 @@ export const topBarControlStyles = stylex.create({
     borderWidth: vars["--ads-border-width-hairline"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },
+  /**
+   * The same box without the border: an action (Commit graph) beside the
+   * bordered location chips, so the chips read as where you are and the
+   * coloured PR trigger as the one primary action.
+   */
+  quiet: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars["--ads-color-overlay-hover"],
+    },
+    borderColor: "transparent",
+    borderStyle: "solid",
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+  },
   /** Square the control and drop the inline gutter for glyph-only triggers. */
   iconOnly: {
     justifyContent: "center",
@@ -55,12 +70,25 @@ export const topBarControlStyles = stylex.create({
 });
 
 /**
+ * The bar is the container its contents measure, so what gives way depends on
+ * the bar's own width (after the sidebar), not the window's. As it narrows:
+ * "Commit graph" keeps its icon only (`< 60rem`), then the file search goes
+ * (`< 56rem`); whenever the lead still runs out of room the workspace path
+ * truncates. The action groups never shrink, so nothing in the bar can slide
+ * under anything else.
+ */
+const TOP_BAR_SEARCH = "@container topBar (min-width: 56rem)";
+const TOP_BAR_LABELS = "@container topBar (min-width: 60rem)";
+
+/**
  * Top bar chrome. The header itself is the macOS drag region, so its geometry
  * (height, padding, the no-drag islands inside it) is behavioral, not
  * decorative — keep the measurements literal rather than re-deriving them.
  */
 export const topBarStyles = stylex.create({
   header: {
+    containerName: "topBar",
+    containerType: "inline-size",
     alignItems: "center",
     backgroundColor: vars["--ads-color-surface"],
     borderBottomColor: vars["--ads-color-border-subtle"],
@@ -74,10 +102,11 @@ export const topBarStyles = stylex.create({
     position: "relative",
     zIndex: vars["--ads-z-index-app-chrome"],
   },
+  // The lead may shrink (the path truncates); the trailing groups may not.
   lead: {
     alignItems: "center",
     display: "flex",
-    flexShrink: 0,
+    flexShrink: 1,
     gap: vars["--ads-space-8"],
     minWidth: 0,
   },
@@ -93,14 +122,16 @@ export const topBarStyles = stylex.create({
     padding: 0,
     width: vars["--ads-control-height-sm"],
   },
-  pathGroup: { alignItems: "center", display: "flex", minWidth: 0 },
+  pathGroup: { alignItems: "center", display: "flex", flexShrink: 1, minWidth: 0 },
   // Composed after `topBarControlStyles.control` + `.surface`; this only
   // states what makes it the leading half of a segmented pair.
   pathChip: {
     borderEndEndRadius: 0,
     borderInlineEndWidth: 0,
     borderStartEndRadius: 0,
+    flexShrink: 1,
     maxWidth: 220,
+    minWidth: 72,
   },
   pathLabel: {
     fontFamily: vars["--ads-font-mono"],
@@ -117,21 +148,35 @@ export const topBarStyles = stylex.create({
   gitGraphButton: {
     opacity: { default: 1, ":disabled": vars["--ads-opacity-disabled"] },
   },
+  // A text label that steps aside for its icon on a narrow bar; the
+  // control's `aria-label` and tooltip still name it.
+  collapsibleLabel: { display: { default: "none", [TOP_BAR_LABELS]: "inline" } },
+  // `min-content`, not `0`: the trail can give up the search's width but never
+  // its buttons', which used to slide under the lead on a narrow window.
   trail: {
     alignItems: "center",
     display: "flex",
     flex: 1,
     gap: vars["--ads-space-8"],
     justifyContent: "flex-end",
-    minWidth: 0,
+    minWidth: "min-content",
   },
-  // The file search only earns its width on a wide window; below `lg` the slot
-  // collapses entirely rather than competing with the action cluster.
+  // The file search only earns its width on a wide bar; below the step the
+  // slot collapses entirely rather than competing with the action groups.
+  // When it shows it keeps a usable width and the path truncates instead.
   searchSlot: {
-    display: { default: "none", "@media (min-width: 64rem)": "flex" },
+    display: { default: "none", [TOP_BAR_SEARCH]: "flex" },
     flex: 1,
     justifyContent: "flex-end",
-    minWidth: 0,
+    minWidth: 160,
+  },
+  // Icon buttons in one group sit closer to each other than to the next
+  // group, which a hairline rule also separates.
+  actionGroup: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: vars["--ads-space-4"],
   },
   windowControls: {
     alignItems: "center",
