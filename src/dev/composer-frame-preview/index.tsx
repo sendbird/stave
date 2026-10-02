@@ -14,6 +14,7 @@ import {
 import type { ModelEffortValue } from "@/components/ai-elements/model-effort-selector.utils";
 import { STANCE_LABELS } from "@/lib/providers/auto-routing-profile";
 import { listProviderIds } from "@/lib/providers/model-catalog";
+import { CLAUDE_EFFORT_OPTIONS, findOptionLabel } from "@/lib/providers/runtime-option-contract";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
@@ -77,8 +78,10 @@ import {
  *
  * `?agent=<id>` starts the task as that agent; `&route=pinned|fixed` starts it
  * pinned to a model or on the agent's fixed model (Auto otherwise);
- * `&auto=off` turns Stave Auto off; `&theme=light` starts in light mode, and
- * `&theme=<built-in theme id>` renders under that theme.
+ * `&auto=off` turns Stave Auto off; `&effort=xhigh` passes the label of a
+ * Claude effort setting, as the real composer always does; `&theme=light`
+ * starts in light mode, and `&theme=<built-in theme id>` renders under that
+ * theme.
  * `&childRequest=question|approval` shows a delegated task's request above the
  * composer, the slot `ChatInputComposer` mounts.
  *
@@ -90,6 +93,8 @@ import {
  */
 const previewParams = new URLSearchParams(window.location.search);
 const PREVIEW_PINNED_MODEL = "claude-opus-5-5";
+const PREVIEW_EFFORT = previewParams.get("effort");
+const PREVIEW_EFFORT_LABEL = PREVIEW_EFFORT ? findOptionLabel(CLAUDE_EFFORT_OPTIONS, PREVIEW_EFFORT) : undefined;
 
 function previewAgent(): AgentConfig | null {
   const agent = getBuiltinAgent(previewParams.get("agent") ?? "");
@@ -179,30 +184,33 @@ export function ComposerFramePreviewApp() {
   // The selector lists Models and Agents; with an agent running the task the
   // trigger splits into agent | model.
   const autoOn = previewParams.get("auto") !== "off";
+  // The Auto option names the saved preference, as the real composer's does.
+  const stance = useAppStore((state) => state.settings.autoRoutingProfile.stance);
   const modelOptions = useMemo<ModelSelectorOption[]>(
     () => [
       buildAutoModelSelectorOption({
         providerId: "claude-code",
         available: autoOn,
-        stanceLabel: STANCE_LABELS.balanced,
+        stanceLabel: STANCE_LABELS[stance],
       }),
       ...buildModelSelectorOptions({ providerIds: listProviderIds() }),
     ],
-    [autoOn],
+    [autoOn, stance],
   );
-  const [selectedModel, setSelectedModel] = useState<ModelSelectorOption>(() => {
+  const [pickedModel, setPickedModel] = useState<ModelSelectorOption>(() => {
     const model = modelOptions.find((option) => option.model === PREVIEW_PINNED_MODEL) ?? PREVIEW_MODEL;
     if (!INITIAL_AGENT) return model;
     const route = previewParams.get("route");
     return route === "pinned" || route === "fixed" || !autoOn ? model : (modelOptions[0] ?? model);
   });
+  const selectedModel = pickedModel.isAuto ? (modelOptions[0] ?? pickedModel) : pickedModel;
   const [effort, setEffort] = useState<ModelEffortValue | undefined>();
   const agentChoice = useTaskAgentChoice({
     taskId: PREVIEW_TASK_ID,
     selectedModel,
     modelOptions,
     onModelSelect: ({ selection, effort: picked }) => {
-      setSelectedModel(selection);
+      setPickedModel(selection);
       setEffort(picked);
     },
   });
@@ -400,6 +408,7 @@ export function ComposerFramePreviewApp() {
                   selectedModel={selectedModel}
                   modelOptions={modelOptions}
                   effortValue={effort}
+                  {...(PREVIEW_EFFORT_LABEL ? { effortLabel: PREVIEW_EFFORT_LABEL } : {})}
                   attachedFilePaths={[]}
                   reviewModelOptions={[PREVIEW_MODEL]}
                   preferredReviewModelKey={PREVIEW_MODEL.key}

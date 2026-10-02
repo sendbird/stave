@@ -564,3 +564,23 @@ export function planPickerRail(args: {
   if (args.hasAgents) tabs.push({ kind: "agents", value: "agents", divider: true });
   return tabs;
 }
+
+/**
+ * Whether the picker offers its Stave Auto tab. The selector offers it
+ * whenever there is an Auto option. The agent's pin picker offers it where
+ * Auto is the agent's route: an agent that leaves its model to Stave Auto
+ * (with Auto on), or one whose turns run on Auto now. An agent with a model of
+ * its own goes back to that model from the route row instead.
+ */
+export function pickerShowsAutoTab(args: {
+  hasAutoOption: boolean;
+  pinMode: boolean;
+  /** The composer's model value is Stave Auto. */
+  valueIsAuto: boolean;
+  agent: { fixedModel: boolean; autoAvailable: boolean } | null;
+}): boolean {
+  if (!args.hasAutoOption) return false;
+  if (!args.pinMode) return true;
+  if (!args.agent) return false;
+  return args.valueIsAuto || (!args.agent.fixedModel && args.agent.autoAvailable);
+}

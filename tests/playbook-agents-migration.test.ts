@@ -100,3 +100,50 @@ describe("temporary migration: playbooks-to-agent-workflows", () => {
     expect(settings.playbookAgentsMigrated).toBe(true);
   });
 });
+
+describe("temporary migration: playbooks-to-agent-workflows, a playbook that saved only a permission", () => {
+  /** `Plan, build and verify` as the playbook editor saved it: Claude filled in to store the permission. */
+  const PERMISSION_ONLY = {
+    ...SAVED_PLAYBOOK,
+    id: "playbook_plan_build_verify",
+    name: "Plan, build and verify",
+    runtime: { providerId: "claude-code", permissionMode: "auto" },
+    startsWhen: undefined,
+  };
+
+  test("becomes an Auto-routing agent, not a fixed provider with no model, and can be assigned", async () => {
+    const settings = { playbooks: [PERMISSION_ONLY] as never, customAgents: [] as AgentConfig[], playbookAgentsMigrated: false };
+    migratePlaybooksToAgents(settings);
+    const agent = settings.customAgents[0]!;
+    expect(agent).toMatchObject({ name: "Plan, build and verify", model: { mode: "auto", taskClass: "implement" }, permission: "auto" });
+    // What the composer records for an agent that Stave Auto routes.
+    const { RecordTaskAgentInputSchema } = await import("../src/lib/agents/assign");
+    const record = RecordTaskAgentInputSchema.safeParse({
+      requestId: "composer:1",
+      taskId: "task-1",
+      workspaceId: "ws-1",
+      repositoryPath: "/tmp/repo",
+      agent,
+      assignment: "Runs as Plan, build and verify",
+      providerId: "claude-code",
+      model: null,
+    });
+    expect(record.success).toBe(true);
+  });
+
+  test("a provider other than the one the editor filled in, or an effort, is still a fixed model", () => {
+    const settings = {
+      playbooks: [
+        { ...PERMISSION_ONLY, id: "on-codex", runtime: { providerId: "codex", permissionMode: "auto" } },
+        { ...PERMISSION_ONLY, id: "with-effort", runtime: { providerId: "claude-code", effort: "high" } },
+      ] as never,
+      customAgents: [] as AgentConfig[],
+      playbookAgentsMigrated: false,
+    };
+    migratePlaybooksToAgents(settings);
+    expect(settings.customAgents.map((agent) => agent.model)).toEqual([
+      { mode: "fixed", providerId: "codex" },
+      { mode: "fixed", providerId: "claude-code", effort: "high" },
+    ]);
+  });
+});

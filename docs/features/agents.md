@@ -204,11 +204,15 @@ What you pick decides how the task runs:
   default instead. The selector does not move to a model. With Stave Auto
   turned off, the agent runs on the model the task already has.
 - **A pin binds the agent's turns to one model.** In Agent mode the button
-  has two segments, the agent and its model: `Implementer | Auto`. The model
-  segment opens a list headed **Auto — Implementer chooses** (checked). Pick a
+  has two segments, the agent and its model: `Implementer | Auto · Balanced`.
+  While Stave Auto routes the agent's turns, the segment shows no effort (Auto
+  chooses it on every turn) and opens on **Stave Auto**, where the preference
+  (Balanced, Cost-saver, Quality-first) changes without ending the agent. Each
+  provider tab is headed **Auto — Implementer chooses** (checked). Pick a
   model there and the segment reads **Pinned · Opus 5** with its effort; the
-  first row becomes **Back to Auto**. A pin never ends the agent. Per turn the
-  order is: pin, then the agent's fixed model, then Stave Auto.
+  first row becomes **Back to Auto**, and picking a preference on the Stave
+  Auto tab also lifts the pin. A pin never ends the agent. Per turn the order
+  is: pin, then the agent's fixed model, then Stave Auto.
 - The first send in Agent mode reads **Assign**; later sends read **Send**.
 - A choice applies from the next turn. Earlier turns keep the agent they ran
   as, and each agent's History counts the turns it ran. Choosing another

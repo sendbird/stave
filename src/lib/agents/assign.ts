@@ -46,9 +46,16 @@ export const RecordTaskAgentInputSchema = z
     agent: AgentConfigSchema,
     role: z.enum(["primary", "delegate"]).optional(),
     assignment: z.string().trim().min(1).max(ASSIGNMENT_LIMITS.assignment),
-    /** Provider and model after the renderer applied auto-routing; a fixed agent model wins. */
+    /**
+     * Provider and model after the renderer applied auto-routing; a fixed agent
+     * model wins. A blank model means none (Stave Auto, or the provider's
+     * default), so it is recorded as null instead of refusing the choice.
+     */
     providerId: z.enum(PROVIDER_IDS),
-    model: z.string().trim().min(1).max(200).nullable().optional(),
+    model: z.preprocess(
+      (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+      z.string().trim().min(1).max(200).nullable().optional(),
+    ),
     /** The user's "My standards" at the moment of creating, when turned on. */
     standards: z.string().trim().min(1).max(MY_STANDARDS_MAX_CHARS).optional(),
   })

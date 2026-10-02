@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
   createAgentChoiceActions,
+  optionForFixedModel,
   type AgentChoiceContext,
   type ModelSelectArgs,
 } from "@/components/ai-elements/agent-choice-actions";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
-import type { AgentAssignment } from "@/lib/agents/assign";
-import type { AgentConfig } from "@/lib/agents/schema";
+import { RecordTaskAgentInputSchema, type AgentAssignment } from "@/lib/agents/assign";
+import { AgentConfigSchema, type AgentConfig } from "@/lib/agents/schema";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { indexAssignmentsByTask, type TaskAgent } from "@/store/agent-assignments-store";
 
@@ -265,5 +266,55 @@ describe("the pin", () => {
     });
     actions.unpin();
     expect(draft).toEqual([]);
+  });
+});
+
+describe("an agent saved as a fixed provider with no model", () => {
+  /**
+   * `Plan, build and verify` as the playbooks migration saved it in 0.23.0:
+   * the playbook editor had filled in Claude to store a permission, so the
+   * agent is a fixed provider without a model. The editor's "Provider
+   * default" saves the same shape.
+   */
+  const savedPlaybookAgent = AgentConfigSchema.parse({
+    ...implementer,
+    id: "playbook-playbook_plan_build_verify",
+    source: "custom",
+    name: "Plan, build and verify",
+    description: "Deliver the outcome in the assignment as a verified change, reported with its evidence and risks.",
+    model: { mode: "fixed", providerId: "claude-code" },
+    permission: "auto",
+    workspace: "same-workspace",
+    usableAs: ["primary"],
+    canCall: undefined,
+    workflow: [
+      { id: "plan", title: "Plan", kind: "ai", role: "plan", instruction: "Define checkable criteria.", doneWhen: "Criteria are reported." },
+      { id: "verify", title: "Verify", kind: "ai", instruction: "Run the relevant checks.", doneWhen: "The checks pass." },
+    ],
+    checkIns: "plan-and-publishing",
+  });
+  const DEFAULT_SONNET: ModelSelectorOption = { ...SONNET, isDefault: true };
+
+  test("runs on that provider's default model, never on Stave Auto, and its record passes the host's check", async () => {
+    // Stave Auto's option comes first and carries the task's provider, with no model.
+    const { actions, draft, record } = setup({ selectedModel: CODEX, modelOptions: [AUTO, OPUS, DEFAULT_SONNET, CODEX] });
+    expect(await actions.choose(savedPlaybookAgent)).toBe(true);
+    expect(record[0]).toMatchObject({ providerId: "claude-code", model: "claude-sonnet-5" });
+    expect(RecordTaskAgentInputSchema.safeParse(record[0]).success).toBe(true);
+    expect(draft).toEqual([{ selection: DEFAULT_SONNET }]);
+  });
+
+  test("Stave Auto's blank model never stands in for a fixed provider", () => {
+    expect(optionForFixedModel({ providerId: "claude-code" }, [AUTO, OPUS, SONNET])).toBe(OPUS);
+    expect(optionForFixedModel({ providerId: "claude-code" }, [AUTO])).toBeNull();
+    expect(optionForFixedModel({ providerId: "claude-code", model: "claude-sonnet-5" }, [AUTO, OPUS, SONNET])).toBe(SONNET);
+  });
+
+  test("with only Stave Auto on offer it is recorded without a model and routes", async () => {
+    const { actions, draft, record } = setup({ selectedModel: AUTO, modelOptions: [AUTO, CODEX] });
+    expect(await actions.choose(savedPlaybookAgent)).toBe(true);
+    expect(record[0]).toMatchObject({ providerId: "claude-code", model: null });
+    expect(RecordTaskAgentInputSchema.safeParse(record[0]).success).toBe(true);
+    expect(draft).toEqual([{ selection: AUTO }]);
   });
 });
