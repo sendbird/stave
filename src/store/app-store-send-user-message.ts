@@ -33,6 +33,7 @@ import {
   startProviderTurnActivity,
 } from "@/lib/providers/turn-status";
 import { noteRateLimitsProviderActivity } from "@/lib/providers/rate-limits-poll-policy";
+import { noteTurnSpendChanged } from "@/lib/providers/use-turn-spend";
 import { buildTurnActivityFlushPatch } from "@/store/turn-activity-retention";
 import {
   applyDetectedWorkspaceResources,
@@ -1547,9 +1548,8 @@ export function createSendUserMessageAction(args: {
             // makes the meter correct. The host-side per-provider cache
             // floor debounces bursts of short turns into one read.
             noteRateLimitsProviderActivity(provider);
-            void get()
-              .refreshRateLimits({ providers: [provider] })
-              .catch(() => undefined);
+            void get().refreshRateLimits({ providers: [provider] }).catch(() => undefined);
+            noteTurnSpendChanged();
             const compareOutcome = resolveCompareTurnOutcome(pendingEvents);
             set((state) => {
               const compareRunsById = finishCompareRunsForTask({

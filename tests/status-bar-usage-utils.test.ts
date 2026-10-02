@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  FIVE_HOURS_MS,
+  SEVEN_DAYS_MS,
   buildUsageHeadlineWindows,
   headlineUsagePercent,
   resolveStatusBarAccountView,
+  windowDurationTag,
+  windowDurationTitle,
 } from "../src/components/layout/status-bar-usage.utils";
 import {
   SYSTEM_ACCOUNT_PROFILE_ID,
@@ -90,6 +94,51 @@ describe("status bar usage headline", () => {
     expect(buildUsageHeadlineWindows({ provider: "codex", codex })).toMatchObject([
       { short: "", usedPercent: 31 },
     ]);
+  });
+
+  test("names Codex windows by their length and shows the weekly one too", () => {
+    const codex: CodexUsageSnapshot = {
+      source: "rpc",
+      buckets: [
+        {
+          limitId: "codex",
+          limitName: null,
+          planType: "plus",
+          primary: { usedPercent: 31, resetsAt: null, windowDurationMins: 300 },
+          secondary: { usedPercent: 12, resetsAt: null, windowDurationMins: 10_080 },
+          individualLimit: null,
+          credits: null,
+        },
+      ],
+      error: null,
+    };
+    expect(buildUsageHeadlineWindows({ provider: "codex", codex })).toMatchObject([
+      { short: "5h", label: "5h", title: "5-hour limit", usedPercent: 31, windowMs: 300 * 60_000 },
+      { short: "7d", label: "7d", title: "Weekly limit", usedPercent: 12, windowMs: 10_080 * 60_000 },
+    ]);
+  });
+
+  test("labels every Claude window for the strip and its hints", () => {
+    expect(
+      buildUsageHeadlineWindows({
+        provider: "claude",
+        claude: claudeSnapshot({ fableWeekly: { usedPercent: 12, resetsAt: null } }),
+      }).map(({ label, title, note }) => ({ label, title, note })),
+    ).toEqual([
+      { label: "5h", title: "5-hour limit", note: null },
+      { label: "7d", title: "Weekly limit", note: null },
+      { label: "7d Fable", title: "Weekly Fable limit", note: "Counts Fable models only." },
+    ]);
+  });
+
+  test("turns a window length into a tag and a title", () => {
+    expect(windowDurationTag(300 * 60_000)).toBe("5h");
+    expect(windowDurationTag(SEVEN_DAYS_MS)).toBe("7d");
+    expect(windowDurationTag(null)).toBeNull();
+    expect(windowDurationTitle(FIVE_HOURS_MS)).toBe("5-hour limit");
+    expect(windowDurationTitle(SEVEN_DAYS_MS)).toBe("Weekly limit");
+    expect(windowDurationTitle(3 * 24 * 3_600_000)).toBe("3-day limit");
+    expect(windowDurationTitle(null)).toBe("Usage limit");
   });
 
   test("shows monthly Cursor and Kiro usage", () => {

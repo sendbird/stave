@@ -34,6 +34,16 @@ usage surfaces. `src/store/app-store-provider-actions.ts` owns availability and
 usage refresh actions. Focused checks are `tests/optional-provider-tooling.test.ts`,
 `tests/provider-readiness.test.ts`, and `tests/kiro-usage-connection.test.ts`.
 
+The status bar usage strip is composed in `src/components/layout/StatusBar.tsx`;
+`status-bar-usage-strip.utils.ts` holds its pure parts (ring and clock geometry,
+reset formatting, hint copy, and the width estimate behind the container-query
+breakpoint), `StatusBarUsageStripItems.tsx` and `StatusBarUsageDetails.tsx` render
+the entries and the popover body. Spend comes from
+`electron/persistence/turn-spend-store.ts` through `persistence:summarize-turn-spend`
+(`src/lib/providers/turn-spend.ts` owns the arguments schema and local period
+bounds). Focused checks are `tests/status-bar-usage-strip.test.ts`,
+`tests/turn-spend.test.ts`, and `tests/status-bar-usage-utils.test.ts`.
+
 Provider account registration uses `src/lib/providers/provider-accounts.ts` for
 shared types and strict schemas. `electron/provider-accounts/registry.ts` owns
 nonsecret metadata and directory resolution; `environment.ts` applies native
