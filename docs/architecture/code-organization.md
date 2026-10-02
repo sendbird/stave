@@ -38,17 +38,19 @@ The status bar usage strip is composed in `src/components/layout/StatusBar.tsx`;
 `status-bar-usage-strip.utils.ts` holds its pure parts (ring and clock geometry,
 reset formatting, hint copy, and the width estimate behind the container-query
 breakpoint), `StatusBarUsageStripItems.tsx` and `StatusBarUsageDetails.tsx` render
-the entries and the popover body. Spend comes from
+the entries and the popover body. Tokens and cost come from
 `electron/persistence/turn-spend-store.ts` through `persistence:summarize-turn-spend`
 (`src/lib/providers/turn-spend.ts` owns the arguments schema and local period
-bounds). `src/store/rate-limits-account-reset.ts` resets one provider's usage on
-an account switch and tracks reads in flight. Focused checks are
+bounds; the store owns which tokens count).
+`src/store/rate-limits-account-reset.ts` resets one provider's usage on an
+account switch and tracks reads in flight. Focused checks are
 `tests/status-bar-usage-strip.test.ts`, `tests/turn-spend.test.ts`,
 `tests/rate-limits-account-reset.test.ts`, and `tests/status-bar-usage-utils.test.ts`.
-The bar's shrink order (usage detail, then the Resource Manager label, then
-clipping the strip's end) is `status-bar-shrink.ts`, with its container-query
-rules in `status-bar-shrink.styles.ts`; `tests/status-bar-shrink.test.ts` checks
-that each step gives way once and in order.
+The bar's shrink order (tokens, then usage detail, then the Resource Manager
+label, then clipping the strip's end) is `status-bar-shrink.ts`, with its
+container-query rules in `status-bar-shrink.styles.ts`;
+`tests/status-bar-shrink.test.ts` checks that each step gives way once and in
+order.
 
 Provider account registration uses `src/lib/providers/provider-accounts.ts` for
 shared types and strict schemas. `electron/provider-accounts/registry.ts` owns

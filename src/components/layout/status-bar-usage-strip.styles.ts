@@ -4,7 +4,7 @@ import type { UsageStripBreakpoint } from "@/components/layout/status-bar-usage-
 import { vars } from "../ads/tokens/tokens.stylex";
 import type { StyleXValue } from "../ads/utils/stylex";
 
-/** The usage strip in the status bar: rings, amounts, and the hints behind them. */
+/** The usage strip in the status bar: rings, token counts, and the hints behind them. */
 export const usageStripStyles = stylex.create({
   // The status bar's left group. It is the container the strip measures, and
   // it clips rather than grows, so the right-hand segments always keep their
@@ -26,7 +26,7 @@ export const usageStripStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  // One window or cost entry: the tooltip anchor around both forms.
+  // One window or tokens entry: the tooltip anchor around both forms.
   item: { alignItems: "center", display: "inline-flex", whiteSpace: "nowrap" },
   // The full form sits further from its neighbours than its own parts do, so
   // each ring reads as the start of its own entry.
@@ -47,12 +47,6 @@ export const usageStripStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-regular"],
   },
   glyph: { display: "block", flexShrink: 0 },
-  costGlyph: {
-    color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
-    height: 16,
-    width: 16,
-  },
   ringTrack: { stroke: vars["--ads-color-overlay-pressed"] },
   ringOk: { stroke: vars["--ads-color-success"] },
   ringWarn: { stroke: vars["--ads-color-warning"] },

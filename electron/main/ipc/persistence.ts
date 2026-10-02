@@ -408,8 +408,9 @@ export function registerPersistenceHandlers() {
     },
   );
 
-  // The status bar's spend item: cost reported on turn rows, per provider,
-  // since the local day and month starts the renderer chose.
+  // The status bar's tokens item and its popover's cost: usage reported on
+  // turn rows, per provider, since the local day and month starts the
+  // renderer chose.
   ipcMain.handle(
     "persistence:summarize-turn-spend",
     async (_event, args: unknown): Promise<TurnSpendResponse> => {

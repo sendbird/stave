@@ -85,14 +85,44 @@ describe("turn spend store", () => {
     expect(claude?.monthTurns).toBe(5);
   });
 
-  test("a provider that reports tokens only has no entry", () => {
+  test("a provider that reports tokens only gets tokens and no cost; one with neither has no entry", () => {
     const periods = resolveTurnSpendPeriods(new Date(2026, 9, 2, 15, 0));
     turn("codex", new Date(2026, 9, 2, 14, 0), { inputTokens: 1200, outputTokens: 300 });
     turn("codex", new Date(2026, 9, 2, 14, 5), cost(0));
+    turn("cursor", new Date(2026, 9, 2, 14, 5), { inputTokens: 0, outputTokens: 0 });
     turn("unknown-provider", new Date(2026, 9, 2, 14, 0), cost(1));
     turn("claude-code", new Date(2026, 9, 2, 14, 0), cost(0.1));
 
     const spend = new TurnSpendStore(db).summarize(periods);
-    expect(spend.map((entry) => entry.providerId)).toEqual(["claude-code"]);
+    expect(spend.map((entry) => entry.providerId).sort()).toEqual(["claude-code", "codex"]);
+    const codex = spend.find((entry) => entry.providerId === "codex");
+    expect(codex).toMatchObject({ todayUsd: 0, monthUsd: 0, monthTurns: 0, todayTokens: 1515, monthTokens: 1515, monthTokenTurns: 2 });
+  });
+
+  test("tokens are input plus output without cache reads, whichever way the provider reports them", () => {
+    const periods = resolveTurnSpendPeriods(new Date(2026, 9, 2, 15, 0));
+    // Claude: input is the uncached remainder; cache writes are new prompt, cache reads are not counted.
+    turn("claude-code", new Date(2026, 9, 2, 14, 0), {
+      inputTokens: 12,
+      outputTokens: 800,
+      cacheReadTokens: 150_000,
+      cacheCreationTokens: 4_000,
+      totalCostUsd: 0.2,
+    });
+    // Earlier this month, so it counts toward the month only.
+    turn("claude-code", new Date(2026, 9, 1, 9, 0), { inputTokens: 100, outputTokens: 50 });
+    // Codex: input is the whole prompt with cache reads inside it.
+    turn("codex", new Date(2026, 9, 2, 14, 0), { inputTokens: 20_000, outputTokens: 1_000, cacheReadTokens: 18_000, thoughtTokens: 400 });
+    // An unverified provider's counts are used as reported.
+    turn("kiro", new Date(2026, 9, 2, 14, 0), { inputTokens: 300, outputTokens: 30, cacheReadTokens: 9_000 });
+    // Malformed counters read as zero rather than poisoning the sum.
+    turn("kiro", new Date(2026, 9, 2, 14, 1), { inputTokens: "lots", outputTokens: -5, cacheReadTokens: null });
+
+    const byProvider = Object.fromEntries(
+      new TurnSpendStore(db).summarize(periods).map((entry) => [entry.providerId, entry]),
+    );
+    expect(byProvider["claude-code"]).toMatchObject({ todayTokens: 4_812, monthTokens: 4_962, monthTokenTurns: 2, monthTurns: 1 });
+    expect(byProvider.codex).toMatchObject({ todayTokens: 3_000, monthTokens: 3_000, monthTokenTurns: 1 });
+    expect(byProvider.kiro).toMatchObject({ todayTokens: 330, monthTokens: 330, monthTokenTurns: 1 });
   });
 });

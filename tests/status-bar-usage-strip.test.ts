@@ -10,16 +10,19 @@ import {
   USAGE_STRIP_BREAKPOINTS_REM,
   buildUsageStripSegment,
   describeTurnSpend,
+  describeTurnTokenCounting,
+  describeTurnTokens,
   describeUsageSegmentForAssistiveTech,
   describeUsageWindow,
   estimateUsageStripRem,
   formatResetClock,
   formatResetCountdown,
-  formatStripCost,
+  formatStripTokens,
   formatWindowContext,
   resolveQuotaRingArc,
   resolveTimeLeftHand,
   resolveUsageStripBreakpoint,
+  resolveUsageStripTokensBreakpoint,
   usageTone,
   type UsageStripSegmentModel,
 } from "../src/components/layout/status-bar-usage-strip.utils";
@@ -155,21 +158,49 @@ const subscription: StatusBarAccountView = {
   canSwitch: true,
 };
 
+const CLAUDE_SPEND = {
+  providerId: "claude-code" as const,
+  todayUsd: 0.1,
+  monthUsd: 4.2,
+  monthTurns: 12,
+  todayTokens: 1_240_000,
+  monthTokens: 18_000_000,
+  monthTokenTurns: 14,
+};
+
 describe("strip segment", () => {
-  test("names the account and keeps cost only where a provider reported one", () => {
+  test("names the account, carries tokens, and keeps cost only where a provider reported one", () => {
     const segment = buildUsageStripSegment({
       provider: "claude",
       providerName: "Claude",
       windows: [window()],
       account: subscription,
-      spend: { providerId: "claude-code", todayUsd: 0.1, monthUsd: 4.2, monthTurns: 12 },
+      spend: CLAUDE_SPEND,
       stale: false,
       pending: false,
     });
     expect(segment.name).toBe("Claude · Work");
+    expect(segment.tokens).toEqual({ todayTokens: 1_240_000, monthTokens: 18_000_000, monthTurns: 14 });
     expect(segment.cost).toEqual({ todayUsd: 0.1, monthUsd: 4.2, monthTurns: 12, meaning: "api-value" });
+    expect(describeUsageSegmentForAssistiveTech(segment, NOW)).toBe(
+      "Claude · Work usage: 5-hour limit 14% used, resets in 1h 7m; 1.2M tokens today",
+    );
 
+    // Codex reports tokens only: it gets the tokens item and no cost.
     const codex = buildUsageStripSegment({
+      provider: "codex",
+      providerName: "Codex",
+      windows: [window()],
+      account: null,
+      spend: { providerId: "codex", todayUsd: 0, monthUsd: 0, monthTurns: 0, todayTokens: 0, monthTokens: 52_000, monthTokenTurns: 3 },
+      stale: false,
+      pending: false,
+    });
+    expect(codex.name).toBe("Codex");
+    expect(codex.tokens).toEqual({ todayTokens: 0, monthTokens: 52_000, monthTurns: 3 });
+    expect(codex.cost).toBeNull();
+
+    const none = buildUsageStripSegment({
       provider: "codex",
       providerName: "Codex",
       windows: [window()],
@@ -178,8 +209,8 @@ describe("strip segment", () => {
       stale: false,
       pending: false,
     });
-    expect(codex.name).toBe("Codex");
-    expect(codex.cost).toBeNull();
+    expect(none.tokens).toBeNull();
+    expect(none.cost).toBeNull();
   });
 
   test("a provider waiting on its first reading says so; a gateway never waits", () => {
@@ -222,28 +253,59 @@ describe("strip segment", () => {
       providerName: "Claude",
       windows: [window()],
       account: { ...subscription, triggerLabel: "API billing", gateway: true },
-      spend: { providerId: "claude-code", todayUsd: 1.5, monthUsd: 30, monthTurns: 40 },
+      spend: { ...CLAUDE_SPEND, todayUsd: 1.5, monthUsd: 30, monthTurns: 40, todayTokens: 950 },
       stale: false,
       pending: false,
     });
     expect(segment.windows).toEqual([]);
     expect(segment.cost?.meaning).toBe("spend");
+    // The bar names tokens, not dollars; the popover has the spend.
     expect(describeUsageSegmentForAssistiveTech(segment, NOW)).toBe(
-      "Claude · API billing usage: $1.50 today",
+      "Claude · API billing usage: 950 tokens today",
+    );
+  });
+
+  test("the bar shows tokens compactly and the hint says which tokens count", () => {
+    const tokens = { todayTokens: 1_240_000, monthTokens: 18_000_000, monthTurns: 1 };
+    expect(formatStripTokens(tokens)).toEqual({ amount: "1.2M", context: "tok today · 18M mo" });
+    expect(formatStripTokens({ todayTokens: 0, monthTokens: 950, monthTurns: 2 })).toEqual({
+      amount: "0",
+      context: "tok today · 950 mo",
+    });
+    const cost = { todayUsd: 0.1, monthUsd: 4.2, monthTurns: 1, meaning: "api-value" as const };
+    const hint = describeTurnTokens({ tokens, cost, provider: "claude", providerName: "Claude", multipleAccounts: true });
+    expect(hint.title).toBe("Tokens in turns run in Stave");
+    expect(hint.lines).toEqual([
+      "1.2M today, 18M this month, from 1 turn.",
+      "Counts input and output tokens. Prompt tokens read from the cache are left out.",
+      "Includes turns from every Claude account.",
+      "Click for their API value.",
+    ]);
+    // No dollars anywhere in the bar's hint, even when a cost was reported.
+    expect(hint.lines.join(" ")).not.toContain("$");
+    expect(
+      describeTurnTokens({ tokens, cost: { ...cost, meaning: "spend" }, provider: "claude", providerName: "Claude", multipleAccounts: false }).lines,
+    ).toEqual([
+      "1.2M today, 18M this month, from 1 turn.",
+      "Counts input and output tokens. Prompt tokens read from the cache are left out.",
+      "Click for their spend.",
+    ]);
+    expect(describeTurnTokens({ tokens, cost: null, provider: "codex", providerName: "Codex", multipleAccounts: false }).lines).toHaveLength(2);
+    // Cache conventions are verified for Claude and Codex only.
+    expect(describeTurnTokenCounting({ provider: "kiro", providerName: "Kiro" })).toBe(
+      "Counts input and output tokens as Kiro reports them.",
     );
   });
 
   test("cost copy says what kind of number it is", () => {
     const cost = { todayUsd: 0.1, monthUsd: 4.2, monthTurns: 1, meaning: "api-value" as const };
-    expect(formatStripCost(cost)).toEqual({ amount: "$0.10", context: "today · $4.20 this month" });
-    const value = describeTurnSpend({ cost, providerName: "Claude", multipleAccounts: true });
+    const value = describeTurnSpend({ cost, providerName: "Claude" });
     expect(value.title).toBe("API value of turns run in Stave");
     expect(value.lines).toEqual([
       "$0.10 today, $4.20 this month, from 1 turn.",
       "Not billed to your subscription. Claude estimates it from token use at API prices.",
-      "Includes turns from every Claude account.",
     ]);
-    const spend = describeTurnSpend({ cost: { ...cost, meaning: "spend" }, providerName: "Claude", multipleAccounts: false });
+    const spend = describeTurnSpend({ cost: { ...cost, meaning: "spend" }, providerName: "Claude" });
     expect(spend.title).toBe("Spend on turns run in Stave");
     expect(spend.lines).toHaveLength(2);
   });
@@ -256,6 +318,7 @@ describe("responsive mode", () => {
       providerName: "Claude",
       name: "Claude · Work",
       windows: [window(), window({ short: "7d", label: "7d", title: "Weekly limit" })],
+      tokens: { todayTokens: 1_240_000, monthTokens: 18_000_000, monthTurns: 3 },
       cost: { todayUsd: 0.1, monthUsd: 4.2, monthTurns: 3, meaning: "api-value" },
       gateway: false,
       stale: false,
@@ -268,12 +331,12 @@ describe("responsive mode", () => {
     const one = resolveUsageStripBreakpoint([segment()]);
     const two = resolveUsageStripBreakpoint([
       segment(),
-      segment({ provider: "codex", providerName: "Codex", name: "Codex", cost: null }),
+      segment({ provider: "codex", providerName: "Codex", name: "Codex", tokens: null, cost: null }),
     ]);
     expect(typeof one).toBe("number");
     expect(typeof two).toBe("number");
     expect(two as number).toBeGreaterThan(one as number);
-    const needed = estimateUsageStripRem([segment()]);
+    const needed = estimateUsageStripRem([segment()], { tokens: false });
     expect(one as number).toBeGreaterThanOrEqual(needed);
     const previous = USAGE_STRIP_BREAKPOINTS_REM[USAGE_STRIP_BREAKPOINTS_REM.indexOf(one as never) - 1];
     if (previous !== undefined) expect(previous).toBeLessThan(needed);
@@ -283,6 +346,28 @@ describe("responsive mode", () => {
     const early = segment({ windows: [window({ usedPercent: 9, resetsAt: at(4 * 3_600_000 + 59 * 60_000) })] });
     const late = segment({ windows: [window({ usedPercent: 100, resetsAt: at(60_000) })] });
     expect(estimateUsageStripRem([early])).toBe(estimateUsageStripRem([late]));
+  });
+
+  test("does not flip as today's tokens grow, and only tokens take room", () => {
+    const quiet = segment({ tokens: { todayTokens: 0, monthTokens: 9, monthTurns: 1 } });
+    const busy = segment({ tokens: { todayTokens: 412_300_000, monthTokens: 987_600_000, monthTurns: 900 } });
+    expect(estimateUsageStripRem([quiet])).toBe(estimateUsageStripRem([busy]));
+    // The cost is in the popover only, so it never widens the bar.
+    expect(estimateUsageStripRem([segment({ cost: null })])).toBe(estimateUsageStripRem([segment()]));
+    expect(estimateUsageStripRem([segment({ tokens: null })])).toBeLessThan(estimateUsageStripRem([segment()]));
+  });
+
+  test("tokens take their own, wider step, so they give way before the windows", () => {
+    const pair = [segment(), segment({ provider: "codex", providerName: "Codex", name: "Codex" })];
+    const full = resolveUsageStripBreakpoint(pair) as number;
+    const tokens = resolveUsageStripTokensBreakpoint(pair) as number;
+    expect(tokens).toBeGreaterThan(full);
+    expect(tokens).toBeGreaterThanOrEqual(estimateUsageStripRem(pair, { tokens: true }));
+    // Two providers with tokens on a 1280px window (a ~71rem strip) keep their rings.
+    expect(full).toBeLessThanOrEqual(71);
+    // Without tokens to show, both steps are the same.
+    const quiet = pair.map((entry) => ({ ...entry, tokens: null }));
+    expect(resolveUsageStripTokensBreakpoint(quiet)).toBe(resolveUsageStripBreakpoint(quiet));
   });
 
   test("stays compact when even the widest step is too narrow", () => {

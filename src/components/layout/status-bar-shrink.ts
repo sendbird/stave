@@ -7,15 +7,17 @@ import type {
  * The status bar's one shrink order. As the window narrows, segments give way
  * in this order, and the right-hand group never shrinks, so nothing collides:
  *
- * 1. `usage-detail` — each usage segment drops its rings, resets and spend
- *    for the compact meter (the strip's own estimate,
- *    `resolveUsageStripBreakpoint`, measured against the strip's width).
- * 2. `resource-label` — Resource Manager keeps its icon and drops its label,
+ * 1. `usage-tokens` — each usage segment drops its tokens entry
+ *    (`resolveUsageStripTokensBreakpoint`), keeping its rings and resets.
+ * 2. `usage-detail` — each usage segment drops its rings and resets for the
+ *    compact meter (the strip's own estimate, `resolveUsageStripBreakpoint`,
+ *    measured against the strip's width).
+ * 3. `resource-label` — Resource Manager keeps its icon and drops its label,
  *    once the compact meter would otherwise run into it.
- * 3. `usage-clip` — the compact strip clips at its trailing end; the
+ * 4. `usage-clip` — the compact strip clips at its trailing end; the
  *    right-hand group keeps its place.
  */
-export const STATUS_BAR_SHRINK_ORDER = ["usage-detail", "resource-label", "usage-clip"] as const;
+export const STATUS_BAR_SHRINK_ORDER = ["usage-tokens", "usage-detail", "resource-label", "usage-clip"] as const;
 
 /**
  * Bar widths (rem) at which the Resource Manager label switches on. Container

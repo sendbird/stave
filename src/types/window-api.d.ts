@@ -2179,8 +2179,10 @@ interface WindowPersistenceApi {
     }>;
   }>;
   /**
-   * Cost reported on turns run in Stave, per provider, since the given local
-   * day and month starts. Providers that report no cost are absent.
+   * Tokens (input plus output, without cache reads) and cost reported on
+   * turns run in Stave, per provider, since the given local day and month
+   * starts. Providers that reported neither are absent; one that reported
+   * tokens only has zero cost and zero cost turns.
    */
   summarizeTurnSpend?: (
     args: import("@/lib/providers/turn-spend").TurnSpendArgs,

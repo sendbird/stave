@@ -2,11 +2,16 @@ import { z } from "zod";
 import type { ProviderId } from "./provider.types";
 
 /**
- * What turns run in Stave cost, per provider, for the local day and month.
+ * What turns run in Stave used and cost, per provider, for the local day and
+ * month.
  *
- * The amount is the one each provider reports with a turn: Claude reports a
- * cost, Codex reports tokens only. A provider that never reported a cost has
- * no entry at all, so callers can show nothing instead of an invented `$0.00`.
+ * Tokens are input plus output. Prompt tokens read from the cache are left
+ * out, whichever way the provider reports them (see `TurnSpendStore`), so a
+ * long cached conversation does not dwarf the work it did. The cost is the one
+ * each provider reports with a turn: Claude reports one, Codex reports tokens
+ * only. A provider with neither has no entry, and one that never reported a
+ * cost has zero dollars and no turns behind them, so callers can show nothing
+ * instead of an invented `$0.00`.
  */
 
 /**
@@ -29,6 +34,11 @@ export interface ProviderTurnSpend {
   monthUsd: number;
   /** Turns this month that reported a cost. */
   monthTurns: number;
+  /** Input plus output tokens, without cache reads. */
+  todayTokens: number;
+  monthTokens: number;
+  /** Turns this month that reported token usage. */
+  monthTokenTurns: number;
 }
 
 export interface TurnSpendResponse {

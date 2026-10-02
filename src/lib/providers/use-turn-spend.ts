@@ -12,7 +12,7 @@ export type TurnSpendByProvider = Partial<Record<ProviderId, ProviderTurnSpend>>
 let refreshGeneration = 0;
 
 /**
- * Today's and this month's reported cost of turns run in Stave. Read from the
+ * Today's and this month's tokens and reported cost of turns run in Stave. Read from the
  * local database only, so refreshing it never touches a provider account.
  */
 export const useTurnSpend = create<{
@@ -42,13 +42,13 @@ export const useTurnSpend = create<{
 }));
 
 /**
- * The host writes a turn's cost while it completes the turn, just after the
+ * The host writes a turn's usage while it completes the turn, just after the
  * renderer hears the turn end, so the read waits a moment for that write.
  */
 const TURN_SPEND_SETTLE_MS = 1_500;
 let pendingRefresh: ReturnType<typeof setTimeout> | null = null;
 
-/** A turn finished; its cost is about to land on the turn row. */
+/** A turn finished; its tokens and cost are about to land on the turn row. */
 export function noteTurnSpendChanged() {
   if (pendingRefresh !== null) clearTimeout(pendingRefresh);
   pendingRefresh = setTimeout(() => {

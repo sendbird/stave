@@ -8,6 +8,7 @@ import {
 import {
   buildUsageStripSegment,
   resolveUsageStripBreakpoint,
+  resolveUsageStripTokensBreakpoint,
   type UsageStripSegmentModel,
 } from "../src/components/layout/status-bar-usage-strip.utils";
 import {
@@ -46,7 +47,15 @@ function segment(args: {
     providerName: args.name,
     windows: args.windows ?? [window(), WEEK],
     account: null,
-    spend: { todayUsd: 0.4, monthUsd: 12.5, monthTurns: 30 } as never,
+    spend: {
+      providerId: "claude-code",
+      todayUsd: 0.4,
+      monthUsd: 12.5,
+      monthTurns: 30,
+      todayTokens: 2_400_000,
+      monthTokens: 61_000_000,
+      monthTokenTurns: 30,
+    },
     stale: false,
     pending: args.pending ?? false,
   });
@@ -70,29 +79,36 @@ const CASES: Record<string, UsageStripSegmentModel[]> = {
 /** What the bar shows at a width, following the same rules the styles compile. */
 function layoutAt(barRem: number, segments: UsageStripSegmentModel[]) {
   const fullStep = resolveUsageStripBreakpoint(segments);
+  const tokensStep = resolveUsageStripTokensBreakpoint(segments);
   const labelStep = resolveResourceLabelBreakpoint({ segments, fullStripStep: fullStep });
   const labelShown = labelStep === "always" || barRem >= labelStep;
   const stripRem = barRem - BAR_INSET_REM - (labelShown ? RESOURCE_TRIGGER_FULL_REM : RESOURCE_TRIGGER_ICON_REM);
   const stripFull = fullStep !== "never" && stripRem >= fullStep;
-  return { labelShown, stripFull, stripRem };
+  const tokensShown = tokensStep !== "never" && stripRem >= tokensStep;
+  return { labelShown, stripFull, tokensShown, stripRem };
 }
 
 describe("status bar shrink order", () => {
   test("names the order: usage detail, then the Resource Manager label, then clipping", () => {
-    expect(STATUS_BAR_SHRINK_ORDER).toEqual(["usage-detail", "resource-label", "usage-clip"]);
+    expect(STATUS_BAR_SHRINK_ORDER).toEqual(["usage-tokens", "usage-detail", "resource-label", "usage-clip"]);
   });
 
   for (const [name, segments] of Object.entries(CASES)) {
     test(`${name}: each step gives way once, in order, as the bar narrows`, () => {
       let sawCompact = false;
       let sawIconOnly = false;
+      let sawNoTokens = false;
       for (let bar = 200; bar >= 30; bar -= 0.25) {
-        const { labelShown, stripFull } = layoutAt(bar, segments);
-        // The label never goes while the strip still has its full form…
+        const { labelShown, stripFull, tokensShown } = layoutAt(bar, segments);
+        // Tokens only ever sit beside the full form, so they go first…
+        if (!stripFull) expect(tokensShown).toBe(false);
+        // …the label never goes while the strip still has its full form…
         if (!labelShown) expect(stripFull).toBe(false);
-        // …and neither step comes back as the bar keeps narrowing.
+        // …and no step comes back as the bar keeps narrowing.
+        if (sawNoTokens) expect(tokensShown).toBe(false);
         if (sawCompact) expect(stripFull).toBe(false);
         if (sawIconOnly) expect(labelShown).toBe(false);
+        if (!tokensShown) sawNoTokens = true;
         if (!stripFull) sawCompact = true;
         if (!labelShown) sawIconOnly = true;
       }

@@ -152,8 +152,8 @@ export const statusBarUsageStyles = stylex.create({
   },
   pendingNote: { alignItems: "center", display: "flex", gap: vars["--ads-space-8"] },
   limitNote: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
-  // Spend sits under its own hairline: it is a different kind of number from
-  // the quota above it, and it stays when the quota is unavailable.
+  // Tokens and spend sit under their own hairline: they are a different kind
+  // of number from the quota above, and they stay when the quota is unavailable.
   spendSection: {
     borderTopColor: vars["--ads-color-border"],
     borderTopStyle: "solid",
