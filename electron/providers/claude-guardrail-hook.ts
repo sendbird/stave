@@ -12,7 +12,8 @@ import { isNeverAutoApprovedStaveLocalMcpTool } from "./stave-local-mcp-approval
  * still stop an autonomous turn, and they hold under Bypass too, because a
  * PreToolUse hook runs before the permission mode is consulted:
  *
- * - G1 a write outside the task's workspace root (temp dirs stay allowed)
+ * - G1 a write outside the task's workspace root (temp dirs and, from a Stave
+ *   worktree, the repository's other Stave worktrees stay allowed)
  * - G2 reading or writing a protected credential path or env var
  * - G3 an irreversible remote effect: force-pushing a default or protected
  *   branch, deleting remote refs, releases or repos, publishing, `sudo`
@@ -179,6 +180,25 @@ function tempRoots() {
   return [...new Set([os.tmpdir(), "/tmp", "/private/tmp", "/var/folders", "/private/var/folders"].map((root) => path.resolve(root)))];
 }
 
+/**
+ * The folders a turn writes to without G1: its workspace root and, when that
+ * root is one of the repository's Stave worktrees (`<repo>/.stave/workspaces/<name>`),
+ * the folder holding the repository's Stave worktrees. A task in the main
+ * checkout already reaches every one of them, so a task in a worktree gets the
+ * same reach and can carry work into a sibling worktree it set up. The main
+ * checkout itself, other repositories and the rest of the disk still stop.
+ */
+export function guardrailWriteRoots(root: string): string[] {
+  const resolved = path.resolve(root);
+  const parts = resolved.split(path.sep);
+  for (let index = parts.length - 3; index >= 0; index -= 1) {
+    if (parts[index] === ".stave" && parts[index + 1] === "workspaces") {
+      return [resolved, parts.slice(0, index + 2).join(path.sep)];
+    }
+  }
+  return [resolved];
+}
+
 function writeHit(target: string, context: ClaudeGuardrailContext, cwd: string): ClaudeGuardrailHit | null {
   const homeDir = context.homeDir ?? os.homedir();
   const expanded = expandHome(target, homeDir);
@@ -187,9 +207,9 @@ function writeHit(target: string, context: ClaudeGuardrailContext, cwd: string):
   if (credentialPaths(context.spec, homeDir, cwd).some((entry) => isWithin(resolved, entry))) {
     return { id: "G2", reason: `writes the protected credential path ${resolved}` };
   }
-  const root = path.resolve(context.spec.root);
-  if (isWithin(resolved, root) || tempRoots().some((entry) => isWithin(resolved, entry))) return null;
-  return { id: "G1", reason: `writes ${resolved}, outside the workspace ${root}` };
+  const writeRoots = guardrailWriteRoots(context.spec.root);
+  if ([...writeRoots, ...tempRoots()].some((entry) => isWithin(resolved, entry))) return null;
+  return { id: "G1", reason: `writes ${resolved}, outside the workspace ${writeRoots[0]}` };
 }
 
 const COMMAND_WRAPPERS = new Set(["command", "exec", "nohup", "time", "nice", "env", "builtin"]);
@@ -277,6 +297,30 @@ const ALL_ARGS_WRITE = new Set(["rm", "rmdir", "unlink", "touch", "mkdir", "trun
 const AFTER_FIRST_WRITE = new Set(["chmod", "chown", "chgrp"]);
 const DESTINATION_WRITE = new Set(["cp", "mv", "ln", "install", "rsync"]);
 
+/**
+ * The files `sed -i` rewrites. The script is the first operand unless `-e` or
+ * `-f` supplied it, and BSD's `-i ''` suffix is not an operand, so a script
+ * such as `/pattern/d` is never read as a path.
+ */
+function sedInPlaceFiles(args: string[]): string[] {
+  const operands: string[] = [];
+  let scriptGiven = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!;
+    if (/^-[A-Za-z]*[ef]$/.test(arg) || arg === "--expression" || arg === "--file") {
+      scriptGiven = true;
+      index += 1;
+    } else if (/^--(?:expression|file)=/.test(arg)) {
+      scriptGiven = true;
+    } else if (arg === "-i" && args[index + 1] === "") {
+      index += 1;
+    } else if (!arg.startsWith("-")) {
+      operands.push(arg);
+    }
+  }
+  return scriptGiven ? operands : operands.slice(1);
+}
+
 function writeTargets(words: string[]): string[] {
   const [head, ...args] = words;
   if (!head) return [];
@@ -286,7 +330,7 @@ function writeTargets(words: string[]): string[] {
   if (AFTER_FIRST_WRITE.has(command)) return operands.slice(1);
   if (DESTINATION_WRITE.has(command)) return operands.length > 1 ? operands.slice(-1) : [];
   if (command === "dd") return args.filter((arg) => arg.startsWith("of=")).map((arg) => arg.slice(3));
-  if (command === "sed" && args.some((arg) => /^-[A-Za-z]*i/.test(arg) || arg.startsWith("--in-place"))) return operands.slice(1);
+  if (command === "sed" && args.some((arg) => /^-[A-Za-z]*i/.test(arg) || arg.startsWith("--in-place"))) return sedInPlaceFiles(args);
   return [];
 }
 

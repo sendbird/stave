@@ -12,6 +12,7 @@ import type { ProviderRuntimeOptions } from "../src/lib/providers/provider.types
 import {
   createClaudeGuardrailPreToolUseHook,
   evaluateClaudeGuardrail,
+  guardrailWriteRoots,
   resolveClaudeTurnGuardrail,
   shouldAllowClaudeAutonomousCall,
   withClaudeTurnGuardrails,
@@ -179,6 +180,27 @@ describe("Claude guardrails", () => {
     expect(bash("rm -rf ./build && mkdir -p dist")).toBeNull();
     expect(bash("bun test 2>&1 > /dev/null")).toBeNull();
     expect(bash("cat > notes.txt <<'EOF'\nwrite to /etc/passwd\nEOF")).toBeNull();
+  });
+
+  test("G1: a Stave worktree reaches its sibling worktrees, not the main checkout", () => {
+    const repo = "/repo";
+    const worktree = `${repo}/.stave/workspaces/fix__a`;
+    expect(guardrailWriteRoots(worktree)).toEqual([worktree, `${repo}/.stave/workspaces`]);
+    expect(guardrailWriteRoots(repo)).toEqual([repo]);
+    const inWorktree = { ...context, spec: { ...context.spec, root: worktree }, cwd: worktree };
+    const writeFrom = (file_path: string) =>
+      evaluateClaudeGuardrail({ toolName: "Write", input: { file_path, content: "x" }, context: inWorktree })?.id ?? null;
+    expect(writeFrom(`${repo}/.stave/workspaces/fix__b/src/a.ts`)).toBeNull();
+    expect(writeFrom(`${repo}/src/a.ts`)).toBe("G1");
+    expect(writeFrom("/other-repo/.stave/workspaces/x/a.ts")).toBe("G1");
+  });
+
+  test("G1: sed -i rewrites its files, never its script", () => {
+    expect(bash("sed -i '' '/pattern/d' src/a.ts")).toBeNull();
+    expect(bash("sed -i 's/a/b/' src/a.ts")).toBeNull();
+    expect(bash("sed -i -e 's/a/b/' src/a.ts")).toBeNull();
+    expect(bash("sed -i '' 's/a/b/' /etc/hosts")).toBe("G1");
+    expect(bash("sed -i -e 's/a/b/' /etc/hosts")).toBe("G1");
   });
 
   test("G2: credential paths and env stop", () => {
