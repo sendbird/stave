@@ -209,4 +209,4 @@ A connection can pin any model the gateway offers, not only Claude and OpenAI on
 
 - [Standalone CLI](standalone-cli.md)
 - [Integrated Terminal](integrated-terminal.md)
-- [Provider runtimes: account profiles and API connections](../providers/provider-runtimes.md)
+- [Provider runtimes: account profiles and API connections](https://github.com/sendbird/stave/blob/main/docs/providers/provider-runtimes.md)
