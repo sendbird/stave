@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { transition } from "@/components/ads/recipes/transition";
 import {
   DockviewReact,
   type DockviewApi,
@@ -107,7 +108,7 @@ function PaneIconPicker(props: IContextMenuItemComponentProps) {
       <span className={sx(styles.label)}>Icon</span>
       <AdsButton layout="host"
         type="button"
-        xstyle={styles.reset}
+        xstyle={[styles.reset, transition.colors]}
         aria-label="Use default tab icon"
         title="Default"
         onClick={() => setIcon(undefined)}
@@ -121,7 +122,7 @@ function PaneIconPicker(props: IContextMenuItemComponentProps) {
           <AdsButton layout="host"
             key={option.id}
             type="button"
-            xstyle={[styles.choice, selected && styles.selected]}
+            xstyle={[styles.choice, selected && styles.selected, transition.colors]}
             aria-label={`Use ${option.label} tab icon`}
             title={option.label}
             onClick={() => setIcon(option.id)}

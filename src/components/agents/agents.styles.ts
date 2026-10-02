@@ -3,6 +3,24 @@ import { vars } from "../ads/tokens/tokens.stylex";
 
 /** Agents tab: the list and detail layout come from the playbook styles; these are the parts only agents have. */
 export const agentStyles = stylex.create({
+  /*
+   * Resizable list. With room for the list, its column is as wide as it was
+   * dragged (`--agents-list-width`, from the layout) but never so wide that
+   * the detail drops under 512px, and the drag handle has its own 1px column
+   * on the list's edge. The handle's sash is that edge's hairline, so the list
+   * draws no border of its own.
+   */
+  tabResizable: {
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      "@media (min-width: 56rem)":
+        "clamp(240px, var(--agents-list-width), calc(100% - 513px)) 1px minmax(0, 1fr)",
+    },
+  },
+  masterResizable: { borderInlineEndWidth: 0 },
+  // Shown with the list, which the tab hides below 56rem for its picker.
+  listResizer: { display: { default: "none", "@media (min-width: 56rem)": "block" } },
+
   source: {
     flex: "0 0 auto",
     fontSize: vars["--ads-font-size-micro"],

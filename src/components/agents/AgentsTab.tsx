@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArchiveRestore, Copy, Plus, RefreshCw, Rocket, Trash2 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { Dialog } from "@/components/ads/components/Dialog";
@@ -54,6 +54,7 @@ import { AgentEditor } from "./AgentEditor";
 import { AgentActivity } from "./AgentActivity";
 import { AgentHistory } from "./AgentHistory";
 import { AgentProfileHeader } from "./AgentProfileHeader";
+import { AgentsListResizeHandle, useAgentsListWidthStyle } from "./AgentsListResizeHandle";
 import { AgentSuggestions } from "./AgentSuggestions";
 import { DeleteAgentDialog } from "./DeleteAgentDialog";
 import { NewAgentDialog } from "./NewAgentDialog";
@@ -451,9 +452,18 @@ export function AgentsTab() {
     [deleteTarget, agents, projects],
   );
 
+  const tabRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLElement>(null);
+  const listWidthStyle = useAgentsListWidthStyle();
+
   return (
-    <div className={sx(styles.tab)} data-testid="agents-tab">
-      <aside className={sx(styles.master)} aria-label="Agents">
+    <div
+      ref={tabRef}
+      className={sx(styles.tab, agentStyles.tabResizable)}
+      style={listWidthStyle}
+      data-testid="agents-tab"
+    >
+      <aside ref={listRef} className={sx(styles.master, agentStyles.masterResizable)} aria-label="Agents">
         <div className={sx(styles.masterHeader)}>
           <div className={sx(styles.masterSearch)}>
             <TextField
@@ -526,6 +536,7 @@ export function AgentsTab() {
           </p>
         ) : null}
       </aside>
+      <AgentsListResizeHandle tabRef={tabRef} listRef={listRef} />
       {selected ? (
         <div className={sx(styles.detail)}>
           <div className={sx(styles.compactPicker)}>

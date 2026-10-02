@@ -41,7 +41,6 @@ import { requestComparePreparation } from "@/components/compare/compare-prepare-
 import { listLatestWorkspaceTurns } from "@/lib/db/turns.db";
 import { LENS_SURFACE_ROOT_ID } from "@/lib/lens/lens-guest-host";
 import { layers } from "@/lib/ui-layers.stylex";
-import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { isTaskArchived } from "@/lib/tasks";
@@ -57,6 +56,7 @@ import {
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { createDefaultLayoutState } from "@/store/layout.utils";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
+import { PanelResizeHandle } from "@/components/layout/PanelResizeHandle";
 import { RightRail } from "@/components/layout/RightRail";
 import { StatusBar } from "@/components/layout/StatusBar";
 import { dispatchExplorerSearchRequest } from "@/components/layout/explorer-search-events";
@@ -118,7 +118,6 @@ type ResizableLayoutKey = "workspaceSidebarWidth" | "explorerPanelWidth";
 const WORKSPACE_SIDEBAR_MAX_WIDTH = 340;
 /** Panel widths a double-click on a resize handle returns to. */
 const DEFAULT_LAYOUT = createDefaultLayoutState();
-const RESIZER_HINT = "Drag to resize · Double-click to reset";
 
 export function AppShell() {
   const notifications = useAppStore((state) => state.notifications);
@@ -1419,42 +1418,26 @@ export function AppShell() {
           />
         </RenderProfiler>
         {!workspaceSidebarCollapsed ? (
-          <div
-            className={sx(appShellStyles.resizer, layers.resizer)}
-            title={RESIZER_HINT}
-            onDoubleClick={() =>
+          <PanelResizeHandle
+            width={Math.max(workspaceSidebarWidth, WORKSPACE_SIDEBAR_MIN_WIDTH)}
+            clamp={(next) =>
+              Math.max(
+                WORKSPACE_SIDEBAR_MIN_WIDTH,
+                Math.min(WORKSPACE_SIDEBAR_MAX_WIDTH, next),
+              )
+            }
+            onResizeStart={() => setSidebarResizing(true)}
+            onResize={(next) =>
+              scheduleLayoutResizePatch("workspaceSidebarWidth", next)
+            }
+            onResizeEnd={() => {
+              setSidebarResizing(false);
+              flushPendingLayoutPatch();
+            }}
+            onReset={() =>
               setLayout({ patch: { workspaceSidebarWidth: DEFAULT_LAYOUT.workspaceSidebarWidth } })
             }
-            onMouseDown={(event) => {
-              event.preventDefault();
-              setSidebarResizing(true);
-              const startX = event.clientX;
-              const startWidth = Math.max(
-                workspaceSidebarWidth,
-                WORKSPACE_SIDEBAR_MIN_WIDTH,
-              );
-              const onMove = (moveEvent: MouseEvent) => {
-                const next = Math.max(
-                  WORKSPACE_SIDEBAR_MIN_WIDTH,
-                  Math.min(
-                    WORKSPACE_SIDEBAR_MAX_WIDTH,
-                    startWidth + (moveEvent.clientX - startX),
-                  ),
-                );
-                scheduleLayoutResizePatch("workspaceSidebarWidth", next);
-              };
-              const onUp = () => {
-                setSidebarResizing(false);
-                flushPendingLayoutPatch();
-                window.removeEventListener("mousemove", onMove);
-                window.removeEventListener("mouseup", onUp);
-              };
-              window.addEventListener("mousemove", onMove);
-              window.addEventListener("mouseup", onUp);
-            }}
-          >
-            <div className={sx(appShellStyles.resizerSash, transition.colors)} />
-          </div>
+          />
         ) : null}
         <div
           className={sx(appShellStyles.appSurface)}
@@ -1524,41 +1507,29 @@ export function AppShell() {
               </div>
               {showDesktopSidebar ? (
                 <>
-                  <div
-                    className={sx(appShellStyles.resizer, layers.resizer)}
-                    title={RESIZER_HINT}
-                    onDoubleClick={() =>
+                  <PanelResizeHandle
+                    width={desktopSidebarWidth}
+                    grow="start"
+                    clamp={(next) => {
+                      const containerWidth =
+                        contentRowRef.current?.offsetWidth ?? 9999;
+                      const maxExplorer = Math.max(
+                        MIN_EXPLORER_PANEL_WIDTH,
+                        containerWidth - MIN_CHAT_PANEL_WIDTH - 1,
+                      );
+                      return Math.max(
+                        MIN_EXPLORER_PANEL_WIDTH,
+                        Math.min(maxExplorer, next),
+                      );
+                    }}
+                    onResize={(next) =>
+                      scheduleLayoutResizePatch("explorerPanelWidth", next)
+                    }
+                    onResizeEnd={flushPendingLayoutPatch}
+                    onReset={() =>
                       setLayout({ patch: { explorerPanelWidth: DEFAULT_LAYOUT.explorerPanelWidth } })
                     }
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      const startX = event.clientX;
-                      const startWidth = desktopSidebarWidth;
-                      const onMove = (moveEvent: MouseEvent) => {
-                        const containerWidth =
-                          contentRowRef.current?.offsetWidth ?? 9999;
-                        const maxExplorer = Math.max(
-                          MIN_EXPLORER_PANEL_WIDTH,
-                          containerWidth - MIN_CHAT_PANEL_WIDTH - 1,
-                        );
-                        const delta = startX - moveEvent.clientX;
-                        const next = Math.max(
-                          MIN_EXPLORER_PANEL_WIDTH,
-                          Math.min(maxExplorer, startWidth + delta),
-                        );
-                        scheduleLayoutResizePatch("explorerPanelWidth", next);
-                      };
-                      const onUp = () => {
-                        flushPendingLayoutPatch();
-                        window.removeEventListener("mousemove", onMove);
-                        window.removeEventListener("mouseup", onUp);
-                      };
-                      window.addEventListener("mousemove", onMove);
-                      window.addEventListener("mouseup", onUp);
-                    }}
-                  >
-                    <div className={sx(appShellStyles.resizerSash, transition.colors)} />
-                  </div>
+                  />
                   <Suspense
                     fallback={
                       <aside
