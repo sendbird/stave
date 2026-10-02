@@ -226,9 +226,8 @@ function ResultsMark(props: { workspaceId: string; taskId: string }) {
 }
 
 /**
- * A state is its shared glyph, a quantity is a count. Both hang at the
- * label's end outside the tab's layout, so neither moves a label when it
- * comes or goes.
+ * A state is its shared glyph, a quantity is a count. Both sit inline right
+ * after the label, vertically centered on it.
  */
 function Mark(props: { mark: TaskTabMark | null }) {
   const { mark } = props;
@@ -246,9 +245,6 @@ function Mark(props: { mark: TaskTabMark | null }) {
     </span>
   );
 }
-
-/** Room after the last tab for its mark: the 12px glyph or a one-digit count. */
-const MARK_OVERHANG = 14;
 
 const styles = stylex.create({
   notice: {
@@ -281,9 +277,8 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   // The list fills the bar's height and runs one hairline past it, so the
-  // active underline covers the bar's own rule. Its end padding is the room
-  // the last tab's mark hangs into. A rail narrower than the four labels
-  // scrolls the strip sideways instead of clipping Results.
+  // active underline covers the bar's own rule. A rail narrower than the four
+  // labels scrolls the strip sideways instead of clipping Results.
   tabList: {
     borderRadius: 0,
     boxShadow: "none",
@@ -293,22 +288,17 @@ const styles = stylex.create({
     overflowX: "auto",
     overflowY: "hidden",
     padding: 0,
-    paddingInlineEnd: MARK_OVERHANG,
     scrollbarWidth: "none",
   },
-  tab: { flex: "none", overflow: "visible", paddingInline: 0, position: "relative" },
-  // A mark sits like a superscript at the label's end, in the gap before the
-  // next tab, so it takes no width: a mark arriving or leaving never moves a
-  // label, and the strip still fits the default 300px rail. It is a fixed
-  // size whatever it says.
+  tab: { flex: "none", gap: vars["--ads-space-4"], paddingInline: 0 },
+  // A mark is a flex item of the tab, right after the label and centered on
+  // it. It is a fixed size whatever it says, so a count never reflows the
+  // label beside it.
   markSlot: {
     alignItems: "center",
     display: "inline-flex",
-    height: 14,
-    insetBlockStart: "calc(50% - 15px)",
-    insetInlineStart: "calc(100% + 1px)",
+    flexShrink: 0,
     pointerEvents: "none",
-    position: "absolute",
   },
   markGlyph: { display: "inline-flex" },
   panel: { minHeight: 0, minWidth: 0 },

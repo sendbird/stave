@@ -72,8 +72,8 @@ describe("TurnActivity", () => {
       /data-testid="turn-activity-list"[\s\S]*<\/div>\s*<div[^>]*>\s*<section[^>]*data-summary-layout="panel"/,
     );
 
-    expect(panel).toMatch(/<details data-testid="turn-activity-metrics"><summary/);
-    const metrics = panel.slice(panel.indexOf('<details data-testid="turn-activity-metrics"'));
+    expect(panel).toMatch(/<details open="" data-testid="turn-activity-metrics"><summary/);
+    const metrics = panel.slice(panel.indexOf('<details open="" data-testid="turn-activity-metrics"'));
     expect(metrics).toContain('data-metric="usage"');
     expect(metrics).not.toContain('data-metric="changes"');
 
