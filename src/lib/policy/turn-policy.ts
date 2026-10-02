@@ -1,4 +1,9 @@
-import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
+import {
+  normalizeClaudeGuardrails,
+  type ClaudeGuardrailId,
+  type ProviderId,
+  type ProviderRuntimeOptions,
+} from "@/lib/providers/provider.types";
 import { agentPermissionOverrides } from "@/lib/agents/permission";
 import { isReadOnlyDelegationPolicy } from "@/lib/runs/delegation-policy";
 import {
@@ -35,6 +40,12 @@ export interface TurnGuardrailSpec {
   root: string;
   credentialFiles: string[];
   credentialEnvVars: string[];
+  /**
+   * The guardrails this turn stops for. Opt-in: the resolver fills it from the
+   * user's `claudeGuardrails` setting, empty by default. Absent means all three
+   * (direct evaluation in tests and tools).
+   */
+  enabled?: ClaudeGuardrailId[];
 }
 
 export interface TurnPolicy {
@@ -165,6 +176,7 @@ export function resolveTurnPolicy(input: {
       root: input.root,
       credentialFiles: [...(merged.claudeSandboxCredentialFiles ?? [])],
       credentialEnvVars: [...(merged.claudeSandboxCredentialEnvVars ?? [])],
+      enabled: normalizeClaudeGuardrails(merged.claudeGuardrails),
     },
     source:
       autonomy === "read-only"
@@ -209,6 +221,7 @@ export const PERMISSION_RUNTIME_OPTION_KEYS = [
   "claudeSandboxReadOnly",
   "claudeSandboxCredentialFiles",
   "claudeSandboxCredentialEnvVars",
+  "claudeGuardrails",
   "claudeSettingSources",
   "claudeAllowedTools",
   "claudeDisallowedTools",

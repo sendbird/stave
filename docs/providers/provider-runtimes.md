@@ -554,12 +554,16 @@ migration). A delegated Agent's read-only permission becomes `access:
 target provider's autonomous options (`electron/host-service/delegation-policy.ts`).
 Cursor and Kiro keep the user's settings except for a read-only agent.
 
-Hard guardrails (provider-specific enforcement):
+Guardrails (opt-in, provider-specific enforcement):
 
-- **Claude**: `electron/providers/claude-guardrail-hook.ts` registers a
-  PreToolUse hook first in `hooks.PreToolUse` for every non-read-only primary
-  turn. It returns `ask` (never `deny`) for G1 writes outside the workspace
-  root (temp dirs allowed), G2 protected credential paths and variables (the
+- **Claude**: the user's `claudeGuardrails` setting (Settings > Providers >
+  Claude, empty by default) becomes `TurnPolicy.guardrails.enabled`.
+  `electron/providers/claude-guardrail-hook.ts` registers a PreToolUse hook
+  first in `hooks.PreToolUse` for every non-read-only primary turn with at
+  least one guardrail on, and skips the ones that are off. It returns `ask`
+  (never `deny`) for G1 writes outside the repository (the workspace, the main
+  checkout, every `git worktree list` checkout, `../.worktrees/<repo>`, temp
+  dirs, `~/.cache`, `~/Library/Caches` and `~/.claude/projects` allowed), G2 protected credential paths and variables (the
   user's sandbox credential lists plus a baseline such as `~/.ssh`, `~/.aws`,
   `~/.netrc`), and G3 irreversible remote effects (force-push to a default or
   protected branch, `git push --delete`/`:ref`/`--mirror`/`--prune`, package

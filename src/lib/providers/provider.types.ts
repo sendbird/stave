@@ -1070,6 +1070,16 @@ export interface ProviderTurnRequest {
   runtimeOptions?: ProviderRuntimeOptions;
 }
 
+/** A Stave guardrail an autonomous Claude turn can be set to stop for. */
+export type ClaudeGuardrailId = "G1" | "G2" | "G3";
+export const CLAUDE_GUARDRAIL_IDS: readonly ClaudeGuardrailId[] = ["G1", "G2", "G3"];
+
+/** The known guardrail ids in `value`, deduplicated in G1-G3 order. Anything else is dropped. */
+export function normalizeClaudeGuardrails(value: unknown): ClaudeGuardrailId[] {
+  const list = Array.isArray(value) ? value : [];
+  return CLAUDE_GUARDRAIL_IDS.filter((id) => list.includes(id));
+}
+
 export interface ProviderRuntimeOptions {
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
@@ -1102,6 +1112,12 @@ export interface ProviderRuntimeOptions {
   claudeSandboxCredentialFiles?: string[];
   /** Environment variable names the Claude sandbox must deny as credentials. */
   claudeSandboxCredentialEnvVars?: string[];
+  /**
+   * The Stave guardrails an autonomous Claude turn stops for (`G1` writes
+   * outside the workspace, `G2` credentials, `G3` irreversible remote
+   * actions). Absent or empty runs none: the guardrails are opt-in.
+   */
+  claudeGuardrails?: ClaudeGuardrailId[];
   claudeSystemPrompt?: string;
   claudeMaxTurns?: number;
   claudeMaxBudgetUsd?: number;

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAppStore } from "@/store/app.store";
+import { normalizeClaudeGuardrails } from "@/lib/providers/provider.types";
 import { permissionOptions } from "./delegation-policy";
 
 /** Mirror user settings into durable host state for cross-provider delegation. */
@@ -16,6 +17,7 @@ export function useDelegationPermissionSync() {
         .split(/[,\n]/)
         .map((value) => value.trim())
         .filter(Boolean),
+      claudeGuardrails: normalizeClaudeGuardrails(settings.claudeGuardrails),
     }),
     codex: permissionOptions("codex", {
       ...settings,

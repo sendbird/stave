@@ -203,6 +203,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudeSandboxReadOnly",
   "claudeSandboxCredentialFiles",
   "claudeSandboxCredentialEnvVars",
+  "claudeGuardrails",
   "claudeSystemPrompt",
   "claudeMaxTurns",
   "claudeMaxBudgetUsd",

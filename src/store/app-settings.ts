@@ -21,6 +21,7 @@ import {
   type AuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
 import type { PrMergeMethod } from "@/lib/pr-status";
+import type { ClaudeGuardrailId } from "@/lib/providers/provider.types";
 import type { ComposerControlPlacements } from "@/lib/composer-controls";
 import type { ModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
 import type { ModelVisibility } from "@/lib/providers/model-visibility";
@@ -392,6 +393,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeSandboxCredentialFiles: string;
   /** Comma/newline-delimited credential env names denied by Claude sandbox. */
   claudeSandboxCredentialEnvVars: string;
+  /** Stave guardrails autonomous Claude turns stop for. Empty (the default) runs none. */
+  claudeGuardrails: ClaudeGuardrailId[];
   claudeTaskBudgetTokens: number;
   /**
    * When a provider reports included account usage at 100%, block new turns
@@ -775,6 +778,7 @@ export const defaultSettings: AppSettings = {
   claudeAllowUnsandboxedCommands: true,
   claudeSandboxCredentialFiles: "",
   claudeSandboxCredentialEnvVars: "",
+  claudeGuardrails: [],
   claudeTaskBudgetTokens: 0,
   blockTurnsWhenAccountLimitReached: true,
   craneConnector: {

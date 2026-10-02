@@ -55,7 +55,7 @@ describe("turn policy mapping: Claude", () => {
     });
     expect(policy.autonomy).toBe("autonomous");
     expect(policy.options).toEqual({ claudePermissionMode: "auto" });
-    expect(policy.guardrails).toEqual({ root: ROOT, credentialFiles: ["~/.secrets"], credentialEnvVars: ["API_TOKEN"] });
+    expect(policy.guardrails).toEqual({ root: ROOT, credentialFiles: ["~/.secrets"], credentialEnvVars: ["API_TOKEN"], enabled: [] });
     expect(policy.source).toBe("agent");
   });
 
@@ -182,17 +182,50 @@ describe("Claude guardrails", () => {
     expect(bash("cat > notes.txt <<'EOF'\nwrite to /etc/passwd\nEOF")).toBeNull();
   });
 
-  test("G1: a Stave worktree reaches its sibling worktrees, not the main checkout", () => {
+  test("G1: the boundary is the repository — its checkouts, worktrees and ../.worktrees/<repo>", () => {
     const repo = "/repo";
     const worktree = `${repo}/.stave/workspaces/fix__a`;
-    expect(guardrailWriteRoots(worktree)).toEqual([worktree, `${repo}/.stave/workspaces`]);
-    expect(guardrailWriteRoots(repo)).toEqual([repo]);
+    expect(guardrailWriteRoots(worktree, { homeDir: "/home/u" })).toEqual(expect.arrayContaining([
+      worktree, `${repo}/.stave/workspaces`, repo, "/.worktrees/repo",
+    ]));
     const inWorktree = { ...context, spec: { ...context.spec, root: worktree }, cwd: worktree };
-    const writeFrom = (file_path: string) =>
-      evaluateClaudeGuardrail({ toolName: "Write", input: { file_path, content: "x" }, context: inWorktree })?.id ?? null;
+    const writeFrom = (file_path: string, overrides: Partial<ClaudeGuardrailContext> = {}) =>
+      evaluateClaudeGuardrail({ toolName: "Write", input: { file_path, content: "x" }, context: { ...inWorktree, ...overrides } })?.id ?? null;
     expect(writeFrom(`${repo}/.stave/workspaces/fix__b/src/a.ts`)).toBeNull();
-    expect(writeFrom(`${repo}/src/a.ts`)).toBe("G1");
+    expect(writeFrom(`${repo}/src/a.ts`)).toBeNull();
+    expect(writeFrom("/.worktrees/repo/release-1.0/package.json")).toBeNull();
     expect(writeFrom("/other-repo/.stave/workspaces/x/a.ts")).toBe("G1");
+    // A worktree git reports anywhere on disk is part of the repository.
+    const gitWorktrees = { repositoryRoots: () => ["/repo", "/elsewhere/wt"] };
+    expect(writeFrom("/elsewhere/wt/a.ts")).toBe("G1");
+    expect(writeFrom("/elsewhere/wt/a.ts", gitWorktrees)).toBeNull();
+    // From a plain checkout, git names the main checkout and its worktrees.
+    const inCheckout = { ...context, spec: { ...context.spec, root: "/src/app" }, cwd: "/src/app", repositoryRoots: () => ["/src/app"] };
+    expect(evaluateClaudeGuardrail({ toolName: "Write", input: { file_path: "/src/.worktrees/app/b/a.ts" }, context: inCheckout })).toBeNull();
+    expect(evaluateClaudeGuardrail({ toolName: "Write", input: { file_path: "/src/other/a.ts" }, context: inCheckout })?.id).toBe("G1");
+    // Claude's own project folder (auto memory) and tool caches are not workspace escapes.
+    expect(write("/home/u/.claude/projects/x/memory/note.md")).toBeNull();
+    expect(write("/home/u/.cache/tool/state")).toBeNull();
+  });
+
+  test("guardrails are opt-in: none run by default, each one runs only when chosen", () => {
+    const only = (claudeGuardrails: ProviderRuntimeOptions["claudeGuardrails"]) =>
+      ({ ...context, spec: { ...context.spec, enabled: resolve("claude-code", agent, { claudeGuardrails }).guardrails.enabled } });
+    const check = (toolName: string, input: Record<string, unknown>, ctx: ClaudeGuardrailContext) =>
+      evaluateClaudeGuardrail({ toolName, input, context: ctx })?.id ?? null;
+    const none = only(undefined);
+    expect(none.spec.enabled).toEqual([]);
+    expect(check("Write", { file_path: "/etc/hosts" }, none)).toBeNull();
+    expect(check("Read", { file_path: "~/.ssh/id_ed25519" }, none)).toBeNull();
+    expect(check("Bash", { command: "git push --force origin main" }, none)).toBeNull();
+    const g3 = only(["G3"]);
+    expect(check("Write", { file_path: "/etc/hosts" }, g3)).toBeNull();
+    expect(check("Bash", { command: "git push --force origin main" }, g3)).toBe("G3");
+    const g1 = only(["G1"]);
+    expect(check("Write", { file_path: "/home/u/.ssh/config" }, g1)).toBe("G1");
+    expect(check("Read", { file_path: "~/.ssh/id_ed25519" }, g1)).toBeNull();
+    expect(only(["G2"]).spec.enabled).toEqual(["G2"]);
+    expect(check("Write", { file_path: "/home/u/.ssh/config" }, only(["G2"]))).toBe("G2");
   });
 
   test("G1: sed -i rewrites its files, never its script", () => {
@@ -268,12 +301,15 @@ describe("Claude guardrails", () => {
 
   test("the hook is registered first and sandboxed Bash runs unprompted on autonomous turns", () => {
     const base = { sandbox: { enabled: true }, hooks: { PreToolUse: [{ matcher: "^Agent$", hooks: [] }] } } as unknown as Options;
-    const autonomous = resolve("claude-code", agent);
+    const autonomous = resolve("claude-code", agent, { claudeGuardrails: ["G1", "G2", "G3"] });
     const options = withClaudeTurnGuardrails(base, autonomous);
     expect(options.hooks?.PreToolUse).toHaveLength(2);
     expect(options.hooks?.PreToolUse?.[0]?.matcher).toBeUndefined();
     expect(options.sandbox?.autoAllowBashIfSandboxed).toBe(true);
-    const ask = withClaudeTurnGuardrails(base, resolve("claude-code", chat));
+    const off = withClaudeTurnGuardrails(base, resolve("claude-code", agent));
+    expect(off.hooks?.PreToolUse).toHaveLength(1);
+    expect(off.sandbox?.autoAllowBashIfSandboxed).toBe(true);
+    const ask = withClaudeTurnGuardrails(base, resolve("claude-code", chat, { claudeGuardrails: ["G1"] }));
     expect(ask.hooks?.PreToolUse).toHaveLength(2);
     expect(ask.sandbox?.autoAllowBashIfSandboxed).toBeUndefined();
     expect(withClaudeTurnGuardrails(base, resolve("claude-code", readOnlyAgent))).toBe(base);
@@ -281,7 +317,8 @@ describe("Claude guardrails", () => {
   });
 
   test("canUseTool sees the guardrail and answers everything else on autonomous turns", () => {
-    const autonomous = resolve("claude-code", agent);
+    const autonomous = resolve("claude-code", agent, { claudeGuardrails: ["G1", "G2", "G3"] });
+    expect(resolveClaudeTurnGuardrail({ policy: resolve("claude-code", agent), toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })).toBeNull();
     expect(resolveClaudeTurnGuardrail({ policy: autonomous, toolName: "Bash", input: { command: "ls" }, cwd: ROOT, decisionReason: "Stave guardrail G3: this force-pushes main." })?.id).toBe("G3");
     expect(resolveClaudeTurnGuardrail({ policy: autonomous, toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })?.id).toBe("G1");
     expect(resolveClaudeTurnGuardrail({ policy: resolve("claude-code", readOnlyAgent), toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })).toBeNull();

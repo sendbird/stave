@@ -26,6 +26,7 @@ export const DelegationPermissionOptionsSchema = z.object({
   claudeSandboxReadOnly: z.boolean().optional(),
   claudeSandboxCredentialFiles: z.array(z.string()).optional(),
   claudeSandboxCredentialEnvVars: z.array(z.string()).optional(),
+  claudeGuardrails: z.array(z.enum(["G1", "G2", "G3"])).optional(),
   claudeAllowedTools: z.array(z.string()).optional(),
   claudeDisallowedTools: z.array(z.string()).optional(),
   codexFileAccess: z
@@ -355,9 +356,11 @@ export function restrictPermissionOptions(
   for (const key of [
     "claudeSandboxCredentialFiles",
     "claudeSandboxCredentialEnvVars",
+    "claudeGuardrails",
   ] as const) {
-    if (current[key])
-      options[key] = [...new Set([...(options[key] ?? []), ...current[key]])];
+    const next = current[key] as string[] | undefined;
+    if (next)
+      Object.assign(options, { [key]: [...new Set([...(options[key] ?? []), ...next])] });
   }
   // These are approval-skip grants. Tightening may remove them, never add them.
   if (current.claudeAllowedTools && options.claudeAllowedTools)

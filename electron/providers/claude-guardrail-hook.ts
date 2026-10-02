@@ -8,12 +8,14 @@ import { extractClaudeBashCommand } from "./claude-permission-policy";
 import { isNeverAutoApprovedStaveLocalMcpTool } from "./stave-local-mcp-approval";
 
 /**
- * Stave's hard guardrails for Claude turns. They are the only actions that
- * still stop an autonomous turn, and they hold under Bypass too, because a
+ * Stave's opt-in guardrails for Claude turns. Each one the user turned on
+ * (Settings > Providers > Claude, `claudeGuardrails`; all off by default)
+ * still stops an autonomous turn, and holds under Bypass too, because a
  * PreToolUse hook runs before the permission mode is consulted:
  *
- * - G1 a write outside the task's workspace root (temp dirs and, from a Stave
- *   worktree, the repository's other Stave worktrees stay allowed)
+ * - G1 a write outside the task's repository: the workspace, the repository's
+ *   main checkout and every worktree of it (including the conventional
+ *   `../.worktrees/<repo>` folder), temp dirs and tool caches stay allowed
  * - G2 reading or writing a protected credential path or env var
  * - G3 an irreversible remote effect: force-pushing a default or protected
  *   branch, deleting remote refs, releases or repos, publishing, `sudo`
@@ -64,6 +66,8 @@ const FILE_WRITE_TOOLS: Readonly<Record<string, string>> = {
 
 export interface ClaudeGuardrailContext {
   spec: TurnGuardrailSpec;
+  /** Checkouts of the workspace's repository (main checkout and worktrees); empty when unknown. */
+  repositoryRoots?: (root: string) => string[];
   /** The directory relative paths resolve against (the session's cwd). */
   cwd: string;
   homeDir?: string;
@@ -181,35 +185,61 @@ function tempRoots() {
 }
 
 /**
- * The folders a turn writes to without G1: its workspace root and, when that
- * root is one of the repository's Stave worktrees (`<repo>/.stave/workspaces/<name>`),
- * the folder holding the repository's Stave worktrees. A task in the main
- * checkout already reaches every one of them, so a task in a worktree gets the
- * same reach and can carry work into a sibling worktree it set up. The main
- * checkout itself, other repositories and the rest of the disk still stop.
+ * The folders a turn writes to without G1. Agents routinely carry work into a
+ * sibling worktree, the main checkout or a worktree they create beside it, so
+ * the boundary is the repository, not the one folder the task runs in:
+ *
+ * - the workspace root, and the folder holding its Stave worktrees
+ *   (`<repo>/.stave/workspaces`) even when git cannot be read
+ * - every checkout git reports for the repository (main checkout and worktrees)
+ * - `<parent>/.worktrees/<repo>`, where the worktree PR flow puts new worktrees
+ * - Claude's own per-project folder (auto memory) and common tool caches
+ *
+ * Other repositories, the home directory and the rest of the disk still stop.
  */
-export function guardrailWriteRoots(root: string): string[] {
+export function guardrailWriteRoots(root: string, context?: Pick<ClaudeGuardrailContext, "repositoryRoots" | "homeDir">): string[] {
   const resolved = path.resolve(root);
+  const roots = [resolved];
+  // `git worktree list` names the main checkout first.
+  const checkouts = (context?.repositoryRoots?.(resolved) ?? []).map((checkout) => path.resolve(checkout));
   const parts = resolved.split(path.sep);
+  let mainCheckout = checkouts[0] ?? null;
   for (let index = parts.length - 3; index >= 0; index -= 1) {
     if (parts[index] === ".stave" && parts[index + 1] === "workspaces") {
-      return [resolved, parts.slice(0, index + 2).join(path.sep)];
+      roots.push(parts.slice(0, index + 2).join(path.sep));
+      mainCheckout ??= parts.slice(0, index).join(path.sep) || path.sep;
+      break;
     }
   }
-  return [resolved];
+  roots.push(...checkouts);
+  if (mainCheckout) {
+    roots.push(mainCheckout, path.join(path.dirname(mainCheckout), ".worktrees", path.basename(mainCheckout)));
+  }
+  const homeDir = context?.homeDir ?? os.homedir();
+  const claudeConfigDirs = [path.join(homeDir, ".claude"), process.env.CLAUDE_CONFIG_DIR?.trim()].filter((dir): dir is string => Boolean(dir));
+  roots.push(
+    ...claudeConfigDirs.map((dir) => path.join(path.resolve(dir), "projects")),
+    path.join(homeDir, ".cache"),
+    path.join(homeDir, "Library", "Caches"),
+  );
+  return [...new Set(roots)];
 }
+
+const guardrailEnabled = (spec: TurnGuardrailSpec, id: ClaudeGuardrailHit["id"]) => !spec.enabled || spec.enabled.includes(id);
+const keepEnabled = (spec: TurnGuardrailSpec, hit: ClaudeGuardrailHit | null) => hit && guardrailEnabled(spec, hit.id) ? hit : null;
 
 function writeHit(target: string, context: ClaudeGuardrailContext, cwd: string): ClaudeGuardrailHit | null {
   const homeDir = context.homeDir ?? os.homedir();
   const expanded = expandHome(target, homeDir);
   if (!expanded || DEV_SINKS.has(expanded) || expanded.startsWith("/dev/fd/")) return null;
   const resolved = path.resolve(cwd, expanded);
-  if (credentialPaths(context.spec, homeDir, cwd).some((entry) => isWithin(resolved, entry))) {
+  if (guardrailEnabled(context.spec, "G2") && credentialPaths(context.spec, homeDir, cwd).some((entry) => isWithin(resolved, entry))) {
     return { id: "G2", reason: `writes the protected credential path ${resolved}` };
   }
-  const writeRoots = guardrailWriteRoots(context.spec.root);
+  if (!guardrailEnabled(context.spec, "G1")) return null;
+  const writeRoots = guardrailWriteRoots(context.spec.root, context);
   if ([...writeRoots, ...tempRoots()].some((entry) => isWithin(resolved, entry))) return null;
-  return { id: "G1", reason: `writes ${resolved}, outside the workspace ${writeRoots[0]}` };
+  return { id: "G1", reason: `writes ${resolved}, outside the workspace's repository ${writeRoots[0]}` };
 }
 
 const COMMAND_WRAPPERS = new Set(["command", "exec", "nohup", "time", "nice", "env", "builtin"]);
@@ -369,8 +399,8 @@ function evaluateBash(command: string, context: ClaudeGuardrailContext): ClaudeG
       continue;
     }
     const hit =
-      segmentG3(words, context, cwd) ??
-      bashCredentialHit(segment, words, context, cwd) ??
+      keepEnabled(context.spec, segmentG3(words, context, cwd)) ??
+      keepEnabled(context.spec, bashCredentialHit(segment, words, context, cwd)) ??
       [...segment.filter((word) => word.redirect).map((word) => word.text), ...writeTargets(words)]
         .map((target) => writeHit(target, context, cwd))
         .find((entry) => entry !== null) ?? null;
@@ -395,7 +425,7 @@ export function evaluateClaudeGuardrail(args: {
     const command = extractClaudeBashCommand(args.input);
     return command ? evaluateBash(command, args.context) : null;
   }
-  if (!["read", "notebookread", "grep", "glob", "ls"].includes(tool)) return null;
+  if (!["read", "notebookread", "grep", "glob", "ls"].includes(tool) || !guardrailEnabled(args.context.spec, "G2")) return null;
   return shouldKeepClaudeReadOnlyPrompt({
     toolName: tool, input: args.input, cwd: args.context.cwd, homeDir: args.context.homeDir ?? os.homedir(),
     protectedCredentialFiles: [...BASELINE_CREDENTIAL_PATHS, ...args.context.spec.credentialFiles],
@@ -410,8 +440,29 @@ function gitOutput(cwd: string, gitArgs: string[]) {
   }
 }
 
-/** Live git lookups, read only when a force push needs its target. */
+const REPOSITORY_ROOTS_TTL_MS = 10_000;
+const repositoryRootsCache = new Map<string, { at: number; roots: string[] }>();
+
+/**
+ * The checkouts of `root`'s repository, main checkout first, from
+ * `git worktree list`. Cached briefly: the hook runs before every tool call,
+ * and a worktree the turn just added shows up on the next read.
+ */
+function liveRepositoryRoots(root: string): string[] {
+  const cached = repositoryRootsCache.get(root);
+  if (cached && Date.now() - cached.at < REPOSITORY_ROOTS_TTL_MS) return cached.roots;
+  const roots = (gitOutput(root, ["worktree", "list", "--porcelain"]) ?? "")
+    .split("\n")
+    .filter((line) => line.startsWith("worktree "))
+    .map((line) => line.slice("worktree ".length).trim())
+    .filter(Boolean);
+  repositoryRootsCache.set(root, { at: Date.now(), roots });
+  return roots;
+}
+
+/** Live git lookups: branches when a force push needs its target, checkouts for G1. */
 export const gitBranchLookups = {
+  repositoryRoots: liveRepositoryRoots,
   currentBranch: (cwd: string) => {
     const branch = gitOutput(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]);
     return branch && branch !== "HEAD" ? branch : null;
@@ -439,11 +490,17 @@ export function createClaudeGuardrailPreToolUseHook(spec: TurnGuardrailSpec): Ho
   };
 }
 
+/** Whether the turn runs any guardrail. The resolver always sets the list; absent means all three. */
+function hasEnabledGuardrails(policy: TurnPolicy) {
+  return !policy.guardrails.enabled || policy.guardrails.enabled.length > 0;
+}
+
 /** Registers the guardrail hook first and lets sandboxed Bash run without asking on autonomous turns. */
 export function withClaudeTurnGuardrails(options: Options, policy: TurnPolicy | undefined): Options {
   if (!policy || policy.autonomy === "read-only") return options;
   const sandbox = policy.autonomy === "autonomous" && options.sandbox?.enabled && options.sandbox.autoAllowBashIfSandboxed === undefined
     ? { ...options.sandbox, autoAllowBashIfSandboxed: true } : options.sandbox;
+  if (!hasEnabledGuardrails(policy)) return { ...options, ...(sandbox ? { sandbox } : {}) };
   return {
     ...options,
     ...(sandbox ? { sandbox } : {}),
@@ -462,7 +519,7 @@ export function resolveClaudeTurnGuardrail(args: {
   cwd: string;
   decisionReason?: string;
 }): ClaudeGuardrailHit | null {
-  if (!args.policy || args.policy.autonomy === "read-only") return null;
+  if (!args.policy || args.policy.autonomy === "read-only" || !hasEnabledGuardrails(args.policy)) return null;
   if (args.decisionReason?.startsWith(CLAUDE_GUARDRAIL_REASON_PREFIX)) {
     return { id: (args.decisionReason.match(/G[123]/)?.[0] ?? "G3") as ClaudeGuardrailHit["id"], reason: args.decisionReason };
   }
