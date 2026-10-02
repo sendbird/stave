@@ -199,6 +199,13 @@ describe("Claude guardrails", () => {
     const gitWorktrees = { repositoryRoots: () => ["/repo", "/elsewhere/wt"] };
     expect(writeFrom("/elsewhere/wt/a.ts")).toBe("G1");
     expect(writeFrom("/elsewhere/wt/a.ts", gitWorktrees)).toBeNull();
+    // A worktree added after the list was cached is re-read before G1 stops.
+    let added = false;
+    const freshOnly = { repositoryRoots: (_root: string, options?: { refresh?: boolean }) =>
+      added && options?.refresh ? ["/repo", "/elsewhere/new"] : ["/repo"] };
+    expect(writeFrom("/elsewhere/new/a.ts", freshOnly)).toBe("G1");
+    added = true;
+    expect(writeFrom("/elsewhere/new/a.ts", freshOnly)).toBeNull();
     // From a plain checkout, git names the main checkout and its worktrees.
     const inCheckout = { ...context, spec: { ...context.spec, root: "/src/app" }, cwd: "/src/app", repositoryRoots: () => ["/src/app"] };
     expect(evaluateClaudeGuardrail({ toolName: "Write", input: { file_path: "/src/.worktrees/app/b/a.ts" }, context: inCheckout })).toBeNull();

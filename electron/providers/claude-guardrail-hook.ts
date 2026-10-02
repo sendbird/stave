@@ -66,8 +66,11 @@ const FILE_WRITE_TOOLS: Readonly<Record<string, string>> = {
 
 export interface ClaudeGuardrailContext {
   spec: TurnGuardrailSpec;
-  /** Checkouts of the workspace's repository (main checkout and worktrees); empty when unknown. */
-  repositoryRoots?: (root: string) => string[];
+  /**
+   * Checkouts of the workspace's repository (main checkout and worktrees);
+   * empty when unknown. `refresh` skips any cache, for a worktree just added.
+   */
+  repositoryRoots?: (root: string, options?: { refresh?: boolean }) => string[];
   /** The directory relative paths resolve against (the session's cwd). */
   cwd: string;
   homeDir?: string;
@@ -197,11 +200,15 @@ function tempRoots() {
  *
  * Other repositories, the home directory and the rest of the disk still stop.
  */
-export function guardrailWriteRoots(root: string, context?: Pick<ClaudeGuardrailContext, "repositoryRoots" | "homeDir">): string[] {
+export function guardrailWriteRoots(
+  root: string,
+  context?: Pick<ClaudeGuardrailContext, "repositoryRoots" | "homeDir">,
+  options?: { refresh?: boolean },
+): string[] {
   const resolved = path.resolve(root);
   const roots = [resolved];
   // `git worktree list` names the main checkout first.
-  const checkouts = (context?.repositoryRoots?.(resolved) ?? []).map((checkout) => path.resolve(checkout));
+  const checkouts = (context?.repositoryRoots?.(resolved, options) ?? []).map((checkout) => path.resolve(checkout));
   const parts = resolved.split(path.sep);
   let mainCheckout = checkouts[0] ?? null;
   for (let index = parts.length - 3; index >= 0; index -= 1) {
@@ -237,8 +244,11 @@ function writeHit(target: string, context: ClaudeGuardrailContext, cwd: string):
     return { id: "G2", reason: `writes the protected credential path ${resolved}` };
   }
   if (!guardrailEnabled(context.spec, "G1")) return null;
+  const allowed = (roots: string[]) => [...roots, ...tempRoots()].some((entry) => isWithin(resolved, entry));
   const writeRoots = guardrailWriteRoots(context.spec.root, context);
-  if ([...writeRoots, ...tempRoots()].some((entry) => isWithin(resolved, entry))) return null;
+  if (allowed(writeRoots)) return null;
+  // A worktree the turn added moments ago may not be in the cached list yet.
+  if (context.repositoryRoots && allowed(guardrailWriteRoots(context.spec.root, context, { refresh: true }))) return null;
   return { id: "G1", reason: `writes ${resolved}, outside the workspace's repository ${writeRoots[0]}` };
 }
 
@@ -445,12 +455,13 @@ const repositoryRootsCache = new Map<string, { at: number; roots: string[] }>();
 
 /**
  * The checkouts of `root`'s repository, main checkout first, from
- * `git worktree list`. Cached briefly: the hook runs before every tool call,
- * and a worktree the turn just added shows up on the next read.
+ * `git worktree list`. Cached briefly because the hook runs before every tool
+ * call; a write the cached list does not cover re-reads it, so a worktree the
+ * turn just added is covered at once.
  */
-function liveRepositoryRoots(root: string): string[] {
+function liveRepositoryRoots(root: string, options?: { refresh?: boolean }): string[] {
   const cached = repositoryRootsCache.get(root);
-  if (cached && Date.now() - cached.at < REPOSITORY_ROOTS_TTL_MS) return cached.roots;
+  if (!options?.refresh && cached && Date.now() - cached.at < REPOSITORY_ROOTS_TTL_MS) return cached.roots;
   const roots = (gitOutput(root, ["worktree", "list", "--porcelain"]) ?? "")
     .split("\n")
     .filter((line) => line.startsWith("worktree "))
