@@ -11,13 +11,14 @@ import {
 } from "@/components/ui/accordion";
 import { ActionButton } from "@/components/system/ActionButton";
 import { Badge } from "@/components/ads/components/Badge";
-import { CappedViewport } from "@/components/ads/components/CappedViewport";
+import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import { setResultReviewed } from "@/lib/reviews/result-review-client";
 import type { ResultReview } from "@/lib/reviews/result-review";
 import { useAppStore } from "@/store/app.store";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
 import { ResultFileSnapshots } from "./ResultFileSnapshots";
+import { RunTurnDialog } from "./RunTurnDialog";
 import { MissionReportView } from "@/components/missions/MissionReportView";
 import { useMissionReportActions } from "@/components/missions/useMissionReportActions";
 import { useTaskMission } from "@/store/missions-store";
@@ -32,18 +33,14 @@ const PAGE_SIZE = 20;
 type Filter = "all" | "pending";
 
 /**
- * The cap on one expanded run's saved evidence. Viewport-relative so a tall
- * window shows more, bounded in rem so a short one still leaves the next run
- * and the panel footer reachable without a long scroll back.
+ * The saved answer, files and run details of one run. Mounted only while its
+ * row is expanded, so a long history never holds every answer body in the
+ * tree at once; the list itself is fetched without evidence. The answer
+ * renders like the conversation and opens collapsed when long, so the row
+ * needs no scroll box of its own; the whole run is one click away in
+ * "Show the turn".
  */
-const EVIDENCE_MAX_HEIGHT = "min(50vh, 28rem)";
-
-/**
- * The saved answer, files and file snapshots of one run. Mounted only while
- * its row is expanded, so a long history never holds every answer body and
- * snapshot in the tree at once; the list itself is fetched without evidence.
- */
-function RunEvidence(props: { result: ResultReview }) {
+function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
   const { result } = props;
   const { page, loading, error, refresh } = useResultReviews({
     workspaceId: result.workspaceId,
@@ -53,6 +50,16 @@ function RunEvidence(props: { result: ResultReview }) {
     limit: 1,
   });
   const evidence = page.results[0]?.evidence;
+  const showTurn = (
+    <ActionButton
+      size="xs"
+      weight="quiet"
+      xstyle={styles.answerAction}
+      onClick={props.onShowTurn}
+    >
+      Show the turn
+    </ActionButton>
+  );
   if (loading && !evidence) {
     return (
       <p role="status" className={sx(styles.loading)}>
@@ -66,17 +73,23 @@ function RunEvidence(props: { result: ResultReview }) {
         <p role="alert" className={sx(styles.error)}>
           {error}
         </p>
-        <ActionButton size="xs" onClick={refresh}>
-          Retry
-        </ActionButton>
+        <div className={sx(styles.alertRow)}>
+          <ActionButton size="xs" onClick={refresh}>
+            Retry
+          </ActionButton>
+          {showTurn}
+        </div>
       </div>
     );
   }
   if (!evidence) {
     return (
-      <p className={sx(styles.caption)}>
-        No answer was saved for this run. Open the conversation to read it.
-      </p>
+      <div className={sx(styles.evidence)}>
+        <p className={sx(styles.caption)}>
+          No answer was saved for this run.
+        </p>
+        <div>{showTurn}</div>
+      </div>
     );
   }
   const modelLabel = formatActualRunModel({
@@ -86,40 +99,29 @@ function RunEvidence(props: { result: ResultReview }) {
   });
   return (
     <div className={sx(styles.evidence)}>
-      <div>
-        <h4 className={sx(styles.evidenceHeading)}>Final answer</h4>
-        <p className={sx(styles.evidenceDescription)}>
-          Saved when the run ended · {modelLabel}
-        </p>
-        <p className={sx(styles.answer)}>
-          {evidence.answer || "No final answer was recorded."}
-        </p>
+      <div className={sx(styles.answerSection)}>
+        <div className={sx(styles.answerHeader)}>
+          <div className={sx(styles.answerHeading)}>
+            <h4 className={sx(styles.evidenceHeading)}>Final answer</h4>
+            <p className={sx(styles.evidenceDescription)}>
+              Saved when the run ended · {modelLabel}
+            </p>
+          </div>
+          {showTurn}
+        </div>
+        {evidence.answer ? (
+          <CollapsibleResponse text={evidence.answer} label="the final answer" />
+        ) : (
+          <p className={sx(styles.muted)}>No final answer was recorded.</p>
+        )}
         {evidence.answerTruncated ? (
-          <p className={sx(styles.excerptNotice)}>
-            Excerpt only. Read the conversation for the full answer.
+          <p className={sx(styles.muted)}>
+            Only the start of a long answer was saved. Show the turn to read
+            all of it.
           </p>
         ) : null}
       </div>
-      {evidence.files.length ? (
-        <div className={sx(styles.files)}>
-          <h4 className={sx(styles.evidenceHeading)}>
-            Files this run reported · {evidence.files.length}
-          </h4>
-          {!evidence.snapshots?.length
-            ? evidence.files.map((file) => (
-                <p key={file} className={sx(styles.filePath)}>
-                  {file}
-                </p>
-              ))
-            : null}
-          <p className={sx(styles.muted)}>
-            Contents may have changed since this run
-            {evidence.filesTruncated ? "; the recorded list is incomplete" : ""}
-            .
-          </p>
-        </div>
-      ) : null}
-      <ResultFileSnapshots evidence={evidence} />
+      <ResultFileSnapshots evidence={evidence} taskId={result.taskId} />
       <details className={sx(styles.reference)}>
         <summary className={sx(styles.disclosure, focusRing.ring)}>
           Run details
@@ -150,6 +152,7 @@ export function RunHistoryRow(props: {
   onFollowUp: () => void;
 }) {
   const { result } = props;
+  const [turnOpen, setTurnOpen] = useState(false);
   const failed = result.outcome === "failed";
   const summary =
     result.summary.trim() || "No summary was recorded for this run.";
@@ -229,15 +232,7 @@ export function RunHistoryRow(props: {
         </ActionButton>
       </div>
       <AccordionContent mount="lazy" className={sx(styles.rowDetails)}>
-        <CappedViewport
-          role="group"
-          tabIndex={0}
-          label="Saved run evidence"
-          maxBlockSize={EVIDENCE_MAX_HEIGHT}
-          xstyle={styles.evidenceViewport}
-        >
-          <RunEvidence result={result} />
-        </CappedViewport>
+        <RunEvidence result={result} onShowTurn={() => setTurnOpen(true)} />
         <div className={sx(styles.rowActions)}>
           <ActionButton size="xs" onClick={props.onFollowUp}>
             Request changes
@@ -247,6 +242,14 @@ export function RunHistoryRow(props: {
           </span>
         </div>
       </AccordionContent>
+      <RunTurnDialog
+        open={turnOpen}
+        onOpenChange={setTurnOpen}
+        workspaceId={result.workspaceId}
+        taskId={result.taskId}
+        turnId={result.turnId}
+        description={`${result.taskTitle} · ended ${formatRelativeTime(result.createdAt)}`}
+      />
     </AccordionItem>
   );
 }

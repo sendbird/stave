@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
+import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import { ExchangeStatusBadge } from "@/components/delegation/ExchangeStatusBadge";
 import { ActionButton } from "@/components/system/ActionButton";
 import { listAgents } from "@/lib/agents/library";
@@ -132,7 +133,10 @@ function SubagentRow(props: {
   onStop?: () => void;
 }) {
   const { exchange } = props;
-  const answer = exchange.outcome.error ?? exchange.outcome.result;
+  const { error, result } = exchange.outcome;
+  // The answer renders like the conversation, and only once it is opened, so
+  // a long list never parses every answer it folds away.
+  const [answerOpen, setAnswerOpen] = useState(false);
   return (
     <li className={sx(styles.row)} data-subagent-kind={exchange.kind}>
       <div className={sx(styles.head)}>
@@ -140,12 +144,21 @@ function SubagentRow(props: {
         <ExchangeStatusBadge status={exchange.outcome.status} />
       </div>
       <p className={sx(styles.what)}>{props.what}</p>
-      {answer && !isDelegationExchangeLive(exchange) ? (
-        <details className={sx(styles.answer)}>
+      {(error ?? result) && !isDelegationExchangeLive(exchange) ? (
+        <details
+          className={sx(styles.answer)}
+          onToggle={(event) => setAnswerOpen(event.currentTarget.open)}
+        >
           <summary className={sx(styles.answerSummary)}>
-            {exchange.outcome.error ? "Why it stopped" : "Answer"}
+            {error ? "Why it stopped" : "Answer"}
           </summary>
-          <p className={sx(styles.answerText)}>{answer}</p>
+          {error ? (
+            <p className={sx(styles.answerText)}>{error}</p>
+          ) : answerOpen && result ? (
+            <div className={sx(styles.answerBody)}>
+              <CollapsibleResponse text={result} label={`${props.who}'s answer`} />
+            </div>
+          ) : null}
         </details>
       ) : null}
       {props.error ? <p role="alert" className={sx(styles.error)}>{props.error}</p> : null}
@@ -215,6 +228,7 @@ const styles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
+  answerBody: { minWidth: 0, marginBlockStart: vars["--ads-space-4"] },
   answerText: {
     margin: 0,
     marginBlockStart: vars["--ads-space-4"],

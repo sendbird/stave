@@ -9,6 +9,10 @@ import { copyTextToClipboard } from "@/lib/clipboard";
 import { getSyntaxHighlighter } from "@/lib/syntax-highlight";
 import { useAppStore } from "@/store/app.store";
 import { codeBlockStyles as styles } from "./code-block.styles";
+import {
+  scaleMessageCodeFontSize,
+  useMessageTextScale,
+} from "./message-text-scale";
 
 // Shiki emits its own `<pre>`; style it via a transformer so the layout lives
 // with the component instead of a descendant selector. Mirrors the previous
@@ -87,7 +91,9 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language 
   const cacheKey = getHighlightCacheKey(code, resolvedLang);
   const cached = _highlightCache.get(cacheKey);
   const [html, setHtml] = useState<string | null>(cached ?? null);
-  const messageCodeFontSize = useAppStore((state) => state.settings.messageCodeFontSize);
+  const textScale = useMessageTextScale();
+  const settingsCodeFontSize = useAppStore((state) => state.settings.messageCodeFontSize);
+  const messageCodeFontSize = scaleMessageCodeFontSize(textScale, settingsCodeFontSize);
 
   useEffect(() => {
     // Already cached – apply immediately and skip the async path.

@@ -16,6 +16,7 @@ import { createPlaybookFromStarter, findPlaybookStarter } from "@/lib/playbooks/
 import type { WorkspacePrInfo } from "@/lib/pr-status";
 import { isTaskPanelTab, type TaskPanelTab } from "@/lib/right-rail-panels";
 import type { ResultReview } from "@/lib/reviews/result-review";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import { createWorkGraph } from "@/lib/work-graph/work-graph-reducer";
 import {
   providerAgentNodeKey,
@@ -34,9 +35,10 @@ import type { ChatMessage } from "@/types/chat";
  * the width of the right rail, with the stores seeded and no IPC.
  *
  * - `task=plain` (default): a direct task with a plan, changed files, a passing
- *   verification, an open pull request and one run waiting for review.
+ *   verification, an open pull request and one run waiting for review, whose
+ *   saved answer, files and turn (tool calls included) Results renders.
  * - `task=mission`: a mission task run by an agent, with a live turn, a running
- *   subagent and a scheduled wake-up.
+ *   subagent, a finished delegated review and a scheduled wake-up.
  * - `tab=activity|progress|team|results` picks the tab the panel opens on.
  * - `panelWidth=320|384` sets the frame width (default 320).
  * - `pending=approval|user_input` makes the live turn wait on the user.
@@ -52,7 +54,75 @@ const PLAIN_TASK_ID = "task-panel-preview-plain";
 const MISSION_TASK_ID = "task-panel-preview-mission";
 const RESULT_REVIEW_STORAGE_KEY = "stave:result-reviews:v1";
 
+/** The latest run's final answer: a list, a fenced block wider than the panel, and enough lines to collapse. */
+const PLAIN_ANSWER = [
+  "Tightened the settings sidebar and kept the keyboard order.",
+  "",
+  "**What changed**",
+  "",
+  "- Row gap is now `8px` (was `12px`) and the list padding `12px`.",
+  "- Rows center their icons, so the focus ring no longer clips.",
+  "- Tab order still follows the visual order; nothing was re-parented.",
+  "",
+  "```ts",
+  "export const sidebarStyles = stylex.create({",
+  '  list: { gap: vars["--ads-space-8"], padding: vars["--ads-space-12"] },',
+  '  row: { alignItems: "center", minBlockSize: 32, paddingInline: vars["--ads-space-12"], borderRadius: vars["--ads-radius-control"] },',
+  "});",
+  "```",
+  "",
+  "**Checks**",
+  "",
+  "1. `bun run typecheck` passes.",
+  "2. `bun test tests/settings-sidebar.test.tsx` passes (12 tests).",
+  "3. Tab and Shift+Tab walk the rows top to bottom.",
+  "",
+  "Left alone: the section headers keep their spacing; changing them is a separate pass.",
+].join("\n");
+
+const SIDEBAR_DIFF = {
+  filePath: "src/components/settings/Sidebar.tsx",
+  oldContent: "<nav className={sx(styles.list)}>\n  {rows}\n</nav>\n",
+  newContent: "<nav className={sx(styles.list)} aria-label=\"Settings\">\n  {rows}\n</nav>\n",
+};
+const STYLES_DIFF = {
+  filePath: "src/components/settings/sidebar.styles.ts",
+  oldContent: "  list: { gap: 12, padding: 16 },\n  row: { minBlockSize: 32 },\n",
+  newContent: '  list: { gap: vars["--ads-space-8"], padding: vars["--ads-space-12"] },\n  row: { alignItems: "center", minBlockSize: 32 },\n',
+};
+
 const PLAIN_MESSAGES: ChatMessage[] = [
+  {
+    id: "u0",
+    role: "user",
+    model: "",
+    providerId: "user",
+    content: "Look at the settings sidebar spacing and propose a change.",
+    startedAt: "2026-09-29T08:30:00.000Z",
+    parts: [],
+  },
+  {
+    id: "a0",
+    role: "assistant",
+    model: "claude-sonnet-5",
+    providerId: "claude-code",
+    content: "",
+    turnId: "turn-plain-0",
+    startedAt: "2026-09-29T08:30:05.000Z",
+    completedAt: "2026-09-29T08:40:00.000Z",
+    terminalStopReason: "end_turn",
+    parts: [
+      {
+        type: "tool_use",
+        toolUseId: "tool-read-0",
+        toolName: "Read",
+        state: "output-available",
+        input: JSON.stringify({ file_path: "src/components/settings/sidebar.styles.ts" }),
+        output: "  list: { gap: 12, padding: 16 },",
+      },
+      { type: "text", text: "The rows use a 12px gap and 16px padding. I propose 8px and 12px, with centered icons." },
+    ],
+  } as unknown as ChatMessage,
   {
     id: "u1",
     role: "user",
@@ -75,23 +145,36 @@ const PLAIN_MESSAGES: ChatMessage[] = [
     parts: [
       {
         type: "tool_use",
+        toolUseId: "tool-read-1",
+        toolName: "Read",
+        state: "output-available",
+        input: JSON.stringify({ file_path: "src/components/settings/Sidebar.tsx" }),
+        output: "<nav className={sx(styles.list)}>",
+      },
+      {
+        type: "tool_use",
         toolName: "TodoWrite",
         state: "output-available",
         input: JSON.stringify({
           todos: [
             { content: "Read the sidebar layout", status: "completed" },
             { content: "Tighten the row gaps", status: "completed" },
-            { content: "Verify keyboard order", status: "in_progress" },
+            { content: "Verify keyboard order", status: "completed" },
           ],
         }),
       },
+      { type: "code_diff", ...SIDEBAR_DIFF, status: "accepted" },
+      { type: "code_diff", ...STYLES_DIFF, status: "accepted" },
       {
-        type: "code_diff",
-        filePath: "src/components/settings/Sidebar.tsx",
-        oldContent: "gap: 12px;\npadding: 16px;\n",
-        newContent: "gap: 8px;\npadding: 12px;\nalign-items: center;\n",
-        status: "accepted",
+        type: "tool_use",
+        toolUseId: "tool-bash-1",
+        toolName: "Bash",
+        state: "output-available",
+        input: JSON.stringify({ command: "bun run typecheck && bun test tests/settings-sidebar.test.tsx" }),
+        output: "12 pass\n0 fail",
+        exitCode: 0,
       },
+      { type: "text", text: PLAIN_ANSWER },
     ],
   } as unknown as ChatMessage,
 ];
@@ -129,6 +212,21 @@ const PLAIN_RESULTS: ResultReview[] = [
     summary: "Tightened the row gaps to 8px and kept the keyboard order; typecheck and the focused tests pass.",
     createdAt: "2026-09-29T09:03:00.000Z",
     reviewedAt: null,
+    evidence: {
+      messageId: "a1",
+      providerId: "claude-code",
+      model: "claude-sonnet-5",
+      modelInfo: { effort: "medium" },
+      answer: PLAIN_ANSWER,
+      answerTruncated: false,
+      files: [SIDEBAR_DIFF.filePath, STYLES_DIFF.filePath, "src/components/settings/SidebarRow.tsx"],
+      filesTruncated: false,
+      snapshots: [
+        { ...SIDEBAR_DIFF, status: "accepted", truncated: false },
+        { ...STYLES_DIFF, status: "accepted", truncated: false },
+      ],
+      snapshotsTruncated: false,
+    },
   },
   {
     id: "task-panel-preview-result-0",
@@ -143,6 +241,16 @@ const PLAIN_RESULTS: ResultReview[] = [
     summary: "Read the sidebar layout and proposed the spacing change.",
     createdAt: "2026-09-29T08:40:00.000Z",
     reviewedAt: "2026-09-29T08:50:00.000Z",
+    evidence: {
+      messageId: "a0",
+      providerId: "claude-code",
+      model: "claude-sonnet-5",
+      answer: "The rows use a 12px gap and 16px padding. I propose 8px and 12px, with centered icons.",
+      answerTruncated: false,
+      files: [],
+      filesTruncated: false,
+      snapshots: [],
+    },
   },
 ];
 
@@ -317,6 +425,55 @@ function liveTurnActivity(now: number, pending: string | null) {
   };
 }
 
+/** A finished delegated review with a Markdown answer, for the Subagents tab. */
+const DELEGATED_REVIEW: DelegatedTaskSummary = {
+  runId: "child-task:mission:review",
+  stepId: "child-task:mission:review:turn",
+  parentTaskId: MISSION_TASK_ID,
+  delegationKey: "review-users-pagination",
+  delegatedTaskId: "task-panel-preview-review",
+  delegatedWorkspaceId: WORKSPACE_ID,
+  delegatedTurnId: "turn-review-1",
+  providerId: "codex",
+  requestedModel: "gpt-5.5",
+  lifecycle: "one-turn",
+  phase: "completed",
+  reason: null,
+  attempt: 0,
+  createdAt: "2026-09-29T10:02:00.000Z",
+  updatedAt: "2026-09-29T10:05:00.000Z",
+  completedAt: "2026-09-29T10:05:00.000Z",
+  result: [
+    "Reviewed the pagination change. **Approve with one fix.**",
+    "",
+    "- `limit` is clamped to 1–100; good.",
+    "- `offset` is not validated: a negative value reaches the query.",
+    "",
+    "```ts",
+    "const offset = Math.max(0, Number(req.query.offset ?? 0));",
+    "```",
+  ].join("\n"),
+};
+
+/**
+ * The browser dev bridge has no delegation ledger; list the delegated review
+ * the way the desktop bridge would. Left alone when a real ledger exists.
+ */
+function stubDelegatedTasks() {
+  const host = window as unknown as {
+    api?: Record<string, unknown> & { runs?: Record<string, unknown> };
+  };
+  if (host.api?.runs?.listDelegatedTasks) return;
+  host.api = {
+    ...host.api,
+    runs: {
+      ...host.api?.runs,
+      listDelegatedTasks: async (args: { parentTaskId: string }) =>
+        args.parentTaskId === MISSION_TASK_ID ? [DELEGATED_REVIEW] : [],
+    },
+  };
+}
+
 function seedResultReviews() {
   let rows: unknown[] = [];
   try {
@@ -336,6 +493,7 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
   const activeTaskId = args.task === "mission" ? MISSION_TASK_ID : PLAIN_TASK_ID;
   const store = useAppStore.getState();
   seedResultReviews();
+  stubDelegatedTasks();
   useAppStore.setState({
     repositoryPath: REPOSITORY_PATH,
     repositoryName: "preview-repo",
@@ -343,6 +501,13 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
     activeWorkspaceId: WORKSPACE_ID,
     activeTaskId,
     workspacePathById: { [WORKSPACE_ID]: REPOSITORY_PATH },
+    // Known files, so inline code in answers stays code unless it names one.
+    repositoryFiles: [
+      SIDEBAR_DIFF.filePath,
+      STYLES_DIFF.filePath,
+      "src/components/settings/SidebarRow.tsx",
+      "server/users.ts",
+    ],
     taskWorkspaceIdById: { [PLAIN_TASK_ID]: WORKSPACE_ID, [MISSION_TASK_ID]: WORKSPACE_ID },
     tasks: [
       {
@@ -367,6 +532,11 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
     messagesByTask: {
       [PLAIN_TASK_ID]: PLAIN_MESSAGES,
       [MISSION_TASK_ID]: MISSION_MESSAGES,
+    },
+    // The whole history is resident, so "Show the turn" reads it from here.
+    messageCountByTask: {
+      [PLAIN_TASK_ID]: PLAIN_MESSAGES.length,
+      [MISSION_TASK_ID]: MISSION_MESSAGES.length,
     },
     activeTurnIdsByTask: { [MISSION_TASK_ID]: "turn-task-panel-1" },
     providerTurnActivityByTask: { [MISSION_TASK_ID]: liveTurnActivity(now, args.pending) },
