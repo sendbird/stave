@@ -134,6 +134,7 @@ export function StandaloneCliPopoverContent() {
 
   return (
     <PopoverContent
+      layer="floatingChrome"
       keepMounted={booted}
       side="bottom"
       align="end"

@@ -37,7 +37,7 @@
 
 - **Provider tabs** — the header's tab bar switches between the installed CLIs among **Claude Code**, **Codex**, **Cursor**, and **Kiro**. Each tab is its own PTY session; switching tabs does not stop the session you switch away from. If the tab you last used is no longer installed, the panel opens on the first installed one instead, and your earlier choice comes back once that CLI is installed again.
 - **Folder label** — the header shows the current folder's name (with the full path on hover), so you always know where the active CLI is running.
-- **Account** — on the **Claude Code** and **Codex** tabs, a selector in the row above the terminal shows the account that tab runs under. Each tab keeps its own account, independent of the account selected for new turns elsewhere in Stave. Picking another account restarts that tab under it with a fresh session, because a running CLI cannot switch accounts and the earlier conversation belongs to the previous account. Cursor and Kiro have no selector; they sign in through their own CLI.
+- **Account** — on the **Claude Code** and **Codex** tabs, a selector in the row above the terminal shows the account that tab runs under. Each tab keeps its own account, independent of the account selected for new turns elsewhere in Stave. Picking another account opens a confirmation warning that the current session and any running commands will end. Confirming closes the old session before starting a fresh conversation under the selected account; cancelling keeps the current session. Cursor and Kiro have no selector; they sign in through their own CLI.
 - **Restart** — one button in the row above the terminal. It acts on the active tab: that tab's CLI process ends and a fresh one starts with a new session, discarding that tab's conversation. The other tabs are unaffected.
 - **Close** — click anywhere outside the panel, press the top-bar button again, or use the header's close button. Nothing is dimmed and nothing is blocked: the rest of the app stays usable while the panel is open. `Escape` is not a close shortcut here: it is sent straight to the CLI, matching what `Escape` does in that CLI's own terminal interface.
 
@@ -65,7 +65,8 @@
 
 1. Select the **Claude Code** or **Codex** tab.
 2. Pick the account in the selector next to **Restart**. Accounts are managed in Settings, the same list used everywhere else in Stave.
-3. That tab's CLI process ends and a new one starts under the chosen account with a fresh session. The other tabs keep their accounts and conversations.
+3. Review the warning and choose **End session and switch**, or **Cancel** to keep the current session.
+4. After confirmation, Stave waits for any pending launch to finish, ends the old CLI process, and starts a fresh conversation under the chosen account. The other tabs keep their accounts and conversations. If shutdown fails, Stave shows an error and blocks the new launch; use **Restart** to retry.
 
 ### Switch Folders
 

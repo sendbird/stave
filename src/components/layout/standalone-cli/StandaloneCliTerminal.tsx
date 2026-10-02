@@ -203,8 +203,7 @@ export function StandaloneCliTerminal(props: {
     [props.folderPath, nativeSessionIdByTab, accountProfileIdByTab, defaults],
   );
   // The session bootstrap effect restarts whenever `activeTab` changes
-  // identity, and a restart that lands mid-launch closes the session it just
-  // created. So the active tab is keyed on its own fields only: launching pins
+  // identity. Keep the active tab keyed on its own fields only: launching pins
   // the tab's account, and that pin must not count as a change.
   const activeNativeSessionId = nativeSessionIdByTab[activeTabId];
   const activeAccountProfileId = resolveStandaloneCliTabAccountProfileId({
@@ -334,8 +333,8 @@ export function StandaloneCliTerminal(props: {
   });
 
   // A running CLI cannot change accounts, so the switch is a restart under the
-  // new account. Both writes land in one render, which keeps the bootstrap
-  // effect to a single relaunch.
+  // new account after confirmation. Restart invalidates pending launches and
+  // queues their shutdown before the replacement bootstrap can adopt a slot.
   const switchActiveTabAccount = useCallback(
     (accountProfileId: string) => {
       if (accountProfileId === activeTab.accountProfileId) {

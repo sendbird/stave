@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { sx } from "@/components/ads/utils/stylex";
 import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import {
@@ -28,6 +29,8 @@ export function StandaloneCliAccountSelect(props: {
   value: string;
   onValueChange: (accountProfileId: string) => void;
 }) {
+  const [pendingAccountId, setPendingAccountId] = useState<string | null>(null);
+  useEffect(() => setPendingAccountId(null), [props.tabId, props.value]);
   useLoadProviderAccounts();
   const profiles = useProviderAccounts((state) => state.profiles);
   const options = useMemo(
@@ -42,32 +45,49 @@ export function StandaloneCliAccountSelect(props: {
   }
 
   const selected = options.find((profile) => profile.id === props.value);
+  const pendingAccount = options.find((profile) => profile.id === pendingAccountId);
 
   return (
-    <Select
-      value={props.value}
-      onValueChange={(accountProfileId) => {
-        if (accountProfileId && accountProfileId !== props.value) {
-          props.onValueChange(accountProfileId);
-        }
-      }}
-    >
-      <SelectTrigger
-        size="sm"
-        className={sx(styles.accountSelect)}
-        aria-label={`${getStandaloneCliTabTitle(props.tabId)} account for this tab`}
-        title="Switching accounts restarts this tab with a new conversation."
+    <>
+      <Select
+        value={props.value}
+        onValueChange={(accountProfileId) => {
+          if (accountProfileId && accountProfileId !== props.value) {
+            setPendingAccountId(accountProfileId);
+          }
+        }}
       >
-        <SelectValue>{selected?.label ?? "Account unavailable"}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((profile) => (
-          <SelectItem key={profile.id} value={profile.id}>
-            {profile.label}
-            {profile.gateway ? " · API billing" : ""}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+        <SelectTrigger
+          size="sm"
+          className={sx(styles.accountSelect)}
+          aria-label={`${getStandaloneCliTabTitle(props.tabId)} account for this tab`}
+          title="Switching accounts ends this session and starts a new conversation after confirmation."
+        >
+          <SelectValue>{selected?.label ?? "Account unavailable"}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((profile) => (
+            <SelectItem key={profile.id} value={profile.id}>
+              {profile.label}
+              {profile.gateway ? " · API billing" : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <ConfirmDialog
+        open={pendingAccountId !== null}
+        title="End session and switch account?"
+        description={`This will end this tab's current CLI session and stop any running commands. A new conversation will start with ${pendingAccount?.label ?? "the selected account"}. The current conversation will not be resumed.`}
+        confirmLabel="End session and switch"
+        onCancel={() => setPendingAccountId(null)}
+        onConfirm={() => {
+          const accountProfileId = pendingAccountId;
+          setPendingAccountId(null);
+          if (accountProfileId && pendingAccount) {
+            props.onValueChange(accountProfileId);
+          }
+        }}
+      />
+    </>
   );
 }
