@@ -1,3 +1,16 @@
+## [0.22.2](https://github.com/sendbird/stave/compare/v0.22.1...v0.22.2) (2026-10-02)
+
+### Bug Fixes
+
+* After you send, the prompt and the Auto route line sit in the transcript's column instead of touching the panel edges, and a new task's first prompt replaces the start screen while Auto chooses a model. The waiting line uses the recorded route line's slots (`Auto → Choosing a model · 4s · Skip`), so the chosen model appears where the wait was.
+* The account for new turns moves from a row above every composer to the status bar usage meter. The meter names the account only when it is not System default, lists accounts only when a provider has more than one, and can switch a gateway account back.
+* Opening the Standalone CLI no longer creates PTYs up to the system TTY limit, and Restart starts a fresh CLI. The tab bar lists only installed CLIs, and Claude Code and Codex tabs get a per-tab account selector that confirms before it ends the session.
+
+### References
+
+* [#639](https://github.com/sendbird/stave/pull/639)
+* [#640](https://github.com/sendbird/stave/pull/640)
+
 ## [0.22.1](https://github.com/sendbird/stave/compare/v0.22.0...v0.22.1) (2026-10-02)
 
 ### Features
