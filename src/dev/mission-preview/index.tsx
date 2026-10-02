@@ -22,8 +22,11 @@ import {
 } from "@/lib/missions/domain";
 import { buildMissionReport } from "@/lib/missions/report";
 import { createPlaybookFromStarter, findPlaybookStarter } from "@/lib/playbooks/starters";
-import { applyThemeClass } from "@/lib/themes/apply";
+import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
+import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { agentRunFleetDetails, AgentRunPreviewCases } from "./agent-run-cases";
+import { buildAgentRunFixtures } from "./agent-run-fixtures";
+import { StageProgressCases, type ProgressCase } from "./progress-cases";
 
 /*
  * Dev-only preview of the mission surfaces, rendered from fixtures:
@@ -171,6 +174,45 @@ const completed: MissionDetail = {
 };
 completed.report = { ...completed.report!, usage: { turns: 11, measuredTurns: 11, inputTokens: 402_000, outputTokens: 51_000, costUsd: 2.37 } };
 
+const lastStageIndex = playbook.stages.length - 1;
+const firstStage: MissionDetail = {
+  ...live,
+  mission: { ...live.mission, currentStageIndex: 0, turnCount: 1 },
+  stages: [record("understand", { status: "running", startedAt: at(0) })],
+  events: [],
+};
+const done = detail(lastStageIndex, { status: "completed", endedAt: at(21) }, { state: "completed", updatedAt: at(21) });
+const cancelled = detail(3, { status: "cancelled", endedAt: at(18) }, { state: "cancelled", updatedAt: at(18) });
+const longTitle: MissionDetail = {
+  ...live,
+  mission: {
+    ...live.mission,
+    playbook: {
+      ...playbook,
+      stages: playbook.stages.map((stage, index) =>
+        index === 2 ? { ...stage, title: "Verify the billing table at every breakpoint and theme" } : stage,
+      ),
+    },
+  },
+};
+const progressCases: ProgressCase[] = [
+  ["Running · stage 3 of 6", live],
+  ["First stage · starts at zero", firstStage],
+  ["Long stage title", longTitle],
+  ["Waiting for your sign-off", signOff],
+  ["Paused · you took over", takenOver],
+  ["Blocked", blocked],
+  ["Stuck", stuck],
+  ["Stopped", completed, "attention"],
+  ["Cancelled", cancelled],
+  ["Done", done],
+];
+const progressSteps: MissionDetail[] = [
+  firstStage,
+  ...playbook.stages.slice(2).map((_, offset) => detail(offset + 2, { status: "running" })),
+  done,
+];
+
 const noop = (async () => ({ ok: true, mission: null })) as never;
 
 const previewWakeUp = {
@@ -196,15 +238,82 @@ function seedFleetMissions() {
 }
 
 export function MissionPreview() {
-  const [dark, setDark] = useState(() => new URLSearchParams(window.location.search).get("theme") === "dark");
+  const params = new URLSearchParams(window.location.search);
+  // `themeId=dracula` applies a built-in theme; `theme=dark` the default dark one.
+  const builtinTheme = BUILTIN_CUSTOM_THEMES.find((theme) => theme.id === params.get("themeId")) ?? null;
+  const [dark, setDark] = useState(() => (builtinTheme ? builtinTheme.baseMode === "dark" : params.get("theme") === "dark"));
+  useLayoutEffect(() => {
+    applyCustomTheme({ theme: builtinTheme });
+  }, [builtinTheme]);
   useLayoutEffect(() => {
     applyThemeClass({ enabled: dark });
   }, [dark]);
   const now = Date.now();
   const actions = { onTakeOver: () => {}, onResume: () => {}, onOpenPanel: () => {} };
   useLayoutEffect(seedFleetMissions, []);
-  const params = new URLSearchParams(window.location.search);
   const width = Number(params.get("w")) || null;
+  if (params.get("only") === "progress") {
+    const runs = buildAgentRunFixtures(new Date(now - 4 * 60_000));
+    const runActions = { onStop: () => {}, onTakeControl: () => {} };
+    return (
+      <main className={sx(styles.page)}>
+        <div className={sx(styles.container)} style={width ? { maxWidth: width } : undefined}>
+          <div className={sx(styles.header)}>
+            <h1 className={sx(styles.heading)}>Stage progress</h1>
+            <ActionButton size="xs" onClick={() => setDark((value) => !value)}>
+              {dark ? "Light theme" : "Dark theme"}
+            </ActionButton>
+          </div>
+          <StageProgressCases cases={progressCases} steps={progressSteps} now={now} />
+          {(
+            [
+              ["Composer live", "Composer · mission, stage 3 of 6", live, "Running the tests", null],
+              ["Composer sign-off", "Composer · mission waiting for a sign-off", signOff, null, null],
+              ["Agent run workflow", "Composer · agent with a workflow, stage 2 of 3", runs.workflow, "Reading the export handler", runActions],
+              ["Agent run single stage", "Composer · one-stage agent run: no track", runs.working, "Running the tests", runActions],
+            ] as const
+          ).map(([id, label, value, phrase, agentActions]) => (
+            <section key={id} className={sx(styles.case)} data-preview-case={id}>
+              <p className={sx(styles.caption)}>{label}</p>
+              <div className={sx(styles.composerStack)}>
+                <MissionBarView
+                  detail={value}
+                  nowPhrase={phrase}
+                  now={now}
+                  reducedMotion={false}
+                  actions={actions}
+                  agentActions={agentActions ?? undefined}
+                />
+                <MockTurnShelf />
+                <MockComposer placeholder="Reply…" />
+              </div>
+            </section>
+          ))}
+          <section className={sx(styles.case)} data-preview-case="Fleet">
+            <p className={sx(styles.caption)}>Fleet workspace cards</p>
+            <div className={sx(styles.fleet)}>
+              {(["fleet-a", "fleet-b", "fleet-c", "fleet-f"] as const).map((workspaceId) => (
+                <div key={workspaceId} className={sx(styles.fleetCard)}>
+                  <div className={sx(styles.fleetHeader)}>
+                    <strong>{workspaceId}</strong>
+                  </div>
+                  <FleetMissionStrip workspaceId={workspaceId} onOpen={() => {}} />
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className={sx(styles.case, styles.rail)} data-preview-case="Panel">
+            <p className={sx(styles.caption)}>Progress tab · mission running</p>
+            <MissionDetailView detail={live} now={now} onCommand={noop} onShowTool={() => {}} />
+          </section>
+          <section className={sx(styles.case, styles.rail)} data-preview-case="Report">
+            <p className={sx(styles.caption)}>Progress tab · mission stopped</p>
+            <MissionDetailView detail={completed} now={now} onCommand={noop} />
+          </section>
+        </div>
+      </main>
+    );
+  }
   if (params.get("only") === "agent-run") {
     return (
       <main className={sx(styles.page)}>

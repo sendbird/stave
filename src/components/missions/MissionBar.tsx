@@ -193,15 +193,8 @@ function PlaybookMissionBarView(props: MissionBarViewProps) {
               </span>
             ) : null}
           </p>
+          {/* Where the mission stands is on the track below; the header keeps its age. */}
           <span className={sx(styles.meta)}>
-            <span>
-              <span aria-hidden>
-                {current.index + 1}/{rows.length}
-              </span>
-              <span className={sx(missionStyles.visuallyHidden)}>
-                Stage {current.index + 1} of {rows.length}
-              </span>
-            </span>
             <span className={sx(styles.metaWide)} title="Time since the mission started">
               {elapsed}
             </span>
