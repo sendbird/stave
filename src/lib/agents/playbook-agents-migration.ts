@@ -33,6 +33,13 @@ function modelOf(playbook: Playbook): AgentModel {
   const runtime = playbook.runtime;
   if (!runtime) return { mode: "auto", taskClass: "implement" };
   const effort = AGENT_EFFORT_ORDER.find((candidate) => candidate === runtime.effort);
+  // The playbook editor saved a permission as `{ providerId: "claude-code",
+  // permissionMode }`: Claude was filled in, not chosen. A runtime like that
+  // names no model, so the agent routes through Stave Auto like a playbook
+  // without one, instead of becoming a fixed provider with no model.
+  if (!runtime.model && !effort && runtime.providerId === "claude-code") {
+    return { mode: "auto", taskClass: "implement" };
+  }
   return {
     mode: "fixed",
     providerId: runtime.providerId,

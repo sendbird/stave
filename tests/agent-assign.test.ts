@@ -93,6 +93,26 @@ describe("record-task", () => {
     expect(RecordTaskAgentInputSchema.safeParse({ ...valid, providerId: "nope" }).success).toBe(false);
   });
 
+  test("a blank model is recorded as none instead of refusing the agent", async () => {
+    const { RecordTaskAgentInputSchema } = await import("@/lib/agents/assign");
+    const base = {
+      requestId: "composer:abc-123",
+      taskId: "task-1",
+      workspaceId: "ws-1",
+      repositoryPath: "/tmp/repo",
+      agent: getBuiltinAgent("implementer")!,
+      assignment: "Do the work.",
+      providerId: "claude-code" as const,
+    };
+    for (const model of ["", "   "]) {
+      const parsed = RecordTaskAgentInputSchema.safeParse({ ...base, model });
+      expect(parsed.success).toBe(true);
+      expect(parsed.data?.model).toBeNull();
+    }
+    expect(RecordTaskAgentInputSchema.parse(base).model).toBeUndefined();
+    expect(RecordTaskAgentInputSchema.parse({ ...base, model: " claude-sonnet-5 " }).model).toBe("claude-sonnet-5");
+  });
+
   test("records the agent for a task Kickoff created, idempotent by request id", () => {
     const { runtime } = harness();
     const args = {

@@ -10,6 +10,7 @@ import {
   type FixedAgentModel,
   type SelectorDraft,
 } from "@/lib/agents/selector-choice";
+import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import type { ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
 import type { TaskAgent } from "@/store/agent-assignments-store";
 
@@ -43,16 +44,27 @@ export interface AgentChoiceContext {
   setBusy: (busy: boolean) => void;
 }
 
-/** The model option an agent's fixed model names, when the composer offers it. */
+/**
+ * The model option an agent's fixed model names, when the composer offers it.
+ * A fixed provider without a model is that provider's default model. Stave
+ * Auto is never one: its option carries the provider it starts from and no
+ * model, so it must not stand in for a provider-only fixed model.
+ */
 export function optionForFixedModel(
   fixed: FixedAgentModel | null,
   options: readonly ModelSelectorOption[],
 ): ModelSelectorOption | null {
   if (!fixed) return null;
+  const offered = options.filter(
+    (option) => option.available && !option.isAuto && option.model.trim() && option.providerId === fixed.providerId,
+  );
+  if (fixed.model) return offered.find((option) => option.model === fixed.model) ?? null;
+  const defaultModel = getDefaultModelForProvider({ providerId: fixed.providerId });
   return (
-    options.find(
-      (option) => option.available && option.providerId === fixed.providerId && (!fixed.model || option.model === fixed.model),
-    ) ?? null
+    offered.find((option) => option.isDefault) ??
+    offered.find((option) => option.model === defaultModel) ??
+    offered[0] ??
+    null
   );
 }
 
