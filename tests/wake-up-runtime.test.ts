@@ -61,6 +61,8 @@ function createHarness(args?: {
   completions?: TaskCompletionSignal[];
   omitCompletionReader?: boolean;
   userPermissionOptions?: (providerId: string) => Record<string, unknown> | undefined;
+  /** Hold the persistence methods on a prototype, as the host's `SqliteStore` does. */
+  persistenceOnPrototype?: boolean;
 }) {
   const store = new WakeUpStore(new Database(":memory:"));
   let completions: TaskCompletionSignal[] = args?.completions ?? [];
@@ -99,28 +101,32 @@ function createHarness(args?: {
     pendingUserInputCount: 0,
   };
 
-  const runtime = createWakeUpRuntime({
-    persistence: {
-      listWakeUps: () => store.list(),
-      listActiveWakeUps: () => store.listActive(),
-      listWakeUpsForWorkspace: (workspaceId) =>
-        store.listForWorkspace(workspaceId),
-      getWakeUp: (id) => store.get(id),
-      getWakeUpByTaskId: (taskId) => store.getByTaskId(taskId),
-      upsertWakeUp: (wakeUp) => store.upsert(wakeUp),
-      removeWakeUp: (id) => store.remove(id),
-      recordWakeUpOccurrence: (occurrence) =>
-        store.recordOccurrence(occurrence),
-      attachWakeUpOccurrenceTurn: (attachArgs) =>
-        store.attachOccurrenceTurn(attachArgs),
-      listWakeUpOccurrences: (listArgs) => store.listOccurrences(listArgs),
-      pruneWakeUpOccurrences: (pruneArgs) =>
-        store.pruneOccurrences(pruneArgs),
-      completeInterruptedTurn: ({ id }) => {
-        completedTurnIds.push(id);
-        return true;
-      },
+  const persistence: Parameters<typeof createWakeUpRuntime>[0]["persistence"] = {
+    listWakeUps: () => store.list(),
+    listActiveWakeUps: () => store.listActive(),
+    listWakeUpsForWorkspace: (workspaceId) =>
+      store.listForWorkspace(workspaceId),
+    getWakeUp: (id) => store.get(id),
+    getWakeUpByTaskId: (taskId) => store.getByTaskId(taskId),
+    upsertWakeUp: (wakeUp) => store.upsert(wakeUp),
+    removeWakeUp: (id) => store.remove(id),
+    recordWakeUpOccurrence: (occurrence) =>
+      store.recordOccurrence(occurrence),
+    attachWakeUpOccurrenceTurn: (attachArgs) =>
+      store.attachOccurrenceTurn(attachArgs),
+    listWakeUpOccurrences: (listArgs) => store.listOccurrences(listArgs),
+    pruneWakeUpOccurrences: (pruneArgs) =>
+      store.pruneOccurrences(pruneArgs),
+    completeInterruptedTurn: ({ id }) => {
+      completedTurnIds.push(id);
+      return true;
     },
+  };
+
+  const runtime = createWakeUpRuntime({
+    persistence: args?.persistenceOnPrototype
+      ? (Object.create(persistence) as typeof persistence)
+      : persistence,
     getTaskSupervisionSnapshot: async () => snapshot,
     getActiveMissionForTask: (taskId) =>
       taskId === activeMissionTaskId ? { id: "mission-1" } : null,
@@ -204,6 +210,32 @@ function createHarness(args?: {
 }
 
 describe("supervisor runtime", () => {
+  test("lists, reads and fires check-backs when persistence methods live on a prototype", async () => {
+    // The host passes a `SqliteStore`: none of its methods are own properties.
+    const harness = createHarness({ persistenceOnPrototype: true });
+    expect(await harness.runtime.list()).toEqual({ wakeUps: [], summaries: [] });
+
+    const wakeUp = await harness.runtime.create(createInput());
+    expect((await harness.runtime.list()).wakeUps.map(({ id }) => id)).toEqual([wakeUp.id]);
+    expect(
+      (await harness.runtime.list({ workspaceId: "ws-1" })).wakeUps.map(({ id }) => id),
+    ).toEqual([wakeUp.id]);
+    expect((await harness.runtime.get({ id: wakeUp.id })).wakeUp.id).toBe(wakeUp.id);
+
+    harness.runtime.start();
+    await harness.drain();
+    harness.setNow("2026-08-10T01:00:00.000Z");
+    await harness.tick();
+    expect(harness.getRunCalls().length).toBe(1);
+    expect(harness.store.listOccurrences({ wakeUpId: wakeUp.id })[0]).toMatchObject({
+      outcome: "fired",
+      turnId: "turn-1",
+    });
+
+    await harness.runtime.remove({ id: wakeUp.id });
+    expect(await harness.runtime.list()).toEqual({ wakeUps: [], summaries: [] });
+  });
+
   test("announces every write and removal so task surfaces refresh", async () => {
     const harness = createHarness();
     const wakeUp = await harness.runtime.create(createInput());
