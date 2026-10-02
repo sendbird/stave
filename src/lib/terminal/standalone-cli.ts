@@ -1,5 +1,15 @@
 import { selectedProviderAccount, type ProviderAccountSelection } from "@/lib/providers/provider-account-selection";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import {
+  isOptionalProvider,
+  providerConfigurationKey,
+  type OptionalProviderId,
+} from "@/lib/providers/provider-readiness";
+import type { ProviderReadiness } from "@/lib/providers/provider-readiness-store";
+import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
+import type {
+  ProviderId,
+  ProviderRuntimeOptions,
+} from "@/lib/providers/provider.types";
 import {
   buildTerminalSessionSlotKey,
   getWorkspaceCliSessionTabKey,
@@ -81,19 +91,114 @@ export function buildStandaloneCliSlotKey(tabId: StandaloneCliTabId) {
   });
 }
 
+/**
+ * A pinned account wins. A resumable tab with no pin predates account
+ * switching and was launched under the system account, so it stays there.
+ */
+export function resolveStandaloneCliTabAccountProfileId(args: {
+  tabId: StandaloneCliTabId;
+  nativeSessionId?: string;
+  pinnedAccountProfileId?: string;
+  defaults?: ProviderAccountSelection;
+}) {
+  return (
+    args.pinnedAccountProfileId ??
+    (args.nativeSessionId
+      ? "system-default"
+      : selectedProviderAccount(args.tabId, args.defaults))
+  );
+}
+
+export function buildStandaloneCliTab(args: {
+  tabId: StandaloneCliTabId;
+  folderPath: string;
+  nativeSessionId?: string;
+  accountProfileId: string;
+}): StandaloneCliTab {
+  return {
+    id: args.tabId,
+    title: STANDALONE_CLI_TAB_TITLE[args.tabId],
+    accountProfileId: args.accountProfileId,
+    cwd: args.folderPath,
+    ...(args.nativeSessionId ? { nativeSessionId: args.nativeSessionId } : {}),
+  };
+}
+
 export function buildStandaloneCliTabs(args: {
   folderPath: string;
   nativeSessionIdByTab: Partial<Record<StandaloneCliTabId, string>>;
   accountProfileIdByTab?: Partial<Record<StandaloneCliTabId, string>>;
   defaults?: ProviderAccountSelection;
 }): StandaloneCliTab[] {
-  return STANDALONE_CLI_TAB_IDS.map((tabId) => ({
-    id: tabId,
-    title: STANDALONE_CLI_TAB_TITLE[tabId],
-    accountProfileId: args.accountProfileIdByTab?.[tabId] ?? (args.nativeSessionIdByTab[tabId] ? "system-default" : selectedProviderAccount(tabId, args.defaults)),
-    cwd: args.folderPath,
-    ...(args.nativeSessionIdByTab[tabId]
-      ? { nativeSessionId: args.nativeSessionIdByTab[tabId] }
-      : {}),
-  }));
+  return STANDALONE_CLI_TAB_IDS.map((tabId) =>
+    buildStandaloneCliTab({
+      tabId,
+      folderPath: args.folderPath,
+      nativeSessionId: args.nativeSessionIdByTab[tabId],
+      accountProfileId: resolveStandaloneCliTabAccountProfileId({
+        tabId,
+        nativeSessionId: args.nativeSessionIdByTab[tabId],
+        pinnedAccountProfileId: args.accountProfileIdByTab?.[tabId],
+        defaults: args.defaults,
+      }),
+    }),
+  );
+}
+
+/**
+ * Only a CLI that is actually on this machine gets a tab. Claude Code and
+ * Codex report through `providerAvailability`, which starts optimistic so the
+ * common tabs do not flicker away before the first probe. Cursor and Kiro
+ * start hidden and appear once their tooling probe has resolved an executable
+ * for the configured binary path; a missing login does not hide them, because
+ * the CLI itself is where the user signs in.
+ */
+export function listInstalledStandaloneCliTabIds(args: {
+  providerAvailability: Partial<Record<ProviderId, boolean>>;
+  optionalProviders: Partial<Record<OptionalProviderId, ProviderReadiness>>;
+  runtimeOptions?: Pick<
+    ProviderRuntimeOptions,
+    "cursorBinaryPath" | "kiroBinaryPath"
+  >;
+}): StandaloneCliTabId[] {
+  return STANDALONE_CLI_TAB_IDS.filter((tabId) => {
+    if (!isOptionalProvider(tabId)) {
+      return args.providerAvailability[tabId] !== false;
+    }
+    const readiness = args.optionalProviders[tabId];
+    return Boolean(
+      readiness &&
+        readiness.configurationKey ===
+          providerConfigurationKey(tabId, args.runtimeOptions) &&
+        readiness.tool.executablePath,
+    );
+  });
+}
+
+/**
+ * The stored choice survives an uninstall so it comes back with the CLI, but
+ * the surface never boots a CLI that is not there: it falls back to the first
+ * installed one instead.
+ */
+export function resolveStandaloneCliActiveTabId(args: {
+  activeTabId: StandaloneCliTabId;
+  installedTabIds: readonly StandaloneCliTabId[];
+}): StandaloneCliTabId {
+  return args.installedTabIds.includes(args.activeTabId)
+    ? args.activeTabId
+    : (args.installedTabIds[0] ?? args.activeTabId);
+}
+
+/**
+ * The accounts a tab can run under. Only Claude Code and Codex have accounts;
+ * every other CLI signs in through its own login and gets no selector.
+ */
+export function listStandaloneCliAccountOptions(args: {
+  tabId: StandaloneCliTabId;
+  profiles: readonly ProviderAccountProfile[];
+}): ProviderAccountProfile[] {
+  if (args.tabId !== "claude-code" && args.tabId !== "codex") {
+    return [];
+  }
+  return args.profiles.filter((profile) => profile.providerId === args.tabId);
 }

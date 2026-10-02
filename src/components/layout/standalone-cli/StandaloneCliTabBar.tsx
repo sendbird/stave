@@ -3,16 +3,23 @@ import { ModelIcon } from "@/components/ai-elements";
 import { Button } from "@/components/ui";
 import {
   getStandaloneCliTabTitle,
-  STANDALONE_CLI_TAB_IDS,
+  resolveStandaloneCliActiveTabId,
+  type StandaloneCliTabId,
 } from "@/lib/terminal/standalone-cli";
 import { sx } from "@/components/ads/utils/stylex";
 import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 
-export function StandaloneCliTabBar() {
-  const [activeTabId, setActiveTab] = useStandaloneCliStore(
+export function StandaloneCliTabBar(props: {
+  tabIds: readonly StandaloneCliTabId[];
+}) {
+  const [storedActiveTabId, setActiveTab] = useStandaloneCliStore(
     useShallow((state) => [state.activeTabId, state.setActiveTab] as const),
   );
+  const activeTabId = resolveStandaloneCliActiveTabId({
+    activeTabId: storedActiveTabId,
+    installedTabIds: props.tabIds,
+  });
 
   return (
     <div
@@ -20,7 +27,7 @@ export function StandaloneCliTabBar() {
       aria-label="Standalone CLI providers"
       className={sx(styles.tabBar)}
     >
-      {STANDALONE_CLI_TAB_IDS.map((tabId) => (
+      {props.tabIds.map((tabId) => (
         <Button
           key={tabId}
           type="button"

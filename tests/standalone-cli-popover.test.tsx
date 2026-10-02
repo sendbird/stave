@@ -5,6 +5,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Popover, TooltipProvider } from "@/components/ui";
 import {
   buildStandaloneCliEmptyStateText,
+  buildStandaloneCliNoInstalledCliText,
   buildStandaloneCliPopoverStyle,
   StandaloneCliPanel,
   StandaloneCliPopoverContent,
@@ -81,11 +82,13 @@ describe("StandaloneCliPopoverContent", () => {
 
 describe("StandaloneCliPanel", () => {
   const handlers = { onClose: () => {}, onOpenSettings: () => {} };
+  const installedTabIds = ["claude-code", "codex"] as const;
 
   test("renders the empty state when no folder is configured", () => {
     const markup = render(
       createElement(StandaloneCliPanel, {
         folderPath: "",
+        installedTabIds,
         visible: true,
         ...handlers,
       }),
@@ -103,6 +106,7 @@ describe("StandaloneCliPanel", () => {
     const markup = render(
       createElement(StandaloneCliPanel, {
         folderPath: "",
+        installedTabIds,
         visible: true,
         ...handlers,
       }),
@@ -117,6 +121,7 @@ describe("StandaloneCliPanel", () => {
     const markup = render(
       createElement(StandaloneCliPanel, {
         folderPath: "/tmp/notes",
+        installedTabIds,
         visible: true,
         ...handlers,
       }),
@@ -134,6 +139,7 @@ describe("StandaloneCliPanel", () => {
     const markup = render(
       createElement(StandaloneCliPanel, {
         folderPath: "/tmp/notes",
+        installedTabIds,
         visible: false,
         ...handlers,
       }),
@@ -141,18 +147,83 @@ describe("StandaloneCliPanel", () => {
 
     expect(markup).toContain("standalone-cli-terminal-viewport");
   });
+
+  test("lists only the CLIs installed on this machine", () => {
+    const markup = render(
+      createElement(StandaloneCliPanel, {
+        folderPath: "/tmp/notes",
+        installedTabIds: ["codex", "kiro"],
+        visible: true,
+        ...handlers,
+      }),
+    );
+
+    expect(markup).toContain("Codex");
+    expect(markup).toContain("Kiro");
+    expect(markup).not.toContain("Claude Code");
+    expect(markup).not.toContain("Cursor");
+  });
+
+  // Booting a terminal with no CLI to run would only ever end in an error, so
+  // the panel says what is missing and points at Settings instead.
+  test("boots no terminal when no supported CLI is installed", () => {
+    const markup = render(
+      createElement(StandaloneCliPanel, {
+        folderPath: "/tmp/notes",
+        installedTabIds: [],
+        visible: true,
+        ...handlers,
+      }),
+    );
+
+    expect(markup).not.toContain("standalone-cli-terminal-viewport");
+    expect(markup).toContain(buildStandaloneCliNoInstalledCliText());
+    expect(extractButtonMarkup(markup, "Open Settings")).toContain(
+      "Open Settings",
+    );
+  });
 });
 
 describe("StandaloneCliTabBar", () => {
-  test("renders both provider tabs", () => {
-    const markup = render(createElement(StandaloneCliTabBar));
+  test("renders a tab per installed provider", () => {
+    const markup = render(
+      createElement(StandaloneCliTabBar, { tabIds: ["claude-code", "codex"] }),
+    );
 
     expect(markup).toContain("Claude Code");
     expect(markup).toContain("Codex");
   });
 
+  test("renders no tab for a provider that is not installed", () => {
+    const markup = render(
+      createElement(StandaloneCliTabBar, { tabIds: ["codex"] }),
+    );
+
+    expect(markup).toContain("Codex");
+    expect(markup).not.toContain("Claude Code");
+    expect(markup).not.toContain("Cursor");
+    expect(markup).not.toContain("Kiro");
+  });
+
+  // The stored tab is Claude Code. With it uninstalled the bar has to mark the
+  // tab the terminal actually falls back to, not leave nothing pressed.
+  test("marks the fallback tab active when the stored one is not installed", () => {
+    const markup = render(
+      createElement(StandaloneCliTabBar, { tabIds: ["codex", "kiro"] }),
+    );
+
+    expect(extractButtonMarkup(markup, "Codex")).toContain(
+      'aria-pressed="true"',
+    );
+    expect(extractButtonMarkup(markup, "Kiro")).toContain(
+      'aria-pressed="false"',
+    );
+  });
+
   test("marks the active tab with aria-pressed and the inactive one without", () => {
-    const markup = render(createElement(StandaloneCliTabBar));
+    const markup = render(
+      createElement(StandaloneCliTabBar, { tabIds: ["claude-code", "codex"] }),
+    );
 
     const claudeCodeButton = extractButtonMarkup(markup, "Claude Code");
     const codexButton = extractButtonMarkup(markup, "Codex");
@@ -172,7 +243,10 @@ describe("buildStandaloneCliEmptyStateText", () => {
 
 describe("buildStandaloneCliPopoverStyle", () => {
   test("gives the terminal a bounded height it can fit into", () => {
-    const style = buildStandaloneCliPopoverStyle({ folderPath: "/tmp/notes" });
+    const style = buildStandaloneCliPopoverStyle({
+      folderPath: "/tmp/notes",
+      hasInstalledCli: true,
+    });
 
     // Without the positioner's available height the panel can extend past the
     // bottom of the window, and the terminal fits itself to a viewport that is
@@ -183,9 +257,21 @@ describe("buildStandaloneCliPopoverStyle", () => {
   });
 
   test("shrinks to the message when there is no folder to run in", () => {
-    const style = buildStandaloneCliPopoverStyle({ folderPath: "" });
+    const style = buildStandaloneCliPopoverStyle({
+      folderPath: "",
+      hasInstalledCli: true,
+    });
 
     expect(style).toBe(standaloneCliStyles.popoverEmpty);
     expect(sx(style)).not.toBe(sx(standaloneCliStyles.popoverTerminal));
+  });
+
+  test("shrinks to the message when no CLI is installed to run", () => {
+    expect(
+      buildStandaloneCliPopoverStyle({
+        folderPath: "/tmp/notes",
+        hasInstalledCli: false,
+      }),
+    ).toBe(standaloneCliStyles.popoverEmpty);
   });
 });

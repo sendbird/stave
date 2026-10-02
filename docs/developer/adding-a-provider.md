@@ -103,9 +103,14 @@ Then make these changes:
    [`docs/features/standalone-cli.md`](../features/standalone-cli.md), including
    its resume mechanism and any limitation, and add a row to the table above.
 
-No installation check gates the tab. A provider whose CLI is missing shows the
-launch spec's "executable not found" message inside its own tab, which is why
-that message should name the CLI and the configurable binary path.
+An installation check gates the tab:
+`listInstalledStandaloneCliTabIds` in
+[`standalone-cli.ts`](../../src/lib/terminal/standalone-cli.ts) shows a tab only
+when the provider's availability probe has found its executable. A new provider
+needs a branch there if its probe does not report through `providerAvailability`.
+The launch spec's "executable not found" message is still the fallback for a CLI
+removed after the probe ran, which is why that message should name the CLI and
+the configurable binary path.
 
 ## 5. Verify
 

@@ -86,3 +86,19 @@ export async function attachCliSessionAtRendererSize(
 
   return { attached, adoptedRendererSize };
 }
+
+/**
+ * What a bootstrap run that was cancelled after `createCliSession` returned
+ * does with that session. The host hands back the slot's existing session, so
+ * the id may already belong to the run that replaced this one, or to a live
+ * background session. Closing it emits no exit event: the adopting run is left
+ * attached to nothing and falls through to spawning another PTY, and a run
+ * that keeps getting replaced turns that into a PTY-per-round-trip loop. Only a
+ * tab that no longer exists has nobody left to adopt its session.
+ */
+export function shouldCloseCancelledCliLaunch(args: {
+  tabKey: string;
+  liveTabKeys: ReadonlySet<string>;
+}) {
+  return !args.liveTabKeys.has(args.tabKey);
+}

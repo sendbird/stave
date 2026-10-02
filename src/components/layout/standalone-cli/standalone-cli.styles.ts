@@ -102,6 +102,7 @@ export const standaloneCliStyles = stylex.create({
     paddingBlock: 6,
     paddingInline: vars["--ads-space-12"],
   },
+  accountSelect: { maxWidth: "100%", width: 200 },
   restartButton: {
     backgroundColor: vars["--ads-color-surface"],
     borderColor: vars["--ads-color-border"],

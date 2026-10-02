@@ -3,7 +3,7 @@
 ## Summary
 
 - Standalone CLI is a popover, anchored to a top-bar button, that runs the real `claude`, `codex`, `agent` (Cursor), and `kiro-cli` executables in a folder of your choice, without registering that folder as a repository.
-- It has one fixed tab per AI provider — **Claude Code**, **Codex**, **Cursor**, and **Kiro** — each a full terminal session for that provider's own CLI.
+- It has one tab per AI provider whose CLI is installed on this machine — **Claude Code**, **Codex**, **Cursor**, and **Kiro** — each a full terminal session for that provider's own CLI.
 - Reach for it when you want the CLI's native interface — its own approvals, plan mode, model picker, and slash commands — instead of anything Stave renders.
 
 ## When To Use It
@@ -16,14 +16,15 @@
 ## Before You Start
 
 - Set a folder first: open `Settings > General`, find the **Standalone CLI** card, and enter an absolute folder path or click **Browse** to pick one.
-- The CLI for the tab you want (`claude`, `codex`, `agent`, or `kiro-cli`) must be available to the desktop app the same way it is for any other CLI session. A tab whose CLI is not installed shows an "executable not found" message instead of a terminal; the other tabs are unaffected.
+- The CLI for the tab you want (`claude`, `codex`, `agent`, or `kiro-cli`) must be available to the desktop app the same way it is for any other CLI session. Only installed CLIs get a tab. Stave learns this from the same provider check it runs at startup, on window focus, and after you change a binary path in Settings, so a CLI you install while the app is open appears shortly after.
+- Claude Code and Codex are shown until that check reports them missing. Cursor and Kiro appear once the check finds their executable; they are shown even when you are not signed in, because you sign in from the CLI itself.
 - On macOS, the first folder you pick with **Browse** may trigger a system folder-access prompt. See [macOS Folder Access](macos-folder-access-prompts.md).
 
 ## Quick Start
 
 1. Open `Settings > General`, go to the **Standalone CLI** card, and set an absolute folder path (type it or click **Browse**).
 2. Click the terminal icon on the top bar to open the panel. It is there even with no repository open.
-3. Use the tab bar in the panel header to pick **Claude Code**, **Codex**, **Cursor**, or **Kiro**.
+3. Use the tab bar in the panel header to pick one of the installed CLIs: **Claude Code**, **Codex**, **Cursor**, or **Kiro**.
 4. Type directly into the terminal, exactly as you would in a regular shell running that CLI.
 
 ## Interface Walkthrough
@@ -34,8 +35,9 @@
 
 ### Key Controls
 
-- **Provider tabs** — the header's tab bar switches between **Claude Code**, **Codex**, **Cursor**, and **Kiro**. Each tab is its own PTY session; switching tabs does not stop the session you switch away from.
+- **Provider tabs** — the header's tab bar switches between the installed CLIs among **Claude Code**, **Codex**, **Cursor**, and **Kiro**. Each tab is its own PTY session; switching tabs does not stop the session you switch away from. If the tab you last used is no longer installed, the panel opens on the first installed one instead, and your earlier choice comes back once that CLI is installed again.
 - **Folder label** — the header shows the current folder's name (with the full path on hover), so you always know where the active CLI is running.
+- **Account** — on the **Claude Code** and **Codex** tabs, a selector in the row above the terminal shows the account that tab runs under. Each tab keeps its own account, independent of the account selected for new turns elsewhere in Stave. Picking another account opens a confirmation warning that the current session and any running commands will end. Confirming closes the old session before starting a fresh conversation under the selected account; cancelling keeps the current session. Cursor and Kiro have no selector; they sign in through their own CLI.
 - **Restart** — one button in the row above the terminal. It acts on the active tab: that tab's CLI process ends and a fresh one starts with a new session, discarding that tab's conversation. The other tabs are unaffected.
 - **Close** — click anywhere outside the panel, press the top-bar button again, or use the header's close button. Nothing is dimmed and nothing is blocked: the rest of the app stays usable while the panel is open. `Escape` is not a close shortcut here: it is sent straight to the CLI, matching what `Escape` does in that CLI's own terminal interface.
 
@@ -59,6 +61,13 @@
 1. Select the tab you want to reset, then click **Restart** in the row above the terminal.
 2. That tab's CLI process ends and a new one starts with a fresh session in the same folder. The other tabs keep their conversations.
 
+### Run A Tab Under Another Account
+
+1. Select the **Claude Code** or **Codex** tab.
+2. Pick the account in the selector next to **Restart**. Accounts are managed in Settings, the same list used everywhere else in Stave.
+3. Review the warning and choose **End session and switch**, or **Cancel** to keep the current session.
+4. After confirmation, Stave waits for any pending launch to finish, ends the old CLI process, and starts a fresh conversation under the chosen account. The other tabs keep their accounts and conversations. If shutdown fails, Stave shows an error and blocks the new launch; use **Restart** to retry.
+
 ### Switch Folders
 
 1. Open `Settings > General > Standalone CLI` and enter or browse to a different absolute folder.
@@ -77,7 +86,7 @@
 ## Limitations And Advanced Options
 
 - **One folder at a time.** Setting a new folder replaces the one every tab is running against.
-- **Fixed tabs, one per provider.** Claude Code, Codex, Cursor, and Kiro are always shown; you cannot add more tabs or additional folders. A new provider added to Stave gets a tab automatically — see [Adding A Provider](../developer/adding-a-provider.md).
+- **Fixed tabs, one per installed provider.** Each of Claude Code, Codex, Cursor, and Kiro gets a tab when its CLI is installed; you cannot add more tabs or additional folders. A new provider added to Stave gets a tab automatically — see [Adding A Provider](../developer/adding-a-provider.md).
 - **No Stave-rendered approvals, plan mode, or model picker.** The CLI's own interface owns all of that; Stave only hosts the terminal surface.
 - **Not a repository.** The folder never appears in the repository list or recents, and Standalone CLI does not use worktrees, plans, or subagents.
 - **Switching folders starts fresh for every tab.** Changing the folder in Settings restarts all four tabs and discards their conversations.
@@ -88,8 +97,14 @@
 ### The panel shows an empty state instead of a terminal
 
 - Symptom: opening the panel shows a message instead of a terminal.
-- Cause: no folder is set yet.
-- Fix: click **Open Settings** in the empty state — or open `Settings > General > Standalone CLI` directly — and set an absolute folder path.
+- Cause: no folder is set yet, or none of the supported CLIs is installed on this machine.
+- Fix: click **Open Settings** in the empty state — or open `Settings > General > Standalone CLI` directly — and set an absolute folder path. If the message says no supported CLI was found, install one, or set its binary path in Settings if it is installed somewhere Stave does not look.
+
+### A CLI's tab is missing
+
+- Symptom: the tab bar does not show a provider you expected.
+- Cause: Stave's provider check could not find that CLI's executable. Cursor and Kiro also stay hidden until the first check finishes.
+- Fix: install the CLI, or set its binary path in Settings. The tab appears after the next check.
 
 ### Escape does not close the panel
 

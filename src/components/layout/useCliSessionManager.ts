@@ -6,7 +6,15 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { attachCliSessionAtRendererSize } from "@/components/layout/cli-session-restore";
+import {
+  attachCliSessionAtRendererSize,
+  shouldCloseCancelledCliLaunch,
+} from "@/components/layout/cli-session-restore";
+import {
+  closeCliSessionsForRestart,
+  createCliSessionLaunchQueue,
+  type CliSessionLaunchScope,
+} from "@/components/layout/cli-session-launch-queue";
 import { createLatestAsyncDispatcher } from "@/components/layout/pty-session-surface.utils";
 import type { CliTerminalInstanceController } from "@/components/layout/useCliTerminalInstance";
 import {
@@ -122,6 +130,7 @@ export function useCliSessionManager<
     terminalControllerRef.current = args.terminalController;
   }, [args.terminalController]);
 
+  const launchQueueRef = useRef(createCliSessionLaunchQueue());
   const sessionIdByTabKeyRef = useRef<Record<string, string>>({});
   const tabKeyBySessionIdRef = useRef<Record<string, string>>({});
   const pendingInputBySessionRef = useRef<Record<string, string>>({});
@@ -144,6 +153,7 @@ export function useCliSessionManager<
   const streamReadyRef = useRef(false);
   const lastOutputSequenceBySessionRef = useRef<Record<string, number>>({});
   const acknowledgedBytesBySessionRef = useRef<Record<string, number>>({});
+  const liveTabKeysRef = useRef<ReadonlySet<string>>(new Set());
 
   function serializeTranscripts() {
     return Object.fromEntries(
@@ -655,12 +665,14 @@ export function useCliSessionManager<
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
+    const liveTabKeys = new Set(args.tabs.map((tab) => args.getTabKey(tab)));
+    liveTabKeysRef.current = liveTabKeys;
+
     const closeSession = window.api?.terminal?.closeSession;
     if (!closeSession) {
       return;
     }
 
-    const liveTabKeys = new Set(args.tabs.map((tab) => args.getTabKey(tab)));
     const currentPrefix = `${args.workspaceId}:`;
     const removedEntries = Object.entries(sessionIdByTabKeyRef.current).filter(
       ([tabKey]) =>
@@ -728,7 +740,10 @@ export function useCliSessionManager<
       } catch {
         return;
       }
-      if (cancelled) {
+      if (
+        cancelled ||
+        sessionIdByTabKeyRef.current[activeTabKey ?? ""] !== activeSessionId
+      ) {
         return;
       }
 
@@ -758,7 +773,7 @@ export function useCliSessionManager<
         window.clearTimeout(timer);
       }
     };
-  }, [activeSessionId, args.activeTab, rememberNativeSessionId]);
+  }, [activeSessionId, activeTabKey, args.activeTab, rememberNativeSessionId]);
 
   useEffect(() => {
     if (
@@ -794,7 +809,9 @@ export function useCliSessionManager<
     const activeTab = args.activeTab;
     const rendererRevision = args.terminalRevision;
 
-    const ensureActiveSession = async () => {
+    const ensureActiveSession = async (scope: CliSessionLaunchScope) => {
+      const isCancelled = () => cancelled || !scope.isCurrent();
+      if (isCancelled()) return;
       const measured = terminalControllerRef.current.getSize();
       const cols = measured.cols || 80;
       const rows = measured.rows || 24;
@@ -803,6 +820,7 @@ export function useCliSessionManager<
         sessionId: string,
         options: { adoptsExistingSession: boolean },
       ) => {
+        scope.rememberSession(sessionId);
         streamReadyRef.current = false;
         const { attached, adoptedRendererSize } =
           await attachCliSessionAtRendererSize({
@@ -818,7 +836,7 @@ export function useCliSessionManager<
           return false;
         }
 
-        if (cancelled || rendererRevision !== terminalRevisionRef.current) {
+        if (isCancelled() || rendererRevision !== terminalRevisionRef.current) {
           await detachSession({
             sessionId,
             attachmentId: attached.attachmentId,
@@ -875,7 +893,7 @@ export function useCliSessionManager<
         // above only suppresses this call while the size still matches.
         const current = terminalControllerRef.current.getSize();
         await handleTerminalResize(current.cols || cols, current.rows || rows);
-        if (cancelled || rendererRevision !== terminalRevisionRef.current) {
+        if (isCancelled() || rendererRevision !== terminalRevisionRef.current) {
           clearSessionRegistration(tabKey, sessionId);
           if (attachedSessionIdRef.current === sessionId) {
             attachedSessionIdRef.current = null;
@@ -896,6 +914,7 @@ export function useCliSessionManager<
           sessionId,
           attachmentId: attached.attachmentId,
         });
+        if (isCancelled()) return true;
         if (!resumed.ok) {
           streamReadyRef.current = false;
           setBridgeErrorForTabKey(
@@ -920,7 +939,7 @@ export function useCliSessionManager<
       const slotKey = args.slotKeyForTab?.(activeTab) ?? null;
       if (slotKey && getSlotState) {
         const slotState = await getSlotState({ slotKey });
-        if (cancelled) {
+        if (isCancelled()) {
           return;
         }
         if (
@@ -945,7 +964,7 @@ export function useCliSessionManager<
         }
       }
 
-      if (cancelled) {
+      if (isCancelled()) {
         return;
       }
 
@@ -955,7 +974,10 @@ export function useCliSessionManager<
         rows,
         deliveryMode,
       });
+      if (created.sessionId) scope.rememberSession(created.sessionId);
+      if (!scope.isCurrent()) return;
       if (!created.ok || !created.sessionId) {
+        if (cancelled) return;
         setBridgeErrorForTabKey(
           setBridgeErrorByTabKey,
           tabKey,
@@ -972,10 +994,17 @@ export function useCliSessionManager<
         nativeSessionId: created.nativeSessionId,
       });
 
-      if (cancelled) {
-        void window.api?.terminal?.closeSession?.({
-          sessionId: created.sessionId,
-        });
+      if (isCancelled()) {
+        if (
+          shouldCloseCancelledCliLaunch({
+            tabKey,
+            liveTabKeys: liveTabKeysRef.current,
+          })
+        ) {
+          void window.api?.terminal?.closeSession?.({
+            sessionId: created.sessionId,
+          });
+        }
         return;
       }
       // A freshly created session was already spawned at this geometry, so it
@@ -988,7 +1017,11 @@ export function useCliSessionManager<
       }
     };
 
-    void ensureActiveSession();
+    void launchQueueRef.current.run(tabKey, ensureActiveSession).catch((error) => {
+      if (!cancelled) {
+        setBridgeErrorForTabKey(setBridgeErrorByTabKey, tabKey, String(error));
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -1025,11 +1058,20 @@ export function useCliSessionManager<
 
   const restartActiveSession = useCallback(() => {
     const activeTab = args.activeTab;
-    const tabKey = activeTabKeyRef.current;
+    const tabKey = activeTab ? args.getTabKey(activeTab) : null;
     const sessionId = tabKey
       ? (sessionIdByTabKeyRef.current[tabKey] ?? null)
       : null;
     if (tabKey) {
+      void launchQueueRef.current.reset(tabKey, (launchedSessionId) =>
+        closeCliSessionsForRestart({
+          sessionIds: [sessionId, launchedSessionId],
+          slotKey: activeTab ? args.slotKeyForTab?.(activeTab) : null,
+          terminal: window.api?.terminal,
+        }),
+      ).catch((error) => {
+        setBridgeErrorForTabKey(setBridgeErrorByTabKey, tabKey, String(error));
+      });
       delete exitedByTabKeyRef.current[tabKey];
       delete transcriptByTabKeyRef.current[tabKey];
       setBridgeErrorForTabKey(setBridgeErrorByTabKey, tabKey, "");
@@ -1042,7 +1084,6 @@ export function useCliSessionManager<
         attachedSessionIdRef.current = null;
         attachedAttachmentIdRef.current = null;
       }
-      void window.api?.terminal?.closeSession?.({ sessionId });
       clearSessionRegistration(tabKey, sessionId);
     }
 
@@ -1054,7 +1095,13 @@ export function useCliSessionManager<
     }
 
     setRestartVersion((value) => value + 1);
-  }, [args.activeTab, args.setTabNativeSession, clearSessionRegistration]);
+  }, [
+    args.activeTab,
+    args.getTabKey,
+    args.slotKeyForTab,
+    args.setTabNativeSession,
+    clearSessionRegistration,
+  ]);
 
   return {
     activeSessionId,
