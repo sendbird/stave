@@ -55,6 +55,7 @@ import {
   type LayoutState,
 } from "@/store/app.store";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
+import { createDefaultLayoutState } from "@/store/layout.utils";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { RightRail } from "@/components/layout/RightRail";
 import { StatusBar } from "@/components/layout/StatusBar";
@@ -115,6 +116,9 @@ const IssuesView = lazy(() =>
 type ResizableLayoutKey = "workspaceSidebarWidth" | "explorerPanelWidth";
 
 const WORKSPACE_SIDEBAR_MAX_WIDTH = 340;
+/** Panel widths a double-click on a resize handle returns to. */
+const DEFAULT_LAYOUT = createDefaultLayoutState();
+const RESIZER_HINT = "Drag to resize · Double-click to reset";
 
 export function AppShell() {
   const notifications = useAppStore((state) => state.notifications);
@@ -1417,6 +1421,10 @@ export function AppShell() {
         {!workspaceSidebarCollapsed ? (
           <div
             className={sx(appShellStyles.resizer, layers.resizer)}
+            title={RESIZER_HINT}
+            onDoubleClick={() =>
+              setLayout({ patch: { workspaceSidebarWidth: DEFAULT_LAYOUT.workspaceSidebarWidth } })
+            }
             onMouseDown={(event) => {
               event.preventDefault();
               setSidebarResizing(true);
@@ -1518,6 +1526,10 @@ export function AppShell() {
                 <>
                   <div
                     className={sx(appShellStyles.resizer, layers.resizer)}
+                    title={RESIZER_HINT}
+                    onDoubleClick={() =>
+                      setLayout({ patch: { explorerPanelWidth: DEFAULT_LAYOUT.explorerPanelWidth } })
+                    }
                     onMouseDown={(event) => {
                       event.preventDefault();
                       const startX = event.clientX;

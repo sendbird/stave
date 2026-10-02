@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { ClaudeGatewaySchema, type ClaudeGateway, type ClaudeGatewayCheckResult } from "./claude-gateway";
 import type { ApiConnectionKind, ApiConnectionModel } from "./api-connections";
+import type { ProviderAccountIdentityBridgeApi } from "./provider-account-identity";
+import type { ProviderAccountSetupBridgeApi } from "./provider-account-setup";
 
 export const SYSTEM_ACCOUNT_PROFILE_ID = "system-default";
 export const MAX_PROVIDER_ACCOUNT_PROFILES = 50;
@@ -96,7 +98,8 @@ export type ProviderAccountLoginResult =
   | { ok: true; sessionId: string }
   | { ok: false; message: string };
 
-export interface ProviderAccountsBridgeApi {
+export interface ProviderAccountsBridgeApi
+  extends ProviderAccountIdentityBridgeApi, ProviderAccountSetupBridgeApi {
   checkGateway: (args: ProviderAccountRemoveArgs) => Promise<ClaudeGatewayCheckResult>;
   list: () => Promise<ProviderAccountListResult>;
   create: (

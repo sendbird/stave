@@ -165,12 +165,13 @@ function StatMeterBar(args: { meter: StatMeter }) {
 function SummaryMetricTile(args: {
   descriptor: SummaryMetricDescriptor;
   compact?: boolean;
+  panel?: boolean;
 }) {
   const { descriptor } = args;
   const Icon = descriptor.icon;
   return (
     <div
-      className={sx(styles.tile, args.compact && styles.tileCompact)}
+      className={sx(styles.tile, args.compact && styles.tileCompact, args.panel && styles.tilePanel)}
       data-metric={descriptor.key}
       title={joinDetails([
         descriptor.label,
@@ -645,7 +646,7 @@ export function TaskExecutionSummarySurface(args: {
           showLatestActivity && styles.gridSpaced,
           args.compact
             ? layout === "panel"
-              ? styles.gridPanel
+              ? [styles.gridPanel, styles.gridPanelSurface]
               : styles.gridCompact
             : styles.gridMedium,
         )}
@@ -653,6 +654,7 @@ export function TaskExecutionSummarySurface(args: {
         {descriptors.map((descriptor) => (
           <SummaryMetricTile
             compact={args.compact}
+            panel={args.compact === true && layout === "panel"}
             descriptor={descriptor}
             key={descriptor.key}
           />

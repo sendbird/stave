@@ -64,7 +64,7 @@ const RegistrySchema = z
 type SavedProfile = z.infer<typeof SavedProfileSchema>;
 type RegistryState = { profiles: SavedProfile[]; connections: SavedApiConnection[] };
 
-function systemDirectory(providerId: ProviderAccountProviderId) {
+export function systemDirectory(providerId: ProviderAccountProviderId) {
   const key = providerId === "claude-code" ? "CLAUDE_CONFIG_DIR" : "CODEX_HOME";
   return (
     resolveLoginShellEnvVarValue({ key }) ||

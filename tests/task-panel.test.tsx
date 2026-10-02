@@ -2,6 +2,7 @@ import { beforeEach, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TaskPanel, TaskPanelView } from "@/components/session/TaskPanel";
+import { TaskPanelEmpty } from "@/components/session/TaskPanelEmpty";
 import { openTaskInspection } from "@/components/session/task-inspection-navigation";
 import type { MissionDetail } from "@/lib/missions/api";
 import { DEFAULT_PLAYBOOK_PERMISSION_MODE } from "@/lib/playbooks/schema";
@@ -154,11 +155,29 @@ test("Progress marks a mission that needs the user", () => {
   );
 });
 
-test("the connected panel asks for a task when none is open", () => {
+test("the connected panel with no task names its sections and starts one", () => {
   useAppStore.setState({ activeTaskId: "", tasks: [] } as never);
-  expect(renderToStaticMarkup(createElement(TaskPanel))).toContain(
-    "Open a task to see its activity, progress, subagents and results.",
-  );
+  expect(renderToStaticMarkup(createElement(TaskPanel))).toContain("No task open");
+
+  const html = renderToStaticMarkup(createElement(TaskPanelEmpty, { hasWorkspace: true }));
+  for (const tab of TASK_PANEL_TABS) {
+    expect(html).toContain(tab.label);
+    expect(html).toContain(tab.description.replace(/'/g, "&#x27;"));
+  }
+  expect(html).toContain("New task");
+
+  // Without a workspace there is nothing to start a task in, so the panel
+  // says why instead of offering the action.
+  const none = renderToStaticMarkup(createElement(TaskPanelEmpty, { hasWorkspace: false }));
+  expect(none).toContain("Select a workspace in the sidebar");
+  expect(none).not.toContain("New task");
+});
+
+test("the tabs share the rail's one panel bar instead of a second bar", () => {
+  const html = render({ tab: "activity" });
+  // One header, holding the heading and the tab strip.
+  expect(html.match(/<header/g)).toHaveLength(1);
+  expect(html).toMatch(/<header[^>]*>.*<h2[^>]*>Task<\/h2>.*role="tablist"/s);
 });
 
 test("openTaskInspection opens the Task panel on the named tab for the active task", () => {

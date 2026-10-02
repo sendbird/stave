@@ -21,6 +21,8 @@ import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerProviderAccountHandlers } from "./provider-accounts";
 import { registerApiConnectionHandlers } from "./api-connections";
+import { registerProviderAccountIdentityHandlers } from "./provider-account-identity";
+import { registerProviderAccountSetupHandlers } from "./provider-account-setup";
 import { registerRunHandlers } from "./runs";
 import { registerAutomationHandlers } from "./automations";
 import { registerScmHandlers } from "./scm";
@@ -40,6 +42,8 @@ export function registerHandlers() {
   registerProviderHandlers();
   registerProviderAccountHandlers();
   registerApiConnectionHandlers();
+  registerProviderAccountIdentityHandlers();
+  registerProviderAccountSetupHandlers();
   registerRunHandlers();
   registerAutomationHandlers();
   registerMissionHandlers();

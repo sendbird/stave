@@ -52,6 +52,31 @@ export const summaryStyles = stylex.create({
       [PANEL_TWO_UP]: "repeat(2, minmax(0, 1fr))",
     },
   },
+  /**
+   * The Task panel's footer is one surface: a single bordered card whose
+   * tiles are divided by hairlines (the grid's gap over a border-coloured
+   * fill), not a stack of separately bordered boxes. The shelf keeps its
+   * own tiles.
+   */
+  gridPanelSurface: {
+    backgroundColor: vars["--ads-color-border"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
+    borderStyle: "solid",
+    borderWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--ads-border-width-hairline"],
+    overflow: "hidden",
+  },
+  tilePanel: {
+    borderRadius: 0,
+    borderWidth: 0,
+    // A lone last tile in a two-up row spans it, so no border-coloured cell
+    // shows through beside it.
+    gridColumn: {
+      default: null,
+      ":nth-child(odd)": { default: null, ":last-child": "1 / -1" },
+    },
+  },
   tile: {
     backgroundColor: vars["--ads-color-canvas"],
     borderColor: vars["--ads-color-border"],

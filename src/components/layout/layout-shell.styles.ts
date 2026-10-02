@@ -13,20 +13,28 @@ export const layoutShellStyles = stylex.create({
     minWidth: 0,
     overflow: "hidden",
   },
+  // One 24px row under a hairline: the row is content-box so its 24px
+  // segments fill it exactly and the rule sits outside them. The bar is the
+  // container its right-hand segments measure (`status-bar-shrink.ts`).
   statusBar: {
     alignItems: "center",
     backgroundColor: vars["--ads-color-surface"],
     borderTopColor: vars["--ads-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: 1,
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    boxSizing: "content-box",
+    containerName: "statusBar",
+    containerType: "inline-size",
     display: "flex",
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
-    height: 28,
+    gap: vars["--ads-space-8"],
+    height: 24,
     justifyContent: "space-between",
     paddingInline: vars["--ads-space-4"],
   },
-  statusGroup: { alignItems: "center", display: "flex", gap: 2 },
+  // The right-hand group keeps its width; the usage strip gives way first.
+  statusGroup: { alignItems: "center", display: "flex", flexShrink: 0, gap: 2 },
   shortcut: {
     borderRadius: vars["--ads-radius-mark"],
     fontSize: vars["--ads-font-size-micro"],
@@ -106,8 +114,11 @@ export const layoutShellStyles = stylex.create({
   topBarButtonWarning: { color: vars["--ads-color-warning-text"] },
   inlineFlex: { display: "inline-flex" },
   icon16: { height: 16, width: 16 },
-  windowControls: { alignItems: "center", display: "flex", flexShrink: 0, gap: 6 },
-  windowDivider: { backgroundColor: vars["--ads-color-border"], height: 16, marginInline: vars["--ads-space-4"], width: 1 },
+  windowControls: { alignItems: "center", display: "flex", flexShrink: 0, gap: vars["--ads-space-4"] },
+  // The top bar's group rule: between its action groups and before the
+  // window controls.
+  windowDivider: { backgroundColor: vars["--ads-color-border"], flexShrink: 0, height: 16, marginInline: vars["--ads-space-4"], width: 1 },
+  // The top bar's one 32px rung, like every other control in it.
   windowButton: {
     backgroundColor: {
       default: "transparent",
@@ -115,9 +126,9 @@ export const layoutShellStyles = stylex.create({
       ":active": vars["--ads-color-overlay-pressed"],
     },
     borderRadius: vars["--ads-radius-control"],
-    height: 36,
+    height: 32,
     padding: 0,
-    width: 36,
+    width: 32,
   },
   closeWindowButton: {
     backgroundColor: {

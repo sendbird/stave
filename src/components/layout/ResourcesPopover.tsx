@@ -186,10 +186,13 @@ const processColor: Record<string, StyleXValue> = {
 export function MemoryUsagePopover({
   collapsed,
   variant = "sidebar",
+  barLabelXstyle,
 }: {
   collapsed?: boolean;
   /** "bar" renders a compact inline trigger for the bottom status bar. */
   variant?: "sidebar" | "bar";
+  /** When the bar trigger's label shows; the status bar's shrink order decides. */
+  barLabelXstyle?: StyleXValue;
 }) {
   const isBar = variant === "bar";
   const [open, setOpen] = useState(false);
@@ -436,7 +439,7 @@ export function MemoryUsagePopover({
               }
             >
               <Activity className={sx(resourceStyles.triggerIcon)} />
-              {isBar ? <span>Resource Manager</span> : null}
+              {isBar ? <span className={sx(barLabelXstyle)}>Resource Manager</span> : null}
             </DialogTrigger>
           </TooltipTrigger>
           {!open ? (

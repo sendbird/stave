@@ -348,6 +348,25 @@
         "src/lib/playbooks/stage-prompt.ts",
         "electron/main/runs/delegated-task-coordinator.ts"
       ]
+    },
+    {
+      "id": "account-identity-stays-in-main",
+      "title": "Account sign-in identity exposes only an email and a plan",
+      "invariant": "The sign-in probe runs in Electron main. The only credential file it opens is a Codex auth.json, and only after `codex login status` reports a ChatGPT login; it reads tokens.id_token, copies out the email and plan claims, and drops everything else, so no token, key, path or raw CLI output reaches the reply, the cache, a log or the renderer. Shared setup never links or copies a login, a credential store or a history entry, filters credential-like settings out of the one copied file, and removes on request only what it added.",
+      "testFiles": [
+        "tests/provider-account-identity-parse.test.ts",
+        "tests/provider-account-identity.test.ts",
+        "tests/provider-account-identity-ipc.test.ts",
+        "tests/provider-account-setup-sharing.test.ts"
+      ],
+      "assertionRefs": [
+        "electron/provider-accounts/identity-parse.ts",
+        "electron/provider-accounts/identity.ts",
+        "electron/provider-accounts/setup-sharing.ts",
+        "electron/main/ipc/provider-account-identity.ts",
+        "electron/main/ipc/provider-account-setup.ts",
+        "src/lib/providers/provider-account-setup-plan.ts"
+      ]
     }
   ]
 }

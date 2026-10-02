@@ -16,6 +16,7 @@ import {
   resolveUsageStripBreakpoint,
 } from "@/components/layout/status-bar-usage-strip.utils";
 import { usageStripStyles } from "@/components/layout/status-bar-usage-strip.styles";
+import { resolveResourceLabelBreakpoint } from "@/components/layout/status-bar-shrink";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import { isRateLimitsReadPending } from "@/store/rate-limits-account-reset";
 import { resolveEarliestAccountUsageResetAtMs } from "@/lib/providers/account-usage-block";
@@ -116,6 +117,12 @@ export function StatusBar() {
   const stripBreakpoint = resolveUsageStripBreakpoint(
     usageSegments.map(({ segment }) => segment),
   );
+  // The second step of the bar's shrink order, chosen after the first so the
+  // label never goes while the strip could still show its full form.
+  const resourceLabelBreakpoint = resolveResourceLabelBreakpoint({
+    segments: usageSegments.map(({ segment }) => segment),
+    fullStripStep: stripBreakpoint,
+  });
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -206,7 +213,7 @@ export function StatusBar() {
         ))}
       </div>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>
-        <StatusBarMemorySegment />
+        <StatusBarMemorySegment labelBreakpoint={resourceLabelBreakpoint} />
       </div>
     </div>
   );
