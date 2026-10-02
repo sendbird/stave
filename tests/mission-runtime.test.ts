@@ -1052,6 +1052,8 @@ describe("mission runtime: agent runs", () => {
     expect(call.fingerprint).toEqual({ providerId: expected.providerId, model: expected.model });
     expect(call.missionStage).toEqual({ missionId, stageId: "work", attempt: 1 });
     expect(call.prompt).toContain("Add CSV export to the billing page.");
+    // The user row is marked as the run's prompt, so it renders as the assignment from its first frame.
+    expect(call.agentRunPrompt).toEqual({ missionId, assignment: "Add CSV export to the billing page." });
     // The run passes the user's settings; the agent actor makes them prompt-free.
     const root = "/tmp/repo-ws";
     expect(resolveTurnPolicy({ providerId: expected.providerId, actor: { kind: "chat" }, options: call.runtimeOptions, root }).autonomy).toBe("ask");
@@ -1075,6 +1077,7 @@ describe("mission runtime: agent runs", () => {
     await harness.tick();
     expect(harness.runCalls).toHaveLength(2);
     expect(harness.runCalls[1]!.prompt).toContain('without reporting the stage "Work"');
+    expect(harness.runCalls[1]!.agentRunPrompt).toEqual({ missionId, assignment: null });
     expect(harness.runCalls[1]!.fingerprint).toEqual({ providerId: "claude-code", model: "opus" });
     expect(harness.aggregate(missionId).mission.state).toBe("running");
 

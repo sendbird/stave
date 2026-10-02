@@ -3,6 +3,15 @@ import {
   resolveChatAreaViewMode,
   resolveHydratingRepositoryCopy,
 } from "@/components/session/chat-area.utils";
+import { buildOutgoingUserMessage } from "@/store/chat-state-helpers";
+import {
+  beginPendingAgentRun,
+  beginPendingAutoRoute,
+  handOverPendingAgentRun,
+  holdsComposerTurn,
+  selectHasPendingSend,
+  usePendingAutoRoutingStore,
+} from "@/store/pending-auto-routing-store";
 
 describe("chat area loading copy", () => {
   test("uses legacy cleanup messaging while persistence bootstrap is purging", () => {
@@ -60,5 +69,43 @@ describe("chat area view mode", () => {
     expect(resolveChatAreaViewMode({ ...base, hasUnsentPrompt: true })).toBe(
       "conversation",
     );
+  });
+
+  test("an Agent-mode prompt waiting on its run counts as unsent, without holding the composer", () => {
+    usePendingAutoRoutingStore.setState({ byTaskId: {} });
+    expect(selectHasPendingSend(usePendingAutoRoutingStore.getState(), "task-1")).toBe(false);
+    beginPendingAgentRun({
+      id: "agent-run:1",
+      taskId: "task-1",
+      startedAt: 0,
+      userMessage: buildOutgoingUserMessage({ id: "pending-agent-run:1", content: "Add CSV export." }),
+    });
+    const state = usePendingAutoRoutingStore.getState();
+    expect(selectHasPendingSend(state, "task-1")).toBe(true);
+    expect(holdsComposerTurn(state.byTaskId["task-1"])).toBe(false);
+    expect(
+      resolveChatAreaViewMode({
+        repositoryPath: "/tmp/project",
+        hasHydratedWorkspaces: true,
+        hasAnyWorkspace: true,
+        hasSelectedWorkspace: true,
+        hasSelectedTask: true,
+        activeTaskMessageCount: 0,
+        hasUnsentPrompt: selectHasPendingSend(state, "task-1"),
+      }),
+    ).toBe("conversation");
+    // A refused run hands its row to the single turn's send, which Auto may then begin again.
+    handOverPendingAgentRun({ taskId: "task-1", id: "agent-run:1", turnId: "turn-1" });
+    expect(holdsComposerTurn(usePendingAutoRoutingStore.getState().byTaskId["task-1"])).toBe(true);
+    expect(
+      beginPendingAutoRoute({
+        id: "turn-1",
+        taskId: "task-1",
+        startedAt: 1,
+        userMessage: buildOutgoingUserMessage({ id: "pending-auto-route:turn-1", content: "Add CSV export." }),
+      }),
+    ).toBe(true);
+    expect(beginPendingAgentRun({ id: "agent-run:2", taskId: "task-1", startedAt: 2, userMessage: state.byTaskId["task-1"]!.userMessage })).toBe(false);
+    usePendingAutoRoutingStore.setState({ byTaskId: {} });
   });
 });

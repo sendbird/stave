@@ -7,6 +7,7 @@ import { MissionBarView } from "../src/components/missions/MissionBar";
 import { MissionDetailView } from "../src/components/missions/MissionPanel";
 import { StageDividerView } from "../src/components/missions/StageDivider";
 import type { MissionDetail } from "../src/lib/missions/api";
+import { selectAgentRunCard } from "../src/lib/missions/agent-run-view";
 import { MISSION_NOW, missionDetail, missionFixture } from "./fixtures/mission-fixtures";
 
 const START = new Date("2026-10-01T09:00:00.000Z");
@@ -21,7 +22,7 @@ const bar = (detail: MissionDetail, nowPhrase: string | null = null) =>
       nowPhrase,
       now: NOW,
       reducedMotion: false,
-      agentActions: { onStop: () => {}, onTakeControl: () => {} },
+      agentActions: { onStop: () => {}, onTakeControl: () => {}, onRetry: () => {} },
       actions: { onOpenPanel: () => {} },
     }),
   );
@@ -68,6 +69,17 @@ describe("agent run status line", () => {
     const html = bar(runs.needsYou);
     expect(html).toContain("Needs you");
     expect(html).toContain("Which breakpoint should the table switch at");
+    expect(html).not.toContain("Retry");
+  });
+
+  test("a stuck run's bar owns its reason and Retry while the run is active", () => {
+    const html = bar(runs.stuck);
+    expect(html).toContain("Needs you");
+    expect(html).toContain("The tests have been pending for 20 minutes.");
+    expect(html).toContain("Retry");
+    expect(html).toContain("Stop");
+    expect(html).toContain("Take control");
+    expect(bar(runs.working)).not.toContain("Retry");
   });
 
   test("a playbook mission keeps its stage track and Take over", () => {
@@ -127,17 +139,19 @@ describe("agent run result card", () => {
     expect(html).not.toContain("Ask for changes");
   });
 
-  test("a stuck run gets the same reason card while it is active", () => {
-    const html = card(runs.stuck);
-    expect(html).toContain("Needs you");
-    expect(html).toContain("The tests have been pending for 20 minutes.");
-    expect(html).toContain("Retry");
-  });
-
-  test("a working run, a blocked one and a stopped one leave no card", () => {
+  test("an active run leaves no card, stuck included: the bar owns it", () => {
+    expect(card(runs.stuck)).toBe("");
     expect(card(runs.working)).toBe("");
     expect(card(runs.needsYou)).toBe("");
     expect(card(runs.stopped)).toBe("");
+  });
+
+  test("a message that started after the run ended makes the card history", () => {
+    const later = new Date(Date.parse(runs.failed.mission.updatedAt) + 60_000).toISOString();
+    expect(selectAgentRunCard({ detail: runs.failed })).toBe("reason");
+    expect(selectAgentRunCard({ detail: runs.ready, lastMessageStartedAt: runs.ready.mission.createdAt })).toBe("result");
+    expect(selectAgentRunCard({ detail: runs.failed, lastMessageStartedAt: later })).toBeNull();
+    expect(selectAgentRunCard({ detail: missionDetail(missionFixture()) })).toBeNull();
   });
 });
 
@@ -159,15 +173,20 @@ describe("agent run in the Progress tab", () => {
     expect(html).not.toContain("Pause");
   });
 
-  test("a working run offers Stop and Take control, and a failed one offers Retry", () => {
+  test("keeps the state and the reason, and leaves Stop, Take control and Retry to the bar and the card", () => {
     const working = panel(runs.working);
     expect(working).toContain("Working");
-    expect(working).toContain("Stop");
-    expect(working).toContain("Take control");
+    const stuck = panel(runs.stuck);
+    expect(stuck).toContain("Needs you");
+    expect(stuck).toContain("The tests have been pending for 20 minutes.");
     const failed = panel(runs.failed);
     expect(failed).toContain("Failed");
-    expect(failed).toContain("Retry");
     expect(failed).toContain("The run used all 30 turns before it finished.");
+    for (const html of [working, stuck, failed]) {
+      expect(html).not.toContain(">Stop<");
+      expect(html).not.toContain("Take control");
+      expect(html).not.toContain("Retry");
+    }
   });
 
   test("a playbook mission keeps its stage list", () => {

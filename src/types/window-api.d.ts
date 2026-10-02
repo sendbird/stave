@@ -2178,6 +2178,13 @@ interface WindowPersistenceApi {
     }>;
   }>;
   /**
+   * Cost reported on turns run in Stave, per provider, since the given local
+   * day and month starts. Providers that report no cost are absent.
+   */
+  summarizeTurnSpend?: (
+    args: import("@/lib/providers/turn-spend").TurnSpendArgs,
+  ) => Promise<import("@/lib/providers/turn-spend").TurnSpendResponse>;
+  /**
    * Quit-time flush handshake, replacing the former blocking
    * `upsertWorkspaceSync`. Main asks via `onFlushRequested`; the renderer runs
    * its ordinary async snapshot write and then acknowledges.

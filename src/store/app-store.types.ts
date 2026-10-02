@@ -160,6 +160,8 @@ export interface AppState
    */
   autoRoutingDecisionByTask: Record<string, AutoRoutingDecisionRecord>;
   rateLimitsUpdatedAtByProvider: Partial<Record<ProviderId, number>>;
+  /** Usage reads in flight per provider; absent means none. */
+  rateLimitsInFlightByProvider: Partial<Record<ProviderId, number>>;
   rateLimitsLoading: boolean;
   rateLimitsError: string | null;
   isDarkMode: boolean;

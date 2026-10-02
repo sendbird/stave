@@ -1,42 +1,53 @@
 import { useMemo } from "react";
-import { PanelRightOpen } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { TextShimmer } from "@/components/ads/components/TextShimmer";
 import { Tooltip } from "@/components/ads/components/Tooltip";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { AGENT_RUN_STATE_TONES, agentRunDuration, describeAgentRunStatus } from "@/lib/missions/agent-run-view";
 import { projectMissionStages } from "@/lib/missions/mission-view";
+import type { ShelfTodoProgress } from "@/components/session/composer-shelf/composer-shelf.utils";
+import { shelfStyles } from "@/components/session/composer-shelf/composer-shelf.styles";
+import {
+  ShelfRunLine,
+  ShelfRunText,
+  ShelfTodoProgressView,
+  type ShelfRunDetailToggle,
+} from "@/components/session/composer-shelf/ShelfRunLine";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
 import type { AgentRunActions } from "./useAgentRunActions";
-import { missionBarStyles as styles } from "./mission-bar.styles";
-import { missionStyles } from "./missions.styles";
 
 export const TAKE_CONTROL_HINT = "Ends the run and keeps this task in Chat, on the model the agent was using.";
 
 /**
- * The status line over the composer while an agent run is active:
- * `Working · 4m`, or `Needs you` with what the run waits on, with Stop and
- * Take control. A run of an agent with a workflow adds its stage track; a
- * one-stage run shows none.
+ * An agent run's line in the composer shelf: the agent, where it stands
+ * (`Working`, or `Needs you` with what it waits on), how long it has run,
+ * Stop and Take control, and Retry while the run is stuck. While the run is
+ * active this line is the one place its state and actions show; the
+ * transcript card waits for the run to end. A run of an agent with a workflow
+ * draws its stages as the compact track (the stage and `2/4` once the
+ * composer is too narrow for it); a one-stage run shows its turn's to-dos.
  */
 export function AgentRunBarView(props: {
   detail: MissionDetail;
   nowPhrase: string | null;
   now: number;
   reducedMotion: boolean;
-  /** `docked` is a shelf over the composer; `panel` a flat header in the Activity panel. */
-  variant?: "docked" | "panel";
-  /** Docked inside the composer frame, which owns the final tuck. */
-  framed?: boolean;
   actions?: AgentRunActions;
   onOpenPanel?: () => void;
+  /** `wide` once the shelf also offers the details inline. */
+  panelKeep?: "always" | "wide";
+  detailToggle?: ShelfRunDetailToggle | null;
+  /** A one-stage run's progress is its turn's to-do list. */
+  todo?: ShelfTodoProgress | null;
+  /** The card above the composer already asks (a sign-off), so the line names the state only. */
+  reasonShownElsewhere?: boolean;
 }) {
-  const { detail, actions = {}, variant = "docked" } = props;
+  const { detail, actions = {} } = props;
   const status = describeAgentRunStatus(detail);
   const showNow = status.state === "working" && props.nowPhrase !== null;
-  const detailText = status.state === "needs-you" ? status.reason : showNow ? props.nowPhrase : null;
+  const reason = status.state === "needs-you" && !props.reasonShownElsewhere ? status.reason : null;
   const elapsed = agentRunDuration(detail, props.now);
   const staged = detail.mission.playbook.stages.length > 1;
   const rows = useMemo(
@@ -45,97 +56,87 @@ export function AgentRunBarView(props: {
   );
   const current = rows?.[detail.mission.currentStageIndex] ?? null;
   const paused = detail.mission.state === "paused";
+  const waiting = status.state === "needs-you";
+  const stageWords = current && rows ? `${current.stage.title} ${current.index + 1}/${rows.length}` : null;
   return (
-    <section
-      className={cx(
-        variant === "docked" ? "turn-activity-surface" : undefined,
-        sx(
-          variant === "docked" ? styles.tray : styles.flat,
-          variant === "docked" && (props.framed ? styles.trayFramed : styles.trayStandalone),
-        ),
-      )}
-      aria-label={`${status.agentName}: ${status.label}`}
-      title={`${status.agentName} · ${detail.mission.assignment.split("\n")[0]}`}
-      data-testid="agent-run-bar"
-    >
-      <div className={sx(styles.sizer)}>
-        <div className={sx(styles.header)}>
-          <span className={sx(styles.mark)}>
-            <StageStatusIcon tone={AGENT_RUN_STATE_TONES[status.state]} state={status.state} xstyle={styles.markIcon} />
+    <ShelfRunLine
+      testId="agent-run-bar"
+      dataState={status.state}
+      ariaLabel={`${status.agentName}: ${status.label}`}
+      announcement={`${status.agentName}: ${status.label}${current ? `, stage ${current.index + 1} of ${rows!.length}: ${current.stage.title}` : ""}`}
+      mark={
+        <StageStatusIcon
+          tone={AGENT_RUN_STATE_TONES[status.state]}
+          state={status.state}
+          xstyle={shelfStyles.markIcon}
+        />
+      }
+      text={
+        <ShelfRunText
+          label={status.agentName}
+          title={[
+            status.agentName,
+            stageWords,
+            status.label,
+            showNow ? props.nowPhrase : reason,
+            detail.mission.assignment.split("\n")[0],
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          narrow={stageWords}
+          parts={[
+            <span className={sx(waiting ? shelfStyles.labelWaiting : shelfStyles.strong)}>{status.label}</span>,
+            showNow ? (
+              <TextShimmer active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
+            ) : (
+              reason
+            ),
+          ]}
+        />
+      }
+      progress={
+        rows ? (
+          <span className={sx(shelfStyles.track)}>
+            <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} showPercent={false} />
           </span>
-          <p className={sx(styles.headline)}>
-            <span
-              className={sx(
-                styles.headlineTitle,
-                status.state === "needs-you" && styles.headlineWaiting,
-              )}
-            >
-              {status.label}
-            </span>
-            {/* The elapsed time comes first: a narrow bar truncates the end. */}
-            <span className={sx(styles.headlineDetail)}>{` · ${elapsed}`}</span>
-            {current ? <span className={sx(styles.headlineDetail)}>{` · ${current.stage.title}`}</span> : null}
-            {detailText ? (
-              <span className={sx(styles.headlineDetail)}>
-                {" · "}
-                {showNow ? <TextShimmer active={!props.reducedMotion}>{detailText}</TextShimmer> : detailText}
-              </span>
-            ) : null}
-          </p>
-          {current && rows ? (
-            <span className={sx(styles.meta)}>
-              <span aria-hidden>
-                {current.index + 1}/{rows.length}
-              </span>
-              <span className={sx(missionStyles.visuallyHidden)}>
-                Stage {current.index + 1} of {rows.length}
-              </span>
-            </span>
+        ) : props.todo ? (
+          <ShelfTodoProgressView progress={props.todo} />
+        ) : null
+      }
+      meta={<span title="Time since the run started">{elapsed}</span>}
+      actions={
+        <>
+          {status.recovery === "retry-stage" && actions.onRetry ? (
+            <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onRetry}>
+              Retry
+            </Button>
           ) : null}
-          <span className={sx(styles.actions)}>
-            {actions.onStop ? (
-              <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onStop} xstyle={styles.quietButton}>
-                Stop
+          {actions.onStop ? (
+            <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onStop} xstyle={shelfStyles.quiet}>
+              Stop
+            </Button>
+          ) : null}
+          {actions.onTakeControl ? (
+            <Tooltip content={TAKE_CONTROL_HINT}>
+              <Button
+                variant="quiet"
+                size="xs"
+                disabled={actions.busy}
+                onClick={actions.onTakeControl}
+                xstyle={shelfStyles.quiet}
+              >
+                Take control
               </Button>
-            ) : null}
-            {actions.onTakeControl ? (
-              <Tooltip content={TAKE_CONTROL_HINT}>
-                <Button
-                  variant="quiet"
-                  size="xs"
-                  disabled={actions.busy}
-                  onClick={actions.onTakeControl}
-                  xstyle={styles.quietButton}
-                >
-                  Take control
-                </Button>
-              </Tooltip>
-            ) : null}
-            {props.onOpenPanel ? (
-              <Tooltip content="Open Progress in the Task panel">
-                <Button
-                  variant="quiet"
-                  size="iconSm"
-                  iconOnly
-                  aria-label="Open Progress in the Task panel"
-                  onClick={props.onOpenPanel}
-                  xstyle={styles.quietButton}
-                >
-                  <PanelRightOpen aria-hidden />
-                </Button>
-              </Tooltip>
-            ) : null}
-          </span>
-        </div>
-      </div>
-      {rows ? (
-        <div className={sx(styles.track)}>
-          <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} />
-        </div>
-      ) : null}
-      <p className={sx(missionStyles.visuallyHidden)} aria-live="polite">
-        {`${status.agentName}: ${status.label}${current ? `, stage ${current.index + 1} of ${rows!.length}: ${current.stage.title}` : ""}`}
-      </p>
-    </section>
+            </Tooltip>
+          ) : null}
+        </>
+      }
+      panel={
+        props.onOpenPanel
+          ? { label: "Open Progress in the Task panel", onOpen: props.onOpenPanel, keep: props.panelKeep ?? "always" }
+          : null
+      }
+      detail={props.detailToggle ?? null}
+    />
   );
 }

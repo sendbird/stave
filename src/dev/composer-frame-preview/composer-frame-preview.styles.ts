@@ -56,14 +56,39 @@ export const composerFramePreviewStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
   },
+  workspace: {
+    display: "flex",
+    flex: 1,
+    minHeight: 0,
+  },
   main: {
     display: "flex",
     flex: 1,
     flexDirection: "column",
     minHeight: 0,
+    minWidth: 0,
     position: "relative",
   },
+  /** The Task panel's Activity tab at its usual rail width. */
+  panel: {
+    display: "flex",
+    flexDirection: "column",
+    flexShrink: 0,
+    width: 384,
+    minHeight: 0,
+    borderInlineStartColor: vars["--ads-color-border"],
+    borderInlineStartStyle: "solid",
+    borderInlineStartWidth: vars["--ads-border-width-hairline"],
+    backgroundColor: vars["--ads-color-surface"],
+  },
+  /** Where the floating card lives, like ChatArea's message-pane overlay. */
+  overlay: {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+  },
   conversation: {
+    position: "relative",
     color: vars["--ads-color-text-muted"],
     display: "flex",
     flex: 1,

@@ -33,6 +33,7 @@ import {
   startProviderTurnActivity,
 } from "@/lib/providers/turn-status";
 import { noteRateLimitsProviderActivity } from "@/lib/providers/rate-limits-poll-policy";
+import { noteTurnSpendChanged } from "@/lib/providers/use-turn-spend";
 import { buildTurnActivityFlushPatch } from "@/store/turn-activity-retention";
 import {
   applyDetectedWorkspaceResources,
@@ -506,7 +507,7 @@ export function createSendUserMessageAction(args: {
     // Decided synchronously: a Chat send must not pass an await before its draft is cleared.
     const agentRunStart = prepareAgentRunForSend({ set, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
       providerId: provider, prompt: promptContent, promptDraft, extraContextCount: (fileContexts?.length ?? 0) + (imageContexts?.length ?? 0),
-      turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft });
+      turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft, turnId });
     const agentRunStarted = agentRunStart ? await agentRunStart() : null;
     if (agentRunStarted) return agentRunStarted;
     // A "stalled" turn is one whose provider stream has gone silent past the
@@ -1547,9 +1548,8 @@ export function createSendUserMessageAction(args: {
             // makes the meter correct. The host-side per-provider cache
             // floor debounces bursts of short turns into one read.
             noteRateLimitsProviderActivity(provider);
-            void get()
-              .refreshRateLimits({ providers: [provider] })
-              .catch(() => undefined);
+            void get().refreshRateLimits({ providers: [provider] }).catch(() => undefined);
+            noteTurnSpendChanged();
             const compareOutcome = resolveCompareTurnOutcome(pendingEvents);
             set((state) => {
               const compareRunsById = finishCompareRunsForTask({

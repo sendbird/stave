@@ -271,7 +271,7 @@ describe("PromptInput queue mode", () => {
     expect(buttonMarkup).not.toContain("backdrop-blur-md");
   });
 
-  test("renders queued-next-turn preview and queue action during an active turn", async () => {
+  test("queues the next turn from the composer during an active turn", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
@@ -285,25 +285,6 @@ describe("PromptInput queue mode", () => {
           value: "Follow up after this finishes",
           isTurnActive: true,
           submitMode: "queue-next" as const,
-          queuedTurns: [
-            {
-              id: "queue-1",
-              queuedAt: "2026-04-09T00:00:00.000Z",
-              sourceTurnId: "turn-1",
-              content: "Follow up after this finishes",
-              providerId: "cursor",
-              model: "auto",
-              attachedFilePaths: ["README.md"],
-              attachments: [
-                {
-                  kind: "image" as const,
-                  id: "image-1",
-                  dataUrl: "data:image/png;base64,abc",
-                  label: "diagram.png",
-                },
-              ],
-            },
-          ],
           selectedModel: CLAUDE_MODEL_OPTION,
           modelOptions: [MODEL_OPTION, CLAUDE_MODEL_OPTION],
           attachedFilePaths: [],
@@ -312,24 +293,18 @@ describe("PromptInput queue mode", () => {
           onModelSelect: () => {},
           onAttachFilesChange: () => {},
           onSubmit: () => {},
-          onClearQueuedNextTurn: () => {},
           onAbort: () => {},
         }),
       ),
     );
 
-    expect(html).toContain("Queue");
-    expect(html).toContain("Follow up after this finishes");
-    expect(html).toContain("1 queued follow-up");
-    expect(html).toContain("Next to send");
-    expect(html).toContain("Sends as Cursor Auto, not Claude Opus 4.6");
-    expect(html).toContain("1 file");
-    expect(html).toContain("1 image");
-    expect(html).toContain("Clear all");
     expect(html).toContain(sx(promptInputStyles.editorReset));
     expect(html).not.toContain("absolute right-4 top-4");
-    expect(html).not.toContain("README.md");
     expect(html).not.toContain("Focus");
+    // The queue itself lives on the composer shelf above the card now, so the
+    // card carries no queue list of its own.
+    expect(html).not.toContain("queued follow-up");
+    expect(html).not.toContain("Clear all");
     // The composer has a draft, so the single morphing button shows
     // Send/Queue rather than Stop, and the old standalone Abort button is
     // gone entirely.
@@ -338,7 +313,7 @@ describe("PromptInput queue mode", () => {
     expect(html).not.toContain('aria-label="Stop responding"');
   });
 
-  test("keeps current attachments visible while queued turns exist", async () => {
+  test("keeps current attachments visible during an active turn", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
@@ -352,16 +327,6 @@ describe("PromptInput queue mode", () => {
           value: "Current draft",
           isTurnActive: true,
           submitMode: "queue-next" as const,
-          queuedTurns: [
-            {
-              id: "queue-1",
-              queuedAt: "2026-04-09T00:00:00.000Z",
-              sourceTurnId: "turn-1",
-              content: "Queued draft",
-              attachedFilePaths: [],
-              attachments: [],
-            },
-          ],
           selectedModel: MODEL_OPTION,
           modelOptions: [MODEL_OPTION],
           attachedFilePaths: ["src/current-context.ts"],
@@ -392,203 +357,6 @@ describe("PromptInput queue mode", () => {
     );
     expect(html).toContain('aria-label="Preview attached image current.png"');
     expect(html).toContain('aria-label="Remove attached image current.png"');
-  });
-
-  test("offers a send-now action on queued turns when no turn is active", async () => {
-    setWindowContext();
-    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
-      import("@/components/ai-elements/prompt-input"),
-      import("@/components/ui"),
-    ]);
-    const html = renderToStaticMarkup(
-      createElement(
-        TooltipProvider,
-        null,
-        createElement(PromptInput, {
-          value: "",
-          isTurnActive: false,
-          submitMode: "send" as const,
-          queuedTurns: [
-            {
-              id: "queue-1",
-              queuedAt: "2026-04-09T00:00:00.000Z",
-              sourceTurnId: "turn-1",
-              content: "Follow up after the interrupt",
-              attachedFilePaths: [],
-              attachments: [],
-            },
-          ],
-          selectedModel: MODEL_OPTION,
-          modelOptions: [MODEL_OPTION],
-          attachedFilePaths: [],
-          attachments: [],
-          onValueChange: () => {},
-          onModelSelect: () => {},
-          onAttachFilesChange: () => {},
-          onSubmit: () => {},
-          onClearQueuedNextTurn: () => {},
-          onSendQueuedTurn: () => {},
-        }),
-      ),
-    );
-
-    expect(html).toContain('aria-label="Send queued prompt 1 now"');
-    expect(html).toContain(
-      "send one now, or it sends after your next message finishes",
-    );
-  });
-
-  test("hides the send-now action on queued turns while a turn is active", async () => {
-    setWindowContext();
-    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
-      import("@/components/ai-elements/prompt-input"),
-      import("@/components/ui"),
-    ]);
-    const html = renderToStaticMarkup(
-      createElement(
-        TooltipProvider,
-        null,
-        createElement(PromptInput, {
-          value: "",
-          isTurnActive: true,
-          submitMode: "queue-next" as const,
-          queuedTurns: [
-            {
-              id: "queue-1",
-              queuedAt: "2026-04-09T00:00:00.000Z",
-              sourceTurnId: "turn-1",
-              content: "Follow up after this finishes",
-              attachedFilePaths: [],
-              attachments: [],
-            },
-          ],
-          selectedModel: MODEL_OPTION,
-          modelOptions: [MODEL_OPTION],
-          attachedFilePaths: [],
-          attachments: [],
-          onValueChange: () => {},
-          onModelSelect: () => {},
-          onAttachFilesChange: () => {},
-          onSubmit: () => {},
-          onClearQueuedNextTurn: () => {},
-          onSendQueuedTurn: () => {},
-          onAbort: () => {},
-        }),
-      ),
-    );
-
-    expect(html).not.toContain('aria-label="Send queued prompt 1 now"');
-    expect(html).toContain(
-      "next sends automatically when the current response finishes",
-    );
-  });
-
-  test("offers a steer action on queued turns while a steerable turn is active", async () => {
-    setWindowContext();
-    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
-      import("@/components/ai-elements/prompt-input"),
-      import("@/components/ui"),
-    ]);
-    const html = renderToStaticMarkup(
-      createElement(
-        TooltipProvider,
-        null,
-        createElement(PromptInput, {
-          value: "",
-          isTurnActive: true,
-          submitMode: "steer-or-queue" as const,
-          queuedTurns: [
-            {
-              id: "queue-1",
-              queuedAt: "2026-04-09T00:00:00.000Z",
-              sourceTurnId: "turn-1",
-              content: "Actually check the migration too",
-              attachedFilePaths: [],
-              attachments: [],
-            },
-            {
-              id: "queue-2",
-              queuedAt: "2026-04-09T00:01:00.000Z",
-              sourceTurnId: "turn-1",
-              content: "Then look at the screenshot",
-              attachedFilePaths: ["README.md"],
-              attachments: [],
-            },
-          ],
-          selectedModel: CLAUDE_MODEL_OPTION,
-          modelOptions: [CLAUDE_MODEL_OPTION],
-          attachedFilePaths: [],
-          attachments: [],
-          onValueChange: () => {},
-          onModelSelect: () => {},
-          onAttachFilesChange: () => {},
-          onSubmit: () => {},
-          onClearQueuedNextTurn: () => {},
-          canSteerQueuedTurn: true,
-          onSteerQueuedTurn: () => {},
-          onAbort: () => {},
-        }),
-      ),
-    );
-
-    expect(html).toContain(
-      'aria-label="Steer queued prompt 1 into the current response"',
-    );
-    // Attachments can't ride along with a steer, so that item keeps waiting
-    // for the auto-dispatch instead of offering the button.
-    expect(html).not.toContain(
-      'aria-label="Steer queued prompt 2 into the current response"',
-    );
-    expect(html).toContain("or steer one into it now");
-    // Steering is not the same as dispatching a fresh turn — the send-now
-    // action stays hidden while the turn runs.
-    expect(html).not.toContain('aria-label="Send queued prompt 1 now"');
-  });
-
-  test("hides the steer action on queued turns when the turn is not steerable", async () => {
-    setWindowContext();
-    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
-      import("@/components/ai-elements/prompt-input"),
-      import("@/components/ui"),
-    ]);
-    const html = renderToStaticMarkup(
-      createElement(
-        TooltipProvider,
-        null,
-        createElement(PromptInput, {
-          value: "",
-          isTurnActive: true,
-          submitMode: "queue-next" as const,
-          queuedTurns: [
-            {
-              id: "queue-1",
-              queuedAt: "2026-04-09T00:00:00.000Z",
-              sourceTurnId: "turn-1",
-              content: "Actually check the migration too",
-              attachedFilePaths: [],
-              attachments: [],
-            },
-          ],
-          selectedModel: MODEL_OPTION,
-          modelOptions: [MODEL_OPTION],
-          attachedFilePaths: [],
-          attachments: [],
-          onValueChange: () => {},
-          onModelSelect: () => {},
-          onAttachFilesChange: () => {},
-          onSubmit: () => {},
-          onClearQueuedNextTurn: () => {},
-          canSteerQueuedTurn: false,
-          onSteerQueuedTurn: () => {},
-          onAbort: () => {},
-        }),
-      ),
-    );
-
-    expect(html).not.toContain(
-      'aria-label="Steer queued prompt 1 into the current response"',
-    );
-    expect(html).not.toContain("or steer one into it now");
   });
 
   test("shows Stop instead of Send when a turn is active and the draft is empty", async () => {

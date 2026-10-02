@@ -67,18 +67,24 @@ stages:
 A run records your own permission settings for its turns; a saved agent never
 grants permissions.
 
-### Mission bar
+### Mission line
 
-Above the composer while a mission runs:
+The run line of the composer shelf, above the prompt input, for as long as a
+mission runs, between its turns included (see
+[Turn Activity](turn-activity.md#the-composer-shelf)):
 
 - The current stage and what it is doing — a plain phrase such as
   **Running the tests** while a turn runs, or what it waits for and for how
   long, such as **Waiting for your sign-off · 8m**.
-- The stage track: one segment per stage, colored by where it stands, with the
-  stage names when there is room. A hand marks a stage that asks you first.
+- The stage track, one line high: the stages behind the run fill it and the
+  head names the stage in progress and where it stands (`Verify 3/6`). When
+  the composer is too narrow for the track, the line says `3/6` in words. A
+  hand marks a stage that asks you first.
 - **Take over** pauses the mission so your replies are your own; **Resume**
   hands the task back. A reply without Take over guides the current stage and
   the mission carries on.
+- The panel button opens the Task panel's **Progress** tab; the details toggle
+  unfolds the current turn's rows.
 
 ### Sign-off
 

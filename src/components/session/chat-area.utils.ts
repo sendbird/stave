@@ -14,9 +14,10 @@ export function resolveChatAreaViewMode(args: {
   hasSelectedTask: boolean;
   activeTaskMessageCount: number;
   /**
-   * A send drawn before it is a message: a prompt waiting on Auto's classifier
-   * or one that failed to send. Without it a new task's first prompt vanishes
-   * behind the start screen until the turn begins.
+   * A send drawn before it is a message: a prompt waiting on Auto's
+   * classifier, an Agent-mode prompt waiting on its run to write it, or one
+   * that failed to send. Without it a new task's first prompt vanishes behind
+   * the start screen until the turn begins.
    */
   hasUnsentPrompt?: boolean;
 }): ChatAreaViewMode {

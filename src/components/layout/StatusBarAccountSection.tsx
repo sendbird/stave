@@ -8,7 +8,7 @@ import {
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { menu } from "@/components/ads/recipes/menu";
 import { transition } from "@/components/ads/recipes/transition";
-import { Button } from "@/components/ui";
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles as styles } from "@/components/layout/status-bar-usage.styles";
 import type {
@@ -74,7 +74,20 @@ export function StatusBarAccountSection(props: {
               >
                 <span className={sx(menu.itemLabel)}>{profile.label}</span>
                 {profile.gateway ? (
-                  <span className={sx(styles.accountMeta)}>API billing</span>
+                  <Tooltip>
+                    <TooltipTrigger
+                      delay={400}
+                      render={<span className={sx(styles.accountMeta)} />}
+                    >
+                      API billing
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      <span className={sx(styles.accountHint)}>
+                        Your gateway bills this account per token, not your
+                        subscription, and enforces any budget.
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
                 ) : null}
                 <RadioIndicator className={sx(menu.itemIndicator)}>
                   <Check aria-hidden size={14} />

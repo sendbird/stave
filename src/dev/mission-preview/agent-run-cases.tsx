@@ -7,6 +7,7 @@ import { AgentRunInstructions } from "@/components/missions/AgentRunPrompt";
 import { AgentRunResultCardView } from "@/components/missions/AgentRunResultCard";
 import { FleetMissionStrip } from "@/components/missions/FleetMissionStrip";
 import { MissionBarView } from "@/components/missions/MissionBar";
+import { ComposerShelfSurface } from "@/components/session/composer-shelf/ComposerShelf";
 import { MissionDetailView } from "@/components/missions/MissionPanel";
 import { compileMissionStagePrompt } from "@/lib/missions/briefing";
 import type { MissionDetail } from "@/lib/missions/api";
@@ -69,14 +70,16 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         <section key={id} className={sx(styles.case)} data-preview-case={id}>
           <p className={sx(styles.caption)}>{label}</p>
           <div className={sx(styles.stack)}>
-            <MissionBarView
-              detail={detail}
-              nowPhrase={phrase}
-              now={now}
-              reducedMotion={false}
-              agentActions={runActions}
-              actions={{ onOpenPanel: () => {} }}
-            />
+            <ComposerShelfSurface>
+              <MissionBarView
+                detail={detail}
+                nowPhrase={phrase}
+                now={now}
+                reducedMotion={false}
+                agentActions={runActions}
+                actions={{ onOpenPanel: () => {} }}
+              />
+            </ComposerShelfSurface>
             <div className={sx(styles.composer)}>Tell the agent something…</div>
           </div>
         </section>
@@ -90,16 +93,13 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         <p className={sx(styles.caption)}>Conversation · reason card, failed</p>
         <AgentRunResultCardView detail={runs.failed} now={now} actions={runActions} />
       </section>
-      <section className={sx(styles.case)} data-preview-case="Agent run stuck card">
-        <p className={sx(styles.caption)}>Conversation · reason card, stuck</p>
-        <AgentRunResultCardView detail={working.stuck} now={now} actions={runActions} />
-      </section>
 
       {(
         [
           ["Agent run panel working", "Progress tab · working", working.working],
           ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow],
           ["Agent run panel needs you", "Progress tab · needs you", working.needsYou],
+          ["Agent run panel stuck", "Progress tab · stuck (the bar has Retry)", working.stuck],
           ["Agent run panel ready", "Progress tab · ready", runs.ready],
           ["Agent run panel failed", "Progress tab · failed", runs.failed],
         ] as const

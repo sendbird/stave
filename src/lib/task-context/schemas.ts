@@ -477,6 +477,16 @@ export const ChatMessageSchema = z.object({
     ])
     .optional(),
   dispatchedFromQueue: z.boolean().optional(),
+  // A malformed mark drops to undefined: the row still decodes and renders as
+  // before provenance, found through the run that started its turn.
+  agentRunPrompt: z
+    .object({
+      missionId: z.string().min(1).max(200),
+      assignment: z.string().nullable(),
+    })
+    .strict()
+    .optional()
+    .catch(undefined),
 });
 
 const TaskSourceContextSchema = z

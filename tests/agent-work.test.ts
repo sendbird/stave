@@ -65,6 +65,18 @@ describe("collectAgentsWithWork", () => {
     });
   });
 
+  test("carries the agent's colour so the sidebar avatar matches the Agents surface", () => {
+    const result = collectAgentsWithWork({
+      byTaskId: { t1: { ...agent("planner", "Planner"), agentAppearance: { color: "violet" } } as TaskAgent },
+      tasks: [task("t1")],
+      messagesByTask: { t1: [waitingMessage()] },
+      activeTurnIdsByTask: {},
+      providerTurnActivityByTask: {},
+      limit: 5,
+    });
+    expect(result.agents[0]?.agentAppearance).toEqual({ color: "violet" });
+  });
+
   test("an idle task with an agent contributes nothing", () => {
     const result = collectAgentsWithWork({
       byTaskId: { t1: agent("planner", "Planner") },

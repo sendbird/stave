@@ -10,6 +10,8 @@ import type { ChatMessage, Task } from "@/types/chat";
 export interface AgentWork {
   agentConfigId: string;
   agentName: string;
+  /** The agent's colour, so its avatar matches the Agents surface. */
+  agentAppearance?: TaskAgent["agentAppearance"];
   /** Tasks of this agent that are running or waiting for the user. */
   count: number;
   /** True when at least one of those tasks is waiting on the user. */
@@ -72,6 +74,7 @@ export function collectAgentsWithWork(args: {
       byAgent.set(agent.agentConfigId, {
         agentConfigId: agent.agentConfigId,
         agentName: agent.agentName,
+        ...(agent.agentAppearance ? { agentAppearance: agent.agentAppearance } : {}),
         count: 1,
         needsYou,
       });

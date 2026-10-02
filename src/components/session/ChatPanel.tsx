@@ -163,6 +163,7 @@ interface MessageRowProps {
     isStreaming?: boolean;
     steerDeliveryState?: ChatMessage["steerDeliveryState"];
     dispatchedFromQueue?: ChatMessage["dispatchedFromQueue"];
+    agentRunPrompt?: ChatMessage["agentRunPrompt"];
     providerBoundary?: ChatMessage["providerBoundary"];
     usage?: ChatMessage["usage"];
     delegatedUsage?: ChatMessage["delegatedUsage"];
@@ -171,6 +172,8 @@ interface MessageRowProps {
   previousAssistantTurn?: PromptCacheTurnSnapshot | null;
   /** On a user message: the turn it started, for a mission stage divider. */
   startedTurnId?: string;
+  /** An Agent-mode send still waiting on its run: drawn as the row the run will write. */
+  pendingAgentRun?: boolean;
 }
 
 /**
@@ -201,6 +204,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     message,
     previousAssistantTurn,
     startedTurnId,
+    pendingAgentRun,
   } = args;
   const showRespondingWave =
     Boolean(activeTurnId) &&
@@ -258,10 +262,13 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   const messageText = message.displayContent ?? message.content;
   // An agent run's first prompt: the user's assignment, with Stave's compiled
   // instructions folded below it.
+  const isUser = message.role === "user";
   const agentRunPrompt = useAgentRunPrompt({
     taskId,
-    turnId: message.role === "user" ? startedTurnId : undefined,
+    turnId: isUser ? startedTurnId : undefined,
     text: messageText,
+    provenance: isUser ? message.agentRunPrompt : undefined,
+    pending: isUser && pendingAgentRun,
   });
   const userMessageSourceText = agentRunPrompt?.assignment ?? messageText;
   const bodyMessage = useMemo(
@@ -606,8 +613,14 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
  * A send still waiting on Auto's classifier: the prompt as it will appear once
  * the turn starts, with the route status where the response will stream. The
  * turn-start update replaces this with the real rows in the same tick.
+ *
+ * An Agent-mode send draws only the prompt, as the row its run will write
+ * (the assignment, its instructions folded): the run bar carries the status,
+ * and the row the run writes replaces this one in the same render.
  */
 function PendingAutoRouteTurn(props: {
+  /** The task's first row, inside the empty transcript's padded layout. */
+  first?: boolean;
   taskId: string;
   chatStreamingEnabled: boolean;
   showInterimMessages: boolean;
@@ -621,8 +634,11 @@ function PendingAutoRouteTurn(props: {
   }
   return (
     <div
-      className={sx(autoRouteLineStyles.pendingTurn)}
-      data-testid="pending-auto-route-turn"
+      className={sx(
+        autoRouteLineStyles.pendingTurn,
+        props.first && autoRouteLineStyles.pendingTurnFirst,
+      )}
+      data-testid={pending.agentRun ? "pending-agent-run-turn" : "pending-auto-route-turn"}
     >
       <MessageRow
         taskId={props.taskId}
@@ -630,12 +646,15 @@ function PendingAutoRouteTurn(props: {
         showInterimMessages={props.showInterimMessages}
         traceExpansionMode={props.traceExpansionMode}
         message={pending.userMessage}
+        pendingAgentRun={Boolean(pending.agentRun)}
       />
-      <Message from="assistant">
-        <div className={sx(styles.shell, styles.shellAssistant)}>
-          <PendingAutoRouteStatus pending={pending} />
-        </div>
-      </Message>
+      {pending.agentRun ? null : (
+        <Message from="assistant">
+          <div className={sx(styles.shell, styles.shellAssistant)}>
+            <PendingAutoRouteStatus pending={pending} />
+          </div>
+        </Message>
+      )}
     </div>
   );
 }
@@ -762,6 +781,9 @@ function ChatPanelMessageList(props: {
   // its items and the rows after it take the column instead.
   const usesInnerLayout =
     visibleMessages.length === 0 && !showConversationLoadingState;
+  // A new task's pending send is its only row: no empty list before it, so it
+  // sits where its real first row will.
+  const pendingIsFirstRow = usesInnerLayout && Boolean(pendingAutoRouteKey);
   const liveStreamingMessageId = activeTurnId
     ? visibleMessages.at(-1)?.id
     : undefined;
@@ -1090,7 +1112,7 @@ function ChatPanelMessageList(props: {
           !hasFailedSends &&
           !pendingAutoRouteKey ? (
           <TaskStartGuide />
-        ) : (
+        ) : pendingIsFirstRow ? null : (
           <ConversationVirtualList
             listKey={scrollContextKey}
             listRef={virtuosoRef}
@@ -1125,6 +1147,7 @@ function ChatPanelMessageList(props: {
           <AgentRunResultCard taskId={taskId} />
           <FailedOutgoingMessages taskId={taskId} />
           <PendingAutoRouteTurn
+            first={pendingIsFirstRow}
             taskId={taskId}
             chatStreamingEnabled={chatStreamingEnabled}
             showInterimMessages={showInterimMessages}

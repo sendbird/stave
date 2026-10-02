@@ -54,8 +54,11 @@ complete theme contract. Avoid utility overrides of primitive internals.
 
 ## Collaboration behavior
 
-Turn Activity contains live and retained turn activity, headed by the Mission
-bar while the task runs a mission. The right rail has one Task panel with four
+The composer shelf above the prompt input holds what is in flight for the
+task: one run line (the turn, or the mission or agent run heading it) and the
+queue. It is the only place a live run's state is written; `settings.
+turnActivityPlacement` decides only where its details open (inline, the
+floating card, or the Task panel). The right rail has one Task panel with four
 tabs: Activity (turn activity), Progress (the mission while the task has one,
 otherwise the flow), Subagents (every agent the task called; tab id `team`) and Results
 (run history). The task tab context menu opens the panel on the matching tab
@@ -151,10 +154,12 @@ Higher effort allows more reasoning and can take longer; the interface does not
 promise better results from that setting alone. Selecting a model never sends
 the prompt or discards its draft.
 
-`TurnActivity` gates its active child before subscribing to task messages,
-runtime activity, or child listings. Changing placement unmounts the former
-host's projections and effects. The active host preserves tool navigation,
-intervention controls, retained outcomes and the user's expansion preference.
+`TurnActivity` gates its floating card before subscribing to task messages,
+runtime activity, or child listings, and the composer shelf builds the
+transcript summary only while its own list is open. Changing placement unmounts
+the former detail host's projections and effects. Every host preserves tool
+navigation, intervention controls and retained outcomes; the shelf's detail
+toggle lasts for one run.
 
 ## Principal work surface migration
 
@@ -173,8 +178,9 @@ independently; failed discovery retains the last known state, and changed binary
 settings invalidate responses from the old configuration.
 
 The implementation owners are `ChatInput.tsx`, the `ai-elements/prompt-input*`
-and model selector components, `composer-workspace-bar.tsx`, `TurnActivity.tsx`,
-`TurnActivityPanel.tsx`, `TaskPanel.tsx`, and the workspace pane host. Shared behavior and styles
+and model selector components, `composer-workspace-bar.tsx`, `composer-shelf/`,
+`TurnActivity.tsx`, `TurnActivityPanel.tsx`, `TaskPanel.tsx`, and the workspace
+pane host. Shared behavior and styles
 belong in the system layer; product-specific composition stays with these owners.
 Inspect existing task activity and collaboration projections together before
 adding another competing progress summary or transcript subscription.
