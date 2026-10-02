@@ -97,7 +97,12 @@ Other utility calls and primary sessions keep their existing behavior.
 
 ## Settings and saved profiles
 
-The composer shows three preferences. Settings shows the enable switch,
+The composer shows three preferences. A task that runs as an
+[agent](agents.md) offers them in the agent's model segment too, and picking
+one keeps the agent. The composer button names the preference, such as
+`Auto · Balanced`, and after a routed turn the model and effort it used, such
+as `Auto → Opus 5 · High`. It shows no effort setting of its own, because Auto
+chooses the effort on every turn. Settings shows the enable switch,
 preference, and eligible models first. Advanced settings contains budget and
 signal controls, model classification, the usage wizard, rule editing,
 and a local rule preview. The preview makes no AI call and can differ from an

@@ -56,6 +56,8 @@ async function renderSelector(args: {
   agents?: ModelPickerAgents;
   auto?: boolean;
   model?: string;
+  /** The label of the provider's effort setting, which the composer always passes. */
+  effortLabel?: string;
 }) {
   setWindowContext();
   const [{ ModelEffortSelector }, { buildAutoModelSelectorOption, buildModelSelectorValue }] = await Promise.all([
@@ -70,6 +72,7 @@ async function renderSelector(args: {
       options: [auto, model],
       onSelect: () => {},
       ...(args.agents ? { agents: args.agents } : {}),
+      ...(args.effortLabel ? { effortLabel: args.effortLabel } : {}),
     }),
   );
 }
@@ -95,6 +98,18 @@ describe("the selector trigger", () => {
     expect(html.indexOf("Agent: Implementer")).toBeLessThan(html.indexOf("Model: Stave Auto"));
   });
 
+  test("Stave Auto shows no effort even though the composer passes one: Auto picks it on every turn", async () => {
+    // Chat, and an agent task: `Implementer | Auto · Balanced`, not `· X-High`.
+    for (const agents of [undefined, agentsProp()]) {
+      const html = await renderSelector({ agents, auto: true, effortLabel: "X-High" });
+      expect(html).toContain("Auto · Balanced</span>");
+      expect(html).not.toContain("X-High");
+    }
+    // A model keeps its effort.
+    const pinned = await renderSelector({ agents: agentsProp({ route: "pinned" }), effortLabel: "X-High" });
+    expect(pinned).toContain("Effort: High");
+  });
+
   test("a pin reads Pinned · model, with the effort visible", async () => {
     const html = await renderSelector({ agents: agentsProp({ route: "pinned" }) });
     expect(html).toContain("Pinned</span>");
@@ -113,6 +128,24 @@ describe("the selector trigger", () => {
     const html = await renderSelector({ agents: agentsProp({ route: "pinned", autoAvailable: false }) });
     expect(html).not.toContain("Pinned</span>");
     expect(html).toContain("Claude Opus 5</span>");
+  });
+});
+
+describe("the pin picker's Stave Auto tab", () => {
+  test("is offered where Auto is the agent's route, so its preference can change without ending the agent", async () => {
+    const { pickerShowsAutoTab } = await import("@/components/ai-elements/model-effort-selector.utils");
+    const auto = { fixedModel: false, autoAvailable: true };
+    // Chat's selector always offers it.
+    expect(pickerShowsAutoTab({ hasAutoOption: true, pinMode: false, valueIsAuto: false, agent: null })).toBe(true);
+    // An agent that leaves its model to Stave Auto: on Auto, and while pinned (a preference lifts the pin).
+    expect(pickerShowsAutoTab({ hasAutoOption: true, pinMode: true, valueIsAuto: true, agent: auto })).toBe(true);
+    expect(pickerShowsAutoTab({ hasAutoOption: true, pinMode: true, valueIsAuto: false, agent: auto })).toBe(true);
+    // An agent with a model of its own goes back to it from the route row; on Auto it can still tune it.
+    expect(pickerShowsAutoTab({ hasAutoOption: true, pinMode: true, valueIsAuto: false, agent: { ...auto, fixedModel: true } })).toBe(false);
+    expect(pickerShowsAutoTab({ hasAutoOption: true, pinMode: true, valueIsAuto: true, agent: { ...auto, fixedModel: true } })).toBe(true);
+    // Stave Auto off, or no Auto option: nothing to offer.
+    expect(pickerShowsAutoTab({ hasAutoOption: true, pinMode: true, valueIsAuto: false, agent: { ...auto, autoAvailable: false } })).toBe(false);
+    expect(pickerShowsAutoTab({ hasAutoOption: false, pinMode: false, valueIsAuto: false, agent: null })).toBe(false);
   });
 });
 

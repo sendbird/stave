@@ -52,6 +52,7 @@ import {
   isClaudeContext1MModel,
   listDefaultModelOptions,
   listModelEfforts,
+  pickerShowsAutoTab,
   planPickerRail,
   resolveClaudeContextOption,
   resolveDefaultModelEffort,
@@ -319,8 +320,9 @@ function CatalogNotice(args: {
 export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const [openPanel, setOpenPanel] = useState<PanelMode | null>(null);
   const open = openPanel !== null;
-  // The pin picker lists concrete models for the agent's turns: no Agents
-  // section and no Auto tab, and a pick pins instead of switching to Chat.
+  // The pin picker lists the models for the agent's turns: no Agents section,
+  // and a pick pins instead of switching to Chat. Its Auto tab sets the Stave
+  // Auto preference the agent's turns route with, as Chat's does.
   const pinMode = openPanel === "pin";
   const setOpen = (next: boolean) => setOpenPanel(next ? "selector" : null);
   const [query, setQuery] = useState("");
@@ -378,6 +380,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   });
   const cursorParameterized = usesCursorParameterizedPicker(args.options);
   const autoOption = args.options.find((option) => option.isAuto);
+  const showsAutoTab = pickerShowsAutoTab({
+    hasAutoOption: Boolean(autoOption),
+    pinMode,
+    valueIsAuto: Boolean(args.value.isAuto),
+    agent: args.agents ?? null,
+  });
   const isAutoTab = railValue === AUTO_TAB;
   const isAgentsTab = railValue === AGENTS_TAB;
   // Auto has no list to search, and the Agents tab has no model list.
@@ -504,8 +512,10 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       ? undefined
       : ((cursorComposerControls.effortValue as ModelEffortValue | undefined) ??
         resolveDefaultModelEffort(args.value));
+  // Stave Auto picks the effort with the model on every turn, so it shows none
+  // of its own; once a turn is routed, its label names the effort it used.
   const selectedEffortLabel =
-    args.value.providerId === "cursor" && !cursorParameterized
+    args.value.isAuto || (args.value.providerId === "cursor" && !cursorParameterized)
       ? undefined
       : (listModelEfforts(args.value).find(
           (effort) => effort.value === selectedEffort,
@@ -617,7 +627,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     setRailValue(
       requestedTab ??
       (pinMode
-        ? startProviderId
+        ? args.value.isAuto && showsAutoTab
+          ? AUTO_TAB
+          : startProviderId
         : agentActive
           ? AGENTS_TAB
           : args.value.isAuto
@@ -636,6 +648,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     open,
     pinMode,
     providerIds,
+    showsAutoTab,
   ]);
 
   useEffect(() => {
@@ -692,7 +705,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           onPreview={(value) => showTab(value as RailValue)}
           items={planPickerRail({
             providerIds,
-            hasAuto: Boolean(autoOption) && !pinMode,
+            hasAuto: showsAutoTab,
             hasAgents: searchesAgents,
           }).map((tab) => {
             if (tab.kind === "auto") {
@@ -745,7 +758,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         />
 
         <div className={sx(styles.panel)}>
-          {pinMode && agent && args.agents?.route ? (
+          {/* The Auto tab is the route itself: its preference list replaces the row. */}
+          {pinMode && agent && args.agents?.route && !isAutoTab ? (
             <AgentRouteRow
               agentName={agent.name}
               route={args.agents.route}
@@ -814,7 +828,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             </TabsContent>
           ) : null}
 
-          {autoOption && !pinMode ? (
+          {/* In the pin picker a preference routes the agent's turns through
+              Stave Auto again; the agent stays assigned. */}
+          {autoOption && showsAutoTab ? (
             <TabsContent value={AUTO_TAB} xstyle={styles.tabContentAuto}>
               {isAutoTab ? (
                 <AutoRoutingProfileList
