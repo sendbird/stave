@@ -90,6 +90,14 @@ export const userInputCardStyles = stylex.create({
       "@media (min-width: 640px)": vars["--ads-space-20"],
     },
   },
+  // The host card frames it and caps its height; the form only has to shrink
+  // into that cap so the questions scroll and the actions stay in view.
+  formEmbedded: {
+    display: "flex",
+    flex: "1 1 auto",
+    flexDirection: "column",
+    minHeight: 0,
+  },
   header: {
     display: "flex",
     flexShrink: 0,

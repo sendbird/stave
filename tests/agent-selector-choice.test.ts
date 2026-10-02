@@ -204,12 +204,13 @@ describe("the model route of an agent task", () => {
 });
 
 describe("the selector rail", () => {
-  test("Models come first, then Stave Auto, then Agents, each group headed", () => {
+  test("Models come first under a heading, then Stave Auto, then the Agents tab set off by a divider", () => {
     expect(planPickerRail({ providerIds: ["claude-code", "codex"], hasAuto: true, hasAgents: true })).toEqual([
       { kind: "provider", value: "claude-code", heading: "Models" },
       { kind: "provider", value: "codex" },
       { kind: "auto", value: "auto" },
-      { kind: "agents", value: "agents", heading: "Agents" },
+      // A group of one: an "Agents" heading would only repeat the tab's label.
+      { kind: "agents", value: "agents", divider: true },
     ]);
   });
 

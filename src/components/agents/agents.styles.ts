@@ -148,6 +148,9 @@ export const agentStyles = stylex.create({
   /* Detail layout -------------------------------------------------------- */
   detail: { gap: vars["--ads-space-16"] },
   pane: { display: "flex", flexDirection: "column", gap: vars["--ads-space-16"] },
+  // The shared footer is a full-bleed bar; inside the editor it sits in the
+  // form column, so Save lines up with the fields instead of 24px in from them.
+  editorFooter: { paddingInline: 0, backgroundColor: "transparent" },
   tabPane: { paddingTop: vars["--ads-space-16"] },
 
   /* Activity ------------------------------------------------------------- */

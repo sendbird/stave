@@ -183,7 +183,7 @@ export function ChildRequestView(props: {
   return (
     <section
       aria-label="Requests from delegated tasks"
-      className={sx(styles.section)}
+      className={sx(styles.section, pending?.part.type === "user_input" ? styles.sectionCapped : null)}
       data-delegated-request-id={props.requestId}
     >
       <div className={sx(styles.header)}>
@@ -216,6 +216,7 @@ export function ChildRequestView(props: {
           questions={pending.part.questions}
           state={pending.part.state}
           answers={pending.part.answers}
+          presentation="embedded"
           disabled={busy}
           disabledReason={disabledReason}
           onSubmit={(answers) => props.onRespond({ kind: "user-input", answers })}

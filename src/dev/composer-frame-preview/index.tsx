@@ -19,6 +19,7 @@ import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { PromptInputContextMeter } from "@/components/ai-elements/prompt-input-context-meter";
 import { TooltipProvider } from "@/components/ui";
+import { ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
 import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
 import { MacroQuickPicks } from "@/components/session/MacroQuickPicks";
@@ -46,7 +47,12 @@ import {
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { composerFramePreviewStyles as f } from "./composer-frame-preview.styles";
-import { PREVIEW_MACROS, PREVIEW_MODEL } from "./fixtures";
+import {
+  PREVIEW_CHILD_APPROVAL,
+  PREVIEW_CHILD_QUESTION,
+  PREVIEW_MACROS,
+  PREVIEW_MODEL,
+} from "./fixtures";
 import {
   caseHasQueue,
   isShelfCaseId,
@@ -73,6 +79,8 @@ import {
  * pinned to a model or on the agent's fixed model (Auto otherwise);
  * `&auto=off` turns Stave Auto off; `&theme=light` starts in light mode, and
  * `&theme=<built-in theme id>` renders under that theme.
+ * `&childRequest=question|approval` shows a delegated task's request above the
+ * composer, the slot `ChatInputComposer` mounts.
  *
  * The composer shelf: `&case=<id>` (see `SHELF_CASES`) seeds the stores with a
  * turn, an agent run, a pending approval or a queue; `&placement=docked|
@@ -134,6 +142,11 @@ function installAgentsBridge(initial: AgentConfig | null) {
   };
 }
 const INITIAL_AGENT = previewAgent();
+const CHILD_REQUESTS: Record<string, ChildPendingRequest> = {
+  question: PREVIEW_CHILD_QUESTION,
+  approval: PREVIEW_CHILD_APPROVAL,
+};
+const CHILD_REQUEST = CHILD_REQUESTS[previewParams.get("childRequest") ?? ""] ?? null;
 installAgentsBridge(INITIAL_AGENT);
 
 export function ComposerFramePreviewApp() {
@@ -355,6 +368,19 @@ export function ComposerFramePreviewApp() {
                   <ChatInputApprovalQueue approvals={PREVIEW_APPROVALS} onResolveApproval={() => {}} />
                 ) : null}
                 {framed ? null : shelf}
+                {CHILD_REQUEST ? (
+                  <ChildRequestView
+                    requestId={CHILD_REQUEST.part.requestId}
+                    childTitle="Migrate settings sections to the new tokens"
+                    providerId="codex"
+                    pending={CHILD_REQUEST}
+                    queuedCount={1}
+                    busy={false}
+                    error={null}
+                    loaded
+                    onRespond={() => {}}
+                  />
+                ) : null}
                 <PromptInput
                   framed={framed}
                   isTurnActive={turnActive}

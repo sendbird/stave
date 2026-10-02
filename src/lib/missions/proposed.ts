@@ -147,3 +147,13 @@ export interface ProposalsBridgeApi {
   observePullRequest: (args: { workspaceId: string; workspaceName: string; pr: ObservedPullRequest }) => Promise<ProposalObserveResponse>;
   subscribeChanged: (listener: () => void) => () => void;
 }
+
+/**
+ * Whether Issues offers the Proposed tab: only with something in it (waiting or
+ * recently decided) or something that can still propose. Nothing can set up a
+ * new start condition, so an always-present "Proposed · 0" promised work that
+ * would never arrive.
+ */
+export function hasProposedWork(args: { pendingCount: number; recentCount: number; watching: string | null }): boolean {
+  return args.pendingCount > 0 || args.recentCount > 0 || Boolean(args.watching);
+}

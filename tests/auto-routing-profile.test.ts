@@ -2,16 +2,20 @@ import { describe, expect, test } from "bun:test";
 import {
   applyStance,
   buildRoleSignals,
+  buildRoleTableGroups,
+  buildStarterRules,
   buildStarterProfile,
   cloneProfileAsCustom,
   formatResolvedRouteLabel,
   migrateLegacyAutoSettings,
   resolveDelegateDefaults,
   resolveRoute,
+  SELECTABLE_ROUTER_ROLES,
   STARTER_PROFILES,
   validateProfile,
   withStance,
   type AutoRoutingProfile,
+  type RouteRule,
   type RouterSignals,
 } from "@/lib/providers/auto-routing-profile";
 import {
@@ -34,6 +38,15 @@ function signals(overrides: Partial<RouterSignals> = {}): RouterSignals {
 }
 
 const balanced = buildStarterProfile("starter-balanced");
+
+/** The advisor rule older builds seeded; existing profiles may still carry it. */
+const storedAdvisorRule: RouteRule = {
+  id: "advisor-default",
+  when: { role: "advisor" },
+  then: { providerId: "alternate-provider", tier: "frontier", effort: "medium" },
+  reason: "A second opinion uses a capable model from another available provider.",
+  enabled: true,
+};
 
 describe("starter profiles", () => {
   test("three starters share one role table and differ only by stance", () => {
@@ -167,7 +180,7 @@ describe("resolveRoute", () => {
     expect(worker.reason).toContain("fallback");
 
     const advisor = resolveRoute({
-      profile: balanced,
+      profile: { ...balanced, rules: [storedAdvisorRule, ...balanced.rules] },
       role: "advisor",
       signals: signals({ currentProviderId: "claude-code", currentModel: CLAUDE_FABLE_MODEL }),
     });
@@ -194,11 +207,7 @@ describe("resolveRoute", () => {
   test("an advisor never answers with the primary's own model", () => {
     const profile: AutoRoutingProfile = {
       ...balanced,
-      rules: balanced.rules.map((entry) =>
-        entry.id === "advisor-default"
-          ? { ...entry, then: { ...entry.then, providerId: "any-eligible" } }
-          : entry,
-      ),
+      rules: [{ ...storedAdvisorRule, then: { ...storedAdvisorRule.then, providerId: "any-eligible" } }, ...balanced.rules],
     };
     const route = resolveRoute({
       profile,
@@ -241,6 +250,30 @@ describe("role helpers", () => {
     });
   });
 
+});
+
+describe("role table", () => {
+  test("new rules, starters and Reset offer only the roles that still route", () => {
+    expect([...SELECTABLE_ROUTER_ROLES]).toEqual(["primary", "delegate"]);
+    const roles = buildStarterRules().map((entry) => entry.when.role ?? "primary");
+    expect(roles.filter((role) => role === "advisor" || role === "worker")).toEqual([]);
+  });
+
+  test("a stored advisor rule stays readable as a legacy group after the selectable roles", () => {
+    const kept = validateProfile({ ...balanced, rules: [storedAdvisorRule, ...balanced.rules] });
+    expect(kept.rules[0]).toMatchObject({ id: "advisor-default", when: { role: "advisor" } });
+    const groups = buildRoleTableGroups(kept.rules);
+    expect(groups.map((group) => [group.role, group.legacy])).toEqual([
+      ["primary", false],
+      ["delegate", false],
+      ["advisor", true],
+    ]);
+    expect(groups[2]!.rules).toEqual([{ rule: kept.rules[0]!, index: 0 }]);
+  });
+
+  test("a legacy role without stored rules is not shown", () => {
+    expect(buildRoleTableGroups(balanced.rules).map((group) => group.role)).toEqual(["primary", "delegate"]);
+  });
 });
 
 describe("validation and migration", () => {

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AgentTable, Figures, OutcomeStrip, Reasons } from "../src/components/results/ResultsParts";
-import { ResultsFailure } from "../src/components/results/ResultsView";
+import { AgentTable, Figures, OutcomeStrip, Reasons, outcomeTone } from "../src/components/results/ResultsParts";
+import { ResultsFailure, beginResultsLoad } from "../src/components/results/ResultsView";
 import { aggregateMissionInsights, type ResultSample } from "../src/lib/missions/insights";
 import { createAppSurfaceActions, RESULTS_APP_SURFACE, WORKSPACE_APP_SURFACE, normalizeAppActiveSurface, type AppActiveSurface } from "../src/store/app-surface";
 import { getCommandPaletteCoreCommands } from "../src/components/layout/command-palette-registry";
@@ -94,5 +94,25 @@ describe("results entry points", () => {
     const entry = getCommandPaletteCoreCommands().find((candidate) => candidate.id === "navigation.results");
     expect(entry?.title).toBe("Open Results");
     expect(entry?.group).toBe("navigation");
+  });
+});
+
+describe("results reload", () => {
+  test("a period switch keeps the figures on the page and marks them as reloading", () => {
+    const next = beginResultsLoad({ status: "ready", insights, reloading: false });
+    expect(next).toEqual({ status: "ready", insights, reloading: true });
+  });
+
+  test("with nothing on the page yet it reads from scratch", () => {
+    expect(beginResultsLoad({ status: "loading" })).toEqual({ status: "loading" });
+    expect(beginResultsLoad({ status: "failed", message: "locked" })).toEqual({ status: "loading" });
+    expect(beginResultsLoad({ status: "unavailable" })).toEqual({ status: "loading" });
+  });
+
+  test("each bar segment wears its legend icon's tone", () => {
+    expect(outcomeTone("ready")).toBe("success");
+    expect(outcomeTone("rework")).toBe("warning");
+    expect(outcomeTone("failed")).toBe("danger");
+    expect(outcomeTone("stopped")).toBe("neutral");
   });
 });

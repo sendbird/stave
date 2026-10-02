@@ -49,7 +49,12 @@ import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-inform
 import { useAppStore } from "@/store/app.store";
 import { createCoalescedLoader } from "@/lib/coalesced-loader";
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
-import { buildScheduleRows, type ScheduleRow } from "@/lib/schedule-rows";
+import {
+  buildScheduleRows,
+  resolveScheduleSelection,
+  scheduleListState,
+  type ScheduleRow,
+} from "@/lib/schedule-rows";
 import { useScheduleRequestStore } from "@/store/schedule-request-store";
 import type { WakeUp } from "@/lib/supervision/wake-up-policy";
 import { AutomationEditor } from "./AutomationEditor";
@@ -132,10 +137,9 @@ export function AutomationCenterView() {
     runs: [],
   });
   const [activeTab, setActiveTab] = useState<AutomationCenterTab>("automations");
-  const [selectedAutomationId, setSelectedAutomationId] = useState<string | null>(
-    null,
-  );
-  const [selectedCheckBackId, setSelectedCheckBackId] = useState<string | null>(null);
+  // The row the user picked (`start:<id>` / `check-back:<id>`); the shown one
+  // falls back to the first row when it is gone or nothing was picked.
+  const [pickedScheduleKey, setPickedScheduleKey] = useState<string | null>(null);
   const [checkBackSheet, setCheckBackSheet] = useState<{
     wakeUp: WakeUp | null;
     taskId: string | null;
@@ -154,6 +158,8 @@ export function AutomationCenterView() {
   >([]);
   const [informationLoading, setInformationLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  // The first answer, data or error; later reloads keep what is on screen.
+  const [snapshotAnswered, setSnapshotAnswered] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busyAutomationId, setBusyAutomationId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -233,15 +239,6 @@ export function AutomationCenterView() {
         }
         setSnapshot(result.snapshot);
         setError("");
-        setSelectedAutomationId((current) => {
-          if (
-            current &&
-            result.snapshot.automations.some((automation) => automation.id === current)
-          ) {
-            return current;
-          }
-          return result.snapshot.automations[0]?.id ?? null;
-        });
       } catch (loadError) {
         if (!isCurrent()) return;
         setError(
@@ -250,6 +247,7 @@ export function AutomationCenterView() {
       } finally {
         if (isCurrent()) {
           setLoading(false);
+          setSnapshotAnswered(true);
         }
       }
     },
@@ -341,9 +339,6 @@ export function AutomationCenterView() {
     () => new Map(snapshot.automations.map((automation) => [automation.id, automation])),
     [snapshot.automations],
   );
-  const selectedAutomation = selectedAutomationId
-    ? (automationById.get(selectedAutomationId) ?? null)
-    : null;
   const runCountByAutomationId = useMemo(() => {
     const counts = new Map<string, number>();
     for (const run of snapshot.runs) {
@@ -386,16 +381,15 @@ export function AutomationCenterView() {
       }),
     [checkBacks.summaries, checkBacks.wakeUps, snapshot.automations, snapshot.runs, taskTitleById],
   );
+  const selectedRow = resolveScheduleSelection(scheduleRows, pickedScheduleKey);
+  const selectedKey = selectedRow?.key ?? null;
+  const selectedAutomation =
+    selectedRow?.kind === "start" ? (automationById.get(selectedRow.id) ?? null) : null;
   const selectedCheckBack =
-    checkBacks.wakeUps.find((wakeUp) => wakeUp.id === selectedCheckBackId) ?? null;
-  const selectedCheckBackRow = selectedCheckBack
-    ? (scheduleRows.find((row) => row.key === `check-back:${selectedCheckBack.id}`) ?? null)
-    : null;
-  const selectedKey = selectedCheckBack
-    ? `check-back:${selectedCheckBack.id}`
-    : selectedAutomationId
-      ? `start:${selectedAutomationId}`
+    selectedRow?.kind === "check-back"
+      ? (checkBacks.wakeUps.find((wakeUp) => wakeUp.id === selectedRow.id) ?? null)
       : null;
+  const selectedCheckBackRow = selectedCheckBack ? selectedRow : null;
 
   // A task's "Check back…" menu item parks a request here; open its sheet once
   // the check-backs have loaded, so an existing one is edited rather than doubled.
@@ -495,7 +489,7 @@ export function AutomationCenterView() {
         toast.error(result.message ?? "Failed to save automation.");
         return;
       }
-      setSelectedAutomationId(result.automation.id);
+      setPickedScheduleKey(`start:${result.automation.id}`);
       cancelEdit();
       await loadSnapshot();
       toast.success(
@@ -596,12 +590,7 @@ export function AutomationCenterView() {
   }
 
   function selectRow(row: ScheduleRow) {
-    if (row.kind === "start") {
-      setSelectedCheckBackId(null);
-      setSelectedAutomationId(row.id);
-    } else {
-      setSelectedCheckBackId(row.id);
-    }
+    setPickedScheduleKey(row.key);
   }
 
   function runRowNow(row: ScheduleRow) {
@@ -648,7 +637,7 @@ export function AutomationCenterView() {
         return;
       }
       setRemoveCheckBack(null);
-      setSelectedCheckBackId(null);
+      setPickedScheduleKey(null);
       await checkBacks.reload();
       toast.success("Schedule removed");
     } catch (removeError) {
@@ -703,7 +692,7 @@ export function AutomationCenterView() {
           onSaved={() => {
             const saved = checkBackSheet.wakeUp;
             setCheckBackSheet(null);
-            if (saved) setSelectedCheckBackId(saved.id);
+            if (saved) setPickedScheduleKey(`check-back:${saved.id}`);
             void checkBacks.reload();
           }}
         />
@@ -751,8 +740,19 @@ export function AutomationCenterView() {
     );
   }
 
+  const loadError = [error, checkBacks.error].filter(Boolean).join(" ");
+  const listState = scheduleListState({
+    rowCount: scheduleRows.length,
+    automationsLoaded: snapshotAnswered,
+    checkBacksLoaded: checkBacks.loaded,
+    failed: Boolean(loadError),
+  });
   const showLoadingState =
-    loading && scheduleRows.length === 0 && snapshot.runs.length === 0;
+    activeTab === "automations"
+      ? listState === "loading"
+      : !snapshotAnswered && snapshot.runs.length === 0;
+  const tabLabel = (label: string, count: number) =>
+    count > 0 ? `${label} · ${count}` : label;
 
   return (
     <div className={sx(centerStyles.root)}>
@@ -791,7 +791,10 @@ export function AutomationCenterView() {
             variant="ghost"
             size="sm"
             xstyle={centerStyles.iconButton}
-            onClick={() => void loadSnapshot()}
+            onClick={() => {
+              void loadSnapshot();
+              void checkBacks.reload();
+            }}
             aria-label="Refresh schedules"
             title="Refresh"
           >
@@ -819,8 +822,8 @@ export function AutomationCenterView() {
         <nav aria-label="Schedule views" className={sx(centerStyles.tabNav)}>
           {(
             [
-              ["automations", `Schedules · ${scheduleRows.length}`],
-              ["runs", `Run history · ${snapshot.runs.length}`],
+              ["automations", tabLabel("Schedules", scheduleRows.length)],
+              ["runs", tabLabel("Run history", snapshot.runs.length)],
             ] as const
           ).map(([id, label]) => (
             <ActionButton
@@ -892,10 +895,10 @@ export function AutomationCenterView() {
         ) : null}
       </div>
 
-      {error ? (
-        <div className={sx(centerStyles.errorBanner)}>
+      {loadError ? (
+        <div className={sx(centerStyles.errorBanner)} role="alert">
           <AlertCircle className={sx(centerStyles.errorIcon)} />
-          {error}
+          {loadError}
         </div>
       ) : null}
 
@@ -921,7 +924,7 @@ export function AutomationCenterView() {
           </div>
         </div>
       ) : activeTab === "automations" ? (
-        scheduleRows.length === 0 ? (
+        listState === "failed" ? null : listState === "empty" ? (
           <Empty xstyle={centerStyles.emptyPane}>
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -1040,22 +1043,18 @@ export function AutomationCenterView() {
                         selectedAutomation.enabled ? "Scheduled" : "Manual only"
                       }
                     />
-                    <Detail
-                      label="Cadence"
-                      value={
-                        selectedAutomation.enabled
-                          ? formatAutomationSchedule(selectedAutomation.schedule)
-                          : "—"
-                      }
-                    />
-                    <Detail
-                      label="Next run"
-                      value={
-                        selectedAutomation.enabled
-                          ? formatRelativeTime(selectedAutomation.nextRunAt)
-                          : "—"
-                      }
-                    />
+                    {selectedAutomation.enabled ? (
+                      <>
+                        <Detail
+                          label="Cadence"
+                          value={formatAutomationSchedule(selectedAutomation.schedule)}
+                        />
+                        <Detail
+                          label="Next run"
+                          value={formatRelativeTime(selectedAutomation.nextRunAt)}
+                        />
+                      </>
+                    ) : null}
                     <Detail
                       label="Last run"
                       value={formatRelativeTime(selectedAutomation.lastRunAt)}

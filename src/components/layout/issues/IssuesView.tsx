@@ -26,7 +26,7 @@ import {
   type TrackerSourceId,
 } from "@/lib/tracker-issues/types";
 import { sx } from "@/components/ads/utils/stylex";
-import type { ProposedMission } from "@/lib/missions/proposed";
+import { hasProposedWork, type ProposedMission } from "@/lib/missions/proposed";
 import { summarizeWatching } from "@/lib/playbooks/starts-when";
 import { useAppStore } from "@/store/app.store";
 import { useProposalsStore } from "@/store/proposals-store";
@@ -326,6 +326,14 @@ export function IssuesView(props: { onClose: () => void }) {
           setSection(next);
           setSelectedKey(null);
         }}
+        showProposed={
+          section === "proposed" ||
+          hasProposedWork({
+            pendingCount: pendingProposals.length,
+            recentCount: recentProposals.length,
+            watching,
+          })
+        }
         proposedCount={pendingProposals.length}
       />
       {section === "proposed" ? (

@@ -1,4 +1,5 @@
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
+import type { ChildPendingRequest } from "@/components/session/ChildRequestSlot";
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
@@ -95,3 +96,69 @@ export const PREVIEW_MACROS = [
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
 ];
+
+/**
+ * A delegated child's question set, long enough to need the slot's height cap
+ * (`?childRequest=question`), and a child's approval (`?childRequest=approval`).
+ */
+export const PREVIEW_CHILD_QUESTION: ChildPendingRequest = {
+  messageId: "preview-child-message",
+  model: "gpt-5.5-codex",
+  part: {
+    type: "user_input",
+    requestId: "preview-child-question",
+    toolName: "AskUserQuestion",
+    state: "input-requested",
+    questions: [
+      {
+        key: "scope",
+        header: "Scope",
+        question: "Which surfaces should the migration cover in this pass?",
+        multiSelect: true,
+        options: [
+          { label: "Settings dialog", description: "Every section under Settings." },
+          { label: "Task panel", description: "Tabs, progress and results." },
+          { label: "Sidebar", description: "Workspace list and primary nav." },
+          { label: "Composer", description: "Prompt input and its shelves." },
+        ],
+      },
+      {
+        key: "tests",
+        header: "Tests",
+        question: "Should it add a regression test for each surface it changes?",
+        options: [
+          { label: "Yes, one per surface", description: "Slower, but each fix is pinned.", recommended: true },
+          { label: "Only for logic", description: "Skip render-only changes." },
+        ],
+      },
+      {
+        key: "branch",
+        header: "Branch",
+        question: "Where should the work land?",
+        options: [
+          { label: "This workspace", description: "Commit on the current branch." },
+          { label: "A new branch", description: "Open a separate PR for review." },
+        ],
+      },
+      {
+        key: "notes",
+        header: "Notes",
+        question: "Anything else the delegated task should know before it continues?",
+        options: [],
+        required: false,
+      },
+    ],
+  },
+};
+
+export const PREVIEW_CHILD_APPROVAL: ChildPendingRequest = {
+  messageId: "preview-child-approval-message",
+  model: "gpt-5.5-codex",
+  part: {
+    type: "approval",
+    requestId: "preview-child-approval",
+    toolName: "Bash",
+    description: "bun run check:design-system",
+    state: "approval-requested",
+  },
+};

@@ -357,7 +357,7 @@ describe("buildProfileFromUsage", () => {
 
     const ids = profile.rules.map((rule) => rule.id);
     const indexOf = (id: string) => ids.indexOf(id);
-    expect(indexOf("advisor-default")).toBe(0);
+    expect(indexOf("delegate-default")).toBe(0);
     expect(indexOf("delegate-default")).toBeLessThan(indexOf("safety-critical"));
     expect(indexOf("safety-critical")).toBeLessThan(indexOf("usage-skill-ship"));
     expect(indexOf("usage-skill-ship")).toBeLessThan(indexOf("usage-plan"));

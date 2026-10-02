@@ -3,11 +3,15 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { darkThemeValues, highContrastThemeValues, lightThemeValues } from "@/components/ads/tokens/theme-values";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
+import { BUILTIN_CUSTOM_THEMES, PRESET_THEME_TOKENS } from "@/lib/themes";
 import { contrastRatio, mixOklab, parseCssColor } from "@/lib/themes/contrast";
 import {
   AGENT_AVATAR_FILL_SHARE,
+  AGENT_AVATAR_INK_FLOOR,
   AGENT_AVATAR_INK_SHARE,
+  agentAvatarPalette,
   agentAvatarTone,
+  clampAvatarInk,
   AGENT_COLOR_CHART_INDEX,
   agentColor,
   agentColorToken,
@@ -65,22 +69,76 @@ describe("agent appearance", () => {
 });
 
 describe("agent avatar", () => {
-  const themes = { light: lightThemeValues, dark: darkThemeValues, "high contrast": highContrastThemeValues };
+  const adsThemes = { light: lightThemeValues, dark: darkThemeValues, "high contrast": highContrastThemeValues };
+  type AdsValues = typeof lightThemeValues;
+  const chart = (values: AdsValues) => (index: number) => values[`--ads-chart-${index}` as keyof AdsValues];
+  // Every theme a user can pick: the ADS bases, Stave's two presets and each
+  // built-in port. Stave themes reach the avatar through `ads-theme.ts`
+  // (surface = `--card`, text = `--foreground`); chart hues stay ADS's own.
+  const catalog = [
+    ...Object.entries(adsThemes).map(([id, values]) => ({
+      id: `ads ${id}`,
+      surface: values["--ads-color-surface"],
+      text: values["--ads-color-text"],
+      hues: chart(values),
+    })),
+    ...[
+      { id: "preset-light", baseMode: "light" as const, tokens: PRESET_THEME_TOKENS.light as Record<string, string> },
+      { id: "preset-dark", baseMode: "dark" as const, tokens: PRESET_THEME_TOKENS.dark as Record<string, string> },
+      ...BUILTIN_CUSTOM_THEMES,
+    ].map((theme) => ({
+      id: theme.id,
+      surface: theme.tokens.card ?? "",
+      text: theme.tokens.foreground ?? "",
+      hues: chart(theme.baseMode === "dark" ? darkThemeValues : lightThemeValues),
+    })),
+  ];
 
-  test("initials hold 4.5:1 on the soft fill for every hue in every theme", () => {
+  test("initials hold 4.5:1 on the soft fill for every hue in every built-in theme", () => {
+    expect(catalog.length).toBeGreaterThan(BUILTIN_CUSTOM_THEMES.length);
     const failures: string[] = [];
-    for (const [theme, values] of Object.entries(themes)) {
-      const surface = parseCssColor(values["--ads-color-surface"])!;
-      const text = parseCssColor(values["--ads-color-text"])!;
+    for (const theme of catalog) {
+      const palette = agentAvatarPalette(theme);
+      if (!palette) {
+        failures.push(`${theme.id}: unreadable`);
+        continue;
+      }
       for (const color of AGENT_COLORS) {
-        const hue = parseCssColor(values[`--ads-chart-${AGENT_COLOR_CHART_INDEX[color]}` as keyof typeof values])!;
-        const fill = mixOklab(surface, hue, AGENT_AVATAR_FILL_SHARE / 100);
-        const ink = mixOklab(text, hue, AGENT_AVATAR_INK_SHARE / 100);
-        const ratio = contrastRatio(ink, fill);
-        if (ratio < 4.5) failures.push(`${theme} ${color} ${ratio.toFixed(2)}:1`);
+        // Measure the strings the avatar paints, so rounding cannot hide a miss.
+        const ratio = contrastRatio(parseCssColor(palette[color].ink)!, parseCssColor(palette[color].fill)!);
+        if (ratio < AGENT_AVATAR_INK_FLOOR) failures.push(`${theme.id} ${color} ${ratio.toFixed(2)}:1`);
       }
     }
     expect(failures).toEqual([]);
+  });
+
+  test("the clamp leaves a readable ink alone and only moves a short one towards the far pole", () => {
+    const surface = parseCssColor(lightThemeValues["--ads-color-surface"])!;
+    const hue = parseCssColor(lightThemeValues["--ads-chart-1"])!;
+    const fill = mixOklab(surface, hue, AGENT_AVATAR_FILL_SHARE / 100);
+    const text = parseCssColor("oklch(0.2 0 0)")!;
+    const readable = mixOklab(text, hue, AGENT_AVATAR_INK_SHARE / 100);
+    expect(clampAvatarInk(readable, fill, text)).toEqual(readable);
+
+    // Everforest Light's body ink is too close to a light fill once tinted.
+    const everforest = parseCssColor("#5c6a72")!;
+    const short = mixOklab(everforest, hue, AGENT_AVATAR_INK_SHARE / 100);
+    expect(contrastRatio(short, fill)).toBeLessThan(AGENT_AVATAR_INK_FLOOR);
+    const clamped = clampAvatarInk(short, fill, everforest);
+    expect(contrastRatio(clamped, fill)).toBeGreaterThanOrEqual(AGENT_AVATAR_INK_FLOOR);
+    expect(clamped.l).toBeLessThan(short.l);
+
+    // On a dark surface the ink is the light pole, so it lifts instead.
+    const darkSurface = parseCssColor("oklch(0.25 0.01 250)")!;
+    const darkFill = mixOklab(darkSurface, hue, AGENT_AVATAR_FILL_SHARE / 100);
+    const dim = parseCssColor("oklch(0.62 0.01 250)")!;
+    const lifted = clampAvatarInk(mixOklab(dim, hue, AGENT_AVATAR_INK_SHARE / 100), darkFill, dim);
+    expect(lifted.l).toBeGreaterThan(dim.l);
+    expect(contrastRatio(lifted, darkFill)).toBeGreaterThanOrEqual(AGENT_AVATAR_INK_FLOOR);
+  });
+
+  test("a theme value the parser cannot read falls back to the CSS mix", () => {
+    expect(agentAvatarPalette({ surface: "rgb(255 255 255)", text: "#111", hues: () => "#36c" })).toBeNull();
   });
 
   test("the tone mixes the agent's own hue into the fill and the ink", () => {
@@ -165,6 +223,9 @@ describe("agent editor", () => {
     expect(single).toContain("Workflow");
     expect(single).toContain("Runs as one stage");
     expect(single).not.toContain("Check in with me");
+    // No stages: no "Stages · 0 of 12" header over an empty list, only Add stage.
+    expect(single).not.toContain("of 12");
+    expect(single).toContain("Add stage");
     const staged = renderToStaticMarkup(
       createElement(AgentEditor, { agent: { ...draft, workflow: getBuiltinAgent("shipper")!.workflow }, onSave: () => null }),
     );

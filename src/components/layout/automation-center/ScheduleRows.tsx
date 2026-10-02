@@ -64,7 +64,7 @@ export function ScheduleRows(props: {
                 </span>
               </span>
               <span className={sx(styles.meta)}>
-                <span className={sx(styles.metaText)}>{row.cadence}</span>
+                {row.cadence ? <span className={sx(styles.metaText)}>{row.cadence}</span> : null}
                 <span className={sx(styles.metaText)}>
                   <span
                     className={sx(centerStyles.automationDot, styles.resultDot, runToneDotStyles[row.lastResult.tone])}
@@ -73,7 +73,7 @@ export function ScheduleRows(props: {
                   {row.lastResult.label}
                   {row.lastResult.at ? ` ${formatRelativeTime(row.lastResult.at)}` : ""}
                 </span>
-                <span className={sx(styles.metaText)}>{nextText(row)}</span>
+                {nextText(row) ? <span className={sx(styles.metaText)}>{nextText(row)}</span> : null}
               </span>
             </AdsButton>
             <span className={sx(styles.actions)}>

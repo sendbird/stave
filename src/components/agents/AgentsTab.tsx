@@ -128,9 +128,12 @@ function ImportNotes(props: { notes: readonly AgentImportNote[] }) {
   );
 }
 
-function ProviderSupport(props: { agent: AgentConfig }) {
+/** How each provider runs the agent as a main agent; absent for an agent that cannot be one. */
+export function ProviderSupport(props: { agent: AgentConfig }) {
   const { agent } = props;
   const support = useMemo(() => describeProviderSupport(agent, PROVIDERS), [agent]);
+  // Every row would only say it can't be used as a main agent; "Usable as" already does.
+  if (!isUsableAs(agent, "primary")) return null;
   return (
     <section aria-label="Provider support">
       <div className={sx(styles.sectionHeader)}>
@@ -262,27 +265,26 @@ function AgentDetail(props: {
     </div>
   );
 
-  const tabs = [
-    { value: "settings", label: "Settings", content: settingsTab },
-    {
-      value: "history",
-      label: "History",
-      content: (
-        <div className={sx(agentStyles.pane, agentStyles.tabPane)}>
-          {editable ? (
-            <AgentHistory
-              agent={agent}
-              revisions={props.revisions}
-              ranContentHashes={ranContentHashes}
-              onRestore={props.onRestore}
-            />
-          ) : (
-            <p className={sx(styles.hint)}>Only custom agents keep a version history. Duplicate this agent to edit and track it.</p>
-          )}
-        </div>
-      ),
-    },
-  ];
+  // Only custom agents keep a history, so the others have nothing to tab between.
+  const tabs = editable
+    ? [
+        { value: "settings", label: "Settings", content: settingsTab },
+        {
+          value: "history",
+          label: "History",
+          content: (
+            <div className={sx(agentStyles.pane, agentStyles.tabPane)}>
+              <AgentHistory
+                agent={agent}
+                revisions={props.revisions}
+                ranContentHashes={ranContentHashes}
+                onRestore={props.onRestore}
+              />
+            </div>
+          ),
+        },
+      ]
+    : null;
 
   return (
     <div className={sx(styles.scroll)}>
@@ -318,7 +320,7 @@ function AgentDetail(props: {
           </div>
         </div>
         <AgentActivity assignments={assignments} />
-        <Tabs variant="line" items={tabs} defaultValue={initialAgentDetailTab()} />
+        {tabs ? <Tabs variant="line" items={tabs} defaultValue={initialAgentDetailTab()} /> : settingsTab}
       </div>
     </div>
   );
@@ -622,7 +624,7 @@ function NewAgentDraftEditor(props: {
       description="Nothing is saved until you save."
     >
       <div data-testid="agents-new-draft">
-        <AgentEditor agent={props.draft} onSave={props.onSave} onCancel={props.onCancel} saveLabel="Save agent" />
+        <AgentEditor agent={props.draft} onSave={props.onSave} onCancel={props.onCancel} saveLabel="Save agent" embedded />
       </div>
     </Dialog>
   );

@@ -253,7 +253,7 @@ describe("the send button", () => {
 });
 
 describe("the selector rail", () => {
-  test("heads the Models and Agents groups and counts agents as agents", async () => {
+  test("heads the Models group, sets the lone Agents tab off with a divider, and counts agents as agents", async () => {
     setWindowContext();
     const [{ SelectionRail }, { Tabs }] = await Promise.all([
       import("@/components/system/SelectionRail"),
@@ -268,13 +268,15 @@ describe("the selector rail", () => {
           value: "claude-code",
           items: [
             { value: "claude-code", label: "Claude", icon: null, count: 4, heading: "Models" },
-            { value: "agents", label: "Agents", icon: null, count: 6, noun: "agents", heading: "Agents" },
+            { value: "agents", label: "Agents", icon: null, count: 6, noun: "agents", divider: true },
           ],
         }),
       ),
     );
     expect(html.indexOf("Models</span>")).toBeLessThan(html.indexOf("Claude, 4 models"));
     expect(html.indexOf("Claude, 4 models")).toBeLessThan(html.indexOf("Agents</span>"));
+    // "Agents" appears once, as the tab's label; no heading repeats it.
+    expect(html.split(">Agents</span>")).toHaveLength(2);
     expect(html).toContain('aria-label="Agents, 6 agents"');
   });
 });

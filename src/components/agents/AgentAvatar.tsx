@@ -2,16 +2,18 @@ import type * as React from "react";
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../ads/utils/stylex";
-import { agentAvatarTone, agentInitials } from "@/lib/agents/agent-appearance";
+import { agentAvatarTone, agentColor, agentInitials } from "@/lib/agents/agent-appearance";
 import type { AgentConfig } from "@/lib/agents/schema";
 import { getProviderIconUrl } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { useAgentAvatarPalette } from "./use-agent-avatar-palette";
 
 /**
  * An agent's avatar: a rounded square with a soft tint of the agent's hue (a
  * named colour mapped to an existing `--ads-chart-*` token, or a stable colour
- * derived from the id) and ink mixed from the same hue, so the initials stay
- * readable in every theme. People and models stay round; only agents are
+ * derived from the id) and ink mixed from the same hue, measured against the
+ * fill in the active theme and darkened (or lightened) to 4.5:1 where the
+ * theme's own ink falls short. People and models stay round; only agents are
  * squared. The tint reaches the element through custom properties so no new
  * colour token is added.
  *
@@ -48,7 +50,8 @@ export function AgentAvatar({
 }: AgentAvatarProps) {
   const decorative = ariaLabel === null;
   const label = decorative ? undefined : (ariaLabel ?? agent.name);
-  const tone = agentAvatarTone(agent);
+  const palette = useAgentAvatarPalette();
+  const tone = palette?.[agentColor(agent)] ?? agentAvatarTone(agent);
   const providerIcon = providerId ? getProviderIconUrl({ providerId }) : null;
   return (
     <span

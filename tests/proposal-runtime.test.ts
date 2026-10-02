@@ -539,6 +539,14 @@ describe("Issues → Proposed", () => {
     expect(watching).toContain("Watching: 2 playbooks — assigned issues, a schedule.");
   });
 
+  test("the Proposed tab shows only with something waiting, decided, or watched", async () => {
+    const { hasProposedWork } = await import("../src/lib/missions/proposed");
+    expect(hasProposedWork({ pendingCount: 0, recentCount: 0, watching: null })).toBe(false);
+    expect(hasProposedWork({ pendingCount: 1, recentCount: 0, watching: null })).toBe(true);
+    expect(hasProposedWork({ pendingCount: 0, recentCount: 2, watching: null })).toBe(true);
+    expect(hasProposedWork({ pendingCount: 0, recentCount: 0, watching: "1 playbook — a schedule" })).toBe(true);
+  });
+
   test("a workspace Start cannot open is named with where it looked", () => {
     expect(describeMissingWorkspace(proposal({ repositoryPath: "/tmp/repos/web" })).title).toBe("Could not find web-app in web.");
     const unknown = describeMissingWorkspace(proposal());

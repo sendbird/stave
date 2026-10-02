@@ -121,7 +121,7 @@ export function AgentEditor(props: {
   onSave: (agent: AgentConfig) => string | null;
   onCancel?: () => void;
   saveLabel?: string;
-  /** Inside a padded detail tab: drop the page padding the standalone editor carries. */
+  /** Inside a padded detail tab or a dialog: drop the page padding the standalone editor carries. */
   embedded?: boolean;
 }) {
   const [draft, setDraftState] = useState(props.agent);
@@ -445,7 +445,7 @@ export function AgentEditor(props: {
       />
 
       {formError ? <p className={sx(styles.hint, styles.hintWarning)}>{formError}</p> : null}
-      <div className={sx(styles.footer)}>
+      <div className={sx(styles.footer, agentStyles.editorFooter)}>
         <Button
           size="sm"
           disabled={props.onCancel ? false : !changed}

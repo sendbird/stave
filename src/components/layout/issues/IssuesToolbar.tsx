@@ -110,6 +110,8 @@ export interface IssuesToolbarProps {
   /** Issues lists tickets; Proposed lists the missions playbooks proposed. */
   section: IssuesSection;
   onSectionChange: (section: IssuesSection) => void;
+  /** Off when nothing is proposed, decided recently, or watched (`hasProposedWork`). */
+  showProposed: boolean;
   proposedCount: number;
 }
 
@@ -161,30 +163,31 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
               </Button>
             );
           })}
-          <span aria-hidden className={sx(taskLayoutStyles.tabDivider)} />
-          <Button
-            type="button"
-            size="sm"
-            role="tab"
-            aria-selected={proposed}
-            variant={proposed ? "secondary" : "ghost"}
-            xstyle={[
-              taskLayoutStyles.tab,
-              proposed && taskLayoutStyles.activeTab,
-            ]}
-            onClick={() => props.onSectionChange("proposed")}
-          >
-            <Sparkles aria-hidden className={sx(taskLayoutStyles.tabIcon)} />
-            Proposed
-            <span
-              className={sx(
-                trackerVisualStyles.count,
-                props.proposedCount > 0 && taskLayoutStyles.proposedCount,
-              )}
-            >
-              {props.proposedCount}
-            </span>
-          </Button>
+          {props.showProposed ? (
+            <>
+              <span aria-hidden className={sx(taskLayoutStyles.tabDivider)} />
+              <Button
+                type="button"
+                size="sm"
+                role="tab"
+                aria-selected={proposed}
+                variant={proposed ? "secondary" : "ghost"}
+                xstyle={[
+                  taskLayoutStyles.tab,
+                  proposed && taskLayoutStyles.activeTab,
+                ]}
+                onClick={() => props.onSectionChange("proposed")}
+              >
+                <Sparkles aria-hidden className={sx(taskLayoutStyles.tabIcon)} />
+                Proposed
+                {props.proposedCount > 0 ? (
+                  <span className={sx(trackerVisualStyles.count, taskLayoutStyles.proposedCount)}>
+                    {props.proposedCount}
+                  </span>
+                ) : null}
+              </Button>
+            </>
+          ) : null}
         </div>
 
         {proposed ? null : (

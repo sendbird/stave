@@ -38,8 +38,10 @@ export function CheckBackDetail(props: {
       </div>
       <dl className={sx(centerStyles.facts)}>
         <Fact label="Status" value={wakeUp.reasonDetail ? `${SCHEDULE_STATE_LABEL[row.state]} · ${wakeUp.reasonDetail}` : SCHEDULE_STATE_LABEL[row.state]} />
-        <Fact label="When" value={row.cadence} />
-        <Fact label="Next" value={row.nextRunAt ? formatRelativeTime(row.nextRunAt) : (row.nextNote ?? "—")} />
+        {row.cadence ? <Fact label="When" value={row.cadence} /> : null}
+        {row.nextRunAt || row.nextNote ? (
+          <Fact label="Next" value={row.nextRunAt ? formatRelativeTime(row.nextRunAt) : (row.nextNote ?? "")} />
+        ) : null}
         <Fact label="Checked" value={`${wakeUp.occurrenceCount}×`} />
       </dl>
       <div className={sx(centerStyles.footerActions)}>

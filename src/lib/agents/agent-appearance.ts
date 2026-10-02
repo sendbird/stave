@@ -1,3 +1,4 @@
+import { contrastRatio, formatOklch, mixOklab, parseCssColor, type Oklab } from "@/lib/themes/contrast";
 import { AGENT_COLORS, type AgentColor, type AgentConfig } from "./schema";
 
 /**
@@ -61,19 +62,81 @@ export function agentColor(agent: Pick<AgentConfig, "id" | "appearance">): Agent
  * How much of the hue goes into the avatar's soft fill (over the surface) and
  * into its ink (over the body text colour). Mixing in oklab keeps each hue's
  * lightness where the mix puts it, so the ink stays dark on a light surface and
- * light on a dark one. At these shares every named hue holds at least 4.5:1 in
- * the light, dark and high-contrast themes (`tests/agent-appearance.test.tsx`).
+ * light on a dark one.
+ *
+ * The shares alone do not hold contrast: a theme's own body ink can sit close
+ * to its surface (Everforest Light measured 2.35-3.40:1 at these shares), so
+ * `agentAvatarPalette` measures the ink against the actual fill and pushes it
+ * towards the far pole until it clears `AGENT_AVATAR_INK_FLOOR`.
  */
 export const AGENT_AVATAR_FILL_SHARE = 18;
 export const AGENT_AVATAR_INK_SHARE = 55;
+export const AGENT_AVATAR_INK_FLOOR = 4.5;
+/** Aimed at above the floor so oklch rounding and gamut mapping cannot dip below it. */
+const AGENT_AVATAR_INK_TARGET = AGENT_AVATAR_INK_FLOOR + 0.1;
 
-/** The soft fill and readable ink an agent's avatar paints, as CSS colours. */
-export function agentAvatarTone(agent: Pick<AgentConfig, "id" | "appearance">): { fill: string; ink: string } {
+export interface AgentAvatarTone {
+  fill: string;
+  ink: string;
+}
+
+/**
+ * The soft fill and readable ink as CSS `color-mix` expressions. This is the
+ * fallback used before the theme can be read (server render, tests, a theme
+ * value in a notation `parseCssColor` cannot read); it carries the hue but no
+ * contrast guarantee.
+ */
+export function agentAvatarTone(agent: Pick<AgentConfig, "id" | "appearance">): AgentAvatarTone {
   const hue = agentColorToken(agent);
   return {
     fill: `color-mix(in oklab, ${hue} ${AGENT_AVATAR_FILL_SHARE}%, var(--ads-color-surface))`,
     ink: `color-mix(in oklab, ${hue} ${AGENT_AVATAR_INK_SHARE}%, var(--ads-color-text))`,
   };
+}
+
+/**
+ * The ink for a fill, at least `AGENT_AVATAR_INK_TARGET`:1 against it. Starts
+ * from the hue-tinted body ink and, only when that falls short, mixes it
+ * towards black (or white, when the body ink is the lighter of the two) by the
+ * smallest step that clears the target. Mixing towards a neutral pole lowers
+ * chroma with lightness, so the result stays in sRGB and keeps its hue.
+ */
+export function clampAvatarInk(ink: Oklab, fill: Oklab, text: Oklab): Oklab {
+  if (contrastRatio(ink, fill) >= AGENT_AVATAR_INK_TARGET) return ink;
+  const pole: Oklab = { l: text.l < fill.l ? 0 : 1, a: 0, b: 0, alpha: 1 };
+  let low = 0;
+  let high = 1;
+  for (let step = 0; step < 24; step += 1) {
+    const middle = (low + high) / 2;
+    if (contrastRatio(mixOklab(ink, pole, middle), fill) >= AGENT_AVATAR_INK_TARGET) high = middle;
+    else low = middle;
+  }
+  return mixOklab(ink, pole, high);
+}
+
+/**
+ * Every hue's fill and ink for one theme, as concrete oklch colours. `surface`
+ * and `text` are the theme's resolved surface and body ink; `hues` maps each
+ * chart slot to its colour. Returns null when any value cannot be parsed, so
+ * the caller falls back to `agentAvatarTone`.
+ */
+export function agentAvatarPalette(args: {
+  surface: string;
+  text: string;
+  hues: (index: number) => string;
+}): Record<AgentColor, AgentAvatarTone> | null {
+  const surface = parseCssColor(args.surface);
+  const text = parseCssColor(args.text);
+  if (!surface || !text) return null;
+  const palette = {} as Record<AgentColor, AgentAvatarTone>;
+  for (const color of AGENT_COLORS) {
+    const hue = parseCssColor(args.hues(AGENT_COLOR_CHART_INDEX[color]));
+    if (!hue) return null;
+    const fill = mixOklab(surface, hue, AGENT_AVATAR_FILL_SHARE / 100);
+    const ink = clampAvatarInk(mixOklab(text, hue, AGENT_AVATAR_INK_SHARE / 100), fill, text);
+    palette[color] = { fill: formatOklch(fill), ink: formatOklch(ink) };
+  }
+  return palette;
 }
 
 /** The chart token that paints an agent's avatar. */

@@ -22,6 +22,8 @@ export function SelectionRail({
     noun?: string;
     /** Names the group of tabs that starts here. Hidden when the rail is narrow. */
     heading?: string;
+    /** Sets this tab off from the ones above with a rule, for a group of one. */
+    divider?: boolean;
   }[];
   value: string;
   onPreview?: (value: string) => void;
@@ -35,6 +37,7 @@ export function SelectionRail({
               {item.heading}
             </span>
           ) : null}
+          {item.divider ? <span aria-hidden="true" {...stylex.props(styles.divider)} /> : null}
           <Tabs.Tab
             value={item.value}
             aria-label={`${item.label}${item.count === undefined ? "" : `, ${item.count} ${item.noun ?? "models"}`}`}
@@ -79,6 +82,13 @@ const styles = stylex.create({
     letterSpacing: "0.04em",
     textTransform: "uppercase",
     color: vars["--ads-color-text-muted"],
+  },
+  divider: {
+    flexShrink: 0,
+    height: vars["--ads-border-width-hairline"],
+    marginInline: 8,
+    marginBlock: 2,
+    backgroundColor: vars["--ads-color-border"],
   },
   tab: {
     display: "flex",

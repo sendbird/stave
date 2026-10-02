@@ -10,7 +10,13 @@ import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { userInputCardStyles as styles } from "./user-input-card.styles";
 import type { UserInputQuestion } from "@/types/chat";
 
-export type UserInputCardPresentation = "composer" | "inline" | "summary";
+/**
+ * `composer` replaces the prompt input and carries its own height cap;
+ * `embedded` sits inside a host card that owns the frame and the cap (the
+ * delegated-request slot), so it only lets the questions scroll; `inline` is a
+ * bordered card in the transcript; `summary` is the read-only result.
+ */
+export type UserInputCardPresentation = "composer" | "embedded" | "inline" | "summary";
 
 interface UserInputCardProps {
   toolName: string;
@@ -275,9 +281,13 @@ export function UserInputCard(args: UserInputCardProps) {
       ? styles.formInline
       : presentation === "composer"
         ? styles.formComposer
-        : null;
+        : presentation === "embedded"
+          ? styles.formEmbedded
+          : null;
   const questionsWrapComposerStyle =
-    presentation === "composer" ? styles.questionsWrapComposer : null;
+    presentation === "composer" || presentation === "embedded"
+      ? styles.questionsWrapComposer
+      : null;
 
   return (
     <form

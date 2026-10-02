@@ -537,13 +537,17 @@ export interface PickerRailTab {
   /** The tab's value; a provider id for provider tabs. */
   value: string;
   /** Names the group that starts at this tab. */
-  heading?: "Models" | "Agents";
+  heading?: "Models";
+  /** Starts a group of one, set off by a rule instead of a heading that would repeat its label. */
+  divider?: true;
 }
 
 /**
  * The selector rail's tabs, in order. Models first — the providers, then Stave
- * Auto, which spans them — and Agents last. The group headings appear only
- * when the rail offers both groups; a models-only rail has none.
+ * Auto, which spans them — and Agents last. When the rail offers both groups,
+ * Models gets a heading and the single Agents tab a divider (an "Agents"
+ * heading over an "Agents" tab says the same thing twice); a models-only rail
+ * has neither.
  */
 export function planPickerRail(args: {
   providerIds: readonly string[];
@@ -556,6 +560,6 @@ export function planPickerRail(args: {
     ...(args.hasAgents && index === 0 ? { heading: "Models" as const } : {}),
   }));
   if (args.hasAuto) tabs.push({ kind: "auto", value: "auto" });
-  if (args.hasAgents) tabs.push({ kind: "agents", value: "agents", heading: "Agents" });
+  if (args.hasAgents) tabs.push({ kind: "agents", value: "agents", divider: true });
   return tabs;
 }
