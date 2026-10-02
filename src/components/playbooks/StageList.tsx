@@ -69,75 +69,80 @@ export function StageList<T extends StageListValue>(props: {
 
   return (
     <section className={sx(missionStyles.section)} aria-label="Stages">
-      <div className={sx(styles.sectionHeader)}>
-        <h3 className={sx(styles.sectionTitle)}>Stages</h3>
-        <span className={sx(styles.sectionAside)}>
-          {stages.length} of {MAX_PLAYBOOK_STAGES}
-        </span>
-      </div>
+      {/* With no stages there is nothing to head or count, only the Add stage button. */}
+      {stages.length > 0 ? (
+        <div className={sx(styles.sectionHeader)}>
+          <h3 className={sx(styles.sectionTitle)}>Stages</h3>
+          <span className={sx(styles.sectionAside)}>
+            {stages.length} of {MAX_PLAYBOOK_STAGES}
+          </span>
+        </div>
+      ) : null}
       {props.issues.get("stages") ? <p className={sx(styles.fieldError)}>{props.issues.get("stages")}</p> : null}
-      <ol className={sx(styles.stages)}>
-        {stages.map((stage, index) => {
-          const issues = stageIssues(props.issues, index);
-          return (
-            <StageRow
-              key={stage.id}
-              stage={stage}
-              index={index}
-              count={stages.length}
-              asksFirst={stageAsksFirst(playbook, index)}
-              expanded={expandedId === stage.id || issues.size > 0}
-              issues={issues}
-              dragging={dragFrom === index}
-              dropPosition={dropAt?.index === index ? dropAt.position : null}
-              onToggleExpanded={() => setExpandedId((current) => (current === stage.id ? null : stage.id))}
-              onChange={(next) => setStages(stages.map((candidate, position) => (position === index ? next : candidate)))}
-              onToggleSignOff={() =>
-                props.onChange(setStageSignOff(playbook, index, stageAsksFirst(playbook, index) ? "auto" : "ask"))
-              }
-              onMove={(to) => move(index, to)}
-              onDuplicate={() => {
-                if (full || stage.kind !== "ai") return;
-                const copy = { ...stage, id: uniqueStageId(stage.title, takenIds), title: `${stage.title} again` };
-                setStages([...stages.slice(0, index + 1), copy, ...stages.slice(index + 1)]);
-              }}
-              onRemove={() => {
-                setStages(stages.filter((_, position) => position !== index));
-                setAnnouncement(`Deleted ${stage.title}.`);
-              }}
-              dragHandlers={{
-                onDragStart: (event) => {
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", stage.id);
-                  setDragFrom(index);
-                },
-                onDragEnd: () => {
-                  setDragFrom(null);
-                  setDropAt(null);
-                },
-                onDragOver: (event) => {
-                  if (dragFrom === null) return;
-                  event.preventDefault();
-                  const rect = event.currentTarget.getBoundingClientRect();
-                  const position = event.clientY < rect.top + rect.height / 2 ? "before" : "after";
-                  setDropAt((current) =>
-                    current?.index === index && current.position === position ? current : { index, position },
-                  );
-                },
-                onDrop: (event) => {
-                  event.preventDefault();
-                  if (dragFrom === null || !dropAt) return;
-                  let target = dropAt.position === "before" ? dropAt.index : dropAt.index + 1;
-                  if (dragFrom < target) target -= 1;
-                  move(dragFrom, target);
-                  setDragFrom(null);
-                  setDropAt(null);
-                },
-              }}
-            />
-          );
-        })}
-      </ol>
+      {stages.length > 0 ? (
+        <ol className={sx(styles.stages)}>
+          {stages.map((stage, index) => {
+            const issues = stageIssues(props.issues, index);
+            return (
+              <StageRow
+                key={stage.id}
+                stage={stage}
+                index={index}
+                count={stages.length}
+                asksFirst={stageAsksFirst(playbook, index)}
+                expanded={expandedId === stage.id || issues.size > 0}
+                issues={issues}
+                dragging={dragFrom === index}
+                dropPosition={dropAt?.index === index ? dropAt.position : null}
+                onToggleExpanded={() => setExpandedId((current) => (current === stage.id ? null : stage.id))}
+                onChange={(next) => setStages(stages.map((candidate, position) => (position === index ? next : candidate)))}
+                onToggleSignOff={() =>
+                  props.onChange(setStageSignOff(playbook, index, stageAsksFirst(playbook, index) ? "auto" : "ask"))
+                }
+                onMove={(to) => move(index, to)}
+                onDuplicate={() => {
+                  if (full || stage.kind !== "ai") return;
+                  const copy = { ...stage, id: uniqueStageId(stage.title, takenIds), title: `${stage.title} again` };
+                  setStages([...stages.slice(0, index + 1), copy, ...stages.slice(index + 1)]);
+                }}
+                onRemove={() => {
+                  setStages(stages.filter((_, position) => position !== index));
+                  setAnnouncement(`Deleted ${stage.title}.`);
+                }}
+                dragHandlers={{
+                  onDragStart: (event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", stage.id);
+                    setDragFrom(index);
+                  },
+                  onDragEnd: () => {
+                    setDragFrom(null);
+                    setDropAt(null);
+                  },
+                  onDragOver: (event) => {
+                    if (dragFrom === null) return;
+                    event.preventDefault();
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const position = event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+                    setDropAt((current) =>
+                      current?.index === index && current.position === position ? current : { index, position },
+                    );
+                  },
+                  onDrop: (event) => {
+                    event.preventDefault();
+                    if (dragFrom === null || !dropAt) return;
+                    let target = dropAt.position === "before" ? dropAt.index : dropAt.index + 1;
+                    if (dragFrom < target) target -= 1;
+                    move(dragFrom, target);
+                    setDragFrom(null);
+                    setDropAt(null);
+                  },
+                }}
+              />
+            );
+          })}
+        </ol>
+      ) : null}
       <div className={sx(styles.addRow)}>
         <DropdownMenu
           triggerAsChild

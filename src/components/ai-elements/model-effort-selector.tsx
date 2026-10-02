@@ -709,7 +709,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 ),
                 count: args.agents?.count ?? 0,
                 noun: "agents",
-                heading: tab.heading,
+                divider: tab.divider,
               };
             }
             const candidate = tab.value as ProviderId;

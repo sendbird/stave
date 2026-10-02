@@ -169,6 +169,13 @@ export const autoRoutingSectionStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     paddingInline: vars["--ads-space-4"],
   },
+  legacyRuleSummary: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    margin: 0,
+    overflowWrap: "anywhere",
+  },
   emptyRules: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],

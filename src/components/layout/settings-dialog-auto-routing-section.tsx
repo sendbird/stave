@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import {
   cloneProfileAsCustom,
+  buildRoleTableGroups,
   buildStarterRules,
   formatResolvedRouteLabel,
   isStarterProfileId,
@@ -22,7 +23,7 @@ import {
   ROUTE_TIER_LABELS,
   ROUTE_TIERS,
   ROUTER_ROLE_LABELS,
-  ROUTER_ROLES,
+  SELECTABLE_ROUTER_ROLES,
   STANCE_DESCRIPTIONS,
   STANCE_LABELS,
   STANCES,
@@ -83,10 +84,28 @@ const PROVIDER_SELECTORS: ReadonlyArray<{ value: RouteProviderSelector; label: s
 const EFFORT_VALUES = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
 const ROLE_HINTS: Readonly<Record<RouterRole, string>> = {
   primary: "Rules without a role apply here. First match wins, top to bottom.",
-  advisor: "No longer used: second opinions are read-only subagents.",
-  worker: "No longer used: in-turn subagents run on their agent's model.",
+  advisor: "No longer used. Second opinions run as read-only subagents, so these saved rules have no effect.",
+  worker: "No longer used. Subagents run on their agent's model, so these saved rules have no effect.",
   delegate: "Seeds the model and effort a delegated task starts with.",
 };
+const EMPTY_ROLE_HINTS: Readonly<Record<(typeof SELECTABLE_ROUTER_ROLES)[number], string>> = {
+  primary: "No rules. Each turn uses the provider's default model, adjusted for your preference.",
+  delegate: "No rules. A delegated task starts on its provider's default model.",
+};
+const ROLE_OPTIONS = SELECTABLE_ROUTER_ROLES.map((role) => ({ value: role, label: ROUTER_ROLE_LABELS[role] }));
+
+/** One line for a stored rule that can no longer be edited: what it would have picked. */
+function describeLegacyRule(rule: RouteRule) {
+  const provider =
+    PROVIDER_SELECTORS.find((entry) => entry.value === rule.then.providerId)?.label ?? rule.then.providerId;
+  const target = rule.then.model
+    ? toHumanModelName({ model: rule.then.model })
+    : rule.then.tier
+      ? ROUTE_TIER_LABELS[rule.then.tier]
+      : null;
+  const effort = rule.then.effort ? `${rule.then.effort} effort` : null;
+  return [provider, target, effort, rule.reason || null].filter(Boolean).join(" · ");
+}
 
 function modelLabel(model: string) {
   const price = formatModelPrice(model);
@@ -211,10 +230,7 @@ function RuleRow(args: {
             ariaLabel="Rule role"
             value={role}
             onChange={(value) => patchWhen({ role: value })}
-            options={ROUTER_ROLES.map((entry) => ({
-              value: entry,
-              label: ROUTER_ROLE_LABELS[entry],
-            }))}
+            options={ROLE_OPTIONS}
           />
         </RuleField>
         <RuleField label="Task class">
@@ -362,6 +378,27 @@ function RuleRow(args: {
   );
 }
 
+/** A stored rule for a role nothing routes any more: shown as saved, removable, not editable. */
+function LegacyRuleRow(args: { rule: RouteRule; onDelete: () => void }) {
+  return (
+    <div className={sx(styles.ruleCard, styles.ruleCardDisabled)}>
+      <div className={sx(styles.ruleHeader)}>
+        <div className={sx(styles.ruleHeaderLead)}>
+          <span className={sx(styles.ruleId)} title={args.rule.id}>
+            {args.rule.id}
+          </span>
+        </div>
+        <div className={sx(styles.ruleActions)}>
+          <Button type="button" variant="quiet" size="sm" aria-label={`Delete rule ${args.rule.id}`} onClick={args.onDelete}>
+            <Trash2 className={sx(styles.icon)} aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+      <p className={sx(styles.legacyRuleSummary)}>{describeLegacyRule(args.rule)}</p>
+    </div>
+  );
+}
+
 /**
  * Settings → Auto (Model Router).
  *
@@ -405,18 +442,7 @@ export function SettingsAutoRoutingSection(props: {
   const edit = (mutate: (draft: AutoRoutingProfile) => AutoRoutingProfile) =>
     commit(mutate(isStarterProfileId(profile.id) ? cloneProfileAsCustom(profile) : profile));
 
-  const rulesByRole = useMemo(() => {
-    const groups: Record<RouterRole, Array<{ rule: RouteRule; index: number }>> = {
-      primary: [],
-      advisor: [],
-      worker: [],
-      delegate: [],
-    };
-    profile.rules.forEach((rule, index) => {
-      groups[rule.when.role ?? "primary"].push({ rule, index });
-    });
-    return groups;
-  }, [profile.rules]);
+  const roleGroups = useMemo(() => buildRoleTableGroups(profile.rules), [profile.rules]);
 
   const [testPrompt, setTestPrompt] = useState("");
   const [testRole, setTestRole] = useState<RouterRole>("primary");
@@ -605,7 +631,7 @@ export function SettingsAutoRoutingSection(props: {
             />
             <SwitchField
               title="Skill routing"
-              description="Let a leading slash command such as /ship match skill rules."
+              description="A prompt that starts with a skill, such as /ship, can match rules that name that skill."
               checked={profile.signals.skillRouting}
               onCheckedChange={(skillRouting) =>
                 edit((draft) => ({ ...draft, signals: { ...draft.signals, skillRouting } }))
@@ -613,7 +639,7 @@ export function SettingsAutoRoutingSection(props: {
             />
             <SwitchField
               title="Budget guard"
-              description="Apply the thresholds above."
+              description="Lower effort or pick a less expensive model once account usage passes the thresholds above."
               checked={profile.signals.budgetGuard}
               onCheckedChange={(budgetGuard) =>
                 edit((draft) => ({ ...draft, signals: { ...draft.signals, budgetGuard } }))
@@ -649,81 +675,89 @@ export function SettingsAutoRoutingSection(props: {
           onClick={() => edit((draft) => ({ ...draft, rules: buildStarterRules() }))}>
           Reset rules to defaults
         </Button>
-        {ROUTER_ROLES.map((role) => (
-          <div key={role} className={sx(styles.roleGroup)}>
-            <div className={sx(styles.roleHeader)}>
-              <div>
-                <p className={sx(styles.roleTitle)}>{ROUTER_ROLE_LABELS[role]}</p>
-                <p className={sx(styles.roleHint)}>{ROLE_HINTS[role]}</p>
+        {roleGroups.map(({ role, legacy, rules }) => {
+          const deleteRule = (index: number) =>
+            edit((draft) => ({
+              ...draft,
+              rules: draft.rules.filter((_, entryIndex) => entryIndex !== index),
+            }));
+          return (
+            <div key={role} className={sx(styles.roleGroup)}>
+              <div className={sx(styles.roleHeader)}>
+                <div>
+                  <p className={sx(styles.roleTitle)}>{ROUTER_ROLE_LABELS[role]}</p>
+                  <p className={sx(styles.roleHint)}>{ROLE_HINTS[role]}</p>
+                </div>
+                {legacy ? null : (
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    size="sm"
+                    onClick={() =>
+                      edit((draft) => ({
+                        ...draft,
+                        rules: [
+                          ...draft.rules,
+                          {
+                            id: nextRuleId(draft, role),
+                            when: { role },
+                            then: { providerId: "any-eligible" },
+                            reason: "",
+                            enabled: true,
+                          },
+                        ],
+                      }))
+                    }
+                  >
+                    <Plus className={sx(styles.icon)} aria-hidden="true" />
+                    Add rule
+                  </Button>
+                )}
               </div>
-              <Button
-                type="button"
-                variant="quiet"
-                size="sm"
-                onClick={() =>
-                  edit((draft) => ({
-                    ...draft,
-                    rules: [
-                      ...draft.rules,
-                      {
-                        id: nextRuleId(draft, role),
-                        when: { role },
-                        then: { providerId: "any-eligible" },
-                        reason: "",
-                        enabled: true,
-                      },
-                    ],
-                  }))
-                }
-              >
-                <Plus className={sx(styles.icon)} aria-hidden="true" />
-                Add rule
-              </Button>
+              {legacy ? (
+                rules.map(({ rule, index }) => (
+                  <LegacyRuleRow key={rule.id} rule={rule} onDelete={() => deleteRule(index)} />
+                ))
+              ) : rules.length === 0 ? (
+                <p className={sx(styles.emptyRules)}>
+                  {EMPTY_ROLE_HINTS[role as keyof typeof EMPTY_ROLE_HINTS]}
+                </p>
+              ) : (
+                rules.map(({ rule, index }, position) => (
+                  <RuleRow
+                    key={rule.id}
+                    rule={rule}
+                    index={position}
+                    count={rules.length}
+                    modelsByProvider={modelsByProvider}
+                    onChange={(next) =>
+                      edit((draft) => ({
+                        ...draft,
+                        rules: draft.rules.map((entry, entryIndex) =>
+                          entryIndex === index ? next : entry,
+                        ),
+                      }))
+                    }
+                    onMove={(direction) => {
+                      const neighbour = rules[position + direction];
+                      if (!neighbour) return;
+                      edit((draft) => {
+                        const nextRules = [...draft.rules];
+                        const current = nextRules[index];
+                        const other = nextRules[neighbour.index];
+                        if (!current || !other) return draft;
+                        nextRules[index] = other;
+                        nextRules[neighbour.index] = current;
+                        return { ...draft, rules: nextRules };
+                      });
+                    }}
+                    onDelete={() => deleteRule(index)}
+                  />
+                ))
+              )}
             </div>
-            {rulesByRole[role].length === 0 ? (
-              <p className={sx(styles.emptyRules)}>
-                No rules. {role === "worker" ? "The worker preset decides." : "The provider fallback decides."}
-              </p>
-            ) : (
-              rulesByRole[role].map(({ rule, index }, position) => (
-                <RuleRow
-                  key={rule.id}
-                  rule={rule}
-                  index={position}
-                  count={rulesByRole[role].length}
-                  modelsByProvider={modelsByProvider}
-                  onChange={(next) =>
-                    edit((draft) => ({
-                      ...draft,
-                      rules: draft.rules.map((entry, entryIndex) =>
-                        entryIndex === index ? next : entry,
-                      ),
-                    }))
-                  }
-                  onMove={(direction) => {
-                    const neighbour = rulesByRole[role][position + direction];
-                    if (!neighbour) return;
-                    edit((draft) => {
-                      const rules = [...draft.rules];
-                      const current = rules[index];
-                      const other = rules[neighbour.index];
-                      if (!current || !other) return draft;
-                      rules[index] = other;
-                      rules[neighbour.index] = current;
-                      return { ...draft, rules };
-                    });
-                  }}
-                  onDelete={() =>
-                    edit((draft) => ({
-                      ...draft,
-                      rules: draft.rules.filter((_, entryIndex) => entryIndex !== index),
-                    }))
-                  }
-                />
-              ))
-            )}
-          </div>
-        ))}
+          );
+        })}
       </SettingsCard>
 
       <SettingsCard
@@ -744,10 +778,7 @@ export function SettingsAutoRoutingSection(props: {
               ariaLabel="Dry-run role"
               value={testRole}
               onChange={setTestRole}
-              options={ROUTER_ROLES.map((role) => ({
-                value: role,
-                label: ROUTER_ROLE_LABELS[role],
-              }))}
+              options={ROLE_OPTIONS}
             />
           </RuleField>
           <RuleField label="Task currently on">

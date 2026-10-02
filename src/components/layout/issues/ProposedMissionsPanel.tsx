@@ -163,8 +163,7 @@ export function ProposedMissionsPanel(props: ProposedMissionsPanelProps) {
       <div className={sx(styles.page)}>
         <header className={sx(styles.intro)}>
           <p className={sx(styles.lead)}>
-            Work your saved start conditions proposed — for an assigned issue, a pull request in trouble, a schedule, or a
-            request a triage run found. Start opens a task with the request; choose an agent and Assign.
+            Requests a triage run found wait here. Start opens a task with the request; then choose an agent and Assign.
           </p>
         </header>
 

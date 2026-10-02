@@ -40,6 +40,19 @@ export type TaskClass = (typeof TASK_CLASSES)[number];
 export const ROUTER_ROLES = ["primary", "advisor", "worker", "delegate"] as const;
 export type RouterRole = (typeof ROUTER_ROLES)[number];
 
+/** Roles a rule can be written for: the task's own turns and delegated tasks. */
+export const SELECTABLE_ROUTER_ROLES = ["primary", "delegate"] as const satisfies readonly RouterRole[];
+/**
+ * Roles nothing routes any more: second opinions and in-turn workers are
+ * subagents now. Still parsed, so a stored rule stays readable instead of
+ * vanishing, but never offered for a new rule, a starter, or Reset.
+ */
+export const LEGACY_ROUTER_ROLES = ["advisor", "worker"] as const satisfies readonly RouterRole[];
+
+export function isLegacyRouterRole(role: RouterRole): boolean {
+  return (LEGACY_ROUTER_ROLES as readonly RouterRole[]).includes(role);
+}
+
 export const STANCES = ["cost-saver", "balanced", "quality-first"] as const;
 export type Stance = (typeof STANCES)[number];
 
@@ -356,9 +369,6 @@ function rule(
  */
 export function buildStarterRules(): RouteRule[] {
   return [
-    rule("advisor-default", { role: "advisor" },
-      { providerId: "alternate-provider", tier: "frontier", effort: "medium" },
-      "A second opinion uses a capable model from another available provider."),
     rule("delegate-default", { role: "delegate" },
       { providerId: "any-eligible", effort: "medium" },
       "Delegated tasks start on the provider default at medium effort."),
@@ -428,6 +438,26 @@ export function buildStarterProfile(id: StarterProfileId): AutoRoutingProfile {
 
 export const STARTER_PROFILES: readonly AutoRoutingProfile[] =
   STARTER_PROFILE_IDS.map(buildStarterProfile);
+
+export interface RoleTableGroup {
+  role: RouterRole;
+  /** A role nothing routes any more; its stored rules are shown read-only. */
+  legacy: boolean;
+  /** Each rule with its index in `profile.rules`, in table order. */
+  rules: Array<{ rule: RouteRule; index: number }>;
+}
+
+/**
+ * The Role table's groups: the selectable roles always, then a legacy role
+ * only when stored rules still name it.
+ */
+export function buildRoleTableGroups(rules: readonly RouteRule[]): RoleTableGroup[] {
+  const byRole = new Map<RouterRole, RoleTableGroup["rules"]>(ROUTER_ROLES.map((role) => [role, []]));
+  rules.forEach((rule, index) => byRole.get(rule.when.role ?? "primary")?.push({ rule, index }));
+  return [...SELECTABLE_ROUTER_ROLES, ...LEGACY_ROUTER_ROLES]
+    .map((role) => ({ role, legacy: isLegacyRouterRole(role), rules: byRole.get(role) ?? [] }))
+    .filter((group) => !group.legacy || group.rules.length > 0);
+}
 
 export const DEFAULT_AUTO_ROUTING_PROFILE_ID: StarterProfileId =
   "starter-balanced";

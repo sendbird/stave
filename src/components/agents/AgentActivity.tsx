@@ -105,24 +105,24 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
     [props.assignments, filter],
   );
 
+  // An agent that was never assigned has no activity to show; the page starts at its settings.
+  if (props.assignments.length === 0) return null;
   return (
     <section aria-label="Activity" className={sx(agentStyles.activity)}>
       <ActivitySummary summary={summary} />
       <section aria-label="Work">
         <div className={sx(styles.sectionHeader)}>
           <h3 className={sx(styles.sectionTitle)}>Work</h3>
-          {props.assignments.length > 0 ? (
-            <Select
-              size="sm"
-              aria-label="Filter by state"
-              value={filter}
-              options={AGENT_ACTIVITY_FILTERS.map((value) => ({ value, label: AGENT_ACTIVITY_FILTER_LABELS[value] }))}
-              onValueChange={(value) => setFilter(String(value) as AgentActivityFilter)}
-            />
-          ) : null}
+          <Select
+            size="sm"
+            aria-label="Filter by state"
+            value={filter}
+            options={AGENT_ACTIVITY_FILTERS.map((value) => ({ value, label: AGENT_ACTIVITY_FILTER_LABELS[value] }))}
+            onValueChange={(value) => setFilter(String(value) as AgentActivityFilter)}
+          />
         </div>
         {filtered.length === 0 ? (
-          <p className={sx(styles.hint)}>{props.assignments.length === 0 ? "Nothing assigned yet." : "Nothing in this state."}</p>
+          <p className={sx(styles.hint)}>Nothing in this state.</p>
         ) : (
           <ul className={sx(agentStyles.runs)}>
             {filtered.map((row) => {

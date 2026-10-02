@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AgentsTab } from "../src/components/agents/AgentsTab";
+import { AgentsTab, ProviderSupport } from "../src/components/agents/AgentsTab";
 import { describeAgent, describeProviderSupport, groupAgents } from "@/lib/agents/agents-view";
 import { duplicateAgent, listAgents } from "@/lib/agents/library";
 import { getBuiltinAgent } from "@/lib/agents/starters";
@@ -43,13 +43,40 @@ describe("agents view", () => {
     // The embedded Assign panel is gone; the detail offers Assign… which
     // opens Kickoff.
     expect(html).toContain("Assign…");
-    // The agent's assignments section is titled "Work" (was "Recent work").
-    expect(html).toContain(">Work<");
+    // A built-in that was never assigned has no Work list and no History to
+    // tab to: the page goes straight from the header to its settings.
+    expect(html).not.toContain(">Work<");
+    expect(html).not.toContain("Nothing assigned yet");
     expect(html).not.toContain("Recent work");
-    // Settings and History are the only detail tabs; Activity sits in the body.
-    expect(html).toContain("Settings");
-    expect(html).toContain("History");
+    expect(html).not.toContain(">History<");
     expect(html).not.toContain(">Preview<");
+    // Implementer can be a main agent, so its provider table stays.
+    expect(html).toContain("As a main agent");
+  });
+
+  test("a worker-only agent has no main-agent table of refusals", () => {
+    expect(renderToStaticMarkup(createElement(ProviderSupport, { agent: getBuiltinAgent("scout")! }))).toBe("");
+    const main = renderToStaticMarkup(createElement(ProviderSupport, { agent: getBuiltinAgent("implementer")! }));
+    expect(main).toContain("As a main agent");
+    expect(main).not.toContain("can&#x27;t be used");
+  });
+
+  test("an assigned agent lists its work under Work", async () => {
+    const { AgentActivity } = await import("../src/components/agents/AgentActivity");
+    const row = {
+      id: "a1",
+      agentConfigId: "implementer",
+      agentContentHash: "h",
+      assignment: "Tighten the sidebar spacing\nKeep keyboard order",
+      state: "started",
+      taskId: null,
+      createdAt: "2026-10-01T09:00:00.000Z",
+      updatedAt: "2026-10-01T09:00:00.000Z",
+    } as never;
+    const html = renderToStaticMarkup(createElement(AgentActivity, { assignments: [row] }));
+    expect(html).toContain(">Work<");
+    expect(html).toContain("Tighten the sidebar spacing");
+    expect(renderToStaticMarkup(createElement(AgentActivity, { assignments: [] }))).toBe("");
   });
 
   test("learned suggestions show the summary and Apply, Edit and Dismiss", async () => {
