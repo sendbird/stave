@@ -1503,12 +1503,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         {isListOpen && variant === "panel" && props.executionSummary ? (
           <div className={sx(styles.summaryPinned)}>
             <TaskExecutionSummarySurface compact layout="panel" summary={props.executionSummary}
-              showLatestActivity={false} omitKeys={["elapsed", "agents", "usage", "account-limit", "headroom"]} />
-            <details open data-testid="turn-activity-metrics">
-              <summary className={sx(styles.metricsToggle)}>Usage and limits</summary>
-              <TaskExecutionSummarySurface compact layout="panel" summary={props.executionSummary}
-                showLatestActivity={false} omitKeys={["elapsed", "agents", "changes", "verification"]} />
-            </details>
+              showLatestActivity={false} omitKeys={["elapsed", "agents"]} />
           </div>
         ) : null}
       </section>
