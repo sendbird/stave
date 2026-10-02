@@ -18,9 +18,12 @@ export const TAKE_CONTROL_HINT = "Ends the run and keeps this task in Chat, on t
 /**
  * The status line over the composer while an agent run is active:
  * `Working · 4m`, or `Needs you` with what the run waits on, with Stop and
- * Take control. A run of an agent with a workflow adds its stage track, which
- * names the stage and where it stands; a one-stage run shows none, because its
- * only progress signal (the turn's todo list) is the turn shelf right below.
+ * Take control, and Retry while the run is stuck. While the run is active this
+ * bar is the one place its state and actions show; the transcript card waits
+ * for the run to end. A run of an agent with a workflow adds its stage track,
+ * which names the stage and where it stands; a one-stage run shows none,
+ * because its only progress signal (the turn's todo list) is the turn shelf
+ * right below.
  */
 export function AgentRunBarView(props: {
   detail: MissionDetail;
@@ -83,6 +86,11 @@ export function AgentRunBarView(props: {
             ) : null}
           </p>
           <span className={sx(styles.actions)}>
+            {status.recovery === "retry-stage" && actions.onRetry ? (
+              <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onRetry}>
+                Retry
+              </Button>
+            ) : null}
             {actions.onStop ? (
               <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onStop} xstyle={styles.quietButton}>
                 Stop

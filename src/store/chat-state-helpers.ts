@@ -6,6 +6,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { getRespondingProviderId } from "@/lib/tasks";
 import type {
+  AgentRunPromptProvenance,
   ChatMessage,
   FileContextPart,
   ImageContextPart,
@@ -242,6 +243,7 @@ export function buildOutgoingUserMessage(args: {
     mimeType: string;
   }>;
   dispatchedFromQueue?: boolean;
+  agentRunPrompt?: AgentRunPromptProvenance;
 }): ChatMessage {
   const userParts: MessagePart[] = [];
 
@@ -305,6 +307,7 @@ export function buildOutgoingUserMessage(args: {
         : [createUserTextPart({ text: args.content })],
     ...(displayParts && displayParts.length > 0 ? { displayParts } : {}),
     ...(args.dispatchedFromQueue ? { dispatchedFromQueue: true } : {}),
+    ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),
   };
 }
 
@@ -336,6 +339,7 @@ export function buildPendingProviderTurnState(args: {
     mimeType: string;
   }>;
   dispatchedFromQueue?: boolean;
+  agentRunPrompt?: AgentRunPromptProvenance;
 }) {
   const current = args.messagesByTask[args.taskId] ?? [];
   // Anchor new IDs to the durable total; `current` may be a trimmed tail window.
@@ -359,6 +363,7 @@ export function buildPendingProviderTurnState(args: {
     fileContexts: args.fileContexts,
     imageContexts: args.imageContexts,
     dispatchedFromQueue: args.dispatchedFromQueue,
+    agentRunPrompt: args.agentRunPrompt,
   });
 
   const assistantMessage: ChatMessage = {

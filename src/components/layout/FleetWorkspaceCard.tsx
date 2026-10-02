@@ -1,4 +1,6 @@
-import { FleetMissionStrip } from "@/components/missions/FleetMissionStrip";
+import { FleetMissionStrip, useFleetActiveMission } from "@/components/missions/FleetMissionStrip";
+import { isAgentRun } from "@/lib/missions/agent-run";
+import { AGENT_RUN_STATE_LABELS, agentRunFleetState, describeAgentRunStatus } from "@/lib/missions/agent-run-view";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ArrowRight, GitBranch, Moon } from "lucide-react";
 import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
@@ -415,6 +417,16 @@ export function FleetWorkspaceCard(args: {
 
   // A stored reference: the card re-renders only when an assignment changes.
   const taskAgents = useAgentAssignmentsStore((state) => state.byTaskId);
+  // An agent run's strip names the agent and the state for its lead task, so
+  // that row shows neither: never twice, and never "Needs you" over "Idle".
+  const activeMission = useFleetActiveMission(args.workspace.id);
+  const runLeadTaskId = activeMission && isAgentRun(activeMission.mission) ? activeMission.mission.leadTaskId : null;
+  const runLeadStatus = runLeadTaskId ? rows.find((row) => row.task.id === runLeadTaskId)?.status : undefined;
+  const runLeadWaiting = runLeadStatus === "waiting-input" || runLeadStatus === "waiting-approval";
+  const runLeadLabel =
+    activeMission && runLeadTaskId
+      ? AGENT_RUN_STATE_LABELS[agentRunFleetState(describeAgentRunStatus(activeMission).state, runLeadWaiting)]
+      : null;
   const matchesFilter = matchesFleetBoardFilter({
     filter: args.filter,
     activity,
@@ -541,6 +553,7 @@ export function FleetWorkspaceCard(args: {
 
       <FleetMissionStrip
         workspaceId={args.workspace.id}
+        leadTaskWaiting={runLeadWaiting}
         onOpen={(taskId) =>
           args.onOpenTask({
             repositoryPath: args.repositoryPath,
@@ -566,6 +579,8 @@ export function FleetWorkspaceCard(args: {
               const taskKey = taskKeyFor(row.task.id);
               const isExpanded = args.expandedTaskKey === taskKey;
               const taskTitle = row.task.title || "Untitled Task";
+              const runLead = row.task.id === runLeadTaskId;
+              const taskAgent = runLead ? undefined : taskAgents[row.task.id];
               return (
                 <li key={row.task.id} className={sx(styles.listItem)}>
                   <AdsButton
@@ -580,7 +595,7 @@ export function FleetWorkspaceCard(args: {
                       isExpanded && styles.taskRowExpanded,
                     ]}
                     aria-expanded={isExpanded}
-                    aria-label={`${isExpanded ? "Hide" : "Show"} controls for ${taskTitle}, ${visual.label}`}
+                    aria-label={`${isExpanded ? "Hide" : "Show"} controls for ${taskTitle}, ${runLead ? runLeadLabel : visual.label}`}
                     onClick={() =>
                       args.onToggleTaskControl({
                         repositoryPath: args.repositoryPath,
@@ -594,25 +609,27 @@ export function FleetWorkspaceCard(args: {
                   >
                     <FleetProviderIcon provider={row.task.provider} />
                     <span className={sx(styles.taskTitle)}>{taskTitle}</span>
-                    {taskAgents[row.task.id] ? (
-                      <Badge xstyle={styles.chip} title={`Runs as the ${taskAgents[row.task.id]!.agentName} agent`}>
+                    {taskAgent ? (
+                      <Badge xstyle={styles.chip} title={`Runs as the ${taskAgent.agentName} agent`}>
                         <AgentAvatar
-                          agent={{ id: taskAgents[row.task.id]!.agentConfigId, name: taskAgents[row.task.id]!.agentName }}
+                          agent={{ id: taskAgent.agentConfigId, name: taskAgent.agentName, appearance: taskAgent.agentAppearance }}
                           size="xs"
                           aria-label={null}
                         />
-                        {taskAgents[row.task.id]!.agentName}
+                        {taskAgent.agentName}
                       </Badge>
                     ) : null}
-                    <span
-                      className={sx(styles.taskStatus, visual.tone)}
-                      title={`${visual.label} · updated ${row.updatedLabel}`}
-                    >
-                      {visual.icon}
-                      <span className={sx(styles.statusLabel)}>
-                        {visual.label}
+                    {runLead ? null : (
+                      <span
+                        className={sx(styles.taskStatus, visual.tone)}
+                        title={`${visual.label} · updated ${row.updatedLabel}`}
+                      >
+                        {visual.icon}
+                        <span className={sx(styles.statusLabel)}>
+                          {visual.label}
+                        </span>
                       </span>
-                    </span>
+                    )}
                   </AdsButton>
                 </li>
               );

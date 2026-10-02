@@ -2,9 +2,7 @@ import { useMemo } from "react";
 import { Bot, Gauge, ListChecks, ListOrdered } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { StepRail } from "@/components/ads/components/StepRail";
-import { Button } from "@/components/ads/components/Button";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
-import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState } from "@/lib/missions/domain";
@@ -13,7 +11,6 @@ import { projectMissionStages } from "@/lib/missions/mission-view";
 import { AGENT_CHECK_IN_LABELS } from "@/lib/agents/schema";
 import { AgentRunDoneWhen } from "./AgentRunDoneWhen";
 import { AgentRunOutcome } from "./AgentRunResultCard";
-import { TAKE_CONTROL_HINT } from "./AgentRunBar";
 import { MissionReportView } from "./MissionReportView";
 import { MissionRunSummary } from "./MissionRunSummary";
 import { StageCard } from "./StageCard";
@@ -29,7 +26,9 @@ const formatClock = (iso: string) =>
  * An agent run in the Task panel's Progress tab: the agent and its state, the
  * Done when lines, the stages and their reports when the agent has a
  * workflow, the result once it is ready, and what the run used. A one-stage
- * run shows no stage list.
+ * run shows no stage list. Stop, Take control and Retry stay with the run bar
+ * while the run is active and with the transcript card once it ended, so the
+ * tab says why without a third copy of them.
  */
 export function AgentRunDetailView(props: {
   detail: MissionDetail;
@@ -70,36 +69,6 @@ export function AgentRunDetailView(props: {
             {statusText}
           </span>
         </div>
-        {active && (actions.onStop || actions.onTakeControl) ? (
-          <div className={sx(styles.actions)}>
-            {actions.onStop ? (
-              <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onStop}>
-                Stop
-              </Button>
-            ) : null}
-            {actions.onTakeControl ? (
-              <Tooltip content={TAKE_CONTROL_HINT}>
-                <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onTakeControl}>
-                  Take control
-                </Button>
-              </Tooltip>
-            ) : null}
-          </div>
-        ) : null}
-        {status.recovery ? (
-          <div className={sx(styles.actions)}>
-            {actions.onRetry ? (
-              <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onRetry}>
-                Retry
-              </Button>
-            ) : null}
-            {!active && actions.onTakeControl ? (
-              <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onTakeControl}>
-                Take control
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
       </header>
 
       {props.failure ? (

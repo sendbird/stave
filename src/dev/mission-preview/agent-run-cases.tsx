@@ -90,16 +90,13 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         <p className={sx(styles.caption)}>Conversation · reason card, failed</p>
         <AgentRunResultCardView detail={runs.failed} now={now} actions={runActions} />
       </section>
-      <section className={sx(styles.case)} data-preview-case="Agent run stuck card">
-        <p className={sx(styles.caption)}>Conversation · reason card, stuck</p>
-        <AgentRunResultCardView detail={working.stuck} now={now} actions={runActions} />
-      </section>
 
       {(
         [
           ["Agent run panel working", "Progress tab · working", working.working],
           ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow],
           ["Agent run panel needs you", "Progress tab · needs you", working.needsYou],
+          ["Agent run panel stuck", "Progress tab · stuck (the bar has Retry)", working.stuck],
           ["Agent run panel ready", "Progress tab · ready", runs.ready],
           ["Agent run panel failed", "Progress tab · failed", runs.failed],
         ] as const
