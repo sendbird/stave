@@ -405,6 +405,24 @@ export const modelEffortSelectorStyles = stylex.create({
     fontSize: vars["--ads-font-size-micro"],
     color: vars["--ads-color-text-muted"],
   },
+  /** A caution beside the name, such as a model experimental on this runtime. */
+  modelRowNoticeBadge: {
+    flexShrink: 0,
+    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--ads-color-warning-soft"],
+    paddingInline: "0.375rem",
+    paddingBlock: "0.125rem",
+    fontSize: vars["--ads-font-size-micro"],
+    color: vars["--ads-color-warning-text"],
+  },
+  /** Names the source of a provider's list, such as "Company gateway · API billing". */
+  modelGroupHeading: {
+    paddingInline: vars["--ads-space-12"],
+    paddingBlockStart: vars["--ads-space-8"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--ads-color-text-muted"],
+  },
   modelRowCapabilities: {
     marginBlockStart: vars["--ads-space-4"],
     display: "flex",

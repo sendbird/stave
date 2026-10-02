@@ -1,6 +1,6 @@
 import path from "node:path";
 import { inspectOptionalProviderTooling } from "../../providers/optional-provider-tooling";
-import { currentClaudeGateway, gatewayCredentialAvailable } from "../../provider-accounts/gateway-runtime";
+import { currentClaudeGateway, gatewayCredentialAvailable, peekApiConnection } from "../../provider-accounts/gateway-runtime";
 import {
   buildClaudeEnv,
   resolveClaudeExecutablePath,
@@ -550,13 +550,7 @@ async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
   }
 
   const env = buildClaudeEnv({ executablePath });
-  if (currentClaudeGateway()) return makeToolEntry({
-    id: "claude", label: "Claude CLI", state: "warning", available: true,
-    summary: "Gateway connection selected.",
-    detail: "API billing applies. Check the Gateway model list below; tool and streaming compatibility require a real turn.",
-    version: null, executablePath, authState: "unknown",
-    authDetail: gatewayCredentialAvailable() ? "Saved API key available; endpoint authentication is unverified." : "Gateway API key is unavailable. Check Settings > Secrets.",
-  });
+  if (currentClaudeGateway()) return apiConnectionToolEntry("claude", "Claude CLI", executablePath);
   const configDir = env.CLAUDE_CONFIG_DIR?.trim()
     ? env.CLAUDE_CONFIG_DIR.trim()
     : null;
@@ -609,6 +603,18 @@ async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
   });
 }
 
+/** An API connection authenticates with its saved key, so the CLI's own sign-in is not read. */
+function apiConnectionToolEntry(id: "claude" | "codex", label: string, executablePath: string) {
+  const runtime = id === "claude" ? "claude-code" : "codex";
+  return makeToolEntry({
+    id, label, state: "warning", available: true,
+    summary: "API connection selected.",
+    detail: "API billing applies. Check the connection in Settings > Tooling > API connections; tool and streaming compatibility require a real turn.",
+    version: null, executablePath, authState: "unknown",
+    authDetail: gatewayCredentialAvailable(undefined, runtime) ? "Saved API key available; gateway authentication is unverified." : "The API connection's key is unavailable. Check Settings > Secrets.",
+  });
+}
+
 async function inspectCodexStatus(args: { codexBinaryPath?: string }) {
   await prepareCliExecutableDiscovery();
   const executablePath =
@@ -631,6 +637,7 @@ async function inspectCodexStatus(args: { codexBinaryPath?: string }) {
     });
   }
 
+  if (peekApiConnection("codex")) return apiConnectionToolEntry("codex", "Codex CLI", executablePath);
   const env = buildCodexCliEnv({ executablePath });
   const [versionResult, authResult] = await Promise.all([
     runCommandArgs({

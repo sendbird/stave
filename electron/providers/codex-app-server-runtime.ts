@@ -149,6 +149,7 @@ import {
   type CodexConfigOverrides,
 } from "./codex-app-server-params";
 import { mergeCodexTurnConfigOverrides } from "./codex-app-server-config-overrides";
+import { noteCodexApiConnectionSpawn, readCodexTurnAccount, retireStaleCodexApiConnectionClient } from "./codex-api-connection";
 import { parsePositiveIntEnv } from "./runtime-shared";
 import { createCodexMcpManagement } from "./codex-mcp-management";
 import {
@@ -612,7 +613,7 @@ class CodexAppServerClient {
         // Stave runtime variable. Mirrors `buildClaudeQueryOptions`.
         env: {
           ...stripReservedSecretEnvNames(this.secretEnv),
-          ...buildCodexEnv({ executablePath: this.executablePath, accountProfileId: this.accountProfileId }),
+          ...noteCodexApiConnectionSpawn(this, buildCodexEnv({ executablePath: this.executablePath, accountProfileId: this.accountProfileId })),
         },
         cwd: process.cwd(),
       },
@@ -936,9 +937,7 @@ function getCodexAppServerClient(args: { executablePath: string }) {
   const executablePath = args.executablePath.trim();
   if (currentProviderAccountId("codex") !== "system-default") getProviderAccountRegistry().resolveDirectory({ providerId: "codex", profileId: currentProviderAccountId("codex") });
   const existing = clientByExecutablePath.get(providerAccountKey("codex", executablePath));
-  if (existing) {
-    return existing;
-  }
+  if (existing && !retireStaleCodexApiConnectionClient(existing, activeCodexTurnsByExecutable.get(providerAccountKey("codex", executablePath)) ?? 0)) return existing;
   const client = new CodexAppServerClient(executablePath);
   clientByExecutablePath.set(providerAccountKey("codex", executablePath), client);
   return client;
@@ -1801,10 +1800,8 @@ export async function streamCodexWithAppServer(
     const resourcePid = client.getProcessId();
     if (resourcePid) releaseResourceOwner = retainResourceProcessOwner(resourcePid, args);
     try {
-      const account = await client.request<{
-        account: unknown | null;
-        requiresOpenaiAuth: boolean;
-      }>("account/read", { refreshToken: true });
+      // An API connection checks its saved key here instead of a Codex sign-in.
+      const account = await readCodexTurnAccount(client.request.bind(client));
       if (!account.account && account.requiresOpenaiAuth) {
         const events = buildCodexTerminalFailureEvents({
           message: "Codex authentication failed. Run `codex login` and retry.",

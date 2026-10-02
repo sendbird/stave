@@ -56,6 +56,19 @@ launches isolated login PTYs through the terminal runtime. Focused checks are
 `tests/provider-account-environment.test.ts`, and
 `tests/provider-account-ipc.test.ts`.
 
+API connections (one gateway key for Claude Code and Codex) use
+`src/lib/providers/api-connections.ts` for the record, IPC channels, presets,
+and error mapping, and `api-connection-catalog.ts` / `api-connection-models.ts`
+for discovery filtering and picker rows. The registry stores them next to
+accounts (`electron/provider-accounts/api-connection-records.ts`) and lists one
+entry per runtime they serve. `electron/provider-accounts/gateway-runtime.ts`
+is the Claude adapter and per-runtime credential scope;
+`electron/providers/codex-api-connection.ts` is the Codex adapter.
+`electron/main/api-connection-check.ts` owns discovery and the key check, and
+`electron/main/ipc/api-connections.ts` the validated handlers. Focused checks
+are `tests/api-connections.test.ts`, `tests/claude-gateway.test.ts`, and
+`tests/api-connection-migration.test.ts`.
+
 | Domain | Owner and boundary | Focused tests to start with |
 | --- | --- | --- |
 | Claude SDK events | `electron/providers/claude-event-mapping.ts` translates SDK events using supplied tracker/plan state; `claude-sdk-runtime.ts` owns turn state and rate-limit observation side effects; `src/lib/session/provider-event-replay.ts` and `src/lib/work-graph/work-graph-reducer.ts` consume normalized events and correlate tool results with earlier tool calls | `tests/claude-sdk-runtime.test.ts`, `tests/claude-rate-limits-observation.test.ts`; inspect replay or work-graph tests when their state changes |

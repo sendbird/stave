@@ -103,9 +103,9 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
       {
         routePath: "accounts-and-gateways",
         sourcePath: "docs/features/accounts-and-gateways.md",
-        title: "Accounts and API Gateways",
+        title: "Accounts and API Connections",
         description:
-          "Add a second Claude or Codex sign-in, switch the account new turns use, or bill Claude turns per token through a gateway.",
+          "Add a second Claude or Codex sign-in, switch the account new turns use, or bill Claude and Codex turns per token through one gateway key.",
       },
       {
         routePath: "standalone-cli",

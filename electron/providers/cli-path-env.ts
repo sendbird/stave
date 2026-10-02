@@ -29,6 +29,7 @@ import {
 import { readMcpEnvVarNames, type McpEnvProvider } from "./mcp-env";
 import { resolveProviderAccountEnvironment } from "../provider-accounts/environment";
 import { applyClaudeGatewayEnvironment } from "../provider-accounts/gateway-runtime";
+import { applyCodexApiConnectionEnvironment } from "./codex-api-connection";
 
 const CLAUDE_LOOKUP_PATHS = [
   `${homedir()}/.claude/local`,
@@ -620,7 +621,7 @@ export function buildCodexCliEnv(
   if (args.cwd) {
     env = buildRepositoryShellEnv({ cwd: args.cwd, baseEnv: env });
   }
-  applyAccount(env);
+  applyCodexApiConnectionEnvironment(applyAccount(env), args.accountProfileId);
   return Object.fromEntries(
     Object.entries(env).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",

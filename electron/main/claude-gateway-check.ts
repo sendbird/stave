@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ClaudeGateway, ClaudeGatewayCheckResult } from "../../src/lib/providers/claude-gateway";
+import { describeApiConnectionHttpStatus } from "../../src/lib/providers/api-connections";
 
 const CatalogSchema = z.object({ data: z.array(z.object({ id: z.string().max(200) })).max(5000) });
 
@@ -20,8 +21,8 @@ export async function checkClaudeGateway(args: {
   gateway: ClaudeGateway;
   token: string;
   request?: typeof fetch;
-}): Promise<ClaudeGatewayCheckResult> {
-  const failed = (message: string) => ({ ok: false, message, models: [] });
+}): Promise<ClaudeGatewayCheckResult & { httpStatus?: number }> {
+  const failed = (message: string, httpStatus?: number) => ({ ok: false, message, models: [], ...(httpStatus ? { httpStatus } : {}) });
   try {
     const response = await (args.request ?? fetch)(`${args.gateway.baseUrl}/v1/models`, {
       headers: { Authorization: `Bearer ${args.token}`, "anthropic-version": "2023-06-01" },
@@ -29,7 +30,7 @@ export async function checkClaudeGateway(args: {
     });
     if (!response.ok) {
       await response.body?.cancel();
-      return failed(`The gateway refused the model list request (HTTP ${response.status}). Check the base URL and the API key in Secrets.`);
+      return failed(describeApiConnectionHttpStatus(response.status), response.status);
     }
     const reader = response.body?.getReader();
     if (!reader) return failed("The endpoint returned an empty model list response.");

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { ProviderAccountRegistry } from "../electron/provider-accounts/registry";
@@ -30,21 +30,31 @@ afterEach(() => {
   else process.env.STAVE_USER_DATA_PATH = originalRoot;
   rmSync(root, { recursive: true, force: true });
 });
-const create = (label = "Gateway") => registry.create({ providerId: "claude-code", label, gateway });
+// A Claude gateway is an API connection; its Claude Code entry is what Claude turns select.
+const create = (label = "Gateway") => {
+  const connection = registry.createApiConnection({ label, kind: "custom", secretId, endpoints: { "claude-code": gateway.baseUrl }, models: gateway.models.map(id => ({ id })) });
+  return { ...registry.list().find(profile => profile.id === connection.id && profile.providerId === "claude-code")!, configDirectory: path.join(realpathSync(root), "provider-accounts", "connections", connection.id, "claude-code") };
+};
 const inGateway = <T>(profileId: string, token: string | undefined, run: () => T) =>
-  withGatewayCredential({ profileId, token }, () => withProviderAccountScope({ claudeAccountProfileId: profileId }, run));
+  withGatewayCredential({ "claude-code": { profileId, token } }, () => withProviderAccountScope({ claudeAccountProfileId: profileId }, run));
 
 describe("Claude Gateway connections", () => {
-  test("stores immutable metadata only and rejects credentials in the URL or wrong provider", () => {
+  test("stores metadata only and rejects credentials in the URL or wrong provider", () => {
     for (const baseUrl of ["", "https:", "not-a-url", "http://gateway.example.test", "https://secret@gateway.example.test", "https://gateway.example.test?token=value", "https://gateway.example.test/#token"])
       expect(ClaudeGatewaySchema.safeParse({ ...gateway, baseUrl }).success).toBe(false);
     expect(() => registry.create({ providerId: "codex", label: "Invalid", gateway })).toThrow();
     expect(() => registry.create({ providerId: "claude-code", label: "Invalid", gateway, configDirectory: root })).toThrow();
     const profile = create();
     expect(registry.resolveGateway(profile.id)).toEqual(gateway);
-    expect(JSON.parse(readFileSync(registry.filePath, "utf8")).profiles[0].gateway).toEqual(gateway);
+    const stored = JSON.parse(readFileSync(registry.filePath, "utf8"));
+    expect(stored.profiles).toEqual([]);
+    expect(stored.connections[0]).toMatchObject({ id: profile.id, secretId, endpoints: { "claude-code": gateway.baseUrl } });
+    expect(JSON.stringify(stored)).not.toContain("fixture");
     expect(RuntimeOptionsObjectSchema.safeParse({ gatewayCredential: { token: "fixture-secret" } }).success).toBe(false);
-    registry.remove({ providerId: "claude-code", id: profile.id });
+    // The older create request shape still yields a working connection.
+    const legacyShape = registry.create({ providerId: "claude-code", label: "Older request", gateway });
+    expect(registry.resolveGateway(legacyShape.id)).toEqual(gateway);
+    registry.removeApiConnection(profile.id);
     expect(() => registry.resolveGateway(profile.id)).toThrow("no longer exists");
   });
 
@@ -52,22 +62,23 @@ describe("Claude Gateway connections", () => {
     const profile = create();
     let calls = 0;
     const resolve = async (id: string) => { calls++; expect(id).toBe(secretId); return { id, value: "fixture-gateway-key" }; };
-    expect(await resolveHostGatewayCredential({ providerId: "claude-code", runtimeOptions: { claudeAccountProfileId: profile.id } }, resolve)).toEqual({ profileId: profile.id, token: "fixture-gateway-key" });
+    const claude = (token?: string) => ({ "claude-code": { profileId: profile.id, ...(token ? { token } : {}) } });
+    expect(await resolveHostGatewayCredential({ providerId: "claude-code", runtimeOptions: { claudeAccountProfileId: profile.id } }, resolve)).toEqual(claude("fixture-gateway-key"));
     expect(await resolveHostGatewayCredential({ providerId: "codex", runtimeOptions: { claudeAccountProfileId: profile.id } }, resolve)).toBeUndefined();
     expect(await resolveHostGatewayCredential({ providerId: "codex", runtimeOptions: {
       claudeAccountProfileId: profile.id, advisorTarget: { providerId: "claude-code" },
-    } }, resolve)).toEqual({ profileId: profile.id, token: "fixture-gateway-key" });
+    } }, resolve)).toEqual(claude("fixture-gateway-key"));
     expect(calls).toBe(2);
-    expect(await resolveHostGatewayCredential({ input: { providerId: "claude-code", runtimeHints: { claudeAccountProfileId: profile.id } } }, async () => null)).toEqual({ profileId: profile.id });
-    expect(await resolveHostGatewayCredential({ claudeAccountProfileId: profile.id }, async () => { throw new Error("fixture-sensitive-error"); })).toEqual({ profileId: profile.id });
-    inGateway(profile.id, undefined, () => expect(() => validateClaudeGatewayModel(gateway.models[0])).toThrow("API key is unavailable"));
+    expect(await resolveHostGatewayCredential({ input: { providerId: "claude-code", runtimeHints: { claudeAccountProfileId: profile.id } } }, async () => null)).toEqual(claude());
+    expect(await resolveHostGatewayCredential({ claudeAccountProfileId: profile.id }, async () => { throw new Error("fixture-sensitive-error"); })).toEqual(claude());
+    inGateway(profile.id, undefined, () => expect(() => validateClaudeGatewayModel(gateway.models[0])).toThrow("key is unavailable"));
     const native = registry.create({ providerId: "claude-code", label: "Native" });
     expect(await resolveHostGatewayCredential({ claudeAccountProfileId: native.id }, resolve)).toBeUndefined();
     expect(calls).toBe(2);
-    registry.remove({ providerId: "claude-code", id: profile.id });
+    registry.removeApiConnection(profile.id);
     expect(await resolveHostGatewayCredential({ providerId: "codex", runtimeOptions: {
       claudeAccountProfileId: profile.id, advisorTarget: { providerId: "claude-code" },
-    } }, resolve)).toEqual({ profileId: profile.id });
+    } }, resolve)).toEqual(claude());
     expect(calls).toBe(2);
   });
 
@@ -101,10 +112,10 @@ describe("Claude Gateway connections", () => {
     })));
     expect(options.map(option => option.env?.ANTHROPIC_AUTH_TOKEN)).toEqual(["fixture-key-0", "fixture-key-1"]);
     expect(process.env.ANTHROPIC_AUTH_TOKEN).toBe(parentToken);
-    inGateway(profiles[0]!.id, "fixture", () => expect(() => validateClaudeGatewayModel(gateway.models[0], profiles[1]!.id)).toThrow("API key is unavailable"));
+    inGateway(profiles[0]!.id, "fixture", () => expect(() => validateClaudeGatewayModel(gateway.models[0], profiles[1]!.id)).toThrow("key is unavailable"));
   });
 
-  test("does not query subscription usage or allow native login for Gateway profiles", async () => {
+  test("does not query subscription usage or allow native login for an API connection", async () => {
     const profile = create();
     await inGateway(profile.id, "fixture", async () => {
       const catalog = await getProviderModelCatalog({ providerId: "claude-code" });

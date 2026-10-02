@@ -240,6 +240,11 @@ function ModelOnlyList(args: {
                     Default
                   </span>
                 ) : null}
+                {option.badge ? (
+                  <span className={sx(styles.modelRowNoticeBadge)} title={option.description}>
+                    {option.badge}
+                  </span>
+                ) : null}
               </span>
               {presentation.capabilities.length > 0 ? (
                 <span className={sx(styles.modelRowCapabilities)}>
@@ -462,6 +467,11 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   ]);
   const hideCursorVariantList =
     providerId === "cursor" && cursorParameterized;
+  // An API connection's models are the whole list; name the connection above them.
+  const visibleGroup = visibleOptions.length > 0 &&
+    visibleOptions.every((option) => option.group === visibleOptions[0]?.group)
+    ? visibleOptions[0]?.group
+    : undefined;
   const effortfulOptions = visibleOptions.filter(
     (option) =>
       (providerId !== "cursor" || cursorParameterized) &&
@@ -847,6 +857,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                         disabled={args.disabled}
                         onChoose={chooseModel}
                       />
+                    ) : null}
+                    {visibleGroup ? (
+                      <div className={sx(styles.modelGroupHeading)}>{visibleGroup}</div>
                     ) : null}
                     <ModelEffortGrid
                       providerId={providerId}

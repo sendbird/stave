@@ -11,7 +11,6 @@ import { AccountsGuideButton } from "./AccountsGuideButton";
 import { ProviderAccountPicker } from "./ProviderAccountPicker";
 import { ProviderAccountAddForm } from "./ProviderAccountAddForm";
 import { ProviderAccountLoginTerminal } from "./ProviderAccountLoginTerminal";
-import { ClaudeGatewaySettings } from "./ClaudeGatewaySettings";
 import { accountStyles as styles } from "./provider-accounts.styles";
 
 const LOGIN_COMMAND = { "claude-code": "claude auth login", codex: "codex login" } as const;
@@ -94,7 +93,7 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
   >
     <div className={sx(styles.stack)}>
       <ProviderAccountPicker providerId={providerId} />
-      {profiles.filter(p => p.providerId === providerId).map(p => <AccountRow key={p.id} profile={p} name={name} run={run} login={login} busy={busy} />)}
+      {profiles.filter(p => p.providerId === providerId && !p.apiConnection).map(p => <AccountRow key={p.id} profile={p} name={name} run={run} login={login} busy={busy} />)}
       <ProviderAccountAddForm providerId={providerId} name={name} busy={busy} run={run} login={login} />
       {error && <p role="alert" className={sx(styles.error)}>{error}</p>}
       {loginSession && <div className={sx(styles.stack)}>
@@ -106,7 +105,6 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
         <ProviderAccountLoginTerminal key={loginSession.id} sessionId={loginSession.id} />
         <p className={sx(styles.muted)}>Follow the steps in the terminal; it may open your browser. When it says you are signed in, close the terminal. Stave then refreshes sign-in status and usage for the account new turns use.</p>
       </div>}
-      {providerId === "claude-code" && <ClaudeGatewaySettings />}
     </div>
   </SettingsCard>;
 }

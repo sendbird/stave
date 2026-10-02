@@ -131,6 +131,18 @@ export const modelSelectorStyles = stylex.create({
     lineHeight: vars["--ads-line-height-tight"],
     color: vars["--ads-color-accent"],
   },
+  /** A caution beside the label, such as a model that is experimental on this runtime. */
+  optionNoticeBadge: {
+    flexShrink: 0,
+    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: vars["--ads-color-warning-soft"],
+    paddingInline: vars["--ads-space-4"],
+    paddingBlock: "1px",
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--ads-color-warning-text"],
+  },
   optionDescription: {
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -142,6 +154,14 @@ export const modelSelectorStyles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: "0.375rem",
+  },
+  /** The sub-group name beside the runtime, such as "Company gateway · API billing". */
+  groupHeadingMeta: {
+    color: vars["--ads-color-text-subtle"],
+    fontWeight: vars["--ads-font-weight-regular"],
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   groupHeadingIcon: {
     width: vars["--ads-control-icon-size-sm"],

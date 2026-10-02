@@ -20,6 +20,7 @@ import { registerPersistenceHandlers } from "./persistence";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerProviderAccountHandlers } from "./provider-accounts";
+import { registerApiConnectionHandlers } from "./api-connections";
 import { registerRunHandlers } from "./runs";
 import { registerAutomationHandlers } from "./automations";
 import { registerScmHandlers } from "./scm";
@@ -38,6 +39,7 @@ export function registerHandlers() {
   registerDiagnosticsHandlers();
   registerProviderHandlers();
   registerProviderAccountHandlers();
+  registerApiConnectionHandlers();
   registerRunHandlers();
   registerAutomationHandlers();
   registerMissionHandlers();

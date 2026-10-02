@@ -1307,7 +1307,7 @@ export interface HostServiceReadyEnvelope {
 
 export interface HostServiceRequestEnvelope<TMethod extends HostServiceMethod> {
   /** Internal main-to-host credential; never included in a response or renderer API. */
-  gatewayCredential?: import("../provider-accounts/gateway-runtime").GatewayCredential;
+  gatewayCredential?: import("../provider-accounts/gateway-runtime").GatewayCredentials;
   type: "request";
   id: number;
   method: TMethod;

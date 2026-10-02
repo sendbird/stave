@@ -1,0 +1,55 @@
+import * as stylex from "@stylexjs/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+
+/** API connections card; shares spacing and text roles with the accounts cards. */
+export const apiConnectionStyles = stylex.create({
+  connection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    paddingBlock: vars["--ads-space-8"],
+    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomStyle: "solid",
+    borderBottomColor: vars["--ads-color-border"],
+  },
+  heading: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: vars["--ads-space-8"] },
+  name: { color: vars["--ads-color-text"], fontSize: vars["--ads-font-size-body"], fontWeight: vars["--ads-font-weight-semibold"] },
+  meta: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
+  modelList: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], margin: 0, padding: 0, listStyle: "none" },
+  modelRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
+    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+  },
+  modelText: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 },
+  modelName: { color: vars["--ads-color-text"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"], overflowWrap: "anywhere" },
+  modelDetail: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-micro"], overflowWrap: "anywhere" },
+  experimental: {
+    flexShrink: 0,
+    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: vars["--ads-color-warning-soft"],
+    color: vars["--ads-color-warning-text"],
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    paddingInline: vars["--ads-space-4"],
+    paddingBlock: "1px",
+    whiteSpace: "nowrap",
+  },
+  results: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-4"],
+    maxBlockSize: 260,
+    overflowY: "auto",
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+  },
+  checkOk: { color: vars["--ads-color-success-text"], fontSize: vars["--ads-font-size-caption"], overflowWrap: "anywhere" },
+  checkFailed: { color: vars["--ads-color-danger-text"], fontSize: vars["--ads-font-size-caption"], overflowWrap: "anywhere" },
+});

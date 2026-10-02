@@ -310,7 +310,8 @@ export function listDefaultModelOptions(args: {
       providerId: option.providerId,
       model: option.model,
     });
-    return override ?? baselineKeys.has(option.key);
+    // Models pinned on an API connection were chosen by the user; show them all.
+    return override ?? (option.group !== undefined || baselineKeys.has(option.key));
   });
 }
 

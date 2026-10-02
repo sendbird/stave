@@ -111,6 +111,8 @@ export const RESERVED_ENV_VAR_NAMES: readonly string[] = [
   "NVM_BIN",
   "NVM_INC",
   "STAVE_LOCAL_MCP_TOKEN",
+  // The Codex `env_key` an API connection's key travels in.
+  "STAVE_API_CONNECTION_KEY",
   "ELECTRON_RUN_AS_NODE",
   "ELECTRON_NO_ATTACH_CONSOLE",
   "ELECTRON_NO_ASAR",

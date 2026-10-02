@@ -15,6 +15,7 @@ import { parseBooleanEnv } from "./runtime-shared";
 import { buildRepositoryNvmShellConfigOverrides } from "../shared/repository-node-env";
 import { isRecord } from "./codex-app-server-json";
 import type { CodexNativeImageItem } from "./native-image-input";
+import { applyCodexApiConnectionThread } from "./codex-api-connection";
 
 type CodexRequest = (
   method: string,
@@ -269,7 +270,8 @@ export function buildCodexThreadStartParams(args: {
         ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
       });
 
-  return {
+  // An API connection's provider and pinned model ride on every thread start.
+  return applyCodexApiConnectionThread({
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
     cwd: args.cwd,
     ...(args.approvalPolicy ? { approvalPolicy: args.approvalPolicy } : {}),
@@ -282,7 +284,7 @@ export function buildCodexThreadStartParams(args: {
             "This is an isolated read-only analysis turn. Do not call tools, MCP servers, apps, plugins, shells, or subagents. Return only concise advice based on the supplied prompt.",
         }
       : {}),
-  };
+  });
 }
 
 /**
@@ -333,12 +335,12 @@ export function buildCodexThreadResumeParams(args: {
     ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   });
 
-  return {
+  return applyCodexApiConnectionThread({
     threadId: args.threadId,
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
     cwd: args.cwd,
     ...(config ? { config } : {}),
-  };
+  });
 }
 
 /**

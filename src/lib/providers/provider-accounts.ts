@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ClaudeGatewaySchema, type ClaudeGateway, type ClaudeGatewayCheckResult } from "./claude-gateway";
+import type { ApiConnectionKind, ApiConnectionModel } from "./api-connections";
 
 export const SYSTEM_ACCOUNT_PROFILE_ID = "system-default";
 export const MAX_PROVIDER_ACCOUNT_PROFILES = 50;
@@ -75,8 +76,14 @@ export interface ProviderAccountProfile {
   kind: "system" | "managed" | "external";
   /** Nonsecret metadata only. Never contains native credentials. */
   configDirectory?: string;
-  /** Explicit API billing connection; only a vault reference is stored. */
+  /**
+   * Set on the entry an API connection contributes to this runtime's account
+   * list: this runtime's endpoint, the key reference, and the pinned model IDs.
+   * Selecting the entry selects API billing.
+   */
   gateway?: ClaudeGateway;
+  /** The shared API connection behind a `gateway` entry; its id is this entry's id. */
+  apiConnection?: { label: string; kind: ApiConnectionKind; models: ApiConnectionModel[] };
 }
 export type ProviderAccountListResult =
   | { ok: true; profiles: ProviderAccountProfile[] }

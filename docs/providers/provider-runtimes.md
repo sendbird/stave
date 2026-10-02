@@ -96,9 +96,10 @@ queued messages, and open CLI sessions retain their captured account. The
 meter, the Tooling selector, and the Standalone CLI tab selector draw a choice
 only when a provider has more than one account (the selectors also stay when the
 selected account was removed, as the way back), and the meter names the account
-beside the provider only when it is not System default or is an API-billing
-gateway. The user guide is
-[Accounts and API gateways](../features/accounts-and-gateways.md). An unavailable registration fails explicitly rather than silently
+beside the provider only when it is not System default or is an API
+connection. API connections are listed beside sign-in accounts; see
+[API connections](#api-connections-claude-code-and-codex). The user guide is
+[Accounts and API connections](../features/accounts-and-gateways.md). An unavailable registration fails explicitly rather than silently
 switching to System default.
 
 Message provenance carries the originating profile for native fork, rollback,
@@ -1306,56 +1307,99 @@ it across same-turn message splits. The run overview exposes the evidence inside
 a closed Model details disclosure without adding a confirmation step. Older
 messages remain valid without this optional evidence.
 
-### Claude Gateway connections
+### API connections (Claude Code and Codex)
 
-Settings > Tooling > Claude accounts can register a separate Gateway connection.
-Choose an Anthropic-compatible HTTPS base URL or the Vercel AI Gateway preset,
-enter the exact Claude model IDs, and select an API key already saved in
-Settings > Secrets. The base URL precedes `/v1/messages`; the preset uses
-`https://ai-gateway.vercel.sh/claude-code`. See the
-[Gateway SDK setup](https://vercel.com/docs/ai-gateway/coding-agents/claude-code)
-and [Claude gateway guidance](https://code.claude.com/docs/en/llm-gateway).
-Codex, Cursor, and Kiro retain their existing native authentication paths.
+An API connection is one app-level gateway key, billed per token, that Claude
+Code and Codex share. `window.api.apiConnections` lists, creates, edits,
+removes, checks, and discovers models for connections
+(`src/lib/providers/api-connections.ts` owns the schemas and channels). The
+record is `{ id, label, kind, secretId, endpoints, models }`: `kind` is
+`vercel-ai-gateway` (endpoints derived) or `custom`; `endpoints` has an
+optional HTTPS base URL per runtime (`claude-code`, `codex`); `models` is the
+pinned shortlist, shared by both runtimes, with optional name, context window,
+and per-token prices. Only the Secrets reference is stored or crosses IPC.
+Electron main resolves the key and passes it to the host in the private
+`gatewayCredential` envelope, one credential per runtime, never through
+renderer runtime options, provider events, or diagnostics. Name, key
+reference, and models can be edited; endpoints cannot. Records live in
+`<app-data>/provider-accounts.json` under `connections`.
 
-A connection gets its own managed Claude configuration directory and profile ID.
-Its endpoint, model list, and secret reference are immutable; create another
-connection to change the destination. The referenced secret can be rotated in
-Secrets. Only nonsecret metadata is stored in the account registry. Electron
-main resolves the key and passes it through the private host-service envelope,
-never through renderer runtime options, provider events, or diagnostics. Each
-request has an isolated credential scope. Removed registrations and missing or
-locked keys prevent new inference rather than falling back to subscription auth.
-Running turns and open CLI sessions retain their launch connection.
+A connection is selected through the account machinery: the registry lists one
+entry per runtime it serves, with the connection id as the profile id and a
+`gateway` field (that runtime's endpoint, key reference, and model IDs), so
+`claudeAccountProfileId` / `codexAccountProfileId`, queue capture, session
+cursors, usage invalidation, and CLI-tab persistence work unchanged. Each
+runtime gets its own managed configuration directory under
+`<app-data>/provider-accounts/connections/<id>/<runtime>`. Selecting an entry
+explicitly selects API billing: subscription usage endpoints are not queried,
+the status bar shows **API billing** and reported spend, and Stave never
+switches to a connection on its own. Removed registrations and missing or
+locked keys stop new inference rather than falling back to subscription auth.
+Running turns and open CLI sessions keep their launch connection.
 
-Selecting a Gateway explicitly selects API billing. The composer labels this
-choice, and the status bar replaces the subscription meter with an API billing
-label and the reported spend of turns run in Stave. Subscription usage endpoints
-are not queried for Gateway connections.
-Charges and limits are managed by the Gateway. Stave does not automatically
-switch from a subscription to a Gateway when quota is exhausted.
+Claude adapter: the child environment sets `ANTHROPIC_BASE_URL` to the Claude
+Code endpoint (Vercel: `https://ai-gateway.vercel.sh/claude-code`, no `/v1`),
+`ANTHROPIC_AUTH_TOKEN` to the key, and `ANTHROPIC_API_KEY=""`, following
+[Vercel's Claude Code setup](https://vercel.com/docs/ai-gateway/coding-agents/claude-code).
+Implicit model aliases and the subagent model are pinned to the first pinned
+Claude model (else the first pinned model). Gateway queries and CLI sessions
+disable native settings sources so local environment or credential helpers
+cannot override the connection. Model IDs may be `creator/model`; non-Claude
+models are labeled **Experimental in Claude Code**, because Anthropic
+[does not support routing Claude Code to non-Claude models through a gateway](https://code.claude.com/docs/en/llm-gateway)
+and Claude Code sends adaptive thinking and beta fields to model IDs it does not
+recognize ([compatibility guide](https://code.claude.com/docs/en/llm-gateway-protocol)).
 
-Only configured models appear in the Gateway catalog. Native IDs can resolve
-to a configured ID for the same model with a routing prefix; a different model
-is never substituted. Explicit fallback and subagent models must also belong to
-the connection. Auxiliary requests using an unconfigured model fail explicitly;
-include the models used by your auxiliary settings in the connection. The child
-environment pins implicit small/subagent model aliases to the first configured
-model. Gateway queries and CLI sessions disable native settings sources to
-prevent local environment or credential helpers from overriding the connection;
-Stave's explicit runtime permissions and MCP configuration still apply.
-Provider authentication environment names are reserved against task-bound
-secret overrides. Use a connection's saved-secret reference for Gateway auth.
+Codex adapter: Codex reads provider routing from config, not from
+`OPENAI_BASE_URL`. Every `thread/start` and `thread/resume` on a connection
+carries `model_provider = "stave-api-connection"` and a
+`model_providers.stave-api-connection` table (`base_url` = the Codex endpoint,
+Vercel `https://ai-gateway.vercel.sh/codex/v1`; `env_key =
+"STAVE_API_CONNECTION_KEY"`; `wire_api = "responses"`; no
+`supports_websockets`, which Vercel serves for OpenAI models only), per
+[Vercel's Codex setup](https://vercel.com/docs/ai-gateway/coding-agents/openai-codex).
+The key reaches the App Server through that variable at spawn; tool shells get
+it masked to an empty value. A connection turn checks the key instead of
+`account/read`, which reports `requiresOpenaiAuth: true` under thread-level
+routing. A shared App Server spawned with an older key retires once idle. The
+thread model must be pinned on the connection (empty picks the first pinned
+OpenAI model, else the first pinned model). Codex CLI tabs get the same table as
+`-c` overrides plus `--model`. Verified against codex-cli 0.159.3 with a local
+endpoint: thread-level config routes `POST <base_url>/responses` with
+`Authorization: Bearer <key>`, including after `thread/resume` in a new process.
 
-**Check model list** performs a bounded authenticated `GET /v1/models` request
-without following redirects or issuing inference. It reports only configured
-IDs advertised by the endpoint and does not return raw response bodies. IDs are
-compared after removing a leading `claude-code/` picker prefix and a trailing
-`[1m]` context marker, which Claude Code compatibility endpoints such as the
-Vercel preset list but strip before routing; the creator prefix (`anthropic/`)
-is compared as written. Some
-compatible endpoints do not implement model discovery. A successful check does
-not establish tool, streaming, reasoning, cancellation, or billing compatibility.
-Those capabilities require an authorized real turn against the chosen endpoint.
-Local tests cover request isolation, missing credentials, exclusive catalogs,
-SDK tool/stream/cancel options, model requirements, and failure redaction; live
-Gateway and multi-account acceptance remains a separate verification step.
+Only pinned models appear in a connection's catalog. The model picker groups
+them under the runtime as **<connection> · API billing**, with context and price,
+and tags non-Claude models in Claude Code. Native Claude IDs resolve to a pinned
+ID for the same model with a routing prefix; a different model is never
+substituted. Explicit fallback, subagent, and auxiliary models must also be
+pinned. Provider authentication environment names, including
+`STAVE_API_CONNECTION_KEY`, are reserved against task-bound secret overrides.
+
+Settings > Tooling > **API connections** adds Vercel AI Gateway connections by
+pinning models from the public `GET https://ai-gateway.vercel.sh/v1/models`
+catalog (language models with the `tool-use` tag; untagged language models are
+kept; past `deprecated_at` dropped), or custom ones by model ID. **Check
+connection** never runs inference: for Vercel it sends the key only to
+`GET /v1/credits` and compares pins with the public catalog; for a custom
+connection it asks the Claude endpoint for `GET /v1/models`, or the Codex
+endpoint for `GET /models`. Requests are bounded and do not follow redirects;
+raw response bodies are never returned. HTTP 401/403 reads as a rejected key,
+402 as a used-up budget (Vercel's `quota_for_entity_exceeded`), and 429 as a rate
+or free-tier limit. IDs are compared after removing a leading `claude-code/`
+picker prefix and a trailing `[1m]` context marker, which Vercel's Claude Code
+endpoint lists but strips before routing; the creator prefix is compared as
+written. A successful check does not establish tool, streaming, reasoning,
+cancellation, or billing compatibility; those require an authorized real turn.
+
+Claude account profiles that carried a `gateway` field (up to 0.22.2) are read
+as connections with the same id, label, key reference, models, and Claude
+directory, and Electron main persists that conversion once at startup
+(temporary migration `claude-gateway-api-connections`). A migrated Vercel AI
+Gateway connection also serves Codex. The older `providerAccounts.create`
+request with a `gateway` and the `checkGateway` channel still work and map to a
+connection.
+Local tests cover the schema and migration, request isolation, missing
+credentials, both adapters' environment and config overrides, exclusive
+catalogs, discovery filtering, and error mapping. Live gateway turns and
+multi-account acceptance remain a separate verification step.

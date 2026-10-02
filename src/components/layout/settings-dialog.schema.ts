@@ -345,7 +345,7 @@ export const settingsSections = [
     label: "Tooling",
     icon: Shield,
     description:
-      "Claude and Codex accounts, API gateways, and local tool health checks.",
+      "Claude and Codex accounts, API connections, and local tool health checks.",
     keywords: [
       "status",
       "dependencies",

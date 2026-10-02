@@ -141,6 +141,10 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
+} else if (preview === "api-connections") {
+  void import("@/dev/api-connections-preview").then(({ ApiConnectionsPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><ApiConnectionsPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "model-auto-tab") {
   void import("@/dev/model-auto-tab-preview").then(
     ({ ModelAutoTabPreview }) => {
