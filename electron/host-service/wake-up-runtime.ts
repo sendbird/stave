@@ -265,19 +265,35 @@ export function createWakeUpRuntime(
   const setIntervalImpl = dependencies.setInterval ?? globalThis.setInterval;
   const clearIntervalImpl =
     dependencies.clearInterval ?? globalThis.clearInterval;
+  // Delegate every method by name, never spread: the host passes its
+  // `SqliteStore`, whose methods live on the class prototype, and a spread
+  // copies only own properties. Listing each one also makes a new
+  // `WakeUpPersistence` method without a delegation fail `tsc`.
+  const store = dependencies.persistence;
   const persistence: WakeUpPersistence = {
-    ...dependencies.persistence,
+    listWakeUps: () => store.listWakeUps(),
+    listActiveWakeUps: () => store.listActiveWakeUps(),
+    listWakeUpsForWorkspace: (workspaceId) =>
+      store.listWakeUpsForWorkspace(workspaceId),
+    getWakeUp: (id) => store.getWakeUp(id),
+    getWakeUpByTaskId: (taskId) => store.getWakeUpByTaskId(taskId),
     upsertWakeUp: (wakeUp) => {
-      const written = dependencies.persistence.upsertWakeUp(wakeUp);
+      const written = store.upsertWakeUp(wakeUp);
       announce(written);
       return written;
     },
     removeWakeUp: (id) => {
-      const existing = dependencies.persistence.getWakeUp(id);
-      const removed = dependencies.persistence.removeWakeUp(id);
+      const existing = store.getWakeUp(id);
+      const removed = store.removeWakeUp(id);
       if (existing) announce(existing);
       return removed;
     },
+    recordWakeUpOccurrence: (occurrence) =>
+      store.recordWakeUpOccurrence(occurrence),
+    attachWakeUpOccurrenceTurn: (args) => store.attachWakeUpOccurrenceTurn(args),
+    listWakeUpOccurrences: (args) => store.listWakeUpOccurrences(args),
+    pruneWakeUpOccurrences: (args) => store.pruneWakeUpOccurrences(args),
+    completeInterruptedTurn: (args) => store.completeInterruptedTurn(args),
   };
   /** Read at fire time, so a settings change applies to the next wake. */
   function userRuntimeOptions(wakeUp: WakeUp) {
