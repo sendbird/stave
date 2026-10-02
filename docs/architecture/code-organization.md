@@ -56,6 +56,21 @@ launches isolated login PTYs through the terminal runtime. Focused checks are
 `tests/provider-account-environment.test.ts`, and
 `tests/provider-account-ipc.test.ts`.
 
+Sign-in identity and shared setup add channels without changing the registry
+file. `src/lib/providers/provider-account-identity.ts` and
+`provider-account-setup.ts` hold the schemas, channel names and the one-line
+copy helpers; `provider-account-setup-plan.ts` is the table of what is linked,
+copied or skipped. `electron/provider-accounts/identity-parse.ts` holds the
+pure parsers (the only code that decodes a credential file's claims),
+`identity.ts` the probe and its cache, and `setup-sharing.ts` the link, copy and
+removal. `electron/main/ipc/provider-account-identity.ts` and
+`provider-account-setup.ts` register the handlers, and the renderer reads
+identity through `src/lib/providers/use-provider-account-identity.ts`. Focused
+checks are `tests/provider-account-identity-parse.test.ts`,
+`tests/provider-account-identity.test.ts`,
+`tests/provider-account-setup-sharing.test.ts`, and
+`tests/provider-account-identity-ipc.test.ts`.
+
 | Domain | Owner and boundary | Focused tests to start with |
 | --- | --- | --- |
 | Claude SDK events | `electron/providers/claude-event-mapping.ts` translates SDK events using supplied tracker/plan state; `claude-sdk-runtime.ts` owns turn state and rate-limit observation side effects; `src/lib/session/provider-event-replay.ts` and `src/lib/work-graph/work-graph-reducer.ts` consume normalized events and correlate tool results with earlier tool calls | `tests/claude-sdk-runtime.test.ts`, `tests/claude-rate-limits-observation.test.ts`; inspect replay or work-graph tests when their state changes |

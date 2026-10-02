@@ -8,6 +8,9 @@ export const accountStyles = stylex.create({
   field: { flexGrow: 1, flexBasis: 180, minWidth: 120 },
   muted: { color: vars["--ads-color-text-muted"], fontSize: 12, overflowWrap: "anywhere" },
   error: { color: vars["--ads-color-danger-text"], fontSize: 12 },
+  /** A state the reader may need to act on, such as "Not signed in". */
+  attention: { color: vars["--ads-color-warning-text"], fontSize: 12, overflowWrap: "anywhere" },
+  identityRow: { display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: vars["--ads-space-8"] },
   profile: { paddingBlock: 8, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars["--ads-color-border"] },
   terminal: { height: 280, minHeight: 200, overflow: "hidden", position: "relative" },
   picker: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, paddingBlock: 4, fontSize: 12, color: vars["--ads-color-text-muted"] },
