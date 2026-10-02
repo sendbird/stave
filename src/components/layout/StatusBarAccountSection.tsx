@@ -9,6 +9,9 @@ import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { menu } from "@/components/ads/recipes/menu";
 import { transition } from "@/components/ads/recipes/transition";
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
+import { describeProviderAccountIdentity } from "@/lib/providers/provider-account-identity";
+import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
+import { useProviderAccountIdentity } from "@/lib/providers/use-provider-account-identity";
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles as styles } from "@/components/layout/status-bar-usage.styles";
 import type {
@@ -16,6 +19,37 @@ import type {
   StatusBarAccountView,
 } from "@/components/layout/status-bar-usage.utils";
 import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
+
+/**
+ * Who a sign-in account is signed in as, under its name in the switch. The same
+ * sentence as the Settings row; it truncates in the narrow popover, so the full
+ * text is in the tooltip.
+ */
+function AccountIdentityText(props: {
+  providerId: StatusBarAccountProviderId;
+  providerName: string;
+  profile: ProviderAccountProfile;
+}) {
+  const identity = useProviderAccountIdentity(props.providerId, props.profile.id);
+  const line = describeProviderAccountIdentity(identity, props.providerName);
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        delay={400}
+        render={
+          <span
+            className={sx(styles.accountIdentity, line.tone === "attention" && styles.accountIdentityAttention)}
+          />
+        }
+      >
+        {line.text}
+      </TooltipTrigger>
+      <TooltipContent side="right">
+        <span className={sx(styles.accountHint)}>{line.text}</span>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 /**
  * The foot of a usage meter: which account new turns use, and the way to
@@ -72,7 +106,12 @@ export function StatusBarAccountSection(props: {
                   )
                 }
               >
-                <span className={sx(menu.itemLabel)}>{profile.label}</span>
+                <span className={sx(styles.accountLabelStack)}>
+                  <span className={sx(menu.itemLabel)}>{profile.label}</span>
+                  {profile.gateway ? null : (
+                    <AccountIdentityText providerId={providerId} providerName={props.providerName} profile={profile} />
+                  )}
+                </span>
                 {profile.gateway ? (
                   <Tooltip>
                     <TooltipTrigger

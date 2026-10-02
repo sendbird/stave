@@ -42,7 +42,7 @@ const RegistrySchema = z
   .strict();
 type SavedProfile = z.infer<typeof SavedProfileSchema>;
 
-function systemDirectory(providerId: ProviderAccountProviderId) {
+export function systemDirectory(providerId: ProviderAccountProviderId) {
   const key = providerId === "claude-code" ? "CLAUDE_CONFIG_DIR" : "CODEX_HOME";
   return (
     resolveLoginShellEnvVarValue({ key }) ||

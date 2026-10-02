@@ -12,6 +12,9 @@ import { ProviderAccountPicker } from "./ProviderAccountPicker";
 import { ProviderAccountAddForm } from "./ProviderAccountAddForm";
 import { ProviderAccountLoginTerminal } from "./ProviderAccountLoginTerminal";
 import { ClaudeGatewaySettings } from "./ClaudeGatewaySettings";
+import { ProviderAccountIdentityLine } from "./ProviderAccountIdentityLine";
+import { ProviderAccountSetupSharing } from "./ProviderAccountSetupSharing";
+import { useProviderAccountIdentities } from "@/lib/providers/use-provider-account-identity";
 import { accountStyles as styles } from "./provider-accounts.styles";
 
 const LOGIN_COMMAND = { "claude-code": "claude auth login", codex: "codex login" } as const;
@@ -20,8 +23,8 @@ function WithTooltip({ tip, children }: { tip: string; children: ReactElement })
   return <Tooltip><TooltipTrigger render={children} /><TooltipContent>{tip}</TooltipContent></Tooltip>;
 }
 
-function AccountRow({ profile, name, run, login, busy }: {
-  profile: ProviderAccountProfile; name: string; busy: boolean;
+function AccountRow({ profile, name, run, login, busy, signingIn }: {
+  profile: ProviderAccountProfile; name: string; busy: boolean; signingIn: boolean;
   run: (action: () => Promise<unknown>) => void;
   login: (profile: ProviderAccountProfile) => Promise<void>;
 }) {
@@ -55,9 +58,11 @@ function AccountRow({ profile, name, run, login, busy }: {
       </WithTooltip>}
     </div>
     {profile.kind === "system" && <div className={sx(styles.muted)}>The {name} sign-in this computer already uses.</div>}
+    {!profile.gateway && <ProviderAccountIdentityLine profile={profile} providerName={name} signingIn={signingIn} />}
     {profile.configDirectory && !profile.gateway && <div className={sx(styles.muted)}>Folder: {profile.configDirectory}</div>}
     {profile.gateway && <div className={sx(styles.muted)}>Billed per token by the gateway · {profile.gateway.baseUrl}<br />Models: {profile.gateway.models.join(", ")}</div>}
     {checkMessage && <p role="status" className={sx(styles.muted)}>{checkMessage}</p>}
+    {profile.kind === "managed" && !profile.gateway && <ProviderAccountSetupSharing profile={profile} busy={busy} run={run} />}
   </div>;
 }
 
@@ -65,7 +70,7 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
   const profiles = useProviderAccounts(s => s.profiles);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loginSession, setLoginSession] = useState<{ id: string; label: string } | null>(null);
+  const [loginSession, setLoginSession] = useState<{ id: string; profileId: string; label: string } | null>(null);
   const name = providerId === "codex" ? "Codex" : "Claude";
   const run = (action: () => Promise<unknown>) => {
     setBusy(true); setError(null);
@@ -83,7 +88,7 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
       binaryPath: (providerId === "codex" ? state.settings.codexBinaryPath : state.settings.claudeBinaryPath) || undefined,
     });
     if (!result.ok) throw new Error(result.message);
-    setLoginSession({ id: result.sessionId, label: profile.label });
+    setLoginSession({ id: result.sessionId, profileId: profile.id, label: profile.label });
   };
   return <SettingsCard
     id={PROVIDER_ACCOUNTS_FIELD_ID[providerId]}
@@ -94,7 +99,7 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
   >
     <div className={sx(styles.stack)}>
       <ProviderAccountPicker providerId={providerId} />
-      {profiles.filter(p => p.providerId === providerId).map(p => <AccountRow key={p.id} profile={p} name={name} run={run} login={login} busy={busy} />)}
+      {profiles.filter(p => p.providerId === providerId).map(p => <AccountRow key={p.id} profile={p} name={name} run={run} login={login} busy={busy} signingIn={loginSession?.profileId === p.id} />)}
       <ProviderAccountAddForm providerId={providerId} name={name} busy={busy} run={run} login={login} />
       {error && <p role="alert" className={sx(styles.error)}>{error}</p>}
       {loginSession && <div className={sx(styles.stack)}>
@@ -102,9 +107,11 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
           await window.api?.terminal?.closeSession?.({ sessionId: loginSession.id }); setLoginSession(null);
           await useAppStore.getState().refreshProviderAvailability();
           await useAppStore.getState().refreshRateLimits();
+          // The terminal closing is when the answer to "who is signed in" can change.
+          await useProviderAccountIdentities.getState().load({ providerId, profileId: loginSession.profileId, refresh: true });
         })}>Close sign-in terminal</Button></div>
         <ProviderAccountLoginTerminal key={loginSession.id} sessionId={loginSession.id} />
-        <p className={sx(styles.muted)}>Follow the steps in the terminal; it may open your browser. When it says you are signed in, close the terminal. Stave then refreshes sign-in status and usage for the account new turns use.</p>
+        <p className={sx(styles.muted)}>Follow the steps in the terminal; it may open your browser. When it says you are signed in, close the terminal. Stave then checks who is signed in and refreshes usage for the account new turns use.</p>
       </div>}
       {providerId === "claude-code" && <ClaudeGatewaySettings />}
     </div>

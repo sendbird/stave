@@ -57,7 +57,67 @@ attachment, and closure. Login sessions buffer output until attached and use
 separate slots for each resolved profile and executable. Their output is retained
 in memory while alive and excluded from persisted terminal snapshots. A launch failure leaves
 other profiles and running sessions intact. Native login itself remains owned
-by the provider; Stave does not read or copy its credential files.
+by the provider; Stave does not copy its credential files and the login terminal
+never reads them.
+
+#### Sign-in identity
+
+`providerAccounts.identity` answers "who is this account signed in as" with a
+state (`signed-in`, `signed-out`, or `unknown` with a reason), an email, a plan
+label and a timestamp. It is the only thing the renderer receives. Electron main
+runs the probe with the profile's own environment and caches each answer:
+minutes for a signed-in answer, seconds for any other, replaced at once by a
+`refresh` request (the Settings sign-in terminal sends one when it closes).
+Repeat requests share one probe, at most two probes run at a time, and a late
+reply cannot overwrite a newer one.
+
+- **Claude.** `claude auth status --json` is run in the profile. Only
+  `loggedIn` is documented; `email` and `subscriptionType` are observed fields,
+  so each is optional and a value of the wrong type shows nothing. Signed-out
+  output arrives with a non-zero exit code and is read regardless.
+- **Codex.** `codex login status` prints no identity, so it supplies only the
+  signed-in or signed-out state. For a ChatGPT login, Electron main then reads
+  that profile's `auth.json` and decodes `tokens.id_token`, which is the single
+  narrow exception to "Stave does not read credential files" for the sign-in
+  surface. It copies out the `email` and `chatgpt_plan_type` claims and drops the
+  rest before returning. It never reads the access token, the refresh token or
+  an API key into its result, never opens the file for an API-key login or a
+  signed-out account, bounds the file at 256 KB, and does not verify, log,
+  persist or send any token over IPC. A keyring login, a missing file or an
+  unreadable one shows "Signed in" with no identity.
+- Failures, timeouts and unrecognised output become `unknown` with a fixed
+  reason. No message carries a path or CLI output. API connections have no
+  sign-in and are refused.
+
+Separate from this, the usage meter reads the Claude CLI's own OAuth session to
+call the usage endpoint (see Account usage reads). That read is unchanged.
+
+#### Shared setup
+
+A managed (app-created) account can share System default's setup.
+`providerAccounts.shareSetup` links or copies it in and removes only what Stave
+added; `providerAccounts.setupStatus` reads the state without writing. Accounts
+registered from a folder the user already had, and API connections, never take
+part. Add and sign in shares by default, with an opt-out checkbox, and Stave
+shares before the sign-in terminal opens. The table in
+`src/lib/providers/provider-account-setup-plan.ts` is the single source:
+
+| Entry | Claude | Codex | Why |
+| --- | --- | --- | --- |
+| `skills`, `agents`, `commands`, `plugins` | link | `skills`, `prompts`: link | A link keeps every account in sync, so a skill added later appears everywhere. |
+| `CLAUDE.md`, `AGENTS.md` | link | link | Edited by hand, holds no login. |
+| `settings.json` | filtered copy | not applicable | It can name API keys and login rules (`apiKeyHelper`, `awsAuthRefresh`, `awsCredentialExport`, `otelHeadersHelper`, `forceLoginMethod`, `forceLoginOrgUUID`, and `env` entries that are `ANTHROPIC_*`, cloud logins or look like a key, token, secret or password), and the CLI rewrites it per account, so a link would either leak those or silently fork. |
+| `config.toml` | not applicable | skip | Codex can keep endpoint, login and MCP credential settings there and rewrites it itself. |
+| `.credentials.json`, `auth.json`, `.claude.json`, Keychain entries | skip | skip | The login and who is signed in. Each account signs in on its own. |
+| `projects`, `sessions`, `history.jsonl`, `todos`, `shell-snapshots`, `statsig` | skip | skip | History and session state belong to the account that made them. |
+
+`NEVER_SHARED_NAMES` makes the planner throw if any of those logins or histories
+is ever placed in a `link` or `copy` entry. A link or copy never overwrites
+something the account owns: a real file, a non-empty folder or a link aimed
+elsewhere is reported as `kept`, and the copied settings file is refreshed only
+while it still matches the hash Stave recorded in `.stave-shared-setup.json`
+inside the account folder. Turning sharing off removes the links recorded there
+and an unedited settings copy, then the record. MCP servers are not shared.
 
 Custom profile environments select their configuration directory before MCP
 environment discovery and reapply it after hydration. They omit inherited
@@ -89,8 +149,12 @@ Settings > Tooling provides account registration, label editing, removal, and
 native sign-in terminals for Claude and Codex. **Add and sign in** creates a
 managed profile and immediately opens its sign-in terminal; registering an
 existing absolute configuration directory is under **Advanced: reuse a folder
-you already use** and skips the sign-in step. Removing a profile keeps its local
-files. The Tooling account selector and the status bar usage meter set the
+you already use** and skips the sign-in step. Each sign-in account shows its
+identity line ("Signed in as <email> · <plan>", "Not signed in", or "Can't check
+sign-in" with **Check again**), and the status bar switch repeats it under each
+account's name. Managed accounts also carry **Use my skills and instructions
+from System default** (on by default at creation) and **Update copied
+settings**. Removing a profile keeps its local files. The Tooling account selector and the status bar usage meter set the
 global default for **new turns** for that provider across tasks; running turns,
 queued messages, and open CLI sessions retain their captured account. The
 meter, the Tooling selector, and the Standalone CLI tab selector draw a choice

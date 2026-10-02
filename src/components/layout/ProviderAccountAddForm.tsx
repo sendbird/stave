@@ -1,11 +1,14 @@
 import { useId, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Checkbox } from "@/components/ads/components/Checkbox";
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from "@/components/ads/headless/collapsible";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { Input } from "@/components/ui";
 import type { ProviderAccountProfile, ProviderAccountProviderId } from "@/lib/providers/provider-accounts";
+import { describeProviderAccountSetup } from "@/lib/providers/provider-account-setup";
+import { USE_SYSTEM_SETUP_LABEL } from "./ProviderAccountSetupSharing";
 import { accountStyles as styles } from "./provider-accounts.styles";
 
 const FOLDER_ENV = { "claude-code": "CLAUDE_CONFIG_DIR", codex: "CODEX_HOME" } as const;
@@ -28,6 +31,7 @@ export function ProviderAccountAddForm(props: {
   const [label, setLabel] = useState("");
   const [directory, setDirectory] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [shareSetup, setShareSetup] = useState(true);
   const reuseFolder = Boolean(directory.trim());
   const add = () => props.run(async () => {
     const trimmedLabel = label.trim();
@@ -37,12 +41,21 @@ export function ProviderAccountAddForm(props: {
     if (!result.ok) throw new Error(result.message);
     setLabel(""); setDirectory("");
     if (reuseFolder) return;
+    // Share before sign-in so the login runs in a folder that already has the setup. A failure here
+    // must not stop sign-in; it is reported after, with the way to retry.
+    const problems: string[] = [];
+    if (shareSetup) {
+      const shared = await window.api!.providerAccounts!.shareSetup({ providerId, id: result.profile.id, enabled: true })
+        .catch(() => ({ ok: false as const, message: "Could not update the shared setup." }));
+      if (!shared.ok) problems.push(`Added ${trimmedLabel}, but could not share your setup. ${shared.message} Turn it on from the account.`);
+    }
     try {
       await props.login(result.profile);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new Error(`Added ${trimmedLabel}, but its sign-in terminal did not open. ${reason} Then select Sign in on the account.`);
+      problems.push(`Added ${trimmedLabel}, but its sign-in terminal did not open. ${reason} Then select Sign in on the account.`);
     }
+    if (problems.length) throw new Error(problems.join(" "));
   });
   return <div className={sx(styles.stack)}>
     <span className={sx(styles.subheading)}>Add an account</span>
@@ -56,6 +69,8 @@ export function ProviderAccountAddForm(props: {
         </Button>
       </div>
     </div>
+    {!reuseFolder && <Checkbox label={USE_SYSTEM_SETUP_LABEL} description={describeProviderAccountSetup(providerId, null)}
+      checked={shareSetup} onCheckedChange={checked => setShareSetup(checked === true)} />}
     <p className={sx(styles.muted)}>
       Sign in once per account: the sign-in is saved in the account's own folder, so it keeps working in every task and CLI tab, whichever {name} binary runs it. Removing an account only forgets it in Stave; its folder and sign-in stay on disk.
     </p>

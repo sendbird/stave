@@ -187,6 +187,24 @@ export const statusBarUsageStyles = stylex.create({
     paddingInlineEnd: 32,
     position: "relative",
   },
+  // The account's name over who it is signed in as. Grows to fill the row and
+  // lets both lines truncate, so a long email never pushes the check off.
+  accountLabelStack: {
+    display: "flex",
+    flexDirection: "column",
+    flexGrow: 1,
+    minInlineSize: 0,
+  },
+  accountIdentity: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
+    overflow: "hidden",
+    paddingBlockEnd: vars["--ads-space-4"],
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  accountIdentityAttention: { color: vars["--ads-color-warning-text"] },
   accountMeta: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
