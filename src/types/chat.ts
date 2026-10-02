@@ -332,6 +332,18 @@ export type MessagePart =
   | UserInputPart
   | SystemEventPart;
 
+/**
+ * Where a user message an agent run wrote came from, recorded by the host when
+ * it writes the row. The transcript shows the assignment with the compiled
+ * prompt folded under it from the first frame, without waiting for the run.
+ */
+export interface AgentRunPromptProvenance {
+  /** The run (mission) whose turn this prompt started. */
+  missionId: string;
+  /** The assignment as the user wrote it; null for a run prompt without one, such as the reminder to report. */
+  assignment: string | null;
+}
+
 export interface ChatMessage {
   id: string;
   role: MessageRole;
@@ -415,6 +427,8 @@ export interface ChatMessage {
    * to keep this mark.
    */
   dispatchedFromQueue?: boolean;
+  /** Set on a user message an agent run wrote: the compiled prompt in `content`, the user's words here. */
+  agentRunPrompt?: AgentRunPromptProvenance;
 }
 
 export type EditorTabContentState =

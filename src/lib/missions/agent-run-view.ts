@@ -9,12 +9,16 @@
  * marked `origin: "agent"`; a playbook mission keeps its own copy.
  */
 import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
+import type { AgentRunPromptProvenance, ChatMessage } from "@/types/chat";
+import { extractRunAssignment, isAgentRun } from "./agent-run";
 import type { MissionDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
-import { latestStageRecord, type MissionStopReason } from "./domain";
+import { isActiveMissionState, latestStageRecord, type MissionStopReason } from "./domain";
 import { classifyStageEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
 import { formatAge, type MissionBadgeTone, type StageTone } from "./mission-view";
 import { describeUsageShort } from "./usage";
+
+export { extractRunAssignment };
 
 export type AgentRunState = "working" | "needs-you" | "ready" | "failed" | "stopped";
 
@@ -258,12 +262,88 @@ export function describeAgentRunResult(detail: MissionDetail, now: number): Agen
   };
 }
 
+export type AgentRunCardKind = "result" | "reason";
+
 /**
- * The user's own words from a run's first prompt. The prompt carries the
- * assignment under an "Assignment" heading among Stave's instructions; any
- * other prompt of the run (the reminder to report) has none, and null says so.
+ * What an agent run leaves at the end of its conversation: the result once it
+ * is ready, the reason with Retry and Take control once it failed. Nothing
+ * while the run is active, because the run bar owns its state and actions
+ * then, nothing after the user stopped it, and nothing once a message started
+ * after the run ended (the card is history).
  */
-export function extractRunAssignment(prompt: string, assignment: string): string | null {
-  const wanted = assignment.trim();
-  return wanted && prompt.includes(`## Assignment\n\n${wanted}`) ? wanted : null;
+export function selectAgentRunCard(args: {
+  detail: MissionDetail;
+  lastMessageStartedAt?: string | null;
+}): AgentRunCardKind | null {
+  const { mission } = args.detail;
+  if (!isAgentRun(mission) || isActiveMissionState(mission.state)) return null;
+  if (args.lastMessageStartedAt && Date.parse(args.lastMessageStartedAt) > Date.parse(mission.updatedAt)) return null;
+  const status = describeAgentRunStatus(args.detail);
+  if (status.state === "ready") return "result";
+  return status.recovery ? "reason" : null;
+}
+
+/**
+ * A run's state on a Fleet card, where the run's strip names the agent and
+ * the state for the lead task: a working run whose task waits on the user (a
+ * question or an approval in the turn) needs you.
+ */
+export function agentRunFleetState(state: AgentRunState, leadTaskWaiting: boolean): AgentRunState {
+  return state === "working" && leadTaskWaiting ? "needs-you" : state;
+}
+
+/** A user bubble of an agent run: the user's words and the compiled prompt folded under them. */
+export interface AgentRunPromptView {
+  /** The assignment as the user wrote it; null for a prompt that carries none. */
+  assignment: string | null;
+  /** The whole compiled prompt, for the disclosure; null while the run has not written it. */
+  instructions: string | null;
+}
+
+/**
+ * How a user message reads as an agent run's prompt, or null when it is not
+ * one. The host marks the rows a run writes (`agentRunPrompt`), so they split
+ * from their first frame. A row written before the mark is found through the
+ * run that started its turn (`runAssignment`). A send still waiting on its
+ * run (`pending`) draws the assignment, the instructions to come.
+ */
+export function resolveAgentRunPrompt(args: {
+  text: string;
+  provenance?: AgentRunPromptProvenance | null;
+  runAssignment?: string | null;
+  pending?: boolean;
+}): AgentRunPromptView | null {
+  if (args.pending) return { assignment: args.text.trim() || null, instructions: null };
+  if (args.provenance) return { assignment: args.provenance.assignment?.trim() || null, instructions: args.text };
+  if (typeof args.runAssignment === "string") {
+    return { assignment: extractRunAssignment(args.text, args.runAssignment), instructions: args.text };
+  }
+  return null;
+}
+
+export type AgentRunFirstPromptState = "pending" | "landed" | "ended";
+
+/**
+ * Where an Agent-mode send stands between the composer and the first user
+ * row its run writes: `landed` once the transcript holds that row, `ended`
+ * when the run ended without writing one, `pending` otherwise. A run that is
+ * stuck or waits on the user before its first turn stays pending: its bar
+ * says why, and its prompt stays in view until Retry writes the row.
+ */
+export function resolveAgentRunFirstPrompt(args: {
+  missionId: string;
+  messages: readonly Pick<ChatMessage, "role" | "turnId" | "agentRunPrompt">[];
+  detail: MissionDetail | undefined;
+}): AgentRunFirstPromptState {
+  const linked = new Set<string>();
+  for (const event of args.detail?.events ?? []) {
+    if (event.kind === "turn-linked" && typeof event.detail.turnId === "string") linked.add(event.detail.turnId);
+  }
+  for (const message of args.messages) {
+    if (message.role === "user" && message.agentRunPrompt?.missionId === args.missionId) return "landed";
+    if (message.turnId && linked.has(message.turnId)) return "landed";
+  }
+  // A linked turn has written its row; the transcript has yet to load it.
+  if (!args.detail || linked.size > 0) return "pending";
+  return isActiveMissionState(args.detail.mission.state) ? "pending" : "ended";
 }

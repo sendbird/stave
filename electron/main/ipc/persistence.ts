@@ -11,6 +11,10 @@ import {
   SnoozeFleetAttentionArgsSchema,
 } from "../../../src/lib/fleet/attention-snooze";
 import {
+  TurnSpendArgsSchema,
+  type TurnSpendResponse,
+} from "../../../src/lib/providers/turn-spend";
+import {
   ClearNotificationHistoryArgsSchema,
   CreateNotificationArgsSchema,
   DeleteWorkspaceNotificationsArgsSchema,
@@ -401,6 +405,20 @@ export function registerPersistenceHandlers() {
         limit: parsedArgs.data.limit,
       });
       return { ok: true, turns };
+    },
+  );
+
+  // The status bar's spend item: cost reported on turn rows, per provider,
+  // since the local day and month starts the renderer chose.
+  ipcMain.handle(
+    "persistence:summarize-turn-spend",
+    async (_event, args: unknown): Promise<TurnSpendResponse> => {
+      const parsedArgs = TurnSpendArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return { ok: false, spend: [] };
+      }
+      const store = await ensurePersistenceReady();
+      return { ok: true, spend: store.turnSpend.summarize(parsedArgs.data) };
     },
   );
 

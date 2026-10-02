@@ -55,7 +55,6 @@ describe("TurnActivity", () => {
       createElement(TurnActivitySurface, {
         ...baseProps,
         variant: "panel",
-        placement: "panel",
       }),
     );
     expect(panel).toContain('data-summary-layout="panel"');
@@ -82,7 +81,6 @@ describe("TurnActivity", () => {
       createElement(TurnActivitySurface, {
         ...baseProps,
         variant: "docked",
-        placement: "docked",
       }),
     );
     expect(docked).toContain('data-summary-layout="shelf"');
@@ -114,7 +112,6 @@ describe("TurnActivity", () => {
       createElement(TurnActivitySurface, {
         ...liveProps,
         variant: "panel" as const,
-        placement: "panel" as const,
       }),
     );
     expect(live).toContain('data-testid="turn-activity-loader"');
@@ -129,7 +126,6 @@ describe("TurnActivity", () => {
         activity: { ...liveProps.activity, completedAt: 3_000 },
         replayOutcome: "completed" as const,
         variant: "panel" as const,
-        placement: "panel" as const,
       }),
     );
     expect(replayed).toContain('data-rest-mark="completed"');
@@ -147,7 +143,6 @@ describe("TurnActivity", () => {
         activity: { ...liveProps.activity, completedAt: 3_000 },
         replayOutcome: "failed" as const,
         variant: "panel" as const,
-        placement: "panel" as const,
       }),
     );
     expect(failed).toContain('data-rest-mark="failed"');
@@ -377,7 +372,6 @@ describe("TurnActivity", () => {
         todos: [],
         executionSummary,
         variant: "panel",
-        placement: "panel",
       }),
     );
 
@@ -746,7 +740,7 @@ describe("TurnActivity", () => {
     expect(html).not.toContain("animate-spin");
   });
 
-  test("renders host-specific chrome and placement controls per variant", () => {
+  test("renders host-specific chrome per variant, with placement left to Settings", () => {
     const baseProps = {
       activeTurnId: "turn-variant",
       activity: {
@@ -760,55 +754,112 @@ describe("TurnActivity", () => {
         orderedWorkItemIds: [],
       },
       isPlanPreparing: false,
-      workItems: [],
+      workItems: [
+        {
+          id: "tool-variant",
+          kind: "tool" as const,
+          status: "running" as const,
+          title: "Inspect the variant",
+          progressMessages: [],
+          startedAt: 1_000,
+          updatedAt: 2_000,
+        },
+      ],
       todos: [],
-      onPlacementChange: () => {},
     };
+    const placementLabels = [
+      "Dock turn activity above the input",
+      "Float turn activity over the chat",
+      "Show turn activity in the side panel",
+    ];
 
     const docked = renderToStaticMarkup(
+      createElement(TurnActivitySurface, { ...baseProps, variant: "docked" }),
+    );
+    // Docked keeps the tucked-under-composer chrome; placement moved to
+    // Settings, so no surface offers the other placements any more.
+    expect(docked).toContain('data-variant="docked"');
+    expect(docked).toContain("turn-activity-surface");
+    for (const label of placementLabels) {
+      expect(docked).not.toContain(label);
+    }
+
+    // Inside the composer shelf the list is a section of the shelf: no
+    // header, no surface of its own.
+    const inline = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
         ...baseProps,
         variant: "docked",
-        placement: "docked",
+        chrome: "list",
+        expandedByDefault: false,
       }),
     );
-    // Docked keeps the tucked-under-composer chrome and offers the other two
-    // placements.
-    expect(docked).toContain('data-variant="docked"');
-    expect(docked).toContain("turn-activity-surface");
-    expect(docked).toContain("Float turn activity over the chat");
-    expect(docked).toContain("Show turn activity in the side panel");
-    expect(docked).not.toContain("Dock turn activity above the input");
+    expect(inline).toContain('data-chrome="list"');
+    expect(inline).not.toContain("turn-activity-surface");
+    expect(inline).not.toContain('data-testid="turn-activity-loader"');
+    expect(inline).toContain('data-testid="turn-activity-list"');
+    expect(inline).toContain("Inspect the variant");
 
     const floating = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
         ...baseProps,
         variant: "floating",
-        placement: "floating",
+        chrome: "list",
         dragHandleProps: { onPointerDown: () => {} },
+        onClose: () => {},
       }),
     );
-    // Floating swaps the docked chrome for a bordered card with a drag handle.
+    // The floating card keeps a grip to drag and close it, and no status line:
+    // the composer shelf already says what the turn is doing.
     // The grab-handle chrome is a StyleX class (hashed), so it is checked by
     // style identity rather than the literal `cursor-grab` utility.
     expect(floating).toContain('data-variant="floating"');
     expect(floating).not.toContain("turn-activity-surface");
+    expect(floating).toContain('data-testid="turn-activity-floating-grip"');
     for (const token of sx(turnActivityStyles.headerGrab).split(/\s+/)) {
       expect(floating).toContain(token);
     }
-    expect(floating).toContain("Dock turn activity above the input");
-    expect(floating).not.toContain("Float turn activity over the chat");
+    expect(floating).toContain('aria-label="Close the activity card"');
+    expect(floating).not.toContain('data-testid="turn-activity-loader"');
 
     const panel = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
         ...baseProps,
         variant: "panel",
-        placement: "panel",
+        chrome: "list",
       }),
     );
     expect(panel).toContain('data-variant="panel"');
-    expect(panel).toContain("Dock turn activity above the input");
-    expect(panel).not.toContain("Show turn activity in the side panel");
+    expect(panel).toContain("Inspect the variant");
+    expect(panel).not.toContain('data-testid="turn-activity-loader"');
+    for (const label of placementLabels) {
+      expect(panel).not.toContain(label);
+    }
+  });
+
+  test("says so when a list-only host has nothing to list yet", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-empty",
+        activity: {
+          turnId: "turn-empty",
+          providerId: "codex",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [],
+        todos: [],
+        variant: "panel",
+        chrome: "list",
+      }),
+    );
+    expect(html).toContain("The turn has not reported a step yet.");
+    expect(html).not.toContain('data-testid="turn-activity-list"');
   });
 
   test("keeps the panel activity list expanded regardless of the default setting", () => {
@@ -840,7 +891,6 @@ describe("TurnActivity", () => {
         todos: [],
         expandedByDefault: false,
         variant: "panel",
-        placement: "panel",
       }),
     );
 
@@ -889,7 +939,6 @@ describe("TurnActivity", () => {
         todos: [{ content: "Write it up", status: "pending" }],
         onSelectTool: () => {},
         variant: "panel",
-        placement: "panel",
       }),
     );
 
@@ -932,7 +981,6 @@ describe("TurnActivity", () => {
       createElement(TurnActivitySurface, {
         ...props,
         variant: "panel",
-        placement: "panel",
       }),
     );
     // 90s into the turn, and a 4s duration derived from the timestamps even
@@ -945,7 +993,6 @@ describe("TurnActivity", () => {
       createElement(TurnActivitySurface, {
         ...props,
         variant: "docked",
-        placement: "docked",
       }),
     );
     // The composer-width shelf has no column to spare for the offset.
@@ -988,7 +1035,6 @@ describe("TurnActivity", () => {
       createElement(TurnActivitySurface, {
         ...props,
         variant: "panel",
-        placement: "panel",
       }),
     );
     expect(panel).toContain('data-copy="expanded"');
@@ -1000,7 +1046,6 @@ describe("TurnActivity", () => {
       createElement(TurnActivitySurface, {
         ...props,
         variant: "docked",
-        placement: "docked",
       }),
     );
     expect(docked).not.toContain('data-copy="expanded"');
@@ -1038,7 +1083,6 @@ describe("TurnActivity", () => {
       ],
       todos: [],
       variant: "panel" as const,
-      placement: "panel" as const,
     };
 
     test("names the outcome instead of implying the turn is still working", () => {

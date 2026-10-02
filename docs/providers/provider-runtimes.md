@@ -79,8 +79,9 @@ Native session cursors for custom profiles are stored under
 remain System default. Session and terminal events carry their originating
 profile ID, including synthesized terminal failures. Queue entries capture both
 profile IDs, including explicit System default, so changing a selection does not
-retarget an already queued turn. Account selection changes invalidate displayed
-usage, and late usage responses cannot replace the new selection's readings.
+retarget an already queued turn. Account selection changes invalidate that
+provider's displayed usage only (other providers keep their readings), and late
+usage responses cannot replace the new selection's readings.
 Custom Claude usage reads search only the selected configuration directory and
 its scoped keychain service, without falling back to default credentials.
 
@@ -1183,6 +1184,52 @@ turn once an account limit is reached all keep working. The block decision reads
 from the cached snapshot and only pays for a fresh read near the limit, which is
 the case the floor above still allows.
 
+## Status bar usage strip
+
+Each connected provider gets one segment in the bottom status bar. When the bar
+has room for every connected provider, a segment shows the full strip:
+
+- One entry per quota window: a ring, the percent used in bold, then the window
+  and its countdown (`5h · resets 1h 7m`). The ring's arc is the share used,
+  toned at the shared thresholds (under 60% ok, under 85% warn, then danger).
+  Inside the ring is the time-left clock: its hand marks how far the window has
+  run, so an arc past the hand is usage running ahead of time. Claude shows its
+  5-hour, weekly and, when reported, weekly Fable windows; Codex shows its first
+  bucket's windows, named by their length; Cursor and Kiro show the monthly
+  included usage.
+- A spend entry, only for a provider that reported a cost: today's amount in
+  bold, then this month's. It sums the cost reported on turns run in Stave by
+  the local day and month (`persistence:summarize-turn-spend`, read from the
+  `turns` table; no provider request). For a subscription account this is the
+  API value the CLI estimates, not a charge. For an API-billing gateway it is
+  spend, with the gateway's invoice as the final amount. Turns do not record
+  their account, so the totals cover every account of that provider. Codex
+  reports tokens only, so it gets no spend entry rather than `$0.00`.
+
+When the bar is narrower, segments fall back to the compact meter: dot, name and
+`5h 42%` with the time-left clock, without spend. The choice is a container
+query on the bar's left group: `resolveUsageStripBreakpoint` estimates the full
+width from each segment's name, windows and spend (using the widest percent and
+countdown, so it does not flip as numbers tick) and picks a precompiled step.
+The group clips rather than grows, so the bar stays one line and the right-hand
+segments keep their place.
+
+Hovering an entry explains it: what the window is, when it resets (countdown and
+wall-clock time), and what happens at 100%. With Stop turns at 100% usage on
+(the default), Stave holds new turns for that provider until the window resets
+and running turns finish; with it off, Stave keeps sending turns. Stave does not
+switch accounts on its own; the popover says so and offers the account switch.
+The popover lists every window, the same 100% rule, and the spend breakdown with
+the number of turns behind it. When a provider has more than one account, it
+names the account the numbers belong to.
+
+While a provider has no reading for its current account yet (at startup or right
+after an account switch) and a read is in flight, its segment shows a spinner and
+the popover says it is reading that account's usage, instead of "unavailable".
+`rateLimitsInFlightByProvider` counts reads per provider for this; the switch
+clears and re-reads only the provider whose account changed
+(`src/store/rate-limits-account-reset.ts`).
+
 
 ## September 2026 model catalog
 
@@ -1277,7 +1324,8 @@ Running turns and open CLI sessions retain their launch connection.
 
 Selecting a Gateway explicitly selects API billing. The composer labels this
 choice, and the status bar replaces the subscription meter with an API billing
-label. Subscription usage endpoints are not queried for Gateway connections.
+label and the reported spend of turns run in Stave. Subscription usage endpoints
+are not queried for Gateway connections.
 Charges and limits are managed by the Gateway. Stave does not automatically
 switch from a subscription to a Gateway when quota is exhausted.
 

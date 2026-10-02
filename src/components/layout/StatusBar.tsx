@@ -1,8 +1,23 @@
-import { useEffect } from "react";
-import { useLoadProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import { useEffect, useState } from "react";
+import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import { useLoadTurnSpend, useTurnSpend } from "@/lib/providers/use-turn-spend";
 import { StatusBarMemorySegment } from "@/components/layout/StatusBarMemorySegment";
 import { StatusBarUsageSegment } from "@/components/layout/StatusBarUsageSegment";
-import { listCliConnectedUsageProviders } from "@/components/layout/status-bar-usage.utils";
+import {
+  buildUsageHeadlineWindows,
+  listCliConnectedUsageProviders,
+  resolveStatusBarAccountView,
+  statusBarAccountProviderId,
+  STATUS_BAR_USAGE_PROVIDER_IDS,
+  STATUS_BAR_USAGE_PROVIDER_NAMES,
+} from "@/components/layout/status-bar-usage.utils";
+import {
+  buildUsageStripSegment,
+  resolveUsageStripBreakpoint,
+} from "@/components/layout/status-bar-usage-strip.utils";
+import { usageStripStyles } from "@/components/layout/status-bar-usage-strip.styles";
+import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
+import { isRateLimitsReadPending } from "@/store/rate-limits-account-reset";
 import { resolveEarliestAccountUsageResetAtMs } from "@/lib/providers/account-usage-block";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -16,6 +31,19 @@ import { useAppStore } from "@/store/app.store";
 import { providerSurfaceVisible, useProviderReadinessStore } from "@/lib/providers/provider-readiness-store";
 import * as stylex from "@stylexjs/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
+
+/**
+ * Wall clock for countdowns and time-left clocks. A minute is the finest unit
+ * they show, and between usage reads nothing else would re-render them.
+ */
+function useMinuteClock(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
 
 /**
  * Global, VSCode-style bottom status bar. Spans the full window width below
@@ -35,6 +63,58 @@ export function StatusBar() {
   const runtimeOptions = { cursorBinaryPath, kiroBinaryPath };
   const usageProviders = listCliConnectedUsageProviders(providerAvailability).filter(
     (provider) => (provider !== "cursor" && provider !== "kiro") || providerSurfaceVisible(provider, runtimeOptions),
+  );
+  useLoadTurnSpend();
+  const now = useMinuteClock();
+  const snapshot = useAppStore((state) => state.rateLimitsSnapshot);
+  const claudeAccountProfileId = useAppStore((state) => state.settings.claudeAccountProfileId);
+  const codexAccountProfileId = useAppStore((state) => state.settings.codexAccountProfileId);
+  const profiles = useProviderAccounts((state) => state.profiles);
+  const spendByProvider = useTurnSpend((state) => state.byProvider);
+  const rateLimitsUpdatedAtByProvider = useAppStore((state) => state.rateLimitsUpdatedAtByProvider);
+  const rateLimitsInFlightByProvider = useAppStore((state) => state.rateLimitsInFlightByProvider);
+  // Every segment is described here, not inside each one, because the full
+  // strip shows only when all of them fit: the width rule needs the set.
+  const usageSegments = usageProviders.map((provider) => {
+    const accountProviderId = statusBarAccountProviderId(provider);
+    const account =
+      accountProviderId && window.api?.providerAccounts
+        ? resolveStatusBarAccountView({
+            providerId: accountProviderId,
+            profiles,
+            selectedId: selectedProviderAccount(accountProviderId, {
+              claudeAccountProfileId,
+              codexAccountProfileId,
+            }),
+          })
+        : null;
+    const segment = buildUsageStripSegment({
+      provider,
+      providerName: STATUS_BAR_USAGE_PROVIDER_NAMES[provider],
+      windows: buildUsageHeadlineWindows({
+        provider,
+        claude: snapshot?.claude ?? null,
+        codex: snapshot?.codex ?? null,
+        cursor: snapshot?.cursor ?? null,
+        kiro: snapshot?.kiro ?? null,
+      }),
+      account,
+      spend: spendByProvider[STATUS_BAR_USAGE_PROVIDER_IDS[provider]],
+      stale:
+        (provider === "cursor" || provider === "kiro") &&
+        readiness[provider]?.stale === true,
+      pending: isRateLimitsReadPending(
+        {
+          rateLimitsUpdatedAtByProvider,
+          rateLimitsInFlightByProvider,
+        },
+        STATUS_BAR_USAGE_PROVIDER_IDS[provider],
+      ),
+    });
+    return { segment, account };
+  });
+  const stripBreakpoint = resolveUsageStripBreakpoint(
+    usageSegments.map(({ segment }) => segment),
   );
 
   useEffect(() => {
@@ -114,9 +194,15 @@ export function StatusBar() {
 
   return (
     <div {...stylex.props(layoutShellStyles.statusBar)}>
-      <div {...stylex.props(layoutShellStyles.statusGroup)}>
-        {usageProviders.map((provider) => (
-          <StatusBarUsageSegment key={provider} provider={provider} />
+      <div {...stylex.props(usageStripStyles.container)}>
+        {usageSegments.map(({ segment, account }) => (
+          <StatusBarUsageSegment
+            key={segment.provider}
+            segment={segment}
+            account={account}
+            breakpoint={stripBreakpoint}
+            now={now}
+          />
         ))}
       </div>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>

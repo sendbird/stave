@@ -34,7 +34,7 @@ export function shouldOpenStage(
 }
 
 /** The instruction a stage ran with, folded away until asked for. */
-export function InstructionDisclosure(props: { label: string; text: string }) {
+export function InstructionDisclosure(props: { label: string; text: string; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   return (
@@ -44,6 +44,7 @@ export function InstructionDisclosure(props: { label: string; text: string }) {
         size="xs"
         press="none"
         xstyle={styles.disclosureSummary}
+        disabled={props.disabled}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}

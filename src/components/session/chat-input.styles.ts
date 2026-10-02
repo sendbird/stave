@@ -2,12 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
-const pulseKeyframes = stylex.keyframes({
-  "0%": { opacity: 1 },
-  "50%": { opacity: 0.5 },
-  "100%": { opacity: 1 },
-});
-
 export const chatInputStyles = stylex.create({
   root: {
     backgroundColor: vars["--ads-color-canvas"],
@@ -23,52 +17,6 @@ export const chatInputStyles = stylex.create({
   measure: {
     marginInline: "auto",
     maxWidth: 1152,
-  },
-  steerRow: {
-    alignItems: "center",
-    color: vars["--ads-color-text-muted"],
-    display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: "0.375rem",
-    marginBottom: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-4"],
-  },
-  steerDot: {
-    animationDuration: {
-      default: vars["--ads-motion-duration-loop"],
-      "@media (prefers-reduced-motion: reduce)": "0ms",
-    },
-    animationIterationCount: "infinite",
-    animationName: {
-      default: pulseKeyframes,
-      "@media (prefers-reduced-motion: reduce)": "none",
-    },
-    backgroundColor: vars["--ads-color-accent"],
-    borderRadius: vars["--ads-radius-full"],
-    height: 6,
-    width: 6,
-  },
-  stalledBanner: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-    borderColor: vars["--ads-color-warning-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
-    marginBottom: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
-  },
-  stalledInner: {
-    alignItems: "center",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
-  },
-  stalledBadge: {
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
   },
   menuLabelRow: {
     alignItems: "center",

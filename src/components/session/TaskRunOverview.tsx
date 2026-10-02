@@ -1,4 +1,4 @@
-import { Circle, CircleAlert, CircleCheck, CirclePause } from "lucide-react";
+import { Circle, CircleAlert, CircleCheck } from "lucide-react";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -124,10 +124,7 @@ export function resolveRunStatus(args: {
 }
 
 /** Only the resting tones reach this: a live run is announced by the shelf. */
-function StatusIcon({ tone }: { tone: Exclude<RunStatus["tone"], "active"> }) {
-  if (tone === "waiting") {
-    return <CirclePause className={sx(styles.icon)} aria-hidden />;
-  }
+function StatusIcon({ tone }: { tone: Exclude<RunStatus["tone"], "active" | "waiting"> }) {
   if (tone === "success") {
     return <CircleCheck className={sx(styles.icon)} aria-hidden />;
   }
@@ -269,9 +266,11 @@ export function TaskRunOverviewView(props: {
             resolution.selectedModel,
         }
       : null;
-  // "Running" repeats what the activity headline below already says in words,
-  // so the status only speaks when the run ended or needs something.
-  const restingTone = status.tone === "active" ? null : status.tone;
+  // A live run, waiting on you included, is written once: on the composer
+  // shelf's run line. The status here speaks only once the run has ended.
+  const restingTone =
+    status.tone === "active" || status.tone === "waiting" ? null : status.tone;
+  const live = restingTone === null;
   const hasRoutingDetails = Boolean(resolution || actualModel?.modelExecution || props.agentProvenance);
 
   const headerRow = (
@@ -312,7 +311,7 @@ export function TaskRunOverviewView(props: {
     >
       <div className={sx(styles.header)}>{headerRow}</div>
 
-      {status.detail ? (
+      {status.detail && !live ? (
         <p className={sx(styles.detail)}>{status.detail}</p>
       ) : null}
       {hasRoutingDetails ? (
@@ -412,7 +411,6 @@ const styles = stylex.create({
 });
 
 const statusTones = stylex.create({
-  waiting: { color: vars["--ads-color-warning"] },
   success: { color: vars["--ads-color-success"] },
   danger: { color: vars["--ads-color-danger"] },
   neutral: { color: vars["--ads-color-text-muted"] },

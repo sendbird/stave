@@ -445,6 +445,37 @@ describe("task-context workspace schemas", () => {
     });
   });
 
+  test("keeps an agent run's prompt mark, and drops a malformed one without failing the row", () => {
+    const row = {
+      id: "run-prompt-1",
+      role: "user",
+      model: "user",
+      providerId: "user",
+      content: "## Assignment\n\nAdd CSV export.",
+      parts: [{ type: "text", text: "## Assignment\n\nAdd CSV export." }],
+    };
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        messagesByTask: {
+          "task-1": [
+            { ...row, agentRunPrompt: { missionId: "run-1", assignment: "Add CSV export." } },
+            { ...row, id: "run-prompt-2", agentRunPrompt: { missionId: "run-1", assignment: null } },
+            { ...row, id: "run-prompt-3", agentRunPrompt: { missionId: "", assignment: 4 } },
+            { ...row, id: "older-row" },
+          ],
+        },
+      },
+    });
+    const messages = parsed?.messagesByTask["task-1"] ?? [];
+    expect(messages.map((message) => message.agentRunPrompt)).toEqual([
+      { missionId: "run-1", assignment: "Add CSV export." },
+      { missionId: "run-1", assignment: null },
+      undefined,
+      undefined,
+    ]);
+  });
+
   test("preserves steer delivery metadata in workspace snapshots", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {

@@ -3,6 +3,9 @@
  *
  * - Send: a prompt on a task that runs as an agent, with no run active, starts
  *   a run on the mission engine; every other send stays the plain turn it was.
+ *   The prompt is drawn as a pending row (`pending-auto-routing-store.ts`)
+ *   until the run writes its first user row, because the host routes the
+ *   run's turn before it writes anything.
  * - Stop: stopping a task's turn while its run is active cancels the run first,
  *   so the run never continues after the turn the user stopped.
  *
@@ -13,9 +16,21 @@ import type { MissionCommandResponse, MissionStartArgs } from "@/lib/missions/ap
 import { buildAgentRunStartInput, planAgentPromptSend } from "@/lib/missions/agent-run";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
-import { buildClearedPromptDraft } from "@/store/prompt-draft-state";
+import { buildOutgoingUserMessage, buildRecentTimestamp } from "@/store/chat-state-helpers";
+import { appendFailedOutgoingSend, buildFailedOutgoingSend } from "@/store/failed-send-recovery";
+import {
+  beginPendingAgentRun,
+  endPendingAutoRoute,
+  handOverPendingAgentRun,
+  hasPendingAgentRun,
+  updatePendingAutoRoute,
+} from "@/store/pending-auto-routing-store";
+import { buildClearedPromptDraft, hasPromptDraftPayload } from "@/store/prompt-draft-state";
 import type { Attachment, PromptDraft } from "@/types/chat";
 import { toast } from "@/lib/notifications/toast";
+
+/** How a run's first prompt left the pending row: written by the run, or never. */
+export type AgentRunFirstPromptEnd = { outcome: "landed" } | { outcome: "ended"; reason: string | null };
 
 export interface AgentRunBridge {
   /**
@@ -25,6 +40,14 @@ export interface AgentRunBridge {
   activeMission: (workspaceId: string, taskId: string) => { id: string; agentRun: boolean } | null | undefined;
   start: (input: MissionStartArgs) => Promise<MissionCommandResponse>;
   cancel: (missionId: string) => Promise<MissionCommandResponse>;
+  /**
+   * Calls `onEnd` once, when the task's transcript holds the run's first user
+   * row or the run ended without writing one.
+   */
+  watchFirstPrompt: (
+    args: { workspaceId: string; taskId: string; missionId: string },
+    onEnd: (end: AgentRunFirstPromptEnd) => void,
+  ) => void;
 }
 
 let bridge: AgentRunBridge | null = null;
@@ -52,16 +75,74 @@ type AgentRunSendArgs = {
   queued: boolean;
   turnOrigin: "conversation" | "utility";
   preservePromptDraft?: boolean;
+  /** The id the send's own turn would take; a refused start hands the pending row to it. */
+  turnId?: string;
   now?: Date;
 };
+
+const UNSENT_RUN_REASON = "The run ended before it started.";
+
+/**
+ * Gives an Agent-mode prompt back when its run ended before writing it: into
+ * the composer when the composer of the same workspace is still empty, else
+ * as a failed send with Retry, so text typed meanwhile is never overwritten.
+ */
+export function recoverUnsentAgentRunPrompt(
+  state: Pick<AppState, "activeWorkspaceId" | "promptDraftByTask" | "failedSendsByTask">,
+  args: {
+    workspaceId: string;
+    taskId: string;
+    prompt: string;
+    /** The composer draft the send cleared; undefined when the send kept it. */
+    submittedDraft: PromptDraft | undefined;
+    reason: string | null;
+  },
+): Partial<AppState> {
+  const current = state.promptDraftByTask[args.taskId];
+  if (
+    args.submittedDraft &&
+    state.activeWorkspaceId === args.workspaceId &&
+    (!current || !hasPromptDraftPayload(current))
+  ) {
+    return {
+      promptDraftByTask: {
+        ...state.promptDraftByTask,
+        [args.taskId]: {
+          ...buildClearedPromptDraft(current ?? args.submittedDraft),
+          text: args.submittedDraft.text,
+          attachedFilePaths: args.submittedDraft.attachedFilePaths,
+          attachments: args.submittedDraft.attachments,
+        },
+      },
+    };
+  }
+  return {
+    failedSendsByTask: appendFailedOutgoingSend(
+      state.failedSendsByTask,
+      buildFailedOutgoingSend({
+        id: crypto.randomUUID(),
+        taskId: args.taskId,
+        failedAt: buildRecentTimestamp(),
+        draft: {
+          text: args.prompt,
+          attachedFilePaths: [],
+          attachments: args.submittedDraft?.attachments ?? [],
+          ...(args.submittedDraft?.runtimeOverrides ? { runtimeOverrides: args.submittedDraft.runtimeOverrides } : {}),
+        },
+        error: args.reason ?? UNSENT_RUN_REASON,
+      }),
+    ),
+  };
+}
 
 /**
  * Decides synchronously whether this send starts an agent run, so a Chat send
  * keeps its synchronous path (the submitted draft is cleared before any await,
  * and a workspace switch cannot revive it). Returns null for a plain turn —
- * Chat, a run already active, a turn running — or the start to await. The
- * draft is cleared before the start is requested; a start the host refuses
- * resolves to null and the prompt runs as a single turn, as before agent runs.
+ * Chat, a run already active or starting, a turn running — or the start to
+ * await. The draft is cleared and the prompt drawn as a pending row before
+ * the start is requested; a start the host refuses resolves to null and the
+ * prompt runs as a single turn, as before agent runs, keeping the row.
  */
 export function prepareAgentRunForSend(
   args: AgentRunSendArgs,
@@ -71,7 +152,8 @@ export function prepareAgentRunForSend(
   const active = activeBridge?.activeMission(args.workspaceId, args.taskId);
   const plan = planAgentPromptSend({
     taskRunsAsAgent: Boolean(agent),
-    runActive: Boolean(active),
+    // A run still starting counts as active: its first prompt is on the way.
+    runActive: Boolean(active) || hasPendingAgentRun(args.taskId),
     turnActive: args.turnActive,
     queued: args.queued,
     turnOrigin: args.turnOrigin,
@@ -80,14 +162,26 @@ export function prepareAgentRunForSend(
     hasAttachments: args.extraContextCount > 0 || hasNonTextAttachments(args.promptDraft),
   });
   if (plan.kind !== "start-run" || !agent || !activeBridge) return null;
+  let submittedDraft: PromptDraft | undefined;
   if (!args.preservePromptDraft) {
-    args.set((state) => ({
-      promptDraftByTask: {
-        ...state.promptDraftByTask,
-        [args.taskId]: buildClearedPromptDraft(state.promptDraftByTask[args.taskId]),
-      },
-    }));
+    args.set((state) => {
+      submittedDraft = state.promptDraftByTask[args.taskId];
+      return {
+        promptDraftByTask: {
+          ...state.promptDraftByTask,
+          [args.taskId]: buildClearedPromptDraft(state.promptDraftByTask[args.taskId]),
+        },
+      };
+    });
   }
+  // The row the run will write: the assignment, its instructions to come.
+  const pendingId = `agent-run:${crypto.randomUUID()}`;
+  const ownsRow = beginPendingAgentRun({
+    id: pendingId,
+    taskId: args.taskId,
+    startedAt: Date.now(),
+    userMessage: buildOutgoingUserMessage({ id: `pending-${pendingId}`, content: args.prompt.trim() }),
+  });
   return async () => {
     const response = await activeBridge
       .start(
@@ -101,10 +195,35 @@ export function prepareAgentRunForSend(
       )
       .catch((): MissionCommandResponse => ({ ok: false, mission: null }));
     if (!response.ok || !response.mission) {
+      if (ownsRow) {
+        // The single turn's send ends the row once its own rows land.
+        if (args.turnId) {
+          handOverPendingAgentRun({ taskId: args.taskId, id: pendingId, turnId: args.turnId });
+        } else {
+          endPendingAutoRoute({ taskId: args.taskId, id: pendingId });
+        }
+      }
       if (response.message) toast.info("Sent as a single turn", { description: response.message });
       return null;
     }
-    return { status: "run-started", taskId: args.taskId, workspaceId: args.workspaceId, missionId: response.mission.mission.id };
+    const missionId = response.mission.mission.id;
+    if (ownsRow) {
+      updatePendingAutoRoute({ taskId: args.taskId, id: pendingId, patch: { agentRun: { missionId } } });
+      activeBridge.watchFirstPrompt({ workspaceId: args.workspaceId, taskId: args.taskId, missionId }, (end) => {
+        endPendingAutoRoute({ taskId: args.taskId, id: pendingId });
+        if (end.outcome !== "ended") return;
+        args.set((state) =>
+          recoverUnsentAgentRunPrompt(state, {
+            workspaceId: args.workspaceId,
+            taskId: args.taskId,
+            prompt: args.prompt,
+            submittedDraft,
+            reason: end.reason,
+          }),
+        );
+      });
+    }
+    return { status: "run-started", taskId: args.taskId, workspaceId: args.workspaceId, missionId };
   };
 }
 

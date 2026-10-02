@@ -20,9 +20,8 @@ import {
   Circle,
   CircleAlert,
   CircleSlash,
-  PanelBottomClose,
-  PanelRight,
-  PictureInPicture2,
+  GripHorizontal,
+  X,
 } from "lucide-react";
 import {
   DelegatedTaskParentBacklink,
@@ -104,18 +103,17 @@ import {
   type ProviderTurnWorkItem,
   type RetainedTurnOutcome,
 } from "@/lib/providers/turn-status";
-import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { buildDelegatedTaskExpectedIdentity } from "@/lib/runs/delegated-task-view";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import type { TurnActivityPlacement } from "@/store/app-settings";
-import { MissionBar } from "@/components/missions/MissionBar";
 import { useAppStore } from "@/store/app.store";
 import type { TurnActivityFloatPosition } from "@/store/layout.utils";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
 import { resolvePromptDraftRuntimeState } from "@/store/prompt-draft-runtime";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
+import { useShelfDetail } from "./composer-shelf/use-shelf-detail";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const DELEGATED_TASKS_UNAVAILABLE = {
@@ -151,7 +149,8 @@ const ROUTE_RECORD_SKEW_MS = 5_000;
  */
 const TURN_ACTIVITY_CONTENT_THROTTLE_MS = 120;
 
-function useTurnClock(activeTurnId: string | null) {
+/** A one-second clock that runs only while the turn it names is live. */
+export function useTurnClock(activeTurnId: string | null) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -200,49 +199,107 @@ function getLatestPlanMessages(messages: ChatMessage[]) {
 }
 
 /**
- * Which surface is asking to render the shelf. The container renders only
- * when the user's `turnActivityPlacement` setting matches, so exactly one
- * host shows the activity at a time:
+ * The detail hosts of a turn. Its one-line status is the composer shelf's run
+ * line (`ComposerShelf`), whatever `settings.turnActivityPlacement` says; the
+ * placement only picks where the details open:
  *
- * - `docked` — mounted by `ChatInput` in the composer frame's top slot (default).
- * - `floating` — mounted in `ChatArea`'s overlay as a draggable card.
- * - `panel` — mounted by the right rail's Activity panel.
+ * - `floating` — `ChatArea`'s overlay shows a draggable card while the shelf's
+ *   toggle has it open.
+ * - `panel` — the Task panel's Activity tab, which always lists the turn (the
+ *   live one, or the last one once it ends) so the shelf's panel button never
+ *   leads to an empty tab.
+ *
+ * The inline (`docked`) list is drawn by the shelf itself.
  */
-export function TurnActivity(props: {
-  host?: TurnActivityPlacement;
-  frameInset?: boolean;
-}) {
-  const host = props.host ?? "docked";
-  const placement = useAppStore(
-    (state) => state.settings.turnActivityPlacement,
-  );
-  // The Mission bar heads the activity, and stays up between turns. The
-  // floating card is the turn shelf alone, so with it the bar stays docked,
-  // where it tucks under the turn shelf or the composer like a shelf of its
-  // own. Sign-offs sit in the composer's approval slot.
-  const missionHost = placement === "panel" ? "panel" : "docked";
-  return (
-    <>
-      {host === missionHost ? (
-        <MissionBar
-          variant={host === "panel" ? "panel" : "docked"}
-          framed={props.frameInset}
-        />
-      ) : null}
-      {placement === host ? (
-        <ActiveTurnActivity key={host} {...props} host={host} />
-      ) : null}
-    </>
+export function TurnActivity(props: { host: "floating" | "panel" }) {
+  return props.host === "panel" ? (
+    <PanelTurnActivity />
+  ) : (
+    <FloatingTurnActivity />
   );
 }
 
-// Gate before the subscriptions, projections and effects. An inactive host
-// must not rebuild the transcript summary or synchronize an empty child list.
-function ActiveTurnActivity(props: {
+function PanelTurnActivity() {
+  const model = useTurnActivityModel({ host: "panel", detail: true });
+  if (!model.props) {
+    return (
+      <div
+        data-testid="turn-activity-panel-idle"
+        className={sx(styles.panelIdle)}
+      >
+        Activity appears here while a turn is running.
+      </div>
+    );
+  }
+  // A live turn already has its status line over the composer, so the panel
+  // lists what it is doing without repeating it. A finished turn keeps its
+  // header: nothing else on screen says which turn this was or how it ended.
+  return (
+    <TurnActivitySurface
+      key={model.surfaceKey}
+      {...model.props}
+      isLeaving={model.isLeaving}
+      variant="panel"
+      chrome={model.props.replayOutcome ? "header" : "list"}
+    />
+  );
+}
+
+function FloatingTurnActivity() {
+  const taskId = useScopedTaskId();
+  const placement = useAppStore(
+    (state) => state.settings.turnActivityPlacement,
+  );
+  const { open, setOpen } = useShelfDetail(taskId);
+  // Gate before the model: a closed card must not rebuild the transcript
+  // summary or list delegated tasks.
+  if (placement !== "floating" || !open) {
+    return null;
+  }
+  return <FloatingTurnActivityCard onClose={() => setOpen(false)} />;
+}
+
+function FloatingTurnActivityCard(props: { onClose: () => void }) {
+  const model = useTurnActivityModel({ host: "floating", detail: true });
+  if (!model.props) {
+    return null;
+  }
+  const visibleProps = model.props;
+  return (
+    <TurnActivityFloatingShell>
+      {(dragHandleProps) => (
+        <TurnActivitySurface
+          key={model.surfaceKey}
+          {...visibleProps}
+          isLeaving={model.isLeaving}
+          variant="floating"
+          chrome="list"
+          dragHandleProps={dragHandleProps}
+          onClose={props.onClose}
+        />
+      )}
+    </TurnActivityFloatingShell>
+  );
+}
+
+export interface TurnActivityModel {
+  /** What the surface shows, the leaving snapshot included; null when nothing does. */
+  props: TurnActivitySurfaceProps | null;
+  isLeaving: boolean;
+  surfaceKey: string;
+}
+
+/**
+ * Everything a turn surface reads, for one host. `detail` is whether that
+ * host is showing the list right now: the execution summary rebuilds from the
+ * whole transcript on every provider flush, so the shelf's one-line summary
+ * asks for it only while its own list is open.
+ */
+export function useTurnActivityModel(args: {
   host: TurnActivityPlacement;
-  frameInset?: boolean;
-}) {
-  const host = props.host;
+  detail: boolean;
+}): TurnActivityModel {
+  const host = args.host;
   const taskId = useScopedTaskId();
   const [
     activeTask,
@@ -287,8 +344,6 @@ function ActiveTurnActivity(props: {
       state.providerAvailability,
     ]),
   );
-  const updateSettings = useAppStore((state) => state.updateSettings);
-  const setLayout = useAppStore((state) => state.setLayout);
   const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
   // A row names a tool call the transcript already renders in full. Without
   // this the only way from "that grep looks wrong" to its output was scrolling
@@ -298,17 +353,6 @@ function ActiveTurnActivity(props: {
       focusTranscriptTool({ taskId, toolUseId });
     },
     [focusTranscriptTool, taskId],
-  );
-  const handlePlacementChange = useCallback(
-    (next: TurnActivityPlacement) => {
-      updateSettings({ patch: { turnActivityPlacement: next } });
-      // Moving into the panel must also surface it, or the activity would
-      // silently vanish until the user finds the rail icon.
-      if (next === "panel") {
-        setLayout({ patch: taskPanelLayoutPatch("activity") });
-      }
-    },
-    [setLayout, updateSettings],
   );
   const activeProvider = activeTask?.provider ?? draftProvider;
   const taskRuntimeState = resolvePromptDraftRuntimeState({
@@ -376,16 +420,19 @@ function ActiveTurnActivity(props: {
   const currentActivity =
     replay?.snapshot ??
     (activity?.turnId === activeTurnId || hasRetainedFailure ? activity : null);
+  const wantsDetail = args.detail;
   const executionSummary = useMemo(
     () =>
-      buildTaskExecutionSummary({
-        taskId,
-        providerId: activeProvider,
-        messages,
-        activity: currentActivity,
-        verification,
-        rateLimits,
-      }),
+      wantsDetail
+        ? buildTaskExecutionSummary({
+            taskId,
+            providerId: activeProvider,
+            messages,
+            activity: currentActivity,
+            verification,
+            rateLimits,
+          })
+        : undefined,
     [
       activeProvider,
       currentActivity,
@@ -393,6 +440,7 @@ function ActiveTurnActivity(props: {
       rateLimits,
       taskId,
       verification,
+      wantsDetail,
     ],
   );
   const shouldShow = resolveTurnActivityVisibility({
@@ -656,51 +704,11 @@ function ActiveTurnActivity(props: {
   }, [surfaceProps]);
 
   const visibleProps = surfaceProps ?? leavingProps;
-  if (!visibleProps) {
-    if (host === "panel") {
-      return (
-        <div
-          data-testid="turn-activity-panel-idle"
-          className={sx(styles.panelIdle)}
-        >
-          Activity appears here while a turn is running.
-        </div>
-      );
-    }
-    return null;
-  }
-
-  const sharedProps = {
-    ...visibleProps,
+  return {
+    props: visibleProps,
     isLeaving: leavingProps != null,
-    placement: host,
-    onPlacementChange: handlePlacementChange,
+    surfaceKey: `${taskId}:${visibleProps?.activeTurnId ?? ""}`,
   };
-  const surfaceKey = `${taskId}:${visibleProps.activeTurnId}`;
-
-  if (host === "floating") {
-    return (
-      <TurnActivityFloatingShell>
-        {(dragHandleProps) => (
-          <TurnActivitySurface
-            key={surfaceKey}
-            {...sharedProps}
-            variant="floating"
-            dragHandleProps={dragHandleProps}
-          />
-        )}
-      </TurnActivityFloatingShell>
-    );
-  }
-
-  return (
-    <TurnActivitySurface
-      key={surfaceKey}
-      {...sharedProps}
-      variant={host}
-      frameInset={props.frameInset}
-    />
-  );
 }
 
 interface FloatingDragState {
@@ -838,7 +846,7 @@ function TurnActivityFloatingShell(props: {
   );
 }
 
-interface TurnActivitySurfaceProps {
+export interface TurnActivitySurfaceProps {
   activeTurnId: string;
   activity: ProviderTurnActivitySnapshot | null;
   isPlanPreparing: boolean;
@@ -896,10 +904,16 @@ interface TurnActivitySurfaceProps {
    * (default), a bordered floating card, or a full-height panel body.
    */
   variant?: TurnActivityPlacement;
-  /** Current placement setting; drives which placement controls render. */
-  placement?: TurnActivityPlacement;
-  /** Renders placement-switch buttons in the header when provided. */
-  onPlacementChange?: (placement: TurnActivityPlacement) => void;
+  /**
+   * `header` draws the surface's own status header. `list` draws the rows
+   * only, for hosts whose status is already on screen: the composer shelf's
+   * run line heads every live turn, so the inline list, the floating card and
+   * the live panel must not say it again. A floating card keeps a grip so it
+   * can still be dragged and closed.
+   */
+  chrome?: "header" | "list";
+  /** Closes the floating card (list chrome). */
+  onClose?: () => void;
   /**
    * Set when the surface is replaying a turn that has already ended. Everything
    * else about the surface already reads `activity.completedAt` and freezes
@@ -925,7 +939,7 @@ interface TurnActivitySurfaceProps {
  * half-complete stride — the same reason a reasoning block swaps its loader
  * for a `Brain` when it stops streaming.
  */
-function TurnRestMark({ outcome }: { outcome: RetainedTurnOutcome }) {
+export function TurnRestMark({ outcome }: { outcome: RetainedTurnOutcome }) {
   if (outcome === "failed") {
     return (
       <CircleAlert
@@ -959,17 +973,21 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const [detailSelection, setDetailSelection] = useState<ActivityDetailSelection | null>(null);
 
   const variant = props.variant ?? "docked";
+  const chrome = props.chrome ?? "header";
+  // A list-only host opened the list on purpose; only the header chrome folds.
+  const listOnly = chrome === "list";
   const expandedByDefault = props.expandedByDefault ?? true;
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(
     null,
   );
   const interactionCardOwnsFocus = Boolean(
+    !listOnly &&
     props.hasPendingInteractionCard &&
     props.activity?.pendingInteraction != null,
   );
   const expanded = interactionCardOwnsFocus
     ? false
-    : variant === "panel"
+    : variant === "panel" || listOnly
       ? true
       : (expandedOverride ?? expandedByDefault);
   const now = useTurnClock(
@@ -1213,21 +1231,31 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     counts.totalCount > 1 &&
     counts.completedCount > 0;
   const isListOpen = expanded && canExpand;
+  // Inside the composer shelf the list is a section of the shelf's own
+  // surface: no tuck, no surface of its own, and it fades in rather than
+  // sliding, because the shelf around it is already on screen.
+  const inline = listOnly && variant === "docked";
 
   return (
     <div
       data-testid="turn-activity-stack"
       data-variant={variant}
+      data-chrome={chrome}
       className={sx(
         // Standalone docked pulls the composer up over its extra bottom
         // padding; the composer frame owns that tuck when frame-inset.
         variant === "docked" &&
+          !inline &&
           (props.frameInset
             ? styles.stackDocked
             : styles.stackDockedStandalone),
         variant === "floating" && styles.stackFloating,
         variant === "panel" && styles.stackPanel,
-        props.isLeaving ? styles.stackLeaving : styles.stackEnter,
+        inline
+          ? styles.stackInlineEnter
+          : props.isLeaving
+            ? styles.stackLeaving
+            : styles.stackEnter,
       )}
     >
       <section
@@ -1240,16 +1268,23 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         // `.turn-activity-surface` class, which sits one step back from the
         // card surface; a floating or panelled one is a card in its own right.
         className={cx(
-          variant === "docked" && "turn-activity-surface",
+          variant === "docked" && !inline && "turn-activity-surface",
           sx(
             styles.surface,
             variant !== "docked" && styles.surfaceCard,
-            variant === "docked" && styles.surfaceDocked,
+            variant === "docked" && !inline && styles.surfaceDocked,
             variant === "floating" && styles.surfaceFloating,
             variant === "panel" && styles.surfacePanel,
           ),
         )}
       >
+        {listOnly && variant === "floating" ? (
+          <TurnActivityFloatingGrip
+            dragHandleProps={props.dragHandleProps}
+            onClose={props.onClose}
+          />
+        ) : null}
+        {listOnly ? null : (
         <div
           {...props.dragHandleProps}
           className={sx(
@@ -1350,12 +1385,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               {elapsedLabel}
             </span>
           ) : null}
-          {props.onPlacementChange ? (
-            <TurnActivityPlacementControls
-              placement={props.placement ?? variant}
-              onPlacementChange={props.onPlacementChange}
-            />
-          ) : null}
           {canExpand && variant !== "panel" ? (
             <Button
               type="button"
@@ -1375,13 +1404,14 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
             </Button>
           ) : null}
         </div>
+        )}
 
         {isListOpen ? (
           <div
             data-testid="turn-activity-list"
             className={sx(
               styles.list,
-              variant === "docked" && styles.listDocked,
+              variant === "docked" && (inline ? styles.listInline : styles.listDocked),
               variant === "floating" && styles.listFloating,
               variant === "panel" && styles.listPanel,
             )}
@@ -1465,6 +1495,11 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
             </div>
           </div>
         ) : null}
+        {listOnly && !canExpand ? (
+          <p className={sx(styles.listEmpty)}>
+            The turn has not reported a step yet.
+          </p>
+        ) : null}
         {isListOpen && variant === "panel" && props.executionSummary ? (
           <div className={sx(styles.summaryPinned)}>
             <TaskExecutionSummarySurface compact layout="panel" summary={props.executionSummary}
@@ -1488,51 +1523,36 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   );
 });
 
-const PLACEMENT_CONTROLS: Array<{
-  placement: TurnActivityPlacement;
-  label: string;
-  Icon: typeof PanelBottomClose;
-}> = [
-  {
-    placement: "docked",
-    label: "Dock turn activity above the input",
-    Icon: PanelBottomClose,
-  },
-  {
-    placement: "floating",
-    label: "Float turn activity over the chat",
-    Icon: PictureInPicture2,
-  },
-  {
-    placement: "panel",
-    label: "Show turn activity in the side panel",
-    Icon: PanelRight,
-  },
-];
-
-function TurnActivityPlacementControls(props: {
-  placement: TurnActivityPlacement;
-  onPlacementChange: (placement: TurnActivityPlacement) => void;
+/**
+ * The floating card's grip: the drag handle and the close button, without the
+ * status the composer shelf already shows.
+ */
+function TurnActivityFloatingGrip(props: {
+  dragHandleProps?: HTMLAttributes<HTMLDivElement>;
+  onClose?: () => void;
 }) {
   return (
-    <span className={sx(styles.placementGroup)}>
-      {PLACEMENT_CONTROLS.filter(
-        (control) => control.placement !== props.placement,
-      ).map(({ placement, label, Icon }) => (
-        <Button
-          key={placement}
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={label}
-          title={label}
-          className={sx(styles.placementButton)}
-          onClick={() => props.onPlacementChange(placement)}
+    <div
+      {...props.dragHandleProps}
+      data-testid="turn-activity-floating-grip"
+      className={sx(styles.floatingGrip, props.dragHandleProps && styles.headerGrab)}
+    >
+      <GripHorizontal aria-hidden className={sx(styles.floatingGripIcon)} />
+      <h2 className={sx(styles.floatingGripTitle)}>Turn activity</h2>
+      {props.onClose ? (
+        <AdsButton
+          variant="quiet"
+          size="xs"
+          iconOnly
+          aria-label="Close the activity card"
+          title="Close the activity card"
+          onClick={props.onClose}
+          xstyle={styles.floatingGripClose}
         >
-          <Icon className={sx(styles.chevron)} />
-        </Button>
-      ))}
-    </span>
+          <X aria-hidden />
+        </AdsButton>
+      ) : null}
+    </div>
   );
 }
 

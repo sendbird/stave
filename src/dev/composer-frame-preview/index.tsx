@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   buildModelPickerAgents,
   useTaskAgentChoice,
@@ -23,7 +23,13 @@ import { ChildRequestView, type ChildPendingRequest } from "@/components/session
 import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
 import { MacroQuickPicks } from "@/components/session/MacroQuickPicks";
-import { TurnActivitySurface } from "@/components/session/TurnActivity";
+import { ChatInputApprovalQueue } from "@/components/session/chat-input-approval-queue";
+import { ComposerShelf } from "@/components/session/composer-shelf/ComposerShelf";
+import { reorderQueuedTurns } from "@/components/session/composer-shelf/composer-shelf.utils";
+import { useComposerShelfQueue } from "@/components/session/composer-shelf/use-composer-shelf-queue";
+import { TaskScopeProvider } from "@/components/session/task-scope-context";
+import { TurnActivity } from "@/components/session/TurnActivity";
+import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
 import {
   CLAUDE_PROVIDER_MODE_PRESETS,
   buildClaudeProviderModeSettingsPatch,
@@ -33,7 +39,11 @@ import {
 import { useComposerFrameFits } from "@/hooks/use-composer-frame-fits";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
-import type { ComposerLayoutMode } from "@/store/app-settings";
+import {
+  normalizeTurnActivityPlacement,
+  type ComposerLayoutMode,
+  type TurnActivityPlacement,
+} from "@/store/app-settings";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { composerFramePreviewStyles as f } from "./composer-frame-preview.styles";
@@ -42,24 +52,23 @@ import {
   PREVIEW_CHILD_QUESTION,
   PREVIEW_MACROS,
   PREVIEW_MODEL,
-  PREVIEW_WORK_ITEMS,
-  createPreviewActivity,
 } from "./fixtures";
-
-const PREVIEW_TODOS = [
-  {
-    content: "Match the four shelves to one card",
-    status: "in_progress" as const,
-  },
-  { content: "Keep the draft after compact", status: "pending" as const },
-];
+import {
+  caseHasQueue,
+  isShelfCaseId,
+  PREVIEW_APPROVALS,
+  PREVIEW_QUEUE,
+  PREVIEW_TASK_ID,
+  SHELF_CASES,
+  seedShelfCase,
+  type ShelfCaseId,
+} from "./shelf-cases";
 
 /**
  * Dev-only mount of the real composer tree. Opened from `src/main.tsx` when
  * `?stavePreview=composer-frame` is present, so App bootstrap does not run.
  */
 
-const PREVIEW_TASK_ID = "preview-task";
 
 /**
  * The preview runs the real Models | Agents selector against a small fake
@@ -72,6 +81,12 @@ const PREVIEW_TASK_ID = "preview-task";
  * `&theme=<built-in theme id>` renders under that theme.
  * `&childRequest=question|approval` shows a delegated task's request above the
  * composer, the slot `ChatInputComposer` mounts.
+ *
+ * The composer shelf: `&case=<id>` (see `SHELF_CASES`) seeds the stores with a
+ * turn, an agent run, a pending approval or a queue; `&placement=docked|
+ * floating|panel` picks where details open; `&open=1` starts them open; `&w=420`
+ * caps the composer measure; `&panel=1` adds the Task panel's Activity tab
+ * at its usual 384px.
  */
 const previewParams = new URLSearchParams(window.location.search);
 const PREVIEW_PINNED_MODEL = "claude-opus-5-5";
@@ -139,6 +154,16 @@ export function ComposerFramePreviewApp() {
   const [layoutPreference, setLayoutPreference] =
     useState<ComposerLayoutMode>("framed");
   const [squeezed, setSqueezed] = useState(false);
+  const [caseId, setCaseId] = useState<ShelfCaseId>(() => {
+    const requested = previewParams.get("case");
+    return isShelfCaseId(requested) ? requested : "running";
+  });
+  const [placement, setPlacement] = useState<TurnActivityPlacement>(() =>
+    normalizeTurnActivityPlacement(previewParams.get("placement")),
+  );
+  const [queue, setQueue] = useState(PREVIEW_QUEUE);
+  const measureWidth = Number(previewParams.get("w")) || null;
+  const showPanel = previewParams.get("panel") === "1" || placement === "panel";
   const { ref: composerMeasureRef, fits: composerFrameFits } =
     useComposerFrameFits();
   const framed = layoutPreference === "framed" && composerFrameFits;
@@ -185,6 +210,9 @@ export function ComposerFramePreviewApp() {
     useAppStore.setState({ repositoryPath: "/tmp/preview-repo" });
     void useAgentAssignmentsStore.getState().load();
   }, []);
+  useLayoutEffect(() => {
+    seedShelfCase({ caseId, placement, detailsOpen: previewParams.get("open") === "1" });
+  }, [caseId, placement]);
   useEffect(() => {
     document.title = "Composer frame mock";
     // `&theme=<built-in theme id>` renders under that theme.
@@ -193,7 +221,28 @@ export function ComposerFramePreviewApp() {
     applyCustomTheme({ theme: builtin });
   }, [dark]);
 
-  const activity = useMemo(() => createPreviewActivity(), []);
+  const turnActive = caseId !== "idle" && caseId !== "agent-needs";
+  const shelfQueue = useComposerShelfQueue({
+    listId: PREVIEW_TASK_ID,
+    queuedTurns: caseHasQueue(caseId) ? queue : [],
+    queuedNextTurn: null,
+    submitMode: turnActive ? "steer-or-queue" : "send",
+    disabled: caseId === "needs-input" || caseId === "steering",
+    isTurnActive: turnActive,
+    canSteerQueuedTurn: turnActive && caseId !== "stalled",
+    selectedModel,
+    modelOptions,
+    onSteer: (itemId) => setQueue((items) => items.filter((item) => item.id !== itemId)),
+    onSend: (itemId) => setQueue((items) => items.filter((item) => item.id !== itemId)),
+    onUpdate: ({ itemId, content }) =>
+      setQueue((items) => items.map((item) => (item.id === itemId ? { ...item, content } : item))),
+    onRemove: (itemId) => setQueue((items) => items.filter((item) => item.id !== itemId)),
+    onClearAll: () => setQueue([]),
+    onReorder: (move) => setQueue((items) => [...reorderQueuedTurns(items, move)]),
+  });
+  const shelf = (
+    <ComposerShelf framed={framed} steering={caseId === "steering"} queue={shelfQueue} />
+  );
 
   const providerModeStatus = useMemo(() => {
     const presentation = resolveClaudeProviderModePresentation({
@@ -210,13 +259,42 @@ export function ComposerFramePreviewApp() {
 
   return (
     <TooltipProvider>
+      <TaskScopeProvider taskId={PREVIEW_TASK_ID}>
       <div className={sx(f.page)}>
         <header className={sx(f.header)}>
           <h1 className={sx(f.headerTitle)}>Composer frame preview</h1>
           <p className={sx(f.headerNote)}>
-            Real PromptInput, TurnActivitySurface, and workspace bar
+            Real PromptInput, composer shelf, and workspace bar
           </p>
           <div className={sx(f.headerControls)}>
+            {SHELF_CASES.map((item) => (
+              <Button
+                key={item.id}
+                layout="host"
+                type="button"
+                data-preview-case={item.id}
+                xstyle={[f.toggle, caseId === item.id && f.toggleActive]}
+                onClick={() => {
+                  setQueue(PREVIEW_QUEUE);
+                  setCaseId(item.id);
+                }}
+              >
+                {item.label}
+              </Button>
+            ))}
+            <Button
+              layout="host"
+              type="button"
+              data-preview-placement={placement}
+              xstyle={[f.toggle]}
+              onClick={() =>
+                setPlacement((value) =>
+                  value === "docked" ? "floating" : value === "floating" ? "panel" : "docked",
+                )
+              }
+            >
+              {`Details: ${placement}`}
+            </Button>
             <Button
               layout="host"
               type="button"
@@ -259,6 +337,7 @@ export function ComposerFramePreviewApp() {
           </div>
         </header>
 
+        <div className={sx(f.workspace)}>
         <div className={sx(f.main)}>
           <div className={sx(f.conversation)}>
             <div className={sx(f.conversationMeasure)}>
@@ -269,27 +348,26 @@ export function ComposerFramePreviewApp() {
                 measure.
               </p>
             </div>
+            <div className={sx(f.overlay)}>
+              <TurnActivity host="floating" />
+            </div>
           </div>
 
           <div className={sx(f.composerDock)}>
             <div className={sx(f.composerPad)}>
               <div
                 ref={composerMeasureRef}
+                data-testid="preview-composer-measure"
+                style={measureWidth ? { maxWidth: measureWidth } : undefined}
                 className={sx(
                   f.composerMeasure,
                   squeezed ? f.composerMeasureSqueezed : f.composerMeasureWide,
                 )}
               >
-                {framed ? null : (
-                  <TurnActivitySurface
-                    activeTurnId="preview-turn"
-                    activity={activity}
-                    isPlanPreparing={false}
-                    workItems={PREVIEW_WORK_ITEMS}
-                    todos={PREVIEW_TODOS}
-                    expandedByDefault
-                  />
-                )}
+                {caseId === "needs-input" ? (
+                  <ChatInputApprovalQueue approvals={PREVIEW_APPROVALS} onResolveApproval={() => {}} />
+                ) : null}
+                {framed ? null : shelf}
                 {CHILD_REQUEST ? (
                   <ChildRequestView
                     requestId={CHILD_REQUEST.part.requestId}
@@ -305,6 +383,9 @@ export function ComposerFramePreviewApp() {
                 ) : null}
                 <PromptInput
                   framed={framed}
+                  isTurnActive={turnActive}
+                  submitMode={turnActive ? "steer-or-queue" : "send"}
+                  disabled={caseId === "needs-input"}
                   macroControl={
                     <MacroControl macros={PREVIEW_MACROS} onSelect={() => {}} />
                   }
@@ -354,19 +435,7 @@ export function ComposerFramePreviewApp() {
                       onCompact={() => {}}
                     />
                   }
-                  frameTop={
-                    framed ? (
-                      <TurnActivitySurface
-                        activeTurnId="preview-turn"
-                        activity={activity}
-                        isPlanPreparing={false}
-                        workItems={PREVIEW_WORK_ITEMS}
-                        todos={PREVIEW_TODOS}
-                        expandedByDefault
-                        frameInset
-                      />
-                    ) : undefined
-                  }
+                  frameTop={framed ? shelf : undefined}
                   frameBottom={
                     framed ? (
                       <ComposerWorkspaceBarView
@@ -381,12 +450,20 @@ export function ComposerFramePreviewApp() {
                   onModelSelect={agentChoice.selectModel}
                   onAttachFilesChange={() => {}}
                   onSubmit={() => {}}
+                  onAbort={() => {}}
                 />
               </div>
             </div>
           </div>
         </div>
+        {showPanel ? (
+          <aside className={sx(f.panel)} data-testid="preview-task-panel" aria-label="Task panel, Activity tab">
+            <TurnActivityPanel />
+          </aside>
+        ) : null}
+        </div>
       </div>
+      </TaskScopeProvider>
     </TooltipProvider>
   );
 }

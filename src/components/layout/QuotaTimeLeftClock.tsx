@@ -1,5 +1,6 @@
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
+import { resolveTimeLeftHand } from "@/components/layout/status-bar-usage-strip.utils";
 
 /**
  * Clock-face glyph for the share of a quota window still left. The hand sits
@@ -13,23 +14,10 @@ export function QuotaTimeLeftClock({
   timeLeftRatio: number;
   size?: number;
 }) {
-  const ratio = Math.min(1, Math.max(0, timeLeftRatio));
-  const elapsed = 1 - ratio;
   const c = 8;
   const r = 6;
-  const angle = elapsed * 2 * Math.PI;
-  const handX = c + r * Math.sin(angle);
-  const handY = c - r * Math.cos(angle);
-  const largeArc = ratio > 0.5 ? 1 : 0;
-  const percentLeft = Math.round(ratio * 100);
-  const wedge =
-    ratio >= 1 ? (
-      <circle cx={c} cy={c} r={r} />
-    ) : ratio <= 0 ? null : (
-      <path
-        d={`M ${c} ${c} L ${handX} ${handY} A ${r} ${r} 0 ${largeArc} 1 ${c} ${c - r} Z`}
-      />
-    );
+  const { handX, handY, wedge } = resolveTimeLeftHand({ timeLeftRatio, center: c, radius: r });
+  const percentLeft = Math.round(Math.min(1, Math.max(0, timeLeftRatio)) * 100);
 
   return (
     <svg
@@ -41,7 +29,10 @@ export function QuotaTimeLeftClock({
       className={sx(statusBarUsageStyles.clock)}
     >
       <title>{`${percentLeft}% of window left`}</title>
-      <g className={sx(statusBarUsageStyles.clockWedge)}>{wedge}</g>
+      <g className={sx(statusBarUsageStyles.clockWedge)}>
+        {wedge.kind === "full" ? <circle cx={c} cy={c} r={r} /> : null}
+        {wedge.kind === "path" ? <path d={wedge.d} /> : null}
+      </g>
       <circle
         cx={c}
         cy={c}

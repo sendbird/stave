@@ -164,7 +164,7 @@ Preview fixture in the same change.
 
 ## Turn Activity Orb
 
-The composer-level turn activity shelf uses the 20px inline orb. The 64px orb
+The composer shelf's run line uses the 20px inline orb. The 64px orb
 remains reserved for full loading and kickoff surfaces, while the message-level
 Chain of Thought trigger keeps its own `solving` state. The turn shelf resolves
 its state in this order so the animation reflects the most specific lifecycle:

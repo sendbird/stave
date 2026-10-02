@@ -98,8 +98,9 @@ import {
 } from "../../../src/lib/missions/report-markdown";
 import { sumTurnUsage, type MissionUsage, type TurnUsageSample } from "../../../src/lib/missions/usage";
 import { aggregateMissionInsights, countRunEvents, type MissionInsights } from "../../../src/lib/missions/insights";
-import { agentRunEndCause, isAgentRun } from "../../../src/lib/missions/agent-run";
+import { agentRunEndCause, extractRunAssignment, isAgentRun } from "../../../src/lib/missions/agent-run";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../../../src/lib/providers/provider.types";
+import type { AgentRunPromptProvenance } from "../../../src/types/chat";
 import type { MissionStore } from "../../persistence/mission-store";
 import type { MissionStageGrant } from "../../providers/mission-grants";
 import type { TaskSupervisionSnapshot } from "../local-mcp-runtime";
@@ -165,6 +166,8 @@ export interface MissionRuntimeDependencies {
     retrievedContextParts: CanonicalRetrievedContextPart[];
     /** Absent for a turn a Stave action asked for: it reports no stage. */
     missionStage?: MissionStageRef;
+    /** On every turn of an agent run: marks the user row so it renders as the assignment. */
+    agentRunPrompt?: AgentRunPromptProvenance;
   }) => Promise<{ turnId: string }>;
   /**
    * The user's own provider permission settings, for turns no consent sets:
@@ -782,6 +785,9 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           ...projectContextParts(started.mission),
         ],
         ...(actionPrompt === undefined ? { missionStage: identity } : {}),
+        ...(isAgentRun(mission)
+          ? { agentRunPrompt: { missionId: mission.id, assignment: extractRunAssignment(prompt, mission.assignment) } }
+          : {}),
       });
       turnIdsFor(mission.id).add(turn.turnId);
       userTurnIntents.delete(mission.id);

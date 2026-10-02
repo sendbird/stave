@@ -147,6 +147,16 @@ export function planAgentPromptSend(args: {
 }
 
 /**
+ * The user's own words from a run's first prompt. The prompt carries the
+ * assignment under an "Assignment" heading among Stave's instructions; any
+ * other prompt of the run (the reminder to report) has none, and null says so.
+ */
+export function extractRunAssignment(prompt: string, assignment: string): string | null {
+  const wanted = assignment.trim();
+  return wanted && prompt.includes(`## Assignment\n\n${wanted}`) ? wanted : null;
+}
+
+/**
  * Why an active agent run ends without a report, or null when it goes on:
  * the task no longer runs as an agent (the selector moved to a model), or the
  * user stopped the run's own turn that just ended. A turn Stave interrupted by

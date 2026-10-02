@@ -95,7 +95,6 @@ export const missionStyles = stylex.create({
   },
   badge: { flex: "0 0 auto" },
   statusText: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  statusMeta: { flex: "0 0 auto", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
 
   /* Sections --------------------------------------------------------------- */
   section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minWidth: 0 },

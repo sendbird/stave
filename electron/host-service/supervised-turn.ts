@@ -15,6 +15,7 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
+import type { AgentRunPromptProvenance } from "../../src/types/chat";
 import { runTask } from "./local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
 
@@ -49,6 +50,8 @@ export async function runSupervisedTurn(args: {
   retrievedContextParts?: CanonicalRetrievedContextPart[];
   /** The stage attempt a mission turn reports for; mints its mission grant. */
   missionStage?: MissionStageIdentity;
+  /** On an agent run's turn: the run and the assignment, recorded on the user row. */
+  agentRunPrompt?: AgentRunPromptProvenance;
 }) {
   return runTask({
     workspaceId: args.workspaceId,
@@ -71,5 +74,6 @@ export async function runSupervisedTurn(args: {
       ? { retrievedContextParts: args.retrievedContextParts }
       : {}),
     ...(args.missionStage ? { missionStage: args.missionStage } : {}),
+    ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),
   });
 }
