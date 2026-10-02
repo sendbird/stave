@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { buildAgentRunFixtures, AGENT_RUN_ASSIGNMENT } from "../src/dev/mission-preview/agent-run-fixtures";
 import {
+  agentRunFleetState,
   describeAgentRunResult,
   describeAgentRunStatus,
   describeDoneWhen,
   extractRunAssignment,
   formatRunDuration,
+  resolveAgentRunFirstPrompt,
+  resolveAgentRunPrompt,
 } from "../src/lib/missions/agent-run-view";
 import { compileMissionStagePrompt, buildStageNudgePrompt } from "../src/lib/missions/briefing";
 import { describeMissionNotification } from "../src/lib/missions/notifications";
@@ -89,6 +92,77 @@ describe("agent run prompt", () => {
     const prompt = compileMissionStagePrompt(aggregate);
     expect(extractRunAssignment(prompt, AGENT_RUN_ASSIGNMENT)).toBe(AGENT_RUN_ASSIGNMENT);
     expect(extractRunAssignment(buildStageNudgePrompt(aggregate), AGENT_RUN_ASSIGNMENT)).toBeNull();
+  });
+
+  test("a row the host marked splits from its first frame, without the run loaded", () => {
+    const prompt = compileMissionStagePrompt({ mission: runs.working.mission, stages: runs.working.stages });
+    const provenance = { missionId: runs.working.mission.id, assignment: AGENT_RUN_ASSIGNMENT };
+    expect(resolveAgentRunPrompt({ text: prompt, provenance })).toEqual({ assignment: AGENT_RUN_ASSIGNMENT, instructions: prompt });
+    // The reminder to report carries no assignment: only the folded instructions.
+    expect(resolveAgentRunPrompt({ text: "Report the stage.", provenance: { missionId: "run-1", assignment: null } })).toEqual({
+      assignment: null,
+      instructions: "Report the stage.",
+    });
+  });
+
+  test("an older row without the mark is found through its run; a plain message is not a run prompt", () => {
+    const prompt = compileMissionStagePrompt({ mission: runs.working.mission, stages: runs.working.stages });
+    expect(resolveAgentRunPrompt({ text: prompt, runAssignment: AGENT_RUN_ASSIGNMENT })).toEqual({
+      assignment: AGENT_RUN_ASSIGNMENT,
+      instructions: prompt,
+    });
+    expect(resolveAgentRunPrompt({ text: "Hello" })).toBeNull();
+    expect(resolveAgentRunPrompt({ text: "Hello", runAssignment: null })).toBeNull();
+  });
+
+  test("a send still waiting on its run draws the assignment, its instructions to come", () => {
+    expect(resolveAgentRunPrompt({ text: " Add CSV export. ", pending: true })).toEqual({ assignment: "Add CSV export.", instructions: null });
+  });
+});
+
+describe("agent run first prompt", () => {
+  const missionId = runs.working.mission.id;
+  const withLinkedTurn = (detail: typeof runs.working, state = detail.mission.state) => ({
+    ...detail,
+    mission: { ...detail.mission, state },
+    events: [
+      ...detail.events,
+      { ...detail.events[0]!, kind: "turn-linked" as const, detail: { stageId: "work", attempt: 1, turnId: "turn-7" } },
+    ],
+  });
+  const unlinked = (detail: typeof runs.working, state = detail.mission.state) => ({
+    ...detail,
+    mission: { ...detail.mission, state },
+    events: detail.events.filter((event) => event.kind !== "turn-linked"),
+  });
+
+  test("lands when the transcript holds the row the run marked, or a row of its linked turn", () => {
+    const marked = [{ role: "user" as const, agentRunPrompt: { missionId, assignment: AGENT_RUN_ASSIGNMENT } }];
+    expect(resolveAgentRunFirstPrompt({ missionId, messages: marked, detail: undefined })).toBe("landed");
+    expect(
+      resolveAgentRunFirstPrompt({ missionId, messages: [{ role: "assistant", turnId: "turn-7" }], detail: withLinkedTurn(runs.working) }),
+    ).toBe("landed");
+  });
+
+  test("stays pending while the run starts, is stuck before its first turn, or its linked row is loading", () => {
+    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: undefined })).toBe("pending");
+    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: unlinked(runs.working) })).toBe("pending");
+    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: unlinked(runs.stuck) })).toBe("pending");
+    // The run linked its turn, so its row exists; it ended before the row loaded here.
+    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: withLinkedTurn(runs.working, "cancelled") })).toBe("pending");
+  });
+
+  test("ends when the run ended without writing one", () => {
+    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: unlinked(runs.working, "cancelled") })).toBe("ended");
+    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: unlinked(runs.failed) })).toBe("ended");
+  });
+});
+
+describe("agent run on a Fleet card", () => {
+  test("a working run whose lead task waits on the user needs you; other states stand", () => {
+    expect(agentRunFleetState("working", true)).toBe("needs-you");
+    expect(agentRunFleetState("working", false)).toBe("working");
+    expect(agentRunFleetState("needs-you", false)).toBe("needs-you");
   });
 });
 

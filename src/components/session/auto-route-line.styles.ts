@@ -96,4 +96,13 @@ export const autoRouteLineStyles = stylex.create({
     paddingBottom: vars["--ads-space-24"],
     width: "100%",
   },
+  // The empty transcript's layout already pads 12px above it; the rest is the
+  // first list row's own top padding (`chatPanelStyles.rowFirst`), so the real
+  // row lands exactly where this one was.
+  pendingTurnFirst: {
+    paddingTop: {
+      default: 0,
+      "@media (min-width: 40rem)": vars["--ads-space-4"],
+    },
+  },
 });

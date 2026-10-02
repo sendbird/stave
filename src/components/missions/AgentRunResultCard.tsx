@@ -1,10 +1,13 @@
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
-import { AGENT_RUN_STATE_TONES, describeAgentRunResult, type AgentRunResult } from "@/lib/missions/agent-run-view";
-import { isAgentRun } from "@/lib/missions/agent-run";
+import {
+  AGENT_RUN_STATE_TONES,
+  describeAgentRunResult,
+  selectAgentRunCard,
+  type AgentRunResult,
+} from "@/lib/missions/agent-run-view";
 import type { MissionDetail } from "@/lib/missions/api";
-import { isActiveMissionState } from "@/lib/missions/domain";
 import { useAppStore } from "@/store/app.store";
 import { useTaskMission } from "@/store/missions-store";
 import { AgentRunDoneWhen } from "./AgentRunDoneWhen";
@@ -54,17 +57,26 @@ export function AgentRunOutcome(props: { result: AgentRunResult; actions?: Agent
 }
 
 /**
- * What an agent run leaves in the conversation. Ready: Done when with what
- * backs each line, the changes, the summary, and what to do next. Failed or
- * stuck: the reason, with Retry and Take control. Renders nothing for a run
- * that is working, was stopped by the user, or is not an agent run.
+ * What an agent run leaves in the conversation once it ended. Ready: Done when
+ * with what backs each line, the changes, the summary, and what to do next.
+ * Failed: the reason, with Retry and Take control. Renders nothing while the
+ * run is active (the run bar owns its state and actions), for a run the user
+ * stopped, for one a later message made history, or for a playbook mission
+ * (`selectAgentRunCard`).
  */
-export function AgentRunResultCardView(props: { detail: MissionDetail; now: number; actions?: AgentRunActions }) {
+export function AgentRunResultCardView(props: {
+  detail: MissionDetail;
+  now: number;
+  actions?: AgentRunActions;
+  /** When the transcript's last message started; a later one makes the card history. */
+  lastMessageStartedAt?: string | null;
+}) {
   const { detail, actions = {} } = props;
+  const kind = selectAgentRunCard({ detail, lastMessageStartedAt: props.lastMessageStartedAt });
+  if (!kind) return null;
   const result = describeAgentRunResult(detail, props.now);
   const { status } = result;
-  const ready = status.state === "ready";
-  if (!ready && !status.recovery) return null;
+  const ready = kind === "result";
   const meta = [status.agentName, ready ? result.duration : null].filter(Boolean).join(" · ");
   return (
     <section
@@ -112,15 +124,13 @@ export function AgentRunResultCardView(props: { detail: MissionDetail; now: numb
 export function AgentRunResultCard(props: { taskId: string }) {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const detail = useTaskMission(workspaceId, props.taskId);
-  // A message that started after the run ended makes the card history.
   const lastStartedAt = useAppStore((state) => {
     const messages = state.messagesByTask[props.taskId];
     return messages?.[messages.length - 1]?.startedAt ?? null;
   });
   const actions = useAgentRunActions(detail);
-  const active = Boolean(detail && isActiveMissionState(detail.mission.state));
-  const now = useNow(active);
-  if (!detail || !isAgentRun(detail.mission)) return null;
-  if (!active && lastStartedAt && Date.parse(lastStartedAt) > Date.parse(detail.mission.updatedAt)) return null;
-  return <AgentRunResultCardView detail={detail} now={now} actions={actions} />;
+  // An ended run's card shows a fixed duration: no clock.
+  const now = useNow(false);
+  if (!detail) return null;
+  return <AgentRunResultCardView detail={detail} now={now} actions={actions} lastMessageStartedAt={lastStartedAt} />;
 }

@@ -167,7 +167,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           ]}
         >
           <AgentAvatar
-            agent={{ id: agent.agentConfigId, name: agent.agentName }}
+            agent={{ id: agent.agentConfigId, name: agent.agentName, appearance: agent.agentAppearance }}
             size="xs"
             status={agent.needsYou ? "needs-you" : "running"}
             aria-label={null}
