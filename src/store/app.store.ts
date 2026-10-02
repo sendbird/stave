@@ -1163,6 +1163,7 @@ export const useAppStore = create<AppState>()(
       rateLimitsSnapshot: null,
       autoRoutingDecisionByTask: {},
       rateLimitsUpdatedAtByProvider: {},
+      rateLimitsInFlightByProvider: {},
       rateLimitsLoading: false,
       rateLimitsError: null,
       isDarkMode: true,

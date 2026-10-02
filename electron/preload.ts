@@ -1801,6 +1801,9 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("persistence:list-active-workspace-turns", args),
     listLatestWorkspaceTurns: (args: { workspaceId: string; limit?: number }) =>
       ipcRenderer.invoke("persistence:list-latest-workspace-turns", args),
+    summarizeTurnSpend: (
+      args: import("../src/lib/providers/turn-spend").TurnSpendArgs,
+    ) => ipcRenderer.invoke("persistence:summarize-turn-spend", args),
   },
   fs: {
     pickRoot: () => ipcRenderer.invoke("fs:pick-root"),
