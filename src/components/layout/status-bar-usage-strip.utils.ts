@@ -1,4 +1,4 @@
-import { formatCostUsd } from "@/lib/missions/usage";
+import { formatCostUsd, formatTokenCount } from "@/lib/missions/usage";
 import type { ProviderTurnSpend } from "@/lib/providers/turn-spend";
 import type {
   StatusBarAccountView,
@@ -176,22 +176,74 @@ export interface UsageStripCost {
   meaning: TurnSpendMeaning;
 }
 
-/** Bold amount and muted context for the strip: `$0.10` + `today · $4.20 this month`. */
-export function formatStripCost(cost: UsageStripCost): { amount: string; context: string } {
+/** Input plus output tokens of turns run in Stave, without cache reads. */
+export interface UsageStripTokens {
+  todayTokens: number;
+  monthTokens: number;
+  /** Turns this month that reported token usage. */
+  monthTurns: number;
+}
+
+function formatTurnCount(turns: number): string {
+  return turns === 1 ? "1 turn" : `${turns} turns`;
+}
+
+/** Bold figure and muted context for the bar: `1.2M` + `tok today · 18M mo`. */
+export function formatStripTokens(tokens: UsageStripTokens): { amount: string; context: string } {
   return {
-    amount: formatCostUsd(cost.todayUsd),
-    context: `today · ${formatCostUsd(cost.monthUsd)} this month`,
+    amount: formatTokenCount(tokens.todayTokens),
+    context: `tok today · ${formatTokenCount(tokens.monthTokens)} mo`,
   };
 }
 
-export function describeTurnSpend(args: {
-  cost: UsageStripCost;
+/**
+ * Which tokens the totals count. Claude's and Codex's cache conventions are
+ * verified, so cache reads can be said to be left out; any other provider's
+ * counts are used as it reports them.
+ */
+export function describeTurnTokenCounting(args: {
+  provider: StatusBarUsageProvider;
+  providerName: string;
+}): string {
+  return args.provider === "claude" || args.provider === "codex"
+    ? "Counts input and output tokens. Prompt tokens read from the cache are left out."
+    : `Counts input and output tokens as ${args.providerName} reports them.`;
+}
+
+export function describeTurnTokens(args: {
+  tokens: UsageStripTokens;
+  cost: UsageStripCost | null;
+  provider: StatusBarUsageProvider;
   providerName: string;
   multipleAccounts: boolean;
 }): UsageHint {
+  const { tokens, cost, providerName } = args;
+  return {
+    title: "Tokens in turns run in Stave",
+    lines: [
+      `${formatTokenCount(tokens.todayTokens)} today, ${formatTokenCount(tokens.monthTokens)} this month, from ${formatTurnCount(tokens.monthTurns)}.`,
+      describeTurnTokenCounting(args),
+      ...(args.multipleAccounts
+        ? [`Includes turns from every ${providerName} account.`]
+        : []),
+      ...(cost
+        ? [
+            cost.meaning === "spend"
+              ? "Click for their spend."
+              : "Click for their API value.",
+          ]
+        : []),
+    ],
+  };
+}
+
+/** What the reported cost totals are; the usage details show it, the bar does not. */
+export function describeTurnSpend(args: {
+  cost: UsageStripCost;
+  providerName: string;
+}): UsageHint {
   const { cost, providerName } = args;
-  const turns = cost.monthTurns === 1 ? "1 turn" : `${cost.monthTurns} turns`;
-  const totals = `${formatCostUsd(cost.todayUsd)} today, ${formatCostUsd(cost.monthUsd)} this month, from ${turns}.`;
+  const totals = `${formatCostUsd(cost.todayUsd)} today, ${formatCostUsd(cost.monthUsd)} this month, from ${formatTurnCount(cost.monthTurns)}.`;
   const meaning =
     cost.meaning === "spend"
       ? `${providerName}'s estimate of what these turns cost. Your gateway bills them, and its invoice is final.`
@@ -201,13 +253,7 @@ export function describeTurnSpend(args: {
       cost.meaning === "spend"
         ? "Spend on turns run in Stave"
         : "API value of turns run in Stave",
-    lines: [
-      totals,
-      meaning,
-      ...(args.multipleAccounts
-        ? [`Includes turns from every ${providerName} account.`]
-        : []),
-    ],
+    lines: [totals, meaning],
   };
 }
 
@@ -218,6 +264,9 @@ export interface UsageStripSegmentModel {
   name: string;
   /** Empty for an API-billing gateway, which has no subscription quota. */
   windows: UsageHeadlineWindow[];
+  /** What the bar shows of turns run in Stave; null until a turn reported tokens. */
+  tokens: UsageStripTokens | null;
+  /** Shown in the usage details only; null unless the provider reported a cost. */
   cost: UsageStripCost | null;
   gateway: boolean;
   stale: boolean;
@@ -241,7 +290,15 @@ export function buildUsageStripSegment(args: {
     providerName: args.providerName,
     name: label ? `${args.providerName} · ${label}` : args.providerName,
     windows: gateway ? [] : args.windows,
-    // Only a provider that reported a cost gets the item; never a made-up $0.00.
+    tokens:
+      args.spend && args.spend.monthTokens > 0
+        ? {
+            todayTokens: args.spend.todayTokens,
+            monthTokens: args.spend.monthTokens,
+            monthTurns: args.spend.monthTokenTurns,
+          }
+        : null,
+    // Only a provider that reported a cost gets a cost; never a made-up $0.00.
     cost:
       args.spend && args.spend.monthUsd > 0
         ? {
@@ -283,6 +340,8 @@ const GLYPH_REM = 1;
 const GLYPH_GAP_REM = 0.25;
 const SEGMENT_GAP_REM = 0.125;
 const SAFETY_REM = 0.5;
+// Formats as `999.9M`: below a billion no token count is wider (`999.9k` ties it).
+const WIDEST_TOKEN_COUNT = 999_900_000;
 
 function textRem(text: string): number {
   return text.length * CHAR_REM;
@@ -305,11 +364,15 @@ function widestCountdown(windowMs: number | null): string {
 }
 
 /**
- * Width the full strip needs for one segment. Percent and countdown use their
- * widest forms (`100%`, the window's longest countdown) so the choice does not
- * flip as a countdown ticks or a percent gains a digit.
+ * Width the full strip needs for one segment, with or without its tokens
+ * entry. Percent, countdown and token counts use their widest forms (`100%`,
+ * the window's longest countdown, `999.9M`) so the choice does not flip as a
+ * countdown ticks, a percent gains a digit, or today's tokens grow.
  */
-export function estimateUsageStripSegmentRem(segment: UsageStripSegmentModel): number {
+export function estimateUsageStripSegmentRem(
+  segment: UsageStripSegmentModel,
+  options: { tokens: boolean } = { tokens: true },
+): number {
   let rem = SEGMENT_INSET_REM + textRem(segment.name);
   if (segment.stale) rem += textRem(" (unverified)");
   if (segment.windows.length === 0 && !segment.gateway) {
@@ -322,32 +385,54 @@ export function estimateUsageStripSegmentRem(segment: UsageStripSegmentModel): n
       .join(" · ");
     rem += PART_GAP_REM + GLYPH_REM + GLYPH_GAP_REM + figureRem("100%") + GLYPH_GAP_REM + textRem(context);
   }
-  if (segment.cost) {
-    const { amount, context } = formatStripCost(segment.cost);
-    rem += PART_GAP_REM + GLYPH_REM + GLYPH_GAP_REM + figureRem(amount) + GLYPH_GAP_REM + textRem(context);
+  if (segment.tokens && options.tokens) {
+    const { amount, context } = formatStripTokens({
+      todayTokens: WIDEST_TOKEN_COUNT,
+      monthTokens: WIDEST_TOKEN_COUNT,
+      monthTurns: 0,
+    });
+    rem += PART_GAP_REM + figureRem(amount) + GLYPH_GAP_REM + textRem(context);
   }
   return rem;
 }
 
-export function estimateUsageStripRem(segments: readonly UsageStripSegmentModel[]): number {
+export function estimateUsageStripRem(
+  segments: readonly UsageStripSegmentModel[],
+  options: { tokens: boolean } = { tokens: true },
+): number {
   if (segments.length === 0) return 0;
   return (
-    segments.reduce((total, segment) => total + estimateUsageStripSegmentRem(segment), 0) +
+    segments.reduce((total, segment) => total + estimateUsageStripSegmentRem(segment, options), 0) +
     SEGMENT_GAP_REM * (segments.length - 1) +
     SAFETY_REM
   );
 }
 
+function stepFor(needed: number): UsageStripBreakpoint {
+  return USAGE_STRIP_BREAKPOINTS_REM.find((step) => step >= needed) ?? "never";
+}
+
 /**
- * The narrowest step that fits every connected provider in full. Below it
- * the strip falls back to the compact meter; past the widest step it stays
- * compact rather than risk pushing the right-hand segments off.
+ * The narrowest step that fits every connected provider's quota windows in
+ * full. Below it the strip falls back to the compact meter; past the widest
+ * step it stays compact rather than risk pushing the right-hand segments off.
+ * Tokens are not part of it: they give way first, at their own step.
  */
 export function resolveUsageStripBreakpoint(
   segments: readonly UsageStripSegmentModel[],
 ): UsageStripBreakpoint {
-  const needed = estimateUsageStripRem(segments);
-  return USAGE_STRIP_BREAKPOINTS_REM.find((step) => step >= needed) ?? "never";
+  return stepFor(estimateUsageStripRem(segments, { tokens: false }));
+}
+
+/**
+ * The narrowest step that also fits every provider's tokens entry. Between
+ * it and the full step the windows stay in full and the tokens hide, so the
+ * quota, which decides whether a turn can start, is the last detail to go.
+ */
+export function resolveUsageStripTokensBreakpoint(
+  segments: readonly UsageStripSegmentModel[],
+): UsageStripBreakpoint {
+  return stepFor(estimateUsageStripRem(segments, { tokens: true }));
 }
 
 /** Screen-reader name for a segment trigger, since its children are glyphs and fragments. */
@@ -359,9 +444,8 @@ export function describeUsageSegmentForAssistiveTech(
     const countdown = formatResetCountdown(window.resetsAt, now);
     return `${window.title} ${formatUsagePercent(window.usedPercent)} used${countdown && countdown !== "now" ? `, resets in ${countdown}` : ""}`;
   });
-  if (segment.cost) {
-    const { amount } = formatStripCost(segment.cost);
-    parts.push(`${amount} today`);
+  if (segment.tokens) {
+    parts.push(`${formatTokenCount(segment.tokens.todayTokens)} tokens today`);
   }
   if (segment.pending) parts.unshift("reading usage");
   return `${segment.name} usage${parts.length ? `: ${parts.join("; ")}` : ""}`;

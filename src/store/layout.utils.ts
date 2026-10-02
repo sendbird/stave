@@ -12,6 +12,8 @@ export interface LayoutState {
   workspaceSidebarCollapsed: boolean;
   workspaceSidebarItemDisplayMode: WorkspaceSidebarItemDisplayMode;
   explorerPanelWidth: number;
+  /** Width of the Agents view's list, in pixels; dragged on its edge. */
+  agentsListWidth: number;
   sidebarOverlayVisible: boolean;
   sidebarOverlayTab: RightRailPanelId;
   /** The Task panel's tab; kept while the rail is closed, so it reopens there. */
@@ -60,6 +62,21 @@ export const DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE: WorkspaceSidebarItemDi
   "expanded";
 export const WORKSPACE_SIDEBAR_MIN_WIDTH = 290;
 
+/** The Agents list's drag range. The default is the width it had before it could be dragged. */
+export const AGENTS_LIST_MIN_WIDTH = 240;
+export const AGENTS_LIST_DEFAULT_WIDTH = 288;
+export const AGENTS_LIST_MAX_WIDTH = 480;
+
+/** A saved Agents list width inside the drag range; anything unreadable is the default. */
+export function normalizeAgentsListWidth(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return AGENTS_LIST_DEFAULT_WIDTH;
+  }
+  return Math.round(
+    Math.min(AGENTS_LIST_MAX_WIDTH, Math.max(AGENTS_LIST_MIN_WIDTH, value)),
+  );
+}
+
 export function mergeLayoutPatch(args: {
   layout: LayoutState;
   patch: Partial<LayoutState>;
@@ -93,6 +110,8 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
       layout.workspaceSidebarItemDisplayMode,
     ),
     explorerPanelWidth: layout.explorerPanelWidth,
+    // A layout saved before the list could be dragged has no width yet.
+    agentsListWidth: normalizeAgentsListWidth(layout.agentsListWidth),
     sidebarOverlayVisible: layout.sidebarOverlayVisible,
     terminalDocked: layout.terminalDocked,
     editorDiffMode: layout.editorDiffMode,
@@ -183,6 +202,7 @@ export function createDefaultLayoutState(): LayoutState {
     workspaceSidebarCollapsed: false,
     workspaceSidebarItemDisplayMode: DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
     explorerPanelWidth: 300,
+    agentsListWidth: AGENTS_LIST_DEFAULT_WIDTH,
     sidebarOverlayVisible: false,
     sidebarOverlayTab: "explorer",
     taskPanelTab: DEFAULT_TASK_PANEL_TAB,

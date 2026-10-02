@@ -14,6 +14,7 @@ import {
 import {
   buildUsageStripSegment,
   resolveUsageStripBreakpoint,
+  resolveUsageStripTokensBreakpoint,
 } from "@/components/layout/status-bar-usage-strip.utils";
 import { usageStripStyles } from "@/components/layout/status-bar-usage-strip.styles";
 import { resolveResourceLabelBreakpoint } from "@/components/layout/status-bar-shrink";
@@ -117,6 +118,10 @@ export function StatusBar() {
   const stripBreakpoint = resolveUsageStripBreakpoint(
     usageSegments.map(({ segment }) => segment),
   );
+  // The first step of the bar's shrink order: tokens go before the windows do.
+  const tokensBreakpoint = resolveUsageStripTokensBreakpoint(
+    usageSegments.map(({ segment }) => segment),
+  );
   // The second step of the bar's shrink order, chosen after the first so the
   // label never goes while the strip could still show its full form.
   const resourceLabelBreakpoint = resolveResourceLabelBreakpoint({
@@ -208,6 +213,7 @@ export function StatusBar() {
             segment={segment}
             account={account}
             breakpoint={stripBreakpoint}
+            tokensBreakpoint={tokensBreakpoint}
             now={now}
           />
         ))}

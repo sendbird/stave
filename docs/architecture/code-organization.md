@@ -38,17 +38,19 @@ The status bar usage strip is composed in `src/components/layout/StatusBar.tsx`;
 `status-bar-usage-strip.utils.ts` holds its pure parts (ring and clock geometry,
 reset formatting, hint copy, and the width estimate behind the container-query
 breakpoint), `StatusBarUsageStripItems.tsx` and `StatusBarUsageDetails.tsx` render
-the entries and the popover body. Spend comes from
+the entries and the popover body. Tokens and cost come from
 `electron/persistence/turn-spend-store.ts` through `persistence:summarize-turn-spend`
 (`src/lib/providers/turn-spend.ts` owns the arguments schema and local period
-bounds). `src/store/rate-limits-account-reset.ts` resets one provider's usage on
-an account switch and tracks reads in flight. Focused checks are
+bounds; the store owns which tokens count).
+`src/store/rate-limits-account-reset.ts` resets one provider's usage on an
+account switch and tracks reads in flight. Focused checks are
 `tests/status-bar-usage-strip.test.ts`, `tests/turn-spend.test.ts`,
 `tests/rate-limits-account-reset.test.ts`, and `tests/status-bar-usage-utils.test.ts`.
-The bar's shrink order (usage detail, then the Resource Manager label, then
-clipping the strip's end) is `status-bar-shrink.ts`, with its container-query
-rules in `status-bar-shrink.styles.ts`; `tests/status-bar-shrink.test.ts` checks
-that each step gives way once and in order.
+The bar's shrink order (tokens, then usage detail, then the Resource Manager
+label, then clipping the strip's end) is `status-bar-shrink.ts`, with its
+container-query rules in `status-bar-shrink.styles.ts`;
+`tests/status-bar-shrink.test.ts` checks that each step gives way once and in
+order.
 
 Provider account registration uses `src/lib/providers/provider-accounts.ts` for
 shared types and strict schemas. `electron/provider-accounts/registry.ts` owns
@@ -107,7 +109,7 @@ checks are `tests/provider-account-identity-parse.test.ts`,
 | Agent workflows                  | `src/lib/agents/schema.ts` validates an agent's `workflow` with the stage schema in `src/lib/playbooks/schema.ts`; `src/lib/agents/builtin-workflows.ts` holds the built-ins' stages; `src/lib/playbooks/library.ts` edits stages and `src/components/agents/AgentWorkflowField.tsx` (over `src/components/playbooks/StageList.tsx`) is the editor's Workflow section; `src/lib/agents/playbook-agents-migration.ts` turns saved playbooks into custom agents (temporary) | `tests/playbook-library.test.ts`, `tests/agent-config.test.ts`, `tests/agent-builtins.test.ts`, `tests/playbook-agents-migration.test.ts` |
 | Proposed missions                | `src/lib/playbooks/starts-when.ts` summarizes saved playbooks' start conditions (deprecated with projects); `electron/host-service/supervision/proposal-runtime.ts` evaluates them and records proposals over `electron/persistence/mission-store.ts`; `src/store/proposals-store.ts` loads them and hands pull requests to the host; `src/components/layout/issues/ProposedMissionsPanel.tsx` is Issues → Proposed | `tests/proposal-runtime.test.ts`, `tests/mission-tools.test.ts` |
 | Projects                         | `src/lib/projects/policy.ts` decides; `electron/host-service/supervision/project-runtime.ts` starts missions and wakes the coordinator over `electron/persistence/project-store.ts`; `src/lib/projects/briefing.ts` briefs the coordinator; `src/lib/projects/models.ts` lists the models a mission may run on, and `electron/host-service/idle-task.ts` opens a mission's task on one | `tests/idle-task.test.ts`, `tests/project-triggers.test.ts`, `tests/project-policy.test.ts`, `tests/project-runtime.test.ts`, `tests/project-store.test.ts`, `tests/project-memory-library.test.ts`, `tests/project-scenarios.test.ts` |
-| Agents                           | `src/lib/agents/schema.ts` validates; `compile.ts` compiles a snapshot per role and provider; `library.ts` lists agents and edits custom ones; `import.ts` and `repository.ts` read repository agent files; Kickoff starts assigned work and `assign-runtime.ts` records it over `electron/persistence/agent-assignment-store.ts`; `src/components/agents/` is the Agents tab and the flow view in the Task panel's Progress tab; `selector-choice.ts` plans what a choice in the composer's Models and Agents selector does (Chat, Agent mode, pin) and `src/components/ai-elements/agent-choice-actions.ts` applies it | `tests/agent-config.test.ts`, `tests/agent-import.test.ts`, `tests/agent-repository.test.ts`, `tests/agent-library.test.ts`, `tests/agent-assign.test.ts`, `tests/agent-boundaries.test.ts`, `tests/agent-flow-view.test.tsx`, `tests/agents-tab.test.tsx`, `tests/agent-selector-choice.test.ts`, `tests/agent-choice-actions.test.ts`, `tests/agent-model-selector.test.tsx`, `tests/e2e/agents.e2e.ts` |
+| Agents                           | `src/lib/agents/schema.ts` validates; `compile.ts` compiles a snapshot per role and provider; `library.ts` lists agents and edits custom ones; `import.ts` and `repository.ts` read repository agent files; Kickoff starts assigned work and `assign-runtime.ts` records it over `electron/persistence/agent-assignment-store.ts`; `src/components/agents/` is the Agents tab (its list is resized by `AgentsListResizeHandle.tsx` over the shared `src/components/layout/PanelResizeHandle.tsx`, which also sizes the repository sidebar and the right-hand panel, and its width is `agentsListWidth` in `src/store/layout.utils.ts`) and the flow view in the Task panel's Progress tab; `selector-choice.ts` plans what a choice in the composer's Models and Agents selector does (Chat, Agent mode, pin) and `src/components/ai-elements/agent-choice-actions.ts` applies it | `tests/agent-config.test.ts`, `tests/agent-import.test.ts`, `tests/agent-repository.test.ts`, `tests/agent-library.test.ts`, `tests/agent-assign.test.ts`, `tests/agent-boundaries.test.ts`, `tests/agent-flow-view.test.tsx`, `tests/agents-tab.test.tsx`, `tests/layout-utils.test.ts`, `tests/agent-selector-choice.test.ts`, `tests/agent-choice-actions.test.ts`, `tests/agent-model-selector.test.tsx`, `tests/e2e/agents.e2e.ts` |
 | Project surfaces                 | `src/components/projects/` (Projects view, project home rows and tabs, Starts when, coordinator conversation, Fleet rollup; deprecated, no new projects) over `src/store/projects-store.ts`; `src/components/layout/SidebarPrimaryNav.tsx` lists open projects only for a user who has one | `tests/project-home-view.test.tsx` |
 
 For a structure inventory, run `node scripts/codebase-structure.mjs`. Use

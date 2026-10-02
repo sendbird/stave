@@ -1,4 +1,3 @@
-import { CircleDollarSign } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { QuotaRing } from "@/components/layout/QuotaRing";
@@ -13,15 +12,17 @@ import {
   type UsageHeadlineWindow,
 } from "@/components/layout/status-bar-usage.utils";
 import {
-  describeTurnSpend,
+  describeTurnTokens,
   describeUsageWindow,
-  formatStripCost,
+  formatStripTokens,
   formatUsagePercent,
   formatWindowContext,
   type UsageHint,
   type UsageStripBreakpoint,
   type UsageStripCost,
+  type UsageStripTokens,
 } from "@/components/layout/status-bar-usage-strip.utils";
+import type { StatusBarUsageProvider } from "@/components/layout/status-bar-usage.utils";
 
 /**
  * The entries inside a status bar usage segment. Each window renders both
@@ -103,35 +104,41 @@ export function UsageWindowItem({
   );
 }
 
-/** Spend appears in the full strip only; the compact meter stays as it was. */
-export function UsageCostItem({
+/**
+ * Tokens of turns run in Stave appear in the full strip only; the compact
+ * meter stays as it was. Dollars are not on the bar: the popover has them.
+ */
+export function UsageTokensItem({
+  tokens,
   cost,
+  provider,
   providerName,
   multipleAccounts,
   breakpoint,
   hintsDisabled,
 }: {
-  cost: UsageStripCost;
+  tokens: UsageStripTokens;
+  cost: UsageStripCost | null;
+  provider: StatusBarUsageProvider;
   providerName: string;
   multipleAccounts: boolean;
   breakpoint: UsageStripBreakpoint;
   hintsDisabled: boolean;
 }) {
   const visibility = usageStripVisibility(breakpoint);
-  const { amount, context } = formatStripCost(cost);
+  const { amount, context } = formatStripTokens(tokens);
   return (
     <Tooltip disabled={hintsDisabled}>
       <TooltipTrigger
         delay={HINT_DELAY_MS}
         render={<span className={sx(styles.item, styles.full, visibility.full)} />}
       >
-        <CircleDollarSign aria-hidden strokeWidth={1.5} className={sx(styles.costGlyph)} />
         <span className={sx(styles.percent)}>{amount}</span>
         <span className={sx(styles.context)}>{context}</span>
       </TooltipTrigger>
       <TooltipContent side="top">
         <UsageHintContent
-          hint={describeTurnSpend({ cost, providerName, multipleAccounts })}
+          hint={describeTurnTokens({ tokens, cost, provider, providerName, multipleAccounts })}
         />
       </TooltipContent>
     </Tooltip>

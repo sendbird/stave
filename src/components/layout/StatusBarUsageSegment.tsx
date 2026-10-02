@@ -13,13 +13,13 @@ import {
   AccountDetail,
   ClaudeDetail,
   CodexDetail,
-  TurnSpendDetail,
+  TurnUsageDetail,
   UsageAccountNote,
   UsageLimitNote,
   UsageReadPending,
 } from "@/components/layout/StatusBarUsageDetails";
 import {
-  UsageCostItem,
+  UsageTokensItem,
   UsageWindowItem,
 } from "@/components/layout/StatusBarUsageStripItems";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
@@ -54,21 +54,26 @@ const TONE_DOT = {
 
 /**
  * One provider in the status bar's usage strip. With room, each quota window
- * is a ring, its percent and when it resets, followed by what Stave turns cost
- * today; without room, the compact meter (dot, name, percents). Clicking opens
- * the details popover: every window, what Stave does at a limit, spend, and
- * the account switch. Polling is owned by the parent `StatusBar` so mounting
- * two segments doesn't double-fetch.
+ * is a ring, its percent and when it resets, followed by the tokens of turns
+ * run in Stave today and this month; without room, the compact meter (dot,
+ * name, percents). Clicking opens the details popover: every window, what
+ * Stave does at a limit, tokens and cost, and the account switch. Polling is
+ * owned by the parent `StatusBar` so mounting two segments doesn't
+ * double-fetch.
  */
 export function StatusBarUsageSegment({
   segment,
   account,
   breakpoint,
+  tokensBreakpoint,
   now,
 }: {
   segment: UsageStripSegmentModel;
   account: StatusBarAccountView | null;
+  /** Where the windows switch to their full form. */
   breakpoint: UsageStripBreakpoint;
+  /** Where the tokens entry joins them; never narrower than `breakpoint`. */
+  tokensBreakpoint: UsageStripBreakpoint;
   now: number;
 }) {
   const { provider, providerName, stale } = segment;
@@ -108,7 +113,7 @@ export function StatusBarUsageSegment({
         // cache floor, so holding the popover open cannot spam the account.
         if (next && !stale) {
           noteRateLimitsMeterOpen(providerId);
-          // Spend is a local read, so the popover can simply ask for it.
+          // Tokens and cost are a local read, so the popover can simply ask for them.
           void useTurnSpend.getState().refresh();
         } else {
           noteRateLimitsMeterClosed(providerId);
@@ -159,12 +164,14 @@ export function StatusBarUsageSegment({
             />
           ))
         )}
-        {segment.cost ? (
-          <UsageCostItem
+        {segment.tokens ? (
+          <UsageTokensItem
+            tokens={segment.tokens}
             cost={segment.cost}
+            provider={provider}
             providerName={providerName}
             multipleAccounts={multipleAccounts}
-            breakpoint={breakpoint}
+            breakpoint={tokensBreakpoint}
             hintsDisabled={open}
           />
         ) : null}
@@ -234,9 +241,11 @@ export function StatusBarUsageSegment({
             </>
           )}
         </div>
-        {segment.cost ? (
-          <TurnSpendDetail
+        {segment.tokens || segment.cost ? (
+          <TurnUsageDetail
+            tokens={segment.tokens}
             cost={segment.cost}
+            provider={provider}
             providerName={providerName}
             multipleAccounts={multipleAccounts}
           />

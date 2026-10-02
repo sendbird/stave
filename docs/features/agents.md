@@ -79,7 +79,10 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
 ### Agents tab
 
 - **Custom**, **From repository** and **Built-in** agents, with search. Each row
-  shows an avatar — an initials disc in the agent's colour.
+  shows an avatar — an initials disc in the agent's colour. Drag the list's
+  edge to make it wider or narrower (240–480px, never so wide the detail drops
+  under 512px); double-click the edge to return to the default 288px. Stave
+  keeps the width between sessions.
 - **New agent**: describe the job in **What should it do?** and press **Draft
   agent**. The **Utility inference** model (Settings → Background AI) drafts
   the name, **Use when**, instructions, permission, where it works and a

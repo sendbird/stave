@@ -4,16 +4,19 @@ import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.style
 import {
   buildUsageHeadlineWindows,
   windowDurationTitle,
+  type StatusBarUsageProvider,
 } from "@/components/layout/status-bar-usage.utils";
 import {
   clampUsagePercent,
   describeTurnSpend,
+  describeTurnTokenCounting,
   formatResetCountdown,
   formatUsagePercent,
   usageTone,
   type UsageStripCost,
+  type UsageStripTokens,
 } from "@/components/layout/status-bar-usage-strip.utils";
-import { formatCostUsd } from "@/lib/missions/usage";
+import { formatCostUsd, formatTokenCount } from "@/lib/missions/usage";
 import type {
   AccountUsageWindow,
   ClaudeUsageSnapshot,
@@ -25,8 +28,8 @@ import type {
 
 /**
  * The usage popover's body: every window a provider reports, what Stave does
- * at a limit, and what turns run in Stave cost. The status bar segment owns
- * the popover itself; this file only lays out what it says.
+ * at a limit, and the tokens and cost of turns run in Stave. The status bar
+ * segment owns the popover itself; this file only lays out what it says.
  */
 
 const TONE_FILL = {
@@ -361,42 +364,75 @@ export function UsageLimitNote({
   );
 }
 
-/** Today's and this month's reported cost, and what kind of number it is. */
-export function TurnSpendDetail({
+function TurnTotalRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={sx(statusBarUsageStyles.amountRow)}>
+      <span className={sx(statusBarUsageStyles.amountLabel)}>{label}</span>
+      <span className={sx(statusBarUsageStyles.amountValue)}>{value}</span>
+    </div>
+  );
+}
+
+function monthLabel(turns: number): string {
+  return `This month · ${turns === 1 ? "1 turn" : `${turns} turns`}`;
+}
+
+/**
+ * Today's and this month's tokens of turns run in Stave, which the bar shows,
+ * then the reported cost, which only this popover shows, and what kind of
+ * numbers they are.
+ */
+export function TurnUsageDetail({
+  tokens,
   cost,
+  provider,
   providerName,
   multipleAccounts,
 }: {
-  cost: UsageStripCost;
+  tokens: UsageStripTokens | null;
+  cost: UsageStripCost | null;
+  provider: StatusBarUsageProvider;
   providerName: string;
   multipleAccounts: boolean;
 }) {
-  const hint = describeTurnSpend({ cost, providerName, multipleAccounts });
+  const spend = cost ? describeTurnSpend({ cost, providerName }) : null;
   return (
-    <div className={sx(statusBarUsageStyles.spendSection)}>
-      <p className={sx(statusBarUsageStyles.bucketTitle)}>{hint.title}</p>
-      <div className={sx(statusBarUsageStyles.stackTight)}>
-        <div className={sx(statusBarUsageStyles.amountRow)}>
-          <span className={sx(statusBarUsageStyles.amountLabel)}>Today</span>
-          <span className={sx(statusBarUsageStyles.amountValue)}>
-            {formatCostUsd(cost.todayUsd)}
-          </span>
+    <div className={sx(statusBarUsageStyles.spendSection, statusBarUsageStyles.stack)}>
+      {tokens ? (
+        <div className={sx(statusBarUsageStyles.stackSnug)}>
+          <p className={sx(statusBarUsageStyles.bucketTitle)}>Tokens in turns run in Stave</p>
+          <div className={sx(statusBarUsageStyles.stackTight)}>
+            <TurnTotalRow label="Today" value={`${formatTokenCount(tokens.todayTokens)} tokens`} />
+            <TurnTotalRow
+              label={monthLabel(tokens.monthTurns)}
+              value={`${formatTokenCount(tokens.monthTokens)} tokens`}
+            />
+          </div>
+          <p className={sx(statusBarUsageStyles.note)}>
+            {describeTurnTokenCounting({ provider, providerName })}
+          </p>
         </div>
-        <div className={sx(statusBarUsageStyles.amountRow)}>
-          <span className={sx(statusBarUsageStyles.amountLabel)}>
-            This month · {cost.monthTurns === 1 ? "1 turn" : `${cost.monthTurns} turns`}
-          </span>
-          <span className={sx(statusBarUsageStyles.amountValue)}>
-            {formatCostUsd(cost.monthUsd)}
-          </span>
+      ) : null}
+      {cost && spend ? (
+        <div className={sx(statusBarUsageStyles.stackSnug)}>
+          <p className={sx(statusBarUsageStyles.bucketTitle)}>{spend.title}</p>
+          <div className={sx(statusBarUsageStyles.stackTight)}>
+            <TurnTotalRow label="Today" value={formatCostUsd(cost.todayUsd)} />
+            <TurnTotalRow label={monthLabel(cost.monthTurns)} value={formatCostUsd(cost.monthUsd)} />
+          </div>
+          {/* The rows above already give the totals, the hint's first line. */}
+          {spend.lines.slice(1).map((line) => (
+            <p key={line} className={sx(statusBarUsageStyles.note)}>
+              {line}
+            </p>
+          ))}
         </div>
-      </div>
-      {/* The rows above already give the totals, the hint's first line. */}
-      {hint.lines.slice(1).map((line) => (
-        <p key={line} className={sx(statusBarUsageStyles.note)}>
-          {line}
+      ) : null}
+      {multipleAccounts ? (
+        <p className={sx(statusBarUsageStyles.noteFaint)}>
+          Includes turns from every {providerName} account.
         </p>
-      ))}
+      ) : null}
     </div>
   );
 }

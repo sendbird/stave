@@ -273,12 +273,16 @@ export function TopBar() {
                   <span {...stylex.props(layoutShellStyles.inlineFlex)} />
                 }
               >
-                <Button
-                  variant="ghost"
+                {/* The same host-layout `sm` control and bordered fill as the
+                    branch switcher and PR trigger beside it, so the row reads
+                    as one set of controls. */}
+                <AdsButton
+                  layout="host"
                   size="sm"
+                  type="button"
                   xstyle={[
                     topBarControlStyles.control,
-                    topBarControlStyles.quiet,
+                    topBarControlStyles.surface,
                     topBarStyles.gitGraphButton,
                   ]}
                   style={TOP_BAR_NO_DRAG_STYLE}
@@ -290,7 +294,7 @@ export function TopBar() {
                   <span className={sx(topBarStyles.collapsibleLabel)}>
                     {COMMIT_GRAPH_TITLE}
                   </span>
-                </Button>
+                </AdsButton>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 {canOpenGitGraph
