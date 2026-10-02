@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export const CLAUDE_GATEWAY_PRESET_URL = "https://ai-gateway.vercel.sh/claude-code";
+/** The model the Vercel AI Gateway preset starts with, in the gateway's routing form. */
+export const CLAUDE_GATEWAY_PRESET_MODEL = "anthropic/claude-sonnet-5";
 
 export const ClaudeGatewayModelSchema = z.string().trim().max(200)
   .regex(/^(?:claude-code\/)?(?:anthropic\/)?claude-[a-z0-9][a-z0-9.\[\]-]*$/);

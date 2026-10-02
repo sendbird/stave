@@ -55,6 +55,14 @@ export const workspaceWelcomeStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
   },
+  /** A link inside a hint reads at the hint's size and keeps its line height. */
+  inlineLink: {
+    blockSize: "auto",
+    fontSize: "inherit",
+    minBlockSize: 0,
+    paddingBlock: 0,
+    verticalAlign: "baseline",
+  },
   steps: {
     borderTopColor: vars["--ads-color-border"],
     borderTopStyle: "solid",

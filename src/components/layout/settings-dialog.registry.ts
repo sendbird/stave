@@ -25,6 +25,11 @@ import {
   validateProfile,
   type AutoRoutingProfile,
 } from "@/lib/providers/auto-routing-profile";
+import {
+  CLAUDE_GATEWAY_FIELD_ID,
+  PROVIDER_ACCOUNTS_FIELD_ID,
+} from "@/lib/providers/accounts-guide";
+import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
 import type { SectionId } from "./settings-dialog.schema";
 
 export interface SettingDefinition<
@@ -342,6 +347,95 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "exclude",
   } satisfies SettingDefinition<"martinSync">,
+  // Account selections are machine-local profile ids, so they never travel in
+  // an export. The gateway is a Claude account too: picking it selects it.
+  {
+    key: "claudeAccountProfileId",
+    sectionId: "tooling",
+    fieldId: PROVIDER_ACCOUNTS_FIELD_ID["claude-code"],
+    title: "Claude accounts",
+    description:
+      "Keep more than one Claude sign-in, such as work and personal: add one, sign in, and choose the account new turns use.",
+    keywords: [
+      "account",
+      "accounts",
+      "sign in",
+      "sign-in",
+      "login",
+      "log in",
+      "switch account",
+      "second account",
+      "subscription",
+      "profile",
+      "config folder",
+      "claude_config_dir",
+      "claude",
+    ],
+    schema: z.string().optional(),
+    defaultValue: SYSTEM_ACCOUNT_PROFILE_ID,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "exclude",
+  } satisfies SettingDefinition<"claudeAccountProfileId">,
+  {
+    key: "codexAccountProfileId",
+    sectionId: "tooling",
+    fieldId: PROVIDER_ACCOUNTS_FIELD_ID.codex,
+    title: "Codex accounts",
+    description:
+      "Keep more than one Codex sign-in, such as work and personal: add one, sign in, and choose the account new turns use.",
+    keywords: [
+      "account",
+      "accounts",
+      "sign in",
+      "sign-in",
+      "login",
+      "log in",
+      "switch account",
+      "second account",
+      "subscription",
+      "chatgpt",
+      "profile",
+      "config folder",
+      "codex_home",
+      "codex",
+    ],
+    schema: z.string().optional(),
+    defaultValue: SYSTEM_ACCOUNT_PROFILE_ID,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "exclude",
+  } satisfies SettingDefinition<"codexAccountProfileId">,
+  {
+    key: "claudeAccountProfileId",
+    sectionId: "tooling",
+    fieldId: CLAUDE_GATEWAY_FIELD_ID,
+    title: "Claude API gateway",
+    description:
+      "Send Claude turns through an API gateway such as Vercel AI Gateway, billed per token instead of your Claude subscription.",
+    keywords: [
+      "gateway",
+      "api gateway",
+      "ai gateway",
+      "vercel",
+      "api key",
+      "base url",
+      "api billing",
+      "per token",
+      "endpoint",
+      "proxy",
+      "anthropic_base_url",
+      "llm gateway",
+    ],
+    schema: z.string().optional(),
+    defaultValue: SYSTEM_ACCOUNT_PROFILE_ID,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "exclude",
+  } satisfies SettingDefinition<"claudeAccountProfileId">,
   {
     key: "standaloneCliFolderPath",
     sectionId: "general",

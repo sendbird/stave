@@ -20,6 +20,7 @@ import {
   listProviderSessions,
 } from "@/lib/providers/provider-sessions";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import { describeProviderSessionAccount } from "@/lib/providers/provider-account-selection";
 import { useAppStore } from "@/store/app.store";
 
 interface TaskSessionIdsDialogProps {
@@ -33,6 +34,7 @@ export function TaskSessionIdsDialog({
 }: TaskSessionIdsDialogProps) {
   useLoadProviderAccounts();
   const profiles = useProviderAccounts((state) => state.profiles);
+  const profilesLoaded = useProviderAccounts((state) => state.loaded);
   const [copiedSessionIdKey, setCopiedSessionIdKey] = useState<string | null>(
     null,
   );
@@ -116,14 +118,19 @@ export function TaskSessionIdsDialog({
           ) : (
             sessionRows.map((row) => {
               const key = `${row.providerId}:${row.accountProfileId}`;
-              const account = profiles.find(p => p.providerId === row.providerId && p.id === row.accountProfileId)?.label ?? row.accountProfileId;
+              const account = describeProviderSessionAccount({
+                providerId: row.providerId,
+                accountProfileId: row.accountProfileId,
+                profiles,
+                profilesLoaded,
+              });
               const label = getProviderSessionLabel({
                 providerId: row.providerId,
               });
               return (
                 <SessionIdentifierRow
                   key={key}
-                  label={`${label} · ${account}`}
+                  label={account ? `${label} · ${account}` : label}
                   providerLabel={getProviderLabel({
                     providerId: row.providerId,
                   })}

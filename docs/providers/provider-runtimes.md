@@ -86,14 +86,19 @@ Custom Claude usage reads search only the selected configuration directory and
 its scoped keychain service, without falling back to default credentials.
 
 Settings > Tooling provides account registration, label editing, removal, and
-native sign-in terminals for Claude and Codex. Leave the directory blank for a
-managed profile, or register an existing absolute configuration directory.
-Removing a profile keeps its local files. The Tooling account selector and the
-status bar usage meter set the global default for **new turns** for that
-provider across tasks; running turns, queued messages, and open CLI sessions
-retain their captured account. The meter lists accounts only when a provider has
-more than one, and names the account beside the provider only when it is not
-System default or is an API-billing gateway. An unavailable registration fails explicitly rather than silently
+native sign-in terminals for Claude and Codex. **Add and sign in** creates a
+managed profile and immediately opens its sign-in terminal; registering an
+existing absolute configuration directory is under **Advanced: reuse a folder
+you already use** and skips the sign-in step. Removing a profile keeps its local
+files. The Tooling account selector and the status bar usage meter set the
+global default for **new turns** for that provider across tasks; running turns,
+queued messages, and open CLI sessions retain their captured account. The
+meter, the Tooling selector, and the Standalone CLI tab selector draw a choice
+only when a provider has more than one account (the selectors also stay when the
+selected account was removed, as the way back), and the meter names the account
+beside the provider only when it is not System default or is an API-billing
+gateway. The user guide is
+[Accounts and API gateways](../features/accounts-and-gateways.md). An unavailable registration fails explicitly rather than silently
 switching to System default.
 
 Message provenance carries the originating profile for native fork, rollback,
@@ -1343,7 +1348,11 @@ secret overrides. Use a connection's saved-secret reference for Gateway auth.
 
 **Check model list** performs a bounded authenticated `GET /v1/models` request
 without following redirects or issuing inference. It reports only configured
-IDs advertised by the endpoint and does not return raw response bodies. Some
+IDs advertised by the endpoint and does not return raw response bodies. IDs are
+compared after removing a leading `claude-code/` picker prefix and a trailing
+`[1m]` context marker, which Claude Code compatibility endpoints such as the
+Vercel preset list but strip before routing; the creator prefix (`anthropic/`)
+is compared as written. Some
 compatible endpoints do not implement model discovery. A successful check does
 not establish tool, streaming, reasoning, cancellation, or billing compatibility.
 Those capabilities require an authorized real turn against the chosen endpoint.

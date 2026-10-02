@@ -102,6 +102,13 @@ export const standaloneCliStyles = stylex.create({
     paddingBlock: 6,
     paddingInline: vars["--ads-space-12"],
   },
+  terminalHeaderRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars["--ads-space-8"],
+    justifyContent: "flex-end",
+    minWidth: 0,
+  },
   accountSelect: { maxWidth: "100%", width: 200 },
   restartButton: {
     backgroundColor: vars["--ads-color-surface"],
