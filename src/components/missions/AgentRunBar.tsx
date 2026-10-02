@@ -18,8 +18,9 @@ export const TAKE_CONTROL_HINT = "Ends the run and keeps this task in Chat, on t
 /**
  * The status line over the composer while an agent run is active:
  * `Working · 4m`, or `Needs you` with what the run waits on, with Stop and
- * Take control. A run of an agent with a workflow adds its stage track; a
- * one-stage run shows none.
+ * Take control. A run of an agent with a workflow adds its stage track, which
+ * names the stage and where it stands; a one-stage run shows none, because its
+ * only progress signal (the turn's todo list) is the turn shelf right below.
  */
 export function AgentRunBarView(props: {
   detail: MissionDetail;
@@ -72,9 +73,8 @@ export function AgentRunBarView(props: {
             >
               {status.label}
             </span>
-            {/* The elapsed time comes first: a narrow bar truncates the end. */}
+            {/* The elapsed time comes first: a narrow bar truncates the end. The stage is named on the track. */}
             <span className={sx(styles.headlineDetail)}>{` · ${elapsed}`}</span>
-            {current ? <span className={sx(styles.headlineDetail)}>{` · ${current.stage.title}`}</span> : null}
             {detailText ? (
               <span className={sx(styles.headlineDetail)}>
                 {" · "}
@@ -82,16 +82,6 @@ export function AgentRunBarView(props: {
               </span>
             ) : null}
           </p>
-          {current && rows ? (
-            <span className={sx(styles.meta)}>
-              <span aria-hidden>
-                {current.index + 1}/{rows.length}
-              </span>
-              <span className={sx(missionStyles.visuallyHidden)}>
-                Stage {current.index + 1} of {rows.length}
-              </span>
-            </span>
-          ) : null}
           <span className={sx(styles.actions)}>
             {actions.onStop ? (
               <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onStop} xstyle={styles.quietButton}>

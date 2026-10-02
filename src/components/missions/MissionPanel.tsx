@@ -110,7 +110,6 @@ function PlaybookDetailView(props: MissionDetailViewProps) {
   const criteria = latestCriteria(detail);
   const signedOffAt = latestSignOffTime(detail);
   const userPause = mission.pauseReason === "paused-by-user" || mission.pauseReason === "taken-over";
-  const current = rows[mission.currentStageIndex]!;
   // The badge already names the state; the line beside it says where and why.
   const statusText = active
     ? [
@@ -190,16 +189,14 @@ function PlaybookDetailView(props: MissionDetailViewProps) {
           <span className={sx(styles.statusText)} title={statusText}>
             {statusText}
           </span>
-          <span className={sx(styles.statusMeta)}>
-            {active ? `Stage ${current.index + 1} of ${rows.length}` : `${rows.length} stages`}
-          </span>
         </div>
+        {/* The track names the stage and the count; the Stages list below names them all. */}
         <StageTrack
           rows={rows}
-          labels="never"
           size="md"
           live={active && !props.reducedMotion && mission.state === "running"}
           paused={mission.state === "paused"}
+          tone={mission.state === "stopped" ? "attention" : undefined}
         />
         {mission.pauseReason === "runtime-changed" ? (
           <div className={sx(styles.callout, styles.calloutNeutral)}>

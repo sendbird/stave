@@ -26,7 +26,7 @@ function pickActiveMission(details: Record<string, MissionDetail>, workspaceId: 
 }
 
 /**
- * A Fleet card's mission line: the stage rail and where it stands, so a board
+ * A Fleet card's mission line: the stage track and where it stands, so a board
  * of workspaces shows which missions wait for you without opening any.
  */
 export function FleetMissionStrip(props: { workspaceId: string; onOpen: (taskId: string) => void }) {
@@ -36,7 +36,6 @@ export function FleetMissionStrip(props: { workspaceId: string; onOpen: (taskId:
   if (isAgentRun(detail.mission)) return <FleetAgentRunStrip detail={detail} rows={rows} onOpen={props.onOpen} />;
   const line = describeMissionStatusLine(detail);
   const paused = detail.mission.state === "paused";
-  const current = rows[detail.mission.currentStageIndex]!;
   const spent = describeUsageShort(detail.usage);
   return (
     <Button
@@ -58,17 +57,14 @@ export function FleetMissionStrip(props: { workspaceId: string; onOpen: (taskId:
             </span>
           ) : null}
         </span>
-        <span className={sx(styles.position)}>
-          {current.index + 1}/{rows.length}
-          {spent ? ` · ${spent}` : ""}
-        </span>
+        {spent ? <span className={sx(styles.position)}>{spent}</span> : null}
       </span>
-      <StageTrack rows={rows} labels="never" live={false} paused={paused} />
+      <StageTrack rows={rows} live={false} paused={paused} />
     </Button>
   );
 }
 
-/** A Fleet card's line for an agent run: the agent and its state, and its stage rail when it has stages. */
+/** A Fleet card's line for an agent run: the agent and its state, and its stage track when it has stages. */
 function FleetAgentRunStrip(props: { detail: MissionDetail; rows: readonly MissionStageRow[]; onOpen: (taskId: string) => void }) {
   const { detail, rows } = props;
   const status = describeAgentRunStatus(detail);
@@ -95,14 +91,11 @@ function FleetAgentRunStrip(props: { detail: MissionDetail; rows: readonly Missi
           </span>
         </span>
         <span className={sx(styles.position)}>
-          {staged ? `${detail.mission.currentStageIndex + 1}/${rows.length} · ` : ""}
           {elapsed}
           {spent ? ` · ${spent}` : ""}
         </span>
       </span>
-      {staged ? (
-        <StageTrack rows={rows} labels="never" live={false} paused={detail.mission.state === "paused"} />
-      ) : null}
+      {staged ? <StageTrack rows={rows} live={false} paused={detail.mission.state === "paused"} /> : null}
     </Button>
   );
 }
