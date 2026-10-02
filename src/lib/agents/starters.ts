@@ -84,7 +84,9 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
       "Report the outcome, the evidence for it, and the remaining risks.",
     ],
     taskClass: "plan",
-    permission: "guided",
+    // A main agent's turns run without routine prompts unless it is read only
+    // (`turn-policy.ts`), so Guided or Manual would change nothing for Lead.
+    permission: "auto",
     workspace: "same-workspace",
     report: ["summary", "decisions", "verification", "risks"],
     usableAs: ["primary"],

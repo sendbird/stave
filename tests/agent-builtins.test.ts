@@ -24,9 +24,17 @@ describe("built-in agents", () => {
 
   test("reviewers and researchers cannot edit; the others can", () => {
     for (const id of ["reviewer", "researcher"]) expect(getBuiltinAgent(id)!.permission).toBe("read-only");
-    for (const id of ["implementer", "debugger", "ui-polisher", "shipper"]) {
+    for (const id of ["implementer", "lead", "debugger", "ui-polisher", "shipper"]) {
       expect(getBuiltinAgent(id)!.permission).not.toBe("read-only");
     }
+  });
+
+  test("a built-in agent is Read only or Auto: a main agent's turn applies no other level", () => {
+    // Every turn of a main agent runs without routine prompts unless it is
+    // read only (`turn-policy.ts`), so a Guided or Manual label would describe
+    // nothing it does. Lead was shown as Guided for that reason.
+    for (const agent of BUILTIN_AGENTS) expect(["read-only", "auto"]).toContain(agent.permission);
+    expect(getBuiltinAgent("lead")!.permission).toBe("auto");
   });
 
   test("Lead may call every other general agent, and every call target exists", () => {
