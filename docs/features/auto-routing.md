@@ -73,10 +73,13 @@ Classification adds latency; the deadline is not a model speed guarantee.
 Successful classifications determine the route even when they take several
 seconds.
 
-While classification runs, the prompt appears in the conversation right away
-and the composer shows Stop. After 500ms a status line under the prompt shows
-the wait and a **Start now** action, which stops waiting and routes with local
-rules. Stop (or Esc) cancels the send and returns the prompt to the composer.
+While classification runs, the prompt appears in the conversation right away,
+including a new task's first prompt, and the composer shows Stop. After 500ms
+a route line under the prompt shows `Auto → Choosing a model · 4s` and a
+**Skip** action, which stops waiting and routes with local rules. The line uses
+the same slots as the recorded route line, so the routed model fills in where
+the wait was. Stop (or Esc) cancels the send and returns the prompt to the
+composer.
 
 Only bounded context is sent: up to 4,000 prompt characters and the last six
 messages with up to 500 characters each. Successful results are cached for

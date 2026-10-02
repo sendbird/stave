@@ -45,4 +45,20 @@ describe("chat area view mode", () => {
       }),
     ).toBe("hydrating_project");
   });
+
+  test("a new task's first prompt replaces the start screen before it is a message", () => {
+    const base = {
+      repositoryPath: "/tmp/project",
+      hasHydratedWorkspaces: true,
+      hasAnyWorkspace: true,
+      hasSelectedWorkspace: true,
+      hasSelectedTask: true,
+      activeTaskMessageCount: 0,
+    };
+    expect(resolveChatAreaViewMode(base)).toBe("empty_task");
+    // Waiting on Auto's classifier, or failed to send: the transcript draws it.
+    expect(resolveChatAreaViewMode({ ...base, hasUnsentPrompt: true })).toBe(
+      "conversation",
+    );
+  });
 });

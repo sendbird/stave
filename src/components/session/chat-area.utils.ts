@@ -13,6 +13,12 @@ export function resolveChatAreaViewMode(args: {
   hasSelectedWorkspace: boolean;
   hasSelectedTask: boolean;
   activeTaskMessageCount: number;
+  /**
+   * A send drawn before it is a message: a prompt waiting on Auto's classifier
+   * or one that failed to send. Without it a new task's first prompt vanishes
+   * behind the start screen until the turn begins.
+   */
+  hasUnsentPrompt?: boolean;
 }): ChatAreaViewMode {
   if (!args.repositoryPath) {
     return "no_project";
@@ -26,7 +32,9 @@ export function resolveChatAreaViewMode(args: {
   if (!args.hasSelectedTask) {
     return "no_task";
   }
-  return args.activeTaskMessageCount === 0 ? "empty_task" : "conversation";
+  return args.activeTaskMessageCount === 0 && !args.hasUnsentPrompt
+    ? "empty_task"
+    : "conversation";
 }
 
 export function resolveHydratingRepositoryCopy(args: {

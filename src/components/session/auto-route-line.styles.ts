@@ -24,6 +24,17 @@ export const autoRouteLineStyles = stylex.create({
     minHeight: 24,
     minWidth: 0,
   },
+  // One 16px slot for both marks: the pending route loader (16px) and the
+  // recorded route icon (12px), so the words do not move when one replaces
+  // the other.
+  iconSlot: {
+    alignItems: "center",
+    display: "inline-flex",
+    flexShrink: 0,
+    height: 16,
+    justifyContent: "center",
+    width: 16,
+  },
   icon: {
     flexShrink: 0,
     height: 12,
@@ -62,19 +73,16 @@ export const autoRouteLineStyles = stylex.create({
   detail: {
     paddingInlineStart: vars["--ads-space-16"],
   },
-  // Pending: the shimmer phrase plus an elapsed clock and the skip action.
-  pendingPhrase: {
-    margin: 0,
-    whiteSpace: "nowrap",
+  // Pending: the words share one live region; the clock sits outside it.
+  pendingStatus: {
+    alignItems: "center",
+    display: "inline-flex",
+    gap: vars["--ads-space-4"],
+    minWidth: 0,
   },
   elapsed: {
     flexShrink: 0,
     fontVariantNumeric: "tabular-nums",
-  },
-  skip: {
-    flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    marginInlineStart: vars["--ads-space-4"],
   },
   // Mirrors the failed-send list: the pending turn sits after the virtual
   // list, so it carries its own spacing from the last row.
@@ -83,6 +91,9 @@ export const autoRouteLineStyles = stylex.create({
     flexDirection: "column",
     gap: vars["--ads-space-16"],
     paddingTop: vars["--ads-space-16"],
+    // The same room below as the list's last row, so the composer does not
+    // crowd the pending line.
+    paddingBottom: vars["--ads-space-24"],
     width: "100%",
   },
 });

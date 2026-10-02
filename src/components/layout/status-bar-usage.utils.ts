@@ -4,6 +4,10 @@ import type {
   CursorUsageSnapshot,
   KiroUsageSnapshot,
 } from "@/lib/providers/provider.types";
+import {
+  SYSTEM_ACCOUNT_PROFILE_ID,
+  type ProviderAccountProfile,
+} from "@/lib/providers/provider-accounts";
 
 export const FIVE_HOURS_MS = 5 * 3_600_000;
 export const SEVEN_DAYS_MS = 7 * 24 * 3_600_000;
@@ -166,4 +170,59 @@ export function resolveWindowTimeLeftRatio(args: {
   }
   const leftMs = resetsAt * 1000 - (args.now ?? Date.now());
   return Math.min(1, Math.max(0, leftMs / windowMs));
+}
+
+/** Providers whose CLI runs under a switchable Stave account profile. */
+export type StatusBarAccountProviderId = "claude-code" | "codex";
+
+export function statusBarAccountProviderId(
+  provider: StatusBarUsageProvider,
+): StatusBarAccountProviderId | null {
+  return provider === "claude" ? "claude-code" : provider === "codex" ? "codex" : null;
+}
+
+export interface StatusBarAccountView {
+  options: ProviderAccountProfile[];
+  selected: ProviderAccountProfile | null;
+  /**
+   * Named beside the provider on the meter only when it says something: an
+   * API-billing gateway, a non-default account, or one that no longer exists.
+   */
+  triggerLabel: string | null;
+  gateway: boolean;
+  /** The switch is drawn only when there is another account to pick. */
+  canSwitch: boolean;
+}
+
+/**
+ * The account the next turns use, as the status bar shows it. Usage limits
+ * belong to an account, so the meter is where the account is named and
+ * switched — not every composer.
+ */
+export function resolveStatusBarAccountView(args: {
+  providerId: StatusBarAccountProviderId;
+  profiles: readonly ProviderAccountProfile[];
+  selectedId: string;
+}): StatusBarAccountView {
+  const options = args.profiles.filter(
+    (profile) => profile.providerId === args.providerId,
+  );
+  const selected = options.find((profile) => profile.id === args.selectedId) ?? null;
+  const gateway = Boolean(selected?.gateway);
+  const triggerLabel = gateway
+    ? "API billing"
+    : !selected
+      ? args.selectedId === SYSTEM_ACCOUNT_PROFILE_ID
+        ? null
+        : "Account unavailable"
+      : selected.id === SYSTEM_ACCOUNT_PROFILE_ID
+        ? null
+        : selected.label;
+  return {
+    options,
+    selected,
+    triggerLabel,
+    gateway,
+    canSwitch: options.length > 1,
+  };
 }

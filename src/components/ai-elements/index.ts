@@ -83,6 +83,7 @@ export { ModelIcon } from "./model-icon";
 export { TurnModelChip } from "./turn-model-chip";
 export {
   Conversation,
+  ConversationColumn,
   ConversationContent,
   ConversationDownload,
   ConversationEmptyState,

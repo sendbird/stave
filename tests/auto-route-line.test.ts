@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   buildAutoRouteLineView,
+  buildPendingAutoRouteView,
+  formatPendingRouteElapsed,
   formatRouteElapsed,
 } from "../src/components/session/auto-route-line.utils";
 import type { AutoRoutingModelResolution } from "../src/lib/providers/provider.types";
@@ -99,6 +101,30 @@ test("formatRouteElapsed switches from milliseconds to seconds at one second", (
   expect(formatRouteElapsed(999.6)).toBe("1.0s");
   expect(formatRouteElapsed(12_345)).toBe("12.3s");
   expect(formatRouteElapsed(-5)).toBe("0ms");
+});
+
+describe("pending Auto route line", () => {
+  test("fills the recorded line's slots as the route resolves", () => {
+    expect(
+      buildPendingAutoRouteView({ phase: "classifying", skipped: false }),
+    ).toEqual({ target: null, phrase: "Choosing a model", canSkip: true });
+    expect(
+      buildPendingAutoRouteView({ phase: "classifying", skipped: true }),
+    ).toEqual({ target: null, phrase: "Using local rules", canSkip: false });
+    expect(
+      buildPendingAutoRouteView({
+        phase: "starting",
+        skipped: false,
+        routedLabel: "Opus 5 · High",
+      }),
+    ).toEqual({ target: "Opus 5 · High", phrase: "Starting", canSkip: false });
+  });
+
+  test("counts a running wait in whole seconds and hides the first second", () => {
+    expect(formatPendingRouteElapsed(600)).toBeNull();
+    expect(formatPendingRouteElapsed(1_000)).toBe("1s");
+    expect(formatPendingRouteElapsed(6_900)).toBe("6s");
+  });
 });
 
 describe("pending Auto route store", () => {

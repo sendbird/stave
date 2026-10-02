@@ -142,4 +142,41 @@ export const statusBarUsageStyles = stylex.create({
     animationTimingFunction: "linear",
   },
   popoverBody: { padding: vars["--ads-space-12"] },
+  // The meter's foot: the account switch and its settings link, set off from
+  // the usage numbers by the same hairline the header uses. It hosts rows, so
+  // it takes the popup row padding (4px) and the rows' own 8px inset lands
+  // their text on the header's 12px edge.
+  accountSection: {
+    borderTopColor: vars["--ads-color-border"],
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: vars["--ads-space-4"],
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-4"],
+  },
+  accountRow: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars["--ads-color-overlay-hover"],
+    },
+    // Room for the check docked at the inline end.
+    paddingInlineEnd: 32,
+    position: "relative",
+  },
+  accountMeta: {
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+  },
+  // A ghost Button laid out as the last menu row: full width, text on the
+  // rows' 8px inset rather than centred.
+  manageAccounts: {
+    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    justifyContent: "flex-start",
+    paddingInline: vars["--ads-space-8"],
+    width: "100%",
+  },
 });

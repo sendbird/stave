@@ -1,6 +1,5 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Route, TriangleAlert } from "lucide-react";
-import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button, Loader } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
@@ -13,7 +12,8 @@ import type { ChatMessage } from "@/types/chat";
 import { ModelResolutionSummary } from "./ModelResolutionSummary";
 import {
   buildAutoRouteLineView,
-  formatRouteElapsed,
+  buildPendingAutoRouteView,
+  formatPendingRouteElapsed,
   PENDING_AUTO_ROUTE_REVEAL_DELAY_MS,
 } from "./auto-route-line.utils";
 import { autoRouteLineStyles as styles } from "./auto-route-line.styles";
@@ -45,10 +45,11 @@ export const AutoRouteLine = memo(function AutoRouteLine(props: {
         data-route-source={resolution.source}
         data-route-fallback={view.fallback ?? undefined}
       >
-        <Icon
-          aria-hidden
-          className={sx(styles.icon, view.fallback !== null && styles.iconWarn)}
-        />
+        <span className={sx(styles.iconSlot)} aria-hidden>
+          <Icon
+            className={sx(styles.icon, view.fallback !== null && styles.iconWarn)}
+          />
+        </span>
         <span className={sx(styles.lead)}>Auto →</span>
         <span className={sx(styles.model)}>{view.modelLabel}</span>
         {view.taskLabel ? (
@@ -138,16 +139,17 @@ function usePendingElapsedMs(startedAt: number) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 100);
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(timer);
   }, [startedAt]);
   return Math.max(0, now - startedAt);
 }
 
 /**
- * The route line while Auto is still deciding. Draws nothing for the first
- * half second, so a quick classifier answer goes straight to the turn; after
- * that it shows the wait and offers to start on local rules instead.
+ * The route line while Auto is still deciding, drawn in the slots the recorded
+ * line fills: `Auto → Choosing a model · 6s · Skip` becomes
+ * `Auto → Opus 5 · High · Implement · 6.2s`. Draws nothing for the first half
+ * second, so a quick classifier answer goes straight to the turn.
  */
 export function PendingAutoRouteStatus(props: { pending: PendingAutoRoute }) {
   const { pending } = props;
@@ -155,37 +157,46 @@ export function PendingAutoRouteStatus(props: { pending: PendingAutoRoute }) {
   if (elapsedMs < PENDING_AUTO_ROUTE_REVEAL_DELAY_MS) {
     return null;
   }
-  const phrase =
-    pending.phase === "starting"
-      ? pending.routedLabel
-        ? `Starting ${pending.routedLabel}…`
-        : "Starting…"
-      : pending.skipped
-        ? "Starting on local rules…"
-        : "Choosing a model…";
-  const canSkip = pending.phase === "classifying" && !pending.skipped;
+  const view = buildPendingAutoRouteView(pending);
+  const elapsed = formatPendingRouteElapsed(elapsedMs);
   return (
     <div
       className={sx(styles.line)}
-      role="status"
-      aria-live="polite"
       data-testid="pending-auto-route"
       data-route-phase={pending.phase}
     >
-      <Loader aria-hidden size="xs" variant="route" />
-      <span className={sx(styles.lead)}>Auto ·</span>
-      <Shimmer as="span" className={sx(styles.pendingPhrase)}>
-        {phrase}
-      </Shimmer>
-      <span className={sx(styles.meta, styles.elapsed)}>
-        {formatRouteElapsed(elapsedMs)}
+      <span className={sx(styles.iconSlot)} aria-hidden>
+        <Loader size="xs" variant="route" />
       </span>
-      {canSkip ? (
+      {/* The live region holds the words only, so the clock is not read out every second. */}
+      <span className={sx(styles.pendingStatus)} role="status" aria-live="polite">
+        <span className={sx(styles.lead)}>Auto →</span>
+        {view.target ? (
+          <>
+            <span className={sx(styles.model)}>{view.target}</span>
+            <span className={sx(styles.separator)} aria-hidden>
+              ·
+            </span>
+          </>
+        ) : null}
+        <span className={sx(styles.meta)}>{view.phrase}</span>
+      </span>
+      {elapsed ? (
+        <>
+          <span className={sx(styles.separator)} aria-hidden>
+            ·
+          </span>
+          <span className={sx(styles.meta, styles.elapsed)} aria-hidden>
+            {elapsed}
+          </span>
+        </>
+      ) : null}
+      {view.canSkip ? (
         <Button
           type="button"
           variant="ghost"
           size="xs"
-          className={sx(styles.skip)}
+          className={sx(styles.toggle)}
           title="Stop waiting for the classifier and pick a model with local rules"
           data-testid="pending-auto-route-skip"
           onClick={() => {
@@ -198,7 +209,7 @@ export function PendingAutoRouteStatus(props: { pending: PendingAutoRoute }) {
             }
           }}
         >
-          Start now
+          Skip
         </Button>
       ) : null}
     </div>

@@ -1083,6 +1083,21 @@ export function ConversationVirtualList<T>(
   );
 }
 
+/**
+ * The transcript's column for rows drawn after `ConversationVirtualList`.
+ * The list pads its own items; anything after it needs this to line up.
+ * Pass `flush` when the content already sits inside the inner layout.
+ */
+export function ConversationColumn(props: {
+  children: ReactNode;
+  flush?: boolean;
+}) {
+  if (props.flush) {
+    return <>{props.children}</>;
+  }
+  return <div className={sx(styles.column)}>{props.children}</div>;
+}
+
 export function ConversationEmptyState(args: {
   title: string;
   description: string;
