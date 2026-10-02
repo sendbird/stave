@@ -1,3 +1,25 @@
+## [0.23.0](https://github.com/sendbird/stave/compare/v0.22.2...v0.23.0) (2026-10-02)
+
+### Features
+
+* While a turn or an agent run is active, one collapsed line stays above the prompt under every placement setting: the current step, to-do progress, elapsed time, Stop, a Task panel button and a details toggle. Queued messages sit on a line under it and expand into a list with Steer, Edit, Delete and drag reorder. The placement setting now only picks where details open, and details start collapsed on new installs.
+* Agent and mission progress draws as a dithered track with stage ticks and a head chip naming the current stage; colour follows the run's state (working, waiting, blocked, done).
+* An API connection, such as a company Vercel AI Gateway key, is entered once and shared by Claude Code and Codex. It appears as an account under each runtime and in the status bar switch; models come from the gateway's catalog with context and price, and non-Claude models in Claude Code are marked experimental. Existing Claude gateway accounts become connections automatically.
+* Adding an account is one name and "Add and sign in". Each account shows who it is signed in as, and new accounts use your skills and instructions from System default (sign-in, history and Codex `config.toml` are never shared). The accounts and connection cards explain what switching changes, with a new guide.
+* The status bar spells out each usage window as a ring with time left, `5h · resets 1h 7m`, and today's and this month's API value of turns run in Stave. Switching accounts re-reads only that provider.
+* Results in the Task panel render the final answer and subagent answers with the conversation's renderer, show changed files as diff rows, and open the whole turn read-only with "Show the turn".
+* The Task panel's tabs sit in its header (82px of chrome down to 46px), the top bar groups its buttons at one size, the status bar is 24px with a fixed shrink order, and sidebar rows fill only the active row.
+
+### Bug Fixes
+
+* A prompt sent to an agent shows at once, including a new task's first prompt, and lands where the real row will be; a stuck run shows its reason and actions once.
+* Agent avatars meet 4.5:1 contrast in every built-in theme. Schedules wait for every list before saying there are none, Results keep their figures while reloading, agent details hide empty sections, and retired Advisor and Worker routing rules are read-only.
+* The public docs site builds again.
+
+### References
+
+* [#642](https://github.com/sendbird/stave/pull/642), [#643](https://github.com/sendbird/stave/pull/643), [#644](https://github.com/sendbird/stave/pull/644), [#645](https://github.com/sendbird/stave/pull/645), [#646](https://github.com/sendbird/stave/pull/646), [#647](https://github.com/sendbird/stave/pull/647), [#648](https://github.com/sendbird/stave/pull/648), [#649](https://github.com/sendbird/stave/pull/649), [#650](https://github.com/sendbird/stave/pull/650), [#651](https://github.com/sendbird/stave/pull/651), [#652](https://github.com/sendbird/stave/pull/652)
+
 ## [0.22.2](https://github.com/sendbird/stave/compare/v0.22.1...v0.22.2) (2026-10-02)
 
 ### Bug Fixes
