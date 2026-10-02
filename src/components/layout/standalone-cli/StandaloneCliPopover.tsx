@@ -5,12 +5,18 @@ import { X } from "lucide-react";
 import { Button, PopoverContent } from "@/components/ui";
 import { StandaloneCliTabBar } from "@/components/layout/standalone-cli/StandaloneCliTabBar";
 import { StandaloneCliTerminal } from "@/components/layout/standalone-cli/StandaloneCliTerminal";
+import { useStandaloneCliInstalledTabIds } from "@/components/layout/standalone-cli/useStandaloneCliInstalledTabIds";
+import type { StandaloneCliTabId } from "@/lib/terminal/standalone-cli";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 
 export function buildStandaloneCliEmptyStateText() {
   return "Set a Standalone CLI folder in Settings to run Claude Code, Codex, Cursor, and Kiro here. Nothing is added to your repositories.";
+}
+
+export function buildStandaloneCliNoInstalledCliText() {
+  return "No supported CLI was found on this machine. Install Claude Code, Codex, Cursor, or Kiro, or set its binary path in Settings.";
 }
 
 /**
@@ -20,18 +26,30 @@ export function buildStandaloneCliEmptyStateText() {
  * terminal against, so it shrinks to its message rather than parking a 40rem
  * void under the top bar.
  */
-export function buildStandaloneCliPopoverStyle(args: { folderPath: string }) {
-  return args.folderPath ? styles.popoverTerminal : styles.popoverEmpty;
+export function buildStandaloneCliPopoverStyle(args: {
+  folderPath: string;
+  hasInstalledCli: boolean;
+}) {
+  return args.folderPath && args.hasInstalledCli
+    ? styles.popoverTerminal
+    : styles.popoverEmpty;
 }
 
 /** Prop-driven so the panel can be asserted without a popover or a store. */
 export function StandaloneCliPanel(props: {
   folderPath: string;
+  installedTabIds: readonly StandaloneCliTabId[];
   visible: boolean;
   onClose: () => void;
   onOpenSettings: () => void;
 }) {
-  const { folderPath, visible, onClose, onOpenSettings } = props;
+  const { folderPath, installedTabIds, visible, onClose, onOpenSettings } =
+    props;
+  const emptyStateText = !folderPath
+    ? buildStandaloneCliEmptyStateText()
+    : installedTabIds.length === 0
+      ? buildStandaloneCliNoInstalledCliText()
+      : null;
   const folderLabel = folderPath
     ? resolvePathBaseName({ path: folderPath, fallback: folderPath })
     : "No folder set";
@@ -44,7 +62,7 @@ export function StandaloneCliPanel(props: {
     >
       <header className={sx(styles.panelHeader)}>
         <div className={sx(styles.panelHeaderLead)}>
-          <StandaloneCliTabBar />
+          <StandaloneCliTabBar tabIds={installedTabIds} />
           <span
             className={sx(styles.folderLabel)}
             title={folderPath || undefined}
@@ -63,16 +81,18 @@ export function StandaloneCliPanel(props: {
           <X />
         </Button>
       </header>
-      {folderPath ? (
+      {emptyStateText === null ? (
         // The panel stays mounted through a close, so the terminal is told to
         // hide rather than being torn down. That keeps the CLI session attached
         // and the xterm buffer intact, so reopening is a repaint.
-        <StandaloneCliTerminal folderPath={folderPath} visible={visible} />
+        <StandaloneCliTerminal
+          folderPath={folderPath}
+          installedTabIds={installedTabIds}
+          visible={visible}
+        />
       ) : (
         <div className={sx(styles.emptyState)}>
-          <p className={sx(styles.emptyStateText)}>
-            {buildStandaloneCliEmptyStateText()}
-          </p>
+          <p className={sx(styles.emptyStateText)}>{emptyStateText}</p>
           <Button
             type="button"
             variant="outline"
@@ -94,6 +114,7 @@ export function StandaloneCliPopoverContent() {
   const folderPath = useAppStore(
     (state) => state.settings.standaloneCliFolderPath,
   );
+  const installedTabIds = useStandaloneCliInstalledTabIds();
   const [booted, setBooted] = useState(false);
 
   // Reconcile the Settings folder with the folder the live sessions were
@@ -118,11 +139,15 @@ export function StandaloneCliPopoverContent() {
       align="end"
       sideOffset={6}
       collisionPadding={12}
-      xstyle={buildStandaloneCliPopoverStyle({ folderPath })}
+      xstyle={buildStandaloneCliPopoverStyle({
+        folderPath,
+        hasInstalledCli: installedTabIds.length > 0,
+      })}
     >
       {booted ? (
         <StandaloneCliPanel
           folderPath={folderPath}
+          installedTabIds={installedTabIds}
           visible={open}
           onClose={closeOverlay}
           onOpenSettings={() => {

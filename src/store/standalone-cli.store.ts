@@ -29,6 +29,12 @@ export interface StandaloneCliState {
   nativeSessionIdByTab: Partial<Record<StandaloneCliTabId, string>>;
   accountProfileIdByTab: Partial<Record<StandaloneCliTabId, string>>;
   pinTabAccount: (tabId: StandaloneCliTabId, accountProfileId: string) => void;
+  /**
+   * Moves a tab to another account. The tab's conversation belongs to the old
+   * account, so its resume id is dropped with it; the caller restarts the
+   * session. Returns false when the tab is already on that account.
+   */
+  setTabAccount: (tabId: StandaloneCliTabId, accountProfileId: string) => boolean;
   openOverlay: () => void;
   closeOverlay: () => void;
   toggleOverlay: () => void;
@@ -123,7 +129,30 @@ export const useStandaloneCliStore = create<StandaloneCliState>()(
 
       setActiveTab: ({ tabId }) => set({ activeTabId: tabId }),
 
-      pinTabAccount: (tabId, accountProfileId) => set(state => ({ accountProfileIdByTab: { ...state.accountProfileIdByTab, [tabId]: state.accountProfileIdByTab[tabId] ?? accountProfileId } })),
+      // Runs on every session launch, so an already-pinned tab must leave the
+      // map's identity alone. A fresh object here rebuilds the active tab while
+      // its launch is still in flight, and the cancelled launch then closes the
+      // session the next launch has just adopted from the same slot.
+      pinTabAccount: (tabId, accountProfileId) => {
+        const current = get().accountProfileIdByTab;
+        if (current[tabId]) {
+          return;
+        }
+        set({ accountProfileIdByTab: { ...current, [tabId]: accountProfileId } });
+      },
+      setTabAccount: (tabId, accountProfileId) => {
+        const { accountProfileIdByTab, nativeSessionIdByTab } = get();
+        if (accountProfileIdByTab[tabId] === accountProfileId) {
+          return false;
+        }
+        const nextNativeSessionIdByTab = { ...nativeSessionIdByTab };
+        delete nextNativeSessionIdByTab[tabId];
+        set({
+          accountProfileIdByTab: { ...accountProfileIdByTab, [tabId]: accountProfileId },
+          nativeSessionIdByTab: nextNativeSessionIdByTab,
+        });
+        return true;
+      },
       setTabNativeSession: ({ tabId, nativeSessionId }) => {
         if (!isStandaloneCliTabId(tabId)) {
           return;

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   attachCliSessionAtRendererSize,
+  shouldCloseCancelledCliLaunch,
   type CliSessionAttachResult,
 } from "@/components/layout/cli-session-restore";
 
@@ -118,5 +119,30 @@ describe("attachCliSessionAtRendererSize", () => {
 
     expect(host.calls).toEqual(["attach:120"]);
     expect(result.adoptedRendererSize).toBe(false);
+  });
+});
+
+describe("shouldCloseCancelledCliLaunch", () => {
+  // A replaced bootstrap run used to close whatever createCliSession returned.
+  // The host returns the slot's existing session, so that close killed the
+  // session the replacing run had adopted; that run then spawned another PTY,
+  // got replaced in turn, and opening the Standalone CLI ran the machine out of
+  // TTYs.
+  test("leaves the session in its slot while the tab still exists", () => {
+    expect(
+      shouldCloseCancelledCliLaunch({
+        tabKey: "standalone-cli:claude-code",
+        liveTabKeys: new Set(["standalone-cli:claude-code", "standalone-cli:codex"]),
+      }),
+    ).toBe(false);
+  });
+
+  test("closes the session of a tab that is gone, since nothing will adopt it", () => {
+    expect(
+      shouldCloseCancelledCliLaunch({
+        tabKey: "worktree:abc:cli-1",
+        liveTabKeys: new Set(["worktree:abc:cli-2"]),
+      }),
+    ).toBe(true);
   });
 });

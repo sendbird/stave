@@ -2,6 +2,7 @@ import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts"
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
+import { StandaloneCliAccountSelect } from "@/components/layout/standalone-cli/StandaloneCliAccountSelect";
 import {
   useCallback,
   useEffect,
@@ -27,11 +28,15 @@ import {
 } from "@/lib/terminal/defaults";
 import {
   buildStandaloneCliSlotKey,
+  buildStandaloneCliTab,
   buildStandaloneCliTabs,
   getStandaloneCliTabKey,
+  resolveStandaloneCliActiveTabId,
+  resolveStandaloneCliTabAccountProfileId,
   STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY,
   STANDALONE_CLI_WORKSPACE_ID,
   type StandaloneCliTab,
+  type StandaloneCliTabId,
 } from "@/lib/terminal/standalone-cli";
 import { useAppStore } from "@/store/app.store";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
@@ -133,6 +138,7 @@ export function resolveStandaloneCliTerminalLifecycle(args: {
 
 export function StandaloneCliTerminal(props: {
   folderPath: string;
+  installedTabIds: readonly StandaloneCliTabId[];
   visible: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -144,11 +150,15 @@ export function StandaloneCliTerminal(props: {
 
   const defaults = useAccountRuntimeOptions();
   const accountProfileIdByTab = useStandaloneCliStore(s => s.accountProfileIdByTab);
-  const [activeTabId, nativeSessionIdByTab] = useStandaloneCliStore(
+  const [storedActiveTabId, nativeSessionIdByTab] = useStandaloneCliStore(
     useShallow(
       (state) => [state.activeTabId, state.nativeSessionIdByTab] as const,
     ),
   );
+  const activeTabId = resolveStandaloneCliActiveTabId({
+    activeTabId: storedActiveTabId,
+    installedTabIds: props.installedTabIds,
+  });
   const setTabNativeSession = useStandaloneCliStore(
     (state) => state.setTabNativeSession,
   );
@@ -181,6 +191,8 @@ export function StandaloneCliTerminal(props: {
   );
 
   // Derived outside the selector: selectors must never return fresh arrays.
+  // Every tab stays here, installed or not, so a CLI that drops out of the tab
+  // bar keeps its running session instead of being closed as a removed tab.
   const tabs = useMemo(
     () =>
       buildStandaloneCliTabs({
@@ -190,9 +202,31 @@ export function StandaloneCliTerminal(props: {
       }),
     [props.folderPath, nativeSessionIdByTab, accountProfileIdByTab, defaults],
   );
+  // The session bootstrap effect restarts whenever `activeTab` changes
+  // identity, and a restart that lands mid-launch closes the session it just
+  // created. So the active tab is keyed on its own fields only: launching pins
+  // the tab's account, and that pin must not count as a change.
+  const activeNativeSessionId = nativeSessionIdByTab[activeTabId];
+  const activeAccountProfileId = resolveStandaloneCliTabAccountProfileId({
+    tabId: activeTabId,
+    nativeSessionId: activeNativeSessionId,
+    pinnedAccountProfileId: accountProfileIdByTab[activeTabId],
+    defaults,
+  });
   const activeTab = useMemo(
-    () => tabs.find((tab) => tab.id === activeTabId) ?? null,
-    [activeTabId, tabs],
+    () =>
+      buildStandaloneCliTab({
+        tabId: activeTabId,
+        folderPath: props.folderPath,
+        nativeSessionId: activeNativeSessionId,
+        accountProfileId: activeAccountProfileId,
+      }),
+    [
+      activeAccountProfileId,
+      activeNativeSessionId,
+      activeTabId,
+      props.folderPath,
+    ],
   );
   const activeTabKey = getStandaloneCliTabKey(activeTabId);
 
@@ -299,6 +333,22 @@ export function StandaloneCliTerminal(props: {
     terminalRevision: terminalInstance.revision,
   });
 
+  // A running CLI cannot change accounts, so the switch is a restart under the
+  // new account. Both writes land in one render, which keeps the bootstrap
+  // effect to a single relaunch.
+  const switchActiveTabAccount = useCallback(
+    (accountProfileId: string) => {
+      if (accountProfileId === activeTab.accountProfileId) {
+        return;
+      }
+      useStandaloneCliStore
+        .getState()
+        .setTabAccount(activeTab.id, accountProfileId);
+      restartActiveSession();
+    },
+    [activeTab.accountProfileId, activeTab.id, restartActiveSession],
+  );
+
   useLayoutEffect(() => {
     inputHandlerRef.current = handleTerminalInput;
     resizeHandlerRef.current = handleTerminalResize;
@@ -346,6 +396,11 @@ export function StandaloneCliTerminal(props: {
           where it would occlude a full-screen TUI's top-right corner and
           swallow every click in that region. */}
       <div className={sx(styles.terminalHeader)}>
+        <StandaloneCliAccountSelect
+          tabId={activeTab.id}
+          value={activeAccountProfileId}
+          onValueChange={switchActiveTabAccount}
+        />
         <AdsButton
           layout="host"
           type="button"

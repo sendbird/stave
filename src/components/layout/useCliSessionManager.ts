@@ -6,7 +6,10 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { attachCliSessionAtRendererSize } from "@/components/layout/cli-session-restore";
+import {
+  attachCliSessionAtRendererSize,
+  shouldCloseCancelledCliLaunch,
+} from "@/components/layout/cli-session-restore";
 import { createLatestAsyncDispatcher } from "@/components/layout/pty-session-surface.utils";
 import type { CliTerminalInstanceController } from "@/components/layout/useCliTerminalInstance";
 import {
@@ -144,6 +147,7 @@ export function useCliSessionManager<
   const streamReadyRef = useRef(false);
   const lastOutputSequenceBySessionRef = useRef<Record<string, number>>({});
   const acknowledgedBytesBySessionRef = useRef<Record<string, number>>({});
+  const liveTabKeysRef = useRef<ReadonlySet<string>>(new Set());
 
   function serializeTranscripts() {
     return Object.fromEntries(
@@ -655,12 +659,14 @@ export function useCliSessionManager<
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
+    const liveTabKeys = new Set(args.tabs.map((tab) => args.getTabKey(tab)));
+    liveTabKeysRef.current = liveTabKeys;
+
     const closeSession = window.api?.terminal?.closeSession;
     if (!closeSession) {
       return;
     }
 
-    const liveTabKeys = new Set(args.tabs.map((tab) => args.getTabKey(tab)));
     const currentPrefix = `${args.workspaceId}:`;
     const removedEntries = Object.entries(sessionIdByTabKeyRef.current).filter(
       ([tabKey]) =>
@@ -973,9 +979,16 @@ export function useCliSessionManager<
       });
 
       if (cancelled) {
-        void window.api?.terminal?.closeSession?.({
-          sessionId: created.sessionId,
-        });
+        if (
+          shouldCloseCancelledCliLaunch({
+            tabKey,
+            liveTabKeys: liveTabKeysRef.current,
+          })
+        ) {
+          void window.api?.terminal?.closeSession?.({
+            sessionId: created.sessionId,
+          });
+        }
         return;
       }
       // A freshly created session was already spawned at this geometry, so it

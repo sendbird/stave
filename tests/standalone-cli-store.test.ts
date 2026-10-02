@@ -230,3 +230,77 @@ test("account pin survives a second launch and resets only when the folder chang
   await store.getState().adoptFolder({ folderPath: "/tmp/replacement" }, deps);
   expect(store.getState().accountProfileIdByTab).toEqual({});
 });
+
+// Every session launch pins the tab's account. The terminal rebuilds its active
+// tab from this map, and a rebuild while a launch is in flight cancels that
+// launch, which closes the session it just created. That is what left Restart
+// showing "Session exited" instead of a fresh CLI, so re-pinning has to leave
+// the map's identity alone.
+test("re-pinning an already pinned tab does not touch the account map", () => {
+  const store = useStandaloneCliStore;
+  store.getState().pinTabAccount("claude-code", "system-default");
+  const pinned = store.getState().accountProfileIdByTab;
+  let notifications = 0;
+  const unsubscribe = store.subscribe(() => {
+    notifications += 1;
+  });
+  try {
+    store.getState().pinTabAccount("claude-code", "system-default");
+    store.getState().pinTabAccount("claude-code", "11111111-1111-4111-8111-111111111111");
+  } finally {
+    unsubscribe();
+  }
+  expect(store.getState().accountProfileIdByTab).toBe(pinned);
+  expect(notifications).toBe(0);
+});
+
+test("restart keeps the tab's pinned account while it drops the resume id", () => {
+  const store = useStandaloneCliStore;
+  store.getState().pinTabAccount("claude-code", "system-default");
+  store.getState().setTabNativeSession({ tabId: "claude-code", nativeSessionId: "claude-1" });
+  const pinned = store.getState().accountProfileIdByTab;
+
+  store.getState().setTabNativeSession({ tabId: "claude-code", nativeSessionId: undefined });
+  store.getState().pinTabAccount("claude-code", "system-default");
+
+  expect(store.getState().nativeSessionIdByTab).toEqual({});
+  expect(store.getState().accountProfileIdByTab).toBe(pinned);
+});
+
+describe("standalone cli tab account switch", () => {
+  const managed = "11111111-1111-4111-8111-111111111111";
+
+  test("moves the tab to the new account and drops its old conversation", () => {
+    const store = useStandaloneCliStore;
+    store.getState().pinTabAccount("claude-code", "system-default");
+    store.getState().setTabNativeSession({ tabId: "claude-code", nativeSessionId: "claude-1" });
+    store.getState().setTabNativeSession({ tabId: "codex", nativeSessionId: "codex-1" });
+
+    expect(store.getState().setTabAccount("claude-code", managed)).toBe(true);
+
+    expect(store.getState().accountProfileIdByTab["claude-code"]).toBe(managed);
+    // The resume id belongs to the old account; resuming it would reopen the
+    // old account's conversation under the new login.
+    expect(store.getState().nativeSessionIdByTab).toEqual({ codex: "codex-1" });
+  });
+
+  test("wins over the pin the relaunch makes afterwards", () => {
+    const store = useStandaloneCliStore;
+    store.getState().pinTabAccount("codex", "system-default");
+    store.getState().setTabAccount("codex", managed);
+    store.getState().pinTabAccount("codex", "system-default");
+
+    expect(store.getState().accountProfileIdByTab.codex).toBe(managed);
+  });
+
+  test("reports no change for the account the tab already runs under", () => {
+    const store = useStandaloneCliStore;
+    store.getState().pinTabAccount("codex", managed);
+    store.getState().setTabNativeSession({ tabId: "codex", nativeSessionId: "codex-1" });
+    const before = store.getState();
+
+    expect(store.getState().setTabAccount("codex", managed)).toBe(false);
+    expect(store.getState().accountProfileIdByTab).toBe(before.accountProfileIdByTab);
+    expect(store.getState().nativeSessionIdByTab).toBe(before.nativeSessionIdByTab);
+  });
+});
