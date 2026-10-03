@@ -1,6 +1,7 @@
 import type { BridgeEvent, StreamTurnArgs } from "./types";
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
+import type { CodexNormalizedTokenUsage } from "./codex-token-usage";
 import {
   buildCodexSecondaryServerRequestDenial,
   resolveCodexIsolationConfigOverrides,
@@ -149,6 +150,8 @@ export async function runCodexReadOnlyPromptWithClient(
      */
     respond?: Respond;
     subscribe: (listener: (message: JsonRpcMessage) => void) => () => void;
+    /** The client's whole-turn usage (`CodexThreadTokenUsage.read`). */
+    readTurnUsage: (threadId: string, turnId: string) => CodexNormalizedTokenUsage | null;
     buildThreadStartParams: BuildThreadStartParams;
     buildThreadResumeParams?: BuildThreadResumeParams;
     buildTurnStartParams: BuildTurnStartParams;
@@ -335,31 +338,14 @@ export async function runCodexReadOnlyPromptWithClient(
       }
 
       if (message.method === "thread/tokenUsage/updated") {
-        const tokenUsage = isRecord(params.tokenUsage)
-          ? params.tokenUsage
-          : null;
-        const last =
-          tokenUsage && isRecord(tokenUsage.last) ? tokenUsage.last : null;
-        if (last) {
-          latestUsage = {
-            type: "usage",
-            inputTokens:
-              typeof last.inputTokens === "number" ? last.inputTokens : 0,
-            outputTokens:
-              typeof last.outputTokens === "number" ? last.outputTokens : 0,
-            ...(typeof last.cachedInputTokens === "number" &&
-            last.cachedInputTokens > 0
-              ? { cacheReadTokens: last.cachedInputTokens }
-              : {}),
-            ...(typeof last.cacheWriteInputTokens === "number" &&
-            last.cacheWriteInputTokens > 0
-              ? { cacheCreationTokens: last.cacheWriteInputTokens }
-              : {}),
-            ...(typeof last.reasoningOutputTokens === "number" &&
-            last.reasoningOutputTokens > 0
-              ? { thoughtTokens: last.reasoningOutputTokens }
-              : {}),
-          };
+        // The App Server client has already recorded this notification; read
+        // the whole turn so far, not `last` (one model request).
+        const usage = args.readTurnUsage(
+          threadId,
+          typeof params.turnId === "string" ? params.turnId : turnId,
+        );
+        if (usage) {
+          latestUsage = { type: "usage", ...usage };
         }
         return;
       }

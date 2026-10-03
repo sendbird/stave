@@ -6,6 +6,7 @@ import { ProviderAccountRegistry } from "../electron/provider-accounts/registry"
 import { withProviderAccountScope } from "../electron/provider-accounts/runtime-scope";
 import {
   applyClaudeGatewayEnvironment,
+  resolveApiConnectionModel,
   validateClaudeGatewayModel,
   withGatewayCredential,
 } from "../electron/provider-accounts/gateway-runtime";
@@ -247,6 +248,22 @@ describe("runtime adapters", () => {
     const plain = buildCodexThreadStartParams({ cwd: root, runtimeOptions: { model: "gpt-6-sol" } });
     expect(plain.model).toBe("gpt-6-sol");
     expect(plain.config?.model_provider).toBeUndefined();
+  });
+
+  test("a native model ID resolves to the same model pinned with its creator prefix, per runtime", () => {
+    const models = ["openai/gpt-5.5", "anthropic/claude-sonnet-5"];
+    expect(resolveApiConnectionModel({ runtime: "codex", models, model: "gpt-5.5" })).toBe("openai/gpt-5.5");
+    expect(resolveApiConnectionModel({ runtime: "codex", models, model: "openai/gpt-5.5" })).toBe("openai/gpt-5.5");
+    expect(resolveApiConnectionModel({ runtime: "claude-code", models, model: "claude-sonnet-5" })).toBe("anthropic/claude-sonnet-5");
+    // A different model, or another runtime's prefix, is never substituted.
+    expect(resolveApiConnectionModel({ runtime: "codex", models, model: "gpt-5.4" })).toBeUndefined();
+    expect(resolveApiConnectionModel({ runtime: "codex", models, model: "claude-sonnet-5" })).toBeUndefined();
+    expect(resolveApiConnectionModel({ runtime: "claude-code", models, model: "gpt-5.5" })).toBeUndefined();
+    const connection = createVercel();
+    inConnection(connection.id, "fixture-key", () => {
+      expect(buildCodexThreadStartParams({ cwd: root, runtimeOptions: { model: "gpt-oss-120b" } }).model).toBe("openai/gpt-oss-120b");
+      expect(buildCodexApiConnectionCliArgs("gpt-oss-120b").at(-1)).toBe("openai/gpt-oss-120b");
+    });
   });
 
   test("Codex: a connection turn checks its key instead of a Codex sign-in", async () => {

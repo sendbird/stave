@@ -43,7 +43,16 @@ export function gatewayCredentialAvailable(profileId = currentProviderAccountId(
 export const API_CONNECTION_KEY_UNAVAILABLE =
   "The API connection's key is unavailable. Check the saved secret in Settings > Secrets.";
 
-/** The pinned model a request names, matched by routing ID; the runtime default when none is named. */
+/** A native model ID as the runtime names it, without the gateway's creator prefix. */
+function nativeApiConnectionModelId(runtime: ApiConnectionRuntime, id: string) {
+  return runtime === "claude-code" ? normalizeClaudeModelId(id) : id.trim().replace(/^openai\//, "");
+}
+
+/**
+ * The pinned model a request names, matched by routing ID, then by native ID
+ * (`claude-sonnet-5` matches `anthropic/claude-sonnet-5`, `gpt-5.5` matches
+ * `openai/gpt-5.5`); the runtime default when none is named.
+ */
 export function resolveApiConnectionModel(args: {
   runtime: ApiConnectionRuntime;
   models: readonly string[];
@@ -51,11 +60,10 @@ export function resolveApiConnectionModel(args: {
 }) {
   if (!args.model?.trim()) return apiConnectionDefaultModel(args.runtime, args.models.map((id) => ({ id })));
   const requested = args.model.trim();
+  const native = nativeApiConnectionModelId(args.runtime, requested);
   return args.models.find((candidate) => candidate === requested) ??
     args.models.find((candidate) => apiConnectionRoutingModelId(candidate) === apiConnectionRoutingModelId(requested)) ??
-    (args.runtime === "claude-code"
-      ? args.models.find((candidate) => normalizeClaudeModelId(candidate) === normalizeClaudeModelId(requested))
-      : undefined);
+    args.models.find((candidate) => nativeApiConnectionModelId(args.runtime, candidate) === native);
 }
 
 export function applyClaudeGatewayEnvironment(env: Record<string, string | undefined>, profileId?: string) {

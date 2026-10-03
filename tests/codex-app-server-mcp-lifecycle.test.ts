@@ -324,6 +324,7 @@ class FakeChild extends EventEmitter {
       params: {
         ...envelope,
         tokenUsage: {
+          total: { inputTokens: 120, outputTokens: 30, cachedInputTokens: 90 },
           last: { inputTokens: 120, outputTokens: 30, cachedInputTokens: 90 },
         },
       },
@@ -339,6 +340,18 @@ class FakeChild extends EventEmitter {
           aggregatedOutput: "src/app.ts\nsrc/store.ts\n",
         },
         completedAtMs: 2,
+      },
+    });
+    // The turn's second model request: `last` covers only this one.
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "thread/tokenUsage/updated",
+      params: {
+        ...envelope,
+        tokenUsage: {
+          total: { inputTokens: 300, outputTokens: 70, cachedInputTokens: 250 },
+          last: { inputTokens: 180, outputTokens: 40, cachedInputTokens: 160 },
+        },
       },
     });
     this.emitJson({
@@ -945,12 +958,15 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       isPartial: true,
     });
     // Token usage lands while the turn is still running instead of only at
-    // `turn/completed`, so the Usage metric is live rather than blank.
-    expect(events[2]).toMatchObject({
+    // `turn/completed`, so the Usage metric is live rather than blank. These
+    // notifications arrive before `turn/start` resolves and are replayed, so
+    // the live value already covers everything the client recorded.
+    // The turn records both model requests, not just the last one.
+    for (const usage of [events[2], events[4]]) expect(usage).toMatchObject({
       type: "usage",
-      inputTokens: 120,
-      outputTokens: 30,
-      cacheReadTokens: 90,
+      inputTokens: 300,
+      outputTokens: 70,
+      cacheReadTokens: 250,
     });
 
     // The partial result now has a work item to attach to, so a long-running

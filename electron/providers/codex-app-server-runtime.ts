@@ -174,7 +174,7 @@ import {
 } from "./codex-runtime-config";
 import { prepareCodexImageAwareTurnInput } from "./native-image-input";
 import {
-  normalizeCodexTokenUsage,
+  CodexThreadTokenUsage,
   normalizeCodexContextUsage,
 } from "./codex-token-usage";
 
@@ -494,6 +494,7 @@ class CodexAppServerClient {
       ),
   });
   readonly threadLifetime = this.lifetime.threads;
+  readonly tokenUsage = new CodexThreadTokenUsage();
 
   private initialized = false;
   private lastErrorMessage: string | null = null;
@@ -878,6 +879,7 @@ class CodexAppServerClient {
       return;
     }
 
+    this.tokenUsage.observe(message);
     for (const listener of this.listeners) {
       try {
         listener(message);
@@ -1627,6 +1629,7 @@ export async function runCodexReadOnlyPrompt(
     respond: (requestId, result) =>
       client.respond(requestId as JsonRpcId, result),
     subscribe: (listener) => client.subscribe(listener),
+    readTurnUsage: (threadId, turnId) => client.tokenUsage.read(threadId, turnId),
     buildThreadStartParams: args.routeClassification
       ? buildCodexRouteClassificationThreadStartParams
       : buildCodexThreadStartParams,
@@ -2803,11 +2806,8 @@ export async function streamCodexWithAppServer(
           case "thread/tokenUsage/updated": {
             const contextUsage = normalizeCodexContextUsage(params.tokenUsage);
             if (contextUsage) emitBridgeEvent(contextUsage);
-            const normalizedUsage = normalizeCodexTokenUsage(
-              params.tokenUsage as Parameters<
-                typeof normalizeCodexTokenUsage
-              >[0],
-            );
+            // The whole turn so far, not `last` (one model request).
+            const normalizedUsage = client.tokenUsage.read(threadId, typeof params.turnId === "string" ? params.turnId : appServerTurnId);
             if (!normalizedUsage) {
               return;
             }

@@ -1290,8 +1290,11 @@ has room for every connected provider, a segment shows the full strip:
   request). The count is input plus output, without prompt tokens read from
   the cache: Claude's uncached input and cache writes are counted and its cache
   reads are not; Codex's input already contains its cache reads, so they are
-  taken out. Cursor and Kiro counts are used as each reports them, because
-  their cache convention is not verified, and the hint says so. Reasoning
+  taken out. A Codex turn records every model request it made: the growth of
+  the thread's cumulative `total` from `thread/tokenUsage/updated`, not its
+  `last` breakdown, which is the latest request only. Cursor and Kiro counts
+  are used as each reports them, because their cache convention is not
+  verified, and the hint says so. Reasoning
   tokens are not added on top of output. Turns do not record their account, so
   the totals cover every account of that provider.
 
@@ -1434,7 +1437,14 @@ Code endpoint (Vercel: `https://ai-gateway.vercel.sh/claude-code`, no `/v1`),
 `ANTHROPIC_AUTH_TOKEN` to the key, and `ANTHROPIC_API_KEY=""`, following
 [Vercel's Claude Code setup](https://vercel.com/docs/ai-gateway/coding-agents/claude-code).
 Implicit model aliases and the subagent model are pinned to the first pinned
-Claude model (else the first pinned model). Gateway queries and CLI sessions
+Claude model (else the first pinned model). Unlike Codex, the key stays
+readable from tool shells: Claude Code 2.1.286 passes `ANTHROPIC_AUTH_TOKEN` to
+Bash, hook, and MCP stdio children unless `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`
+([env vars](https://code.claude.com/docs/en/env-vars)). Stave does not set the
+scrub: it also forces the CLI's permission mode to `default` ("Permission mode
+forced to default ... allowed_non_write_users hardening"), so the CLI would
+ignore the plan, auto, or bypass mode Stave asks for, and it strips every
+credential the CLI recognizes, not just the connection key. Gateway queries and CLI sessions
 disable native settings sources so local environment or credential helpers
 cannot override the connection. Model IDs may be `creator/model`; non-Claude
 models are labeled **Experimental in Claude Code**, because Anthropic
@@ -1462,9 +1472,10 @@ endpoint: thread-level config routes `POST <base_url>/responses` with
 
 Only pinned models appear in a connection's catalog. The model picker groups
 them under the runtime as **<connection> · API billing**, with context and price,
-and tags non-Claude models in Claude Code. Native Claude IDs resolve to a pinned
-ID for the same model with a routing prefix; a different model is never
-substituted. Explicit fallback, subagent, and auxiliary models must also be
+and tags non-Claude models in Claude Code. Native IDs resolve to a pinned ID for
+the same model with a creator prefix (`claude-sonnet-5` to
+`anthropic/claude-sonnet-5` in Claude Code, `gpt-5.5` to `openai/gpt-5.5` in
+Codex); a different model is never substituted. Explicit fallback, subagent, and auxiliary models must also be
 pinned. Provider authentication environment names, including
 `STAVE_API_CONNECTION_KEY`, are reserved against task-bound secret overrides.
 
