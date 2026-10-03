@@ -51,7 +51,10 @@ describe("Codex config override keys", () => {
         requested: true,
         userEnabled: true,
       }),
-    ).toEqual({ "plugins.chrome@openai-bundled.enabled": true });
+    ).toEqual({
+      "plugins.chrome@openai-bundled.enabled": true,
+      "plugins.unified-computer-use@openai-bundled.enabled": true,
+    });
     expect(
       buildCodexNativeBrowserTurnConfigOverrides({
         requested: false,

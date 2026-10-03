@@ -76,11 +76,11 @@ export function buildCodexNativeBrowserTurnConfigOverrides(args: {
   return {
     [`plugins.${CODEX_NATIVE_BROWSER_PLUGIN_ID}.enabled`]:
       args.requested && args.userEnabled,
-    // CUA now owns the browser MCP. Disabling only the Chrome skill leaves
-    // its tools exposed. Never force-enable the user-owned CUA plugin.
-    ...(!args.requested || !args.userEnabled
-      ? { [`plugins.${CODEX_CUA_PLUGIN_ID}.enabled`]: false }
-      : {}),
+    // CUA owns the browser MCP. Set both overrides on every turn so a
+    // previous non-browser turn cannot leave the transport disabled. The
+    // inventory gate confirms both plugins are user enabled before restoring.
+    [`plugins.${CODEX_CUA_PLUGIN_ID}.enabled`]:
+      args.requested && args.userEnabled,
   };
 }
 
@@ -92,30 +92,30 @@ export function isCodexNativeBrowserPluginEnabled(response: unknown) {
   if (!Array.isArray(marketplaces)) {
     return false;
   }
-  return marketplaces.some((marketplace) => {
-    if (!marketplace || typeof marketplace !== "object") {
-      return false;
-    }
+  const enabledPluginIds = new Set<string>();
+  for (const marketplace of marketplaces) {
+    if (!marketplace || typeof marketplace !== "object") continue;
     const plugins = (marketplace as { plugins?: unknown }).plugins;
-    return (
-      Array.isArray(plugins) &&
-      plugins.some((plugin) => {
-        if (!plugin || typeof plugin !== "object") {
-          return false;
-        }
-        const summary = plugin as {
-          id?: unknown;
-          installed?: unknown;
-          enabled?: unknown;
-        };
-        return (
-          summary.id === CODEX_NATIVE_BROWSER_PLUGIN_ID &&
-          summary.installed === true &&
-          summary.enabled === true
-        );
-      })
-    );
-  });
+    if (!Array.isArray(plugins)) continue;
+    for (const plugin of plugins) {
+      if (!plugin || typeof plugin !== "object") continue;
+      const summary = plugin as {
+        id?: unknown;
+        installed?: unknown;
+        enabled?: unknown;
+      };
+      if (
+        typeof summary.id === "string" &&
+        summary.installed === true &&
+        summary.enabled === true
+      ) {
+        enabledPluginIds.add(summary.id);
+      }
+    }
+  }
+  return [CODEX_NATIVE_BROWSER_PLUGIN_ID, CODEX_CUA_PLUGIN_ID].every((id) =>
+    enabledPluginIds.has(id),
+  );
 }
 
 export async function resolveCodexNativeBrowserPluginEnabled(args: {

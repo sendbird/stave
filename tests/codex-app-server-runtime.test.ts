@@ -698,7 +698,10 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
         requested: true,
         userEnabled: true,
       }),
-    ).toEqual({ "plugins.chrome@openai-bundled.enabled": true });
+    ).toEqual({
+      "plugins.chrome@openai-bundled.enabled": true,
+      "plugins.unified-computer-use@openai-bundled.enabled": true,
+    });
     expect(
       buildCodexNativeBrowserTurnConfigOverrides({
         requested: true,
@@ -715,6 +718,11 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
           {
             plugins: [
               {
+                id: "unified-computer-use@openai-bundled",
+                installed: true,
+                enabled: true,
+              },
+              {
                 id: "chrome@openai-bundled",
                 installed: true,
                 enabled: true,
@@ -729,6 +737,11 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
         marketplaces: [
           {
             plugins: [
+              {
+                id: "unified-computer-use@openai-bundled",
+                installed: true,
+                enabled: true,
+              },
               {
                 id: "chrome@openai-bundled",
                 installed: true,

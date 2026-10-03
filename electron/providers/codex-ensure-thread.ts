@@ -17,6 +17,8 @@ import {
   buildCodexInstructionProfileKey,
   buildCodexThreadKey,
   resolveCodexInstructionRefresh,
+  CODEX_NATIVE_BROWSER_PLUGIN_ID,
+  CODEX_CUA_PLUGIN_ID,
 } from "./codex-runtime-config";
 import {
   forgetCodexThreadSessionsForExecutable,
@@ -30,11 +32,15 @@ import type { StreamTurnArgs } from "./types";
 // refresh block on the next turn instead of rotating the thread (in-memory).
 const instructionProfileByThreadKey = new Map<string, string>();
 const freshCodexThreadExecutables = new Set<string>();
+const browserProfileByThreadKey = new Map<
+  string,
+  { threadId: string; profile: string }
+>();
 
 type CodexEnsureThreadClient = {
   request<T>(method: string, params: unknown): Promise<T>;
   threadLifetime: {
-    acquire(threadId: string): Promise<() => void>;
+    acquire(threadId: string, options?: { reload?: boolean }): Promise<() => void>;
   };
 };
 
@@ -65,6 +71,7 @@ export function forgetCodexInstructionProfilesForExecutable(
     providerAccountKey("codex", executablePath),
   )) {
     instructionProfileByThreadKey.delete(threadKey);
+    browserProfileByThreadKey.delete(threadKey);
   }
   freshCodexThreadExecutables.add(providerAccountKey("codex", executablePath));
 }
@@ -72,6 +79,7 @@ export function forgetCodexInstructionProfilesForExecutable(
 export function forgetCodexInstructionProfilesForTask(taskId: string) {
   for (const threadKey of forgetCodexThreadSessionsForTask(taskId)) {
     instructionProfileByThreadKey.delete(threadKey);
+    browserProfileByThreadKey.delete(threadKey);
   }
 }
 
@@ -134,8 +142,25 @@ export async function ensureCodexThread(args: {
     resumeThreadId,
   );
 
+  const browserOverrides = [
+    CODEX_NATIVE_BROWSER_PLUGIN_ID,
+    CODEX_CUA_PLUGIN_ID,
+  ].map((id) => args.configOverrides?.[`plugins.${id}.enabled`]);
+  const browserProfile = browserOverrides.some((value) => value !== undefined)
+    ? JSON.stringify(browserOverrides)
+    : undefined;
+  const previousBrowserProfile = browserProfileByThreadKey.get(threadKey);
+  // A warm App Server resume retains the loaded thread's MCP inventory even
+  // when config overrides change. Unsubscribe before cold-resuming the same
+  // conversation when browser access changes (or after an app restart).
+  const reloadBrowser =
+    browserProfile !== undefined &&
+    (previousBrowserProfile?.threadId !== resumeThreadId ||
+      previousBrowserProfile?.profile !== browserProfile);
   let releaseThread = resumeThreadId
-    ? await args.client.threadLifetime.acquire(resumeThreadId)
+    ? await args.client.threadLifetime.acquire(resumeThreadId, {
+        reload: reloadBrowser,
+      })
     : undefined;
   try {
     const response = resumeThreadId
@@ -173,6 +198,12 @@ export async function ensureCodexThread(args: {
     releaseThread ??= await args.client.threadLifetime.acquire(threadId);
     let instructionRefresh: string | null = null;
     if (!args.ephemeral) {
+      if (browserProfile !== undefined) {
+        browserProfileByThreadKey.set(threadKey, {
+          threadId,
+          profile: browserProfile,
+        });
+      }
       rememberCodexThreadSession({
         threadKey,
         threadId,

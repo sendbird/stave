@@ -18,7 +18,12 @@ copy browser credentials into Stave.
   do not satisfy `@web`. Stave disables the Chrome plugin for turns without
   interactive `@web`, and does not force-enable a plugin that the user
   disabled. The shared `unified-computer-use` plugin is also disabled on turns
-  without browser access; disabling only the Chrome skill would leave its MCP tools available.
+  without browser access; disabling only the Chrome skill would leave its MCP
+  tools available. On a browser turn, Stave checks that both plugins are installed
+  and enabled by the user before explicitly restoring both turn overrides.
+  When browser access changes between turns, Stave releases the idle native
+  thread and resumes the same conversation from disk so its MCP inventory
+  reflects the new access. An active thread cannot be reloaded this way.
 
 The browser extension, provider CLI, and the user's existing Chrome profile own
 the live connection. Stave only asks the provider to use that connection for
