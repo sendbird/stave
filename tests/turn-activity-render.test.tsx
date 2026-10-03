@@ -72,10 +72,10 @@ describe("TurnActivity", () => {
       /data-testid="turn-activity-list"[\s\S]*<\/div>\s*<div[^>]*>\s*<section[^>]*data-summary-layout="panel"/,
     );
 
-    expect(panel).toMatch(/<details data-testid="turn-activity-metrics"><summary/);
-    const metrics = panel.slice(panel.indexOf('<details data-testid="turn-activity-metrics"'));
+    // Usage and headroom sit with the other metrics, not behind a toggle.
+    expect(panel).not.toContain("<details");
+    const metrics = panel.slice(panel.indexOf('data-summary-layout="panel"'));
     expect(metrics).toContain('data-metric="usage"');
-    expect(metrics).not.toContain('data-metric="changes"');
 
     const docked = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
