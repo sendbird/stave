@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildStarterProfile, DEFAULT_AUTO_ROUTING_PROFILE_ID } from "../src/lib/providers/auto-routing-profile";
+import { getDefaultModelForProvider } from "../src/lib/providers/model-catalog";
 import { ROUTE_INTENT_VERSION } from "../src/lib/providers/route-intent";
 import { resolveAutoRoutingDecision } from "../src/lib/routing/auto-routing";
 import {
@@ -57,6 +58,25 @@ describe("agent run routing: precedence", () => {
       settings: settings(),
     });
     expect(drafted.route).toBe("agent-fixed");
+  });
+
+  test("a provider-only agent's own model is its provider's default; another model of that provider is a pin", async () => {
+    const providerOnly = { model: { mode: "fixed" as const, providerId: "claude-code" as const } };
+    const defaultModel = getDefaultModelForProvider({ providerId: "claude-code" });
+    const own = await routeAgentRunTurn({
+      ...BASE,
+      agent: providerOnly,
+      draft: { model: defaultModel, modelProviderId: "claude-code" },
+      settings: settings(),
+    });
+    expect(own).toMatchObject({ model: defaultModel, route: "agent-fixed", rationale: "The agent's fixed model." });
+    const pinned = await routeAgentRunTurn({
+      ...BASE,
+      agent: providerOnly,
+      draft: { model: "claude-sonnet-5", modelProviderId: "claude-code" },
+      settings: settings(),
+    });
+    expect(pinned).toMatchObject({ model: "claude-sonnet-5", route: "pinned", rationale: "Pinned in the composer." });
   });
 
   test("Stave Auto routes with the agent's task class", async () => {

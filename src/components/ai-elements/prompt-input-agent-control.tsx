@@ -10,6 +10,7 @@ import {
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
 import {
   createAgentChoiceActions,
+  composerFixedModel,
   optionForFixedModel,
   type AgentChoiceContext,
   type ModelSelectArgs,
@@ -101,7 +102,7 @@ export function useTaskAgentChoice(props: {
 
   const route = current
     ? resolveAgentModelRoute({
-        fixed: current.agentFixedModel,
+        fixed: composerFixedModel(current.agentFixedModel, props.modelOptions),
         autoRouting: props.selectedModel.isAuto === true,
         providerId: props.selectedModel.providerId,
         model: props.selectedModel.model,

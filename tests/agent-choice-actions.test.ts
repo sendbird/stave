@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  composerFixedModel,
   createAgentChoiceActions,
   optionForFixedModel,
   type AgentChoiceContext,
@@ -8,6 +9,8 @@ import {
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
 import { RecordTaskAgentInputSchema, type AgentAssignment } from "@/lib/agents/assign";
 import { AgentConfigSchema, type AgentConfig } from "@/lib/agents/schema";
+import { resolveAgentModelRoute } from "@/lib/agents/selector-choice";
+import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { indexAssignmentsByTask, type TaskAgent } from "@/store/agent-assignments-store";
 
@@ -308,6 +311,31 @@ describe("an agent saved as a fixed provider with no model", () => {
     expect(optionForFixedModel({ providerId: "claude-code" }, [AUTO, OPUS, SONNET])).toBe(OPUS);
     expect(optionForFixedModel({ providerId: "claude-code" }, [AUTO])).toBeNull();
     expect(optionForFixedModel({ providerId: "claude-code", model: "claude-sonnet-5" }, [AUTO, OPUS, SONNET])).toBe(SONNET);
+  });
+
+  test("the provider's default model comes before the option its runtime marks default", () => {
+    const defaultModel = getDefaultModelForProvider({ providerId: "claude-code" });
+    const CATALOG_DEFAULT: ModelSelectorOption = { ...OPUS, key: `claude-code:${defaultModel}`, model: defaultModel };
+    expect(optionForFixedModel({ providerId: "claude-code" }, [AUTO, DEFAULT_SONNET, CATALOG_DEFAULT])).toBe(CATALOG_DEFAULT);
+  });
+
+  test("only the model it runs on is its own: another model of its provider is a pin that Back to its model undoes", () => {
+    const options = [AUTO, OPUS, DEFAULT_SONNET, CODEX];
+    const fixed = composerFixedModel({ providerId: "claude-code" }, options);
+    expect(fixed).toEqual({ providerId: "claude-code", model: "claude-sonnet-5" });
+    const route = (model: string) => resolveAgentModelRoute({ fixed, autoRouting: false, providerId: "claude-code", model });
+    expect(route("claude-sonnet-5")).toBe("agent-fixed");
+    expect(route("claude-opus-5")).toBe("pinned");
+    // A model the agent names, or no offer to move to, leaves it as it is.
+    expect(composerFixedModel({ providerId: "claude-code", model: "claude-opus-5" }, options)).toEqual({
+      providerId: "claude-code",
+      model: "claude-opus-5",
+    });
+    expect(composerFixedModel({ providerId: "claude-code" }, [AUTO, CODEX])).toEqual({ providerId: "claude-code" });
+
+    const { actions, draft } = setup({ running: savedPlaybookAgent, selectedModel: OPUS, modelOptions: options });
+    actions.unpin();
+    expect(draft).toEqual([{ selection: DEFAULT_SONNET }]);
   });
 
   test("with only Stave Auto on offer it is recorded without a model and routes", async () => {
