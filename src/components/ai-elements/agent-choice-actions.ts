@@ -4,13 +4,13 @@ import type { AgentsBridgeApi } from "@/lib/agents/api";
 import type { AgentAssignment } from "@/lib/agents/assign";
 import type { AgentConfig } from "@/lib/agents/schema";
 import {
+  fixedAgentModelId,
   fixedModelOf,
   planSelectorChoice,
   switchWidensPermission,
   type FixedAgentModel,
   type SelectorDraft,
 } from "@/lib/agents/selector-choice";
-import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import type { ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
 import type { TaskAgent } from "@/store/agent-assignments-store";
 
@@ -46,9 +46,11 @@ export interface AgentChoiceContext {
 
 /**
  * The model option an agent's fixed model names, when the composer offers it.
- * A fixed provider without a model is that provider's default model. Stave
- * Auto is never one: its option carries the provider it starts from and no
- * model, so it must not stand in for a provider-only fixed model.
+ * A fixed provider without a model is that provider's default model
+ * (`fixedAgentModelId`, the one the host's routing names too), else the
+ * option its runtime marks default, else its first. Stave Auto is never one:
+ * its option carries the provider it starts from and no model, so it must not
+ * stand in for a provider-only fixed model.
  */
 export function optionForFixedModel(
   fixed: FixedAgentModel | null,
@@ -59,13 +61,27 @@ export function optionForFixedModel(
     (option) => option.available && !option.isAuto && option.model.trim() && option.providerId === fixed.providerId,
   );
   if (fixed.model) return offered.find((option) => option.model === fixed.model) ?? null;
-  const defaultModel = getDefaultModelForProvider({ providerId: fixed.providerId });
+  const defaultModel = fixedAgentModelId(fixed);
   return (
-    offered.find((option) => option.isDefault) ??
     offered.find((option) => option.model === defaultModel) ??
+    offered.find((option) => option.isDefault) ??
     offered[0] ??
     null
   );
+}
+
+/**
+ * The agent's fixed model as the composer runs it: a provider-only agent
+ * names the model `optionForFixedModel` moves it to, so only that model reads
+ * as the agent's own and any other model of the provider is a pin.
+ */
+export function composerFixedModel(
+  fixed: FixedAgentModel | null,
+  options: readonly ModelSelectorOption[],
+): FixedAgentModel | null {
+  if (!fixed || fixed.model) return fixed;
+  const option = optionForFixedModel(fixed, options);
+  return option ? { providerId: fixed.providerId, model: option.model } : fixed;
 }
 
 const UNAVAILABLE = "Changing the task's agent is unavailable here.";

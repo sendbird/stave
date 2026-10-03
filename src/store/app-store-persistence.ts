@@ -46,6 +46,8 @@ import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { restoreCustomAgents } from "@/lib/agents/library";
 // temporary-migration: playbooks-to-agent-workflows
 import { migratePlaybooksToAgents } from "@/lib/agents/playbook-agents-migration";
+// temporary-migration: playbook-agents-auto-route
+import { migratePlaybookAgentsToAutoRoute } from "@/lib/agents/playbook-agents-auto-route-migration";
 import { normalizeAgentRevisions } from "@/lib/agents/revisions";
 import { normalizeAgentSuggestions, normalizeLearningDisabled } from "@/lib/agents/learned-suggestions";
 import {
@@ -349,6 +351,10 @@ export function createAppStorePersistenceOptions() {
       migratePlaybooksToAgents(state.settings);
       // end temporary-migration: playbooks-to-agent-workflows
       state.settings.customAgentRevisions = normalizeAgentRevisions(raw.customAgentRevisions);
+      // temporary-migration: playbook-agents-auto-route
+      state.settings.playbookAgentsAutoRouted = raw.playbookAgentsAutoRouted === true;
+      migratePlaybookAgentsToAutoRoute(state.settings);
+      // end temporary-migration: playbook-agents-auto-route
       state.settings.agentSuggestions = normalizeAgentSuggestions(raw.agentSuggestions);
       state.settings.agentLearningDisabled = normalizeLearningDisabled(raw.agentLearningDisabled);
       state.settings.myStandards = normalizeMyStandards(raw.myStandards);

@@ -266,6 +266,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Saved playbooks were copied into custom agents once. */
   playbookAgentsMigrated: boolean;
   // end temporary-migration: playbooks-to-agent-workflows
+  // temporary-migration: playbook-agents-auto-route
+  /** Agents 0.23.0 fixed to Claude with no model were moved to Stave Auto once. */
+  playbookAgentsAutoRouted: boolean;
+  // end temporary-migration: playbook-agents-auto-route
   /**
    * Version history per custom agent: the replaced version is pushed on every
    * behavioural change, newest first, capped per agent. Dropped when the agent
@@ -700,6 +704,9 @@ export const defaultSettings: AppSettings = {
   // temporary-migration: playbooks-to-agent-workflows
   playbookAgentsMigrated: false,
   // end temporary-migration: playbooks-to-agent-workflows
+  // temporary-migration: playbook-agents-auto-route
+  playbookAgentsAutoRouted: false,
+  // end temporary-migration: playbook-agents-auto-route
   customAgentRevisions: {},
   agentSuggestions: {},
   agentLearningDisabled: [],

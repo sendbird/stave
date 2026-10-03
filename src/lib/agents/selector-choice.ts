@@ -1,3 +1,4 @@
+import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { listAgents } from "./library";
 import { AGENT_PERMISSIONS, isUsableAs, type AgentConfig, type AgentPermission } from "./schema";
@@ -81,9 +82,20 @@ export function fixedModelOf(agent: Pick<AgentConfig, "model">): FixedAgentModel
 export type AgentModelRoute = "auto" | "agent-fixed" | "pinned";
 
 /**
+ * The model an agent's fixed route runs on: its own model, else its
+ * provider's default model. A provider-only agent runs on that one model, not
+ * on any model of the provider.
+ */
+export function fixedAgentModelId(fixed: FixedAgentModel): string {
+  return fixed.model ?? getDefaultModelForProvider({ providerId: fixed.providerId });
+}
+
+/**
  * The route the draft encodes for a task that runs as an agent: Stave Auto
- * without a model is `auto`; the agent's own fixed model is `agent-fixed`;
- * any other model in the draft is a pin.
+ * without a model is `auto`; the model the agent's fixed route runs on
+ * (`fixedAgentModelId`) is `agent-fixed`; any other model in the draft, even
+ * one of the agent's provider, is a pin. The composer passes `fixed` with the
+ * model it moved a provider-only agent to, when it offers one.
  */
 export function resolveAgentModelRoute(args: {
   fixed: FixedAgentModel | null;
@@ -94,7 +106,7 @@ export function resolveAgentModelRoute(args: {
 }): AgentModelRoute {
   if (args.autoRouting) return "auto";
   const { fixed } = args;
-  if (fixed && fixed.providerId === args.providerId && (!fixed.model || fixed.model === args.model)) {
+  if (fixed && fixed.providerId === args.providerId && fixedAgentModelId(fixed) === args.model) {
     return "agent-fixed";
   }
   return "pinned";

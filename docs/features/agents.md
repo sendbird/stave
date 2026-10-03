@@ -215,7 +215,9 @@ What you pick decides how the task runs:
   model there and the segment reads **Pinned · Opus 5** with its effort; the
   first row becomes **Back to Auto**, and picking a preference on the Stave
   Auto tab also lifts the pin. A pin never ends the agent. Per turn the order
-  is: pin, then the agent's fixed model, then Stave Auto.
+  is: pin, then the agent's fixed model, then Stave Auto. An agent fixed to a
+  provider without a model runs on that provider's default model; any other
+  model of the provider is a pin.
 - The first send in Agent mode reads **Assign**; later sends read **Send**.
 - A choice applies from the next turn. Earlier turns keep the agent they ran
   as, and each agent's History counts the turns it ran. Choosing another

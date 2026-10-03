@@ -14,6 +14,10 @@ optionally done by another agent) or a Stave action (**Open draft PR**,
   name and stages, the Implementer's instructions (plus the playbook's
   constraints), the playbook's model and permission, and its check-ins. Delete
   the agent if you do not need it; it does not come back.
+- A playbook that saved only a permission (no model or effort) becomes an
+  agent that Stave Auto routes. 0.23.0 fixed such an agent to Claude with no
+  model; the next upgrade moves it to Stave Auto once, unless you changed the
+  agent since.
 - The Playbooks tab, the **Start a mission** sheet, the composer's hand-off
   control and `!shortcut` playbook entries are gone. Assign the work to an
   agent instead: the composer's selector (**Agents**), **Assign to an agent…**

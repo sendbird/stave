@@ -6,6 +6,7 @@ import type { AgentAssignment } from "@/lib/agents/assign";
 import { duplicateAgent } from "@/lib/agents/library";
 import {
   awaitsFirstAgentTurn,
+  fixedAgentModelId,
   fixedModelOf,
   matchAgents,
   planSelectorChoice,
@@ -14,6 +15,7 @@ import {
   switchWidensPermission,
 } from "@/lib/agents/selector-choice";
 import { getBuiltinAgent } from "@/lib/agents/starters";
+import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import { buildAutoRoutingSelectionOverrides, buildModelSelectionRuntimeOverrides } from "@/lib/providers/model-effort";
 import { indexAssignmentsByTask } from "@/store/agent-assignments-store";
 import { defaultSettings } from "@/store/app-settings";
@@ -141,15 +143,23 @@ describe("the model route of an agent task", () => {
     expect(resolveAgentModelRoute({ fixed: null, autoRouting: true, ...claude("") })).toBe("auto");
   });
 
-  test("the agent's own fixed model is not a pin; provider-only fixed models match any model of that provider", () => {
+  test("the agent's own fixed model is not a pin", () => {
     const fixed = fixedModelOf(fixedImplementer);
     expect(fixed).toEqual({ providerId: "claude-code", model: "claude-opus-5" });
     expect(resolveAgentModelRoute({ fixed, autoRouting: false, ...claude("claude-opus-5") })).toBe("agent-fixed");
     expect(resolveAgentModelRoute({ fixed, autoRouting: false, ...claude("claude-sonnet-5") })).toBe("pinned");
     expect(resolveAgentModelRoute({ fixed, autoRouting: false, providerId: "codex", model: "claude-opus-5" })).toBe("pinned");
-    const providerOnly = { providerId: "claude-code" as const };
-    expect(resolveAgentModelRoute({ fixed: providerOnly, autoRouting: false, ...claude("claude-sonnet-5") })).toBe("agent-fixed");
     expect(fixedModelOf(implementer)).toBeNull();
+  });
+
+  test("a provider-only agent runs on its provider's default model; another model of that provider is a pin", () => {
+    const providerOnly = { providerId: "claude-code" as const };
+    const defaultModel = getDefaultModelForProvider({ providerId: "claude-code" });
+    expect(fixedAgentModelId(providerOnly)).toBe(defaultModel);
+    expect(defaultModel).not.toBe("claude-sonnet-5");
+    expect(resolveAgentModelRoute({ fixed: providerOnly, autoRouting: false, ...claude(defaultModel) })).toBe("agent-fixed");
+    expect(resolveAgentModelRoute({ fixed: providerOnly, autoRouting: false, ...claude("claude-sonnet-5") })).toBe("pinned");
+    expect(resolveAgentModelRoute({ fixed: providerOnly, autoRouting: false, providerId: "codex", model: defaultModel })).toBe("pinned");
   });
 
   test("any other model in the draft is a pin", () => {
