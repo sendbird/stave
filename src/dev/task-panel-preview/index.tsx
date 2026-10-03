@@ -12,7 +12,7 @@ import {
   listExternalEffectStages,
   type MissionStageRecord,
 } from "@/lib/missions/domain";
-import { createPlaybookFromStarter, findPlaybookStarter } from "@/lib/playbooks/starters";
+import { createPlaybookFromStarter, findPlaybookStarter } from "@/dev/fixtures/legacy-playbook-starters";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
 import { isTaskPanelTab, type TaskPanelTab } from "@/lib/right-rail-panels";
 import type { ResultReview } from "@/lib/reviews/result-review";

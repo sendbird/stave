@@ -5,7 +5,7 @@ import {
   listSignOffStageIndexes,
   resolveStageSignOff,
 } from "../src/lib/playbooks/sign-off";
-import { findPlaybookStarter } from "../src/lib/playbooks/starters";
+import { findPlaybookStarter } from "../src/dev/fixtures/legacy-playbook-starters";
 
 function ai(id: string, role?: "plan" | "publish"): PlaybookStage {
   return {

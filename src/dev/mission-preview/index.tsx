@@ -22,7 +22,7 @@ import {
   type MissionStageRecord,
 } from "@/lib/missions/domain";
 import { buildMissionReport } from "@/lib/missions/report";
-import { createPlaybookFromStarter, findPlaybookStarter } from "@/lib/playbooks/starters";
+import { createPlaybookFromStarter, findPlaybookStarter } from "@/dev/fixtures/legacy-playbook-starters";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { agentRunFleetDetails, AgentRunPreviewCases } from "./agent-run-cases";

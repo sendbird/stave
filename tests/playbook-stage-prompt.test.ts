@@ -6,7 +6,7 @@ import {
 import {
   createPlaybookFromStarter,
   findPlaybookStarter,
-} from "../src/lib/playbooks/starters";
+} from "../src/dev/fixtures/legacy-playbook-starters";
 
 const NOW = new Date("2026-09-26T09:00:00.000Z");
 const slack = createPlaybookFromStarter(findPlaybookStarter("slack-request-to-pr")!, {

@@ -19,7 +19,14 @@ import {
 
 const IdSchema = z.string().trim().min(1).max(MISSION_LIMITS.maxIdChars);
 
-export { MissionStartInputSchema as MissionStartArgsSchema };
+/**
+ * The renderer starts agent runs only. Playbook missions without an agent
+ * (retired with playbooks) can no longer be started; their old rows still load.
+ */
+export const MissionStartArgsSchema = MissionStartInputSchema.refine((input) => input.origin === "agent", {
+  message: "Only agent runs can be started.",
+  path: ["origin"],
+});
 
 export const MissionIdArgsSchema = z
   .object({ missionId: IdSchema })

@@ -19,8 +19,8 @@ import {
   createPlaybookFromStarter,
   findPlaybookStarter,
   PLAYBOOK_STARTERS,
-  STAGE_TEMPLATES,
-} from "../src/lib/playbooks/starters";
+} from "../src/dev/fixtures/legacy-playbook-starters";
+import { STAGE_TEMPLATES } from "../src/lib/playbooks/stage-templates";
 
 const NOW = new Date("2026-09-26T09:00:00.000Z");
 

@@ -16,7 +16,7 @@ import { MissionStore } from "../electron/persistence/mission-store";
 import type { MissionStageGrant } from "../electron/providers/mission-grants";
 import type { PullRequestCheck } from "../src/lib/missions/checks";
 import { currentStageRecord, EMPTY_STAGE_FACTS, listExternalEffectStages, type StageFacts } from "../src/lib/missions/domain";
-import { createPlaybookFromStarter, findPlaybookStarter } from "../src/lib/playbooks/starters";
+import { createPlaybookFromStarter, findPlaybookStarter } from "../src/dev/fixtures/legacy-playbook-starters";
 import { buildAgentRunStartInput } from "../src/lib/missions/agent-run";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 

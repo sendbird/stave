@@ -13,7 +13,7 @@ import {
   uniqueStageId,
 } from "@/lib/playbooks/library";
 import { MAX_PLAYBOOK_STAGES, STAVE_ACTION_LABELS, type CheckIns, type PlaybookStage, type StaveActionType } from "@/lib/playbooks/schema";
-import { STAGE_TEMPLATES } from "@/lib/playbooks/starters";
+import { STAGE_TEMPLATES } from "@/lib/playbooks/stage-templates";
 import { StageRow } from "./StageRow";
 import { playbookStyles as styles } from "./playbooks.styles";
 import { missionStyles } from "@/components/missions/missions.styles";

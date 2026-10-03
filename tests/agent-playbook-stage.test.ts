@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { compileStagePrompt } from "@/lib/playbooks/stage-prompt";
 import { PlaybookSchema, type Playbook } from "@/lib/playbooks/schema";
-import { createPlaybookFromStarter, findPlaybookStarter } from "@/lib/playbooks/starters";
+import { createPlaybookFromStarter, findPlaybookStarter } from "@/dev/fixtures/legacy-playbook-starters";
 
 const NOW = new Date("2026-09-29T09:00:00.000Z");
 

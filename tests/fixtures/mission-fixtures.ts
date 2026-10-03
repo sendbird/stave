@@ -12,7 +12,7 @@ import type { Playbook } from "../../src/lib/playbooks/schema";
 import {
   createPlaybookFromStarter,
   findPlaybookStarter,
-} from "../../src/lib/playbooks/starters";
+} from "../../src/dev/fixtures/legacy-playbook-starters";
 
 export const MISSION_NOW = new Date("2026-09-26T10:00:00.000Z");
 
