@@ -75,7 +75,9 @@ mission runs, between its turns included (see
 
 - The current stage and what it is doing — a plain phrase such as
   **Running the tests** while a turn runs, or what it waits for and for how
-  long, such as **Waiting for your sign-off · 8m**.
+  long, such as **Waiting for your sign-off · 8m**. A stage turn that stalls,
+  steers, retries or fails says so instead, as the turn's line would:
+  **Stalled · No updates for 2m** with how to stop or interrupt it.
 - The stage track, one line high: the stages behind the run fill it and the
   head names the stage in progress and where it stands (`Verify 3/6`). When
   the composer is too narrow for the track, the line says `3/6` in words. A

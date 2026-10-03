@@ -29,28 +29,16 @@ import {
   resolveTurnRunHeadline,
   resolveTurnRunTone,
   summarizeShelfTodos,
-  type ShelfRunTone,
 } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import {
+  SHELF_RUN_TONE_INK,
   ShelfRunLine,
   ShelfRunText,
   ShelfTodoProgressView,
-  type ShelfLabelTone,
   type ShelfRunDetailToggle,
   type ShelfRunPanelButton,
 } from "./ShelfRunLine";
-
-const TONE_INK: Record<ShelfRunTone, ShelfLabelTone> = {
-  active: "default",
-  waiting: "waiting",
-  steering: "accent",
-  stalled: "waiting",
-  retrying: "waiting",
-  failed: "danger",
-  done: "default",
-  stopped: "default",
-};
 
 /**
  * The run line for a plain turn: `Working · Edit file · ChatInput.tsx`, the
@@ -193,7 +181,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
       text={
         <ShelfRunText
           label={label}
-          tone={TONE_INK[tone]}
+          tone={SHELF_RUN_TONE_INK[tone]}
           title={words}
           narrow={todo ? `${todo.done}/${todo.total}` : null}
           parts={[

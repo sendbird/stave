@@ -274,6 +274,39 @@ describe("agent run line", () => {
     expect(html).not.toContain("Which breakpoint should the table switch at");
     expect(agentLine(runs.needsYou, { nowPhrase: null })).toContain("Which breakpoint should the table switch at");
   });
+
+  test("a stalled turn under the run says so, with the way out, instead of Working", () => {
+    const html = agentLine(runs.working, {
+      turnAlert: {
+        tone: "stalled",
+        label: "Stalled",
+        text: "No updates for 2m 14s",
+        detail: "Esc stops it, or send a message to interrupt and continue",
+      },
+    });
+    expect(html).toContain('data-testid="shelf-turn-alert"');
+    expect(html).toContain('data-tone="stalled"');
+    expect(html).toContain("No updates for 2m 14s");
+    expect(html).toContain("Esc stops it");
+    // One line: the run's own state and live step give way, its actions stay.
+    expect(html).not.toContain(">Working<");
+    expect(html).not.toContain("Reading the export handler");
+    expect(html).toContain(">Stop<");
+    expect(html).toContain("Take control");
+  });
+
+  test("steering and a failure are tones of the run's line too", () => {
+    const steering = agentLine(runs.working, {
+      turnAlert: { tone: "steering", label: "Steering", text: "Waiting for the provider to accept your message", detail: null },
+    });
+    expect(steering).toContain('data-tone="steering"');
+    expect(steering).toContain("Waiting for the provider to accept your message");
+    const failed = agentLine(runs.working, {
+      turnAlert: { tone: "failed", label: "Failed", text: "Provider stream failed", detail: null },
+    });
+    expect(failed).toContain('data-tone="failed"');
+    expect(failed).toContain("Provider stream failed");
+  });
 });
 
 describe("composer shelf", () => {

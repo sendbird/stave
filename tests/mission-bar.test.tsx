@@ -119,6 +119,30 @@ describe("Mission bar", () => {
     const html = render(detailAtBuild(), "Running the tests");
     expect(html).toMatch(/aria-live="polite"[^>]*>Stage 2 of 6: Build</);
   });
+
+  test("a stalled stage turn says so on the mission's line, with the way out, instead of the Now phrase", () => {
+    const html = renderToStaticMarkup(
+      createElement(MissionBarView, {
+        detail: detailAtBuild(),
+        nowPhrase: "Running the tests",
+        now: NOW,
+        reducedMotion: false,
+        turnAlert: {
+          tone: "stalled",
+          label: "Stalled",
+          text: "No updates for 2m 14s",
+          detail: "Esc stops it, or send a message to interrupt and continue",
+        },
+      }),
+    );
+    expect(html).toContain('data-tone="stalled"');
+    expect(html).toContain("No updates for 2m 14s");
+    expect(html).toContain("Esc stops it");
+    expect(html).not.toContain("Running the tests");
+    // The stage track stays: the alert replaces the words, not the progress.
+    expect(html).toContain("<ol");
+    expect(html).toMatch(/aria-live="polite"[^>]*>Stalled, stage 2 of 6: Build</);
+  });
 });
 
 describe("mission view", () => {
