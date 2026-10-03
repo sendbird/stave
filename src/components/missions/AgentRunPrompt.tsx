@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { resolveAgentRunPrompt, type AgentRunPromptView } from "@/lib/missions/agent-run-view";
+import { resolveAgentRunPrompt, type AgentRunPromptView } from "@/lib/missions/agent-run-status";
 import { useAppStore } from "@/store/app.store";
 import { useAgentRunForTurn } from "@/store/missions-store";
 import type { AgentRunPromptProvenance } from "@/types/chat";

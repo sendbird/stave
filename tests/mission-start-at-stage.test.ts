@@ -20,7 +20,7 @@ const consent = {
   authorizedEffectStageIds: listExternalEffectStages(playbook).map((stage) => stage.id),
 };
 
-function buildMissionStartInput(args: {
+function buildStartAtStageInput(args: {
   assignment: string;
   consent: typeof consent;
   startStageIndex: number;
@@ -36,7 +36,7 @@ function buildMissionStartInput(args: {
 }
 
 function input(startStageIndex: number) {
-  return buildMissionStartInput({ assignment: "Verify the fix.", consent, startStageIndex });
+  return buildStartAtStageInput({ assignment: "Verify the fix.", consent, startStageIndex });
 }
 
 describe("starting a mission at a later stage", () => {
@@ -109,7 +109,7 @@ describe("starting a mission at a later stage", () => {
     const withheld = { ...consent, authorizedEffectStageIds: consent.authorizedEffectStageIds.filter((id) => id !== "open-draft-pr") };
     const change = createMission({
       id: "mission-1",
-      input: buildMissionStartInput({
+      input: buildStartAtStageInput({
         assignment: "Open the PR.",
         consent: withheld,
         startStageIndex: indexOf("open-draft-pr"),

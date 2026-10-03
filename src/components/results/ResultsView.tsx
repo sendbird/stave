@@ -90,7 +90,7 @@ function ReportDialog(props: { state: ReportState | null; onClose: () => void })
       description={state?.run.kind === "agent" ? "Run report" : "Mission report"}
     >
       {state?.status === "ready" && state.report ? (
-        <MissionReportView report={state.report} agentRun={state.run.kind === "agent"} />
+        <MissionReportView report={state.report} agentOrigin={state.run.kind === "agent"} />
       ) : state?.status === "failed" ? (
         <p role="alert" className={sx(styles.note)}>
           {state.message}

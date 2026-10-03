@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
 /** Styles of the agent run's Result card. Existing ADS tokens only. */
-export const agentRunStyles = stylex.create({
+export const agentRunResultStyles = stylex.create({
   card: {
     display: "flex",
     flexDirection: "column",

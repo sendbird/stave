@@ -4,7 +4,7 @@ import {
   agentRunEndCause,
   buildAgentRunPlaybook,
   buildAgentRunStartInput,
-  isAgentRun,
+  hasAgentOrigin,
   planAgentPromptSend,
 } from "../src/lib/missions/agent-run";
 import { compileMissionStagePrompt } from "../src/lib/missions/briefing";
@@ -59,7 +59,7 @@ describe("agent run: implicit playbook", () => {
       fingerprint: { providerId: "claude-code", model: "sonnet" },
       now: NOW,
     });
-    expect(isAgentRun(change.mission)).toBe(true);
+    expect(hasAgentOrigin(change.mission)).toBe(true);
     expect(change.events[0]?.detail).toMatchObject({ origin: "agent" });
     const prompt = compileMissionStagePrompt({ mission: change.mission, stages: change.upserts });
     expect(prompt).toContain("Add CSV export.");
@@ -97,8 +97,8 @@ describe("agent run: implicit playbook", () => {
   });
 
   test("a playbook mission is not an agent run", () => {
-    expect(isAgentRun({})).toBe(false);
-    expect(isAgentRun(null)).toBe(false);
+    expect(hasAgentOrigin({})).toBe(false);
+    expect(hasAgentOrigin(null)).toBe(false);
   });
 });
 

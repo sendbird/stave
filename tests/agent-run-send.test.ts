@@ -112,7 +112,7 @@ describe("agent run send path", () => {
 
   test("an Agent task with an active run sends a plain user turn", async () => {
     useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
-    const bridge = fakeBridge({ active: { id: "run-1", agentRun: true } });
+    const bridge = fakeBridge({ active: { id: "run-1", agentOrigin: true } });
     expect(await startAgentRunForSend(sendArgs().args)).toBeNull();
     expect(bridge.started).toEqual([]);
   });
@@ -224,7 +224,7 @@ describe("unsent agent run prompt recovery", () => {
 
 describe("agent run stop", () => {
   test("cancels an active agent run before the turn is stopped", async () => {
-    const bridge = fakeBridge({ active: { id: "run-1", agentRun: true } });
+    const bridge = fakeBridge({ active: { id: "run-1", agentOrigin: true } });
     let stops = 0;
     let resolveStop!: () => void;
     const stopped = new Promise<void>((resolve) => (resolveStop = resolve));
@@ -245,7 +245,7 @@ describe("agent run stop", () => {
   });
 
   test("leaves a playbook mission and a task without a run to the plain stop", () => {
-    fakeBridge({ active: { id: "m-1", agentRun: false } });
+    fakeBridge({ active: { id: "m-1", agentOrigin: false } });
     expect(cancelAgentRunBeforeStop({ workspaceId: "ws-1", taskId: "task-1", stopTurn: () => {} })).toBe(false);
     fakeBridge();
     expect(cancelAgentRunBeforeStop({ workspaceId: "ws-1", taskId: "task-1", stopTurn: () => {} })).toBe(false);

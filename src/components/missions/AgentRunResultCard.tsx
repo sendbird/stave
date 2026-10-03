@@ -2,11 +2,11 @@ import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import {
-  AGENT_RUN_STATE_TONES,
+  AGENT_RUN_VIEW_STATE_TONES,
   describeAgentRunResult,
   selectAgentRunCard,
   type AgentRunResult,
-} from "@/lib/missions/agent-run-view";
+} from "@/lib/missions/agent-run-status";
 import type { MissionDetail } from "@/lib/missions/api";
 import { useAppStore } from "@/store/app.store";
 import { useTaskMission } from "@/store/missions-store";
@@ -14,7 +14,7 @@ import { AgentRunDoneWhen } from "./AgentRunDoneWhen";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
 import { useNow } from "./useMission";
-import { agentRunStyles as styles } from "./agent-run.styles";
+import { agentRunResultStyles as styles } from "./agent-run-result.styles";
 import { missionStyles } from "./missions.styles";
 
 function pluralFiles(count: number) {
@@ -85,7 +85,7 @@ export function AgentRunResultCardView(props: {
       data-testid={ready ? "agent-run-result" : "agent-run-reason"}
     >
       <div className={sx(styles.header)}>
-        <StageStatusIcon tone={AGENT_RUN_STATE_TONES[status.state]} state={status.state} />
+        <StageStatusIcon tone={AGENT_RUN_VIEW_STATE_TONES[status.state]} state={status.state} />
         <p className={sx(styles.headline)}>
           <span className={sx(styles.headlineState)}>{status.label}</span>
           <span className={sx(styles.headlineMeta)}>{` · ${meta}`}</span>

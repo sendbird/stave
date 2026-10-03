@@ -10,7 +10,7 @@
  */
 import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
 import type { AgentRunPromptProvenance, ChatMessage } from "@/types/chat";
-import { extractRunAssignment, isAgentRun } from "./agent-run";
+import { extractRunAssignment, hasAgentOrigin } from "./agent-run";
 import type { MissionDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
 import { isActiveMissionState, latestStageRecord, type MissionStopReason, type StagePlan } from "./domain";
@@ -20,10 +20,10 @@ import { describeUsageShort } from "./usage";
 
 export { extractRunAssignment };
 
-export type AgentRunState = "working" | "needs-you" | "ready" | "failed" | "stopped";
+export type AgentRunViewState = "working" | "needs-you" | "ready" | "failed" | "stopped";
 
 /** The words are the shared work-state vocabulary's. */
-export const AGENT_RUN_STATE_LABELS: Record<AgentRunState, string> = {
+export const AGENT_RUN_VIEW_STATE_LABELS: Record<AgentRunViewState, string> = {
   working: WORK_STATE.working.label,
   "needs-you": WORK_STATE["needs-you"].label,
   ready: WORK_STATE.ready.label,
@@ -38,7 +38,7 @@ const STOP_REASON_TEXT: Record<MissionStopReason, string> = {
 };
 
 /** The icon tone of a state; the icon is always paired with the state word. */
-export const AGENT_RUN_STATE_TONES: Record<AgentRunState, StageTone> = {
+export const AGENT_RUN_VIEW_STATE_TONES: Record<AgentRunViewState, StageTone> = {
   working: "active",
   "needs-you": "waiting",
   ready: "done",
@@ -50,7 +50,7 @@ export const AGENT_RUN_STATE_TONES: Record<AgentRunState, StageTone> = {
 export type AgentRunRecovery = "retry-stage" | "new-run";
 
 export interface AgentRunStatus {
-  state: AgentRunState;
+  state: AgentRunViewState;
   label: string;
   tone: MissionBadgeTone;
   /** The agent's name; the run's implicit playbook carries it. */
@@ -66,11 +66,11 @@ export function describeAgentRunStatus(detail: MissionDetail): AgentRunStatus {
   const { mission } = detail;
   const agentName = mission.playbook.name;
   const make = (
-    state: AgentRunState,
+    state: AgentRunViewState,
     tone: MissionBadgeTone,
     reason: string | null = null,
     recovery: AgentRunRecovery | null = null,
-  ): AgentRunStatus => ({ state, label: AGENT_RUN_STATE_LABELS[state], tone, agentName, reason, recovery });
+  ): AgentRunStatus => ({ state, label: AGENT_RUN_VIEW_STATE_LABELS[state], tone, agentName, reason, recovery });
   switch (mission.state) {
     case "completed":
       return make("ready", "success");
@@ -216,13 +216,13 @@ export function describeAgentRunChanges(detail: MissionDetail): AgentRunChanges 
     : null;
 }
 
-export interface AgentRunPullRequest {
+export interface AgentRunPullRequestLink {
   url: string;
   number: number;
 }
 
 /** The pull request the run's report links to, when it names one. */
-export function findAgentRunPullRequest(detail: MissionDetail): AgentRunPullRequest | null {
+export function findAgentRunPullRequest(detail: MissionDetail): AgentRunPullRequestLink | null {
   const { report, evidence } = reportOf(detail);
   const urls = [
     ...(detail.report?.links.map((link) => link.url) ?? []),
@@ -243,7 +243,7 @@ export interface AgentRunResult {
   /** Checks Stave itself saw succeed; empty when it saw none. */
   staveChecks: string[];
   changes: AgentRunChanges | null;
-  pullRequest: AgentRunPullRequest | null;
+  pullRequest: AgentRunPullRequestLink | null;
   summary: string | null;
   spent: string | null;
 }
@@ -276,7 +276,7 @@ export function selectAgentRunCard(args: {
   lastMessageStartedAt?: string | null;
 }): AgentRunCardKind | null {
   const { mission } = args.detail;
-  if (!isAgentRun(mission) || isActiveMissionState(mission.state)) return null;
+  if (!hasAgentOrigin(mission) || isActiveMissionState(mission.state)) return null;
   if (args.lastMessageStartedAt && Date.parse(args.lastMessageStartedAt) > Date.parse(mission.updatedAt)) return null;
   const status = describeAgentRunStatus(args.detail);
   if (status.state === "ready") return "result";
@@ -288,7 +288,7 @@ export function selectAgentRunCard(args: {
  * the state for the lead task: a working run whose task waits on the user (a
  * question or an approval in the turn) needs you.
  */
-export function agentRunFleetState(state: AgentRunState, leadTaskWaiting: boolean): AgentRunState {
+export function agentRunFleetState(state: AgentRunViewState, leadTaskWaiting: boolean): AgentRunViewState {
   return state === "working" && leadTaskWaiting ? "needs-you" : state;
 }
 

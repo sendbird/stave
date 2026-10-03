@@ -8,7 +8,7 @@ import type {
   AppNotificationKind,
 } from "@/lib/notifications/notification.types";
 import type { MissionDetail } from "./api";
-import { isAgentRun } from "./agent-run";
+import { hasAgentOrigin } from "./agent-run";
 import { currentStageRecord } from "./domain";
 
 export interface MissionNotificationContext {
@@ -59,7 +59,7 @@ function draft(
  * An agent run is named by its agent and state, never as a mission: "Ready —
  * Implementer", "Needs you — Implementer", "Failed — Implementer".
  */
-function describeAgentRunNotification(
+function describeAgentOriginNotification(
   detail: MissionDetail,
   context: MissionNotificationContext,
 ): AppNotificationCreateInput | null {
@@ -102,7 +102,7 @@ export function describeMissionNotification(
   context: MissionNotificationContext,
 ): AppNotificationCreateInput | null {
   const { mission } = detail;
-  if (isAgentRun(mission)) return describeAgentRunNotification(detail, context);
+  if (hasAgentOrigin(mission)) return describeAgentOriginNotification(detail, context);
   const record = currentStageRecord(detail);
   const stage = mission.playbook.stages[mission.currentStageIndex]!;
   const attemptKey = `${record.stageId}:${record.attempt}`;

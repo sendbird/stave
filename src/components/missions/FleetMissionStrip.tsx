@@ -6,15 +6,15 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState } from "@/lib/missions/domain";
-import { isAgentRun } from "@/lib/missions/agent-run";
+import { hasAgentOrigin } from "@/lib/missions/agent-run";
 import {
-  AGENT_RUN_STATE_LABELS,
-  AGENT_RUN_STATE_TONES,
+  AGENT_RUN_VIEW_STATE_LABELS,
+  AGENT_RUN_VIEW_STATE_TONES,
   agentRunDuration,
   describeAgentRunProgress,
   agentRunFleetState,
   describeAgentRunStatus,
-} from "@/lib/missions/agent-run-view";
+} from "@/lib/missions/agent-run-status";
 import { describeMissionStatusLine, projectMissionStages, type MissionStageRow } from "@/lib/missions/mission-view";
 import { describeUsageShort } from "@/lib/missions/usage";
 import { useFleetMissionsStore } from "@/store/fleet-missions-store";
@@ -52,9 +52,9 @@ export function FleetMissionStrip(props: {
   const detail = useFleetActiveMission(props.workspaceId);
   const rows = useMemo(() => (detail ? projectMissionStages(detail, new Date(detail.mission.updatedAt)) : []), [detail]);
   if (!detail) return null;
-  if (isAgentRun(detail.mission)) {
+  if (hasAgentOrigin(detail.mission)) {
     return (
-      <FleetAgentRunStrip detail={detail} rows={rows} onOpen={props.onOpen} leadTaskWaiting={props.leadTaskWaiting ?? false} />
+      <FleetAgentRunLine detail={detail} rows={rows} onOpen={props.onOpen} leadTaskWaiting={props.leadTaskWaiting ?? false} />
     );
   }
   const line = describeMissionStatusLine(detail);
@@ -88,7 +88,7 @@ export function FleetMissionStrip(props: {
 }
 
 /** A Fleet card's line for an agent run: the agent and its state, and its stage track when it has stages. */
-function FleetAgentRunStrip(props: {
+function FleetAgentRunLine(props: {
   detail: MissionDetail;
   rows: readonly MissionStageRow[];
   onOpen: (taskId: string) => void;
@@ -97,7 +97,7 @@ function FleetAgentRunStrip(props: {
   const { detail, rows } = props;
   const status = describeAgentRunStatus(detail);
   const state = agentRunFleetState(status.state, props.leadTaskWaiting);
-  const label = AGENT_RUN_STATE_LABELS[state];
+  const label = AGENT_RUN_VIEW_STATE_LABELS[state];
   const spent = describeUsageShort(detail.usage);
   const now = useNow(isActiveMissionState(detail.mission.state));
   const elapsed = agentRunDuration(detail, now);
@@ -113,7 +113,7 @@ function FleetAgentRunStrip(props: {
       onClick={() => props.onOpen(detail.mission.leadTaskId)}
     >
       <span className={sx(styles.head)}>
-        <StageStatusIcon tone={AGENT_RUN_STATE_TONES[state]} state={state} />
+        <StageStatusIcon tone={AGENT_RUN_VIEW_STATE_TONES[state]} state={state} />
         <span className={sx(styles.text)}>
           <span className={sx(styles.title)}>{status.agentName}</span>
           <span className={sx(state === "needs-you" ? styles.waiting : styles.muted)}>

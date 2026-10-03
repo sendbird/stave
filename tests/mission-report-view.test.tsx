@@ -141,7 +141,7 @@ test("a one-stage run's report shows the agent's plan, and the Markdown copy che
       ],
     }],
   };
-  const html = renderToStaticMarkup(createElement(MissionReportView, { report, agentRun: true }));
+  const html = renderToStaticMarkup(createElement(MissionReportView, { report, agentOrigin: true }));
   expect(html).toContain("Plan · 1 of 2 done");
   expect(html).toContain("Add the export");
   const markdown = formatMissionReportMarkdown(report);
@@ -154,6 +154,6 @@ test("a run with a workflow counts its stages; a one-stage run does not", () => 
     ...REPORT,
     stages: [REPORT.stages[0]!, { ...REPORT.stages[0]!, stageId: "ship", title: "Ship", status: "pending" }],
   };
-  expect(renderToStaticMarkup(createElement(MissionReportView, { report: twoStages, agentRun: true }))).toContain("1/2");
-  expect(renderToStaticMarkup(createElement(MissionReportView, { report: REPORT, agentRun: true }))).not.toContain(">Stages<");
+  expect(renderToStaticMarkup(createElement(MissionReportView, { report: twoStages, agentOrigin: true }))).toContain("1/2");
+  expect(renderToStaticMarkup(createElement(MissionReportView, { report: REPORT, agentOrigin: true }))).not.toContain(">Stages<");
 });

@@ -1,6 +1,6 @@
 import { FleetMissionStrip, useFleetActiveMission } from "@/components/missions/FleetMissionStrip";
-import { isAgentRun } from "@/lib/missions/agent-run";
-import { AGENT_RUN_STATE_LABELS, agentRunFleetState, describeAgentRunStatus } from "@/lib/missions/agent-run-view";
+import { hasAgentOrigin } from "@/lib/missions/agent-run";
+import { AGENT_RUN_VIEW_STATE_LABELS, agentRunFleetState, describeAgentRunStatus } from "@/lib/missions/agent-run-status";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ArrowRight, GitBranch, Moon } from "lucide-react";
 import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
@@ -420,12 +420,12 @@ export function FleetWorkspaceCard(args: {
   // An agent run's strip names the agent and the state for its lead task, so
   // that row shows neither: never twice, and never "Needs you" over "Idle".
   const activeMission = useFleetActiveMission(args.workspace.id);
-  const runLeadTaskId = activeMission && isAgentRun(activeMission.mission) ? activeMission.mission.leadTaskId : null;
+  const runLeadTaskId = activeMission && hasAgentOrigin(activeMission.mission) ? activeMission.mission.leadTaskId : null;
   const runLeadStatus = runLeadTaskId ? rows.find((row) => row.task.id === runLeadTaskId)?.status : undefined;
   const runLeadWaiting = runLeadStatus === "waiting-input" || runLeadStatus === "waiting-approval";
   const runLeadLabel =
     activeMission && runLeadTaskId
-      ? AGENT_RUN_STATE_LABELS[agentRunFleetState(describeAgentRunStatus(activeMission).state, runLeadWaiting)]
+      ? AGENT_RUN_VIEW_STATE_LABELS[agentRunFleetState(describeAgentRunStatus(activeMission).state, runLeadWaiting)]
       : null;
   const matchesFilter = matchesFleetBoardFilter({
     filter: args.filter,

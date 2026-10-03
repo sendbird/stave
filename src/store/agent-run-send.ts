@@ -38,7 +38,7 @@ export interface AgentRunBridge {
    * The task's active mission (an agent run or a playbook mission), null for
    * none, undefined while the workspace's missions are not loaded.
    */
-  activeMission: (workspaceId: string, taskId: string) => { id: string; agentRun: boolean } | null | undefined;
+  activeMission: (workspaceId: string, taskId: string) => { id: string; agentOrigin: boolean } | null | undefined;
   start: (input: MissionStartArgs) => Promise<MissionCommandResponse>;
   cancel: (missionId: string) => Promise<MissionCommandResponse>;
   /**
@@ -273,7 +273,7 @@ export function cancelAgentRunBeforeStop(args: {
 }): boolean {
   if (!bridge || !args.workspaceId || stoppingTaskIds.has(args.taskId)) return false;
   const active = bridge.activeMission(args.workspaceId, args.taskId);
-  if (!active?.agentRun) return false;
+  if (!active?.agentOrigin) return false;
   stoppingTaskIds.add(args.taskId);
   void bridge
     .cancel(active.id)

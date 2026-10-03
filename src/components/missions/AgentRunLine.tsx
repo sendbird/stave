@@ -4,7 +4,7 @@ import { TextShimmer } from "@/components/ads/components/TextShimmer";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
-import { AGENT_RUN_STATE_TONES, agentRunDuration, describeAgentRunStatus } from "@/lib/missions/agent-run-view";
+import { AGENT_RUN_VIEW_STATE_TONES, agentRunDuration, describeAgentRunStatus } from "@/lib/missions/agent-run-status";
 import { projectMissionStages } from "@/lib/missions/mission-view";
 import type { ShelfTodoProgress, ShelfTurnAlert } from "@/components/session/composer-shelf/composer-shelf.utils";
 import { shelfStyles } from "@/components/session/composer-shelf/composer-shelf.styles";
@@ -33,7 +33,7 @@ export const TAKE_CONTROL_HINT = "Ends the run and keeps this task in Chat, on t
  * While its turn stalls, steers, retries or fails, that tone takes the place
  * of the run's state, in the turn line's own words.
  */
-export function AgentRunBarView(props: {
+export function AgentRunLineView(props: {
   detail: MissionDetail;
   nowPhrase: string | null;
   now: number;
@@ -73,7 +73,7 @@ export function AgentRunBarView(props: {
       announcement={`${status.agentName}: ${alert ? alert.label : status.label}${current ? `, stage ${current.index + 1} of ${rows!.length}: ${current.stage.title}` : ""}`}
       mark={
         <StageStatusIcon
-          tone={AGENT_RUN_STATE_TONES[status.state]}
+          tone={AGENT_RUN_VIEW_STATE_TONES[status.state]}
           state={status.state}
           xstyle={shelfStyles.markIcon}
         />

@@ -1,6 +1,6 @@
 import { CircleCheck, CircleDashed, CircleX } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
-import type { AgentRunDoneWhenLine, DoneWhenStatus } from "@/lib/missions/agent-run-view";
+import type { AgentRunDoneWhenLine, DoneWhenStatus } from "@/lib/missions/agent-run-status";
 import { missionStyles as styles } from "./missions.styles";
 
 const PRESENTATION = {

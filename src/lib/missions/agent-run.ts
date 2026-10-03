@@ -32,7 +32,7 @@ const AGENT_RUN_INSTRUCTION = [
   "When it is done and verified, report the stage. If you cannot finish without the user, block the stage and say exactly what you need.",
 ].join(" ");
 
-export function isAgentRun(mission: Pick<Mission, "origin"> | null | undefined): boolean {
+export function hasAgentOrigin(mission: Pick<Mission, "origin"> | null | undefined): boolean {
   return mission?.origin === "agent";
 }
 

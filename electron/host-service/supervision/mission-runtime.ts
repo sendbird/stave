@@ -98,7 +98,7 @@ import {
 } from "../../../src/lib/missions/report-markdown";
 import { sumTurnUsage, type MissionUsage, type TurnUsageSample } from "../../../src/lib/missions/usage";
 import { aggregateMissionInsights, countRunEvents, type MissionInsights } from "../../../src/lib/missions/insights";
-import { agentRunEndCause, extractRunAssignment, isAgentRun } from "../../../src/lib/missions/agent-run";
+import { agentRunEndCause, extractRunAssignment, hasAgentOrigin } from "../../../src/lib/missions/agent-run";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../../../src/lib/providers/provider.types";
 import type { AgentRunPromptProvenance } from "../../../src/types/chat";
 import type { MissionStore } from "../../persistence/mission-store";
@@ -691,7 +691,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
    */
   function endAgentRunIfLeft(aggregate: MissionAggregate, observation: MissionObservation): boolean {
     const { mission } = aggregate;
-    if (!isAgentRun(mission)) return false;
+    if (!hasAgentOrigin(mission)) return false;
     const last = observation.lastEndedTurn;
     const cause = agentRunEndCause({
       taskRunsAsAgent: deps.taskRunsAsAgent?.(mission.leadTaskId) ?? true,
@@ -721,7 +721,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     const { mission } = aggregate;
     const before = currentStageRecord(aggregate);
     // Routed before anything is recorded, so a slow classifier leaves no half-started turn.
-    const routed = isAgentRun(mission) ? await routeAgentTurn(mission) : null;
+    const routed = hasAgentOrigin(mission) ? await routeAgentTurn(mission) : null;
     const change = applyMissionDecision({ aggregate, decision, now: now() });
     let startHeadSha = before.startHeadSha;
     if (!startHeadSha) {
@@ -730,7 +730,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     }
     // The user may release the agent while the awaits above run; an agent run
     // then ends here instead of starting one more stage turn as plain chat.
-    if (isAgentRun(mission) && deps.taskRunsAsAgent && !deps.taskRunsAsAgent(mission.leadTaskId)) {
+    if (hasAgentOrigin(mission) && deps.taskRunsAsAgent && !deps.taskRunsAsAgent(mission.leadTaskId)) {
       applyChange(cancelMission({ aggregate, now: now(), endedBy: "released" }));
       return;
     }
@@ -787,7 +787,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         },
         retrievedContextParts: [buildMissionTurnContextPart({ aggregate: started, reason })],
         ...(actionPrompt === undefined ? { missionStage: identity } : {}),
-        ...(isAgentRun(mission)
+        ...(hasAgentOrigin(mission)
           ? { agentRunPrompt: { missionId: mission.id, assignment: extractRunAssignment(prompt, mission.assignment) } }
           : {}),
       });
@@ -1116,7 +1116,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     endAgentRunForTask: ({ taskId }) =>
       enqueue(() => {
         const active = store.getActiveMissionForTask(taskId);
-        const aggregate = active && isAgentRun(active) ? store.getAggregate(active.id) : null;
+        const aggregate = active && hasAgentOrigin(active) ? store.getAggregate(active.id) : null;
         if (!aggregate || !isActiveMissionState(aggregate.mission.state)) return false;
         applyChange(cancelMission({ aggregate, now: now(), endedBy: "released" }));
         return true;
@@ -1174,7 +1174,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           workspaceId: mission.workspaceId,
           leadTaskId: mission.leadTaskId,
           name: mission.playbook.name,
-          kind: isAgentRun(mission) ? ("agent" as const) : ("playbook" as const),
+          kind: hasAgentOrigin(mission) ? ("agent" as const) : ("playbook" as const),
           providerId: mission.fingerprint.providerId,
           state: mission.state,
           stopReason: mission.stopReason,

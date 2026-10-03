@@ -17,8 +17,8 @@ import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
 import { useMissionsStore } from "@/store/missions-store";
-import { isAgentRun } from "@/lib/missions/agent-run";
-import { AgentRunBarView } from "./AgentRunBar";
+import { hasAgentOrigin } from "@/lib/missions/agent-run";
+import { AgentRunLineView } from "./AgentRunLine";
 import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
@@ -122,8 +122,8 @@ type MissionBarViewProps = MissionLineShelfProps & {
 
 /** A mission's line in the composer shelf: the stage track for a playbook, the agent's status for an agent run. */
 export function MissionBarView(props: MissionBarViewProps) {
-  return isAgentRun(props.detail.mission) ? (
-    <AgentRunBarView {...props} actions={props.agentActions} onOpenPanel={props.actions?.onOpenPanel} />
+  return hasAgentOrigin(props.detail.mission) ? (
+    <AgentRunLineView {...props} actions={props.agentActions} onOpenPanel={props.actions?.onOpenPanel} />
   ) : (
     <PlaybookMissionBarView {...props} />
   );

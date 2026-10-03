@@ -6,7 +6,7 @@ import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTi
 import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState, latestStageRecord } from "@/lib/missions/domain";
-import { agentRunStoredPlan, describeAgentRunResult } from "@/lib/missions/agent-run-view";
+import { agentRunStoredPlan, describeAgentRunResult } from "@/lib/missions/agent-run-status";
 import { projectMissionStages } from "@/lib/missions/mission-view";
 import { AGENT_CHECK_IN_LABELS } from "@/lib/agents/schema";
 import { AgentRunDoneWhen } from "./AgentRunDoneWhen";
@@ -17,7 +17,7 @@ import { MissionRunSummary } from "./MissionRunSummary";
 import { StageCard } from "./StageCard";
 import type { MissionReportActions } from "./useMissionReportActions";
 import type { AgentRunActions } from "./useAgentRunActions";
-import { agentRunStyles } from "./agent-run.styles";
+import { agentRunResultStyles } from "./agent-run-result.styles";
 import { missionStyles as styles } from "./missions.styles";
 
 const formatClock = (iso: string) =>
@@ -31,7 +31,7 @@ const formatClock = (iso: string) =>
  * while the run is active and with the transcript card once it ended, so the
  * tab says why without a third copy of them.
  */
-export function AgentRunDetailView(props: {
+export function AgentRunOverview(props: {
   detail: MissionDetail;
   now: number;
   reportActions?: MissionReportActions;
@@ -145,14 +145,14 @@ export function AgentRunDetailView(props: {
 
       {status.state === "ready" ? (
         <section className={sx(styles.section, styles.sectionRule)} aria-label="Result">
-          <div className={sx(agentRunStyles.group)}>
+          <div className={sx(agentRunResultStyles.group)}>
             <AgentRunOutcome result={result} actions={actions} />
           </div>
         </section>
       ) : null}
 
       {detail.report ? (
-        <MissionReportView report={detail.report} actions={props.reportActions} context="panel" agentRun />
+        <MissionReportView report={detail.report} actions={props.reportActions} context="panel" agentOrigin />
       ) : null}
 
       <section className={sx(styles.section, styles.sectionRule)} aria-label="Run">
@@ -166,7 +166,7 @@ export function AgentRunDetailView(props: {
           active={active}
           now={now}
           formatClock={formatClock}
-          agentRun
+          agentOrigin
         />
       </section>
     </section>

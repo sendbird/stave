@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { AlarmClock, AlarmClockOff, Hand, Target } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
-import { isAgentRun } from "@/lib/missions/agent-run";
-import { describeAgentRunStatus } from "@/lib/missions/agent-run-view";
+import { hasAgentOrigin } from "@/lib/missions/agent-run";
+import { describeAgentRunStatus } from "@/lib/missions/agent-run-status";
 import { currentStageRecord, isActiveMissionState } from "@/lib/missions/domain";
 import { useAppStore } from "@/store/app.store";
 import { useTaskMission } from "@/store/missions-store";
@@ -18,16 +18,16 @@ export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { 
   const mission = useTaskMission(workspaceId, props.taskId);
   const wakeUp = useTaskWakeUp(workspaceId, props.taskId);
   const missionActive = Boolean(mission && isActiveMissionState(mission.mission.state));
-  const agentRun = missionActive && isAgentRun(mission!.mission) ? describeAgentRunStatus(mission!) : null;
-  const waitingOnUser = agentRun
-    ? agentRun.state === "needs-you"
+  const agentStatus = missionActive && hasAgentOrigin(mission!.mission) ? describeAgentRunStatus(mission!) : null;
+  const waitingOnUser = agentStatus
+    ? agentStatus.state === "needs-you"
     : missionActive &&
       mission!.mission.state === "running" &&
       currentStageRecord(mission!).status === "awaiting-sign-off";
   const wakeUpShown = wakeUp && wakeUp.summary.state !== "stopped";
   if (!missionActive && !wakeUpShown) return null;
-  const missionLabel = agentRun
-    ? `${agentRun.agentName}: ${agentRun.label}`
+  const missionLabel = agentStatus
+    ? `${agentStatus.agentName}: ${agentStatus.label}`
     : waitingOnUser
       ? "Mission waits for your sign-off"
       : mission?.mission.state === "paused"

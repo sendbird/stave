@@ -7,7 +7,7 @@ import { MissionBarView } from "../src/components/missions/MissionBar";
 import { MissionDetailView } from "../src/components/missions/MissionPanel";
 import { StageDividerView } from "../src/components/missions/StageDivider";
 import type { MissionDetail } from "../src/lib/missions/api";
-import { selectAgentRunCard } from "../src/lib/missions/agent-run-view";
+import { selectAgentRunCard } from "../src/lib/missions/agent-run-status";
 import { MISSION_NOW, missionDetail, missionFixture } from "./fixtures/mission-fixtures";
 
 const START = new Date("2026-10-01T09:00:00.000Z");

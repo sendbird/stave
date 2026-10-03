@@ -30,8 +30,8 @@ import {
 import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
 import { useAppStore } from "@/store/app.store";
 import { missionStageKey, useMissionFailure, useMissionsStore } from "@/store/missions-store";
-import { isAgentRun } from "@/lib/missions/agent-run";
-import { AgentRunDetailView } from "./AgentRunPanel";
+import { hasAgentOrigin } from "@/lib/missions/agent-run";
+import { AgentRunOverview } from "./AgentRunOverview";
 import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
 import { MissionReportView } from "./MissionReportView";
 import { useMissionReportActions, type MissionReportActions } from "./useMissionReportActions";
@@ -85,8 +85,8 @@ type MissionDetailViewProps = {
 
 /** The mission in the Progress tab: the stage list for a playbook, the agent and its result for a run. */
 export function MissionDetailView(props: MissionDetailViewProps) {
-  return isAgentRun(props.detail.mission) ? (
-    <AgentRunDetailView
+  return hasAgentOrigin(props.detail.mission) ? (
+    <AgentRunOverview
       detail={props.detail}
       now={props.now}
       reportActions={props.reportActions}

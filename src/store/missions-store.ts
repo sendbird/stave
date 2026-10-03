@@ -23,8 +23,8 @@ import type {
 import { isActiveMissionState, latestStageRecord, type Mission } from "@/lib/missions/domain";
 import { buildMissionTurnDividers, isOlderMissionDetail } from "@/lib/missions/mission-view";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
-import { isAgentRun } from "@/lib/missions/agent-run";
-import { describeAgentRunStatus, resolveAgentRunFirstPrompt } from "@/lib/missions/agent-run-view";
+import { hasAgentOrigin } from "@/lib/missions/agent-run";
+import { describeAgentRunStatus, resolveAgentRunFirstPrompt } from "@/lib/missions/agent-run-status";
 import { registerAgentRunBridge } from "@/store/agent-run-send";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
@@ -278,7 +278,7 @@ registerAgentRunBridge({
     if (state.loadedWorkspaceId !== workspaceId) return undefined;
     const id = state.missionIdByTask[missionTaskKey(workspaceId, taskId)];
     const mission = id ? state.details[id]?.mission : undefined;
-    return mission && isActiveMissionState(mission.state) ? { id: mission.id, agentRun: isAgentRun(mission) } : null;
+    return mission && isActiveMissionState(mission.state) ? { id: mission.id, agentOrigin: hasAgentOrigin(mission) } : null;
   },
   start: (input) => useMissionsStore.getState().startMission(input),
   cancel: (missionId) => useMissionsStore.getState().runCommand("cancel", { missionId }),
@@ -373,7 +373,7 @@ export function selectAgentRunForTurn(
   for (const id of state.missionIdsByTask[missionTaskKey(workspaceId, taskId)] ?? []) {
     if (!state.dividersByMission[id]?.has(turnId)) continue;
     const mission = state.details[id]?.mission;
-    return mission && isAgentRun(mission) ? mission : null;
+    return mission && hasAgentOrigin(mission) ? mission : null;
   }
   return null;
 }

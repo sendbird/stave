@@ -16,7 +16,7 @@ import {
 } from "@/lib/missions/insights";
 import { formatAge } from "@/lib/missions/mission-view";
 import { formatCostUsd } from "@/lib/missions/usage";
-import { formatRunDuration } from "@/lib/missions/agent-run-view";
+import { formatRunDuration } from "@/lib/missions/agent-run-status";
 import { ResultsCard } from "./ResultsCard";
 import { resultsBarToneStyles, resultsStyles as styles } from "./results.styles";
 

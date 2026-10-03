@@ -23,7 +23,7 @@ export interface MissionRunSummaryProps {
   now: number;
   formatClock: (iso: string) => string;
   /** An agent run: the copy says "run" where a playbook mission says "mission". */
-  agentRun?: boolean;
+  agentOrigin?: boolean;
 }
 
 interface Metric {
@@ -92,7 +92,7 @@ export function MissionRunSummary(props: MissionRunSummaryProps) {
   ];
 
   const notes = [
-    nearLimit && props.active ? `Close to its ${mission.maxTurns}-turn budget; the ${props.agentRun ? "run" : "mission"} stops there.` : null,
+    nearLimit && props.active ? `Close to its ${mission.maxTurns}-turn budget; the ${props.agentOrigin ? "run" : "mission"} stops there.` : null,
     unmeasured > 0
       ? `${unmeasured} ${unmeasured === 1 ? "turn" : "turns"} reported no usage, so the total may be low.`
       : null,
@@ -122,7 +122,7 @@ export function MissionRunSummary(props: MissionRunSummaryProps) {
           </span>
         </span>
       </div>
-      <dl className={sx(styles.metrics)} aria-label={props.agentRun ? "Run figures" : "Mission figures"}>
+      <dl className={sx(styles.metrics)} aria-label={props.agentOrigin ? "Run figures" : "Mission figures"}>
         {metrics.map((metric) => (
           <div key={metric.label} className={sx(styles.metric)}>
             <dt className={sx(styles.metricLabel)}>{metric.label}</dt>

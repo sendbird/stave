@@ -15,7 +15,7 @@ import {
   TurnActivitySurface,
   useTurnActivityModel,
 } from "@/components/session/TurnActivity";
-import { agentRunStoredPlan } from "@/lib/missions/agent-run-view";
+import { agentRunStoredPlan } from "@/lib/missions/agent-run-status";
 import { latestStageRecord } from "@/lib/missions/domain";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";

@@ -17,8 +17,8 @@ import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
 import { useFleetMissionsStore } from "@/store/fleet-missions-store";
 import type { MissionDetail } from "@/lib/missions/api";
-import { isAgentRun } from "@/lib/missions/agent-run";
-import { describeAgentRunProgress, describeAgentRunStatus } from "@/lib/missions/agent-run-view";
+import { hasAgentOrigin } from "@/lib/missions/agent-run";
+import { describeAgentRunProgress, describeAgentRunStatus } from "@/lib/missions/agent-run-status";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { agentStyles } from "./agents.styles";
 
@@ -63,7 +63,7 @@ function useRunByTaskId(): Record<string, MissionDetail> {
   return useMemo(() => {
     const byTask: Record<string, MissionDetail> = {};
     for (const detail of Object.values(details)) {
-      if (!isAgentRun(detail.mission)) continue;
+      if (!hasAgentOrigin(detail.mission)) continue;
       const current = byTask[detail.mission.leadTaskId];
       if (!current || current.mission.createdAt < detail.mission.createdAt) byTask[detail.mission.leadTaskId] = detail;
     }

@@ -45,7 +45,7 @@ export function MissionReportView({
   report,
   actions = {},
   context = "standalone",
-  agentRun = false,
+  agentOrigin = false,
 }: {
   report: MissionReport;
   actions?: MissionReportActions;
@@ -55,7 +55,7 @@ export function MissionReportView({
    */
   context?: "panel" | "standalone";
   /** An agent run: its copy says "run", and a one-stage run's stage is not a figure. */
-  agentRun?: boolean;
+  agentOrigin?: boolean;
 }) {
   const standalone = context === "standalone";
   const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null);
@@ -75,7 +75,7 @@ export function MissionReportView({
       setRunning(null);
     }
   };
-  const outcome = { ...OUTCOME[report.outcome], ...(agentRun ? { title: AGENT_RUN_OUTCOME_TITLES[report.outcome] } : {}) };
+  const outcome = { ...OUTCOME[report.outcome], ...(agentOrigin ? { title: AGENT_RUN_OUTCOME_TITLES[report.outcome] } : {}) };
   const OutcomeIcon = outcome.icon;
   const evidence = report.stages.flatMap((stage) => stage.evidence);
   const verifiedFirst = [...evidence].sort(
@@ -93,7 +93,7 @@ export function MissionReportView({
   // In the Mission panel the Run card already shows turns and spend.
   const figures: Array<readonly [string, string]> = [
     ["Duration", duration],
-    ...(agentRun && report.stages.length <= 1 ? [] : ([["Stages", `${completedStages}/${report.stages.length}`]] as const)),
+    ...(agentOrigin && report.stages.length <= 1 ? [] : ([["Stages", `${completedStages}/${report.stages.length}`]] as const)),
     ...(standalone ? ([["Turns", String(report.turnCount)]] as const) : []),
     ["Verified", String(verifiedCount)],
     ...(standalone && spent ? ([["Spent", spent]] as const) : []),
@@ -101,7 +101,7 @@ export function MissionReportView({
   return (
     <section
       className={sx(styles.section, styles.sectionRoomy, standalone ? null : styles.sectionRule)}
-      aria-label={agentRun ? "Run report" : "Mission report"}
+      aria-label={agentOrigin ? "Run report" : "Mission report"}
       data-testid="mission-report"
     >
       {standalone ? (
@@ -131,7 +131,7 @@ export function MissionReportView({
           figures.length === 4 && styles.statsFour,
           figures.length === 5 && styles.statsFive,
         )}
-        aria-label={agentRun ? "Run figures" : "Mission figures"}
+        aria-label={agentOrigin ? "Run figures" : "Mission figures"}
       >
         {figures.map(([label, value]) => (
           <div key={label} className={sx(styles.statTile)}>

@@ -144,8 +144,8 @@ describe("mission store", () => {
     expect(upgraded.create(playbookMission, MISSION_NOW)).toEqual({ ok: true });
     expect(upgraded.getAggregate("mission-old")?.mission.origin).toBeUndefined();
     const run = startChange("mission-run", "task-run");
-    const agentRun = { ...run, mission: { ...run.mission, origin: "agent" as const } };
-    expect(upgraded.create(agentRun, MISSION_NOW)).toEqual({ ok: true });
+    const agentOriginRun = { ...run, mission: { ...run.mission, origin: "agent" as const } };
+    expect(upgraded.create(agentOriginRun, MISSION_NOW)).toEqual({ ok: true });
     expect(new MissionStore(legacy).getAggregate("mission-run")?.mission.origin).toBe("agent");
     legacy.close();
   });

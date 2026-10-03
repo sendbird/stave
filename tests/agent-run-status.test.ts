@@ -11,7 +11,7 @@ import {
   formatRunDuration,
   resolveAgentRunFirstPrompt,
   resolveAgentRunPrompt,
-} from "../src/lib/missions/agent-run-view";
+} from "../src/lib/missions/agent-run-status";
 import { compileMissionStagePrompt, buildStageNudgePrompt } from "../src/lib/missions/briefing";
 import { describeMissionNotification } from "../src/lib/missions/notifications";
 import { selectAgentRunForTurn } from "../src/store/missions-store";

@@ -10,8 +10,8 @@ import { MissionPanel } from "@/components/missions/MissionPanel";
 import { WakeUpSection } from "@/components/missions/WakeUpSection";
 import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState } from "@/lib/missions/domain";
-import { isAgentRun } from "@/lib/missions/agent-run";
-import { describeAgentRunStatus } from "@/lib/missions/agent-run-view";
+import { hasAgentOrigin } from "@/lib/missions/agent-run";
+import { describeAgentRunStatus } from "@/lib/missions/agent-run-status";
 import { describeMissionBadge } from "@/lib/missions/mission-view";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import {
@@ -196,7 +196,7 @@ function ActivityMark(props: { taskId: string }) {
 function ProgressMark(props: { mission: MissionDetail | undefined }) {
   const { mission } = props;
   if (!mission || !isActiveMissionState(mission.mission.state)) return null;
-  const badge = isAgentRun(mission.mission) ? describeAgentRunStatus(mission) : describeMissionBadge(mission);
+  const badge = hasAgentOrigin(mission.mission) ? describeAgentRunStatus(mission) : describeMissionBadge(mission);
   return <Mark mark={resolveProgressTabMark(badge)} />;
 }
 
