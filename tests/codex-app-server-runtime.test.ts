@@ -51,7 +51,7 @@ import {
 } from "../electron/providers/codex-runtime-config";
 import { shouldStartFreshCodexGrantThread } from "../electron/providers/codex-thread-session";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
-import { normalizeCodexTokenUsage } from "../electron/providers/codex-token-usage";
+import { CodexThreadTokenUsage, mapCodexTokenUsageBreakdown } from "../electron/providers/codex-token-usage";
 import {
   buildCodexTerminalFailureEvents,
   resolveCodexTurnCompletionStopReason,
@@ -1958,14 +1958,12 @@ describe("resolveCodexApprovalDecisionTimeoutMs", () => {
 describe("Codex token usage mapping", () => {
   test("maps the v2 TokenUsageBreakdown including reasoning and cache write", () => {
     expect(
-      normalizeCodexTokenUsage({
-        last: {
-          inputTokens: 100_000,
-          outputTokens: 500,
-          cachedInputTokens: 90_000,
-          cacheWriteInputTokens: 4_000,
-          reasoningOutputTokens: 320,
-        },
+      mapCodexTokenUsageBreakdown({
+        inputTokens: 100_000,
+        outputTokens: 500,
+        cachedInputTokens: 90_000,
+        cacheWriteInputTokens: 4_000,
+        reasoningOutputTokens: 320,
       }),
     ).toEqual({
       inputTokens: 100_000,
@@ -1978,16 +1976,81 @@ describe("Codex token usage mapping", () => {
 
   test("omits zero optional counters and tolerates a missing breakdown", () => {
     expect(
-      normalizeCodexTokenUsage({
-        last: {
-          inputTokens: 10,
-          outputTokens: 5,
-          cachedInputTokens: 0,
-          reasoningOutputTokens: 0,
-        },
+      mapCodexTokenUsageBreakdown({
+        inputTokens: 10,
+        outputTokens: 5,
+        cachedInputTokens: 0,
+        reasoningOutputTokens: 0,
       }),
     ).toEqual({ inputTokens: 10, outputTokens: 5 });
-    expect(normalizeCodexTokenUsage(undefined)).toBeNull();
-    expect(normalizeCodexTokenUsage({})).toBeNull();
+    expect(mapCodexTokenUsageBreakdown(undefined)).toBeNull();
+  });
+});
+
+describe("Codex per-turn token usage", () => {
+  const usage = (input: number, output: number, cached = 0) => ({
+    inputTokens: input,
+    outputTokens: output,
+    cachedInputTokens: cached,
+    reasoningOutputTokens: 0,
+    totalTokens: input + output,
+  });
+  const update = (turnId: string, total: ReturnType<typeof usage>, last: ReturnType<typeof usage>, threadId = "thread-1") => ({
+    method: "thread/tokenUsage/updated",
+    params: { threadId, turnId, tokenUsage: { total, last, modelContextWindow: 400_000 } },
+  });
+
+  test("sums every model request of a turn, not just `last`", () => {
+    const tracker = new CodexThreadTokenUsage();
+    tracker.observe(update("turn-1", usage(1_000, 100, 800), usage(1_000, 100, 800)));
+    tracker.observe(update("turn-1", usage(2_500, 160, 2_000), usage(1_500, 60, 1_200)));
+    tracker.observe(update("turn-1", usage(4_500, 200, 3_700), usage(2_000, 40, 1_700)));
+    expect(tracker.read("thread-1", "turn-1")).toEqual({ inputTokens: 4_500, outputTokens: 200, cacheReadTokens: 3_700 });
+  });
+
+  test("a later turn counts only its own requests on top of the thread total", () => {
+    const tracker = new CodexThreadTokenUsage();
+    tracker.observe(update("turn-1", usage(1_000, 100), usage(1_000, 100)));
+    tracker.observe(update("turn-2", usage(2_200, 150), usage(1_200, 50)));
+    tracker.observe(update("turn-2", usage(3_600, 190), usage(1_400, 40)));
+    expect(tracker.read("thread-1", "turn-1")).toEqual({ inputTokens: 1_000, outputTokens: 100 });
+    expect(tracker.read("thread-1", "turn-2")).toEqual({ inputTokens: 2_600, outputTokens: 90 });
+  });
+
+  test("a repeated snapshot (rate-limit refresh) or a re-estimate with zero `last` adds nothing", () => {
+    const tracker = new CodexThreadTokenUsage();
+    tracker.observe(update("turn-1", usage(1_000, 100), usage(1_000, 100)));
+    // Rate limits arrive before the next turn's first response: same info, new turn.
+    tracker.observe(update("turn-2", usage(1_000, 100), usage(1_000, 100)));
+    tracker.observe(update("turn-2", usage(1_500, 130), usage(500, 30)));
+    tracker.observe(update("turn-2", usage(1_500, 130), usage(0, 0)));
+    expect(tracker.read("thread-1", "turn-2")).toEqual({ inputTokens: 500, outputTokens: 30 });
+  });
+
+  test("the usage replay after thread/resume is the baseline for the next turn", () => {
+    const tracker = new CodexThreadTokenUsage();
+    tracker.observe(update("old-turn", usage(50_000, 4_000), usage(9_000, 300)));
+    tracker.observe(update("turn-3", usage(50_000, 4_000), usage(9_000, 300)));
+    tracker.observe(update("turn-3", usage(61_000, 4_200), usage(11_000, 200)));
+    expect(tracker.read("thread-1", "turn-3")).toEqual({ inputTokens: 11_000, outputTokens: 200 });
+  });
+
+  test("a total reset by a context overflow becomes the new baseline", () => {
+    const tracker = new CodexThreadTokenUsage();
+    tracker.observe(update("turn-1", usage(1_000, 100), usage(1_000, 100)));
+    tracker.observe(update("turn-1", { ...usage(0, 0), totalTokens: 400_000 }, { ...usage(0, 0), totalTokens: 398_900 }));
+    tracker.observe(update("turn-1", usage(700, 20), usage(700, 20)));
+    expect(tracker.read("thread-1", "turn-1")).toEqual({ inputTokens: 1_700, outputTokens: 120 });
+  });
+
+  test("threads and turns are tracked apart; unknown ones read as null", () => {
+    const tracker = new CodexThreadTokenUsage();
+    tracker.observe(update("turn-a", usage(300, 30), usage(300, 30), "thread-a"));
+    tracker.observe(update("turn-b", usage(900, 90), usage(400, 40), "thread-b"));
+    expect(tracker.read("thread-a", "turn-a")).toEqual({ inputTokens: 300, outputTokens: 30 });
+    expect(tracker.read("thread-b", "turn-b")).toEqual({ inputTokens: 400, outputTokens: 40 });
+    expect(tracker.read("thread-a", "turn-b")).toBeNull();
+    tracker.observe({ method: "turn/completed", params: { threadId: "thread-a", turnId: "turn-a" } });
+    expect(tracker.read("thread-a", "turn-a")).toEqual({ inputTokens: 300, outputTokens: 30 });
   });
 });

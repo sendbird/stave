@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { runCodexReadOnlyPromptWithClient } from "../electron/providers/codex-read-only-prompt";
+import { CodexThreadTokenUsage } from "../electron/providers/codex-token-usage";
 
 describe("runCodexReadOnlyPromptWithClient", () => {
   test("uses one ephemeral thread, captures usage, and always deletes it", async () => {
@@ -8,6 +9,12 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       ((message: { method?: string; params?: unknown }) => void) | null = null;
     let threadStartArgs: unknown;
     let turnStartArgs: unknown;
+    // The App Server client records usage before any listener sees it.
+    const tokenUsage = new CodexThreadTokenUsage();
+    const deliver = (message: { method?: string; params?: unknown }) => {
+      tokenUsage.observe(message);
+      listener?.(message);
+    };
     const request = async <T>(method: string, _params: unknown): Promise<T> => {
       methods.push(method);
       if (method === "account/read") {
@@ -34,19 +41,22 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       }
       if (method === "turn/start") {
         queueMicrotask(() => {
-          listener?.({
-            method: "thread/tokenUsage/updated",
-            params: {
-              threadId: "advisor-thread",
-              tokenUsage: {
-                last: {
-                  inputTokens: 12,
-                  outputTokens: 5,
-                  cachedInputTokens: 3,
-                },
-              },
+          // Two model requests in one turn: `last` is the second only.
+          for (const tokenUsage of [
+            {
+              total: { inputTokens: 8, outputTokens: 2, cachedInputTokens: 1 },
+              last: { inputTokens: 8, outputTokens: 2, cachedInputTokens: 1 },
             },
-          });
+            {
+              total: { inputTokens: 12, outputTokens: 5, cachedInputTokens: 3 },
+              last: { inputTokens: 4, outputTokens: 3, cachedInputTokens: 2 },
+            },
+          ]) {
+            deliver({
+              method: "thread/tokenUsage/updated",
+              params: { threadId: "advisor-thread", turnId: "advisor-turn", tokenUsage },
+            });
+          }
           listener?.({
             method: "turn/completed",
             params: {
@@ -77,6 +87,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       model: "gpt-5.6-terra",
       isolated: true,
       request,
+      readTurnUsage: (threadId, turnId) => tokenUsage.read(threadId, turnId),
       subscribe: (nextListener) => {
         listener = nextListener;
         return () => {
@@ -190,6 +201,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         return {} as T;
       },
       subscribe: () => () => {},
+      readTurnUsage: () => null,
       buildThreadStartParams: () => {
         throw new Error("A resumed lane must not start a fresh thread.");
       },
@@ -248,6 +260,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         return {} as T;
       },
       subscribe: () => () => {},
+      readTurnUsage: () => null,
       buildThreadStartParams: (args) => args,
       buildTurnStartParams: (args) => args,
     });
@@ -296,6 +309,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         return {} as T;
       },
       subscribe: () => () => {},
+      readTurnUsage: () => null,
       buildThreadStartParams: (args) => args,
       buildTurnStartParams: (args) => args,
     });
@@ -344,6 +358,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         return {} as T;
       },
       subscribe: () => () => {},
+      readTurnUsage: () => null,
       buildThreadStartParams: (args) => args,
       buildTurnStartParams: (args) => args,
     });
@@ -362,6 +377,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       signal: controller.signal,
       request: async <T>() => ({}) as T,
       subscribe: () => () => {},
+      readTurnUsage: () => null,
       buildThreadStartParams: (args) => args,
       buildTurnStartParams: (args) => args,
     });
@@ -385,6 +401,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         return {} as T;
       },
       subscribe: () => () => {},
+      readTurnUsage: () => null,
       buildThreadStartParams: (args) => args,
       buildTurnStartParams: (args) => args,
     });
@@ -416,6 +433,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         return {} as T;
       },
       subscribe: () => () => {},
+      readTurnUsage: () => null,
       buildThreadStartParams: (args) => args,
       buildTurnStartParams: (args) => args,
     });
@@ -469,6 +487,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         return {} as T;
       },
       subscribe: () => () => {},
+      readTurnUsage: () => null,
       buildThreadStartParams: (args) => args,
       buildTurnStartParams: (args) => args,
     }).then((result) => {
@@ -521,6 +540,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         return {} as T;
       },
       subscribe: () => () => {},
+      readTurnUsage: () => null,
       buildThreadStartParams: (args) => args,
       buildTurnStartParams: (args) => args,
     });

@@ -143,6 +143,7 @@ A connection can pin any model the gateway offers, not only Claude and OpenAI on
 ## Limitations And Advanced Options
 
 - Non-Claude models are experimental in Claude Code; see [Use Open Models](#use-open-models).
+- In Claude Code, commands the agent runs can read the connection's key. Claude Code reads the key from its environment, and its Bash tool inherits that environment. Codex hides the key from the commands it runs. Claude Code's own setting for hiding credentials from commands also forces every turn into the default permission mode, so Stave leaves it off. Treat the key as visible to the agent's commands, and keep a spending limit on it at the gateway.
 - Model discovery reads the Vercel AI Gateway catalog only. For other gateways, add model IDs by hand.
 - **Check connection** does not run a turn, so it cannot confirm that tools and streaming work with a model. Send a short turn to confirm.
 - Claude's `claude auth status` fields for email and plan are observed rather than documented. If a future version drops them, the row shows **Signed in** without an email.
@@ -202,7 +203,7 @@ A connection can pin any model the gateway offers, not only Claude and OpenAI on
 
 ### "Choose a model pinned on this API connection"
 
-- Cause: the composer still names a model from the account you used before, or an auxiliary setting names a model the connection does not pin.
+- Cause: the composer still names a model from the account you used before, or an auxiliary setting names a model the connection does not pin. A model without a creator prefix is matched to the same pinned model: `gpt-5.5` uses a pinned `openai/gpt-5.5` in Codex, and `claude-sonnet-5` uses a pinned `anthropic/claude-sonnet-5` in Claude Code.
 - Fix: choose one of the connection's models in the composer, or pin the model the setting uses.
 
 ## Related Docs
