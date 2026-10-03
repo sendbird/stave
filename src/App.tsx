@@ -1,6 +1,7 @@
 import { useDelegationPermissionSync } from "@/lib/runs/useDelegationPermissionSync";
 import { useMissionSync } from "@/store/missions-store";
 import { useWakeUpSync } from "@/store/wake-ups-store";
+import { useUsageLimitAutoResume } from "@/store/use-usage-limit-auto-resume";
 import { useMissionCommands } from "@/components/missions/useMissionCommands";
 import { useFleetMissionSync } from "@/store/fleet-missions-store";
 import { usePlaybookSync } from "@/lib/projects/usePlaybookSync";
@@ -52,6 +53,7 @@ export default function App() {
   useLensSessionClosedEvents();
   useMissionSync();
   useWakeUpSync();
+  useUsageLimitAutoResume();
   useMissionCommands();
   useFleetMissionSync();
   usePlaybookSync();

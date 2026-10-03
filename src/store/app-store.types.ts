@@ -3,6 +3,7 @@ import type {
   WorkspaceSummary,
 } from "@/lib/db/workspaces.db";
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
+import type { UsageLimitPauseByTask } from "@/store/task-work-pause";
 import type { AppNotification } from "@/lib/notifications/notification.types";
 import type { PersistenceBootstrapPhase } from "@/lib/persistence/bootstrap-status";
 import type {
@@ -81,6 +82,14 @@ export interface SkillCatalogState {
   detail: string;
 }
 
+export interface SendBlockedUsageLimit {
+  providerId: ProviderId;
+  model?: string;
+  windowLabel: string;
+  /** Epoch ms, or null when the provider did not report a reset. */
+  resetsAt: number | null;
+}
+
 export type SendUserMessageResult =
   | {
       status: "blocked";
@@ -89,6 +98,8 @@ export type SendUserMessageResult =
         | "auto-routing-disabled"
         | "workspace-path-missing";
       message?: string;
+      /** Set with `reason: "account-limit"`: which limit, and when it resets. */
+      usageLimit?: SendBlockedUsageLimit;
     }
   | { status: "queued"; taskId: string; workspaceId: string }
   | { status: "steered"; taskId: string; workspaceId: string; turnId: string }
@@ -182,6 +193,16 @@ export interface AppState
    * the conversation history handed to a provider.
    */
   failedSendsByTask: FailedOutgoingSendsByTask;
+  /**
+   * Tasks whose work stopped at a provider usage limit, in memory only. Their
+   * queue holds until the user resumes, or until an armed auto-resume fires.
+   */
+  usageLimitPauseByTask: UsageLimitPauseByTask;
+  /**
+   * Tasks whose queue, restored from the previous run of the app, the user
+   * released. Until then those items wait instead of sending on completion.
+   */
+  restoredQueueReleasedByTask: Record<string, true | undefined>;
   messageCountByTask: Record<string, number>;
   taskMessagesLoadingByTask: Record<string, boolean>;
   layout: LayoutState;
@@ -637,6 +658,31 @@ export interface AppState
    * dismissing is the user saying they no longer want to send it.
    */
   dismissFailedSend: (args: { taskId: string; id: string }) => void;
+  /**
+   * Hold a task's work after a usage limit stopped its turn or refused to
+   * start one. The queue waits; the composer shelf offers to resume.
+   */
+  pauseTaskForUsageLimit: (args: {
+    taskId: string;
+    workspaceId: string;
+    providerId: ProviderId;
+    model?: string;
+    stoppedTurn: boolean;
+    usageLimit?: SendBlockedUsageLimit;
+  }) => void;
+  /**
+   * Continue paused work: the turn a usage limit stopped, then the queue.
+   * `auto` is an armed resume firing; it re-arms instead of sending while the
+   * limit still holds.
+   */
+  resumePausedTaskWork: (args: {
+    taskId: string;
+    trigger?: "user" | "auto";
+  }) => Promise<void>;
+  /** Arm or disarm resuming on its own when the usage limit resets. */
+  setUsageLimitAutoResume: (args: { taskId: string; enabled: boolean }) => void;
+  /** Forget a usage-limit pause without resuming anything. */
+  dismissUsageLimitPause: (args: { taskId: string }) => void;
   /**
    * Forward a workspace's failing verification checks back to its agent as the
    * next turn. Builds a prompt from the stored {@link TurnVerificationResult}

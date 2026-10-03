@@ -26,3 +26,51 @@ Large payloads are no longer expected to stay in a raw turn journal for replay.
 Workspace restore and recent-turn summaries now rely on the smaller chat,
 lifecycle, and shell shapes instead of eagerly loading giant per-turn payload
 rows.
+
+## Paused Work And Queue Recovery
+
+Queued follow-ups remain in `promptDraftByTask`, including their attachments
+and captured runtime choices. `task-work-pause.ts` distinguishes entries from
+the previous renderer session by `queuedAt`; `queued-task-turn-dispatch.ts`
+holds them until the user releases the restored queue. A newly queued entry
+cannot jump past an older held entry.
+
+For a conversation turn, the terminal event is replayed into the task's
+messages before `task-work-pause-wiring.ts` checks whether a usage-limit error
+ended the turn. A queued send refused by `account-usage-guard.ts` reaches the
+same pause through the dispatcher's blocked-result callback. Utility turns
+neither create nor release this conversation pause.
+
+`app-store-task-pause-actions.ts` owns pause, cancellation and resume. The
+renderer timer in `use-usage-limit-auto-resume.ts` runs only while the app is
+open. An automatic resume refreshes usage, checks that the user has not
+cancelled or resumed during that read, and either moves to the next exhausted
+window's reset or releases the pause. When a limit interrupted a turn, resume
+uses the normal send path for a continuation asking the agent to reconcile
+completed work before proceeding; it does not replay the original prompt.
+
+Pause records, reset-time reservations and restored-queue release flags are
+renderer memory only. They are not persisted or scheduled through the
+host-service. After a restart, saved queue entries wait for the user again;
+the queue's Resume action alone does not recreate a lost continuation record.
+
+## Attached Task Context
+
+The composer records a task attachment's workspace id, task id, title and
+scope. Title search offers eligible tasks in the current workspace; a task
+row drag can carry an identity from another workspace. Neither action copies
+the transcript into the draft.
+
+At dispatch, `attached-task-context-runtime.ts` collects attachments from both
+the draft and prompt-batch items. It reads loaded task messages or falls back
+to `loadTaskMessagesPage` in `src/lib/db/workspaces.db.ts`. In the desktop app
+that read crosses `window.api.persistence.loadTaskMessages`, preload,
+`persistence:load-task-messages` validation, and the SQLite persistence store.
+
+`attached-task-context.ts` bounds the selected text and marks it as user-chosen
+background, not instructions. The send action includes the result as
+`stave:attached-task-context` retrieved context in the canonical request,
+which follows the normal provider bridge and runtime translation path.
+The sent message keeps a display-only `task_context` part. Canonical history
+conversion excludes that chip, so it does not independently replay the
+attachment into future turns.

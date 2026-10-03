@@ -1,4 +1,8 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import {
+  TASK_DRAG_MIME,
+  encodeTaskDragPayload,
+} from "@/lib/task-context/attached-task-context";
 import { AlertTriangle, CircleDashed } from "lucide-react";
 import { memo, useMemo, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -88,6 +92,8 @@ export function WorkspaceProgressTaskTreeView(args: {
   items: WorkspaceProgressTaskItem[];
   loading?: boolean;
   onOpenTask: (taskId: string) => void;
+  /** Lets a row be dragged into a composer to attach the task as context. */
+  workspaceId?: string;
 }) {
   if (!args.loading && args.items.length === 0) {
     return null;
@@ -122,7 +128,23 @@ export function WorkspaceProgressTaskTreeView(args: {
             data-workspace-progress-status={item.status}
             xstyle={styles.row}
             aria-label={`${item.title}, ${statusLabel}`}
+            title={args.workspaceId ? "Open, or drag into a prompt to attach as context" : undefined}
             onClick={() => args.onOpenTask(item.taskId)}
+            draggable={Boolean(args.workspaceId)}
+            onDragStart={(event) => {
+              if (!args.workspaceId) {
+                return;
+              }
+              event.dataTransfer.effectAllowed = "copy";
+              event.dataTransfer.setData(
+                TASK_DRAG_MIME,
+                encodeTaskDragPayload({
+                  taskId: item.taskId,
+                  workspaceId: args.workspaceId,
+                  title: item.title,
+                }),
+              );
+            }}
           >
             <ProviderMark providerId={item.providerId} />
             <span className={sx(styles.rowTitle)}>{item.title}</span>
@@ -217,6 +239,7 @@ export const WorkspaceProgressTaskTree = memo(
     return (
       <WorkspaceProgressTaskTreeView
         items={items}
+        workspaceId={args.workspaceId}
         onOpenTask={(taskId) => {
           void focusTaskAttention({
             taskId,

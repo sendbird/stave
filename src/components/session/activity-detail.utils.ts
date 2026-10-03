@@ -87,6 +87,8 @@ function describePart(part: MessagePart, role: ChatMessage["role"]) {
         title: "Workspace context",
         text: "Workspace information was attached to this turn.",
       };
+    case "task_context":
+      return { title: "Task context", text: part.title };
   }
 }
 

@@ -16,6 +16,7 @@ import {
   Target,
   Trash2,
   UserRound,
+  MessagesSquare,
   WandSparkles,
   X,
   Zap,
@@ -205,6 +206,17 @@ import {
   type WorkspaceInformationReferenceOption,
 } from "@/lib/workspace-information-references";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
+import { TaskContextChip } from "@/components/task-context-chip";
+import {
+  buildMentionPaletteItems,
+  readDroppedTask,
+  type MentionPaletteItem,
+} from "./prompt-input-mentions";
+import {
+  TASK_DRAG_MIME,
+  type TaskContextAttachment,
+  type TaskMentionOption,
+} from "@/lib/task-context/attached-task-context";
 import {
   LocalChangeReviewDialog,
   type LocalChangeReviewRequest,
@@ -294,6 +306,10 @@ interface PromptInputProps {
     draftText: string;
   }) => { text: string; caretIndex: number; instantRun?: boolean } | null;
   workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
+  /** Tasks `@` can attach as context, most recent first. */
+  taskMentionOptions?: readonly TaskMentionOption[];
+  /** Attach a task picked with `@` or dropped on the composer. */
+  onAttachTask?: (task: { taskId: string; workspaceId: string; title: string }) => void;
   onValueChange: (value: string) => void;
   onEnhancePrompt?: () => void | Promise<void>;
   promptEnhancementPending?: boolean;
@@ -843,6 +859,8 @@ export function PromptInput(args: PromptInputProps) {
     macros,
     onMacroSelect,
     workspaceInformationReferenceOptions,
+    taskMentionOptions,
+    onAttachTask,
     onValueChange,
     onEnhancePrompt,
     promptEnhancementPending = false,
@@ -948,10 +966,23 @@ export function PromptInput(args: PromptInputProps) {
       ),
     [attachments],
   );
+  const taskContextAttachments = useMemo(
+    () =>
+      (attachments ?? []).filter(
+        (attachment): attachment is TaskContextAttachment =>
+          attachment.kind === "task-context",
+      ),
+    [attachments],
+  );
+  const referenceAttachments = useMemo(
+    () => [...workspaceInformationAttachments, ...taskContextAttachments],
+    [taskContextAttachments, workspaceInformationAttachments],
+  );
+  const [taskDropActive, setTaskDropActive] = useState(false);
   const currentAttachmentCount =
     attachedFilePaths.length +
     standaloneImageAttachments.length +
-    workspaceInformationAttachments.length;
+    referenceAttachments.length;
   const lensCommentCount = lensAnnotationAttachments.reduce(
     (count, attachment) =>
       count + (attachment.annotations?.length ?? attachment.count),
@@ -1084,7 +1115,7 @@ export function PromptInput(args: PromptInputProps) {
     attachedFilePaths.length > 0 ||
     imageAttachments.length > 0 ||
     lensAnnotationAttachments.length > 0 ||
-    workspaceInformationAttachments.length > 0 ||
+    referenceAttachments.length > 0 ||
     promptBatch.length > 0;
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
   const isQueueNextMode = submitMode === "queue-next";
@@ -1168,14 +1199,19 @@ export function PromptInput(args: PromptInputProps) {
       }),
     [activeMacroToken?.query, paletteMacros],
   );
-  const filteredWorkspaceInformationItems = useMemo(() => {
-    const query = deferredWorkspaceInformationQuery.trim().toLowerCase();
-    const items = workspaceInformationReferenceOptions ?? [];
-    if (!query) {
-      return items;
-    }
-    return items.filter((item) => item.searchText.includes(query));
-  }, [deferredWorkspaceInformationQuery, workspaceInformationReferenceOptions]);
+  const filteredWorkspaceInformationItems = useMemo(
+    () =>
+      buildMentionPaletteItems({
+        query: deferredWorkspaceInformationQuery,
+        informationOptions: workspaceInformationReferenceOptions ?? [],
+        taskOptions: taskMentionOptions ?? [],
+      }),
+    [
+      deferredWorkspaceInformationQuery,
+      taskMentionOptions,
+      workspaceInformationReferenceOptions,
+    ],
+  );
   const indexedCommandItems = useMemo(
     () => filteredCommandItems.map((item, index) => ({ item, index })),
     [filteredCommandItems],
@@ -1217,15 +1253,26 @@ export function PromptInput(args: PromptInputProps) {
   );
   const workspaceInformationSectionItems = useMemo(
     () =>
-      indexedWorkspaceInformationItems.filter(
-        ({ item }) => item.kind === "section",
+      indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
+        item.kind === "information" && item.option.kind === "section"
+          ? [{ item: item.option, index }]
+          : [],
+      ),
+    [indexedWorkspaceInformationItems],
+  );
+  const taskMentionItems = useMemo(
+    () =>
+      indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
+        item.kind === "task" ? [{ item: item.option, index }] : [],
       ),
     [indexedWorkspaceInformationItems],
   );
   const workspaceInformationEntryItems = useMemo(
     () =>
-      indexedWorkspaceInformationItems.filter(
-        ({ item }) => item.kind === "item",
+      indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
+        item.kind === "information" && item.option.kind === "item"
+          ? [{ item: item.option, index }]
+          : [],
       ),
     [indexedWorkspaceInformationItems],
   );
@@ -1281,7 +1328,7 @@ export function PromptInput(args: PromptInputProps) {
     ) {
       return (
         filteredWorkspaceInformationItems[selectedWorkspaceInformationIndex]
-          ?.reference.token ?? ""
+          ?.key ?? ""
       );
     }
     if (
@@ -1691,7 +1738,7 @@ export function PromptInput(args: PromptInputProps) {
         attachedFilePaths,
         imageAttachments,
         lensAnnotationAttachments,
-        workspaceInformationAttachments,
+        workspaceInformationAttachments: referenceAttachments,
         promptBatch,
       })
     ) {
@@ -2125,6 +2172,30 @@ export function PromptInput(args: PromptInputProps) {
     }
     onValueChange(result.text);
     restoreComposerSelection(result.caretIndex);
+  }
+
+  function applyMentionSelection(item: MentionPaletteItem) {
+    if (item.kind === "information") {
+      applyWorkspaceInformationSelection(item.option);
+      return;
+    }
+    const match = resolveWorkspaceInformationTokenSelection();
+    pendingWorkspaceInformationTokenRef.current = null;
+    if (!match) {
+      return;
+    }
+    // The task becomes a chip under the prompt, so the typed `@query` goes.
+    const currentValue = valueRef.current;
+    const nextValue = `${currentValue.slice(0, match.start)}${currentValue
+      .slice(match.end)
+      .replace(/^ /, "")}`;
+    valueRef.current = nextValue;
+    onValueChange(nextValue);
+    setSuppressedAutocompleteValue({ palette: "info", value: nextValue });
+    setDismissedWorkspaceInformationToken(null);
+    setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
+    onAttachTask?.(item.option);
+    restoreComposerSelection(match.start);
   }
 
   function applyWorkspaceInformationSelection(
@@ -2631,7 +2702,32 @@ export function PromptInput(args: PromptInputProps) {
       >
         <form
           data-prompt-input-root
+          data-task-drop={taskDropActive ? "" : undefined}
           onSubmit={handleSubmit}
+          onDragOverCapture={(event) => {
+            if (!onAttachTask || !event.dataTransfer.types.includes(TASK_DRAG_MIME)) {
+              return;
+            }
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            setTaskDropActive(true);
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              setTaskDropActive(false);
+            }
+          }}
+          onDropCapture={(event) => {
+            const task = onAttachTask ? readDroppedTask(event.dataTransfer) : null;
+            setTaskDropActive(false);
+            if (!task) {
+              return;
+            }
+            // The editor would otherwise insert the payload as text.
+            event.preventDefault();
+            event.stopPropagation();
+            onAttachTask?.(task);
+          }}
           onFocusCapture={syncComposerFocus}
           onBlurCapture={() => {
             window.requestAnimationFrame(syncComposerFocus);
@@ -2639,6 +2735,7 @@ export function PromptInput(args: PromptInputProps) {
           className={sx(
             promptInputStyles.formBase,
             minimal ? promptInputStyles.formMinimal : promptInputStyles.formDefault,
+            taskDropActive && promptInputStyles.formTaskDrop,
           )}
         >
           {goalStatus ? (
@@ -2959,7 +3056,7 @@ export function PromptInput(args: PromptInputProps) {
                             });
                             if (selectedItem) {
                               event.preventDefault();
-                              applyWorkspaceInformationSelection(selectedItem);
+                              applyMentionSelection(selectedItem);
                               return;
                             }
                           }
@@ -3329,7 +3426,9 @@ export function PromptInput(args: PromptInputProps) {
                   {activePalette === "info" &&
                   filteredWorkspaceInformationItems.length === 0 ? (
                     <CommandEmpty>
-                      No matching Information reference.
+                      {taskMentionOptions && taskMentionOptions.length > 0
+                        ? "No matching task or Information reference."
+                        : "No matching Information reference."}
                     </CommandEmpty>
                   ) : activePalette === "skill" &&
                     filteredSkillItems.length === 0 ? (
@@ -3389,6 +3488,47 @@ export function PromptInput(args: PromptInputProps) {
                               </CommandItem>
                             ),
                           )}
+                        </CommandGroup>
+                      ) : null}
+                      {activePalette === "info" &&
+                      taskMentionItems.length > 0 ? (
+                        <CommandGroup heading="Tasks">
+                          {taskMentionItems.map(({ item, index }) => (
+                            <CommandItem
+                              key={item.taskId}
+                              value={`@task:${item.taskId}`}
+                              className={sx(promptInputStyles.itemStandard)}
+                              data-palette-index={index}
+                              onMouseEnter={() =>
+                                setSelectedWorkspaceInformationIndex(index)
+                              }
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                rememberActivePaletteTokenSelection();
+                              }}
+                              onSelect={() =>
+                                applyMentionSelection({
+                                  kind: "task",
+                                  key: `@task:${item.taskId}`,
+                                  option: item,
+                                })
+                              }
+                            >
+                              <div className={sx(promptInputStyles.iconWrapPrimary)}>
+                                <MessagesSquare className={sx(promptInputStyles.icon4)} />
+                              </div>
+                              <div className={sx(promptInputStyles.flex1Min)}>
+                                <div className={sx(promptInputStyles.rowCenter)}>
+                                  <span className={sx(promptInputStyles.fontMedium)}>
+                                    {item.title}
+                                  </span>
+                                </div>
+                                <p className={sx(promptInputStyles.itemDesc)}>
+                                  Attach its latest reply as context
+                                </p>
+                              </div>
+                            </CommandItem>
+                          ))}
                         </CommandGroup>
                       ) : null}
                       {activePalette === "info" &&
@@ -3679,11 +3819,16 @@ export function PromptInput(args: PromptInputProps) {
                   <div className={sx(promptInputStyles.paletteFooter)}>
                     <p className={sx(promptInputStyles.paletteFooterTitle)}>
                       <Info className={sx(promptInputStyles.icon35)} />
-                      Enter or Tab inserts the highlighted Information
-                      reference.
+                      {filteredWorkspaceInformationItems[
+                        selectedWorkspaceInformationIndex
+                      ]?.kind === "task"
+                        ? "Enter or Tab attaches the highlighted task as context."
+                        : "Enter or Tab inserts the highlighted Information reference."}
                     </p>
                     <p className={sx(promptInputStyles.mt2)}>
-                      Type `@` to search Information. Selection inserts
+                      Type `@` to search Information and tasks. A task attaches
+                      below the prompt; you can also drag one in from the
+                      sidebar. Information selection inserts
                       `@info:section` for a full section or `@info:section/item`
                       for one item. `@lens` references the current Lens browser
                       page; `@web` connects the active provider to its native
@@ -3992,7 +4137,7 @@ export function PromptInput(args: PromptInputProps) {
           ) : null}
           {attachedFilePaths.length > 0 ||
           standaloneImageAttachments.length > 0 ||
-          workspaceInformationAttachments.length > 0 ? (
+          referenceAttachments.length > 0 ? (
             <div
               role="group"
               aria-label="Current prompt attachments"
@@ -4014,6 +4159,36 @@ export function PromptInput(args: PromptInputProps) {
                         (candidate) =>
                           !(
                             candidate.kind === "workspace-information" &&
+                            candidate.id === attachment.id
+                          ),
+                      ),
+                    })
+                  }
+                />
+              ))}
+              {taskContextAttachments.map((attachment) => (
+                <TaskContextChip
+                  key={attachment.id}
+                  title={attachment.title}
+                  scope={attachment.scope}
+                  disabled={interactionsDisabled}
+                  compact={minimal}
+                  onScopeChange={(scope) =>
+                    onAttachmentsChange?.({
+                      attachments: (attachments ?? []).map((candidate) =>
+                        candidate.kind === "task-context" &&
+                        candidate.id === attachment.id
+                          ? { ...candidate, scope }
+                          : candidate,
+                      ),
+                    })
+                  }
+                  onRemove={() =>
+                    onAttachmentsChange?.({
+                      attachments: (attachments ?? []).filter(
+                        (candidate) =>
+                          !(
+                            candidate.kind === "task-context" &&
                             candidate.id === attachment.id
                           ),
                       ),

@@ -180,6 +180,18 @@ const WorkspaceInformationContextPartSchema = z.object({
   reference: WorkspaceInformationReferenceSchema,
 });
 
+const TaskContextScopeSchema = z
+  .union([z.literal("latest-reply"), z.literal("conversation")])
+  .catch("latest-reply");
+
+const TaskContextPartSchema = z.object({
+  type: z.literal("task_context"),
+  taskId: z.string(),
+  workspaceId: z.string(),
+  title: z.string(),
+  scope: TaskContextScopeSchema,
+});
+
 const SystemEventPartSchema = z.object({
   type: z.literal("system_event"),
   content: z.string(),
@@ -199,6 +211,7 @@ const MessagePartSchema = z.discriminatedUnion("type", [
   FileContextPartSchema,
   ImageContextPartSchema,
   WorkspaceInformationContextPartSchema,
+  TaskContextPartSchema,
   ApprovalPartSchema,
   UserInputPartSchema,
   SystemEventPartSchema,
@@ -217,6 +230,14 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     kind: z.literal("workspace-information"),
     id: z.string(),
     reference: WorkspaceInformationReferenceSchema,
+  }),
+  z.object({
+    kind: z.literal("task-context"),
+    id: z.string(),
+    taskId: z.string(),
+    workspaceId: z.string(),
+    title: z.string(),
+    scope: TaskContextScopeSchema,
   }),
   z.object({
     kind: z.literal("lens-annotations"),

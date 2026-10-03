@@ -5,7 +5,7 @@ import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-polic
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
 import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
-import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
+import { collectTaskReferenceContextParts } from "@/store/attached-task-context-runtime";
 import {
   extractWorkspaceInformationReferencesFromText,
   formatWorkspaceInformationReferencesContext,
@@ -64,6 +64,7 @@ import {
   createProviderTurnEventController,
   runProviderTurn,
 } from "@/store/provider-turn-runtime";
+import { endUsageLimitPauseOnTurnStart, settleTaskQueueAfterTurn } from "@/store/task-work-pause-wiring";
 import { guardSendAgainstAccountUsage } from "@/store/account-usage-guard";
 import { toast } from "@/lib/notifications/toast";
 import { applySteeredTurnState } from "@/store/steer-turn-state";
@@ -1054,15 +1055,11 @@ export function createSendUserMessageAction(args: {
       if (workspaceInformationReferencesContext) {
         retrievedContextParts.push(workspaceInformationReferencesContext);
       }
-      const referencedTaskContext = buildReferencedTaskRetrievedContext({
-        prompt: normalizedPrompt || promptContent,
-        currentTaskId: resolvedTaskId,
-        tasks: taskWorkspaceTasks,
+      retrievedContextParts.push(...(await collectTaskReferenceContextParts({
+        getState: get, prompt: normalizedPrompt || promptContent, promptDraft,
+        currentTaskId: resolvedTaskId, tasks: taskWorkspaceTasks,
         messagesByTask: latestWorkspaceSession.messagesByTask,
-      });
-      if (referencedTaskContext) {
-        retrievedContextParts.push(referencedTaskContext);
-      }
+      })));
       // ──────────────────────────────────────────────────────────────────────
 
       const modelRuntimeSettings = applyModelRuntimePreference({
@@ -1270,6 +1267,7 @@ export function createSendUserMessageAction(args: {
       }
       // Same tick as the row insert: Auto's pending row hands straight over.
       endPendingAutoRoute({ taskId: resolvedTaskId, id: turnId });
+      endUsageLimitPauseOnTurnStart(get, resolvedTaskId, turnOrigin);
 
       const turnActivityStartedAt = Date.now();
       // The usage meter's cadence is driven by real turn activity rather
@@ -1568,9 +1566,9 @@ export function createSendUserMessageAction(args: {
               state: latestState,
               workspaceId: taskWorkspaceId,
             });
-            dispatchNextQueuedTaskTurn({
-              workspaceId: taskWorkspaceId,
-              taskId: resolvedTaskId,
+            settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, {
+              workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
+              providerId: provider, model: activeModel, turnOrigin,
             });
             maybeStartProviderBrowserFallbackTurn(get, {
               taskId: resolvedTaskId,

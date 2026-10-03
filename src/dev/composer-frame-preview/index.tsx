@@ -18,6 +18,12 @@ import { CLAUDE_EFFORT_OPTIONS, findOptionLabel } from "@/lib/providers/runtime-
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
+import {
+  addTaskContextAttachment,
+  buildTaskMentionOptions,
+  createTaskContextAttachment,
+} from "@/lib/task-context/attached-task-context";
+import type { Attachment, Task } from "@/types/chat";
 import { PromptInputContextMeter } from "@/components/ai-elements/prompt-input-context-meter";
 import { TooltipProvider } from "@/components/ui";
 import { ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
@@ -56,6 +62,8 @@ import {
 } from "./fixtures";
 import {
   caseHasQueue,
+  isShelfCaseTurnLive,
+  queuePauseFor,
   isShelfCaseId,
   PREVIEW_APPROVALS,
   PREVIEW_QUEUE,
@@ -91,6 +99,16 @@ import {
  * caps the composer measure; `&panel=1` adds the Task panel's Activity tab
  * at its usual 384px.
  */
+/** Tasks the `@` palette can attach in the preview. */
+const PREVIEW_TASK_MENTIONS = buildTaskMentionOptions({
+  workspaceId: "preview-workspace",
+  tasks: [
+    { id: "t-research", title: "Research the login redirect bug", updatedAt: "2026-10-03T09:00:00.000Z" },
+    { id: "t-review", title: "Review the queue restore PR", updatedAt: "2026-10-03T08:00:00.000Z" },
+    { id: "t-notes", title: "Release notes for 0.25", updatedAt: "2026-10-02T08:00:00.000Z" },
+  ].map((task) => ({ ...task, provider: "claude-code", unread: false, archivedAt: null }) as Task),
+});
+
 const previewParams = new URLSearchParams(window.location.search);
 const PREVIEW_PINNED_MODEL = "claude-opus-5-5";
 const PREVIEW_EFFORT = previewParams.get("effort");
@@ -159,6 +177,7 @@ export function ComposerFramePreviewApp() {
   const [layoutPreference, setLayoutPreference] =
     useState<ComposerLayoutMode>("framed");
   const [squeezed, setSqueezed] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [caseId, setCaseId] = useState<ShelfCaseId>(() => {
     const requested = previewParams.get("case");
     return isShelfCaseId(requested) ? requested : "running";
@@ -229,7 +248,7 @@ export function ComposerFramePreviewApp() {
     applyCustomTheme({ theme: builtin });
   }, [dark]);
 
-  const turnActive = caseId !== "idle" && caseId !== "agent-needs";
+  const turnActive = isShelfCaseTurnLive(caseId);
   const shelfQueue = useComposerShelfQueue({
     listId: PREVIEW_TASK_ID,
     queuedTurns: caseHasQueue(caseId) ? queue : [],
@@ -247,6 +266,8 @@ export function ComposerFramePreviewApp() {
     onRemove: (itemId) => setQueue((items) => items.filter((item) => item.id !== itemId)),
     onClearAll: () => setQueue([]),
     onReorder: (move) => setQueue((items) => [...reorderQueuedTurns(items, move)]),
+    pause: queuePauseFor(caseId),
+    onResume: () => undefined,
   });
   const shelf = (
     <ComposerShelf framed={framed} steering={caseId === "steering"} queue={shelfQueue} />
@@ -410,6 +431,17 @@ export function ComposerFramePreviewApp() {
                   effortValue={effort}
                   {...(PREVIEW_EFFORT_LABEL ? { effortLabel: PREVIEW_EFFORT_LABEL } : {})}
                   attachedFilePaths={[]}
+                  attachments={attachments}
+                  onAttachmentsChange={({ attachments: next }) => setAttachments(next)}
+                  taskMentionOptions={PREVIEW_TASK_MENTIONS}
+                  onAttachTask={(task) =>
+                    setAttachments((current) => [
+                      ...addTaskContextAttachment({
+                        attachments: current,
+                        attachment: createTaskContextAttachment(task),
+                      }),
+                    ])
+                  }
                   reviewModelOptions={[PREVIEW_MODEL]}
                   preferredReviewModelKey={PREVIEW_MODEL.key}
                   onLocalChangeReview={() => true}

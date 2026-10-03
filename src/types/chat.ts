@@ -20,6 +20,7 @@ export type MessagePartType =
   | "file_context"
   | "image_context"
   | "workspace_information_context"
+  | "task_context"
   | "approval"
   | "user_input"
   | "system_event";
@@ -39,6 +40,16 @@ export type Attachment =
       reference: WorkspaceInformationReference;
     }
   | {
+      /** Another task's conversation, sent as context with this prompt. */
+      kind: "task-context";
+      id: string;
+      taskId: string;
+      workspaceId: string;
+      /** The task's title when attached, so the chip reads even if it is renamed or archived. */
+      title: string;
+      scope: TaskContextScope;
+    }
+  | {
       kind: "lens-annotations";
       id: string;
       workspaceId?: string;
@@ -50,6 +61,12 @@ export type Attachment =
       displayContent?: string;
       annotations?: LensAnnotation[];
     };
+
+/**
+ * How much of an attached task travels with the prompt: its latest reply (the
+ * conclusion), or its recent exchanges (the asks and answers that led there).
+ */
+export type TaskContextScope = "latest-reply" | "conversation";
 
 export type ClaudePermissionMode =
   "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk" | "auto";
@@ -311,6 +328,15 @@ export interface WorkspaceInformationContextPart extends MessagePartBase {
   reference: WorkspaceInformationReference;
 }
 
+/** A task attached as context, shown on the user message that carried it. */
+export interface TaskContextPart extends MessagePartBase {
+  type: "task_context";
+  taskId: string;
+  workspaceId: string;
+  title: string;
+  scope: TaskContextScope;
+}
+
 export interface SystemEventPart extends MessagePartBase {
   type: "system_event";
   content: string;
@@ -328,6 +354,7 @@ export type MessagePart =
   | FileContextPart
   | ImageContextPart
   | WorkspaceInformationContextPart
+  | TaskContextPart
   | ApprovalPart
   | UserInputPart
   | SystemEventPart;

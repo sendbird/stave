@@ -28,6 +28,8 @@ import {
 } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import { ShelfQueue, type ComposerShelfQueueProps } from "./ShelfQueue";
+import { ShelfUsageLimit } from "./ShelfUsageLimit";
+import { hasPausedUsageLimitWork } from "@/store/task-work-pause";
 import type { ShelfRunDetailToggle, ShelfRunPanelButton } from "./ShelfRunLine";
 import { TurnRunLine } from "./TurnRunLine";
 import { useShelfDetail } from "./use-shelf-detail";
@@ -71,7 +73,28 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     turnVisible: turnProps != null,
   });
   const queueCount = props.queue?.items.length ?? 0;
-  const rows = selectComposerShelfRows({ run: runSource, queueCount });
+  const usageLimitPause = useAppStore((state) => state.usageLimitPauseByTask[taskId]);
+  const resumePausedTaskWork = useAppStore((state) => state.resumePausedTaskWork);
+  const setUsageLimitAutoResume = useAppStore((state) => state.setUsageLimitAutoResume);
+  const dismissUsageLimitPause = useAppStore((state) => state.dismissUsageLimitPause);
+  // A turn running again means the limit no longer holds this task.
+  const runLive = runSource === "mission" || (runSource === "turn" && !turn.isLeaving);
+  const limited =
+    !runLive &&
+    hasPausedUsageLimitWork({ pause: usageLimitPause, queuedTurnCount: queueCount });
+  const rows = selectComposerShelfRows({ run: runSource, queueCount, limited });
+  const onResumeNow = useCallback(
+    () => void resumePausedTaskWork({ taskId }),
+    [resumePausedTaskWork, taskId],
+  );
+  const onResumeAtReset = useCallback(
+    (enabled: boolean) => setUsageLimitAutoResume({ taskId, enabled }),
+    [setUsageLimitAutoResume, taskId],
+  );
+  const onDismissLimit = useCallback(
+    () => dismissUsageLimitPause({ taskId }),
+    [dismissUsageLimitPause, taskId],
+  );
 
   // The approval or question card above asks for the composer's attention;
   // the list stays shut behind it, as it always has.
@@ -118,7 +141,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     return null;
   }
   // Only the run line is left and it is on its way out: the whole shelf goes.
-  const surfaceLeaving = runSource === "turn" && turn.isLeaving && queueCount === 0;
+  const surfaceLeaving = runSource === "turn" && turn.isLeaving && queueCount === 0 && !limited;
 
   return (
     <section
@@ -163,6 +186,17 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
               chrome="list"
             />
           ) : null}
+        </ShelfRow>
+      ) : null}
+      {limited && usageLimitPause ? (
+        <ShelfRow joining={shownBefore.current}>
+          <ShelfUsageLimit
+            pause={usageLimitPause}
+            queuedCount={queueCount}
+            onResumeNow={onResumeNow}
+            onResumeAtReset={onResumeAtReset}
+            onDismiss={onDismissLimit}
+          />
         </ShelfRow>
       ) : null}
       {props.queue && queueCount > 0 ? (

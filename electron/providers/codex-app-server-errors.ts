@@ -50,12 +50,19 @@ export function toCodexUserFacingErrorMessage(args: { message: string }) {
   ) {
     return "Codex authentication failed. Run `codex login` and retry.";
   }
+  // An exhausted account and a short per-request throttle read alike but need
+  // opposite handling: the first waits for a reset, the second retries soon.
   if (
-    lower.includes("rate limit") ||
-    lower.includes("quota") ||
-    lower.includes("insufficient_quota")
+    rawLower.includes("usage_limit") ||
+    rawLower.includes("usagelimitexceeded") ||
+    lower.includes("usage limit") ||
+    lower.includes("hit your limit") ||
+    lower.includes("quota")
   ) {
-    return "Codex rate limit/quota reached. Retry after reset or check account limits.";
+    return "Codex usage limit reached. Wait for the limit to reset or check account limits.";
+  }
+  if (lower.includes("rate limit")) {
+    return "Codex rate limit hit. Retry shortly.";
   }
   if (lower.includes("billing") || lower.includes("payment")) {
     return "Codex billing/subscription issue detected. Check account payment status.";

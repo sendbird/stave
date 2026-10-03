@@ -305,6 +305,14 @@ export const promptInputStyles = stylex.create({
     backgroundColor: vars["--ads-color-surface"],
     padding: vars["--ads-space-12"],
   },
+  /** A task row dragged over the composer: the drop attaches it as context. */
+  formTaskDrop: {
+    outlineWidth: 2,
+    outlineStyle: "dashed",
+    outlineColor: vars["--ads-color-accent"],
+    outlineOffset: -2,
+    backgroundColor: vars["--ads-color-accent-soft"],
+  },
   suggestions: { marginLeft: -6, marginBottom: 2 },
   suggestionChip: {
     height: 28,

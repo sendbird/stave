@@ -80,6 +80,8 @@ import {
   sx,
 } from "@/components/ads/utils/stylex";
 import { chatInputStyles } from "./chat-input.styles";
+import { resolveQueuePause } from "@/store/task-work-pause";
+import { useTaskContextMentions } from "./use-task-context-mentions";
 import { useAppStore } from "@/store/app.store";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
 import { resolveActiveTurnProviderId } from "@/store/chat-state-helpers";
@@ -381,6 +383,15 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   const pendingApproval = pendingApprovals[0] ?? null;
   const queuedNextTurn = promptDraft.queuedNextTurn ?? null;
   const queuedTurns = promptDraft.queuedTurns ?? [];
+  const usageLimitPause = useAppStore(
+    (state) => state.usageLimitPauseByTask[args.activeTaskId],
+  );
+  const restoredQueueReleased = useAppStore(
+    (state) => state.restoredQueueReleasedByTask[args.activeTaskId] === true,
+  );
+  const resumePausedTaskWork = useAppStore(
+    (state) => state.resumePausedTaskWork,
+  );
   const promptBatch = promptDraft.promptBatch ?? [];
   const latestUserPromptMessage = useMemo(
     () => getLatestUserPromptMessage(activeTaskMessages),
@@ -487,6 +498,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     () => buildWorkspaceInformationReferenceOptions(workspaceInformation),
     [workspaceInformation],
   );
+  const taskMentions = useTaskContextMentions({ taskId: args.activeTaskId, attachments: promptDraft.attachments, onAttachmentsChange: (attachments) => updateNonTextPromptDraft({ attachments }) });
   const [draftText, setDraftText] = useState(promptDraft.text);
   const [comparePrepareOpen, setComparePrepareOpen] = useState(false);
   const [compareHistoryOpen, setCompareHistoryOpen] = useState(false);
@@ -1002,6 +1014,11 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
 
   const composerDisabled =
     isInputBlocked || isSteerSubmitting || managedTaskComposerAccess.disabled;
+  const queuePause = resolveQueuePause({
+    queuedTurns,
+    usageLimitPause,
+    restoredQueueReleased,
+  });
   const shelfQueue = useComposerShelfQueue({
     listId: args.providerSelectionTarget,
     queuedTurns,
@@ -1017,6 +1034,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     onUpdate: updateQueuedTurn,
     onRemove: removeQueuedTurn,
     onReorder: reorderQueuedTurn,
+    pause: queuePause,
+    onResume: () => void resumePausedTaskWork({ taskId: args.activeTaskId }),
     onClearAll: () => {
       cancelPendingDraftSave();
       updatePromptDraft({
@@ -1623,6 +1642,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           workspaceInformationReferenceOptions={
             workspaceInformationReferenceOptions
           }
+          taskMentionOptions={taskMentions.options}
+          onAttachTask={taskMentions.attach}
           onValueChange={(value) => {
             draftTextRef.current = value;
             setDraftText(value);

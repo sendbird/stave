@@ -1,4 +1,5 @@
 import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
+import type { UsageLimitPauseByTask } from "@/store/task-work-pause";
 import type {
   ProviderTurnActivitySnapshot,
   RetainedTurnActivityByTask,
@@ -31,6 +32,9 @@ export interface TaskTurnRuntimeEntries {
    * payloads go with it.
    */
   failedSendsByTask: FailedOutgoingSendsByTask;
+  /** A paused task that left the app has nothing left to resume. */
+  usageLimitPauseByTask: UsageLimitPauseByTask;
+  restoredQueueReleasedByTask: Record<string, true | undefined>;
 }
 
 /**
@@ -91,6 +95,20 @@ export function removeTaskTurnRuntimeEntries(args: {
   );
   if (failedSendsByTask) {
     patch.failedSendsByTask = failedSendsByTask;
+  }
+  const usageLimitPauseByTask = removeRecordEntries(
+    args.state.usageLimitPauseByTask,
+    args.taskIds,
+  );
+  if (usageLimitPauseByTask) {
+    patch.usageLimitPauseByTask = usageLimitPauseByTask;
+  }
+  const restoredQueueReleasedByTask = removeRecordEntries(
+    args.state.restoredQueueReleasedByTask,
+    args.taskIds,
+  );
+  if (restoredQueueReleasedByTask) {
+    patch.restoredQueueReleasedByTask = restoredQueueReleasedByTask;
   }
   return patch;
 }

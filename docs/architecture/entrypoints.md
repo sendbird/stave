@@ -49,6 +49,21 @@ runtime adapter. Thread start and the GPT-6.1 Sol fallback live in
 3. `src/store/app.store.ts` when the store wiring matters
 4. `docs/architecture/conversation-flow.md` when the full lifecycle matters
 
+For a usage-limit pause or a restored queue, start with
+`src/store/task-work-pause-wiring.ts`, then
+`src/store/app-store-task-pause-actions.ts` and
+`src/store/queued-task-turn-dispatch.ts`. The shelf's controls live in
+`src/components/session/composer-shelf/ShelfUsageLimit.tsx` and `ShelfQueue.tsx`.
+See [Turn Activity](../features/turn-activity.md#when-a-usage-limit-stops-work)
+for reset-time resume and restart behavior.
+
+For tasks attached as context, start with
+`src/components/session/use-task-context-mentions.ts`,
+`src/store/attached-task-context-runtime.ts` and
+`src/lib/task-context/attached-task-context.ts`. Follow the persistence read
+and canonical request paths in
+[Task Pause And Attachment Contracts](contracts.md#task-pause-and-attachment-contracts).
+
 For task-attached source material, follow its producer, the shared data or IPC
 contract, then the send action that consumes it. PR review and check evidence
 uses `src/lib/pr-context.ts` for attachment/provenance rules and

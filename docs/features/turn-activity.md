@@ -38,12 +38,13 @@ over the chat, or in the **Activity** tab of the right rail's Task panel.
 
 ### The Composer Shelf
 
-The shelf is one surface tucked behind the top of the prompt input, with up to
-two rows divided by a hairline. It takes no room while nothing is in flight.
+The shelf is one surface tucked behind the top of the prompt input. Its run,
+usage-limit and queue lines are divided by a hairline. It takes no room when
+there is no run, usage-limit pause or queued message to show.
 
 | State | Shelf |
 | --- | --- |
-| Idle | Nothing. A queue left after you stopped a turn keeps its own row. |
+| Idle | Nothing. A queue left after you stopped a turn, or restored after a restart, keeps its own row. |
 | A turn is running | The run line: a status mark, `Working · <current step>`, the to-do count and cells, the elapsed time, **Stop**, the panel button and the details toggle. |
 | Running with queued messages | The run line, then the queue line. |
 | Waiting on an approval or a question | The request's card asks above the shelf; the run line turns amber and reads `Waiting for approval` or `Waiting for your input` without asking again. The details stay folded behind the card. |
@@ -51,6 +52,7 @@ two rows divided by a hairline. It takes no room while nothing is in flight.
 | Steering | `Steering · Waiting for the provider to accept your message` until the provider takes the steer. |
 | Provider retry or failure | `Retrying` in amber, or `Failed` in red with the reason; a failed turn stays for a few seconds, then the shelf leaves. |
 | An agent run | The agent's line replaces the turn's: see [With An Agent Run](#with-an-agent-run). |
+| Stopped at a usage limit | The usage-limit line: `Claude usage limit · resets 3:40 PM · in 1h 7m`, with **Resume at reset** and **Resume now**. See [When A Usage Limit Stops Work](#when-a-usage-limit-stops-work). |
 
 There is exactly one status line for a run. The Task panel's **Activity** tab
 lists the rows without repeating it, and its run header names only an ended
@@ -94,6 +96,48 @@ Choose the chevron to open the queue, in the order it sends:
 
 Messages with attachments cannot be steered, so they wait for the current
 response to finish.
+
+The queue is saved with the workspace, so it survives a restart with its
+order, attachments and the provider and model each message was queued for.
+After a restart it does not send on its own: the line reads
+`2 queued · paused` with **Resume**. Choose **Resume** to send the messages in
+order, or edit, reorder, delete or send one first. A message you queue after
+the restart waits behind the restored ones.
+
+### When A Usage Limit Stops Work
+
+When a turn ends because the account ran out of usage, or a queued message is
+refused because the account is already at its limit, the task pauses instead
+of offering the next queued message to the same limit. The shelf shows the
+usage-limit line above the queue:
+
+- `Claude usage limit · resets 3:40 PM · in 1h 7m` names the provider, when
+  the limit resets and how long that is. Hover it for the window that ran out
+  and what Resume will do.
+- **Resume at reset** resumes on its own a minute after the reset. The line
+  then reads `Resumes at 3:41 PM · Claude usage limit · in 1h 8m`, with
+  **Cancel**. Before it sends, Stave reads usage again; if a window is still
+  out (a weekly limit after the 5-hour one), it waits for that reset instead.
+- **Resume now** continues straight away. A turn the limit stopped is
+  continued first: Stave starts a new turn that asks the agent to check the
+  workspace and finish only the remaining work, without replaying the original
+  prompt. The queue sends after it.
+- The close button forgets the pause when nothing is queued.
+
+Starting a new conversation turn in the task also ends the usage-limit pause.
+Utility turns do not release it. A restored queue still needs its own
+**Resume** action. When the reset time is unknown (the provider did not report
+it), only **Resume now** is offered.
+
+**Resume now** does not bypass account limits or runtime approvals. If the
+continuation cannot start, the task stays paused and the reason is shown.
+**Cancel** removes the reset-time reservation; it leaves the work paused.
+
+The pause and reservation last only until Stave restarts. Keep Stave open for
+**Resume at reset** to run. After reopening, review the restored queue and
+choose **Resume**; the old reset-time reservation is not restored, and this
+queue action does not automatically continue the interrupted turn. Send a
+follow-up if you also want the agent to finish that turn's remaining work.
 
 ### Narrow Composers
 
@@ -273,6 +317,13 @@ row when it is narrower.
 2. Let the turn finish. The list stays, headed `Last turn`.
 3. Choose a row to jump to that step's input and output in the conversation.
 
+### Pick up work a usage limit stopped
+
+1. When the usage-limit line appears, choose **Resume at reset** and leave
+   Stave open, or choose **Resume now** once you have usage again.
+2. To keep the queue but not resume, leave the line as it is; nothing sends
+   until you choose.
+
 ### Steer or reorder what is queued
 
 1. Send a follow-up while a turn runs; it joins the queue line.
@@ -285,6 +336,9 @@ row when it is narrower.
   `Above the prompt`; **Open Run Details** defaults to off.
 - A manually dragged floating position is stored with the layout state.
 - The details toggle's state lasts for the current run only and is not saved.
+- Queued messages are saved with the workspace. Whether a restored queue was
+  resumed, a usage-limit pause and its **Resume at reset** choice are kept in
+  memory only: after a restart the queue is paused again and you choose anew.
 
 ## Limitations And Advanced Options
 
@@ -297,6 +351,9 @@ row when it is narrower.
 - Choosing a row whose message is no longer loaded in the conversation does
   nothing. Load the older messages first, then choose the row again.
 - Dragging a queued message needs a pointer; there is no keyboard reorder.
+- **Resume at reset** runs only while Stave is open. A usage limit is
+  recognized from the provider's own limit message; a short per-request
+  throttle is not treated as one.
 - `Headroom` reports remaining context only when the provider states it. A
   live turn usually shows the account limit alone.
 - Only the most recent turn is kept, only for the last several tasks you ran
@@ -325,6 +382,8 @@ row when it is narrower.
 
 ## Related Docs
 
+- [Accounts And API Connections](accounts-and-gateways.md)
+- [Attachments](attachments.md)
 - [Delegated Tasks](delegated-tasks.md)
 - [Fleet Needs Me](fleet-needs-me.md)
 - [Missions](missions.md)

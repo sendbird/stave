@@ -5,6 +5,7 @@ import {
   CornerDownRight,
   GripVertical,
   Pencil,
+  Play,
   Send,
   Trash2,
   Zap,
@@ -19,6 +20,7 @@ import {
   useSortableListMonitor,
   useSortableRow,
 } from "@/hooks/use-sortable-list";
+import type { QueuePauseReason } from "@/store/task-work-pause";
 import type { PromptDraftQueuedTurn } from "@/types/chat";
 import {
   canSteerQueuedTurnItem,
@@ -49,6 +51,10 @@ export interface ComposerShelfQueueProps {
   onRemove: (itemId: string) => void;
   onClearAll?: () => void;
   onReorder?: (move: QueuedTurnMove) => void;
+  /** Why the queue is holding instead of sending on its own; null while it drains. */
+  pause?: QueuePauseReason | null;
+  /** Release a paused queue and send it in order. */
+  onResume?: () => void;
   /** Start with the list open (previews and tests); the queue starts folded in the app. */
   defaultOpen?: boolean;
 }
@@ -68,6 +74,7 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
     items: props.items,
     actions: props.actions,
     isTurnActive: props.isTurnActive,
+    pause: props.pause,
   });
   const front = props.items[0];
   if (!line || !front) {
@@ -95,6 +102,9 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
             .join("\n")}
         >
           <span className={sx(styles.label)}>{line.countLabel}</span>
+          {line.pausedLabel ? (
+            <span className={sx(styles.caution)}>{` · ${line.pausedLabel}`}</span>
+          ) : null}
           {expanded ? null : (
             <>
               <span>{` · ${line.preview}`}</span>
@@ -107,11 +117,18 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
         </p>
         <span className={sx(styles.actions)}>
           {expanded ? (
-            props.onClearAll ? (
-              <Button variant="quiet" size="xs" onClick={props.onClearAll} xstyle={styles.quiet}>
-                Clear all
-              </Button>
-            ) : null
+            <>
+              {line.frontAction === "resume" && props.onResume ? (
+                <QueueResumeButton onResume={props.onResume} />
+              ) : null}
+              {props.onClearAll ? (
+                <Button variant="quiet" size="xs" onClick={props.onClearAll} xstyle={styles.quiet}>
+                  Clear all
+                </Button>
+              ) : null}
+            </>
+          ) : line.frontAction === "resume" && props.onResume ? (
+            <QueueResumeButton onResume={props.onResume} />
           ) : line.frontAction === "steer" ? (
             <Button
               variant="quiet"
@@ -181,6 +198,22 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
     </div>
   );
 });
+
+function QueueResumeButton(props: { onResume: () => void }) {
+  return (
+    <Button
+      variant="quiet"
+      size="xs"
+      aria-label="Resume the queue"
+      title="Send the queued messages in order"
+      onClick={props.onResume}
+      xstyle={styles.itemAccent}
+    >
+      <Play aria-hidden />
+      <span className={sx(styles.actionWord)}>Resume</span>
+    </Button>
+  );
+}
 
 interface QueueListProps extends ComposerShelfQueueProps {
   editingId: string | null;

@@ -329,4 +329,67 @@ describe("queued task turn dispatcher", () => {
     expect(failures).toHaveLength(2);
     expect(failures[0]?.queuedTurnId).toBe("queued-1");
   });
+
+  test("a paused head waits and a refused send is reported", async () => {
+    const holds: Array<{ queuedTurnId: string; queuedAt: string }> = [];
+    const blocked: unknown[] = [];
+    let paused = true;
+    const sent: string[] = [];
+    const dispatch = createQueuedTaskTurnDispatcher({
+      getSession: () =>
+        buildSessionWithDraft({
+          text: "",
+          attachedFilePaths: [],
+          attachments: [],
+          queuedTurns: [
+            buildQueuedTurn("queued-1", "First", "2026-08-01T00:00:00.000Z"),
+            buildQueuedTurn("queued-2", "Second", "2026-08-01T00:00:01.000Z"),
+          ],
+        }),
+      getActions: () => ({
+        sendUserMessage: (args) => {
+          sent.push(args.queuedTurnId);
+          return Promise.resolve({
+            status: "blocked",
+            reason: "account-limit",
+            usageLimit: {
+              providerId: "codex",
+              windowLabel: "codex primary",
+              resetsAt: 1_760_000_000_000,
+            },
+          });
+        },
+      }),
+      getAutoDispatchHold: (target) => {
+        holds.push({ queuedTurnId: target.queuedTurnId, queuedAt: target.queuedAt });
+        return paused ? "wait" : undefined;
+      },
+      onDispatchBlocked: (event) => blocked.push(event),
+    });
+
+    dispatch(TARGET);
+    // A paused head holds its place; nothing behind it is offered.
+    expect(holds).toEqual([{ queuedTurnId: "queued-1", queuedAt: "2026-08-01T00:00:00.000Z" }]);
+    expect(sent).toEqual([]);
+
+    paused = false;
+    dispatch(TARGET);
+    await Bun.sleep(0);
+    expect(sent).toEqual(["queued-1"]);
+    expect(blocked).toEqual([
+      {
+        ...TARGET,
+        queuedTurnId: "queued-1",
+        result: {
+          status: "blocked",
+          reason: "account-limit",
+          usageLimit: {
+            providerId: "codex",
+            windowLabel: "codex primary",
+            resetsAt: 1_760_000_000_000,
+          },
+        },
+      },
+    ]);
+  });
 });

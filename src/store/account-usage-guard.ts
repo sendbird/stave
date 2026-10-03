@@ -2,10 +2,28 @@ import { selectedProviderAccount } from "@/lib/providers/provider-account-select
 import {
   resolveAccountUsageBlock,
   resolveTightestAccountUsageWindow,
+  type AccountUsageBlock,
 } from "@/lib/providers/account-usage-block";
 import { toast } from "@/lib/notifications/toast";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
+
+function buildAccountLimitBlockedResult(
+  block: AccountUsageBlock,
+  model: string | undefined,
+): Extract<SendUserMessageResult, { status: "blocked" }> {
+  return {
+    status: "blocked",
+    reason: "account-limit",
+    message: block.message,
+    usageLimit: {
+      providerId: block.providerId,
+      ...(model ? { model } : {}),
+      windowLabel: block.windowLabel,
+      resetsAt: block.resetsAt == null ? null : block.resetsAt * 1000,
+    },
+  };
+}
 
 export async function guardSendAgainstAccountUsage(
   getState: () => AppState,
@@ -29,7 +47,7 @@ export async function guardSendAgainstAccountUsage(
     const block = snapshot && resolveAccountUsageBlock({ providerId, model: options.model, snapshot });
     if (!block) return null;
     toast.warning("Account usage limit reached", { description: block.message });
-    return { status: "blocked", reason: "account-limit", message: block.message };
+    return buildAccountLimitBlockedResult(block, options.model);
   }
   const usage = resolveTightestAccountUsageWindow({
     providerId,
@@ -69,11 +87,7 @@ export async function guardSendAgainstAccountUsage(
   toast.warning("Account usage limit reached", {
     description: block.message,
   });
-  return {
-    status: "blocked",
-    reason: "account-limit",
-    message: block.message,
-  };
+  return buildAccountLimitBlockedResult(block, options?.model);
 }
 
 export function isAccountUsageBlockingFromState(args: {

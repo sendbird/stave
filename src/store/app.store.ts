@@ -23,6 +23,8 @@ import { createTaskLifecycleActions } from "@/store/app-store-task-lifecycle-act
 import { createSupportActions } from "@/store/app-store-support-actions";
 import { createProviderInteractionActions } from "@/store/app-store-provider-interaction-actions";
 import { createFailedSendActions } from "@/store/app-store-failed-send-actions";
+import { createTaskPauseActions } from "@/store/app-store-task-pause-actions";
+import { pauseQueueOnUsageLimitRefusal, resolvePausedQueueHold, settleTaskQueueAfterTurn } from "@/store/task-work-pause-wiring";
 import {
   createAppStorePersistenceOptions,
   normalizeSharedSkillsHomeSetting,
@@ -542,7 +544,10 @@ export const useAppStore = create<AppState>()(
       getSession: (workspaceId) =>
         getWorkspaceSessionForState({ state: get(), workspaceId }),
       getActions: get,
-      getAutoDispatchHold: steerQueueReservations.getAutoDispatchHold,
+      getAutoDispatchHold: (target) =>
+        steerQueueReservations.getAutoDispatchHold(target) ??
+        resolvePausedQueueHold(get(), target),
+      onDispatchBlocked: (blocked) => pauseQueueOnUsageLimitRefusal(get, blocked),
       onDispatchFailed: ({ taskId, queuedTurnId, error }) => {
         console.error("[queued-turn] auto-dispatch failed", {
           taskId,
@@ -1079,6 +1084,7 @@ export const useAppStore = create<AppState>()(
       findTaskById,
     });
     const failedSendActions = createFailedSendActions({ set, get });
+    const taskPauseActions = createTaskPauseActions({ set, get, dispatchNextQueuedTaskTurn });
     const conversationThreadActions = createConversationThreadActions({
       set,
       get,
@@ -1177,6 +1183,8 @@ export const useAppStore = create<AppState>()(
       tasks: [],
       messagesByTask: {},
       failedSendsByTask: {},
+      usageLimitPauseByTask: {},
+      restoredQueueReleasedByTask: {},
       messageCountByTask: {},
       taskMessagesLoadingByTask: {},
       layout: createDefaultLayoutState(),
@@ -1340,9 +1348,8 @@ export const useAppStore = create<AppState>()(
           void get().hydrateNotifications();
         }
         if (syncResult.turnSettled) {
-          dispatchNextQueuedTaskTurn({
-            workspaceId: update.workspaceId,
-            taskId: update.taskId,
+          settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, {
+            workspaceId: update.workspaceId, taskId: update.taskId,
           });
         }
       },
@@ -1356,6 +1363,7 @@ export const useAppStore = create<AppState>()(
       ...taskCoreActions,
       ...conversationThreadActions,
       ...failedSendActions,
+      ...taskPauseActions,
       ...terminalActions,
       ...taskLifecycleActions,
       ...paneActions,
