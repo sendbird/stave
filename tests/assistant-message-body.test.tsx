@@ -624,4 +624,33 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain('data-tool-run-status="completed"');
   });
 
+  test("a read-only past turn shows changed files without a pending state to accept or reject", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const render = (readOnly: boolean) =>
+      renderToStaticMarkup(createElement(AssistantMessageBody, {
+        message: createAssistantMessage({
+          parts: [
+            {
+              type: "code_diff",
+              filePath: "src/lib/example.ts",
+              oldContent: "const a = 1;\n",
+              newContent: "const a = 2;\n",
+              status: "pending",
+            },
+          ],
+        }),
+        taskId: "task-1",
+        messageId: "message-1",
+        streamingEnabled: false,
+        traceExpansionMode: "manual",
+        readOnly,
+      }));
+
+    // Accept and Reject live in the expanded row; the pending count gates them.
+    expect(render(false)).toContain("1 pending");
+    const html = render(true);
+    expect(html).toContain("example.ts");
+    expect(html).toContain("Open All");
+    expect(html).not.toContain("pending");
+  });
 });

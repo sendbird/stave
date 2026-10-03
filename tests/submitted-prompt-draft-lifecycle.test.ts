@@ -147,4 +147,52 @@ describe("submitted prompt draft lifecycle", () => {
     lifecycle.restore();
     expect(updates[1]?.["draft:session"]).toBe(sourceDraft);
   });
+
+  test("a restore keeps text typed since the clear and parks the unsent prompt", () => {
+    let current: PromptDraft | undefined;
+    let parked = 0;
+    const { lifecycle, updates } = buildLifecycle({
+      readCurrentDraft: () => current,
+      parkUnsentPrompt: () => {
+        parked += 1;
+      },
+    });
+
+    lifecycle.clear();
+    current = { text: "A new thought", attachedFilePaths: [], attachments: [] };
+    lifecycle.restore();
+
+    expect(updates).toHaveLength(1);
+    expect(parked).toBe(1);
+  });
+
+  test("a composer cleared at send keeps text typed meanwhile, and gets the prompt back only while empty", () => {
+    let current: PromptDraft | undefined = {
+      text: "Typed while the start was pending",
+      attachedFilePaths: [],
+      attachments: [],
+    };
+    let parked = 0;
+    const { lifecycle, updates } = buildLifecycle({
+      composerClearedAtSend: true,
+      readCurrentDraft: () => current,
+      parkUnsentPrompt: () => {
+        parked += 1;
+      },
+    });
+
+    lifecycle.clear();
+    expect(updates).toEqual([]);
+    lifecycle.restore();
+    expect(updates).toEqual([]);
+    expect(parked).toBe(1);
+
+    // Still empty since the send: the prompt goes back into the composer.
+    current = { text: "", attachedFilePaths: [], attachments: [] };
+    lifecycle.clear();
+    expect(updates).toEqual([]);
+    lifecycle.restore();
+    expect(updates).toEqual([{ "task-1": SENT_DRAFT }]);
+    expect(parked).toBe(1);
+  });
 });

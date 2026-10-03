@@ -988,7 +988,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   onChange={(event) =>
                     setWorkspaceSearchQuery(event.target.value)
                   }
-                  placeholder="Search labels or branches"
+                  placeholder="Search repos, labels, or branches"
                   xstyle={repositorySidebarStyles.searchInput}
                   aria-label="search-workspaces"
                 />

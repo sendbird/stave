@@ -28,6 +28,7 @@ import {
 import { buildClearedPromptDraft, hasPromptDraftPayload } from "@/store/prompt-draft-state";
 import type { Attachment, PromptDraft } from "@/types/chat";
 import { toast } from "@/lib/notifications/toast";
+import { isTaskArchived } from "@/lib/tasks";
 
 /** How a run's first prompt left the pending row: written by the run, or never. */
 export type AgentRunFirstPromptEnd = { outcome: "landed" } | { outcome: "ended"; reason: string | null };
@@ -82,13 +83,37 @@ type AgentRunSendArgs = {
 
 const UNSENT_RUN_REASON = "The run ended before it started.";
 
+type RecoveryState = Pick<
+  AppState,
+  | "activeWorkspaceId"
+  | "promptDraftByTask"
+  | "failedSendsByTask"
+  | "tasks"
+  | "taskWorkspaceIdById"
+  | "workspaceRuntimeCacheById"
+>;
+
+/**
+ * Whether the task is still open in the app: listed and not archived where its
+ * workspace's tasks are loaded, else still owned by the workspace (closing a
+ * workspace drops its tasks' ownership).
+ */
+function isTaskStillOpen(state: RecoveryState, workspaceId: string, taskId: string) {
+  const tasks =
+    workspaceId === state.activeWorkspaceId ? state.tasks : state.workspaceRuntimeCacheById[workspaceId]?.tasks;
+  if (!tasks) return state.taskWorkspaceIdById[taskId] === workspaceId;
+  const task = tasks.find((entry) => entry.id === taskId);
+  return Boolean(task && !isTaskArchived(task));
+}
+
 /**
  * Gives an Agent-mode prompt back when its run ended before writing it: into
  * the composer when the composer of the same workspace is still empty, else
  * as a failed send with Retry, so text typed meanwhile is never overwritten.
+ * A task archived or closed meanwhile gets nothing: it has nowhere to show it.
  */
 export function recoverUnsentAgentRunPrompt(
-  state: Pick<AppState, "activeWorkspaceId" | "promptDraftByTask" | "failedSendsByTask">,
+  state: RecoveryState,
   args: {
     workspaceId: string;
     taskId: string;
@@ -98,6 +123,7 @@ export function recoverUnsentAgentRunPrompt(
     reason: string | null;
   },
 ): Partial<AppState> {
+  if (!isTaskStillOpen(state, args.workspaceId, args.taskId)) return {};
   const current = state.promptDraftByTask[args.taskId];
   if (
     args.submittedDraft &&

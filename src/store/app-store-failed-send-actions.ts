@@ -122,3 +122,28 @@ export function parkFailedOutgoingSend(args: {
     message: failedSend.reason,
   };
 }
+
+/**
+ * The submitted-draft lifecycle's hooks for text typed while a send was in
+ * flight: reads the task's composer draft wherever its workspace lives, and
+ * parks the unsent prompt as a failed bubble when that text has to stay.
+ */
+export function guardTypedTextDuringSend(args: {
+  get: StoreApi<AppState>["getState"];
+  set: StoreApi<AppState>["setState"];
+  taskId: string;
+  workspaceId: string;
+  draft: Parameters<typeof buildFailedOutgoingSend>[0]["draft"];
+}) {
+  return {
+    readCurrentDraft: () => {
+      const state = args.get();
+      return args.workspaceId === state.activeWorkspaceId
+        ? state.promptDraftByTask[args.taskId]
+        : state.workspaceRuntimeCacheById[args.workspaceId]?.promptDraftByTask[args.taskId];
+    },
+    parkUnsentPrompt: () => {
+      parkFailedOutgoingSend({ ...args, error: null });
+    },
+  };
+}

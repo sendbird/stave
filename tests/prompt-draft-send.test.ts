@@ -156,6 +156,17 @@ describe("prompt draft send state", () => {
       queuedTurns,
     });
   });
+  test("keeps text typed after a refused agent-run start cleared the composer", () => {
+    const typed: PromptDraft = { text: "Typed while the start was pending", attachedFilePaths: [], attachments: [] };
+    expect(
+      resolvePromptDraftAfterSend({
+        currentDraft: typed,
+        sourceDraft: SOURCE_DRAFT,
+        sentDraft: SOURCE_DRAFT,
+        composerClearedAtSend: true,
+      }),
+    ).toBe(typed);
+  });
   test("drops only the steered queue item and leaves the composer alone", () => {
     const queuedTurn = {
       id: "queued-1",

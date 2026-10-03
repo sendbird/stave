@@ -58,9 +58,42 @@ export function noteTurnSpendChanged() {
 }
 
 /**
+ * Coming back to the window usually fires both `visibilitychange` and `focus`;
+ * returns this close together are one return.
+ */
+const WINDOW_RETURN_COALESCE_MS = 1_000;
+
+/**
+ * Calls `onReturn` when the window comes back (it becomes visible or regains
+ * focus), once per return. Returns the unsubscribe.
+ */
+export function watchWindowReturn(args: {
+  window: Pick<Window, "addEventListener" | "removeEventListener">;
+  document: Pick<Document, "addEventListener" | "removeEventListener" | "visibilityState">;
+  onReturn: () => void;
+  now?: () => number;
+}): () => void {
+  const now = args.now ?? Date.now;
+  let lastReturnAt = Number.NEGATIVE_INFINITY;
+  const onEvent = () => {
+    if (args.document.visibilityState === "hidden") return;
+    const at = now();
+    if (at - lastReturnAt < WINDOW_RETURN_COALESCE_MS) return;
+    lastReturnAt = at;
+    args.onReturn();
+  };
+  args.document.addEventListener("visibilitychange", onEvent);
+  args.window.addEventListener("focus", onEvent);
+  return () => {
+    args.document.removeEventListener("visibilitychange", onEvent);
+    args.window.removeEventListener("focus", onEvent);
+  };
+}
+
+/**
  * Keeps the spend reading current for the always-mounted status bar: on
- * mount, when the window comes back, after local midnight, and on a slow
- * interval for turns the renderer did not start.
+ * mount, when the window comes back (visible again or focused), after local
+ * midnight, and on a slow interval for turns the renderer did not start.
  */
 export function useLoadTurnSpend() {
   useEffect(() => {
@@ -71,17 +104,19 @@ export function useLoadTurnSpend() {
       void useTurnSpend.getState().refresh();
       timer = setTimeout(tick, resolveTurnSpendRefreshDelayMs());
     };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") return;
-      if (timer !== null) clearTimeout(timer);
-      tick();
-    };
     tick();
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    const unwatch = watchWindowReturn({
+      window,
+      document,
+      onReturn: () => {
+        if (timer !== null) clearTimeout(timer);
+        tick();
+      },
+    });
     return () => {
       cancelled = true;
       if (timer !== null) clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      unwatch();
     };
   }, []);
 }

@@ -43,6 +43,9 @@ const pendingRow = () => usePendingAutoRoutingStore.getState().byTaskId["task-1"
 function sendArgs(overrides: Partial<Parameters<typeof startAgentRunForSend>[0]> = {}) {
   let state = {
     activeWorkspaceId: "ws-1",
+    tasks: [{ id: "task-1", archivedAt: null }],
+    taskWorkspaceIdById: { "task-1": "ws-1" },
+    workspaceRuntimeCacheById: {},
     failedSendsByTask: {},
     promptDraftByTask: { "task-1": { text: "Add CSV export.", attachedFilePaths: [], attachments: [], runtimeOverrides: { autoRouting: true } } },
   } as unknown as AppState;
@@ -169,7 +172,13 @@ describe("agent run send path", () => {
 
 describe("unsent agent run prompt recovery", () => {
   const draft = { text: "Add CSV export.", attachedFilePaths: [], attachments: [], runtimeOverrides: { autoRouting: true } };
-  const base = { activeWorkspaceId: "ws-1", failedSendsByTask: {} } as unknown as AppState;
+  const base = {
+    activeWorkspaceId: "ws-1",
+    tasks: [{ id: "task-1", archivedAt: null }],
+    taskWorkspaceIdById: { "task-1": "ws-1" },
+    workspaceRuntimeCacheById: {},
+    failedSendsByTask: {},
+  } as unknown as AppState;
   const recover = (state: AppState, submittedDraft: typeof draft | undefined) =>
     recoverUnsentAgentRunPrompt(state, {
       workspaceId: "ws-1",
@@ -192,6 +201,16 @@ describe("unsent agent run prompt recovery", () => {
     const empty = { ...base, promptDraftByTask: {} } as unknown as AppState;
     expect(recover(empty, undefined).failedSendsByTask?.["task-1"]).toHaveLength(1);
     expect(recover({ ...empty, activeWorkspaceId: "ws-2" } as AppState, draft).failedSendsByTask?.["task-1"]).toHaveLength(1);
+  });
+
+  test("a task archived or closed meanwhile gets no draft and no failed send", () => {
+    const empty = { ...base, promptDraftByTask: {} } as unknown as AppState;
+    const archived = { ...empty, tasks: [{ id: "task-1", archivedAt: "2026-10-01T09:00:00.000Z" }] } as AppState;
+    expect(recover(archived, draft)).toEqual({});
+    expect(recover({ ...empty, tasks: [] } as unknown as AppState, draft)).toEqual({});
+    // Another workspace in view and the task's workspace closed: no owner left.
+    const closed = { ...empty, activeWorkspaceId: "ws-2", taskWorkspaceIdById: {} } as unknown as AppState;
+    expect(recover(closed, draft)).toEqual({});
   });
 
   test("attachments and a running turn keep the plain paths", async () => {

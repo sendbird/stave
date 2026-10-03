@@ -178,12 +178,19 @@ export function resolvePromptDraftAfterSend(args: {
   preservePromptDraft?: boolean;
   preservedQueuedDraft?: PromptDraft | null;
   queuedTurns?: PromptDraft["queuedTurns"];
+  /** The composer was cleared before the send's await; what it holds now was typed since. */
+  composerClearedAtSend?: boolean;
 }): PromptDraft {
   if (args.preservePromptDraft) {
     return args.currentDraft ?? args.storedDraft ?? args.sourceDraft;
   }
   if (args.preservedQueuedDraft) {
     return args.currentDraft ?? args.preservedQueuedDraft;
+  }
+  if (args.composerClearedAtSend && args.currentDraft) {
+    return args.queuedTurns
+      ? { ...args.currentDraft, queuedTurns: args.queuedTurns }
+      : args.currentDraft;
   }
   return buildClearedPromptDraftWithQueuedNextTurn({
     draft: args.currentDraft ?? args.sentDraft,
