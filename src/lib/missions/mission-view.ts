@@ -16,7 +16,7 @@ import {
   type StageStatus,
 } from "./domain";
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
-import { CHECK_IN_LABELS, type PlaybookStage, type StaveAction } from "@/lib/playbooks/schema";
+import { CHECK_IN_LABELS, type WorkflowStage, type StaveAction } from "@/lib/workflows/schema";
 
 /** How a stage status reads and which tone its icon takes. */
 export type StageTone = "done" | "active" | "waiting" | "attention" | "idle" | "skipped";
@@ -34,7 +34,7 @@ export const STAGE_STATUS_PRESENTATION: Record<StageStatus, { label: string; ton
 
 export interface MissionStageRow {
   index: number;
-  stage: PlaybookStage;
+  stage: WorkflowStage;
   record: MissionStageRecord | null;
   status: StageStatus;
   attempts: number;
@@ -47,7 +47,7 @@ export interface MissionStageRow {
 
 export function projectMissionStages(detail: MissionDetail, now: Date): MissionStageRow[] {
   const { mission, stages: records } = detail;
-  return mission.playbook.stages.map((stage, index) => {
+  return mission.workflow.stages.map((stage, index) => {
     const record = latestStageRecord(records, stage.id) ?? null;
     const status: StageStatus = record?.status ?? "pending";
     const started = record?.startedAt ? Date.parse(record.startedAt) : null;
@@ -139,7 +139,7 @@ export function describeMissionHeadline(detail: MissionDetail): MissionHeadline 
     case "running":
       break;
   }
-  const stage = mission.playbook.stages[mission.currentStageIndex]!;
+  const stage = mission.workflow.stages[mission.currentStageIndex]!;
   const record = latestStageRecord(detail.stages, stage.id);
   switch (record?.status ?? "pending") {
     case "awaiting-sign-off":
@@ -205,7 +205,7 @@ export function describeMissionStatusLine(detail: MissionDetail): MissionStatusL
   const { mission } = detail;
   const headline = describeMissionHeadline(detail);
   const since = headline.since;
-  const stage = mission.playbook.stages[mission.currentStageIndex]!;
+  const stage = mission.workflow.stages[mission.currentStageIndex]!;
   const line = (patch: Partial<MissionStatusLine> & Pick<MissionStatusLine, "tone">): MissionStatusLine => ({
     title: stage.title,
     state: null,
@@ -269,7 +269,7 @@ export function describeMissionBadge(detail: MissionDetail): { label: string; to
     case "running":
       break;
   }
-  const stage = mission.playbook.stages[mission.currentStageIndex]!;
+  const stage = mission.workflow.stages[mission.currentStageIndex]!;
   switch (latestStageRecord(detail.stages, stage.id)?.status ?? "pending") {
     case "awaiting-sign-off":
       return { label: "Needs you", tone: "warning" };
@@ -301,7 +301,7 @@ export function describeMissionPermissions(permissionMode: Mission["consent"]["p
 }
 
 /** The primary button names what happens when it is pressed. */
-export function describeSignOffAction(stage: PlaybookStage): string {
+export function describeSignOffAction(stage: WorkflowStage): string {
   if (stage.kind === "ai") return `Start ${stage.title}`;
   switch (stage.action.type) {
     case "open-draft-pr":
@@ -358,8 +358,8 @@ export function isOlderMissionDetail(incoming: MissionDetail, stored: MissionDet
 /* -------------------------------------------------------------------------- */
 
 function stagePosition(mission: Mission, stageId: string) {
-  const index = mission.playbook.stages.findIndex((stage) => stage.id === stageId);
-  return index === -1 ? null : { index, stage: mission.playbook.stages[index]! };
+  const index = mission.workflow.stages.findIndex((stage) => stage.id === stageId);
+  return index === -1 ? null : { index, stage: mission.workflow.stages[index]! };
 }
 
 /**

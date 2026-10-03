@@ -12,7 +12,7 @@ import {
   listExternalEffectStages,
   type MissionStageRecord,
 } from "@/lib/missions/domain";
-import { createPlaybookFromStarter, findPlaybookStarter } from "@/dev/fixtures/legacy-playbook-starters";
+import { createWorkflowFromStarter, findWorkflowStarter } from "@/dev/fixtures/legacy-workflow-starters";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
 import { isTaskPanelTab, type TaskPanelTab } from "@/lib/right-rail-panels";
 import type { ResultReview } from "@/lib/reviews/result-review";
@@ -309,21 +309,21 @@ const at = (minutes: number) => new Date(MISSION_START.getTime() + minutes * 60_
 
 /** A real mission from the request-to-PR starter, two stages in, so every surface reads it. */
 function missionDetail(): MissionDetail {
-  const playbook = createPlaybookFromStarter(findPlaybookStarter("request-to-pr")!, {
+  const workflow = createWorkflowFromStarter(findWorkflowStarter("request-to-pr")!, {
     now: MISSION_START,
-    id: "playbook_task_panel_preview",
+    id: "workflow_task_panel_preview",
   });
   const created = createMission({
     id: "mission-task-panel-1",
     input: {
       workspaceId: WORKSPACE_ID,
       leadTaskId: MISSION_TASK_ID,
-      playbook,
+      workflow,
       assignment: "Add pagination to the /users API endpoint and open a PR.",
       consent: {
         checkIns: "plan-and-publishing",
         permissionMode: "guided",
-        authorizedEffectStageIds: listExternalEffectStages(playbook).map((stage) => stage.id),
+        authorizedEffectStageIds: listExternalEffectStages(workflow).map((stage) => stage.id),
       },
     },
     repositoryPath: REPOSITORY_PATH,
@@ -335,7 +335,7 @@ function missionDetail(): MissionDetail {
     stageId,
     ...patch,
   });
-  const [first, second] = playbook.stages;
+  const [first, second] = workflow.stages;
   return {
     mission: { ...created.mission, currentStageIndex: 1, turnCount: 3 },
     stages: [

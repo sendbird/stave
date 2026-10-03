@@ -10,7 +10,7 @@ import { vars } from "../ads/tokens/tokens.stylex";
  */
 const LABEL_COLUMN = "7.5rem";
 
-export const playbookStyles = stylex.create({
+export const workflowStyles = stylex.create({
   /* Tab ------------------------------------------------------------------ */
   tab: {
     display: "grid",

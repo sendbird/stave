@@ -35,7 +35,7 @@ export type AgentRunFirstPromptEnd = { outcome: "landed" } | { outcome: "ended";
 
 export interface AgentRunBridge {
   /**
-   * The task's active mission (an agent run or a playbook mission), null for
+   * The task's active mission (an agent run or a workflow mission), null for
    * none, undefined while the workspace's missions are not loaded.
    */
   activeMission: (workspaceId: string, taskId: string) => { id: string; agentOrigin: boolean } | null | undefined;

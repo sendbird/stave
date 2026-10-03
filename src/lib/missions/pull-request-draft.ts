@@ -72,7 +72,7 @@ export function buildMissionPullRequestDraft(args: {
         ]
       : []),
     "",
-    `Opened as a draft by a Stave mission (${mission.playbook.name}).`,
+    `Opened as a draft by a Stave mission (${mission.workflow.name}).`,
   ].join("\n");
   return { title: fallback.title, body };
 }

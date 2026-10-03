@@ -10,7 +10,7 @@ import {
   formatAge,
   projectMissionStages,
 } from "../src/lib/missions/mission-view";
-import type { PlaybookStage } from "../src/lib/playbooks/schema";
+import type { WorkflowStage } from "../src/lib/workflows/schema";
 import {
   COMPLETE_REPORT,
   MISSION_NOW,
@@ -18,7 +18,7 @@ import {
   missionEvent,
   missionFixture,
   patchCurrent,
-  starterPlaybook,
+  starterWorkflow,
 } from "./fixtures/mission-fixtures";
 
 const NOW = MISSION_NOW.getTime() + 20 * 60_000;
@@ -191,13 +191,13 @@ describe("mission view", () => {
   });
 
   test("a running Stave stage says what Stave is doing, the script it runs included", () => {
-    const base = starterPlaybook("request-to-pr");
-    const withAction = (action: Extract<PlaybookStage, { kind: "action" }>["action"]) =>
+    const base = starterWorkflow("request-to-pr");
+    const withAction = (action: Extract<WorkflowStage, { kind: "action" }>["action"]) =>
       describeMissionStatusLine(
         missionDetail(
           patchCurrent(
             missionFixture({
-              playbook: { ...base, stages: [{ id: "act", title: "Act", kind: "action", action }] },
+              workflow: { ...base, stages: [{ id: "act", title: "Act", kind: "action", action }] },
             }),
             { status: "running" },
           ),

@@ -175,7 +175,7 @@ function AgentRow({
         <span className={sx(styles.rowName)} title={row.name}>
           {row.name}
         </span>
-        {row.kind === "playbook" ? <span className={sx(styles.rowKind)}>playbook</span> : null}
+        {row.kind === "workflow" ? <span className={sx(styles.rowKind)}>workflow</span> : null}
         <span className={sx(styles.rowValue)}>{formatReadyRate(row.readyRate)}</span>
       </Button>
       <div className={sx(styles.agentBody)}>
@@ -214,7 +214,7 @@ function AgentRow({
   );
 }
 
-/** One row per agent or playbook; a row opens its recent runs, and a run opens its report. */
+/** One row per agent or workflow; a row opens its recent runs, and a run opens its report. */
 export function AgentTable({ insights, now, onOpen }: { insights: MissionInsights; now: number; onOpen: (run: ResultRun) => void }) {
   return (
     <ResultsCard id="results-agents" icon={Users} title="Agents" subtitle={`ready rate · last 10 · ${insights.days} d`} meta={`n = ${insights.summary.ended}`}>

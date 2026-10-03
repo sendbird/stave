@@ -84,7 +84,7 @@ describe("agent run send path", () => {
     expect(bridge.started).toEqual([]);
   });
 
-  test("an Agent task without a run starts one with the implicit playbook and clears the draft", async () => {
+  test("an Agent task without a run starts one with the implicit workflow and clears the draft", async () => {
     useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
     const bridge = fakeBridge();
     const { args, state } = sendArgs();
@@ -98,7 +98,7 @@ describe("agent run send path", () => {
       leadTaskId: "task-1",
       assignment: "Add CSV export.",
       origin: "agent",
-      playbook: { name: "Implementer", stages: [{ id: "work", title: "Work" }] },
+      workflow: { name: "Implementer", stages: [{ id: "work", title: "Work" }] },
       consent: { checkIns: "when-stuck", permissionMode: "manual" },
     });
     // The text goes; the route the draft carries stays for the run's turns.
@@ -244,7 +244,7 @@ describe("agent run stop", () => {
     expect(stops).toBe(1);
   });
 
-  test("leaves a playbook mission and a task without a run to the plain stop", () => {
+  test("leaves a workflow mission and a task without a run to the plain stop", () => {
     fakeBridge({ active: { id: "m-1", agentOrigin: false } });
     expect(cancelAgentRunBeforeStop({ workspaceId: "ws-1", taskId: "task-1", stopTurn: () => {} })).toBe(false);
     fakeBridge();

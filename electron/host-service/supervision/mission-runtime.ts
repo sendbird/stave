@@ -63,7 +63,7 @@ import {
   isActiveMissionState,
   MissionCommandError,
   MissionStartInputSchema,
-  playbookStageAt,
+  workflowStageAt,
   StageBlockInputSchema,
   StageCompleteReportInputSchema,
   type Mission,
@@ -219,7 +219,7 @@ export interface MissionRuntimeDependencies {
   /**
    * Routes a turn of an agent run (`origin: "agent"`): the runtime and effort
    * it starts with, through Stave Auto and the task's pin or agent model.
-   * Absent or null: the mission's fingerprint, as for a playbook mission.
+   * Absent or null: the mission's fingerprint, as for a workflow mission.
    */
   routeAgentTurn?: (args: { mission: Mission; prompt: string }) => Promise<MissionTurnRoute | null>;
   /** Whether the task still runs as an agent. An agent run ends once it does not. Absent: it does. */
@@ -260,7 +260,7 @@ export interface MissionRuntime {
   getActiveMissionForTask: (taskId: string) => Mission | null;
   /**
    * Ends the task's active agent run because the agent it ran as was released
-   * or replaced. True when a run ended. A playbook mission is left alone.
+   * or replaced. True when a run ended. A workflow mission is left alone.
    */
   endAgentRunForTask: (args: { taskId: string }) => Promise<boolean>;
   startMission: (input: MissionStartInput) => Promise<MissionDetail>;
@@ -268,7 +268,7 @@ export interface MissionRuntime {
   get: (args: MissionIdArgs) => Promise<MissionDetail>;
   /** What the mission's turns spent; null for an unknown mission or no usage reader. */
   readUsage: (args: MissionIdArgs) => MissionUsage | null;
-  /** How missions that ended in the last `days` went, per playbook and provider. */
+  /** How missions that ended in the last `days` went, per workflow and provider. */
   getInsights: (args?: { days?: number }) => Promise<MissionInsights>;
   signOff: (args: MissionStageRef) => Promise<MissionDetail>;
   requestChanges: (args: MissionRequestChangesArgs) => Promise<MissionDetail>;
@@ -547,7 +547,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         : turns.find(
             (row) => row.completedAt && Date.parse(row.createdAt) >= attemptStartedAt,
           );
-    const stage = playbookStageAt(mission, mission.currentStageIndex);
+    const stage = workflowStageAt(mission, mission.currentStageIndex);
     return {
       turns,
       observation: {
@@ -597,7 +597,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     const record = currentStageRecord(aggregate);
     const { mission } = aggregate;
     if (!last || !record.startedAt) return aggregate;
-    if (playbookStageAt(mission, mission.currentStageIndex).kind !== "ai") return aggregate;
+    if (workflowStageAt(mission, mission.currentStageIndex).kind !== "ai") return aggregate;
     const key = stageKey(record);
     if (factsCollectedThrough.get(key) === last.turnId) return aggregate;
     const attemptStartedAt = Date.parse(record.startedAt);
@@ -830,7 +830,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     const change = applyMissionDecision({ aggregate, decision, now: now() });
     const current = hasEffect(change, aggregate) ? applyChange(change) : aggregate;
     const record = currentStageRecord(current);
-    const stage = playbookStageAt(current.mission, current.mission.currentStageIndex);
+    const stage = workflowStageAt(current.mission, current.mission.currentStageIndex);
     // The action records its own events, such as the checks it observed.
     const lastSequence = () => store.listRecentEvents(current.mission.id, 1).at(-1)?.sequence ?? 0;
     const sequenceBefore = lastSequence();
@@ -1099,7 +1099,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     const record = currentStageRecord(aggregate);
     return {
       recorded: true,
-      stage: playbookStageAt(aggregate.mission, aggregate.mission.currentStageIndex).title,
+      stage: workflowStageAt(aggregate.mission, aggregate.mission.currentStageIndex).title,
       revision: record.reportRevision,
       note,
     };
@@ -1173,8 +1173,8 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           missionId: mission.id,
           workspaceId: mission.workspaceId,
           leadTaskId: mission.leadTaskId,
-          name: mission.playbook.name,
-          kind: hasAgentOrigin(mission) ? ("agent" as const) : ("playbook" as const),
+          name: mission.workflow.name,
+          kind: hasAgentOrigin(mission) ? ("agent" as const) : ("workflow" as const),
           providerId: mission.fingerprint.providerId,
           state: mission.state,
           stopReason: mission.stopReason,

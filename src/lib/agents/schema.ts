@@ -4,11 +4,11 @@ import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   CHECK_INS,
-  MAX_PLAYBOOK_STAGES,
-  PlaybookStageSchema,
-  listPlaybookStructureIssues,
+  MAX_WORKFLOW_STAGES,
+  WorkflowStageSchema,
+  listWorkflowStructureIssues,
   type CheckIns,
-} from "@/lib/playbooks/schema";
+} from "@/lib/workflows/schema";
 
 /**
  * An agent config is a saved worker definition: who does the work. The
@@ -142,7 +142,7 @@ export const AGENT_CHECK_IN_LABELS: Readonly<Record<CheckIns, string>> = {
  * action (open draft PR, watch checks, ready for review, run script). The
  * stage schema is the mission engine's own.
  */
-export const AgentWorkflowSchema = z.array(PlaybookStageSchema).min(1).max(MAX_PLAYBOOK_STAGES);
+export const AgentWorkflowSchema = z.array(WorkflowStageSchema).min(1).max(MAX_WORKFLOW_STAGES);
 export type AgentWorkflow = z.infer<typeof AgentWorkflowSchema>;
 
 export const AGENT_SOURCES = ["builtin", "custom", "repository"] as const;
@@ -305,7 +305,7 @@ export const AgentConfigSchema = z
       ctx.addIssue({ code: "custom", path: ["origin"], message: "A repository agent records the file it came from." });
     }
     if (agent.workflow) {
-      for (const issue of listPlaybookStructureIssues({ purpose: "", stages: agent.workflow })) {
+      for (const issue of listWorkflowStructureIssues({ purpose: "", stages: agent.workflow })) {
         ctx.addIssue({ code: "custom", message: issue.message, path: ["workflow", ...issue.path.slice(1)] });
       }
     }

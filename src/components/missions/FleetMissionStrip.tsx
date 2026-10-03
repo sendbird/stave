@@ -66,7 +66,7 @@ export function FleetMissionStrip(props: {
       variant="quiet"
       press="none"
       xstyle={styles.strip}
-      aria-label={`Mission ${detail.mission.playbook.name}: ${line.title}${line.state ? `, ${line.state}` : ""}. Open the task.`}
+      aria-label={`Mission ${detail.mission.workflow.name}: ${line.title}${line.state ? `, ${line.state}` : ""}. Open the task.`}
       onClick={() => props.onOpen(detail.mission.leadTaskId)}
     >
       <span className={sx(styles.head)}>

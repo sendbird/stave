@@ -174,7 +174,7 @@ function MissionSignOffAction(args: {
   const pending = useMissionsStore((state) => Boolean(state.pendingByMission[args.missionStage.missionId]));
   // Scoped to this stage: a failure from an earlier stage never shows here.
   const failure = useMissionFailure(args.missionStage.missionId, missionStageKey(args.missionStage));
-  const stage = detail?.mission.playbook.stages.find((candidate) => candidate.id === args.missionStage.stageId);
+  const stage = detail?.mission.workflow.stages.find((candidate) => candidate.id === args.missionStage.stageId);
   if (!stage) return null;
   return (
     <MissionSignOffControl

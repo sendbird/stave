@@ -5,7 +5,7 @@ import { Dialog } from "@/components/ads/components/Dialog";
 import { sx } from "@/components/ads/utils/stylex";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { MissionReportView } from "@/components/missions/MissionReportView";
-import { Segmented } from "@/components/playbooks/Segmented";
+import { Segmented } from "@/components/workflows/Segmented";
 import { centerStyles } from "@/components/layout/automation-center/automation-center-view.styles";
 import type { MissionInsights, ResultRun } from "@/lib/missions/insights";
 import type { MissionReport } from "@/lib/missions/report";
@@ -108,7 +108,7 @@ function ReportDialog(props: { state: ReportState | null; onClose: () => void })
 
 /**
  * Results: did delegating pay off, and where did you have to step in? One page
- * for ended agent runs and playbook missions over 7, 30 or 90 days. Rows open
+ * for ended agent runs and workflow missions over 7, 30 or 90 days. Rows open
  * the run report, so the page is a lens onto reports, not a second store.
  */
 export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultReportLoader; now?: number; period?: "7" | "30" | "90"; onClose?: () => void } = {}) {

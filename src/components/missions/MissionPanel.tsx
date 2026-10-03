@@ -27,7 +27,7 @@ import {
   formatAge,
   projectMissionStages,
 } from "@/lib/missions/mission-view";
-import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
+import type { AcceptanceCriterion } from "@/lib/workflows/stage-prompt";
 import { useAppStore } from "@/store/app.store";
 import { missionStageKey, useMissionFailure, useMissionsStore } from "@/store/missions-store";
 import { hasAgentOrigin } from "@/lib/missions/agent-run";
@@ -55,7 +55,7 @@ const TILE_TONES = {
   neutral: "neutral",
 } as const;
 
-/** The latest acceptance criteria any stage reported, in playbook order. */
+/** The latest acceptance criteria any stage reported, in workflow order. */
 function latestCriteria(detail: MissionDetail): AcceptanceCriterion[] {
   return collectAcceptanceCriteria(detail, true);
 }
@@ -79,11 +79,11 @@ type MissionDetailViewProps = {
   reducedMotion?: boolean;
   busy?: boolean;
   failure?: string | null;
-  /** What an agent run's panel offers; a playbook mission uses `onCommand`. */
+  /** What an agent run's panel offers; a workflow mission uses `onCommand`. */
   agentActions?: AgentRunActions;
 };
 
-/** The mission in the Progress tab: the stage list for a playbook, the agent and its result for a run. */
+/** The mission in the Progress tab: the stage list for a workflow, the agent and its result for a run. */
 export function MissionDetailView(props: MissionDetailViewProps) {
   return hasAgentOrigin(props.detail.mission) ? (
     <AgentRunOverview
@@ -96,11 +96,11 @@ export function MissionDetailView(props: MissionDetailViewProps) {
       onShowTool={props.onShowTool}
     />
   ) : (
-    <PlaybookDetailView {...props} />
+    <LegacyWorkflowRunDetailView {...props} />
   );
 }
 
-function PlaybookDetailView(props: MissionDetailViewProps) {
+function LegacyWorkflowRunDetailView(props: MissionDetailViewProps) {
   const { detail, now, onCommand } = props;
   const { mission } = detail;
   const rows = useMemo(() => projectMissionStages(detail, new Date(now)), [detail, now]);
@@ -124,14 +124,14 @@ function PlaybookDetailView(props: MissionDetailViewProps) {
         .join(" · ")
     : (mission.reasonDetail ?? `Ended at ${formatClock(mission.updatedAt)}`);
   return (
-    <section className={sx(styles.panel)} aria-label={`Mission: ${mission.playbook.name}`} data-testid="mission-panel">
+    <section className={sx(styles.panel)} aria-label={`Mission: ${mission.workflow.name}`} data-testid="mission-panel">
       <header className={sx(styles.head)}>
         <div className={sx(styles.headRow)}>
           <IconTile size="sm" tone={TILE_TONES[badge.tone]}>
             <Target size={iconTileGlyphSizes.sm} />
           </IconTile>
           <div className={sx(styles.headText)}>
-            <p className={sx(styles.eyebrow)}>Mission · {mission.playbook.name}</p>
+            <p className={sx(styles.eyebrow)}>Mission · {mission.workflow.name}</p>
             <h2 className={sx(styles.title)} title={mission.assignment}>
               {mission.assignment}
             </h2>
@@ -302,7 +302,7 @@ export function MissionPanel(props: { taskId: string; detail: MissionDetail }) {
   const refreshMission = useMissionsStore((state) => state.refreshMission);
   const missionId = detail.mission.id;
   const busy = useMissionsStore((state) => Boolean(state.pendingByMission[missionId]));
-  const stage = detail.mission.playbook.stages[detail.mission.currentStageIndex];
+  const stage = detail.mission.workflow.stages[detail.mission.currentStageIndex];
   const record = stage ? latestStageRecord(detail.stages, stage.id) : null;
   const failure = useMissionFailure(missionId, record ? missionStageKey(record) : null);
   const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);

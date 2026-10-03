@@ -112,7 +112,7 @@ export function MissionReportView({
           <div className={sx(styles.headText)}>
             <h3 className={sx(styles.title)}>{outcome.title}</h3>
             <p className={sx(styles.eyebrow)}>
-              {report.playbookName} · {report.assignment.split("\n")[0]}
+              {report.workflowName} · {report.assignment.split("\n")[0]}
             </p>
           </div>
         </div>

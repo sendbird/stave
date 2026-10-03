@@ -24,7 +24,7 @@ export const StageDivider = memo(function StageDivider(props: { taskId: string; 
   const text = useMissionTurnDivider(workspaceId, props.taskId, props.turnId);
   // A one-stage run has nothing to divide; a run with a workflow shows its stages.
   const agentRun = useAgentRunForTurn(workspaceId, props.taskId, props.turnId);
-  if (!text || (agentRun && agentRun.playbook.stages.length <= 1)) return null;
+  if (!text || (agentRun && agentRun.workflow.stages.length <= 1)) return null;
   return <StageDividerView text={text} />;
 });
 

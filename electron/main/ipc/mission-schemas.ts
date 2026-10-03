@@ -20,8 +20,9 @@ import {
 const IdSchema = z.string().trim().min(1).max(MISSION_LIMITS.maxIdChars);
 
 /**
- * The renderer starts agent runs only. Playbook missions without an agent
- * (retired with playbooks) can no longer be started; their old rows still load.
+ * The renderer starts agent runs only. Legacy runs without an agent (from
+ * saved workflows, since retired) can no longer be started; their old rows
+ * still load.
  */
 export const MissionStartArgsSchema = MissionStartInputSchema.refine((input) => input.origin === "agent", {
   message: "Only agent runs can be started.",

@@ -39,7 +39,7 @@ export function registerMissionTools(
     MISSION_TOOL_NAMES.get,
     {
       description:
-        "Read the mission this turn belongs to: the playbook's purpose, the assignment, every stage with its status, the current stage's instruction and Done when, earlier stages' summaries, and the acceptance criteria. Read-only. Available only in turns a Stave mission started.",
+        "Read the mission this turn belongs to: the workflow's purpose, the assignment, every stage with its status, the current stage's instruction and Done when, earlier stages' summaries, and the acceptance criteria. Read-only. Available only in turns a Stave mission started.",
       annotations: { readOnlyHint: true },
     },
     async () =>

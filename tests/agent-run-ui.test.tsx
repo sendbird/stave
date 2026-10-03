@@ -82,7 +82,7 @@ describe("agent run status line", () => {
     expect(bar(runs.working)).not.toContain("Retry");
   });
 
-  test("a playbook mission keeps its stage track and Take over", () => {
+  test("a workflow mission keeps its stage track and Take over", () => {
     const aggregate = missionFixture();
     const html = renderToStaticMarkup(
       createElement(MissionBarView, {
@@ -156,7 +156,7 @@ describe("agent run result card", () => {
 });
 
 describe("agent run in the Progress tab", () => {
-  test("shows the agent and state, Done when and the result, without playbook controls", () => {
+  test("shows the agent and state, Done when and the result, without workflow controls", () => {
     const html = panel(runs.ready);
     expect(html).toContain('data-testid="agent-run-panel"');
     expect(html).toContain("Implementer");
@@ -168,7 +168,7 @@ describe("agent run in the Progress tab", () => {
     expect(html).toContain("Ask for changes");
     expect(html).not.toContain("Stages");
     expect(html).not.toContain("Mission");
-    expect(html).not.toContain("Save as playbook");
+    expect(html).not.toContain("Save as workflow");
     expect(html).not.toContain("Cancel mission");
     expect(html).not.toContain("Pause");
   });
@@ -211,7 +211,7 @@ describe("agent run in the Progress tab", () => {
   });
 
   test("a run with a workflow names it and lets you retry or skip a stuck stage", () => {
-    const titles = runs.workflow.mission.playbook.stages.map((stage) => stage.title).join(" → ");
+    const titles = runs.workflow.mission.workflow.stages.map((stage) => stage.title).join(" → ");
     const running = panel(runs.workflow);
     expect(running).toContain(`Workflow: ${titles}`);
     expect(running).toContain("Stages");
@@ -227,7 +227,7 @@ describe("agent run in the Progress tab", () => {
     expect(html).toContain("Skip");
   });
 
-  test("a playbook mission keeps its stage list", () => {
+  test("a workflow mission keeps its stage list", () => {
     const html = renderToStaticMarkup(
       createElement(MissionDetailView, { detail: missionDetail(missionFixture()), now: MISSION_NOW.getTime() + 60_000, onCommand: noop }),
     );
@@ -238,7 +238,7 @@ describe("agent run in the Progress tab", () => {
 });
 
 describe("stage divider", () => {
-  test("a playbook stage keeps its divider", () => {
+  test("a workflow stage keeps its divider", () => {
     expect(renderToStaticMarkup(createElement(StageDividerView, { text: "Stage 3 · Verify — started automatically" }))).toContain(
       'data-testid="mission-stage-divider"',
     );

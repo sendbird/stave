@@ -36,11 +36,11 @@ test.describe("agents", () => {
     await expect(dialog.getByRole("button", { name: "Assign" })).toBeVisible();
   });
 
-  test("the Agents surface shows Agents and My standards, and no Playbooks tab", async ({ page }) => {
+  test("the Agents surface shows Agents and My standards, and no Workflows tab", async ({ page }) => {
     await page.goto("/?stavePreview=agents&surface=1");
     const tabs = page.getByRole("navigation", { name: "Agents views" });
     await expect(tabs.getByRole("button", { name: "Agents", exact: true })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: "Playbooks", exact: true })).toHaveCount(0);
+    await expect(tabs.getByRole("button", { name: "Workflows", exact: true })).toHaveCount(0);
     await expect(tabs.getByRole("button", { name: "My standards", exact: true })).toBeVisible();
     await expect(page.getByTestId("agents-tab")).toBeVisible();
     await tabs.getByRole("button", { name: "My standards", exact: true }).click();

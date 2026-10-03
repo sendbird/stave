@@ -563,7 +563,7 @@ export function collectFleetMissionAttentionItems(
             ? "mission-stuck"
             : null;
     if (!kind) return [];
-    const stage = mission.playbook.stages[mission.currentStageIndex]!;
+    const stage = mission.workflow.stages[mission.currentStageIndex]!;
     return [
       {
         id: ["mission", kind, mission.id, record.stageId, record.attempt].join(":"),

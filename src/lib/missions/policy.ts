@@ -12,9 +12,9 @@
  * - A mission advances exactly one lead task and never creates a task: no
  *   decision creates one.
  */
-import { resolveStageSignOff } from "@/lib/playbooks/sign-off";
+import { resolveStageSignOff } from "@/lib/workflows/sign-off";
 import { unmetStageAcceptance } from "./acceptance";
-import type { SignOff } from "@/lib/playbooks/schema";
+import type { SignOff } from "@/lib/workflows/schema";
 import {
   clampReason,
   currentStageRecord,
@@ -23,7 +23,7 @@ import {
   isAutomaticMissionPause,
   MissionCommandError,
   missionFingerprintsMatch,
-  playbookStageAt,
+  workflowStageAt,
   stageNeedsEffectConsent,
   type ActionResult,
   type Mission,
@@ -150,11 +150,11 @@ export const MISSION_DECISION_EFFECTS: Record<MissionDecisionAction, string> = {
 
 /**
  * The sign-off a mission applies before the stage at `index`. The check-in
- * level comes from the mission's consent, not the saved playbook, and a stage
+ * level comes from the mission's consent, not the saved workflow, and a stage
  * with an external effect the user did not authorize at start always asks.
  */
 export function resolveMissionStageSignOff(mission: Mission, index: number): SignOff {
-  playbookStageAt(mission, index);
+  workflowStageAt(mission, index);
   return resolveConsentStageSignOff(mission, index);
 }
 
@@ -164,21 +164,21 @@ export function resolveMissionStageSignOff(mission: Mission, index: number): Sig
  * follow the chosen check-ins.
  */
 export function resolveConsentStageSignOff(
-  mission: Pick<Mission, "playbook"> & { consent: Pick<Mission["consent"], "checkIns" | "authorizedEffectStageIds"> },
+  mission: Pick<Mission, "workflow"> & { consent: Pick<Mission["consent"], "checkIns" | "authorizedEffectStageIds"> },
   index: number,
 ): SignOff {
-  const stage = mission.playbook.stages[index];
-  if (!stage) throw new RangeError(`Stage index ${index} is outside the playbook.`);
+  const stage = mission.workflow.stages[index];
+  if (!stage) throw new RangeError(`Stage index ${index} is outside the workflow.`);
   if (stageNeedsEffectConsent(stage, mission.consent)) return "ask";
   return resolveStageSignOff(
-    { checkIns: mission.consent.checkIns, stages: mission.playbook.stages },
+    { checkIns: mission.consent.checkIns, stages: mission.workflow.stages },
     index,
   );
 }
 
 function nextAfterCompletion(mission: Mission): "sign-off" | "start" | "finish" {
   const nextIndex = mission.currentStageIndex + 1;
-  if (nextIndex >= mission.playbook.stages.length) return "finish";
+  if (nextIndex >= mission.workflow.stages.length) return "finish";
   return resolveMissionStageSignOff(mission, nextIndex) === "ask" ? "sign-off" : "start";
 }
 
@@ -199,7 +199,7 @@ function completeStage(aggregate: MissionAggregate, record: MissionStageRecord):
     ? { action: "idle" } : { action: "block", reason: "acceptance-unmet", detail: clampReason(unmet) };
   const { mission } = aggregate;
   const nextIndex = mission.currentStageIndex + 1;
-  if (nextIndex < mission.playbook.stages.length) {
+  if (nextIndex < mission.workflow.stages.length) {
     try {
       enterStage({ aggregate, index: nextIndex });
     } catch (error) {
@@ -440,7 +440,7 @@ export function decideMissionAction(args: {
 
   // 6-9. The current stage.
   const record = currentStageRecord(aggregate);
-  const stage = playbookStageAt(mission, mission.currentStageIndex);
+  const stage = workflowStageAt(mission, mission.currentStageIndex);
   switch (record.status) {
     case "completed":
     case "skipped":
@@ -484,7 +484,7 @@ export function advanceMission(args: {
   const { aggregate, completed, now } = args;
   const { mission } = aggregate;
   const nextIndex = mission.currentStageIndex + 1;
-  if (nextIndex >= mission.playbook.stages.length) {
+  if (nextIndex >= mission.workflow.stages.length) {
     return {
       mission: withMission(
         mission,

@@ -4,13 +4,13 @@
  */
 import {
   DEFAULT_WATCH_CHECKS,
-  MAX_PLAYBOOK_STAGES,
-  PLAYBOOK_LIMITS,
+  MAX_WORKFLOW_STAGES,
+  WORKFLOW_LIMITS,
   STAVE_ACTION_LABELS,
   type ActionStage,
   type AiStage,
-  type Playbook,
-  type PlaybookStage,
+  type Workflow,
+  type WorkflowStage,
   type SignOff,
   type StaveActionType,
 } from "./schema";
@@ -28,7 +28,7 @@ export function uniqueStageId(title: string, taken: Iterable<string>): string {
       .toLowerCase()
       .normalize("NFKD")
       .replace(/[^a-z0-9]+/g, "-")
-      .slice(0, PLAYBOOK_LIMITS.stageId - 4)
+      .slice(0, WORKFLOW_LIMITS.stageId - 4)
       .replace(/^-+|-+$/g, "") || "stage";
   if (!used.has(base)) return base;
   for (let suffix = 2; ; suffix += 1) {
@@ -56,7 +56,7 @@ export function createActionStage(type: StaveActionType, taken: Iterable<string>
   }
 }
 
-export function moveStage(stages: readonly PlaybookStage[], from: number, to: number): PlaybookStage[] {
+export function moveStage(stages: readonly WorkflowStage[], from: number, to: number): WorkflowStage[] {
   if (from === to || from < 0 || to < 0 || from >= stages.length || to >= stages.length) {
     return [...stages];
   }
@@ -68,41 +68,41 @@ export function moveStage(stages: readonly PlaybookStage[], from: number, to: nu
 
 /**
  * Sets whether the stage at `index` waits for the user. An override that
- * matches what the check-ins would do anyway is removed, so the playbook
+ * matches what the check-ins would do anyway is removed, so the workflow
  * stays on its preset until the user really departs from it.
  */
-export function setStageSignOff<T extends Pick<Playbook, "checkIns" | "stages">>(playbook: T, index: number, next: SignOff): T {
-  const derived = deriveStageSignOff(playbook.checkIns, playbook.stages, index);
-  const stages = playbook.stages.map((stage, position) => {
+export function setStageSignOff<T extends Pick<Workflow, "checkIns" | "stages">>(workflow: T, index: number, next: SignOff): T {
+  const derived = deriveStageSignOff(workflow.checkIns, workflow.stages, index);
+  const stages = workflow.stages.map((stage, position) => {
     if (position !== index) return stage;
     const { signOff: _previous, ...rest } = stage;
-    return (next === derived ? rest : { ...rest, signOff: next }) as PlaybookStage;
+    return (next === derived ? rest : { ...rest, signOff: next }) as WorkflowStage;
   });
-  return { ...playbook, stages };
+  return { ...workflow, stages };
 }
 
 /** Choosing a check-in preset clears the per-stage overrides. */
-export function applyCheckIns<T extends Pick<Playbook, "checkIns" | "stages">>(playbook: T, checkIns: Playbook["checkIns"]): T {
+export function applyCheckIns<T extends Pick<Workflow, "checkIns" | "stages">>(workflow: T, checkIns: Workflow["checkIns"]): T {
   return {
-    ...playbook,
+    ...workflow,
     checkIns,
-    stages: playbook.stages.map((stage) => {
+    stages: workflow.stages.map((stage) => {
       const { signOff: _override, ...rest } = stage;
-      return rest as PlaybookStage;
+      return rest as WorkflowStage;
     }),
   };
 }
 
 /** Why a Stave action cannot be added now, or null when it can. */
-export function explainActionUnavailable(playbook: Pick<Playbook, "stages">, type: StaveActionType): string | null {
-  if (playbook.stages.length >= MAX_PLAYBOOK_STAGES) return `A workflow has at most ${MAX_PLAYBOOK_STAGES} stages.`;
-  const present = playbook.stages.some((stage) => stage.kind === "action" && stage.action.type === type);
+export function explainActionUnavailable(workflow: Pick<Workflow, "stages">, type: StaveActionType): string | null {
+  if (workflow.stages.length >= MAX_WORKFLOW_STAGES) return `A workflow has at most ${MAX_WORKFLOW_STAGES} stages.`;
+  const present = workflow.stages.some((stage) => stage.kind === "action" && stage.action.type === type);
   if (present) return `The workflow already has "${STAVE_ACTION_LABELS[type]}".`;
   return null;
 }
 
-/** Whether the stage at `index` waits for the user under this playbook. */
-export function stageAsksFirst(playbook: Pick<Playbook, "checkIns" | "stages">, index: number): boolean {
-  return resolveStageSignOff(playbook, index) === "ask";
+/** Whether the stage at `index` waits for the user under this workflow. */
+export function stageAsksFirst(workflow: Pick<Workflow, "checkIns" | "stages">, index: number): boolean {
+  return resolveStageSignOff(workflow, index) === "ask";
 }
 

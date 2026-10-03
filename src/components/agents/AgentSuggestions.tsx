@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ads/components/Textarea";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentSuggestion } from "@/lib/agents/learned-suggestions";
 import { AGENT_CONFIG_LIMITS, type AgentConfig } from "@/lib/agents/schema";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 
 function SuggestionCard(props: {

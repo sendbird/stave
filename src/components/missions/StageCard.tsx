@@ -4,7 +4,7 @@ import { Button } from "@/components/ads/components/Button";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { sx } from "@/components/ads/utils/stylex";
 import { formatAge, STAGE_STATUS_PRESENTATION, type MissionStageRow } from "@/lib/missions/mission-view";
-import { STAVE_ACTION_LABELS } from "@/lib/playbooks/schema";
+import { STAVE_ACTION_LABELS } from "@/lib/workflows/schema";
 import { EvidenceList } from "./EvidenceList";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { missionStyles as styles } from "./missions.styles";

@@ -2,7 +2,7 @@ import type { AiStage } from "./schema";
 
 /**
  * Stages offered by "Add stage" in an agent's workflow editor
- * (`src/components/playbooks/StageList.tsx`).
+ * (`src/components/workflows/StageList.tsx`).
  */
 export interface StageTemplate {
   id: string;

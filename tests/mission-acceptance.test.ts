@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import { unmetStageAcceptance } from "../src/lib/missions/acceptance";
 import { currentStageRecord, createStageRecord } from "../src/lib/missions/domain";
 import { decideMissionAction } from "../src/lib/missions/policy";
-import { PlaybookSchema } from "../src/lib/playbooks/schema";
+import { WorkflowSchema } from "../src/lib/workflows/schema";
 import { COMPLETE_REPORT, MISSION_NOW, missionFixture, observe, patchCurrent, turn } from "./fixtures/mission-fixtures";
 
 const ai = (id: string) => ({ id, title: id, kind: "ai" as const, instruction: "Do this stage.", doneWhen: "This stage is done." });
 function aggregateFor(stages: unknown[]) {
   const base = missionFixture();
-  return missionFixture({ playbook: PlaybookSchema.parse({ ...base.mission.playbook, checkIns: "when-stuck", stages }) });
+  return missionFixture({ workflow: WorkflowSchema.parse({ ...base.mission.workflow, checkIns: "when-stuck", stages }) });
 }
 function reported(stages: unknown[], criteria: typeof COMPLETE_REPORT.acceptanceCriteria = []) {
   return patchCurrent(aggregateFor(stages), { status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: criteria } });
@@ -46,9 +46,9 @@ test("a later timestamp cannot make a previous turn's explicit report current", 
 });
 
 test("Stave checks are reachable only through a Run script action, whose omitted verification defaults to a check", () => {
-  const base = aggregateFor([ai("answer")]).mission.playbook;
-  expect(PlaybookSchema.safeParse({ ...base, stages: [{ ...ai("answer"), acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check" }] }] }).success).toBe(false);
-  expect(PlaybookSchema.safeParse({ ...base, stages: [{ id: "publish", title: "Publish", kind: "action", action: { type: "open-draft-pr" }, acceptanceCriteria: [{ text: "Tests pass" }] }] }).success).toBe(false);
+  const base = aggregateFor([ai("answer")]).mission.workflow;
+  expect(WorkflowSchema.safeParse({ ...base, stages: [{ ...ai("answer"), acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check" }] }] }).success).toBe(false);
+  expect(WorkflowSchema.safeParse({ ...base, stages: [{ id: "publish", title: "Publish", kind: "action", action: { type: "open-draft-pr" }, acceptanceCriteria: [{ text: "Tests pass" }] }] }).success).toBe(false);
   const aggregate = aggregateFor([{ id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]);
   const record = currentStageRecord(aggregate);
   expect(unmetStageAcceptance(aggregate, record)).not.toBeNull();

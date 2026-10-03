@@ -264,7 +264,7 @@ copy.
 
 As-built:
 
-- [x] `src/lib/playbooks/`:
+- [x] `src/lib/workflows/`:
   - `schema.ts`: strict zod schema; the `Playbook` types are inferred from
     it. Stage ids are lowercase slugs because they appear in the
     `missionId:stageId:attempt` idempotency key. The runtime accepts the four
@@ -305,12 +305,12 @@ As-built:
 - [x] Deleted `WORKFLOW_STARTERS`, which was rendered nowhere. Its content is
       in git history for the Phase 2 starters. `appendWorkflowDraft` stays.
 - [x] Tests:
-  - `tests/playbook-schema.test.ts` covers the schema, the starters and the
+  - `tests/workflow-schema.test.ts` covers the schema, the starters and the
     normalization. It also checks that every `stave_*` tool a starter names
     is registered in `stave-mcp-server.ts` or `browser-tools.ts`, so a future
     tool rename cannot silently break the starters.
-  - `tests/playbook-sign-off.test.ts`
-  - `tests/playbook-stage-prompt.test.ts`
+  - `tests/workflow-sign-off.test.ts`
+  - `tests/workflow-stage-prompt.test.ts`
 - Gates: `bun run typecheck`, `node scripts/typecheck-main.mjs`, focused
       tests (36), `bun run test:ci`.
 
@@ -773,7 +773,7 @@ As-built (PR 10b and the design pass):
 
 As-built (PR 11, `df5b3a5d`):
 
-- [x] Playbooks tab (`src/components/playbooks/`): searchable list + in-place
+- [x] Playbooks tab (`src/components/workflows/`): searchable list + in-place
   editor; per-playbook unsaved drafts; templates gallery empty state; Draft
   with AI (a playbook drafting module + utility-lane read-only turn,
   since removed); stage rows with drag and

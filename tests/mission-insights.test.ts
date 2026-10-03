@@ -107,10 +107,10 @@ test("runs that did not finish are counted by one cause each, most first", () =>
   ]);
 });
 
-test("agents and playbooks get a row each, with the last ten outcomes oldest first", () => {
+test("agents and workflows get a row each, with the last ten outcomes oldest first", () => {
   const reviewer = Array.from({ length: 12 }, (_, index) => sample({ state: index === 0 ? "cancelled" : "completed", cost: 1 }));
-  const playbook = sample({ name: "Ship it", kind: "playbook", cost: 5, counts: { nudges: 2 } });
-  const insights = aggregateMissionInsights([...reviewer, playbook], 7);
+  const workflow = sample({ name: "Ship it", kind: "workflow", cost: 5, counts: { nudges: 2 } });
+  const insights = aggregateMissionInsights([...reviewer, workflow], 7);
   expect(insights.days).toBe(7);
   const [first, second] = insights.agents;
   expect(first).toMatchObject({ name: "Reviewer", kind: "agent", runs: 12, medianCostUsd: 1 });
@@ -118,7 +118,7 @@ test("agents and playbooks get a row each, with the last ten outcomes oldest fir
   // The first (cancelled) run is the oldest and fell out of the last ten.
   expect(first!.last.every((outcome) => outcome === "ready")).toBe(true);
   expect(first!.readyRate).toBeCloseTo(11 / 12);
-  expect(second).toMatchObject({ name: "Ship it", kind: "playbook", runs: 1, correctionsPerRun: 2, medianCostUsd: 5 });
+  expect(second).toMatchObject({ name: "Ship it", kind: "workflow", runs: 1, correctionsPerRun: 2, medianCostUsd: 5 });
   // Newest first.
   expect(insights.runs[0]!.name).toBe("Ship it");
 });

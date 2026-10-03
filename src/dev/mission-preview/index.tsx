@@ -22,7 +22,7 @@ import {
   type MissionStageRecord,
 } from "@/lib/missions/domain";
 import { buildMissionReport } from "@/lib/missions/report";
-import { createPlaybookFromStarter, findPlaybookStarter } from "@/dev/fixtures/legacy-playbook-starters";
+import { createWorkflowFromStarter, findWorkflowStarter } from "@/dev/fixtures/legacy-workflow-starters";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { agentRunFleetDetails, AgentRunPreviewCases } from "./agent-run-cases";
@@ -37,21 +37,21 @@ import { StageProgressCases, type ProgressCase } from "./progress-cases";
 const START = new Date(Date.now() - 22 * 60_000);
 const at = (minutes: number) => new Date(START.getTime() + minutes * 60_000).toISOString();
 
-const playbook = createPlaybookFromStarter(findPlaybookStarter("request-to-pr")!, {
+const workflow = createWorkflowFromStarter(findWorkflowStarter("request-to-pr")!, {
   now: START,
-  id: "playbook_preview",
+  id: "workflow_preview",
 });
 const created = createMission({
   id: "mission-preview",
   input: {
     workspaceId: "preview-workspace",
     leadTaskId: "preview-task",
-    playbook,
+    workflow,
     assignment: "Fix billing table overflow on narrow screens.",
     consent: {
       checkIns: "plan-and-publishing",
       permissionMode: "guided",
-      authorizedEffectStageIds: listExternalEffectStages(playbook).map((stage) => stage.id),
+      authorizedEffectStageIds: listExternalEffectStages(workflow).map((stage) => stage.id),
     },
   },
   repositoryPath: "/tmp/preview-project",
@@ -113,9 +113,9 @@ function detail(
   mission: Partial<MissionDetail["mission"]> = {},
   events: MissionEvent[] = [],
 ): MissionDetail {
-  const stageId = playbook.stages[currentStageIndex]!.id;
+  const stageId = workflow.stages[currentStageIndex]!.id;
   // Stages between Build and the current one are done.
-  const between = playbook.stages
+  const between = workflow.stages
     .slice(2, currentStageIndex)
     .map((stage) => record(stage.id, { status: "completed", startedAt: at(14), endedAt: at(15) }));
   return {
@@ -175,7 +175,7 @@ const completed: MissionDetail = {
 };
 completed.report = { ...completed.report!, usage: { turns: 11, measuredTurns: 11, inputTokens: 402_000, outputTokens: 51_000, costUsd: 2.37 } };
 
-const lastStageIndex = playbook.stages.length - 1;
+const lastStageIndex = workflow.stages.length - 1;
 const firstStage: MissionDetail = {
   ...live,
   mission: { ...live.mission, currentStageIndex: 0, turnCount: 1 },
@@ -188,9 +188,9 @@ const longTitle: MissionDetail = {
   ...live,
   mission: {
     ...live.mission,
-    playbook: {
-      ...playbook,
-      stages: playbook.stages.map((stage, index) =>
+    workflow: {
+      ...workflow,
+      stages: workflow.stages.map((stage, index) =>
         index === 2 ? { ...stage, title: "Verify the billing table at every breakpoint and theme" } : stage,
       ),
     },
@@ -210,7 +210,7 @@ const progressCases: ProgressCase[] = [
 ];
 const progressSteps: MissionDetail[] = [
   firstStage,
-  ...playbook.stages.slice(2).map((_, offset) => detail(offset + 2, { status: "running" })),
+  ...workflow.stages.slice(2).map((_, offset) => detail(offset + 2, { status: "running" })),
   done,
 ];
 

@@ -5,7 +5,7 @@ import { TaskPanel, TaskPanelView } from "@/components/session/TaskPanel";
 import { TaskPanelEmpty } from "@/components/session/TaskPanelEmpty";
 import { openTaskInspection } from "@/components/session/task-inspection-navigation";
 import type { MissionDetail } from "@/lib/missions/api";
-import { DEFAULT_PLAYBOOK_PERMISSION_MODE } from "@/lib/playbooks/schema";
+import { DEFAULT_WORKFLOW_PERMISSION_MODE } from "@/lib/workflows/schema";
 import {
   RIGHT_RAIL_PANEL_IDS,
   RIGHT_RAIL_PANEL_TITLES,
@@ -128,7 +128,7 @@ test("a direct task's Progress carries no mission upsell", () => {
   const html = render({ tab: "progress" });
   expect(html).not.toContain("Hand this task off");
   expect(html).not.toContain("Start a mission");
-  expect(html).not.toContain("Manage playbooks");
+  expect(html).not.toContain("Manage workflows");
 });
 
 test("Subagents lists the task's subagents for a repository task", () => {
@@ -193,6 +193,6 @@ test("openTaskInspection opens the Task panel on the named tab for the active ta
   expect(useAppStore.getState().layout.taskPanelTab).toBe("team");
 });
 
-test("a playbook without a permission mode runs Auto", () => {
-  expect(DEFAULT_PLAYBOOK_PERMISSION_MODE).toBe("auto");
+test("a workflow without a permission mode runs Auto", () => {
+  expect(DEFAULT_WORKFLOW_PERMISSION_MODE).toBe("auto");
 });

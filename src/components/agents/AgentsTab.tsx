@@ -46,7 +46,7 @@ import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { useAppStore } from "@/store/app.store";
 import { useAgentsViewStore } from "@/store/agents-view-store";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { ExportAgent } from "./ExportAgent";
 import { AgentAvatar } from "./AgentAvatar";
 import { AgentEditor } from "./AgentEditor";

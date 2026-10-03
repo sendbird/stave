@@ -105,7 +105,7 @@ function parseMissionRow(row: MissionRow): Mission {
     workspaceId: row.workspace_id,
     leadTaskId: row.lead_task_id,
     projectId: row.project_id,
-    playbook: JSON.parse(row.playbook_json),
+    workflow: JSON.parse(row.playbook_json),
     assignment: row.assignment,
     consent: JSON.parse(row.consent_json),
     fingerprint: JSON.parse(row.fingerprint_json),
@@ -230,7 +230,7 @@ export class MissionStore {
         created_at TEXT NOT NULL,
         UNIQUE (mission_id, sequence)
       );
-      -- Retired with proposals and playbook start conditions. Nothing reads or
+      -- Retired with proposals and workflow start conditions. Nothing reads or
       -- writes these two tables now; they stay so existing rows are untouched.
       CREATE TABLE IF NOT EXISTS mission_proposals (
         id TEXT PRIMARY KEY,
@@ -272,7 +272,7 @@ export class MissionStore {
       mission.workspaceId,
       mission.leadTaskId,
       mission.projectId,
-      JSON.stringify(mission.playbook),
+      JSON.stringify(mission.workflow),
       mission.assignment,
       JSON.stringify(mission.consent),
       JSON.stringify(mission.fingerprint),

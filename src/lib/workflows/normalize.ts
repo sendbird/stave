@@ -1,8 +1,8 @@
-import { MAX_PLAYBOOKS, PlaybookSchema, type Playbook } from "./schema";
+import { MAX_WORKFLOWS, WorkflowSchema, type Workflow } from "./schema";
 
 const MAX_DIAGNOSTIC_ISSUES = 5;
 
-export interface PlaybookDiagnostic {
+export interface WorkflowDiagnostic {
   /** Position in the persisted list. */
   index: number;
   id?: string;
@@ -11,18 +11,18 @@ export interface PlaybookDiagnostic {
   issues: string[];
 }
 
-export type PlaybookParseResult =
-  | { ok: true; playbook: Playbook }
+export type WorkflowParseResult =
+  | { ok: true; workflow: Workflow }
   | { ok: false; issues: string[] };
 
-export function generatePlaybookId(): string {
+export function generateWorkflowId(): string {
   if (
     typeof crypto !== "undefined" &&
     typeof crypto.randomUUID === "function"
   ) {
-    return `playbook_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
+    return `workflow_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
   }
-  return `playbook_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+  return `workflow_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
 
 function readLabel(value: unknown, key: "id" | "name"): string | undefined {
@@ -31,10 +31,10 @@ function readLabel(value: unknown, key: "id" | "name"): string | undefined {
   return typeof candidate === "string" ? candidate.slice(0, 80) : undefined;
 }
 
-/** Validates one playbook; issues are "path: message" sentences for the UI. */
-export function parsePlaybook(value: unknown): PlaybookParseResult {
-  const parsed = PlaybookSchema.safeParse(value);
-  if (parsed.success) return { ok: true, playbook: parsed.data };
+/** Validates one workflow; issues are "path: message" sentences for the UI. */
+export function parseWorkflow(value: unknown): WorkflowParseResult {
+  const parsed = WorkflowSchema.safeParse(value);
+  if (parsed.success) return { ok: true, workflow: parsed.data };
   return {
     ok: false,
     issues: parsed.error.issues.map((issue) =>
@@ -46,11 +46,11 @@ export function parsePlaybook(value: unknown): PlaybookParseResult {
 }
 
 /**
- * A saved playbook this version could not read (another version's shape, or
+ * A saved workflow this version could not read (another version's shape, or
  * one past the limit), kept exactly as it was saved. It is never rewritten
  * away: every load tries it again, so it comes back once it can be read.
  */
-export interface UnreadablePlaybook {
+export interface UnreadableWorkflow {
   /** The saved entry, unchanged. */
   value: unknown;
   /** Why it could not be read. */
@@ -58,31 +58,31 @@ export interface UnreadablePlaybook {
 }
 
 /**
- * Restores saved playbooks. A playbook that fails validation is dropped from
+ * Restores saved workflows. A workflow that fails validation is dropped from
  * the list and reported in `rejected` as it was saved, never repaired into a
  * different shape or into a macro. A duplicate id gets a fresh one and a
  * duplicate shortcut is cleared, keeping the rest.
  */
-export function normalizePersistedPlaybooks(input: unknown): {
-  playbooks: Playbook[];
-  diagnostics: PlaybookDiagnostic[];
-  rejected: UnreadablePlaybook[];
+export function normalizePersistedWorkflows(input: unknown): {
+  workflows: Workflow[];
+  diagnostics: WorkflowDiagnostic[];
+  rejected: UnreadableWorkflow[];
 } {
   if (input === undefined || input === null) {
-    return { playbooks: [], diagnostics: [], rejected: [] };
+    return { workflows: [], diagnostics: [], rejected: [] };
   }
   if (!Array.isArray(input)) {
-    const issues = ["Saved playbooks are not a list."];
+    const issues = ["Saved workflows are not a list."];
     return {
-      playbooks: [],
+      workflows: [],
       diagnostics: [{ index: -1, outcome: "dropped", issues }],
       rejected: [{ value: input, issues }],
     };
   }
 
-  const playbooks: Playbook[] = [];
-  const diagnostics: PlaybookDiagnostic[] = [];
-  const rejected: UnreadablePlaybook[] = [];
+  const workflows: Workflow[] = [];
+  const diagnostics: WorkflowDiagnostic[] = [];
+  const rejected: UnreadableWorkflow[] = [];
   const seenIds = new Set<string>();
   const seenShortcuts = new Set<string>();
 
@@ -92,39 +92,39 @@ export function normalizePersistedPlaybooks(input: unknown): {
       diagnostics.push({ ...label, outcome: "dropped", issues });
       rejected.push({ value: candidate, issues });
     };
-    if (playbooks.length >= MAX_PLAYBOOKS) {
-      drop([`Only ${MAX_PLAYBOOKS} playbooks are kept.`]);
+    if (workflows.length >= MAX_WORKFLOWS) {
+      drop([`Only ${MAX_WORKFLOWS} workflows are kept.`]);
       return;
     }
-    const parsed = parsePlaybook(candidate);
+    const parsed = parseWorkflow(candidate);
     if (!parsed.ok) {
       drop(parsed.issues.slice(0, MAX_DIAGNOSTIC_ISSUES));
       return;
     }
-    const playbook = parsed.playbook;
-    if (seenIds.has(playbook.id)) {
-      const previousId = playbook.id;
-      playbook.id = generatePlaybookId();
+    const workflow = parsed.workflow;
+    if (seenIds.has(workflow.id)) {
+      const previousId = workflow.id;
+      workflow.id = generateWorkflowId();
       diagnostics.push({
         ...label,
         outcome: "renamed-id",
-        issues: [`Id "${previousId}" was already used; saved as "${playbook.id}".`],
+        issues: [`Id "${previousId}" was already used; saved as "${workflow.id}".`],
       });
     }
-    if (playbook.shortcut !== undefined && seenShortcuts.has(playbook.shortcut)) {
+    if (workflow.shortcut !== undefined && seenShortcuts.has(workflow.shortcut)) {
       diagnostics.push({
         ...label,
         outcome: "cleared-shortcut",
-        issues: [`Shortcut "${playbook.shortcut}" was already used.`],
+        issues: [`Shortcut "${workflow.shortcut}" was already used.`],
       });
-      delete playbook.shortcut;
+      delete workflow.shortcut;
     }
-    seenIds.add(playbook.id);
-    if (playbook.shortcut !== undefined) seenShortcuts.add(playbook.shortcut);
-    playbooks.push(playbook);
+    seenIds.add(workflow.id);
+    if (workflow.shortcut !== undefined) seenShortcuts.add(workflow.shortcut);
+    workflows.push(workflow);
   });
 
-  return { playbooks, diagnostics, rejected };
+  return { workflows, diagnostics, rejected };
 }
 
 /** The saved values of the kept-aside entries; an entry of another shape is kept as it is. */
@@ -136,22 +136,22 @@ function readKeptAsideValues(input: unknown): unknown[] {
 }
 
 /**
- * Restores the saved playbooks together with the ones kept aside earlier.
+ * Restores the saved workflows together with the ones kept aside earlier.
  * Kept-aside entries are read again after the saved ones, so one saved by a
  * newer version comes back once this version can read it (and there is room),
  * and one that still cannot be read stays kept aside, unchanged. Nothing is
  * lost when the list is written back.
  */
-export function restorePersistedPlaybooks(input: { playbooks: unknown; unreadable: unknown }): {
-  playbooks: Playbook[];
-  unreadable: UnreadablePlaybook[];
-  diagnostics: PlaybookDiagnostic[];
+export function restorePersistedWorkflows(input: { workflows: unknown; unreadable: unknown }): {
+  workflows: Workflow[];
+  unreadable: UnreadableWorkflow[];
+  diagnostics: WorkflowDiagnostic[];
 } {
-  const saved = input.playbooks ?? [];
-  const notAList: UnreadablePlaybook[] = Array.isArray(saved)
+  const saved = input.workflows ?? [];
+  const notAList: UnreadableWorkflow[] = Array.isArray(saved)
     ? []
-    : [{ value: saved, issues: ["Saved playbooks are not a list."] }];
-  const result = normalizePersistedPlaybooks([
+    : [{ value: saved, issues: ["Saved workflows are not a list."] }];
+  const result = normalizePersistedWorkflows([
     ...(Array.isArray(saved) ? saved : []),
     ...readKeptAsideValues(input.unreadable),
   ]);
@@ -162,11 +162,11 @@ export function restorePersistedPlaybooks(input: { playbooks: unknown; unreadabl
     seen.add(key);
     return true;
   });
-  return { playbooks: result.playbooks, unreadable, diagnostics: result.diagnostics };
+  return { workflows: result.workflows, unreadable, diagnostics: result.diagnostics };
 }
 
-export function warnPlaybookDiagnostics(diagnostics: PlaybookDiagnostic[]) {
+export function warnWorkflowDiagnostics(diagnostics: WorkflowDiagnostic[]) {
   if (diagnostics.length > 0) {
-    console.warn("[playbooks] adjusted saved playbooks", diagnostics);
+    console.warn("[workflows] adjusted saved workflows", diagnostics);
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Agent runs: an Agent-mode prompt runs on the mission engine instead of as a
- * single turn. The run is a mission whose playbook is built from the task's
+ * single turn. The run is a mission whose workflow is built from the task's
  * agent: the agent's workflow when it has one, else one implicit "Work"
  * stage. It completes only through the stage reports, checks in as the
  * agent's "Check in with me" says (only when stuck by default), and ends when
@@ -16,12 +16,12 @@
  * Pure: no clock, no I/O. Callers pass `now`.
  */
 import { DEFAULT_AGENT_CHECK_INS, type AgentConfig } from "@/lib/agents/schema";
-import { PLAYBOOK_LIMITS, PLAYBOOK_VERSION, type Playbook } from "@/lib/playbooks/schema";
+import { WORKFLOW_LIMITS, WORKFLOW_VERSION, type Workflow } from "@/lib/workflows/schema";
 import { MISSION_LIMITS, stageHasExternalEffect, type Mission, type MissionStartInput } from "./domain";
 
 type RunAgent = Pick<AgentConfig, "name" | "workflow" | "checkIns">;
 
-export const AGENT_RUN_PLAYBOOK_ID = "agent-run";
+export const AGENT_RUN_WORKFLOW_ID = "agent-run";
 export const AGENT_RUN_STAGE_ID = "work";
 export const AGENT_RUN_DEFAULT_DONE_WHEN = "The assignment is complete and verified.";
 
@@ -42,21 +42,21 @@ function clip(value: string, max: number) {
 }
 
 /**
- * The playbook of an agent run: the agent's workflow, or one AI stage, "Work",
+ * The workflow of an agent run: the agent's workflow, or one AI stage, "Work",
  * whose `doneWhen` is the assignment's own criteria when the user gave any.
  */
-export function buildAgentRunPlaybook(args: {
+export function buildAgentRunWorkflow(args: {
   agent: RunAgent;
   doneWhen?: string | null;
   now: Date;
-}): Playbook {
+}): Workflow {
   const timestamp = args.now.toISOString();
-  const doneWhen = args.doneWhen?.trim() ? clip(args.doneWhen, PLAYBOOK_LIMITS.doneWhen) : AGENT_RUN_DEFAULT_DONE_WHEN;
+  const doneWhen = args.doneWhen?.trim() ? clip(args.doneWhen, WORKFLOW_LIMITS.doneWhen) : AGENT_RUN_DEFAULT_DONE_WHEN;
   return {
-    version: PLAYBOOK_VERSION,
-    id: AGENT_RUN_PLAYBOOK_ID,
-    name: clip(args.agent.name, PLAYBOOK_LIMITS.name),
-    purpose: clip(`Carry out the user's assignment as ${args.agent.name}.`, PLAYBOOK_LIMITS.purpose),
+    version: WORKFLOW_VERSION,
+    id: AGENT_RUN_WORKFLOW_ID,
+    name: clip(args.agent.name, WORKFLOW_LIMITS.name),
+    purpose: clip(`Carry out the user's assignment as ${args.agent.name}.`, WORKFLOW_LIMITS.purpose),
     checkIns: args.agent.checkIns ?? DEFAULT_AGENT_CHECK_INS,
     // The agent may hand bounded parts to helpers; its own `canCall` decides which.
     team: "workers",
@@ -90,15 +90,15 @@ export function buildAgentRunStartInput(args: {
   doneWhen?: string | null;
   now: Date;
 }): MissionStartInput {
-  const playbook = buildAgentRunPlaybook({ agent: args.agent, doneWhen: args.doneWhen, now: args.now });
+  const workflow = buildAgentRunWorkflow({ agent: args.agent, doneWhen: args.doneWhen, now: args.now });
   const authorizedEffectStageIds =
-    playbook.checkIns === "when-stuck" ? playbook.stages.filter(stageHasExternalEffect).map((stage) => stage.id) : [];
+    workflow.checkIns === "when-stuck" ? workflow.stages.filter(stageHasExternalEffect).map((stage) => stage.id) : [];
   return {
     workspaceId: args.workspaceId,
     leadTaskId: args.taskId,
-    playbook,
+    workflow,
     assignment: args.assignment.trim(),
-    consent: { checkIns: playbook.checkIns, permissionMode: "manual", authorizedEffectStageIds },
+    consent: { checkIns: workflow.checkIns, permissionMode: "manual", authorizedEffectStageIds },
     origin: "agent",
   };
 }

@@ -1,7 +1,7 @@
 /**
  * Mission domain: the records a mission is made of.
  *
- * A mission runs a playbook on one lead task the user already owns. It is a
+ * A mission runs a workflow on one lead task the user already owns. It is a
  * Layer 3 supervisor entry beside wake-ups (see
  * `docs/architecture/agent-platform-taxonomy.md`): it adds turns to that task
  * and never creates one.
@@ -18,11 +18,11 @@ import { ScriptVerificationSchema, WorkspaceRevisionSchema } from "./verificatio
 import { AUTOMATION_PERMISSION_MODES } from "@/lib/automations";
 import {
   CHECK_INS,
-  PlaybookSchema,
-  type Playbook,
-  type PlaybookStage,
-} from "@/lib/playbooks/schema";
-import { ACCEPTANCE_CRITERION_STATUSES } from "@/lib/playbooks/stage-prompt";
+  WorkflowSchema,
+  type Workflow,
+  type WorkflowStage,
+} from "@/lib/workflows/schema";
+import { ACCEPTANCE_CRITERION_STATUSES } from "@/lib/workflows/stage-prompt";
 
 export const MISSION_LIMITS = Object.freeze({
   maxIdChars: 256,
@@ -91,7 +91,7 @@ export function formatMissionFingerprint(fingerprint: MissionFingerprint) {
 }
 
 /**
- * What the user agreed to when starting this mission. A saved playbook grants
+ * What the user agreed to when starting this mission. A saved workflow grants
  * nothing; this record is the only authority a mission has. A stage with an
  * external effect that is not listed here always waits for sign-off.
  */
@@ -105,12 +105,12 @@ export const MissionConsentSchema = z
 export type MissionConsent = z.infer<typeof MissionConsentSchema>;
 
 /** Publish stages and Stave actions write outside the workspace. */
-export function stageHasExternalEffect(stage: PlaybookStage): boolean {
+export function stageHasExternalEffect(stage: WorkflowStage): boolean {
   return stage.kind === "action" || stage.role === "publish";
 }
 
-export function listExternalEffectStages(playbook: Pick<Playbook, "stages">) {
-  return playbook.stages.filter(stageHasExternalEffect);
+export function listExternalEffectStages(workflow: Pick<Workflow, "stages">) {
+  return workflow.stages.filter(stageHasExternalEffect);
 }
 
 /**
@@ -118,7 +118,7 @@ export function listExternalEffectStages(playbook: Pick<Playbook, "stages">) {
  * go-ahead at start. It always waits for sign-off, even as the start stage.
  */
 export function stageNeedsEffectConsent(
-  stage: PlaybookStage,
+  stage: WorkflowStage,
   consent: Pick<MissionConsent, "authorizedEffectStageIds">,
 ): boolean {
   return stageHasExternalEffect(stage) && !consent.authorizedEffectStageIds.includes(stage.id);
@@ -512,9 +512,9 @@ const missionIdentity = {
 
 /**
  * `agent`: an agent run. An Agent-mode prompt started it with an implicit
- * one-stage playbook built from the task's agent (`agent-run.ts`); the host
+ * one-stage workflow built from the task's agent (`agent-run.ts`); the host
  * routes each of its turns and it ends when the agent stops running the task.
- * Absent for a mission started from a saved playbook.
+ * Absent for a mission started from a saved workflow.
  */
 export const MISSION_ORIGINS = ["agent"] as const;
 export type MissionOrigin = (typeof MISSION_ORIGINS)[number];
@@ -527,7 +527,7 @@ const MissionOriginSchema = z.enum(MISSION_ORIGINS).optional();
 export const MissionStartInputSchema = z
   .object({
     ...missionIdentity,
-    playbook: PlaybookSchema,
+    workflow: WorkflowSchema,
     assignment: z.string().trim().min(1).max(MISSION_LIMITS.maxAssignmentChars),
     consent: MissionConsentSchema,
     maxTurns: z
@@ -546,22 +546,22 @@ export const MissionStartInputSchema = z
   })
   .strict()
   .superRefine((input, context) => {
-    if (input.startStageIndex >= input.playbook.stages.length) {
+    if (input.startStageIndex >= input.workflow.stages.length) {
       context.addIssue({
         code: "custom",
         path: ["startStageIndex"],
-        message: "The mission must start at a stage of its playbook.",
+        message: "The mission must start at a stage of its workflow.",
       });
     }
     const effectIds = new Set(
-      listExternalEffectStages(input.playbook).map((stage) => stage.id),
+      listExternalEffectStages(input.workflow).map((stage) => stage.id),
     );
     input.consent.authorizedEffectStageIds.forEach((stageId, index) => {
       if (!effectIds.has(stageId)) {
         context.addIssue({
           code: "custom",
           path: ["consent", "authorizedEffectStageIds", index],
-          message: `"${stageId}" is not a stage with an external effect in this playbook.`,
+          message: `"${stageId}" is not a stage with an external effect in this workflow.`,
         });
       }
     });
@@ -578,8 +578,8 @@ export const MissionSchema = z
      * started since projects were removed. Kept so older rows still parse.
      */
     projectId: IdSchema.nullable(),
-    /** The playbook as it was when the mission started. Later edits never apply. */
-    playbook: PlaybookSchema,
+    /** The workflow as it was when the mission started. Later edits never apply. */
+    workflow: WorkflowSchema,
     assignment: z.string().min(1).max(MISSION_LIMITS.maxAssignmentChars),
     consent: MissionConsentSchema,
     fingerprint: MissionFingerprintSchema,
@@ -597,11 +597,11 @@ export const MissionSchema = z
   })
   .strict()
   .superRefine((mission, context) => {
-    if (mission.currentStageIndex >= mission.playbook.stages.length) {
+    if (mission.currentStageIndex >= mission.workflow.stages.length) {
       context.addIssue({
         code: "custom",
         path: ["currentStageIndex"],
-        message: "The current stage must exist in the playbook.",
+        message: "The current stage must exist in the workflow.",
       });
     }
     if ((mission.state === "paused") !== Boolean(mission.pauseReason)) {
@@ -761,8 +761,8 @@ export function latestStageRecord(
   return latest;
 }
 
-export function playbookStageAt(mission: Mission, index: number): PlaybookStage {
-  const stage = mission.playbook.stages[index];
+export function workflowStageAt(mission: Mission, index: number): WorkflowStage {
+  const stage = mission.workflow.stages[index];
   if (!stage) {
     throw new RangeError(`Mission ${mission.id} has no stage at index ${index}.`);
   }
@@ -771,7 +771,7 @@ export function playbookStageAt(mission: Mission, index: number): PlaybookStage 
 
 /** The record for the attempt the mission is on now. */
 export function currentStageRecord(aggregate: MissionAggregate): MissionStageRecord {
-  const stage = playbookStageAt(aggregate.mission, aggregate.mission.currentStageIndex);
+  const stage = workflowStageAt(aggregate.mission, aggregate.mission.currentStageIndex);
   const record = latestStageRecord(aggregate.stages, stage.id);
   if (!record) {
     throw new Error(`Mission ${aggregate.mission.id} has no record for stage "${stage.id}".`);
@@ -789,7 +789,7 @@ export function enterStage(args: {
   index: number;
   feedback?: string | null;
 }): MissionStageRecord {
-  const stage = playbookStageAt(args.aggregate.mission, args.index);
+  const stage = workflowStageAt(args.aggregate.mission, args.index);
   const latest = latestStageRecord(args.aggregate.stages, stage.id);
   if (latest && isUnstartedStageStatus(latest.status)) {
     return {
@@ -871,7 +871,7 @@ export function createMission(args: {
     workspaceId: input.workspaceId,
     leadTaskId: input.leadTaskId,
     projectId: null,
-    playbook: input.playbook,
+    workflow: input.workflow,
     assignment: input.assignment,
     consent: input.consent,
     fingerprint: args.fingerprint,
@@ -887,10 +887,10 @@ export function createMission(args: {
     updatedAt: timestamp,
     ...(input.origin ? { origin: input.origin } : {}),
   });
-  const startStage = playbookStageAt(mission, input.startStageIndex);
+  const startStage = workflowStageAt(mission, input.startStageIndex);
   // Starting later records the earlier stages as skipped, so the rail and the
   // report say why they never ran.
-  const skipped = mission.playbook.stages.slice(0, input.startStageIndex).map(
+  const skipped = mission.workflow.stages.slice(0, input.startStageIndex).map(
     (stage): MissionStageRecord => ({
       ...createStageRecord({ missionId: mission.id, stageId: stage.id, attempt: 1 }),
       status: "skipped",
@@ -917,8 +917,8 @@ export function createMission(args: {
         kind: "mission-started",
         idempotencyKey: null,
         detail: {
-          playbookId: mission.playbook.id,
-          playbookName: mission.playbook.name,
+          workflowId: mission.workflow.id,
+          workflowName: mission.workflow.name,
           checkIns: mission.consent.checkIns,
           permissionMode: mission.consent.permissionMode,
           authorizedEffectStageIds: mission.consent.authorizedEffectStageIds,

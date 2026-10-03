@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
-/** Agents tab: the list and detail layout come from the playbook styles; these are the parts only agents have. */
+/** Agents tab: the list and detail layout come from the workflow styles; these are the parts only agents have. */
 export const agentStyles = stylex.create({
   /*
    * Resizable list. With room for the list, its column is as wide as it was

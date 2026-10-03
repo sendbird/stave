@@ -56,7 +56,7 @@ export function AgentRunLineView(props: {
   const showNow = !alert && status.state === "working" && props.nowPhrase !== null;
   const reason = status.state === "needs-you" && !props.reasonShownElsewhere && !alert ? status.reason : null;
   const elapsed = agentRunDuration(detail, props.now);
-  const staged = detail.mission.playbook.stages.length > 1;
+  const staged = detail.mission.workflow.stages.length > 1;
   const rows = useMemo(
     () => (staged ? projectMissionStages(detail, new Date(props.now)) : null),
     [detail, props.now, staged],

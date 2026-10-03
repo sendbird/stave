@@ -17,14 +17,14 @@ import {
 } from "@/lib/missions/mission-view";
 
 export { describeSignOffAction, summarizePreviousStage };
-import type { PlaybookStage } from "@/lib/playbooks/schema";
+import type { WorkflowStage } from "@/lib/workflows/schema";
 import { useAppStore } from "@/store/app.store";
 import { missionStageKey, useMissionFailure, useMissionsStore } from "@/store/missions-store";
 import { useScopedTaskMission } from "./useMission";
 import { missionStyles } from "./missions.styles";
 
 /** The card's title: the decision, asked plainly. */
-export function describeSignOffQuestion(stage: PlaybookStage): string {
+export function describeSignOffQuestion(stage: WorkflowStage): string {
   if (stage.kind === "ai") return `Ready to start ${stage.title}?`;
   switch (stage.action.type) {
     case "open-draft-pr":

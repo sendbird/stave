@@ -20,15 +20,15 @@ import { sx } from "@/components/ads/utils/stylex";
 import {
   AI_STAGE_ROLES,
   DEFAULT_WATCH_CHECKS,
-  PLAYBOOK_LIMITS,
+  WORKFLOW_LIMITS,
   WATCH_CHECKS_TIMEOUT_MINUTES,
   type AiStage,
-  type PlaybookStage,
-} from "@/lib/playbooks/schema";
+  type WorkflowStage,
+} from "@/lib/workflows/schema";
 import { useAppStore } from "@/store/app.store";
 import { Segmented } from "./Segmented";
 import { StageAgentField } from "./StageAgentField";
-import { playbookStyles as styles } from "./playbooks.styles";
+import { workflowStyles as styles } from "./workflows.styles";
 
 const ACTION_DESCRIPTIONS = {
   "open-draft-pr":
@@ -49,7 +49,7 @@ const ROLE_OPTIONS = [
 type RoleValue = (typeof ROLE_OPTIONS)[number]["value"];
 
 export interface StageRowProps {
-  stage: PlaybookStage;
+  stage: WorkflowStage;
   index: number;
   count: number;
   asksFirst: boolean;
@@ -59,7 +59,7 @@ export interface StageRowProps {
   dragging?: boolean;
   dropPosition?: "before" | "after" | null;
   onToggleExpanded: () => void;
-  onChange: (stage: PlaybookStage) => void;
+  onChange: (stage: WorkflowStage) => void;
   onToggleSignOff: () => void;
   onMove: (to: number) => void;
   onDuplicate: () => void;
@@ -72,7 +72,7 @@ export interface StageRowProps {
   };
 }
 
-function previewOf(stage: PlaybookStage): { text: string; missing: boolean } {
+function previewOf(stage: WorkflowStage): { text: string; missing: boolean } {
   if (stage.kind === "action") {
     if (stage.action.type === "watch-checks") {
       const { repairAttempts, timeoutMinutes } = stage.action;
@@ -91,7 +91,7 @@ function previewOf(stage: PlaybookStage): { text: string; missing: boolean } {
 }
 
 /** Issue paths a stage's own fields show beside themselves; the row lists every other one. */
-function placedIssuePaths(stage: PlaybookStage): ReadonlySet<string> {
+function placedIssuePaths(stage: WorkflowStage): ReadonlySet<string> {
   if (stage.kind === "ai") return new Set(["title", "instruction", "doneWhen"]);
   return new Set(stage.action.type === "run-script" ? ["title", "action.scriptId"] : ["title"]);
 }
@@ -162,7 +162,7 @@ export function StageRow(props: StageRowProps) {
           <input
             className={sx(styles.titleInput)}
             value={stage.title}
-            maxLength={PLAYBOOK_LIMITS.stageTitle}
+            maxLength={WORKFLOW_LIMITS.stageTitle}
             aria-label={`Stage ${index + 1} name`}
             aria-invalid={props.issues.has("title") || undefined}
             onChange={(event) => props.onChange({ ...stage, title: event.target.value })}
@@ -259,7 +259,7 @@ export function StageRow(props: StageRowProps) {
 function AiStageFields(props: {
   stage: AiStage;
   issues: ReadonlyMap<string, string>;
-  onChange: (stage: PlaybookStage) => void;
+  onChange: (stage: WorkflowStage) => void;
 }) {
   const { stage } = props;
   const role: RoleValue = stage.role ?? "none";
@@ -269,7 +269,7 @@ function AiStageFields(props: {
         label="Instruction"
         description="What the agent does in this stage."
         value={stage.instruction}
-        maxLength={PLAYBOOK_LIMITS.instruction}
+        maxLength={WORKFLOW_LIMITS.instruction}
         autoResize
         maxRows={10}
         size="sm"
@@ -280,7 +280,7 @@ function AiStageFields(props: {
         label="Done when"
         description="A condition the agent can check before it reports the stage done."
         value={stage.doneWhen}
-        maxLength={PLAYBOOK_LIMITS.doneWhen}
+        maxLength={WORKFLOW_LIMITS.doneWhen}
         autoResize
         maxRows={6}
         size="sm"
@@ -329,10 +329,10 @@ function useWorkspaceScriptActions(): Array<{ id: string; label: string }> {
 }
 
 function RunScriptField(props: {
-  stage: Extract<PlaybookStage, { kind: "action" }>;
-  action: Extract<Extract<PlaybookStage, { kind: "action" }>["action"], { type: "run-script" }>;
+  stage: Extract<WorkflowStage, { kind: "action" }>;
+  action: Extract<Extract<WorkflowStage, { kind: "action" }>["action"], { type: "run-script" }>;
   error?: string;
-  onChange: (stage: PlaybookStage) => void;
+  onChange: (stage: WorkflowStage) => void;
 }) {
   const scripts = useWorkspaceScriptActions();
   const set = (scriptId: string) => props.onChange({ ...props.stage, action: { ...props.action, scriptId } });
@@ -368,9 +368,9 @@ function RunScriptField(props: {
 }
 
 function ActionStageFields(props: {
-  stage: Extract<PlaybookStage, { kind: "action" }>;
+  stage: Extract<WorkflowStage, { kind: "action" }>;
   issues: ReadonlyMap<string, string>;
-  onChange: (stage: PlaybookStage) => void;
+  onChange: (stage: WorkflowStage) => void;
 }) {
   const { stage } = props;
   const action = stage.action;

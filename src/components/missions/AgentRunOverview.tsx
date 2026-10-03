@@ -50,11 +50,11 @@ export function AgentRunOverview(props: {
   const met = result.doneWhen.filter((line) => line.status.startsWith("met")).length;
   // The badge names the state; the line beside it says why, or how long.
   const statusText = status.reason ?? (active ? `${result.duration} so far` : result.duration);
-  const staged = mission.playbook.stages.length > 1;
+  const staged = mission.workflow.stages.length > 1;
   const rows = useMemo(() => (staged ? projectMissionStages(detail, new Date(now)) : null), [detail, now, staged]);
   const plan = useMemo(() => agentRunStoredPlan(detail), [detail]);
   // The run follows the agent's workflow: say which, so its stages are never a surprise.
-  const workflowTitle = staged ? mission.playbook.stages.map((stage) => stage.title).join(" → ") : null;
+  const workflowTitle = staged ? mission.workflow.stages.map((stage) => stage.title).join(" → ") : null;
   return (
     <section className={sx(styles.panel)} aria-label={`${status.agentName}: ${status.label}`} data-testid="agent-run-panel">
       <header className={sx(styles.head)}>

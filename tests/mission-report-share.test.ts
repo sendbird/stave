@@ -3,7 +3,7 @@ import { Database } from "bun:sqlite";
 import { createMissionRuntime } from "../electron/host-service/supervision/mission-runtime";
 import { MissionStore } from "../electron/persistence/mission-store";
 import { buildShareReportPrompt, findSlackThreadUrl, SLACK_THREAD_URL } from "../src/lib/missions/report-markdown";
-import { MISSION_NOW, starterPlaybook } from "./fixtures/mission-fixtures";
+import { MISSION_NOW, starterWorkflow } from "./fixtures/mission-fixtures";
 
 const THREAD = "https://acme.slack.com/archives/C123ABC/p1727000000123456";
 
@@ -63,7 +63,7 @@ describe("sharing a mission report to Slack", () => {
     const started = await h.runtime.startMission({
       workspaceId: "ws-1",
       leadTaskId: "task-1",
-      playbook: starterPlaybook("request-to-pr"),
+      workflow: starterWorkflow("request-to-pr"),
       assignment: `Fix the export. ${THREAD}`,
       consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: [] },
     });

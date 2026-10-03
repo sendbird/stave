@@ -182,7 +182,7 @@ describe("agent run notifications", () => {
 
 describe("turns an agent run started", () => {
   const key = "preview-workspace:preview-task";
-  const state = (origin: "agent" | "playbook") => {
+  const state = (origin: "agent" | "workflow") => {
     const detail = runs.working;
     return {
       missionIdsByTask: { [key]: [detail.mission.id] },
@@ -194,8 +194,8 @@ describe("turns an agent run started", () => {
     const found = selectAgentRunForTurn(state("agent"), "preview-workspace", "preview-task", "turn-1");
     expect(found?.id).toBe(runs.working.mission.id);
   });
-  test("a playbook mission's turn, an unknown turn and no turn are not", () => {
-    expect(selectAgentRunForTurn(state("playbook"), "preview-workspace", "preview-task", "turn-1")).toBeNull();
+  test("a workflow mission's turn, an unknown turn and no turn are not", () => {
+    expect(selectAgentRunForTurn(state("workflow"), "preview-workspace", "preview-task", "turn-1")).toBeNull();
     expect(selectAgentRunForTurn(state("agent"), "preview-workspace", "preview-task", "turn-9")).toBeNull();
     expect(selectAgentRunForTurn(state("agent"), "preview-workspace", "preview-task", undefined)).toBeNull();
   });
@@ -228,7 +228,7 @@ describe("agent run plan and progress", () => {
 
   test("a run with a workflow shows its stage, not a plan", () => {
     expect(agentRunStoredPlan(runs.workflow)).toBeNull();
-    const stages = runs.workflow.mission.playbook.stages;
+    const stages = runs.workflow.mission.workflow.stages;
     expect(describeAgentRunProgress(runs.workflow)).toBe(`${stages[1]!.title} 2/${stages.length}`);
   });
 });

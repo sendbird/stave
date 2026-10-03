@@ -33,7 +33,7 @@ export function useAgentRunActions(detail: MissionDetail | undefined): AgentRunA
   return useMemo(() => {
     if (!detail) return {};
     const { mission } = detail;
-    const stage = mission.playbook.stages[mission.currentStageIndex];
+    const stage = mission.workflow.stages[mission.currentStageIndex];
     const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
     return {
       busy,
@@ -59,14 +59,14 @@ export function useAgentRunActions(detail: MissionDetail | undefined): AgentRunA
           // next tick would end it as released, or it would run one agent's
           // stages under another.
           const current = useAgentAssignmentsStore.getState().byTaskId[mission.leadTaskId];
-          if (current?.agentName !== mission.playbook.name) {
-            toast.info(`${mission.playbook.name} no longer runs this task`, {
-              description: `Choose ${mission.playbook.name} in the selector to run it again.`,
+          if (current?.agentName !== mission.workflow.name) {
+            toast.info(`${mission.workflow.name} no longer runs this task`, {
+              description: `Choose ${mission.workflow.name} in the selector to run it again.`,
             });
             return;
           }
           // A new run follows the same stages: the workflow it ran, or its one Work stage.
-          const stages = mission.playbook.stages;
+          const stages = mission.workflow.stages;
           const single = stages.length === 1 && stages[0]!.id === AGENT_RUN_STAGE_ID ? stages[0]! : null;
           const doneWhen = single?.kind === "ai" && single.doneWhen !== AGENT_RUN_DEFAULT_DONE_WHEN ? single.doneWhen : null;
           const started = await useMissionsStore.getState().startMission(
@@ -74,7 +74,7 @@ export function useAgentRunActions(detail: MissionDetail | undefined): AgentRunA
               workspaceId: mission.workspaceId,
               taskId: mission.leadTaskId,
               agent: {
-                name: mission.playbook.name,
+                name: mission.workflow.name,
                 workflow: single ? undefined : stages,
                 checkIns: mission.consent.checkIns,
               },

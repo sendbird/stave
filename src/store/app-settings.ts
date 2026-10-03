@@ -56,8 +56,8 @@ import {
   type PrePrReviewProviderId,
 } from "@/lib/source-control-review";
 import type { Macro } from "@/lib/macros/types";
-import type { UnreadablePlaybook } from "@/lib/playbooks/normalize";
-import type { Playbook } from "@/lib/playbooks/schema";
+import type { UnreadableWorkflow } from "@/lib/workflows/normalize";
+import type { Workflow } from "@/lib/workflows/schema";
 import type { AgentConfig } from "@/lib/agents/schema";
 import type { UnreadableAgent } from "@/lib/agents/library";
 import type { AgentRevisionsMap } from "@/lib/agents/revisions";
@@ -246,15 +246,18 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    */
   macros: Macro[];
   /**
-   * Saved playbooks: ordered stages a mission runs on one lead task. Kept
-   * apart from macros, with their own limit and validation.
+   * Workflows saved before agents replaced playbooks (0.23.0), kept as the
+   * input of the temporary `playbook-agents-auto-route` migration. The
+   * setting names `playbooks`, `playbooksUnreadable` and
+   * `playbookAgentsAutoRouted` keep the old word so stored profiles still
+   * load; they retire with that migration.
    */
-  playbooks: Playbook[];
+  playbooks: Workflow[];
   /**
-   * Saved playbooks this version could not read, kept exactly as saved so a
+   * Saved workflows this version could not read, kept exactly as saved so a
    * version that can read them restores them. Written back unchanged.
    */
-  playbooksUnreadable: UnreadablePlaybook[];
+  playbooksUnreadable: UnreadableWorkflow[];
   /**
    * Custom agents: saved agent definitions the user made or duplicated.
    * Built-in agents live in code and repository agents in files, so only

@@ -16,7 +16,7 @@ import { MissionStore } from "../electron/persistence/mission-store";
 import type { MissionStageGrant } from "../electron/providers/mission-grants";
 import type { PullRequestCheck } from "../src/lib/missions/checks";
 import { currentStageRecord, EMPTY_STAGE_FACTS, listExternalEffectStages, type StageFacts } from "../src/lib/missions/domain";
-import { createPlaybookFromStarter, findPlaybookStarter } from "../src/dev/fixtures/legacy-playbook-starters";
+import { createWorkflowFromStarter, findWorkflowStarter } from "../src/dev/fixtures/legacy-workflow-starters";
 import { buildAgentRunStartInput } from "../src/lib/missions/agent-run";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 
@@ -180,7 +180,7 @@ function scenarioHarness(providerId: "claude-code" | "codex") {
 }
 
 function requestToPr() {
-  return createPlaybookFromStarter(findPlaybookStarter("request-to-pr")!, { now: new Date(START), id: "playbook_request_to_pr" });
+  return createWorkflowFromStarter(findWorkflowStarter("request-to-pr")!, { now: new Date(START), id: "workflow_request_to_pr" });
 }
 
 async function report(harness: ReturnType<typeof scenarioHarness>, summary: string, extra: Record<string, unknown> = {}) {
@@ -195,16 +195,16 @@ async function report(harness: ReturnType<typeof scenarioHarness>, summary: stri
 
 async function runRequestToPr(providerId: "claude-code" | "codex") {
   const harness = scenarioHarness(providerId);
-  const playbook = requestToPr();
+  const workflow = requestToPr();
   const detail = await harness.runtime.startMission({
     workspaceId: "ws-1",
     leadTaskId: "task-1",
-    playbook,
+    workflow,
     assignment: "Add CSV export to the billing page.",
     consent: {
       checkIns: "plan-and-publishing",
       permissionMode: "guided",
-      authorizedEffectStageIds: listExternalEffectStages(playbook).map((stage) => stage.id),
+      authorizedEffectStageIds: listExternalEffectStages(workflow).map((stage) => stage.id),
     },
   });
   const missionId = detail.mission.id;
@@ -279,11 +279,11 @@ describe("mission scenarios", () => {
 
   test("A4: a reply during a stage continues the mission; Take over pauses it", async () => {
     const harness = scenarioHarness("claude-code");
-    const playbook = requestToPr();
+    const workflow = requestToPr();
     const detail = await harness.runtime.startMission({
       workspaceId: "ws-1",
       leadTaskId: "task-1",
-      playbook,
+      workflow,
       assignment: "Add CSV export.",
       consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: [] },
     });
@@ -328,7 +328,7 @@ describe("mission scenarios", () => {
       }),
     );
     const missionId = detail.mission.id;
-    expect(detail.mission.playbook.stages.map((stage) => stage.id)).toEqual(["reproduce", "cause", "fix"]);
+    expect(detail.mission.workflow.stages.map((stage) => stage.id)).toEqual(["reproduce", "cause", "fix"]);
     await harness.runtime.requestTick();
     for (const stageId of ["reproduce", "cause", "fix"]) {
       expect(harness.current(missionId)).toMatchObject({ stageId, status: "running" });

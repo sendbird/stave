@@ -100,7 +100,7 @@ describe("wake-ups on the task surfaces", () => {
 
 const REPORT: MissionReport = {
   missionId: "mission-1",
-  playbookName: "Request → PR",
+  workflowName: "Request → PR",
   assignment: "Add CSV export.",
   outcome: "completed",
   reason: null,

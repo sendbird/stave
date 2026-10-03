@@ -22,7 +22,7 @@ export interface MissionRunSummaryProps {
   active: boolean;
   now: number;
   formatClock: (iso: string) => string;
-  /** An agent run: the copy says "run" where a playbook mission says "mission". */
+  /** An agent run: the copy says "run" where a workflow mission says "mission". */
   agentOrigin?: boolean;
 }
 

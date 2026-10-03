@@ -116,20 +116,20 @@ type MissionBarViewProps = MissionLineShelfProps & {
   now: number;
   reducedMotion: boolean;
   actions?: MissionBarActions;
-  /** What an agent run's line offers; a playbook mission uses `actions`. */
+  /** What an agent run's line offers; a workflow mission uses `actions`. */
   agentActions?: AgentRunActions;
 };
 
-/** A mission's line in the composer shelf: the stage track for a playbook, the agent's status for an agent run. */
+/** A mission's line in the composer shelf: the stage track for a workflow, the agent's status for an agent run. */
 export function MissionBarView(props: MissionBarViewProps) {
   return hasAgentOrigin(props.detail.mission) ? (
     <AgentRunLineView {...props} actions={props.agentActions} onOpenPanel={props.actions?.onOpenPanel} />
   ) : (
-    <PlaybookMissionBarView {...props} />
+    <LegacyWorkflowRunBarView {...props} />
   );
 }
 
-function PlaybookMissionBarView(props: MissionBarViewProps) {
+function LegacyWorkflowRunBarView(props: MissionBarViewProps) {
   const { detail, now, actions = {} } = props;
   const { mission } = detail;
   const rows = useMemo(() => projectMissionStages(detail, new Date(now)), [detail, now]);
@@ -180,7 +180,7 @@ function PlaybookMissionBarView(props: MissionBarViewProps) {
     <ShelfRunLine
       testId="mission-bar"
       dataState={held ? "done" : line.tone}
-      ariaLabel={`Mission: ${mission.playbook.name}`}
+      ariaLabel={`Mission: ${mission.workflow.name}`}
       announcement={announcement}
       mark={
         <StageStatusIcon
@@ -193,7 +193,7 @@ function PlaybookMissionBarView(props: MissionBarViewProps) {
         <ShelfRunText
           label={title}
           // The line spends its width on the present; identity is in the title.
-          title={[mission.playbook.name, alert ? describeShelfTurnAlert(alert) : null, mission.assignment.split("\n")[0]]
+          title={[mission.workflow.name, alert ? describeShelfTurnAlert(alert) : null, mission.assignment.split("\n")[0]]
             .filter(Boolean)
             .join(" · ")}
           narrow={`${current.index + 1}/${rows.length}`}

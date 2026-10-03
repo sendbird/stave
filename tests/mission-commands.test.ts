@@ -18,7 +18,7 @@ import {
   type MissionAggregate,
 } from "../src/lib/missions/domain";
 import { applyMissionDecision, decideMissionAction } from "../src/lib/missions/policy";
-import type { Playbook } from "../src/lib/playbooks/schema";
+import type { Workflow } from "../src/lib/workflows/schema";
 import {
   COMPLETE_REPORT,
   MISSION_NOW,
@@ -125,15 +125,15 @@ describe("sign-off cards", () => {
   });
 
   test("Ask for changes needs an earlier AI stage and some feedback", () => {
-    const actionsOnly: Playbook = {
-      ...missionFixture().mission.playbook,
+    const actionsOnly: Workflow = {
+      ...missionFixture().mission.workflow,
       checkIns: "every-stage",
       stages: [
         { id: "open", title: "Open draft PR", kind: "action", action: { type: "open-draft-pr" } },
         { id: "ready", title: "Ready for review", kind: "action", action: { type: "mark-pr-ready" } },
       ],
     };
-    const aggregate = missionFixture({ playbook: actionsOnly });
+    const aggregate = missionFixture({ workflow: actionsOnly });
     const waiting: MissionAggregate = {
       mission: { ...aggregate.mission, currentStageIndex: 1 },
       stages: [

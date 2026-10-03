@@ -85,7 +85,7 @@ export function missionStageKey(stage: { stageId: string; attempt: number }) {
 }
 
 function currentStageKey(detail: MissionDetail | undefined): string | null {
-  const stage = detail?.mission.playbook.stages[detail.mission.currentStageIndex];
+  const stage = detail?.mission.workflow.stages[detail.mission.currentStageIndex];
   const record = stage ? latestStageRecord(detail.stages, stage.id) : null;
   return record ? missionStageKey(record) : null;
 }
@@ -360,7 +360,7 @@ export function useMissionTurnDivider(workspaceId: string, taskId: string, turnI
 
 /**
  * The agent run that started a turn of the task, or null when no mission did
- * or the mission is a playbook's. Returns the stored mission, so it is safe as
+ * or the mission is a workflow's. Returns the stored mission, so it is safe as
  * a selector result.
  */
 export function selectAgentRunForTurn(

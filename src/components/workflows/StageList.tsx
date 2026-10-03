@@ -11,11 +11,11 @@ import {
   setStageSignOff,
   stageAsksFirst,
   uniqueStageId,
-} from "@/lib/playbooks/library";
-import { MAX_PLAYBOOK_STAGES, STAVE_ACTION_LABELS, type CheckIns, type PlaybookStage, type StaveActionType } from "@/lib/playbooks/schema";
-import { STAGE_TEMPLATES } from "@/lib/playbooks/stage-templates";
+} from "@/lib/workflows/library";
+import { MAX_WORKFLOW_STAGES, STAVE_ACTION_LABELS, type CheckIns, type WorkflowStage, type StaveActionType } from "@/lib/workflows/schema";
+import { STAGE_TEMPLATES } from "@/lib/workflows/stage-templates";
 import { StageRow } from "./StageRow";
-import { playbookStyles as styles } from "./playbooks.styles";
+import { workflowStyles as styles } from "./workflows.styles";
 import { missionStyles } from "@/components/missions/missions.styles";
 
 const ACTION_TYPES: readonly StaveActionType[] = ["open-draft-pr", "watch-checks", "mark-pr-ready", "run-script"];
@@ -34,7 +34,7 @@ function stageIssues(issues: ReadonlyMap<string, string>, index: number): Map<st
 /** What the list edits: ordered stages and the check-ins their sign-offs derive from. */
 export interface StageListValue {
   checkIns: CheckIns;
-  stages: PlaybookStage[];
+  stages: WorkflowStage[];
 }
 
 /**
@@ -47,21 +47,21 @@ export function StageList<T extends StageListValue>(props: {
   issues: ReadonlyMap<string, string>;
   onChange: (value: T) => void;
 }) {
-  const playbook = props.value;
+  const workflow = props.value;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropAt, setDropAt] = useState<{ index: number; position: "before" | "after" } | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const stages = playbook.stages;
-  const full = stages.length >= MAX_PLAYBOOK_STAGES;
+  const stages = workflow.stages;
+  const full = stages.length >= MAX_WORKFLOW_STAGES;
 
-  const setStages = (next: PlaybookStage[]) => props.onChange({ ...playbook, stages: next });
+  const setStages = (next: WorkflowStage[]) => props.onChange({ ...workflow, stages: next });
   const move = (from: number, to: number) => {
     if (to < 0 || to >= stages.length) return;
     setStages(moveStage(stages, from, to));
     setAnnouncement(`Moved ${stages[from]!.title} to position ${to + 1} of ${stages.length}.`);
   };
-  const addStage = (stage: PlaybookStage) => {
+  const addStage = (stage: WorkflowStage) => {
     setStages([...stages, stage]);
     if (stage.kind === "ai") setExpandedId(stage.id);
   };
@@ -74,7 +74,7 @@ export function StageList<T extends StageListValue>(props: {
         <div className={sx(styles.sectionHeader)}>
           <h3 className={sx(styles.sectionTitle)}>Stages</h3>
           <span className={sx(styles.sectionAside)}>
-            {stages.length} of {MAX_PLAYBOOK_STAGES}
+            {stages.length} of {MAX_WORKFLOW_STAGES}
           </span>
         </div>
       ) : null}
@@ -89,7 +89,7 @@ export function StageList<T extends StageListValue>(props: {
                 stage={stage}
                 index={index}
                 count={stages.length}
-                asksFirst={stageAsksFirst(playbook, index)}
+                asksFirst={stageAsksFirst(workflow, index)}
                 expanded={expandedId === stage.id || issues.size > 0}
                 issues={issues}
                 dragging={dragFrom === index}
@@ -97,7 +97,7 @@ export function StageList<T extends StageListValue>(props: {
                 onToggleExpanded={() => setExpandedId((current) => (current === stage.id ? null : stage.id))}
                 onChange={(next) => setStages(stages.map((candidate, position) => (position === index ? next : candidate)))}
                 onToggleSignOff={() =>
-                  props.onChange(setStageSignOff(playbook, index, stageAsksFirst(playbook, index) ? "auto" : "ask"))
+                  props.onChange(setStageSignOff(workflow, index, stageAsksFirst(workflow, index) ? "auto" : "ask"))
                 }
                 onMove={(to) => move(index, to)}
                 onDuplicate={() => {
@@ -172,7 +172,7 @@ export function StageList<T extends StageListValue>(props: {
             {
               label: "Stave action",
               items: ACTION_TYPES.map((type) => {
-                const reason = explainActionUnavailable(playbook, type);
+                const reason = explainActionUnavailable(workflow, type);
                 return {
                   label: STAVE_ACTION_LABELS[type],
                   icon: <Zap />,
@@ -183,7 +183,7 @@ export function StageList<T extends StageListValue>(props: {
             },
           ]}
         />
-        {full ? <span className={sx(styles.hint)}>A workflow has at most {MAX_PLAYBOOK_STAGES} stages.</span> : null}
+        {full ? <span className={sx(styles.hint)}>A workflow has at most {MAX_WORKFLOW_STAGES} stages.</span> : null}
       </div>
       <p className={sx(missionStyles.visuallyHidden)} aria-live="polite">
         {announcement}

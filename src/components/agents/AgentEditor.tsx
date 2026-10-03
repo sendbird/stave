@@ -31,7 +31,7 @@ import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
 import { CLAUDE_SDK_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, listProviderIds } from "@/lib/providers/model-catalog";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 import { TagField } from "./TagField";
 import { AgentCanCallField } from "./AgentCanCallField";

@@ -9,7 +9,7 @@ import {
   revisionRan,
   type AgentRevision,
 } from "@/lib/agents/revisions";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 
 function formatWhen(iso: string): string {

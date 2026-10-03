@@ -10,14 +10,14 @@ import {
 } from "../src/lib/missions/domain";
 import { applyMissionDecision, decideMissionAction } from "../src/lib/missions/policy";
 import { buildMissionReport } from "../src/lib/missions/report";
-import { MISSION_NOW, observe, starterPlaybook } from "./fixtures/mission-fixtures";
+import { MISSION_NOW, observe, starterWorkflow } from "./fixtures/mission-fixtures";
 
-const playbook = starterPlaybook("request-to-pr");
-const indexOf = (id: string) => playbook.stages.findIndex((stage) => stage.id === id);
+const workflow = starterWorkflow("request-to-pr");
+const indexOf = (id: string) => workflow.stages.findIndex((stage) => stage.id === id);
 const consent = {
   checkIns: "plan-and-publishing" as const,
   permissionMode: "guided" as const,
-  authorizedEffectStageIds: listExternalEffectStages(playbook).map((stage) => stage.id),
+  authorizedEffectStageIds: listExternalEffectStages(workflow).map((stage) => stage.id),
 };
 
 function buildStartAtStageInput(args: {
@@ -28,7 +28,7 @@ function buildStartAtStageInput(args: {
   return {
     workspaceId: "ws-1",
     leadTaskId: "task-1",
-    playbook,
+    workflow,
     assignment: args.assignment,
     consent: args.consent,
     ...(args.startStageIndex ? { startStageIndex: args.startStageIndex } : {}),
@@ -67,8 +67,8 @@ describe("starting a mission at a later stage", () => {
     expect(report.stages.slice(0, 2).map((stage) => stage.status)).toEqual(["skipped", "skipped"]);
   });
 
-  test("a start outside the playbook is refused", () => {
-    expect(MissionStartInputSchema.safeParse(input(playbook.stages.length)).success).toBe(false);
+  test("a start outside the workflow is refused", () => {
+    expect(MissionStartInputSchema.safeParse(input(workflow.stages.length)).success).toBe(false);
     // Starting at the first stage sends nothing extra.
     expect("startStageIndex" in input(0)).toBe(false);
   });

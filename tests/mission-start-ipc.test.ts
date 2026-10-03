@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { MissionStartArgsSchema } from "../electron/main/ipc/mission-schemas";
 import { buildAgentRunStartInput } from "@/lib/missions/agent-run";
 
-test("the renderer can start an agent run, never a playbook mission without an agent", () => {
+test("the renderer can start an agent run, never a workflow mission without an agent", () => {
   const run = buildAgentRunStartInput({
     workspaceId: "ws-1",
     taskId: "task-1",

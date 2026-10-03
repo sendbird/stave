@@ -61,7 +61,7 @@ export function AgentRunOutcome(props: { result: AgentRunResult; actions?: Agent
  * with what backs each line, the changes, the summary, and what to do next.
  * Failed: the reason, with Retry and Take control. Renders nothing while the
  * run is active (the run bar owns its state and actions), for a run the user
- * stopped, for one a later message made history, or for a playbook mission
+ * stopped, for one a later message made history, or for a workflow mission
  * (`selectAgentRunCard`).
  */
 export function AgentRunResultCardView(props: {

@@ -22,7 +22,7 @@ import {
 import { classifyStageEvidence } from "../src/lib/missions/evidence";
 import type { ActionOutcome } from "../src/lib/missions/policy";
 import { computeMissionMetrics } from "../src/lib/missions/report";
-import { PlaybookSchema, type Playbook, type PlaybookStage } from "../src/lib/playbooks/schema";
+import { WorkflowSchema, type Workflow, type WorkflowStage } from "../src/lib/workflows/schema";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -42,11 +42,11 @@ import type { PromptDraftRuntimeOverrides } from "../src/types/chat";
 
 const START = "2026-09-26T10:00:00.000Z";
 
-function playbook(stages: PlaybookStage[], overrides: Partial<Playbook> = {}): Playbook {
-  return PlaybookSchema.parse({
+function workflow(stages: WorkflowStage[], overrides: Partial<Workflow> = {}): Workflow {
+  return WorkflowSchema.parse({
     version: 1,
-    id: "playbook_runtime",
-    name: "Runtime playbook",
+    id: "workflow_runtime",
+    name: "Runtime workflow",
     purpose: "Carry the assignment to a verified change.",
     checkIns: "when-stuck",
     team: "solo",
@@ -57,21 +57,21 @@ function playbook(stages: PlaybookStage[], overrides: Partial<Playbook> = {}): P
   });
 }
 
-const DRAFT: PlaybookStage = {
+const DRAFT: WorkflowStage = {
   id: "draft",
   title: "Draft",
   kind: "ai",
   instruction: "Draft the change.",
   doneWhen: "The change is drafted.",
 };
-const POLISH: PlaybookStage = {
+const POLISH: WorkflowStage = {
   id: "polish",
   title: "Polish",
   kind: "ai",
   instruction: "Polish the change.",
   doneWhen: "The change is polished.",
 };
-const OPEN_PR: PlaybookStage = {
+const OPEN_PR: WorkflowStage = {
   id: "open-pr",
   title: "Open draft PR",
   kind: "action",
@@ -82,7 +82,7 @@ function startInput(overrides: Partial<MissionStartInput> = {}): MissionStartInp
   return {
     workspaceId: "ws-1",
     leadTaskId: "task-1",
-    playbook: playbook([DRAFT, POLISH]),
+    workflow: workflow([DRAFT, POLISH]),
     assignment: "Add CSV export to the billing page.",
     consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: [] },
     ...overrides,
@@ -556,7 +556,7 @@ describe("mission runtime: the user and the reporting channel", () => {
     const harness = createHarness();
     const missionId = await startedMission(
       harness,
-      startInput({ playbook: playbook([DRAFT, { ...POLISH, signOff: "ask" }]) }),
+      startInput({ workflow: workflow([DRAFT, { ...POLISH, signOff: "ask" }]) }),
     );
     await harness.runtime.reportStage({ missionKey: "key-turn-1", report: COMPLETE });
     harness.endTurn("turn-1");
@@ -751,7 +751,7 @@ describe("mission runtime: Stave action stages", () => {
       return { ok: true, exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
     } });
     const harness = createHarness({ store, performAction });
-    const id = await startedMission(harness, startInput({ playbook: playbook([{ id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
+    const id = await startedMission(harness, startInput({ workflow: workflow([{ id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
     for (let attempt = 0; attempt < 30 && harness.current(id).status !== "blocked"; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 10)); await harness.tick();
     }
@@ -771,7 +771,7 @@ describe("mission runtime: Stave action stages", () => {
         return { ok: true, exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
       } });
       const harness = createHarness({ store, workspacePath: cwd, performAction });
-      const id = await startedMission(harness, startInput({ playbook: playbook([{ ...DRAFT, role: "plan" }, { id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
+      const id = await startedMission(harness, startInput({ workflow: workflow([{ ...DRAFT, role: "plan" }, { id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
       await harness.runtime.reportStage({ missionKey: "key-turn-1", report: { ...COMPLETE, acceptanceCriteria: [{ text: "Tests pass", status: "unverified" }] } });
       harness.endTurn("turn-1"); await harness.tick();
       for (let attempt = 0; attempt < 30 && harness.aggregate(id).mission.state !== "completed"; attempt++) {
@@ -791,7 +791,7 @@ describe("mission runtime: Stave action stages", () => {
   });
   const actionInput = () =>
     startInput({
-      playbook: playbook([DRAFT, OPEN_PR]),
+      workflow: workflow([DRAFT, OPEN_PR]),
       consent: {
         checkIns: "when-stuck",
         permissionMode: "guided",
@@ -862,7 +862,7 @@ describe("mission runtime: turns an action asks for", () => {
     const missionId = await startedMission(
       harness,
       startInput({
-        playbook: playbook([
+        workflow: workflow([
           DRAFT,
           { id: "watch", title: "Watch checks", kind: "action", action: { type: "watch-checks", repairAttempts: 2, timeoutMinutes: 30 } },
         ]),
@@ -912,7 +912,7 @@ describe("mission runtime: announcements", () => {
     const missionId = await startedMission(
       harness,
       startInput({
-        playbook: playbook([
+        workflow: workflow([
           DRAFT,
           { id: "watch", title: "Watch checks", kind: "action", action: { type: "watch-checks", repairAttempts: 1, timeoutMinutes: 30 } },
         ]),
@@ -1153,7 +1153,7 @@ describe("mission runtime: agent runs", () => {
     expect(harness.current(missionId).detail).toBe("The task no longer runs as an agent.");
   });
 
-  test("ending the task's agent ends its active agent run at once, and leaves playbook missions alone", async () => {
+  test("ending the task's agent ends its active agent run at once, and leaves workflow missions alone", async () => {
     const harness = agentRunHarness();
     const missionId = await startedMission(harness, runInput());
     // The agent was replaced, so the task still runs as an agent: only the explicit end stops the run.
@@ -1161,10 +1161,10 @@ describe("mission runtime: agent runs", () => {
     expect(harness.aggregate(missionId).mission.state).toBe("cancelled");
     expect(await harness.runtime.endAgentRunForTask({ taskId: "task-1" })).toBe(false);
 
-    const playbook = agentRunHarness();
-    const playbookId = await startedMission(playbook);
-    expect(await playbook.runtime.endAgentRunForTask({ taskId: "task-1" })).toBe(false);
-    expect(playbook.aggregate(playbookId).mission.state).toBe("running");
+    const workflow = agentRunHarness();
+    const workflowId = await startedMission(workflow);
+    expect(await workflow.runtime.endAgentRunForTask({ taskId: "task-1" })).toBe(false);
+    expect(workflow.aggregate(workflowId).mission.state).toBe("running");
   });
 
   test("a release while the next turn is routed ends the run instead of starting that turn", async () => {
@@ -1174,7 +1174,7 @@ describe("mission runtime: agent runs", () => {
     expect(harness.aggregate(missionId).mission.state).toBe("cancelled");
   });
 
-  test("a playbook mission ignores the agent-run endings and pauses on drift as before", async () => {
+  test("a workflow mission ignores the agent-run endings and pauses on drift as before", async () => {
     const harness = agentRunHarness();
     const missionId = await startedMission(harness);
     harness.release();

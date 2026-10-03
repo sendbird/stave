@@ -7,7 +7,7 @@ import {
   type AgentReferences,
 } from "@/lib/agents/agent-references";
 import type { AgentConfig } from "@/lib/agents/schema";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 
 const REFERENCE_KIND_LABELS = {

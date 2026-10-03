@@ -36,16 +36,16 @@ describe("run start consent", () => {
     // The runtime derives a turn's permissions from the mission's consent only.
     const runtimeSource = readFileSync("electron/host-service/supervision/mission-runtime.ts", "utf8");
     expect(runtimeSource).toContain("mission.consent.permissionMode");
-    expect(runtimeSource).not.toMatch(/playbook\.runtime/);
+    expect(runtimeSource).not.toMatch(/workflow\.runtime/);
 
     // An external effect the consent does not list always asks first.
-    const openPr = mission.playbook.stages.findIndex((stage) => stage.id === "open-draft-pr");
+    const openPr = mission.workflow.stages.findIndex((stage) => stage.id === "open-draft-pr");
     expect(resolveConsentStageSignOff(mission, openPr)).toBe("ask");
   });
 
   test("only when stuck: assigning the work is the go-ahead for the workflow's publishing stages", () => {
     const mission = start();
     expect(mission.consent.authorizedEffectStageIds).toEqual(["open-draft-pr", "watch-checks", "ready-for-review"]);
-    mission.playbook.stages.forEach((_, index) => expect(resolveConsentStageSignOff(mission, index)).toBe("auto"));
+    mission.workflow.stages.forEach((_, index) => expect(resolveConsentStageSignOff(mission, index)).toBe("auto"));
   });
 });

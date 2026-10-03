@@ -1,19 +1,19 @@
-import type { CheckIns, Playbook, PlaybookStage, SignOff } from "./schema";
+import type { CheckIns, Workflow, WorkflowStage, SignOff } from "./schema";
 
-type SignOffInput = Pick<Playbook, "checkIns" | "stages">;
+type SignOffInput = Pick<Workflow, "checkIns" | "stages">;
 
-function stageAt(stages: PlaybookStage[], index: number): PlaybookStage {
+function stageAt(stages: WorkflowStage[], index: number): WorkflowStage {
   const stage = stages[index];
   if (!stage) {
     throw new RangeError(
-      `Stage index ${index} is outside a playbook with ${stages.length} stages.`,
+      `Stage index ${index} is outside a workflow with ${stages.length} stages.`,
     );
   }
   return stage;
 }
 
 function asksUnderPlanAndPublishing(
-  stages: PlaybookStage[],
+  stages: WorkflowStage[],
   index: number,
 ): boolean {
   const stage = stageAt(stages, index);
@@ -24,7 +24,7 @@ function asksUnderPlanAndPublishing(
 }
 
 /**
- * The sign-off a stage gets from the playbook's check-in level alone, ignoring
+ * The sign-off a stage gets from the workflow's check-in level alone, ignoring
  * the stage's own override. Starting a mission signs off its first stage, so
  * the first stage never waits.
  *
@@ -37,7 +37,7 @@ function asksUnderPlanAndPublishing(
  */
 export function deriveStageSignOff(
   checkIns: CheckIns,
-  stages: PlaybookStage[],
+  stages: WorkflowStage[],
   index: number,
 ): SignOff {
   stageAt(stages, index);
@@ -54,17 +54,17 @@ export function deriveStageSignOff(
 
 /** The sign-off a mission applies before starting the stage at `index`. */
 export function resolveStageSignOff(
-  playbook: SignOffInput,
+  workflow: SignOffInput,
   index: number,
 ): SignOff {
-  const stage = stageAt(playbook.stages, index);
+  const stage = stageAt(workflow.stages, index);
   if (index === 0) return "auto";
-  return stage.signOff ?? deriveStageSignOff(playbook.checkIns, playbook.stages, index);
+  return stage.signOff ?? deriveStageSignOff(workflow.checkIns, workflow.stages, index);
 }
 
 /** Indexes of the stages that wait for the user's sign-off. */
-export function listSignOffStageIndexes(playbook: SignOffInput): number[] {
-  return playbook.stages.flatMap((_, index) =>
-    resolveStageSignOff(playbook, index) === "ask" ? [index] : [],
+export function listSignOffStageIndexes(workflow: SignOffInput): number[] {
+  return workflow.stages.flatMap((_, index) =>
+    resolveStageSignOff(workflow, index) === "ask" ? [index] : [],
   );
 }

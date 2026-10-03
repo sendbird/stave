@@ -34,7 +34,7 @@ function draft(
     id: `mission-${mission.id}-${args.key}`.slice(0, 190),
     kind: args.kind,
     title: args.title,
-    body: `${mission.playbook.name} · ${firstLine(mission.assignment)}`,
+    body: `${mission.workflow.name} · ${firstLine(mission.assignment)}`,
     repositoryPath: context.repositoryPath,
     repositoryName: context.repositoryName,
     workspaceId: mission.workspaceId,
@@ -65,7 +65,7 @@ function describeAgentOriginNotification(
 ): AppNotificationCreateInput | null {
   const { mission } = detail;
   const record = currentStageRecord(detail);
-  const agent = mission.playbook.name;
+  const agent = mission.workflow.name;
   const attemptKey = `${record.stageId}:${record.attempt}`;
   switch (mission.state) {
     case "completed":
@@ -104,13 +104,13 @@ export function describeMissionNotification(
   const { mission } = detail;
   if (hasAgentOrigin(mission)) return describeAgentOriginNotification(detail, context);
   const record = currentStageRecord(detail);
-  const stage = mission.playbook.stages[mission.currentStageIndex]!;
+  const stage = mission.workflow.stages[mission.currentStageIndex]!;
   const attemptKey = `${record.stageId}:${record.attempt}`;
   switch (mission.state) {
     case "completed":
       return draft(detail, context, {
         kind: "mission.completed",
-        title: `Mission complete — ${mission.playbook.name}`,
+        title: `Mission complete — ${mission.workflow.name}`,
         detail: null,
         key: "completed",
       });
@@ -204,7 +204,7 @@ export function describeSignOffReminder(args: {
     }
   }
   const first = overdue[0]!;
-  const names = overdue.map((entry) => entry.taskTitle ?? entry.detail.mission.playbook.name);
+  const names = overdue.map((entry) => entry.taskTitle ?? entry.detail.mission.workflow.name);
   return {
     id: `mission-reminder-${key}`.slice(0, 190),
     kind: "mission.sign_off_requested",

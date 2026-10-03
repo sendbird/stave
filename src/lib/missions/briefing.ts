@@ -14,7 +14,7 @@ import {
   compileStagePrompt,
   type AcceptanceCriterion,
   type PriorStageSummary,
-} from "@/lib/playbooks/stage-prompt";
+} from "@/lib/workflows/stage-prompt";
 import type {
   CanonicalRetrievedContextPart,
   ProviderId,
@@ -23,7 +23,7 @@ import type {
 import {
   currentStageRecord,
   latestStageRecord,
-  playbookStageAt,
+  workflowStageAt,
   type MissionAggregate,
   type StageStatus,
 } from "./domain";
@@ -60,14 +60,14 @@ const STAGE_TURN_CLOSING = `Before this turn ends, report through \`${MISSION_TO
 const ACTION_TURN_CLOSING =
   "Commit your fix before this turn ends. Stave pushes the branch and watches the checks again afterwards; this turn reports no stage. Do not ask a question you cannot get answered.";
 
-/** Summaries of the stages before the current one, in playbook order. */
+/** Summaries of the stages before the current one, in workflow order. */
 export function collectPriorStageSummaries(
   aggregate: MissionAggregate,
 ): PriorStageSummary[] {
   const { mission, stages } = aggregate;
   const summaries: PriorStageSummary[] = [];
   for (let index = 0; index < mission.currentStageIndex; index += 1) {
-    const stage = playbookStageAt(mission, index);
+    const stage = workflowStageAt(mission, index);
     const record = latestStageRecord(stages, stage.id);
     if (record?.status === "skipped") {
       summaries.push({ title: stage.title, summary: "Skipped by the user." });
@@ -101,8 +101,8 @@ export function collectAcceptanceCriteria(
   const { mission, stages } = aggregate;
   let criteria: AcceptanceCriterion[] = [];
   for (let index = 0; index < mission.currentStageIndex + Number(includeCurrent); index += 1) {
-    const record = latestStageRecord(stages, playbookStageAt(mission, index).id);
-    const stage = playbookStageAt(mission, index);
+    const record = latestStageRecord(stages, workflowStageAt(mission, index).id);
+    const stage = workflowStageAt(mission, index);
     const observed = stage.kind === "action" && record?.facts?.action?.type === "run-script"
       ? (stage.acceptanceCriteria ?? []).map((criterion) => ({ text: criterion.text, required: criterion.required, status: isVerifiedEvidence(describeActionEvidence(record.facts!.action!, record.facts)) ? "met" as const : "unverified" as const })) : [];
     const reported = record?.report?.outcome === "complete" ? record.report.acceptanceCriteria ?? [] : [];
@@ -127,7 +127,7 @@ export function compileMissionStagePrompt(
   const record = currentStageRecord(aggregate);
   return compileStagePrompt({
     ...(agentNames ? { agentNames } : {}),
-    playbook: aggregate.mission.playbook,
+    workflow: aggregate.mission.workflow,
     stageIndex: aggregate.mission.currentStageIndex,
     assignment: aggregate.mission.assignment,
     priorStages: collectPriorStageSummaries(aggregate),
@@ -139,7 +139,7 @@ export function compileMissionStagePrompt(
 
 /** The one reminder after a mission turn ended without a stage report. */
 export function buildStageNudgePrompt(aggregate: MissionAggregate): string {
-  const stage = playbookStageAt(aggregate.mission, aggregate.mission.currentStageIndex);
+  const stage = workflowStageAt(aggregate.mission, aggregate.mission.currentStageIndex);
   return [
     `You ended the last turn without reporting the stage "${stage.title}".`,
     `If the stage is done, call \`${MISSION_TOOL_NAMES.report}\` now with a summary, the evidence you gathered, and the status of each acceptance criterion.`,
@@ -158,7 +158,7 @@ export function buildMissionTurnContextPart(args: {
   reason: MissionTurnReason;
 }): CanonicalRetrievedContextPart {
   const { mission } = args.aggregate;
-  const stage = playbookStageAt(mission, mission.currentStageIndex);
+  const stage = workflowStageAt(mission, mission.currentStageIndex);
   const record = currentStageRecord(args.aggregate);
   return {
     type: "retrieved_context",
@@ -166,7 +166,7 @@ export function buildMissionTurnContextPart(args: {
     title: "Mission Stage",
     content: [
       "A Stave mission started this turn. The user did not type this message and may not be watching.",
-      `Playbook: ${mission.playbook.name}. Stage ${mission.currentStageIndex + 1} of ${mission.playbook.stages.length}: ${stage.title}, attempt ${record.attempt}.`,
+      `Workflow: ${mission.workflow.name}. Stage ${mission.currentStageIndex + 1} of ${mission.workflow.stages.length}: ${stage.title}, attempt ${record.attempt}.`,
       TURN_REASON_LINES[args.reason],
       args.reason === "repair-checks" ? ACTION_TURN_CLOSING : STAGE_TURN_CLOSING,
     ].join("\n"),
@@ -183,7 +183,7 @@ export interface MissionBriefingStage {
 
 /** What `stave_get_mission` returns: read-only, and without any ids. */
 export interface MissionBriefing {
-  playbook: { name: string; purpose: string; constraints: string | null };
+  workflow: { name: string; purpose: string; constraints: string | null };
   assignment: string;
   stages: MissionBriefingStage[];
   currentStage: {
@@ -201,16 +201,16 @@ export interface MissionBriefing {
 
 export function buildMissionBriefing(aggregate: MissionAggregate): MissionBriefing {
   const { mission } = aggregate;
-  const current = playbookStageAt(mission, mission.currentStageIndex);
+  const current = workflowStageAt(mission, mission.currentStageIndex);
   const record = currentStageRecord(aggregate);
   return {
-    playbook: {
-      name: mission.playbook.name,
-      purpose: mission.playbook.purpose,
-      constraints: mission.playbook.constraints?.trim() || null,
+    workflow: {
+      name: mission.workflow.name,
+      purpose: mission.workflow.purpose,
+      constraints: mission.workflow.constraints?.trim() || null,
     },
     assignment: mission.assignment,
-    stages: mission.playbook.stages.map((stage, index) => ({
+    stages: mission.workflow.stages.map((stage, index) => ({
       position: index + 1,
       title: stage.title,
       kind: stage.kind,

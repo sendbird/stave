@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
 import { AGENT_CHECK_IN_LABELS, DEFAULT_AGENT_CHECK_INS, type AgentConfig } from "@/lib/agents/schema";
-import { applyCheckIns } from "@/lib/playbooks/library";
-import { CHECK_INS, type CheckIns, type PlaybookStage } from "@/lib/playbooks/schema";
+import { applyCheckIns } from "@/lib/workflows/library";
+import { CHECK_INS, type CheckIns, type WorkflowStage } from "@/lib/workflows/schema";
 
 /** What a run does at each check-in level, read from `deriveStageSignOff`. */
 const CHECK_IN_EFFECTS: Readonly<Record<CheckIns, string>> = {
@@ -11,8 +11,8 @@ const CHECK_IN_EFFECTS: Readonly<Record<CheckIns, string>> = {
   "plan-and-publishing": "The run waits for you after a plan stage and before it publishes or marks a pull request ready.",
   "every-stage": "The run waits for you before each stage after the first.",
 };
-import { StageList } from "../playbooks/StageList";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { StageList } from "../workflows/StageList";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 
 /** `workflow.2.title` issues as the stage list reads them: `stages.2.title`. */
 function stageIssues(issues: Readonly<Record<string, string>>): Map<string, string> {
@@ -39,7 +39,7 @@ export function AgentWorkflowField(props: {
   const checkIns = agent.checkIns ?? DEFAULT_AGENT_CHECK_INS;
   const value = useMemo(() => ({ checkIns, stages: agent.workflow ?? [] }), [agent.workflow, checkIns]);
   const issues = useMemo(() => stageIssues(props.issues), [props.issues]);
-  const apply = (next: { checkIns: CheckIns; stages: PlaybookStage[] }) => {
+  const apply = (next: { checkIns: CheckIns; stages: WorkflowStage[] }) => {
     const { workflow: _workflow, checkIns: _checkIns, ...rest } = agent;
     props.onChange({
       ...rest,

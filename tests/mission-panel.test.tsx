@@ -10,7 +10,7 @@ import {
 } from "../src/components/missions/SignOffCard";
 import type { MissionDetail } from "../src/lib/missions/api";
 import { projectMissionStages } from "../src/lib/missions/mission-view";
-import { starterPlaybook } from "./fixtures/mission-fixtures";
+import { starterWorkflow } from "./fixtures/mission-fixtures";
 import {
   COMPLETE_REPORT,
   MISSION_NOW,
@@ -140,8 +140,8 @@ describe("Mission panel", () => {
 
 describe("sign-off card", () => {
   test("the primary button names what happens next", () => {
-    const playbook = starterPlaybook("request-to-pr");
-    expect(playbook.stages.map(describeSignOffAction)).toEqual([
+    const workflow = starterWorkflow("request-to-pr");
+    expect(workflow.stages.map(describeSignOffAction)).toEqual([
       "Start Understand",
       "Start Build",
       "Start Verify",

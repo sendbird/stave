@@ -10,7 +10,7 @@ import { blankCustomAgent, duplicateAgent } from "@/lib/agents/library";
 import type { AgentConfig } from "@/lib/agents/schema";
 import { describeAgent } from "@/lib/agents/agents-view";
 import { draftAgentWithAi } from "@/store/agent-draft-runtime";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { AgentAvatar } from "./AgentAvatar";
 import { agentStyles } from "./agents.styles";
 

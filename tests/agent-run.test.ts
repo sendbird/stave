@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   AGENT_RUN_DEFAULT_DONE_WHEN,
   agentRunEndCause,
-  buildAgentRunPlaybook,
+  buildAgentRunWorkflow,
   buildAgentRunStartInput,
   hasAgentOrigin,
   planAgentPromptSend,
@@ -10,18 +10,18 @@ import {
 import { compileMissionStagePrompt } from "../src/lib/missions/briefing";
 import { createMission, MISSION_LIMITS, MissionStartInputSchema } from "../src/lib/missions/domain";
 import { decideMissionAction, type MissionObservation } from "../src/lib/missions/policy";
-import { PlaybookSchema } from "../src/lib/playbooks/schema";
+import { WorkflowSchema } from "../src/lib/workflows/schema";
 
 const NOW = new Date("2026-10-01T09:00:00.000Z");
 const AGENT = { name: "Implementer" };
 
-describe("agent run: implicit playbook", () => {
+describe("agent run: implicit workflow", () => {
   test("is one AI stage, Work, that only checks in when stuck", () => {
-    const playbook = PlaybookSchema.parse(buildAgentRunPlaybook({ agent: AGENT, now: NOW }));
-    expect(playbook.name).toBe("Implementer");
-    expect(playbook.checkIns).toBe("when-stuck");
-    expect(playbook.stages).toHaveLength(1);
-    const [stage] = playbook.stages;
+    const workflow = WorkflowSchema.parse(buildAgentRunWorkflow({ agent: AGENT, now: NOW }));
+    expect(workflow.name).toBe("Implementer");
+    expect(workflow.checkIns).toBe("when-stuck");
+    expect(workflow.stages).toHaveLength(1);
+    const [stage] = workflow.stages;
     expect(stage).toMatchObject({ id: "work", title: "Work", kind: "ai", doneWhen: AGENT_RUN_DEFAULT_DONE_WHEN });
     expect(stage?.kind === "ai" && stage.role).toBeFalsy();
     if (stage?.kind !== "ai") throw new Error("expected an AI stage");
@@ -30,11 +30,11 @@ describe("agent run: implicit playbook", () => {
   });
 
   test("uses the assignment's own criteria as Done when, clipped to the limit", () => {
-    const custom = buildAgentRunPlaybook({ agent: AGENT, doneWhen: "  The export downloads a CSV.  ", now: NOW });
+    const custom = buildAgentRunWorkflow({ agent: AGENT, doneWhen: "  The export downloads a CSV.  ", now: NOW });
     expect(custom.stages[0]).toMatchObject({ doneWhen: "The export downloads a CSV." });
-    const long = buildAgentRunPlaybook({ agent: AGENT, doneWhen: "x".repeat(900), now: NOW });
-    expect(PlaybookSchema.safeParse(long).success).toBe(true);
-    const blank = buildAgentRunPlaybook({ agent: AGENT, doneWhen: "   ", now: NOW });
+    const long = buildAgentRunWorkflow({ agent: AGENT, doneWhen: "x".repeat(900), now: NOW });
+    expect(WorkflowSchema.safeParse(long).success).toBe(true);
+    const blank = buildAgentRunWorkflow({ agent: AGENT, doneWhen: "   ", now: NOW });
     expect(blank.stages[0]).toMatchObject({ doneWhen: AGENT_RUN_DEFAULT_DONE_WHEN });
   });
 
@@ -82,7 +82,7 @@ describe("agent run: implicit playbook", () => {
       doneWhen: "Ignored with a workflow.",
       now: NOW,
     });
-    expect(PlaybookSchema.parse(quiet.playbook).stages.map((stage) => stage.id)).toEqual(["plan", "build", "open-draft-pr"]);
+    expect(WorkflowSchema.parse(quiet.workflow).stages.map((stage) => stage.id)).toEqual(["plan", "build", "open-draft-pr"]);
     // Only when stuck: assigning the work authorizes the workflow's publishing stages.
     expect(quiet.consent).toEqual({ checkIns: "when-stuck", permissionMode: "manual", authorizedEffectStageIds: ["open-draft-pr"] });
     const careful = buildAgentRunStartInput({
@@ -93,10 +93,10 @@ describe("agent run: implicit playbook", () => {
       now: NOW,
     });
     expect(careful.consent).toMatchObject({ checkIns: "plan-and-publishing", authorizedEffectStageIds: [] });
-    expect(careful.playbook.checkIns).toBe("plan-and-publishing");
+    expect(careful.workflow.checkIns).toBe("plan-and-publishing");
   });
 
-  test("a playbook mission is not an agent run", () => {
+  test("a workflow mission is not an agent run", () => {
     expect(hasAgentOrigin({})).toBe(false);
     expect(hasAgentOrigin(null)).toBe(false);
   });
@@ -198,8 +198,8 @@ describe("agent run: the mission policy", () => {
     };
     const aggregate = { mission: change.mission, stages: change.upserts };
     expect(decideMissionAction({ aggregate, observation, now: NOW }).action).toBe("start-stage-turn");
-    const playbookMission = { mission: { ...change.mission, origin: undefined }, stages: change.upserts };
-    expect(decideMissionAction({ aggregate: playbookMission, observation, now: NOW })).toMatchObject({
+    const legacyRun = { mission: { ...change.mission, origin: undefined }, stages: change.upserts };
+    expect(decideMissionAction({ aggregate: legacyRun, observation, now: NOW })).toMatchObject({
       action: "pause",
       reason: "runtime-changed",
     });

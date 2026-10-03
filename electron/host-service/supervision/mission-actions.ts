@@ -27,7 +27,7 @@ import {
   buildMissionActionKey,
   buildMissionTurnOutcomeKey,
   currentStageRecord,
-  playbookStageAt,
+  workflowStageAt,
   type ActionResult,
   type MissionAggregate,
   type MissionEvent,
@@ -46,7 +46,7 @@ import {
   buildMissionPullRequestDraft,
   CHECKS_REPAIR_COMMIT_MESSAGE,
 } from "../../../src/lib/missions/pull-request-draft";
-import type { StaveAction } from "../../../src/lib/playbooks/schema";
+import type { StaveAction } from "../../../src/lib/workflows/schema";
 import { classifyProviderTurnStopReason } from "../../../src/lib/providers/turn-status";
 import type { MissionStore } from "../../persistence/mission-store";
 import type { PersistedTurnStreamEvent } from "../../persistence/turn-event-payload";
@@ -512,7 +512,7 @@ export function createMissionActionExecutor(deps: {
   }): Promise<ActionOutcome> {
     const { aggregate } = args;
     const { mission } = aggregate;
-    const stage = playbookStageAt(mission, mission.currentStageIndex);
+    const stage = workflowStageAt(mission, mission.currentStageIndex);
     if (stage.kind !== "action") return failed("This stage is not a Stave action.");
     const record = currentStageRecord(aggregate);
     const actionKey = buildMissionActionKey({

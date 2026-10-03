@@ -4,9 +4,9 @@ import { revisionsMatch } from "./verification-contract";
 
 /** Reports and successful children do not satisfy an unresolved explicit requirement. */
 export function unmetStageAcceptance(aggregate: MissionAggregate, record: MissionStageRecord): string | null {
-  const stage = aggregate.mission.playbook.stages[aggregate.mission.currentStageIndex]!;
+  const stage = aggregate.mission.workflow.stages[aggregate.mission.currentStageIndex]!;
   const explicit = stage.acceptanceCriteria?.filter((criterion) => criterion.required !== false) ?? [];
-  const finalStage = aggregate.mission.currentStageIndex === aggregate.mission.playbook.stages.length - 1;
+  const finalStage = aggregate.mission.currentStageIndex === aggregate.mission.workflow.stages.length - 1;
   const inheritedCriteria = collectAcceptanceCriteria(aggregate);
   const inheritedTexts = new Set(inheritedCriteria.map((criterion) => criterion.text.trim()));
   const optionalTexts = new Set([...inheritedCriteria, ...(stage.acceptanceCriteria ?? [])].filter((criterion) => criterion.required === false).map((criterion) => criterion.text.trim()));

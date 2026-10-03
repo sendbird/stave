@@ -56,7 +56,7 @@ function delegate(overrides: Partial<DelegatedTaskSummary>): DelegatedTaskSummar
 function mission(): MissionDetail {
   const stage = (id: string, title: string) => ({ id, kind: "ai", title, instruction: "x", doneWhen: "y" });
   return {
-    mission: { playbook: { stages: [stage("plan", "Plan"), stage("build", "Build"), stage("pr", "Open PR")] } },
+    mission: { workflow: { stages: [stage("plan", "Plan"), stage("build", "Build"), stage("pr", "Open PR")] } },
     stages: [
       {
         stageId: "plan",

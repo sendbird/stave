@@ -15,7 +15,7 @@ import {
   enterStage,
   isActiveMissionState,
   isTerminalStageStatus,
-  playbookStageAt,
+  workflowStageAt,
   replaceStageRecord,
   type CompleteStageReport,
   type Mission,
@@ -63,7 +63,7 @@ function requireCurrentStage(
     );
   }
   if (!allowed.includes(record.status)) {
-    const title = playbookStageAt(aggregate.mission, aggregate.mission.currentStageIndex).title;
+    const title = workflowStageAt(aggregate.mission, aggregate.mission.currentStageIndex).title;
     throw new MissionCommandError(
       "invalid-state",
       `"${title}" is ${record.status.replaceAll("-", " ")}, so this is not available.`,
@@ -109,7 +109,7 @@ export function requestStageChanges(args: {
   if (!feedback) {
     throw new MissionCommandError("invalid-state", "Describe the changes you want.");
   }
-  const stages = aggregate.mission.playbook.stages;
+  const stages = aggregate.mission.workflow.stages;
   let targetIndex = -1;
   for (let index = aggregate.mission.currentStageIndex - 1; index >= 0; index -= 1) {
     if (stages[index]?.kind === "ai") {

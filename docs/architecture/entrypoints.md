@@ -135,7 +135,7 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
    and `src/components/missions/` for the status line, panel, sign-off card
    and Fleet strip
 5. `src/components/agents/AgentWorkflowField.tsx` (over
-   `src/components/playbooks/StageList.tsx`) for the agent editor's Workflow
+   `src/components/workflows/StageList.tsx`) for the agent editor's Workflow
 6. `docs/features/missions.md` and `docs/features/agents.md` for the user
    flow
 

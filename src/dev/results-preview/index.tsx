@@ -23,7 +23,7 @@ const NONE: RunEventCounts = { userReplies: 0, changesRequested: 0, nudges: 0, s
 type Kind = "ready" | "rework" | "failed" | "stopped";
 
 /** One ended run, `daysAgo` before the preview clock. */
-function run(name: string, kind: "agent" | "playbook", outcome: Kind, daysAgo: number, minutes: number, cost: number | null, patch: Partial<RunEventCounts> = {}, stopReason: ResultSample["stopReason"] = null): ResultSample {
+function run(name: string, kind: "agent" | "workflow", outcome: Kind, daysAgo: number, minutes: number, cost: number | null, patch: Partial<RunEventCounts> = {}, stopReason: ResultSample["stopReason"] = null): ResultSample {
   const endedAt = new Date(NOW - daysAgo * 86_400_000).toISOString();
   const id = `${name}-${daysAgo}-${minutes}-${outcome}`;
   return {
@@ -52,11 +52,11 @@ function samples(): ResultSample[] {
     run("Migrator", "agent", "failed", 7, 60, 2.9, {}, "expired"),
     run("Migrator", "agent", "ready", 10, 28, 1.9),
     run("Migrator", "agent", "failed", 14, 3, null, {}, "task-unavailable"),
-    run("Ship it", "playbook", "ready", 1, 22, 0.9, { nudges: 1 }),
-    run("Ship it", "playbook", "ready", 3, 19, 0.8),
-    run("Ship it", "playbook", "ready", 5, 24, null),
-    run("Ship it", "playbook", "stopped", 6, 11, 0.4, { stuckStages: 1 }),
-    run("Ship it", "playbook", "ready", 11, 17, 0.7, { userReplies: 1 }),
+    run("Ship it", "workflow", "ready", 1, 22, 0.9, { nudges: 1 }),
+    run("Ship it", "workflow", "ready", 3, 19, 0.8),
+    run("Ship it", "workflow", "ready", 5, 24, null),
+    run("Ship it", "workflow", "stopped", 6, 11, 0.4, { stuckStages: 1 }),
+    run("Ship it", "workflow", "ready", 11, 17, 0.7, { userReplies: 1 }),
   ];
 }
 

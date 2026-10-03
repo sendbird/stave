@@ -10,24 +10,24 @@ import {
 } from "../src/lib/missions/domain";
 import { applyMissionDecision } from "../src/lib/missions/policy";
 import { SECOND_MISSION_REFUSAL } from "../src/lib/supervision/automatic-turn-owner";
-import { MISSION_NOW, missionFixture, starterPlaybook } from "./fixtures/mission-fixtures";
+import { MISSION_NOW, missionFixture, starterWorkflow } from "./fixtures/mission-fixtures";
 
 let database: Database;
 let store: MissionStore;
 
 function startChange(id = "mission-1", leadTaskId = "task-1") {
-  const playbook = starterPlaybook("request-to-pr");
+  const workflow = starterWorkflow("request-to-pr");
   return createMission({
     id,
     input: {
       workspaceId: "ws-1",
       leadTaskId,
-      playbook,
+      workflow,
       assignment: "Add CSV export.",
       consent: {
         checkIns: "plan-and-publishing",
         permissionMode: "guided",
-        authorizedEffectStageIds: listExternalEffectStages(playbook).map((stage) => stage.id),
+        authorizedEffectStageIds: listExternalEffectStages(workflow).map((stage) => stage.id),
       },
     },
     repositoryPath: "/tmp/repo",
@@ -140,8 +140,8 @@ describe("mission store", () => {
       current_stage_index INTEGER NOT NULL, turn_count INTEGER NOT NULL DEFAULT 0, max_turns INTEGER NOT NULL DEFAULT 30,
       expires_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
     const upgraded = new MissionStore(legacy);
-    const playbookMission = startChange("mission-old", "task-old");
-    expect(upgraded.create(playbookMission, MISSION_NOW)).toEqual({ ok: true });
+    const legacyRun = startChange("mission-old", "task-old");
+    expect(upgraded.create(legacyRun, MISSION_NOW)).toEqual({ ok: true });
     expect(upgraded.getAggregate("mission-old")?.mission.origin).toBeUndefined();
     const run = startChange("mission-run", "task-run");
     const agentOriginRun = { ...run, mission: { ...run.mission, origin: "agent" as const } };

@@ -9,7 +9,7 @@ import {
   type AgentExportFormat,
 } from "@/lib/agents/export";
 import type { AgentConfig } from "@/lib/agents/schema";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 
 type WriteState =

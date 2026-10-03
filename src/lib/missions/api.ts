@@ -142,7 +142,7 @@ export interface MissionChangedEvent {
 export interface MissionsBridgeApi {
   start: (args: MissionStartArgs) => Promise<MissionCommandResponse>;
   list: (args?: MissionListArgs) => Promise<MissionListResponse>;
-  /** How missions that ended in the last `days` went, per playbook and provider. */
+  /** How missions that ended in the last `days` went, per workflow and provider. */
   insights: (args?: { days?: number }) => Promise<MissionInsightsResponse>;
   get: (args: MissionIdArgs) => Promise<MissionCommandResponse>;
   signOff: (args: MissionStageRef) => Promise<MissionCommandResponse>;

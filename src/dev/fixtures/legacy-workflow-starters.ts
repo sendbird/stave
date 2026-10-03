@@ -1,26 +1,26 @@
 /**
- * Playbook starters from before playbooks were retired (0.22.0). Product code
- * no longer offers them; dev previews and tests build legacy playbook
- * missions from them.
+ * Saved-workflow starters from before saved workflows were retired (0.22.0).
+ * Product code no longer offers them; dev previews and tests build legacy
+ * workflow missions from them.
  */
-import { generatePlaybookId } from "@/lib/playbooks/normalize";
-import { createIssue, reportBack } from "@/lib/playbooks/stage-templates";
+import { generateWorkflowId } from "@/lib/workflows/normalize";
+import { createIssue, reportBack } from "@/lib/workflows/stage-templates";
 import {
   DEFAULT_CHECK_INS,
   DEFAULT_WATCH_CHECKS,
-  PLAYBOOK_VERSION,
+  WORKFLOW_VERSION,
   type ActionStage,
   type AiStage,
-  type Playbook,
-} from "@/lib/playbooks/schema";
+  type Workflow,
+} from "@/lib/workflows/schema";
 
-/** A playbook without the identity it receives when the user adds it. */
-export type PlaybookTemplate = Omit<Playbook, "id" | "createdAt" | "updatedAt">;
+/** A workflow without the identity it receives when the user adds it. */
+export type WorkflowTemplate = Omit<Workflow, "id" | "createdAt" | "updatedAt">;
 
-export interface PlaybookStarter {
+export interface WorkflowStarter {
   id: string;
   description: string;
-  template: PlaybookTemplate;
+  template: WorkflowTemplate;
 }
 
 const openDraftPr: ActionStage = {
@@ -67,12 +67,12 @@ const verify: AiStage = {
 
 
 /** Work that is not a pull request: research, documents, investigation, coordination, review. */
-const WORK_STARTERS: readonly PlaybookStarter[] = [
+const WORK_STARTERS: readonly WorkflowStarter[] = [
   {
     id: "research-question",
     description: "Answer a question with sourced evidence and a recommendation.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Research a question",
       purpose: "Answer the question in the assignment with sourced evidence and a practical recommendation.",
       checkIns: DEFAULT_CHECK_INS,
@@ -111,7 +111,7 @@ const WORK_STARTERS: readonly PlaybookStarter[] = [
     id: "decision-document",
     description: "Turn notes and evidence into a proposal for a specific audience.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Draft a decision document",
       purpose: "Turn the notes and evidence in the assignment into a clear proposal for its audience.",
       checkIns: DEFAULT_CHECK_INS,
@@ -150,7 +150,7 @@ const WORK_STARTERS: readonly PlaybookStarter[] = [
     id: "investigate-problem",
     description: "Reproduce a problem and explain its cause before changing code.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Investigate a problem",
       purpose: "Reproduce the problem in the assignment, explain its cause and propose the smallest safe fix.",
       checkIns: DEFAULT_CHECK_INS,
@@ -180,7 +180,7 @@ const WORK_STARTERS: readonly PlaybookStarter[] = [
     id: "plan-build-verify",
     description: "Plan, build and verify an outcome, without a pull request.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Plan, build and verify",
       purpose: "Deliver the outcome in the assignment as a verified change, reported with its evidence and risks.",
       checkIns: DEFAULT_CHECK_INS,
@@ -213,7 +213,7 @@ const WORK_STARTERS: readonly PlaybookStarter[] = [
     id: "coordinate-tasks",
     description: "Split work into delegated tasks, then reconcile and verify their results.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Coordinate independent tasks",
       purpose: "Deliver the outcome in the assignment through delegated tasks, reconciled and verified.",
       checkIns: DEFAULT_CHECK_INS,
@@ -252,7 +252,7 @@ const WORK_STARTERS: readonly PlaybookStarter[] = [
     id: "independent-review",
     description: "Review work against its goal, then fix and verify what should change.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Independent review",
       purpose: "Review the current work against its goal and completion checks, and fix what should change now.",
       checkIns: DEFAULT_CHECK_INS,
@@ -280,13 +280,13 @@ const WORK_STARTERS: readonly PlaybookStarter[] = [
   },
 ];
 
-export const PLAYBOOK_STARTERS: readonly PlaybookStarter[] = [
+export const WORKFLOW_STARTERS: readonly WorkflowStarter[] = [
   {
     id: "slack-request-to-pr",
     description:
       "Turn a Slack request into an issue, a verified change and a pull request ready for review, then tell the requester.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Slack request → PR",
       purpose:
         "Take a request from a Slack thread through a tracked issue, a verified change and a pull request that is ready for review, then report back to the requester in the thread.",
@@ -320,7 +320,7 @@ export const PLAYBOOK_STARTERS: readonly PlaybookStarter[] = [
     description:
       "Turn a request into a verified change and a pull request ready for review.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Request → PR",
       purpose:
         "Take the request in the assignment through a verified change to a pull request that is ready for review.",
@@ -351,7 +351,7 @@ export const PLAYBOOK_STARTERS: readonly PlaybookStarter[] = [
     id: "fix-failing-checks",
     description: "Get this workspace's pull request back to green.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Fix failing checks",
       purpose:
         "Find why the checks on this workspace's pull request fail, fix the failures this branch caused, and watch the checks until they pass.",
@@ -387,7 +387,7 @@ export const PLAYBOOK_STARTERS: readonly PlaybookStarter[] = [
     description:
       "Work through review comments on this workspace's pull request and reply to reviewers.",
     template: {
-      version: PLAYBOOK_VERSION,
+      version: WORKFLOW_VERSION,
       name: "Address review",
       purpose:
         "Resolve the review feedback on this workspace's pull request with verified changes and clear replies.",
@@ -431,18 +431,18 @@ export const PLAYBOOK_STARTERS: readonly PlaybookStarter[] = [
   ...WORK_STARTERS,
 ];
 
-export function findPlaybookStarter(id: string): PlaybookStarter | undefined {
-  return PLAYBOOK_STARTERS.find((starter) => starter.id === id);
+export function findWorkflowStarter(id: string): WorkflowStarter | undefined {
+  return WORKFLOW_STARTERS.find((starter) => starter.id === id);
 }
 
-export function createPlaybookFromStarter(
-  starter: PlaybookStarter,
+export function createWorkflowFromStarter(
+  starter: WorkflowStarter,
   options: { now: Date; id?: string },
-): Playbook {
+): Workflow {
   const timestamp = options.now.toISOString();
   return {
     ...structuredClone(starter.template),
-    id: options.id ?? generatePlaybookId(),
+    id: options.id ?? generateWorkflowId(),
     createdAt: timestamp,
     updatedAt: timestamp,
   };

@@ -4,9 +4,9 @@ import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
 import { listAgents } from "@/lib/agents/library";
 import { isUsableAs } from "@/lib/agents/schema";
-import type { AiStage, PlaybookStage } from "@/lib/playbooks/schema";
+import type { AiStage, WorkflowStage } from "@/lib/workflows/schema";
 import { useAppStore } from "@/store/app.store";
-import { playbookStyles as styles } from "./playbooks.styles";
+import { workflowStyles as styles } from "./workflows.styles";
 
 const LEAD = "lead";
 
@@ -15,7 +15,7 @@ const LEAD = "lead";
  * stage to. Only agents usable as a delegated task are offered; a stage naming
  * an agent that is gone keeps its id and says so.
  */
-export function StageAgentField(props: { stage: AiStage; onChange: (stage: PlaybookStage) => void }) {
+export function StageAgentField(props: { stage: AiStage; onChange: (stage: WorkflowStage) => void }) {
   const { stage } = props;
   const custom = useAppStore((state) => state.settings.customAgents);
   const agents = useMemo(

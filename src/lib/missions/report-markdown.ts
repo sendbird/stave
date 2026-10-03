@@ -44,7 +44,7 @@ export function formatMissionReportMarkdown(report: MissionReport): string {
   const lines: string[] = [
     `## ${describeReportTitle(report)}`,
     "",
-    `**${report.playbookName}:** ${report.assignment.trim()}`,
+    `**${report.workflowName}:** ${report.assignment.trim()}`,
   ];
   if (report.reason) lines.push("", `Reason: ${report.reason}`);
   lines.push("", "### Stages");

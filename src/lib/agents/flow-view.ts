@@ -511,7 +511,7 @@ export function buildFlow(args: {
   if (mission) {
     const windows: Array<{ start: string | null; end: string | null }> = [];
     let runningIndex = -1;
-    const stageNodes = mission.mission.playbook.stages.map((stage, index) => {
+    const stageNodes = mission.mission.workflow.stages.map((stage, index) => {
       const records = mission.stages.filter((record) => record.stageId === stage.id);
       const latest = records.reduce<MissionStageRecord | undefined>(
         (best, record) => (!best || record.attempt > best.attempt ? record : best),

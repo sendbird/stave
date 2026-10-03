@@ -132,7 +132,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     [turnTodos, storedPlanItems],
   );
   // A stage waiting for sign-off already asks in its card above the shelf.
-  const currentStage = mission?.mission.playbook.stages[mission.mission.currentStageIndex];
+  const currentStage = mission?.mission.workflow.stages[mission.mission.currentStageIndex];
   const signOffShown =
     mission?.mission.state === "running" &&
     currentStage != null &&

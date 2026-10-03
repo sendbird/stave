@@ -1,6 +1,6 @@
 /**
- * Results: how ended agent runs and playbook missions went, from the events
- * each one recorded. A run is a mission with an implicit one-stage playbook
+ * Results: how ended agent runs and workflow missions went, from the events
+ * each one recorded. A run is a mission with an implicit one-stage workflow
  * (`agent-run.ts`), so both kinds read the same way and differ only by name.
  *
  * Only outcome, time, cost, why a run did not finish and how much it needed
@@ -51,9 +51,9 @@ export interface ResultSample {
   missionId: string;
   workspaceId: string;
   leadTaskId: string;
-  /** The agent's name for a run; the playbook's for a mission. */
+  /** The agent's name for a run; the workflow's for a mission. */
   name: string;
-  kind: "agent" | "playbook";
+  kind: "agent" | "workflow";
   providerId: string;
   state: MissionState;
   stopReason: MissionStopReason | null;
@@ -68,7 +68,7 @@ export interface ResultRun {
   workspaceId: string;
   leadTaskId: string;
   name: string;
-  kind: "agent" | "playbook";
+  kind: "agent" | "workflow";
   providerId: string;
   outcome: RunOutcome;
   /** Set when the run did not finish. */
@@ -102,7 +102,7 @@ export interface ResultsSummary {
 export interface ResultsAgentRow {
   key: string;
   name: string;
-  kind: "agent" | "playbook";
+  kind: "agent" | "workflow";
   runs: number;
   readyRate: number;
   medianCostUsd: number | null;
@@ -117,7 +117,7 @@ export interface MissionInsights {
   summary: ResultsSummary;
   /** Newest first. */
   runs: ResultRun[];
-  /** Per agent or playbook, most runs first. */
+  /** Per agent or workflow, most runs first. */
   agents: ResultsAgentRow[];
 }
 

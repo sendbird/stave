@@ -19,7 +19,7 @@ import { useFleetMissionsStore } from "@/store/fleet-missions-store";
 import type { MissionDetail } from "@/lib/missions/api";
 import { hasAgentOrigin } from "@/lib/missions/agent-run";
 import { describeAgentRunProgress, describeAgentRunStatus } from "@/lib/missions/agent-run-status";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 
 /**
@@ -164,7 +164,7 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
               const live = row.taskId ? statusByTaskId[row.taskId] : undefined;
               // The run this agent is doing on the task, when Fleet has it.
               const run = row.taskId ? runByTaskId[row.taskId] : undefined;
-              const ownRun = run && run.mission.playbook.name === row.agentName ? run : undefined;
+              const ownRun = run && run.mission.workflow.name === row.agentName ? run : undefined;
               const progress = ownRun ? describeAgentRunProgress(ownRun) : null;
               const stateLabel = ownRun
                 ? describeAgentRunStatus(ownRun).label

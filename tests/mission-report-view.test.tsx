@@ -7,7 +7,7 @@ import { formatMissionReportMarkdown } from "../src/lib/missions/report-markdown
 
 const REPORT: MissionReport = {
   missionId: "mission-1",
-  playbookName: "Request → PR",
+  workflowName: "Request → PR",
   assignment: "Add CSV export to the billing page.",
   outcome: "stopped",
   reason: "The lead task was archived.",

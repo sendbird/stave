@@ -11,7 +11,7 @@ import {
   resolveMissionStageSignOff,
   type MissionObservation,
 } from "../src/lib/missions/policy";
-import type { Playbook } from "../src/lib/playbooks/schema";
+import type { Workflow } from "../src/lib/workflows/schema";
 import {
   COMPLETE_REPORT,
   MISSION_NOW,
@@ -19,7 +19,7 @@ import {
   missionFixture,
   observe,
   patchCurrent,
-  starterPlaybook,
+  starterWorkflow,
   turn,
 } from "./fixtures/mission-fixtures";
 
@@ -311,7 +311,7 @@ describe("AI stages", () => {
 describe("Stave action stages", () => {
   function atOpenDraftPr() {
     let aggregate = missionFixture();
-    const index = aggregate.mission.playbook.stages.findIndex((stage) => stage.id === "open-draft-pr");
+    const index = aggregate.mission.workflow.stages.findIndex((stage) => stage.id === "open-draft-pr");
     aggregate = { ...aggregate, mission: { ...aggregate.mission, currentStageIndex: index } };
     return {
       ...aggregate,
@@ -375,8 +375,8 @@ describe("Stave action stages", () => {
   });
 
   test("completing the last stage completes the mission", () => {
-    const playbook = starterPlaybook("fix-failing-checks");
-    let aggregate = missionFixture({ playbook });
+    const workflow = starterWorkflow("fix-failing-checks");
+    let aggregate = missionFixture({ workflow });
     aggregate = {
       mission: { ...aggregate.mission, currentStageIndex: 2 },
       stages: [...aggregate.stages, { ...aggregate.stages[0]!, stageId: "watch-checks", status: "running" as const }],
@@ -391,7 +391,7 @@ describe("Stave action stages", () => {
 });
 
 describe("mission sign-off", () => {
-  test("uses the check-ins recorded at start, not the saved playbook's", () => {
+  test("uses the check-ins recorded at start, not the saved workflow's", () => {
     const aggregate = missionFixture({ consent: { checkIns: "when-stuck" } });
     const buildIndex = 1;
     expect(resolveMissionStageSignOff(aggregate.mission, buildIndex)).toBe("auto");
@@ -400,12 +400,12 @@ describe("mission sign-off", () => {
   });
 
   test("a stage with an external effect the user did not authorize always asks", () => {
-    const playbook: Playbook = starterPlaybook("request-to-pr");
+    const workflow: Workflow = starterWorkflow("request-to-pr");
     const aggregate = missionFixture({
-      playbook,
+      workflow,
       consent: { checkIns: "when-stuck", authorizedEffectStageIds: ["open-draft-pr", "watch-checks"] },
     });
-    const readyIndex = playbook.stages.findIndex((stage) => stage.id === "ready-for-review");
+    const readyIndex = workflow.stages.findIndex((stage) => stage.id === "ready-for-review");
     expect(resolveMissionStageSignOff(aggregate.mission, readyIndex)).toBe("ask");
     expect(resolveMissionStageSignOff(aggregate.mission, readyIndex - 1)).toBe("auto");
   });

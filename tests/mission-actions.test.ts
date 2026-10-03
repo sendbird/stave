@@ -19,12 +19,12 @@ import {
   type MissionAggregate,
 } from "../src/lib/missions/domain";
 import { CHECKS_REPAIR_COMMIT_MESSAGE } from "../src/lib/missions/pull-request-draft";
-import { PlaybookSchema, type PlaybookStage } from "../src/lib/playbooks/schema";
+import { WorkflowSchema, type WorkflowStage } from "../src/lib/workflows/schema";
 
 const START = "2026-09-26T10:00:00.000Z";
 const OK: ScmStep = { ok: true, value: true };
 
-const STAGES: PlaybookStage[] = [
+const STAGES: WorkflowStage[] = [
   {
     id: "build",
     title: "Build",
@@ -44,10 +44,10 @@ const STAGES: PlaybookStage[] = [
 
 /** The mission with Build completed and the stage at `index` running. */
 function missionAt(store: MissionStore, index: number): MissionAggregate {
-  const playbook = PlaybookSchema.parse({
+  const workflow = WorkflowSchema.parse({
     version: 1,
-    id: "playbook_actions",
-    name: "Actions playbook",
+    id: "workflow_actions",
+    name: "Actions workflow",
     purpose: "Ship the change.",
     checkIns: "when-stuck",
     team: "solo",
@@ -60,7 +60,7 @@ function missionAt(store: MissionStore, index: number): MissionAggregate {
     input: {
       workspaceId: "ws-1",
       leadTaskId: "task-1",
-      playbook,
+      workflow,
       assignment: "Add CSV export to the billing page.",
       consent: {
         checkIns: "when-stuck",

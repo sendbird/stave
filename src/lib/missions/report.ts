@@ -3,7 +3,7 @@
  * once a mission ends, whether it completed, was cancelled or was stopped. A
  * partial report also lists what the mission left behind.
  */
-import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
+import type { AcceptanceCriterion } from "@/lib/workflows/stage-prompt";
 import type { MissionUsage } from "./usage";
 import { collectAcceptanceCriteria } from "./briefing";
 import {
@@ -62,7 +62,7 @@ export interface MissionMetrics {
 
 export interface MissionReport {
   missionId: string;
-  playbookName: string;
+  workflowName: string;
   assignment: string;
   outcome: "completed" | "cancelled" | "stopped";
   reason: string | null;
@@ -135,7 +135,7 @@ export function buildMissionReport(args: {
     }
   };
 
-  const stages = mission.playbook.stages.map((stage): MissionReportStage => {
+  const stages = mission.workflow.stages.map((stage): MissionReportStage => {
     const record = latestStageRecord(records, stage.id);
     const attempts = records.filter((candidate) => candidate.stageId === stage.id).length;
     const report = record?.report?.outcome === "complete" ? record.report : null;
@@ -182,7 +182,7 @@ export function buildMissionReport(args: {
 
   return {
     missionId: mission.id,
-    playbookName: mission.playbook.name,
+    workflowName: mission.workflow.name,
     assignment: mission.assignment,
     outcome: mission.state,
     reason: mission.reasonDetail,

@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import type { CheckIns, Playbook, PlaybookStage } from "../src/lib/playbooks/schema";
+import type { CheckIns, Workflow, WorkflowStage } from "../src/lib/workflows/schema";
 import {
   deriveStageSignOff,
   listSignOffStageIndexes,
   resolveStageSignOff,
-} from "../src/lib/playbooks/sign-off";
-import { findPlaybookStarter } from "../src/dev/fixtures/legacy-playbook-starters";
+} from "../src/lib/workflows/sign-off";
+import { findWorkflowStarter } from "../src/dev/fixtures/legacy-workflow-starters";
 
-function ai(id: string, role?: "plan" | "publish"): PlaybookStage {
+function ai(id: string, role?: "plan" | "publish"): WorkflowStage {
   return {
     id,
     title: id,
@@ -18,12 +18,12 @@ function ai(id: string, role?: "plan" | "publish"): PlaybookStage {
   };
 }
 
-function act(id: string, type: "open-draft-pr" | "mark-pr-ready"): PlaybookStage {
+function act(id: string, type: "open-draft-pr" | "mark-pr-ready"): WorkflowStage {
   return { id, title: id, kind: "action", action: { type } };
 }
 
 // understand(plan) · build · verify · open · publish-note(publish) · ready
-const STAGES: PlaybookStage[] = [
+const STAGES: WorkflowStage[] = [
   ai("understand", "plan"),
   ai("build"),
   ai("verify"),
@@ -32,13 +32,13 @@ const STAGES: PlaybookStage[] = [
   act("ready", "mark-pr-ready"),
 ];
 
-function playbook(checkIns: CheckIns, stages = STAGES): Pick<Playbook, "checkIns" | "stages"> {
+function workflow(checkIns: CheckIns, stages = STAGES): Pick<Workflow, "checkIns" | "stages"> {
   return { checkIns, stages };
 }
 
 describe("sign-off derivation", () => {
   test("every stage asks before every stage after the first", () => {
-    expect(listSignOffStageIndexes(playbook("every-stage"))).toEqual([1, 2, 3, 4, 5]);
+    expect(listSignOffStageIndexes(workflow("every-stage"))).toEqual([1, 2, 3, 4, 5]);
   });
 
   test("plan and publishing asks after a plan stage, before publish stages and before ready for review", () => {
@@ -48,37 +48,37 @@ describe("sign-off derivation", () => {
   });
 
   test("only when stuck asks before nothing", () => {
-    expect(listSignOffStageIndexes(playbook("when-stuck"))).toEqual([]);
+    expect(listSignOffStageIndexes(workflow("when-stuck"))).toEqual([]);
   });
 
   test("starting a mission signs off the first stage, even a publish stage or an override", () => {
     const publishFirst = [{ ...ai("post", "publish"), signOff: "ask" as const }, ai("next")];
-    expect(resolveStageSignOff(playbook("every-stage", publishFirst), 0)).toBe("auto");
+    expect(resolveStageSignOff(workflow("every-stage", publishFirst), 0)).toBe("auto");
   });
 
   test("a stage override wins", () => {
     const stages = STAGES.map((stage) =>
       stage.id === "verify" ? { ...stage, signOff: "ask" as const } : stage,
     );
-    const custom = playbook("plan-and-publishing", stages);
+    const custom = workflow("plan-and-publishing", stages);
     expect(resolveStageSignOff(custom, 2)).toBe("ask");
 
-    const quiet = playbook(
+    const quiet = workflow(
       "plan-and-publishing",
       STAGES.map((stage) => (stage.id === "ready" ? { ...stage, signOff: "auto" as const } : stage)),
     );
     expect(resolveStageSignOff(quiet, 5)).toBe("auto");
   });
 
-  test("rejects an index outside the playbook", () => {
-    expect(() => resolveStageSignOff(playbook("every-stage"), 6)).toThrow(RangeError);
+  test("rejects an index outside the workflow", () => {
+    expect(() => resolveStageSignOff(workflow("every-stage"), 6)).toThrow(RangeError);
     expect(() => deriveStageSignOff("every-stage", STAGES, -1)).toThrow(RangeError);
   });
 });
 
 describe("starter sign-offs under the default check-ins", () => {
   function asks(starterId: string) {
-    const template = findPlaybookStarter(starterId)!.template;
+    const template = findWorkflowStarter(starterId)!.template;
     return listSignOffStageIndexes(template).map((index) => template.stages[index]!.title);
   }
 

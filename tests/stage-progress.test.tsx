@@ -13,7 +13,7 @@ import {
 import type { StageStatus } from "../src/lib/missions/domain";
 import type { MissionStageRow } from "../src/lib/missions/mission-view";
 import { clampHeadLabel, projectStageProgress, stageTicks } from "../src/lib/missions/stage-progress";
-import type { PlaybookStage } from "../src/lib/playbooks/schema";
+import type { WorkflowStage } from "../src/lib/workflows/schema";
 
 const TITLES = ["Understand", "Build", "Verify", "Open draft PR", "Ready for review"];
 
@@ -21,7 +21,7 @@ const TITLES = ["Understand", "Build", "Verify", "Open draft PR", "Ready for rev
 function rows(statuses: StageStatus[], current: number): MissionStageRow[] {
   return statuses.map((status, index) => ({
     index,
-    stage: { id: `stage-${index}`, title: TITLES[index] ?? `Stage ${index + 1}` } as unknown as PlaybookStage,
+    stage: { id: `stage-${index}`, title: TITLES[index] ?? `Stage ${index + 1}` } as unknown as WorkflowStage,
     record: null,
     status,
     attempts: status === "pending" ? 0 : 1,

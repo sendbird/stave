@@ -317,7 +317,7 @@
         "tests/agent-import.test.ts",
         "tests/agent-permission.test.ts",
         "tests/agent-delegation.test.ts",
-        "tests/agent-playbook-stage.test.ts"
+        "tests/agent-workflow-stage.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
@@ -327,7 +327,7 @@
         "src/lib/agents/library.ts",
         "src/lib/agents/permission.ts",
         "src/lib/agents/delegate.ts",
-        "src/lib/playbooks/stage-prompt.ts",
+        "src/lib/workflows/stage-prompt.ts",
         "electron/main/runs/delegated-task-coordinator.ts"
       ]
     },

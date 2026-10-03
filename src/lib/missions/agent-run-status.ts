@@ -1,12 +1,12 @@
 /**
  * How an agent run reads. A run is a mission (`agent-run.ts`) with one
  * implicit stage or the stages of the agent's workflow, so its surfaces drop
- * the playbook vocabulary (Mission, playbook) and show the agent, a state,
+ * the workflow vocabulary (Mission, workflow) and show the agent, a state,
  * the stages when there is more than one, the Done when lines and what the
  * run produced.
  *
  * Pure. Used by the mission surfaces in `src/components/missions/` for runs
- * marked `origin: "agent"`; a playbook mission keeps its own copy.
+ * marked `origin: "agent"`; a workflow mission keeps its own copy.
  */
 import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
 import type { AgentRunPromptProvenance, ChatMessage } from "@/types/chat";
@@ -53,7 +53,7 @@ export interface AgentRunStatus {
   state: AgentRunViewState;
   label: string;
   tone: MissionBadgeTone;
-  /** The agent's name; the run's implicit playbook carries it. */
+  /** The agent's name; the run's implicit workflow carries it. */
   agentName: string;
   /** Why the run needs you or failed, in one sentence. */
   reason: string | null;
@@ -64,7 +64,7 @@ export interface AgentRunStatus {
 /** The state of an agent run in the words people see. */
 export function describeAgentRunStatus(detail: MissionDetail): AgentRunStatus {
   const { mission } = detail;
-  const agentName = mission.playbook.name;
+  const agentName = mission.workflow.name;
   const make = (
     state: AgentRunViewState,
     tone: MissionBadgeTone,
@@ -88,7 +88,7 @@ export function describeAgentRunStatus(detail: MissionDetail): AgentRunStatus {
     case "running":
       break;
   }
-  const stage = mission.playbook.stages[mission.currentStageIndex];
+  const stage = mission.workflow.stages[mission.currentStageIndex];
   const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
   switch (record?.status) {
     case "blocked":
@@ -142,7 +142,7 @@ export interface AgentRunDoneWhenLine {
  * only, the first stage) as it stands. A one-stage run reads its one stage.
  */
 function reportOf(detail: MissionDetail) {
-  const stages = detail.mission.playbook.stages;
+  const stages = detail.mission.workflow.stages;
   const ai = stages.filter((candidate) => candidate.kind === "ai");
   const reported = [...ai]
     .reverse()
@@ -173,7 +173,7 @@ export function describeDoneWhen(detail: MissionDetail): AgentRunDoneWhenLine[] 
       line(criterion.text, criterion.status === "met" ? "met-reported" : criterion.status),
     );
   }
-  const stages = detail.mission.playbook.stages;
+  const stages = detail.mission.workflow.stages;
   if (stages.length > 1) {
     // No criteria were reported: each AI stage's own line holds once that stage completes.
     return stages.flatMap((candidate) =>
@@ -354,7 +354,7 @@ export function resolveAgentRunFirstPrompt(args: {
  * (its stages are the steps) or before the agent wrote a list.
  */
 export function agentRunStoredPlan(detail: MissionDetail | null | undefined): StagePlan | null {
-  const stages = detail?.mission.playbook.stages;
+  const stages = detail?.mission.workflow.stages;
   if (!detail || !stages || stages.length !== 1) return null;
   return latestStageRecord(detail.stages, stages[0]!.id)?.facts?.plan ?? null;
 }
@@ -364,7 +364,7 @@ export function agentRunStoredPlan(detail: MissionDetail | null | undefined): St
  * ("Reproduce 2/3"), else its plan ("Plan 3/5"), else nothing.
  */
 export function describeAgentRunProgress(detail: MissionDetail): string | null {
-  const { stages } = detail.mission.playbook;
+  const { stages } = detail.mission.workflow;
   if (stages.length > 1) {
     const index = Math.min(detail.mission.currentStageIndex, stages.length - 1);
     return `${stages[index]!.title} ${index + 1}/${stages.length}`;

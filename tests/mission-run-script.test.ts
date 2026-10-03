@@ -8,15 +8,15 @@ import {
 } from "../electron/host-service/supervision/mission-actions";
 import { MissionStore } from "../electron/persistence/mission-store";
 import { createMission } from "../src/lib/missions/domain";
-import { createActionStage } from "../src/lib/playbooks/library";
-import { PlaybookSchema } from "../src/lib/playbooks/schema";
+import { createActionStage } from "../src/lib/workflows/library";
+import { WorkflowSchema } from "../src/lib/workflows/schema";
 
 const START = new Date("2026-09-26T10:00:00.000Z");
 
 function scriptMission(store: MissionStore, id = "mission-1") {
-  const playbook = PlaybookSchema.parse({
+  const workflow = WorkflowSchema.parse({
     version: 1,
-    id: "playbook_preview",
+    id: "workflow_preview",
     name: "Preview",
     purpose: "Deploy a preview.",
     checkIns: "when-stuck",
@@ -30,7 +30,7 @@ function scriptMission(store: MissionStore, id = "mission-1") {
     input: {
       workspaceId: "ws-1",
       leadTaskId: "task-1",
-      playbook,
+      workflow,
       assignment: "Deploy a preview.",
       consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["deploy"] },
     },
@@ -106,7 +106,7 @@ describe("the Run script action", () => {
     expect(lastPrintedUrl("see https://a.test/x and https://b.test/y).")).toBe("https://b.test/y");
     expect(lastPrintedUrl("no address")).toBeUndefined();
     expect(
-      PlaybookSchema.safeParse({
+      WorkflowSchema.safeParse({
         version: 1,
         id: "p",
         name: "P",

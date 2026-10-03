@@ -2,21 +2,21 @@ import { describe, expect, test } from "bun:test";
 import {
   compileStagePrompt,
   type StagePromptInput,
-} from "../src/lib/playbooks/stage-prompt";
+} from "../src/lib/workflows/stage-prompt";
 import {
-  createPlaybookFromStarter,
-  findPlaybookStarter,
-} from "../src/dev/fixtures/legacy-playbook-starters";
+  createWorkflowFromStarter,
+  findWorkflowStarter,
+} from "../src/dev/fixtures/legacy-workflow-starters";
 
 const NOW = new Date("2026-09-26T09:00:00.000Z");
-const slack = createPlaybookFromStarter(findPlaybookStarter("slack-request-to-pr")!, {
+const slack = createWorkflowFromStarter(findWorkflowStarter("slack-request-to-pr")!, {
   now: NOW,
-  id: "playbook_slack",
+  id: "workflow_slack",
 });
 
 function input(overrides: Partial<StagePromptInput> = {}): StagePromptInput {
   return {
-    playbook: slack,
+    workflow: slack,
     stageIndex: 2,
     assignment: "Add CSV export to the billing page. Thread: https://example.slack.com/archives/C1/p1",
     priorStages: [
@@ -48,7 +48,7 @@ describe("stage prompt", () => {
       "## Reporting",
       "## Working rules",
       "## Constraints",
-      "Saved playbooks grant no permissions.",
+      "Saved workflows grant no permissions.",
     ];
     const positions = markers.map((marker) => prompt.indexOf(marker));
     expect(positions.every((position) => position >= 0)).toBe(true);
@@ -63,9 +63,9 @@ describe("stage prompt", () => {
     expect(prompt).toContain("do not begin later stages in this turn");
   });
 
-  test("never names the mission, playbook or stage ids", () => {
+  test("never names the mission, workflow or stage ids", () => {
     const prompt = compileStagePrompt(input());
-    expect(prompt).not.toContain("playbook_slack");
+    expect(prompt).not.toContain("workflow_slack");
     for (const stage of slack.stages) {
       expect(prompt).not.toContain(`"${stage.id}"`);
     }
@@ -96,12 +96,12 @@ describe("stage prompt", () => {
   test("follows the team setting", () => {
     expect(compileStagePrompt(input())).toContain("Do not start workers or delegated tasks.");
     expect(
-      compileStagePrompt(input({ playbook: { ...slack, team: "workers" } })),
+      compileStagePrompt(input({ workflow: { ...slack, team: "workers" } })),
     ).toContain("You may hand bounded parts of this stage to workers.");
   });
 
   test("omits empty constraints", () => {
-    const prompt = compileStagePrompt(input({ playbook: { ...slack, constraints: "" } }));
+    const prompt = compileStagePrompt(input({ workflow: { ...slack, constraints: "" } }));
     expect(prompt).not.toContain("## Constraints");
   });
 

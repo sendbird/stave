@@ -30,7 +30,7 @@ import type {
 
 // ── Rows ─────────────────────────────────────────────────────────────────
 
-/** What heads the run line: an active agent run (or playbook mission), else the turn. */
+/** What heads the run line: an active agent run (or workflow mission), else the turn. */
 export type ShelfRunSource = "mission" | "turn";
 
 export type ComposerShelfRow = "run" | "limit" | "queue";
@@ -292,7 +292,7 @@ export interface ShelfTurnAlert {
 }
 
 /**
- * What the turn under an agent run (or playbook mission) needs said that the
+ * What the turn under an agent run (or workflow mission) needs said that the
  * run's own line cannot know: a stall and how to break it, a steer in flight,
  * a provider retry or a failure. Same tones and words as the turn's line; the
  * ordinary tones (working, waiting on a card, done) stay the run's to say.
