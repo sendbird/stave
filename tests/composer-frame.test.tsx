@@ -10,7 +10,7 @@ import {
   ComposerFrameStatusBar,
   ComposerFrameWing,
 } from "@/components/ai-elements/composer-frame";
-import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
+import { ComposerWorkspaceBarView, distinctWorkspaceLabel } from "@/components/session/composer-workspace-bar";
 import {
   COMPOSER_WING_COLLAPSED_WIDTH_PX,
   COMPOSER_WING_REVEALED_WIDTH_PX,
@@ -114,8 +114,33 @@ describe("ComposerWorkspaceBarView", () => {
     expect(html).not.toContain(">fix-benchmark<");
     expect(html).not.toContain(">fix__benchmark-new-ade--12tr7n2<");
     expect(html).toContain(
-      'title="fix/benchmark-new-ade · fix-benchmark · fix__benchmark-new-ade--12tr7n2"',
+      'title="Repository: stave\nWorkspace: fix-benchmark\nBranch: fix/benchmark-new-ade\nFolder: fix__benchmark-new-ade--12tr7n2"',
     );
+    // A name derived from the branch is not shown twice.
+    expect(html).not.toContain("composer-workspace-name");
+  });
+
+  test("shows a workspace name the user gave between the repository and the branch", () => {
+    const html = renderToStaticMarkup(
+      createElement(ComposerWorkspaceBarView, {
+        repositoryLabel: "stave",
+        workspaceLabel: "Agentic Workflow",
+        folderLabel: "feat__agent-manager--1dlzwt1",
+        branchLabel: "feat/agent-manager",
+      }),
+    );
+    const order = ["composer-workspace-project", "composer-workspace-name", "composer-workspace-branch"]
+      .map((id) => html.indexOf(`data-testid="${id}"`));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(html).toContain(">Agentic Workflow<");
+    expect(html).toContain(">feat/agent-manager<");
+  });
+
+  test("drops a workspace name that repeats the repository or the branch", () => {
+    expect(distinctWorkspaceLabel({ workspaceLabel: "Stave", repositoryLabel: "stave", branchLabel: "main" })).toBe("");
+    expect(distinctWorkspaceLabel({ workspaceLabel: "agent manager", repositoryLabel: "stave", branchLabel: "feat/agent-manager" })).toBe("");
+    expect(distinctWorkspaceLabel({ workspaceLabel: "Agentic Workflow", repositoryLabel: "stave", branchLabel: "feat/agent-manager" })).toBe("Agentic Workflow");
   });
 
   test("drops the project when it only repeats the branch", () => {

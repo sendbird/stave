@@ -6,9 +6,15 @@ import { vars } from "../ads/tokens/tokens.stylex";
 const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
 
 export const sessionCoreStyles = stylex.create({
-  workspaceBar: { display: "flex", minWidth: 0, alignItems: "center", gap: vars["--ads-space-8"], overflow: "hidden" },
-  repository: { maxWidth: "10rem", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  branchGroup: { display: "inline-flex", minWidth: 0, alignItems: "center", gap: 6 },
+  workspaceBar: { display: "flex", minWidth: 0, alignItems: "center", gap: vars["--ads-space-4"], overflow: "hidden" },
+  // Repository leads: brighter, medium weight, kept whole up to 10rem.
+  repository: { display: "inline-flex", maxWidth: "10rem", flexShrink: 0, alignItems: "center", gap: vars["--ads-space-4"], color: vars["--ads-color-text"], fontWeight: vars["--ads-font-weight-medium"] },
+  truncate: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  workspaceSeparator: { flexShrink: 0, color: vars["--ads-color-text-subtle"] },
+  // The workspace gives way after the branch does.
+  workspaceName: { minWidth: "3rem", flexShrink: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: vars["--ads-color-text"] },
+  // Last and first to truncate; a little air separates it from the name.
+  branchGroup: { display: "inline-flex", minWidth: "3.5rem", flexShrink: 100, alignItems: "center", gap: vars["--ads-space-4"], marginInlineStart: vars["--ads-space-4"] },
   branchIcon: { width: 12, height: 12, flexShrink: 0 },
   monoTruncate: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: vars["--ads-font-mono"] },
   macroInitial: { display: "flex", width: 16, height: 16, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: "0.25rem", backgroundColor: vars["--ads-color-surface-tint"], fontSize: vars["--ads-font-size-micro"], lineHeight: 1, fontWeight: vars["--ads-font-weight-semibold"], textTransform: "uppercase" },

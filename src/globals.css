@@ -79,9 +79,10 @@
  * outer corner and the inset ring intact while it is collapsed.
  */
 [data-composer-frame="true"] {
-  /* One 2rem hit target, 0.5rem of air on each side, plus the 0.75rem that
-     tucks under the card. */
-  --composer-wing-collapsed-width: 3.75rem;
+  /* One 2rem hit target, 2px of air outside and 4px clear of the card's focus
+     ring inside, plus the 0.75rem that tucks under the card: the 38px band
+     every composer bar shows. */
+  --composer-wing-collapsed-width: 3.125rem;
   /*
    * Overridden inline with the room actually measured beside the frame; a
    * reveal overhangs the frame, so this default only applies before layout.
@@ -94,7 +95,7 @@
 
 /*
  * The takeover notice sits above the composer, outside the frame. When the
- * card has reserved wing tracks, match the top shelf: 3.75rem track plus the
+ * card has reserved wing tracks, match the top shelf: 3.125rem track plus the
  * 0.75rem shelf inset. Without tracks, `mx-3` on the notice is enough.
  */
 .mx-auto.max-w-6xl:has(
@@ -102,7 +103,7 @@
     [data-composer-frame-slot="right"]
   )
   [data-managed-task-notice="true"] {
-  margin-inline: 4.5rem;
+  margin-inline: 3.875rem;
 }
 
 /*

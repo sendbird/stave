@@ -25,9 +25,10 @@ import { cx } from "../ads/utils/stylex";
  *   ends flush with the shelf edge tucked above it
  * - every bar overlaps the card by 0.75rem, so the seam hides behind it
  *
- * A resting wing is one 3.5rem icon column plus that tuck, and the frame
- * reserves only that: the card gives up 4.25rem per side rather than the 9rem
- * a revealed wing needs. The reveal overhangs the frame instead, capped to the
+ * Every bar shows the same 38px band beyond the card (see
+ * `composer-frame.styles.ts`). A resting wing is that band plus the tuck, and
+ * the frame reserves only its 3.125rem track: the card gives up 3.875rem per
+ * side rather than the 9rem a revealed wing needs. The reveal overhangs the frame instead, capped to the
  * room beside it by `useComposerWingReveal`.
  */
 /**

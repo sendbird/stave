@@ -449,9 +449,9 @@ export function ComposerFramePreviewApp() {
                     framed ? (
                       <ComposerWorkspaceBarView
                         repositoryLabel="stave"
-                        workspaceLabel="fix-benchmark"
-                        folderLabel="fix__benchmark-new-ade--12tr7n2"
-                        branchLabel="fix/benchmark-new-ade"
+                        workspaceLabel="Agentic Workflow"
+                        folderLabel="feat__agent-manager--1dlzwt1"
+                        branchLabel="feat/agent-manager"
                       />
                     ) : undefined
                   }

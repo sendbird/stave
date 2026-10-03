@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * spend space that lives *outside* the frame, in whatever margin the chat
  * column has left over.
  */
-export const COMPOSER_WING_COLLAPSED_WIDTH_PX = 60;
+export const COMPOSER_WING_COLLAPSED_WIDTH_PX = 50;
 /** Widest a revealed wing ever gets: icon column, gap, and a short label. */
 export const COMPOSER_WING_REVEALED_WIDTH_PX = 144;
 /**
