@@ -122,7 +122,7 @@ export const promptInputStyles = stylex.create({
 
   // ---- Common icon sizes ----
   // `flexShrink: 0` is not optional on any of these: every composer control is
-  // a flex row whose label is `flex: 1`, and in a 3.75rem wing the row is
+  // a flex row whose label is `flex: 1`, and in a 3.125rem wing the row is
   // narrower than icon + gap + label. Without it the glyph — not the label —
   // gave up the width and the wing rendered squashed icons.
   icon4: { width: vars["--ads-control-icon-size-md"], height: vars["--ads-control-icon-size-md"], flexShrink: 0 },

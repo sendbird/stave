@@ -97,7 +97,7 @@ describe("ManagedTaskTakeoverNotice", () => {
     );
 
     expect(css).toContain('[data-managed-task-notice="true"]');
-    expect(css).toContain("margin-inline: 4.5rem");
+    expect(css).toContain("margin-inline: 3.875rem");
     expect(css).toContain('[data-composer-frame-slot="left"]');
   });
 });

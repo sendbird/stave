@@ -1,20 +1,37 @@
-import { GitBranch } from "lucide-react";
+import { FolderGit2, GitBranch } from "lucide-react";
 import { sessionCoreStyles } from "./session-core.styles";
 import { sx } from "../ads/utils/stylex";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { useAppStore } from "@/store/app.store";
 
+/** Letters and digits only, so `fix-benchmark`, `fix/benchmark` and `fix__benchmark` compare equal. */
+function slug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /**
- * Where the next turn runs, in two facts: the repository and the branch.
+ * The workspace name, when it says something the repository and branch do
+ * not. A name Stave derived from the branch (`fix-benchmark` for
+ * `fix/benchmark-new-ade`) or that repeats the repository is dropped; a name
+ * the user gave (`Agentic Workflow` on `feat/agent-manager`) is what they see
+ * in the sidebar, so it is the one that orients them.
+ */
+export function distinctWorkspaceLabel(args: { workspaceLabel: string; repositoryLabel: string; branchLabel: string }) {
+  const name = slug(args.workspaceLabel);
+  if (!name) return "";
+  const branch = slug(args.branchLabel);
+  if (name === slug(args.repositoryLabel) || (branch && branch.includes(name))) return "";
+  return args.workspaceLabel;
+}
+
+/**
+ * Where the next turn runs: repository › workspace, then the branch.
  *
- * A worktree workspace can answer "where am I?" four times over — repository,
- * workspace name, checkout directory, branch — and three of those are usually
- * the same string wearing different punctuation. What survives is the pair that
- * cannot be derived from each other: the repository says which codebase, the
- * branch says which line of work. With both wings collapsed this line is the
- * only orientation on screen, which is why the repository earns its place here.
- *
- * The workspace name and folder stay in the tooltip.
+ * The repository leads, brighter and with its own mark, because it says which
+ * codebase. The workspace name follows only when it is not just the branch
+ * again (`distinctWorkspaceLabel`). The branch is last and gives way first
+ * when the row is tight. The folder, and every part in full, are in the
+ * tooltip.
  */
 export function ComposerWorkspaceBarView(props: {
   repositoryLabel: string;
@@ -23,16 +40,24 @@ export function ComposerWorkspaceBarView(props: {
   branchLabel: string;
 }) {
   // No branch (a plain directory, or git not resolved yet): the workspace name
-  // is the only thing left worth saying, so it stands in.
-  const label = props.branchLabel || props.workspaceLabel;
+  // stands in for it.
+  const branch = props.branchLabel;
+  const workspace = branch
+    ? distinctWorkspaceLabel(props)
+    : "";
+  const fallback = branch ? "" : props.workspaceLabel;
+  const label = branch || fallback;
   // A repository named after its branch would just be the same word twice.
-  const repository = props.repositoryLabel === label ? "" : props.repositoryLabel;
+  const repository = slug(props.repositoryLabel) === slug(label) ? "" : props.repositoryLabel;
   if (!label && !repository) {
     return null;
   }
-  const detail = [props.workspaceLabel, props.folderLabel]
-    .filter((part) => part.length > 0 && part !== label)
-    .join(" · ");
+  const details = [
+    repository ? `Repository: ${repository}` : "",
+    props.workspaceLabel ? `Workspace: ${props.workspaceLabel}` : "",
+    props.branchLabel ? `Branch: ${props.branchLabel}` : "",
+    props.folderLabel ? `Folder: ${props.folderLabel}` : "",
+  ].filter(Boolean);
 
   return (
     // Content only: the bottom shelf's surface, radius, and tuck belong to
@@ -40,25 +65,28 @@ export function ComposerWorkspaceBarView(props: {
     <div
       data-testid="composer-workspace-bar"
       className={sx(sessionCoreStyles.workspaceBar)}
+      title={details.join("\n")}
     >
       {repository ? (
-        // Kept whole while the branch truncates: repository names are short, and
+        // Kept whole while the rest truncates: repository names are short, and
         // this is the half that says which codebase you are looking at.
-        <span
-          data-testid="composer-workspace-project"
-          className={sx(sessionCoreStyles.repository)}
-          title={repository}
-        >
-          {repository}
+        <span data-testid="composer-workspace-project" className={sx(sessionCoreStyles.repository)}>
+          <FolderGit2 className={sx(sessionCoreStyles.branchIcon)} aria-hidden="true" />
+          <span className={sx(sessionCoreStyles.truncate)}>{repository}</span>
         </span>
       ) : null}
-      {label ? (
-        <span
-          className={sx(sessionCoreStyles.branchGroup)}
-          title={detail ? `${label} · ${detail}` : label}
-        >
+      {repository && (workspace || fallback) ? (
+        <span aria-hidden="true" className={sx(sessionCoreStyles.workspaceSeparator)}>/</span>
+      ) : null}
+      {workspace || fallback ? (
+        <span data-testid="composer-workspace-name" className={sx(sessionCoreStyles.workspaceName)}>
+          {workspace || fallback}
+        </span>
+      ) : null}
+      {branch ? (
+        <span data-testid="composer-workspace-branch" className={sx(sessionCoreStyles.branchGroup)}>
           <GitBranch className={sx(sessionCoreStyles.branchIcon)} aria-hidden="true" />
-          <span className={sx(sessionCoreStyles.monoTruncate)}>{label}</span>
+          <span className={sx(sessionCoreStyles.monoTruncate)}>{branch}</span>
         </span>
       ) : null}
     </div>

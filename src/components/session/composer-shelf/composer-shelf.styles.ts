@@ -5,9 +5,12 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  * One surface over the prompt input, rows divided by hairlines.
  *
  * The tuck (`0.75rem` hidden behind the raised card) is the frame's measured
- * overlap, kept literal like the frame's own. A row is 2rem — the shelf's one
- * height step — and starts its text in the same column on every row: 12px
- * inset, a 20px mark, an 8px gap.
+ * overlap, kept literal like the frame's own. Above it the shelf keeps 4px
+ * clear of the card's 3px focus ring, so the last row is never drawn under
+ * it: one bar band is 2px + 2rem rows + 4px, the same 38px every composer bar
+ * shows (`composer-frame.styles.ts`). A row is 2rem — the shelf's one height
+ * step — and starts its text in the same column on every row: 12px inset, a
+ * 20px mark, an 8px gap.
  *
  * Width is read with container queries on each row, not the viewport: the
  * sidebar and the panels squeeze the composer long before the window shrinks.
@@ -15,6 +18,8 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  * 560px measure step is a 536px row.
  */
 const TUCK = "0.75rem";
+/** The card's 3px focus ring plus 1px of air. */
+const RING_CLEARANCE = "4px";
 const ROW = "2rem";
 const NARROW = "@container (max-width: 535px)";
 const HOVER_ACTIONS = "--composer-shelf-item-hover";
@@ -46,7 +51,7 @@ export const shelfStyles = stylex.create({
     borderEndStartRadius: 0,
     borderEndEndRadius: 0,
     paddingTop: vars["--ads-space-2"],
-    paddingBottom: TUCK,
+    paddingBottom: `calc(${TUCK} + ${RING_CLEARANCE})`,
   },
   /** The classic composer: the shelf takes the frame's inset and tuck itself. */
   standalone: {
