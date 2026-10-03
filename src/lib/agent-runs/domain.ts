@@ -626,7 +626,7 @@ export type AgentRun = z.infer<typeof AgentRunSchema>;
 /* -------------------------------------------------------------------------- */
 
 export const AGENT_RUN_EVENT_KINDS = [
-  "mission-started",
+  "agent-run-started",
   "turn-started",
   /** The turn a `turn-started` event led to, written once it exists. */
   "turn-linked",
@@ -650,7 +650,7 @@ export const AGENT_RUN_EVENT_KINDS = [
   "paused",
   "resumed",
   "runtime-accepted",
-  "mission-ended",
+  "agent-run-ended",
   /** The user shared the ended agent run's report to a Slack thread. */
   "report-shared",
 ] as const;
@@ -914,7 +914,7 @@ export function createAgentRun(args: {
     upserts: [...skipped, firstStage],
     events: [
       {
-        kind: "mission-started",
+        kind: "agent-run-started",
         idempotencyKey: null,
         detail: {
           workflowId: agentRun.workflow.id,

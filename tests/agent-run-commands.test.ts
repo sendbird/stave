@@ -163,7 +163,7 @@ describe("stage controls", () => {
     };
     const done = skipStage({ aggregate: last, expected: identity(last), now: AGENT_RUN_NOW });
     expect(done.agentRun.state).toBe("completed");
-    expect(done.events.map((event) => event.kind)).toEqual(["stage-skipped", "mission-ended"]);
+    expect(done.events.map((event) => event.kind)).toEqual(["stage-skipped", "agent-run-ended"]);
   });
 
   test("a running stage can be skipped only while no turn runs", () => {

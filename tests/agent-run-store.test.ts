@@ -54,7 +54,7 @@ describe("run store", () => {
     expect(aggregate?.agentRun).toEqual(change.agentRun);
     expect(aggregate?.stages).toEqual(change.upserts);
     expect(store.listEvents("agent-run-1").map((event) => [event.sequence, event.kind])).toEqual([
-      [1, "mission-started"],
+      [1, "agent-run-started"],
     ]);
     expect(store.getActiveAgentRunForTask("task-1")?.id).toBe("agent-run-1");
     expect(store.listActiveAgentRuns().map((agentRun) => agentRun.id)).toEqual(["agent-run-1"]);
@@ -118,13 +118,13 @@ describe("run store", () => {
     const events = store.listEvents("agent-run-1", { limit: AGENT_RUN_LIMITS.maxRetainedEvents });
     expect(events).toHaveLength(AGENT_RUN_LIMITS.maxRetainedEvents);
     expect(store.hasEvent("agent-run-1:open-draft-pr:1:action")).toBe(true);
-    expect(events.some((event) => event.kind === "mission-started")).toBe(false);
+    expect(events.some((event) => event.kind === "agent-run-started")).toBe(false);
   });
 
   test("an unreadable run row is skipped in listings instead of hiding the rest", () => {
     store.create(startChange("agent-run-1"), AGENT_RUN_NOW);
     store.create(startChange("agent-run-2", "task-2"), AGENT_RUN_NOW);
-    database.exec("UPDATE missions SET consent_json = '{}' WHERE id = 'agent-run-1'");
+    database.exec("UPDATE agent_runs SET consent_json = '{}' WHERE id = 'agent-run-1'");
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     expect(store.listActiveAgentRuns().map((agentRun) => agentRun.id)).toEqual(["agent-run-2"]);
     expect(warn).toHaveBeenCalled();
@@ -133,9 +133,9 @@ describe("run store", () => {
 
   test("an agent run keeps its origin, and a database from before agent runs gains the column", () => {
     const legacy = new Database(":memory:");
-    legacy.exec(`CREATE TABLE missions (
+    legacy.exec(`CREATE TABLE agent_runs (
       id TEXT PRIMARY KEY, repository_path TEXT NOT NULL, workspace_id TEXT NOT NULL, lead_task_id TEXT NOT NULL,
-      project_id TEXT, playbook_json TEXT NOT NULL, assignment TEXT NOT NULL, consent_json TEXT NOT NULL,
+      project_id TEXT, workflow_json TEXT NOT NULL, assignment TEXT NOT NULL, consent_json TEXT NOT NULL,
       fingerprint_json TEXT NOT NULL, state TEXT NOT NULL, pause_reason TEXT, stop_reason TEXT, reason_detail TEXT,
       current_stage_index INTEGER NOT NULL, turn_count INTEGER NOT NULL DEFAULT 0, max_turns INTEGER NOT NULL DEFAULT 30,
       expires_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);

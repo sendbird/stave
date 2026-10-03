@@ -44,6 +44,9 @@ import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { restoreCustomAgents } from "@/lib/agents/library";
+// temporary-migration: agent-run-settings-keys
+import { migrateLegacyRunSignOffReminder } from "@/lib/agent-runs/legacy-settings";
+// end temporary-migration: agent-run-settings-keys
 // temporary-migration: playbook-agents-auto-route
 import { migratePlaybookAgentsToAutoRoute } from "@/lib/agents/playbook-agents-auto-route-migration";
 import { normalizeAgentRevisions } from "@/lib/agents/revisions";
@@ -185,6 +188,9 @@ export function createAppStorePersistenceOptions() {
       // Merge with defaultSettings so newly added fields are never undefined
       // for users whose persisted state pre-dates those fields.
       state.settings = { ...defaultSettings, ...persistedSettings };
+      // temporary-migration: agent-run-settings-keys
+      migrateLegacyRunSignOffReminder(state.settings, persistedSettings);
+      // end temporary-migration: agent-run-settings-keys
       delete (
         state.settings as AppSettings & {
           appShellMode?: unknown;

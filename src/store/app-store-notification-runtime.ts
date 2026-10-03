@@ -61,7 +61,7 @@ export function createAppStoreNotificationRuntime(args: {
       }));
       // An agent run notification is raised again whenever the watcher looks;
       // only its first store is announced.
-      if (!result.inserted && result.notification.kind.startsWith("mission.")) {
+      if (!result.inserted && result.notification.kind.startsWith("agent_run.")) {
         return result.notification;
       }
       const unreadCount = get().notifications.filter(
@@ -87,7 +87,7 @@ export function createAppStoreNotificationRuntime(args: {
       const isCompletionKind =
         result.notification.kind === "task.turn_completed" ||
         result.notification.kind === "task.turn_failed" ||
-        result.notification.kind === "mission.completed";
+        result.notification.kind === "agent_run.completed";
       if (isAttentionKind && attentionNotificationSoundEnabled) {
         // "AI needs you" cue: question (user_input) or approval request. Uses a
         // dedicated player instance so its cooldown is independent from the

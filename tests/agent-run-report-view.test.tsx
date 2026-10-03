@@ -104,7 +104,7 @@ test("the report footer says how much the run needed you", async () => {
   const metrics = computeAgentRunMetrics({
     providerId: "codex",
     events: [
-      event("mission-started", 0),
+      event("agent-run-started", 0),
       event("stage-completed", 3),
       event("sign-off", 15),
       event("user-turn", 16),

@@ -80,7 +80,7 @@ export interface AgentRunReport {
   usage?: AgentRunUsage;
 }
 
-const WAIT_START_KINDS = new Set(["stage-completed", "stage-skipped", "resumed", "mission-started"]);
+const WAIT_START_KINDS = new Set(["stage-completed", "stage-skipped", "resumed", "agent-run-started"]);
 
 export function computeAgentRunMetrics(args: {
   providerId: string;

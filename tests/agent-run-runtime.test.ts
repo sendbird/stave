@@ -1141,7 +1141,7 @@ describe("run runtime: agent runs", () => {
     expect(harness.runCalls).toHaveLength(1);
     expect(harness.aggregate(agentRunId).agentRun.state).toBe("cancelled");
     expect(harness.current(agentRunId)).toMatchObject({ status: "cancelled", detail: "You stopped the run." });
-    expect(harness.store.listEventsByKind(agentRunId, ["mission-ended"])[0]?.detail).toMatchObject({ endedBy: "stopped" });
+    expect(harness.store.listEventsByKind(agentRunId, ["agent-run-ended"])[0]?.detail).toMatchObject({ endedBy: "stopped" });
   });
 
   test("moving the task to a model (Chat) cancels the run", async () => {

@@ -16,7 +16,7 @@ describe("run notifications", () => {
   test("a sign-off, a blocker, a stuck stage and the end each notify once per state", () => {
     const signOff = describeAgentRunNotification(detailWith("awaiting-sign-off"), CONTEXT)!;
     expect(signOff).toMatchObject({
-      kind: "mission.sign_off_requested",
+      kind: "agent_run.sign_off_requested",
       title: "Understand waits for your sign-off",
       body: "Request → PR · Add CSV export to the billing page.",
       workspaceId: "ws-1",
@@ -25,13 +25,13 @@ describe("run notifications", () => {
       dedupeKey: "agent-run:agent-run-1:sign-off:understand:1",
     });
     expect(describeAgentRunNotification(detailWith("blocked"), CONTEXT)).toMatchObject({
-      kind: "mission.blocked",
+      kind: "agent_run.blocked",
       title: "Understand is blocked",
       payload: { detail: "Which plan?" },
     });
-    expect(describeAgentRunNotification(detailWith("stuck"), CONTEXT)?.kind).toBe("mission.stuck");
+    expect(describeAgentRunNotification(detailWith("stuck"), CONTEXT)?.kind).toBe("agent_run.stuck");
     expect(describeAgentRunNotification(detailWith("running", { state: "completed" }), CONTEXT)).toMatchObject({
-      kind: "mission.completed",
+      kind: "agent_run.completed",
       dedupeKey: "agent-run:agent-run-1:completed",
     });
   });
@@ -47,7 +47,7 @@ describe("run notifications", () => {
         detailWith("running", { state: "paused", pauseReason: "runtime-changed", reasonDetail: "The model changed." }),
         CONTEXT,
       )?.kind,
-    ).toBe("mission.blocked");
+    ).toBe("agent_run.blocked");
   });
 
   test("overdue sign-offs are batched into one reminder per interval", () => {
@@ -102,11 +102,11 @@ describe("run notifications", () => {
   });
 
   test("run kinds are part of the one notification kind list and read as toasts", () => {
-    expect(APP_NOTIFICATION_KINDS).toContain("mission.sign_off_requested");
-    expect(isAgentRunAttentionNotificationKind("mission.stuck")).toBe(true);
-    expect(isAgentRunAttentionNotificationKind("mission.completed")).toBe(false);
+    expect(APP_NOTIFICATION_KINDS).toContain("agent_run.sign_off_requested");
+    expect(isAgentRunAttentionNotificationKind("agent_run.stuck")).toBe(true);
+    expect(isAgentRunAttentionNotificationKind("agent_run.completed")).toBe(false);
     const toast = buildNotificationToastOptions({
-      kind: "mission.blocked",
+      kind: "agent_run.blocked",
       title: "Build is blocked",
       payload: { detail: "Which plan?" },
       taskTitle: "Billing export",

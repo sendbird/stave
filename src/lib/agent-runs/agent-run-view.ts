@@ -433,7 +433,7 @@ function describeTurnStart(args: {
         return `${name} — started automatically after ${previous.stage.title} ${verb}`;
       }
     }
-    if (event.kind === "mission-started") return `${name} — run started`;
+    if (event.kind === "agent-run-started") return `${name} — run started`;
   }
   return name;
 }

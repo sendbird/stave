@@ -12,7 +12,7 @@ const AGENT_RUN_REMINDER_OPTIONS = [
 /** OS notifications, and how often a waiting agent run sign-off reminds you. */
 export function DesktopNotificationsCard() {
   const nativeNotificationsEnabled = useAppStore((state) => state.settings.nativeNotificationsEnabled);
-  const missionSignOffReminderMinutes = useAppStore((state) => state.settings.missionSignOffReminderMinutes);
+  const runSignOffReminderMinutes = useAppStore((state) => state.settings.runSignOffReminderMinutes);
   const updateSettings = useAppStore((state) => state.updateSettings);
   return (
     <SettingsCard
@@ -28,9 +28,9 @@ export function DesktopNotificationsCard() {
       <SelectField
         title="Run Sign-off Reminders"
         description="A run waiting for your sign-off notifies once. Remind again, in one batched notification, after it has waited this long."
-        value={String(missionSignOffReminderMinutes)}
+        value={String(runSignOffReminderMinutes)}
         options={AGENT_RUN_REMINDER_OPTIONS}
-        onChange={(value) => updateSettings({ patch: { missionSignOffReminderMinutes: Number(value) } })}
+        onChange={(value) => updateSettings({ patch: { runSignOffReminderMinutes: Number(value) } })}
       />
     </SettingsCard>
   );

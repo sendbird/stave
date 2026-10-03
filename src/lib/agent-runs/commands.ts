@@ -340,7 +340,7 @@ export function cancelAgentRun(args: {
     upserts,
     events: [
       {
-        kind: "mission-ended",
+        kind: "agent-run-ended",
         idempotencyKey: null,
         detail: { outcome: "cancelled", ...(args.endedBy ? { endedBy: args.endedBy } : {}) },
       },

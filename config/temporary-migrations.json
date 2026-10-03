@@ -54,6 +54,45 @@
       "tests": [
         "tests/agent-run-prompt-provenance-migration.test.ts"
       ]
+    },
+    {
+      "id": "agent-run-tables",
+      "description": "Missions were renamed agent runs after 0.24.1. Before the first read, the agent run store renames the SQLite tables missions, mission_stages and mission_events to agent_runs, agent_run_stages and agent_run_events, their mission_id columns to agent_run_id and missions.playbook_json to workflow_json, drops the old-named indexes (the bootstrap recreates them as idx_agent_runs_*) and rewrites the event kinds mission-started and mission-ended to agent-run-started and agent-run-ended, in one savepoint. Tables that already carry the new name are left alone. The retired mission_proposals and mission_trigger_seen tables are no longer created and are never dropped.",
+      "introducedAfter": "0.24.1",
+      "removeInVersion": "0.27.0",
+      "files": [
+        "electron/persistence/agent-run-legacy-names.ts",
+        "electron/persistence/agent-run-store.ts"
+      ],
+      "tests": [
+        "tests/agent-run-legacy-names-migration.test.ts"
+      ]
+    },
+    {
+      "id": "agent-run-notification-kinds",
+      "description": "Missions were renamed agent runs after 0.24.1. On every start the agent run store moves stored notifications of the kinds mission.sign_off_requested, mission.blocked, mission.stuck and mission.completed to agent_run.*, rewrites their dedupe keys (mission: and mission-reminder: become agent-run: and agent-run-reminder:) and their payload (source, missionId, missionIds), so an existing notification is still read and never raised twice. It matches nothing once converted.",
+      "introducedAfter": "0.24.1",
+      "removeInVersion": "0.27.0",
+      "files": [
+        "electron/persistence/agent-run-legacy-names.ts",
+        "electron/persistence/agent-run-store.ts"
+      ],
+      "tests": [
+        "tests/agent-run-legacy-names-migration.test.ts"
+      ]
+    },
+    {
+      "id": "agent-run-settings-keys",
+      "description": "Missions were renamed agent runs after 0.24.1. Settings rehydration reads the sign-off reminder interval saved as missionSignOffReminderMinutes into runSignOffReminderMinutes when the new key is absent, and drops the old key.",
+      "introducedAfter": "0.24.1",
+      "removeInVersion": "0.27.0",
+      "files": [
+        "src/lib/agent-runs/legacy-settings.ts",
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/agent-run-settings-keys-migration.test.ts"
+      ]
     }
   ]
 }

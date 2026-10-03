@@ -566,7 +566,7 @@ export function collectFleetAgentRunAttentionItems(
     const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;
     return [
       {
-        id: ["agentRun", kind, agentRun.id, record.stageId, record.attempt].join(":"),
+        id: ["agent-run", kind, agentRun.id, record.stageId, record.attempt].join(":"),
         kind,
         priority: FLEET_ATTENTION_PRIORITY[kind],
         source: "agentRun",

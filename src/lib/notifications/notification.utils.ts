@@ -104,7 +104,7 @@ export function buildNotificationDetail(
   if (notification.kind === "task.user_input_requested") {
     return formatUserInputNotificationDetail(notification.payload);
   }
-  if (notification.kind.startsWith("mission.")) {
+  if (notification.kind.startsWith("agent_run.")) {
     const detail = notification.payload.detail;
     return typeof detail === "string" && detail.trim() ? detail.trim() : null;
   }
@@ -158,7 +158,7 @@ export function buildNotificationToastOptions(
     };
   }
 
-  if (notification.kind === "mission.completed") {
+  if (notification.kind === "agent_run.completed") {
     return {
       tone: "success",
       title: notification.title ?? label,
@@ -170,12 +170,12 @@ export function buildNotificationToastOptions(
   }
 
   if (
-    notification.kind === "mission.sign_off_requested" ||
-    notification.kind === "mission.blocked" ||
-    notification.kind === "mission.stuck"
+    notification.kind === "agent_run.sign_off_requested" ||
+    notification.kind === "agent_run.blocked" ||
+    notification.kind === "agent_run.stuck"
   ) {
     return {
-      tone: notification.kind === "mission.sign_off_requested" ? "warning" : "error",
+      tone: notification.kind === "agent_run.sign_off_requested" ? "warning" : "error",
       title: notification.title ?? label,
       description,
       duration: NOTIFICATION_TOAST_DURATIONS_MS.agentRunAttention,

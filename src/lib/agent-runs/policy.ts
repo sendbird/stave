@@ -492,7 +492,7 @@ export function advanceAgentRun(args: {
         now,
       ),
       upserts: [completed],
-      events: [{ kind: "mission-ended", idempotencyKey: null, detail: { outcome: "completed" } }],
+      events: [{ kind: "agent-run-ended", idempotencyKey: null, detail: { outcome: "completed" } }],
     };
   }
   const advanced = withAgentRun(agentRun, { currentStageIndex: nextIndex }, now);
@@ -533,7 +533,7 @@ export function applyAgentRunDecision(args: {
         upserts: [],
         events: [
           {
-            kind: "mission-ended",
+            kind: "agent-run-ended",
             idempotencyKey: null,
             detail: { outcome: "stopped", reason: decision.reason },
           },

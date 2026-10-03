@@ -66,7 +66,7 @@ function NotificationKindIcon({ kind }: { kind: AppNotification["kind"] }) {
       />
     );
   }
-  if (kind === "mission.sign_off_requested") {
+  if (kind === "agent_run.sign_off_requested") {
     return (
       <Target
         className={sx(
@@ -76,7 +76,7 @@ function NotificationKindIcon({ kind }: { kind: AppNotification["kind"] }) {
       />
     );
   }
-  if (kind === "mission.blocked" || kind === "mission.stuck") {
+  if (kind === "agent_run.blocked" || kind === "agent_run.stuck") {
     return (
       <Target
         className={sx(

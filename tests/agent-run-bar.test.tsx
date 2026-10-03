@@ -231,7 +231,7 @@ describe("run view", () => {
   test("transcript dividers come from events: why each stage turn started", () => {
     const at = (minutes: number) => new Date(AGENT_RUN_NOW.getTime() + minutes * 60_000).toISOString();
     const detail = agentRunDetail(agentRunFixture(), [
-      agentRunEvent("mission-started", {}, { createdAt: at(0) }),
+      agentRunEvent("agent-run-started", {}, { createdAt: at(0) }),
       agentRunEvent("turn-started", { stageId: "understand", attempt: 1, reason: "stage-start" }, { idempotencyKey: "m:understand:1:turn:1", createdAt: at(0) }),
       agentRunEvent("turn-linked", { stageId: "understand", attempt: 1, turnId: "turn-1" }, { idempotencyKey: "m:understand:1:turn:1:linked", createdAt: at(0) }),
       agentRunEvent("stage-completed", { stageId: "understand", attempt: 1 }, { createdAt: at(3) }),

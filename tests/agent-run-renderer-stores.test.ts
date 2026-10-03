@@ -66,7 +66,7 @@ afterEach(() => {
 
 describe("run details in the renderer", () => {
   test("an older read of a run is recognized, with equal times settled by the last event", () => {
-    const newer = readAt(5, [agentRunEvent("mission-started", {}), agentRunEvent("stage-completed", {})]);
+    const newer = readAt(5, [agentRunEvent("agent-run-started", {}), agentRunEvent("stage-completed", {})]);
     const older = readAt(3, newer.events.slice(0, 1));
     expect(isOlderAgentRunDetail(older, newer)).toBe(true);
     expect(isOlderAgentRunDetail(newer, older)).toBe(false);
@@ -119,7 +119,7 @@ describe("run details in the renderer", () => {
     const first = readAt(
       10,
       [
-        agentRunEvent("mission-started", {}),
+        agentRunEvent("agent-run-started", {}),
         agentRunEvent("turn-started", { stageId: "understand", attempt: 1, reason: "stage-start" }, { idempotencyKey: "m:understand:1:turn:1" }),
         agentRunEvent("turn-linked", { stageId: "understand", attempt: 1, turnId: "turn-1" }, { idempotencyKey: "m:understand:1:turn:1:linked" }),
       ],
@@ -128,7 +128,7 @@ describe("run details in the renderer", () => {
     const second = readAt(
       20,
       [
-        agentRunEvent("mission-started", {}),
+        agentRunEvent("agent-run-started", {}),
         agentRunEvent("turn-started", { stageId: "understand", attempt: 1, reason: "stage-start" }, { idempotencyKey: "n:understand:1:turn:1" }),
         agentRunEvent("turn-linked", { stageId: "understand", attempt: 1, turnId: "turn-9" }, { idempotencyKey: "n:understand:1:turn:1:linked" }),
       ],

@@ -165,7 +165,7 @@ export function useFleetAgentRunSync() {
     const timer = window.setInterval(() => {
       const now = new Date();
       useFleetAgentRunsStore.getState().pruneEnded(now.getTime());
-      const minutes = Math.max(0, Math.min(1_440, useAppStore.getState().settings.missionSignOffReminderMinutes || 0));
+      const minutes = Math.max(0, Math.min(1_440, useAppStore.getState().settings.runSignOffReminderMinutes || 0));
       const waiting = listWaitingSignOffs(useFleetAgentRunsStore.getState().details).map((entry) => ({
         ...entry,
         taskTitle: notificationContext(entry.detail).taskTitle,

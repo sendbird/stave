@@ -69,13 +69,13 @@ function describeAgentOriginNotification(
   const attemptKey = `${record.stageId}:${record.attempt}`;
   switch (agentRun.state) {
     case "completed":
-      return draft(detail, context, { kind: "mission.completed", title: `Ready — ${agent}`, detail: null, key: "completed" });
+      return draft(detail, context, { kind: "agent_run.completed", title: `Ready — ${agent}`, detail: null, key: "completed" });
     case "stopped":
-      return draft(detail, context, { kind: "mission.blocked", title: `Failed — ${agent}`, detail: agentRun.reasonDetail, key: "stopped" });
+      return draft(detail, context, { kind: "agent_run.blocked", title: `Failed — ${agent}`, detail: agentRun.reasonDetail, key: "stopped" });
     case "paused":
       if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over") return null;
       return draft(detail, context, {
-        kind: "mission.blocked",
+        kind: "agent_run.blocked",
         title: `Needs you — ${agent}`,
         detail: agentRun.reasonDetail,
         key: `paused:${agentRun.pauseReason}:${attemptKey}`,
@@ -87,7 +87,7 @@ function describeAgentOriginNotification(
   }
   if (record.status === "blocked" || record.status === "stuck") {
     return draft(detail, context, {
-      kind: record.status === "stuck" ? "mission.stuck" : "mission.blocked",
+      kind: record.status === "stuck" ? "agent_run.stuck" : "agent_run.blocked",
       title: `Needs you — ${agent}`,
       detail: record.detail,
       key: `${record.status}:${attemptKey}`,
@@ -109,14 +109,14 @@ export function describeAgentRunNotification(
   switch (agentRun.state) {
     case "completed":
       return draft(detail, context, {
-        kind: "mission.completed",
+        kind: "agent_run.completed",
         title: `Run complete — ${agentRun.workflow.name}`,
         detail: null,
         key: "completed",
       });
     case "stopped":
       return draft(detail, context, {
-        kind: "mission.blocked",
+        kind: "agent_run.blocked",
         title: "Run stopped",
         detail: agentRun.reasonDetail,
         key: "stopped",
@@ -125,7 +125,7 @@ export function describeAgentRunNotification(
       // A pause the user chose needs no notification; one Stave chose does.
       if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over") return null;
       return draft(detail, context, {
-        kind: "mission.blocked",
+        kind: "agent_run.blocked",
         title: `Run paused before ${stage.title}`,
         detail: agentRun.reasonDetail,
         key: `paused:${agentRun.pauseReason}:${attemptKey}`,
@@ -138,14 +138,14 @@ export function describeAgentRunNotification(
   switch (record.status) {
     case "awaiting-sign-off":
       return draft(detail, context, {
-        kind: "mission.sign_off_requested",
+        kind: "agent_run.sign_off_requested",
         title: `${stage.title} waits for your sign-off`,
         detail: null,
         key: `sign-off:${attemptKey}`,
       });
     case "blocked":
       return draft(detail, context, {
-        kind: "mission.blocked",
+        kind: "agent_run.blocked",
         title:
           record.blockReason === "reporting-unavailable"
             ? `${stage.title} cannot report its stage`
@@ -155,7 +155,7 @@ export function describeAgentRunNotification(
       });
     case "stuck":
       return draft(detail, context, {
-        kind: "mission.stuck",
+        kind: "agent_run.stuck",
         title: `${stage.title} is stuck`,
         detail: record.detail,
         key: `stuck:${attemptKey}`,
@@ -207,7 +207,7 @@ export function describeSignOffReminder(args: {
   const names = overdue.map((entry) => entry.taskTitle ?? entry.detail.agentRun.workflow.name);
   return {
     id: `agent-run-reminder-${key}`.slice(0, 190),
-    kind: "mission.sign_off_requested",
+    kind: "agent_run.sign_off_requested",
     title:
       overdue.length === 1
         ? `Still waiting for your sign-off — ${names[0]}`

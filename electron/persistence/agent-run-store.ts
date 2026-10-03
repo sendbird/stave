@@ -25,6 +25,12 @@ import {
   type AgentRunEventKind,
   type AgentRunStageRecord,
 } from "../../src/lib/agent-runs/domain";
+// temporary-migration: agent-run-tables
+import { migrateLegacyAgentRunTables } from "./agent-run-legacy-names";
+// end temporary-migration: agent-run-tables
+// temporary-migration: agent-run-notification-kinds
+import { migrateLegacyAgentRunNotifications } from "./agent-run-legacy-names";
+// end temporary-migration: agent-run-notification-kinds
 import { SECOND_AGENT_RUN_REFUSAL } from "../../src/lib/supervision/automatic-turn-owner";
 
 interface AgentRunStatement {
@@ -44,7 +50,7 @@ interface AgentRunRow {
   workspace_id: string;
   lead_task_id: string;
   project_id: string | null;
-  playbook_json: string;
+  workflow_json: string;
   assignment: string;
   consent_json: string;
   fingerprint_json: string;
@@ -62,7 +68,7 @@ interface AgentRunRow {
 }
 
 interface AgentRunStageRow {
-  mission_id: string;
+  agent_run_id: string;
   stage_id: string;
   attempt: number;
   status: string;
@@ -80,7 +86,7 @@ interface AgentRunStageRow {
 
 interface AgentRunEventRow {
   id: string;
-  mission_id: string;
+  agent_run_id: string;
   sequence: number;
   kind: string;
   idempotency_key: string | null;
@@ -105,7 +111,7 @@ function parseAgentRunRow(row: AgentRunRow): AgentRun {
     workspaceId: row.workspace_id,
     leadTaskId: row.lead_task_id,
     projectId: row.project_id,
-    workflow: JSON.parse(row.playbook_json),
+    workflow: JSON.parse(row.workflow_json),
     assignment: row.assignment,
     consent: JSON.parse(row.consent_json),
     fingerprint: JSON.parse(row.fingerprint_json),
@@ -125,7 +131,7 @@ function parseAgentRunRow(row: AgentRunRow): AgentRun {
 
 function parseStageRow(row: AgentRunStageRow): AgentRunStageRecord {
   return AgentRunStageRecordSchema.parse({
-    agentRunId: row.mission_id,
+    agentRunId: row.agent_run_id,
     stageId: row.stage_id,
     attempt: row.attempt,
     status: row.status,
@@ -145,7 +151,7 @@ function parseStageRow(row: AgentRunStageRow): AgentRunStageRecord {
 function parseEventRow(row: AgentRunEventRow): AgentRunEvent {
   return AgentRunEventSchema.parse({
     id: row.id,
-    agentRunId: row.mission_id,
+    agentRunId: row.agent_run_id,
     sequence: row.sequence,
     kind: row.kind,
     idempotencyKey: row.idempotency_key,
@@ -176,14 +182,22 @@ export class AgentRunStore {
   }
 
   private bootstrap() {
+    // temporary-migration: agent-run-tables
+    migrateLegacyAgentRunTables(this.db);
+    // end temporary-migration: agent-run-tables
+    // temporary-migration: agent-run-notification-kinds
+    migrateLegacyAgentRunNotifications(this.db);
+    // end temporary-migration: agent-run-notification-kinds
+    // The retired mission_proposals and mission_trigger_seen tables are no
+    // longer created; an existing database keeps them, unread and untouched.
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS missions (
+      CREATE TABLE IF NOT EXISTS agent_runs (
         id TEXT PRIMARY KEY,
         repository_path TEXT NOT NULL,
         workspace_id TEXT NOT NULL,
         lead_task_id TEXT NOT NULL,
         project_id TEXT,
-        playbook_json TEXT NOT NULL,
+        workflow_json TEXT NOT NULL,
         assignment TEXT NOT NULL,
         consent_json TEXT NOT NULL,
         fingerprint_json TEXT NOT NULL,
@@ -199,12 +213,12 @@ export class AgentRunStore {
         updated_at TEXT NOT NULL,
         origin TEXT
       );
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_missions_active_lead
-        ON missions (lead_task_id) WHERE state IN ${ACTIVE_STATES_SQL};
-      CREATE INDEX IF NOT EXISTS idx_missions_workspace
-        ON missions (workspace_id, created_at DESC);
-      CREATE TABLE IF NOT EXISTS mission_stages (
-        mission_id TEXT NOT NULL,
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_active_lead
+        ON agent_runs (lead_task_id) WHERE state IN ${ACTIVE_STATES_SQL};
+      CREATE INDEX IF NOT EXISTS idx_agent_runs_workspace
+        ON agent_runs (workspace_id, created_at DESC);
+      CREATE TABLE IF NOT EXISTS agent_run_stages (
+        agent_run_id TEXT NOT NULL,
         stage_id TEXT NOT NULL,
         attempt INTEGER NOT NULL,
         status TEXT NOT NULL,
@@ -218,38 +232,23 @@ export class AgentRunStore {
         report_json TEXT,
         report_revision INTEGER NOT NULL DEFAULT 0,
         facts_json TEXT,
-        PRIMARY KEY (mission_id, stage_id, attempt)
+        PRIMARY KEY (agent_run_id, stage_id, attempt)
       );
-      CREATE TABLE IF NOT EXISTS mission_events (
+      CREATE TABLE IF NOT EXISTS agent_run_events (
         id TEXT PRIMARY KEY,
-        mission_id TEXT NOT NULL,
+        agent_run_id TEXT NOT NULL,
         sequence INTEGER NOT NULL,
         kind TEXT NOT NULL,
         idempotency_key TEXT UNIQUE,
         detail_json TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        UNIQUE (mission_id, sequence)
-      );
-      -- Retired with proposals and workflow start conditions. Nothing reads or
-      -- writes these two tables now; they stay so existing rows are untouched.
-      CREATE TABLE IF NOT EXISTS mission_proposals (
-        id TEXT PRIMARY KEY,
-        source_key TEXT NOT NULL UNIQUE,
-        state TEXT NOT NULL,
-        body_json TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_mission_proposals_state
-        ON mission_proposals (state, created_at DESC);
-      CREATE TABLE IF NOT EXISTS mission_trigger_seen (
-        trigger_key TEXT PRIMARY KEY,
-        seen_at TEXT NOT NULL
+        UNIQUE (agent_run_id, sequence)
       );
     `);
     // Additive: databases from before agent runs gain the nullable column.
-    const columns = this.db.prepare("PRAGMA table_info(missions)").all() as { name: string }[];
+    const columns = this.db.prepare("PRAGMA table_info(agent_runs)").all() as { name: string }[];
     if (!columns.some((column) => column.name === "origin")) {
-      this.db.exec("ALTER TABLE missions ADD COLUMN origin TEXT");
+      this.db.exec("ALTER TABLE agent_runs ADD COLUMN origin TEXT");
     }
   }
 
@@ -291,9 +290,9 @@ export class AgentRunStore {
     if (insert) {
       this.db
         .prepare(
-          `INSERT INTO missions (
+          `INSERT INTO agent_runs (
              repository_path, workspace_id, lead_task_id, project_id,
-             playbook_json, assignment, consent_json, fingerprint_json, state,
+             workflow_json, assignment, consent_json, fingerprint_json, state,
              pause_reason, stop_reason, reason_detail, current_stage_index,
              turn_count, max_turns, expires_at, created_at, updated_at, origin, id
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -303,9 +302,9 @@ export class AgentRunStore {
     }
     const result = this.db
       .prepare(
-        `UPDATE missions SET
+        `UPDATE agent_runs SET
            repository_path = ?, workspace_id = ?, lead_task_id = ?,
-           project_id = ?, playbook_json = ?, assignment = ?, consent_json = ?,
+           project_id = ?, workflow_json = ?, assignment = ?, consent_json = ?,
            fingerprint_json = ?, state = ?, pause_reason = ?, stop_reason = ?,
            reason_detail = ?, current_stage_index = ?, turn_count = ?,
            max_turns = ?, expires_at = ?, created_at = ?, updated_at = ?,
@@ -321,12 +320,12 @@ export class AgentRunStore {
   private writeStage(record: AgentRunStageRecord) {
     this.db
       .prepare(
-        `INSERT INTO mission_stages (
-           mission_id, stage_id, attempt, status, nudged, block_reason, detail,
+        `INSERT INTO agent_run_stages (
+           agent_run_id, stage_id, attempt, status, nudged, block_reason, detail,
            feedback, started_at, ended_at, start_head_sha, report_json,
            report_revision, facts_json
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT (mission_id, stage_id, attempt) DO UPDATE SET
+         ON CONFLICT (agent_run_id, stage_id, attempt) DO UPDATE SET
            status = excluded.status,
            nudged = excluded.nudged,
            block_reason = excluded.block_reason,
@@ -370,11 +369,11 @@ export class AgentRunStore {
     });
     const result = this.db
       .prepare(
-        `INSERT OR IGNORE INTO mission_events (
-           id, mission_id, sequence, kind, idempotency_key, detail_json, created_at
+        `INSERT OR IGNORE INTO agent_run_events (
+           id, agent_run_id, sequence, kind, idempotency_key, detail_json, created_at
          ) VALUES (
            ?, ?,
-           (SELECT COALESCE(MAX(sequence), 0) + 1 FROM mission_events WHERE mission_id = ?),
+           (SELECT COALESCE(MAX(sequence), 0) + 1 FROM agent_run_events WHERE agent_run_id = ?),
            ?, ?, ?, ?
          )`,
       )
@@ -396,15 +395,15 @@ export class AgentRunStore {
    */
   private pruneEvents(agentRunId: string) {
     const { count } = this.db
-      .prepare("SELECT COUNT(*) AS count FROM mission_events WHERE mission_id = ?")
+      .prepare("SELECT COUNT(*) AS count FROM agent_run_events WHERE agent_run_id = ?")
       .get(agentRunId) as { count: number };
     const excess = count - AGENT_RUN_LIMITS.maxRetainedEvents;
     if (excess <= 0) return;
     this.db
       .prepare(
-        `DELETE FROM mission_events WHERE id IN (
-           SELECT id FROM mission_events
-           WHERE mission_id = ? AND idempotency_key IS NULL
+        `DELETE FROM agent_run_events WHERE id IN (
+           SELECT id FROM agent_run_events
+           WHERE agent_run_id = ? AND idempotency_key IS NULL
            ORDER BY sequence ASC LIMIT ?
          )`,
       )
@@ -459,13 +458,13 @@ export class AgentRunStore {
   hasEvent(idempotencyKey: string): boolean {
     return Boolean(
       this.db
-        .prepare("SELECT 1 FROM mission_events WHERE idempotency_key = ?")
+        .prepare("SELECT 1 FROM agent_run_events WHERE idempotency_key = ?")
         .get(idempotencyKey),
     );
   }
 
   getAgentRun(id: string): AgentRun | null {
-    const row = this.db.prepare("SELECT * FROM missions WHERE id = ?").get(id) as
+    const row = this.db.prepare("SELECT * FROM agent_runs WHERE id = ?").get(id) as
       | AgentRunRow
       | null
       | undefined;
@@ -477,7 +476,7 @@ export class AgentRunStore {
     if (!agentRun) return null;
     const rows = this.db
       .prepare(
-        "SELECT * FROM mission_stages WHERE mission_id = ? ORDER BY stage_id, attempt",
+        "SELECT * FROM agent_run_stages WHERE agent_run_id = ? ORDER BY stage_id, attempt",
       )
       .all(id) as AgentRunStageRow[];
     return { agentRun, stages: rows.map(parseStageRow) };
@@ -486,7 +485,7 @@ export class AgentRunStore {
   getActiveAgentRunForTask(leadTaskId: string): AgentRun | null {
     const row = this.db
       .prepare(
-        `SELECT * FROM missions WHERE lead_task_id = ? AND state IN ${ACTIVE_STATES_SQL}`,
+        `SELECT * FROM agent_runs WHERE lead_task_id = ? AND state IN ${ACTIVE_STATES_SQL}`,
       )
       .get(leadTaskId) as AgentRunRow | null | undefined;
     return row ? parseAgentRunRow(row) : null;
@@ -494,7 +493,7 @@ export class AgentRunStore {
 
   listActiveAgentRuns(): AgentRun[] {
     const rows = this.db
-      .prepare(`SELECT * FROM missions WHERE state IN ${ACTIVE_STATES_SQL} ORDER BY created_at`)
+      .prepare(`SELECT * FROM agent_runs WHERE state IN ${ACTIVE_STATES_SQL} ORDER BY created_at`)
       .all() as AgentRunRow[];
     return parseEach(rows, parseAgentRunRow, "agent run");
   }
@@ -502,7 +501,7 @@ export class AgentRunStore {
   listAgentRunsForWorkspace(workspaceId: string, limit = 50): AgentRun[] {
     const rows = this.db
       .prepare(
-        "SELECT * FROM missions WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ?",
+        "SELECT * FROM agent_runs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ?",
       )
       .all(workspaceId, Math.max(1, Math.min(limit, 200))) as AgentRunRow[];
     return parseEach(rows, parseAgentRunRow, "agent run");
@@ -511,7 +510,7 @@ export class AgentRunStore {
   /** The newest agent runs across every workspace, for surfaces that span them. */
   listRecentAgentRuns(limit = 50): AgentRun[] {
     const rows = this.db
-      .prepare("SELECT * FROM missions ORDER BY created_at DESC LIMIT ?")
+      .prepare("SELECT * FROM agent_runs ORDER BY created_at DESC LIMIT ?")
       .all(Math.max(1, Math.min(limit, 200))) as AgentRunRow[];
     return parseEach(rows, parseAgentRunRow, "agent run");
   }
@@ -524,8 +523,8 @@ export class AgentRunStore {
     if (kinds.length === 0) return [];
     const rows = this.db
       .prepare(
-        `SELECT * FROM mission_events
-         WHERE mission_id = ? AND kind IN (${kinds.map(() => "?").join(", ")})
+        `SELECT * FROM agent_run_events
+         WHERE agent_run_id = ? AND kind IN (${kinds.map(() => "?").join(", ")})
          ORDER BY sequence ASC LIMIT ?`,
       )
       .all(agentRunId, ...kinds, AGENT_RUN_LIMITS.maxRetainedEvents) as AgentRunEventRow[];
@@ -537,7 +536,7 @@ export class AgentRunStore {
     const rows = this.db
       .prepare(
         `SELECT * FROM (
-           SELECT * FROM mission_events WHERE mission_id = ?
+           SELECT * FROM agent_run_events WHERE agent_run_id = ?
            ORDER BY sequence DESC LIMIT ?
          ) ORDER BY sequence ASC`,
       )
@@ -549,8 +548,8 @@ export class AgentRunStore {
   listEvents(agentRunId: string, args: { afterSequence?: number; limit?: number } = {}): AgentRunEvent[] {
     const rows = this.db
       .prepare(
-        `SELECT * FROM mission_events
-         WHERE mission_id = ? AND sequence > ?
+        `SELECT * FROM agent_run_events
+         WHERE agent_run_id = ? AND sequence > ?
          ORDER BY sequence ASC LIMIT ?`,
       )
       .all(
