@@ -25,10 +25,15 @@ optionally done by another agent) or a Stave action (**Open draft PR**,
 - Kickoff and the Issues kickoff sheet no longer offer a playbook.
 - Playbook missions that were running finish as they are, and their Progress,
   report and Fleet surfaces keep working.
-- Saved playbooks are kept read-only for existing [projects](projects.md) and
-  for start conditions you set before; both are deprecated and will be
-  removed in a later release. A proposal they make opens a task with the
-  request drafted, ready for you to choose an agent and **Assign**.
+- Saved playbooks stay as read-only data. Old playbook missions still render
+  from them, and the upgrade that moves converted agents to Stave Auto still
+  reads them.
+- Start conditions saved on a playbook (an assigned issue, pull request
+  trouble, a schedule) and proposed missions are removed. Nothing starts or
+  proposes a mission on its own any more; assign the work to an agent instead.
+- Projects are removed. Each project's memories were exported once to
+  `<user data>/exports/project-memory/<project id>.md`; see
+  [Repository Memory](repository-memory.md#upgrade-and-boundaries).
 
 ## Related Docs
 

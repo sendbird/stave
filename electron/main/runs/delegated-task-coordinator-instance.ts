@@ -51,7 +51,6 @@ async function applyAgent(args: DelegateTaskArgs) {
     args,
     agent,
     parentPermission: context.value.parentPermission,
-    allowedAgentIds: context.value.allowedAgentIds,
     parentCanCall: context.value.parentCanCall,
     standards,
   });
@@ -109,7 +108,6 @@ export function getDelegatedTaskCoordinator() {
         if (args.agentConfigId) {
           const context = await invokeHostService("agent.invoke", { action: "delegation-context", args: { parentTaskId: args.parentTaskId } }) as AgentInvokeResult<AgentDelegationContext>;
           if (!context.ok) throw new Error(context.message);
-          if (context.value.allowedAgentIds && !context.value.allowedAgentIds.includes(args.agentConfigId)) throw new Error("The delegated agent is no longer permitted by this project.");
           if (context.value.parentCanCall && !context.value.parentCanCall.includes(args.agentConfigId)) throw new Error("The parent agent can no longer call this delegated agent.");
           if (!agentPermission) {
             const saved = await invokeHostService("agent.invoke", {

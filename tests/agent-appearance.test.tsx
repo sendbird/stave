@@ -181,25 +181,23 @@ describe("agent references", () => {
     name: "Ship it",
     workflow: [{ id: "impl", title: "Implement", kind: "ai" as const, instruction: "x", doneWhen: "y", agentConfigId: "ui-maintainer" }],
   } as never;
-  const project = { id: "proj", name: "Refresh", settings: { agents: ["ui-maintainer"] } } as never;
 
-  test("another agent's workflow stage and a project block deletion; a task does not", () => {
+  test("another agent's workflow stage blocks deletion; a task does not", () => {
     const references = findAgentReferences({
       agentConfigId: "ui-maintainer",
       agents: [shipper],
-      projects: [project],
       assignments: [
         { agentConfigId: "ui-maintainer", state: "started", assignment: "Do the thing\nmore", taskId: "t1" } as never,
         { agentConfigId: "ui-maintainer", state: "failed", assignment: "Old", taskId: "t2" } as never,
       ],
     });
-    expect(references.blocking.map((reference) => reference.kind)).toEqual(["workflow-stage", "project"]);
+    expect(references.blocking.map((reference) => reference.kind)).toEqual(["workflow-stage"]);
     expect(references.soft.map((reference) => reference.label)).toEqual(["Do the thing"]);
     expect(agentIsDeletable(references)).toBe(false);
   });
 
   test("an unreferenced agent is deletable", () => {
-    const references = findAgentReferences({ agentConfigId: "nobody", agents: [shipper], projects: [project] });
+    const references = findAgentReferences({ agentConfigId: "nobody", agents: [shipper] });
     expect(agentIsDeletable(references)).toBe(true);
   });
 });

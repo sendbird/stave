@@ -168,15 +168,6 @@ export const taskLayoutStyles = stylex.create({
     borderColor: vars["--ads-color-border"],
     boxShadow: vars["--ads-elevation-raised"],
   },
-  tabDivider: {
-    alignSelf: "stretch",
-    backgroundColor: vars["--ads-color-border"],
-    marginBlock: vars["--ads-space-8"],
-    marginInline: 2,
-    width: 1,
-  },
-  tabIcon: { color: vars["--ads-color-text-muted"], flexShrink: 0, height: 14, width: 14 },
-  proposedCount: { color: vars["--ads-color-text"], fontWeight: vars["--ads-font-weight-semibold"] },
   tab: {
     fontSize: vars["--ads-font-size-caption"],
     gap: vars["--ads-space-8"],

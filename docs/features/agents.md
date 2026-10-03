@@ -182,7 +182,7 @@ Watch checks → Ready for review) come with a workflow.
 **Delete** removes a custom agent from your settings, with its History and
 suggestions. Past assignments keep
 their own snapshot, so an agent's history still shows its name after it is gone.
-If another agent's workflow stage or a project still names the agent, deletion is blocked and
+If another agent's workflow stage still names the agent, deletion is blocked and
 the dialog lists where — **Archive instead**, or remove those references first.
 Running or waiting tasks are shown for context but do not block: they keep the
 version they started with and finish on their own.
@@ -253,9 +253,8 @@ level deep and their answers come back into the turn.
 may delegate to. **Any agent** (the default) sets no limit. **Only these
 agents** offers every active agent usable as a delegated task; checking none
 means the agent delegates to no one. A delegation to an agent outside the list
-is refused with the names it may call. A project's Agents still apply on top:
-a mission's agent may call only agents that are on both lists. Exported agent
-files leave **Can call** out.
+is refused with the names it may call. Exported agent files leave **Can call**
+out.
 
 ### My standards
 
@@ -382,8 +381,8 @@ Fleet's search finds its tasks.
   Read only covers the repository, not Stave's own records of the work: a
   read-only agent can still add workspace notes, todos, links and custom
   fields, write a plan file with `stave_write_plan_file`, and report or block
-  its stage. Clearing or removing what you wrote, project memory and schedules
-  stay off.
+  its stage. Clearing or removing what you wrote, repository memory and
+  schedules stay off.
 - Tool limits are enforced where the provider supports them (for example, a
   Claude main agent's denied tools) and stated in the instructions elsewhere.
 - Where an assigned task runs:

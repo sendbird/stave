@@ -117,8 +117,8 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
     ],
   },
   {
-    id: "missions-and-projects",
-    title: "Missions and Projects",
+    id: "agents-and-runs",
+    title: "Agents and Runs",
     docs: [
       {
         routePath: "agents",
@@ -147,13 +147,6 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         title: "Playbooks (retired)",
         description:
           "Playbooks folded into agents: each saved playbook became a custom agent with the same stages.",
-      },
-      {
-        routePath: "projects",
-        sourcePath: "docs/features/projects.md",
-        title: "Projects",
-        description:
-          "Deprecated: existing projects keep working; new ones cannot be started.",
       },
     ],
   },
@@ -254,7 +247,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         sourcePath: "docs/features/sidebar-views.md",
         title: "Sidebar Views",
         description:
-          "Switch the left sidebar between the Projects tree and the Work queue, which groups every workspace by what it needs from you.",
+          "Switch the left sidebar between the Repositories tree and the Work queue, which groups every workspace by what it needs from you.",
       },
       {
         routePath: "issues",

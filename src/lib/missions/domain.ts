@@ -573,7 +573,10 @@ export const MissionSchema = z
     id: IdSchema,
     repositoryPath: z.string().min(1),
     ...missionIdentity,
-    /** The project that started this mission (Phase 3); null otherwise. */
+    /**
+     * The retired project that started this mission; null for every mission
+     * started since projects were removed. Kept so older rows still parse.
+     */
     projectId: IdSchema.nullable(),
     /** The playbook as it was when the mission started. Later edits never apply. */
     playbook: PlaybookSchema,
@@ -858,7 +861,6 @@ export function createMission(args: {
   input: MissionStartInput;
   repositoryPath: string;
   fingerprint: MissionFingerprint;
-  projectId?: string | null;
   now: Date;
 }): MissionChange {
   const input = MissionStartInputSchema.parse(args.input);
@@ -868,7 +870,7 @@ export function createMission(args: {
     repositoryPath: args.repositoryPath,
     workspaceId: input.workspaceId,
     leadTaskId: input.leadTaskId,
-    projectId: args.projectId ?? null,
+    projectId: null,
     playbook: input.playbook,
     assignment: input.assignment,
     consent: input.consent,

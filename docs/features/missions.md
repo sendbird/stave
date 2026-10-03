@@ -252,11 +252,6 @@ Results** in the command palette) shows how agent runs and playbook missions tha
   reads are part of the cost but not of the token count.
 - A mission started at a later stage has no acceptance criteria from
   **Understand**, so its report shows only what the stages that ran reported.
-- A mission a start condition started on its own runs with its playbook's
-  permissions (Auto unless the playbook says otherwise) and allows none of the
-  steps that act outside this machine: a stage that publishes, opens a pull
-  request or runs a script waits for your consent in the Task panel's
-  **Progress** tab.
 
 ## Troubleshooting
 
@@ -295,7 +290,6 @@ Results** in the command palette) shows how agent runs and playbook missions tha
 
 - [Agents](agents.md) — an agent's Workflow and Check in with me
 - [Playbooks (retired)](playbooks.md)
-- [Projects](projects.md) — deprecated
 - [Wake-ups](wake-ups.md) — a mission pauses its task's wake-up while it runs
 - [Notifications](notifications.md)
 - [Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md)

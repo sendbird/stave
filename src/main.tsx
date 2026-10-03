@@ -71,16 +71,6 @@ if (preview === "kickoff") {
       );
     },
   );
-} else if (preview === "projects") {
-  void import("@/dev/projects-preview").then(({ ProjectsPreview }) => {
-    root.render(
-      <StrictMode>
-        <StaveDesignProvider>
-          <ProjectsPreview />
-        </StaveDesignProvider>
-      </StrictMode>,
-    );
-  });
 } else if (preview === "results") {
   void import("@/dev/results-preview").then(({ ResultsPreview }) => {
     root.render(

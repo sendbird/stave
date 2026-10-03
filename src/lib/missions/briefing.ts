@@ -34,7 +34,6 @@ export const MISSION_TOOL_NAMES = Object.freeze({
   get: "stave_get_mission",
   report: "stave_report_stage",
   block: "stave_block_stage",
-  propose: "stave_propose_mission",
 });
 
 export const MISSION_CONTEXT_SOURCE_ID = "stave:mission";

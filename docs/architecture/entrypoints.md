@@ -139,21 +139,6 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
 6. `docs/features/missions.md` and `docs/features/agents.md` for the user
    flow
 
-### Projects
-
-1. `src/lib/projects/policy.ts` for the pure project decision (start an
-   approved proposal, wake the coordinator) and `src/lib/projects/domain.ts`
-   for projects, proposals, memory and limits
-2. `electron/host-service/supervision/project-runtime.ts` for the host loop,
-   and `src/lib/projects/briefing.ts` for the coordinator's instruction,
-   read-only runtime options and tool names
-3. `electron/persistence/project-store.ts` for storage and
-   `electron/providers/project-grants.ts` for the per-turn project grant
-4. `src/store/projects-store.ts` for renderer state and
-   `src/components/projects/` for the Projects view, project home and New
-   project dialog
-5. `docs/features/projects.md` for the user flow
-
 ### Agents and assignments
 
 1. `src/lib/agents/schema.ts` for the agent config and its limits,
@@ -177,7 +162,7 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
    `src/lib/agents/flow-view.ts` projecting the flow
 5. `docs/features/agents.md` for the user flow and
    `docs/architecture/agent-platform-taxonomy.md` for the vocabulary and
-   boundary statements 13–17
+   boundary statements 12–16
 
 ### Prompt input, skills, and quick controls
 

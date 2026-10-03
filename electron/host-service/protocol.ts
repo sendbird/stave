@@ -1,4 +1,3 @@
-import type { HostProposalAction } from "./supervision/proposal-runtime";
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
 import type { AgentInvokeResult, HostAgentAction } from "../../src/lib/agents/api";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../../src/lib/providers/agent-history";
@@ -25,7 +24,6 @@ import type {
   MissionChangedEvent,
   MissionInvokeResult,
 } from "../../src/lib/missions/api";
-import type { ProjectChangedEvent, ProjectInvokeResult } from "../../src/lib/projects/api";
 import type {
   CanonicalRetrievedContextPart,
   CodexAppServerSnapshotResponse,
@@ -518,32 +516,6 @@ export type HostMissionAction =
   | "get-for-grant"
   | "report-stage"
   | "block-stage";
-
-/**
- * Project actions. The last four serve the coordinator's tools and carry a
- * project grant key instead of a project id.
- */
-export type HostProjectAction =
-  | "link-task"
-  | "unlink-task"
-  | "record-integration"
-  | "list"
-  | "get"
-  | "create"
-  | "approve-proposal"
-  | "reject-proposal"
-  | "pause"
-  | "resume"
-  | "end"
-  | "update-settings"
-  | "set-memory-status"
-  | "sync-playbooks"
-  | "observe-issues"
-  | "message-coordinator"
-  | "get-for-grant"
-  | "start-mission-for-grant"
-  | "get-mission-report-for-grant"
-  | "note-for-grant";
 
 export type HostAutomationAction =
   | "list"
@@ -1055,16 +1027,8 @@ export interface HostServiceRequestMap {
     action: HostMissionAction;
     args: unknown;
   };
-  "project.invoke": {
-    action: HostProjectAction;
-    args: unknown;
-  };
   "agent.invoke": {
     action: HostAgentAction;
-    args: unknown;
-  };
-  "proposal.invoke": {
-    action: HostProposalAction;
     args: unknown;
   };
 }
@@ -1259,8 +1223,6 @@ export interface HostServiceResponseMap {
   "automation.invoke": unknown;
   "wake-up.invoke": unknown;
   "mission.invoke": MissionInvokeResult<unknown>;
-  "project.invoke": ProjectInvokeResult<unknown>;
-  "proposal.invoke": { ok: true; value: unknown } | { ok: false; message: string };
   "agent.invoke": AgentInvokeResult<unknown>;
 }
 
@@ -1291,11 +1253,8 @@ export interface HostServiceEventMap {
     }>;
   };
   "mission.changed": MissionChangedEvent;
-  "project.changed": ProjectChangedEvent;
   /** An agent assignment was created or changed state. */
   "agent.changed": { assignmentId: string; state: string };
-  /** Proposed missions changed: one was proposed, started or dismissed. */
-  "proposal.changed": Record<string, never>;
   "wake-up.changed": { wakeUpId: string; workspaceId: string; taskId: string };
 }
 

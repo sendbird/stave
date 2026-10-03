@@ -1,4 +1,3 @@
-import { PROPOSAL_IPC, type ProposalsBridgeApi } from "../src/lib/missions/proposed";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
 import { providerAccountsApi } from "./provider-accounts/preload";
@@ -141,11 +140,6 @@ import {
   type MissionChangedEvent,
   type MissionsBridgeApi,
 } from "../src/lib/missions/api";
-import {
-  PROJECT_IPC,
-  type ProjectChangedEvent,
-  type ProjectsBridgeApi,
-} from "../src/lib/projects/api";
 import {
   WAKE_UP_IPC,
   type WakeUpChangedEvent,
@@ -821,26 +815,6 @@ const wakeUpsApi: WakeUpsBridgeApi = {
   },
 };
 
-const proposalChangedSubscribers = new Set<() => void>();
-ipcRenderer.on(PROPOSAL_IPC.changed, () => {
-  for (const subscriber of proposalChangedSubscribers) {
-    subscriber();
-  }
-});
-
-const proposalsApi: ProposalsBridgeApi = {
-  list: (args) => ipcRenderer.invoke(PROPOSAL_IPC.list, args ?? {}),
-  dismiss: (args) => ipcRenderer.invoke(PROPOSAL_IPC.dismiss, args),
-  markStarted: (args) => ipcRenderer.invoke(PROPOSAL_IPC.markStarted, args),
-  observePullRequest: (args) => ipcRenderer.invoke(PROPOSAL_IPC.observePullRequest, args),
-  subscribeChanged: (listener) => {
-    proposalChangedSubscribers.add(listener);
-    return () => {
-      proposalChangedSubscribers.delete(listener);
-    };
-  },
-};
-
 const agentChangedSubscribers = new Set<() => void>();
 ipcRenderer.on(AGENT_IPC.changed, () => {
   for (const subscriber of agentChangedSubscribers) {
@@ -857,37 +831,6 @@ const agentsApi: AgentsBridgeApi = {
     agentChangedSubscribers.add(listener);
     return () => {
       agentChangedSubscribers.delete(listener);
-    };
-  },
-};
-
-const projectChangedSubscribers = new Set<(payload: ProjectChangedEvent) => void>();
-ipcRenderer.on(PROJECT_IPC.changed, (_event, payload: ProjectChangedEvent) => {
-  for (const subscriber of projectChangedSubscribers) {
-    subscriber(payload);
-  }
-});
-
-const projectsApi: ProjectsBridgeApi = {
-  linkTask: (args) => ipcRenderer.invoke(PROJECT_IPC.linkTask, args),
-  unlinkTask: (args) => ipcRenderer.invoke(PROJECT_IPC.unlinkTask, args),
-  recordIntegration: (args) => ipcRenderer.invoke(PROJECT_IPC.recordIntegration, args),
-  list: (args) => ipcRenderer.invoke(PROJECT_IPC.list, args),
-  get: (args) => ipcRenderer.invoke(PROJECT_IPC.get, args),
-  create: (args) => ipcRenderer.invoke(PROJECT_IPC.create, args),
-  approveProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.approveProposal, args),
-  messageCoordinator: (args) => ipcRenderer.invoke(PROJECT_IPC.messageCoordinator, args),
-  rejectProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.rejectProposal, args),
-  pause: (args) => ipcRenderer.invoke(PROJECT_IPC.pause, args),
-  resume: (args) => ipcRenderer.invoke(PROJECT_IPC.resume, args),
-  end: (args) => ipcRenderer.invoke(PROJECT_IPC.end, args),
-  updateSettings: (args) => ipcRenderer.invoke(PROJECT_IPC.updateSettings, args),
-  setMemoryStatus: (args) => ipcRenderer.invoke(PROJECT_IPC.setMemoryStatus, args),
-  syncPlaybooks: (args) => ipcRenderer.invoke(PROJECT_IPC.syncPlaybooks, args),
-  subscribeChanged: (listener) => {
-    projectChangedSubscribers.add(listener);
-    return () => {
-      projectChangedSubscribers.delete(listener);
     };
   },
 };
@@ -2286,8 +2229,6 @@ contextBridge.exposeInMainWorld("api", {
   },
   missions: missionsApi,
   wakeUps: wakeUpsApi,
-  projects: projectsApi,
-  proposals: proposalsApi,
   agents: agentsApi,
   automations: {
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>

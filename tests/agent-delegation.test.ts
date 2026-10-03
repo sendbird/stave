@@ -36,7 +36,7 @@ function ledger(store: RunLedgerStore): DelegatedTaskLedgerPort {
   };
 }
 
-function harness(options: { head?: string | null; parentPermission?: AgentPermission | null; allowed?: string[] | null; parentCanCall?: string[] | null; failFirstTurn?: boolean; failRecording?: boolean } = {}) {
+function harness(options: { head?: string | null; parentPermission?: AgentPermission | null; parentCanCall?: string[] | null; failFirstTurn?: boolean; failRecording?: boolean } = {}) {
   const store = new RunLedgerStore(new Database(":memory:"));
   const assignmentStore = new AgentAssignmentStore(new Database(":memory:"));
   const assignments = createAssignRuntime({ store: assignmentStore });
@@ -77,7 +77,6 @@ function harness(options: { head?: string | null; parentPermission?: AgentPermis
         agent,
         parentPermission: options.parentPermission ?? null,
         parentCanCall: options.parentCanCall,
-        allowedAgentIds: options.allowed ?? null,
       });
       return result.ok ? { ok: true, args: { ...result.args, prompt: args.prompt },
         agentContentHash: result.snapshot.contentHash, snapshot: result.snapshot } : { ok: false, message: result.message };
@@ -121,17 +120,12 @@ describe("delegating to an agent", () => {
     expect(runs[0]!.permissionProfile).toBe("manual");
   });
 
-  test("an agent outside the project's agents, or one that widens the parent, is refused and starts nothing", async () => {
-    const outside = harness({ allowed: ["implementer"] });
-    const refused = await outside.coordinator.delegate(args({ agentConfigId: "strict-reviewer" }));
-    expect(refused).toMatchObject({ accepted: false, reason: "agent-refused" });
-    expect(refused.message).toContain("not one of this project's agents");
-
+  test("an agent that widens the parent is refused and starts nothing", async () => {
     const readOnlyParent = harness({ parentPermission: "read-only" });
     const widened = await readOnlyParent.coordinator.delegate(args({ agentConfigId: "implementer", delegationKey: "impl" }));
     expect(widened).toMatchObject({ accepted: false, reason: "agent-refused" });
     await Bun.sleep(5);
-    expect([...outside.runs, ...readOnlyParent.runs]).toHaveLength(0);
+    expect(readOnlyParent.runs).toHaveLength(0);
   });
 
   test("host Can call authority lets a read-only coordinator delegate within user child permissions", async () => {

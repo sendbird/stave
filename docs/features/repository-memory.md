@@ -110,10 +110,12 @@ summary prompts are preserved; untouched old defaults receive the new candidate
 extraction instructions. The parser enforces the one-candidate limit regardless
 of the configured prompt.
 
-Repository memory is separate from a [project](projects.md)'s memory. Project
-memory holds the decisions a project's missions made and its coordinator's
-notes, and reaches only missions of that project; repository memory reaches
-every task in the repository.
+Projects are removed, and their memory never became repository memory. On
+start, Stave exports each project's memories once to
+`<user data>/exports/project-memory/<project id>.md`: the project's goal and
+repository, its accepted decisions and notes, then the candidates nobody
+accepted. An existing file is never rewritten. Nothing recalls these files;
+copy what still matters into repository memory yourself.
 
 Main and host-service share the persistence implementation. Workspace ownership
 resolves the repository for agent tools; a replacement cannot target another repository.

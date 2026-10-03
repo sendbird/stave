@@ -1,6 +1,6 @@
 import { trackerVisualStyles } from "./tracker-visual.styles";
 import type { RefObject } from "react";
-import { LayoutGrid, LayoutList, Search, Sparkles, X } from "lucide-react";
+import { LayoutGrid, LayoutList, Search, X } from "lucide-react";
 
 import {
   Button,
@@ -107,19 +107,10 @@ export interface IssuesToolbarProps {
   /** Row counts per view tab, so an empty tab is visible before it is opened. */
   viewCounts: Record<TrackerIssueView, number>;
   searchInputRef: RefObject<HTMLInputElement | null>;
-  /** Issues lists tickets; Proposed lists the missions playbooks proposed. */
-  section: IssuesSection;
-  onSectionChange: (section: IssuesSection) => void;
-  /** Off when nothing is proposed, decided recently, or watched (`hasProposedWork`). */
-  showProposed: boolean;
-  proposedCount: number;
 }
-
-export type IssuesSection = "issues" | "proposed";
 
 export function IssuesToolbar(props: IssuesToolbarProps) {
   const { filter } = props;
-  const proposed = props.section === "proposed";
   const activeFilterCount = countActiveTrackerIssueFilters(filter);
 
   const patch = (changes: Partial<TrackerIssueFilter>) => {
@@ -135,7 +126,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
           aria-label="Tracker issue views"
         >
           {TRACKER_ISSUE_VIEWS.map((view) => {
-            const selected = !proposed && filter.view === view;
+            const selected = filter.view === view;
             return (
               <Button
                 key={view}
@@ -151,10 +142,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
                 // Switching tabs starts a clean filter: the chips answer a
                 // different question in each view, and carrying them across is
                 // how a tab looks broken on arrival.
-                onClick={() => {
-                  props.onSectionChange("issues");
-                  props.onFilterChange(createTrackerIssueFilter(view));
-                }}
+                onClick={() => props.onFilterChange(createTrackerIssueFilter(view))}
               >
                 {VIEW_LABELS[view]}
                 <span className={sx(trackerVisualStyles.count)}>
@@ -163,203 +151,174 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
               </Button>
             );
           })}
-          {props.showProposed ? (
-            <>
-              <span aria-hidden className={sx(taskLayoutStyles.tabDivider)} />
-              <Button
-                type="button"
-                size="sm"
-                role="tab"
-                aria-selected={proposed}
-                variant={proposed ? "secondary" : "ghost"}
-                xstyle={[
-                  taskLayoutStyles.tab,
-                  proposed && taskLayoutStyles.activeTab,
-                ]}
-                onClick={() => props.onSectionChange("proposed")}
-              >
-                <Sparkles aria-hidden className={sx(taskLayoutStyles.tabIcon)} />
-                Proposed
-                {props.proposedCount > 0 ? (
-                  <span className={sx(trackerVisualStyles.count, taskLayoutStyles.proposedCount)}>
-                    {props.proposedCount}
-                  </span>
-                ) : null}
-              </Button>
-            </>
-          ) : null}
         </div>
 
-        {proposed ? null : (
-          <div className={sx(taskLayoutStyles.search)}>
-            <Search className={sx(taskLayoutStyles.searchIcon)} />
-            <Input
-              ref={props.searchInputRef}
-              value={filter.query}
-              onChange={(event) => patch({ query: event.target.value })}
-              placeholder="Search key, title, #label"
-              aria-label="Search tracker tickets"
-              xstyle={taskLayoutStyles.searchInput}
-            />
-          </div>
-        )}
+        <div className={sx(taskLayoutStyles.search)}>
+          <Search className={sx(taskLayoutStyles.searchIcon)} />
+          <Input
+            ref={props.searchInputRef}
+            value={filter.query}
+            onChange={(event) => patch({ query: event.target.value })}
+            placeholder="Search key, title, #label"
+            aria-label="Search tracker tickets"
+            xstyle={taskLayoutStyles.searchInput}
+          />
+        </div>
       </div>
 
-      {proposed ? null : (
-        <div className={sx(taskLayoutStyles.toolbarRow)}>
-          <TrackerIssueFilterChip
-            label="Source"
-            searchable={false}
-            options={SOURCE_OPTIONS}
-            selected={filter.sources}
-            onChange={(next) => patch({ sources: next as TrackerSourceId[] })}
-          />
-          <TrackerIssueFilterChip
-            label="Status"
-            searchable={false}
-            options={STATUS_OPTIONS}
-            selected={filter.statusCategories}
-            onChange={(next) =>
-              patch({ statusCategories: next as TrackerStatusCategory[] })
-            }
-          />
-          <TrackerIssueFilterChip
-            label="Priority"
-            searchable={false}
-            options={PRIORITY_OPTIONS}
-            selected={filter.priorities}
-            onChange={(next) =>
-              patch({ priorities: next as TrackerPriorityLevel[] })
-            }
-          />
-          <TrackerIssueFilterChip
-            label="Project"
-            options={props.projectOptions}
-            selected={filter.projectKeys}
-            onChange={(next) => patch({ projectKeys: next })}
-            emptyMessage="No projects on the loaded tickets."
-          />
-          <TrackerIssueFilterChip
-            label="Label"
-            options={props.labelOptions}
-            selected={filter.labels}
-            onChange={(next) => patch({ labels: next })}
-            emptyMessage="No labels on the loaded tickets."
-          />
+      <div className={sx(taskLayoutStyles.toolbarRow)}>
+        <TrackerIssueFilterChip
+          label="Source"
+          searchable={false}
+          options={SOURCE_OPTIONS}
+          selected={filter.sources}
+          onChange={(next) => patch({ sources: next as TrackerSourceId[] })}
+        />
+        <TrackerIssueFilterChip
+          label="Status"
+          searchable={false}
+          options={STATUS_OPTIONS}
+          selected={filter.statusCategories}
+          onChange={(next) =>
+            patch({ statusCategories: next as TrackerStatusCategory[] })
+          }
+        />
+        <TrackerIssueFilterChip
+          label="Priority"
+          searchable={false}
+          options={PRIORITY_OPTIONS}
+          selected={filter.priorities}
+          onChange={(next) =>
+            patch({ priorities: next as TrackerPriorityLevel[] })
+          }
+        />
+        <TrackerIssueFilterChip
+          label="Project"
+          options={props.projectOptions}
+          selected={filter.projectKeys}
+          onChange={(next) => patch({ projectKeys: next })}
+          emptyMessage="No projects on the loaded tickets."
+        />
+        <TrackerIssueFilterChip
+          label="Label"
+          options={props.labelOptions}
+          selected={filter.labels}
+          onChange={(next) => patch({ labels: next })}
+          emptyMessage="No labels on the loaded tickets."
+        />
 
-          <Select
-            value={filter.linked}
-            onValueChange={(value) =>
-              patch({ linked: value as TrackerIssueLinkedFilter })
-            }
+        <Select
+          value={filter.linked}
+          onValueChange={(value) =>
+            patch({ linked: value as TrackerIssueLinkedFilter })
+          }
+        >
+          <SelectTrigger
+            className={sx(taskLayoutStyles.selectShort)}
+            aria-label="Filter by Stave runs"
           >
-            <SelectTrigger
-              className={sx(taskLayoutStyles.selectShort)}
-              aria-label="Filter by Stave runs"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(LINKED_LABELS) as TrackerIssueLinkedFilter[]).map(
-                (value) => (
-                  <SelectItem key={value} value={value}>
-                    {LINKED_LABELS[value]}
-                  </SelectItem>
-                ),
-              )}
-            </SelectContent>
-          </Select>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(LINKED_LABELS) as TrackerIssueLinkedFilter[]).map(
+              (value) => (
+                <SelectItem key={value} value={value}>
+                  {LINKED_LABELS[value]}
+                </SelectItem>
+              ),
+            )}
+          </SelectContent>
+        </Select>
 
-          <div className={sx(taskLayoutStyles.toolbarActions)}>
-            <div
-              className={sx(taskLayoutStyles.segmented)}
-              role="group"
-              aria-label="Ticket layout"
+        <div className={sx(taskLayoutStyles.toolbarActions)}>
+          <div
+            className={sx(taskLayoutStyles.segmented)}
+            role="group"
+            aria-label="Ticket layout"
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant={props.layout === "list" ? "secondary" : "ghost"}
+              aria-pressed={props.layout === "list"}
+              xstyle={taskLayoutStyles.tab}
+              onClick={() => props.onLayoutChange("list")}
             >
-              <Button
-                type="button"
-                size="sm"
-                variant={props.layout === "list" ? "secondary" : "ghost"}
-                aria-pressed={props.layout === "list"}
-                xstyle={taskLayoutStyles.tab}
-                onClick={() => props.onLayoutChange("list")}
-              >
-                <LayoutList className={sx(trackerVisualStyles.icon)} />
-                List
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={props.layout === "board" ? "secondary" : "ghost"}
-                aria-pressed={props.layout === "board"}
-                xstyle={taskLayoutStyles.tab}
-                onClick={() => props.onLayoutChange("board")}
-              >
-                <LayoutGrid className={sx(trackerVisualStyles.icon)} />
-                Board
-              </Button>
-            </div>
-            {props.layout === "list" ? (
-              <Select
-                value={props.group}
-                onValueChange={(value) =>
-                  props.onGroupChange(value as TrackerIssueGroupMode)
-                }
-              >
-                <SelectTrigger
-                  className={sx(taskLayoutStyles.selectMedium)}
-                  aria-label="Group tickets"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TRACKER_ISSUE_GROUP_MODES.map((mode) => (
-                    <SelectItem key={mode} value={mode}>
-                      {GROUP_LABELS[mode]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
+              <LayoutList className={sx(trackerVisualStyles.icon)} />
+              List
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={props.layout === "board" ? "secondary" : "ghost"}
+              aria-pressed={props.layout === "board"}
+              xstyle={taskLayoutStyles.tab}
+              onClick={() => props.onLayoutChange("board")}
+            >
+              <LayoutGrid className={sx(trackerVisualStyles.icon)} />
+              Board
+            </Button>
+          </div>
+          {props.layout === "list" ? (
             <Select
-              value={props.sort}
+              value={props.group}
               onValueChange={(value) =>
-                props.onSortChange(value as TrackerIssueSort)
+                props.onGroupChange(value as TrackerIssueGroupMode)
               }
             >
               <SelectTrigger
                 className={sx(taskLayoutStyles.selectMedium)}
-                aria-label="Sort tickets"
+                aria-label="Group tickets"
               >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TRACKER_ISSUE_SORTS.map((sort) => (
-                  <SelectItem key={sort} value={sort}>
-                    {SORT_LABELS[sort]}
+                {TRACKER_ISSUE_GROUP_MODES.map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {GROUP_LABELS[mode]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {activeFilterCount > 0 ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                xstyle={taskLayoutStyles.tab}
-                // The view is preserved: Reset clears chips, it does not bounce
-                // the reader out of the list they are in.
-                onClick={() =>
-                  props.onFilterChange(createTrackerIssueFilter(filter.view))
-                }
-              >
-                <X className={sx(trackerVisualStyles.icon)} />
-                Reset {activeFilterCount}
-              </Button>
-            ) : null}
-          </div>
+          ) : null}
+          <Select
+            value={props.sort}
+            onValueChange={(value) =>
+              props.onSortChange(value as TrackerIssueSort)
+            }
+          >
+            <SelectTrigger
+              className={sx(taskLayoutStyles.selectMedium)}
+              aria-label="Sort tickets"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TRACKER_ISSUE_SORTS.map((sort) => (
+                <SelectItem key={sort} value={sort}>
+                  {SORT_LABELS[sort]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {activeFilterCount > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              xstyle={taskLayoutStyles.tab}
+              // The view is preserved: Reset clears chips, it does not bounce
+              // the reader out of the list they are in.
+              onClick={() =>
+                props.onFilterChange(createTrackerIssueFilter(filter.view))
+              }
+            >
+              <X className={sx(trackerVisualStyles.icon)} />
+              Reset {activeFilterCount}
+            </Button>
+          ) : null}
         </div>
-      )}
+      </div>
     </div>
   );
 }

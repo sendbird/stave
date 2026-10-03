@@ -308,27 +308,9 @@
       ]
     },
     {
-      "id": "project-boundaries",
-      "title": "A project starts work only as missions through intake; its coordinator edits no files",
-      "invariant": "The project runtime starts work only by creating a worktree and a task and starting a mission on it (never a free-form turn on another task); the only turns it starts itself are on the project's coordinator task, and those run with edits disallowed on Claude and a read-only sandbox on Codex; a coordinator's start key never starts a second mission.",
-      "testFiles": [
-        "tests/project-boundaries.test.ts",
-        "tests/project-policy.test.ts",
-        "tests/project-store.test.ts",
-        "tests/intake.test.ts"
-      ],
-      "assertionRefs": [
-        "docs/architecture/agent-platform-taxonomy.md",
-        "src/lib/projects/policy.ts",
-        "src/lib/projects/briefing.ts",
-        "electron/host-service/supervision/project-runtime.ts",
-        "electron/host-service/supervision/intake.ts"
-      ]
-    },
-    {
       "id": "agent-boundaries",
       "title": "A saved agent grants no permissions, starts nothing, and a run follows its start snapshot; delegation to an agent only narrows",
-      "invariant": "An agent config holds only a default permission from a closed list and no approval bypass; compiling never widens it and imports refuse bypass modes, hooks and inline MCP servers. The agent domain in src/lib/agents imports no host, main-process, persistence or process module, so saving or editing an agent cannot start work. Work runs against a snapshot copied at start; edits after the start never change its instructions, tools or content hash. A delegation naming an agent is refused when the agent is not a delegated task, is outside the project's agents, or would run wider than the delegating task's agent; work pinned to a commit is refused when HEAD differs. A mission stage done by another agent is delegated by the lead task, whose provider and instructions never change.",
+      "invariant": "An agent config holds only a default permission from a closed list and no approval bypass; compiling never widens it and imports refuse bypass modes, hooks and inline MCP servers. The agent domain in src/lib/agents imports no host, main-process, persistence or process module, so saving or editing an agent cannot start work. Work runs against a snapshot copied at start; edits after the start never change its instructions, tools or content hash. A delegation naming an agent is refused when the agent is not a delegated task or would run wider than the delegating task's agent; work pinned to a commit is refused when HEAD differs. A mission stage done by another agent is delegated by the lead task, whose provider and instructions never change.",
       "testFiles": [
         "tests/agent-boundaries.test.ts",
         "tests/agent-config.test.ts",

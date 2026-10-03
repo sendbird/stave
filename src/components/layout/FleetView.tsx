@@ -1,4 +1,3 @@
-import { FleetProjectRollup, FleetProposedChip } from "@/components/projects/FleetProjectRollup";
 import { useAgentAssignmentsSync } from "@/store/agent-assignments-store";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
@@ -655,8 +654,6 @@ export function FleetView() {
           </span>
         </div>
         <div className={sx(styles.headerActions)}>
-          <FleetProposedChip />
-          <FleetProjectRollup />
           <Button
             type="button"
             size="sm"

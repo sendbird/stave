@@ -25,7 +25,6 @@ import {
   type MissionEventKind,
   type MissionStageRecord,
 } from "../../src/lib/missions/domain";
-import { ProposedMissionSchema, type ProposalListFilter, type ProposedMission } from "../../src/lib/missions/proposed";
 import { SECOND_MISSION_REFUSAL } from "../../src/lib/supervision/automatic-turn-owner";
 
 interface MissionStatement {
@@ -231,6 +230,8 @@ export class MissionStore {
         created_at TEXT NOT NULL,
         UNIQUE (mission_id, sequence)
       );
+      -- Retired with proposals and playbook start conditions. Nothing reads or
+      -- writes these two tables now; they stay so existing rows are untouched.
       CREATE TABLE IF NOT EXISTS mission_proposals (
         id TEXT PRIMARY KEY,
         source_key TEXT NOT NULL UNIQUE,
@@ -250,69 +251,6 @@ export class MissionStore {
     if (!columns.some((column) => column.name === "origin")) {
       this.db.exec("ALTER TABLE missions ADD COLUMN origin TEXT");
     }
-  }
-
-  /** Adds a proposal unless its source key was proposed before; false when it was. */
-  insertProposal(proposal: ProposedMission): boolean {
-    const parsed = ProposedMissionSchema.parse(proposal);
-    const result = this.db
-      .prepare("INSERT OR IGNORE INTO mission_proposals (id, source_key, state, body_json, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run(parsed.id, parsed.sourceKey, parsed.state, JSON.stringify(parsed), parsed.createdAt);
-    return Boolean(result.changes);
-  }
-
-  updateProposal(proposal: ProposedMission): void {
-    const parsed = ProposedMissionSchema.parse(proposal);
-    this.db
-      .prepare("UPDATE mission_proposals SET state = ?, body_json = ? WHERE id = ?")
-      .run(parsed.state, JSON.stringify(parsed), parsed.id);
-  }
-
-  getProposal(id: string): ProposedMission | null {
-    const row = this.db.prepare("SELECT body_json FROM mission_proposals WHERE id = ?").get(id) as { body_json: string } | undefined;
-    return row ? (parseEach([row], (entry) => ProposedMissionSchema.parse(JSON.parse(entry.body_json)), "proposal")[0] ?? null) : null;
-  }
-
-  /** Newest first; "decided" (started or dismissed) lists by when it was decided. */
-  listProposals(args: { state?: ProposalListFilter; limit?: number } = {}): ProposedMission[] {
-    const limit = Math.max(1, Math.min(args.limit ?? 100, 500));
-    const rows = (
-      args.state === "decided"
-        ? this.db
-            .prepare(
-              "SELECT body_json FROM mission_proposals WHERE state != 'pending' ORDER BY json_extract(body_json, '$.updatedAt') DESC LIMIT ?",
-            )
-            .all(limit)
-        : args.state
-          ? this.db.prepare("SELECT body_json FROM mission_proposals WHERE state = ? ORDER BY created_at DESC LIMIT ?").all(args.state, limit)
-          : this.db.prepare("SELECT body_json FROM mission_proposals ORDER BY created_at DESC LIMIT ?").all(limit)
-    ) as Array<{ body_json: string }>;
-    return parseEach(rows, (row) => ProposedMissionSchema.parse(JSON.parse(row.body_json)), "proposal");
-  }
-
-  /**
-   * Forgets old history: proposals decided before `decidedBefore`, and seen
-   * schedule slots and pull request commits before `seenBefore`. Neither
-   * recurs, so forgetting them never proposes anything twice. Issue and
-   * triage keys stay: an issue or request can still be open months later.
-   */
-  pruneProposalHistory(args: { decidedBefore: Date; seenBefore: Date }): { proposals: number; triggers: number } {
-    const proposals = this.db
-      .prepare("DELETE FROM mission_proposals WHERE state != 'pending' AND json_extract(body_json, '$.updatedAt') < ?")
-      .run(args.decidedBefore.toISOString());
-    const triggers = this.db
-      .prepare("DELETE FROM mission_trigger_seen WHERE (trigger_key LIKE 'schedule:%' OR trigger_key LIKE 'pr:%') AND seen_at < ?")
-      .run(args.seenBefore.toISOString());
-    return { proposals: Number(proposals.changes ?? 0), triggers: Number(triggers.changes ?? 0) };
-  }
-
-  /** Marks trigger occurrences seen and returns the ones that are new. */
-  markTriggersSeen(keys: readonly string[], now: Date): string[] {
-    if (keys.length === 0) return [];
-    return this.inSavepoint("mission_trigger_seen", () => {
-      const insert = this.db.prepare("INSERT OR IGNORE INTO mission_trigger_seen (trigger_key, seen_at) VALUES (?, ?)");
-      return [...new Set(keys)].filter((key) => Boolean(insert.run(key, now.toISOString()).changes));
-    });
   }
 
   private inSavepoint<T>(name: string, work: () => T): T {
@@ -571,14 +509,6 @@ export class MissionStore {
   }
 
   /** The newest missions across every workspace, for surfaces that span them. */
-  /** The missions a project started, newest first. */
-  listMissionsForProject(projectId: string, limit = 100): Mission[] {
-    const rows = this.db
-      .prepare("SELECT * FROM missions WHERE project_id = ? ORDER BY created_at DESC LIMIT ?")
-      .all(projectId, Math.max(1, Math.min(limit, 200))) as MissionRow[];
-    return parseEach(rows, parseMissionRow, "mission");
-  }
-
   listRecentMissions(limit = 50): Mission[] {
     const rows = this.db
       .prepare("SELECT * FROM missions ORDER BY created_at DESC LIMIT ?")

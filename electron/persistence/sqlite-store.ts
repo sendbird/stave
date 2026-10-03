@@ -64,7 +64,6 @@ import type {
 } from "../../src/lib/tracker-issues/types";
 import { WakeUpStore } from "./wake-up-store";
 import { MissionStore } from "./mission-store";
-import { ProjectStore } from "./project-store";
 import { AgentAssignmentStore } from "./agent-assignment-store";
 import { AutomationStateStore } from "./automation-state-store";
 import { RepositoryMemoryStore } from "./repository-memory-store";
@@ -189,7 +188,6 @@ export class SqliteStore {
   readonly turnSpend: TurnSpendStore;
   readonly delegationPolicies: DelegationPolicyStore;
   readonly missions: MissionStore;
-  readonly projects: ProjectStore;
   readonly agentAssignments: AgentAssignmentStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
@@ -242,7 +240,6 @@ export class SqliteStore {
     this.wakeUps = new WakeUpStore(this.db);
     this.missions = new MissionStore(this.db);
     this.repositoryMemories = new RepositoryMemoryStore(this.db);
-    this.projects = new ProjectStore(this.db);
     this.agentAssignments = new AgentAssignmentStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
     if (this.runMaintenance) {

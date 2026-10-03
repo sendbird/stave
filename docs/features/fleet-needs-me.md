@@ -56,8 +56,6 @@ optional shortcuts on top of that.
 - A workspace running a mission shows a mission strip on its card: the stage
   track, where the mission stands, its stage position and what it has spent.
   Clicking the strip opens the lead task.
-- The Fleet View header shows how many [projects](projects.md) are open and how
-  many things in them need you; it opens the Projects view.
 
 ### Key Controls
 

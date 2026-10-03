@@ -791,7 +791,7 @@ As-built (PR 11, `df5b3a5d`):
 - [x] Entry points: `handOff` composer control (since removed;
   registered in `composer-controls.ts`, rendered by `prompt-input.tsx`),
   `!shortcut` playbook entries in the macro palette, command palette
-  contributor (`useMissionCommands.ts`), Mission panel empty state, Playbook
+  contributor (useMissionCommands.ts, removed), Mission panel empty state, Playbook
   field in KickoffDialog and the Issues kickoff sheet (both open the sheet on
   the new task so consent is collected there).
 - [x] Gate `mission-start-consent` (statement 10) registered; taxonomy
@@ -842,15 +842,15 @@ As-built (PR 13, `f422f0a2`):
 
 As-built (PR 14, `b0a0c8d7`):
 
-- [x] `src/lib/projects/domain.ts` (projects, settings, proposals, events,
+- [x] lib/projects/domain.ts (removed) (projects, settings, proposals, events,
   memory, `StartMissionToolInputSchema`, `PROJECT_LIMITS`), `policy.ts`
   (`decideProject`, delivered-state keys, wake prompt) and `briefing.ts`
   (coordinator instruction, read-only runtime options, tool names).
-- [x] `electron/persistence/project-store.ts` with `projects`,
+- [x] persistence/project-store.ts (removed) with `projects`,
   `project_proposals`, `project_events` and `project_memories`.
   Deviation: proposals replace `project_missions`; a project mission is an
   ordinary mission with `projectId` (`listMissionsForProject`).
-- [x] `electron/providers/project-grants.ts`, the project runtime skeleton,
+- [x] providers/project-grants.ts (removed), the project runtime skeleton,
   `createIdleTask` extracted into `electron/host-service/local-mcp-pending.ts`.
 - [x] Boundary statement 12 and gate `project-boundaries`.
 - Deviation: no coordination playbook starter. The coordinator is an ordinary
@@ -866,8 +866,8 @@ As-built (PR 15, `154c22cd`):
 - [x] Tools `stave_get_project`, `stave_start_mission`, `stave_list_missions`,
   `stave_get_mission_report`, `stave_note_project`.
 - [x] Approve/reject, pause/resume/end, settings, memory status over IPC
-  (`electron/main/ipc/projects.ts`, preload `projectsApi`); playbooks synced
-  from renderer settings (`src/lib/projects/usePlaybookSync.ts`).
+  (ipc/projects.ts (removed), preload `projectsApi`); playbooks synced
+  from renderer settings (usePlaybookSync.ts, removed).
 - [x] Start keys are idempotent; a start is recorded before its side effects.
 
 ### PR 16 — `feat(projects): wake coordinators when their missions change`
@@ -893,7 +893,7 @@ As-built (PR 17, `a331b3d3`):
 
 As-built (PR 18, `0cbffec0`):
 
-- [x] `src/components/projects/`: Projects view (list + picker below 60rem),
+- [x] components/projects (removed): Projects view (list + picker below 60rem),
   project home (header chips, coordinator summary, Needs you / Running / Done
   lanes on one row grid, Memory / Library / Settings tabs), New project dialog
   (goal, coordinator choice, ask-first option), Fleet rollup.
@@ -909,11 +909,11 @@ As-built (PR 18, `0cbffec0`):
 
 As-built (PR 19):
 
-- [x] `tests/project-scenarios.test.ts`: P1 (two missions, Claude and Codex,
+- [x] project-scenarios.test.ts (removed): P1 (two missions, Claude and Codex,
   separate worktrees, after approval), P2 (one wake for both, reports read,
   next proposed), P3 (accepted decision recalled in-project only), P4
   (relaunch starts nothing twice, does not re-wake, mission continues).
-- [x] `docs/features/projects.md`, public docs entry, entrypoints and
+- [x] features/projects.md (removed), public docs entry, entrypoints and
   code-organization rows, design §16 As Built, promoted plan copy.
 - Deviation (P4): quitting stops the runtimes instead of recording a paused
   state; relaunch resumes.
@@ -950,7 +950,7 @@ Built after the twenty changes, closing deviations the As-built notes list:
 - [x] `feat(playbooks): propose missions from start conditions and triage` —
   **Starts when** on playbooks (assigned issues, a workspace's pull request
   needing work, a schedule, **Start on its own**), evaluated by
-  `electron/host-service/supervision/proposal-runtime.ts` with occurrences in
+  supervision/proposal-runtime.ts (removed) with occurrences in
   `mission_trigger_seen` and proposals in `mission_proposals`; Issues →
   **Proposed**, Fleet's **N proposed**, `stave_propose_mission` and the
   **Triage requests** template.

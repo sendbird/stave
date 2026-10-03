@@ -70,21 +70,12 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_update_wake_up",
   "stave_set_wake_up_paused",
   "stave_remove_wake_up",
-  // Mission and project tools exist only on a turn carrying that mission's or
-  // project's grant, and those turns run unattended: asking would stop a
-  // mission at every stage report. They read or record Stave's own mission and
-  // project state; proposing records a proposal the user starts.
+  // Mission tools exist only on a turn carrying that mission's grant, and
+  // those turns run unattended: asking would stop a mission at every stage
+  // report. They read or record Stave's own mission state.
   "stave_get_mission",
   "stave_report_stage",
   "stave_block_stage",
-  "stave_propose_mission",
-  "stave_get_project",
-  "stave_list_missions",
-  "stave_get_mission_report",
-  "stave_note_project",
-  // Records a proposal the user approves; it starts a mission only when the
-  // user turned the project's "Ask before starting" off, which is that consent.
-  "stave_start_mission",
 ]);
 
 /**

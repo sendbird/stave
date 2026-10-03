@@ -45,7 +45,7 @@ describe("a stage another agent does", () => {
   });
 
   test("the lead task keeps its own provider and instructions: nothing in the stage changes them", () => {
-    // Boundary 17: a stage names an agent id and a pin, never a provider or model.
+    // Boundary 16: a stage names an agent id and a pin, never a provider or model.
     const stage = withReviewer(true).stages.find((candidate) => candidate.kind === "ai" && candidate.agentConfigId)!;
     expect(stage).not.toHaveProperty("providerId");
     expect(stage).not.toHaveProperty("model");

@@ -12,7 +12,6 @@ import { agentStyles } from "./agents.styles";
 
 const REFERENCE_KIND_LABELS = {
   "workflow-stage": "Workflow stage",
-  project: "Project",
   task: "Task",
 } as const;
 
@@ -39,8 +38,8 @@ function ReferenceList(props: { title: string; references: readonly AgentReferen
 }
 
 /**
- * Confirms deleting a custom agent. Lists where it is used: playbook stages
- * and projects block deletion (delete would leave a dangling reference —
+ * Confirms deleting a custom agent. Lists where it is used: another agent's
+ * workflow stages block deletion (delete would leave a dangling reference —
  * archive instead); running or waiting tasks keep their own snapshot and only
  * show for context. Past assignments are untouched, so history still renders
  * the name.

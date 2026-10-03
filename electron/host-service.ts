@@ -26,7 +26,11 @@ import {
 import {
   ensureHostServicePersistenceReady,
   resetHostServicePersistence,
+  resolveHostServiceUserDataPath,
 } from "./host-service/persistence";
+// temporary-migration: project-memory-export
+import { runLegacyProjectMemoryExport } from "./persistence/legacy-project-memory-export";
+// end temporary-migration: project-memory-export
 import {
   checkoutDefaultBranchDetached,
   checkoutScmBranch,
@@ -83,15 +87,9 @@ import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
 import { createHostMissionRuntime } from "./host-service/supervision/mission-host";
 import { invokeMissionRuntime } from "./host-service/supervision/mission-runtime";
-import { createProposalRuntime, invokeProposalRuntime } from "./host-service/supervision/proposal-runtime";
-import { resolveMissionGrant } from "./providers/mission-grants";
-import { createHostProjectRuntime } from "./host-service/supervision/project-host";
-import { invokeProjectAction } from "./host-service/supervision/project-runtime";
 import {
   createHostAssignRuntime,
-  hostMyStandards,
   invokeAgentAction,
-  setProjectAgentsLookup,
 } from "./host-service/supervision/assign-host";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
@@ -588,21 +586,6 @@ const missionRuntime = createHostMissionRuntime({
   taskAgent: (taskId) => assignRuntime.agentForTask(taskId),
   emitChanged: (event) => {
     emitEvent("mission.changed", event);
-    // A project follows its missions: a change may wake its coordinator.
-    projectRuntime.notifyMissionChanged({ missionId: event.missionId });
-  },
-});
-const projectRuntime = createHostProjectRuntime({
-  missionRuntime,
-  emitChanged: (event) => {
-    emitEvent("project.changed", event);
-  },
-  // Playbook start conditions read the same saved playbooks.
-  onPlaybooksSynced: (playbooks) => proposalRuntime.setPlaybooks(playbooks),
-  // A project mission's task that runs as an agent is recorded like an assignment.
-  recordTaskAgent: (task) => {
-    const standards = hostMyStandards();
-    assignRuntime.recordTaskAgent({ ...task, ...(standards ? { standards } : {}) });
   },
 });
 const assignRuntime = createHostAssignRuntime({
@@ -614,18 +597,6 @@ const assignRuntime = createHostAssignRuntime({
       console.warn("[missions] could not end the agent run of a released task", error);
     });
   },
-});
-setProjectAgentsLookup((taskId) => projectRuntime.agentsForTask(taskId));
-const proposalRuntime = createProposalRuntime({
-  store: ensureHostServicePersistenceReady().missions,
-  startMission: (input) => missionRuntime.startMission(input),
-  createIdleTask: (task) => localMcpRuntime.createIdleTask(task),
-  resolveMissionGrant,
-  resolveWorkspaceRepository: async (workspaceId) => {
-    const repositories = await localMcpRuntime.listKnownRepositories();
-    return repositories.find((repository) => repository.workspaces.some((workspace) => workspace.id === workspaceId))?.repositoryPath ?? null;
-  },
-  emitChanged: () => emitEvent("proposal.changed", {}),
 });
 const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
@@ -1425,8 +1396,6 @@ async function shutdown() {
   automationRuntime.stop();
   wakeUpRuntime.stop();
   missionRuntime.stop();
-  projectRuntime.stop();
-  proposalRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
     cleanupAllScriptProcesses(),
@@ -2142,21 +2111,8 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
-    case "project.invoke":
-      await respond(
-        request.id,
-        await invokeProjectAction(
-          projectRuntime,
-          request.params.action,
-          request.params.args,
-        ),
-      );
-      return;
     case "agent.invoke":
       await respond(request.id, await invokeAgentAction(assignRuntime, request.params.action, request.params.args));
-      return;
-    case "proposal.invoke":
-      await respond(request.id, await invokeProposalRuntime(proposalRuntime, request.params.action, request.params.args));
       return;
     default:
       request satisfies never;
@@ -2176,12 +2132,17 @@ async function main() {
   });
   prewarmClaudeSdk();
   void prepareCliExecutableDiscovery();
+  // temporary-migration: project-memory-export
+  // Projects were removed; their memories are written out once so none is lost.
+  runLegacyProjectMemoryExport({
+    userDataPath: resolveHostServiceUserDataPath(),
+    log: (message) => process.stderr.write(`${message}\n`),
+  });
+  // end temporary-migration: project-memory-export
   automationRuntime.start();
   wakeUpRuntime.start();
   missionRuntime.start();
-  projectRuntime.start();
   assignRuntime.start();
-  proposalRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

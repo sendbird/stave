@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { SCHEDULES } from "@/lib/schedules";
 import { AUTOMATION_PERMISSION_MODES, type AutomationPermissionMode } from "@/lib/automations";
 
 /**
@@ -286,13 +285,14 @@ const PlaybookRuntimeSchema = z
   .strict();
 
 /**
- * Starts when: what proposes a mission with this playbook. An issue assigned
- * to the user and pull request trouble propose it; a schedule runs it in a
- * chosen workspace (a triage playbook proposes the missions it finds).
- * `autoStart` starts it instead of proposing, only when a workspace is known
- * and its first stage publishes nothing.
+ * Deprecated: playbook start conditions (an assigned issue, pull request
+ * trouble, a schedule) were retired with proposals. Nothing reads them now.
+ * The shape stays because `PlaybookSchema` is strict and saved playbooks and
+ * old mission rows may still carry it.
  */
-export const PlaybookStartsWhenSchema = z
+const RETIRED_START_SCHEDULES = ["off", "daily", "weekdays", "weekly", "every-4h"] as const;
+
+const PlaybookStartsWhenSchema = z
   .object({
     issueAssigned: z
       .object({
@@ -306,7 +306,7 @@ export const PlaybookStartsWhenSchema = z
     pullRequest: z.object({ checksFailed: z.boolean(), changesRequested: z.boolean() }).strict().optional(),
     schedule: z
       .object({
-        schedule: z.enum(SCHEDULES),
+        schedule: z.enum(RETIRED_START_SCHEDULES),
         workspaceId: z.string().trim().min(1).max(200),
         workspaceName: z.string().trim().max(200),
         /** Slots before this never run. */
@@ -317,13 +317,6 @@ export const PlaybookStartsWhenSchema = z
     autoStart: z.boolean().optional(),
   })
   .strict();
-export type PlaybookStartsWhen = z.infer<typeof PlaybookStartsWhenSchema>;
-
-/** Whether a playbook's missions may start without the user: the first stage publishes nothing. */
-export function playbookCanAutoStart(playbook: Pick<Playbook, "stages">): boolean {
-  const first = playbook.stages[0];
-  return Boolean(first) && !(first!.kind === "ai" ? first!.role === "publish" : true);
-}
 
 export const PlaybookSchema = z
   .object({
@@ -344,6 +337,7 @@ export const PlaybookSchema = z
     runtime: PlaybookRuntimeSchema.optional(),
     advisorReview: z.boolean().optional(),
     constraints: z.string().trim().max(PLAYBOOK_LIMITS.constraints).optional(),
+    /** Deprecated and unread; kept so older saved playbooks still parse. */
     startsWhen: PlaybookStartsWhenSchema.optional(),
     stages: z
       .array(PlaybookStageSchema)

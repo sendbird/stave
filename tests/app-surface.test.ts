@@ -44,9 +44,9 @@ describe("app surface: agents", () => {
 
   test("closeAgents leaves another surface untouched", () => {
     const store = makeStore();
-    store.actions.openProjects();
+    store.actions.openResults();
     store.actions.closeAgents();
-    expect(store.get().activeAppSurface.kind).toBe("projects");
+    expect(store.get().activeAppSurface.kind).toBe("results");
   });
 
   test("persistence normalizes a stored agents surface to its singleton", () => {
@@ -55,6 +55,8 @@ describe("app surface: agents", () => {
 
   test("persistence falls back to workspace for an unknown surface", () => {
     expect(normalizeAppActiveSurface({ kind: "nope" }).kind).toBe("workspace");
+    // The retired Projects surface may still be persisted.
+    expect(normalizeAppActiveSurface({ kind: "projects" }).kind).toBe("workspace");
     expect(normalizeAppActiveSurface(null).kind).toBe("workspace");
   });
 });

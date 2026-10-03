@@ -72,7 +72,6 @@ describe("Codex turn-scoped Local MCP", () => {
         expect(params.config?.["mcp_servers.stave-local.http_headers"]).toEqual(
           {
             "x-stave-mission-key": missionKey ?? "",
-            "x-stave-project-key": "",
             "x-stave-caller-key": callerKey ?? "",
           },
         );

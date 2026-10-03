@@ -14,7 +14,6 @@ import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
-import { ProjectsView } from "@/components/projects/ProjectsView";
 import { AgentsView } from "@/components/agents/AgentsView";
 import { ResultsView } from "@/components/results/ResultsView";
 import {
@@ -1310,11 +1309,10 @@ export function AppShell() {
   const showFleetView = activeAppSurface.kind === "fleet-view";
   const showAutomationCenter = activeAppSurface.kind === "automation-center";
   const showIssues = activeAppSurface.kind === "issues";
-  const showProjects = activeAppSurface.kind === "projects";
   const showAgents = activeAppSurface.kind === "agents";
   const showResults = activeAppSurface.kind === "results";
   const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showIssues && !showProjects && !showAgents && !showResults;
+    !showFleetView && !showAutomationCenter && !showIssues && !showAgents && !showResults;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1473,8 +1471,6 @@ export function AppShell() {
                     <FleetView />
                   ) : showAutomationCenter ? (
                     <AutomationCenterView />
-                  ) : showProjects ? (
-                    <ProjectsView />
                   ) : showAgents ? (
                     <AgentsView />
                   ) : showResults ? (

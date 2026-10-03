@@ -15,7 +15,6 @@ import {
 } from "@/lib/runs/read-only-delegation";
 import { buildDelegatedTaskRuntimeOptions } from "@/lib/runs/delegated-task-runtime";
 import { MISSION_TOOL_NAMES } from "@/lib/missions/briefing";
-import { PROJECT_TOOL_NAMES } from "@/lib/projects/briefing";
 
 const claudeAuto = {
   claudePermissionMode: "auto" as const,
@@ -178,7 +177,6 @@ describe("read-only delegation access", () => {
     const registered = new Set([
       ...[...sources.matchAll(/registerTool\(\s*"(stave_[a-z_]+)"/g)].map((match) => match[1]!),
       ...Object.values(MISSION_TOOL_NAMES),
-      ...Object.values(PROJECT_TOOL_NAMES),
     ]);
     expect(registered.size).toBeGreaterThan(60);
     const allowed = new Set<string>([...READ_ONLY_DELEGATION_STAVE_TOOLS, ...READ_ONLY_STAVE_METADATA_TOOLS]);

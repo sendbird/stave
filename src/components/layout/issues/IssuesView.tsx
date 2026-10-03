@@ -26,15 +26,11 @@ import {
   type TrackerSourceId,
 } from "@/lib/tracker-issues/types";
 import { sx } from "@/components/ads/utils/stylex";
-import { hasProposedWork, type ProposedMission } from "@/lib/missions/proposed";
-import { summarizeWatching } from "@/lib/playbooks/starts-when";
 import { useAppStore } from "@/store/app.store";
-import { useProposalsStore } from "@/store/proposals-store";
 import { IssuesBoard } from "./IssuesBoard";
 import { IssuesPeekPanel } from "./IssuesPeekPanel";
 import { IssuesSurfaceHeader } from "./IssuesSurfaceHeader";
-import { IssuesToolbar, type IssuesSection } from "./IssuesToolbar";
-import { ProposedMissionsPanel } from "./ProposedMissionsPanel";
+import { IssuesToolbar } from "./IssuesToolbar";
 import { TrackerIssueDetailPane } from "./TrackerIssueDetailPane";
 import { TrackerIssueKickoffSheet } from "./TrackerIssueKickoffSheet";
 import { TrackerIssueList } from "./TrackerIssueList";
@@ -44,7 +40,6 @@ import {
   TrackerIssuesUnavailableState,
 } from "./TrackerIssuesEmptyState";
 import { openTrackerIssueInBrowser } from "./tracker-issue-ui";
-import { useProposalActions } from "./useProposalActions";
 import { useTrackerIssueActions } from "./useTrackerIssueActions";
 import { useTrackerIssueListPipeline } from "./useTrackerIssueListPipeline";
 import { useTrackerIssuesKeyboard } from "./useTrackerIssuesKeyboard";
@@ -99,48 +94,12 @@ export function IssuesView(props: { onClose: () => void }) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<string[]>([]);
   const [kickoffKey, setKickoffKey] = useState<string | null>(null);
-  /** The proposal a kickoff fulfils, when it started from Proposed. */
-  const [kickoffProposal, setKickoffProposal] =
-    useState<ProposedMission | null>(null);
-  const [section, setSection] = useState<IssuesSection>(() =>
-    useProposalsStore.getState().consumeProposedTabRequest()
-      ? "proposed"
-      : "issues",
-  );
-  const pendingProposals = useProposalsStore((state) => state.pending);
-  const recentProposals = useProposalsStore((state) => state.recent);
-  const proposalsLoaded = useProposalsStore((state) => state.loaded);
-  const proposedTabRequested = useProposalsStore(
-    (state) => state.proposedTabRequested,
-  );
-  const playbooks = useAppStore((state) => state.settings.playbooks);
-  const watching = useMemo(() => summarizeWatching(playbooks), [playbooks]);
   const [refreshing, setRefreshing] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const actions = useTrackerIssueActions({ closeSurface: props.onClose });
   const supported = Boolean(window.api?.trackerIssues);
-  const proposalActions = useProposalActions({
-    items: snapshot.allItems,
-    closeSurface: props.onClose,
-    openKickoff: (itemKey, proposal) => {
-      setKickoffProposal(proposal);
-      setKickoffKey(itemKey);
-    },
-    openStaveTask: actions.openStaveTask,
-  });
-
-  // "N proposed" in Fleet asks for this tab, also while Issues is open.
-  useEffect(() => {
-    if (
-      proposedTabRequested &&
-      useProposalsStore.getState().consumeProposedTabRequest()
-    ) {
-      setSection("proposed");
-    }
-  }, [proposedTabRequested]);
-
   useEffect(() => {
     const interval = window.setInterval(
       () => setNowMs(Date.now()),
@@ -269,7 +228,7 @@ export function IssuesView(props: { onClose: () => void }) {
     },
     onRefresh: () => refresh(),
     onFocusSearch: () => searchInputRef.current?.focus(),
-    enabled: kickoffKey === null && section === "issues",
+    enabled: kickoffKey === null,
   });
 
   // Escape leaves the surface, but only while nothing layered owns the key.
@@ -321,183 +280,141 @@ export function IssuesView(props: { onClose: () => void }) {
         labelOptions={pipeline.labelOptions}
         viewCounts={pipeline.viewCounts}
         searchInputRef={searchInputRef}
-        section={section}
-        onSectionChange={(next) => {
-          setSection(next);
-          setSelectedKey(null);
-        }}
-        showProposed={
-          section === "proposed" ||
-          hasProposedWork({
-            pendingCount: pendingProposals.length,
-            recentCount: recentProposals.length,
-            watching,
-          })
-        }
-        proposedCount={pendingProposals.length}
       />
-      {section === "proposed" ? (
-        <div className={sx(taskLayoutStyles.content)}>
-          <ProposedMissionsPanel
-            pending={pendingProposals}
-            recent={recentProposals}
-            loaded={proposalsLoaded}
-            now={now}
-            watching={watching}
-            startTarget={proposalActions.startTarget}
-            onStart={proposalActions.start}
-            onDismiss={proposalActions.dismiss}
-            onOpenLink={(url) =>
-              void window.api?.shell
-                ?.openExternal?.({ url })
-                .catch(() => undefined)
-            }
-            onOpenMission={proposalActions.openMission}
-          />
-        </div>
-      ) : (
-        <>
-          <TrackerSourceStatusStrip
-            summaries={summaries}
-            onRetry={(source) => refresh(source)}
-            // With an empty list the empty state already lists every source, so the
-            // strip would say the same thing twice. A loading board is the
-            // exception: it says nothing about the sources, so the strip stays.
-            hidden={layoutKeys.length === 0 && !boardLoading}
-          />
-          <div className={sx(taskLayoutStyles.content)}>
-            <div
-              className={sx(
-                taskLayoutStyles.listPane,
-                !selectedItem && taskLayoutStyles.listPaneVisible,
-              )}
-            >
-              {boardLoading ? (
-                <IssuesBoard
-                  items={[]}
-                  now={now}
-                  selectedKey={null}
-                  onSelect={setSelectedKey}
-                  onKickoff={setKickoffKey}
-                  onAttach={attachForKey}
-                  onOpenStaveTask={openStaveTaskForKey}
-                  attachTargetLabel={activeWorkspaceName}
-                  loading
-                />
-              ) : layoutKeys.length === 0 ? (
-                <TrackerIssuesEmptyListState
-                  summaries={summaries}
-                  hasFilters={countActiveTrackerIssueFilters(filter) > 0}
-                  refreshing={refreshing}
-                  onReset={() =>
-                    setFilter(createTrackerIssueFilter(filter.view))
-                  }
-                  onRefresh={() => refresh()}
-                />
-              ) : (
-                <div className={sx(taskLayoutStyles.listColumn)}>
-                  <div className={sx(taskLayoutStyles.listBody)}>
-                    {layout === "board" ? (
-                      <IssuesBoard
-                        items={boardItems}
-                        now={now}
-                        selectedKey={selectedKey}
-                        onSelect={setSelectedKey}
-                        onKickoff={setKickoffKey}
-                        onAttach={attachForKey}
-                        onOpenStaveTask={openStaveTaskForKey}
-                        attachTargetLabel={activeWorkspaceName}
-                      />
-                    ) : (
-                      <TrackerIssueList
-                        groups={pipeline.groups}
-                        now={now}
-                        selectedKey={selectedKey}
-                        collapsedGroupIds={collapsedGroupIds}
-                        onToggleGroup={(groupId) =>
-                          setCollapsedGroupIds((current) =>
-                            current.includes(groupId)
-                              ? current.filter((entry) => entry !== groupId)
-                              : [...current, groupId],
-                          )
-                        }
-                        onSelect={setSelectedKey}
-                        onKickoff={setKickoffKey}
-                        onAttach={attachForKey}
-                        onOpenStaveTask={openStaveTaskForKey}
-                        attachTargetLabel={activeWorkspaceName}
-                      />
-                    )}
-                  </div>
-                  {sourceStatuses.some((status) => status.truncated) ? (
-                    <p className={sx(taskLayoutStyles.truncationNotice)}>
-                      Showing {layoutKeys.length} loaded tickets. A tracker had
-                      more than one refresh can load.
-                    </p>
-                  ) : null}
-                </div>
-              )}
-            </div>
-            <IssuesPeekPanel
-              dock="split"
-              open={selectedItem !== null}
-              title={selectedItem?.task.key ?? "Ticket"}
-              width={peekWidth}
-              onWidthChange={setPeekWidth}
-              onClose={() => setSelectedKey(null)}
-              onExpand={
-                selectedItem
-                  ? () => openTrackerIssueInBrowser(selectedItem.task.url)
-                  : undefined
+      <TrackerSourceStatusStrip
+        summaries={summaries}
+        onRetry={(source) => refresh(source)}
+        // With an empty list the empty state already lists every source, so the
+        // strip would say the same thing twice. A loading board is the
+        // exception: it says nothing about the sources, so the strip stays.
+        hidden={layoutKeys.length === 0 && !boardLoading}
+      />
+      <div className={sx(taskLayoutStyles.content)}>
+        <div
+          className={sx(
+            taskLayoutStyles.listPane,
+            !selectedItem && taskLayoutStyles.listPaneVisible,
+          )}
+        >
+          {boardLoading ? (
+            <IssuesBoard
+              items={[]}
+              now={now}
+              selectedKey={null}
+              onSelect={setSelectedKey}
+              onKickoff={setKickoffKey}
+              onAttach={attachForKey}
+              onOpenStaveTask={openStaveTaskForKey}
+              attachTargetLabel={activeWorkspaceName}
+              loading
+            />
+          ) : layoutKeys.length === 0 ? (
+            <TrackerIssuesEmptyListState
+              summaries={summaries}
+              hasFilters={countActiveTrackerIssueFilters(filter) > 0}
+              refreshing={refreshing}
+              onReset={() =>
+                setFilter(createTrackerIssueFilter(filter.view))
               }
-              onNavigate={
-                selectedIndex >= 0
-                  ? (direction) => {
-                      const next =
-                        direction === "prev"
-                          ? selectedIndex - 1
-                          : selectedIndex + 1;
-                      const key = layoutKeys[next];
-                      if (key) {
-                        setSelectedKey(key);
-                      }
+              onRefresh={() => refresh()}
+            />
+          ) : (
+            <div className={sx(taskLayoutStyles.listColumn)}>
+              <div className={sx(taskLayoutStyles.listBody)}>
+                {layout === "board" ? (
+                  <IssuesBoard
+                    items={boardItems}
+                    now={now}
+                    selectedKey={selectedKey}
+                    onSelect={setSelectedKey}
+                    onKickoff={setKickoffKey}
+                    onAttach={attachForKey}
+                    onOpenStaveTask={openStaveTaskForKey}
+                    attachTargetLabel={activeWorkspaceName}
+                  />
+                ) : (
+                  <TrackerIssueList
+                    groups={pipeline.groups}
+                    now={now}
+                    selectedKey={selectedKey}
+                    collapsedGroupIds={collapsedGroupIds}
+                    onToggleGroup={(groupId) =>
+                      setCollapsedGroupIds((current) =>
+                        current.includes(groupId)
+                          ? current.filter((entry) => entry !== groupId)
+                          : [...current, groupId],
+                      )
                     }
-                  : undefined
-              }
-              prevDisabled={selectedIndex <= 0}
-              nextDisabled={
-                selectedIndex < 0 || selectedIndex >= layoutKeys.length - 1
-              }
-            >
-              {selectedItem ? (
-                <TrackerIssueDetailPane
-                  item={selectedItem}
-                  now={now}
-                  messageFontSize={messageFontSize}
-                  messageCodeFontSize={messageCodeFontSize}
-                  onKickoff={setKickoffKey}
-                  onAttach={attachForKey}
-                  onOpenStaveTask={openStaveTaskForKey}
-                  attachTargetLabel={activeWorkspaceName}
-                  embedded
-                />
+                    onSelect={setSelectedKey}
+                    onKickoff={setKickoffKey}
+                    onAttach={attachForKey}
+                    onOpenStaveTask={openStaveTaskForKey}
+                    attachTargetLabel={activeWorkspaceName}
+                  />
+                )}
+              </div>
+              {sourceStatuses.some((status) => status.truncated) ? (
+                <p className={sx(taskLayoutStyles.truncationNotice)}>
+                  Showing {layoutKeys.length} loaded tickets. A tracker had
+                  more than one refresh can load.
+                </p>
               ) : null}
-            </IssuesPeekPanel>
-          </div>
-        </>
-      )}
+            </div>
+          )}
+        </div>
+        <IssuesPeekPanel
+          dock="split"
+          open={selectedItem !== null}
+          title={selectedItem?.task.key ?? "Ticket"}
+          width={peekWidth}
+          onWidthChange={setPeekWidth}
+          onClose={() => setSelectedKey(null)}
+          onExpand={
+            selectedItem
+              ? () => openTrackerIssueInBrowser(selectedItem.task.url)
+              : undefined
+          }
+          onNavigate={
+            selectedIndex >= 0
+              ? (direction) => {
+                  const next =
+                    direction === "prev"
+                      ? selectedIndex - 1
+                      : selectedIndex + 1;
+                  const key = layoutKeys[next];
+                  if (key) {
+                    setSelectedKey(key);
+                  }
+                }
+              : undefined
+          }
+          prevDisabled={selectedIndex <= 0}
+          nextDisabled={
+            selectedIndex < 0 || selectedIndex >= layoutKeys.length - 1
+          }
+        >
+          {selectedItem ? (
+            <TrackerIssueDetailPane
+              item={selectedItem}
+              now={now}
+              messageFontSize={messageFontSize}
+              messageCodeFontSize={messageCodeFontSize}
+              onKickoff={setKickoffKey}
+              onAttach={attachForKey}
+              onOpenStaveTask={openStaveTaskForKey}
+              attachTargetLabel={activeWorkspaceName}
+              embedded
+            />
+          ) : null}
+        </IssuesPeekPanel>
+      </div>
 
       <TrackerIssueKickoffSheet
         item={kickoffItem}
-        onClose={() => {
-          setKickoffKey(null);
-          setKickoffProposal(null);
-        }}
+        onClose={() => setKickoffKey(null)}
         onKickedOff={(result) => {
           if (!kickoffItem) return;
           void actions.completeKickoff({ task: kickoffItem.task, result });
-          // The ticket's task is the proposal's answer.
-          if (kickoffProposal) void useProposalsStore.getState().markStarted(kickoffProposal.id, null);
         }}
       />
     </div>

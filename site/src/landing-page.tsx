@@ -242,10 +242,10 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
                   <span className={sx(s.shotDot)} />
                 </div>
                 <img
-                  alt="A project home: what needs you, the coordinator's summary, and missions that need you, run and are done"
+                  alt="An agent run in the Task panel: goal, state, stage track, acceptance criteria, the stage timeline, and the turns and spend"
                   className={sx(s.shotImage)}
                   loading="lazy"
-                  src="./docs/screenshots/projects.png"
+                  src="./docs/screenshots/mission-panel.png"
                 />
               </div>
             </div>

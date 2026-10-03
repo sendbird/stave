@@ -174,9 +174,8 @@ Limits:
 A delegation may name a saved agent (`agentConfigId`). The agent's
 instructions go ahead of the prompt and the agent's permission is a ceiling on
 what the child inherits; a read-only request stays read-only. It is refused, with the reason, when
-the agent is not usable as a delegated task, is not one of the project's
-agents, or would run with more permission than the delegating task's own
-agent. A retry runs as the same agent.
+the agent is not usable as a delegated task or would run with more
+permission than the delegating task's own agent. A retry runs as the same agent.
 
 `expectedHead` pins same-workspace work to a commit: the child does not start
 when the workspace HEAD differs, and a retry keeps the pin. The commit is

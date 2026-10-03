@@ -11,7 +11,6 @@ import { classifyUtilityRoute } from "../../providers/utility-inference";
 import { readWorkspaceRevision } from "./workspace-revision";
 import { observeWorkspaceScript } from "./workspace-script-verification";
 import type { MissionChangedEvent } from "../../../src/lib/missions/api";
-import { buildProjectMemoryContext } from "../../../src/lib/projects/briefing";
 import { readStaveLocalMcpManifest } from "../../main/stave-local-mcp-manifest";
 import { runCommandArgs } from "../../main/utils/command";
 import { resolveMissionGrant } from "../../providers/mission-grants";
@@ -169,14 +168,6 @@ export function createHostMissionRuntime(args: {
         payload: { source: "mission", missionId: mission.id },
         dedupeKey: `mission.turn_failed:${mission.id}:${detail}`,
       }),
-    readProjectContext: (projectId) => {
-      const project = persistence.projects.getProject(projectId);
-      if (!project) return null;
-      return buildProjectMemoryContext({
-        projectName: project.name,
-        memories: persistence.projects.listMemories(projectId, { acceptedOnly: true }),
-      });
-    },
     readTurnUsage: ({ workspaceId, taskId, turnId }) => {
       const [turn] = persistence.listTurns({ workspaceId, taskId, turnId });
       return turn ? { completed: Boolean(turn.completedAt), usage: turn.usage ?? null } : null;

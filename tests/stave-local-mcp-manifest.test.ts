@@ -39,7 +39,6 @@ describe("Stave Local MCP unattended automation authorization", () => {
         { name: "ELECTRON_RUN_AS_NODE", value: "1" },
         { name: "STAVE_LOCAL_MCP_OWNER_PID", value: "123" },
         { name: "STAVE_MISSION_GRANT_KEY", value: "" },
-        { name: "STAVE_PROJECT_GRANT_KEY", value: "" },
         { name: "STAVE_CALLER_GRANT_KEY", value: "" },
         {
           name: "STAVE_MCP_ALLOWED_TOOLS",
@@ -58,7 +57,6 @@ describe("Stave Local MCP unattended automation authorization", () => {
         { name: "ELECTRON_RUN_AS_NODE", value: "1" },
         { name: "STAVE_LOCAL_MCP_OWNER_PID", value: "123" },
         { name: "STAVE_MISSION_GRANT_KEY", value: "" },
-        { name: "STAVE_PROJECT_GRANT_KEY", value: "" },
         { name: "STAVE_CALLER_GRANT_KEY", value: "" },
       ],
     });

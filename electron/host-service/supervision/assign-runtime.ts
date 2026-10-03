@@ -51,7 +51,7 @@ export interface AssignRuntime {
   /** The agent an assigned task runs as, for its later turns. */
   agentForTask: (taskId: string) => AgentAssignment["agent"] | null;
   /**
-   * Records that a task another starter made (a project mission's task) runs
+   * Records that a task another starter made (a composer or delegated task) runs
    * as an agent, before its first turn. Idempotent by `requestId`.
    */
   recordTaskAgent: (args: {

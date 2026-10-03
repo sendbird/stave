@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { MISSION_CONTEXT_SOURCE_ID } from "@/lib/missions/briefing";
-import { PROJECT_CONTEXT_SOURCE_ID } from "@/lib/projects/briefing";
 import {
   TURN_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS,
   withoutTurnScopedContexts,
@@ -9,7 +8,9 @@ import {
 describe("turn-scoped retrieved context", () => {
   test("covers the parts Stave attaches to the turns it starts", () => {
     expect(TURN_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS.has(MISSION_CONTEXT_SOURCE_ID)).toBe(true);
-    expect(TURN_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS.has(PROJECT_CONTEXT_SOURCE_ID)).toBe(true);
+    expect(TURN_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS.has("stave:wake-up")).toBe(true);
+    // Saved by retired project coordinator turns; still filtered from older tasks.
+    expect(TURN_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS.has("stave:project-coordinator")).toBe(true);
   });
 
   test("keeps durable sources and drops turn-scoped ones", () => {

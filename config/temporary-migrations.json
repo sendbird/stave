@@ -29,6 +29,19 @@
       "tests": [
         "tests/api-connection-migration.test.ts"
       ]
+    },
+    {
+      "id": "project-memory-export",
+      "description": "Projects were removed after 0.24.1. On host start, writes the memories (accepted decisions and notes, plus unaccepted candidates) of every project in the retained project_memories table to <user data>/exports/project-memory/<project id>.md, once per project: an existing file is never rewritten. The project tables themselves are left in place and are never read otherwise.",
+      "introducedAfter": "0.24.1",
+      "removeInVersion": "0.27.0",
+      "files": [
+        "electron/host-service.ts",
+        "electron/persistence/legacy-project-memory-export.ts"
+      ],
+      "tests": [
+        "tests/legacy-project-memory-export.test.ts"
+      ]
     }
   ]
 }

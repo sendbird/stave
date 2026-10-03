@@ -121,8 +121,6 @@ const EMPTY_WORKSPACE_STATE: MissionWorkspaceState = {
   openPullRequest: null,
 };
 
-const PROJECT_MEMORY_SOURCE_ID = "stave:project-memory";
-
 type MissionStorePort = Pick<
   MissionStore,
   | "create"
@@ -210,11 +208,6 @@ export interface MissionRuntimeDependencies {
   /** Tells the user about a turn the mission could not start. Never throws. */
   notifyMissionProblem?: (args: { mission: Mission; detail: string }) => Promise<void> | void;
   /**
-   * What the mission's project has decided, for a mission a project started;
-   * null otherwise. Recalled only by missions of that project.
-   */
-  readProjectContext?: (projectId: string) => string | null;
-  /**
    * A turn's provider-reported usage and whether it has ended; null for an
    * unknown turn. Absent: missions show no spend.
    */
@@ -270,8 +263,7 @@ export interface MissionRuntime {
    * or replaced. True when a run ended. A playbook mission is left alone.
    */
   endAgentRunForTask: (args: { taskId: string }) => Promise<boolean>;
-  /** `projectId` is set only by the project runtime, for a mission a project started. */
-  startMission: (input: MissionStartInput, options?: { projectId?: string }) => Promise<MissionDetail>;
+  startMission: (input: MissionStartInput) => Promise<MissionDetail>;
   list: (args?: MissionListArgs) => Promise<{ missions: Mission[] }>;
   get: (args: MissionIdArgs) => Promise<MissionDetail>;
   /** What the mission's turns spent; null for an unknown mission or no usage reader. */
@@ -793,10 +785,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           ),
           ...routed?.runtimeOptions,
         },
-        retrievedContextParts: [
-          buildMissionTurnContextPart({ aggregate: started, reason }),
-          ...projectContextParts(started.mission),
-        ],
+        retrievedContextParts: [buildMissionTurnContextPart({ aggregate: started, reason })],
         ...(actionPrompt === undefined ? { missionStage: identity } : {}),
         ...(isAgentRun(mission)
           ? { agentRunPrompt: { missionId: mission.id, assignment: extractRunAssignment(prompt, mission.assignment) } }
@@ -869,13 +858,6 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       });
     }
     return outcome;
-  }
-
-  function projectContextParts(mission: Mission): CanonicalRetrievedContextPart[] {
-    const content = mission.projectId ? deps.readProjectContext?.(mission.projectId) : null;
-    return content
-      ? [{ type: "retrieved_context", sourceId: PROJECT_MEMORY_SOURCE_ID, title: "Project memory", content } as CanonicalRetrievedContextPart]
-      : [];
   }
 
   /** Runs the policy for one mission until it idles or starts a turn. */
@@ -1139,7 +1121,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         applyChange(cancelMission({ aggregate, now: now(), endedBy: "released" }));
         return true;
       }),
-    startMission: (rawInput, options) =>
+    startMission: (rawInput) =>
       enqueue(async () => {
         const input = MissionStartInputSchema.parse(rawInput);
         const existing = store.getActiveMissionForTask(input.leadTaskId);
@@ -1169,7 +1151,6 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           repositoryPath: snapshot.repositoryPath,
           fingerprint: { providerId: snapshot.providerId, model: snapshot.model },
           now: now(),
-          projectId: options?.projectId ?? null,
         });
         const created = store.create(change, now());
         if (!created.ok) refuse(created.message);

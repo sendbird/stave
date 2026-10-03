@@ -58,7 +58,7 @@ const PERMISSION_RULE =
 
 /**
  * An AI stage another agent does. The lead task delegates it and reports the
- * result: its own provider and instructions stay as they are (boundary 17).
+ * result: its own provider and instructions stay as they are (boundary 16).
  * `agentName` is looked up by the caller; the id is what the delegation uses.
  */
 function delegatedStageRule(stage: AiStage, agentName: string | undefined): string {

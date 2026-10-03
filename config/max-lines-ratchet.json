@@ -9,7 +9,7 @@
     "electron/main/ipc/provider-runtime-schemas.ts": 234,
     "electron/main/ipc/schemas.ts": 1620,
     "electron/persistence/notification-store.ts": 488,
-    "electron/persistence/sqlite-store.ts": 3040,
+    "electron/persistence/sqlite-store.ts": 3033,
     "electron/providers/claude-permission-policy.ts": 523,
     "electron/providers/claude-sdk-runtime.ts": 4287,
     "electron/providers/claude-event-mapping.ts": 897,

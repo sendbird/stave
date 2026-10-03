@@ -1182,20 +1182,6 @@ async function capturePlaybooks(browser) {
   await context.close();
 }
 
-async function captureProposedMissions(browser) {
-  console.log("[capture] proposed-missions");
-  const { context, page } = await openPreview(browser, "playbooks&view=proposed", { width: 1200, height: 760 });
-  await captureElement(page, page.getByTestId("proposed-missions"), "proposed-missions.png");
-  await context.close();
-}
-
-async function captureProjects(browser) {
-  console.log("[capture] projects");
-  const { context, page } = await openPreview(browser, "projects", { width: 1800, height: 1040 });
-  await captureElement(page, page.getByTestId("projects-view"), "projects.png");
-  await context.close();
-}
-
 const CAPTURE_STEPS = [
   ["stave-app", captureOverview],
   ["integrated-terminal", captureIntegratedTerminal],
@@ -1212,8 +1198,6 @@ const CAPTURE_STEPS = [
   ["mission-panel", captureMissionPanel],
   ["start-mission-sheet", captureStartMissionSheet],
   ["playbooks", capturePlaybooks],
-  ["proposed-missions", captureProposedMissions],
-  ["projects", captureProjects],
 ];
 
 async function main() {
