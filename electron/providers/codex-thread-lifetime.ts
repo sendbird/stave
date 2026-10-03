@@ -20,21 +20,46 @@ export class CodexThreadLifetime {
   private entries = new Map<string, Entry>();
 
   constructor(
-    private readonly unload: (threadId: string) => Promise<void>,
+    private readonly unload: (threadId: string, reload?: boolean) => Promise<void>,
     private readonly onError: () => void,
     private readonly defer: Schedule = schedule,
   ) {}
 
-  async acquire(threadId: string): Promise<() => void> {
+  async acquire(
+    threadId: string,
+    options?: { reload?: boolean },
+  ): Promise<() => void> {
     let entry = this.entries.get(threadId);
     if (!entry) {
       entry = { users: 0 };
       this.entries.set(threadId, entry);
     }
+    if (options?.reload && entry.users > 0) {
+      throw new Error(
+        "Cannot reload Codex browser access while the thread is in use.",
+      );
+    }
     entry.users += 1;
     entry.cancel?.();
     entry.cancel = undefined;
-    await entry.unloading;
+    if (options?.reload) {
+      const pendingUnload = entry.unloading;
+      entry.unloading = Promise.resolve(pendingUnload).then(() =>
+        this.unload(threadId, true),
+      );
+    }
+    const unloading = entry.unloading;
+    try {
+      await unloading;
+    } catch (error) {
+      entry.users -= 1;
+      if (entry.users === 0 && this.entries.get(threadId) === entry) {
+        this.entries.delete(threadId);
+      }
+      throw error;
+    } finally {
+      if (entry.unloading === unloading) entry.unloading = undefined;
+    }
     let released = false;
     return () => {
       if (released || this.entries.get(threadId) !== entry) return;
@@ -43,18 +68,19 @@ export class CodexThreadLifetime {
       if (entry.users !== 0) return;
       entry.cancel = this.defer(() => {
         entry.cancel = undefined;
-        entry.unloading = Promise.resolve()
+        const unloading = Promise.resolve()
           .then(() => {
             if (this.entries.get(threadId) === entry)
               return this.unload(threadId);
           })
           .catch(() => this.onError())
           .finally(() => {
-            entry.unloading = undefined;
+            if (entry.unloading === unloading) entry.unloading = undefined;
             if (entry.users === 0 && this.entries.get(threadId) === entry) {
               this.entries.delete(threadId);
             }
           });
+        entry.unloading = unloading;
       }, CODEX_THREAD_IDLE_MS);
     };
   }
@@ -80,9 +106,16 @@ export class CodexClientLifetime {
       onError: () => void;
     },
   ) {
-    this.threads = new CodexThreadLifetime(async (threadId) => {
-      if (!options.isRunning() || this.activeNativeThreads.has(threadId))
+    this.threads = new CodexThreadLifetime(async (threadId, reload) => {
+      if (!options.isRunning()) return;
+      if (this.activeNativeThreads.has(threadId)) {
+        if (reload) {
+          throw new Error(
+            "Cannot reload Codex browser access while the thread is active.",
+          );
+        }
         return;
+      }
       await options.unsubscribe(threadId);
     }, options.onError);
   }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   CodexThreadLifetime,
+  CodexClientLifetime,
   CODEX_THREAD_IDLE_MS,
 } from "../electron/providers/codex-thread-lifetime";
 
@@ -116,4 +117,85 @@ describe("Codex idle thread ownership", () => {
     h.lifetime.clear();
     expect(h.timers.size).toBe(0);
   });
+});
+
+
+describe("Codex browser access reload ownership", () => {
+  test("reload waits for unsubscribe before granting the resume lease", async () => {
+    let complete!: () => void;
+    const h = harness(() => new Promise<void>((resolve) => { complete = resolve; }));
+    (await h.lifetime.acquire("thread"))();
+    let ready = false;
+    const acquiring = h.lifetime.acquire("thread", { reload: true }).then((release) => { ready = true; return release; });
+    await Bun.sleep(0);
+    expect(ready).toBe(false);
+    expect(h.unloaded).toEqual(["thread"]);
+    complete();
+    const release = await acquiring;
+    expect(ready).toBe(true);
+    release();
+    h.lifetime.clear();
+  });
+
+  test("refuses to reload a pinned turn and keeps its lease intact", async () => {
+    const h = harness();
+    const release = await h.lifetime.acquire("thread");
+    await expect(h.lifetime.acquire("thread", { reload: true })).rejects.toThrow("thread is in use");
+    expect(h.unloaded).toEqual([]);
+    release();
+    h.expire();
+    await Bun.sleep(0);
+    expect(h.unloaded).toEqual(["thread"]);
+  });
+
+  test("a failed required reload propagates and does not leak a lease", async () => {
+    let fail = true;
+    const h = harness(async () => { if (fail) throw new Error("unsubscribe failed"); });
+    await expect(h.lifetime.acquire("thread", { reload: true })).rejects.toThrow("unsubscribe failed");
+    fail = false;
+    (await h.lifetime.acquire("thread", { reload: true }))();
+    h.lifetime.clear();
+    expect(h.unloaded).toEqual(["thread", "thread"]);
+  });
+});
+
+
+test("a reload remains pinned after a previously dispatched cleanup finishes", async () => {
+  const completions: (() => void)[] = [];
+  const h = harness(() => new Promise<void>((resolve) => { completions.push(resolve); }));
+  (await h.lifetime.acquire("thread"))();
+  h.expire();
+  await Bun.sleep(0);
+  const reloading = h.lifetime.acquire("thread", { reload: true });
+  completions[0]();
+  await Bun.sleep(0);
+  expect(completions).toHaveLength(2);
+  let nextReady = false;
+  const next = h.lifetime.acquire("thread").then((release) => { nextReady = true; return release; });
+  await Bun.sleep(0);
+  expect(nextReady).toBe(false);
+  completions[1]();
+  (await reloading)();
+  (await next)();
+  h.lifetime.clear();
+});
+
+
+test("browser reload cannot unsubscribe a detached active native turn", async () => {
+  let unsubscribes = 0;
+  const client = new CodexClientLifetime({
+    isRunning: () => true,
+    isBusy: () => false,
+    retire: () => {},
+    unsubscribe: async () => { unsubscribes++; },
+    onError: () => {},
+  });
+  client.observe({ method: "turn/started", params: { threadId: "native-thread" } });
+  await expect(client.threads.acquire("native-thread", { reload: true })).rejects.toThrow("thread is active");
+  expect(unsubscribes).toBe(0);
+  client.observe({ method: "turn/completed", params: { threadId: "native-thread" } });
+  await Bun.sleep(0);
+  (await client.threads.acquire("native-thread", { reload: true }))();
+  expect(unsubscribes).toBe(1);
+  client.clear();
 });
