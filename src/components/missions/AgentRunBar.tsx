@@ -6,12 +6,14 @@ import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { AGENT_RUN_STATE_TONES, agentRunDuration, describeAgentRunStatus } from "@/lib/missions/agent-run-view";
 import { projectMissionStages } from "@/lib/missions/mission-view";
-import type { ShelfTodoProgress } from "@/components/session/composer-shelf/composer-shelf.utils";
+import type { ShelfTodoProgress, ShelfTurnAlert } from "@/components/session/composer-shelf/composer-shelf.utils";
 import { shelfStyles } from "@/components/session/composer-shelf/composer-shelf.styles";
 import {
+  describeShelfTurnAlert,
   ShelfRunLine,
   ShelfRunText,
   ShelfTodoProgressView,
+  shelfTurnAlertParts,
   type ShelfRunDetailToggle,
 } from "@/components/session/composer-shelf/ShelfRunLine";
 import { StageStatusIcon } from "./StageStatusIcon";
@@ -28,6 +30,8 @@ export const TAKE_CONTROL_HINT = "Ends the run and keeps this task in Chat, on t
  * transcript card waits for the run to end. A run of an agent with a workflow
  * draws its stages as the compact track (the stage and `2/4` once the
  * composer is too narrow for it); a one-stage run shows its turn's to-dos.
+ * While its turn stalls, steers, retries or fails, that tone takes the place
+ * of the run's state, in the turn line's own words.
  */
 export function AgentRunBarView(props: {
   detail: MissionDetail;
@@ -43,11 +47,14 @@ export function AgentRunBarView(props: {
   todo?: ShelfTodoProgress | null;
   /** The card above the composer already asks (a sign-off), so the line names the state only. */
   reasonShownElsewhere?: boolean;
+  /** The turn's stall, steer, retry or failure, said instead of the run's state. */
+  turnAlert?: ShelfTurnAlert | null;
 }) {
   const { detail, actions = {} } = props;
   const status = describeAgentRunStatus(detail);
-  const showNow = status.state === "working" && props.nowPhrase !== null;
-  const reason = status.state === "needs-you" && !props.reasonShownElsewhere ? status.reason : null;
+  const alert = props.turnAlert ?? null;
+  const showNow = !alert && status.state === "working" && props.nowPhrase !== null;
+  const reason = status.state === "needs-you" && !props.reasonShownElsewhere && !alert ? status.reason : null;
   const elapsed = agentRunDuration(detail, props.now);
   const staged = detail.mission.playbook.stages.length > 1;
   const rows = useMemo(
@@ -63,7 +70,7 @@ export function AgentRunBarView(props: {
       testId="agent-run-bar"
       dataState={status.state}
       ariaLabel={`${status.agentName}: ${status.label}`}
-      announcement={`${status.agentName}: ${status.label}${current ? `, stage ${current.index + 1} of ${rows!.length}: ${current.stage.title}` : ""}`}
+      announcement={`${status.agentName}: ${alert ? alert.label : status.label}${current ? `, stage ${current.index + 1} of ${rows!.length}: ${current.stage.title}` : ""}`}
       mark={
         <StageStatusIcon
           tone={AGENT_RUN_STATE_TONES[status.state]}
@@ -77,21 +84,25 @@ export function AgentRunBarView(props: {
           title={[
             status.agentName,
             stageWords,
-            status.label,
+            alert ? describeShelfTurnAlert(alert) : status.label,
             showNow ? props.nowPhrase : reason,
             detail.mission.assignment.split("\n")[0],
           ]
             .filter(Boolean)
             .join(" · ")}
           narrow={stageWords}
-          parts={[
-            <span className={sx(waiting ? shelfStyles.labelWaiting : shelfStyles.strong)}>{status.label}</span>,
-            showNow ? (
-              <TextShimmer active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
-            ) : (
-              reason
-            ),
-          ]}
+          parts={
+            alert
+              ? shelfTurnAlertParts(alert)
+              : [
+                  <span className={sx(waiting ? shelfStyles.labelWaiting : shelfStyles.strong)}>{status.label}</span>,
+                  showNow ? (
+                    <TextShimmer active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
+                  ) : (
+                    reason
+                  ),
+                ]
+          }
         />
       }
       progress={

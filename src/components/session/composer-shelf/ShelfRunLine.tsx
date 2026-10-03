@@ -8,7 +8,12 @@ import {
 import { Button } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
-import type { ShelfSegment, ShelfTodoProgress } from "./composer-shelf.utils";
+import type {
+  ShelfRunTone,
+  ShelfSegment,
+  ShelfTodoProgress,
+  ShelfTurnAlert,
+} from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 
 export type ShelfLabelTone = "default" | "waiting" | "danger" | "accent";
@@ -19,6 +24,43 @@ const LABEL_TONES: Record<ShelfLabelTone, StyleXValue | null> = {
   danger: styles.labelDanger,
   accent: styles.labelAccent,
 };
+
+/** The ink each turn tone writes its label in. */
+export const SHELF_RUN_TONE_INK: Record<ShelfRunTone, ShelfLabelTone> = {
+  active: "default",
+  waiting: "waiting",
+  steering: "accent",
+  stalled: "waiting",
+  retrying: "waiting",
+  failed: "danger",
+  done: "default",
+  stopped: "default",
+};
+
+/**
+ * `Stalled · No updates for 2m · Esc stops it…` as parts for a run's line,
+ * written as the turn's own line writes them: the label in the tone's ink, the
+ * headline plain, the hint muted.
+ */
+export function shelfTurnAlertParts(alert: ShelfTurnAlert): ReactNode[] {
+  return [
+    <span
+      key="label"
+      data-testid="shelf-turn-alert"
+      data-tone={alert.tone}
+      className={sx(styles.label, LABEL_TONES[SHELF_RUN_TONE_INK[alert.tone]])}
+    >
+      {alert.label}
+    </span>,
+    alert.text ? <span key="text" className={sx(styles.strong)}>{alert.text}</span> : null,
+    alert.detail,
+  ];
+}
+
+/** The same alert in plain words, for a line's title and announcement. */
+export function describeShelfTurnAlert(alert: ShelfTurnAlert): string {
+  return [alert.label, alert.text, alert.detail].filter(Boolean).join(" · ");
+}
 
 export interface ShelfRunDetailToggle {
   kind: "inline" | "floating";

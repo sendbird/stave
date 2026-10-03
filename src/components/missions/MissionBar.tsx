@@ -23,11 +23,17 @@ import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
 import { useNow, usePrefersReducedMotion, useScopedTaskMission } from "./useMission";
-import type { ShelfTodoProgress } from "@/components/session/composer-shelf/composer-shelf.utils";
+import {
+  resolveShelfTurnAlert,
+  type ShelfTodoProgress,
+  type ShelfTurnAlert,
+} from "@/components/session/composer-shelf/composer-shelf.utils";
 import { shelfStyles } from "@/components/session/composer-shelf/composer-shelf.styles";
 import {
+  describeShelfTurnAlert,
   ShelfRunLine,
   ShelfRunText,
+  shelfTurnAlertParts,
   type ShelfRunDetailToggle,
 } from "@/components/session/composer-shelf/ShelfRunLine";
 
@@ -92,7 +98,17 @@ export interface MissionLineShelfProps {
   detailToggle?: ShelfRunDetailToggle | null;
   todo?: ShelfTodoProgress | null;
   reasonShownElsewhere?: boolean;
+  /** The turn's stall, steer, retry or failure, said in place of the run's state. */
+  turnAlert?: ShelfTurnAlert | null;
 }
+
+/** The shelf hands the mission line its turn; the line works out what of it to say. */
+export type MissionBarProps = Omit<MissionLineShelfProps, "turnAlert"> & {
+  /** The turn the run is in right now, if any. */
+  turnActivity?: ProviderTurnActivitySnapshot | null;
+  /** A steer was sent and the provider has not taken it yet. */
+  steering?: boolean;
+};
 
 type MissionBarViewProps = MissionLineShelfProps & {
   detail: MissionDetail;
@@ -139,12 +155,13 @@ function PlaybookMissionBarView(props: MissionBarViewProps) {
   }, [held]);
 
   // Announce stage changes and sign-off requests only.
+  const alert = held ? null : (props.turnAlert ?? null);
   const announcement =
     current.status === "awaiting-sign-off"
       ? `Waiting for your sign-off: ${current.stage.title}`
-      : `Stage ${current.index + 1} of ${rows.length}: ${current.stage.title}`;
+      : `${alert ? `${alert.label}, s` : "S"}tage ${current.index + 1} of ${rows.length}: ${current.stage.title}`;
 
-  const showNow = !held && line.live && props.nowPhrase !== null;
+  const showNow = !held && !alert && line.live && props.nowPhrase !== null;
   const title = held?.title ?? line.title;
   const state = held ? null : line.state;
   const detailText = held ? held.detail : showNow ? props.nowPhrase : line.detail;
@@ -176,17 +193,23 @@ function PlaybookMissionBarView(props: MissionBarViewProps) {
         <ShelfRunText
           label={title}
           // The line spends its width on the present; identity is in the title.
-          title={`${mission.playbook.name} · ${mission.assignment.split("\n")[0]}`}
+          title={[mission.playbook.name, alert ? describeShelfTurnAlert(alert) : null, mission.assignment.split("\n")[0]]
+            .filter(Boolean)
+            .join(" · ")}
           narrow={`${current.index + 1}/${rows.length}`}
-          parts={[
-            state ? <span className={sx(stateInk)}>{state}</span> : null,
-            showNow && detailText ? (
-              <TextShimmer active={!props.reducedMotion}>{detailText}</TextShimmer>
-            ) : (
-              detailText
-            ),
-            age,
-          ]}
+          parts={
+            alert
+              ? shelfTurnAlertParts(alert)
+              : [
+                  state ? <span className={sx(stateInk)}>{state}</span> : null,
+                  showNow && detailText ? (
+                    <TextShimmer active={!props.reducedMotion}>{detailText}</TextShimmer>
+                  ) : (
+                    detailText
+                  ),
+                  age,
+                ]
+          }
         />
       }
       progress={
@@ -231,9 +254,21 @@ function PlaybookMissionBarView(props: MissionBarViewProps) {
  * The run line of the scoped task's active mission, or nothing. The composer
  * shelf mounts it whenever one is active, between turns included.
  */
-export function MissionBar(props: MissionLineShelfProps) {
+export function MissionBar(props: MissionBarProps) {
+  const { turnActivity = null, steering = false, ...shelf } = props;
   const { detail, taskId } = useScopedTaskMission();
   const active = Boolean(detail && isActiveMissionState(detail.mission.state));
+  // A stall names how long it has been quiet, so it ticks by the second.
+  const stalledAt = active && turnActivity?.completedAt == null ? (turnActivity?.stalledAt ?? null) : null;
+  const turnNow = useNow(stalledAt != null, 1_000);
+  const turnAlert = active
+    ? resolveShelfTurnAlert({
+        activity: turnActivity,
+        steering,
+        // The first render of a stall comes before the clock's first tick.
+        now: Math.max(turnNow, stalledAt ?? 0),
+      })
+    : null;
   const nowPhrase = useAppStore((state) =>
     active ? selectNowPhrase(state.providerTurnActivityByTask[taskId]) : null,
   );
@@ -248,7 +283,8 @@ export function MissionBar(props: MissionLineShelfProps) {
   if (!detail || !active) return null;
   return (
     <MissionBarView
-      {...props}
+      {...shelf}
+      turnAlert={turnAlert}
       detail={detail}
       nowPhrase={shownPhrase}
       now={now}

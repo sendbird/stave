@@ -7,7 +7,11 @@
  * where a run's *details* open: inline under the line, in the floating card, or
  * in the Task panel.
  */
-import type { RetainedTurnOutcome } from "@/lib/providers/turn-status";
+import {
+  formatProviderTurnIdleDuration,
+  type ProviderTurnActivitySnapshot,
+  type RetainedTurnOutcome,
+} from "@/lib/providers/turn-status";
 import type { TurnActivityPlacement } from "@/store/app-settings";
 import type { ShelfDetailOverride } from "@/store/composer-shelf-store";
 import type {
@@ -260,6 +264,69 @@ export function resolveTurnRunHeadline(args: {
     text: args.isPlanPreparing ? "Preparing the plan" : null,
     detail: null,
     live: args.isPlanPreparing,
+  };
+}
+
+/** The turn tones an agent run's line still has to say while it heads the shelf. */
+export type ShelfTurnAlertTone = Extract<ShelfRunTone, "steering" | "stalled" | "retrying" | "failed">;
+
+export interface ShelfTurnAlert {
+  tone: ShelfTurnAlertTone;
+  label: string;
+  text: string | null;
+  detail: string | null;
+}
+
+/**
+ * What the turn under an agent run (or playbook mission) needs said that the
+ * run's own line cannot know: a stall and how to break it, a steer in flight,
+ * a provider retry or a failure. Same tones and words as the turn's line; the
+ * ordinary tones (working, waiting on a card, done) stay the run's to say.
+ */
+export function resolveShelfTurnAlert(args: {
+  activity: Pick<
+    ProviderTurnActivitySnapshot,
+    | "completedAt"
+    | "lastEventAt"
+    | "pendingInteraction"
+    | "stalledAt"
+    | "turnError"
+    | "turnErrorRecoverable"
+  > | null;
+  steering: boolean;
+  now: number;
+}): ShelfTurnAlert | null {
+  const { activity } = args;
+  const completed = activity?.completedAt != null;
+  const pendingInteraction = activity?.pendingInteraction ?? null;
+  const turnError = activity?.turnError ?? null;
+  const isStalled = activity?.stalledAt != null && !completed && pendingInteraction == null;
+  const tone = resolveTurnRunTone({
+    pendingInteraction,
+    isStalled,
+    steering: args.steering,
+    turnError,
+    turnErrorRecoverable: activity?.turnErrorRecoverable ?? false,
+    completed,
+  });
+  if (tone !== "steering" && tone !== "stalled" && tone !== "retrying" && tone !== "failed") {
+    return null;
+  }
+  const headline = resolveTurnRunHeadline({
+    tone,
+    pendingInteraction,
+    hasPendingInteractionCard: false,
+    turnError,
+    idleLabel: isStalled ? formatProviderTurnIdleDuration({ activity, now: args.now }) : null,
+    featured: null,
+    countsHeadline: null,
+    isPlanPreparing: false,
+  });
+  return {
+    tone,
+    label: describeTurnRunLabel(tone, pendingInteraction),
+    text: headline.text,
+    detail: headline.detail,
   };
 }
 

@@ -11,6 +11,7 @@ import {
   resolveShelfRunControls,
   resolveShelfRunKey,
   resolveShelfRunSource,
+  resolveShelfTurnAlert,
   resolveTurnRunHeadline,
   resolveTurnRunTone,
   resolveVisibleQueuedTurns,
@@ -187,6 +188,65 @@ describe("turn run line", () => {
     expect(many?.segments).toHaveLength(10);
     expect(many?.segments.filter((segment) => segment === "done")).toHaveLength(5);
     expect(many?.segments[5]).toBe("active");
+  });
+});
+
+describe("turn alert under an agent run", () => {
+  const NOW = 1_000_000;
+  const live = {
+    completedAt: undefined,
+    lastEventAt: NOW - 134_000,
+    pendingInteraction: null,
+    stalledAt: null,
+    turnError: undefined,
+    turnErrorRecoverable: undefined,
+  };
+
+  test("an ordinary turn leaves the run's line alone", () => {
+    expect(resolveShelfTurnAlert({ activity: null, steering: false, now: NOW })).toBeNull();
+    expect(resolveShelfTurnAlert({ activity: live, steering: false, now: NOW })).toBeNull();
+    // Waiting on a card is the card's to ask, and done is the run's to say.
+    expect(
+      resolveShelfTurnAlert({
+        activity: { ...live, stalledAt: NOW - 1, pendingInteraction: "approval" },
+        steering: false,
+        now: NOW,
+      }),
+    ).toBeNull();
+    expect(resolveShelfTurnAlert({ activity: { ...live, completedAt: NOW }, steering: false, now: NOW })).toBeNull();
+  });
+
+  test("a stall says how long it has been quiet and how to break it, in the turn line's words", () => {
+    expect(
+      resolveShelfTurnAlert({ activity: { ...live, stalledAt: NOW - 44_000 }, steering: false, now: NOW }),
+    ).toEqual({
+      tone: "stalled",
+      label: "Stalled",
+      text: "No updates for 2m 14s",
+      detail: "Esc stops it, or send a message to interrupt and continue",
+    });
+  });
+
+  test("a steer in flight, a provider retry and a failure each say so", () => {
+    expect(resolveShelfTurnAlert({ activity: live, steering: true, now: NOW })).toMatchObject({
+      tone: "steering",
+      label: "Steering",
+      text: "Waiting for the provider to accept your message",
+    });
+    expect(
+      resolveShelfTurnAlert({
+        activity: { ...live, turnError: "Overloaded, retrying in 4s", turnErrorRecoverable: true },
+        steering: false,
+        now: NOW,
+      }),
+    ).toMatchObject({ tone: "retrying", label: "Retrying", text: "Overloaded, retrying in 4s" });
+    expect(
+      resolveShelfTurnAlert({
+        activity: { ...live, turnError: "Provider stream failed", completedAt: NOW },
+        steering: false,
+        now: NOW,
+      }),
+    ).toMatchObject({ tone: "failed", label: "Failed", text: "Provider stream failed" });
   });
 });
 

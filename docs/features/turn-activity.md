@@ -134,6 +134,10 @@ never draws a second status:
 
 - The agent's name, `Working` or `Needs you` with what it waits on, and the
   current step while a turn runs.
+- When that turn stalls, steers, retries or fails, the line says so in the
+  turn's own words and colors in place of the run's state:
+  `<Agent> · Stalled · No updates for 2m · Esc stops it…`, `Steering`,
+  `Retrying` or `Failed` with the reason.
 - An agent with a workflow draws its stages as the compact track, naming the
   stage and where it stands (`Cause 2/3`); a one-stage run shows its turn's
   to-dos.

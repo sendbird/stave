@@ -143,6 +143,8 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
               detailToggle={turnProps ? detailToggle : null}
               todo={todo}
               reasonShownElsewhere={signOffShown}
+              turnActivity={turnProps?.activity ?? null}
+              steering={props.steering}
             />
           ) : turnProps ? (
             <TurnRunLine

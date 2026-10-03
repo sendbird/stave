@@ -8,6 +8,7 @@ import { AgentRunResultCardView } from "@/components/missions/AgentRunResultCard
 import { FleetMissionStrip } from "@/components/missions/FleetMissionStrip";
 import { MissionBarView } from "@/components/missions/MissionBar";
 import { ComposerShelfSurface } from "@/components/session/composer-shelf/ComposerShelf";
+import type { ShelfTurnAlert } from "@/components/session/composer-shelf/composer-shelf.utils";
 import { MissionDetailView } from "@/components/missions/MissionPanel";
 import { compileMissionStagePrompt } from "@/lib/missions/briefing";
 import type { MissionDetail } from "@/lib/missions/api";
@@ -25,6 +26,20 @@ const runActions = {
   onRetry: () => {},
   onAskForChanges: () => {},
   onOpenPullRequest: () => {},
+};
+
+/** A run's turn in the tones only the turn knows, as the shelf hands them to the line. */
+const STALLED_TURN: ShelfTurnAlert = {
+  tone: "stalled",
+  label: "Stalled",
+  text: "No updates for 2m 14s",
+  detail: "Esc stops it, or send a message to interrupt and continue",
+};
+const STEERING_TURN: ShelfTurnAlert = {
+  tone: "steering",
+  label: "Steering",
+  text: "Waiting for the provider to accept your message",
+  detail: null,
 };
 
 /** Fleet cards for two runs in other workspaces; the page seeds them with its own. */
@@ -61,12 +76,14 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
 
       {(
         [
-          ["Agent run working", "Composer · working", working.working, "Running the tests"],
-          ["Agent run needs you", "Composer · needs you (blocked)", working.needsYou, null],
-          ["Agent run stuck", "Composer · needs you (stuck)", working.stuck, null],
-          ["Agent run workflow", "Composer · an agent with a workflow, stage 2 of 3", working.workflow, "Reading the export handler"],
+          ["Agent run working", "Composer · working", working.working, "Running the tests", null],
+          ["Agent run needs you", "Composer · needs you (blocked)", working.needsYou, null, null],
+          ["Agent run stuck", "Composer · needs you (stuck)", working.stuck, null, null],
+          ["Agent run workflow", "Composer · an agent with a workflow, stage 2 of 3", working.workflow, "Reading the export handler", null],
+          ["Agent run turn stalled", "Composer · working, its turn stalled", working.working, "Running the tests", STALLED_TURN],
+          ["Agent run turn steering", "Composer · workflow, a steer in flight", working.workflow, "Reading the export handler", STEERING_TURN],
         ] as const
-      ).map(([id, label, detail, phrase]) => (
+      ).map(([id, label, detail, phrase, turnAlert]) => (
         <section key={id} className={sx(styles.case)} data-preview-case={id}>
           <p className={sx(styles.caption)}>{label}</p>
           <div className={sx(styles.stack)}>
@@ -74,6 +91,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
               <MissionBarView
                 detail={detail}
                 nowPhrase={phrase}
+                turnAlert={turnAlert}
                 now={now}
                 reducedMotion={false}
                 agentActions={runActions}
