@@ -64,6 +64,7 @@ import {
   createProviderTurnEventController,
   runProviderTurn,
 } from "@/store/provider-turn-runtime";
+import { endUsageLimitPauseOnTurnStart, settleTaskQueueAfterTurn } from "@/store/task-work-pause-wiring";
 import { guardSendAgainstAccountUsage } from "@/store/account-usage-guard";
 import { toast } from "@/lib/notifications/toast";
 import { applySteeredTurnState } from "@/store/steer-turn-state";
@@ -1270,6 +1271,7 @@ export function createSendUserMessageAction(args: {
       }
       // Same tick as the row insert: Auto's pending row hands straight over.
       endPendingAutoRoute({ taskId: resolvedTaskId, id: turnId });
+      endUsageLimitPauseOnTurnStart(get, resolvedTaskId, turnOrigin);
 
       const turnActivityStartedAt = Date.now();
       // The usage meter's cadence is driven by real turn activity rather
@@ -1568,9 +1570,9 @@ export function createSendUserMessageAction(args: {
               state: latestState,
               workspaceId: taskWorkspaceId,
             });
-            dispatchNextQueuedTaskTurn({
-              workspaceId: taskWorkspaceId,
-              taskId: resolvedTaskId,
+            settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, {
+              workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
+              providerId: provider, model: activeModel, turnOrigin,
             });
             maybeStartProviderBrowserFallbackTurn(get, {
               taskId: resolvedTaskId,

@@ -1320,6 +1320,13 @@ wall-clock time), and what happens at 100%. With Stop turns at 100% usage on
 (the default), Stave holds new turns for that provider until the window resets
 and running turns finish; with it off, Stave keeps sending turns. Stave does not
 switch accounts on its own; the popover says so and offers the account switch.
+A task whose turn a limit stopped, or whose queued message the 100% rule
+refused, pauses its queue and shows a usage-limit line in the composer shelf
+with **Resume at reset** and **Resume now**
+([When A Usage Limit Stops Work](../features/turn-activity.md#when-a-usage-limit-stops-work)).
+The stop is recognized from the error text the runtimes already emit
+(`src/lib/providers/usage-limit-stop.ts`), and the reset time comes from a
+forced usage read, so neither runtime's event contract changes.
 The popover lists every window, the same 100% rule, and the tokens and cost
 breakdown with the number of turns behind each. When a provider has more than one account, it
 names the account the numbers belong to.

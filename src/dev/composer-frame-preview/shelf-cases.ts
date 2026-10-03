@@ -4,6 +4,11 @@ import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { missionTaskKey, useMissionsStore } from "@/store/missions-store";
 import { useAppStore } from "@/store/app.store";
 import type { TurnActivityPlacement } from "@/store/app-settings";
+import {
+  resolveUsageLimitAutoResumeAt,
+  type QueuePauseReason,
+  type UsageLimitPauseByTask,
+} from "@/store/task-work-pause";
 import type { ChatMessage, PromptDraftQueuedTurn } from "@/types/chat";
 import { buildAgentRunFixtures } from "../mission-preview/agent-run-fixtures";
 import { createPreviewActivity } from "./fixtures";
@@ -24,6 +29,9 @@ export const SHELF_CASES = [
   { id: "agent", label: "Agent run" },
   { id: "agent-staged", label: "Staged run" },
   { id: "agent-needs", label: "Run needs you" },
+  { id: "limited", label: "Usage limit" },
+  { id: "limited-armed", label: "Resume at reset" },
+  { id: "restored", label: "Restored queue" },
 ] as const;
 
 export type ShelfCaseId = (typeof SHELF_CASES)[number]["id"];
@@ -155,7 +163,7 @@ export function seedShelfCase(args: {
   detailsOpen: boolean;
 }) {
   const { caseId } = args;
-  const turnLive = caseId !== "idle" && caseId !== "agent-needs";
+  const turnLive = isShelfCaseTurnLive(caseId);
   const messages = turnLive
     ? caseId === "needs-input"
       ? [todoMessage(), approvalMessage()]
@@ -168,6 +176,8 @@ export function seedShelfCase(args: {
     providerTurnActivityByTask: turnLive ? { [PREVIEW_TASK_ID]: activityFor(caseId) } : {},
     retainedTurnActivityByTask: {},
     messagesByTask: { [PREVIEW_TASK_ID]: messages },
+    usageLimitPauseByTask: usageLimitPauseFor(caseId),
+    restoredQueueReleasedByTask: {},
     settings: {
       ...state.settings,
       turnActivityPlacement: args.placement,
@@ -184,6 +194,45 @@ export function seedShelfCase(args: {
   });
 }
 
+const IDLE_CASES: readonly ShelfCaseId[] = ["idle", "agent-needs", "limited", "limited-armed", "restored"];
+
+export function isShelfCaseTurnLive(caseId: ShelfCaseId) {
+  return !IDLE_CASES.includes(caseId);
+}
+
+function usageLimitPauseFor(caseId: ShelfCaseId): UsageLimitPauseByTask {
+  if (caseId !== "limited" && caseId !== "limited-armed") {
+    return {};
+  }
+  const resetsAt = Date.now() + 67 * 60_000;
+  return {
+    [PREVIEW_TASK_ID]: {
+      workspaceId: PREVIEW_WORKSPACE_ID,
+      providerId: "claude-code",
+      stoppedTurn: true,
+      pausedAt: Date.now() - 3 * 60_000,
+      resetsAt,
+      windowLabel: "Session",
+      ...(caseId === "limited-armed"
+        ? { autoResumeAt: resolveUsageLimitAutoResumeAt({ resetsAt, now: Date.now() }) ?? undefined }
+        : {}),
+    },
+  };
+}
+
 export function caseHasQueue(caseId: ShelfCaseId) {
-  return caseId === "queued" || caseId === "steering";
+  return (
+    caseId === "queued" ||
+    caseId === "steering" ||
+    caseId === "limited" ||
+    caseId === "limited-armed" ||
+    caseId === "restored"
+  );
+}
+
+export function queuePauseFor(caseId: ShelfCaseId): QueuePauseReason | null {
+  if (caseId === "limited" || caseId === "limited-armed") {
+    return "usage-limit";
+  }
+  return caseId === "restored" ? "restart" : null;
 }

@@ -56,6 +56,8 @@ import {
 } from "./fixtures";
 import {
   caseHasQueue,
+  isShelfCaseTurnLive,
+  queuePauseFor,
   isShelfCaseId,
   PREVIEW_APPROVALS,
   PREVIEW_QUEUE,
@@ -229,7 +231,7 @@ export function ComposerFramePreviewApp() {
     applyCustomTheme({ theme: builtin });
   }, [dark]);
 
-  const turnActive = caseId !== "idle" && caseId !== "agent-needs";
+  const turnActive = isShelfCaseTurnLive(caseId);
   const shelfQueue = useComposerShelfQueue({
     listId: PREVIEW_TASK_ID,
     queuedTurns: caseHasQueue(caseId) ? queue : [],
@@ -247,6 +249,8 @@ export function ComposerFramePreviewApp() {
     onRemove: (itemId) => setQueue((items) => items.filter((item) => item.id !== itemId)),
     onClearAll: () => setQueue([]),
     onReorder: (move) => setQueue((items) => [...reorderQueuedTurns(items, move)]),
+    pause: queuePauseFor(caseId),
+    onResume: () => undefined,
   });
   const shelf = (
     <ComposerShelf framed={framed} steering={caseId === "steering"} queue={shelfQueue} />

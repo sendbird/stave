@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
+import type { QueuePauseReason } from "@/store/task-work-pause";
 import type {
   PromptDraftQueuedNextTurn,
   PromptDraftQueuedTurn,
@@ -17,6 +18,7 @@ interface QueueHandlers {
   onRemove: (itemId: string) => void;
   onClearAll: () => void;
   onReorder: (move: QueuedTurnMove) => void;
+  onResume: () => void;
 }
 
 /**
@@ -38,6 +40,7 @@ export function useComposerShelfQueue(
     canSteerQueuedTurn: boolean;
     selectedModel: ModelSelectorOption;
     modelOptions: readonly ModelSelectorOption[];
+    pause: QueuePauseReason | null;
   },
 ): ComposerShelfQueueProps | null {
   const handlersRef = useRef<QueueHandlers>(args);
@@ -52,6 +55,7 @@ export function useComposerShelfQueue(
       onRemove: (itemId) => handlersRef.current.onRemove(itemId),
       onClearAll: () => handlersRef.current.onClearAll(),
       onReorder: (move) => handlersRef.current.onReorder(move),
+      onResume: () => handlersRef.current.onResume(),
     }),
     [],
   );
@@ -72,7 +76,7 @@ export function useComposerShelfQueue(
     hasSteerHandler: true,
     hasSendHandler: true,
   });
-  const { listId, selectedModel, modelOptions, isTurnActive } = args;
+  const { listId, selectedModel, modelOptions, isTurnActive, pause } = args;
   return useMemo(
     () =>
       items.length === 0
@@ -84,8 +88,9 @@ export function useComposerShelfQueue(
             isTurnActive,
             selectedModel,
             modelOptions,
+            pause,
             ...handlers,
           },
-    [canSend, canSteer, handlers, isTurnActive, items, listId, modelOptions, selectedModel],
+    [canSend, canSteer, handlers, isTurnActive, items, listId, modelOptions, pause, selectedModel],
   );
 }

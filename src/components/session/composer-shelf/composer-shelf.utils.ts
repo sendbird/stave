@@ -12,7 +12,16 @@ import {
   type ProviderTurnActivitySnapshot,
   type RetainedTurnOutcome,
 } from "@/lib/providers/turn-status";
+import { providerAccountUsageLabel } from "@/lib/providers/account-usage-block";
+import {
+  formatResetClock,
+  formatResetCountdown,
+} from "@/components/layout/status-bar-usage-strip.utils";
 import type { TurnActivityPlacement } from "@/store/app-settings";
+import type {
+  QueuePauseReason,
+  TaskUsageLimitPause,
+} from "@/store/task-work-pause";
 import type { ShelfDetailOverride } from "@/store/composer-shelf-store";
 import type {
   PromptDraftQueuedNextTurn,
@@ -24,7 +33,7 @@ import type {
 /** What heads the run line: an active agent run (or playbook mission), else the turn. */
 export type ShelfRunSource = "mission" | "turn";
 
-export type ComposerShelfRow = "run" | "queue";
+export type ComposerShelfRow = "run" | "limit" | "queue";
 
 /**
  * The run line names one thing. An active run owns it for its whole life, the
@@ -48,10 +57,15 @@ export function resolveShelfRunSource(args: {
 export function selectComposerShelfRows(args: {
   run: ShelfRunSource | null;
   queueCount: number;
+  /** Work a usage limit stopped is waiting to resume. */
+  limited?: boolean;
 }): ComposerShelfRow[] {
   const rows: ComposerShelfRow[] = [];
   if (args.run) {
     rows.push("run");
+  }
+  if (args.limited) {
+    rows.push("limit");
   }
   if (args.queueCount > 0) {
     rows.push("queue");
@@ -472,8 +486,10 @@ export function describeQueuedTurnAttachments(
 export interface QueueLine {
   countLabel: string;
   preview: string;
+  /** Why the queue is not sending on its own, shown after the count. */
+  pausedLabel: string | null;
   /** The one action the collapsed line offers for the item that goes next. */
-  frontAction: "steer" | "send" | null;
+  frontAction: "steer" | "send" | "resume" | null;
   /** How the queue drains, for the line's description. */
   hint: string | null;
 }
@@ -482,10 +498,31 @@ export function describeQueueLine(args: {
   items: readonly PromptDraftQueuedTurn[];
   actions: QueuedTurnActions;
   isTurnActive: boolean;
+  pause?: QueuePauseReason | null;
 }): QueueLine | null {
   const front = args.items[0];
   if (!front) {
     return null;
+  }
+  if (args.pause === "restart") {
+    return {
+      countLabel: `${args.items.length} queued`,
+      preview: summarizeQueuedTurnText(front),
+      pausedLabel: "paused",
+      // Nothing sends on its own until the user says the work still applies.
+      frontAction: "resume",
+      hint: "Restored after Stave restarted, so nothing sends on its own. Resume to send them in order, or edit them first.",
+    };
+  }
+  if (args.pause === "usage-limit") {
+    return {
+      countLabel: `${args.items.length} queued`,
+      preview: summarizeQueuedTurnText(front),
+      pausedLabel: "paused",
+      // The limit line above owns Resume; a second copy here would compete.
+      frontAction: null,
+      hint: "Waiting for the usage limit. They send in order once the task resumes.",
+    };
   }
   const frontAction =
     args.actions.canSteer && canSteerQueuedTurnItem(front)
@@ -503,8 +540,72 @@ export function describeQueueLine(args: {
   return {
     countLabel: `${args.items.length} queued`,
     preview: summarizeQueuedTurnText(front),
+    pausedLabel: null,
     frontAction,
     hint,
+  };
+}
+
+// ── Usage-limit line ─────────────────────────────────────────────────────
+
+export interface UsageLimitLine {
+  /** `Claude usage limit`, or `Resumes at 3:41 PM` once armed. */
+  label: string;
+  armed: boolean;
+  /** `resets 3:40 PM · in 1h 7m`; when the reset is unknown, says so. */
+  detail: string;
+  /** What Resume will do, for the line's description. */
+  hint: string;
+  /** "Resume at reset" needs a reset time that is still ahead. */
+  canResumeAtReset: boolean;
+  /** Dismiss forgets the pause; with a queue waiting, Clear all is the way out instead. */
+  canDismiss: boolean;
+}
+
+export function describeUsageLimitLine(args: {
+  pause: TaskUsageLimitPause;
+  queuedCount: number;
+  now: number;
+  locale?: string;
+}): UsageLimitLine {
+  const { pause, now } = args;
+  const provider = providerAccountUsageLabel(pause.providerId);
+  // Window names are provider-specific (`Session`, `codex primary`), so they
+  // stay in the description rather than the line.
+  const ranOut = `${provider} usage ran out${pause.windowLabel ? ` (${pause.windowLabel})` : ""}.`;
+  const resumeTarget = pause.stoppedTurn
+    ? args.queuedCount > 0
+      ? `Resume continues the stopped turn, then sends ${args.queuedCount} queued.`
+      : "Resume continues the stopped turn where it left off."
+    : `Resume sends ${args.queuedCount} queued in order.`;
+  if (pause.autoResumeAt != null) {
+    const seconds = pause.autoResumeAt / 1000;
+    const countdown = formatResetCountdown(seconds, now);
+    return {
+      label: `Resumes at ${formatResetClock(seconds, now, args.locale)}`,
+      armed: true,
+      detail: `${provider} usage limit${countdown && countdown !== "now" ? ` · in ${countdown}` : ""}`,
+      hint: `${ranOut} Stave resumes on its own after the limit resets, while the app is open. ${resumeTarget}`,
+      canResumeAtReset: false,
+      canDismiss: false,
+    };
+  }
+  const resetSeconds = pause.resetsAt == null ? null : pause.resetsAt / 1000;
+  const countdown = formatResetCountdown(resetSeconds, now);
+  const resetAhead = resetSeconds != null && countdown !== "now";
+  const detail =
+    resetSeconds == null
+      ? "reset time unknown"
+      : resetAhead
+        ? `resets ${formatResetClock(resetSeconds, now, args.locale)} · in ${countdown}`
+        : "reset time passed";
+  return {
+    label: `${provider} usage limit`,
+    armed: false,
+    detail,
+    hint: `${ranOut} ${resumeTarget}`,
+    canResumeAtReset: resetAhead,
+    canDismiss: args.queuedCount === 0,
   };
 }
 

@@ -4,6 +4,7 @@ import {
   describeQueuedTurnAttachments,
   describeQueueLine,
   describeTurnRunLabel,
+  describeUsageLimitLine,
   reorderQueuedTurns,
   resolveQueuedTurnActions,
   resolveShelfDetailHost,
@@ -28,6 +29,61 @@ const item = (id: string, patch: Partial<PromptDraftQueuedTurn> = {}): PromptDra
   attachedFilePaths: [],
   attachments: [],
   ...patch,
+});
+
+describe("usage-limit line", () => {
+  const now = new Date(2026, 9, 3, 14, 0, 0).getTime();
+  const pause = {
+    workspaceId: "ws-main",
+    providerId: "claude-code" as const,
+    stoppedTurn: true,
+    pausedAt: now - 60_000,
+    resetsAt: now + 67 * 60_000,
+    windowLabel: "Session",
+  };
+
+  test("names the provider, the reset and the countdown, and offers resume at reset", () => {
+    const line = describeUsageLimitLine({ pause, queuedCount: 2, now, locale: "en-US" });
+    expect(line).toMatchObject({
+      label: "Claude usage limit",
+      armed: false,
+      detail: "resets 3:07 PM · in 1h 7m",
+      canResumeAtReset: true,
+      canDismiss: false,
+    });
+    expect(line.hint).toBe(
+      "Claude usage ran out (Session). Resume continues the stopped turn, then sends 2 queued.",
+    );
+  });
+
+  test("once armed, says when it resumes", () => {
+    const line = describeUsageLimitLine({
+      pause: { ...pause, autoResumeAt: now + 68 * 60_000 },
+      queuedCount: 0,
+      now,
+      locale: "en-US",
+    });
+    expect(line).toMatchObject({
+      label: "Resumes at 3:08 PM",
+      armed: true,
+      detail: "Claude usage limit · in 1h 8m",
+      canResumeAtReset: false,
+    });
+  });
+
+  test("an unknown or passed reset can only be resumed by hand", () => {
+    expect(
+      describeUsageLimitLine({ pause: { ...pause, resetsAt: null }, queuedCount: 0, now }),
+    ).toMatchObject({ detail: "reset time unknown", canResumeAtReset: false, canDismiss: true });
+    expect(
+      describeUsageLimitLine({ pause: { ...pause, resetsAt: now - 1_000 }, queuedCount: 0, now }),
+    ).toMatchObject({ detail: "reset time passed", canResumeAtReset: false });
+  });
+
+  test("the row sits between the run line and the queue", () => {
+    expect(selectComposerShelfRows({ run: null, queueCount: 2, limited: true })).toEqual(["limit", "queue"]);
+    expect(selectComposerShelfRows({ run: "turn", queueCount: 0, limited: true })).toEqual(["run", "limit"]);
+  });
 });
 
 describe("composer shelf rows", () => {
@@ -299,6 +355,31 @@ describe("queue line", () => {
       describeQueueLine({ items, actions: { canSteer: false, canSend: true }, isTurnActive: false }),
     ).toMatchObject({ frontAction: "send", hint: "Send one now, or it sends after your next message finishes." });
     expect(describeQueueLine({ items: [], actions: { canSteer: false, canSend: false }, isTurnActive: false })).toBeNull();
+  });
+
+  test("a paused queue says so and offers Resume only for a restart", () => {
+    const items = [item("a"), item("b")];
+    const restored = describeQueueLine({
+      items,
+      actions: { canSteer: false, canSend: true },
+      isTurnActive: false,
+      pause: "restart",
+    });
+    expect(restored).toMatchObject({ countLabel: "2 queued", pausedLabel: "paused", frontAction: "resume" });
+    expect(restored?.hint).toContain("Restored after Stave restarted");
+    // The usage-limit line owns Resume, so the queue line does not repeat it.
+    expect(
+      describeQueueLine({
+        items,
+        actions: { canSteer: false, canSend: true },
+        isTurnActive: false,
+        pause: "usage-limit",
+      }),
+    ).toMatchObject({ pausedLabel: "paused", frontAction: null });
+    expect(
+      describeQueueLine({ items, actions: { canSteer: false, canSend: true }, isTurnActive: false })
+        ?.pausedLabel,
+    ).toBeNull();
   });
 
   test("attachments read as a count", () => {

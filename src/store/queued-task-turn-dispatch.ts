@@ -1,3 +1,4 @@
+import type { ProviderId } from "@/lib/providers/provider.types";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 
 /**
@@ -17,6 +18,18 @@ interface SendUserMessageOutcome {
   status?: string;
 }
 
+/** A send that refused to start, as `sendUserMessage` reports it. */
+export interface QueuedTurnBlockedResult {
+  status: "blocked";
+  reason?: string;
+  usageLimit?: {
+    providerId: ProviderId;
+    model?: string;
+    windowLabel: string;
+    resetsAt: number | null;
+  };
+}
+
 interface QueuedTaskTurnActions {
   sendUserMessage: (args: {
     taskId: string;
@@ -33,14 +46,22 @@ export function createQueuedTaskTurnDispatcher(args: {
   getSession: (workspaceId: string) => WorkspaceSessionState | null;
   getActions: () => QueuedTaskTurnActions;
   /**
-   * Whether an item must sit out automatic dispatch — currently only true
-   * while a steer that promotes it into the running turn is in flight or
-   * unconfirmed. Sending it here would run the same prompt a second time.
+   * Whether an item must sit out automatic dispatch: a steer that promotes it
+   * into the running turn is in flight or unconfirmed (sending it here would
+   * run the same prompt a second time), or the task's queue is paused.
    */
   getAutoDispatchHold: (target: {
     taskId: string;
     queuedTurnId: string;
+    queuedAt: string;
   }) => QueuedTurnAutoDispatchHold | undefined;
+  /** The head item's send refused to start (`status: "blocked"`). */
+  onDispatchBlocked?: (blocked: {
+    workspaceId: string;
+    taskId: string;
+    queuedTurnId: string;
+    result: QueuedTurnBlockedResult;
+  }) => void;
   onDispatchFailed?: (failure: {
     taskId: string;
     queuedTurnId: string;
@@ -84,6 +105,7 @@ export function createQueuedTaskTurnDispatcher(args: {
       const hold = args.getAutoDispatchHold({
         taskId: target.taskId,
         queuedTurnId: item.id,
+        queuedAt: item.queuedAt,
       });
       if (hold === "wait") {
         // FIFO: a temporarily held head keeps its place. Dispatching the item
@@ -128,6 +150,13 @@ export function createQueuedTaskTurnDispatcher(args: {
     void Promise.resolve(sendResult).then(
       (result) => {
         const status = (result as SendUserMessageOutcome | undefined)?.status;
+        if (status === "blocked") {
+          args.onDispatchBlocked?.({
+            ...target,
+            queuedTurnId,
+            result: result as QueuedTurnBlockedResult,
+          });
+        }
         settleDispatch({
           target,
           queuedTurnId,
