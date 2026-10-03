@@ -172,7 +172,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
                   {
                     items: [
                       {
-                        label: "Cancel run",
+                        label: "Stop run",
                         tone: "danger",
                         disabled: props.busy,
                         onSelect: () => void onCommand("cancel", { agentRunId: agentRun.id }),

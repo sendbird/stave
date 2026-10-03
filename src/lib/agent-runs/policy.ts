@@ -76,7 +76,7 @@ export type ActionOutcome =
   | { status: "stuck"; detail: string }
   /**
    * The action needs an AI turn before it can go on, such as a repair turn
-   * for failing checks. The turn counts against the mission's turn cap and
+   * for failing checks. The turn counts against the agent run's turn cap and
    * reports nothing; the action observes its effect afterwards.
    */
   | { status: "needs-turn"; reason: "repair-checks"; prompt: string; detail: string };

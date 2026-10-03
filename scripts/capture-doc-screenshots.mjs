@@ -1151,34 +1151,19 @@ async function captureElement(page, locator, fileName, padding = 0) {
   });
 }
 
-async function captureMissionSignOff(browser) {
-  console.log("[capture] mission-sign-off");
+async function captureRunSignOff(browser) {
+  console.log("[capture] run-sign-off");
   // Tall enough that every preview section is on screen, so the clip stays inside the image.
-  const { context, page } = await openPreview(browser, "mission", { width: 1440, height: 4200 });
-  await captureElement(page, page.getByTestId("mission-sign-off").first(), "mission-sign-off.png", 12);
+  const { context, page } = await openPreview(browser, "agent-run", { width: 1440, height: 4200 });
+  await captureElement(page, page.getByTestId("agent-run-sign-off").first(), "run-sign-off.png", 12);
   await context.close();
 }
 
-async function captureMissionPanel(browser) {
-  console.log("[capture] mission-panel");
+async function captureRunPanel(browser) {
+  console.log("[capture] run-panel");
   // Tall enough that every preview section is on screen, so the clip stays inside the image.
-  const { context, page } = await openPreview(browser, "mission", { width: 1440, height: 4200 });
-  await captureElement(page, page.getByTestId("mission-panel").first(), "mission-panel.png", 16);
-  await context.close();
-}
-
-async function captureStartMissionSheet(browser) {
-  console.log("[capture] start-mission-sheet");
-  const { context, page } = await openPreview(browser, "playbooks", { width: 1440, height: 1400 });
-  await page.getByRole("button", { name: "Start mission sheet" }).click();
-  await captureElement(page, page.getByRole("dialog"), "start-mission-sheet.png");
-  await context.close();
-}
-
-async function capturePlaybooks(browser) {
-  console.log("[capture] playbooks");
-  const { context, page } = await openPreview(browser, "playbooks");
-  await captureElement(page, page.getByTestId("playbooks-tab"), "playbooks.png");
+  const { context, page } = await openPreview(browser, "agent-run", { width: 1440, height: 4200 });
+  await captureElement(page, page.getByTestId("agent-run-panel").first(), "run-panel.png", 16);
   await context.close();
 }
 
@@ -1194,10 +1179,8 @@ const CAPTURE_STEPS = [
   ["project-instructions", captureProjectInstructionsSettings],
   ["provider-controls", captureProviderControls],
   ["language-intelligence", captureLanguageIntelligenceSettings],
-  ["mission-sign-off", captureMissionSignOff],
-  ["mission-panel", captureMissionPanel],
-  ["start-mission-sheet", captureStartMissionSheet],
-  ["playbooks", capturePlaybooks],
+  ["run-sign-off", captureRunSignOff],
+  ["run-panel", captureRunPanel],
 ];
 
 async function main() {

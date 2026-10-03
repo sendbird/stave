@@ -132,4 +132,4 @@ That separation matters: the Command Palette controls Stave itself, while slash 
 
 - [Integrated Terminal](integrated-terminal.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
-- [Missions](missions.md)
+- [AgentRuns](agent-runs.md)

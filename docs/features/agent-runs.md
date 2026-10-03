@@ -8,8 +8,9 @@ draft pull request, watches its checks, marks it ready — and stops only where
 its **Check in with me** setting says, or when something needs you. An agent
 without a workflow runs one stage that plans its own steps.
 
-Inside Stave this engine is called a *mission*; the product shows the agent,
-its stages and its result. Playbook missions started before playbooks folded
+The product calls one a **Run**; inside Stave the engine is called an *agent
+run* (`AgentRun`). The product shows the agent, its stages and its result.
+Legacy runs, started from playbooks before playbooks folded
 into agents finish as they are, and their surfaces keep working.
 
 ## When To Use It
@@ -71,10 +72,10 @@ stages:
 A run records your own permission settings for its turns; a saved agent never
 grants permissions.
 
-### Mission line
+### Agent run line
 
-The run line of the composer shelf, above the prompt input, for as long as a
-mission runs, between its turns included (see
+The run line of the composer shelf, above the prompt input, for as long as an
+agent run is going, between its turns included (see
 [Turn Activity](turn-activity.md#the-composer-shelf)):
 
 - The current stage and what it is doing — a plain phrase such as
@@ -86,20 +87,20 @@ mission runs, between its turns included (see
   head names the stage in progress and where it stands (`Verify 3/6`). When
   the composer is too narrow for the track, the line says `3/6` in words. A
   hand marks a stage that asks you first.
-- **Take over** pauses the mission so your replies are your own; **Resume**
+- **Take over** pauses the agent run so your replies are your own; **Resume**
   hands the task back. A reply without Take over guides the current stage and
-  the mission carries on.
+  the agent run carries on.
 - The panel button opens the Task panel's **Progress** tab; the details toggle
   unfolds the current turn's rows.
 
 ### Sign-off
 
-![A sign-off card asking Ready to start Verify?, with what Build produced, the turns used and what the mission spent](../screenshots/mission-sign-off.png)
+![A sign-off card asking Ready to start Verify?, with what Build produced, the turns used and what the agent run spent](../screenshots/run-sign-off.png)
 
 When a stage waits for you, a card appears where tool approvals appear:
 **Ready to start Verify?**, with what the previous stage produced (files
 changed, evidence Stave verified) and its summary. Its corner shows the stage,
-the turns used of the limit and what the mission has spent, such as
+the turns used of the limit and what the agent run has spent, such as
 **Stage 3 of 6 · 5 of 30 turns · $0.84**.
 
 - The primary button names what happens, such as **Start Verify** or
@@ -107,12 +108,12 @@ the turns used of the limit and what the mission has spent, such as
 - **Review changes** opens Source Control.
 - **Ask for changes** sends a note and runs the last AI stage again.
 
-### Mission in the Task panel
+### Agent run in the Task panel
 
-![The mission in the Task panel: goal, state, stage track, acceptance criteria, the stage timeline, and the turns and spend](../screenshots/mission-panel.png)
+![The agent run in the Task panel: goal, state, stage track, acceptance criteria, the stage timeline, and the turns and spend](../screenshots/run-panel.png)
 
-The **Progress** tab of the right rail's Task panel, while the task has a
-mission (a task without one shows its flow there):
+The **Progress** tab of the right rail's Task panel, while the task has an
+agent run (a task without one shows its flow there):
 
 - The goal, a state badge (**Running**, **Needs you**, **Blocked**,
   **Stuck**, **Paused**, **Completed**), and the stage track.
@@ -122,10 +123,10 @@ mission (a task without one shows its flow there):
   reasons, evidence (**Verified by Stave** first, with **Show** to jump to the
   tool call in the transcript), links, and the instruction it ran with.
 - **Retry stage** and **Skip stage** on a blocked or stuck stage; **Pause**,
-  and **Cancel mission** in the **⋯** menu.
-- **Run**: who runs the mission — the provider's mark, the model by name and
+  and **Stop run** in the **⋯** menu.
+- **Run**: who runs the agent run — the provider's mark, the model by name and
   the permissions — above its figures: **Turns** against the budget (the bar
-  turns amber close to the limit, where the mission stops), **Spent** (the
+  turns amber close to the limit, where the agent run stops), **Spent** (the
   cost and tokens the provider reported; tokens alone for a provider that
   reports no cost), and how long it has been running. A note says when a
   turn reported no usage.
@@ -164,29 +165,29 @@ process or revision provenance remain unverified.
 
 ### Transcript
 
-A quiet divider marks every turn a mission started, with the reason, such as
+A quiet divider marks every turn an agent run started, with the reason, such as
 **Stage 3 · Verify** — started automatically after Build reported done. An
 agent run with a workflow gets the same dividers; a one-stage run has none.
 
-### Mission report
+### Agent run report
 
-When a mission ends, its report tops the Task panel's **Progress** and
+When an agent run ends, its report tops the Task panel's **Progress** and
 **Results** tabs:
 outcome, figures (duration, stages, turns, verified evidence, what it spent), links,
-decisions, what is still open, what was left behind, and how much the mission
+decisions, what is still open, what was left behind, and how much the agent run
 needed you. **Copy Markdown** and **Add to PR description** act on it, and
 **More** holds the rest:
 
 - **Save decisions to memory**, as memory candidates you review.
 - **Share to Slack…**: paste a thread link (the one in the assignment is
-  filled in) and the mission's task posts the report there once, as a reply,
+  filled in) and the agent run's task posts the report there once, as a reply,
   with your Slack tools. It changes no files and waits while the task is in a
   turn.
 
 ### Results
 
 **Results** (in the sidebar under Agents, the Fleet header link, or **Open
-Results** in the command palette) shows how agent runs and playbook missions that ended in the last 7,
+Results** in the command palette) shows how agent runs and legacy runs that ended in the last 7,
 30 or 90 days came out:
 
 - **Outcomes**: ready, rework (the result needed requested changes), failed
@@ -196,7 +197,8 @@ Results** in the command palette) shows how agent runs and playbook missions tha
 - **Why runs did not finish**, one cause per run: stuck stage, turn cap
   reached, expired, task unavailable, turn failed, or stopped by you.
 - **Corrections per run**: your replies, requested changes and reminders.
-- **Agents**: one row per agent or playbook with ready rate, median cost,
+- **Agents**: one row per agent, or per saved workflow of a legacy run (tagged
+  `workflow`), with ready rate, median cost,
   corrections and its last ten outcomes. A row opens its recent runs, and a run
   opens its report.
 
@@ -204,19 +206,19 @@ Results** in the command palette) shows how agent runs and playbook missions tha
 
 - A sign-off, a blocker or a stuck stage appears in Fleet's attention list with
   approvals and questions. A sign-off can be given from the row.
-- Fleet cards show the mission's stage track (a one-stage run: **Plan 3/5**)
+- Fleet cards show the agent run's stage track (a one-stage run: **Plan 3/5**)
   and what it has spent, and the
   work queue puts the workspace in **Action required** or **In progress**.
-- Stave notifies once when a mission asks for a sign-off, is blocked, is stuck
-  or completes. **Settings → General → Mission Sign-off Reminders** sets when
+- Stave notifies once when an agent run asks for a sign-off, is blocked, is stuck
+  or completes. **Settings → General → Run Sign-off Reminders** sets when
   a waiting sign-off reminds you again, batched into one notification.
 
 ## Common Workflows
 
-### Steer a running mission
+### Steer a running agent run
 
 - Reply in the task to add guidance; the stage continues with it.
-- Click **Take over** to stop the mission's turns while you work yourself,
+- Click **Take over** to stop the agent run's turns while you work yourself,
   then **Resume** to hand it back.
 
 ### Recover a stuck or blocked stage
@@ -227,7 +229,7 @@ Results** in the command palette) shows how agent runs and playbook missions tha
 
 ## Files And Data
 
-- Missions are stored in Stave's local database with their stage records and
+- Agent runs are stored in Stave's local database with their stage records and
   events. Nothing is sent anywhere except what the stages themselves do (pull
   requests on GitHub, messages through your own tools).
 - The agent's workflow is copied into the run when it starts; later edits to
@@ -235,8 +237,8 @@ Results** in the command palette) shows how agent runs and playbook missions tha
 
 ## Limitations And Advanced Options
 
-- Missions run on Claude and Codex tasks, one mission per task at a time.
-- A mission runs on the task's current model. If you change it, the mission
+- Agent runs run on Claude and Codex tasks, one agent run per task at a time.
+- An agent run uses the task's current model. If you change it, the agent run
   pauses until you accept the new runtime for the remaining stages.
 - Pull request stages use the GitHub CLI and watch every check reported for
   the pull request. **Open draft PR** commits what was left and pushes the
@@ -246,11 +248,11 @@ Results** in the command palette) shows how agent runs and playbook missions tha
   pull request lacks them.
 - If Stave quits while a stage's turn runs, the stage continues with a new turn
   after the restart; that turn does not use up the stage's one reminder.
-- **Spent** counts the turns the mission started. Claude reports a cost with
-  each turn; Codex reports tokens only, so a Codex mission shows tokens. Turns
+- **Spent** counts the turns the agent run started. Claude reports a cost with
+  each turn; Codex reports tokens only, so a Codex agent run shows tokens. Turns
   whose provider reported nothing are counted and named, not guessed. Cache
   reads are part of the cost but not of the token count.
-- A mission started at a later stage has no acceptance criteria from
+- An agent run started at a later stage has no acceptance criteria from
   **Understand**, so its report shows only what the stages that ran reported.
 
 ## Troubleshooting
@@ -290,6 +292,6 @@ Results** in the command palette) shows how agent runs and playbook missions tha
 
 - [Agents](agents.md) — an agent's Workflow and Check in with me
 - [Playbooks (retired)](playbooks.md)
-- [Wake-ups](wake-ups.md) — a mission pauses its task's wake-up while it runs
+- [Wake-ups](wake-ups.md) — an agent run pauses its task's wake-up while it runs
 - [Notifications](notifications.md)
 - [Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md)

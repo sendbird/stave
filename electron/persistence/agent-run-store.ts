@@ -3,7 +3,7 @@
  *
  * Used by: the agent run runtime (host service), through `sqlite-store.ts`.
  *
- * Supervisor tables, like the wake-up tables and unlike the run ledger: a
+ * Supervisor tables, like the wake-up tables and unlike the run ledger: an
  * agent run supervises a task the user already owns, so it has no claims, leases
  * or receipts. It reads the ledger and PR checks elsewhere and writes only
  * these rows.

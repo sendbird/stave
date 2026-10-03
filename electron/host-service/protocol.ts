@@ -493,7 +493,7 @@ export type HostWakeUpAction =
   "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
 
 /**
- * Agent run actions. The last three serve the stage-reporting tools and carry a
+ * Agent run actions. The last three serve the stage-reporting tools and carry an
  * agent run grant key instead of an agent run id.
  */
 export type HostAgentRunAction =

@@ -223,7 +223,7 @@ async function runRequestToPr(providerId: "claude-code" | "codex") {
     acceptanceCriteria: [{ text: "Export button exists", status: "unverified" }],
   });
 
-  // Plan and publishing: the stage after the plan asks first.
+  // Before publishing: the stage after the plan asks first.
   await signOff();
   expect(harness.current(agentRunId)).toMatchObject({ stageId: "build", status: "running" });
   await report(harness, "Added the export.");

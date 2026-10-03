@@ -303,7 +303,7 @@ the agent in the file to use it. Duplicate a repository agent to edit a copy.
 ### Flow
 
 The **Progress** tab of the right rail's Task panel shows one task's flow while
-the task has no [mission](missions.md); once it has one, the mission takes that
+the task has no [agent run](agent-runs.md); once it has one, the agent run takes that
 place. Every task has a base flow, drawn from records that already exist:
 
 - **Request** — the first message that opened the task.
@@ -356,7 +356,7 @@ Fleet's search finds its tasks.
   their own.
 - Cursor and Kiro receive the agent's instructions at the top of the first
   message — or of the next message after the task starts as, or switches to,
-  an agent from Kickoff, a mission or the composer. Claude and Codex receive
+  an agent from Kickoff, an agent run or the composer. Claude and Codex receive
   them on their instruction channel with every turn.
 - A task that runs as an Agent is autonomous. Every turn of the task — the
   first and each later one — removes routine approval prompts and changes
@@ -409,7 +409,7 @@ Fleet's search finds its tasks.
 
 ## Related
 
-- [Agent runs and their stages](missions.md) and [Playbooks (retired)](playbooks.md)
+- [Agent runs and their stages](agent-runs.md) and [Playbooks (retired)](playbooks.md)
 - [Delegated tasks](delegated-tasks.md)
 - [Auto-routing](auto-routing.md)
 - [Fleet Action Required](fleet-needs-me.md)

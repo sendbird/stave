@@ -39,7 +39,7 @@ export function registerAgentRunTools(
     AGENT_RUN_TOOL_NAMES.get,
     {
       description:
-        "Read the run this turn belongs to: the workflow's purpose, the assignment, every stage with its status, the current stage's instruction and Done when, earlier stages' summaries, and the acceptance criteria. Read-only. Available only in turns a Stave run started.",
+        "Read the agent run this turn belongs to: the workflow's purpose, the assignment, every stage with its status, the current stage's instruction and Done when, earlier stages' summaries, and the acceptance criteria. Read-only. Available only in turns a Stave agent run started.",
       annotations: { readOnlyHint: true },
     },
     async () =>

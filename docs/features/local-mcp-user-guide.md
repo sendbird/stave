@@ -44,7 +44,7 @@ The same Local MCP server also exposes optional `stave_lens_*` tools for workspa
 
 One tool family exists only inside turns Stave starts for a supervisor, and never in an external client's session:
 
-- **Mission tools** (`stave_get_mission`, `stave_report_stage`, `stave_block_stage`) are registered for a [mission](missions.md)'s stage turns, which carry a per-turn mission key. The agent reads its stage and reports it done or blocked through them. Stave resolves the mission from the key, so a turn can act only for its own.
+- **Agent run tools** (`stave_get_agent_run`, `stave_report_stage`, `stave_block_stage`) are registered for an [agent run](agent-runs.md)'s stage turns, which carry a per-turn agent run key. The agent reads its stage and reports it done or blocked through them. Stave resolves the agent run from the key, so a turn can act only for its own.
 
 Agent runs need Local MCP on; without it a run cannot start, because its stages cannot be reported.
 

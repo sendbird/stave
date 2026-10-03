@@ -46,11 +46,11 @@ export const CHECK_INS = [
 export type CheckIns = (typeof CHECK_INS)[number];
 export const DEFAULT_CHECK_INS: CheckIns = "plan-and-publishing";
 
-/** How the check-in levels read in the product. */
-export const CHECK_IN_LABELS: Record<CheckIns, string> = {
-  "every-stage": "Every stage",
-  "plan-and-publishing": "Plan and publishing",
+/** How the check-in levels read in the product, for agents and runs alike. */
+export const CHECK_IN_LABELS: Readonly<Record<CheckIns, string>> = {
   "when-stuck": "Only when stuck",
+  "plan-and-publishing": "Before publishing",
+  "every-stage": "Every stage",
 };
 
 export const SIGN_OFFS = ["auto", "ask"] as const;

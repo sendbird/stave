@@ -1,6 +1,6 @@
 /**
- * User commands on an agent run, as pure transitions. Each one either returns a
- * `AgentRunChange` for the store to apply in one transaction or throws a
+ * User commands on an agent run, as pure transitions. Each one either returns an
+ * `AgentRunChange` for the store to apply in one transaction or throws an
  * `AgentRunCommandError` whose message the surface shows as-is.
  *
  * The supervisor policy (`policy.ts`) decides what happens on its own; these

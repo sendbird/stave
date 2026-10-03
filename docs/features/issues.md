@@ -156,5 +156,5 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - [Fleet Action Required Guide](fleet-needs-me.md) — approvals and questions across running work
 - [Provider Sandbox and Approval Guide](provider-sandbox-and-approval.md) — what the autonomy presets mean
 - [Local MCP User Guide](local-mcp-user-guide.md) — the read-only tracker listing tool
-- [Missions](missions.md)
+- [AgentRuns](agent-runs.md)
 - [Playbooks (retired)](playbooks.md) — what happened to saved playbooks

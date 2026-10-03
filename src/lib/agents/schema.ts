@@ -3,6 +3,7 @@ import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
+  CHECK_IN_LABELS,
   CHECK_INS,
   MAX_WORKFLOW_STAGES,
   WorkflowStageSchema,
@@ -130,11 +131,8 @@ export type AgentColor = (typeof AGENT_COLORS)[number];
  */
 export const DEFAULT_AGENT_CHECK_INS: CheckIns = "when-stuck";
 
-export const AGENT_CHECK_IN_LABELS: Readonly<Record<CheckIns, string>> = {
-  "when-stuck": "Only when stuck",
-  "plan-and-publishing": "Before publishing",
-  "every-stage": "Every stage",
-};
+/** The check-in words an agent and its runs share. */
+export const AGENT_CHECK_IN_LABELS: Readonly<Record<CheckIns, string>> = CHECK_IN_LABELS;
 
 /**
  * A workflow: the ordered stages a run of this agent follows, each an AI

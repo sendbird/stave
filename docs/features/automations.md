@@ -194,4 +194,4 @@ without requiring a new automation.
 - [Workspace Scripts](workspace-scripts.md)
 - [Latest Turn Summary](workspace-latest-turn-summary.md)
 - [Playbooks (retired)](playbooks.md)
-- [Missions](missions.md)
+- [AgentRuns](agent-runs.md)

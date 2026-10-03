@@ -99,7 +99,7 @@ the attempt is refused rather than changing the permission boundary.
 
 Ordinary managed `stave_run_task` calls also fill omitted permission fields from
 the target provider's user settings. Its explicit runtime options retain the
-existing override contract, including trusted Mission consent; that raw runtime
+existing override contract, including trusted agent run consent; that raw runtime
 API is distinct from a delegation's `access`, which can only keep or narrow the
 inherited policy.
 

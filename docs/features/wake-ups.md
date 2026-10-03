@@ -29,7 +29,7 @@ wake-up adds is safety around doing that unattended:
 | The task is waiting on an approval or a question | **Pause**, `awaiting-approval` / `awaiting-user-input`. Resumes itself once answered. |
 | The task's provider or model changed | **Pause**, `runtime-changed`. Only an update clears it — the user has to agree to the new runtime. |
 | The task moved, or the fleet control plane rejects its identity | **Pause**, `task-identity-changed`. |
-| A mission is running or paused on the task | **Pause**, `mission-active`. Resumes itself when the mission ends. Creating, updating or resuming a wake-up on that task is refused meanwhile: one source of automatic turns per task. |
+| An agent run is running or paused on the task | **Pause**, `agent-run-active`. Resumes itself when the agent run ends. Creating, updating or resuming a wake-up on that task is refused meanwhile: one source of automatic turns per task. |
 | The task was archived or deleted | **Stop**, `task-unavailable`. |
 | The expiry passed, or the next instant would fall past it | **Stop**, `expired`. |
 | The occurrence cap was reached | **Stop**, `occurrence-cap-reached`. |
@@ -47,7 +47,7 @@ The policy is a single ordered decision, in
 [`src/lib/supervision/wake-up-policy.ts`](../../src/lib/supervision/wake-up-policy.ts):
 
 1. Terminal conditions (task gone, archived, expired, capped) — **stop**
-2. A mission owns the task's automatic turns — **pause** (`mission-active`)
+2. An agent run owns the task's automatic turns — **pause** (`agent-run-active`)
 3. Blocking conditions (identity, runtime, approval, question) — **pause**
 4. Nothing blocking and the pause was automatic — **resume**
 5. Not due yet — idle

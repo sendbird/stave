@@ -74,6 +74,18 @@ describe("run briefing", () => {
     expect(JSON.stringify({ briefing, part })).not.toContain(aggregate.agentRun.id);
   });
 
+  test("the context part names an agent run's agent and a legacy run's workflow", () => {
+    const legacy = atBuild();
+    const name = legacy.agentRun.workflow.name;
+    expect(buildAgentRunTurnContextPart({ aggregate: legacy, reason: "stage-start" }).content).toContain(
+      `Workflow: ${name}. Stage 2 of 6: Build, attempt 1.`,
+    );
+    const agentOrigin = { ...legacy, agentRun: { ...legacy.agentRun, origin: "agent" as const } };
+    const content = buildAgentRunTurnContextPart({ aggregate: agentOrigin, reason: "stage-start" }).content;
+    expect(content).toContain("A Stave agent run started this turn.");
+    expect(content).toContain(`Agent: ${name}. Workflow stage 2 of 6: Build, attempt 1.`);
+  });
+
   test("permission modes map onto each runtime", () => {
     expect(agentRunPermissionRuntimeOptions("codex", "auto")).toEqual({ codexApprovalPolicy: "never" });
     expect(agentRunPermissionRuntimeOptions("codex", "guided")).toEqual({

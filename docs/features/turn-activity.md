@@ -156,7 +156,7 @@ The right rail's **Task** panel is the one place for the active task. Its tabs:
 
 - **Activity**: the turn's rows — the current turn, or the last one once it
   ends — under every placement.
-- **Progress**: the task's [mission](missions.md) while it has one — running,
+- **Progress**: the task's [agent run](agent-runs.md) while it has one — running,
   paused or ended — and otherwise its flow (Request → Plan → Changes →
   Verification → Pull request), with the task's wake-up under either.
 - **Subagents**: every agent the task called, in its turn or as a
@@ -165,14 +165,14 @@ The right rail's **Task** panel is the one place for the active task. Its tabs:
 
 A tab can carry a small mark from data the app already holds: a dot on
 **Activity** while the turn runs or waits on you, a dot on **Progress** when the
-mission needs you or is blocked, the number of running agents on **Subagents**, and
+agent run needs you or is blocked, the number of running agents on **Subagents**, and
 the number of unreviewed runs on **Results**. The tab you choose is kept with
 the layout, so the panel reopens where you left it, and a task tab's context
 menu opens it straight to **Results**, **Progress** or **Subagents**.
 
 ### With An Agent Run
 
-While a task runs an agent or a [mission](missions.md), its line heads the
+While a task runs an agent or an [agent run](agent-runs.md), its line heads the
 shelf for the whole run, between turns included, and the turn it is running
 never draws a second status:
 
@@ -185,8 +185,8 @@ never draws a second status:
 - An agent with a workflow draws its stages as the compact track, naming the
   stage and where it stands (`Cause 2/3`); a one-stage run shows its turn's
   to-dos.
-- **Stop**, **Take control**, and **Retry** while a stage is stuck; a playbook
-  mission offers **Take over** and **Resume** instead.
+- **Stop**, **Take control**, and **Retry** while a stage is stuck; a legacy
+  run offers **Take over** and **Resume** instead.
 - The panel button opens **Progress**; the details toggle unfolds the current
   turn's rows.
 
@@ -386,4 +386,4 @@ row when it is narrower.
 - [Attachments](attachments.md)
 - [Delegated Tasks](delegated-tasks.md)
 - [Fleet Needs Me](fleet-needs-me.md)
-- [Missions](missions.md)
+- [AgentRuns](agent-runs.md)

@@ -835,7 +835,7 @@ As-built (PR 13, `f422f0a2`):
 - [x] `tests/e2e/agent-runs.e2e.ts` on the preview (4).
 - [x] `MissionReport.metrics` from events (replies, nudges, stuck, sign-off
   waits) in the report footer and Markdown. Deviation: no diagnostics view.
-- [x] Docs: `docs/features/missions.md`, `playbooks.md`, public docs
+- [x] Docs: `docs/features/agent-runs.md`, `playbooks.md`, public docs
   entries, entrypoints and code-organization rows, design §15 As Built.
 
 ### PR 14 — `feat(projects): add project domain, storage and coordinator policy`

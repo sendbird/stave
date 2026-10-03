@@ -135,8 +135,8 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Let Stave pick an eligible provider, model and effort for each turn from the models you already use.",
       },
       {
-        routePath: "missions",
-        sourcePath: "docs/features/missions.md",
+        routePath: "agent-runs",
+        sourcePath: "docs/features/agent-runs.md",
         title: "Agent runs",
         description:
           "Assign an outcome to an agent: Stave runs its workflow's stages, opens the PR, watches checks and checks in only where the agent says.",
@@ -159,7 +159,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         sourcePath: "docs/features/workspace-kickoff.md",
         title: "Workspace Kickoff",
         description:
-          "Create a workspace from an issue, a link or a prompt, review the proposed branch and task, and optionally hand it to a mission.",
+          "Create a workspace from an issue, a link or a prompt, review the proposed branch and task, and optionally hand it to an agent.",
       },
       {
         routePath: "repository-instructions",

@@ -27,6 +27,7 @@ import {
   type AgentRunAggregate,
   type StageStatus,
 } from "./domain";
+import { hasAgentOrigin } from "./agent-run";
 import { describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import type { StageTurnReason } from "./policy";
 
@@ -160,13 +161,17 @@ export function buildAgentRunTurnContextPart(args: {
   const { agentRun } = args.aggregate;
   const stage = workflowStageAt(agentRun, agentRun.currentStageIndex);
   const record = currentStageRecord(args.aggregate);
+  const position = `stage ${agentRun.currentStageIndex + 1} of ${agentRun.workflow.stages.length}: ${stage.title}, attempt ${record.attempt}.`;
   return {
     type: "retrieved_context",
     sourceId: AGENT_RUN_CONTEXT_SOURCE_ID,
     title: "Agent Run Stage",
     content: [
-      "A Stave run started this turn. The user did not type this message and may not be watching.",
-      `Workflow: ${agentRun.workflow.name}. Stage ${agentRun.currentStageIndex + 1} of ${agentRun.workflow.stages.length}: ${stage.title}, attempt ${record.attempt}.`,
+      "A Stave agent run started this turn. The user did not type this message and may not be watching.",
+      // An agent run's workflow is named after its agent; a legacy run's after its saved workflow.
+      hasAgentOrigin(agentRun)
+        ? `Agent: ${agentRun.workflow.name}. Workflow ${position}`
+        : `Workflow: ${agentRun.workflow.name}. Stage ${position.slice("stage ".length)}`,
       TURN_REASON_LINES[args.reason],
       args.reason === "repair-checks" ? ACTION_TURN_CLOSING : STAGE_TURN_CLOSING,
     ].join("\n"),

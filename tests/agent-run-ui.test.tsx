@@ -167,7 +167,7 @@ describe("agent run in the Progress tab", () => {
     expect(html).toContain("Ask for changes");
     expect(html).not.toContain("Stages");
     expect(html).not.toContain("Save as workflow");
-    expect(html).not.toContain("Cancel run");
+    expect(html).not.toContain("Stop run");
     expect(html).not.toContain("Pause");
   });
 

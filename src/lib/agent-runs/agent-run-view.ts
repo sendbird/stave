@@ -1,6 +1,6 @@
 /**
  * What the agent run surfaces show, derived from an `AgentRunDetail`: stage rows,
- * the one status line with its age, and the transcript divider for each turn a
+ * the one status line with its age, and the transcript divider for each turn an
  * agent run started. The Agent run bar, the Agent run panel and the transcript read
  * the same projection, so they tell the same story.
  *

@@ -62,9 +62,9 @@ Every workspace, grouped into four lanes in fixed priority order:
 
 | Lane | Meaning |
 | --- | --- |
-| `Action required` | Blocked on you — a question, an approval, a failed run, a PR that cannot merge, a task sitting in a waiting/error state, or a [mission](missions.md) waiting for your sign-off, blocked, stuck, paused by Stave or stopped short of its goal |
-| `In progress` | An agent is running right now, including a mission running its stages or watching checks |
-| `In review` | Finished work nobody has looked at yet, such as a mission's open pull request |
+| `Action required` | Blocked on you — a question, an approval, a failed run, a PR that cannot merge, a task sitting in a waiting/error state, or an [agent run](agent-runs.md) waiting for your sign-off, blocked, stuck, paused by Stave or stopped short of its goal |
+| `In progress` | An agent is running right now, including an agent run running its stages or watching checks |
+| `In review` | Finished work nobody has looked at yet, such as an agent run's open pull request |
 | `Idle` | Nothing pending |
 
 - Inside a lane, rows are ordered: the workspace you are standing in first, then

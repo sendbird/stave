@@ -32,7 +32,7 @@ export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { 
       ? "Run waits for your sign-off"
       : agentRun?.agentRun.state === "paused"
         ? "Run paused"
-        : "Run running";
+        : "Running";
   return (
     <span className={sx(styles.inline)}>
       {agentRunActive ? (
