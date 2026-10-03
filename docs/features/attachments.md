@@ -7,6 +7,7 @@ Stave lets you attach files, images and other tasks to a chat message, so the mo
 - The task depends on a specific file the model cannot infer from the prompt.
 - You want to ask about a screenshot, design mock, or error image.
 - You want to share logs, configs, or fixtures that are easier to read as a file than paste inline.
+- You want another task's investigation or plan to inform this message.
 
 For general repository-wide rules, use [Repository Instructions](repository-instructions.md) instead of pasting a file into every prompt.
 
@@ -64,6 +65,27 @@ search the filesystem for it.
 
 Writing `stave task id: <id>` in the prompt still works for tasks in the
 current workspace that are already loaded.
+
+### What Is Included
+
+- Stave reads the attached task when the message is dispatched. A queued
+  message therefore uses the source task's content at send time, rather than
+  a frozen copy from when you attached it.
+- **Latest reply** includes up to 6,000 characters from the most recent
+  non-empty assistant reply. **Recent conversation** selects up to 16
+  non-empty messages with a 12,000-character text budget; it is not the full
+  conversation.
+- If the source task is not loaded, Stave reads its newest stored page of up
+  to 40 messages. It does not load the entire task history.
+- Task attachments carry conversation text, not the original files, image
+  bytes, tool outputs or native provider reasoning. Attach a needed file or
+  image separately.
+- The chip on a sent message identifies the source and scope; it is not a
+  saved preview of the exact text delivered. The text is supplied as background
+  for that turn, and the chip itself is excluded from later provider history.
+
+Remove a task with the chip's `x` before sending. Attaching it does not start,
+resume or modify the source task.
 
 ## Mixed Paste
 

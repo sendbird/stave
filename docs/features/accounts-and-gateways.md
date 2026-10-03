@@ -95,6 +95,22 @@ Switching changes **new turns only**:
 
 Provider conversations belong to the account that started them. The **Session IDs** dialog of a task lists one provider session per account, named when it is not System default.
 
+### Resume After A Usage Limit
+
+When an account limit stops a turn or refuses a queued message, the composer
+pauses the task's queue. Choose **Resume now** to try again, or **Resume at
+reset** to reserve a retry one minute after the reported reset. Automatic
+resume checks usage again and waits for another exhausted window if needed.
+If no reset time is known, resume manually.
+
+Changing the account for new turns does not retarget messages already queued
+under another account. **Resume now** still passes through the usage guard;
+it does not override the exhausted account's limit. The reservation runs only
+while Stave is open and is not saved across restarts.
+
+See [When A Usage Limit Stops Work](turn-activity.md#when-a-usage-limit-stops-work)
+for continuation behavior, cancellation and restored queues.
+
 ### Reuse A Folder You Already Use
 
 1. Under **Add an account**, type a name.

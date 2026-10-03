@@ -127,6 +127,46 @@ receipt ordering, restart interruption, and provider symmetry.
 
 See `docs/architecture/run-core.md` for lifecycle and extension guidance.
 
+## Task Pause And Attachment Contracts
+
+Usage-limit pauses and restored queues share a renderer-owned dispatch gate:
+
+- `src/store/task-work-pause.ts` defines pause state and restart detection.
+- `src/store/task-work-pause-wiring.ts` connects normalized turn completion
+  and account-guard refusal to the gate.
+- `src/store/app-store-task-pause-actions.ts` owns resume and cancellation;
+  `src/store/use-usage-limit-auto-resume.ts` drives the renderer timer.
+- `src/store/queued-task-turn-dispatch.ts` honours the hold before sending
+  through `src/store/app-store-send-user-message.ts`.
+
+The pause is not a new provider event or a persisted scheduled task. Do not
+infer account exhaustion from a transient request throttle. Cancellation or
+manual resume during a usage read must prevent a second continuation turn.
+Keep tests in `tests/usage-limit-stop.test.ts`, `tests/task-work-pause.test.ts`,
+`tests/task-work-pause-store.test.ts` and
+`tests/queued-task-turn-dispatch.test.ts` aligned with these boundaries.
+
+Task attachments have two separate representations:
+
+- Draft attachment metadata and the sent `task_context` chip are defined in
+  `src/types/chat.ts` and validated in `src/lib/task-context/schemas.ts`.
+- `src/store/attached-task-context-runtime.ts` reads source messages at send
+  time, including attachments in prompt-batch items. Its unloaded-task path
+  uses `src/lib/db/workspaces.db.ts`, `src/types/window-api.d.ts`,
+  `electron/preload.ts`, `electron/main/ipc/persistence.ts` and the persistence
+  store. Keep workspace and task identity together across that read.
+- `src/lib/task-context/attached-task-context.ts` assembles bounded retrieved
+  context for the normal canonical provider request. The `task_context` chip
+  is display only and must remain excluded by
+  `src/lib/providers/canonical-request.ts`.
+
+Check `tests/attached-task-context.test.ts` and
+`tests/attached-task-context-send.test.ts` for clipping, missing content,
+history exclusion and prompt-batch attachment coverage. See
+[Conversation Flow](conversation-flow.md#attached-task-context) for the full
+path and [Attachments](../features/attachments.md#attach-another-task-as-context)
+for the user flow.
+
 ## Workspace Persistence Ownership Contract
 
 Two writers reach the workspace tables: the renderer (via IPC to main) and

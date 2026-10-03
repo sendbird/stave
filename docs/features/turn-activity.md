@@ -38,8 +38,9 @@ over the chat, or in the **Activity** tab of the right rail's Task panel.
 
 ### The Composer Shelf
 
-The shelf is one surface tucked behind the top of the prompt input, with up to
-two rows divided by a hairline. It takes no room while nothing is in flight.
+The shelf is one surface tucked behind the top of the prompt input. Its run,
+usage-limit and queue lines are divided by a hairline. It takes no room when
+there is no run, usage-limit pause or queued message to show.
 
 | State | Shelf |
 | --- | --- |
@@ -123,9 +124,20 @@ usage-limit line above the queue:
   prompt. The queue sends after it.
 - The close button forgets the pause when nothing is queued.
 
-Starting any new turn in the task also ends the pause, since the limit no
-longer refuses it. When the reset time is unknown (the provider did not report
+Starting a new conversation turn in the task also ends the usage-limit pause.
+Utility turns do not release it. A restored queue still needs its own
+**Resume** action. When the reset time is unknown (the provider did not report
 it), only **Resume now** is offered.
+
+**Resume now** does not bypass account limits or runtime approvals. If the
+continuation cannot start, the task stays paused and the reason is shown.
+**Cancel** removes the reset-time reservation; it leaves the work paused.
+
+The pause and reservation last only until Stave restarts. Keep Stave open for
+**Resume at reset** to run. After reopening, review the restored queue and
+choose **Resume**; the old reset-time reservation is not restored, and this
+queue action does not automatically continue the interrupted turn. Send a
+follow-up if you also want the agent to finish that turn's remaining work.
 
 ### Narrow Composers
 
@@ -370,6 +382,8 @@ row when it is narrower.
 
 ## Related Docs
 
+- [Accounts And API Connections](accounts-and-gateways.md)
+- [Attachments](attachments.md)
 - [Delegated Tasks](delegated-tasks.md)
 - [Fleet Needs Me](fleet-needs-me.md)
 - [Missions](missions.md)
