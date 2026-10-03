@@ -111,6 +111,7 @@ import {
   resolveWorkspacePlanPersistenceText,
   persistWorkspacePlanFile,
 } from "@/lib/plans";
+import { withoutTurnScopedContexts } from "@/lib/task-context/turn-scoped-context";
 import {
   scheduleWorkspaceSnapshotPersist,
   type WorkspaceSessionState,
@@ -1002,7 +1003,9 @@ export function createSendUserMessageAction(args: {
       const currentWorkspacePr =
         state.workspacePrInfoById[taskWorkspaceId]?.pr ?? null;
       const { fresh: freshSourceContexts } = partitionStalePrContexts({
-        parts: task.sourceContexts ?? [],
+        // A turn-scoped part an earlier build saved (a mission stage) never
+        // rides along with a user's turn.
+        parts: withoutTurnScopedContexts(task.sourceContexts ?? []),
         currentPrUrl: currentWorkspacePr?.url ?? null,
         currentHeadSha: currentWorkspacePr?.headRefOid ?? null,
       });

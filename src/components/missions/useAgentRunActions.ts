@@ -55,6 +55,16 @@ export function useAgentRunActions(detail: MissionDetail | undefined): AgentRunA
               .runCommand("retryStage", { missionId: mission.id, stageId: record.stageId, attempt: record.attempt });
             return;
           }
+          // A new run needs the task to still run as that agent; otherwise the
+          // next tick would end it as released, or it would run one agent's
+          // stages under another.
+          const current = useAgentAssignmentsStore.getState().byTaskId[mission.leadTaskId];
+          if (current?.agentName !== mission.playbook.name) {
+            toast.info(`${mission.playbook.name} no longer runs this task`, {
+              description: `Choose ${mission.playbook.name} in the selector to run it again.`,
+            });
+            return;
+          }
           // A new run follows the same stages: the workflow it ran, or its one Work stage.
           const stages = mission.playbook.stages;
           const single = stages.length === 1 && stages[0]!.id === AGENT_RUN_STAGE_ID ? stages[0]! : null;

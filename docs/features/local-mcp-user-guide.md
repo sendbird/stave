@@ -158,6 +158,7 @@ For workspace Information panel management, also use:
 - `stave_add_workspace_custom_field`
 - `stave_set_workspace_custom_field`
 - `stave_remove_workspace_custom_field`
+- `stave_write_plan_file` — `{ workspaceId, fileName, content }`; writes or replaces `.stave/context/plans/<fileName>` (a plain markdown file name) and nothing else, so it also works for a read-only agent
 
 To curate reusable knowledge for the same repository (see [Repository memory](repository-memory.md)):
 contextual entries are recalled only for relevant requests; at most three core

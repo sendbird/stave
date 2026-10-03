@@ -754,6 +754,43 @@ let taskAgentTurnResolver: ((turn: StreamTurnArgs) => TaskAgentTurn | null) | nu
 export function setTaskAgentTurnResolver(resolver: typeof taskAgentTurnResolver) {
   taskAgentTurnResolver = resolver;
 }
+/**
+ * The notice a task's turns carry once the user released its Agent; see
+ * `releasedAgentInstructions` in `src/lib/agents/runtime-options.ts`.
+ */
+let releasedTaskAgentResolver: ((taskId: string) => string | null) | null = null;
+export function setReleasedTaskAgentResolver(resolver: typeof releasedTaskAgentResolver) {
+  releasedTaskAgentResolver = resolver;
+}
+/**
+ * Cursor and Kiro have no instruction channel: a released Agent's notice
+ * (carried as `agentInstructions`) goes into the prompt once per native
+ * session, the same way the Agent's own preamble went in. In memory: after a
+ * restart a session gets the notice once more, which is harmless.
+ */
+const deliveredReleasedAgentPrompts = new Set<string>();
+const MAX_DELIVERED_RELEASED_AGENT_PROMPTS = 500;
+function releasedAgentPromptHooks(args: { providerId: string; taskId?: string; notice?: string }) {
+  const notice = args.notice?.trim();
+  if (!args.taskId || !notice) return null;
+  let pending: string | null = null;
+  return {
+    prepare: (nativeSessionId: string) => {
+      const key = `${args.providerId}\u0000${args.taskId}\u0000${nativeSessionId}\u0000${notice}`;
+      pending = deliveredReleasedAgentPrompts.has(key) ? null : key;
+      return pending ? notice : null;
+    },
+    acknowledge: () => {
+      if (!pending) return;
+      if (deliveredReleasedAgentPrompts.size >= MAX_DELIVERED_RELEASED_AGENT_PROMPTS) {
+        const oldest = deliveredReleasedAgentPrompts.values().next().value;
+        if (oldest !== undefined) deliveredReleasedAgentPrompts.delete(oldest);
+      }
+      deliveredReleasedAgentPrompts.add(pending);
+      pending = null;
+    },
+  };
+}
 let taskPermissionObserver: ((args: {
   taskId: string; providerId: StreamTurnArgs["providerId"];
   options: NonNullable<StreamTurnArgs["runtimeOptions"]>;
@@ -771,9 +808,14 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
       ? taskAgentTurnResolver?.(rawArgs) ?? null : null;
     // In-turn subagents come only from the task's agent; any other value is dropped.
     const { nativeSubagents: _unowned, ...ownOptions } = rawArgs.runtimeOptions ?? {};
+    // A task whose Agent was released says so in the Agent channel, so the
+    // model stops obeying the role its resumed session still remembers.
+    const releasedNotice = !agentTurn && rawArgs.taskId && !rawArgs.executionPolicy && !ownOptions.agentInstructions
+      ? releasedTaskAgentResolver?.(rawArgs.taskId) ?? null : null;
+    const chatOptions = releasedNotice ? { ...ownOptions, agentInstructions: releasedNotice } : ownOptions;
     const turnArgs = applyTurnPolicy(agentTurn
       ? { ...rawArgs, runtimeOptions: agentTurn.runtimeOptions }
-      : { ...rawArgs, ...(rawArgs.runtimeOptions ? { runtimeOptions: ownOptions } : {}) }, agentTurn?.turnPolicy);
+      : { ...rawArgs, ...(rawArgs.runtimeOptions || releasedNotice ? { runtimeOptions: chatOptions } : {}) }, agentTurn?.turnPolicy);
     // Delegation inherits the resolved policy, so a helper gets this turn's autonomy and never more.
     if (turnArgs.taskId && turnArgs.turnPolicy) {
       taskPermissionObserver?.({
@@ -1130,12 +1172,16 @@ async function runProviderTurnImpl(
   ) {
     const isCursor = effectiveArgs.providerId === "cursor";
     const providerLabel = isCursor ? "Cursor" : "Kiro";
+    const releasedPrompt = agentTurn ? null : releasedAgentPromptHooks({
+      providerId: effectiveArgs.providerId, taskId: effectiveArgs.taskId, notice: effectiveArgs.runtimeOptions?.agentInstructions,
+    });
     try {
       const events = await runStreamWithPausableTimeout(
         (isCursor ? streamCursorWithAcp : streamKiroWithAcp)({
           ...effectiveArgs,
-          prepareTaskAgentPrompt: agentTurn?.prepareSessionPrompt,
+          prepareTaskAgentPrompt: agentTurn?.prepareSessionPrompt ?? releasedPrompt?.prepare,
           acknowledgeTaskAgentPrompt: () => {
+            releasedPrompt?.acknowledge();
             const evidence = agentTurn?.acknowledgeSessionPrompt();
             if (evidence) lifecycle.emit(evidence);
           },

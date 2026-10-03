@@ -13,6 +13,7 @@
 import { randomUUID } from "node:crypto";
 import type { AgentAssignment } from "../../../src/lib/agents/assign";
 import { compileAgent, hashAgentContent, snapshotAgent } from "../../../src/lib/agents/compile";
+import { releasedAgentInstructions } from "../../../src/lib/agents/runtime-options";
 import type { ProviderId } from "../../../src/lib/providers/provider.types";
 import type { AgentAssignmentStore } from "../../persistence/agent-assignment-store";
 import { prepareTaskAgentTurn, type TaskAgentTurn } from "../../providers/task-agent-turn";
@@ -31,6 +32,11 @@ export class AssignError extends Error {
 export interface AssignRuntimeDependencies {
   store: Pick<AgentAssignmentStore, "create" | "update" | "get" | "getByRequestId" | "getByTaskId" | "list" | "listInState">;
   emitChanged?: (assignment: AgentAssignment) => void;
+  /**
+   * The task stopped running as the agent it had: released, or replaced by
+   * another assignment. Its agent run ends with it.
+   */
+  onTaskAgentEnded?: (taskId: string) => void;
   /** The active agent library, for a main Agent's in-turn subagents. */
   listAgents?: () => readonly AgentAssignment["agent"][];
   now?: () => Date;
@@ -68,7 +74,12 @@ export interface AssignRuntime {
    * the task was not running as an agent.
    */
   releaseTaskAgent: (taskId: string) => AgentAssignment | null;
-
+  /**
+   * The Agent instructions a task's turns carry after its Agent was released:
+   * a notice that the agent's role and limits no longer apply. Null while the
+   * task runs as an agent, or when it never ran as one.
+   */
+  releasedAgentInstructions: (taskId: string) => string | null;
 }
 
 export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRuntime {
@@ -79,6 +90,14 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       deps.emitChanged?.(row);
     } catch (error) {
       console.warn("[agents] failed to announce an assignment change", error);
+    }
+  };
+
+  const endRun = (taskId: string) => {
+    try {
+      deps.onTaskAgentEnded?.(taskId);
+    } catch (error) {
+      console.warn("[agents] failed to end the agent run of a task whose agent ended", error);
     }
   };
 
@@ -120,6 +139,10 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       const row = currentRow(taskId);
       return row ? { agent: row.agent, standards: row.standards ?? null } : null;
     },
+    releasedAgentInstructions(taskId) {
+      const row = deps.store.getByTaskId(taskId);
+      return row?.endedAt ? releasedAgentInstructions(row.agentName) : null;
+    },
     releaseTaskAgent(taskId) {
       const row = currentRow(taskId);
       if (!row) return null;
@@ -127,6 +150,7 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       const ended: AgentAssignment = { ...row, endedAt: timestamp, updatedAt: timestamp };
       deps.store.update(ended);
       announce(ended);
+      endRun(taskId);
       return ended;
     },
     recordTaskAgent(args) {
@@ -135,6 +159,7 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       const snapshot = snapshotAgent(args.agent);
       const compiled = compileAgent({ snapshot, role: args.role ?? "primary", providerId: args.providerId, standards: args.standards });
       if (!compiled.ok) throw new AssignError("refused", compiled.message);
+      const replaced = currentRow(args.taskId);
       const timestamp = now().toISOString();
       const row: AgentAssignment = {
         id: newId(),
@@ -165,6 +190,8 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       };
       if (!deps.store.create(row)) return deps.store.getByRequestId(args.requestId) ?? row;
       announce(row);
+      // A run the previous agent started must not go on under the new one.
+      if (replaced) endRun(args.taskId);
       return row;
     },
     recover() {

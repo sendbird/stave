@@ -76,6 +76,7 @@ import {
   submitGitHubPullRequestReview,
 } from "./host-service/github-pr-review-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
+import { createWorkspacePlanFileWriter } from "./host-service/local-mcp-plan-files";
 import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
@@ -606,6 +607,13 @@ const projectRuntime = createHostProjectRuntime({
 });
 const assignRuntime = createHostAssignRuntime({
   emitChanged: (event) => emitEvent("agent.changed", event),
+  // An agent run ends with the agent it ran as (released or replaced), now,
+  // not at the next tick, so the user's next turn never lands inside it.
+  onTaskAgentEnded: (taskId) => {
+    void missionRuntime.endAgentRunForTask({ taskId }).catch((error) => {
+      console.warn("[missions] could not end the agent run of a released task", error);
+    });
+  },
 });
 setProjectAgentsLookup((taskId) => projectRuntime.agentsForTask(taskId));
 const proposalRuntime = createProposalRuntime({
@@ -656,6 +664,17 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
 });
 
 registerDelegationPolicyObserver();
+
+const writeWorkspacePlanFile = createWorkspacePlanFileWriter({
+  resolveWorkspacePath: async (workspaceId) => {
+    const repositories = await localMcpRuntime.listKnownRepositories();
+    for (const repository of repositories) {
+      const workspace = repository.workspaces.find((candidate) => candidate.id === workspaceId);
+      if (workspace) return workspace.path;
+    }
+    return null;
+  },
+});
 
 async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
   switch (action) {
@@ -713,6 +732,8 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.appendWorkspaceNotes(
         args as Parameters<typeof localMcpRuntime.appendWorkspaceNotes>[0],
       );
+    case "write-workspace-plan-file":
+      return writeWorkspacePlanFile(args as Parameters<typeof writeWorkspacePlanFile>[0]);
     case "remember-repository-memory":
       return localMcpRuntime.rememberRepositoryMemory(
         args as Parameters<typeof localMcpRuntime.rememberRepositoryMemory>[0],

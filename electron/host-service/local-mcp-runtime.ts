@@ -3,6 +3,7 @@ import { taskControlGate } from "./task-control-gate";
 import { attachTurnReceiptToSession } from "./local-mcp-turn-receipt-projection";
 import { displayTurnReceipt } from "../../src/lib/providers/turn-terminal-receipt";
 import { ChatMessageSchema } from "../../src/lib/task-context/schemas";
+import { mergeDurableSourceContexts, withoutTurnScopedContexts } from "../../src/lib/task-context/turn-scoped-context";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -1786,7 +1787,10 @@ async function runTaskImpl(args: {
   if (task) taskControlGate.assertCurrent(task.id, controlGeneration);
   const requestedControlMode = args.controlMode ?? "managed";
   const requestedControlOwner = args.controlOwner ?? "external";
-  const requestedSourceContexts = args.retrievedContextParts ?? [];
+  // Only durable sources (a ticket, a PR log) stay on the task; a part that
+  // describes this one turn (a mission stage, a wake-up) still reaches this
+  // turn below, but must not be re-sent with the user's later turns.
+  const requestedSourceContexts = withoutTurnScopedContexts(args.retrievedContextParts ?? []);
 
   if (!task) {
     const taskId = delegationTaskId ?? randomUUID();
@@ -1820,13 +1824,7 @@ async function runTaskImpl(args: {
       },
     });
   } else {
-    const sourceContextsById = new Map(
-      (task.sourceContexts ?? []).map((part) => [part.sourceId, part]),
-    );
-    for (const part of requestedSourceContexts) {
-      sourceContextsById.set(part.sourceId, part);
-    }
-    const sourceContexts = [...sourceContextsById.values()];
+    const sourceContexts = mergeDurableSourceContexts(task.sourceContexts, requestedSourceContexts);
     const sourceContextsChanged =
       JSON.stringify(sourceContexts) !==
       JSON.stringify(task.sourceContexts ?? []);
@@ -1837,8 +1835,9 @@ async function runTaskImpl(args: {
     ) {
       // Keep the current task object when no durable metadata changed.
     } else {
+      const { sourceContexts: _previous, ...rest } = task;
       task = {
-        ...task,
+        ...rest,
         controlMode: requestedControlMode,
         controlOwner: requestedControlOwner,
         ...(sourceContexts.length > 0 ? { sourceContexts } : {}),
@@ -2368,13 +2367,7 @@ async function releaseManagedTaskControl(args: {
   if (session.activeTurnIdsByTask[task.id]) {
     throw new Error(`Task still has an active turn: ${task.id}`);
   }
-  const sourceContextsById = new Map(
-    (task.sourceContexts ?? []).map((part) => [part.sourceId, part]),
-  );
-  for (const part of args.sourceContexts ?? []) {
-    sourceContextsById.set(part.sourceId, part);
-  }
-  const sourceContexts = [...sourceContextsById.values()];
+  const sourceContexts = mergeDurableSourceContexts(task.sourceContexts, args.sourceContexts ?? []);
   const sourceContextsChanged =
     JSON.stringify(sourceContexts) !==
     JSON.stringify(task.sourceContexts ?? []);
@@ -2388,8 +2381,9 @@ async function releaseManagedTaskControl(args: {
       released: false,
     };
   }
+  const { sourceContexts: _previous, ...taskWithoutSources } = task;
   const releasedTask: Task = {
-    ...task,
+    ...taskWithoutSources,
     ...(canRelease
       ? {
           controlMode: "interactive" as const,

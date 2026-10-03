@@ -10,24 +10,27 @@ import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/libra
 import { activeStandards, normalizeMyStandards } from "../../../src/lib/agents/standards";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { AgentRouteSettingsSchema } from "../../../src/lib/routing/agent-run-route";
-import { setTaskAgentTurnResolver } from "../../providers/runtime";
+import { setReleasedTaskAgentResolver, setTaskAgentTurnResolver } from "../../providers/runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
 import { AssignError, createAssignRuntime, type AssignRuntime } from "./assign-runtime";
 
 export function createHostAssignRuntime(args: {
   emitChanged: (event: { assignmentId: string; state: string }) => void;
+  onTaskAgentEnded?: (taskId: string) => void;
 }): AssignRuntime & { start: () => void } {
   const persistence = ensureHostServicePersistenceReady();
   const runtime = createAssignRuntime({
     store: persistence.agentAssignments,
     listAgents: () => hostAgents(),
     emitChanged: (row) => args.emitChanged({ assignmentId: row.id, state: row.state }),
+    ...(args.onTaskAgentEnded ? { onTaskAgentEnded: args.onTaskAgentEnded } : {}),
   });
   return {
     ...runtime,
     start() {
       runtime.recover();
       setTaskAgentTurnResolver((turn) => runtime.prepareTurn(turn));
+      setReleasedTaskAgentResolver((taskId) => runtime.releasedAgentInstructions(taskId));
     },
   };
 }

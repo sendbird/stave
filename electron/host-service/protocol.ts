@@ -469,6 +469,7 @@ export type HostLocalMcpAction =
   | "set-workspace-martin-project"
   | "replace-workspace-notes"
   | "append-workspace-notes"
+  | "write-workspace-plan-file"
   | "clear-workspace-notes"
   | "add-workspace-todo"
   | "update-workspace-todo"

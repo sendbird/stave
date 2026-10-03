@@ -265,6 +265,11 @@ export interface MissionRuntime {
   /** Forwarded when a host-run turn finishes, so the mission reacts at once. */
   notifyTaskTurnFinished: (args: { taskId: string }) => void;
   getActiveMissionForTask: (taskId: string) => Mission | null;
+  /**
+   * Ends the task's active agent run because the agent it ran as was released
+   * or replaced. True when a run ended. A playbook mission is left alone.
+   */
+  endAgentRunForTask: (args: { taskId: string }) => Promise<boolean>;
   /** `projectId` is set only by the project runtime, for a mission a project started. */
   startMission: (input: MissionStartInput, options?: { projectId?: string }) => Promise<MissionDetail>;
   list: (args?: MissionListArgs) => Promise<{ missions: Mission[] }>;
@@ -729,6 +734,12 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       const cwd = await deps.resolveWorkspacePath(mission.workspaceId);
       startHeadSha = cwd ? await deps.readHeadSha(cwd).catch(() => null) : null;
     }
+    // The user may release the agent while the awaits above run; an agent run
+    // then ends here instead of starting one more stage turn as plain chat.
+    if (isAgentRun(mission) && deps.taskRunsAsAgent && !deps.taskRunsAsAgent(mission.leadTaskId)) {
+      applyChange(cancelMission({ aggregate, now: now(), endedBy: "released" }));
+      return;
+    }
     const turnKey = buildMissionTurnKey({
       missionId: mission.id,
       stageId: before.stageId,
@@ -1117,6 +1128,14 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       if (store.getActiveMissionForTask(taskId)) void requestTick();
     },
     getActiveMissionForTask: (taskId) => store.getActiveMissionForTask(taskId),
+    endAgentRunForTask: ({ taskId }) =>
+      enqueue(() => {
+        const active = store.getActiveMissionForTask(taskId);
+        const aggregate = active && isAgentRun(active) ? store.getAggregate(active.id) : null;
+        if (!aggregate || !isActiveMissionState(aggregate.mission.state)) return false;
+        applyChange(cancelMission({ aggregate, now: now(), endedBy: "released" }));
+        return true;
+      }),
     startMission: (rawInput, options) =>
       enqueue(async () => {
         const input = MissionStartInputSchema.parse(rawInput);

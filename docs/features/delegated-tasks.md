@@ -135,13 +135,18 @@ approval.
 for approval. Stave resolves it per provider:
 
 - **Codex:** `read-only` file access, approval `never`, network off, and Stave
-  Local MCP auto-approval off.
+  Local MCP auto-approval off. The Stave tools that read Stave state or record
+  the work in it are pre-approved per tool, because Codex otherwise rejects a
+  non-read-only MCP call outright under approval `never`.
 - **Claude:** `dontAsk` with an allowlist of reads — `Read`, `Grep`, `Glob`,
   `LS`, `NotebookRead`, `WebFetch`, `WebSearch`, read-only Git commands
   (`git status`, `diff`, `log`, `show`, `blame`, `rev-parse`, `ls-files`,
-  `grep`) and Stave tools that only read Stave state. Everything else is denied
-  without a prompt. The edit tools, `AskUserQuestion` and every Stave tool that
-  edits workspace information, memory or schedules, starts or answers a task,
+  `grep`), Stave tools that only read Stave state, and Stave tools that record
+  the work without touching the repository: adding notes, todos, links and
+  custom fields, `stave_write_plan_file` (only `.stave/context/plans/<name>.md`)
+  and the stage report tools. Everything else is denied without a prompt. The
+  edit tools, `AskUserQuestion` and every Stave tool that clears or removes
+  workspace information, edits memory or schedules, starts or answers a task,
   or drives the browser are removed outright, and Bash runs in a sandbox that
   denies filesystem writes and fails closed where no sandbox is available.
 

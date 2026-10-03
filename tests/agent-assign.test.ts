@@ -171,6 +171,53 @@ describe("record-task", () => {
     expect(runtime.releaseTaskAgent("task-7")).toBeNull();
   });
 
+  test("releasing or replacing a task's agent ends the run it started, recording the first one does not", () => {
+    const ended: string[] = [];
+    const { runtime } = harness({ onTaskAgentEnded: (taskId) => ended.push(taskId) });
+    const base = {
+      taskId: "task-9",
+      workspaceId: "ws-1",
+      repositoryPath: "/tmp/repo",
+      providerId: "claude-code" as const,
+      model: null,
+      assignment: "Investigate.",
+    };
+    runtime.recordTaskAgent({ ...base, requestId: "composer:e1", agent: getBuiltinAgent("debugger")! });
+    expect(ended).toEqual([]);
+    runtime.recordTaskAgent({ ...base, requestId: "composer:e2", agent: getBuiltinAgent("researcher")! });
+    expect(ended).toEqual(["task-9"]);
+    runtime.releaseTaskAgent("task-9");
+    expect(ended).toEqual(["task-9", "task-9"]);
+    // Nothing to end after release.
+    runtime.releaseTaskAgent("task-9");
+    expect(ended).toHaveLength(2);
+  });
+
+  test("a released task's turns say the agent's role and limits no longer apply", () => {
+    const { runtime } = harness();
+    expect(runtime.releasedAgentInstructions("task-8")).toBeNull();
+    const base = {
+      taskId: "task-8",
+      workspaceId: "ws-1",
+      repositoryPath: "/tmp/repo",
+      providerId: "codex" as const,
+      model: null,
+      assignment: "List candidate features.",
+    };
+    runtime.recordTaskAgent({ ...base, requestId: "composer:r1", agent: getBuiltinAgent("researcher")! });
+    // Still running as the agent: no notice.
+    expect(runtime.releasedAgentInstructions("task-8")).toBeNull();
+
+    runtime.releaseTaskAgent("task-8");
+    const notice = runtime.releasedAgentInstructions("task-8");
+    expect(notice).toContain("Researcher");
+    expect(notice).toContain("no longer apply");
+
+    // A new agent takes over: its own instructions, not the notice.
+    runtime.recordTaskAgent({ ...base, requestId: "composer:r2", agent: getBuiltinAgent("implementer")! });
+    expect(runtime.releasedAgentInstructions("task-8")).toBeNull();
+  });
+
 
 
   test("a main agent's turn carries its canCall agents as in-turn subagents, and nothing else does", () => {

@@ -91,3 +91,21 @@ export function compiledTaskAgentRuntimeOptions(
   });
   return { ...instructions, ...permission };
 }
+
+/**
+ * What a task's turns carry after the user released its Agent, in the
+ * Agent instruction channel (Claude's system prompt, Codex's developer
+ * instructions). A resumed provider session still holds the Agent's earlier
+ * instructions and the mission prompts that named it, and a model that only
+ * stops receiving them keeps obeying the copy in its history. Codex re-sends
+ * changed developer instructions as a refresh block, so this line is also what
+ * tells it the old limits were lifted rather than merely omitted.
+ */
+export function releasedAgentInstructions(agentName: string): string {
+  const name = agentName.trim() || "an Agent";
+  return [
+    "# Agent released",
+    `This task ran as the ${name} agent earlier. The user released it: the task no longer runs as ${name}. That agent's role, instructions and limits, and the stage reporting of the ${name} run, no longer apply, even where earlier messages in this conversation state them.`,
+    "Follow the current instructions, any mission context attached to this turn, the user's latest request and the permissions this turn actually has. Do not refuse work because the released agent's role forbade it.",
+  ].join("\n\n");
+}

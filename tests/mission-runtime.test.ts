@@ -1000,7 +1000,9 @@ describe("mission runtime: agent runs", () => {
       now: new Date(START),
     });
 
-  function agentRunHarness(options: { store?: MissionStore; turns?: MissionTurnRow[]; turnPrefix?: string } = {}) {
+  function agentRunHarness(
+    options: { store?: MissionStore; turns?: MissionTurnRow[]; turnPrefix?: string; releaseWhileRouting?: boolean } = {},
+  ) {
     let draft: PromptDraftRuntimeOverrides = { autoRouting: true };
     let runsAsAgent = true;
     const endings = new Map<string, "completed" | "stopped" | "failed">();
@@ -1016,7 +1018,11 @@ describe("mission runtime: agent runs", () => {
       ...options,
       userPermissionOptions: (providerId) => USER[providerId as keyof typeof USER],
       extra: {
-        routeAgentTurn: (args) => router({ ...args, agent: AGENT }),
+        routeAgentTurn: (args) => {
+          // The user picks a model while the turn is still being routed.
+          if (options.releaseWhileRouting) runsAsAgent = false;
+          return router({ ...args, agent: AGENT });
+        },
         taskRunsAsAgent: () => runsAsAgent,
         readTurnEnding: (turnId) => endings.get(turnId) ?? "completed",
       },
@@ -1145,6 +1151,27 @@ describe("mission runtime: agent runs", () => {
     await harness.tick();
     expect(harness.aggregate(missionId).mission.state).toBe("cancelled");
     expect(harness.current(missionId).detail).toBe("The task no longer runs as an agent.");
+  });
+
+  test("ending the task's agent ends its active agent run at once, and leaves playbook missions alone", async () => {
+    const harness = agentRunHarness();
+    const missionId = await startedMission(harness, runInput());
+    // The agent was replaced, so the task still runs as an agent: only the explicit end stops the run.
+    expect(await harness.runtime.endAgentRunForTask({ taskId: "task-1" })).toBe(true);
+    expect(harness.aggregate(missionId).mission.state).toBe("cancelled");
+    expect(await harness.runtime.endAgentRunForTask({ taskId: "task-1" })).toBe(false);
+
+    const playbook = agentRunHarness();
+    const playbookId = await startedMission(playbook);
+    expect(await playbook.runtime.endAgentRunForTask({ taskId: "task-1" })).toBe(false);
+    expect(playbook.aggregate(playbookId).mission.state).toBe("running");
+  });
+
+  test("a release while the next turn is routed ends the run instead of starting that turn", async () => {
+    const harness = agentRunHarness({ releaseWhileRouting: true });
+    const missionId = await startedMission(harness, runInput());
+    expect(harness.runCalls).toHaveLength(0);
+    expect(harness.aggregate(missionId).mission.state).toBe("cancelled");
   });
 
   test("a playbook mission ignores the agent-run endings and pauses on drift as before", async () => {

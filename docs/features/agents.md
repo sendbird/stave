@@ -200,7 +200,11 @@ that can run a task). Typing in the search also lists the agents that match.
 What you pick decides how the task runs:
 
 - **A model is Chat.** The model runs the task with the task's own permissions,
-  as it always did. If an agent was running the task, picking a model ends it.
+  as it always did. If an agent was running the task, picking a model ends it
+  and its run. Later turns tell the model the agent was released and its role
+  and limits no longer apply (Claude's system prompt, Codex's developer
+  instructions, once per session in the prompt on Cursor and Kiro), because a
+  resumed session still remembers the agent's instructions.
 - **An agent is Agent mode.** The agent runs the task from the next turn and
   picks its own model: Stave Auto routes every turn, using the agent's task
   class as its starting point. An agent with a fixed model uses it as its
@@ -222,7 +226,8 @@ What you pick decides how the task runs:
 - A choice applies from the next turn. Earlier turns keep the agent they ran
   as, and each agent's History counts the turns it ran. Choosing another
   agent is locked while a turn runs or waits for an answer, and a switch to an
-  agent with a wider permission asks first.
+  agent with a wider permission asks first. Switching agents ends the run the
+  previous agent started.
 - A task that runs as an agent calls other agents itself, as subagents.
 
 ### Usable as
@@ -371,6 +376,11 @@ Fleet's search finds its tasks.
   Kiro has no read-only mode, so a read-only agent there asks before every tool
   and is only told not to edit; the Agents tab shows this as **Asked in
   instructions**.
+  Read only covers the repository, not Stave's own records of the work: a
+  read-only agent can still add workspace notes, todos, links and custom
+  fields, write a plan file with `stave_write_plan_file`, and report or block
+  its stage. Clearing or removing what you wrote, project memory and schedules
+  stay off.
 - Tool limits are enforced where the provider supports them (for example, a
   Claude main agent's denied tools) and stated in the instructions elsewhere.
 - Where an assigned task runs:

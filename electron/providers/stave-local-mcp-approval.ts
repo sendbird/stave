@@ -1,4 +1,4 @@
-import { READ_ONLY_DELEGATION_STAVE_TOOLS } from "../../src/lib/runs/read-only-delegation";
+import { READ_ONLY_DELEGATION_STAVE_TOOLS, READ_ONLY_STAVE_METADATA_TOOLS } from "../../src/lib/runs/read-only-delegation";
 
 /**
  * The Stave Local MCP tools that are safe enough to run without ever asking the
@@ -39,6 +39,8 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_add_workspace_custom_field",
   "stave_set_workspace_custom_field",
   "stave_remove_workspace_custom_field",
+  // Writes only `<workspace>/.stave/context/plans/<name>.md`, Stave's plan store.
+  "stave_write_plan_file",
   // Project memory is Stave metadata too: one short sentence per row, capped
   // and user-editable from the Information panel.
   "stave_remember",
@@ -134,8 +136,10 @@ export function isNeverAutoApprovedStaveLocalMcpTool(toolName: string) {
  * Which Stave tools Claude's prompt-free modes run without asking. `auto`
  * runs every Stave tool except the respond tools: spawn tools are capped by
  * the host (a spawned turn never gets wider than the user's settings) and
- * schedules a model creates are saved disabled. `dontAsk` runs only the tools
- * that read Stave state; it denies the rest rather than starting work.
+ * schedules a model creates are saved disabled. `dontAsk` (the read-only
+ * posture) runs the tools that read Stave state and the ones that record the
+ * work in it (`READ_ONLY_STAVE_METADATA_TOOLS`); it denies the rest rather
+ * than starting work.
  */
 export function isPromptFreeStaveLocalMcpTool(
   toolName: string,
@@ -144,5 +148,6 @@ export function isPromptFreeStaveLocalMcpTool(
   const leaf = normalizeStaveLocalMcpToolName(toolName);
   return permissionMode === "auto"
     ? !STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES.has(leaf)
-    : (READ_ONLY_DELEGATION_STAVE_TOOLS as readonly string[]).includes(leaf);
+    : (READ_ONLY_DELEGATION_STAVE_TOOLS as readonly string[]).includes(leaf) ||
+      (READ_ONLY_STAVE_METADATA_TOOLS as readonly string[]).includes(leaf);
 }
