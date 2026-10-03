@@ -18,6 +18,9 @@ type TaskPauseActionKey =
 
 type TaskPauseActions = Pick<AppState, TaskPauseActionKey>;
 
+/** How long after an armed resume a refusal keeps the pause armed. */
+const AUTO_RESUME_RETRY_WINDOW_MS = 2 * 60_000;
+
 function readUsageLimitReset(args: {
   state: Pick<AppState, "rateLimitsSnapshot">;
   providerId: TaskUsageLimitPause["providerId"];
@@ -44,6 +47,13 @@ export function createTaskPauseActions(args: {
   dispatchNextQueuedTaskTurn: (target: { workspaceId: string; taskId: string }) => void;
 }): TaskPauseActions {
   const { set, get } = args;
+  /**
+   * Tasks an armed resume just released. Releasing drops the pause, so a
+   * refusal right after (the limit still holds, or a queued turn pinned to
+   * another account is refused) re-creates it; within this window it comes
+   * back armed for the next reset instead of waiting for the user again.
+   */
+  const autoResumeRetryUntil = new Map<string, number>();
 
   const patchPause = (
     taskId: string,
@@ -79,16 +89,23 @@ export function createTaskPauseActions(args: {
         providerId: pause.providerId,
         model: pause.model,
       });
-      if (!reading || reading.resetsAt === pause.resetsAt) {
+      const retry =
+        pause.autoResumeAt == null &&
+        (autoResumeRetryUntil.get(taskId) ?? 0) > Date.now();
+      const armed = pause.autoResumeAt != null || retry;
+      if (!reading || (reading.resetsAt === pause.resetsAt && !retry)) {
         return pause;
       }
       const autoResumeAt =
-        pause.autoResumeAt != null
+        armed
           ? resolveUsageLimitAutoResumeAt({
               resetsAt: reading.resetsAt,
               now: Date.now(),
             })
           : null;
+      if (autoResumeAt != null) {
+        autoResumeRetryUntil.delete(taskId);
+      }
       const { autoResumeAt: _armed, ...rest } = pause;
       return {
         ...rest,
@@ -116,10 +133,13 @@ export function createTaskPauseActions(args: {
       const resetsAt = reading?.resetsAt ?? current?.resetsAt ?? null;
       // A pause that was armed stays armed: an automatic resume refused by a
       // still-exhausted window waits for the next reset instead.
-      const autoResumeAt =
-        current?.autoResumeAt != null
-          ? resolveUsageLimitAutoResumeAt({ resetsAt, now })
-          : null;
+      const keepArmed = current?.autoResumeAt != null || (autoResumeRetryUntil.get(pauseArgs.taskId) ?? 0) > now;
+      const autoResumeAt = keepArmed
+        ? resolveUsageLimitAutoResumeAt({ resetsAt, now })
+        : null;
+      if (autoResumeAt != null) {
+        autoResumeRetryUntil.delete(pauseArgs.taskId);
+      }
       const model = pauseArgs.model ?? current?.model;
       const windowLabel = reading?.windowLabel ?? current?.windowLabel;
       const next: TaskUsageLimitPause = {
@@ -153,7 +173,7 @@ export function createTaskPauseActions(args: {
     taskId,
     trigger = "user",
   }) => {
-    const pause = get().usageLimitPauseByTask[taskId];
+    let pause = get().usageLimitPauseByTask[taskId];
     if (trigger === "auto") {
       if (!pause || pause.autoResumeAt == null) {
         return;
@@ -163,6 +183,11 @@ export function createTaskPauseActions(args: {
       await get()
         .refreshRateLimits({ providers: [pause.providerId], force: true })
         .catch(() => undefined);
+      // The user may have resumed, cancelled or dismissed during the read.
+      pause = get().usageLimitPauseByTask[taskId];
+      if (!pause || pause.autoResumeAt == null) {
+        return;
+      }
       const reading = readUsageLimitReset({
         state: get(),
         providerId: pause.providerId,
@@ -186,6 +211,7 @@ export function createTaskPauseActions(args: {
         });
         return;
       }
+      autoResumeRetryUntil.set(taskId, Date.now() + AUTO_RESUME_RETRY_WINDOW_MS);
     }
 
     const state = get();

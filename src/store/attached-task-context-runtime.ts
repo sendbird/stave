@@ -9,6 +9,7 @@ import {
 } from "@/lib/task-context/attached-task-context";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
 import type { AppState } from "@/store/app-store.types";
+import { getPromptDraftAttachments } from "@/store/prompt-draft-context";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import type { ChatMessage, PromptDraft, Task } from "@/types/chat";
 
@@ -41,17 +42,21 @@ async function readAttachedTaskMessages(args: {
 export async function collectTaskReferenceContextParts(args: {
   getState: () => AppState;
   prompt: string;
-  promptDraft: Pick<PromptDraft, "attachments">;
+  promptDraft: PromptDraft;
   currentTaskId: string;
   tasks: Task[];
   messagesByTask: Record<string, ChatMessage[]>;
 }): Promise<CanonicalRetrievedContextPart[]> {
   const parts: CanonicalRetrievedContextPart[] = [];
-  const attached = args.promptDraft.attachments
+  const attached = getPromptDraftAttachments(args.promptDraft)
     .filter(
       (attachment): attachment is TaskContextAttachment =>
         attachment.kind === "task-context" &&
         attachment.taskId !== args.currentTaskId,
+    )
+    .filter(
+      (attachment, index, all) =>
+        all.findIndex((other) => other.taskId === attachment.taskId) === index,
     )
     .slice(0, MAX_ATTACHED_TASKS);
   if (attached.length > 0) {

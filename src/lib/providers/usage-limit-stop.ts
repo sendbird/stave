@@ -13,7 +13,6 @@ const USAGE_LIMIT_ERROR_PATTERNS: readonly RegExp[] = [
   /\bextra usage credits are exhausted\b/i,
   /\b(?:you'?ve|you have) (?:hit|reached) your (?:usage )?limit\b/i,
   /\busage limit (?:reached|exceeded|has been reached)\b/i,
-  /\brate limit\/quota reached\b/i,
   /\busage_limit_(?:reached|exceeded)\b/i,
   /\busageLimitExceeded\b/,
 ];

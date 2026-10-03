@@ -28,7 +28,7 @@ describe("isUsageLimitErrorText", () => {
     "Extra usage credits are exhausted. Resets at 9:00 AM.",
     "You've hit your limit · resets 3pm (Asia/Seoul)",
     "Claude AI usage limit reached|1760000000",
-    "Codex rate limit/quota reached. Retry after reset or check account limits.",
+    "Codex usage limit reached. Wait for the limit to reset or check account limits.",
     "{\"code\":\"usage_limit_reached\"}",
   ])("treats %p as a usage limit", (text) => {
     expect(isUsageLimitErrorText(text)).toBe(true);
@@ -37,6 +37,7 @@ describe("isUsageLimitErrorText", () => {
   test.each([
     "Approaching 5-hour limit (92% used)",
     "API Error: 429 rate_limit_error: per-minute token rate exceeded",
+    "Codex rate limit hit. Retry shortly.",
     "model is overloaded",
     "Codex authentication failed. Run `codex login` and retry.",
   ])("does not treat %p as a usage limit", (text) => {

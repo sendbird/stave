@@ -1326,7 +1326,9 @@ with **Resume at reset** and **Resume now**
 ([When A Usage Limit Stops Work](../features/turn-activity.md#when-a-usage-limit-stops-work)).
 The stop is recognized from the error text the runtimes already emit
 (`src/lib/providers/usage-limit-stop.ts`), and the reset time comes from a
-forced usage read, so neither runtime's event contract changes.
+forced usage read, so neither runtime's event contract changes. Codex reports
+an exhausted account (`Codex usage limit reached`) apart from a short
+per-request throttle (`Codex rate limit hit`), and only the first pauses work.
 The popover lists every window, the same 100% rule, and the tokens and cost
 breakdown with the number of turns behind each. When a provider has more than one account, it
 names the account the numbers belong to.

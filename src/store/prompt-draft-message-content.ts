@@ -48,6 +48,18 @@ export function buildPromptDraftDisplayContentForSend(
     .join("\n\n");
 }
 
+function toTaskContextPart(
+  attachment: Extract<Attachment, { kind: "task-context" }>,
+): MessagePart {
+  return {
+    type: "task_context",
+    taskId: attachment.taskId,
+    workspaceId: attachment.workspaceId,
+    title: attachment.title,
+    scope: attachment.scope,
+  };
+}
+
 export function buildPromptDraftDisplayPartsForSend(
   draft: PromptDraft,
 ): MessagePart[] | undefined {
@@ -59,6 +71,10 @@ export function buildPromptDraftDisplayPartsForSend(
     const text = item.content.trim();
     if (text) parts.push({ type: "text", text });
     for (const attachment of item.attachments ?? []) {
+      if (attachment.kind === "task-context") {
+        parts.push(toTaskContextPart(attachment));
+        continue;
+      }
       if (shouldIncludeImageAttachmentAsProviderContext(attachment, true)) {
         parts.push({
           type: "image_context",
@@ -85,13 +101,7 @@ export function buildPromptDraftDisplayPartsForSend(
   for (const attachment of draft.attachments) {
     if (attachment.kind !== "task-context") continue;
     hasWorkspaceInformationReference = true;
-    parts.push({
-      type: "task_context",
-      taskId: attachment.taskId,
-      workspaceId: attachment.workspaceId,
-      title: attachment.title,
-      scope: attachment.scope,
-    });
+    parts.push(toTaskContextPart(attachment));
   }
 
   const imageAttachmentsById = new Map(

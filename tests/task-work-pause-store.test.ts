@@ -104,7 +104,7 @@ describe("usage-limit pause", () => {
     harness.emit("stream-1", { type: "text", text: "Working on it." });
     harness.emit("stream-1", {
       type: "error",
-      message: "Codex rate limit/quota reached. Retry after reset or check account limits.",
+      message: "Codex usage limit reached. Wait for the limit to reset or check account limits.",
       recoverable: false,
     });
     harness.emit("stream-1", { type: "done", stop_reason: "failed" }, true);
@@ -159,6 +159,51 @@ describe("usage-limit pause", () => {
     expect(useAppStore.getState().usageLimitPauseByTask["task-main"]?.autoResumeAt).toBeUndefined();
     useAppStore.getState().dismissUsageLimitPause({ taskId: "task-main" });
     expect(useAppStore.getState().usageLimitPauseByTask["task-main"]).toBeUndefined();
+  });
+});
+
+describe("automatic resume", () => {
+  test("stands down when the user acts while usage is being read", async () => {
+    const harness = installProviderHarness();
+    const useAppStore = await seedStore();
+    useAppStore.getState().pauseTaskForUsageLimit({
+      taskId: "task-main",
+      workspaceId: "ws-main",
+      providerId: "codex",
+      stoppedTurn: true,
+      usageLimit: { providerId: "codex", windowLabel: "codex primary", resetsAt: Date.now() - 1_000 },
+    });
+    useAppStore.getState().setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+    const resuming = useAppStore.getState().resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    useAppStore.getState().setUsageLimitAutoResume({ taskId: "task-main", enabled: false });
+    await resuming;
+    expect(harness.startedPrompts).toEqual([]);
+    expect(useAppStore.getState().usageLimitPauseByTask["task-main"]).toMatchObject({ stoppedTurn: true });
+  });
+
+  test("a refusal right after an armed resume stays armed for the next reset", async () => {
+    installProviderHarness();
+    const useAppStore = await seedStore();
+    useAppStore.getState().pauseTaskForUsageLimit({
+      taskId: "task-main",
+      workspaceId: "ws-main",
+      providerId: "codex",
+      stoppedTurn: false,
+      usageLimit: { providerId: "codex", windowLabel: "codex primary", resetsAt: Date.now() - 1_000 },
+    });
+    useAppStore.getState().setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+    await useAppStore.getState().resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    expect(useAppStore.getState().usageLimitPauseByTask["task-main"]).toBeUndefined();
+
+    const nextReset = Date.now() + 5 * 60 * 60_000;
+    useAppStore.getState().pauseTaskForUsageLimit({
+      taskId: "task-main",
+      workspaceId: "ws-main",
+      providerId: "codex",
+      stoppedTurn: false,
+      usageLimit: { providerId: "codex", windowLabel: "codex secondary", resetsAt: nextReset },
+    });
+    expect(useAppStore.getState().usageLimitPauseByTask["task-main"]?.autoResumeAt).toBe(nextReset + 60_000);
   });
 });
 

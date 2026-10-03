@@ -199,6 +199,25 @@ describe("context sent with the prompt", () => {
     ).toBe("1 task");
   });
 
+  test("a task attached to a staged batch item still shows on the sent message", () => {
+    const attachment = createTaskContextAttachment({ taskId: "t2", workspaceId: "ws-1", title: "Plan" });
+    const parts = buildPromptDraftDisplayPartsForSend({
+      text: "",
+      attachedFilePaths: [],
+      attachments: [],
+      promptBatch: [
+        { id: "b1", createdAt: "2026-10-03T10:00:00.000Z", content: "Follow the plan", attachments: [attachment] },
+      ],
+    });
+    expect(parts).toContainEqual({
+      type: "task_context",
+      taskId: "t2",
+      workspaceId: "ws-1",
+      title: "Plan",
+      scope: "latest-reply",
+    });
+  });
+
   test("an attached task survives a workspace save and load", () => {
     const attachment = createTaskContextAttachment({ taskId: "t1", workspaceId: "ws-1", title: "Research", scope: "conversation" });
     const snapshot = parseWorkspaceSnapshot({
