@@ -54,14 +54,15 @@ describe("turn policy mapping: Claude", () => {
       claudeDisallowedTools: ["WebFetch"], claudeSandboxCredentialFiles: ["~/.secrets"], claudeSandboxCredentialEnvVars: ["API_TOKEN"],
     });
     expect(policy.autonomy).toBe("autonomous");
-    expect(policy.options).toEqual({ claudePermissionMode: "auto" });
-    expect(policy.guardrails).toEqual({ root: ROOT, credentialFiles: ["~/.secrets"], credentialEnvVars: ["API_TOKEN"], enabled: [] });
+    expect(policy.options).toEqual({ claudePermissionMode: "auto", claudeAgentTurn: true });
+    expect(policy.guardrails).toEqual({ root: ROOT, credentialFiles: ["~/.secrets"], credentialEnvVars: ["API_TOKEN"], enabled: ["G1", "G2", "G3"] });
     expect(policy.source).toBe("agent");
   });
 
   test("an agent keeps Bypass, Plan and Don't Ask as the user chose them", () => {
     for (const mode of ["bypassPermissions", "plan", "dontAsk", "auto"] as const) {
-      expect(resolve("claude-code", agent, { claudePermissionMode: mode })).toMatchObject({ autonomy: "autonomous", options: {} });
+      expect(resolve("claude-code", agent, { claudePermissionMode: mode })).toMatchObject({ autonomy: "autonomous", options: { claudeAgentTurn: true } });
+      expect(resolve("claude-code", agent, { claudePermissionMode: mode }).options).not.toHaveProperty("claudePermissionMode");
     }
   });
 
@@ -195,6 +196,13 @@ describe("Claude guardrails", () => {
     expect(writeFrom(`${repo}/src/a.ts`)).toBeNull();
     expect(writeFrom("/.worktrees/repo/release-1.0/package.json")).toBeNull();
     expect(writeFrom("/other-repo/.stave/workspaces/x/a.ts")).toBe("G1");
+    // Cleanup may remove the empty ../.worktrees folder, never another repository's worktrees in it.
+    expect(bash("rmdir /.worktrees/repo /.worktrees", { spec: inWorktree.spec, cwd: worktree })).toBeNull();
+    expect(writeFrom("/.worktrees/other/a.ts")).toBe("G1");
+    // A handoff plan may go to another repository's Stave workspace; nothing else there may.
+    expect(writeFrom("/other-repo/.stave/workspaces/x/.stave/context/plans/handoff_1.md")).toBeNull();
+    expect(bash("mkdir -p /other-repo/.stave/context/plans", { spec: inWorktree.spec, cwd: worktree })).toBeNull();
+    expect(writeFrom("/other-repo/.stave/context/a.md")).toBe("G1");
     // A worktree git reports anywhere on disk is part of the repository.
     const gitWorktrees = { repositoryRoots: () => ["/repo", "/elsewhere/wt"] };
     expect(writeFrom("/elsewhere/wt/a.ts")).toBe("G1");
@@ -212,15 +220,28 @@ describe("Claude guardrails", () => {
     expect(evaluateClaudeGuardrail({ toolName: "Write", input: { file_path: "/src/other/a.ts" }, context: inCheckout })?.id).toBe("G1");
     // Claude's own project folder (auto memory) and tool caches are not workspace escapes.
     expect(write("/home/u/.claude/projects/x/memory/note.md")).toBeNull();
+    expect(write("/home/u/.claude/plans/plan.md")).toBeNull();
+    expect(write("/home/u/.claude/settings.json")).toBe("G1");
     expect(write("/home/u/.cache/tool/state")).toBeNull();
   });
 
-  test("guardrails are opt-in: none run by default, each one runs only when chosen", () => {
+  test("guardrails run only in Agent mode: all three by default, each one can be turned off", () => {
     const only = (claudeGuardrails: ProviderRuntimeOptions["claudeGuardrails"]) =>
       ({ ...context, spec: { ...context.spec, enabled: resolve("claude-code", agent, { claudeGuardrails }).guardrails.enabled } });
     const check = (toolName: string, input: Record<string, unknown>, ctx: ClaudeGuardrailContext) =>
       evaluateClaudeGuardrail({ toolName, input, context: ctx })?.id ?? null;
-    const none = only(undefined);
+    expect(only(undefined).spec.enabled).toEqual(["G1", "G2", "G3"]);
+    // A chat turn runs none, whatever its mode or setting: model mode is unchanged.
+    for (const claudePermissionMode of ["default", "auto", "bypassPermissions"] as const) {
+      expect(resolve("claude-code", chat, { claudePermissionMode, claudeGuardrails: ["G1", "G2", "G3"] }).guardrails.enabled).toEqual([]);
+      expect(resolve("claude-code", chat, { claudePermissionMode }).options).not.toHaveProperty("claudeAgentTurn");
+    }
+    expect(resolve("claude-code", readOnlyAgent).options).not.toHaveProperty("claudeAgentTurn");
+    expect(resolve("codex", agent).options).not.toHaveProperty("claudeAgentTurn");
+    // A helper an Agent delegated carries the marker and runs the same guardrails.
+    expect(resolve("claude-code", chat, { claudePermissionMode: "auto", claudeAgentTurn: true, claudeGuardrails: ["G3"] }).guardrails.enabled).toEqual(["G3"]);
+    expect(resolve("claude-code", chat, { claudePermissionMode: "auto", claudeAgentTurn: true }).guardrails.enabled).toEqual(["G1", "G2", "G3"]);
+    const none = only([]);
     expect(none.spec.enabled).toEqual([]);
     expect(check("Write", { file_path: "/etc/hosts" }, none)).toBeNull();
     expect(check("Read", { file_path: "~/.ssh/id_ed25519" }, none)).toBeNull();
@@ -313,10 +334,14 @@ describe("Claude guardrails", () => {
     expect(options.hooks?.PreToolUse).toHaveLength(2);
     expect(options.hooks?.PreToolUse?.[0]?.matcher).toBeUndefined();
     expect(options.sandbox?.autoAllowBashIfSandboxed).toBe(true);
-    const off = withClaudeTurnGuardrails(base, resolve("claude-code", agent));
+    expect(withClaudeTurnGuardrails(base, resolve("claude-code", agent)).hooks?.PreToolUse).toHaveLength(2);
+    const off = withClaudeTurnGuardrails(base, resolve("claude-code", agent, { claudeGuardrails: [] }));
     expect(off.hooks?.PreToolUse).toHaveLength(1);
     expect(off.sandbox?.autoAllowBashIfSandboxed).toBe(true);
-    const ask = withClaudeTurnGuardrails(base, resolve("claude-code", chat, { claudeGuardrails: ["G1"] }));
+    // Chat turns never get the hook, even under Bypass with every guardrail chosen.
+    const bypassChat = withClaudeTurnGuardrails(base, resolve("claude-code", chat, { claudePermissionMode: "bypassPermissions", claudeGuardrails: ["G1", "G2", "G3"] }));
+    expect(bypassChat.hooks?.PreToolUse).toHaveLength(1);
+    const ask = withClaudeTurnGuardrails(base, resolve("claude-code", chat, { claudeAgentTurn: true, claudeGuardrails: ["G1"] }));
     expect(ask.hooks?.PreToolUse).toHaveLength(2);
     expect(ask.sandbox?.autoAllowBashIfSandboxed).toBeUndefined();
     expect(withClaudeTurnGuardrails(base, resolve("claude-code", readOnlyAgent))).toBe(base);
@@ -325,7 +350,8 @@ describe("Claude guardrails", () => {
 
   test("canUseTool sees the guardrail and answers everything else on autonomous turns", () => {
     const autonomous = resolve("claude-code", agent, { claudeGuardrails: ["G1", "G2", "G3"] });
-    expect(resolveClaudeTurnGuardrail({ policy: resolve("claude-code", agent), toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })).toBeNull();
+    expect(resolveClaudeTurnGuardrail({ policy: resolve("claude-code", agent, { claudeGuardrails: [] }), toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })).toBeNull();
+    expect(resolveClaudeTurnGuardrail({ policy: resolve("claude-code", chat, { claudePermissionMode: "bypassPermissions" }), toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })).toBeNull();
     expect(resolveClaudeTurnGuardrail({ policy: autonomous, toolName: "Bash", input: { command: "ls" }, cwd: ROOT, decisionReason: "Stave guardrail G3: this force-pushes main." })?.id).toBe("G3");
     expect(resolveClaudeTurnGuardrail({ policy: autonomous, toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })?.id).toBe("G1");
     expect(resolveClaudeTurnGuardrail({ policy: resolve("claude-code", readOnlyAgent), toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })).toBeNull();
@@ -417,5 +443,23 @@ describe("helper autonomy across providers", () => {
     expect(helperAutonomyPolicy("codex", autonomousParent, "manual", child)).toBe(child);
     const reader = resolveDelegationPermissionPolicy({ providerId: "codex", access: "read-only" });
     expect(helperAutonomyPolicy("codex", autonomousParent, "inherit", reader)).toBe(reader);
+  });
+  test("a Claude helper of an Agent-mode task inherits its guardrails; a chat task's helper does not", async () => {
+    const { resolveDelegationPermissionPolicy, restrictPermissionOptions, normalizedPermissionOptions } = await import("../src/lib/runs/delegation-policy");
+    const agentTurn = resolve("claude-code", agent, { claudePermissionMode: "default", claudeGuardrails: ["G1", "G3"] });
+    // What the host saves as the parent's effective policy after the Agent turn starts.
+    const effective = normalizedPermissionOptions("claude-code", { claudePermissionMode: "default", claudeGuardrails: ["G1", "G3"], ...agentTurn.options });
+    const helper = resolveDelegationPermissionPolicy({ providerId: "claude-code", parent: { providerId: "claude-code", options: effective } });
+    expect(helper.options).toMatchObject({ claudeAgentTurn: true, claudeGuardrails: ["G1", "G3"] });
+    expect(resolve("claude-code", chat, helper.options).guardrails.enabled).toEqual(["G1", "G3"]);
+    const narrowed = resolveDelegationPermissionPolicy({ providerId: "claude-code", permissionProfile: "guided", parent: { providerId: "claude-code", options: effective } });
+    expect(narrowed.options.claudeAgentTurn).toBe(true);
+    const chatParent = normalizedPermissionOptions("claude-code", { claudePermissionMode: "bypassPermissions", ...resolve("claude-code", chat, { claudePermissionMode: "bypassPermissions" }).options });
+    const chatHelper = resolveDelegationPermissionPolicy({ providerId: "claude-code", parent: { providerId: "claude-code", options: chatParent } });
+    expect(resolve("claude-code", chat, chatHelper.options).guardrails.enabled).toEqual([]);
+    // Restriction only adds guardrails and never drops the Agent-mode marker.
+    expect(restrictPermissionOptions({ claudeGuardrails: ["G1"] }, { claudeGuardrails: ["G3"], claudeAgentTurn: true }))
+      .toMatchObject({ claudeGuardrails: ["G1", "G3"], claudeAgentTurn: true });
+    expect(restrictPermissionOptions({ claudeAgentTurn: true }, {}).claudeAgentTurn).toBe(true);
   });
 });

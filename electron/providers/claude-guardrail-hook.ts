@@ -225,7 +225,7 @@ export function guardrailWriteRoots(
   const homeDir = context?.homeDir ?? os.homedir();
   const claudeConfigDirs = [path.join(homeDir, ".claude"), process.env.CLAUDE_CONFIG_DIR?.trim()].filter((dir): dir is string => Boolean(dir));
   roots.push(
-    ...claudeConfigDirs.map((dir) => path.join(path.resolve(dir), "projects")),
+    ...claudeConfigDirs.flatMap((dir) => ["projects", "plans"].map((name) => path.join(path.resolve(dir), name))),
     path.join(homeDir, ".cache"),
     path.join(homeDir, "Library", "Caches"),
   );
@@ -234,6 +234,13 @@ export function guardrailWriteRoots(
 
 const guardrailEnabled = (spec: TurnGuardrailSpec, id: ClaudeGuardrailHit["id"]) => !spec.enabled || spec.enabled.includes(id);
 const keepEnabled = (spec: TurnGuardrailSpec, hit: ClaudeGuardrailHit | null) => hit && guardrailEnabled(spec, hit.id) ? hit : null;
+
+const HANDOFF_PLAN_SEGMENTS = [".stave", "context", "plans"];
+
+function isStaveHandoffPlanPath(resolved: string) {
+  const parts = resolved.split(path.sep);
+  return parts.some((_, index) => HANDOFF_PLAN_SEGMENTS.every((segment, offset) => parts[index + offset] === segment));
+}
 
 function writeHit(target: string, context: ClaudeGuardrailContext, cwd: string): ClaudeGuardrailHit | null {
   const homeDir = context.homeDir ?? os.homedir();
@@ -247,6 +254,10 @@ function writeHit(target: string, context: ClaudeGuardrailContext, cwd: string):
   const allowed = (roots: string[]) => [...roots, ...tempRoots()].some((entry) => isWithin(resolved, entry));
   const writeRoots = guardrailWriteRoots(context.spec.root, context);
   if (allowed(writeRoots)) return null;
+  // The `../.worktrees` folder itself, which worktree cleanup removes once it is empty.
+  if (writeRoots.some((entry) => path.basename(path.dirname(entry)) === ".worktrees" && path.dirname(entry) === resolved)) return null;
+  // A Stave handoff plan: the procedure writes it into the target workspace, which may be another repository's.
+  if (isStaveHandoffPlanPath(resolved)) return null;
   // A worktree the turn added moments ago may not be in the cached list yet.
   if (context.repositoryRoots && allowed(guardrailWriteRoots(context.spec.root, context, { refresh: true }))) return null;
   return { id: "G1", reason: `writes ${resolved}, outside the workspace's repository ${writeRoots[0]}` };

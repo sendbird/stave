@@ -1,5 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
 import {
+  agentModeClaudeGuardrails,
   normalizeClaudeGuardrails,
   type ClaudeGuardrailId,
 } from "@/lib/providers/provider.types";
@@ -15,29 +16,30 @@ const GUARDRAIL_FIELDS: ReadonlyArray<{
     id: "G1",
     title: "Ask Before Writes Outside the Repository",
     description:
-      "Auto and Bypass turns stop before writing outside this repository's checkouts and worktrees. Temp folders and tool caches stay allowed.",
+      "In Agent mode, stop before writing outside this repository's checkouts and worktrees. Temp folders and tool caches stay allowed. Chat turns never stop for this.",
   },
   {
     id: "G2",
     title: "Ask Before Touching Credentials",
     description:
-      "Auto and Bypass turns stop before reading or writing ~/.ssh, ~/.aws, ~/.npmrc and similar files, or the protected paths and variables below.",
+      "In Agent mode, stop before reading or writing ~/.ssh, ~/.aws, ~/.npmrc and similar files, or the protected paths and variables below. Chat turns never stop for this.",
   },
   {
     id: "G3",
     title: "Ask Before Irreversible Remote Actions",
     description:
-      "Auto and Bypass turns stop before force-pushing a default or protected branch, deleting remote refs, publishing a package or release, or running sudo.",
+      "In Agent mode, stop before force-pushing a default or protected branch, deleting remote refs, publishing a package or release, or running sudo. Chat turns never stop for this.",
   },
 ];
 
 /**
- * Stave's opt-in guardrails for autonomous Claude turns (Auto, Bypass, and
- * tasks that run as an Agent). All off by default; each switch adds one.
+ * Stave's guardrails for Claude turns in Agent mode (a task that runs as an
+ * Agent, and the helpers it delegates). All on by default; each switch turns
+ * one off. Chat turns never run them, whatever their permission mode.
  */
 export function ClaudeGuardrailFields() {
   const enabled = useAppStore(
-    useShallow((state) => normalizeClaudeGuardrails(state.settings.claudeGuardrails)),
+    useShallow((state) => agentModeClaudeGuardrails(state.settings.claudeGuardrails)),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
   return (

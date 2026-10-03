@@ -554,16 +554,24 @@ migration). A delegated Agent's read-only permission becomes `access:
 target provider's autonomous options (`electron/host-service/delegation-policy.ts`).
 Cursor and Kiro keep the user's settings except for a read-only agent.
 
-Guardrails (opt-in, provider-specific enforcement):
+Guardrails (Agent mode only, provider-specific enforcement):
 
-- **Claude**: the user's `claudeGuardrails` setting (Settings > Providers >
-  Claude, empty by default) becomes `TurnPolicy.guardrails.enabled`.
+- **Claude**: on an Agent-mode turn the user's `claudeGuardrails` setting
+  (Settings > Providers > Claude; absent means all three, the default) becomes
+  `TurnPolicy.guardrails.enabled`; every other turn gets an empty list. A main
+  Agent's policy adds `claudeAgentTurn: true` to its options, which the host
+  saves as the task's effective policy, so a Claude helper it delegates
+  inherits the marker (and the guardrails) through the delegation policy. A
+  chat turn never carries it: `claudeAgentTurn` is a permission key, so Local
+  MCP callers cannot set it.
   `electron/providers/claude-guardrail-hook.ts` registers a PreToolUse hook
-  first in `hooks.PreToolUse` for every non-read-only primary turn with at
-  least one guardrail on, and skips the ones that are off. It returns `ask`
+  first in `hooks.PreToolUse` for every non-read-only turn with at least one
+  guardrail enabled, and skips the ones that are off. It returns `ask`
   (never `deny`) for G1 writes outside the repository (the workspace, the main
   checkout, every `git worktree list` checkout, `../.worktrees/<repo>`, temp
-  dirs, `~/.cache`, `~/Library/Caches` and `~/.claude/projects` allowed), G2 protected credential paths and variables (the
+  dirs, `~/.cache`, `~/Library/Caches`, the Claude config `projects` and
+  `plans` folders, the empty `../.worktrees` folder and any
+  `.stave/context/plans` handoff folder allowed), G2 protected credential paths and variables (the
   user's sandbox credential lists plus a baseline such as `~/.ssh`, `~/.aws`,
   `~/.netrc`), and G3 irreversible remote effects (force-push to a default or
   protected branch, `git push --delete`/`:ref`/`--mirror`/`--prune`, package

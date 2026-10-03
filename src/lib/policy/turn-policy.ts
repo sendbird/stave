@@ -1,5 +1,5 @@
 import {
-  normalizeClaudeGuardrails,
+  agentModeClaudeGuardrails,
   type ClaudeGuardrailId,
   type ProviderId,
   type ProviderRuntimeOptions,
@@ -16,9 +16,9 @@ import {
  * turn (composer, agent, helper, mission, wake-up, `stave_run_task`).
  *
  * - `ask`: the user's settings exactly as set, with whatever prompts they bring.
- * - `autonomous`: no routine prompts. Only the hard guardrails (writes outside
- *   the workspace, credential paths, irreversible remote effects) and the
- *   agent's own questions reach the user.
+ * - `autonomous`: no routine prompts. Only the agent's own questions and, in
+ *   Agent mode, the guardrails (writes outside the repository, credential
+ *   paths, irreversible remote effects) reach the user.
  * - `read-only`: the read-only posture; never writes and never asks.
  *
  * Autonomy only removes prompts. It never loosens the user's sandbox, deny
@@ -41,8 +41,9 @@ export interface TurnGuardrailSpec {
   credentialFiles: string[];
   credentialEnvVars: string[];
   /**
-   * The guardrails this turn stops for. Opt-in: the resolver fills it from the
-   * user's `claudeGuardrails` setting, empty by default. Absent means all three
+   * The guardrails this turn stops for. The resolver fills it: an Agent-mode
+   * turn (or a helper one delegated) runs the user's `claudeGuardrails`, all
+   * three by default; every other turn runs none. Absent means all three
    * (direct evaluation in tests and tools).
    */
   enabled?: ClaudeGuardrailId[];
@@ -162,12 +163,21 @@ export function resolveTurnPolicy(input: {
   const options = input.options ?? {};
   const requested = autonomyOfOptions(input.providerId, options);
   const autonomy = resolveAutonomy(input.actor, requested);
-  const overrides =
+  const modeOverrides =
     autonomy === "read-only"
       ? readOnlyOptions(input.providerId, options)
       : autonomy === "autonomous"
         ? autonomousOptions(input.providerId, options)
         : askOptions(input.providerId, options);
+  // Guardrails belong to Agent mode. A main Agent marks its options so the
+  // helpers it delegates inherit them; a chat turn keeps the experience it
+  // had before guardrails existed, whatever its permission mode.
+  const agentMode =
+    autonomy !== "read-only" && (input.actor.kind === "agent" || options.claudeAgentTurn === true);
+  const overrides: Partial<ProviderRuntimeOptions> =
+    agentMode && input.actor.kind === "agent" && input.providerId === "claude-code"
+      ? { ...modeOverrides, claudeAgentTurn: true }
+      : modeOverrides;
   const merged = { ...options, ...overrides };
   return {
     autonomy,
@@ -176,7 +186,7 @@ export function resolveTurnPolicy(input: {
       root: input.root,
       credentialFiles: [...(merged.claudeSandboxCredentialFiles ?? [])],
       credentialEnvVars: [...(merged.claudeSandboxCredentialEnvVars ?? [])],
-      enabled: normalizeClaudeGuardrails(merged.claudeGuardrails),
+      enabled: agentMode ? agentModeClaudeGuardrails(merged.claudeGuardrails) : [],
     },
     source:
       autonomy === "read-only"
@@ -222,6 +232,7 @@ export const PERMISSION_RUNTIME_OPTION_KEYS = [
   "claudeSandboxCredentialFiles",
   "claudeSandboxCredentialEnvVars",
   "claudeGuardrails",
+  "claudeAgentTurn",
   "claudeSettingSources",
   "claudeAllowedTools",
   "claudeDisallowedTools",

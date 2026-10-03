@@ -226,7 +226,7 @@ non-permission runtime options; permission fields (permission or approval
 mode, bypass, sandbox toggles, file or network access, allowed, disallowed or
 trusted tools, setting sources, binary and plugin paths) are rejected with an
 error. The turn is autonomous only when your preset already is (Claude Auto or
-Bypass, Codex Never) or the task runs as an agent, and the guardrails you turned on in
+Bypass, Codex Never) or the task runs as an agent, and in Agent mode the guardrails in
 [Provider Sandbox And Approval](./provider-sandbox-and-approval.md#autonomy-and-guardrails)
 still stop it.
 

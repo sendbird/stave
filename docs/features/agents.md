@@ -11,7 +11,7 @@ piece of its work, inside its turn or as a delegated task.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
 own start. A task that runs as an Agent runs **autonomously**: no routine
-approval prompts, only the guardrails you turned on (all off by default). A read-only Agent stays read
+approval prompts, only the guardrails (all on by default, each one can be turned off). A read-only Agent stays read
 only. Delegated Agents use the delegation policy resolved by the host and never
 get more autonomy than the task that delegated them.
 
@@ -360,8 +360,8 @@ Fleet's search finds its tasks.
   | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit |
   | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks; at least workspace files, or your full access | Your settings | Your settings |
 
-  The only interrupts left are the guardrails you turned on in Settings (all
-  off by default) — a write outside the task's repository, a protected credential path or variable, an irreversible
+  The only interrupts left are the Agent-mode guardrails (all on by default;
+  turn each off in Settings) — a write outside the task's repository, a protected credential path or variable, an irreversible
   remote action (force-pushing a default or protected branch, deleting remote
   branches, tags, releases or repositories, publishing, `sudo`) — and the
   agent's own questions. See

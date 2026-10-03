@@ -393,7 +393,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeSandboxCredentialFiles: string;
   /** Comma/newline-delimited credential env names denied by Claude sandbox. */
   claudeSandboxCredentialEnvVars: string;
-  /** Stave guardrails autonomous Claude turns stop for. Empty (the default) runs none. */
+  /** Stave guardrails Agent-mode Claude turns stop for. All three by default; empty runs none. */
   claudeGuardrails: ClaudeGuardrailId[];
   claudeTaskBudgetTokens: number;
   /**
@@ -778,7 +778,7 @@ export const defaultSettings: AppSettings = {
   claudeAllowUnsandboxedCommands: true,
   claudeSandboxCredentialFiles: "",
   claudeSandboxCredentialEnvVars: "",
-  claudeGuardrails: [],
+  claudeGuardrails: ["G1", "G2", "G3"],
   claudeTaskBudgetTokens: 0,
   blockTurnsWhenAccountLimitReached: true,
   craneConnector: {
