@@ -292,11 +292,11 @@ const styles = stylex.create({
   },
   tab: { flex: "none", gap: vars["--ads-space-4"], paddingInline: 0 },
   // A mark is a flex item of the tab, right after the label and centered on
-  // it. It is a fixed size whatever it says, so a count never reflows the
-  // label beside it.
+  // it. A tab without a mark drops the slot, so the tab's gap adds no
+  // trailing space and the active underline stays the label's width.
   markSlot: {
     alignItems: "center",
-    display: "inline-flex",
+    display: { default: "inline-flex", ":empty": "none" },
     flexShrink: 0,
     pointerEvents: "none",
   },

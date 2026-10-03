@@ -347,13 +347,6 @@ export const turnActivityStyles = stylex.create({
     maxHeight: "40%",
     overflowY: "auto",
   },
-  metricsToggle: {
-    cursor: "pointer",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
-    paddingBlock: vars["--ads-space-4"],
-    ':focus-visible': { outline: `2px solid ${vars["--ads-color-border-focus"]}`, outlineOffset: 2 },
-  },
   childBlock: {
     paddingInline: 6,
     paddingTop: vars["--ads-space-8"],
