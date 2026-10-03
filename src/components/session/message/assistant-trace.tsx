@@ -332,6 +332,7 @@ function AssistantTraceEntryView(args: {
   taskId: string;
   messageId: string;
   terminalStopReason?: string;
+  readOnly?: boolean;
 }) {
   const {
     entry,
@@ -339,6 +340,7 @@ function AssistantTraceEntryView(args: {
     taskId,
     messageId,
     terminalStopReason,
+    readOnly,
   } = args;
   const agentStyle = useAgentStyle();
   const icon = getEntryIcon(entry);
@@ -580,6 +582,7 @@ function AssistantTraceEntryView(args: {
               parts={entry.parts}
               taskId={taskId}
               messageId={messageId}
+              readOnly={readOnly}
             />
           </ToolRun>
         </StepRail.Step>
@@ -732,6 +735,11 @@ export function AssistantMessageBody(args: {
   streamingEnabled: boolean;
   traceExpansionMode?: "auto" | "manual";
   showInterimMessages?: boolean;
+  /**
+   * A past turn shown outside the live transcript: changed files keep their
+   * diff and Open in Editor, without Accept or Reject.
+   */
+  readOnly?: boolean;
 }) {
   const {
     message,
@@ -740,6 +748,7 @@ export function AssistantMessageBody(args: {
     streamingEnabled,
     traceExpansionMode = "auto",
     showInterimMessages = false,
+    readOnly = false,
   } = args;
   const isActivelyStreaming = Boolean(message.isStreaming);
   const isStreaming = streamingEnabled && isActivelyStreaming;
@@ -868,6 +877,7 @@ export function AssistantMessageBody(args: {
                   taskId={taskId}
                   messageId={messageId}
                   terminalStopReason={message.terminalStopReason}
+                  readOnly={readOnly}
                 />
               ))}
             </ChainOfThoughtContent>
@@ -924,6 +934,7 @@ export function AssistantMessageBody(args: {
             parts={allDiffParts}
             taskId={taskId}
             messageId={messageId}
+            readOnly={readOnly}
           />
         </div>
       ) : null}

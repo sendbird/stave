@@ -167,6 +167,7 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
                 streamingEnabled={false}
                 traceExpansionMode="manual"
                 showInterimMessages={props.showInterimMessages}
+                readOnly
               />
             ) : null}
             {agentRunPrompt ? (

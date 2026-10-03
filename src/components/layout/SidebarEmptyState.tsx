@@ -34,7 +34,7 @@ export function SidebarEmptyState(
     return (
       <div className={sx(styles.root)}>
         <p className={sx(styles.title)}>Nothing matches “{props.query.trim()}”</p>
-        <p className={sx(styles.reason)}>Search looks at workspace labels and branch names.</p>
+        <p className={sx(styles.reason)}>Search looks at repository names, workspace labels, and branch names.</p>
         <Button variant="ghost" size="sm" xstyle={styles.action} onClick={props.onClearSearch}>
           <X aria-hidden />
           Clear search

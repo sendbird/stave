@@ -12,7 +12,7 @@ import {
   type LensReferenceState,
   type WorkspaceInformationReference,
 } from "@/lib/workspace-information-references";
-import { parkFailedOutgoingSend } from "@/store/app-store-failed-send-actions";
+import { guardTypedTextDuringSend, parkFailedOutgoingSend } from "@/store/app-store-failed-send-actions";
 import { createSubmittedPromptDraftLifecycle } from "@/store/submitted-prompt-draft-lifecycle";
 import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-request";
 import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
@@ -781,15 +781,10 @@ export function createSendUserMessageAction(args: {
       remainingQueuedTurns,
     });
     const draftAfterSend = (currentDraft?: PromptDraft) =>
-      resolvePromptDraftAfterSend({
-        currentDraft,
-        storedDraft: storedPromptDraftForTask,
-        sourceDraft: sourcePromptDraft,
-        sentDraft: promptDraft,
-        preservePromptDraft,
-        preservedQueuedDraft: preservedQueuedDispatchDraft,
-        queuedTurns: codexGoalQueuedTurns,
-      });
+      resolvePromptDraftAfterSend({ currentDraft, storedDraft: storedPromptDraftForTask, sourceDraft: sourcePromptDraft,
+        sentDraft: promptDraft, preservePromptDraft, preservedQueuedDraft: preservedQueuedDispatchDraft, queuedTurns: codexGoalQueuedTurns,
+        // A refused agent-run start (non-null here) cleared the composer before its await.
+        composerClearedAtSend: Boolean(agentRunStart) });
 
     const submittedPromptDraft = createSubmittedPromptDraftLifecycle({
       taskId: resolvedTaskId,
@@ -803,6 +798,8 @@ export function createSendUserMessageAction(args: {
       queuedTurns: codexGoalQueuedTurns,
       queuedTurnToSend,
       updateDrafts: updatePromptDraftsForWorkspace,
+      composerClearedAtSend: Boolean(agentRunStart),
+      ...guardTypedTextDuringSend({ get, set, taskId: resolvedTaskId, workspaceId: taskWorkspaceId, draft: promptDraft }),
     });
 
     submittedPromptDraft.clear();
