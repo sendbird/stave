@@ -263,10 +263,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   customAgents: AgentConfig[];
   /** Saved custom agents this version could not read, kept as saved. */
   customAgentsUnreadable: UnreadableAgent[];
-  // temporary-migration: playbooks-to-agent-workflows
-  /** Saved playbooks were copied into custom agents once. */
-  playbookAgentsMigrated: boolean;
-  // end temporary-migration: playbooks-to-agent-workflows
   // temporary-migration: playbook-agents-auto-route
   /** Agents 0.23.0 fixed to Claude with no model were moved to Stave Auto once. */
   playbookAgentsAutoRouted: boolean;
@@ -704,9 +700,6 @@ export const defaultSettings: AppSettings = {
   playbooksUnreadable: [],
   customAgents: [],
   customAgentsUnreadable: [],
-  // temporary-migration: playbooks-to-agent-workflows
-  playbookAgentsMigrated: false,
-  // end temporary-migration: playbooks-to-agent-workflows
   // temporary-migration: playbook-agents-auto-route
   playbookAgentsAutoRouted: false,
   // end temporary-migration: playbook-agents-auto-route

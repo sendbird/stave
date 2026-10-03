@@ -126,18 +126,12 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
 
 /**
  * The rail panel and Task tab a saved or patched layout selects. A value that
- * names no panel falls back to Explorer. A panel id the rail no longer has is
- * read as the Task tab that replaced it, which wins over any stored tab: the
- * old id is the more specific statement of what the user had open.
+ * names no panel falls back to Explorer.
  */
 export function normalizeRightRailSelection(
   panel: unknown,
   tab: unknown,
 ): { sidebarOverlayTab: RightRailPanelId; taskPanelTab: TaskPanelTab } {
-  const retiredPanelTab = taskPanelTabForRetiredPanel(panel);
-  if (retiredPanelTab) {
-    return { sidebarOverlayTab: "task", taskPanelTab: retiredPanelTab };
-  }
   return {
     sidebarOverlayTab: RIGHT_RAIL_PANEL_IDS.includes(panel as RightRailPanelId)
       ? (panel as RightRailPanelId)
@@ -148,20 +142,6 @@ export function normalizeRightRailSelection(
 
 export function normalizeSidebarOverlayTab(value: unknown): RightRailPanelId {
   return normalizeRightRailSelection(value, undefined).sidebarOverlayTab;
-}
-
-/** The Task tab a retired rail panel id stands for, or null for any other value. */
-function taskPanelTabForRetiredPanel(value: unknown): TaskPanelTab | null {
-  // temporary-migration: right-rail-task-panel
-  // Turn Activity, Task Results, Mission, Flow and Team were rail panels of
-  // their own; they are tabs of the Task panel now, and a saved layout still
-  // names them by their panel ids.
-  if (value === "activity" || value === "results" || value === "team") {
-    return value;
-  }
-  if (value === "mission" || value === "flow") return "progress";
-  // end temporary-migration: right-rail-task-panel
-  return null;
 }
 
 export function normalizeWorkspaceSidebarItemDisplayMode(

@@ -44,8 +44,6 @@ import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { restoreCustomAgents } from "@/lib/agents/library";
-// temporary-migration: playbooks-to-agent-workflows
-import { migratePlaybooksToAgents } from "@/lib/agents/playbook-agents-migration";
 // temporary-migration: playbook-agents-auto-route
 import { migratePlaybookAgentsToAutoRoute } from "@/lib/agents/playbook-agents-auto-route-migration";
 import { normalizeAgentRevisions } from "@/lib/agents/revisions";
@@ -346,10 +344,6 @@ export function createAppStorePersistenceOptions() {
       });
       state.settings.customAgents = restoredAgents.agents;
       state.settings.customAgentsUnreadable = restoredAgents.unreadable;
-      // temporary-migration: playbooks-to-agent-workflows
-      state.settings.playbookAgentsMigrated = raw.playbookAgentsMigrated === true;
-      migratePlaybooksToAgents(state.settings);
-      // end temporary-migration: playbooks-to-agent-workflows
       state.settings.customAgentRevisions = normalizeAgentRevisions(raw.customAgentRevisions);
       // temporary-migration: playbook-agents-auto-route
       state.settings.playbookAgentsAutoRouted = raw.playbookAgentsAutoRouted === true;

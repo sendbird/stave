@@ -116,60 +116,6 @@ function escapeFtsTerm(term: string) {
   return `"${term.replaceAll('"', '""')}"`;
 }
 
-// temporary-migration: repository-memory-tables
-function tableColumns(db: RepositoryMemoryDatabase, name: string) {
-  const exists = db
-    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .get(name);
-  if (!exists) return [];
-  return db.prepare(`PRAGMA table_info(${name})`).all() as Array<{ name: string }>;
-}
-
-/**
- * The repository-memory rows used to live in `project_memories`. The projects
- * feature now owns that table, so an existing path-scoped table is renamed
- * before projects create theirs. Runs once; afterwards the legacy names are gone.
- */
-export function migrateLegacyRepositoryMemoryTables(db: RepositoryMemoryDatabase) {
-  const legacyColumns = tableColumns(db, "project_memories");
-  const legacyMemory =
-    legacyColumns.some((column) => column.name === "project_path") &&
-    !legacyColumns.some((column) => column.name === "project_id");
-  const currentMemory = tableColumns(db, "repository_memories").length > 0;
-  const legacySettings = tableColumns(db, "project_memory_settings").length > 0;
-  const currentSettings = tableColumns(db, "repository_memory_settings").length > 0;
-  if (!legacyMemory && !legacySettings) return;
-
-  db.exec("SAVEPOINT legacy_repository_memory_tables");
-  try {
-    if (legacyMemory && !currentMemory) {
-      db.exec(`
-        DROP TRIGGER IF EXISTS project_memories_ai;
-        DROP TRIGGER IF EXISTS project_memories_ad;
-        DROP TRIGGER IF EXISTS project_memories_au;
-        DROP TRIGGER IF EXISTS project_memories_core_insert;
-        DROP TRIGGER IF EXISTS project_memories_core_update;
-        DROP TABLE IF EXISTS project_memories_fts;
-        DROP INDEX IF EXISTS idx_project_memories_project;
-        ALTER TABLE project_memories RENAME TO repository_memories;
-      `);
-    } else if (legacyMemory && currentMemory) {
-      console.warn(
-        "[persistence] left legacy project_memories in place because repository_memories already exists",
-      );
-    }
-    if (legacySettings && !currentSettings) {
-      db.exec("ALTER TABLE project_memory_settings RENAME TO repository_memory_settings");
-    }
-    db.exec("RELEASE legacy_repository_memory_tables");
-  } catch (error) {
-    db.exec("ROLLBACK TO legacy_repository_memory_tables");
-    db.exec("RELEASE legacy_repository_memory_tables");
-    throw error;
-  }
-}
-// end temporary-migration: repository-memory-tables
-
 export class RepositoryMemoryStore {
   readonly settings: RepositoryMemorySettingsStore;
   private readonly db: RepositoryMemoryDatabase;
@@ -177,8 +123,6 @@ export class RepositoryMemoryStore {
 
   constructor(database: unknown) {
     this.db = database as RepositoryMemoryDatabase;
-    // temporary-migration: repository-memory-tables
-    migrateLegacyRepositoryMemoryTables(this.db);
     this.bootstrap();
     this.settings = new RepositoryMemorySettingsStore(database);
   }

@@ -34,25 +34,14 @@ export const CRANE_DISPATCH_EFFORTS = [
  * user's current Stave settings so a one-off "Auto" approval can never be
  * silently replayed on a later job.
  */
-export const CraneTeamRuntimeMemorySchema = z.preprocess(
-  // temporary-migration: retired-advisor-crane-memory
-  // Team memory saved while the Advisor existed carries an `advisor` key; the
-  // schema is strict, so it is dropped before parsing instead of losing the mapping.
-  (value) => {
-    if (!value || typeof value !== "object" || !("advisor" in value)) return value;
-    const { advisor: _retired, ...rest } = value as Record<string, unknown>;
-    return rest;
-  },
-  // end temporary-migration: retired-advisor-crane-memory
-  z
-    .object({
-      provider: z.enum(["claude-code", "codex"]),
-      model: z.string().trim().min(1).max(200),
-      effort: z.enum(CRANE_DISPATCH_EFFORTS),
-      fastMode: z.boolean().optional(),
-    })
-    .strict(),
-);
+export const CraneTeamRuntimeMemorySchema = z
+  .object({
+    provider: z.enum(["claude-code", "codex"]),
+    model: z.string().trim().min(1).max(200),
+    effort: z.enum(CRANE_DISPATCH_EFFORTS),
+    fastMode: z.boolean().optional(),
+  })
+  .strict();
 
 export const CraneRepositoryMappingSchema = z
   .object({
