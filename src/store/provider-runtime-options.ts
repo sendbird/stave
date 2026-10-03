@@ -20,6 +20,7 @@ import {
   type AuxLane,
 } from "@/lib/providers/auxiliary-inference-policy";
 import type { AppSettings } from "@/store/app.store";
+import { agentModeClaudeGuardrails } from "@/lib/providers/provider.types";
 
 const DEFAULT_CODEX_APPROVAL_POLICY = "untrusted";
 const MAX_CLAUDE_TASK_BUDGET_TOKENS = 1_000_000;
@@ -44,6 +45,7 @@ type RuntimeSettings = Pick<
   | "claudeAllowUnsandboxedCommands"
   | "claudeSandboxCredentialFiles"
   | "claudeSandboxCredentialEnvVars"
+  | "claudeGuardrails"
   | "claudeTaskBudgetTokens"
   | "claudeSettingSources"
   | "claudeEffort"
@@ -284,6 +286,8 @@ export function buildProviderRuntimeOptions(args: {
           ),
         }
       : {}),
+    // Explicit, even when empty: an absent list means the Agent-mode default (all three).
+    claudeGuardrails: agentModeClaudeGuardrails(settings.claudeGuardrails),
     claudeSettingSources: normalizeClaudeSettingSources({
       value: settings.claudeSettingSources,
     }),

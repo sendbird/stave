@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { agentPermissionOverrides, CLAUDE_EDIT_TOOLS } from "@/lib/agents/permission";
+import { agentModeClaudeGuardrails } from "@/lib/providers/provider.types";
 import {
   claudeReadOnlyDelegationOptions,
   codexReadOnlyDelegationOptions,
@@ -26,6 +27,8 @@ export const DelegationPermissionOptionsSchema = z.object({
   claudeSandboxReadOnly: z.boolean().optional(),
   claudeSandboxCredentialFiles: z.array(z.string()).optional(),
   claudeSandboxCredentialEnvVars: z.array(z.string()).optional(),
+  claudeGuardrails: z.array(z.enum(["G1", "G2", "G3"])).optional(),
+  claudeAgentTurn: z.boolean().optional(),
   claudeAllowedTools: z.array(z.string()).optional(),
   claudeDisallowedTools: z.array(z.string()).optional(),
   codexFileAccess: z
@@ -36,6 +39,7 @@ export const DelegationPermissionOptionsSchema = z.object({
     .optional(),
   codexNetworkAccess: z.boolean().optional(),
   codexAutoApproveStaveLocalMcpTools: z.boolean().optional(),
+  codexAgentTurn: z.boolean().optional(),
 });
 export type DelegationPermissionOptions = z.infer<
   typeof DelegationPermissionOptionsSchema
@@ -359,6 +363,12 @@ export function restrictPermissionOptions(
     if (current[key])
       options[key] = [...new Set([...(options[key] ?? []), ...current[key]])];
   }
+  // Guardrails only add up. An absent saved list is already all three.
+  if (options.claudeGuardrails && current.claudeGuardrails)
+    options.claudeGuardrails = agentModeClaudeGuardrails([...options.claudeGuardrails, ...current.claudeGuardrails]);
+  // An Agent-mode parent's guardrails never fall away from its helper.
+  if (current.claudeAgentTurn) options.claudeAgentTurn = true;
+  if (current.codexAgentTurn) options.codexAgentTurn = true;
   // These are approval-skip grants. Tightening may remove them, never add them.
   if (current.claudeAllowedTools && options.claudeAllowedTools)
     options.claudeAllowedTools = options.claudeAllowedTools.filter((tool) =>

@@ -28,6 +28,8 @@ export interface CallerGrant {
   providerId: ProviderId;
   /** The calling turn's resolved autonomy; null when it had no turn policy. */
   autonomy: Autonomy | null;
+  /** Whether the calling turn ran in Agent mode, so a turn it starts keeps the guardrails. */
+  agentMode?: boolean;
 }
 
 const grantsByKey = new Map<string, CallerGrant>();

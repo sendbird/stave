@@ -60,6 +60,7 @@ import {
   CodexBinaryPathCard,
 } from "./settings-dialog-developer-section";
 import { ClaudeInstalledPluginsField } from "./settings-dialog-claude-plugins";
+import { ClaudeGuardrailFields } from "./settings-dialog-claude-guardrails";
 import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettingsCard";
 import { SettingsDelegationSection } from "./settings-dialog-delegation-section";
 import { SettingsCursorSection } from "./settings-dialog-cursor-section";
@@ -934,6 +935,7 @@ export function ProvidersSection() {
                   })
                 }
               />
+              <ClaudeGuardrailFields />
               {claudeRuntimeCapabilities.sandbox.credentialGuards ? (
                 <>
                   <LabeledField

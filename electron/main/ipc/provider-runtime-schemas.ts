@@ -51,10 +51,10 @@ export const RuntimeOptionsObjectSchema = z
       .array(z.string().trim().min(1).max(4096))
       .max(100)
       .optional(),
-    claudeSandboxCredentialEnvVars: z
-      .array(z.string().trim().min(1).max(200))
-      .max(100)
-      .optional(),
+    claudeSandboxCredentialEnvVars: z.array(z.string().trim().min(1).max(200)).max(100).optional(),
+    claudeGuardrails: z.array(z.enum(["G1", "G2", "G3"])).max(3).optional(),
+    claudeAgentTurn: z.boolean().optional(),
+    codexAgentTurn: z.boolean().optional(),
     claudeSystemPrompt: z.string().max(20_000).optional(),
     claudeMaxTurns: z.number().int().min(1).max(200).optional(),
     claudeMaxBudgetUsd: z.number().min(0).max(10_000).optional(),

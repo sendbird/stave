@@ -5,7 +5,7 @@ import {
   type DelegationAccess,
   type DelegationPermissionPolicy,
 } from "../../src/lib/runs/delegation-policy";
-import { autonomyOfOptions, resolveTurnPolicy } from "../../src/lib/policy/turn-policy";
+import { autonomyOfOptions, isAgentModeOptions, resolveTurnPolicy } from "../../src/lib/policy/turn-policy";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { setTaskPermissionObserver } from "../providers/runtime";
 import { randomBytes } from "node:crypto";
@@ -64,7 +64,9 @@ export function resolveHostDelegationPolicy(args: {
  * already inherits the parent's resolved options; one on the other provider
  * starts from the user's settings there, so an autonomous parent lifts it to
  * that provider's prompt-free options. A profile the caller narrowed to
- * (`manual`/`guided`) and a read-only helper are left as resolved.
+ * (`manual`/`guided`) and a read-only helper are left as resolved. A helper
+ * of an Agent-mode parent is marked Agent mode on either provider, so it runs
+ * the same guardrails.
  */
 export function helperAutonomyPolicy(
   providerId: "claude-code" | "codex",
@@ -72,7 +74,21 @@ export function helperAutonomyPolicy(
   profile: "inherit" | "auto" | "guided" | "manual" | undefined,
   policy: DelegationPermissionPolicy,
 ): DelegationPermissionPolicy {
-  if (!parent || policy.access === "read-only" || profile === "manual" || profile === "guided") return policy;
+  if (!parent || policy.access === "read-only") return policy;
+  // An Agent-mode parent's guardrails follow the helper onto either provider.
+  const marker = providerId === "claude-code" ? { claudeAgentTurn: true } : { codexAgentTurn: true };
+  const marked = isAgentModeOptions(parent.options) && !isAgentModeOptions(policy.options)
+    ? { ...policy, options: permissionOptions(providerId, { ...policy.options, ...marker }) } : policy;
+  return liftHelperAutonomy(providerId, parent, profile, marked);
+}
+
+function liftHelperAutonomy(
+  providerId: "claude-code" | "codex",
+  parent: { providerId: "claude-code" | "codex"; options: Record<string, unknown> },
+  profile: "inherit" | "auto" | "guided" | "manual" | undefined,
+  policy: DelegationPermissionPolicy,
+): DelegationPermissionPolicy {
+  if (profile === "manual" || profile === "guided") return policy;
   const lifted = resolveTurnPolicy({
     providerId, options: policy.options, root: "",
     actor: { kind: "helper", parent: autonomyOfOptions(parent.providerId, parent.options), access: "inherit" },

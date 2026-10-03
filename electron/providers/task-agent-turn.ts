@@ -52,7 +52,9 @@ export function prepareTaskAgentTurn(args: {
   const { nativeSubagents: _requested, ...baseWithoutSubagents } = base;
   const runtimeOptions = { ...baseWithoutSubagents, ...(compiled.role === "primary"
     ? { ...instructions, ...turnPolicy?.options }
-    : { agentInstructions: compiled.promptPreamble }),
+    // A delegated Agent runs in Agent mode too, so it keeps the guardrails.
+    : { agentInstructions: compiled.promptPreamble,
+        ...(turn.providerId === "claude-code" ? { claudeAgentTurn: true } : turn.providerId === "codex" ? { codexAgentTurn: true } : {}) }),
     ...(nativeSubagents.length > 0 ? { nativeSubagents } : {}) };
   const promptPreamble = compiled.role === "primary" ? compiled.promptPreamble : undefined;
   const applied: AgentTurnProvenance["permission"]["applied"] = {};

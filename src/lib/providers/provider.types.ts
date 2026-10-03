@@ -1070,6 +1070,25 @@ export interface ProviderTurnRequest {
   runtimeOptions?: ProviderRuntimeOptions;
 }
 
+/** A Stave guardrail an Agent-mode Claude turn can be set to stop for. */
+export type ClaudeGuardrailId = "G1" | "G2" | "G3";
+export const CLAUDE_GUARDRAIL_IDS: readonly ClaudeGuardrailId[] = ["G1", "G2", "G3"];
+
+/** The known guardrail ids in `value`, deduplicated in G1-G3 order. Anything else is dropped. */
+export function normalizeClaudeGuardrails(value: unknown): ClaudeGuardrailId[] {
+  const list = Array.isArray(value) ? value : [];
+  return CLAUDE_GUARDRAIL_IDS.filter((id) => list.includes(id));
+}
+
+/**
+ * The guardrails an Agent-mode turn runs for a `claudeGuardrails` value. All
+ * three are on by default, so only an explicit list (empty to run none)
+ * narrows them.
+ */
+export function agentModeClaudeGuardrails(value: unknown): ClaudeGuardrailId[] {
+  return value === undefined ? [...CLAUDE_GUARDRAIL_IDS] : normalizeClaudeGuardrails(value);
+}
+
 export interface ProviderRuntimeOptions {
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
@@ -1102,6 +1121,20 @@ export interface ProviderRuntimeOptions {
   claudeSandboxCredentialFiles?: string[];
   /** Environment variable names the Claude sandbox must deny as credentials. */
   claudeSandboxCredentialEnvVars?: string[];
+  /**
+   * The Stave guardrails an Agent-mode Claude turn stops for (`G1` writes
+   * outside the repository, `G2` credentials, `G3` irreversible remote
+   * actions). Absent runs all three; an empty list runs none. Turns outside
+   * Agent mode never run them.
+   */
+  claudeGuardrails?: ClaudeGuardrailId[];
+  /**
+   * Set by the host turn policy on an Agent-mode turn and carried to the
+   * helpers it delegates, so they run the same guardrails. Never user-set.
+   */
+  claudeAgentTurn?: boolean;
+  /** `claudeAgentTurn` for a Codex turn, so a Claude helper of a Codex Agent still runs the guardrails. */
+  codexAgentTurn?: boolean;
   claudeSystemPrompt?: string;
   claudeMaxTurns?: number;
   claudeMaxBudgetUsd?: number;

@@ -727,7 +727,7 @@ function createToolServer(options?: {
           provider,
           ...(runtimeOptions ? { runtimeOptions } : {}),
           // A spawned turn never runs with more autonomy than the turn that started it.
-          ...(caller.kind === "turn" ? { spawnedBy: { taskId: caller.grant.taskId, autonomy: caller.grant.autonomy } } : {}),
+          ...(caller.kind === "turn" ? { spawnedBy: { taskId: caller.grant.taskId, autonomy: caller.grant.autonomy, agentMode: caller.grant.agentMode === true } } : {}),
         }),
       });
     },

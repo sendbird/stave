@@ -1708,7 +1708,7 @@ async function runTaskImpl(args: {
   /** Set only by the mission supervisor; the provider runtime mints the grant. */
   missionStage?: import("../../src/lib/missions/domain").MissionStageIdentity;
   agentRunPrompt?: import("../../src/types/chat").AgentRunPromptProvenance; // mission supervisor only: marks the user row
-  spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null }; // the calling turn caps this one
+  spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null; agentMode?: boolean }; // the calling turn caps this one
 }) {
   const controlGeneration = taskControlGate.capture(args.taskId);
   const { repositories } = await loadNormalizedRepositories();

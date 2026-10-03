@@ -54,7 +54,7 @@ asks for approval and returns the answer inline. See
 - only use the most permissive preset when you trust both the task and the working directory
 - verify the runtime chips before sending
 
-## Autonomy And Hard Guardrails
+## Autonomy And Guardrails
 
 Every turn gets one of three postures, resolved once when the turn starts —
 composer turns, agent tasks, delegated helpers, missions, wake-ups and tasks
@@ -63,7 +63,7 @@ started through Local MCP alike:
 | Posture | When | What it means |
 | --- | --- | --- |
 | Ask | Your preset prompts (Claude Default, Accept Edits; Codex Untrusted, On Request) | Your settings exactly, with their prompts |
-| Autonomous | Claude **Auto** or **Bypass**, Codex **Never**, or the task runs as an agent | No routine approval prompts; only the guardrails below stop the turn |
+| Autonomous | Claude **Auto** or **Bypass**, Codex **Never**, or the task runs as an agent | No routine approval prompts; only the agent's questions and, in Agent mode, the guardrails stop the turn |
 | Read only | A read-only agent or a read-only delegation | Never writes, never asks |
 
 Autonomy only removes prompts. Your sandbox, deny lists, credential lists and
@@ -71,9 +71,21 @@ network setting stay as you set them. Commits, pushing a feature branch,
 opening, updating and merging pull requests, tests and installs inside the
 workspace all run without asking.
 
-Hard guardrails stop for you even under Bypass:
+Stave guardrails apply **only in Agent mode**: a task that runs as an agent,
+the helpers and agents it delegates on either provider, and the tasks it starts
+through Local MCP. They are **all on by default** there; turn each
+one off in **Settings > Providers > Claude**. One that is on stops for you even
+under Bypass. A chat turn (model mode) never runs them, whatever its
+permission mode, so it behaves as it did before guardrails existed. Everyday
+agent work (edits in the workspace, its sibling worktrees and the main
+checkout, commits, pushing a feature branch, pull requests) never trips them:
 
-- **G1** a write outside the task's workspace (temp directories stay allowed)
+- **G1** a write outside the task's repository. The workspace, the repository's
+  main checkout, every worktree git reports for it (including
+  `../.worktrees/<repo>`, where the worktree PR flow creates them), temp
+  directories, `~/.cache`, `~/Library/Caches`, Claude's own `projects` and
+  `plans` folders, and a handoff plan in another Stave workspace's
+  `.stave/context/plans` stay allowed
 - **G2** reading or writing a protected credential path or variable: your
   sandbox credential lists plus well-known locations such as `~/.ssh`, `~/.aws`,
   `~/.gnupg`, `~/.netrc`, `~/.git-credentials` and `~/.npmrc`
@@ -81,16 +93,18 @@ Hard guardrails stop for you even under Bypass:
   branch (`main`, `master`, `trunk`, `develop`, `production`, `release/*` or the
   repository's default), deleting remote branches or tags, deleting or
   publishing releases, deleting a repository, publishing a package, `sudo`
-- **G4** the agent's own questions always reach you
+- **G4** the agent's own questions always reach you; this one is not a setting
 
-A guardrail shows up as an ordinary approval with the reason. A helper never
+A guardrail shows up as an ordinary approval with the reason. Of G1-G4 only
+G4 also applies outside Agent mode. A helper never
 gets more autonomy than the task that delegated it, and no agent can answer
 another task's approval.
 
 How firmly each provider holds them:
 
-- **Claude** holds G1–G3 with a hook that runs before the permission mode, so
-  it applies under Bypass. Shell commands are matched literally: a path behind
+- **Claude** holds the G1–G3 that are on with a hook that runs before the
+  permission mode, so they apply under Bypass. A chat turn, or an agent with
+  all three off, gets no hook. Shell commands are matched literally: a path behind
   a variable or inside a script is bounded by the sandbox when you turn it on,
   not by the guardrail.
 - **Codex** holds G1 with its workspace-write sandbox and G4 natively. It has no
@@ -187,7 +201,7 @@ cannot verify.
 
 1. Choose Claude **Auto** (or **Bypass**) or Codex **Never**, or run the task as an agent.
 2. Recheck sandbox, file access, and network settings; autonomy keeps them as set.
-3. Only then send the turn. The hard guardrails above still stop for you.
+3. Only then send the turn. In Agent mode the guardrails that are on still stop for you.
 
 ## Troubleshooting
 
