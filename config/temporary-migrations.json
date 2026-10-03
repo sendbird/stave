@@ -93,6 +93,19 @@
       "tests": [
         "tests/agent-run-settings-keys-migration.test.ts"
       ]
+    },
+    {
+      "id": "agent-run-wake-up-pause-reason",
+      "description": "Missions were renamed agent runs after 0.24.1. A wake-up paused while a mission ran was stored with pause_reason mission-active; the wake-up store rewrites it to agent-run-active on every start, so the wake-up still parses and resumes when the agent run ends. It matches nothing once converted.",
+      "introducedAfter": "0.24.1",
+      "removeInVersion": "0.27.0",
+      "files": [
+        "electron/persistence/agent-run-legacy-names.ts",
+        "electron/persistence/wake-up-store.ts"
+      ],
+      "tests": [
+        "tests/agent-run-legacy-names-migration.test.ts"
+      ]
     }
   ]
 }

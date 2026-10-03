@@ -1,6 +1,8 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 import { AgentRunStore } from "../electron/persistence/agent-run-store";
+import { WakeUpStore } from "../electron/persistence/wake-up-store";
+import { createWakeUp } from "../src/lib/supervision/wake-up-policy";
 import { createAgentRun, listExternalEffectStages } from "../src/lib/agent-runs/domain";
 import { AGENT_RUN_NOW, starterWorkflow } from "./fixtures/agent-run-fixtures";
 
@@ -214,6 +216,39 @@ describe("temporary migration: agent-run-notification-kinds", () => {
     const snapshot = db.prepare("SELECT * FROM notifications ORDER BY id").all();
     new AgentRunStore(db);
     expect(db.prepare("SELECT * FROM notifications ORDER BY id").all()).toEqual(snapshot);
+    db.close();
+  });
+});
+
+describe("temporary migration: agent-run-wake-up-pause-reason", () => {
+  test("a wake-up paused for a mission still reads, paused for the agent run", () => {
+    const db = new Database(":memory:");
+    const store = new WakeUpStore(db);
+    const wakeUp = {
+      ...createWakeUp({
+        id: "wake-1",
+        input: {
+          workspaceId: "ws-1",
+          taskId: "task-1",
+          prompt: "Re-check CI.",
+          trigger: { kind: "schedule", schedule: { every: 1, unit: "hours" } },
+          maxOccurrences: null,
+          expiresAt: null,
+        },
+        repositoryPath: "/tmp/repo",
+        fingerprint: { providerId: "claude-code", model: "sonnet" },
+        now: new Date("2026-09-26T08:30:00.000Z"),
+      }),
+      state: "paused" as const,
+      pauseReason: "agent-run-active" as const,
+    };
+    store.upsert(wakeUp);
+    // How 0.24.1 stored the same pause.
+    db.exec("UPDATE wake_ups SET pause_reason = 'mission-active' WHERE id = 'wake-1'");
+    const upgraded = new WakeUpStore(db);
+    expect(upgraded.get("wake-1")?.pauseReason).toBe("agent-run-active");
+    new WakeUpStore(db);
+    expect(db.prepare("SELECT pause_reason FROM wake_ups").all()).toEqual([{ pause_reason: "agent-run-active" }]);
     db.close();
   });
 });

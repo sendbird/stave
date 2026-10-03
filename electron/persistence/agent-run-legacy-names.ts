@@ -107,3 +107,16 @@ export function migrateLegacyAgentRunNotifications(db: LegacyNamesDatabase): voi
   }
 }
 // end temporary-migration: agent-run-notification-kinds
+
+// temporary-migration: agent-run-wake-up-pause-reason
+/**
+ * A wake-up paused while a mission ran was stored with the pause reason
+ * `mission-active`; it is `agent-run-active` now. Rewrites the stored reason so
+ * the wake-up still parses and resumes when the agent run ends. Matches
+ * nothing once converted.
+ */
+export function migrateLegacyWakeUpPauseReason(db: LegacyNamesDatabase): void {
+  if (!hasTable(db, "wake_ups")) return;
+  db.exec("UPDATE wake_ups SET pause_reason = 'agent-run-active' WHERE pause_reason = 'mission-active'");
+}
+// end temporary-migration: agent-run-wake-up-pause-reason

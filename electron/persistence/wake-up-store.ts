@@ -15,6 +15,9 @@ import {
   type WakeUp,
   type WakeUpOccurrence,
 } from "../../src/lib/supervision/wake-up-policy";
+// temporary-migration: agent-run-wake-up-pause-reason
+import { migrateLegacyWakeUpPauseReason } from "./agent-run-legacy-names";
+// end temporary-migration: agent-run-wake-up-pause-reason
 
 interface WakeUpStatement {
   get: (...params: unknown[]) => unknown;
@@ -195,6 +198,9 @@ export class WakeUpStore {
       CREATE INDEX IF NOT EXISTS idx_wake_up_occurrences_recent
         ON wake_up_occurrences (wake_up_id, recorded_at DESC);
     `);
+    // temporary-migration: agent-run-wake-up-pause-reason
+    migrateLegacyWakeUpPauseReason(this.db);
+    // end temporary-migration: agent-run-wake-up-pause-reason
   }
 
   list(): WakeUp[] {
