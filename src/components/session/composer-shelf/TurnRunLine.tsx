@@ -64,7 +64,9 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
   const now = useTurnClock(completedAt == null ? surface.activeTurnId : null);
   const reducedMotion = usePrefersReducedMotion();
   const isStalled =
-    activity?.stalledAt != null && completedAt == null && pendingInteraction == null;
+    activity?.stalledAt != null &&
+    completedAt == null &&
+    pendingInteraction == null;
   const hasActivity = activity != null;
   const turnStartedAt = activity?.startedAt ?? null;
   // Built from primitives: the snapshot gets a fresh identity on every
@@ -110,8 +112,14 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     () => mergeTurnActivityCounts(countTurnActivityItems(items), graphSummary),
     [graphSummary, items],
   );
-  const featured = useMemo(() => resolveTurnActivityFeaturedItem(items), [items]);
-  const todo = useMemo(() => summarizeShelfTodos(surface.todos), [surface.todos]);
+  const featured = useMemo(
+    () => resolveTurnActivityFeaturedItem(items),
+    [items],
+  );
+  const todo = useMemo(
+    () => summarizeShelfTodos(surface.todos),
+    [surface.todos],
+  );
 
   const tone = resolveTurnRunTone({
     pendingInteraction,
@@ -128,7 +136,9 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     pendingInteraction,
     hasPendingInteractionCard: Boolean(surface.hasPendingInteractionCard),
     turnError,
-    idleLabel: isStalled ? formatProviderTurnIdleDuration({ activity, now }) : null,
+    idleLabel: isStalled
+      ? formatProviderTurnIdleDuration({ activity, now })
+      : null,
     featured,
     countsHeadline:
       counts.hasGraphSubagentCounts && counts.subagentRunningCount >= 2
@@ -150,7 +160,9 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     isPlanPreparing: surface.isPlanPreparing,
     workItems: surface.workItems,
   });
-  const words = [label, headline.text, headline.detail].filter(Boolean).join(" · ");
+  const words = [label, headline.text, headline.detail]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <ShelfRunLine
@@ -159,7 +171,11 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
       ariaLabel="Turn"
       announcement={label}
       mark={
-        <span data-testid="turn-activity-loader" data-rest-mark={restMark ?? undefined}>
+        <span
+          data-testid="turn-activity-loader"
+          data-rest-mark={restMark ?? undefined}
+          className={sx(styles.markSlot)}
+        >
           {restMark ? (
             <TurnRestMark outcome={restMark} />
           ) : (
@@ -188,7 +204,9 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
             headline.text ? (
               <span className={sx(styles.strong)}>
                 {headline.live ? (
-                  <TextShimmer active={!reducedMotion}>{headline.text}</TextShimmer>
+                  <TextShimmer active={!reducedMotion}>
+                    {headline.text}
+                  </TextShimmer>
                 ) : (
                   headline.text
                 )}

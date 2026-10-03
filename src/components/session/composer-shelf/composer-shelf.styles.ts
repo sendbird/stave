@@ -113,6 +113,18 @@ export const shelfStyles = stylex.create({
     width: 20,
     height: 20,
   },
+  /**
+   * A wrapper inside the mark centers its glyph as a flex box. A bare span is
+   * a block with a text line, so an inline-flex loader in it rides the font's
+   * baseline and strut and lands off the row's center.
+   */
+  markSlot: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    height: "100%",
+  },
   markIcon: { width: 14, height: 14 },
   text: {
     flex: "1 1 auto",
@@ -303,10 +315,16 @@ export const shelfStyles = stylex.create({
     transitionTimingFunction: "ease",
   },
   itemAccent: {
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-accent"] },
+    color: {
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-accent"],
+    },
   },
   itemDanger: {
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-danger"] },
+    color: {
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-danger"],
+    },
   },
   editArea: {
     display: "flex",
