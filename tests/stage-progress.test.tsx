@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { StageTrack } from "../src/components/missions/StageTrack";
+import { StageTrack } from "../src/components/agent-runs/StageTrack";
 import {
   BAYER_8,
   ditherDensity,
@@ -9,16 +9,16 @@ import {
   easeStandard,
   isCellLit,
   shimmerOffset,
-} from "../src/components/missions/dither-progress.paint";
-import type { StageStatus } from "../src/lib/missions/domain";
-import type { MissionStageRow } from "../src/lib/missions/mission-view";
-import { clampHeadLabel, projectStageProgress, stageTicks } from "../src/lib/missions/stage-progress";
+} from "../src/components/agent-runs/dither-progress.paint";
+import type { StageStatus } from "../src/lib/agent-runs/domain";
+import type { AgentRunStageRow } from "../src/lib/agent-runs/agent-run-view";
+import { clampHeadLabel, projectStageProgress, stageTicks } from "../src/lib/agent-runs/stage-progress";
 import type { WorkflowStage } from "../src/lib/workflows/schema";
 
 const TITLES = ["Understand", "Build", "Verify", "Open draft PR", "Ready for review"];
 
 /** Rows for `statuses`, the stage at `current` in progress. */
-function rows(statuses: StageStatus[], current: number): MissionStageRow[] {
+function rows(statuses: StageStatus[], current: number): AgentRunStageRow[] {
   return statuses.map((status, index) => ({
     index,
     stage: { id: `stage-${index}`, title: TITLES[index] ?? `Stage ${index + 1}` } as unknown as WorkflowStage,
@@ -69,7 +69,7 @@ describe("stage progress", () => {
     const cancelled = projectStageProgress(rows(["completed", "cancelled", "pending", "pending", "pending"], 1))!;
     expect(cancelled.fraction).toBe(0.2);
     expect(cancelled.tone).toBe("skipped");
-    // A stopped mission's cancelled stage reads as the failure it is.
+    // A stopped agent run's cancelled stage reads as the failure it is.
     const stopped = projectStageProgress(rows(["completed", "cancelled", "pending", "pending", "pending"], 1), { tone: "attention" })!;
     expect(stopped.fraction).toBe(0.2);
     expect(stopped.tone).toBe("attention");

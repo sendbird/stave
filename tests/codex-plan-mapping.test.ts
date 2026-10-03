@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { mapCodexTurnPlanToTodoEvent } from "../electron/providers/codex-plan-mapping";
-import { extractLatestPlan } from "@/lib/missions/facts";
+import { extractLatestPlan } from "@/lib/agent-runs/facts";
 
 describe("agent plan", () => {
   test("Codex plan updates become one TodoWrite list per turn", () => {

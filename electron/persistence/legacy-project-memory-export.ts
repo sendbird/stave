@@ -2,7 +2,7 @@
 /**
  * One-time export of what retired projects remembered.
  *
- * Projects (a coordinator task that started missions toward a goal) were
+ * Projects (a coordinator task that started agent runs toward a goal) were
  * removed. Their accepted decisions and notes lived only in the
  * `project_memories` SQLite table, which nothing reads any more. So a user
  * does not lose them, the host writes one markdown file per project to

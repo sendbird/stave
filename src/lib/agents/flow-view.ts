@@ -1,6 +1,6 @@
-import { classifyStageEvidence, isVerifiedEvidence } from "@/lib/missions/evidence";
-import type { MissionDetail } from "@/lib/missions/api";
-import type { MissionStageRecord, StageStatus } from "@/lib/missions/domain";
+import { classifyStageEvidence, isVerifiedEvidence } from "@/lib/agent-runs/evidence";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import type { AgentRunStageRecord, StageStatus } from "@/lib/agent-runs/domain";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import type { RunStatus } from "@/lib/runs/run-domain";
 import type { WorkspacePrInfo, WorkspacePrStatus } from "@/lib/pr-status";
@@ -14,7 +14,7 @@ import type { ChatMessage } from "@/types/chat";
 /**
  * The Flow of one task: what was assigned, the stages it went through, and
  * the delegated tasks that branched off. A pure projection of records that
- * already exist (the assignment, the mission, the run ledger). It owns no
+ * already exist (the assignment, the agent run, the run ledger). It owns no
  * state and decides nothing; each owner keeps deciding its own status.
  *
  * Distinct from the Work graph, which shows one turn's live fan-out.
@@ -46,7 +46,7 @@ export interface FlowNode {
   /** One short line: agent and provider, or the stage's reason. */
   detail: string | null;
   state: FlowState;
-  /** Stage evidence split the way the mission shows it. */
+  /** Stage evidence split the way the agent run shows it. */
   evidence: { verified: number; reported: number } | null;
   /** For delegated tasks: where to open them. */
   target: { workspaceId: string; taskId: string } | null;
@@ -433,7 +433,7 @@ export function deriveFlowBase(args: {
   };
 }
 
-function stageEvents(records: readonly MissionStageRecord[]): FlowEvent[] {
+function stageEvents(records: readonly AgentRunStageRecord[]): FlowEvent[] {
   const events: FlowEvent[] = [];
   for (const record of records) {
     const attempt = record.attempt > 1 ? ` (attempt ${record.attempt})` : "";
@@ -477,14 +477,14 @@ function attachDelegates(stages: FlowNode[], windows: Array<{ start: string | nu
 export function buildFlow(args: {
   taskTitle: string;
   assignment: FlowAssignmentInput | null;
-  mission: MissionDetail | null;
+  agentRun: AgentRunDetail | null;
   delegates: readonly DelegatedTaskSummary[];
   runningDelegateTaskIds?: ReadonlySet<string>;
   /** The base flow every task has, derived from records that already exist. */
   base: FlowBaseInput;
 }): FlowNode[] {
   const nodes: FlowNode[] = [];
-  const { assignment, mission, base } = args;
+  const { assignment, agentRun, base } = args;
   const baseSteps = buildBaseSteps(base);
 
   if (assignment) {
@@ -508,12 +508,12 @@ export function buildFlow(args: {
     });
   }
 
-  if (mission) {
+  if (agentRun) {
     const windows: Array<{ start: string | null; end: string | null }> = [];
     let runningIndex = -1;
-    const stageNodes = mission.mission.workflow.stages.map((stage, index) => {
-      const records = mission.stages.filter((record) => record.stageId === stage.id);
-      const latest = records.reduce<MissionStageRecord | undefined>(
+    const stageNodes = agentRun.agentRun.workflow.stages.map((stage, index) => {
+      const records = agentRun.stages.filter((record) => record.stageId === stage.id);
+      const latest = records.reduce<AgentRunStageRecord | undefined>(
         (best, record) => (!best || record.attempt > best.attempt ? record : best),
         undefined,
       );
@@ -542,17 +542,17 @@ export function buildFlow(args: {
         children: [] as FlowNode[],
       } satisfies FlowNode;
     });
-    // Workspace PR context belongs to the workspace, never to a mission stage.
+    // Workspace PR context belongs to the workspace, never to an agent run stage.
     const taskSteps = baseSteps.filter((step) => step.id === "base:pull-request" || runningIndex < 0);
     const stageSteps = baseSteps.filter((step) => step.id !== "base:pull-request");
     // The base steps belong to whichever stage is running now, nested under it
-    // so the mission's shape stays intact while the current stage shows what
+    // so the agent run's shape stays intact while the current stage shows what
     // the task is actually doing.
     if (runningIndex >= 0 && baseSteps.length) {
       stageNodes[runningIndex]!.children.push(...stageSteps);
     }
     const loose = attachDelegates(stageNodes, windows, args.delegates, args.runningDelegateTaskIds);
-    // Current task activity remains visible before historical stages after a mission ends.
+    // Current task activity remains visible before historical stages after an agent run ends.
     if (runningIndex < 0) nodes.push(...taskSteps, ...stageNodes);
     else nodes.push(...stageNodes, ...taskSteps);
     if (loose.length) nodes.push(taskNode(args.taskTitle, loose, base.taskRunning));

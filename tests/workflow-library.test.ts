@@ -9,7 +9,7 @@ import {
   uniqueStageId,
 } from "../src/lib/workflows/library";
 import { parseWorkflow } from "../src/lib/workflows/normalize";
-import { starterWorkflow } from "./fixtures/mission-fixtures";
+import { starterWorkflow } from "./fixtures/agent-run-fixtures";
 
 describe("workflow stage editing", () => {
   test("stage ids are unique slugs of their titles", () => {

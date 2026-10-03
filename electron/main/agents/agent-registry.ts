@@ -1,7 +1,7 @@
 /**
  * Main's read-only copy of the agents a delegation may name: the built-ins and
  * the custom agents the renderer last synced. The host gets the same copy for
- * projects and missions, and gets it again when it restarts.
+ * projects and agent runs, and gets it again when it restarts.
  *
  * Used by: `electron/main/ipc/agents.ts` (sync) and
  * `electron/main/runs/delegated-task-coordinator-instance.ts` (delegation).

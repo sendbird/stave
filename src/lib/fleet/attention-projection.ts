@@ -1,7 +1,7 @@
 import type { AppNotification } from "@/lib/notifications/notification.types";
-import type { MissionDetail } from "@/lib/missions/api";
-import { currentStageRecord } from "@/lib/missions/domain";
-import { projectMissionStages, summarizePreviousStage } from "@/lib/missions/mission-view";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import { currentStageRecord } from "@/lib/agent-runs/domain";
+import { projectAgentRunStages, summarizePreviousStage } from "@/lib/agent-runs/agent-run-view";
 import type { ResultReview } from "@/lib/reviews/result-review";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -29,11 +29,11 @@ export type FleetAttentionKind =
   | "pr-merge-conflict"
   | "pr-behind-base"
   | "pr-ready-to-merge"
-  | "mission-sign-off"
-  | "mission-blocked"
-  | "mission-stuck";
+  | "agent-run-sign-off"
+  | "agent-run-blocked"
+  | "agent-run-stuck";
 
-export type FleetAttentionSource = "live" | "notification" | "result" | "pr" | "mission";
+export type FleetAttentionSource = "live" | "notification" | "result" | "pr" | "agentRun";
 
 /**
  * `blocking` items hold work up until the user acts. `review` items are worth
@@ -55,9 +55,9 @@ export const FLEET_ATTENTION_TIER: Record<
   "pr-behind-base": "review",
   "result-ready": "review",
   "pr-ready-to-merge": "review",
-  "mission-sign-off": "blocking",
-  "mission-blocked": "blocking",
-  "mission-stuck": "blocking",
+  "agent-run-sign-off": "blocking",
+  "agent-run-blocked": "blocking",
+  "agent-run-stuck": "blocking",
 };
 
 export function getFleetAttentionTier(kind: FleetAttentionKind) {
@@ -84,8 +84,8 @@ export interface FleetAttentionItem {
   detail?: string;
   prStatus?: WorkspacePrStatus;
   prUrl?: string;
-  /** The stage attempt a mission row acts on; stale once the mission moves. */
-  missionStage?: { missionId: string; stageId: string; attempt: number };
+  /** The stage attempt an agent run row acts on; stale once the agent run moves. */
+  agentRunStage?: { agentRunId: string; stageId: string; attempt: number };
 }
 
 export interface FleetLiveWorkspaceInput {
@@ -130,10 +130,10 @@ export interface FleetAttentionProjection {
 export const FLEET_ATTENTION_PRIORITY: Record<FleetAttentionKind, number> = {
   "user-input": 0,
   approval: 1,
-  // A mission waiting on the user is a request like an approval.
-  "mission-sign-off": 1,
-  "mission-blocked": 1,
-  "mission-stuck": 2,
+  // An agent run waiting on the user is a request like an approval.
+  "agent-run-sign-off": 1,
+  "agent-run-blocked": 1,
+  "agent-run-stuck": 2,
   "run-failed": 2,
   "pr-changes-requested": 3,
   "pr-checks-failed": 3,
@@ -145,7 +145,7 @@ export const FLEET_ATTENTION_PRIORITY: Record<FleetAttentionKind, number> = {
 
 const SOURCE_PRIORITY: Record<FleetAttentionSource, number> = {
   live: 0,
-  mission: 0,
+  agentRun: 0,
   notification: 1,
   result: 1,
   pr: 2,
@@ -530,59 +530,59 @@ function choosePreferredNeed(
   };
 }
 
-export interface FleetMissionInput {
+export interface FleetAgentRunInput {
   repositoryPath: string;
   repositoryName: string;
   workspaceId: string;
   workspaceName: string;
-  detail: MissionDetail;
+  detail: AgentRunDetail;
   taskTitle?: string;
 }
 
 /** "Verify next · Build done · 4 files +82 −17 · 1 verified by Stave". */
-function describeSignOffDetail(detail: MissionDetail, stageTitle: string) {
-  const rows = projectMissionStages(detail, new Date(detail.mission.updatedAt));
-  const summary = summarizePreviousStage(rows[detail.mission.currentStageIndex - 1]);
+function describeSignOffDetail(detail: AgentRunDetail, stageTitle: string) {
+  const rows = projectAgentRunStages(detail, new Date(detail.agentRun.updatedAt));
+  const summary = summarizePreviousStage(rows[detail.agentRun.currentStageIndex - 1]);
   return summary ? `${stageTitle} next · ${summary}` : `${stageTitle} next`;
 }
 
-/** A mission stopped for the user: a sign-off, a blocker or a stuck stage. */
-export function collectFleetMissionAttentionItems(
-  inputs: readonly FleetMissionInput[],
+/** An agent run stopped for the user: a sign-off, a blocker or a stuck stage. */
+export function collectFleetAgentRunAttentionItems(
+  inputs: readonly FleetAgentRunInput[],
 ): FleetAttentionItem[] {
   return inputs.flatMap((input): FleetAttentionItem[] => {
-    const { mission } = input.detail;
-    if (mission.state !== "running") return [];
+    const { agentRun } = input.detail;
+    if (agentRun.state !== "running") return [];
     const record = currentStageRecord(input.detail);
     const kind =
       record.status === "awaiting-sign-off"
-        ? "mission-sign-off"
+        ? "agent-run-sign-off"
         : record.status === "blocked"
-          ? "mission-blocked"
+          ? "agent-run-blocked"
           : record.status === "stuck"
-            ? "mission-stuck"
+            ? "agent-run-stuck"
             : null;
     if (!kind) return [];
-    const stage = mission.workflow.stages[mission.currentStageIndex]!;
+    const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;
     return [
       {
-        id: ["mission", kind, mission.id, record.stageId, record.attempt].join(":"),
+        id: ["agentRun", kind, agentRun.id, record.stageId, record.attempt].join(":"),
         kind,
         priority: FLEET_ATTENTION_PRIORITY[kind],
-        source: "mission",
+        source: "agentRun",
         repositoryPath: input.repositoryPath,
         repositoryName: input.repositoryName,
         workspaceId: input.workspaceId,
         workspaceName: input.workspaceName,
-        taskId: mission.leadTaskId,
+        taskId: agentRun.leadTaskId,
         taskTitle: input.taskTitle,
-        providerId: mission.fingerprint.providerId,
-        createdAt: normalizeTimestamp(mission.updatedAt),
+        providerId: agentRun.fingerprint.providerId,
+        createdAt: normalizeTimestamp(agentRun.updatedAt),
         detail:
-          kind === "mission-sign-off"
+          kind === "agent-run-sign-off"
             ? describeSignOffDetail(input.detail, stage.title)
-            : `${stage.title} · ${record.detail ?? (kind === "mission-stuck" ? "stopped moving" : "needs you")}`,
-        missionStage: { missionId: mission.id, stageId: record.stageId, attempt: record.attempt },
+            : `${stage.title} · ${record.detail ?? (kind === "agent-run-stuck" ? "stopped moving" : "needs you")}`,
+        agentRunStage: { agentRunId: agentRun.id, stageId: record.stageId, attempt: record.attempt },
       },
     ];
   });
@@ -616,8 +616,8 @@ export function buildFleetAttentionProjection(args: {
   knownWorkspaceIds?: ReadonlySet<string>;
   /** Closed tasks resolved from cold workspace shells outside live state. */
   closedTaskKeys?: ReadonlySet<string>;
-  /** Missions across workspaces; running ones that wait on the user become rows. */
-  missions?: readonly FleetMissionInput[];
+  /** Agent runs across workspaces; running ones that wait on the user become rows. */
+  agentRuns?: readonly FleetAgentRunInput[];
   /**
    * Attention ids with an unexpired snooze. Filtering happens after the merge so
    * one snooze covers an item no matter which source wins for it on this pass.
@@ -698,8 +698,8 @@ export function buildFleetAttentionProjection(args: {
       ),
     ...collectFleetPrAttentionItems(args.prWorkspaces),
     ...collectFleetLiveAttentionItems(args.liveWorkspaces),
-    ...collectFleetMissionAttentionItems(
-      (args.missions ?? []).filter(
+    ...collectFleetAgentRunAttentionItems(
+      (args.agentRuns ?? []).filter(
         (input) => !knownWorkspaceIds || knownWorkspaceIds.has(input.workspaceId),
       ),
     ),

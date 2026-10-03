@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildAgentRunFixtures, AGENT_RUN_ASSIGNMENT } from "../src/dev/mission-preview/agent-run-fixtures";
+import { buildAgentRunFixtures, AGENT_RUN_ASSIGNMENT } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import {
   agentRunFleetState,
   agentRunStoredPlan,
@@ -11,10 +11,10 @@ import {
   formatRunDuration,
   resolveAgentRunFirstPrompt,
   resolveAgentRunPrompt,
-} from "../src/lib/missions/agent-run-status";
-import { compileMissionStagePrompt, buildStageNudgePrompt } from "../src/lib/missions/briefing";
-import { describeMissionNotification } from "../src/lib/missions/notifications";
-import { selectAgentRunForTurn } from "../src/store/missions-store";
+} from "../src/lib/agent-runs/agent-run-status";
+import { compileAgentRunStagePrompt, buildStageNudgePrompt } from "../src/lib/agent-runs/briefing";
+import { describeAgentRunNotification } from "../src/lib/agent-runs/notifications";
+import { selectAgentRunForTurn } from "../src/store/agent-runs-store";
 
 const START = new Date("2026-10-01T09:00:00.000Z");
 const runs = buildAgentRunFixtures(START);
@@ -90,25 +90,25 @@ describe("agent run result", () => {
 
 describe("agent run prompt", () => {
   test("finds the user's own words in the compiled stage prompt, not in the reminder", () => {
-    const aggregate = { mission: runs.working.mission, stages: runs.working.stages };
-    const prompt = compileMissionStagePrompt(aggregate);
+    const aggregate = { agentRun: runs.working.agentRun, stages: runs.working.stages };
+    const prompt = compileAgentRunStagePrompt(aggregate);
     expect(extractRunAssignment(prompt, AGENT_RUN_ASSIGNMENT)).toBe(AGENT_RUN_ASSIGNMENT);
     expect(extractRunAssignment(buildStageNudgePrompt(aggregate), AGENT_RUN_ASSIGNMENT)).toBeNull();
   });
 
   test("a row the host marked splits from its first frame, without the run loaded", () => {
-    const prompt = compileMissionStagePrompt({ mission: runs.working.mission, stages: runs.working.stages });
-    const provenance = { missionId: runs.working.mission.id, assignment: AGENT_RUN_ASSIGNMENT };
+    const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
+    const provenance = { agentRunId: runs.working.agentRun.id, assignment: AGENT_RUN_ASSIGNMENT };
     expect(resolveAgentRunPrompt({ text: prompt, provenance })).toEqual({ assignment: AGENT_RUN_ASSIGNMENT, instructions: prompt });
     // The reminder to report carries no assignment: only the folded instructions.
-    expect(resolveAgentRunPrompt({ text: "Report the stage.", provenance: { missionId: "run-1", assignment: null } })).toEqual({
+    expect(resolveAgentRunPrompt({ text: "Report the stage.", provenance: { agentRunId: "run-1", assignment: null } })).toEqual({
       assignment: null,
       instructions: "Report the stage.",
     });
   });
 
   test("an older row without the mark is found through its run; a plain message is not a run prompt", () => {
-    const prompt = compileMissionStagePrompt({ mission: runs.working.mission, stages: runs.working.stages });
+    const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
     expect(resolveAgentRunPrompt({ text: prompt, runAssignment: AGENT_RUN_ASSIGNMENT })).toEqual({
       assignment: AGENT_RUN_ASSIGNMENT,
       instructions: prompt,
@@ -123,40 +123,40 @@ describe("agent run prompt", () => {
 });
 
 describe("agent run first prompt", () => {
-  const missionId = runs.working.mission.id;
-  const withLinkedTurn = (detail: typeof runs.working, state = detail.mission.state) => ({
+  const agentRunId = runs.working.agentRun.id;
+  const withLinkedTurn = (detail: typeof runs.working, state = detail.agentRun.state) => ({
     ...detail,
-    mission: { ...detail.mission, state },
+    agentRun: { ...detail.agentRun, state },
     events: [
       ...detail.events,
       { ...detail.events[0]!, kind: "turn-linked" as const, detail: { stageId: "work", attempt: 1, turnId: "turn-7" } },
     ],
   });
-  const unlinked = (detail: typeof runs.working, state = detail.mission.state) => ({
+  const unlinked = (detail: typeof runs.working, state = detail.agentRun.state) => ({
     ...detail,
-    mission: { ...detail.mission, state },
+    agentRun: { ...detail.agentRun, state },
     events: detail.events.filter((event) => event.kind !== "turn-linked"),
   });
 
   test("lands when the transcript holds the row the run marked, or a row of its linked turn", () => {
-    const marked = [{ role: "user" as const, agentRunPrompt: { missionId, assignment: AGENT_RUN_ASSIGNMENT } }];
-    expect(resolveAgentRunFirstPrompt({ missionId, messages: marked, detail: undefined })).toBe("landed");
+    const marked = [{ role: "user" as const, agentRunPrompt: { agentRunId, assignment: AGENT_RUN_ASSIGNMENT } }];
+    expect(resolveAgentRunFirstPrompt({ agentRunId, messages: marked, detail: undefined })).toBe("landed");
     expect(
-      resolveAgentRunFirstPrompt({ missionId, messages: [{ role: "assistant", turnId: "turn-7" }], detail: withLinkedTurn(runs.working) }),
+      resolveAgentRunFirstPrompt({ agentRunId, messages: [{ role: "assistant", turnId: "turn-7" }], detail: withLinkedTurn(runs.working) }),
     ).toBe("landed");
   });
 
   test("stays pending while the run starts, is stuck before its first turn, or its linked row is loading", () => {
-    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: undefined })).toBe("pending");
-    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: unlinked(runs.working) })).toBe("pending");
-    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: unlinked(runs.stuck) })).toBe("pending");
+    expect(resolveAgentRunFirstPrompt({ agentRunId, messages: [], detail: undefined })).toBe("pending");
+    expect(resolveAgentRunFirstPrompt({ agentRunId, messages: [], detail: unlinked(runs.working) })).toBe("pending");
+    expect(resolveAgentRunFirstPrompt({ agentRunId, messages: [], detail: unlinked(runs.stuck) })).toBe("pending");
     // The run linked its turn, so its row exists; it ended before the row loaded here.
-    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: withLinkedTurn(runs.working, "cancelled") })).toBe("pending");
+    expect(resolveAgentRunFirstPrompt({ agentRunId, messages: [], detail: withLinkedTurn(runs.working, "cancelled") })).toBe("pending");
   });
 
   test("ends when the run ended without writing one", () => {
-    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: unlinked(runs.working, "cancelled") })).toBe("ended");
-    expect(resolveAgentRunFirstPrompt({ missionId, messages: [], detail: unlinked(runs.failed) })).toBe("ended");
+    expect(resolveAgentRunFirstPrompt({ agentRunId, messages: [], detail: unlinked(runs.working, "cancelled") })).toBe("ended");
+    expect(resolveAgentRunFirstPrompt({ agentRunId, messages: [], detail: unlinked(runs.failed) })).toBe("ended");
   });
 });
 
@@ -170,13 +170,13 @@ describe("agent run on a Fleet card", () => {
 
 describe("agent run notifications", () => {
   const context = { repositoryPath: null, repositoryName: null, workspaceName: null, taskTitle: null };
-  test("name the agent and state, never a mission", () => {
-    expect(describeMissionNotification(runs.ready, context)?.title).toBe("Ready — Implementer");
-    expect(describeMissionNotification(runs.failed, context)?.title).toBe("Failed — Implementer");
-    expect(describeMissionNotification(runs.needsYou, context)?.title).toBe("Needs you — Implementer");
-    expect(describeMissionNotification(runs.stuck, context)?.title).toBe("Needs you — Implementer");
-    expect(describeMissionNotification(runs.working, context)).toBeNull();
-    expect(describeMissionNotification(runs.stopped, context)).toBeNull();
+  test("name the agent and state, never a run", () => {
+    expect(describeAgentRunNotification(runs.ready, context)?.title).toBe("Ready — Implementer");
+    expect(describeAgentRunNotification(runs.failed, context)?.title).toBe("Failed — Implementer");
+    expect(describeAgentRunNotification(runs.needsYou, context)?.title).toBe("Needs you — Implementer");
+    expect(describeAgentRunNotification(runs.stuck, context)?.title).toBe("Needs you — Implementer");
+    expect(describeAgentRunNotification(runs.working, context)).toBeNull();
+    expect(describeAgentRunNotification(runs.stopped, context)).toBeNull();
   });
 });
 
@@ -185,16 +185,16 @@ describe("turns an agent run started", () => {
   const state = (origin: "agent" | "workflow") => {
     const detail = runs.working;
     return {
-      missionIdsByTask: { [key]: [detail.mission.id] },
-      dividersByMission: { [detail.mission.id]: new Map([["turn-1", "Stage 1 · Work"]]) },
-      details: { [detail.mission.id]: { ...detail, mission: { ...detail.mission, origin } } },
+      agentRunIdsByTask: { [key]: [detail.agentRun.id] },
+      dividersByAgentRun: { [detail.agentRun.id]: new Map([["turn-1", "Stage 1 · Work"]]) },
+      details: { [detail.agentRun.id]: { ...detail, agentRun: { ...detail.agentRun, origin } } },
     };
   };
-  test("an agent run's turn is found, with the stored mission", () => {
+  test("an agent run's turn is found, with the stored run", () => {
     const found = selectAgentRunForTurn(state("agent"), "preview-workspace", "preview-task", "turn-1");
-    expect(found?.id).toBe(runs.working.mission.id);
+    expect(found?.id).toBe(runs.working.agentRun.id);
   });
-  test("a workflow mission's turn, an unknown turn and no turn are not", () => {
+  test("a legacy run's turn, an unknown turn and no turn are not", () => {
     expect(selectAgentRunForTurn(state("workflow"), "preview-workspace", "preview-task", "turn-1")).toBeNull();
     expect(selectAgentRunForTurn(state("agent"), "preview-workspace", "preview-task", "turn-9")).toBeNull();
     expect(selectAgentRunForTurn(state("agent"), "preview-workspace", "preview-task", undefined)).toBeNull();
@@ -228,7 +228,7 @@ describe("agent run plan and progress", () => {
 
   test("a run with a workflow shows its stage, not a plan", () => {
     expect(agentRunStoredPlan(runs.workflow)).toBeNull();
-    const stages = runs.workflow.mission.workflow.stages;
+    const stages = runs.workflow.agentRun.workflow.stages;
     expect(describeAgentRunProgress(runs.workflow)).toBe(`${stages[1]!.title} 2/${stages.length}`);
   });
 });

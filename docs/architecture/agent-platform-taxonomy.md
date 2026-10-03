@@ -32,7 +32,7 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Check in with me | Where a run waits for the user's sign-off between stages: only when stuck (the agent default), before publishing, or every stage. Code: `AgentConfig.checkIns`, the engine's `CheckIns` (`when-stuck`, `plan-and-publishing`, `every-stage`). |
 | Playbook | Retired as a user concept: a saved playbook became a custom agent with that workflow (converted by 0.22.0 and 0.23.0; 0.24.0 removed the conversion). Saved playbooks stay as read-only data: old playbook missions still render from them. Playbook start conditions and proposed missions are removed. Code keeps `Playbook` as the mission engine's run plan. |
 | Sign-off | The user's approval before a stage starts. "Ask for changes" reruns the previous AI stage with feedback. |
-| Mission | Engine word, not shown to users for agent runs: one run of a plan of stages on one lead task the user already owns — an agent run (`origin: "agent"`) or a legacy playbook mission. Code: `src/lib/missions/`. |
+| Mission | Engine word, not shown to users for agent runs: one run of a plan of stages on one lead task the user already owns — an agent run (`origin: "agent"`) or a legacy playbook mission. Code: `src/lib/agent-runs/`. |
 | Stage report | What the agent reports for a stage through `stave_report_stage` or `stave_block_stage`. Its evidence is "Verified by Stave" only when Stave saw the cited call succeed; otherwise "Agent reported". |
 | Mission report | The summary a mission leaves when it ends: stages, decisions, evidence, links, and, for a partial run, what it left behind. |
 | Project | Removed. It was a goal-level coordinator that started parallel missions. Its tables stay in the database unread, and each project's memories are exported once to `<user data>/exports/project-memory/<project id>.md`. Old missions a project started still render. Not a registered folder. |
@@ -183,10 +183,10 @@ ledger, never the reverse, and never through the coordinator — is what keeps
 "records wake-ups" and "records delegated execution" separate concepts rather
 than one table with two meanings.
 
-A mission is the second supervisor entry. `src/lib/missions/policy.ts` holds
-its pure decision order, `electron/persistence/mission-store.ts` stores it in
+A mission is the second supervisor entry. `src/lib/agent-runs/policy.ts` holds
+its pure decision order, `electron/persistence/agent-run-store.ts` stores it in
 `missions` / `mission_stages` / `mission_events`, and
-`electron/host-service/supervision/mission-runtime.ts` executes it beside the
+`electron/host-service/supervision/agent-run-runtime.ts` executes it beside the
 wake-up runtime, starting turns through the same `runSupervisedTurn` path under
 the same safety rules. Like a wake-up it adds turns to one existing task and
 records no claims, leases or receipts; it *reads* delegated-task completions and
@@ -250,7 +250,7 @@ narrow the default permission it is read with, and it never takes the id of a
 custom or built-in agent, so a cloned repository cannot change what an agent
 the user already trusts is told.
 
-Statement 10 is asserted at the run start (`src/lib/missions/agent-run.ts`):
+Statement 10 is asserted at the run start (`src/lib/agent-runs/agent-run.ts`):
 the run records the user's own permission settings and the agent's check-ins,
 its turns take permissions from that consent only, and a publish or Stave
 action stage is authorized at start only when the agent checks in only when

@@ -244,20 +244,20 @@
       "invariant": "A mission advances exactly one lead task and never creates a task; a stage completes only through a recorded stage report or a Stave action result, never because a turn ended; a turn that ends without a report is nudged once and then marked stuck, and unreachable reporting blocks instead of nudging; a stage with an external effect the mission's consent does not list always waits for sign-off; and at most one supervisor entry starts automatic turns on a task at a time, so a mission pauses its lead task's wake-up with mission-active, refuses new wake-ups there, and a task never holds two active missions.",
       "testFiles": [
         "tests/agent-platform-boundaries.test.ts",
-        "tests/mission-policy.test.ts",
-        "tests/mission-commands.test.ts",
-        "tests/mission-store.test.ts",
+        "tests/agent-run-policy.test.ts",
+        "tests/agent-run-commands.test.ts",
+        "tests/agent-run-store.test.ts",
         "tests/automatic-turn-owner.test.ts",
         "tests/wake-up-runtime.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
-        "src/lib/missions/domain.ts",
-        "src/lib/missions/policy.ts",
-        "src/lib/missions/commands.ts",
+        "src/lib/agent-runs/domain.ts",
+        "src/lib/agent-runs/policy.ts",
+        "src/lib/agent-runs/commands.ts",
         "src/lib/supervision/automatic-turn-owner.ts",
         "src/lib/supervision/wake-up-policy.ts",
-        "electron/persistence/mission-store.ts",
+        "electron/persistence/agent-run-store.ts",
         "electron/host-service/wake-up-runtime.ts"
       ]
     },
@@ -297,14 +297,14 @@
       "title": "A saved agent never grants permissions; every run start records its own consent",
       "invariant": "Starting an agent run records the user's own permission settings and the agent's check-ins as the run's consent; its turns take permissions from mission.consent only (never from a saved agent or playbook), and a publish or Stave action stage the consent does not list always waits for sign-off. Only an agent that checks in only when stuck lists its workflow's external-effect stages at start.",
       "testFiles": [
-        "tests/mission-start-consent.test.ts",
+        "tests/agent-run-start-consent.test.ts",
         "tests/agent-run.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
-        "src/lib/missions/agent-run.ts",
-        "src/lib/missions/policy.ts",
-        "electron/host-service/supervision/mission-runtime.ts"
+        "src/lib/agent-runs/agent-run.ts",
+        "src/lib/agent-runs/policy.ts",
+        "electron/host-service/supervision/agent-run-runtime.ts"
       ]
     },
     {

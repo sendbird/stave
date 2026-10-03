@@ -111,12 +111,12 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
-} else if (preview === "mission") {
-  void import("@/dev/mission-preview").then(({ MissionPreview }) => {
+} else if (preview === "agent-run") {
+  void import("@/dev/agent-run-preview").then(({ AgentRunPreview }) => {
     root.render(
       <StrictMode>
         <StaveDesignProvider>
-          <MissionPreview />
+          <AgentRunPreview />
         </StaveDesignProvider>
       </StrictMode>,
     );

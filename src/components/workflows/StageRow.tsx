@@ -105,7 +105,7 @@ export function StageRow(props: StageRowProps) {
   const rowIssues = [...props.issues].filter(([path]) => !placed.has(path));
   const first = index === 0;
   const askLabel = first
-    ? "The first stage starts with the mission"
+    ? "The first stage starts with the run"
     : props.asksFirst
       ? "Asks you before it starts — click to start automatically"
       : "Starts automatically — click to ask you first";
@@ -180,7 +180,7 @@ export function StageRow(props: StageRowProps) {
               size="iconSm"
               iconOnly
               press="none"
-              aria-label={first ? "Starts with the mission" : "Ask me before this stage"}
+              aria-label={first ? "Starts with the run" : "Ask me before this stage"}
               aria-pressed={props.asksFirst}
               disabled={first}
               xstyle={[styles.askToggle, props.asksFirst && styles.askToggleOn]}
@@ -398,7 +398,7 @@ function ActionStageFields(props: {
                 })
               }
             />
-            <p className={sx(styles.hint)}>Each repair is an agent turn and counts toward the mission's turn limit.</p>
+            <p className={sx(styles.hint)}>Each repair is an agent turn and counts toward the run's turn limit.</p>
           </div>
           <span className={sx(styles.propertyLabel)}>Give up after</span>
           <div className={sx(styles.propertyValue)}>
@@ -422,7 +422,7 @@ function ActionStageFields(props: {
                 })
               }
             />
-            <p className={sx(styles.hint)}>A check still pending after this stops the mission with a note.</p>
+            <p className={sx(styles.hint)}>A check still pending after this stops the run with a note.</p>
           </div>
         </div>
       ) : null}

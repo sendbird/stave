@@ -9,14 +9,14 @@ import {
   type ReactNode,
 } from "react";
 import { cx, sx } from "@/components/ads/utils/stylex";
-import { MissionBar } from "@/components/missions/MissionBar";
+import { AgentRunBar } from "@/components/agent-runs/AgentRunBar";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   TurnActivitySurface,
   useTurnActivityModel,
 } from "@/components/session/TurnActivity";
-import { agentRunStoredPlan } from "@/lib/missions/agent-run-status";
-import { latestStageRecord } from "@/lib/missions/domain";
+import { agentRunStoredPlan } from "@/lib/agent-runs/agent-run-status";
+import { latestStageRecord } from "@/lib/agent-runs/domain";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -65,12 +65,12 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   const setLayout = useAppStore((state) => state.setLayout);
   const abortTaskTurn = useAppStore((state) => state.abortTaskTurn);
   const detailHost = resolveShelfDetailHost(placement);
-  const { open, setOpen, mission } = useShelfDetail(taskId);
+  const { open, setOpen, agentRun } = useShelfDetail(taskId);
   const inlineOpen = detailHost === "inline" && open;
   const turn = useTurnActivityModel({ host: "docked", detail: inlineOpen });
   const turnProps = turn.props;
   const runSource = resolveShelfRunSource({
-    missionActive: mission != null,
+    agentRunActive: agentRun != null,
     turnVisible: turnProps != null,
   });
   const queueCount = props.queue?.items.length ?? 0;
@@ -79,7 +79,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   const setUsageLimitAutoResume = useAppStore((state) => state.setUsageLimitAutoResume);
   const dismissUsageLimitPause = useAppStore((state) => state.dismissUsageLimitPause);
   // A turn running again means the limit no longer holds this task.
-  const runLive = runSource === "mission" || (runSource === "turn" && !turn.isLeaving);
+  const runLive = runSource === "agentRun" || (runSource === "turn" && !turn.isLeaving);
   const limited =
     !runLive &&
     hasPausedUsageLimitWork({ pause: usageLimitPause, queuedTurnCount: queueCount });
@@ -111,10 +111,10 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
         : null,
     [controls.detailToggle, open, setOpen],
   );
-  const missionHeads = runSource === "mission";
+  const agentRunHeads = runSource === "agentRun";
   const openPanel = useCallback(
-    () => setLayout({ patch: taskPanelLayoutPatch(missionHeads ? "progress" : "activity") }),
-    [missionHeads, setLayout],
+    () => setLayout({ patch: taskPanelLayoutPatch(agentRunHeads ? "progress" : "activity") }),
+    [agentRunHeads, setLayout],
   );
   const panel = useMemo<ShelfRunPanelButton | null>(
     () =>
@@ -126,17 +126,17 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   const onStop = useCallback(() => abortTaskTurn({ taskId }), [abortTaskTurn, taskId]);
   const turnTodos = turnProps?.todos ?? NO_TODOS;
   // Between turns a one-stage run keeps showing its plan from the stage record.
-  const storedPlanItems = useMemo(() => agentRunStoredPlan(mission)?.items ?? NO_TODOS, [mission]);
+  const storedPlanItems = useMemo(() => agentRunStoredPlan(agentRun)?.items ?? NO_TODOS, [agentRun]);
   const todo = useMemo<ShelfTodoProgress | null>(
     () => summarizeShelfTodos(turnTodos.length > 0 ? turnTodos : storedPlanItems),
     [turnTodos, storedPlanItems],
   );
   // A stage waiting for sign-off already asks in its card above the shelf.
-  const currentStage = mission?.mission.workflow.stages[mission.mission.currentStageIndex];
+  const currentStage = agentRun?.agentRun.workflow.stages[agentRun.agentRun.currentStageIndex];
   const signOffShown =
-    mission?.mission.state === "running" &&
+    agentRun?.agentRun.state === "running" &&
     currentStage != null &&
-    latestStageRecord(mission.stages, currentStage.id)?.status === "awaiting-sign-off";
+    latestStageRecord(agentRun.stages, currentStage.id)?.status === "awaiting-sign-off";
 
   const surfaceVisible = rows.length > 0;
   const shownBefore = useRef(false);
@@ -166,8 +166,8 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     >
       {runSource ? (
         <ShelfRow joining={shownBefore.current} leaving={runSource === "turn" && turn.isLeaving && !surfaceLeaving}>
-          {runSource === "mission" ? (
-            <MissionBar
+          {runSource === "agentRun" ? (
+            <AgentRunBar
               panelKeep={panel?.keep}
               detailToggle={turnProps ? detailToggle : null}
               todo={todo}

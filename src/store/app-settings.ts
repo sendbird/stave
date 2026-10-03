@@ -353,7 +353,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   confirmBeforeClose: boolean;
   nativeNotificationsEnabled: boolean;
   /**
-   * Minutes a mission sign-off may wait before one batched reminder; 0 turns
+   * Minutes an agent run sign-off may wait before one batched reminder; 0 turns
    * reminders off. The first request always notifies.
    */
   missionSignOffReminderMinutes: number;

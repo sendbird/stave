@@ -1,6 +1,6 @@
 import {
   turnGrantHeaders,
-  MISSION_GRANT_ENV,
+  AGENT_RUN_GRANT_ENV,
   CALLER_GRANT_ENV,
   type StaveTurnGrants,
 } from "../providers/stave-turn-grants";
@@ -183,7 +183,7 @@ function parseLiveManifest(args: {
 
 /**
  * Resolve the Local MCP endpoint for this process. Every in-app consumer
- * (provider runtimes, CLI env builders, mission reachability) must go through
+ * (provider runtimes, CLI env builders, agent run reachability) must go through
  * this — reading the shared file directly reintroduces the cross-instance and
  * dead-endpoint failures this resolver exists to prevent.
  */
@@ -264,7 +264,7 @@ function toStaveLocalMcpTransport(
     headers: {
       Authorization: `Bearer ${manifest.token}`,
       // Turn-scoped grants only. Persistent Claude Code settings must not
-      // receive empty keys that look like live Worker/Advisor/mission capability.
+      // receive empty keys that look like live Worker/Advisor/agent-run capability.
       ...(options?.turnGrants
         ? turnGrantHeaders(options.turnGrants)
         : {}),
@@ -314,8 +314,8 @@ export function toAcpStdioMcpServerConfig(
       // follows the shared manifest to another (or a dead) Stave instance.
       { name: STAVE_LOCAL_MCP_OWNER_PID_ENV, value: String(manifest.pid) },
       {
-        name: MISSION_GRANT_ENV,
-        value: options?.turnGrants?.missionKey ?? "",
+        name: AGENT_RUN_GRANT_ENV,
+        value: options?.turnGrants?.agentRunKey ?? "",
       },
       {
         name: CALLER_GRANT_ENV,

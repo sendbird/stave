@@ -14,7 +14,7 @@
  * thread, which keeps the headers it started with, still names its task after
  * a restart. It resolves only while that task has a live turn.
  *
- * Lives in the host service process, beside the mission grants, because that
+ * Lives in the host service process, beside the agent run grants, because that
  * is where turns start.
  */
 import { createHmac, randomBytes } from "node:crypto";

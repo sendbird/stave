@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { WakeUpSectionView } from "../src/components/missions/WakeUpSection";
-import { MissionReportView } from "../src/components/missions/MissionReportView";
+import { WakeUpSectionView } from "../src/components/agent-runs/WakeUpSection";
+import { AgentRunReportView } from "../src/components/agent-runs/AgentRunReportView";
 import {
   decisionsAsMemoryFacts,
   reportMentionsPullRequest,
-} from "../src/components/missions/useMissionReportActions";
-import type { MissionReport } from "../src/lib/missions/report";
-import { mergeReportIntoPullRequestBody } from "../src/lib/missions/report-markdown";
+} from "../src/components/agent-runs/useAgentRunReportActions";
+import type { AgentRunReport } from "../src/lib/agent-runs/report";
+import { mergeReportIntoPullRequestBody } from "../src/lib/agent-runs/report-markdown";
 import type { WakeUp, WakeUpSummary } from "../src/lib/supervision/wake-up-policy";
 import {
   describeWakeUpHistory,
@@ -55,11 +55,11 @@ describe("wake-ups on the task surfaces", () => {
       describeWakeUpStatus(
         summary({
           state: "paused",
-          reason: "A mission is running on this task. This schedule resumes when the mission ends.",
+          reason: "A run is running on this task. This schedule resumes when the run ends.",
         }),
         NOW,
       ).text,
-    ).toBe("Paused · A mission is running on this task. This schedule resumes when the mission ends.");
+    ).toBe("Paused · A run is running on this task. This schedule resumes when the run ends.");
     expect(describeWakeUpStatus(summary({ triggerKind: "completion", nextRunAt: null }), NOW).text).toBe(
       "Waiting for subagents to finish",
     );
@@ -98,8 +98,8 @@ describe("wake-ups on the task surfaces", () => {
   });
 });
 
-const REPORT: MissionReport = {
-  missionId: "mission-1",
+const REPORT: AgentRunReport = {
+  agentRunId: "agent-run-1",
   workflowName: "Request → PR",
   assignment: "Add CSV export.",
   outcome: "completed",
@@ -128,13 +128,13 @@ const REPORT: MissionReport = {
   leftBehind: [],
 };
 
-describe("Mission report actions", () => {
+describe("Run report actions", () => {
   test("adding the report to a pull request replaces an earlier copy instead of repeating it", () => {
-    const once = mergeReportIntoPullRequestBody("## Summary\nAdds export.", "## Mission complete\nv1");
+    const once = mergeReportIntoPullRequestBody("## Summary\nAdds export.", "## Run complete\nv1");
     expect(once).toBe(
-      "## Summary\nAdds export.\n\n<!-- stave:mission-report -->\n## Mission complete\nv1\n<!-- /stave:mission-report -->\n",
+      "## Summary\nAdds export.\n\n<!-- stave:mission-report -->\n## Run complete\nv1\n<!-- /stave:mission-report -->\n",
     );
-    const twice = mergeReportIntoPullRequestBody(once, "## Mission complete\nv2");
+    const twice = mergeReportIntoPullRequestBody(once, "## Run complete\nv2");
     expect(twice).toContain("v2");
     expect(twice).not.toContain("v1");
     expect(twice.split("<!-- stave:mission-report -->")).toHaveLength(2);
@@ -152,11 +152,11 @@ describe("Mission report actions", () => {
   });
 
   test("the report shows only the actions it was given", () => {
-    const bare = renderToStaticMarkup(createElement(MissionReportView, { report: REPORT }));
+    const bare = renderToStaticMarkup(createElement(AgentRunReportView, { report: REPORT }));
     expect(bare).toContain("Copy Markdown");
     expect(bare).not.toContain("Add to PR description");
     const full = renderToStaticMarkup(
-      createElement(MissionReportView, {
+      createElement(AgentRunReportView, {
         report: REPORT,
         actions: { addToPullRequest: async () => "ok", saveDecisions: async () => "ok" },
       }),

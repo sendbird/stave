@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { MissionCommandResponse, MissionDetail, MissionStartArgs } from "../src/lib/missions/api";
+import type { AgentRunCommandResponse, AgentRunDetail, AgentRunStartArgs } from "../src/lib/agent-runs/api";
 import { useAgentAssignmentsStore, type TaskAgent } from "../src/store/agent-assignments-store";
 import {
   cancelAgentRunBeforeStop,
@@ -14,24 +14,24 @@ import { holdsComposerTurn, usePendingAutoRoutingStore } from "../src/store/pend
 
 const AGENT = { agentConfigId: "implementer", agentName: "Implementer" } as TaskAgent;
 
-function fakeBridge(options: { active?: ReturnType<AgentRunBridge["activeMission"]>; refuse?: string } = {}) {
-  const started: MissionStartArgs[] = [];
+function fakeBridge(options: { active?: ReturnType<AgentRunBridge["activeAgentRun"]>; refuse?: string } = {}) {
+  const started: AgentRunStartArgs[] = [];
   const cancelled: string[] = [];
-  const watched: Array<{ missionId: string; end: (end: AgentRunFirstPromptEnd) => void }> = [];
+  const watched: Array<{ agentRunId: string; end: (end: AgentRunFirstPromptEnd) => void }> = [];
   const bridge: AgentRunBridge = {
-    activeMission: () => options.active ?? null,
+    activeAgentRun: () => options.active ?? null,
     start: async (input) => {
       started.push(input);
       return options.refuse
-        ? { ok: false, mission: null, code: "refused", message: options.refuse }
-        : ({ ok: true, mission: { mission: { id: "run-1" } } as MissionDetail } satisfies MissionCommandResponse);
+        ? { ok: false, agentRun: null, code: "refused", message: options.refuse }
+        : ({ ok: true, agentRun: { agentRun: { id: "run-1" } } as AgentRunDetail } satisfies AgentRunCommandResponse);
     },
-    cancel: async (missionId) => {
-      cancelled.push(missionId);
-      return { ok: true, mission: null };
+    cancel: async (agentRunId) => {
+      cancelled.push(agentRunId);
+      return { ok: true, agentRun: null };
     },
-    watchFirstPrompt: ({ missionId }, end) => {
-      watched.push({ missionId, end });
+    watchFirstPrompt: ({ agentRunId }, end) => {
+      watched.push({ agentRunId, end });
     },
   };
   registerAgentRunBridge(bridge);
@@ -92,7 +92,7 @@ describe("agent run send path", () => {
       status: "run-started",
       taskId: "task-1",
       workspaceId: "ws-1",
-      missionId: "run-1",
+      agentRunId: "run-1",
     });
     expect(bridge.started[0]).toMatchObject({
       leadTaskId: "task-1",
@@ -138,13 +138,13 @@ describe("agent run send path", () => {
     const { args, state } = sendArgs();
     const sent = startAgentRunForSend(args);
     // Drawn before the start is even answered, so a new task leaves its start screen.
-    expect(pendingRow()?.agentRun).toEqual({ missionId: null });
+    expect(pendingRow()?.agentRun).toEqual({ agentRunId: null });
     expect(pendingRow()?.userMessage).toMatchObject({ role: "user", content: "Add CSV export." });
     // The run bar owns Stop; the composer keeps Send.
     expect(holdsComposerTurn(pendingRow())).toBe(false);
     await sent;
-    expect(pendingRow()?.agentRun).toEqual({ missionId: "run-1" });
-    expect(bridge.watched.map((watch) => watch.missionId)).toEqual(["run-1"]);
+    expect(pendingRow()?.agentRun).toEqual({ agentRunId: "run-1" });
+    expect(bridge.watched.map((watch) => watch.agentRunId)).toEqual(["run-1"]);
     bridge.watched[0]!.end({ outcome: "landed" });
     expect(pendingRow()).toBeUndefined();
     expect(state().promptDraftByTask["task-1"]?.text).toBe("");
@@ -244,7 +244,7 @@ describe("agent run stop", () => {
     expect(stops).toBe(1);
   });
 
-  test("leaves a workflow mission and a task without a run to the plain stop", () => {
+  test("leaves a legacy run and a task without a run to the plain stop", () => {
     fakeBridge({ active: { id: "m-1", agentOrigin: false } });
     expect(cancelAgentRunBeforeStop({ workspaceId: "ws-1", taskId: "task-1", stopTurn: () => {} })).toBe(false);
     fakeBridge();

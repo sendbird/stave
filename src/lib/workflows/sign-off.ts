@@ -25,7 +25,7 @@ function asksUnderPlanAndPublishing(
 
 /**
  * The sign-off a stage gets from the workflow's check-in level alone, ignoring
- * the stage's own override. Starting a mission signs off its first stage, so
+ * the stage's own override. Starting an agent run signs off its first stage, so
  * the first stage never waits.
  *
  * | Check-ins           | Asks before                                         |
@@ -52,7 +52,7 @@ export function deriveStageSignOff(
   }
 }
 
-/** The sign-off a mission applies before starting the stage at `index`. */
+/** The sign-off an agent run applies before starting the stage at `index`. */
 export function resolveStageSignOff(
   workflow: SignOffInput,
   index: number,

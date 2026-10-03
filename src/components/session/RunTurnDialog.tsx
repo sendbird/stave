@@ -10,7 +10,7 @@ import {
 import {
   AgentRunInstructions,
   useAgentRunPrompt,
-} from "@/components/missions/AgentRunPrompt";
+} from "@/components/agent-runs/AgentRunPrompt";
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
 import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
 import {

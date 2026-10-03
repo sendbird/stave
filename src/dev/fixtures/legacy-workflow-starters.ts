@@ -1,7 +1,7 @@
 /**
  * Saved-workflow starters from before saved workflows were retired (0.22.0).
  * Product code no longer offers them; dev previews and tests build legacy
- * workflow missions from them.
+ * legacy runs from them.
  */
 import { generateWorkflowId } from "@/lib/workflows/normalize";
 import { createIssue, reportBack } from "@/lib/workflows/stage-templates";

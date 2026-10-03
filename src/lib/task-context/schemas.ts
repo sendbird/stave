@@ -407,6 +407,21 @@ const DelegatedExecutionUsageSchema = z
   })
   .strict();
 
+// temporary-migration: agent-run-prompt-provenance
+/**
+ * Messages saved before agent runs were renamed mark a run's prompt with
+ * `missionId`. Reads that key as `agentRunId`; the next save writes the new
+ * key. A mark that already has `agentRunId` is left as it is.
+ */
+export function readLegacyAgentRunPromptKey(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  if (!("missionId" in record) || "agentRunId" in record) return value;
+  const { missionId, ...rest } = record;
+  return { ...rest, agentRunId: missionId };
+}
+// end temporary-migration: agent-run-prompt-provenance
+
 export const ChatMessageSchema = z.object({
   id: z.string(),
   role: z.union([z.literal("user"), z.literal("assistant")]),
@@ -501,11 +516,15 @@ export const ChatMessageSchema = z.object({
   // A malformed mark drops to undefined: the row still decodes and renders as
   // before provenance, found through the run that started its turn.
   agentRunPrompt: z
-    .object({
-      missionId: z.string().min(1).max(200),
-      assignment: z.string().nullable(),
-    })
-    .strict()
+    .preprocess(
+      readLegacyAgentRunPromptKey,
+      z
+        .object({
+          agentRunId: z.string().min(1).max(200),
+          assignment: z.string().nullable(),
+        })
+        .strict(),
+    )
     .optional()
     .catch(undefined),
 });

@@ -19,10 +19,10 @@ import { useAppStore } from "@/store/app.store";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
 import { ResultFileSnapshots } from "./ResultFileSnapshots";
 import { RunTurnDialog } from "./RunTurnDialog";
-import { MissionReportView } from "@/components/missions/MissionReportView";
-import { useMissionReportActions } from "@/components/missions/useMissionReportActions";
-import { useTaskMission } from "@/store/missions-store";
-import { hasAgentOrigin } from "@/lib/missions/agent-run";
+import { AgentRunReportView } from "@/components/agent-runs/AgentRunReportView";
+import { useAgentRunReportActions } from "@/components/agent-runs/useAgentRunReportActions";
+import { useTaskAgentRun } from "@/store/agent-runs-store";
+import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import {
   formatActualRunModel,
   ModelResolutionSummary,
@@ -255,12 +255,12 @@ export function RunHistoryRow(props: {
   );
 }
 
-/** The task's latest finished mission report heads its results. */
-function TaskMissionReport(props: { workspaceId: string; taskId: string }) {
-  const detail = useTaskMission(props.workspaceId, props.taskId);
-  const actions = useMissionReportActions(detail);
+/** The task's latest finished agent run report heads its results. */
+function TaskAgentRunReport(props: { workspaceId: string; taskId: string }) {
+  const detail = useTaskAgentRun(props.workspaceId, props.taskId);
+  const actions = useAgentRunReportActions(detail);
   return detail?.report ? (
-    <MissionReportView report={detail.report} actions={actions} agentOrigin={hasAgentOrigin(detail.mission)} />
+    <AgentRunReportView report={detail.report} actions={actions} agentOrigin={hasAgentOrigin(detail.agentRun)} />
   ) : null;
 }
 
@@ -359,7 +359,7 @@ export function TaskResultReviews(props: {
 
   return (
     <section aria-label="Task results" className={sx(styles.panel)}>
-      <TaskMissionReport workspaceId={props.workspaceId} taskId={props.taskId} />
+      <TaskAgentRunReport workspaceId={props.workspaceId} taskId={props.taskId} />
       <div className={sx(styles.header)}>
         <h3 className={sx(styles.heading)}>Run history</h3>
         <p className={sx(styles.introduction)}>

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildBaseSteps, buildFlow, deriveFlowBase, type FlowAssignmentInput, type FlowBaseInput } from "@/lib/agents/flow-view";
-import type { MissionDetail } from "@/lib/missions/api";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import type { TaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
@@ -53,10 +53,10 @@ function delegate(overrides: Partial<DelegatedTaskSummary>): DelegatedTaskSummar
   };
 }
 
-function mission(): MissionDetail {
+function agentRun(): AgentRunDetail {
   const stage = (id: string, title: string) => ({ id, kind: "ai", title, instruction: "x", doneWhen: "y" });
   return {
-    mission: { workflow: { stages: [stage("plan", "Plan"), stage("build", "Build"), stage("pr", "Open PR")] } },
+    agentRun: { workflow: { stages: [stage("plan", "Plan"), stage("build", "Build"), stage("pr", "Open PR")] } },
     stages: [
       {
         stageId: "plan",
@@ -83,7 +83,7 @@ function mission(): MissionDetail {
     ],
     events: [],
     report: null,
-  } as unknown as MissionDetail;
+  } as unknown as AgentRunDetail;
 }
 
 describe("buildBaseSteps", () => {
@@ -200,7 +200,7 @@ describe("buildFlow", () => {
     const nodes = buildFlow({
       taskTitle: "Fix",
       assignment: null,
-      mission: null,
+      agentRun: null,
       delegates: [delegate({})],
       base: { ...EMPTY_BASE, request: { at: "2026-09-29T00:00:00.000Z", text: "Fix" }, taskRunning: false },
     });
@@ -212,19 +212,19 @@ describe("buildFlow", () => {
   });
 
   test("a task with no messages and no delegates says it is waiting", () => {
-    const nodes = buildFlow({ taskTitle: "Fix", assignment: null, mission: null, delegates: [], base: EMPTY_BASE });
+    const nodes = buildFlow({ taskTitle: "Fix", assignment: null, agentRun: null, delegates: [], base: EMPTY_BASE });
     expect(nodes).toHaveLength(1);
     expect(nodes[0]).toMatchObject({ kind: "task", title: "Fix", state: "waiting", detail: "Waiting for the first message." });
   });
 
-  test("an assignment and a mission read as one flow; base steps nest under the running stage", () => {
+  test("an assignment and a run read as one flow; base steps nest under the running stage", () => {
     const base: FlowBaseInput = {
       ...EMPTY_BASE,
       request: { at: "2026-09-29T00:00:00.000Z", text: "Fix" },
       changes: { fileCount: 1, additions: 2, deletions: 0, partial: false },
       taskRunning: true,
     };
-    const nodes = buildFlow({ taskTitle: "Fix", assignment, mission: mission(), delegates: [delegate({})], base });
+    const nodes = buildFlow({ taskTitle: "Fix", assignment, agentRun: agentRun(), delegates: [delegate({})], base });
     expect(nodes.map((node) => [node.kind, node.title, node.state])).toEqual([
       ["assignment", "Assigned to Implementer", "done"],
       ["stage", "1. Plan", "done"],
@@ -242,7 +242,7 @@ describe("buildFlow", () => {
     const nodes = buildFlow({
       taskTitle: "Fix",
       assignment: null,
-      mission: mission(),
+      agentRun: agentRun(),
       delegates: [delegate({ createdAt: "2026-09-28T23:00:00.000Z", phase: "failed" })],
       base: EMPTY_BASE,
     });
@@ -254,7 +254,7 @@ describe("buildFlow", () => {
     const nodes = buildFlow({
       taskTitle: "Fix",
       assignment: { ...assignment, state: "interrupted", detail: "Stave stopped before the first turn started." },
-      mission: null,
+      agentRun: null,
       delegates: [],
       base: EMPTY_BASE,
     });
@@ -269,12 +269,12 @@ describe("buildFlow", () => {
 });
 
 
-test("finished and cancelled missions keep current task steps outside historical stages", () => {
+test("finished and cancelled runs keep current task steps outside historical stages", () => {
   for (const status of ["completed", "cancelled"] as const) {
-    const detail = mission();
+    const detail = agentRun();
     detail.stages[1]!.status = status;
     detail.stages[1]!.endedAt = "2026-09-29T00:12:00.000Z";
-    const nodes = buildFlow({ taskTitle: "Fix", assignment: null, mission: detail, delegates: [], base: {
+    const nodes = buildFlow({ taskTitle: "Fix", assignment: null, agentRun: detail, delegates: [], base: {
       ...EMPTY_BASE, request: { at: "2026-09-29T00:20:00.000Z", text: "Follow up" },
       needsYou: { kind: "approval", label: "Run checks", at: null }, taskRunning: true,
     } });
@@ -283,8 +283,8 @@ test("finished and cancelled missions keep current task steps outside historical
   }
 });
 
-test("workspace PR remains task-level context during a mission stage", () => {
-  const nodes = buildFlow({ taskTitle: "Fix", assignment: null, mission: mission(), delegates: [], base: {
+test("workspace PR remains task-level context during a run stage", () => {
+  const nodes = buildFlow({ taskTitle: "Fix", assignment: null, agentRun: agentRun(), delegates: [], base: {
     ...EMPTY_BASE, pullRequest: { number: 42, title: "Workspace change", url: "https://example.test/42", status: "review_required", checks: null, createdAt: null },
   } });
   expect(nodes.at(-1)?.title).toBe("Workspace PR");
@@ -293,7 +293,7 @@ test("workspace PR remains task-level context during a mission stage", () => {
 
 test("detached waiting remains open and a follow-up running is separate from its ledger phase", () => {
   const child = delegate({ phase: "waiting", lifecycle: "detached" });
-  const args = { taskTitle: "Fix", assignment: null, mission: null, delegates: [child], base: EMPTY_BASE };
+  const args = { taskTitle: "Fix", assignment: null, agentRun: null, delegates: [child], base: EMPTY_BASE };
   expect(buildFlow(args)[0]).toMatchObject({ state: "waiting", detail: expect.stringContaining("Open for follow-up") });
   expect(buildFlow({ ...args, runningDelegateTaskIds: new Set([child.delegatedTaskId]) })[0]).toMatchObject({
     state: "running", detail: expect.stringContaining("delegation remains open"),

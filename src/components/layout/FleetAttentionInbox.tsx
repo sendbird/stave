@@ -39,9 +39,9 @@ import {
 import { FLEET_ATTENTION_SNOOZE_DURATIONS } from "@/lib/fleet/attention-snooze";
 import { PR_STATUS_VISUAL } from "@/lib/pr-status";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
-import { describeSignOffAction } from "@/lib/missions/mission-view";
-import { useFleetMissionsStore } from "@/store/fleet-missions-store";
-import { missionStageKey, useMissionFailure, useMissionsStore } from "@/store/missions-store";
+import { describeSignOffAction } from "@/lib/agent-runs/agent-run-view";
+import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
+import { agentRunStageKey, useAgentRunFailure, useAgentRunsStore } from "@/store/agent-runs-store";
 
 const FLEET_NEED_LABEL: Record<FleetAttentionKind, string> = {
   "user-input": "Question",
@@ -53,9 +53,9 @@ const FLEET_NEED_LABEL: Record<FleetAttentionKind, string> = {
   "pr-merge-conflict": "Merge conflict",
   "pr-behind-base": "Behind base",
   "pr-ready-to-merge": "Ready to merge",
-  "mission-sign-off": "Sign-off",
-  "mission-blocked": "Mission blocked",
-  "mission-stuck": "Mission stuck",
+  "agent-run-sign-off": "Sign-off",
+  "agent-run-blocked": "Run blocked",
+  "agent-run-stuck": "Run stuck",
 };
 
 /** Which semantic family the need belongs to; the Badge owns the colors. */
@@ -69,9 +69,9 @@ const FLEET_NEED_TONE: Record<FleetAttentionKind, BadgeTone> = {
   "pr-merge-conflict": "danger",
   "pr-behind-base": "warning",
   "pr-ready-to-merge": "success",
-  "mission-sign-off": "warning",
-  "mission-blocked": "danger",
-  "mission-stuck": "danger",
+  "agent-run-sign-off": "warning",
+  "agent-run-blocked": "danger",
+  "agent-run-stuck": "danger",
 };
 
 function getFleetNeedIcon(item: FleetAttentionItem): ReactNode {
@@ -86,10 +86,10 @@ function getFleetNeedIcon(item: FleetAttentionItem): ReactNode {
       return <CheckCircle2 className={sx(styles.needIcon)} aria-hidden="true" />;
     case "pr-ready-to-merge":
       return <GitMerge className={sx(styles.needIcon)} aria-hidden="true" />;
-    case "mission-sign-off":
+    case "agent-run-sign-off":
       return <Hand className={sx(styles.needIcon)} aria-hidden="true" />;
-    case "mission-blocked":
-    case "mission-stuck":
+    case "agent-run-blocked":
+    case "agent-run-stuck":
       return <Target className={sx(styles.needIcon)} aria-hidden="true" />;
     case "pr-changes-requested":
     case "pr-checks-failed":
@@ -124,11 +124,11 @@ function getFleetNeedPrimaryAction(item: FleetAttentionItem) {
       return "Open workspace";
     case "pr-ready-to-merge":
       return "Open merge controls";
-    case "mission-sign-off":
+    case "agent-run-sign-off":
       return "Review sign-off";
-    case "mission-blocked":
-    case "mission-stuck":
-      return "Open mission";
+    case "agent-run-blocked":
+    case "agent-run-stuck":
+      return "Open run";
   }
 }
 
@@ -140,7 +140,7 @@ function getFleetNeedDetail(item: FleetAttentionItem) {
 }
 
 /** The sign-off button on a Fleet row and, when the sign-off failed, why. */
-export function MissionSignOffControl(props: {
+export function AgentRunSignOffControl(props: {
   label: string;
   disabled: boolean;
   failure: string | null;
@@ -164,24 +164,24 @@ export function MissionSignOffControl(props: {
  * Signs off from Fleet with the same command and stale-card check as the
  * task's own card, naming what it starts.
  */
-function MissionSignOffAction(args: {
+function AgentRunSignOffAction(args: {
   item: FleetAttentionItem;
-  missionStage: NonNullable<FleetAttentionItem["missionStage"]>;
+  agentRunStage: NonNullable<FleetAttentionItem["agentRunStage"]>;
   disabled: boolean;
 }) {
-  const detail = useFleetMissionsStore((state) => state.details[args.missionStage.missionId]);
-  const runCommand = useMissionsStore((state) => state.runCommand);
-  const pending = useMissionsStore((state) => Boolean(state.pendingByMission[args.missionStage.missionId]));
+  const detail = useFleetAgentRunsStore((state) => state.details[args.agentRunStage.agentRunId]);
+  const runCommand = useAgentRunsStore((state) => state.runCommand);
+  const pending = useAgentRunsStore((state) => Boolean(state.pendingByAgentRun[args.agentRunStage.agentRunId]));
   // Scoped to this stage: a failure from an earlier stage never shows here.
-  const failure = useMissionFailure(args.missionStage.missionId, missionStageKey(args.missionStage));
-  const stage = detail?.mission.workflow.stages.find((candidate) => candidate.id === args.missionStage.stageId);
+  const failure = useAgentRunFailure(args.agentRunStage.agentRunId, agentRunStageKey(args.agentRunStage));
+  const stage = detail?.agentRun.workflow.stages.find((candidate) => candidate.id === args.agentRunStage.stageId);
   if (!stage) return null;
   return (
-    <MissionSignOffControl
+    <AgentRunSignOffControl
       label={describeSignOffAction(stage)}
       disabled={args.disabled || pending}
       failure={failure}
-      onSignOff={() => void runCommand("signOff", args.missionStage)}
+      onSignOff={() => void runCommand("signOff", args.agentRunStage)}
     />
   );
 }
@@ -264,8 +264,8 @@ function FleetNeedRow(args: {
         ) : null}
       </AdsButton>
       <div className={sx(styles.rowActions)}>
-          {item.kind === "mission-sign-off" && item.missionStage ? (
-            <MissionSignOffAction item={item} missionStage={item.missionStage} disabled={busy} />
+          {item.kind === "agent-run-sign-off" && item.agentRunStage ? (
+            <AgentRunSignOffAction item={item} agentRunStage={item.agentRunStage} disabled={busy} />
           ) : null}
           {canMarkRead ? (
             <Button

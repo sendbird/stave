@@ -63,7 +63,7 @@ import type {
   TrackerIssueStaveLink,
 } from "../../src/lib/tracker-issues/types";
 import { WakeUpStore } from "./wake-up-store";
-import { MissionStore } from "./mission-store";
+import { AgentRunStore } from "./agent-run-store";
 import { AgentAssignmentStore } from "./agent-assignment-store";
 import { AutomationStateStore } from "./automation-state-store";
 import { RepositoryMemoryStore } from "./repository-memory-store";
@@ -187,7 +187,7 @@ export class SqliteStore {
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly turnSpend: TurnSpendStore;
   readonly delegationPolicies: DelegationPolicyStore;
-  readonly missions: MissionStore;
+  readonly agentRuns: AgentRunStore;
   readonly agentAssignments: AgentAssignmentStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
@@ -238,7 +238,7 @@ export class SqliteStore {
     });
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.wakeUps = new WakeUpStore(this.db);
-    this.missions = new MissionStore(this.db);
+    this.agentRuns = new AgentRunStore(this.db);
     this.repositoryMemories = new RepositoryMemoryStore(this.db);
     this.agentAssignments = new AgentAssignmentStore(this.db);
     this.automationState = new AutomationStateStore(this.db);

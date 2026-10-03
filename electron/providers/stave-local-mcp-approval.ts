@@ -70,10 +70,10 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_update_wake_up",
   "stave_set_wake_up_paused",
   "stave_remove_wake_up",
-  // Mission tools exist only on a turn carrying that mission's grant, and
-  // those turns run unattended: asking would stop a mission at every stage
-  // report. They read or record Stave's own mission state.
-  "stave_get_mission",
+  // Agent run tools exist only on a turn carrying that agent run's grant, and
+  // those turns run unattended: asking would stop an agent run at every stage
+  // report. They read or record Stave's own agent run state.
+  "stave_get_agent_run",
   "stave_report_stage",
   "stave_block_stage",
 ]);

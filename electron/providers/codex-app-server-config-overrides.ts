@@ -46,7 +46,7 @@ export function buildCodexUnattendedAutomationMcpOverrides(args: {
  * Stave state and the ones that record the work in it. Codex otherwise
  * rejects a non-read-only MCP call outright under approval policy `never`
  * ("MCP tool call requires approval, but approval policy is never") before
- * Stave sees an elicitation, so a read-only turn could not report its mission
+ * Stave sees an elicitation, so a read-only turn could not report its agent run
  * stage or leave a note (verified against codex-cli 0.159.3). Constant across
  * postures, so a warm thread resume never sees the set change.
  */

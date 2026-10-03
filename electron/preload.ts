@@ -136,10 +136,10 @@ import type {
 } from "../src/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
 import {
-  MISSION_IPC,
-  type MissionChangedEvent,
-  type MissionsBridgeApi,
-} from "../src/lib/missions/api";
+  AGENT_RUN_IPC,
+  type AgentRunChangedEvent,
+  type AgentRunsBridgeApi,
+} from "../src/lib/agent-runs/api";
 import {
   WAKE_UP_IPC,
   type WakeUpChangedEvent,
@@ -762,34 +762,34 @@ ipcRenderer.on(
   },
 );
 
-const missionChangedSubscribers = new Set<(payload: MissionChangedEvent) => void>();
-ipcRenderer.on(MISSION_IPC.changed, (_event, payload: MissionChangedEvent) => {
-  for (const subscriber of missionChangedSubscribers) {
+const agentRunChangedSubscribers = new Set<(payload: AgentRunChangedEvent) => void>();
+ipcRenderer.on(AGENT_RUN_IPC.changed, (_event, payload: AgentRunChangedEvent) => {
+  for (const subscriber of agentRunChangedSubscribers) {
     subscriber(payload);
   }
 });
 
-const missionsApi: MissionsBridgeApi = {
-  start: (args) => ipcRenderer.invoke(MISSION_IPC.start, args),
-  list: (args) => ipcRenderer.invoke(MISSION_IPC.list, args ?? {}),
-  insights: (args) => ipcRenderer.invoke(MISSION_IPC.insights, args ?? {}),
-  get: (args) => ipcRenderer.invoke(MISSION_IPC.get, args),
-  signOff: (args) => ipcRenderer.invoke(MISSION_IPC.signOff, args),
-  requestChanges: (args) => ipcRenderer.invoke(MISSION_IPC.requestChanges, args),
-  skipStage: (args) => ipcRenderer.invoke(MISSION_IPC.skipStage, args),
-  retryStage: (args) => ipcRenderer.invoke(MISSION_IPC.retryStage, args),
-  pause: (args) => ipcRenderer.invoke(MISSION_IPC.pause, args),
-  resume: (args) => ipcRenderer.invoke(MISSION_IPC.resume, args),
-  takeOver: (args) => ipcRenderer.invoke(MISSION_IPC.takeOver, args),
-  acceptRuntime: (args) => ipcRenderer.invoke(MISSION_IPC.acceptRuntime, args),
-  noteUserTurn: (args) => ipcRenderer.invoke(MISSION_IPC.noteUserTurn, args),
-  cancel: (args) => ipcRenderer.invoke(MISSION_IPC.cancel, args),
-  addReportToPullRequest: (args) => ipcRenderer.invoke(MISSION_IPC.addReportToPullRequest, args),
-  shareReport: (args) => ipcRenderer.invoke(MISSION_IPC.shareReport, args),
+const agentRunsApi: AgentRunsBridgeApi = {
+  start: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.start, args),
+  list: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.list, args ?? {}),
+  insights: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.insights, args ?? {}),
+  get: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.get, args),
+  signOff: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.signOff, args),
+  requestChanges: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.requestChanges, args),
+  skipStage: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.skipStage, args),
+  retryStage: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.retryStage, args),
+  pause: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.pause, args),
+  resume: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.resume, args),
+  takeOver: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.takeOver, args),
+  acceptRuntime: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.acceptRuntime, args),
+  noteUserTurn: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.noteUserTurn, args),
+  cancel: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.cancel, args),
+  addReportToPullRequest: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.addReportToPullRequest, args),
+  shareReport: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.shareReport, args),
   subscribeChanged: (listener) => {
-    missionChangedSubscribers.add(listener);
+    agentRunChangedSubscribers.add(listener);
     return () => {
-      missionChangedSubscribers.delete(listener);
+      agentRunChangedSubscribers.delete(listener);
     };
   },
 };
@@ -2227,7 +2227,7 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
-  missions: missionsApi,
+  agentRuns: agentRunsApi,
   wakeUps: wakeUpsApi,
   agents: agentsApi,
   automations: {

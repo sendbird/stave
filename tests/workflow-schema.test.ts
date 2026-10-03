@@ -227,8 +227,8 @@ describe("starter workflows", () => {
     const registry = [
       "electron/main/stave-mcp-server.ts",
       "electron/main/browser/browser-tools.ts",
-      // Mission tools are registered by these names, for a mission's own turns.
-      "src/lib/missions/briefing.ts",
+      // Agent run tools are registered by these names, for an agent run's own turns.
+      "src/lib/agent-runs/briefing.ts",
     ]
       .map((file) => readFileSync(path.join(import.meta.dir, "..", file), "utf8"))
       .join("\n");

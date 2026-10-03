@@ -1,19 +1,19 @@
 /**
- * The composer's side of agent runs (`src/lib/missions/agent-run.ts`).
+ * The composer's side of agent runs (`src/lib/agent-runs/agent-run.ts`).
  *
  * - Send: a prompt on a task that runs as an agent, with no run active, starts
- *   a run on the mission engine; every other send stays the plain turn it was.
+ *   a run on the agent run engine; every other send stays the plain turn it was.
  *   The prompt is drawn as a pending row (`pending-auto-routing-store.ts`)
  *   until the run writes its first user row, because the host routes the
  *   run's turn before it writes anything.
  * - Stop: stopping a task's turn while its run is active cancels the run first,
  *   so the run never continues after the turn the user stopped.
  *
- * The missions store registers the bridge below, so the send path and the stop
+ * The agent runs store registers the bridge below, so the send path and the stop
  * action never import it (it imports the app store).
  */
-import type { MissionCommandResponse, MissionStartArgs } from "@/lib/missions/api";
-import { buildAgentRunStartInput, planAgentPromptSend } from "@/lib/missions/agent-run";
+import type { AgentRunCommandResponse, AgentRunStartArgs } from "@/lib/agent-runs/api";
+import { buildAgentRunStartInput, planAgentPromptSend } from "@/lib/agent-runs/agent-run";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 import { buildOutgoingUserMessage, buildRecentTimestamp } from "@/store/chat-state-helpers";
@@ -35,18 +35,18 @@ export type AgentRunFirstPromptEnd = { outcome: "landed" } | { outcome: "ended";
 
 export interface AgentRunBridge {
   /**
-   * The task's active mission (an agent run or a workflow mission), null for
-   * none, undefined while the workspace's missions are not loaded.
+   * The task's active agent run (an agent run or a legacy run), null for
+   * none, undefined while the workspace's agent runs are not loaded.
    */
-  activeMission: (workspaceId: string, taskId: string) => { id: string; agentOrigin: boolean } | null | undefined;
-  start: (input: MissionStartArgs) => Promise<MissionCommandResponse>;
-  cancel: (missionId: string) => Promise<MissionCommandResponse>;
+  activeAgentRun: (workspaceId: string, taskId: string) => { id: string; agentOrigin: boolean } | null | undefined;
+  start: (input: AgentRunStartArgs) => Promise<AgentRunCommandResponse>;
+  cancel: (agentRunId: string) => Promise<AgentRunCommandResponse>;
   /**
    * Calls `onEnd` once, when the task's transcript holds the run's first user
    * row or the run ended without writing one.
    */
   watchFirstPrompt: (
-    args: { workspaceId: string; taskId: string; missionId: string },
+    args: { workspaceId: string; taskId: string; agentRunId: string },
     onEnd: (end: AgentRunFirstPromptEnd) => void,
   ) => void;
 }
@@ -175,7 +175,7 @@ export function prepareAgentRunForSend(
 ): (() => Promise<SendUserMessageResult | null>) | null {
   const agent = useAgentAssignmentsStore.getState().byTaskId[args.taskId];
   const activeBridge = bridge;
-  const active = activeBridge?.activeMission(args.workspaceId, args.taskId);
+  const active = activeBridge?.activeAgentRun(args.workspaceId, args.taskId);
   const plan = planAgentPromptSend({
     taskRunsAsAgent: Boolean(agent),
     // A run still starting counts as active: its first prompt is on the way.
@@ -219,8 +219,8 @@ export function prepareAgentRunForSend(
           now: args.now ?? new Date(),
         }),
       )
-      .catch((): MissionCommandResponse => ({ ok: false, mission: null }));
-    if (!response.ok || !response.mission) {
+      .catch((): AgentRunCommandResponse => ({ ok: false, agentRun: null }));
+    if (!response.ok || !response.agentRun) {
       if (ownsRow) {
         // The single turn's send ends the row once its own rows land.
         if (args.turnId) {
@@ -232,10 +232,10 @@ export function prepareAgentRunForSend(
       if (response.message) toast.info("Sent as a single turn", { description: response.message });
       return null;
     }
-    const missionId = response.mission.mission.id;
+    const agentRunId = response.agentRun.agentRun.id;
     if (ownsRow) {
-      updatePendingAutoRoute({ taskId: args.taskId, id: pendingId, patch: { agentRun: { missionId } } });
-      activeBridge.watchFirstPrompt({ workspaceId: args.workspaceId, taskId: args.taskId, missionId }, (end) => {
+      updatePendingAutoRoute({ taskId: args.taskId, id: pendingId, patch: { agentRun: { agentRunId } } });
+      activeBridge.watchFirstPrompt({ workspaceId: args.workspaceId, taskId: args.taskId, agentRunId }, (end) => {
         endPendingAutoRoute({ taskId: args.taskId, id: pendingId });
         if (end.outcome !== "ended") return;
         args.set((state) =>
@@ -249,7 +249,7 @@ export function prepareAgentRunForSend(
         );
       });
     }
-    return { status: "run-started", taskId: args.taskId, workspaceId: args.workspaceId, missionId };
+    return { status: "run-started", taskId: args.taskId, workspaceId: args.workspaceId, agentRunId };
   };
 }
 
@@ -272,7 +272,7 @@ export function cancelAgentRunBeforeStop(args: {
   stopTurn: () => void;
 }): boolean {
   if (!bridge || !args.workspaceId || stoppingTaskIds.has(args.taskId)) return false;
-  const active = bridge.activeMission(args.workspaceId, args.taskId);
+  const active = bridge.activeAgentRun(args.workspaceId, args.taskId);
   if (!active?.agentOrigin) return false;
   stoppingTaskIds.add(args.taskId);
   void bridge

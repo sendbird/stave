@@ -10,12 +10,12 @@ import type { AgentReceivedInstruction, AgentSupportEntry } from "./compile";
  * Assign: hand one piece of work to an Agent as its main agent.
  *
  * An assignment is the durable record of that hand-off: which agent version a
- * task runs as, with which standards. Kickoff (or a mission, or the agentic
+ * task runs as, with which standards. Kickoff (or an agent run, or the agentic
  * composer) creates the task and its first turn the ordinary way; the
  * assignment only records who the task runs as, and every later turn reads it.
  *
  * Naming: the entity is `AgentAssignment`; its request text is `assignment`,
- * the same word a mission uses for the same text.
+ * the same word an agent run uses for the same text.
  */
 
 const PROVIDER_IDS = listProviderIds() as [ProviderId, ...ProviderId[]];

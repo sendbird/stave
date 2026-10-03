@@ -1,6 +1,6 @@
-import { FleetMissionStrip, useFleetActiveMission } from "@/components/missions/FleetMissionStrip";
-import { hasAgentOrigin } from "@/lib/missions/agent-run";
-import { AGENT_RUN_VIEW_STATE_LABELS, agentRunFleetState, describeAgentRunStatus } from "@/lib/missions/agent-run-status";
+import { FleetAgentRunStrip, useFleetActiveAgentRun } from "@/components/agent-runs/FleetAgentRunStrip";
+import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
+import { AGENT_RUN_VIEW_STATE_LABELS, agentRunFleetState, describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ArrowRight, GitBranch, Moon } from "lucide-react";
 import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
@@ -419,13 +419,13 @@ export function FleetWorkspaceCard(args: {
   const taskAgents = useAgentAssignmentsStore((state) => state.byTaskId);
   // An agent run's strip names the agent and the state for its lead task, so
   // that row shows neither: never twice, and never "Needs you" over "Idle".
-  const activeMission = useFleetActiveMission(args.workspace.id);
-  const runLeadTaskId = activeMission && hasAgentOrigin(activeMission.mission) ? activeMission.mission.leadTaskId : null;
+  const activeAgentRun = useFleetActiveAgentRun(args.workspace.id);
+  const runLeadTaskId = activeAgentRun && hasAgentOrigin(activeAgentRun.agentRun) ? activeAgentRun.agentRun.leadTaskId : null;
   const runLeadStatus = runLeadTaskId ? rows.find((row) => row.task.id === runLeadTaskId)?.status : undefined;
   const runLeadWaiting = runLeadStatus === "waiting-input" || runLeadStatus === "waiting-approval";
   const runLeadLabel =
-    activeMission && runLeadTaskId
-      ? AGENT_RUN_VIEW_STATE_LABELS[agentRunFleetState(describeAgentRunStatus(activeMission).state, runLeadWaiting)]
+    activeAgentRun && runLeadTaskId
+      ? AGENT_RUN_VIEW_STATE_LABELS[agentRunFleetState(describeAgentRunStatus(activeAgentRun).state, runLeadWaiting)]
       : null;
   const matchesFilter = matchesFleetBoardFilter({
     filter: args.filter,
@@ -551,7 +551,7 @@ export function FleetWorkspaceCard(args: {
         <FleetCardPrBadge status={prStatus} />
       </div>
 
-      <FleetMissionStrip
+      <FleetAgentRunStrip
         workspaceId={args.workspace.id}
         leadTaskWaiting={runLeadWaiting}
         onOpen={(taskId) =>

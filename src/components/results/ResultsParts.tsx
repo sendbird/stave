@@ -8,15 +8,15 @@ import {
   RUN_END_REASON_LABELS,
   RUN_OUTCOMES,
   formatReadyRate,
-  type MissionInsights,
+  type AgentRunInsights,
   type ResultRun,
   type ResultsAgentRow,
   type ResultsSummary,
   type RunOutcome,
-} from "@/lib/missions/insights";
-import { formatAge } from "@/lib/missions/mission-view";
-import { formatCostUsd } from "@/lib/missions/usage";
-import { formatRunDuration } from "@/lib/missions/agent-run-status";
+} from "@/lib/agent-runs/insights";
+import { formatAge } from "@/lib/agent-runs/agent-run-view";
+import { formatCostUsd } from "@/lib/agent-runs/usage";
+import { formatRunDuration } from "@/lib/agent-runs/agent-run-status";
 import { ResultsCard } from "./ResultsCard";
 import { resultsBarToneStyles, resultsStyles as styles } from "./results.styles";
 
@@ -206,7 +206,7 @@ function AgentRow({
       {open ? (
         <ul className={sx(styles.runs)} aria-label={`${row.name} runs`}>
           {runs.slice(0, 10).map((run) => (
-            <RunRow key={run.missionId} run={run} now={now} onOpen={onOpen} />
+            <RunRow key={run.agentRunId} run={run} now={now} onOpen={onOpen} />
           ))}
         </ul>
       ) : null}
@@ -215,7 +215,7 @@ function AgentRow({
 }
 
 /** One row per agent or workflow; a row opens its recent runs, and a run opens its report. */
-export function AgentTable({ insights, now, onOpen }: { insights: MissionInsights; now: number; onOpen: (run: ResultRun) => void }) {
+export function AgentTable({ insights, now, onOpen }: { insights: AgentRunInsights; now: number; onOpen: (run: ResultRun) => void }) {
   return (
     <ResultsCard id="results-agents" icon={Users} title="Agents" subtitle={`ready rate · last 10 · ${insights.days} d`} meta={`n = ${insights.summary.ended}`}>
       <ul className={sx(styles.agents)}>

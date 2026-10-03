@@ -6,10 +6,10 @@ import {
   buildAgentRunStartInput,
   hasAgentOrigin,
   planAgentPromptSend,
-} from "../src/lib/missions/agent-run";
-import { compileMissionStagePrompt } from "../src/lib/missions/briefing";
-import { createMission, MISSION_LIMITS, MissionStartInputSchema } from "../src/lib/missions/domain";
-import { decideMissionAction, type MissionObservation } from "../src/lib/missions/policy";
+} from "../src/lib/agent-runs/agent-run";
+import { compileAgentRunStagePrompt } from "../src/lib/agent-runs/briefing";
+import { createAgentRun, AGENT_RUN_LIMITS, AgentRunStartInputSchema } from "../src/lib/agent-runs/domain";
+import { decideAgentRunAction, type AgentRunObservation } from "../src/lib/agent-runs/policy";
 import { WorkflowSchema } from "../src/lib/workflows/schema";
 
 const NOW = new Date("2026-10-01T09:00:00.000Z");
@@ -39,29 +39,29 @@ describe("agent run: implicit workflow", () => {
   });
 
   test("the start input is an agent run on the user's settings with the default turn cap", () => {
-    const input = MissionStartInputSchema.parse(
+    const input = AgentRunStartInputSchema.parse(
       buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: AGENT, assignment: " Add CSV export. ", now: NOW }),
     );
     expect(input).toMatchObject({
       leadTaskId: "task-1",
       assignment: "Add CSV export.",
       origin: "agent",
-      maxTurns: MISSION_LIMITS.defaultMaxTurns,
+      maxTurns: AGENT_RUN_LIMITS.defaultMaxTurns,
       consent: { checkIns: "when-stuck", permissionMode: "manual", authorizedEffectStageIds: [] },
     });
   });
 
   test("the stage prompt carries the assignment and the reporting contract, not the agent's instructions", () => {
-    const change = createMission({
+    const change = createAgentRun({
       id: "m-1",
       input: buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: AGENT, assignment: "Add CSV export.", now: NOW }),
       repositoryPath: "/tmp/repo",
       fingerprint: { providerId: "claude-code", model: "sonnet" },
       now: NOW,
     });
-    expect(hasAgentOrigin(change.mission)).toBe(true);
+    expect(hasAgentOrigin(change.agentRun)).toBe(true);
     expect(change.events[0]?.detail).toMatchObject({ origin: "agent" });
-    const prompt = compileMissionStagePrompt({ mission: change.mission, stages: change.upserts });
+    const prompt = compileAgentRunStagePrompt({ agentRun: change.agentRun, stages: change.upserts });
     expect(prompt).toContain("Add CSV export.");
     expect(prompt).toContain("stave_report_stage");
     expect(prompt).toContain("stave_block_stage");
@@ -96,7 +96,7 @@ describe("agent run: implicit workflow", () => {
     expect(careful.workflow.checkIns).toBe("plan-and-publishing");
   });
 
-  test("a workflow mission is not an agent run", () => {
+  test("a legacy run is not an agent run", () => {
     expect(hasAgentOrigin({})).toBe(false);
     expect(hasAgentOrigin(null)).toBe(false);
   });
@@ -137,7 +137,7 @@ describe("agent run: send branching", () => {
   test("what a run cannot carry goes as a single turn", () => {
     expect(planAgentPromptSend({ ...base, providerId: "cursor" })).toEqual({ kind: "plain-turn", reason: "provider" });
     expect(planAgentPromptSend({ ...base, hasAttachments: true })).toEqual({ kind: "plain-turn", reason: "attachments" });
-    expect(planAgentPromptSend({ ...base, prompt: "x".repeat(MISSION_LIMITS.maxAssignmentChars + 1) })).toEqual({
+    expect(planAgentPromptSend({ ...base, prompt: "x".repeat(AGENT_RUN_LIMITS.maxAssignmentChars + 1) })).toEqual({
       kind: "plain-turn",
       reason: "too-long",
     });
@@ -145,7 +145,7 @@ describe("agent run: send branching", () => {
 });
 
 describe("agent run: ending without a report", () => {
-  const ended = { startedBy: "mission" as const };
+  const ended = { startedBy: "agentRun" as const };
 
   test("ends when the task no longer runs as an agent", () => {
     expect(agentRunEndCause({ taskRunsAsAgent: false, lastEndedTurn: null, lastTurnEnding: null, turnActive: true })).toBe(
@@ -170,16 +170,16 @@ describe("agent run: ending without a report", () => {
   });
 });
 
-describe("agent run: the mission policy", () => {
+describe("agent run: the run policy", () => {
   test("a routed model on the lead task is not runtime drift", () => {
-    const change = createMission({
+    const change = createAgentRun({
       id: "m-1",
       input: buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: AGENT, assignment: "Add CSV export.", now: NOW }),
       repositoryPath: "/tmp/repo",
       fingerprint: { providerId: "claude-code", model: "sonnet" },
       now: NOW,
     });
-    const observation: MissionObservation = {
+    const observation: AgentRunObservation = {
       leadTask: {
         workspaceAvailable: true,
         taskExists: true,
@@ -196,10 +196,10 @@ describe("agent run: the mission policy", () => {
       userTurnIntent: null,
       actionOutcome: null,
     };
-    const aggregate = { mission: change.mission, stages: change.upserts };
-    expect(decideMissionAction({ aggregate, observation, now: NOW }).action).toBe("start-stage-turn");
-    const legacyRun = { mission: { ...change.mission, origin: undefined }, stages: change.upserts };
-    expect(decideMissionAction({ aggregate: legacyRun, observation, now: NOW })).toMatchObject({
+    const aggregate = { agentRun: change.agentRun, stages: change.upserts };
+    expect(decideAgentRunAction({ aggregate, observation, now: NOW }).action).toBe("start-stage-turn");
+    const legacyRun = { agentRun: { ...change.agentRun, origin: undefined }, stages: change.upserts };
+    expect(decideAgentRunAction({ aggregate: legacyRun, observation, now: NOW })).toMatchObject({
       action: "pause",
       reason: "runtime-changed",
     });

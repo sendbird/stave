@@ -783,9 +783,9 @@ describe("local MCP runtime runTask", () => {
         },
         {
           type: "retrieved_context",
-          sourceId: "stave:mission",
-          title: "Mission Stage",
-          content: "A Stave mission started this turn.",
+          sourceId: "stave:agent-run",
+          title: "Agent Run Stage",
+          content: "A Stave run started this turn.",
         },
       ],
     });
@@ -801,7 +801,7 @@ describe("local MCP runtime runTask", () => {
     };
     const sent = call.conversation?.contextParts?.map((part) => part.sourceId) ?? [];
     expect(sent).toContain("crane:CRANE-43");
-    expect(sent).toContain("stave:mission");
+    expect(sent).toContain("stave:agent-run");
   });
 
   test("persists interactive host responses before provider continuation events", async () => {

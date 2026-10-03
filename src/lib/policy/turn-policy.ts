@@ -13,7 +13,7 @@ import {
 
 /**
  * One turn's autonomy, resolved once at the host turn entry for every kind of
- * turn (composer, agent, helper, mission, wake-up, `stave_run_task`).
+ * turn (composer, agent, helper, agent run, wake-up, `stave_run_task`).
  *
  * - `ask`: the user's settings exactly as set, with whatever prompts they bring.
  * - `autonomous`: no routine prompts. Only the agent's own questions and, in

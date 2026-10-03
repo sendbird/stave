@@ -34,7 +34,7 @@ export function resolveActivityTabMark(args: {
 }
 
 /**
- * Progress: only an active mission or agent run that needs attention. A
+ * Progress: only an active agent run or agent run that needs attention. A
  * healthy run says nothing here; its stage track is one click away.
  */
 export function resolveProgressTabMark(

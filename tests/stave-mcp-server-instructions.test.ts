@@ -33,7 +33,7 @@ describe("tool names in free text", () => {
     const registry = [
       await readFile("electron/main/stave-mcp-server.ts", "utf8"),
       await readFile("electron/main/browser/browser-tools.ts", "utf8"),
-      await readFile("src/lib/missions/briefing.ts", "utf8"),
+      await readFile("src/lib/agent-runs/briefing.ts", "utf8"),
     ].join("\n");
     const texts = [
       buildStaveLocalMcpServerInstructions(),

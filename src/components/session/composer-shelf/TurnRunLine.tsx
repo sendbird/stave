@@ -3,7 +3,7 @@ import { Button } from "@/components/ads/components/Button";
 import { TextShimmer } from "@/components/ads/components/TextShimmer";
 import { sx } from "@/components/ads/utils/stylex";
 import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
-import { usePrefersReducedMotion } from "@/components/missions/useMission";
+import { usePrefersReducedMotion } from "@/components/agent-runs/useAgentRun";
 import {
   TurnRestMark,
   useTurnClock,

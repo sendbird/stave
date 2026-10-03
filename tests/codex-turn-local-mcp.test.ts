@@ -50,16 +50,16 @@ describe("Codex turn-scoped Local MCP", () => {
   });
 
   test("rotates and clears collaboration headers on start and resume", async () => {
-    for (const [callerKey, missionKey] of [
+    for (const [callerKey, agentRunKey] of [
       ["turn-one", undefined],
-      ["turn-two", "mission-channel"],
+      ["turn-two", "agent-run-channel"],
       [undefined, undefined],
     ] as const) {
       const configOverrides = await mergeCodexTurnConfigOverrides({
         staveLocalMcpManifest: manifest,
         secondaryReadOnly: false,
         secretShellOverrides: {},
-        turnGrants: { callerKey, missionKey },
+        turnGrants: { callerKey, agentRunKey },
       });
       for (const params of [
         buildCodexThreadStartParams({ cwd: "/tmp/project", configOverrides }),
@@ -71,7 +71,7 @@ describe("Codex turn-scoped Local MCP", () => {
       ]) {
         expect(params.config?.["mcp_servers.stave-local.http_headers"]).toEqual(
           {
-            "x-stave-mission-key": missionKey ?? "",
+            "x-stave-agent-run-key": agentRunKey ?? "",
             "x-stave-caller-key": callerKey ?? "",
           },
         );

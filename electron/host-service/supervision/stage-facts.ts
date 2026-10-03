@@ -1,21 +1,21 @@
 /**
  * The I/O half of stage facts: git reads in the lead task's workspace and the
  * task's persisted messages. The extraction itself is pure
- * (`src/lib/missions/facts.ts`).
+ * (`src/lib/agent-runs/facts.ts`).
  *
- * Also reads what a mission leaves behind in its workspace (a pushed branch,
- * an open pull request) for the partial Mission report.
+ * Also reads what an agent run leaves behind in its workspace (a pushed branch,
+ * an open pull request) for the partial Agent run report.
  *
- * Used by: `electron/host-service/supervision/mission-runtime.ts`, wired in
+ * Used by: `electron/host-service/supervision/agent-run-runtime.ts`, wired in
  * `electron/host-service.ts`.
  */
 import {
   extractStageFacts,
   parseDiffShortStat,
   type FactSourceMessage,
-} from "../../../src/lib/missions/facts";
-import type { StageFacts } from "../../../src/lib/missions/domain";
-import type { MissionWorkspaceState } from "../../../src/lib/missions/report";
+} from "../../../src/lib/agent-runs/facts";
+import type { StageFacts } from "../../../src/lib/agent-runs/domain";
+import type { AgentRunWorkspaceState } from "../../../src/lib/agent-runs/report";
 import type { ScmCommandRunner } from "../scm-runtime";
 import { readWorkspaceRevision } from "./workspace-revision";
 
@@ -68,15 +68,15 @@ export async function collectStageFacts(args: {
 }
 
 /**
- * What outlives a mission that ended short of its goal. Every read degrades to
+ * What outlives an agent run that ended short of its goal. Every read degrades to
  * "nothing left behind" rather than failing the report.
  */
-export async function readMissionWorkspaceState(args: {
+export async function readAgentRunWorkspaceState(args: {
   cwd: string | null;
   run: ScmCommandRunner;
-  readOpenPullRequest: (cwd: string) => Promise<MissionWorkspaceState["openPullRequest"]>;
-}): Promise<MissionWorkspaceState> {
-  const empty: MissionWorkspaceState = {
+  readOpenPullRequest: (cwd: string) => Promise<AgentRunWorkspaceState["openPullRequest"]>;
+}): Promise<AgentRunWorkspaceState> {
+  const empty: AgentRunWorkspaceState = {
     branch: null,
     branchPushed: false,
     openPullRequest: null,
@@ -92,7 +92,7 @@ export async function readMissionWorkspaceState(args: {
     "@{upstream}",
   ]);
   if (!upstream.ok) return { ...empty, branch };
-  let openPullRequest: MissionWorkspaceState["openPullRequest"] = null;
+  let openPullRequest: AgentRunWorkspaceState["openPullRequest"] = null;
   try {
     openPullRequest = await args.readOpenPullRequest(args.cwd);
   } catch {

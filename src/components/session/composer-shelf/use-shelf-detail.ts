@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import { isActiveMissionState } from "@/lib/missions/domain";
-import { useScopedTaskMission } from "@/components/missions/useMission";
+import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
+import { useScopedTaskAgentRun } from "@/components/agent-runs/useAgentRun";
 import { useAppStore } from "@/store/app.store";
 import { useComposerShelfStore } from "@/store/composer-shelf-store";
 import {
@@ -25,11 +25,11 @@ export function useShelfDetail(taskId: string) {
       state.providerTurnActivityByTask[taskId]?.turnId ??
       null,
   );
-  const { detail } = useScopedTaskMission();
-  const mission =
-    detail && isActiveMissionState(detail.mission.state) ? detail : undefined;
+  const { detail } = useScopedTaskAgentRun();
+  const agentRun =
+    detail && isActiveAgentRunState(detail.agentRun.state) ? detail : undefined;
   const runKey = resolveShelfRunKey({
-    missionId: mission?.mission.id ?? null,
+    agentRunId: agentRun?.agentRun.id ?? null,
     turnId,
   });
   const override = useComposerShelfStore((state) => state.detailByTask[taskId]);
@@ -43,5 +43,5 @@ export function useShelfDetail(taskId: string) {
     },
     [runKey, setDetailOpen, taskId],
   );
-  return { open, setOpen, mission };
+  return { open, setOpen, agentRun };
 }

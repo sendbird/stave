@@ -6,12 +6,12 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
-import type { MissionDetail } from "@/lib/missions/api";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
-  createMission,
+  createAgentRun,
   listExternalEffectStages,
-  type MissionStageRecord,
-} from "@/lib/missions/domain";
+  type AgentRunStageRecord,
+} from "@/lib/agent-runs/domain";
 import { createWorkflowFromStarter, findWorkflowStarter } from "@/dev/fixtures/legacy-workflow-starters";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
 import { isTaskPanelTab, type TaskPanelTab } from "@/lib/right-rail-panels";
@@ -25,7 +25,7 @@ import {
 } from "@/lib/work-graph/work-graph.types";
 import type { TaskAgent } from "@/store/agent-assignments-store";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
-import { useMissionsStore, missionTaskKey } from "@/store/missions-store";
+import { useAgentRunsStore, agentRunTaskKey } from "@/store/agent-runs-store";
 import { useWakeUpsStore, wakeUpTaskKey } from "@/store/wake-ups-store";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
@@ -37,7 +37,7 @@ import type { ChatMessage } from "@/types/chat";
  * - `task=plain` (default): a direct task with a plan, changed files, a passing
  *   verification, an open pull request and one run waiting for review, whose
  *   saved answer, files and turn (tool calls included) Results renders.
- * - `task=mission`: a mission task run by an agent, with a live turn, a running
+ * - `task=agent-run`: a task run by an agent, with a live turn, a running
  *   subagent, a finished delegated review and a scheduled wake-up.
  * - `tab=activity|progress|team|results` picks the tab the panel opens on.
  * - `panelWidth=320|384` sets the frame width (default 320).
@@ -51,7 +51,7 @@ const params = new URLSearchParams(window.location.search);
 const WORKSPACE_ID = "task-panel-preview-ws";
 const REPOSITORY_PATH = "/tmp/task-panel-preview-repo";
 const PLAIN_TASK_ID = "task-panel-preview-plain";
-const MISSION_TASK_ID = "task-panel-preview-mission";
+const AGENT_RUN_TASK_ID = "task-panel-preview-agent-run";
 const RESULT_REVIEW_STORAGE_KEY = "stave:result-reviews:v1";
 
 /** The latest run's final answer: a list, a fenced block wider than the panel, and enough lines to collapse. */
@@ -254,7 +254,7 @@ const PLAIN_RESULTS: ResultReview[] = [
   },
 ];
 
-const MISSION_MESSAGES: ChatMessage[] = [
+const AGENT_RUN_MESSAGES: ChatMessage[] = [
   {
     id: "mu1",
     role: "user",
@@ -284,7 +284,7 @@ const MISSION_MESSAGES: ChatMessage[] = [
   } as unknown as ChatMessage,
 ];
 
-const MISSION_AGENT: TaskAgent = {
+const AGENT_RUN_AGENT: TaskAgent = {
   assignmentId: "assignment-task-panel-1",
   agentConfigId: "implementer",
   agentName: "Implementer",
@@ -304,20 +304,20 @@ const MISSION_AGENT: TaskAgent = {
   updatedAt: "2026-09-29T10:00:20.000Z",
 } as unknown as TaskAgent;
 
-const MISSION_START = new Date(Date.now() - 22 * 60_000);
-const at = (minutes: number) => new Date(MISSION_START.getTime() + minutes * 60_000).toISOString();
+const AGENT_RUN_START = new Date(Date.now() - 22 * 60_000);
+const at = (minutes: number) => new Date(AGENT_RUN_START.getTime() + minutes * 60_000).toISOString();
 
-/** A real mission from the request-to-PR starter, two stages in, so every surface reads it. */
-function missionDetail(): MissionDetail {
+/** A real agent run from the request-to-PR starter, two stages in, so every surface reads it. */
+function agentRunDetail(): AgentRunDetail {
   const workflow = createWorkflowFromStarter(findWorkflowStarter("request-to-pr")!, {
-    now: MISSION_START,
+    now: AGENT_RUN_START,
     id: "workflow_task_panel_preview",
   });
-  const created = createMission({
-    id: "mission-task-panel-1",
+  const created = createAgentRun({
+    id: "agent-run-task-panel-1",
     input: {
       workspaceId: WORKSPACE_ID,
-      leadTaskId: MISSION_TASK_ID,
+      leadTaskId: AGENT_RUN_TASK_ID,
       workflow,
       assignment: "Add pagination to the /users API endpoint and open a PR.",
       consent: {
@@ -328,16 +328,16 @@ function missionDetail(): MissionDetail {
     },
     repositoryPath: REPOSITORY_PATH,
     fingerprint: { providerId: "claude-code", model: "sonnet" },
-    now: MISSION_START,
+    now: AGENT_RUN_START,
   });
-  const record = (stageId: string, patch: Partial<MissionStageRecord>): MissionStageRecord => ({
+  const record = (stageId: string, patch: Partial<AgentRunStageRecord>): AgentRunStageRecord => ({
     ...created.upserts[0]!,
     stageId,
     ...patch,
   });
   const [first, second] = workflow.stages;
   return {
-    mission: { ...created.mission, currentStageIndex: 1, turnCount: 3 },
+    agentRun: { ...created.agentRun, currentStageIndex: 1, turnCount: 3 },
     stages: [
       record(first!.id, {
         status: "completed",
@@ -427,9 +427,9 @@ function liveTurnActivity(now: number, pending: string | null) {
 
 /** A finished delegated review with a Markdown answer, for the Subagents tab. */
 const DELEGATED_REVIEW: DelegatedTaskSummary = {
-  runId: "child-task:mission:review",
-  stepId: "child-task:mission:review:turn",
-  parentTaskId: MISSION_TASK_ID,
+  runId: "child-task:agent-run:review",
+  stepId: "child-task:agent-run:review:turn",
+  parentTaskId: AGENT_RUN_TASK_ID,
   delegationKey: "review-users-pagination",
   delegatedTaskId: "task-panel-preview-review",
   delegatedWorkspaceId: WORKSPACE_ID,
@@ -469,7 +469,7 @@ function stubDelegatedTasks() {
     runs: {
       ...host.api?.runs,
       listDelegatedTasks: async (args: { parentTaskId: string }) =>
-        args.parentTaskId === MISSION_TASK_ID ? [DELEGATED_REVIEW] : [],
+        args.parentTaskId === AGENT_RUN_TASK_ID ? [DELEGATED_REVIEW] : [],
     },
   };
 }
@@ -490,7 +490,7 @@ function seedResultReviews() {
 
 function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | null; placement: string | null }) {
   const now = Date.now();
-  const activeTaskId = args.task === "mission" ? MISSION_TASK_ID : PLAIN_TASK_ID;
+  const activeTaskId = args.task === "agent-run" ? AGENT_RUN_TASK_ID : PLAIN_TASK_ID;
   const store = useAppStore.getState();
   seedResultReviews();
   stubDelegatedTasks();
@@ -508,7 +508,7 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
       "src/components/settings/SidebarRow.tsx",
       "server/users.ts",
     ],
-    taskWorkspaceIdById: { [PLAIN_TASK_ID]: WORKSPACE_ID, [MISSION_TASK_ID]: WORKSPACE_ID },
+    taskWorkspaceIdById: { [PLAIN_TASK_ID]: WORKSPACE_ID, [AGENT_RUN_TASK_ID]: WORKSPACE_ID },
     tasks: [
       {
         id: PLAIN_TASK_ID,
@@ -520,7 +520,7 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
         controlOwner: "stave",
       },
       {
-        id: MISSION_TASK_ID,
+        id: AGENT_RUN_TASK_ID,
         title: "Add pagination to /users",
         provider: "claude-code",
         updatedAt: "2026-09-29T10:06:00.000Z",
@@ -531,15 +531,15 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
     ],
     messagesByTask: {
       [PLAIN_TASK_ID]: PLAIN_MESSAGES,
-      [MISSION_TASK_ID]: MISSION_MESSAGES,
+      [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES,
     },
     // The whole history is resident, so "Show the turn" reads it from here.
     messageCountByTask: {
       [PLAIN_TASK_ID]: PLAIN_MESSAGES.length,
-      [MISSION_TASK_ID]: MISSION_MESSAGES.length,
+      [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES.length,
     },
-    activeTurnIdsByTask: { [MISSION_TASK_ID]: "turn-task-panel-1" },
-    providerTurnActivityByTask: { [MISSION_TASK_ID]: liveTurnActivity(now, args.pending) },
+    activeTurnIdsByTask: { [AGENT_RUN_TASK_ID]: "turn-task-panel-1" },
+    providerTurnActivityByTask: { [AGENT_RUN_TASK_ID]: liveTurnActivity(now, args.pending) },
     turnVerificationByWorkspace: {
       [WORKSPACE_ID]: {
         workspaceId: WORKSPACE_ID,
@@ -565,35 +565,35 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
   } as never);
 
   useAgentAssignmentsStore.setState({
-    byTaskId: { [MISSION_TASK_ID]: MISSION_AGENT },
+    byTaskId: { [AGENT_RUN_TASK_ID]: AGENT_RUN_AGENT },
     loaded: true,
   });
 
-  const detail = missionDetail();
-  useMissionsStore.setState({
+  const detail = agentRunDetail();
+  useAgentRunsStore.setState({
     workspaceId: WORKSPACE_ID,
     loadedWorkspaceId: WORKSPACE_ID,
-    details: { [detail.mission.id]: detail },
-    missionIdByTask: { [missionTaskKey(WORKSPACE_ID, MISSION_TASK_ID)]: detail.mission.id },
-    missionIdsByTask: { [missionTaskKey(WORKSPACE_ID, MISSION_TASK_ID)]: [detail.mission.id] },
+    details: { [detail.agentRun.id]: detail },
+    agentRunIdByTask: { [agentRunTaskKey(WORKSPACE_ID, AGENT_RUN_TASK_ID)]: detail.agentRun.id },
+    agentRunIdsByTask: { [agentRunTaskKey(WORKSPACE_ID, AGENT_RUN_TASK_ID)]: [detail.agentRun.id] },
   } as never);
 
   useWakeUpsStore.setState({
     workspaceId: WORKSPACE_ID,
     byTask: {
-      [wakeUpTaskKey(WORKSPACE_ID, MISSION_TASK_ID)]: {
+      [wakeUpTaskKey(WORKSPACE_ID, AGENT_RUN_TASK_ID)]: {
         wakeUp: {
           id: "wake-task-panel",
           workspaceId: WORKSPACE_ID,
-          taskId: MISSION_TASK_ID,
+          taskId: AGENT_RUN_TASK_ID,
           trigger: { kind: "schedule", schedule: { every: 1, unit: "hours" } },
         },
         summary: {
           wakeUpId: "wake-task-panel",
-          taskId: MISSION_TASK_ID,
+          taskId: AGENT_RUN_TASK_ID,
           triggerKind: "schedule",
           state: "paused",
-          reason: "A mission is running on this task. This wake-up resumes when the mission ends.",
+          reason: "A run is running on this task. This wake-up resumes when the run ends.",
           nextRunAt: null,
           occurrenceCount: 3,
           skippedCount: 1,
@@ -606,7 +606,7 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
 export function TaskPanelPreview() {
   const theme = params.get("theme");
   const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === theme) ?? null;
-  const task = params.get("task") === "mission" ? "mission" : "plain";
+  const task = params.get("task") === "agent-run" ? "agent-run" : "plain";
   const requestedTab = params.get("tab");
   const tab: TaskPanelTab = isTaskPanelTab(requestedTab) ? requestedTab : "activity";
   const requestedWidth = Number(params.get("panelWidth"));
@@ -623,7 +623,7 @@ export function TaskPanelPreview() {
   return (
     <main className={sx(styles.page)}>
       <p className={sx(styles.caption)}>
-        Task panel · {task === "mission" ? "mission task" : "direct task"} · {panelWidth}px
+        Task panel · {task === "agent-run" ? "agent run task" : "direct task"} · {panelWidth}px
       </p>
       {seeded ? (
         <div className={sx(styles.frame)} style={{ width: panelWidth }} data-testid="task-panel-frame">

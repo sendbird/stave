@@ -34,7 +34,7 @@ export function createHostAssignRuntime(args: {
   };
 }
 
-/** The host's copy of the renderer's custom agents, for agent runs and missions. */
+/** The host's copy of the renderer's custom agents, for agent runs and agent runs. */
 let hostCustomAgents: AgentConfig[] = [];
 export function hostAgents(): AgentConfig[] {
   return listAgents({ custom: hostCustomAgents, activeOnly: true });

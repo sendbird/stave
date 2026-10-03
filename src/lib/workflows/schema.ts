@@ -2,8 +2,8 @@ import { z } from "zod";
 import { AUTOMATION_PERMISSION_MODES, type AutomationPermissionMode } from "@/lib/automations";
 
 /**
- * The permissions a mission runs with when its workflow names none. Auto: the
- * agent works without asking, because the mission already stops where it
+ * The permissions an agent run runs with when its workflow names none. Auto: the
+ * agent works without asking, because the agent run already stops where it
  * should — at the sign-offs its check-ins choose, and before any pull request
  * or script step the start did not allow. Guided would stop an unattended
  * stage at every ask instead.
@@ -14,8 +14,8 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 
 /**
  * A workflow is a saved way of working: ordered stages, each with an
- * instruction and a "Done when" condition, that a mission runs on one lead
- * task. A saved workflow grants no permissions; every mission start records
+ * instruction and a "Done when" condition, that an agent run runs on one lead
+ * task. A saved workflow grants no permissions; every agent run start records
  * its own consent.
  */
 
@@ -76,7 +76,7 @@ const WORKFLOW_PROVIDER_IDS = [
 ] as const satisfies readonly ProviderId[];
 
 /**
- * Stage ids appear inside idempotency keys (`missionId:stageId:attempt`), so
+ * Stage ids appear inside idempotency keys (`agentRunId:stageId:attempt`), so
  * they are lowercase slugs without separators that could make a key ambiguous.
  */
 const STAGE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -148,7 +148,7 @@ const AiStageSchema = z
     /**
      * Runs this stage as another agent: the lead task delegates it to a
      * delegated task running as this agent and reports its result. The lead
-     * task's own provider and instructions never change mid-mission.
+     * task's own provider and instructions never change mid-agent-run.
      */
     agentConfigId: z.string().trim().min(1).max(80).optional(),
     /**
@@ -288,7 +288,7 @@ const WorkflowRuntimeSchema = z
  * Deprecated: workflow start conditions (an assigned issue, pull request
  * trouble, a schedule) were retired with proposals. Nothing reads them now.
  * The shape stays because `WorkflowSchema` is strict and saved workflows and
- * old mission rows may still carry it.
+ * old agent run rows may still carry it.
  */
 const RETIRED_START_SCHEDULES = ["off", "daily", "weekdays", "weekly", "every-4h"] as const;
 

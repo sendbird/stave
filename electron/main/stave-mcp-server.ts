@@ -28,12 +28,12 @@ import {
   REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
   RepositoryMemoryKindSchema,
 } from "../../src/lib/repository-memory";
-import { registerMissionTools } from "./stave-mission-tools";
+import { registerAgentRunTools } from "./stave-agent-run-tools";
 import {
-  blockMissionStage,
-  getMissionForGrant,
-  reportMissionStage,
-} from "./missions-service";
+  blockAgentRunStage,
+  getAgentRunForGrant,
+  reportAgentRunStage,
+} from "./agent-runs-service";
 import { callerTaskId, resolveStaveMcpCaller } from "./stave-mcp-caller";
 import {
   readTurnGrantHeaders,
@@ -726,10 +726,10 @@ function createToolServer(options?: {
     },
   );
 
-  registerMissionTools(server, options?.turnGrants ?? {}, {
-    getMissionForGrant,
-    reportMissionStage,
-    blockMissionStage,
+  registerAgentRunTools(server, options?.turnGrants ?? {}, {
+    getAgentRunForGrant,
+    reportAgentRunStage,
+    blockAgentRunStage,
   });
 
   server.registerTool(

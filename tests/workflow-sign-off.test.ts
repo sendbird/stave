@@ -51,7 +51,7 @@ describe("sign-off derivation", () => {
     expect(listSignOffStageIndexes(workflow("when-stuck"))).toEqual([]);
   });
 
-  test("starting a mission signs off the first stage, even a publish stage or an override", () => {
+  test("starting a run signs off the first stage, even a publish stage or an override", () => {
     const publishFirst = [{ ...ai("post", "publish"), signOff: "ask" as const }, ai("next")];
     expect(resolveStageSignOff(workflow("every-stage", publishFirst), 0)).toBe("auto");
   });

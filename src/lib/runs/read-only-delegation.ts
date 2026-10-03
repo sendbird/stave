@@ -32,14 +32,14 @@ export const READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_get_wake_up",
   "stave_martin_get_context",
   "stave_martin_list_projects",
-  "stave_get_mission",
+  "stave_get_agent_run",
 ] as const;
 
 /**
  * Stave Local MCP tools a read-only turn may still call although they write:
  * they record the work in Stave's own state and never touch the repository.
  * A researcher or reviewer that cannot leave notes, todos, links or a plan
- * file, or report the mission stage it runs in, cannot hand its result over.
+ * file, or report the agent run stage it runs in, cannot hand its result over.
  *
  * Only adding and updating: tools that clear or remove what the user wrote,
  * change access, or touch project memory stay denied below.
@@ -59,7 +59,7 @@ export const READ_ONLY_STAVE_METADATA_TOOLS = [
   "stave_add_workspace_custom_field",
   "stave_set_workspace_custom_field",
   "stave_write_plan_file",
-  // A mission's stage tools exist only on a turn carrying its grant.
+  // An agent run's stage tools exist only on a turn carrying its grant.
   "stave_report_stage",
   "stave_block_stage",
 ] as const;

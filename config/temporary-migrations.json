@@ -42,6 +42,18 @@
       "tests": [
         "tests/legacy-project-memory-export.test.ts"
       ]
+    },
+    {
+      "id": "agent-run-prompt-provenance",
+      "description": "Missions were renamed agent runs after 0.24.1. A chat message saved before then marks an agent run's prompt with agentRunPrompt.missionId; the message schema reads that key as agentRunPrompt.agentRunId, so stored transcripts keep folding the compiled prompt under the assignment. The next save writes the new key.",
+      "introducedAfter": "0.24.1",
+      "removeInVersion": "0.27.0",
+      "files": [
+        "src/lib/task-context/schemas.ts"
+      ],
+      "tests": [
+        "tests/agent-run-prompt-provenance-migration.test.ts"
+      ]
     }
   ]
 }

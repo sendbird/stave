@@ -52,7 +52,7 @@ import {
   PROVIDER_STEER_ACK_TIMEOUT_MS,
   waitForSteerDelivery,
 } from "../../src/lib/providers/steer-delivery";
-import { registerMissionGrant } from "./mission-grants";
+import { registerAgentRunGrant } from "./agent-run-grants";
 import { createProviderApprovalRouter } from "./provider-approval-router";
 import {
   createProviderTurnLifecycle,
@@ -72,23 +72,23 @@ const BATCH_TURN_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const DEFAULT_PROVIDER_TASK_KEY = "default";
 /**
  * A resumed Codex thread keeps the Local MCP connection and tool catalog it
- * started with, so a changed grant key starts a fresh thread. The mission key
+ * started with, so a changed grant key starts a fresh thread. The agent run key
  * is therefore stable per task, and later turns keep
  * sending it with no active grant behind it.
  */
-const codexMissionChannelKeyByTask = new Map<string, string>();
+const codexAgentRunChannelKeyByTask = new Map<string, string>();
 
 function getProviderTaskKey(taskId?: string) {
   return providerAccountKey("codex", taskId?.trim() || DEFAULT_PROVIDER_TASK_KEY);
 }
 
-function getOrCreateCodexMissionChannelKey(taskId: string) {
+function getOrCreateCodexAgentRunChannelKey(taskId: string) {
   const taskKey = getProviderTaskKey(taskId);
-  const existing = codexMissionChannelKeyByTask.get(taskKey);
+  const existing = codexAgentRunChannelKeyByTask.get(taskKey);
   if (existing) return existing;
-  const missionKey = randomUUID();
-  codexMissionChannelKeyByTask.set(taskKey, missionKey);
-  return missionKey;
+  const agentRunKey = randomUUID();
+  codexAgentRunChannelKeyByTask.set(taskKey, agentRunKey);
+  return agentRunKey;
 }
 
 type TurnTimeoutController = {
@@ -420,8 +420,8 @@ function appendStreamEvent(session: ActiveStreamSession, event: BridgeEvent) {
 }
 
 function cleanupProviderTaskState(taskId: string) {
-  for (const key of codexMissionChannelKeyByTask.keys()) {
-    if (providerAccountKeyMatchesTask(key, taskId)) codexMissionChannelKeyByTask.delete(key);
+  for (const key of codexAgentRunChannelKeyByTask.keys()) {
+    if (providerAccountKeyMatchesTask(key, taskId)) codexAgentRunChannelKeyByTask.delete(key);
   }
   cleanupClaudeTask(taskId);
   cleanupCodexAppServerTask(taskId);
@@ -966,14 +966,14 @@ async function runProviderTurnImpl(
       args.executionPolicy !== "secondary-read-only" &&
       args.providerId === "codex",
   );
-  const retainedCodexMissionChannelKey = retainsCodexChannels
-    ? codexMissionChannelKeyByTask.get(getProviderTaskKey(args.taskId))
+  const retainedCodexAgentRunChannelKey = retainsCodexChannels
+    ? codexAgentRunChannelKeyByTask.get(getProviderTaskKey(args.taskId))
     : undefined;
   const effectiveArgs: typeof args = {
     ...args,
     staveTurnGrants: {
-      ...(retainedCodexMissionChannelKey
-        ? { missionKey: retainedCodexMissionChannelKey }
+      ...(retainedCodexAgentRunChannelKey
+        ? { agentRunKey: retainedCodexAgentRunChannelKey }
         : {}),
     },
   };
@@ -984,37 +984,37 @@ async function runProviderTurnImpl(
     emittedPrimaryEvents.push(event);
     lifecycle.emit(event);
   };
-  // A mission turn reports its stage through Local MCP. The grant names the
+  // An agent run turn reports its stage through Local MCP. The grant names the
   // stage attempt, so the host resolves identity from the key and the model
-  // never passes it. Missions run on Claude and Codex tasks only.
-  let missionGrantHandle: ReturnType<typeof registerMissionGrant> | null = null;
-  const missionTaskId = args.taskId?.trim();
+  // never passes it. Agent runs run on Claude and Codex tasks only.
+  let agentRunGrantHandle: ReturnType<typeof registerAgentRunGrant> | null = null;
+  const agentRunTaskId = args.taskId?.trim();
   if (
-    args.missionStage &&
-    missionTaskId &&
+    args.agentRunStage &&
+    agentRunTaskId &&
     args.executionPolicy !== "secondary-read-only" &&
     (args.providerId === "claude-code" || args.providerId === "codex")
   ) {
-    const missionKey =
+    const agentRunKey =
       args.providerId === "codex"
-        ? getOrCreateCodexMissionChannelKey(missionTaskId)
+        ? getOrCreateCodexAgentRunChannelKey(agentRunTaskId)
         : randomUUID();
-    missionGrantHandle = registerMissionGrant({
-      missionKey,
-      ...args.missionStage,
+    agentRunGrantHandle = registerAgentRunGrant({
+      agentRunKey,
+      ...args.agentRunStage,
       turnId,
-      taskId: missionTaskId,
+      taskId: agentRunTaskId,
     });
     effectiveArgs.staveTurnGrants = {
       ...effectiveArgs.staveTurnGrants,
-      missionKey,
+      agentRunKey,
     };
   }
   // Every task turn names itself to Local MCP, so a tool resolves its caller
   // from the host instead of trusting the ids a model passes.
-  const callerGrantHandle = missionTaskId && args.executionPolicy !== "secondary-read-only"
+  const callerGrantHandle = agentRunTaskId && args.executionPolicy !== "secondary-read-only"
     ? registerCallerGrant({
-        taskId: missionTaskId,
+        taskId: agentRunTaskId,
         turnId,
         workspaceId: args.workspaceId?.trim() || null,
         providerId: args.providerId,
@@ -1030,8 +1030,8 @@ async function runProviderTurnImpl(
   }
   revokeTurnGrants = () => {
     callerGrantHandle?.revoke();
-    missionGrantHandle?.revoke();
-    missionGrantHandle = null;
+    agentRunGrantHandle?.revoke();
+    agentRunGrantHandle = null;
   };
   if (abortRequested) revokeTurnGrants();
   const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
@@ -1538,7 +1538,7 @@ export const providerRuntime: ProviderRuntime = {
     if (completedStreamExpiryTimer) clearTimeout(completedStreamExpiryTimer);
     completedStreamExpiryTimer = null;
     activeTurnPromises.clear();
-    codexMissionChannelKeyByTask.clear();
+    codexAgentRunChannelKeyByTask.clear();
     cleanupProviderTaskState(DEFAULT_PROVIDER_TASK_KEY);
     for (const taskId of taskIds) {
       cleanupProviderTaskState(taskId);

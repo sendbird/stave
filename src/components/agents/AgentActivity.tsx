@@ -15,10 +15,10 @@ import { formatRelativeTime } from "@/components/layout/automation-center/automa
 import { classifyTaskStatus, type FleetTaskStatus } from "@/lib/fleet/task-status";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
-import { useFleetMissionsStore } from "@/store/fleet-missions-store";
-import type { MissionDetail } from "@/lib/missions/api";
-import { hasAgentOrigin } from "@/lib/missions/agent-run";
-import { describeAgentRunProgress, describeAgentRunStatus } from "@/lib/missions/agent-run-status";
+import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
+import { describeAgentRunProgress, describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
 import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 
@@ -58,14 +58,14 @@ function useStatusByTaskId(taskIds: readonly string[]): Record<string, FleetTask
  * half hour), keyed by task id. Selects the stable `details` map and derives
  * the index in a memo, never a new object in the selector.
  */
-function useRunByTaskId(): Record<string, MissionDetail> {
-  const details = useFleetMissionsStore((state) => state.details);
+function useRunByTaskId(): Record<string, AgentRunDetail> {
+  const details = useFleetAgentRunsStore((state) => state.details);
   return useMemo(() => {
-    const byTask: Record<string, MissionDetail> = {};
+    const byTask: Record<string, AgentRunDetail> = {};
     for (const detail of Object.values(details)) {
-      if (!hasAgentOrigin(detail.mission)) continue;
-      const current = byTask[detail.mission.leadTaskId];
-      if (!current || current.mission.createdAt < detail.mission.createdAt) byTask[detail.mission.leadTaskId] = detail;
+      if (!hasAgentOrigin(detail.agentRun)) continue;
+      const current = byTask[detail.agentRun.leadTaskId];
+      if (!current || current.agentRun.createdAt < detail.agentRun.createdAt) byTask[detail.agentRun.leadTaskId] = detail;
     }
     return byTask;
   }, [details]);
@@ -164,7 +164,7 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
               const live = row.taskId ? statusByTaskId[row.taskId] : undefined;
               // The run this agent is doing on the task, when Fleet has it.
               const run = row.taskId ? runByTaskId[row.taskId] : undefined;
-              const ownRun = run && run.mission.workflow.name === row.agentName ? run : undefined;
+              const ownRun = run && run.agentRun.workflow.name === row.agentName ? run : undefined;
               const progress = ownRun ? describeAgentRunProgress(ownRun) : null;
               const stateLabel = ownRun
                 ? describeAgentRunStatus(ownRun).label

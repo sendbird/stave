@@ -23,7 +23,7 @@ export interface PriorStageSummary {
 export interface StagePromptInput {
   workflow: Workflow;
   stageIndex: number;
-  /** What the user asked this mission to do, in their own words. */
+  /** What the user asked this agent run to do, in their own words. */
   assignment: string;
   priorStages: PriorStageSummary[];
   acceptanceCriteria: AcceptanceCriterion[];
@@ -92,8 +92,8 @@ function section(heading: string, body: string): string {
 }
 
 /**
- * The prompt for one AI stage turn. Mission and stage identity never appear in
- * the text: the host resolves them from the turn's mission grant, so a model
+ * The prompt for one AI stage turn. Agent run and stage identity never appear in
+ * the text: the host resolves them from the turn's agent run grant, so a model
  * cannot report for a different stage.
  */
 export function compileStagePrompt(input: StagePromptInput): string {

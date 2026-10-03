@@ -5,10 +5,10 @@
  * must never quietly hand its control to an external owner.
  *
  * Used by: `electron/host-service/wake-up-runtime.ts` and
- * `electron/host-service/supervision/mission-runtime.ts` (both wired in
+ * `electron/host-service/supervision/agent-run-runtime.ts` (both wired in
  * `electron/host-service.ts`).
  */
-import type { MissionStageIdentity } from "../../src/lib/missions/domain";
+import type { AgentRunStageIdentity } from "../../src/lib/agent-runs/domain";
 import { userSettingsPermissionOptions } from "../../src/lib/providers/managed-task-runtime";
 import type {
   CanonicalRetrievedContextPart,
@@ -21,7 +21,7 @@ import { ensureHostServicePersistenceReady } from "./persistence";
 
 /**
  * The permissions a supervised turn runs with when no consent sets them (a
- * wake-up, a mission on "Your settings"): the user's own synced provider
+ * wake-up, an agent run on "Your settings"): the user's own synced provider
  * settings, never the runtime's fallbacks. Undefined for providers without
  * synced settings.
  */
@@ -45,11 +45,11 @@ export async function runSupervisedTurn(args: {
    * under the Claude default would be a different agent answering.
    */
   fingerprint?: { providerId: ProviderId; model: string };
-  /** Extra provider options, such as the permissions a mission's consent sets. */
+  /** Extra provider options, such as the permissions an agent run's consent sets. */
   runtimeOptions?: ProviderRuntimeOptions;
   retrievedContextParts?: CanonicalRetrievedContextPart[];
-  /** The stage attempt a mission turn reports for; mints its mission grant. */
-  missionStage?: MissionStageIdentity;
+  /** The stage attempt an agent run turn reports for; mints its agent run grant. */
+  agentRunStage?: AgentRunStageIdentity;
   /** On an agent run's turn: the run and the assignment, recorded on the user row. */
   agentRunPrompt?: AgentRunPromptProvenance;
 }) {
@@ -73,7 +73,7 @@ export async function runSupervisedTurn(args: {
     ...(args.retrievedContextParts
       ? { retrievedContextParts: args.retrievedContextParts }
       : {}),
-    ...(args.missionStage ? { missionStage: args.missionStage } : {}),
+    ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
     ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),
   });
 }

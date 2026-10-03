@@ -318,7 +318,7 @@ As-built:
 
 As-built:
 
-- [x] `src/lib/missions/domain.ts`: zod schemas for the mission, stage attempt
+- [x] `src/lib/agent-runs/domain.ts`: zod schemas for the mission, stage attempt
       records, stage reports (the `stave_report_stage` / `stave_block_stage`
       inputs are exported for PR 8), Stave-collected facts, action results and
       events, plus the aggregate helpers.
@@ -396,7 +396,7 @@ As-built:
     `getActiveMissionForTask`, which PR 8 wires. Create, update and resume
     are refused with a sentence while a mission is active.
   - `docs/features/wake-ups.md` was updated.
-- [x] `electron/persistence/mission-store.ts`:
+- [x] `electron/persistence/agent-run-store.ts`:
   - Transitions are written inside a SAVEPOINT (the pattern the wake-up
     store uses).
   - A partial unique index enforces one active mission per lead task, and
@@ -429,7 +429,7 @@ As-built:
   - `automatic-turn-owner`
   - additions to `wake-up-runtime`, `wake-up-policy`,
     `fleet-sidebar-work-queue` and `agent-platform-boundaries`
-  - fixture `tests/fixtures/mission-fixtures.ts`
+  - fixture `tests/fixtures/agent-run-fixtures.ts`
 - Gates: typecheck, typecheck-main, focused tests (209), `bun run test:ci`.
 
 ### PR 8 — `feat(missions): run ai stages from the host supervisor`
@@ -437,16 +437,16 @@ As-built:
 As-built:
 
 - [x] Files beyond the plan:
-  - `electron/host-service/supervision/mission-host.ts` builds the runtime
+  - `electron/host-service/supervision/agent-run-host.ts` builds the runtime
     from real dependencies, so `host-service.ts` gets wiring lines only.
   - `electron/host-service/supervision/local-mcp-reachability.ts`: the Local
     MCP `/health` probe, cached for 10 seconds.
-  - `electron/providers/mission-grants.ts`: the grant registry (host
+  - `electron/providers/agent-run-grants.ts`: the grant registry (host
     process, beside the advisor and worker registries).
-  - `src/lib/missions/briefing.ts` (stage prompt, reminder, context part,
+  - `src/lib/agent-runs/briefing.ts` (stage prompt, reminder, context part,
     `stave_get_mission` briefing, consent → provider permissions),
-    `src/lib/missions/facts.ts` (pure fact extraction) and
-    `src/lib/missions/api.ts` (renderer/main/host contract and IPC channel
+    `src/lib/agent-runs/facts.ts` (pure fact extraction) and
+    `src/lib/agent-runs/api.ts` (renderer/main/host contract and IPC channel
     names).
   - `electron/host-service/delegated-task-signals.ts`: the delegated-task
     feed moved out of `local-mcp-runtime.ts`, which also gives missions the
@@ -470,7 +470,7 @@ As-built:
   - The Codex collaboration profile includes the mission key.
   - The renderer's `StreamTurnArgsSchema` is strict, so it rejects
     `missionStage`. A test pins this.
-- [x] Runtime (`mission-runtime.ts`):
+- [x] Runtime (`agent-run-runtime.ts`):
   - One serialized chain for ticks, commands and reports. `requestTick`
     returns the tick's promise.
   - Ticks come every 5 seconds, when a host-run turn reports `done`, and
@@ -566,11 +566,11 @@ As-built:
 As-built:
 
 - [x] Files beyond the plan:
-  - `electron/host-service/supervision/mission-scm.ts`: the source-control
+  - `electron/host-service/supervision/agent-run-scm.ts`: the source-control
     port on `scm-runtime` and `gh`, plus `describePushFailure`.
-  - `src/lib/missions/pull-request-draft.ts`: the commit message and the PR
+  - `src/lib/agent-runs/pull-request-draft.ts`: the commit message and the PR
     title and body.
-- [x] `mission-actions.ts`:
+- [x] `agent-run-actions.ts`:
   - `performAction` runs on every tick while an action stage runs and no
     turn is active, and picks up from remote and local state each time.
   - The `action-started` key is written before any remote call.
@@ -639,7 +639,7 @@ As-built:
 
 As-built (PR 10a):
 
-- [x] Renderer state in `src/store/missions-store.ts`:
+- [x] Renderer state in `src/store/agent-runs-store.ts`:
   - It holds the latest mission per task in the active workspace (active
     first), its detail, and its transcript dividers.
   - Commands return the mission after they run. A `stale-identity` refusal
@@ -648,14 +648,14 @@ As-built (PR 10a):
     switch, applies `missions:changed`, and opens the Mission panel when a
     mission starts on the task in view.
 - [x] Pure projections:
-  - `src/lib/missions/now-line.ts`: plain phrases from tool activity, and a
+  - `src/lib/agent-runs/now-line.ts`: plain phrases from tool activity, and a
     1.5-second hold.
-  - `src/lib/missions/mission-view.ts`: stage rows with Stave's evidence
+  - `src/lib/agent-runs/agent-run-view.ts`: stage rows with Stave's evidence
     first, the one headline with its age, and transcript dividers built from
     events.
-  - `src/lib/missions/report-markdown.ts`.
+  - `src/lib/agent-runs/report-markdown.ts`.
   - `CHECK_IN_LABELS` is added to the playbook schema.
-- [x] Mission bar (`MissionBar.tsx`):
+- [x] Mission bar (`AgentRunBar.tsx`):
   - The stepper is an ordered list with `aria-current="step"`, and stages
     that ask first carry a hand marker.
   - A container query collapses the bar to "Verify · 3 of 6".
@@ -667,7 +667,7 @@ As-built (PR 10a):
   - Placement: the bar renders in the docked host for the docked and
     floating placements, and in the Activity panel for the panel placement.
     The floating card stays the turn shelf alone.
-- [x] Mission panel (`MissionPanel.tsx`):
+- [x] Mission panel (`AgentRunPanel.tsx`):
   - The right-rail id `collaboration` becomes `mission`, titled "Mission".
     A registered temporary migration `right-rail-mission-panel` maps saved
     layouts.
@@ -804,7 +804,7 @@ As-built (PR 11, `df5b3a5d`):
 
 As-built (PR 12, `688f210b`):
 
-- [x] `src/store/fleet-missions-store.ts`: active missions across workspaces
+- [x] `src/store/fleet-agent-runs-store.ts`: active missions across workspaces
   (list + get, `missions:changed`), raises mission notifications through
   `persistRendererNotifications` (sound, OS notification, toast; announced
   only when newly stored), batched sign-off reminder
@@ -813,7 +813,7 @@ As-built (PR 12, `688f210b`):
 - [x] Notification kinds unified in `APP_NOTIFICATION_KINDS` (IPC schema,
   renderer DB adapter, SQLite store); added `mission.sign_off_requested`,
   `mission.blocked`, `mission.stuck`, `mission.completed`
-  (`src/lib/missions/notifications.ts`). Deviation: renderer-raised rather
+  (`src/lib/agent-runs/notifications.ts`). Deviation: renderer-raised rather
   than host-raised, because only renderer notifications get OS
   notifications and sounds.
 - [x] Fleet attention kinds `mission-sign-off` / `-blocked` / `-stuck`
@@ -828,11 +828,11 @@ As-built (PR 12, `688f210b`):
 
 As-built (PR 13, `f422f0a2`):
 
-- [x] `tests/mission-scenarios.test.ts`: A1 (two sign-offs only, draft PR,
+- [x] `tests/agent-run-scenarios.test.ts`: A1 (two sign-offs only, draft PR,
   one repaired check, verified links/evidence), A4 (reply continues, Take
-  over pauses), A5 (Codex). A2/A3/A6 stay in `mission-runtime.test.ts` and
-  `mission-actions.test.ts`.
-- [x] `tests/e2e/missions.e2e.ts` on the preview (4).
+  over pauses), A5 (Codex). A2/A3/A6 stay in `agent-run-runtime.test.ts` and
+  `agent-run-actions.test.ts`.
+- [x] `tests/e2e/agent-runs.e2e.ts` on the preview (4).
 - [x] `MissionReport.metrics` from events (replies, nudges, stuck, sign-off
   waits) in the report footer and Markdown. Deviation: no diagnostics view.
 - [x] Docs: `docs/features/missions.md`, `playbooks.md`, public docs
@@ -923,7 +923,7 @@ As-built (PR 19):
 Built after the twenty changes, closing deviations the As-built notes list:
 
 - [x] `feat(missions): show what missions and projects spend` —
-  `src/lib/missions/usage.ts` sums provider-reported turn usage; the sign-off
+  `src/lib/agent-runs/usage.ts` sums provider-reported turn usage; the sign-off
   card, Mission panel, report, Fleet strip and project home show it.
 - [x] `feat(missions): start a mission at a later stage` — **Start at** in the
   Start sheet; earlier stages are recorded as skipped.
@@ -941,7 +941,7 @@ Built after the twenty changes, closing deviations the As-built notes list:
   exactly those; an end date expires a project.
 - [x] `feat(projects): search the library and link it from Information`.
 - [x] `feat(missions): compare missions per playbook and provider` —
-  `src/lib/missions/insights.ts` and **Mission insights** in the Playbooks tab.
+  `src/lib/agent-runs/insights.ts` and **Mission insights** in the Playbooks tab.
 - [x] `feat(playbooks): add templates for work beyond pull requests`.
 - [x] `feat(missions): save a mission as a playbook and share its report to
   Slack`.

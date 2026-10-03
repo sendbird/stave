@@ -21,9 +21,9 @@ import type {
   GitHubPrReviewSubmitResult,
 } from "../../src/lib/github-pr-review";
 import type {
-  MissionChangedEvent,
-  MissionInvokeResult,
-} from "../../src/lib/missions/api";
+  AgentRunChangedEvent,
+  AgentRunInvokeResult,
+} from "../../src/lib/agent-runs/api";
 import type {
   CanonicalRetrievedContextPart,
   CodexAppServerSnapshotResponse,
@@ -493,10 +493,10 @@ export type HostWakeUpAction =
   "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
 
 /**
- * Mission actions. The last three serve the stage-reporting tools and carry a
- * mission grant key instead of a mission id.
+ * Agent run actions. The last three serve the stage-reporting tools and carry a
+ * agent run grant key instead of an agent run id.
  */
-export type HostMissionAction =
+export type HostAgentRunAction =
   | "start"
   | "list"
   | "insights"
@@ -1023,8 +1023,8 @@ export interface HostServiceRequestMap {
     action: HostWakeUpAction;
     args: unknown;
   };
-  "mission.invoke": {
-    action: HostMissionAction;
+  "agent-run.invoke": {
+    action: HostAgentRunAction;
     args: unknown;
   };
   "agent.invoke": {
@@ -1222,7 +1222,7 @@ export interface HostServiceResponseMap {
   "task.stop": HostTaskStopResult;
   "automation.invoke": unknown;
   "wake-up.invoke": unknown;
-  "mission.invoke": MissionInvokeResult<unknown>;
+  "agent-run.invoke": AgentRunInvokeResult<unknown>;
   "agent.invoke": AgentInvokeResult<unknown>;
 }
 
@@ -1252,7 +1252,7 @@ export interface HostServiceEventMap {
       authorizationToken: string;
     }>;
   };
-  "mission.changed": MissionChangedEvent;
+  "agent-run.changed": AgentRunChangedEvent;
   /** An agent assignment was created or changed state. */
   "agent.changed": { assignmentId: string; state: string };
   "wake-up.changed": { wakeUpId: string; workspaceId: string; taskId: string };

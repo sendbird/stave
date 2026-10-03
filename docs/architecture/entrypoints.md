@@ -123,16 +123,16 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
 
 ### Agent runs and workflows
 
-1. `src/lib/missions/policy.ts` for the pure supervisor decision and
-   `src/lib/missions/domain.ts` for mission state and consent
-2. `electron/host-service/supervision/mission-runtime.ts` for the host loop
-   that starts stage turns, and `mission-actions.ts` for the Stave actions
+1. `src/lib/agent-runs/policy.ts` for the pure supervisor decision and
+   `src/lib/agent-runs/domain.ts` for mission state and consent
+2. `electron/host-service/supervision/agent-run-runtime.ts` for the host loop
+   that starts stage turns, and `agent-run-actions.ts` for the Stave actions
    (draft PR, checks, ready for review)
-3. `src/store/missions-store.ts` (the workspace in view) and
-   `src/store/fleet-missions-store.ts` (every workspace, notifications) for
+3. `src/store/agent-runs-store.ts` (the workspace in view) and
+   `src/store/fleet-agent-runs-store.ts` (every workspace, notifications) for
    renderer state
-4. `src/lib/missions/agent-run.ts` for how an agent's workflow becomes a run,
-   and `src/components/missions/` for the status line, panel, sign-off card
+4. `src/lib/agent-runs/agent-run.ts` for how an agent's workflow becomes a run,
+   and `src/components/agent-runs/` for the status line, panel, sign-off card
    and Fleet strip
 5. `src/components/agents/AgentWorkflowField.tsx` (over
    `src/components/workflows/StageList.tsx`) for the agent editor's Workflow

@@ -1,20 +1,23 @@
 /**
  * Retrieved context that describes one turn Stave started, not the task.
  *
- * A mission stage and a scheduled wake-up each attach a part that says "Stave started this turn; the user did not type
+ * An agent run stage and a scheduled wake-up each attach a part that says "Stave started this turn; the user did not type
  * this message". Their owners attach a fresh part to every turn they start.
  * A task's durable `sourceContexts` (a ticket, a PR log) are re-sent with
  * every later composer turn, so a turn-scoped part saved there kept telling
- * the model it was inside a mission the user had already ended.
+ * the model it was inside an agent run the user had already ended.
  *
- * Owners: `src/lib/missions/briefing.ts` (`MISSION_CONTEXT_SOURCE_ID`),
+ * Owners: `src/lib/agent-runs/briefing.ts` (`AGENT_RUN_CONTEXT_SOURCE_ID`),
  * `electron/host-service/wake-up-runtime.ts`, and the per-turn repository
  * memory block (`STAVE_REPOSITORY_MEMORY_SOURCE_ID`, `stave:project-memory`).
  *
- * `stave:project-coordinator` was attached by the retired project coordinator.
- * It stays listed so a part an older build saved on a task is still filtered.
+ * `stave:project-coordinator` was attached by the retired project coordinator,
+ * and `stave:mission` is the agent run part's id from before agent runs were
+ * renamed. Both stay listed so a part an older build saved on a task is still
+ * filtered.
  */
 export const TURN_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS: ReadonlySet<string> = new Set([
+  "stave:agent-run",
   "stave:mission",
   "stave:wake-up",
   "stave:project-coordinator",

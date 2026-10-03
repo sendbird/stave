@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { FleetAttentionInbox, MissionSignOffControl } from "@/components/layout/FleetAttentionInbox";
+import { FleetAttentionInbox, AgentRunSignOffControl } from "@/components/layout/FleetAttentionInbox";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 
 function buildAttentionItem(overrides: Partial<FleetAttentionItem> = {}): FleetAttentionItem {
@@ -113,7 +113,7 @@ describe("FleetAttentionInbox", () => {
   test("a sign-off that failed from Fleet says why on its row, not only in a tooltip", () => {
     const render = (failure: string | null) =>
       renderToStaticMarkup(
-        createElement(MissionSignOffControl, { label: "Start Build", disabled: false, failure, onSignOff: () => {} }),
+        createElement(AgentRunSignOffControl, { label: "Start Build", disabled: false, failure, onSignOff: () => {} }),
       );
     const failed = render("gh is signed out.");
     expect(failed).toContain("Start Build");

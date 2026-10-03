@@ -27,7 +27,7 @@ export const reportBack: AiStage = {
   kind: "ai",
   role: "publish",
   instruction:
-    "Reply once in the original Slack thread with a short note for the requester: what changed, the pull request and issue links, and anything they need to decide or check. If this mission already replied in the thread, do not post again.",
+    "Reply once in the original Slack thread with a short note for the requester: what changed, the pull request and issue links, and anything they need to decide or check. If this run already replied in the thread, do not post again.",
   doneWhen: "One reply is posted in the thread and its link is reported as evidence.",
 };
 

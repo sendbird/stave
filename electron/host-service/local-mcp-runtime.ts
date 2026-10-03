@@ -1706,9 +1706,9 @@ async function runTaskImpl(args: {
   controlMode?: TaskControlMode;
   controlOwner?: TaskControlOwner;
   retrievedContextParts?: CanonicalRetrievedContextPart[];
-  /** Set only by the mission supervisor; the provider runtime mints the grant. */
-  missionStage?: import("../../src/lib/missions/domain").MissionStageIdentity;
-  agentRunPrompt?: import("../../src/types/chat").AgentRunPromptProvenance; // mission supervisor only: marks the user row
+  /** Set only by the agent run supervisor; the provider runtime mints the grant. */
+  agentRunStage?: import("../../src/lib/agent-runs/domain").AgentRunStageIdentity;
+  agentRunPrompt?: import("../../src/types/chat").AgentRunPromptProvenance; // agent run supervisor only: marks the user row
   spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null; agentMode?: boolean }; // the calling turn caps this one
 }) {
   const controlGeneration = taskControlGate.capture(args.taskId);
@@ -1788,7 +1788,7 @@ async function runTaskImpl(args: {
   const requestedControlMode = args.controlMode ?? "managed";
   const requestedControlOwner = args.controlOwner ?? "external";
   // Only durable sources (a ticket, a PR log) stay on the task; a part that
-  // describes this one turn (a mission stage, a wake-up) still reaches this
+  // describes this one turn (an agent run stage, a wake-up) still reaches this
   // turn below, but must not be re-sent with the user's later turns.
   const requestedSourceContexts = withoutTurnScopedContexts(args.retrievedContextParts ?? []);
 
@@ -2009,7 +2009,7 @@ async function runTaskImpl(args: {
       ...(args.unattendedAutomation
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
-      ...(args.missionStage ? { missionStage: args.missionStage } : {}),
+      ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
       runtimeOptions: capSpawnedTurnOptions({ providerId: provider, root: workspacePath, spawnedBy: args.spawnedBy, options: {
         ...(isExternallyManagedTask(task)
           ? resolveManagedTaskRuntimeOptions({
@@ -2270,7 +2270,7 @@ export async function getTaskSupervisionSnapshot(args: {
 
 /**
  * A supervisor turn that never reached its task: a wake-up that consumed its
- * receipt, or a mission turn that could not start.
+ * receipt, or an agent run turn that could not start.
  *
  * `task.turn_failed` rather than a new kind — from the user's side that is
  * exactly what happened, and inventing a supervisor-only kind would widen the
@@ -2279,7 +2279,7 @@ export async function getTaskSupervisionSnapshot(args: {
  */
 /**
  * Adds a task to a workspace without starting a turn, for a supervisor that
- * starts the first turn itself (a project starting a mission on a new task).
+ * starts the first turn itself (a project starting an agent run on a new task).
  */
 export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId; model?: string | null }) {
   const { repositories } = await loadNormalizedRepositories();

@@ -6,7 +6,7 @@ import { agentStateDotTone, agentStateTone, agentStateWorkState, type AgentRunSt
 import { StateIcon } from "../src/components/ads/components/StateIcon";
 import { StatusDot, statusDotWorkState } from "../src/components/ads/components/StatusDot";
 import { WORK_STATE, WORK_STATES } from "../src/components/ads/components/state-vocabulary";
-import { AGENT_RUN_VIEW_STATE_LABELS } from "../src/lib/missions/agent-run-status";
+import { AGENT_RUN_VIEW_STATE_LABELS } from "../src/lib/agent-runs/agent-run-status";
 
 describe("work state vocabulary", () => {
   test("each state has the fixed glyph, and no two states share glyph and tone", () => {

@@ -16,7 +16,7 @@ import { MAX_WORKFLOW_STAGES, STAVE_ACTION_LABELS, type CheckIns, type WorkflowS
 import { STAGE_TEMPLATES } from "@/lib/workflows/stage-templates";
 import { StageRow } from "./StageRow";
 import { workflowStyles as styles } from "./workflows.styles";
-import { missionStyles } from "@/components/missions/missions.styles";
+import { agentRunStyles } from "@/components/agent-runs/agent-runs.styles";
 
 const ACTION_TYPES: readonly StaveActionType[] = ["open-draft-pr", "watch-checks", "mark-pr-ready", "run-script"];
 
@@ -68,7 +68,7 @@ export function StageList<T extends StageListValue>(props: {
   const takenIds = stages.map((stage) => stage.id);
 
   return (
-    <section className={sx(missionStyles.section)} aria-label="Stages">
+    <section className={sx(agentRunStyles.section)} aria-label="Stages">
       {/* With no stages there is nothing to head or count, only the Add stage button. */}
       {stages.length > 0 ? (
         <div className={sx(styles.sectionHeader)}>
@@ -185,7 +185,7 @@ export function StageList<T extends StageListValue>(props: {
         />
         {full ? <span className={sx(styles.hint)}>A workflow has at most {MAX_WORKFLOW_STAGES} stages.</span> : null}
       </div>
-      <p className={sx(missionStyles.visuallyHidden)} aria-live="polite">
+      <p className={sx(agentRunStyles.visuallyHidden)} aria-live="polite">
         {announcement}
       </p>
     </section>

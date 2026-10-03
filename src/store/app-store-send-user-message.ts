@@ -1003,7 +1003,7 @@ export function createSendUserMessageAction(args: {
       const currentWorkspacePr =
         state.workspacePrInfoById[taskWorkspaceId]?.pr ?? null;
       const { fresh: freshSourceContexts } = partitionStalePrContexts({
-        // A turn-scoped part an earlier build saved (a mission stage) never
+        // A turn-scoped part an earlier build saved (an agent run stage) never
         // rides along with a user's turn.
         parts: withoutTurnScopedContexts(task.sourceContexts ?? []),
         currentPrUrl: currentWorkspacePr?.url ?? null,

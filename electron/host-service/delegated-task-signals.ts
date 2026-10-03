@@ -5,7 +5,7 @@
  * Used by:
  * - `electron/host-service/local-mcp-runtime.ts` (delegated-task receipts in
  *   a parent's turn context, and the wake-up completion feed)
- * - `electron/host-service/supervision/mission-runtime.ts` (a stage cannot
+ * - `electron/host-service/supervision/agent-run-runtime.ts` (a stage cannot
  *   complete while work it delegated is still running), wired in
  *   `electron/host-service.ts`
  */

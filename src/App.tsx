@@ -1,8 +1,8 @@
 import { useDelegationPermissionSync } from "@/lib/runs/useDelegationPermissionSync";
-import { useMissionSync } from "@/store/missions-store";
+import { useAgentRunSync } from "@/store/agent-runs-store";
 import { useWakeUpSync } from "@/store/wake-ups-store";
 import { useUsageLimitAutoResume } from "@/store/use-usage-limit-auto-resume";
-import { useFleetMissionSync } from "@/store/fleet-missions-store";
+import { useFleetAgentRunSync } from "@/store/fleet-agent-runs-store";
 import { useAgentSync } from "@/lib/agents/useAgentSync";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -47,10 +47,10 @@ export default function App() {
   useLensGuestHost();
   useLensSessionPresentationRequests();
   useLensSessionClosedEvents();
-  useMissionSync();
+  useAgentRunSync();
   useWakeUpSync();
   useUsageLimitAutoResume();
-  useFleetMissionSync();
+  useFleetAgentRunSync();
   useAgentSync();
   useDelegationPermissionSync();
 

@@ -4,8 +4,8 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { ResultsView } from "@/components/results/ResultsView";
-import { buildAgentRunFixtures } from "@/dev/mission-preview/agent-run-fixtures";
-import { aggregateMissionInsights, type ResultSample, type RunEventCounts } from "@/lib/missions/insights";
+import { buildAgentRunFixtures } from "@/dev/agent-run-preview/agent-run-fixtures";
+import { aggregateAgentRunInsights, type ResultSample, type RunEventCounts } from "@/lib/agent-runs/insights";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 
@@ -27,7 +27,7 @@ function run(name: string, kind: "agent" | "workflow", outcome: Kind, daysAgo: n
   const endedAt = new Date(NOW - daysAgo * 86_400_000).toISOString();
   const id = `${name}-${daysAgo}-${minutes}-${outcome}`;
   return {
-    missionId: id,
+    agentRunId: id,
     workspaceId: "preview-workspace",
     leadTaskId: `task-${id}`,
     name,
@@ -75,15 +75,15 @@ export function ResultsPreview() {
     () => async (days: number) => {
       const delay = Number(params.get("delay")) || 0;
       if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-      if (state === "failed") throw new Error("The mission database is locked.");
+      if (state === "failed") throw new Error("The run database is locked.");
       if (state === "loading") return new Promise<never>(() => {});
       const inPeriod = state === "empty" ? [] : samples().filter((sample) => Date.parse(sample.endedAt) >= NOW - days * 86_400_000);
-      return aggregateMissionInsights(inPeriod, days);
+      return aggregateAgentRunInsights(inPeriod, days);
     },
     [state],
   );
   const loadReport = useMemo(
-    () => async (missionId: string) => (missionId.endsWith("failed") ? fixtures.failed.report : fixtures.ready.report),
+    () => async (agentRunId: string) => (agentRunId.endsWith("failed") ? fixtures.failed.report : fixtures.ready.report),
     [fixtures],
   );
   return (

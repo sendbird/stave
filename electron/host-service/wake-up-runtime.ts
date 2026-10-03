@@ -53,7 +53,7 @@ import {
   type WakeUpUpsertInput,
 } from "../../src/lib/supervision/wake-up-policy";
 import { validateFleetQueueAction } from "../../src/lib/fleet/control-plane";
-import { refuseWakeUpForMission } from "../../src/lib/supervision/automatic-turn-owner";
+import { refuseWakeUpForAgentRun } from "../../src/lib/supervision/automatic-turn-owner";
 import type {
   CanonicalRetrievedContextPart,
   ProviderRuntimeOptions,
@@ -150,12 +150,12 @@ interface WakeUpRuntimeDependencies {
     taskId: string;
   }) => Promise<TaskCompletionSignal[]> | TaskCompletionSignal[];
   /**
-   * The task's running or paused mission. A mission owns its lead task's
-   * automatic turns, so the wake-up pauses with `mission-active` while one
+   * The task's running or paused agent run. An agent run owns its lead task's
+   * automatic turns, so the wake-up pauses with `agent-run-active` while one
    * exists, and creating, updating or resuming a wake-up on that task is
-   * refused. Absent means no missions are wired in.
+   * refused. Absent means no agent runs are wired in.
    */
-  getActiveMissionForTask?: (taskId: string) => { id: string } | null;
+  getActiveAgentRunForTask?: (taskId: string) => { id: string } | null;
   /**
    * Announces a wake-up that was written or removed, so the task surfaces
    * that list wake-ups refresh. Never throws into the runtime.
@@ -491,7 +491,7 @@ export function createWakeUpRuntime(
       identity: identity.ok ? { ok: true } : { ok: false, reason: identity.reason },
       completionObservability: probeCompletionObservability(snapshot),
       completions: args.completions,
-      missionActive: Boolean(dependencies.getActiveMissionForTask?.(wakeUp.taskId)),
+      agentRunActive: Boolean(dependencies.getActiveAgentRunForTask?.(wakeUp.taskId)),
     };
   }
 
@@ -976,9 +976,9 @@ export function createWakeUpRuntime(
     }
   }
 
-  function refuseWhileMissionActive(taskId: string) {
-    const refusal = refuseWakeUpForMission(
-      dependencies.getActiveMissionForTask?.(taskId) ?? null,
+  function refuseWhileAgentRunActive(taskId: string) {
+    const refusal = refuseWakeUpForAgentRun(
+      dependencies.getActiveAgentRunForTask?.(taskId) ?? null,
     );
     if (refusal) throw new Error(refusal);
   }
@@ -987,7 +987,7 @@ export function createWakeUpRuntime(
     workspaceId: string;
     taskId: string;
   }) {
-    refuseWhileMissionActive(args.taskId);
+    refuseWhileAgentRunActive(args.taskId);
     const snapshot = await dependencies.getTaskSupervisionSnapshot(args);
     if (!snapshot.exists || !snapshot.repositoryPath) {
       throw new Error(`Task not found: ${args.taskId}`);
@@ -1146,7 +1146,7 @@ export function createWakeUpRuntime(
     resume: ({ id }) =>
       enqueue(() => {
         const current = requireWakeUp(id);
-        refuseWhileMissionActive(current.taskId);
+        refuseWhileAgentRunActive(current.taskId);
         if (current.state === "stopped") {
           throw new Error(
             `This schedule stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,

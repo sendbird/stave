@@ -35,7 +35,7 @@ import {
   type PaneSurfaceDescriptor,
 } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
-import { TaskSupervisionMarks } from "@/components/missions/TaskSupervisionMarks";
+import { TaskSupervisionMarks } from "@/components/agent-runs/TaskSupervisionMarks";
 import { paneTabChipStyles as c } from "@/components/panes/PaneTabChip.styles";
 import type { ChatMessage, EditorTab } from "@/types/chat";
 import {

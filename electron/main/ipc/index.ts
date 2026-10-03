@@ -10,7 +10,7 @@ import { registerEslintHandlers } from "./eslint";
 import { registerMartinSyncHandlers } from "./martin-sync";
 import { registerLspHandlers } from "./lsp";
 import { registerMetricsHandlers } from "./metrics";
-import { registerMissionHandlers } from "./missions";
+import { registerAgentRunHandlers } from "./agent-runs";
 import { registerWakeUpHandlers } from "./wake-ups";
 import { registerAgentHandlers } from "./agents";
 import { registerNotificationHandlers } from "./notifications";
@@ -44,7 +44,7 @@ export function registerHandlers() {
   registerProviderAccountSetupHandlers();
   registerRunHandlers();
   registerAutomationHandlers();
-  registerMissionHandlers();
+  registerAgentRunHandlers();
   registerWakeUpHandlers();
   registerAgentHandlers();
   registerPersistenceHandlers();

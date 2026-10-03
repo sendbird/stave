@@ -179,22 +179,22 @@ describe("Sidebar work queue grouping", () => {
   });
 });
 
-describe("Sidebar work queue with missions", () => {
-  test("a mission lane competes with the task's signals by priority", () => {
-    expect(classifySidebarWorkQueueLane({ status: "idle", missionLane: "action-required" })).toBe("action-required");
-    expect(classifySidebarWorkQueueLane({ status: "running", missionLane: "idle" })).toBe("in-progress");
-    expect(classifySidebarWorkQueueLane({ attentionKind: "approval", missionLane: "in-progress" })).toBe(
+describe("Sidebar work queue with runs", () => {
+  test("a run lane competes with the task's signals by priority", () => {
+    expect(classifySidebarWorkQueueLane({ status: "idle", agentRunLane: "action-required" })).toBe("action-required");
+    expect(classifySidebarWorkQueueLane({ status: "running", agentRunLane: "idle" })).toBe("in-progress");
+    expect(classifySidebarWorkQueueLane({ attentionKind: "approval", agentRunLane: "in-progress" })).toBe(
       "action-required",
     );
-    expect(classifySidebarWorkQueueLane({ status: "idle", missionLane: null })).toBe("idle");
+    expect(classifySidebarWorkQueueLane({ status: "idle", agentRunLane: null })).toBe("idle");
   });
 
-  test("a workspace with a mission still lands in exactly one lane", () => {
+  test("a workspace with a run still lands in exactly one lane", () => {
     const groups = buildSidebarWorkQueueLanes({
       entries: [{ workspaceId: "ws-1" }, { workspaceId: "ws-2" }, { workspaceId: "ws-1" }],
       signalsByWorkspaceId: {
-        "ws-1": { status: "running", missionLane: "action-required" },
-        "ws-2": { missionLane: "in-review" },
+        "ws-1": { status: "running", agentRunLane: "action-required" },
+        "ws-2": { agentRunLane: "in-review" },
       },
     });
     expect(groups.map((group) => [group.lane, group.entries.map((entry) => entry.workspaceId)])).toEqual([

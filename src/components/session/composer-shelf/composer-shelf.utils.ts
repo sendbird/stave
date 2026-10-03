@@ -30,8 +30,8 @@ import type {
 
 // ── Rows ─────────────────────────────────────────────────────────────────
 
-/** What heads the run line: an active agent run (or workflow mission), else the turn. */
-export type ShelfRunSource = "mission" | "turn";
+/** What heads the run line: an active agent run (or legacy run), else the turn. */
+export type ShelfRunSource = "agentRun" | "turn";
 
 export type ComposerShelfRow = "run" | "limit" | "queue";
 
@@ -40,11 +40,11 @@ export type ComposerShelfRow = "run" | "limit" | "queue";
  * turns it starts included, so the turn never draws a second status beside it.
  */
 export function resolveShelfRunSource(args: {
-  missionActive: boolean;
+  agentRunActive: boolean;
   turnVisible: boolean;
 }): ShelfRunSource | null {
-  if (args.missionActive) {
-    return "mission";
+  if (args.agentRunActive) {
+    return "agentRun";
   }
   return args.turnVisible ? "turn" : null;
 }
@@ -92,11 +92,11 @@ export function resolveShelfDetailHost(
 
 /** The run a detail toggle belongs to: the agent run while one heads the shelf, else the turn. */
 export function resolveShelfRunKey(args: {
-  missionId: string | null;
+  agentRunId: string | null;
   turnId: string | null;
 }): string | null {
-  if (args.missionId) {
-    return `mission:${args.missionId}`;
+  if (args.agentRunId) {
+    return `agent-run:${args.agentRunId}`;
   }
   return args.turnId ? `turn:${args.turnId}` : null;
 }
@@ -292,7 +292,7 @@ export interface ShelfTurnAlert {
 }
 
 /**
- * What the turn under an agent run (or workflow mission) needs said that the
+ * What the turn under an agent run (or legacy run) needs said that the
  * run's own line cannot know: a stall and how to break it, a steer in flight,
  * a provider retry or a failure. Same tones and words as the turn's line; the
  * ordinary tones (working, waiting on a card, done) stay the run's to say.

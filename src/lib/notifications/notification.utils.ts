@@ -13,8 +13,8 @@ export const NOTIFICATION_TOAST_DURATIONS_MS = {
   turnFailed: 8000,
   approvalRequested: 8000,
   userInputRequested: 8000,
-  missionAttention: 10000,
-  missionCompleted: 6000,
+  agentRunAttention: 10000,
+  agentRunCompleted: 6000,
 } as const;
 
 export interface NotificationToastOptions {
@@ -163,7 +163,7 @@ export function buildNotificationToastOptions(
       tone: "success",
       title: notification.title ?? label,
       description,
-      duration: NOTIFICATION_TOAST_DURATIONS_MS.missionCompleted,
+      duration: NOTIFICATION_TOAST_DURATIONS_MS.agentRunCompleted,
       closeButton: true,
       dismissible: true,
     };
@@ -178,7 +178,7 @@ export function buildNotificationToastOptions(
       tone: notification.kind === "mission.sign_off_requested" ? "warning" : "error",
       title: notification.title ?? label,
       description,
-      duration: NOTIFICATION_TOAST_DURATIONS_MS.missionAttention,
+      duration: NOTIFICATION_TOAST_DURATIONS_MS.agentRunAttention,
       closeButton: true,
       dismissible: true,
     };

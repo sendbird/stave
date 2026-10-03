@@ -63,13 +63,13 @@ describe("stage prompt", () => {
     expect(prompt).toContain("do not begin later stages in this turn");
   });
 
-  test("never names the mission, workflow or stage ids", () => {
+  test("never names the run, workflow or stage ids", () => {
     const prompt = compileStagePrompt(input());
     expect(prompt).not.toContain("workflow_slack");
     for (const stage of slack.stages) {
       expect(prompt).not.toContain(`"${stage.id}"`);
     }
-    expect(prompt.toLowerCase()).not.toContain("mission id");
+    expect(prompt.toLowerCase()).not.toContain("run id");
   });
 
   test("adds the plan and publish rules to those stages only", () => {

@@ -88,16 +88,16 @@ describe("usage-limit line", () => {
 
 describe("composer shelf rows", () => {
   test("an active run heads the line for its whole life, the turns it starts included", () => {
-    expect(resolveShelfRunSource({ missionActive: true, turnVisible: true })).toBe("mission");
-    expect(resolveShelfRunSource({ missionActive: true, turnVisible: false })).toBe("mission");
-    expect(resolveShelfRunSource({ missionActive: false, turnVisible: true })).toBe("turn");
-    expect(resolveShelfRunSource({ missionActive: false, turnVisible: false })).toBeNull();
+    expect(resolveShelfRunSource({ agentRunActive: true, turnVisible: true })).toBe("agentRun");
+    expect(resolveShelfRunSource({ agentRunActive: true, turnVisible: false })).toBe("agentRun");
+    expect(resolveShelfRunSource({ agentRunActive: false, turnVisible: true })).toBe("turn");
+    expect(resolveShelfRunSource({ agentRunActive: false, turnVisible: false })).toBeNull();
   });
 
   test("stacks the run line over the queue line, and takes no room when nothing is in flight", () => {
     expect(selectComposerShelfRows({ run: null, queueCount: 0 })).toEqual([]);
     expect(selectComposerShelfRows({ run: "turn", queueCount: 0 })).toEqual(["run"]);
-    expect(selectComposerShelfRows({ run: "mission", queueCount: 2 })).toEqual(["run", "queue"]);
+    expect(selectComposerShelfRows({ run: "agentRun", queueCount: 2 })).toEqual(["run", "queue"]);
     // A queue left after Stop keeps the shelf up on its own.
     expect(selectComposerShelfRows({ run: null, queueCount: 1 })).toEqual(["queue"]);
   });
@@ -147,10 +147,10 @@ describe("where details open", () => {
   });
 
   test("an agent run keys the toggle on the run, so it survives the run's turns", () => {
-    expect(resolveShelfRunKey({ missionId: "m1", turnId: "t1" })).toBe("mission:m1");
-    expect(resolveShelfRunKey({ missionId: "m1", turnId: "t2" })).toBe("mission:m1");
-    expect(resolveShelfRunKey({ missionId: null, turnId: "t1" })).toBe("turn:t1");
-    expect(resolveShelfRunKey({ missionId: null, turnId: null })).toBeNull();
+    expect(resolveShelfRunKey({ agentRunId: "m1", turnId: "t1" })).toBe("agent-run:m1");
+    expect(resolveShelfRunKey({ agentRunId: "m1", turnId: "t2" })).toBe("agent-run:m1");
+    expect(resolveShelfRunKey({ agentRunId: null, turnId: "t1" })).toBe("turn:t1");
+    expect(resolveShelfRunKey({ agentRunId: null, turnId: null })).toBeNull();
   });
 });
 

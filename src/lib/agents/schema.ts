@@ -50,7 +50,7 @@ export const DEFAULT_AGENT_CONCURRENCY = 2;
 /**
  * Where an agent can be used. The words are the auto-routing roles Stave
  * already has, so one vocabulary covers routing and agents:
- * - `primary`: the main agent of a task, or a mission's lead task.
+ * - `primary`: the main agent of a task, or an agent run's lead task.
  * - `worker`: an in-turn subagent inside another agent's turn.
  * - `delegate`: a durable subagent, its own task on the run ledger.
  */
@@ -124,7 +124,7 @@ export type AgentColor = (typeof AGENT_COLORS)[number];
 
 /**
  * "Check in with me": when an agent with a workflow waits for the user
- * between stages. The values are the mission engine's check-in levels; a
+ * between stages. The values are the agent run engine's check-in levels; a
  * stage that writes outside the workspace (a publish stage or a Stave action)
  * runs without asking only under `when-stuck`, the default.
  */
@@ -140,7 +140,7 @@ export const AGENT_CHECK_IN_LABELS: Readonly<Record<CheckIns, string>> = {
  * A workflow: the ordered stages a run of this agent follows, each an AI
  * stage (instruction, done when, optionally done by another agent) or a Stave
  * action (open draft PR, watch checks, ready for review, run script). The
- * stage schema is the mission engine's own.
+ * stage schema is the agent run engine's own.
  */
 export const AgentWorkflowSchema = z.array(WorkflowStageSchema).min(1).max(MAX_WORKFLOW_STAGES);
 export type AgentWorkflow = z.infer<typeof AgentWorkflowSchema>;

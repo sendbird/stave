@@ -1,6 +1,6 @@
 /**
  * Assignments in the host service: the record of which agent a task runs as.
- * Kickoff, missions and the agentic composer create the task and its first
+ * Kickoff, agent runs and the agentic composer create the task and its first
  * turn the ordinary way and record the agent here before that turn; every
  * turn of the task then resolves the agent from this record.
  *
@@ -179,7 +179,7 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
         workspaceId: args.workspaceId,
         taskId: args.taskId,
         turnId: null,
-        // The starter (the mission) owns the turns; this row only says who the task runs as.
+        // The starter (the agent run) owns the turns; this row only says who the task runs as.
         state: "started",
         detail: null,
         standards: args.standards ?? null,

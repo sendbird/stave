@@ -85,8 +85,8 @@ import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/sup
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
-import { createHostMissionRuntime } from "./host-service/supervision/mission-host";
-import { invokeMissionRuntime } from "./host-service/supervision/mission-runtime";
+import { createHostAgentRunRuntime } from "./host-service/supervision/agent-run-host";
+import { invokeAgentRunRuntime } from "./host-service/supervision/agent-run-runtime";
 import {
   createHostAssignRuntime,
   invokeAgentAction,
@@ -581,11 +581,11 @@ const automationRuntime = createAutomationRuntime({
     emitEvent("automation.unattended-authorizations-changed", payload);
   },
 });
-const missionRuntime = createHostMissionRuntime({
+const agentRunRuntime = createHostAgentRunRuntime({
   // Read on each tick, after `assignRuntime` below exists.
   taskAgent: (taskId) => assignRuntime.agentForTask(taskId),
   emitChanged: (event) => {
-    emitEvent("mission.changed", event);
+    emitEvent("agent-run.changed", event);
   },
 });
 const assignRuntime = createHostAssignRuntime({
@@ -593,8 +593,8 @@ const assignRuntime = createHostAssignRuntime({
   // An agent run ends with the agent it ran as (released or replaced), now,
   // not at the next tick, so the user's next turn never lands inside it.
   onTaskAgentEnded: (taskId) => {
-    void missionRuntime.endAgentRunForTask({ taskId }).catch((error) => {
-      console.warn("[missions] could not end the agent run of a released task", error);
+    void agentRunRuntime.endAgentRunForTask({ taskId }).catch((error) => {
+      console.warn("[agent-runs] could not end the agent run of a released task", error);
     });
   },
 });
@@ -613,9 +613,9 @@ const wakeUpRuntime = createWakeUpRuntime({
   // "exactly one follow-up turn or one terminal notification" quietly becomes
   // neither.
   notifyWakeUpFailed: localMcpRuntime.notifyWakeUpFailed,
-  // A mission owns its lead task's automatic turns while it runs.
-  getActiveMissionForTask: (taskId) =>
-    missionRuntime.getActiveMissionForTask(taskId),
+  // An agent run owns its lead task's automatic turns while it runs.
+  getActiveAgentRunForTask: (taskId) =>
+    agentRunRuntime.getActiveAgentRunForTask(taskId),
   emitChanged: (event) => {
     emitEvent("wake-up.changed", event);
   },
@@ -630,7 +630,7 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
   }
   emitEvent("local-mcp.task-turn-updated", event.payload);
   if (event.payload.done) {
-    missionRuntime.notifyTaskTurnFinished({ taskId: event.payload.taskId });
+    agentRunRuntime.notifyTaskTurnFinished({ taskId: event.payload.taskId });
   }
 });
 
@@ -1036,9 +1036,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
               },
             );
           }
-          // A reply during a mission is guidance for the current stage; the
-          // mission picks it up now instead of at its next interval.
-          missionRuntime.notifyTaskTurnFinished({ taskId: args.taskId });
+          // A reply during an agent run is guidance for the current stage; the
+          // agent run picks it up now instead of at its next interval.
+          agentRunRuntime.notifyTaskTurnFinished({ taskId: args.taskId });
         }
       },
     },
@@ -1395,7 +1395,7 @@ async function shutdown() {
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
   wakeUpRuntime.stop();
-  missionRuntime.stop();
+  agentRunRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
     cleanupAllScriptProcesses(),
@@ -2101,11 +2101,11 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
-    case "mission.invoke":
+    case "agent-run.invoke":
       await respond(
         request.id,
-        await invokeMissionRuntime(
-          missionRuntime,
+        await invokeAgentRunRuntime(
+          agentRunRuntime,
           request.params.action,
           request.params.args,
         ),
@@ -2141,7 +2141,7 @@ async function main() {
   // end temporary-migration: project-memory-export
   automationRuntime.start();
   wakeUpRuntime.start();
-  missionRuntime.start();
+  agentRunRuntime.start();
   assignRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
