@@ -54,7 +54,7 @@ export const MISSION_LIMITS = Object.freeze({
     missing: 600,
     suggestedAction: 300,
   },
-  facts: { commands: 100, toolCalls: 200, checks: 50 },
+  facts: { commands: 100, toolCalls: 200, checks: 50, planItems: 50, planItemText: 300 },
 });
 
 const IdSchema = z.string().trim().min(1).max(MISSION_LIMITS.maxIdChars);
@@ -326,6 +326,26 @@ export const ActionResultSchema = z.discriminatedUnion("type", [
 ]);
 export type ActionResult = z.infer<typeof ActionResultSchema>;
 
+export const STAGE_PLAN_STATUSES = ["pending", "in_progress", "completed"] as const;
+export type StagePlanStatus = (typeof STAGE_PLAN_STATUSES)[number];
+
+export const StagePlanSchema = z
+  .object({
+    items: z
+      .array(
+        z
+          .object({
+            content: z.string().min(1).max(MISSION_LIMITS.facts.planItemText),
+            status: z.enum(STAGE_PLAN_STATUSES),
+          })
+          .strict(),
+      )
+      .max(MISSION_LIMITS.facts.planItems),
+    turnId: IdSchema,
+  })
+  .strict();
+export type StagePlan = z.infer<typeof StagePlanSchema>;
+
 /** What Stave itself observed during a stage, as opposed to what was reported. */
 export const StageFactsSchema = z
   .object({
@@ -367,6 +387,12 @@ export const StageFactsSchema = z
     action: ActionResultSchema.nullable(),
     currentTurnId: IdSchema.optional(),
     workspaceRevision: WorkspaceRevisionSchema.optional(),
+    /**
+     * The agent's own plan as its latest to-do list in the stage's turns
+     * (Claude TodoWrite, Codex update_plan). It shows a one-stage run's steps
+     * between turns and in its report.
+     */
+    plan: StagePlanSchema.optional(),
   })
   .strict();
 export type StageFacts = z.infer<typeof StageFactsSchema>;

@@ -624,7 +624,9 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         turnIds,
         currentTurnId: last.turnId,
       });
-      facts = { ...facts, currentTurnId: last.turnId };
+      // A plan older than the messages read keeps standing until a newer one.
+      const previousPlan = record.facts?.plan;
+      facts = { ...facts, currentTurnId: last.turnId, ...(!facts.plan && previousPlan ? { plan: previousPlan } : {}) };
     } catch (error) {
       console.warn("[missions] failed to collect stage facts", error, { missionId: mission.id });
       return aggregate;
@@ -885,8 +887,9 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       step += 1
     ) {
       const { observation, turns } = await observe(aggregate);
-      if (endAgentRunIfLeft(aggregate, observation)) return;
+      // Facts first, so a run that ends here keeps its last turn's plan and evidence.
       aggregate = await refreshFacts(aggregate, observation, turns);
+      if (endAgentRunIfLeft(aggregate, observation)) return;
       const decision = decideMissionAction({ aggregate, observation, now: now() });
       switch (decision.action) {
         case "idle":

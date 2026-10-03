@@ -15,6 +15,7 @@ import {
   TurnActivitySurface,
   useTurnActivityModel,
 } from "@/components/session/TurnActivity";
+import { agentRunStoredPlan } from "@/lib/missions/agent-run-view";
 import { latestStageRecord } from "@/lib/missions/domain";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
@@ -124,7 +125,12 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   );
   const onStop = useCallback(() => abortTaskTurn({ taskId }), [abortTaskTurn, taskId]);
   const turnTodos = turnProps?.todos ?? NO_TODOS;
-  const todo = useMemo<ShelfTodoProgress | null>(() => summarizeShelfTodos(turnTodos), [turnTodos]);
+  // Between turns a one-stage run keeps showing its plan from the stage record.
+  const storedPlanItems = useMemo(() => agentRunStoredPlan(mission)?.items ?? NO_TODOS, [mission]);
+  const todo = useMemo<ShelfTodoProgress | null>(
+    () => summarizeShelfTodos(turnTodos.length > 0 ? turnTodos : storedPlanItems),
+    [turnTodos, storedPlanItems],
+  );
   // A stage waiting for sign-off already asks in its card above the shelf.
   const currentStage = mission?.mission.playbook.stages[mission.mission.currentStageIndex];
   const signOffShown =

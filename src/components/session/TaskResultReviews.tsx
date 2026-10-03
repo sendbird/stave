@@ -22,6 +22,7 @@ import { RunTurnDialog } from "./RunTurnDialog";
 import { MissionReportView } from "@/components/missions/MissionReportView";
 import { useMissionReportActions } from "@/components/missions/useMissionReportActions";
 import { useTaskMission } from "@/store/missions-store";
+import { isAgentRun } from "@/lib/missions/agent-run";
 import {
   formatActualRunModel,
   ModelResolutionSummary,
@@ -258,7 +259,9 @@ export function RunHistoryRow(props: {
 function TaskMissionReport(props: { workspaceId: string; taskId: string }) {
   const detail = useTaskMission(props.workspaceId, props.taskId);
   const actions = useMissionReportActions(detail);
-  return detail?.report ? <MissionReportView report={detail.report} actions={actions} /> : null;
+  return detail?.report ? (
+    <MissionReportView report={detail.report} actions={actions} agentRun={isAgentRun(detail.mission)} />
+  ) : null;
 }
 
 export function TaskResultReviews(props: {

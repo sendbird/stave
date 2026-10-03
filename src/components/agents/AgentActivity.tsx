@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
 import { ASSIGNMENT_STATE_LABELS, type AgentAssignment } from "@/lib/agents/assign";
@@ -14,6 +15,10 @@ import { formatRelativeTime } from "@/components/layout/automation-center/automa
 import { classifyTaskStatus, type FleetTaskStatus } from "@/lib/fleet/task-status";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
+import { useFleetMissionsStore } from "@/store/fleet-missions-store";
+import type { MissionDetail } from "@/lib/missions/api";
+import { isAgentRun } from "@/lib/missions/agent-run";
+import { describeAgentRunProgress, describeAgentRunStatus } from "@/lib/missions/agent-run-view";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { agentStyles } from "./agents.styles";
 
@@ -46,6 +51,35 @@ function useStatusByTaskId(taskIds: readonly string[]): Record<string, FleetTask
     ),
   );
   return useMemo(() => JSON.parse(serialized) as Record<string, FleetTaskStatus>, [serialized]);
+}
+
+/**
+ * The newest agent run of each task Fleet knows (active, or ended in the last
+ * half hour), keyed by task id. Selects the stable `details` map and derives
+ * the index in a memo, never a new object in the selector.
+ */
+function useRunByTaskId(): Record<string, MissionDetail> {
+  const details = useFleetMissionsStore((state) => state.details);
+  return useMemo(() => {
+    const byTask: Record<string, MissionDetail> = {};
+    for (const detail of Object.values(details)) {
+      if (!isAgentRun(detail.mission)) continue;
+      const current = byTask[detail.mission.leadTaskId];
+      if (!current || current.mission.createdAt < detail.mission.createdAt) byTask[detail.mission.leadTaskId] = detail;
+    }
+    return byTask;
+  }, [details]);
+}
+
+function openAssignmentTask(row: AgentAssignment) {
+  if (!row.taskId) return;
+  const state = useAppStore.getState();
+  state.closeAgents();
+  void state.focusTaskAttention({
+    repositoryPath: row.repositoryPath,
+    ...(row.workspaceId ? { workspaceId: row.workspaceId } : {}),
+    taskId: row.taskId,
+  });
 }
 
 function plural(count: number, one: string, many = `${one}s`): string {
@@ -96,6 +130,7 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
     [props.assignments],
   );
   const statusByTaskId = useStatusByTaskId(taskIds);
+  const runByTaskId = useRunByTaskId();
   const summary = useMemo(
     () => summarizeAgentActivity({ assignments: props.assignments, statusByTaskId }),
     [props.assignments, statusByTaskId],
@@ -127,13 +162,36 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
           <ul className={sx(agentStyles.runs)}>
             {filtered.map((row) => {
               const live = row.taskId ? statusByTaskId[row.taskId] : undefined;
+              // The run this agent is doing on the task, when Fleet has it.
+              const run = row.taskId ? runByTaskId[row.taskId] : undefined;
+              const ownRun = run && run.mission.playbook.name === row.agentName ? run : undefined;
+              const progress = ownRun ? describeAgentRunProgress(ownRun) : null;
+              const stateLabel = ownRun
+                ? describeAgentRunStatus(ownRun).label
+                : live
+                  ? FLEET_STATUS_LABELS[live]
+                  : ASSIGNMENT_STATE_LABELS[row.state];
               return (
                 <li key={row.id} className={sx(agentStyles.run)}>
-                  <span className={sx(agentStyles.runTitle)} title={row.assignment}>
-                    {row.assignment.split("\n")[0]}
-                  </span>
+                  {row.taskId ? (
+                    <Button
+                      layout="host"
+                      variant="quiet"
+                      press="none"
+                      xstyle={[agentStyles.runTitle, agentStyles.runLink]}
+                      title={`${row.assignment}\nOpen the task`}
+                      onClick={() => openAssignmentTask(row)}
+                    >
+                      {row.assignment.split("\n")[0]}
+                    </Button>
+                  ) : (
+                    <span className={sx(agentStyles.runTitle)} title={row.assignment}>
+                      {row.assignment.split("\n")[0]}
+                    </span>
+                  )}
                   <span className={sx(agentStyles.runState)}>
-                    {live ? FLEET_STATUS_LABELS[live] : ASSIGNMENT_STATE_LABELS[row.state]}
+                    {progress ? `${progress} · ` : ""}
+                    {stateLabel}
                   </span>
                 </li>
               );

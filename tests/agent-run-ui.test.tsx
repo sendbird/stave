@@ -189,6 +189,44 @@ describe("agent run in the Progress tab", () => {
     }
   });
 
+  test("a one-stage run lists the agent's plan as its steps", () => {
+    const plan = {
+      turnId: "turn-2",
+      items: [
+        { content: "Reproduce on a narrow screen", status: "completed" as const },
+        { content: "Fix the table", status: "in_progress" as const },
+      ],
+    };
+    const detail: MissionDetail = {
+      ...runs.working,
+      stages: runs.working.stages.map((record) => ({ ...record, facts: { diff: null, commands: [], toolCalls: [], action: null, plan } })),
+    };
+    const html = panel(detail);
+    expect(html).toContain('aria-label="Plan"');
+    expect(html).toContain("1 of 2 done");
+    expect(html).toContain("Reproduce on a narrow screen");
+    expect(html).toContain("Fix the table");
+    // No plan written yet: no empty section.
+    expect(panel(runs.working)).not.toContain('aria-label="Plan"');
+  });
+
+  test("a run with a workflow names it and lets you retry or skip a stuck stage", () => {
+    const titles = runs.workflow.mission.playbook.stages.map((stage) => stage.title).join(" → ");
+    const running = panel(runs.workflow);
+    expect(running).toContain(`Workflow: ${titles}`);
+    expect(running).toContain("Stages");
+    expect(running).not.toContain("Retry stage");
+    const stuck: MissionDetail = {
+      ...runs.workflow,
+      stages: runs.workflow.stages.map((record) =>
+        record.stageId === "cause" ? { ...record, status: "stuck", detail: "No progress for 20 minutes." } : record,
+      ),
+    };
+    const html = panel(stuck);
+    expect(html).toContain("Retry stage");
+    expect(html).toContain("Skip");
+  });
+
   test("a playbook mission keeps its stage list", () => {
     const html = renderToStaticMarkup(
       createElement(MissionDetailView, { detail: missionDetail(missionFixture()), now: MISSION_NOW.getTime() + 60_000, onCommand: noop }),

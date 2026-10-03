@@ -10,6 +10,7 @@ import {
   latestStageRecord,
   type MissionAggregate,
   type MissionEvent,
+  type StagePlan,
   type StageStatus,
 } from "./domain";
 import {
@@ -31,6 +32,8 @@ export interface MissionReportStage {
   evidence: ClassifiedEvidence[];
   /** The sentence behind a blocked, stuck, skipped or cancelled stage. */
   detail: string | null;
+  /** The agent's own to-do list as its last turn in the stage left it. */
+  plan: StagePlan["items"] | null;
 }
 
 export interface MissionReportLink {
@@ -162,6 +165,7 @@ export function buildMissionReport(args: {
       decisions: report?.decisions ?? [],
       evidence,
       detail: record?.detail ?? null,
+      plan: record?.facts?.plan?.items ?? null,
     };
   });
 

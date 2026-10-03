@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
-import { Bot, FolderKanban, LayoutGrid } from "lucide-react";
+import { Bot, ChartNoAxesColumn, FolderKanban, LayoutGrid } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { transition } from "@/components/ads/recipes/transition";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -54,13 +54,14 @@ function useAgentsWithWork() {
 /**
  * The sidebar's top navigation: Fleet View, Projects and the open projects
  * under it (only for a user who has a project: projects are deprecated), and
- * Agents with the agents at work, each with what waits for you.
+ * Agents with the agents at work, each with what waits for you, then Results.
  */
 export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openProjects = useAppStore((state) => state.openProjects);
   const openAgents = useAppStore((state) => state.openAgents);
+  const openResults = useAppStore((state) => state.openResults);
   const selectAgent = useAgentsViewStore((state) => state.selectAgent);
   const selectedAgentId = useAgentsViewStore((state) => state.selectedAgentId);
   const projects = useProjectsStore((state) => state.projects);
@@ -176,16 +177,31 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           {agent.count > 0 ? <span className={sx(styles.count)}>{agent.count}</span> : null}
         </AdsButton>
       ))}
+      <AdsButton
+        layout="host"
+        type="button"
+        onClick={() => openResults()}
+        aria-label="Results"
+        xstyle={[
+          repositorySidebarStyles.navButton,
+          transition.colors,
+          surface === "results" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+        ]}
+      >
+        <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
+        <span className={sx(styles.label)}>Results</span>
+      </AdsButton>
     </>
   );
 }
 
-/** The collapsed sidebar's rail: Fleet View, Projects (when the user has one) and Agents, with a dot when something needs you. */
+/** The collapsed sidebar's rail: Fleet View, Projects (when the user has one), Agents and Results, with a dot when something needs you. */
 export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openProjects = useAppStore((state) => state.openProjects);
   const openAgents = useAppStore((state) => state.openAgents);
+  const openResults = useAppStore((state) => state.openResults);
   const projects = useProjectsStore((state) => state.projects);
   const details = useProjectsStore((state) => state.details);
   const agentsWithWork = useAgentsWithWork();
@@ -249,6 +265,16 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
         <TooltipContent side="right">
           {agentsWithWork.total > 0 ? `Agents · ${agentsWithWork.total} at work` : "Agents"}
         </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button variant="ghost" size="sm" xstyle={railButton(surface === "results")} onClick={() => openResults()} aria-label="Results" />
+          }
+        >
+          <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
+        </TooltipTrigger>
+        <TooltipContent side="right">Results</TooltipContent>
       </Tooltip>
     </>
   );

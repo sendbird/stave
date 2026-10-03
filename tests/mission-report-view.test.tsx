@@ -28,6 +28,7 @@ const REPORT: MissionReport = {
         { label: "Typecheck", kind: "check", command: "bun run typecheck", source: "stave" },
       ],
       detail: null,
+      plan: null,
     },
   ],
   acceptanceCriteria: [
@@ -127,4 +128,32 @@ test("the report footer says how much the mission needed you", async () => {
   const html = renderToStaticMarkup(createElement(MissionReportView, { report: { ...REPORT, metrics } }));
   expect(html).toContain("2 sign-offs waited 8m on average");
   expect(formatMissionReportMarkdown({ ...REPORT, metrics })).toContain("_1 reply from you");
+});
+
+test("a one-stage run's report shows the agent's plan, and the Markdown copy checks it off", () => {
+  const report: MissionReport = {
+    ...REPORT,
+    stages: [{
+      ...REPORT.stages[0]!,
+      plan: [
+        { content: "Reproduce", status: "completed" },
+        { content: "Add the export", status: "pending" },
+      ],
+    }],
+  };
+  const html = renderToStaticMarkup(createElement(MissionReportView, { report, agentRun: true }));
+  expect(html).toContain("Plan · 1 of 2 done");
+  expect(html).toContain("Add the export");
+  const markdown = formatMissionReportMarkdown(report);
+  expect(markdown).toContain("  - [x] Reproduce");
+  expect(markdown).toContain("  - [ ] Add the export");
+});
+
+test("a run with a workflow counts its stages; a one-stage run does not", () => {
+  const twoStages: MissionReport = {
+    ...REPORT,
+    stages: [REPORT.stages[0]!, { ...REPORT.stages[0]!, stageId: "ship", title: "Ship", status: "pending" }],
+  };
+  expect(renderToStaticMarkup(createElement(MissionReportView, { report: twoStages, agentRun: true }))).toContain("1/2");
+  expect(renderToStaticMarkup(createElement(MissionReportView, { report: REPORT, agentRun: true }))).not.toContain(">Stages<");
 });

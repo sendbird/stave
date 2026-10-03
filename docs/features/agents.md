@@ -103,7 +103,10 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
 - **Activity**, under the header: how many assignments the agent has, how
   many of its tasks are running or need you, how many couldn't start, when it
   was last used, and **Work** — its assignments with their state (**Preparing**,
-  **Started**, **Couldn't start** or **Interrupted**) and a filter.
+  **Started**, **Couldn't start** or **Interrupted**) and a filter. While the
+  agent runs a task (or for half an hour after the run ends) the row shows the
+  run's state and where it stands (`Cause 2/3`, or `Plan 3/5` for a one-stage
+  run); click a row to open its task.
 - **Settings** and **History** tabs. History is covered below.
 
 ### Editing an agent

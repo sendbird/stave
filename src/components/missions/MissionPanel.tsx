@@ -92,6 +92,8 @@ export function MissionDetailView(props: MissionDetailViewProps) {
       reportActions={props.reportActions}
       actions={props.agentActions}
       failure={props.failure}
+      onCommand={props.onCommand}
+      onShowTool={props.onShowTool}
     />
   ) : (
     <PlaybookDetailView {...props} />

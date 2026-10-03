@@ -6,7 +6,7 @@
  * Pure. The host reads the messages and the diff
  * (`electron/host-service/supervision/stage-facts.ts`).
  */
-import { MISSION_LIMITS, type StageFacts } from "./domain";
+import { MISSION_LIMITS, STAGE_PLAN_STATUSES, type StageFacts, type StagePlan, type StagePlanStatus } from "./domain";
 
 /** The part of a persisted message this reads; everything else is ignored. */
 export interface FactSourceMessage {
@@ -63,6 +63,54 @@ function readCommand(part: ToolPart): string | null {
   return input;
 }
 
+const PLAN_TOOL_NAME = "todowrite";
+
+function readPlanItems(input: unknown): StagePlan["items"] | null {
+  if (typeof input !== "string" || !input.trim()) return null;
+  try {
+    const parsed = JSON.parse(input) as { todos?: unknown };
+    if (!Array.isArray(parsed.todos)) return null;
+    const items: StagePlan["items"] = [];
+    for (const raw of parsed.todos) {
+      if (!raw || typeof raw !== "object") continue;
+      const item = raw as { content?: unknown; status?: unknown };
+      const content = typeof item.content === "string" ? item.content.trim() : "";
+      if (!content) continue;
+      const status = (STAGE_PLAN_STATUSES as readonly string[]).includes(item.status as string)
+        ? (item.status as StagePlanStatus)
+        : "pending";
+      items.push({ content: content.slice(0, MISSION_LIMITS.facts.planItemText), status });
+    }
+    return items.slice(0, MISSION_LIMITS.facts.planItems);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The agent's latest to-do list in the given turns. A subagent's list
+ * (`ownerAgentId`) is not the run's plan. Any state counts: a list is a
+ * statement of intent the moment it is written.
+ */
+export function extractLatestPlan(args: {
+  messages: readonly FactSourceMessage[];
+  turnIds: ReadonlySet<string>;
+}): StagePlan | null {
+  let latest: StagePlan | null = null;
+  for (const message of args.messages) {
+    if (!message.turnId || !args.turnIds.has(message.turnId)) continue;
+    for (const raw of message.parts ?? []) {
+      if (!raw || typeof raw !== "object") continue;
+      const part = raw as Record<string, unknown>;
+      if (part.type !== "tool_use" || typeof part.toolName !== "string") continue;
+      if (part.toolName.toLowerCase() !== PLAN_TOOL_NAME || part.ownerAgentId) continue;
+      const items = readPlanItems(part.input);
+      if (items && items.length > 0) latest = { items, turnId: message.turnId.slice(0, MISSION_LIMITS.maxIdChars) };
+    }
+  }
+  return latest;
+}
+
 /**
  * Tool transport success is separate from process success. Only an explicit
  * structured exit code establishes process status; missing status is unknown.
@@ -98,12 +146,14 @@ export function extractStageFacts(args: {
       }
     }
   }
+  const plan = extractLatestPlan(args);
   return {
     diff: args.diff,
     commands: commands.slice(-MISSION_LIMITS.facts.commands),
     toolCalls: toolCalls.slice(-MISSION_LIMITS.facts.toolCalls),
     action: null,
     ...(args.currentTurnId ? { currentTurnId: args.currentTurnId } : {}),
+    ...(plan ? { plan } : {}),
   };
 }
 

@@ -21,6 +21,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import type { MissionReport } from "@/lib/missions/report";
 import { describeMissionMetrics, formatMissionReportMarkdown } from "@/lib/missions/report-markdown";
 import { formatAge } from "@/lib/missions/mission-view";
+import { AgentRunPlan, describePlanProgress } from "./AgentRunPlan";
 import { EvidenceList } from "./EvidenceList";
 import type { MissionReportActions } from "./useMissionReportActions";
 import { missionStyles as styles } from "./missions.styles";
@@ -53,7 +54,7 @@ export function MissionReportView({
    * the reason and the open criteria; `standalone` in Task Results.
    */
   context?: "panel" | "standalone";
-  /** An agent run: its copy says "run", and its one implicit stage is not a figure. */
+  /** An agent run: its copy says "run", and a one-stage run's stage is not a figure. */
   agentRun?: boolean;
 }) {
   const standalone = context === "standalone";
@@ -82,6 +83,9 @@ export function MissionReportView({
   );
   const verifiedCount = evidence.filter(isVerifiedEvidence).length;
   const decisions = report.stages.flatMap((stage) => stage.decisions);
+  // A one-stage run's steps are its plan; a workflow's are its stages.
+  const planItems = report.stages.length === 1 ? report.stages[0]!.plan : null;
+  const plan = planItems && planItems.length > 0 ? planItems : null;
   const open = report.acceptanceCriteria.filter((criterion) => criterion.status !== "met");
   const completedStages = report.stages.filter((stage) => stage.status === "completed").length;
   const duration = formatAge(Date.parse(report.endedAt) - Date.parse(report.startedAt));
@@ -89,7 +93,7 @@ export function MissionReportView({
   // In the Mission panel the Run card already shows turns and spend.
   const figures: Array<readonly [string, string]> = [
     ["Duration", duration],
-    ...(agentRun ? [] : ([["Stages", `${completedStages}/${report.stages.length}`]] as const)),
+    ...(agentRun && report.stages.length <= 1 ? [] : ([["Stages", `${completedStages}/${report.stages.length}`]] as const)),
     ...(standalone ? ([["Turns", String(report.turnCount)]] as const) : []),
     ["Verified", String(verifiedCount)],
     ...(standalone && spent ? ([["Spent", spent]] as const) : []),
@@ -149,6 +153,12 @@ export function MissionReportView({
               <ArrowUpRight aria-hidden className={sx(styles.iconSm)} />
             </a>
           ))}
+        </div>
+      ) : null}
+      {plan ? (
+        <div className={sx(styles.stageGroup)}>
+          <p className={sx(styles.groupLabel)}>Plan · {describePlanProgress(plan)}</p>
+          <AgentRunPlan items={plan} />
         </div>
       ) : null}
       {decisions.length > 0 ? (

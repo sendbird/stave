@@ -39,8 +39,12 @@ into agents finish as they are, and their surfaces keep working.
 2. Type the outcome, for example
    `Fix the billing table overflow on narrow screens.`, and send.
 3. The run starts at once. With more than one stage, the status line above the
-   composer shows the stage track and the Task panel's **Progress** lists each
-   stage and its report.
+   composer shows the stage track and the Task panel's **Progress** names the
+   workflow (`Workflow: Reproduce → Cause → Fix`) and lists each stage and its
+   report. A one-stage run shows the agent's own plan instead: its latest to-do
+   list (Claude's to-do tool, Codex's plan updates) as **Plan 3/5** on the
+   status line, between turns too, and as a checklist under **Plan** in
+   **Progress** and in the report.
 
 ## Interface Walkthrough
 
@@ -161,7 +165,8 @@ process or revision provenance remain unverified.
 ### Transcript
 
 A quiet divider marks every turn a mission started, with the reason, such as
-**Stage 3 · Verify** — started automatically after Build reported done.
+**Stage 3 · Verify** — started automatically after Build reported done. An
+agent run with a workflow gets the same dividers; a one-stage run has none.
 
 ### Mission report
 
@@ -180,8 +185,8 @@ needed you. **Copy Markdown** and **Add to PR description** act on it, and
 
 ### Results
 
-**Results** (the Fleet header link, or **Open Results** in the command
-palette) shows how agent runs and playbook missions that ended in the last 7,
+**Results** (in the sidebar under Agents, the Fleet header link, or **Open
+Results** in the command palette) shows how agent runs and playbook missions that ended in the last 7,
 30 or 90 days came out:
 
 - **Outcomes**: ready, rework (the result needed requested changes), failed
@@ -199,7 +204,8 @@ palette) shows how agent runs and playbook missions that ended in the last 7,
 
 - A sign-off, a blocker or a stuck stage appears in Fleet's attention list with
   approvals and questions. A sign-off can be given from the row.
-- Fleet cards show the mission's stage track and what it has spent, and the
+- Fleet cards show the mission's stage track (a one-stage run: **Plan 3/5**)
+  and what it has spent, and the
   work queue puts the workspace in **Action required** or **In progress**.
 - Stave notifies once when a mission asks for a sign-off, is blocked, is stuck
   or completes. **Settings → General → Mission Sign-off Reminders** sets when

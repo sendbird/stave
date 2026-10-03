@@ -11,6 +11,7 @@ import {
   AGENT_RUN_STATE_LABELS,
   AGENT_RUN_STATE_TONES,
   agentRunDuration,
+  describeAgentRunProgress,
   agentRunFleetState,
   describeAgentRunStatus,
 } from "@/lib/missions/agent-run-view";
@@ -101,6 +102,7 @@ function FleetAgentRunStrip(props: {
   const now = useNow(isActiveMissionState(detail.mission.state));
   const elapsed = agentRunDuration(detail, now);
   const staged = rows.length > 1;
+  const progress = staged ? null : describeAgentRunProgress(detail);
   return (
     <Button
       layout="host"
@@ -120,6 +122,7 @@ function FleetAgentRunStrip(props: {
           </span>
         </span>
         <span className={sx(styles.position)}>
+          {progress ? `${progress} · ` : ""}
           {elapsed}
           {spent ? ` · ${spent}` : ""}
         </span>

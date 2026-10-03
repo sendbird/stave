@@ -17,14 +17,14 @@ export function splitDividerText(text: string): { stage: string; reason: string 
  * A quiet transcript divider before a turn a mission started, such as
  * "Stage 3 · Verify — started automatically after Build reported done".
  * Built from mission events, never from message text; renders nothing for
- * any other turn, or for a turn of an agent run.
+ * any other turn, or for a turn of a one-stage agent run.
  */
 export const StageDivider = memo(function StageDivider(props: { taskId: string; turnId: string | undefined }) {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const text = useMissionTurnDivider(workspaceId, props.taskId, props.turnId);
-  // An agent run has one implicit stage; its turns need no stage divider.
+  // A one-stage run has nothing to divide; a run with a workflow shows its stages.
   const agentRun = useAgentRunForTurn(workspaceId, props.taskId, props.turnId);
-  if (!text || agentRun) return null;
+  if (!text || (agentRun && agentRun.playbook.stages.length <= 1)) return null;
   return <StageDividerView text={text} />;
 });
 

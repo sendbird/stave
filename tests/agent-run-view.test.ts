@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { buildAgentRunFixtures, AGENT_RUN_ASSIGNMENT } from "../src/dev/mission-preview/agent-run-fixtures";
 import {
   agentRunFleetState,
+  agentRunStoredPlan,
+  describeAgentRunProgress,
   describeAgentRunResult,
   describeAgentRunStatus,
   describeDoneWhen,
@@ -196,5 +198,37 @@ describe("turns an agent run started", () => {
     expect(selectAgentRunForTurn(state("playbook"), "preview-workspace", "preview-task", "turn-1")).toBeNull();
     expect(selectAgentRunForTurn(state("agent"), "preview-workspace", "preview-task", "turn-9")).toBeNull();
     expect(selectAgentRunForTurn(state("agent"), "preview-workspace", "preview-task", undefined)).toBeNull();
+  });
+});
+
+describe("agent run plan and progress", () => {
+  const plan = {
+    turnId: "turn-3",
+    items: [
+      { content: "Reproduce on a narrow screen", status: "completed" as const },
+      { content: "Fix the table", status: "in_progress" as const },
+      { content: "Run the checks", status: "pending" as const },
+    ],
+  };
+  const withPlan = {
+    ...runs.working,
+    stages: runs.working.stages.map((record) => ({
+      ...record,
+      facts: { diff: null, commands: [], toolCalls: [], action: null, plan },
+    })),
+  };
+
+  test("a one-stage run shows its stored plan as its steps", () => {
+    expect(agentRunStoredPlan(withPlan)).toEqual(plan);
+    expect(describeAgentRunProgress(withPlan)).toBe("Plan 1/3");
+    // No plan yet: nothing to show.
+    expect(agentRunStoredPlan(runs.working)).toBeNull();
+    expect(describeAgentRunProgress(runs.working)).toBeNull();
+  });
+
+  test("a run with a workflow shows its stage, not a plan", () => {
+    expect(agentRunStoredPlan(runs.workflow)).toBeNull();
+    const stages = runs.workflow.mission.playbook.stages;
+    expect(describeAgentRunProgress(runs.workflow)).toBe(`${stages[1]!.title} 2/${stages.length}`);
   });
 });

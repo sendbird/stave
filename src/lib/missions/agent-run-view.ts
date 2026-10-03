@@ -13,7 +13,7 @@ import type { AgentRunPromptProvenance, ChatMessage } from "@/types/chat";
 import { extractRunAssignment, isAgentRun } from "./agent-run";
 import type { MissionDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
-import { isActiveMissionState, latestStageRecord, type MissionStopReason } from "./domain";
+import { isActiveMissionState, latestStageRecord, type MissionStopReason, type StagePlan } from "./domain";
 import { classifyStageEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
 import { formatAge, type MissionBadgeTone, type StageTone } from "./mission-view";
 import { describeUsageShort } from "./usage";
@@ -346,4 +346,31 @@ export function resolveAgentRunFirstPrompt(args: {
   // A linked turn has written its row; the transcript has yet to load it.
   if (!args.detail || linked.size > 0) return "pending";
   return isActiveMissionState(args.detail.mission.state) ? "pending" : "ended";
+}
+
+/**
+ * The plan a one-stage run shows as its steps: the agent's latest to-do list,
+ * stored on the stage record when a turn ends. Null for a run with a workflow
+ * (its stages are the steps) or before the agent wrote a list.
+ */
+export function agentRunStoredPlan(detail: MissionDetail | null | undefined): StagePlan | null {
+  const stages = detail?.mission.playbook.stages;
+  if (!detail || !stages || stages.length !== 1) return null;
+  return latestStageRecord(detail.stages, stages[0]!.id)?.facts?.plan ?? null;
+}
+
+/**
+ * Where a run stands, in a few words: its current stage of a workflow
+ * ("Reproduce 2/3"), else its plan ("Plan 3/5"), else nothing.
+ */
+export function describeAgentRunProgress(detail: MissionDetail): string | null {
+  const { stages } = detail.mission.playbook;
+  if (stages.length > 1) {
+    const index = Math.min(detail.mission.currentStageIndex, stages.length - 1);
+    return `${stages[index]!.title} ${index + 1}/${stages.length}`;
+  }
+  const plan = agentRunStoredPlan(detail);
+  if (!plan) return null;
+  const done = plan.items.filter((item) => item.status === "completed").length;
+  return `Plan ${done}/${plan.items.length}`;
 }

@@ -51,6 +51,9 @@ export function formatMissionReportMarkdown(report: MissionReport): string {
   for (const stage of report.stages) {
     const summary = stage.summary ?? stage.detail;
     lines.push(`- **${stage.title}** — ${stage.status.replaceAll("-", " ")}${summary ? `: ${summary}` : ""}`);
+    for (const item of stage.plan ?? []) {
+      lines.push(`  - [${item.status === "completed" ? "x" : " "}] ${item.content}`);
+    }
     for (const decision of stage.decisions) {
       lines.push(`  - Decision: ${decision.decision} — ${decision.reason}`);
     }
