@@ -1,3 +1,15 @@
+## [0.24.1](https://github.com/sendbird/stave/compare/v0.24.0...v0.24.1) (2026-10-03)
+
+### Bug Fixes
+
+* Codex browser tools appear when a conversation moves from a regular turn to `@web` (and go away when it moves back). Stave releases the idle native thread and resumes the same conversation from disk, so its ID and history stay intact; a thread with an active turn is never reloaded this way.
+* A Codex browser turn requires both the Chrome and computer-use plugins to be installed and enabled by you, and sets both turn overrides explicitly, so a previous non-browser turn can no longer leave the browser transport disabled.
+* The task activity loader and its finished-turn marks sit centered in their slot above the composer.
+
+### References
+
+* [#665](https://github.com/sendbird/stave/pull/665), [#666](https://github.com/sendbird/stave/pull/666)
+
 ## [0.24.0](https://github.com/sendbird/stave/compare/v0.23.0...v0.24.0) (2026-10-03)
 
 ### Features
