@@ -1,3 +1,29 @@
+## [0.24.0](https://github.com/sendbird/stave/compare/v0.23.0...v0.24.0) (2026-10-03)
+
+### Features
+
+* Stave guardrails run only in Agent mode: a task that runs as an agent, the helpers and agents it delegates on either provider, and tasks it starts through Local MCP. They are on by default there, and **Settings > Providers > Claude** turns each one off (writes outside the repository, credentials, irreversible remote actions). Chat turns in any permission mode, Bypass included, never run them, as before guardrails existed.
+* The write-outside guardrail treats the whole repository as inside: the main checkout, every git worktree (a new one counts at once), `../.worktrees/<repo>`, temp and cache folders, Claude's `projects` and `plans` folders, and a handoff plan in another Stave workspace. `sed -i` scripts are no longer read as paths.
+* Every bar around the composer shows the same compact 38px band and keeps the input's focus ring off its text. The line under the input reads repository / workspace, then the branch: a workspace name you gave shows between them, and the branch truncates first.
+* While an agent run or mission heads the composer shelf, its line still shows a stalled turn (with the Esc hint), a steer in flight, a provider retry and a failure.
+* The usage strip shows tokens instead of spend, with prices in its popover. The Agents list is resizable, and the Commit graph button matches the top bar.
+
+### Bug Fixes
+
+* Opening Schedules no longer fails with "persistence.listWakeUps is not a function".
+* Picking an agent such as Plan and verify records it correctly, an agent on Stave Auto can change its Auto profile, and Auto no longer shows an effort. Agents 0.23.0 saved fixed to Claude's default move to Stave Auto once, unless you edited them; pinning another model on a provider-only agent now reads "Pinned".
+* Codex turns record their whole usage rather than only the last request, so token and spend totals count every request. A Codex task set to a native model keeps working on an API connection that pins the same model.
+* Task panel tab marks, including the Activity spinner, sit inline beside their labels, and usage, account limit and headroom show with the other metrics.
+* Text typed while an agent run is starting survives a refused start, past turns opened from Results are read-only, spend refreshes when the window regains focus, and the sidebar search hint mentions repository names.
+
+### Removed Migrations
+
+* Upgrades from 0.21.x or earlier that skip 0.22.0 and 0.23.0 no longer convert: saved playbooks into custom agents, right-rail layouts naming the retired Activity, Results, Mission, Flow or Team panels, the `project_memories` repository-memory tables, and Crane team memory saved with an Advisor.
+
+### References
+
+* [#654](https://github.com/sendbird/stave/pull/654), [#655](https://github.com/sendbird/stave/pull/655), [#656](https://github.com/sendbird/stave/pull/656), [#657](https://github.com/sendbird/stave/pull/657), [#658](https://github.com/sendbird/stave/pull/658), [#659](https://github.com/sendbird/stave/pull/659), [#660](https://github.com/sendbird/stave/pull/660), [#661](https://github.com/sendbird/stave/pull/661), [#662](https://github.com/sendbird/stave/pull/662), [#663](https://github.com/sendbird/stave/pull/663)
+
 ## [0.23.0](https://github.com/sendbird/stave/compare/v0.22.2...v0.23.0) (2026-10-02)
 
 ### Features

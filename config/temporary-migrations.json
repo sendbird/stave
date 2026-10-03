@@ -3,56 +3,6 @@
   "policy": "Every entry is code that exists only to read or convert names Stave no longer uses, or to replay a rename on another branch. `bun run check:temporary-migrations` fails once package.json reaches removeInVersion; delete the marked blocks, the listed tests and the entry before that release. See AGENTS.md, Temporary Migrations.",
   "migrations": [
     {
-      "id": "right-rail-task-panel",
-      "description": "Maps a saved right-rail layout that names the retired Turn Activity, Task Results, Mission, Flow or Team panel ids to the Task panel and the tab that replaced each, so the panel a user left open survives the merge.",
-      "introducedAfter": "0.21.2",
-      "removeInVersion": "0.24.0",
-      "files": [
-        "src/store/layout.utils.ts"
-      ],
-      "tests": [
-        "tests/right-rail-panel-migration.test.ts"
-      ]
-    },
-    {
-      "id": "repository-memory-tables",
-      "description": "Renames the path-scoped project_memories and project_memory_settings tables to repository_memories and repository_memory_settings so the projects feature can create its own project_memories table.",
-      "introducedAfter": "0.21.0",
-      "removeInVersion": "0.24.0",
-      "files": [
-        "electron/persistence/repository-memory-store.ts"
-      ],
-      "tests": [
-        "tests/repository-memory-table-migration.test.ts"
-      ]
-    },
-    {
-      "id": "retired-advisor-crane-memory",
-      "description": "Drops the advisor key from Crane team runtime memory saved while the Advisor existed, so the strict mapping schema keeps the mapping.",
-      "introducedAfter": "0.21.2",
-      "removeInVersion": "0.24.0",
-      "files": [
-        "src/lib/crane-connector/types.ts"
-      ],
-      "tests": [
-        "tests/crane-advisor-memory-migration.test.ts"
-      ]
-    },
-    {
-      "id": "playbooks-to-agent-workflows",
-      "description": "Copies each playbook saved before playbooks folded into agents into a custom agent with the Implementer's instructions and the playbook's stages as its workflow, once per profile (marker setting playbookAgentsMigrated).",
-      "introducedAfter": "0.21.2",
-      "removeInVersion": "0.24.0",
-      "files": [
-        "src/lib/agents/playbook-agents-migration.ts",
-        "src/store/app-settings.ts",
-        "src/store/app-store-persistence.ts"
-      ],
-      "tests": [
-        "tests/playbook-agents-migration.test.ts"
-      ]
-    },
-    {
       "id": "playbook-agents-auto-route",
       "description": "Moves a custom agent that 0.23.0's playbook migration fixed to Claude with no model (a playbook that saved only a permission) to Stave Auto, once per profile (marker setting playbookAgentsAutoRouted). Only an agent whose content hash still equals what 0.23.0 wrote from its saved playbook, and that has no version history, is changed.",
       "introducedAfter": "0.23.0",
