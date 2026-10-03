@@ -411,7 +411,7 @@ export async function runTask(args: {
   provider?: import("../../src/lib/providers/provider.types").ProviderId;
   runtimeOptions?: import("../../src/lib/providers/provider.types").ProviderRuntimeOptions;
   /** The Stave turn that asked for this one, from its caller grant. */
-  spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null };
+  spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null; agentMode?: boolean };
 }) {
   return invokeLocalMcp<
     import("../host-service/local-mcp-runtime").TaskRunResult

@@ -1020,6 +1020,7 @@ async function runProviderTurnImpl(
         workspaceId: args.workspaceId?.trim() || null,
         providerId: args.providerId,
         autonomy: args.turnPolicy?.autonomy ?? null,
+        agentMode: args.turnPolicy?.agentMode ?? false,
       })
     : null;
   if (callerGrantHandle) {

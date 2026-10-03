@@ -95,7 +95,7 @@ describe("turn policy mapping: Codex", () => {
     const policy = resolve("codex", agent, { codexApprovalPolicy: "untrusted", codexFileAccess: "read-only", codexNetworkAccess: false });
     expect(policy.autonomy).toBe("autonomous");
     expect(policy.options).toEqual({
-      codexApprovalPolicy: "never", codexFileAccess: "workspace-write", codexAutoApproveStaveLocalMcpTools: true,
+      codexApprovalPolicy: "never", codexFileAccess: "workspace-write", codexAutoApproveStaveLocalMcpTools: true, codexAgentTurn: true,
     });
     expect(policy.options).not.toHaveProperty("codexNetworkAccess");
   });
@@ -196,13 +196,17 @@ describe("Claude guardrails", () => {
     expect(writeFrom(`${repo}/src/a.ts`)).toBeNull();
     expect(writeFrom("/.worktrees/repo/release-1.0/package.json")).toBeNull();
     expect(writeFrom("/other-repo/.stave/workspaces/x/a.ts")).toBe("G1");
-    // Cleanup may remove the empty ../.worktrees folder, never another repository's worktrees in it.
+    // Cleanup may rmdir the empty ../.worktrees folder, never delete it or another repository's worktrees in it.
     expect(bash("rmdir /.worktrees/repo /.worktrees", { spec: inWorktree.spec, cwd: worktree })).toBeNull();
+    expect(bash("rm -rf /.worktrees", { spec: inWorktree.spec, cwd: worktree })).toBe("G1");
+    expect(writeFrom("/.worktrees")).toBe("G1");
     expect(writeFrom("/.worktrees/other/a.ts")).toBe("G1");
     // A handoff plan may go to another repository's Stave workspace; nothing else there may.
     expect(writeFrom("/other-repo/.stave/workspaces/x/.stave/context/plans/handoff_1.md")).toBeNull();
-    expect(bash("mkdir -p /other-repo/.stave/context/plans", { spec: inWorktree.spec, cwd: worktree })).toBeNull();
-    expect(writeFrom("/other-repo/.stave/context/a.md")).toBe("G1");
+    expect(bash("mkdir -p /other-repo/.stave/workspaces/x/.stave/context/plans", { spec: inWorktree.spec, cwd: worktree })).toBeNull();
+    expect(writeFrom("/other-repo/.stave/workspaces/x/.stave/context/a.md")).toBe("G1");
+    expect(writeFrom("/etc/.stave/context/plans/x")).toBe("G1");
+    expect(writeFrom("/home/u/.stave/workspaces/.stave/context/plans/x")).toBe("G1");
     // A worktree git reports anywhere on disk is part of the repository.
     const gitWorktrees = { repositoryRoots: () => ["/repo", "/elsewhere/wt"] };
     expect(writeFrom("/elsewhere/wt/a.ts")).toBe("G1");
@@ -238,6 +242,12 @@ describe("Claude guardrails", () => {
     }
     expect(resolve("claude-code", readOnlyAgent).options).not.toHaveProperty("claudeAgentTurn");
     expect(resolve("codex", agent).options).not.toHaveProperty("claudeAgentTurn");
+    expect(resolve("codex", agent).options).toMatchObject({ codexAgentTurn: true });
+    // A turn an Agent started through Local MCP stays in Agent mode; one a chat turn started does not.
+    const spawned = (callerAgentMode: boolean) => resolve("claude-code", { kind: "spawned", caller: "autonomous", callerAgentMode }, { claudePermissionMode: "bypassPermissions" });
+    expect(spawned(true).guardrails.enabled).toEqual(["G1", "G2", "G3"]);
+    expect(spawned(true).options).toMatchObject({ claudeAgentTurn: true });
+    expect(spawned(false).guardrails.enabled).toEqual([]);
     // A helper an Agent delegated carries the marker and runs the same guardrails.
     expect(resolve("claude-code", chat, { claudePermissionMode: "auto", claudeAgentTurn: true, claudeGuardrails: ["G3"] }).guardrails.enabled).toEqual(["G3"]);
     expect(resolve("claude-code", chat, { claudePermissionMode: "auto", claudeAgentTurn: true }).guardrails.enabled).toEqual(["G1", "G2", "G3"]);
@@ -461,5 +471,26 @@ describe("helper autonomy across providers", () => {
     expect(restrictPermissionOptions({ claudeGuardrails: ["G1"] }, { claudeGuardrails: ["G3"], claudeAgentTurn: true }))
       .toMatchObject({ claudeGuardrails: ["G1", "G3"], claudeAgentTurn: true });
     expect(restrictPermissionOptions({ claudeAgentTurn: true }, {}).claudeAgentTurn).toBe(true);
+  });
+
+  test("a helper of a Codex Agent runs the guardrails on Claude, and back again", async () => {
+    const { helperAutonomyPolicy } = await import("../electron/host-service/delegation-policy");
+    const { resolveDelegationPermissionPolicy, normalizedPermissionOptions } = await import("../src/lib/runs/delegation-policy");
+    const codexAgent = resolve("codex", agent, { codexApprovalPolicy: "untrusted" });
+    const codexParent = { providerId: "codex" as const, options: normalizedPermissionOptions("codex", { codexApprovalPolicy: "untrusted", ...codexAgent.options }) };
+    expect(codexParent.options.codexAgentTurn).toBe(true);
+    const claudeChild = resolveDelegationPermissionPolicy({ providerId: "claude-code", settings: { claudePermissionMode: "default" } });
+    for (const profile of ["inherit", "guided"] as const) {
+      const helper = helperAutonomyPolicy("claude-code", codexParent, profile, claudeChild);
+      expect(helper.options.claudeAgentTurn).toBe(true);
+      expect(resolve("claude-code", chat, helper.options).guardrails.enabled).toEqual(["G1", "G2", "G3"]);
+    }
+    const chatCodexParent = { providerId: "codex" as const, options: normalizedPermissionOptions("codex", { codexApprovalPolicy: "never" }) };
+    expect(helperAutonomyPolicy("claude-code", chatCodexParent, "inherit", claudeChild).options).not.toHaveProperty("claudeAgentTurn");
+    const claudeParent = { providerId: "claude-code" as const, options: { claudePermissionMode: "auto", claudeAgentTurn: true } };
+    const codexChild = resolveDelegationPermissionPolicy({ providerId: "codex", settings: { codexApprovalPolicy: "untrusted" } });
+    expect(helperAutonomyPolicy("codex", claudeParent, "inherit", codexChild).options.codexAgentTurn).toBe(true);
+    const reader = resolveDelegationPermissionPolicy({ providerId: "claude-code", access: "read-only" });
+    expect(helperAutonomyPolicy("claude-code", codexParent, "inherit", reader)).toBe(reader);
   });
 });

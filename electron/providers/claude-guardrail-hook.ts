@@ -235,14 +235,16 @@ export function guardrailWriteRoots(
 const guardrailEnabled = (spec: TurnGuardrailSpec, id: ClaudeGuardrailHit["id"]) => !spec.enabled || spec.enabled.includes(id);
 const keepEnabled = (spec: TurnGuardrailSpec, hit: ClaudeGuardrailHit | null) => hit && guardrailEnabled(spec, hit.id) ? hit : null;
 
-const HANDOFF_PLAN_SEGMENTS = [".stave", "context", "plans"];
-
+/** `<project>/.stave/workspaces/<workspace>/.stave/context/plans`: where a Stave handoff writes its plan. */
 function isStaveHandoffPlanPath(resolved: string) {
   const parts = resolved.split(path.sep);
-  return parts.some((_, index) => HANDOFF_PLAN_SEGMENTS.every((segment, offset) => parts[index + offset] === segment));
+  return parts.some((_, index) =>
+    parts[index] === ".stave" && parts[index + 1] === "workspaces" && Boolean(parts[index + 2]) &&
+    parts[index + 3] === ".stave" && parts[index + 4] === "context" && parts[index + 5] === "plans");
 }
 
-function writeHit(target: string, context: ClaudeGuardrailContext, cwd: string): ClaudeGuardrailHit | null {
+/** `emptyDirRemoval`: the target is removed by `rmdir`, which only removes an empty folder. */
+function writeHit(target: string, context: ClaudeGuardrailContext, cwd: string, emptyDirRemoval = false): ClaudeGuardrailHit | null {
   const homeDir = context.homeDir ?? os.homedir();
   const expanded = expandHome(target, homeDir);
   if (!expanded || DEV_SINKS.has(expanded) || expanded.startsWith("/dev/fd/")) return null;
@@ -254,8 +256,8 @@ function writeHit(target: string, context: ClaudeGuardrailContext, cwd: string):
   const allowed = (roots: string[]) => [...roots, ...tempRoots()].some((entry) => isWithin(resolved, entry));
   const writeRoots = guardrailWriteRoots(context.spec.root, context);
   if (allowed(writeRoots)) return null;
-  // The `../.worktrees` folder itself, which worktree cleanup removes once it is empty.
-  if (writeRoots.some((entry) => path.basename(path.dirname(entry)) === ".worktrees" && path.dirname(entry) === resolved)) return null;
+  // `rmdir` of the empty `../.worktrees` folder itself, once worktree cleanup emptied it.
+  if (emptyDirRemoval && writeRoots.some((entry) => path.basename(path.dirname(entry)) === ".worktrees" && path.dirname(entry) === resolved)) return null;
   // A Stave handoff plan: the procedure writes it into the target workspace, which may be another repository's.
   if (isStaveHandoffPlanPath(resolved)) return null;
   // A worktree the turn added moments ago may not be in the cached list yet.
@@ -422,8 +424,8 @@ function evaluateBash(command: string, context: ClaudeGuardrailContext): ClaudeG
     const hit =
       keepEnabled(context.spec, segmentG3(words, context, cwd)) ??
       keepEnabled(context.spec, bashCredentialHit(segment, words, context, cwd)) ??
-      [...segment.filter((word) => word.redirect).map((word) => word.text), ...writeTargets(words)]
-        .map((target) => writeHit(target, context, cwd))
+      segment.filter((word) => word.redirect).map((word) => writeHit(word.text, context, cwd)).find((entry) => entry !== null) ??
+      writeTargets(words).map((target) => writeHit(target, context, cwd, path.basename(words[0] ?? "") === "rmdir"))
         .find((entry) => entry !== null) ?? null;
     if (hit) return hit;
   }

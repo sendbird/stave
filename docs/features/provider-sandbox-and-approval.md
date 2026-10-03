@@ -72,7 +72,8 @@ opening, updating and merging pull requests, tests and installs inside the
 workspace all run without asking.
 
 Stave guardrails apply **only in Agent mode**: a task that runs as an agent,
-and the helpers it delegates. They are **all on by default** there; turn each
+the helpers and agents it delegates on either provider, and the tasks it starts
+through Local MCP. They are **all on by default** there; turn each
 one off in **Settings > Providers > Claude**. One that is on stops for you even
 under Bypass. A chat turn (model mode) never runs them, whatever its
 permission mode, so it behaves as it did before guardrails existed. Everyday
@@ -83,7 +84,7 @@ checkout, commits, pushing a feature branch, pull requests) never trips them:
   main checkout, every worktree git reports for it (including
   `../.worktrees/<repo>`, where the worktree PR flow creates them), temp
   directories, `~/.cache`, `~/Library/Caches`, Claude's own `projects` and
-  `plans` folders, and a handoff plan in any Stave workspace's
+  `plans` folders, and a handoff plan in another Stave workspace's
   `.stave/context/plans` stay allowed
 - **G2** reading or writing a protected credential path or variable: your
   sandbox credential lists plus well-known locations such as `~/.ssh`, `~/.aws`,

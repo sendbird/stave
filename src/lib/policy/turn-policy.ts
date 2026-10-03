@@ -32,8 +32,11 @@ export type TurnActor =
   | { kind: "agent"; access: "full" | "read-only" }
   /** A delegated child: the parent's autonomy, which it can only narrow. */
   | { kind: "helper"; parent: Autonomy | null; access: "inherit" | "read-only" }
-  /** Started through Stave Local MCP: never above the caller (when known) or the user. */
-  | { kind: "spawned"; caller: Autonomy | null };
+  /**
+   * Started through Stave Local MCP: never above the caller (when known) or
+   * the user, and in Agent mode when the caller was.
+   */
+  | { kind: "spawned"; caller: Autonomy | null; callerAgentMode?: boolean };
 
 export interface TurnGuardrailSpec {
   /** The task's isolation root. Writes outside it (temp dirs aside) stop for the user. */
@@ -51,6 +54,11 @@ export interface TurnGuardrailSpec {
 
 export interface TurnPolicy {
   autonomy: Autonomy;
+  /**
+   * The turn runs as an Agent, or descends from one (a helper it delegated, a
+   * turn it started through Local MCP). Only these turns run the guardrails.
+   */
+  agentMode: boolean;
   /** Fields to merge over the turn's options. Empty when the user's settings stand. */
   options: Partial<ProviderRuntimeOptions>;
   guardrails: TurnGuardrailSpec;
@@ -153,6 +161,11 @@ function askOptions(providerId: ProviderId, options: ProviderRuntimeOptions): Pa
   return {};
 }
 
+/** Options an Agent-mode turn marked: the turn they run descends from an Agent. */
+export function isAgentModeOptions(options: { claudeAgentTurn?: unknown; codexAgentTurn?: unknown } | null | undefined) {
+  return options?.claudeAgentTurn === true || options?.codexAgentTurn === true;
+}
+
 export function resolveTurnPolicy(input: {
   providerId: ProviderId;
   actor: TurnActor;
@@ -169,18 +182,21 @@ export function resolveTurnPolicy(input: {
       : autonomy === "autonomous"
         ? autonomousOptions(input.providerId, options)
         : askOptions(input.providerId, options);
-  // Guardrails belong to Agent mode. A main Agent marks its options so the
-  // helpers it delegates inherit them; a chat turn keeps the experience it
-  // had before guardrails existed, whatever its permission mode.
-  const agentMode =
-    autonomy !== "read-only" && (input.actor.kind === "agent" || options.claudeAgentTurn === true);
-  const overrides: Partial<ProviderRuntimeOptions> =
-    agentMode && input.actor.kind === "agent" && input.providerId === "claude-code"
-      ? { ...modeOverrides, claudeAgentTurn: true }
-      : modeOverrides;
+  // Guardrails belong to Agent mode. An Agent-mode turn marks its options, so
+  // the helpers it delegates and the turns it starts inherit them; a chat
+  // turn keeps the experience it had before guardrails existed, whatever its
+  // permission mode.
+  const agentMode = autonomy !== "read-only" && (
+    input.actor.kind === "agent" ||
+    (input.actor.kind === "spawned" && input.actor.callerAgentMode === true) ||
+    isAgentModeOptions(options));
+  const marker = input.providerId === "claude-code" ? { claudeAgentTurn: true }
+    : input.providerId === "codex" ? { codexAgentTurn: true } : {};
+  const overrides: Partial<ProviderRuntimeOptions> = agentMode ? { ...modeOverrides, ...marker } : modeOverrides;
   const merged = { ...options, ...overrides };
   return {
     autonomy,
+    agentMode,
     options: overrides,
     guardrails: {
       root: input.root,
@@ -206,12 +222,12 @@ export function capSpawnedTurnOptions(args: {
   providerId: ProviderId;
   root: string;
   options: ProviderRuntimeOptions;
-  spawnedBy?: { autonomy: Autonomy | null };
+  spawnedBy?: { autonomy: Autonomy | null; agentMode?: boolean };
 }): ProviderRuntimeOptions {
   if (!args.spawnedBy) return args.options;
   const policy = resolveTurnPolicy({
     providerId: args.providerId, options: args.options, root: args.root,
-    actor: { kind: "spawned", caller: args.spawnedBy.autonomy },
+    actor: { kind: "spawned", caller: args.spawnedBy.autonomy, callerAgentMode: args.spawnedBy.agentMode === true },
   });
   return { ...args.options, ...policy.options };
 }
@@ -233,6 +249,7 @@ export const PERMISSION_RUNTIME_OPTION_KEYS = [
   "claudeSandboxCredentialEnvVars",
   "claudeGuardrails",
   "claudeAgentTurn",
+  "codexAgentTurn",
   "claudeSettingSources",
   "claudeAllowedTools",
   "claudeDisallowedTools",

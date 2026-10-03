@@ -558,20 +558,24 @@ Guardrails (Agent mode only, provider-specific enforcement):
 
 - **Claude**: on an Agent-mode turn the user's `claudeGuardrails` setting
   (Settings > Providers > Claude; absent means all three, the default) becomes
-  `TurnPolicy.guardrails.enabled`; every other turn gets an empty list. A main
-  Agent's policy adds `claudeAgentTurn: true` to its options, which the host
-  saves as the task's effective policy, so a Claude helper it delegates
-  inherits the marker (and the guardrails) through the delegation policy. A
-  chat turn never carries it: `claudeAgentTurn` is a permission key, so Local
-  MCP callers cannot set it.
+  `TurnPolicy.guardrails.enabled`; every other turn gets an empty list. An
+  Agent-mode turn (`TurnPolicy.agentMode`) adds `claudeAgentTurn: true` (Codex:
+  `codexAgentTurn: true`) to its options, which the host saves as the task's
+  effective policy. The marker carries Agent mode to a helper the Agent
+  delegates on either provider (`helperAutonomyPolicy` marks a helper of a
+  marked parent), to a delegated Agent (`prepareTaskAgentTurn`), and to a turn
+  the Agent starts through `stave_run_task` (the caller grant records
+  `agentMode`). A chat turn never carries it: both markers are permission keys,
+  so Local MCP callers cannot set them.
   `electron/providers/claude-guardrail-hook.ts` registers a PreToolUse hook
   first in `hooks.PreToolUse` for every non-read-only turn with at least one
   guardrail enabled, and skips the ones that are off. It returns `ask`
   (never `deny`) for G1 writes outside the repository (the workspace, the main
   checkout, every `git worktree list` checkout, `../.worktrees/<repo>`, temp
   dirs, `~/.cache`, `~/Library/Caches`, the Claude config `projects` and
-  `plans` folders, the empty `../.worktrees` folder and any
-  `.stave/context/plans` handoff folder allowed), G2 protected credential paths and variables (the
+  `plans` folders, `rmdir` of the empty `../.worktrees` folder and
+  `<project>/.stave/workspaces/<name>/.stave/context/plans` handoff folders
+  allowed), G2 protected credential paths and variables (the
   user's sandbox credential lists plus a baseline such as `~/.ssh`, `~/.aws`,
   `~/.netrc`), and G3 irreversible remote effects (force-push to a default or
   protected branch, `git push --delete`/`:ref`/`--mirror`/`--prune`, package

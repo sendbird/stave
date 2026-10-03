@@ -39,6 +39,7 @@ export const DelegationPermissionOptionsSchema = z.object({
     .optional(),
   codexNetworkAccess: z.boolean().optional(),
   codexAutoApproveStaveLocalMcpTools: z.boolean().optional(),
+  codexAgentTurn: z.boolean().optional(),
 });
 export type DelegationPermissionOptions = z.infer<
   typeof DelegationPermissionOptionsSchema
@@ -367,6 +368,7 @@ export function restrictPermissionOptions(
     options.claudeGuardrails = agentModeClaudeGuardrails([...options.claudeGuardrails, ...current.claudeGuardrails]);
   // An Agent-mode parent's guardrails never fall away from its helper.
   if (current.claudeAgentTurn) options.claudeAgentTurn = true;
+  if (current.codexAgentTurn) options.codexAgentTurn = true;
   // These are approval-skip grants. Tightening may remove them, never add them.
   if (current.claudeAllowedTools && options.claudeAllowedTools)
     options.claudeAllowedTools = options.claudeAllowedTools.filter((tool) =>

@@ -1133,6 +1133,8 @@ export interface ProviderRuntimeOptions {
    * helpers it delegates, so they run the same guardrails. Never user-set.
    */
   claudeAgentTurn?: boolean;
+  /** `claudeAgentTurn` for a Codex turn, so a Claude helper of a Codex Agent still runs the guardrails. */
+  codexAgentTurn?: boolean;
   claudeSystemPrompt?: string;
   claudeMaxTurns?: number;
   claudeMaxBudgetUsd?: number;
