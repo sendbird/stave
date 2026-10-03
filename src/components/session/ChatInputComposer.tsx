@@ -81,6 +81,7 @@ import {
 } from "@/components/ads/utils/stylex";
 import { chatInputStyles } from "./chat-input.styles";
 import { resolveQueuePause } from "@/store/task-work-pause";
+import { useTaskContextMentions } from "./use-task-context-mentions";
 import { useAppStore } from "@/store/app.store";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
 import { resolveActiveTurnProviderId } from "@/store/chat-state-helpers";
@@ -497,6 +498,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     () => buildWorkspaceInformationReferenceOptions(workspaceInformation),
     [workspaceInformation],
   );
+  const taskMentions = useTaskContextMentions({ taskId: args.activeTaskId, attachments: promptDraft.attachments, onAttachmentsChange: (attachments) => updateNonTextPromptDraft({ attachments }) });
   const [draftText, setDraftText] = useState(promptDraft.text);
   const [comparePrepareOpen, setComparePrepareOpen] = useState(false);
   const [compareHistoryOpen, setCompareHistoryOpen] = useState(false);
@@ -1640,6 +1642,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           workspaceInformationReferenceOptions={
             workspaceInformationReferenceOptions
           }
+          taskMentionOptions={taskMentions.options}
+          onAttachTask={taskMentions.attach}
           onValueChange={(value) => {
             draftTextRef.current = value;
             setDraftText(value);

@@ -739,7 +739,7 @@ Stave also forwards Claude `taskBudget` when configured, and the `Settings → P
 
 After a plugin reload, Stave invalidates the Claude command-catalog view so the chat composer re-fetches the latest native slash commands.
 
-When the user explicitly references `stave task id` values in the prompt, Stave injects the latest loaded assistant replies for those task IDs as retrieved context and instructs the provider not to scan the filesystem or home directory to discover task history.
+When the user explicitly references `stave task id` values in the prompt, Stave injects the latest loaded assistant replies for those task IDs as retrieved context and instructs the provider not to scan the filesystem or home directory to discover task history. Tasks attached with `@` or by dragging a sidebar row arrive the same way, under the `stave:attached-task-context` source: the latest reply or the recent conversation, read from the loaded session or from the task's newest stored page, for any workspace (`src/store/attached-task-context-runtime.ts`). The `task_context` chip on the sent message is display only and never enters provider history.
 
 When the active provider runtime actually has Stave Local MCP connected, task turns also carry a Stave-owned "current task awareness" retrieved-context block in the rendered provider prompt. That block anchors the owning workspace id/path, the current task id/title, visible sibling tasks, and a bounded snapshot of the current workspace Information panel. The prompt text explicitly tells providers that unqualified phrases such as "this workspace" or "Information panel" refer to the workspace that owns the current task unless the user clearly scopes the request elsewhere.
 

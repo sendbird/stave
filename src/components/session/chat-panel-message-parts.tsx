@@ -33,6 +33,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
 import type { MessagePart } from "@/types/chat";
+import { TaskContextChip } from "@/components/task-context-chip";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 import { chatPanelMessagePartsStyles } from "./chat-panel-message-parts.styles";
 import {
@@ -172,6 +173,8 @@ export function MessagePartRenderer(args: {
       return <ImageAttachmentBlock parts={[part]} />;
     case "workspace_information_context":
       return <WorkspaceInformationReferenceChip reference={part.reference} />;
+    case "task_context":
+      return <TaskContextChip title={part.title} scope={part.scope} />;
     case "approval":
       return (
         <ConfirmationCompact

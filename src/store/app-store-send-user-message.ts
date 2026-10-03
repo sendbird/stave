@@ -5,7 +5,7 @@ import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-polic
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
 import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
-import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
+import { collectTaskReferenceContextParts } from "@/store/attached-task-context-runtime";
 import {
   extractWorkspaceInformationReferencesFromText,
   formatWorkspaceInformationReferencesContext,
@@ -1055,15 +1055,11 @@ export function createSendUserMessageAction(args: {
       if (workspaceInformationReferencesContext) {
         retrievedContextParts.push(workspaceInformationReferencesContext);
       }
-      const referencedTaskContext = buildReferencedTaskRetrievedContext({
-        prompt: normalizedPrompt || promptContent,
-        currentTaskId: resolvedTaskId,
-        tasks: taskWorkspaceTasks,
+      retrievedContextParts.push(...(await collectTaskReferenceContextParts({
+        getState: get, prompt: normalizedPrompt || promptContent, promptDraft,
+        currentTaskId: resolvedTaskId, tasks: taskWorkspaceTasks,
         messagesByTask: latestWorkspaceSession.messagesByTask,
-      });
-      if (referencedTaskContext) {
-        retrievedContextParts.push(referencedTaskContext);
-      }
+      })));
       // ──────────────────────────────────────────────────────────────────────
 
       const modelRuntimeSettings = applyModelRuntimePreference({

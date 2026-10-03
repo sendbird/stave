@@ -1,6 +1,6 @@
 # Attachments
 
-Stave lets you attach files and images to a chat message, so the model can work from the exact local context instead of guessing from a short text description.
+Stave lets you attach files, images and other tasks to a chat message, so the model can work from the exact local context instead of guessing from a short text description.
 
 ## When To Use Attachments
 
@@ -35,6 +35,35 @@ You can remove a file before sending by clicking the `x` on the chip.
 - Remove an image with the `x` on its thumbnail.
 
 You can paste more than one image into the same message. Each one is attached as a separate image.
+
+## Attach Another Task As Context
+
+Hand a finished investigation, plan or review from one task to another without
+copying its answer by hand.
+
+1. In the prompt composer, type `@` and part of the task's title, such as
+   `@login`. The **Tasks** group lists this workspace's tasks, most recent
+   first (the current task, archived tasks and subagent tasks are left out).
+2. Choose the task, or press Enter or Tab while it is highlighted. The typed
+   `@login` leaves the prompt and the task appears as a chip below it:
+   `Task / Research the login flow · Latest reply`.
+3. To bring a task from another workspace, drag its row from the sidebar onto
+   the composer. The composer shows a dashed outline while it accepts the drop.
+4. Choose the scope on the chip to switch what is sent:
+   - **Latest reply** (default): the task's last answer, usually its
+     conclusion.
+   - **Recent conversation**: its latest exchanges, both your messages and the
+     replies, oldest first.
+5. Send. The sent message shows the same chip; the provider receives the
+   task's text as retrieved context for this message only.
+
+Up to five tasks can be attached to one message. A long reply is clipped in
+the middle so its opening and its conclusion both arrive. A task with no reply
+yet is named as empty instead of being skipped, and the agent is told not to
+search the filesystem for it.
+
+Writing `stave task id: <id>` in the prompt still works for tasks in the
+current workspace that are already loaded.
 
 ## Mixed Paste
 

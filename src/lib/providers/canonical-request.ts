@@ -79,6 +79,10 @@ function cloneMessagePart(part: MessagePart): MessagePart | undefined {
         type: "workspace_information_context",
         reference: { ...part.reference },
       };
+    case "task_context":
+      // Display only: the attached conversation reaches the provider as
+      // retrieved context for the turn that carried it, not as history.
+      return undefined;
     case "approval":
       return {
         type: "approval",
@@ -283,6 +287,8 @@ function canonicalPartToContextText(
       return `[image: ${part.label}]`;
     case "workspace_information_context":
       return `[workspace_information:${part.reference.token}] ${part.reference.label}`;
+    case "task_context":
+      return `[task_context:${part.taskId}] ${part.title}`;
     case "approval":
       return `[approval:${part.toolName}] ${part.description} state=${part.state}`;
     case "user_input":

@@ -468,7 +468,7 @@ export function summarizeQueuedTurnText(
   );
 }
 
-/** `1 file · 2 images`, or null when the item carries text only. */
+/** `1 file · 2 images · 1 task`, or null when the item carries text only. */
 export function describeQueuedTurnAttachments(
   item: Pick<PromptDraftQueuedTurn, "attachedFilePaths" | "attachments">,
 ): string | null {
@@ -476,9 +476,13 @@ export function describeQueuedTurnAttachments(
   const images = item.attachments.filter(
     (attachment) => attachment.kind === "image",
   ).length;
+  const tasks = item.attachments.filter(
+    (attachment) => attachment.kind === "task-context",
+  ).length;
   const parts = [
     files > 0 ? `${files} ${files === 1 ? "file" : "files"}` : null,
     images > 0 ? `${images} ${images === 1 ? "image" : "images"}` : null,
+    tasks > 0 ? `${tasks} ${tasks === 1 ? "task" : "tasks"}` : null,
   ].filter((part): part is string => part !== null);
   return parts.length > 0 ? parts.join(" · ") : null;
 }

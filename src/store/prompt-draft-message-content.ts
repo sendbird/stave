@@ -82,6 +82,18 @@ export function buildPromptDraftDisplayPartsForSend(
     });
   }
 
+  for (const attachment of draft.attachments) {
+    if (attachment.kind !== "task-context") continue;
+    hasWorkspaceInformationReference = true;
+    parts.push({
+      type: "task_context",
+      taskId: attachment.taskId,
+      workspaceId: attachment.workspaceId,
+      title: attachment.title,
+      scope: attachment.scope,
+    });
+  }
+
   const imageAttachmentsById = new Map(
     draft.attachments
       .filter(
