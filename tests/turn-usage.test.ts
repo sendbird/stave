@@ -5,6 +5,10 @@ import {
 } from "../electron/persistence/turn-usage";
 
 describe("toPersistenceTurnUsage", () => {
+  test("preserves a measured zero cost and rejects invalid costs", () => {
+    expect(toPersistenceTurnUsage({ type: "usage", inputTokens: 1, outputTokens: 0, totalCostUsd: 0 }).totalCostUsd).toBe(0);
+    expect(toPersistenceTurnUsage({ type: "usage", inputTokens: 1, outputTokens: 0, totalCostUsd: -1 }).totalCostUsd).toBeUndefined();
+  });
   test("keeps every reported counter and the cost", () => {
     expect(
       toPersistenceTurnUsage({

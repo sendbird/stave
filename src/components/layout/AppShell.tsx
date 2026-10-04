@@ -15,6 +15,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
 import { AgentsView } from "@/components/agents/AgentsView";
+import { UsageView } from "@/components/usage/UsageView";
 import { ResultsView } from "@/components/results/ResultsView";
 import {
   COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
@@ -1311,8 +1312,9 @@ export function AppShell() {
   const showIssues = activeAppSurface.kind === "issues";
   const showAgents = activeAppSurface.kind === "agents";
   const showResults = activeAppSurface.kind === "results";
+  const showUsage = activeAppSurface.kind === "usage";
   const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showIssues && !showAgents && !showResults;
+    !showFleetView && !showAutomationCenter && !showIssues && !showAgents && !showResults && !showUsage;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1473,6 +1475,9 @@ export function AppShell() {
                     <AutomationCenterView />
                   ) : showAgents ? (
                     <AgentsView />
+                  ) : activeAppSurface.kind === "usage" ? (
+                    <UsageView key={`${activeAppSurface.providerId ?? "all"}:${activeAppSurface.accountProfileId ?? "all"}`}
+                      initialProvider={activeAppSurface.providerId} initialAccount={activeAppSurface.accountProfileId} />
                   ) : showResults ? (
                     <ResultsView />
                   ) : showIssues ? (

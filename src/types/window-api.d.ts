@@ -2176,6 +2176,10 @@ interface WindowPersistenceApi {
       terminalReceipt?: import("@/lib/providers/turn-terminal-receipt").TurnTerminalReceipt | null;
     }>;
   }>;
+  /** Account-scoped completed usage and observed quotas in a bounded, timezone-aware period. */
+  usageStatistics?: (
+    args: import("@/lib/providers/usage-statistics").UsageStatisticsArgs,
+  ) => Promise<import("@/lib/providers/usage-statistics").UsageStatisticsResponse>;
   /**
    * Tokens (input plus output, without cache reads) and cost reported on
    * turns run in Stave, per provider, since the given local day and month

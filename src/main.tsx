@@ -71,6 +71,10 @@ if (preview === "kickoff") {
       );
     },
   );
+} else if (preview === "usage") {
+  void import("@/dev/usage-preview").then(({ UsagePreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><UsagePreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "results") {
   void import("@/dev/results-preview").then(({ ResultsPreview }) => {
     root.render(

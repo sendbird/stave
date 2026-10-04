@@ -90,6 +90,7 @@ export function StatusBarUsageSegment({
   const reading = useAppStore(
     (state) => (state.rateLimitsInFlightByProvider[providerId] ?? 0) > 0,
   );
+  const openUsage = useAppStore((state) => state.openUsage);
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
   const blockAtLimit = useAppStore(
     (state) => state.settings.blockTurnsWhenAccountLimitReached,
@@ -250,6 +251,10 @@ export function StatusBarUsageSegment({
             multipleAccounts={multipleAccounts}
           />
         ) : null}
+        <Button variant="ghost" size="sm" onClick={() => {
+          setOpen(false); noteRateLimitsMeterClosed(providerId);
+          openUsage({ providerId, accountProfileId: account?.selected?.id ?? "system-default" });
+        }}>View usage statistics</Button>
         {account && accountProviderId ? (
           <StatusBarAccountSection
             providerId={accountProviderId}

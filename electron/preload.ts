@@ -1,3 +1,4 @@
+import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
 import { providerAccountsApi } from "./provider-accounts/preload";
@@ -1745,6 +1746,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("persistence:list-active-workspace-turns", args),
     listLatestWorkspaceTurns: (args: { workspaceId: string; limit?: number }) =>
       ipcRenderer.invoke("persistence:list-latest-workspace-turns", args),
+    ...usageStatisticsPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     summarizeTurnSpend: (
       args: import("../src/lib/providers/turn-spend").TurnSpendArgs,
     ) => ipcRenderer.invoke("persistence:summarize-turn-spend", args),

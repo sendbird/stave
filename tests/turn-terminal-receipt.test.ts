@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Database } from "bun:sqlite";
 import { SqliteStore } from "../electron/persistence/sqlite-store";
+import { UsageStatisticsStore } from "../electron/persistence/usage-statistics-store";
 import {
   projectTurnStatus,
   resolveTargetedTurnError,
@@ -16,7 +17,7 @@ function harness() {
     CREATE TABLE turn_events (id TEXT PRIMARY KEY, turn_id TEXT, sequence INTEGER, event_type TEXT, payload_json TEXT, created_at TEXT);`);
   // Execute the production store's SQL and compaction, with Bun's SQLite driver.
   const store = Object.create(SqliteStore.prototype) as SqliteStore;
-  Object.assign(store, { db, _closed: false });
+  Object.assign(store, { db, _closed: false, usageStatistics: new UsageStatisticsStore(db) });
   store.beginTurn({
     id: "turn",
     workspaceId: "workspace",
@@ -268,7 +269,7 @@ test("receipt survives closing and reopening SQLite", () => {
     db.close();
     const reopenedDb = new Database(filename);
     const reopenedStore = Object.create(SqliteStore.prototype) as SqliteStore;
-    Object.assign(reopenedStore, { db: reopenedDb, _closed: false });
+    Object.assign(reopenedStore, { db: reopenedDb, _closed: false, usageStatistics: new UsageStatisticsStore(reopenedDb) });
     expect(reopenedStore.getTurnReceipt("turn")).toMatchObject({
       outcome: "completed",
       responseText: "persistent reply",
@@ -369,7 +370,7 @@ test("bootstrap upgrades an old turns table without inventing receipts", () => {
     "INSERT INTO turns VALUES ('old', 'workspace', 'task', 'codex', '2026-01-01', '2026-01-02', NULL)",
   );
   const store = Object.create(SqliteStore.prototype) as SqliteStore;
-  Object.assign(store, { db, _closed: false });
+  Object.assign(store, { db, _closed: false, usageStatistics: new UsageStatisticsStore(db) });
   (store as unknown as { bootstrap: () => void }).bootstrap();
   expect(store.getTurnReceipt("old")).toBeNull();
   store.beginTurn({

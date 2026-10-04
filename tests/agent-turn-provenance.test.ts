@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { AgentAssignmentStore } from "../electron/persistence/agent-assignment-store";
 import { SqliteStore } from "../electron/persistence/sqlite-store";
+import { UsageStatisticsStore } from "../electron/persistence/usage-statistics-store";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -130,7 +131,7 @@ test("Agent evidence survives production SQL compaction and reopening, without r
   db.exec(`CREATE TABLE turns (id TEXT PRIMARY KEY, workspace_id TEXT, task_id TEXT, provider_id TEXT, created_at TEXT, completed_at TEXT, usage_json TEXT, receipt_json TEXT);
     CREATE TABLE turn_events (id TEXT PRIMARY KEY, turn_id TEXT, sequence INTEGER, event_type TEXT, payload_json TEXT, created_at TEXT);`);
   const store = Object.create(SqliteStore.prototype) as SqliteStore;
-  Object.assign(store, { db, _closed: false });
+  Object.assign(store, { db, _closed: false, usageStatistics: new UsageStatisticsStore(db) });
   store.beginTurn({ id: provenance.turnId, workspaceId: "workspace", taskId: "task", providerId: "codex" });
   store.saveStreamEvents({ turnId: provenance.turnId, events: [
     { sequence: 1, event: { type: "agent_provenance", provenance } },
@@ -140,7 +141,7 @@ test("Agent evidence survives production SQL compaction and reopening, without r
   store.completeTurn({ id: provenance.turnId });
   db.close();
   const reopened = new Database(databasePath);
-  Object.assign(store, { db: reopened });
+  Object.assign(store, { db: reopened, usageStatistics: new UsageStatisticsStore(reopened) });
   const events = store.getStreamEvents({ turnId: provenance.turnId });
   expect(events.map((event) => event.eventType)).toEqual(["agent_provenance", "done"]);
   expect(events[0]?.event).toMatchObject({ type: "agent_provenance", provenance });

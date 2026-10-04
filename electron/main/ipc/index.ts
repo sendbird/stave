@@ -15,6 +15,7 @@ import { registerWakeUpHandlers } from "./wake-ups";
 import { registerAgentHandlers } from "./agents";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
+import { registerUsageStatisticsHandlers } from "./usage-statistics";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerProviderAccountHandlers } from "./provider-accounts";
@@ -48,6 +49,7 @@ export function registerHandlers() {
   registerWakeUpHandlers();
   registerAgentHandlers();
   registerPersistenceHandlers();
+  registerUsageStatisticsHandlers();
   registerRepositoryMemoryHandlers();
   registerTerminalHandlers();
   registerTaskControlHandlers();

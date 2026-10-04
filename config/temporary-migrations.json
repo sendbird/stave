@@ -118,6 +118,19 @@
       "tests": [
         "tests/auto-routing-profile-v5-migration.test.ts"
       ]
+    },
+    {
+      "id": "usage-statistics-legacy-provider",
+      "description": "During the one-time account usage history import, maps the retired turn provider identity to the current Claude provider. Remove only the legacy CASE and filter entry at expiry; imports of current provider identities remain supported.",
+      "introducedAfter": "0.24.2",
+      "removeInVersion": "0.27.0",
+      "files": [
+        "electron/persistence/usage-statistics-store.ts",
+        "tests/usage-statistics-legacy-provider.test.ts"
+      ],
+      "tests": [
+        "tests/usage-statistics-legacy-provider.test.ts"
+      ]
     }
   ]
 }
