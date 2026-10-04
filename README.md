@@ -80,10 +80,9 @@ Recommended next steps:
 - workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
 - scheduled Claude and Codex automations with per-run results, repository selection, and reusable Information context
 - agents with a workflow: the stages you would otherwise prompt one by one — Stave opens the draft PR, watches checks, and checks in with you only where the agent says
-- projects: a goal that takes several missions, planned by a coordinator task that you approve, sign off, and review
 - git worktree-aware repository and workspace management
 - editable workspace kickoff proposals from external sources and prompts
-- Fleet `Action required` inbox for questions, approvals, mission sign-offs, failed runs, results, and PR blockers across every workspace
+- Fleet `Action required` inbox for questions, approvals, agent run sign-offs, failed runs, results, and PR blockers across every workspace
 - notifications, attachments, skill selection, custom model shortcuts, and theme presets
 - local-only MCP access for same-machine automation and tool-driven workflows
 
@@ -100,9 +99,8 @@ Recommended next steps:
 - [Issues Guide](docs/features/issues.md) for reviewing assigned Crane and Jira tickets and kicking one off locally
 - [Fleet Action Required Guide](docs/features/fleet-needs-me.md) for working through approvals, questions, and blockers across every workspace
 - [Workspace Kickoff](docs/features/workspace-kickoff.md) for source matching, MCP resolution, and Information panel defaults
-- [Agent runs](docs/features/missions.md) for assigning an outcome to an agent and following its stages
+- [Agent runs](docs/features/agent-runs.md) for assigning an outcome to an agent and following its stages
 - [Agents](docs/features/agents.md) for saving workers, assigning work to them and following each task's flow
-- [Projects](docs/features/projects.md) for goals that take several missions
 
 ## For Developers And Contributors
 

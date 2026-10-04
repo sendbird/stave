@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-  MISSION_ACTIVE_WAKE_UP_DETAIL,
-  refuseWakeUpForMission,
+  AGENT_RUN_ACTIVE_WAKE_UP_DETAIL,
+  refuseWakeUpForAgentRun,
   resolveAutomaticTurnOwner,
 } from "../src/lib/supervision/automatic-turn-owner";
 import {
@@ -46,45 +46,45 @@ function observe(patch: Partial<WakeUpObservation> = {}): WakeUpObservation {
     identity: { ok: true },
     completionObservability: "stave_owned",
     completions: [],
-    missionActive: false,
+    agentRunActive: false,
     ...patch,
   };
 }
 
 describe("automatic turn owner", () => {
-  test("a mission outranks a wake-up; a paused or stopped wake-up owns nothing", () => {
+  test("a run outranks a wake-up; a paused or stopped wake-up owns nothing", () => {
     const wakeUp = { id: "wake-1", state: "scheduled" as const };
-    expect(resolveAutomaticTurnOwner({ activeMission: { id: "mission-1" }, wakeUp })).toEqual({
-      kind: "mission",
-      missionId: "mission-1",
+    expect(resolveAutomaticTurnOwner({ activeAgentRun: { id: "agent-run-1" }, wakeUp })).toEqual({
+      kind: "agentRun",
+      agentRunId: "agent-run-1",
     });
-    expect(resolveAutomaticTurnOwner({ activeMission: null, wakeUp })).toEqual({ kind: "wake-up", wakeUpId: "wake-1" });
-    expect(resolveAutomaticTurnOwner({ activeMission: null, wakeUp: { ...wakeUp, state: "paused" } })).toBeNull();
-    expect(resolveAutomaticTurnOwner({ activeMission: null, wakeUp: null })).toBeNull();
+    expect(resolveAutomaticTurnOwner({ activeAgentRun: null, wakeUp })).toEqual({ kind: "wake-up", wakeUpId: "wake-1" });
+    expect(resolveAutomaticTurnOwner({ activeAgentRun: null, wakeUp: { ...wakeUp, state: "paused" } })).toBeNull();
+    expect(resolveAutomaticTurnOwner({ activeAgentRun: null, wakeUp: null })).toBeNull();
   });
 
-  test("refuses a wake-up only while a mission is active", () => {
-    expect(refuseWakeUpForMission({ id: "mission-1" })).toContain("running a mission");
-    expect(refuseWakeUpForMission(null)).toBeNull();
+  test("refuses a wake-up only while a run is active", () => {
+    expect(refuseWakeUpForAgentRun({ id: "agent-run-1" })).toContain("has an active run");
+    expect(refuseWakeUpForAgentRun(null)).toBeNull();
   });
 });
 
-describe("wake-up policy under a mission", () => {
-  test("a due wake-up pauses with mission-active instead of firing, and stays paused", () => {
+describe("wake-up policy under a run", () => {
+  test("a due wake-up pauses with agent-run-active instead of firing, and stays paused", () => {
     const wakeUp = wakeUpFixture();
-    const decision = decideWakeUpAction({ wakeUp, observation: observe({ missionActive: true }), now: NOW });
-    expect(decision).toEqual({ action: "pause", reason: "mission-active", detail: MISSION_ACTIVE_WAKE_UP_DETAIL });
+    const decision = decideWakeUpAction({ wakeUp, observation: observe({ agentRunActive: true }), now: NOW });
+    expect(decision).toEqual({ action: "pause", reason: "agent-run-active", detail: AGENT_RUN_ACTIVE_WAKE_UP_DETAIL });
     const paused = applyWakeUpDecision({ wakeUp, decision, now: NOW });
-    expect(decideWakeUpAction({ wakeUp: paused, observation: observe({ missionActive: true }), now: NOW })).toEqual({
+    expect(decideWakeUpAction({ wakeUp: paused, observation: observe({ agentRunActive: true }), now: NOW })).toEqual({
       action: "idle",
     });
   });
 
-  test("resumes on its own when the mission ends, from now rather than the stale instant", () => {
+  test("resumes on its own when the run ends, from now rather than the stale instant", () => {
     const paused = wakeUpFixture({
       state: "paused",
-      pauseReason: "mission-active",
-      reasonDetail: MISSION_ACTIVE_WAKE_UP_DETAIL,
+      pauseReason: "agent-run-active",
+      reasonDetail: AGENT_RUN_ACTIVE_WAKE_UP_DETAIL,
     });
     const decision = decideWakeUpAction({ wakeUp: paused, observation: observe(), now: NOW });
     expect(decision).toEqual({ action: "resume" });
@@ -93,12 +93,12 @@ describe("wake-up policy under a mission", () => {
     expect(Date.parse(resumed.nextRunAt!)).toBeGreaterThan(NOW.getTime());
   });
 
-  test("stop still beats the mission pause, and the user's own pause is kept", () => {
+  test("stop still beats the run pause, and the user's own pause is kept", () => {
     expect(
-      decideWakeUpAction({ wakeUp: wakeUpFixture(), observation: observe({ missionActive: true, taskArchived: true }), now: NOW }),
+      decideWakeUpAction({ wakeUp: wakeUpFixture(), observation: observe({ agentRunActive: true, taskArchived: true }), now: NOW }),
     ).toMatchObject({ action: "stop", reason: "task-unavailable" });
     const userPaused = wakeUpFixture({ state: "paused", pauseReason: "paused-by-user", reasonDetail: "Paused by the user." });
-    expect(decideWakeUpAction({ wakeUp: userPaused, observation: observe({ missionActive: true }), now: NOW })).toEqual({
+    expect(decideWakeUpAction({ wakeUp: userPaused, observation: observe({ agentRunActive: true }), now: NOW })).toEqual({
       action: "idle",
     });
   });

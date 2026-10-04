@@ -29,8 +29,7 @@ import {
 } from "./stave-local-mcp-manifest";
 import {
   turnGrantHeaders,
-  MISSION_GRANT_ENV,
-  PROJECT_GRANT_ENV,
+  AGENT_RUN_GRANT_ENV,
   CALLER_GRANT_ENV,
 } from "../providers/stave-turn-grants";
 
@@ -189,8 +188,7 @@ async function postToMcp(
         "content-type": "application/json",
         "authorization": `Bearer ${token}`,
         ...turnGrantHeaders({
-          missionKey: process.env[MISSION_GRANT_ENV],
-          projectKey: process.env[PROJECT_GRANT_ENV],
+          agentRunKey: process.env[AGENT_RUN_GRANT_ENV],
           callerKey: process.env[CALLER_GRANT_ENV],
         }),
       },

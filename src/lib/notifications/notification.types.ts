@@ -9,17 +9,17 @@ export const APP_NOTIFICATION_KINDS = [
   "task.turn_failed",
   "task.approval_requested",
   "task.user_input_requested",
-  "mission.sign_off_requested",
-  "mission.blocked",
-  "mission.stuck",
-  "mission.completed",
+  "agent_run.sign_off_requested",
+  "agent_run.blocked",
+  "agent_run.stuck",
+  "agent_run.completed",
 ] as const;
 
 export type AppNotificationKind = (typeof APP_NOTIFICATION_KINDS)[number];
 
-/** A mission that stopped for the user: a sign-off, a blocker or a stuck stage. */
-export function isMissionAttentionNotificationKind(kind: AppNotificationKind) {
-  return kind === "mission.sign_off_requested" || kind === "mission.blocked" || kind === "mission.stuck";
+/** An agent run that stopped for the user: a sign-off, a blocker or a stuck stage. */
+export function isAgentRunAttentionNotificationKind(kind: AppNotificationKind) {
+  return kind === "agent_run.sign_off_requested" || kind === "agent_run.blocked" || kind === "agent_run.stuck";
 }
 
 export interface AppNotificationApprovalAction {

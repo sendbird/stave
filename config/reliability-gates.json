@@ -239,25 +239,25 @@
       ]
     },
     {
-      "id": "mission-supervision-boundaries",
-      "title": "A mission supervises one task and completes stages only on evidence",
-      "invariant": "A mission advances exactly one lead task and never creates a task; a stage completes only through a recorded stage report or a Stave action result, never because a turn ended; a turn that ends without a report is nudged once and then marked stuck, and unreachable reporting blocks instead of nudging; a stage with an external effect the mission's consent does not list always waits for sign-off; and at most one supervisor entry starts automatic turns on a task at a time, so a mission pauses its lead task's wake-up with mission-active, refuses new wake-ups there, and a task never holds two active missions.",
+      "id": "agent-run-supervision-boundaries",
+      "title": "An agent run supervises one task and completes stages only on evidence",
+      "invariant": "An agent run advances exactly one lead task and never creates a task; a stage completes only through a recorded stage report or a Stave action result, never because a turn ended; a turn that ends without a report is nudged once and then marked stuck, and unreachable reporting blocks instead of nudging; a stage with an external effect the agent run's consent does not list always waits for sign-off; and at most one supervisor entry starts automatic turns on a task at a time, so an agent run pauses its lead task's wake-up with agent-run-active, refuses new wake-ups there, and a task never holds two active agent runs.",
       "testFiles": [
         "tests/agent-platform-boundaries.test.ts",
-        "tests/mission-policy.test.ts",
-        "tests/mission-commands.test.ts",
-        "tests/mission-store.test.ts",
+        "tests/agent-run-policy.test.ts",
+        "tests/agent-run-commands.test.ts",
+        "tests/agent-run-store.test.ts",
         "tests/automatic-turn-owner.test.ts",
         "tests/wake-up-runtime.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
-        "src/lib/missions/domain.ts",
-        "src/lib/missions/policy.ts",
-        "src/lib/missions/commands.ts",
+        "src/lib/agent-runs/domain.ts",
+        "src/lib/agent-runs/policy.ts",
+        "src/lib/agent-runs/commands.ts",
         "src/lib/supervision/automatic-turn-owner.ts",
         "src/lib/supervision/wake-up-policy.ts",
-        "electron/persistence/mission-store.ts",
+        "electron/persistence/agent-run-store.ts",
         "electron/host-service/wake-up-runtime.ts"
       ]
     },
@@ -293,49 +293,31 @@
       ]
     },
     {
-      "id": "mission-start-consent",
+      "id": "agent-run-start-consent",
       "title": "A saved agent never grants permissions; every run start records its own consent",
-      "invariant": "Starting an agent run records the user's own permission settings and the agent's check-ins as the run's consent; its turns take permissions from mission.consent only (never from a saved agent or playbook), and a publish or Stave action stage the consent does not list always waits for sign-off. Only an agent that checks in only when stuck lists its workflow's external-effect stages at start.",
+      "invariant": "Starting an agent run records the user's own permission settings and the agent's check-ins as the run's consent; its turns take permissions from agentRun.consent only (never from a saved agent or saved workflow), and a publish or Stave action stage the consent does not list always waits for sign-off. Only an agent that checks in only when stuck lists its workflow's external-effect stages at start.",
       "testFiles": [
-        "tests/mission-start-consent.test.ts",
+        "tests/agent-run-start-consent.test.ts",
         "tests/agent-run.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
-        "src/lib/missions/agent-run.ts",
-        "src/lib/missions/policy.ts",
-        "electron/host-service/supervision/mission-runtime.ts"
-      ]
-    },
-    {
-      "id": "project-boundaries",
-      "title": "A project starts work only as missions through intake; its coordinator edits no files",
-      "invariant": "The project runtime starts work only by creating a worktree and a task and starting a mission on it (never a free-form turn on another task); the only turns it starts itself are on the project's coordinator task, and those run with edits disallowed on Claude and a read-only sandbox on Codex; a coordinator's start key never starts a second mission.",
-      "testFiles": [
-        "tests/project-boundaries.test.ts",
-        "tests/project-policy.test.ts",
-        "tests/project-store.test.ts",
-        "tests/intake.test.ts"
-      ],
-      "assertionRefs": [
-        "docs/architecture/agent-platform-taxonomy.md",
-        "src/lib/projects/policy.ts",
-        "src/lib/projects/briefing.ts",
-        "electron/host-service/supervision/project-runtime.ts",
-        "electron/host-service/supervision/intake.ts"
+        "src/lib/agent-runs/agent-run.ts",
+        "src/lib/agent-runs/policy.ts",
+        "electron/host-service/supervision/agent-run-runtime.ts"
       ]
     },
     {
       "id": "agent-boundaries",
       "title": "A saved agent grants no permissions, starts nothing, and a run follows its start snapshot; delegation to an agent only narrows",
-      "invariant": "An agent config holds only a default permission from a closed list and no approval bypass; compiling never widens it and imports refuse bypass modes, hooks and inline MCP servers. The agent domain in src/lib/agents imports no host, main-process, persistence or process module, so saving or editing an agent cannot start work. Work runs against a snapshot copied at start; edits after the start never change its instructions, tools or content hash. A delegation naming an agent is refused when the agent is not a delegated task, is outside the project's agents, or would run wider than the delegating task's agent; work pinned to a commit is refused when HEAD differs. A mission stage done by another agent is delegated by the lead task, whose provider and instructions never change.",
+      "invariant": "An agent config holds only a default permission from a closed list and no approval bypass; compiling never widens it and imports refuse bypass modes, hooks and inline MCP servers. The agent domain in src/lib/agents imports no host, main-process, persistence or process module, so saving or editing an agent cannot start work. Work runs against a snapshot copied at start; edits after the start never change its instructions, tools or content hash. A delegation naming an agent is refused when the agent is not a delegated task or would run wider than the delegating task's agent; work pinned to a commit is refused when HEAD differs. An agent run stage done by another agent is delegated by the lead task, whose provider and instructions never change.",
       "testFiles": [
         "tests/agent-boundaries.test.ts",
         "tests/agent-config.test.ts",
         "tests/agent-import.test.ts",
         "tests/agent-permission.test.ts",
         "tests/agent-delegation.test.ts",
-        "tests/agent-playbook-stage.test.ts"
+        "tests/agent-workflow-stage.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
@@ -345,7 +327,7 @@
         "src/lib/agents/library.ts",
         "src/lib/agents/permission.ts",
         "src/lib/agents/delegate.ts",
-        "src/lib/playbooks/stage-prompt.ts",
+        "src/lib/workflows/stage-prompt.ts",
         "electron/main/runs/delegated-task-coordinator.ts"
       ]
     },

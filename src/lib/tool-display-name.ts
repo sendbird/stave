@@ -53,6 +53,7 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_get_workspace_information: "Read workspace context",
   stave_replace_workspace_notes: "Replace workspace notes",
   stave_append_workspace_notes: "Add workspace note",
+  stave_write_plan_file: "Write plan file",
   stave_clear_workspace_notes: "Clear workspace notes",
   stave_add_workspace_todo: "Add workspace todo",
   stave_update_workspace_todo: "Update workspace todo",

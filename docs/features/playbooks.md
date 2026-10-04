@@ -23,14 +23,19 @@ optionally done by another agent) or a Stave action (**Open draft PR**,
   agent instead: the composer's selector (**Agents**), **Assign to an agent…**
   in the command palette, or **Who** in Kickoff.
 - Kickoff and the Issues kickoff sheet no longer offer a playbook.
-- Playbook missions that were running finish as they are, and their Progress,
+- Runs started from a playbook that were still going finish as they are, and their Progress,
   report and Fleet surfaces keep working.
-- Saved playbooks are kept read-only for existing [projects](projects.md) and
-  for start conditions you set before; both are deprecated and will be
-  removed in a later release. A proposal they make opens a task with the
-  request drafted, ready for you to choose an agent and **Assign**.
+- Saved playbooks stay as read-only data. Old runs started from playbooks still render
+  from them, and the upgrade that moves converted agents to Stave Auto still
+  reads them.
+- Start conditions saved on a playbook (an assigned issue, pull request
+  trouble, a schedule) and proposed runs are removed. Nothing starts or
+  proposes a run on its own any more; assign the work to an agent instead.
+- Projects are removed. Each project's memories were exported once to
+  `<user data>/exports/project-memory/<project id>.md`; see
+  [Repository Memory](repository-memory.md#upgrade-and-boundaries).
 
 ## Related Docs
 
 - [Agents](agents.md)
-- [Agent runs and their stages](missions.md)
+- [Agent runs and their stages](agent-runs.md)

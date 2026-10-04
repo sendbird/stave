@@ -20,9 +20,9 @@ import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import {
-  normalizePersistedPlaybooks,
-  warnPlaybookDiagnostics,
-} from "@/lib/playbooks/normalize";
+  normalizePersistedWorkflows,
+  warnWorkflowDiagnostics,
+} from "@/lib/workflows/normalize";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
 import {
   applyCustomTheme,
@@ -81,10 +81,10 @@ function normalizeCustomAgentPatch(value: unknown) {
   return agents;
 }
 
-function normalizePlaybookPatch(value: unknown) {
-  const { playbooks, diagnostics } = normalizePersistedPlaybooks(value);
-  warnPlaybookDiagnostics(diagnostics);
-  return playbooks;
+function normalizeWorkflowPatch(value: unknown) {
+  const { workflows, diagnostics } = normalizePersistedWorkflows(value);
+  warnWorkflowDiagnostics(diagnostics);
+  return workflows;
 }
 
 type SettingsActionKey =
@@ -521,7 +521,7 @@ export function createSettingsActions(args: {
             }),
         ...(patch.playbooks === undefined
           ? {}
-          : { playbooks: normalizePlaybookPatch(patch.playbooks) }),
+          : { playbooks: normalizeWorkflowPatch(patch.playbooks) }),
         ...(patch.customAgents === undefined
           ? {}
           : { customAgents: normalizeCustomAgentPatch(patch.customAgents) }),

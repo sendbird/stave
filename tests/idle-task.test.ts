@@ -13,7 +13,7 @@ test("an idle task starts its composer on the chosen model, and that is the mode
   // Without a model, no draft is written and the provider default applies.
   const plain = addIdleTask(session, { title: "", provider: "claude-code" });
   expect(plain.session.promptDraftByTask[plain.taskId]).toBeUndefined();
-  expect(plain.session.tasks[0]!.title).toBe("Mission");
+  expect(plain.session.tasks[0]!.title).toBe("Run");
 });
 
 test("a message's model wins, and a drafted model of another provider is ignored", () => {

@@ -26,7 +26,11 @@ import {
 import {
   ensureHostServicePersistenceReady,
   resetHostServicePersistence,
+  resolveHostServiceUserDataPath,
 } from "./host-service/persistence";
+// temporary-migration: project-memory-export
+import { runLegacyProjectMemoryExport } from "./persistence/legacy-project-memory-export";
+// end temporary-migration: project-memory-export
 import {
   checkoutDefaultBranchDetached,
   checkoutScmBranch,
@@ -76,21 +80,16 @@ import {
   submitGitHubPullRequestReview,
 } from "./host-service/github-pr-review-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
+import { createWorkspacePlanFileWriter } from "./host-service/local-mcp-plan-files";
 import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
-import { createHostMissionRuntime } from "./host-service/supervision/mission-host";
-import { invokeMissionRuntime } from "./host-service/supervision/mission-runtime";
-import { createProposalRuntime, invokeProposalRuntime } from "./host-service/supervision/proposal-runtime";
-import { resolveMissionGrant } from "./providers/mission-grants";
-import { createHostProjectRuntime } from "./host-service/supervision/project-host";
-import { invokeProjectAction } from "./host-service/supervision/project-runtime";
+import { createHostAgentRunRuntime } from "./host-service/supervision/agent-run-host";
+import { invokeAgentRunRuntime } from "./host-service/supervision/agent-run-runtime";
 import {
   createHostAssignRuntime,
-  hostMyStandards,
   invokeAgentAction,
-  setProjectAgentsLookup,
 } from "./host-service/supervision/assign-host";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
@@ -582,42 +581,22 @@ const automationRuntime = createAutomationRuntime({
     emitEvent("automation.unattended-authorizations-changed", payload);
   },
 });
-const missionRuntime = createHostMissionRuntime({
+const agentRunRuntime = createHostAgentRunRuntime({
   // Read on each tick, after `assignRuntime` below exists.
   taskAgent: (taskId) => assignRuntime.agentForTask(taskId),
   emitChanged: (event) => {
-    emitEvent("mission.changed", event);
-    // A project follows its missions: a change may wake its coordinator.
-    projectRuntime.notifyMissionChanged({ missionId: event.missionId });
-  },
-});
-const projectRuntime = createHostProjectRuntime({
-  missionRuntime,
-  emitChanged: (event) => {
-    emitEvent("project.changed", event);
-  },
-  // Playbook start conditions read the same saved playbooks.
-  onPlaybooksSynced: (playbooks) => proposalRuntime.setPlaybooks(playbooks),
-  // A project mission's task that runs as an agent is recorded like an assignment.
-  recordTaskAgent: (task) => {
-    const standards = hostMyStandards();
-    assignRuntime.recordTaskAgent({ ...task, ...(standards ? { standards } : {}) });
+    emitEvent("agent-run.changed", event);
   },
 });
 const assignRuntime = createHostAssignRuntime({
   emitChanged: (event) => emitEvent("agent.changed", event),
-});
-setProjectAgentsLookup((taskId) => projectRuntime.agentsForTask(taskId));
-const proposalRuntime = createProposalRuntime({
-  store: ensureHostServicePersistenceReady().missions,
-  startMission: (input) => missionRuntime.startMission(input),
-  createIdleTask: (task) => localMcpRuntime.createIdleTask(task),
-  resolveMissionGrant,
-  resolveWorkspaceRepository: async (workspaceId) => {
-    const repositories = await localMcpRuntime.listKnownRepositories();
-    return repositories.find((repository) => repository.workspaces.some((workspace) => workspace.id === workspaceId))?.repositoryPath ?? null;
+  // An agent run ends with the agent it ran as (released or replaced), now,
+  // not at the next tick, so the user's next turn never lands inside it.
+  onTaskAgentEnded: (taskId) => {
+    void agentRunRuntime.endAgentRunForTask({ taskId }).catch((error) => {
+      console.warn("[agent-runs] could not end the agent run of a released task", error);
+    });
   },
-  emitChanged: () => emitEvent("proposal.changed", {}),
 });
 const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
@@ -634,9 +613,9 @@ const wakeUpRuntime = createWakeUpRuntime({
   // "exactly one follow-up turn or one terminal notification" quietly becomes
   // neither.
   notifyWakeUpFailed: localMcpRuntime.notifyWakeUpFailed,
-  // A mission owns its lead task's automatic turns while it runs.
-  getActiveMissionForTask: (taskId) =>
-    missionRuntime.getActiveMissionForTask(taskId),
+  // An agent run owns its lead task's automatic turns while it runs.
+  getActiveAgentRunForTask: (taskId) =>
+    agentRunRuntime.getActiveAgentRunForTask(taskId),
   emitChanged: (event) => {
     emitEvent("wake-up.changed", event);
   },
@@ -651,11 +630,22 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
   }
   emitEvent("local-mcp.task-turn-updated", event.payload);
   if (event.payload.done) {
-    missionRuntime.notifyTaskTurnFinished({ taskId: event.payload.taskId });
+    agentRunRuntime.notifyTaskTurnFinished({ taskId: event.payload.taskId });
   }
 });
 
 registerDelegationPolicyObserver();
+
+const writeWorkspacePlanFile = createWorkspacePlanFileWriter({
+  resolveWorkspacePath: async (workspaceId) => {
+    const repositories = await localMcpRuntime.listKnownRepositories();
+    for (const repository of repositories) {
+      const workspace = repository.workspaces.find((candidate) => candidate.id === workspaceId);
+      if (workspace) return workspace.path;
+    }
+    return null;
+  },
+});
 
 async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
   switch (action) {
@@ -713,6 +703,8 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.appendWorkspaceNotes(
         args as Parameters<typeof localMcpRuntime.appendWorkspaceNotes>[0],
       );
+    case "write-workspace-plan-file":
+      return writeWorkspacePlanFile(args as Parameters<typeof writeWorkspacePlanFile>[0]);
     case "remember-repository-memory":
       return localMcpRuntime.rememberRepositoryMemory(
         args as Parameters<typeof localMcpRuntime.rememberRepositoryMemory>[0],
@@ -1044,9 +1036,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
               },
             );
           }
-          // A reply during a mission is guidance for the current stage; the
-          // mission picks it up now instead of at its next interval.
-          missionRuntime.notifyTaskTurnFinished({ taskId: args.taskId });
+          // A reply during an agent run is guidance for the current stage; the
+          // agent run picks it up now instead of at its next interval.
+          agentRunRuntime.notifyTaskTurnFinished({ taskId: args.taskId });
         }
       },
     },
@@ -1403,9 +1395,7 @@ async function shutdown() {
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
   wakeUpRuntime.stop();
-  missionRuntime.stop();
-  projectRuntime.stop();
-  proposalRuntime.stop();
+  agentRunRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
     cleanupAllScriptProcesses(),
@@ -2111,21 +2101,11 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
-    case "mission.invoke":
+    case "agent-run.invoke":
       await respond(
         request.id,
-        await invokeMissionRuntime(
-          missionRuntime,
-          request.params.action,
-          request.params.args,
-        ),
-      );
-      return;
-    case "project.invoke":
-      await respond(
-        request.id,
-        await invokeProjectAction(
-          projectRuntime,
+        await invokeAgentRunRuntime(
+          agentRunRuntime,
           request.params.action,
           request.params.args,
         ),
@@ -2133,9 +2113,6 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "agent.invoke":
       await respond(request.id, await invokeAgentAction(assignRuntime, request.params.action, request.params.args));
-      return;
-    case "proposal.invoke":
-      await respond(request.id, await invokeProposalRuntime(proposalRuntime, request.params.action, request.params.args));
       return;
     default:
       request satisfies never;
@@ -2155,12 +2132,17 @@ async function main() {
   });
   prewarmClaudeSdk();
   void prepareCliExecutableDiscovery();
+  // temporary-migration: project-memory-export
+  // Projects were removed; their memories are written out once so none is lost.
+  runLegacyProjectMemoryExport({
+    userDataPath: resolveHostServiceUserDataPath(),
+    log: (message) => process.stderr.write(`${message}\n`),
+  });
+  // end temporary-migration: project-memory-export
   automationRuntime.start();
   wakeUpRuntime.start();
-  missionRuntime.start();
-  projectRuntime.start();
+  agentRunRuntime.start();
   assignRuntime.start();
-  proposalRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

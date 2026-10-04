@@ -117,8 +117,8 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
     ],
   },
   {
-    id: "missions-and-projects",
-    title: "Missions and Projects",
+    id: "agents-and-runs",
+    title: "Agents and Runs",
     docs: [
       {
         routePath: "agents",
@@ -135,8 +135,8 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Let Stave pick an eligible provider, model and effort for each turn from the models you already use.",
       },
       {
-        routePath: "missions",
-        sourcePath: "docs/features/missions.md",
+        routePath: "agent-runs",
+        sourcePath: "docs/features/agent-runs.md",
         title: "Agent runs",
         description:
           "Assign an outcome to an agent: Stave runs its workflow's stages, opens the PR, watches checks and checks in only where the agent says.",
@@ -147,13 +147,6 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         title: "Playbooks (retired)",
         description:
           "Playbooks folded into agents: each saved playbook became a custom agent with the same stages.",
-      },
-      {
-        routePath: "projects",
-        sourcePath: "docs/features/projects.md",
-        title: "Projects",
-        description:
-          "Deprecated: existing projects keep working; new ones cannot be started.",
       },
     ],
   },
@@ -166,7 +159,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         sourcePath: "docs/features/workspace-kickoff.md",
         title: "Workspace Kickoff",
         description:
-          "Create a workspace from an issue, a link or a prompt, review the proposed branch and task, and optionally hand it to a mission.",
+          "Create a workspace from an issue, a link or a prompt, review the proposed branch and task, and optionally hand it to an agent.",
       },
       {
         routePath: "repository-instructions",
@@ -254,7 +247,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         sourcePath: "docs/features/sidebar-views.md",
         title: "Sidebar Views",
         description:
-          "Switch the left sidebar between the Projects tree and the Work queue, which groups every workspace by what it needs from you.",
+          "Switch the left sidebar between the Repositories tree and the Work queue, which groups every workspace by what it needs from you.",
       },
       {
         routePath: "issues",

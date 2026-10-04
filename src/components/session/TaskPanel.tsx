@@ -6,13 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StateIcon } from "@/components/ads/components/StateIcon";
 import { RightRailPanelHeader } from "@/components/layout/RightRailPanelShell";
 import { FlowPanel } from "@/components/agents/FlowPanel";
-import { MissionPanel } from "@/components/missions/MissionPanel";
-import { WakeUpSection } from "@/components/missions/WakeUpSection";
-import type { MissionDetail } from "@/lib/missions/api";
-import { isActiveMissionState } from "@/lib/missions/domain";
-import { isAgentRun } from "@/lib/missions/agent-run";
-import { describeAgentRunStatus } from "@/lib/missions/agent-run-view";
-import { describeMissionBadge } from "@/lib/missions/mission-view";
+import { AgentRunPanel } from "@/components/agent-runs/AgentRunPanel";
+import { WakeUpSection } from "@/components/agent-runs/WakeUpSection";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
+import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
+import { describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
+import { describeAgentRunBadge } from "@/lib/agent-runs/agent-run-view";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import {
   isTaskPanelTab,
@@ -23,7 +23,7 @@ import {
 import { isTaskManaged } from "@/lib/tasks";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import { useAppStore } from "@/store/app.store";
-import { useTaskMission } from "@/store/missions-store";
+import { useTaskAgentRun } from "@/store/agent-runs-store";
 import { TaskResultReviews } from "./TaskResultReviews";
 import { SubagentsSection } from "./SubagentsSection";
 import { TaskPanelEmpty } from "./TaskPanelEmpty";
@@ -53,7 +53,7 @@ export function TaskPanel() {
   );
   const tab = useAppStore((state) => state.layout.taskPanelTab);
   const setLayout = useAppStore((state) => state.setLayout);
-  const mission = useTaskMission(workspaceId, taskId);
+  const agentRun = useTaskAgentRun(workspaceId, taskId);
   const handleTabChange = useCallback(
     (next: TaskPanelTab) => setLayout({ patch: { taskPanelTab: next } }),
     [setLayout],
@@ -67,7 +67,7 @@ export function TaskPanel() {
       taskId={taskId}
       repositoryPath={repositoryPath}
       managed={isTaskManaged(task)}
-      mission={mission}
+      agentRun={agentRun}
       tab={tab}
       onTabChange={handleTabChange}
     />
@@ -85,7 +85,7 @@ export function TaskPanelView(props: {
   repositoryPath: string | null;
   /** A managed task's subagents are read-only until the user takes over. */
   managed: boolean;
-  mission: MissionDetail | undefined;
+  agentRun: AgentRunDetail | undefined;
   tab: TaskPanelTab;
   onTabChange: (tab: TaskPanelTab) => void;
 }) {
@@ -112,7 +112,7 @@ export function TaskPanelView(props: {
                   tab={item.id}
                   workspaceId={workspaceId}
                   taskId={taskId}
-                  mission={props.mission}
+                  agentRun={props.agentRun}
                 />
               </span>
             </TabsTrigger>
@@ -124,8 +124,8 @@ export function TaskPanelView(props: {
       </TabsContent>
       <TabsContent value="progress" xstyle={[styles.panel, styles.panelScroll]}>
         <div key={scopeKey} className={sx(styles.progress)}>
-          {props.mission ? (
-            <MissionPanel taskId={taskId} detail={props.mission} />
+          {props.agentRun ? (
+            <AgentRunPanel taskId={taskId} detail={props.agentRun} />
           ) : (
             <FlowPanel
               workspaceId={workspaceId}
@@ -160,7 +160,7 @@ export function TaskPanelView(props: {
 
 /*
  * Tab marks read data the app already holds for other surfaces — the turn's
- * pending interaction, the mission's state, the work graph's running agents
+ * pending interaction, the agent run's state, the work graph's running agents
  * and the task's unreviewed runs — one narrow subscription per tab, so a
  * change in one tab's mark re-renders that mark alone.
  */
@@ -168,13 +168,13 @@ function TaskTabMark(props: {
   tab: TaskPanelTab;
   workspaceId: string;
   taskId: string;
-  mission: MissionDetail | undefined;
+  agentRun: AgentRunDetail | undefined;
 }) {
   switch (props.tab) {
     case "activity":
       return <ActivityMark taskId={props.taskId} />;
     case "progress":
-      return <ProgressMark mission={props.mission} />;
+      return <ProgressMark agentRun={props.agentRun} />;
     case "team":
       return <SubagentsMark taskId={props.taskId} />;
     case "results":
@@ -193,10 +193,10 @@ function ActivityMark(props: { taskId: string }) {
   return <Mark mark={resolveActivityTabMark({ running, pendingInteraction: pending })} />;
 }
 
-function ProgressMark(props: { mission: MissionDetail | undefined }) {
-  const { mission } = props;
-  if (!mission || !isActiveMissionState(mission.mission.state)) return null;
-  const badge = isAgentRun(mission.mission) ? describeAgentRunStatus(mission) : describeMissionBadge(mission);
+function ProgressMark(props: { agentRun: AgentRunDetail | undefined }) {
+  const { agentRun } = props;
+  if (!agentRun || !isActiveAgentRunState(agentRun.agentRun.state)) return null;
+  const badge = hasAgentOrigin(agentRun.agentRun) ? describeAgentRunStatus(agentRun) : describeAgentRunBadge(agentRun);
   return <Mark mark={resolveProgressTabMark(badge)} />;
 }
 

@@ -55,11 +55,11 @@ complete theme contract. Avoid utility overrides of primitive internals.
 ## Collaboration behavior
 
 The composer shelf above the prompt input holds what is in flight for the
-task: one run line (the turn, or the mission or agent run heading it) and the
+task: one run line (the turn, or the agent run heading it) and the
 queue. It is the only place a live run's state is written; `settings.
 turnActivityPlacement` decides only where its details open (inline, the
 floating card, or the Task panel). The right rail has one Task panel with four
-tabs: Activity (turn activity), Progress (the mission while the task has one,
+tabs: Activity (turn activity), Progress (the agent run while the task has one,
 otherwise the flow), Subagents (every agent the task called; tab id `team`) and Results
 (run history). The task tab context menu opens the panel on the matching tab
 for that exact task. There is no composer shortcut row and no second

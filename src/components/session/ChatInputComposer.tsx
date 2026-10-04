@@ -109,7 +109,7 @@ import type {
 import { useShallow } from "zustand/react/shallow";
 import { buildChatInputGoalStatus } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
-import { MissionSignOffSlot } from "@/components/missions/SignOffCard";
+import { AgentRunSignOffSlot } from "@/components/agent-runs/SignOffCard";
 import { ChildRequestSlot } from "./ChildRequestSlot";
 import { ManagedTaskTakeoverNotice } from "./ManagedTaskTakeoverNotice";
 import {
@@ -1392,7 +1392,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               });
             }}
           />
-        ) : <MissionSignOffSlot />}
+        ) : <AgentRunSignOffSlot />}
         <ChildRequestSlot taskId={args.activeTaskId} />
         {/* Steering, a stalled turn and the queue are rows and tones of the one
             shelf; classic mode stacks it on the card, the frame tucks it in. */}

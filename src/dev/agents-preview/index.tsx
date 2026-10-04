@@ -21,12 +21,12 @@ import { useAgentsUiStore } from "@/store/agents-ui-store";
  * agent, a repository with agent files (one refused field, one unreadable
  * file, one id clash with a built-in), and stubbed assign calls.
  * `&theme=dark` or `&theme=<built-in theme id>` renders under that theme;
- * `&surface=1` renders the whole Agents surface (Agents / Playbooks / My
+ * `&surface=1` renders the whole Agents surface (Agents / Workflows / My
  * standards) instead of the tab. `&new=1` opens the New agent dialog,
  * `&edit=1` selects the custom agent so its sectioned editor shows, and
  * `&avatars=1` shows every avatar hue at each size (with and without the
  * provider mark), next to a round person mark, and
- * `&delete=1` opens the delete dialog with a blocking playbook reference. Use
+ * `&delete=1` opens the delete dialog with a blocking workflow reference. Use
  * `?stavePreview=kickoff&agent=1` to see the Kickoff dialog with an agent
  * preselected.
  */

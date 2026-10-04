@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { TaskPanel, TaskPanelView } from "@/components/session/TaskPanel";
 import { TaskPanelEmpty } from "@/components/session/TaskPanelEmpty";
 import { openTaskInspection } from "@/components/session/task-inspection-navigation";
-import type { MissionDetail } from "@/lib/missions/api";
-import { DEFAULT_PLAYBOOK_PERMISSION_MODE } from "@/lib/playbooks/schema";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import { DEFAULT_WORKFLOW_PERMISSION_MODE } from "@/lib/workflows/schema";
 import {
   RIGHT_RAIL_PANEL_IDS,
   RIGHT_RAIL_PANEL_TITLES,
@@ -14,7 +14,7 @@ import {
   type TaskPanelTab,
 } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
-import { missionDetail, missionFixture } from "./fixtures/mission-fixtures";
+import { agentRunDetail, agentRunFixture } from "./fixtures/agent-run-fixtures";
 
 const WORKSPACE_ID = "ws-1";
 const TASK_ID = "task-1";
@@ -28,7 +28,7 @@ function render(
       taskId: TASK_ID,
       repositoryPath: null,
       managed: false,
-      mission: undefined,
+      agentRun: undefined,
       onTabChange: () => {},
       ...overrides,
     }),
@@ -40,8 +40,8 @@ function selectedTab(html: string) {
   return /aria-selected="true"[^>]*>([A-Za-z]+)/.exec(html)?.[1] ?? null;
 }
 
-function mission(): MissionDetail {
-  return missionDetail(missionFixture({ leadTaskId: TASK_ID }));
+function agentRun(): AgentRunDetail {
+  return agentRunDetail(agentRunFixture({ leadTaskId: TASK_ID }));
 }
 
 beforeEach(() => {
@@ -115,20 +115,20 @@ test("the tab an opener names becomes layout state the panel reads", () => {
   expect(useAppStore.getState().layout.taskPanelTab).toBe("results");
 });
 
-test("Progress shows the mission when the task has one and the flow otherwise", () => {
+test("Progress shows the run when the task has one and the flow otherwise", () => {
   expect(render({ tab: "progress" })).toContain('aria-label="Flow"');
 
-  const html = render({ tab: "progress", mission: mission() });
-  expect(html).toContain('data-testid="mission-panel"');
+  const html = render({ tab: "progress", agentRun: agentRun() });
+  expect(html).toContain('data-testid="agent-run-panel"');
   expect(html).toContain("Add CSV export to the billing page.");
   expect(html).not.toContain('aria-label="Flow"');
 });
 
-test("a direct task's Progress carries no mission upsell", () => {
+test("a direct task's Progress carries no run upsell", () => {
   const html = render({ tab: "progress" });
   expect(html).not.toContain("Hand this task off");
-  expect(html).not.toContain("Start a mission");
-  expect(html).not.toContain("Manage playbooks");
+  expect(html).not.toContain("Start a run");
+  expect(html).not.toContain("Manage workflows");
 });
 
 test("Subagents lists the task's subagents for a repository task", () => {
@@ -140,17 +140,17 @@ test("Subagents lists the task's subagents for a repository task", () => {
   expect(html).not.toContain("Advisor");
 });
 
-test("Progress marks a mission that needs the user", () => {
-  const needsYou = mission();
+test("Progress marks a run that needs the user", () => {
+  const needsYou = agentRun();
   needsYou.stages = needsYou.stages.map((stage, index) =>
-    index === needsYou.mission.currentStageIndex
+    index === needsYou.agentRun.currentStageIndex
       ? { ...stage, status: "awaiting-sign-off" }
       : stage,
   );
-  expect(render({ tab: "activity", mission: needsYou })).toContain(
+  expect(render({ tab: "activity", agentRun: needsYou })).toContain(
     'aria-label="Needs you"',
   );
-  expect(render({ tab: "activity", mission: mission() })).not.toContain(
+  expect(render({ tab: "activity", agentRun: agentRun() })).not.toContain(
     'aria-label="Needs you"',
   );
 });
@@ -193,6 +193,6 @@ test("openTaskInspection opens the Task panel on the named tab for the active ta
   expect(useAppStore.getState().layout.taskPanelTab).toBe("team");
 });
 
-test("a playbook without a permission mode runs Auto", () => {
-  expect(DEFAULT_PLAYBOOK_PERMISSION_MODE).toBe("auto");
+test("a workflow without a permission mode runs Auto", () => {
+  expect(DEFAULT_WORKFLOW_PERMISSION_MODE).toBe("auto");
 });

@@ -533,7 +533,7 @@ Claude's system prompt keeps its own cache boundary
 `runProviderTurn` (`electron/providers/runtime.ts`) resolves one turn policy
 for every turn before it reaches a provider, through
 `electron/providers/turn-policy-entry.ts` and the pure resolver
-`src/lib/policy/turn-policy.ts`. Composer, agent, delegated, mission, wake-up
+`src/lib/policy/turn-policy.ts`. Composer, agent, delegated, agent run, wake-up
 and `stave_run_task` turns all pass through it; secondary read-only runs keep
 their fixed posture. The resolved policy rides on the host-owned
 `StreamTurnArgs.turnPolicy` field (never part of the renderer IPC schema), and

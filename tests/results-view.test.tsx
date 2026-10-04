@@ -3,14 +3,14 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AgentTable, Figures, OutcomeStrip, Reasons, outcomeTone } from "../src/components/results/ResultsParts";
 import { ResultsFailure, beginResultsLoad } from "../src/components/results/ResultsView";
-import { aggregateMissionInsights, type ResultSample } from "../src/lib/missions/insights";
+import { aggregateAgentRunInsights, type ResultSample } from "../src/lib/agent-runs/insights";
 import { createAppSurfaceActions, RESULTS_APP_SURFACE, WORKSPACE_APP_SURFACE, normalizeAppActiveSurface, type AppActiveSurface } from "../src/store/app-surface";
 import { getCommandPaletteCoreCommands } from "../src/components/layout/command-palette-registry";
 
 const NOW = Date.parse("2026-10-02T12:00:00.000Z");
 function sample(id: string, patch: Partial<ResultSample> = {}): ResultSample {
   return {
-    missionId: id,
+    agentRunId: id,
     workspaceId: "ws",
     leadTaskId: `t-${id}`,
     name: "Reviewer",
@@ -26,7 +26,7 @@ function sample(id: string, patch: Partial<ResultSample> = {}): ResultSample {
   };
 }
 
-const insights = aggregateMissionInsights(
+const insights = aggregateAgentRunInsights(
   [sample("a"), sample("b"), sample("c", { state: "stopped", stopReason: "turn-cap-reached" }), sample("d", { state: "cancelled", usage: null })],
   30,
 );
@@ -57,7 +57,7 @@ describe("results page", () => {
 
   test("reasons are listed with counts and the section disappears without any", () => {
     expect(renderToStaticMarkup(createElement(Reasons, { summary: insights.summary, days: 30 }))).toContain("Turn cap reached");
-    expect(renderToStaticMarkup(createElement(Reasons, { summary: aggregateMissionInsights([sample("a")], 7).summary, days: 7 }))).toBe("");
+    expect(renderToStaticMarkup(createElement(Reasons, { summary: aggregateAgentRunInsights([sample("a")], 7).summary, days: 7 }))).toBe("");
   });
 
   test("each agent gets a row with ready rate, median cost, corrections and a described last-10", () => {

@@ -108,6 +108,17 @@ export async function appendWorkspaceNotes(args: {
   }>("append-workspace-notes", args);
 }
 
+export async function writeWorkspacePlanFile(args: {
+  workspaceId: string;
+  fileName: string;
+  content: string;
+}) {
+  return invokeLocalMcp<import("../host-service/local-mcp-plan-files").WriteWorkspacePlanFileResult>(
+    "write-workspace-plan-file",
+    args,
+  );
+}
+
 export async function rememberRepositoryMemory(args: {
   workspaceId: string;
   kind: import("../../src/lib/repository-memory").RepositoryMemoryKind;

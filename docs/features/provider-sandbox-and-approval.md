@@ -57,7 +57,7 @@ asks for approval and returns the answer inline. See
 ## Autonomy And Guardrails
 
 Every turn gets one of three postures, resolved once when the turn starts —
-composer turns, agent tasks, delegated helpers, missions, wake-ups and tasks
+composer turns, agent tasks, delegated helpers, agent runs, wake-ups and tasks
 started through Local MCP alike:
 
 | Posture | When | What it means |

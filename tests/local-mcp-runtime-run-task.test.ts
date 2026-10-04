@@ -770,6 +770,40 @@ describe("local MCP runtime runTask", () => {
     ).toBe("Untrusted remote issue context.");
   });
 
+  test("a turn-scoped context reaches its own turn but is never saved on the task", async () => {
+    const result = await runtime.runLocallyApprovedCraneKickoff({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Work on the approved issue",
+      retrievedContextParts: [
+        {
+          type: "retrieved_context",
+          sourceId: "crane:CRANE-43",
+          title: "Crane CRANE-43",
+          content: "Durable issue context.",
+        },
+        {
+          type: "retrieved_context",
+          sourceId: "stave:agent-run",
+          title: "Agent Run Stage",
+          content: "A Stave run started this turn.",
+        },
+      ],
+    });
+
+    const snapshot = lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID);
+    const task = snapshot?.tasks?.find((candidate) => candidate.id === result.taskId) as
+      | { sourceContexts?: Array<{ sourceId?: string }> }
+      | undefined;
+    expect(task?.sourceContexts?.map((part) => part.sourceId)).toEqual(["crane:CRANE-43"]);
+
+    const call = startTurnStreamCalls.at(-1) as {
+      conversation?: { contextParts?: Array<{ sourceId?: string }> };
+    };
+    const sent = call.conversation?.contextParts?.map((part) => part.sourceId) ?? [];
+    expect(sent).toContain("crane:CRANE-43");
+    expect(sent).toContain("stave:agent-run");
+  });
+
   test("persists interactive host responses before provider continuation events", async () => {
     const result = await runtime.runLocallyApprovedCraneKickoff({
       workspaceId: WORKSPACE_ID,

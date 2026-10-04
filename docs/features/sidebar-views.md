@@ -12,8 +12,8 @@ Both views list the same workspaces, so either one on its own is a complete way
 to navigate. Switching is a change of question, not a change of scope.
 
 Above either view, the sidebar's top navigation holds **Fleet View**,
-**Projects**, and each open [project](projects.md) with the number of things
-that need you.
+**Agents** with each agent at work and the number of things that need you, and
+**Results**.
 
 ## When To Use It
 
@@ -45,9 +45,8 @@ that need you.
 ### Entry Points
 
 - Sidebar header bar: the `Repositories` / `Work queue` toggle.
-- Top navigation: **Fleet View**, **Projects** and the open projects (up to
-  five, a dot and a count on the ones that need you). Clicking a project opens
-  it in the Projects view.
+- Top navigation: **Fleet View**, **Agents** and the agents at work (a count
+  on each), and **Results**. Clicking an agent opens it in the Agents tab.
 - `Settings → Design → Sidebar → Sidebar View`: the same two choices. Both
   controls write the same preference, so neither can disagree with the other.
 
@@ -63,9 +62,9 @@ Every workspace, grouped into four lanes in fixed priority order:
 
 | Lane | Meaning |
 | --- | --- |
-| `Action required` | Blocked on you — a question, an approval, a failed run, a PR that cannot merge, a task sitting in a waiting/error state, or a [mission](missions.md) waiting for your sign-off, blocked, stuck, paused by Stave or stopped short of its goal |
-| `In progress` | An agent is running right now, including a mission running its stages or watching checks |
-| `In review` | Finished work nobody has looked at yet, such as a mission's open pull request |
+| `Action required` | Blocked on you — a question, an approval, a failed run, a PR that cannot merge, a task sitting in a waiting/error state, or an [agent run](agent-runs.md) waiting for your sign-off, blocked, stuck, paused by Stave or stopped short of its goal |
+| `In progress` | An agent is running right now, including an agent run running its stages or watching checks |
+| `In review` | Finished work nobody has looked at yet, such as an agent run's open pull request |
 | `Idle` | Nothing pending |
 
 - Inside a lane, rows are ordered: the workspace you are standing in first, then
@@ -93,8 +92,8 @@ the queue exactly the way it narrows the tree.
 ## Limitations And Advanced Options
 
 - The collapsed icon rail shows one flat list regardless of view; the toggle is
-  an expanded-sidebar control. The rail keeps **Fleet View** and **Projects**
-  as icons; a dot on Projects means a project needs you.
+  an expanded-sidebar control. The rail keeps **Fleet View**, **Agents** and
+  **Results** as icons; a dot on Agents means an agent needs you.
 - Row actions (`⋮` menu, drag-to-reorder, rename in place) exist only in
   `Repositories`. Open the workspace from the queue and use the tree, Fleet View, or
   workspace settings for those.

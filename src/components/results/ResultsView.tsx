@@ -4,11 +4,11 @@ import { Button } from "@/components/ui";
 import { Dialog } from "@/components/ads/components/Dialog";
 import { sx } from "@/components/ads/utils/stylex";
 import { EmptyState } from "@/components/ads/components/EmptyState";
-import { MissionReportView } from "@/components/missions/MissionReportView";
-import { Segmented } from "@/components/playbooks/Segmented";
+import { AgentRunReportView } from "@/components/agent-runs/AgentRunReportView";
+import { Segmented } from "@/components/workflows/Segmented";
 import { centerStyles } from "@/components/layout/automation-center/automation-center-view.styles";
-import type { MissionInsights, ResultRun } from "@/lib/missions/insights";
-import type { MissionReport } from "@/lib/missions/report";
+import type { AgentRunInsights, ResultRun } from "@/lib/agent-runs/insights";
+import type { AgentRunReport } from "@/lib/agent-runs/report";
 import { useAppStore } from "@/store/app.store";
 import { AgentTable, Figures, OutcomeStrip, Reasons } from "./ResultsParts";
 import { resultsStyles as styles } from "./results.styles";
@@ -20,25 +20,25 @@ const PERIODS = [
 ] as const;
 type Period = (typeof PERIODS)[number]["value"];
 
-/** Reads the results for the last `days`: null when this build has no missions bridge (the browser preview). */
-export type ResultsLoader = (days: number) => Promise<MissionInsights | null>;
+/** Reads the results for the last `days`: null when this build has no agent runs bridge (the browser preview). */
+export type ResultsLoader = (days: number) => Promise<AgentRunInsights | null>;
 /** Reads one ended run's report: null when it has none. */
-export type ResultReportLoader = (missionId: string) => Promise<MissionReport | null>;
+export type ResultReportLoader = (agentRunId: string) => Promise<AgentRunReport | null>;
 
-async function loadResults(days: number): Promise<MissionInsights | null> {
-  const insights = window.api?.missions?.insights;
+async function loadResults(days: number): Promise<AgentRunInsights | null> {
+  const insights = window.api?.agentRuns?.insights;
   if (!insights) return null;
   const response = await insights({ days });
   if (!response.ok || !response.insights) throw new Error(response.message || "Results could not be read.");
   return response.insights;
 }
 
-async function loadReport(missionId: string): Promise<MissionReport | null> {
-  const get = window.api?.missions?.get;
+async function loadReport(agentRunId: string): Promise<AgentRunReport | null> {
+  const get = window.api?.agentRuns?.get;
   if (!get) return null;
-  const response = await get({ missionId });
+  const response = await get({ agentRunId });
   if (!response.ok) throw new Error(response.message || "The report could not be read.");
-  return response.mission?.report ?? null;
+  return response.agentRun?.report ?? null;
 }
 
 export type ResultsState =
@@ -46,7 +46,7 @@ export type ResultsState =
   | { status: "unavailable" }
   | { status: "failed"; message: string }
   /** `reloading`: a new period or retry is being read; the shown figures are the previous ones. */
-  | { status: "ready"; insights: MissionInsights; reloading: boolean };
+  | { status: "ready"; insights: AgentRunInsights; reloading: boolean };
 
 /**
  * The state while a read is in flight. Figures already on the page stay (a
@@ -73,7 +73,7 @@ export function ResultsFailure(props: { message: string; onRetry: () => void }) 
 type ReportState = { run: ResultRun } & (
   | { status: "loading" }
   | { status: "failed"; message: string }
-  | { status: "ready"; report: MissionReport | null }
+  | { status: "ready"; report: AgentRunReport | null }
 );
 
 /** The ended run's report, opened from a row. */
@@ -87,10 +87,10 @@ function ReportDialog(props: { state: ReportState | null; onClose: () => void })
       }}
       width="lg"
       title={state ? state.run.name : "Report"}
-      description={state?.run.kind === "agent" ? "Run report" : "Mission report"}
+      description={state?.run.kind === "agent" ? "Run report" : "Run report"}
     >
       {state?.status === "ready" && state.report ? (
-        <MissionReportView report={state.report} agentRun={state.run.kind === "agent"} />
+        <AgentRunReportView report={state.report} agentOrigin={state.run.kind === "agent"} />
       ) : state?.status === "failed" ? (
         <p role="alert" className={sx(styles.note)}>
           {state.message}
@@ -108,7 +108,7 @@ function ReportDialog(props: { state: ReportState | null; onClose: () => void })
 
 /**
  * Results: did delegating pay off, and where did you have to step in? One page
- * for ended agent runs and playbook missions over 7, 30 or 90 days. Rows open
+ * for ended agent runs and legacy runs over 7, 30 or 90 days. Rows open
  * the run report, so the page is a lens onto reports, not a second store.
  */
 export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultReportLoader; now?: number; period?: "7" | "30" | "90"; onClose?: () => void } = {}) {
@@ -150,7 +150,7 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
 
   const open = (run: ResultRun) => {
     setReport({ run, status: "loading" });
-    readReport(run.missionId).then(
+    readReport(run.agentRunId).then(
       (value) => setReport((current) => (current?.run === run ? { run, status: "ready", report: value } : current)),
       (error: unknown) =>
         setReport((current) =>

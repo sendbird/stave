@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { observeWorkspaceScript } from "../electron/host-service/supervision/workspace-script-verification";
 import { runCommandArgs } from "../electron/main/utils/command";
-import { revisionsMatch } from "../src/lib/missions/verification-contract";
+import { revisionsMatch } from "../src/lib/agent-runs/verification-contract";
 
 test("real exit codes and before/after work state remain distinct, including failed checks", async () => {
   const cwd = mkdtempSync(join(tmpdir(), "stave-script-evidence-"));

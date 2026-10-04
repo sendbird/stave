@@ -16,7 +16,7 @@
  * Self-contained on purpose: it outlives the playbooks migration
  * (`playbook-agents-migration.ts`), so it repeats how 0.23.0 built the agent.
  */
-import type { Playbook } from "@/lib/playbooks/schema";
+import type { Workflow as Playbook } from "@/lib/workflows/schema";
 import type { AgentRevisionsMap } from "./revisions";
 import { revisionContentHash } from "./revisions";
 import {

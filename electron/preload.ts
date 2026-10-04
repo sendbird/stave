@@ -1,4 +1,3 @@
-import { PROPOSAL_IPC, type ProposalsBridgeApi } from "../src/lib/missions/proposed";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
 import { providerAccountsApi } from "./provider-accounts/preload";
@@ -137,15 +136,10 @@ import type {
 } from "../src/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
 import {
-  MISSION_IPC,
-  type MissionChangedEvent,
-  type MissionsBridgeApi,
-} from "../src/lib/missions/api";
-import {
-  PROJECT_IPC,
-  type ProjectChangedEvent,
-  type ProjectsBridgeApi,
-} from "../src/lib/projects/api";
+  AGENT_RUN_IPC,
+  type AgentRunChangedEvent,
+  type AgentRunsBridgeApi,
+} from "../src/lib/agent-runs/api";
 import {
   WAKE_UP_IPC,
   type WakeUpChangedEvent,
@@ -768,34 +762,34 @@ ipcRenderer.on(
   },
 );
 
-const missionChangedSubscribers = new Set<(payload: MissionChangedEvent) => void>();
-ipcRenderer.on(MISSION_IPC.changed, (_event, payload: MissionChangedEvent) => {
-  for (const subscriber of missionChangedSubscribers) {
+const agentRunChangedSubscribers = new Set<(payload: AgentRunChangedEvent) => void>();
+ipcRenderer.on(AGENT_RUN_IPC.changed, (_event, payload: AgentRunChangedEvent) => {
+  for (const subscriber of agentRunChangedSubscribers) {
     subscriber(payload);
   }
 });
 
-const missionsApi: MissionsBridgeApi = {
-  start: (args) => ipcRenderer.invoke(MISSION_IPC.start, args),
-  list: (args) => ipcRenderer.invoke(MISSION_IPC.list, args ?? {}),
-  insights: (args) => ipcRenderer.invoke(MISSION_IPC.insights, args ?? {}),
-  get: (args) => ipcRenderer.invoke(MISSION_IPC.get, args),
-  signOff: (args) => ipcRenderer.invoke(MISSION_IPC.signOff, args),
-  requestChanges: (args) => ipcRenderer.invoke(MISSION_IPC.requestChanges, args),
-  skipStage: (args) => ipcRenderer.invoke(MISSION_IPC.skipStage, args),
-  retryStage: (args) => ipcRenderer.invoke(MISSION_IPC.retryStage, args),
-  pause: (args) => ipcRenderer.invoke(MISSION_IPC.pause, args),
-  resume: (args) => ipcRenderer.invoke(MISSION_IPC.resume, args),
-  takeOver: (args) => ipcRenderer.invoke(MISSION_IPC.takeOver, args),
-  acceptRuntime: (args) => ipcRenderer.invoke(MISSION_IPC.acceptRuntime, args),
-  noteUserTurn: (args) => ipcRenderer.invoke(MISSION_IPC.noteUserTurn, args),
-  cancel: (args) => ipcRenderer.invoke(MISSION_IPC.cancel, args),
-  addReportToPullRequest: (args) => ipcRenderer.invoke(MISSION_IPC.addReportToPullRequest, args),
-  shareReport: (args) => ipcRenderer.invoke(MISSION_IPC.shareReport, args),
+const agentRunsApi: AgentRunsBridgeApi = {
+  start: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.start, args),
+  list: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.list, args ?? {}),
+  insights: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.insights, args ?? {}),
+  get: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.get, args),
+  signOff: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.signOff, args),
+  requestChanges: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.requestChanges, args),
+  skipStage: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.skipStage, args),
+  retryStage: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.retryStage, args),
+  pause: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.pause, args),
+  resume: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.resume, args),
+  takeOver: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.takeOver, args),
+  acceptRuntime: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.acceptRuntime, args),
+  noteUserTurn: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.noteUserTurn, args),
+  cancel: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.cancel, args),
+  addReportToPullRequest: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.addReportToPullRequest, args),
+  shareReport: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.shareReport, args),
   subscribeChanged: (listener) => {
-    missionChangedSubscribers.add(listener);
+    agentRunChangedSubscribers.add(listener);
     return () => {
-      missionChangedSubscribers.delete(listener);
+      agentRunChangedSubscribers.delete(listener);
     };
   },
 };
@@ -821,26 +815,6 @@ const wakeUpsApi: WakeUpsBridgeApi = {
   },
 };
 
-const proposalChangedSubscribers = new Set<() => void>();
-ipcRenderer.on(PROPOSAL_IPC.changed, () => {
-  for (const subscriber of proposalChangedSubscribers) {
-    subscriber();
-  }
-});
-
-const proposalsApi: ProposalsBridgeApi = {
-  list: (args) => ipcRenderer.invoke(PROPOSAL_IPC.list, args ?? {}),
-  dismiss: (args) => ipcRenderer.invoke(PROPOSAL_IPC.dismiss, args),
-  markStarted: (args) => ipcRenderer.invoke(PROPOSAL_IPC.markStarted, args),
-  observePullRequest: (args) => ipcRenderer.invoke(PROPOSAL_IPC.observePullRequest, args),
-  subscribeChanged: (listener) => {
-    proposalChangedSubscribers.add(listener);
-    return () => {
-      proposalChangedSubscribers.delete(listener);
-    };
-  },
-};
-
 const agentChangedSubscribers = new Set<() => void>();
 ipcRenderer.on(AGENT_IPC.changed, () => {
   for (const subscriber of agentChangedSubscribers) {
@@ -857,37 +831,6 @@ const agentsApi: AgentsBridgeApi = {
     agentChangedSubscribers.add(listener);
     return () => {
       agentChangedSubscribers.delete(listener);
-    };
-  },
-};
-
-const projectChangedSubscribers = new Set<(payload: ProjectChangedEvent) => void>();
-ipcRenderer.on(PROJECT_IPC.changed, (_event, payload: ProjectChangedEvent) => {
-  for (const subscriber of projectChangedSubscribers) {
-    subscriber(payload);
-  }
-});
-
-const projectsApi: ProjectsBridgeApi = {
-  linkTask: (args) => ipcRenderer.invoke(PROJECT_IPC.linkTask, args),
-  unlinkTask: (args) => ipcRenderer.invoke(PROJECT_IPC.unlinkTask, args),
-  recordIntegration: (args) => ipcRenderer.invoke(PROJECT_IPC.recordIntegration, args),
-  list: (args) => ipcRenderer.invoke(PROJECT_IPC.list, args),
-  get: (args) => ipcRenderer.invoke(PROJECT_IPC.get, args),
-  create: (args) => ipcRenderer.invoke(PROJECT_IPC.create, args),
-  approveProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.approveProposal, args),
-  messageCoordinator: (args) => ipcRenderer.invoke(PROJECT_IPC.messageCoordinator, args),
-  rejectProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.rejectProposal, args),
-  pause: (args) => ipcRenderer.invoke(PROJECT_IPC.pause, args),
-  resume: (args) => ipcRenderer.invoke(PROJECT_IPC.resume, args),
-  end: (args) => ipcRenderer.invoke(PROJECT_IPC.end, args),
-  updateSettings: (args) => ipcRenderer.invoke(PROJECT_IPC.updateSettings, args),
-  setMemoryStatus: (args) => ipcRenderer.invoke(PROJECT_IPC.setMemoryStatus, args),
-  syncPlaybooks: (args) => ipcRenderer.invoke(PROJECT_IPC.syncPlaybooks, args),
-  subscribeChanged: (listener) => {
-    projectChangedSubscribers.add(listener);
-    return () => {
-      projectChangedSubscribers.delete(listener);
     };
   },
 };
@@ -2284,10 +2227,8 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
-  missions: missionsApi,
+  agentRuns: agentRunsApi,
   wakeUps: wakeUpsApi,
-  projects: projectsApi,
-  proposals: proposalsApi,
   agents: agentsApi,
   automations: {
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>

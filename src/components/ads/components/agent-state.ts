@@ -61,7 +61,7 @@ export const agentStateLabel: Record<AgentRunState, string> = {
 /**
  * The shared work state (`state-vocabulary.ts`) each run state stands for. The
  * tone and glyph of a run state come from that state, so a tool row, a Fleet
- * card and a mission badge show the same shape for the same thing. States the
+ * card and an agent run badge show the same shape for the same thing. States the
  * vocabulary has no word for map to the nearest one: a denied request failed,
  * an interrupted run stopped, and a checkpoint is work that is ready.
  */

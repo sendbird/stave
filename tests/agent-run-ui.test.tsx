@@ -1,23 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { buildAgentRunFixtures } from "../src/dev/mission-preview/agent-run-fixtures";
-import { AgentRunResultCardView } from "../src/components/missions/AgentRunResultCard";
-import { MissionBarView } from "../src/components/missions/MissionBar";
-import { MissionDetailView } from "../src/components/missions/MissionPanel";
-import { StageDividerView } from "../src/components/missions/StageDivider";
-import type { MissionDetail } from "../src/lib/missions/api";
-import { selectAgentRunCard } from "../src/lib/missions/agent-run-view";
-import { MISSION_NOW, missionDetail, missionFixture } from "./fixtures/mission-fixtures";
+import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
+import { AgentRunResultCardView } from "../src/components/agent-runs/AgentRunResultCard";
+import { AgentRunBarView } from "../src/components/agent-runs/AgentRunBar";
+import { AgentRunDetailView } from "../src/components/agent-runs/AgentRunPanel";
+import { StageDividerView } from "../src/components/agent-runs/StageDivider";
+import type { AgentRunDetail } from "../src/lib/agent-runs/api";
+import { selectAgentRunCard } from "../src/lib/agent-runs/agent-run-status";
+import { AGENT_RUN_NOW, agentRunDetail, agentRunFixture } from "./fixtures/agent-run-fixtures";
 
 const START = new Date("2026-10-01T09:00:00.000Z");
 const NOW = START.getTime() + 4 * 60_000;
 const runs = buildAgentRunFixtures(START);
-const noop = (async () => ({ ok: true, mission: null })) as never;
+const noop = (async () => ({ ok: true, agentRun: null })) as never;
 
-const bar = (detail: MissionDetail, nowPhrase: string | null = null) =>
+const bar = (detail: AgentRunDetail, nowPhrase: string | null = null) =>
   renderToStaticMarkup(
-    createElement(MissionBarView, {
+    createElement(AgentRunBarView, {
       detail,
       nowPhrase,
       now: NOW,
@@ -26,11 +26,11 @@ const bar = (detail: MissionDetail, nowPhrase: string | null = null) =>
       actions: { onOpenPanel: () => {} },
     }),
   );
-const panel = (detail: MissionDetail) =>
+const panel = (detail: AgentRunDetail) =>
   renderToStaticMarkup(
-    createElement(MissionDetailView, { detail, now: NOW, onCommand: noop, agentActions: { onStop: () => {}, onTakeControl: () => {}, onRetry: () => {}, onAskForChanges: () => {}, onOpenPullRequest: () => {} } }),
+    createElement(AgentRunDetailView, { detail, now: NOW, onCommand: noop, agentActions: { onStop: () => {}, onTakeControl: () => {}, onRetry: () => {}, onAskForChanges: () => {}, onOpenPullRequest: () => {} } }),
   );
-const card = (detail: MissionDetail, now = NOW) =>
+const card = (detail: AgentRunDetail, now = NOW) =>
   renderToStaticMarkup(
     createElement(AgentRunResultCardView, {
       detail,
@@ -50,7 +50,6 @@ describe("agent run status line", () => {
     expect(html).toContain("Take control");
     expect(html).not.toContain("<ol");
     expect(html).not.toContain("Stage ");
-    expect(html).not.toContain("Mission");
   });
 
   test("an agent with a workflow shows its stages and where it stands", () => {
@@ -82,18 +81,18 @@ describe("agent run status line", () => {
     expect(bar(runs.working)).not.toContain("Retry");
   });
 
-  test("a playbook mission keeps its stage track and Take over", () => {
-    const aggregate = missionFixture();
+  test("a legacy run keeps its stage track and Take over", () => {
+    const aggregate = agentRunFixture();
     const html = renderToStaticMarkup(
-      createElement(MissionBarView, {
-        detail: missionDetail(aggregate),
+      createElement(AgentRunBarView, {
+        detail: agentRunDetail(aggregate),
         nowPhrase: null,
-        now: MISSION_NOW.getTime() + 60_000,
+        now: AGENT_RUN_NOW.getTime() + 60_000,
         reducedMotion: false,
         actions: { onTakeOver: () => {} },
       }),
     );
-    expect(html).toContain('data-testid="mission-bar"');
+    expect(html).toContain('data-testid="agent-run-bar"');
     expect(html).toContain("<ol");
     expect(html).toContain("Take over");
     expect(html).not.toContain("Take control");
@@ -117,7 +116,7 @@ describe("agent run result card", () => {
   });
 
   test("Open PR appears only when the run names a pull request", () => {
-    const withoutPullRequest: MissionDetail = {
+    const withoutPullRequest: AgentRunDetail = {
       ...runs.ready,
       report: null,
       stages: runs.ready.stages.map((stage) =>
@@ -147,16 +146,16 @@ describe("agent run result card", () => {
   });
 
   test("a message that started after the run ended makes the card history", () => {
-    const later = new Date(Date.parse(runs.failed.mission.updatedAt) + 60_000).toISOString();
+    const later = new Date(Date.parse(runs.failed.agentRun.updatedAt) + 60_000).toISOString();
     expect(selectAgentRunCard({ detail: runs.failed })).toBe("reason");
-    expect(selectAgentRunCard({ detail: runs.ready, lastMessageStartedAt: runs.ready.mission.createdAt })).toBe("result");
+    expect(selectAgentRunCard({ detail: runs.ready, lastMessageStartedAt: runs.ready.agentRun.createdAt })).toBe("result");
     expect(selectAgentRunCard({ detail: runs.failed, lastMessageStartedAt: later })).toBeNull();
-    expect(selectAgentRunCard({ detail: missionDetail(missionFixture()) })).toBeNull();
+    expect(selectAgentRunCard({ detail: agentRunDetail(agentRunFixture()) })).toBeNull();
   });
 });
 
 describe("agent run in the Progress tab", () => {
-  test("shows the agent and state, Done when and the result, without playbook controls", () => {
+  test("shows the agent and state, Done when and the result, without workflow controls", () => {
     const html = panel(runs.ready);
     expect(html).toContain('data-testid="agent-run-panel"');
     expect(html).toContain("Implementer");
@@ -167,9 +166,8 @@ describe("agent run in the Progress tab", () => {
     expect(html).toContain("Run figures");
     expect(html).toContain("Ask for changes");
     expect(html).not.toContain("Stages");
-    expect(html).not.toContain("Mission");
-    expect(html).not.toContain("Save as playbook");
-    expect(html).not.toContain("Cancel mission");
+    expect(html).not.toContain("Save as workflow");
+    expect(html).not.toContain("Stop run");
     expect(html).not.toContain("Pause");
   });
 
@@ -189,20 +187,58 @@ describe("agent run in the Progress tab", () => {
     }
   });
 
-  test("a playbook mission keeps its stage list", () => {
+  test("a one-stage run lists the agent's plan as its steps", () => {
+    const plan = {
+      turnId: "turn-2",
+      items: [
+        { content: "Reproduce on a narrow screen", status: "completed" as const },
+        { content: "Fix the table", status: "in_progress" as const },
+      ],
+    };
+    const detail: AgentRunDetail = {
+      ...runs.working,
+      stages: runs.working.stages.map((record) => ({ ...record, facts: { diff: null, commands: [], toolCalls: [], action: null, plan } })),
+    };
+    const html = panel(detail);
+    expect(html).toContain('aria-label="Plan"');
+    expect(html).toContain("1 of 2 done");
+    expect(html).toContain("Reproduce on a narrow screen");
+    expect(html).toContain("Fix the table");
+    // No plan written yet: no empty section.
+    expect(panel(runs.working)).not.toContain('aria-label="Plan"');
+  });
+
+  test("a run with a workflow names it and lets you retry or skip a stuck stage", () => {
+    const titles = runs.workflow.agentRun.workflow.stages.map((stage) => stage.title).join(" → ");
+    const running = panel(runs.workflow);
+    expect(running).toContain(`Workflow: ${titles}`);
+    expect(running).toContain("Stages");
+    expect(running).not.toContain("Retry stage");
+    const stuck: AgentRunDetail = {
+      ...runs.workflow,
+      stages: runs.workflow.stages.map((record) =>
+        record.stageId === "cause" ? { ...record, status: "stuck", detail: "No progress for 20 minutes." } : record,
+      ),
+    };
+    const html = panel(stuck);
+    expect(html).toContain("Retry stage");
+    expect(html).toContain("Skip");
+  });
+
+  test("a legacy run keeps its stage list", () => {
     const html = renderToStaticMarkup(
-      createElement(MissionDetailView, { detail: missionDetail(missionFixture()), now: MISSION_NOW.getTime() + 60_000, onCommand: noop }),
+      createElement(AgentRunDetailView, { detail: agentRunDetail(agentRunFixture()), now: AGENT_RUN_NOW.getTime() + 60_000, onCommand: noop }),
     );
-    expect(html).toContain('data-testid="mission-panel"');
+    expect(html).toContain('data-testid="agent-run-panel"');
     expect(html).toContain("Stages");
-    expect(html).toContain("Mission ·");
+    expect(html).toContain("Run ·");
   });
 });
 
 describe("stage divider", () => {
-  test("a playbook stage keeps its divider", () => {
+  test("a workflow stage keeps its divider", () => {
     expect(renderToStaticMarkup(createElement(StageDividerView, { text: "Stage 3 · Verify — started automatically" }))).toContain(
-      'data-testid="mission-stage-divider"',
+      'data-testid="agent-run-stage-divider"',
     );
   });
 });

@@ -63,7 +63,7 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
   {
     commandId: "navigation.agents",
     title: "Open Agents",
-    description: "Open saved agents, playbooks, and your standards.",
+    description: "Open saved agents, workflows, and your standards.",
     defaultKey: "g",
   },
   {

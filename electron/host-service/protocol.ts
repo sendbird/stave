@@ -1,4 +1,3 @@
-import type { HostProposalAction } from "./supervision/proposal-runtime";
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
 import type { AgentInvokeResult, HostAgentAction } from "../../src/lib/agents/api";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../../src/lib/providers/agent-history";
@@ -22,10 +21,9 @@ import type {
   GitHubPrReviewSubmitResult,
 } from "../../src/lib/github-pr-review";
 import type {
-  MissionChangedEvent,
-  MissionInvokeResult,
-} from "../../src/lib/missions/api";
-import type { ProjectChangedEvent, ProjectInvokeResult } from "../../src/lib/projects/api";
+  AgentRunChangedEvent,
+  AgentRunInvokeResult,
+} from "../../src/lib/agent-runs/api";
 import type {
   CanonicalRetrievedContextPart,
   CodexAppServerSnapshotResponse,
@@ -469,6 +467,7 @@ export type HostLocalMcpAction =
   | "set-workspace-martin-project"
   | "replace-workspace-notes"
   | "append-workspace-notes"
+  | "write-workspace-plan-file"
   | "clear-workspace-notes"
   | "add-workspace-todo"
   | "update-workspace-todo"
@@ -494,10 +493,10 @@ export type HostWakeUpAction =
   "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
 
 /**
- * Mission actions. The last three serve the stage-reporting tools and carry a
- * mission grant key instead of a mission id.
+ * Agent run actions. The last three serve the stage-reporting tools and carry an
+ * agent run grant key instead of an agent run id.
  */
-export type HostMissionAction =
+export type HostAgentRunAction =
   | "start"
   | "list"
   | "insights"
@@ -517,32 +516,6 @@ export type HostMissionAction =
   | "get-for-grant"
   | "report-stage"
   | "block-stage";
-
-/**
- * Project actions. The last four serve the coordinator's tools and carry a
- * project grant key instead of a project id.
- */
-export type HostProjectAction =
-  | "link-task"
-  | "unlink-task"
-  | "record-integration"
-  | "list"
-  | "get"
-  | "create"
-  | "approve-proposal"
-  | "reject-proposal"
-  | "pause"
-  | "resume"
-  | "end"
-  | "update-settings"
-  | "set-memory-status"
-  | "sync-playbooks"
-  | "observe-issues"
-  | "message-coordinator"
-  | "get-for-grant"
-  | "start-mission-for-grant"
-  | "get-mission-report-for-grant"
-  | "note-for-grant";
 
 export type HostAutomationAction =
   | "list"
@@ -1050,20 +1023,12 @@ export interface HostServiceRequestMap {
     action: HostWakeUpAction;
     args: unknown;
   };
-  "mission.invoke": {
-    action: HostMissionAction;
-    args: unknown;
-  };
-  "project.invoke": {
-    action: HostProjectAction;
+  "agent-run.invoke": {
+    action: HostAgentRunAction;
     args: unknown;
   };
   "agent.invoke": {
     action: HostAgentAction;
-    args: unknown;
-  };
-  "proposal.invoke": {
-    action: HostProposalAction;
     args: unknown;
   };
 }
@@ -1257,9 +1222,7 @@ export interface HostServiceResponseMap {
   "task.stop": HostTaskStopResult;
   "automation.invoke": unknown;
   "wake-up.invoke": unknown;
-  "mission.invoke": MissionInvokeResult<unknown>;
-  "project.invoke": ProjectInvokeResult<unknown>;
-  "proposal.invoke": { ok: true; value: unknown } | { ok: false; message: string };
+  "agent-run.invoke": AgentRunInvokeResult<unknown>;
   "agent.invoke": AgentInvokeResult<unknown>;
 }
 
@@ -1289,12 +1252,9 @@ export interface HostServiceEventMap {
       authorizationToken: string;
     }>;
   };
-  "mission.changed": MissionChangedEvent;
-  "project.changed": ProjectChangedEvent;
+  "agent-run.changed": AgentRunChangedEvent;
   /** An agent assignment was created or changed state. */
   "agent.changed": { assignmentId: string; state: string };
-  /** Proposed missions changed: one was proposed, started or dismissed. */
-  "proposal.changed": Record<string, never>;
   "wake-up.changed": { wakeUpId: string; workspaceId: string; taskId: string };
 }
 

@@ -7,6 +7,10 @@ import {
   CODEX_STAVE_MCP_TOKEN_ENV_VAR,
 } from "../main/codex-mcp";
 import type { StaveLocalMcpManifest } from "../../src/lib/local-mcp";
+import {
+  READ_ONLY_DELEGATION_STAVE_TOOLS,
+  READ_ONLY_STAVE_METADATA_TOOLS,
+} from "../../src/lib/runs/read-only-delegation";
 import type { CodexConfigOverrides } from "./codex-app-server-params";
 import {
   STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS,
@@ -37,6 +41,23 @@ export function buildCodexUnattendedAutomationMcpOverrides(args: {
   };
 }
 
+/**
+ * Pre-approves the Stave tools every posture may call: the ones that read
+ * Stave state and the ones that record the work in it. Codex otherwise
+ * rejects a non-read-only MCP call outright under approval policy `never`
+ * ("MCP tool call requires approval, but approval policy is never") before
+ * Stave sees an elicitation, so a read-only turn could not report its agent run
+ * stage or leave a note (verified against codex-cli 0.159.3). Constant across
+ * postures, so a warm thread resume never sees the set change.
+ */
+export function buildCodexStaveToolApprovalOverrides(): Record<string, string> {
+  const overrides: Record<string, string> = {};
+  for (const tool of [...READ_ONLY_DELEGATION_STAVE_TOOLS, ...READ_ONLY_STAVE_METADATA_TOOLS]) {
+    overrides[`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.tools.${tool}.approval_mode`] = "approve";
+  }
+  return overrides;
+}
+
 export async function mergeCodexTurnConfigOverrides(args: {
   turnGrants?: StaveTurnGrants;
   base?: CodexConfigOverrides;
@@ -64,6 +85,7 @@ export async function mergeCodexTurnConfigOverrides(args: {
             CODEX_STAVE_MCP_TOKEN_ENV_VAR,
           [`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.tool_timeout_sec`]:
             STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS / 1000,
+          ...buildCodexStaveToolApprovalOverrides(),
         }
       : {}),
     ...args.secretShellOverrides,

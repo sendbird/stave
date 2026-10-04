@@ -9,7 +9,7 @@
  * Classification runs per turn, through a `RouteClassifier` port the host
  * fills with in-process utility inference.
  *
- * Used by: `electron/host-service/supervision/mission-host.ts` (routing) and
+ * Used by: `electron/host-service/supervision/agent-run-host.ts` (routing) and
  * `src/lib/agents/useAgentSync.ts` (the synced settings).
  */
 import { z } from "zod";

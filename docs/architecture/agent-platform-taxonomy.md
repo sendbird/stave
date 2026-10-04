@@ -27,19 +27,18 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Delegated task | A durable subagent: a Stave task created on another task's behalf, possibly on the other provider or in its own worktree, recorded on the run ledger. The relation stays parent/child (`parentTaskId`); the older words "child task" are retired. Run ids keep the persisted `child-task:<parent>:<key>` format. |
 | Issue | A ticket from a connected tracker (Jira, Crane), listed on the Issues surface and started as a Stave task from there. Code: `TrackerIssue`. "Task" is reserved for Stave conversations; Crane's own API keeps calling its items tasks. |
 | Repository | A registered folder that holds workspaces. Code: `repositoryPath`. The older word "project" is retired for it. |
-| Workflow | An agent's ordered stages, each an AI stage with an instruction and a "Done when" condition or a Stave action. A run of the agent follows them; an agent without one runs one "Work" stage. It grants no permissions. Code: `AgentConfig.workflow`, validated with the stage schema in `src/lib/playbooks/schema.ts`. |
+| Workflow | An agent's ordered stages, each an AI stage with an instruction and a "Done when" condition or a Stave action. A run of the agent follows them; an agent without one runs one "Work" stage. It grants no permissions. Code: `AgentConfig.workflow`, validated with the stage schema in `src/lib/workflows/schema.ts`. |
 | Stage | One step of a workflow: an AI stage (a turn with an instruction, optionally done by another agent) or a Stave action (open a draft PR, watch checks, mark ready, run a script), which Stave performs itself. |
 | Check in with me | Where a run waits for the user's sign-off between stages: only when stuck (the agent default), before publishing, or every stage. Code: `AgentConfig.checkIns`, the engine's `CheckIns` (`when-stuck`, `plan-and-publishing`, `every-stage`). |
-| Playbook | Retired as a user concept: a saved playbook became a custom agent with that workflow (converted by 0.22.0 and 0.23.0; 0.24.0 removed the conversion). Saved playbooks stay as read-only data for deprecated projects and start conditions. Code keeps `Playbook` as the mission engine's run plan. |
+| Playbook | Retired as a user concept: a saved playbook became a custom agent with that workflow (converted by 0.22.0 and 0.23.0; 0.24.0 removed the conversion). Saved playbooks stay as read-only data: old runs started from them (legacy runs) still render. Playbook start conditions and proposed runs are removed. Code calls the run plan a `Workflow` (`agentRun.workflow`). |
 | Sign-off | The user's approval before a stage starts. "Ask for changes" reruns the previous AI stage with feedback. |
-| Mission | Engine word, not shown to users for agent runs: one run of a plan of stages on one lead task the user already owns — an agent run (`origin: "agent"`) or a legacy playbook mission. Code: `src/lib/missions/`. |
+| Agent run | Code word (`AgentRun`) for what users see as a **Run**: one run of a plan of stages on one lead task the user already owns — an agent's run (`origin: "agent"`) or a legacy run started from a playbook. Code: `src/lib/agent-runs/`. |
 | Stage report | What the agent reports for a stage through `stave_report_stage` or `stave_block_stage`. Its evidence is "Verified by Stave" only when Stave saw the cited call succeed; otherwise "Agent reported". |
-| Mission report | The summary a mission leaves when it ends: stages, decisions, evidence, links, and, for a partial run, what it left behind. |
-| Project | The goal-level coordinator that starts parallel missions. Deprecated: shown only to a user who has one, no new projects, to be removed in a later release. Not a registered folder. |
+| Agent run report | The summary an agent run leaves when it ends: stages, decisions, evidence, links, and, for a partial run, what it left behind. |
+| Project | Removed. It was a goal-level coordinator that started parallel agent runs. Its tables stay in the database unread, and each project's memories are exported once to `<user data>/exports/project-memory/<project id>.md`. Old agent runs a project started still render. Not a registered folder. |
 | Agent | A saved worker definition: instructions, skills, a model choice, tool limits, a default permission and a workspace. Built-in, Custom, or From repository. It grants no permissions and starts nothing. Code: `AgentConfig` in `src/lib/agents/`, referenced as `agentConfigId` — never `agentId`, which names a provider worker on normalized events, and never `AgentDefinition`, the Claude Agent SDK's subagent type. |
 | Agent role | Where an agent can be used: `primary` (Main agent of a task), `worker` (an in-turn subagent), `delegate` (a delegated task). The same words as the auto-routing roles. Code: `usableAs`. |
 | Agent snapshot | The copy of an agent taken when work starts, with its content hash ("Version used"). Later edits never reach a run. |
-| Intake | The one sequence that turns a project's request into a workspace, an idle task and optionally a mission: `electron/host-service/supervision/intake.ts`. Its caller records the idempotency key and each id it reports. |
 | Assign | Handing work to an agent as a task's main agent. Kickoff creates the worktree (or, for an agent that works in the current workspace, a task there) and records the agent before the first turn, which is sent like any composer turn. Code: `AgentAssignment`, recorded by `assign-runtime.ts`. |
 
 Lane names for workspace state are fixed and ordered:
@@ -184,23 +183,23 @@ ledger, never the reverse, and never through the coordinator — is what keeps
 "records wake-ups" and "records delegated execution" separate concepts rather
 than one table with two meanings.
 
-A mission is the second supervisor entry. `src/lib/missions/policy.ts` holds
-its pure decision order, `electron/persistence/mission-store.ts` stores it in
-`missions` / `mission_stages` / `mission_events`, and
-`electron/host-service/supervision/mission-runtime.ts` executes it beside the
+An agent run is the second supervisor entry. `src/lib/agent-runs/policy.ts` holds
+its pure decision order, `electron/persistence/agent-run-store.ts` stores it in
+`agent_runs` / `agent_run_stages` / `agent_run_events`, and
+`electron/host-service/supervision/agent-run-runtime.ts` executes it beside the
 wake-up runtime, starting turns through the same `runSupervisedTurn` path under
 the same safety rules. Like a wake-up it adds turns to one existing task and
 records no claims, leases or receipts; it *reads* delegated-task completions and
 PR checks and writes only its own rows. It never completes a stage because a
 turn ended: only the agent's stage report, or the result of a Stave action
 Stave performed itself, completes one. The agent reports through Local MCP
-tools that exist only under the turn's mission grant, which names the stage
+tools that exist only under the turn's agent run grant, which names the stage
 attempt, so a report cannot name another stage.
 
-Wake-ups and missions share one rule, owned by
+Wake-ups and agent runs share one rule, owned by
 `src/lib/supervision/automatic-turn-owner.ts`: a task has at most one source of
-automatic turns. While a mission is running or paused, the task's wake-up
-pauses with `mission-active` and resumes on its own when the mission ends, and
+automatic turns. While an agent run is running or paused, the task's wake-up
+pauses with `agent-run-active` and resumes on its own when the agent run ends, and
 a new wake-up on that task is refused.
 
 ## Boundary Statements
@@ -220,43 +219,38 @@ whose name repeats it.
    order.
 7. A work graph node names a worker, never a call; a call-derived node is never
    offered a per-agent control.
-8. A mission advances exactly one lead task and never creates a task.
+8. An agent run advances exactly one lead task and never creates a task.
 9. A stage completes only through a recorded stage report or a Stave action
    result; an ended turn alone never completes a stage.
-10. A saved agent or playbook never grants permissions; every run start records
+10. A saved agent or saved workflow never grants permissions; every run start records
     its own consent.
 11. At most one supervisor entry starts automatic turns on a task at a time.
-12. A project starts work only as missions through intake; its coordinator
-    edits no files. Its start conditions (an assigned issue, pull request
-    feedback, a schedule) and the user's messages from the project only start
-    coordinator turns, through the one read-only coordinator path.
-13. A saved agent grants no permissions; every start records its own consent.
-14. Saving or editing an agent never creates a workspace, a task or a process.
-15. A run follows the snapshot taken at its start; later edits never reach it.
-16. Work for an agent starts only through Kickoff, a project's intake, or a
-    delegation, and is recorded before its first turn; a delegation
-    to an agent never runs wider than the delegating task's own agent, never
-    names an agent outside its project's Agents, and work pinned to a commit
-    never starts on another.
-17. A mission's lead task keeps its provider and instructions for the whole
-    mission; a stage another agent does runs as a delegated task of it.
-18. A Local MCP call acts only for the task whose turn made it: the host's
+12. A saved agent grants no permissions; every start records its own consent.
+13. Saving or editing an agent never creates a workspace, a task or a process.
+14. A run follows the snapshot taken at its start; later edits never reach it.
+15. Work for an agent starts only through Kickoff or a delegation, and is
+    recorded before its first turn; a delegation to an agent never runs wider
+    than the delegating task's own agent, and work pinned to a commit never
+    starts on another.
+16. An agent run's lead task keeps its provider and instructions for the whole
+    agent run; a stage another agent does runs as a delegated task of it.
+17. A Local MCP call acts only for the task whose turn made it: the host's
     caller grant names that task, a `parentTaskId` naming another is refused,
     a subagent never starts subagents of its own, and a turn started through
     `stave_run_task` never runs with more autonomy than its caller.
-19. Writers never share a checkout: a writing subagent runs in its own
+18. Writers never share a checkout: a writing subagent runs in its own
     worktree unless one is asked for explicitly, and then only while no other
     writing subagent is live there; read-only subagents run beside anything.
 
-Statement 13 is asserted per turn: an agent's permission is a ceiling that
+Statement 12 is asserted per turn: an agent's permission is a ceiling that
 lowers the turn's own settings and never raises them (`src/lib/agents/permission.ts`),
 applied at the provider turn entry for every turn of an assigned task.
-Statement 13 also covers agents read from repository files: a file can only
+Statement 12 also covers agents read from repository files: a file can only
 narrow the default permission it is read with, and it never takes the id of a
 custom or built-in agent, so a cloned repository cannot change what an agent
 the user already trusts is told.
 
-Statement 10 is asserted at the run start (`src/lib/missions/agent-run.ts`):
+Statement 10 is asserted at the run start (`src/lib/agent-runs/agent-run.ts`):
 the run records the user's own permission settings and the agent's check-ins,
 its turns take permissions from that consent only, and a publish or Stave
 action stage is authorized at start only when the agent checks in only when

@@ -23,11 +23,10 @@ export type HostAgentAction = "record-task" | "release-task" | "list-assignments
 
 /**
  * What limits a delegation from one task: the permission of the agent the
- * task runs as, and the agents its project allows. Null means no limit.
+ * task runs as and the agents it may call. Null means no limit.
  */
 export interface AgentDelegationContext {
   parentPermission: import("./schema").AgentPermission | null;
-  allowedAgentIds: string[] | null;
   /** The delegating task's own agent's `canCall`; null when it may call any agent. */
   parentCanCall: string[] | null;
 }

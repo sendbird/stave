@@ -45,9 +45,8 @@ import { listProviderIds } from "@/lib/providers/model-catalog";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { useAppStore } from "@/store/app.store";
-import { useProjectsStore } from "@/store/projects-store";
 import { useAgentsViewStore } from "@/store/agents-view-store";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { ExportAgent } from "./ExportAgent";
 import { AgentAvatar } from "./AgentAvatar";
 import { AgentEditor } from "./AgentEditor";
@@ -356,7 +355,6 @@ function UnusedFiles(props: { problems: ReadonlyArray<{ path: string; message: s
 export function AgentsTab() {
   const custom = useAppStore((state) => state.settings.customAgents);
   const customAgentRevisions = useAppStore((state) => state.settings.customAgentRevisions);
-  const projects = useProjectsStore((state) => state.projects);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [query, setQuery] = useState("");
   const [newOpen, setNewOpen] = useState(false);
@@ -447,9 +445,9 @@ export function AgentsTab() {
   const deleteReferences = useMemo(
     () =>
       deleteTarget
-        ? findAgentReferences({ agentConfigId: deleteTarget.id, agents, projects })
+        ? findAgentReferences({ agentConfigId: deleteTarget.id, agents })
         : { blocking: [], soft: [] },
-    [deleteTarget, agents, projects],
+    [deleteTarget, agents],
   );
 
   const tabRef = useRef<HTMLDivElement>(null);

@@ -274,14 +274,14 @@ describe("the pin", () => {
 
 describe("an agent saved as a fixed provider with no model", () => {
   /**
-   * `Plan, build and verify` as the playbooks migration saved it in 0.23.0:
-   * the playbook editor had filled in Claude to store a permission, so the
+   * `Plan, build and verify` as 0.23.0's agent migration saved it:
+   * the saved-workflow editor had filled in Claude to store a permission, so the
    * agent is a fixed provider without a model. The editor's "Provider
    * default" saves the same shape.
    */
-  const savedPlaybookAgent = AgentConfigSchema.parse({
+  const savedWorkflowAgent = AgentConfigSchema.parse({
     ...implementer,
-    id: "playbook-playbook_plan_build_verify",
+    id: "legacy-plan-build-verify",
     source: "custom",
     name: "Plan, build and verify",
     description: "Deliver the outcome in the assignment as a verified change, reported with its evidence and risks.",
@@ -301,7 +301,7 @@ describe("an agent saved as a fixed provider with no model", () => {
   test("runs on that provider's default model, never on Stave Auto, and its record passes the host's check", async () => {
     // Stave Auto's option comes first and carries the task's provider, with no model.
     const { actions, draft, record } = setup({ selectedModel: CODEX, modelOptions: [AUTO, OPUS, DEFAULT_SONNET, CODEX] });
-    expect(await actions.choose(savedPlaybookAgent)).toBe(true);
+    expect(await actions.choose(savedWorkflowAgent)).toBe(true);
     expect(record[0]).toMatchObject({ providerId: "claude-code", model: "claude-sonnet-5" });
     expect(RecordTaskAgentInputSchema.safeParse(record[0]).success).toBe(true);
     expect(draft).toEqual([{ selection: DEFAULT_SONNET }]);
@@ -333,14 +333,14 @@ describe("an agent saved as a fixed provider with no model", () => {
     });
     expect(composerFixedModel({ providerId: "claude-code" }, [AUTO, CODEX])).toEqual({ providerId: "claude-code" });
 
-    const { actions, draft } = setup({ running: savedPlaybookAgent, selectedModel: OPUS, modelOptions: options });
+    const { actions, draft } = setup({ running: savedWorkflowAgent, selectedModel: OPUS, modelOptions: options });
     actions.unpin();
     expect(draft).toEqual([{ selection: DEFAULT_SONNET }]);
   });
 
   test("with only Stave Auto on offer it is recorded without a model and routes", async () => {
     const { actions, draft, record } = setup({ selectedModel: AUTO, modelOptions: [AUTO, CODEX] });
-    expect(await actions.choose(savedPlaybookAgent)).toBe(true);
+    expect(await actions.choose(savedWorkflowAgent)).toBe(true);
     expect(record[0]).toMatchObject({ providerId: "claude-code", model: null });
     expect(RecordTaskAgentInputSchema.safeParse(record[0]).success).toBe(true);
     expect(draft).toEqual([{ selection: AUTO }]);

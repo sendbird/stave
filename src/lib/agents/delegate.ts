@@ -46,21 +46,12 @@ export function applyAgentToDelegation(input: {
   agent: AgentConfig;
   /** Direct permission fallback when the caller supplies no host Can call authority. */
   parentPermission?: AgentPermission | null;
-  /** When set, only these agents may be delegated to. */
-  allowedAgentIds?: readonly string[] | null;
   /** The delegating task's own agent's "Can call"; null or absent allows any agent. */
   parentCanCall?: readonly string[] | null;
   /** The user's standards, added after the agent's instructions. */
   standards?: string;
 }): AgentDelegationResult {
   const { args, agent } = input;
-  if (input.allowedAgentIds && !input.allowedAgentIds.includes(agent.id)) {
-    return {
-      ok: false,
-      code: "not-allowed",
-      message: `"${agent.name}" is not one of this project's agents.`,
-    };
-  }
   if (input.parentCanCall && !input.parentCanCall.includes(agent.id)) {
     return {
       ok: false,

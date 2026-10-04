@@ -52,8 +52,7 @@ import {
   PROVIDER_STEER_ACK_TIMEOUT_MS,
   waitForSteerDelivery,
 } from "../../src/lib/providers/steer-delivery";
-import { registerMissionGrant } from "./mission-grants";
-import { projectIdForCoordinatorTask, registerProjectGrant } from "./project-grants";
+import { registerAgentRunGrant } from "./agent-run-grants";
 import { createProviderApprovalRouter } from "./provider-approval-router";
 import {
   createProviderTurnLifecycle,
@@ -73,34 +72,23 @@ const BATCH_TURN_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const DEFAULT_PROVIDER_TASK_KEY = "default";
 /**
  * A resumed Codex thread keeps the Local MCP connection and tool catalog it
- * started with, so a changed grant key starts a fresh thread. The mission key
+ * started with, so a changed grant key starts a fresh thread. The agent run key
  * is therefore stable per task, and later turns keep
  * sending it with no active grant behind it.
  */
-const codexMissionChannelKeyByTask = new Map<string, string>();
-/** Same reason as the mission key: a coordinator's Codex thread keeps one project key. */
-const codexProjectChannelKeyByTask = new Map<string, string>();
+const codexAgentRunChannelKeyByTask = new Map<string, string>();
 
 function getProviderTaskKey(taskId?: string) {
   return providerAccountKey("codex", taskId?.trim() || DEFAULT_PROVIDER_TASK_KEY);
 }
 
-function getOrCreateCodexProjectChannelKey(taskId: string) {
+function getOrCreateCodexAgentRunChannelKey(taskId: string) {
   const taskKey = getProviderTaskKey(taskId);
-  const existing = codexProjectChannelKeyByTask.get(taskKey);
+  const existing = codexAgentRunChannelKeyByTask.get(taskKey);
   if (existing) return existing;
-  const projectKey = randomUUID();
-  codexProjectChannelKeyByTask.set(taskKey, projectKey);
-  return projectKey;
-}
-
-function getOrCreateCodexMissionChannelKey(taskId: string) {
-  const taskKey = getProviderTaskKey(taskId);
-  const existing = codexMissionChannelKeyByTask.get(taskKey);
-  if (existing) return existing;
-  const missionKey = randomUUID();
-  codexMissionChannelKeyByTask.set(taskKey, missionKey);
-  return missionKey;
+  const agentRunKey = randomUUID();
+  codexAgentRunChannelKeyByTask.set(taskKey, agentRunKey);
+  return agentRunKey;
 }
 
 type TurnTimeoutController = {
@@ -432,8 +420,8 @@ function appendStreamEvent(session: ActiveStreamSession, event: BridgeEvent) {
 }
 
 function cleanupProviderTaskState(taskId: string) {
-  for (const map of [codexMissionChannelKeyByTask, codexProjectChannelKeyByTask]) {
-    for (const key of map.keys()) if (providerAccountKeyMatchesTask(key, taskId)) map.delete(key);
+  for (const key of codexAgentRunChannelKeyByTask.keys()) {
+    if (providerAccountKeyMatchesTask(key, taskId)) codexAgentRunChannelKeyByTask.delete(key);
   }
   cleanupClaudeTask(taskId);
   cleanupCodexAppServerTask(taskId);
@@ -754,6 +742,43 @@ let taskAgentTurnResolver: ((turn: StreamTurnArgs) => TaskAgentTurn | null) | nu
 export function setTaskAgentTurnResolver(resolver: typeof taskAgentTurnResolver) {
   taskAgentTurnResolver = resolver;
 }
+/**
+ * The notice a task's turns carry once the user released its Agent; see
+ * `releasedAgentInstructions` in `src/lib/agents/runtime-options.ts`.
+ */
+let releasedTaskAgentResolver: ((taskId: string) => string | null) | null = null;
+export function setReleasedTaskAgentResolver(resolver: typeof releasedTaskAgentResolver) {
+  releasedTaskAgentResolver = resolver;
+}
+/**
+ * Cursor and Kiro have no instruction channel: a released Agent's notice
+ * (carried as `agentInstructions`) goes into the prompt once per native
+ * session, the same way the Agent's own preamble went in. In memory: after a
+ * restart a session gets the notice once more, which is harmless.
+ */
+const deliveredReleasedAgentPrompts = new Set<string>();
+const MAX_DELIVERED_RELEASED_AGENT_PROMPTS = 500;
+function releasedAgentPromptHooks(args: { providerId: string; taskId?: string; notice?: string }) {
+  const notice = args.notice?.trim();
+  if (!args.taskId || !notice) return null;
+  let pending: string | null = null;
+  return {
+    prepare: (nativeSessionId: string) => {
+      const key = `${args.providerId}\u0000${args.taskId}\u0000${nativeSessionId}\u0000${notice}`;
+      pending = deliveredReleasedAgentPrompts.has(key) ? null : key;
+      return pending ? notice : null;
+    },
+    acknowledge: () => {
+      if (!pending) return;
+      if (deliveredReleasedAgentPrompts.size >= MAX_DELIVERED_RELEASED_AGENT_PROMPTS) {
+        const oldest = deliveredReleasedAgentPrompts.values().next().value;
+        if (oldest !== undefined) deliveredReleasedAgentPrompts.delete(oldest);
+      }
+      deliveredReleasedAgentPrompts.add(pending);
+      pending = null;
+    },
+  };
+}
 let taskPermissionObserver: ((args: {
   taskId: string; providerId: StreamTurnArgs["providerId"];
   options: NonNullable<StreamTurnArgs["runtimeOptions"]>;
@@ -771,9 +796,14 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
       ? taskAgentTurnResolver?.(rawArgs) ?? null : null;
     // In-turn subagents come only from the task's agent; any other value is dropped.
     const { nativeSubagents: _unowned, ...ownOptions } = rawArgs.runtimeOptions ?? {};
+    // A task whose Agent was released says so in the Agent channel, so the
+    // model stops obeying the role its resumed session still remembers.
+    const releasedNotice = !agentTurn && rawArgs.taskId && !rawArgs.executionPolicy && !ownOptions.agentInstructions
+      ? releasedTaskAgentResolver?.(rawArgs.taskId) ?? null : null;
+    const chatOptions = releasedNotice ? { ...ownOptions, agentInstructions: releasedNotice } : ownOptions;
     const turnArgs = applyTurnPolicy(agentTurn
       ? { ...rawArgs, runtimeOptions: agentTurn.runtimeOptions }
-      : { ...rawArgs, ...(rawArgs.runtimeOptions ? { runtimeOptions: ownOptions } : {}) }, agentTurn?.turnPolicy);
+      : { ...rawArgs, ...(rawArgs.runtimeOptions || releasedNotice ? { runtimeOptions: chatOptions } : {}) }, agentTurn?.turnPolicy);
     // Delegation inherits the resolved policy, so a helper gets this turn's autonomy and never more.
     if (turnArgs.taskId && turnArgs.turnPolicy) {
       taskPermissionObserver?.({
@@ -936,20 +966,14 @@ async function runProviderTurnImpl(
       args.executionPolicy !== "secondary-read-only" &&
       args.providerId === "codex",
   );
-  const retainedCodexMissionChannelKey = retainsCodexChannels
-    ? codexMissionChannelKeyByTask.get(getProviderTaskKey(args.taskId))
-    : undefined;
-  const retainedCodexProjectChannelKey = retainsCodexChannels
-    ? codexProjectChannelKeyByTask.get(getProviderTaskKey(args.taskId))
+  const retainedCodexAgentRunChannelKey = retainsCodexChannels
+    ? codexAgentRunChannelKeyByTask.get(getProviderTaskKey(args.taskId))
     : undefined;
   const effectiveArgs: typeof args = {
     ...args,
     staveTurnGrants: {
-      ...(retainedCodexMissionChannelKey
-        ? { missionKey: retainedCodexMissionChannelKey }
-        : {}),
-      ...(retainedCodexProjectChannelKey
-        ? { projectKey: retainedCodexProjectChannelKey }
+      ...(retainedCodexAgentRunChannelKey
+        ? { agentRunKey: retainedCodexAgentRunChannelKey }
         : {}),
     },
   };
@@ -960,62 +984,37 @@ async function runProviderTurnImpl(
     emittedPrimaryEvents.push(event);
     lifecycle.emit(event);
   };
-  // A mission turn reports its stage through Local MCP. The grant names the
+  // An agent run turn reports its stage through Local MCP. The grant names the
   // stage attempt, so the host resolves identity from the key and the model
-  // never passes it. Missions run on Claude and Codex tasks only.
-  let missionGrantHandle: ReturnType<typeof registerMissionGrant> | null = null;
-  const missionTaskId = args.taskId?.trim();
+  // never passes it. Agent runs run on Claude and Codex tasks only.
+  let agentRunGrantHandle: ReturnType<typeof registerAgentRunGrant> | null = null;
+  const agentRunTaskId = args.taskId?.trim();
   if (
-    args.missionStage &&
-    missionTaskId &&
+    args.agentRunStage &&
+    agentRunTaskId &&
     args.executionPolicy !== "secondary-read-only" &&
     (args.providerId === "claude-code" || args.providerId === "codex")
   ) {
-    const missionKey =
+    const agentRunKey =
       args.providerId === "codex"
-        ? getOrCreateCodexMissionChannelKey(missionTaskId)
+        ? getOrCreateCodexAgentRunChannelKey(agentRunTaskId)
         : randomUUID();
-    missionGrantHandle = registerMissionGrant({
-      missionKey,
-      ...args.missionStage,
+    agentRunGrantHandle = registerAgentRunGrant({
+      agentRunKey,
+      ...args.agentRunStage,
       turnId,
-      taskId: missionTaskId,
+      taskId: agentRunTaskId,
     });
     effectiveArgs.staveTurnGrants = {
       ...effectiveArgs.staveTurnGrants,
-      missionKey,
-    };
-  }
-  // Every turn on a project's coordinator task may act for the project
-  // through Local MCP; the host resolves the project from the key.
-  let projectGrantHandle: ReturnType<typeof registerProjectGrant> | null = null;
-  const coordinatedProjectId = projectIdForCoordinatorTask(missionTaskId);
-  if (
-    coordinatedProjectId &&
-    missionTaskId &&
-    args.executionPolicy !== "secondary-read-only" &&
-    (args.providerId === "claude-code" || args.providerId === "codex")
-  ) {
-    const projectKey =
-      args.providerId === "codex"
-        ? getOrCreateCodexProjectChannelKey(missionTaskId)
-        : randomUUID();
-    projectGrantHandle = registerProjectGrant({
-      projectKey,
-      projectId: coordinatedProjectId,
-      taskId: missionTaskId,
-      turnId,
-    });
-    effectiveArgs.staveTurnGrants = {
-      ...effectiveArgs.staveTurnGrants,
-      projectKey,
+      agentRunKey,
     };
   }
   // Every task turn names itself to Local MCP, so a tool resolves its caller
   // from the host instead of trusting the ids a model passes.
-  const callerGrantHandle = missionTaskId && args.executionPolicy !== "secondary-read-only"
+  const callerGrantHandle = agentRunTaskId && args.executionPolicy !== "secondary-read-only"
     ? registerCallerGrant({
-        taskId: missionTaskId,
+        taskId: agentRunTaskId,
         turnId,
         workspaceId: args.workspaceId?.trim() || null,
         providerId: args.providerId,
@@ -1031,10 +1030,8 @@ async function runProviderTurnImpl(
   }
   revokeTurnGrants = () => {
     callerGrantHandle?.revoke();
-    missionGrantHandle?.revoke();
-    missionGrantHandle = null;
-    projectGrantHandle?.revoke();
-    projectGrantHandle = null;
+    agentRunGrantHandle?.revoke();
+    agentRunGrantHandle = null;
   };
   if (abortRequested) revokeTurnGrants();
   const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
@@ -1130,12 +1127,16 @@ async function runProviderTurnImpl(
   ) {
     const isCursor = effectiveArgs.providerId === "cursor";
     const providerLabel = isCursor ? "Cursor" : "Kiro";
+    const releasedPrompt = agentTurn ? null : releasedAgentPromptHooks({
+      providerId: effectiveArgs.providerId, taskId: effectiveArgs.taskId, notice: effectiveArgs.runtimeOptions?.agentInstructions,
+    });
     try {
       const events = await runStreamWithPausableTimeout(
         (isCursor ? streamCursorWithAcp : streamKiroWithAcp)({
           ...effectiveArgs,
-          prepareTaskAgentPrompt: agentTurn?.prepareSessionPrompt,
+          prepareTaskAgentPrompt: agentTurn?.prepareSessionPrompt ?? releasedPrompt?.prepare,
           acknowledgeTaskAgentPrompt: () => {
+            releasedPrompt?.acknowledge();
             const evidence = agentTurn?.acknowledgeSessionPrompt();
             if (evidence) lifecycle.emit(evidence);
           },
@@ -1537,8 +1538,7 @@ export const providerRuntime: ProviderRuntime = {
     if (completedStreamExpiryTimer) clearTimeout(completedStreamExpiryTimer);
     completedStreamExpiryTimer = null;
     activeTurnPromises.clear();
-    codexMissionChannelKeyByTask.clear();
-    codexProjectChannelKeyByTask.clear();
+    codexAgentRunChannelKeyByTask.clear();
     cleanupProviderTaskState(DEFAULT_PROVIDER_TASK_KEY);
     for (const taskId of taskIds) {
       cleanupProviderTaskState(taskId);

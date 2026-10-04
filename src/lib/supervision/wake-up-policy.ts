@@ -19,7 +19,7 @@
  */
 import { z } from "zod";
 import type { ProviderId } from "../providers/provider.types";
-import { MISSION_ACTIVE_WAKE_UP_DETAIL } from "./automatic-turn-owner";
+import { AGENT_RUN_ACTIVE_WAKE_UP_DETAIL } from "./automatic-turn-owner";
 import {
   computeNextAutomationRunAt,
   AutomationScheduleSchema,
@@ -298,10 +298,10 @@ export const WAKE_UP_PAUSE_REASONS = [
   "runtime-changed",
   "task-identity-changed",
   /**
-   * A mission owns this task's automatic turns (see
-   * `automatic-turn-owner.ts`). Clears on its own when the mission ends.
+   * An agent run owns this task's automatic turns (see
+   * `automatic-turn-owner.ts`). Clears on its own when the agent run ends.
    */
-  "mission-active",
+  "agent-run-active",
 ] as const;
 export const WakeUpPauseReasonSchema = z.enum(
   WAKE_UP_PAUSE_REASONS,
@@ -340,7 +340,7 @@ const AUTOMATIC_PAUSE_REASONS = new Set<WakeUpPauseReason>([
   "awaiting-user-input",
   "runtime-changed",
   "task-identity-changed",
-  "mission-active",
+  "agent-run-active",
 ]);
 
 /** A pause the supervisor set itself, and can therefore clear itself. */
@@ -621,10 +621,10 @@ export interface WakeUpObservation {
    */
   completions: TaskCompletionSignal[];
   /**
-   * A mission is running or paused on this task. It owns the task's automatic
+   * An agent run is running or paused on this task. It owns the task's automatic
    * turns, so the wake-up pauses until it ends.
    */
-  missionActive: boolean;
+  agentRunActive: boolean;
 }
 
 export type WakeUpDecision =
@@ -760,14 +760,14 @@ export function decideWakeUpAction(args: {
     return { action: "idle" };
   }
 
-  // One source of automatic turns per task: a mission outranks a wake-up.
-  if (observation.missionActive) {
-    return wakeUp.state === "paused" && wakeUp.pauseReason === "mission-active"
+  // One source of automatic turns per task: an agent run outranks a wake-up.
+  if (observation.agentRunActive) {
+    return wakeUp.state === "paused" && wakeUp.pauseReason === "agent-run-active"
       ? { action: "idle" }
       : {
           action: "pause",
-          reason: "mission-active",
-          detail: MISSION_ACTIVE_WAKE_UP_DETAIL,
+          reason: "agent-run-active",
+          detail: AGENT_RUN_ACTIVE_WAKE_UP_DETAIL,
         };
   }
 

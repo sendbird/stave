@@ -1,13 +1,9 @@
 import { useDelegationPermissionSync } from "@/lib/runs/useDelegationPermissionSync";
-import { useMissionSync } from "@/store/missions-store";
+import { useAgentRunSync } from "@/store/agent-runs-store";
 import { useWakeUpSync } from "@/store/wake-ups-store";
 import { useUsageLimitAutoResume } from "@/store/use-usage-limit-auto-resume";
-import { useMissionCommands } from "@/components/missions/useMissionCommands";
-import { useFleetMissionSync } from "@/store/fleet-missions-store";
-import { usePlaybookSync } from "@/lib/projects/usePlaybookSync";
+import { useFleetAgentRunSync } from "@/store/fleet-agent-runs-store";
 import { useAgentSync } from "@/lib/agents/useAgentSync";
-import { useProjectsSync } from "@/store/projects-store";
-import { useProposalsSync } from "@/store/proposals-store";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { WorkspaceSaveNotice } from "@/components/layout/WorkspaceSaveNotice";
@@ -51,16 +47,12 @@ export default function App() {
   useLensGuestHost();
   useLensSessionPresentationRequests();
   useLensSessionClosedEvents();
-  useMissionSync();
+  useAgentRunSync();
   useWakeUpSync();
   useUsageLimitAutoResume();
-  useMissionCommands();
-  useFleetMissionSync();
-  usePlaybookSync();
+  useFleetAgentRunSync();
   useAgentSync();
   useDelegationPermissionSync();
-  useProjectsSync();
-  useProposalsSync();
 
   useEffect(() => {
     const subscribeTaskTurnUpdates =

@@ -39,7 +39,7 @@ test("running and waiting on the user wear different glyphs, not only different 
   expect(new Set(glyphs).size).toBe(3);
 });
 
-test("Progress marks only a mission that needs attention", () => {
+test("Progress marks only a run that needs attention", () => {
   expect(resolveProgressTabMark(null)).toBeNull();
   expect(resolveProgressTabMark({ tone: "accent", label: "Running" })).toBeNull();
   expect(resolveProgressTabMark({ tone: "warning", label: "Needs sign-off" })).toEqual({

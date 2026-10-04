@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-26
 **Status:** Phase 1 (missions and playbooks) implemented; see
-[Missions](../../features/missions.md) and [Playbooks](../../features/playbooks.md).
+[Missions](../../features/agent-runs.md) and [Playbooks](../../features/playbooks.md).
 Deviations from this design are listed in §15. The PR-by-PR execution plan is
 kept with the task until its files exist; an as-built copy lands in
 `docs/superpowers/plans/` with the final PR.

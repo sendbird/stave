@@ -28,20 +28,12 @@ import {
   REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
   RepositoryMemoryKindSchema,
 } from "../../src/lib/repository-memory";
-import { proposeMissionForGrant } from "./proposals-service";
-import { registerMissionTools } from "./stave-mission-tools";
-import { registerProjectTools } from "./stave-project-tools";
+import { registerAgentRunTools } from "./stave-agent-run-tools";
 import {
-  getProjectForGrant,
-  getProjectMissionReport,
-  noteProject,
-  startProjectMission,
-} from "./projects-service";
-import {
-  blockMissionStage,
-  getMissionForGrant,
-  reportMissionStage,
-} from "./missions-service";
+  blockAgentRunStage,
+  getAgentRunForGrant,
+  reportAgentRunStage,
+} from "./agent-runs-service";
 import { callerTaskId, resolveStaveMcpCaller } from "./stave-mcp-caller";
 import {
   readTurnGrantHeaders,
@@ -110,6 +102,7 @@ import {
   setWorkspaceCustomField,
   updateWorkspaceStorybookResourceAccess,
   updateWorkspaceTodo,
+  writeWorkspacePlanFile,
 } from "./stave-mcp-service";
 import { registerBrowserTools } from "./browser/browser-tools";
 import {
@@ -733,17 +726,10 @@ function createToolServer(options?: {
     },
   );
 
-  registerMissionTools(server, options?.turnGrants ?? {}, {
-    getMissionForGrant,
-    reportMissionStage,
-    blockMissionStage,
-    proposeMissionForGrant,
-  });
-  registerProjectTools(server, options?.turnGrants ?? {}, {
-    getProjectForGrant,
-    startProjectMission,
-    getProjectMissionReport,
-    noteProject,
+  registerAgentRunTools(server, options?.turnGrants ?? {}, {
+    getAgentRunForGrant,
+    reportAgentRunStage,
+    blockAgentRunStage,
   });
 
   server.registerTool(
@@ -1135,6 +1121,27 @@ function createToolServer(options?: {
           workspaceId,
           text,
         }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_write_plan_file",
+    {
+      description:
+        "Write or replace one markdown plan file in this workspace's plan store, .stave/context/plans/<fileName>, which Stave lists in the Information panel. Works under read-only permissions, where file edit tools are blocked; it writes nothing else. Name it <taskIdPrefix>_<timestamp>.md.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Workspace id."),
+        fileName: z
+          .string()
+          .min(4)
+          .max(163)
+          .describe("Plain file name ending in .md, for example 33a56855_2026-10-04T09-30-00.md. No directories."),
+        content: z.string().min(1).max(200_000).describe("Markdown content of the plan."),
+      },
+    },
+    async ({ workspaceId, fileName, content }) =>
+      toStructuredResult({
+        result: await writeWorkspacePlanFile({ workspaceId, fileName, content }),
       }),
   );
 

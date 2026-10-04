@@ -11,7 +11,7 @@ import {
   type AgentRouteSettings,
 } from "../src/lib/routing/agent-run-route";
 import { createAgentRunRouter } from "../electron/host-service/supervision/agent-run-route-host";
-import type { Mission } from "../src/lib/missions/domain";
+import type { AgentRun } from "../src/lib/agent-runs/domain";
 
 function settings(overrides: Partial<AgentRouteSettings["routing"]> = {}, classifier: AgentRouteSettings["classifier"] = null) {
   return AgentRouteSettingsSchema.parse({
@@ -179,7 +179,7 @@ describe("agent run routing: host ports", () => {
     ]);
   });
 
-  test("the host router reads the task's draft and runtime and returns a mission route", async () => {
+  test("the host router reads the task's draft and runtime and returns a run route", async () => {
     const route = createAgentRunRouter({
       readTask: async () => ({ providerId: "claude-code", model: "sonnet" }),
       readDraft: () => ({ model: "opus", modelProviderId: "claude-code" }),
@@ -188,8 +188,8 @@ describe("agent run routing: host ports", () => {
       resolveWorkspacePath: async () => "/tmp/ws",
       classify: async () => ({ ok: false }),
     });
-    const mission = { workspaceId: "ws-1", leadTaskId: "task-1" } as Mission;
-    expect(await route({ mission, prompt: "x", agent: null })).toMatchObject({
+    const agentRun = { workspaceId: "ws-1", leadTaskId: "task-1" } as AgentRun;
+    expect(await route({ agentRun, prompt: "x", agent: null })).toMatchObject({
       fingerprint: { providerId: "claude-code", model: "opus" },
       route: "pinned",
     });
@@ -201,6 +201,6 @@ describe("agent run routing: host ports", () => {
       resolveWorkspacePath: async () => null,
       classify: async () => ({ ok: false }),
     });
-    expect(await cursorTask({ mission, prompt: "x", agent: null })).toBeNull();
+    expect(await cursorTask({ agentRun, prompt: "x", agent: null })).toBeNull();
   });
 });

@@ -93,7 +93,7 @@ const COMPLETION_PHRASES = [
   "Alea Iacta Est",                   // Caesar – The Die Is Cast
   "QED",                              // Quod Erat Demonstrandum
   "Cogito, Ergo Sum",                 // Descartes
-  "Mission Accomplished",             // classic
+  "Run Accomplished",             // classic
   "The Deed Is Done",                 // dramatic
   "So It Is Written, So It Is Done",  // The Ten Commandments
 

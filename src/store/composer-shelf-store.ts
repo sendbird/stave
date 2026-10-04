@@ -3,7 +3,7 @@ import { create } from "zustand";
 /**
  * A manual open or close of a run's details, and the run it was made for.
  *
- * The choice lasts for that run only: a turn's id, or the agent run's mission
+ * The choice lasts for that run only: a turn's id, or the agent run's agent run
  * id when one heads the shelf, so collapsing a long agent run stays collapsed
  * across its turns while the next run falls back to the setting.
  */

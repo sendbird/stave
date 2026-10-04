@@ -1,4 +1,4 @@
-import type { ScriptVerification } from "../../../src/lib/missions/verification-contract";
+import type { ScriptVerification } from "../../../src/lib/agent-runs/verification-contract";
 import { readWorkspaceRevision, type WorkspaceRevision } from "./workspace-revision";
 
 /** Observe the real runner without inventing an exit status or a source revision. */

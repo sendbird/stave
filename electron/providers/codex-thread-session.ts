@@ -12,10 +12,9 @@ const NO_GRANT_PROFILE = "none";
  * resumed thread kept still names the same task and needs no fresh thread.
  */
 function buildGrantProfile(grants?: StaveTurnGrants) {
-  const missionKey = grants?.missionKey ?? "";
-  const projectKey = grants?.projectKey ?? "";
-  if (!missionKey && !projectKey) return NO_GRANT_PROFILE;
-  return JSON.stringify([missionKey, projectKey]);
+  const agentRunKey = grants?.agentRunKey ?? "";
+  if (!agentRunKey) return NO_GRANT_PROFILE;
+  return JSON.stringify([agentRunKey]);
 }
 
 export function shouldStartFreshCodexGrantThread(args: {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { describeToolActivity, nextNowLine, NOW_LINE_MIN_INTERVAL_MS } from "../src/lib/missions/now-line";
-import { selectNowPhrase } from "../src/components/missions/MissionBar";
+import { describeToolActivity, nextNowLine, NOW_LINE_MIN_INTERVAL_MS } from "../src/lib/agent-runs/now-line";
+import { selectNowPhrase } from "../src/components/agent-runs/AgentRunBar";
 import type { ProviderTurnActivitySnapshot } from "../src/lib/providers/turn-status";
 
 describe("the Now line", () => {

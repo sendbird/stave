@@ -157,6 +157,7 @@ import {
   getCodexVersionCapabilities,
 } from "./codex-runtime-capabilities";
 import { mapCodexHookNotificationToBridgeEvent } from "./codex-hook-mapping";
+import { mapCodexTurnPlanToTodoEvent } from "./codex-plan-mapping";
 import {
   buildCodexFileChangeToolEvent,
   emitCodexFileChangeEvents,
@@ -2573,6 +2574,9 @@ export async function streamCodexWithAppServer(
               emitBridgeEvents(modelResolution.noteReroute(params, appServerTurnId));
             }
             return;
+          case "turn/plan/updated": // The lead's plan: worker threads were routed away above.
+            emitBridgeEvents([mapCodexTurnPlanToTodoEvent(params)].filter((event) => event !== null));
+            return;
           case "hook/started":
           case "hook/completed": {
             if (!codexCapabilities.hooks.lifecycleEvents) {
@@ -3049,9 +3053,7 @@ export async function streamCodexWithAppServer(
                 return;
               }
               case "todo_list": {
-                // Mirror the legacy codex-sdk runtime: surface Codex's todo_list
-                // items as a TodoWrite tool_use bridge event so the task todo view
-                // (which scans for toolName === "TodoWrite") can render them.
+                // Legacy todo_list items, as the TodoWrite event every to-do view reads.
                 const todoItem = item as {
                   items?: Array<{ text?: string; completed?: boolean }>;
                 };

@@ -4,7 +4,7 @@ import { buildAgentRouteSettings } from "@/store/agent-route-settings-sync";
 
 /**
  * Keeps main's and the host's copy of the saved custom agents current, so a
- * delegation, a project or a mission stage can name one. Settings live in the
+ * delegation, a project or an agent run stage can name one. Settings live in the
  * renderer; main hands the copy again to a host that restarts. The user's
  * Stave Auto settings travel with them, so the host routes an agent run's
  * turns as the composer would.

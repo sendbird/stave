@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
-/** Agents tab: the list and detail layout come from the playbook styles; these are the parts only agents have. */
+/** Agents tab: the list and detail layout come from the workflow styles; these are the parts only agents have. */
 export const agentStyles = stylex.create({
   /*
    * Resizable list. With room for the list, its column is as wide as it was
@@ -76,6 +76,7 @@ export const agentStyles = stylex.create({
     minWidth: 0,
   },
   runTitle: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  runLink: { display: "block", textAlign: "start", padding: 0, color: vars["--ads-color-text"], cursor: "pointer" },
   roles: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-12"] },
   canCall: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"] },
   noteText: { flex: "1 1 auto", minWidth: 0, overflowWrap: "anywhere" },

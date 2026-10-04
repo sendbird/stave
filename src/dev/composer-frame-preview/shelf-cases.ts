@@ -1,7 +1,7 @@
 import type { PendingApprovalQueueItem } from "@/components/session/chat-input-approval-queue";
-import type { MissionDetail } from "@/lib/missions/api";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
-import { missionTaskKey, useMissionsStore } from "@/store/missions-store";
+import { agentRunTaskKey, useAgentRunsStore } from "@/store/agent-runs-store";
 import { useAppStore } from "@/store/app.store";
 import type { TurnActivityPlacement } from "@/store/app-settings";
 import {
@@ -10,13 +10,13 @@ import {
   type UsageLimitPauseByTask,
 } from "@/store/task-work-pause";
 import type { ChatMessage, PromptDraftQueuedTurn } from "@/types/chat";
-import { buildAgentRunFixtures } from "../mission-preview/agent-run-fixtures";
+import { buildAgentRunFixtures } from "../agent-run-preview/agent-run-fixtures";
 import { createPreviewActivity } from "./fixtures";
 
 /**
  * Composer shelf states for `?stavePreview=composer-frame&case=<id>`. Each case
  * seeds the real stores, so the preview renders the shelf the app renders —
- * `ComposerShelf` reads the turn, the mission and the queue exactly as it does
+ * `ComposerShelf` reads the turn, the agent run and the queue exactly as it does
  * in a task.
  */
 export const SHELF_CASES = [
@@ -142,7 +142,7 @@ function activityFor(caseId: ShelfCaseId): ProviderTurnActivitySnapshot {
   return { ...activity, lastEventAt: Date.now() };
 }
 
-function missionFor(caseId: ShelfCaseId): MissionDetail | null {
+function agentRunFor(caseId: ShelfCaseId): AgentRunDetail | null {
   const runs = buildAgentRunFixtures(new Date(Date.now() - 4 * 60_000));
   switch (caseId) {
     case "agent":
@@ -156,7 +156,7 @@ function missionFor(caseId: ShelfCaseId): MissionDetail | null {
   }
 }
 
-/** Puts the stores in the case's state. Idle clears the turn, the mission and the queue. */
+/** Puts the stores in the case's state. Idle clears the turn, the agent run and the queue. */
 export function seedShelfCase(args: {
   caseId: ShelfCaseId;
   placement: TurnActivityPlacement;
@@ -184,13 +184,13 @@ export function seedShelfCase(args: {
       turnActivityExpandedByDefault: args.detailsOpen,
     },
   }));
-  const mission = missionFor(caseId);
-  const key = missionTaskKey(PREVIEW_WORKSPACE_ID, PREVIEW_TASK_ID);
-  useMissionsStore.setState({
+  const agentRun = agentRunFor(caseId);
+  const key = agentRunTaskKey(PREVIEW_WORKSPACE_ID, PREVIEW_TASK_ID);
+  useAgentRunsStore.setState({
     workspaceId: PREVIEW_WORKSPACE_ID,
     loadedWorkspaceId: PREVIEW_WORKSPACE_ID,
-    missionIdByTask: mission ? { [key]: mission.mission.id } : {},
-    details: mission ? { [mission.mission.id]: mission } : {},
+    agentRunIdByTask: agentRun ? { [key]: agentRun.agentRun.id } : {},
+    details: agentRun ? { [agentRun.agentRun.id]: agentRun } : {},
   });
 }
 

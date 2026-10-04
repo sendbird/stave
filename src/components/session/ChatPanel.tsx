@@ -86,9 +86,9 @@ import { SessionLoadingState } from "./SessionLoadingState";
 import {
   AgentRunInstructions,
   useAgentRunPrompt,
-} from "@/components/missions/AgentRunPrompt";
-import { AgentRunResultCard } from "@/components/missions/AgentRunResultCard";
-import { StageDivider } from "@/components/missions/StageDivider";
+} from "@/components/agent-runs/AgentRunPrompt";
+import { AgentRunResultCard } from "@/components/agent-runs/AgentRunResultCard";
+import { StageDivider } from "@/components/agent-runs/StageDivider";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import {
   buildConversationTurnActionStateByMessageId,
@@ -170,7 +170,7 @@ interface MessageRowProps {
   };
   /** Previous assistant turn of this task, for prompt-cache miss detection. */
   previousAssistantTurn?: PromptCacheTurnSnapshot | null;
-  /** On a user message: the turn it started, for a mission stage divider. */
+  /** On a user message: the turn it started, for an agent run stage divider. */
   startedTurnId?: string;
   /** An Agent-mode send still waiting on its run: drawn as the row the run will write. */
   pendingAgentRun?: boolean;
@@ -824,7 +824,7 @@ function ChatPanelMessageList(props: {
     }
     return map;
   }, [visibleMessages]);
-  // A user message starts the turn of the assistant message after it. Mission
+  // A user message starts the turn of the assistant message after it. Agent run
   // stage dividers are keyed by that turn.
   const startedTurnIdByUserMessageId = useMemo(() => {
     const map = new Map<string, string>();

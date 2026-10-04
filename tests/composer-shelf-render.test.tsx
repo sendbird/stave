@@ -6,11 +6,11 @@ import { ComposerShelf } from "@/components/session/composer-shelf/ComposerShelf
 import { ShelfQueue, type ComposerShelfQueueProps } from "@/components/session/composer-shelf/ShelfQueue";
 import { TurnRunLine } from "@/components/session/composer-shelf/TurnRunLine";
 import type { TurnActivitySurfaceProps } from "@/components/session/TurnActivity";
-import { MissionBarView } from "@/components/missions/MissionBar";
-import type { MissionDetail } from "@/lib/missions/api";
+import { AgentRunBarView } from "@/components/agent-runs/AgentRunBar";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { PromptDraftQueuedTurn } from "@/types/chat";
-import { buildAgentRunFixtures } from "../src/dev/mission-preview/agent-run-fixtures";
+import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
 
 const CLAUDE: ModelSelectorOption = {
   key: "claude-code:claude-opus-4-6",
@@ -229,9 +229,9 @@ describe("turn run line", () => {
 });
 
 const runs = buildAgentRunFixtures(new Date(NOW - 4 * 60_000));
-const agentLine = (detail: MissionDetail, patch: Record<string, unknown> = {}) =>
+const agentLine = (detail: AgentRunDetail, patch: Record<string, unknown> = {}) =>
   renderToStaticMarkup(
-    createElement(MissionBarView, {
+    createElement(AgentRunBarView, {
       detail,
       nowPhrase: "Reading the export handler",
       now: NOW,

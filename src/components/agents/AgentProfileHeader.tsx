@@ -4,7 +4,7 @@ import {
   AGENT_SOURCE_LABELS,
   type AgentConfig,
 } from "@/lib/agents/schema";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { AgentAvatar, type AgentAvatarStatus } from "./AgentAvatar";
 import { agentStyles } from "./agents.styles";
 

@@ -1,11 +1,11 @@
 /**
- * Whether the Local MCP server that mission turns report through is up.
+ * Whether the Local MCP server that agent run turns report through is up.
  *
  * The server runs in the main process and advertises itself through the
  * manifest file; its `/health` endpoint answers without a token. The answer
- * is cached briefly because the mission supervisor asks every tick.
+ * is cached briefly because the agent run supervisor asks every tick.
  *
- * Used by: `electron/host-service.ts` (wires it into the mission runtime).
+ * Used by: `electron/host-service.ts` (wires it into the agent run runtime).
  */
 import type { StaveLocalMcpManifest } from "../../../src/lib/local-mcp";
 
@@ -56,7 +56,7 @@ export function createLocalMcpReachabilityProbe(args: {
       cached = { reachable, at };
       return reachable;
     },
-    /** Forget the cached answer, e.g. before a mission starts. */
+    /** Forget the cached answer, e.g. before an agent run starts. */
     invalidate() {
       cached = null;
     },

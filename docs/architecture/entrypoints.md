@@ -123,36 +123,21 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
 
 ### Agent runs and workflows
 
-1. `src/lib/missions/policy.ts` for the pure supervisor decision and
-   `src/lib/missions/domain.ts` for mission state and consent
-2. `electron/host-service/supervision/mission-runtime.ts` for the host loop
-   that starts stage turns, and `mission-actions.ts` for the Stave actions
+1. `src/lib/agent-runs/policy.ts` for the pure supervisor decision and
+   `src/lib/agent-runs/domain.ts` for agent run state and consent
+2. `electron/host-service/supervision/agent-run-runtime.ts` for the host loop
+   that starts stage turns, and `agent-run-actions.ts` for the Stave actions
    (draft PR, checks, ready for review)
-3. `src/store/missions-store.ts` (the workspace in view) and
-   `src/store/fleet-missions-store.ts` (every workspace, notifications) for
+3. `src/store/agent-runs-store.ts` (the workspace in view) and
+   `src/store/fleet-agent-runs-store.ts` (every workspace, notifications) for
    renderer state
-4. `src/lib/missions/agent-run.ts` for how an agent's workflow becomes a run,
-   and `src/components/missions/` for the status line, panel, sign-off card
+4. `src/lib/agent-runs/agent-run.ts` for how an agent's workflow becomes a run,
+   and `src/components/agent-runs/` for the status line, panel, sign-off card
    and Fleet strip
 5. `src/components/agents/AgentWorkflowField.tsx` (over
-   `src/components/playbooks/StageList.tsx`) for the agent editor's Workflow
-6. `docs/features/missions.md` and `docs/features/agents.md` for the user
+   `src/components/workflows/StageList.tsx`) for the agent editor's Workflow
+6. `docs/features/agent-runs.md` and `docs/features/agents.md` for the user
    flow
-
-### Projects
-
-1. `src/lib/projects/policy.ts` for the pure project decision (start an
-   approved proposal, wake the coordinator) and `src/lib/projects/domain.ts`
-   for projects, proposals, memory and limits
-2. `electron/host-service/supervision/project-runtime.ts` for the host loop,
-   and `src/lib/projects/briefing.ts` for the coordinator's instruction,
-   read-only runtime options and tool names
-3. `electron/persistence/project-store.ts` for storage and
-   `electron/providers/project-grants.ts` for the per-turn project grant
-4. `src/store/projects-store.ts` for renderer state and
-   `src/components/projects/` for the Projects view, project home and New
-   project dialog
-5. `docs/features/projects.md` for the user flow
 
 ### Agents and assignments
 
@@ -177,7 +162,7 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
    `src/lib/agents/flow-view.ts` projecting the flow
 5. `docs/features/agents.md` for the user flow and
    `docs/architecture/agent-platform-taxonomy.md` for the vocabulary and
-   boundary statements 13–17
+   boundary statements 12–16
 
 ### Prompt input, skills, and quick controls
 

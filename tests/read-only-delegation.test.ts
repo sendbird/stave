@@ -11,10 +11,10 @@ import {
   CLAUDE_READ_ONLY_DELEGATION_DISALLOWED_TOOLS,
   DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS,
   READ_ONLY_DELEGATION_STAVE_TOOLS,
+  READ_ONLY_STAVE_METADATA_TOOLS,
 } from "@/lib/runs/read-only-delegation";
 import { buildDelegatedTaskRuntimeOptions } from "@/lib/runs/delegated-task-runtime";
-import { MISSION_TOOL_NAMES } from "@/lib/missions/briefing";
-import { PROJECT_TOOL_NAMES } from "@/lib/projects/briefing";
+import { AGENT_RUN_TOOL_NAMES } from "@/lib/agent-runs/briefing";
 
 const claudeAuto = {
   claudePermissionMode: "auto" as const,
@@ -54,10 +54,15 @@ describe("read-only delegation access", () => {
     // The parent's blanket Bash approval is not inherited.
     expect(allowed).not.toContain("Bash");
     expect(allowed).toContain("mcp__stave-local-mcp__stave_get_workspace_information");
+    // Stave's own records of the work stay open: notes, todos, plan files, stage reports.
+    for (const tool of ["stave_append_workspace_notes", "stave_add_workspace_todo", "stave_write_plan_file",
+      "stave_report_stage", "stave_block_stage"])
+      expect(allowed).toContain(`mcp__stave-local-mcp__${tool}`);
     const denied = policy.options.claudeDisallowedTools ?? [];
     for (const tool of ["Edit", "Write", "MultiEdit", "NotebookEdit", "AskUserQuestion",
       "mcp__stave-local-mcp__stave_delegate_task", "mcp__stave-local-mcp__stave_run_task",
-      "mcp__stave-local-mcp__stave_respond_user_input", "mcp__stave-local-mcp__stave_append_workspace_notes",
+      "mcp__stave-local-mcp__stave_respond_user_input", "mcp__stave-local-mcp__stave_clear_workspace_notes",
+      "mcp__stave-local-mcp__stave_replace_workspace_notes", "mcp__stave-local-mcp__stave_remove_workspace_todo",
       "mcp__stave-local-mcp__stave_create_automation", "mcp__stave-local-mcp__stave_remember"])
       expect(denied).toContain(tool);
     expect(isReadOnlyDelegationPolicy("claude-code", policy)).toBe(true);
@@ -171,12 +176,13 @@ describe("read-only delegation access", () => {
     ].map((file) => readFileSync(file, "utf8")).join("\n");
     const registered = new Set([
       ...[...sources.matchAll(/registerTool\(\s*"(stave_[a-z_]+)"/g)].map((match) => match[1]!),
-      ...Object.values(MISSION_TOOL_NAMES),
-      ...Object.values(PROJECT_TOOL_NAMES),
+      ...Object.values(AGENT_RUN_TOOL_NAMES),
     ]);
     expect(registered.size).toBeGreaterThan(60);
-    const allowed = new Set<string>(READ_ONLY_DELEGATION_STAVE_TOOLS);
+    const allowed = new Set<string>([...READ_ONLY_DELEGATION_STAVE_TOOLS, ...READ_ONLY_STAVE_METADATA_TOOLS]);
     const denied = new Set<string>(DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS);
+    // Read, record or denied: exactly one, for every registered tool.
+    expect(READ_ONLY_STAVE_METADATA_TOOLS.filter((tool) => (READ_ONLY_DELEGATION_STAVE_TOOLS as readonly string[]).includes(tool))).toEqual([]);
     for (const tool of registered) expect([tool, allowed.has(tool) !== denied.has(tool)]).toEqual([tool, true]);
     for (const tool of [...allowed, ...denied]) expect(registered.has(tool)).toBe(true);
     const allowRules = new Set(CLAUDE_READ_ONLY_DELEGATION_ALLOWED_TOOLS);

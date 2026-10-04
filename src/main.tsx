@@ -71,16 +71,6 @@ if (preview === "kickoff") {
       );
     },
   );
-} else if (preview === "projects") {
-  void import("@/dev/projects-preview").then(({ ProjectsPreview }) => {
-    root.render(
-      <StrictMode>
-        <StaveDesignProvider>
-          <ProjectsPreview />
-        </StaveDesignProvider>
-      </StrictMode>,
-    );
-  });
 } else if (preview === "results") {
   void import("@/dev/results-preview").then(({ ResultsPreview }) => {
     root.render(
@@ -121,12 +111,12 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
-} else if (preview === "mission") {
-  void import("@/dev/mission-preview").then(({ MissionPreview }) => {
+} else if (preview === "agent-run") {
+  void import("@/dev/agent-run-preview").then(({ AgentRunPreview }) => {
     root.render(
       <StrictMode>
         <StaveDesignProvider>
-          <MissionPreview />
+          <AgentRunPreview />
         </StaveDesignProvider>
       </StrictMode>,
     );

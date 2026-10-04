@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
-import type { MissionCommandResponse } from "../src/lib/missions/api";
+import type { AgentRunCommandResponse } from "../src/lib/agent-runs/api";
 import { useAgentAssignmentsStore, type TaskAgent } from "../src/store/agent-assignments-store";
 import { registerAgentRunBridge } from "../src/store/agent-run-send";
 import { defaultSettings } from "../src/store/app-settings";
@@ -63,14 +63,14 @@ function installWindow() {
 
 async function seedStore() {
   const { useAppStore } = await import("../src/store/app.store");
-  // After the store's import, which registers the missions store's own bridge.
+  // After the store's import, which registers the agent runs store's own bridge.
   registerAgentRunBridge({
-    activeMission: () => null,
+    activeAgentRun: () => null,
     start: () =>
-      new Promise<MissionCommandResponse>((resolve) => {
-        refuseStart = () => resolve({ ok: false, mission: null });
+      new Promise<AgentRunCommandResponse>((resolve) => {
+        refuseStart = () => resolve({ ok: false, agentRun: null });
       }),
-    cancel: async () => ({ ok: true, mission: null }),
+    cancel: async () => ({ ok: true, agentRun: null }),
     watchFirstPrompt: () => {},
   });
   const profile = buildStarterProfile("starter-balanced");

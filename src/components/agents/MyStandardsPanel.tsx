@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ads/components/Textarea";
 import { sx } from "@/components/ads/utils/stylex";
 import { MY_STANDARDS_MAX_CHARS } from "@/lib/agents/standards";
 import { useAppStore } from "@/store/app.store";
-import { playbookStyles as styles } from "../playbooks/playbooks.styles";
+import { workflowStyles as styles } from "../workflows/workflows.styles";
 
 /**
  * My standards: the user's own instructions, added after every agent's

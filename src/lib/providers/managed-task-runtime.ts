@@ -11,7 +11,7 @@ export const MANAGED_TASK_APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
  * The user's own permission settings for a turn the user did not send and no
- * consent widened: a managed task's omitted fields, a wake-up, a mission on
+ * consent widened: a managed task's omitted fields, a wake-up, an agent run on
  * "Your settings". The same source and normalization as delegation's
  * `provider-settings`: the settings the renderer synced to the host, with
  * guarded defaults (Claude `default` + sandbox, Codex `untrusted` +

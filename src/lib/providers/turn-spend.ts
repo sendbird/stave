@@ -56,7 +56,7 @@ export function resolveTurnSpendPeriods(now: Date = new Date()): TurnSpendArgs {
   };
 }
 
-/** Re-read at least this often to pick up turns the renderer did not run (missions, MCP tasks). */
+/** Re-read at least this often to pick up turns the renderer did not run (agent runs, MCP tasks). */
 export const TURN_SPEND_DRIFT_REFRESH_MS = 10 * 60_000;
 
 /**

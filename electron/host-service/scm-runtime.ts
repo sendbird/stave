@@ -17,7 +17,7 @@ import type {
   GraphResult,
 } from "../../src/lib/git-graph/types";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
-import type { PullRequestCheck } from "../../src/lib/missions/checks";
+import type { PullRequestCheck } from "../../src/lib/agent-runs/checks";
 import type {
   ConcretePrMergeMethod,
   GitHubPrPayload,
@@ -384,7 +384,7 @@ export async function fetchGitHubPrStatus(args: {
 }
 
 /**
- * The raw check rows of a pull request, for a mission's Watch checks action.
+ * The raw check rows of a pull request, for an agent run's Watch checks action.
  * `gh pr checks` exits non-zero while checks fail or are pending, so the rows
  * are read from stdout whenever it parses; a branch with no checks at all is
  * an empty list, not a failure.

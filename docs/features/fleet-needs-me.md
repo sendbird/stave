@@ -3,7 +3,7 @@
 ## Summary
 
 Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` rail
-combines pending questions and approvals, [missions](missions.md) that wait for
+combines pending questions and approvals, [agent runs](agent-runs.md) that wait for
 a sign-off or are blocked or stuck, unreviewed failed or completed runs, and
 actionable pull request states in one urgency-ordered list.
 
@@ -53,18 +53,16 @@ optional shortcuts on top of that.
 - Workspace cards show open tasks, provider and pull-request status, and todo
   progress. Dormant workspaces stay available under `All`; fabricated empty
   default rows are hidden until they have real history or activity.
-- A workspace running a mission shows a mission strip on its card: the stage
-  track, where the mission stands, its stage position and what it has spent.
+- A workspace running an agent run shows an agent run strip on its card: the stage
+  track, where the agent run stands, its stage position and what it has spent.
   Clicking the strip opens the lead task.
-- The Fleet View header shows how many [projects](projects.md) are open and how
-  many things in them need you; it opens the Projects view.
 
 ### Key Controls
 
 - `Open next item`: opens the next item in urgency order.
 - `Approve` and `Deny`: resolve a durable approval request without first opening
   the task.
-- A mission sign-off names what it starts (for example `Start Verify`). It runs
+- An agent run sign-off names what it starts (for example `Start Verify`). It runs
   the same command, with the same check that the card is still current, as the
   sign-off card in the task.
 - `Mark reviewed`: records your review of that specific run in durable result

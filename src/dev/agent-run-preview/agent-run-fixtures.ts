@@ -1,0 +1,152 @@
+import { getBuiltinAgent } from "@/lib/agents/starters";
+import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import { createAgentRun, type AgentRunStageRecord } from "@/lib/agent-runs/domain";
+import { buildAgentRunReport } from "@/lib/agent-runs/report";
+
+/**
+ * Agent runs for the agent run preview and the render tests: working, needs
+ * you, stuck, ready (with a pull request), failed, and a run of an agent
+ * with a workflow at its second stage. Times count from
+ * `start`, so tests are exact and the preview looks recent.
+ */
+export const AGENT_RUN_ASSIGNMENT = "Fix the billing table overflow on narrow screens.";
+export const AGENT_RUN_PROMPT_ASSIGNMENT_HEADING = `## Assignment\n\n${AGENT_RUN_ASSIGNMENT}`;
+
+export function buildAgentRunFixtures(start: Date) {
+  const at = (minutes: number) => new Date(start.getTime() + minutes * 60_000).toISOString();
+  const created = createAgentRun({
+    id: "agent-run-preview",
+    input: buildAgentRunStartInput({
+      workspaceId: "preview-workspace",
+      taskId: "preview-task",
+      agent: { name: "Implementer" },
+      assignment: AGENT_RUN_ASSIGNMENT,
+      doneWhen: "The table scrolls below 640px and the checks pass.",
+      now: start,
+    }),
+    repositoryPath: "/tmp/preview-project",
+    fingerprint: { providerId: "claude-code", model: "sonnet" },
+    now: start,
+  });
+  const base = created.upserts[0]!;
+  const record = (patch: Partial<AgentRunStageRecord>): AgentRunStageRecord => ({ ...base, startedAt: at(0), ...patch });
+  const detail = (
+    agentRun: Partial<AgentRunDetail["agentRun"]>,
+    stage: Partial<AgentRunStageRecord>,
+    extra: Partial<AgentRunDetail> = {},
+  ): AgentRunDetail => ({
+    agentRun: { ...created.agentRun, turnCount: 6, updatedAt: at(0), ...agentRun },
+    stages: [record(stage)],
+    events: [],
+    report: null,
+    usage: { turns: 6, measuredTurns: 6, inputTokens: 148_000, outputTokens: 21_400, costUsd: 1.84 },
+    ...extra,
+  });
+
+  const working = detail({}, { status: "running" });
+  const needsYou = detail(
+    {},
+    { status: "blocked", blockReason: "agent-blocked", detail: "Which breakpoint should the table switch at: 640px or 768px?" },
+  );
+  const stuck = detail({}, { status: "stuck", detail: "The tests have been pending for 20 minutes." });
+
+  const revision = { status: "known" as const, revision: "rev-1" };
+  const readyRecord: Partial<AgentRunStageRecord> = {
+    status: "completed",
+    endedAt: at(23),
+    reportRevision: 1,
+    report: {
+      outcome: "complete",
+      summary: "Replaced the fixed minimum width with a scroll container and added a 600px test. Typecheck and the billing tests pass.",
+      decisions: [{ decision: "Scroll the table, not the page", reason: "The amount column must stay readable." }],
+      evidence: [{ label: "Typecheck", kind: "check", command: "bun run typecheck", toolCallId: "call-typecheck" }],
+      artifacts: [{ label: "Draft PR #612", url: "https://github.com/acme/app/pull/612" }],
+      acceptanceCriteria: [
+        { text: "The table scrolls below 640px", status: "met" },
+        { text: "bun run typecheck passes", status: "met" },
+        { text: "The invoice table has the same fix", status: "unverified" },
+      ],
+      reportedAt: at(23),
+      turnId: "turn-3",
+    },
+    facts: {
+      diff: { filesChanged: 7, insertions: 184, deletions: 32 },
+      commands: [
+        {
+          command: "bun run typecheck",
+          exitCode: 0,
+          toolCallId: "call-typecheck",
+          turnId: "turn-3",
+          outcome: "succeeded",
+          provenance: "stave-runner",
+          sourceRevision: revision,
+        },
+      ],
+      toolCalls: [],
+      action: null,
+      currentTurnId: "turn-3",
+      workspaceRevision: revision,
+    },
+  };
+  const ended = (value: AgentRunDetail, endedAt: string): AgentRunDetail => ({
+    ...value,
+    report: {
+      ...buildAgentRunReport({
+        aggregate: value,
+        workspace: { branch: "fix/billing-overflow", branchPushed: true, openPullRequest: null },
+        endedAt: new Date(endedAt),
+      }),
+      usage: value.usage,
+    },
+  });
+  const ready = ended(detail({ state: "completed", updatedAt: at(23) }, readyRecord), at(23));
+  const failed = detail(
+    {
+      state: "stopped",
+      stopReason: "turn-cap-reached",
+      reasonDetail: "The run used all 30 turns before it finished.",
+      turnCount: 30,
+      updatedAt: at(41),
+    },
+    { status: "cancelled", endedAt: at(41), detail: "The run stopped at its turn limit." },
+  );
+  const stopped = detail({ state: "cancelled", updatedAt: at(9) }, { status: "cancelled", endedAt: at(9) });
+  const staged = createAgentRun({
+    id: "agent-run-workflow-preview",
+    input: buildAgentRunStartInput({
+      workspaceId: "preview-workspace",
+      taskId: "preview-task",
+      agent: getBuiltinAgent("debugger")!,
+      assignment: "The export button throws on an empty invoice list.",
+      now: start,
+    }),
+    repositoryPath: "/tmp/preview-project",
+    fingerprint: { providerId: "claude-code", model: "sonnet" },
+    now: start,
+  });
+  const reproduced: AgentRunStageRecord = {
+    ...staged.upserts[0]!,
+    status: "completed",
+    startedAt: at(0),
+    endedAt: at(3),
+    reportRevision: 1,
+    report: {
+      outcome: "complete",
+      summary: "An empty list makes the export read the first row of nothing.",
+      decisions: [],
+      evidence: [],
+      artifacts: [],
+      reportedAt: at(3),
+      turnId: "turn-1",
+    },
+  };
+  const workflow: AgentRunDetail = {
+    agentRun: { ...staged.agentRun, currentStageIndex: 1, turnCount: 2, updatedAt: at(4) },
+    stages: [reproduced, { ...reproduced, stageId: "cause", status: "running", startedAt: at(4), endedAt: null, report: null, reportRevision: 0 }],
+    events: [],
+    report: null,
+    usage: { turns: 2, measuredTurns: 2, inputTokens: 41_000, outputTokens: 6_200, costUsd: 0.42 },
+  };
+  return { working, needsYou, stuck, ready, failed: ended(failed, at(41)), stopped, workflow };
+}

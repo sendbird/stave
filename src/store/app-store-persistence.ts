@@ -44,14 +44,17 @@ import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { restoreCustomAgents } from "@/lib/agents/library";
+// temporary-migration: agent-run-settings-keys
+import { migrateLegacyRunSignOffReminder } from "@/lib/agent-runs/legacy-settings";
+// end temporary-migration: agent-run-settings-keys
 // temporary-migration: playbook-agents-auto-route
 import { migratePlaybookAgentsToAutoRoute } from "@/lib/agents/playbook-agents-auto-route-migration";
 import { normalizeAgentRevisions } from "@/lib/agents/revisions";
 import { normalizeAgentSuggestions, normalizeLearningDisabled } from "@/lib/agents/learned-suggestions";
 import {
-  restorePersistedPlaybooks,
-  warnPlaybookDiagnostics,
-} from "@/lib/playbooks/normalize";
+  restorePersistedWorkflows,
+  warnWorkflowDiagnostics,
+} from "@/lib/workflows/normalize";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -185,6 +188,9 @@ export function createAppStorePersistenceOptions() {
       // Merge with defaultSettings so newly added fields are never undefined
       // for users whose persisted state pre-dates those fields.
       state.settings = { ...defaultSettings, ...persistedSettings };
+      // temporary-migration: agent-run-settings-keys
+      migrateLegacyRunSignOffReminder(state.settings, persistedSettings);
+      // end temporary-migration: agent-run-settings-keys
       delete (
         state.settings as AppSettings & {
           appShellMode?: unknown;
@@ -328,15 +334,15 @@ export function createAppStorePersistenceOptions() {
         raw.taskPresets,
       );
       state.settings.macros = normalizePersistedMacros(raw.macros);
-      // A playbook this version cannot read is kept aside as saved, never
+      // A workflow this version cannot read is kept aside as saved, never
       // written back away, and read again on every load.
-      const restoredPlaybooks = restorePersistedPlaybooks({
-        playbooks: raw.playbooks,
+      const restoredWorkflows = restorePersistedWorkflows({
+        workflows: raw.playbooks,
         unreadable: raw.playbooksUnreadable,
       });
-      warnPlaybookDiagnostics(restoredPlaybooks.diagnostics);
-      state.settings.playbooks = restoredPlaybooks.playbooks;
-      state.settings.playbooksUnreadable = restoredPlaybooks.unreadable;
+      warnWorkflowDiagnostics(restoredWorkflows.diagnostics);
+      state.settings.playbooks = restoredWorkflows.workflows;
+      state.settings.playbooksUnreadable = restoredWorkflows.unreadable;
       // Same rule for custom agents: unreadable entries are kept aside, never lost.
       const restoredAgents = restoreCustomAgents({
         agents: raw.customAgents,

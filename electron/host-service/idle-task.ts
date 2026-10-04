@@ -14,7 +14,7 @@ import type { ChatMessage, PromptDraft, Task } from "../../src/types/chat";
 
 /**
  * The session with a new, idle task. With `model`, the task's composer starts
- * on that model, so the task — and a mission on it — runs there.
+ * on that model, so the task — and an agent run on it — runs there.
  */
 export function addIdleTask(
   session: WorkspaceSessionState,
@@ -22,7 +22,7 @@ export function addIdleTask(
 ): { session: WorkspaceSessionState; taskId: string } {
   const task = {
     id: randomUUID(),
-    title: args.title.trim().slice(0, 80) || "Mission",
+    title: args.title.trim().slice(0, 80) || "Run",
     provider: args.provider,
     updatedAt: buildRecentTimestamp(),
     unread: false,

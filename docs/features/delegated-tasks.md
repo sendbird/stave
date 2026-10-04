@@ -99,7 +99,7 @@ the attempt is refused rather than changing the permission boundary.
 
 Ordinary managed `stave_run_task` calls also fill omitted permission fields from
 the target provider's user settings. Its explicit runtime options retain the
-existing override contract, including trusted Mission consent; that raw runtime
+existing override contract, including trusted agent run consent; that raw runtime
 API is distinct from a delegation's `access`, which can only keep or narrow the
 inherited policy.
 
@@ -135,13 +135,18 @@ approval.
 for approval. Stave resolves it per provider:
 
 - **Codex:** `read-only` file access, approval `never`, network off, and Stave
-  Local MCP auto-approval off.
+  Local MCP auto-approval off. The Stave tools that read Stave state or record
+  the work in it are pre-approved per tool, because Codex otherwise rejects a
+  non-read-only MCP call outright under approval `never`.
 - **Claude:** `dontAsk` with an allowlist of reads — `Read`, `Grep`, `Glob`,
   `LS`, `NotebookRead`, `WebFetch`, `WebSearch`, read-only Git commands
   (`git status`, `diff`, `log`, `show`, `blame`, `rev-parse`, `ls-files`,
-  `grep`) and Stave tools that only read Stave state. Everything else is denied
-  without a prompt. The edit tools, `AskUserQuestion` and every Stave tool that
-  edits workspace information, memory or schedules, starts or answers a task,
+  `grep`), Stave tools that only read Stave state, and Stave tools that record
+  the work without touching the repository: adding notes, todos, links and
+  custom fields, `stave_write_plan_file` (only `.stave/context/plans/<name>.md`)
+  and the stage report tools. Everything else is denied without a prompt. The
+  edit tools, `AskUserQuestion` and every Stave tool that clears or removes
+  workspace information, edits memory or schedules, starts or answers a task,
   or drives the browser are removed outright, and Bash runs in a sandbox that
   denies filesystem writes and fails closed where no sandbox is available.
 
@@ -169,9 +174,8 @@ Limits:
 A delegation may name a saved agent (`agentConfigId`). The agent's
 instructions go ahead of the prompt and the agent's permission is a ceiling on
 what the child inherits; a read-only request stays read-only. It is refused, with the reason, when
-the agent is not usable as a delegated task, is not one of the project's
-agents, or would run with more permission than the delegating task's own
-agent. A retry runs as the same agent.
+the agent is not usable as a delegated task or would run with more
+permission than the delegating task's own agent. A retry runs as the same agent.
 
 `expectedHead` pins same-workspace work to a commit: the child does not start
 when the workspace HEAD differs, and a retry keeps the pin. The commit is

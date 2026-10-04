@@ -15,7 +15,7 @@ import type { StatusDotTone } from "./StatusDot";
 /**
  * The one vocabulary for the state of agent work. Every surface that shows
  * state (`StatusDot`, the tool-run states in `agent-state.ts`, Fleet cards,
- * mission and agent-run badges) reads its glyph, tone and word from here, so a
+ * agent run and agent-run badges) reads its glyph, tone and word from here, so a
  * state never wears two shapes. The glyph is the redundant non-color cue: a
  * color-blind reader tells the states apart by shape alone.
  *

@@ -72,7 +72,7 @@ function createHarness(args?: {
   let intervalCallback: (() => void) | null = null;
   let turnCounter = 0;
   let runError: Error | null = null;
-  let activeMissionTaskId: string | null = null;
+  let activeAgentRunTaskId: string | null = null;
   const runCalls: Array<{
     workspaceId: string;
     taskId: string;
@@ -128,8 +128,8 @@ function createHarness(args?: {
       ? (Object.create(persistence) as typeof persistence)
       : persistence,
     getTaskSupervisionSnapshot: async () => snapshot,
-    getActiveMissionForTask: (taskId) =>
-      taskId === activeMissionTaskId ? { id: "mission-1" } : null,
+    getActiveAgentRunForTask: (taskId) =>
+      taskId === activeAgentRunTaskId ? { id: "agent-run-1" } : null,
     ...(args?.omitCompletionReader
       ? {}
       : {
@@ -188,8 +188,8 @@ function createHarness(args?: {
     setRunError: (error: Error | null) => {
       runError = error;
     },
-    setActiveMissionTask: (taskId: string | null) => {
-      activeMissionTaskId = taskId;
+    setActiveAgentRunTask: (taskId: string | null) => {
+      activeAgentRunTaskId = taskId;
     },
     setCompletions: (next: TaskCompletionSignal[]) => {
       completions = next;
@@ -1362,39 +1362,39 @@ describe("completion idempotency survives history pruning", () => {
 });
 
 describe("one source of automatic turns per task", () => {
-  test("at most one supervisor entry starts automatic turns on a task at a time: a mission pauses the wake-up and it resumes afterwards", async () => {
+  test("at most one supervisor entry starts automatic turns on a task at a time: a run pauses the wake-up and it resumes afterwards", async () => {
     const harness = createHarness();
     const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
-    harness.setActiveMissionTask("task-1");
+    harness.setActiveAgentRunTask("task-1");
     harness.setNow("2026-08-10T01:00:00.000Z");
     await harness.tick();
 
     expect(harness.getRunCalls()).toEqual([]);
     const paused = harness.store.get(wakeUp.id)!;
     expect(paused.state).toBe("paused");
-    expect(paused.pauseReason).toBe("mission-active");
+    expect(paused.pauseReason).toBe("agent-run-active");
     await expect(harness.runtime.resume({ id: wakeUp.id })).rejects.toThrow(
-      "running a mission",
+      "has an active run",
     );
 
-    harness.setActiveMissionTask(null);
+    harness.setActiveAgentRunTask(null);
     await harness.tick();
     expect(harness.store.get(wakeUp.id)?.state).toBe("scheduled");
   });
 
-  test("creating or updating a wake-up on a mission's lead task is refused with a sentence", async () => {
+  test("creating or updating a wake-up on a run's lead task is refused with a sentence", async () => {
     const harness = createHarness();
     const wakeUp = await harness.runtime.create(createInput());
-    harness.setActiveMissionTask("task-1");
+    harness.setActiveAgentRunTask("task-1");
 
     await expect(harness.runtime.update({ id: wakeUp.id, input: createInput() })).rejects.toThrow(
-      "This task is running a mission, which starts its turns. Add a schedule after the mission ends.",
+      "This task has an active run, which starts its turns. Add a schedule after the run ends.",
     );
     harness.store.remove(wakeUp.id);
-    await expect(harness.runtime.create(createInput())).rejects.toThrow("running a mission");
+    await expect(harness.runtime.create(createInput())).rejects.toThrow("has an active run");
     expect(harness.store.list()).toEqual([]);
   });
 });

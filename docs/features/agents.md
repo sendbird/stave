@@ -103,7 +103,10 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
 - **Activity**, under the header: how many assignments the agent has, how
   many of its tasks are running or need you, how many couldn't start, when it
   was last used, and **Work** — its assignments with their state (**Preparing**,
-  **Started**, **Couldn't start** or **Interrupted**) and a filter.
+  **Started**, **Couldn't start** or **Interrupted**) and a filter. While the
+  agent runs a task (or for half an hour after the run ends) the row shows the
+  run's state and where it stands (`Cause 2/3`, or `Plan 3/5` for a one-stage
+  run); click a row to open its task.
 - **Settings** and **History** tabs. History is covered below.
 
 ### Editing an agent
@@ -179,7 +182,7 @@ Watch checks → Ready for review) come with a workflow.
 **Delete** removes a custom agent from your settings, with its History and
 suggestions. Past assignments keep
 their own snapshot, so an agent's history still shows its name after it is gone.
-If another agent's workflow stage or a project still names the agent, deletion is blocked and
+If another agent's workflow stage still names the agent, deletion is blocked and
 the dialog lists where — **Archive instead**, or remove those references first.
 Running or waiting tasks are shown for context but do not block: they keep the
 version they started with and finish on their own.
@@ -200,7 +203,11 @@ that can run a task). Typing in the search also lists the agents that match.
 What you pick decides how the task runs:
 
 - **A model is Chat.** The model runs the task with the task's own permissions,
-  as it always did. If an agent was running the task, picking a model ends it.
+  as it always did. If an agent was running the task, picking a model ends it
+  and its run. Later turns tell the model the agent was released and its role
+  and limits no longer apply (Claude's system prompt, Codex's developer
+  instructions, once per session in the prompt on Cursor and Kiro), because a
+  resumed session still remembers the agent's instructions.
 - **An agent is Agent mode.** The agent runs the task from the next turn and
   picks its own model: Stave Auto routes every turn, using the agent's task
   class as its starting point. An agent with a fixed model uses it as its
@@ -222,7 +229,8 @@ What you pick decides how the task runs:
 - A choice applies from the next turn. Earlier turns keep the agent they ran
   as, and each agent's History counts the turns it ran. Choosing another
   agent is locked while a turn runs or waits for an answer, and a switch to an
-  agent with a wider permission asks first.
+  agent with a wider permission asks first. Switching agents ends the run the
+  previous agent started.
 - A task that runs as an agent calls other agents itself, as subagents.
 
 ### Usable as
@@ -245,9 +253,8 @@ level deep and their answers come back into the turn.
 may delegate to. **Any agent** (the default) sets no limit. **Only these
 agents** offers every active agent usable as a delegated task; checking none
 means the agent delegates to no one. A delegation to an agent outside the list
-is refused with the names it may call. A project's Agents still apply on top:
-a mission's agent may call only agents that are on both lists. Exported agent
-files leave **Can call** out.
+is refused with the names it may call. Exported agent files leave **Can call**
+out.
 
 ### My standards
 
@@ -296,7 +303,7 @@ the agent in the file to use it. Duplicate a repository agent to edit a copy.
 ### Flow
 
 The **Progress** tab of the right rail's Task panel shows one task's flow while
-the task has no [mission](missions.md); once it has one, the mission takes that
+the task has no [agent run](agent-runs.md); once it has one, the agent run takes that
 place. Every task has a base flow, drawn from records that already exist:
 
 - **Request** — the first message that opened the task.
@@ -349,7 +356,7 @@ Fleet's search finds its tasks.
   their own.
 - Cursor and Kiro receive the agent's instructions at the top of the first
   message — or of the next message after the task starts as, or switches to,
-  an agent from Kickoff, a mission or the composer. Claude and Codex receive
+  an agent from Kickoff, an agent run or the composer. Claude and Codex receive
   them on their instruction channel with every turn.
 - A task that runs as an Agent is autonomous. Every turn of the task — the
   first and each later one — removes routine approval prompts and changes
@@ -371,6 +378,11 @@ Fleet's search finds its tasks.
   Kiro has no read-only mode, so a read-only agent there asks before every tool
   and is only told not to edit; the Agents tab shows this as **Asked in
   instructions**.
+  Read only covers the repository, not Stave's own records of the work: a
+  read-only agent can still add workspace notes, todos, links and custom
+  fields, write a plan file with `stave_write_plan_file`, and report or block
+  its stage. Clearing or removing what you wrote, repository memory and
+  schedules stay off.
 - Tool limits are enforced where the provider supports them (for example, a
   Claude main agent's denied tools) and stated in the instructions elsewhere.
 - Where an assigned task runs:
@@ -397,7 +409,7 @@ Fleet's search finds its tasks.
 
 ## Related
 
-- [Agent runs and their stages](missions.md) and [Playbooks (retired)](playbooks.md)
+- [Agent runs and their stages](agent-runs.md) and [Playbooks (retired)](playbooks.md)
 - [Delegated tasks](delegated-tasks.md)
 - [Auto-routing](auto-routing.md)
 - [Fleet Action Required](fleet-needs-me.md)

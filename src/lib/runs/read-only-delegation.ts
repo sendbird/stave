@@ -11,6 +11,9 @@ import { CLAUDE_EDIT_TOOLS } from "@/lib/agents/permission";
  * prompting, the disallowed list removes edit tools and mutating Stave tools
  * outright (a deny beats any allow rule a settings file adds), and the sandbox
  * denies filesystem writes from every Bash command it runs.
+ *
+ * "Never changes the workspace" means the repository. Stave's own records of
+ * the work (`READ_ONLY_STAVE_METADATA_TOOLS`) stay open in every runtime.
  */
 
 const STAVE_LOCAL_MCP_TOOL_PREFIX = "mcp__stave-local-mcp__";
@@ -29,38 +32,51 @@ export const READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_get_wake_up",
   "stave_martin_get_context",
   "stave_martin_list_projects",
-  "stave_get_mission",
-  "stave_list_missions",
-  "stave_get_mission_report",
-  "stave_get_project",
+  "stave_get_agent_run",
 ] as const;
 
 /**
- * Every other Stave Local MCP tool: anything that edits workspace metadata,
- * memory, schedules or projects, starts or answers a task, spends tokens, or
- * drives the embedded browser. Listed by name so the deny holds even where a
- * permission path would otherwise allow every Stave tool.
+ * Stave Local MCP tools a read-only turn may still call although they write:
+ * they record the work in Stave's own state and never touch the repository.
+ * A researcher or reviewer that cannot leave notes, todos, links or a plan
+ * file, or report the agent run stage it runs in, cannot hand its result over.
+ *
+ * Only adding and updating: tools that clear or remove what the user wrote,
+ * change access, or touch project memory stay denied below.
+ */
+export const READ_ONLY_STAVE_METADATA_TOOLS = [
+  "stave_append_workspace_notes",
+  "stave_add_workspace_todo",
+  "stave_update_workspace_todo",
+  "stave_add_workspace_resource",
+  "stave_add_workspace_jira_issue",
+  "stave_add_workspace_crane_issue",
+  "stave_add_workspace_confluence_page",
+  "stave_add_workspace_storybook_resource",
+  "stave_add_workspace_figma_resource",
+  "stave_add_workspace_slack_thread",
+  "stave_add_workspace_amplify_link",
+  "stave_add_workspace_custom_field",
+  "stave_set_workspace_custom_field",
+  "stave_write_plan_file",
+  // An agent run's stage tools exist only on a turn carrying its grant.
+  "stave_report_stage",
+  "stave_block_stage",
+] as const;
+
+/**
+ * Every other Stave Local MCP tool: anything that clears or removes workspace
+ * metadata, edits memory or schedules, starts or answers a task,
+ * spends tokens, or drives the embedded browser. Listed by name so the deny
+ * holds even where a permission path would otherwise allow every Stave tool.
  */
 export const DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS = [
-  "stave_add_workspace_amplify_link",
-  "stave_add_workspace_confluence_page",
-  "stave_add_workspace_crane_issue",
-  "stave_add_workspace_custom_field",
-  "stave_add_workspace_figma_resource",
-  "stave_add_workspace_jira_issue",
-  "stave_add_workspace_resource",
-  "stave_add_workspace_slack_thread",
-  "stave_add_workspace_storybook_resource",
-  "stave_add_workspace_todo",
-  "stave_append_workspace_notes",
   "stave_clear_workspace_notes",
   "stave_replace_workspace_notes",
   "stave_remove_workspace_custom_field",
   "stave_remove_workspace_resource",
   "stave_remove_workspace_todo",
-  "stave_set_workspace_custom_field",
   "stave_update_workspace_storybook_resource_access",
-  "stave_update_workspace_todo",
   "stave_remember",
   "stave_forget",
   "stave_create_automation",
@@ -82,11 +98,6 @@ export const DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_respond_user_input",
   "stave_martin_link_project",
   "stave_martin_unlink_project",
-  "stave_report_stage",
-  "stave_block_stage",
-  "stave_propose_mission",
-  "stave_start_mission",
-  "stave_note_project",
   "stave_lens_open_session",
   "stave_lens_close_session",
   "stave_lens_present_session",
@@ -138,7 +149,7 @@ export const CLAUDE_READ_ONLY_DELEGATION_ALLOWED_TOOLS: readonly string[] = [
   "WebFetch",
   "WebSearch",
   ...READ_ONLY_GIT_SUBCOMMANDS.map((command) => `Bash(git ${command}:*)`),
-  ...READ_ONLY_DELEGATION_STAVE_TOOLS.map(
+  ...[...READ_ONLY_DELEGATION_STAVE_TOOLS, ...READ_ONLY_STAVE_METADATA_TOOLS].map(
     (tool) => `${STAVE_LOCAL_MCP_TOOL_PREFIX}${tool}`,
   ),
 ];

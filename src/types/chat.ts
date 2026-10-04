@@ -365,8 +365,8 @@ export type MessagePart =
  * prompt folded under it from the first frame, without waiting for the run.
  */
 export interface AgentRunPromptProvenance {
-  /** The run (mission) whose turn this prompt started. */
-  missionId: string;
+  /** The run (agent run) whose turn this prompt started. */
+  agentRunId: string;
   /** The assignment as the user wrote it; null for a run prompt without one, such as the reminder to report. */
   assignment: string | null;
 }

@@ -459,9 +459,9 @@ describe("task-context workspace schemas", () => {
         ...createWorkspaceBase(),
         messagesByTask: {
           "task-1": [
-            { ...row, agentRunPrompt: { missionId: "run-1", assignment: "Add CSV export." } },
-            { ...row, id: "run-prompt-2", agentRunPrompt: { missionId: "run-1", assignment: null } },
-            { ...row, id: "run-prompt-3", agentRunPrompt: { missionId: "", assignment: 4 } },
+            { ...row, agentRunPrompt: { agentRunId: "run-1", assignment: "Add CSV export." } },
+            { ...row, id: "run-prompt-2", agentRunPrompt: { agentRunId: "run-1", assignment: null } },
+            { ...row, id: "run-prompt-3", agentRunPrompt: { agentRunId: "", assignment: 4 } },
             { ...row, id: "older-row" },
           ],
         },
@@ -469,8 +469,8 @@ describe("task-context workspace schemas", () => {
     });
     const messages = parsed?.messagesByTask["task-1"] ?? [];
     expect(messages.map((message) => message.agentRunPrompt)).toEqual([
-      { missionId: "run-1", assignment: "Add CSV export." },
-      { missionId: "run-1", assignment: null },
+      { agentRunId: "run-1", assignment: "Add CSV export." },
+      { agentRunId: "run-1", assignment: null },
       undefined,
       undefined,
     ]);

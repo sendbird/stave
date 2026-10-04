@@ -799,7 +799,7 @@ export function WorkspaceInformationPanel() {
     >
       <div className={sx(styles.body)}>
         <WorkspaceResumeBrief key={activeWorkspaceId} workspaceId={activeWorkspaceId} brief={workspaceInformation.resumeBrief} />
-        <WorkspaceInformationTopCards workspaceId={activeWorkspaceId} showMartinCard={showMartinCard} />
+        <WorkspaceInformationTopCards showMartinCard={showMartinCard} />
         <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>
           <SectionReorderContext.Provider value={moveSectionForKeyboard}>
             <SectionVisibilityContext.Provider value={visibleSections}>

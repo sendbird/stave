@@ -2,7 +2,7 @@ import { memo } from "react";
 import { AlarmClock, Gauge, Play, X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
-import { useNow } from "@/components/missions/useMission";
+import { useNow } from "@/components/agent-runs/useAgentRun";
 import type { TaskUsageLimitPause } from "@/store/task-work-pause";
 import { describeUsageLimitLine } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";

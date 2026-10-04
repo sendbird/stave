@@ -13,7 +13,7 @@ function reservedAgentIds(): string[] {
  * Built-in agents live in code and repository agents are read from files, so
  * only custom agents are saved. A saved custom agent this version cannot read
  * is kept aside as saved and read again on every load, exactly like a
- * playbook, so a newer version's data is never lost on write-back.
+ * workflow, so a newer version's data is never lost on write-back.
  */
 
 export interface UnreadableAgent {

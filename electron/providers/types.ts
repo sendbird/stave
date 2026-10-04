@@ -2,7 +2,7 @@ import type { AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
 import type { StaveTurnGrants } from "./stave-turn-grants";
 import type { TurnPolicy } from "../../src/lib/policy/turn-policy";
-import type { MissionStageIdentity } from "../../src/lib/missions/domain";
+import type { AgentRunStageIdentity } from "../../src/lib/agent-runs/domain";
 import type {
   CanonicalConversationRequest,
   ProviderAvailabilityResponse,
@@ -50,11 +50,11 @@ export interface StreamTurnArgs {
     authorizationToken: string;
   };
   /**
-   * Set only by the mission supervisor. The runtime mints a mission grant for
+   * Set only by the agent run supervisor. The runtime mints an agent run grant for
    * this stage attempt so the turn can report it. Host-owned like the grants
    * above: never part of the renderer IPC schema.
    */
-  missionStage?: MissionStageIdentity;
+  agentRunStage?: AgentRunStageIdentity;
   /**
    * Resolved once by the host turn entry (`runProviderTurn`) for every turn
    * that reaches a provider. Host-owned like the grants above: any value a

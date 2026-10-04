@@ -30,9 +30,9 @@ export interface PendingAutoRoute {
   /**
    * Set for an Agent-mode send. The run, not this send, starts the turn and
    * writes the row, so the composer keeps its Send button: the run bar owns
-   * Stop. `missionId` is null until the host has started the run.
+   * Stop. `agentRunId` is null until the host has started the run.
    */
-  agentRun?: { missionId: string | null };
+  agentRun?: { agentRunId: string | null };
 }
 
 interface PendingAutoRoutingState {
@@ -82,7 +82,7 @@ export function beginPendingAgentRun(
   usePendingAutoRoutingStore.setState({
     byTaskId: {
       ...current,
-      [entry.taskId]: { ...entry, phase: "starting", skipped: false, agentRun: { missionId: null } },
+      [entry.taskId]: { ...entry, phase: "starting", skipped: false, agentRun: { agentRunId: null } },
     },
   });
   return true;

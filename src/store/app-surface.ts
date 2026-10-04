@@ -1,14 +1,16 @@
 /**
  * App-level surfaces swap out the main content column while the sidebar, top
- * bar, and right rail stay mounted. Fleet View, Automations, Issues,
- * Projects, Agents and Results are peers here: exactly one of them can own the column at a time.
+ * bar, and right rail stay mounted. Fleet View, Automations, Issues, Agents
+ * and Results are peers here: exactly one of them can own the column at a time.
+ *
+ * The retired Projects surface (`{ kind: "projects" }`) may still be persisted;
+ * it has no entry below, so it normalizes to the workspace surface.
  */
 export type AppActiveSurface =
   | { kind: "workspace" }
   | { kind: "fleet-view" }
   | { kind: "automation-center" }
   | { kind: "issues" }
-  | { kind: "projects" }
   | { kind: "agents" }
   | { kind: "results" };
 
@@ -31,9 +33,6 @@ export const AUTOMATION_CENTER_APP_SURFACE = {
 export const ISSUES_APP_SURFACE = {
   kind: "issues",
 } satisfies AppActiveSurface;
-export const PROJECTS_APP_SURFACE = {
-  kind: "projects",
-} satisfies AppActiveSurface;
 export const AGENTS_APP_SURFACE = {
   kind: "agents",
 } satisfies AppActiveSurface;
@@ -45,7 +44,6 @@ const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   "fleet-view": FLEET_VIEW_APP_SURFACE,
   "automation-center": AUTOMATION_CENTER_APP_SURFACE,
   issues: ISSUES_APP_SURFACE,
-  projects: PROJECTS_APP_SURFACE,
   agents: AGENTS_APP_SURFACE,
   results: RESULTS_APP_SURFACE,
 };
@@ -71,8 +69,6 @@ export interface AppSurfaceActions {
   openIssues: () => void;
   closeIssues: () => void;
   toggleIssues: () => void;
-  openProjects: () => void;
-  closeProjects: () => void;
   openAgents: () => void;
   closeAgents: () => void;
   toggleAgents: () => void;
@@ -126,8 +122,6 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
     openIssues: open("issues"),
     closeIssues: close("issues"),
     toggleIssues: toggle("issues"),
-    openProjects: open("projects"),
-    closeProjects: close("projects"),
     openAgents: open("agents"),
     closeAgents: close("agents"),
     toggleAgents: toggle("agents"),

@@ -12,7 +12,7 @@ import { describeAssignmentReceived } from "@/lib/agents/agents-view";
 import { listAgents } from "@/lib/agents/library";
 import { useAgentAssignmentsStore, useAgentAssignmentsSync, type TaskAgent } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
-import { useTaskMission } from "@/store/missions-store";
+import { useTaskAgentRun } from "@/store/agent-runs-store";
 import type { ChatMessage } from "@/types/chat";
 
 const EMPTY_MESSAGES: readonly ChatMessage[] = [];
@@ -140,7 +140,7 @@ function AssignmentReceived(props: { assignment: TaskAgent }) {
 export function FlowPanel(props: { workspaceId: string; taskId: string; repositoryPath: string | null }) {
   useAgentAssignmentsSync();
   const assignment = useAgentAssignmentsStore((state) => state.byTaskId[props.taskId]);
-  const mission = useTaskMission(props.workspaceId, props.taskId);
+  const agentRun = useTaskAgentRun(props.workspaceId, props.taskId);
   const taskTitle = useAppStore((state) => state.tasks.find((task) => task.id === props.taskId)?.title ?? "Task");
   const taskProvider = useAppStore(
     (state) => state.tasks.find((task) => task.id === props.taskId)?.provider ?? state.draftProvider,
@@ -178,14 +178,14 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
       buildFlow({
         taskTitle,
         assignment: assignment ? { id: assignment.assignmentId, ...assignment } : null,
-        mission: mission ?? null,
+        agentRun: agentRun ?? null,
         delegates: delegates.children,
         runningDelegateTaskIds: new Set(delegates.children.filter((child) => Boolean(
           activeTurnIds[child.delegatedTaskId] ?? runtimeCache[child.delegatedWorkspaceId]?.activeTurnIdsByTask[child.delegatedTaskId],
         )).map((child) => child.delegatedTaskId)),
         base,
       }),
-    [taskTitle, assignment, mission, delegates.children, base, activeTurnIds, runtimeCache],
+    [taskTitle, assignment, agentRun, delegates.children, base, activeTurnIds, runtimeCache],
   );
   return (
     <section aria-label="Flow">

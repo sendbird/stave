@@ -7,52 +7,37 @@
 import type { AgentDelegationContext, AgentInvokeResult, HostAgentAction } from "../../../src/lib/agents/api";
 import { RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../../src/lib/agents/assign";
 import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/library";
-import { activeStandards, normalizeMyStandards } from "../../../src/lib/agents/standards";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { AgentRouteSettingsSchema } from "../../../src/lib/routing/agent-run-route";
-import { setTaskAgentTurnResolver } from "../../providers/runtime";
+import { setReleasedTaskAgentResolver, setTaskAgentTurnResolver } from "../../providers/runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
 import { AssignError, createAssignRuntime, type AssignRuntime } from "./assign-runtime";
 
 export function createHostAssignRuntime(args: {
   emitChanged: (event: { assignmentId: string; state: string }) => void;
+  onTaskAgentEnded?: (taskId: string) => void;
 }): AssignRuntime & { start: () => void } {
   const persistence = ensureHostServicePersistenceReady();
   const runtime = createAssignRuntime({
     store: persistence.agentAssignments,
     listAgents: () => hostAgents(),
     emitChanged: (row) => args.emitChanged({ assignmentId: row.id, state: row.state }),
+    ...(args.onTaskAgentEnded ? { onTaskAgentEnded: args.onTaskAgentEnded } : {}),
   });
   return {
     ...runtime,
     start() {
       runtime.recover();
       setTaskAgentTurnResolver((turn) => runtime.prepareTurn(turn));
+      setReleasedTaskAgentResolver((taskId) => runtime.releasedAgentInstructions(taskId));
     },
   };
 }
 
-/** The host's copy of the renderer's custom agents, for projects and missions. */
+/** The host's copy of the renderer's custom agents, for agent runs and agent runs. */
 let hostCustomAgents: AgentConfig[] = [];
-/** The user's standards, when on; a project mission's task starts with them. */
-let hostStandards: string | undefined;
-
-export function hostMyStandards() {
-  return hostStandards;
-}
-
 export function hostAgents(): AgentConfig[] {
   return listAgents({ custom: hostCustomAgents, activeOnly: true });
-}
-
-/**
- * Looks up the project a task works for, when it does. Set by the project
- * host so this module does not import project persistence.
- */
-let projectAgentsForTask: (taskId: string) => string[] | null = () => null;
-
-export function setProjectAgentsLookup(lookup: (taskId: string) => string[] | null) {
-  projectAgentsForTask = lookup;
 }
 
 export async function invokeAgentAction(
@@ -91,7 +76,6 @@ export async function invokeAgentAction(
       case "sync-agents": {
         const payload = (args ?? {}) as { customAgents?: unknown; myStandards?: unknown; routeSettings?: unknown };
         hostCustomAgents = normalizeCustomAgents(payload.customAgents).agents;
-        hostStandards = activeStandards(normalizeMyStandards(payload.myStandards));
         // Agent runs route the turns the host starts with the user's Stave Auto settings.
         const routeSettings = AgentRouteSettingsSchema.safeParse(payload.routeSettings);
         if (routeSettings.success) {
@@ -105,7 +89,6 @@ export async function invokeAgentAction(
         const value: AgentDelegationContext = {
           parentPermission: parent?.permission ?? null,
           parentCanCall: parent?.canCall ?? null,
-          allowedAgentIds: projectAgentsForTask(taskId),
         };
         return { ok: true, value };
       }

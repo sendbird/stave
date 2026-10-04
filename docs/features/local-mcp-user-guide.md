@@ -42,12 +42,11 @@ When any bundled provider runs inside Stave — Claude, Codex, Cursor, or Kiro �
 
 The same Local MCP server also exposes optional `stave_lens_*` tools for workspace browser sessions. They are registered by default and can be turned off under `Settings → Developer → Lens browser tools`; every tool schema is part of the prompt of each new provider session, so turning them off measurably shrinks the prompt in workspaces that never drive a browser from an agent turn. Operational tools reuse the visible/recent Lens tab or create a hidden default session automatically, so `stave_lens_open_session` is optional. Visual inspection and page interaction follow `Settings > Lens > Agent Activity`; navigation and read-only diagnostics alone stay hidden. Use `stave_lens_present_session` only when the user must immediately interact with or explicitly see the same page. The first CDP-backed action for an unapproved host shows an app-wide Stave approval dialog, even if no Lens tab is visible. Agents can manage OS-encrypted accounts with `stave_lens_list_saved_accounts`, `stave_lens_create_saved_account`, `stave_lens_update_saved_account`, and `stave_lens_delete_saved_account`. Passwords are accepted only by create/update inputs, are redacted from Stave's Local MCP request log, and are never returned by the tools. When the current exact hostname has a saved account, `stave_lens_fill_saved_account` can fill it without returning the password to the MCP client. If multiple accounts share the host, Lens uses the account enabled for automatic fill; pass `username` to select a different saved account.
 
-Two tool families exist only inside turns Stave starts for a supervisor, and never in an external client's session:
+One tool family exists only inside turns Stave starts for a supervisor, and never in an external client's session:
 
-- **Mission tools** (`stave_get_mission`, `stave_report_stage`, `stave_block_stage`, `stave_propose_mission`) are registered for a [mission](missions.md)'s stage turns, which carry a per-turn mission key. The agent reads its stage and reports it done or blocked through them. `stave_propose_mission` lets a triage mission propose a mission for a request it found; the proposal waits in [Issues → Proposed](issues.md#proposed-missions) and starts nothing, and the same request key is never proposed twice.
-- **Project tools** (`stave_get_project`, `stave_start_mission`, `stave_list_missions`, `stave_get_mission_report`, `stave_note_project`) are registered for a [project](projects.md) coordinator's turns, which carry a per-turn project key. Stave resolves the mission or project from the key, so a turn can act only for its own.
+- **Agent run tools** (`stave_get_agent_run`, `stave_report_stage`, `stave_block_stage`) are registered for an [agent run](agent-runs.md)'s stage turns, which carry a per-turn agent run key. The agent reads its stage and reports it done or blocked through them. Stave resolves the agent run from the key, so a turn can act only for its own.
 
-Missions and projects need Local MCP on; without it a mission cannot start and a coordinator cannot plan.
+Agent runs need Local MCP on; without it a run cannot start, because its stages cannot be reported.
 
 If a provider needs extra user input while using Local MCP, Stave surfaces that request through the same inline task-chat input card used for approvals and other structured question flows. Form-mode elicitation is answered directly in chat, and URL-mode elicitation shows the target link plus an explicit continue / decline action.
 
@@ -158,6 +157,7 @@ For workspace Information panel management, also use:
 - `stave_add_workspace_custom_field`
 - `stave_set_workspace_custom_field`
 - `stave_remove_workspace_custom_field`
+- `stave_write_plan_file` — `{ workspaceId, fileName, content }`; writes or replaces `.stave/context/plans/<fileName>` (a plain markdown file name) and nothing else, so it also works for a read-only agent
 
 To curate reusable knowledge for the same repository (see [Repository memory](repository-memory.md)):
 contextual entries are recalled only for relevant requests; at most three core

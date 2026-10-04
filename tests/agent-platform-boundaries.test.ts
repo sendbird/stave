@@ -18,22 +18,22 @@ import {
   SIDEBAR_WORK_QUEUE_LANE_ORDER,
   buildSidebarWorkQueueLanes,
 } from "../src/lib/fleet/sidebar-work-queue";
-import { MissionStore } from "../electron/persistence/mission-store";
-import { MissionStartInputSchema } from "../src/lib/missions/domain";
+import { AgentRunStore } from "../electron/persistence/agent-run-store";
+import { AgentRunStartInputSchema } from "../src/lib/agent-runs/domain";
 import {
-  MISSION_DECISION_EFFECTS,
-  decideMissionAction,
-} from "../src/lib/missions/policy";
+  AGENT_RUN_DECISION_EFFECTS,
+  decideAgentRunAction,
+} from "../src/lib/agent-runs/policy";
 import { resolveAutomaticTurnOwner } from "../src/lib/supervision/automatic-turn-owner";
 import { createWakeUp, decideWakeUpAction } from "../src/lib/supervision/wake-up-policy";
 import {
   COMPLETE_REPORT,
-  MISSION_NOW,
-  missionFixture,
-  observe as observeMission,
+  AGENT_RUN_NOW,
+  agentRunFixture,
+  observe as observeAgentRun,
   patchCurrent,
   turn,
-} from "./fixtures/mission-fixtures";
+} from "./fixtures/agent-run-fixtures";
 
 /**
  * Boundary gates for `docs/architecture/agent-platform-taxonomy.md`.
@@ -179,7 +179,7 @@ describe("Agent platform boundaries", () => {
     // And the pure policy stays pure: no ledger vocabulary at all.
     expect(
       importedModules(readSource("src/lib/supervision/wake-up-policy.ts")).filter(
-        (specifier) => /runs\/|persistence\/|host-service/.test(specifier ?? ""),
+        (specifier) => /(?<!agent-)runs\/|persistence\/|host-service/.test(specifier ?? ""),
       ),
     ).toEqual([]);
   });
@@ -318,57 +318,57 @@ describe("Agent platform boundaries", () => {
     }
   });
 
-  test("a mission advances exactly one lead task and never creates a task", () => {
-    // Starting a mission names an existing task. A field that could name a new
+  test("a run advances exactly one lead task and never creates a task", () => {
+    // Starting an agent run names an existing task. A field that could name a new
     // task, workspace or environment would turn it into an automation.
-    const startKeys = Object.keys(MissionStartInputSchema.shape);
+    const startKeys = Object.keys(AgentRunStartInputSchema.shape);
     expect(startKeys).toContain("leadTaskId");
     expect(startKeys.filter((key) => /^(name|title|environment|repositoryPath|taskId|prompt)$/.test(key))).toEqual([]);
     // No supervisor decision creates anything; each advances the lead task.
     expect(
-      Object.keys(MISSION_DECISION_EFFECTS).filter((action) => /create|mint|spawn|new/i.test(action)),
+      Object.keys(AGENT_RUN_DECISION_EFFECTS).filter((action) => /create|mint|spawn|new/i.test(action)),
     ).toEqual([]);
     for (const file of [
-      "src/lib/missions/domain.ts",
-      "src/lib/missions/policy.ts",
-      "src/lib/missions/commands.ts",
-      "electron/persistence/mission-store.ts",
+      "src/lib/agent-runs/domain.ts",
+      "src/lib/agent-runs/policy.ts",
+      "src/lib/agent-runs/commands.ts",
+      "electron/persistence/agent-run-store.ts",
     ]) {
       const creators = importedModules(readSource(file)).filter((specifier) =>
-        /host-service|local-mcp|workspace-create|create-workspace|runs\//.test(specifier ?? ""),
+        /host-service|local-mcp|workspace-create|create-workspace|(?<!agent-)runs\//.test(specifier ?? ""),
       );
       expect({ file, creators }).toEqual({ file, creators: [] });
     }
   });
 
   test("a stage completes only through a recorded stage report or a Stave action result; an ended turn alone never completes a stage", () => {
-    const started = patchCurrent(missionFixture(), { status: "running", startedAt: MISSION_NOW.toISOString() });
-    const decide = (aggregate: typeof started, observation = observeMission()) =>
-      decideMissionAction({ aggregate, observation, now: MISSION_NOW }).action;
+    const started = patchCurrent(agentRunFixture(), { status: "running", startedAt: AGENT_RUN_NOW.toISOString() });
+    const decide = (aggregate: typeof started, observation = observeAgentRun()) =>
+      decideAgentRunAction({ aggregate, observation, now: AGENT_RUN_NOW }).action;
 
     for (const nudged of [false, true]) {
       for (const lastEndedTurn of [turn(), turn({ startedBy: "user" })]) {
         for (const reportingAvailable of [true, false]) {
           expect(
-            decide(patchCurrent(started, { nudged }), observeMission({ lastEndedTurn, reportingAvailable })),
+            decide(patchCurrent(started, { nudged }), observeAgentRun({ lastEndedTurn, reportingAvailable })),
           ).not.toBe("complete-stage");
         }
       }
     }
     expect(
-      decide(patchCurrent(started, { report: COMPLETE_REPORT, reportRevision: 1 }), observeMission({ lastEndedTurn: turn() })),
+      decide(patchCurrent(started, { report: COMPLETE_REPORT, reportRevision: 1 }), observeAgentRun({ lastEndedTurn: turn() })),
     ).toBe("complete-stage");
 
-    const atAction = missionFixture();
+    const atAction = agentRunFixture();
     const actionStage = {
-      mission: { ...atAction.mission, currentStageIndex: 3 },
+      agentRun: { ...atAction.agentRun, currentStageIndex: 3 },
       stages: [...atAction.stages, { ...atAction.stages[0]!, stageId: "open-draft-pr", status: "running" as const }],
     };
-    expect(decide(actionStage, observeMission({ actionOutcome: { status: "in-progress" } }))).toBe("execute-action");
+    expect(decide(actionStage, observeAgentRun({ actionOutcome: { status: "in-progress" } }))).toBe("execute-action");
     expect(
       decide(
         actionStage,
-        observeMission({
+        observeAgentRun({
           actionOutcome: {
             status: "succeeded",
             result: { type: "open-draft-pr", prUrl: "https://github.com/o/r/pull/1", prNumber: 1, created: true },
@@ -379,10 +379,10 @@ describe("Agent platform boundaries", () => {
   });
 
   test("at most one supervisor entry starts automatic turns on a task at a time", () => {
-    // A mission owns its lead task's automatic turns...
+    // An agent run owns its lead task's automatic turns...
     expect(
-      resolveAutomaticTurnOwner({ activeMission: { id: "mission-1" }, wakeUp: { id: "wake-1", state: "scheduled" } }),
-    ).toEqual({ kind: "mission", missionId: "mission-1" });
+      resolveAutomaticTurnOwner({ activeAgentRun: { id: "agent-run-1" }, wakeUp: { id: "wake-1", state: "scheduled" } }),
+    ).toEqual({ kind: "agentRun", agentRunId: "agent-run-1" });
     // ...so the task's due wake-up pauses rather than firing beside it...
     const wakeUp = createWakeUp({
       id: "wake-1",
@@ -396,7 +396,7 @@ describe("Agent platform boundaries", () => {
       },
       repositoryPath: "/tmp/repo",
       fingerprint: { providerId: "claude-code", model: "sonnet" },
-      now: new Date(MISSION_NOW.getTime() - 2 * 60 * 60 * 1000),
+      now: new Date(AGENT_RUN_NOW.getTime() - 2 * 60 * 60 * 1000),
     });
     expect(
       decideWakeUpAction({
@@ -412,16 +412,16 @@ describe("Agent platform boundaries", () => {
           identity: { ok: true },
           completionObservability: "stave_owned",
           completions: [],
-          missionActive: true,
+          agentRunActive: true,
         },
-        now: MISSION_NOW,
+        now: AGENT_RUN_NOW,
       }),
-    ).toMatchObject({ action: "pause", reason: "mission-active" });
-    // ...and a task never has two active missions.
-    const store = new MissionStore(new Database(":memory:"));
-    const first = missionFixture({ id: "mission-1" });
-    const second = missionFixture({ id: "mission-2" });
-    expect(store.create({ mission: first.mission, upserts: first.stages, events: [] }, MISSION_NOW)).toEqual({ ok: true });
-    expect(store.create({ mission: second.mission, upserts: second.stages, events: [] }, MISSION_NOW).ok).toBe(false);
+    ).toMatchObject({ action: "pause", reason: "agent-run-active" });
+    // ...and a task never has two active agent runs.
+    const store = new AgentRunStore(new Database(":memory:"));
+    const first = agentRunFixture({ id: "agent-run-1" });
+    const second = agentRunFixture({ id: "agent-run-2" });
+    expect(store.create({ agentRun: first.agentRun, upserts: first.stages, events: [] }, AGENT_RUN_NOW)).toEqual({ ok: true });
+    expect(store.create({ agentRun: second.agentRun, upserts: second.stages, events: [] }, AGENT_RUN_NOW).ok).toBe(false);
   });
 });

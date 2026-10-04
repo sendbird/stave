@@ -16,7 +16,7 @@ import {
   type UsageStripCost,
   type UsageStripTokens,
 } from "@/components/layout/status-bar-usage-strip.utils";
-import { formatCostUsd, formatTokenCount } from "@/lib/missions/usage";
+import { formatCostUsd, formatTokenCount } from "@/lib/agent-runs/usage";
 import type {
   AccountUsageWindow,
   ClaudeUsageSnapshot,

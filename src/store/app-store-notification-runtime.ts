@@ -9,7 +9,7 @@ import {
 } from "@/lib/notifications/notification-sound";
 import type { AppNotificationCreateInput } from "@/lib/notifications/notification.types";
 import {
-  isMissionAttentionNotificationKind,
+  isAgentRunAttentionNotificationKind,
   isNotificationAttentionKind,
 } from "@/lib/notifications/notification.types";
 import { showNotificationToast } from "@/store/app-notification-builders";
@@ -59,9 +59,9 @@ export function createAppStoreNotificationRuntime(args: {
           notification: result.notification!,
         }),
       }));
-      // A mission notification is raised again whenever the watcher looks;
+      // An agent run notification is raised again whenever the watcher looks;
       // only its first store is announced.
-      if (!result.inserted && result.notification.kind.startsWith("mission.")) {
+      if (!result.inserted && result.notification.kind.startsWith("agent_run.")) {
         return result.notification;
       }
       const unreadCount = get().notifications.filter(
@@ -83,11 +83,11 @@ export function createAppStoreNotificationRuntime(args: {
       } = get().settings;
       const isAttentionKind =
         isNotificationAttentionKind(result.notification.kind) ||
-        isMissionAttentionNotificationKind(result.notification.kind);
+        isAgentRunAttentionNotificationKind(result.notification.kind);
       const isCompletionKind =
         result.notification.kind === "task.turn_completed" ||
         result.notification.kind === "task.turn_failed" ||
-        result.notification.kind === "mission.completed";
+        result.notification.kind === "agent_run.completed";
       if (isAttentionKind && attentionNotificationSoundEnabled) {
         // "AI needs you" cue: question (user_input) or approval request. Uses a
         // dedicated player instance so its cooldown is independent from the
@@ -172,7 +172,7 @@ let registeredPersistNotifications:
   | null = null;
 
 /**
- * Raises notifications from outside the app store — the mission watcher, for
+ * Raises notifications from outside the app store — the agent run watcher, for
  * example — through the same path as turn notifications: stored once per
  * dedupe key, with the sound, the OS notification and the toast.
  */

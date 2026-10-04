@@ -488,7 +488,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   {
     id: "navigation.results",
     title: "Open Results",
-    description: "See how ended agent runs and missions came out.",
+    description: "See how ended agent runs and runs came out.",
     group: "navigation",
     icon: ChartNoAxesColumn,
     keywords: ["results", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],

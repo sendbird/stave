@@ -58,11 +58,11 @@ export interface SidebarWorkQueueSignals {
   attentionKind?: FleetAttentionKind;
   status?: FleetTaskStatus;
   /**
-   * The lane the workspace's mission asks for (`missionWorkQueueLane` in
-   * `src/lib/missions/lanes.ts`). It competes with the other signals by
+   * The lane the workspace's agent run asks for (`agentRunWorkQueueLane` in
+   * `src/lib/agent-runs/lanes.ts`). It competes with the other signals by
    * priority rather than overriding them.
    */
-  missionLane?: SidebarWorkQueueLane | null;
+  agentRunLane?: SidebarWorkQueueLane | null;
 }
 
 /**
@@ -81,17 +81,17 @@ export interface SidebarWorkQueueSignals {
  *    that is merely ready or behind base). Nothing is stalled.
  * 4. `idle` — nothing pending.
  *
- * A mission lane competes with these: the higher-priority of the two wins.
+ * An agent run lane competes with these: the higher-priority of the two wins.
  */
 export function classifySidebarWorkQueueLane(
   signals: SidebarWorkQueueSignals,
 ): SidebarWorkQueueLane {
   const taskLane = classifyTaskSignals(signals);
-  const missionLane = signals.missionLane;
-  if (!missionLane) return taskLane;
-  return SIDEBAR_WORK_QUEUE_LANE_ORDER.indexOf(missionLane) <
+  const agentRunLane = signals.agentRunLane;
+  if (!agentRunLane) return taskLane;
+  return SIDEBAR_WORK_QUEUE_LANE_ORDER.indexOf(agentRunLane) <
     SIDEBAR_WORK_QUEUE_LANE_ORDER.indexOf(taskLane)
-    ? missionLane
+    ? agentRunLane
     : taskLane;
 }
 
