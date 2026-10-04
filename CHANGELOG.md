@@ -1,3 +1,25 @@
+## [0.24.2](https://github.com/sendbird/stave/compare/v0.24.1...v0.24.2) (2026-10-04)
+
+### ⚠ BREAKING CHANGES
+
+- External MCP clients must switch to the Agent Run tool and grant key: `stave_get_agent_run` and `STAVE_AGENT_RUN_GRANT_KEY`.
+- Projects, proposal, and automatic-start flows are removed; existing project memory is exported once to the app user-data directory.
+
+### Features
+
+- Usage-limited work can resume manually or at the reported reset; restored queues wait for explicit resume and preserve their order and captured runtime choices.
+- Attach up to five Stave tasks through search or sidebar drag, with the latest reply or bounded recent conversation added when the message is dispatched.
+- Task activity, run panels, Fleet, and Agent history now show Agent Run plans, workflow stages, reports, and results, with stage retry and skip actions.
+- Saved Mission and Workflow data migrates automatically; temporary migration support is scheduled for removal in 0.27.0.
+
+### Bug Fixes
+
+- Usage-limit recovery avoids duplicate dispatch after resume or cancellation and distinguishes account exhaustion from transient throttling.
+- Auto routing provides five levels, falls back to another available provider when the current provider has no allowed model for the selected level, recognizes `$skill` requests, and preserves custom settings during starter-profile upgrades.
+
+### References
+
+- [PR #668](https://github.com/sendbird/stave/pull/668), [PR #669](https://github.com/sendbird/stave/pull/669), [PR #670](https://github.com/sendbird/stave/pull/670)
 ## [0.24.1](https://github.com/sendbird/stave/compare/v0.24.0...v0.24.1) (2026-10-03)
 
 ### Bug Fixes
