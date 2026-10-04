@@ -5,7 +5,7 @@ import {
   getTurnReceipt,
   readTurnStreamEvents,
 } from "./turn-receipt-store";
-import { createTurnReceipt, parseTurnReceipt } from "./turn-terminal-receipt";
+import { parseTurnReceipt } from "./turn-terminal-receipt";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdirSync, rmSync, statfsSync } from "node:fs";
@@ -72,6 +72,8 @@ import { NotificationStore } from "./notification-store";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
 import { TurnSpendStore } from "./turn-spend-store";
+import { UsageStatisticsStore } from "./usage-statistics-store";
+import { beginUsageTrackedTurn, type UsageTrackedTurnArgs } from "./usage-turn-lifecycle";
 import type { RepositoryMemoryKind } from "../../src/lib/repository-memory";
 import type {
   WakeUp,
@@ -186,6 +188,7 @@ export class SqliteStore {
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly turnSpend: TurnSpendStore;
+  readonly usageStatistics: UsageStatisticsStore;
   readonly delegationPolicies: DelegationPolicyStore;
   readonly agentRuns: AgentRunStore;
   readonly agentAssignments: AgentAssignmentStore;
@@ -229,6 +232,7 @@ export class SqliteStore {
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
     this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
     this.turnSpend = new TurnSpendStore(this.db);
+    this.usageStatistics = new UsageStatisticsStore(this.db);
     this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
@@ -2338,29 +2342,8 @@ export class SqliteStore {
     });
   }
 
-  beginTurn(args: {
-    id: string;
-    workspaceId: string;
-    taskId: string;
-    providerId: ProviderId;
-    createdAt?: string;
-  }) {
-    const createdAt = args.createdAt ?? new Date().toISOString();
-    this.db
-      .prepare(
-        `
-      INSERT INTO turns (id, workspace_id, task_id, provider_id, created_at, completed_at, receipt_json)
-      VALUES (?, ?, ?, ?, ?, NULL, ?)
-    `,
-      )
-      .run(
-        args.id,
-        args.workspaceId,
-        args.taskId,
-        args.providerId,
-        createdAt,
-        JSON.stringify(createTurnReceipt()),
-      );
+  beginTurn(args: UsageTrackedTurnArgs) {
+    beginUsageTrackedTurn(this.db, this.usageStatistics, args);
   }
 
   completeTurn(args: {
@@ -2396,6 +2379,7 @@ export class SqliteStore {
             ? [completedAt, usageJson, args.id]
             : [completedAt, args.id]),
         );
+      this.usageStatistics.completeTurn(args.id, completedAt, usageJson);
       finalizeTurnReceipt(this.db, args.id, completedAt, args.stopReason);
       this.compactCompletedTurnEvents(args.id);
     });
@@ -2428,6 +2412,7 @@ export class SqliteStore {
         .run(completedAt, args.id);
       closed = Number(result.changes ?? 0) > 0;
       if (closed) {
+        this.usageStatistics.completeTurn(args.id, completedAt, null);
         finalizeTurnReceipt(this.db, args.id, completedAt, "user_abort");
         this.compactCompletedTurnEvents(args.id);
       }
@@ -2567,6 +2552,7 @@ export class SqliteStore {
     createdAt?: string;
   }) {
     insertTurnEventWithReceipt(this.db, args);
+    this.usageStatistics.observeEvent(args.turnId, args.event, args.sequence);
   }
 
   /**

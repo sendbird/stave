@@ -1,6 +1,6 @@
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { readAgentHistory } from "./providers/agent-history";
-import { withRequestAccountScope } from "./provider-accounts/runtime-scope";
+import { currentProviderAccountId, withRequestAccountScope } from "./provider-accounts/runtime-scope";
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
 import { realpathSync } from "node:fs";
 import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
@@ -967,6 +967,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
         workspaceId: args.workspaceId ?? "default",
         taskId: args.taskId,
         providerId: args.providerId,
+        accountProfileId: args.providerId === "claude-code" || args.providerId === "codex"
+          ? (args.providerId === "codex" ? args.runtimeOptions?.codexAccountProfileId : args.runtimeOptions?.claudeAccountProfileId) ?? currentProviderAccountId(args.providerId) : "system-default",
+        modelId: args.runtimeOptions?.model,
       });
     } catch (error) {
       console.warn("[provider:persistence] failed to begin turn", error, {
@@ -1809,9 +1812,23 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         await getCodexAppServerSnapshot(request.params),
       );
       return;
-    case "provider.get-rate-limits-snapshot":
-      await respond(request.id, await getRateLimitsSnapshot(request.params));
+    case "provider.get-rate-limits-snapshot": {
+      const snapshot = await getRateLimitsSnapshot({
+        ...request.params,
+        onObservation: (observation) => {
+          try {
+            ensureHostServicePersistenceReady().usageStatistics.recordQuota(observation, {
+              claudeAccountProfileId: currentProviderAccountId("claude-code"),
+              codexAccountProfileId: currentProviderAccountId("codex"),
+            });
+          } catch {
+            console.warn("[usage-statistics] quota observation could not be saved");
+          }
+        },
+      });
+      await respond(request.id, snapshot);
       return;
+    }
     case "provider.get-codex-plugin-detail":
       await respond(request.id, await getCodexPluginDetail(request.params));
       return;

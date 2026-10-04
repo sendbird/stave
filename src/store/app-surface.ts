@@ -1,3 +1,5 @@
+import type { ProviderId } from "@/lib/providers/provider.types";
+
 /**
  * App-level surfaces swap out the main content column while the sidebar, top
  * bar, and right rail stay mounted. Fleet View, Automations, Issues, Agents
@@ -12,7 +14,8 @@ export type AppActiveSurface =
   | { kind: "automation-center" }
   | { kind: "issues" }
   | { kind: "agents" }
-  | { kind: "results" };
+  | { kind: "results" }
+  | { kind: "usage"; providerId?: ProviderId; accountProfileId?: string };
 
 export type AppOverlaySurfaceKind = Exclude<
   AppActiveSurface["kind"],
@@ -40,12 +43,15 @@ export const RESULTS_APP_SURFACE = {
   kind: "results",
 } satisfies AppActiveSurface;
 
+export const USAGE_APP_SURFACE = { kind: "usage" } satisfies AppActiveSurface;
+
 const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   "fleet-view": FLEET_VIEW_APP_SURFACE,
   "automation-center": AUTOMATION_CENTER_APP_SURFACE,
   issues: ISSUES_APP_SURFACE,
   agents: AGENTS_APP_SURFACE,
   results: RESULTS_APP_SURFACE,
+  usage: USAGE_APP_SURFACE,
 };
 
 export function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
@@ -74,6 +80,8 @@ export interface AppSurfaceActions {
   toggleAgents: () => void;
   openResults: () => void;
   closeResults: () => void;
+  openUsage: (scope?: { providerId: ProviderId; accountProfileId?: string }) => void;
+  closeUsage: () => void;
 }
 
 type AppSurfaceState = { activeAppSurface: AppActiveSurface };
@@ -127,5 +135,13 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
     toggleAgents: toggle("agents"),
     openResults: open("results"),
     closeResults: close("results"),
+    openUsage: (scope) => {
+      set((state) => {
+        const previous = state.activeAppSurface;
+        if (previous.kind === "usage" && previous.providerId === scope?.providerId && previous.accountProfileId === scope?.accountProfileId) return state;
+        return { activeAppSurface: scope ? { kind: "usage", ...scope } : USAGE_APP_SURFACE };
+      });
+    },
+    closeUsage: close("usage"),
   };
 }

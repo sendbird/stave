@@ -82,6 +82,8 @@ export async function getRateLimitsSnapshot(args: {
   reason?: RateLimitsForceReason;
   fetchers?: Partial<UsageFetchers>;
   optionalReadKey?: typeof optionalProviderReadKey;
+  /** Host-only persistence hook. Cached responses are not new observations. */
+  onObservation?: (snapshot: RateLimitsSnapshotResponse) => void;
 }): Promise<RateLimitsSnapshotResponse> {
   return withProviderAccountScope(args.runtimeOptions, async () => {
   const providers = args.providers;
@@ -109,7 +111,14 @@ export async function getRateLimitsSnapshot(args: {
       force,
       forceFloorMs,
       classify: classifySnapshot,
-      request,
+      request: async () => {
+        const fresh = await request();
+        if (classifySnapshot(fresh) === "ok" && (!isOptionalProvider(providerId) ||
+          readKey === (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions))) {
+          args.onObservation?.({ ...empty, [key]: fresh });
+        }
+        return fresh;
+      },
     }).catch(() => empty[key]);
     return isOptionalProvider(providerId) && readKey !== (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions) ? empty[key] : value;
   }

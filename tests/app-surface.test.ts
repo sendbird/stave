@@ -25,6 +25,20 @@ function makeStore() {
 }
 
 describe("app surface: agents", () => {
+  test("usage navigation captures report scope, keeps repeated opens stable and closes only itself", () => {
+    const store = makeStore();
+    store.actions.openUsage({ providerId: "codex", accountProfileId: "system-default" });
+    const surface = store.get().activeAppSurface;
+    expect(surface).toEqual({ kind: "usage", providerId: "codex", accountProfileId: "system-default" });
+    store.actions.openUsage({ providerId: "codex", accountProfileId: "system-default" });
+    expect(store.get().activeAppSurface).toBe(surface);
+    store.actions.openResults();
+    store.actions.closeUsage();
+    expect(store.get().activeAppSurface.kind).toBe("results");
+    store.actions.openUsage();
+    store.actions.closeUsage();
+    expect(store.get().activeAppSurface.kind).toBe("workspace");
+  });
   test("open, toggle and close move the surface to and from agents", () => {
     const store = makeStore();
     store.actions.openAgents();

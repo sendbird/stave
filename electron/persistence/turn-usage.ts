@@ -21,7 +21,8 @@ export function toPersistenceTurnUsage(
   const cacheReadTokens = positive(event.cacheReadTokens);
   const cacheCreationTokens = positive(event.cacheCreationTokens);
   const thoughtTokens = positive(event.thoughtTokens);
-  const totalCostUsd = positive(event.totalCostUsd);
+  const totalCostUsd = typeof event.totalCostUsd === "number" && Number.isFinite(event.totalCostUsd) && event.totalCostUsd >= 0
+    ? event.totalCostUsd : undefined;
   return {
     inputTokens: event.inputTokens,
     outputTokens: event.outputTokens,

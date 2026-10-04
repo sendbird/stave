@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
-import { Bot, ChartNoAxesColumn, LayoutGrid } from "lucide-react";
+import { Bot, ChartNoAxesColumn, Gauge, LayoutGrid } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { transition } from "@/components/ads/recipes/transition";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -57,6 +57,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
   const openResults = useAppStore((state) => state.openResults);
+  const openUsage = useAppStore((state) => state.openUsage);
   const selectAgent = useAgentsViewStore((state) => state.selectAgent);
   const selectedAgentId = useAgentsViewStore((state) => state.selectedAgentId);
   const agentsWithWork = useAgentsWithWork();
@@ -136,6 +137,11 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
         <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
         <span className={sx(styles.label)}>Results</span>
       </AdsButton>
+      <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label="AI usage"
+        xstyle={[repositorySidebarStyles.navButton, transition.colors,
+          surface === "usage" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
+        <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>AI usage</span>
+      </AdsButton>
     </>
   );
 }
@@ -146,6 +152,7 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
   const openResults = useAppStore((state) => state.openResults);
+  const openUsage = useAppStore((state) => state.openUsage);
   const agentsWithWork = useAgentsWithWork();
   const agentsNeedYou = agentsWithWork.agents.some((agent) => agent.needsYou);
   const railButton = (active: boolean) => [
@@ -196,6 +203,9 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
         </TooltipTrigger>
         <TooltipContent side="right">Results</TooltipContent>
       </Tooltip>
+      <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm" xstyle={railButton(surface === "usage")}
+        onClick={() => openUsage()} aria-label="AI usage" />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
+        <TooltipContent side="right">AI usage</TooltipContent></Tooltip>
     </>
   );
 }

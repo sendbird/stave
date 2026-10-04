@@ -1,3 +1,4 @@
+import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { capSpawnedTurnOptions } from "../../src/lib/policy/turn-policy";
 import { taskControlGate } from "./task-control-gate";
 import { attachTurnReceiptToSession } from "./local-mcp-turn-receipt-projection";
@@ -1994,6 +1995,9 @@ async function runTaskImpl(args: {
     workspaceId: args.workspaceId,
     taskId: task.id,
     providerId: provider,
+    accountProfileId: provider === "claude-code" || provider === "codex"
+      ? (provider === "codex" ? args.runtimeOptions?.codexAccountProfileId : args.runtimeOptions?.claudeAccountProfileId) ?? currentProviderAccountId(provider) : "system-default",
+    modelId: model,
   });
 
   taskControlGate.assertCurrent(task.id, controlGeneration);
