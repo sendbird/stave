@@ -372,5 +372,6 @@ export function describeAgentRunProgress(detail: AgentRunDetail): string | null 
   const plan = agentRunStoredPlan(detail);
   if (!plan) return null;
   const done = plan.items.filter((item) => item.status === "completed").length;
-  return `Plan ${done}/${plan.items.length}`;
+  const current = plan.items.find((item) => item.status === "in_progress");
+  return `Plan ${done}/${plan.items.length}${current ? ` · Now: ${current.content}` : ""}`;
 }

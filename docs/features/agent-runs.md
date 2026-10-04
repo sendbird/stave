@@ -43,9 +43,16 @@ into agents finish as they are, and their surfaces keep working.
    composer shows the stage track and the Task panel's **Progress** names the
    workflow (`Workflow: Reproduce → Cause → Fix`) and lists each stage and its
    report. A one-stage run shows the agent's own plan instead: its latest to-do
-   list (Claude's to-do tool, Codex's plan updates) as **Plan 3/5** on the
-   status line, between turns too, and as a checklist under **Plan** in
-   **Progress** and in the report.
+   list (Claude's to-do tool, Codex's plan updates) as **Plan 3/5 · Now: Run
+   the checks** on the status line and Fleet, between turns too. Until the
+   first plan arrives the line says **Planning…**. A single step counts.
+   **Progress** updates the checklist as the agent works and keeps the saved
+   plan between turns; the report carries the final plan. Agent runs require
+   the agent to write and maintain a plan with one step in progress.
+4. The shelf summarizes the task's subagents, for example **Implementer
+   running · Reviewer done**. **Progress** and **Subagents** show their latest
+   step or tool and a short result. Saved tool parts preserve these summaries
+   after completed turn events are compacted.
 
 ## Interface Walkthrough
 

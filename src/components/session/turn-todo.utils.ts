@@ -29,6 +29,8 @@ export function findLatestTodoPart(
       const part = message.parts![j];
       if (
         part?.type === "tool_use" &&
+        !part.ownerAgentId &&
+        !part.parentToolUseId &&
         part.toolName.trim().toLowerCase() === "todowrite"
       ) {
         return part;

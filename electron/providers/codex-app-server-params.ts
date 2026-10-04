@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { StreamTurnArgs } from "./types";
+import { codexNativePlanConfig } from "./native-plan-options";
 import {
   resolveCodexAppServerReasoningEffort,
   resolveEffectiveCodexApprovalPolicy,
@@ -161,6 +162,7 @@ export function buildCodexConfigOverrides(args: {
   }
 
   Object.assign(config, args.configOverrides);
+  Object.assign(config, codexNativePlanConfig(args.runtimeOptions, args.secondaryReadOnly));
   return Object.keys(config).length > 0 ? config : undefined;
 }
 

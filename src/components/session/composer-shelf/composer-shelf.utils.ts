@@ -367,14 +367,14 @@ export const SHELF_PROGRESS_MAX_SEGMENTS = 10;
 
 /**
  * The turn's to-do list as `3/7` plus one cell per item (scaled down past ten).
- * A single item is not a plan, so it shows nothing.
+ * Even a single step is progress the user should see.
  */
 export function summarizeShelfTodos(
   todos: readonly { status: "pending" | "in_progress" | "completed" }[],
   maxSegments = SHELF_PROGRESS_MAX_SEGMENTS,
 ): ShelfTodoProgress | null {
   const total = todos.length;
-  if (total < 2) {
+  if (total === 0) {
     return null;
   }
   const done = todos.filter((todo) => todo.status === "completed").length;

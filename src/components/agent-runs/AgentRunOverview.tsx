@@ -6,7 +6,12 @@ import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTi
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState, latestStageRecord } from "@/lib/agent-runs/domain";
-import { agentRunStoredPlan, describeAgentRunResult } from "@/lib/agent-runs/agent-run-status";
+import { describeAgentRunResult } from "@/lib/agent-runs/agent-run-status";
+import { describeRunPlan } from "@/lib/agent-runs/progress";
+import { useAgentRunProgress } from "./useAgentRunProgress";
+import type { StagePlan } from "@/lib/agent-runs/domain";
+import { useTaskSubagents } from "@/components/session/useTaskSubagents";
+import { AgentRunSubagents } from "./AgentRunSubagents";
 import { projectAgentRunStages } from "@/lib/agent-runs/agent-run-view";
 import { AGENT_CHECK_IN_LABELS } from "@/lib/agents/schema";
 import { AgentRunDoneWhen } from "./AgentRunDoneWhen";
@@ -33,6 +38,7 @@ const formatClock = (iso: string) =>
  */
 export function AgentRunOverview(props: {
   detail: AgentRunDetail;
+  plan?: StagePlan | null;
   now: number;
   reportActions?: AgentRunReportActions;
   actions?: AgentRunActions;
@@ -52,7 +58,9 @@ export function AgentRunOverview(props: {
   const statusText = status.reason ?? (active ? `${result.duration} so far` : result.duration);
   const staged = agentRun.workflow.stages.length > 1;
   const rows = useMemo(() => (staged ? projectAgentRunStages(detail, new Date(now)) : null), [detail, now, staged]);
-  const plan = useMemo(() => agentRunStoredPlan(detail), [detail]);
+  const observedPlan = useAgentRunProgress(detail);
+  const plan = props.plan ?? observedPlan;
+  const subagents = useTaskSubagents(agentRun.leadTaskId);
   // The run follows the agent's workflow: say which, so its stages are never a surprise.
   const workflowTitle = staged ? agentRun.workflow.stages.map((stage) => stage.title).join(" → ") : null;
   return (
@@ -80,6 +88,7 @@ export function AgentRunOverview(props: {
             {statusText}
           </span>
         </div>
+        {!staged && (plan || active) ? <p className={sx(styles.notice, styles.statusText)} title={describeRunPlan(plan)}>{describeRunPlan(plan)}</p> : null}
       </header>
 
       {props.failure ? (
@@ -104,13 +113,15 @@ export function AgentRunOverview(props: {
           <div className={sx(styles.sectionHeader)}>
             <ListTodo aria-hidden className={sx(styles.sectionIcon)} />
             <h3 className={sx(styles.sectionTitle)}>Plan</h3>
-            <span className={sx(styles.sectionAside)} title="Updated when each turn ends">
+            <span className={sx(styles.sectionAside)} title="Updated as the agent works">
               {describePlanProgress(plan.items)}
             </span>
           </div>
           <AgentRunPlan items={plan.items} />
         </section>
       ) : null}
+
+      <AgentRunSubagents rows={subagents} />
 
       {rows ? (
         <section className={sx(styles.section, styles.sectionRule)} aria-label="Stages">

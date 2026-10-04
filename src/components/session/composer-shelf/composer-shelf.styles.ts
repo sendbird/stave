@@ -141,6 +141,11 @@ export const shelfStyles = stylex.create({
     color: vars["--ads-color-text"],
     fontWeight: vars["--ads-font-weight-medium"],
   },
+  subagents: {
+    paddingInline: vars["--ads-space-12"],
+    paddingBlockEnd: vars["--ads-space-8"],
+    fontSize: vars["--ads-font-size-caption"],
+  },
   labelWaiting: { color: vars["--ads-color-warning-text"] },
   labelDanger: { color: vars["--ads-color-danger-text"] },
   labelAccent: { color: vars["--ads-color-accent"] },

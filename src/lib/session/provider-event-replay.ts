@@ -1069,7 +1069,9 @@ function appendProviderEventContentToAssistant(args: {
       const candidate = nextParts[index];
       if (
         candidate?.type === "tool_use" &&
-        candidate.toolName.trim().toLowerCase() === "todowrite"
+        candidate.toolName.trim().toLowerCase() === "todowrite" &&
+        (candidate.ownerAgentId ?? null) === (part.ownerAgentId ?? null) &&
+        (candidate.parentToolUseId ?? null) === (part.parentToolUseId ?? null)
       ) {
         existingIdx = index;
         break;

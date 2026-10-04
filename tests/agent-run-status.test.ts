@@ -220,7 +220,7 @@ describe("agent run plan and progress", () => {
 
   test("a one-stage run shows its stored plan as its steps", () => {
     expect(agentRunStoredPlan(withPlan)).toEqual(plan);
-    expect(describeAgentRunProgress(withPlan)).toBe("Plan 1/3");
+    expect(describeAgentRunProgress(withPlan)).toBe("Plan 1/3 · Now: Fix the table");
     // No plan yet: nothing to show.
     expect(agentRunStoredPlan(runs.working)).toBeNull();
     expect(describeAgentRunProgress(runs.working)).toBeNull();

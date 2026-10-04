@@ -103,7 +103,7 @@ export function extractLatestPlan(args: {
       if (!raw || typeof raw !== "object") continue;
       const part = raw as Record<string, unknown>;
       if (part.type !== "tool_use" || typeof part.toolName !== "string") continue;
-      if (part.toolName.toLowerCase() !== PLAN_TOOL_NAME || part.ownerAgentId) continue;
+      if (part.toolName.toLowerCase() !== PLAN_TOOL_NAME || part.ownerAgentId || part.parentToolUseId) continue;
       const items = readPlanItems(part.input);
       if (items && items.length > 0) latest = { items, turnId: message.turnId.slice(0, AGENT_RUN_LIMITS.maxIdChars) };
     }

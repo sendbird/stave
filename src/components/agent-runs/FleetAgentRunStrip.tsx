@@ -11,7 +11,6 @@ import {
   AGENT_RUN_VIEW_STATE_LABELS,
   AGENT_RUN_VIEW_STATE_TONES,
   agentRunDuration,
-  describeAgentRunProgress,
   agentRunFleetState,
   describeAgentRunStatus,
 } from "@/lib/agent-runs/agent-run-status";
@@ -21,6 +20,8 @@ import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
 import { useNow } from "./useAgentRun";
+import { useAgentRunProgress } from "./useAgentRunProgress";
+import { describeRunPlan } from "@/lib/agent-runs/progress";
 
 /** The workspace's running agent run: the newest active one, as stored. */
 function pickActiveAgentRun(details: Record<string, AgentRunDetail>, workspaceId: string) {
@@ -102,7 +103,8 @@ function FleetAgentRunLine(props: {
   const now = useNow(isActiveAgentRunState(detail.agentRun.state));
   const elapsed = agentRunDuration(detail, now);
   const staged = rows.length > 1;
-  const progress = staged ? null : describeAgentRunProgress(detail);
+  const plan = useAgentRunProgress(detail);
+  const progress = staged ? null : describeRunPlan(plan);
   return (
     <Button
       layout="host"
@@ -114,15 +116,15 @@ function FleetAgentRunLine(props: {
     >
       <span className={sx(styles.head)}>
         <StageStatusIcon tone={AGENT_RUN_VIEW_STATE_TONES[state]} state={state} />
-        <span className={sx(styles.text)}>
+        <span className={sx(styles.text)} title={progress ?? undefined}>
           <span className={sx(styles.title)}>{status.agentName}</span>
           <span className={sx(state === "needs-you" ? styles.waiting : styles.muted)}>
             {" · "}
             {label}
+            {progress ? ` · ${progress}` : ""}
           </span>
         </span>
         <span className={sx(styles.position)}>
-          {progress ? `${progress} · ` : ""}
           {elapsed}
           {spent ? ` · ${spent}` : ""}
         </span>

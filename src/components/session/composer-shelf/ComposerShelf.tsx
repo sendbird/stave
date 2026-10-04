@@ -15,7 +15,9 @@ import {
   TurnActivitySurface,
   useTurnActivityModel,
 } from "@/components/session/TurnActivity";
-import { agentRunStoredPlan } from "@/lib/agent-runs/agent-run-status";
+import { useAgentRunProgress } from "@/components/agent-runs/useAgentRunProgress";
+import { useTaskSubagents } from "../useTaskSubagents";
+import { describeSubagentSummary } from "@/lib/delegation/subagent-summary";
 import { latestStageRecord } from "@/lib/agent-runs/domain";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
@@ -130,11 +132,13 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   );
   const onStop = useCallback(() => abortTaskTurn({ taskId }), [abortTaskTurn, taskId]);
   const turnTodos = turnProps?.todos ?? NO_TODOS;
-  // Between turns a one-stage run keeps showing its plan from the stage record.
-  const storedPlanItems = useMemo(() => agentRunStoredPlan(agentRun)?.items ?? NO_TODOS, [agentRun]);
+  // A run's text and segments share the live plan, or saved facts between turns.
+  const plan = useAgentRunProgress(agentRun);
+  const planItems = plan?.items ?? NO_TODOS;
+  const subagents = useTaskSubagents(taskId, agentRun != null);
   const todo = useMemo<ShelfTodoProgress | null>(
-    () => summarizeShelfTodos(turnTodos.length > 0 ? turnTodos : storedPlanItems),
-    [turnTodos, storedPlanItems],
+    () => summarizeShelfTodos(agentRun ? planItems : turnTodos),
+    [agentRun, turnTodos, planItems],
   );
   // A stage waiting for sign-off already asks in its card above the shelf.
   const currentStage = agentRun?.agentRun.workflow.stages[agentRun.agentRun.currentStageIndex];
@@ -186,6 +190,8 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
               panelKeep={panel?.keep}
               detailToggle={turnProps ? detailToggle : null}
               todo={todo}
+              plan={plan}
+              subagents={describeSubagentSummary(subagents)}
               reasonShownElsewhere={signOffShown}
               turnActivity={turnProps?.activity ?? null}
               steering={props.steering}
