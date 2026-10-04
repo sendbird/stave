@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
+import { ActivityDetailDialog } from "@/components/session/ActivityDetailDialog";
 import { ExchangeStatusBadge } from "@/components/delegation/ExchangeStatusBadge";
 import { ActionButton } from "@/components/system/ActionButton";
 import { listAgents } from "@/lib/agents/library";
@@ -62,6 +63,8 @@ export function SubagentsSection(props: {
     () => new Map(listAgents({ custom: customAgents }).map((agent) => [agent.id, agent.name])),
     [customAgents],
   );
+  // The answer and how the subagent got there, without leaving this task.
+  const [viewingId, setViewingId] = useState<string | null>(null);
   const rows = useMemo(() => {
     const exchanges = selectDelegationExchanges({
       delegatedTasks: controller.children,
@@ -73,6 +76,26 @@ export function SubagentsSection(props: {
     return [...live, ...settled.reverse()];
   }, [controller.blockedByDelegationKey, controller.children, graph]);
 
+  const viewing = useMemo(() => {
+    const exchange = viewingId ? rows.find((row) => row.id === viewingId) : undefined;
+    const child = exchange?.ref.delegationKey
+      ? controller.children.find((row) => row.delegationKey === exchange.ref.delegationKey)
+      : undefined;
+    if (!exchange || !child) return null;
+    const title = describeWork(child, tasks.find((task) => task.id === child.delegatedTaskId)?.title);
+    return {
+      title,
+      child,
+      // Only the controls this surface offers; follow-up and retry stay on the task.
+      exchange: {
+        ...exchange,
+        title,
+        actions: exchange.actions.filter(
+          (action) => action.id === "open" || (action.id === "stop" && !props.readOnly),
+        ),
+      },
+    };
+  }, [controller.children, props.readOnly, rows, tasks, viewingId]);
   if (rows.length === 0) {
     return (
       <p className={sx(styles.muted)} role={listing.loading ? "status" : undefined}>
@@ -83,30 +106,51 @@ export function SubagentsSection(props: {
     );
   }
   return (
-    <ul aria-label="Subagents" className={sx(styles.list)} data-testid="subagents-list">
-      {rows.map((exchange) => {
-        const child = exchange.ref.delegationKey && exchange.kind === "delegated-task"
-          ? controller.children.find((row) => row.delegationKey === exchange.ref.delegationKey)
-          : undefined;
-        return (
-          <SubagentRow
-            key={exchange.id}
-            exchange={exchange}
-            who={whoLabel(exchange, child, agentNames)}
-            what={child ? describeWork(child, tasks.find((task) => task.id === child.delegatedTaskId)?.title) : exchange.ask}
-            canStop={Boolean(child && !props.readOnly && resolveDelegatedTaskControls(child).canStop)}
-            busy={Boolean(child && controller.busyDelegationKey === child.delegationKey)}
-            error={child ? controller.errorByDelegationKey[child.delegationKey] : undefined}
-            onOpen={child
-              ? () => controller.onOpen(child)
-              : exchange.ref.toolUseId
-                ? () => focusTranscriptTool({ taskId: props.taskId, toolUseId: exchange.ref.toolUseId! })
-                : undefined}
-            onStop={child ? () => controller.onStop(child) : undefined}
-          />
-        );
-      })}
-    </ul>
+    <>
+      <ul aria-label="Subagents" className={sx(styles.list)} data-testid="subagents-list">
+        {rows.map((exchange) => {
+          const child = exchange.ref.delegationKey && exchange.kind === "delegated-task"
+            ? controller.children.find((row) => row.delegationKey === exchange.ref.delegationKey)
+            : undefined;
+          return (
+            <SubagentRow
+              key={exchange.id}
+              exchange={exchange}
+              who={whoLabel(exchange, child, agentNames)}
+              what={child ? describeWork(child, tasks.find((task) => task.id === child.delegatedTaskId)?.title) : exchange.ask}
+              canStop={Boolean(child && !props.readOnly && resolveDelegatedTaskControls(child).canStop)}
+              busy={Boolean(child && controller.busyDelegationKey === child.delegationKey)}
+              error={child ? controller.errorByDelegationKey[child.delegationKey] : undefined}
+              onOpen={child
+                ? () => controller.onOpen(child)
+                : exchange.ref.toolUseId
+                  ? () => focusTranscriptTool({ taskId: props.taskId, toolUseId: exchange.ref.toolUseId! })
+                  : undefined}
+              onStop={child ? () => controller.onStop(child) : undefined}
+              onView={child ? () => setViewingId(exchange.id) : undefined}
+            />
+          );
+        })}
+      </ul>
+      {viewing ? (
+        <ActivityDetailDialog
+          key={viewing.exchange.id}
+          selection={{ title: viewing.title, exchange: viewing.exchange }}
+          taskId={props.taskId}
+          workspaceId={props.workspaceId}
+          repositoryPath={props.repositoryPath}
+          onClose={() => setViewingId(null)}
+          onAction={(action) => {
+            if (action === "open") {
+              setViewingId(null);
+              controller.onOpen(viewing.child);
+            } else if (action === "stop" && !props.readOnly) {
+              controller.onStop(viewing.child);
+            }
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -131,6 +175,7 @@ function SubagentRow(props: {
   error?: string;
   onOpen?: () => void;
   onStop?: () => void;
+  onView?: () => void;
 }) {
   const { exchange } = props;
   const { error, result } = exchange.outcome;
@@ -162,8 +207,13 @@ function SubagentRow(props: {
         </details>
       ) : null}
       {props.error ? <p role="alert" className={sx(styles.error)}>{props.error}</p> : null}
-      {props.onOpen || props.canStop ? (
+      {props.onOpen || props.canStop || props.onView ? (
         <div className={sx(styles.actions)}>
+          {props.onView ? (
+            <ActionButton size="md" weight="quiet" xstyle={styles.target} onClick={props.onView}>
+              View activity
+            </ActionButton>
+          ) : null}
           {props.onOpen ? (
             <ActionButton size="md" weight="quiet" xstyle={styles.target} onClick={props.onOpen}>
               Open transcript

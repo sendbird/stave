@@ -1,0 +1,274 @@
+import type { LocalChangeReviewFocus } from "@/lib/local-change-review";
+import type { ProviderId } from "@/lib/providers/provider.types";
+import {
+  REVIEW_TASK_INSTRUCTIONS_MAX_CHARS,
+  buildReviewDelegateArgs,
+  buildReviewDelegationKey,
+  buildReviewTaskPrompt,
+  buildReviewTaskTitle,
+  selectLatestReplyForReview,
+  type ReviewTarget,
+} from "@/lib/reviews/review-task";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
+import { resolveDelegatedTaskActionError } from "@/lib/runs/delegated-task-view";
+import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
+import {
+  addTaskContextAttachment,
+  createTaskContextAttachment,
+} from "@/lib/task-context/attached-task-context";
+import type { AppState } from "@/store/app-store.types";
+import { resolveTaskWorkspaceContext } from "@/store/repository.utils";
+import { flushPendingSnapshotPersists } from "@/store/workspace-session-state";
+
+/**
+ * Starts a composer review as its own read-only task and brings its answer
+ * back as task context. The child is a delegation of the reviewed task, so it
+ * runs under the host's read-only posture, beside whatever the task is doing,
+ * and appears in the task's Subagents list.
+ */
+
+export interface ReviewTaskRequest {
+  reviewer: { providerId: ProviderId; model: string; label: string };
+  effort?: string;
+  target: ReviewTarget;
+  focuses: readonly LocalChangeReviewFocus[];
+  instructions?: string;
+  /** Empty or absent runs without a skill. */
+  skillSlug?: string;
+}
+
+export type StartReviewTaskResult =
+  | { ok: true; delegationKey: string; delegatedTaskId: string | null }
+  | { ok: false; error: string };
+
+export function isReviewTaskDelegationAvailable() {
+  return typeof window !== "undefined" && Boolean(window.api?.runs?.delegateTask);
+}
+
+function randomNonce() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+export async function startReviewTask(args: {
+  getState: () => AppState;
+  taskId: string;
+  request: ReviewTaskRequest;
+  now?: Date;
+  nonce?: string;
+}): Promise<StartReviewTaskResult> {
+  if (!isReviewTaskDelegationAvailable()) {
+    return { ok: false, error: "Review tasks need the desktop app." };
+  }
+  const state = args.getState();
+  const providerId = args.request.reviewer.providerId;
+  if (providerId !== "claude-code" && providerId !== "codex") {
+    return { ok: false, error: "Reviews run on Claude or Codex." };
+  }
+  const repositoryPath = state.repositoryPath?.trim();
+  if (!repositoryPath) {
+    return { ok: false, error: "Open the task's project to start a review." };
+  }
+  const { workspaceId } = resolveTaskWorkspaceContext({
+    taskId: args.taskId,
+    activeWorkspaceId: state.activeWorkspaceId,
+    taskWorkspaceIdById: state.taskWorkspaceIdById,
+    workspacePathById: state.workspacePathById,
+    workspaceDefaultById: state.workspaceDefaultById,
+    repositoryPath,
+  });
+  if (!workspaceId) {
+    return { ok: false, error: "This task has no workspace to review." };
+  }
+
+  const skillSlug = args.request.skillSlug?.trim().replace(/^\$/, "").toLowerCase();
+  const skill = skillSlug
+    ? getEffectiveSkillEntries({ skills: state.skillCatalog.skills, providerId })
+        .find((entry) => entry.slug.toLowerCase() === skillSlug)
+    : undefined;
+  if (skillSlug && !skill) {
+    return {
+      ok: false,
+      error: `The skill $${skillSlug} is not available to this reviewer in this workspace.`,
+    };
+  }
+
+  const reply =
+    args.request.target === "latest-reply"
+      ? selectLatestReplyForReview(state.messagesByTask[args.taskId] ?? [])
+      : null;
+  const prompt = buildReviewTaskPrompt({
+    target: args.request.target,
+    focuses: args.request.focuses,
+    instructions: args.request.instructions?.slice(0, REVIEW_TASK_INSTRUCTIONS_MAX_CHARS),
+    savedInstructions: state.settings.reviewTask.instructions,
+    skill: skill
+      ? { name: skill.name, slug: skill.slug, instructions: skill.instructions }
+      : null,
+    reply,
+  });
+  if (!prompt) {
+    return { ok: false, error: "This task has no finished reply to review yet." };
+  }
+
+  return delegateReview({
+    taskId: args.taskId,
+    repositoryPath,
+    workspaceId,
+    prompt,
+    title: buildReviewTaskTitle({
+      target: args.request.target,
+      modelLabel: args.request.reviewer.label,
+    }),
+    providerId,
+    model: args.request.reviewer.model,
+    effort: args.request.effort,
+    now: args.now,
+    nonce: args.nonce,
+  });
+}
+
+async function delegateReview(args: {
+  taskId: string;
+  repositoryPath: string;
+  workspaceId: string;
+  prompt: string;
+  title: string;
+  providerId: "claude-code" | "codex";
+  model: string;
+  effort?: string | null;
+  now?: Date;
+  nonce?: string;
+}): Promise<StartReviewTaskResult> {
+  const delegateTask = window.api?.runs?.delegateTask;
+  if (!delegateTask) {
+    return { ok: false, error: "Review tasks need the desktop app." };
+  }
+  const delegationKey = buildReviewDelegationKey({
+    now: args.now ?? new Date(),
+    nonce: args.nonce ?? randomNonce(),
+  });
+  try {
+    // The host checks that the parent task exists on disk; a task created a
+    // moment ago may still sit in the snapshot debounce.
+    await flushPendingSnapshotPersists().catch(() => undefined);
+    const response = await delegateTask(
+      buildReviewDelegateArgs({
+        repositoryPath: args.repositoryPath,
+        workspaceId: args.workspaceId,
+        taskId: args.taskId,
+        delegationKey,
+        prompt: args.prompt,
+        title: args.title,
+        providerId: args.providerId,
+        model: args.model,
+        effort: args.effort,
+      }),
+    );
+    const refusal = resolveDelegatedTaskActionError(response);
+    if (refusal) {
+      return { ok: false, error: refusal };
+    }
+    return {
+      ok: true,
+      delegationKey,
+      delegatedTaskId: response.child?.delegatedTaskId ?? null,
+    };
+  } catch (cause) {
+    return {
+      ok: false,
+      error:
+        cause instanceof Error && cause.message
+          ? cause.message
+          : "The review task could not be started.",
+    };
+  }
+}
+
+/**
+ * The same review once more, as a new review task: the prompt the earlier one
+ * received, on its provider, model and effort, against what the workspace
+ * holds now. A reply review re-reads the reply it reviewed, not a newer one.
+ */
+export async function rerunReviewTask(args: {
+  getState: () => AppState;
+  review: Pick<
+    DelegatedTaskSummary,
+    "parentTaskId" | "delegatedWorkspaceId" | "providerId" | "requestedModel" | "requestedEffort"
+  >;
+  prompt: string;
+  title: string;
+  now?: Date;
+  nonce?: string;
+}): Promise<StartReviewTaskResult> {
+  const repositoryPath = args.getState().repositoryPath?.trim();
+  if (!repositoryPath) {
+    return { ok: false, error: "Open the task's project to run the review again." };
+  }
+  const prompt = args.prompt.trim();
+  if (!prompt) {
+    return { ok: false, error: "The earlier review's instructions could not be read." };
+  }
+  return delegateReview({
+    taskId: args.review.parentTaskId,
+    repositoryPath,
+    // Reviews run in the reviewed task's own workspace.
+    workspaceId: args.review.delegatedWorkspaceId,
+    prompt,
+    title: args.title,
+    providerId: args.review.providerId,
+    model: args.review.requestedModel ?? "",
+    effort: args.review.requestedEffort,
+    now: args.now,
+    nonce: args.nonce,
+  });
+}
+
+/** Title of the chip a review's answer becomes, from the child's own title. */
+export function resolveReviewAttachmentTitle(args: {
+  child: Pick<DelegatedTaskSummary, "delegatedTaskId">;
+  tasks: AppState["tasks"];
+}) {
+  return (
+    args.tasks.find((task) => task.id === args.child.delegatedTaskId)?.title?.trim() ||
+    "Review result"
+  );
+}
+
+export type AttachReviewResult = "attached" | "attached-with-prompt" | "unchanged";
+
+/**
+ * Attach a finished review's final reply to the reviewed task's draft. An
+ * empty draft also receives the saved follow-up prompt, so the request that
+ * goes with the findings is ready to send; text the user wrote is never
+ * replaced. Returns "unchanged" when the review is already attached or the
+ * draft is full.
+ */
+export function attachReviewResultToDraft(args: {
+  getState: () => AppState;
+  taskId: string;
+  child: Pick<DelegatedTaskSummary, "delegatedTaskId" | "delegatedWorkspaceId">;
+}): AttachReviewResult {
+  const state = args.getState();
+  const draft = state.promptDraftByTask[args.taskId];
+  const attachments = draft?.attachments ?? [];
+  const next = addTaskContextAttachment({
+    attachments,
+    attachment: createTaskContextAttachment({
+      taskId: args.child.delegatedTaskId,
+      workspaceId: args.child.delegatedWorkspaceId,
+      title: resolveReviewAttachmentTitle({ child: args.child, tasks: state.tasks }),
+      scope: "latest-reply",
+    }),
+    currentTaskId: args.taskId,
+  });
+  if (next === attachments) {
+    return "unchanged";
+  }
+  const followUp = state.settings.reviewTask.followUpPrompt.trim();
+  const prefill = Boolean(followUp) && !(draft?.text ?? "").trim();
+  state.updatePromptDraft({
+    taskId: args.taskId,
+    patch: { attachments: [...next], ...(prefill ? { text: followUp } : {}) },
+  });
+  return prefill ? "attached-with-prompt" : "attached";
+}

@@ -16,9 +16,11 @@ import {
   resolveTurnRunHeadline,
   resolveTurnRunTone,
   resolveVisibleQueuedTurns,
+  describeReviewShelfLine,
   selectComposerShelfRows,
   summarizeShelfTodos,
 } from "@/components/session/composer-shelf/composer-shelf.utils";
+import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { defaultSettings } from "@/store/app-settings";
 import type { PromptDraftQueuedTurn } from "@/types/chat";
 
@@ -83,6 +85,53 @@ describe("usage-limit line", () => {
   test("the row sits between the run line and the queue", () => {
     expect(selectComposerShelfRows({ run: null, queueCount: 2, limited: true })).toEqual(["limit", "queue"]);
     expect(selectComposerShelfRows({ run: "turn", queueCount: 0, limited: true })).toEqual(["run", "limit"]);
+  });
+
+  test("reviews running in their own task sit between the limit and the queue", () => {
+    expect(selectComposerShelfRows({ run: null, queueCount: 0, reviewCount: 1 })).toEqual(["review"]);
+    expect(
+      selectComposerShelfRows({ run: "turn", queueCount: 1, limited: true, reviewCount: 2 }),
+    ).toEqual(["run", "limit", "review", "queue"]);
+  });
+
+  test("a review line names the reviewer and how far it got", () => {
+    const child = {
+      runId: "r",
+      stepId: "s",
+      parentTaskId: "p",
+      delegationKey: "stave-review-1",
+      delegatedTaskId: "c",
+      delegatedWorkspaceId: "w",
+      delegatedTurnId: null,
+      providerId: "codex" as const,
+      requestedModel: "gpt-5.5",
+      lifecycle: "one-turn" as const,
+      phase: "running" as const,
+      reason: null,
+      attempt: 1,
+      createdAt: "2026-10-04T12:00:00.000Z",
+      updatedAt: "2026-10-04T12:00:00.000Z",
+      completedAt: null,
+    };
+    const now = Date.parse("2026-10-04T12:01:15.000Z");
+    expect(describeReviewShelfLine({ item: { child, status: "running" }, now })).toEqual({
+      label: "Reviewing",
+      detail: `${toHumanModelName({ model: "gpt-5.5" })} · 1m 15s`,
+      tone: "active",
+    });
+    expect(describeReviewShelfLine({ item: { child, status: "ready" }, now }).label).toBe("Review ready");
+    expect(
+      describeReviewShelfLine({
+        item: { child: { ...child, phase: "failed", reason: "HEAD moved." }, status: "failed" },
+        now,
+      }),
+    ).toMatchObject({ label: "Review failed", tone: "danger" });
+    expect(
+      describeReviewShelfLine({
+        item: { child: { ...child, requestedModel: undefined }, status: "stopped" },
+        now,
+      }).detail,
+    ).toBe("Codex");
   });
 });
 

@@ -105,6 +105,17 @@ export const DelegatedTaskEffortSchema = z.enum([
 ]);
 export type DelegatedTaskEffort = z.infer<typeof DelegatedTaskEffortSchema>;
 
+/**
+ * Keys of the reviews the composer starts as delegations. Reserved: the
+ * subagent receipts hold back a review's answer until the user attaches it,
+ * so an agent's own delegation must never carry this prefix.
+ */
+export const REVIEW_DELEGATION_KEY_PREFIX = "stave-review-";
+
+export function isReservedDelegationKey(key: string) {
+  return key.trim().startsWith(REVIEW_DELEGATION_KEY_PREFIX);
+}
+
 export const DelegatedTaskDelegationKeySchema = z
   .string()
   .trim()

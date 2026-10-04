@@ -1,7 +1,6 @@
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import {
-  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -14,7 +13,6 @@ import {
   buildModelSelectorValue,
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector";
-import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import {
   STANCE_LABELS,
@@ -41,7 +39,6 @@ import {
 } from "@/lib/providers/provider-mode-presets";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import {
-  buildModelEffortRuntimeOverrides,
   buildAutoRoutingSelectionOverrides,
   buildModelSelectionRuntimeOverrides,
 } from "@/lib/providers/model-effort";
@@ -57,7 +54,6 @@ import {
   clampCodexEffortToModel,
   getDefaultModelForProvider,
   getProviderLabel,
-  isManagedExecutionProviderId,
   listProviderIds,
   normalizeModelSelection,
   providerSupportsNativeCommandCatalog,
@@ -81,7 +77,7 @@ import {
   isTaskArchived,
   isTaskManaged,
 } from "@/lib/tasks";
-import { buildLocalChangeReviewPrompt } from "@/lib/local-change-review";
+import { useReviewTaskControls } from "@/components/session/use-review-task-controls";
 import { holdsComposerTurn, usePendingAutoRoutingStore } from "@/store/pending-auto-routing-store";
 import { useAppStore } from "@/store/app.store";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
@@ -90,7 +86,6 @@ import {
   resolvePromptDraftModelForProvider,
   resolvePromptDraftRuntimeState,
 } from "@/store/prompt-draft-runtime";
-import type { ChatMessage } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildChatInputGoalStatus,
@@ -186,9 +181,6 @@ function BaseChatInput() {
   const activeProvider = activeTask?.provider ?? draftProvider;
   const accountOptions = useAccountRuntimeOptions();
   const commandAccountId = selectedProviderAccount(activeProvider, accountOptions);
-  const managedExecutionProvider = isManagedExecutionProviderId(activeProvider)
-    ? activeProvider
-    : null;
   const activeProviderGoal = useAppStore(
     (state) => state.providerGoalByTask[activeTaskId] ?? null,
   );
@@ -910,98 +902,8 @@ function BaseChatInput() {
   const deferredCommandPaletteItems = useDeferredValue(commandPalette.items);
   const deferredSkillPalette = useDeferredValue(skillPalette);
 
-  // Prefer a second provider when one authored the latest answer, while still
-  // letting the user select any available provider and model in the dialog.
-  const lastAssistantProviderId = useAppStore((state) => {
-    const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i] as ChatMessage | undefined;
-      if (!msg) continue;
-      if (
-        msg.role === "assistant" &&
-        (msg.providerId === "claude-code" || msg.providerId === "codex")
-      ) {
-        return msg.providerId;
-      }
-    }
-    return null;
-  });
-  const suggestedReviewProvider = useMemo<"claude-code" | "codex">(() => {
-    if (!lastAssistantProviderId) {
-      return managedExecutionProvider ?? "claude-code";
-    }
-    if (lastAssistantProviderId === "claude-code") return "codex";
-    return "claude-code";
-  }, [lastAssistantProviderId, managedExecutionProvider]);
-  const reviewModelOptions = useMemo(
-    () =>
-      modelOptions
-        .filter(
-          (option) => option.available && !option.isAuto && option.model.trim(),
-        )
-        .filter((option) =>
-          isManagedExecutionProviderId(option.providerId),
-        )
-        .map((option) => {
-          const configuredModel =
-            option.providerId === "claude-code" ? modelClaude : modelCodex;
-          return option.model === configuredModel
-            ? { ...option, isDefault: true }
-            : option;
-        }),
-    [modelClaude, modelCodex, modelOptions],
-  );
-  const preferredReviewModelKey = useMemo(() => {
-    const configuredModel =
-      suggestedReviewProvider === "claude-code" ? modelClaude : modelCodex;
-    return (
-      reviewModelOptions.find(
-        (option) =>
-          option.providerId === suggestedReviewProvider &&
-          option.model === configuredModel,
-      ) ??
-      reviewModelOptions.find(
-        (option) =>
-          option.providerId === suggestedReviewProvider && option.isDefault,
-      ) ??
-      reviewModelOptions.find(
-        (option) => option.providerId === suggestedReviewProvider,
-      ) ??
-      reviewModelOptions[0]
-    )?.key;
-  }, [modelClaude, modelCodex, reviewModelOptions, suggestedReviewProvider]);
-  const handleLocalChangeReview = useCallback(
-    async (review: LocalChangeReviewRequest) => {
-      const result = await sendUserMessage({
-        taskId: activeTaskId,
-        content: buildLocalChangeReviewPrompt({
-          scope: review.scope,
-          focuses: review.focuses,
-          instructions: review.instructions,
-        }),
-        providerOverride: review.reviewer.providerId,
-        turnOrigin: "utility",
-        runtimeOverrides: {
-          autoRouting: false,
-          model: review.reviewer.model,
-          ...buildModelEffortRuntimeOverrides({
-            providerId: review.reviewer.providerId,
-            model: review.reviewer.model,
-            effort: review.effort,
-          }),
-        },
-        preservePromptDraft: true,
-      });
-      if (result.status === "blocked") {
-        toast.error("Could not start local change review", {
-          description: "Finish the pending task interaction and try again.",
-        });
-        return false;
-      }
-      return true;
-    },
-    [activeTaskId, sendUserMessage],
-  );
+  const { reviewModelOptions, preferredReviewModelKey, handleLocalChangeReview } =
+    useReviewTaskControls({ activeTaskId, activeProvider, modelOptions, sendUserMessage });
 
   useEffect(() => {
     if (!skillsEnabled) {

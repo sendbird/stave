@@ -20,7 +20,8 @@ const SCOPE_HELP: Record<TaskContextScope, string> = {
 /**
  * Another task attached as context. In the composer the scope reads as a
  * button that switches between the latest reply and the recent conversation;
- * on a sent message it is plain text.
+ * on a sent message it is plain text. With `onOpen`, the title opens the
+ * attached task, so the context it came from is one click away.
  */
 export function TaskContextChip(args: {
   title: string;
@@ -29,16 +30,36 @@ export function TaskContextChip(args: {
   compact?: boolean;
   onScopeChange?: (scope: TaskContextScope) => void;
   onRemove?: () => void;
+  onOpen?: () => void;
 }) {
   const scopeLabel = TASK_CONTEXT_SCOPE_LABEL[args.scope];
+  const label = (
+    <>
+      <span className={sx(styles.prefix)}>Task</span>
+      <span className={sx(styles.muted)}> / </span>
+      <span>{args.title}</span>
+    </>
+  );
   return (
     <span className={sx(styles.root, args.compact && styles.compact)} data-task-context-chip="">
       <MessagesSquare aria-hidden className={sx(styles.icon)} />
-      <span className={sx(styles.label)} title={args.title}>
-        <span className={sx(styles.prefix)}>Task</span>
-        <span className={sx(styles.muted)}> / </span>
-        <span>{args.title}</span>
-      </span>
+      {args.onOpen ? (
+        <Button
+          type="button"
+          size="xs"
+          variant="ghost"
+          aria-label={`Open attached task ${args.title}`}
+          title={`Open ${args.title}`}
+          onClick={args.onOpen}
+          className={sx(styles.label, styles.openButton, transition.colors)}
+        >
+          {label}
+        </Button>
+      ) : (
+        <span className={sx(styles.label)} title={args.title}>
+          {label}
+        </span>
+      )}
       {args.onScopeChange ? (
         <Button
           type="button"
@@ -97,6 +118,16 @@ const styles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  openButton: {
+    height: 20,
+    paddingInline: 2,
+    marginInline: -2,
+    justifyContent: "flex-start",
+    color: vars["--ads-color-text"],
+    fontSize: "inherit",
+    fontWeight: "inherit",
+    textDecorationLine: { default: "none", ":hover": "underline" },
   },
   prefix: { fontWeight: 500 },
   muted: { color: vars["--ads-color-text-muted"], whiteSpace: "nowrap" },

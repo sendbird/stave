@@ -167,6 +167,35 @@ history exclusion and prompt-batch attachment coverage. See
 path and [Attachments](../features/attachments.md#attach-another-task-as-context)
 for the user flow.
 
+Review tasks reuse both contracts without adding a new one:
+
+- The renderer starts a review through the existing `delegations:create`
+  IPC (`DelegateTaskArgsSchema`) with `access: "read-only"`,
+  `lifecycle: "one-turn"`, a same-workspace target and a delegation key
+  prefixed `stave-review-`. The host resolves the provider's read-only posture;
+  the prompt's read-only wording is not the boundary.
+- The finished review's answer is pushed into the reviewed task only as a
+  `task-context` draft attachment. `buildDelegatedTaskReceiptsRetrievedContext`
+  keeps a review child's identity row but withholds its answer unless the
+  draft attaches that child, so a dismissed or ignored review is not pushed
+  into a turn and an attached one is not sent twice. This is not an access
+  boundary: the agent can still read the child through the delegation list or
+  task tools.
+- A review task's completion notification keeps the review task as its
+  `taskId` (result reviews read it that way) and adds
+  `payload.reviewParentTaskId` / `reviewParentTaskTitle`, written by
+  `electron/host-service/review-turn-notification.ts`.
+  `resolveNotificationOpenTarget` opens the reviewed task from it.
+- `stave-review-` keys are reserved (`isReservedDelegationKey` in
+  `src/lib/runs/delegated-task.ts`): the agent tool path refuses them, and a
+  derived key that would start with the prefix gains a `task-` prefix.
+- The skill a review follows is resolved in the renderer and embedded in the
+  delegated prompt, because the host's `run-task` path does not resolve `$skill`
+  tokens.
+
+Keep `tests/review-task.test.ts` and `tests/review-task-runtime.test.ts`
+aligned with these rules.
+
 ## Workspace Persistence Ownership Contract
 
 Two writers reach the workspace tables: the renderer (via IPC to main) and

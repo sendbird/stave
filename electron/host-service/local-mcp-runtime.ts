@@ -20,6 +20,7 @@ import type {
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
 import { listDelegatedTaskSummaries } from "./delegated-task-signals";
+import { resolveReviewTurnNotification } from "./review-turn-notification";
 import {
   describeInteractionAttribution,
   publishesInteractionNotifications,
@@ -1234,12 +1235,13 @@ async function persistTurnCompletedNotification(args: {
   });
   const taskTitle =
     args.session.tasks.find((task) => task.id === args.taskId)?.title ?? "Task";
+  const review = resolveReviewTurnNotification({ tasks: args.session.tasks, taskId: args.taskId, failed: outcome === "failed" });
 
   await persistNotification({
     id: randomUUID(),
     kind: outcome === "failed" ? "task.turn_failed" : "task.turn_completed",
-    title: taskTitle,
-    body: `Latest run ${outcome === "failed" ? "failed" : "finished"} in ${registration?.workspace.name ?? args.workspaceId}.`,
+    title: review?.title ?? taskTitle,
+    body: review?.body ?? `Latest run ${outcome === "failed" ? "failed" : "finished"} in ${registration?.workspace.name ?? args.workspaceId}.`,
     repositoryPath: registration?.project.repositoryPath ?? null,
     repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
@@ -1252,6 +1254,7 @@ async function persistTurnCompletedNotification(args: {
     payload: {
       stopReason: args.event.stop_reason ?? null,
       resultEvidence: captureResultEvidence(args.session.messagesByTask[args.taskId] ?? [], args.turnId),
+      ...review?.payload,
     },
     dedupeKey: `task.turn_${outcome}:${args.turnId}`,
   });

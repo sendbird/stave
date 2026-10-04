@@ -28,6 +28,7 @@ import {
   resolveDelegatedTaskWaitSeconds,
   describeDelegatedTaskRejection,
   isActiveDelegatedTaskPhase,
+  isReservedDelegationKey,
   resolveDelegatedTaskControls,
   toDelegatedTaskSummary,
   validateDelegatedTaskIdentity,
@@ -286,7 +287,9 @@ export function deriveDelegationKey(args: {
     .replace(/[^a-z0-9]+/g, "-")
     .slice(0, 40)
     .replace(/^-+|-+$/g, "");
-  return `${slug || "task"}-${digest.slice(0, 12)}`;
+  const key = `${slug || "task"}-${digest.slice(0, 12)}`;
+  // A prompt that reads "Stave review …" must not land on the composer's keys.
+  return isReservedDelegationKey(key) ? `task-${key}` : key;
 }
 
 /**
@@ -1245,6 +1248,8 @@ export function createDelegatedTaskCoordinator(
     const prompt = input.prompt.trim();
     const model = input.model?.trim() || undefined;
     const legacyProfile = input.permissionProfile;
+    if (input.delegationKey && isReservedDelegationKey(input.delegationKey))
+      return rejected("invalid-request", null, "Delegation keys starting with \"stave-review-\" are reserved for reviews the user starts from the composer.");
     const delegationKey = input.delegationKey ??
       deriveDelegationKey({ parentTaskId, providerId, model, prompt });
     const response = await delegateChild(

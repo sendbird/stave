@@ -52,8 +52,9 @@ collect it.
 
 ### Entry Points
 
-The task and Fleet collaboration panels use the same coordinator as these
-Local MCP tools:
+The composer's **Review** button starts a read-only, one-turn delegation in the
+same workspace; see [Review Tasks](review-tasks.md). The task and Fleet
+collaboration panels use the same coordinator as these Local MCP tools:
 
 - `stave_delegate_task` — create (or re-report) a delegated task.
 - `stave_list_delegated_tasks` — list what this task delegated.
@@ -68,7 +69,9 @@ own. A client Stave did not start (a terminal CLI with your token) names the
 parent explicitly.
 
 The Subagents tab shows each subagent's agent (or model), what it is doing and
-its state, folds its answer under the row, and offers Open transcript and Stop.
+its state, folds its answer under the row, and offers View activity (its
+answer, assignment and tool calls in a dialog over the current task), Open
+transcript and Stop.
 Turn Activity retains its compact child rows with follow-up, retry and release
 controls. Settings → Providers → Delegation documents provider availability and
 per-call parameters.

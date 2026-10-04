@@ -66,6 +66,10 @@ search the filesystem for it.
 Writing `stave task id: <id>` in the prompt still works for tasks in the
 current workspace that are already loaded.
 
+A [review task](review-tasks.md) is a subagent, so `@` does not list it.
+When it finishes, select **Attach** on its line above the composer instead. The
+chip works like any other task chip with **Latest reply** selected.
+
 ### What Is Included
 
 - Stave reads the attached task when the message is dispatched. A queued
@@ -85,7 +89,8 @@ current workspace that are already loaded.
   for that turn, and the chip itself is excluded from later provider history.
 
 Remove a task with the chip's `x` before sending. Attaching it does not start,
-resume or modify the source task.
+resume or modify the source task. Select a chip's title, in the composer or on
+a sent message, to open the attached task.
 
 ## Mixed Paste
 
@@ -124,6 +129,7 @@ If your clipboard contains image data and file references at the same time, Stav
 
 ## Related Docs
 
+- [Review Tasks](review-tasks.md)
 - [Integrated Terminal](integrated-terminal.md)
 - [Repository Instructions](repository-instructions.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)

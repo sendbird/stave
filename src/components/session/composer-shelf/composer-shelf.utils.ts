@@ -23,7 +23,12 @@ import type {
   TaskUsageLimitPause,
 } from "@/store/task-work-pause";
 import type { ShelfDetailOverride } from "@/store/composer-shelf-store";
+import { formatExchangeDuration } from "@/lib/delegation/duration";
+import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
+import type { ReviewShelfItem } from "@/lib/reviews/review-task";
+import { fromDelegatedTask, type DelegationExchange } from "@/lib/delegation/exchange";
 import type {
+  ChatMessage,
   PromptDraftQueuedNextTurn,
   PromptDraftQueuedTurn,
 } from "@/types/chat";
@@ -33,7 +38,7 @@ import type {
 /** What heads the run line: an active agent run (or legacy run), else the turn. */
 export type ShelfRunSource = "agentRun" | "turn";
 
-export type ComposerShelfRow = "run" | "limit" | "queue";
+export type ComposerShelfRow = "run" | "limit" | "review" | "queue";
 
 /**
  * The run line names one thing. An active run owns it for its whole life, the
@@ -59,6 +64,8 @@ export function selectComposerShelfRows(args: {
   queueCount: number;
   /** Work a usage limit stopped is waiting to resume. */
   limited?: boolean;
+  /** Reviews running in their own task, or finished and not yet carried. */
+  reviewCount?: number;
 }): ComposerShelfRow[] {
   const rows: ComposerShelfRow[] = [];
   if (args.run) {
@@ -66,6 +73,9 @@ export function selectComposerShelfRows(args: {
   }
   if (args.limited) {
     rows.push("limit");
+  }
+  if ((args.reviewCount ?? 0) > 0) {
+    rows.push("review");
   }
   if (args.queueCount > 0) {
     rows.push("queue");
@@ -634,4 +644,94 @@ export function reorderQueuedTurns<T extends { id: string }>(
   const insertAt = move.edge === "bottom" ? targetIndex + 1 : targetIndex;
   const next = [...rest.slice(0, insertAt), source, ...rest.slice(insertAt)];
   return next.every((item, index) => item === items[index]) ? items : next;
+}
+
+// ── Review line ──────────────────────────────────────────────────────────
+
+export interface ReviewShelfLine {
+  label: string;
+  detail: string;
+  tone: "active" | "ready" | "danger" | "muted";
+}
+
+function reviewModelLabel(child: ReviewShelfItem["child"]) {
+  return child.requestedModel
+    ? toHumanModelName({ model: child.requestedModel })
+    : getProviderLabel({ providerId: child.providerId, variant: "short" });
+}
+
+/** One review in its own task: who reviews, and how far it got. */
+export function describeReviewShelfLine(args: {
+  item: ReviewShelfItem;
+  now: number;
+}): ReviewShelfLine {
+  const { child, status } = args.item;
+  const model = reviewModelLabel(child);
+  if (status === "running") {
+    const elapsedMs = args.now - Date.parse(child.createdAt);
+    return {
+      label: "Reviewing",
+      detail: Number.isFinite(elapsedMs)
+        ? `${model} · ${formatExchangeDuration(elapsedMs)}`
+        : model,
+      tone: "active",
+    };
+  }
+  if (status === "ready") {
+    return { label: "Review ready", detail: model, tone: "ready" };
+  }
+  const reason = child.reason?.trim();
+  return {
+    label: status === "stopped" ? "Review stopped" : "Review failed",
+    detail: reason ? `${model} · ${reason}` : model,
+    tone: status === "stopped" ? "muted" : "danger",
+  };
+}
+
+/**
+ * A review as the activity dialog's exchange: titled after its task, with
+ * only the controls a one-turn read-only review has (open it, stop it). The
+ * reviewer's full prompt is the review task's first message, which the
+ * dialog's activity log reads.
+ */
+export function buildReviewExchange(args: {
+  item: ReviewShelfItem;
+  title: string;
+  /** The review task's own messages, once read: its prompt and full answer. */
+  transcript?: ReviewTranscript | null;
+}): DelegationExchange {
+  const exchange = fromDelegatedTask(args.item.child, {
+    prompt:
+      args.transcript?.prompt ??
+      `${args.title}\n\nThe reviewer's full instructions are the first message of the review task.`,
+  });
+  // The ledger keeps a bounded copy of the answer; the task holds all of it.
+  const reply = args.item.status === "ready" ? args.transcript?.reply : null;
+  return {
+    ...exchange,
+    title: args.title,
+    outcome: reply ? { ...exchange.outcome, result: reply } : exchange.outcome,
+    actions: exchange.actions.filter((action) => action.id === "open" || action.id === "stop"),
+  };
+}
+
+export interface ReviewTranscript {
+  prompt: string | null;
+  reply: string | null;
+}
+
+/** A review task's prompt (its first message) and its finished final answer. */
+export function summarizeReviewTranscript(
+  messages: readonly Pick<ChatMessage, "role" | "content" | "isStreaming">[],
+): ReviewTranscript {
+  const prompt = messages.find((message) => message.role === "user" && message.content.trim());
+  let reply: string | null = null;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (message.role === "assistant" && !message.isStreaming && message.content.trim()) {
+      reply = message.content.trim();
+      break;
+    }
+  }
+  return { prompt: prompt?.content.trim() ?? null, reply };
 }

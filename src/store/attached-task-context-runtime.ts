@@ -13,9 +13,10 @@ import { getPromptDraftAttachments } from "@/store/prompt-draft-context";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import type { ChatMessage, PromptDraft, Task } from "@/types/chat";
 
-async function readAttachedTaskMessages(args: {
+/** A task's messages for context: loaded ones, else its newest stored page. */
+export async function readAttachedTaskMessages(args: {
   getState: () => AppState;
-  attachment: TaskContextAttachment;
+  attachment: Pick<TaskContextAttachment, "taskId" | "workspaceId">;
 }): Promise<ChatMessage[]> {
   const loaded = getWorkspaceSessionForState({
     state: args.getState(),

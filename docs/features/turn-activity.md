@@ -39,8 +39,8 @@ over the chat, or in the **Activity** tab of the right rail's Task panel.
 ### The Composer Shelf
 
 The shelf is one surface tucked behind the top of the prompt input. Its run,
-usage-limit and queue lines are divided by a hairline. It takes no room when
-there is no run, usage-limit pause or queued message to show.
+usage-limit, review and queue lines are divided by a hairline. It takes no room
+when there is no run, usage-limit pause, review or queued message to show.
 
 | State | Shelf |
 | --- | --- |
@@ -53,6 +53,7 @@ there is no run, usage-limit pause or queued message to show.
 | Provider retry or failure | `Retrying` in amber, or `Failed` in red with the reason; a failed turn stays for a few seconds, then the shelf leaves. |
 | An agent run | The agent's line replaces the turn's: see [With An Agent Run](#with-an-agent-run). |
 | Stopped at a usage limit | The usage-limit line: `Claude usage limit · resets 3:40 PM · in 1h 7m`, with **Resume at reset** and **Resume now**. See [When A Usage Limit Stops Work](#when-a-usage-limit-stops-work). |
+| A review runs in its own task | One line per review: `Reviewing · <model> · <elapsed>` with **View** and **Stop**, then `Review ready` with **Attach**, **View** and **Dismiss**. **View** shows the review's answer and activity in a dialog. It shows when the task is idle too. See [Review Tasks](review-tasks.md). |
 
 There is exactly one status line for a run. The Task panel's **Activity** tab
 lists the rows without repeating it, and its run header names only an ended

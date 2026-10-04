@@ -5,8 +5,11 @@ import {
   GitBranch,
   GitCompareArrows,
   LockKeyhole,
+  MessageSquareText,
 } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
+import { Select } from "@/components/ads/components/Select";
+import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   COMPOSER_CONTROL_BUTTON,
   ComposerControlLabel,
@@ -33,8 +36,15 @@ import {
 import {
   LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS,
   type LocalChangeReviewFocus,
-  type LocalChangeReviewScope,
 } from "@/lib/local-change-review";
+import {
+  REVIEW_TARGET_LABEL,
+  hasReviewableReply,
+  type ReviewTarget,
+} from "@/lib/reviews/review-task";
+import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
+import { isReviewTaskDelegationAvailable } from "@/store/review-task-runtime";
+import type { ChatMessage } from "@/types/chat";
 import {
   clampModelEffort,
   resolveModelEffortFromSettings,
@@ -47,20 +57,18 @@ import { useAppStore } from "@/store/app.store";
 import { ModelIcon } from "./model-icon";
 import { ModelSelector, type ModelSelectorOption } from "./model-selector";
 
-const DEFAULT_REVIEW_FOCUSES: readonly LocalChangeReviewFocus[] = [
-  "correctness",
-  "tests",
-];
+const NO_MESSAGES: readonly ChatMessage[] = [];
+const NO_SKILL = "";
 
-const REVIEW_SCOPE_OPTIONS: ReadonlyArray<{
-  value: LocalChangeReviewScope;
+const REVIEW_TARGET_OPTIONS: ReadonlyArray<{
+  value: ReviewTarget;
   label: string;
   description: string;
   icon: typeof FileDiff;
 }> = [
   {
     value: "working-tree",
-    label: "Uncommitted changes",
+    label: REVIEW_TARGET_LABEL["working-tree"],
     description: "Staged, unstaged, and untracked files in this workspace.",
     icon: FileDiff,
   },
@@ -69,6 +77,12 @@ const REVIEW_SCOPE_OPTIONS: ReadonlyArray<{
     label: "Entire local branch",
     description: "Committed branch changes plus the current working tree.",
     icon: GitBranch,
+  },
+  {
+    value: "latest-reply",
+    label: REVIEW_TARGET_LABEL["latest-reply"],
+    description: "A second opinion on this task's latest answer or plan.",
+    icon: MessageSquareText,
   },
 ];
 
@@ -80,9 +94,11 @@ type ReviewChangeStatus =
 export interface LocalChangeReviewRequest {
   reviewer: ModelSelectorOption;
   effort: ModelEffort;
-  scope: LocalChangeReviewScope;
+  target: ReviewTarget;
   focuses: readonly LocalChangeReviewFocus[];
   instructions?: string;
+  /** Empty runs without a skill. */
+  skillSlug?: string;
 }
 
 interface LocalChangeReviewDialogProps {
@@ -125,11 +141,21 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
   const [open, setOpen] = useState(false);
   const [reviewerKey, setReviewerKey] = useState<string>();
   const [selectedEffort, setSelectedEffort] = useState<ModelEffort>();
-  const [scope, setScope] = useState<LocalChangeReviewScope>("working-tree");
+  const [target, setTarget] = useState<ReviewTarget>("working-tree");
+  const reviewSettings = useAppStore((state) => state.settings.reviewTask);
   const [focuses, setFocuses] = useState<readonly LocalChangeReviewFocus[]>(
-    DEFAULT_REVIEW_FOCUSES,
+    reviewSettings.focuses,
   );
+  const [skillSlug, setSkillSlug] = useState(reviewSettings.skillSlug);
   const [instructions, setInstructions] = useState("");
+  const taskId = useScopedTaskId();
+  const hasReply = useAppStore(
+    (state) =>
+      open && hasReviewableReply(state.messagesByTask[taskId] ?? NO_MESSAGES),
+  );
+  const skills = useAppStore((state) => state.skillCatalog.skills);
+  // A separate task needs the desktop bridge; without it the review runs here.
+  const runsSeparately = isReviewTaskDelegationAvailable();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [changeStatus, setChangeStatus] = useState<ReviewChangeStatus>({
     state: "idle",
@@ -168,6 +194,30 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
         : [],
     [args.reviewerOptions, reviewer],
   );
+  const skillOptions = useMemo(() => {
+    const entries = reviewer
+      ? getEffectiveSkillEntries({ skills, providerId: reviewer.providerId })
+      : [];
+    return [
+      { value: NO_SKILL, label: "No skill" },
+      ...entries.map((entry) => ({
+        value: entry.slug,
+        label: `$${entry.slug}`,
+        description: entry.description || entry.name,
+      })),
+    ];
+  }, [reviewer, skills]);
+  // A saved or chosen skill this reviewer cannot load is dropped, not sent.
+  const effectiveSkillSlug = skillOptions.some((option) => option.value === skillSlug)
+    ? skillSlug
+    : NO_SKILL;
+  const savedSkillMissing =
+    Boolean(reviewSettings.skillSlug) &&
+    !skillOptions.some((option) => option.value === reviewSettings.skillSlug);
+  const effectiveTarget: ReviewTarget =
+    target === "latest-reply" && (!hasReply || !runsSeparately)
+      ? "working-tree"
+      : target;
   const changeSummary = useMemo(
     () =>
       changeStatus.state === "ready"
@@ -221,6 +271,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
     }
     setOpen(nextOpen);
     if (nextOpen) {
+      // Each review starts from the saved defaults.
+      setFocuses(reviewSettings.focuses);
+      setSkillSlug(reviewSettings.skillSlug);
       void loadChangeStatus();
     }
   }
@@ -254,9 +307,10 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
       const submitted = await args.onSubmit({
         reviewer,
         effort,
-        scope,
+        target: effectiveTarget,
         focuses,
         instructions: instructions.trim() || undefined,
+        skillSlug: effectiveSkillSlug || undefined,
       });
       if (submitted) {
         setOpen(false);
@@ -309,11 +363,12 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             </div>
             <div className={sx(styles.headerText)}>
               <DialogTitle className={sx(styles.title)}>
-                Review local changes
+                {runsSeparately ? "Start a review" : "Review local changes"}
               </DialogTitle>
               <DialogDescription className={sx(styles.description)}>
-                Get a read-only second opinion before you push. The reviewer
-                inspects local Git changes directly—no pull request required.
+                {runsSeparately
+                  ? "The review runs in its own read-only task with the model you pick, so this task keeps working. Attach the findings here when they are ready."
+                  : "Get a read-only second opinion before you push. The reviewer inspects local Git changes directly—no pull request required."}
               </DialogDescription>
             </div>
           </div>
@@ -323,7 +378,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           <section className={sx(styles.section)} aria-labelledby={`${idPrefix}-scope`}>
             <div className={sx(styles.sectionHeaderRow)}>
               <h3 id={`${idPrefix}-scope`} className={sx(styles.sectionHeading)}>
-                Review scope
+                Review
               </h3>
               <div
                 className={sx(styles.status)}
@@ -351,20 +406,26 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 {changeStatus.state === "error" ? changeStatus.detail : null}
               </div>
             </div>
-            <div className={sx(styles.cardGrid)}>
-              {REVIEW_SCOPE_OPTIONS.map((option) => {
+            <div className={sx(runsSeparately ? styles.targetGrid : styles.cardGrid)}>
+              {REVIEW_TARGET_OPTIONS.filter(
+                (option) => runsSeparately || option.value !== "latest-reply",
+              ).map((option) => {
                 const Icon = option.icon;
-                const selected = scope === option.value;
+                const selected = effectiveTarget === option.value;
+                const unavailable = option.value === "latest-reply" && !hasReply;
                 return (
                   <AdsButton
                     layout="host"
                     key={option.value}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => setScope(option.value)}
+                    disabled={unavailable}
+                    title={unavailable ? "This task has no finished reply yet." : undefined}
+                    onClick={() => setTarget(option.value)}
                     xstyle={[
                       styles.scopeCard,
                       selected ? styles.cardSelected : styles.cardUnselected,
+                      unavailable && styles.cardDisabled,
                     ]}
                   >
                     <Icon
@@ -392,13 +453,20 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 );
               })}
             </div>
-            {changeSummary ? (
+            {changeSummary && effectiveTarget !== "latest-reply" ? (
               <p className={sx(styles.summaryLine)}>
                 {changeSummary.staged} staged · {changeSummary.unstaged}{" "}
                 unstaged · {changeSummary.untracked} untracked
                 {changeSummary.conflicts > 0
                   ? ` · ${changeSummary.conflicts} conflicted`
                   : ""}
+              </p>
+            ) : null}
+            {effectiveTarget === "latest-reply" ? (
+              <p className={sx(styles.summaryLine)} role="note">
+                The reviewer can still search the web: Claude always, Codex
+                when web search is on in its settings. The reply reaches it as
+                data to evaluate, not as instructions.
               </p>
             ) : null}
           </section>
@@ -512,6 +580,28 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             </div>
           </section>
 
+          {runsSeparately ? (
+            <section className={sx(styles.section)}>
+              <div className={sx(styles.labelStack)}>
+                <h3 id={`${idPrefix}-skill`} className={sx(styles.sectionHeading)}>
+                  Review skill
+                </h3>
+                <p className={sx(styles.focusDescription)}>
+                  {savedSkillMissing
+                    ? `The saved skill $${reviewSettings.skillSlug} is not available to this reviewer here, so none is used.`
+                    : "The reviewer follows the skill's instructions. It still cannot change files."}
+                </p>
+              </div>
+              <Select
+                size="sm"
+                aria-labelledby={`${idPrefix}-skill`}
+                value={effectiveSkillSlug}
+                options={skillOptions}
+                onValueChange={(value) => setSkillSlug(typeof value === "string" ? value : NO_SKILL)}
+              />
+            </section>
+          ) : null}
+
           <section className={sx(styles.section)}>
             <div className={sx(styles.labelStack)}>
               <label
@@ -523,6 +613,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
               <p className={sx(styles.focusDescription)}>
                 Add product intent, risk areas, or files that deserve special
                 attention.
+                {reviewSettings.instructions.trim()
+                  ? " Your saved review instructions from Settings are included too."
+                  : null}
               </p>
             </div>
             <Textarea
@@ -544,7 +637,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
         <DialogFooter className={sx(styles.footer)}>
           <p className={sx(styles.footerNote)}>
             <LockKeyhole className={sx(styles.iconSm)} />
-            Read-only review · no PR lookup
+            {runsSeparately
+              ? "Read-only task · runs beside this one"
+              : "Read-only review · no PR lookup"}
           </p>
           <div className={sx(styles.footerActions)}>
             <DialogClose
@@ -570,7 +665,11 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
               ) : (
                 <FileDiff className={sx(styles.triggerIcon)} />
               )}
-              {isSubmitting ? "Starting review…" : "Review changes"}
+              {isSubmitting
+                ? "Starting review…"
+                : runsSeparately
+                  ? "Start review"
+                  : "Review changes"}
             </Button>
           </div>
         </DialogFooter>

@@ -29,7 +29,9 @@ import {
 } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import { ShelfQueue, type ComposerShelfQueueProps } from "./ShelfQueue";
+import { ReviewActivityDialog, ShelfReviews } from "./ShelfReviews";
 import { ShelfUsageLimit } from "./ShelfUsageLimit";
+import { useShelfReviews } from "./use-shelf-reviews";
 import { hasPausedUsageLimitWork } from "@/store/task-work-pause";
 import type { ShelfRunDetailToggle, ShelfRunPanelButton } from "./ShelfRunLine";
 import { TurnRunLine } from "./TurnRunLine";
@@ -38,8 +40,9 @@ import { useShelfDetail } from "./use-shelf-detail";
 const NO_TODOS: readonly { status: "pending" | "in_progress" | "completed" }[] = [];
 
 /**
- * The composer shelf: one surface over the prompt input with up to two rows,
- * the run line and the queue line, divided by a hairline. It shows while
+ * The composer shelf: one surface over the prompt input whose rows — the run
+ * line, a usage-limit line, review lines and the queue line — are divided by a
+ * hairline. It shows while
  * anything is in flight — a turn, an agent run (between its turns too), or a
  * queued message — whatever `settings.turnActivityPlacement` says, and it is
  * the one place a run's state is written while it runs.
@@ -83,7 +86,9 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   const limited =
     !runLive &&
     hasPausedUsageLimitWork({ pause: usageLimitPause, queuedTurnCount: queueCount });
-  const rows = selectComposerShelfRows({ run: runSource, queueCount, limited });
+  const reviews = useShelfReviews(taskId);
+  const reviewCount = reviews.items.length;
+  const rows = selectComposerShelfRows({ run: runSource, queueCount, limited, reviewCount });
   const onResumeNow = useCallback(
     () => void resumePausedTaskWork({ taskId }),
     [resumePausedTaskWork, taskId],
@@ -143,11 +148,21 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   useEffect(() => {
     shownBefore.current = surfaceVisible;
   }, [surfaceVisible]);
+  // Outside the rows, so an open review stays open when its row leaves.
+  const reviewDialog = reviews.viewing ? (
+    <ReviewActivityDialog
+      item={reviews.viewing}
+      attached={reviews.attachedTaskIds.has(reviews.viewing.child.delegatedTaskId)}
+      actions={reviews.actions}
+      onClose={reviews.closeView}
+    />
+  ) : null;
   if (!surfaceVisible) {
-    return null;
+    return reviewDialog;
   }
   // Only the run line is left and it is on its way out: the whole shelf goes.
-  const surfaceLeaving = runSource === "turn" && turn.isLeaving && queueCount === 0 && !limited;
+  const surfaceLeaving =
+    runSource === "turn" && turn.isLeaving && queueCount === 0 && !limited && reviewCount === 0;
 
   return (
     <section
@@ -205,6 +220,17 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
           />
         </ShelfRow>
       ) : null}
+      {reviewCount > 0 ? (
+        <ShelfRow joining={shownBefore.current}>
+          <ShelfReviews
+            items={reviews.items}
+            attachedTaskIds={reviews.attachedTaskIds}
+            actions={reviews.actions}
+            onView={reviews.view}
+          />
+        </ShelfRow>
+      ) : null}
+      {reviewDialog}
       {props.queue && queueCount > 0 ? (
         <ShelfRow joining={shownBefore.current}>
           <ShelfQueue {...props.queue} />

@@ -1,4 +1,5 @@
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
+import { isReviewDelegation } from "@/lib/reviews/review-task";
 import {
   isActiveDelegatedTaskPhase,
   type DelegatedTaskSummary,
@@ -28,11 +29,15 @@ export function latestTurnStartedAt(
  * identity, phase and reason, and the bounded answer of every subagent that
  * finished since `resultsSince` (the previous turn's start), so the caller
  * never has to read a child task to collect its result. Answers it already
- * saw are left out to keep repeated turns small.
+ * saw are left out to keep repeated turns small, and so is the answer of a
+ * child the user attached to this message, which arrives in full there. A
+ * review the user started from the composer is shared only when attached:
+ * its row stays, its answer does not.
  */
 export function buildDelegatedTaskReceiptsRetrievedContext(args: {
   children: DelegatedTaskSummary[];
   resultsSince?: string | null;
+  attachedTaskIds?: ReadonlySet<string>;
 }): CanonicalRetrievedContextPart | null {
   if (args.children.length === 0) {
     return null;
@@ -59,7 +64,9 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
       : [];
     const fresh = child.result &&
       (!args.resultsSince || child.updatedAt > args.resultsSince) && resultBudget > 0;
-    const result = fresh
+    const attached = fresh && args.attachedTaskIds?.has(child.delegatedTaskId);
+    const withheld = fresh && !attached && isReviewDelegation(child);
+    const result = fresh && !attached && !withheld
       ? truncate(child.result!, Math.min(MAX_RESULT_CHARS, resultBudget))
       : null;
     if (result) resultBudget -= result.length;
@@ -67,6 +74,8 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
       head,
       identity,
       ...reason,
+      ...(attached ? ["  result: attached to this message under Attached Stave Tasks"] : []),
+      ...(withheld ? ["  result: held until the user attaches this review"] : []),
       ...(result ? ["  result:", ...result.split("\n").map((line) => `    ${line}`)] : []),
     ];
   });

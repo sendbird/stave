@@ -41,6 +41,7 @@ import {
 import { migrateSettingsModelDefaults } from "@/lib/providers/settings-model-migration";
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
+import { normalizeReviewTaskSettings } from "@/lib/reviews/review-task";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { restoreCustomAgents } from "@/lib/agents/library";
@@ -566,6 +567,7 @@ export function createAppStorePersistenceOptions() {
       state.settings.prePrReviewProvider = normalizePrePrReviewProvider(
         state.settings.prePrReviewProvider,
       );
+      state.settings.reviewTask = normalizeReviewTaskSettings(raw.reviewTask);
       state.settings.createPrAutoMergeEnabled =
         typeof raw.createPrAutoMergeEnabled === "boolean"
           ? raw.createPrAutoMergeEnabled
