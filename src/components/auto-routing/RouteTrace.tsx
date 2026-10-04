@@ -4,6 +4,7 @@ import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { Button } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import {
+  ROUTE_COMPLEXITY_LABELS,
   STANCE_LABELS,
   TASK_CLASS_LABELS,
   type TaskClass,
@@ -47,7 +48,7 @@ export function buildRouteTraceSignals(args: {
   }
   chips.push({
     id: "complexity",
-    label: `${signals.complexity} complexity`,
+    label: `${ROUTE_COMPLEXITY_LABELS[signals.complexity] ?? signals.complexity} level`,
     decisive: false,
   });
   if (signals.sensitive) {

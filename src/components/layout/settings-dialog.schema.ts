@@ -176,7 +176,7 @@ export const settingsSections = [
     label: "Auto (Model Router)",
     icon: Sparkles,
     description:
-      "Role table and stance that pick the provider, model, and effort when the composer is on Auto.",
+      "How Auto sizes each turn: a level picks the model, your preference sets the effort.",
     keywords: [
       "auto",
       "routing",
@@ -191,6 +191,10 @@ export const settingsSections = [
       "budget guard",
       "usage",
       "eligible models",
+      "allowed models",
+      "level",
+      "effort",
+      "classifier",
       "dry run",
       "tester",
       "delegate",

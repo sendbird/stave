@@ -78,7 +78,7 @@ export const settingDefinitions = [
     fieldId: AUTO_ROUTING_SETTING_FIELD_ID,
     title: "Auto routing profile",
     description:
-      "Role table, stance, budget guard, signal toggles, and eligible models the router reads.",
+      "Routing levels, preference, allowed models, usage budget, signals, and rules the router reads.",
     keywords: [
       "auto",
       "routing",

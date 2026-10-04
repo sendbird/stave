@@ -312,7 +312,7 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
             </div>
             {applied ? (
               <p className={sx(styles.success)} role="status">
-                Profile applied. You can still edit every rule in the Role table below.
+                Profile applied. You can still edit every rule under Rules below.
               </p>
             ) : null}
           </div>

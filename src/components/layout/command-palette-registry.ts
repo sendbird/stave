@@ -1067,7 +1067,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     build: (args) => ({
       id: "settings.open.autoRouting",
       title: "Open Settings: Auto (Model Router)",
-      subtitle: "Role table, stance, budget guard, and dry-run tester.",
+      subtitle: "Routing levels, preference, allowed models, and rules.",
       group: "settings",
       icon: Settings,
       keywords: ["settings", "auto", "routing", "router", "stance", "model"],

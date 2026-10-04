@@ -6,7 +6,7 @@ import {
 } from "../electron/providers/utility-inference";
 
 const valid = JSON.stringify({
-  version: 1, intent: "implement", complexity: "low", risk: "normal",
+  version: 2, intent: "implement", complexity: "low", risk: "normal",
   continuity: "new", evidenceCodes: [],
 });
 
