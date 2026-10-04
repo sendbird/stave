@@ -16,6 +16,9 @@ interface ComposerShelfState {
   /** Per task. Read with a narrow selector: the entry object is replaced, never mutated. */
   detailByTask: Readonly<Record<string, ShelfDetailOverride>>;
   setDetailOpen: (args: { taskId: string; runKey: string; open: boolean }) => void;
+  /** Finished reviews the user dismissed from a task's shelf, by delegation key. */
+  dismissedReviewKeysByTask: Readonly<Record<string, readonly string[]>>;
+  dismissReview: (args: { taskId: string; delegationKey: string }) => void;
 }
 
 /**
@@ -32,5 +35,19 @@ export const useComposerShelfStore = create<ComposerShelfState>()((set) => ({
         return state;
       }
       return { detailByTask: { ...state.detailByTask, [taskId]: { runKey, open } } };
+    }),
+  dismissedReviewKeysByTask: {},
+  dismissReview: ({ taskId, delegationKey }) =>
+    set((state) => {
+      const current = state.dismissedReviewKeysByTask[taskId] ?? [];
+      if (current.includes(delegationKey)) {
+        return state;
+      }
+      return {
+        dismissedReviewKeysByTask: {
+          ...state.dismissedReviewKeysByTask,
+          [taskId]: [...current, delegationKey],
+        },
+      };
     }),
 }));

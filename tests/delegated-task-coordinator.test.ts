@@ -1155,6 +1155,21 @@ describe("stave_delegate_task defaults", () => {
     expect(other.child!.delegationKey).not.toBe(first.child!.delegationKey);
   });
 
+  test("an agent cannot take the key prefix reserved for composer reviews", async () => {
+    const harness = createHarness({ realPolicy: true, parentDefaults: { providerId: "claude-code" } });
+    const named = await harness.coordinator.delegateFromTool(
+      toolInput({ access: "read-only", delegationKey: "stave-review-auth" }),
+    );
+    expect(named).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(named.message).toContain("reserved");
+    const derived = await harness.coordinator.delegateFromTool(
+      toolInput({ access: "read-only", prompt: "Stave review of the auth module." }),
+    );
+    expect(derived.accepted).toBe(true);
+    expect(derived.child!.delegationKey).toMatch(/^task-stave-review-of-the-auth-module-[0-9a-f]{12}$/);
+    expect(harness.runTaskCalls).toHaveLength(1);
+  });
+
   test("effort is inherited only by a same-provider child and an explicit choice wins", async () => {
     const harness = createHarness({ parentDefaults: { providerId: "claude-code", effort: "max" } });
     await harness.coordinator.delegateFromTool(toolInput({ provider: "codex", workspace: { mode: "new-worktree", name: "codex-review" } }));

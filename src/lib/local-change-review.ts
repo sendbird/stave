@@ -87,14 +87,19 @@ function buildScopeInstructions(scope: LocalChangeReviewScope) {
   ];
 }
 
+/** The reviewer instruction for each selected focus, in selection order. */
+export function buildReviewFocusInstructions(
+  focuses: readonly LocalChangeReviewFocus[],
+) {
+  return focuses.map((focus) => REVIEW_FOCUS_INSTRUCTIONS[focus]).filter(Boolean);
+}
+
 export function buildLocalChangeReviewPrompt(args: {
   scope: LocalChangeReviewScope;
   focuses: readonly LocalChangeReviewFocus[];
   instructions?: string;
 }) {
-  const focusInstructions = args.focuses
-    .map((focus) => REVIEW_FOCUS_INSTRUCTIONS[focus])
-    .filter(Boolean);
+  const focusInstructions = buildReviewFocusInstructions(args.focuses);
   const customInstructions = args.instructions?.trim();
 
   return [

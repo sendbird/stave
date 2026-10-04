@@ -1032,6 +1032,7 @@ export function createSendUserMessageAction(args: {
           parentTaskId: resolvedTaskId,
           history: latestHistory,
           prompt: normalizedPrompt || promptContent,
+          promptDraft,
         })),
       );
       // `@lens` references resolve against the live Lens browser state.

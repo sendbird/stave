@@ -68,3 +68,24 @@ describe("delegated attention", () => {
       taskId: "child", title: "Review cache", detail: "Shell: rg cache", workspaceName: "Child workspace" });
   });
 });
+
+describe("finished composer reviews", () => {
+  test("open the task they reviewed, not the review task", () => {
+    const notification = childApproval({
+      kind: "task.turn_completed",
+      action: null,
+      title: "Main Task",
+      taskId: "review-task",
+      taskTitle: "Review · Latest reply · GPT-5.5",
+      workspaceId: "ws-main",
+      payload: { reviewParentTaskId: "task-main", reviewParentTaskTitle: "Main Task" },
+    });
+    expect(resolveNotificationOpenTarget(notification, { "task-main": "ws-main" })).toMatchObject({
+      taskId: "task-main",
+      taskTitle: "Main Task",
+      workspaceId: "ws-main",
+    });
+    const ordinary = childApproval({ kind: "task.turn_completed", action: null, payload: {} });
+    expect(resolveNotificationOpenTarget(ordinary, {})).toBe(ordinary);
+  });
+});

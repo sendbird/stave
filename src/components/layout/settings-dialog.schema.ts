@@ -297,8 +297,16 @@ export const settingsSections = [
     id: "prompts",
     label: "Prompts",
     icon: ScrollText,
-    description: "Default prompt text and response instructions.",
-    keywords: ["instructions", "templates", "system prompt"],
+    description: "Default prompt text, response instructions, and review settings.",
+    keywords: [
+      "instructions",
+      "templates",
+      "system prompt",
+      "review",
+      "reviewer",
+      "review skill",
+      "second opinion",
+    ],
   },
   {
     id: "memory",

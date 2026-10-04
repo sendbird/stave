@@ -4,6 +4,7 @@ import {
   getNotificationInteractionMessageId,
   getNotificationInteractionRequestId,
 } from "./attention-reconcile";
+import { readReviewNotificationParent } from "@/lib/reviews/review-task";
 import type { AppNotification } from "./notification.types";
 import { isNotificationAttentionKind } from "./notification.types";
 
@@ -49,7 +50,8 @@ export function getDelegatedAttentionRoot(
 
 /**
  * Where activating a notification should land. A delegated child's request
- * resolves to its root task; everything else keeps its own target. The root's
+ * resolves to its root task and a finished composer review to the task it
+ * reviewed; everything else keeps its own target. The root's
  * workspace falls back to what the renderer already knows about the task.
  */
 export function resolveNotificationOpenTarget<
@@ -58,6 +60,18 @@ export function resolveNotificationOpenTarget<
     "kind" | "taskId" | "taskTitle" | "workspaceId" | "workspaceName" | "payload"
   >,
 >(notification: T, taskWorkspaceIdById: Record<string, string>): T {
+  // A review the composer started opens the task it reviewed, where its
+  // findings are attached. The review runs in that task's workspace.
+  const reviewParent = readReviewNotificationParent(notification.payload);
+  if (reviewParent && reviewParent.taskId !== notification.taskId?.trim()) {
+    return {
+      ...notification,
+      taskId: reviewParent.taskId,
+      taskTitle: reviewParent.title ?? notification.taskTitle,
+      workspaceId:
+        taskWorkspaceIdById[reviewParent.taskId] ?? notification.workspaceId,
+    };
+  }
   const root = getDelegatedAttentionRoot(notification);
   if (!root) {
     return notification;

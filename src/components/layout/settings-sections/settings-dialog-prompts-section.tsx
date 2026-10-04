@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { RefreshCcw } from "lucide-react";
-import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { useShallow } from "zustand/react/shallow";
 import { Textarea } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
@@ -13,7 +12,7 @@ import {
   DEFAULT_PROMPT_INLINE_COMPLETION,
   DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
 } from "@/lib/providers/prompt-defaults";
-import { PrePrReviewProviderId } from "@/lib/source-control-review";
+import { ReviewSettingsCards } from "./settings-dialog-review-cards";
 import { PrMergeMethod } from "@/lib/pr-status";
 import {
   ChoiceButtons,
@@ -93,8 +92,6 @@ function PromptField({
 export function PromptsSection() {
   const [
     promptResponseStyle,
-    prePrReviewEnabled,
-    prePrReviewProvider,
     promptPrDescription,
     createPrAutoMergeEnabled,
     createPrMergeMethod,
@@ -105,8 +102,6 @@ export function PromptsSection() {
       (state) =>
         [
           state.settings.promptResponseStyle,
-          state.settings.prePrReviewEnabled,
-          state.settings.prePrReviewProvider,
           state.settings.promptPrDescription,
           state.settings.createPrAutoMergeEnabled,
           state.settings.createPrMergeMethod,
@@ -120,56 +115,7 @@ export function PromptsSection() {
   return (
     <>
       <SectionStack>
-        <SettingsCard
-          title="Pre-PR Review"
-          description="Run a best-effort one-shot AI review before Stave pushes a branch and opens a pull request."
-        >
-          <SwitchField
-            title="Review Before Opening PR"
-            description="Shows concrete findings in the PR dialog with options to stop and fix or proceed anyway. Model failures never block PR creation."
-            checked={prePrReviewEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { prePrReviewEnabled: checked } })
-            }
-          />
-          <LabeledField
-            title="Review Provider"
-            description="Choose which provider runs the one-shot review. The provider uses its configured default model."
-          >
-            <ChoiceButtons<PrePrReviewProviderId>
-              value={prePrReviewProvider}
-              onChange={(providerId) =>
-                updateSettings({
-                  patch: { prePrReviewProvider: providerId },
-                })
-              }
-              options={[
-                {
-                  value: "claude-code",
-                  label: "Claude",
-                  description: "Uses the configured Claude model.",
-                  icon: (
-                    <ModelIcon
-                      providerId="claude-code"
-                      className={sx(styles.iconSm)}
-                    />
-                  ),
-                },
-                {
-                  value: "codex",
-                  label: "Codex",
-                  description: "Uses the configured Codex model.",
-                  icon: (
-                    <ModelIcon
-                      providerId="codex"
-                      className={sx(styles.iconSm)}
-                    />
-                  ),
-                },
-              ]}
-            />
-          </LabeledField>
-        </SettingsCard>
+        <ReviewSettingsCards />
 
         <SettingsCard
           title="Response Style"

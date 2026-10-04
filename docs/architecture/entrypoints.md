@@ -64,6 +64,19 @@ For tasks attached as context, start with
 and canonical request paths in
 [Task Pause And Attachment Contracts](contracts.md#task-pause-and-attachment-contracts).
 
+For a review the composer starts in its own task, start with
+`src/components/session/use-review-task-controls.ts` (the Review button) and
+`src/store/review-task-runtime.ts`, which builds the prompt and delegation from
+`src/lib/reviews/review-task.ts` and calls `window.api.runs.delegateTask`
+(`delegations:create` → `electron/main/runs/delegated-task-coordinator.ts`).
+The child runs under the read-only delegation posture. Its result returns
+through `src/components/session/composer-shelf/use-shelf-reviews.ts` (rows;
+**View** reuses `ActivityDetailDialog` with `buildReviewExchange`) as a
+`task-context` attachment, which the send path reads like any attached task;
+`buildDelegatedTaskReceiptsRetrievedContext` withholds a review child's answer
+unless the message attaches it. Start with `tests/review-task.test.ts`
+and `tests/review-task-runtime.test.ts`.
+
 For task-attached source material, follow its producer, the shared data or IPC
 contract, then the send action that consumes it. PR review and check evidence
 uses `src/lib/pr-context.ts` for attachment/provenance rules and

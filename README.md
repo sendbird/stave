@@ -74,7 +74,7 @@ Recommended next steps:
 - other tasks attached as context through title search or a sidebar drag, with a choice of the latest reply or recent conversation
 - Monaco editor, docked terminal, quick open, command palette, and source control actions
 - Lens browser panel for inspecting a live page and pulling DOM, console, or element context into a task draft
-- Compare Runs and Local Change Review with candidate, judge, and review turns and per-model reasoning effort
+- Compare Runs with candidate and judge turns, and Review tasks that run a read-only review on the model you pick beside the task and hand back only the findings
 - Crane connector for queuing repository issues into approval-gated local Claude or Codex runs
 - Issues surface listing assigned Crane and Jira Cloud tickets with one-click local kickoff
 - workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
@@ -94,6 +94,7 @@ Recommended next steps:
 - [Provider Sandbox and Approval Guide](docs/features/provider-sandbox-and-approval.md) for runtime safety, second opinions, and plan settings
 - [Turn Activity](docs/features/turn-activity.md) for queued follow-ups, restart recovery, and resuming work after a usage limit
 - [Attachments](docs/features/attachments.md) for files, images, and other tasks used as context
+- [Review Tasks](docs/features/review-tasks.md) for reviews and second opinions that run in their own read-only task
 - [Local MCP User Guide](docs/features/local-mcp-user-guide.md) for same-machine automation setup
 - [Crane Connector Guide](docs/features/crane-connector.md) for pairing Crane with this Stave installation and approving issue runs locally
 - [Issues Guide](docs/features/issues.md) for reviewing assigned Crane and Jira tickets and kicking one off locally

@@ -217,6 +217,8 @@ import {
   type TaskContextAttachment,
   type TaskMentionOption,
 } from "@/lib/task-context/attached-task-context";
+import { isReviewTaskDelegationAvailable } from "@/store/review-task-runtime";
+import { openAttachedTask } from "@/components/open-attached-task";
 import {
   LocalChangeReviewDialog,
   type LocalChangeReviewRequest,
@@ -2301,8 +2303,11 @@ export function PromptInput(args: PromptInputProps) {
     );
   }
 
+  // A review that runs as its own task can start while this one is busy.
   const hasReviewControl = Boolean(
-    reviewModelOptions?.length && onLocalChangeReview && !isTurnActive,
+    reviewModelOptions?.length &&
+      onLocalChangeReview &&
+      (!isTurnActive || isReviewTaskDelegationAvailable()),
   );
 
   // A control with nothing to render this frame is excluded from every bucket,
@@ -4173,6 +4178,12 @@ export function PromptInput(args: PromptInputProps) {
                   scope={attachment.scope}
                   disabled={interactionsDisabled}
                   compact={minimal}
+                  onOpen={() =>
+                    void openAttachedTask({
+                      taskId: attachment.taskId,
+                      workspaceId: attachment.workspaceId,
+                    })
+                  }
                   onScopeChange={(scope) =>
                     onAttachmentsChange?.({
                       attachments: (attachments ?? []).map((candidate) =>
@@ -4391,13 +4402,10 @@ export function PromptInput(args: PromptInputProps) {
             ) : null}
             <div className={sx(promptInputStyles.actionsRow)}>
               {contextMeter}
-              {minimal &&
-              reviewModelOptions?.length &&
-              onLocalChangeReview &&
-              !isTurnActive ? (
+              {minimal && hasReviewControl && onLocalChangeReview ? (
                 <LocalChangeReviewDialog
                   workspaceCwd={workspaceCwd}
-                  reviewerOptions={reviewModelOptions}
+                  reviewerOptions={reviewModelOptions ?? []}
                   preferredReviewerKey={preferredReviewModelKey}
                   disabled={interactionsDisabled}
                   onSubmit={onLocalChangeReview}

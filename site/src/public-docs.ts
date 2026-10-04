@@ -199,6 +199,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Resume an existing task on a schedule or when the work it delegated finishes, in the same provider session.",
       },
       {
+        routePath: "review-tasks",
+        sourcePath: "docs/features/review-tasks.md",
+        title: "Review Tasks",
+        description:
+          "Review local changes or a task's latest answer in a separate read-only task on the model you pick, then attach only the findings.",
+      },
+      {
         routePath: "delegated-tasks",
         sourcePath: "docs/features/delegated-tasks.md",
         title: "Delegated Tasks",

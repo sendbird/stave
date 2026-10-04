@@ -21,6 +21,10 @@ import {
   type AuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
 import type { PrMergeMethod } from "@/lib/pr-status";
+import {
+  DEFAULT_REVIEW_TASK_SETTINGS,
+  type ReviewTaskSettings,
+} from "@/lib/reviews/review-task";
 import type { ClaudeGuardrailId } from "@/lib/providers/provider.types";
 import type { ComposerControlPlacements } from "@/lib/composer-controls";
 import type { ModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
@@ -327,6 +331,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   lensVisualCommentScreenshotsAsImageContext: boolean;
   prePrReviewEnabled: boolean;
   prePrReviewProvider: PrePrReviewProviderId;
+  /** Composer reviews that run as a separate read-only task. */
+  reviewTask: ReviewTaskSettings;
   /** Queue the created ready PR for automatic merging. */
   createPrAutoMergeEnabled: boolean;
   /** Merge strategy used when automatic merging is queued. */
@@ -732,6 +738,7 @@ export const defaultSettings: AppSettings = {
   lensVisualCommentScreenshotsAsImageContext: false,
   prePrReviewEnabled: false,
   prePrReviewProvider: DEFAULT_PRE_PR_REVIEW_PROVIDER,
+  reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,

@@ -5,7 +5,8 @@ import {
   buildRepositoryMemoryRetrievedContextPart,
   resolveRepositoryMemoryRecallQuery,
 } from "@/lib/task-context/repository-memory";
-import type { ChatMessage } from "@/types/chat";
+import { getPromptDraftAttachments } from "@/store/prompt-draft-context";
+import type { ChatMessage, PromptDraft } from "@/types/chat";
 
 /**
  * Renderer side of project memory for a UI-initiated turn.
@@ -20,6 +21,8 @@ export async function collectTurnStartRetrievedContextParts(args: {
   parentTaskId: string;
   history: readonly Pick<ChatMessage, "role" | "content" | "startedAt">[];
   prompt: string;
+  /** Children attached to this message are not repeated as receipts. */
+  promptDraft?: PromptDraft;
 }): Promise<CanonicalRetrievedContextPart[]> {
   const [delegatedTaskSummaries, repositoryMemoryPart] = await Promise.all([
     window.api?.runs?.listDelegatedTasks?.({
@@ -37,6 +40,11 @@ export async function collectTurnStartRetrievedContextParts(args: {
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: delegatedTaskSummaries,
     resultsSince: latestTurnStartedAt(args.history),
+    attachedTaskIds: new Set(
+      (args.promptDraft ? getPromptDraftAttachments(args.promptDraft) : []).flatMap(
+        (attachment) => (attachment.kind === "task-context" ? [attachment.taskId] : []),
+      ),
+    ),
   });
   if (delegatedTaskReceiptsPart) {
     parts.push(delegatedTaskReceiptsPart);

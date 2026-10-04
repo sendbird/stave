@@ -183,17 +183,24 @@ function clip(text: string, maxChars: number) {
   return `${text.slice(0, head).trimEnd()}\n...[clipped]...\n${text.slice(-tail).trimStart()}`;
 }
 
-/** The text an attached task contributes, or null when it has nothing to say yet. */
-export function buildAttachedTaskSection(args: {
-  attachment: Pick<TaskContextAttachment, "taskId" | "title" | "scope">;
+export interface TaskContextPreviewEntry {
+  role: ChatMessage["role"];
+  /** Bounded exactly as the provider receives it. */
+  text: string;
+}
+
+/**
+ * What an attached task contributes under a scope, one entry per message,
+ * oldest first: the latest reply alone, or the recent exchanges sharing one
+ * budget. `buildAttachedTaskSection` formats this selection for the send
+ * path; keep any other reader on it so they agree on what was sent.
+ */
+export function selectTaskContextEntries(args: {
+  scope: TaskContextScope;
   messages: readonly ChatMessage[];
-}): string | null {
-  const header = [
-    `task: ${args.attachment.title}`,
-    `stave task id: ${args.attachment.taskId}`,
-  ];
-  if (args.attachment.scope === "conversation") {
-    const picked: string[] = [];
+}): TaskContextPreviewEntry[] {
+  if (args.scope === "conversation") {
+    const picked: TaskContextPreviewEntry[] = [];
     let budget = MAX_CONVERSATION_CHARS;
     for (let index = args.messages.length - 1; index >= 0; index -= 1) {
       if (picked.length >= MAX_CONVERSATION_MESSAGES || budget <= 0) {
@@ -204,14 +211,11 @@ export function buildAttachedTaskSection(args: {
       if (!text) {
         continue;
       }
-      const entry = `[${message.role}]\n${clip(text, Math.min(budget, MAX_LATEST_REPLY_CHARS))}`;
-      budget -= entry.length;
-      picked.unshift(entry);
+      const clipped = clip(text, Math.min(budget, MAX_LATEST_REPLY_CHARS));
+      budget -= `[${message.role}]\n${clipped}`.length;
+      picked.unshift({ role: message.role, text: clipped });
     }
-    if (picked.length === 0) {
-      return null;
-    }
-    return [...header, "recent conversation, oldest first:", ...picked].join("\n");
+    return picked;
   }
   for (let index = args.messages.length - 1; index >= 0; index -= 1) {
     const message = args.messages[index]!;
@@ -220,10 +224,36 @@ export function buildAttachedTaskSection(args: {
     }
     const text = messageText(message);
     if (text) {
-      return [...header, "latest reply:", clip(text, MAX_LATEST_REPLY_CHARS)].join("\n");
+      return [{ role: "assistant", text: clip(text, MAX_LATEST_REPLY_CHARS) }];
     }
   }
-  return null;
+  return [];
+}
+
+/** The text an attached task contributes, or null when it has nothing to say yet. */
+export function buildAttachedTaskSection(args: {
+  attachment: Pick<TaskContextAttachment, "taskId" | "title" | "scope">;
+  messages: readonly ChatMessage[];
+}): string | null {
+  const entries = selectTaskContextEntries({
+    scope: args.attachment.scope,
+    messages: args.messages,
+  });
+  if (entries.length === 0) {
+    return null;
+  }
+  const header = [
+    `task: ${args.attachment.title}`,
+    `stave task id: ${args.attachment.taskId}`,
+  ];
+  if (args.attachment.scope === "conversation") {
+    return [
+      ...header,
+      "recent conversation, oldest first:",
+      ...entries.map((entry) => `[${entry.role}]\n${entry.text}`),
+    ].join("\n");
+  }
+  return [...header, "latest reply:", entries[0]!.text].join("\n");
 }
 
 export function buildAttachedTaskRetrievedContext(args: {

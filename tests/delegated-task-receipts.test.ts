@@ -119,6 +119,29 @@ describe("subagent results context", () => {
     expect(part?.content).not.toContain("x".repeat(2_001));
   });
 
+  test("a child attached to the message keeps its row but not a second copy of its answer", () => {
+    const part = buildDelegatedTaskReceiptsRetrievedContext({
+      children: [
+        summary({ delegationKey: "review", result: "Attached answer." }),
+        summary({ delegationKey: "other", delegatedTaskId: "child-2", result: "Other answer." }),
+      ],
+      attachedTaskIds: new Set(["child-1"]),
+    });
+    expect(part?.content).toContain("- subagent: review");
+    expect(part?.content).toContain("result: attached to this message under Attached Stave Tasks");
+    expect(part?.content).not.toContain("Attached answer.");
+    expect(part?.content).toContain("Other answer.");
+  });
+
+  test("a composer review shares its answer only when the user attaches it", () => {
+    const part = buildDelegatedTaskReceiptsRetrievedContext({
+      children: [summary({ delegationKey: "stave-review-20261004120000-a", result: "Reviewer findings." })],
+    });
+    expect(part?.content).toContain("- subagent: stave-review-20261004120000-a");
+    expect(part?.content).toContain("result: held until the user attaches this review");
+    expect(part?.content).not.toContain("Reviewer findings.");
+  });
+
   test("the results cut-off is the newest assistant turn start", () => {
     expect(latestTurnStartedAt([
       { role: "assistant", startedAt: "a" }, { role: "user" }, { role: "assistant", startedAt: "b" }, { role: "user" },
