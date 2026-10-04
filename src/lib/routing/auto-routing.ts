@@ -4,6 +4,7 @@ import {
   listEligibleRouteModels,
   migrateLegacyAutoSettings,
   resolveRoute,
+  ROUTE_COMPLEXITY_LABELS,
   type ResolvedRoute,
   type RouteComplexity,
   type RouterRole,
@@ -168,8 +169,11 @@ const QUICK_EDIT_PATTERNS = [
   /문구/,
 ];
 
-/** `/ship`, `/ci-fix …`, `/review:pr` at the very start of the prompt. */
-const SKILL_COMMAND_PATTERN = /^\s*\/([a-z][\w:-]{0,63})(?=\s|$)/i;
+/**
+ * `/ship`, `$ship`, `/ci-fix …`, `/review:pr` at the very start of the prompt.
+ * Slash commands and `$` skill tokens name the same skills.
+ */
+const SKILL_COMMAND_PATTERN = /^\s*[/$]([a-z][\w:-]{0,63})(?=\s|$)/i;
 
 /** Skills whose name already tells the task class. */
 const SKILL_TASK_CLASS: Readonly<Record<string, TaskClass>> = {
@@ -431,7 +435,7 @@ export function taskClassToTaskType(taskClass: TaskClass): TaskType {
   }
 }
 
-/** Detects a leading slash command such as `/ship` and returns its name. */
+/** Detects a leading skill command such as `/ship` or `$ship` and returns its name. */
 export function detectPromptSkill(prompt: string): string | undefined {
   const match = SKILL_COMMAND_PATTERN.exec(prompt);
   return match?.[1]?.toLowerCase();
@@ -581,12 +585,15 @@ export function resolveHeuristicRoute(args: {
     rationale = `${rationale}, /${skill} command`;
   }
 
+  // Local rules never infer the frontier levels: those need the classifier's
+  // explicit evidence. Unclear intent routes as standard work.
   const complexity: RouteComplexity =
     rationale.startsWith("uncertain intent")
-      ? "high"
+      ? "medium"
       : isTiny && (taskType === "quick_edit" || taskClass === "research")
       ? "low"
-      : tokenCount >= AUTO_ROUTING_LONG_PROMPT_TOKEN_LIMIT ||
+      : (taskType === "plan" && taskClass !== "research") ||
+          tokenCount >= AUTO_ROUTING_LONG_PROMPT_TOKEN_LIMIT ||
           args.fileContextCount >= AUTO_ROUTING_FILE_CONTEXT_TIER_UP_THRESHOLD
         ? "high"
         : "medium";
@@ -928,7 +935,7 @@ export function computeRouterSignals(args: {
     signals: {
       taskClass,
       complexity: classification
-        ? classification.complexity === "unknown" ? "high" : classification.complexity
+        ? classification.complexity === "unknown" ? "medium" : classification.complexity
         : heuristic.complexity,
       sensitive,
       uncertain: classification ? classification.risk === "unknown" || classification.intent === "unknown" || classification.complexity === "unknown" : continuing || heuristic.rationale.startsWith("uncertain intent"),
@@ -976,7 +983,7 @@ export function formatAutoRoutingSignalSummary(
   if (summary.skill) {
     parts.push(`/${summary.skill}`);
   }
-  parts.push(`${summary.complexity} complexity`);
+  parts.push(`${(ROUTE_COMPLEXITY_LABELS[summary.complexity] ?? summary.complexity).toLowerCase()} level`);
   if (summary.sensitive) {
     parts.push("sensitive");
   }
@@ -1136,7 +1143,7 @@ export async function resolveAutoRoutingDecision(
     ruleId: route.ruleId,
     ruleReason: route.reason,
     stance: profile.stance,
-    signals: summarizeRouterSignals(signals),
+    signals: summarizeRouterSignals({ ...signals, complexity: route.complexity }),
     effort: route.effort,
     currentProviderId: args.currentProviderId,
     stick: classifierStick,

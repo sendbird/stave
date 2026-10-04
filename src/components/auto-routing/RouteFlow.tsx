@@ -4,6 +4,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import {
   listEligibleRouteModels,
   resolveRouteTierForModel,
+  ROUTE_COMPLEXITY_LABELS,
   ROUTE_TIER_LABELS,
   ROUTE_TIERS,
   ROUTER_ROLE_LABELS,
@@ -62,7 +63,7 @@ export function explainRuleMiss(
     }
   }
   if (when.complexity && when.complexity !== signals.complexity) {
-    return `complexity is ${signals.complexity}`;
+    return `level is ${ROUTE_COMPLEXITY_LABELS[signals.complexity].toLowerCase()}`;
   }
   if (typeof when.sensitive === "boolean" && when.sensitive !== signals.sensitive) {
     return when.sensitive ? "not sensitive" : "sensitive";
@@ -87,7 +88,7 @@ export function describeRuleConditions(rule: RouteRule): string[] {
   if (when.skill && when.skill.length > 0) {
     parts.push(when.skill.map((skill) => `/${skill}`).join(" "));
   }
-  if (when.complexity) parts.push(`${when.complexity} complexity`);
+  if (when.complexity) parts.push(`${ROUTE_COMPLEXITY_LABELS[when.complexity].toLowerCase()} level`);
   if (typeof when.sensitive === "boolean") {
     parts.push(when.sensitive ? "sensitive" : "not sensitive");
   }
@@ -122,7 +123,7 @@ function buildSignalNodes(args: {
       value: TASK_CLASS_LABELS[summary.taskClass],
       decisive: false,
     },
-    { id: "complexity", label: "complexity", value: summary.complexity, decisive: false },
+    { id: "complexity", label: "level", value: ROUTE_COMPLEXITY_LABELS[summary.complexity] ?? summary.complexity, decisive: false },
     {
       id: "sensitive",
       label: "sensitive",
@@ -246,14 +247,10 @@ function buildLadder(args: {
   }
 
   let cursorTier = targetTier;
-  let cursorIndex = targetIndex;
+  const cursorIndex = targetIndex;
   if (route.stanceShift !== 0) {
-    cursorTier = shiftTier(rungs, cursorTier, route.stanceShift);
-    const next = pickRungForTier(rungs, cursorTier);
-    if (next !== cursorIndex) {
-      rungs[next]?.notes.push(route.stanceShift > 0 ? "stance +1" : "stance −1");
-      cursorIndex = next;
-    }
+    // The preference moves effort inside the level's range, never the rung.
+    rungs[cursorIndex]?.notes.push(route.stanceShift > 0 ? "preference +1 effort" : "preference −1 effort");
   }
   if (route.budgetShift === -1) {
     if (route.budgetHeldModel) {

@@ -121,10 +121,10 @@ describe("parseRouteClassification", () => {
   test("parses strict route classification JSON", () => {
     expect(
       parseRouteClassification(
-        '{"version":1,"intent":"plan","complexity":"high","risk":"normal","continuity":"new","evidenceCodes":["explicit_request"]}',
+        '{"version":2,"intent":"plan","complexity":"high","risk":"normal","continuity":"new","evidenceCodes":["explicit_request"]}',
       ),
     ).toEqual({
-      version: 1, intent: "plan", complexity: "high", risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"],
+      version: 2, intent: "plan", complexity: "high", risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"],
     });
   });
 
@@ -376,12 +376,12 @@ describe("provider-neutral utility inference", () => {
       createRunners({
         calls,
         codex:
-          '{"version":1,"intent":"review","complexity":"medium","risk":"normal","continuity":"new","evidenceCodes":[]}',
+          '{"version":2,"intent":"review","complexity":"medium","risk":"normal","continuity":"new","evidenceCodes":[]}',
       }),
     );
 
     expect(result.classification).toMatchObject({
-      version: 1, intent: "review", complexity: "medium", risk: "normal", continuity: "new", evidenceCodes: [],
+      version: 2, intent: "review", complexity: "medium", risk: "normal", continuity: "new", evidenceCodes: [],
     });
     expect(result.utility.providerId).toBe("codex");
   });

@@ -93,28 +93,28 @@ function resolveDecision(args: {
 }
 
 describe("resolveAutoRoutingDecision", () => {
-  test("bounded edits can use a light model on the first turn", async () => {
+  test("bounded edits use the light route, Sonnet rather than Haiku, on the first turn", async () => {
     const decision = await resolveDecision({ prompt: "fix typo" });
 
     expect(decision).toMatchObject({
-      providerId: "claude-code", model: "claude-haiku-4-5",
+      providerId: "claude-code", model: DEFAULT_CLAUDE_SONNET_MODEL,
       claudeEffort: "medium", taskType: "quick_edit", taskClass: "quick-edit",
-      tier: "light", source: "heuristic", ruleId: "bounded", role: "primary", stance: "balanced",
+      source: "heuristic", ruleId: "bounded", role: "primary", stance: "balanced",
     });
     expect(decision.ruleReason.length).toBeGreaterThan(0);
   });
 
-  test("ordinary planning uses the balanced model", async () => {
+  test("planning runs as complex work on the flagship at high effort", async () => {
     const decision = await resolveDecision({
       prompt: "Plan the implementation sequence for this refactor",
     });
 
     expect(decision).toMatchObject({
       providerId: "claude-code",
-      model: DEFAULT_CLAUDE_SONNET_MODEL,
+      model: DEFAULT_CLAUDE_OPUS_MODEL,
       taskType: "plan",
       taskClass: "plan",
-      ruleId: "standard",
+      ruleId: "complex",
       claudeEffort: "high",
     });
   });
@@ -137,7 +137,7 @@ describe("resolveAutoRoutingDecision", () => {
     });
   });
 
-  test("safety escalation lifts sensitive requests to the frontier", async () => {
+  test("safety escalation routes sensitive requests as complex flagship work, not the frontier", async () => {
     const decision = await resolveDecision({
       prompt: "Update auth token handling",
     });
@@ -145,11 +145,12 @@ describe("resolveAutoRoutingDecision", () => {
     expect(decision.taskType).toBe("safety");
     expect(decision.taskClass).toBe("safety-critical");
     expect(decision.ruleId).toBe("safety-critical");
-    expect(decision.model).toBe(CLAUDE_FABLE_MODEL);
-    expect(decision.signals.sensitive).toBe(true);
+    expect(decision.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    expect(decision.claudeEffort).toBe("high");
+    expect(decision.signals).toMatchObject({ sensitive: true, complexity: "high" });
   });
 
-  test("the legacy objective maps to a stance that shifts the route", async () => {
+  test("the legacy objective maps to a stance that moves effort within the level's range", async () => {
     const lowCost = await resolveDecision({
       prompt: "Plan the implementation sequence",
       settings: { autoRoutingObjective: 0 },
@@ -159,17 +160,21 @@ describe("resolveAutoRoutingDecision", () => {
       settings: { autoRoutingObjective: 1 },
     });
 
+    // Planning is complex work: the flagship, high to xhigh.
     expect(lowCost.stance).toBe("cost-saver");
-    expect(lowCost.model).toBe(DEFAULT_CLAUDE_SONNET_MODEL);
+    expect(lowCost).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, claudeEffort: "high" });
     expect(highQuality.stance).toBe("quality-first");
-    expect(highQuality.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    expect(highQuality).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, claudeEffort: "xhigh" });
   });
 
   test("a restricted allowlist cannot silently underpower the task", async () => {
     await expect(resolveDecision({
       prompt: "Plan the implementation sequence",
-      settings: { autoRoutingEligibleClaudeModels: ["claude-haiku-4-5"] },
-    })).rejects.toThrow("No available allowed model");
+      settings: {
+        autoRoutingEligibleClaudeModels: ["claude-haiku-4-5"],
+        autoRoutingEligibleCodexModels: ["gpt-6-luna"],
+      },
+    })).rejects.toThrow("Complex work needs a Flagship model or stronger");
     expect((await resolveDecision({ prompt: "fix typo",
       settings: { autoRoutingEligibleClaudeModels: ["claude-haiku-4-5"] },
     })).model).toBe("claude-haiku-4-5");
@@ -206,7 +211,8 @@ describe("resolveAutoRoutingDecision", () => {
     });
 
     expect(decision.providerId).toBe("codex");
-    expect(decision.model).toBe("gpt-5.6-terra");
+    expect(decision.model).toBe("gpt-6.1-sol");
+    expect(decision.codexReasoningEffort).toBe("medium");
   });
 
   test("falls back to heuristics when the classifier times out", async () => {
@@ -220,7 +226,7 @@ describe("resolveAutoRoutingDecision", () => {
           setTimeout(
             () =>
               resolve({
-                version: 1, intent: "plan", complexity: "high", risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"],
+                version: 2, intent: "plan", complexity: "high", risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"],
               }),
             20,
           );
@@ -237,7 +243,7 @@ describe("resolveAutoRoutingDecision", () => {
         "I am not sure how to approach this area in the codebase yet and need guidance",
       settings: { autoRoutingUseClassifier: true },
       classifyRoute: async () => ({
-        version: 1, intent: "plan", complexity: "high", risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"],
+        version: 2, intent: "plan", complexity: "high", risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"],
       }),
     });
 
@@ -252,7 +258,16 @@ describe("resolveAutoRoutingDecision", () => {
     });
 
     expect(decision.signals.skill).toBe("ship");
-    expect(decision.ruleId).toBe("complex");
+    expect(decision.ruleId).toBe("standard");
+    expect(decision).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, claudeEffort: "medium" });
+  });
+
+  test("a $skill token is a skill command like a slash command", async () => {
+    expect(detectPromptSkill("$ship")).toBe("ship");
+    expect(detectPromptSkill("  $review:pr now")).toBe("review:pr");
+    expect(detectPromptSkill("costs $5 to run")).toBeUndefined();
+    const decision = await resolveDecision({ prompt: "$ship" });
+    expect(decision.signals.skill).toBe("ship");
     expect(decision.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
   });
 
@@ -284,11 +299,11 @@ describe("resolveAutoRoutingDecision", () => {
   test("a valid classifier can distinguish an explanation from a sensitive action", async () => {
     const result = await resolveDecision({ prompt: "Explain payment transactions",
       settings: { autoRoutingUseClassifier: true },
-      classifyRoute: async () => ({ version: 1, intent: "explain", complexity: "low",
+      classifyRoute: async () => ({ version: 2, intent: "explain", complexity: "low",
         risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"] }),
     });
     expect(result.taskClass).toBe("research");
-    expect(result.model).toBe("claude-haiku-4-5");
+    expect(result.model).toBe(DEFAULT_CLAUDE_SONNET_MODEL);
     expect(result.confidence).toBeNull();
   });
 
@@ -300,7 +315,7 @@ describe("resolveAutoRoutingDecision", () => {
       prompt: "Explain payment transactions", history: [],
       classifyRoute: async () => {
         await Bun.sleep(1600);
-        return { version: 1, intent: "explain", complexity: "low", risk: "normal",
+        return { version: 2, intent: "explain", complexity: "low", risk: "normal",
           continuity: "new", evidenceCodes: ["explicit_request"] };
       },
     });
@@ -402,7 +417,7 @@ describe("signals", () => {
         fileContextCount: 3,
         budgetUsedPercent: 41,
       }),
-    ).toBe("implement · medium complexity · 3 files · budget 41%");
+    ).toBe("implement · standard level · 3 files · budget 41%");
   });
 
   test("decision records keep a bounded prompt preview", async () => {
@@ -485,7 +500,7 @@ describe("a task running as an agent", () => {
       prompt: "Explain why saving the settings fails",
       history: [],
       classifyRoute: async () => ({
-        version: 1,
+        version: 2,
         intent: args.intent ?? "explain",
         complexity: "low",
         risk: args.risk ?? "normal",

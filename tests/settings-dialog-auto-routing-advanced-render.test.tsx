@@ -57,3 +57,26 @@ describe("Auto settings advanced disclosure", () => {
     expect(html).toContain('aria-expanded="false"');
   });
 });
+
+describe("Auto settings routing levels", () => {
+  test("the levels table shows what each level runs on for both providers", async () => {
+    const html = await renderSection();
+    const table = html.slice(html.indexOf('data-testid="auto-routing-levels"'));
+    for (const label of ["Simple", "Standard", "Complex", "Expert", "Extreme"]) {
+      expect(table).toContain(label);
+    }
+    expect(table).toContain("Sonnet 5.5 · Medium");
+    expect(table).toContain("GPT-6 Luna · Medium");
+    expect(table).toContain("Opus 5.5 · High");
+    expect(table).toContain("GPT-6.1 Sol · Medium");
+    expect(table).toContain("Fable 5.1 · Medium");
+    expect(table).toContain("GPT-6 Astra · High");
+  });
+
+  test("allowed models offer a Default chip and leave Haiku out of it", async () => {
+    const html = await renderSection();
+    expect(html).toContain("Allowed models");
+    expect(html).toContain(">Default<");
+    expect(html).toContain("except Claude Haiku 4.5");
+  });
+});

@@ -21,7 +21,7 @@ test("default Auto dispatch uses the classifier bridge and preserves Plan intent
       calls++;
       phase = request.phase;
       return { ok: true,
-        classification: { version: 1, intent: "explain", complexity: "low",
+        classification: { version: 2, intent: "explain", complexity: "low",
           risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"] },
         utility: { providerId: "codex", model: "gpt-5.6-luna", selectionReason: "explicit",
           degraded: false, attempts: [] },
@@ -159,7 +159,7 @@ test("an unclear intent on a task running as an agent routes as its agent's task
   const previousWindow = globalThis.window;
   globalThis.window = { api: { provider: {
     classifyRoute: async () => ({ ok: true,
-      classification: { version: 1, intent: "unknown", complexity: "low",
+      classification: { version: 2, intent: "unknown", complexity: "low",
         risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"] },
       utility: { providerId: "codex", model: "gpt-5.6-luna", selectionReason: "explicit",
         degraded: false, attempts: [] },

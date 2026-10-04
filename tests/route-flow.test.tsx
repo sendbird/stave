@@ -223,7 +223,7 @@ describe("explainRuleMiss", () => {
       }),
     ).toBe("skill routing off");
     expect(explainRuleMiss(rule({ complexity: "high" }), baseSignals, "primary")).toBe(
-      "complexity is medium",
+      "level is standard",
     );
   });
 

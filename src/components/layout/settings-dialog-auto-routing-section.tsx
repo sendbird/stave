@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Textarea } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
-import { RouteFlow } from "@/components/auto-routing";
+import { describeRuleConditions, RouteFlow } from "@/components/auto-routing";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -13,13 +13,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AUTO_ROUTING_OPT_IN_MODELS,
   cloneProfileAsCustom,
   buildRoleTableGroups,
   buildStarterRules,
   formatResolvedRouteLabel,
   isStarterProfileId,
   listEligibleRouteModels,
+  previewRouteLevels,
   resolveRoute,
+  ROUTE_COMPLEXITIES,
+  ROUTE_COMPLEXITY_LABELS,
   ROUTE_TIER_LABELS,
   ROUTE_TIERS,
   ROUTER_ROLE_LABELS,
@@ -31,6 +35,7 @@ import {
   TASK_CLASSES,
   withStance,
   type AutoRoutingProfile,
+  type RouteComplexity,
   type RouteProviderSelector,
   type RouteRule,
   type RouterRole,
@@ -83,7 +88,7 @@ const PROVIDER_SELECTORS: ReadonlyArray<{ value: RouteProviderSelector; label: s
 ];
 const EFFORT_VALUES = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
 const ROLE_HINTS: Readonly<Record<RouterRole, string>> = {
-  primary: "Rules without a role apply here. First match wins, top to bottom.",
+  primary: "The task's own turns. Rules without a role apply here.",
   advisor: "No longer used. Second opinions run as read-only subagents, so these saved rules have no effect.",
   worker: "No longer used. Subagents run on their agent's model, so these saved rules have no effect.",
   delegate: "Seeds the model and effort a delegated task starts with.",
@@ -94,23 +99,98 @@ const EMPTY_ROLE_HINTS: Readonly<Record<(typeof SELECTABLE_ROUTER_ROLES)[number]
 };
 const ROLE_OPTIONS = SELECTABLE_ROUTER_ROLES.map((role) => ({ value: role, label: ROUTER_ROLE_LABELS[role] }));
 
-/** One line for a stored rule that can no longer be edited: what it would have picked. */
-function describeLegacyRule(rule: RouteRule) {
-  const provider =
-    PROVIDER_SELECTORS.find((entry) => entry.value === rule.then.providerId)?.label ?? rule.then.providerId;
+/** `Frontier · High effort` (plus the provider when it is pinned): what a rule picks. */
+function describeRuleTarget(rule: RouteRule) {
+  const provider = rule.then.providerId === "any-eligible"
+    ? null
+    : PROVIDER_SELECTORS.find((entry) => entry.value === rule.then.providerId)?.label ?? rule.then.providerId;
   const target = rule.then.model
     ? toHumanModelName({ model: rule.then.model })
     : rule.then.tier
       ? ROUTE_TIER_LABELS[rule.then.tier]
-      : null;
-  const effort = rule.then.effort ? `${rule.then.effort} effort` : null;
-  return [provider, target, effort, rule.reason || null].filter(Boolean).join(" · ");
+      : "Provider default";
+  const effort = rule.then.effort
+    ? `${rule.then.effort.slice(0, 1).toUpperCase()}${rule.then.effort.slice(1)} effort`
+    : null;
+  return [provider, target, effort].filter(Boolean).join(" · ");
 }
 
+/** One line for a stored rule that can no longer be edited: what it would have picked. */
+function describeLegacyRule(rule: RouteRule) {
+  return [describeRuleTarget(rule), rule.reason || null].filter(Boolean).join(" · ");
+}
+
+/** `Opus 5.5 · $4 / $20`: the vendor prefix repeats the provider heading. */
 function modelLabel(model: string) {
   const price = formatModelPrice(model);
-  const name = toHumanModelName({ model });
-  return price ? `${name} (${price})` : name;
+  const name = toHumanModelName({ model }).replace(/^Claude /, "");
+  return price ? `${name} · ${price}` : name;
+}
+
+const MANAGED_PROVIDERS = ["claude-code", "codex"] as const;
+
+/**
+ * What each level runs on under the current preference and allowed models,
+ * per provider. Recomputed from the same resolver the composer uses, so the
+ * table is the routing policy rather than a description of it.
+ */
+function RoutingLevelsTable(args: {
+  profile: AutoRoutingProfile;
+  modelsByProvider: Partial<Record<ProviderId, readonly string[]>>;
+}) {
+  const previews = useMemo(
+    () =>
+      MANAGED_PROVIDERS.map((providerId) => ({
+        providerId,
+        levels: previewRouteLevels({
+          profile: args.profile,
+          providerId,
+          runtimeModels: args.modelsByProvider[providerId],
+        }),
+      })),
+    [args.modelsByProvider, args.profile],
+  );
+  return (
+    <table className={sx(styles.levelTable)} data-testid="auto-routing-levels">
+      <thead>
+        <tr>
+          <th scope="col" className={sx(styles.levelHead)}>Level</th>
+          {previews.map(({ providerId }) => (
+            <th key={providerId} scope="col" className={sx(styles.levelHead)}>
+              {getProviderLabel({ providerId })}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {ROUTE_COMPLEXITIES.map((complexity, rowIndex) => {
+          const level = previews[0]?.levels[rowIndex]?.level;
+          return (
+            <tr key={complexity} className={sx(styles.levelRow)}>
+              <th scope="row" className={sx(styles.levelName)}>
+                <span className={sx(styles.levelLabel)}>{ROUTE_COMPLEXITY_LABELS[complexity]}</span>
+                <span className={sx(styles.levelDescription)}>{level?.description}</span>
+              </th>
+              {previews.map(({ providerId, levels }) => {
+                const entry = levels[rowIndex];
+                return (
+                  <td key={providerId} className={sx(styles.levelCell)}>
+                    {entry?.route ? (
+                      <span className={sx(styles.levelRoute)}>{formatResolvedRouteLabel(entry.route)}</span>
+                    ) : (
+                      <span className={sx(styles.levelMissing)} title={entry?.error ?? undefined}>
+                        No allowed model
+                      </span>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
 }
 
 function nextRuleId(profile: AutoRoutingProfile, role: RouterRole) {
@@ -163,6 +243,7 @@ function RuleRow(args: {
   onDelete: () => void;
 }) {
   const { rule } = args;
+  const [expanded, setExpanded] = useState(false);
   const role = rule.when.role ?? "primary";
   const providerForModels: ProviderId | null =
     rule.then.providerId === "any-eligible" || rule.then.providerId === "alternate-provider"
@@ -188,11 +269,25 @@ function RuleRow(args: {
             onCheckedChange={(enabled) => args.onChange({ ...rule, enabled })}
             aria-label={`Enable rule ${rule.id}`}
           />
-          <span className={sx(styles.ruleId)} title={rule.id}>
-            {rule.id}
+          <span className={sx(styles.ruleSummary)}>
+            <span className={sx(styles.ruleWhen)}>
+              {describeRuleConditions(rule).join(" · ")}
+            </span>
+            <span className={sx(styles.ruleArrow)} aria-hidden="true">→</span>
+            <span className={sx(styles.ruleThen)}>{describeRuleTarget(rule)}</span>
           </span>
         </div>
         <div className={sx(styles.ruleActions)}>
+          <Button
+            type="button"
+            variant="quiet"
+            size="sm"
+            aria-label={expanded ? `Close rule ${rule.id}` : `Edit rule ${rule.id}`}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+          >
+            <Pencil className={sx(styles.icon)} aria-hidden="true" />
+          </Button>
           <Button
             type="button"
             variant="quiet"
@@ -224,156 +319,159 @@ function RuleRow(args: {
           </Button>
         </div>
       </div>
-      <div className={sx(styles.ruleGrid)}>
-        <RuleField label="Role">
-          <RuleSelect
-            ariaLabel="Rule role"
-            value={role}
-            onChange={(value) => patchWhen({ role: value })}
-            options={ROLE_OPTIONS}
-          />
-        </RuleField>
-        <RuleField label="Task class">
-          <RuleSelect
-            ariaLabel="Task class condition"
-            value={rule.when.taskClass ?? ANY_VALUE}
-            onChange={(value) =>
-              patchWhen({ taskClass: value === ANY_VALUE ? undefined : (value as TaskClass) })
-            }
-            options={[
-              { value: ANY_VALUE, label: "Any" },
-              ...TASK_CLASSES.map((entry) => ({
-                value: entry,
-                label: TASK_CLASS_LABELS[entry],
-              })),
-            ]}
-          />
-        </RuleField>
-        <RuleField label="Skill (comma-separated)">
-          <DraftInput
-            xstyle={styles.ruleInput}
-            placeholder="ship, ci-fix"
-            value={(rule.when.skill ?? []).join(", ")}
-            onCommit={(value) => {
-              const skill = value
-                .split(",")
-                .map((entry) => entry.trim().replace(/^\//, "").toLowerCase())
-                .filter(Boolean);
-              patchWhen({ skill: skill.length > 0 ? skill : undefined });
-            }}
-          />
-        </RuleField>
-        <RuleField label="Complexity">
-          <RuleSelect
-            ariaLabel="Complexity condition"
-            value={rule.when.complexity ?? ANY_VALUE}
-            onChange={(value) =>
-              patchWhen({
-                complexity:
-                  value === ANY_VALUE ? undefined : (value as RouteRule["when"]["complexity"]),
-              })
-            }
-            options={[
-              { value: ANY_VALUE, label: "Any" },
-              { value: "low", label: "Low" },
-              { value: "medium", label: "Medium" },
-              { value: "high", label: "High" },
-            ]}
-          />
-        </RuleField>
-        <RuleField label="Sensitive">
-          <RuleSelect
-            ariaLabel="Sensitive condition"
-            value={
-              rule.when.sensitive === undefined ? ANY_VALUE : rule.when.sensitive ? "yes" : "no"
-            }
-            onChange={(value) =>
-              patchWhen({ sensitive: value === ANY_VALUE ? undefined : value === "yes" })
-            }
-            options={[
-              { value: ANY_VALUE, label: "Any" },
-              { value: "yes", label: "Only sensitive" },
-              { value: "no", label: "Only non-sensitive" },
-            ]}
-          />
-        </RuleField>
-        <RuleField label="Usage at least (%)">
-          <DraftInput
-            xstyle={styles.ruleInput}
-            inputMode="numeric"
-            placeholder="—"
-            value={
-              rule.when.budgetUsedAtLeast === undefined ? "" : String(rule.when.budgetUsedAtLeast)
-            }
-            onCommit={(value) => {
-              const parsed = Number.parseInt(value, 10);
-              patchWhen({
-                budgetUsedAtLeast: Number.isFinite(parsed)
-                  ? Math.min(100, Math.max(0, parsed))
-                  : undefined,
-              });
-            }}
-          />
-        </RuleField>
-        <RuleField label="Provider">
-          <RuleSelect
-            ariaLabel="Target provider"
-            value={rule.then.providerId}
-            onChange={(value) => patchThen({ providerId: value, model: undefined })}
-            options={PROVIDER_SELECTORS}
-          />
-        </RuleField>
-        <RuleField label="Tier">
-          <RuleSelect
-            ariaLabel="Target tier"
-            value={rule.then.tier ?? DEFAULT_VALUE}
-            onChange={(value) =>
-              patchThen({ tier: value === DEFAULT_VALUE ? undefined : (value as RouteTier) })
-            }
-            options={[
-              { value: DEFAULT_VALUE, label: rule.then.model ? "From model" : "Provider default" },
-              ...ROUTE_TIERS.map((entry) => ({
-                value: entry,
-                label: ROUTE_TIER_LABELS[entry],
-              })),
-            ]}
-          />
-        </RuleField>
-        <RuleField label="Model">
-          <RuleSelect
-            ariaLabel="Target model"
-            value={rule.then.model ?? DEFAULT_VALUE}
-            onChange={(value) =>
-              patchThen({ model: value === DEFAULT_VALUE ? undefined : value })
-            }
-            options={[{ value: DEFAULT_VALUE, label: "Pick by tier" }, ...modelOptions]}
-          />
-        </RuleField>
-        <RuleField label="Effort">
-          <RuleSelect
-            ariaLabel="Target effort"
-            value={rule.then.effort ?? DEFAULT_VALUE}
-            onChange={(value) =>
-              patchThen({ effort: value === DEFAULT_VALUE ? undefined : value })
-            }
-            options={[
-              { value: DEFAULT_VALUE, label: "Model default" },
-              ...EFFORT_VALUES.map((entry) => ({
-                value: entry,
-                label: `${entry.slice(0, 1).toUpperCase()}${entry.slice(1)}`,
-              })),
-            ]}
-          />
-        </RuleField>
-        <RuleField label="Reason shown to the user" wide>
-          <DraftInput
-            xstyle={styles.ruleInput}
-            placeholder="Why this route is the right one."
-            value={rule.reason}
-            onCommit={(value) => args.onChange({ ...rule, reason: value.trim().slice(0, 240) })}
-          />
-        </RuleField>
-      </div>
+      {expanded ? (
+        <div className={sx(styles.ruleGrid)}>
+          <RuleField label="Role">
+            <RuleSelect
+              ariaLabel="Rule role"
+              value={role}
+              onChange={(value) => patchWhen({ role: value })}
+              options={ROLE_OPTIONS}
+            />
+          </RuleField>
+          <RuleField label="Task class">
+            <RuleSelect
+              ariaLabel="Task class condition"
+              value={rule.when.taskClass ?? ANY_VALUE}
+              onChange={(value) =>
+                patchWhen({ taskClass: value === ANY_VALUE ? undefined : (value as TaskClass) })
+              }
+              options={[
+                { value: ANY_VALUE, label: "Any" },
+                ...TASK_CLASSES.map((entry) => ({
+                  value: entry,
+                  label: TASK_CLASS_LABELS[entry],
+                })),
+              ]}
+            />
+          </RuleField>
+          <RuleField label="Skill (comma-separated)">
+            <DraftInput
+              xstyle={styles.ruleInput}
+              placeholder="ship, review"
+              value={(rule.when.skill ?? []).join(", ")}
+              onCommit={(value) => {
+                const skill = value
+                  .split(",")
+                  .map((entry) => entry.trim().replace(/^[/$]/, "").toLowerCase())
+                  .filter(Boolean);
+                patchWhen({ skill: skill.length > 0 ? skill : undefined });
+              }}
+            />
+          </RuleField>
+          <RuleField label="Level">
+            <RuleSelect
+              ariaLabel="Level condition"
+              value={rule.when.complexity ?? ANY_VALUE}
+              onChange={(value) =>
+                patchWhen({
+                  complexity: value === ANY_VALUE ? undefined : (value as RouteComplexity),
+                })
+              }
+              options={[
+                { value: ANY_VALUE, label: "Any" },
+                ...ROUTE_COMPLEXITIES.map((entry) => ({
+                  value: entry,
+                  label: ROUTE_COMPLEXITY_LABELS[entry],
+                })),
+              ]}
+            />
+          </RuleField>
+          <RuleField label="Sensitive">
+            <RuleSelect
+              ariaLabel="Sensitive condition"
+              value={
+                rule.when.sensitive === undefined ? ANY_VALUE : rule.when.sensitive ? "yes" : "no"
+              }
+              onChange={(value) =>
+                patchWhen({ sensitive: value === ANY_VALUE ? undefined : value === "yes" })
+              }
+              options={[
+                { value: ANY_VALUE, label: "Any" },
+                { value: "yes", label: "Only sensitive" },
+                { value: "no", label: "Only non-sensitive" },
+              ]}
+            />
+          </RuleField>
+          <RuleField label="Usage at least (%)">
+            <DraftInput
+              xstyle={styles.ruleInput}
+              inputMode="numeric"
+              placeholder="—"
+              value={
+                rule.when.budgetUsedAtLeast === undefined ? "" : String(rule.when.budgetUsedAtLeast)
+              }
+              onCommit={(value) => {
+                const parsed = Number.parseInt(value, 10);
+                patchWhen({
+                  budgetUsedAtLeast: Number.isFinite(parsed)
+                    ? Math.min(100, Math.max(0, parsed))
+                    : undefined,
+                });
+              }}
+            />
+          </RuleField>
+          <RuleField label="Provider">
+            <RuleSelect
+              ariaLabel="Target provider"
+              value={rule.then.providerId}
+              onChange={(value) => patchThen({ providerId: value, model: undefined })}
+              options={PROVIDER_SELECTORS}
+            />
+          </RuleField>
+          <RuleField label="Tier">
+            <RuleSelect
+              ariaLabel="Target tier"
+              value={rule.then.tier ?? DEFAULT_VALUE}
+              onChange={(value) =>
+                patchThen({ tier: value === DEFAULT_VALUE ? undefined : (value as RouteTier) })
+              }
+              options={[
+                { value: DEFAULT_VALUE, label: rule.then.model ? "From model" : "Provider default" },
+                ...ROUTE_TIERS.map((entry) => ({
+                  value: entry,
+                  label: ROUTE_TIER_LABELS[entry],
+                })),
+              ]}
+            />
+          </RuleField>
+          <RuleField label="Model">
+            <RuleSelect
+              ariaLabel="Target model"
+              value={rule.then.model ?? DEFAULT_VALUE}
+              onChange={(value) =>
+                patchThen({ model: value === DEFAULT_VALUE ? undefined : value })
+              }
+              options={[{ value: DEFAULT_VALUE, label: "Pick by tier" }, ...modelOptions]}
+            />
+          </RuleField>
+          <RuleField label="Effort">
+            <RuleSelect
+              ariaLabel="Target effort"
+              value={rule.then.effort ?? DEFAULT_VALUE}
+              onChange={(value) =>
+                patchThen({ effort: value === DEFAULT_VALUE ? undefined : value })
+              }
+              options={[
+                { value: DEFAULT_VALUE, label: "Model default" },
+                ...EFFORT_VALUES.map((entry) => ({
+                  value: entry,
+                  label: `${entry.slice(0, 1).toUpperCase()}${entry.slice(1)}`,
+                })),
+              ]}
+            />
+          </RuleField>
+          <RuleField label="Reason shown to the user" wide>
+            <DraftInput
+              xstyle={styles.ruleInput}
+              placeholder="Why this route is the right one."
+              value={rule.reason}
+              onCommit={(value) => args.onChange({ ...rule, reason: value.trim().slice(0, 240) })}
+            />
+          </RuleField>
+          <p className={sx(styles.ruleIdNote)}>Rule id: {rule.id}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -476,7 +574,7 @@ export function SettingsAutoRoutingSection(props: {
         id={AUTO_ROUTING_SETTING_FIELD_ID}
         tabIndex={-1}
         title="Auto (Model Router)"
-        description="Auto uses a model to understand intent, complexity, risk, and conversation context before choosing an eligible model and effort."
+        description="Auto reads each request, rates how much reasoning it needs, and runs it on the matching model and effort."
         titleAccessory={
           <Badge variant={autoRoutingEnabled ? "secondary" : "outline"}>
             {autoRoutingEnabled ? "On" : "Off"}
@@ -485,13 +583,13 @@ export function SettingsAutoRoutingSection(props: {
       >
         <SwitchField
           title="Enable Auto routing"
-          description="Global kill switch. Off keeps the composer's Auto option unavailable and every Auto pick falls back to the provider default."
+          description="Off hides the composer's Auto option; turns use the model you pick."
           checked={autoRoutingEnabled}
           onCheckedChange={(checked) => updateSettings({ patch: { autoRoutingEnabled: checked } })}
         />
         <LabeledField layout="stacked"
           title="Preference"
-          description="Balance cost and quality while keeping the capability required by the task. Saved rules and model choices are preserved."
+          description="Sets the effort inside each level's range. The model for a level stays the same."
         >
           <ChoiceButtons
             columns={3}
@@ -506,19 +604,25 @@ export function SettingsAutoRoutingSection(props: {
         </LabeledField>
       </SettingsCard>
       <SettingsCard
-        title="Eligible models"
-        description="Which catalog models a route may land on. Empty means every model of that provider. Stance and budget steps stay inside this set."
+        title="Routing levels"
+        description="Most work is Standard. Expert and Extreme run only when the classifier finds explicit evidence for them. Sensitive changes route as Complex or higher."
+      >
+        <RoutingLevelsTable profile={profile} modelsByProvider={modelsByProvider} />
+      </SettingsCard>
+      <SettingsCard
+        title="Allowed models"
+        description="Models Auto may pick. Default allows every model except Claude Haiku 4.5. A level with no allowed model hands the turn to the other provider."
       >
         <div className={sx(styles.chipGroup)}>
-          {(["claude-code", "codex"] as const).map((providerId) => {
+          {MANAGED_PROVIDERS.map((providerId) => {
             const selected = profile.eligibleModelsByProvider[providerId] ?? [];
             return (
               <LabeledField layout="stacked"
                 key={providerId}
-                title={`${getProviderLabel({ providerId })} eligible models`}
+                title={getProviderLabel({ providerId })}
               >
                 <ToggleChipGroup
-                  allLabel="All"
+                  allLabel="Default"
                   onSelectAll={() =>
                     edit((draft) => {
                       const { [providerId]: _dropped, ...rest } = draft.eligibleModelsByProvider;
@@ -540,6 +644,9 @@ export function SettingsAutoRoutingSection(props: {
                   options={(modelsByProvider[providerId] ?? []).map((model) => ({
                     value: model,
                     label: modelLabel(model),
+                    ...(AUTO_ROUTING_OPT_IN_MODELS.has(model)
+                      ? { description: "Not in Default. Select it to let Auto use it." }
+                      : {}),
                   }))}
                 />
               </LabeledField>
@@ -577,104 +684,104 @@ export function SettingsAutoRoutingSection(props: {
           </AccordionTrigger>
           <AccordionContent className={sx(styles.advancedPanel)}>
             <SectionStack>
-      <SettingsCard title="Routing controls" description="Model classification, budget thresholds, and routing signals.">
-        <LabeledField layout="stacked"
+      <SettingsCard title="Classification and signals" description="What Auto may read before it picks a route.">
+        <div className={sx(styles.signalsList)}>
+          <SwitchField
+            title="Model classification"
+            description="The Utility model rates intent, level, and risk (up to 30 seconds). Off, or on failure, Auto uses local keyword rules, which never pick Expert or Extreme."
+            checked={profile.signals.classifier}
+            onCheckedChange={(classifier) =>
+              edit((draft) => ({ ...draft, signals: { ...draft.signals, classifier } }))
+            }
+          />
+          <SwitchField
+            title="Safety escalation"
+            description="Changes to auth, secrets, payments, or production data route as Complex work or higher."
+            checked={profile.signals.safetyEscalation}
+            onCheckedChange={(safetyEscalation) =>
+              edit((draft) => ({ ...draft, signals: { ...draft.signals, safetyEscalation } }))
+            }
+          />
+          <SwitchField
+            title="Skill routing"
+            description="A prompt that starts with a skill, such as /ship or $ship, can match rules that name it."
+            checked={profile.signals.skillRouting}
+            onCheckedChange={(skillRouting) =>
+              edit((draft) => ({ ...draft, signals: { ...draft.signals, skillRouting } }))
+            }
+          />
+          <SwitchField
+            title="Provider switch"
+            description="Let Auto move a task to the other provider by preference. A provider that cannot run the turn hands over either way."
+            checked={profile.signals.providerSwitch}
+            onCheckedChange={(providerSwitch) =>
+              edit((draft) => ({ ...draft, signals: { ...draft.signals, providerSwitch } }))
+            }
+          />
+        </div>
+      </SettingsCard>
+
+      <SettingsCard title="Usage budget" description="Reads the tightest account usage window. Never routes below a level's minimum model.">
+        <SwitchField
           title="Budget guard"
-          description="Reads the tightest account usage window. Past the first threshold every route steps down one effort (models that keep their cache) or one rung; past the second, use the least expensive eligible model that meets the task requirements."
-        >
-          <div className={sx(styles.thresholdRow)}>
-            <div className={sx(styles.thresholdField)}>
-              <span className={sx(styles.thresholdLabel)}>Step down at (%)</span>
-              <DraftInput
-                xstyle={styles.thresholdInput}
-                inputMode="numeric"
-                aria-label="Step down threshold percent"
-                value={String(profile.budgetGuard.stepDownAt)}
-                onCommit={(value) => {
-                  const parsed = Number.parseInt(value, 10);
-                  if (!Number.isFinite(parsed)) return;
-                  edit((draft) => ({
-                    ...draft,
-                    budgetGuard: { ...draft.budgetGuard, stepDownAt: parsed },
-                  }));
-                }}
-              />
-            </div>
-            <div className={sx(styles.thresholdField)}>
-              <span className={sx(styles.thresholdLabel)}>Cheapest at (%)</span>
-              <DraftInput
-                xstyle={styles.thresholdInput}
-                inputMode="numeric"
-                aria-label="Cheapest threshold percent"
-                value={String(profile.budgetGuard.cheapestAt)}
-                onCommit={(value) => {
-                  const parsed = Number.parseInt(value, 10);
-                  if (!Number.isFinite(parsed)) return;
-                  edit((draft) => ({
-                    ...draft,
-                    budgetGuard: { ...draft.budgetGuard, cheapestAt: parsed },
-                  }));
-                }}
-              />
-            </div>
-          </div>
-        </LabeledField>
-        <LabeledField layout="stacked" title="Signals" description="Which inputs the router is allowed to read.">
-          <div className={sx(styles.signalsGrid)}>
-            <SwitchField
-              title="Model intent classification"
-              description="Enabled by default. Uses the configured Utility model and waits up to 30 seconds. Failure uses a conservative local route; turning this off uses local rules only."
-              checked={profile.signals.classifier}
-              onCheckedChange={(classifier) =>
-                edit((draft) => ({ ...draft, signals: { ...draft.signals, classifier } }))
-              }
+          description="Lower effort, then the model, as account usage climbs."
+          checked={profile.signals.budgetGuard}
+          onCheckedChange={(budgetGuard) =>
+            edit((draft) => ({ ...draft, signals: { ...draft.signals, budgetGuard } }))
+          }
+        />
+        <div className={sx(styles.thresholdRow)}>
+          <label className={sx(styles.thresholdField)}>
+            <span className={sx(styles.thresholdLabel)}>Save from (% used)</span>
+            <DraftInput
+              xstyle={styles.thresholdInput}
+              inputMode="numeric"
+              aria-label="Step down threshold percent"
+              value={String(profile.budgetGuard.stepDownAt)}
+              onCommit={(value) => {
+                const parsed = Number.parseInt(value, 10);
+                if (!Number.isFinite(parsed)) return;
+                edit((draft) => ({
+                  ...draft,
+                  budgetGuard: { ...draft.budgetGuard, stepDownAt: parsed },
+                }));
+              }}
             />
-            <SwitchField
-              title="Skill routing"
-              description="A prompt that starts with a skill, such as /ship, can match rules that name that skill."
-              checked={profile.signals.skillRouting}
-              onCheckedChange={(skillRouting) =>
-                edit((draft) => ({ ...draft, signals: { ...draft.signals, skillRouting } }))
-              }
+            <span className={sx(styles.thresholdHint)}>One effort step lower, or one model lower.</span>
+          </label>
+          <label className={sx(styles.thresholdField)}>
+            <span className={sx(styles.thresholdLabel)}>Cheapest from (% used)</span>
+            <DraftInput
+              xstyle={styles.thresholdInput}
+              inputMode="numeric"
+              aria-label="Cheapest threshold percent"
+              value={String(profile.budgetGuard.cheapestAt)}
+              onCommit={(value) => {
+                const parsed = Number.parseInt(value, 10);
+                if (!Number.isFinite(parsed)) return;
+                edit((draft) => ({
+                  ...draft,
+                  budgetGuard: { ...draft.budgetGuard, cheapestAt: parsed },
+                }));
+              }}
             />
-            <SwitchField
-              title="Budget guard"
-              description="Lower effort or pick a less expensive model once account usage passes the thresholds above."
-              checked={profile.signals.budgetGuard}
-              onCheckedChange={(budgetGuard) =>
-                edit((draft) => ({ ...draft, signals: { ...draft.signals, budgetGuard } }))
-              }
-            />
-            <SwitchField
-              title="Safety escalation"
-              description="Classify prompts that touch auth, secrets, payments, or production as safety-critical."
-              checked={profile.signals.safetyEscalation}
-              onCheckedChange={(safetyEscalation) =>
-                edit((draft) => ({ ...draft, signals: { ...draft.signals, safetyEscalation } }))
-              }
-            />
-            <SwitchField
-              title="Provider switch"
-              description="Let a route move to the other provider by preference mid-task. A provider that cannot run the turn — unavailable, or its account usage spent — hands over either way."
-              checked={profile.signals.providerSwitch}
-              onCheckedChange={(providerSwitch) =>
-                edit((draft) => ({ ...draft, signals: { ...draft.signals, providerSwitch } }))
-              }
-            />
-          </div>
-        </LabeledField>
+            <span className={sx(styles.thresholdHint)}>The least expensive model the level allows.</span>
+          </label>
+        </div>
       </SettingsCard>
 
       <SettingsAutoRoutingWizard samplesOverride={props.wizardSamples} />
 
       <SettingsCard
-        title="Role table"
-        description="Ordered rules per role. Conditions are ANDed; the first enabled match decides the route, and its reason is what the composer shows."
+        title="Rules"
+        description="The levels above are these rules. First enabled match wins, top to bottom; every condition in a rule must hold. Its reason is shown on the route line."
+        titleAccessory={
+          <Button type="button" variant="quiet" size="sm"
+            onClick={() => edit((draft) => ({ ...draft, rules: buildStarterRules() }))}>
+            Reset to defaults
+          </Button>
+        }
       >
-        <Button type="button" variant="quiet" size="sm"
-          onClick={() => edit((draft) => ({ ...draft, rules: buildStarterRules() }))}>
-          Reset rules to defaults
-        </Button>
         {roleGroups.map(({ role, legacy, rules }) => {
           const deleteRule = (index: number) =>
             edit((draft) => ({

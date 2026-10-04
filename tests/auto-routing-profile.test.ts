@@ -9,6 +9,7 @@ import {
   formatResolvedRouteLabel,
   migrateLegacyAutoSettings,
   resolveDelegateDefaults,
+  listEligibleRouteModels,
   resolveRoute,
   SELECTABLE_ROUTER_ROLES,
   STARTER_PROFILES,
@@ -78,29 +79,61 @@ describe("starter profiles", () => {
 });
 
 describe("resolveRoute", () => {
-  test("ordinary task categories share the balanced route", () => {
+  test("ordinary task categories share the standard route: the flagship at medium effort", () => {
     for (const taskClass of ["plan", "research", "implement", "debug", "review", "docs", "quick-edit", "ci-fix"] as const) {
       expect(resolveRoute({ profile: balanced, role: "primary", signals: signals({ taskClass }) }))
-        .toMatchObject({ providerId: "claude-code", model: DEFAULT_CLAUDE_SONNET_MODEL,
-          effort: "high", ruleId: "standard" });
+        .toMatchObject({ providerId: "claude-code", model: DEFAULT_CLAUDE_OPUS_MODEL,
+          effort: "medium", ruleId: "standard", complexity: "medium" });
+      expect(resolveRoute({ profile: balanced, role: "primary", signals: signals({ taskClass, currentProviderId: "codex" }) }))
+        .toMatchObject({ providerId: "codex", model: "gpt-6.1-sol", effort: "medium", ruleId: "standard" });
     }
   });
 
-  test("complexity determines capability for both coding and non-coding work", () => {
-    for (const taskClass of ["implement", "debug", "plan", "docs"] as const) {
-      expect(resolveRoute({ profile: balanced, role: "primary",
-        signals: signals({ taskClass, complexity: "high" }) }))
-        .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "high", ruleId: "complex" });
-      expect(resolveRoute({ profile: balanced, role: "primary",
-        signals: signals({ taskClass, complexity: "low", currentProviderId: "codex" }) }))
-        .toMatchObject({ model: "gpt-6-luna", effort: "xhigh", ruleId: "bounded" });
+  test("each level maps to one rung and effort on both providers", () => {
+    const expected = {
+      low: { claude: [DEFAULT_CLAUDE_SONNET_MODEL, "medium"], codex: ["gpt-6-luna", "medium"], rule: "bounded" },
+      medium: { claude: [DEFAULT_CLAUDE_OPUS_MODEL, "medium"], codex: ["gpt-6.1-sol", "medium"], rule: "standard" },
+      high: { claude: [DEFAULT_CLAUDE_OPUS_MODEL, "high"], codex: ["gpt-6.1-sol", "high"], rule: "complex" },
+      expert: { claude: [CLAUDE_FABLE_MODEL, "medium"], codex: ["gpt-6-astra", "medium"], rule: "expert" },
+      extreme: { claude: [CLAUDE_FABLE_MODEL, "high"], codex: ["gpt-6-astra", "high"], rule: "extreme" },
+    } as const;
+    for (const [complexity, route] of Object.entries(expected) as Array<[keyof typeof expected, (typeof expected)[keyof typeof expected]]>) {
+      for (const taskClass of ["implement", "plan", "docs"] as const) {
+        expect(resolveRoute({ profile: balanced, role: "primary", signals: signals({ taskClass, complexity }) }))
+          .toMatchObject({ model: route.claude[0], effort: route.claude[1], ruleId: route.rule });
+        expect(resolveRoute({ profile: balanced, role: "primary",
+          signals: signals({ taskClass, complexity, currentProviderId: "codex" }) }))
+          .toMatchObject({ model: route.codex[0], effort: route.codex[1], ruleId: route.rule });
+      }
     }
+  });
+
+  test("Auto never picks Haiku unless it is allowed explicitly", () => {
+    expect(listEligibleRouteModels({ profile: balanced, providerId: "claude-code" })).not.toContain("claude-haiku-4-5");
+    const allowed = { ...balanced, eligibleModelsByProvider: { "claude-code": ["claude-haiku-4-5", DEFAULT_CLAUDE_SONNET_MODEL] } };
+    expect(resolveRoute({ profile: allowed, role: "primary", signals: signals({ complexity: "low" }) }).model)
+      .toBe("claude-haiku-4-5");
   });
 
   test("a skill name does not bypass the capability floor", () => {
     expect(resolveRoute({ profile: balanced, role: "primary",
       signals: signals({ skill: "ship", currentProviderId: "codex" }) }))
-      .toMatchObject({ model: "gpt-5.6-terra", ruleId: "standard" });
+      .toMatchObject({ model: "gpt-6.1-sol", ruleId: "standard" });
+  });
+
+  test("a sensitive change routes as complex work, and a sensitive expert task keeps the frontier", () => {
+    expect(resolveRoute({ profile: balanced, role: "primary",
+      signals: signals({ taskClass: "safety-critical", sensitive: true, complexity: "low" }) }))
+      .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "high", ruleId: "safety-critical", complexity: "high" });
+    expect(resolveRoute({ profile: balanced, role: "primary",
+      signals: signals({ taskClass: "safety-critical", sensitive: true, complexity: "expert" }) }))
+      .toMatchObject({ model: CLAUDE_FABLE_MODEL, ruleId: "expert" });
+  });
+
+  test("unclear scope routes as standard work, not light and not the frontier", () => {
+    expect(resolveRoute({ profile: balanced, role: "primary",
+      signals: signals({ complexity: "low", uncertain: true }) }))
+      .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "medium", complexity: "medium" });
   });
 
   test("preference and usage cannot lower sensitive or complex work below its floor", () => {
@@ -108,28 +141,53 @@ describe("resolveRoute", () => {
       const profile = buildStarterProfile(stance);
       expect(resolveRoute({ profile, role: "primary",
         signals: signals({ taskClass: "safety-critical", sensitive: true, budgetUsedPercent: 99 }) }))
-        .toMatchObject({ model: CLAUDE_FABLE_MODEL, ruleId: "safety-critical" });
+        .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, ruleId: "safety-critical" });
       expect(resolveRoute({ profile, role: "primary",
         signals: signals({ complexity: "high", budgetUsedPercent: 99 }) }))
         .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL });
+      expect(resolveRoute({ profile, role: "primary",
+        signals: signals({ complexity: "extreme", budgetUsedPercent: 99 }) }))
+        .toMatchObject({ model: CLAUDE_FABLE_MODEL });
     }
   });
 
-  test("preference shifts quality and effort within eligible capability", () => {
-    expect(resolveRoute({ profile: buildStarterProfile("starter-cost-saver"),
-      role: "primary", signals: signals() }))
-      .toMatchObject({ model: DEFAULT_CLAUDE_SONNET_MODEL, effort: "medium", stanceShift: -1 });
-    expect(resolveRoute({ profile: buildStarterProfile("starter-quality-first"),
-      role: "primary", signals: signals() }))
-      .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "high", stanceShift: 1 });
+  test("standard work may step down to the balanced rung under budget pressure", () => {
+    expect(resolveRoute({ profile: balanced, role: "primary",
+      signals: signals({ budgetUsedPercent: 99, currentProviderId: "codex" }) }))
+      .toMatchObject({ model: "gpt-5.6-terra", budgetShift: -2 });
   });
 
-  test("incompatible allowlists fail visibly without silently changing providers", () => {
-    const profile = { ...balanced, eligibleModelsByProvider: { "claude-code": ["claude-haiku-4-5"] } };
+  test("preference keeps the model and moves effort within the level's range", () => {
+    const route = (stance: "starter-cost-saver" | "starter-balanced" | "starter-quality-first", complexity: RouterSignals["complexity"]) =>
+      resolveRoute({ profile: buildStarterProfile(stance), role: "primary", signals: signals({ complexity }) });
+    expect(route("starter-cost-saver", "medium")).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "medium", stanceShift: -1 });
+    expect(route("starter-quality-first", "medium")).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "high", stanceShift: 1 });
+    expect(route("starter-cost-saver", "low")).toMatchObject({ model: DEFAULT_CLAUDE_SONNET_MODEL, effort: "low" });
+    expect(route("starter-quality-first", "high")).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "xhigh" });
+    expect(route("starter-cost-saver", "expert")).toMatchObject({ model: CLAUDE_FABLE_MODEL, effort: "low" });
+    expect(route("starter-quality-first", "expert")).toMatchObject({ model: CLAUDE_FABLE_MODEL, effort: "medium" });
+  });
+
+  test("an allow list with no capable model fails visibly", () => {
+    const profile = {
+      ...balanced,
+      eligibleModelsByProvider: { "claude-code": ["claude-haiku-4-5"], codex: ["gpt-6-luna"] },
+    };
     expect(() => resolveRoute({ profile, role: "primary", signals: signals({ complexity: "high" }) }))
-      .toThrow("No available allowed model");
-    expect(resolveRoute({ profile: { ...profile, signals: { ...profile.signals, providerSwitch: true } },
-      role: "primary", signals: signals({ complexity: "high" }) }).providerId).toBe("codex");
+      .toThrow("Complex work needs a Flagship model or stronger");
+  });
+
+  test("a provider with no capable model hands the turn to one that has it, even with switching off", () => {
+    // Cursor and Kiro run on their own "auto" model, which Auto treats as the
+    // light rung; a Claude allow list of Haiku cannot run complex work.
+    for (const currentProviderId of ["cursor", "kiro"] as const) {
+      const route = resolveRoute({ profile: balanced, role: "primary", signals: signals({ currentProviderId }) });
+      expect(route).toMatchObject({ providerId: "claude-code", model: DEFAULT_CLAUDE_OPUS_MODEL });
+      expect(route.reason).toContain("has no allowed model for standard work");
+    }
+    const narrow = { ...balanced, eligibleModelsByProvider: { "claude-code": ["claude-haiku-4-5"] } };
+    expect(resolveRoute({ profile: narrow, role: "primary", signals: signals({ complexity: "high" }) }))
+      .toMatchObject({ providerId: "codex", model: "gpt-6.1-sol" });
   });
 
   test("an unavailable provider fails over even though provider switching is off", () => {
@@ -287,7 +345,7 @@ describe("validation and migration", () => {
       autoRoutingEligibleCodexModels: [],
     });
     expect(profile).toMatchObject({
-      version: 4,
+      version: 5,
       id: "starter-cost-saver",
       stance: "cost-saver",
       budgetGuard: { stepDownAt: 60, cheapestAt: 90 },
@@ -337,14 +395,14 @@ describe("pricing", () => {
   });
 
   test("keeps the previous turn's model when the route only steps down", () => {
-    // Opus answered the last turn; a docs turn would route to the balanced
+    // Opus answered the last turn; a bounded turn would route to the light
     // model. The conversation's cache is scoped to Opus, so the cheaper pick
     // would re-read every prior token uncached — the model is held instead.
     const held = resolveRoute({
       profile: balanced,
       role: "primary",
       signals: signals({
-        taskClass: "docs",
+        taskClass: "docs", complexity: "low",
         lastAssistantProvider: "claude-code",
         lastAssistantModel: DEFAULT_CLAUDE_OPUS_MODEL,
       }),

@@ -63,10 +63,80 @@ export const autoRoutingSectionStyles = stylex.create({
     blockSize: vars["--ads-control-height-lg"],
     inlineSize: "6rem",
   },
-  signalsGrid: {
-    display: "grid",
-    gap: vars["--ads-space-8"],
-    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 16rem), 1fr))",
+  // One switch per row. SwitchField lays out as a label column plus a control
+  // column with fixed minimums, so packing several into a multi-column grid
+  // made each switch overlap the next field's title.
+  signalsList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-16"],
+  },
+  thresholdHint: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    maxInlineSize: "14rem",
+  },
+  levelTable: {
+    borderCollapse: "collapse",
+    fontSize: vars["--ads-font-size-body"],
+    inlineSize: "100%",
+    lineHeight: vars["--ads-line-height-normal"],
+    tableLayout: "fixed",
+  },
+  levelHead: {
+    borderBottomColor: vars["--ads-color-border"],
+    borderBottomStyle: "solid",
+    borderBottomWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    paddingBlock: vars["--ads-space-8"],
+    paddingInlineEnd: vars["--ads-space-12"],
+    textAlign: "start",
+    ":first-child": {
+      inlineSize: "52%",
+    },
+  },
+  levelRow: {
+    borderBottomColor: vars["--ads-color-border"],
+    borderBottomStyle: "solid",
+    borderBottomWidth: vars["--ads-border-width-hairline"],
+    ":last-child": {
+      borderBottomWidth: 0,
+    },
+  },
+  levelName: {
+    fontWeight: "inherit",
+    paddingBlock: vars["--ads-space-12"],
+    paddingInlineEnd: vars["--ads-space-12"],
+    textAlign: "start",
+    verticalAlign: "top",
+  },
+  levelLabel: {
+    color: vars["--ads-color-text"],
+    display: "block",
+    fontWeight: vars["--ads-font-weight-medium"],
+  },
+  levelDescription: {
+    color: vars["--ads-color-text-muted"],
+    display: "block",
+    fontSize: vars["--ads-font-size-caption"],
+    marginBlockStart: vars["--ads-space-2"],
+  },
+  levelCell: {
+    paddingBlock: vars["--ads-space-12"],
+    paddingInlineEnd: vars["--ads-space-12"],
+    verticalAlign: "top",
+  },
+  levelRoute: {
+    color: vars["--ads-color-text"],
+    fontVariantNumeric: "tabular-nums",
+    overflowWrap: "anywhere",
+  },
+  levelMissing: {
+    color: vars["--ads-color-text-muted"],
+    fontStyle: "italic",
   },
   roleGroup: {
     display: "flex",
@@ -166,8 +236,33 @@ export const autoRoutingSectionStyles = stylex.create({
   },
   ruleArrow: {
     color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
     paddingInline: vars["--ads-space-4"],
+  },
+  ruleSummary: {
+    alignItems: "baseline",
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
+    minInlineSize: 0,
+  },
+  ruleWhen: {
+    color: vars["--ads-color-text"],
+    overflowWrap: "anywhere",
+  },
+  ruleThen: {
+    color: vars["--ads-color-text"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    overflowWrap: "anywhere",
+  },
+  ruleIdNote: {
+    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    gridColumn: "1 / -1",
+    margin: 0,
   },
   legacyRuleSummary: {
     color: vars["--ads-color-text-muted"],

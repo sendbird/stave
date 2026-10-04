@@ -8,6 +8,7 @@ import {
   DEFAULT_CLAUDE_SONNET_MODEL,
   getDefaultModelForProvider,
   getModelCapability,
+  getProviderLabel,
   getSdkModelOptions,
   isAutoModelId,
   listProviderIds,
@@ -22,7 +23,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 /* Schema                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export const AUTO_ROUTING_PROFILE_VERSION = 4 as const;
+export const AUTO_ROUTING_PROFILE_VERSION = 5 as const;
 
 export const TASK_CLASSES = [
   "plan",
@@ -56,7 +57,12 @@ export function isLegacyRouterRole(role: RouterRole): boolean {
 export const STANCES = ["cost-saver", "balanced", "quality-first"] as const;
 export type Stance = (typeof STANCES)[number];
 
-export type RouteComplexity = "low" | "medium" | "high";
+/**
+ * One ordinal difficulty scale, lowest first: the classifier's complexity
+ * answer and the condition a rule can name. See `ROUTE_LEVELS`.
+ */
+export const ROUTE_COMPLEXITIES = ["low", "medium", "high", "expert", "extreme"] as const;
+export type RouteComplexity = (typeof ROUTE_COMPLEXITIES)[number];
 
 /**
  * Strength rungs the router reasons in. Distinct from `ModelTier` on purpose:
@@ -175,16 +181,25 @@ const MODEL_TIER_TO_ROUTE_TIER: Readonly<Record<ModelTier, RouteTier>> = {
 };
 
 /**
- * Default effort per rung when a rule names a tier without an effort. Frontier
- * stays at medium because xhigh there mostly buys latency. Light matches
- * Luna's Stave default of xhigh.
+ * Default effort per rung when a rule names a tier without an effort. Every
+ * rung starts at medium: the level a task is classified at, not the rung,
+ * decides when deeper effort is worth paying for (see `ROUTE_LEVELS`).
  */
 const DEFAULT_EFFORT_BY_ROUTE_TIER: Readonly<Record<RouteTier, string>> = {
   frontier: "medium",
-  flagship: "high",
-  balanced: "high",
-  light: "xhigh",
+  flagship: "medium",
+  balanced: "medium",
+  light: "medium",
 };
+
+/**
+ * Catalog models Auto does not pick unless the user allows them explicitly.
+ * Haiku rejects an effort value and sits below what Stave treats as the
+ * lightest useful coding model; Sonnet is the light Claude route.
+ */
+export const AUTO_ROUTING_OPT_IN_MODELS: ReadonlySet<string> = new Set([
+  DEFAULT_CLAUDE_HAIKU_MODEL,
+]);
 
 /**
  * Models whose per-message effort changes keep the prompt cache warm, so the
@@ -244,11 +259,12 @@ export const STANCE_LABELS: Readonly<Record<Stance, string>> = {
 };
 
 export const STANCE_DESCRIPTIONS: Readonly<Record<Stance, string>> = {
-  "cost-saver": "Favor lower cost while meeting the task capability requirements.",
-  balanced: "Balance model capability and cost for the task.",
-  "quality-first": "Favor stronger eligible models without raising effort unnecessarily.",
+  "cost-saver": "Same models; each level runs at the low end of its effort range.",
+  balanced: "Same models; each level runs at its recommended effort.",
+  "quality-first": "Same models; each level runs at the high end of its effort range.",
 };
 
+/** Effort step the stance applies inside the level's effort range. */
 const STANCE_SHIFT: Readonly<Record<Stance, -1 | 0 | 1>> = {
   "cost-saver": -1,
   balanced: 0,
@@ -284,9 +300,9 @@ export function stanceFromObjective(objective: number | undefined): Stance {
 export interface AppliedStance {
   stance: Stance;
   /**
-   * Rung step every route moves by: −1, 0 or +1. Cost-saver also lowers effort
-   * one step; quality-first leaves effort alone, since a stronger model at a
-   * deeper effort double-charges (Fable xhigh is a long-horizon agent budget).
+   * Effort step every route moves by: −1, 0 or +1, clamped to the effort
+   * range of the task's level. The stance never changes the model rung: the
+   * level decides the model, the stance only how hard it thinks.
    */
   shift: -1 | 0 | 1;
   budgetGuard: BudgetGuard;
@@ -358,32 +374,130 @@ function rule(
   return { id, when, then, reason, enabled: true };
 }
 
+export const ROUTE_COMPLEXITY_LABELS: Readonly<Record<RouteComplexity, string>> = {
+  low: "Simple",
+  medium: "Standard",
+  high: "Complex",
+  expert: "Expert",
+  extreme: "Extreme",
+};
+
+export interface RouteLevel {
+  complexity: RouteComplexity;
+  /** Plain-language description of the work this level covers. */
+  description: string;
+  /** Rung the level's default rule asks for. */
+  tier: RouteTier;
+  /** Weakest rung the level may land on, under budget pressure included. */
+  floor: RouteTier;
+  /** Balanced-stance effort. */
+  effort: string;
+  /** Effort range a stance may move within: [cost-saver end, quality-first end]. */
+  effortRange: readonly [string, string];
+}
+
 /**
- * One shared role table; the three starters differ only by stance.
+ * The routing ladder, lowest level first. Each level is one model rung and an
+ * effort range; the preference picks a point inside the range.
  *
- * Sonnet 5.5 is the balanced rung: well-scoped everyday work, documents, and
- * repeated agent tasks. Ordinary work asks for that rung at high effort.
- * Sonnet 5.5 costs half of Opus per token, so high is the default; xhigh and
- * max are not. High complexity and uncertain intent stay on the flagship
- * (Opus 5.5). Safety-critical stays on the frontier.
+ *   Simple    light (Sonnet 5.5 / GPT-6 Luna)            low – medium
+ *   Standard  flagship (Opus 5.5 / GPT-6.1 Sol)          medium – high
+ *   Complex   flagship                                   high – xhigh
+ *   Expert    frontier (Fable 5.1 / GPT-6 Astra)         low – medium
+ *   Extreme   frontier                                   high – xhigh
+ *
+ * Most work is Standard. The frontier rungs need explicit evidence from the
+ * classifier; local rules never infer them.
+ */
+export const ROUTE_LEVELS: readonly RouteLevel[] = [
+  {
+    complexity: "low",
+    description: "A bounded, obvious step: a typo, rename, small config edit, or direct answer.",
+    tier: "light",
+    floor: "light",
+    effort: "medium",
+    effortRange: ["low", "medium"],
+  },
+  {
+    complexity: "medium",
+    description: "Ordinary connected work in known code, including routine workflows such as shipping a PR.",
+    tier: "flagship",
+    floor: "balanced",
+    effort: "medium",
+    effortRange: ["medium", "high"],
+  },
+  {
+    complexity: "high",
+    description: "Difficult coupled work: cross-module changes, non-obvious bugs, migrations, sensitive changes.",
+    tier: "flagship",
+    floor: "flagship",
+    effort: "high",
+    effortRange: ["high", "xhigh"],
+  },
+  {
+    complexity: "expert",
+    description: "Judgment beyond strong implementation: architecture design and its verification.",
+    tier: "frontier",
+    floor: "flagship",
+    effort: "medium",
+    effortRange: ["low", "medium"],
+  },
+  {
+    complexity: "extreme",
+    description: "Exceptional, research-grade reasoning. Rare by design.",
+    tier: "frontier",
+    floor: "frontier",
+    effort: "high",
+    effortRange: ["high", "xhigh"],
+  },
+];
+
+export function getRouteLevel(complexity: RouteComplexity): RouteLevel {
+  return ROUTE_LEVELS.find((level) => level.complexity === complexity) ?? ROUTE_LEVELS[1]!;
+}
+
+function complexityIndex(complexity: RouteComplexity) {
+  return ROUTE_COMPLEXITIES.indexOf(complexity);
+}
+
+/** The stronger of two levels. */
+export function maxComplexity(left: RouteComplexity, right: RouteComplexity): RouteComplexity {
+  return complexityIndex(left) >= complexityIndex(right) ? left : right;
+}
+
+const LEVEL_RULE_REASONS: Readonly<Record<RouteComplexity, string>> = {
+  low: "A clearly bounded task runs on a light model.",
+  medium: "Ordinary work runs on the flagship model at medium effort.",
+  high: "Complex work runs on the flagship model at high effort.",
+  expert: "Expert design or verification work runs on the frontier model.",
+  extreme: "Exceptional reasoning runs on the frontier model at high effort.",
+};
+
+/**
+ * One shared role table; the three starters differ only by stance. The two
+ * frontier levels come first so a sensitive expert task keeps its rung; a
+ * sensitive task otherwise runs at least as Complex work.
  */
 export function buildStarterRules(): RouteRule[] {
+  const levelRule = (complexity: RouteComplexity) => {
+    const level = getRouteLevel(complexity);
+    return rule(complexity === "low" ? "bounded" : complexity === "medium" ? "standard" : complexity === "high" ? "complex" : complexity,
+      { complexity },
+      { providerId: "any-eligible", tier: level.tier, effort: level.effort },
+      LEVEL_RULE_REASONS[complexity]);
+  };
   return [
     rule("delegate-default", { role: "delegate" },
-      { providerId: "any-eligible", effort: "medium" },
-      "Delegated tasks start on the provider default at medium effort."),
+      { providerId: "any-eligible", tier: "flagship", effort: "medium" },
+      "Delegated tasks start on the flagship model at medium effort."),
+    levelRule("extreme"),
+    levelRule("expert"),
     rule("safety-critical", { taskClass: "safety-critical" },
-      { providerId: "any-eligible", tier: "frontier", effort: "medium" },
-      "Sensitive changes require the most capable eligible model."),
-    rule("complex", { complexity: "high" },
       { providerId: "any-eligible", tier: "flagship", effort: "high" },
-      "Complex work requires a capable model."),
-    rule("standard", { complexity: "medium" },
-      { providerId: "any-eligible", tier: "balanced", effort: "high" },
-      "Ordinary work uses a balanced model at high effort."),
-    rule("bounded", { complexity: "low" },
-      { providerId: "any-eligible", tier: "light", effort: "xhigh" },
-      "A clearly bounded task can use a fast, light model at extra-high effort."),
+      "Sensitive changes run on the flagship model at high effort."),
+    levelRule("high"),
+    levelRule("medium"),
+    levelRule("low"),
   ];
 }
 
@@ -556,10 +670,8 @@ function normalizeRule(value: unknown, index: number): RouteRule | null {
       ? { role: when.role as RouterRole }
       : {}),
     ...(skill.length > 0 ? { skill } : {}),
-    ...(when.complexity === "low" ||
-    when.complexity === "medium" ||
-    when.complexity === "high"
-      ? { complexity: when.complexity }
+    ...(ROUTE_COMPLEXITIES.includes(when.complexity as RouteComplexity)
+      ? { complexity: when.complexity as RouteComplexity }
       : {}),
     ...(typeof when.sensitive === "boolean" ? { sensitive: when.sensitive } : {}),
     ...(typeof when.budgetUsedAtLeast === "number" &&
@@ -613,7 +725,16 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
   const stance = STANCES.includes(candidate.stance as Stance)
     ? (candidate.stance as Stance)
     : starter.stance;
-  const rules = Array.isArray(candidate.rules)
+  const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
+  // temporary-migration: auto-routing-profile-v5
+  // Version 5 replaced the complexity ladder. A starter profile saved before
+  // it carries the previous starter table, whose tiers no longer match the
+  // levels, so it takes the current table. Custom tables are kept as saved.
+  const staleStarterTable =
+    (typeof candidate.version !== "number" || candidate.version < AUTO_ROUTING_PROFILE_VERSION)
+    && isStarterProfileId(rawId);
+  // end temporary-migration: auto-routing-profile-v5
+  const rules = Array.isArray(candidate.rules) && !staleStarterTable
     ? candidate.rules
         .map((entry, index) => normalizeRule(entry, index))
         .filter((entry): entry is RouteRule => entry !== null)
@@ -675,8 +796,10 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
   const rawSignals = (candidate.signals ?? {}) as Partial<RouterSignalToggles>;
   const defaults = buildDefaultSignalToggles();
   const signals: RouterSignalToggles = {
+    // An explicit opt-out is honored from version 4, which first made
+    // classification the default.
     classifier:
-      candidate.version === AUTO_ROUTING_PROFILE_VERSION && typeof rawSignals.classifier === "boolean"
+      typeof candidate.version === "number" && candidate.version >= 4 && typeof rawSignals.classifier === "boolean"
         ? rawSignals.classifier
         : defaults.classifier,
     skillRouting:
@@ -697,10 +820,7 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
         : defaults.providerSwitch,
   };
 
-  const id =
-    typeof candidate.id === "string" && candidate.id.trim()
-      ? candidate.id.trim().slice(0, 80)
-      : starter.id;
+  const id = rawId ? rawId.slice(0, 80) : starter.id;
   return {
     version: AUTO_ROUTING_PROFILE_VERSION,
     id,
@@ -813,9 +933,12 @@ export interface ResolvedRoute {
   effort?: string;
   tier: RouteTier;
   taskClass: TaskClass;
+  /** The level the route ran at, after the safety and uncertainty floors. */
+  complexity: RouteComplexity;
   /** `null` when no rule matched and the provider fallback was used. */
   ruleId: string | null;
   reason: string;
+  /** Effort step the stance applied: −1, 0 or +1 inside the level's range. */
   stanceShift: -1 | 0 | 1;
   /** 0 when the guard did not fire, −1 for step-down, −2 for cheapest. */
   budgetShift: 0 | -1 | -2;
@@ -859,7 +982,9 @@ export function listEligibleRouteModels(args: {
 }) {
   const configured = args.profile.eligibleModelsByProvider[args.providerId] ?? [];
   const catalog = providerCatalog(args.providerId, args.runtimeModels);
-  const candidates = configured.length > 0 ? configured : catalog;
+  const candidates = configured.length > 0
+    ? configured
+    : catalog.filter((model) => !AUTO_ROUTING_OPT_IN_MODELS.has(model));
   return [...candidates].sort(
     (left, right) =>
       routeTierIndex(resolveRouteTierForModel(left)) -
@@ -1042,6 +1167,10 @@ function resolveProviderCandidates(args: {
   return [args.selector];
 }
 
+function isManagedProvider(providerId: ProviderId) {
+  return providerId === "claude-code" || providerId === "codex";
+}
+
 function eligibleForRole(role: RouterRole, providerId: ProviderId) {
   // Advisors and delegates only run on the managed providers.
   if (role === "advisor" || role === "delegate") {
@@ -1050,20 +1179,68 @@ function eligibleForRole(role: RouterRole, providerId: ProviderId) {
   return true;
 }
 
+/** The level a turn routes at, after the safety and uncertainty floors. */
+export function resolveEffectiveComplexity(args: {
+  signals: Pick<RouterSignals, "complexity" | "sensitive" | "uncertain">;
+  role: RouterRole;
+  safetyEscalation: boolean;
+}): RouteComplexity {
+  let complexity = args.signals.complexity;
+  if (args.role !== "primary") {
+    return complexity;
+  }
+  // Unclear scope keeps an ordinary capable route rather than a light one.
+  if (args.signals.uncertain) {
+    complexity = maxComplexity(complexity, "medium");
+  }
+  // A sensitive change needs care (effort), not necessarily the frontier.
+  if (args.signals.sensitive && args.safetyEscalation) {
+    complexity = maxComplexity(complexity, "high");
+  }
+  return complexity;
+}
+
+function clampEffortToRange(args: {
+  providerId: ProviderId;
+  effort: string;
+  requested: string;
+  range: readonly [string, string];
+}): string {
+  const scale = (args.providerId === "codex" ? CODEX_EFFORT_SCALE : CLAUDE_EFFORT_SCALE) as readonly string[];
+  const index = (value: string) => Math.max(0, scale.indexOf(value));
+  // The range bounds the stance, never the rule's own choice.
+  const low = Math.min(index(args.range[0]), index(args.requested));
+  const high = Math.max(index(args.range[1]), index(args.requested));
+  return scale[clampIndex(index(args.effort), low, high)] ?? args.effort;
+}
+
+function noRouteMessage(complexity: RouteComplexity, floor: RouteTier) {
+  return `No available allowed model meets this task's capability requirements (${ROUTE_COMPLEXITY_LABELS[complexity]} work needs a ${ROUTE_TIER_LABELS[floor]} model or stronger). Adjust Auto's allowed models or choose a model manually.`;
+}
+
 /**
  * Pure resolution: signals × role table × stance → provider, model, effort.
  * No network, no store access, so the Settings dry-run tester can call it on
  * every keystroke and tests can pin every branch.
+ *
+ * The level decides the rung; the stance moves effort inside the level's
+ * range; the budget guard lowers effort or the rung, never below the level's
+ * floor. When the provider running the task has no allowed model that meets
+ * the floor (an unmanaged provider, or a narrow allow list), Auto hands the
+ * turn to an available provider that does, whether or not switching is on.
  */
 export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
   const { profile, signals, role } = args;
   const stance = applyStance(profile);
   const budgetUsed = signals.budgetUsedPercent;
   const guardOn = profile.signals.budgetGuard && typeof budgetUsed === "number";
-  const minimumTier: RouteTier = role !== "primary" ? "light" : signals.sensitive && profile.signals.safetyEscalation
-    ? "frontier"
-    : signals.uncertain || signals.complexity === "high" ? "flagship"
-    : signals.complexity === "medium" ? "balanced" : "light";
+  const complexity = resolveEffectiveComplexity({
+    signals,
+    role,
+    safetyEscalation: profile.signals.safetyEscalation,
+  });
+  const level = getRouteLevel(complexity);
+  const minimumTier: RouteTier = role !== "primary" ? "light" : level.floor;
   const satisfiesFloor = (model: string) => routeTierIndex(resolveRouteTierForModel(model)) <= routeTierIndex(minimumTier);
   const budgetShift: ResolvedRoute["budgetShift"] = !guardOn
     ? 0
@@ -1077,7 +1254,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     ruleMatches({
       rule: entry,
       role,
-      signals: role === "primary" && signals.uncertain ? { ...signals, complexity: "high" } : signals,
+      signals: { ...signals, complexity },
       skillRouting: profile.signals.skillRouting,
     }),
   );
@@ -1089,17 +1266,26 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     role,
     providerSwitch: profile.signals.providerSwitch,
   }).filter((providerId) => eligibleForRole(role, providerId));
+  // Capability failover: providers outside the preferred set, tried only when
+  // none of the preferred ones has an allowed model that meets the floor.
+  const failover = listProviderIds()
+    .filter((providerId) =>
+      !candidates.includes(providerId)
+      && isAvailable(providerId, signals.providerAvailability)
+      && eligibleForRole(role, providerId))
+    .sort((left, right) => Number(isManagedProvider(right)) - Number(isManagedProvider(left)));
 
   const reasonParts: string[] = [];
-  if (role === "primary" && signals.uncertain) {
-    reasonParts.push("Uncertain intent keeps a capable model and avoids an unsupported downgrade.");
+  if (role === "primary" && signals.uncertain && complexity !== signals.complexity) {
+    reasonParts.push("Unclear scope routes as standard work rather than a light model.");
+  }
+  if (role === "primary" && signals.sensitive && profile.signals.safetyEscalation && complexity !== signals.complexity) {
+    reasonParts.push("A sensitive change routes as complex work.");
   }
   const baseReason = matched?.reason ?? "";
-  // Quality-first climbs a rung but keeps the rule's effort; cost-saver still
-  // lowers both, matching "lower effort before the model".
-  const stanceEffortShift = stance.shift > 0 ? 0 : stance.shift;
+  const preferredProvider = candidates[0] ?? signals.lastAssistantProvider ?? signals.currentProviderId;
 
-  for (const providerId of candidates) {
+  for (const providerId of [...candidates, ...failover]) {
     const models = listEligibleRouteModels({
       profile,
       providerId,
@@ -1115,6 +1301,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
         models.splice(0, models.length, ...others);
       }
     }
+    const failedOver = !candidates.includes(providerId);
 
     let tier: RouteTier;
     let model: string;
@@ -1146,27 +1333,20 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
         const shiftedTier = shiftTierWithinModels({ models, tier: requestedTier, shift });
         return pickModelForTier({ models, tier: shiftedTier });
       };
-      const stancePick = pickAt(stance.shift);
-      if (!stancePick) {
+      const levelPick = pickAt(0);
+      if (!levelPick) {
         continue;
       }
-      // Effort first: when the stance pick keeps its cache across effort
-      // changes, the guard lowers effort and leaves the model alone.
+      // Effort first: when the pick keeps its cache across effort changes,
+      // the guard lowers effort and leaves the model alone.
       budgetHeldModel =
-        budgetShift === -1 && CACHE_PRESERVING_EFFORT_MODELS.has(stancePick.model);
-      const picked = budgetHeldModel ? stancePick : pickAt(stance.shift + budgetShift);
+        budgetShift === -1 && CACHE_PRESERVING_EFFORT_MODELS.has(levelPick.model);
+      const picked = budgetHeldModel || budgetShift === 0 ? levelPick : pickAt(budgetShift);
       if (!picked) {
         continue;
       }
       model = picked.model;
       tier = picked.tier;
-      if (stance.shift !== 0) {
-        reasonParts.push(
-          stance.shift > 0
-            ? "Quality-first stance stepped the route up."
-            : "Cost-saver preference applied within the task capability floor.",
-        );
-      }
       if (budgetShift === -1) {
         reasonParts.push(
           budgetHeldModel
@@ -1174,6 +1354,11 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
             : `Usage is at ${Math.round(budgetUsed ?? 0)}%, so the route favors lower cost within the task capability floor.`,
         );
       }
+    }
+    if (failedOver) {
+      reasonParts.push(
+        `${getProviderLabel({ providerId: preferredProvider })} has no allowed model for ${ROUTE_COMPLEXITY_LABELS[complexity].toLowerCase()} work, so ${getProviderLabel({ providerId })} runs it.`,
+      );
     }
 
     // Cache stickiness. A model switch mid-task re-reads the whole
@@ -1204,13 +1389,27 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       }
     }
 
-    const effort = resolveEffort({
+    const requestedEffort = matched?.then.effort ?? (matched ? undefined : profile.fallbacks[providerId]?.effort);
+    const levelEffort = requestedEffort ?? (role === "primary" ? level.effort : undefined);
+    let effort = resolveEffort({
       providerId,
       model,
-      requested: matched?.then.effort ?? (matched ? undefined : profile.fallbacks[providerId]?.effort),
+      requested: levelEffort,
       tier,
-      shift: budgetShift === -2 ? 0 : stanceEffortShift + (budgetHeldModel ? -1 : 0),
+      shift: budgetShift === -2 ? 0 : stance.shift + (budgetHeldModel ? -1 : 0),
     });
+    if (effort && role === "primary" && budgetShift === 0 && stance.shift !== 0) {
+      effort = clampEffortToRange({
+        providerId,
+        effort,
+        requested: levelEffort ?? effort,
+        range: level.effortRange,
+      });
+      if (providerId === "codex") {
+        const clamped = clampCodexEffortToModel({ model, effort: effort as (typeof CODEX_EFFORT_SCALE)[number] });
+        effort = clamped === "minimal" ? "low" : clamped;
+      }
+    }
 
     return {
       role,
@@ -1219,6 +1418,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       ...(effort ? { effort } : {}),
       tier,
       taskClass: signals.taskClass,
+      complexity,
       ruleId: matched?.id ?? null,
       reason: [baseReason || (matched ? "" : `No rule matched; ${toHumanModelName({ model })} is the provider fallback.`), ...reasonParts]
         .filter(Boolean)
@@ -1230,9 +1430,43 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     };
   }
 
-  throw new Error("No available allowed model meets this task's capability requirements. Adjust Auto's allowed models or choose a model manually.");
+  throw new Error(noRouteMessage(complexity, minimumTier));
 }
 
+/**
+ * What each level resolves to on one provider under the current profile, for
+ * the Settings overview. A level with no allowed model reports the reason.
+ */
+export function previewRouteLevels(args: {
+  profile: AutoRoutingProfile;
+  providerId: ProviderId;
+  runtimeModels?: readonly string[];
+}): Array<{ level: RouteLevel; route: ResolvedRoute | null; error: string | null }> {
+  // Preview only the provider's own models: no failover, no history.
+  const availability = Object.fromEntries(
+    listProviderIds().map((providerId) => [providerId, providerId === args.providerId]),
+  ) as Partial<Record<ProviderId, boolean>>;
+  return ROUTE_LEVELS.map((level) => {
+    try {
+      const route = resolveRoute({
+        profile: { ...args.profile, signals: { ...args.profile.signals, budgetGuard: false } },
+        role: "primary",
+        signals: {
+          taskClass: "implement",
+          complexity: level.complexity,
+          sensitive: false,
+          fileContextCount: 0,
+          currentProviderId: args.providerId,
+          providerAvailability: availability,
+        },
+        ...(args.runtimeModels ? { runtimeModelsByProvider: { [args.providerId]: args.runtimeModels } } : {}),
+      });
+      return { level, route, error: null };
+    } catch (error) {
+      return { level, route: null, error: error instanceof Error ? error.message : "No route" };
+    }
+  });
+}
 
 export function buildRoleSignals(args: {
   currentProviderId: ProviderId;
