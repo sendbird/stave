@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { IntentGuardContextInput } from "./source-control-review";
 import type { WorkspaceResumeBrief } from "./workspace-resume-brief";
 
@@ -1647,13 +1648,13 @@ export const WORKSPACE_INFO_FIELD_TYPE_LABELS: Record<
   WorkspaceInfoFieldType,
   string
 > = {
-  text: "Text",
-  textarea: "Textarea",
-  number: "Number",
-  boolean: "Boolean",
-  date: "Date",
+  get text() { return i18n.t("workspace:workspaceInformation.text"); },
+  get textarea() { return i18n.t("workspace:workspaceInformation.textarea"); },
+  get number() { return i18n.t("workspace:workspaceInformation.number"); },
+  get boolean() { return i18n.t("workspace:workspaceInformation.boolean"); },
+  get date() { return i18n.t("workspace:workspaceInformation.date"); },
   url: "URL",
-  single_select: "Single select",
+  get single_select() { return i18n.t("workspace:workspaceInformation.singleSelect"); },
 };
 
 export function createEmptyWorkspaceInformation(): WorkspaceInformationState {

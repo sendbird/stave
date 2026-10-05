@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type { AssignRoute } from "@/lib/agents/assign-route";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { routeEffortOverrides } from "@/lib/routing/auto-routing";
@@ -53,7 +54,7 @@ export function describeKickoffProviderFallback(args: {
   if (args.eligibleProviderIds.includes(args.draftProvider)) {
     return null;
   }
-  return `${args.draftLabel} can't start the first task, so this opens on your ${args.fallbackLabel} model.`;
+  return i18n.t("kickoff:kickoffDialog.valueCanTStartTheFirstTask", { value1: args.draftLabel, value2: args.fallbackLabel });
 }
 
 export function buildKickoffFirstTaskRuntimeOverrides(args: {

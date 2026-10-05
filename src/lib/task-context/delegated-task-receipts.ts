@@ -84,6 +84,7 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
   return {
     type: "retrieved_context",
     sourceId: "stave:delegated-tasks",
+    // i18n-ignore: model-facing context metadata and instructions
     title: "Subagent results",
     content: [
       "Subagents this task started, as recorded on the run ledger, with the answer of each one that finished since your last turn.",

@@ -3,9 +3,11 @@ import { Brain } from "lucide-react";
 import { iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { Button } from "@/components/ui";
+import { useTranslation } from "@/i18n";
 import type { RepositoryMemorySettings } from "@/lib/repository-memory-settings";
 import { sx } from "@/components/ads/utils/stylex";
 import { REPOSITORY_MEMORY_CHANGED_EVENT } from "./RepositoryMemoryControls";
+import { failureMessage } from "./workspace-information/failure-message";
 import { workspaceMemorySectionStyles as styles } from "./workspace-memory-section.styles";
 
 /** Mounted with the project path as its key to isolate in-flight saves. */
@@ -14,6 +16,7 @@ export function MemoryCollectionInvitation({
 }: {
   repositoryPath: string;
 }) {
+  const { t } = useTranslation("workspace");
   const [settings, setSettings] = useState<RepositoryMemorySettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -57,18 +60,12 @@ export function MemoryCollectionInvitation({
       });
       if (request !== generation.current) return;
       if (!result.ok || !result.settings)
-        throw new Error(
-          result.message ?? "Could not enable memory collection.",
-        );
+        throw new Error(result.message ?? "");
       setSettings(result.settings);
       window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
     } catch (err) {
       if (request !== generation.current) return;
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not enable memory collection.",
-      );
+      setError(failureMessage(t("memory.invitation.enableFailed"), err));
       void reload();
     } finally {
       setBusy(false);
@@ -82,11 +79,9 @@ export function MemoryCollectionInvitation({
         <Brain size={iconTileGlyphSizes.xl} />
       </EmptyState.Media>
       <EmptyState.Header>
-        <EmptyState.Title>Try repository memory</EmptyState.Title>
+        <EmptyState.Title>{t("memory.invitation.title")}</EmptyState.Title>
         <EmptyState.Description>
-          Keep useful decisions and lessons across this repository’s workspaces.
-          Collection is off until you enable it. Summary suggestions stay out of
-          conversations until reviewed.
+          {t("memory.invitation.description")}
         </EmptyState.Description>
       </EmptyState.Header>
       <EmptyState.Content>
@@ -95,7 +90,7 @@ export function MemoryCollectionInvitation({
           disabled={busy || !window.api?.repositoryMemory?.saveSettings}
           onClick={() => void enable()}
         >
-          {busy ? "Enabling…" : "Enable memory collection"}
+          {busy ? t("memory.invitation.enabling") : t("memory.invitation.enable")}
         </Button>
         {error ? (
           <p role="alert" className={sx(styles.error)}>

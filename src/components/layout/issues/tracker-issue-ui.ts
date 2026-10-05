@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { TRACKER_SOURCE_LABELS } from "@/lib/tracker-issues/context";
 import type {
@@ -24,32 +25,32 @@ export const TRACKER_LINK_STATE_PRESENTATION: Record<
   }
 > = {
   staged: {
-    label: "Staged",
+    get label() { return i18n.t("issues:trackerIssueUi.staged"); },
     tone: "neutral",
     live: false,
   },
   running: {
-    label: "Running",
+    get label() { return i18n.t("issues:trackerIssueUi.running"); },
     tone: "info",
     live: true,
   },
   needs_input: {
-    label: "Needs you",
+    get label() { return i18n.t("issues:trackerIssueUi.needsYou"); },
     tone: "warning",
     live: true,
   },
   completed: {
-    label: "Run finished",
+    get label() { return i18n.t("issues:trackerIssueUi.runFinished"); },
     tone: "success",
     live: false,
   },
   failed: {
-    label: "Failed",
+    get label() { return i18n.t("issues:trackerIssueUi.failed"); },
     tone: "danger",
     live: false,
   },
   cancelled: {
-    label: "Cancelled",
+    get label() { return i18n.t("issues:trackerIssueUi.cancelled"); },
     tone: "neutral",
     live: false,
   },
@@ -105,20 +106,20 @@ export function resolvePrimaryTrackerIssueLink(
 export function openTrackerIssueInBrowser(url: string) {
   const openExternal = window.api?.shell?.openExternal;
   if (!openExternal) {
-    toast.error("Opening links is unavailable.");
+    toast.error(i18n.t("issues:trackerIssueUi.openingLinksIsUnavailable"));
     return;
   }
   void openExternal({ url }).catch(() => {
-    toast.error("Could not open the ticket.");
+    toast.error(i18n.t("issues:trackerIssueUi.couldNotOpenTheTicket"));
   });
 }
 
 export function copyTrackerIssueValue(args: { value: string; label: string }) {
   void copyTextToClipboard(args.value)
     .then(() => {
-      toast.success(`Copied ${args.label}`);
+      toast.success(i18n.t("issues:trackerIssueUi.copiedValue", { value1: args.label }));
     })
     .catch(() => {
-      toast.error(`Could not copy the ${args.label}.`);
+      toast.error(i18n.t("issues:trackerIssueUi.couldNotCopyTheValue", { value1: args.label }));
     });
 }

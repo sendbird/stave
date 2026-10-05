@@ -1,3 +1,5 @@
+import { formatAutomationSchedule, formatAutomationTrustPolicy, describeAutomationDraftIssue } from "@/lib/automation-presentation";
+import { i18n, useTranslation } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   AlertCircle,
@@ -35,8 +37,6 @@ import {
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import {
-  formatAutomationTrustPolicy,
-  formatAutomationSchedule,
   getAutomationInformationReferenceKey,
   AutomationUpsertInputSchema,
   type AutomationEnvironmentInput,
@@ -48,7 +48,7 @@ import {
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { useAppStore } from "@/store/app.store";
 import { createCoalescedLoader } from "@/lib/coalesced-loader";
-import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
+import { WORKSPACE_TOOLS_LABEL_KEY } from "@/lib/workspace-scripts/constants";
 import {
   buildScheduleRows,
   resolveScheduleSelection,
@@ -100,6 +100,7 @@ function Detail(props: { label: string; value: string }) {
 }
 
 export function AutomationCenterView() {
+  const { t: tI18n } = useTranslation(["automation", "scripts"]);
   const [
     recentRepositories,
     repositoryPath,
@@ -181,8 +182,7 @@ export function AutomationCenterView() {
       repositoryPath,
       workspaceDefaultById,
       workspacePathById,
-      workspaces,
-    ],
+      workspaces, i18n.resolvedLanguage],
   );
   const environmentOptions = useMemo(
     () =>
@@ -190,7 +190,7 @@ export function AutomationCenterView() {
         recentRepositories,
         activeRepository,
       }),
-    [activeRepository, recentRepositories],
+    [activeRepository, recentRepositories, i18n.resolvedLanguage],
   );
   const defaultEnvironment = useMemo<AutomationEnvironmentInput | null>(() => {
     const active =
@@ -205,7 +205,7 @@ export function AutomationCenterView() {
           label: active.label,
         }
       : null;
-  }, [environmentOptions, repositoryPath]);
+  }, [environmentOptions, repositoryPath, i18n.resolvedLanguage]);
 
   const activeLoadScope = useRef(false);
   const loadSequence = useRef(0);
@@ -219,7 +219,7 @@ export function AutomationCenterView() {
           );
         return list();
       }),
-    [],
+    [i18n.resolvedLanguage],
   );
   const loadSnapshot = useCallback(
     async (options?: { quiet?: boolean; poll?: boolean }) => {
@@ -234,7 +234,7 @@ export function AutomationCenterView() {
         const result = await readSnapshot({ fresh: !options?.poll });
         if (!isCurrent()) return;
         if (!result.ok) {
-          setError(result.message ?? "Failed to load automations.");
+          setError(result.message ?? i18n.t("automation:additionalCopy.message20"));
           return;
         }
         setSnapshot(result.snapshot);
@@ -337,7 +337,7 @@ export function AutomationCenterView() {
 
   const automationById = useMemo(
     () => new Map(snapshot.automations.map((automation) => [automation.id, automation])),
-    [snapshot.automations],
+    [snapshot.automations, i18n.resolvedLanguage],
   );
   const runCountByAutomationId = useMemo(() => {
     const counts = new Map<string, number>();
@@ -345,7 +345,7 @@ export function AutomationCenterView() {
       counts.set(run.automationId, (counts.get(run.automationId) ?? 0) + 1);
     }
     return counts;
-  }, [snapshot.runs]);
+  }, [snapshot.runs, i18n.resolvedLanguage]);
   const latestRunByAutomationId = useMemo(() => {
     // `snapshot.runs` arrives sorted by startedAt desc, so the first hit wins.
     const latest = new Map<string, AutomationRun>();
@@ -355,7 +355,7 @@ export function AutomationCenterView() {
       }
     }
     return latest;
-  }, [snapshot.runs]);
+  }, [snapshot.runs, i18n.resolvedLanguage]);
   const activeRunCountByAutomationId = useMemo(() => {
     const counts = new Map<string, number>();
     for (const run of snapshot.runs) {
@@ -364,11 +364,11 @@ export function AutomationCenterView() {
       }
     }
     return counts;
-  }, [snapshot.runs]);
+  }, [snapshot.runs, i18n.resolvedLanguage]);
 
   const taskTitleById = useMemo(
     () => new Map(tasks.map((task) => [task.id, task.title])),
-    [tasks],
+    [tasks, i18n.resolvedLanguage],
   );
   const scheduleRows = useMemo(
     () =>
@@ -379,7 +379,7 @@ export function AutomationCenterView() {
         summaries: checkBacks.summaries,
         taskTitleById,
       }),
-    [checkBacks.summaries, checkBacks.wakeUps, snapshot.automations, snapshot.runs, taskTitleById],
+    [checkBacks.summaries, checkBacks.wakeUps, snapshot.automations, snapshot.runs, taskTitleById, i18n.resolvedLanguage],
   );
   const selectedRow = resolveScheduleSelection(scheduleRows, pickedScheduleKey);
   const selectedKey = selectedRow?.key ?? null;
@@ -420,7 +420,7 @@ export function AutomationCenterView() {
             run.automationId === runAutomationFilter) &&
           matchesRunFilter(run, runFilter),
       ),
-    [runAutomationFilter, runFilter, snapshot.runs],
+    [runAutomationFilter, runFilter, snapshot.runs, i18n.resolvedLanguage],
   );
   const selectedRun =
     visibleRuns.find((run) => run.id === selectedRunId) ??
@@ -466,7 +466,7 @@ export function AutomationCenterView() {
     }
     const parsed = AutomationUpsertInputSchema.safeParse(draft);
     if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message ?? "Invalid automation.");
+      toast.error(describeAutomationDraftIssue(parsed.error.issues[0], tI18n));
       return;
     }
     const api = window.api?.automations;
@@ -474,7 +474,7 @@ export function AutomationCenterView() {
       (editingAutomationId && !api?.update) ||
       (!editingAutomationId && !api?.create)
     ) {
-      toast.error("Automation service is unavailable.");
+      toast.error(tI18n("automation:automationCenterView.automationServiceIsUnavailable"));
       return;
     }
     setSaving(true);
@@ -486,14 +486,14 @@ export function AutomationCenterView() {
           })
         : await api!.create!(parsed.data);
       if (!result.ok || !result.automation) {
-        toast.error(result.message ?? "Failed to save automation.");
+        toast.error(result.message ?? tI18n("automation:automationCenterView.failedToSaveAutomation"));
         return;
       }
       setPickedScheduleKey(`start:${result.automation.id}`);
       cancelEdit();
       await loadSnapshot();
       toast.success(
-        editingAutomationId ? "Schedule updated" : "Schedule created",
+        editingAutomationId ? tI18n("automation:automationCenterView.scheduleUpdated") : tI18n("automation:automationCenterView.scheduleCreated"),
       );
     } catch (saveError) {
       toast.error(
@@ -507,7 +507,7 @@ export function AutomationCenterView() {
   async function runNow(automation: AutomationSpec) {
     const api = window.api?.automations?.runNow;
     if (!api) {
-      toast.error("Automation service is unavailable.");
+      toast.error(tI18n("automation:automationCenterView.automationServiceIsUnavailable"));
       return;
     }
     setBusyAutomationId(automation.id);
@@ -517,15 +517,15 @@ export function AutomationCenterView() {
       }
       const result = await api({ id: automation.id });
       if (!result.ok || !result.run) {
-        toast.error(result.message ?? "Failed to start automation.");
+        toast.error(result.message ?? tI18n("automation:automationCenterView.failedToStartAutomation"));
         return;
       }
       await loadSnapshot({ quiet: true });
       if (result.run.status === "failed") {
-        toast.error(result.run.error ?? "Failed to start automation.");
+        toast.error(result.run.error ?? tI18n("automation:automationCenterView.failedToStartAutomation"));
         return;
       }
-      toast.success("Schedule started");
+      toast.success(tI18n("automation:automationCenterView.scheduleStarted"));
     } catch (runError) {
       toast.error(
         getAutomationErrorMessage(runError, "Failed to start automation."),
@@ -538,7 +538,7 @@ export function AutomationCenterView() {
   async function toggleEnabled(automation: AutomationSpec) {
     const api = window.api?.automations?.setEnabled;
     if (!api) {
-      toast.error("Automation service is unavailable.");
+      toast.error(tI18n("automation:automationCenterView.automationServiceIsUnavailable"));
       return;
     }
     setBusyAutomationId(automation.id);
@@ -548,7 +548,7 @@ export function AutomationCenterView() {
         enabled: !automation.enabled,
       });
       if (!result.ok) {
-        toast.error(result.message ?? "Failed to update automation.");
+        toast.error(result.message ?? tI18n("automation:automationCenterView.failedToUpdateAutomation"));
         return;
       }
       await loadSnapshot({ quiet: true });
@@ -567,19 +567,19 @@ export function AutomationCenterView() {
     }
     const api = window.api?.automations?.remove;
     if (!api) {
-      toast.error("Automation service is unavailable.");
+      toast.error(tI18n("automation:automationCenterView.automationServiceIsUnavailable"));
       return;
     }
     setBusyAutomationId(deleteAutomation.id);
     try {
       const result = await api({ id: deleteAutomation.id });
       if (!result.ok) {
-        toast.error(result.message ?? "Failed to delete automation.");
+        toast.error(result.message ?? tI18n("automation:automationCenterView.failedToDeleteAutomation"));
         return;
       }
       setDeleteAutomation(null);
       await loadSnapshot();
-      toast.success("Schedule deleted");
+      toast.success(tI18n("automation:automationCenterView.scheduleDeleted"));
     } catch (deleteError) {
       toast.error(
         getAutomationErrorMessage(deleteError, "Failed to delete automation."),
@@ -601,13 +601,13 @@ export function AutomationCenterView() {
   async function setCheckBackPaused(id: string, paused: boolean) {
     const api = window.api?.wakeUps;
     if (!api) {
-      toast.error("Schedules are available in the Stave desktop app.");
+      toast.error(tI18n("automation:automationCenterView.schedulesAreAvailableInTheStaveDesktop"));
       return;
     }
     setBusyAutomationId(id);
     try {
       const result = await api.setPaused({ id, paused });
-      if (!result.ok) toast.error(result.message ?? "Failed to update the schedule.");
+      if (!result.ok) toast.error(result.message ?? tI18n("automation:automationCenterView.failedToUpdateTheSchedule"));
       await checkBacks.reload();
     } catch (updateError) {
       toast.error(getAutomationErrorMessage(updateError, "Failed to update the schedule."));
@@ -633,13 +633,13 @@ export function AutomationCenterView() {
     try {
       const result = await api.remove({ id: removeCheckBack.id });
       if (!result.ok) {
-        toast.error(result.message ?? "Failed to remove the schedule.");
+        toast.error(result.message ?? tI18n("automation:automationCenterView.failedToRemoveTheSchedule"));
         return;
       }
       setRemoveCheckBack(null);
       setPickedScheduleKey(null);
       await checkBacks.reload();
-      toast.success("Schedule removed");
+      toast.success(tI18n("automation:automationCenterView.scheduleRemoved"));
     } catch (removeError) {
       toast.error(getAutomationErrorMessage(removeError, "Failed to remove the schedule."));
     } finally {
@@ -665,7 +665,7 @@ export function AutomationCenterView() {
         // selectTask silently no-ops when the task is gone (for example runs
         // recorded before the task was persisted). Surface that instead of
         // leaving the click without any feedback.
-        toast.error("This automation's task conversation could not be found.");
+        toast.error(tI18n("automation:automationCenterView.thisAutomationSTaskConversationCouldNot"));
         return;
       }
       closeAutomationCenter();
@@ -760,11 +760,10 @@ export function AutomationCenterView() {
         <div className={sx(centerStyles.headerText)}>
           <div className={sx(centerStyles.headerTitleRow)}>
             <Workflow className={sx(centerStyles.headerIcon)} />
-            <h1 className={sx(centerStyles.headerTitle)}>Schedules</h1>
+            <h1 className={sx(centerStyles.headerTitle)}>{tI18n("automation:automationCenterView.schedules")}</h1>
           </div>
           <p className={sx(centerStyles.headerSubtitle)}>
-            Work that runs on its own, and what it last did.
-          </p>
+            {tI18n("automation:automationCenterView.workThatRunsOnItsOwnAnd")}</p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
           {activeTab === "runs" ? null : (
@@ -774,16 +773,15 @@ export function AutomationCenterView() {
               onClick={startCreate}
             >
               <Plus className={sx(centerStyles.buttonIcon)} />
-              New schedule
-            </Button>
+              {tI18n("automation:automationCenterView.newSchedule")}</Button>
           )}
           <Button
             variant="ghost"
             size="sm"
             xstyle={centerStyles.iconButton}
             onClick={openCommandsAndProcesses}
-            aria-label={`Open ${WORKSPACE_TOOLS_LABEL}`}
-            title={WORKSPACE_TOOLS_LABEL}
+            aria-label={tI18n("automation:automationCenterView.openValue", { WORKSPACE_TOOLS_LABEL: tI18n(WORKSPACE_TOOLS_LABEL_KEY) })}
+            title={tI18n(WORKSPACE_TOOLS_LABEL_KEY)}
           >
             <SquareTerminal className={sx(centerStyles.actionIcon)} />
           </Button>
@@ -795,8 +793,8 @@ export function AutomationCenterView() {
               void loadSnapshot();
               void checkBacks.reload();
             }}
-            aria-label="Refresh schedules"
-            title="Refresh"
+            aria-label={tI18n("automation:automationCenterView.refreshSchedules")}
+            title={tI18n("automation:automationCenterView.refresh")}
           >
             <RefreshCw
               className={sx(
@@ -809,8 +807,9 @@ export function AutomationCenterView() {
             variant="ghost"
             size="sm"
             xstyle={centerStyles.iconButton}
-            aria-label="close-schedules"
-            title="Close Schedules"
+            data-testid="close-schedules"
+            aria-label={i18n.t("automation:automationCenterView.accessibility.closeSchedules")}
+            title={tI18n("automation:automationCenterView.closeSchedules")}
             onClick={closeAutomationCenter}
           >
             <X className={sx(centerStyles.actionIcon)} />
@@ -819,7 +818,7 @@ export function AutomationCenterView() {
       </header>
 
       <div className={sx(centerStyles.toolbar)}>
-        <nav aria-label="Schedule views" className={sx(centerStyles.tabNav)}>
+        <nav aria-label={tI18n("automation:automationCenterView.scheduleViews")} className={sx(centerStyles.tabNav)}>
           {(
             [
               ["automations", tabLabel("Schedules", scheduleRows.length)],
@@ -840,9 +839,7 @@ export function AutomationCenterView() {
 
         {activeTab === "automations" ? (
           <p className={sx(centerStyles.toolbarNote)}>
-            Runs while Stave is open. After reopening, one missed run is caught
-            up.
-          </p>
+            {tI18n("automation:automationCenterView.runsWhileStaveIsOpenAfterReopening")}</p>
         ) : null}
 
         {activeTab === "runs" ? (
@@ -875,12 +872,12 @@ export function AutomationCenterView() {
               <SelectTrigger
                 size="sm"
                 className={sx(centerStyles.runSelect)}
-                aria-label="Filter runs by automation"
+                aria-label={tI18n("automation:automationCenterView.filterRunsByAutomation")}
               >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_AUTOMATIONS}>All automations</SelectItem>
+                <SelectItem value={ALL_AUTOMATIONS}>{tI18n("automation:automationCenterView.allAutomations")}</SelectItem>
                 {snapshot.automations.map((automation) => (
                   <SelectItem key={automation.id} value={automation.id}>
                     {automation.name}
@@ -889,8 +886,8 @@ export function AutomationCenterView() {
               </SelectContent>
             </Select>
             <span className={sx(centerStyles.shownCount)}>
-              {visibleRuns.length} shown
-            </span>
+          {tI18n("automation:automationCenterView.shownCount", { count: visibleRuns.length })}
+        </span>
           </>
         ) : null}
       </div>
@@ -913,14 +910,13 @@ export function AutomationCenterView() {
               state="searching"
               size={64}
               theme="auto"
-              aria-label="Loading schedules"
+              aria-label={tI18n("automation:automationCenterView.loadingSchedules")}
             />
           </div>
           <div>
-            <p className={sx(centerStyles.loadingTitle)}>Loading schedules</p>
+            <p className={sx(centerStyles.loadingTitle)}>{tI18n("automation:automationCenterView.loadingSchedules")}</p>
             <p className={sx(centerStyles.loadingHint)}>
-              Restoring schedules, execution policy, and run history.
-            </p>
+              {tI18n("automation:automationCenterView.restoringSchedulesExecutionPolicyAndRunHistory")}</p>
           </div>
         </div>
       ) : activeTab === "automations" ? (
@@ -930,17 +926,14 @@ export function AutomationCenterView() {
               <EmptyMedia variant="icon">
                 <Clock3 />
               </EmptyMedia>
-              <EmptyTitle>No schedules yet</EmptyTitle>
+              <EmptyTitle>{tI18n("automation:automationCenterView.noSchedulesYet")}</EmptyTitle>
               <EmptyDescription>
-                Start a task on a cadence, or check back on one that already
-                exists.
-              </EmptyDescription>
+                {tI18n("automation:automationCenterView.startATaskOnACadenceOr")}</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button size="sm" onClick={startCreate}>
                 <Plus className={sx(centerStyles.actionIcon)} />
-                New schedule
-              </Button>
+                {tI18n("automation:automationCenterView.newSchedule")}</Button>
             </EmptyContent>
           </Empty>
         ) : (
@@ -968,9 +961,9 @@ export function AutomationCenterView() {
                 >
                   <SelectTrigger
                     className={sx(centerStyles.compactSelect)}
-                    aria-label="Select schedule"
+                    aria-label={tI18n("automation:automationCenterView.selectSchedule")}
                   >
-                    <SelectValue placeholder="Select a schedule" />
+                    <SelectValue placeholder={tI18n("automation:automationCenterView.selectASchedule")} />
                   </SelectTrigger>
                   <SelectContent>
                     {scheduleRows.map((row) => (
@@ -1016,20 +1009,19 @@ export function AutomationCenterView() {
                         }
                         title={
                           selectedAutomationAtConcurrencyLimit
-                            ? "Concurrency limit reached"
-                            : "Run now"
+                            ? tI18n("automation:automationCenterView.concurrencyLimitReached")
+                            : tI18n("automation:automationCenterView.runNow")
                         }
                       >
                         <Play className={sx(centerStyles.buttonIcon)} />
-                        Run now
-                      </Button>
+                        {tI18n("automation:automationCenterView.runNow")}</Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         xstyle={centerStyles.iconButton}
                         onClick={() => startEdit(selectedAutomation)}
-                        aria-label="Edit schedule"
-                        title="Edit"
+                        aria-label={tI18n("automation:automationCenterView.editSchedule")}
+                        title={tI18n("automation:automationCenterView.edit")}
                       >
                         <Pencil className={sx(centerStyles.buttonIcon)} />
                       </Button>
@@ -1038,7 +1030,7 @@ export function AutomationCenterView() {
 
                   <dl className={sx(centerStyles.facts)}>
                     <Detail
-                      label="Status"
+                      label={tI18n("automation:automationCenterView.status")}
                       value={
                         selectedAutomation.enabled ? "Scheduled" : "Manual only"
                       }
@@ -1046,27 +1038,27 @@ export function AutomationCenterView() {
                     {selectedAutomation.enabled ? (
                       <>
                         <Detail
-                          label="Cadence"
+                          label={tI18n("automation:automationCenterView.cadence")}
                           value={formatAutomationSchedule(selectedAutomation.schedule)}
                         />
                         <Detail
-                          label="Next run"
+                          label={tI18n("automation:automationCenterView.nextRun")}
                           value={formatRelativeTime(selectedAutomation.nextRunAt)}
                         />
                       </>
                     ) : null}
                     <Detail
-                      label="Last run"
+                      label={tI18n("automation:automationCenterView.lastRun")}
                       value={formatRelativeTime(selectedAutomation.lastRunAt)}
                     />
                     <Detail
-                      label="Permissions"
+                      label={tI18n("automation:automationCenterView.permissions")}
                       value={formatAutomationTrustPolicy(
                         selectedAutomation.trustPolicy,
                       )}
                     />
                     <Detail
-                      label="Provider"
+                      label={tI18n("automation:automationCenterView.provider")}
                       value={`${
                         selectedAutomation.runtime.provider === "codex"
                           ? "Codex"
@@ -1074,11 +1066,11 @@ export function AutomationCenterView() {
                       } · ${selectedAutomation.runtime.effort}`}
                     />
                     <Detail
-                      label="Repository"
+                      label={tI18n("automation:automationCenterView.repository")}
                       value={selectedAutomation.environment.label}
                     />
                     <Detail
-                      label="Concurrency"
+                      label={tI18n("automation:automationCenterView.concurrency")}
                       value={`${selectedAutomationActiveRunCount}/${selectedAutomation.maxConcurrentRuns}`}
                     />
                   </dl>
@@ -1091,8 +1083,7 @@ export function AutomationCenterView() {
                       onClick={() => showRunHistory(selectedAutomation)}
                     >
                       <History className={sx(centerStyles.buttonIcon)} />
-                      View run history
-                      <span className={sx(centerStyles.runCount)}>
+                      {tI18n("automation:automationCenterView.viewRunHistory")}<span className={sx(centerStyles.runCount)}>
                         {runCountByAutomationId.get(selectedAutomation.id) ?? 0}
                       </span>
                     </Button>
@@ -1106,13 +1097,11 @@ export function AutomationCenterView() {
                       {selectedAutomation.enabled ? (
                         <>
                           <Pause className={sx(centerStyles.buttonIcon)} />
-                          Pause schedule
-                        </>
+                          {tI18n("automation:automationCenterView.pauseSchedule")}</>
                       ) : (
                         <>
                           <Play className={sx(centerStyles.buttonIcon)} />
-                          Enable schedule
-                        </>
+                          {tI18n("automation:automationCenterView.enableSchedule")}</>
                       )}
                     </Button>
                     <Button
@@ -1123,13 +1112,12 @@ export function AutomationCenterView() {
                       disabled={selectedAutomationActiveRunCount > 0}
                       title={
                         selectedAutomationActiveRunCount > 0
-                          ? "Wait for active runs to finish"
-                          : "Delete schedule"
+                          ? tI18n("automation:automationCenterView.waitForActiveRunsToFinish")
+                          : tI18n("automation:automationCenterView.deleteSchedule")
                       }
                     >
                       <Trash2 className={sx(centerStyles.buttonIcon)} />
-                      Delete
-                    </Button>
+                      {tI18n("automation:automationCenterView.delete")}</Button>
                   </div>
 
                   <AutomationLatestRun
@@ -1145,8 +1133,7 @@ export function AutomationCenterView() {
                 </div>
               ) : (
                 <div className={sx(centerStyles.placeholder)}>
-                  Select a schedule to see its configuration.
-                </div>
+                  {tI18n("automation:automationCenterView.selectAScheduleToSeeItsConfiguration")}</div>
               )}
             </div>
           </div>
@@ -1160,11 +1147,9 @@ export function AutomationCenterView() {
                   <EmptyMedia variant="icon">
                     <ListChecks />
                   </EmptyMedia>
-                  <EmptyTitle>No matching runs</EmptyTitle>
+                  <EmptyTitle>{tI18n("automation:automationCenterView.noMatchingRuns")}</EmptyTitle>
                   <EmptyDescription>
-                    Every manual or scheduled execution is recorded here with
-                    its execution ID, config hash, permissions, and result.
-                  </EmptyDescription>
+                    {tI18n("automation:automationCenterView.everyManualOrScheduledExecutionIsRecorded")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : (
@@ -1192,8 +1177,7 @@ export function AutomationCenterView() {
               />
             ) : (
               <div className={sx(centerStyles.placeholder)}>
-                Select a run to see its full result.
-              </div>
+                {tI18n("automation:automationCenterView.selectARunToSeeItsFull")}</div>
             )}
           </div>
         </div>
@@ -1201,22 +1185,22 @@ export function AutomationCenterView() {
 
       <ConfirmDialog
         open={Boolean(deleteAutomation)}
-        title="Delete schedule"
+        title={tI18n("automation:automationCenterView.deleteSchedule")}
         description={
           deleteAutomation
-            ? `Delete "${deleteAutomation.name}" and its saved run history? Created task conversations remain in their workspaces.`
+            ? tI18n("automation:automationCenterView.deleteValueAndItsSavedRunHistory", { value1: deleteAutomation.name })
             : ""
         }
-        confirmLabel="Delete"
+        confirmLabel={tI18n("automation:automationCenterView.delete")}
         loading={Boolean(deleteAutomation && busyAutomationId === deleteAutomation.id)}
         onCancel={() => setDeleteAutomation(null)}
         onConfirm={() => void confirmDelete()}
       />
       <ConfirmDialog
         open={Boolean(removeCheckBack)}
-        title="Remove schedule"
-        description="Remove this check-back and its history? The task itself is untouched."
-        confirmLabel="Remove"
+        title={tI18n("automation:automationCenterView.removeSchedule")}
+        description={tI18n("automation:automationCenterView.removeThisCheckBackAndItsHistory")}
+        confirmLabel={tI18n("automation:automationCenterView.remove")}
         loading={Boolean(removeCheckBack && busyAutomationId === removeCheckBack.id)}
         onCancel={() => setRemoveCheckBack(null)}
         onConfirm={() => void confirmRemoveCheckBack()}

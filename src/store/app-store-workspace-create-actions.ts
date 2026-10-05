@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type { StoreApi } from "zustand";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
 import { workspaceFsAdapter } from "@/lib/fs";
@@ -87,14 +88,14 @@ export function createWorkspaceCreateActions(args: {
     }) => {
       const trimmed = name.trim();
       if (!trimmed) {
-        return { ok: false, message: "Workspace name is required." };
+        return { ok: false, message: i18n.t("workspace:appStoreWorkspaceCreateActions.workspaceNameIsRequired") };
       }
 
       const current = get();
       if (!current.repositoryPath) {
         return {
           ok: false,
-          message: "Open a repository before creating a workspace.",
+          message: i18n.t("workspace:appStoreWorkspaceCreateActions.openARepositoryBeforeCreatingAWorkspace"),
         };
       }
       const nextRuntimeCacheById =
@@ -104,7 +105,7 @@ export function createWorkspaceCreateActions(args: {
 
       const branchName = sanitizeBranchName({ value: trimmed });
       if (!branchName) {
-        return { ok: false, message: "Workspace branch name is invalid." };
+        return { ok: false, message: i18n.t("workspace:appStoreWorkspaceCreateActions.workspaceBranchNameIsInvalid") };
       }
       const workspaceDisplayName = label?.trim() || branchName;
       const repositoryWorkspaceInitCommand = resolveRepositoryWorkspaceInitCommand({
@@ -168,20 +169,20 @@ export function createWorkspaceCreateActions(args: {
             creationNotices.push({
               level: "warning",
               message: localBranchProbe.ok
-                ? `Could not refresh \`${fromBranch}\`; created the workspace from local \`${remoteTarget.localBranch}\` instead. ${summarizeTerminalCommandDetail(
+                ? i18n.t("workspace:appStoreWorkspaceCreateActions.couldNotRefreshValueCreatedTheWorkspace", { fromBranch: fromBranch, value1: remoteTarget.localBranch, value2: summarizeTerminalCommandDetail(
                     {
                       stderr: fetchResult.stderr,
                       stdout: fetchResult.stdout,
                       fallback: "git fetch failed.",
                     },
-                  )}`
-                : `Could not refresh \`${fromBranch}\`; created the workspace from the cached remote-tracking ref instead. ${summarizeTerminalCommandDetail(
+                  ) })
+                : i18n.t("workspace:appStoreWorkspaceCreateActions.couldNotRefreshValueCreatedTheWorkspace2", { fromBranch: fromBranch, value1: summarizeTerminalCommandDetail(
                     {
                       stderr: fetchResult.stderr,
                       stdout: fetchResult.stdout,
                       fallback: "git fetch failed.",
                     },
-                  )}`,
+                  ) }),
             });
           }
         }
@@ -217,7 +218,7 @@ export function createWorkspaceCreateActions(args: {
       const empty = createEmptyWorkspaceState();
       const seededTask: Task = {
         id: crypto.randomUUID(),
-        title: (initialTaskTitle ?? "").trim() || "New Task",
+        title: (initialTaskTitle ?? "").trim() || i18n.t("workspace:appStoreWorkspaceCreateActions.newTask"),
         provider: initialTaskProvider ?? current.draftProvider,
         updatedAt: buildRecentTimestamp(),
         unread: false,
@@ -286,7 +287,7 @@ export function createWorkspaceCreateActions(args: {
           creationNotices.push({
             level: "warning",
             message:
-              "The shared root `node_modules` symlink could not be created because the terminal bridge is unavailable.",
+              i18n.t("workspace:appStoreWorkspaceCreateActions.theSharedRootNodeModulesSymlinkCould"),
           });
         } else {
           const linkResult = await runner({
@@ -299,18 +300,18 @@ export function createWorkspaceCreateActions(args: {
             creationNotices.push({
               level: "success",
               message:
-                "Linked `node_modules` from the repository root into the new workspace.",
+                i18n.t("workspace:appStoreWorkspaceCreateActions.linkedNodeModulesFromTheRepositoryRoot"),
             });
           } else {
             creationNotices.push({
               level: "warning",
-              message: `Linking the shared root \`node_modules\` failed. ${summarizeTerminalCommandDetail(
+              message: i18n.t("workspace:appStoreWorkspaceCreateActions.linkingTheSharedRootNodeModulesFailed", { value1: summarizeTerminalCommandDetail(
                 {
                   stderr: linkResult.stderr,
                   stdout: linkResult.stdout,
                   fallback: "Command failed.",
                 },
-              )}`,
+              ) }),
             });
           }
         }
@@ -323,7 +324,7 @@ export function createWorkspaceCreateActions(args: {
         if (!runner) {
           creationNotices.push({
             level: "warning",
-            message: `The post-create command could not run because the terminal bridge is unavailable: ${summarizedCommand}`,
+            message: i18n.t("workspace:appStoreWorkspaceCreateActions.thePostCreateCommandCouldNotRun", { summarizedCommand: summarizedCommand }),
           });
         } else {
           const initResult = await runner({
@@ -333,18 +334,18 @@ export function createWorkspaceCreateActions(args: {
           if (initResult.ok) {
             creationNotices.push({
               level: "success",
-              message: `Ran the post-create command: ${summarizedCommand}`,
+              message: i18n.t("workspace:appStoreWorkspaceCreateActions.ranThePostCreateCommandValue", { summarizedCommand: summarizedCommand }),
             });
           } else {
             creationNotices.push({
               level: "warning",
-              message: `The post-create command failed: ${summarizedCommand}. ${summarizeTerminalCommandDetail(
+              message: i18n.t("workspace:appStoreWorkspaceCreateActions.thePostCreateCommandFailedValueValue", { summarizedCommand: summarizedCommand, value1: summarizeTerminalCommandDetail(
                 {
                   stderr: initResult.stderr,
                   stdout: initResult.stdout,
                   fallback: "Command failed.",
                 },
-              )}`,
+              ) }),
             });
           }
         }
@@ -439,7 +440,7 @@ export function createWorkspaceCreateActions(args: {
     importWorkspaceFromWorktree: async ({ worktreePath, label }) => {
       const trimmedInput = worktreePath.trim();
       if (!trimmedInput) {
-        return { ok: false, message: "Worktree path is required." };
+        return { ok: false, message: i18n.t("workspace:appStoreWorkspaceCreateActions.worktreePathIsRequired") };
       }
 
       const current = get();
@@ -447,7 +448,7 @@ export function createWorkspaceCreateActions(args: {
       if (!repositoryPath) {
         return {
           ok: false,
-          message: "Open a repository before linking a worktree.",
+          message: i18n.t("workspace:appStoreWorkspaceCreateActions.openARepositoryBeforeLinkingAWorktree"),
         };
       }
       const runner = window.api?.terminal?.runCommand;
@@ -455,7 +456,7 @@ export function createWorkspaceCreateActions(args: {
         return {
           ok: false,
           message:
-            "Linking a worktree requires the terminal bridge, which is unavailable.",
+            i18n.t("workspace:appStoreWorkspaceCreateActions.linkingAWorktreeRequiresTheTerminalBridge"),
         };
       }
 
@@ -477,7 +478,7 @@ export function createWorkspaceCreateActions(args: {
       if (!worktreeRoot) {
         return {
           ok: false,
-          message: "Could not resolve the worktree root for that path.",
+          message: i18n.t("workspace:appStoreWorkspaceCreateActions.couldNotResolveTheWorktreeRootFor"),
         };
       }
       const comparableWorktreeRoot = normalizeComparablePath(worktreeRoot);
@@ -485,7 +486,7 @@ export function createWorkspaceCreateActions(args: {
         return {
           ok: false,
           message:
-            "That path is the repository root, which is already available as the default workspace.",
+            i18n.t("workspace:appStoreWorkspaceCreateActions.thatPathIsTheRepositoryRootWhich"),
         };
       }
       const existingWorkspaceId = Object.entries(
@@ -501,7 +502,7 @@ export function createWorkspaceCreateActions(args: {
           ok: true,
           noticeLevel: "success",
           message:
-            "That worktree is already registered as a workspace. Switched to it.",
+            i18n.t("workspace:appStoreWorkspaceCreateActions.thatWorktreeIsAlreadyRegisteredAsA"),
         };
       }
 
@@ -514,7 +515,7 @@ export function createWorkspaceCreateActions(args: {
         return {
           ok: false,
           message:
-            "The worktree has no checked-out branch (detached HEAD), so it cannot be linked.",
+            i18n.t("workspace:appStoreWorkspaceCreateActions.theWorktreeHasNoCheckedOutBranch"),
         };
       }
 
@@ -575,18 +576,18 @@ export function createWorkspaceCreateActions(args: {
         if (linkResult.ok) {
           creationNotices.push({
             level: "success",
-            message: `Linked the worktree into \`.stave/workspaces/\` via symlink.`,
+            message: i18n.t("workspace:appStoreWorkspaceCreateActions.linkedTheWorktreeIntoStaveWorkspacesVia"),
           });
         } else {
           creationNotices.push({
             level: "warning",
-            message: `The workspace was registered, but creating the \`.stave/workspaces/\` symlink failed. ${summarizeTerminalCommandDetail(
+            message: i18n.t("workspace:appStoreWorkspaceCreateActions.theWorkspaceWasRegisteredButCreatingThe", { value1: summarizeTerminalCommandDetail(
               {
                 stderr: linkResult.stderr,
                 stdout: linkResult.stdout,
                 fallback: "Command failed.",
               },
-            )}`,
+            ) }),
           });
         }
       }
@@ -600,7 +601,7 @@ export function createWorkspaceCreateActions(args: {
       const empty = createEmptyWorkspaceState();
       const seededTask: Task = {
         id: crypto.randomUUID(),
-        title: "New Task",
+        title: i18n.t("workspace:appStoreWorkspaceCreateActions.newTask"),
         provider: current.draftProvider,
         updatedAt: buildRecentTimestamp(),
         unread: false,
@@ -745,7 +746,7 @@ export function createWorkspaceCreateActions(args: {
         : {
             ok: true,
             noticeLevel: "success",
-            message: `Linked worktree \`${worktreeRoot}\` on branch \`${branchName}\`.`,
+            message: i18n.t("workspace:appStoreWorkspaceCreateActions.linkedWorktreeValueOnBranchValue", { worktreeRoot: worktreeRoot, branchName: branchName }),
           };
     },
     continueWorkspaceFromSummary: async ({
@@ -757,14 +758,14 @@ export function createWorkspaceCreateActions(args: {
       if (!sourceWorkspaceId) {
         return {
           ok: false,
-          message: "Select a workspace before continuing.",
+          message: i18n.t("workspace:appStoreWorkspaceCreateActions.selectAWorkspaceBeforeContinuing"),
         };
       }
       if (current.workspaceDefaultById[sourceWorkspaceId]) {
         return {
           ok: false,
           message:
-            "The default workspace cannot be continued into a new workspace.",
+            i18n.t("workspace:appStoreWorkspaceCreateActions.theDefaultWorkspaceCannotBeContinuedInto"),
         };
       }
 
@@ -890,7 +891,7 @@ export function createWorkspaceCreateActions(args: {
         name,
         mode: "branch",
         fromBranch: baseBranch,
-        initialTaskTitle: `Continue from ${sourceWorkspaceName}`,
+        initialTaskTitle: i18n.t("workspace:appStoreWorkspaceCreateActions.continueFromValue", { sourceWorkspaceName: sourceWorkspaceName }),
       });
       if (!creationResult.ok) {
         return creationResult;

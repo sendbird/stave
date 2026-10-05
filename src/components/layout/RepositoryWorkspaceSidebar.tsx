@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
@@ -94,9 +95,7 @@ import {
   SortableSidebarItem,
   WorkspaceRowActions,
 } from "./workspace-sidebar-rows";
-
 type RepositorySidebarView = RepositorySidebarCollapsedRepositoryView;
-
 /**
  * The two sidebar views, in toggle order. Both list the same workspaces, so
  * either is a complete way to navigate — `repositories` sorts by where a workspace
@@ -107,8 +106,8 @@ const SIDEBAR_NAV_VIEW_OPTIONS: readonly {
   label: string;
   Icon: typeof FolderTree;
 }[] = [
-  { value: "projects", label: "Repositories", Icon: FolderTree },
-  { value: "work-queue", label: "Work queue", Icon: ListChecks },
+  { value: "projects", get label() { return i18n.t("workspace:repositoryWorkspaceSidebar.repositories"); }, Icon: FolderTree },
+  { value: "work-queue", get label() { return i18n.t("workspace:repositoryWorkspaceSidebar.workQueue"); }, Icon: ListChecks },
 ] as const;
 const DEFAULT_COLLAPSED_REPOSITORY_SIDEBAR_WIDTH = 64;
 /** Height reserved at the top of the collapsed sidebar for macOS traffic-light buttons. */
@@ -125,10 +124,8 @@ export const COLLAPSED_REPOSITORY_SIDEBAR_WIDTH = IS_MAC
         MAC_TRAFFIC_LIGHT_RIGHT_GUTTER,
     )
   : DEFAULT_COLLAPSED_REPOSITORY_SIDEBAR_WIDTH;
-
 const REPOSITORY_SORTABLE_LIST_ID = "sidebar-projects";
 const WORKSPACE_SORTABLE_LIST_PREFIX = "sidebar-workspaces:";
-
 export function RepositoryWorkspaceSidebar(args: {
   width: number;
   collapsed: boolean;
@@ -142,6 +139,7 @@ export function RepositoryWorkspaceSidebar(args: {
   onPreloadSettings: () => void;
   onKickoffWorkspace: (repositoryPath: string) => Promise<void> | void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const [collapsedByRepositoryPath, setCollapsedByRepositoryPath] = useState<
     Record<string, boolean>
   >({});
@@ -254,7 +252,6 @@ export function RepositoryWorkspaceSidebar(args: {
   const { highestAttentionByWorkspaceId, attentionItemsByWorkspaceId } =
     useFleetAttentionProjection();
   const isWorkQueueView = sidebarNavView === "work-queue";
-
   const repositories = useMemo(() => {
     const rememberedCurrentRepository = currentRepositoryPath
       ? recentRepositories.find(
@@ -320,15 +317,14 @@ export function RepositoryWorkspaceSidebar(args: {
     workspaceBranchById,
     workspaceDefaultById,
     workspacePathById,
-    workspaces,
-  ]);
+    workspaces, i18n.resolvedLanguage]);
   const visibleRepositories = useMemo(
     () =>
       filterRepositorySidebarRepositories({
         repositories,
         query: workspaceSearchQuery,
       }),
-    [repositories, workspaceSearchQuery],
+    [repositories, workspaceSearchQuery, i18n.resolvedLanguage],
   );
   // Archive treats linked worktrees as externally owned, so the confirmation
   // must not promise a branch deletion that `performWorkspaceArchiveCleanup`
@@ -349,14 +345,14 @@ export function RepositoryWorkspaceSidebar(args: {
       workspaceName: workspaceToClose.name,
       isLinkedWorktree,
     });
-  }, [currentRepositoryPath, recentRepositories, workspacePathById, workspaceToClose]);
+  }, [currentRepositoryPath, recentRepositories, workspacePathById, workspaceToClose, i18n.resolvedLanguage]);
   const collapsedWorkspaceEntries = useMemo(
     () =>
       buildCollapsedWorkspaceEntries({
         repositories,
         activeWorkspaceId,
       }),
-    [activeWorkspaceId, repositories],
+    [activeWorkspaceId, repositories, i18n.resolvedLanguage],
   );
   const recentRepositoryLastOpenedAtByPath = useMemo(() => {
     const map: Record<string, string> = {};
@@ -364,7 +360,7 @@ export function RepositoryWorkspaceSidebar(args: {
       map[repository.repositoryPath] = repository.lastOpenedAt;
     }
     return map;
-  }, [recentRepositories]);
+  }, [recentRepositories, i18n.resolvedLanguage]);
   const workspaceFleetStatusById = useMemo(() => {
     const statusById: Record<string, FleetTaskStatus> = {};
     if (!isWorkQueueView) {
@@ -412,8 +408,7 @@ export function RepositoryWorkspaceSidebar(args: {
     repositories,
     providerTurnActivityByTask,
     isWorkQueueView,
-    workspaceRuntimeCacheById,
-  ]);
+    workspaceRuntimeCacheById, i18n.resolvedLanguage]);
   const workQueueEntries = useMemo(
     () =>
       isWorkQueueView
@@ -445,8 +440,7 @@ export function RepositoryWorkspaceSidebar(args: {
       visibleRepositories,
       recentRepositoryLastOpenedAtByPath,
       highestAttentionByWorkspaceId,
-      workspaceFleetStatusById,
-    ],
+      workspaceFleetStatusById, i18n.resolvedLanguage],
   );
   const workQueueGroups = useSidebarWorkQueueGroups({
     entries: workQueueEntries,
@@ -466,7 +460,7 @@ export function RepositoryWorkspaceSidebar(args: {
       }
     }
     return alertByPath;
-  }, [attentionItemsByWorkspaceId, repositories]);
+  }, [attentionItemsByWorkspaceId, repositories, i18n.resolvedLanguage]);
   const workspaceShortcutTargets = useMemo(
     () =>
       buildVisibleWorkspaceShortcutTargets({
@@ -474,7 +468,7 @@ export function RepositoryWorkspaceSidebar(args: {
         collapsedByRepositoryPath,
         repositories,
       }),
-    [args.collapsed, collapsedByRepositoryPath, repositories],
+    [args.collapsed, collapsedByRepositoryPath, repositories, i18n.resolvedLanguage],
   );
   const workspaceShortcutLabels = useMemo(
     () =>
@@ -484,7 +478,7 @@ export function RepositoryWorkspaceSidebar(args: {
           getWorkspaceShortcutLabel(index) ?? "",
         ]),
       ),
-    [workspaceShortcutTargets],
+    [workspaceShortcutTargets, i18n.resolvedLanguage],
   );
   const suppressRowClickRef = useRef(false);
 
@@ -736,13 +730,14 @@ export function RepositoryWorkspaceSidebar(args: {
                         size="sm"
                         xstyle={repositorySidebarStyles.collapsedPrimaryButton}
                         onClick={() => setOpenPathDialogOpen(true)}
-                        aria-label="open-project"
+                        data-testid="open-project"
+                        aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.openProject")}
                       />
                     }
                   >
                     <FolderOpen className={sx(repositorySidebarStyles.iconMd)} />
                   </TooltipTrigger>
-                  <TooltipContent side="right">Open Repository</TooltipContent>
+                  <TooltipContent side="right">{tI18n("workspace:repositoryWorkspaceSidebar.openRepository")}</TooltipContent>
                 </Tooltip>
                 <SidebarPrimaryNavCollapsed showFleetView={sidebarShowFleetView} />
               </div>
@@ -760,15 +755,15 @@ export function RepositoryWorkspaceSidebar(args: {
                             patch: { workspaceSidebarCollapsed: true },
                           })
                         }
-                        aria-label="collapse-project-list"
+                        data-testid="collapse-project-list"
+                        aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.collapseProjectList")}
                       />
                     }
                   >
                     <PanelLeft className={sx(repositorySidebarStyles.iconMd)} />
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    Collapse Repository List
-                  </TooltipContent>
+                    {tI18n("workspace:repositoryWorkspaceSidebar.collapseRepositoryList")}</TooltipContent>
                 </Tooltip>
               </div>
             )}
@@ -820,7 +815,8 @@ export function RepositoryWorkspaceSidebar(args: {
                               workspaceId: entry.workspaceId,
                             })
                           }
-                          aria-label={`collapsed-workspace-${entry.workspaceId}`}
+                          data-testid={`collapsed-workspace-${entry.workspaceId}`}
+                          aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.openWorkspace", { value1: entry.workspaceName })}
                         >
                           <WorkspaceLeadingStatusIcon
                             workspaceId={entry.workspaceId}
@@ -875,7 +871,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                   ? repositorySidebarStyles.viewToggleButtonActive
                                   : repositorySidebarStyles.viewToggleButtonIdle,
                               ]}
-                              aria-label={`sidebar-view-${option.value}`}
+                              data-testid={`sidebar-view-${option.value}`}
+                              aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.sidebarView", { value1: option.label })}
                               aria-pressed={isSelected}
                               onClick={() =>
                                 updateSettings({
@@ -906,13 +903,14 @@ export function RepositoryWorkspaceSidebar(args: {
                           size="sm"
                           xstyle={repositorySidebarStyles.chromeButtonSidebar}
                           onClick={() => setOpenPathDialogOpen(true)}
-                          aria-label="open-project"
+                          data-testid="open-project"
+                          aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.openProject")}
                         />
                       }
                     >
                       <FolderOpen className={sx(repositorySidebarStyles.iconMd)} />
                     </TooltipTrigger>
-                    <TooltipContent side="top">Open Repository</TooltipContent>
+                    <TooltipContent side="top">{tI18n("workspace:repositoryWorkspaceSidebar.openRepository")}</TooltipContent>
                   </Tooltip>
                   {/* Row density is a tree-only concern; the queue has one row shape. */}
                   {isWorkQueueView ? null : (
@@ -934,7 +932,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                 xstyle={
                                   repositorySidebarStyles.chromeButtonSidebar
                                 }
-                                aria-label="workspace-item-display-mode"
+                                data-testid="workspace-item-display-mode"
+                                aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.workspaceDisplayMode")}
                               />
                             }
                           >
@@ -950,14 +949,13 @@ export function RepositoryWorkspaceSidebar(args: {
                           </DropdownMenuTrigger>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          Workspace row display
-                        </TooltipContent>
+                          {tI18n("workspace:repositoryWorkspaceSidebar.workspaceRowDisplay")}</TooltipContent>
                       </Tooltip>
                       <DropdownMenuContent
                         align="end"
                         xstyle={repositorySidebarStyles.displayModeMenu}
                       >
-                        <DropdownMenuLabel>Workspace rows</DropdownMenuLabel>
+                        <DropdownMenuLabel>{tI18n("workspace:repositoryWorkspaceSidebar.workspaceRows")}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuRadioGroup
                           value={workspaceSidebarItemDisplayMode}
@@ -967,14 +965,12 @@ export function RepositoryWorkspaceSidebar(args: {
                             <Rows3
                               className={sx(repositorySidebarStyles.iconMd)}
                             />
-                            Expanded
-                          </DropdownMenuRadioItem>
+                            {tI18n("workspace:repositoryWorkspaceSidebar.expanded")}</DropdownMenuRadioItem>
                           <DropdownMenuRadioItem value="compact">
                             <Rows2
                               className={sx(repositorySidebarStyles.iconMd)}
                             />
-                            Compact
-                          </DropdownMenuRadioItem>
+                            {tI18n("workspace:repositoryWorkspaceSidebar.compact")}</DropdownMenuRadioItem>
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -988,9 +984,10 @@ export function RepositoryWorkspaceSidebar(args: {
                   onChange={(event) =>
                     setWorkspaceSearchQuery(event.target.value)
                   }
-                  placeholder="Search repos, labels, or branches"
+                  placeholder={tI18n("workspace:repositoryWorkspaceSidebar.searchReposLabelsOrBranches")}
                   xstyle={repositorySidebarStyles.searchInput}
-                  aria-label="search-workspaces"
+                  data-testid="search-workspaces"
+                  aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.searchWorkspaces")}
                 />
                 {workspaceSearchQuery.trim() ? (
                   <Button
@@ -999,7 +996,8 @@ export function RepositoryWorkspaceSidebar(args: {
                     size="sm"
                     xstyle={repositorySidebarStyles.searchClear}
                     onClick={() => setWorkspaceSearchQuery("")}
-                    aria-label="clear-workspace-search"
+                    data-testid="clear-workspace-search"
+                    aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.clearWorkspaceSearch")}
                   >
                     <X className={sx(repositorySidebarStyles.iconSm)} />
                   </Button>
@@ -1031,7 +1029,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                 [group.lane]: !laneCollapsed,
                               }))
                             }
-                            aria-label={`work-queue-lane-${group.lane}`}
+                            data-testid={`work-queue-lane-${group.lane}`}
+                            aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.workQueueLane", { value1: group.label })}
                             aria-expanded={!laneCollapsed}
                             xstyle={[
                               repositorySidebarStyles.laneButton,
@@ -1135,7 +1134,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                   tabIndex={handleRef ? 0 : undefined}
                                   aria-label={
                                     handleRef
-                                      ? `Reorder repository ${repository.repositoryName}`
+                                      ? tI18n("workspace:repositoryWorkspaceSidebar.reorderRepositoryValue", { value1: repository.repositoryName })
                                       : undefined
                                   }
                                   aria-keyshortcuts={
@@ -1145,7 +1144,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                   }
                                   aria-description={
                                     handleRef && !repositoryReorderingDisabled
-                                      ? "Use Alt plus Arrow Up or Arrow Down to reorder."
+                                      ? tI18n("workspace:repositoryWorkspaceSidebar.useAltPlusArrowUpOrArrow")
                                       : undefined
                                   }
                                   onKeyDown={
@@ -1219,7 +1218,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                               }),
                                             );
                                           }}
-                                          aria-label={`toggle-project-${repository.repositoryPath}`}
+                                          data-testid={`toggle-project-${repository.repositoryPath}`}
+                                          aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.toggleProject", { value1: repository.repositoryName })}
                                           aria-expanded={!collapsed}
                                         />
                                       }
@@ -1263,8 +1263,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                     </TooltipTrigger>
                                     <TooltipContent side="right">
                                       {collapsed
-                                        ? "Expand repository"
-                                        : "Collapse repository"}
+                                        ? tI18n("workspace:repositoryWorkspaceSidebar.expandRepository")
+                                        : tI18n("workspace:repositoryWorkspaceSidebar.collapseRepository")}
                                     </TooltipContent>
                                   </Tooltip>
                                   <div
@@ -1311,7 +1311,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                           className={sx(
                                             repositorySidebarStyles.repositoryCount,
                                           )}
-                                          aria-label={`${repository.workspaces.length} workspaces`}
+                                          aria-label={tI18n("workspace:repositoryWorkspaceSidebar.valueWorkspaces", { repositoryworkspacesCount: repository.workspaces.length })}
                                         >
                                           {repository.workspaces.length}
                                         </span>
@@ -1338,7 +1338,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                   repository.repositoryPath,
                                                 )
                                               }
-                                              aria-label={`Kick off workspace for ${repository.repositoryName}`}
+                                              aria-label={tI18n("workspace:repositoryWorkspaceSidebar.kickOffWorkspaceForValue", { value1: repository.repositoryName })}
                                             />
                                           }
                                         >
@@ -1349,8 +1349,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                           />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
-                                          Kick off workspace
-                                        </TooltipContent>
+                                          {tI18n("workspace:repositoryWorkspaceSidebar.kickOffWorkspace")}</TooltipContent>
                                       </Tooltip>
                                       <Tooltip>
                                         <TooltipTrigger
@@ -1368,7 +1367,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                                   repository.repositoryPath,
                                                 )
                                               }
-                                              aria-label={`new-workspace-${repository.repositoryPath}`}
+                                              data-testid={`new-workspace-${repository.repositoryPath}`}
+                                              aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.newProjectWorkspace", { value1: repository.repositoryName })}
                                             />
                                           }
                                         >
@@ -1379,8 +1379,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                           />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
-                                          New workspace
-                                        </TooltipContent>
+                                          {tI18n("workspace:repositoryWorkspaceSidebar.newWorkspace")}</TooltipContent>
                                       </Tooltip>
                                       <Tooltip>
                                         <TooltipTrigger
@@ -1396,7 +1395,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                               onClick={() =>
                                                 void hydrateWorkspaces()
                                               }
-                                              aria-label={`refresh-workspaces-${repository.repositoryPath}`}
+                                              data-testid={`refresh-workspaces-${repository.repositoryPath}`}
+                                              aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.refreshProjectWorkspaces", { value1: repository.repositoryName })}
                                             />
                                           }
                                         >
@@ -1407,8 +1407,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                           />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
-                                          Refresh workspaces
-                                        </TooltipContent>
+                                          {tI18n("workspace:repositoryWorkspaceSidebar.refreshWorkspaces")}</TooltipContent>
                                       </Tooltip>
                                       <Tooltip>
                                         <TooltipTrigger
@@ -1432,7 +1431,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                                     repository.repositoryPath,
                                                 })
                                               }
-                                              aria-label={`project-settings-${repository.repositoryPath}`}
+                                              data-testid={`project-settings-${repository.repositoryPath}`}
+                                              aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.projectSettings", { value1: repository.repositoryName })}
                                             />
                                           }
                                         >
@@ -1443,8 +1443,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                           />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
-                                          Repository settings
-                                        </TooltipContent>
+                                          {tI18n("workspace:repositoryWorkspaceSidebar.repositorySettings")}</TooltipContent>
                                       </Tooltip>
                                     </div>
                                   </div>
@@ -1497,7 +1496,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                           disabled={workspaceReorderingDisabled}
                                           previewTitle={
                                             workspace.isDefault
-                                              ? "Default"
+                                              ? tI18n("workspace:repositoryWorkspaceSidebar.default")
                                               : workspace.name
                                           }
                                           previewIcon={
@@ -1553,7 +1552,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       }
                                                       role="button"
                                                       tabIndex={0}
-                                                      aria-label={`Open workspace ${workspace.isDefault ? "Default" : workspace.name}`}
+                                                      aria-label={tI18n("workspace:repositoryWorkspaceSidebar.openWorkspaceValue", { value1: workspace.isDefault ? "Default" : workspace.name })}
                                                       aria-keyshortcuts={
                                                         !workspaceReorderingDisabled
                                                           ? "Alt+ArrowUp Alt+ArrowDown"
@@ -1561,7 +1560,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       }
                                                       aria-description={
                                                         !workspaceReorderingDisabled
-                                                          ? "Use Alt plus Arrow Up or Arrow Down to reorder."
+                                                          ? tI18n("workspace:repositoryWorkspaceSidebar.useAltPlusArrowUpOrArrow")
                                                           : undefined
                                                       }
                                                       className={sx(
@@ -1935,7 +1934,8 @@ export function RepositoryWorkspaceSidebar(args: {
                         variant="ghost"
                         size="sm"
                         xstyle={repositorySidebarStyles.collapsedButton}
-                        aria-label="open-settings"
+                        data-testid="open-settings"
+                        aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.openSettings")}
                         onMouseEnter={args.onPreloadSettings}
                         onFocus={args.onPreloadSettings}
                         onClick={() => args.onOpenSettings()}
@@ -1944,7 +1944,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   >
                     <Settings className={sx(repositorySidebarStyles.iconMd)} />
                   </TooltipTrigger>
-                  <TooltipContent side="right">Settings</TooltipContent>
+                  <TooltipContent side="right">{tI18n("workspace:repositoryWorkspaceSidebar.settings")}</TooltipContent>
                 </Tooltip>
               </div>
             ) : (
@@ -1964,7 +1964,8 @@ export function RepositoryWorkspaceSidebar(args: {
                         variant="ghost"
                         size="sm"
                         xstyle={repositorySidebarStyles.chromeButton}
-                        aria-label="open-settings"
+                        data-testid="open-settings"
+                        aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.openSettings")}
                         onMouseEnter={args.onPreloadSettings}
                         onFocus={args.onPreloadSettings}
                         onClick={() => args.onOpenSettings()}
@@ -1973,7 +1974,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   >
                     <Settings className={sx(repositorySidebarStyles.iconSm)} />
                   </TooltipTrigger>
-                  <TooltipContent side="top">Settings</TooltipContent>
+                  <TooltipContent side="top">{tI18n("workspace:repositoryWorkspaceSidebar.settings")}</TooltipContent>
                 </Tooltip>
               </div>
             )}
@@ -1982,9 +1983,9 @@ export function RepositoryWorkspaceSidebar(args: {
       </aside>
       <ConfirmDialog
         open={Boolean(workspaceToClose)}
-        title="Archive Workspace"
+        title={tI18n("workspace:repositoryWorkspaceSidebar.archiveWorkspace")}
         description={archiveDialogCopy?.description ?? ""}
-        confirmLabel="Archive"
+        confirmLabel={tI18n("workspace:repositoryWorkspaceSidebar.archive")}
         loading={closingWorkspaceId !== null}
         onCancel={() => {
           setWorkspaceToClose(null);
@@ -2023,8 +2024,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   : repositorySidebarStyles.archiveLabelOff,
               )}
             >
-              Delete the git branch too
-            </span>
+              {tI18n("workspace:repositoryWorkspaceSidebar.deleteTheGitBranchToo")}</span>
           </label>
         ) : null}
       </ConfirmDialog>

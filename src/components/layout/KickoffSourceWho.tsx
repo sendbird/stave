@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Rocket } from "lucide-react";
 import { Button } from "@/components/ui";
 import {
@@ -38,10 +39,11 @@ export function KickoffSourceWho(props: {
   startNow: KickoffStartNowProps;
   disabled?: boolean;
 }) {
+  const { t: tI18n } = useTranslation(["kickoff"]);
   const agent = props.agents.find((candidate) => candidate.id === props.agentId) ?? null;
   return (
     <div className={sx(kickoffStyles.field)}>
-      <p className={sx(kickoffStyles.label)}>Who</p>
+      <p className={sx(kickoffStyles.label)}>{tI18n("kickoff:kickoffSourceWho.who")}</p>
       <Select
         value={props.who === "agent" && agent ? agent.id : ME}
         disabled={props.disabled}
@@ -54,11 +56,11 @@ export function KickoffSourceWho(props: {
           props.onAgentChange(String(value));
         }}
       >
-        <SelectTrigger className={sx(kickoffStyles.fullWidth)} aria-label="Who does the work">
+        <SelectTrigger className={sx(kickoffStyles.fullWidth)} aria-label={tI18n("kickoff:kickoffSourceWho.whoDoesTheWork")}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ME}>Me</SelectItem>
+          <SelectItem value={ME}>{tI18n("kickoff:kickoffSourceWho.me")}</SelectItem>
           {props.agents.map((candidate) => (
             <SelectItem key={candidate.id} value={candidate.id}>
               <span className={sx(kickoffStyles.whoOption)}>
@@ -79,7 +81,7 @@ export function KickoffSourceWho(props: {
               onClick={props.startNow.onStart}
             >
               <Rocket className={sx(kickoffStyles.buttonIcon)} />
-              {props.startNow.busy ? "Assigning…" : "Assign"}
+              {props.startNow.busy ? tI18n("kickoff:kickoffSourceWho.assigning") : tI18n("kickoff:kickoffSourceWho.assign")}
             </Button>
           </div>
           {props.startNow.hint ? (
@@ -88,8 +90,7 @@ export function KickoffSourceWho(props: {
         </div>
       ) : (
         <p className={sx(kickoffStyles.hint)}>
-          Prepare the workspace and its first task, or pick an agent and assign the work now.
-        </p>
+          {tI18n("kickoff:kickoffSourceWho.prepareTheWorkspaceAndItsFirstTask")}</p>
       )}
     </div>
   );

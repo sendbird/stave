@@ -1,3 +1,7 @@
+import type { I18nKey } from "@/i18n";
+
+type BranchPickerGroupLabelKey = Extract<I18nKey, `workspace:branchPicker.groups.${string}`>;
+
 export interface CreateWorkspaceBranchOption {
   value: string;
   scope: "local" | "remote";
@@ -7,7 +11,7 @@ export type CreateWorkspaceBranchPickerRow =
   | {
       type: "label";
       key: string;
-      label: string;
+      labelKey: BranchPickerGroupLabelKey;
       scope: CreateWorkspaceBranchOption["scope"];
     }
   | {
@@ -148,7 +152,7 @@ export function buildCreateWorkspaceBranchPickerRows(args: {
       rows.push({
         type: "label",
         key: "remote-label",
-        label: "Remote branches",
+        labelKey: "workspace:branchPicker.groups.remote",
         scope: "remote",
       });
     }
@@ -169,7 +173,7 @@ export function buildCreateWorkspaceBranchPickerRows(args: {
       rows.push({
         type: "label",
         key: "local-label",
-        label: "Local branches",
+        labelKey: "workspace:branchPicker.groups.local",
         scope: "local",
       });
     }

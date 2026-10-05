@@ -4,7 +4,8 @@ import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { Button } from "@/components/ui";
-import { TASK_CONTEXT_SCOPE_LABEL } from "@/lib/task-context/attached-task-context";
+import { useTranslation, type I18nKey } from "@/i18n";
+import { TASK_CONTEXT_SCOPE_LABEL_KEYS } from "@/lib/task-context/attached-task-context";
 import type { TaskContextScope } from "@/types/chat";
 
 const NEXT_SCOPE: Record<TaskContextScope, TaskContextScope> = {
@@ -12,10 +13,10 @@ const NEXT_SCOPE: Record<TaskContextScope, TaskContextScope> = {
   conversation: "latest-reply",
 };
 
-const SCOPE_HELP: Record<TaskContextScope, string> = {
-  "latest-reply": "Sends the task's latest reply. Choose to send its recent conversation instead.",
-  conversation: "Sends the task's recent conversation. Choose to send only its latest reply.",
-};
+const SCOPE_HELP_KEYS = {
+  "latest-reply": "workspace:taskContext.chip.scopeHelp.latestReply",
+  conversation: "workspace:taskContext.chip.scopeHelp.conversation",
+} as const satisfies Record<TaskContextScope, I18nKey>;
 
 /**
  * Another task attached as context. In the composer the scope reads as a
@@ -35,12 +36,14 @@ export function TaskContextChip(args: {
   findingCount?: number;
   partialReply?: boolean;
 }) {
+  const { t } = useTranslation(["workspace"]);
   const scopeLabel = args.findingCount
-    ? `${args.findingCount} finding${args.findingCount === 1 ? "" : "s"}`
-    : TASK_CONTEXT_SCOPE_LABEL[args.scope];
+    ? t("taskContext.chip.findingCount", { count: args.findingCount })
+    : t(TASK_CONTEXT_SCOPE_LABEL_KEYS[args.scope]);
+  const scopeHelp = t(SCOPE_HELP_KEYS[args.scope]);
   const label = (
     <>
-      <span className={sx(styles.prefix)}>Task</span>
+      <span className={sx(styles.prefix)}>{t("taskContext.chip.prefix")}</span>
       <span className={sx(styles.muted)}> / </span>
       <span>{args.title}</span>
     </>
@@ -53,8 +56,8 @@ export function TaskContextChip(args: {
           type="button"
           size="xs"
           variant="ghost"
-          aria-label={`Open attached task ${args.title}`}
-          title={`Open ${args.title}`}
+          aria-label={t("taskContext.chip.openAriaLabel", { title: args.title })}
+          title={t("taskContext.chip.openTitle", { title: args.title })}
           onClick={args.onOpen}
           className={sx(styles.label, styles.openButton, transition.colors)}
         >
@@ -71,8 +74,12 @@ export function TaskContextChip(args: {
           size="xs"
           variant="ghost"
           disabled={args.disabled}
-          aria-label={`${args.title}: ${scopeLabel}. ${SCOPE_HELP[args.scope]}`}
-          title={SCOPE_HELP[args.scope]}
+          aria-label={t("taskContext.chip.scopeAriaLabel", {
+            title: args.title,
+            scope: scopeLabel,
+            help: scopeHelp,
+          })}
+          title={scopeHelp}
           onClick={() => args.onScopeChange?.(NEXT_SCOPE[args.scope])}
           className={sx(styles.scopeButton, transition.colors)}
         >
@@ -82,7 +89,9 @@ export function TaskContextChip(args: {
         <span className={sx(styles.muted)}>{` · ${scopeLabel}`}</span>
       )}
       {args.partialReply ? (
-        <span className={sx(styles.muted)} title="Still streaming. Sending now includes the reply so far."> · Partial reply</span>
+        <span className={sx(styles.muted)} title={t("taskContext.chip.partialReplyHint")}>
+          {` · ${t("taskContext.chip.partialReply")}`}
+        </span>
       ) : null}
       {args.onRemove ? (
         <Button
@@ -90,8 +99,8 @@ export function TaskContextChip(args: {
           size="icon-xs"
           variant="ghost"
           disabled={args.disabled}
-          aria-label={`Remove attached task ${args.title}`}
-          title="Remove attached task"
+          aria-label={t("taskContext.chip.removeAriaLabel", { title: args.title })}
+          title={t("taskContext.chip.removeTitle")}
           onClick={args.onRemove}
           className={sx(styles.remove, transition.colors)}
         >

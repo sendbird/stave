@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Manager pure helpers
 // ---------------------------------------------------------------------------
@@ -64,9 +65,9 @@ export function buildEditorScopes(args: {
   const scopes: ScriptEditorScope[] = [
     {
       id: "project",
-      label: "Repository Config",
+      label: i18n.t("scripts:scriptsManagerState.repositoryConfig"),
       description:
-        "Shared execution config stored in `.stave/scripts.json` for the repository.",
+        i18n.t("scripts:scriptsManagerState.sharedExecutionConfigStoredInStaveScripts"),
       rootPath: args.repositoryPath,
       filePath: `${STAVE_CONFIG_DIR}/${SCRIPTS_CONFIG_FILENAME}`,
     },
@@ -75,9 +76,9 @@ export function buildEditorScopes(args: {
   if (args.workspacePath && args.workspacePath !== args.repositoryPath) {
     scopes.unshift({
       id: "workspace",
-      label: "Workspace Config",
+      label: i18n.t("scripts:scriptsManagerState.workspaceConfig"),
       description:
-        "Highest-priority shared execution config stored in `.stave/scripts.json` for the active workspace.",
+        i18n.t("scripts:scriptsManagerState.highestPrioritySharedExecutionConfigStoredIn"),
       rootPath: args.workspacePath,
       filePath: `${STAVE_CONFIG_DIR}/${SCRIPTS_CONFIG_FILENAME}`,
     });

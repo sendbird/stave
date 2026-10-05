@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { buildContinueWorkspaceBranchName } from "@/store/repository.utils";
 import { continueWorkspaceStyles } from "./continue-workspace-dialog.styles";
+import { useTranslation } from "@/i18n";
 
 interface ContinueWorkspaceDialogProps {
   open: boolean;
@@ -31,6 +32,7 @@ interface ContinueWorkspaceDialogProps {
 }
 
 export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
+  const { t } = useTranslation(["workspace", "common"]);
   const [workspaceName, setWorkspaceName] = useState("");
   const [selectedBaseBranch, setSelectedBaseBranch] = useState(
     props.baseBranch,
@@ -112,7 +114,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
         baseBranch: selectedBaseBranch,
       });
       if (!result.ok) {
-        setError(result.message ?? "Failed to continue in a new workspace.");
+        setError(result.message ?? t("continueDialog.errors.failed"));
         return;
       }
       props.onOpenChange(false);
@@ -120,7 +122,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Failed to continue in a new workspace.",
+          : t("continueDialog.errors.failed"),
       );
     } finally {
       setSubmitting(false);
@@ -139,19 +141,15 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
       <DialogContent xstyle={continueWorkspaceStyles.surface}>
         <form onSubmit={handleSubmit} className={sx(continueWorkspaceStyles.form)}>
           <DialogHeader>
-            <DialogTitle>Continue in New Workspace</DialogTitle>
-            <DialogDescription>
-              Create a fresh workspace from the latest remote default branch and
-              attach a continuation brief from the completed branch to the first
-              task draft.
-            </DialogDescription>
+            <DialogTitle>{t("continueDialog.title")}</DialogTitle>
+            <DialogDescription>{t("continueDialog.description")}</DialogDescription>
           </DialogHeader>
 
           <div className={sx(continueWorkspaceStyles.body)}>
             <div className={sx(continueWorkspaceStyles.summaryGrid)}>
               <div className={sx(continueWorkspaceStyles.summaryCell)}>
                 <p className={sx(continueWorkspaceStyles.eyebrow)}>
-                  Source Workspace
+                  {t("continueDialog.sourceWorkspace")}
                 </p>
                 <div className={sx(continueWorkspaceStyles.stack)}>
                   <Badge
@@ -164,7 +162,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                     <span className={sx(continueWorkspaceStyles.truncated)}>
                       {props.sourceBranch ??
                         props.sourceWorkspaceName ??
-                        "Current workspace"}
+                        t("continueDialog.currentWorkspace")}
                     </span>
                   </Badge>
                   {props.prTitle ? (
@@ -178,7 +176,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
               <div className={sx(continueWorkspaceStyles.summaryCell)}>
                 <div className={sx(continueWorkspaceStyles.cellHeader)}>
                   <p className={sx(continueWorkspaceStyles.eyebrow)}>
-                    New Workspace Base
+                    {t("continueDialog.newWorkspaceBase")}
                   </p>
                   {canChangeBaseBranch ? (
                     <Button
@@ -190,7 +188,9 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                         setShowBaseBranchPicker((current) => !current)
                       }
                     >
-                      {showBaseBranchPicker ? "Done" : "Change"}
+                      {showBaseBranchPicker
+                        ? t("common:actions.done")
+                        : t("common:actions.change")}
                     </Button>
                   ) : null}
                 </div>
@@ -209,7 +209,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
             {showBaseBranchPicker ? (
               <div className={sx(continueWorkspaceStyles.pickerPanel)}>
                 <p className={sx(continueWorkspaceStyles.eyebrow)}>
-                  Remote Base Branch
+                  {t("continueDialog.remoteBaseBranch")}
                 </p>
                 <CreateWorkspaceBranchPicker
                   value={selectedBaseBranch}
@@ -221,15 +221,14 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                   onChange={setSelectedBaseBranch}
                 />
                 <p className={sx(continueWorkspaceStyles.caption)}>
-                  Override the default only when this follow-up should start
-                  from another remote branch.
+                  {t("continueDialog.remoteBaseBranchHint")}
                 </p>
               </div>
             ) : null}
 
             <div className={sx(continueWorkspaceStyles.fieldBlock)}>
               <p className={sx(continueWorkspaceStyles.fieldLabel)}>
-                Workspace Branch Name
+                {t("continueDialog.branchNameLabel")}
               </p>
               <Input
                 autoFocus
@@ -239,8 +238,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                 xstyle={continueWorkspaceStyles.nameInput}
               />
               <p className={sx(continueWorkspaceStyles.caption)}>
-                Stave will create a markdown brief under `.stave/context/` and
-                attach it to the first task draft.
+                {t("continueDialog.briefHint")}
               </p>
             </div>
 
@@ -256,7 +254,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
               disabled={submitting}
               onClick={() => props.onOpenChange(false)}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button type="submit" disabled={submitting}>
               {submitting ? (
@@ -267,10 +265,10 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                     size="xs"
                     variant="sync"
                   />
-                  Continuing...
+                  {t("continueDialog.submitting")}
                 </>
               ) : (
-                "Continue"
+                t("common:actions.continue")
               )}
             </Button>
           </DialogFooter>

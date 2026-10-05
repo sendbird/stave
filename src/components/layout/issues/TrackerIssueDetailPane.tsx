@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { Badge } from "@/components/ads/components/Badge";
@@ -59,6 +61,7 @@ export interface TrackerIssueDetailPaneProps {
 }
 
 export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const { task } = props.item;
   const key = trackerIssueKey(task.source, task.ref);
   const detail = useTrackerIssueDetail(key);
@@ -104,13 +107,11 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
             {link ? (
               <>
                 <ChevronRight className={sx(taskLayoutStyles.icon14)} />
-                Open in Stave
-              </>
+                {tI18n("issues:trackerIssueDetailPane.openInStave")}</>
             ) : (
               <>
                 <Play className={sx(taskLayoutStyles.icon14)} />
-                Kick off
-              </>
+                {tI18n("issues:trackerIssueDetailPane.kickOff")}</>
             )}
           </Button>
           <Button
@@ -121,8 +122,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
             onClick={() => openTrackerIssueInBrowser(task.url)}
           >
             <ExternalLink className={sx(taskLayoutStyles.icon14)} />
-            Open in browser
-          </Button>
+            {tI18n("issues:trackerIssueDetailPane.openInBrowser")}</Button>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
@@ -131,7 +131,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
                   size="sm"
                   variant="ghost"
                   xstyle={taskLayoutStyles.detailMenuAction}
-                  aria-label="More ticket actions"
+                  aria-label={tI18n("issues:trackerIssueDetailPane.moreTicketActions")}
                 />
               }
             >
@@ -139,39 +139,35 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => assignTrackerIssueToAgent(task)}>
-                Assign to agent
-              </DropdownMenuItem>
+                {tI18n("issues:trackerIssueDetailPane.assignToAgent")}</DropdownMenuItem>
               {link ? (
                 <DropdownMenuItem onSelect={() => props.onKickoff(key)}>
-                  Kick off again
-                </DropdownMenuItem>
+                  {tI18n("issues:trackerIssueDetailPane.kickOffAgain")}</DropdownMenuItem>
               ) : null}
               <DropdownMenuItem
                 onSelect={() =>
-                  copyTrackerIssueValue({ value: task.key, label: "ticket key" })
+                  copyTrackerIssueValue({ value: task.key, label: tI18n("issues:trackerIssueDetailPane.ticketKey") })
                 }
               >
-                Copy key
-              </DropdownMenuItem>
+                {tI18n("issues:trackerIssueDetailPane.copyKey")}</DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() =>
                   copyTrackerIssueValue({
                     value: task.url,
-                    label: "ticket link",
+                    label: tI18n("issues:trackerIssueDetailPane.ticketLink"),
                   })
                 }
               >
                 <Link2 className={sx(taskLayoutStyles.icon14)} />
-                Copy link
-              </DropdownMenuItem>
+                {tI18n("issues:trackerIssueDetailPane.copyLink")}</DropdownMenuItem>
               <DropdownMenuItem
                 disabled={props.attachTargetLabel === null}
                 onSelect={() => props.onAttach(key)}
               >
                 <Paperclip className={sx(taskLayoutStyles.icon14)} />
                 {props.attachTargetLabel
-                  ? `Attach to ${props.attachTargetLabel}`
-                  : "Attach to current workspace"}
+                  ? tI18n("issues:trackerIssueDetailPane.attachToValue", { value1: props.attachTargetLabel })
+                  : tI18n("issues:trackerIssueDetailPane.attachToCurrentWorkspace")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -191,21 +187,21 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
                 state="working"
                 size={20}
                 theme="auto"
-                aria-label="Stave run in progress"
+                aria-label={tI18n("issues:trackerIssueDetailPane.staveRunInProgress")}
               />
             ) : null}
             <span className={sx(taskLayoutStyles.detailLinkCopy)}>
               <span className={sx(taskLayoutStyles.detailLinkTitle)}>
-                {linkPresentation.label} in Stave
-              </span>
+          {tI18n("issues:trackerIssueDetailPane.staveState", { state: linkPresentation.label })}
+        </span>
               <span className={sx(taskLayoutStyles.detailLinkSubtitle)}>
                 {link.errorCode
-                  ? `Workspace ${link.workspaceId} — ${link.errorCode}`
-                  : `Workspace ${link.workspaceId}`}
+                  ? tI18n("issues:trackerIssueDetailPane.workspaceValueValue", { value1: link.workspaceId, value2: link.errorCode })
+                  : tI18n("issues:trackerIssueDetailPane.workspaceValue", { value1: link.workspaceId })}
               </span>
             </span>
             <Badge variant="outline" tone={linkPresentation.tone}>
-              {link.craneJobId ? "Reported to Crane" : "Local only"}
+              {link.craneJobId ? tI18n("issues:trackerIssueDetailPane.reportedToCrane") : tI18n("issues:trackerIssueDetailPane.localOnly")}
             </Badge>
           </AdsButton>
         ) : null}
@@ -214,8 +210,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
 
         <section className={sx(taskLayoutStyles.detailSection)}>
           <h3 className={sx(taskLayoutStyles.detailSectionTitle)}>
-            Description
-          </h3>
+            {tI18n("issues:trackerIssueDetailPane.description")}</h3>
           {detail ? (
             detail.description.trim() ? (
               <MarkdownMessage
@@ -225,8 +220,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
               />
             ) : (
               <p className={sx(taskLayoutStyles.detailMuted)}>
-                This ticket has no description.
-              </p>
+                {tI18n("issues:trackerIssueDetailPane.thisTicketHasNoDescription")}</p>
             )
           ) : detailPending ? (
             <div className={sx(taskLayoutStyles.detailSkeletons)}>
@@ -236,8 +230,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
             </div>
           ) : (
             <p className={sx(taskLayoutStyles.detailMuted)}>
-              The description could not be loaded.
-            </p>
+              {tI18n("issues:trackerIssueDetailPane.theDescriptionCouldNotBeLoaded")}</p>
           )}
         </section>
 
@@ -247,8 +240,8 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
               <AccordionTrigger
                 className={sx(taskLayoutStyles.detailAccordionTrigger)}
               >
-                Comments ({detail.comments.length})
-              </AccordionTrigger>
+          {tI18n("issues:trackerIssueDetailPane.commentCount", { count: detail.comments.length })}
+        </AccordionTrigger>
               <AccordionContent
                 className={sx(taskLayoutStyles.detailAccordionContent)}
               >
@@ -259,7 +252,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
                   >
                     <p className={sx(taskLayoutStyles.detailCommentMeta)}>
                       {comment.author} ·{" "}
-                      {new Date(comment.createdAt).toLocaleString()}
+                      {formatDateTime(new Date(comment.createdAt))}
                     </p>
                     <p className={sx(taskLayoutStyles.detailCommentBody)}>
                       {comment.body}

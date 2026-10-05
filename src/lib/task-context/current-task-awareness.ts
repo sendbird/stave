@@ -197,15 +197,18 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
   return capWorkspaceInformationLines([
     ...(info.resumeBrief ? formatResumeBriefContext(info.resumeBrief) : []),
     ...formatSection({
+      // i18n-ignore: model-facing context metadata and instructions
       label: "Notes",
       items: noteItems,
     }),
     ...formatSection({
+      // i18n-ignore: model-facing context metadata and instructions
       label: "Todos",
       items: todoItems,
       totalCount: info.todos.length,
     }),
     ...formatSection({
+      // i18n-ignore: model-facing context metadata and instructions
       label: "Linked pull requests",
       items: linkedPrItems,
       totalCount: info.linkedPullRequests.length,
@@ -231,6 +234,7 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
       totalCount: storybookResources.length,
     }),
     ...formatSection({
+      // i18n-ignore: model-facing context metadata and instructions
       label: "Amplify deploy links",
       items: amplifyItems,
       totalCount: (info.amplifyLinks ?? []).length,
@@ -246,6 +250,7 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
       totalCount: info.figmaResources.length,
     }),
     ...formatSection({
+      // i18n-ignore: model-facing context metadata and instructions
       label: "Custom fields",
       items: customFieldItems,
       totalCount: info.customFields.length,
@@ -370,18 +375,21 @@ export function buildCurrentTaskAwarenessRetrievedContextParts(
     {
       type: "retrieved_context",
       sourceId: STAVE_CURRENT_TASK_AWARENESS_SOURCE_ID,
+      // i18n-ignore: model-facing context metadata and instructions
       title: "Current Stave Task Context",
       content: identityContent,
     },
     {
       type: "retrieved_context",
       sourceId: STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
+      // i18n-ignore: model-facing context metadata and instructions
       title: "Stave Workspace Guidance",
       content: guidanceContent,
     },
     {
       type: "retrieved_context",
       sourceId: STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
+      // i18n-ignore: model-facing context metadata and instructions
       title: "Stave Workspace Information",
       content:
         workspaceInformationLines.length > 0
@@ -394,6 +402,7 @@ export function buildCurrentTaskAwarenessRetrievedContextParts(
     parts.push({
       type: "retrieved_context",
       sourceId: STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
+      // i18n-ignore: model-facing context metadata and instructions
       title: "Latest Turn Summary",
       content: `Latest turn summary:\n- ${latestTurnSummary}`,
     });

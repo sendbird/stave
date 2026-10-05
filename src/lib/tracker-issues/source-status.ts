@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { TRACKER_SOURCE_LABELS } from "@/lib/tracker-issues/context";
 import {
   TRACKER_SOURCE_IDS,
@@ -27,12 +28,11 @@ export const TRACKER_AVAILABILITY_HINTS: Record<
   TrackerSourceAvailability,
   string
 > = {
-  ready: "Connected.",
-  disabled: "Turned off in Settings → Issues.",
-  unpaired: "Pair this tracker in Settings → Integrations.",
-  not_configured: "Add the site URL, account email, and API token in Settings.",
-  secure_storage_unavailable:
-    "The OS keychain is unavailable, so the credential cannot be read.",
+  get ready() { return i18n.t("issues:sourceStatus.connected"); },
+  get disabled() { return i18n.t("issues:sourceStatus.turnedOffInSettingsIssues"); },
+  get unpaired() { return i18n.t("issues:sourceStatus.pairThisTrackerInSettingsIntegrations"); },
+  get not_configured() { return i18n.t("issues:sourceStatus.addTheSiteUrlAccountEmailAnd"); },
+  get secure_storage_unavailable() { return i18n.t("issues:sourceStatus.theOsKeychainIsUnavailableSoThe"); },
 };
 
 /** Short label for the state itself, for a badge or a row heading. */
@@ -51,20 +51,16 @@ const AVAILABILITY_HEADLINES: Record<TrackerSourceAvailability, string> = {
  * report beats a generic sentence that hides which call failed.
  */
 export const TRACKER_ERROR_HINTS: Record<string, string> = {
-  unauthorized: "The saved credential was rejected.",
-  forbidden: "The account cannot see this list.",
-  invalid_jql: "The saved JQL query was rejected.",
-  rate_limited: "The tracker is rate-limiting requests.",
-  network_unavailable: "The tracker could not be reached.",
-  response_too_large:
-    "Crane sent a page too large for this Stave. Refresh to try a smaller page. If it keeps failing, the host needs to pack fewer tickets per page.",
-  invalid_response:
-    "Crane sent a ticket page Stave could not read. This is a host problem, not your pairing.",
-  not_found: "The tracker route Stave asked for does not exist.",
-  tasks_api_unavailable:
-    "This Crane installation does not serve the task list yet, so only its dispatched jobs work. Nothing is wrong with your pairing.",
-  tasks_disabled:
-    "This Crane installation has the task list turned off. Dispatched jobs still work.",
+  get unauthorized() { return i18n.t("issues:sourceStatus.theSavedCredentialWasRejected"); },
+  get forbidden() { return i18n.t("issues:sourceStatus.theAccountCannotSeeThisList"); },
+  get invalid_jql() { return i18n.t("issues:sourceStatus.theSavedJqlQueryWasRejected"); },
+  get rate_limited() { return i18n.t("issues:sourceStatus.theTrackerIsRateLimitingRequests"); },
+  get network_unavailable() { return i18n.t("issues:sourceStatus.theTrackerCouldNotBeReached"); },
+  get response_too_large() { return i18n.t("issues:sourceStatus.craneSentAPageTooLargeFor"); },
+  get invalid_response() { return i18n.t("issues:sourceStatus.craneSentATicketPageStaveCould"); },
+  get not_found() { return i18n.t("issues:sourceStatus.theTrackerRouteStaveAskedForDoes"); },
+  get tasks_api_unavailable() { return i18n.t("issues:sourceStatus.thisCraneInstallationDoesNotServeThe"); },
+  get tasks_disabled() { return i18n.t("issues:sourceStatus.thisCraneInstallationHasTheTaskList"); },
 };
 
 /**
@@ -132,7 +128,7 @@ export function summarizeTrackerSource(
       label,
       condition: "unknown",
       headline: "Checking",
-      detail: "Stave has not checked this tracker yet.",
+      detail: i18n.t("issues:sourceStatus.staveHasNotCheckedThisTrackerYet"),
       retryable: false,
       fixInSettings: false,
       taskCount: 0,
@@ -185,7 +181,7 @@ export function summarizeTrackerSource(
       ...base,
       condition: "syncing",
       headline: "Syncing",
-      detail: "Fetching the latest tickets.",
+      detail: i18n.t("issues:sourceStatus.fetchingTheLatestTickets"),
       retryable: false,
       fixInSettings: false,
     };
@@ -197,8 +193,8 @@ export function summarizeTrackerSource(
     headline: "Connected",
     detail:
       status.taskCount === 1
-        ? "1 ticket cached."
-        : `${status.taskCount} tickets cached.`,
+        ? i18n.t("issues:sourceStatus.text1")
+        : i18n.t("issues:sourceStatus.valueTicketsCached", { value1: status.taskCount }),
     retryable: true,
     fixInSettings: false,
   };

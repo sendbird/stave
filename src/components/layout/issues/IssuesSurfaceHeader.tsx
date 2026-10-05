@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ListTodo, RefreshCw, X } from "lucide-react";
 
 import { Button } from "@/components/ui";
@@ -36,6 +37,7 @@ function statusFor(
  * mysteriously empty list.
  */
 export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const syncing = props.summaries.some(
     (summary) => summary.condition === "syncing",
   );
@@ -45,7 +47,7 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
       <div className={sx(taskLayoutStyles.headerLead)}>
         <div className={sx(taskLayoutStyles.headerTitleRow)}>
           <ListTodo className={sx(taskLayoutStyles.headerIcon)} />
-          <h1 className={sx(taskLayoutStyles.headerTitle)}>Issues</h1>
+          <h1 className={sx(taskLayoutStyles.headerTitle)}>{tI18n("issues:issuesSurfaceHeader.issues")}</h1>
         </div>
         <p className={sx(taskLayoutStyles.headerStatus)}>
           {props.summaries.map((summary) => {
@@ -62,7 +64,7 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
                   {summary.condition === "producing" ||
                   summary.condition === "syncing"
                     ? status?.syncing
-                      ? "syncing…"
+                      ? tI18n("issues:issuesSurfaceHeader.syncing")
                       : formatTrackerSyncedAt(
                           status?.lastSyncedAt ?? summary.lastSyncedAt,
                           props.now,
@@ -76,16 +78,14 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
                   props.now,
                 ) ? (
                   <span className={sx(taskLayoutStyles.headerStale)}>
-                    stale
-                  </span>
+                    {tI18n("issues:issuesSurfaceHeader.stale")}</span>
                 ) : null}
                 {status?.truncated ? (
                   <span
                     className={sx(taskLayoutStyles.headerPartial)}
-                    title="The tracker had more tickets than one refresh can load."
+                    title={tI18n("issues:issuesSurfaceHeader.theTrackerHadMoreTicketsThanOne")}
                   >
-                    partial
-                  </span>
+                    {tI18n("issues:issuesSurfaceHeader.partial")}</span>
                 ) : null}
               </span>
             );
@@ -98,8 +98,8 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
           size="sm"
           xstyle={taskLayoutStyles.headerAction}
           onClick={props.onRefresh}
-          aria-label="Refresh tracker tickets"
-          title="Refresh"
+          aria-label={tI18n("issues:issuesSurfaceHeader.refreshTrackerTickets")}
+          title={tI18n("issues:issuesSurfaceHeader.refresh")}
         >
           <RefreshCw
             className={sx(
@@ -112,8 +112,9 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
           variant="ghost"
           size="sm"
           xstyle={taskLayoutStyles.headerAction}
-          aria-label="close-tasks"
-          title="Close Issues"
+          data-testid="close-tasks"
+          aria-label={i18n.t("issues:issuesSurfaceHeader.accessibility.closeTasks")}
+          title={tI18n("issues:issuesSurfaceHeader.closeIssues")}
           onClick={props.onClose}
         >
           <X className={sx(taskLayoutStyles.icon16)} />

@@ -1,3 +1,6 @@
+import { formatPercent } from "@/i18n/format";
+import { formatTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { WorkspaceExecutionControls } from "./WorkspaceExecutionControls";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui";
@@ -30,6 +33,7 @@ export function ResourceManagerOverview({
   metrics: AppMetrics;
   refresh: () => Promise<void>;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const workspaces = useAppStore((s) => s.workspaces);
   const recentRepositories = useAppStore((s) => s.recentRepositories);
   const tasks = useAppStore((s) => s.tasks);
@@ -112,10 +116,10 @@ export function ResourceManagerOverview({
         `${repositoryName ?? "Repository"} / ${workspace.name}`,
       );
     return result;
-  }, [workspaces, recentRepositories, repositoryName]);
+  }, [workspaces, recentRepositories, repositoryName, i18n.resolvedLanguage]);
   const processes: ResourceProcess[] = metrics.processes.map((p) => ({
     pid: p.pid,
-    label: p.pid === metrics.hostService?.pid ? "Host service" : labels[p.role],
+    label: p.pid === metrics.hostService?.pid ? tI18n("workspace:resourceManagerOverview.hostService") : labels[p.role],
     rssBytes: p.memory.workingSetSizeKB * 1024,
     cpu: p.cpu.percentCPUUsage,
   }));
@@ -124,7 +128,7 @@ export function ResourceManagerOverview({
     if (!knownPids.has(metrics.hostService.pid))
       processes.push({
         pid: metrics.hostService.pid,
-        label: "Host service",
+        label: tI18n("workspace:resourceManagerOverview.hostService"),
         rssBytes: metrics.hostService.memory.rss,
         cpu: null,
       });
@@ -221,37 +225,31 @@ export function ResourceManagerOverview({
     }
   };
   return (
-    <section className={sx(styles.section)} aria-label="Resource manager">
+    <section className={sx(styles.section)} aria-label={tI18n("workspace:resourceManagerOverview.resourceManager")}>
       {/*
         The headline total, CPU and process count moved to the dashboard above,
         which both views share. Repeating them here produced two numbers for the
         same question that were computed differently and disagreed.
       */}
       <span className={sx(styles.muted)}>
-        Measured RSS, counted once per PID. Shared app memory cannot be split by
-        workspace or task.
-      </span>
+        {tI18n("workspace:resourceManagerOverview.measuredRssCountedOncePerPidShared")}</span>
       {!metrics.hostService && (
         <p role="status" className={sx(styles.message)}>
-          Host metrics unavailable. Provider and terminal memory is missing from
-          this snapshot.
-        </p>
+          {tI18n("workspace:resourceManagerOverview.hostMetricsUnavailableProviderAndTerminalMemory")}</p>
       )}
       {metrics.lens.memoryBudgetKB !== undefined && (
         <span className={sx(styles.muted)}>
-          The hidden Lens budget above is based on device RAM. Recently reopened
-          pages get a cooldown before they can be released again.
-        </span>
+          {tI18n("workspace:resourceManagerOverview.theHiddenLensBudgetAboveIsBased")}</span>
       )}
-      <h3 className={sx(styles.heading)}>Workspace memory</h3>
+      <h3 className={sx(styles.heading)}>{tI18n("workspace:resourceManagerOverview.workspaceMemory")}</h3>
       <div className={sx(styles.section)}>
         <div className={sx(styles.tableScroll)}>
-          <table className={sx(styles.table)} aria-label="Workspace memory">
+          <table className={sx(styles.table)} aria-label={tI18n("workspace:resourceManagerOverview.workspaceMemory")}>
             <thead>
               <tr>
-                <th className={sx(styles.columnHeading)}>Workspace</th>
-                <th className={sx(styles.numericHeading)}>Attributed RSS</th>
-                <th className={sx(styles.numericHeading)}>Shared RSS</th>
+                <th className={sx(styles.columnHeading)}>{tI18n("workspace:resourceManagerOverview.workspace")}</th>
+                <th className={sx(styles.numericHeading)}>{tI18n("workspace:resourceManagerOverview.attributedRss")}</th>
+                <th className={sx(styles.numericHeading)}>{tI18n("workspace:resourceManagerOverview.sharedRss")}</th>
               </tr>
             </thead>
             <tbody>
@@ -310,12 +308,9 @@ export function ResourceManagerOverview({
           </table>
         </div>
         <span className={sx(styles.muted)}>
-          Only the current workspace and workspaces with attributed RSS or a
-          Lens page are listed. Shared RSS is shown for each associated
-          workspace; do not add those values together.
-        </span>
+          {tI18n("workspace:resourceManagerOverview.onlyTheCurrentWorkspaceAndWorkspacesWith")}</span>
       </div>
-      <h3 className={sx(styles.heading)}>Processes · largest groups first</h3>
+      <h3 className={sx(styles.heading)}>{tI18n("workspace:resourceManagerOverview.processesLargestGroupsFirst")}</h3>
       {[...groups.entries()]
         .sort(
           (a, b) =>
@@ -362,26 +357,23 @@ export function ResourceManagerOverview({
                     disabled={busy}
                     onClick={() => setReleaseTarget(owner)}
                   >
-                    Release hidden pages
-                  </Button>
+                    {tI18n("workspace:resourceManagerOverview.releaseHiddenPages")}</Button>
                 )}
               </div>
               <div className={sx(styles.detail)}>
                 <div className={sx(styles.tableScroll)}>
                   <table
                     className={sx(styles.table)}
-                    aria-label={`${name} processes`}
+                    aria-label={tI18n("workspace:resourceManagerOverview.valueProcesses", { name: name })}
                   >
                     <thead>
                       <tr>
                         <th className={sx(styles.columnHeading)}>
-                          Process / task
-                        </th>
-                        <th className={sx(styles.numericHeading)}>RSS</th>
-                        <th className={sx(styles.numericHeading)}>CPU</th>
+                          {tI18n("workspace:resourceManagerOverview.processTask")}</th>
+                        <th className={sx(styles.numericHeading)}>{tI18n("workspace:resourceManagerOverview.rss")}</th>
+                        <th className={sx(styles.numericHeading)}>{tI18n("workspace:resourceManagerOverview.cpu")}</th>
                         <th className={sx(styles.numericHeading)}>
-                          RSS change
-                        </th>
+                          {tI18n("workspace:resourceManagerOverview.rssChange")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -394,7 +386,7 @@ export function ResourceManagerOverview({
                                 <span className={sx(styles.processTitle)}>
                                   {p.label}
                                   <span className={sx(styles.muted)}>
-                                    PID {p.pid}
+                                    {tI18n("workspace:resourceManagerOverview.pid")}{p.pid}
                                   </span>
                                 </span>
                                 {p.owners?.map((owner) => (
@@ -410,19 +402,17 @@ export function ResourceManagerOverview({
                                         tasks.find(
                                           (task) => task.id === owner.taskId,
                                         )?.title ??
-                                        `Task ${owner.taskId}`)
-                                      : "Workspace service"}{" "}
+                                        tI18n("workspace:resourceManagerOverview.taskValue", { value1: owner.taskId }))
+                                      : tI18n("workspace:resourceManagerOverview.workspaceService")}{" "}
                                     ·{" "}
                                     {owner.active
-                                      ? "Running"
-                                      : "Retained after task"}
+                                      ? tI18n("workspace:resourceManagerOverview.running")
+                                      : tI18n("workspace:resourceManagerOverview.retainedAfterTask")}
                                   </span>
                                 ))}
                                 {p.owners && p.owners.length > 1 && (
                                   <span className={sx(styles.muted)}>
-                                    Shared process; task memory cannot be
-                                    measured separately.
-                                  </span>
+                                    {tI18n("workspace:resourceManagerOverview.sharedProcessTaskMemoryCannotBeMeasured")}</span>
                                 )}
                                 {owner === "application" && (
                                   <span className={sx(styles.muted)}>
@@ -430,8 +420,8 @@ export function ResourceManagerOverview({
                                     p.label === "pty" ||
                                     p.label === "other" ||
                                     p.label === "language-server"
-                                      ? "Owner unavailable"
-                                      : "Shared app infrastructure"}
+                                      ? tI18n("workspace:resourceManagerOverview.ownerUnavailable")
+                                      : tI18n("workspace:resourceManagerOverview.sharedAppInfrastructure")}
                                   </span>
                                 )}
                               </div>
@@ -440,7 +430,7 @@ export function ResourceManagerOverview({
                               {formatResourceBytes(p.rssBytes)}
                             </td>
                             <td className={sx(styles.numericCell)}>
-                              {p.cpu === null ? "—" : `${p.cpu.toFixed(1)}%`}
+                              {p.cpu === null ? "—" : formatPercent(p.cpu / 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                             </td>
                             <td className={sx(styles.numericCell)}>
                               {history[0]?.processes.has(p.pid) ? (
@@ -481,8 +471,8 @@ export function ResourceManagerOverview({
                         {guest.protectionReasons?.length
                           ? guest.protectionReasons.join(" · ")
                           : guest.managedByMcp
-                            ? "Agent-owned; automatic idle policy applies"
-                            : "Eligible for release when idle"}
+                            ? tI18n("workspace:resourceManagerOverview.agentOwnedAutomaticIdlePolicyApplies")
+                            : tI18n("workspace:resourceManagerOverview.eligibleForReleaseWhenIdle")}
                       </span>
                     </div>
                     <div className={sx(styles.actions)}>
@@ -503,7 +493,7 @@ export function ResourceManagerOverview({
                           )
                         }
                       >
-                        {guest.sleeping ? "Wake page" : "Sleep page"}
+                        {guest.sleeping ? tI18n("workspace:resourceManagerOverview.wakePage") : tI18n("workspace:resourceManagerOverview.sleepPage")}
                       </Button>
                       <Button
                         size="sm"
@@ -519,17 +509,17 @@ export function ResourceManagerOverview({
                         }
                       >
                         {guest.keptActive
-                          ? "Allow idle release"
-                          : "Always keep active"}
+                          ? tI18n("workspace:resourceManagerOverview.allowIdleRelease")
+                          : tI18n("workspace:resourceManagerOverview.alwaysKeepActive")}
                       </Button>
                     </div>
                     <span className={sx(styles.pageMeta)}>
                       {guest.sleeping
-                        ? "Sleeping; page state retained"
+                        ? tI18n("workspace:resourceManagerOverview.sleepingPageStateRetained")
                         : guest.visible
-                          ? "Visible"
-                          : "Hidden"}{" "}
-                      · {guest.managedByMcp ? "Agent session" : "Browser tab"} ·{" "}
+                          ? tI18n("workspace:resourceManagerOverview.visible")
+                          : tI18n("workspace:resourceManagerOverview.hidden")}{" "}
+                      · {guest.managedByMcp ? tI18n("workspace:resourceManagerOverview.agentSession") : tI18n("workspace:resourceManagerOverview.browserTab")} ·{" "}
                       {guest.lensSessionId}
                     </span>
                   </div>
@@ -537,9 +527,7 @@ export function ResourceManagerOverview({
                 {releaseTarget === owner && (
                   <div className={sx(styles.section)}>
                     <p className={sx(styles.muted)}>
-                      Tabs reopen at their last URL. Unsaved page input will be
-                      lost.
-                    </p>
+                      {tI18n("workspace:resourceManagerOverview.tabsReopenAtTheirLastUrlUnsaved")}</p>
                     <div className={sx(styles.actions)}>
                       <Button
                         size="sm"
@@ -547,15 +535,13 @@ export function ResourceManagerOverview({
                         disabled={busy}
                         onClick={() => setReleaseTarget(null)}
                       >
-                        Cancel
-                      </Button>
+                        {tI18n("workspace:resourceManagerOverview.cancel")}</Button>
                       <Button
                         size="sm"
                         disabled={busy}
                         onClick={() => void release(owner)}
                       >
-                        Confirm release
-                      </Button>
+                        {tI18n("workspace:resourceManagerOverview.confirmRelease")}</Button>
                     </div>
                   </div>
                 )}
@@ -564,10 +550,7 @@ export function ResourceManagerOverview({
           );
         })}
       <p className={sx(styles.muted)}>
-        Changes compare the same PID over recent observations. RSS growth alone
-        does not prove a leak; compare after work finishes and inspect heap
-        usage in Diagnostics.
-      </p>
+        {tI18n("workspace:resourceManagerOverview.changesCompareTheSamePidOverRecent")}</p>
       <WorkspaceExecutionControls />
       {message && (
         <p role="status" className={sx(styles.message)}>
@@ -577,18 +560,17 @@ export function ResourceManagerOverview({
       {Boolean(metrics.lens.resourceEvents?.length) && (
         <section>
           <h3 className={sx(styles.heading)}>
-            Recent page releases and reopenings
-          </h3>
+            {tI18n("workspace:resourceManagerOverview.recentPageReleasesAndReopenings")}</h3>
           <div className={sx(styles.detail)}>
             {metrics.lens
               .resourceEvents!.slice(-10)
               .reverse()
               .map((event, index) => (
                 <span key={`${event.at}:${index}`} className={sx(styles.muted)}>
-                  {new Date(event.at).toLocaleTimeString()} ·{" "}
+                  {formatTime(new Date(event.at))} ·{" "}
                   {names.get(event.workspaceId) ?? event.workspaceId} /{" "}
                   {event.lensSessionId} ·{" "}
-                  {event.kind === "released" ? "Release requested" : "Reopened"}
+                  {event.kind === "released" ? tI18n("workspace:resourceManagerOverview.releaseRequested") : tI18n("workspace:resourceManagerOverview.reopened")}
                 </span>
               ))}
           </div>

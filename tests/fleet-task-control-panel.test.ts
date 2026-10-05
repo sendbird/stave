@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { describe, expect, test } from "bun:test";
 
 const panelSource = await Bun.file(
@@ -17,10 +18,14 @@ describe("Fleet inline control surface contract", () => {
   test("renders the complete interaction and running-turn controls", () => {
     expect(panelSource).toContain("<UserInputCard");
     expect(panelSource).toContain("<ConfirmationCompact");
-    expect(panelSource).toContain("Steer now");
-    expect(panelSource).toContain("Queue next");
-    expect(panelSource).toContain("Stop");
-    expect(panelSource).toContain("Open task");
+    expect(panelSource).toContain("fleet:fleetTaskControlPanel.steerNow");
+    expect(i18n.getFixedT("en", "fleet")("fleetTaskControlPanel.steerNow")).toBe("Steer now");
+    expect(panelSource).toContain("fleet:fleetTaskControlPanel.queueNext");
+    expect(i18n.getFixedT("en", "fleet")("fleetTaskControlPanel.queueNext")).toBe("Queue next");
+    expect(panelSource).toContain("fleet:fleetTaskControlPanel.stop");
+    expect(i18n.getFixedT("en", "fleet")("fleetTaskControlPanel.stop")).toBe("Stop");
+    expect(panelSource).toContain("fleet:fleetTaskControlPanel.openTask");
+    expect(i18n.getFixedT("en", "fleet")("fleetTaskControlPanel.openTask")).toBe("Open task");
     expect(panelSource).toContain("<TaskExecutionSummarySurface");
   });
 

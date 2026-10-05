@@ -14,6 +14,7 @@ import { cx, sx } from "@/components/ads/utils/stylex";
 import { Badge, Button, Input, Textarea, toast } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { createWorkspaceStyles } from "./create-workspace-dialog.styles";
+import { Trans, useTranslation } from "@/i18n";
 
 interface CreateWorkspaceDialogProps {
   open: boolean;
@@ -67,6 +68,7 @@ export function CreateWorkspaceDialog({
   onCreateWorkspace,
   onImportWorkspace,
 }: CreateWorkspaceDialogProps) {
+  const { t } = useTranslation(["workspace", "common"]);
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceLabel, setWorkspaceLabel] = useState("");
   const [worktreePath, setWorktreePath] = useState("");
@@ -256,18 +258,20 @@ export function CreateWorkspaceDialog({
             });
       if (!result.ok) {
         setCreateWorkspaceError(
-          result.message ?? "Failed to create workspace.",
+          result.message ?? t("createDialog.errors.failed"),
         );
         return;
       }
       if (result.message) {
         if (result.noticeLevel === "warning") {
-          toast.warning("Workspace created with warning", {
+          toast.warning(t("createDialog.toasts.createdWithWarning"), {
             description: result.message,
           });
         } else {
           toast.success(
-            creationMode === "link" ? "Worktree linked" : "Workspace created",
+            creationMode === "link"
+              ? t("createDialog.toasts.linked")
+              : t("createDialog.toasts.created"),
             { description: result.message },
           );
         }
@@ -275,7 +279,7 @@ export function CreateWorkspaceDialog({
       onOpenChange(false);
     } catch (error) {
       setCreateWorkspaceError(
-        error instanceof Error ? error.message : "Failed to create workspace.",
+        error instanceof Error ? error.message : t("createDialog.errors.failed"),
       );
     } finally {
       setCreatingWorkspace(false);
@@ -339,7 +343,7 @@ export function CreateWorkspaceDialog({
         <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
           <div className={sx(createWorkspaceStyles.headerRow)}>
             <h3 id={titleId} className={sx(createWorkspaceStyles.title)}>
-              New workspace
+              {t("createDialog.title")}
             </h3>
             <Button
               type="button"
@@ -352,12 +356,12 @@ export function CreateWorkspaceDialog({
             </Button>
           </div>
           <p className={sx(createWorkspaceStyles.lead)}>
-            Workspace is a dedicated git worktree bound to a branch.
+            {t("createDialog.lead")}
           </p>
           {creationMode !== "link" ? (
             <div className={sx(createWorkspaceStyles.field)}>
               <p className={sx(createWorkspaceStyles.fieldLabel)}>
-                Workspace Branch Name
+                {t("createDialog.branchNameLabel")}
               </p>
               <Input
                 autoFocus
@@ -370,25 +374,25 @@ export function CreateWorkspaceDialog({
           ) : null}
           <div className={sx(createWorkspaceStyles.field)}>
             <p className={sx(createWorkspaceStyles.fieldLabel)}>
-              Workspace Label
+              {t("createDialog.labelField.label")}
             </p>
             <Input
               value={workspaceLabel}
-              placeholder="Optional display label"
+              placeholder={t("createDialog.labelField.placeholder")}
               onChange={(event) => setWorkspaceLabel(event.target.value)}
               xstyle={createWorkspaceStyles.textInput}
             />
             <p className={sx(createWorkspaceStyles.fieldHint)}>
-              Optional. Leave blank to use the branch name in the repository list.
+              {t("createDialog.labelField.hint")}
             </p>
           </div>
           <p className={sx(createWorkspaceStyles.fieldLabel)}>
-            Creation Methods
+            {t("createDialog.methods.label")}
           </p>
           <div
             className={sx(createWorkspaceStyles.modeList)}
             role="radiogroup"
-            aria-label="Creation methods"
+            aria-label={t("createDialog.methods.ariaLabel")}
           >
             <div
               role="radio"
@@ -407,16 +411,15 @@ export function CreateWorkspaceDialog({
               >
                 <p className={sx(createWorkspaceStyles.modeTitle)}>
                   <GitBranch className={sx(createWorkspaceStyles.modeIcon)} />
-                  Create From Branch
+                  {t("createDialog.modes.branch.title")}
                 </p>
                 <p className={sx(createWorkspaceStyles.modeDescription)}>
-                  Create worktree from a searchable base branch list with remote
-                  bases prioritized.
+                  {t("createDialog.modes.branch.description")}
                 </p>
               </AdsButton>
               <div className={sx(createWorkspaceStyles.subBlock)}>
                 <p className={sx(createWorkspaceStyles.subLabel)}>
-                  Base Branch
+                  {t("createDialog.modes.branch.baseBranch")}
                 </p>
                 <CreateWorkspaceBranchPicker
                   value={fromBranch}
@@ -452,10 +455,10 @@ export function CreateWorkspaceDialog({
                 onClick={() => setCreationMode("clean")}
               >
                 <p className={sx(createWorkspaceStyles.modeTitlePlain)}>
-                  Create Clean Workspace
+                  {t("createDialog.modes.clean.title")}
                 </p>
                 <p className={sx(createWorkspaceStyles.modeDescription)}>
-                  Create a new isolated worktree with a fresh branch.
+                  {t("createDialog.modes.clean.description")}
                 </p>
               </AdsButton>
             </div>
@@ -478,18 +481,16 @@ export function CreateWorkspaceDialog({
                   <FolderSymlink
                     className={sx(createWorkspaceStyles.modeIcon)}
                   />
-                  Link Existing Worktree
+                  {t("createDialog.modes.link.title")}
                 </p>
                 <p className={sx(createWorkspaceStyles.modeDescription)}>
-                  Continue work in a worktree that already exists elsewhere on
-                  disk. Stave symlinks it into `.stave/workspaces/` and keeps
-                  its current branch.
+                  {t("createDialog.modes.link.description")}
                 </p>
               </AdsButton>
               {creationMode === "link" ? (
                 <div className={sx(createWorkspaceStyles.subBlock)}>
                   <p className={sx(createWorkspaceStyles.subLabel)}>
-                    Worktree Path
+                    {t("createDialog.modes.link.pathLabel")}
                   </p>
                   <div className={sx(createWorkspaceStyles.pathRow)}>
                     <Input
@@ -507,13 +508,12 @@ export function CreateWorkspaceDialog({
                         disabled={creatingWorkspace}
                         onClick={() => void handleBrowseWorktreePath()}
                       >
-                        Browse
+                        {t("common:actions.browse")}
                       </Button>
                     ) : null}
                   </div>
                   <p className={sx(createWorkspaceStyles.fieldHint)}>
-                    The linked worktree stays where it is; archiving the
-                    workspace later removes only the symlink.
+                    {t("createDialog.modes.link.pathHint")}
                   </p>
                 </div>
               ) : null}
@@ -523,27 +523,27 @@ export function CreateWorkspaceDialog({
             <>
               <div className={sx(createWorkspaceStyles.section)}>
                 <p className={sx(createWorkspaceStyles.fieldLabel)}>
-                  Post-Create Command
+                  {t("createDialog.postCreate.label")}
                 </p>
                 <p className={sx(createWorkspaceStyles.sectionCopy)}>
-                  Optional shell command to run once inside the new workspace
-                  root after creation. Useful for `bun install` or `npm
-                  install`.
+                  {t("createDialog.postCreate.description")}
                 </p>
                 <Textarea
                   value={initCommand}
+                  // i18n-ignore: example shell command, not prose
                   placeholder="bun install"
                   onChange={(event) => setInitCommand(event.target.value)}
                   xstyle={createWorkspaceStyles.initCommand}
                 />
                 <p className={sx(createWorkspaceStyles.sectionHint)}>
-                  Shortcut: use {submitModifierLabel} to create while editing
-                  this field.
+                  {t("createDialog.postCreate.shortcutHint", {
+                    shortcut: submitModifierLabel,
+                  })}
                 </p>
               </div>
               <div className={sx(createWorkspaceStyles.section)}>
                 <p className={sx(createWorkspaceStyles.fieldLabel)}>
-                  Dependency Reuse
+                  {t("createDialog.dependencyReuse.label")}
                 </p>
                 <AdsButton layout="host"
                   type="button"
@@ -560,14 +560,19 @@ export function CreateWorkspaceDialog({
                 >
                   <div className={sx(createWorkspaceStyles.symlinkRow)}>
                     <p className={sx(createWorkspaceStyles.symlinkTitle)}>
-                      <span>Reuse root</span>
-                      <Badge
-                        variant="outline"
-                        className={sx(createWorkspaceStyles.monoChip)}
-                      >
-                        node_modules
-                      </Badge>
-                      <span>via symlink</span>
+                      <Trans
+                        t={t}
+                        i18nKey="createDialog.dependencyReuse.title"
+                        components={{
+                          label: <span />,
+                          chip: (
+                            <Badge
+                              variant="outline"
+                              className={sx(createWorkspaceStyles.monoChip)}
+                            />
+                          ),
+                        }}
+                      />
                     </p>
                     <span
                       className={sx(
@@ -577,20 +582,24 @@ export function CreateWorkspaceDialog({
                           : createWorkspaceStyles.statePillOff,
                       )}
                     >
-                      {useRootNodeModulesSymlink ? "On" : "Off"}
+                      {useRootNodeModulesSymlink
+                        ? t("common:status.on")
+                        : t("common:status.off")}
                     </span>
                   </div>
                   <p className={sx(createWorkspaceStyles.symlinkDescription)}>
-                    Creates{" "}
-                    <Badge
-                      variant="outline"
-                      className={sx(createWorkspaceStyles.monoChipInline)}
-                    >
-                      node_modules
-                    </Badge>{" "}
-                    in the new workspace as a symlink to the repository root
-                    install. This is fast, but later installs in that workspace
-                    will affect the shared dependency tree.
+                    <Trans
+                      t={t}
+                      i18nKey="createDialog.dependencyReuse.description"
+                      components={{
+                        chip: (
+                          <Badge
+                            variant="outline"
+                            className={sx(createWorkspaceStyles.monoChipInline)}
+                          />
+                        ),
+                      }}
+                    />
                   </p>
                 </AdsButton>
               </div>
@@ -603,16 +612,16 @@ export function CreateWorkspaceDialog({
               disabled={creatingWorkspace}
               onClick={closeDialog}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button type="submit" disabled={creatingWorkspace}>
               {creationMode === "link"
                 ? creatingWorkspace
-                  ? "Linking..."
-                  : "Link"
+                  ? t("createDialog.submit.linking")
+                  : t("createDialog.submit.link")
                 : creatingWorkspace
-                  ? "Creating..."
-                  : "Create"}
+                  ? t("createDialog.submit.creating")
+                  : t("common:actions.create")}
             </Button>
           </div>
           {createWorkspaceError ? (

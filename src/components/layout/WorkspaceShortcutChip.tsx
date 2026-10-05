@@ -1,6 +1,7 @@
 import { Kbd } from "@/components/ui";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
+import { useTranslation } from "@/i18n";
 
 interface WorkspaceShortcutChipProps {
   modifier: string;
@@ -13,9 +14,10 @@ export function WorkspaceShortcutChip({
   label,
   className,
 }: WorkspaceShortcutChipProps) {
+  const { t } = useTranslation("workspace");
   return (
     <Kbd
-      aria-label={`Keyboard shortcut ${modifier}+${label}`}
+      aria-label={t("sidebarRows.shortcutChip.ariaLabel", { modifier, key: label })}
       className={cx(sx(layoutShellStyles.shortcut), className)}
     >
       <span>{modifier}</span>

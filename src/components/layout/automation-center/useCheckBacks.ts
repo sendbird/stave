@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 /**
  * Check-back schedules (wake-ups underneath) across every workspace, for the
  * Schedules list. Refreshed on `wake-ups:changed` and on a slow poll so a
@@ -35,7 +36,7 @@ export function useCheckBacks() {
         : {
             ...previous,
             loaded: true,
-            error: listed.message ? `Failed to load check-backs: ${listed.message}` : "Failed to load check-backs.",
+            error: listed.message ? i18n.t("automation:additionalCopy.message21", { value1: listed.message }) : i18n.t("automation:additionalCopy.message22"),
           },
     );
   }, []);

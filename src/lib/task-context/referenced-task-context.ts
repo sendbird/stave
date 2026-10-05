@@ -90,6 +90,7 @@ export function buildReferencedTaskRetrievedContext(args: {
   return {
     type: "retrieved_context",
     sourceId: "stave:referenced-task-replies",
+    // i18n-ignore: model-facing context metadata and instructions
     title: "Referenced Stave Task Replies",
     content: sections.join("\n\n"),
   };

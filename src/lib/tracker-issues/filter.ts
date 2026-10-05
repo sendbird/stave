@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   TrackerPriorityLevel,
   TrackerSourceId,
@@ -134,7 +135,7 @@ export function projectFilterKeyForTask(task: TrackerIssue): string {
 
 /** Display label for `projectFilterKeyForTask`. */
 export function projectFilterLabelForTask(task: TrackerIssue): string {
-  return task.project?.name ?? task.team?.name ?? "No project";
+  return task.project?.name ?? task.team?.name ?? i18n.t("issues:filter.noProject");
 }
 
 /**

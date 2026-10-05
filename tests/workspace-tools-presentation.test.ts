@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { describe, expect, test } from "bun:test";
 import { Blocks, TerminalSquare } from "lucide-react";
 import { COMMAND_PALETTE_GROUP_LABELS } from "@/components/layout/command-palette-registry";
@@ -7,7 +8,7 @@ import {
   RIGHT_RAIL_PANEL_ICONS,
   RIGHT_RAIL_PANEL_TITLES,
 } from "@/lib/right-rail-panels";
-import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
+import { WORKSPACE_TOOLS_LABEL_KEY } from "@/lib/workspace-scripts/constants";
 import {
   DEFAULT_WORKSPACE_TOOLS_VIEW,
   WORKSPACE_TOOLS_PRESENTATION,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/workspace-tools-presentation";
 
 describe("Workspace Tools presentation", () => {
+  const WORKSPACE_TOOLS_LABEL = i18n.getFixedT("en", "scripts")(WORKSPACE_TOOLS_LABEL_KEY);
   test("uses one umbrella name without collapsing its distinct tool types", () => {
     expect(RIGHT_RAIL_PANEL_TITLES.scripts).toBe(WORKSPACE_TOOLS_LABEL);
     expect(COMMAND_PALETTE_GROUP_LABELS.scripts).toBe(WORKSPACE_TOOLS_LABEL);

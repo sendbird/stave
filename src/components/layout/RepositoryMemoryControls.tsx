@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
+import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import { REPOSITORY_MEMORY_KINDS } from "@/lib/repository-memory";
 import {
   DEFAULT_REPOSITORY_MEMORY_SETTINGS,
@@ -17,20 +18,22 @@ import {
 import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { repositoryMemoryControlsStyles as styles } from "./RepositoryMemoryControls.styles";
+import { failureMessage } from "./workspace-information/failure-message";
 
 export const REPOSITORY_MEMORY_CHANGED_EVENT = "stave:repository-memory-changed";
-const KIND_DESCRIPTIONS = {
-  decision: "Decisions and their rationale",
-  convention: "Conventions and preferences",
-  gotcha: "Pitfalls and lessons",
-  fact: "Stable repository facts",
-};
+const KIND_DESCRIPTION_KEYS = {
+  decision: "workspace:repositoryMemory.kindDescriptions.decision",
+  convention: "workspace:repositoryMemory.kindDescriptions.convention",
+  gotcha: "workspace:repositoryMemory.kindDescriptions.gotcha",
+  fact: "workspace:repositoryMemory.kindDescriptions.fact",
+} as const satisfies Record<(typeof REPOSITORY_MEMORY_KINDS)[number], I18nKey>;
 
 export function RepositoryMemoryControls({
   repositoryPath,
 }: {
   repositoryPath: string;
 }) {
+  const { t } = useTranslation(["workspace", "common"]);
   const [saved, setSaved] = useState<RepositoryMemorySettings | null>(null);
   const [draft, setDraft] = useState<RepositoryMemorySettings | null>(null);
   const [counts, setCounts] = useState({ all: 0, candidates: 0 });
@@ -46,7 +49,7 @@ export function RepositoryMemoryControls({
     const request = ++version.current;
     const api = window.api?.repositoryMemory;
     if (!api?.getSettings || !api.list) {
-      setError("Memory controls require the updated desktop application.");
+      setError(i18n.t("workspace:repositoryMemory.errors.desktopOutdated"));
       return;
     }
     try {
@@ -56,9 +59,7 @@ export function RepositoryMemoryControls({
       ]);
       if (request !== version.current) return;
       if (!settings.ok || !settings.settings || !list.ok)
-        throw new Error(
-          settings.message ?? list.message ?? "Could not load memory settings.",
-        );
+        throw new Error(settings.message ?? list.message ?? "");
       // A memory card changing elsewhere must not erase a template being edited.
       // Keep its original revision so a later save still detects settings conflicts.
       if (!hasUnsavedChanges.current) {
@@ -74,9 +75,7 @@ export function RepositoryMemoryControls({
     } catch (err) {
       if (request === version.current)
         setError(
-          err instanceof Error
-            ? err.message
-            : "Could not load memory settings.",
+          failureMessage(i18n.t("workspace:repositoryMemory.errors.loadFailed"), err),
         );
     }
   }, [repositoryPath]);
@@ -112,15 +111,13 @@ export function RepositoryMemoryControls({
       });
       if (request !== version.current) return;
       if (!result.ok || !result.settings)
-        throw new Error(result.message ?? "Could not save settings.");
+        throw new Error(result.message ?? "");
       setSaved(result.settings);
       setDraft(result.settings);
       window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
     } catch (err) {
       if (request === version.current)
-        setError(
-          err instanceof Error ? err.message : "Could not save settings.",
-        );
+        setError(failureMessage(t("repositoryMemory.errors.saveFailed"), err));
     } finally {
       setBusy(false);
     }
@@ -134,14 +131,12 @@ export function RepositoryMemoryControls({
       const result = await api.clear({ repositoryPath, scope: clearing });
       if (request !== version.current) return;
       if (!result.ok)
-        throw new Error(result.message ?? "Could not clear memories.");
+        throw new Error(result.message ?? "");
       setClearing(null);
       window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
     } catch (err) {
       if (request === version.current)
-        setError(
-          err instanceof Error ? err.message : "Could not clear memories.",
-        );
+        setError(failureMessage(t("repositoryMemory.errors.clearFailed"), err));
     } finally {
       setBusy(false);
     }
@@ -161,25 +156,24 @@ export function RepositoryMemoryControls({
               void reload();
             }}
           >
-            Reload
+            {t("common:actions.reload")}
           </Button>
         </div>
       )}
       {!draft ? (
         <p className={sx(styles.loading)}>
           {error
-            ? "Memory settings are unavailable."
-            : "Loading memory settings…"}
+            ? t("repositoryMemory.unavailable")
+            : t("repositoryMemory.loading")}
         </p>
       ) : (
         <>
           <fieldset disabled={busy} className={sx(styles.fieldset)}>
             <label className={sx(styles.toggleRow)}>
               <span>
-                Use repository memory
+                {t("repositoryMemory.useMemory.title")}
                 <span className={sx(styles.toggleHint)}>
-                  Include relevant saved knowledge in new turns. Turning this
-                  off keeps stored memories.
+                  {t("repositoryMemory.useMemory.hint")}
                 </span>
               </span>
               <Switch
@@ -191,11 +185,9 @@ export function RepositoryMemoryControls({
             </label>
             <label className={sx(styles.toggleRow)}>
               <span>
-                Collect repository memory
+                {t("repositoryMemory.collect.title")}
                 <span className={sx(styles.toggleHint)}>
-                  Off by default. Allow agents to save repository knowledge and
-                  completed-turn summaries to suggest candidates. Suggestions
-                  require Background AI → Turn summary.
+                  {t("repositoryMemory.collect.hint")}
                 </span>
               </span>
               <Switch
@@ -206,7 +198,7 @@ export function RepositoryMemoryControls({
               />
             </label>
             <fieldset className={sx(styles.kindsFieldset)}>
-              <legend className={sx(styles.legend)}>What to collect</legend>
+              <legend className={sx(styles.legend)}>{t("repositoryMemory.whatToCollect")}</legend>
               {REPOSITORY_MEMORY_KINDS.map((kind) => (
                 <label key={kind} className={sx(styles.kindRow)}>
                   <input
@@ -221,18 +213,16 @@ export function RepositoryMemoryControls({
                       })
                     }
                   />
-                  {KIND_DESCRIPTIONS[kind]}
+                  {t(KIND_DESCRIPTION_KEYS[kind])}
                 </label>
               ))}
             </fieldset>
             <label className={sx(styles.templateLabelStack)}>
               <span className={sx(styles.templateTitle)}>
-                Collection template
+                {t("repositoryMemory.template.title")}
               </span>
               <span className={sx(styles.templateHint)}>
-                Describe what is worth remembering and what to exclude. Each
-                summary can propose one candidate; review and recall limits
-                still apply.
+                {t("repositoryMemory.template.hint")}
               </span>
               <Textarea
                 xstyle={styles.templateTextarea}
@@ -252,7 +242,7 @@ export function RepositoryMemoryControls({
                   JSON.stringify(draft) === JSON.stringify(saved)
                 }
               >
-                Save settings
+                {t("repositoryMemory.saveSettings")}
               </Button>
               <Button
                 size="sm"
@@ -266,14 +256,16 @@ export function RepositoryMemoryControls({
                   })
                 }
               >
-                Restore collection defaults
+                {t("repositoryMemory.restoreDefaults")}
               </Button>
             </div>
           </fieldset>
           <div className={sx(styles.footer)}>
             <p className={sx(styles.footerCount)}>
-              {counts.all} memories · {counts.candidates} candidates in this
-              repository
+              {t("repositoryMemory.footerCount", {
+                all: counts.all,
+                candidates: counts.candidates,
+              })}
             </p>
             <div className={sx(styles.footerActions)}>
               <Button
@@ -285,7 +277,7 @@ export function RepositoryMemoryControls({
                   setClearing("candidates");
                 }}
               >
-                Clear candidates
+                {t("repositoryMemory.clearCandidates")}
               </Button>
               <Button
                 variant="destructive"
@@ -296,7 +288,7 @@ export function RepositoryMemoryControls({
                   setClearing("all");
                 }}
               >
-                Reset repository memory
+                {t("repositoryMemory.reset")}
               </Button>
             </div>
           </div>
@@ -307,14 +299,14 @@ export function RepositoryMemoryControls({
         loading={busy}
         title={
           clearing === "candidates"
-            ? `Clear ${counts.candidates} candidates?`
-            : `Reset ${counts.all} repository memories?`
+            ? t("repositoryMemory.clearDialog.candidatesTitle", { count: counts.candidates })
+            : t("repositoryMemory.clearDialog.resetTitle", { count: counts.all })
         }
-        description="This applies only to this repository and cannot be undone here. Older turns and pending automatic collection will not refill cleared memories. Content already sent to an ongoing conversation remains there. Collection settings are kept."
+        description={t("repositoryMemory.clearDialog.description")}
         confirmLabel={
           clearing === "candidates"
-            ? "Clear candidates"
-            : "Reset repository memory"
+            ? t("repositoryMemory.clearCandidates")
+            : t("repositoryMemory.reset")
         }
         onConfirm={() => void clear()}
         onCancel={() => {
@@ -335,6 +327,7 @@ export function RepositoryMemorySettingsSection(props: {
   repositories: Array<{ repositoryPath: string; repositoryName: string }>;
   initialRepositoryPath?: string | null;
 }) {
+  const { t } = useTranslation("workspace");
   const [selected, setSelected] = useState(props.initialRepositoryPath ?? "");
   const repositoryPath = props.repositories.some((p) => p.repositoryPath === selected)
     ? selected
@@ -342,16 +335,15 @@ export function RepositoryMemorySettingsSection(props: {
   return (
     <section className={sx(styles.section)}>
       <div>
-        <h2 className={sx(styles.sectionTitle)}>Repository memory</h2>
+        <h2 className={sx(styles.sectionTitle)}>{t("repositoryMemory.settingsSection.title")}</h2>
         <p className={sx(styles.sectionLead)}>
-          Choose how this repository collects and recalls knowledge across its
-          workspaces.
+          {t("repositoryMemory.settingsSection.lead")}
         </p>
       </div>
       {repositoryPath ? (
         <>
           <Select value={repositoryPath} onValueChange={setSelected}>
-            <SelectTrigger aria-label="Memory repository">
+            <SelectTrigger aria-label={t("repositoryMemory.settingsSection.repositoryAriaLabel")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -369,7 +361,7 @@ export function RepositoryMemorySettingsSection(props: {
         </>
       ) : (
         <p className={sx(styles.loading)}>
-          Open a repository to configure memory.
+          {t("repositoryMemory.settingsSection.noRepository")}
         </p>
       )}
     </section>

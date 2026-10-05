@@ -10,12 +10,12 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
-import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { ScriptsManager } from "@/components/scripts";
 import { WorkspaceSyncStatusCard } from "./WorkspaceSyncStatusCard";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { sx } from "@/components/ads/utils/stylex";
 import { workspaceSettingsDialogStyles as styles } from "./workspace-settings-dialog.styles";
+import { useTranslation } from "@/i18n";
 
 export interface WorkspaceSettingsDialogProps {
   open: boolean;
@@ -48,6 +48,7 @@ export function WorkspaceSettingsContent(props: {
     name: string;
   }) => Promise<{ ok: boolean; message?: string }>;
 }): JSX.Element {
+  const { t } = useTranslation("workspace");
   const [label, setLabel] = useState(props.workspaceName);
   const [labelMessage, setLabelMessage] = useState<string | null>(null);
   const [isSavingLabel, setIsSavingLabel] = useState(false);
@@ -68,7 +69,7 @@ export function WorkspaceSettingsContent(props: {
       return;
     }
     if (!normalizedLabel) {
-      setLabelMessage("Label is required.");
+      setLabelMessage(t("settingsDialog.label.required"));
       return;
     }
     if (!labelChanged) {
@@ -84,7 +85,9 @@ export function WorkspaceSettingsContent(props: {
         name: normalizedLabel,
       });
       setLabelMessage(
-        result.ok ? "Saved." : (result.message ?? "Save failed."),
+        result.ok
+          ? t("settingsDialog.label.saved")
+          : (result.message ?? t("settingsDialog.label.saveFailed")),
       );
     } finally {
       setIsSavingLabel(false);
@@ -94,7 +97,7 @@ export function WorkspaceSettingsContent(props: {
   return (
     <>
       <div data-slot="dialog-header" className={sx(styles.header)}>
-        <h2 className={sx(styles.headerTitle)}>Workspace settings</h2>
+        <h2 className={sx(styles.headerTitle)}>{t("settingsDialog.title")}</h2>
         <div className={sx(styles.headerMeta)}>
           <span className={sx(styles.headerName)}>{props.workspaceName}</span>
           {props.branch ? (
@@ -106,7 +109,7 @@ export function WorkspaceSettingsContent(props: {
       <form className={sx(styles.labelForm)} onSubmit={handleLabelSubmit}>
         <div className={sx(styles.labelRow)}>
           <label className={sx(styles.labelField)}>
-            Label
+            {t("settingsDialog.label.field")}
             <Input
               value={label}
               onChange={(event) => {
@@ -115,7 +118,7 @@ export function WorkspaceSettingsContent(props: {
               }}
               disabled={!canEditLabel || isSavingLabel}
               xstyle={styles.labelInput}
-              placeholder="Workspace label"
+              placeholder={t("settingsDialog.label.placeholder")}
             />
           </label>
           <Button
@@ -124,15 +127,18 @@ export function WorkspaceSettingsContent(props: {
             disabled={!canEditLabel || !labelChanged || isSavingLabel}
             xstyle={styles.labelSubmit}
           >
-            Save label
+            {t("settingsDialog.label.save")}
           </Button>
         </div>
         <p className={sx(styles.labelHint)}>
           {props.isDefault
-            ? "Default workspace labels are fixed."
+            ? t("settingsDialog.label.defaultFixed")
             : props.branch
-              ? `Shown as ${normalizedLabel || "label"} (${props.branch}).`
-              : "Shown in the repository sidebar."}
+              ? t("settingsDialog.label.shownAs", {
+                  label: normalizedLabel || t("settingsDialog.label.fallbackName"),
+                  branch: props.branch,
+                })
+              : t("settingsDialog.label.shownInSidebar")}
         </p>
         {labelMessage ? (
           <p className={sx(styles.labelHint)}>{labelMessage}</p>
@@ -145,8 +151,8 @@ export function WorkspaceSettingsContent(props: {
         xstyle={styles.tabs}
       >
         <TabsList xstyle={styles.tabsList}>
-          <TabsTrigger value="sync">Sync</TabsTrigger>
-          <TabsTrigger value="scripts">{WORKSPACE_TOOLS_LABEL}</TabsTrigger>
+          <TabsTrigger value="sync">{t("settingsDialog.tabs.sync")}</TabsTrigger>
+          <TabsTrigger value="scripts">{t("settingsDialog.tabs.tools")}</TabsTrigger>
         </TabsList>
         <TabsContent value="sync" xstyle={styles.tabPanel}>
           <WorkspaceSyncStatusCard cwd={props.workspacePath} />
@@ -177,6 +183,7 @@ export function WorkspaceSettingsContent(props: {
 export function WorkspaceSettingsDialog(
   props: WorkspaceSettingsDialogProps,
 ): JSX.Element {
+  const { t } = useTranslation("workspace");
   const [resolvedConfig, setResolvedConfig] =
     useState<ResolvedWorkspaceScriptsConfig | null>(null);
 
@@ -236,7 +243,7 @@ export function WorkspaceSettingsDialog(
           row at all.
         */}
         <VisuallyHidden>
-          <DialogTitle>Workspace settings</DialogTitle>
+          <DialogTitle>{t("settingsDialog.title")}</DialogTitle>
         </VisuallyHidden>
         {sharedContent}
       </DialogContent>

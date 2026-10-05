@@ -6,8 +6,12 @@ import { ActionButton } from "@/components/system/ActionButton";
 import { OpenPathDialog } from "./OpenPathDialog";
 import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 import { workspaceWelcomeStyles as styles } from "./workspace-welcome.styles";
+import { Trans, useTranslation } from "@/i18n";
+
+const WELCOME_STEP_KEYS = ["outcome", "together", "review"] as const;
 
 export function WorkspaceWelcome() {
+  const { t } = useTranslation("workspace");
   const [open, setOpen] = useState(false);
   return (
     <section
@@ -17,71 +21,55 @@ export function WorkspaceWelcome() {
     >
       <div className={sx(styles.column)}>
         <div className={sx(styles.intro)}>
-          <p className={sx(styles.eyebrow)}>
-            YOUR WORK, IN ONE PLACE
-          </p>
+          <p className={sx(styles.eyebrow)}>{t("welcome.eyebrow")}</p>
           <h1
             id="workspace-welcome-title"
             className={sx(styles.title)}
           >
-            From a task to a result you can trust.
+            {t("welcome.title")}
           </h1>
-          <p className={sx(styles.lede)}>
-            Use agents in your local repositories. Keep tickets, notes, code, and
-            evidence together so you can pick up where you left off.
-          </p>
+          <p className={sx(styles.lede)}>{t("welcome.lede")}</p>
         </div>
         <div className={sx(styles.action)}>
           <ActionButton weight="primary" size="lg" onClick={() => setOpen(true)}>
             <FolderOpen aria-hidden="true" className={sx(styles.actionIcon)} />
-            Open a repository
+            {t("welcome.openRepository")}
           </ActionButton>
-          <p className={sx(styles.actionHint)}>
-            Choose a folder on your computer. You can connect Jira or Crane
-            later.
-          </p>
+          <p className={sx(styles.actionHint)}>{t("welcome.openRepositoryHint")}</p>
         </div>
         <ol className={sx(styles.steps)}>
-          <li>
-            <strong className={sx(styles.stepLead)}>
-              1. Start with an outcome.
-            </strong>{" "}
-            A task can be a code change, an investigation, or a document. Choose
-            your agent when you start.
-          </li>
-          <li>
-            <strong className={sx(styles.stepLead)}>
-              2. Keep the work together.
-            </strong>{" "}
-            A workspace holds your tasks, files, and terminals. Keep goals,
-            decisions, and evidence in Information. Use a separate worktree when changes need isolation.
-          </li>
-          <li>
-            <strong className={sx(styles.stepLead)}>3. Review and continue.</strong>{" "}
-            Fleet shows work that needs your attention. Open a task to review results and
-            checks, then request changes or take the next action.
-          </li>
+          {WELCOME_STEP_KEYS.map((step) => (
+            <li key={step}>
+              <strong className={sx(styles.stepLead)}>
+                {t(`welcome.steps.${step}.lead`)}
+              </strong>{" "}
+              {t(`welcome.steps.${step}.body`)}
+            </li>
+          ))}
         </ol>
         <p className={sx(styles.actionHint)}>
-          Stave uses the Claude and Codex sign-ins on this computer. To add
-          another, open{" "}
-          <Button
-            type="button"
-            size="xs"
-            variant="link"
-            flushInline
-            xstyle={styles.inlineLink}
-            onClick={() =>
-              window.dispatchEvent(
-                new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-                  detail: { section: "tooling" },
-                }),
-              )
-            }
-          >
-            account settings
-          </Button>
-          .
+          <Trans
+            t={t}
+            i18nKey="welcome.accountsHint"
+            components={{
+              link: (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="link"
+                  flushInline
+                  xstyle={styles.inlineLink}
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
+                        detail: { section: "tooling" },
+                      }),
+                    )
+                  }
+                />
+              ),
+            }}
+          />
         </p>
       </div>
       <OpenPathDialog

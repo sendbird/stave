@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 
 /** Explicit workspace intent is kept apart from an automatically replaced turn summary. */
@@ -35,26 +36,26 @@ export type ResumeBriefFields = Omit<
   "updatedAt" | "sourceTaskId"
 >;
 export const RESUME_BRIEF_FIELDS = [
-  { key: "goal", label: "Goal", hint: "What should this workspace achieve?" },
+  { key: "goal", get label() { return i18n.t("workspace:workspaceResumeBrief.goal"); }, get hint() { return i18n.t("workspace:workspaceResumeBrief.whatShouldThisWorkspaceAchieve"); } },
   {
     key: "completionCriteria",
-    label: "Completion conditions",
-    hint: "What must be true before this work is complete?",
+    get label() { return i18n.t("workspace:workspaceResumeBrief.completionConditions"); },
+    get hint() { return i18n.t("workspace:workspaceResumeBrief.whatMustBeTrueBeforeThisWork"); },
   },
   {
     key: "decisions",
-    label: "Confirmed decisions",
-    hint: "Keep agreed choices and constraints here. Leave unconfirmed ideas in Notes.",
+    get label() { return i18n.t("workspace:workspaceResumeBrief.confirmedDecisions"); },
+    get hint() { return i18n.t("workspace:workspaceResumeBrief.keepAgreedChoicesAndConstraintsHereLeave"); },
   },
   {
     key: "evidence",
-    label: "Evidence and plan references",
-    hint: "Link the plan, results, checks, and sources that support this work.",
+    get label() { return i18n.t("workspace:workspaceResumeBrief.evidenceAndPlanReferences"); },
+    get hint() { return i18n.t("workspace:workspaceResumeBrief.linkThePlanResultsChecksAndSources"); },
   },
   {
     key: "nextAction",
-    label: "Next action",
-    hint: "Where should you or the next agent continue?",
+    get label() { return i18n.t("workspace:workspaceResumeBrief.nextAction"); },
+    get hint() { return i18n.t("workspace:workspaceResumeBrief.whereShouldYouOrTheNextAgent"); },
   },
 ] as const;
 
@@ -75,7 +76,7 @@ export function getWorkspaceInstructions(
   if (!brief) return "";
   if (brief.instructions !== undefined) return brief.instructions;
   return RESUME_BRIEF_FIELDS.filter(({ key }) => brief[key].trim())
-    .map(({ key, label }) => `${label}: ${brief[key]}`)
+    .map(({ key }) => `${i18n.getFixedT("en", "workspace")(`workspaceResumeBrief.${({ goal: "goal", completionCriteria: "completionConditions", decisions: "confirmedDecisions", evidence: "evidenceAndPlanReferences", nextAction: "nextAction" } as const)[key]}`)}: ${brief[key]}`)
     .join("\n\n");
 }
 

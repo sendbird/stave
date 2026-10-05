@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ExternalLink, RotateCcw, ShieldCheck } from "lucide-react";
 
 import { Button, Loader, Switch, Textarea } from "@/components/ui";
@@ -24,6 +25,7 @@ import type {
 import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import {
+  TRACKER_LINK_STATE_PRESENTATION,
   TRACKER_SOURCE_LABELS,
   openTrackerIssueInBrowser,
   resolvePrimaryTrackerIssueLink,
@@ -37,8 +39,8 @@ const START_MODE_OPTIONS: readonly {
   value: TrackerIssueStartMode;
   label: string;
 }[] = [
-  { value: "run", label: "Start now" },
-  { value: "stage", label: "Stage prompt only" },
+  { value: "run", get label() { return i18n.t("issues:trackerIssueKickoffSheet.startNow"); } },
+  { value: "stage", get label() { return i18n.t("issues:trackerIssueKickoffSheet.stagePromptOnly"); } },
 ];
 
 export interface TrackerIssueKickoffSheetProps {
@@ -49,6 +51,7 @@ export interface TrackerIssueKickoffSheetProps {
 }
 
 export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const item = props.item;
   const task = item?.task ?? null;
   const links = useTrackerIssueLinks(
@@ -79,12 +82,10 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
       <SheetContent side="right" xstyle={taskLayoutStyles.kickoffSheet}>
         <SheetHeader xstyle={taskLayoutStyles.kickoffHeader}>
           <SheetTitle className={sx(taskLayoutStyles.kickoffSectionHeading)}>
-            Kick off {task?.key ?? "ticket"} in Stave
-          </SheetTitle>
+          {tI18n("issues:trackerIssueKickoffSheet.kickoffTitle", { key: task?.key ?? tI18n("issues:trackerIssueKickoffSheet.ticket") })}
+        </SheetTitle>
           <SheetDescription className={sx(taskLayoutStyles.kickoffHint)}>
-            Nothing leaves this machine except the Crane status updates you
-            allow below.
-          </SheetDescription>
+            {tI18n("issues:trackerIssueKickoffSheet.nothingLeavesThisMachineExceptTheCrane")}</SheetDescription>
         </SheetHeader>
 
         <div className={sx(taskLayoutStyles.kickoffContent)}>
@@ -108,14 +109,12 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
                   onClick={() => openTrackerIssueInBrowser(task.url)}
                 >
                   <ExternalLink className={sx(taskLayoutStyles.icon14)} />
-                  Open source
-                </Button>
+                  {tI18n("issues:trackerIssueKickoffSheet.openSource")}</Button>
               </div>
               {existingLink ? (
                 <p className={sx(taskLayoutStyles.kickoffWarning)}>
-                  This ticket already has a Stave run ({existingLink.state}).
-                  Starting again creates a second one.
-                </p>
+          {tI18n("issues:trackerIssueKickoffSheet.existingRunWarning", { state: TRACKER_LINK_STATE_PRESENTATION[existingLink.state].label })}
+        </p>
               ) : null}
             </section>
           ) : null}
@@ -145,8 +144,7 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
                 id={`${ID_PREFIX}-instruction-heading`}
                 className={sx(taskLayoutStyles.kickoffSectionHeading)}
               >
-                What to do
-              </h3>
+                {tI18n("issues:trackerIssueKickoffSheet.whatToDo")}</h3>
               <Button
                 type="button"
                 size="xs"
@@ -156,8 +154,7 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
                 onClick={draft.resetInstruction}
               >
                 <RotateCcw className={sx(taskLayoutStyles.icon12)} />
-                Reset to ticket
-              </Button>
+                {tI18n("issues:trackerIssueKickoffSheet.resetToTicket")}</Button>
             </div>
             <Textarea
               id={`${ID_PREFIX}-instruction`}
@@ -165,11 +162,10 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
               onChange={(event) => draft.setInstruction(event.target.value)}
               rows={8}
               xstyle={taskLayoutStyles.kickoffTextArea}
-              aria-label="Instruction for the run"
+              aria-label={tI18n("issues:trackerIssueKickoffSheet.instructionForTheRun")}
             />
             <p className={sx(taskLayoutStyles.kickoffHint)}>
-              The ticket body is also attached as untrusted retrieved context.
-            </p>
+              {tI18n("issues:trackerIssueKickoffSheet.theTicketBodyIsAlsoAttachedAs")}</p>
           </section>
 
           <DispatchRuntimeFields
@@ -197,8 +193,7 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
               id={`${ID_PREFIX}-start-heading`}
               className={sx(taskLayoutStyles.kickoffSectionHeading)}
             >
-              How it starts
-            </h3>
+              {tI18n("issues:trackerIssueKickoffSheet.howItStarts")}</h3>
             <div className={sx(taskLayoutStyles.kickoffModeList)}>
               {START_MODE_OPTIONS.map((option) => (
                 <Button
@@ -225,8 +220,8 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
             </div>
             <p className={sx(taskLayoutStyles.kickoffHint)}>
               {draft.startMode === "run"
-                  ? "The workspace is created and the turn starts immediately."
-                  : "The workspace and a prefilled prompt are prepared; you send it."}
+                  ? tI18n("issues:trackerIssueKickoffSheet.theWorkspaceIsCreatedAndTheTurn")
+                  : tI18n("issues:trackerIssueKickoffSheet.theWorkspaceAndAPrefilledPromptAre")}
             </p>
 
             {task?.source === "crane" ? (
@@ -236,14 +231,13 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
                     htmlFor={`${ID_PREFIX}-crane-write-back`}
                     className={sx(taskLayoutStyles.detailLinkTitle)}
                   >
-                    Report progress to Crane
-                  </label>
+                    {tI18n("issues:trackerIssueKickoffSheet.reportProgressToCrane")}</label>
                   <p className={sx(taskLayoutStyles.kickoffHint)}>
                     {!draft.craneWriteBackAvailable
-                      ? "Turn the Crane connector on in Settings to report progress."
+                      ? tI18n("issues:trackerIssueKickoffSheet.turnTheCraneConnectorOnInSettings")
                       : draft.startMode === "run"
-                        ? "Crane shows this ticket as running in Stave and receives lifecycle state only."
-                        : "Only available when the run starts now."}
+                        ? tI18n("issues:trackerIssueKickoffSheet.craneShowsThisTicketAsRunningIn")
+                        : tI18n("issues:trackerIssueKickoffSheet.onlyAvailableWhenTheRunStartsNow")}
                   </p>
                 </div>
                 <Switch
@@ -253,7 +247,7 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
                     !draft.craneWriteBackAvailable || draft.startMode !== "run"
                   }
                   onCheckedChange={draft.setCraneWriteBack}
-                  aria-label="Report progress to Crane"
+                  aria-label={tI18n("issues:trackerIssueKickoffSheet.reportProgressToCrane")}
                 />
               </div>
             ) : null}
@@ -262,18 +256,15 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
           <section className={sx(taskLayoutStyles.kickoffNotice)}>
             <ShieldCheck className={sx(taskLayoutStyles.headerIcon)} />
             <p className={sx(taskLayoutStyles.kickoffHint)}>
-              Prompts, responses, reasoning, files, paths, diffs, and
-              credentials stay local. Tracker credentials are never read by this
-              window.
-            </p>
+              {tI18n("issues:trackerIssueKickoffSheet.promptsResponsesReasoningFilesPathsDiffsAnd")}</p>
           </section>
         </div>
 
         <SheetFooter xstyle={taskLayoutStyles.kickoffFooter}>
           <span className={sx(taskLayoutStyles.kickoffFooterHint)}>
             {draft.rememberDefaults && draft.scopeLabel
-              ? `Local ${draft.scopeLabel} defaults will be remembered.`
-              : "Applies to this kickoff only."}
+              ? tI18n("issues:trackerIssueKickoffSheet.localValueDefaultsWillBeRemembered", { value1: draft.scopeLabel })
+              : tI18n("issues:trackerIssueKickoffSheet.appliesToThisKickoffOnly")}
           </span>
           <Button
             type="button"
@@ -281,8 +272,7 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
             disabled={draft.submitting}
             onClick={props.onClose}
           >
-            Cancel
-          </Button>
+            {tI18n("issues:trackerIssueKickoffSheet.cancel")}</Button>
           <Button
             type="button"
             disabled={
@@ -296,7 +286,7 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
             {draft.submitting ? (
               <Loader aria-hidden size="xs" variant="spinner" />
             ) : null}
-            {draft.startMode === "run" ? "Start in Stave" : "Stage prompt"}
+            {draft.startMode === "run" ? tI18n("issues:trackerIssueKickoffSheet.startInStave") : tI18n("issues:trackerIssueKickoffSheet.stagePrompt")}
           </Button>
         </SheetFooter>
       </SheetContent>

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useState } from "react";
 import { Button, Kbd, Textarea } from "@/components/ui";
@@ -9,6 +10,7 @@ export function NotesSectionBody(props: {
   notes: string;
   onChange: (value: string) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(props.notes);
 
@@ -52,7 +54,7 @@ export function NotesSectionBody(props: {
               commit();
             }
           }}
-          placeholder="Notes, blockers, handoff details..."
+          placeholder={tI18n("workspace:workspaceInformationNotes.notesBlockersHandoffDetails")}
         />
         <div className={sx(styles.notesFooter)}>
           <span className={sx(styles.notesHint)}>
@@ -63,8 +65,7 @@ export function NotesSectionBody(props: {
                 ? "⌘"
                 : "Ctrl"}
             </Kbd>
-            <Kbd>Enter</Kbd> to save
-          </span>
+            <Kbd>Enter</Kbd> {tI18n("workspace:workspaceInformationNotes.toSave")}</span>
           <div className={sx(styles.notesActions)}>
             <Button
               type="button"
@@ -73,8 +74,7 @@ export function NotesSectionBody(props: {
               xstyle={styles.notesButton}
               onClick={cancel}
             >
-              Cancel
-            </Button>
+              {tI18n("workspace:workspaceInformationNotes.cancel")}</Button>
             <Button
               type="button"
               size="sm"
@@ -82,8 +82,7 @@ export function NotesSectionBody(props: {
               onClick={commit}
               disabled={draft === props.notes}
             >
-              Done
-            </Button>
+              {tI18n("workspace:workspaceInformationNotes.done")}</Button>
           </div>
         </div>
       </div>
@@ -98,8 +97,7 @@ export function NotesSectionBody(props: {
         onClick={startEditing}
         xstyle={styles.notesPlaceholder}
       >
-        Add notes… (markdown supported)
-      </AdsButton>
+        {tI18n("workspace:workspaceInformationNotes.addNotesMarkdownSupported")}</AdsButton>
     );
   }
 

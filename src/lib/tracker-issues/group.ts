@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   TrackerStatusCategory,
   TrackerIssueListItem,
@@ -23,19 +24,19 @@ const STATUS_GROUP_ORDER: readonly {
   id: TrackerStatusCategory;
   label: string;
 }[] = [
-  { id: "in_progress", label: "In progress" },
-  { id: "in_review", label: "In review" },
-  { id: "todo", label: "To do" },
-  { id: "done", label: "Done" },
-  { id: "closed", label: "Closed" },
+  { id: "in_progress", get label() { return i18n.t("issues:group.inProgress"); } },
+  { id: "in_review", get label() { return i18n.t("issues:group.inReview"); } },
+  { id: "todo", get label() { return i18n.t("issues:group.toDo"); } },
+  { id: "done", get label() { return i18n.t("issues:group.done"); } },
+  { id: "closed", get label() { return i18n.t("issues:group.closed"); } },
 ];
 
 const DUE_GROUP_ORDER: readonly { id: TrackerDueBucket; label: string }[] = [
-  { id: "overdue", label: "Overdue" },
-  { id: "today", label: "Today" },
-  { id: "this-week", label: "This week" },
-  { id: "later", label: "Later" },
-  { id: "none", label: "No due date" },
+  { id: "overdue", get label() { return i18n.t("issues:group.overdue"); } },
+  { id: "today", get label() { return i18n.t("issues:group.today"); } },
+  { id: "this-week", get label() { return i18n.t("issues:group.thisWeek"); } },
+  { id: "later", get label() { return i18n.t("issues:group.later"); } },
+  { id: "none", get label() { return i18n.t("issues:group.noDueDate"); } },
 ];
 
 export type TrackerDueBucket =

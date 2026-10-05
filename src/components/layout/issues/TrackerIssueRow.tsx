@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { memo } from "react";
@@ -71,6 +72,7 @@ export interface TrackerIssueRowProps {
 export const TrackerIssueRow = memo(function TrackerIssueRow(
   props: TrackerIssueRowProps,
 ) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const { item, now } = props;
   const { task } = item;
   const key = trackerIssueKey(task.source, task.ref);
@@ -147,7 +149,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
           {task.parentKey ? (
             <CornerDownRight
               className={stylex.props(styles.inlineParent).className}
-              aria-label={`Subtask of ${task.parentKey}`}
+              aria-label={tI18n("issues:trackerIssueRow.subtaskOfValue", { value1: task.parentKey })}
             />
           ) : null}
           {task.title}
@@ -186,7 +188,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
         {jiraLink ? (
           <span
             {...stylex.props(styles.external)}
-            title={`Mirrors ${jiraLink.key ?? "a Jira issue"}`}
+            title={tI18n("issues:trackerIssueRow.mirrorsValue", { value1: jiraLink.key ?? "a Jira issue" })}
           >
             <ServiceLinkIcon
               kind="jira"
@@ -243,7 +245,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
 
         <span
           {...stylex.props(styles.assignee)}
-          title={task.assignee?.name ?? "Unassigned"}
+          title={task.assignee?.name ?? tI18n("issues:trackerIssueRow.unassigned")}
         >
           {task.assignee ? getInitials(task.assignee.name) : "—"}
         </span>
@@ -251,44 +253,38 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
 
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => props.onKickoff(key)}>
-          Kick off in Stave
-        </ContextMenuItem>
+          {tI18n("issues:trackerIssueRow.kickOffInStave")}</ContextMenuItem>
         <ContextMenuItem onSelect={() => assignTrackerIssueToAgent(task)}>
-          Assign to agent
-        </ContextMenuItem>
+          {tI18n("issues:trackerIssueRow.assignToAgent")}</ContextMenuItem>
         {link ? (
           <ContextMenuItem onSelect={() => props.onOpenStaveTask(key)}>
-            Jump to Stave task
-          </ContextMenuItem>
+            {tI18n("issues:trackerIssueRow.jumpToStaveTask")}</ContextMenuItem>
         ) : null}
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => openTrackerIssueInBrowser(task.url)}>
           <ExternalLink {...stylex.props(styles.icon15)} />
-          Open in browser
-        </ContextMenuItem>
+          {tI18n("issues:trackerIssueRow.openInBrowser")}</ContextMenuItem>
         <ContextMenuItem
           onSelect={() =>
-            copyTrackerIssueValue({ value: task.key, label: "ticket key" })
+            copyTrackerIssueValue({ value: task.key, label: tI18n("issues:trackerIssueRow.ticketKey") })
           }
         >
-          Copy key
-        </ContextMenuItem>
+          {tI18n("issues:trackerIssueRow.copyKey")}</ContextMenuItem>
         <ContextMenuItem
           onSelect={() =>
-            copyTrackerIssueValue({ value: task.url, label: "ticket link" })
+            copyTrackerIssueValue({ value: task.url, label: tI18n("issues:trackerIssueRow.ticketLink") })
           }
         >
           <Link2 {...stylex.props(styles.icon15)} />
-          Copy link
-        </ContextMenuItem>
+          {tI18n("issues:trackerIssueRow.copyLink")}</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
           disabled={props.attachTargetLabel === null}
           onSelect={() => props.onAttach(key)}
         >
           {props.attachTargetLabel
-            ? `Attach to ${props.attachTargetLabel}`
-            : "Attach to current workspace"}
+            ? tI18n("issues:trackerIssueRow.attachToValue", { value1: props.attachTargetLabel })
+            : tI18n("issues:trackerIssueRow.attachToCurrentWorkspace")}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

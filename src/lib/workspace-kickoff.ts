@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { KickoffBrief, KickoffSourceEvidence } from "@/lib/kickoff-brief";
 import {
   normalizeKickoffBrief,
@@ -107,6 +108,7 @@ export const DEFAULT_KICKOFF_SOURCE_CONFIGS: KickoffSourceConfig[] = [
       keyPattern: "",
     },
     mcpServers: [],
+    // i18n-ignore: model-facing kickoff source-reading guidance
     resolutionHint: "Read the page as the product or implementation spec.",
     panelTarget: "confluencePages",
   },
@@ -121,6 +123,7 @@ export const DEFAULT_KICKOFF_SOURCE_CONFIGS: KickoffSourceConfig[] = [
       keyPattern: "\\b[A-Z][A-Z0-9]+-\\d+\\b",
     },
     mcpServers: [],
+    // i18n-ignore: model-facing kickoff source-reading guidance
     resolutionHint: "Read the issue, acceptance criteria, and linked context.",
     panelTarget: "jiraIssues",
   },
@@ -135,6 +138,7 @@ export const DEFAULT_KICKOFF_SOURCE_CONFIGS: KickoffSourceConfig[] = [
       keyPattern: "",
     },
     mcpServers: [],
+    // i18n-ignore: model-facing kickoff source-reading guidance
     resolutionHint:
       "Read the thread and distinguish decisions from open questions.",
     panelTarget: "slackThreads",
@@ -150,6 +154,7 @@ export const DEFAULT_KICKOFF_SOURCE_CONFIGS: KickoffSourceConfig[] = [
       keyPattern: "",
     },
     mcpServers: [],
+    // i18n-ignore: model-facing kickoff source-reading guidance
     resolutionHint:
       "Inspect the linked design and preserve its interaction intent.",
     panelTarget: "figmaResources",
@@ -165,6 +170,7 @@ export const DEFAULT_KICKOFF_SOURCE_CONFIGS: KickoffSourceConfig[] = [
       keyPattern: "",
     },
     mcpServers: [],
+    // i18n-ignore: model-facing kickoff source-reading guidance
     resolutionHint: "Read the issue or pull request and its linked discussion.",
     panelTarget: "linkedPullRequests",
   },
@@ -449,7 +455,7 @@ export function parseKickoffProposalResponse(args: {
     const sourceSummary =
       normalizeString(parsed.sourceSummary) ||
       args.classification.config?.label ||
-      "Workspace kickoff";
+      i18n.t("kickoff:proposal.fallbackSource");
     const firstTaskTitle =
       normalizeString(parsed.firstTaskTitle) || sourceSummary;
     return {
@@ -558,15 +564,15 @@ export function buildDeterministicKickoffProposal(args: {
     referenceLabel ||
     config?.label ||
     args.classification.input.split(/\s+/).slice(0, 8).join(" ") ||
-    "Workspace kickoff";
+    i18n.t("kickoff:proposal.fallbackSource");
   const panelEntry = buildDeterministicPanelEntry(args.classification);
-  const branchSeed = referenceLabel || sourceSummary;
+  const branchSeed = referenceLabel || config?.label || args.classification.input.split(/\s+/).slice(0, 8).join(" ") || "workspace-kickoff";
   const branchName = `feat/${slugify(branchSeed)}`;
-  const firstTaskTitle = `Kick off ${sourceSummary}`.slice(0, 80);
+  const firstTaskTitle = i18n.t("kickoff:proposal.firstTaskTitle", { source: sourceSummary }).slice(0, 80);
   const firstTaskPrompt = panelEntry
     ? formatWorkspaceInfoTaskSeedPrompt({
         title: firstTaskTitle,
-        sourceLabel: config?.label ?? "workspace source",
+        sourceLabel: config?.label ?? "workspace source" /* i18n-ignore: model-facing source prompt fallback */,
         url: panelEntry.url,
         referenceLabel: panelEntry.reference,
       })
@@ -576,7 +582,7 @@ export function buildDeterministicKickoffProposal(args: {
     brief: normalizeKickoffBrief(null),
     sourceEvidence: buildKickoffSourceEvidence(args.classification.input),
     resolutionNote:
-      "AI interpretation was skipped. Review the task before starting.",
+      i18n.t("kickoff:additionalCopy.message44"),
     branchName,
     workspaceLabel: sourceSummary.slice(0, 80),
     sourceSummary,

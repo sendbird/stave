@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { useCallback } from "react";
 
 import { toast } from "@/components/ui";
@@ -38,7 +39,7 @@ export function useTrackerIssueActions(args: {
   const attachToActiveWorkspace = useCallback((task: TrackerIssue) => {
     const store = useAppStore.getState();
     if (!store.activeWorkspaceId) {
-      toast.error("Open a workspace before attaching a ticket.");
+      toast.error(i18n.t("issues:useTrackerIssueActions.openAWorkspaceBeforeAttachingATicket"));
       return;
     }
     let attached = false;
@@ -54,8 +55,8 @@ export function useTrackerIssueActions(args: {
     });
     toast.success(
       attached
-        ? `Attached ${task.key} to this workspace`
-        : `${task.key} is already attached`,
+        ? i18n.t("issues:useTrackerIssueActions.attachedValueToThisWorkspace", { value1: task.key })
+        : i18n.t("issues:useTrackerIssueActions.valueIsAlreadyAttached", { value1: task.key }),
     );
   }, []);
 
@@ -79,7 +80,7 @@ export function useTrackerIssueActions(args: {
           closeSurface();
         })()
           .catch(() => {
-            toast.error("Could not open the workspace.");
+            toast.error(i18n.t("issues:useTrackerIssueActions.couldNotOpenTheWorkspace"));
           });
         return;
       }
@@ -92,7 +93,7 @@ export function useTrackerIssueActions(args: {
         })
         .then(closeSurface)
         .catch(() => {
-          toast.error("Could not open the Stave task.");
+          toast.error(i18n.t("issues:useTrackerIssueActions.couldNotOpenTheStaveTask"));
         });
     },
     [closeSurface],
@@ -107,10 +108,10 @@ export function useTrackerIssueActions(args: {
       const store = useAppStore.getState();
 
       if (!result.staged) {
-        toast.success(`Started ${task.key} in Stave`, {
+        toast.success(i18n.t("issues:useTrackerIssueActions.startedValueInStave", { value1: task.key }), {
           action: result.taskId
             ? {
-                label: "Open",
+                label: i18n.t("issues:useTrackerIssueActions.open"),
                 onClick: () =>
                   openStaveTask({
                     workspaceId: result.workspaceId,
@@ -142,7 +143,7 @@ export function useTrackerIssueActions(args: {
           .getState()
           .switchWorkspace({ workspaceId: result.workspaceId });
       } catch {
-        toast.error("Prepared the workspace, but could not open it.");
+        toast.error(i18n.t("issues:useTrackerIssueActions.preparedTheWorkspaceButCouldNotOpen"));
         return;
       }
       const afterSwitch = useAppStore.getState();
@@ -150,7 +151,7 @@ export function useTrackerIssueActions(args: {
       afterSwitch.createTask({ title: result.staged.title });
       const taskId = useAppStore.getState().activeTaskId;
       if (!taskId || taskId === previousTaskId) {
-        toast.error("Could not create the Stave task.");
+        toast.error(i18n.t("issues:useTrackerIssueActions.couldNotCreateTheStaveTask"));
         return;
       }
       useAppStore.getState().updatePromptDraft({
@@ -164,8 +165,8 @@ export function useTrackerIssueActions(args: {
         taskId,
       }).catch(() => undefined);
       closeSurface();
-      toast.success(`Staged ${task.key}`, {
-        description: "Review the prompt, then send it.",
+      toast.success(i18n.t("issues:useTrackerIssueActions.stagedValue", { value1: task.key }), {
+        description: i18n.t("issues:useTrackerIssueActions.reviewThePromptThenSendIt"),
       });
     },
     [closeSurface, openStaveTask],
@@ -174,7 +175,7 @@ export function useTrackerIssueActions(args: {
   const refresh = useCallback((source?: TrackerSourceId) => {
     void refreshTrackerIssues(source).then((result) => {
       if (!result.ok) {
-        toast.error("Could not refresh tickets", {
+        toast.error(i18n.t("issues:useTrackerIssueActions.couldNotRefreshTickets"), {
           description: result.message,
         });
       }

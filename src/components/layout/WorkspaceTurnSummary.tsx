@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Bot, ChevronDown, UserRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
@@ -26,6 +27,7 @@ function SummaryEntry(props: {
 export function WorkspaceTurnSummary(props: {
   summary: WorkspaceTurnSummaryValue;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   // `<details>` still owns open/closed; this mirrors it so the chevron can
   // rotate without an ancestor-scoped utility selector.
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -43,7 +45,7 @@ export function WorkspaceTurnSummary(props: {
         <summary
           className={sx(styles.summary, transition.colors, focusRing.ring)}
         >
-          <span>Details</span>
+          <span>{tI18n("workspace:workspaceTurnSummary.details")}</span>
           <ChevronDown
             className={sx(
               styles.summaryChevron,
@@ -54,18 +56,15 @@ export function WorkspaceTurnSummary(props: {
         <div className={sx(styles.details)}>
           <SummaryEntry
             icon={<UserRound className={sx(styles.entryIconGlyph)} />}
-            label="Original request"
+            label={tI18n("workspace:workspaceTurnSummary.originalRequest")}
           >
             {props.summary.requestSummary}
           </SummaryEntry>
           <div className={sx(styles.modelRow)}>
             <Bot className={sx(styles.entryIconGlyph)} />
             <span>
-              Response by{" "}
-              {toHumanModelName({
-                model: props.summary.model,
-              })}
-            </span>
+          {tI18n("workspace:workspaceTurnSummary.responseModel", { model: toHumanModelName({ model: props.summary.model }) })}
+        </span>
           </div>
         </div>
       </details>

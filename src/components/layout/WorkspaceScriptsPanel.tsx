@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { toolStyles } from "./workspace-tools.styles";
 import { sx } from "../ads/utils/stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -56,7 +57,7 @@ import {
   stopScriptEntry,
   useWorkspaceScriptsRuntime,
   SCRIPT_TRIGGER_METADATA,
-  WORKSPACE_TOOLS_LABEL,
+  WORKSPACE_TOOLS_LABEL_KEY,
   type ScriptEntryOrigin,
   type ScriptUiState,
 } from "@/lib/workspace-scripts";
@@ -93,13 +94,14 @@ function LiveDuration(props: { startedAt: number }) {
 }
 
 function OriginLabel(props: { origin?: ScriptEntryOrigin }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   if (!props.origin) {
     return null;
   }
   return (
     <span>
-      {props.origin.tier === "workspace" ? "Workspace" : "Repository"}
-      {props.origin.localOverride ? " + local override" : ""}
+      {props.origin.tier === "workspace" ? tI18n("scripts:workspaceScriptsPanel.workspace") : tI18n("scripts:workspaceScriptsPanel.repository")}
+      {props.origin.localOverride ? tI18n("scripts:workspaceScriptsPanel.localOverride") : ""}
     </span>
   );
 }
@@ -110,16 +112,17 @@ function OrbitUrlBadge(props: {
   lensAvailable: boolean;
   onOpenInLens: (url: string) => Promise<void>;
 }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   return (
     <AdsButton layout="host"
       type="button"
       xstyle={toolStyles.url}
       onClick={() => void props.onOpenInLens(props.url)}
-      title={props.lensAvailable ? "Open in Lens" : "Open in browser"}
+      title={props.lensAvailable ? tI18n("scripts:workspaceScriptsPanel.openInLens") : tI18n("scripts:workspaceScriptsPanel.openInBrowser")}
       aria-label={
         props.lensAvailable
-          ? "Open Orbit URL in Lens"
-          : "Open Orbit URL in browser"
+          ? tI18n("scripts:workspaceScriptsPanel.openOrbitUrlInLens")
+          : tI18n("scripts:workspaceScriptsPanel.openOrbitUrlInBrowser")
       }
     >
       <Globe className={sx(toolStyles.smallIcon)} />
@@ -187,6 +190,7 @@ function HookRow(props: {
   onRun: (trigger: ScriptTrigger) => Promise<void>;
   running: boolean;
 }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   const triggerMeta = SCRIPT_TRIGGER_METADATA[props.trigger];
   return (
     <div className={sx(toolStyles.hook)}>
@@ -209,15 +213,14 @@ function HookRow(props: {
         xstyle={toolStyles.runButton}
         onClick={() => void props.onRun(props.trigger)}
         disabled={props.running}
-        aria-label={`Run ${triggerMeta.label} hook`}
+        aria-label={tI18n("scripts:workspaceScriptsPanel.runValueHook", { value1: triggerMeta.label })}
       >
         {props.running ? (
           <Loader aria-hidden className={sx(toolStyles.loader)} size="xs" variant="steps" />
         ) : (
           <Play className={sx(toolStyles.runIcon)} />
         )}
-        Run
-      </Button>
+        {tI18n("scripts:workspaceScriptsPanel.run")}</Button>
     </div>
   );
 }
@@ -240,6 +243,7 @@ function ScriptEntryRow(props: {
   selected: boolean;
   onInspect: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   const state = props.state;
   const isRunning = state?.running ?? false;
   const isFinished =
@@ -267,15 +271,14 @@ function ScriptEntryRow(props: {
                   <OriginLabel origin={props.origin} />
                 </>
               ) : null}
-              {props.orbitEnabled ? " · Orbit" : ""}
+              {props.orbitEnabled ? tI18n("scripts:workspaceScriptsPanel.orbit") : ""}
             </span>
           </div>
           <div className={sx(toolStyles.stateRow)}>
             {isRunning ? (
               <span className={sx(toolStyles.running)}>
                 <span className={sx(toolStyles.runningMark)} />
-                Running
-                {state?.startedAt !== undefined ? (
+                {tI18n("scripts:workspaceScriptsPanel.running")}{state?.startedAt !== undefined ? (
                   <>
                     <span className={sx(toolStyles.separator)}>·</span>
                     <span className={sx(toolStyles.metadata)}>
@@ -292,10 +295,10 @@ function ScriptEntryRow(props: {
                   )}
                 >
                   {state?.exitCode !== undefined
-                    ? `Exit ${state.exitCode}`
+                    ? tI18n("scripts:workspaceScriptsPanel.exitValue", { value1: state.exitCode })
                     : didFail
-                      ? "Failed"
-                      : "Done"}
+                      ? tI18n("scripts:workspaceScriptsPanel.failed")
+                      : tI18n("scripts:workspaceScriptsPanel.done")}
                 </span>
                 {state?.endedAt !== undefined ? (
                   <>
@@ -332,8 +335,8 @@ function ScriptEntryRow(props: {
                 variant="ghost"
                 xstyle={toolStyles.iconButton}
                 onClick={() => openExternalUrl(state.orbitUrl ?? "")}
-                title="Open in browser"
-                aria-label="Open Orbit URL in browser"
+                title={tI18n("scripts:workspaceScriptsPanel.openInBrowser")}
+                aria-label={tI18n("scripts:workspaceScriptsPanel.openOrbitUrlInBrowser")}
               >
                 <ExternalLink className={sx(toolStyles.icon)} />
               </Button>
@@ -342,8 +345,8 @@ function ScriptEntryRow(props: {
                 variant="ghost"
                 xstyle={toolStyles.iconButton}
                 onClick={() => void copyTextToClipboard(state.orbitUrl ?? "")}
-                title="Copy URL"
-                aria-label="Copy Orbit URL"
+                title={tI18n("scripts:workspaceScriptsPanel.copyUrl")}
+                aria-label={tI18n("scripts:workspaceScriptsPanel.copyOrbitUrl")}
               >
                 <Copy className={sx(toolStyles.icon)} />
               </Button>
@@ -370,11 +373,11 @@ function ScriptEntryRow(props: {
             ) : (
               <Play className={sx(toolStyles.runIcon)} />
             )}
-            {isRunning ? "Stop" : props.orbitEnabled ? "Start" : "Run"}
+            {isRunning ? tI18n("scripts:workspaceScriptsPanel.stop") : props.orbitEnabled ? tI18n("scripts:workspaceScriptsPanel.start") : tI18n("scripts:workspaceScriptsPanel.run")}
           </Button>
         </div>
       </div>
-      <Button size="xs" variant="ghost" onClick={props.onInspect} aria-pressed={props.selected}>View output</Button>
+      <Button size="xs" variant="ghost" onClick={props.onInspect} aria-pressed={props.selected}>{tI18n("scripts:workspaceScriptsPanel.viewOutput")}</Button>
     </div>
   );
 }
@@ -386,6 +389,7 @@ export function WorkspaceScriptsPanel(props: {
     section?: SectionId;
   }) => void;
 }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   const [
     activeWorkspaceId,
     activeTaskId,
@@ -428,13 +432,13 @@ export function WorkspaceScriptsPanel(props: {
         ?.name ??
         workspaceBranch) ||
       "workspace",
-    [activeWorkspaceId, workspaceBranch, workspaces],
+    [activeWorkspaceId, workspaceBranch, workspaces, i18n.resolvedLanguage],
   );
   const activeTask = useMemo(
     () =>
       tasks.find((task) => task.id === activeTaskId && !isTaskArchived(task)) ??
       null,
-    [activeTaskId, tasks],
+    [activeTaskId, tasks, i18n.resolvedLanguage],
   );
   const activeTurnId = activeTaskId
     ? activeTurnIdsByTask[activeTaskId]
@@ -455,7 +459,7 @@ export function WorkspaceScriptsPanel(props: {
   const runEntry = useCallback(
     (args: { scriptId: string; scriptKind: ScriptKind }) => {
       if (!activeWorkspaceId) {
-        toast.error("Execution service unavailable");
+        toast.error(tI18n("scripts:workspaceScriptsPanel.executionServiceUnavailable"));
         return;
       }
       setSelection({ workspaceId: activeWorkspaceId, key: scriptEntryKey(args.scriptKind, args.scriptId) });
@@ -467,7 +471,7 @@ export function WorkspaceScriptsPanel(props: {
   const stopEntry = useCallback(
     (args: { scriptId: string; scriptKind: ScriptKind }) => {
       if (!activeWorkspaceId) {
-        toast.error("Execution service unavailable");
+        toast.error(tI18n("scripts:workspaceScriptsPanel.executionServiceUnavailable"));
         return;
       }
       void stopScriptEntry({ workspaceId: activeWorkspaceId, ...args });
@@ -507,7 +511,7 @@ export function WorkspaceScriptsPanel(props: {
       });
 
       if (!result.ok) {
-        toast.error("Lens navigation failed", {
+        toast.error(tI18n("scripts:workspaceScriptsPanel.lensNavigationFailed"), {
           description: result.message,
         });
       }
@@ -518,7 +522,7 @@ export function WorkspaceScriptsPanel(props: {
   const runHook = useCallback(
     async (trigger: ScriptTrigger) => {
       if (!activeWorkspaceId) {
-        toast.error("Execution service unavailable");
+        toast.error(tI18n("scripts:workspaceScriptsPanel.executionServiceUnavailable"));
         return;
       }
       await runScriptHook({
@@ -560,15 +564,15 @@ export function WorkspaceScriptsPanel(props: {
   const hookCount = hookEntries.length;
   const commandEntries = useMemo<ResolvedWorkspaceScript[]>(
     () => (config ? [...config.services, ...config.actions] : []),
-    [config],
+    [config, i18n.resolvedLanguage],
   );
   const runtimePartitions = useMemo(
     () => partitionAutomationRuntimeEntries(commandEntries, runtime.entries),
-    [commandEntries, runtime.entries],
+    [commandEntries, runtime.entries, i18n.resolvedLanguage],
   );
   const runningCount = useMemo(
     () => countRunningServiceEntries(runtime.entries),
-    [runtime.entries],
+    [runtime.entries, i18n.resolvedLanguage],
   );
   const detachedRunningCount = Math.max(
     0,
@@ -580,7 +584,7 @@ export function WorkspaceScriptsPanel(props: {
         (entry) =>
           !runtime.entries[scriptEntryKey(entry.kind, entry.id)]?.running,
       ),
-    [config?.services, runtime.entries],
+    [config?.services, runtime.entries, i18n.resolvedLanguage],
   );
   const activityCount = runtimePartitions.activity.length;
   const viewCounts: Record<WorkspaceToolsViewId, number> = {
@@ -640,10 +644,9 @@ export function WorkspaceScriptsPanel(props: {
           <EmptyMedia>
             <Sparkles className={sx(toolStyles.sectionIcon)} />
           </EmptyMedia>
-          <EmptyTitle>{WORKSPACE_TOOLS_LABEL} unavailable</EmptyTitle>
+          <EmptyTitle>{tI18n("scripts:workspaceScriptsPanel.unavailableTitle")}</EmptyTitle>
           <EmptyDescription>
-            Select a workspace to inspect its processes and commands.
-          </EmptyDescription>
+            {tI18n("scripts:workspaceScriptsPanel.selectAWorkspaceToInspectItsProcesses")}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -653,15 +656,14 @@ export function WorkspaceScriptsPanel(props: {
     commands: <div className={sx(toolStyles.view)}>
         {runtime.configStatus === "loading" && !config ? (
           <div className={sx(toolStyles.loading)}>
-            Loading commands…
-          </div>
+            {tI18n("scripts:workspaceScriptsPanel.loadingCommands")}</div>
         ) : null}
 
         {runtime.configStatus === "ready" && actionCount === 0 ? (
           <WorkspaceToolsEmptyState
             icon={<Zap className={sx(toolStyles.sectionIcon)} />}
-            title="No commands configured"
-            description="Save a check, build, or other command. Run it when you need it and keep its output here."
+            title={tI18n("scripts:workspaceScriptsPanel.noCommandsConfigured")}
+            description={tI18n("scripts:workspaceScriptsPanel.saveACheckBuildOrOtherCommand")}
             action={activeWorkspaceId ? <div className={sx(toolStyles.quickAdd)}><WorkspaceToolQuickAdd key={`${activeWorkspaceId}:action`} kind="action" workspaceId={activeWorkspaceId} workspacePath={workspacePath} /></div> : null}
           />
         ) : null}
@@ -669,8 +671,7 @@ export function WorkspaceScriptsPanel(props: {
         {runtime.configStatus === "error" && !config ? (
           <div className={sx(toolStyles.setup)}>
             <p className={sx(toolStyles.title)}>
-              Commands could not be loaded
-            </p>
+              {tI18n("scripts:workspaceScriptsPanel.commandsCouldNotBeLoaded")}</p>
             <Button
               type="button"
               size="sm"
@@ -678,14 +679,13 @@ export function WorkspaceScriptsPanel(props: {
               xstyle={toolStyles.setupAction}
               onClick={refresh}
             >
-              Try again
-            </Button>
+              {tI18n("scripts:workspaceScriptsPanel.tryAgain")}</Button>
           </div>
         ) : null}
 
         {config && actionCount > 0 ? <div className={sx(toolStyles.addForm)}><WorkspaceToolQuickAdd key={`${activeWorkspaceId}:action`} kind="action" workspaceId={activeWorkspaceId} workspacePath={workspacePath} /></div> : null}
         {config && actionCount > 0 ? (
-          <RuntimeSection title="Commands" count={actionCount}>
+          <RuntimeSection title={tI18n("scripts:workspaceScriptsPanel.commands")} count={actionCount}>
             {config.actions.map((entry) => renderScriptEntry(entry))}
           </RuntimeSection>
         ) : null}
@@ -693,15 +693,13 @@ export function WorkspaceScriptsPanel(props: {
     processes: <div className={sx(toolStyles.view)}>
         {runtime.configStatus === "loading" && !config ? (
           <div className={sx(toolStyles.loading)}>
-            Loading processes…
-          </div>
+            {tI18n("scripts:workspaceScriptsPanel.loadingProcesses")}</div>
         ) : null}
 
         {runtime.configStatus === "error" && !config ? (
           <div className={sx(toolStyles.setup)}>
             <p className={sx(toolStyles.title)}>
-              Processes could not be loaded
-            </p>
+              {tI18n("scripts:workspaceScriptsPanel.processesCouldNotBeLoaded")}</p>
             <Button
               type="button"
               size="sm"
@@ -709,8 +707,7 @@ export function WorkspaceScriptsPanel(props: {
               xstyle={toolStyles.setupAction}
               onClick={refresh}
             >
-              Try again
-            </Button>
+              {tI18n("scripts:workspaceScriptsPanel.tryAgain")}</Button>
           </div>
         ) : null}
 
@@ -719,8 +716,8 @@ export function WorkspaceScriptsPanel(props: {
         detachedRunningCount === 0 ? (
           <WorkspaceToolsEmptyState
             icon={<Play className={sx(toolStyles.sectionIcon)} />}
-            title="No processes configured"
-            description="Add a long-running process such as a dev server in Workspace Tools settings. Start it here and leave it running while you work."
+            title={tI18n("scripts:workspaceScriptsPanel.noProcessesConfigured")}
+            description={tI18n("scripts:workspaceScriptsPanel.addALongRunningProcessSuchAs")}
             action={
               activeWorkspaceId ? (
                 <div className={sx(toolStyles.quickAdd)}>
@@ -753,14 +750,12 @@ export function WorkspaceScriptsPanel(props: {
         serviceCount > 0 &&
         runtimePartitions.running.length === 0 ? (
           <p className={sx(toolStyles.viewDescription)}>
-            Nothing is running. Start a process below and leave it up while you
-            work. Output and stop stay on this tab.
-          </p>
+            {tI18n("scripts:workspaceScriptsPanel.nothingIsRunningStartAProcessBelow")}</p>
         ) : null}
 
         {runtimePartitions.running.length > 0 ? (
           <RuntimeSection
-            title="Running"
+            title={tI18n("scripts:workspaceScriptsPanel.running")}
             count={runtimePartitions.running.length}
           >
             {runtimePartitions.running.map(({ entry, state }) =>
@@ -773,19 +768,17 @@ export function WorkspaceScriptsPanel(props: {
           <div className={sx(toolStyles.inactive)}>
             <p className={sx(toolStyles.title)}>
               {detachedRunningCount === 1
-                ? "A detached process is still running"
-                : `${detachedRunningCount} detached processes are still running`}
+                ? tI18n("scripts:workspaceScriptsPanel.aDetachedProcessIsStillRunning")
+                : tI18n("scripts:workspaceScriptsPanel.valueDetachedProcessesAreStillRunning", { detachedRunningCount: detachedRunningCount })}
             </p>
             <p className={sx(toolStyles.inactiveHint)}>
-              Their commands are no longer in the active config. Use Stop all to
-              terminate them safely.
-            </p>
+              {tI18n("scripts:workspaceScriptsPanel.theirCommandsAreNoLongerInThe")}</p>
           </div>
         ) : null}
 
         {availableProcesses.length > 0 ? (
           <RuntimeSection
-            title="Ready to start"
+            title={tI18n("scripts:workspaceScriptsPanel.readyToStart")}
             count={availableProcesses.length}
           >
             {availableProcesses.map((entry) => renderScriptEntry(entry))}
@@ -795,15 +788,13 @@ export function WorkspaceScriptsPanel(props: {
     triggers: <div className={sx(toolStyles.view)}>
         {runtime.configStatus === "loading" && !config ? (
           <div className={sx(toolStyles.loading)}>
-            Loading triggers…
-          </div>
+            {tI18n("scripts:workspaceScriptsPanel.loadingTriggers")}</div>
         ) : null}
 
         {runtime.configStatus === "error" && !config ? (
           <div className={sx(toolStyles.setup)}>
             <p className={sx(toolStyles.title)}>
-              Triggers could not be loaded
-            </p>
+              {tI18n("scripts:workspaceScriptsPanel.triggersCouldNotBeLoaded")}</p>
             <Button
               type="button"
               size="sm"
@@ -811,16 +802,15 @@ export function WorkspaceScriptsPanel(props: {
               xstyle={toolStyles.setupAction}
               onClick={refresh}
             >
-              Try again
-            </Button>
+              {tI18n("scripts:workspaceScriptsPanel.tryAgain")}</Button>
           </div>
         ) : null}
 
         {runtime.configStatus === "ready" && hookCount === 0 ? (
           <WorkspaceToolsEmptyState
             icon={<Sparkles className={sx(toolStyles.sectionIcon)} />}
-            title="No triggers configured"
-            description="Connect commands or processes to task, turn, and pull request lifecycle events in Settings."
+            title={tI18n("scripts:workspaceScriptsPanel.noTriggersConfigured")}
+            description={tI18n("scripts:workspaceScriptsPanel.connectCommandsOrProcessesToTaskTurn")}
             action={
               <Button
                 type="button"
@@ -831,14 +821,13 @@ export function WorkspaceScriptsPanel(props: {
                 disabled={!repositoryPath}
               >
                 <Settings2 className={sx(toolStyles.settingsIcon)} />
-                Manage workspace tools
-              </Button>
+                {tI18n("scripts:workspaceScriptsPanel.manageWorkspaceTools")}</Button>
             }
           />
         ) : null}
 
         {config && hookCount > 0 ? (
-          <RuntimeSection title="Lifecycle triggers" count={hookCount}>
+          <RuntimeSection title={tI18n("scripts:workspaceScriptsPanel.lifecycleTriggers")} count={hookCount}>
             {hookEntries.map(([trigger, refs]) => (
               <HookRow
                 key={trigger}
@@ -854,7 +843,7 @@ export function WorkspaceScriptsPanel(props: {
     runs: <div className={sx(toolStyles.view)}>
         {runtimePartitions.activity.length > 0 ? (
           <RuntimeSection
-            title="Recent runs"
+            title={tI18n("scripts:workspaceScriptsPanel.recentRuns")}
             count={runtimePartitions.activity.length}
           >
             {runtimePartitions.activity.map(({ entry, state }) =>
@@ -864,14 +853,14 @@ export function WorkspaceScriptsPanel(props: {
         ) : (
           <WorkspaceToolsEmptyState
             icon={<History className={sx(toolStyles.sectionIcon)} />}
-            title="No recent activity"
-            description="Completed commands and processes, including their output, appear here."
+            title={tI18n("scripts:workspaceScriptsPanel.noRecentActivity")}
+            description={tI18n("scripts:workspaceScriptsPanel.completedCommandsAndProcessesIncludingTheirOutput")}
           />
         )}
       </div>,
   };
   return (
-    <section className={sx(toolStyles.panel)} aria-label="Workspace tools">
+    <section className={sx(toolStyles.panel)} aria-label={tI18n("scripts:workspaceScriptsPanel.workspaceTools")}>
       <header className={sx(toolStyles.header)}>
         {/*
           No panel title here: `RightRailPanelShell` already renders one above
@@ -883,20 +872,20 @@ export function WorkspaceScriptsPanel(props: {
             <h2 className={sx(toolStyles.workspaceName)} title={workspacePath}>{workspaceName}</h2>
           </div>
           <div className={sx(toolStyles.headerActions)}>
-            {runningCount > 0 ? <StatusBadge tone="active">{runningCount} running</StatusBadge> : null}
-            {runningCount > 0 ? <ActionButton size="xs" weight="quiet" tone="danger" onClick={stopAll} title="Stop all running processes"><Square />Stop all</ActionButton> : null}
-            <AdsButton size="xs" variant="quiet" iconOnly onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label="Refresh Workspace tools" title="Refresh Workspace tools"><RefreshCcw className={sx(runtime.configStatus === "loading" && toolStyles.refreshing)} /></AdsButton>
-            <AdsButton size="xs" variant="quiet" iconOnly onClick={openScriptSettings} disabled={!repositoryPath} aria-label="Open Workspace tools settings" title="Open Workspace tools settings"><Settings2 /></AdsButton>
+            {runningCount > 0 ? <StatusBadge tone="active">{tI18n("scripts:workspaceScriptsPanel.runningCount", { count: runningCount })}</StatusBadge> : null}
+            {runningCount > 0 ? <ActionButton size="xs" weight="quiet" tone="danger" onClick={stopAll} title={tI18n("scripts:workspaceScriptsPanel.stopAllRunningProcesses")}><Square />{tI18n("scripts:workspaceScriptsPanel.stopAll")}</ActionButton> : null}
+            <AdsButton size="xs" variant="quiet" iconOnly onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")} title={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")}><RefreshCcw className={sx(runtime.configStatus === "loading" && toolStyles.refreshing)} /></AdsButton>
+            <AdsButton size="xs" variant="quiet" iconOnly onClick={openScriptSettings} disabled={!repositoryPath} aria-label={tI18n("scripts:workspaceScriptsPanel.openWorkspaceToolsSettings")} title={tI18n("scripts:workspaceScriptsPanel.openWorkspaceToolsSettings")}><Settings2 /></AdsButton>
           </div>
         </div>
         <p className={sx(toolStyles.description)}>{WORKSPACE_TOOLS_VIEWS.find((view) => view.id === activeView)?.description}</p>
-        <Input aria-label="Find a workspace tool" placeholder="Find a command or process…" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <Input aria-label={tI18n("scripts:workspaceScriptsPanel.findAWorkspaceTool")} placeholder={tI18n("scripts:workspaceScriptsPanel.findACommandOrProcess")} value={search} onChange={(event) => setSearch(event.target.value)} />
       </header>
       {runtime.configError ? <p role="alert" className={sx(toolStyles.configError)}>{runtime.configError}</p> : null}
-      {search.trim() ? <section aria-label="Tool search results" className={sx(toolStyles.search)}>
+      {search.trim() ? <section aria-label={tI18n("scripts:workspaceScriptsPanel.toolSearchResults")} className={sx(toolStyles.search)}>
         {commandEntries.some((entry) => `${entry.label} ${entry.description}`.toLowerCase().includes(search.trim().toLowerCase()))
           ? commandEntries.map((entry) => renderScriptEntry(entry))
-          : <p role="status" className={sx(toolStyles.noResults)}>No matching commands or processes.</p>}
+          : <p role="status" className={sx(toolStyles.noResults)}>{tI18n("scripts:workspaceScriptsPanel.noMatchingCommandsOrProcesses")}</p>}
       </section> : null}
       <div className={sx(toolStyles.views, Boolean(search.trim()) && toolStyles.hidden)}>
       <SectionTabs
@@ -905,7 +894,7 @@ export function WorkspaceScriptsPanel(props: {
         // A ~300px rail: four counted labels on the default rung measured 330px
         // and wrapped onto a second row.
         size="xs"
-        label="Workspace tools views"
+        label={tI18n("scripts:workspaceScriptsPanel.workspaceToolsViews")}
         value={activeView}
         onValueChange={(value) => {
           const view = WORKSPACE_TOOLS_VIEWS.find((item) => item.id === value);
@@ -919,12 +908,12 @@ export function WorkspaceScriptsPanel(props: {
         }))}
       />
       </div>
-      {selectedEntry ? <section aria-label={`Output: ${selectedEntry.label}`} className={sx(toolStyles.output)}>
+      {selectedEntry ? <section aria-label={tI18n("scripts:workspaceScriptsPanel.outputValue", { value1: selectedEntry.label })} className={sx(toolStyles.output)}>
         <div className={sx(toolStyles.outputHeader)}>
           <h3 className={sx(toolStyles.outputTitle)}>{selectedEntry.label}</h3>
-          <Button variant="ghost" size="icon-xs" aria-label="Close output" onClick={() => setSelection(null)}><X /></Button>
+          <Button variant="ghost" size="icon-xs" aria-label={tI18n("scripts:workspaceScriptsPanel.closeOutput")} onClick={() => setSelection(null)}><X /></Button>
         </div>
-        {selectedState?.log || selectedState?.error ? <ScriptLogView log={selectedState.log ?? ""} running={selectedState.running} error={selectedState.error} exitCode={selectedState.exitCode} startedAt={selectedState.startedAt} endedAt={selectedState.endedAt} onClear={() => clearLog({ scriptId: selectedEntry.id, scriptKind: selectedEntry.kind })} expandable={false} /> : <p role="status" className={sx(toolStyles.noOutput)}>{selectedState?.running ? "Waiting for output…" : "Run this tool to see its output here."}</p>}
+        {selectedState?.log || selectedState?.error ? <ScriptLogView log={selectedState.log ?? ""} running={selectedState.running} error={selectedState.error} exitCode={selectedState.exitCode} startedAt={selectedState.startedAt} endedAt={selectedState.endedAt} onClear={() => clearLog({ scriptId: selectedEntry.id, scriptKind: selectedEntry.kind })} expandable={false} /> : <p role="status" className={sx(toolStyles.noOutput)}>{selectedState?.running ? tI18n("scripts:workspaceScriptsPanel.waitingForOutput") : tI18n("scripts:workspaceScriptsPanel.runThisToolToSeeItsOutput")}</p>}
       </section> : null}
     </section>
   );

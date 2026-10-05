@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 import {
@@ -232,7 +233,7 @@ export async function refreshTrackerIssues(
 ): Promise<{ ok: boolean; message?: string }> {
   const refresh = window.api?.trackerIssues?.refresh;
   if (!refresh) {
-    return { ok: false, message: "Tracker issues are unavailable." };
+    return { ok: false, message: i18n.t("issues:clientState.trackerIssuesAreUnavailable") };
   }
   const result = await refresh(source ? { source } : undefined);
   if (result?.status) {
@@ -263,7 +264,7 @@ export async function kickoffTrackerIssue(
 }> {
   const kickoff = window.api?.trackerIssues?.kickoff;
   if (!kickoff) {
-    return { ok: false, message: "Tracker issues are unavailable." };
+    return { ok: false, message: i18n.t("issues:clientState.trackerIssuesAreUnavailable") };
   }
   const reply = await kickoff(args);
   return {
@@ -282,7 +283,7 @@ export async function attachTrackerIssueStaveTask(
 }> {
   const attach = window.api?.trackerIssues?.attachStaveTask;
   if (!attach) {
-    return { ok: false, link: null, message: "Tracker issues are unavailable." };
+    return { ok: false, link: null, message: i18n.t("issues:clientState.trackerIssuesAreUnavailable") };
   }
   const reply = await attach(args);
   if (reply?.ok && reply.link) {

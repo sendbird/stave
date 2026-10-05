@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
@@ -55,62 +56,62 @@ interface ResourceTypeDefinition {
 const RESOURCE_TYPES: ResourceTypeDefinition[] = [
   {
     kind: "notes",
-    label: "Notes",
-    description: "Append reusable instructions or context.",
+    get label() { return i18n.t("workspace:automationInformationResourceCreator.notes"); },
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.appendReusableInstructionsOrContext"); },
     icon: StickyNote,
   },
   {
     kind: "todo",
-    label: "Todo",
-    description: "Add one actionable Information item.",
+    get label() { return i18n.t("workspace:automationInformationResourceCreator.todo"); },
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.addOneActionableInformationItem"); },
     icon: CheckSquare2,
   },
   {
     kind: "pull_request",
-    label: "Pull request",
-    description: "Add a GitHub pull request URL.",
+    get label() { return i18n.t("workspace:automationInformationResourceCreator.pullRequest"); },
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.addAGithubPullRequestUrl"); },
     icon: GitPullRequest,
   },
   {
     kind: "jira",
     label: "Jira issue",
-    description: "Add an issue URL and optional status.",
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.addAnIssueUrlAndOptionalStatus"); },
     icon: TicketCheck,
   },
   {
     kind: "confluence",
     label: "Confluence page",
-    description: "Add a page URL and space key.",
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.addAPageUrlAndSpaceKey"); },
     icon: BookOpen,
   },
   {
     kind: "storybook",
     label: "Storybook",
-    description: "Add a story or documentation URL.",
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.addAStoryOrDocumentationUrl"); },
     icon: ListPlus,
   },
   {
     kind: "amplify",
     label: "Amplify",
-    description: "Add a deployed preview URL.",
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.addADeployedPreviewUrl"); },
     icon: Cloud,
   },
   {
     kind: "slack",
     label: "Slack thread",
-    description: "Add a Slack message permalink.",
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.addASlackMessagePermalink"); },
     icon: MessageSquare,
   },
   {
     kind: "figma",
     label: "Figma",
-    description: "Add a design, board, or node URL.",
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.addADesignBoardOrNodeUrl"); },
     icon: PenTool,
   },
   {
     kind: "custom",
-    label: "Custom field",
-    description: "Add typed repository-specific context.",
+    get label() { return i18n.t("workspace:automationInformationResourceCreator.customField"); },
+    get description() { return i18n.t("workspace:automationInformationResourceCreator.addTypedRepositorySpecificContext"); },
     icon: SlidersHorizontal,
   },
 ];
@@ -281,9 +282,10 @@ function ExternalResourceFields(props: {
   draft: ResourceDraft;
   onChange: (patch: Partial<ResourceDraft>) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   return (
     <>
-      <Field label="URL">
+      <Field label={tI18n("workspace:automationInformationResourceCreator.url")}>
         <Input
           autoFocus
           type="url"
@@ -293,20 +295,20 @@ function ExternalResourceFields(props: {
         />
       </Field>
       <Field
-        label={props.kind === "amplify" ? "Label (optional)" : "Title (optional)"}
+        label={props.kind === "amplify" ? tI18n("workspace:automationInformationResourceCreator.labelOptional") : tI18n("workspace:automationInformationResourceCreator.titleOptional")}
       >
         <Input
           value={props.draft.title}
           onChange={(event) => props.onChange({ title: event.target.value })}
           placeholder={
             props.kind === "amplify"
-              ? "Preview environment"
-              : "Display name for this resource"
+              ? tI18n("workspace:automationInformationResourceCreator.previewEnvironment")
+              : tI18n("workspace:automationInformationResourceCreator.displayNameForThisResource")
           }
         />
       </Field>
       {props.kind === "pull_request" ? (
-        <Field label="Status">
+        <Field label={tI18n("workspace:automationInformationResourceCreator.status")}>
           <Select
             value={props.draft.status || "planned"}
             onValueChange={(status) => props.onChange({ status })}
@@ -328,7 +330,7 @@ function ExternalResourceFields(props: {
       ) : null}
       {props.kind === "jira" ? (
         <div className={sx(resourceCreatorStyles.fieldPair)}>
-          <Field label="Issue key (optional)">
+          <Field label={tI18n("workspace:automationInformationResourceCreator.issueKeyOptional")}>
             <Input
               value={props.draft.issueKey}
               onChange={(event) =>
@@ -337,28 +339,28 @@ function ExternalResourceFields(props: {
               placeholder="PROJ-123"
             />
           </Field>
-          <Field label="Status (optional)">
+          <Field label={tI18n("workspace:automationInformationResourceCreator.statusOptional")}>
             <Input
               value={props.draft.status}
               onChange={(event) =>
                 props.onChange({ status: event.target.value })
               }
-              placeholder="In Progress"
+              placeholder={tI18n("workspace:automationInformationResourceCreator.inProgress")}
             />
           </Field>
         </div>
       ) : null}
       {props.kind === "confluence" ? (
-        <Field label="Space key (optional)">
+        <Field label={tI18n("workspace:automationInformationResourceCreator.spaceKeyOptional")}>
           <Input
             value={props.draft.spaceKey}
             onChange={(event) => props.onChange({ spaceKey: event.target.value })}
-            placeholder="ENG"
+            placeholder={tI18n("workspace:automationInformationResourceCreator.eng")}
           />
         </Field>
       ) : null}
       {props.kind === "slack" ? (
-        <Field label="Channel name (optional)">
+        <Field label={tI18n("workspace:automationInformationResourceCreator.channelNameOptional")}>
           <Input
             value={props.draft.channelName}
             onChange={(event) =>
@@ -370,8 +372,8 @@ function ExternalResourceFields(props: {
       ) : null}
       {props.kind === "figma" ? (
         <Field
-          label="Node ID (optional)"
-          description="A node ID in the URL is detected automatically."
+          label={tI18n("workspace:automationInformationResourceCreator.nodeIdOptional")}
+          description={tI18n("workspace:automationInformationResourceCreator.aNodeIdInTheUrlIs")}
         >
           <Input
             value={props.draft.nodeId}
@@ -380,11 +382,11 @@ function ExternalResourceFields(props: {
           />
         </Field>
       ) : null}
-      <Field label="Note (optional)">
+      <Field label={tI18n("workspace:automationInformationResourceCreator.noteOptional")}>
         <Textarea
           value={props.draft.note}
           onChange={(event) => props.onChange({ note: event.target.value })}
-          placeholder="How this resource should guide the automation"
+          placeholder={tI18n("workspace:automationInformationResourceCreator.howThisResourceShouldGuideTheAutomation")}
           xstyle={resourceCreatorStyles.noteTextarea}
         />
       </Field>
@@ -396,11 +398,12 @@ function CustomFieldValue(props: {
   draft: ResourceDraft;
   onChange: (patch: Partial<ResourceDraft>) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   if (props.draft.fieldType === "boolean") {
     return (
       <div className={sx(resourceCreatorStyles.booleanRow)}>
         <span className={sx(resourceCreatorStyles.booleanValue)}>
-          {props.draft.customBoolean ? "True" : "False"}
+          {props.draft.customBoolean ? tI18n("workspace:automationInformationResourceCreator.true") : tI18n("workspace:automationInformationResourceCreator.false")}
         </span>
         <Switch
           checked={props.draft.customBoolean}
@@ -439,7 +442,7 @@ function CustomFieldValue(props: {
       }
       placeholder={
         props.draft.fieldType === "single_select"
-          ? "Choose an option value"
+          ? tI18n("workspace:automationInformationResourceCreator.chooseAnOptionValue")
           : undefined
       }
     />
@@ -452,6 +455,7 @@ export function AutomationInformationResourceCreator(props: {
   disabled?: boolean;
   onCreated: (option: WorkspaceInformationReferenceOption) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<AutomationInformationResourceKind | null>(null);
   const [draft, setDraft] = useState<ResourceDraft>(EMPTY_RESOURCE_DRAFT);
@@ -489,13 +493,13 @@ export function AutomationInformationResourceCreator(props: {
 
   async function createAndAttach() {
     if (!input) {
-      setError("Complete the required fields before attaching.");
+      setError(i18n.t("workspace:additionalCopy.message0"));
       return;
     }
     const createInformationResource =
       window.api?.automations?.createInformationResource;
     if (!createInformationResource) {
-      setError("Information resource creation is unavailable.");
+      setError(i18n.t("workspace:additionalCopy.message1"));
       return;
     }
     setCreating(true);
@@ -503,14 +507,14 @@ export function AutomationInformationResourceCreator(props: {
     try {
       const result = await createInformationResource(input);
       if (!result.ok || !result.option) {
-        setError(result.message ?? "Failed to create Information resource.");
+        setError(result.message ?? i18n.t("workspace:additionalCopy.message2"));
         return;
       }
       props.onCreated(result.option);
       toast.success(
         result.deduplicated
-          ? "Existing Information resource attached."
-          : "Information resource created and attached.",
+          ? tI18n("workspace:automationInformationResourceCreator.existingInformationResourceAttached")
+          : tI18n("workspace:automationInformationResourceCreator.informationResourceCreatedAndAttached"),
       );
       setOpen(false);
       reset();
@@ -518,7 +522,7 @@ export function AutomationInformationResourceCreator(props: {
       setError(
         createError instanceof Error
           ? createError.message
-          : "Failed to create Information resource.",
+          : i18n.t("workspace:additionalCopy.message3"),
       );
     } finally {
       setCreating(false);
@@ -547,8 +551,7 @@ export function AutomationInformationResourceCreator(props: {
       }}
       >
         <Paperclip className={sx(resourceCreatorStyles.triggerIcon)} />
-        Add Information resource
-      </Button>
+        {tI18n("workspace:automationInformationResourceCreator.addInformationResource")}</Button>
       <DialogContent xstyle={resourceCreatorStyles.content}>
         <DialogHeader className={sx(resourceCreatorStyles.header)}>
           <div className={sx(resourceCreatorStyles.headerRow)}>
@@ -559,7 +562,7 @@ export function AutomationInformationResourceCreator(props: {
                 size="icon"
                 xstyle={resourceCreatorStyles.backButton}
                 onClick={clearKind}
-                aria-label="Choose another resource type"
+                aria-label={tI18n("workspace:automationInformationResourceCreator.chooseAnotherResourceType")}
                 disabled={creating}
               >
                 <ArrowLeft className={sx(resourceCreatorStyles.backIcon)} />
@@ -568,13 +571,13 @@ export function AutomationInformationResourceCreator(props: {
             <div className={sx(resourceCreatorStyles.headerText)}>
               <DialogTitle>
                 {definition
-                  ? `Add ${definition.label}`
-                  : "Add Information resource"}
+                  ? tI18n("workspace:automationInformationResourceCreator.addValue", { value1: definition.label })
+                  : tI18n("workspace:automationInformationResourceCreator.addInformationResource")}
               </DialogTitle>
               <DialogDescription className={sx(resourceCreatorStyles.headerDescription)}>
                 {definition
-                  ? `Create it in ${props.repositoryLabel} Default Workspace and attach it to this automation.`
-                  : "Choose the resource type you want to create for this automation."}
+                  ? tI18n("workspace:automationInformationResourceCreator.createItInValueDefaultWorkspaceAnd", { value1: props.repositoryLabel })
+                  : tI18n("workspace:automationInformationResourceCreator.chooseTheResourceTypeYouWantTo")}
               </DialogDescription>
             </div>
           </div>
@@ -584,7 +587,7 @@ export function AutomationInformationResourceCreator(props: {
           <>
             <div className={sx(resourceCreatorStyles.body)}>
               {kind === "notes" || kind === "todo" ? (
-                <Field label={kind === "notes" ? "Notes" : "Todo"}>
+                <Field label={kind === "notes" ? tI18n("workspace:automationInformationResourceCreator.notes") : tI18n("workspace:automationInformationResourceCreator.todo")}>
                   <Textarea
                     autoFocus
                     value={draft.text}
@@ -596,15 +599,15 @@ export function AutomationInformationResourceCreator(props: {
                     }
                     placeholder={
                       kind === "notes"
-                        ? "Context or instructions for every run"
-                        : "An item the automation should keep in context"
+                        ? tI18n("workspace:automationInformationResourceCreator.contextOrInstructionsForEveryRun")
+                        : tI18n("workspace:automationInformationResourceCreator.anItemTheAutomationShouldKeepIn")
                     }
                     xstyle={resourceCreatorStyles.bodyTextarea}
                   />
                 </Field>
               ) : kind === "custom" ? (
                 <>
-                  <Field label="Label">
+                  <Field label={tI18n("workspace:automationInformationResourceCreator.label")}>
                     <Input
                       autoFocus
                       value={draft.label}
@@ -614,10 +617,10 @@ export function AutomationInformationResourceCreator(props: {
                           label: event.target.value,
                         }))
                       }
-                      placeholder="Environment"
+                      placeholder={tI18n("workspace:automationInformationResourceCreator.environment")}
                     />
                   </Field>
-                  <Field label="Field type">
+                  <Field label={tI18n("workspace:automationInformationResourceCreator.fieldType")}>
                     <Select
                       value={draft.fieldType}
                       onValueChange={(fieldType) =>
@@ -645,8 +648,8 @@ export function AutomationInformationResourceCreator(props: {
                   </Field>
                   {draft.fieldType === "single_select" ? (
                     <Field
-                      label="Options"
-                      description="Separate options with commas."
+                      label={tI18n("workspace:automationInformationResourceCreator.options")}
+                      description={tI18n("workspace:automationInformationResourceCreator.separateOptionsWithCommas")}
                     >
                       <Input
                         value={draft.customOptions}
@@ -656,11 +659,11 @@ export function AutomationInformationResourceCreator(props: {
                             customOptions: event.target.value,
                           }))
                         }
-                        placeholder="Development, Staging, Production"
+                        placeholder={tI18n("workspace:automationInformationResourceCreator.developmentStagingProduction")}
                       />
                     </Field>
                   ) : null}
-                  <Field label="Value">
+                  <Field label={tI18n("workspace:automationInformationResourceCreator.value")}>
                     <CustomFieldValue
                       draft={draft}
                       onChange={(patch) =>
@@ -694,14 +697,13 @@ export function AutomationInformationResourceCreator(props: {
                 }}
                 disabled={creating}
               >
-                Cancel
-              </Button>
+                {tI18n("workspace:automationInformationResourceCreator.cancel")}</Button>
               <Button
                 type="button"
                 onClick={() => void createAndAttach()}
                 disabled={!input || creating}
               >
-                {creating ? "Creating…" : "Create & attach"}
+                {creating ? tI18n("workspace:automationInformationResourceCreator.creating") : tI18n("workspace:automationInformationResourceCreator.createAttach")}
               </Button>
             </DialogFooter>
           </>

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -75,16 +76,16 @@ function resolveSourceType(entry: SkillCatalogEntry): SkillSourceType {
 function sourceTypeLabel(type: SkillSourceType): string {
   switch (type) {
     case "provider":
-      return "Provider";
+      return i18n.t("workspace:workspaceSkillsPanel.provider");
     case "user":
-      return "User";
+      return i18n.t("workspace:workspaceSkillsPanel.user");
     case "shared":
-      return "Shared";
+      return i18n.t("workspace:workspaceSkillsPanel.shared");
   }
 }
 
 function providerLabel(provider: SkillCatalogProvider): string {
-  if (provider === "shared") return "Shared";
+  if (provider === "shared") return i18n.t("workspace:workspaceSkillsPanel.shared");
   if (provider === "claude-code") return "Claude";
   if (provider === "codex") return "Codex";
   return provider;
@@ -119,11 +120,11 @@ function ScopeIcon(props: { scope: SkillCatalogScope; className?: string }) {
 function scopeLabel(scope: SkillCatalogScope): string {
   switch (scope) {
     case "local":
-      return "Workspace";
+      return i18n.t("workspace:workspaceSkillsPanel.workspace");
     case "user":
-      return "User";
+      return i18n.t("workspace:workspaceSkillsPanel.user");
     case "global":
-      return "Global";
+      return i18n.t("workspace:workspaceSkillsPanel.global");
   }
 }
 
@@ -143,7 +144,7 @@ function useInsertSkillToPrompt() {
         taskId,
         patch: { text: `${current}${separator}${token} ` },
       });
-      toast.success("Inserted into prompt");
+      toast.success(i18n.t("workspace:workspaceSkillsPanel.insertedIntoPrompt"));
     },
     [updatePromptDraft, activeTaskId],
   );
@@ -187,6 +188,7 @@ function SkillInstructionsDialog(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const { skill } = props;
   if (!skill) return null;
 
@@ -196,7 +198,7 @@ function SkillInstructionsDialog(props: {
         <DialogHeader className={sx(skillStyles.dialogHeader)}>
           <DialogTitle>{skill.name}</DialogTitle>
           <DialogDescription>
-            {skill.description || "No description"}
+            {skill.description || tI18n("workspace:workspaceSkillsPanel.noDescription")}
           </DialogDescription>
         </DialogHeader>
         {skill.instructions ? (
@@ -207,21 +209,19 @@ function SkillInstructionsDialog(props: {
           >
             <div className={sx(skillStyles.dialogTabBar)}>
               <TabsList
-                aria-label="Instruction view"
+                aria-label={tI18n("workspace:workspaceSkillsPanel.instructionView")}
                 xstyle={skillStyles.dialogTabList}
               >
                 <TabsTrigger
                   value="rendered"
                   xstyle={skillStyles.dialogTab}
                 >
-                  Rendered
-                </TabsTrigger>
+                  {tI18n("workspace:workspaceSkillsPanel.rendered")}</TabsTrigger>
                 <TabsTrigger
                   value="source"
                   xstyle={skillStyles.dialogTab}
                 >
-                  Source
-                </TabsTrigger>
+                  {tI18n("workspace:workspaceSkillsPanel.source")}</TabsTrigger>
               </TabsList>
             </div>
             <TabsContent
@@ -243,8 +243,7 @@ function SkillInstructionsDialog(props: {
           </Tabs>
         ) : (
           <p className={sx(skillStyles.dialogEmpty)}>
-            No instructions available.
-          </p>
+            {tI18n("workspace:workspaceSkillsPanel.noInstructionsAvailable")}</p>
         )}
       </DialogContent>
     </Dialog>
@@ -270,6 +269,7 @@ function SkillRow(props: {
   onUse: () => void;
   onViewInstructions: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const sourceType = resolveSourceType(props.skill);
 
   return (
@@ -321,7 +321,7 @@ function SkillRow(props: {
                     size="icon"
                     variant="ghost"
                     xstyle={skillStyles.iconButtonSm}
-                    aria-label="View instructions"
+                    aria-label={tI18n("workspace:workspaceSkillsPanel.viewInstructions")}
                     onClick={(e) => {
                       e.stopPropagation();
                       props.onViewInstructions();
@@ -331,7 +331,7 @@ function SkillRow(props: {
               >
                 <Expand className={sx(skillStyles.glyphXs)} />
               </TooltipTrigger>
-              <TooltipContent>View instructions</TooltipContent>
+              <TooltipContent>{tI18n("workspace:workspaceSkillsPanel.viewInstructions")}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : null}
@@ -344,7 +344,7 @@ function SkillRow(props: {
                   size="icon"
                   variant="ghost"
                   xstyle={skillStyles.iconButtonSm}
-                  aria-label="Insert into prompt"
+                  aria-label={tI18n("workspace:workspaceSkillsPanel.insertIntoPrompt")}
                   onClick={(e) => {
                     e.stopPropagation();
                     props.onUse();
@@ -354,7 +354,7 @@ function SkillRow(props: {
             >
               <MessageSquarePlus className={sx(skillStyles.glyphXs)} />
             </TooltipTrigger>
-            <TooltipContent>Insert into prompt</TooltipContent>
+            <TooltipContent>{tI18n("workspace:workspaceSkillsPanel.insertIntoPrompt")}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
@@ -366,6 +366,7 @@ function SkillRow(props: {
 /* ---------- Skill detail view ---------- */
 
 export function SkillMetadataDetails(props: { skill: SkillCatalogEntry }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const { skill } = props;
   // StyleX has no parent selector, so the chevron reads React state rather
   // than the `<details open>` attribute it used to inherit through `group-open`.
@@ -384,23 +385,22 @@ export function SkillMetadataDetails(props: { skill: SkillCatalogEntry }) {
             open && skillStyles.summaryChevronOpen,
           )}
         />
-        Details
-      </summary>
+        {tI18n("workspace:workspaceSkillsPanel.details")}</summary>
       <dl className={sx(skillStyles.detailsList)}>
         <div className={sx(skillStyles.detailsRow)}>
-          <dt className={sx(skillStyles.detailsTerm)}>Slug</dt>
+          <dt className={sx(skillStyles.detailsTerm)}>{tI18n("workspace:workspaceSkillsPanel.slug")}</dt>
           <dd className={sx(skillStyles.detailsValue)} title={skill.slug}>
             {skill.slug}
           </dd>
         </div>
         <div className={sx(skillStyles.detailsRow)}>
-          <dt className={sx(skillStyles.detailsTerm)}>Path</dt>
+          <dt className={sx(skillStyles.detailsTerm)}>{tI18n("workspace:workspaceSkillsPanel.path")}</dt>
           <dd className={sx(skillStyles.detailsValue)} title={skill.path}>
             {skill.path}
           </dd>
         </div>
         <div className={sx(skillStyles.detailsRow)}>
-          <dt className={sx(skillStyles.detailsTerm)}>Root</dt>
+          <dt className={sx(skillStyles.detailsTerm)}>{tI18n("workspace:workspaceSkillsPanel.root")}</dt>
           <dd
             className={sx(skillStyles.detailsValue)}
             title={skill.sourceRootPath}
@@ -420,17 +420,18 @@ export function SkillDetail(props: {
   onViewInstructions: () => void;
   onOpenSettings?: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const { skill } = props;
   const sourceType = resolveSourceType(skill);
 
   const handleCopyPath = useCallback(() => {
     void copyTextToClipboard(skill.path);
-    toast.success("Path copied");
+    toast.success(tI18n("workspace:workspaceSkillsPanel.pathCopied"));
   }, [skill.path]);
 
   const handleCopyInvocationToken = useCallback(() => {
     void copyTextToClipboard(skill.invocationToken);
-    toast.success("Invocation token copied");
+    toast.success(tI18n("workspace:workspaceSkillsPanel.invocationTokenCopied"));
   }, [skill.invocationToken]);
 
   const handleOpenInFinder = useCallback(() => {
@@ -445,7 +446,7 @@ export function SkillDetail(props: {
           size="icon"
           variant="ghost"
           xstyle={skillStyles.iconButtonMd}
-          aria-label="Back to skills"
+          aria-label={tI18n("workspace:workspaceSkillsPanel.backToSkills")}
           onClick={props.onBack}
         >
           <ArrowLeft className={sx(skillStyles.glyphSm)} />
@@ -458,7 +459,7 @@ export function SkillDetail(props: {
                 size="icon"
                 variant="ghost"
                 xstyle={skillStyles.iconButtonMd}
-                aria-label="More skill actions"
+                aria-label={tI18n("workspace:workspaceSkillsPanel.moreSkillActions")}
               />
             }
           >
@@ -467,24 +468,20 @@ export function SkillDetail(props: {
           <DropdownMenuContent align="end" xstyle={skillStyles.detailMenu}>
             <DropdownMenuItem onSelect={handleCopyInvocationToken}>
               <Copy className={sx(skillStyles.glyphMd)} />
-              Copy invocation token
-            </DropdownMenuItem>
+              {tI18n("workspace:workspaceSkillsPanel.copyInvocationToken")}</DropdownMenuItem>
             <DropdownMenuItem onSelect={handleCopyPath}>
               <Copy className={sx(skillStyles.glyphMd)} />
-              Copy path
-            </DropdownMenuItem>
+              {tI18n("workspace:workspaceSkillsPanel.copyPath")}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={handleOpenInFinder}>
               <ExternalLink className={sx(skillStyles.glyphMd)} />
-              Reveal in Finder
-            </DropdownMenuItem>
+              {tI18n("workspace:workspaceSkillsPanel.revealInFinder")}</DropdownMenuItem>
             {props.onOpenSettings ? (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={props.onOpenSettings}>
                   <Settings2 className={sx(skillStyles.glyphMd)} />
-                  Open Skills settings
-                </DropdownMenuItem>
+                  {tI18n("workspace:workspaceSkillsPanel.openSkillsSettings")}</DropdownMenuItem>
               </>
             ) : null}
           </DropdownMenuContent>
@@ -531,14 +528,14 @@ export function SkillDetail(props: {
             {/* Description */}
             {skill.description ? (
               <div className={sx(skillStyles.field)}>
-                <p className={sx(skillStyles.fieldLabel)}>Description</p>
+                <p className={sx(skillStyles.fieldLabel)}>{tI18n("workspace:workspaceSkillsPanel.description")}</p>
                 <p className={sx(skillStyles.fieldText)}>{skill.description}</p>
               </div>
             ) : null}
 
             {/* Token */}
             <div className={sx(skillStyles.field)}>
-              <p className={sx(skillStyles.fieldLabel)}>Invocation</p>
+              <p className={sx(skillStyles.fieldLabel)}>{tI18n("workspace:workspaceSkillsPanel.invocation")}</p>
               <div className={sx(skillStyles.tokenRow)}>
                 <code className={sx(skillStyles.tokenCode)}>
                   {skill.invocationToken}
@@ -551,14 +548,14 @@ export function SkillDetail(props: {
                           size="icon"
                           variant="ghost"
                           xstyle={skillStyles.iconButtonSm}
-                          aria-label="Copy invocation token"
+                          aria-label={tI18n("workspace:workspaceSkillsPanel.copyInvocationToken")}
                           onClick={handleCopyInvocationToken}
                         />
                       }
                     >
                       <Copy className={sx(skillStyles.glyphXs)} />
                     </TooltipTrigger>
-                    <TooltipContent>Copy token</TooltipContent>
+                    <TooltipContent>{tI18n("workspace:workspaceSkillsPanel.copyToken")}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <Button
@@ -567,11 +564,10 @@ export function SkillDetail(props: {
                   variant="ghost"
                   xstyle={skillStyles.insertButton}
                   onClick={props.onUse}
-                  aria-label="Insert into prompt"
+                  aria-label={tI18n("workspace:workspaceSkillsPanel.insertIntoPrompt")}
                 >
                   <MessageSquarePlus className={sx(skillStyles.glyphSm)} />
-                  Insert
-                </Button>
+                  {tI18n("workspace:workspaceSkillsPanel.insert")}</Button>
               </div>
             </div>
 
@@ -585,7 +581,7 @@ export function SkillDetail(props: {
               className={sx(skillStyles.instructionsBlock)}
             >
               <div className={sx(skillStyles.instructionsHead)}>
-                <p className={sx(skillStyles.fieldLabel)}>Instructions</p>
+                <p className={sx(skillStyles.fieldLabel)}>{tI18n("workspace:workspaceSkillsPanel.instructions")}</p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger
@@ -594,14 +590,14 @@ export function SkillDetail(props: {
                           size="icon"
                           variant="ghost"
                           xstyle={skillStyles.iconButtonSm}
-                          aria-label="View full instructions"
+                          aria-label={tI18n("workspace:workspaceSkillsPanel.viewFullInstructions")}
                           onClick={props.onViewInstructions}
                         />
                       }
                     >
                       <Expand className={sx(skillStyles.glyphXs)} />
                     </TooltipTrigger>
-                    <TooltipContent>View full instructions</TooltipContent>
+                    <TooltipContent>{tI18n("workspace:workspaceSkillsPanel.viewFullInstructions")}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
@@ -625,6 +621,7 @@ export function WorkspaceSkillsPanel(props: {
     section?: SectionId;
   }) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const [
     skillsEnabled,
     skillCatalog,
@@ -704,7 +701,7 @@ export function WorkspaceSkillsPanel(props: {
         skill.description.toLowerCase().includes(q) ||
         skill.provider.toLowerCase().includes(q),
     );
-  }, [searchQuery, skillCatalog.skills]);
+  }, [searchQuery, skillCatalog.skills, i18n.resolvedLanguage]);
 
   const groupedSkills = useMemo(() => {
     const groups: {
@@ -712,23 +709,23 @@ export function WorkspaceSkillsPanel(props: {
       scope: SkillCatalogScope;
       skills: SkillCatalogEntry[];
     }[] = [
-      { label: "Workspace", scope: "local", skills: [] },
-      { label: "User", scope: "user", skills: [] },
-      { label: "Global", scope: "global", skills: [] },
+      { label: tI18n("workspace:workspaceSkillsPanel.workspace"), scope: "local", skills: [] },
+      { label: tI18n("workspace:workspaceSkillsPanel.user"), scope: "user", skills: [] },
+      { label: tI18n("workspace:workspaceSkillsPanel.global"), scope: "global", skills: [] },
     ];
     for (const skill of filteredSkills) {
       const group = groups.find((g) => g.scope === skill.scope);
       if (group) group.skills.push(skill);
     }
     return groups.filter((g) => g.skills.length > 0);
-  }, [filteredSkills]);
+  }, [filteredSkills, i18n.resolvedLanguage]);
 
   const selectedSkill = useMemo(
     () =>
       selectedSkillId
         ? (skillCatalog.skills.find((s) => s.id === selectedSkillId) ?? null)
         : null,
-    [selectedSkillId, skillCatalog.skills],
+    [selectedSkillId, skillCatalog.skills, i18n.resolvedLanguage],
   );
 
   const openSkillSettings = useCallback(() => {
@@ -770,10 +767,9 @@ export function WorkspaceSkillsPanel(props: {
             <EmptyMedia>
               <Search className={sx(skillStyles.glyphMd)} />
             </EmptyMedia>
-            <EmptyTitle>Skills disabled</EmptyTitle>
+            <EmptyTitle>{tI18n("workspace:workspaceSkillsPanel.skillsDisabled")}</EmptyTitle>
             <EmptyDescription>
-              Enable skills in Settings to discover and use them.
-            </EmptyDescription>
+              {tI18n("workspace:workspaceSkillsPanel.enableSkillsInSettingsToDiscoverAnd")}</EmptyDescription>
           </EmptyHeader>
           {props.onOpenSettings ? (
             <Button
@@ -784,8 +780,7 @@ export function WorkspaceSkillsPanel(props: {
               onClick={openSkillSettings}
             >
               <Settings2 className={sx(skillStyles.disabledActionIcon)} />
-              Open Settings
-            </Button>
+              {tI18n("workspace:workspaceSkillsPanel.openSettings")}</Button>
           ) : null}
         </Empty>
       </div>
@@ -801,12 +796,11 @@ export function WorkspaceSkillsPanel(props: {
           <div className={sx(skillStyles.panelHeaderText)}>
             <span className={sx(skillStyles.panelCount)}>
               {skillCatalog.status === "loading"
-                ? "Loading..."
-                : `${filteredSkills.length} skill${filteredSkills.length !== 1 ? "s" : ""}`}
+                ? tI18n("workspace:workspaceSkillsPanel.loading")
+                : tI18n("workspace:workspaceSkillsPanel.valueSkillvalue", { count: filteredSkills.length })}
             </span>
             <span className={sx(skillStyles.panelHint)}>
-              Inspect instructions or insert a skill directly into the prompt.
-            </span>
+              {tI18n("workspace:workspaceSkillsPanel.inspectInstructionsOrInsertASkillDirectly")}</span>
           </div>
           <div className={sx(skillStyles.panelActions)}>
             {props.onOpenSettings ? (
@@ -816,8 +810,8 @@ export function WorkspaceSkillsPanel(props: {
                 variant="ghost"
                 xstyle={skillStyles.iconButtonMd}
                 onClick={openSkillSettings}
-                title="Skills Settings"
-                aria-label="Open skills settings"
+                title={tI18n("workspace:workspaceSkillsPanel.skillsSettings")}
+                aria-label={tI18n("workspace:workspaceSkillsPanel.openSkillsSettings2")}
               >
                 <Settings2 className={sx(skillStyles.glyphSm)} />
               </Button>
@@ -829,8 +823,8 @@ export function WorkspaceSkillsPanel(props: {
               xstyle={skillStyles.iconButtonMd}
               onClick={() => void refreshSkillCatalog({ workspacePath })}
               disabled={skillCatalog.status === "loading"}
-              title="Refresh"
-              aria-label="Refresh skills"
+              title={tI18n("workspace:workspaceSkillsPanel.refresh")}
+              aria-label={tI18n("workspace:workspaceSkillsPanel.refreshSkills")}
             >
               <RefreshCcw
                 className={sx(
@@ -850,8 +844,8 @@ export function WorkspaceSkillsPanel(props: {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               xstyle={skillStyles.searchInput}
-              placeholder="Find a skill by name, provider, or purpose…"
-              aria-label="Search skills"
+              placeholder={tI18n("workspace:workspaceSkillsPanel.findASkillByNameProviderOr")}
+              aria-label={tI18n("workspace:workspaceSkillsPanel.searchSkills")}
             />
             {searchQuery ? (
               <AdsButton
@@ -859,7 +853,7 @@ export function WorkspaceSkillsPanel(props: {
                 type="button"
                 xstyle={skillStyles.searchClear}
                 onClick={() => setSearchQuery("")}
-                aria-label="Clear skill search"
+                aria-label={tI18n("workspace:workspaceSkillsPanel.clearSkillSearch")}
               >
                 <X className={sx(skillStyles.glyphSm)} />
               </AdsButton>
@@ -872,12 +866,11 @@ export function WorkspaceSkillsPanel(props: {
           {skillCatalog.status === "loading" &&
           skillCatalog.skills.length === 0 ? (
             <div className={sx(skillStyles.listStatus)}>
-              Discovering skills...
-            </div>
+              {tI18n("workspace:workspaceSkillsPanel.discoveringSkills")}</div>
           ) : filteredSkills.length === 0 ? (
             <div className={sx(skillStyles.listEmpty)}>
               <p className={sx(skillStyles.listEmptyText)}>
-                {searchQuery ? "No matching skills." : "No skills found."}
+                {searchQuery ? tI18n("workspace:workspaceSkillsPanel.noMatchingSkills") : tI18n("workspace:workspaceSkillsPanel.noSkillsFound")}
               </p>
             </div>
           ) : (

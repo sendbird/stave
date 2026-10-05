@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   Accordion,
   AccordionContent,
@@ -24,16 +25,15 @@ export function KickoffBriefEditor({
   extraInstructions: string;
   onChange: (draft: KickoffProposalDraft) => void;
 }) {
+  const { t: tI18n } = useTranslation(["kickoff"]);
   return (
     <Accordion>
       <AccordionItem value="brief">
-        <AccordionTrigger>Review task details</AccordionTrigger>
+        <AccordionTrigger>{tI18n("kickoff:kickoffBriefEditor.reviewTaskDetails")}</AccordionTrigger>
         <AccordionContent>
           <div className={sx(kickoffStyles.sourceStack)}>
             <p className={sx(kickoffStyles.hint)}>
-              These details go into the first task. Leave unknown details empty
-              or add an open question.
-            </p>
+              {tI18n("kickoff:kickoffBriefEditor.theseDetailsGoIntoTheFirstTask")}</p>
             {Object.entries(KICKOFF_BRIEF_FIELDS).map(([key, label]) => (
               <label key={key} className={sx(kickoffStyles.labeledField)}>
                 {label}
@@ -50,7 +50,7 @@ export function KickoffBriefEditor({
                       },
                     })
                   }
-                  placeholder="One item per line"
+                  placeholder={tI18n("kickoff:kickoffBriefEditor.oneItemPerLine")}
                   xstyle={kickoffStyles.instructionsTextarea}
                 />
               </label>
@@ -59,11 +59,11 @@ export function KickoffBriefEditor({
         </AccordionContent>
       </AccordionItem>
       <AccordionItem value="prompt-preview">
-        <AccordionTrigger>Preview full first-task prompt</AccordionTrigger>
+        <AccordionTrigger>{tI18n("kickoff:kickoffBriefEditor.previewFullFirstTaskPrompt")}</AccordionTrigger>
         <AccordionContent>
           <Textarea
             readOnly
-            aria-label="Full first-task prompt"
+            aria-label={tI18n("kickoff:kickoffBriefEditor.fullFirstTaskPrompt")}
             value={buildKickoffFirstTaskPrompt(draft, extraInstructions)}
             xstyle={kickoffStyles.promptTextarea}
           />

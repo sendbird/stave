@@ -1,3 +1,4 @@
+import { i18n, useTranslation, Trans } from "@/i18n";
 import { ArrowRight, CornerDownRight, ListPlus, Square, X } from "lucide-react";
 import {
   useEffect,
@@ -71,22 +72,22 @@ function resolveActionStatus(
     case "steered":
       return {
         tone: "success" as const,
-        text: "Reply steered into the active turn.",
+        text: i18n.t("fleet:fleetTaskControlPanel.replySteeredIntoTheActiveTurn"),
       };
     case "queued":
       return {
         tone: "success" as const,
-        text: "Reply queued for the next turn.",
+        text: i18n.t("fleet:fleetTaskControlPanel.replyQueuedForTheNextTurn"),
       };
     case "started":
       return {
         tone: "success" as const,
-        text: "A new turn started with this reply.",
+        text: i18n.t("fleet:fleetTaskControlPanel.aNewTurnStartedWithThisReply"),
       };
     case "run-started":
       return {
         tone: "success" as const,
-        text: "The agent started a run with this reply.",
+        text: i18n.t("fleet:fleetTaskControlPanel.theAgentStartedARunWithThis"),
       };
     case "steer-unavailable":
     case "steer-delivery-unknown":
@@ -97,7 +98,7 @@ function resolveActionStatus(
         tone: "error" as const,
         text:
           result.message ??
-          "The task changed before the reply could be sent.",
+          i18n.t("fleet:fleetTaskControlPanel.theTaskChangedBeforeTheReplyCould"),
       };
   }
 }
@@ -111,6 +112,7 @@ export function FleetTaskControlPanel(args: {
   onOpenTask: (target: FleetTaskControlTarget) => void;
   onClose: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["fleet"]);
   const panelId = useId();
   const panelRef = useRef<HTMLElement | null>(null);
   const completionTimerRef = useRef<number | null>(null);
@@ -197,7 +199,7 @@ export function FleetTaskControlPanel(args: {
       });
     }
     return findLatestPendingToolInteraction({ messages });
-  }, [args.expectedInteraction, messages]);
+  }, [args.expectedInteraction, messages, i18n.resolvedLanguage]);
   const interactionTurnMatches =
     (!args.interactionOnly && managed) ||
     (Boolean(activeTurnId) &&
@@ -223,7 +225,7 @@ export function FleetTaskControlPanel(args: {
   const { children: delegatedTaskRows } = delegatedTasks;
   const delegatedTaskSource = useMemo(
     () => ({ children: delegatedTaskRows, actions: delegatedTasks.actions }),
-    [delegatedTaskRows, delegatedTasks.actions],
+    [delegatedTaskRows, delegatedTasks.actions, i18n.resolvedLanguage],
   );
   const syncDelegatedTasksIntoTurnGraph = useAppStore(
     (state) => state.syncDelegatedTasksIntoTurnGraph,
@@ -251,8 +253,7 @@ export function FleetTaskControlPanel(args: {
       messages,
       rateLimits,
       task?.provider,
-      verification,
-    ],
+      verification, i18n.resolvedLanguage],
   );
   const canSteer =
     Boolean(activeTurnId) &&
@@ -314,14 +315,14 @@ export function FleetTaskControlPanel(args: {
         !current.messages.some(message => message.id === expected.messageId));
       setBusyAction(null);
       setStatus(
-        identityChanged ? { tone: "neutral", text: "The request changed. Delivery cannot be confirmed here." } : validation.ok
+        identityChanged ? { tone: "neutral", text: tI18n("fleet:fleetTaskControlPanel.theRequestChangedDeliveryCannotBeConfirmed") } : validation.ok
           ? {
               tone: "neutral",
-              text: "The provider is still processing this response.",
+              text: tI18n("fleet:fleetTaskControlPanel.theProviderIsStillProcessingThisResponse"),
             }
           : {
               tone: "success",
-              text: "Response delivered. The task can continue.",
+              text: tI18n("fleet:fleetTaskControlPanel.responseDeliveredTheTaskCanContinue"),
             },
       );
     }, 900);
@@ -354,12 +355,12 @@ export function FleetTaskControlPanel(args: {
     if (!validation.messageId) {
       setStatus({
         tone: "error",
-        text: "The pending request no longer has a valid message target.",
+        text: tI18n("fleet:fleetTaskControlPanel.thePendingRequestNoLongerHasA"),
       });
       return;
     }
     setBusyAction(input.kind);
-    setStatus({ tone: "neutral", text: "Sending response…" });
+    setStatus({ tone: "neutral", text: tI18n("fleet:fleetTaskControlPanel.sendingResponse") });
     if (input.kind === "approval") {
       resolveApproval({
         taskId: args.target.taskId,
@@ -407,7 +408,7 @@ export function FleetTaskControlPanel(args: {
     setBusyAction(intent);
     setStatus({
       tone: "neutral",
-      text: intent === "steer" ? "Steering reply…" : "Queueing reply…",
+      text: intent === "steer" ? tI18n("fleet:fleetTaskControlPanel.steeringReply") : tI18n("fleet:fleetTaskControlPanel.queueingReply"),
     });
     const result = await sendUserMessage({
       taskId: args.target.taskId,
@@ -448,7 +449,7 @@ export function FleetTaskControlPanel(args: {
     }
     setBusyAction("stop");
     abortTaskTurn({ taskId: args.target.taskId });
-    setStatus({ tone: "success", text: "Stop requested for the active turn." });
+    setStatus({ tone: "success", text: tI18n("fleet:fleetTaskControlPanel.stopRequestedForTheActiveTurn") });
     setBusyAction(null);
   };
 
@@ -457,18 +458,17 @@ export function FleetTaskControlPanel(args: {
       ref={panelRef}
       id={panelId}
       className={sx(styles.panel)}
-      aria-label={`Controls for ${task?.title || args.target.taskTitle || "task"}`}
+      aria-label={tI18n("fleet:fleetTaskControlPanel.controlsForValue", { value1: task?.title || args.target.taskTitle || "task" })}
       tabIndex={-1}
       onKeyDown={handlePanelKeyDown}
     >
       <div className={sx(styles.header)}>
         <div className={sx(styles.headerText)}>
           <h3 className={sx(styles.title)}>
-            {args.interactionOnly ? (args.expectedInteraction?.kind === "approval" ? "Approval requested" : "Question") : task?.title || args.target.taskTitle || "Task controls"}
+            {args.interactionOnly ? (args.expectedInteraction?.kind === "approval" ? tI18n("fleet:fleetTaskControlPanel.approvalRequested") : tI18n("fleet:fleetTaskControlPanel.question")) : task?.title || args.target.taskTitle || tI18n("fleet:fleetTaskControlPanel.taskControls")}
           </h3>
           {!args.interactionOnly ? <p className={sx(styles.subtitle)}>
-            Review activity, answer requests, or direct the running agent.
-          </p> : null}
+            {tI18n("fleet:fleetTaskControlPanel.reviewActivityAnswerRequestsOrDirectThe")}</p> : null}
         </div>
         <div className={sx(styles.headerActions)}>
           {!args.interactionOnly ? <Button
@@ -478,15 +478,14 @@ export function FleetTaskControlPanel(args: {
             xstyle={styles.action}
             onClick={() => args.onOpenTask(args.target)}
           >
-            Open task
-            <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
+            {tI18n("fleet:fleetTaskControlPanel.openTask")}<ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
           </Button> : null}
           <Button
             type="button"
             size="icon-sm"
             variant="ghost"
             xstyle={styles.closeAction}
-            aria-label={args.interactionOnly ? "Close request" : "Close task controls"}
+            aria-label={args.interactionOnly ? tI18n("fleet:fleetTaskControlPanel.closeRequest") : tI18n("fleet:fleetTaskControlPanel.closeTaskControls")}
             onClick={closePanel}
           >
             <X className={sx(styles.closeIcon)} aria-hidden="true" />
@@ -514,7 +513,7 @@ export function FleetTaskControlPanel(args: {
           className={sx(styles.staleNotice)}
           role="status"
         >
-          {args.interactionOnly ? "This request was answered, expired, or belongs to another turn. Refresh the request to review its current state." : "This request was already answered or expired. Open the task to review its latest state."}
+          {args.interactionOnly ? tI18n("fleet:fleetTaskControlPanel.thisRequestWasAnsweredExpiredOrBelongs") : tI18n("fleet:fleetTaskControlPanel.thisRequestWasAlreadyAnsweredOrExpired")}
         </div>
       ) : null}
 
@@ -526,7 +525,7 @@ export function FleetTaskControlPanel(args: {
             state={pendingPart.state}
             disabled={busyAction != null}
             disabledReason={
-              busyAction ? "A response is being delivered." : undefined
+              busyAction ? i18n.t("fleet:additionalCopy.message4") : undefined
             }
             comfortableActions
             showShortcutHint={false}
@@ -550,7 +549,7 @@ export function FleetTaskControlPanel(args: {
             answers={pendingPart.answers}
             disabled={busyAction != null}
             disabledReason={
-              busyAction ? "A response is being delivered." : undefined
+              busyAction ? i18n.t("fleet:additionalCopy.message5") : undefined
             }
             onSubmit={(answers) =>
               runInteractionAction({ kind: "user-input", answers })
@@ -568,17 +567,15 @@ export function FleetTaskControlPanel(args: {
             htmlFor={`${panelId}-quick-reply`}
             className={sx(styles.replyLabel)}
           >
-            Quick reply
-          </label>
+            {tI18n("fleet:fleetTaskControlPanel.quickReply")}</label>
           <p className={sx(styles.replyHint)}>
-            Steer changes the active turn now; queue waits for the next turn.
-          </p>
+            {tI18n("fleet:fleetTaskControlPanel.steerChangesTheActiveTurnNowQueue")}</p>
           <Textarea
             id={`${panelId}-quick-reply`}
             value={reply}
             disabled={busyAction != null}
             xstyle={styles.replyInput}
-            placeholder="Add a correction, constraint, or next step…"
+            placeholder={tI18n("fleet:fleetTaskControlPanel.addACorrectionConstraintOrNextStep")}
             onChange={(event) => setReply(event.target.value)}
           />
           <div className={sx(styles.replyActions)}>
@@ -589,10 +586,10 @@ export function FleetTaskControlPanel(args: {
               disabled={!reply.trim() || busyAction != null || !canSteer}
               title={
                 canSteer
-                  ? "Send into the active turn"
+                  ? tI18n("fleet:fleetTaskControlPanel.sendIntoTheActiveTurn")
                   : midTurnSteeringEnabled
-                    ? "This provider cannot steer the active turn"
-                    : "Enable mid-turn steering in Settings → Chat"
+                    ? tI18n("fleet:fleetTaskControlPanel.thisProviderCannotSteerTheActiveTurn")
+                    : tI18n("fleet:fleetTaskControlPanel.enableMidTurnSteeringInSettingsChat")
               }
               onClick={() => void sendQuickReply("steer")}
             >
@@ -604,8 +601,7 @@ export function FleetTaskControlPanel(args: {
                   aria-hidden="true"
                 />
               )}
-              Steer now
-            </Button>
+              {tI18n("fleet:fleetTaskControlPanel.steerNow")}</Button>
             <Button
               type="button"
               size="sm"
@@ -619,24 +615,19 @@ export function FleetTaskControlPanel(args: {
               ) : (
                 <ListPlus className={sx(styles.actionIcon)} aria-hidden="true" />
               )}
-              Queue next
-            </Button>
+              {tI18n("fleet:fleetTaskControlPanel.queueNext")}</Button>
           </div>
         </div>
       ) : !args.interactionOnly && managed && activeTurnId && !pendingPart ? (
         <p className={sx(styles.managedNotice)}>
-          This task is externally managed. Open it to attach before sending a
-          reply.
-        </p>
+          {tI18n("fleet:fleetTaskControlPanel.thisTaskIsExternallyManagedOpenIt")}</p>
       ) : null}
 
       {activeTurnId && !args.interactionOnly ? (
         <div className={sx(styles.turnFooter)}>
           <p className={sx(styles.turnText)}>
-            Turn{" "}
-            <span className={sx(styles.turnId)}>{activeTurnId.slice(0, 8)}</span>{" "}
-            is active.
-          </p>
+          <Trans t={tI18n} i18nKey="fleet:fleetTaskControlPanel.activeTurn" values={{ id: activeTurnId.slice(0, 8) }} components={{ turn: <span className={sx(styles.turnId)} /> }} />
+        </p>
           <Button
             type="button"
             size="sm"
@@ -646,8 +637,7 @@ export function FleetTaskControlPanel(args: {
             onClick={stopTurn}
           >
             <Square className={sx(styles.stopIcon)} aria-hidden="true" />
-            Stop
-          </Button>
+            {tI18n("fleet:fleetTaskControlPanel.stop")}</Button>
         </div>
       ) : null}
 

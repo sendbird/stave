@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleHelp, FilePenLine, RefreshCcw, Save } from "lucide-react";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
@@ -46,7 +47,7 @@ import {
   DEFAULT_SCRIPT_TARGET_IDS,
   SCRIPT_TRIGGER_IDS,
   STAVE_CONFIG_DIR,
-  WORKSPACE_TOOLS_LABEL,
+  WORKSPACE_TOOLS_LABEL_KEY,
 } from "@/lib/workspace-scripts/constants";
 import {
   buildScriptConfigFromEditorState,
@@ -92,13 +93,14 @@ export function ScriptsManager(props: {
   runtime?: ScriptsManagerRuntimeProps;
   hideTitle?: boolean;
 }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   const scopes = useMemo(
     () =>
       buildEditorScopes({
         repositoryPath: props.repositoryPath,
         workspacePath: props.workspacePath,
       }),
-    [props.repositoryPath, props.workspacePath],
+    [props.repositoryPath, props.workspacePath, i18n.resolvedLanguage],
   );
   const [selectedScopeId, setSelectedScopeId] =
     useState<ScriptEditorScopeId | null>(null);
@@ -110,7 +112,7 @@ export function ScriptsManager(props: {
           scopes[0] ??
           null)
         : null,
-    [initialScopeResolved, scopes, selectedScopeId],
+    [initialScopeResolved, scopes, selectedScopeId, i18n.resolvedLanguage],
   );
 
   const [fileState, setFileState] = useState<EditorFileState>({
@@ -198,7 +200,7 @@ export function ScriptsManager(props: {
         revision: null,
         rawConfig: null,
         parsedConfig: null,
-        error: "Filesystem bridge unavailable.",
+        error: i18n.t("scripts:additionalCopy.message26"),
       });
       return;
     }
@@ -223,7 +225,7 @@ export function ScriptsManager(props: {
           revision: null,
           rawConfig: null,
           parsedConfig: null,
-          error: `Failed to read ${scope.filePath}: ${String(error)}`,
+          error: i18n.t("scripts:additionalCopy.message27", { value1: scope.filePath, value2: String(error) }),
         });
       }
       return;
@@ -262,7 +264,7 @@ export function ScriptsManager(props: {
         revision: null,
         rawConfig: null,
         parsedConfig: null,
-        error: result.stderr ?? "Failed to read execution config.",
+        error: result.stderr ?? i18n.t("scripts:additionalCopy.message28"),
       });
       return;
     }
@@ -277,7 +279,7 @@ export function ScriptsManager(props: {
         revision: result.revision,
         rawConfig: null,
         parsedConfig: null,
-        error: `Invalid JSON in ${scope.filePath}: ${String(error)}`,
+        error: i18n.t("scripts:additionalCopy.message29", { value1: scope.filePath, value2: String(error) }),
       });
       return;
     }
@@ -289,7 +291,7 @@ export function ScriptsManager(props: {
         revision: result.revision,
         rawConfig: null,
         parsedConfig: null,
-        error: `Expected an object in ${scope.filePath}.`,
+        error: i18n.t("scripts:additionalCopy.message30", { value1: scope.filePath }),
       });
       return;
     }
@@ -339,7 +341,7 @@ export function ScriptsManager(props: {
 
   const currentConfig = useMemo(
     () => buildScriptConfigFromEditorState(editorState),
-    [editorState],
+    [editorState, i18n.resolvedLanguage],
   );
   const currentSaveContent = useMemo(
     () =>
@@ -349,11 +351,11 @@ export function ScriptsManager(props: {
           config: currentConfig,
         }),
       ),
-    [currentConfig, fileState.rawConfig],
+    [currentConfig, fileState.rawConfig, i18n.resolvedLanguage],
   );
   const currentEditorStateSnapshot = useMemo(
     () => snapshotScriptEditorState(editorState),
-    [editorState],
+    [editorState, i18n.resolvedLanguage],
   );
   const isDirty =
     fileState.status === "ready" &&
@@ -362,12 +364,12 @@ export function ScriptsManager(props: {
 
   const targetOptions = useMemo(
     () => buildEditorTargetOptions(editorState),
-    [editorState],
+    [editorState, i18n.resolvedLanguage],
   );
 
   const hookCandidates = useMemo(
     () => buildEditorHookCandidates(editorState),
-    [editorState],
+    [editorState, i18n.resolvedLanguage],
   );
 
   const unresolvedHookRefs = useMemo(() => {
@@ -390,7 +392,7 @@ export function ScriptsManager(props: {
           link,
         })),
     );
-  }, [editorState.hooks, hookCandidates]);
+  }, [editorState.hooks, hookCandidates, i18n.resolvedLanguage]);
 
   const usageCountById = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -401,7 +403,7 @@ export function ScriptsManager(props: {
       }
     }
     return counts;
-  }, [editorState.actions, editorState.services]);
+  }, [editorState.actions, editorState.services, i18n.resolvedLanguage]);
 
   const actionsCount = editorState.actions.length;
   const servicesCount = editorState.services.length;
@@ -669,7 +671,7 @@ export function ScriptsManager(props: {
       const cwd: ScriptTargetScope =
         id === DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY ? "project" : "workspace";
       const label =
-        id === DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY ? "Repository" : "Workspace";
+        id === DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY ? tI18n("scripts:scriptsManager.repository") : tI18n("scripts:scriptsManager.workspace");
       return {
         ...current,
         targets: [
@@ -755,7 +757,7 @@ export function ScriptsManager(props: {
       return;
     }
     if (isDirty) {
-      toast.message("Discard or save changes before reloading this config.");
+      toast.message(tI18n("scripts:scriptsManager.discardOrSaveChangesBeforeReloadingThis"));
       return;
     }
     await loadSelectedScope(selectedScope);
@@ -772,13 +774,13 @@ export function ScriptsManager(props: {
     const writeFile = window.api?.fs?.writeFile;
     const createDirectory = window.api?.fs?.createDirectory;
     if (!selectedScope || !writeFile || !createDirectory) {
-      toast.error("Filesystem bridge unavailable");
+      toast.error(tI18n("scripts:scriptsManager.filesystemBridgeUnavailable"));
       return false;
     }
 
     const issues = validateScriptEditorState(editorState);
     if (issues.length > 0) {
-      toast.error("Execution config is incomplete", {
+      toast.error(tI18n("scripts:scriptsManager.executionConfigIsIncomplete"), {
         description: issues[0],
       });
       return false;
@@ -797,8 +799,8 @@ export function ScriptsManager(props: {
         return false;
       }
       if (!mkdirResult.ok && !mkdirResult.alreadyExists) {
-        toast.error("Failed to prepare .stave directory", {
-          description: mkdirResult.stderr ?? "Unknown error",
+        toast.error(tI18n("scripts:scriptsManager.failedToPrepareStaveDirectory"), {
+          description: mkdirResult.stderr ?? tI18n("scripts:scriptsManager.unknownError"),
         });
         return false;
       }
@@ -815,14 +817,14 @@ export function ScriptsManager(props: {
       if (!result.ok) {
         toast.error(
           result.conflict
-            ? "Execution config changed on disk"
-            : "Failed to save execution config",
+            ? tI18n("scripts:scriptsManager.executionConfigChangedOnDisk")
+            : tI18n("scripts:scriptsManager.failedToSaveExecutionConfig"),
           {
             description:
               result.stderr ??
               (result.conflict
-                ? "Reload the file and re-apply your changes."
-                : "Unknown error"),
+                ? tI18n("scripts:scriptsManager.reloadTheFileAndReApplyYour")
+                : tI18n("scripts:scriptsManager.unknownError")),
           },
         );
         return false;
@@ -833,7 +835,7 @@ export function ScriptsManager(props: {
         return false;
       }
       await props.onSaved?.();
-      toast.success("Execution config saved", {
+      toast.success(tI18n("scripts:scriptsManager.executionConfigSaved"), {
         description: selectedScope.filePath,
       });
       return true;
@@ -895,8 +897,7 @@ export function ScriptsManager(props: {
     if (!initialScopeResolved) {
       return (
         <div className={sx(managerStyles.loadingMuted)}>
-          Loading workspace tools…
-        </div>
+          {tI18n("scripts:scriptsManager.loadingWorkspaceTools")}</div>
       );
     }
 
@@ -906,10 +907,9 @@ export function ScriptsManager(props: {
           <EmptyMedia>
             <FilePenLine className={sx(managerStyles.emptyIcon)} />
           </EmptyMedia>
-          <EmptyTitle>Workspace tools unavailable</EmptyTitle>
+          <EmptyTitle>{tI18n("scripts:scriptsManager.workspaceToolsUnavailable")}</EmptyTitle>
           <EmptyDescription>
-            Select a workspace to edit its processes and commands.
-          </EmptyDescription>
+            {tI18n("scripts:scriptsManager.selectAWorkspaceToEditItsProcesses")}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -925,24 +925,21 @@ export function ScriptsManager(props: {
           <div className={sx(managerStyles.titleBlock)}>
             <div className={sx(managerStyles.titleRow)}>
               <p className={sx(managerStyles.titleText)}>
-                {WORKSPACE_TOOLS_LABEL}
+                {tI18n(WORKSPACE_TOOLS_LABEL_KEY)}
               </p>
               <Badge
                 variant={isDirty ? "secondary" : "outline"}
                 className={sx(managerStyles.statusBadge)}
               >
                 {isDirty
-                  ? "Unsaved"
+                  ? tI18n("scripts:scriptsManager.unsaved")
                   : fileState.exists
-                    ? "In sync"
-                    : "New file"}
+                    ? tI18n("scripts:scriptsManager.inSync")
+                    : tI18n("scripts:scriptsManager.newFile")}
               </Badge>
             </div>
             <p className={sx(managerStyles.subtitle)}>
-              Keep a long-running process such as a dev server up while you
-              work. Commands are one-shot. Triggers fire on task and pull
-              request events.
-            </p>
+              {tI18n("scripts:scriptsManager.keepALongRunningProcessSuchAs")}</p>
           </div>
         )}
         <div className={sx(managerStyles.headerActions)}>
@@ -953,7 +950,7 @@ export function ScriptsManager(props: {
             xstyle={managerStyles.toolbarButton}
             onClick={() => void reloadSelectedScope()}
             disabled={fileState.status === "loading" || saving}
-            title="Reload the saved config"
+            title={tI18n("scripts:scriptsManager.reloadTheSavedConfig")}
           >
             <RefreshCcw
               className={sx(
@@ -962,8 +959,7 @@ export function ScriptsManager(props: {
                   : managerStyles.spinnerIcon,
               )}
             />
-            Reload
-          </Button>
+            {tI18n("scripts:scriptsManager.reload")}</Button>
         </div>
       </div>
 
@@ -971,8 +967,7 @@ export function ScriptsManager(props: {
       <div className={sx(managerStyles.scopeGrid)}>
         <label className={sx(managerStyles.scopeLabel)}>
           <span className={sx(managerStyles.scopeLabelText)}>
-            Config Scope
-            <TooltipProvider>
+            {tI18n("scripts:scriptsManager.configScope")}<TooltipProvider>
               <Tooltip>
                 <TooltipTrigger
                   render={
@@ -980,7 +975,7 @@ export function ScriptsManager(props: {
                       type="button"
                       layout="host"
                       xstyle={managerStyles.helpTrigger}
-                      aria-label="Config scope help"
+                      aria-label={tI18n("scripts:scriptsManager.configScopeHelp")}
                     />
                   }
                 >
@@ -988,8 +983,8 @@ export function ScriptsManager(props: {
                 </TooltipTrigger>
                 <TooltipContent className={sx(managerStyles.tooltipContent)}>
                   {selectedScope.id === "workspace"
-                    ? "Workspace config overrides the repository shared config for this workspace."
-                    : "Repository config is the shared fallback. If a workspace-level config exists, it wins for the active workspace."}
+                    ? tI18n("scripts:scriptsManager.workspaceConfigOverridesTheRepositorySharedConfig")
+                    : tI18n("scripts:scriptsManager.repositoryConfigIsTheSharedFallbackIf")}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1022,7 +1017,7 @@ export function ScriptsManager(props: {
       ) : null}
 
       {fileState.status === "loading" ? (
-        <div className={sx(managerStyles.loadingMuted)}>Loading…</div>
+        <div className={sx(managerStyles.loadingMuted)}>{tI18n("scripts:scriptsManager.loading")}</div>
       ) : null}
 
       {fileState.status === "ready" ? (
@@ -1034,26 +1029,22 @@ export function ScriptsManager(props: {
         >
           <TabsList xstyle={managerStyles.tabsList}>
             <TabsTrigger value="services" xstyle={managerStyles.tab}>
-              Processes
-              <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
+              {tI18n("scripts:scriptsManager.processes")}<Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {servicesCount}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="actions" xstyle={managerStyles.tab}>
-              Commands
-              <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
+              {tI18n("scripts:scriptsManager.commands")}<Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {actionsCount}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="hooks" xstyle={managerStyles.tab}>
-              Triggers
-              <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
+              {tI18n("scripts:scriptsManager.triggers")}<Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {hookLinkCount}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="targets" xstyle={managerStyles.tab}>
-              Environments
-              <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
+              {tI18n("scripts:scriptsManager.environments")}<Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {targetsCount}
               </Badge>
             </TabsTrigger>
@@ -1132,16 +1123,16 @@ export function ScriptsManager(props: {
         <div className={sx(managerStyles.footerStatus)} aria-live="polite">
           <p className={sx(managerStyles.footerStatusTitle)}>
             {saving
-              ? "Saving changes…"
+              ? tI18n("scripts:scriptsManager.savingChanges")
               : isDirty
-                ? "Unsaved changes"
+                ? tI18n("scripts:scriptsManager.unsavedChanges")
                 : fileState.exists
-                  ? "All changes saved"
-                  : "No config file yet"}
+                  ? tI18n("scripts:scriptsManager.allChangesSaved")
+                  : tI18n("scripts:scriptsManager.noConfigFileYet")}
           </p>
           <p className={sx(managerStyles.footerStatusDetail)}>
             {isDirty
-              ? "Edits and deletions are staged until you save this config."
+              ? tI18n("scripts:scriptsManager.editsAndDeletionsAreStagedUntilYou")
               : `${selectedScope.label} · ${selectedScope.filePath}`}
           </p>
         </div>
@@ -1154,8 +1145,7 @@ export function ScriptsManager(props: {
             onClick={() => void discardChanges()}
             disabled={!isDirty || saving}
           >
-            Discard
-          </Button>
+            {tI18n("scripts:scriptsManager.discard")}</Button>
           <Button
             type="button"
             size="sm"
@@ -1168,17 +1158,17 @@ export function ScriptsManager(props: {
             ) : (
               <Save className={sx(managerStyles.spinnerIcon)} />
             )}
-            {fileState.exists ? "Save changes" : "Create config"}
+            {fileState.exists ? tI18n("scripts:scriptsManager.saveChanges") : tI18n("scripts:scriptsManager.createConfig")}
           </Button>
         </div>
       </div>
 
       <ConfirmDialog
         open={pendingScopeId !== null}
-        title="Unsaved changes"
-        description="Save or discard these edits before switching configs."
-        confirmLabel="Discard"
-        cancelLabel="Cancel"
+        title={tI18n("scripts:scriptsManager.unsavedChanges")}
+        description={tI18n("scripts:scriptsManager.saveOrDiscardTheseEditsBeforeSwitching")}
+        confirmLabel={tI18n("scripts:scriptsManager.discard")}
+        cancelLabel={tI18n("scripts:scriptsManager.cancel")}
         loading={saving}
         onConfirm={() => void confirmDiscardAndSwitch()}
         onCancel={() => setPendingScopeId(null)}
@@ -1189,8 +1179,7 @@ export function ScriptsManager(props: {
           disabled={saving}
           onClick={() => void confirmSaveAndSwitch()}
         >
-          Save & switch
-        </Button>
+          {tI18n("scripts:scriptsManager.saveSwitch")}</Button>
       </ConfirmDialog>
     </div>
   );

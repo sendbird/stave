@@ -3,6 +3,7 @@ import { FolderOpen, X } from "lucide-react";
 import { vars } from "../ads/tokens/tokens.stylex";
 import { sx } from "../ads/utils/stylex";
 import { Button } from "@/components/ui";
+import { useTranslation } from "@/i18n";
 
 /**
  * What the sidebar shows when its list is empty. Each state says why there
@@ -15,17 +16,15 @@ export function SidebarEmptyState(
     | { kind: "no-matches"; query: string; onClearSearch: () => void }
     | { kind: "no-workspaces" },
 ) {
+  const { t } = useTranslation("workspace");
   if (props.kind === "no-repositories") {
     return (
       <div className={sx(styles.root)}>
-        <p className={sx(styles.title)}>No repositories yet</p>
-        <p className={sx(styles.reason)}>
-          Open a folder on your computer to run agents in it. Its workspaces
-          and tasks are listed here.
-        </p>
+        <p className={sx(styles.title)}>{t("emptyState.noRepositories.title")}</p>
+        <p className={sx(styles.reason)}>{t("emptyState.noRepositories.reason")}</p>
         <Button variant="outline" size="sm" xstyle={styles.action} onClick={props.onOpenRepository}>
           <FolderOpen aria-hidden />
-          Open repository
+          {t("emptyState.noRepositories.action")}
         </Button>
       </div>
     );
@@ -33,21 +32,19 @@ export function SidebarEmptyState(
   if (props.kind === "no-matches") {
     return (
       <div className={sx(styles.root)}>
-        <p className={sx(styles.title)}>Nothing matches “{props.query.trim()}”</p>
-        <p className={sx(styles.reason)}>Search looks at repository names, workspace labels, and branch names.</p>
+        <p className={sx(styles.title)}>{t("emptyState.noMatches.title", { query: props.query.trim() })}</p>
+        <p className={sx(styles.reason)}>{t("emptyState.noMatches.reason")}</p>
         <Button variant="ghost" size="sm" xstyle={styles.action} onClick={props.onClearSearch}>
           <X aria-hidden />
-          Clear search
+          {t("emptyState.noMatches.action")}
         </Button>
       </div>
     );
   }
   return (
     <div className={sx(styles.root)}>
-      <p className={sx(styles.title)}>No workspaces yet</p>
-      <p className={sx(styles.reason)}>
-        Switch to Projects and use New workspace on a repository to add one.
-      </p>
+      <p className={sx(styles.title)}>{t("emptyState.noWorkspaces.title")}</p>
+      <p className={sx(styles.reason)}>{t("emptyState.noWorkspaces.reason")}</p>
     </div>
   );
 }

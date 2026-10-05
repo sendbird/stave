@@ -1,3 +1,4 @@
+import { i18n, useTranslation, Trans } from "@/i18n";
 import { Plus, Trash2 } from "lucide-react";
 import {
   Badge,
@@ -43,27 +44,23 @@ export function ScriptTargetsTab(props: {
   onAddOverride: (id: string) => void;
   onRemove: (index: number) => void;
 }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   const definedIds = new Set(
     props.targets.map((target) => target.id.trim()).filter(Boolean),
   );
   const overridableBuiltins = [
-    { id: DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, label: "Workspace" },
-    { id: DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY, label: "Repository" },
+    { id: DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, label: tI18n("scripts:scriptTargetsTab.workspace") },
+    { id: DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY, label: tI18n("scripts:scriptTargetsTab.repository") },
   ].filter((builtin) => !definedIds.has(builtin.id));
 
   return (
     <div className={sx(targetsTabStyles.root)}>
       <div className={sx(targetsTabStyles.header)}>
         <div className={sx(targetsTabStyles.headerText)}>
-          <p className={sx(targetsTabStyles.title)}>Execution environments</p>
+          <p className={sx(targetsTabStyles.title)}>{tI18n("scripts:scriptTargetsTab.executionEnvironments")}</p>
           <p className={sx(targetsTabStyles.description)}>
-            Reusable working directory, shell, and environment presets for
-            commands and processes. The built-in{" "}
-            <span className={sx(targetsTabStyles.mono)}>workspace</span> and{" "}
-            <span className={sx(targetsTabStyles.mono)}>project</span> targets
-            run in the corresponding root; define a target with the same id here
-            to override it.
-          </p>
+          <Trans t={tI18n} i18nKey="scripts:scriptTargetsTab.targetGuidance" values={{}} components={{ code: <span className={sx(targetsTabStyles.mono)} /> }} />
+        </p>
         </div>
         <Button
           type="button"
@@ -72,15 +69,13 @@ export function ScriptTargetsTab(props: {
           onClick={props.onAdd}
         >
           <Plus className={sx(targetsTabStyles.buttonIcon)} />
-          Add target
-        </Button>
+          {tI18n("scripts:scriptTargetsTab.addTarget")}</Button>
       </div>
 
       {overridableBuiltins.length > 0 ? (
         <div className={sx(targetsTabStyles.overrideRow)}>
           <span className={sx(targetsTabStyles.overrideLabel)}>
-            Override built-in:
-          </span>
+            {tI18n("scripts:scriptTargetsTab.overrideBuiltIn")}</span>
           {overridableBuiltins.map((builtin) => (
             <Button
               key={builtin.id}
@@ -103,11 +98,9 @@ export function ScriptTargetsTab(props: {
             <EmptyMedia>
               <Plus className={sx(targetsTabStyles.emptyIcon)} />
             </EmptyMedia>
-            <EmptyTitle>No custom environments</EmptyTitle>
+            <EmptyTitle>{tI18n("scripts:scriptTargetsTab.noCustomEnvironments")}</EmptyTitle>
             <EmptyDescription>
-              Commands and processes use the built-in workspace and repository
-              environments until you add one here.
-            </EmptyDescription>
+              {tI18n("scripts:scriptTargetsTab.commandsAndProcessesUseTheBuiltIn")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -120,22 +113,21 @@ export function ScriptTargetsTab(props: {
                 <div className={sx(targetsTabStyles.cardHeader)}>
                   <div className={sx(targetsTabStyles.cardHeaderTitle)}>
                     <span className={sx(targetsTabStyles.cardTitle)}>
-                      {target.label.trim() || id || `Target ${index + 1}`}
+                      {target.label.trim() || id || tI18n("scripts:scriptTargetsTab.targetValue", { value1: index + 1 })}
                     </span>
                     {usage > 0 ? (
                       <Badge
                         variant="secondary"
                         className={sx(targetsTabStyles.usageBadge)}
                       >
-                        {usage} entr{usage === 1 ? "y" : "ies"}
-                      </Badge>
+          {tI18n("scripts:scriptTargetsTab.entryCount", { count: usage })}
+        </Badge>
                     ) : (
                       <Badge
                         variant="outline"
                         className={sx(targetsTabStyles.usageBadge)}
                       >
-                        Unused
-                      </Badge>
+                        {tI18n("scripts:scriptTargetsTab.unused")}</Badge>
                     )}
                   </div>
                   <Button
@@ -144,11 +136,11 @@ export function ScriptTargetsTab(props: {
                     size="icon"
                     xstyle={targetsTabStyles.deleteButton}
                     onClick={() => props.onRemove(index)}
-                    aria-label="Delete target"
+                    aria-label={tI18n("scripts:scriptTargetsTab.deleteTarget")}
                     title={
                       usage > 0
-                        ? `Referenced by ${usage} command(s) or process(es)`
-                        : "Delete environment"
+                        ? tI18n("scripts:scriptTargetsTab.referencedByValueCommandSOrProcess", { usage: usage })
+                        : tI18n("scripts:scriptTargetsTab.deleteEnvironment")
                     }
                   >
                     <Trash2 className={sx(targetsTabStyles.buttonIcon)} />
@@ -157,30 +149,27 @@ export function ScriptTargetsTab(props: {
 
                 <div className={sx(targetsTabStyles.fieldGrid)}>
                   <label className={sx(targetsTabStyles.field)}>
-                    <span className={sx(targetsTabStyles.fieldLabel)}>ID</span>
+                    <span className={sx(targetsTabStyles.fieldLabel)}>{tI18n("scripts:scriptTargetsTab.id")}</span>
                     <Input
                       value={target.id}
                       onChange={(event) =>
                         props.onFieldChange(index, "id", event.target.value)
                       }
-                      placeholder="api"
+                      placeholder={("api" /* i18n-ignore: execution target identifier example */)}
                       xstyle={targetsTabStyles.monoInput}
                     />
                     <span className={sx(targetsTabStyles.hint)}>
-                      Renaming updates commands and processes that reference
-                      this environment.
-                    </span>
+                      {tI18n("scripts:scriptTargetsTab.renamingUpdatesCommandsAndProcessesThatReference")}</span>
                   </label>
                   <label className={sx(targetsTabStyles.field)}>
                     <span className={sx(targetsTabStyles.fieldLabel)}>
-                      Label
-                    </span>
+                      {tI18n("scripts:scriptTargetsTab.label")}</span>
                     <Input
                       value={target.label}
                       onChange={(event) =>
                         props.onFieldChange(index, "label", event.target.value)
                       }
-                      placeholder="Shown in the Target picker"
+                      placeholder={tI18n("scripts:scriptTargetsTab.shownInTheTargetPicker")}
                     />
                   </label>
                 </div>
@@ -188,8 +177,7 @@ export function ScriptTargetsTab(props: {
                 <div className={sx(targetsTabStyles.fieldGrid)}>
                   <label className={sx(targetsTabStyles.field)}>
                     <span className={sx(targetsTabStyles.fieldLabel)}>
-                      Working directory
-                    </span>
+                      {tI18n("scripts:scriptTargetsTab.workingDirectory")}</span>
                     <Select
                       value={target.cwd}
                       onValueChange={(value) =>
@@ -203,22 +191,20 @@ export function ScriptTargetsTab(props: {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="workspace">
-                          Workspace root
-                        </SelectItem>
-                        <SelectItem value="project">Repository root</SelectItem>
+                          {tI18n("scripts:scriptTargetsTab.workspaceRoot")}</SelectItem>
+                        <SelectItem value="project">{tI18n("scripts:scriptTargetsTab.repositoryRoot")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </label>
                   <label className={sx(targetsTabStyles.field)}>
                     <span className={sx(targetsTabStyles.fieldLabel)}>
-                      Shell
-                    </span>
+                      {tI18n("scripts:scriptTargetsTab.shell")}</span>
                     <Input
                       value={target.shell}
                       onChange={(event) =>
                         props.onFieldChange(index, "shell", event.target.value)
                       }
-                      placeholder="Default login shell"
+                      placeholder={tI18n("scripts:scriptTargetsTab.defaultLoginShell")}
                       xstyle={targetsTabStyles.monoInput}
                     />
                   </label>
@@ -236,12 +222,9 @@ export function ScriptTargetsTab(props: {
 
       <div className={sx(targetsTabStyles.injectedBox)}>
         <p className={sx(targetsTabStyles.injectedTitle)}>
-          Injected environment variables
-        </p>
+          {tI18n("scripts:scriptTargetsTab.injectedEnvironmentVariables")}</p>
         <p className={sx(targetsTabStyles.injectedDescription)}>
-          Stave sets these automatically for every execution; reference them in
-          commands or environment values.
-        </p>
+          {tI18n("scripts:scriptTargetsTab.staveSetsTheseAutomaticallyForEveryExecution")}</p>
         <div className={sx(targetsTabStyles.injectedList)}>
           {ENV_VAR_REFERENCE.map((name) => (
             <Badge
@@ -256,14 +239,8 @@ export function ScriptTargetsTab(props: {
       </div>
 
       <p className={sx(targetsTabStyles.footnote)}>
-        Per-developer overrides live in{" "}
-        <span className={sx(targetsTabStyles.mono)}>
-          .stave/scripts.local.json
-        </span>{" "}
-        and are edited as a file; entries sourced from it are marked{" "}
-        <span className={sx(targetsTabStyles.emphasis)}>Local</span> in the
-        panel.
-      </p>
+          <Trans t={tI18n} i18nKey="scripts:scriptTargetsTab.localOverrideGuidance" values={{}} components={{ code: <span className={sx(targetsTabStyles.mono)} />, emphasis: <span className={sx(targetsTabStyles.emphasis)} /> }} />
+        </p>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { workspaceToastManager } from "@/lib/notifications/toast";
 import { useAppStore } from "@/store/app.store";
 import { flushPendingSnapshotPersists } from "@/store/workspace-session-state";
 import { workspaceSaveStatus } from "@/store/workspace-save-status";
+import { useTranslation } from "@/i18n";
 
 /**
  * Stable id so the notice is a single toast that is updated in place. Every
@@ -10,9 +11,6 @@ import { workspaceSaveStatus } from "@/store/workspace-save-status";
  * otherwise stack another identical toast on the bottom-right rail.
  */
 export const WORKSPACE_SAVE_TOAST_ID = "workspace-save-failure";
-
-const TITLE = "Some workspace changes could not be saved.";
-const DESCRIPTION = "Keep Stave open and retry.";
 
 /**
  * Surfaces the acknowledged-write-queue failure flag on the shared ADS toast
@@ -25,6 +23,7 @@ const DESCRIPTION = "Keep Stave open and retry.";
  * closed as soon as the queue drains.
  */
 export function WorkspaceSaveNotice() {
+  const { t } = useTranslation(["workspace", "common"]);
   const failures = useSyncExternalStore(
     workspaceSaveStatus.subscribe,
     workspaceSaveStatus.getSnapshot,
@@ -59,15 +58,15 @@ export function WorkspaceSaveNotice() {
     }
 
     const content = {
-      title: TITLE,
-      description: DESCRIPTION,
+      title: t("storeMessages.saveNotice.title"),
+      description: t("storeMessages.saveNotice.description"),
       type: "danger",
       priority: "high" as const,
       // Persist while the failure persists; only a successful save (or the
       // user's own dismiss) takes it down.
       timeout: 0,
       actionProps: {
-        children: retrying ? "Saving…" : "Retry save",
+        children: retrying ? t("common:status.saving") : t("storeMessages.saveNotice.retry"),
         disabled: retrying,
         onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
           // Keep the toast up: the failure is still unresolved until the queue
@@ -84,7 +83,7 @@ export function WorkspaceSaveNotice() {
     }
     shownRef.current = true;
     workspaceToastManager.add({ id: WORKSPACE_SAVE_TOAST_ID, ...content });
-  }, [failures, retry, retrying]);
+  }, [failures, retry, retrying, t]);
 
   return null;
 }

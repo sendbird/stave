@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { KickoffBriefEditor } from "./KickoffBriefEditor";
 import {
   AlertTriangle,
@@ -139,6 +140,7 @@ function KickoffBusyState(props: {
   mode: "resolving" | "creating";
   sourceType?: string;
 }) {
+  const { t: tI18n } = useTranslation(["kickoff"]);
   const resolving = props.mode === "resolving";
   return (
     <div
@@ -154,12 +156,12 @@ function KickoffBusyState(props: {
         />
       </div>
       <h3 className={sx(kickoffStyles.busyTitle)}>
-        {resolving ? "Resolving kickoff context" : "Creating your workspace"}
+        {resolving ? tI18n("kickoff:kickoffDialog.resolvingKickoffContext") : tI18n("kickoff:kickoffDialog.creatingYourWorkspace")}
       </h3>
       <p className={sx(kickoffStyles.busyCopy)}>
         {resolving
-          ? "Stave is reading the source and preparing an editable workspace proposal."
-          : "Stave is creating the worktree, seeding its context, and preparing the first task."}
+          ? tI18n("kickoff:kickoffDialog.staveIsReadingTheSourceAndPreparing")
+          : tI18n("kickoff:kickoffDialog.staveIsCreatingTheWorktreeSeedingIts")}
       </p>
       {props.sourceType ? (
         <Badge variant="secondary" className={sx(kickoffStyles.busyBadge)}>
@@ -200,6 +202,7 @@ export function KickoffDialog(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t: tI18n } = useTranslation(["kickoff"]);
   const [
     repositoryPath,
     activeWorkspaceId,
@@ -286,7 +289,7 @@ export function KickoffDialog(props: {
   const clearKickoffRequest = useAgentsUiStore((state) => state.clearKickoffRequest);
   const selectableAgents = useMemo(
     () => selectableMainAgents(customAgents),
-    [customAgents],
+    [customAgents, i18n.resolvedLanguage],
   );
   // Who does the work: the user, or a saved agent as the task's main agent.
   const [who, setWho] = useState<KickoffWho>("me");
@@ -306,7 +309,7 @@ export function KickoffDialog(props: {
             autoRoutingEnabled: settings.autoRoutingEnabled,
           })
         : null,
-    [agentChoice, autoRoutingProfile, firstTaskProvider, selectedAgent, settings.autoRoutingEnabled],
+    [agentChoice, autoRoutingProfile, firstTaskProvider, selectedAgent, settings.autoRoutingEnabled, i18n.resolvedLanguage],
   );
   const meAuto = who === "me" && firstTaskAuto && settings.autoRoutingEnabled;
   // An agent that works in the current workspace gets a new task there; every
@@ -322,7 +325,7 @@ export function KickoffDialog(props: {
     workspacePathById[activeWorkspaceId] ?? repositoryPath ?? undefined;
   const classification = useMemo(
     () => classifyKickoffSource({ input: source, configs: sourceConfigs }),
-    [source, sourceConfigs],
+    [source, sourceConfigs, i18n.resolvedLanguage],
   );
   const requiredMcpServers = classification.config?.mcpServers ?? [];
   const missingMcpServers = requiredMcpServers.filter(
@@ -342,14 +345,14 @@ export function KickoffDialog(props: {
         availabilityByProvider: providerAvailability,
         modelsByProvider: { codex: codexModelCatalog.models },
       }),
-    [codexModelCatalog.models, providerAvailability],
+    [codexModelCatalog.models, providerAvailability, i18n.resolvedLanguage],
   );
   const recommendedFirstTaskModels = useMemo(
     () =>
       buildRecommendedModelSelectorOptions({
         options: firstTaskModelOptions,
       }),
-    [firstTaskModelOptions],
+    [firstTaskModelOptions, i18n.resolvedLanguage],
   );
   const firstTaskAutoOption = useMemo(
     () =>
@@ -357,14 +360,14 @@ export function KickoffDialog(props: {
         providerId: firstTaskProvider,
         stanceLabel: STANCE_LABELS[autoRoutingProfile.stance],
       }),
-    [autoRoutingProfile.stance, firstTaskProvider],
+    [autoRoutingProfile.stance, firstTaskProvider, i18n.resolvedLanguage],
   );
   const firstTaskSelectorOptions = useMemo(
     () =>
       settings.autoRoutingEnabled
         ? [firstTaskAutoOption, ...firstTaskModelOptions]
         : firstTaskModelOptions,
-    [firstTaskAutoOption, firstTaskModelOptions, settings.autoRoutingEnabled],
+    [firstTaskAutoOption, firstTaskModelOptions, settings.autoRoutingEnabled, i18n.resolvedLanguage],
   );
   const providerFallbackHint = describeKickoffProviderFallback({
     draftProvider,
@@ -387,7 +390,7 @@ export function KickoffDialog(props: {
             model: firstTaskModel,
             available: providerAvailability[firstTaskProvider],
           }),
-    [firstTaskAutoOption, firstTaskModel, firstTaskProvider, meAuto, providerAvailability],
+    [firstTaskAutoOption, firstTaskModel, firstTaskProvider, meAuto, providerAvailability, i18n.resolvedLanguage],
   );
   const firstTaskEffortOptions =
     firstTaskProvider === "claude-code"
@@ -563,7 +566,7 @@ export function KickoffDialog(props: {
     try {
       const result = await resolveKickoffProposal({ input: source });
       if (!result.ok || !result.proposal) {
-        setError(result.message ?? "Unable to resolve the kickoff source.");
+        setError(result.message ?? i18n.t("kickoff:additionalCopy.message6"));
         return;
       }
       setDraft(result.proposal);
@@ -572,7 +575,7 @@ export function KickoffDialog(props: {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Unable to resolve the kickoff source.",
+          : i18n.t("kickoff:additionalCopy.message7"),
       );
     } finally {
       setResolving(false);
@@ -714,22 +717,22 @@ export function KickoffDialog(props: {
         ...(agentWorksHere ? { target: { kind: "current-workspace" as const, workspaceId: activeWorkspaceId } } : {}),
       });
       if (!result.ok) {
-        setError(result.message ?? "Unable to create the workspace.");
+        setError(result.message ?? i18n.t("kickoff:additionalCopy.message8"));
         return;
       }
       if (result.noticeLevel === "warning" && result.message) {
-        toast.warning(agentWorksHere ? "Task created with warning" : "Workspace created with warning", {
+        toast.warning(agentWorksHere ? tI18n("kickoff:kickoffDialog.taskCreatedWithWarning") : tI18n("kickoff:kickoffDialog.workspaceCreatedWithWarning"), {
           description: result.message,
         });
       } else {
-        toast.success(agentWorksHere ? "Task started in this workspace" : "Workspace created from kickoff source");
+        toast.success(agentWorksHere ? tI18n("kickoff:kickoffDialog.taskStartedInThisWorkspace") : tI18n("kickoff:kickoffDialog.workspaceCreatedFromKickoffSource"));
       }
       props.onOpenChange(false);
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Unable to create the workspace.",
+          : i18n.t("kickoff:additionalCopy.message9"),
       );
     } finally {
       setCreating(false);
@@ -775,19 +778,19 @@ export function KickoffDialog(props: {
               <Rocket className={sx(kickoffStyles.headerMarkIcon)} />
             </div>
             <div className={sx(kickoffStyles.headerCopy)}>
-              <DialogTitle>Kick off workspace</DialogTitle>
+              <DialogTitle>{tI18n("kickoff:kickoffDialog.kickOffWorkspace")}</DialogTitle>
               <DialogDescription
                 className={sx(kickoffStyles.headerDescription)}
               >
                 {phase === "source"
-                  ? "Turn a work source into an editable workspace proposal."
-                  : "Review what Stave found before creating the worktree."}
+                  ? tI18n("kickoff:kickoffDialog.turnAWorkSourceIntoAnEditable")
+                  : tI18n("kickoff:kickoffDialog.reviewWhatStaveFoundBeforeCreatingThe")}
               </DialogDescription>
             </div>
           </div>
           <div
             className={sx(kickoffStyles.steps)}
-            aria-label="Kickoff progress"
+            aria-label={tI18n("kickoff:kickoffDialog.kickoffProgress")}
           >
             <span
               className={sx(
@@ -797,8 +800,7 @@ export function KickoffDialog(props: {
               )}
               aria-current={phase === "source" ? "step" : undefined}
             >
-              1. Source
-            </span>
+              {tI18n("kickoff:kickoffDialog.text1")}</span>
             <span className={sx(kickoffStyles.stepDivider)} aria-hidden="true" />
             <span
               className={sx(
@@ -808,8 +810,7 @@ export function KickoffDialog(props: {
               )}
               aria-current={phase === "preview" ? "step" : undefined}
             >
-              2. Review
-            </span>
+              {tI18n("kickoff:kickoffDialog.text2")}</span>
           </div>
         </DialogHeader>
 
@@ -825,16 +826,14 @@ export function KickoffDialog(props: {
                 variant="outline"
                 onClick={() => cancelKickoffResolution()}
               >
-                Cancel resolution
-              </Button>
+                {tI18n("kickoff:kickoffDialog.cancelResolution")}</Button>
             </DialogFooter>
           </>
         ) : creating ? (
           <>
             <KickoffBusyState mode="creating" />
             <div className={sx(kickoffStyles.creatingNote)}>
-              Keep Stave open while the worktree is prepared.
-            </div>
+              {tI18n("kickoff:kickoffDialog.keepStaveOpenWhileTheWorktreeIs")}</div>
           </>
         ) : phase === "source" ? (
           <>
@@ -846,10 +845,9 @@ export function KickoffDialog(props: {
                       htmlFor="kickoff-source"
                       className={sx(kickoffStyles.label)}
                     >
-                      Work source
-                    </label>
+                      {tI18n("kickoff:kickoffDialog.workSource")}</label>
                     <Badge variant="outline">
-                      {classification.config?.label ?? "Free-form prompt"}
+                      {classification.config?.label ?? tI18n("kickoff:kickoffDialog.freeFormPrompt")}
                     </Badge>
                   </div>
                   <Textarea
@@ -857,13 +855,11 @@ export function KickoffDialog(props: {
                     autoFocus
                     value={source}
                     onChange={(event) => setSource(event.target.value)}
-                    placeholder="Paste a Jira issue, Slack thread, PRD, Figma link, report, or describe the work…"
+                    placeholder={tI18n("kickoff:kickoffDialog.pasteAJiraIssueSlackThreadPrd")}
                     xstyle={kickoffStyles.sourceTextarea}
                   />
                   <p className={sx(kickoffStyles.hint)}>
-                    Stave will extract the workspace name, branch, linked
-                    context, and a ready-to-run first task.
-                  </p>
+                    {tI18n("kickoff:kickoffDialog.staveWillExtractTheWorkspaceNameBranch")}</p>
                 </div>
 
                 <KickoffSourceWho
@@ -879,9 +875,7 @@ export function KickoffDialog(props: {
                     hint:
                       startBlocked ??
                       (agentRoute && selectedAgent
-                        ? `${PROVIDER_LABELS[agentRoute.providerId] ?? agentRoute.providerId} · ${describeAssignRouteModel(agentRoute)} · ${describeAgentPermissionForTask(selectedAgent.permission)} — ${
-                            agentWorksHere ? "starts a task in this workspace" : "creates the worktree and starts"
-                          } now, without the review step.`
+                        ? tI18n("kickoff:kickoffDialog.valueValueValueValueNowWithoutThe", { value1: PROVIDER_LABELS[agentRoute.providerId] ?? agentRoute.providerId, value2: describeAssignRouteModel(agentRoute), value3: describeAgentPermissionForTask(selectedAgent.permission), value4: agentWorksHere ? "starts a task in this workspace" : "creates the worktree and starts" })
                         : null),
                     onStart: () => void handleStartNow(),
                   }}
@@ -900,8 +894,7 @@ export function KickoffDialog(props: {
                           className={sx(kickoffStyles.warningIcon)}
                         />
                       )}
-                      MCP dependencies
-                    </div>
+                      {tI18n("kickoff:kickoffDialog.mcpDependencies")}</div>
                     <div className={sx(kickoffStyles.mcpBadges)}>
                       {requiredMcpServers.map((server) => {
                         const available = discoveredMcpServers.has(
@@ -914,19 +907,17 @@ export function KickoffDialog(props: {
                           >
                             {server} ·{" "}
                             {available
-                              ? "found"
+                              ? tI18n("kickoff:kickoffDialog.found")
                               : mcpDiscoveryPending
-                                ? "checking"
-                                : "missing"}
+                                ? tI18n("kickoff:kickoffDialog.checking")
+                                : tI18n("kickoff:kickoffDialog.missing")}
                           </Badge>
                         );
                       })}
                     </div>
                     {missingMcpServers.length > 0 && !mcpDiscoveryPending ? (
                       <p className={sx(kickoffStyles.hintSpaced)}>
-                        Missing servers do not block creation. Resolution falls
-                        back to the source text and URL metadata.
-                      </p>
+                        {tI18n("kickoff:kickoffDialog.missingServersDoNotBlockCreationResolution")}</p>
                     ) : null}
                   </div>
                 ) : null}
@@ -945,16 +936,14 @@ export function KickoffDialog(props: {
                 disabled={!source.trim()}
                 onClick={handleSkipAi}
               >
-                Skip AI
-              </Button>
+                {tI18n("kickoff:kickoffDialog.skipAi")}</Button>
               <Button
                 type="button"
                 disabled={!source.trim()}
                 onClick={() => void handleResolve()}
               >
                 <Sparkles className={sx(kickoffStyles.buttonIcon)} />
-                Resolve source
-              </Button>
+                {tI18n("kickoff:kickoffDialog.resolveSource")}</Button>
             </DialogFooter>
           </>
         ) : draft ? (
@@ -965,7 +954,7 @@ export function KickoffDialog(props: {
                   <div className={sx(kickoffStyles.degradedNote)}>
                     <AlertTriangle className={sx(kickoffStyles.degradedIcon)} />
                     <p className={sx(kickoffStyles.degradedCopy)}>
-                      {draft.resolutionNote ?? "AI interpretation was unavailable. Review the task before starting."}
+                      {draft.resolutionNote ?? tI18n("kickoff:kickoffDialog.aiInterpretationWasUnavailableReviewTheTask")}
                     </p>
                   </div>
                 ) : null}
@@ -973,7 +962,7 @@ export function KickoffDialog(props: {
                 {draft.sourceEvidence ? (
                   <p className={sx(kickoffStyles.hint)}>
                     {draft.sourceEvidence.detail}
-                    {draft.sourceEvidence.truncated ? " The interpretation used shortened input. The full supplied input remains in the first-task prompt." : ""}
+                    {draft.sourceEvidence.truncated ? tI18n("kickoff:kickoffDialog.theInterpretationUsedShortenedInputTheFull") : ""}
                   </p>
                 ) : null}
                 <section
@@ -985,12 +974,9 @@ export function KickoffDialog(props: {
                       id="kickoff-workspace-heading"
                       className={sx(kickoffStyles.sectionTitle)}
                     >
-                      Workspace details
-                    </h3>
+                      {tI18n("kickoff:kickoffDialog.workspaceDetails")}</h3>
                     <p className={sx(kickoffStyles.sectionCopy)}>
-                      Confirm where the worktree starts and how it appears in
-                      Stave.
-                    </p>
+                      {tI18n("kickoff:kickoffDialog.confirmWhereTheWorktreeStartsAndHow")}</p>
                   </div>
                   <div className={sx(kickoffStyles.twoColumn)}>
                     <div className={sx(kickoffStyles.labeledField)}>
@@ -998,8 +984,7 @@ export function KickoffDialog(props: {
                         htmlFor="kickoff-branch-name"
                         className={sx(kickoffStyles.label)}
                       >
-                        Branch name
-                      </label>
+                        {tI18n("kickoff:kickoffDialog.branchName")}</label>
                       <Input
                         id="kickoff-branch-name"
                         value={draft.branchName}
@@ -1020,8 +1005,8 @@ export function KickoffDialog(props: {
                         role={sanitizedBranchName ? undefined : "alert"}
                       >
                         {sanitizedBranchName
-                          ? `Creates ${sanitizedBranchName}`
-                          : "Enter a valid git branch name."}
+                          ? tI18n("kickoff:kickoffDialog.createsValue", { sanitizedBranchName: sanitizedBranchName })
+                          : tI18n("kickoff:kickoffDialog.enterAValidGitBranchName")}
                       </p>
                     </div>
                     <div className={sx(kickoffStyles.labeledField)}>
@@ -1029,8 +1014,7 @@ export function KickoffDialog(props: {
                         htmlFor="kickoff-workspace-label"
                         className={sx(kickoffStyles.label)}
                       >
-                        Workspace label
-                      </label>
+                        {tI18n("kickoff:kickoffDialog.workspaceLabel")}</label>
                       <Input
                         id="kickoff-workspace-label"
                         value={draft.workspaceLabel}
@@ -1044,7 +1028,7 @@ export function KickoffDialog(props: {
                     </div>
                   </div>
                   <div className={sx(kickoffStyles.field)}>
-                    <p className={sx(kickoffStyles.label)}>Base branch</p>
+                    <p className={sx(kickoffStyles.label)}>{tI18n("kickoff:kickoffDialog.baseBranch")}</p>
                     <CreateWorkspaceBranchPicker
                       value={fromBranch}
                       valueScope={fromBranchKind}
@@ -1059,8 +1043,7 @@ export function KickoffDialog(props: {
                     />
                   </div>
                   <label className={sx(kickoffStyles.labeledField)}>
-                    Source summary
-                    <Textarea
+                    {tI18n("kickoff:kickoffDialog.sourceSummary")}<Textarea
                       value={draft.sourceSummary}
                       onChange={(event) =>
                         setDraft({
@@ -1083,23 +1066,18 @@ export function KickoffDialog(props: {
                         id="kickoff-information-heading"
                         className={sx(kickoffStyles.sectionTitle)}
                       >
-                        Linked context
-                      </h3>
+                        {tI18n("kickoff:kickoffDialog.linkedContext")}</h3>
                       <p className={sx(kickoffStyles.sectionCopy)}>
-                        These items will be added to the workspace Information
-                        panel.
-                      </p>
+                        {tI18n("kickoff:kickoffDialog.theseItemsWillBeAddedToThe")}</p>
                     </div>
                     <Badge variant="secondary">
                       {draft.panelEntries.length}{" "}
-                      {draft.panelEntries.length === 1 ? "item" : "items"}
+                      {draft.panelEntries.length === 1 ? tI18n("kickoff:kickoffDialog.item") : tI18n("kickoff:kickoffDialog.items")}
                     </Badge>
                   </div>
                   {draft.panelEntries.length === 0 ? (
                     <p className={sx(kickoffStyles.emptyNote)}>
-                      No structured items were found. The source remains in the
-                      first task prompt.
-                    </p>
+                      {tI18n("kickoff:kickoffDialog.noStructuredItemsWereFoundTheSource")}</p>
                   ) : (
                     <Accordion multiple>
                       {draft.panelEntries.map((entry, index) => (
@@ -1123,7 +1101,7 @@ export function KickoffDialog(props: {
                                   <span
                                     className={sx(kickoffStyles.entryTitle)}
                                   >
-                                    {entry.title || "Untitled item"}
+                                    {entry.title || tI18n("kickoff:kickoffDialog.untitledItem")}
                                   </span>
                                   <span className={sx(kickoffStyles.entryMeta)}>
                                     {entry.reference || entry.url}
@@ -1136,7 +1114,7 @@ export function KickoffDialog(props: {
                               variant="ghost"
                               size="icon-sm"
                               xstyle={kickoffStyles.entryRemove}
-                              aria-label={`Remove ${panelTargetLabel(entry.target)} item`}
+                              aria-label={tI18n("kickoff:kickoffDialog.removeValueItem", { value1: panelTargetLabel(entry.target) })}
                               onClick={() =>
                                 setDraft({
                                   ...draft,
@@ -1156,8 +1134,7 @@ export function KickoffDialog(props: {
                               <label
                                 className={sx(kickoffStyles.labeledFieldTight)}
                               >
-                                Title
-                                <Input
+                                {tI18n("kickoff:kickoffDialog.title")}<Input
                                   value={entry.title}
                                   onChange={(event) =>
                                     patchPanelEntry(index, {
@@ -1169,8 +1146,7 @@ export function KickoffDialog(props: {
                               <label
                                 className={sx(kickoffStyles.labeledFieldTight)}
                               >
-                                Reference
-                                <Input
+                                {tI18n("kickoff:kickoffDialog.reference")}<Input
                                   value={entry.reference}
                                   onChange={(event) =>
                                     patchPanelEntry(index, {
@@ -1183,8 +1159,7 @@ export function KickoffDialog(props: {
                             <label
                               className={sx(kickoffStyles.labeledFieldTight)}
                             >
-                              URL
-                              <Input
+                              {tI18n("kickoff:kickoffDialog.url")}<Input
                                 value={entry.url}
                                 onChange={(event) =>
                                   patchPanelEntry(index, {
@@ -1196,8 +1171,7 @@ export function KickoffDialog(props: {
                             <label
                               className={sx(kickoffStyles.labeledFieldTight)}
                             >
-                              Note
-                              <Textarea
+                              {tI18n("kickoff:kickoffDialog.note")}<Textarea
                                 value={entry.note}
                                 onChange={(event) =>
                                   patchPanelEntry(index, {
@@ -1219,8 +1193,7 @@ export function KickoffDialog(props: {
                           htmlFor="kickoff-notes"
                           className={sx(kickoffStyles.label)}
                         >
-                          Notes
-                        </label>
+                          {tI18n("kickoff:kickoffDialog.notes")}</label>
                       </div>
                       <Textarea
                         id="kickoff-notes"
@@ -1228,13 +1201,13 @@ export function KickoffDialog(props: {
                         onChange={(event) =>
                           setDraft({ ...draft, notes: event.target.value })
                         }
-                        placeholder="Optional workspace notes"
+                        placeholder={tI18n("kickoff:kickoffDialog.optionalWorkspaceNotes")}
                         xstyle={kickoffStyles.notesTextarea}
                       />
                     </div>
                     <div className={sx(kickoffStyles.field)}>
                       <div className={sx(kickoffStyles.todoHeaderRow)}>
-                        <p className={sx(kickoffStyles.label)}>Todos</p>
+                        <p className={sx(kickoffStyles.label)}>{tI18n("kickoff:kickoffDialog.todos")}</p>
                         <Button
                           type="button"
                           variant="ghost"
@@ -1248,13 +1221,11 @@ export function KickoffDialog(props: {
                           }
                         >
                           <Plus className={sx(kickoffStyles.smallIcon)} />
-                          Add todo
-                        </Button>
+                          {tI18n("kickoff:kickoffDialog.addTodo")}</Button>
                       </div>
                       {draft.todos.length === 0 ? (
                         <p className={sx(kickoffStyles.emptyNoteSmall)}>
-                          No todos in this proposal.
-                        </p>
+                          {tI18n("kickoff:kickoffDialog.noTodosInThisProposal")}</p>
                       ) : (
                         <div className={sx(kickoffStyles.todoList)}>
                           {draft.todos.map((todo, index) => (
@@ -1264,7 +1235,7 @@ export function KickoffDialog(props: {
                             >
                               <Input
                                 value={todo}
-                                aria-label={`Todo ${index + 1}`}
+                                aria-label={tI18n("kickoff:kickoffDialog.todoValue", { value1: index + 1 })}
                                 onChange={(event) =>
                                   setDraft({
                                     ...draft,
@@ -1280,7 +1251,7 @@ export function KickoffDialog(props: {
                                 type="button"
                                 variant="ghost"
                                 size="icon-sm"
-                                aria-label={`Remove todo ${index + 1}`}
+                                aria-label={tI18n("kickoff:kickoffDialog.removeTodoValue", { value1: index + 1 })}
                                 onClick={() =>
                                   setDraft({
                                     ...draft,
@@ -1310,22 +1281,19 @@ export function KickoffDialog(props: {
                         id="kickoff-task-heading"
                         className={sx(kickoffStyles.sectionTitle)}
                       >
-                        First task
-                      </h3>
+                        {tI18n("kickoff:kickoffDialog.firstTask")}</h3>
                       <p className={sx(kickoffStyles.sectionCopy)}>
-                        Choose who does the work, how it runs, and where.
-                      </p>
+                        {tI18n("kickoff:kickoffDialog.chooseWhoDoesTheWorkHowIt")}</p>
                     </div>
                     <div className={sx(kickoffStyles.startToggle)}>
                       <label
                         htmlFor="kickoff-start-task"
                         className={sx(kickoffStyles.label)}
                       >
-                        Start now
-                      </label>
+                        {tI18n("kickoff:kickoffDialog.startNow")}</label>
                       <Switch
                         id="kickoff-start-task"
-                        aria-label="Start now"
+                        aria-label={tI18n("kickoff:kickoffDialog.startNow")}
                         checked={startFirstTask}
                         onCheckedChange={setStartFirstTask}
                       />
@@ -1336,8 +1304,7 @@ export function KickoffDialog(props: {
                       id="kickoff-first-task-who-label"
                       className={sx(kickoffStyles.label)}
                     >
-                      Who
-                    </p>
+                      {tI18n("kickoff:kickoffDialog.who")}</p>
                     <Select
                       value={who === "agent" && selectedAgent ? selectedAgent.id : "me"}
                       disabled={creating}
@@ -1357,7 +1324,7 @@ export function KickoffDialog(props: {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="me">Me</SelectItem>
+                        <SelectItem value="me">{tI18n("kickoff:kickoffDialog.me")}</SelectItem>
                         {selectableAgents.map((candidate) => (
                           <SelectItem key={candidate.id} value={candidate.id}>
                             {candidate.name}
@@ -1369,7 +1336,7 @@ export function KickoffDialog(props: {
                   {who === "agent" && selectedAgent && agentRoute ? (
                     <div className={sx(kickoffStyles.whoBlock)}>
                       <p className={sx(kickoffStyles.agentSettingsLine)}>
-                        Agent settings:{" "}
+                        {tI18n("kickoff:kickoffDialog.agentSettings")}{" "}
                         {PROVIDER_LABELS[agentRoute.providerId] ?? agentRoute.providerId} ·{" "}
                         {describeAssignRouteModel(agentRoute)} ·{" "}
                         {describeAgentPermissionForTask(selectedAgent.permission)}
@@ -1379,8 +1346,7 @@ export function KickoffDialog(props: {
                           id="kickoff-first-task-runson-label"
                           className={sx(kickoffStyles.label)}
                         >
-                          Runs on
-                        </p>
+                          {tI18n("kickoff:kickoffDialog.runsOn")}</p>
                         <Select
                           value={
                             selectedAgent.model.mode === "fixed"
@@ -1400,7 +1366,7 @@ export function KickoffDialog(props: {
                           </SelectTrigger>
                           <SelectContent>
                             {selectedAgent.model.mode === "fixed" ? null : (
-                              <SelectItem value="auto">Auto-routing</SelectItem>
+                              <SelectItem value="auto">{tI18n("kickoff:kickoffDialog.autoRouting")}</SelectItem>
                             )}
                             {listProviderIds().map((id) => (
                               <SelectItem key={id} value={id}>
@@ -1417,7 +1383,7 @@ export function KickoffDialog(props: {
                   ) : (
                   <div className={sx(kickoffStyles.runtimeGrid, meAuto && kickoffStyles.runtimeGridSingle)}>
                     <div className={sx(kickoffStyles.field)}>
-                      <p className={sx(kickoffStyles.label)}>Model</p>
+                      <p className={sx(kickoffStyles.label)}>{tI18n("kickoff:kickoffDialog.model")}</p>
                       <ModelSelector
                         value={selectedFirstTaskModel}
                         options={firstTaskSelectorOptions}
@@ -1430,7 +1396,7 @@ export function KickoffDialog(props: {
                         triggerClassName={sx(
                           kickoffStyles.modelSelectorTrigger,
                         )}
-                        triggerAriaLabel={`First task model: ${selectedFirstTaskModel.label}`}
+                        triggerAriaLabel={tI18n("kickoff:kickoffDialog.firstTaskModelValue", { value1: selectedFirstTaskModel.label })}
                         menuClassName={sx(kickoffStyles.modelSelectorMenu)}
                       />
                     </div>
@@ -1441,8 +1407,7 @@ export function KickoffDialog(props: {
                             id="kickoff-first-task-effort-label"
                             className={sx(kickoffStyles.label)}
                           >
-                            Effort
-                          </p>
+                            {tI18n("kickoff:kickoffDialog.effort")}</p>
                           <Select
                             value={effectiveFirstTaskEffort}
                             onValueChange={(value) =>
@@ -1473,8 +1438,7 @@ export function KickoffDialog(props: {
                               id="kickoff-first-task-fast-label"
                               className={sx(kickoffStyles.label)}
                             >
-                              Fast mode
-                            </p>
+                              {tI18n("kickoff:kickoffDialog.fastMode")}</p>
                             <Select
                               value={firstTaskFastMode ? "on" : "off"}
                               onValueChange={(value) =>
@@ -1488,8 +1452,8 @@ export function KickoffDialog(props: {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="off">Off</SelectItem>
-                                <SelectItem value="on">On</SelectItem>
+                                <SelectItem value="off">{tI18n("kickoff:kickoffDialog.off")}</SelectItem>
+                                <SelectItem value="on">{tI18n("kickoff:kickoffDialog.on")}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1499,11 +1463,11 @@ export function KickoffDialog(props: {
                   </div>
                   )}
                   <div className={sx(kickoffStyles.field)}>
-                    <p className={sx(kickoffStyles.label)}>Where</p>
+                    <p className={sx(kickoffStyles.label)}>{tI18n("kickoff:kickoffDialog.where")}</p>
                     <p className={sx(kickoffStyles.hint)}>
                       {agentWorksHere
-                        ? `A new task in the current workspace${activeBranch ? ` (${activeBranch})` : ""}. This agent works where you are, so the branch, base and linked context above are not used.`
-                        : `A new worktree on ${sanitizedBranchName || draft.branchName || "the branch above"} from ${fromBranch}. Change the branch and base under Workspace details.`}
+                        ? tI18n("kickoff:kickoffDialog.aNewTaskInTheCurrentWorkspacevalue", { value1: activeBranch ? ` (${activeBranch})` : "" })
+                        : tI18n("kickoff:kickoffDialog.aNewWorktreeOnValueFromValue", { value1: sanitizedBranchName || draft.branchName || "the branch above", fromBranch: fromBranch })}
                     </p>
                   </div>
                   {who === "agent" && startBlocked ? (
@@ -1513,9 +1477,7 @@ export function KickoffDialog(props: {
                   ) : null}
                   {who === "me" && !firstTaskProviderAvailable && !meAuto ? (
                     <p className={sx(kickoffStyles.errorHint)} role="alert">
-                      This provider is unavailable. Choose another model before
-                      starting the task.
-                    </p>
+                      {tI18n("kickoff:kickoffDialog.thisProviderIsUnavailableChooseAnotherModel")}</p>
                   ) : null}
                   {who === "me" && providerFallbackHint ? (
                     <p className={sx(kickoffStyles.hint)}>
@@ -1525,15 +1487,14 @@ export function KickoffDialog(props: {
                   {who === "me" && (firstTaskProviderAvailable || meAuto) ? (
                     <p className={sx(kickoffStyles.hint)}>
                       {meAuto
-                        ? "Stave Auto stays on for this task and picks the model and effort for each turn, starting with the first."
+                        ? tI18n("kickoff:kickoffDialog.staveAutoStaysOnForThisTask")
                         : firstTaskProvider === "codex"
-                          ? "The model, effort, and Fast mode stay attached to this task, even if you leave the prompt ready instead of starting now."
-                          : "The model and effort stay attached to this task, even if you leave the prompt ready instead of starting now."}
+                          ? tI18n("kickoff:kickoffDialog.theModelEffortAndFastModeStay")
+                          : tI18n("kickoff:kickoffDialog.theModelAndEffortStayAttachedTo")}
                     </p>
                   ) : null}
                   <label className={sx(kickoffStyles.labeledField)}>
-                    Task title
-                    <Input
+                    {tI18n("kickoff:kickoffDialog.taskTitle")}<Input
                       value={draft.firstTaskTitle}
                       onChange={(event) =>
                         setDraft({
@@ -1544,8 +1505,7 @@ export function KickoffDialog(props: {
                     />
                   </label>
                   <label className={sx(kickoffStyles.labeledField)}>
-                    Task prompt
-                    <Textarea
+                    {tI18n("kickoff:kickoffDialog.taskPrompt")}<Textarea
                       value={draft.firstTaskPrompt}
                       onChange={(event) =>
                         setDraft({
@@ -1557,13 +1517,12 @@ export function KickoffDialog(props: {
                     />
                   </label>
                   <label className={sx(kickoffStyles.labeledField)}>
-                    Additional instructions
-                    <Textarea
+                    {tI18n("kickoff:kickoffDialog.additionalInstructions")}<Textarea
                       value={extraInstructions}
                       onChange={(event) =>
                         setExtraInstructions(event.target.value)
                       }
-                      placeholder="Optional constraints or context to append to the first task."
+                      placeholder={tI18n("kickoff:kickoffDialog.optionalConstraintsOrContextToAppendTo")}
                       xstyle={kickoffStyles.instructionsTextarea}
                     />
                   </label>
@@ -1587,15 +1546,14 @@ export function KickoffDialog(props: {
                 }}
               >
                 <ArrowLeft className={sx(kickoffStyles.buttonIcon)} />
-                Back
-              </Button>
+                {tI18n("kickoff:kickoffDialog.back")}</Button>
               <Button
                 type="button"
                 disabled={!sanitizedBranchName || (startFirstTask && startBlocked !== null)}
                 onClick={() => void handleCreate()}
               >
                 <Rocket className={sx(kickoffStyles.buttonIcon)} />
-                {!startFirstTask ? "Create workspace" : who === "agent" && selectedAgent ? "Assign" : "Create and start"}
+                {!startFirstTask ? tI18n("kickoff:kickoffDialog.createWorkspace") : who === "agent" && selectedAgent ? tI18n("kickoff:kickoffDialog.assign") : tI18n("kickoff:kickoffDialog.createAndStart")}
               </Button>
             </DialogFooter>
           </>

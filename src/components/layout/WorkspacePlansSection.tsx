@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -71,6 +72,7 @@ async function listWorkspacePlanEntries(
 }
 
 function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const {
     workspacePath,
     refreshNonce,
@@ -105,7 +107,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
     } catch {
       if (listRequestIdRef.current === requestId) {
         setEntries([]);
-        toast.error("Could not load plans.");
+        toast.error(tI18n("workspace:workspacePlansSection.couldNotLoadPlans"));
       }
     } finally {
       if (listRequestIdRef.current === requestId) {
@@ -127,7 +129,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
 
   const createPlan = useCallback(async () => {
     if (!workspacePath || !args.taskId) {
-      toast.error("Open a task before creating a plan.");
+      toast.error(tI18n("workspace:workspacePlansSection.openATaskBeforeCreatingAPlan"));
       return;
     }
     setCreatingPlan(true);
@@ -139,12 +141,12 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
           "# Plan\n\n## Outcome\n\nDescribe the intended result.\n\n## Work\n\n- [ ] First action\n\n## Verification\n\n- [ ] Confirm the outcome\n",
       });
       if (!filePath) {
-        toast.error("Could not create the plan file.");
+        toast.error(tI18n("workspace:workspacePlansSection.couldNotCreateThePlanFile"));
         return;
       }
       await loadPlans();
       await onOpenFile({ filePath });
-      toast.success("Plan created");
+      toast.success(tI18n("workspace:workspacePlansSection.planCreated"));
     } finally {
       setCreatingPlan(false);
     }
@@ -163,7 +165,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
       path: `${normalizedRoot}/${WORKSPACE_PLANS_DIRECTORY}`,
     });
     if (result && !result.ok) {
-      toast.error("Could not reveal the plans folder.");
+      toast.error(tI18n("workspace:workspacePlansSection.couldNotRevealThePlansFolder"));
     }
   }, [workspacePath]);
 
@@ -180,7 +182,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
         filePath: target.filePath,
       });
       if (!deleted) {
-        toast.error("Could not delete the plan.");
+        toast.error(tI18n("workspace:workspacePlansSection.couldNotDeleteThePlan"));
         return;
       }
 
@@ -191,10 +193,10 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
       try {
         await onPlanDeleted?.({ filePath: target.filePath });
       } catch {
-        toast.error("Plan deleted, but the workspace view could not refresh.");
+        toast.error(tI18n("workspace:workspacePlansSection.planDeletedButTheWorkspaceViewCould"));
       }
       await loadPlans();
-      toast.success("Plan deleted", { description: target.label });
+      toast.success(tI18n("workspace:workspacePlansSection.planDeleted"), { description: target.label });
     } finally {
       setDeletingPlan(false);
     }
@@ -206,15 +208,14 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
         {!embedded ? (
           <div className={sx(planStyles.headerRow)}>
             <div className={sx(planStyles.headerText)}>
-              <p className={sx(planStyles.headerTitle)}>Plans</p>
+              <p className={sx(planStyles.headerTitle)}>{tI18n("workspace:workspacePlansSection.plans")}</p>
               <p className={sx(planStyles.headerHint)}>
-                Open the saved plan markdown directly in the editor.
-              </p>
+                {tI18n("workspace:workspacePlansSection.openTheSavedPlanMarkdownDirectlyIn")}</p>
             </div>
             <div className={sx(planStyles.headerActions)}>
               <Badge variant="outline" className={sx(planStyles.headerBadge)}>
-                {entries.length} saved
-              </Badge>
+          {tI18n("workspace:workspacePlansSection.savedCount", { count: entries.length })}
+        </Badge>
               <Button
                 type="button"
                 variant="outline"
@@ -228,24 +229,21 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                     listLoading && planStyles.spinning,
                   )}
                 />
-                Refresh
-              </Button>
+                {tI18n("workspace:workspacePlansSection.refresh")}</Button>
             </div>
           </div>
         ) : null}
 
         {!workspacePath ? (
           <div className={sx(planStyles.unavailable)}>
-            Workspace path unavailable, so plans cannot be listed here.
-          </div>
+            {tI18n("workspace:workspacePlansSection.workspacePathUnavailableSoPlansCannotBe")}</div>
         ) : listLoading && entries.length === 0 ? (
           <div className={sx(planStyles.loading)} role="status">
             <RefreshCcw
               className={sx(planStyles.smallIcon, planStyles.spinning)}
               aria-hidden="true"
             />
-            Loading plans…
-          </div>
+            {tI18n("workspace:workspacePlansSection.loadingPlans")}</div>
         ) : entries.length === 0 ? (
           // ADS `EmptyState`, composed: centered medallion over the copy
           // block over the actions. The hand-rolled version top-aligned the
@@ -259,11 +257,9 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
               <ClipboardCheck className={sx(planStyles.emptyIcon)} />
             </EmptyState.Media>
             <EmptyState.Header>
-              <EmptyState.Title>Start with a lightweight plan</EmptyState.Title>
+              <EmptyState.Title>{tI18n("workspace:workspacePlansSection.startWithALightweightPlan")}</EmptyState.Title>
               <EmptyState.Description>
-                Plans stay as editable markdown and can promote checklist items
-                into workspace todos.
-              </EmptyState.Description>
+                {tI18n("workspace:workspacePlansSection.plansStayAsEditableMarkdownAndCan")}</EmptyState.Description>
             </EmptyState.Header>
             <EmptyState.Content xstyle={planStyles.emptyActions}>
               <Button
@@ -279,8 +275,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 ) : (
                   <FilePlus2 className={sx(planStyles.smallIcon)} />
                 )}
-                Create plan
-              </Button>
+                {tI18n("workspace:workspacePlansSection.createPlan")}</Button>
               <Button
                 type="button"
                 size="sm"
@@ -288,8 +283,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 onClick={() => void revealPlansFolder()}
               >
                 <FolderOpen className={sx(planStyles.smallIcon)} />
-                Reveal folder
-              </Button>
+                {tI18n("workspace:workspacePlansSection.revealFolder")}</Button>
             </EmptyState.Content>
           </EmptyState.Root>
         ) : (
@@ -324,13 +318,13 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                       {entry.label}
                     </AdsButton>
                     {entry.source === "legacy" ? (
-                      <Badge variant="outline">legacy</Badge>
+                      <Badge variant="outline">{tI18n("workspace:workspacePlansSection.legacy")}</Badge>
                     ) : null}
                   </div>
                   <div className={sx(informationRow.meta)}>
                     <span className={sx(informationRow.metaText)}>
-                      Task {entry.taskIdPrefix || "unknown"}
-                    </span>
+          {tI18n("workspace:workspacePlansSection.taskReference", { id: entry.taskIdPrefix || tI18n("workspace:workspacePlansSection.unknown") })}
+        </span>
                   </div>
                 </div>
                 <div className={sx(informationRow.trail)}>
@@ -342,8 +336,8 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                         void onImportTodos({ filePath: entry.filePath })
                       }
                       xstyle={planStyles.rowAction}
-                      title="Import checklist items as todos"
-                      aria-label={`Import checklist items from ${entry.label} as todos`}
+                      title={tI18n("workspace:workspacePlansSection.importChecklistItemsAsTodos")}
+                      aria-label={tI18n("workspace:workspacePlansSection.importChecklistItemsFromValueAsTodos", { value1: entry.label })}
                     >
                       <ListPlus
                         className={sx(planStyles.rowActionIcon)}
@@ -356,8 +350,8 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                     type="button"
                     onClick={() => setDeleteTarget(entry)}
                     xstyle={[planStyles.rowAction, planStyles.rowActionDanger]}
-                    title="Delete saved plan"
-                    aria-label={`Delete plan ${entry.label}`}
+                    title={tI18n("workspace:workspacePlansSection.deleteSavedPlan")}
+                    aria-label={tI18n("workspace:workspacePlansSection.deletePlanValue", { value1: entry.label })}
                   >
                     <Trash2
                       className={sx(planStyles.rowActionIcon)}
@@ -372,13 +366,13 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
       </div>
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Delete saved plan?"
+        title={tI18n("workspace:workspacePlansSection.deleteSavedPlan2")}
         description={
           deleteTarget
-            ? `${deleteTarget.label} will be permanently removed from this workspace and closed if it is open. This cannot be undone.`
+            ? tI18n("workspace:workspacePlansSection.valueWillBePermanentlyRemovedFromThis", { value1: deleteTarget.label })
             : undefined
         }
-        confirmLabel="Delete plan"
+        confirmLabel={tI18n("workspace:workspacePlansSection.deletePlan")}
         loading={deletingPlan}
         onConfirm={() => void confirmDeletePlan()}
         onCancel={() => setDeleteTarget(null)}

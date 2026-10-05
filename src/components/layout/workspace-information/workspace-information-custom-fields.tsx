@@ -1,3 +1,5 @@
+import { formatDate } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { CalendarIcon, ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -24,16 +26,15 @@ import {
 import { sx } from "@/components/ads/utils/stylex";
 import { workspaceInformationPanelStyles as styles } from "../workspace-information-panel.styles";
 import { openExternalUrl } from "./workspace-information-link-rows";
-
 function CustomFieldDatePicker(props: {
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const selected = props.value
     ? new Date(props.value + "T00:00:00")
     : undefined;
   const isValid = selected && !Number.isNaN(selected.getTime());
-
   return (
     <Popover>
       <PopoverTrigger
@@ -50,12 +51,12 @@ function CustomFieldDatePicker(props: {
       >
         <CalendarIcon className={sx(styles.datePickerIcon)} />
         {isValid
-          ? selected.toLocaleDateString(undefined, {
+          ? formatDate(selected, {
               year: "numeric",
               month: "short",
               day: "numeric",
             })
-          : "Pick a date"}
+          : tI18n("workspace:workspaceInformationCustomFields.pickADate")}
       </PopoverTrigger>
       <PopoverContent xstyle={styles.datePickerPopover} align="start">
         <Calendar
@@ -66,11 +67,11 @@ function CustomFieldDatePicker(props: {
     </Popover>
   );
 }
-
 function SingleSelectOptionsInput(props: {
   field: WorkspaceInfoCustomField & { type: "single_select" };
   onFieldChange: (field: WorkspaceInfoCustomField) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const { field, onFieldChange } = props;
   const [rawValue, setRawValue] = useState(() => field.options.join(", "));
   const committedRef = useRef(field.options);
@@ -111,20 +112,19 @@ function SingleSelectOptionsInput(props: {
             commit((event.target as HTMLInputElement).value);
           }
         }}
-        placeholder="Options (comma-separated)"
+        placeholder={tI18n("workspace:workspaceInformationCustomFields.optionsCommaSeparated")}
       />
       <Select
         value={hasValidSelection ? field.value : undefined}
         onValueChange={(value) => onFieldChange({ ...field, value })}
       >
         <SelectTrigger className={sx(styles.controlBlock)}>
-          <SelectValue placeholder="Select" />
+          <SelectValue placeholder={tI18n("workspace:workspaceInformationCustomFields.select")} />
         </SelectTrigger>
         <SelectContent>
           {validOptions.length === 0 ? (
             <SelectItem value="__empty__" disabled>
-              No options defined
-            </SelectItem>
+              {tI18n("workspace:workspaceInformationCustomFields.noOptionsDefined")}</SelectItem>
           ) : (
             validOptions.map((option) => (
               <SelectItem key={option} value={option}>
@@ -153,7 +153,7 @@ export function renderCustomFieldInput(args: {
           onChange={(event) =>
             onFieldChange({ ...field, value: event.target.value })
           }
-          placeholder="Value"
+          placeholder={i18n.t("workspace:workspaceInformationCustomFields.value")}
         />
       );
     case "number":
@@ -171,7 +171,7 @@ export function renderCustomFieldInput(args: {
                   : Number(event.target.value),
             })
           }
-          placeholder="Value"
+          placeholder={i18n.t("workspace:workspaceInformationCustomFields.value")}
         />
       );
     case "boolean":
@@ -185,7 +185,7 @@ export function renderCustomFieldInput(args: {
             size="sm"
           />
           <span className={sx(styles.switchLabel)}>
-            {field.value ? "Enabled" : "Disabled"}
+            {field.value ? i18n.t("workspace:workspaceInformationCustomFields.enabled") : i18n.t("workspace:workspaceInformationCustomFields.disabled")}
           </span>
         </div>
       );
@@ -213,7 +213,7 @@ export function renderCustomFieldInput(args: {
               type="button"
               xstyle={styles.urlFieldOpen}
               onClick={() => openExternalUrl(field.value)}
-              aria-label="Open link"
+              aria-label={i18n.t("workspace:workspaceInformationCustomFields.openLink")}
             >
               <ExternalLink className={sx(styles.glyphMd)} />
             </AdsButton>
@@ -233,7 +233,7 @@ export function renderCustomFieldInput(args: {
           onChange={(event) =>
             onFieldChange({ ...field, value: event.target.value })
           }
-          placeholder="Value"
+          placeholder={i18n.t("workspace:workspaceInformationCustomFields.value")}
         />
       );
   }

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
 import { Switch } from "@/components/ui";
 import { dispatchFieldStyles } from "./dispatch-runtime.styles";
@@ -15,7 +16,8 @@ export interface RememberTeamDefaultsFieldProps {
 export function RememberTeamDefaultsField(
   props: RememberTeamDefaultsFieldProps,
 ) {
-  const controlLabel = `Remember for ${props.scopeLabel} issues`;
+  const { t: tI18n } = useTranslation(["kickoff"]);
+  const controlLabel = tI18n("kickoff:rememberTeamDefaultsField.rememberForValueIssues", { value1: props.scopeLabel });
   return (
     <div className={sx(dispatchFieldStyles.panelRowTinted)}>
       <div className={sx(dispatchFieldStyles.rowText)}>
@@ -26,9 +28,7 @@ export function RememberTeamDefaultsField(
           {controlLabel}
         </label>
         <p className={sx(dispatchFieldStyles.rowDescription)}>
-          Stored only in Stave. Future {props.scopeLabel} jobs preselect this
-          repository, model and effort. Access settings always re-derive
-          from your current Stave settings.
+          {tI18n("kickoff:rememberTeamDefaultsField.storageHint", { scope: props.scopeLabel })}
         </p>
       </div>
       <Switch

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   AlertCircle,
   Info,
@@ -37,17 +38,16 @@ export function openTrackerIntegrationsSettings() {
 }
 
 export function TrackerIssuesUnavailableState() {
+  const { t: tI18n } = useTranslation(["issues"]);
   return (
     <Empty xstyle={styles.emptyFull}>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <ListTodo />
         </EmptyMedia>
-        <EmptyTitle>Issues needs the desktop app</EmptyTitle>
+        <EmptyTitle>{tI18n("issues:trackerIssuesEmptyState.issuesNeedsTheDesktopApp")}</EmptyTitle>
         <EmptyDescription>
-          Tracker credentials are read in the desktop main process, so this
-          surface is unavailable in the browser build.
-        </EmptyDescription>
+          {tI18n("issues:trackerIssuesEmptyState.trackerCredentialsAreReadInTheDesktop")}</EmptyDescription>
       </EmptyHeader>
     </Empty>
   );
@@ -67,6 +67,7 @@ export function TrackerIssuesEmptyListState(props: {
   onRefresh: () => void;
   refreshing: boolean;
 }) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const producing = hasProducingTrackerSource(props.summaries);
   const actionable = listActionableTrackerSources(props.summaries);
 
@@ -79,10 +80,9 @@ export function TrackerIssuesEmptyListState(props: {
           <EmptyMedia variant="icon">
             <RefreshCw {...stylex.props(styles.spin)} />
           </EmptyMedia>
-          <EmptyTitle>Checking your trackers</EmptyTitle>
+          <EmptyTitle>{tI18n("issues:trackerIssuesEmptyState.checkingYourTrackers")}</EmptyTitle>
           <EmptyDescription>
-            Reading the connectors this installation is set up with.
-          </EmptyDescription>
+            {tI18n("issues:trackerIssuesEmptyState.readingTheConnectorsThisInstallationIsSet")}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -95,11 +95,9 @@ export function TrackerIssuesEmptyListState(props: {
           <EmptyMedia variant="icon">
             <Plug />
           </EmptyMedia>
-          <EmptyTitle>No tracker is sending tickets</EmptyTitle>
+          <EmptyTitle>{tI18n("issues:trackerIssuesEmptyState.noTrackerIsSendingTickets")}</EmptyTitle>
           <EmptyDescription>
-            Issues lists the tickets assigned to you in Jira Cloud and Crane, and
-            starts a local run from one. Neither is producing rows yet.
-          </EmptyDescription>
+            {tI18n("issues:trackerIssuesEmptyState.issuesListsTheTicketsAssignedToYou")}</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <ul {...stylex.props(styles.summaryList)}>
@@ -125,8 +123,7 @@ export function TrackerIssuesEmptyListState(props: {
               onClick={openTrackerIntegrationsSettings}
             >
               <Settings {...stylex.props(styles.buttonIcon)} />
-              Open Settings → Integrations
-            </Button>
+              {tI18n("issues:trackerIssuesEmptyState.openSettingsIntegrations")}</Button>
           ) : (
             <Button
               type="button"
@@ -141,8 +138,7 @@ export function TrackerIssuesEmptyListState(props: {
                   props.refreshing && styles.spin,
                 )}
               />
-              Check again
-            </Button>
+              {tI18n("issues:trackerIssuesEmptyState.checkAgain")}</Button>
           )}
         </EmptyContent>
       </Empty>
@@ -156,12 +152,12 @@ export function TrackerIssuesEmptyListState(props: {
           <SearchX />
         </EmptyMedia>
         <EmptyTitle>
-          {props.hasFilters ? "No tickets match" : "Nothing assigned right now"}
+          {props.hasFilters ? tI18n("issues:trackerIssuesEmptyState.noTicketsMatch") : tI18n("issues:trackerIssuesEmptyState.nothingAssignedRightNow")}
         </EmptyTitle>
         <EmptyDescription>
           {props.hasFilters
-            ? "Clear the filters, or refresh in case the tracker has moved on."
-            : "Refresh to check the tracker again, or switch to All open."}
+            ? tI18n("issues:trackerIssuesEmptyState.clearTheFiltersOrRefreshInCase")
+            : tI18n("issues:trackerIssuesEmptyState.refreshToCheckTheTrackerAgainOr")}
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
@@ -173,8 +169,7 @@ export function TrackerIssuesEmptyListState(props: {
               variant="outline"
               onClick={props.onReset}
             >
-              Reset filters
-            </Button>
+              {tI18n("issues:trackerIssuesEmptyState.resetFilters")}</Button>
           ) : null}
           <Button
             type="button"
@@ -188,8 +183,7 @@ export function TrackerIssuesEmptyListState(props: {
                 props.refreshing && styles.spin,
               )}
             />
-            Refresh
-          </Button>
+            {tI18n("issues:trackerIssuesEmptyState.refresh")}</Button>
         </div>
       </EmptyContent>
     </Empty>
@@ -211,6 +205,7 @@ export function TrackerSourceStatusStrip(props: {
   /** Hidden while the list is empty, where the empty state says it all. */
   hidden?: boolean;
 }) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const actionable = listActionableTrackerSources(props.summaries);
   if (props.hidden || actionable.length === 0) {
     return null;
@@ -241,7 +236,7 @@ export function TrackerSourceStatusStrip(props: {
             )}
             <span {...stylex.props(styles.stripText)}>
               <span {...stylex.props(styles.stripLabel)}>{summary.label}</span>
-              {isError ? " did not sync: " : ": "}
+              {isError ? tI18n("issues:trackerIssuesEmptyState.didNotSync") : ": "}
               {summary.detail}
             </span>
             {summary.fixInSettings ? (
@@ -252,8 +247,7 @@ export function TrackerSourceStatusStrip(props: {
                 className={stylex.props(styles.filterTrigger).className}
                 onClick={openTrackerIntegrationsSettings}
               >
-                Settings
-              </Button>
+                {tI18n("issues:trackerIssuesEmptyState.settings")}</Button>
             ) : null}
             {summary.retryable ? (
               <Button
@@ -266,8 +260,7 @@ export function TrackerSourceStatusStrip(props: {
                 }
                 onClick={() => props.onRetry(summary.source)}
               >
-                Retry
-              </Button>
+                {tI18n("issues:trackerIssuesEmptyState.retry")}</Button>
             ) : null}
           </div>
         );

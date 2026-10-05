@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   buildKickoffSourceEvidence,
   type KickoffSourceEvidence,
@@ -29,7 +30,7 @@ export async function readKickoffSource(
       return {
         ...evidence,
         detail:
-          "This Jira link belongs to a different site. Paste its contents or read it in the first task.",
+          i18n.t("kickoff:kickoffSourceReader.thisJiraLinkBelongsToADifferent"),
       };
     }
     const response = await api.trackerIssues.getDetail({
@@ -40,7 +41,7 @@ export async function readKickoffSource(
       return {
         ...evidence,
         detail:
-          "Jira content could not be read. Paste its contents or read it in the first task.",
+          i18n.t("kickoff:kickoffSourceReader.jiraContentCouldNotBeReadPaste"),
       };
     }
     const detail = response.detail;
@@ -58,13 +59,13 @@ export async function readKickoffSource(
       fetchedAt: new Date().toISOString(),
       truncated: evidence.truncated || fetchedText.length > 12_000,
       detail:
-        "Read Jira title and description through the connected site. Connector size limits apply; comments and linked pages are not included.",
+        i18n.t("kickoff:kickoffSourceReader.readJiraTitleAndDescriptionThroughThe"),
     };
   } catch {
     return {
       ...evidence,
       detail:
-        "Jira content could not be read. Paste its contents or read it in the first task.",
+        i18n.t("kickoff:kickoffSourceReader.jiraContentCouldNotBeReadPaste"),
     };
   }
 }

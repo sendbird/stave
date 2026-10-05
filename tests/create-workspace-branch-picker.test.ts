@@ -40,11 +40,11 @@ describe("buildCreateWorkspaceBranchPickerRows", () => {
       localBranches: ["feature/beta", "main", "feature/alpha"],
       remoteBranches: ["origin/feature/beta", "origin/main", "origin/master"],
     })).toEqual([
-      { type: "label", key: "remote-label", label: "Remote branches", scope: "remote" },
+      { type: "label", key: "remote-label", labelKey: "workspace:branchPicker.groups.remote", scope: "remote" },
       { type: "option", key: "remote:origin/main", option: { value: "origin/main", scope: "remote" } },
       { type: "option", key: "remote:origin/master", option: { value: "origin/master", scope: "remote" } },
       { type: "option", key: "remote:origin/feature/beta", option: { value: "origin/feature/beta", scope: "remote" } },
-      { type: "label", key: "local-label", label: "Local branches", scope: "local" },
+      { type: "label", key: "local-label", labelKey: "workspace:branchPicker.groups.local", scope: "local" },
       { type: "option", key: "local:main", option: { value: "main", scope: "local" } },
       { type: "option", key: "local:feature/alpha", option: { value: "feature/alpha", scope: "local" } },
       { type: "option", key: "local:feature/beta", option: { value: "feature/beta", scope: "local" } },
@@ -58,9 +58,9 @@ describe("buildCreateWorkspaceBranchPickerRows", () => {
       query: "alpha",
       remoteBranches: ["origin/main", "origin/feature/alpha"],
     })).toEqual([
-      { type: "label", key: "remote-label", label: "Remote branches", scope: "remote" },
+      { type: "label", key: "remote-label", labelKey: "workspace:branchPicker.groups.remote", scope: "remote" },
       { type: "option", key: "remote:origin/feature/alpha", option: { value: "origin/feature/alpha", scope: "remote" } },
-      { type: "label", key: "local-label", label: "Local branches", scope: "local" },
+      { type: "label", key: "local-label", labelKey: "workspace:branchPicker.groups.local", scope: "local" },
       { type: "option", key: "local:feature/alpha", option: { value: "feature/alpha", scope: "local" } },
     ]);
   });

@@ -1,5 +1,6 @@
+import { i18n } from "@/i18n/runtime";
 import { Blocks, type LucideIcon } from "lucide-react";
-import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
+import { WORKSPACE_TOOLS_LABEL_KEY } from "@/lib/workspace-scripts/constants";
 
 /**
  * Shared presentation metadata for the workspace execution toolkit.
@@ -10,7 +11,7 @@ export const WORKSPACE_TOOLS_PRESENTATION: {
   label: string;
 } = {
   icon: Blocks,
-  label: WORKSPACE_TOOLS_LABEL,
+  get label() { return i18n.t(WORKSPACE_TOOLS_LABEL_KEY); },
 };
 
 /**
@@ -21,10 +22,10 @@ export const WORKSPACE_TOOLS_PRESENTATION: {
  * as "catalog" or adjacent product concepts such as Automation.
  */
 export const WORKSPACE_TOOLS_VIEWS = [
-  { id: "processes", label: "Processes", description: "Start a dev server or other long-running process. Closing this panel leaves it running." },
-  { id: "commands", label: "Commands", description: "Run a saved check, build, or repository command and inspect its output." },
-  { id: "triggers", label: "Triggers", description: "Choose which commands run when work starts, finishes, or changes. You can also run a trigger now." },
-  { id: "runs", label: "Runs", description: "Review recent output and failures from commands and processes in this workspace." },
+  { id: "processes", get label() { return i18n.t("scripts:workspaceToolsPresentation.processes"); }, get description() { return i18n.t("scripts:workspaceToolsPresentation.startADevServerOrOtherLong"); } },
+  { id: "commands", get label() { return i18n.t("scripts:workspaceToolsPresentation.commands"); }, get description() { return i18n.t("scripts:workspaceToolsPresentation.runASavedCheckBuildOrRepository"); } },
+  { id: "triggers", get label() { return i18n.t("scripts:workspaceToolsPresentation.triggers"); }, get description() { return i18n.t("scripts:workspaceToolsPresentation.chooseWhichCommandsRunWhenWorkStarts"); } },
+  { id: "runs", get label() { return i18n.t("scripts:workspaceToolsPresentation.runs"); }, get description() { return i18n.t("scripts:workspaceToolsPresentation.reviewRecentOutputAndFailuresFromCommands"); } },
 ] as const;
 
 export type WorkspaceToolsViewId = (typeof WORKSPACE_TOOLS_VIEWS)[number]["id"];
@@ -36,6 +37,6 @@ export function workspaceToolsRunningLabel(runningCount: number) {
     return WORKSPACE_TOOLS_PRESENTATION.label;
   }
   return runningCount === 1
-    ? `${WORKSPACE_TOOLS_PRESENTATION.label}, 1 process running`
-    : `${WORKSPACE_TOOLS_PRESENTATION.label}, ${runningCount} processes running`;
+    ? i18n.t("scripts:workspaceToolsPresentation.value1ProcessRunning", { value1: WORKSPACE_TOOLS_PRESENTATION.label })
+    : i18n.t("scripts:workspaceToolsPresentation.valueValueProcessesRunning", { value1: WORKSPACE_TOOLS_PRESENTATION.label, runningCount: runningCount });
 }

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -58,6 +59,7 @@ export function useMartinInformationCardAvailable() {
 }
 
 export function WorkspaceInformationMartinCard() {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const project = useAppStore(
     (state) => state.workspaceInformation.martinProject ?? null,
   );
@@ -82,7 +84,7 @@ export function WorkspaceInformationMartinCard() {
     event?.preventDefault();
     const listProjects = window.api?.martinSync?.listProjects;
     if (!listProjects) {
-      setError("Martin project controls are unavailable.");
+      setError(i18n.t("workspace:additionalCopy.message11"));
       return;
     }
 
@@ -99,12 +101,12 @@ export function WorkspaceInformationMartinCard() {
       setSearched(true);
       setResults(result.projects);
       if (!result.ok) {
-        setError(result.message ?? "Could not load Martin projects.");
+        setError(result.message ?? i18n.t("workspace:additionalCopy.message12"));
       }
     } catch {
       if (searchGenerationRef.current === generation) {
         setSearched(true);
-        setError("Could not load Martin projects.");
+        setError(i18n.t("workspace:additionalCopy.message13"));
       }
     } finally {
       if (searchGenerationRef.current === generation) setBusy(null);
@@ -120,14 +122,14 @@ export function WorkspaceInformationMartinCard() {
     try {
       const result = await link({ workspaceId, projectRef });
       if (!result.ok) {
-        toast.error("Could not link the Martin project", {
+        toast.error(tI18n("workspace:workspaceInformationMartinCard.couldNotLinkTheMartinProject"), {
           description: result.message,
         });
         return;
       }
-      toast.success("Martin project linked.");
+      toast.success(tI18n("workspace:workspaceInformationMartinCard.martinProjectLinked"));
     } catch {
-      toast.error("Could not link the Martin project.");
+      toast.error(tI18n("workspace:workspaceInformationMartinCard.couldNotLinkTheMartinProject2"));
     } finally {
       setBusy(null);
     }
@@ -142,14 +144,14 @@ export function WorkspaceInformationMartinCard() {
     try {
       const result = await refresh({ workspaceId });
       if (!result.ok) {
-        toast.error("Could not refresh Martin context", {
+        toast.error(tI18n("workspace:workspaceInformationMartinCard.couldNotRefreshMartinContext"), {
           description: result.message,
         });
         return;
       }
-      toast.success("Martin context refreshed.");
+      toast.success(tI18n("workspace:workspaceInformationMartinCard.martinContextRefreshed"));
     } catch {
-      toast.error("Could not refresh Martin context.");
+      toast.error(tI18n("workspace:workspaceInformationMartinCard.couldNotRefreshMartinContext2"));
     } finally {
       setBusy(null);
     }
@@ -164,14 +166,14 @@ export function WorkspaceInformationMartinCard() {
     try {
       const result = await unlinkProjectFromWorkspace({ workspaceId });
       if (!result.ok) {
-        toast.error("Could not unlink the Martin project", {
+        toast.error(tI18n("workspace:workspaceInformationMartinCard.couldNotUnlinkTheMartinProject"), {
           description: result.message,
         });
         return;
       }
-      toast.success("Martin project unlinked.");
+      toast.success(tI18n("workspace:workspaceInformationMartinCard.martinProjectUnlinked"));
     } catch {
-      toast.error("Could not unlink the Martin project.");
+      toast.error(tI18n("workspace:workspaceInformationMartinCard.couldNotUnlinkTheMartinProject2"));
     } finally {
       setBusy(null);
     }
@@ -182,13 +184,13 @@ export function WorkspaceInformationMartinCard() {
     const openExternal = window.api?.shell?.openExternal;
     if (!openExternal) return;
     void openExternal({ url: project.url }).catch(() => {
-      toast.error("Could not open the Martin project.");
+      toast.error(tI18n("workspace:workspaceInformationMartinCard.couldNotOpenTheMartinProject"));
     });
   };
 
   return (
     <section
-      aria-label="Martin project"
+      aria-label={tI18n("workspace:workspaceInformationMartinCard.martinProject")}
       className={sx(styles.root)}
     >
       <div className={sx(styles.head)}>
@@ -198,19 +200,17 @@ export function WorkspaceInformationMartinCard() {
         <div className={sx(styles.headBody)}>
           <div className={sx(styles.titleRow)}>
             <h3 className={sx(styles.title)}>
-              Martin project
-            </h3>
+              {tI18n("workspace:workspaceInformationMartinCard.martinProject")}</h3>
             {project?.stale ? (
               <Badge variant="warning">
                 <TriangleAlert className={sx(styles.staleIcon)} />
-                Stale
-              </Badge>
+                {tI18n("workspace:workspaceInformationMartinCard.stale")}</Badge>
             ) : null}
           </div>
           <p className={sx(styles.headNote)}>
             {project
-              ? "Project context is available to tasks in this workspace."
-              : "Link this workspace to share events and pull project context."}
+              ? tI18n("workspace:workspaceInformationMartinCard.projectContextIsAvailableToTasksIn")
+              : tI18n("workspace:workspaceInformationMartinCard.linkThisWorkspaceToShareEventsAnd")}
           </p>
         </div>
       </div>
@@ -228,14 +228,12 @@ export function WorkspaceInformationMartinCard() {
           </AdsButton>
           <p className={sx(styles.meta)}>
             {project.lastPulledAt
-              ? `Last pulled ${formatTaskUpdatedAt({ value: project.lastPulledAt })}`
-              : "Context has not been pulled yet."}
+              ? tI18n("workspace:workspaceInformationMartinCard.lastPulledValue", { value1: formatTaskUpdatedAt({ value: project.lastPulledAt }) })
+              : tI18n("workspace:workspaceInformationMartinCard.contextHasNotBeenPulledYet")}
           </p>
           {project.stale ? (
             <p className={sx(styles.staleNotice)}>
-              The linked project is missing or archived. Refresh to check it
-              again, or unlink this workspace.
-            </p>
+              {tI18n("workspace:workspaceInformationMartinCard.theLinkedProjectIsMissingOrArchived")}</p>
           ) : null}
           <div className={sx(styles.actionRow)}>
             <Button
@@ -250,8 +248,7 @@ export function WorkspaceInformationMartinCard() {
               ) : (
                 <RefreshCw className={sx(styles.actionIcon)} />
               )}
-              Refresh
-            </Button>
+              {tI18n("workspace:workspaceInformationMartinCard.refresh")}</Button>
             <Button
               type="button"
               size="xs"
@@ -264,8 +261,7 @@ export function WorkspaceInformationMartinCard() {
               ) : (
                 <Unlink className={sx(styles.actionIcon)} />
               )}
-              Unlink
-            </Button>
+              {tI18n("workspace:workspaceInformationMartinCard.unlink")}</Button>
           </div>
         </div>
       ) : (
@@ -275,8 +271,8 @@ export function WorkspaceInformationMartinCard() {
               value={query}
               disabled={busy !== null || !activeWorkspaceId}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search projects"
-              aria-label="Search Martin projects"
+              placeholder={tI18n("workspace:workspaceInformationMartinCard.searchProjects")}
+              aria-label={tI18n("workspace:workspaceInformationMartinCard.searchMartinProjects")}
               xstyle={styles.searchInput}
             />
             <Button
@@ -290,8 +286,7 @@ export function WorkspaceInformationMartinCard() {
               ) : (
                 <Search className={sx(styles.actionIcon)} />
               )}
-              Search
-            </Button>
+              {tI18n("workspace:workspaceInformationMartinCard.search")}</Button>
           </form>
 
           {error ? (
@@ -299,8 +294,7 @@ export function WorkspaceInformationMartinCard() {
           ) : null}
           {searched && results.length === 0 && !error ? (
             <p className={sx(styles.emptyResults)}>
-              No matching projects.
-            </p>
+              {tI18n("workspace:workspaceInformationMartinCard.noMatchingProjects")}</p>
           ) : null}
           {results.length > 0 ? (
             <div className={sx(styles.results)}>
@@ -316,8 +310,7 @@ export function WorkspaceInformationMartinCard() {
                       </p>
                       {result.status === "archived" ? (
                         <Badge variant="outline" className={sx(styles.resultBadge)}>
-                          Archived
-                        </Badge>
+                          {tI18n("workspace:workspaceInformationMartinCard.archived")}</Badge>
                       ) : null}
                     </div>
                     {result.summary ? (
@@ -335,8 +328,7 @@ export function WorkspaceInformationMartinCard() {
                     {busy === `link:${result.ref}` ? (
                       <Loader aria-hidden size="xs" variant="sync" />
                     ) : null}
-                    Link
-                  </Button>
+                    {tI18n("workspace:workspaceInformationMartinCard.link")}</Button>
                 </div>
               ))}
             </div>

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import {
@@ -130,7 +131,6 @@ import {
 } from "./workspace-information/workspace-information-link-rows";
 import { renderCustomFieldInput } from "./workspace-information/workspace-information-custom-fields";
 import { NotesSectionBody } from "./workspace-information/workspace-information-notes";
-
 // ---------------------------------------------------------------------------
 // Utility helpers (unchanged business logic)
 // ---------------------------------------------------------------------------
@@ -352,13 +352,14 @@ function SectionHeader(props: {
 // ---------------------------------------------------------------------------
 
 function AddButton(props: { onClick: () => void; label?: string }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   return (
     <AdsButton
       layout="host"
       type="button"
       xstyle={[styles.iconButtonQuiet, styles.iconButtonHoverSurface]}
       onClick={props.onClick}
-      aria-label={props.label ?? "Add"}
+      aria-label={props.label ?? tI18n("workspace:workspaceInformationPanel.add")}
     >
       <Plus className={sx(styles.glyphMd)} />
     </AdsButton>
@@ -382,6 +383,7 @@ function EmptyHint(props: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 
 export function WorkspaceInformationPanel() {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const [
     activeWorkspaceId,
     activeTaskId,
@@ -461,14 +463,13 @@ export function WorkspaceInformationPanel() {
       craneConnectorEnabled,
       infoPanelSectionVisibility,
       memoryHeader.count,
-      workspaceInformation,
-    ],
+      workspaceInformation, i18n.resolvedLanguage],
   );
   const visibleSections = useMemo(
     () => new Set(visibleSectionIds),
-    [visibleSectionIds],
+    [visibleSectionIds, i18n.resolvedLanguage],
   );
-  const openSectionSet = useMemo(() => new Set(openSections), [openSections]);
+  const openSectionSet = useMemo(() => new Set(openSections), [openSections, i18n.resolvedLanguage]);
   const showMartinCard = useMartinInformationCardAvailable();
   const sectionOrderIndexById = Object.fromEntries(
     sectionOrder.map((id, index) => [id, index]),
@@ -560,7 +561,7 @@ export function WorkspaceInformationPanel() {
         items: workspaceInformation.linkedPullRequests,
         currentBranchUrl: currentBranchPr?.url,
       }),
-    [currentBranchPr?.url, workspaceInformation.linkedPullRequests],
+    [currentBranchPr?.url, workspaceInformation.linkedPullRequests, i18n.resolvedLanguage],
   );
   const [taskSeedInFlightId, setTaskSeedInFlightId] = useState<string | null>(
     null,
@@ -700,8 +701,8 @@ export function WorkspaceInformationPanel() {
     if (duplicate) {
       toast.info(
         duplicate === "current_branch"
-          ? "This is already the current branch PR"
-          : "This pull request is already linked",
+          ? tI18n("workspace:workspaceInformationPanel.thisIsAlreadyTheCurrentBranchPr")
+          : tI18n("workspace:workspaceInformationPanel.thisPullRequestIsAlreadyLinked"),
       );
     }
   }
@@ -763,7 +764,7 @@ export function WorkspaceInformationPanel() {
       createTask({ title });
       const newTaskId = useAppStore.getState().activeTaskId;
       if (!newTaskId || newTaskId === activeTaskId) {
-        toast.error("Unable to create task");
+        toast.error(tI18n("workspace:workspaceInformationPanel.unableToCreateTask"));
         return;
       }
 
@@ -773,13 +774,13 @@ export function WorkspaceInformationPanel() {
         turnOrigin: "conversation",
       });
       if (result.status === "blocked") {
-        toast.error("Task created but prompt was blocked", {
+        toast.error(tI18n("workspace:workspaceInformationPanel.taskCreatedButPromptWasBlocked"), {
           description: title,
         });
         return;
       }
 
-      toast.success("Task created", { description: title });
+      toast.success(tI18n("workspace:workspaceInformationPanel.taskCreated"), { description: title });
     } finally {
       setTaskSeedInFlightId(null);
     }
@@ -815,7 +816,7 @@ export function WorkspaceInformationPanel() {
                 <SectionHeader
                   value="overview"
                   order={sectionOrderIndexById.overview}
-                  title="Summary"
+                  title={tI18n("workspace:workspaceInformationPanel.summary")}
                   icon={<Sparkles className={sx(styles.glyphMd)} />}
                   first
                   action={
@@ -837,8 +838,8 @@ export function WorkspaceInformationPanel() {
                     // padding and margin-driven spacing.
                     <EmptyState
                       variant="plain"
-                      description="The latest request, outcome, and model will appear here after the first completed response."
-                      title="No completed turn yet"
+                      description={tI18n("workspace:workspaceInformationPanel.theLatestRequestOutcomeAndModelWill")}
+                      title={tI18n("workspace:workspaceInformationPanel.noCompletedTurnYet")}
                     />
                   )}
                 </SectionHeader>
@@ -847,7 +848,7 @@ export function WorkspaceInformationPanel() {
                 <SectionHeader
                   value="todo"
                   order={sectionOrderIndexById.todo}
-                  title="Todos"
+                  title={tI18n("workspace:workspaceInformationPanel.todos")}
                   icon={<CheckCircle2 className={sx(styles.glyphMd)} />}
                   count={openTodoCount}
                   action={
@@ -858,7 +859,7 @@ export function WorkspaceInformationPanel() {
                           todos: [...current.todos, createWorkspaceTodoItem()],
                         }))
                       }
-                      label="Add todo"
+                      label={tI18n("workspace:workspaceInformationPanel.addTodo")}
                     />
                   }
                 >
@@ -881,7 +882,7 @@ export function WorkspaceInformationPanel() {
                   ) : null}
                   <div className={sx(styles.itemList)}>
                     {workspaceInformation.todos.length === 0 ? (
-                      <EmptyHint>No todos yet</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noTodosYet")}</EmptyHint>
                     ) : null}
                     {workspaceInformation.todos.map((todo) => (
                       <div
@@ -913,9 +914,9 @@ export function WorkspaceInformationPanel() {
                               ),
                             }))
                           }
-                          aria-label={`Todo status: ${resolveWorkspaceTodoStatus(
+                          aria-label={tI18n("workspace:workspaceInformationPanel.todoStatusValueClickToAdvance", { value1: resolveWorkspaceTodoStatus(
                             todo,
-                          )}. Click to advance.`}
+                          ) })}
                         >
                           {resolveWorkspaceTodoStatus(todo) === "completed" ? (
                             <CheckCircle2 className={sx(styles.glyphMd)} />
@@ -941,7 +942,7 @@ export function WorkspaceInformationPanel() {
                               ),
                             }))
                           }
-                          placeholder="Todo item"
+                          placeholder={tI18n("workspace:workspaceInformationPanel.todoItem")}
                           xstyle={[
                             styles.bareInputPadded,
                             resolveWorkspaceTodoStatus(todo) === "completed" &&
@@ -958,7 +959,7 @@ export function WorkspaceInformationPanel() {
                               todos: removeItemById(current.todos, todo.id),
                             }))
                           }
-                          aria-label="Remove todo"
+                          aria-label={tI18n("workspace:workspaceInformationPanel.removeTodo")}
                         >
                           <X className={sx(styles.glyphSm)} />
                         </AdsButton>
@@ -971,7 +972,7 @@ export function WorkspaceInformationPanel() {
                 <SectionHeader
                   value="note"
                   order={sectionOrderIndexById.note}
-                  title="Notes"
+                  title={tI18n("workspace:workspaceInformationPanel.notes")}
                   icon={<StickyNote className={sx(styles.glyphMd)} />}
                 >
                   <NotesSectionBody
@@ -989,7 +990,7 @@ export function WorkspaceInformationPanel() {
                 <SectionHeader
                   value="memory"
                   order={sectionOrderIndexById.memory}
-                  title="Memory"
+                  title={tI18n("workspace:workspaceInformationPanel.memory")}
                   icon={<Brain className={sx(styles.glyphMd)} />}
                   count={memoryHeader.count}
                   action={
@@ -1003,7 +1004,7 @@ export function WorkspaceInformationPanel() {
                       onClick={() =>
                         setMemoryRefreshNonce((nonce) => nonce + 1)
                       }
-                      aria-label="Refresh memory"
+                      aria-label={tI18n("workspace:workspaceInformationPanel.refreshMemory")}
                     >
                       <RefreshCcw
                         className={sx(
@@ -1024,7 +1025,7 @@ export function WorkspaceInformationPanel() {
                 <SectionHeader
                   value="plans"
                   order={sectionOrderIndexById.plans}
-                  title="Plans"
+                  title={tI18n("workspace:workspaceInformationPanel.plans")}
                   icon={<ClipboardCheck className={sx(styles.glyphMd)} />}
                   count={plansHeader.count}
                   action={
@@ -1036,7 +1037,7 @@ export function WorkspaceInformationPanel() {
                         styles.iconButtonHoverSurface,
                       ]}
                       onClick={() => notifyWorkspacePlansChanged()}
-                      aria-label="Refresh plans"
+                      aria-label={tI18n("workspace:workspaceInformationPanel.refreshPlans")}
                     >
                       <RefreshCcw
                         className={sx(
@@ -1074,12 +1075,12 @@ export function WorkspaceInformationPanel() {
                         filePath,
                       });
                       if (!result?.ok || typeof result.content !== "string") {
-                        toast.error("Could not read plan file");
+                        toast.error(tI18n("workspace:workspaceInformationPanel.couldNotReadPlanFile"));
                         return;
                       }
                       const items = extractPlanTodoItems(result.content);
                       if (items.length === 0) {
-                        toast("No checklist items found in this plan");
+                        toast(tI18n("workspace:workspaceInformationPanel.noChecklistItemsFoundInThisPlan"));
                         return;
                       }
                       patchWorkspaceInformation((current) => ({
@@ -1103,9 +1104,7 @@ export function WorkspaceInformationPanel() {
                           : [...sections, "todo"],
                       );
                       toast.success(
-                        `Imported ${items.length} ${
-                          items.length === 1 ? "todo" : "todos"
-                        } from plan`,
+                        tI18n("workspace:workspaceInformationPanel.importedValueValueFromPlan", { itemsCount: items.length, value1: items.length === 1 ? "todo" : "todos" }),
                       );
                     }}
                   />
@@ -1115,7 +1114,7 @@ export function WorkspaceInformationPanel() {
                 <SectionHeader
                   value="github"
                   order={sectionOrderIndexById.github}
-                  title="Pull Requests"
+                  title={tI18n("workspace:workspaceInformationPanel.pullRequests")}
                   icon={<GitHubIcon />}
                   count={
                     visibleLinkedPullRequests.length + (currentBranchPr ? 1 : 0)
@@ -1135,7 +1134,7 @@ export function WorkspaceInformationPanel() {
                               workspaceId: activeWorkspaceId,
                             })
                           }
-                          aria-label="Refresh"
+                          aria-label={tI18n("workspace:workspaceInformationPanel.refresh")}
                         >
                           <RefreshCcw className={sx(styles.glyphMd)} />
                         </AdsButton>
@@ -1150,7 +1149,7 @@ export function WorkspaceInformationPanel() {
                             ],
                           }))
                         }
-                        label="Add pull request"
+                        label={tI18n("workspace:workspaceInformationPanel.addPullRequest")}
                       />
                     </div>
                   }
@@ -1169,7 +1168,7 @@ export function WorkspaceInformationPanel() {
                         isCurrent
                       />
                     ) : !isDefaultWorkspace ? (
-                      <EmptyHint>No PR for current branch</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noPrForCurrentBranch")}</EmptyHint>
                     ) : null}
 
                     {/* Linked PRs */}
@@ -1209,7 +1208,7 @@ export function WorkspaceInformationPanel() {
                         item.title.trim() ||
                         (githubRef
                           ? `${githubRef.owner}/${githubRef.repo} #${githubRef.number}`
-                          : "Linked PR");
+                          : tI18n("workspace:workspaceInformationPanel.linkedPr"));
                       const number =
                         previewInfo?.pr.number ?? githubRef?.number ?? 0;
                       const repo = githubRef
@@ -1248,7 +1247,7 @@ export function WorkspaceInformationPanel() {
                               onClick={() =>
                                 void handleCreateTaskFromWorkspaceInfo({
                                   itemId: item.id,
-                                  sourceLabel: "GitHub pull request",
+                                  sourceLabel: tI18n("workspace:workspaceInformationPanel.githubPullRequest"),
                                   title,
                                   url: item.url,
                                   referenceLabel,
@@ -1278,7 +1277,7 @@ export function WorkspaceInformationPanel() {
 
                     {visibleLinkedPullRequests.length === 0 &&
                     isDefaultWorkspace ? (
-                      <EmptyHint>No linked pull requests</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noLinkedPullRequests")}</EmptyHint>
                     ) : null}
                   </div>
                 </SectionHeader>
@@ -1287,7 +1286,7 @@ export function WorkspaceInformationPanel() {
                 <SectionHeader
                   value="jira"
                   order={sectionOrderIndexById.jira}
-                  title="Jira Issues"
+                  title={tI18n("workspace:workspaceInformationPanel.jiraIssues")}
                   icon={<JiraIcon />}
                   count={workspaceInformation.jiraIssues.length}
                   action={
@@ -1301,13 +1300,13 @@ export function WorkspaceInformationPanel() {
                           ],
                         }))
                       }
-                      label="Add Jira issue"
+                      label={tI18n("workspace:workspaceInformationPanel.addJiraIssue")}
                     />
                   }
                 >
                   <div className={sx(styles.itemList)}>
                     {workspaceInformation.jiraIssues.length === 0 ? (
-                      <EmptyHint>No linked Jira issues</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noLinkedJiraIssues")}</EmptyHint>
                     ) : null}
                     {workspaceInformation.jiraIssues.map((issue) => {
                       const issueRef = extractJiraIssueReference(issue.url);
@@ -1317,7 +1316,7 @@ export function WorkspaceInformationPanel() {
                         issueRef?.host ||
                         formatWorkspaceInfoHostLabel(issue.url);
                       const title =
-                        issue.title.trim() || issueKey || "Linked Jira issue";
+                        issue.title.trim() || issueKey || tI18n("workspace:workspaceInformationPanel.linkedJiraIssue");
                       const referenceLabel = issueKey || host || undefined;
 
                       if (!isWorkspaceInfoUrl(issue.url)) {
@@ -1425,7 +1424,7 @@ export function WorkspaceInformationPanel() {
                 <SectionHeader
                   value="crane"
                   order={sectionOrderIndexById.crane}
-                  title="Crane Issues"
+                  title={tI18n("workspace:workspaceInformationPanel.craneIssues")}
                   icon={<Cable className={sx(styles.glyphMd)} />}
                   count={(workspaceInformation.craneIssues ?? []).length}
                   action={
@@ -1439,13 +1438,13 @@ export function WorkspaceInformationPanel() {
                           ],
                         }))
                       }
-                      label="Add Crane issue"
+                      label={tI18n("workspace:workspaceInformationPanel.addCraneIssue")}
                     />
                   }
                 >
                   <div className={sx(styles.itemList)}>
                     {(workspaceInformation.craneIssues ?? []).length === 0 ? (
-                      <EmptyHint>No linked Crane issues</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noLinkedCraneIssues")}</EmptyHint>
                     ) : null}
                     {(workspaceInformation.craneIssues ?? []).map((issue) => {
                       const issueRef = extractCraneIssueReference(issue.url);
@@ -1455,7 +1454,7 @@ export function WorkspaceInformationPanel() {
                         issueRef?.host ||
                         formatWorkspaceInfoHostLabel(issue.url);
                       const title =
-                        issue.title.trim() || issueKey || "Linked Crane issue";
+                        issue.title.trim() || issueKey || tI18n("workspace:workspaceInformationPanel.linkedCraneIssue");
                       const referenceLabel = issueKey || host || undefined;
 
                       if (!isWorkspaceInfoUrl(issue.url)) {
@@ -1577,14 +1576,14 @@ export function WorkspaceInformationPanel() {
                           ],
                         }))
                       }
-                      label="Add Confluence page"
+                      label={tI18n("workspace:workspaceInformationPanel.addConfluencePage")}
                     />
                   }
                 >
                   <div className={sx(styles.itemList)}>
                     {(workspaceInformation.confluencePages ?? []).length ===
                     0 ? (
-                      <EmptyHint>No linked Confluence pages</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noLinkedConfluencePages")}</EmptyHint>
                     ) : null}
                     {(workspaceInformation.confluencePages ?? []).map(
                       (page) => {
@@ -1594,7 +1593,7 @@ export function WorkspaceInformationPanel() {
                         const title =
                           page.title.trim() ||
                           confluenceRef?.title ||
-                          "Linked Confluence page";
+                          tI18n("workspace:workspaceInformationPanel.linkedConfluencePage");
                         const host =
                           confluenceRef?.host ||
                           formatWorkspaceInfoHostLabel(page.url);
@@ -1697,14 +1696,14 @@ export function WorkspaceInformationPanel() {
                           ],
                         }))
                       }
-                      label="Add Storybook resource"
+                      label={tI18n("workspace:workspaceInformationPanel.addStorybookResource")}
                     />
                   }
                 >
                   <div className={sx(styles.itemList)}>
                     {(workspaceInformation.storybookResources?.length ?? 0) ===
                     0 ? (
-                      <EmptyHint>No linked Storybook resources</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noLinkedStorybookResources")}</EmptyHint>
                     ) : null}
                     {(workspaceInformation.storybookResources ?? []).map(
                       (resource) => {
@@ -1811,13 +1810,13 @@ export function WorkspaceInformationPanel() {
                           ],
                         }))
                       }
-                      label="Add Amplify link"
+                      label={tI18n("workspace:workspaceInformationPanel.addAmplifyLink")}
                     />
                   }
                 >
                   <div className={sx(styles.itemList)}>
                     {(workspaceInformation.amplifyLinks?.length ?? 0) === 0 ? (
-                      <EmptyHint>No linked Amplify deploys</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noLinkedAmplifyDeploys")}</EmptyHint>
                     ) : null}
                     {(workspaceInformation.amplifyLinks ?? []).map((link) => {
                       const amplifyRef = extractAmplifyLinkReference(link.url);
@@ -1898,13 +1897,13 @@ export function WorkspaceInformationPanel() {
                           ],
                         }))
                       }
-                      label="Add Slack thread"
+                      label={tI18n("workspace:workspaceInformationPanel.addSlackThread")}
                     />
                   }
                 >
                   <div className={sx(styles.itemList)}>
                     {(workspaceInformation.slackThreads?.length ?? 0) === 0 ? (
-                      <EmptyHint>No linked Slack threads</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noLinkedSlackThreads")}</EmptyHint>
                     ) : null}
                     {(workspaceInformation.slackThreads ?? []).map((thread) => {
                       const slackRef = extractSlackThreadReference(thread.url);
@@ -1987,13 +1986,13 @@ export function WorkspaceInformationPanel() {
                           ],
                         }))
                       }
-                      label="Add Figma resource"
+                      label={tI18n("workspace:workspaceInformationPanel.addFigmaResource")}
                     />
                   }
                 >
                   <div className={sx(styles.itemList)}>
                     {workspaceInformation.figmaResources.length === 0 ? (
-                      <EmptyHint>No linked Figma resources</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noLinkedFigmaResources")}</EmptyHint>
                     ) : null}
                     {workspaceInformation.figmaResources.map((resource) => {
                       const figmaRef = extractFigmaResourceReference(
@@ -2002,7 +2001,7 @@ export function WorkspaceInformationPanel() {
                       const title =
                         resource.title.trim() ||
                         figmaRef?.title ||
-                        "Linked Figma resource";
+                        tI18n("workspace:workspaceInformationPanel.linkedFigmaResource");
                       const host =
                         figmaRef?.host ||
                         formatWorkspaceInfoHostLabel(resource.url);
@@ -2089,7 +2088,7 @@ export function WorkspaceInformationPanel() {
                 <SectionHeader
                   value="custom"
                   order={sectionOrderIndexById.custom}
-                  title="Custom Fields"
+                  title={tI18n("workspace:workspaceInformationPanel.customFields")}
                   icon={<SlidersHorizontal className={sx(styles.glyphMd)} />}
                   count={workspaceInformation.customFields.length}
                   action={
@@ -2103,13 +2102,13 @@ export function WorkspaceInformationPanel() {
                           ],
                         }))
                       }
-                      label="Add custom field"
+                      label={tI18n("workspace:workspaceInformationPanel.addCustomField")}
                     />
                   }
                 >
                   <div className={sx(styles.itemListLoose)}>
                     {workspaceInformation.customFields.length === 0 ? (
-                      <EmptyHint>No custom fields</EmptyHint>
+                      <EmptyHint>{tI18n("workspace:workspaceInformationPanel.noCustomFields")}</EmptyHint>
                     ) : null}
                     {workspaceInformation.customFields.map((field) => (
                       <div
@@ -2125,7 +2124,7 @@ export function WorkspaceInformationPanel() {
                                 label: event.target.value,
                               }))
                             }
-                            placeholder="Label"
+                            placeholder={tI18n("workspace:workspaceInformationPanel.label")}
                             xstyle={[
                               styles.bareInputPadded,
                               styles.bareInputStrong,
@@ -2166,7 +2165,7 @@ export function WorkspaceInformationPanel() {
                                 ),
                               }))
                             }
-                            aria-label="Remove field"
+                            aria-label={tI18n("workspace:workspaceInformationPanel.removeField")}
                           >
                             <X className={sx(styles.glyphSm)} />
                           </AdsButton>

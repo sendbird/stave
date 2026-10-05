@@ -1,3 +1,5 @@
+import { formatDate, formatRelativeTime } from "@/i18n/format";
+import { i18n } from "@/i18n/runtime";
 import {
   parseLocalTrackerDueDate,
   startOfLocalDay,
@@ -26,23 +28,23 @@ export const TRACKER_STATUS_PRESENTATION: Record<
   { label: string; tone: "neutral" | "info" | "warning" }
 > = {
   todo: {
-    label: "To do",
+    get label() { return i18n.t("issues:presentation.toDo"); },
     tone: "neutral",
   },
   in_progress: {
-    label: "In progress",
+    get label() { return i18n.t("issues:presentation.inProgress"); },
     tone: "info",
   },
   in_review: {
-    label: "In review",
+    get label() { return i18n.t("issues:presentation.inReview"); },
     tone: "warning",
   },
   done: {
-    label: "Done",
+    get label() { return i18n.t("issues:presentation.done"); },
     tone: "neutral",
   },
   closed: {
-    label: "Closed",
+    get label() { return i18n.t("issues:presentation.closed"); },
     tone: "neutral",
   },
 };
@@ -66,48 +68,33 @@ export const TRACKER_PRIORITY_PRESENTATION: Record<
   }
 > = {
   urgent: {
-    label: "Urgent",
+    get label() { return i18n.t("issues:presentation.urgent"); },
     iconName: "ChevronsUp",
     tone: "danger",
   },
   high: {
-    label: "High",
+    get label() { return i18n.t("issues:presentation.high"); },
     iconName: "ChevronUp",
     tone: "warning",
   },
   medium: {
-    label: "Medium",
+    get label() { return i18n.t("issues:presentation.medium"); },
     iconName: "Equal",
     tone: "default",
   },
   low: {
-    label: "Low",
+    get label() { return i18n.t("issues:presentation.low"); },
     iconName: "ChevronDown",
     tone: "muted",
   },
   none: {
-    label: "No priority",
+    get label() { return i18n.t("issues:presentation.noPriority"); },
     iconName: "Minus",
     tone: "subtle",
   },
 };
 
 export type TrackerDueTone = "overdue" | "today" | "soon" | "normal" | "none";
-
-const SHORT_MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -118,11 +105,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * column, and a stable format keeps these strings assertable in tests.
  */
 function formatShortDate(date: Date, now: Date): string {
-  const month = SHORT_MONTHS[date.getMonth()] ?? "";
-  const day = date.getDate();
-  return date.getFullYear() === now.getFullYear()
-    ? `${month} ${day}`
-    : `${month} ${day}, ${date.getFullYear()}`;
+  return formatDate(date, { month: "short", day: "numeric", ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }) });
 }
 
 /**
@@ -159,18 +142,18 @@ export function formatTrackerDue(
   if (days < 0) {
     const overdueBy = Math.abs(days);
     return {
-      label: overdueBy === 1 ? "Yesterday" : `${overdueBy}d overdue`,
+      label: overdueBy === 1 ? i18n.t("issues:presentation.yesterday") : i18n.t("issues:presentation.overdueDays", { count: overdueBy }),
       tone: "overdue",
     };
   }
   if (days === 0) {
-    return { label: "Today", tone: "today" };
+    return { label: i18n.t("issues:presentation.today"), tone: "today" };
   }
   if (days === 1) {
-    return { label: "Tomorrow", tone: "soon" };
+    return { label: i18n.t("issues:presentation.tomorrow"), tone: "soon" };
   }
   if (days < 7) {
-    return { label: `In ${days}d`, tone: "soon" };
+    return { label: i18n.t("issues:presentation.inValued", { days: days }), tone: "soon" };
   }
   return { label: formatShortDate(due, now), tone: "normal" };
 }
@@ -183,28 +166,19 @@ export function formatTrackerDue(
  */
 export function formatTrackerSyncedAt(iso: string | null, now: Date): string {
   if (iso === null) {
-    return "Never";
+    return i18n.t("issues:presentation.never");
   }
   const stamp = Date.parse(iso);
   if (Number.isNaN(stamp)) {
-    return "Never";
+    return i18n.t("issues:presentation.never");
   }
   const elapsedMs = now.getTime() - stamp;
   // A clock that jumped backwards must not print "-3m ago".
   if (elapsedMs < 60_000) {
-    return "just now";
+    return i18n.t("issues:presentation.justNow");
   }
-  const minutes = Math.floor(elapsedMs / 60_000);
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-  const days = Math.floor(hours / 24);
-  if (days < 7) {
-    return `${days}d ago`;
+  if (elapsedMs < 7 * MS_PER_DAY) {
+    return formatRelativeTime(iso, now, { numeric: "always", style: "narrow" });
   }
   return formatShortDate(new Date(stamp), now);
 }

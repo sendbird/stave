@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -19,15 +20,16 @@ export function WorkspaceInformationReferenceChip(args: {
   compact?: boolean;
   onRemove?: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const label = getWorkspaceInformationReferenceLabel(args.reference);
-  const scopeLabel = args.reference.scope === "section" ? "Section" : "Item";
+  const scopeLabel = args.reference.scope === "section" ? tI18n("workspace:workspaceInformationReferenceChip.section") : tI18n("workspace:workspaceInformationReferenceChip.item");
   return (
     <span
       className={sx(styles.root, args.compact && styles.compact)}
     >
       <Info className={sx(styles.icon)} />
       <span className={sx(styles.label)}>
-        <span className={sx(styles.prefix)}>Information</span>
+        <span className={sx(styles.prefix)}>{tI18n("workspace:workspaceInformationReferenceChip.information")}</span>
         <span className={sx(styles.scope)}> / {scopeLabel} / </span>
         <span>{label}</span>
       </span>
@@ -40,7 +42,7 @@ export function WorkspaceInformationReferenceChip(args: {
                 size="icon-xs"
                 variant="ghost"
                 disabled={args.disabled}
-                aria-label={`Remove ${label}`}
+                aria-label={tI18n("workspace:workspaceInformationReferenceChip.removeValue", { label: label })}
                 onClick={args.onRemove}
                 className={sx(styles.remove)}
               />
@@ -48,7 +50,7 @@ export function WorkspaceInformationReferenceChip(args: {
           >
             <X className={sx(styles.removeIcon)} />
           </TooltipTrigger>
-          <TooltipContent>Remove Information reference</TooltipContent>
+          <TooltipContent>{tI18n("workspace:workspaceInformationReferenceChip.removeInformationReference")}</TooltipContent>
         </Tooltip>
       ) : null}
     </span>

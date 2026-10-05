@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   Check,
@@ -154,6 +155,7 @@ function ChecksTabContent(props: {
   onSelectDiff: (path: string) => Promise<void>;
   onFixVerificationWithAgent?: (args?: { scriptId?: string }) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const verification = props.verification ?? null;
   const intent = props.intentCompliance ?? null;
   const { stagedCount, workingTreeCount, conflictCount } =
@@ -162,15 +164,15 @@ function ChecksTabContent(props: {
   const prVisual = PR_STATUS_VISUAL[props.checks.prStatus];
 
   const verificationSummary = !verification
-    ? "Not run"
+    ? tI18n("workspace:workspaceChangesPanel.notRun")
     : verification.status === "pass"
-      ? "Passed"
+      ? tI18n("workspace:workspaceChangesPanel.passed")
       : `${verification.failures.length} ${verification.status === "fail" ? "failing" : "warnings"}`;
   const intentSummary = !intent
-    ? "Not run"
+    ? tI18n("workspace:workspaceChangesPanel.notRun")
     : intent.findings.length === 0
-      ? "Consistent"
-      : `${intent.findings.length} to review`;
+      ? tI18n("workspace:workspaceChangesPanel.consistent")
+      : tI18n("workspace:workspaceChangesPanel.valueToReview", { intentfindingsCount: intent.findings.length });
   const treeTone: ChecksTone =
     conflictCount > 0 ? "fail" : props.changedCount > 0 ? "neutral" : "ok";
   const treeSummary =
@@ -178,13 +180,13 @@ function ChecksTabContent(props: {
       ? `${conflictCount} conflict${conflictCount === 1 ? "" : "s"}`
       : props.changedCount > 0
         ? `${props.changedCount} changed`
-        : "Clean";
+        : tI18n("workspace:workspaceChangesPanel.clean");
 
   return (
     <div className={sx(changesStyles.checks)}>
       <ChecksSection
         icon={<GitPullRequest className={sx(changesStyles.glyphMd)} />}
-        title="Pull request"
+        title={tI18n("workspace:workspaceChangesPanel.pullRequest")}
         summary={prVisual.label}
         tone={prToneToChecksTone(prVisual.tone)}
       >
@@ -202,14 +204,13 @@ function ChecksTabContent(props: {
           </p>
         ) : (
           <p className={sx(changesStyles.checksLine)}>
-            No pull request linked to this branch yet.
-          </p>
+            {tI18n("workspace:workspaceChangesPanel.noPullRequestLinkedToThisBranch")}</p>
         )}
       </ChecksSection>
 
       <ChecksSection
         icon={<ListChecks className={sx(changesStyles.glyphMd)} />}
-        title="Verification"
+        title={tI18n("workspace:workspaceChangesPanel.verification")}
         summary={verificationSummary}
         tone={
           verification ? statusToChecksTone(verification.status) : "neutral"
@@ -224,12 +225,12 @@ function ChecksTabContent(props: {
                 variant="outline"
                 xstyle={changesStyles.fixAllButton}
                 onClick={() => props.onFixVerificationWithAgent?.()}
-                title="Send these failures to the agent as the next turn"
+                title={tI18n("workspace:workspaceChangesPanel.sendTheseFailuresToTheAgentAs")}
               >
                 <Wrench className={sx(changesStyles.glyphXs)} />
                 {verification.failures.length > 1
-                  ? "Fix all with agent"
-                  : "Fix with agent"}
+                  ? tI18n("workspace:workspaceChangesPanel.fixAllWithAgent")
+                  : tI18n("workspace:workspaceChangesPanel.fixWithAgent")}
               </Button>
             ) : null}
             <ul className={sx(changesStyles.checksStack)}>
@@ -247,7 +248,7 @@ function ChecksTabContent(props: {
                           : changesStyles.failureTagWarn,
                       )}
                     >
-                      {failure.blocking ? "blocking" : "warn"}
+                      {failure.blocking ? tI18n("workspace:workspaceChangesPanel.blocking") : tI18n("workspace:workspaceChangesPanel.warn")}
                     </span>
                     <span className={sx(changesStyles.truncate)}>
                       {failure.scriptId}
@@ -264,11 +265,10 @@ function ChecksTabContent(props: {
                             scriptId: failure.scriptId,
                           })
                         }
-                        title={`Send only ${failure.scriptId} to the agent`}
+                        title={tI18n("workspace:workspaceChangesPanel.sendOnlyValueToTheAgent", { value1: failure.scriptId })}
                       >
                         <Wrench className={sx(changesStyles.glyphXs)} />
-                        Fix
-                      </Button>
+                        {tI18n("workspace:workspaceChangesPanel.fix")}</Button>
                     ) : null}
                   </div>
                   <p className={sx(changesStyles.failureMessage)}>
@@ -283,7 +283,7 @@ function ChecksTabContent(props: {
 
       <ChecksSection
         icon={<Crosshair className={sx(changesStyles.glyphMd)} />}
-        title="Intent guard"
+        title={tI18n("workspace:workspaceChangesPanel.intentGuard")}
         summary={intentSummary}
         tone={intent ? statusToChecksTone(intent.status) : "neutral"}
       >
@@ -299,7 +299,7 @@ function ChecksTabContent(props: {
                     changesStyles.findingButtonInline,
                   ]}
                   onClick={() => void props.onSelectDiff(finding.file)}
-                  title={`Open ${finding.file}`}
+                  title={tI18n("workspace:workspaceChangesPanel.openValue", { value1: finding.file })}
                 >
                   <span className={sx(changesStyles.findingHead)}>
                     <span className={sx(changesStyles.findingSeverity)}>
@@ -324,7 +324,7 @@ function ChecksTabContent(props: {
 
       <ChecksSection
         icon={<GitBranch className={sx(changesStyles.glyphMd)} />}
-        title="Working tree"
+        title={tI18n("workspace:workspaceChangesPanel.workingTree")}
         summary={treeSummary}
         tone={treeTone}
       >
@@ -333,17 +333,16 @@ function ChecksTabContent(props: {
             {props.sourceBranch}
           </span>
           {" · "}
-          {stagedCount} staged · {workingTreeCount} working tree
-          {conflictCount > 0 ? ` · ${conflictCount} conflicts` : ""}
+          {stagedCount} {tI18n("workspace:workspaceChangesPanel.staged")}{workingTreeCount} {tI18n("workspace:workspaceChangesPanel.workingTree2")}{conflictCount > 0 ? tI18n("workspace:workspaceChangesPanel.valueConflicts", { conflictCount: conflictCount }) : ""}
         </p>
       </ChecksSection>
 
       <ChecksSection
         icon={<ClipboardList className={sx(changesStyles.glyphMd)} />}
-        title="Todos"
+        title={tI18n("workspace:workspaceChangesPanel.todos")}
         summary={
           totalTodoCount === 0
-            ? "None"
+            ? tI18n("workspace:workspaceChangesPanel.none")
             : `${openTodoCount} open / ${totalTodoCount}`
         }
         tone={openTodoCount > 0 ? "warn" : "ok"}
@@ -358,8 +357,7 @@ function ChecksTabContent(props: {
             ))}
             {openTodos.length > 6 ? (
               <li className={sx(changesStyles.checksTodoMore)}>
-                +{openTodos.length - 6} more
-              </li>
+                +{openTodos.length - 6} {tI18n("workspace:workspaceChangesPanel.more")}</li>
             ) : null}
           </ul>
         ) : null}
@@ -375,26 +373,26 @@ interface SourceControlHistoryEntry {
 }
 
 const AUTO_REFRESH_OPTIONS: Array<{ seconds: number; label: string }> = [
-  { seconds: 0, label: "Off" },
-  { seconds: 5, label: "Every 5 seconds" },
-  { seconds: 10, label: "Every 10 seconds" },
-  { seconds: 30, label: "Every 30 seconds" },
-  { seconds: 60, label: "Every minute" },
+  { seconds: 0, get label() { return i18n.t("workspace:workspaceChangesPanel.off"); } },
+  { seconds: 5, get label() { return i18n.t("workspace:workspaceChangesPanel.every5Seconds"); } },
+  { seconds: 10, get label() { return i18n.t("workspace:workspaceChangesPanel.every10Seconds"); } },
+  { seconds: 30, get label() { return i18n.t("workspace:workspaceChangesPanel.every30Seconds"); } },
+  { seconds: 60, get label() { return i18n.t("workspace:workspaceChangesPanel.everyMinute"); } },
 ];
 
 function formatAutoRefreshShortLabel(seconds: number) {
-  if (seconds <= 0) return "Off";
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds <= 0) return i18n.t("workspace:workspaceChangesPanel.off");
+  if (seconds < 60) return i18n.t("workspace:format.duration.seconds", { count: seconds });
   const minutes = Math.round(seconds / 60);
-  return `${minutes}m`;
+  return i18n.t("workspace:format.duration.minutes", { count: minutes });
 }
 
 function formatFileCount(count: number) {
-  return `${count} file${count === 1 ? "" : "s"}`;
+  return i18n.t("workspace:workspaceChangesPanel.fileCount", { count });
 }
 
 function formatRecentCommitCount(count: number) {
-  return `${count} recent commit${count === 1 ? "" : "s"}`;
+  return i18n.t("workspace:workspaceChangesPanel.valueRecentCommitvalue", { count });
 }
 
 function SourceControlActionButton(args: {
@@ -433,6 +431,7 @@ function SourceControlRow(args: {
   onStage: (item: SourceControlStatusItem) => void;
   onUnstage: (item: SourceControlStatusItem) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const statusTone = args.item.isConflict
     ? "conflict"
     : args.item.hasMixedChanges || args.item.hasUnstagedChanges
@@ -472,16 +471,14 @@ function SourceControlRow(args: {
                   variant="outline"
                   className={sx(changesStyles.fileBadge)}
                 >
-                  partial
-                </Badge>
+                  {tI18n("workspace:workspaceChangesPanel.partial")}</Badge>
               ) : null}
               {args.item.isUntracked ? (
                 <Badge
                   variant="outline"
                   className={sx(changesStyles.fileBadge)}
                 >
-                  new
-                </Badge>
+                  {tI18n("workspace:workspaceChangesPanel.new")}</Badge>
               ) : null}
               {args.item.verificationStatus ? (
                 <VerificationStatusIcon
@@ -506,7 +503,7 @@ function SourceControlRow(args: {
           <div className={sx(changesStyles.fileActions)}>
             {args.item.canStage ? (
               <SourceControlActionButton
-                label="Stage"
+                label={tI18n("workspace:workspaceChangesPanel.stage")}
                 disabled={args.isScmBusy}
                 icon={<Plus className={sx(changesStyles.glyphSm)} />}
                 onClick={() => args.onStage(args.item.item)}
@@ -515,7 +512,7 @@ function SourceControlRow(args: {
             ) : null}
             {args.item.canUnstage ? (
               <SourceControlActionButton
-                label="Unstage"
+                label={tI18n("workspace:workspaceChangesPanel.unstage")}
                 disabled={args.isScmBusy}
                 icon={<Minus className={sx(changesStyles.glyphSm)} />}
                 onClick={() => args.onUnstage(args.item.item)}
@@ -524,7 +521,7 @@ function SourceControlRow(args: {
             ) : null}
             {args.item.canDiscard ? (
               <SourceControlActionButton
-                label="Discard"
+                label={tI18n("workspace:workspaceChangesPanel.discard")}
                 disabled={args.isScmBusy}
                 icon={<RotateCcw className={sx(changesStyles.glyphSm)} />}
                 onClick={() => args.onDiscard(args.item.item)}
@@ -537,8 +534,7 @@ function SourceControlRow(args: {
       <ContextMenuContent className={sx(changesStyles.contextMenu)}>
         <ContextMenuItem onSelect={() => args.onOpenDiff(args.item.pathLabel)}>
           <File className={sx(changesStyles.glyphMd)} />
-          Open Changes
-        </ContextMenuItem>
+          {tI18n("workspace:workspaceChangesPanel.openChanges")}</ContextMenuItem>
         {args.item.canStage || args.item.canUnstage || args.item.canDiscard ? (
           <ContextMenuSeparator />
         ) : null}
@@ -548,8 +544,7 @@ function SourceControlRow(args: {
             onSelect={() => args.onStage(args.item.item)}
           >
             <Plus className={sx(changesStyles.glyphMd)} />
-            Stage
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceChangesPanel.stage")}</ContextMenuItem>
         ) : null}
         {args.item.canUnstage ? (
           <ContextMenuItem
@@ -557,8 +552,7 @@ function SourceControlRow(args: {
             onSelect={() => args.onUnstage(args.item.item)}
           >
             <Minus className={sx(changesStyles.glyphMd)} />
-            Unstage
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceChangesPanel.unstage")}</ContextMenuItem>
         ) : null}
         {args.item.canDiscard ? (
           <ContextMenuItem
@@ -567,14 +561,12 @@ function SourceControlRow(args: {
             onSelect={() => args.onDiscard(args.item.item)}
           >
             <RotateCcw className={sx(changesStyles.glyphMd)} />
-            Discard
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceChangesPanel.discard")}</ContextMenuItem>
         ) : null}
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => args.onCopyPath(args.item.pathLabel)}>
           <Copy className={sx(changesStyles.glyphMd)} />
-          Copy path
-        </ContextMenuItem>
+          {tI18n("workspace:workspaceChangesPanel.copyPath")}</ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
@@ -658,6 +650,7 @@ export function WorkspaceChangesPanel(props: {
     file: GitHubPrFile;
   }) => Promise<void>;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const [mode, setMode] = useState<SourceControlPanelMode>("workspace");
   const [view, setView] = useState<SourceControlPanelView>("changes");
   const verificationFailureCount = props.verification?.failures.length ?? 0;
@@ -677,19 +670,19 @@ export function WorkspaceChangesPanel(props: {
     props.sourceControlSummary.stagedCount > 0
       ? {
           tone: "staged" as const,
-          text: `Staged ${props.sourceControlSummary.stagedCount}`,
+          text: tI18n("workspace:workspaceChangesPanel.stagedValue", { value1: props.sourceControlSummary.stagedCount }),
         }
       : null,
     props.sourceControlSummary.workingTreeCount > 0
       ? {
           tone: "workingTree" as const,
-          text: `Working tree ${props.sourceControlSummary.workingTreeCount}`,
+          text: tI18n("workspace:workspaceChangesPanel.workingTreeValue", { value1: props.sourceControlSummary.workingTreeCount }),
         }
       : null,
     props.sourceControlSummary.conflictCount > 0
       ? {
           tone: "conflicts" as const,
-          text: `Conflicts ${props.sourceControlSummary.conflictCount}`,
+          text: tI18n("workspace:workspaceChangesPanel.conflictsValue", { value1: props.sourceControlSummary.conflictCount }),
         }
       : null,
   ].filter(Boolean) as Array<{
@@ -717,12 +710,10 @@ export function WorkspaceChangesPanel(props: {
             xstyle={changesStyles.tabWide}
           >
             <GitBranch className={sx(changesStyles.glyphSm)} />
-            Workspace
-          </TabsTrigger>
+            {tI18n("workspace:workspaceChangesPanel.workspace")}</TabsTrigger>
           <TabsTrigger value="reviews" xstyle={changesStyles.tabWide}>
             <GitPullRequest className={sx(changesStyles.glyphSm)} />
-            Reviews
-          </TabsTrigger>
+            {tI18n("workspace:workspaceChangesPanel.reviews")}</TabsTrigger>
         </TabsList>
       </div>
 
@@ -750,20 +741,20 @@ export function WorkspaceChangesPanel(props: {
           <div className={sx(changesStyles.viewBar)}>
             <TabsList xstyle={changesStyles.tabListInline}>
               <TabsTrigger value="changes" xstyle={changesStyles.tab}>
-                <span>Changes</span>
+                <span>{tI18n("workspace:workspaceChangesPanel.changes")}</span>
                 <span className={sx(changesStyles.tabCount)}>
                   {props.filteredScmItems.length}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="history" xstyle={changesStyles.tab}>
-                <span>History</span>
+                <span>{tI18n("workspace:workspaceChangesPanel.history")}</span>
                 <span className={sx(changesStyles.tabCount)}>
                   {props.sourceHistory.length}
                 </span>
               </TabsTrigger>
               {showChecksTab ? (
                 <TabsTrigger value="checks" xstyle={changesStyles.tab}>
-                  <span>Checks</span>
+                  <span>{tI18n("workspace:workspaceChangesPanel.checks")}</span>
                   {checksAttentionCount > 0 ? (
                     <span className={sx(changesStyles.tabAlert)}>
                       {checksAttentionCount}
@@ -814,8 +805,7 @@ export function WorkspaceChangesPanel(props: {
                         <PopoverTitle
                           className={sx(changesStyles.popoverTitle)}
                         >
-                          Verification
-                        </PopoverTitle>
+                          {tI18n("workspace:workspaceChangesPanel.verification")}</PopoverTitle>
                         {props.onFixVerificationWithAgent ? (
                           <Button
                             type="button"
@@ -823,12 +813,12 @@ export function WorkspaceChangesPanel(props: {
                             variant="outline"
                             xstyle={changesStyles.fixAllButton}
                             onClick={() => props.onFixVerificationWithAgent?.()}
-                            title="Send these failures to the agent as the next turn"
+                            title={tI18n("workspace:workspaceChangesPanel.sendTheseFailuresToTheAgentAs")}
                           >
                             <Wrench className={sx(changesStyles.glyphXs)} />
                             {verificationFailureCount > 1
-                              ? "Fix all with agent"
-                              : "Fix with agent"}
+                              ? tI18n("workspace:workspaceChangesPanel.fixAllWithAgent")
+                              : tI18n("workspace:workspaceChangesPanel.fixWithAgent")}
                           </Button>
                         ) : null}
                       </div>
@@ -851,7 +841,7 @@ export function WorkspaceChangesPanel(props: {
                                   : changesStyles.failureTagWarn,
                               )}
                             >
-                              {failure.blocking ? "blocking" : "warn"}
+                              {failure.blocking ? tI18n("workspace:workspaceChangesPanel.blocking") : tI18n("workspace:workspaceChangesPanel.warn")}
                             </span>
                             <span className={sx(changesStyles.truncate)}>
                               {failure.scriptId}
@@ -868,11 +858,10 @@ export function WorkspaceChangesPanel(props: {
                                     scriptId: failure.scriptId,
                                   })
                                 }
-                                title={`Send only ${failure.scriptId} to the agent`}
+                                title={tI18n("workspace:workspaceChangesPanel.sendOnlyValueToTheAgent", { value1: failure.scriptId })}
                               >
                                 <Wrench className={sx(changesStyles.glyphXs)} />
-                                Fix
-                              </Button>
+                                {tI18n("workspace:workspaceChangesPanel.fix")}</Button>
                             ) : null}
                           </div>
                           <p className={sx(changesStyles.failureMessage)}>
@@ -913,7 +902,7 @@ export function WorkspaceChangesPanel(props: {
                             statusToChecksTone(props.intentCompliance.status)
                           ],
                         ]}
-                        aria-label={`Intent guard: ${props.intentCompliance.findings.length} possible issue${props.intentCompliance.findings.length === 1 ? "" : "s"} vs the pinned intent`}
+                        aria-label={tI18n("workspace:workspaceChangesPanel.intentGuardValuePossibleIssuevalueVsThe", { count: props.intentCompliance.findings.length })}
                       />
                     }
                   >
@@ -932,12 +921,9 @@ export function WorkspaceChangesPanel(props: {
                   >
                     <PopoverHeader className={sx(changesStyles.popoverHeader)}>
                       <PopoverTitle className={sx(changesStyles.popoverTitle)}>
-                        Intent guard
-                      </PopoverTitle>
+                        {tI18n("workspace:workspaceChangesPanel.intentGuard")}</PopoverTitle>
                       <p className={sx(changesStyles.popoverHint)}>
-                        Possible deviations from the pinned intent. Click to
-                        open the file.
-                      </p>
+                        {tI18n("workspace:workspaceChangesPanel.possibleDeviationsFromThePinnedIntentClick")}</p>
                     </PopoverHeader>
                     <ul className={sx(changesStyles.popoverList)}>
                       {props.intentCompliance.findings.map((finding, index) => (
@@ -949,7 +935,7 @@ export function WorkspaceChangesPanel(props: {
                             onClick={() =>
                               void props.onSelectDiff(finding.file)
                             }
-                            title={`Open ${finding.file}`}
+                            title={tI18n("workspace:workspaceChangesPanel.openValue", { value1: finding.file })}
                           >
                             <span className={sx(changesStyles.findingHead)}>
                               <span
@@ -981,7 +967,7 @@ export function WorkspaceChangesPanel(props: {
                       statusToChecksTone(props.intentCompliance.status)
                     ],
                   )}
-                  title="Intent guard: consistent with the pinned intent"
+                  title={tI18n("workspace:workspaceChangesPanel.intentGuardConsistentWithThePinnedIntent")}
                 >
                   <Crosshair className={sx(changesStyles.glyphSm)} />
                 </div>
@@ -992,8 +978,8 @@ export function WorkspaceChangesPanel(props: {
                 type="button"
                 size="icon-xs"
                 variant="ghost"
-                aria-label="Refresh source control"
-                title="Refresh"
+                aria-label={tI18n("workspace:workspaceChangesPanel.refreshSourceControl")}
+                title={tI18n("workspace:workspaceChangesPanel.refresh")}
                 xstyle={changesStyles.refreshButton}
                 disabled={props.isScmBusy}
                 onClick={() => void props.onRefresh()}
@@ -1012,11 +998,11 @@ export function WorkspaceChangesPanel(props: {
                       type="button"
                       size="xs"
                       variant="ghost"
-                      aria-label="Auto refresh options"
+                      aria-label={tI18n("workspace:workspaceChangesPanel.autoRefreshOptions")}
                       title={
                         props.autoRefreshSeconds > 0
-                          ? `Auto refresh: ${formatAutoRefreshShortLabel(props.autoRefreshSeconds)}`
-                          : "Auto refresh: Off"
+                          ? tI18n("workspace:workspaceChangesPanel.autoRefreshValue", { value1: formatAutoRefreshShortLabel(props.autoRefreshSeconds) })
+                          : tI18n("workspace:workspaceChangesPanel.autoRefreshOff")
                       }
                       xstyle={[
                         changesStyles.autoRefreshButton,
@@ -1038,8 +1024,7 @@ export function WorkspaceChangesPanel(props: {
                   <DropdownMenuLabel
                     className={sx(changesStyles.autoRefreshMenuLabel)}
                   >
-                    Auto refresh
-                  </DropdownMenuLabel>
+                    {tI18n("workspace:workspaceChangesPanel.autoRefresh")}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {AUTO_REFRESH_OPTIONS.map((option) => {
                     const isActive =
@@ -1082,8 +1067,7 @@ export function WorkspaceChangesPanel(props: {
                       </span>
                     </Badge>
                     <p className={sx(changesStyles.summaryCount)}>
-                      {formatFileCount(props.filteredScmItems.length)} changed
-                    </p>
+                      {tI18n("workspace:workspaceChangesPanel.changedFileCount", { count: props.filteredScmItems.length })}</p>
                   </div>
                   {props.isScmBusy ? (
                     <Loader
@@ -1117,7 +1101,7 @@ export function WorkspaceChangesPanel(props: {
                     <div className={sx(changesStyles.composerRow)}>
                       <Input
                         xstyle={changesStyles.composerInput}
-                        placeholder={`Commit staged changes on "${props.sourceBranch}"`}
+                        placeholder={tI18n("workspace:workspaceChangesPanel.commitStagedChangesOnValue", { value1: props.sourceBranch })}
                         value={props.commitMessage}
                         onChange={(event) =>
                           props.onCommitMessageChange(event.target.value)
@@ -1146,8 +1130,7 @@ export function WorkspaceChangesPanel(props: {
                         }
                         onClick={() => void props.onCommit()}
                       >
-                        Commit
-                      </Button>
+                        {tI18n("workspace:workspaceChangesPanel.commit")}</Button>
                     </div>
                     {showStageAll || showUnstageAll ? (
                       <div className={sx(changesStyles.bulkRow)}>
@@ -1159,8 +1142,7 @@ export function WorkspaceChangesPanel(props: {
                             disabled={props.isScmBusy}
                             onClick={() => void props.onStageAll()}
                           >
-                            Stage All
-                          </Button>
+                            {tI18n("workspace:workspaceChangesPanel.stageAll")}</Button>
                         ) : null}
                         {showUnstageAll ? (
                           <Button
@@ -1170,8 +1152,7 @@ export function WorkspaceChangesPanel(props: {
                             disabled={props.isScmBusy}
                             onClick={() => void props.onUnstageAll()}
                           >
-                            Unstage All
-                          </Button>
+                            {tI18n("workspace:workspaceChangesPanel.unstageAll")}</Button>
                         ) : null}
                       </div>
                     ) : null}
@@ -1182,9 +1163,7 @@ export function WorkspaceChangesPanel(props: {
               <div className={sx(changesStyles.sections)}>
                 {props.hasConflicts ? (
                   <div className={sx(changesStyles.conflictNotice)}>
-                    Conflict detected. Resolve, stage, or discard the affected
-                    files before committing.
-                  </div>
+                    {tI18n("workspace:workspaceChangesPanel.conflictDetectedResolveStageOrDiscardThe")}</div>
                 ) : null}
                 {props.sourceError ? (
                   <div className={sx(changesStyles.errorNotice)}>
@@ -1194,8 +1173,7 @@ export function WorkspaceChangesPanel(props: {
                 {!props.sourceError && props.filteredScmItems.length === 0 ? (
                   <div className={sx(changesStyles.emptyNotice)}>
                     <p className={sx(changesStyles.emptyNoticeText)}>
-                      No local changes.
-                    </p>
+                      {tI18n("workspace:workspaceChangesPanel.noLocalChanges")}</p>
                   </div>
                 ) : null}
                 {props.sourceControlSections.map((section) => (
@@ -1278,8 +1256,7 @@ export function WorkspaceChangesPanel(props: {
               {props.sourceHistory.length === 0 ? (
                 <div className={sx(changesStyles.emptyNotice)}>
                   <p className={sx(changesStyles.emptyNoticeText)}>
-                    Initial commit
-                  </p>
+                    {tI18n("workspace:workspaceChangesPanel.initialCommit")}</p>
                 </div>
               ) : (
                 <div className={sx(changesStyles.historyList)}>

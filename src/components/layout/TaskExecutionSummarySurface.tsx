@@ -1,3 +1,6 @@
+import { formatPercent } from "@/i18n/format";
+import { formatNumber } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import {
   Activity,
   BadgeCheck,
@@ -68,28 +71,28 @@ interface SummaryMetricDescriptor {
 function formatDuration(milliseconds: number) {
   const seconds = Math.max(0, Math.round(milliseconds / 1000));
   if (seconds < 60) {
-    return `${seconds}s`;
+    return i18n.t("workspace:format.duration.seconds", { count: seconds });
   }
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+  return remainingSeconds ? i18n.t("workspace:format.duration.minutesSeconds", { minutes, seconds: remainingSeconds }) : i18n.t("workspace:format.duration.minutes", { count: minutes });
 }
 
 function formatCount(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return formatNumber(value, {
     notation: value >= 10_000 ? "compact" : "standard",
     maximumFractionDigits: 1,
-  }).format(value);
+  });
 }
 
 function provenanceLabel(provenance: TaskExecutionMetricProvenance) {
   switch (provenance) {
     case "reported":
-      return "Reported";
+      return i18n.t("workspace:taskExecutionSummarySurface.reported");
     case "derived":
-      return "Derived";
+      return i18n.t("workspace:taskExecutionSummarySurface.derived");
     case "unavailable":
-      return "Unavailable";
+      return i18n.t("workspace:taskExecutionSummarySurface.unavailable");
   }
 }
 
@@ -228,16 +231,16 @@ function joinDetails(parts: Array<string | undefined>) {
  * grid to an awkward seven.
  */
 function formatContextPercent(usedPercent: number): string {
-  return `${usedPercent < 10 ? usedPercent.toFixed(1) : Math.round(usedPercent)}%`;
+  return formatPercent(usedPercent / 100, { minimumFractionDigits: usedPercent < 10 ? 1 : 0, maximumFractionDigits: usedPercent < 10 ? 1 : 0 });
 }
 
 function formatReportedCost(amount: number, currency: string): string {
   const trimmed = currency.trim();
   if (trimmed.toUpperCase() === "USD") {
-    return `$${amount.toFixed(4)}`;
+    return formatNumber(amount, { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4 });
   }
   const digits = amount >= 1 ? 2 : 4;
-  return `${amount.toFixed(digits)} ${trimmed}`;
+  return `${formatNumber(amount, { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${trimmed}`;
 }
 
 interface HeadroomFact {
@@ -353,7 +356,7 @@ function buildHeadroomDescriptor(
   return {
     key: "headroom",
     icon: Gauge,
-    label: "Headroom",
+    label: i18n.t("workspace:taskExecutionSummarySurface.headroom"),
     figureTone: tone === "neutral" ? "default" : tone,
     provenance,
     value,
@@ -387,11 +390,11 @@ function verificationOutcome(status: "pass" | "warn" | "fail"): {
 } {
   switch (status) {
     case "pass":
-      return { label: "Passed", tone: "success" };
+      return { label: i18n.t("workspace:taskExecutionSummarySurface.passed"), tone: "success" };
     case "fail":
-      return { label: "Failed", tone: "danger" };
+      return { label: i18n.t("workspace:taskExecutionSummarySurface.failed"), tone: "danger" };
     case "warn":
-      return { label: "Warnings", tone: "warning" };
+      return { label: i18n.t("workspace:taskExecutionSummarySurface.warnings"), tone: "warning" };
   }
 }
 
@@ -418,7 +421,7 @@ function buildUsageReadout(
       : null;
   const costLabel =
     usage.totalCostUsd != null
-      ? `$${usage.totalCostUsd.toFixed(4)}`
+      ? formatNumber(usage.totalCostUsd, { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4 })
       : usage.costAmount !== undefined && usage.costCurrency
         ? formatReportedCost(usage.costAmount, usage.costCurrency)
         : null;
@@ -458,7 +461,7 @@ function buildMetricDescriptors(
       { text: `−${formatCount(changes.deletions)}`, tone: "removed" },
     );
   } else if (changes?.partial) {
-    diffParts.push({ text: "Partial", tone: "warning" });
+    diffParts.push({ text: i18n.t("workspace:taskExecutionSummarySurface.partial"), tone: "warning" });
   }
   const verificationOutcomeLabel = verification
     ? verificationOutcome(verification.status)
@@ -479,7 +482,7 @@ function buildMetricDescriptors(
     agents.runningCount < agents.totalCount
   ) {
     agentParts.push({
-      text: `${agents.runningCount} running`,
+      text: i18n.t("workspace:taskExecutionSummarySurface.runningCount", { count: agents.runningCount }),
       tone: "default",
     });
   }
@@ -487,20 +490,20 @@ function buildMetricDescriptors(
     {
       key: "elapsed",
       icon: Clock3,
-      label: "Elapsed",
+      label: i18n.t("workspace:taskExecutionSummarySurface.elapsed"),
       figureTone: "default",
       provenance: summary.elapsed.provenance,
       detail: summary.elapsed.detail,
       figure: elapsed ? formatDuration(elapsed.milliseconds) : undefined,
-      parts: elapsed?.running ? [{ text: "Running", tone: "default" }] : [],
+      parts: elapsed?.running ? [{ text: i18n.t("workspace:taskExecutionSummarySurface.running"), tone: "default" }] : [],
       value: elapsed
-        ? `${formatDuration(elapsed.milliseconds)}${elapsed.running ? " · running" : ""}`
+        ? elapsed.running ? i18n.t("workspace:taskExecutionSummarySurface.runningDuration", { duration: formatDuration(elapsed.milliseconds) }) : formatDuration(elapsed.milliseconds)
         : "Not reported",
     },
     {
       key: "changes",
       icon: FileDiff,
-      label: "Changes",
+      label: i18n.t("workspace:taskExecutionSummarySurface.changes"),
       figureTone: "default",
       provenance: summary.changes.provenance,
       detail: summary.changes.detail,
@@ -517,7 +520,7 @@ function buildMetricDescriptors(
     {
       key: "verification",
       icon: BadgeCheck,
-      label: "Verification",
+      label: i18n.t("workspace:taskExecutionSummarySurface.verification"),
       // The outcome is the figure: it is the one word this reader came for.
       // The count is context under it.
       figureTone: verificationOutcomeLabel?.tone ?? "default",
@@ -539,7 +542,7 @@ function buildMetricDescriptors(
     {
       key: "usage",
       icon: Coins,
-      label: "Usage",
+      label: i18n.t("workspace:taskExecutionSummarySurface.usage"),
       figureTone: "default",
       provenance: summary.usage.provenance,
       detail: summary.usage.detail,
@@ -550,7 +553,7 @@ function buildMetricDescriptors(
     {
       key: "agents",
       icon: Network,
-      label: "Agents",
+      label: i18n.t("workspace:taskExecutionSummarySurface.agents"),
       figureTone: "default",
       provenance: summary.agents.provenance,
       detail: summary.agents.detail,
@@ -568,12 +571,13 @@ function LatestActivityRow(args: {
   metric: TaskExecutionMetric<{ label: string; detail?: string }>;
   compact?: boolean;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const latest = args.metric.value;
   return (
     <div className={sx(styles.activityRow)}>
       <Activity className={sx(styles.activityIcon)} aria-hidden="true" />
       <div className={sx(styles.activityBody)}>
-        <h3 className={sx(styles.activityHeading)}>Latest activity</h3>
+        <h3 className={sx(styles.activityHeading)}>{tI18n("workspace:taskExecutionSummarySurface.latestActivity")}</h3>
         <p
           className={sx(
             styles.activityText,
@@ -582,7 +586,7 @@ function LatestActivityRow(args: {
               : styles.activityTextClampTwo,
           )}
         >
-          {latest?.label ?? "No activity reported"}
+          {latest?.label ?? tI18n("workspace:taskExecutionSummarySurface.noActivityReported")}
           {latest?.detail ? (
             <span className={sx(styles.activityDetail)}>
               {" "}
@@ -613,6 +617,7 @@ export function TaskExecutionSummarySurface(args: {
   /** Tiles another part of the host already states (e.g. elapsed in a header). */
   omitKeys?: readonly SummaryMetricDescriptor["key"][];
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const showLatestActivity = args.showLatestActivity ?? true;
   const layout = args.layout ?? "shelf";
   const omit = new Set(args.omitKeys ?? []);
@@ -631,7 +636,7 @@ export function TaskExecutionSummarySurface(args: {
   return (
     <section
       className={cx(sx(styles.root, args.xstyle), args.className)}
-      aria-label="Task execution summary"
+      aria-label={tI18n("workspace:taskExecutionSummarySurface.taskExecutionSummary")}
       data-summary-layout={layout}
     >
       {showLatestActivity ? (

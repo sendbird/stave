@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
 
 import { toast } from "@/components/ui";
@@ -236,19 +237,19 @@ export function useTrackerIssueKickoffDraft(args: {
       return null;
     }
     if (!repositoryPath) {
-      toast.error("Choose a registered Stave repository.");
+      toast.error(i18n.t("issues:useTrackerIssueKickoffDraft.chooseARegisteredStaveRepository"));
       return null;
     }
     if (workspaceStrategy === "existing" && !workspaceId) {
-      toast.error("Choose an existing workspace.");
+      toast.error(i18n.t("issues:useTrackerIssueKickoffDraft.chooseAnExistingWorkspace"));
       return null;
     }
     if (workspaceStrategy === "new" && !branchName.trim()) {
-      toast.error("Enter a branch name.");
+      toast.error(i18n.t("issues:useTrackerIssueKickoffDraft.enterABranchName"));
       return null;
     }
     if (!instruction.trim()) {
-      toast.error("Enter an instruction for the run.");
+      toast.error(i18n.t("issues:useTrackerIssueKickoffDraft.enterAnInstructionForTheRun"));
       return null;
     }
 
@@ -274,7 +275,7 @@ export function useTrackerIssueKickoffDraft(args: {
         craneWriteBack,
       });
       if (!reply.ok || !reply.result) {
-        toast.error(`Could not start ${task.key}`, {
+        toast.error(i18n.t("issues:useTrackerIssueKickoffDraft.couldNotStartValue", { value1: task.key }), {
           description: reply.message,
         });
         return null;
@@ -283,7 +284,7 @@ export function useTrackerIssueKickoffDraft(args: {
       rememberIfAsked(repositoryPath);
       return reply.result;
     } catch {
-      toast.error(`Could not start ${task.key}.`);
+      toast.error(i18n.t("issues:useTrackerIssueKickoffDraft.couldNotStartValue2", { value1: task.key }));
       return null;
     } finally {
       setSubmitting(false);

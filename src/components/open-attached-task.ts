@@ -1,4 +1,5 @@
 import { toast } from "@/components/ui";
+import { i18n } from "@/i18n";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -16,7 +17,7 @@ export async function openAttachedTask(args: { taskId: string; workspaceId: stri
     state = useAppStore.getState();
   }
   if (!known()) {
-    toast.info("Open the project that task belongs to, then open it from there.");
+    toast.info(i18n.t("workspace:taskContext.openProjectFirst"));
     return;
   }
   await state.focusTaskAttention({

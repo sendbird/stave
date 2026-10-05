@@ -4,6 +4,7 @@ const Identity = z.string().trim().min(1).max(1000);
 const Timestamp = z
   .string()
   .refine((value) => Number.isFinite(Date.parse(value)), {
+    // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
     message: "Expected an ISO timestamp.",
   });
 

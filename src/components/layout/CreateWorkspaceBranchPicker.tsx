@@ -22,6 +22,7 @@ import {
   type CreateWorkspaceBranchOption,
 } from "@/components/layout/CreateWorkspaceBranchPicker.utils";
 import { branchPickerStyles } from "./create-workspace-branch-picker.styles";
+import { useTranslation, type AppTFunction } from "@/i18n";
 
 interface CreateWorkspaceBranchPickerProps {
   defaultBranch?: string;
@@ -35,24 +36,27 @@ interface CreateWorkspaceBranchPickerProps {
   valueScope?: CreateWorkspaceBranchOption["scope"];
 }
 
-function getScopeLabel(scope: "local" | "remote") {
-  return scope === "remote" ? "Remote" : "Local";
+function getScopeLabel(scope: "local" | "remote", t: AppTFunction) {
+  return scope === "remote"
+    ? t("workspace:branchPicker.scope.remote")
+    : t("workspace:branchPicker.scope.local");
 }
 
 function getSearchPlaceholder(args: {
   hasLocalBranches: boolean;
   hasRemoteBranches: boolean;
+  t: AppTFunction;
 }) {
   if (args.hasLocalBranches && args.hasRemoteBranches) {
-    return "Search local and remote branches...";
+    return args.t("workspace:branchPicker.search.all");
   }
   if (args.hasRemoteBranches) {
-    return "Search remote branches...";
+    return args.t("workspace:branchPicker.search.remote");
   }
   if (args.hasLocalBranches) {
-    return "Search local branches...";
+    return args.t("workspace:branchPicker.search.local");
   }
-  return "Search branches...";
+  return args.t("workspace:branchPicker.search.any");
 }
 
 function getOptionId(option: CreateWorkspaceBranchOption) {
@@ -70,6 +74,7 @@ export function CreateWorkspaceBranchPicker({
   value,
   valueScope,
 }: CreateWorkspaceBranchPickerProps) {
+  const { t } = useTranslation(["workspace", "common"]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlightedOptionId, setHighlightedOptionId] = useState<string | null>(
@@ -258,7 +263,7 @@ export function CreateWorkspaceBranchPicker({
             />
           ) : showScopeBadges ? (
             <span className={sx(branchPickerStyles.scopeBadge)}>
-              {getScopeLabel(selectedScope)}
+              {getScopeLabel(selectedScope, t)}
             </span>
           ) : null}
           <ChevronDown className={sx(branchPickerStyles.chevronIcon)} />
@@ -280,6 +285,7 @@ export function CreateWorkspaceBranchPicker({
               placeholder={getSearchPlaceholder({
                 hasLocalBranches,
                 hasRemoteBranches,
+                t,
               })}
               xstyle={branchPickerStyles.searchInput}
               onChange={(event) => setQuery(event.target.value)}
@@ -290,11 +296,11 @@ export function CreateWorkspaceBranchPicker({
         {loading && rows.length === 0 ? (
           <div className={sx(branchPickerStyles.loadingRow)}>
             <Loader aria-hidden size="xs" variant="sync" />
-            Loading branches...
+            {t("branchPicker.loading")}
           </div>
         ) : rows.length === 0 ? (
           <div className={sx(branchPickerStyles.emptyRow)}>
-            No matching branches.
+            {t("branchPicker.empty")}
           </div>
         ) : (
           <Virtuoso
@@ -311,7 +317,7 @@ export function CreateWorkspaceBranchPicker({
               if (row.type === "label") {
                 return (
                   <div className={sx(branchPickerStyles.groupLabel)}>
-                    {row.label}
+                    {t(row.labelKey)}
                   </div>
                 );
               }
@@ -348,7 +354,7 @@ export function CreateWorkspaceBranchPicker({
                     </span>
                     {showScopeBadges ? (
                       <span className={sx(branchPickerStyles.scopeBadge)}>
-                        {getScopeLabel(row.option.scope)}
+                        {getScopeLabel(row.option.scope, t)}
                       </span>
                     ) : null}
                     <span className={sx(branchPickerStyles.optionCheck)}>

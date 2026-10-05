@@ -39,6 +39,7 @@ export function buildRepositoryMemoryRetrievedContextPart(args: {
   return {
     type: "retrieved_context",
     sourceId: STAVE_REPOSITORY_MEMORY_SOURCE_ID,
+    // i18n-ignore: model-facing context metadata and instructions
     title: "Repository Memory",
     content: [
       ...REPOSITORY_MEMORY_HEADER_LINES,

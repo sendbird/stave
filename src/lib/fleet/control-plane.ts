@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
@@ -107,7 +108,7 @@ function validateTaskIdentity(args: {
     return {
       ok: false,
       reason:
-        "This task moved or is no longer loaded. Open the task to refresh it.",
+        i18n.t("fleet:additionalCopy.message31"),
     };
   }
   if (
@@ -118,7 +119,7 @@ function validateTaskIdentity(args: {
     return {
       ok: false,
       reason:
-        "The turn changed before this action was sent. Review the latest task state.",
+        i18n.t("fleet:additionalCopy.message32"),
     };
   }
   return { ok: true };
@@ -171,7 +172,7 @@ export function validateFleetInteractionAction(args: {
     return {
       ok: false,
       reason:
-        "This request was already answered or expired. Review the latest task state.",
+        i18n.t("fleet:additionalCopy.message33"),
     };
   }
   if (
@@ -181,7 +182,7 @@ export function validateFleetInteractionAction(args: {
     return {
       ok: false,
       reason:
-        "The request identity changed before this action was sent. Review the latest task state.",
+        i18n.t("fleet:additionalCopy.message34"),
     };
   }
   return { ok: true, messageId: pending.messageId };

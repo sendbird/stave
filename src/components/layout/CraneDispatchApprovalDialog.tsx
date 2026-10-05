@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cable, ExternalLink, ShieldCheck } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -45,6 +47,7 @@ import {
 import { useAppStore } from "@/store/app.store";
 
 export function CraneDispatchApprovalDialog() {
+  const { t: tI18n } = useTranslation(["kickoff"]);
   const { approval } = useCraneConnectorClientState();
   const declineButtonRef = useRef<HTMLButtonElement>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -69,15 +72,15 @@ export function CraneDispatchApprovalDialog() {
   const selectedRepository = useMemo(
     () =>
       repositories.find((repository) => repository.repositoryPath === repositoryPath) ?? null,
-    [repositoryPath, repositories],
+    [repositoryPath, repositories, i18n.resolvedLanguage],
   );
   const jiraReference = useMemo(
     () => (approval ? resolveCraneJiraReference(approval.job) : null),
-    [approval],
+    [approval, i18n.resolvedLanguage],
   );
   const craneTeamKey = useMemo(
     () => (approval ? getCraneTeamKey(approval.job.issue.key) : null),
-    [approval],
+    [approval, i18n.resolvedLanguage],
   );
 
   // Seeded once per approval from a fresh store read so that changing a Stave
@@ -157,7 +160,7 @@ export function CraneDispatchApprovalDialog() {
     }
     const declineJob = window.api?.craneConnector?.decline;
     if (!declineJob) {
-      toast.error("Crane connector controls are unavailable.");
+      toast.error(tI18n("kickoff:craneDispatchApprovalDialog.craneConnectorControlsAreUnavailable"));
       return;
     }
     setSubmitting(true);
@@ -165,15 +168,15 @@ export function CraneDispatchApprovalDialog() {
       const result = await declineJob({ jobId: approval.job.id });
       setCraneConnectorClientStatus(result.status);
       if (!result.ok) {
-        toast.error("Could not decline the Crane job", {
+        toast.error(tI18n("kickoff:craneDispatchApprovalDialog.couldNotDeclineTheCraneJob"), {
           description: result.message,
         });
         return;
       }
       dismissCraneDispatchApproval(approval.job.id);
-      toast.info(`Declined ${approval.job.issue.key}`);
+      toast.info(tI18n("kickoff:craneDispatchApprovalDialog.declinedValue", { value1: approval.job.issue.key }));
     } catch {
-      toast.error("Could not decline the Crane job.");
+      toast.error(tI18n("kickoff:craneDispatchApprovalDialog.couldNotDeclineTheCraneJob2"));
     } finally {
       setSubmitting(false);
     }
@@ -185,19 +188,19 @@ export function CraneDispatchApprovalDialog() {
     }
     const approveJob = window.api?.craneConnector?.approve;
     if (!approveJob) {
-      toast.error("Crane connector controls are unavailable.");
+      toast.error(tI18n("kickoff:craneDispatchApprovalDialog.craneConnectorControlsAreUnavailable"));
       return;
     }
     if (!repositoryPath) {
-      toast.error("Choose a registered Stave repository.");
+      toast.error(tI18n("kickoff:craneDispatchApprovalDialog.chooseARegisteredStaveRepository"));
       return;
     }
     if (workspaceStrategy === "existing" && !workspaceId) {
-      toast.error("Choose an existing workspace.");
+      toast.error(tI18n("kickoff:craneDispatchApprovalDialog.chooseAnExistingWorkspace"));
       return;
     }
     if (workspaceStrategy === "new" && !branchName.trim()) {
-      toast.error("Enter a branch name.");
+      toast.error(tI18n("kickoff:craneDispatchApprovalDialog.enterABranchName"));
       return;
     }
 
@@ -220,7 +223,7 @@ export function CraneDispatchApprovalDialog() {
       });
       setCraneConnectorClientStatus(result.status);
       if (!result.ok || !result.workspaceId || !result.taskId) {
-        toast.error("Could not start the Crane job", {
+        toast.error(tI18n("kickoff:craneDispatchApprovalDialog.couldNotStartTheCraneJob"), {
           description: result.message,
         });
         return;
@@ -245,7 +248,7 @@ export function CraneDispatchApprovalDialog() {
         });
       }
       dismissCraneDispatchApproval(approval.job.id);
-      toast.success(`Started ${approval.job.issue.key} in Stave`);
+      toast.success(tI18n("kickoff:craneDispatchApprovalDialog.startedValueInStave", { value1: approval.job.issue.key }));
       void useAppStore
         .getState()
         .focusTaskAttention({
@@ -255,17 +258,17 @@ export function CraneDispatchApprovalDialog() {
           refreshFromPersistence: true,
         })
         .catch(() => {
-          toast.error("The Crane task started, but Stave could not focus it.");
+          toast.error(tI18n("kickoff:craneDispatchApprovalDialog.theCraneTaskStartedButStaveCould"));
         });
     } catch {
-      toast.error("Could not start the Crane job.");
+      toast.error(tI18n("kickoff:craneDispatchApprovalDialog.couldNotStartTheCraneJob2"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const expiresAt = approval
-    ? new Date(approval.job.expiresAt).toLocaleString()
+    ? formatDateTime(new Date(approval.job.expiresAt))
     : "";
 
   return (
@@ -289,12 +292,10 @@ export function CraneDispatchApprovalDialog() {
             </span>
             <div className={sx(craneApprovalStyles.headerText)}>
               <DialogTitle>
-                Run {approval?.job.issue.key ?? "Crane issue"} in Stave?
-              </DialogTitle>
+          {tI18n("kickoff:craneDispatchApprovalDialog.runQuestion", { issue: approval?.job.issue.key ?? tI18n("kickoff:craneDispatchApprovalDialog.craneIssue") })}
+        </DialogTitle>
               <DialogDescription className={sx(craneApprovalStyles.headerDescription)}>
-                This request came from your paired Crane account. Nothing starts
-                until you approve these local choices.
-              </DialogDescription>
+                {tI18n("kickoff:craneDispatchApprovalDialog.thisRequestCameFromYourPairedCrane")}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -313,13 +314,12 @@ export function CraneDispatchApprovalDialog() {
                   {approval?.job.issue.title}
                 </h3>
                 <p className={sx(craneApprovalStyles.issueMeta)}>
-                  Expires {expiresAt}
-                </p>
+          {tI18n("kickoff:craneDispatchApprovalDialog.expiry", { time: expiresAt })}
+        </p>
                 {jiraReference ? (
                   <p className={sx(craneApprovalStyles.issueMeta)}>
-                    Jira {jiraReference.key} takes precedence over the Crane key
-                    in the branch name and task title.
-                  </p>
+          {tI18n("kickoff:craneDispatchApprovalDialog.jiraPrecedence", { key: jiraReference.key })}
+        </p>
                 ) : null}
               </div>
               <Button
@@ -332,19 +332,17 @@ export function CraneDispatchApprovalDialog() {
                     void window.api?.shell
                       ?.openExternal?.({ url: href })
                       .catch(() => {
-                        toast.error("Could not open the Crane issue.");
+                        toast.error(tI18n("kickoff:craneDispatchApprovalDialog.couldNotOpenTheCraneIssue"));
                       });
                   }
                 }}
               >
                 <ExternalLink className={sx(craneApprovalStyles.buttonIcon)} />
-                Open source
-              </Button>
+                {tI18n("kickoff:craneDispatchApprovalDialog.openSource")}</Button>
             </div>
             <div className={sx(craneApprovalStyles.instructionGroup)}>
               <p className={sx(craneApprovalStyles.instructionLabel)}>
-                Requested instruction
-              </p>
+                {tI18n("kickoff:craneDispatchApprovalDialog.requestedInstruction")}</p>
               <p className={sx(craneApprovalStyles.instruction)}>
                 {approval?.job.instruction}
               </p>
@@ -355,8 +353,7 @@ export function CraneDispatchApprovalDialog() {
                   <AccordionTrigger
                     className={sx(craneApprovalStyles.descriptionTrigger)}
                   >
-                    Issue description
-                  </AccordionTrigger>
+                    {tI18n("kickoff:craneDispatchApprovalDialog.issueDescription")}</AccordionTrigger>
                   <AccordionContent
                     className={sx(craneApprovalStyles.descriptionPanel)}
                   >
@@ -406,13 +403,9 @@ export function CraneDispatchApprovalDialog() {
             <ShieldCheck className={sx(craneApprovalStyles.privacyIcon)} />
             <div className={sx(craneApprovalStyles.privacyText)}>
               <p className={sx(craneApprovalStyles.privacyHeading)}>
-                Status-only reporting
-              </p>
+                {tI18n("kickoff:craneDispatchApprovalDialog.statusOnlyReporting")}</p>
               <p className={sx(craneApprovalStyles.privacyCopy)}>
-                Crane receives lifecycle state, sequence, timestamps, and safe
-                error codes only. Prompts, responses, reasoning, files, paths,
-                diffs, and credentials stay local.
-              </p>
+                {tI18n("kickoff:craneDispatchApprovalDialog.craneReceivesLifecycleStateSequenceTimestampsAnd")}</p>
             </div>
           </section>
         </div>
@@ -420,8 +413,8 @@ export function CraneDispatchApprovalDialog() {
         <DialogFooter className={sx(craneApprovalStyles.footer)}>
           <span className={sx(craneApprovalStyles.footerNote)}>
             {rememberTeamDefaults && craneTeamKey
-              ? "Run approval is job-scoped; only these local team defaults are remembered."
-              : "Approval applies to this job only."}
+              ? tI18n("kickoff:craneDispatchApprovalDialog.runApprovalIsJobScopedOnlyThese")
+              : tI18n("kickoff:craneDispatchApprovalDialog.approvalAppliesToThisJobOnly")}
           </span>
           <Button
             ref={declineButtonRef}
@@ -430,8 +423,7 @@ export function CraneDispatchApprovalDialog() {
             disabled={submitting}
             onClick={() => void decline()}
           >
-            Decline
-          </Button>
+            {tI18n("kickoff:craneDispatchApprovalDialog.decline")}</Button>
           <Button
             type="button"
             disabled={
@@ -447,8 +439,7 @@ export function CraneDispatchApprovalDialog() {
             {submitting ? (
               <Loader aria-hidden size="xs" variant="spinner" />
             ) : null}
-            Approve and run locally
-          </Button>
+            {tI18n("kickoff:craneDispatchApprovalDialog.approveAndRunLocally")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

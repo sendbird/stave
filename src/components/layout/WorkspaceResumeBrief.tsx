@@ -1,3 +1,5 @@
+import { formatNumber, formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import {
   Accordion,
@@ -34,6 +36,7 @@ export function WorkspaceResumeBrief(props: {
   workspaceId: string;
   brief?: WorkspaceResumeBrief | null;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const id = useId();
   const [openSections, setOpenSections] = useState<string[]>(["instructions"]);
   const isOpen = openSections.includes("instructions");
@@ -100,7 +103,7 @@ export function WorkspaceResumeBrief(props: {
     } catch {
       setDraft((current) => ({
         ...current,
-        error: "The draft could not be cleared. Your edits are kept.",
+        error: i18n.t("workspace:additionalCopy.message14"),
       }));
     } finally {
       setSaving(false);
@@ -152,7 +155,7 @@ export function WorkspaceResumeBrief(props: {
       setDraft((current) => ({
         ...current,
         error:
-          "The saved instructions changed while you were editing. Your draft is kept. Copy any changes you need, then load the saved instructions.",
+          i18n.t("workspace:additionalCopy.message15"),
       }));
       return;
     }
@@ -189,7 +192,7 @@ export function WorkspaceResumeBrief(props: {
       setDraft((current) => ({
         ...current,
         error:
-          "Saving the instructions could not be confirmed. Your draft is kept; retry before leaving.",
+          i18n.t("workspace:additionalCopy.message16"),
       }));
     } finally {
       setSaving(false);
@@ -238,8 +241,7 @@ export function WorkspaceResumeBrief(props: {
                   </span>
                 </span>
                 <span className={sx(panelStyles.sectionTitle)}>
-                  Shared instructions
-                </span>
+                  {tI18n("workspace:workspaceResumeBrief.sharedInstructions")}</span>
               </span>
             </AccordionTrigger>
             {isOpen && !draft.editing ? (
@@ -256,15 +258,13 @@ export function WorkspaceResumeBrief(props: {
                   })
                 }
               >
-                {hasBrief ? "Edit instructions" : "Add instructions"}
+                {hasBrief ? tI18n("workspace:workspaceResumeBrief.editInstructions") : tI18n("workspace:workspaceResumeBrief.addInstructions")}
               </ActionButton>
             ) : null}
           </div>
           <AccordionContent className={sx(panelStyles.sectionPanel)}>
             <p className={sx(styles.intro)}>
-              Standing rules for this workspace. Once saved they travel with
-              every message in every task here, until you change them.
-            </p>
+              {tI18n("workspace:workspaceResumeBrief.standingRulesForThisWorkspaceOnceSaved")}</p>
             <p role="status" className={sx(styles.draftStatus)}>
               {draftStatus}
             </p>
@@ -276,8 +276,7 @@ export function WorkspaceResumeBrief(props: {
                   setLoadAttempt((value) => value + 1);
                 }}
               >
-                Retry draft
-              </ActionButton>
+                {tI18n("workspace:workspaceResumeBrief.retryDraft")}</ActionButton>
             ) : null}
             {draft.error ? (
               <p role="alert" className={sx(styles.error)}>
@@ -297,15 +296,14 @@ export function WorkspaceResumeBrief(props: {
                     htmlFor={`${id}-instructions`}
                     className={sx(styles.fieldLabel)}
                   >
-                    Instructions for all tasks
-                  </label>
+                    {tI18n("workspace:workspaceResumeBrief.instructionsForAllTasks")}</label>
                   <AdsTextarea
                     id={`${id}-instructions`}
                     aria-describedby={`${id}-instructions-hint`}
                     maxLength={SHARED_INSTRUCTIONS_MAX_LENGTH}
                     rows={6}
                     value={draftText}
-                    placeholder="For example: Preserve existing keyboard shortcuts. Link the verification results when finishing."
+                    placeholder={tI18n("workspace:workspaceResumeBrief.forExamplePreserveExistingKeyboardShortcutsLink")}
                     disabled={saving}
                     onChange={(event) =>
                       changeField("instructions", event.target.value)
@@ -316,84 +314,70 @@ export function WorkspaceResumeBrief(props: {
                     className={sx(styles.fieldFooter)}
                   >
                     <span className={sx(styles.fieldHint)}>
-                      Short standing rules work best. Plans belong in files,
-                      action items in Todos.
-                    </span>
+                      {tI18n("workspace:workspaceResumeBrief.shortStandingRulesWorkBestPlansBelong")}</span>
                     <span
                       className={sx(
                         styles.counter,
                         abridged && styles.counterWarning,
                       )}
                     >
-                      {draftText.length.toLocaleString()} /{" "}
-                      {SHARED_INSTRUCTIONS_MAX_LENGTH.toLocaleString()}
+                      {formatNumber(draftText.length)} /{" "}
+                      {formatNumber(SHARED_INSTRUCTIONS_MAX_LENGTH)}
                     </span>
                   </div>
                   {abridged ? (
                     <p className={sx(styles.warning)}>
-                      Longer than{" "}
-                      {SHARED_INSTRUCTIONS_CONTEXT_LIMIT.toLocaleString()}{" "}
-                      characters: agents receive an abridged copy. Put the
-                      essentials first.
-                    </p>
+                      {tI18n("workspace:workspaceResumeBrief.instructionsAbridged", { limit: formatNumber(SHARED_INSTRUCTIONS_CONTEXT_LIMIT) })}</p>
                   ) : null}
                 </div>
                 <div className={sx(styles.formActions)}>
                   <ActionButton type="submit" weight="primary" loading={saving}>
-                    Save instructions
-                  </ActionButton>
+                    {tI18n("workspace:workspaceResumeBrief.saveInstructions")}</ActionButton>
                   <ActionButton
                     type="button"
                     weight="quiet"
                     disabled={saving}
                     onClick={() => void resetDraft()}
                   >
-                    Discard edits
-                  </ActionButton>
+                    {tI18n("workspace:workspaceResumeBrief.discardEdits")}</ActionButton>
                 </div>
               </form>
             ) : hasBrief ? (
               <dl className={sx(styles.list)}>
                 <div className={sx(styles.meta)}>
                   <dt>
-                    <VisuallyHidden>Status</VisuallyHidden>
+                    <VisuallyHidden>{tI18n("workspace:workspaceResumeBrief.status")}</VisuallyHidden>
                   </dt>
                   <dd className={sx(styles.metaRow)}>
                     <span className={sx(styles.appliedMark)}>
-                      Active in every task
-                    </span>
+                      {tI18n("workspace:workspaceResumeBrief.activeInEveryTask")}</span>
                     <time
                       dateTime={props.brief!.updatedAt}
-                      title={new Date(props.brief!.updatedAt).toLocaleString()}
+                      title={formatDateTime(new Date(props.brief!.updatedAt))}
                     >
-                      Updated {formatRelativeTime(props.brief!.updatedAt)}
-                    </time>
+          {tI18n("workspace:workspaceResumeBrief.updatedAt", { time: formatRelativeTime(props.brief!.updatedAt) })}
+        </time>
                   </dd>
                 </div>
                 <div>
                   <dt>
-                    <VisuallyHidden>Instructions for all tasks</VisuallyHidden>
+                    <VisuallyHidden>{tI18n("workspace:workspaceResumeBrief.instructionsForAllTasks")}</VisuallyHidden>
                   </dt>
                   <dd className={sx(styles.definition)}>{savedInstructions}</dd>
                 </div>
                 {abridged ? (
                   <div>
                     <dt>
-                      <VisuallyHidden>Context note</VisuallyHidden>
+                      <VisuallyHidden>{tI18n("workspace:workspaceResumeBrief.contextNote")}</VisuallyHidden>
                     </dt>
                     <dd className={sx(styles.warning)}>
-                      Agents receive the first{" "}
-                      {SHARED_INSTRUCTIONS_CONTEXT_LIMIT.toLocaleString()}{" "}
-                      characters verbatim and a note that the rest is abridged.
-                    </dd>
+                      {tI18n("workspace:workspaceResumeBrief.instructionsLimit", { limit: formatNumber(SHARED_INSTRUCTIONS_CONTEXT_LIMIT) })}</dd>
                   </div>
                 ) : null}
               </dl>
             ) : (
               <p className={sx(styles.empty)}>
-                Nothing shared yet. Add rules every task should follow, such as
-                a verification step, a style constraint, or files to avoid.
-              </p>
+                {tI18n("workspace:workspaceResumeBrief.nothingSharedYetAddRulesEveryTask")}</p>
             )}
           </AccordionContent>
         </AccordionItem>
