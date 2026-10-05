@@ -218,15 +218,14 @@ export const RuntimeOptionsObjectSchema = z
       .max(8)
       .optional(),
     agentInstructions: z.string().max(12_000).optional(),
+    // The host replaces caller values with the saved assignment's role.
+    nativePlanTools: z.boolean().optional(),
     responseStylePrompt: z.string().max(10_000).optional(),
     promptPrDescription: z.string().max(10_000).optional(),
     promptInlineCompletion: z.string().max(10_000).optional(),
     // Ids of vault secrets the user bound to this task. Values are NEVER carried
     // here — the main process resolves ids to an env map at spawn/thread-start.
-    boundSecretIds: z
-      .array(z.string().uuid())
-      .max(MAX_BOUND_SECRETS)
-      .optional(),
+    boundSecretIds: z.array(z.string().uuid()).max(MAX_BOUND_SECRETS).optional(),
   })
   .strict();
 

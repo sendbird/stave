@@ -45,6 +45,7 @@ import {
   type ClaudeIncomingMessage,
 } from "./claude-event-mapping";
 import { createClaudeCompactionTracker } from "./claude-compaction";
+import { claudeNativePlanEnv } from "./native-plan-options";
 import { buildClaudeSystemPrompt } from "./claude-system-prompt";
 export { buildClaudeSystemPrompt, STAVE_TURN_BEHAVIOR_DIRECTIVE } from "./claude-system-prompt";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
@@ -1353,11 +1354,8 @@ export function buildClaudeQueryOptions(args: {
       : {}),
     ...(settings ? { settings } : {}),
     sandbox,
-    // A bound secret can never claim a Stave runtime var. The resolver's
-    // reserved-key denylist is the primary guard; the explicit filter plus the
-    // runtime-owned spread below are defence in depth. The filter matters on
-    // its own: spread order only wins for keys the runtime env actually emits,
-    // so a reserved key missing from it would otherwise survive.
+    // The reserved-key filter and runtime-owned spreads keep bound secrets
+    // from overriding runtime variables, including ones not emitted this turn.
     env: {
       ...stripReservedSecretEnvNames(args.secretEnv),
       ...buildClaudeEnv({
@@ -1365,6 +1363,7 @@ export function buildClaudeQueryOptions(args: {
         cwd: args.cwd,
         accountProfileId: args.runtimeOptions?.claudeAccountProfileId,
       }),
+      ...claudeNativePlanEnv(args.runtimeOptions, args.secondaryReadOnly),
     },
     ...(args.claudeExecutablePath.length > 0
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }

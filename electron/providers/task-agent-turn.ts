@@ -49,8 +49,8 @@ export function prepareTaskAgentTurn(args: {
         lead: assignment.agent, library: args.library ?? [], providerId: turn.providerId, standards: assignment.standards,
       })
     : [];
-  const { nativeSubagents: _requested, ...baseWithoutSubagents } = base;
-  const runtimeOptions = { ...baseWithoutSubagents, ...(compiled.role === "primary"
+  const { nativeSubagents: _requested, nativePlanTools: _requestedPlan, ...baseWithoutSubagents } = base;
+  const runtimeOptions = { ...baseWithoutSubagents, nativePlanTools: compiled.role === "primary", ...(compiled.role === "primary"
     ? { ...instructions, ...turnPolicy?.options }
     // A delegated Agent runs in Agent mode too, so it keeps the guardrails.
     : { agentInstructions: compiled.promptPreamble,

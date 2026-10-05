@@ -25,7 +25,7 @@ describe("agent run: implicit workflow", () => {
     expect(stage).toMatchObject({ id: "work", title: "Work", kind: "ai", doneWhen: AGENT_RUN_DEFAULT_DONE_WHEN });
     expect(stage?.kind === "ai" && stage.role).toBeFalsy();
     if (stage?.kind !== "ai") throw new Error("expected an AI stage");
-    expect(stage.instruction).toContain("plan or todo tools");
+    expect(stage.instruction).toContain("TodoWrite or update_plan");
     expect(stage.instruction).toContain("verify");
   });
 

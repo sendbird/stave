@@ -2,6 +2,7 @@ import type { BridgeEvent } from "./types";
 import { appendBoundedText, truncateBufferedText } from "./provider-buffering";
 import { isRecord } from "./codex-app-server-json";
 import { toText } from "./utils";
+import { mapCodexTurnPlanToTodoEvent } from "./codex-plan-mapping";
 
 type CollabToolCallItem = {
   id?: string;
@@ -169,6 +170,8 @@ function buildCollabResult(
   return {
     type: "tool_result",
     tool_use_id: typeof item.id === "string" ? item.id : "",
+    // A successful spawn returns a handle; the worker is still running.
+    ...((item.tool === "spawnAgent" || item.tool === "spawn_agent") && item.status !== "failed" ? { isPartial: true } : {}),
     output:
       item.status === "failed" && Object.keys(result).length === 0
         ? "[error] Codex collaboration call failed."
@@ -291,13 +294,15 @@ export function createCodexWorkerActivityMapper(args: {
         return { handled: true, events: [] };
       }
       startedCollabIds.add(itemId);
+      const identity = buildCollabIdentity(item);
+      if (identity.agentId) linkChildThread(identity.agentId, itemId);
       return {
         handled: true,
         events: [
           buildCollabInput(
             item,
             args.inputMaxBytes,
-            buildCollabIdentity(item),
+            identity,
           ),
         ],
       };
@@ -316,6 +321,8 @@ export function createCodexWorkerActivityMapper(args: {
       }
       const item = itemValue as CollabToolCallItem;
       const itemId = typeof item.id === "string" ? item.id : "";
+      const identity = buildCollabIdentity(item);
+      if (itemId && identity.agentId) linkChildThread(identity.agentId, itemId);
       return {
         handled: true,
         events: [
@@ -342,6 +349,10 @@ export function createCodexWorkerActivityMapper(args: {
       if (!toolUseId) return { handled: false, events: [] };
       // The foreign thread id *is* Codex's `agentThreadId` for this worker.
       const agentId = input.threadId;
+      if (input.method === "turn/plan/updated") {
+        const plan = mapCodexTurnPlanToTodoEvent(input.params);
+        return { handled: true, events: plan?.type === "tool" ? [{ ...plan, toolUseId: foreignToolUseId(agentId, plan.toolUseId ?? "plan"), ownerAgentId: agentId, parentToolUseId: toolUseId }] : [] };
+      }
       if (input.method === "item/started") {
         const item = isRecord(input.params.item)
           ? input.params.item as ForeignToolItem
@@ -485,23 +496,24 @@ export function createCodexWorkerActivityMapper(args: {
           };
         }
       }
-      if (input.method === "turn/completed") {
+      const threadStatus = isRecord(input.params.status) ? input.params.status.type : null;
+      if (input.method === "turn/completed" || input.method === "thread/closed" ||
+          (input.method === "thread/status/changed" && threadStatus === "systemError")) {
         const turn = isRecord(input.params.turn) ? input.params.turn : null;
         const status = typeof turn?.status === "string" ? turn.status : "";
-        if (status && status !== "completed") {
-          unlinkChildThread(input.threadId);
-          return {
-            handled: true,
-            events: [
-              {
-                type: "tool_result",
-                tool_use_id: toolUseId,
-                output: `[error] Worker turn ${status}.`,
-                isError: true,
-              },
-            ],
-          };
-        }
+        const reason = input.method === "thread/closed" ? "thread closed without a final answer" :
+          threadStatus === "systemError" ? "thread failed" :
+          status === "completed" ? "turn completed without a final answer" : `turn ${status || "ended"}`;
+        unlinkChildThread(input.threadId);
+        return {
+          handled: true,
+          events: [{
+            type: "tool_result",
+            tool_use_id: toolUseId,
+            output: `[error] Worker ${reason}.`,
+            isError: true,
+          }],
+        };
       }
       return { handled: true, events: [] };
     },

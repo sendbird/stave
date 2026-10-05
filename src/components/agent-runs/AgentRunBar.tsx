@@ -97,6 +97,8 @@ export interface AgentRunLineShelfProps {
   panelKeep?: "always" | "wide";
   detailToggle?: ShelfRunDetailToggle | null;
   todo?: ShelfTodoProgress | null;
+  plan?: import("@/lib/agent-runs/domain").StagePlan | null;
+  subagents?: string | null;
   reasonShownElsewhere?: boolean;
   /** The turn's stall, steer, retry or failure, said in place of the run's state. */
   turnAlert?: ShelfTurnAlert | null;

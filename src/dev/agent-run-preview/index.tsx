@@ -27,6 +27,7 @@ import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { agentRunFleetDetails, AgentRunPreviewCases } from "./agent-run-cases";
 import { buildAgentRunFixtures } from "./agent-run-fixtures";
+import { PlanVisibilityCases } from "./plan-visibility-cases";
 import { StageProgressCases, type ProgressCase } from "./progress-cases";
 
 /*
@@ -251,7 +252,7 @@ export function AgentRunPreview() {
   }, [dark]);
   const now = Date.now();
   const actions = { onTakeOver: () => {}, onResume: () => {}, onOpenPanel: () => {} };
-  useLayoutEffect(seedFleetAgentRuns, []);
+  useLayoutEffect(() => { if (params.get("only") !== "plan-visibility") seedFleetAgentRuns(); }, []);
   const width = Number(params.get("w")) || null;
   if (params.get("only") === "progress") {
     const runs = buildAgentRunFixtures(new Date(now - 4 * 60_000));
@@ -316,7 +317,7 @@ export function AgentRunPreview() {
       </main>
     );
   }
-  if (params.get("only") === "agent-run") {
+  if (params.get("only") === "agent-run" || params.get("only") === "plan-visibility") {
     return (
       <main className={sx(styles.page)}>
         <div className={sx(styles.container)}>
@@ -326,7 +327,7 @@ export function AgentRunPreview() {
               {dark ? "Light theme" : "Dark theme"}
             </ActionButton>
           </div>
-          <AgentRunPreviewCases now={now} width={width} />
+          {params.get("only") === "plan-visibility" ? <PlanVisibilityCases width={width} /> : <AgentRunPreviewCases now={now} width={width} />}
         </div>
       </main>
     );

@@ -230,7 +230,8 @@ describe("record-task", () => {
     });
     const forged = [{ name: "x", label: "X", description: "", instructions: "" }];
     const turn = runtime.prepareTurn({ turnId: "turn-1", taskId: "task-lead", providerId: "codex", prompt: "go", cwd: "/tmp/repo",
-      runtimeOptions: { nativeSubagents: forged } });
+      runtimeOptions: { nativeSubagents: forged, nativePlanTools: false } });
+    expect(turn?.runtimeOptions.nativePlanTools).toBe(true);
     expect(turn?.runtimeOptions.nativeSubagents?.map((entry) => entry.name)).toEqual(["scout", "second-pair"]);
     // A task without an agent gets no turn policy here, and the provider runtime drops a supplied list.
     expect(runtime.prepareTurn({ turnId: "turn-2", taskId: "task-none", providerId: "codex", prompt: "go", cwd: "/tmp/repo" })).toBeNull();

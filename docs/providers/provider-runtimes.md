@@ -631,6 +631,13 @@ Claude event mapping:
 - `status: compacting` -> `system` (`Compacting conversation context…`)
 - stream or runtime failures -> `error`
 
+Assigned primary agents enable native progress tracking with
+`CLAUDE_CODE_ENABLE_TODO_TOOLS=1` and `CLAUDE_CODE_ENABLE_TASKS=0`, so the
+plan stays in the existing `TodoWrite` event contract even when the model
+omits tracking tools by default. Secondary read-only queries do not receive
+these overrides. Bound secrets cannot override either flag. See the
+[SDK tracking documentation](https://code.claude.com/docs/en/agent-sdk/todo-tracking#model-availability).
+
 Claude text-boundary note:
 
 - Claude usually streams text through `stream_event.content_block_delta` and
@@ -812,6 +819,8 @@ Codex event mapping:
 - native `mcpServer/elicitation/request` form prompts -> shared `user_input` UI
 - URL-mode elicitation requests are surfaced through the same `user_input` card with an external-link action and an explicit continue / decline decision
 - native `plan` items and `item/plan/delta` -> `plan_ready`
+- native `turn/plan/updated` -> `TodoWrite`; worker plans retain their owner
+  and do not replace the lead's plan
 - command execution -> `tool`
 - MCP tool calls -> `tool`
 - web search -> `tool`
@@ -819,6 +828,13 @@ Codex event mapping:
 - hook lifecycle -> `hook_activity`
 - acknowledged turn id -> assistant `history_boundary`
 - failures -> `error`
+
+Assigned primary agents opt into `update_plan` using
+`tools.update_plan.enabled = true` on both thread start and resume. Secondary
+read-only queries do not receive this override. A successful worker spawn
+returns a handle and stays running until its final output arrives. Worker
+tool parts retain the label, last tool or plan step, and result after turn
+events are compacted.
 
 Codex text-boundary note:
 

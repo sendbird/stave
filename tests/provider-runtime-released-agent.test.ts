@@ -122,8 +122,9 @@ describe("provider runtime released agent", () => {
     test(`${providerId}: a task whose agent was released carries the notice in the agent channel`, async () => {
       setReleasedTaskAgentResolver((taskId) => (taskId === "released" ? NOTICE : null));
 
-      const released = await runTurn({ providerId, turnId: `${providerId}-released`, taskId: "released" });
+      const released = await runTurn({ providerId, turnId: `${providerId}-released`, taskId: "released", runtimeOptions: { nativePlanTools: true } });
       expect(released.runtimeOptions?.agentInstructions).toBe(NOTICE);
+      expect(released.runtimeOptions?.nativePlanTools).toBeUndefined();
 
       const plain = await runTurn({ providerId, turnId: `${providerId}-plain`, taskId: "plain" });
       expect(plain.runtimeOptions?.agentInstructions).toBeUndefined();

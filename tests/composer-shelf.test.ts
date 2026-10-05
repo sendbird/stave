@@ -274,7 +274,8 @@ describe("turn run line", () => {
   });
 
   test("to-do progress is a count and one cell per item, scaled past ten", () => {
-    expect(summarizeShelfTodos([{ status: "in_progress" }])).toBeNull();
+    expect(summarizeShelfTodos([])).toBeNull();
+    expect(summarizeShelfTodos([{ status: "in_progress" }])).toEqual({ done: 0, total: 1, segments: ["active"] });
     expect(
       summarizeShelfTodos([
         { status: "completed" },

@@ -25,9 +25,11 @@ export const AGENT_RUN_WORKFLOW_ID = "agent-run";
 export const AGENT_RUN_STAGE_ID = "work";
 export const AGENT_RUN_DEFAULT_DONE_WHEN = "The assignment is complete and verified.";
 
+export const AGENT_RUN_PLAN_INSTRUCTION = "Before working, write your steps with the provider's plan tool (TodoWrite or update_plan). Keep exactly one step in progress while working; complete steps as they finish and revise or add steps when scope changes. Respect plan-mode limits.";
+
 const AGENT_RUN_INSTRUCTION = [
   "Complete the assignment.",
-  "Plan your steps first with your own plan or todo tools, and keep that plan current as you work.",
+  AGENT_RUN_PLAN_INSTRUCTION,
   "Do the work, then verify it: run the checks that prove it works and fix what they find.",
   "When it is done and verified, report the stage. If you cannot finish without the user, block the stage and say exactly what you need.",
 ].join(" ");

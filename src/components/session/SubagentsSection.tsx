@@ -10,7 +10,6 @@ import { listAgents } from "@/lib/agents/library";
 import {
   isDelegationExchangeLive,
   partitionDelegationExchanges,
-  selectDelegationExchanges,
   type DelegationExchange,
 } from "@/lib/delegation/exchange";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
@@ -18,6 +17,10 @@ import { resolveDelegatedTaskControls, type DelegatedTaskSummary } from "@/lib/r
 import { useAppStore } from "@/store/app.store";
 import { useDelegatedTaskRowController } from "./DelegatedTaskRows";
 import { useDelegatedTasks } from "./useDelegatedTasks";
+import { selectTaskSubagents, subagentResultLine } from "@/lib/delegation/subagent-summary";
+import type { ChatMessage } from "@/types/chat";
+
+const EMPTY_MESSAGES: ChatMessage[] = [];
 
 /** A delegation key reads as its prompt once the derived digest is dropped. */
 function describeWork(child: DelegatedTaskSummary, title: string | undefined) {
@@ -57,6 +60,7 @@ export function SubagentsSection(props: {
       null,
   );
   const customAgents = useAppStore((state) => state.settings.customAgents);
+  const messages = useAppStore((state) => state.messagesByTask[props.taskId] ?? EMPTY_MESSAGES);
   const tasks = useAppStore((state) => state.tasks);
   const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
   const agentNames = useMemo(
@@ -66,7 +70,8 @@ export function SubagentsSection(props: {
   // The answer and how the subagent got there, without leaving this task.
   const [viewingId, setViewingId] = useState<string | null>(null);
   const rows = useMemo(() => {
-    const exchanges = selectDelegationExchanges({
+    const exchanges = selectTaskSubagents({
+      messages,
       delegatedTasks: controller.children,
       childBlockedByDelegationKey: controller.blockedByDelegationKey,
       workGraph: graph,
@@ -74,7 +79,7 @@ export function SubagentsSection(props: {
     });
     const { live, settled } = partitionDelegationExchanges(exchanges);
     return [...live, ...settled.reverse()];
-  }, [controller.blockedByDelegationKey, controller.children, graph]);
+  }, [controller.blockedByDelegationKey, controller.children, graph, messages]);
 
   const viewing = useMemo(() => {
     const exchange = viewingId ? rows.find((row) => row.id === viewingId) : undefined;
@@ -161,9 +166,10 @@ function whoLabel(
 ) {
   const agent = child?.agentConfigId ? agentNames.get(child.agentConfigId) : undefined;
   if (agent) return agent;
+  if (exchange.kind === "subagent") return exchange.title;
   const model = exchange.identity.model;
   if (model) return toHumanModelName({ model });
-  return exchange.kind === "subagent" ? exchange.title : "Subagent";
+  return "Subagent";
 }
 
 function SubagentRow(props: {
@@ -188,7 +194,9 @@ function SubagentRow(props: {
         <span className={sx(styles.who)}>{props.who}</span>
         <ExchangeStatusBadge status={exchange.outcome.status} />
       </div>
-      <p className={sx(styles.what)}>{props.what}</p>
+      {props.what !== props.who ? <p className={sx(styles.what)}>{props.what}</p> : null}
+      {exchange.outcome.progress?.at(-1) ? <p className={sx(styles.what)}>{exchange.outcome.progress.at(-1)}</p> : null}
+      {subagentResultLine(exchange) ? <p className={sx(styles.what)} title={error ?? result}>{subagentResultLine(exchange)}</p> : null}
       {(error ?? result) && !isDelegationExchangeLive(exchange) ? (
         <details
           className={sx(styles.answer)}

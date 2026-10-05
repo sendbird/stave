@@ -45,6 +45,7 @@ describe("agent run status line", () => {
     expect(html).toContain('data-testid="agent-run-bar"');
     expect(html).toContain("Working");
     expect(html).toContain("Running the tests");
+    expect(html).not.toContain("Planning…");
     expect(html).toContain("4m");
     expect(html).toContain("Stop");
     expect(html).toContain("Take control");

@@ -529,7 +529,7 @@ function AssistantTraceEntryView(args: {
             count={planProgressCount(entry.part.input)}
             icon={icon}
             status={toAgentRunState(entry.part.state)}
-            title="Plan"
+            title={entry.title}
           >
             <TracePlan input={entry.part.input} state={entry.part.state} />
           </ToolRun>

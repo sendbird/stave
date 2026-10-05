@@ -167,3 +167,14 @@ describe("buildAssistantTrace", () => {
     expect(trace.showStreamingPlaceholder).toBe(true);
   });
 });
+
+test("plan rows retain their worker's identity instead of reading as the lead's Plan", () => {
+  const trace = buildAssistantTrace({ message: createAssistantMessage({ parts: [
+    { type: "tool_use", toolName: "Agent", toolUseId: "spawn", agentId: "worker", input: '{"description":"Reviewer"}', state: "input-available" },
+    { type: "tool_use", toolName: "TodoWrite", input: '{"todos":[]}', state: "output-available" },
+    { type: "tool_use", toolName: "TodoWrite", ownerAgentId: "worker", input: '{"todos":[]}', state: "output-available" },
+    { type: "tool_use", toolName: "TodoWrite", parentToolUseId: "spawn", input: '{"todos":[]}', state: "output-available" },
+    { type: "tool_use", toolName: "TodoWrite", ownerAgentId: "unknown", input: '{"todos":[]}', state: "output-available" },
+  ] }) });
+  expect(trace.entries.flatMap((entry) => entry.kind === "todo" ? [entry.title] : [])).toEqual(["Plan", "Reviewer · Plan", "Reviewer · Plan", "Subagent · Plan"]);
+});
