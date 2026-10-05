@@ -28,6 +28,7 @@ const NON_COPY_NAME =
   /(?:Id|Ids|Key|Keys|Path|Paths|Url|Urls|ClassName|Prefix|Suffix|Pattern|Regex|Selector|Token|Tokens|Kind|Type|Mode|Variant)$/;
 const TOAST_METHODS = new Set(["message", "success", "warning", "error", "info"]);
 const IGNORE_MARKER = "i18n-ignore";
+const HANGUL_PROSE = /\p{Script=Hangul}/u;
 
 /** Remove interpolation, allowlisted terms, and keyboard glyphs before judging prose. */
 export function stripNonProse(value, terms) {
@@ -57,9 +58,10 @@ export function isAttributeProse(value, terms) {
   return isCodeProse(value, terms) || /^[A-Za-z]{2,}$/.test(stripNonProse(value, terms).trim());
 }
 
-/** JSX text: any run of two or more Latin letters outside allowlisted terms. */
+/** JSX text: Latin prose or Hangul outside allowlisted terms. */
 export function isJsxProse(value, terms) {
-  return /[A-Za-z]{2,}/.test(stripNonProse(value, terms));
+  const text = stripNonProse(value, terms);
+  return /[A-Za-z]{2,}/.test(text) || HANGUL_PROSE.test(text);
 }
 
 /**
@@ -73,6 +75,8 @@ export function isCodeProse(value, terms) {
     return false;
   }
   const text = stripNonProse(raw, terms).trim();
+  if (/^[^\s]+\/[^\s]+\.[A-Za-z0-9]+$/.test(raw)) return false;
+  if (HANGUL_PROSE.test(text)) return true;
   if (!/[A-Za-z]{2,}/.test(text)) return false;
   const words = text.split(/\s+/).filter((word) => /[A-Za-z]{2,}/.test(word));
   if (words.length === 0) return false;
@@ -89,7 +93,7 @@ export function isCodeProse(value, terms) {
   );
   if (proseWords.length === 0) return false;
   const allLowerTokens = words.every((word) => /^[a-z0-9:_./-]+$/.test(word));
-  if (allLowerTokens && !/[,.!?…]/.test(text) && words.some((word) => /[-_:/]/.test(word))) {
+  if (allLowerTokens && !/[,.!?…]/.test(text) && words.some((word) => /[-_/]|:[a-z0-9]/.test(word))) {
     return false;
   }
   return true;
@@ -120,6 +124,7 @@ function stringFragments(expression) {
     if (ts.isTemplateExpression(node)) {
       const text = [node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join(" ${} ");
       out.push({ node, text });
+      for (const span of node.templateSpans) visit(span.expression);
       return;
     }
     if (ts.isConditionalExpression(node)) {
@@ -261,6 +266,7 @@ export function scanSource(fileName, sourceText, { terms = [], nativeUiOnly = fa
     });
   };
   const checkExpression = (expression, rule, judge = isCodeProse) => {
+    if (expression && isIgnored(sourceFile, expression)) return;
     for (const fragment of stringFragments(expression)) {
       if (judge(fragment.text, sortedTerms)) report(fragment.node, fragment.text, rule);
     }
