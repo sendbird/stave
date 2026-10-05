@@ -53,6 +53,9 @@ function useAgentsWithWork() {
  * what waits for you, then Results.
  */
 export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
+  const showAgents = useAppStore((state) => state.settings.sidebarShowAgents);
+  const showResults = useAppStore((state) => state.settings.sidebarShowResults);
+  const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
@@ -79,75 +82,86 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           Fleet View
         </AdsButton>
       ) : null}
-      <AdsButton
-        layout="host"
-        type="button"
-        onClick={() => openAgents()}
-        aria-label={agentsWithWork.total > 0 ? `Agents, ${agentsWithWork.total} at work` : "Agents"}
-        xstyle={[
-          repositorySidebarStyles.navButton,
-          transition.colors,
-          surface === "agents" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
-        ]}
-      >
-        <Bot className={sx(repositorySidebarStyles.iconMd)} />
-        <span className={sx(styles.label)}>Agents</span>
-        {agentsWithWork.total > 0 ? (
-          <span className={sx(styles.count)}>{agentsWithWork.total}</span>
-        ) : null}
-      </AdsButton>
-      {agentsWithWork.agents.map((agent) => (
+      {showAgents ? (
+        <>
+          <AdsButton
+            layout="host"
+            type="button"
+            onClick={() => openAgents()}
+            aria-label={agentsWithWork.total > 0 ? `Agents, ${agentsWithWork.total} at work` : "Agents"}
+            xstyle={[
+              repositorySidebarStyles.navButton,
+              transition.colors,
+              surface === "agents" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+            ]}
+          >
+            <Bot className={sx(repositorySidebarStyles.iconMd)} />
+            <span className={sx(styles.label)}>Agents</span>
+            {agentsWithWork.total > 0 ? (
+              <span className={sx(styles.count)}>{agentsWithWork.total}</span>
+            ) : null}
+          </AdsButton>
+          {agentsWithWork.agents.map((agent) => (
+            <AdsButton
+              key={agent.agentConfigId}
+              layout="host"
+              type="button"
+              onClick={() => {
+                selectAgent(agent.agentConfigId);
+                openAgents();
+              }}
+              aria-label={`Agent ${agent.agentName}${agent.needsYou ? `, ${agent.count} need you` : `, ${agent.count} at work`}`}
+              xstyle={[
+                repositorySidebarStyles.navButton,
+                styles.childRow,
+                transition.colors,
+                surface === "agents" && selectedAgentId === agent.agentConfigId ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+              ]}
+            >
+              <AgentAvatar
+                agent={{ id: agent.agentConfigId, name: agent.agentName, appearance: agent.agentAppearance }}
+                size="xs"
+                status={agent.needsYou ? "needs-you" : "running"}
+                aria-label={null}
+              />
+              <span className={sx(styles.label)}>{agent.agentName}</span>
+              {agent.count > 0 ? <span className={sx(styles.count)}>{agent.count}</span> : null}
+            </AdsButton>
+          ))}
+        </>
+      ) : null}
+      {showResults ? (
         <AdsButton
-          key={agent.agentConfigId}
           layout="host"
           type="button"
-          onClick={() => {
-            selectAgent(agent.agentConfigId);
-            openAgents();
-          }}
-          aria-label={`Agent ${agent.agentName}${agent.needsYou ? `, ${agent.count} need you` : `, ${agent.count} at work`}`}
+          onClick={() => openResults()}
+          aria-label="Results"
           xstyle={[
             repositorySidebarStyles.navButton,
-            styles.childRow,
             transition.colors,
-            surface === "agents" && selectedAgentId === agent.agentConfigId ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+            surface === "results" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
           ]}
         >
-          <AgentAvatar
-            agent={{ id: agent.agentConfigId, name: agent.agentName, appearance: agent.agentAppearance }}
-            size="xs"
-            status={agent.needsYou ? "needs-you" : "running"}
-            aria-label={null}
-          />
-          <span className={sx(styles.label)}>{agent.agentName}</span>
-          {agent.count > 0 ? <span className={sx(styles.count)}>{agent.count}</span> : null}
+          <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
+          <span className={sx(styles.label)}>Results</span>
         </AdsButton>
-      ))}
-      <AdsButton
-        layout="host"
-        type="button"
-        onClick={() => openResults()}
-        aria-label="Results"
-        xstyle={[
-          repositorySidebarStyles.navButton,
-          transition.colors,
-          surface === "results" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
-        ]}
-      >
-        <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
-        <span className={sx(styles.label)}>Results</span>
-      </AdsButton>
-      <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label="AI usage"
-        xstyle={[repositorySidebarStyles.navButton, transition.colors,
-          surface === "usage" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
-        <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>AI usage</span>
-      </AdsButton>
+      ) : null}
+      {showAiUsage ? (
+        <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label="AI usage"
+          xstyle={[repositorySidebarStyles.navButton, transition.colors,
+            surface === "usage" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
+          <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>AI usage</span>
+        </AdsButton>
+      ) : null}
     </>
   );
 }
 
 /** The collapsed sidebar's rail: Fleet View, Agents and Results, with a dot when an agent needs you. */
 export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
+  const showAgents = useAppStore((state) => state.settings.sidebarShowAgents);
+  const showResults = useAppStore((state) => state.settings.sidebarShowResults);
+  const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
@@ -174,38 +188,44 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
           <TooltipContent side="right">Fleet View</TooltipContent>
         </Tooltip>
       ) : null}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="sm"
-              xstyle={railButton(surface === "agents")}
-              onClick={() => openAgents()}
-              aria-label={agentsWithWork.total > 0 ? `Agents, ${agentsWithWork.total} at work` : "Agents"}
-            />
-          }
-        >
-          <Bot className={sx(repositorySidebarStyles.iconMd)} />
-          {agentsNeedYou ? <span aria-hidden className={sx(styles.railDot)} /> : null}
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          {agentsWithWork.total > 0 ? `Agents · ${agentsWithWork.total} at work` : "Agents"}
-        </TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button variant="ghost" size="sm" xstyle={railButton(surface === "results")} onClick={() => openResults()} aria-label="Results" />
-          }
-        >
-          <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
-        </TooltipTrigger>
-        <TooltipContent side="right">Results</TooltipContent>
-      </Tooltip>
-      <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm" xstyle={railButton(surface === "usage")}
-        onClick={() => openUsage()} aria-label="AI usage" />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
-        <TooltipContent side="right">AI usage</TooltipContent></Tooltip>
+      {showAgents ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                xstyle={railButton(surface === "agents")}
+                onClick={() => openAgents()}
+                aria-label={agentsWithWork.total > 0 ? `Agents, ${agentsWithWork.total} at work` : "Agents"}
+              />
+            }
+          >
+            <Bot className={sx(repositorySidebarStyles.iconMd)} />
+            {agentsNeedYou ? <span aria-hidden className={sx(styles.railDot)} /> : null}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {agentsWithWork.total > 0 ? `Agents · ${agentsWithWork.total} at work` : "Agents"}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+      {showResults ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button variant="ghost" size="sm" xstyle={railButton(surface === "results")} onClick={() => openResults()} aria-label="Results" />
+            }
+          >
+            <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
+          </TooltipTrigger>
+          <TooltipContent side="right">Results</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {showAiUsage ? (
+        <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm" xstyle={railButton(surface === "usage")}
+          onClick={() => openUsage()} aria-label="AI usage" />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
+          <TooltipContent side="right">AI usage</TooltipContent></Tooltip>
+      ) : null}
     </>
   );
 }
