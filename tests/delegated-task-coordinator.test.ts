@@ -142,6 +142,7 @@ function createHarness(
     realPolicy?: boolean;
     parentDefaults?: { providerId: "claude-code" | "codex"; effort?: DelegatedTaskEffort } | null;
     readHead?: (workspacePath: string) => Promise<string | null>;
+    readWorkspaceRevision?: (workspacePath: string) => Promise<import("../src/lib/agent-runs/verification-contract").WorkspaceRevision>;
   } = {},
 ) {
   const store = new RunLedgerStore(new Database(":memory:"));
@@ -155,6 +156,7 @@ function createHarness(
       host: hostHarness.host,
       concurrencyLimit: options.concurrencyLimit ?? 3,
       readHead: options.readHead,
+      readWorkspaceRevision: options.readWorkspaceRevision,
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
             policyCalls.push({ ...args });
@@ -1293,4 +1295,89 @@ test("a retry asks for the access and inherited effort the delegation was create
   await harness.coordinator.waitForInFlight();
   expect(harness.policyCalls.at(-1)).toMatchObject({ access: "read-only" });
   expect(harness.runTaskCalls[1]).toMatchObject({ effort: "xhigh", permissionPolicy: { access: "read-only", options: { codexFileAccess: "read-only", codexApprovalPolicy: "never" } } });
+});
+
+describe("review workspace provenance", () => {
+  test("discards a fingerprint requested for an attempt that was retried during the read", async () => {
+    let holdRead = false;
+    let readStarted!: () => void;
+    let releaseRead!: () => void;
+    const started = new Promise<void>((resolve) => { readStarted = resolve; });
+    const released = new Promise<void>((resolve) => { releaseRead = resolve; });
+    let turns = 0;
+    const harness = createHarness({
+      readWorkspaceRevision: async () => {
+        if (holdRead) { holdRead = false; readStarted(); await released; }
+        return { status: "known", revision: "same" };
+      },
+      runTask: async () => {
+        if (++turns === 1) throw new Error("provider unavailable");
+        return { turnId: "retry-turn" };
+      },
+    });
+    const key = "stave-review-retried";
+    await harness.coordinator.delegate(delegateArgs({ delegationKey: key, access: "read-only" }));
+    await harness.coordinator.waitForInFlight();
+    const child = (await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: key }))!;
+    const expected = { delegatedTaskId: child.delegatedTaskId, delegatedWorkspaceId: child.delegatedWorkspaceId, attempt: child.attempt };
+    holdRead = true;
+    const checking = harness.coordinator.reviewRevision({ parentTaskId: PARENT_TASK, delegationKey: key, expected });
+    await started;
+    expect((await harness.coordinator.retry({ repositoryPath: REPOSITORY_PATH, parentWorkspaceId: PARENT_WORKSPACE,
+      parentTaskId: PARENT_TASK, delegationKey: key, prompt: "Retry the review.", expected })).accepted).toBe(true);
+    await harness.coordinator.waitForInFlight();
+    releaseRead();
+    expect(await checking).toBeNull();
+  });
+
+  test("records review boundaries durably and detects later edits without using the selected workspace", async () => {
+    let revision = "before";
+    const paths: string[] = [];
+    const harness = createHarness({ readWorkspaceRevision: async (cwd) => {
+      paths.push(cwd); return { status: "known", revision };
+    } });
+    const key = "stave-review-provenance";
+    await harness.coordinator.delegate(delegateArgs({ delegationKey: key, access: "read-only" }));
+    await harness.coordinator.waitForInFlight();
+    const child = (await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: key }))!;
+    const args = { parentTaskId: PARENT_TASK, delegationKey: key, expected: {
+      delegatedTaskId: child.delegatedTaskId, delegatedWorkspaceId: child.delegatedWorkspaceId,
+      attempt: child.attempt, phase: child.phase,
+    } };
+    expect(await harness.coordinator.reviewRevision(args)).toEqual({
+      source: { status: "known", revision: "before" }, completed: { status: "known", revision: "before" },
+      current: { status: "known", revision: "before" },
+    });
+    revision = "edited";
+    const restarted = harness.restart();
+    expect(await restarted.reviewRevision(args)).toEqual({
+      source: { status: "known", revision: "before" }, completed: { status: "known", revision: "before" },
+      current: { status: "known", revision: "edited" },
+    });
+    expect(paths.every((cwd) => cwd === `${REPOSITORY_PATH}/.stave/workspaces/parent`)).toBe(true);
+    expect(await restarted.reviewRevision({ ...args, expected: { ...args.expected, delegatedWorkspaceId: "other" } })).toBeNull();
+  });
+
+  test("changes during review and unknown fingerprints never establish unchanged work", async () => {
+    let revision = "start";
+    const harness = createHarness({ readWorkspaceRevision: async () => ({ status: "known", revision }),
+      runTask: async () => { revision = "end"; return { turnId: "review-turn" }; } });
+    const key = "stave-review-changing";
+    await harness.coordinator.delegate(delegateArgs({ delegationKey: key, access: "read-only" }));
+    await harness.coordinator.waitForInFlight();
+    const child = (await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: key }))!;
+    const args = { parentTaskId: PARENT_TASK, delegationKey: key, expected: {
+      delegatedTaskId: child.delegatedTaskId, delegatedWorkspaceId: child.delegatedWorkspaceId, attempt: child.attempt,
+    } };
+    expect(await harness.coordinator.reviewRevision(args)).toMatchObject({
+      source: { status: "known", revision: "start" }, completed: { status: "known", revision: "end" },
+    });
+    const unavailable = createHarness();
+    await unavailable.coordinator.delegate(delegateArgs({ delegationKey: key, access: "read-only" }));
+    await unavailable.coordinator.waitForInFlight();
+    const oldChild = (await unavailable.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: key }))!;
+    expect(await unavailable.coordinator.reviewRevision({ ...args, expected: {
+      delegatedTaskId: oldChild.delegatedTaskId, delegatedWorkspaceId: oldChild.delegatedWorkspaceId, attempt: oldChild.attempt,
+    } })).toMatchObject({ source: { status: "unknown" }, completed: { status: "unknown" }, current: { status: "unknown" } });
+  });
 });

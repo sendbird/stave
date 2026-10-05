@@ -13,6 +13,7 @@ import {
 } from "../stave-mcp-service";
 import { ensurePersistenceReady } from "../state";
 import { createDelegatedTaskCoordinator } from "./delegated-task-coordinator";
+import { readWorkspaceRevision } from "../../host-service/supervision/workspace-revision";
 import { createDelegatedTaskHostPort } from "./delegated-task-host-port";
 import { applyAgentToDelegation } from "../../../src/lib/agents/delegate";
 import type { AgentDelegationContext, AgentInvokeResult } from "../../../src/lib/agents/api";
@@ -130,6 +131,7 @@ export function getDelegatedTaskCoordinator() {
           effort?: import("../../../src/lib/runs/delegated-task").DelegatedTaskEffort;
         } | null>,
       readHead,
+      readWorkspaceRevision,
       concurrencyLimit: resolveDelegatedTaskConcurrencyLimit(
         process.env.STAVE_DELEGATED_TASK_CONCURRENCY,
       ),

@@ -339,6 +339,19 @@ function seedPreviewReviews(caseId: ShelfCaseId) {
     runs: {
       ...api.runs,
       listDelegatedTasks: async () => previewReviews,
+      getReviewRevision: async () => {
+        const state = new URLSearchParams(window.location.search).get("revision");
+        if (state === "unknown") return {
+          source: { status: "unknown", reason: "unavailable" },
+          completed: { status: "unknown", reason: "unavailable" },
+          current: { status: "known", revision: "preview-current" },
+        };
+        return {
+          source: { status: "known", revision: "preview-source" },
+          completed: { status: "known", revision: state === "during" ? "preview-completed" : "preview-source" },
+          current: { status: "known", revision: state === "changed" ? "preview-current" : state === "during" ? "preview-completed" : "preview-source" },
+        };
+      },
       delegateTask: async () => ({
         accepted: false,
         duplicate: false,

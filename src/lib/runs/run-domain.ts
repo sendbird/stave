@@ -3,6 +3,7 @@ import {
   DelegationPermissionPolicySchema,
 } from "./delegation-policy";
 import { z } from "zod";
+import { WorkspaceRevisionSchema } from "../agent-runs/verification-contract";
 
 export const RunIdSchema = z.string().trim().min(1).max(300);
 const TimestampSchema = z.string().datetime();
@@ -193,6 +194,8 @@ export const RunReceiptDetailSchema = z
     agentContentHash: z.string().max(80).optional(),
     /** The commit a delegation was pinned to, re-checked by a retry. */
     expectedHead: z.string().max(64).optional(),
+    reviewSourceRevision: WorkspaceRevisionSchema.optional(),
+    reviewCompletedRevision: WorkspaceRevisionSchema.optional(),
     /** A subagent turn's final answer, bounded, so the caller gets it without reading the child. */
     responseText: z.string().max(RUN_RESPONSE_TEXT_MAX_CHARS).optional(),
   })
@@ -312,6 +315,8 @@ export function sanitizeRunReceiptDetail(
       ? candidate.expectedHead
       : undefined;
   const responseText = boundResponseText(candidate.responseText);
+  const reviewSourceRevision = WorkspaceRevisionSchema.safeParse(candidate.reviewSourceRevision);
+  const reviewCompletedRevision = WorkspaceRevisionSchema.safeParse(candidate.reviewCompletedRevision);
   const detail = {
     ...(code ? { code } : {}),
     ...(message ? { message } : {}),
@@ -327,6 +332,8 @@ export function sanitizeRunReceiptDetail(
     ...(agentContentHash ? { agentContentHash } : {}),
     ...(expectedHead ? { expectedHead } : {}),
     ...(responseText ? { responseText } : {}),
+    ...(reviewSourceRevision.success ? { reviewSourceRevision: reviewSourceRevision.data } : {}),
+    ...(reviewCompletedRevision.success ? { reviewCompletedRevision: reviewCompletedRevision.data } : {}),
   };
   return Object.keys(detail).length > 0
     ? RunReceiptDetailSchema.parse(detail)

@@ -1,4 +1,5 @@
 import { DelegationPermissionSettingsSchema } from "../../../src/lib/runs/delegation-policy";
+import { ReviewRevisionArgsSchema } from "../../../src/lib/reviews/review-revision";
 import { ipcMain } from "electron";
 import {
   SecondaryRunExecuteResponseSchema,
@@ -142,6 +143,10 @@ export function registerRunHandlers() {
   ipcMain.handle("delegations:list", async (_event, rawArgs: unknown) => {
     const args = DelegatedTaskListArgsSchema.safeParse(rawArgs);
     return args.success ? await getDelegatedTaskCoordinator().list(args.data) : [];
+  });
+  ipcMain.handle("delegations:review-revision", async (_event, rawArgs: unknown) => {
+    const args = ReviewRevisionArgsSchema.safeParse(rawArgs);
+    return args.success ? await getDelegatedTaskCoordinator().reviewRevision(args.data) : null;
   });
 
   // The parent's own controls. Each one carries the identity its row was

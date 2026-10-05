@@ -1093,6 +1093,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("delegations:create", args),
     listDelegatedTasks: (args: DelegatedTaskListArgs): Promise<DelegatedTaskList> =>
       ipcRenderer.invoke("delegations:list", args),
+    getReviewRevision: (args: import("../src/lib/reviews/review-revision").ReviewRevisionArgs): Promise<import("../src/lib/reviews/review-revision").ReviewRevisionState | null> =>
+      ipcRenderer.invoke("delegations:review-revision", args),
     followUpDelegatedTask: (
       args: DelegatedTaskFollowUpArgs,
     ): Promise<DelegatedTaskActionResponse> =>

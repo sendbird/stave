@@ -26,6 +26,9 @@ import {
 } from "./composer-shelf.utils";
 import { ReviewFindingsPanel } from "./ReviewFindingsPanel";
 import { useReviewTranscript } from "./use-review-transcript";
+import { useReviewRevision } from "./use-review-revision";
+import { ReviewRevisionNotice } from "./ReviewRevisionNotice";
+import { describeReviewRevision, reviewRevisionLabel } from "@/lib/reviews/review-revision";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import type { ShelfReviewActions } from "./use-shelf-reviews";
 
@@ -86,6 +89,7 @@ export function ReviewActivityDialog(props: {
   const repositoryPath = useAppStore((state) => state.repositoryPath);
   const title = taskTitle?.trim() || "Review";
   const { transcript, findings } = useReviewTranscript(item);
+  const revision = useReviewRevision(item);
   const attachedFindingIds = useAppStore((state) => {
     const chip = state.promptDraftByTask[item.child.parentTaskId]?.attachments.find(
       (attachment) =>
@@ -212,7 +216,7 @@ export function ReviewActivityDialog(props: {
       onClose={onClose}
       onAction={onAction}
       renderExtraActions={renderExtraActions}
-      leadContent={leadContent}
+      leadContent={<><ReviewRevisionNotice state={revision} />{leadContent}</>}
     />
   );
 }
@@ -246,6 +250,8 @@ function ReviewLine(props: {
   const { item, actions } = props;
   // Only a finished review has findings to count; reading is cached.
   const { findings } = useReviewTranscript(item, { enabled: item.status === "ready" });
+  const revision = useReviewRevision(item);
+  const revisionNote = describeReviewRevision(revision);
   const line = describeReviewShelfLine({
     item,
     now: props.now,
@@ -265,6 +271,7 @@ function ReviewLine(props: {
       <p className={sx(styles.text)} title={`${line.label} · ${line.detail}`}>
         <span className={sx(styles.label, TONE_INK[line.tone])}>{line.label}</span>
         <span>{` · ${line.detail}`}</span>
+        {revisionNote ? <span className={sx(styles.labelWaiting)} title={revisionNote}> · {reviewRevisionLabel(revision)}</span> : null}
       </p>
       <span className={sx(styles.actions)}>
         {item.status === "ready" ? (
