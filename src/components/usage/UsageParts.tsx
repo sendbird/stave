@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
 import { transition } from "@/components/ads/recipes/transition";
@@ -7,7 +8,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { USAGE_PROVIDER_NAMES, type UsageMetrics, type UsageStatisticsReport } from "@/lib/providers/usage-statistics";
-import { usageScopeLabel, usageTimestamp } from "./usage-view.utils";
+import { USAGE_TURN_PAGE_SIZE, groupUsageTurnsByDay, usageScopeLabel, usageTimestamp } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
 
 export const exactNumber = (value: number) => value.toLocaleString();
@@ -91,30 +92,55 @@ export function UsageBreakdowns(props: { report: UsageStatisticsReport; profiles
       <p className={sx(styles.note)}>Select a model to inspect its totals, trend and turn history.</p>
       <Table><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Turns</TableHead><TableHead>Tokens</TableHead><TableHead>Reported USD</TableHead></TableRow></TableHeader>
         <TableBody>{props.report.models.map((row) => <TableRow key={`${row.providerId}:${row.modelId}`}>
-          <TableCell className={sx(styles.wrap)}><Button variant="link" size="sm" onClick={() => props.onModel(row.providerId, row.modelId)}>{row.modelId ?? "Model not recorded"}</Button><p className={sx(styles.note)}>{USAGE_PROVIDER_NAMES[row.providerId]}</p></TableCell>
+          <TableCell className={sx(styles.wrap)}><Button variant="link" size="sm" flushInline onClick={() => props.onModel(row.providerId, row.modelId)}>{row.modelId ?? "Model not recorded"}</Button><p className={sx(styles.note)}>{USAGE_PROVIDER_NAMES[row.providerId]}</p></TableCell>
           <TableCell>{row.turns}</TableCell><TableCell className={sx(styles.number)}>{row.measuredTurns ? exactNumber(row.tokens) : "Not reported"}</TableCell><TableCell className={sx(styles.number)}>{reportedCost(row.costUsd)}</TableCell>
         </TableRow>)}</TableBody></Table>
     </section>
   </div>;
 }
 
-export function UsageTurnTable(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string; offset: number; onPage: (offset: number) => void }) {
-  return <section className={sx(styles.section)} aria-label="Turn usage history">
-    <h2 className={sx(styles.heading)}>Turn history</h2><p className={sx(styles.note)}>Completed Stave turns, grouped by start time in {props.timeZone}. Running turns appear when they finish.</p>
-    <Table><TableHeader><TableRow><TableHead>Started</TableHead><TableHead>Account / model</TableHead><TableHead>Input</TableHead><TableHead>Output</TableHead><TableHead>Cache read / write</TableHead><TableHead>Tokens excluding cache reads</TableHead><TableHead>Reported USD</TableHead></TableRow></TableHeader>
-      <TableBody>{props.report.turns.map((row) => <TableRow key={row.id}>
-        <TableCell className={sx(styles.number)}><time dateTime={row.createdAt}>{usageTimestamp(row.createdAt, props.timeZone)}</time></TableCell>
-        <TableCell className={sx(styles.wrap)}>{usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}<p className={sx(styles.note)}>{row.modelId ?? "Model not recorded"}</p></TableCell>
-        <TableCell className={sx(styles.end)}>{row.measuredTurns ? exactNumber(row.inputTokens) : "—"}</TableCell>
-        <TableCell className={sx(styles.end)}>{row.measuredTurns ? exactNumber(row.outputTokens) : "—"}</TableCell>
-        <TableCell className={sx(styles.end)}>{row.measuredTurns ? `${exactNumber(row.cacheReadTokens)} / ${exactNumber(row.cacheCreationTokens)}` : "—"}</TableCell>
-        <TableCell className={sx(styles.end)}>{row.measuredTurns ? exactNumber(row.tokens) : "Not reported"}</TableCell>
-        <TableCell className={sx(styles.end)}>{reportedCost(row.costUsd)}</TableCell>
-      </TableRow>)}</TableBody></Table>
+export function UsageTurnHistory(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string; offset: number; onPage: (offset: number) => void }) {
+  const groups = groupUsageTurnsByDay(props.report.turns, props.timeZone);
+  const date = new Intl.DateTimeFormat(undefined, { timeZone: props.timeZone, dateStyle: "full" });
+  const time = new Intl.DateTimeFormat(undefined, { timeZone: props.timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  return <section className={sx(styles.section, styles.history)} aria-label="Turn usage history">
+    <h2 className={sx(styles.heading)}>Turn history</h2>
+    <p className={sx(styles.note)}>Newest first · {props.timeZone} · {USAGE_TURN_PAGE_SIZE} per page. Expand a turn for its account and token details. Running turns appear when they finish.</p>
+    {groups.length === 0 ? <p className={sx(styles.note)}>No completed turns in this selection.</p> : groups.map((group) => <section key={group.day} className={sx(styles.stack)}>
+      <h3 className={sx(styles.historyDate)}>{date.format(new Date(group.turns[0]!.createdAt))}</h3>
+      <ul className={sx(styles.historyList)}>
+        {group.turns.map((row) => <li key={row.id}>
+          <details className={sx(styles.historyTurn)}>
+            <summary className={sx(styles.historySummary, focusRing.ring)}>
+              <time dateTime={row.createdAt} title={usageTimestamp(row.createdAt, props.timeZone)} className={sx(styles.note, styles.number)}>{time.format(new Date(row.createdAt))}</time>
+              <span className={sx(styles.historyIdentity)}>
+                <span className={sx(styles.historyModel)}>{row.modelId ?? "Model not recorded"}</span>
+                <span className={sx(styles.note, styles.historyAccount)} title={usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}>{usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}</span>
+              </span>
+              <span className={sx(styles.historyMetrics)}>
+                <span className={sx(styles.historyMetric)}><span className={sx(styles.note)} title="Tokens excluding cache reads">Tokens</span><span className={sx(styles.number)}>{row.measuredTurns ? exactNumber(row.tokens) : "Not reported"}</span></span>
+                <span className={sx(styles.historyMetric)}><span className={sx(styles.note)}>Reported USD</span><span className={sx(styles.number)}>{reportedCost(row.costUsd)}</span></span>
+              </span>
+              <ChevronRight aria-hidden="true" className={sx(styles.historyChevron)} />
+            </summary>
+            <dl className={sx(styles.historyDetails)}>
+              {[{ label: "Account", value: usageScopeLabel(row.providerId, row.accountProfileId, props.profiles) },
+                { label: "Started", value: usageTimestamp(row.createdAt, props.timeZone) },
+                { label: "Input", value: row.measuredTurns ? exactNumber(row.inputTokens) : "Not reported" },
+                { label: "Output", value: row.measuredTurns ? exactNumber(row.outputTokens) : "Not reported" },
+                { label: "Cache read / write", value: row.measuredTurns ? `${exactNumber(row.cacheReadTokens)} / ${exactNumber(row.cacheCreationTokens)}` : "Not reported" }].map((item) => <div key={item.label} className={sx(styles.stack)}>
+                  <dt className={sx(styles.note)}>{item.label}</dt><dd className={sx(styles.historyDetailValue)}>{item.value}</dd>
+                </div>)}
+            </dl>
+          </details>
+        </li>)}
+      </ul>
+    </section>)}
+    <p className={sx(styles.note)}>Tokens exclude cache reads. USD is provider-reported; missing measurements are not zero.</p>
     <div className={sx(styles.row)}>
-      <Button variant="outline" size="sm" disabled={props.offset === 0} onClick={() => props.onPage(Math.max(0, props.offset - 50))}>Previous turns</Button>
+      <Button variant="outline" size="sm" disabled={props.offset === 0} onClick={() => props.onPage(Math.max(0, props.offset - USAGE_TURN_PAGE_SIZE))}>Previous turns</Button>
       <p className={sx(styles.note)}>{props.report.totals.turns === 0 ? "0 turns" : `${props.offset + 1}–${props.offset + props.report.turns.length} of ${exactNumber(props.report.totals.turns)} turns`}</p>
-      <Button variant="outline" size="sm" disabled={props.offset + 50 >= props.report.totals.turns} onClick={() => props.onPage(props.offset + 50)}>Next turns</Button>
+      <Button variant="outline" size="sm" disabled={props.offset + USAGE_TURN_PAGE_SIZE >= props.report.totals.turns} onClick={() => props.onPage(props.offset + USAGE_TURN_PAGE_SIZE)}>Next turns</Button>
     </div>
   </section>;
 }
