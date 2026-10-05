@@ -196,6 +196,40 @@ beforeEach(() => {
 });
 
 describe("starting a review task", () => {
+  test("custom rubric is delivered unchanged to either provider in a read-only delegation", async () => {
+    seedStore();
+    for (const providerId of ["codex", "claude-code"] as const) {
+      const result = await startReviewTask({ getState: useAppStore.getState, taskId: "task-main", request: {
+        reviewer: { providerId, model: "configured-model", label: "Reviewer" }, target: "working-tree", focuses: [],
+        promptSource: "custom", customPrompt: "CUSTOM_RUBRIC: verify event sequence.", presetId: "performance", skillSlug: "missing-skill",
+      } });
+      expect(result.ok).toBe(true);
+      expect(delegated.at(-1)?.providerId).toBe(providerId);
+      expect(delegated.at(-1)?.prompt).toContain("CUSTOM_RUBRIC: verify event sequence.");
+      expect(delegated.at(-1)?.access).toBe("read-only");
+    }
+    expect(providerRequests).toHaveLength(0);
+  });
+
+  test("empty custom, unavailable skills and empty skills fail before delegation", async () => {
+    seedStore();
+    for (const choice of [{ promptSource: "custom" as const, customPrompt: " " }, { promptSource: "skill" as const, skillSlug: "missing-skill", skillOptional: true }]) {
+      const result = await startReviewTask({ getState: useAppStore.getState, taskId: "task-main", request: {
+        reviewer: { providerId: "codex", model: "configured-model", label: "Reviewer" }, target: "working-tree", focuses: [], ...choice,
+      } });
+      expect(result.ok).toBe(false);
+    }
+    useAppStore.setState((state) => ({ skillCatalog: {
+      ...state.skillCatalog, skills: [{ ...SKILL, instructions: " " }],
+    } }));
+    const emptySkill = await startReviewTask({ getState: useAppStore.getState, taskId: "task-main", request: {
+      reviewer: { providerId: "codex", model: "configured-model", label: "Reviewer" },
+      target: "working-tree", focuses: [], promptSource: "skill", skillSlug: SKILL.slug,
+    } });
+    expect(emptySkill).toEqual({ ok: false, error: "The skill $team-review has no review instructions." });
+    expect(delegated).toHaveLength(0);
+  });
+
   test("delegates a read-only child with the chosen model, skill and saved instructions", async () => {
     const result = await startReviewTask({
       getState: useAppStore.getState,

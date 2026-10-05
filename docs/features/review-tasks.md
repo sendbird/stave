@@ -70,7 +70,7 @@ writer when another model should change files.
 | Review skill | The reviewer follows the skill's instructions. Only skills the chosen reviewer can load are offered. |
 | Also review with | Starts a second, independent read-only review on the other provider at the same time, with that provider's review model. Each review gets its own line. The default follows **Cross-check With Both Providers** in Settings. |
 | Additional instructions | Added to this review only, after your saved review instructions. |
-| Check against a plan or acceptance criteria | Optional. The reviewer checks the work against what you paste, and each criterion that is not met becomes a finding. |
+| Check against a plan or acceptance criteria | Optional. The reviewer reports unmet criteria supported by concrete evidence and calibrates severity by their actual impact. |
 
 The line above the composer:
 
@@ -122,6 +122,31 @@ checking it never moves you away:
 The task chip a review becomes, in your draft or on a sent message, opens the
 review task when you select its title.
 
+## Review Prompts
+
+**Review prompt** selects one rubric: **Built-in preset**, **Installed skill**,
+or **Custom prompt**. The default is **General review**. Six other presets cover
+frontend state and UI, API authorization, agent/desktop lifecycle, SDK/public
+API compatibility, persistence/migrations, and performance/resources.
+
+Select **Preview prompt** to read the selected rubric and shared evidence
+checks. The review also receives its target, focus, additional instructions,
+acceptance criteria and required findings format. Change the choice for one
+review in the dialog, or save it under **Settings > Prompts > Review Tasks**.
+Switching sources keeps the inactive custom text and skill choice in Settings.
+
+A custom prompt replaces the preset rubric; it does not replace the review
+scope, evidence checks, read-only boundary or findings format. **Review
+Instructions** in Settings and **Additional instructions** in the dialog are
+still additive. Blank custom prompts cannot start a review. Installed skills
+must be available to the selected reviewer. If a cross-check cannot load the
+explicitly chosen skill, the first review continues and Stave reports that the
+second could not start. It does not silently substitute another rubric.
+
+Historical saved skill choices remain selected. Settings without a skill or
+prompt source use the general preset. See [Review Prompt Rubrics](review-prompts.md)
+for the method, preset selection and evaluation limits.
+
 ## Common Workflows
 
 ### Cross-check work with the other model
@@ -169,15 +194,17 @@ review task when you select its title.
 
 1. Pick **Specific commit** and enter the commit or range.
 2. Paste the criteria under **Check against a plan or acceptance criteria**.
-3. Start the review. Unmet criteria come back as findings named after the
-   criterion.
+3. Start the review. Confirmed unmet criteria come back as findings named after
+   the criterion. Unverified criteria appear in the limitations; severity follows
+   the impact of the unmet behavior.
 
 ### Apply a team checklist to every review
 
 1. Add the checklist as a skill in the repository or your shared skills.
-2. In **Settings → Prompts → Review Tasks**, pick it as **Review Skill**.
-3. Every review now follows it. You can still pick another skill, or none, in
-   the dialog.
+2. In **Settings → Prompts → Review Tasks**, select **Installed skill** under
+   **Review prompt**, then select the skill.
+3. Every review now follows it. You can still pick another skill, a preset,
+   or a custom prompt in the dialog.
 
 ## Files And Data
 
@@ -191,6 +218,9 @@ review task when you select its title.
   "focuses": ["correctness", "tests"],
   "instructions": "",
   "skillSlug": "",
+  "promptSource": "preset",
+  "presetId": "general",
+  "customPrompt": "",
   "followUpPrompt": "Go through the attached review findings. Apply the ones that are valid, and for each one you do not apply, explain why.",
   "crossCheck": false
 }
@@ -255,8 +285,8 @@ follow-up prompt attaches the findings only.
 - A commit or range starts with a letter or digit and may only contain
   letters, digits and `. _ / ~ ^ @ { } -`.
 - **Also review with** is not offered for **Latest reply**, whose reviewer is
-  already the other model. A cross-check runs without the review skill when
-  its provider cannot load it.
+  already the other model. An explicitly selected skill must be available to
+  both providers to start both reviews.
 - A cross-check counts as a second subagent of the task, so it shares the
   limit of three running at a time.
 - **Run again** of a **Latest reply** review reviews the same reply again, not
@@ -272,7 +302,7 @@ follow-up prompt attaches the findings only.
 - Cause: three subagents of this task are already running, the chosen skill is
   not available to that reviewer in this workspace, or the task has no
   repository.
-- Fix: wait for a running subagent, pick another skill or none, or open the
+- Fix: wait for a running subagent, pick an available skill or a preset, or open the
   task's project.
 
 ### Latest reply is unavailable

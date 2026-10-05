@@ -9,7 +9,7 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
-import { ReviewSkillSelector } from "./review-skill-selector";
+import { ReviewPromptPicker } from "./review-prompt-picker";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   COMPOSER_CONTROL_BUTTON,
@@ -42,6 +42,7 @@ import {
 } from "@/lib/local-change-review";
 import {
   REVIEW_TARGET_LABEL,
+  REVIEW_TASK_INSTRUCTIONS_MAX_CHARS,
   hasReviewableReply,
   type ReviewTarget,
 } from "@/lib/reviews/review-task";
@@ -59,6 +60,10 @@ import { localChangeReviewStyles as styles } from "./local-change-review-dialog.
 import { useAppStore } from "@/store/app.store";
 import { ModelIcon } from "./model-icon";
 import { ModelSelector, type ModelSelectorOption } from "./model-selector";
+import {
+  normalizeReviewPromptSelection,
+  type ReviewPromptSelection,
+} from "@/lib/reviews/review-prompts";
 
 const NO_MESSAGES: readonly ChatMessage[] = [];
 const NO_SKILL = "";
@@ -100,7 +105,7 @@ type ReviewChangeStatus =
   | { state: "ready"; branch: string; items: SourceControlStatusItem[] }
   | { state: "error"; detail: string };
 
-export interface LocalChangeReviewRequest {
+export interface LocalChangeReviewRequest extends ReviewPromptSelection {
   reviewer: ModelSelectorOption;
   effort: ModelEffort;
   target: ReviewTarget;
@@ -162,6 +167,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
     reviewSettings.focuses,
   );
   const [skillSlug, setSkillSlug] = useState(reviewSettings.skillSlug);
+  const [promptSelection, setPromptSelection] = useState<ReviewPromptSelection>(
+    () => normalizeReviewPromptSelection({ ...reviewSettings }),
+  );
   const [instructions, setInstructions] = useState("");
   const [commitRef, setCommitRef] = useState("HEAD");
   const [criteria, setCriteria] = useState("");
@@ -217,7 +225,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
       ? getEffectiveSkillEntries({ skills, providerId: reviewer.providerId })
       : [];
     return [
-      { value: NO_SKILL, label: "No skill" },
+      { value: NO_SKILL, label: "Choose a skill" },
       ...entries.map((entry) => ({
         value: entry.slug,
         label: `$${entry.slug}`,
@@ -226,13 +234,10 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
       })),
     ];
   }, [reviewer, skills]);
-  // A saved or chosen skill this reviewer cannot load is dropped, not sent.
-  const effectiveSkillSlug = skillOptions.some((option) => option.value === skillSlug)
-    ? skillSlug
-    : NO_SKILL;
-  const savedSkillMissing =
-    Boolean(reviewSettings.skillSlug) &&
-    !skillOptions.some((option) => option.value === reviewSettings.skillSlug);
+  const selectedSkill = reviewer ? getEffectiveSkillEntries({ skills, providerId: reviewer.providerId })
+    .find((entry) => entry.slug === skillSlug) : undefined;
+  const promptMissing = promptSelection.promptSource === "skill" ? !selectedSkill?.instructions.trim()
+    : promptSelection.promptSource === "custom" && !promptSelection.customPrompt.trim();
   const effectiveTarget: ReviewTarget =
     target === "latest-reply" && (!hasReply || !runsSeparately)
       ? "working-tree"
@@ -309,6 +314,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
       // Each review starts from the saved defaults.
       setFocuses(reviewSettings.focuses);
       setSkillSlug(reviewSettings.skillSlug);
+      setPromptSelection(normalizeReviewPromptSelection({ ...reviewSettings }));
       setCrossCheck(reviewSettings.crossCheck);
       void loadChangeStatus();
     }
@@ -335,7 +341,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
   }
 
   async function handleSubmit() {
-    if (!reviewer || !effort || isSubmitting || commitMissing) {
+    if (!reviewer || !effort || isSubmitting || commitMissing || promptMissing) {
       return;
     }
     setIsSubmitting(true);
@@ -345,8 +351,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
         effort,
         target: effectiveTarget,
         focuses,
+        ...promptSelection,
         instructions: instructions.trim() || undefined,
-        skillSlug: effectiveSkillSlug || undefined,
+        skillSlug: promptSelection.promptSource === "skill" ? skillSlug : undefined,
         ...(effectiveTarget === "commit" && validCommitRef ? { commitRef: validCommitRef } : {}),
         ...(criteria.trim() ? { criteria: criteria.trim() } : {}),
         ...(runsSeparately && crossCheck && crossReviewer && crossEffort && effectiveTarget !== "latest-reply"
@@ -655,26 +662,12 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             </div>
           </section>
 
-          {runsSeparately ? (
-            <section className={sx(styles.section)}>
-              <div className={sx(styles.labelStack)}>
-                <h3 id={`${idPrefix}-skill`} className={sx(styles.sectionHeading)}>
-                  Review skill
-                </h3>
-                <p className={sx(styles.focusDescription)}>
-                  {savedSkillMissing
-                    ? `The saved skill $${reviewSettings.skillSlug} is not available to this reviewer here, so none is used.`
-                    : "The reviewer follows the skill's instructions. It still cannot change files."}
-                </p>
-              </div>
-              <ReviewSkillSelector
-                aria-labelledby={`${idPrefix}-skill`}
-                value={effectiveSkillSlug}
-                options={skillOptions}
-                onValueChange={setSkillSlug}
-              />
-            </section>
-          ) : null}
+          <ReviewPromptPicker selection={promptSelection} skillSlug={skillSlug}
+            skillOptions={skillOptions} skillInstructions={selectedSkill?.instructions}
+            onChange={({ skillSlug: nextSkill, ...patch }) => {
+              if (nextSkill !== undefined) setSkillSlug(nextSkill);
+              setPromptSelection((current) => ({ ...current, ...patch }));
+            }} />
 
           <section className={sx(styles.section)}>
             <div className={sx(styles.labelStack)}>
@@ -694,6 +687,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             </div>
             <Textarea
               id={`${idPrefix}-instructions`}
+              maxLength={REVIEW_TASK_INSTRUCTIONS_MAX_CHARS}
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}
               placeholder="For example: verify the task-switching regression and make sure draft state is preserved."
@@ -750,7 +744,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             <Button
               type="button"
               className={sx(styles.submitButton)}
-              disabled={isSubmitting || commitMissing}
+              disabled={isSubmitting || commitMissing || promptMissing}
               onClick={() => void handleSubmit()}
             >
               {isSubmitting ? (

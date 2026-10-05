@@ -397,6 +397,9 @@ describe("commit target, criteria and cross-check", () => {
       criteria: "Dismissed reviews stay dismissed after a restart.",
     })!;
     expect(prompt).toContain("Report each criterion that is not met");
+    expect(prompt).toContain("only when supported by concrete evidence");
+    expect(prompt).toContain("Calibrate severity by actual impact and reachability");
+    expect(prompt).not.toContain("as a finding (major");
     expect(prompt).toContain("Plan or acceptance criteria:");
     expect(prompt).toContain("Dismissed reviews stay dismissed after a restart.");
     expect(buildReviewTaskPrompt({ target: "working-tree", focuses: [] })).not.toContain("acceptance criteria");

@@ -3,6 +3,7 @@ import {
   type LocalChangeReviewFocus,
 } from "@/lib/local-change-review";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { REVIEW_CUSTOM_PROMPT_MAX_CHARS, type ReviewPromptSelection } from "@/lib/reviews/review-prompts";
 import {
   REVIEW_TASK_INSTRUCTIONS_MAX_CHARS,
   buildReviewDelegateArgs,
@@ -35,7 +36,7 @@ import { flushPendingSnapshotPersists } from "@/store/workspace-session-state";
  * and appears in the task's Subagents list.
  */
 
-export interface ReviewTaskRequest {
+export interface ReviewTaskRequest extends Partial<ReviewPromptSelection> {
   reviewer: { providerId: ProviderId; model: string; label: string };
   effort?: string;
   target: ReviewTarget;
@@ -47,7 +48,7 @@ export interface ReviewTaskRequest {
   commitRef?: string;
   /** A plan or acceptance criteria to check the work against. */
   criteria?: string;
-  /** Run without the skill when this reviewer cannot load it (a cross-check). */
+  /** Compatibility for requests without an explicit rubric source. */
   skillOptional?: boolean;
 }
 
@@ -94,16 +95,28 @@ export async function startReviewTask(args: {
     return { ok: false, error: "This task has no workspace to review." };
   }
 
-  const skillSlug = args.request.skillSlug?.trim().replace(/^\$/, "").toLowerCase();
+  const promptSource = args.request.promptSource ?? (args.request.skillSlug ? "skill" : "preset");
+  const customPrompt = (args.request.customPrompt ?? state.settings.reviewTask.customPrompt)
+    .slice(0, REVIEW_CUSTOM_PROMPT_MAX_CHARS).trim();
+  if (promptSource === "custom" && !customPrompt) {
+    return { ok: false, error: "Enter a custom review prompt before starting the review." };
+  }
+  const skillSlug = promptSource === "skill"
+    ? args.request.skillSlug?.trim().replace(/^\$/, "").toLowerCase() : undefined;
   const skill = skillSlug
     ? getEffectiveSkillEntries({ skills: state.skillCatalog.skills, providerId })
         .find((entry) => entry.slug.toLowerCase() === skillSlug)
     : undefined;
-  if (skillSlug && !skill && !args.request.skillOptional) {
+  if (promptSource === "skill" && !skill && (!args.request.skillOptional || args.request.promptSource === "skill")) {
     return {
       ok: false,
-      error: `The skill $${skillSlug} is not available to this reviewer in this workspace.`,
+      error: skillSlug
+        ? `The skill $${skillSlug} is not available to this reviewer in this workspace.`
+        : "Choose an installed review skill before starting the review.",
     };
+  }
+  if (skill && !skill.instructions.trim()) {
+    return { ok: false, error: `The skill $${skill.slug} has no review instructions.` };
   }
 
   const commitRef =
@@ -126,6 +139,9 @@ export async function startReviewTask(args: {
     reply,
     commitRef,
     criteria: args.request.criteria,
+    promptSource: promptSource === "skill" && !skill ? "preset" : promptSource,
+    presetId: args.request.presetId ?? state.settings.reviewTask.presetId,
+    customPrompt,
   });
   if (!prompt) {
     return { ok: false, error: "This task has no finished reply to review yet." };
