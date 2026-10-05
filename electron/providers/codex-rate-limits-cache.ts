@@ -1,6 +1,8 @@
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import type { CodexRateLimitSnapshot } from "../../src/lib/providers/provider.types";
 import { mapCodexRateLimitBuckets } from "./codex-snapshot-mappers";
+import { emptyRateLimitsSnapshot } from "../../src/lib/providers/account-usage-block";
+import { publishQuotaObservation } from "./rate-limits/quota-observations";
 
 /**
  * Host-side cache for Codex account rate limits.
@@ -46,6 +48,12 @@ export function recordCodexRateLimits(args: {
     updatedAt: args.now ?? Date.now(),
   };
   cachedEntries.set(currentProviderAccountId("codex"), entry);
+  if (args.source === "notification") {
+    publishQuotaObservation({
+      ...emptyRateLimitsSnapshot(),
+      codex: { source: "rpc", buckets: entry.buckets, error: null },
+    }, entry.updatedAt, "notification");
+  }
   return entry;
 }
 
@@ -79,15 +87,25 @@ export async function resolveCodexRateLimitBuckets(args: {
   now?: number;
   maxAgeMs?: number;
 }): Promise<CodexRateLimitSnapshot[]> {
+  return (await resolveCodexRateLimitReading(args)).entry.buckets;
+}
+
+/** Keep cache provenance out of the public bucket/snapshot payloads. */
+export async function resolveCodexRateLimitReading(args: {
+  request: () => Promise<CodexRateLimitSnapshot[]>;
+  force?: boolean;
+  now?: number;
+  maxAgeMs?: number;
+}): Promise<{ entry: CodexRateLimitsCacheEntry; fresh: boolean }> {
   const now = args.now ?? Date.now();
   const maxAgeMs = args.maxAgeMs ?? CODEX_RATE_LIMITS_ACTIVE_REFRESH_MS;
   const probe = { entry: readCodexRateLimitsCache(), now, maxAgeMs };
   if (!args.force && isCodexRateLimitsCacheFresh(probe)) {
-    return probe.entry.buckets;
+    return { entry: probe.entry, fresh: false };
   }
   const buckets = await args.request();
-  recordCodexRateLimits({ buckets, source: "rpc", now });
-  return buckets;
+  const entry = recordCodexRateLimits({ buckets, source: "rpc", now: args.now ?? Date.now() });
+  return { entry, fresh: true };
 }
 
 /** Minimal shape of an App Server client, so this module stays cycle-free. */

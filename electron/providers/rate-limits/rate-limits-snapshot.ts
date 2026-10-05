@@ -7,12 +7,13 @@ import type {
 } from "../../../src/lib/providers/provider.types";
 import type { StreamTurnArgs } from "../types";
 import { fetchClaudeUsageSnapshot } from "./claude-usage-fetcher";
-import { fetchCodexUsageSnapshot } from "./codex-usage-fetcher";
+import { fetchCodexUsageSnapshot, readCodexUsageObservation } from "./codex-usage-fetcher";
 import { fetchCursorUsageSnapshot } from "./cursor-usage-fetcher";
 import { fetchKiroUsageSnapshot } from "./kiro-usage-fetcher";
 import { readProviderUsage } from "./usage-read-policy";
 import { isOptionalProvider } from "../../../src/lib/providers/provider-readiness";
 import { optionalProviderReadKey } from "../optional-provider-tooling";
+import { publishQuotaObservation, type QuotaObservationMetadata } from "./quota-observations";
 
 /**
  * Who asked for a forced read. A manual refresh is floored so the button
@@ -83,7 +84,7 @@ export async function getRateLimitsSnapshot(args: {
   fetchers?: Partial<UsageFetchers>;
   optionalReadKey?: typeof optionalProviderReadKey;
   /** Host-only persistence hook. Cached responses are not new observations. */
-  onObservation?: (snapshot: RateLimitsSnapshotResponse) => void;
+  onObservation?: (snapshot: RateLimitsSnapshotResponse, metadata: QuotaObservationMetadata) => void;
 }): Promise<RateLimitsSnapshotResponse> {
   return withProviderAccountScope(args.runtimeOptions, async () => {
   const providers = args.providers;
@@ -113,9 +114,15 @@ export async function getRateLimitsSnapshot(args: {
       classify: classifySnapshot,
       request: async () => {
         const fresh = await request();
+        const provenance = key === "codex"
+          ? readCodexUsageObservation(fresh as RateLimitsSnapshotResponse["codex"])
+          : undefined;
         if (classifySnapshot(fresh) === "ok" && (!isOptionalProvider(providerId) ||
-          readKey === (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions))) {
-          args.onObservation?.({ ...empty, [key]: fresh });
+          readKey === (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions)) &&
+          provenance?.fresh !== false) {
+          const snapshot = { ...empty, [key]: fresh };
+          const metadata = publishQuotaObservation(snapshot, provenance?.observedAt);
+          args.onObservation?.(snapshot, metadata);
         }
         return fresh;
       },

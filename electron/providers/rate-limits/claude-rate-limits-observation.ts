@@ -4,6 +4,8 @@ import type {
   ClaudeUsageWindow,
 } from "../../../src/lib/providers/provider.types";
 import { recordPushedUsageReading } from "./usage-read-policy";
+import { emptyRateLimitsSnapshot } from "../../../src/lib/providers/account-usage-block";
+import { publishQuotaObservation } from "./quota-observations";
 
 /**
  * Claude usage read from turn traffic instead of from a usage request.
@@ -105,13 +107,30 @@ export function recordClaudeRateLimitObservation(args: {
   observation: ClaudeRateLimitObservation;
   now?: number;
 }): boolean {
-  return recordPushedUsageReading<ClaudeUsageSnapshot>({
+  const now = args.now ?? Date.now();
+  let observedSnapshot: ClaudeUsageSnapshot | null = null;
+  const recorded = recordPushedUsageReading<ClaudeUsageSnapshot>({
     key: providerAccountKey("claude-code", CLAUDE_USAGE_READ_KEY),
-    now: args.now,
-    update: (snapshot) =>
-      applyClaudeRateLimitObservation({
+    now,
+    update: (snapshot) => {
+      observedSnapshot = applyClaudeRateLimitObservation({
         snapshot,
         observation: args.observation,
-      }),
+      });
+      return observedSnapshot;
+    },
   });
+  const window = resolveClaudeObservedWindow(args.observation.rateLimitType);
+  if (recorded && observedSnapshot && window) {
+    // The other cached windows were not observed by this SDK event.
+    const snapshot: ClaudeUsageSnapshot = observedSnapshot;
+    publishQuotaObservation({
+      ...emptyRateLimitsSnapshot(),
+      claude: {
+        ...snapshot, session: null, weekly: null, fableWeekly: null,
+        [window]: snapshot[window],
+      },
+    }, now, "sdk");
+  }
+  return recorded;
 }
