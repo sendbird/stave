@@ -14,6 +14,16 @@ export const PREVIEW_MODEL: ModelSelectorOption = {
   available: true,
 };
 
+/** A second provider, so the review dialog can offer its cross-check. */
+export const PREVIEW_REVIEW_CODEX_MODEL: ModelSelectorOption = {
+  key: "codex:gpt-5.5",
+  providerId: "codex",
+  model: "gpt-5.5",
+  label: "GPT-5.5",
+  available: true,
+  isDefault: true,
+};
+
 const TURN_STARTED_AT = Date.now() - 48_000;
 
 export const PREVIEW_WORK_ITEMS: ProviderTurnWorkItem[] = [

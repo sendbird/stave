@@ -1,4 +1,7 @@
-import type { LocalChangeReviewFocus } from "@/lib/local-change-review";
+import {
+  normalizeReviewCommitRef,
+  type LocalChangeReviewFocus,
+} from "@/lib/local-change-review";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   REVIEW_TASK_INSTRUCTIONS_MAX_CHARS,
@@ -9,6 +12,10 @@ import {
   selectLatestReplyForReview,
   type ReviewTarget,
 } from "@/lib/reviews/review-task";
+import {
+  buildReviewRecheckPrompt,
+  type ReviewFindingsReport,
+} from "@/lib/reviews/review-findings";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import { resolveDelegatedTaskActionError } from "@/lib/runs/delegated-task-view";
 import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
@@ -35,6 +42,12 @@ export interface ReviewTaskRequest {
   instructions?: string;
   /** Empty or absent runs without a skill. */
   skillSlug?: string;
+  /** The commit or range the commit target reviews. */
+  commitRef?: string;
+  /** A plan or acceptance criteria to check the work against. */
+  criteria?: string;
+  /** Run without the skill when this reviewer cannot load it (a cross-check). */
+  skillOptional?: boolean;
 }
 
 export type StartReviewTaskResult =
@@ -85,13 +98,18 @@ export async function startReviewTask(args: {
     ? getEffectiveSkillEntries({ skills: state.skillCatalog.skills, providerId })
         .find((entry) => entry.slug.toLowerCase() === skillSlug)
     : undefined;
-  if (skillSlug && !skill) {
+  if (skillSlug && !skill && !args.request.skillOptional) {
     return {
       ok: false,
       error: `The skill $${skillSlug} is not available to this reviewer in this workspace.`,
     };
   }
 
+  const commitRef =
+    args.request.target === "commit" ? normalizeReviewCommitRef(args.request.commitRef) : null;
+  if (args.request.target === "commit" && !commitRef) {
+    return { ok: false, error: "Enter a commit, such as HEAD~1, a short hash, or a range like main..HEAD." };
+  }
   const reply =
     args.request.target === "latest-reply"
       ? selectLatestReplyForReview(state.messagesByTask[args.taskId] ?? [])
@@ -105,6 +123,8 @@ export async function startReviewTask(args: {
       ? { name: skill.name, slug: skill.slug, instructions: skill.instructions }
       : null,
     reply,
+    commitRef,
+    criteria: args.request.criteria,
   });
   if (!prompt) {
     return { ok: false, error: "This task has no finished reply to review yet." };
@@ -118,6 +138,7 @@ export async function startReviewTask(args: {
     title: buildReviewTaskTitle({
       target: args.request.target,
       modelLabel: args.request.reviewer.label,
+      commitRef,
     }),
     providerId,
     model: args.request.reviewer.model,
@@ -223,6 +244,36 @@ export async function rerunReviewTask(args: {
   });
 }
 
+/**
+ * Re-check an earlier review: a new review task, on the same provider, model
+ * and effort, that decides whether each earlier finding is resolved against
+ * the workspace as it is now, instead of reviewing from scratch.
+ */
+export async function recheckReviewTask(args: {
+  getState: () => AppState;
+  review: Parameters<typeof rerunReviewTask>[0]["review"];
+  originalPrompt: string;
+  report: ReviewFindingsReport;
+  title: string;
+  now?: Date;
+  nonce?: string;
+}): Promise<StartReviewTaskResult> {
+  if (args.report.findings.length === 0) {
+    return { ok: false, error: "The earlier review has no findings to re-check." };
+  }
+  return rerunReviewTask({
+    getState: args.getState,
+    review: args.review,
+    prompt: buildReviewRecheckPrompt({
+      originalPrompt: args.originalPrompt,
+      report: args.report,
+    }),
+    title: `Re-check · ${args.title.replace(/^Re-check · /, "")}`.slice(0, 200),
+    now: args.now,
+    nonce: args.nonce,
+  });
+}
+
 /** Title of the chip a review's answer becomes, from the child's own title. */
 export function resolveReviewAttachmentTitle(args: {
   child: Pick<DelegatedTaskSummary, "delegatedTaskId">;
@@ -234,7 +285,20 @@ export function resolveReviewAttachmentTitle(args: {
   );
 }
 
-export type AttachReviewResult = "attached" | "attached-with-prompt" | "unchanged";
+export type AttachReviewResult =
+  | "attached"
+  | "attached-with-prompt"
+  | "updated"
+  /** The same review, with the same choice, is already on the draft. */
+  | "already-attached"
+  /** The draft cannot take another task. */
+  | "unchanged";
+
+function sameIds(left: readonly string[] | undefined, right: readonly string[] | undefined) {
+  const a = [...(left ?? [])].sort();
+  const b = [...(right ?? [])].sort();
+  return a.length === b.length && a.every((id, index) => id === b[index]);
+}
 
 /**
  * Attach a finished review's final reply to the reviewed task's draft. An
@@ -247,18 +311,51 @@ export function attachReviewResultToDraft(args: {
   getState: () => AppState;
   taskId: string;
   child: Pick<DelegatedTaskSummary, "delegatedTaskId" | "delegatedWorkspaceId">;
+  /** Send only these structured findings; omitted sends the whole reply. */
+  findingIds?: readonly string[];
+  /** The reply the findings were read from, so later turns cannot re-point them. */
+  findingsReplyId?: string | null;
 }): AttachReviewResult {
   const state = args.getState();
   const draft = state.promptDraftByTask[args.taskId];
   const attachments = draft?.attachments ?? [];
+  const findingIds = args.findingIds?.length ? [...new Set(args.findingIds)] : undefined;
+  const replyAnchor = findingIds && args.findingsReplyId ? { findingsReplyId: args.findingsReplyId } : {};
+  // Choosing findings again replaces the earlier choice on the same chip.
+  const existing = attachments.find(
+    (attachment) =>
+      attachment.kind === "task-context" && attachment.taskId === args.child.delegatedTaskId,
+  );
+  if (existing) {
+    if (existing.kind !== "task-context") {
+      return "unchanged";
+    }
+    if (sameIds(existing.findingIds, findingIds)) {
+      return "already-attached";
+    }
+    state.updatePromptDraft({
+      taskId: args.taskId,
+      patch: {
+        attachments: attachments.map((attachment) => {
+          if (attachment !== existing || attachment.kind !== "task-context") return attachment;
+          const { findingIds: _previous, findingsReplyId: _reply, ...rest } = attachment;
+          return findingIds ? { ...rest, findingIds, ...replyAnchor } : rest;
+        }),
+      },
+    });
+    return "updated";
+  }
   const next = addTaskContextAttachment({
     attachments,
-    attachment: createTaskContextAttachment({
-      taskId: args.child.delegatedTaskId,
-      workspaceId: args.child.delegatedWorkspaceId,
-      title: resolveReviewAttachmentTitle({ child: args.child, tasks: state.tasks }),
-      scope: "latest-reply",
-    }),
+    attachment: {
+      ...createTaskContextAttachment({
+        taskId: args.child.delegatedTaskId,
+        workspaceId: args.child.delegatedWorkspaceId,
+        title: resolveReviewAttachmentTitle({ child: args.child, tasks: state.tasks }),
+        scope: "latest-reply",
+      }),
+      ...(findingIds ? { findingIds, ...replyAnchor } : {}),
+    },
     currentTaskId: args.taskId,
   });
   if (next === attachments) {

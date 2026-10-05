@@ -31,8 +31,12 @@ export function TaskContextChip(args: {
   onScopeChange?: (scope: TaskContextScope) => void;
   onRemove?: () => void;
   onOpen?: () => void;
+  /** A review narrowed to chosen findings sends those instead of a scope. */
+  findingCount?: number;
 }) {
-  const scopeLabel = TASK_CONTEXT_SCOPE_LABEL[args.scope];
+  const scopeLabel = args.findingCount
+    ? `${args.findingCount} finding${args.findingCount === 1 ? "" : "s"}`
+    : TASK_CONTEXT_SCOPE_LABEL[args.scope];
   const label = (
     <>
       <span className={sx(styles.prefix)}>Task</span>
@@ -60,7 +64,7 @@ export function TaskContextChip(args: {
           {label}
         </span>
       )}
-      {args.onScopeChange ? (
+      {args.onScopeChange && !args.findingCount ? (
         <Button
           type="button"
           size="xs"

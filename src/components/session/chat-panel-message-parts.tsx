@@ -179,6 +179,7 @@ export function MessagePartRenderer(args: {
         <TaskContextChip
           title={part.title}
           scope={part.scope}
+          findingCount={part.findingIds?.length}
           onOpen={() => void openAttachedTask({ taskId: part.taskId, workspaceId: part.workspaceId })}
         />
       );

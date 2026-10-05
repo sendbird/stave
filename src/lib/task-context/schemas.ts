@@ -184,12 +184,19 @@ const TaskContextScopeSchema = z
   .union([z.literal("latest-reply"), z.literal("conversation")])
   .catch("latest-reply");
 
+const TaskFindingIdsSchema = z
+  .array(z.string().max(48))
+  .max(50)
+  .optional()
+  .catch(undefined);
+
 const TaskContextPartSchema = z.object({
   type: z.literal("task_context"),
   taskId: z.string(),
   workspaceId: z.string(),
   title: z.string(),
   scope: TaskContextScopeSchema,
+  findingIds: TaskFindingIdsSchema,
 });
 
 const SystemEventPartSchema = z.object({
@@ -238,6 +245,8 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     workspaceId: z.string(),
     title: z.string(),
     scope: TaskContextScopeSchema,
+    findingIds: TaskFindingIdsSchema,
+    findingsReplyId: z.string().max(200).optional().catch(undefined),
   }),
   z.object({
     kind: z.literal("lens-annotations"),

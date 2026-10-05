@@ -19,7 +19,11 @@ import { attachReviewResultToDraft } from "@/store/review-task-runtime";
 const NO_KEYS: readonly string[] = [];
 
 export interface ShelfReviewActions {
-  attach: (item: ReviewShelfItem) => void;
+  /** Attach the whole answer, or only the chosen structured findings. */
+  attach: (
+    item: ReviewShelfItem,
+    selection?: { findingIds: readonly string[]; replyId: string | null },
+  ) => void;
   open: (item: ReviewShelfItem) => void;
   stop: (item: ReviewShelfItem) => void;
   dismiss: (item: ReviewShelfItem) => void;
@@ -83,11 +87,13 @@ export function useShelfReviews(taskId: string) {
 
   const stopDelegation = listing.actions.stop;
   const attach = useCallback(
-    (item: ReviewShelfItem) => {
+    (item: ReviewShelfItem, selection?: { findingIds: readonly string[]; replyId: string | null }) => {
       const result = attachReviewResultToDraft({
         getState: useAppStore.getState,
         taskId,
         child: item.child,
+        findingIds: selection?.findingIds,
+        findingsReplyId: selection?.replyId,
       });
       if (result === "unchanged") {
         toast.error("Could not attach the review", {

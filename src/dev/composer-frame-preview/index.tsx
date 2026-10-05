@@ -59,6 +59,7 @@ import {
   PREVIEW_CHILD_QUESTION,
   PREVIEW_MACROS,
   PREVIEW_MODEL,
+  PREVIEW_REVIEW_CODEX_MODEL,
 } from "./fixtures";
 import {
   caseHasQueue,
@@ -442,7 +443,7 @@ export function ComposerFramePreviewApp() {
                       }),
                     ])
                   }
-                  reviewModelOptions={[PREVIEW_MODEL]}
+                  reviewModelOptions={[PREVIEW_MODEL, PREVIEW_REVIEW_CODEX_MODEL]}
                   preferredReviewModelKey={PREVIEW_MODEL.key}
                   onLocalChangeReview={() => true}
                   planMode={planMode}

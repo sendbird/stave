@@ -11,6 +11,7 @@ import {
   readReviewNotificationParent,
   buildReviewDelegationKey,
   buildReviewTaskPrompt,
+  buildReviewTaskTitle,
   hasReviewableReply,
   isReviewDelegation,
   normalizeReviewTaskSettings,
@@ -23,6 +24,7 @@ import {
   splitTaskIds,
   toDelegatedTaskEffort,
 } from "../src/lib/reviews/review-task";
+import { normalizeReviewCommitRef } from "../src/lib/local-change-review";
 import {
   DelegateTaskArgsSchema,
   DelegatedTaskDelegationKeySchema,
@@ -362,5 +364,47 @@ describe("follow-up prompt and completion notice", () => {
     ).toContain("stopped without findings");
     expect(readReviewNotificationParent({})).toBeNull();
     expect(readReviewNotificationParent(null)).toBeNull();
+  });
+});
+
+describe("commit target, criteria and cross-check", () => {
+  test("commit refs are held to ref characters", () => {
+    expect(normalizeReviewCommitRef(" HEAD~1 ")).toBe("HEAD~1");
+    expect(normalizeReviewCommitRef("main..HEAD")).toBe("main..HEAD");
+    expect(normalizeReviewCommitRef("origin/main...feat/x")).toBe("origin/main...feat/x");
+    expect(normalizeReviewCommitRef("HEAD; rm -rf /")).toBeNull();
+    expect(normalizeReviewCommitRef("a`b")).toBeNull();
+    expect(normalizeReviewCommitRef("")).toBeNull();
+  });
+
+  test("a commit review reads only that commit or range", () => {
+    const single = buildReviewTaskPrompt({ target: "commit", focuses: [], commitRef: "a1b2c3d" })!;
+    expect(single).toContain("Review only the changes introduced by commit a1b2c3d.");
+    expect(single).toContain("git show a1b2c3d");
+    const range = buildReviewTaskPrompt({ target: "commit", focuses: [], commitRef: "main..HEAD" })!;
+    expect(range).toContain("Review only the commits in the range main..HEAD.");
+    expect(range).toContain("git diff main..HEAD");
+    expect(buildReviewTaskPrompt({ target: "commit", focuses: [], commitRef: "bad ref" })).toBeNull();
+    expect(buildReviewTaskTitle({ target: "commit", modelLabel: "GPT-5.5", commitRef: "HEAD~1" })).toBe(
+      "Review · Commit HEAD~1 · GPT-5.5",
+    );
+  });
+
+  test("criteria are quoted as data and unmet ones become findings", () => {
+    const prompt = buildReviewTaskPrompt({
+      target: "working-tree",
+      focuses: [],
+      criteria: "Dismissed reviews stay dismissed after a restart.",
+    })!;
+    expect(prompt).toContain("Report each criterion that is not met");
+    expect(prompt).toContain("Plan or acceptance criteria:");
+    expect(prompt).toContain("Dismissed reviews stay dismissed after a restart.");
+    expect(buildReviewTaskPrompt({ target: "working-tree", focuses: [] })).not.toContain("acceptance criteria");
+  });
+
+  test("cross-check is off unless saved on", () => {
+    expect(normalizeReviewTaskSettings({}).crossCheck).toBe(false);
+    expect(normalizeReviewTaskSettings({ crossCheck: "yes" }).crossCheck).toBe(false);
+    expect(normalizeReviewTaskSettings({ crossCheck: true }).crossCheck).toBe(true);
   });
 });

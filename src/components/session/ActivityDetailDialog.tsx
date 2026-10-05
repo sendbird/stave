@@ -67,6 +67,8 @@ export function ActivityDetailDialog(props: {
   onClose: () => void;
   onAction?: (action: DelegationActionId, exchange: DelegationExchange) => void;
   renderExtraActions?: (exchange: DelegationExchange) => ReactNode;
+  /** Shown first in the body, above the result, for surface-specific detail. */
+  leadContent?: ReactNode;
   statusNoteFor?: (exchange: DelegationExchange) => string | undefined;
   onShowInConversation?: (id: string) => void;
 }) {
@@ -317,6 +319,7 @@ export function ActivityDetailDialog(props: {
         {toolUseId && props.onShowInConversation ? <Button size="sm" variant="ghost" onClick={() => { props.onShowInConversation?.(toolUseId); props.onClose(); }}>Show in conversation</Button> : null}
       </div>
       <div className={sx(s.body)}>
+        {props.leadContent}
         {!live ? exchangeDetail : null}
         {live ? activityLog : <details><summary className={sx(s.historySummary)}>Activity log</summary>{activityLog}</details>}
         {live ? exchangeDetail : null}

@@ -4188,6 +4188,7 @@ export function PromptInput(args: PromptInputProps) {
                   key={attachment.id}
                   title={attachment.title}
                   scope={attachment.scope}
+                  findingCount={attachment.findingIds?.length}
                   disabled={interactionsDisabled}
                   compact={minimal}
                   onOpen={() =>

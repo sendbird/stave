@@ -4,8 +4,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ShelfReviews } from "@/components/session/composer-shelf/ShelfReviews";
 import {
   buildReviewExchange,
+  describeReviewShelfFindings,
+  describeReviewShelfLine,
   summarizeReviewTranscript,
 } from "@/components/session/composer-shelf/composer-shelf.utils";
+import { parseReviewFindings } from "@/lib/reviews/review-findings";
 import { TaskContextChip } from "@/components/task-context-chip";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
@@ -94,7 +97,7 @@ describe("viewing a review", () => {
       { role: "assistant", content: "Full findings.", isStreaming: false },
       { role: "assistant", content: "partial", isStreaming: true },
     ]);
-    expect(transcript).toEqual({ prompt: "Review the working tree.", reply: "Full findings." });
+    expect(transcript).toEqual({ prompt: "Review the working tree.", reply: "Full findings.", replyId: null });
     const ready = buildReviewExchange({
       item: review("ready", { result: "Bounded copy" }),
       title: "Review",
@@ -116,5 +119,29 @@ describe("viewing a review", () => {
       createElement(TaskContextChip, { title: "Review", scope: "latest-reply" }),
     );
     expect(plain).not.toContain("Open attached task");
+  });
+
+  test("a chip narrowed to findings says how many it sends instead of a scope", () => {
+    const html = renderToStaticMarkup(
+      createElement(TaskContextChip, { title: "Review", scope: "latest-reply", findingCount: 2, onScopeChange: noop }),
+    );
+    expect(html).toContain("2 findings");
+    expect(html).not.toContain("Latest reply");
+  });
+
+  test("a review line reads its findings: counts, re-checks and unreadable replies", () => {
+    const ready = review("ready");
+    const summary = (reply: string) =>
+      describeReviewShelfLine({ item: ready, now: 0, findings: describeReviewShelfFindings(parseReviewFindings(reply)) });
+    const block = (json: unknown) => "```stave-review-findings\n" + JSON.stringify(json) + "\n```";
+    expect(
+      summary(block({ verdict: "request-changes", findings: [{ severity: "critical", title: "A" }] })),
+    ).toMatchObject({ label: "Review ready", tone: "danger" });
+    expect(summary(block({ verdict: "approve", findings: [] })).detail).toContain("No findings");
+    expect(
+      summary(block({ verdict: "approve", previous: [{ id: "F1", status: "resolved" }], findings: [] })),
+    ).toMatchObject({ label: "Fixes checked", tone: "ready" });
+    expect(summary("no block").detail).toContain("findings unreadable");
+    expect(describeReviewShelfLine({ item: ready, now: 0 }).detail).not.toContain("findings");
   });
 });

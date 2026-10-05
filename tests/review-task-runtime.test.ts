@@ -96,7 +96,7 @@ const REVIEW_CHILD: DelegatedTaskSummary = {
 } as unknown;
 
 const { useAppStore } = await import("../src/store/app.store");
-const { attachReviewResultToDraft, rerunReviewTask, startReviewTask } = await import(
+const { attachReviewResultToDraft, recheckReviewTask, rerunReviewTask, startReviewTask } = await import(
   "../src/store/review-task-runtime"
 );
 const { DEFAULT_REVIEW_FOLLOW_UP_PROMPT } = await import("../src/lib/reviews/review-task");
@@ -237,6 +237,45 @@ describe("starting a review task", () => {
     expect(args.prompt).toContain("Rank findings by blast radius.");
   });
 
+  test("a cross-check runs without a skill its provider cannot load", async () => {
+    const result = await startReviewTask({
+      getState: useAppStore.getState,
+      taskId: "task-main",
+      request: {
+        reviewer: { providerId: "codex", model: "gpt-5.5", label: "GPT-5.5" },
+        target: "working-tree",
+        focuses: [],
+        skillSlug: "missing-skill",
+        skillOptional: true,
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(DelegateTaskArgsSchema.parse(delegated[0]).prompt).not.toContain("Review skill");
+  });
+
+  test("a commit review needs a valid ref and carries criteria into the prompt", async () => {
+    const reviewer = { providerId: "codex" as const, model: "gpt-5.5", label: "GPT-5.5" };
+    const bad = await startReviewTask({
+      getState: useAppStore.getState,
+      taskId: "task-main",
+      request: { reviewer, target: "commit", focuses: [], commitRef: "HEAD && echo" },
+    });
+    expect(bad.ok).toBe(false);
+    expect(delegated).toHaveLength(0);
+    const good = await startReviewTask({
+      getState: useAppStore.getState,
+      taskId: "task-main",
+      request: { reviewer, target: "commit", focuses: [], commitRef: "HEAD~2", criteria: "Must keep drafts." },
+      now: new Date("2026-10-04T15:00:00.000Z"),
+      nonce: "d",
+    });
+    expect(good.ok).toBe(true);
+    const args = DelegateTaskArgsSchema.parse(delegated[0]);
+    expect(args.title).toBe("Review · Commit HEAD~2 · GPT-5.5");
+    expect(args.prompt).toContain("introduced by commit HEAD~2");
+    expect(args.prompt).toContain("Must keep drafts.");
+  });
+
   test("a refusal is reported with the coordinator's sentence", async () => {
     delegateResponse = {
       accepted: false,
@@ -277,7 +316,7 @@ describe("bringing the result back", () => {
   test("attaching adds the review's latest reply to the draft once", () => {
     const child = REVIEW_CHILD;
     expect(attachReviewResultToDraft({ getState: useAppStore.getState, taskId: "task-main", child })).toBe("attached-with-prompt");
-    expect(attachReviewResultToDraft({ getState: useAppStore.getState, taskId: "task-main", child })).toBe("unchanged");
+    expect(attachReviewResultToDraft({ getState: useAppStore.getState, taskId: "task-main", child })).toBe("already-attached");
     expect(useAppStore.getState().promptDraftByTask["task-main"]?.text).toBe(DEFAULT_REVIEW_FOLLOW_UP_PROMPT);
     expect(useAppStore.getState().promptDraftByTask["task-main"]?.attachments).toEqual([
       {
@@ -327,6 +366,62 @@ describe("bringing the result back", () => {
       prompt: "Review only the current uncommitted working tree.",
       title: "Review · Uncommitted changes · GPT-5.5",
     });
+  });
+
+  test("choosing findings narrows the chip, and choosing again replaces the choice", () => {
+    const get = useAppStore.getState;
+    expect(
+      attachReviewResultToDraft({ getState: get, taskId: "task-main", child: REVIEW_CHILD, findingIds: ["F2", "F2", "F3"], findingsReplyId: "r1" }),
+    ).toBe("attached-with-prompt");
+    const chip = () => get().promptDraftByTask["task-main"]?.attachments[0];
+    expect(chip()).toMatchObject({ kind: "task-context", taskId: "task-review", findingIds: ["F2", "F3"], findingsReplyId: "r1" });
+    expect(
+      attachReviewResultToDraft({ getState: get, taskId: "task-main", child: REVIEW_CHILD, findingIds: ["F3", "F2"] }),
+    ).toBe("already-attached");
+    expect(
+      attachReviewResultToDraft({ getState: get, taskId: "task-main", child: REVIEW_CHILD, findingIds: ["F2"] }),
+    ).toBe("updated");
+    expect(chip()).toMatchObject({ findingIds: ["F2"] });
+    expect(attachReviewResultToDraft({ getState: get, taskId: "task-main", child: REVIEW_CHILD })).toBe("updated");
+    expect(chip()).not.toHaveProperty("findingIds");
+    expect(chip()).not.toHaveProperty("findingsReplyId");
+    expect(get().promptDraftByTask["task-main"]?.attachments).toHaveLength(1);
+  });
+
+  test("checking fixes sends the earlier findings to a new review on the same model", async () => {
+    const result = await recheckReviewTask({
+      getState: useAppStore.getState,
+      review: REVIEW_CHILD,
+      originalPrompt: "Review only the current uncommitted working tree.",
+      report: {
+        verdict: "request-changes",
+        findings: [
+          { id: "F2", severity: "critical", title: "Offset not validated", file: "src/users.ts", line: 42, detail: null, fix: null },
+        ],
+        previous: null,
+      },
+      title: "Review · Uncommitted changes · GPT-5.5",
+      now: new Date("2026-10-04T14:00:00.000Z"),
+      nonce: "c",
+    });
+    expect(result).toMatchObject({ ok: true, delegationKey: "stave-review-20261004140000-c" });
+    const args = DelegateTaskArgsSchema.parse(delegated[0]);
+    expect(args).toMatchObject({
+      providerId: "codex",
+      model: "gpt-5.5",
+      access: "read-only",
+      title: "Re-check · Review · Uncommitted changes · GPT-5.5",
+    });
+    expect(args.prompt).toContain("Do not review from scratch.");
+    expect(args.prompt).toContain('"id":"F2"');
+    const empty = await recheckReviewTask({
+      getState: useAppStore.getState,
+      review: REVIEW_CHILD,
+      originalPrompt: "x",
+      report: { verdict: "approve", findings: [], previous: null },
+      title: "Review",
+    });
+    expect(empty.ok).toBe(false);
   });
 
   test("an unattached review stays out of the next turn", async () => {

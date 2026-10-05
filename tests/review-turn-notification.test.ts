@@ -29,6 +29,29 @@ describe("review completion notification on the host", () => {
     });
   });
 
+  test("the body counts the review's findings when its reply has them", () => {
+    const reply = [
+      "Two issues.",
+      "```stave-review-findings",
+      JSON.stringify({
+        verdict: "request-changes",
+        findings: [
+          { severity: "critical", title: "A" },
+          { severity: "minor", title: "B" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+    expect(
+      resolveReviewTurnNotification({
+        tasks,
+        taskId: "review-task",
+        failed: false,
+        messages: [{ role: "user", content: "Review." }, { role: "assistant", content: reply }],
+      })?.body,
+    ).toBe("Review finished: Review · Uncommitted changes · GPT-5.5. 2 findings · 1 critical.");
+  });
+
   test("other subagents and top-level tasks keep their ordinary notification", () => {
     expect(resolveReviewTurnNotification({ tasks, taskId: "agent-child", failed: false })).toBeNull();
     expect(resolveReviewTurnNotification({ tasks, taskId: "task-main", failed: false })).toBeNull();

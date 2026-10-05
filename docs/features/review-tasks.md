@@ -64,11 +64,13 @@ writer when another model should change files.
 
 | Control | What it does |
 | --- | --- |
-| Review target | Uncommitted changes, the entire local branch, or the task's latest finished reply. Latest reply is unavailable until the task has one. |
+| Review target | Uncommitted changes, the entire local branch, a specific commit or range (such as `HEAD~1` or `main..HEAD`), or the task's latest finished reply. Latest reply is unavailable until the task has one. |
 | Review by | Any available Claude or Codex model and effort. The suggestion follows **Default Reviewer** in Settings. |
 | Focus | Each selected area adds an explicit instruction to the review prompt. |
 | Review skill | The reviewer follows the skill's instructions. Only skills the chosen reviewer can load are offered. |
+| Also review with | Starts a second, independent read-only review on the other provider at the same time, with that provider's review model. Each review gets its own line. The default follows **Cross-check With Both Providers** in Settings. |
 | Additional instructions | Added to this review only, after your saved review instructions. |
+| Check against a plan or acceptance criteria | Optional. The reviewer checks the work against what you paste, and each criterion that is not met becomes a finding. |
 
 The line above the composer:
 
@@ -86,6 +88,16 @@ dismiss it, or a day passes. Sending other messages meanwhile does not share it.
 **View** opens the review in a dialog over the task you are working in, so
 checking it never moves you away:
 
+- **Findings**: the reviewer's verdict (approve, approve with changes, or
+  request changes) and each finding with its severity (critical, major or
+  minor), file and line, detail and suggested fix, most severe first. Tick
+  the findings to send and select **Attach N of M**: only those reach the task,
+  and the chip reads `N findings`. Opening the dialog again shows the current
+  choice; attaching again replaces it.
+- **Check fixes**: a new review task, on the same model, that decides for each
+  earlier finding whether it is resolved, still unresolved, or outdated
+  against the workspace as it is now, instead of reviewing from scratch. Its
+  line reads **Fixes checked** with, for example, `2 of 3 fixed · 1 new`.
 - **Answer**: the review task's full final reply, rendered as in the
   conversation.
 - **Assignment and execution details**: the exact prompt the reviewer got,
@@ -108,7 +120,9 @@ review task when you select its title.
 1. Leave **Default Reviewer** on **Other provider**.
 2. Select **Review**. The dialog suggests the provider that did not write the
    latest reply.
-3. Start the review, then select **Attach**. The follow-up prompt asks the
+3. Start the review. The notification and the line say how many findings it
+   has, for example `3 findings · 1 critical`.
+4. Select **Attach**. The follow-up prompt asks the
    task to apply the valid findings and explain the rest; send it as is.
 
 ### Review a plan before it is carried out
@@ -119,12 +133,35 @@ review task when you select its title.
    changes, or disagree.
 3. Attach the verdict and decide how to continue.
 
+### Send only the findings worth fixing
+
+1. When the line reads `Review ready · … · 3 findings · 1 critical`, select
+   **View**.
+2. Untick the findings you disagree with and select **Attach 2 of 3**. The
+   follow-up prompt fills an empty draft as usual.
+3. Send. The task receives the verdict and the chosen findings, not the whole
+   reply.
+
 ### Check a fix with the same reviewer
 
 1. After the task addresses the findings, open the earlier review with
    **View**.
-2. Select **Run again**. A new review task starts with the same prompt and
-   model against the current workspace.
+2. Select **Check fixes** to confirm each earlier finding is resolved, or
+   **Run again** to review the current workspace from scratch with the same
+   prompt and model.
+
+### Have both models review the same change
+
+1. In **Review**, tick **Also review with** the other provider's model.
+2. Two review lines appear, one per provider. Each finishes on its own.
+3. Open each with **View** and attach the findings you agree with from either.
+
+### Check a commit against its acceptance criteria
+
+1. Pick **Specific commit** and enter the commit or range.
+2. Paste the criteria under **Check against a plan or acceptance criteria**.
+3. Start the review. Unmet criteria come back as findings named after the
+   criterion.
 
 ### Apply a team checklist to every review
 
@@ -145,7 +182,8 @@ review task when you select its title.
   "focuses": ["correctness", "tests"],
   "instructions": "",
   "skillSlug": "",
-  "followUpPrompt": "Go through the attached review findings. Apply the ones that are valid, and for each one you do not apply, explain why."
+  "followUpPrompt": "Go through the attached review findings. Apply the ones that are valid, and for each one you do not apply, explain why.",
+  "crossCheck": false
 }
 ```
 
@@ -159,6 +197,22 @@ follow-up prompt attaches the findings only.
   finished review that is less than a day old and was never sent shows again.
 
 ## Limitations And Advanced Options
+
+- Findings come from a fenced `stave-review-findings` JSON block that every
+  review prompt asks the reviewer to end with. A reply without a readable
+  block is shown as `findings unreadable`, never as `No findings`; its whole
+  answer can still be attached. A narrowed chip whose findings can no longer
+  be read sends the whole latest reply instead.
+- Only the block that ends the reply counts, so a quoted example earlier in
+  the answer is ignored. Up to 50 findings are read; an unknown severity is
+  treated as major.
+- **Check fixes** quotes the earlier findings and up to 12,000 characters of
+  the earlier instructions. The re-check repeats every unresolved finding with
+  its original id, so the next **Check fixes** still includes it.
+- Chosen findings belong to the reply they were read from. If the review task
+  gets another turn before you send, the whole newest reply goes instead.
+- Reviews started before findings existed show no findings list rather than
+  `findings unreadable`.
 
 - The reviewer cannot change files. Stave applies the provider's read-only
   posture described in [Read-only consults](delegated-tasks.md#read-only-consults);
@@ -175,7 +229,14 @@ follow-up prompt attaches the findings only.
 - A **Latest reply** review receives that reply, up to 8,000 characters, and
   the request it answered, as data to evaluate rather than instructions.
 - A skill's instructions are included in the review prompt, up to 24,000
-  characters.
+  characters. Acceptance criteria are included up to 8,000 characters.
+- A commit or range starts with a letter or digit and may only contain
+  letters, digits and `. _ / ~ ^ @ { } -`.
+- **Also review with** is not offered for **Latest reply**, whose reviewer is
+  already the other model. A cross-check runs without the review skill when
+  its provider cannot load it.
+- A cross-check counts as a second subagent of the task, so it shares the
+  limit of three running at a time.
 - **Run again** of a **Latest reply** review reviews the same reply again, not
   a newer one. Start a new review for the newest reply.
 - Delegation keys starting with `stave-review-` are reserved for these

@@ -2,9 +2,11 @@ import {
   LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS,
   buildLocalChangeReviewPrompt,
   buildReviewFocusInstructions,
+  normalizeReviewCommitRef,
   type LocalChangeReviewFocus,
   type LocalChangeReviewScope,
 } from "@/lib/local-change-review";
+import { buildReviewFindingsInstructions } from "@/lib/reviews/review-findings";
 import {
   REVIEW_DELEGATION_KEY_PREFIX,
   isActiveDelegatedTaskPhase,
@@ -45,9 +47,12 @@ export interface ReviewTaskSettings {
    * request that goes with the findings is ready to send. Empty turns it off.
    */
   followUpPrompt: string;
+  /** Start a second review on the other provider alongside each review. */
+  crossCheck: boolean;
 }
 
 export const REVIEW_TASK_INSTRUCTIONS_MAX_CHARS = 4_000;
+export const REVIEW_TASK_CRITERIA_MAX_CHARS = 8_000;
 export const REVIEW_FOLLOW_UP_PROMPT_MAX_CHARS = 2_000;
 export const DEFAULT_REVIEW_FOLLOW_UP_PROMPT =
   "Go through the attached review findings. Apply the ones that are valid, and for each one you do not apply, explain why.";
@@ -65,6 +70,7 @@ export const DEFAULT_REVIEW_TASK_SETTINGS: ReviewTaskSettings = {
   instructions: "",
   skillSlug: "",
   followUpPrompt: DEFAULT_REVIEW_FOLLOW_UP_PROMPT,
+  crossCheck: false,
 };
 
 /** Every delegation the composer starts for a review carries this prefix. */
@@ -73,6 +79,7 @@ export { REVIEW_DELEGATION_KEY_PREFIX };
 export const REVIEW_TARGET_LABEL: Record<ReviewTarget, string> = {
   "working-tree": "Uncommitted changes",
   branch: "Local branch",
+  commit: "Commit",
   "latest-reply": "Latest reply",
 };
 
@@ -114,6 +121,7 @@ export function normalizeReviewTaskSettings(value: unknown): ReviewTaskSettings 
       typeof raw.followUpPrompt === "string"
         ? raw.followUpPrompt.slice(0, REVIEW_FOLLOW_UP_PROMPT_MAX_CHARS)
         : DEFAULT_REVIEW_FOLLOW_UP_PROMPT,
+    crossCheck: raw.crossCheck === true,
   };
 }
 
@@ -281,6 +289,10 @@ export function buildReviewTaskPrompt(args: {
   savedInstructions?: string;
   skill?: { name: string; slug: string; instructions: string } | null;
   reply?: ReviewableReply | null;
+  /** The commit or range the commit target reviews. */
+  commitRef?: string | null;
+  /** A plan or acceptance criteria the work is checked against. */
+  criteria?: string | null;
 }) {
   const instructions =
     [args.savedInstructions?.trim(), args.instructions?.trim()]
@@ -291,14 +303,18 @@ export function buildReviewTaskPrompt(args: {
       ? args.reply
         ? buildReplyReviewPrompt({ reply: args.reply, focuses: args.focuses, instructions })
         : null
-      : buildLocalChangeReviewPrompt({
-          scope: args.target,
-          focuses: args.focuses,
-          instructions,
-        });
+      : args.target === "commit" && !normalizeReviewCommitRef(args.commitRef)
+        ? null
+        : buildLocalChangeReviewPrompt({
+            scope: args.target,
+            focuses: args.focuses,
+            instructions,
+            commitRef: args.commitRef,
+          });
   if (!base) {
     return null;
   }
+  const criteria = args.criteria?.trim().slice(0, REVIEW_TASK_CRITERIA_MAX_CHARS);
   const skillInstructions = args.skill?.instructions.trim();
   return [
     base,
@@ -309,13 +325,30 @@ export function buildReviewTaskPrompt(args: {
           fenced("Skill instructions", clipMiddle(skillInstructions, REVIEW_TASK_SKILL_MAX_CHARS)),
         ]
       : []),
+    ...(criteria
+      ? [
+          "",
+          "Also check the work against the plan or acceptance criteria below, quoted as data. Report each criterion that is not met, or only partly met, as a finding (major, or critical when it breaks the intended behavior), and name the criterion in its title.",
+          fenced("Plan or acceptance criteria", criteria),
+        ]
+      : []),
     "",
     "Your final reply is handed back to the task that asked for this review, so make it complete on its own.",
+    "",
+    buildReviewFindingsInstructions({ recheck: false }),
   ].join("\n");
 }
 
-export function buildReviewTaskTitle(args: { target: ReviewTarget; modelLabel: string }) {
-  return `Review · ${REVIEW_TARGET_LABEL[args.target]} · ${args.modelLabel}`.slice(0, 200);
+export function buildReviewTaskTitle(args: {
+  target: ReviewTarget;
+  modelLabel: string;
+  commitRef?: string | null;
+}) {
+  const target =
+    args.target === "commit" && args.commitRef
+      ? `Commit ${args.commitRef}`
+      : REVIEW_TARGET_LABEL[args.target];
+  return `Review · ${target} · ${args.modelLabel}`.slice(0, 200);
 }
 
 /** A read-only, one-turn child in the reviewed task's own workspace. */
@@ -472,12 +505,14 @@ export function describeReviewCompletionNotification(args: {
   parentTitle: string;
   reviewTitle: string;
   failed: boolean;
+  /** `3 findings · 1 critical`, when the reply's findings could be read. */
+  findingsSummary?: string | null;
 }) {
   return {
     title: args.parentTitle,
     body: args.failed
       ? `Review stopped without findings: ${args.reviewTitle}.`
-      : `Review finished: ${args.reviewTitle}.`,
+      : `Review finished: ${args.reviewTitle}.${args.findingsSummary ? ` ${args.findingsSummary}.` : ""}`,
     payload: {
       reviewParentTaskId: args.parentTaskId,
       reviewParentTaskTitle: args.parentTitle,
