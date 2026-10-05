@@ -79,7 +79,7 @@ test("the rail has one Task entry whose tabs replace the five task panels", () =
     "Activity",
     "Progress",
     "Subagents",
-    "Results",
+    "Outputs",
   ]);
 });
 
@@ -90,11 +90,11 @@ test("the panel is a tab strip that shows only the selected tab's view", () => {
   expect(html.match(/role="tab"/g)).toHaveLength(4);
   expect(selectedTab(html)).toBe("Progress");
   expect(html).toContain('aria-label="Flow"');
-  expect(html).not.toContain('aria-label="Task results"');
+  expect(html).not.toContain('aria-label="Task outputs"');
 
   html = render({ tab: "results" });
-  expect(selectedTab(html)).toBe("Results");
-  expect(html).toContain('aria-label="Task results"');
+  expect(selectedTab(html)).toBe("Outputs");
+  expect(html).toContain('aria-label="Task outputs"');
   expect(html).not.toContain('aria-label="Flow"');
 });
 
@@ -108,7 +108,7 @@ test("the tab an opener names becomes layout state the panel reads", () => {
     sidebarOverlayTab: "task",
     taskPanelTab: "results",
   });
-  expect(selectedTab(render({ tab: layout.taskPanelTab }))).toBe("Results");
+  expect(selectedTab(render({ tab: layout.taskPanelTab }))).toBe("Outputs");
 
   // Closing the rail keeps the tab, so it reopens where it was left.
   useAppStore.getState().setLayout({ patch: { sidebarOverlayVisible: false } });

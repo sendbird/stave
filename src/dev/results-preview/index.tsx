@@ -1,3 +1,4 @@
+import { applyAppLocale } from "@/i18n";
 import { useLayoutEffect, useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -63,6 +64,9 @@ function samples(): ResultSample[] {
 export function ResultsPreview() {
   const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === params.get("theme")) ?? null;
   const [dark, setDark] = useState(() => params.get("theme") === "dark" || builtinTheme?.baseMode === "dark");
+  useLayoutEffect(() => {
+    applyAppLocale(params.get("lang") ?? "en");
+  }, []);
   useLayoutEffect(() => {
     applyThemeClass({ enabled: dark });
     applyCustomTheme({ theme: builtinTheme });

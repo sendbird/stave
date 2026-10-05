@@ -1,3 +1,4 @@
+import { applyAppLocale } from "@/i18n";
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { RightRailPanelShell } from "@/components/layout/RightRailPanelShell";
@@ -612,6 +613,9 @@ export function TaskPanelPreview() {
   const requestedWidth = Number(params.get("panelWidth"));
   const panelWidth = Number.isFinite(requestedWidth) && requestedWidth > 0 ? requestedWidth : 320;
   const [seeded, setSeeded] = useState(false);
+  useLayoutEffect(() => {
+    applyAppLocale(params.get("lang") ?? "en");
+  }, []);
   useLayoutEffect(() => {
     applyThemeClass({ enabled: theme === "dark" || builtinTheme?.baseMode === "dark" });
     applyCustomTheme({ theme: builtinTheme });

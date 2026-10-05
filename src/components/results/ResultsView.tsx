@@ -1,8 +1,9 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useEffect, useState } from "react";
-import { ChartNoAxesColumn, X } from "lucide-react";
+import { ChartNoAxesColumn, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Dialog } from "@/components/ads/components/Dialog";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx } from "@/components/ads/utils/stylex";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { AgentRunReportView } from "@/components/agent-runs/AgentRunReportView";
@@ -174,31 +175,40 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
     }
     if (state.status === "failed") return <ResultsFailure message={state.message} onRetry={() => setAttempt((count) => count + 1)} />;
     if (!insights) return <p className={sx(styles.note)}>{i18n.t("compare:resultsView.resultsAreAvailableInTheDesktop")}</p>;
-    if (insights.summary.ended === 0) return <p className={sx(styles.empty)}>{t("compare:messages.noEndedRuns", { count: insights.days })}</p>;
+    if (insights.summary.ended === 0) return <EmptyState variant="plain" title={t("compare:agentPerformance.emptyTitle")} description={t("compare:agentPerformance.emptyDescription")} />;
     return (
       <>
         <OutcomeStrip summary={insights.summary} days={insights.days} />
-        <Figures summary={insights.summary} />
-        <Reasons summary={insights.summary} days={insights.days} />
+        <Figures insights={insights} />
+        <Reasons summary={insights.summary} />
         <AgentTable insights={insights} now={now} onOpen={open} />
+        <details className={sx(styles.definitions)}>
+          <summary className={sx(styles.disclosure, focusRing.ring)}>{t("compare:agentPerformance.dataScope")}</summary>
+          <p>{t("compare:agentPerformance.sampleLimit")}</p>
+          <p>{t("compare:agentPerformance.eventLimit")}</p>
+          <p>{t("compare:agentPerformance.costLimit")}</p>
+        </details>
       </>
     );
   };
 
   return (
     <div className={sx(centerStyles.root)}>
-      <header className={sx(centerStyles.header)}>
-        <div className={sx(centerStyles.headerText)}>
+      <header className={sx(centerStyles.header, styles.header)}>
+        <div className={sx(centerStyles.headerText, styles.headerText)}>
           <div className={sx(centerStyles.headerTitleRow)}>
             <ChartNoAxesColumn className={sx(centerStyles.headerIcon)} aria-hidden />
-            <h1 className={sx(centerStyles.headerTitle)}>{t("compare:resultsView.results")}</h1>
+            <h1 className={sx(centerStyles.headerTitle)}>{t("compare:agentPerformance.title")}</h1>
           </div>
-          <p className={sx(centerStyles.headerSubtitle)}>{t("compare:resultsView.didDelegatedWorkComeOutReady")}</p>
+          <p className={sx(centerStyles.headerSubtitle, styles.headerSubtitle)}>{t("compare:agentPerformance.purpose")}</p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
           <span className={sx(styles.toolbar)}>
             <Segmented aria-label={t("compare:resultsView.period")} size="xs" value={period} options={PERIODS} onChange={setPeriod} />
           </span>
+          <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:agentPerformance.refresh")} title={t("compare:agentPerformance.refresh")} disabled={state.status === "loading" || (state.status === "ready" && state.reloading)} onClick={() => setAttempt((count) => count + 1)}>
+            <RefreshCw className={sx(centerStyles.actionIcon)} />
+          </Button>
           <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:resultsView.closeResults")} title={t("compare:resultsView.closeResults")} onClick={close}>
             <X className={sx(centerStyles.actionIcon)} />
           </Button>

@@ -5,8 +5,9 @@ export const resultStyles = stylex.create({
   // The right rail already paints the surface and pads it. Repeating both here
   // drew a second card inside the first one, so the panel owns layout only.
   panel: { minWidth: 0 },
+  agentReport: { marginBottom: vars["--ads-space-12"], fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   heading: {
-    marginBottom: vars["--ads-space-8"],
+    margin: 0,
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-normal"],
     fontWeight: vars["--ads-font-weight-medium"],
@@ -54,7 +55,6 @@ export const resultStyles = stylex.create({
     alignItems: "flex-start",
     gap: vars["--ads-space-8"],
   },
-  rowAction: { flexShrink: 0, marginTop: vars["--ads-space-4"] },
   rowChevron: {
     display: "inline-flex",
     flexShrink: 0,
@@ -104,31 +104,12 @@ export const resultStyles = stylex.create({
     borderTopStyle: "solid",
     borderTopColor: vars["--ads-color-border"],
   },
-  footer: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-8"],
-    marginTop: vars["--ads-space-12"],
-    paddingTop: vars["--ads-space-8"],
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: vars["--ads-color-border"],
-  },
-  // Panel prose, not a caption. `introduction`, `guidance`, `loading` and
+  // Panel prose, not a caption. `introduction`, `loading` and
   // `notice` sat a rung under `error`/`empty` while saying the same kind of
   // thing, so the same register printed at two sizes in one panel.
   introduction: {
+    margin: 0,
     maxWidth: "65ch",
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
-  },
-  navigation: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
-  },
-  guidance: {
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-normal"],
     color: vars["--ads-color-text-muted"],
@@ -229,7 +210,6 @@ export const resultStyles = stylex.create({
     color: vars["--ads-color-text"],
   },
   evidenceHeading: { fontWeight: vars["--ads-font-weight-medium"] },
-  evidenceDescription: { color: vars["--ads-color-text-muted"] },
   // The answer leads the expanded run: its heading, then the answer as the
   // conversation renders it (collapsed when long), then any shortening note.
   answerSection: {
@@ -240,6 +220,7 @@ export const resultStyles = stylex.create({
   },
   answerHeader: {
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: vars["--ads-space-8"],
@@ -267,8 +248,6 @@ export const resultStyles = stylex.create({
   },
   disclosure: { cursor: "pointer", borderRadius: vars["--ads-radius-mark"] },
   resolution: { marginBottom: vars["--ads-space-12"] },
-  runId: { wordBreak: "break-all", paddingBlock: vars["--ads-space-4"] },
-  messageId: { wordBreak: "break-all" },
   modelFacts: {
     display: "grid",
     gridTemplateColumns: "auto minmax(0, 1fr)",

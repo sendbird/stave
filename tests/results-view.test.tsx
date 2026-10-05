@@ -32,13 +32,13 @@ const insights = aggregateAgentRunInsights(
 );
 
 describe("results page", () => {
-  test("the strip shows each outcome with its shape and the ready share", () => {
+  test("the strip shows each outcome with its shape and completion share", () => {
     const html = renderToStaticMarkup(createElement(OutcomeStrip, { summary: insights.summary, days: 30 }));
-    expect(html).toContain("2 / 4");
-    expect(html).toContain("ready / ended");
-    expect(html).toContain("n = 4");
-    expect(html).toContain("ended runs · 30 d");
-    for (const word of ["Ready", "Rework", "Failed", "Stopped"]) expect(html).toContain(word);
+    expect(html).toContain("2 of 4 ended runs completed");
+    expect(html).toContain("Completion rate");
+    expect(html).toContain("4 ended runs across all workspaces");
+    expect(html).toContain("last 30 days");
+    for (const word of ["Completed without change request", "Completed after change request", "Failed", "Cancelled"]) expect(html).toContain(word);
     expect(html).toContain("50%");
     // Shapes carry the meaning, not only color.
     expect(html).toContain("lucide-circle-check");
@@ -46,32 +46,33 @@ describe("results page", () => {
     expect(html).toContain("lucide-square");
   });
 
-  test("time and cost per ready result say how many runs reported no cost, and omit activity counts", () => {
-    const html = renderToStaticMarkup(createElement(Figures, { summary: insights.summary }));
-    expect(html).toContain("Time to ready");
-    expect(html).toContain("per ready result");
-    expect(html).toContain("1 run not reported");
-    expect(html).toContain("Corrections");
+  test("time and spend disclose reporting coverage without activity counts", () => {
+    const html = renderToStaticMarkup(createElement(Figures, { insights }));
+    expect(html).toContain("Median completion time");
+    expect(html).toContain("Reported spend");
+    expect(html).toContain("Cost reported for 3 of 4 runs.");
+    expect(html).toContain("Follow-ups per run");
     for (const omitted of ["lines", "messages", "streak", "tokens"]) expect(html.toLowerCase()).not.toContain(omitted);
   });
 
   test("reasons are listed with counts and the section disappears without any", () => {
-    expect(renderToStaticMarkup(createElement(Reasons, { summary: insights.summary, days: 30 }))).toContain("Turn cap reached");
-    expect(renderToStaticMarkup(createElement(Reasons, { summary: aggregateAgentRunInsights([sample("a")], 7).summary, days: 7 }))).toBe("");
+    expect(renderToStaticMarkup(createElement(Reasons, { summary: insights.summary }))).toContain("Turn cap reached");
+    expect(renderToStaticMarkup(createElement(Reasons, { summary: aggregateAgentRunInsights([sample("a")], 7).summary }))).toBe("");
   });
 
-  test("each agent gets a row with ready rate, median cost, corrections and a described last-10", () => {
+  test("each agent gets a row with completion rate, sample size, median reported cost and follow-ups", () => {
     const html = renderToStaticMarkup(createElement(AgentTable, { insights, now: NOW, onOpen: () => {} }));
     expect(html).toContain("Reviewer");
-    expect(html).toContain("Median cost");
+    expect(html).toContain("Median reported cost");
     expect(html).toContain("50%");
-    expect(html).toContain("Last 4: 2 ready, 1 failed, 1 stopped");
+    expect(html).toContain("4 runs");
+    expect(html).not.toContain("Last 4");
     expect(html).toContain('aria-expanded="false"');
   });
 
   test("a failed read explains why and offers a retry", () => {
     const html = renderToStaticMarkup(createElement(ResultsFailure, { message: "The database is locked.", onRetry: () => {} }));
-    expect(html).toContain("Results could not be read");
+    expect(html).toContain("Agent performance could not be read");
     expect(html).toContain("The database is locked.");
     expect(html).toContain("Try again");
   });
@@ -90,9 +91,9 @@ describe("results entry points", () => {
     expect(normalizeAppActiveSurface({ kind: "results" })).toBe(RESULTS_APP_SURFACE);
   });
 
-  test("the command palette offers Open Results", () => {
+  test("the command palette offers Open agent performance", () => {
     const entry = getCommandPaletteCoreCommands().find((candidate) => candidate.id === "navigation.results");
-    expect(entry?.title).toBe("Open Results");
+    expect(entry?.title).toBe("Open agent performance");
     expect(entry?.group).toBe("navigation");
   });
 });

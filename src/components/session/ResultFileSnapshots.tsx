@@ -64,9 +64,9 @@ export function ResultFileSnapshots({
           }
         />
       ) : null}
-      <p className={sx(styles.muted)}>{i18n.t("session:resultFileSnapshots.sentence48", { value1: excerpted
-          ? "Some changes were saved as excerpts, so their diffs are partial. "
-          : "", value2: evidence.filesTruncated ? ", and the recorded list is incomplete" : "" })}</p>
+      <p className={sx(styles.caption)}>{i18n.t("session:resultFileSnapshots.savedNote")}</p>
+      {excerpted ? <p className={sx(styles.caption)}>{i18n.t("session:resultFileSnapshots.excerptNote")}</p> : null}
+      {evidence.filesTruncated ? <p className={sx(styles.caption)}>{i18n.t("session:resultFileSnapshots.incompleteNote")}</p> : null}
     </div>
   );
 }

@@ -178,8 +178,9 @@ agent run with a workflow gets the same dividers; a one-stage run has none.
 
 ### Agent run report
 
-When an agent run ends, its report tops the Task panel's **Progress** and
-**Results** tabs:
+When an agent run ends, its report is shown in the Task panel's **Progress** tab
+and under **Agent run report and actions** in **Outputs**. The Outputs disclosure
+starts collapsed so saved task answers stay easy to scan. The report contains
 outcome, figures (duration, stages, turns, verified evidence, what it spent), links,
 decisions, what is still open, what was left behind, and how much the agent run
 needed you. **Copy Markdown** and **Add to PR description** act on it, and
@@ -191,23 +192,20 @@ needed you. **Copy Markdown** and **Add to PR description** act on it, and
   with your Slack tools. It changes no files and waits while the task is in a
   turn.
 
-### Results
+### Agent performance
 
-**Results** (in the sidebar under Agents, the Fleet header link, or **Open
-Results** in the command palette) shows how agent runs and legacy runs that ended in the last 7,
-30 or 90 days came out:
+**Agent performance** in the left navigation, Fleet header, or command palette
+compares ended runs across workspaces over 7, 30 or 90 days. It shows completion
+rate, median completion time, reported spend with cost coverage, follow-ups and
+stop reasons. Expand an agent row to inspect its recent reports.
 
-- **Outcomes**: ready, rework (the result needed requested changes), failed
-  (Stave stopped the run) and stopped (you stopped it), with the share ready.
-- **Time to ready** (median) and **cost per ready result**, with how many runs
-  reported no cost (Codex reports tokens only).
-- **Why runs did not finish**, one cause per run: stuck stage, turn cap
-  reached, expired, task unavailable, turn failed, or stopped by you.
-- **Corrections per run**: your replies, requested changes and reminders.
-- **Agents**: one row per agent, or per saved workflow of a legacy run (tagged
-  `workflow`), with ready rate, median cost,
-  corrections and its last ten outcomes. A row opens its recent runs, and a run
-  opens its report.
+Both completions without a recorded change request and completions after a
+change request count toward completion rate. Completion alone does not verify
+quality. The sample is limited to ended runs among the 200 most recently created
+agent runs; ordinary chat turns appear in the task's **Outputs** instead.
+
+See [Agent performance and task outputs](results.md) for metric definitions,
+sample limits and examples of when each screen helps.
 
 ### Fleet and notifications
 

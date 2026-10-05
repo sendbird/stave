@@ -34,7 +34,7 @@ optional shortcuts on top of that.
 2. Review the fixed `Action required` rail, which keeps questions and approvals
    ahead of the folded `Worth a look` review queue.
 3. Select an item to open its exact task or workspace.
-4. Approve or deny approval requests, mark results as reviewed, or open the
+4. Approve or deny approval requests, mark outputs as checked, or open the
    linked pull request from the item actions.
 
 ## Interface Walkthrough
@@ -65,9 +65,9 @@ optional shortcuts on top of that.
 - An agent run sign-off names what it starts (for example `Start Verify`). It runs
   the same command, with the same check that the card is still current, as the
   sign-off card in the task.
-- `Mark reviewed`: records your review of that specific run in durable result
-  history. It does not mark the task or original ticket complete. Use `Results`
-  in the task to inspect history or select `Reopen review`.
+- `Mark checked`: records that you checked that specific output in durable result
+  history. It does not mark the task or original ticket complete. Use `Outputs`
+  in the task to inspect history or select `Mark unchecked`.
 - `Open PR`: opens the pull request for review blockers or merge-ready work.
 - `Snooze`: hides one item for 1 hour, 4 hours, 1 day, or 1 week. Available on
   every item, including blocking ones. A snooze is time-bounded and never
@@ -88,8 +88,8 @@ optional shortcuts on top of that.
   through tasks or passing through one does not acknowledge anything. A result
   that arrives while you are already watching serves the same short wait before
   it clears, and a turn that is still running is never acknowledged.
-- Opening a task also reads its notifications. `Results` in the task still shows
-  the saved review and offers `Reopen review`.
+- Opening a task also reads its notifications. `Outputs` in the task still shows
+  the saved review and offers `Mark unchecked`.
 - Answering a question or resolving an approval in the task window clears the
   item, including when an agent answers through the managed host.
 - Stopping a turn, archiving a task, or restarting Stave settles the requests
@@ -166,9 +166,9 @@ optional shortcuts on top of that.
 
 - Symptom: a result no longer appears in Fleet.
 - Cause: it is reviewed and has left the pending queue, either from
-  `Mark reviewed`, from `Clear all`, or because the task window showed that turn
+  `Mark checked`, from `Clear all`, or because the task window showed that turn
   while focused for long enough to count as read.
-- Fix: open the task's `Results` panel to inspect the saved review or reopen it.
+- Fix: open the task's `Outputs` panel to inspect the saved review or reopen it.
   Clearing notifications alone never acknowledges a review.
 
 ### A Snoozed Item Has Not Come Back

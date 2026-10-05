@@ -150,6 +150,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Assign an outcome to an agent: Stave runs its workflow's stages, opens the PR, watches checks and checks in only where the agent says.",
       },
       {
+        routePath: "results",
+        sourcePath: "docs/features/results.md",
+        title: "Agent performance and task outputs",
+        description:
+          "Compare delegated run performance across workspaces, inspect a task's saved outputs, and choose a follow-up.",
+      },
+      {
         routePath: "playbooks",
         sourcePath: "docs/features/playbooks.md",
         title: "Playbooks (retired)",

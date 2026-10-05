@@ -189,7 +189,7 @@
     "agentsAtWork": "Agents, {{value1}} at work",
     "agents": "Agents",
     "agent": "Agent {{value1}}{{value2}}",
-    "results": "Results",
+    "results": "Agent performance",
     "aIUsage": "AI usage",
     "agentsAtWork2": "Agents · {{value1}} at work",
     "needYou": ", {{value1}} need you",
@@ -530,9 +530,9 @@
     "openAgents": "Open Agents",
     "openSavedAgentsTheirWorkflowsAndYour": "Open saved agents, their workflows, and your standards.",
     "savedAgentsTheirWorkflowsAndYourStandards": "Saved agents, their workflows, and your standards.",
-    "openResults": "Open Results",
-    "seeHowEndedAgentRunsAndRuns": "See how ended agent runs and runs came out.",
-    "outcomesTimeAndCostOfEndedAgent": "Outcomes, time and cost of ended agent runs.",
+    "openResults": "Open agent performance",
+    "seeHowEndedAgentRunsAndRuns": "Compare completion, time and reported cost across ended agent runs.",
+    "outcomesTimeAndCostOfEndedAgent": "Agent completion, time and reported cost.",
     "assignToAnAgent": "Assign to an agent…",
     "chooseAnAgentInTheComposerOr": "Choose an agent in the composer, or in Kickoff when no task is open.",
     "chooseTheAgentThatDoesThisTaskS": "Choose the agent that does this task's work.",
@@ -760,8 +760,8 @@
     "theRunSStagesOrTheTaskSFlow": "The run's stages, or the task's flow",
     "subagents": "Subagents",
     "everyAgentTheTaskCalled": "Every agent the task called",
-    "results": "Results",
-    "eachRunSAnswerAndChangesToReview": "Each run's answer and changes, to review"
+    "results": "Outputs",
+    "eachRunSAnswerAndChangesToReview": "Saved answers and file changes from this task"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter queues, Tab steers",
