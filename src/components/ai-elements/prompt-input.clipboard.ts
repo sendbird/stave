@@ -10,31 +10,28 @@ function getClipboardFileKey(file: File) {
   return `${file.name}:${file.type}:${file.size}:${file.lastModified}`;
 }
 
-function addClipboardFile(target: Map<string, File>, file: File | null) {
-  if (!file) {
-    return;
-  }
-  const key = getClipboardFileKey(file);
-  if (!target.has(key)) {
-    target.set(key, file);
-  }
-}
-
 export function collectClipboardFiles(args: {
   items?: Iterable<ClipboardFileItem> | ArrayLike<ClipboardFileItem> | null;
   files?: Iterable<File> | ArrayLike<File> | null;
 }) {
-  const dedupedFiles = new Map<string, File>();
-
-  for (const item of Array.from(args.items ?? [])) {
-    addClipboardFile(dedupedFiles, item.getAsFile());
+  const files = Array.from(args.items ?? []).flatMap((item) => {
+    const file = item.getAsFile();
+    return file ? [file] : [];
+  });
+  // The two clipboard lists describe the same selection. Match occurrences
+  // across lists, never collapse different files within one list by metadata.
+  const remaining = new Map<string, number>();
+  for (const file of files) {
+    const key = getClipboardFileKey(file);
+    remaining.set(key, (remaining.get(key) ?? 0) + 1);
   }
-
   for (const file of Array.from(args.files ?? [])) {
-    addClipboardFile(dedupedFiles, file);
+    const key = getClipboardFileKey(file);
+    const count = remaining.get(key) ?? 0;
+    if (count > 0) remaining.set(key, count - 1);
+    else files.push(file);
   }
-
-  return Array.from(dedupedFiles.values());
+  return files;
 }
 
 export function partitionClipboardFiles(files: readonly File[]) {
@@ -101,4 +98,60 @@ function getClipboardImageAttachmentKey(dataUrl: string) {
   }
 
   return normalized;
+}
+
+// Keep batches in paste order even when file reads complete at different speeds.
+// Cancellation invalidates callbacks from a composer that changed tasks.
+export function createClipboardReadQueue() {
+  let tail = Promise.resolve();
+  let pending = 0;
+  let generation = 0;
+  return {
+    isPending: () => pending > 0,
+    cancel: () => {
+      generation += 1;
+      pending = 0;
+      tail = Promise.resolve();
+    },
+    enqueue<T>(read: () => Promise<T>, commit: (value: T) => void) {
+      const startedGeneration = generation;
+      pending += 1;
+      const operation = tail.then(async () => {
+        if (generation !== startedGeneration) return;
+        try {
+          const value = await read();
+          if (generation === startedGeneration) commit(value);
+        } catch (error) {
+          if (generation === startedGeneration) throw error;
+        } finally {
+          if (generation === startedGeneration) pending -= 1;
+        }
+      });
+      tail = operation.catch(() => {});
+      return operation;
+    },
+  };
+}
+
+export function readClipboardImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    const fail = () => reject(new Error("Could not read image: " + file.name));
+    reader.onerror = fail;
+    reader.onabort = fail;
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+        fail();
+        return;
+      }
+      // Match the canonical IPC per-image limit before adding a draft chip.
+      if (dataUrl.length > 10_000_000) {
+        reject(new Error("Image is too large to attach: " + file.name));
+        return;
+      }
+      resolve(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  });
 }

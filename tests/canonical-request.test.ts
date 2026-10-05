@@ -515,3 +515,26 @@ describe("first-turn-only retrieved context gating", () => {
     );
   });
 });
+
+test("inline image labels are never presented as local file references", () => {
+  const request = buildCanonicalConversationRequest({
+    providerId: "codex",
+    history: [{
+      id: "old-image", role: "user", providerId: "user", model: "user",
+      content: "",
+      parts: [{ type: "image_context", label: "image.png", mimeType: "image/png",
+        dataUrl: "data:image/png;base64,b2xk" }],
+    }],
+    userInput: "Compare these images",
+    imageContexts: [
+      { label: "image.png", mimeType: "image/png", dataUrl: "data:image/png;base64,b25l" },
+      { label: "image.png", mimeType: "image/png", dataUrl: "data:image/png;base64,dHdv" },
+    ],
+  });
+  const prompt = buildLegacyPromptFromCanonicalRequest({ request, includeImageData: false });
+  expect(prompt).toContain("display name only, not a filesystem path");
+  expect(prompt.match(/The label is a display name, not a filesystem path/g)).toHaveLength(2);
+  expect(prompt).toContain("Do not resolve it against the working directory");
+  expect(prompt).toContain("if unavailable, report that instead of substituting a local file");
+  expect(prompt).not.toContain("data:image/");
+});

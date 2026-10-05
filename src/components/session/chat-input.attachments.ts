@@ -3,7 +3,10 @@ function normalizeWorkspacePath(value: string) {
 }
 
 function normalizeComparableWorkspacePath(value: string) {
-  return normalizeWorkspacePath(value).toLowerCase();
+  const normalized = normalizeWorkspacePath(value);
+  return /^[a-z]:\//i.test(normalized) || normalized.startsWith("//")
+    ? normalized.toLowerCase()
+    : normalized;
 }
 
 export function resolvePastedFileAbsolutePath(args: {
@@ -41,27 +44,4 @@ export function toWorkspaceRelativeFilePath(args: {
   }
 
   return normalizedAbsolute.slice(normalizedRoot.length + 1);
-}
-
-export function buildAttachedFileContext(args: {
-  filePath: string;
-  kind: "text" | "image";
-  content: string;
-  language: string;
-}) {
-  if (args.kind === "image") {
-    return {
-      filePath: args.filePath,
-      content: "[Workspace image attached by path.]",
-      language: "image",
-      instruction:
-        "Inspect the attached workspace image with an available image or file tool.",
-    };
-  }
-
-  return {
-    filePath: args.filePath,
-    content: args.content,
-    language: args.language,
-  };
 }
