@@ -571,7 +571,22 @@
     "extraCopy312_other": "{{value1}} 회 사용자 응답",
     "extraCopy313_other": "보고 알림 {{value1}} 회",
     "extraCopy314_other": "승인 {{value1}} 회의 평균 대기 시간 {{value3}}{{value4}}",
-    "summary_other": "{{outcome}} · {{duration}} · {{count}}턴"
+    "summary_other": "{{outcome}} · {{duration}} · {{count}}턴",
+    "stagesHeading": "단계",
+    "criteriaHeading": "완료 기준",
+    "linksHeading": "링크",
+    "leftBehindHeading": "남은 항목",
+    "unknownExit": "알 수 없음",
+    "stageStatus": {
+      "pending": "대기 중",
+      "awaitingSignOff": "승인 대기 중",
+      "running": "실행 중",
+      "blocked": "진행 불가",
+      "stuck": "진행이 멈춤",
+      "completed": "완료",
+      "skipped": "건너뜀",
+      "cancelled": "취소됨"
+    }
   },
   "report": {
     "summary": "차단됨: {{value1}}",

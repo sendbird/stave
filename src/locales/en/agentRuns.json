@@ -580,7 +580,22 @@
     "extraCopy314_one": "{{value1}} sign-off waited {{value3}} on average{{value4}}",
     "extraCopy314_other": "{{value1}} sign-offs waited {{value3}} on average{{value4}}",
     "summary_one": "{{outcome}} · {{duration}} · {{count}} turn",
-    "summary_other": "{{outcome}} · {{duration}} · {{count}} turns"
+    "summary_other": "{{outcome}} · {{duration}} · {{count}} turns",
+    "stagesHeading": "Stages",
+    "criteriaHeading": "Acceptance criteria",
+    "linksHeading": "Links",
+    "leftBehindHeading": "Left behind",
+    "unknownExit": "unknown",
+    "stageStatus": {
+      "pending": "pending",
+      "awaitingSignOff": "awaiting sign off",
+      "running": "running",
+      "blocked": "blocked",
+      "stuck": "stuck",
+      "completed": "completed",
+      "skipped": "skipped",
+      "cancelled": "cancelled"
+    }
   },
   "report": {
     "summary": "Blocked: {{value1}}",

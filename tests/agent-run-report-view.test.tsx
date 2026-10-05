@@ -1,3 +1,4 @@
+import { applyRuntimeLocale } from "@/i18n/runtime";
 import { expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -156,4 +157,22 @@ test("a run with a workflow counts its stages; a one-stage run does not", () => 
   };
   expect(renderToStaticMarkup(createElement(AgentRunReportView, { report: twoStages, agentOrigin: true }))).toContain("1/2");
   expect(renderToStaticMarkup(createElement(AgentRunReportView, { report: REPORT, agentOrigin: true }))).not.toContain(">Stages<");
+});
+
+
+test("copied report headings and statuses follow Korean while preserving user text", () => {
+  try {
+    applyRuntimeLocale("ko");
+    const markdown = formatAgentRunReportMarkdown(REPORT);
+    expect(markdown).toContain("### 단계");
+    expect(markdown).toContain("### 완료 기준");
+    expect(markdown).toContain("### 링크");
+    expect(markdown).toContain("### 남은 항목");
+    expect(markdown).toContain("- **Verify** — 완료: Checks pass.");
+    expect(markdown).toContain(REPORT.assignment);
+    expect(markdown).toContain("Safari 16");
+    expect(REPORT.stages[0]!.status).toBe("completed");
+  } finally {
+    applyRuntimeLocale("en");
+  }
 });

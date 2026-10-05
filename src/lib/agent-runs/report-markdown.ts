@@ -46,10 +46,13 @@ export function formatAgentRunReportMarkdown(report: AgentRunReport): string {
     `**${report.workflowName}:** ${report.assignment.trim()}`,
   ];
   if (report.reason) lines.push("", i18n.t("agentRuns:reportMarkdown.extraCopy315", { value1: report.reason }));
-  lines.push("", "### Stages");
+  lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.stagesHeading")}`);
   for (const stage of report.stages) {
     const summary = stage.summary ?? stage.detail;
-    lines.push(`- **${stage.title}** — ${stage.status.replaceAll("-", " ")}${summary ? `: ${summary}` : ""}`);
+    const statusKey = stage.status === "awaiting-sign-off"
+      ? "agentRuns:reportMarkdown.stageStatus.awaitingSignOff"
+      : `agentRuns:reportMarkdown.stageStatus.${stage.status}` as const;
+    lines.push(`- **${stage.title}** — ${i18n.t(statusKey)}${summary ? `: ${summary}` : ""}`);
     for (const item of stage.plan ?? []) {
       lines.push(`  - [${item.status === "completed" ? "x" : " "}] ${item.content}`);
     }
@@ -60,26 +63,26 @@ export function formatAgentRunReportMarkdown(report: AgentRunReport): string {
       const ref = evidence.ref ? ` (${evidence.ref})` : evidence.command ? ` (\`${evidence.command}\`)` : "";
       const status = [
         evidence.outcome === "failed" ? i18n.t("agentRuns:reportMarkdown.extraCopy317") : null,
-        evidence.exitCode !== undefined ? i18n.t("agentRuns:reportMarkdown.extraCopy318", { value1: evidence.exitCode ?? "unknown" }) : null,
+        evidence.exitCode !== undefined ? i18n.t("agentRuns:reportMarkdown.extraCopy318", { value1: evidence.exitCode ?? i18n.t("agentRuns:reportMarkdown.unknownExit") }) : null,
         evidence.freshness === "stale" ? i18n.t("agentRuns:reportMarkdown.extraCopy319") : evidence.freshness === "unknown" && evidence.kind === "check" ? i18n.t("agentRuns:reportMarkdown.extraCopy320") : null,
       ].filter(Boolean).join(" · ");
       lines.push(`  - ${evidenceSourceLabel(evidence)}: ${evidence.label}${ref}${status ? ` · ${status}` : ""}`);
     }
   }
   if (report.acceptanceCriteria.length > 0) {
-    lines.push("", "### Acceptance criteria");
+    lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.criteriaHeading")}`);
     for (const criterion of report.acceptanceCriteria) {
       lines.push(`- ${CRITERION_MARKS[criterion.status]} ${criterion.text}`);
     }
   }
   if (report.links.length > 0) {
-    lines.push("", "### Links");
+    lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.linksHeading")}`);
     for (const link of report.links) {
       lines.push(`- [${link.label}](${link.url}) — ${EVIDENCE_SOURCE_LABELS[link.source]}`);
     }
   }
   if (report.leftBehind.length > 0) {
-    lines.push("", "### Left behind");
+    lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.leftBehindHeading")}`);
     for (const item of report.leftBehind) lines.push(`- ${item}`);
   }
   if (report.metrics) {
