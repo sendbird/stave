@@ -75,6 +75,13 @@ Any change to `window.api` must be checked across:
 - `electron/main/ipc/*`
 - renderer call sites under `src/`
 
+Quota snapshot responses use `RateLimitsSnapshotResponse` through host protocol,
+IPC, preload and the window API. Optional `reads` feedback describes only the
+requested provider's actual read outcome and next allowed read times, validated
+by `QuotaReadFeedbackSchema` in the usage page. It does not expose native cache
+provenance, credentials or runtime options, and is never a persisted quota
+observation. Older hosts without feedback leave the read outcome unknown.
+
 ## Provider Model Catalog Contract
 
 Runtime model catalogs cross the same process seam as provider turns:

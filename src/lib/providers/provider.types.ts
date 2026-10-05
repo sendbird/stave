@@ -643,6 +643,8 @@ export interface RateLimitsSnapshotResponse {
   codex: CodexUsageSnapshot;
   cursor: CursorUsageSnapshot;
   kiro: KiroUsageSnapshot;
+  /** Per-request feedback; older hosts may omit it. Never saved as an observation. */
+  reads?: Partial<Record<ProviderId, import("./quota-read-feedback").QuotaReadFeedback>>;
 }
 
 export interface CodexThreadSnapshot {

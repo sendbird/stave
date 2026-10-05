@@ -67,6 +67,10 @@ accounts with no quota observations display **No saved quota** instead of zero.
 Choose a provider and one registered account to **Refresh quota**. Existing
 provider read caching, request floors and CLI-fallback rules still apply. A
 failed read explains the failure and retains the dated saved observations.
+The refresh result says whether the provider was read or the last reading was
+reused, and shows when another manual refresh is allowed. After a failure it
+also shows when automatic reads may resume; a manual retry still follows the
+one-minute request floor. Cached results keep their original observation times.
 Local report refreshes never call a provider. Opening the statistics page does
 not start an extra provider polling loop.
 

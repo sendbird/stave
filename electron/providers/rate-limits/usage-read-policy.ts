@@ -1,3 +1,5 @@
+import type { QuotaReadFeedback } from "../../../src/lib/providers/quota-read-feedback";
+
 /**
  * Shared read policy for provider account-usage endpoints.
  *
@@ -156,11 +158,23 @@ export async function readProviderUsage<T>(args: {
   now?: number;
   ttlMs?: number;
   forceFloorMs?: number;
+  onResult?: (feedback: QuotaReadFeedback) => void;
 }): Promise<T> {
   const now = args.now ?? Date.now();
   const ttlMs = args.ttlMs ?? USAGE_READ_TTL_MS;
   const forceFloorMs = args.forceFloorMs ?? USAGE_READ_FORCE_FLOOR_MS;
   const entry = entries.get(args.key);
+  const report = (reason: QuotaReadFeedback["reason"], value?: T) => {
+    const state = entries.get(args.key);
+    args.onResult?.({
+      status: value === undefined || args.classify(value) === "failed" ? "unavailable"
+        : reason === "request" || reason === "in-flight" ? "fresh" : "cached",
+      reason,
+      nextRefreshAt: state ? new Date(state.updatedAt + USAGE_READ_FORCE_FLOOR_MS).toISOString() : null,
+      nextAutomaticReadAt: state ? new Date(Math.max(state.updatedAt + ttlMs, state.nextAttemptAt)).toISOString() : null,
+      lastReadFailed: Boolean(state?.consecutiveFailures),
+    });
+  };
 
   if (entry) {
     const ageMs = now - entry.updatedAt;
@@ -170,12 +184,16 @@ export async function readProviderUsage<T>(args: {
     // action, and the floor above already bounds how often it can happen.
     const withinBackoff = !args.force && now < entry.nextAttemptAt;
     if (withinFloor || withinBackoff) {
+      const reason = withinFloor ? args.force ? "manual-floor" : "ttl" : "backoff";
       if (entry.hasValue) {
-        return (withinFloor ? entry.value : (entry.lastOk ?? entry.value)) as T;
+        const value = (withinFloor ? entry.value : (entry.lastOk ?? entry.value)) as T;
+        report(reason, value);
+        return value;
       }
       // Nothing has ever succeeded here, so there is no snapshot to serve.
       // Replaying the recorded failure keeps the caller honest without
       // issuing the request the backoff just declined to make.
+      report(reason);
       throw entry.error instanceof Error
         ? entry.error
         : new Error(String(entry.error ?? "Usage read is unavailable."));
@@ -184,7 +202,14 @@ export async function readProviderUsage<T>(args: {
 
   const pending = inFlight.get(args.key);
   if (pending) {
-    return pending as Promise<T>;
+    try {
+      const value = await pending as T;
+      report("in-flight", value);
+      return value;
+    } catch (error) {
+      report("in-flight");
+      throw error;
+    }
   }
 
   const request = (async () => {
@@ -229,5 +254,12 @@ export async function readProviderUsage<T>(args: {
   })();
 
   inFlight.set(args.key, request);
-  return request;
+  try {
+    const value = await request;
+    report("request", value);
+    return value;
+  } catch (error) {
+    report("request");
+    throw error;
+  }
 }

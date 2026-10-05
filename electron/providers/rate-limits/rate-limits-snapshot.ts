@@ -14,6 +14,8 @@ import { readProviderUsage } from "./usage-read-policy";
 import { isOptionalProvider } from "../../../src/lib/providers/provider-readiness";
 import { optionalProviderReadKey } from "../optional-provider-tooling";
 import { publishQuotaObservation, type QuotaObservationMetadata } from "./quota-observations";
+import type { QuotaReadFeedback } from "../../../src/lib/providers/quota-read-feedback";
+import { CODEX_RATE_LIMITS_ACTIVE_REFRESH_MS } from "../codex-rate-limits-cache";
 
 /**
  * Who asked for a forced read. A manual refresh is floored so the button
@@ -92,6 +94,9 @@ export async function getRateLimitsSnapshot(args: {
   const fetchers = { ...defaultFetchers, ...args.fetchers };
   const forceFloorMs = args.reason === "dispatch-guard" ? 0 : undefined;
   const empty = emptyRateLimitsSnapshot();
+  const reads: NonNullable<RateLimitsSnapshotResponse["reads"]> = {};
+  const unavailable: QuotaReadFeedback = { status: "unavailable", reason: "unavailable",
+    nextRefreshAt: null, nextAutomaticReadAt: null, lastReadFailed: false };
 
   async function read<K extends keyof UsageFetchers>(
     key: K,
@@ -101,17 +106,20 @@ export async function getRateLimitsSnapshot(args: {
     if (!shouldFetchProvider(providerId, providers)) {
       return empty[key];
     }
-    if ((providerId === "claude-code" && currentClaudeGateway()) || (providerId === "codex" && peekApiConnection("codex")))
+    if ((providerId === "claude-code" && currentClaudeGateway()) || (providerId === "codex" && peekApiConnection("codex"))) {
+      reads[providerId] = unavailable;
       return { ...empty[key], error: "API billing through an API connection: subscription quota is not available." };
+    }
     const readKey = isOptionalProvider(providerId)
       ? (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions)
       : providerAccountKey(providerId, providerId);
-    if (!readKey) return empty[key];
+    if (!readKey) { reads[providerId] = unavailable; return empty[key]; }
     const value = await readProviderUsage({
       key: readKey,
       force,
       forceFloorMs,
       classify: classifySnapshot,
+      onResult: (feedback) => { reads[providerId] = feedback; },
       request: async () => {
         const fresh = await request();
         const provenance = key === "codex"
@@ -127,7 +135,19 @@ export async function getRateLimitsSnapshot(args: {
         return fresh;
       },
     }).catch(() => empty[key]);
-    return isOptionalProvider(providerId) && readKey !== (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions) ? empty[key] : value;
+    if (isOptionalProvider(providerId) && readKey !== (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions)) {
+      reads[providerId] = unavailable;
+      return empty[key];
+    }
+    const provenance = key === "codex" ? readCodexUsageObservation(value as RateLimitsSnapshotResponse["codex"]) : undefined;
+    const feedback = reads[providerId];
+    if (provenance?.fresh === false && feedback) {
+      reads[providerId] = { ...feedback, status: "cached",
+        reason: feedback.status === "fresh" ? "provider-cache" : feedback.reason,
+        nextAutomaticReadAt: new Date(Math.max(Date.parse(feedback.nextAutomaticReadAt ?? "") || 0,
+          provenance.observedAt + CODEX_RATE_LIMITS_ACTIVE_REFRESH_MS)).toISOString() };
+    }
+    return value;
   }
 
   const [claude, codex, cursor, kiro] = await Promise.all([
@@ -143,6 +163,6 @@ export async function getRateLimitsSnapshot(args: {
       usageIdentity: (args.optionalReadKey ?? optionalProviderReadKey)("kiro", args.runtimeOptions) ?? undefined,
     })),
   ]);
-  return { claude, codex, cursor, kiro };
+  return { claude, codex, cursor, kiro, reads };
   });
 }
