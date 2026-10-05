@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   SecondaryRunCancelArgs,
   SecondaryRunClaimArgs,
@@ -84,7 +85,7 @@ export async function executeSecondaryRun<TResult>(args: {
   if (!bridge) {
     return {
       ok: false,
-      error: "The secondary run bridge is unavailable.",
+      error: i18n.t("app:errors.secondaryBridge"),
     };
   }
 
@@ -99,14 +100,14 @@ export async function executeSecondaryRun<TResult>(args: {
     if (!claim.started || claim.duplicate) {
       return {
         ok: false,
-        error: "The secondary run request was already claimed.",
+        error: i18n.t("app:errors.secondaryClaimed"),
       };
     }
     const executionId = claim.aggregate?.step.executionId;
     if (!executionId) {
       return {
         ok: false,
-        error: "The secondary run claim did not return an execution identity.",
+        error: i18n.t("app:errors.secondaryIdentity"),
       };
     }
     args.onClaimed?.({
@@ -123,7 +124,7 @@ export async function executeSecondaryRun<TResult>(args: {
       });
       return {
         ok: false as const,
-        error: "The secondary run was cancelled.",
+        error: i18n.t("app:errors.secondaryCancelled"),
       };
     };
     if (args.shouldContinue && !args.shouldContinue()) {
@@ -145,13 +146,13 @@ export async function executeSecondaryRun<TResult>(args: {
     if (!execution.execution) {
       return {
         ok: false,
-        error: "The secondary provider returned no execution result.",
+        error: i18n.t("app:errors.secondaryEmpty"),
       };
     }
     if (execution.execution.status === "cancelled") {
       return {
         ok: false,
-        error: "The secondary run was cancelled.",
+        error: i18n.t("app:errors.secondaryCancelled"),
       };
     }
     if (execution.execution.status === "failed") {
@@ -159,7 +160,7 @@ export async function executeSecondaryRun<TResult>(args: {
         ok: false,
         error:
           execution.execution.error ||
-          "The secondary provider failed before producing a result.",
+          i18n.t("app:errors.secondaryFailed"),
       };
     }
     if (args.shouldContinue && !args.shouldContinue()) {
@@ -168,7 +169,7 @@ export async function executeSecondaryRun<TResult>(args: {
 
     const parserError =
       args.parserError ??
-      "The secondary provider finished without a valid structured result.";
+      i18n.t("app:errors.secondaryInvalid");
     let value: TResult | null = null;
     try {
       value = args.parse(execution.execution.text);

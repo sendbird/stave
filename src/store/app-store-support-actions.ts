@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { createProviderSupportActions } from "./app-store-provider-actions";
 import type { StoreApi } from "zustand";
 import { workspaceFsAdapter } from "@/lib/fs";

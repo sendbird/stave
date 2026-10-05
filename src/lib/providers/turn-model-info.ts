@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { resolveCodexAppServerReasoningEffort } from "@/lib/providers/codex-runtime-options";
 import { describeCursorModel } from "@/lib/providers/cursor-model-id";
 import { toHumanModelName } from "@/lib/providers/model-catalog";

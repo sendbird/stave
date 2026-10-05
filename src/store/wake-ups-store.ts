@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 /**
  * Renderer state for wake-ups in the active workspace: one entry per task,
  * with the summary the surfaces read. Refreshed on `wake-ups:changed`.

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { boundRouteIntentInput, ROUTE_INTENT_VERSION, RouteIntentResultSchema } from "@/lib/providers/route-intent";
 import {
   buildSuggestTaskNamePayload,
@@ -33,7 +34,7 @@ export function createUtilityRouteClassifier(args: {
   if (!classifyRoute) {
     reportUtilityInferenceError({
       feature: "route-classification",
-      error: "Route-classification bridge unavailable.",
+      error: i18n.t("app:errors.routeBridge"),
     });
     return undefined;
   }
@@ -125,7 +126,7 @@ export function maybeSuggestUtilityTaskName(args: {
   if (!suggestTaskName) {
     reportUtilityInferenceError({
       feature: "task-name",
-      error: "Task-name inference bridge unavailable.",
+      error: i18n.t("app:errors.nameBridge"),
     });
     return;
   }

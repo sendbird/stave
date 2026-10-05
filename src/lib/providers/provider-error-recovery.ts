@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 const PROVIDER_ERROR_PREFIX = /^\[error\]\s*/i;
 const TERMINAL_FAILURE_STOP_REASONS = new Set([
   "aborted",

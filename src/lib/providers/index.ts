@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { createBridgeProviderSource, hasBridgeProviderSource } from "@/lib/providers/bridge.source";
 import { createProviderAdapter } from "@/lib/providers/adapter.factory";
 import type { NormalizedProviderEvent, ProviderAdapter, ProviderEventSource, ProviderId } from "@/lib/providers/provider.types";

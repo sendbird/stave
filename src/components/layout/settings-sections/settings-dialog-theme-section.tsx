@@ -398,7 +398,7 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
           <Contrast className={sx(styles.audioIcon)} />
           <p className={sx(styles.themeCardName)}>{theme.name}</p>
           <Badge variant="outline" className={sx(styles.microBadge)}>
-            {theme.baseMode}
+            {t(theme.baseMode === "dark" ? "settings:themeSection.baseModes.dark" : "settings:themeSection.baseModes.light")}
           </Badge>
           {!isBuiltin && (
             <Badge variant="secondary" className={sx(styles.microBadge)}>
@@ -413,8 +413,9 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
         <p className={sx(styles.themeDescription)}>{theme.description}</p>
         {theme.author && (
           <p className={sx(styles.themeAuthor)}>
-            {t("settings:settingsDialogThemeSection.by")}{theme.author}
-            {theme.version ? ` \u00B7 v${theme.version}` : ""}
+            {theme.version
+              ? t("settings:themeSection.presets.byAuthorWithVersion", { author: theme.author, version: theme.version })
+              : t("settings:themeSection.presets.byAuthor", { author: theme.author })}
           </p>
         )}
       </Button>

@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { useAccountRuntimeOptions } from "./use-provider-accounts";
 import { useEffect, useMemo, useState } from "react";
 import {

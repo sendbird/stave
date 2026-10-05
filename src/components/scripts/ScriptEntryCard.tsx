@@ -39,19 +39,19 @@ export function ScriptEntryCard(props: {
   onDuplicate: () => void;
   onOpenInRail: () => void;
 }) {
-  const { t: tI18n } = useTranslation(["scripts"]);
+  const { t: tI18n } = useTranslation(["scripts", "common"]);
   const title =
     props.entry.label.trim() ||
     props.entry.id.trim() ||
-    `${props.kind === "service" ? "Process" : "Command"} ${props.index + 1}`;
-  const kindLabel = props.kind === "service" ? "process" : "command";
+    tI18n(props.kind === "service" ? "scripts:scriptEntryCard.processTitle" : "scripts:scriptEntryCard.commandTitle", { number: props.index + 1 });
+  const kindLabel = tI18n(props.kind === "service" ? "scripts:scriptEntryCard.process" : "scripts:scriptEntryCard.command");
   const moveUpDisabled = props.index === 0;
   const moveDownDisabled = props.index === props.totalCount - 1;
   const hasIssues = Object.keys(props.issues).length > 0;
   const metaParts = [
     targetLabel(props.entry.target, props.targetOptions),
-    props.kind === "service" && props.entry.orbitEnabled ? "Orbit" : null,
-    props.entry.enabled ? null : "Disabled",
+    props.kind === "service" && props.entry.orbitEnabled ? tI18n("scripts:scriptEntryCard.orbit") : null,
+    props.entry.enabled ? null : tI18n("common:status.disabled"),
   ].filter((part): part is string => Boolean(part));
 
   return (

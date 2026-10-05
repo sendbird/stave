@@ -1,5 +1,5 @@
 import { formatList } from "@/i18n/format";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 import { ProviderAccountProviderIdSchema, type ProviderAccountProviderId } from "./provider-accounts";
 import { sharedSetupSummary } from "./provider-account-setup-plan";

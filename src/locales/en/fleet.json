@@ -184,5 +184,10 @@
     "message33": "This request was already answered or expired. Review the latest task state.",
     "message34": "The request identity changed before this action was sent. Review the latest task state.",
     "message35": "Could not load snoozed Fleet items."
+  },
+  "attention": {
+    "agentRunNeedsAttention": "{{stage}} · {{detail}}",
+    "stoppedMoving": "stopped moving",
+    "needsYou": "needs you"
   }
 }

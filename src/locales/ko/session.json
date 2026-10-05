@@ -430,7 +430,8 @@
     "sentence50": "실행 {{value1}}",
     "sentence51": "메시지 {{value1}}",
     "extraCopy116": "리뷰를 저장하지 못했습니다. 다시 시도하세요.",
-    "extraCopy119": "초안에 추가했습니다. 보내기 전에 변경 사항을 설명하세요."
+    "extraCopy119": "초안에 추가했습니다. 보내기 전에 변경 사항을 설명하세요.",
+    "runCount_other": "실행 {{count}}개"
   },
   "taskRunOverview": {
     "label": "대기 중",
@@ -832,8 +833,14 @@
     "stopped": "완료 전에 이 기기에서 생성을 중지했습니다.",
     "archived": "이 턴이 완료되기 전에 작업이 보관되어 생성을 중지했습니다.",
     "managedStopped": "완료 전에 Stave에서 관리 실행을 중지했습니다.",
-    "compacting": "대화 컨텍스트 압축 중",
-    "compacted": "컨텍스트 압축됨"
+    "compacting": "대화 컨텍스트 압축 중…",
+    "compacted": "컨텍스트 압축됨",
+    "sending": "모델에 요청 보내는 중…",
+    "checkpoint": "Codex 실행 전 체크포인트가 저장되었습니다.",
+    "subagentProgress": "하위 에이전트 진행 상황: {{summary}}",
+    "pluginInstalled": "플러그인 설치됨: {{name}}",
+    "pluginFailed": "플러그인 설치 실패: {{name}}",
+    "pluginFailedReason": "플러그인 설치 실패: {{name}} — {{error}}"
   },
   "remaining": {
     "presentationCopy283": "{{v1}}의 답변",

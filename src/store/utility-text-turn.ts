@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 /**
  * One read-only turn on the utility lane that returns the model's text. Shared
  * by the agent features that ask the model for a small JSON answer (drafting

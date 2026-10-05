@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { loadWorkspaceShellLite } from "@/lib/db/workspaces.db";
 import {
   canTakeOverTask,

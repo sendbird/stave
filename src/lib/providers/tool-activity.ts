@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 /**
  * Provider-agnostic vocabulary for tool activity.
  *

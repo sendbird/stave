@@ -582,7 +582,7 @@ export function collectFleetAgentRunAttentionItems(
         detail:
           kind === "agent-run-sign-off"
             ? describeSignOffDetail(input.detail, stage.title)
-            : `${stage.title} · ${record.detail ?? (kind === "agent-run-stuck" ? "stopped moving" : "needs you")}`,
+            : i18n.t("fleet:attention.agentRunNeedsAttention", { stage: stage.title, detail: record.detail ?? i18n.t(kind === "agent-run-stuck" ? "fleet:attention.stoppedMoving" : "fleet:attention.needsYou") }),
         agentRunStage: { agentRunId: agentRun.id, stageId: record.stageId, attempt: record.attempt },
       },
     ];

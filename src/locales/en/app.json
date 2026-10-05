@@ -322,5 +322,29 @@
   "taskLifecycle.restoreDocument": "Restore complete to {{boundary}} checkpoint `{{ref}}`. Provider session reset for the next turn.",
   "taskLifecycle.restoreFailed": "Restore failed.",
   "taskLifecycle.restoreFailedDetail": "> **Restore failed.** {{detail}}",
-  "taskLifecycle.unknownError": "Unknown error."
+  "taskLifecycle.unknownError": "Unknown error.",
+  "errors": {
+    "childMismatch": "This response does not match the pending request.",
+    "childMissingTarget": "The pending request no longer has a valid message target.",
+    "macroInvalid": "Macro needs a label and a valid slug.",
+    "macroMissing": "Macro not found.",
+    "macroSlug": "Slug \"{{slug}}\" is already in use.",
+    "macroLimit_other": "Maximum of {{count}} macros reached.",
+    "macroLimit_one": "Maximum of {{count}} macro reached.",
+    "themeLimit_other": "Maximum of {{count}} user themes reached.",
+    "themeLimit_one": "Maximum of {{count}} user theme reached.",
+    "themeId": "Theme id \"{{id}}\" already exists.",
+    "sendFailure": "The message could not be sent.",
+    "attachments_other": "{{count}} attachments",
+    "attachments_one": "{{count}} attachment",
+    "secondaryBridge": "The secondary run bridge is unavailable.",
+    "secondaryClaimed": "The secondary run request was already claimed.",
+    "secondaryIdentity": "The secondary run claim did not return an execution identity.",
+    "secondaryCancelled": "The secondary run was cancelled.",
+    "secondaryEmpty": "The secondary provider returned no execution result.",
+    "secondaryFailed": "The secondary provider failed before producing a result.",
+    "secondaryInvalid": "The secondary provider finished without a valid structured result.",
+    "routeBridge": "Route-classification bridge unavailable.",
+    "nameBridge": "Task-name inference bridge unavailable."
+  }
 }

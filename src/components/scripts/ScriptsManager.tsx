@@ -100,7 +100,7 @@ export function ScriptsManager(props: {
         repositoryPath: props.repositoryPath,
         workspacePath: props.workspacePath,
       }),
-    [props.repositoryPath, props.workspacePath, i18n.resolvedLanguage],
+    [props.repositoryPath, props.workspacePath],
   );
   const [selectedScopeId, setSelectedScopeId] =
     useState<ScriptEditorScopeId | null>(null);
@@ -112,7 +112,7 @@ export function ScriptsManager(props: {
           scopes[0] ??
           null)
         : null,
-    [initialScopeResolved, scopes, selectedScopeId, i18n.resolvedLanguage],
+    [initialScopeResolved, scopes, selectedScopeId],
   );
 
   const [fileState, setFileState] = useState<EditorFileState>({
@@ -305,7 +305,7 @@ export function ScriptsManager(props: {
         revision: result.revision,
         rawConfig: rawJson,
         parsedConfig: null,
-        error: `${scope.filePath} is not a valid shared scripts config: ${issue?.message ?? "Unknown error."}`,
+        error: i18n.t("scripts:scriptsManager.invalidSharedConfig", { filePath: scope.filePath, issue: issue?.message ?? i18n.t("scripts:scriptsManager.unknownError") }),
       });
       return;
     }

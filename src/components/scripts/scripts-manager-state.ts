@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Manager pure helpers
 // ---------------------------------------------------------------------------
@@ -65,9 +65,8 @@ export function buildEditorScopes(args: {
   const scopes: ScriptEditorScope[] = [
     {
       id: "project",
-      label: i18n.t("scripts:scriptsManagerState.repositoryConfig"),
-      description:
-        i18n.t("scripts:scriptsManagerState.sharedExecutionConfigStoredInStaveScripts"),
+      get label() { return i18n.t("scripts:scriptsManagerState.repositoryConfig"); },
+      get description() { return i18n.t("scripts:scriptsManagerState.sharedExecutionConfigStoredInStaveScripts"); },
       rootPath: args.repositoryPath,
       filePath: `${STAVE_CONFIG_DIR}/${SCRIPTS_CONFIG_FILENAME}`,
     },
@@ -76,9 +75,8 @@ export function buildEditorScopes(args: {
   if (args.workspacePath && args.workspacePath !== args.repositoryPath) {
     scopes.unshift({
       id: "workspace",
-      label: i18n.t("scripts:scriptsManagerState.workspaceConfig"),
-      description:
-        i18n.t("scripts:scriptsManagerState.highestPrioritySharedExecutionConfigStoredIn"),
+      get label() { return i18n.t("scripts:scriptsManagerState.workspaceConfig"); },
+      get description() { return i18n.t("scripts:scriptsManagerState.highestPrioritySharedExecutionConfigStoredIn"); },
       rootPath: args.workspacePath,
       filePath: `${STAVE_CONFIG_DIR}/${SCRIPTS_CONFIG_FILENAME}`,
     });
@@ -106,8 +104,8 @@ export function targetLabel(
  */
 export function buildEditorTargetOptions(state: ScriptEditorState) {
   const next = new Map<string, string>([
-    [DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, "Workspace"],
-    [DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY, "Repository"],
+    [DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, i18n.t("scripts:scriptsManager.workspace")],
+    [DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY, i18n.t("scripts:scriptsManager.repository")],
   ]);
 
   for (const target of state.targets) {

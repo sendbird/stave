@@ -6,7 +6,7 @@
  * Default titles are stored on the tab when it is created, so they keep the
  * display language that was active at creation time.
  */
-import { i18n, type AppTFunction, type I18nKey } from "@/i18n";
+import { i18n, type AppTFunction, type I18nKey } from "@/i18n/runtime";
 import type { ManagedExecutionProviderId } from "@/lib/providers/provider.types";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import {

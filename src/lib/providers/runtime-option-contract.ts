@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import type {
   ClaudeSettingSource,

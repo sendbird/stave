@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { providersWithChangedAccount, resetRateLimitsForProviders } from "@/store/rate-limits-account-reset";
 import type { StoreApi } from "zustand";
 import { normalizeMyStandards } from "@/lib/agents/standards";
@@ -291,7 +292,7 @@ export function createSettingsActions(args: {
       if (existing.length >= MAX_USER_THEMES) {
         return {
           ok: false,
-          error: `Maximum of ${MAX_USER_THEMES} user themes reached.`,
+          error: i18n.t("app:errors.themeLimit", { count: MAX_USER_THEMES }),
         };
       }
       const allIds = new Set([
@@ -301,7 +302,7 @@ export function createSettingsActions(args: {
       if (allIds.has(theme.id)) {
         return {
           ok: false,
-          error: `Theme id "${theme.id}" already exists.`,
+          error: i18n.t("app:errors.themeId", { id: theme.id }),
         };
       }
       set((s) => ({

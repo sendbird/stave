@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 /** Minimum verified by the provider's model-version rejection. */
 export const CLAUDE_OPUS_55_MINIMUM_VERSION = "2.1.280";
 /** Claude Code version that resolves the `sonnet` alias to Sonnet 5.5. */

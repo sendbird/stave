@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 /**
  * Detached workspace-archive cleanup: git worktree removal, branch deletion,
  * script/PTY teardown, and persistence close.

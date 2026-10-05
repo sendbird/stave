@@ -90,7 +90,12 @@
     "duplicateValue": "Duplicate {{kindLabel}}",
     "done": "Done",
     "edit": "Edit",
-    "deleteValue": "Delete {{kindLabel}}"
+    "deleteValue": "Delete {{kindLabel}}",
+    "processTitle": "Process {{number}}",
+    "commandTitle": "Command {{number}}",
+    "process": "process",
+    "command": "command",
+    "orbit": "Orbit integration"
   },
   "scriptEntryFormFields": {
     "label": "Label",
@@ -222,7 +227,8 @@
     "createConfig": "Create config",
     "saveOrDiscardTheseEditsBeforeSwitching": "Save or discard these edits before switching configs.",
     "cancel": "Cancel",
-    "saveSwitch": "Save & switch"
+    "saveSwitch": "Save & switch",
+    "invalidSharedConfig": "Cannot read {{filePath}} as a shared scripts config: {{issue}}"
   },
   "scriptsManagerState": {
     "repositoryConfig": "Repository Config",

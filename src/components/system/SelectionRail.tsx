@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { focusRing } from "../ads/recipes/focus-ring";
 import { transition } from "../ads/recipes/transition";
 import { Tabs } from "@base-ui/react/tabs";
@@ -19,7 +20,7 @@ export function SelectionRail({
     icon: ReactNode;
     count?: number;
     /** What `count` counts, for the tab's name; defaults to "models". */
-    noun?: string;
+    noun?: "agents";
     /** Names the group of tabs that starts here. Hidden when the rail is narrow. */
     heading?: string;
     /** Sets this tab off from the ones above with a rule, for a group of one. */
@@ -28,6 +29,7 @@ export function SelectionRail({
   value: string;
   onPreview?: (value: string) => void;
 }) {
+  const { t } = useTranslation(["ui"]);
   return (
     <Tabs.List aria-label={label} {...stylex.props(styles.rail)}>
       {items.map((item) => (
@@ -40,7 +42,7 @@ export function SelectionRail({
           {item.divider ? <span aria-hidden="true" {...stylex.props(styles.divider)} /> : null}
           <Tabs.Tab
             value={item.value}
-            aria-label={`${item.label}${item.count === undefined ? "" : `, ${item.count} ${item.noun ?? "models"}`}`}
+            aria-label={item.count === undefined ? item.label : item.noun ? t("ui:selectionRail.agents", { label: item.label, count: item.count }) : t("ui:selectionRail.models", { label: item.label, count: item.count })}
             onPointerEnter={(event) => {
               if (event.pointerType === "mouse") onPreview?.(item.value);
             }}

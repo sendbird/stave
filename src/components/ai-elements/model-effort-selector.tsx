@@ -731,7 +731,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                   />
                 ),
                 count: args.agents?.count ?? 0,
-                noun: "agents",
+                noun: "agents" as const,
                 divider: tab.divider,
               };
             }

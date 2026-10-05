@@ -1364,7 +1364,7 @@
     "theKeptCandidateIsNoLonger": "The kept candidate is no longer part of this run."
   },
   "whole": {
-    "delegationGuide": "Delegation happens when an agent calls <code>stave_delegate_task</code> during its turn. Ask for it, for example <em>“get a read-only second opinion on this plan from Codex at high effort”</em>. Only the prompt is required. Omitted parameters follow this task’s provider, effort and permissions. The child runs one turn in this workspace; Settings has no global delegation defaults.",
+    "delegationGuide": "There is no button: delegation happens when an agent calls <code>stave_delegate_task</code> during its turn. Ask for it, for example <em>“get a read-only second opinion on this plan from Codex at high effort”</em>. Only the prompt is required. Omitted parameters follow this task’s provider, effort and permissions. The child runs one turn in this workspace; Settings has no global delegation defaults.",
     "delegationActivity": "Once a delegation starts, its child appears in the task’s turn activity with Open, Follow-up, Stop, Detach and Retry controls.",
     "themeImport": "Drop a <file>.theme.json</file> file to install a community theme. The JSON must include <id>id</id>, <name>name</name>, <mode>baseMode</mode>, and a <tokens>tokens</tokens> map.",
     "commandContributors": "Use <code>registerCommandPaletteContributor()</code> to inject additional commands. Core Stave commands are customizable here; dynamic workspace/task entries and future contributed commands inherit the same execution surface automatically.",
@@ -1423,8 +1423,8 @@
     "enableConfig": "Enable {{label}}",
     "disableConfig": "Disable {{label}}",
     "codexBrowserSetup": "Enable chrome@openai-bundled and unified-computer-use@openai-bundled in the Codex CLI environment used by Stave, connect its Chrome extension, then try @web again.",
-    "interactiveBrowser": "Send an interactive prompt containing <code>@web</code>. Chrome access is attempted for that turn.",
-    "browserRestrictions": "Plan mode, unattended automation and secondary read-only analysis keep browser access off. An explicit negated <code>@web</code> also keeps it off.",
+    "interactiveBrowser": "Send an interactive prompt containing <code>@web</code>. Chrome access is attempted for that turn, and any failure is reported in the conversation. Site approval remains in the provider's extension; Stave cannot install, enable, or grant access on its behalf.",
+    "browserRestrictions": "Plan mode, unattended automation, and secondary analysis keep provider-native browser access off, and automatic fallback never overrides them. With fallback off, a prompt without <code>@web</code> also keeps it off.",
     "tokenName": "Token",
     "invalidRoutingProfile": "Expected an Auto routing profile"
   },

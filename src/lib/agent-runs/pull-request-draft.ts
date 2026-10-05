@@ -39,6 +39,7 @@ export function buildAgentRunCommitMessage(aggregate: AgentRunAggregate): string
   return clampSubject(`chore: ${subject}`);
 }
 
+// i18n-ignore: generated Conventional Commit content remains canonical English
 export const CHECKS_REPAIR_COMMIT_MESSAGE = "fix: address failing checks";
 
 const CRITERION_MARKS = { met: "[x]", unmet: "[ ]", unverified: "[?]" } as const;

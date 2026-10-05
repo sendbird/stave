@@ -365,7 +365,7 @@ export function ChainOfThoughtTrigger(
           </span>
           {showDuration ? (
             <span className={sx(agentSurface.meta, s.durationLabel)}>
-              {i18n.t("composer:chainOfThought.chainOfThoughtTrigger")}{formatTriggerDuration(durationSeconds)}
+              {i18n.t("composer:chainOfThought.chainOfThoughtTrigger", { duration: formatTriggerDuration(durationSeconds) })}
             </span>
           ) : null}
         </>

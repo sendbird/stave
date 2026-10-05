@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 import { ApiConnectionModelIdSchema, HttpsBaseUrlSchema, VERCEL_AI_GATEWAY } from "./api-connections";
 

@@ -243,7 +243,7 @@ function CursorModelRow(args: {
           layout="host"
           type="button"
           data-cursor-control-key={`${args.group.key}:model`}
-          aria-label={`${args.group.label}${selected ? ", selected" : ""}`}
+          aria-label={selected ? i18n.t("composer:cursorModelConfigList.selectedName", { name: args.group.label }) : args.group.label}
           aria-pressed={selected}
           disabled={args.disabled || !anchor.option.available}
           tabIndex={tabStopKey === `${args.group.key}:model` ? 0 : -1}

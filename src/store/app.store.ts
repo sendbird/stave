@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AppState } from "@/store/app-store.types";

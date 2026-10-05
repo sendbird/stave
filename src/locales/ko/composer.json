@@ -25,7 +25,7 @@
     "copy": "현재"
   },
   "chainOfThought": {
-    "chainOfThoughtTrigger": "대상",
+    "chainOfThoughtTrigger": "{{duration}} 동안",
     "label": "추론 스트리밍 중"
   },
   "checkpoint": {
@@ -85,7 +85,8 @@
     "title": "Cursor ACP에서 제공하지 않습니다.",
     "ariaLabel2": "Cursor 모델 구성",
     "cursorModelConfigList": "버튼으로 모델을 변경합니다. 일반 텍스트는 Cursor가 보고한 매개변수지만 값이 하나뿐이므로 여기서 변경할 수 없습니다.",
-    "unavailableSuffix": ", 사용 불가"
+    "unavailableSuffix": ", 사용 불가",
+    "selectedName": "{{name}}, 선택됨"
   },
   "localChangeReviewDialog": {
     "description": "이 워크스페이스의 스테이징된 파일, 스테이징되지 않은 파일, 추적되지 않은 파일입니다.",

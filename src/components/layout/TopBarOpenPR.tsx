@@ -318,6 +318,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (added > 0) parts.push(`${added} added`);
     if (modified > 0) parts.push(`${modified} modified`);
     if (deleted > 0) parts.push(`${deleted} deleted`);
+    // i18n-ignore: generated Conventional Commit content remains canonical English
     return `chore: update ${parts.join(", ") || `${files.length} changes`}`;
   }
 

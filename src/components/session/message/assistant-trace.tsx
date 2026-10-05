@@ -1,4 +1,5 @@
 import { formatSystemEventDisplay } from "../system-event-display";
+import { formatProviderErrorDisplay } from "@/lib/providers/error-display";
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
@@ -659,7 +660,7 @@ function AssistantTraceEntryView(args: {
               providerErrorNotice != null
             }
             status={providerErrorNotice != null ? "failed" : undefined}
-            title={providerErrorNotice?.message ?? formatSystemEventDisplay(systemTitle)}
+            title={providerErrorNotice ? formatProviderErrorDisplay(providerErrorNotice.message) : formatSystemEventDisplay(systemTitle)}
           >
             {hasDistinctSystemContent ? (
               <MessagePartRenderer

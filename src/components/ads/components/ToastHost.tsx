@@ -258,6 +258,7 @@ export function ToastHost({
         <PortalProductThemeScope>
           <ToastViewport
             {...portalTheme}
+            aria-label={i18n.t("ui:toastHost.notifications")}
             className={sx(
               styles.viewport,
               isTop ? styles.viewportTop : styles.viewportBottom,

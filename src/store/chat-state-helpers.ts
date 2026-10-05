@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { createTurnReceipt } from "@/lib/providers/turn-terminal-receipt";
 import { sanitizeFileContextPayload } from "@/lib/file-context-sanitization";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";

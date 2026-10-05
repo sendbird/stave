@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { collectProviderAccountUsageWindows, resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";

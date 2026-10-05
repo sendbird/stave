@@ -431,7 +431,9 @@
     "sentence50": "Run {{value1}}",
     "sentence51": "Message {{value1}}",
     "extraCopy116": "Review was not saved. Retry.",
-    "extraCopy119": "Added to your draft. Describe the changes before sending."
+    "extraCopy119": "Added to your draft. Describe the changes before sending.",
+    "runCount_one": "{{count}} run",
+    "runCount_other": "{{count}} runs"
   },
   "taskRunOverview": {
     "label": "Waiting",
@@ -837,8 +839,14 @@
     "stopped": "Generation was stopped locally before completion.",
     "archived": "Generation stopped because the task was archived before this turn completed.",
     "managedStopped": "Managed run stopped from Stave before completion.",
-    "compacting": "Compacting conversation context",
-    "compacted": "Context compacted"
+    "compacting": "Compacting conversation context…",
+    "compacted": "Context compacted",
+    "sending": "Sending request to model…",
+    "checkpoint": "Checkpoint captured before Codex turn.",
+    "subagentProgress": "Subagent progress: {{summary}}",
+    "pluginInstalled": "Plugin installed: {{name}}",
+    "pluginFailed": "Plugin install failed: {{name}}",
+    "pluginFailedReason": "Plugin install failed: {{name}} — {{error}}"
   },
   "remaining": {
     "presentationCopy283": "{{v1}}'s answer",

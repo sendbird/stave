@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 
 /** Built-in identities stay canonical in agent prompts; only their UI copy follows the display language. */
 const BUILTIN_TEXT_KEYS = {

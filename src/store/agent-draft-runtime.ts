@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 /**
  * Describe to create: runs one utility turn and turns the answer into an
  * unsaved custom agent draft. Nothing is saved here.

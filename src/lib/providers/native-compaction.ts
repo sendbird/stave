@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 /** Native compaction operates on one existing provider session, not task history. */
 export function isConversationCompactCommand(input: string): boolean {
   return /^\/compact(?:\s|$)/i.test(input.trimStart());

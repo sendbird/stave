@@ -1351,7 +1351,7 @@
     "theKeptCandidateIsNoLonger": "유지한 후보가 더 이상 이 실행에 속하지 않습니다."
   },
   "whole": {
-    "delegationGuide": "에이전트가 턴 중에 <code>stave_delegate_task</code> 도구를 호출하면 위임이 시작됩니다. 예를 들어 <em>“Codex가 높은 추론 수준으로 이 계획을 읽기 전용으로 검토하게 해줘”</em>라고 요청할 수 있습니다. 프롬프트만 필수이며 생략한 값은 이 작업의 프로바이더, 추론 수준과 권한을 따릅니다. 하위 에이전트는 이 워크스페이스에서 한 턴을 실행하며 설정에는 위임의 전역 기본값이 없습니다.",
+    "delegationGuide": "별도의 버튼은 없습니다. 에이전트가 턴 중에 <code>stave_delegate_task</code> 도구를 호출하면 위임이 시작됩니다. 예를 들어 <em>“Codex가 높은 추론 수준으로 이 계획을 읽기 전용으로 검토하게 해줘”</em>라고 요청할 수 있습니다. 프롬프트만 필수이며 생략한 값은 이 작업의 프로바이더, 추론 수준과 권한을 따릅니다. 하위 에이전트는 이 워크스페이스에서 한 턴을 실행하며 설정에는 위임의 전역 기본값이 없습니다.",
     "delegationActivity": "위임이 시작되면 작업의 턴 활동에 하위 에이전트가 표시되며 열기, 후속 요청, 중지, 분리 및 재시도 기능을 사용할 수 있습니다.",
     "themeImport": "<file>.theme.json</file> 파일을 놓으면 커뮤니티 테마를 설치합니다. JSON에는 <id>id</id>, <name>name</name>, <mode>baseMode</mode> 및 <tokens>tokens</tokens> 맵이 필요합니다.",
     "commandContributors": "<code>registerCommandPaletteContributor()</code> 함수로 명령을 추가할 수 있습니다. 여기서 Stave의 기본 명령을 설정하며 동적인 워크스페이스·작업 항목과 이후에 추가할 명령도 같은 실행 방식을 자동으로 사용합니다.",
@@ -1405,8 +1405,8 @@
     "enableConfig": "{{label}} 켜기",
     "disableConfig": "{{label}} 끄기",
     "codexBrowserSetup": "Stave에서 사용하는 Codex CLI 환경에 chrome@openai-bundled와 unified-computer-use@openai-bundled를 켜고 Chrome 확장 프로그램을 연결한 후 @web을 다시 시도하세요.",
-    "interactiveBrowser": "<code>@web</code>이 포함된 대화형 프롬프트를 보내세요. 해당 턴에서 Chrome 연결을 시도합니다.",
-    "browserRestrictions": "계획 모드, 무인 자동화, 보조 읽기 전용 분석에서는 브라우저 연결이 꺼집니다. <code>@web</code>을 명시적으로 금지한 경우에도 연결하지 않습니다.",
+    "interactiveBrowser": "<code>@web</code>이 포함된 대화형 프롬프트를 보내세요. 해당 턴에서 Chrome 연결을 시도하며, 실패하면 대화에 알립니다. 사이트 접근 승인은 제공자 확장에서 관리합니다. Stave는 확장을 대신 설치하거나 활성화하거나 접근 권한을 부여할 수 없습니다.",
+    "browserRestrictions": "계획 모드, 무인 자동화, 보조 분석에서는 제공자 브라우저 연결이 비활성화되며, 자동 대체 기능도 이 제한을 우회하지 않습니다. 자동 대체 기능이 꺼져 있으면 <code>@web</code>이 없는 프롬프트에서도 브라우저 연결은 비활성화됩니다.",
     "tokenName": "토큰",
     "invalidRoutingProfile": "자동 라우팅 프로필이 필요합니다."
   },

@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { useEffect, useMemo } from "react";
 import { create } from "zustand";
 import { useAppStore } from "@/store/app.store";

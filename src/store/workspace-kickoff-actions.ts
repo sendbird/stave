@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { readKickoffSource } from "@/store/kickoff-source-reader";
 import {
   resolveKickoffModel,

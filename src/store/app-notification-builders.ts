@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { isSuccessfulProviderTurnStopReason } from "@/lib/providers/turn-stop-reason";
 /**
  * Notification input builders for provider turn events.

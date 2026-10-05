@@ -90,7 +90,12 @@
     "duplicateValue": "{{kindLabel}} 복제",
     "done": "완료됨",
     "edit": "편집",
-    "deleteValue": "{{kindLabel}} 삭제"
+    "deleteValue": "{{kindLabel}} 삭제",
+    "processTitle": "프로세스 {{number}}",
+    "commandTitle": "명령 {{number}}",
+    "process": "프로세스",
+    "command": "명령",
+    "orbit": "Orbit 연동"
   },
   "scriptEntryFormFields": {
     "label": "레이블",
@@ -221,7 +226,8 @@
     "createConfig": "설정 만들기",
     "saveOrDiscardTheseEditsBeforeSwitching": "설정을 전환하려면 편집 내용을 저장하거나 버립니다.",
     "cancel": "취소",
-    "saveSwitch": "저장하고 전환"
+    "saveSwitch": "저장하고 전환",
+    "invalidSharedConfig": "{{filePath}}의 공유 스크립트 설정을 읽을 수 없습니다: {{issue}}"
   },
   "scriptsManagerState": {
     "repositoryConfig": "저장소 설정",

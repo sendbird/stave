@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import type { AppSettings } from "@/store/app.store";
 
 export type ProviderModePresetId = "manual" | "guided" | "auto";

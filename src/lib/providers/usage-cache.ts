@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { formatNumber } from "@/i18n/format";
 import type { ProviderId } from "@/lib/providers/provider.types";
 

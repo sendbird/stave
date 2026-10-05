@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatProviderErrorDisplay } from "@/lib/providers/error-display";
 import { useRef, useState } from "react";
 import { RotateCcw, TriangleAlert } from "lucide-react";
 import { Button, Loader } from "@/components/ui";
@@ -134,11 +135,11 @@ export function ProviderErrorRecovery(props: {
       {!props.hideMessage ? (
         <div className={sx(styles.messageRow)}>
           <TriangleAlert className={sx(styles.messageIcon)} aria-hidden="true" />
-          <p className={sx(styles.message)}>{notice.message}</p>
+          <p className={sx(styles.message)}>{formatProviderErrorDisplay(notice.message)}</p>
         </div>
       ) : null}
       {notice.guidance ? (
-        <p className={sx(styles.guidance)}>{notice.guidance}</p>
+        <p className={sx(styles.guidance)}>{formatProviderErrorDisplay(notice.guidance)}</p>
       ) : null}
       {recoveryEligible && isLatestMessage ? (
         <div className={sx(styles.resume)}>

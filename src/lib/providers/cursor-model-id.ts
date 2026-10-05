@@ -1,4 +1,4 @@
-import { i18n, type I18nKey } from "@/i18n";
+import { i18n, type I18nKey } from "@/i18n/runtime";
 import { toHumanModelName } from "./model-catalog";
 
 const cursorDisplayNames = new Map<string, string>();

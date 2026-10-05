@@ -384,7 +384,7 @@ export function TaskResultReviews(props: {
                 : i18n.t("session:taskResultReviews.taskResultReviews7")
               : showPagination
                 ? i18n.t("session:taskResultReviews.taskResultReviews8", { value1: rangeStart, value2: rangeEnd, value3: page.total })
-                : `${page.total} ${page.total === 1 ? "run" : "runs"}`}
+                : i18n.t("session:taskResultReviews.runCount", { count: page.total })}
         </span>
       </div>
       <div className={sx(styles.body)}>

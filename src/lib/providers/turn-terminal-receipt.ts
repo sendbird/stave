@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { isProviderTurnContinuationEvent } from "./turn-event-evidence";
 import { hasMeaningfulPlanText } from "../plan-text";
 import { classifyProviderTurnStopReason, isSuccessfulProviderTurnStopReason } from "./turn-stop-reason";

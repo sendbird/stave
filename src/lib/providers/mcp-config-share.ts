@@ -1,5 +1,5 @@
 import { formatList } from "@/i18n/format";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import type {
   McpConfigProvider,
   McpServerConfigDraft,

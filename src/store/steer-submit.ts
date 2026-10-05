@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import {
   RENDERER_STEER_ACK_TIMEOUT_MS,
   waitForSteerDelivery,

@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import {
   buildCompareJudgeCandidateAliases,
   COMPARE_JUDGE_RUBRIC_VERSION,

@@ -145,6 +145,13 @@ export function StandaloneCliTerminal(props: {
 }) {
   const { t } = useTranslation("terminal");
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const autofocusInterruptedRef = useRef(false);
+  const cancelAutofocusRef = useRef<(() => void) | null>(null);
+  // Delayed terminal readiness must not steal focus from a control the user chose.
+  const interruptAutofocus = useCallback(() => {
+    autofocusInterruptedRef.current = true;
+    cancelAutofocusRef.current?.();
+  }, []);
   const inputHandlerRef = useRef<(input: string) => void>(() => {});
   const resizeHandlerRef = useRef<
     (cols: number, rows: number) => Promise<void> | void
@@ -356,11 +363,15 @@ export function StandaloneCliTerminal(props: {
     resizeHandlerRef.current = handleTerminalResize;
   }, [handleTerminalInput, handleTerminalResize]);
 
+  useLayoutEffect(() => {
+    autofocusInterruptedRef.current = false;
+  }, [activeTabKey, props.visible]);
+
   // Opening the popover leaves focus on the popup, so claim it for the terminal
   // instead of making the user click into it before typing. This re-runs on
   // every open because the panel is never unmounted in between.
   useEffect(() => {
-    if (!props.visible || !terminalInstance.ready) {
+    if (!props.visible || !terminalInstance.ready || autofocusInterruptedRef.current) {
       return;
     }
     let cancelFocus = terminalInstance.controller.focus();
@@ -374,12 +385,17 @@ export function StandaloneCliTerminal(props: {
         focusTerminalInstanceSurface({ container: containerRef.current });
       }, 50);
     });
-    return () => {
+    const cancelAutofocus = () => {
       window.cancelAnimationFrame(settleFrame);
       if (settleTimer !== null) {
         window.clearTimeout(settleTimer);
       }
       cancelFocus?.();
+    };
+    cancelAutofocusRef.current = cancelAutofocus;
+    return () => {
+      cancelAutofocus();
+      cancelAutofocusRef.current = null;
     };
   }, [
     activeTabKey,
@@ -401,7 +417,11 @@ export function StandaloneCliTerminal(props: {
         {/* The row keeps the account select's height whether or not the tab
             draws one (Cursor, Kiro, or a single account), so switching tabs
             never moves the terminal. */}
-        <div className={sx(styles.terminalHeaderRow, controlHeights.sm)}>
+        <div
+          className={sx(styles.terminalHeaderRow, controlHeights.sm)}
+          onPointerDownCapture={interruptAutofocus}
+          onKeyDownCapture={interruptAutofocus}
+        >
           <StandaloneCliAccountSelect
             tabId={activeTab.id}
             value={activeAccountProfileId}

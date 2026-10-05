@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 /** Slack-published public OAuth client ID for Cursor's hosted Slack MCP route. Not a secret. */
 export const CURSOR_SLACK_MCP_CLIENT_ID = "3660753192626.8903469228982";
 

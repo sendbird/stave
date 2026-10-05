@@ -1,5 +1,5 @@
 import { useTranslation } from "@/i18n";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useAppStore } from "@/store/app.store";
 import type { ListResultReviewsArgs, ResultReviewPage } from "./result-review";

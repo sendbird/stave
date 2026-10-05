@@ -25,7 +25,7 @@
     "copy": "Current"
   },
   "chainOfThought": {
-    "chainOfThoughtTrigger": "for",
+    "chainOfThoughtTrigger": "for {{duration}}",
     "label": "Streaming reasoning"
   },
   "checkpoint": {
@@ -85,7 +85,8 @@
     "title": "Not advertised by Cursor ACP.",
     "ariaLabel2": "Cursor model configurations",
     "cursorModelConfigList": "Buttons change the model. Plain labels are parameters Cursor reports but advertises only one value for, so they cannot be changed from here.",
-    "unavailableSuffix": ", unavailable"
+    "unavailableSuffix": ", unavailable",
+    "selectedName": "{{name}}, selected"
   },
   "localChangeReviewDialog": {
     "description": "Staged, unstaged, and untracked files in this workspace.",

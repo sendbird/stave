@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import type { WorkspaceSummary } from "@/lib/db/workspaces.db";
 import type { Task } from "@/types/chat";
 import {

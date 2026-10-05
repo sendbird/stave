@@ -286,5 +286,12 @@
   "toast.showToast": "알림 표시",
   "toolRunParts.callCount_other": "도구 호출 {{count}}회",
   "toolRunGroup.toolCalls": "도구 호출",
-  "toolRun.toolRun": "도구 실행"
+  "toolRun.toolRun": "도구 실행",
+  "toastHost": {
+    "notifications": "알림"
+  },
+  "selectionRail": {
+    "models_other": "{{label}}, 모델 {{count}}개",
+    "agents_other": "{{label}}, 에이전트 {{count}}개"
+  }
 }

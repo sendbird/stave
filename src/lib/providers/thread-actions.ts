@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/runtime";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { getProviderThreadActionCapabilities } from "@/lib/providers/model-catalog";
 import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";

@@ -298,5 +298,14 @@
   "toolRunParts.callCount_one": "{{count}} tool call",
   "toolRunParts.callCount_other": "{{count}} tool calls",
   "toolRunGroup.toolCalls": "Tool calls",
-  "toolRun.toolRun": "Tool run"
+  "toolRun.toolRun": "Tool run",
+  "toastHost": {
+    "notifications": "Notifications"
+  },
+  "selectionRail": {
+    "models_one": "{{label}}, {{count}} model",
+    "models_other": "{{label}}, {{count}} models",
+    "agents_one": "{{label}}, {{count}} agent",
+    "agents_other": "{{label}}, {{count}} agents"
+  }
 }
