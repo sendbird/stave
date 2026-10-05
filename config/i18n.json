@@ -24,6 +24,9 @@
       "electron/main.ts",
       "electron/main/application-menu.ts",
       "electron/main/window.ts"
+    ],
+    "nativeUiInclude": [
+      "electron/**/*.ts"
     ]
   },
   "terms": [

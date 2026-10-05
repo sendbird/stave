@@ -17,6 +17,7 @@
  * same line or the line above.
  */
 import ts from "typescript";
+import { scanNativeUi } from "./native-ui.mjs";
 
 const USER_FACING_NAME =
   /^(?:label|title|description|placeholder|tooltip|message|hint|subtitle|heading|caption|body|detail|summary|text|copy|alt|helperText|emptyMessage|emptyState|note|error|reason|announcement|trigger)$|(?:Label|Title|Description|Placeholder|Tooltip|Message|Hint|Subtitle|Heading|Caption|Text|Copy|Summary|Detail|Body|Note|Error|Reason|Announcement|Phrase)s?$/;
@@ -237,9 +238,9 @@ function isNativeDialogCall(call) {
  * Scan one source file and return findings.
  * @param {string} fileName repository-relative path
  * @param {string} sourceText file contents
- * @param {{ terms: string[] }} options
+ * @param {{ terms?: string[], nativeUiOnly?: boolean }} options
  */
-export function scanSource(fileName, sourceText, { terms = [] } = {}) {
+export function scanSource(fileName, sourceText, { terms = [], nativeUiOnly = false } = {}) {
   const sortedTerms = [...terms].sort((a, b) => b.length - a.length);
   const kind = fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true, kind);
@@ -351,6 +352,7 @@ export function scanSource(fileName, sourceText, { terms = [] } = {}) {
     }
     ts.forEachChild(node, visit);
   };
-  visit(sourceFile);
+  if (!nativeUiOnly) visit(sourceFile);
+  scanNativeUi(sourceFile, (expression, rule) => checkExpression(expression, rule, isJsxProse));
   return findings;
 }

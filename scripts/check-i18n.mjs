@@ -138,19 +138,23 @@ function listFiles(dir) {
 
 const include = config.scan.include.map(globToRegExp);
 const exclude = config.scan.exclude.map(globToRegExp);
-const inScope = (file) =>
+const nativeUiInclude = config.scan.nativeUiInclude.map(globToRegExp);
+const isNativeUiFile = (file) => nativeUiInclude.some((pattern) => pattern.test(file));
+const inGeneralScope = (file) =>
   config.scan.mainProcessFiles.includes(file) ||
   (include.some((pattern) => pattern.test(file)) && !exclude.some((pattern) => pattern.test(file)));
+
+const inScope = (file) => inGeneralScope(file) || isNativeUiFile(file);
 
 const sourceFiles = catalogsOnly
   ? []
   : explicitFiles
   ? explicitFiles.map((file) => path.relative(root, path.resolve(root, file)).split(path.sep).join("/")).filter(inScope)
-  : [...listFiles("src"), ...config.scan.mainProcessFiles].filter(inScope);
+  : [...listFiles("src"), ...listFiles("electron"), ...config.scan.mainProcessFiles].filter(inScope);
 
 const findings = [];
 for (const file of [...new Set(sourceFiles)].sort()) {
-  findings.push(...scanSource(file, readFileSync(path.join(root, file), "utf8"), { terms: config.terms }));
+  findings.push(...scanSource(file, readFileSync(path.join(root, file), "utf8"), { terms: config.terms, nativeUiOnly: isNativeUiFile(file) && !inGeneralScope(file) }));
 }
 
 if (summary) {
