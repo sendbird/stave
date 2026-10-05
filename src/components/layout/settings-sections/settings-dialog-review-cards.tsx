@@ -132,6 +132,12 @@ function ReviewTasksCard() {
           ]}
         />
       </LabeledField>
+      <SwitchField
+        title="Cross-check With Both Providers"
+        description="Start a second, independent review on the other provider with each review. You can still turn it off in the dialog."
+        checked={reviewTask.crossCheck}
+        onCheckedChange={(crossCheck) => patch({ crossCheck })}
+      />
       <ReviewModelField
         providerId="claude-code"
         title="Claude Review Model"

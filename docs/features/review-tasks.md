@@ -64,11 +64,13 @@ writer when another model should change files.
 
 | Control | What it does |
 | --- | --- |
-| Review target | Uncommitted changes, the entire local branch, or the task's latest finished reply. Latest reply is unavailable until the task has one. |
+| Review target | Uncommitted changes, the entire local branch, a specific commit or range (such as `HEAD~1` or `main..HEAD`), or the task's latest finished reply. Latest reply is unavailable until the task has one. |
 | Review by | Any available Claude or Codex model and effort. The suggestion follows **Default Reviewer** in Settings. |
 | Focus | Each selected area adds an explicit instruction to the review prompt. |
 | Review skill | The reviewer follows the skill's instructions. Only skills the chosen reviewer can load are offered. |
+| Also review with | Starts a second, independent read-only review on the other provider at the same time, with that provider's review model. Each review gets its own line. The default follows **Cross-check With Both Providers** in Settings. |
 | Additional instructions | Added to this review only, after your saved review instructions. |
+| Check against a plan or acceptance criteria | Optional. The reviewer checks the work against what you paste, and each criterion that is not met becomes a finding. |
 
 The line above the composer:
 
@@ -148,6 +150,19 @@ review task when you select its title.
    **Run again** to review the current workspace from scratch with the same
    prompt and model.
 
+### Have both models review the same change
+
+1. In **Review**, tick **Also review with** the other provider's model.
+2. Two review lines appear, one per provider. Each finishes on its own.
+3. Open each with **View** and attach the findings you agree with from either.
+
+### Check a commit against its acceptance criteria
+
+1. Pick **Specific commit** and enter the commit or range.
+2. Paste the criteria under **Check against a plan or acceptance criteria**.
+3. Start the review. Unmet criteria come back as findings named after the
+   criterion.
+
 ### Apply a team checklist to every review
 
 1. Add the checklist as a skill in the repository or your shared skills.
@@ -167,7 +182,8 @@ review task when you select its title.
   "focuses": ["correctness", "tests"],
   "instructions": "",
   "skillSlug": "",
-  "followUpPrompt": "Go through the attached review findings. Apply the ones that are valid, and for each one you do not apply, explain why."
+  "followUpPrompt": "Go through the attached review findings. Apply the ones that are valid, and for each one you do not apply, explain why.",
+  "crossCheck": false
 }
 ```
 
@@ -213,7 +229,14 @@ follow-up prompt attaches the findings only.
 - A **Latest reply** review receives that reply, up to 8,000 characters, and
   the request it answered, as data to evaluate rather than instructions.
 - A skill's instructions are included in the review prompt, up to 24,000
-  characters.
+  characters. Acceptance criteria are included up to 8,000 characters.
+- A commit or range starts with a letter or digit and may only contain
+  letters, digits and `. _ / ~ ^ @ { } -`.
+- **Also review with** is not offered for **Latest reply**, whose reviewer is
+  already the other model. A cross-check runs without the review skill when
+  its provider cannot load it.
+- A cross-check counts as a second subagent of the task, so it shares the
+  limit of three running at a time.
 - **Run again** of a **Latest reply** review reviews the same reply again, not
   a newer one. Start a new review for the newest reply.
 - Delegation keys starting with `stave-review-` are reserved for these

@@ -100,28 +100,50 @@ export function useReviewTaskControls(args: {
   const handleLocalChangeReview = useCallback(
     async (review: LocalChangeReviewRequest) => {
       if (isReviewTaskDelegationAvailable()) {
-        const started = await startReviewTask({
-          getState: useAppStore.getState,
-          taskId: activeTaskId,
-          request: {
-            reviewer: {
-              providerId: review.reviewer.providerId,
-              model: review.reviewer.model,
-              label: review.reviewer.label,
+        const start = (
+          reviewer: LocalChangeReviewRequest["reviewer"],
+          effort: string | undefined,
+          skillOptional = false,
+        ) =>
+          startReviewTask({
+            getState: useAppStore.getState,
+            taskId: activeTaskId,
+            request: {
+              reviewer: {
+                providerId: reviewer.providerId,
+                model: reviewer.model,
+                label: reviewer.label,
+              },
+              effort,
+              target: review.target,
+              focuses: review.focuses,
+              instructions: review.instructions,
+              skillSlug: review.skillSlug,
+              commitRef: review.commitRef,
+              criteria: review.criteria,
+              skillOptional,
             },
-            effort: review.effort,
-            target: review.target,
-            focuses: review.focuses,
-            instructions: review.instructions,
-            skillSlug: review.skillSlug,
-          },
-        });
+          });
+        const started = await start(review.reviewer, review.effort);
         if (!started.ok) {
           toast.error("Could not start the review", { description: started.error });
           return false;
         }
-        toast.success("Review started in its own task", {
-          description: "Its findings appear above the composer when it finishes.",
+        // The cross-check is a second, independent review on the other
+        // provider; one failing to start does not undo the other.
+        const second = review.secondReviewer
+          ? await start(review.secondReviewer.reviewer, review.secondReviewer.effort, true)
+          : null;
+        if (second && !second.ok) {
+          toast.error(`Started one review; the ${review.secondReviewer!.reviewer.label} cross-check did not start`, {
+            description: second.error,
+          });
+          return true;
+        }
+        toast.success(second ? "Two reviews started, one per provider" : "Review started in its own task", {
+          description: second
+            ? "Their findings appear above the composer when they finish."
+            : "Its findings appear above the composer when it finishes.",
         });
         return true;
       }
@@ -134,8 +156,15 @@ export function useReviewTaskControls(args: {
         content: buildLocalChangeReviewPrompt({
           scope: review.target,
           focuses: review.focuses,
+          commitRef: review.commitRef,
           instructions:
-            [useAppStore.getState().settings.reviewTask.instructions.trim(), review.instructions?.trim()]
+            [
+              useAppStore.getState().settings.reviewTask.instructions.trim(),
+              review.instructions?.trim(),
+              review.criteria?.trim()
+                ? `Also check the work against these acceptance criteria and report each one not met:\n${review.criteria.trim()}`
+                : "",
+            ]
               .filter(Boolean)
               .join("\n\n") || undefined,
         }),
