@@ -196,8 +196,13 @@ follow-up prompt attaches the findings only.
 
 - The review task is an ordinary Stave task, kept under the reviewed task
   instead of in workspace task lists.
-- Dismissing a finished review lasts until Stave restarts. After a restart, a
-  finished review that is less than a day old and was never sent shows again.
+- Dismissing a finished review remains in effect after Stave restarts. It only
+  hides that review's composer line in the repository, workspace and task where
+  you dismissed it; its task, transcript and Subagents entry remain available.
+  Stave stores this lightweight UI preference locally and removes expired
+  dismissal records as reviews pass the shelf's one-day lifetime. If storage
+  fails, Stave hides the line for the session and warns that it may return after
+  a restart.
 
 ## Limitations And Advanced Options
 

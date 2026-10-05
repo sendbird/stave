@@ -13,10 +13,14 @@ import {
 import { isActiveDelegatedTaskPhase } from "@/lib/runs/delegated-task";
 import { buildDelegatedTaskExpectedIdentity } from "@/lib/runs/delegated-task-view";
 import { useAppStore } from "@/store/app.store";
-import { useComposerShelfStore } from "@/store/composer-shelf-store";
+import {
+  reviewDismissalScopeKey,
+  useReviewDismissalsStore,
+  type ReviewDismissals,
+} from "@/store/review-dismissals-store";
 import { attachReviewResultToDraft } from "@/store/review-task-runtime";
 
-const NO_KEYS: readonly string[] = [];
+const NO_DISMISSALS: ReviewDismissals = {};
 
 export interface ShelfReviewActions {
   /** Attach the whole answer, or only the chosen structured findings. */
@@ -32,12 +36,14 @@ export interface ShelfReviewActions {
 /**
  * The reviews a task started from its composer, as shelf rows, with the
  * controls each row offers. Rows come from the delegation ledger, so a review
- * that outlives a restart still shows; what the user dismissed lasts for the
- * session only. Every selector returns a primitive: the shelf must not
+ * that outlives a restart still shows unless the user dismissed it. Selectors
+ * return primitives or existing entries: the shelf must not
  * re-render on each keystroke or streamed token.
  */
 export function useShelfReviews(taskId: string) {
   const repositoryPath = useAppStore((state) => state.repositoryPath);
+  const workspaceId = useAppStore((state) => state.activeWorkspaceId);
+  const scopeKey = reviewDismissalScopeKey({ repositoryPath: repositoryPath ?? "", workspaceId, taskId });
   const listing = useDelegatedTasks({ parentTaskId: taskId });
   const historyLoaded = useAppStore((state) => state.messagesByTask[taskId] !== undefined);
   const carriedKey = useAppStore((state) =>
@@ -46,9 +52,10 @@ export function useShelfReviews(taskId: string) {
   const attachedKey = useAppStore((state) =>
     selectDraftTaskContextKey(state.promptDraftByTask[taskId]),
   );
-  const dismissedKeys = useComposerShelfStore(
-    (state) => state.dismissedReviewKeysByTask[taskId] ?? NO_KEYS,
+  const dismissedReviews = useReviewDismissalsStore(
+    (state) => state.dismissedReviewsByScope[scopeKey] ?? NO_DISMISSALS,
   );
+  const dismissedKeys = useMemo(() => new Set(Object.keys(dismissedReviews)), [dismissedReviews]);
   // A finished review leaves after a day even when nothing else changes; a
   // slow clock is enough for that, and it only runs while one is waiting.
   const hasSettledReview = listing.children.some(
@@ -59,7 +66,7 @@ export function useShelfReviews(taskId: string) {
     () =>
       selectReviewShelfItems({
         children: listing.children,
-        dismissedKeys: new Set(dismissedKeys),
+        dismissedKeys,
         carriedTaskIds: splitTaskIds(carriedKey),
         now,
         historyLoaded,
@@ -131,11 +138,20 @@ export function useShelfReviews(taskId: string) {
     [stopDelegation],
   );
   const dismiss = useCallback(
-    (item: ReviewShelfItem) =>
-      useComposerShelfStore
-        .getState()
-        .dismissReview({ taskId, delegationKey: item.child.delegationKey }),
-    [taskId],
+    (item: ReviewShelfItem) => {
+      const saved = useReviewDismissalsStore.getState().dismissReview({
+        repositoryPath: repositoryPath ?? "",
+        workspaceId,
+        taskId,
+        delegationKey: item.child.delegationKey,
+      });
+      if (!saved) {
+        toast.error("Could not save the dismissed review", {
+          description: "It is hidden for this session, but may return after Stave restarts.",
+        });
+      }
+    },
+    [repositoryPath, taskId, workspaceId],
   );
   const actions = useMemo<ShelfReviewActions>(
     () => ({ attach, open, stop, dismiss }),
