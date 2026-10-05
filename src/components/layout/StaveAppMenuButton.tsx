@@ -1,8 +1,9 @@
-import { i18n, useTranslation } from "@/i18n";
+import { APP_LOCALES, APP_LOCALE_NATIVE_NAMES, isAppLocale, i18n, useTranslation } from "@/i18n";
 import {
   Command,
   Home,
   Keyboard,
+  Languages,
   Moon,
   RefreshCw,
   Settings,
@@ -17,8 +18,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
@@ -43,6 +49,8 @@ export function StaveAppMenuButton(args?: {
     isDarkMode,
     setDarkMode,
     refreshRepositoryFiles,
+    language,
+    updateSettings,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -52,6 +60,8 @@ export function StaveAppMenuButton(args?: {
           state.isDarkMode,
           state.setDarkMode,
           state.refreshRepositoryFiles,
+          state.settings.language,
+          state.updateSettings,
         ] as const,
     ),
   );
@@ -63,6 +73,12 @@ export function StaveAppMenuButton(args?: {
   const handleToggleTheme = useCallback(() => {
     setDarkMode({ enabled: !isDarkMode });
   }, [isDarkMode, setDarkMode]);
+
+  const handleLanguageChange = useCallback((value: string) => {
+    if (isAppLocale(value)) {
+      updateSettings({ patch: { language: value } });
+    }
+  }, [updateSettings]);
 
   const commandPaletteShortcutLabel = useMemo(
     () =>
@@ -138,6 +154,21 @@ export function StaveAppMenuButton(args?: {
             )}
             {isDarkMode ? i18n.t("shell:staveAppMenuButton.switchToLightMode") : i18n.t("shell:staveAppMenuButton.switchToDarkMode")}
           </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Languages {...stylex.props(staveAppMenuStyles.itemIcon)} />
+              {i18n.t("shell:staveAppMenuButton.language")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuRadioGroup value={language} onValueChange={handleLanguageChange}>
+                {APP_LOCALES.map((locale) => (
+                  <DropdownMenuRadioItem key={locale} value={locale}>
+                    {APP_LOCALE_NATIVE_NAMES[locale]}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuItem
             onSelect={args?.onOpenKeyboardShortcuts}
           >

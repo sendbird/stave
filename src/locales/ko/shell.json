@@ -248,7 +248,8 @@
     "switchToLightMode": "라이트 모드로 전환",
     "switchToDarkMode": "다크 모드로 전환",
     "keyboardShortcuts": "키보드 단축키",
-    "settings": "설정"
+    "settings": "설정",
+    "language": "언어"
   },
   "topBar": {
     "expandRepositoryList": "저장소 목록 펼치기",
