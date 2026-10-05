@@ -1,5 +1,6 @@
 import { PromptInput } from "@/components/ai-elements";
 import { ComposerContextDock } from "@/components/session/ComposerContextDock";
+import { AgentAttachmentNotice } from "@/components/session/AgentAttachmentNotice";
 import { ComposerWorkspaceBar } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
 import { MacroQuickPicks } from "@/components/session/MacroQuickPicks";
@@ -83,6 +84,7 @@ import { chatInputStyles } from "./chat-input.styles";
 import { resolveQueuePause } from "@/store/task-work-pause";
 import { useTaskContextMentions } from "./use-task-context-mentions";
 import { useAppStore } from "@/store/app.store";
+import { getImageAttachmentMimeType } from "@/store/prompt-draft-message-content";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
 import { resolveActiveTurnProviderId } from "@/store/chat-state-helpers";
 import {
@@ -146,12 +148,6 @@ import {
 
 const PROMPT_DRAFT_SAVE_DELAY_MS = 1200;
 const PROMPT_DRAFT_IDLE_TIMEOUT_MS = 750;
-function getImageAttachmentMimeType(
-  attachment: Extract<Attachment, { kind: "image" }>,
-) {
-  return attachment.mimeType?.trim() || "image/png";
-}
-
 interface ChatInputComposerProps {
   isEmpty: boolean;
   activeTaskId: string;
@@ -1396,6 +1392,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         {/* Steering, a stalled turn and the queue are rows and tones of the one
             shelf; classic mode stacks it on the card, the frame tucks it in. */}
         {useFramedComposer ? null : composerShelf}
+        <AgentAttachmentNotice taskId={args.activeTaskId} providerId={args.activeProvider} draft={{ ...promptDraft, text: draftText }} />
         <PromptInput
           attachmentScopeId={args.providerSelectionTarget}
           framed={useFramedComposer}

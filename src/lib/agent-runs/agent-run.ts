@@ -18,6 +18,7 @@
 import { DEFAULT_AGENT_CHECK_INS, type AgentConfig } from "@/lib/agents/schema";
 import { WORKFLOW_LIMITS, WORKFLOW_VERSION, type Workflow } from "@/lib/workflows/schema";
 import { AGENT_RUN_LIMITS, stageHasExternalEffect, type AgentRun, type AgentRunStartInput } from "./domain";
+import type { PromptDraft } from "@/types/chat";
 
 type RunAgent = Pick<AgentConfig, "name" | "workflow" | "checkIns">;
 
@@ -111,6 +112,17 @@ export type AgentPromptSendPlan =
       kind: "plain-turn";
       reason: "chat" | "run-active" | "turn-active" | "not-a-prompt" | "attachments" | "too-long" | "provider";
     };
+
+/** The composer and send path count the same payload, including staged items. */
+export function hasAgentPromptAttachments(
+  draft: Pick<PromptDraft, "attachedFilePaths" | "attachments"> & Pick<Partial<PromptDraft>, "promptBatch">,
+  extraContextCount = 0,
+): boolean {
+  return extraContextCount > 0 || draft.attachedFilePaths.length > 0 ||
+    draft.attachments.some((attachment) => attachment.kind !== "lens-annotations") ||
+    (draft.promptBatch ?? []).some((item) => (item.attachedFilePaths?.length ?? 0) > 0 ||
+      item.attachments?.some((attachment) => attachment.kind !== "lens-annotations"));
+}
 
 /**
  * Whether a composer send starts an agent run or stays a plain turn.

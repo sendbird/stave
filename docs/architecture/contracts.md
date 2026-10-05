@@ -166,6 +166,12 @@ Task attachments have two separate representations:
   context for the normal canonical provider request. The `task_context` chip
   is display only and must remain excluded by
   `src/lib/providers/canonical-request.ts`.
+- Streaming source replies are labelled partial in the retrieved context.
+  `src/components/task-context-draft-chip.tsx` uses the same selection rules for
+  its live partial label; sent chips keep their original display metadata.
+  `AgentAttachmentNotice` uses `planAgentPromptSend` and
+  `hasAgentPromptAttachments` to explain attachment-triggered single turns
+  before sending, including staged prompt items.
 
 Check `tests/attached-task-context.test.ts` and
 `tests/attached-task-context-send.test.ts` for clipping, missing content,

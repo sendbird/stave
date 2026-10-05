@@ -191,7 +191,10 @@ export interface TaskContextPreviewEntry {
   role: ChatMessage["role"];
   /** Bounded exactly as the provider receives it. */
   text: string;
+  isStreaming: boolean;
 }
+
+export const PARTIAL_TASK_REPLY_NOTE = "Partial reply: still streaming; this is not a final answer.";
 
 /**
  * What an attached task contributes under a scope, one entry per message,
@@ -217,7 +220,7 @@ export function selectTaskContextEntries(args: {
       }
       const clipped = clip(text, Math.min(budget, MAX_LATEST_REPLY_CHARS));
       budget -= `[${message.role}]\n${clipped}`.length;
-      picked.unshift({ role: message.role, text: clipped });
+      picked.unshift({ role: message.role, text: clipped, isStreaming: message.role === "assistant" && message.isStreaming === true });
     }
     return picked;
   }
@@ -228,7 +231,7 @@ export function selectTaskContextEntries(args: {
     }
     const text = messageText(message);
     if (text) {
-      return [{ role: "assistant", text: clip(text, MAX_LATEST_REPLY_CHARS) }];
+      return [{ role: "assistant", text: clip(text, MAX_LATEST_REPLY_CHARS), isStreaming: message.isStreaming === true }];
     }
   }
   return [];
@@ -239,7 +242,7 @@ function latestAssistantReply(messages: readonly ChatMessage[]) {
     const message = messages[index]!;
     if (message.role === "assistant") {
       const text = messageText(message);
-      if (text) return { id: message.id, text };
+      if (text) return { id: message.id, text, isStreaming: message.isStreaming === true };
     }
   }
   return null;
@@ -260,18 +263,9 @@ export function buildAttachedTaskSection(args: {
   // A review the user narrowed to chosen findings sends only those. If they
   // can no longer be read, the whole latest reply goes instead, so a choice
   // never turns into silence.
-  if (args.attachment.findingIds?.length) {
-    const latest = latestAssistantReply(args.messages);
-    // Ids were read from one reply; after a later turn they may name others.
-    const sameReply =
-      !args.attachment.findingsReplyId || latest?.id === args.attachment.findingsReplyId;
-    const parsed = sameReply ? parseReviewFindings(latest?.text) : null;
-    const selected = parsed?.ok
-      ? formatSelectedReviewFindings({ report: parsed.report, findingIds: args.attachment.findingIds })
-      : null;
-    if (selected) {
-      return [...header, selected].join("\n");
-    }
+  const selected = selectedAttachedFindings(args);
+  if (selected) {
+    return [...header, ...(selected.isStreaming ? [PARTIAL_TASK_REPLY_NOTE] : []), selected.text].join("\n");
   }
   const entries = selectTaskContextEntries({
     scope: args.attachment.scope,
@@ -284,10 +278,34 @@ export function buildAttachedTaskSection(args: {
     return [
       ...header,
       "recent conversation, oldest first:",
-      ...entries.map((entry) => `[${entry.role}]\n${entry.text}`),
+      ...entries.map((entry) => `[${entry.role}]\n${entry.isStreaming ? `${PARTIAL_TASK_REPLY_NOTE}\n` : ""}${entry.text}`),
     ].join("\n");
   }
-  return [...header, "latest reply:", entries[0]!.text].join("\n");
+  return [...header, "latest reply:", ...(entries[0]!.isStreaming ? [PARTIAL_TASK_REPLY_NOTE] : []), entries[0]!.text].join("\n");
+}
+
+function selectedAttachedFindings(args: {
+  attachment: Pick<TaskContextAttachment, "findingIds" | "findingsReplyId">;
+  messages: readonly ChatMessage[];
+}) {
+  if (!args.attachment.findingIds?.length) return null;
+  const latest = latestAssistantReply(args.messages);
+  // Ids were read from one reply; after a later turn they may name others.
+  const sameReply = !args.attachment.findingsReplyId || latest?.id === args.attachment.findingsReplyId;
+  const parsed = sameReply ? parseReviewFindings(latest?.text) : null;
+  const text = parsed?.ok
+    ? formatSelectedReviewFindings({ report: parsed.report, findingIds: args.attachment.findingIds })
+    : null;
+  return text ? { text, isStreaming: latest!.isStreaming } : null;
+}
+
+/** The draft chip describes only the replies that its current scope will send. */
+export function hasPartialAttachedTaskReply(args: {
+  attachment: Pick<TaskContextAttachment, "scope" | "findingIds" | "findingsReplyId">;
+  messages: readonly ChatMessage[];
+}): boolean {
+  const selected = selectedAttachedFindings(args);
+  return selected ? selected.isStreaming : selectTaskContextEntries({ scope: args.attachment.scope, messages: args.messages }).some((entry) => entry.isStreaming);
 }
 
 export function buildAttachedTaskRetrievedContext(args: {

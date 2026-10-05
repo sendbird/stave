@@ -245,6 +245,11 @@ Results** in the command palette) shows how agent runs and legacy runs that ende
 ## Limitations And Advanced Options
 
 - Agent runs run on Claude and Codex tasks, one agent run per task at a time.
+- When an Agent-mode message includes files, images or task/context attachments,
+  the composer explains before sending that it will run as a single turn and
+  automatic agent execution will not start. Attachments in staged prompt items
+  count too. Text-only Lens annotations keep the normal run path. Messages to an
+  already active run remain user turns that guide that run.
 - An agent run uses the task's current model. If you change it, the agent run
   pauses until you accept the new runtime for the remaining stages.
 - Pull request stages use the GitHub CLI and watch every check reported for

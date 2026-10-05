@@ -13,7 +13,7 @@
  * action never import it (it imports the app store).
  */
 import type { AgentRunCommandResponse, AgentRunStartArgs } from "@/lib/agent-runs/api";
-import { buildAgentRunStartInput, planAgentPromptSend } from "@/lib/agent-runs/agent-run";
+import { buildAgentRunStartInput, hasAgentPromptAttachments, planAgentPromptSend } from "@/lib/agent-runs/agent-run";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 import { buildOutgoingUserMessage, buildRecentTimestamp } from "@/store/chat-state-helpers";
@@ -26,7 +26,7 @@ import {
   updatePendingAutoRoute,
 } from "@/store/pending-auto-routing-store";
 import { buildClearedPromptDraft, hasPromptDraftPayload } from "@/store/prompt-draft-state";
-import type { Attachment, PromptDraft } from "@/types/chat";
+import type { PromptDraft } from "@/types/chat";
 import { toast } from "@/lib/notifications/toast";
 import { isTaskArchived } from "@/lib/tasks";
 
@@ -57,20 +57,13 @@ export function registerAgentRunBridge(next: AgentRunBridge | null) {
   bridge = next;
 }
 
-function hasNonTextAttachments(draft: Pick<PromptDraft, "attachedFilePaths" | "attachments">) {
-  return (
-    draft.attachedFilePaths.length > 0 ||
-    draft.attachments.some((attachment: Attachment) => attachment.kind !== "lens-annotations")
-  );
-}
-
 type AgentRunSendArgs = {
   set: (update: (state: AppState) => Partial<AppState>) => void;
   workspaceId: string;
   taskId: string;
   providerId: string;
   prompt: string;
-  promptDraft: Pick<PromptDraft, "attachedFilePaths" | "attachments">;
+  promptDraft: Pick<PromptDraft, "attachedFilePaths" | "attachments"> & Pick<Partial<PromptDraft>, "promptBatch">;
   extraContextCount: number;
   turnActive: boolean;
   queued: boolean;
@@ -185,7 +178,7 @@ export function prepareAgentRunForSend(
     turnOrigin: args.turnOrigin,
     providerId: args.providerId,
     prompt: args.prompt,
-    hasAttachments: args.extraContextCount > 0 || hasNonTextAttachments(args.promptDraft),
+    hasAttachments: hasAgentPromptAttachments(args.promptDraft, args.extraContextCount),
   });
   if (plan.kind !== "start-run" || !agent || !activeBridge) return null;
   let submittedDraft: PromptDraft | undefined;

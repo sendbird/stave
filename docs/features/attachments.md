@@ -58,6 +58,11 @@ copying its answer by hand.
 5. Send. The sent message shows the same chip; the provider receives the
    task's text as retrieved context for this message only.
 
+If an included reply is still streaming, its draft chip shows **Partial reply**.
+Sending now includes the text available at dispatch, labelled as partial rather
+than a final answer in the context the agent receives. The draft label disappears
+when the reply finishes; previously sent chips do not describe later reply state.
+
 Up to five tasks can be attached to one message. A long reply is clipped in
 the middle so its opening and its conclusion both arrive. A task with no reply
 yet is named as empty instead of being skipped, and the agent is told not to
