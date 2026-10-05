@@ -117,6 +117,22 @@ describe("agent run send path", () => {
     expect(bridge.started).toEqual([]);
   });
 
+  test("attachments and extra context use the single-turn path, including attachments staged in the batch", async () => {
+    useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+    const bridge = fakeBridge();
+    const taskAttachment = { kind: "task-context" as const, id: "context-1", taskId: "source", workspaceId: "ws-1", title: "Research", scope: "latest-reply" as const };
+    const drafts = [
+      { attachedFilePaths: ["src/a.ts"], attachments: [] },
+      { attachedFilePaths: [], attachments: [taskAttachment] },
+      { attachedFilePaths: [], attachments: [], promptBatch: [{ id: "batch-1", createdAt: "now", content: "Use research", attachments: [taskAttachment] }] },
+    ];
+    for (const promptDraft of drafts) {
+      expect(await startAgentRunForSend(sendArgs({ promptDraft }).args)).toBeNull();
+    }
+    expect(await startAgentRunForSend(sendArgs({ extraContextCount: 1 }).args)).toBeNull();
+    expect(bridge.started).toEqual([]);
+  });
+
   test("a start the host refuses falls back to a plain turn", async () => {
     useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
     const bridge = fakeBridge({ refuse: "Stave's local tools are off." });

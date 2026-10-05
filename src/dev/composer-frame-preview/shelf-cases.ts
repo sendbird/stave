@@ -2,6 +2,7 @@ import type { PendingApprovalQueueItem } from "@/components/session/chat-input-a
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
+import { buildReviewRecheckPrompt, parseReviewFindings } from "@/lib/reviews/review-findings";
 import { agentRunTaskKey, useAgentRunsStore } from "@/store/agent-runs-store";
 import { useAppStore } from "@/store/app.store";
 import type { TurnActivityPlacement } from "@/store/app-settings";
@@ -222,6 +223,7 @@ function usageLimitPauseFor(caseId: ShelfCaseId): UsageLimitPauseByTask {
     [PREVIEW_TASK_ID]: {
       workspaceId: PREVIEW_WORKSPACE_ID,
       providerId: "claude-code",
+      accountProfileId: "system-default",
       stoppedTurn: true,
       pausedAt: Date.now() - 3 * 60_000,
       resetsAt,
@@ -339,6 +341,19 @@ function seedPreviewReviews(caseId: ShelfCaseId) {
     runs: {
       ...api.runs,
       listDelegatedTasks: async () => previewReviews,
+      getReviewRevision: async () => {
+        const state = new URLSearchParams(window.location.search).get("revision");
+        if (state === "unknown") return {
+          source: { status: "unknown", reason: "unavailable" },
+          completed: { status: "unknown", reason: "unavailable" },
+          current: { status: "known", revision: "preview-current" },
+        };
+        return {
+          source: { status: "known", revision: "preview-source" },
+          completed: { status: "known", revision: state === "during" ? "preview-completed" : "preview-source" },
+          current: { status: "known", revision: state === "changed" ? "preview-current" : state === "during" ? "preview-completed" : "preview-source" },
+        };
+      },
       delegateTask: async () => ({
         accepted: false,
         duplicate: false,
@@ -360,7 +375,7 @@ function seedPreviewReviews(caseId: ShelfCaseId) {
 /** What the finished review task holds, so View shows a real transcript. */
 function previewReviewMessages(): Record<string, ChatMessage[]> {
   const taskId = "task-stave-review-preview-ready";
-  return {
+  const messages = {
     [taskId]: [
       {
         id: "review-request",
@@ -430,4 +445,16 @@ function previewReviewMessages(): Record<string, ChatMessage[]> {
       },
     ] as ChatMessage[],
   };
+  if (new URLSearchParams(window.location.search).get("recheck") === "incomplete") {
+    const [prompt, answer] = messages[taskId]!;
+    const findings = parseReviewFindings(answer!.content);
+    if (findings.ok) {
+      prompt!.content = buildReviewRecheckPrompt({ originalPrompt: prompt!.content, report: findings.report });
+      answer!.content = "```stave-review-findings\n" + JSON.stringify({
+        verdict: "approve", findings: [],
+        previous: [{ id: "F1", status: "resolved" }, { id: "F2", status: "outdated" }],
+      }) + "\n```";
+    }
+  }
+  return messages;
 }

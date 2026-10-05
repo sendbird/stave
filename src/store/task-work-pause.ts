@@ -12,6 +12,8 @@ import type { QueuedTurnAutoDispatchHold } from "@/store/queued-task-turn-dispat
 export interface TaskUsageLimitPause {
   workspaceId: string;
   providerId: ProviderId;
+  /** Absent on older pauses: never infer their account from current settings. */
+  accountProfileId?: string;
   model?: string;
   /**
    * The limit ended a running turn. Resuming first continues that turn's

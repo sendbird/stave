@@ -1572,7 +1572,7 @@ export function createSendUserMessageAction(args: {
             });
             settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, {
               workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
-              providerId: provider, model: activeModel, turnOrigin,
+              providerId: provider, model: activeModel, accountProfileId: selectedProviderAccount(provider, turnAccounts), turnOrigin,
             });
             maybeStartProviderBrowserFallbackTurn(get, {
               taskId: resolvedTaskId,

@@ -19,6 +19,7 @@ import type { DelegationActionId } from "@/lib/delegation/exchange";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
 import { useAppStore } from "@/store/app.store";
 import { recheckReviewTask, rerunReviewTask } from "@/store/review-task-runtime";
+import { reviewFindingsToRecheck } from "@/lib/reviews/review-findings";
 import {
   buildReviewExchange,
   describeReviewShelfFindings,
@@ -26,6 +27,9 @@ import {
 } from "./composer-shelf.utils";
 import { ReviewFindingsPanel } from "./ReviewFindingsPanel";
 import { useReviewTranscript } from "./use-review-transcript";
+import { useReviewRevision } from "./use-review-revision";
+import { ReviewRevisionNotice } from "./ReviewRevisionNotice";
+import { describeReviewRevision, reviewRevisionLabel } from "@/lib/reviews/review-revision";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import type { ShelfReviewActions } from "./use-shelf-reviews";
 
@@ -86,6 +90,7 @@ export function ReviewActivityDialog(props: {
   const repositoryPath = useAppStore((state) => state.repositoryPath);
   const title = taskTitle?.trim() || "Review";
   const { transcript, findings } = useReviewTranscript(item);
+  const { state: revision, refresh: refreshRevision } = useReviewRevision(item);
   const attachedFindingIds = useAppStore((state) => {
     const chip = state.promptDraftByTask[item.child.parentTaskId]?.attachments.find(
       (attachment) =>
@@ -158,7 +163,7 @@ export function ReviewActivityDialog(props: {
           onClose();
         }}
         onRecheck={
-          findings.ok && findings.report.findings.length > 0 && transcript?.prompt
+          findings.ok && reviewFindingsToRecheck(findings.report).length > 0 && transcript?.prompt
             ? () => void recheck()
             : null
         }
@@ -211,8 +216,9 @@ export function ReviewActivityDialog(props: {
       repositoryPath={repositoryPath ?? undefined}
       onClose={onClose}
       onAction={onAction}
+      onRefresh={refreshRevision}
       renderExtraActions={renderExtraActions}
-      leadContent={leadContent}
+      leadContent={<><ReviewRevisionNotice state={revision} />{leadContent}</>}
     />
   );
 }
@@ -246,6 +252,8 @@ function ReviewLine(props: {
   const { item, actions } = props;
   // Only a finished review has findings to count; reading is cached.
   const { findings } = useReviewTranscript(item, { enabled: item.status === "ready" });
+  const { state: revision } = useReviewRevision(item);
+  const revisionNote = describeReviewRevision(revision);
   const line = describeReviewShelfLine({
     item,
     now: props.now,
@@ -265,6 +273,7 @@ function ReviewLine(props: {
       <p className={sx(styles.text)} title={`${line.label} · ${line.detail}`}>
         <span className={sx(styles.label, TONE_INK[line.tone])}>{line.label}</span>
         <span>{` · ${line.detail}`}</span>
+        {revisionNote ? <span className={sx(styles.labelWaiting)} title={revisionNote}> · {reviewRevisionLabel(revision)}</span> : null}
       </p>
       <span className={sx(styles.actions)}>
         {item.status === "ready" ? (

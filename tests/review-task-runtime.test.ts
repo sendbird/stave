@@ -424,6 +424,18 @@ describe("bringing the result back", () => {
     expect(empty.ok).toBe(false);
   });
 
+  test("checking again retains earlier findings omitted from a re-check answer", async () => {
+    const earlier = { id: "F1", severity: "major" as const, title: "Still needs verification", file: "src/a.ts", line: 1, detail: null, fix: null };
+    const result = await recheckReviewTask({
+      getState: useAppStore.getState, review: REVIEW_CHILD, originalPrompt: "Review this scope", title: "Review",
+      report: { verdict: "approve", findings: [], earlierFindings: [earlier],
+        previous: [{ id: "F1", status: "unchecked", note: "Missing from the answer" }] },
+      now: new Date("2026-10-04T14:00:00.000Z"), nonce: "incomplete",
+    });
+    expect(result.ok).toBe(true);
+    expect(DelegateTaskArgsSchema.parse(delegated[0]).prompt).toContain('"id":"F1"');
+  });
+
   test("an unattached review stays out of the next turn", async () => {
     delegatedChildren = [REVIEW_CHILD];
     useAppStore.getState().updatePromptDraft({ taskId: "task-main", patch: { text: "Continue" } });

@@ -12,6 +12,7 @@ import {
   DelegatedTaskStopArgsSchema,
   describeDelegatedTaskRejection,
 } from "../src/lib/runs/delegated-task";
+import { ReviewRevisionArgsSchema, ReviewRevisionStateSchema } from "../src/lib/reviews/review-revision";
 
 const root = path.resolve(import.meta.dir, "..");
 
@@ -53,6 +54,7 @@ const DELEGATED_TASK_CHANNELS = [
   "delegations:get-link",
   "delegations:list",
   "delegations:retry",
+  "delegations:review-revision",
   "delegations:stop",
   "delegations:sync-permission-settings",
 ] as const;
@@ -76,6 +78,7 @@ describe("delegated task IPC chain", () => {
     for (const method of [
       "delegateTask",
       "listDelegatedTasks",
+      "getReviewRevision",
       "followUpDelegatedTask",
       "retryDelegatedTask",
       "stopDelegatedTask",
@@ -111,6 +114,18 @@ describe("delegated task IPC schemas", () => {
     delegatedWorkspaceId: "workspace-child-1",
     attempt: 1,
   };
+
+  test("review revision requests require a child identity and return bounded provenance", () => {
+    const args = { parentTaskId: "parent-1", delegationKey: "stave-review-check", expected };
+    expect(ReviewRevisionArgsSchema.safeParse(args).success).toBe(true);
+    expect(ReviewRevisionArgsSchema.safeParse({ ...args, expected: undefined }).success).toBe(false);
+    expect(ReviewRevisionArgsSchema.safeParse({ ...args, workspacePath: "/tmp/other" }).success).toBe(false);
+    const revision = { status: "known", revision: "bounded-hash" };
+    expect(ReviewRevisionStateSchema.safeParse({ source: revision, completed: revision,
+      current: { status: "unknown", reason: "changing" } }).success).toBe(true);
+    expect(ReviewRevisionStateSchema.safeParse({ source: revision, completed: revision,
+      current: { ...revision, contents: "private" } }).success).toBe(false);
+  });
 
   test("accept the requests the parent surface actually sends", () => {
     expect(

@@ -1,5 +1,7 @@
 import type { StoreApi } from "zustand";
-import { resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
+import { collectProviderAccountUsageWindows, resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
+import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
+import type { RateLimitsSnapshotResponse } from "@/lib/providers/provider.types";
 import { toast } from "@/lib/notifications/toast";
 import { buildUsageLimitContinuationPrompt } from "@/lib/providers/usage-limit-stop";
 import type { AppState } from "@/store/app-store.types";
@@ -9,6 +11,7 @@ import {
   type TaskUsageLimitPause,
 } from "@/store/task-work-pause";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
+import { readProviderAccountUsage } from "@/store/account-usage-guard";
 
 type TaskPauseActionKey =
   | "pauseTaskForUsageLimit"
@@ -22,14 +25,14 @@ type TaskPauseActions = Pick<AppState, TaskPauseActionKey>;
 const AUTO_RESUME_RETRY_WINDOW_MS = 2 * 60_000;
 
 function readUsageLimitReset(args: {
-  state: Pick<AppState, "rateLimitsSnapshot">;
+  snapshot: RateLimitsSnapshotResponse | null;
   providerId: TaskUsageLimitPause["providerId"];
   model?: string;
 }): { resetsAt: number | null; windowLabel: string } | null {
   const block = resolveAccountUsageBlock({
     providerId: args.providerId,
     model: args.model,
-    snapshot: args.state.rateLimitsSnapshot,
+    snapshot: args.snapshot,
   });
   if (!block) {
     return null;
@@ -82,10 +85,11 @@ export function createTaskPauseActions(args: {
   };
 
   /** Fill in, or move, the reset time from the latest usage reading. */
-  const applyUsageReading = (taskId: string) => {
+  const applyUsageReading = (taskId: string, expected: TaskUsageLimitPause, snapshot: RateLimitsSnapshotResponse) => {
     patchPause(taskId, (pause) => {
+      if (pause !== expected) return pause;
       const reading = readUsageLimitReset({
-        state: get(),
+        snapshot,
         providerId: pause.providerId,
         model: pause.model,
       });
@@ -120,13 +124,16 @@ export function createTaskPauseActions(args: {
     const now = Date.now();
     set((state) => {
       const current = state.usageLimitPauseByTask[pauseArgs.taskId];
+      const accountProfileId = pauseArgs.accountProfileId ?? pauseArgs.usageLimit?.accountProfileId ??
+        (current?.providerId === pauseArgs.providerId ? current.accountProfileId : undefined);
       const reading = pauseArgs.usageLimit
         ? {
             resetsAt: pauseArgs.usageLimit.resetsAt,
             windowLabel: pauseArgs.usageLimit.windowLabel,
           }
         : readUsageLimitReset({
-            state,
+            snapshot: accountProfileId && accountProfileId === selectedProviderAccount(pauseArgs.providerId, state.settings)
+              ? state.rateLimitsSnapshot : null,
             providerId: pauseArgs.providerId,
             model: pauseArgs.model,
           });
@@ -145,6 +152,7 @@ export function createTaskPauseActions(args: {
       const next: TaskUsageLimitPause = {
         workspaceId: pauseArgs.workspaceId,
         providerId: pauseArgs.providerId,
+        ...(accountProfileId ? { accountProfileId } : {}),
         ...(model ? { model } : {}),
         stoppedTurn: pauseArgs.stoppedTurn || (current?.stoppedTurn ?? false),
         pausedAt: current?.pausedAt ?? now,
@@ -159,13 +167,12 @@ export function createTaskPauseActions(args: {
         },
       };
     });
-    if (!pauseArgs.usageLimit) {
+    const pause = get().usageLimitPauseByTask[pauseArgs.taskId];
+    if (!pauseArgs.usageLimit && pause?.accountProfileId) {
       // A stopped turn only says it hit the limit. A fresh usage read says
       // which window ran out and when it resets.
-      void get()
-        .refreshRateLimits({ providers: [pauseArgs.providerId], force: true })
-        .then(() => applyUsageReading(pauseArgs.taskId))
-        .catch(() => undefined);
+      void readProviderAccountUsage(get, pause.providerId, pause.accountProfileId)
+        .then((snapshot) => { if (snapshot) applyUsageReading(pauseArgs.taskId, pause, snapshot); });
     }
   };
 
@@ -178,18 +185,27 @@ export function createTaskPauseActions(args: {
       if (!pause || pause.autoResumeAt == null) {
         return;
       }
+      if (!pause.accountProfileId) {
+        get().setUsageLimitAutoResume({ taskId, enabled: false });
+        toast.info("Paused account is unknown", { description: "Resume manually to use your currently selected account." });
+        return;
+      }
+      const expected = pause;
       // Read usage once more before sending: the reset can move, and another
       // window (weekly after the 5-hour one) may still be out.
-      await get()
-        .refreshRateLimits({ providers: [pause.providerId], force: true })
-        .catch(() => undefined);
+      const snapshot = await readProviderAccountUsage(get, pause.providerId, pause.accountProfileId);
       // The user may have resumed, cancelled or dismissed during the read.
       pause = get().usageLimitPauseByTask[taskId];
-      if (!pause || pause.autoResumeAt == null) {
+      if (!pause || pause !== expected || pause.autoResumeAt == null) {
+        return;
+      }
+      if (!snapshot || collectProviderAccountUsageWindows({ providerId: pause.providerId, model: pause.model, snapshot }) == null) {
+        get().setUsageLimitAutoResume({ taskId, enabled: false });
+        toast.warning("Couldn't verify paused account usage", { description: "The task stays paused. Resume manually or reserve another reset-time resume." });
         return;
       }
       const reading = readUsageLimitReset({
-        state: get(),
+        snapshot,
         providerId: pause.providerId,
         model: pause.model,
       });
@@ -212,6 +228,8 @@ export function createTaskPauseActions(args: {
         return;
       }
       autoResumeRetryUntil.set(taskId, Date.now() + AUTO_RESUME_RETRY_WINDOW_MS);
+    } else {
+      autoResumeRetryUntil.delete(taskId);
     }
 
     const state = get();
@@ -243,6 +261,7 @@ export function createTaskPauseActions(args: {
         taskId,
         workspaceId,
         providerId: pause.providerId,
+        accountProfileId: pause.accountProfileId,
         model: pause.model,
         stoppedTurn: true,
       });
@@ -251,7 +270,18 @@ export function createTaskPauseActions(args: {
         taskId,
         content: buildUsageLimitContinuationPrompt(),
         preservePromptDraft: true,
-        runtimeOverrides: session.promptDraftByTask[taskId]?.runtimeOverrides,
+        providerOverride: pause.providerId,
+        runtimeOverrides: {
+          ...session.promptDraftByTask[taskId]?.runtimeOverrides,
+          autoRouting: false,
+          model: pause.model,
+          modelProviderId: pause.providerId,
+          ...(pause.providerId === "codex"
+            ? { codexAccountProfileId: pause.accountProfileId ?? selectedProviderAccount(pause.providerId, get().settings) }
+            : pause.providerId === "claude-code"
+              ? { claudeAccountProfileId: pause.accountProfileId ?? selectedProviderAccount(pause.providerId, get().settings) }
+              : {}),
+        },
         turnOrigin: "conversation",
       });
       if (result.status === "blocked") {
@@ -260,6 +290,7 @@ export function createTaskPauseActions(args: {
             taskId,
             workspaceId,
             providerId: result.usageLimit?.providerId ?? pause.providerId,
+            accountProfileId: result.usageLimit?.accountProfileId ?? pause.accountProfileId,
             model: result.usageLimit?.model ?? pause.model,
             stoppedTurn: true,
             usageLimit: result.usageLimit,
@@ -289,6 +320,11 @@ export function createTaskPauseActions(args: {
     pauseTaskForUsageLimit,
     resumePausedTaskWork,
     setUsageLimitAutoResume: ({ taskId, enabled }) => {
+      if (!enabled) autoResumeRetryUntil.delete(taskId);
+      if (enabled && get().usageLimitPauseByTask[taskId] && !get().usageLimitPauseByTask[taskId]?.accountProfileId) {
+        toast.info("Paused account is unknown", { description: "Resume manually to use your currently selected account." });
+        return;
+      }
       patchPause(taskId, (pause) => {
         if (!enabled) {
           if (pause.autoResumeAt == null) {
@@ -305,6 +341,7 @@ export function createTaskPauseActions(args: {
       });
     },
     dismissUsageLimitPause: ({ taskId }) => {
+      autoResumeRetryUntil.delete(taskId);
       patchPause(taskId, () => null);
     },
   };

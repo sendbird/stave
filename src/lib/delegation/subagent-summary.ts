@@ -44,9 +44,12 @@ export function selectTaskSubagents(args: SelectDelegationExchangesArgs & { mess
   for (const graph of graphs.values()) {
     for (const exchange of selectDelegationExchanges({ workGraph: graph, includeSubagents: true })) {
       const part = exchange.ref.toolUseId ? partsById.get(exchange.ref.toolUseId) : undefined;
-      const latestTool = graph.orderedWorkItemIds.map((id) => graph.workItemsById[id]).filter((item) => item?.nodeKey === exchange.ref.nodeKey).at(-1);
-      const latestPart = latestTool?.toolUseId ? partsById.get(latestTool.toolUseId) : undefined;
-      const todos = latestPart?.toolName.toLowerCase() === "todowrite" ? parseToolInput(latestPart.input)?.todos : null;
+      const workerTools = graph.orderedWorkItemIds.map((id) => graph.workItemsById[id]).filter((item) => item?.nodeKey === exchange.ref.nodeKey);
+      const latestTool = workerTools.at(-1);
+      // Plan updates replace their part in place; insertion order is not recency.
+      const planPart = workerTools.map((item) => item?.toolUseId ? partsById.get(item.toolUseId) : undefined)
+        .filter((part) => part?.toolName.toLowerCase() === "todowrite").at(-1);
+      const todos = planPart ? parseToolInput(planPart.input)?.todos : null;
       const current = Array.isArray(todos) ? todos.find((item) => item?.status === "in_progress" && typeof item.content === "string")?.content : null;
       const progress = exchange.outcome.progress ?? [];
       const receipt = receipts.get(graph.turnId);

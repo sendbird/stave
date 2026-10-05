@@ -75,6 +75,13 @@ Any change to `window.api` must be checked across:
 - `electron/main/ipc/*`
 - renderer call sites under `src/`
 
+Quota snapshot responses use `RateLimitsSnapshotResponse` through host protocol,
+IPC, preload and the window API. Optional `reads` feedback describes only the
+requested provider's actual read outcome and next allowed read times, validated
+by `QuotaReadFeedbackSchema` in the usage page. It does not expose native cache
+provenance, credentials or runtime options, and is never a persisted quota
+observation. Older hosts without feedback leave the read outcome unknown.
+
 ## Provider Model Catalog Contract
 
 Runtime model catalogs cross the same process seam as provider turns:
@@ -159,6 +166,12 @@ Task attachments have two separate representations:
   context for the normal canonical provider request. The `task_context` chip
   is display only and must remain excluded by
   `src/lib/providers/canonical-request.ts`.
+- Streaming source replies are labelled partial in the retrieved context.
+  `src/components/task-context-draft-chip.tsx` uses the same selection rules for
+  its live partial label; sent chips keep their original display metadata.
+  `AgentAttachmentNotice` uses `planAgentPromptSend` and
+  `hasAgentPromptAttachments` to explain attachment-triggered single turns
+  before sending, including staged prompt items.
 
 Check `tests/attached-task-context.test.ts` and
 `tests/attached-task-context-send.test.ts` for clipping, missing content,
@@ -167,7 +180,7 @@ history exclusion and prompt-batch attachment coverage. See
 path and [Attachments](../features/attachments.md#attach-another-task-as-context)
 for the user flow.
 
-Review tasks reuse both contracts without adding a new one:
+Review tasks reuse both contracts and record workspace provenance:
 
 - The renderer starts a review through the existing `delegations:create`
   IPC (`DelegateTaskArgsSchema`) with `access: "read-only"`,
@@ -192,6 +205,14 @@ Review tasks reuse both contracts without adding a new one:
 - The skill a review follows is resolved in the renderer and embedded in the
   delegated prompt, because the host's `run-task` path does not resolve `$skill`
   tokens.
+- Review claim and completion receipts optionally record bounded host-only
+  `WorkspaceRevision` fingerprints. `delegations:review-revision` validates
+  the expected child identity and reads the child-owned workspace, comparing
+  start, completion and current state. It returns hashes or explicit unknown
+  states, never file contents. Old receipts and interrupted completions keep
+  unknown provenance; they cannot prove unchanged code. The renderer checks
+  on result access, app focus and explicit result refresh, without polling each
+  token or timer tick.
 - Structured findings are a reply contract, not an IPC one:
   `src/lib/reviews/review-findings.ts` writes the instructions into every
   review prompt and parses the last fenced `stave-review-findings` JSON block

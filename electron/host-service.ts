@@ -135,6 +135,7 @@ import {
   writeCodexConfigValue,
 } from "./providers/codex-app-server-runtime";
 import { getRateLimitsSnapshot } from "./providers/rate-limits/rate-limits-snapshot";
+import { subscribeQuotaObservations } from "./providers/rate-limits/quota-observations";
 import { closeKiroUsageConnection } from "./providers/rate-limits/kiro-usage-fetcher";
 import {
   forkClaudeSession,
@@ -635,6 +636,13 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
 });
 
 registerDelegationPolicyObserver();
+subscribeQuotaObservations((snapshot, metadata) => {
+  try {
+    ensureHostServicePersistenceReady().usageStatistics.recordQuota(snapshot, metadata, metadata.observedAt);
+  } catch {
+    console.warn("[usage-statistics] quota observation could not be saved");
+  }
+});
 
 const writeWorkspacePlanFile = createWorkspacePlanFileWriter({
   resolveWorkspacePath: async (workspaceId) => {
@@ -1813,19 +1821,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       );
       return;
     case "provider.get-rate-limits-snapshot": {
-      const snapshot = await getRateLimitsSnapshot({
-        ...request.params,
-        onObservation: (observation) => {
-          try {
-            ensureHostServicePersistenceReady().usageStatistics.recordQuota(observation, {
-              claudeAccountProfileId: currentProviderAccountId("claude-code"),
-              codexAccountProfileId: currentProviderAccountId("codex"),
-            });
-          } catch {
-            console.warn("[usage-statistics] quota observation could not be saved");
-          }
-        },
-      });
+      const snapshot = await getRateLimitsSnapshot(request.params);
       await respond(request.id, snapshot);
       return;
     }

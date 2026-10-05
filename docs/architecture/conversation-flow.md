@@ -41,6 +41,15 @@ ended the turn. A queued send refused by `account-usage-guard.ts` reaches the
 same pause through the dispatcher's blocked-result callback. Utility turns
 neither create nor release this conversation pause.
 
+Each new pause retains the stopped or refused execution's provider, model and
+account. Resume reads that account through the account guard's bounded provider
+read; it never substitutes the selected account's meter or replaces that meter
+with another account's response. A stopped turn continues on its recorded
+runtime even if the composer or global account selection changed meanwhile.
+An automatic resume with missing account identity or unavailable usage stays
+paused and drops its reservation. An older pause with no account can only
+resume manually, using the currently selected account for its provider.
+
 `app-store-task-pause-actions.ts` owns pause, cancellation and resume. The
 renderer timer in `use-usage-limit-auto-resume.ts` runs only while the app is
 open. An automatic resume refreshes usage, checks that the user has not

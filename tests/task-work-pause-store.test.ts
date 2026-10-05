@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
 
 const originalWindow = globalThis.window;
 
@@ -27,6 +28,7 @@ function installProviderHarness() {
     clearTimeout: globalThis.clearTimeout.bind(globalThis),
     api: {
       provider: {
+        getRateLimitsSnapshot: async () => ({ ...emptyRateLimitsSnapshot(), codex: { source: "rpc" as const, buckets: [], error: null } }),
         startPushTurn: async (args: { prompt?: string }) => {
           const sequence = startedPrompts.length + 1;
           startedPrompts.push(args.prompt ?? "");
@@ -119,6 +121,7 @@ describe("usage-limit pause", () => {
     expect(paused.usageLimitPauseByTask["task-main"]).toMatchObject({
       workspaceId: "ws-main",
       providerId: "codex",
+      accountProfileId: "system-default",
       stoppedTurn: true,
       resetsAt: null,
     });
@@ -148,6 +151,7 @@ describe("usage-limit pause", () => {
       taskId: "task-main",
       workspaceId: "ws-main",
       providerId: "claude-code",
+      accountProfileId: "system-default",
       stoppedTurn: true,
       usageLimit: { providerId: "claude-code", windowLabel: "Session", resetsAt },
     });
@@ -170,6 +174,7 @@ describe("automatic resume", () => {
       taskId: "task-main",
       workspaceId: "ws-main",
       providerId: "codex",
+      accountProfileId: "system-default",
       stoppedTurn: true,
       usageLimit: { providerId: "codex", windowLabel: "codex primary", resetsAt: Date.now() - 1_000 },
     });
@@ -188,6 +193,7 @@ describe("automatic resume", () => {
       taskId: "task-main",
       workspaceId: "ws-main",
       providerId: "codex",
+      accountProfileId: "system-default",
       stoppedTurn: false,
       usageLimit: { providerId: "codex", windowLabel: "codex primary", resetsAt: Date.now() - 1_000 },
     });
@@ -200,6 +206,7 @@ describe("automatic resume", () => {
       taskId: "task-main",
       workspaceId: "ws-main",
       providerId: "codex",
+      accountProfileId: "system-default",
       stoppedTurn: false,
       usageLimit: { providerId: "codex", windowLabel: "codex secondary", resetsAt: nextReset },
     });

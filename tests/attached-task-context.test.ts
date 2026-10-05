@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   ATTACHED_TASK_CONTEXT_SOURCE_ID,
   MAX_ATTACHED_TASKS,
+  PARTIAL_TASK_REPLY_NOTE,
   TASK_DRAG_MIME,
   addTaskContextAttachment,
   buildAttachedTaskRetrievedContext,
@@ -11,6 +12,8 @@ import {
   decodeTaskDragPayload,
   encodeTaskDragPayload,
   filterTaskMentionOptions,
+  hasPartialAttachedTaskReply,
+  selectTaskContextEntries,
 } from "../src/lib/task-context/attached-task-context";
 import {
   buildMentionPaletteItems,
@@ -152,6 +155,46 @@ describe("context sent with the prompt", () => {
     expect(section).toContain("recent conversation, oldest first:");
     expect(section!.indexOf("Research the login flow")).toBeLessThan(section!.indexOf("In callback.ts"));
     expect(section).toContain("[user]\nWhere exactly?");
+  });
+
+  test("a streaming reply is labelled partial, and completion removes the label", () => {
+    const attachment = { taskId: "t1", title: "Research", scope: "latest-reply" as const };
+    const streaming = { ...message("assistant", "The redirect might be the cause."), isStreaming: true };
+    const messages = [...conversation, streaming];
+    expect(selectTaskContextEntries({ scope: "latest-reply", messages })[0]?.isStreaming).toBe(true);
+    expect(hasPartialAttachedTaskReply({ attachment, messages })).toBe(true);
+    expect(buildAttachedTaskSection({ attachment, messages })).toContain(PARTIAL_TASK_REPLY_NOTE);
+    const completed = [...conversation, { ...streaming, content: "Confirmed the redirect cause.", isStreaming: false }];
+    expect(hasPartialAttachedTaskReply({ attachment, messages: completed })).toBe(false);
+    expect(buildAttachedTaskSection({ attachment, messages: completed })).not.toContain(PARTIAL_TASK_REPLY_NOTE);
+  });
+
+  test("conversation marks only streaming assistant entries; an empty stream does not replace a reply", () => {
+    const streaming = { ...message("assistant", "Work in progress"), isStreaming: true };
+    const messages = [streaming, message("user", "Continue"), message("assistant", "Final reply")];
+    const attachment = { taskId: "t1", title: "Research", scope: "conversation" as const };
+    expect(buildAttachedTaskSection({ attachment, messages })).toContain(`[assistant]\n${PARTIAL_TASK_REPLY_NOTE}\nWork in progress`);
+    expect(hasPartialAttachedTaskReply({ attachment, messages })).toBe(true);
+    expect(hasPartialAttachedTaskReply({ attachment: { ...attachment, scope: "latest-reply" }, messages })).toBe(false);
+    const empty = { ...streaming, content: "", parts: [] };
+    expect(selectTaskContextEntries({ scope: "latest-reply", messages: [...conversation, empty] })[0]?.isStreaming).toBe(false);
+  });
+
+  test("selected findings retain their streaming status without including unselected findings", () => {
+    const content = "```stave-review-findings\n" + JSON.stringify({ verdict: "request-changes", findings: [
+      { id: "F1", severity: "major", title: "Selected problem" },
+      { id: "F2", severity: "minor", title: "Excluded problem" },
+    ] }) + "\n```";
+    const messages = [{ ...message("assistant", content, "review-reply"), isStreaming: true }];
+    const attachment = { taskId: "t1", title: "Review", scope: "latest-reply" as const, findingIds: ["F1"], findingsReplyId: "review-reply" };
+    const section = buildAttachedTaskSection({ attachment, messages });
+    expect(section).toContain(PARTIAL_TASK_REPLY_NOTE);
+    expect(section).toContain("Selected problem");
+    expect(section).not.toContain("Excluded problem");
+    expect(hasPartialAttachedTaskReply({ attachment, messages })).toBe(true);
+    messages[0]!.isStreaming = false;
+    expect(hasPartialAttachedTaskReply({ attachment, messages })).toBe(false);
+    expect(buildAttachedTaskSection({ attachment, messages })).not.toContain(PARTIAL_TASK_REPLY_NOTE);
   });
 
   test("a long reply keeps its opening and its end", () => {

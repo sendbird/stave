@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
   CODEX_RATE_LIMITS_ACTIVE_REFRESH_MS,
   clearCodexRateLimitsCache,
   readCodexRateLimitsCache,
   recordCodexRateLimits,
   resolveCodexRateLimitBuckets,
+  resolveCodexRateLimitReading,
 } from "../electron/providers/codex-rate-limits-cache";
 import { mapCodexRateLimitBuckets } from "../electron/providers/codex-snapshot-mappers";
 import type { CodexRateLimitSnapshot } from "../src/lib/providers/provider.types";
@@ -120,5 +121,23 @@ describe("Codex rate-limit cache", () => {
     expect(readCodexRateLimitsCache()?.buckets[0]?.primary?.usedPercent).toBe(
       27,
     );
+  });
+
+  test("active-read provenance is timestamped when the response arrives", async () => {
+    let now = 1_000_000;
+    const clock = spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      const reading = await resolveCodexRateLimitReading({
+        request: async () => {
+          now += 2000;
+          return [bucket(31)];
+        },
+      });
+      expect(reading).toMatchObject({ fresh: true, entry: { updatedAt: 1_002_000, source: "rpc" } });
+      const cached = await resolveCodexRateLimitReading({ request: async () => [bucket(99)] });
+      expect(cached).toMatchObject({ fresh: false, entry: { updatedAt: 1_002_000 } });
+    } finally {
+      clock.mockRestore();
+    }
   });
 });

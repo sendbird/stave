@@ -18,6 +18,7 @@ import { CLAUDE_EFFORT_OPTIONS, findOptionLabel } from "@/lib/providers/runtime-
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
+import { AgentAttachmentNotice } from "@/components/session/AgentAttachmentNotice";
 import {
   addTaskContextAttachment,
   buildTaskMentionOptions,
@@ -240,6 +241,15 @@ export function ComposerFramePreviewApp() {
   }, []);
   useLayoutEffect(() => {
     seedShelfCase({ caseId, placement, detailsOpen: previewParams.get("open") === "1" });
+    if (previewParams.get("partial") === "1") {
+      const task = PREVIEW_TASK_MENTIONS[0]!;
+      const attachment = createTaskContextAttachment(task);
+      setAttachments([attachment]);
+      useAppStore.setState((state) => ({ messagesByTask: { ...state.messagesByTask,
+        [task.taskId]: [{ id: "partial-preview", role: "assistant", providerId: "codex", model: "model",
+          content: "The investigation is still in progress.", isStreaming: true, parts: [] }],
+      } }));
+    }
   }, [caseId, placement]);
   useEffect(() => {
     document.title = "Composer frame mock";
@@ -411,6 +421,8 @@ export function ComposerFramePreviewApp() {
                     onRespond={() => {}}
                   />
                 ) : null}
+                <AgentAttachmentNotice taskId={PREVIEW_TASK_ID} providerId={selectedModel.providerId}
+                  draft={{ text: draft, attachedFilePaths: [], attachments }} />
                 <PromptInput
                   framed={framed}
                   isTurnActive={turnActive}

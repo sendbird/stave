@@ -33,6 +33,7 @@ export function TaskContextChip(args: {
   onOpen?: () => void;
   /** A review narrowed to chosen findings sends those instead of a scope. */
   findingCount?: number;
+  partialReply?: boolean;
 }) {
   const scopeLabel = args.findingCount
     ? `${args.findingCount} finding${args.findingCount === 1 ? "" : "s"}`
@@ -80,6 +81,9 @@ export function TaskContextChip(args: {
       ) : (
         <span className={sx(styles.muted)}>{` · ${scopeLabel}`}</span>
       )}
+      {args.partialReply ? (
+        <span className={sx(styles.muted)} title="Still streaming. Sending now includes the reply so far."> · Partial reply</span>
+      ) : null}
       {args.onRemove ? (
         <Button
           type="button"
@@ -136,6 +140,7 @@ const styles = stylex.create({
   prefix: { fontWeight: 500 },
   muted: { color: vars["--ads-color-text-muted"], whiteSpace: "nowrap" },
   scopeButton: {
+    flexShrink: 0,
     height: 20,
     paddingInline: 4,
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },

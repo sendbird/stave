@@ -208,7 +208,7 @@ import {
   type WorkspaceInformationReferenceOption,
 } from "@/lib/workspace-information-references";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
-import { TaskContextChip } from "@/components/task-context-chip";
+import { TaskContextDraftChip } from "@/components/task-context-draft-chip";
 import {
   buildMentionPaletteItems,
   readDroppedTask,
@@ -4184,11 +4184,9 @@ export function PromptInput(args: PromptInputProps) {
                 />
               ))}
               {taskContextAttachments.map((attachment) => (
-                <TaskContextChip
+                <TaskContextDraftChip
                   key={attachment.id}
-                  title={attachment.title}
-                  scope={attachment.scope}
-                  findingCount={attachment.findingIds?.length}
+                  attachment={attachment}
                   disabled={interactionsDisabled}
                   compact={minimal}
                   onOpen={() =>

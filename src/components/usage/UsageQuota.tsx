@@ -9,12 +9,15 @@ import { usageScopeLabel, usageTimestamp } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
 import { groupQuotaAccounts, quotaResetCountdown } from "./usage-quota.utils";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import type { QuotaReadFeedback } from "@/lib/providers/quota-read-feedback";
+import { quotaReadFeedbackText } from "./quota-read-feedback";
 
 const identity = (row: QuotaObservation) => `${row.providerId}:${row.accountProfileId}:${row.windowId}`;
 const percent = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
 
 export function UsageQuota(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string;
   canRefresh: boolean; reading: boolean; error: string | null; onRefresh: () => void; now: number; apiBilling: boolean;
+  feedback?: QuotaReadFeedback | null;
   providerId?: ProviderId; accountProfileId?: string; onAccount: (providerId: ProviderId, accountProfileId: string) => void }) {
   const [showHistory, setShowHistory] = useState(false);
   const [windowId, setWindowId] = useState<string | null>(null);
@@ -31,12 +34,14 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
   const accounts = groupQuotaAccounts({ observations: props.report.latestQuota,
     accounts: [...props.report.knownAccounts, ...props.profiles.map((profile) => ({ providerId: profile.providerId, accountProfileId: profile.id }))],
     providerId: props.providerId, accountProfileId: props.accountProfileId, now: props.now });
+  const feedbackText = quotaReadFeedbackText(props.feedback, props.timeZone, props.now);
   return <section className={sx(styles.section)} aria-label="Account quota">
     <div className={sx(styles.header)}>
       <div className={sx(styles.stack, styles.headerCopy)}><h2 className={sx(styles.heading)}>Account quota</h2>
         <p className={sx(styles.note)}>Latest observed account limits · includes usage outside Stave · independent of the token period above</p></div>
       <Button xstyle={styles.control} variant="outline" size="sm" disabled={!props.canRefresh || props.reading} onClick={props.onRefresh}>{props.reading ? "Reading quota…" : "Refresh quota"}</Button>
     </div>
+    {feedbackText ? <p role="status" className={sx(styles.note)}>{feedbackText}</p> : null}
     {props.error ? <p role="alert" className={sx(styles.note)}>{props.error} Saved observations below may be older.</p> : null}
     {props.apiBilling ? <p className={sx(styles.note)}>This API connection is billed by its gateway. Subscription quota is unavailable; see Tokens & cost for Stave turn usage.</p> : null}
     <p className={sx(styles.note)}>Accounts are listed separately, with the next reset first within each provider. Percentages are never pooled across accounts.</p>

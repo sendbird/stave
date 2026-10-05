@@ -256,6 +256,7 @@ interface WindowRunsApi {
     args: DelegateTaskArgs,
   ) => Promise<DelegatedTaskActionResponse>;
   listDelegatedTasks?: (args: DelegatedTaskListArgs) => Promise<DelegatedTaskList>;
+  getReviewRevision?: (args: import("@/lib/reviews/review-revision").ReviewRevisionArgs) => Promise<import("@/lib/reviews/review-revision").ReviewRevisionState | null>;
   followUpDelegatedTask?: (
     args: DelegatedTaskFollowUpArgs,
   ) => Promise<DelegatedTaskActionResponse>;

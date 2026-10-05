@@ -17,7 +17,7 @@ function createMemoryStorage() {
   };
 }
 
-test("a task attached from another workspace reaches the provider as retrieved context", async () => {
+test.each([false, true])("a task attached from another workspace reaches the provider as retrieved context (streaming: %s)", async (streaming) => {
   const requests: unknown[] = [];
   const pageRequests: Array<{ workspaceId: string; taskId: string }> = [];
   (globalThis as { window: unknown }).window = {
@@ -70,6 +70,7 @@ test("a task attached from another workspace reaches the provider as retrieved c
   } as unknown;
 
   const { useAppStore } = await import("../src/store/app.store");
+  const { createWorkspaceSessionStateFromAppState } = await import("../src/store/workspace-runtime-state");
   useAppStore.setState({
     ...useAppStore.getInitialState(),
     hasHydratedWorkspaces: true,
@@ -106,6 +107,12 @@ test("a task attached from another workspace reaches the provider as retrieved c
       },
     },
   } as never);
+  useAppStore.setState({ workspaceRuntimeCacheById: streaming ? {
+    "ws-other": { ...createWorkspaceSessionStateFromAppState(useAppStore.getState()), messagesByTask: {
+      "task-research": [{ id: "streaming-reply", role: "assistant", model: "gpt-5.5", providerId: "codex",
+        content: "The cache key ignores the locale.", isStreaming: true, parts: [] }],
+    } },
+  } : {} });
 
   const result = await useAppStore.getState().sendUserMessage({
     taskId: "task-main",
@@ -114,10 +121,11 @@ test("a task attached from another workspace reaches the provider as retrieved c
   });
 
   expect(result.status).toBe("started");
-  expect(pageRequests).toEqual([{ workspaceId: "ws-other", taskId: "task-research" }]);
+  expect(pageRequests).toEqual(streaming ? [] : [{ workspaceId: "ws-other", taskId: "task-research" }]);
   const request = JSON.stringify(requests[0]);
   expect(request).toContain("stave:attached-task-context");
   expect(request).toContain("The cache key ignores the locale.");
+  expect(request.includes("Partial reply: still streaming; this is not a final answer.")).toBe(streaming);
   const sentUserMessage = useAppStore.getState().messagesByTask["task-main"]?.find((m) => m.role === "user");
   expect(sentUserMessage?.displayParts).toContainEqual({
     type: "task_context",

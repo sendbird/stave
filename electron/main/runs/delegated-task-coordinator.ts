@@ -53,6 +53,9 @@ import {
   boundResponseText,
 } from "../../../src/lib/runs/run-domain";
 import type { RunLedgerTransitionResult } from "../../persistence/run-ledger-store";
+import { ReviewRevisionArgsSchema } from "../../../src/lib/reviews/review-revision";
+import type { WorkspaceRevision } from "../../../src/lib/agent-runs/verification-contract";
+import { captureReviewRevision, reviewRevisionState } from "./review-workspace-revisions";
 
 /**
  * The delegated-task half of the run ledger. It records delegation; it never
@@ -240,6 +243,7 @@ interface DelegatedTaskCoordinatorDependencies {
     target: RunStepTarget; repositoryPath: string; prompt: string; model?: string;
   }) => Promise<void>;
   readHead?: (workspacePath: string) => Promise<string | null>;
+  readWorkspaceRevision?: (workspacePath: string) => Promise<WorkspaceRevision>;
   applyAgent?: (
     args: DelegateTaskArgs,
   ) => Promise<
@@ -497,6 +501,7 @@ export function createDelegatedTaskCoordinator(
     permissionPolicy?: DelegationPermissionPolicy;
     /** The turn's final answer, recorded bounded so the caller gets it back. */
     responseText?: string | null;
+    reviewCompletedRevision?: WorkspaceRevision;
   }) => {
     const timestamp = now();
     const responseText = boundResponseText(args.responseText);
@@ -535,7 +540,9 @@ export function createDelegatedTaskCoordinator(
         taskId: args.target.taskId,
         turnId: args.turnId,
       }),
-      ...(responseText ? { detail: { code: "child-turn-completed", providerId: args.providerId, responseText } } : {}),
+      detail: { code: "child-turn-completed", providerId: args.providerId,
+        ...(responseText ? { responseText } : {}),
+        ...(args.reviewCompletedRevision ? { reviewCompletedRevision: args.reviewCompletedRevision } : {}) },
       now: timestamp,
     });
   };
@@ -616,6 +623,10 @@ export function createDelegatedTaskCoordinator(
               void dependencies.host.stopTask({ workspaceId: args.target.workspaceId, taskId: args.target.taskId }).catch((error) => reportError(error, { scope: "cancel-started-child", runId: args.runId }));
           },
         });
+        const currentRun = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
+        const reviewCompletedRevision = currentRun && acceptedReceiptForRun(args.ledger, args.runId, currentRun.step.attempt)?.detail?.reviewSourceRevision
+          ? await captureReviewRevision({ workspaceId: args.target.workspaceId, repositoryPath: currentRun.run.ownership.repositoryPath,
+            resolveWorkspace: dependencies.host.resolveWorkspace, readRevision: dependencies.readWorkspaceRevision }) : undefined;
         settleAfterTurn({
           ledger: args.ledger,
           runId: args.runId,
@@ -627,6 +638,7 @@ export function createDelegatedTaskCoordinator(
           providerId: args.target.providerId,
           permissionPolicy: args.turn.permissionPolicy,
           responseText: result.responseText,
+          reviewCompletedRevision,
         });
       } catch (error) {
         const current = args.ledger.getRunAggregate({
@@ -1096,6 +1108,9 @@ export function createDelegatedTaskCoordinator(
     const timestamp = now();
     const executionId = createExecutionId();
     const attempt = existing ? existing.step.attempt : 0;
+    const reviewSourceRevision = isReservedDelegationKey(args.delegationKey)
+      ? await captureReviewRevision({ workspaceId: delegatedWorkspaceId, repositoryPath: args.repositoryPath,
+        resolveWorkspace: dependencies.host.resolveWorkspace, readRevision: dependencies.readWorkspaceRevision }) : undefined;
     const transition = ledger.claimRunStep({
       run: createPendingRun({
         id: runId,
@@ -1140,6 +1155,7 @@ export function createDelegatedTaskCoordinator(
         ...(args.agentConfigId ? { agentConfigId: args.agentConfigId } : {}),
         ...(agentContentHash ? { agentContentHash } : {}),
         ...(args.expectedHead ? { expectedHead: args.expectedHead } : {}),
+        ...(reviewSourceRevision ? { reviewSourceRevision } : {}),
       },
       now: timestamp,
     });
@@ -1320,6 +1336,20 @@ export function createDelegatedTaskCoordinator(
   return {
     delegate: delegateChild,
     delegateFromTool,
+    async reviewRevision(rawArgs: unknown) {
+      const parsed = ReviewRevisionArgsSchema.safeParse(rawArgs);
+      if (!parsed.success || !isReservedDelegationKey(parsed.data.delegationKey)) return null;
+      const resolved = await resolveForAction(parsed.data);
+      if (!resolved.ok) return null;
+      const aggregate = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });
+      if (!aggregate) return null;
+      const current = await captureReviewRevision({ workspaceId: resolved.child.delegatedWorkspaceId,
+        repositoryPath: aggregate.run.ownership.repositoryPath, resolveWorkspace: dependencies.host.resolveWorkspace,
+        readRevision: dependencies.readWorkspaceRevision });
+      const latest = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });
+      if (!latest || latest.step.attempt !== aggregate.step.attempt || latest.step.executionId !== aggregate.step.executionId) return null;
+      return reviewRevisionState(resolved.ledger.listRunReceipts({ runId: resolved.runId }), aggregate.step, current);
+    },
 
     /**
      * A fresh attempt on a delegation that ended without succeeding. Provider

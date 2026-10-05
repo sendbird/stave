@@ -55,7 +55,6 @@ describe("parsing review findings", () => {
         findings: [
           { id: "x".repeat(30), severity: "blocker", title: "t".repeat(300), line: "42" },
           { severity: "minor", title: "", detail: "Only a detail" },
-          { severity: "minor" },
           { severity: "minor", title: "Zero line", line: 0 },
         ],
         previous: [{ id: "F1", status: "done" }, { id: "F2", status: "resolved" }],
@@ -69,7 +68,21 @@ describe("parsing review findings", () => {
     expect(second).toMatchObject({ title: "Only a detail" });
     expect(third).toMatchObject({ title: "Zero line", line: null });
     expect(parsed.report.findings).toHaveLength(3);
-    expect(parsed.report.previous).toEqual([{ id: "F2", status: "resolved", note: null }]);
+    expect(parsed.report.previous).toEqual([
+      { id: "F1", status: "unchecked", note: "The reply did not provide a valid check status." },
+      { id: "F2", status: "resolved", note: null },
+    ]);
+  });
+
+  test("unreadable findings cannot turn a report into an approval or hide a blocker", () => {
+    const incomplete = { id: "F1", severity: "critical" };
+    for (const findings of [[incomplete], [...REPORT.findings, incomplete]]) {
+      expect(parseReviewFindings(block({ verdict: "approve", findings }))).toEqual({
+        ok: false, reason: "invalid",
+      });
+    }
+    expect(parseReviewFindings(block({ verdict: "approve", findings: [] })))
+      .toMatchObject({ ok: true, report: { findings: [] } });
   });
 
   test("only the block that ends the reply counts; CRLF and unclosed earlier blocks are fine", () => {
@@ -120,8 +133,8 @@ describe("parsing review findings", () => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     const summary = summarizeReviewFindings(parsed.report);
-    expect(summary.previous).toEqual({ resolved: 1, unresolved: 1, outdated: 1 });
-    expect(describeReviewFindingsSummary(summary)).toBe("2 of 3 fixed · 1 new");
+    expect(summary.previous).toEqual({ resolved: 1, unresolved: 1, outdated: 1, unchecked: 0 });
+    expect(describeReviewFindingsSummary(summary)).toBe("1 of 3 fixed · 1 outdated · 1 new");
   });
 
   test("an empty previous list is still a first review, and longer closing fences are fine", () => {

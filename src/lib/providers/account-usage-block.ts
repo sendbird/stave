@@ -382,7 +382,10 @@ export function mergeRateLimitsSnapshots(args: {
     return args.incoming;
   }
   const next = { ...(args.current ?? emptyRateLimitsSnapshot()) };
+  const reads = { ...next.reads };
   for (const providerId of args.providers) {
+    if (args.incoming.reads?.[providerId]) reads[providerId] = args.incoming.reads[providerId];
+    else delete reads[providerId];
     if (providerId === "claude-code") {
       next.claude = args.incoming.claude;
     } else if (providerId === "codex") {
@@ -393,5 +396,7 @@ export function mergeRateLimitsSnapshots(args: {
       next.kiro = args.incoming.kiro;
     }
   }
+  if (Object.keys(reads).length) next.reads = reads;
+  else delete next.reads;
   return next;
 }

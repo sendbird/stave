@@ -24,6 +24,7 @@ export interface QueuedTurnBlockedResult {
   reason?: string;
   usageLimit?: {
     providerId: ProviderId;
+    accountProfileId?: string;
     model?: string;
     windowLabel: string;
     resetsAt: number | null;

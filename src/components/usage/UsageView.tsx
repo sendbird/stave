@@ -8,28 +8,19 @@ import { Input } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { SYSTEM_ACCOUNT_PROFILE_ID, type ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
-import { quotaObservations, UNATTRIBUTED_ACCOUNT_ID, USAGE_PROVIDER_NAMES, type UsageStatisticsArgs, type UsageStatisticsReport } from "@/lib/providers/usage-statistics";
+import { UNATTRIBUTED_ACCOUNT_ID, USAGE_PROVIDER_NAMES, type UsageStatisticsArgs, type UsageStatisticsReport } from "@/lib/providers/usage-statistics";
+import type { QuotaReadFeedback } from "@/lib/providers/quota-read-feedback";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
 import { UsageBreakdowns, UsageFigures, UsageTimeline, UsageTurnTable } from "./UsageParts";
 import { UsageQuota } from "./UsageQuota";
 import { dateInputValue, loadUsageStatistics, USAGE_PERIOD_OPTIONS, usageAccountLabel, usageRange, type UsagePeriod, type UsageStatisticsLoader } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
+import { readQuota, type QuotaReader } from "./quota-read-feedback";
+export type { QuotaReader } from "./quota-read-feedback";
 
 const ALL = "all";
 const localTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
-export type QuotaReader = (providerId: ProviderId, accountProfileId: string) => Promise<string | null>;
-async function readQuota(providerId: ProviderId, accountProfileId: string): Promise<string | null> {
-  const read = window.api?.provider?.getRateLimitsSnapshot;
-  if (!read) return "Quota reads are available in the desktop app.";
-  const snapshot = await read({ providers: [providerId], force: true, reason: "manual",
-    runtimeOptions: { claudeAccountProfileId: providerId === "claude-code" ? accountProfileId : SYSTEM_ACCOUNT_PROFILE_ID,
-      codexAccountProfileId: providerId === "codex" ? accountProfileId : SYSTEM_ACCOUNT_PROFILE_ID } });
-  const key = providerId === "claude-code" ? "claude" : providerId;
-  return quotaObservations(snapshot, providerId, accountProfileId, new Date().toISOString()).length > 0
-    ? null : snapshot[key].error ?? "This account did not report quota limits.";
-}
-
 type ReadState = { status: "loading" | "unavailable" } | { status: "failed"; message: string } | { status: "ready"; report: UsageStatisticsReport };
 
 /** Browsing usage never modifies execution-account settings. */
@@ -59,6 +50,7 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
   const loadedArgs = useRef<UsageStatisticsArgs | null>(null);
   const [knownAccounts, setKnownAccounts] = useState<UsageStatisticsReport["knownAccounts"]>([]);
   const [quotaError, setQuotaError] = useState<string | null>(null);
+  const [quotaFeedback, setQuotaFeedback] = useState<QuotaReadFeedback | null>(null);
   const [reading, setReading] = useState(false);
   const quotaGeneration = useRef(0);
   const load = props.load ?? loadUsageStatistics;
@@ -90,7 +82,7 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
 
   useEffect(() => {
     quotaGeneration.current++;
-    setQuotaError(null); setReading(false);
+    setQuotaError(null); setQuotaFeedback(null); setReading(false);
     return () => { quotaGeneration.current++; };
   }, [provider, account]);
 
@@ -119,11 +111,11 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
   const refreshQuota = async () => {
     if (!canRefresh) return;
     const generation = ++quotaGeneration.current;
-    setReading(true); setQuotaError(null);
+    setReading(true); setQuotaError(null); setQuotaFeedback(null);
     try {
-      const error = await (props.readQuota ?? readQuota)(provider, account);
+      const result = await (props.readQuota ?? readQuota)(provider, account);
       if (generation !== quotaGeneration.current) return;
-      setQuotaError(error); setAttempt((value) => value + 1);
+      setQuotaError(result.error); setQuotaFeedback(result.feedback); setAttempt((value) => value + 1);
     } catch {
       if (generation === quotaGeneration.current) setQuotaError("Quota could not be read. Try again.");
     } finally { if (generation === quotaGeneration.current) setReading(false); }
@@ -139,7 +131,7 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
     if (!report) return null;
     return <>
       <Tabs.Panel value="quota" xstyle={styles.section}>
-        <UsageQuota report={report} profiles={profiles} timeZone={zone} canRefresh={canRefresh} reading={reading} error={quotaError} onRefresh={() => void refreshQuota()} now={now} apiBilling={Boolean(profile?.gateway)} onAccount={selectAccount}
+        <UsageQuota report={report} profiles={profiles} timeZone={zone} canRefresh={canRefresh} reading={reading} error={quotaError} feedback={quotaFeedback} onRefresh={() => void refreshQuota()} now={now} apiBilling={Boolean(profile?.gateway)} onAccount={selectAccount}
           providerId={provider !== ALL ? provider : undefined} accountProfileId={account !== ALL ? account : undefined} />
       </Tabs.Panel>
       <Tabs.Panel value="tokens" xstyle={styles.section}>

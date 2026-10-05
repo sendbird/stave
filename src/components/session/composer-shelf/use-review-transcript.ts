@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   REVIEW_FINDINGS_FENCE,
-  parseReviewFindings,
   type ParsedReviewFindings,
 } from "@/lib/reviews/review-findings";
+import { parseReviewFindingsForPrompt } from "@/lib/reviews/review-recheck-context";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
 import { useAppStore } from "@/store/app.store";
 import { readAttachedTaskMessages } from "@/store/attached-task-context-runtime";
 import { summarizeReviewTranscript, type ReviewTranscript } from "./composer-shelf.utils";
 
 /**
- * Finished transcripts by review task and settle time. A settled review never
- * changes again, so the shelf line and the dialog read it once between them.
+ * Finished transcripts by review task and settle time. Message synchronization
+ * can lag ledger completion, so a loaded message update invalidates the cache.
  */
 const settledTranscripts = new Map<string, ReviewTranscript>();
 const MAX_CACHED = 50;
@@ -43,9 +43,14 @@ export function useReviewTranscript(
     () => (key && settledTranscripts.has(key) ? { key, transcript: settledTranscripts.get(key)! } : null),
   );
   const { delegatedTaskId, delegatedWorkspaceId, result } = item.child;
+  const messages = useAppStore((state) => !enabled ? undefined
+    : state.activeWorkspaceId === delegatedWorkspaceId
+      ? state.messagesByTask[delegatedTaskId]
+      : state.workspaceRuntimeCacheById[delegatedWorkspaceId]?.messagesByTask[delegatedTaskId]);
   const loadKey = key ?? `${delegatedTaskId}:running`;
   useEffect(() => {
     if (!enabled) return;
+    if (key && messages?.length) settledTranscripts.delete(key);
     const cached = key ? settledTranscripts.get(key) : undefined;
     if (cached) {
       setLoaded({ key: loadKey, transcript: cached });
@@ -66,7 +71,7 @@ export function useReviewTranscript(
           replyId: read.reply ? read.replyId : null,
         };
         // The ledger's copy is cut short; only the task's own reply is final.
-        if (key && read.reply) {
+        if (key && read.reply && !messages.some((message) => message.role === "assistant" && message.isStreaming)) {
           if (settledTranscripts.size >= MAX_CACHED) {
             const oldest = settledTranscripts.keys().next().value;
             if (oldest !== undefined) settledTranscripts.delete(oldest);
@@ -78,11 +83,11 @@ export function useReviewTranscript(
     return () => {
       cancelled = true;
     };
-  }, [delegatedTaskId, delegatedWorkspaceId, enabled, key, loadKey, result]);
+  }, [delegatedTaskId, delegatedWorkspaceId, enabled, key, loadKey, messages, result]);
   const transcript = loaded?.key === loadKey ? loaded.transcript : null;
   const findings = useMemo(() => {
     if (item.status !== "ready" || !transcript) return null;
-    const parsed = parseReviewFindings(transcript.reply);
+    const parsed = parseReviewFindingsForPrompt(transcript.reply, transcript.prompt);
     // A review started before findings existed never promised a block, so
     // its reply is not "unreadable", it simply has no findings list.
     if (!parsed.ok && !transcript.prompt?.includes(REVIEW_FINDINGS_FENCE)) return null;

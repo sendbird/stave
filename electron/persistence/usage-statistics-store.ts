@@ -80,7 +80,7 @@ export class UsageStatisticsStore {
   }
 
   /** Existing reads supply observations; storing them creates no provider traffic. */
-  recordQuota(snapshot: RateLimitsSnapshotResponse, options?: { claudeAccountProfileId?: string; codexAccountProfileId?: string },
+  recordQuota(snapshot: RateLimitsSnapshotResponse, options?: { claudeAccountProfileId?: string; codexAccountProfileId?: string; source?: string },
     observedAt = new Date().toISOString()) {
     const insert = this.db.prepare(`INSERT INTO usage_quota_observations
       (provider_id, account_profile_id, window_id, minute, observed_at, label, used_percent, resets_at, source)
@@ -92,7 +92,7 @@ export class UsageStatisticsStore {
     for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
       for (const sample of quotaObservations(snapshot, providerId, selectedProviderAccount(providerId, options), observedAt)) {
         insert.run(providerId, sample.accountProfileId, sample.windowId, observedAt.slice(0, 16), observedAt,
-          sample.label, sample.usedPercent, sample.resetsAt, sample.source);
+          sample.label, sample.usedPercent, sample.resetsAt, options?.source ?? sample.source);
       }
     }
     // A year's minute-grained observations is bounded independently of turn history.
