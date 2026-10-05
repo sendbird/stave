@@ -73,6 +73,14 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Add files and images to the chat composer so the model can work from exact local context.",
       },
       {
+        routePath: "skill-selector",
+        sourcePath: "docs/features/skill-selector.md",
+        title: "Skill Selector",
+        description:
+          "Type $ in the composer to search installed skills and send them to Claude or Codex as provider-appropriate requests.",
+        previewImage: "screenshots/skills-panel.png",
+      },
+      {
         routePath: "prompt-enhancement",
         sourcePath: "docs/features/prompt-enhancement.md",
         title: "Prompt Enhancement",
