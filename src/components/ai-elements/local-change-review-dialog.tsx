@@ -9,7 +9,7 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
-import { Select } from "@/components/ads/components/Select";
+import { ReviewSkillSelector } from "./review-skill-selector";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   COMPOSER_CONTROL_BUTTON,
@@ -222,6 +222,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
         value: entry.slug,
         label: `$${entry.slug}`,
         description: entry.description || entry.name,
+        keywords: [entry.name],
       })),
     ];
   }, [reviewer, skills]);
@@ -666,12 +667,11 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                     : "The reviewer follows the skill's instructions. It still cannot change files."}
                 </p>
               </div>
-              <Select
-                size="sm"
+              <ReviewSkillSelector
                 aria-labelledby={`${idPrefix}-skill`}
                 value={effectiveSkillSlug}
                 options={skillOptions}
-                onValueChange={(value) => setSkillSlug(typeof value === "string" ? value : NO_SKILL)}
+                onValueChange={setSkillSlug}
               />
             </section>
           ) : null}

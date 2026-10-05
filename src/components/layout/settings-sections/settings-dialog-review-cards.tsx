@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { ReviewSkillSelector } from "@/components/ai-elements/review-skill-selector";
 import { sx } from "@/components/ads/utils/stylex";
 import { LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS } from "@/lib/local-change-review";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
@@ -97,7 +98,13 @@ function ReviewTasksCard() {
       ...(reviewTask.skillSlug && !slugs.includes(reviewTask.skillSlug)
         ? [{ value: reviewTask.skillSlug, label: `$${reviewTask.skillSlug} (not in this workspace)` }]
         : []),
-      ...slugs.map((slug) => ({ value: slug, label: `$${slug}` })),
+      ...slugs.map((slug) => ({
+        value: slug,
+        label: `$${slug}`,
+        keywords: skills
+          .filter((skill) => skill.slug === slug)
+          .flatMap((skill) => [skill.name, skill.description]),
+      })),
     ];
   }, [reviewTask.skillSlug, skills]);
 
@@ -171,13 +178,16 @@ function ReviewTasksCard() {
           }
         />
       </LabeledField>
-      <SelectField<string>
+      <LabeledField
         title="Review Skill"
         description="A skill whose instructions every review follows, such as a team review checklist. Skills come from this workspace and your shared skills; a review cannot use one its reviewer cannot load."
-        value={reviewTask.skillSlug || FOLLOW_DEFAULT}
-        options={skillOptions}
-        onChange={(slug) => patch({ skillSlug: slug === FOLLOW_DEFAULT ? "" : slug })}
-      />
+      >
+        <ReviewSkillSelector
+          value={reviewTask.skillSlug || FOLLOW_DEFAULT}
+          options={skillOptions}
+          onValueChange={(slug) => patch({ skillSlug: slug === FOLLOW_DEFAULT ? "" : slug })}
+        />
+      </LabeledField>
       <LabeledField
         title="Review Instructions"
         description={`Added to every review prompt, for example risk areas your team always checks. Up to ${REVIEW_TASK_INSTRUCTIONS_MAX_CHARS.toLocaleString()} characters.`}
