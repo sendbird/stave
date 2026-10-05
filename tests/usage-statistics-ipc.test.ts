@@ -46,3 +46,15 @@ test("IPC rejects unbounded/injected requests and recovers after a failed databa
   failRead = false;
   expect((await bridge.usageStatistics(args)).ok).toBe(true);
 });
+
+test("model drilldown crosses preload and IPC without changing quota scope", async () => {
+  store.beginTurn({ id: "specific-model", providerId: "codex", accountProfileId: "system-default", modelId: "target-model", createdAt: args.from });
+  store.completeTurn("specific-model", args.to, JSON.stringify({ inputTokens: 40, outputTokens: 10 }));
+  const result = await bridge.usageStatistics({ ...args, providerId: "codex", modelId: "target-model" });
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  expect(result.report.totals.tokens).toBe(50);
+  expect(result.report.turns.map((row) => row.modelId)).toEqual(["target-model"]);
+  const unknown = await bridge.usageStatistics({ ...args, providerId: "codex", modelId: null });
+  expect(unknown.ok && unknown.report.turns.every((row) => row.modelId === null)).toBe(true);
+});

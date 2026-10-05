@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
+import { Tabs } from "@/components/ads/components/Tabs";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { Input } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
@@ -43,6 +44,8 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
   const profiles = props.profiles ?? registered;
   const [provider, setProvider] = useState<ProviderId | typeof ALL>(props.initialProvider ?? ALL);
   const [account, setAccount] = useState(props.initialAccount ?? ALL);
+  const [modelId, setModelId] = useState<string | null | undefined>();
+  const [view, setView] = useState(props.initialProvider ? "quota" : "tokens");
   const [period, setPeriod] = useState<UsagePeriod>("30");
   const [zone, setZone] = useState(localTimeZone);
   const [granularity, setGranularity] = useState<"day" | "hour">("day");
@@ -63,7 +66,8 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
   const range = usageRange({ period, start, end, utc, now: new Date(now) });
   const args = useMemo<UsageStatisticsArgs | null>(() => range ? ({ ...range, timeZone: zone, granularity,
     ...(provider !== ALL ? { providerId: provider } : {}), ...(provider !== ALL && account !== ALL ? { accountProfileId: account } : {}),
-    limit: 50, offset }) : null, [range?.from, range?.to, zone, granularity, provider, account, offset]);
+    ...(modelId !== undefined ? { modelId } : {}),
+    limit: 50, offset }) : null, [range?.from, range?.to, zone, granularity, provider, account, modelId, offset]);
 
   useEffect(() => {
     if (!args) return;
@@ -124,7 +128,8 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
       if (generation === quotaGeneration.current) setQuotaError("Quota could not be read. Try again.");
     } finally { if (generation === quotaGeneration.current) setReading(false); }
   };
-  const selectAccount = (providerId: ProviderId, id: string) => { setProvider(providerId); setAccount(id); setOffset(0); };
+  const selectAccount = (providerId: ProviderId, id: string) => { if (provider !== providerId) setModelId(undefined); setProvider(providerId); setAccount(id); setOffset(0); };
+  const selectModel = (providerId: ProviderId, id: string | null) => { if (provider !== providerId) setAccount(ALL); setProvider(providerId); setModelId(id); setOffset(0); };
   const report = state.status === "ready" ? state.report : null;
   const content = () => {
     if (!args) return <p role="alert" className={sx(styles.note)}>Choose valid start and end dates, at most 366 days apart.</p>;
@@ -133,25 +138,35 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
     if (state.status === "failed") return <EmptyState role="alert" tone="danger" title="Usage could not be read" description={state.message} action={{ children: "Try again", onClick: () => setAttempt((value) => value + 1) }} />;
     if (!report) return null;
     return <>
-      <UsageQuota report={report} profiles={profiles} timeZone={zone} canRefresh={canRefresh} reading={reading} error={quotaError} onRefresh={() => void refreshQuota()} now={now} apiBilling={Boolean(profile?.gateway)} />
-      {report.totals.turns === 0 ? <EmptyState title="No completed turns in this period" description="Choose another account or period. New usage appears after a Stave turn finishes; quota observations above are independent." /> : <>
+      <Tabs.Panel value="quota" xstyle={styles.section}>
+        <UsageQuota report={report} profiles={profiles} timeZone={zone} canRefresh={canRefresh} reading={reading} error={quotaError} onRefresh={() => void refreshQuota()} now={now} apiBilling={Boolean(profile?.gateway)} onAccount={selectAccount}
+          providerId={provider !== ALL ? provider : undefined} accountProfileId={account !== ALL ? account : undefined} />
+      </Tabs.Panel>
+      <Tabs.Panel value="tokens" xstyle={styles.section}>
+      {report.totals.turns === 0 ? <EmptyState title="No completed turns in this selection" description="Choose another account, model or period. New usage appears after a Stave turn finishes; the Quota tab is independent." /> : <>
         <UsageFigures totals={report.totals} />
         <p className={sx(styles.note)}>Token totals exclude cache reads: Claude adds cache writes to new input; Codex subtracts cache reads from inclusive input. Optional counters may be absent. Models use the resolved runtime model when reported, otherwise the requested model.</p>
         <UsageTimeline report={report} granularity={granularity} timeZone={zone} onDay={(day) => { setStart(day); setEnd(day); setPeriod("custom"); setGranularity("hour"); setOffset(0); }} />
-        <UsageBreakdowns report={report} profiles={profiles} onAccount={selectAccount} />
-        <UsageTurnTable report={report} profiles={profiles} timeZone={zone} offset={offset} onPage={setOffset} />
+        <UsageBreakdowns report={report} profiles={profiles} onAccount={selectAccount} onModel={selectModel} />
       </>}
+      </Tabs.Panel>
+      <Tabs.Panel value="history" xstyle={styles.section}>
+        <UsageTurnTable report={report} profiles={profiles} timeZone={zone} offset={offset} onPage={setOffset} />
+      </Tabs.Panel>
       <p className={sx(styles.note)}>Read {new Intl.DateTimeFormat(undefined, { timeZone: zone, dateStyle: "medium", timeStyle: "short" }).format(new Date(report.generatedAt))} · tokens cover completed Stave turns only, including agent and MCP task turns. Terminal CLI and other applications are not included. History without execution-account evidence stays unattributed.</p>
     </>;
   };
-  return <div className={sx(styles.scroll)}><main className={sx(styles.page)} aria-label="AI usage statistics">
+  return <div className={sx(styles.scroll)}><main className={sx(styles.page)} aria-label="AI usage statistics"><Tabs.Root value={view} onValueChange={(value) => { if (typeof value === "string") setView(value); }} xstyle={styles.section}>
     <header className={sx(styles.header)}><div className={sx(styles.stack, styles.headerCopy)}><h1 className={sx(styles.title)}>AI usage</h1>
       <p className={sx(styles.note)}>Account limits, token usage and when work happened. Across all workspaces on this device.</p></div>
       <div className={sx(styles.row)}><Button variant="quiet" size="sm" aria-label="Refresh usage history" disabled={pending} onClick={() => setAttempt((value) => value + 1)}><RefreshCw /></Button>
         <Button variant="quiet" size="sm" aria-label="Close usage" onClick={close}><X /></Button></div></header>
+    <Tabs.List aria-label="Usage views" xstyle={styles.viewTabs}>
+      <Tabs.Tab value="tokens">Tokens & cost</Tabs.Tab><Tabs.Tab value="quota">Quota</Tabs.Tab><Tabs.Tab value="history">History</Tabs.Tab><Tabs.Indicator />
+    </Tabs.List>
     <div className={sx(styles.filters)} aria-label="Usage filters">
       <Select label="Provider" size="sm" value={provider} options={[{ value: ALL, label: "All providers" }, ...Object.entries(USAGE_PROVIDER_NAMES).map(([value, label]) => ({ value, label }))]}
-        onValueChange={(value) => { if (value) { setProvider(value as ProviderId | typeof ALL); setAccount(ALL); setOffset(0); } }} />
+        onValueChange={(value) => { if (value) { setProvider(value as ProviderId | typeof ALL); setAccount(ALL); setModelId(undefined); setOffset(0); } }} />
       <Select label="Account" size="sm" value={account} options={options} disabled={provider === ALL} onValueChange={(value) => { if (typeof value === "string") { setAccount(value); setOffset(0); } }} />
       <Select label="Period" size="sm" value={period} options={USAGE_PERIOD_OPTIONS} onValueChange={(value) => { if (value) { setPeriod(value as UsagePeriod); setOffset(0); } }} />
       <Select label="Group by" size="sm" value={granularity} options={[{ value: "day", label: "Day" }, { value: "hour", label: "Hour" }]} onValueChange={(value) => { if (value) setGranularity(value as "day" | "hour"); }} />
@@ -160,7 +175,9 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
         <label className={sx(styles.field)}>Through<Input type="date" value={end} onChange={(event) => { setEnd(event.target.value); setOffset(0); }} /></label></> : null}
     </div>
     {range ? <p className={sx(styles.note)}>{dateInputValue(new Date(range.from), utc)} – {dateInputValue(new Date(Date.parse(range.to) - 1), utc)} · {zone} · filters only change this report</p> : null}
+    {modelId !== undefined ? <div className={sx(styles.row)}><span className={sx(styles.note)}>Model · {modelId ?? "Model not recorded"} · quota remains account-wide</span>
+      <Button variant="quiet" size="sm" onClick={() => { setModelId(undefined); setOffset(0); }}>Clear model filter</Button></div> : null}
     {accountError && !props.profiles ? <p role="alert" className={sx(styles.note)}>Account labels could not be loaded. <Button variant="link" size="sm" onClick={() => void refreshAccounts()}>Retry accounts</Button></p> : null}
     {content()}
-  </main></div>;
+  </Tabs.Root></main></div>;
 }

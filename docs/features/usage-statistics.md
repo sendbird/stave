@@ -5,6 +5,11 @@ choose **View usage statistics** in a status-bar usage popover. The popover
 opens the report for that provider and account. Close the page or press Escape
 to return to your workspace.
 
+Use **Tokens & cost** for totals, trends and account/model breakdowns,
+**Quota** to compare subscription windows and upcoming resets, and
+**History** for individual runs. A status-bar usage popover opens the
+account-quota view directly.
+
 ## Browse an account
 
 Choose a provider, account, period and daily or hourly grouping. Presets cover
@@ -13,6 +18,10 @@ and span at most 366 days. Your local timezone or UTC controls both date
 boundaries and grouping; repeated daylight-saving hours retain their UTC offset.
 Selecting a daily bar opens that day's hourly report. Tables expose exact
 bucket values and individual turn start times, with pagination.
+Select a model in **By model** to filter totals, trends and turn history to that
+provider and model. **Clear model filter** returns to all models. Records with
+no saved model remain available as **Model not recorded**. Model filters never
+filter subscription quota, which applies to an account rather than a local run.
 
 These filters are read-only. They do not change the account used for new turns,
 running turns, queued work or terminal sessions. Account names follow the
@@ -46,6 +55,10 @@ older than 15 minutes, or with a reset time already passed, are marked older;
 Stave does not turn an expired reading into an assumed 0% usage.
 Cached responses, including those served during failure backoff, do not create
 new observations or advance the saved observation time.
+Each account groups its windows together and shows the last observed remaining
+percentage and time until reset. Within a provider, accounts with the soonest
+upcoming reset appear first. Expired readings remain marked older, and registered
+accounts with no quota observations display **No saved quota** instead of zero.
 
 Choose a provider and one registered account to **Refresh quota**. Existing
 provider read caching, request floors and CLI-fallback rules still apply. A
