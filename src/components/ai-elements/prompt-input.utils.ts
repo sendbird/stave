@@ -1,3 +1,4 @@
+import { formatNumber } from "@/i18n/format";
 import type { CommandPaletteItem } from "@/lib/commands";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ChatMessage } from "@/types/chat";
@@ -451,7 +452,7 @@ export function formatConversationContextCounts(
   if (usage.usedTokens === undefined || usage.windowTokens === undefined) {
     return null;
   }
-  return `${usage.usedTokens.toLocaleString()} / ${usage.windowTokens.toLocaleString()}`;
+  return `${formatNumber(usage.usedTokens)} / ${formatNumber(usage.windowTokens)}`;
 }
 
 export function providerOffersConversationCompact(args: {

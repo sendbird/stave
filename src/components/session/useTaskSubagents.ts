@@ -1,3 +1,4 @@
+import { getAgentDisplayName } from "@/lib/agents/display";
 import { useMemo } from "react";
 import { selectAgentRunSubagents } from "@/lib/agent-runs/subagents";
 import { useAppStore } from "@/store/app.store";
@@ -20,7 +21,7 @@ export function useTaskSubagents(taskId: string, run: AgentRunDetail | null | un
   const customAgents = useAppStore((state) => enabled ? state.settings.customAgents : undefined);
   return useMemo(() => {
     if (!run) return EMPTY_ROWS;
-    const names = new Map(listAgents({ custom: customAgents ?? [] }).map((agent) => [agent.id, agent.name]));
+    const names = new Map(listAgents({ custom: customAgents ?? [] }).map((agent) => [agent.id, getAgentDisplayName(agent)]));
     return selectAgentRunSubagents(run, { messages, workGraph: graph, delegatedTasks: listing.children }).map((row) => {
       const child = listing.children.find((child) => child.delegationKey === row.ref.delegationKey);
       const name = child?.agentConfigId ? names.get(child.agentConfigId) : null;

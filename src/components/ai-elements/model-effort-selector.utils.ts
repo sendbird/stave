@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   listCodexReasoningEffortsForModel,
   resolveDefaultClaudeEffortForModel,
@@ -54,7 +55,7 @@ export interface CursorModelGroup {
 }
 
 export const CURSOR_MODEL_EFFORT_OPTIONS = [
-  { value: "none", label: "None" },
+  { value: "none", get label() { return i18n.t("composer:modelEffortSelectorUtils.label"); } },
   ...KIRO_EFFORT_OPTIONS,
 ] as const satisfies readonly {
   value: CursorModelEffort;
@@ -209,7 +210,7 @@ export function getCursorModelPresentation(
     addCapability("Thinking");
   }
   if (parameters.get("fast") === "true") {
-    addCapability("Fast");
+    addCapability(i18n.t("composer:modelEffortSelectorUtils.extraCopy62"));
   }
   const effort =
     parameters.get("effort") ??
@@ -538,7 +539,7 @@ export interface PickerRailTab {
   /** The tab's value; a provider id for provider tabs. */
   value: string;
   /** Names the group that starts at this tab. */
-  heading?: "Models";
+  heading?: string;
   /** Starts a group of one, set off by a rule instead of a heading that would repeat its label. */
   divider?: true;
 }
@@ -558,7 +559,7 @@ export function planPickerRail(args: {
   const tabs: PickerRailTab[] = args.providerIds.map((value, index) => ({
     kind: "provider",
     value,
-    ...(args.hasAgents && index === 0 ? { heading: "Models" as const } : {}),
+    ...(args.hasAgents && index === 0 ? { heading: i18n.t("composer:modelEffortSelectorUtils.heading") } : {}),
   }));
   if (args.hasAuto) tabs.push({ kind: "auto", value: "auto" });
   if (args.hasAgents) tabs.push({ kind: "agents", value: "agents", divider: true });

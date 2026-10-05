@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 import { sx } from "../ads/utils/stylex";
@@ -16,20 +17,20 @@ import { useAppStore } from "@/store/app.store";
 
 const STARTING_POINTS = [
   {
-    title: "Understand or decide",
-    description: "Explore code, investigate a problem, or compare options.",
+    get title() { return i18n.t("session:taskStartGuide.title"); },
+    get description() { return i18n.t("session:taskStartGuide.description"); },
     example:
       "Explain how this repository works, identify the risks, and recommend a next step. Cite the files or sources behind your conclusions.",
   },
   {
-    title: "Build or fix",
-    description: "Turn a concrete goal into a change you can review.",
+    get title() { return i18n.t("session:taskStartGuide.title2"); },
+    get description() { return i18n.t("session:taskStartGuide.description2"); },
     example:
       "Help me change this behavior. First inspect the relevant code, then implement the change and run the appropriate checks. Explain anything you could not verify.",
   },
   {
-    title: "Research or write",
-    description: "Create a report, plan, or document using your work context.",
+    get title() { return i18n.t("session:taskStartGuide.title3"); },
+    get description() { return i18n.t("session:taskStartGuide.description3"); },
     example:
       "Use the attached context to prepare a decision document. Include the recommendation, supporting evidence, open questions, and next actions.",
   },
@@ -41,6 +42,7 @@ export function TaskStartGuide({
 }: {
   onSelect?: (prompt: string) => void;
 }) {
+  useTranslation();
   const brief = useAppStore((state) => state.workspaceInformation.resumeBrief);
   const showExamples = useAppStore(
     (state) => state.settings.showTaskStartExamples,
@@ -58,11 +60,9 @@ export function TaskStartGuide({
             <MessageSquareIcon />
           </EmptyMedia>
           <EmptyTitle role="heading" aria-level={2}>
-            What would you like to work on?
-          </EmptyTitle>
+            {i18n.t("session:taskStartGuide.taskStartGuide")}</EmptyTitle>
           <EmptyDescription>
-            Describe the outcome you want, or choose a starting point.
-          </EmptyDescription>
+            {i18n.t("session:taskStartGuide.taskStartGuide2")}</EmptyDescription>
         </EmptyHeader>
         {showExamples ? (
           <div className={sx(styles.content)}>
@@ -81,10 +81,9 @@ export function TaskStartGuide({
                       size="sm"
                       xstyle={styles.promptAction}
                       onClick={() => onSelect(item.example)}
-                      aria-label={`Use prompt: ${item.title}`}
+                      aria-label={i18n.t("session:taskStartGuide.ariaLabel", { value1: item.title })}
                     >
-                      Use prompt
-                    </ActionButton>
+                      {i18n.t("session:taskStartGuide.copy")}</ActionButton>
                   ) : null}
                 </div>
               ))}
@@ -96,8 +95,8 @@ export function TaskStartGuide({
         <div className={sx(styles.actions, styles.footerActions)}>
           <Button variant="outline" onClick={openInformation}>
             {hasInstructions
-              ? "Review shared instructions"
-              : "Add shared instructions"}
+              ? i18n.t("session:taskStartGuide.taskStartGuide3")
+              : i18n.t("session:taskStartGuide.taskStartGuide4")}
           </Button>
         </div>
       ) : null}

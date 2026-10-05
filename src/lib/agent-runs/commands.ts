@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * User commands on an agent run, as pure transitions. Each one either returns an
  * `AgentRunChange` for the store to apply in one transaction or throws an
@@ -41,7 +42,7 @@ function touch(agentRun: AgentRun, patch: Partial<AgentRun>, now: Date): AgentRu
 
 function requireActive(aggregate: AgentRunAggregate) {
   if (!isActiveAgentRunState(aggregate.agentRun.state)) {
-    throw new AgentRunCommandError("not-active", "This run has already ended.");
+    throw new AgentRunCommandError("not-active", i18n.t("agentRuns:commands.extraCopy240"));
   }
 }
 
@@ -59,14 +60,14 @@ function requireCurrentStage(
   if (record.stageId !== expected.stageId || record.attempt !== expected.attempt) {
     throw new AgentRunCommandError(
       "stale-identity",
-      "The run has moved on from this stage. Refresh to see where it is now.",
+      i18n.t("agentRuns:commands.extraCopy241"),
     );
   }
   if (!allowed.includes(record.status)) {
     const title = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).title;
     throw new AgentRunCommandError(
       "invalid-state",
-      `"${title}" is ${record.status.replaceAll("-", " ")}, so this is not available.`,
+      i18n.t("agentRuns:commands.extraCopy242", { value1: title, value2: record.status.replaceAll("-", " ") }),
     );
   }
   return record;
@@ -107,7 +108,7 @@ export function requestStageChanges(args: {
   const waiting = requireCurrentStage(aggregate, args.expected, ["awaiting-sign-off"]);
   const feedback = args.feedback.trim().slice(0, AGENT_RUN_LIMITS.maxFeedbackChars);
   if (!feedback) {
-    throw new AgentRunCommandError("invalid-state", "Describe the changes you want.");
+    throw new AgentRunCommandError("invalid-state", i18n.t("agentRuns:commands.extraCopy243"));
   }
   const stages = aggregate.agentRun.workflow.stages;
   let targetIndex = -1;
@@ -120,7 +121,7 @@ export function requestStageChanges(args: {
   if (targetIndex === -1) {
     throw new AgentRunCommandError(
       "no-previous-ai-stage",
-      "No earlier AI stage can take changes. Skip this stage or cancel the run.",
+      i18n.t("agentRuns:commands.extraCopy244"),
     );
   }
   const agentRun = touch(aggregate.agentRun, { currentStageIndex: targetIndex }, now);
@@ -170,7 +171,7 @@ export function skipStage(args: {
     ...record,
     status: "skipped",
     blockReason: null,
-    detail: "Skipped by the user.",
+    detail: i18n.t("agentRuns:commands.detail"),
     endedAt: args.now.toISOString(),
   };
   const change = advanceAgentRun({ aggregate: args.aggregate, completed: skipped, now: args.now });
@@ -199,7 +200,7 @@ export function retryStage(args: {
     ...record,
     status: "cancelled",
     blockReason: null,
-    detail: "Replaced by a new attempt.",
+    detail: i18n.t("agentRuns:commands.detail2"),
     endedAt: now.toISOString(),
   };
   const retried = enterStage({
@@ -232,8 +233,8 @@ export function pauseAgentRun(args: {
   }
   const detail =
     args.reason === "taken-over"
-      ? "You took over the lead task. Resume the run when you are done."
-      : "Paused by the user.";
+      ? i18n.t("agentRuns:commands.detail3")
+      : i18n.t("agentRuns:commands.detail4");
   return {
     agentRun: touch(
       agentRun,
@@ -259,7 +260,7 @@ export function resumeAgentRun(args: {
   if (agentRun.pauseReason !== "paused-by-user" && agentRun.pauseReason !== "taken-over") {
     throw new AgentRunCommandError(
       "invalid-state",
-      agentRun.reasonDetail ?? "This pause clears on its own once its condition lifts.",
+      agentRun.reasonDetail ?? i18n.t("agentRuns:commands.extraCopy245"),
     );
   }
   return {
@@ -308,8 +309,8 @@ export function acceptAgentRunRuntime(args: {
 /** Ends the agent run. Completed work, pushed branches and PRs stay as they are. */
 /** Why an agent run ended without a report (`agent-run.ts`), in the stage's words. */
 const AGENT_RUN_END_DETAIL = {
-  stopped: "You stopped the run.",
-  released: "The task no longer runs as an agent.",
+  get stopped() { return i18n.t("agentRuns:commands.stopped"); },
+  get released() { return i18n.t("agentRuns:commands.released"); },
 } as const;
 
 export function cancelAgentRun(args: {
@@ -327,7 +328,7 @@ export function cancelAgentRun(args: {
           ...record,
           status: "cancelled" as const,
           blockReason: null,
-          detail: args.endedBy ? AGENT_RUN_END_DETAIL[args.endedBy] : "The run was cancelled.",
+          detail: args.endedBy ? AGENT_RUN_END_DETAIL[args.endedBy] : i18n.t("agentRuns:commands.detail5"),
           endedAt: args.now.toISOString(),
         },
       ];
@@ -366,7 +367,7 @@ export function recordStageReport(args: {
   if (record.reportRevision >= AGENT_RUN_LIMITS.maxReportRevisions) {
     throw new AgentRunCommandError(
       "report-limit",
-      `This stage already has ${AGENT_RUN_LIMITS.maxReportRevisions} reports; the latest one counts.`,
+      i18n.t("agentRuns:commands.extraCopy246", { value1: AGENT_RUN_LIMITS.maxReportRevisions }),
     );
   }
   const report =

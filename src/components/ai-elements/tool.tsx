@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
@@ -51,6 +52,7 @@ export function Tool({
   openWhen = false,
   ...props
 }: ToolProps) {
+  useTranslation();
   const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ function displayToolName(args: { type?: string; title?: string }) {
     return args.title.trim();
   }
   if (!args.type) {
-    return "Tool";
+    return i18n.t("composer:tool.extraCopy72");
   }
   if (isStaveToolName(args.type)) {
     return toStaveToolDisplayName(args.type);
@@ -85,31 +87,31 @@ export function getStatusBadge(state?: ToolHeaderProps["state"]): ReactNode {
   switch (state) {
     case "input-streaming":
       return (
-        <span aria-label="Running" className={sx(s.badge, s.badgeMuted)}>
+        <span aria-label={i18n.t("composer:tool.ariaLabel")} className={sx(s.badge, s.badgeMuted)}>
           <Loader aria-hidden size="xs" variant="steps" />
         </span>
       );
     case "input-available":
       return (
-        <span aria-label="Input available" className={sx(s.badge, s.badgeMuted)}>
+        <span aria-label={i18n.t("composer:tool.ariaLabel2")} className={sx(s.badge, s.badgeMuted)}>
           <Wrench className={sx(s.badgeIcon)} />
         </span>
       );
     case "output-available":
       return (
-        <span aria-label="Done" className={sx(s.badge, s.badgeSuccess)}>
+        <span aria-label={i18n.t("composer:tool.ariaLabel3")} className={sx(s.badge, s.badgeSuccess)}>
           <CircleCheck className={sx(s.badgeIcon)} />
         </span>
       );
     case "output-error":
       return (
-        <span aria-label="Error" className={sx(s.badge, s.badgeError)}>
+        <span aria-label={i18n.t("composer:tool.ariaLabel4")} className={sx(s.badge, s.badgeError)}>
           <CircleAlert className={sx(s.badgeIcon)} />
         </span>
       );
     default:
       return (
-        <span aria-label="Idle" className={sx(s.badge, s.badgeMuted)}>
+        <span aria-label={i18n.t("composer:tool.ariaLabel5")} className={sx(s.badge, s.badgeMuted)}>
           <Wrench className={sx(s.badgeIcon)} />
         </span>
       );
@@ -118,29 +120,29 @@ export function getStatusBadge(state?: ToolHeaderProps["state"]): ReactNode {
 
 function formatElapsedTime(seconds: number) {
   if (seconds < 60) {
-    return `${Math.round(seconds)}s`;
+    return i18n.t("session:duration.seconds", { count: Math.round(seconds) });
   }
   const minutes = Math.floor(seconds / 60);
   const remaining = Math.round(seconds % 60);
-  return remaining > 0 ? `${minutes}m ${remaining}s` : `${minutes}m`;
+  return remaining > 0 ? i18n.t("session:duration.minutesSeconds", { minutes, seconds: remaining }) : i18n.t("session:duration.minutes", { count: minutes });
 }
 
 function getToolStatusText(state?: ToolState, elapsedSeconds?: number) {
   switch (state) {
     case "input-streaming":
       return elapsedSeconds != null && elapsedSeconds > 0
-        ? `Running (${formatElapsedTime(elapsedSeconds)})`
-        : "Running";
+        ? i18n.t("composer:tool.getToolStatusText", { value1: formatElapsedTime(elapsedSeconds) })
+        : i18n.t("composer:tool.getToolStatusText2");
     case "input-available":
-      return "Ready";
+      return i18n.t("composer:tool.getToolStatusText3");
     case "output-available":
       return elapsedSeconds != null && elapsedSeconds > 0
-        ? `Done (${formatElapsedTime(elapsedSeconds)})`
-        : "Done";
+        ? i18n.t("composer:tool.getToolStatusText4", { value1: formatElapsedTime(elapsedSeconds) })
+        : i18n.t("composer:tool.getToolStatusText5");
     case "output-error":
-      return "Error";
+      return i18n.t("composer:tool.getToolStatusText6");
     default:
-      return "Idle";
+      return i18n.t("composer:tool.getToolStatusText7");
   }
 }
 
@@ -163,6 +165,7 @@ export function ToolHeader({
   elapsedSeconds,
   ...props
 }: ToolHeaderProps) {
+  useTranslation();
   const { open, setOpen } = useToolContext();
   return (
     <AdsButton
@@ -196,6 +199,7 @@ export function ToolContent({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   const { open } = useToolContext();
   if (!open) {
     return null;
@@ -204,6 +208,7 @@ export function ToolContent({
 }
 
 export function ToolInput(args: { input: unknown; className?: string }) {
+  useTranslation();
   const content =
     typeof args.input === "string"
       ? args.input
@@ -214,7 +219,7 @@ export function ToolInput(args: { input: unknown; className?: string }) {
   });
   return (
     <div className={cx(sx(s.ioBlock, s.ioInput), args.className)}>
-      <p className={sx(s.ioLabel)}>Input</p>
+      <p className={sx(s.ioLabel)}>{i18n.t("composer:tool.toolInput")}</p>
       {truncationNotice ? (
         <TruncationWarningBanner
           notice={truncationNotice}
@@ -235,13 +240,14 @@ export function ToolOutput(args: {
   label?: string;
   linkifyOutputText?: boolean;
 }) {
+  useTranslation();
   const truncationNotice = detectTruncationNotice({
     text: args.errorText ?? args.outputText,
     source: "tool_output",
   });
   return (
     <div className={cx(sx(s.ioBlock, s.ioOutput), args.className)}>
-      <p className={sx(s.ioLabel)}>{args.label ?? "Output"}</p>
+      <p className={sx(s.ioLabel)}>{args.label ?? i18n.t("composer:tool.toolOutput")}</p>
       {truncationNotice ? (
         <TruncationWarningBanner
           notice={truncationNotice}
@@ -269,7 +275,7 @@ export function ToolOutput(args: {
                 />
               )
             ) : (
-              <span className={sx(s.noOutput)}>No output.</span>
+              <span className={sx(s.noOutput)}>{i18n.t("composer:tool.toolOutput2")}</span>
             ))}
         </div>
       )}
@@ -285,6 +291,7 @@ export function ToolGroup(args: {
   defaultOpen?: boolean;
   openWhen?: boolean;
 }) {
+  useTranslation();
   const { states, children, defaultOpen = false, openWhen = false } = args;
   const [open, setOpen] = useState(false);
 
@@ -316,8 +323,7 @@ export function ToolGroup(args: {
       >
         <span className={sx(s.headerName)}>
           <Wrench className={sx(s.headerIcon)} />
-          Tools
-        </span>
+          {i18n.t("composer:tool.toolGroup")}</span>
         <span className={sx(s.headerMeta)}>
           <span className={sx(s.statusText, getToolStatusTextStyle(overallState))}>
             {getToolStatusText(overallState)}

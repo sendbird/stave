@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Circle, CircleAlert, CircleCheck } from "lucide-react";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -61,70 +62,71 @@ export function resolveRunStatus(args: {
     const activity =
       args.activity?.turnId === args.activeTurnId ? args.activity : null;
     if (activity?.pendingInteraction === "approval") {
-      return { label: "Waiting", detail: "Approval needed", tone: "waiting" };
+      return { label: i18n.t("session:taskRunOverview.label"), detail: i18n.t("session:taskRunOverview.detail"), tone: "waiting" };
     }
     if (activity?.pendingInteraction === "user_input") {
-      return { label: "Waiting", detail: "Input needed", tone: "waiting" };
+      return { label: i18n.t("session:taskRunOverview.label2"), detail: i18n.t("session:taskRunOverview.detail2"), tone: "waiting" };
     }
     if (activity?.stalledAt != null) {
       return {
-        label: "Waiting",
-        detail: "No recent provider activity",
+        label: i18n.t("session:taskRunOverview.label3"),
+        detail: i18n.t("session:taskRunOverview.detail3"),
         tone: "waiting",
       };
     }
-    return { label: "Running", tone: "active" };
+    return { label: i18n.t("session:taskRunOverview.label4"), tone: "active" };
   }
 
   const receipt = args.message?.terminalReceipt ??
     args.retained?.snapshot.terminalReceipt;
   if (receipt?.completedAt) {
-    if (receipt.outcome === "failed") return { label: "Failed", tone: "danger" };
-    if (receipt.outcome === "cancelled") return { label: "Stopped", tone: "neutral" };
-    if (receipt.outcome === "completed") return { label: "Completed", tone: "success" };
-    return { label: "Ended", detail: "Completion status was not reported", tone: "neutral" };
+    if (receipt.outcome === "failed") return { label: i18n.t("session:taskRunOverview.label5"), tone: "danger" };
+    if (receipt.outcome === "cancelled") return { label: i18n.t("session:taskRunOverview.label6"), tone: "neutral" };
+    if (receipt.outcome === "completed") return { label: i18n.t("session:taskRunOverview.label7"), tone: "success" };
+    return { label: i18n.t("session:taskRunOverview.label8"), detail: i18n.t("session:taskRunOverview.detail4"), tone: "neutral" };
   }
   if (
     (args.activity?.completedAt && args.activity.turnError) ||
     args.retained?.outcome === "failed"
   ) {
-    return { label: "Failed", tone: "danger" };
+    return { label: i18n.t("session:taskRunOverview.label9"), tone: "danger" };
   }
   const stopReason = normalizeStopReason(args.message);
   if (stopReason && classifyProviderTurnStopReason(stopReason) === "failed") {
-    return { label: "Failed", tone: "danger" };
+    return { label: i18n.t("session:taskRunOverview.label10"), tone: "danger" };
   }
   if (
     stopReason &&
     classifyProviderTurnStopReason(stopReason) === "cancelled"
   ) {
-    return { label: "Stopped", tone: "neutral" };
+    return { label: i18n.t("session:taskRunOverview.label11"), tone: "neutral" };
   }
   if (stopReason === "completed" || stopReason === "end_turn") {
-    return { label: "Completed", tone: "success" };
+    return { label: i18n.t("session:taskRunOverview.label12"), tone: "success" };
   }
   if (stopReason) {
     return {
-      label: "Ended",
-      detail: `Provider stop: ${stopReason}`,
+      label: i18n.t("session:taskRunOverview.label13"),
+      detail: i18n.t("session:taskRunOverview.detail5", { value1: stopReason }),
       tone: "neutral",
     };
   }
   if (args.retained?.outcome === "stopped") {
-    return { label: "Stopped", tone: "neutral" };
+    return { label: i18n.t("session:taskRunOverview.label14"), tone: "neutral" };
   }
   if (args.message || args.retained) {
     return {
-      label: "Ended",
-      detail: "Completion status was not reported",
+      label: i18n.t("session:taskRunOverview.label15"),
+      detail: i18n.t("session:taskRunOverview.detail6"),
       tone: "neutral",
     };
   }
-  return { label: "No run yet", tone: "neutral" };
+  return { label: i18n.t("session:taskRunOverview.label16"), tone: "neutral" };
 }
 
 /** Only the resting tones reach this: a live run is announced by the shelf. */
 function StatusIcon({ tone }: { tone: Exclude<RunStatus["tone"], "active" | "waiting"> }) {
+  useTranslation();
   if (tone === "success") {
     return <CircleCheck className={sx(styles.icon)} aria-hidden />;
   }
@@ -136,6 +138,7 @@ function StatusIcon({ tone }: { tone: Exclude<RunStatus["tone"], "active" | "wai
 
 /** Mounted only by the selected Activity panel, keeping this subscription local. */
 export function TaskRunOverview() {
+  useTranslation();
   const [workspaceId, taskId, activeTurnId, messages, activity, retained] =
     useAppStore(
       useShallow((state) => {
@@ -218,10 +221,10 @@ export function TaskRunOverview() {
       : null;
   const hasRun = Boolean(activeTurnId || message || activity || retained);
   const title = activeTurnId
-    ? "Current run"
+    ? i18n.t("session:taskRunOverview.title")
     : hasRun
-      ? "Last run"
-      : "Run overview";
+      ? i18n.t("session:taskRunOverview.title2")
+      : i18n.t("session:taskRunOverview.title3");
 
   if (!workspaceId || !taskId) {
     return null;
@@ -252,6 +255,7 @@ export function TaskRunOverviewView(props: {
   agentProvenance?: AgentTurnProvenance;
   runTurnId?: string | null;
 }) {
+  useTranslation();
   const { actualModel, resolution, runTurnId, status, title } = props;
   const modelMark = actualModel
     ? {
@@ -320,7 +324,7 @@ export function TaskRunOverviewView(props: {
           className={sx(styles.modelDetails)}
         >
           <summary className={sx(styles.disclosure, focusRing.ring)}>
-            {props.agentProvenance ? "Run details" : resolution ? "Routing details" : "Model details"}
+            {props.agentProvenance ? i18n.t("session:taskRunOverview.taskRunOverviewView") : resolution ? i18n.t("session:taskRunOverview.taskRunOverviewView2") : i18n.t("session:taskRunOverview.taskRunOverviewView3")}
           </summary>
           <div className={sx(styles.modelContent)}>
             <ModelResolutionSummary

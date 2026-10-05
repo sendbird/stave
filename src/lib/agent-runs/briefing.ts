@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * What an agent run tells the lead task's agent: the stage prompt, the reminder
  * after a turn that ended without a report, the retrieved-context part that
@@ -71,6 +72,7 @@ export function collectPriorStageSummaries(
     const stage = workflowStageAt(agentRun, index);
     const record = latestStageRecord(stages, stage.id);
     if (record?.status === "skipped") {
+      // i18n-ignore: model-facing run briefing context
       summaries.push({ title: stage.title, summary: "Skipped by the user." });
       continue;
     }
@@ -78,7 +80,7 @@ export function collectPriorStageSummaries(
     if (record.facts?.action) {
       summaries.push({
         title: stage.title,
-        summary: describeActionEvidence(record.facts.action).label,
+        summary: describeActionEvidence(record.facts.action, undefined, i18n.getFixedT("en")).label,
       });
       continue;
     }
@@ -165,6 +167,7 @@ export function buildAgentRunTurnContextPart(args: {
   return {
     type: "retrieved_context",
     sourceId: AGENT_RUN_CONTEXT_SOURCE_ID,
+    // i18n-ignore: model-facing run briefing context
     title: "Agent Run Stage",
     content: [
       "A Stave agent run started this turn. The user did not type this message and may not be watching.",

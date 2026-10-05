@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { memo, useId, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -73,6 +74,7 @@ export interface ExchangeRowProps {
  * live shelf, the panel and the log all open the same body.
  */
 export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
+  useTranslation();
   const { exchange, nowMs } = props;
   const [ownExpanded, setOwnExpanded] = useState(props.defaultExpanded ?? false);
   const expanded = !props.onInspect && (props.expanded ?? ownExpanded);
@@ -159,8 +161,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
           {elapsedMs !== null ? (
             <span className={sx(styles.rowElapsed)}>
               <VisuallyHidden>
-                {status.label}, {formatExchangeDuration(elapsedMs)} elapsed
-              </VisuallyHidden>
+                {status.label}, {formatExchangeDuration(elapsedMs)} {i18n.t("agentRuns:exchangeRow.exchangeRow")}</VisuallyHidden>
               <span aria-hidden="true">{formatExchangeDuration(elapsedMs)}</span>
             </span>
           ) : null}

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useMemo } from "react";
 import { buildAgentRunStartInput, AGENT_RUN_DEFAULT_DONE_WHEN, AGENT_RUN_STAGE_ID } from "@/lib/agent-runs/agent-run";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -44,7 +45,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
           if (!cancelled.ok && cancelled.code !== "not-active") return;
           const released = await window.api?.agents?.releaseTask({ taskId: agentRun.leadTaskId }).catch(() => null);
           if (released?.ok) void useAgentAssignmentsStore.getState().load();
-          else toast.info("The run ended", { description: "The task still has its agent. Pick a model to chat." });
+          else toast.info(i18n.t("agentRuns:useAgentRunActions.copy"), { description: i18n.t("agentRuns:useAgentRunActions.description") });
         })();
       },
       onRetry: () => {
@@ -60,8 +61,8 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
           // stages under another.
           const current = useAgentAssignmentsStore.getState().byTaskId[agentRun.leadTaskId];
           if (current?.agentName !== agentRun.workflow.name) {
-            toast.info(`${agentRun.workflow.name} no longer runs this task`, {
-              description: `Choose ${agentRun.workflow.name} in the selector to run it again.`,
+            toast.info(i18n.t("agentRuns:useAgentRunActions.copy2", { value1: agentRun.workflow.name }), {
+              description: i18n.t("agentRuns:useAgentRunActions.description2", { value1: agentRun.workflow.name }),
             });
             return;
           }
@@ -83,7 +84,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
               now: new Date(),
             }),
           );
-          if (!started.ok) toast.error("The run did not start", { description: started.message });
+          if (!started.ok) toast.error(i18n.t("agentRuns:useAgentRunActions.copy3"), { description: started.message });
         })();
       },
       onAskForChanges: () => useAppStore.setState((state) => ({ promptFocusNonce: state.promptFocusNonce + 1 })),

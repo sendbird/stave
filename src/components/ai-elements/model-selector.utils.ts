@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { getClaudeModelVersionGuidance } from "@/lib/providers/claude-model-requirements";
 import {
   getSdkModelOptions,
@@ -60,7 +61,7 @@ function buildModelSelectorOption(args: {
       args.description,
       args.providerId === "claude-code"
         ? getClaudeModelVersionGuidance(args.model)
-        : args.providerId === "codex" && !args.description ? "Runtime support unconfirmed. You can still select this model." : undefined,
+        : args.providerId === "codex" && !args.description ? i18n.t("composer:modelSelectorUtils.extraCopy63") : undefined,
     ].filter(Boolean).join(" ") || undefined,
     isDefault: args.isDefault,
     defaultEffort: args.defaultEffort,
@@ -86,7 +87,7 @@ export function buildModelSelectorValue(args: {
     model: args.model,
     // An empty model is "follow the runtime default", not a Claude row. Inferring
     // a provider mark from "" made Background AI look pinned to Claude.
-    label: args.label ?? (model ? undefined : "Default"),
+    label: args.label ?? (model ? undefined : i18n.t("composer:modelSelectorUtils.label")),
     available: args.available,
     description: args.description,
   });
@@ -110,16 +111,16 @@ export function buildAutoModelSelectorOption(args: {
     providerId: args.providerId,
     model: "",
     label: args.pending
-      ? "Auto · Choosing…"
+      ? i18n.t("composer:modelSelectorUtils.label2")
       : args.routed
-        ? `Auto → ${args.routed.label}`
+        ? i18n.t("composer:modelSelectorUtils.label3", { value1: args.routed.label })
         : args.stanceLabel
-          ? `Auto · ${args.stanceLabel}`
-          : "Auto",
+          ? i18n.t("composer:modelSelectorUtils.label4", { value1: args.stanceLabel })
+          : i18n.t("composer:modelSelectorUtils.label5"),
     description: args.pending
-      ? "Auto is choosing the model for this request."
+      ? i18n.t("composer:modelSelectorUtils.description")
       : (args.routed?.description ??
-        "Stave chooses the provider, model, and effort."),
+        i18n.t("composer:modelSelectorUtils.description2")),
     isAuto: true,
     available: args.available ?? true,
   };

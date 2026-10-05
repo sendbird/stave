@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useId, useMemo, useState } from "react";
 import { Check, CircleHelp, ExternalLink, PencilLine } from "lucide-react";
 import { Badge, Button, Input, Textarea } from "@/components/ui";
@@ -72,23 +73,23 @@ function getRequestStateCopy(state: UserInputCardProps["state"]): {
   switch (state) {
     case "input-responded":
       return {
-        title: "Answered",
-        detail: "Your response was sent to the agent.",
+        title: i18n.t("composer:userInputCard.title"),
+        detail: i18n.t("composer:userInputCard.detail"),
       };
     case "input-denied":
       return {
-        title: "Answer declined",
-        detail: "The agent will continue without a response when possible.",
+        title: i18n.t("composer:userInputCard.title2"),
+        detail: i18n.t("composer:userInputCard.detail2"),
       };
     case "input-interrupted":
       return {
-        title: "Question expired",
-        detail: "The turn ended before this question was answered.",
+        title: i18n.t("composer:userInputCard.title3"),
+        detail: i18n.t("composer:userInputCard.detail3"),
       };
     default:
       return {
-        title: "Question ready",
-        detail: "Answer in the composer below to continue.",
+        title: i18n.t("composer:userInputCard.title4"),
+        detail: i18n.t("composer:userInputCard.detail4"),
       };
   }
 }
@@ -98,6 +99,7 @@ function UserInputSummary(args: {
   state: UserInputCardProps["state"];
   answers?: Record<string, string>;
 }) {
+  useTranslation();
   const copy = getRequestStateCopy(args.state);
   const firstQuestion = args.questions[0]?.question.trim();
 
@@ -126,8 +128,7 @@ function UserInputSummary(args: {
               {args.questions.length > 1 ? (
                 <span className={sx(styles.summaryMoreCount)}>
                   {" "}
-                  · +{args.questions.length - 1} more
-                </span>
+                  · +{args.questions.length - 1} {i18n.t("composer:userInputCard.userInputSummary")}</span>
               ) : null}
             </p>
           ) : null}
@@ -137,8 +138,8 @@ function UserInputSummary(args: {
                 const answer =
                   args.answers?.[getQuestionKey(question)] ??
                   (question.inputType === "url_notice"
-                    ? "Accepted"
-                    : "No answer");
+                    ? i18n.t("composer:userInputCard.extraCopy73")
+                    : i18n.t("composer:userInputCard.extraCopy74"));
                 const displayAnswer = answer
                   .split(",")
                   .map((value) => value.trim())
@@ -175,6 +176,7 @@ function UserInputSummary(args: {
 }
 
 export function UserInputCard(args: UserInputCardProps) {
+  useTranslation();
   const {
     questions,
     state,
@@ -271,10 +273,10 @@ export function UserInputCard(args: UserInputCardProps) {
 
   const questionCountLabel =
     questions.length === 1
-      ? "1 question · Answer to continue"
+      ? i18n.t("composer:userInputCard.questionCountLabel")
       : questions.length > 1
-        ? `${questions.length} questions · Answer to continue`
-        : "Confirmation needed to continue";
+        ? i18n.t("composer:userInputCard.questionCountLabel2", { value1: questions.length })
+        : i18n.t("composer:userInputCard.questionCountLabel3");
 
   const formPresentationStyle =
     presentation === "inline"
@@ -309,8 +311,7 @@ export function UserInputCard(args: UserInputCardProps) {
             id={`${formId}-title`}
             className={sx(styles.headerTitle)}
           >
-            Agent needs your input
-          </h3>
+            {i18n.t("composer:userInputCard.userInputCard")}</h3>
           <p className={sx(styles.headerDetail)}>
             {questionCountLabel}
           </p>
@@ -341,12 +342,12 @@ export function UserInputCard(args: UserInputCardProps) {
               customOpenByQuestion[questionKey] ||
               question.options.length === 0;
             const selectionHint = question.multiSelect
-              ? "Select one or more"
+              ? i18n.t("composer:userInputCard.selectionHint")
               : question.options.length > 0
-                ? "Select one"
+                ? i18n.t("composer:userInputCard.selectionHint2")
                 : question.required === false
-                  ? "Optional"
-                  : "Required";
+                  ? i18n.t("composer:userInputCard.selectionHint3")
+                  : i18n.t("composer:userInputCard.selectionHint4");
 
             return (
               <div
@@ -457,8 +458,7 @@ export function UserInputCard(args: UserInputCardProps) {
                                     variant="secondary"
                                     className={sx(styles.recommendedBadge)}
                                   >
-                                    Recommended
-                                  </Badge>
+                                    {i18n.t("composer:userInputCard.copy")}</Badge>
                                 ) : null}
                               </span>
                               {option.description ? (
@@ -491,8 +491,7 @@ export function UserInputCard(args: UserInputCardProps) {
                         }
                       >
                         <ExternalLink className={sx(styles.iconSm)} />
-                        Open link
-                      </Button>
+                        {i18n.t("composer:userInputCard.copy2")}</Button>
                     </div>
                   ) : null}
 
@@ -525,8 +524,8 @@ export function UserInputCard(args: UserInputCardProps) {
                     >
                       <PencilLine className={sx(styles.iconSm)} />
                       {question.multiSelect
-                        ? "Add another answer"
-                        : "Write a different answer"}
+                        ? i18n.t("composer:userInputCard.copy3")
+                        : i18n.t("composer:userInputCard.copy4")}
                     </Button>
                   ) : null}
 
@@ -537,7 +536,7 @@ export function UserInputCard(args: UserInputCardProps) {
                           type="number"
                           value={selection.custom}
                           disabled={disabled}
-                          aria-label={`Answer: ${question.question}`}
+                          aria-label={i18n.t("composer:userInputCard.ariaLabel", { value1: question.question })}
                           onChange={(event) => {
                             const value = event.target.value;
                             setSelectionByQuestion((current) => ({
@@ -556,7 +555,7 @@ export function UserInputCard(args: UserInputCardProps) {
                         <Textarea
                           value={selection.custom}
                           disabled={disabled}
-                          aria-label={`Answer: ${question.question}`}
+                          aria-label={i18n.t("composer:userInputCard.ariaLabel2", { value1: question.question })}
                           className={sx(styles.customTextarea)}
                           onChange={(event) => {
                             const value = event.target.value;
@@ -573,8 +572,8 @@ export function UserInputCard(args: UserInputCardProps) {
                           placeholder={
                             question.placeholder ||
                             (question.options.length > 0
-                              ? "Write your answer"
-                              : "Type your answer")
+                              ? i18n.t("composer:userInputCard.placeholder")
+                              : i18n.t("composer:userInputCard.placeholder2"))
                           }
                         />
                       )}
@@ -589,8 +588,7 @@ export function UserInputCard(args: UserInputCardProps) {
 
       <div className={sx(styles.footer)}>
         <Button type="submit" size="sm" disabled={disabled || !isReady}>
-          Continue
-        </Button>
+          {i18n.t("composer:userInputCard.userInputCard2")}</Button>
         <Button
           type="button"
           size="sm"
@@ -598,8 +596,7 @@ export function UserInputCard(args: UserInputCardProps) {
           disabled={disabled}
           onClick={onDeny}
         >
-          Decline to answer
-        </Button>
+          {i18n.t("composer:userInputCard.userInputCard3")}</Button>
         {disabledReason ? (
           <p
             className={sx(styles.disabledReason)}

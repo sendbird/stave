@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import {
   ChevronDown,
@@ -98,6 +99,7 @@ export function ShelfRunLine(props: {
   /** Hooks for tests and the preview: the line's state, not its look. */
   dataState?: string;
 }) {
+  useTranslation();
   return (
     <div
       className={sx(styles.line)}
@@ -145,6 +147,7 @@ export function ShelfRunText(props: {
   /** The whole line in words, for when it is truncated. */
   title?: string;
 }) {
+  useTranslation();
   return (
     <p className={sx(styles.text)} title={props.title}>
       <span className={sx(styles.label, LABEL_TONES[props.tone ?? "default"])}>
@@ -172,13 +175,14 @@ const SEGMENT_STYLES: Record<ShelfSegment, StyleXValue | null> = {
 
 /** `▮▮▮▯▯ 3/7` for the turn's to-do list; hidden when the composer is narrow. */
 export function ShelfTodoProgressView(props: { progress: ShelfTodoProgress }) {
+  useTranslation();
   const { done, total, segments } = props.progress;
   return (
     <span
       className={sx(styles.progress)}
       data-testid="composer-shelf-todo-progress"
       role="img"
-      aria-label={`${done} of ${total} to-dos done`}
+      aria-label={i18n.t("session:remaining.presentationCopy325", { v1: done, v2: total })}
     >
       <span className={sx(styles.segments)} aria-hidden>
         {segments.map((segment, index) => (
@@ -196,6 +200,7 @@ export function ShelfTodoProgressView(props: { progress: ShelfTodoProgress }) {
 }
 
 function ShelfPanelButton(props: ShelfRunPanelButton) {
+  useTranslation();
   return (
     <span className={props.keep === "wide" ? sx(styles.wideOnly) : undefined}>
       <Tooltip content={props.label}>
@@ -215,8 +220,9 @@ function ShelfPanelButton(props: ShelfRunPanelButton) {
 }
 
 function ShelfDetailButton(props: ShelfRunDetailToggle) {
+  useTranslation();
   if (props.kind === "floating") {
-    const label = props.open ? "Hide the activity card" : "Show the activity card";
+    const label = props.open ? i18n.t("composer:shelfRunLine.label") : i18n.t("composer:shelfRunLine.label2");
     return (
       <Tooltip content={label}>
         <Button
@@ -233,7 +239,7 @@ function ShelfDetailButton(props: ShelfRunDetailToggle) {
       </Tooltip>
     );
   }
-  const label = props.open ? "Hide activity details" : "Show activity details";
+  const label = props.open ? i18n.t("composer:shelfRunLine.label3") : i18n.t("composer:shelfRunLine.label4");
   return (
     <Button
       variant="quiet"

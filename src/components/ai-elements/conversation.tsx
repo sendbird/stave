@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type {
   ComponentPropsWithoutRef,
   ForwardedRef,
@@ -105,6 +106,7 @@ export function Conversation({
   className: extraClassName,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   // Use refs for scroll-tracking state to avoid context re-renders on every scroll event.
@@ -247,6 +249,7 @@ interface ConversationContentProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export function ConversationContent(props: ConversationContentProps) {
+  useTranslation();
   const {
     containerRef,
     setContainerEl,
@@ -587,6 +590,7 @@ interface ConversationVirtualListProps<T> {
 export function ConversationVirtualList<T>(
   props: ConversationVirtualListProps<T>,
 ) {
+  useTranslation();
   const {
     containerEl,
     setAtBottom,
@@ -635,6 +639,7 @@ export function ConversationVirtualList<T>(
         listProps: ComponentPropsWithoutRef<"div">,
         ref: ForwardedRef<HTMLDivElement>,
       ) {
+  useTranslation();
         const { className, ...rest } = listProps;
         return (
           <div
@@ -647,6 +652,7 @@ export function ConversationVirtualList<T>(
       Item: function ConversationListItem(
         itemProps: ComponentPropsWithoutRef<"div">,
       ) {
+  useTranslation();
         const { className, ...rest } = itemProps;
         return <div className={cx(sx(styles.listItem), className)} {...rest} />;
       },
@@ -1092,6 +1098,7 @@ export function ConversationColumn(props: {
   children: ReactNode;
   flush?: boolean;
 }) {
+  useTranslation();
   if (props.flush) {
     return <>{props.children}</>;
   }
@@ -1104,6 +1111,7 @@ export function ConversationEmptyState(args: {
   icon?: ReactNode;
   className?: string;
 }) {
+  useTranslation();
   return (
     <div className={cx(sx(styles.emptyState), args.className)}>
       {args.icon ? (
@@ -1121,6 +1129,7 @@ interface ConversationScrollButtonProps
 }
 
 export function ConversationScrollButton(props: ConversationScrollButtonProps) {
+  useTranslation();
   const { atBottom, scrollToBottom } = useConversationContext();
   if (atBottom) {
     return null;
@@ -1140,7 +1149,7 @@ export function ConversationScrollButton(props: ConversationScrollButtonProps) {
       onClick={() => {
         scrollToBottom({ behavior: "smooth" });
       }}
-      aria-label="Scroll to bottom"
+      aria-label={i18n.t("composer:conversation.ariaLabel")}
       type="button"
       {...buttonProps}
     >
@@ -1196,6 +1205,7 @@ interface ConversationDownloadProps
 }
 
 export function ConversationDownload(args: ConversationDownloadProps) {
+  useTranslation();
   const {
     messages,
     filename = `conversation-${new Date().toISOString().slice(0, 10)}.md`,
@@ -1212,7 +1222,7 @@ export function ConversationDownload(args: ConversationDownloadProps) {
       variant="outline"
       className={cx(sx(styles.floatingButton), className)}
       disabled={disabled}
-      aria-label="download-conversation"
+      aria-label={i18n.t("composer:conversation.download")}
       onClick={() => {
         const markdown = messagesToMarkdown(messages, formatMessage);
         const blob = new Blob([markdown], {

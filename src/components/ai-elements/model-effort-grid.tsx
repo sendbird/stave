@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, Minus } from "lucide-react";
 import { type CSSProperties, type KeyboardEvent, useMemo, useRef } from "react";
@@ -27,7 +28,7 @@ function getCellKey(option: ModelSelectorOption, effort: ModelEffortValue) {
 
 function getEffortShortLabel(label: string) {
   if (label === "Medium") {
-    return "Med";
+    return i18n.t("composer:modelEffortGrid.getEffortShortLabel");
   }
   if (label === "X-High") {
     return "XH";
@@ -59,6 +60,7 @@ export function ModelEffortGrid(args: {
   disabled?: boolean;
   onChoose: (option: ModelSelectorOption, effort: ModelEffortValue) => void;
 }) {
+  useTranslation();
   const cellRefs = useRef(new Map<string, HTMLElement>());
   const scale = listProviderEffortScale(args.providerId);
   const effortsByOption = useMemo(
@@ -165,7 +167,7 @@ export function ModelEffortGrid(args: {
     <div className={sx(styles.scroller)}>
       <div
         role="grid"
-        aria-label="Model and reasoning effort"
+        aria-label={i18n.t("composer:modelEffortGrid.ariaLabel")}
         aria-colcount={scale.length + 1}
         aria-rowcount={effortfulOptions.length + 1}
         className={sx(styles.grid)}
@@ -178,8 +180,7 @@ export function ModelEffortGrid(args: {
       >
         <div role="row" className={sx(styles.headerRow)}>
           <span role="columnheader" className={sx(styles.columnHeaderModel)}>
-            Model
-          </span>
+            {i18n.t("composer:modelEffortGrid.modelEffortGrid")}</span>
           {scale.map((effort) => (
             <span
               key={effort.value}
@@ -212,7 +213,7 @@ export function ModelEffortGrid(args: {
                 />
                 <span className={sx(styles.rowHeaderLabel)}>{modelLabel}</span>
                 {option.isDefault ? (
-                  <span className={sx(styles.defaultBadge)}>Default</span>
+                  <span className={sx(styles.defaultBadge)}>{i18n.t("composer:modelEffortGrid.copy")}</span>
                 ) : null}
               </span>
 
@@ -223,7 +224,7 @@ export function ModelEffortGrid(args: {
                       key={`${option.key}:${effort.value}`}
                       role="gridcell"
                       aria-disabled="true"
-                      aria-label={`${modelLabel} does not support ${effort.label} effort`}
+                      aria-label={i18n.t("composer:modelEffortGrid.ariaLabel2", { value1: modelLabel, value2: effort.label })}
                       className={sx(styles.unsupportedCell)}
                     >
                       <span className={sx(styles.unsupportedGlyph)}>
@@ -253,7 +254,7 @@ export function ModelEffortGrid(args: {
                     type="button"
                     role="gridcell"
                     aria-selected={selected}
-                    aria-label={`${modelLabel}, ${effort.label} effort`}
+                    aria-label={i18n.t("composer:remaining.presentationCopy125", { v1: modelLabel, v2: effort.label })}
                     disabled={args.disabled || !option.available}
                     tabIndex={cellKey === tabStopKey ? 0 : -1}
                     onKeyDown={(event) =>

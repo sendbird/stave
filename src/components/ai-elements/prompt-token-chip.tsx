@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { Info, Link, Sparkles, Terminal } from "lucide-react";
 import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
 import type { PromptTokenDescriptor } from "@/lib/prompt-token-chips";
@@ -11,6 +12,7 @@ export function PromptTokenChip(args: {
   showDetail?: boolean;
   className?: string;
 }) {
+  useTranslation();
   const { descriptor, compact, className } = args;
   const showDetail = args.showDetail ?? !compact;
   // serviceLink may be absent on deserialized tokens — re-derive it from the URL.

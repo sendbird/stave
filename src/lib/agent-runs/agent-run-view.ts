@@ -1,3 +1,5 @@
+import { getStageDisplayTitle } from "./stage-display";
+import { i18n } from "@/i18n/runtime";
 /**
  * What the agent run surfaces show, derived from an `AgentRunDetail`: stage rows,
  * the one status line with its age, and the transcript divider for each turn an
@@ -22,14 +24,14 @@ import { CHECK_IN_LABELS, type WorkflowStage, type StaveAction } from "@/lib/wor
 export type StageTone = "done" | "active" | "waiting" | "attention" | "idle" | "skipped";
 
 export const STAGE_STATUS_PRESENTATION: Record<StageStatus, { label: string; tone: StageTone }> = {
-  pending: { label: "Not started", tone: "idle" },
-  "awaiting-sign-off": { label: "Waiting for your sign-off", tone: "waiting" },
-  running: { label: "Running", tone: "active" },
-  blocked: { label: "Blocked", tone: "attention" },
-  stuck: { label: "Stuck", tone: "attention" },
-  completed: { label: "Done", tone: "done" },
-  skipped: { label: "Skipped", tone: "skipped" },
-  cancelled: { label: "Cancelled", tone: "skipped" },
+  pending: { get label() { return i18n.t("agentRuns:agentRunView.label"); }, tone: "idle" },
+  "awaiting-sign-off": { get label() { return i18n.t("agentRuns:agentRunView.label2"); }, tone: "waiting" },
+  running: { get label() { return i18n.t("agentRuns:agentRunView.label3"); }, tone: "active" },
+  blocked: { get label() { return i18n.t("agentRuns:agentRunView.label4"); }, tone: "attention" },
+  stuck: { get label() { return i18n.t("agentRuns:agentRunView.label5"); }, tone: "attention" },
+  completed: { get label() { return i18n.t("agentRuns:agentRunView.label6"); }, tone: "done" },
+  skipped: { get label() { return i18n.t("agentRuns:agentRunView.label7"); }, tone: "skipped" },
+  cancelled: { get label() { return i18n.t("agentRuns:agentRunView.label8"); }, tone: "skipped" },
 };
 
 export interface AgentRunStageRow {
@@ -74,14 +76,14 @@ export function projectAgentRunStages(detail: AgentRunDetail, now: Date): AgentR
 
 /** "now", "45s", "6m", "2h", "3d". */
 export function formatAge(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 5_000) return "now";
+  if (!Number.isFinite(ms) || ms < 5_000) return i18n.t("agentRuns:agentRunView.now");
   const seconds = Math.floor(ms / 1_000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return i18n.t("agentRuns:agentRunView.seconds", { value: seconds });
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return i18n.t("agentRuns:agentRunView.minutes", { value: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 48) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
+  if (hours < 48) return i18n.t("agentRuns:agentRunView.hours", { value: hours });
+  return i18n.t("agentRuns:agentRunView.days", { value: Math.floor(hours / 24) });
 }
 
 export type AgentRunHeadlineTone = "active" | "waiting" | "attention" | "done" | "ended";
@@ -108,11 +110,11 @@ function describeChecks(detail: AgentRunDetail, record: AgentRunStageRecord): st
     observed && observed.detail.stageId === record.stageId && observed.detail.attempt === record.attempt
       ? (observed.detail.checks as Array<{ state?: string }> | undefined)
       : undefined;
-  if (!checks?.length) return "Watching checks";
+  if (!checks?.length) return i18n.t("agentRuns:agentRunView.describeChecks");
   const passing = checks.filter((check) =>
     ["SUCCESS", "NEUTRAL", "SKIPPED"].includes((check.state ?? "").toUpperCase()),
   ).length;
-  return `Checks ${passing}/${checks.length}`;
+  return i18n.t("agentRuns:agentRunView.describeChecks2", { value1: passing, value2: checks.length });
 }
 
 /** The one line that says where the agent run is, named and aged. */
@@ -121,18 +123,18 @@ export function describeAgentRunHeadline(detail: AgentRunDetail): AgentRunHeadli
   const since = latestEvent(detail.events)?.createdAt ?? agentRun.updatedAt;
   switch (agentRun.state) {
     case "completed":
-      return { text: "Run complete", tone: "done", since: agentRun.updatedAt };
+      return { text: i18n.t("agentRuns:agentRunView.text"), tone: "done", since: agentRun.updatedAt };
     case "cancelled":
-      return { text: "Run cancelled", tone: "ended", since: agentRun.updatedAt };
+      return { text: i18n.t("agentRuns:agentRunView.text2"), tone: "ended", since: agentRun.updatedAt };
     case "stopped":
       return {
-        text: `Run stopped${agentRun.reasonDetail ? ` · ${agentRun.reasonDetail}` : ""}`,
+        text: i18n.t("agentRuns:agentRunView.text3", { value1: agentRun.reasonDetail ? ` · ${agentRun.reasonDetail}` : "" }),
         tone: "attention",
         since: agentRun.updatedAt,
       };
     case "paused":
       return {
-        text: agentRun.reasonDetail ?? "Paused",
+        text: agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunView.text4"),
         tone: agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" ? "waiting" : "attention",
         since,
       };
@@ -143,28 +145,28 @@ export function describeAgentRunHeadline(detail: AgentRunDetail): AgentRunHeadli
   const record = latestStageRecord(detail.stages, stage.id);
   switch (record?.status ?? "pending") {
     case "awaiting-sign-off":
-      return { text: "Waiting for your sign-off", tone: "waiting", since };
+      return { text: i18n.t("agentRuns:agentRunView.text5"), tone: "waiting", since };
     case "blocked":
       return {
         text:
           record?.blockReason === "reporting-unavailable"
-            ? "Reporting unavailable · Stave's local tools are unreachable"
-            : `Blocked · ${record?.detail ?? "waiting for you"}`,
+            ? i18n.t("agentRuns:agentRunView.text6")
+            : i18n.t("agentRuns:agentRunView.text7", { value1: record?.detail ?? i18n.t("agentRuns:agentRunView.extraCopy219") }),
         tone: "attention",
         since,
       };
     case "stuck":
-      return { text: `Stuck · ${record?.detail ?? "the stage stopped moving"}`, tone: "attention", since };
+      return { text: i18n.t("agentRuns:agentRunView.text8", { value1: record?.detail ?? i18n.t("agentRuns:agentRunView.extraCopy220") }), tone: "attention", since };
     case "running":
       if (stage.kind === "action" && stage.action.type === "watch-checks" && record) {
         return { text: describeChecks(detail, record), tone: "active", since: record.startedAt ?? since };
       }
-      return { text: `${stage.title} · running`, tone: "active", since: record?.startedAt ?? since };
+      return { text: i18n.t("agentRuns:remaining.presentationCopy414", { v1: getStageDisplayTitle(stage) }), tone: "active", since: record?.startedAt ?? since };
     case "pending":
     case "completed":
     case "skipped":
     case "cancelled":
-      return { text: `${stage.title} · starting`, tone: "active", since };
+      return { text: i18n.t("agentRuns:remaining.presentationCopy415", { v1: getStageDisplayTitle(stage) }), tone: "active", since };
   }
 }
 
@@ -188,11 +190,11 @@ function describeRunningAction(action: StaveAction, watchingChecks: string): str
     case "watch-checks":
       return watchingChecks;
     case "open-draft-pr":
-      return "Stave is opening the draft PR";
+      return i18n.t("agentRuns:agentRunView.describeRunningAction");
     case "mark-pr-ready":
-      return "Stave is marking the PR ready for review";
+      return i18n.t("agentRuns:agentRunView.describeRunningAction2");
     case "run-script":
-      return `Stave is running the “${action.scriptId}” script`;
+      return i18n.t("agentRuns:agentRunView.describeRunningAction3", { value1: action.scriptId });
   }
 }
 
@@ -207,7 +209,7 @@ export function describeAgentRunStatusLine(detail: AgentRunDetail): AgentRunStat
   const since = headline.since;
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;
   const line = (patch: Partial<AgentRunStatusLine> & Pick<AgentRunStatusLine, "tone">): AgentRunStatusLine => ({
-    title: stage.title,
+    title: getStageDisplayTitle(stage),
     state: null,
     detail: null,
     since,
@@ -217,12 +219,12 @@ export function describeAgentRunStatusLine(detail: AgentRunDetail): AgentRunStat
   if (agentRun.state === "paused") {
     const userPause = agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over";
     return line({
-      title: "Paused",
+      title: i18n.t("agentRuns:agentRunView.title"),
       detail:
         agentRun.pauseReason === "taken-over"
-          ? "You took over · replies are yours until you resume"
+          ? i18n.t("agentRuns:agentRunView.detail")
           : agentRun.pauseReason === "paused-by-user"
-            ? `Paused by you before ${stage.title}`
+            ? i18n.t("agentRuns:agentRunView.detail2", { value1: getStageDisplayTitle(stage) })
             : headline.text,
       tone: userPause ? "waiting" : "attention",
     });
@@ -233,22 +235,22 @@ export function describeAgentRunStatusLine(detail: AgentRunDetail): AgentRunStat
   const record = latestStageRecord(detail.stages, stage.id);
   switch (record?.status ?? "pending") {
     case "awaiting-sign-off":
-      return line({ state: "Waiting for your sign-off", tone: "waiting" });
+      return line({ state: i18n.t("agentRuns:agentRunView.extraCopy221"), tone: "waiting" });
     case "blocked":
       return record?.blockReason === "reporting-unavailable"
-        ? line({ state: "Reporting unavailable", detail: "Stave's local tools are unreachable", tone: "attention" })
-        : line({ state: "Blocked", detail: record?.detail ?? "waiting for you", tone: "attention" });
+        ? line({ state: i18n.t("agentRuns:agentRunView.extraCopy222"), detail: i18n.t("agentRuns:agentRunView.detail3"), tone: "attention" })
+        : line({ state: i18n.t("agentRuns:agentRunView.extraCopy223"), detail: record?.detail ?? i18n.t("agentRuns:agentRunView.detail4"), tone: "attention" });
     case "stuck":
-      return line({ state: "Stuck", detail: record?.detail ?? "the stage stopped moving", tone: "attention" });
+      return line({ state: i18n.t("agentRuns:agentRunView.extraCopy224"), detail: record?.detail ?? i18n.t("agentRuns:agentRunView.detail5"), tone: "attention" });
     case "running": {
-      if (stage.kind === "ai") return line({ detail: "Working", tone: "active", live: true });
+      if (stage.kind === "ai") return line({ detail: i18n.t("agentRuns:agentRunView.detail6"), tone: "active", live: true });
       return line({ detail: describeRunningAction(stage.action, headline.text), tone: "active" });
     }
     case "pending":
     case "completed":
     case "skipped":
     case "cancelled":
-      return line({ detail: "Starting", tone: "active" });
+      return line({ detail: i18n.t("agentRuns:agentRunView.detail7"), tone: "active" });
   }
 }
 
@@ -259,79 +261,79 @@ export function describeAgentRunBadge(detail: AgentRunDetail): { label: string; 
   const { agentRun } = detail;
   switch (agentRun.state) {
     case "completed":
-      return { label: "Completed", tone: "success" };
+      return { label: i18n.t("agentRuns:agentRunView.label9"), tone: "success" };
     case "cancelled":
-      return { label: "Cancelled", tone: "neutral" };
+      return { label: i18n.t("agentRuns:agentRunView.label10"), tone: "neutral" };
     case "stopped":
-      return { label: "Stopped", tone: "danger" };
+      return { label: i18n.t("agentRuns:agentRunView.label11"), tone: "danger" };
     case "paused":
-      return { label: "Paused", tone: "warning" };
+      return { label: i18n.t("agentRuns:agentRunView.label12"), tone: "warning" };
     case "running":
       break;
   }
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;
   switch (latestStageRecord(detail.stages, stage.id)?.status ?? "pending") {
     case "awaiting-sign-off":
-      return { label: "Needs you", tone: "warning" };
+      return { label: i18n.t("agentRuns:agentRunView.label13"), tone: "warning" };
     case "blocked":
-      return { label: "Blocked", tone: "danger" };
+      return { label: i18n.t("agentRuns:agentRunView.label14"), tone: "danger" };
     case "stuck":
-      return { label: "Stuck", tone: "danger" };
+      return { label: i18n.t("agentRuns:agentRunView.label15"), tone: "danger" };
     case "running":
     case "pending":
     case "completed":
     case "skipped":
     case "cancelled":
-      return { label: "Running", tone: "accent" };
+      return { label: i18n.t("agentRuns:agentRunView.label16"), tone: "accent" };
   }
 }
 
 /** `manual` is stored as is; people see it as "Your settings". */
 export const AGENT_RUN_PERMISSION_LABELS: Record<AgentRun["consent"]["permissionMode"], string> = {
-  auto: "Auto",
-  guided: "Guided",
-  manual: "Your settings",
+  get auto() { return i18n.t("agentRuns:agentRunView.auto"); },
+  get guided() { return i18n.t("agentRuns:agentRunView.guided"); },
+  get manual() { return i18n.t("agentRuns:agentRunView.manual"); },
 };
 
 /** The permissions line of an agent run summary. */
 export function describeAgentRunPermissions(permissionMode: AgentRun["consent"]["permissionMode"]): string {
   return permissionMode === "manual"
-    ? "Your permission settings"
-    : `${AGENT_RUN_PERMISSION_LABELS[permissionMode]} permissions`;
+    ? i18n.t("agentRuns:agentRunView.describeAgentRunPermissions")
+    : i18n.t("agentRuns:remaining.presentationCopy416", { v1: AGENT_RUN_PERMISSION_LABELS[permissionMode] });
 }
 
 /** The primary button names what happens when it is pressed. */
 export function describeSignOffAction(stage: WorkflowStage): string {
-  if (stage.kind === "ai") return `Start ${stage.title}`;
+  if (stage.kind === "ai") return i18n.t("agentRuns:agentRunView.describeSignOffAction", { value1: getStageDisplayTitle(stage) });
   switch (stage.action.type) {
     case "open-draft-pr":
-      return "Open the draft PR";
+      return i18n.t("agentRuns:agentRunView.describeSignOffAction2");
     case "watch-checks":
-      return "Start watching checks";
+      return i18n.t("agentRuns:agentRunView.describeSignOffAction3");
     case "mark-pr-ready":
-      return "Mark ready for review";
+      return i18n.t("agentRuns:agentRunView.describeSignOffAction4");
     case "run-script":
-      return `Run “${stage.action.scriptId}”`;
+      return i18n.t("agentRuns:agentRunView.describeSignOffAction5", { value1: stage.action.scriptId });
   }
 }
 
 /** What the card cites: the stage before it, in one line. */
 export function summarizePreviousStage(row: AgentRunStageRow | undefined): string | null {
   if (!row?.record) return null;
-  const parts: string[] = [`${row.stage.title} ${row.status === "completed" ? "done" : row.status}`];
+  const parts: string[] = [i18n.t("agentRuns:agentRunView.stageOutcome", { stage: getStageDisplayTitle(row.stage), status: row.status === "completed" ? i18n.t("agentRuns:agentRunView.label6").toLowerCase() : STAGE_STATUS_PRESENTATION[row.status].label.toLowerCase() })];
   const diff = row.record.facts?.diff;
   if (diff && diff.filesChanged > 0) {
-    parts.push(`${diff.filesChanged} ${diff.filesChanged === 1 ? "file" : "files"} +${diff.insertions} −${diff.deletions}`);
+    parts.push(i18n.t("agentRuns:counts.changedFiles", { count: diff.filesChanged, insertions: diff.insertions, deletions: diff.deletions }));
   }
   const verified = row.evidence.filter(isVerifiedEvidence).length;
-  if (verified > 0) parts.push(`${verified} verified by Stave`);
+  if (verified > 0) parts.push(i18n.t("agentRuns:agentRunView.extraCopy225", { value1: verified }));
   return parts.join(" · ");
 }
 
 /** "5 of 40 turns", and whether the agent run is close to its turn limit. */
 export function describeTurnBudget(agentRun: Pick<AgentRun, "turnCount" | "maxTurns">) {
   return {
-    text: `${agentRun.turnCount} of ${agentRun.maxTurns} turns`,
+    text: i18n.t("agentRuns:agentRunView.text9", { value1: agentRun.turnCount, value2: agentRun.maxTurns }),
     nearLimit: agentRun.turnCount >= Math.ceil(agentRun.maxTurns * 0.8),
   };
 }
@@ -388,7 +390,7 @@ export function buildAgentRunTurnDividers(
     const reason = String(started.event.detail.reason ?? "stage-start");
     const where = stagePosition(agentRun, stageId);
     if (!where) continue;
-    const name = `Stage ${where.index + 1} · ${where.stage.title}${attempt > 1 ? `, attempt ${attempt}` : ""}`;
+    const name = i18n.t("agentRuns:agentRunView.extraCopy226", { value1: where.index + 1, value2: getStageDisplayTitle(where.stage), value3: attempt > 1 ? i18n.t("agentRuns:remaining.presentationCopy417", { v1: attempt }) : "" });
     dividers.set(
       linked.detail.turnId,
       describeTurnStart({ agentRun, events, position: started.position, name, stageId, attempt, reason, formatTime }),
@@ -408,32 +410,32 @@ function describeTurnStart(args: {
   formatTime: (iso: string) => string;
 }): string {
   const { name, reason } = args;
-  if (reason === "nudge") return `${name} — reminder to report the stage`;
-  if (reason === "repair-checks") return `${name} — repair after checks failed`;
-  if (reason === "continue-after-user") return `${name} — continuing after your reply`;
-  if (reason === "reporting-restored") return `${name} — resumed after Stave's local tools came back`;
-  if (reason === "resume-after-restart") return `${name} — resumed after Stave restarted`;
+  if (reason === "nudge") return i18n.t("agentRuns:agentRunView.describeTurnStart", { value1: name });
+  if (reason === "repair-checks") return i18n.t("agentRuns:agentRunView.describeTurnStart2", { value1: name });
+  if (reason === "continue-after-user") return i18n.t("agentRuns:agentRunView.describeTurnStart3", { value1: name });
+  if (reason === "reporting-restored") return i18n.t("agentRuns:agentRunView.describeTurnStart4", { value1: name });
+  if (reason === "resume-after-restart") return i18n.t("agentRuns:agentRunView.describeTurnStart5", { value1: name });
   // What happened just before this stage started.
   for (let index = args.position - 1; index >= 0; index -= 1) {
     const event = args.events[index]!;
     const sameAttempt = event.detail.stageId === args.stageId && event.detail.attempt === args.attempt;
     if (event.kind === "sign-off" && sameAttempt) {
-      return `${name} — signed off by you at ${args.formatTime(event.createdAt)}`;
+      return i18n.t("agentRuns:agentRunView.describeTurnStart6", { value1: name, value2: args.formatTime(event.createdAt) });
     }
     if (event.kind === "changes-requested" && event.detail.rerunStageId === args.stageId) {
-      return `${name} — after you asked for changes`;
+      return i18n.t("agentRuns:agentRunView.describeTurnStart7", { value1: name });
     }
     if (event.kind === "stage-retried" && event.detail.stageId === args.stageId) {
-      return `${name} — retried`;
+      return i18n.t("agentRuns:remaining.presentationCopy418", { v1: name });
     }
     if (event.kind === "stage-completed" || event.kind === "stage-skipped") {
       const previous = stagePosition(args.agentRun, String(event.detail.stageId ?? ""));
       if (previous) {
-        const verb = event.kind === "stage-completed" ? "reported done" : "was skipped";
-        return `${name} — started automatically after ${previous.stage.title} ${verb}`;
+        const verb = event.kind === "stage-completed" ? i18n.t("agentRuns:agentRunView.extraCopy227") : i18n.t("agentRuns:agentRunView.extraCopy228");
+        return i18n.t("agentRuns:agentRunView.describeTurnStart8", { value1: name, value2: getStageDisplayTitle(previous.stage), value3: verb });
       }
     }
-    if (event.kind === "agent-run-started") return `${name} — run started`;
+    if (event.kind === "agent-run-started") return i18n.t("agentRuns:agentRunView.describeTurnStart9", { value1: name });
   }
   return name;
 }

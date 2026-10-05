@@ -192,7 +192,8 @@ describe("Agent platform boundaries", () => {
     ]) {
       const imports = importedModules(readSource(file));
       const executionImports = imports.filter((specifier) =>
-        /runtime|executor|host-service|child_process/.test(specifier),
+        // Shared translation formatting is not a provider executor.
+        specifier !== "@/i18n/runtime" && /runtime|executor|host-service|child_process/.test(specifier),
       );
       expect({ file, executionImports }).toEqual({ file, executionImports: [] });
     }

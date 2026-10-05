@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
@@ -78,10 +79,10 @@ export function toToolResultStatus(state?: ToolState): ToolResultStatus {
 }
 
 const STATUS_LABEL: Record<ToolResultStatus, string> = {
-  running: "Running",
-  success: "Done",
-  error: "Failed",
-  cancelled: "Cancelled",
+  get running() { return i18n.t("composer:toolResult.running"); },
+  get success() { return i18n.t("composer:toolResult.success"); },
+  get error() { return i18n.t("composer:toolResult.error"); },
+  get cancelled() { return i18n.t("composer:toolResult.cancelled"); },
 };
 
 /**
@@ -112,6 +113,7 @@ export function ToolResultStatusIcon(args: {
   status: ToolResultStatus;
   className?: string;
 }) {
+  useTranslation();
   switch (args.status) {
     case "running":
       return (
@@ -147,6 +149,7 @@ function ToolResultKindIcon(args: {
   kind: ToolResultKind;
   className?: string;
 }) {
+  useTranslation();
   const className = cx(sx(s.statusIcon), args.className);
   switch (args.kind) {
     case "terminal":
@@ -179,6 +182,7 @@ function useToolResultContext(): ToolResultContextValue {
 /* ─── Actions ─────────────────────────────────────────────────────── */
 
 function CopyAction(args: { text: string }) {
+  useTranslation();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -207,7 +211,7 @@ function CopyAction(args: { text: string }) {
       ) : (
         <Copy className={sx(s.actionIcon)} />
       )}
-      {copied ? "Copied" : "Copy"}
+      {copied ? i18n.t("composer:toolResult.copyAction") : i18n.t("composer:toolResult.copyAction2")}
     </AdsButton>
   );
 }
@@ -237,6 +241,7 @@ export function ToolResultOutput({
   linkify = true,
   className,
 }: ToolResultOutputProps) {
+  useTranslation();
   const { maxHeight } = useToolResultContext();
   const truncationNotice = detectTruncationNotice({
     text: errorText ?? text,
@@ -277,7 +282,7 @@ export function ToolResultOutput({
             </pre>
           )
         ) : (
-          <span className={sx(s.outputEmpty)}>No output.</span>
+          <span className={sx(s.outputEmpty)}>{i18n.t("composer:toolResult.toolResultOutput")}</span>
         )}
       </div>
     </div>
@@ -302,6 +307,7 @@ export function ToolResult({
   children,
   ...props
 }: ToolResultProps) {
+  useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const [collapseSeen, setCollapseSeen] = useState(false);
 
@@ -344,8 +350,7 @@ export function ToolResult({
                 onClick={onRetry}
               >
                 <RotateCcw className={sx(s.actionIcon)} />
-                Retry
-              </AdsButton>
+                {i18n.t("composer:toolResult.footer")}</AdsButton>
             ) : null}
           </span>
         ) : null}
@@ -379,7 +384,7 @@ export function ToolResult({
           onClick={() => setOpen((previous) => !previous)}
         >
           <ToolResultKindIcon kind={kind} className={sx(s.kindIcon)} />
-          <span className={sx(s.headerTitle)}>{title ?? tool ?? "Tool"}</span>
+          <span className={sx(s.headerTitle)}>{title ?? tool ?? i18n.t("composer:toolResult.toolResult")}</span>
           {tool && title ? (
             <span className={sx(s.headerTool)}>{tool}</span>
           ) : null}

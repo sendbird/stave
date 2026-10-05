@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { AGENT_FILE_LOCATIONS, detectAgentFileFormat, importAgentFile, type AgentImportNote } from "./import";
 import type { AgentConfig } from "./schema";
 
@@ -84,7 +85,7 @@ export async function scanRepositoryAgents(access: RepositoryFileAccess): Promis
     if (index >= MAX_REPOSITORY_AGENT_FILES) {
       problems.push({
         path,
-        message: `Not read: Stave reads the first ${MAX_REPOSITORY_AGENT_FILES} agent files in a repository.`,
+        message: i18n.t("agents:repository.message", { value1: MAX_REPOSITORY_AGENT_FILES }),
       });
       continue;
     }
@@ -100,7 +101,7 @@ export async function scanRepositoryAgents(access: RepositoryFileAccess): Promis
     }
     const owner = ids.get(result.agent.id);
     if (owner) {
-      problems.push({ path, message: `Not used: ${owner} already defines an agent with the id "${result.agent.id}".` });
+      problems.push({ path, message: i18n.t("agents:repository.message2", { value1: owner, value2: result.agent.id }) });
       continue;
     }
     ids.set(result.agent.id, path);

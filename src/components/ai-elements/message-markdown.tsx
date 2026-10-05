@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { HTMLAttributes, MouseEvent, ReactNode } from "react";
 import {
   createContext,
@@ -88,6 +89,7 @@ function InlineCode({
   fontSize: number;
   children?: ReactNode;
 }) {
+  useTranslation();
   const isInTableCell = useContext(MarkdownTableCellContext);
   return (
     <code
@@ -136,9 +138,10 @@ function MessageExternalLinkChip({
   children?: ReactNode;
   onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
+  useTranslation();
   const label = extractPlainText(children).trim();
   const hostname = new URL(href).hostname.replace(/^www\./, "");
-  const tooltipLabel = `Open ${label} on ${hostname}`;
+  const tooltipLabel = i18n.t("composer:messageMarkdown.tooltipLabel", { value1: label, value2: hostname });
 
   return (
     <TooltipProvider>
@@ -256,10 +259,11 @@ export function MessageFileLink({
   column,
   onClick,
 }: MessageFileLinkProps) {
+  useTranslation();
   const locationLabel = formatFileLinkLocation({ line, column });
   const tooltipLabel = locationLabel
-    ? `Open ${filePath} (reference ${locationLabel})`
-    : `Open ${filePath}`;
+    ? i18n.t("composer:messageMarkdown.tooltipLabel2", { value1: filePath, value2: locationLabel })
+    : i18n.t("composer:messageMarkdown.tooltipLabel3", { value1: filePath });
   const link = (
     <a
       href={href}
@@ -299,6 +303,7 @@ export function MarkdownMessage({
   className,
   ...props
 }: MarkdownMessageProps) {
+  useTranslation();
   // ---------------------------------------------------------------------------
   // Stable ReactMarkdown `components` object.
   //
@@ -466,6 +471,7 @@ export function MarkdownMessage({
         href?: string;
         children?: ReactNode;
       }) {
+  useTranslation();
         const isInTableCell = useContext(MarkdownTableCellContext);
         const resolvedFileLink =
           resolveFileLinkRef.current?.({ href }) ??

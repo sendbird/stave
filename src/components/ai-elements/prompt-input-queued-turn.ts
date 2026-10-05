@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   getProviderLabel,
   toHumanModelName,
@@ -35,7 +36,7 @@ function findModelOptionLabel(args: {
         normalizeModelId(option.model) === model,
     )?.label ??
     (model === "" || model === "auto"
-      ? "Auto"
+      ? i18n.t("composer:promptInputQueuedTurn.findModelOptionLabel")
       : toHumanModelName({ model: args.model }))
   );
 }
@@ -117,9 +118,9 @@ export function describeQueuedTurnDispatch(args: {
   });
   const caption = targetLabel
     ? mismatchesComposer
-      ? `Sends as ${targetLabel}, not ${composerLabel}`
-      : `Sends as ${targetLabel}`
-    : "Sends with the task's current model";
+      ? i18n.t("composer:promptInputQueuedTurn.caption", { value1: targetLabel, value2: composerLabel })
+      : i18n.t("composer:promptInputQueuedTurn.caption2", { value1: targetLabel })
+    : i18n.t("composer:promptInputQueuedTurn.caption3");
   return {
     targetLabel,
     composerLabel,

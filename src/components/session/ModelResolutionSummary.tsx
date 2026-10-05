@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { ModelExecution } from "@/lib/providers/model-execution";
 import type { AgentTurnProvenance } from "@/lib/agents/turn-provenance";
 import { sx } from "../ads/utils/stylex";
@@ -26,8 +27,8 @@ function toProviderLabel(providerId: string) {
 }
 
 function toSourceLabel(source: AutoRoutingModelResolution["source"]) {
-  if (source === "classifier_fallback") return "Classifier fallback";
-  return source === "classifier" ? "Classifier" : "Heuristic";
+  if (source === "classifier_fallback") return i18n.t("session:modelResolutionSummary.toSourceLabel");
+  return source === "classifier" ? i18n.t("session:modelResolutionSummary.toSourceLabel2") : i18n.t("session:modelResolutionSummary.toSourceLabel3");
 }
 
 export interface ActualRunModel {
@@ -65,18 +66,18 @@ export function formatActualRunModel(actual: ActualRunModel) {
 function formatAgentPermissions(provenance: AgentTurnProvenance) {
   const applied = provenance.permission.applied;
   const values = [
-    applied.codexFileAccess ? `Files: ${applied.codexFileAccess}` : null,
-    applied.codexApprovalPolicy ? `Approval: ${applied.codexApprovalPolicy}` : null,
-    applied.claudePermissionMode ? `Mode: ${applied.claudePermissionMode}` : null,
-    applied.cursorMode ? `Mode: ${applied.cursorMode}` : null,
-    applied.cursorApprovalMode ? `Approval: ${applied.cursorApprovalMode}` : null,
-    applied.kiroApprovalMode ? `Approval: ${applied.kiroApprovalMode}` : null,
-    applied.codexNetworkAccess === undefined ? null : `Network: ${applied.codexNetworkAccess ? "on" : "off"}`,
+    applied.codexFileAccess ? i18n.t("session:modelResolutionSummary.extraCopy94", { value1: applied.codexFileAccess }) : null,
+    applied.codexApprovalPolicy ? i18n.t("session:modelResolutionSummary.extraCopy99", { value1: applied.codexApprovalPolicy }) : null,
+    applied.claudePermissionMode ? i18n.t("session:modelResolutionSummary.extraCopy97", { value1: applied.claudePermissionMode }) : null,
+    applied.cursorMode ? i18n.t("session:modelResolutionSummary.extraCopy97", { value1: applied.cursorMode }) : null,
+    applied.cursorApprovalMode ? i18n.t("session:modelResolutionSummary.extraCopy99", { value1: applied.cursorApprovalMode }) : null,
+    applied.kiroApprovalMode ? i18n.t("session:modelResolutionSummary.extraCopy99", { value1: applied.kiroApprovalMode }) : null,
+    applied.codexNetworkAccess === undefined ? null : i18n.t("session:modelResolutionSummary.extraCopy100", { value1: i18n.t(applied.codexNetworkAccess ? "session:presentation.on" : "session:presentation.off") }),
     applied.claudeAllowDangerouslySkipPermissions === undefined ? null
-      : `Skip approvals: ${applied.claudeAllowDangerouslySkipPermissions ? "on" : "off"}`,
-    applied.claudeDisallowedTools?.length ? `Denied tools: ${applied.claudeDisallowedTools.join(", ")}` : null,
+      : i18n.t("session:modelResolutionSummary.extraCopy101", { value1: i18n.t(applied.claudeAllowDangerouslySkipPermissions ? "session:presentation.on" : "session:presentation.off") }),
+    applied.claudeDisallowedTools?.length ? i18n.t("session:modelResolutionSummary.extraCopy102", { value1: applied.claudeDisallowedTools.join(", ") }) : null,
   ].filter(Boolean);
-  return values.join(" · ") || "Provider defaults; values not reported";
+  return values.join(" · ") || i18n.t("session:modelResolutionSummary.formatAgentPermissions");
 }
 
 /** Recorded model facts only; callers may reuse this in live or saved runs. */
@@ -87,10 +88,11 @@ export function ModelResolutionSummary(props: {
   /** Hide run identity and a routed target that the surrounding header repeats. */
   showModelFacts?: boolean;
 }) {
+  useTranslation();
   const showModelFacts = props.showModelFacts !== false;
   if (!props.actual && !props.resolution && !props.agentProvenance) {
     return (
-      <p className={sx(styles.caption)}>Actual model has not been reported</p>
+      <p className={sx(styles.caption)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary")}</p>
     );
   }
   const actualLabel = props.actual ? formatActualRunModel(props.actual) : null;
@@ -106,32 +108,32 @@ export function ModelResolutionSummary(props: {
     <dl className={sx(styles.modelFacts)}>
       {props.agentProvenance ? (
         <>
-          <dt className={sx(styles.muted)}>{props.agentProvenance.role === "delegate" ? "Delegated Agent" : "Assigned main Agent"}</dt>
+          <dt className={sx(styles.muted)}>{props.agentProvenance.role === "delegate" ? i18n.t("session:modelResolutionSummary.modelResolutionSummary2") : i18n.t("session:modelResolutionSummary.modelResolutionSummary3")}</dt>
           <dd className={sx(styles.modelValue)}>{props.agentProvenance.agentName}</dd>
-          <dt className={sx(styles.muted)}>Agent version</dt>
+          <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary4")}</dt>
           <dd className={sx(styles.modelValue)} title={props.agentProvenance.agentContentHash}>
             {props.agentProvenance.agentContentHash.slice(0, 12)}
           </dd>
-          <dt className={sx(styles.muted)}>Permission source</dt>
+          <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary5")}</dt>
           <dd className={sx(styles.modelReason)}>
-            {props.agentProvenance.permission.source === "delegation-policy" ? "Delegation policy"
-              : props.agentProvenance.permission.source === "agent-ceiling" ? "Agent ceiling"
-              : props.agentProvenance.permission.source === "agent-autonomy" ? "Agent autonomy" : "User settings"}
+            {props.agentProvenance.permission.source === "delegation-policy" ? i18n.t("session:modelResolutionSummary.modelResolutionSummary6")
+              : props.agentProvenance.permission.source === "agent-ceiling" ? i18n.t("session:modelResolutionSummary.modelResolutionSummary7")
+              : props.agentProvenance.permission.source === "agent-autonomy" ? i18n.t("session:modelResolutionSummary.modelResolutionSummary8") : i18n.t("session:modelResolutionSummary.modelResolutionSummary9")}
             {props.agentProvenance.permission.source === "agent-ceiling"
               ? ` · ${props.agentProvenance.permission.agentLimit}` : null}
-            {props.agentProvenance.permission.support === "instructed" ? " · Asked in instructions" : ""}
+            {props.agentProvenance.permission.support === "instructed" ? i18n.t("session:modelResolutionSummary.modelResolutionSummary10") : ""}
           </dd>
-          <dt className={sx(styles.muted)}>Agent instructions</dt>
+          <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary11")}</dt>
           <dd className={sx(styles.modelReason)}>
-            {props.agentProvenance.instructions.status === "configured" ? "Configured; delivery not confirmed"
-              : props.agentProvenance.instructions.status === "retained-session" ? "Already delivered to this session"
-              : "Delivered"}
+            {props.agentProvenance.instructions.status === "configured" ? i18n.t("session:modelResolutionSummary.modelResolutionSummary12")
+              : props.agentProvenance.instructions.status === "retained-session" ? i18n.t("session:modelResolutionSummary.modelResolutionSummary13")
+              : i18n.t("session:modelResolutionSummary.modelResolutionSummary14")}
           </dd>
-          <dt className={sx(styles.muted)}>Configured permissions</dt>
+          <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary15")}</dt>
           <dd className={sx(styles.modelReason)}>{formatAgentPermissions(props.agentProvenance)}</dd>
           {props.agentProvenance.effort && props.agentProvenance.effort !== props.actual?.modelInfo?.effort ? (
             <>
-              <dt className={sx(styles.muted)}>Requested effort</dt>
+              <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary16")}</dt>
               <dd className={sx(styles.modelValue)}>{props.agentProvenance.effort}</dd>
             </>
           ) : null}
@@ -139,20 +141,20 @@ export function ModelResolutionSummary(props: {
       ) : null}
       {showModelFacts ? (
         <>
-          <dt className={sx(styles.muted)}>Run model</dt>
+          <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary17")}</dt>
           <dd
             className={sx(styles.modelValue)}
             title={actualLabel ?? undefined}
           >
-            {actualLabel ?? "Not reported"}
+            {actualLabel ?? i18n.t("session:modelResolutionSummary.modelResolutionSummary18")}
           </dd>
         </>
       ) : null}
       {props.actual?.modelExecution ? (
         <>
-          <dt className={sx(styles.muted)}>Requested model</dt>
+          <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary19")}</dt>
           <dd className={sx(styles.modelValue)}>{toHumanModelName({ model: props.actual.modelExecution.requestedModel })}</dd>
-          <dt className={sx(styles.muted)}>Model change</dt>
+          <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary20")}</dt>
           <dd className={sx(styles.modelReason)}>{props.actual.modelExecution.reason}</dd>
         </>
       ) : null}
@@ -160,7 +162,7 @@ export function ModelResolutionSummary(props: {
         <>
           {showRoutedTarget ? (
             <>
-              <dt className={sx(styles.muted)}>Routed target</dt>
+              <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary21")}</dt>
               <dd
                 className={sx(styles.modelValue)}
                 title={`${toProviderLabel(props.resolution.selectedProviderId)} · ${props.resolution.selectedModel}`}
@@ -172,7 +174,7 @@ export function ModelResolutionSummary(props: {
           ) : null}
           {props.resolution.taskClass ? (
             <>
-              <dt className={sx(styles.muted)}>Task</dt>
+              <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary22")}</dt>
               <dd className={sx(styles.modelSource)}>
                 {[props.resolution.taskClass, props.resolution.stance]
                   .filter(Boolean)
@@ -180,19 +182,19 @@ export function ModelResolutionSummary(props: {
               </dd>
             </>
           ) : null}
-          <dt className={sx(styles.muted)}>Source</dt>
+          <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary23")}</dt>
           <dd className={sx(styles.modelSource)}>
             {toSourceLabel(props.resolution.source)}
           </dd>
           {props.resolution.ruleReason ? (
             <>
-              <dt className={sx(styles.muted)}>Rule</dt>
+              <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary24")}</dt>
               <dd className={sx(styles.modelReason)}>
                 {props.resolution.ruleReason}
               </dd>
             </>
           ) : null}
-          <dt className={sx(styles.muted)}>Signals</dt>
+          <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary25")}</dt>
           <dd className={sx(styles.modelReason)}>
             {props.resolution.rationale}
           </dd>

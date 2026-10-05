@@ -1,3 +1,5 @@
+import { formatTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo } from "react";
 import {
   CircleCheck,
@@ -42,9 +44,9 @@ import { useNow, usePrefersReducedMotion } from "./useAgentRun";
 import { agentRunStyles as styles } from "./agent-runs.styles";
 
 const CRITERION_PRESENTATION = {
-  met: { label: "Met", icon: CircleCheck, tone: styles.toneDone },
-  unmet: { label: "Not met", icon: CircleX, tone: styles.toneAttention },
-  unverified: { label: "Not verified", icon: CircleDashed, tone: styles.toneIdle },
+  met: { get label() { return i18n.t("agentRuns:agentRunPanel.label"); }, icon: CircleCheck, tone: styles.toneDone },
+  unmet: { get label() { return i18n.t("agentRuns:agentRunPanel.label2"); }, icon: CircleX, tone: styles.toneAttention },
+  unverified: { get label() { return i18n.t("agentRuns:agentRunPanel.label3"); }, icon: CircleDashed, tone: styles.toneIdle },
 } as const satisfies Record<AcceptanceCriterion["status"], unknown>;
 
 const TILE_TONES = {
@@ -68,7 +70,7 @@ function latestSignOffTime(detail: AgentRunDetail) {
 }
 
 const formatClock = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  formatTime(new Date(iso), { hour: "2-digit", minute: "2-digit" });
 
 type AgentRunDetailViewProps = {
   detail: AgentRunDetail;
@@ -85,6 +87,7 @@ type AgentRunDetailViewProps = {
 
 /** The agent run in the Progress tab: the stage list for a workflow, the agent and its result for a run. */
 export function AgentRunDetailView(props: AgentRunDetailViewProps) {
+  useTranslation();
   return hasAgentOrigin(props.detail.agentRun) ? (
     <AgentRunOverview
       detail={props.detail}
@@ -101,9 +104,10 @@ export function AgentRunDetailView(props: AgentRunDetailViewProps) {
 }
 
 function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
+  useTranslation();
   const { detail, now, onCommand } = props;
   const { agentRun } = detail;
-  const rows = useMemo(() => projectAgentRunStages(detail, new Date(now)), [detail, now]);
+  const rows = useMemo(() => projectAgentRunStages(detail, new Date(now)), [detail, now, i18n.language]);
   const line = describeAgentRunStatusLine(detail);
   const badge = describeAgentRunBadge(detail);
   const active = isActiveAgentRunState(agentRun.state);
@@ -122,16 +126,16 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
       ]
         .filter(Boolean)
         .join(" · ")
-    : (agentRun.reasonDetail ?? `Ended at ${formatClock(agentRun.updatedAt)}`);
+    : (agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunPanel.statusText", { value1: formatClock(agentRun.updatedAt) }));
   return (
-    <section className={sx(styles.panel)} aria-label={`Run: ${agentRun.workflow.name}`} data-testid="agent-run-panel">
+    <section className={sx(styles.panel)} aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel", { value1: agentRun.workflow.name })} data-testid="agent-run-panel">
       <header className={sx(styles.head)}>
         <div className={sx(styles.headRow)}>
           <IconTile size="sm" tone={TILE_TONES[badge.tone]}>
             <Target size={iconTileGlyphSizes.sm} />
           </IconTile>
           <div className={sx(styles.headText)}>
-            <p className={sx(styles.eyebrow)}>Run · {agentRun.workflow.name}</p>
+            <p className={sx(styles.eyebrow)}>{i18n.t("agentRuns:agentRunPanel.sentence3", { value1: agentRun.workflow.name })}</p>
             <h2 className={sx(styles.title)} title={agentRun.assignment}>
               {agentRun.assignment}
             </h2>
@@ -146,8 +150,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
                   onClick={() => void onCommand("pause", { agentRunId: agentRun.id })}
                 >
                   <Pause aria-hidden />
-                  Pause
-                </Button>
+                  {i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView2")}</Button>
               ) : null}
               {agentRun.state === "paused" && userPause ? (
                 <Button
@@ -157,14 +160,13 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
                   onClick={() => void onCommand("resume", { agentRunId: agentRun.id })}
                 >
                   <Play aria-hidden />
-                  Resume
-                </Button>
+                  {i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView3")}</Button>
               ) : null}
               <DropdownMenu
                 placement="bottom-end"
                 triggerAsChild
                 trigger={
-                  <Button variant="quiet" size="iconSm" iconOnly aria-label="More run actions">
+                  <Button variant="quiet" size="iconSm" iconOnly aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel2")}>
                     <Ellipsis aria-hidden />
                   </Button>
                 }
@@ -172,7 +174,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
                   {
                     items: [
                       {
-                        label: "Stop run",
+                        label: i18n.t("agentRuns:agentRunPanel.label4"),
                         tone: "danger",
                         disabled: props.busy,
                         onSelect: () => void onCommand("cancel", { agentRunId: agentRun.id }),
@@ -202,7 +204,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
         />
         {agentRun.pauseReason === "runtime-changed" ? (
           <div className={sx(styles.callout, styles.calloutNeutral)}>
-            <span>{agentRun.reasonDetail ?? "The task's model changed since the run started."}</span>
+            <span>{agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView4")}</span>
             <div className={sx(styles.actions)}>
               <Button
                 size="xs"
@@ -210,8 +212,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
                 disabled={props.busy}
                 onClick={() => void onCommand("acceptRuntime", { agentRunId: agentRun.id })}
               >
-                Use it for the remaining stages
-              </Button>
+                {i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView5")}</Button>
             </div>
           </div>
         ) : null}
@@ -224,13 +225,11 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
       ) : null}
 
       {criteria.length > 0 ? (
-        <section className={sx(styles.section, styles.sectionRule)} aria-label="Done when">
+        <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel3")}>
           <div className={sx(styles.sectionHeader)}>
             <ListChecks aria-hidden className={sx(styles.sectionIcon)} />
-            <h3 className={sx(styles.sectionTitle)}>Done when</h3>
-            <span className={sx(styles.sectionAside)}>
-              {criteria.filter((criterion) => criterion.status === "met").length} of {criteria.length} met
-            </span>
+            <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView6")}</h3>
+            <span className={sx(styles.sectionAside)}>{i18n.t("agentRuns:agentRunPanel.sentence4", { value1: criteria.filter((criterion) => criterion.status === "met").length, value2: criteria.length })}</span>
           </div>
           <ul className={sx(styles.checkList)}>
             {criteria.map((criterion) => {
@@ -247,14 +246,14 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
               );
             })}
           </ul>
-          {signedOffAt ? <p className={sx(styles.checkNote)}>Signed off by you at {formatClock(signedOffAt)}</p> : null}
+          {signedOffAt ? <p className={sx(styles.checkNote)}>{i18n.t("agentRuns:agentRunPanel.sentence5", { value1: formatClock(signedOffAt) })}</p> : null}
         </section>
       ) : null}
 
-      <section className={sx(styles.section, styles.sectionRule)} aria-label="Stages">
+      <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel4")}>
         <div className={sx(styles.sectionHeader)}>
           <ListOrdered aria-hidden className={sx(styles.sectionIcon)} />
-          <h3 className={sx(styles.sectionTitle)}>Stages</h3>
+          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView10")}</h3>
           <span className={sx(styles.sectionAside)}>{describeCheckIns(agentRun)}</span>
         </div>
         <StepRail density="compact" role="list">
@@ -280,10 +279,10 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
         <AgentRunReportView report={detail.report} actions={props.reportActions} context="panel" />
       ) : null}
 
-      <section className={sx(styles.section, styles.sectionRule)} aria-label="Run">
+      <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel5")}>
         <div className={sx(styles.sectionHeader)}>
           <Gauge aria-hidden className={sx(styles.sectionIcon)} />
-          <h3 className={sx(styles.sectionTitle)}>Run</h3>
+          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView11")}</h3>
         </div>
         <AgentRunSummary agentRun={agentRun} usage={detail.usage ?? null} active={active} now={now} formatClock={formatClock} />
       </section>
@@ -297,6 +296,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
  * flow there instead; a run starts when work is assigned to an agent.
  */
 export function AgentRunPanel(props: { taskId: string; detail: AgentRunDetail }) {
+  useTranslation();
   const { detail } = props;
   const runCommand = useAgentRunsStore((state) => state.runCommand);
   const refreshAgentRun = useAgentRunsStore((state) => state.refreshAgentRun);

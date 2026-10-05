@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { memo, useEffect, useRef, useState } from "react";
 import { coreStyles } from "./ai-element-core.styles";
 import { cx, sx } from "../ads/utils/stylex";
@@ -49,6 +50,7 @@ function ThinkingAnimatedTextComponent({
   settleOnStop = false,
   variant,
 }: ThinkingAnimatedTextProps) {
+  useTranslation();
   const prefersReducedMotion = usePrefersReducedMotion();
   const resolvedVariant = useStyleVariant(variant);
   const wasActiveRef = useRef(active);
@@ -100,6 +102,7 @@ function ThinkingPhraseLabelComponent({
   className,
   variant,
 }: ThinkingPhraseLabelProps) {
+  useTranslation();
   const phrase = useRotatingThinkingPhrase(active);
   const resolvedVariant = useStyleVariant(variant);
   return (

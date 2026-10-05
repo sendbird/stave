@@ -25,8 +25,10 @@ const EDIT_TOOLS = [...READ_ONLY_TOOLS, "Edit", "Write"] as const;
 export const SUBAGENT_PRESETS: readonly SubagentPreset[] = [
   {
     id: "patch-hand",
+    // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
     label: "Patch hand",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Applies a fully specified code edit exactly as described. Use when you have already decided what to change and only need the edit made.",
     instructions: [
       "You apply changes that have already been decided. The task description you receive is complete and authoritative — treat it as a specification, not a suggestion.",
@@ -40,8 +42,10 @@ export const SUBAGENT_PRESETS: readonly SubagentPreset[] = [
   },
   {
     id: "verified-patch",
+    // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
     label: "Verified patch",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Applies a specified edit and runs typecheck and the narrowest relevant tests until they pass. Use proactively for edits that need verification before the result is trusted.",
     instructions: [
       "You apply changes that have already been decided, then prove they work. The task description is complete and authoritative — treat it as a specification, not a suggestion.",
@@ -56,8 +60,10 @@ export const SUBAGENT_PRESETS: readonly SubagentPreset[] = [
   },
   {
     id: "sweep",
+    // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
     label: "Sweep",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Performs one mechanical transformation uniformly across many files. Use for renames, import rewrites, signature updates, and other repetitive multi-file edits.",
     instructions: [
       "You perform one mechanical transformation across many files. The task gives you the exact before/after pattern.",
@@ -71,8 +77,10 @@ export const SUBAGENT_PRESETS: readonly SubagentPreset[] = [
   },
   {
     id: "scout",
+    // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
     label: "Scout",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Read-only codebase investigator that returns a conclusion with file paths and line numbers. Use proactively when answering a question would mean reading across many files.",
     instructions: [
       "You answer one specific question about this codebase and change nothing.",
@@ -86,8 +94,10 @@ export const SUBAGENT_PRESETS: readonly SubagentPreset[] = [
   },
   {
     id: "deep-packet",
+    // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
     label: "Deep packet",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Implements one bounded, independent unit of work from a written spec, with latitude inside that boundary. Use for self-contained features, a single component, or one migration step.",
     instructions: [
       "You own one bounded, independent piece of work, described in full in your task.",
@@ -101,8 +111,10 @@ export const SUBAGENT_PRESETS: readonly SubagentPreset[] = [
   },
   {
     id: "second-pair",
+    // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
     label: "Second pair of eyes",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Reviews a completed diff for correctness without modifying anything. Use after a change is finished and before showing it to the user.",
     instructions: [
       "You review a diff you did not write, and you fix nothing.",

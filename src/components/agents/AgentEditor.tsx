@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
 import type * as React from "react";
 import { Accordion } from "@/components/ads/components/Accordion";
@@ -38,14 +39,14 @@ import { AgentCanCallField } from "./AgentCanCallField";
 import { AgentWorkflowField } from "./AgentWorkflowField";
 
 const REPORT_LABELS: Readonly<Record<(typeof AGENT_REPORT_SECTIONS)[number], string>> = {
-  summary: "Summary",
-  changes: "Changes",
-  verification: "Verification",
-  findings: "Findings",
-  sources: "Sources",
-  decisions: "Decisions",
-  risks: "Risks",
-  limitations: "Limitations",
+  get summary() { return i18n.t("agents:agentEditor.summary"); },
+  get changes() { return i18n.t("agents:agentEditor.changes"); },
+  get verification() { return i18n.t("agents:agentEditor.verification"); },
+  get findings() { return i18n.t("agents:agentEditor.findings"); },
+  get sources() { return i18n.t("agents:agentEditor.sources"); },
+  get decisions() { return i18n.t("agents:agentEditor.decisions"); },
+  get risks() { return i18n.t("agents:agentEditor.risks"); },
+  get limitations() { return i18n.t("agents:agentEditor.limitations"); },
 };
 
 const MODEL_OPTIONS_BY_PROVIDER: Partial<Record<ProviderId, readonly string[]>> = {
@@ -66,10 +67,12 @@ function fieldIssues(agent: AgentConfig): Record<string, string> {
 }
 
 function FieldError(props: { message?: string }) {
+  useTranslation();
   return props.message ? <p className={sx(styles.fieldError)}>{props.message}</p> : null;
 }
 
 function Section(props: { title: string; first?: boolean; children: React.ReactNode }) {
+  useTranslation();
   return (
     <section
       aria-label={props.title}
@@ -84,8 +87,9 @@ function Section(props: { title: string; first?: boolean; children: React.ReactN
 }
 
 function ColorChooser(props: { value: AgentColor | undefined; onChange: (color: AgentColor) => void }) {
+  useTranslation();
   return (
-    <div role="group" aria-label="Colour" className={sx(agentStyles.swatches)}>
+    <div role="group" aria-label={i18n.t("agents:agentEditor.ariaLabel")} className={sx(agentStyles.swatches)}>
       {AGENT_COLORS.map((color) => (
         <Button
           key={color}
@@ -124,6 +128,7 @@ export function AgentEditor(props: {
   /** Inside a padded detail tab or a dialog: drop the page padding the standalone editor carries. */
   embedded?: boolean;
 }) {
+  useTranslation();
   const [draft, setDraftState] = useState(props.agent);
   const [formError, setFormError] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState<string[]>([]);
@@ -139,32 +144,32 @@ export function AgentEditor(props: {
 
   return (
     <div className={sx(props.embedded ? agentStyles.pane : styles.editor)}>
-      <Section title="Profile" first>
+      <Section title={i18n.t("agents:agentEditor.title")} first>
         <dl className={sx(styles.properties)}>
-          <dt className={sx(styles.propertyLabel)}>Name</dt>
+          <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor")}</dt>
           <dd className={sx(styles.propertyValue)}>
             <TextField
               size="sm"
               controlOnly
-              aria-label="Name"
+              aria-label={i18n.t("agents:agentEditor.ariaLabel2")}
               value={draft.name}
               maxLength={AGENT_CONFIG_LIMITS.name}
               onChange={(event) => setDraft({ ...draft, name: event.target.value })}
             />
             <FieldError message={issues.name} />
           </dd>
-          <dt className={sx(styles.propertyLabel)}>Colour</dt>
+          <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor2")}</dt>
           <dd className={sx(styles.propertyValue)}>
             <ColorChooser
               value={draft.appearance?.color}
               onChange={(color) => setDraft({ ...draft, appearance: { color } })}
             />
           </dd>
-          <dt className={sx(styles.propertyLabel)}>Use when</dt>
+          <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor3")}</dt>
           <dd className={sx(styles.propertyValue)}>
             <Textarea
               size="sm"
-              aria-label="Use when"
+              aria-label={i18n.t("agents:agentEditor.ariaLabel3")}
               value={draft.description}
               maxLength={AGENT_CONFIG_LIMITS.description}
               autoResize
@@ -175,10 +180,10 @@ export function AgentEditor(props: {
         </dl>
       </Section>
 
-      <Section title="Instructions">
+      <Section title={i18n.t("agents:agentEditor.title2")}>
         <Textarea
           size="sm"
-          aria-label="Instructions"
+          aria-label={i18n.t("agents:agentEditor.ariaLabel4")}
           value={draft.instructions}
           maxLength={AGENT_CONFIG_LIMITS.instructions}
           autoResize
@@ -187,21 +192,21 @@ export function AgentEditor(props: {
         <FieldError message={issues.instructions} />
       </Section>
 
-      <Section title="Workflow">
+      <Section title={i18n.t("agents:agentEditor.title3")}>
         <AgentWorkflowField agent={draft} issues={issues} onChange={setDraft} />
       </Section>
 
-      <Section title="How it runs">
+      <Section title={i18n.t("agents:agentEditor.title4")}>
         <dl className={sx(styles.properties)}>
-          <dt className={sx(styles.propertyLabel)}>Model</dt>
+          <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor4")}</dt>
           <dd className={sx(styles.propertyValue)}>
             <Select
               size="sm"
-              aria-label="Model mode"
+              aria-label={i18n.t("agents:agentEditor.ariaLabel5")}
               value={draft.model.mode}
               options={[
                 { value: "auto", label: "Auto-routing" },
-                { value: "fixed", label: "Fixed model" },
+                { value: "fixed", label: i18n.t("agents:agentEditor.label") },
               ]}
               onValueChange={(value) =>
                 setModel(value === "fixed" ? { mode: "fixed", providerId: providers[0]! } : { mode: "auto" })
@@ -210,14 +215,14 @@ export function AgentEditor(props: {
           </dd>
           {draft.model.mode === "auto" ? (
             <>
-              <dt className={sx(styles.propertyLabel)}>Task class</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor5")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <Select
                   size="sm"
-                  aria-label="Task class"
+                  aria-label={i18n.t("agents:agentEditor.ariaLabel6")}
                   value={draft.model.taskClass ?? ""}
                   options={[
-                    { value: "", label: "Any (your routing)" },
+                    { value: "", label: i18n.t("agents:agentEditor.label2") },
                     ...TASK_CLASSES.map((value) => ({ value, label: value })),
                   ]}
                   onValueChange={(value) =>
@@ -228,11 +233,11 @@ export function AgentEditor(props: {
             </>
           ) : (
             <>
-              <dt className={sx(styles.propertyLabel)}>Provider</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor6")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <Select
                   size="sm"
-                  aria-label="Provider"
+                  aria-label={i18n.t("agents:agentEditor.ariaLabel7")}
                   value={draft.model.providerId}
                   options={providers.map((value) => ({ value, label: PROVIDER_LABELS[value] ?? value }))}
                   onValueChange={(value) =>
@@ -240,14 +245,14 @@ export function AgentEditor(props: {
                   }
                 />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Pinned model</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor7")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <Select
                   size="sm"
-                  aria-label="Model"
+                  aria-label={i18n.t("agents:agentEditor.ariaLabel8")}
                   value={draft.model.model ?? ""}
                   options={[
-                    { value: "", label: "Provider default" },
+                    { value: "", label: i18n.t("agents:agentEditor.label3") },
                     ...(MODEL_OPTIONS_BY_PROVIDER[draft.model.providerId] ?? []).map((value) => ({ value, label: value })),
                   ]}
                   onValueChange={(value) =>
@@ -255,14 +260,14 @@ export function AgentEditor(props: {
                   }
                 />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Effort</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor8")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <Select
                   size="sm"
-                  aria-label="Effort"
+                  aria-label={i18n.t("agents:agentEditor.ariaLabel9")}
                   value={draft.model.effort ?? ""}
                   options={[
-                    { value: "", label: "Provider default" },
+                    { value: "", label: i18n.t("agents:agentEditor.label4") },
                     ...AGENT_EFFORT_ORDER.map((value) => ({ value, label: value })),
                   ]}
                   onValueChange={(value) =>
@@ -272,21 +277,21 @@ export function AgentEditor(props: {
               </dd>
             </>
           )}
-          <dt className={sx(styles.propertyLabel)}>Permission</dt>
+          <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor9")}</dt>
           <dd className={sx(styles.propertyValue)}>
             <Select
               size="sm"
-              aria-label="Permission"
+              aria-label={i18n.t("agents:agentEditor.ariaLabel10")}
               value={draft.permission}
               options={AGENT_PERMISSIONS.map((value) => ({ value, label: AGENT_PERMISSION_LABELS[value] }))}
               onValueChange={(value) => setDraft({ ...draft, permission: String(value) as AgentConfig["permission"] })}
             />
           </dd>
-          <dt className={sx(styles.propertyLabel)}>Works in</dt>
+          <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor10")}</dt>
           <dd className={sx(styles.propertyValue)}>
             <Select
               size="sm"
-              aria-label="Works in"
+              aria-label={i18n.t("agents:agentEditor.ariaLabel11")}
               value={draft.workspace}
               options={AGENT_WORKSPACES.map((value) => ({ value, label: AGENT_WORKSPACE_LABELS[value] }))}
               onValueChange={(value) => setDraft({ ...draft, workspace: String(value) as AgentConfig["workspace"] })}
@@ -303,14 +308,14 @@ export function AgentEditor(props: {
         items={[
           {
             value: "advanced",
-            title: "Advanced",
+            title: i18n.t("agents:agentEditor.title5"),
             content: (
               <dl className={sx(styles.properties)}>
-              <dt className={sx(styles.propertyLabel)}>Don't use when</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.content")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <Textarea
                   size="sm"
-                  aria-label="Don't use when"
+                  aria-label={i18n.t("agents:agentEditor.ariaLabel12")}
                   value={draft.avoidWhen ?? ""}
                   maxLength={AGENT_CONFIG_LIMITS.avoidWhen}
                   autoResize
@@ -318,44 +323,44 @@ export function AgentEditor(props: {
                 />
                 <FieldError message={issues.avoidWhen} />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Skills</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.content2")}</dt>
               <dd className={sx(styles.propertyValue)}>
               <TagField
-                label="Skills"
+                label={i18n.t("agents:agentEditor.label5")}
                 values={draft.skills}
-                placeholder="skill id"
+                placeholder={i18n.t("agents:agentEditor.placeholder")}
                 maxLength={AGENT_CONFIG_LIMITS.skillRef}
                 onChange={(skills) => setDraft({ ...draft, skills })}
               />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Allowed tools</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.content3")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <TagField
-                  label="Allowed tools"
+                  label={i18n.t("agents:agentEditor.label6")}
                   values={draft.tools.allow ?? []}
-                  placeholder="tool name"
+                  placeholder={i18n.t("agents:agentEditor.placeholder2")}
                   maxLength={AGENT_CONFIG_LIMITS.toolName}
                   onChange={(allow) => setDraft({ ...draft, tools: { ...draft.tools, allow: allow.length ? allow : undefined } })}
                 />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Denied tools</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.content4")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <TagField
-                  label="Denied tools"
+                  label={i18n.t("agents:agentEditor.label7")}
                   values={draft.tools.deny ?? []}
-                  placeholder="tool name"
+                  placeholder={i18n.t("agents:agentEditor.placeholder3")}
                   maxLength={AGENT_CONFIG_LIMITS.toolName}
                   onChange={(deny) => setDraft({ ...draft, tools: { ...draft.tools, deny: deny.length ? deny : undefined } })}
                 />
                 <FieldError message={issues.tools} />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Max turns</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.content5")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <TextField
                   size="sm"
                   controlOnly
                   type="number"
-                  aria-label="Max turns"
+                  aria-label={i18n.t("agents:agentEditor.ariaLabel13")}
                   value={draft.tools.maxTurns != null ? String(draft.tools.maxTurns) : ""}
                   onChange={(event) => {
                     const value = Number.parseInt(event.target.value, 10);
@@ -363,13 +368,13 @@ export function AgentEditor(props: {
                   }}
                 />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Concurrency</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.content6")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <TextField
                   size="sm"
                   controlOnly
                   type="number"
-                  aria-label="Concurrency"
+                  aria-label={i18n.t("agents:agentEditor.ariaLabel14")}
                   value={String(draft.concurrency)}
                   onChange={(event) => {
                     const value = Number.parseInt(event.target.value, 10);
@@ -378,9 +383,9 @@ export function AgentEditor(props: {
                 />
                 <FieldError message={issues.concurrency} />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Usable as</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.content7")}</dt>
               <dd className={sx(styles.propertyValue)}>
-                <div role="group" aria-label="Usable as" className={sx(agentStyles.roles)}>
+                <div role="group" aria-label={i18n.t("agents:agentEditor.ariaLabel15")} className={sx(agentStyles.roles)}>
                   {AGENT_ROLES.map((role) => {
                     const checked = draft.usableAs.includes(role);
                     return (
@@ -404,7 +409,7 @@ export function AgentEditor(props: {
                 </div>
                 <FieldError message={issues.usableAs} />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Can call</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.content8")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <AgentCanCallField
                   agent={draft}
@@ -412,9 +417,9 @@ export function AgentEditor(props: {
                 />
                 <FieldError message={issues.canCall} />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Report</dt>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.content9")}</dt>
               <dd className={sx(styles.propertyValue)}>
-                <div role="group" aria-label="Report" className={sx(agentStyles.roles)}>
+                <div role="group" aria-label={i18n.t("agents:agentEditor.ariaLabel16")} className={sx(agentStyles.roles)}>
                   {AGENT_REPORT_SECTIONS.map((sectionName) => {
                     const checked = draft.report.includes(sectionName);
                     return (
@@ -456,14 +461,14 @@ export function AgentEditor(props: {
             setFormError(props.onSave(draft));
           }}
         >
-          {props.saveLabel ?? "Save"}
+          {props.saveLabel ?? i18n.t("agents:agentEditor.agentEditor11")}
         </Button>
         <Button
           size="sm"
           variant="quiet"
           onClick={() => (props.onCancel ? props.onCancel() : setDraft(props.agent))}
         >
-          {props.onCancel ? "Cancel" : "Discard"}
+          {props.onCancel ? i18n.t("agents:agentEditor.agentEditor12") : i18n.t("agents:agentEditor.agentEditor13")}
         </Button>
       </div>
     </div>

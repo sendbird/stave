@@ -1,3 +1,5 @@
+import { formatSystemEventDisplay } from "../system-event-display";
+import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import {
@@ -178,7 +180,7 @@ function getDiffSummary(parts: readonly CodeDiffPart[]): ReactNode {
   return (
     <span className={sx(styles.diffSummary)}>
       {parts.length > 1 ? (
-        <span className={sx(styles.diffFiles)}>{parts.length} files</span>
+        <span className={sx(styles.diffFiles)}>{parts.length} {i18n.t("session:assistantTrace.getDiffSummary")}</span>
       ) : null}
       {totals.added > 0 ? (
         <span className={sx(styles.diffAdded)}>+{totals.added}</span>
@@ -312,11 +314,11 @@ export function splitSystemEventContent(content: string): {
   const lines = content.trim().split(/\r?\n/);
   const titleIndex = lines.findIndex((line) => line.trim());
   if (titleIndex === -1) {
-    return { title: "System", detail: "" };
+    return { title: i18n.t("session:assistantTrace.title"), detail: "" };
   }
 
   return {
-    title: lines[titleIndex]?.trim() || "System",
+    title: lines[titleIndex]?.trim() || i18n.t("session:assistantTrace.title2"),
     detail: lines
       .slice(titleIndex + 1)
       .join("\n")
@@ -334,6 +336,7 @@ function AssistantTraceEntryView(args: {
   terminalStopReason?: string;
   readOnly?: boolean;
 }) {
+  useTranslation();
   const {
     entry,
     isLast,
@@ -424,7 +427,7 @@ function AssistantTraceEntryView(args: {
           <ToolRun
             count={
               fileRows.length > 0
-                ? `${fileRows.length} ${fileRows.length === 1 ? "file" : "files"}`
+                ? i18n.t("session:counts.files", { count: fileRows.length })
                 : undefined
             }
             /*
@@ -467,7 +470,7 @@ function AssistantTraceEntryView(args: {
 
     case "subagent": {
       const parsed = parseSubagentToolInput({ input: entry.part.input });
-      const baseTitle = parsed.description ?? parsed.subagentType ?? "Subagent";
+      const baseTitle = parsed.description ?? parsed.subagentType ?? i18n.t("session:assistantTrace.baseTitle");
       const resolvedTitle = baseTitle;
       const isError = entry.part.state === "output-error";
       const output = entry.part.output?.trim() ?? "";
@@ -496,7 +499,7 @@ function AssistantTraceEntryView(args: {
             /* The chip carries only the type, so the prompt is still new
                information and stays visible. */
             input={parsed.prompt ?? parsed.raw}
-            inputLabel="Prompt"
+            inputLabel={i18n.t("session:assistantTrace.inputLabel")}
             output={
               !isError && output ? (
                 <TraceOutput prose text={output} />
@@ -574,8 +577,8 @@ function AssistantTraceEntryView(args: {
             status={diffStatus}
             title={
               entry.parts.length === 1
-                ? "Changed file"
-                : `${entry.parts.length} changed files`
+                ? i18n.t("session:assistantTrace.title3")
+                : i18n.t("session:assistantTrace.title4", { value1: entry.parts.length })
             }
           >
             <ChangedFilesBlock
@@ -635,6 +638,7 @@ function AssistantTraceEntryView(args: {
         isCapacityError;
       const isCompactionCheckpoint = systemContent
         .toLowerCase()
+        // i18n-ignore: canonical provider or lifecycle text used for parsing
         .startsWith("context compacted");
       const systemBodyPart =
         entry.part.compactBoundary != null ||
@@ -655,7 +659,7 @@ function AssistantTraceEntryView(args: {
               providerErrorNotice != null
             }
             status={providerErrorNotice != null ? "failed" : undefined}
-            title={providerErrorNotice?.message ?? systemTitle}
+            title={providerErrorNotice?.message ?? formatSystemEventDisplay(systemTitle)}
           >
             {hasDistinctSystemContent ? (
               <MessagePartRenderer
@@ -681,6 +685,7 @@ function DisplayPartList(args: {
   terminalStopReason?: string;
   tokenizePromptTokens?: boolean;
 }) {
+  useTranslation();
   return (
     <div className={sx(styles.block)}>
       {args.parts.map((part, index) => {
@@ -741,6 +746,7 @@ export function AssistantMessageBody(args: {
    */
   readOnly?: boolean;
 }) {
+  useTranslation();
   const {
     message,
     taskId,
@@ -769,7 +775,7 @@ export function AssistantMessageBody(args: {
         : false;
     });
   }, [message.displayParts, message.parts, message.terminalStopReason]);
-  const trace = useMemo(() => buildAssistantTrace({ message }), [message]);
+  const trace = useMemo(() => buildAssistantTrace({ message }), [message, i18n.language]);
 
   const summaryItems = useMemo(
     () => buildTraceSummary(trace.entries),
@@ -837,7 +843,7 @@ export function AssistantMessageBody(args: {
     trace.fileContextParts.length === 0 &&
     trace.imageContextParts.length === 0
   ) {
-    return <p className={sx(styles.noResponse)}>No response.</p>;
+    return <p className={sx(styles.noResponse)}>{i18n.t("session:assistantTrace.assistantMessageBody")}</p>;
   }
 
   return (
@@ -864,7 +870,7 @@ export function AssistantMessageBody(args: {
         >
           <ChainOfThoughtTrigger
             completionLabel={
-              hasActionableCapacityFailure ? "Run failed" : undefined
+              hasActionableCapacityFailure ? i18n.t("session:assistantTrace.completionLabel") : undefined
             }
           />
           {trace.entries.length > 0 ? (

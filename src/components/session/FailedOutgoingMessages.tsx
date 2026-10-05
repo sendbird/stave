@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { RotateCcw, TriangleAlert, X } from "lucide-react";
 import { Loader, toast } from "@/components/ui";
@@ -30,6 +31,7 @@ export function FailedOutgoingMessageBubble(props: {
   onRetry: () => void;
   onDismiss: () => void;
 }) {
+  useTranslation();
   const { send, retryPending } = props;
   const attachmentSummary = describeFailedSendAttachments(send);
 
@@ -46,18 +48,16 @@ export function FailedOutgoingMessageBubble(props: {
         </MessageContent>
         <span className={sx(styles.statusRow)}>
           <TriangleAlert className={sx(styles.statusIcon)} aria-hidden="true" />
-          <span className={sx(styles.statusText)} title={send.reason}>
-            Not sent — {send.reason}
-          </span>
+          <span className={sx(styles.statusText)} title={send.reason}>{i18n.t("session:failedOutgoingMessages.sentence44", { value1: send.reason })}</span>
         </span>
         <MessageActions
           className={sx(styles.actions)}
           role="group"
-          aria-label="Failed message actions"
+          aria-label={i18n.t("session:failedOutgoingMessages.ariaLabel")}
         >
           <MessageAction
-            label="Retry"
-            tooltip="Send this message again with the same attachments"
+            label={i18n.t("session:failedOutgoingMessages.label")}
+            tooltip={i18n.t("session:failedOutgoingMessages.tooltip")}
             data-failed-send-action="retry"
             aria-busy={retryPending}
             disabled={retryPending}
@@ -68,18 +68,16 @@ export function FailedOutgoingMessageBubble(props: {
             ) : (
               <RotateCcw aria-hidden="true" />
             )}
-            Retry
-          </MessageAction>
+            {i18n.t("session:failedOutgoingMessages.failedOutgoingMessageBubble2")}</MessageAction>
           <MessageAction
-            label="Dismiss"
-            tooltip="Drop this message without sending it"
+            label={i18n.t("session:failedOutgoingMessages.label2")}
+            tooltip={i18n.t("session:failedOutgoingMessages.tooltip2")}
             data-failed-send-action="dismiss"
             disabled={retryPending}
             onClick={props.onDismiss}
           >
             <X aria-hidden="true" />
-            Dismiss
-          </MessageAction>
+            {i18n.t("session:failedOutgoingMessages.failedOutgoingMessageBubble3")}</MessageAction>
         </MessageActions>
       </div>
     </Message>
@@ -87,6 +85,7 @@ export function FailedOutgoingMessageBubble(props: {
 }
 
 function ConnectedFailedOutgoingMessage(props: { send: FailedOutgoingSend }) {
+  useTranslation();
   const { send } = props;
   const [retryPending, setRetryPending] = useState(false);
   const retryFailedSend = useAppStore((state) => state.retryFailedSend);
@@ -103,9 +102,9 @@ function ConnectedFailedOutgoingMessage(props: { send: FailedOutgoingSend }) {
         void retryFailedSend({ taskId: send.taskId, id: send.id })
           .then((result) => {
             if (result?.status === "blocked") {
-              toast.error("Couldn't send this message yet", {
+              toast.error(i18n.t("session:failedOutgoingMessages.copy"), {
                 description:
-                  "The task is busy or waiting on a reply. Try again once it settles.",
+                  i18n.t("session:failedOutgoingMessages.description"),
               });
             }
           })
@@ -121,6 +120,7 @@ function ConnectedFailedOutgoingMessage(props: { send: FailedOutgoingSend }) {
 }
 
 export function FailedOutgoingMessages(props: { taskId: string }) {
+  useTranslation();
   const sends = useAppStore(
     (state) => state.failedSendsByTask[props.taskId] ?? EMPTY_FAILED_SENDS,
   );

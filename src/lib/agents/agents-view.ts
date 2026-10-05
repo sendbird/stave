@@ -1,3 +1,5 @@
+import { getAgentDisplayName, getAgentDisplayDescription } from "./display";
+import { i18n } from "@/i18n/runtime";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { AGENT_PERMISSION_LABELS, AGENT_ROLE_LABELS, AGENT_SOURCE_LABELS, AGENT_WORKSPACE_LABELS, type AgentConfig, type AgentSource } from "./schema";
 import { compileAgent, snapshotAgent, type AgentReceivedInstruction, type AgentSupportEntry, type AgentSupportLevel } from "./compile";
@@ -8,9 +10,9 @@ import { compileAgent, snapshotAgent, type AgentReceivedInstruction, type AgentS
  */
 
 export const SUPPORT_LEVEL_LABELS: Readonly<Record<AgentSupportLevel, string>> = {
-  enforced: "Enforced",
-  instructed: "Asked in instructions",
-  unavailable: "Not available",
+  get enforced() { return i18n.t("agents:agentsView.enforced"); },
+  get instructed() { return i18n.t("agents:agentsView.instructed"); },
+  get unavailable() { return i18n.t("agents:agentsView.unavailable"); },
 };
 
 /** "Auto-routing · Current workspace · Read only". */
@@ -27,11 +29,11 @@ export function describeAgent(agent: AgentConfig): string {
 export function describeAgentPermissionForTask(permission: AgentConfig["permission"]): string {
   switch (permission) {
     case "auto":
-      return "Your permission settings";
+      return i18n.t("agents:agentsView.describeAgentPermissionForTask");
     case "read-only":
-      return "Read only";
+      return i18n.t("agents:agentsView.describeAgentPermissionForTask2");
     default:
-      return `Up to ${AGENT_PERMISSION_LABELS[permission]}`;
+      return i18n.t("agents:agentsView.describeAgentPermissionForTask3", { value1: AGENT_PERMISSION_LABELS[permission] });
   }
 }
 
@@ -71,7 +73,7 @@ export interface AgentListGroup {
 export function groupAgents(agents: readonly AgentConfig[], query = ""): AgentListGroup[] {
   const needle = query.trim().toLowerCase();
   const matches = needle
-    ? agents.filter((agent) => `${agent.name} ${agent.description}`.toLowerCase().includes(needle))
+    ? agents.filter((agent) => `${agent.id} ${agent.name} ${agent.description} ${getAgentDisplayName(agent)} ${getAgentDisplayDescription(agent)}`.toLowerCase().includes(needle))
     : agents;
   return (["custom", "repository", "builtin"] as const)
     .map((source) => ({
@@ -94,10 +96,10 @@ export interface AssignmentReceivedView {
 }
 
 const RECEIVED_FIELD_LABELS: Readonly<Record<AgentSupportEntry["field"], string>> = {
-  instructions: "Instructions",
-  tools: "Tool limits",
-  model: "Model",
-  permission: "Permission",
+  get instructions() { return i18n.t("agents:agentsView.instructions"); },
+  get tools() { return i18n.t("agents:agentsView.tools"); },
+  get model() { return i18n.t("agents:agentsView.model"); },
+  get permission() { return i18n.t("agents:agentsView.permission"); },
 };
 
 /**
@@ -116,11 +118,11 @@ export function describeAssignmentReceived(args: {
     ...args.received.map((entry) => ({
       label:
         entry.kind === "agent"
-          ? `${args.agentName} instructions`
+          ? i18n.t("agents:remaining.presentationCopy457", { v1: args.agentName })
           : entry.kind === "standards"
-            ? "My standards"
-            : `Skill ${entry.sourceId.replace(/^skill:/, "")}`,
-      detail: entry.included ? "Included" : `Left out${entry.reason ? `: ${entry.reason}` : ""}`,
+            ? i18n.t("agents:agentsView.label")
+            : i18n.t("agents:agentsView.label2", { value1: entry.sourceId.replace(/^skill:/, "") }),
+      detail: entry.included ? i18n.t("agents:agentsView.detail") : i18n.t("agents:agentsView.detail2", { value1: entry.reason ? `: ${entry.reason}` : "" }),
     })),
     ...args.support.map((entry) => ({
       label: RECEIVED_FIELD_LABELS[entry.field],
@@ -133,7 +135,7 @@ export function describeAssignmentReceived(args: {
     lines,
     changedSince:
       now && now !== args.agentContentHash
-        ? `${args.agentName} was edited after this task started. Later turns keep the version used; assign again to use the edit.`
+        ? i18n.t("agents:agentsView.extraCopy327", { value1: args.agentName })
         : null,
   };
 }

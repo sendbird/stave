@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { sx } from "../ads/utils/stylex";
 import { resultStyles as styles } from "./result-review.styles";
 import { focusRing } from "../ads/recipes/focus-ring";
@@ -42,6 +44,7 @@ type Filter = "all" | "pending";
  * "Show the turn".
  */
 function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
+  useTranslation();
   const { result } = props;
   const { page, loading, error, refresh } = useResultReviews({
     workspaceId: result.workspaceId,
@@ -58,14 +61,12 @@ function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
       xstyle={styles.answerAction}
       onClick={props.onShowTurn}
     >
-      Show the turn
-    </ActionButton>
+      {i18n.t("session:taskResultReviews.showTurn")}</ActionButton>
   );
   if (loading && !evidence) {
     return (
       <p role="status" className={sx(styles.loading)}>
-        Loading the saved answer…
-      </p>
+        {i18n.t("session:taskResultReviews.runEvidence")}</p>
     );
   }
   if (error) {
@@ -76,8 +77,7 @@ function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
         </p>
         <div className={sx(styles.alertRow)}>
           <ActionButton size="xs" onClick={refresh}>
-            Retry
-          </ActionButton>
+            {i18n.t("session:taskResultReviews.runEvidence2")}</ActionButton>
           {showTurn}
         </div>
       </div>
@@ -87,8 +87,7 @@ function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
     return (
       <div className={sx(styles.evidence)}>
         <p className={sx(styles.caption)}>
-          No answer was saved for this run.
-        </p>
+          {i18n.t("session:taskResultReviews.runEvidence3")}</p>
         <div>{showTurn}</div>
       </div>
     );
@@ -103,30 +102,25 @@ function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
       <div className={sx(styles.answerSection)}>
         <div className={sx(styles.answerHeader)}>
           <div className={sx(styles.answerHeading)}>
-            <h4 className={sx(styles.evidenceHeading)}>Final answer</h4>
-            <p className={sx(styles.evidenceDescription)}>
-              Saved when the run ended · {modelLabel}
-            </p>
+            <h4 className={sx(styles.evidenceHeading)}>{i18n.t("session:taskResultReviews.runEvidence4")}</h4>
+            <p className={sx(styles.evidenceDescription)}>{i18n.t("session:taskResultReviews.sentence49", { value1: modelLabel })}</p>
           </div>
           {showTurn}
         </div>
         {evidence.answer ? (
-          <CollapsibleResponse text={evidence.answer} label="the final answer" />
+          <CollapsibleResponse text={evidence.answer} label={i18n.t("session:taskResultReviews.label")} />
         ) : (
-          <p className={sx(styles.muted)}>No final answer was recorded.</p>
+          <p className={sx(styles.muted)}>{i18n.t("session:taskResultReviews.runEvidence6")}</p>
         )}
         {evidence.answerTruncated ? (
           <p className={sx(styles.muted)}>
-            Only the start of a long answer was saved. Show the turn to read
-            all of it.
-          </p>
+            {i18n.t("session:taskResultReviews.runEvidence7")}</p>
         ) : null}
       </div>
       <ResultFileSnapshots evidence={evidence} taskId={result.taskId} />
       <details className={sx(styles.reference)}>
         <summary className={sx(styles.disclosure, focusRing.ring)}>
-          Run details
-        </summary>
+          {i18n.t("session:taskResultReviews.runEvidence8")}</summary>
         <div className={sx(styles.resolution)}>
           <ModelResolutionSummary
             actual={{
@@ -137,8 +131,8 @@ function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
             resolution={evidence.modelResolution}
           />
         </div>
-        <p className={sx(styles.runId)}>Run {result.turnId}</p>
-        <p className={sx(styles.messageId)}>Message {evidence.messageId}</p>
+        <p className={sx(styles.runId)}>{i18n.t("session:taskResultReviews.sentence50", { value1: result.turnId })}</p>
+        <p className={sx(styles.messageId)}>{i18n.t("session:taskResultReviews.sentence51", { value1: evidence.messageId })}</p>
       </details>
     </div>
   );
@@ -152,11 +146,12 @@ export function RunHistoryRow(props: {
   onReview: () => void;
   onFollowUp: () => void;
 }) {
+  useTranslation();
   const { result } = props;
   const [turnOpen, setTurnOpen] = useState(false);
   const failed = result.outcome === "failed";
   const summary =
-    result.summary.trim() || "No summary was recorded for this run.";
+    result.summary.trim() || i18n.t("session:taskResultReviews.summary");
   return (
     <AccordionItem
       value={result.id}
@@ -194,23 +189,21 @@ export function RunHistoryRow(props: {
                   {failed ? <CircleAlert size={14} /> : <CircleCheck size={14} />}
                 </span>
                 <span className={sx(styles.status)}>
-                  {failed ? "Failed" : "Finished"}
+                  {failed ? i18n.t("session:taskResultReviews.runHistoryRow") : i18n.t("session:taskResultReviews.runHistoryRow2")}
                 </span>
                 <time
                   className={sx(styles.timestamp)}
                   dateTime={result.createdAt}
-                  title={new Date(result.createdAt).toLocaleString()}
+                  title={formatDateTime(new Date(result.createdAt))}
                 >
                   {formatRelativeTime(result.createdAt)}
                 </time>
                 {result.reviewedAt ? (
                   <Badge tone="success" variant="outline" dot>
-                    Reviewed
-                  </Badge>
+                    {i18n.t("session:taskResultReviews.runHistoryRow3")}</Badge>
                 ) : (
                   <Badge tone="neutral" variant="outline">
-                    Not reviewed
-                  </Badge>
+                    {i18n.t("session:taskResultReviews.runHistoryRow4")}</Badge>
                 )}
               </span>
             </span>
@@ -225,22 +218,20 @@ export function RunHistoryRow(props: {
           onClick={props.onReview}
           title={
             result.reviewedAt
-              ? "Reopen this run for review"
-              : "Mark this run as reviewed"
+              ? i18n.t("session:taskResultReviews.title")
+              : i18n.t("session:taskResultReviews.title2")
           }
         >
-          {result.reviewedAt ? "Reopen" : "Mark reviewed"}
+          {result.reviewedAt ? i18n.t("session:taskResultReviews.runHistoryRow5") : i18n.t("session:taskResultReviews.runHistoryRow6")}
         </ActionButton>
       </div>
       <AccordionContent mount="lazy" className={sx(styles.rowDetails)}>
         <RunEvidence result={result} onShowTurn={() => setTurnOpen(true)} />
         <div className={sx(styles.rowActions)}>
           <ActionButton size="xs" onClick={props.onFollowUp}>
-            Request changes
-          </ActionButton>
+            {i18n.t("session:taskResultReviews.runHistoryRow7")}</ActionButton>
           <span className={sx(styles.caption)}>
-            Adds a follow-up referencing this run to your draft.
-          </span>
+            {i18n.t("session:taskResultReviews.runHistoryRow8")}</span>
         </div>
       </AccordionContent>
       <RunTurnDialog
@@ -249,7 +240,7 @@ export function RunHistoryRow(props: {
         workspaceId={result.workspaceId}
         taskId={result.taskId}
         turnId={result.turnId}
-        description={`${result.taskTitle} · ended ${formatRelativeTime(result.createdAt)}`}
+        description={i18n.t("session:remaining.presentationCopy285", { v1: result.taskTitle, v2: formatRelativeTime(result.createdAt) })}
       />
     </AccordionItem>
   );
@@ -257,6 +248,7 @@ export function RunHistoryRow(props: {
 
 /** The task's latest finished agent run report heads its results. */
 function TaskAgentRunReport(props: { workspaceId: string; taskId: string }) {
+  useTranslation();
   const detail = useTaskAgentRun(props.workspaceId, props.taskId);
   const actions = useAgentRunReportActions(detail);
   return detail?.report ? (
@@ -268,6 +260,7 @@ export function TaskResultReviews(props: {
   workspaceId: string;
   taskId: string;
 }) {
+  useTranslation();
   const [filter, setFilter] = useState<Filter>("pending");
   const [offset, setOffset] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -328,7 +321,7 @@ export function TaskResultReviews(props: {
       setSaveError(
         failure instanceof Error
           ? failure.message
-          : "Review was not saved. Retry.",
+          : i18n.t("session:taskResultReviews.extraCopy116"),
       );
     } finally {
       setBusyId(null);
@@ -350,7 +343,7 @@ export function TaskResultReviews(props: {
         ),
       },
     });
-    setDraftNotice("Added to your draft. Describe the changes before sending.");
+    setDraftNotice(i18n.t("session:taskResultReviews.extraCopy119"));
   };
 
   const showPagination = page.total > PAGE_SIZE;
@@ -358,16 +351,14 @@ export function TaskResultReviews(props: {
   const rangeEnd = offset + page.results.length;
 
   return (
-    <section aria-label="Task results" className={sx(styles.panel)}>
+    <section aria-label={i18n.t("session:taskResultReviews.ariaLabel")} className={sx(styles.panel)}>
       <TaskAgentRunReport workspaceId={props.workspaceId} taskId={props.taskId} />
       <div className={sx(styles.header)}>
-        <h3 className={sx(styles.heading)}>Run history</h3>
+        <h3 className={sx(styles.heading)}>{i18n.t("session:taskResultReviews.taskResultReviews")}</h3>
         <p className={sx(styles.introduction)}>
-          One entry per finished run: its final answer, the files it reported,
-          and whether you have reviewed it. Expand a run to read what it saved.
-        </p>
+          {i18n.t("session:taskResultReviews.taskResultReviews2")}</p>
       </div>
-      <div className={sx(styles.toolbar)} role="group" aria-label="Filter runs">
+      <div className={sx(styles.toolbar)} role="group" aria-label={i18n.t("session:taskResultReviews.ariaLabel2")}>
         <div className={sx(styles.filterGroup)}>
           <ActionButton
             size="xs"
@@ -375,26 +366,24 @@ export function TaskResultReviews(props: {
             aria-pressed={filter === "pending"}
             onClick={() => changeFilter("pending")}
           >
-            Needs review
-          </ActionButton>
+            {i18n.t("session:taskResultReviews.taskResultReviews3")}</ActionButton>
           <ActionButton
             size="xs"
             weight={filter === "all" ? "secondary" : "quiet"}
             aria-pressed={filter === "all"}
             onClick={() => changeFilter("all")}
           >
-            All runs
-          </ActionButton>
+            {i18n.t("session:taskResultReviews.taskResultReviews4")}</ActionButton>
         </div>
         <span className={sx(styles.caption)} aria-live="polite">
           {loading && page.total === 0
-            ? "Loading…"
+            ? i18n.t("session:taskResultReviews.taskResultReviews5")
             : page.total === 0
               ? filter === "pending"
-                ? "Nothing waiting"
-                : "No runs yet"
+                ? i18n.t("session:taskResultReviews.taskResultReviews6")
+                : i18n.t("session:taskResultReviews.taskResultReviews7")
               : showPagination
-                ? `${rangeStart}–${rangeEnd} of ${page.total}`
+                ? i18n.t("session:taskResultReviews.taskResultReviews8", { value1: rangeStart, value2: rangeEnd, value3: page.total })
                 : `${page.total} ${page.total === 1 ? "run" : "runs"}`}
         </span>
       </div>
@@ -406,16 +395,15 @@ export function TaskResultReviews(props: {
             </p>
             {error ? (
               <ActionButton size="xs" onClick={refresh}>
-                Retry
-              </ActionButton>
+                {i18n.t("session:taskResultReviews.taskResultReviews9")}</ActionButton>
             ) : null}
           </div>
         ) : null}
         {!loading && !error && page.total === 0 ? (
           <p className={sx(styles.empty)}>
             {filter === "pending"
-              ? "Every saved run has been reviewed."
-              : "Finished runs will appear here with their saved answer. History stays even after notifications are cleared."}
+              ? i18n.t("session:taskResultReviews.taskResultReviews10")
+              : i18n.t("session:taskResultReviews.taskResultReviews11")}
           </p>
         ) : null}
         <Accordion
@@ -455,10 +443,9 @@ export function TaskResultReviews(props: {
                 setExpandedId(null);
               }}
             >
-              Newer
-            </ActionButton>
+              {i18n.t("session:taskResultReviews.taskResultReviews12")}</ActionButton>
             <span className={sx(styles.caption)}>
-              {rangeStart}–{rangeEnd} of {page.total}
+              {rangeStart}–{rangeEnd} {i18n.t("session:taskResultReviews.taskResultReviews13")}{page.total}
             </span>
             <ActionButton
               size="xs"
@@ -469,33 +456,28 @@ export function TaskResultReviews(props: {
                 setExpandedId(null);
               }}
             >
-              Older
-            </ActionButton>
+              {i18n.t("session:taskResultReviews.taskResultReviews14")}</ActionButton>
           </div>
         ) : null}
         <div className={sx(styles.footer)}>
           <p className={sx(styles.guidance)}>
-            Review marks are for your own tracking and do not change the task.
-            Saved answers are historical; the workspace may have moved on.
-          </p>
+            {i18n.t("session:taskResultReviews.taskResultReviews15")}</p>
           <div
             className={sx(styles.navigation)}
-            aria-label="Inspect the current workspace"
+            aria-label={i18n.t("session:taskResultReviews.ariaLabel3")}
           >
             <ActionButton
               size="xs"
               weight="quiet"
               onClick={() => inspect("changes")}
             >
-              Current changes
-            </ActionButton>
+              {i18n.t("session:taskResultReviews.taskResultReviews16")}</ActionButton>
             <ActionButton
               size="xs"
               weight="quiet"
               onClick={() => inspect("explorer")}
             >
-              Files
-            </ActionButton>
+              {i18n.t("session:taskResultReviews.taskResultReviews17")}</ActionButton>
           </div>
         </div>
       </div>

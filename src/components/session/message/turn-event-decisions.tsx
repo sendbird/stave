@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
 
 import { Approval } from "@/components/ads/components/Approval";
@@ -67,6 +68,7 @@ export function TracePlan(args: {
   input: string;
   state?: ToolUsePart["state"];
 }) {
+  useTranslation();
   const todos = useMemo(
     () => deriveTodoTraceItems({ input: args.input, state: args.state }),
     [args.input, args.state],
@@ -82,7 +84,7 @@ export function TracePlan(args: {
     [todos],
   );
 
-  return <Plan steps={steps} title="Steps" />;
+  return <Plan steps={steps} title={i18n.t("session:turnEventDecisions.title")} />;
 }
 
 /** `done / total` for the collapsed `ToolRun` row, or `undefined`. */
@@ -140,6 +142,7 @@ export function TraceApproval(args: {
   part: ApprovalPart;
   taskId: string;
 }) {
+  useTranslation();
   const { messageId, part, taskId } = args;
   const resolveApproval = useAppStore((state) => state.resolveApproval);
   const outcome = toApprovalOutcome(part.state);
@@ -162,7 +165,7 @@ export function TraceApproval(args: {
       allowAlways={part.supportsAllowAlways === true}
       arguments={
         part.input
-          ? [{ id: "input", label: "Arguments", value: part.input }]
+          ? [{ id: "input", label: i18n.t("session:turnEventDecisions.label"), value: part.input }]
           : undefined
       }
       data-pending-interaction={
@@ -233,6 +236,7 @@ function ClarificationField(args: {
   question: UserInputQuestion;
   value: string;
 }) {
+  useTranslation();
   const { disabled, onChange, question, value } = args;
 
   if (question.options.length > 0) {
@@ -312,6 +316,7 @@ export function TraceClarification(args: {
   part: UserInputPart;
   taskId: string;
 }) {
+  useTranslation();
   const { messageId, part, taskId } = args;
   const resolveUserInput = useAppStore((state) => state.resolveUserInput);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -328,7 +333,7 @@ export function TraceClarification(args: {
   return (
     <Clarification
       busy={busy}
-      continueLabel="Submit"
+      continueLabel={i18n.t("session:turnEventDecisions.continueLabel")}
       data-pending-interaction={open ? "true" : undefined}
       data-pending-interaction-request-id={open ? part.requestId : undefined}
       description={part.questions[0]?.question}
@@ -355,7 +360,7 @@ export function TraceClarification(args: {
         });
       }}
       outcome={outcome}
-      skipLabel="Decline"
+      skipLabel={i18n.t("session:turnEventDecisions.skipLabel")}
       tabIndex={open ? -1 : undefined}
       title={getToolTitle(part.toolName)}
       totalSteps={part.questions.length > 1 ? part.questions.length : undefined}

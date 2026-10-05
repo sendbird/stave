@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   memo,
   useEffect,
@@ -107,11 +108,11 @@ const MemoizedAssistantMessageBody = memo(AssistantMessageBody);
 function formatElapsedLabel(durationMs: number) {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
   if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
+    return i18n.t("session:duration.seconds", { count: totalSeconds });
   }
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  return seconds > 0 ? i18n.t("session:duration.minutesSeconds", { minutes, seconds }) : i18n.t("session:duration.minutes", { count: minutes });
 }
 
 function getMessageElapsedLabel(args: {
@@ -192,6 +193,7 @@ function toPromptCacheTurnSnapshot(
 }
 
 const MessageRow = memo(function MessageRow(args: MessageRowProps) {
+  useTranslation();
   const {
     taskId,
     activeTurnId,
@@ -288,15 +290,15 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   const turnModelInfoParts = getTurnModelInfoParts(message);
   const steerDeliveryLabel =
     message.steerDeliveryState === "accepted"
-      ? "Steered into active turn"
+      ? i18n.t("session:chatPanel.steerDeliveryLabel")
       : message.steerDeliveryState === "pending"
-        ? "Steer pending"
+        ? i18n.t("session:chatPanel.steerDeliveryLabel2")
         : message.steerDeliveryState === "unknown"
-          ? "Steer delivery unconfirmed"
+          ? i18n.t("session:chatPanel.steerDeliveryLabel3")
           : message.steerDeliveryState === "rejected"
-            ? "Steer rejected"
+            ? i18n.t("session:chatPanel.steerDeliveryLabel4")
             : message.dispatchedFromQueue
-              ? "Sent from queue"
+              ? i18n.t("session:chatPanel.steerDeliveryLabel5")
               : null;
 
   function handleUserMessageCopy(event: ReactClipboardEvent<HTMLDivElement>) {
@@ -347,19 +349,19 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
       });
       if (result.ok && result.canRewind) {
         setRewindDialogOpen(false);
-        toast.success("Claude files rewound", {
-          description: `${result.filesChanged?.length ?? 0} file(s) restored. Conversation history was unchanged.`,
+        toast.success(i18n.t("session:chatPanel.handleRewindConfirm"), {
+          description: i18n.t("session:chatPanel.description", { value1: result.filesChanged?.length ?? 0 }),
         });
       } else {
         setRewindPreview(result);
-        toast.error("Could not rewind Claude files", {
+        toast.error(i18n.t("session:chatPanel.handleRewindConfirm2"), {
           description: result.detail,
         });
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setRewindPreview({ ok: false, canRewind: false, detail });
-      toast.error("Could not rewind Claude files", { description: detail });
+      toast.error(i18n.t("session:chatPanel.handleRewindConfirm3"), { description: detail });
     } finally {
       setHistoryAction(null);
     }
@@ -447,7 +449,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               {message.role === "assistant" && elapsedLabel ? (
                 <MessageAction
                   key="elapsed-action"
-                  label="Elapsed time"
+                  label={i18n.t("session:chatPanel.label")}
                   className={sx(styles.elapsedAction)}
                 >
                   {showRespondingWave ? (
@@ -471,7 +473,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               {canRewindFiles ? (
                 <MessageAction
                   key="rewind-action"
-                  label="Preview Claude file rewind"
+                  label={i18n.t("session:chatPanel.label2")}
                   disabled={historyAction != null}
                   onClick={() => void handleRewindPreview()}
                 >
@@ -523,33 +525,24 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 xstyle={styles.dialogContent}
               >
                 <DialogHeader>
-                  <DialogTitle>Rewind Claude file changes?</DialogTitle>
+                  <DialogTitle>{i18n.t("session:chatPanel.messageRow")}</DialogTitle>
                   <DialogDescription>
-                    This restores working files to their state before this user
-                    message. Conversation history and Git history are not
-                    changed.
-                  </DialogDescription>
+                    {i18n.t("session:chatPanel.messageRow2")}</DialogDescription>
                 </DialogHeader>
                 <div aria-live="polite" className={sx(styles.dialogBody)}>
                   {historyAction === "preview" && !rewindPreview ? (
                     <div className={sx(styles.dialogStatusRow)}>
                       <Loader aria-hidden size="xs" variant="scan" />
-                      Checking affected files…
-                    </div>
+                      {i18n.t("session:chatPanel.messageRow3")}</div>
                   ) : rewindPreview?.ok && rewindPreview.canRewind ? (
                     <>
-                      <p className={sx(styles.dialogFilesLine)}>
-                        {rewindPreview.filesChanged?.length ?? 0} file(s) will
-                        change
-                        {rewindPreview.insertions != null ||
+                      <p className={sx(styles.dialogFilesLine)}>{i18n.t("session:chatPanel.sentence39", { value1: rewindPreview.filesChanged?.length ?? 0, value2: rewindPreview.insertions != null ||
                         rewindPreview.deletions != null
                           ? ` · +${rewindPreview.insertions ?? 0} / −${rewindPreview.deletions ?? 0}`
-                          : ""}
-                        .
-                      </p>
+                          : "" })}</p>
                       {rewindPreview.filesChanged?.length ? (
                         <ul
-                          aria-label="Files affected by rewind"
+                          aria-label={i18n.t("session:chatPanel.ariaLabel")}
                           className={sx(styles.dialogFileList)}
                         >
                           {rewindPreview.filesChanged.map((filePath) => (
@@ -563,8 +556,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                         </ul>
                       ) : (
                         <p className={sx(styles.dialogEmpty)}>
-                          Claude reported no changed file paths.
-                        </p>
+                          {i18n.t("session:chatPanel.messageRow5")}</p>
                       )}
                     </>
                   ) : rewindPreview ? (
@@ -581,8 +573,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     disabled={historyAction === "rewind"}
                     onClick={() => setRewindDialogOpen(false)}
                   >
-                    Cancel
-                  </Button>
+                    {i18n.t("session:chatPanel.messageRow6")}</Button>
                   <Button
                     type="button"
                     variant="destructive"
@@ -597,8 +588,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     {historyAction === "rewind" ? (
                       <Loader aria-hidden size="xs" variant="persist" />
                     ) : null}
-                    Rewind files
-                  </Button>
+                    {i18n.t("session:chatPanel.messageRow7")}</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -626,6 +616,7 @@ function PendingAutoRouteTurn(props: {
   showInterimMessages: boolean;
   traceExpansionMode: "auto" | "manual";
 }) {
+  useTranslation();
   const pending = usePendingAutoRoutingStore(
     (state) => state.byTaskId[props.taskId],
   );
@@ -662,6 +653,7 @@ function PendingAutoRouteTurn(props: {
 function ChatPanelMessageList(props: {
   scrollActivationKey?: string | number;
 }) {
+  useTranslation();
   const taskId = useScopedTaskId();
   const [
     activeTurnId,
@@ -769,7 +761,7 @@ function ChatPanelMessageList(props: {
         messages: visibleMessages,
         actionStateByMessageId: threadActionStateByMessageId,
       }),
-    [threadActionStateByMessageId, visibleMessages],
+    [threadActionStateByMessageId, visibleMessages, i18n.language],
   );
   const hasOlderMessages = messages.length < totalMessageCount;
   const showConversationLoadingState = shouldShowConversationLoadingState({
@@ -1097,16 +1089,16 @@ function ChatPanelMessageList(props: {
               }}
             >
               {taskMessagesLoading
-                ? "Loading older messages..."
-                : `Load older messages (${totalMessageCount - messages.length} remaining)`}
+                ? i18n.t("session:chatPanel.chatPanelMessageList")
+                : i18n.t("session:chatPanel.chatPanelMessageList2", { value1: totalMessageCount - messages.length })}
             </Button>
           </div>
         ) : null}
         {showConversationLoadingState ? (
           <SessionLoadingState
             testId="conversation-loading-state"
-            title="Loading conversation"
-            description="Fetching the latest messages for this task."
+            title={i18n.t("session:chatPanel.title")}
+            description={i18n.t("session:chatPanel.description2")}
           />
         ) : visibleMessages.length === 0 &&
           !hasFailedSends &&
@@ -1190,6 +1182,7 @@ function ChatPanelMessageList(props: {
 const MemoizedChatPanelMessageList = memo(ChatPanelMessageList);
 
 export function ChatPanel(props: { scrollActivationKey?: string | number }) {
+  useTranslation();
   return (
     <Conversation>
       <div className={sx(styles.panelColumn)}>
@@ -1197,7 +1190,7 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
           scrollActivationKey={props.scrollActivationKey}
         />
       </div>
-      <ConversationScrollButton tooltip="Scroll to bottom" />
+      <ConversationScrollButton tooltip={i18n.t("session:chatPanel.tooltip")} />
     </Conversation>
   );
 }

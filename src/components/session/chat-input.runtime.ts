@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import type { PromptInputGoalStatus } from "@/components/ai-elements/prompt-input-goal-status";
 import { resolveEffectiveCodexFileAccessMode } from "@/lib/providers/codex-runtime-options";
@@ -126,9 +127,9 @@ export function cycleCodexEffortValue(
 function formatGoalStatusValue(status: ProviderGoalSnapshot["status"]) {
   switch (status) {
     case "usageLimited":
-      return "usage limited";
+      return i18n.t("session:chatInputRuntime.formatGoalStatusValue");
     case "budgetLimited":
-      return "budget limited";
+      return i18n.t("session:chatInputRuntime.formatGoalStatusValue2");
     default:
       return status;
   }
@@ -165,26 +166,26 @@ function formatGoalTokenProgressValue(goal: ProviderGoalSnapshot) {
   if (typeof goal.tokenBudget === "number" && goal.tokenBudget > 0) {
     const budget = formatGoalTokenCount(goal.tokenBudget);
     return progressPercent == null
-      ? `${used} / ${budget} tokens`
-      : `${used} / ${budget} tokens (${progressPercent}%)`;
+      ? i18n.t("session:remaining.presentationCopy301", { v1: used, v2: budget })
+      : i18n.t("session:remaining.presentationCopy302", { v1: used, v2: budget, v3: progressPercent });
   }
-  return `${used} tokens`;
+  return i18n.t("session:remaining.presentationCopy303", { v1: used });
 }
 
 function formatGoalElapsedValue(totalSeconds: number) {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return "0s";
+    return i18n.t("session:duration.seconds", { count: 0 });
   }
   const seconds = Math.floor(totalSeconds);
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+    return i18n.t("session:duration.hoursMinutes", { hours, minutes });
   }
   if (minutes > 0) {
-    return `${minutes}m`;
+    return i18n.t("session:duration.minutes", { count: minutes });
   }
-  return `${seconds}s`;
+  return i18n.t("session:duration.seconds", { count: seconds });
 }
 
 function normalizeGoalObjectiveValue(objective: string) {
@@ -216,7 +217,7 @@ export function buildChatInputGoalStatus(
     statusLabel: formatGoalStatusValue(goal.status),
     objective: normalizeGoalObjectiveValue(goal.objective),
     tokenLabel: formatGoalTokenProgressValue(goal),
-    elapsedLabel: `${formatGoalElapsedValue(goal.timeUsedSeconds)} elapsed`,
+    elapsedLabel: i18n.t("session:remaining.presentationCopy304", { v1: formatGoalElapsedValue(goal.timeUsedSeconds) }),
     progressPercent: getGoalProgressPercent(goal),
     tone,
   };
@@ -229,7 +230,7 @@ export function buildChatInputRuntimeStatusItems(
     return [
       {
         id: "permissions",
-        label: "Permissions",
+        label: i18n.t("session:chatInputRuntime.label"),
         value: formatRuntimeEnumValue(
           findOptionLabel(
             CLAUDE_PERMISSION_MODE_OPTIONS,
@@ -243,37 +244,37 @@ export function buildChatInputRuntimeStatusItems(
       },
       {
         id: "sandbox",
-        label: "Sandbox",
-        value: args.claudeSandboxEnabled ? "Enabled" : "Disabled",
+        label: i18n.t("session:chatInputRuntime.label2"),
+        value: args.claudeSandboxEnabled ? i18n.t("session:chatInputRuntime.extraCopy144") : i18n.t("session:chatInputRuntime.extraCopy145"),
         tone: args.claudeSandboxEnabled ? "default" : "warning",
       },
       {
         id: "unsandboxed",
-        label: "Unsandboxed",
-        value: args.claudeAllowUnsandboxedCommands ? "On" : "Off",
+        label: i18n.t("session:chatInputRuntime.label3"),
+        value: args.claudeAllowUnsandboxedCommands ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
         tone: args.claudeAllowUnsandboxedCommands ? "warning" : "default",
       },
       {
         id: "dangerous-skip",
-        label: "Permission Bypass",
-        value: args.claudeAllowDangerouslySkipPermissions ? "On" : "Off",
+        label: i18n.t("session:chatInputRuntime.label4"),
+        value: args.claudeAllowDangerouslySkipPermissions ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
         tone: args.claudeAllowDangerouslySkipPermissions
           ? "warning"
           : "default",
       },
       {
         id: "setting-sources",
-        label: "Settings",
+        label: i18n.t("session:chatInputRuntime.label5"),
         value: formatClaudeSettingSources(args.claudeSettingSources),
       },
       {
         id: "effort",
-        label: "Effort",
+        label: i18n.t("session:chatInputRuntime.label6"),
         value: findOptionLabel(CLAUDE_EFFORT_OPTIONS, args.claudeEffort),
       },
       {
         id: "thinking",
-        label: "Thinking",
+        label: i18n.t("session:chatInputRuntime.label7"),
         value: findOptionLabel(
           CLAUDE_THINKING_OPTIONS,
           args.claudeThinkingMode,
@@ -281,25 +282,25 @@ export function buildChatInputRuntimeStatusItems(
       },
       {
         id: "timeout",
-        label: "Timeout",
+        label: i18n.t("session:chatInputRuntime.label8"),
         value: formatProviderTimeoutLabel(args.providerTimeoutMs),
       },
       {
         id: "task-budget",
-        label: "Task Budget",
+        label: i18n.t("session:chatInputRuntime.label9"),
         value: formatTokenBudget(args.claudeTaskBudgetTokens),
         tone: args.claudeTaskBudgetTokens > 0 ? "warning" : "default",
       },
       {
         id: "progress-summaries",
-        label: "Progress Summaries",
-        value: args.claudeAgentProgressSummaries ? "On" : "Off",
+        label: i18n.t("session:chatInputRuntime.label10"),
+        value: args.claudeAgentProgressSummaries ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
       },
       ...(args.claudeBinaryPath.trim()
         ? [
             {
               id: "claude-binary",
-              label: "Claude Binary",
+              label: i18n.t("session:chatInputRuntime.label11"),
               value: formatShortRuntimePath(args.claudeBinaryPath),
             } satisfies PromptInputRuntimeStatusItem,
           ]
@@ -316,7 +317,7 @@ export function buildChatInputRuntimeStatusItems(
   return [
     {
       id: "sandbox",
-      label: "Files",
+      label: i18n.t("session:chatInputRuntime.label12"),
       value: formatTitleCaseRuntimeValue(effectiveCodexFileAccess),
       tone:
         effectiveCodexFileAccess === "danger-full-access"
@@ -325,12 +326,12 @@ export function buildChatInputRuntimeStatusItems(
     },
     {
       id: "network",
-      label: "Network",
-      value: args.codexNetworkAccess ? "On" : "Off",
+      label: i18n.t("session:chatInputRuntime.label13"),
+      value: args.codexNetworkAccess ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
     },
     {
       id: "approvals",
-      label: "Approvals",
+      label: i18n.t("session:chatInputRuntime.label14"),
       value: formatRuntimeEnumValue(
         findOptionLabel(
           CODEX_APPROVAL_POLICY_OPTIONS,
@@ -341,22 +342,22 @@ export function buildChatInputRuntimeStatusItems(
     },
     {
       id: "web-search",
-      label: "Web Search",
+      label: i18n.t("session:chatInputRuntime.label15"),
       value: findOptionLabel(CODEX_WEB_SEARCH_OPTIONS, args.codexWebSearch),
     },
     {
       id: "effort",
-      label: "Effort",
+      label: i18n.t("session:chatInputRuntime.label16"),
       value: findOptionLabel(CODEX_EFFORT_OPTIONS, args.codexReasoningEffort),
     },
     {
       id: "raw-reasoning",
-      label: "Raw Reasoning",
-      value: args.codexShowRawReasoning ? "On" : "Off",
+      label: i18n.t("session:chatInputRuntime.label17"),
+      value: args.codexShowRawReasoning ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
     },
     {
       id: "summary",
-      label: "Summary",
+      label: i18n.t("session:chatInputRuntime.label18"),
       value: findOptionLabel(
         CODEX_REASONING_SUMMARY_OPTIONS,
         args.codexReasoningSummary,
@@ -364,7 +365,7 @@ export function buildChatInputRuntimeStatusItems(
     },
     {
       id: "summary-support",
-      label: "Summary Support",
+      label: i18n.t("session:chatInputRuntime.label19"),
       value: findOptionLabel(
         CODEX_REASONING_SUPPORT_OPTIONS,
         args.codexReasoningSummarySupport,
@@ -372,26 +373,26 @@ export function buildChatInputRuntimeStatusItems(
     },
     {
       id: "timeout",
-      label: "Timeout",
+      label: i18n.t("session:chatInputRuntime.label20"),
       value: formatProviderTimeoutLabel(args.providerTimeoutMs),
     },
     {
       id: "plan-mode",
-      label: "Planning",
-      value: args.codexPlanMode ? "On" : "Off",
+      label: i18n.t("session:chatInputRuntime.label21"),
+      value: args.codexPlanMode ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
       tone: args.codexPlanMode ? "warning" : "default",
     },
     {
       id: "fast-mode",
-      label: "Fast Mode",
-      value: args.codexFastMode ? "On" : "Off",
+      label: i18n.t("session:chatInputRuntime.label22"),
+      value: args.codexFastMode ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
       tone: args.codexFastMode ? "warning" : "default",
     },
     ...(args.codexBinaryPath.trim()
       ? [
           {
             id: "codex-binary",
-            label: "Codex Binary",
+            label: i18n.t("session:chatInputRuntime.label23"),
             value: formatShortRuntimePath(args.codexBinaryPath),
           } satisfies PromptInputRuntimeStatusItem,
         ]

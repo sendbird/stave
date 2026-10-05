@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useMemo } from "react";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { AgentRunReport } from "@/lib/agent-runs/report";
@@ -52,17 +53,17 @@ export function useAgentRunReportActions(detail: AgentRunDetail | undefined): Ag
     if (reportMentionsPullRequest(report)) {
       actions.addToPullRequest = async () => {
         const api = window.api?.agentRuns;
-        if (!api) throw new Error("Runs are unavailable here.");
+        if (!api) throw new Error(i18n.t("agentRuns:useAgentRunReportActions.extraCopy14"));
         const result = await api.addReportToPullRequest({ agentRunId: agentRun.id });
-        if (!result.ok) throw new Error(result.message ?? "The pull request was not updated.");
-        return "Added the report to the pull request description.";
+        if (!result.ok) throw new Error(result.message ?? i18n.t("agentRuns:useAgentRunReportActions.extraCopy15"));
+        return i18n.t("agentRuns:useAgentRunReportActions.extraCopy16");
       };
     }
     const facts = decisionsAsMemoryFacts(report);
     if (facts.length > 0) {
       actions.saveDecisions = async () => {
         const remember = window.api?.repositoryMemory?.remember;
-        if (!remember) throw new Error("Memory is unavailable here.");
+        if (!remember) throw new Error(i18n.t("agentRuns:useAgentRunReportActions.extraCopy17"));
         // Saved as candidates for review, never as always-included memory.
         const result = await remember({
           repositoryPath: agentRun.repositoryPath,
@@ -70,17 +71,17 @@ export function useAgentRunReportActions(detail: AgentRunDetail | undefined): Ag
           source: "auto",
           sourceTaskId: agentRun.leadTaskId,
         });
-        if (!result.ok) throw new Error(result.message ?? "The decisions were not saved.");
-        return `Saved ${facts.length} ${facts.length === 1 ? "decision" : "decisions"} as memory candidates. Review them in Memory.`;
+        if (!result.ok) throw new Error(result.message ?? i18n.t("agentRuns:useAgentRunReportActions.extraCopy18"));
+        return i18n.t("agentRuns:useAgentRunReportActions.extraCopy19", { value1: facts.length, count: facts.length });
       };
     }
     actions.suggestedSlackThread = findSlackThreadUrl(agentRun.assignment);
     actions.shareToSlack = async (threadUrl) => {
       const api = window.api?.agentRuns;
-      if (!api?.shareReport) throw new Error("Sharing is available in the desktop app.");
+      if (!api?.shareReport) throw new Error(i18n.t("agentRuns:useAgentRunReportActions.extraCopy20"));
       const result = await api.shareReport({ agentRunId: agentRun.id, threadUrl });
-      if (!result.ok) throw new Error(result.message ?? "The report was not shared.");
-      return "The task is posting the report to the thread. Its reply shows in the task.";
+      if (!result.ok) throw new Error(result.message ?? i18n.t("agentRuns:useAgentRunReportActions.extraCopy21"));
+      return i18n.t("agentRuns:useAgentRunReportActions.extraCopy22");
     };
     return actions;
   }, [detail]);

@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import type { CSSProperties, ReactNode } from "react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { cx, sx } from "@/components/ads/utils/stylex";
@@ -66,6 +67,7 @@ function PhraseSurface({
   surfaceStyle?: StyleXValue;
   children: ReactNode;
 }) {
+  useTranslation();
   if (shimmer) {
     return (
       <Shimmer as="span" textLength={textLength} className={sx(styles.surface, surfaceStyle)}>
@@ -79,6 +81,7 @@ function PhraseSurface({
 /* ─── Variants ────────────────────────────────────────────────────────── */
 
 function CascadePhrase({ phrase, shimmer }: { phrase: string; shimmer: boolean }) {
+  useTranslation();
   return (
     <PhraseSurface shimmer={shimmer} textLength={phrase.length} surfaceStyle={styles.surfaceClipped}>
       {Array.from(phrase).map((char, index) => (
@@ -95,6 +98,7 @@ function CascadePhrase({ phrase, shimmer }: { phrase: string; shimmer: boolean }
 }
 
 function SwapPhrase({ phrase, shimmer }: { phrase: string; shimmer: boolean }) {
+  useTranslation();
   /*
    * The entrance animation lives on a wrapper, not on the shimmer element:
    * both would set the `animation` shorthand, and the entrance (declared later)
@@ -169,6 +173,7 @@ function ScramblePhrase({
   shimmer: boolean;
   enabled: boolean;
 }) {
+  useTranslation();
   const rendered = useScrambledPhrase({ phrase, enabled });
   return (
     <PhraseSurface shimmer={shimmer} textLength={phrase.length} surfaceStyle={styles.surfacePre}>
@@ -189,6 +194,7 @@ function ReasoningTextComponent({
   shimmer = false,
   className,
 }: ReasoningTextProps) {
+  useTranslation();
   const prefersReducedMotion = usePrefersReducedMotion();
 
   const resolvedPhrases = useMemo(() => {

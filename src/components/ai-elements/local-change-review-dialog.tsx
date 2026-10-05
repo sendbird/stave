@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   Check,
@@ -77,25 +78,25 @@ const REVIEW_TARGET_OPTIONS: ReadonlyArray<{
   {
     value: "working-tree",
     label: REVIEW_TARGET_LABEL["working-tree"],
-    description: "Staged, unstaged, and untracked files in this workspace.",
+    get description() { return i18n.t("composer:localChangeReviewDialog.description"); },
     icon: FileDiff,
   },
   {
     value: "branch",
-    label: "Entire local branch",
-    description: "Committed branch changes plus the current working tree.",
+    get label() { return i18n.t("composer:localChangeReviewDialog.label"); },
+    get description() { return i18n.t("composer:localChangeReviewDialog.description2"); },
     icon: GitBranch,
   },
   {
     value: "commit",
-    label: "Specific commit",
-    description: "One commit or a range, such as HEAD~1 or main..HEAD.",
+    get label() { return i18n.t("composer:localChangeReviewDialog.label2"); },
+    get description() { return i18n.t("composer:localChangeReviewDialog.description3"); },
     icon: GitCommitHorizontal,
   },
   {
     value: "latest-reply",
     label: REVIEW_TARGET_LABEL["latest-reply"],
-    description: "A second opinion on this task's latest answer or plan.",
+    get description() { return i18n.t("composer:localChangeReviewDialog.description4"); },
     icon: MessageSquareText,
   },
 ];
@@ -157,6 +158,7 @@ function buildChangeSummary(items: readonly SourceControlStatusItem[]) {
 }
 
 export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
+  useTranslation();
   const idPrefix = useId();
   const [open, setOpen] = useState(false);
   const [reviewerKey, setReviewerKey] = useState<string>();
@@ -233,7 +235,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
         keywords: [entry.name],
       })),
     ];
-  }, [reviewer, skills]);
+  }, [reviewer, skills, i18n.language]);
   const selectedSkill = reviewer ? getEffectiveSkillEntries({ skills, providerId: reviewer.providerId })
     .find((entry) => entry.slug === skillSlug) : undefined;
   const promptMissing = promptSelection.promptSource === "skill" ? !selectedSkill?.instructions.trim()
@@ -272,7 +274,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
     if (!getStatus) {
       setChangeStatus({
         state: "error",
-        detail: "Local change preview is unavailable.",
+        detail: i18n.t("composer:localChangeReviewDialog.detail"),
       });
       return;
     }
@@ -286,7 +288,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
       if (!result.ok) {
         setChangeStatus({
           state: "error",
-          detail: result.stderr || "Could not inspect local changes.",
+          detail: result.stderr || i18n.t("composer:localChangeReviewDialog.detail2"),
         });
         return;
       }
@@ -299,7 +301,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
       if (requestId === statusRequestIdRef.current) {
         setChangeStatus({
           state: "error",
-          detail: "Could not inspect local changes.",
+          detail: i18n.t("composer:localChangeReviewDialog.detail3"),
         });
       }
     }
@@ -391,14 +393,14 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             className={COMPOSER_CONTROL_BUTTON}
             {...composerControlAttributes}
             data-review-control="true"
-            aria-label="Review local changes"
-            title={`Review with ${providerLabel}`}
+            aria-label={i18n.t("composer:localChangeReviewDialog.ariaLabel")}
+            title={i18n.t("composer:localChangeReviewDialog.title", { value1: providerLabel })}
           />
         }
       >
         <FileDiff className={sx(styles.triggerIcon)} />
         <ComposerControlLabel>
-          <span>Review</span>
+          <span>{i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog")}</span>
         </ComposerControlLabel>
       </DialogTrigger>
       <DialogContent
@@ -412,12 +414,12 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             </div>
             <div className={sx(styles.headerText)}>
               <DialogTitle className={sx(styles.title)}>
-                {runsSeparately ? "Start a review" : "Review local changes"}
+                {runsSeparately ? i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog2") : i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog3")}
               </DialogTitle>
               <DialogDescription className={sx(styles.description)}>
                 {runsSeparately
-                  ? "The review runs in its own read-only task with the model you pick, so this task keeps working. Attach the findings here when they are ready."
-                  : "Get a read-only second opinion before you push. The reviewer inspects local Git changes directly—no pull request required."}
+                  ? i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog4")
+                  : i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog5")}
               </DialogDescription>
             </div>
           </div>
@@ -427,8 +429,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           <section className={sx(styles.section)} aria-labelledby={`${idPrefix}-scope`}>
             <div className={sx(styles.sectionHeaderRow)}>
               <h3 id={`${idPrefix}-scope`} className={sx(styles.sectionHeading)}>
-                Review
-              </h3>
+                {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog6")}</h3>
               <div
                 className={sx(styles.status)}
                 aria-live="polite"
@@ -436,20 +437,16 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 {changeStatus.state === "loading" ? (
                   <>
                     <Loader aria-hidden size="xs" variant="verify" />
-                    Inspecting workspace…
-                  </>
+                    {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog7")}</>
                 ) : null}
                 {changeStatus.state === "ready" ? (
                   <>
                     <GitBranch className={sx(styles.iconSm)} />
                     <span className={sx(styles.branchName)}>
-                      {changeStatus.branch || "Current branch"}
+                      {changeStatus.branch || i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog8")}
                     </span>
                     <span aria-hidden="true">·</span>
-                    <span>
-                      {changeStatus.items.length} changed file
-                      {changeStatus.items.length === 1 ? "" : "s"}
-                    </span>
+                    <span>{i18n.t("composer:localChangeReviewDialog.sentence24", { value1: changeStatus.items.length, count: changeStatus.items.length })}</span>
                   </>
                 ) : null}
                 {changeStatus.state === "error" ? changeStatus.detail : null}
@@ -469,7 +466,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                     type="button"
                     aria-pressed={selected}
                     disabled={unavailable}
-                    title={unavailable ? "This task has no finished reply yet." : undefined}
+                    title={unavailable ? i18n.t("composer:localChangeReviewDialog.title2") : undefined}
                     onClick={() => setTarget(option.value)}
                     xstyle={[
                       styles.scopeCard,
@@ -490,8 +487,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                         {option.label}
                         {option.value === "working-tree" ? (
                           <span className={sx(styles.defaultTag)}>
-                            Default
-                          </span>
+                            {i18n.t("composer:localChangeReviewDialog.copy")}</span>
                         ) : null}
                       </span>
                       <span className={sx(styles.scopeDescription)}>
@@ -505,38 +501,28 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             {effectiveTarget === "commit" ? (
               <div className={sx(styles.labelStack)}>
                 <label htmlFor={`${idPrefix}-commit`} className={sx(styles.instructionsLabel)}>
-                  Commit or range
-                </label>
+                  {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog10")}</label>
                 <Input
                   id={`${idPrefix}-commit`}
                   value={commitRef}
                   onChange={(event) => setCommitRef(event.target.value)}
-                  placeholder="HEAD~1, a1b2c3d or main..HEAD"
+                  placeholder={i18n.t("composer:localChangeReviewDialog.placeholder")}
                   aria-invalid={commitMissing}
                   spellCheck={false}
                 />
                 {commitMissing ? (
-                  <p className={sx(styles.focusDescription)} role="alert">
-                    Use a commit, branch or range that starts with a letter or digit and uses only letters, digits and . _ / ~ ^ @ {"{"} {"}"} -.
-                  </p>
+                  <p className={sx(styles.focusDescription)} role="alert">{i18n.t("composer:localChangeReviewDialog.sentence25", { value1: "{", value2: "}" })}</p>
                 ) : null}
               </div>
             ) : null}
             {changeSummary && effectiveTarget !== "latest-reply" && effectiveTarget !== "commit" ? (
-              <p className={sx(styles.summaryLine)}>
-                {changeSummary.staged} staged · {changeSummary.unstaged}{" "}
-                unstaged · {changeSummary.untracked} untracked
-                {changeSummary.conflicts > 0
-                  ? ` · ${changeSummary.conflicts} conflicted`
-                  : ""}
-              </p>
+              <p className={sx(styles.summaryLine)}>{i18n.t("composer:localChangeReviewDialog.sentence26", { value1: changeSummary.staged, value2: changeSummary.unstaged, value3: " ", value4: changeSummary.untracked, value5: changeSummary.conflicts > 0
+                  ? i18n.t("composer:remaining.presentationCopy78", { v1: changeSummary.conflicts })
+                  : "" })}</p>
             ) : null}
             {effectiveTarget === "latest-reply" ? (
               <p className={sx(styles.summaryLine)} role="note">
-                The reviewer can still search the web: Claude always, Codex
-                when web search is on in its settings. The reply reaches it as
-                data to evaluate, not as instructions.
-              </p>
+                {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog16")}</p>
             ) : null}
           </section>
 
@@ -546,12 +532,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           >
             <div className={sx(styles.labelStack)}>
               <h3 id={`${idPrefix}-reviewer`} className={sx(styles.sectionHeading)}>
-                Review by
-              </h3>
+                {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog17")}</h3>
               <p className={sx(styles.focusDescription)}>
-                Choose any available provider, model, and reasoning effort. This
-                does not change the task&apos;s active provider.
-              </p>
+                {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog18")}</p>
             </div>
             <div className={sx(styles.cardGrid)}>
               {providerIds.map((providerId) => {
@@ -603,11 +586,11 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
               <Checkbox
                 checked={crossCheck}
                 onCheckedChange={(checked) => setCrossCheck(checked === true)}
-                label={`Also review with ${crossReviewer.label}`}
-                description={`Runs a second, independent read-only review on ${getProviderLabel({
+                label={i18n.t("composer:localChangeReviewDialog.label4", { value1: crossReviewer.label })}
+                description={i18n.t("composer:localChangeReviewDialog.description5", { value1: getProviderLabel({
                   providerId: crossReviewer.providerId,
                   variant: "full",
-                })} at the same time, so each model checks the work on its own.`}
+                }) })}
               />
             ) : null}
           </section>
@@ -615,12 +598,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           <section className={sx(styles.section)} aria-labelledby={`${idPrefix}-focus`}>
             <div className={sx(styles.labelStack)}>
               <h3 id={`${idPrefix}-focus`} className={sx(styles.sectionHeading)}>
-                Focus
-              </h3>
+                {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog19")}</h3>
               <p className={sx(styles.focusDescription)}>
-                Each selected focus adds an explicit instruction to the review
-                prompt. Unselected areas are still read for context.
-              </p>
+                {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog20")}</p>
             </div>
             <div className={sx(styles.cardGrid)}>
               {LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS.map((option) => {
@@ -675,22 +655,17 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 htmlFor={`${idPrefix}-instructions`}
                 className={sx(styles.instructionsLabel)}
               >
-                Additional instructions
-              </label>
-              <p className={sx(styles.focusDescription)}>
-                Add product intent, risk areas, or files that deserve special
-                attention.
-                {reviewSettings.instructions.trim()
+                {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog24")}</label>
+              <p className={sx(styles.focusDescription)}>{i18n.t("composer:localChangeReviewDialog.sentence27", { value1: reviewSettings.instructions.trim()
                   ? " Your saved review instructions from Settings are included too."
-                  : null}
-              </p>
+                  : null })}</p>
             </div>
             <Textarea
               id={`${idPrefix}-instructions`}
               maxLength={REVIEW_TASK_INSTRUCTIONS_MAX_CHARS}
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}
-              placeholder="For example: verify the task-switching regression and make sure draft state is preserved."
+              placeholder={i18n.t("composer:localChangeReviewDialog.placeholder2")}
               className={sx(styles.instructionsTextarea)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -704,18 +679,15 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           <section className={sx(styles.section)}>
             <div className={sx(styles.labelStack)}>
               <label htmlFor={`${idPrefix}-criteria`} className={sx(styles.instructionsLabel)}>
-                Check against a plan or acceptance criteria
-              </label>
+                {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog27")}</label>
               <p className={sx(styles.focusDescription)}>
-                Optional. Paste the plan or the criteria the work must meet; each
-                one that is not met becomes a finding.
-              </p>
+                {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog28")}</p>
             </div>
             <Textarea
               id={`${idPrefix}-criteria`}
               value={criteria}
               onChange={(event) => setCriteria(event.target.value)}
-              placeholder="For example: a dismissed review stays dismissed after a restart."
+              placeholder={i18n.t("composer:localChangeReviewDialog.placeholder3")}
               className={sx(styles.instructionsTextarea)}
             />
           </section>
@@ -725,8 +697,8 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           <p className={sx(styles.footerNote)}>
             <LockKeyhole className={sx(styles.iconSm)} />
             {runsSeparately
-              ? "Read-only task · runs beside this one"
-              : "Read-only review · no PR lookup"}
+              ? i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog29")
+              : i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog30")}
           </p>
           <div className={sx(styles.footerActions)}>
             <DialogClose
@@ -739,8 +711,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 />
               }
             >
-              Cancel
-            </DialogClose>
+              {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog31")}</DialogClose>
             <Button
               type="button"
               className={sx(styles.submitButton)}
@@ -753,10 +724,10 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 <FileDiff className={sx(styles.triggerIcon)} />
               )}
               {isSubmitting
-                ? "Starting review…"
+                ? i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog32")
                 : runsSeparately
-                  ? "Start review"
-                  : "Review changes"}
+                  ? i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog33")
+                  : i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog34")}
             </Button>
           </div>
         </DialogFooter>

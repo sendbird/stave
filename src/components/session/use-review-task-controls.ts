@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useCallback, useMemo } from "react";
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
@@ -130,7 +131,7 @@ export function useReviewTaskControls(args: {
           });
         const started = await start(review.reviewer, review.effort);
         if (!started.ok) {
-          toast.error("Could not start the review", { description: started.error });
+          toast.error(i18n.t("session:useReviewTaskControls.copy"), { description: started.error });
           return false;
         }
         // The cross-check is a second, independent review on the other
@@ -139,20 +140,20 @@ export function useReviewTaskControls(args: {
           ? await start(review.secondReviewer.reviewer, review.secondReviewer.effort, true)
           : null;
         if (second && !second.ok) {
-          toast.error(`Started one review; the ${review.secondReviewer!.reviewer.label} cross-check did not start`, {
+          toast.error(i18n.t("session:useReviewTaskControls.copy2", { value1: review.secondReviewer!.reviewer.label }), {
             description: second.error,
           });
           return true;
         }
-        toast.success(second ? "Two reviews started, one per provider" : "Review started in its own task", {
+        toast.success(second ? i18n.t("session:useReviewTaskControls.copy3") : i18n.t("session:useReviewTaskControls.copy4"), {
           description: second
-            ? "Their findings appear above the composer when they finish."
-            : "Its findings appear above the composer when it finishes.",
+            ? i18n.t("session:useReviewTaskControls.description")
+            : i18n.t("session:useReviewTaskControls.description2"),
         });
         return true;
       }
       if (review.target === "latest-reply") {
-        toast.error("Reply reviews need the desktop app.");
+        toast.error(i18n.t("session:useReviewTaskControls.copy5"));
         return false;
       }
       const currentState = useAppStore.getState();
@@ -196,8 +197,8 @@ export function useReviewTaskControls(args: {
         preservePromptDraft: true,
       });
       if (result.status === "blocked") {
-        toast.error("Could not start local change review", {
-          description: "Finish the pending task interaction and try again.",
+        toast.error(i18n.t("session:useReviewTaskControls.copy6"), {
+          description: i18n.t("session:useReviewTaskControls.description3"),
         });
         return false;
       }

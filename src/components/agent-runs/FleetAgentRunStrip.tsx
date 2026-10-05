@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { CirclePause } from "lucide-react";
@@ -50,8 +51,9 @@ export function FleetAgentRunStrip(props: {
   /** The lead task waits on the user (a question or an approval in its turn). */
   leadTaskWaiting?: boolean;
 }) {
+  useTranslation();
   const detail = useFleetActiveAgentRun(props.workspaceId);
-  const rows = useMemo(() => (detail ? projectAgentRunStages(detail, new Date(detail.agentRun.updatedAt)) : []), [detail]);
+  const rows = useMemo(() => (detail ? projectAgentRunStages(detail, new Date(detail.agentRun.updatedAt)) : []), [detail, i18n.language]);
   if (!detail) return null;
   if (hasAgentOrigin(detail.agentRun)) {
     return (
@@ -67,7 +69,7 @@ export function FleetAgentRunStrip(props: {
       variant="quiet"
       press="none"
       xstyle={styles.strip}
-      aria-label={`Run ${detail.agentRun.workflow.name}: ${line.title}${line.state ? `, ${line.state}` : ""}. Open the task.`}
+      aria-label={i18n.t("agentRuns:fleetAgentRunStrip.ariaLabel", { value1: detail.agentRun.workflow.name, value2: line.title, value3: line.state ? `, ${line.state}` : "" })}
       onClick={() => props.onOpen(detail.agentRun.leadTaskId)}
     >
       <span className={sx(styles.head)}>
@@ -95,6 +97,7 @@ function FleetAgentRunLine(props: {
   onOpen: (taskId: string) => void;
   leadTaskWaiting: boolean;
 }) {
+  useTranslation();
   const { detail, rows } = props;
   const status = describeAgentRunStatus(detail);
   const state = agentRunFleetState(status.state, props.leadTaskWaiting);
@@ -111,7 +114,7 @@ function FleetAgentRunLine(props: {
       variant="quiet"
       press="none"
       xstyle={styles.strip}
-      aria-label={`${status.agentName}: ${label}. Open the task.`}
+      aria-label={i18n.t("agentRuns:fleetAgentRunStrip.ariaLabel2", { value1: status.agentName, value2: label })}
       onClick={() => props.onOpen(detail.agentRun.leadTaskId)}
     >
       <span className={sx(styles.head)}>

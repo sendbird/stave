@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useRef, useState } from "react";
 import { RotateCcw, TriangleAlert } from "lucide-react";
 import { Button, Loader } from "@/components/ui";
@@ -18,6 +19,7 @@ export function ProviderErrorRecovery(props: {
   terminalStopReason?: string;
   hideMessage?: boolean;
 }) {
+  useTranslation();
   const notice = parseProviderErrorNotice(props.content);
   const workspaceId = useAppStore((state) =>
     state.taskWorkspaceIdById[props.taskId] ?? state.activeWorkspaceId,
@@ -75,7 +77,7 @@ export function ProviderErrorRecovery(props: {
       })
     ) {
       setResumeError(
-        "Return to this task after its current activity settles, then resume work.",
+        i18n.t("session:providerErrorRecovery.extraCopy110"),
       );
       return;
     }
@@ -99,7 +101,7 @@ export function ProviderErrorRecovery(props: {
       .then((result) => {
         if (result.status === "blocked") {
           setResumeError(
-            "Resolve the active approval or input request, then resume work.",
+            i18n.t("session:providerErrorRecovery.extraCopy111"),
           );
         } else if (result.status === "send-failed") {
           setResumeError(result.message);
@@ -109,7 +111,7 @@ export function ProviderErrorRecovery(props: {
         setResumeError(
           error instanceof Error
             ? error.message
-            : "Unable to start the continuation turn.",
+            : i18n.t("session:providerErrorRecovery.extraCopy112"),
         );
       })
       .finally(() => {
@@ -141,10 +143,7 @@ export function ProviderErrorRecovery(props: {
       {recoveryEligible && isLatestMessage ? (
         <div className={sx(styles.resume)}>
           <p className={sx(styles.help)}>
-            Resume starts a new turn with your current model selection. The
-            continuation asks the agent to check the workspace first and
-            continue only unfinished work.
-          </p>
+            {i18n.t("session:providerErrorRecovery.providerErrorRecovery")}</p>
           <Button
             type="button"
             variant="outline"
@@ -158,8 +157,7 @@ export function ProviderErrorRecovery(props: {
             ) : (
               <RotateCcw aria-hidden="true" />
             )}
-            Resume work
-          </Button>
+            {i18n.t("session:providerErrorRecovery.providerErrorRecovery2")}</Button>
           {resumeError ? (
             <p role="alert" className={sx(styles.error)}>
               {resumeError}

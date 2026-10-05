@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, Circle, ClipboardList } from "lucide-react";
@@ -73,6 +74,7 @@ function TodoItemIcon({
   status: TodoStatus;
   finalized: boolean;
 }) {
+  useTranslation();
   if (status === "completed") {
     return <CheckCircle2 className={sx(s.itemIcon, s.itemIconSuccess)} />;
   }
@@ -126,6 +128,7 @@ export function TodoCard({
   defaultOpen?: boolean;
   className?: string;
 }) {
+  useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const { todos, completedCount } = useMemo(
     () => getTodoProgress({ input }),
@@ -145,8 +148,7 @@ export function TodoCard({
       >
         <span className={sx(s.headerLabel)}>
           <ClipboardList className={sx(s.headerIcon)} />
-          Todo
-          {todos.length > 0 && (
+          {i18n.t("composer:todo.todoCard")}{todos.length > 0 && (
             <span className={sx(s.headerCount)}>
               {completedCount}/{todos.length}
             </span>
@@ -160,7 +162,7 @@ export function TodoCard({
       {open && (
         <div className={sx(s.body)}>
           {todos.length === 0 ? (
-            <p className={sx(s.empty)}>No todos.</p>
+            <p className={sx(s.empty)}>{i18n.t("composer:todo.todoCard2")}</p>
           ) : (
             <ol className={sx(s.list)}>
               {todos.map((todo, idx) => (

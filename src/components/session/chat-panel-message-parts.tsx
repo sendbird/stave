@@ -1,3 +1,5 @@
+import { formatSystemEventDisplay } from "./system-event-display";
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { LensToolPreview } from "@/components/panes/surfaces/lens/LensAutomationStatus";
 import { Check, Copy } from "lucide-react";
@@ -55,11 +57,12 @@ export function toProviderStartCase(args: { providerId: ProviderId }) {
 }
 
 export function CopyButton({ text }: { text: string }) {
+  useTranslation();
   const [copied, setCopied] = useState(false);
   return (
     <MessageAction
-      label="Copy"
-      tooltip="Copy message"
+      label={i18n.t("session:chatPanelMessageParts.label")}
+      tooltip={i18n.t("session:chatPanelMessageParts.tooltip")}
       onClick={() => {
         void copyTextToClipboard(text)
           .then(() => {
@@ -88,6 +91,7 @@ export function MessagePartRenderer(args: {
   userInputPresentation?: UserInputCardPresentation;
   systemEventPresentation?: "full" | "detail";
 }) {
+  useTranslation();
   const {
     part,
     taskId,
@@ -145,12 +149,12 @@ export function MessagePartRenderer(args: {
             {(part.state !== "input-streaming" || part.output?.trim()) && (
               <ToolOutput
                 label={
-                  part.state === "input-streaming" ? "Live output" : undefined
+                  part.state === "input-streaming" ? i18n.t("session:chatPanelMessageParts.label2") : undefined
                 }
                 outputText={part.output}
                 errorText={
                   part.state === "output-error"
-                    ? (part.output ?? "Tool failed.")
+                    ? (part.output ?? i18n.t("session:chatPanelMessageParts.errorText"))
                     : undefined
                 }
                 linkifyOutputText={part.state !== "input-streaming"}
@@ -239,6 +243,7 @@ export function MessagePartRenderer(args: {
       }
       const normalized = part.content.trim().toLowerCase();
       // "Compacting conversation context…" — in-progress spinner
+      // i18n-ignore: canonical provider or lifecycle text used for parsing
       if (normalized.startsWith("compacting conversation context")) {
         return <CompactingIndicator />;
       }
@@ -268,7 +273,7 @@ export function MessagePartRenderer(args: {
       if (part.compactBoundary != null || compactedMatch) {
         return (
           <ContextCompactedCheckpoint
-            label={isTurnStartCheckpoint ? "Workspace checkpoint" : undefined}
+            label={isTurnStartCheckpoint ? i18n.t("session:chatPanelMessageParts.label3") : undefined}
             trigger={isTurnStartCheckpoint ? undefined : compactBoundaryTrigger}
             onRestore={handleRestoreCompactBoundary}
             restorePending={isRestoringCompactBoundary}
@@ -277,6 +282,7 @@ export function MessagePartRenderer(args: {
         );
       }
       // Fallback: generic "Context compacted" without trigger info
+      // i18n-ignore: canonical provider or lifecycle text used for parsing
       if (normalized.startsWith("context compacted")) {
         return (
           <ContextCompactedCheckpoint
@@ -300,7 +306,7 @@ export function MessagePartRenderer(args: {
       return (
         <LinkifiedText
           as="p"
-          text={displayContent}
+          text={formatSystemEventDisplay(displayContent)}
           className={sx(chatPanelMessagePartsStyles.systemEventText)}
         />
       );

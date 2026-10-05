@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { Info, ShieldCheck, SlidersHorizontal, Zap, type LucideIcon } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -36,11 +37,11 @@ interface Metric {
 
 /** What the agent run spent: the cost when the provider reports one, tokens otherwise. */
 function spendMetric(usage: AgentRunUsage | null): Metric {
-  if (!usage || usage.measuredTurns === 0) return { label: "Spent", value: "—", detail: "Not reported yet" };
-  const tokens = `${formatTokenCount(usage.inputTokens + usage.outputTokens)} tokens`;
+  if (!usage || usage.measuredTurns === 0) return { label: i18n.t("agentRuns:agentRunSummary.label"), value: "—", detail: i18n.t("agentRuns:agentRunSummary.detail") };
+  const tokens = i18n.t("agentRuns:remaining.presentationCopy0", { v1: formatTokenCount(usage.inputTokens + usage.outputTokens) });
   return usage.costUsd !== null
-    ? { label: "Spent", value: formatCostUsd(usage.costUsd), detail: tokens }
-    : { label: "Tokens", value: formatTokenCount(usage.inputTokens + usage.outputTokens), detail: "No cost reported" };
+    ? { label: i18n.t("agentRuns:agentRunSummary.label2"), value: formatCostUsd(usage.costUsd), detail: tokens }
+    : { label: i18n.t("agentRuns:agentRunSummary.label3"), value: formatTokenCount(usage.inputTokens + usage.outputTokens), detail: i18n.t("agentRuns:agentRunSummary.detail2") };
 }
 
 /**
@@ -63,6 +64,7 @@ export function describeRunModel(providerId: ProviderId, model: string): { name:
  * against its budget, what it spent, and how long it has been going.
  */
 export function AgentRunSummary(props: AgentRunSummaryProps) {
+  useTranslation();
   const { agentRun, usage } = props;
   const providerId = agentRun.fingerprint.providerId as ProviderId;
   const permissionMode = agentRun.consent.permissionMode;
@@ -74,7 +76,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
 
   const metrics: Metric[] = [
     {
-      label: "Turns",
+      label: i18n.t("agentRuns:agentRunSummary.label4"),
       value: String(agentRun.turnCount),
       unit: `/ ${agentRun.maxTurns}`,
       detail: null,
@@ -83,16 +85,16 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
     },
     spendMetric(usage),
     {
-      label: props.active ? "Running for" : "Ran for",
+      label: props.active ? i18n.t("agentRuns:agentRunSummary.label5") : i18n.t("agentRuns:agentRunSummary.label6"),
       value: formatAge(endedAt - Date.parse(agentRun.createdAt)),
-      detail: `${props.active ? "since" : "from"} ${props.formatClock(agentRun.createdAt)}`,
+      detail: i18n.t(props.active ? "agentRuns:agentRunSummary.startedAt" : "agentRuns:agentRunSummary.fromStartedAt", { time: props.formatClock(agentRun.createdAt) }),
     },
   ];
 
   const notes = [
-    nearLimit && props.active ? `Close to its ${agentRun.maxTurns}-turn budget; the run stops there.` : null,
+    nearLimit && props.active ? i18n.t("agentRuns:agentRunSummary.extraCopy9", { value1: agentRun.maxTurns }) : null,
     unmeasured > 0
-      ? `${unmeasured} ${unmeasured === 1 ? "turn" : "turns"} reported no usage, so the total may be low.`
+      ? i18n.t("agentRuns:agentRunSummary.extraCopy10", { value1: unmeasured, count: unmeasured })
       : null,
   ].filter((note): note is string => Boolean(note));
 
@@ -120,7 +122,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
           </span>
         </span>
       </div>
-      <dl className={sx(styles.metrics)} aria-label="Run figures">
+      <dl className={sx(styles.metrics)} aria-label={i18n.t("agentRuns:agentRunSummary.ariaLabel")}>
         {metrics.map((metric) => (
           <div key={metric.label} className={sx(styles.metric)}>
             <dt className={sx(styles.metricLabel)}>{metric.label}</dt>

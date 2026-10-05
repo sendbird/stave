@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -13,6 +14,7 @@ import { useAppStore } from "@/store/app.store";
 const EMPTY_MESSAGES: readonly ChatMessage[] = [];
 
 export function ComposerContextDock() {
+  useTranslation();
   const [activeTaskId, messages, isTurnActive, providerId, sendUserMessage] =
     useAppStore(
       useShallow((state) => {
@@ -54,14 +56,14 @@ export function ComposerContextDock() {
         turnOrigin: "utility",
       });
       if (result.status === "blocked") {
-        toast.error("Could not compact context", {
-          description: "Finish the pending task interaction and try again.",
+        toast.error(i18n.t("session:composerContextDock.copy"), {
+          description: i18n.t("session:composerContextDock.description"),
         });
       }
     } finally {
       setCompactPending(false);
     }
-  }, [activeTaskId, compactPending, sendUserMessage]);
+  }, [activeTaskId, compactPending, sendUserMessage, i18n.language]);
 
   if (!usage) {
     return null;
@@ -74,7 +76,7 @@ export function ComposerContextDock() {
       compactDisabled={isTurnActive}
       compactPending={compactPending}
       compactDisabledReason={
-        isTurnActive ? "Wait for the current turn to finish." : undefined
+        isTurnActive ? i18n.t("session:composerContextDock.extraCopy90") : undefined
       }
       onCompact={() => {
         void onCompact();

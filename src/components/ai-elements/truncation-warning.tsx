@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { AlertTriangle } from "lucide-react";
 import type { HTMLAttributes } from "react";
 import { cx, sx } from "@/components/ads/utils/stylex";
@@ -13,6 +14,7 @@ export function TruncationWarningBanner({
   notice: TruncationNotice;
   compact?: boolean;
 }) {
+  useTranslation();
   return (
     <div
       role="note"

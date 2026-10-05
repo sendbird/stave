@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import {
@@ -131,6 +132,7 @@ const INACTIVE_CODEX_SETTINGS = [
 const EMPTY_PROVIDER_MODE_PRESETS: readonly ProviderModePresetDefinition[] = [];
 
 function BaseChatInput() {
+  useTranslation();
   const [providerCommandCatalog, setProviderCommandCatalog] = useState(() =>
     getCachedProviderCommandCatalog({
       providerId: "claude-code",
@@ -487,7 +489,7 @@ function BaseChatInput() {
       autoRoutingDecisionRecord,
       autoRoutingEnabled,
       autoRoutingStance,
-    ],
+    , i18n.language],
   );
   const selectedModelOption = isAutoRoutingSelected
     ? autoModelOption
@@ -570,7 +572,7 @@ function BaseChatInput() {
       buildChatInputGoalStatus({
         providerGoal: activeProvider === "codex" ? activeProviderGoal : null,
       }),
-    [activeProvider, activeProviderGoal],
+    [activeProvider, activeProviderGoal, i18n.language],
   );
   const runtimeStatusItems = useMemo(() => {
     return buildChatInputRuntimeStatusItems({
@@ -624,7 +626,7 @@ function BaseChatInput() {
     effectiveClaudePermissionModeBeforePlan,
     effectiveCodexPlanMode,
     providerTimeoutMs,
-  ]);
+  , i18n.language]);
   const providerModeStatus =
     useMemo<PromptInputProviderModeStatus | null>(() => {
       if (activeProvider === "claude-code") {
@@ -793,7 +795,7 @@ function BaseChatInput() {
         providerId: activeProvider,
         status: "error",
         commands: [],
-        detail: "Provider command catalog API is unavailable in this build.",
+        detail: i18n.t("session:chatInput.detail"),
       };
       setProviderCommandCatalog(nextCatalog);
       setCachedProviderCommandCatalog({
@@ -811,7 +813,7 @@ function BaseChatInput() {
       providerId: activeProvider,
       status: "loading",
       commands: [],
-      detail: `Loading ${getProviderLabel({ providerId: activeProvider })} native slash commands...`,
+      detail: i18n.t("session:chatInput.detail2", { value1: getProviderLabel({ providerId: activeProvider }) }),
     };
     setProviderCommandCatalog(loadingCatalog);
     setCachedProviderCommandCatalog({
@@ -971,15 +973,15 @@ function BaseChatInput() {
           .takeOverTask({ taskId: activeTaskId })
           .then((result) => {
             if (!result.ok) {
-              toast.error("Could not take over this task", {
+              toast.error(i18n.t("session:chatInput.copy"), {
                 description: result.message,
               });
               return;
             }
             if (result.craneReceiptPending) {
-              toast.info("Task control is now local", {
+              toast.info(i18n.t("session:chatInput.copy2"), {
                 description:
-                  "Crane is temporarily unreachable; its terminal status will retry in the background.",
+                  i18n.t("session:chatInput.description"),
               });
             }
           });
@@ -1200,5 +1202,6 @@ function BaseChatInput() {
 }
 
 export function ChatInput() {
+  useTranslation();
   return <BaseChatInput />;
 }

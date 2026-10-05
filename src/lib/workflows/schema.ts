@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 import { AUTOMATION_PERMISSION_MODES, type AutomationPermissionMode } from "@/lib/automations";
 
@@ -48,9 +50,9 @@ export const DEFAULT_CHECK_INS: CheckIns = "plan-and-publishing";
 
 /** How the check-in levels read in the product, for agents and runs alike. */
 export const CHECK_IN_LABELS: Readonly<Record<CheckIns, string>> = {
-  "when-stuck": "Only when stuck",
-  "plan-and-publishing": "Before publishing",
-  "every-stage": "Every stage",
+  get "when-stuck"() { return i18n.t("agentRuns:schema.whenStuck"); },
+  get "plan-and-publishing"() { return i18n.t("agentRuns:schema.planAndPublishing"); },
+  get "every-stage"() { return i18n.t("agentRuns:schema.everyStage"); },
 };
 
 export const SIGN_OFFS = ["auto", "ask"] as const;
@@ -87,8 +89,8 @@ function text(label: string, max: number) {
   return z
     .string()
     .trim()
-    .min(1, `${label} is required.`)
-    .max(max, `${label} must be ${max} characters or fewer.`);
+    .min(1, i18n.t("agentRuns:schema.extraCopy418", { value1: label }))
+    .max(max, i18n.t("agentRuns:schema.extraCopy419", { value1: label, value2: max }));
 }
 
 const StaveActionSchema = z.discriminatedUnion("type", [
@@ -117,33 +119,33 @@ const StaveActionSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("run-script"),
-      scriptId: z
+      get scriptId() { return z
         .string()
         .trim()
-        .min(1, "Script is required.")
-        .max(120, "Script must be 120 characters or fewer."),
+        .min(1, i18n.t("agentRuns:schema.extraCopy420"))
+        .max(120, i18n.t("agentRuns:schema.extraCopy421")); },
     })
     .strict(),
 ]);
 
 const stageIdentity = {
-  id: z
+  get id() { return z
     .string()
     .max(WORKFLOW_LIMITS.stageId)
-    .regex(STAGE_ID_PATTERN, "Stage ids are lowercase words joined by dashes."),
-  title: text("Stage name", WORKFLOW_LIMITS.stageTitle),
+    .regex(STAGE_ID_PATTERN, i18n.t("agentRuns:schema.extraCopy422")); },
+  get title() { return text(i18n.t("agentRuns:schema.extraCopy423"), WORKFLOW_LIMITS.stageTitle); },
   signOff: z.enum(SIGN_OFFS).optional(),
 };
 
-const criterionIdentity = { text: text("Acceptance criterion", 500), required: z.boolean().optional() };
+const criterionIdentity = { get text() { return text(i18n.t("agentRuns:schema.extraCopy424"), 500); }, required: z.boolean().optional() };
 
 const AiStageSchema = z
   .object({
     ...stageIdentity,
     kind: z.literal("ai"),
     acceptanceCriteria: z.array(z.object({ ...criterionIdentity, verification: z.literal("agent-report").optional() }).strict()).max(20).optional(),
-    instruction: text("Instruction", WORKFLOW_LIMITS.instruction),
-    doneWhen: text("Done when", WORKFLOW_LIMITS.doneWhen),
+    get instruction() { return text(i18n.t("agentRuns:schema.extraCopy425"), WORKFLOW_LIMITS.instruction); },
+    get doneWhen() { return text(i18n.t("agentRuns:schema.extraCopy426"), WORKFLOW_LIMITS.doneWhen); },
     role: z.enum(AI_STAGE_ROLES).optional(),
     /**
      * Runs this stage as another agent: the lead task delegates it to a
@@ -180,10 +182,10 @@ export type StaveAction = ActionStage["action"];
 export type StaveActionType = StaveAction["type"];
 
 export const STAVE_ACTION_LABELS: Record<StaveActionType, string> = {
-  "open-draft-pr": "Open draft PR",
-  "watch-checks": "Watch checks",
-  "mark-pr-ready": "Ready for review",
-  "run-script": "Run script",
+  get "open-draft-pr"() { return i18n.t("agentRuns:schema.openDraftPr"); },
+  get "watch-checks"() { return i18n.t("agentRuns:schema.watchChecks"); },
+  get "mark-pr-ready"() { return i18n.t("agentRuns:schema.markPrReady"); },
+  get "run-script"() { return i18n.t("agentRuns:schema.runScript"); },
 };
 
 interface StructureInput {
@@ -226,23 +228,23 @@ export function listWorkflowStructureIssues(
   workflow.stages.forEach((stage, index) => {
     if (seenIds.has(stage.id)) {
       issues.push({
-        message: `Stage id "${stage.id}" is used more than once.`,
+        message: i18n.t("agentRuns:schema.message", { value1: stage.id }),
         path: ["stages", index, "id"],
       });
     }
     seenIds.add(stage.id);
     if (stage.kind === "action" && stage.action.type !== "run-script" && stage.acceptanceCriteria?.some((criterion) => criterion.required !== false)) {
-      issues.push({ message: "Required Stave checks belong to a Run script stage.", path: ["stages", index, "acceptanceCriteria"] });
+      issues.push({ message: i18n.t("agentRuns:schema.message2"), path: ["stages", index, "acceptanceCriteria"] });
     }
     if (new Set(stage.acceptanceCriteria?.map((criterion) => criterion.text)).size !== (stage.acceptanceCriteria?.length ?? 0)) {
-      issues.push({ message: "Each acceptance criterion must be distinct.", path: ["stages", index, "acceptanceCriteria"] });
+      issues.push({ message: i18n.t("agentRuns:schema.message3"), path: ["stages", index, "acceptanceCriteria"] });
     }
   });
 
   const openIndexes = actionIndexes(workflow.stages, "open-draft-pr");
   if (openIndexes.length > 1) {
     issues.push({
-      message: "Open a draft PR only once.",
+      message: i18n.t("agentRuns:schema.message4"),
       path: ["stages", openIndexes[1]!],
     });
   }
@@ -252,7 +254,7 @@ export function listWorkflowStructureIssues(
       for (const index of actionIndexes(workflow.stages, type)) {
         if (index < firstOpen) {
           issues.push({
-            message: `"${STAVE_ACTION_LABELS[type]}" must come after "${STAVE_ACTION_LABELS["open-draft-pr"]}".`,
+            message: i18n.t("agentRuns:schema.message5", { value1: STAVE_ACTION_LABELS[type], value2: STAVE_ACTION_LABELS["open-draft-pr"] }),
             path: ["stages", index],
           });
         }
@@ -263,7 +265,7 @@ export function listWorkflowStructureIssues(
   const length = workflowTextLength(workflow);
   if (length > MAX_WORKFLOW_TEXT_LENGTH) {
     issues.push({
-      message: `Keep the combined instructions under ${MAX_WORKFLOW_TEXT_LENGTH.toLocaleString("en-US")} characters (now ${length.toLocaleString("en-US")}).`,
+      message: i18n.t("agentRuns:schema.message6", { value1: formatNumber(MAX_WORKFLOW_TEXT_LENGTH), value2: formatNumber(length) }),
       path: ["stages"],
     });
   }
@@ -274,12 +276,12 @@ const WorkflowRuntimeSchema = z
   .object({
     providerId: z.enum(WORKFLOW_PROVIDER_IDS),
     model: z.string().trim().min(1).max(WORKFLOW_LIMITS.model).optional(),
-    effort: z
+    get effort() { return z
       .custom<ModelEffort>(
         (value) => typeof value === "string" && isModelEffort(value),
-        "Unknown effort.",
+        i18n.t("agentRuns:schema.extraCopy427"),
       )
-      .optional(),
+      .optional(); },
     permissionMode: z.enum(AUTOMATION_PERMISSION_MODES).optional(),
   })
   .strict();
@@ -321,17 +323,17 @@ const WorkflowStartsWhenSchema = z
 export const WorkflowSchema = z
   .object({
     version: z.literal(WORKFLOW_VERSION),
-    id: z
+    get id() { return z
       .string()
       .max(WORKFLOW_LIMITS.id)
-      .regex(WORKFLOW_ID_PATTERN, "Workflow ids use letters, digits, - and _."),
-    name: text("Name", WORKFLOW_LIMITS.name),
-    shortcut: z
+      .regex(WORKFLOW_ID_PATTERN, i18n.t("agentRuns:schema.extraCopy428")); },
+    get name() { return text(i18n.t("agentRuns:schema.extraCopy429"), WORKFLOW_LIMITS.name); },
+    get shortcut() { return z
       .string()
       .max(WORKFLOW_LIMITS.shortcut)
-      .regex(SHORTCUT_PATTERN, "Shortcuts are lowercase words joined by dashes.")
-      .optional(),
-    purpose: text("Purpose", WORKFLOW_LIMITS.purpose),
+      .regex(SHORTCUT_PATTERN, i18n.t("agentRuns:schema.extraCopy430"))
+      .optional(); },
+    get purpose() { return text(i18n.t("agentRuns:schema.extraCopy431"), WORKFLOW_LIMITS.purpose); },
     checkIns: z.enum(CHECK_INS),
     team: z.enum(WORKFLOW_TEAMS),
     runtime: WorkflowRuntimeSchema.optional(),
@@ -339,10 +341,10 @@ export const WorkflowSchema = z
     constraints: z.string().trim().max(WORKFLOW_LIMITS.constraints).optional(),
     /** Deprecated and unread; kept so older saved workflows still parse. */
     startsWhen: WorkflowStartsWhenSchema.optional(),
-    stages: z
+    get stages() { return z
       .array(WorkflowStageSchema)
-      .min(1, "Add at least one stage.")
-      .max(MAX_WORKFLOW_STAGES, `Use at most ${MAX_WORKFLOW_STAGES} stages.`),
+      .min(1, i18n.t("agentRuns:schema.extraCopy432"))
+      .max(MAX_WORKFLOW_STAGES, i18n.t("agentRuns:schema.extraCopy433", { value1: MAX_WORKFLOW_STAGES })); },
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
   })

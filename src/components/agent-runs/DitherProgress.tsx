@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Check, Hand, X, type LucideIcon } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -66,6 +67,7 @@ export function DitherProgress(props: {
   showPercent?: boolean;
   "aria-label"?: string;
 }) {
+  useTranslation();
   const { value, ticks = NO_TICKS, tone, live = false, size = "sm", showPercent = true } = props;
   const percent = Math.round(Math.min(1, Math.max(0, value)) * 100);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -90,7 +92,7 @@ export function DitherProgress(props: {
     <div className={sx(styles.root)}>
       <div
         role="progressbar"
-        aria-label={props["aria-label"] ?? "Progress"}
+        aria-label={props["aria-label"] ?? i18n.t("agentRuns:ditherProgress.ariaLabel")}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}

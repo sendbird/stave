@@ -1,3 +1,5 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { i18n, useTranslation } from "@/i18n";
 import { useId, useState } from "react";
 import { ArrowUpRight, ChevronRight, RotateCcw, SkipForward } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -14,13 +16,13 @@ export function describeStageMeta(row: AgentRunStageRow): string {
   const parts: string[] = [];
   if (row.status === "running") parts.push("now");
   else if (row.durationMs !== null && row.status === "completed") parts.push(formatAge(row.durationMs));
-  if (row.attempts > 1) parts.push(`attempt ${row.attempts}`);
+  if (row.attempts > 1) parts.push(i18n.t("agentRuns:remaining.presentationCopy4", { v1: row.attempts }));
   if (row.asksFirst && (row.status === "pending" || row.status === "awaiting-sign-off")) {
-    parts.push("asks you first");
+    parts.push(i18n.t("agentRuns:stageCard.extraCopy11"));
   }
   if (row.stage.kind === "action" && row.stage.action.type === "watch-checks" && row.status === "pending") {
     const repairs = row.stage.action.repairAttempts;
-    parts.push(repairs ? `up to ${repairs} ${repairs === 1 ? "repair" : "repairs"}` : "no repairs");
+    parts.push(repairs ? i18n.t("agentRuns:stageCard.extraCopy12", { value1: repairs, count: repairs }) : i18n.t("agentRuns:stageCard.extraCopy13"));
   }
   return parts.join(" · ");
 }
@@ -35,6 +37,7 @@ export function shouldOpenStage(
 
 /** The instruction a stage ran with, folded away until asked for. */
 export function InstructionDisclosure(props: { label: string; text: string; disabled?: boolean }) {
+  useTranslation();
   const [open, setOpen] = useState(false);
   const panelId = useId();
   return (
@@ -75,6 +78,7 @@ export function StageCard(props: {
   onShowTool?: (toolCallId: string) => void;
   busy?: boolean;
 }) {
+  useTranslation();
   const { row } = props;
   const presentation = STAGE_STATUS_PRESENTATION[row.status];
   const report = row.record?.report ?? null;
@@ -115,13 +119,13 @@ export function StageCard(props: {
             !reached && styles.stageTitlePending,
           )}
         >
-          {row.stage.title}
+          {getStageDisplayTitle(row.stage)}
           <span className={sx(styles.visuallyHidden)}>
             {" "}
-            — stage {row.index + 1}, {presentation.label}
+            {i18n.t("agentRuns:stageCard.stageCard")}{row.index + 1}, {presentation.label}
           </span>
         </span>
-        {row.stage.kind === "action" ? <span className={sx(styles.stageKind)} title="Stave performs this stage itself">
+        {row.stage.kind === "action" ? <span className={sx(styles.stageKind)} title={i18n.t("agentRuns:stageCard.title")}>
             Stave
           </span> : null}
         {meta ? <span className={sx(styles.stageMeta)}>{meta}</span> : null}
@@ -139,14 +143,12 @@ export function StageCard(props: {
                   {props.onRetry ? (
                     <Button size="xs" variant="secondary" onClick={props.onRetry} disabled={props.busy}>
                       <RotateCcw aria-hidden />
-                      Retry stage
-                    </Button>
+                      {i18n.t("agentRuns:stageCard.stageCard2")}</Button>
                   ) : null}
                   {props.onSkip ? (
                     <Button size="xs" variant="quiet" onClick={props.onSkip} disabled={props.busy}>
                       <SkipForward aria-hidden />
-                      Skip stage
-                    </Button>
+                      {i18n.t("agentRuns:stageCard.stageCard3")}</Button>
                   ) : null}
                 </div>
               ) : null}
@@ -156,7 +158,7 @@ export function StageCard(props: {
           {report?.outcome === "blocked" ? (
             <div className={sx(styles.callout)}>
               <span>
-                <strong>Missing:</strong> {report.missing}
+                <strong>{i18n.t("agentRuns:stageCard.stageCard4")}</strong> {report.missing}
               </span>
               {report.suggestedAction ? <span className={sx(styles.muted)}>{report.suggestedAction}</span> : null}
             </div>
@@ -165,21 +167,20 @@ export function StageCard(props: {
             <p className={sx(styles.stat)}>
               {facts.diff ? (
                 <span>
-                  {facts.diff.filesChanged} {facts.diff.filesChanged === 1 ? "file" : "files"}{" "}
+                  {facts.diff.filesChanged} {facts.diff.filesChanged === 1 ? i18n.t("agentRuns:stageCard.stageCard5") : i18n.t("agentRuns:stageCard.stageCard6")}{" "}
                   <span className={sx(styles.added)}>+{facts.diff.insertions}</span>{" "}
                   <span className={sx(styles.removed)}>−{facts.diff.deletions}</span>
                 </span>
               ) : null}
               {facts.commands.length > 0 ? (
                 <span>
-                  {facts.commands.length} {facts.commands.length === 1 ? "command" : "commands"} run
-                </span>
+                  {facts.commands.length} {facts.commands.length === 1 ? i18n.t("agentRuns:stageCard.stageCard7") : i18n.t("agentRuns:stageCard.stageCard8")} {i18n.t("agentRuns:stageCard.stageCard9")}</span>
               ) : null}
             </p>
           ) : null}
           {report?.outcome === "complete" && report.decisions.length > 0 ? (
             <div className={sx(styles.stageGroup)}>
-              <p className={sx(styles.groupLabel)}>Decisions</p>
+              <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:stageCard.stageCard10")}</p>
               <ul className={sx(styles.list)}>
                 {report.decisions.map((item) => (
                   <li key={item.decision} className={sx(styles.decision)}>
@@ -192,7 +193,7 @@ export function StageCard(props: {
           ) : null}
           {row.evidence.length > 0 ? (
             <div className={sx(styles.stageGroup)}>
-              <p className={sx(styles.groupLabel)}>Evidence</p>
+              <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:stageCard.stageCard11")}</p>
               <EvidenceList evidence={row.evidence} onShowTool={props.onShowTool} />
             </div>
           ) : null}
@@ -207,17 +208,14 @@ export function StageCard(props: {
             </div>
           ) : null}
           {row.status === "running" && !report && !row.record?.detail ? (
-            <p className={sx(styles.notice)}>
-              In progress{row.durationMs !== null ? ` for ${formatAge(row.durationMs)}` : ""}. The stage report
-              appears here when the agent reports it done.
-            </p>
+            <p className={sx(styles.notice)}>{i18n.t("agentRuns:stageCard.sentence8", { value1: row.durationMs !== null ? i18n.t("agentRuns:remaining.presentationCopy6", { v1: formatAge(row.durationMs) }) : "" })}</p>
           ) : null}
           <InstructionDisclosure
-            label={row.stage.kind === "ai" ? "Instruction" : "What Stave does"}
+            label={row.stage.kind === "ai" ? i18n.t("agentRuns:stageCard.label") : i18n.t("agentRuns:stageCard.label2")}
             text={
               row.stage.kind === "ai"
-                ? `${row.stage.instruction}\n\nDone when: ${row.stage.doneWhen}`
-                : `Stave action: ${STAVE_ACTION_LABELS[row.stage.action.type]}`
+                ? i18n.t("agentRuns:stageCard.text", { value1: row.stage.instruction, value2: row.stage.doneWhen })
+                : i18n.t("agentRuns:remaining.presentationCopy7", { v1: STAVE_ACTION_LABELS[row.stage.action.type] })
             }
           />
         </div>

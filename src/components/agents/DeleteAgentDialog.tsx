@@ -1,3 +1,5 @@
+import { getAgentDisplayName } from "@/lib/agents/display";
+import { i18n, useTranslation } from "@/i18n";
 import { Dialog } from "@/components/ads/components/Dialog";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -11,11 +13,12 @@ import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 
 const REFERENCE_KIND_LABELS = {
-  "workflow-stage": "Workflow stage",
-  task: "Task",
+  get "workflow-stage"() { return i18n.t("agents:deleteAgentDialog.workflowStage"); },
+  get task() { return i18n.t("agents:deleteAgentDialog.task"); },
 } as const;
 
 function ReferenceList(props: { title: string; references: readonly AgentReference[] }) {
+  useTranslation();
   if (props.references.length === 0) return null;
   return (
     <section aria-label={props.title}>
@@ -52,6 +55,7 @@ export function DeleteAgentDialog(props: {
   onDelete: () => void;
   onArchive: () => void;
 }) {
+  useTranslation();
   const deletable = agentIsDeletable(props.references);
   const hasSoft = props.references.soft.length > 0;
   return (
@@ -59,18 +63,17 @@ export function DeleteAgentDialog(props: {
       open={props.open}
       onOpenChange={props.onOpenChange}
       width={deletable && !hasSoft ? "sm" : "md"}
-      title={`Delete ${props.agent.name}?`}
+      title={i18n.t("agents:deleteAgentDialog.title", { value1: getAgentDisplayName(props.agent) })}
       description={
         deletable
-          ? "This removes the saved agent. Past work keeps its own copy, so its history still shows the name."
-          : "This agent is still used. Archive it instead, or remove it from the places below first."
+          ? i18n.t("agents:deleteAgentDialog.description")
+          : i18n.t("agents:deleteAgentDialog.description2")
       }
       footer={
         deletable ? (
           <>
             <Button size="sm" variant="quiet" onClick={() => props.onOpenChange(false)}>
-              Cancel
-            </Button>
+              {i18n.t("agents:deleteAgentDialog.footer")}</Button>
             <Button
               size="sm"
               variant="primary"
@@ -80,14 +83,12 @@ export function DeleteAgentDialog(props: {
                 props.onOpenChange(false);
               }}
             >
-              Delete agent
-            </Button>
+              {i18n.t("agents:deleteAgentDialog.footer2")}</Button>
           </>
         ) : (
           <>
             <Button size="sm" variant="quiet" onClick={() => props.onOpenChange(false)}>
-              Cancel
-            </Button>
+              {i18n.t("agents:deleteAgentDialog.footer3")}</Button>
             <Button
               size="sm"
               onClick={() => {
@@ -95,14 +96,13 @@ export function DeleteAgentDialog(props: {
                 props.onOpenChange(false);
               }}
             >
-              Archive instead
-            </Button>
+              {i18n.t("agents:deleteAgentDialog.footer4")}</Button>
           </>
         )
       }
     >
-      <ReferenceList title="Used by" references={props.references.blocking} />
-      <ReferenceList title="Running or waiting" references={props.references.soft} />
+      <ReferenceList title={i18n.t("agents:deleteAgentDialog.title2")} references={props.references.blocking} />
+      <ReferenceList title={i18n.t("agents:deleteAgentDialog.title3")} references={props.references.soft} />
     </Dialog>
   );
 }

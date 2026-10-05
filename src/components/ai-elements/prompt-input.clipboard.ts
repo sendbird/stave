@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 type ClipboardFileItem = {
   getAsFile: () => File | null;
 };
@@ -136,7 +137,7 @@ export function createClipboardReadQueue() {
 export function readClipboardImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    const fail = () => reject(new Error("Could not read image: " + file.name));
+    const fail = () => reject(new Error(i18n.t("composer:promptInputClipboard.extraCopy66") + file.name));
     reader.onerror = fail;
     reader.onabort = fail;
     reader.onload = () => {
@@ -147,7 +148,7 @@ export function readClipboardImage(file: File): Promise<string> {
       }
       // Match the canonical IPC per-image limit before adding a draft chip.
       if (dataUrl.length > 10_000_000) {
-        reject(new Error("Image is too large to attach: " + file.name));
+        reject(new Error(i18n.t("composer:promptInputClipboard.extraCopy67") + file.name));
         return;
       }
       resolve(dataUrl);

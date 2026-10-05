@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useId, useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Hand } from "lucide-react";
@@ -25,16 +26,16 @@ import { agentRunStyles } from "./agent-runs.styles";
 
 /** The card's title: the decision, asked plainly. */
 export function describeSignOffQuestion(stage: WorkflowStage): string {
-  if (stage.kind === "ai") return `Ready to start ${stage.title}?`;
+  if (stage.kind === "ai") return i18n.t("agentRuns:signOffCard.describeSignOffQuestion", { value1: stage.title });
   switch (stage.action.type) {
     case "open-draft-pr":
-      return "Ready to open the draft PR?";
+      return i18n.t("agentRuns:signOffCard.describeSignOffQuestion2");
     case "watch-checks":
-      return "Ready to watch the PR checks?";
+      return i18n.t("agentRuns:signOffCard.describeSignOffQuestion3");
     case "mark-pr-ready":
-      return "Ready to request review?";
+      return i18n.t("agentRuns:signOffCard.describeSignOffQuestion4");
     case "run-script":
-      return `Ready to run “${stage.action.scriptId}”?`;
+      return i18n.t("agentRuns:signOffCard.describeSignOffQuestion5", { value1: stage.action.scriptId });
   }
 }
 
@@ -51,12 +52,13 @@ export function SignOffCard(props: {
   busy?: boolean;
   failure?: string | null;
 }) {
+  useTranslation();
   const { detail } = props;
   const [asking, setAsking] = useState(false);
   const [feedback, setFeedback] = useState("");
   const feedbackId = useId();
   const titleId = useId();
-  const rows = useMemo(() => projectAgentRunStages(detail, new Date()), [detail]);
+  const rows = useMemo(() => projectAgentRunStages(detail, new Date()), [detail, i18n.language]);
   const current = rows[detail.agentRun.currentStageIndex]!;
   const previous = rows[detail.agentRun.currentStageIndex - 1];
   const summary = summarizePreviousStage(previous);
@@ -81,10 +83,7 @@ export function SignOffCard(props: {
             <p id={titleId} className={sx(styles.title)}>
               {describeSignOffQuestion(current.stage)}
             </p>
-            <span className={sx(styles.position, budget.nearLimit && styles.positionWarn)} title="Turns this run has used of its limit">
-              Stage {current.index + 1} of {rows.length} · {budget.text}
-              {spent ? ` · ${spent}` : ""}
-            </span>
+            <span className={sx(styles.position, budget.nearLimit && styles.positionWarn)} title={i18n.t("agentRuns:signOffCard.title")}>{i18n.t("agentRuns:signOffCard.sentence7", { value1: current.index + 1, value2: rows.length, value3: budget.text, value4: spent ? ` · ${spent}` : "" })}</span>
           </div>
           {summary ? <p className={sx(styles.summary)}>{summary}</p> : null}
           {previousReport?.outcome === "complete" ? (
@@ -101,8 +100,7 @@ export function SignOffCard(props: {
           }}
         >
           <label htmlFor={feedbackId} className={sx(styles.formLabel)}>
-            What should change? The last AI stage runs again with your note.
-          </label>
+            {i18n.t("agentRuns:signOffCard.signOffCard3")}</label>
           <Textarea
             id={feedbackId}
             value={feedback}
@@ -113,11 +111,9 @@ export function SignOffCard(props: {
           />
           <div className={sx(styles.formActions)}>
             <Button type="submit" size="sm" disabled={props.busy || !feedback.trim()}>
-              Send and run again
-            </Button>
+              {i18n.t("agentRuns:signOffCard.signOffCard4")}</Button>
             <Button type="button" size="sm" variant="quiet" onClick={() => setAsking(false)}>
-              Back
-            </Button>
+              {i18n.t("agentRuns:signOffCard.signOffCard5")}</Button>
           </div>
         </form>
       ) : (
@@ -126,12 +122,10 @@ export function SignOffCard(props: {
             {describeSignOffAction(current.stage)}
           </Button>
           <Button size="sm" variant="outline" onClick={props.onReviewChanges}>
-            Review changes
-          </Button>
+            {i18n.t("agentRuns:signOffCard.signOffCard6")}</Button>
           {canAskForChanges ? (
             <Button size="sm" variant="quiet" onClick={() => setAsking(true)} disabled={props.busy}>
-              Ask for changes
-            </Button>
+              {i18n.t("agentRuns:signOffCard.signOffCard7")}</Button>
           ) : null}
         </div>
       )}
@@ -149,6 +143,7 @@ export function SignOffCard(props: {
  * slot. Renders nothing unless the current stage waits for the user.
  */
 export function AgentRunSignOffSlot() {
+  useTranslation();
   const { detail } = useScopedTaskAgentRun();
   const runCommand = useAgentRunsStore((state) => state.runCommand);
   const agentRunId = detail?.agentRun.id ?? "";

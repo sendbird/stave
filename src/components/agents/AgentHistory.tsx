@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -14,7 +16,7 @@ import { agentStyles } from "./agents.styles";
 
 function formatWhen(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? iso : formatDateTime(date);
 }
 
 /** One saved version: when it was replaced, which fields differ from now, whether it ran, and Restore. */
@@ -24,6 +26,7 @@ function RevisionRow(props: {
   ran: boolean;
   onRestore: () => void;
 }) {
+  useTranslation();
   const changed = useMemo(
     () => diffAgentVersions(props.revision.agent, props.current).map((change) => change.label),
     [props.revision.agent, props.current],
@@ -33,15 +36,14 @@ function RevisionRow(props: {
       <div className={sx(agentStyles.historyMain)}>
         <span className={sx(agentStyles.historyWhen)}>{formatWhen(props.revision.savedAt)}</span>
         <span className={sx(styles.hint)}>
-          {changed.length === 0 ? "Same as now" : `Differs in ${changed.join(", ")}`}
+          {changed.length === 0 ? i18n.t("agents:agentHistory.revisionRow") : i18n.t("agents:agentHistory.revisionRow2", { value1: changed.join(", ") })}
         </span>
       </div>
       <div className={sx(agentStyles.historyMeta)}>
-        {props.ran ? <span className={sx(styles.chip)}>Assigned</span> : null}
+        {props.ran ? <span className={sx(styles.chip)}>{i18n.t("agents:agentHistory.revisionRow3")}</span> : null}
         <Button size="sm" variant="quiet" onClick={props.onRestore} disabled={changed.length === 0}>
           <RotateCcw aria-hidden />
-          Restore
-        </Button>
+          {i18n.t("agents:agentHistory.revisionRow4")}</Button>
       </div>
     </li>
   );
@@ -60,22 +62,21 @@ export function AgentHistory(props: {
   ranContentHashes: ReadonlySet<string>;
   onRestore: (agent: AgentConfig) => void;
 }) {
+  useTranslation();
   const currentRan = revisionRan({ agent: props.agent, ranContentHashes: props.ranContentHashes });
   if (props.revisions.length === 0) {
     return (
-      <p className={sx(styles.hint)}>
-        No earlier versions yet. Each save keeps the version it replaces, up to {MAX_AGENT_REVISIONS}.
-      </p>
+      <p className={sx(styles.hint)}>{i18n.t("agents:agentHistory.sentence11", { value1: MAX_AGENT_REVISIONS })}</p>
     );
   }
   return (
     <ul className={sx(agentStyles.runs)}>
       <li className={sx(agentStyles.historyRow)}>
         <div className={sx(agentStyles.historyMain)}>
-          <span className={sx(agentStyles.historyWhen)}>Current</span>
+          <span className={sx(agentStyles.historyWhen)}>{i18n.t("agents:agentHistory.agentHistory2")}</span>
         </div>
         <div className={sx(agentStyles.historyMeta)}>
-          {currentRan ? <span className={sx(styles.chip)}>Assigned</span> : null}
+          {currentRan ? <span className={sx(styles.chip)}>{i18n.t("agents:agentHistory.agentHistory3")}</span> : null}
         </div>
       </li>
       {props.revisions.map((revision) => (

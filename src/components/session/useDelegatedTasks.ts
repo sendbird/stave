@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   DelegatedTaskActionResponse,
@@ -19,7 +20,7 @@ import {
 const EMPTY_CHILDREN: readonly DelegatedTaskSummary[] = [];
 
 const DELEGATED_TASK_UNAVAILABLE =
-  "Subagents are not available in this build. Open the desktop app to manage them.";
+  "session:useDelegatedTasks.extraCopy204";
 
 export interface DelegatedTaskActionResult {
   ok: boolean;
@@ -66,7 +67,7 @@ export interface UseDelegatedTasksResult extends DelegatedTaskListingSource {
 function describeThrown(cause: unknown) {
   return cause instanceof Error && cause.message
     ? cause.message
-    : "The delegated task action could not be delivered.";
+    : i18n.t("session:useDelegatedTasks.describeThrown");
 }
 
 export function useDelegatedTasks(args: {
@@ -152,7 +153,7 @@ export function useDelegatedTasks(args: {
       invoke: (() => Promise<DelegatedTaskActionResponse>) | null,
     ): Promise<DelegatedTaskActionResult> => {
       if (!invoke) {
-        return { ok: false, error: DELEGATED_TASK_UNAVAILABLE };
+        return { ok: false, error: i18n.t(DELEGATED_TASK_UNAVAILABLE) };
       }
       let response: DelegatedTaskActionResponse;
       try {
@@ -194,7 +195,7 @@ export function useDelegatedTasks(args: {
           return Promise.resolve({
             ok: false,
             error:
-              "Retry needs the parent task's repository and workspace. Open the parent task and try again.",
+              i18n.t("session:useDelegatedTasks.extraCopy205"),
           });
         }
         return runAction(

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { AlertTriangle, ChevronDown, FileText, X } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -38,14 +39,14 @@ const SUPPORTED_SOURCE_PREFIXES = ["crane:", "pr:"] as const;
 function resolveNoticeTitle(parts: readonly TaskSourceContext[]): string {
   const first = parts[0];
   if (!first) {
-    return "Attached context";
+    return i18n.t("session:taskSourceContextNotice.resolveNoticeTitle");
   }
   if (first.title) {
     return first.title;
   }
   return isPrContextSourceId(first.sourceId)
-    ? "Pull request context"
-    : "Crane issue context";
+    ? i18n.t("session:taskSourceContextNotice.resolveNoticeTitle2")
+    : i18n.t("session:taskSourceContextNotice.resolveNoticeTitle3");
 }
 
 /**
@@ -63,6 +64,7 @@ export function TaskSourceContextNotice(props: {
   onClear?: () => void;
   onRefreshPrContext?: () => void;
 }) {
+  useTranslation();
   const attached = props.sourceContexts.filter((part) =>
     SUPPORTED_SOURCE_PREFIXES.some((prefix) =>
       part.sourceId.startsWith(prefix),
@@ -86,19 +88,17 @@ export function TaskSourceContextNotice(props: {
         <div className={sx(styles.headerText)}>
           <p className={sx(styles.title)}>{resolveNoticeTitle(attached)}</p>
           <p className={sx(styles.subtitle)}>
-            Stored locally with this task · Attached to every turn
-          </p>
+            {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice")}</p>
         </div>
         {props.onClear ? (
           <AdsButton
             layout="host"
             type="button"
-            aria-label="Remove all attached context"
+            aria-label={i18n.t("session:taskSourceContextNotice.ariaLabel")}
             xstyle={styles.clearButton}
             onClick={props.onClear}
           >
-            Clear all
-          </AdsButton>
+            {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice2")}</AdsButton>
         ) : null}
       </div>
 
@@ -107,9 +107,7 @@ export function TaskSourceContextNotice(props: {
           <AlertTriangle className={sx(styles.staleIcon)} aria-hidden="true" />
           <div className={sx(styles.staleBody)}>
             <p>
-              The pull request moved to a new commit. This evidence is held back
-              from further turns until you refresh it.
-            </p>
+              {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice3")}</p>
             {props.onRefreshPrContext ? (
               <AdsButton
                 layout="host"
@@ -117,8 +115,7 @@ export function TaskSourceContextNotice(props: {
                 xstyle={styles.refreshButton}
                 onClick={props.onRefreshPrContext}
               >
-                Refresh PR context
-              </AdsButton>
+                {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice4")}</AdsButton>
             ) : null}
           </div>
         </div>
@@ -126,8 +123,7 @@ export function TaskSourceContextNotice(props: {
 
       <details className={sx(styles.details)}>
         <summary className={sx(styles.summary)}>
-          View attached context
-          <ChevronDown
+          {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice5")}<ChevronDown
             className={sx(styles.summaryChevron)}
             aria-hidden="true"
           />
@@ -143,14 +139,14 @@ export function TaskSourceContextNotice(props: {
                   <p className={sx(styles.attachedTitle)}>
                     {part.title ?? part.sourceId}
                     {staleSourceIds.has(part.sourceId) ? (
-                      <span className={sx(styles.staleTag)}>stale</span>
+                      <span className={sx(styles.staleTag)}>{i18n.t("session:taskSourceContextNotice.copy")}</span>
                     ) : null}
                   </p>
                   {props.onRemove ? (
                     <AdsButton
                       layout="host"
                       type="button"
-                      aria-label={`Remove ${part.title ?? part.sourceId}`}
+                      aria-label={i18n.t("session:taskSourceContextNotice.ariaLabel2", { value1: part.title ?? part.sourceId })}
                       xstyle={styles.removeButton}
                       onClick={() => props.onRemove?.(part.sourceId)}
                     >

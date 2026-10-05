@@ -1,3 +1,5 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { i18n } from "@/i18n/runtime";
 /**
  * How an agent run reads. A run is an agent run (`agent-run.ts`) with one
  * implicit stage or the stages of the agent's workflow, so its surfaces drop
@@ -25,17 +27,17 @@ export type AgentRunViewState = "working" | "needs-you" | "ready" | "failed" | "
 
 /** The words are the shared work-state vocabulary's. */
 export const AGENT_RUN_VIEW_STATE_LABELS: Record<AgentRunViewState, string> = {
-  working: WORK_STATE.working.label,
-  "needs-you": WORK_STATE["needs-you"].label,
-  ready: WORK_STATE.ready.label,
-  failed: WORK_STATE.failed.label,
-  stopped: WORK_STATE.stopped.label,
+  get working() { return WORK_STATE.working.label; },
+  get "needs-you"() { return WORK_STATE["needs-you"].label; },
+  get ready() { return WORK_STATE.ready.label; },
+  get failed() { return WORK_STATE.failed.label; },
+  get stopped() { return WORK_STATE.stopped.label; },
 };
 
 const STOP_REASON_TEXT: Record<AgentRunStopReason, string> = {
-  "task-unavailable": "The task is no longer available.",
-  "turn-cap-reached": "The run used all its turns before it finished.",
-  expired: "The run took too long and expired.",
+  get "task-unavailable"() { return i18n.t("agentRuns:agentRunStatus.taskUnavailable"); },
+  get "turn-cap-reached"() { return i18n.t("agentRuns:agentRunStatus.turnCapReached"); },
+  get expired() { return i18n.t("agentRuns:agentRunStatus.expired"); },
 };
 
 /** The icon tone of a state; the icon is always paired with the state word. */
@@ -85,7 +87,7 @@ export function describeAgentRunStatus(detail: AgentRunDetail): AgentRunStatus {
         "new-run",
       );
     case "paused":
-      return make("needs-you", "warning", agentRun.reasonDetail ?? "The run is paused.");
+      return make("needs-you", "warning", agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunStatus.extraCopy213"));
     case "running":
       break;
   }
@@ -97,13 +99,13 @@ export function describeAgentRunStatus(detail: AgentRunDetail): AgentRunStatus {
         "needs-you",
         "warning",
         record.blockReason === "reporting-unavailable"
-          ? "Stave's local tools are unreachable, so the agent could not report."
-          : (record.detail ?? "The agent is waiting for you."),
+          ? i18n.t("agentRuns:agentRunStatus.extraCopy214")
+          : (record.detail ?? i18n.t("agentRuns:agentRunStatus.extraCopy215")),
       );
     case "stuck":
-      return make("needs-you", "warning", record.detail ?? "The run stopped making progress.", "retry-stage");
+      return make("needs-you", "warning", record.detail ?? i18n.t("agentRuns:agentRunStatus.extraCopy216"), "retry-stage");
     case "awaiting-sign-off":
-      return make("needs-you", "warning", stage ? `Waiting for you to start ${stage.title}.` : "The run is waiting for you.");
+      return make("needs-you", "warning", stage ? i18n.t("agentRuns:agentRunStatus.extraCopy217", { value1: getStageDisplayTitle(stage) }) : i18n.t("agentRuns:agentRunStatus.extraCopy218"));
     default:
       return make("working", "accent");
   }
@@ -126,9 +128,9 @@ export function agentRunDuration(detail: AgentRunDetail, now: number): string {
 export type DoneWhenStatus = "met-reported" | "unmet" | "unverified";
 
 export const DONE_WHEN_LABELS: Record<DoneWhenStatus, string> = {
-  "met-reported": "Met · agent reported",
-  unmet: "Not met",
-  unverified: "Not verified",
+  get "met-reported"() { return i18n.t("agentRuns:agentRunStatus.metReported"); },
+  get unmet() { return i18n.t("agentRuns:agentRunStatus.unmet"); },
+  get unverified() { return i18n.t("agentRuns:agentRunStatus.unverified"); },
 };
 
 export interface AgentRunDoneWhenLine {

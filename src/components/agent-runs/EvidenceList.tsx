@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ArrowUpRight, ShieldCheck, UserRound } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
@@ -23,6 +24,7 @@ export function EvidenceList({
   /** Scrolls the transcript to a cited tool call. */
   onShowTool?: (toolCallId: string) => void;
 }) {
+  useTranslation();
   if (evidence.length === 0) return null;
   return (
     <ul className={sx(styles.list)}>
@@ -46,11 +48,10 @@ export function EvidenceList({
               <Button
                 variant="link"
                 size="xs"
-                aria-label={`Show "${item.label}" in the transcript`}
+                aria-label={i18n.t("agentRuns:evidenceList.ariaLabel", { value1: item.label })}
                 onClick={() => onShowTool(item.toolCallId!)}
               >
-                Show
-              </Button>
+                {i18n.t("agentRuns:evidenceList.copy")}</Button>
             ) : null}
             </div>
             {item.command ? <code className={sx(styles.mono, styles.evidenceCommand)}>{item.command}</code> : null}
@@ -58,10 +59,10 @@ export function EvidenceList({
               <Badge size="sm" tone={verified ? "success" : "neutral"} variant={verified ? "soft" : "outline"}>
                 <Icon aria-hidden className={sx(styles.iconSm)} />
                 {evidenceSourceLabel(item)}
-                {item.outcome === "failed" ? " · Failed" : null}
+                {item.outcome === "failed" ? i18n.t("agentRuns:evidenceList.copy2") : null}
               </Badge>
-              {item.exitCode !== undefined ? <span>{item.exitCode === null ? "Exit unknown" : `Exit ${item.exitCode}`}</span> : null}
-              {item.freshness === "stale" ? <span>Changed since this check</span> : item.freshness === "unknown" && item.kind === "check" ? <span>Current work unverified</span> : null}
+              {item.exitCode !== undefined ? <span>{item.exitCode === null ? i18n.t("agentRuns:evidenceList.copy3") : i18n.t("agentRuns:evidenceList.copy4", { value1: item.exitCode })}</span> : null}
+              {item.freshness === "stale" ? <span>{i18n.t("agentRuns:evidenceList.copy5")}</span> : item.freshness === "unknown" && item.kind === "check" ? <span>{i18n.t("agentRuns:evidenceList.copy6")}</span> : null}
             </div>
           </li>
         );

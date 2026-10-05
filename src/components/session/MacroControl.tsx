@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Zap } from "lucide-react";
 import {
   COMPOSER_CONTROL_BUTTON,
@@ -23,6 +24,7 @@ interface MacroControlProps {
 }
 
 export function MacroControl(args: MacroControlProps) {
+  useTranslation();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -35,13 +37,13 @@ export function MacroControl(args: MacroControlProps) {
             {...composerControlAttributes}
             data-macro-control="true"
             disabled={args.disabled}
-            aria-label="Insert a saved macro"
-            title="Insert a saved macro"
+            aria-label={i18n.t("session:macroControl.ariaLabel")}
+            title={i18n.t("session:macroControl.title")}
           />
         }
       >
         <Zap />
-        <ComposerControlLabel>Macros</ComposerControlLabel>
+        <ComposerControlLabel>{i18n.t("session:macroControl.macroControl")}</ComposerControlLabel>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
@@ -50,13 +52,10 @@ export function MacroControl(args: MacroControlProps) {
       >
         <DropdownMenuLabel className={sx(styles.label)}>
           <Zap className={sx(styles.labelIcon)} />
-          Insert a macro
-        </DropdownMenuLabel>
+          {i18n.t("session:macroControl.macroControl2")}</DropdownMenuLabel>
         {args.macros.length === 0 ? (
           <p className={sx(styles.empty)}>
-            No macros yet. Add one in Settings → Macros, or type ! in the
-            composer after you create the first.
-          </p>
+            {i18n.t("session:macroControl.macroControl3")}</p>
         ) : (
           args.macros.map((macro) => (
             <DropdownMenuItem
@@ -69,7 +68,7 @@ export function MacroControl(args: MacroControlProps) {
                   <span className={sx(styles.itemTitle)}>{macro.label}</span>
                   <code className={sx(styles.itemSlug)}>!{macro.slug}</code>
                   {isMacroInstantRun(macro) ? (
-                    <span className={sx(styles.itemInstant)}>Instant</span>
+                    <span className={sx(styles.itemInstant)}>{i18n.t("session:macroControl.copy")}</span>
                   ) : null}
                 </span>
                 {macro.description ? (

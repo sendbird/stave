@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   ArrowRight,
   CornerDownRight,
@@ -46,10 +47,8 @@ import { useAppStore } from "@/store/app.store";
  */
 
 const BLOCKED_HINT: Record<DelegatedTaskBlockedKind, string> = {
-  "user-input":
-    "This delegated task asked a question and cannot continue until it is answered.",
-  approval:
-    "This delegated task is waiting on a tool approval, which expires if nobody responds.",
+  get "user-input"() { return i18n.t("session:delegatedTaskRows.userInput"); },
+  get approval() { return i18n.t("session:delegatedTaskRows.approval"); },
 };
 
 type DelegatedTaskComposerKind = "follow-up" | "retry";
@@ -59,14 +58,14 @@ const COMPOSER_COPY: Record<
   { label: string; placeholder: string; submit: string }
 > = {
   "follow-up": {
-    label: "Follow-up turn",
-    placeholder: "What should the delegated task do next?",
-    submit: "Send follow-up",
+    get label() { return i18n.t("session:delegatedTaskRows.label"); },
+    get placeholder() { return i18n.t("session:delegatedTaskRows.placeholder"); },
+    get submit() { return i18n.t("session:delegatedTaskRows.submit"); },
   },
   retry: {
-    label: "Retry instructions",
-    placeholder: "What should the new attempt do?",
-    submit: "Start retry",
+    get label() { return i18n.t("session:delegatedTaskRows.label2"); },
+    get placeholder() { return i18n.t("session:delegatedTaskRows.placeholder2"); },
+    get submit() { return i18n.t("session:delegatedTaskRows.submit2"); },
   },
 };
 
@@ -106,6 +105,7 @@ export function DelegatedTaskRowActions(
     readOnly?: boolean;
   } & DelegatedTaskRowActionHandlers,
 ) {
+  useTranslation();
   const { child } = props;
   const composerId = useId();
   const [composer, setComposer] = useState<DelegatedTaskComposerKind | null>(null);
@@ -141,8 +141,7 @@ export function DelegatedTaskRowActions(
           variant="outline"
           onClick={() => props.onOpen(child)}
         >
-          Open
-          <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
+          {i18n.t("session:delegatedTaskRows.delegatedTaskRowActions")}<ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
         </Button>
         {!props.readOnly && controls.canFollowUp ? (
           <Button
@@ -157,8 +156,7 @@ export function DelegatedTaskRowActions(
               className={sx(styles.actionIcon)}
               aria-hidden="true"
             />
-            Follow-up
-          </Button>
+            {i18n.t("session:delegatedTaskRows.delegatedTaskRowActions2")}</Button>
         ) : null}
         {!props.readOnly && controls.canStop ? (
           <Button
@@ -169,8 +167,7 @@ export function DelegatedTaskRowActions(
             onClick={() => props.onStop(child)}
           >
             <Square className={sx(styles.actionIcon)} aria-hidden="true" />
-            Stop
-          </Button>
+            {i18n.t("session:delegatedTaskRows.delegatedTaskRowActions3")}</Button>
         ) : null}
         {!props.readOnly && controls.canRetry ? (
           <Button
@@ -182,8 +179,7 @@ export function DelegatedTaskRowActions(
             onClick={() => openComposer("retry")}
           >
             <RotateCcw className={sx(styles.actionIcon)} aria-hidden="true" />
-            Retry
-          </Button>
+            {i18n.t("session:delegatedTaskRows.delegatedTaskRowActions4")}</Button>
         ) : null}
         {!props.readOnly && controls.canDetach ? (
           <Button
@@ -194,8 +190,7 @@ export function DelegatedTaskRowActions(
             onClick={() => props.onDetach(child)}
           >
             <Unlink className={sx(styles.actionIcon)} aria-hidden="true" />
-            Detach
-          </Button>
+            {i18n.t("session:delegatedTaskRows.delegatedTaskRowActions5")}</Button>
         ) : null}
       </div>
 
@@ -231,11 +226,9 @@ export function DelegatedTaskRowActions(
                 setPrompt("");
               }}
             >
-              Cancel
-            </Button>
+              {i18n.t("session:delegatedTaskRows.delegatedTaskRowActions6")}</Button>
             <span className={sx(styles.composerHint)}>
-              Runs with guided permissions.
-            </span>
+              {i18n.t("session:delegatedTaskRows.delegatedTaskRowActions7")}</span>
           </div>
         </div>
       ) : null}
@@ -251,6 +244,7 @@ function DelegatedTaskRow(
     error?: string | null;
   } & DelegatedTaskRowActionHandlers,
 ) {
+  useTranslation();
   const { child } = props;
   const phase = describeDelegatedTaskPhase(child, props.blockedKind);
   const requested = describeDelegatedTaskRequest(child);
@@ -277,7 +271,7 @@ function DelegatedTaskRow(
         <span
           className={sx(styles.metaText)}
           data-testid="delegated-task-requested-details"
-          title={requested ? `Requested ${requested}` : undefined}
+          title={requested ? i18n.t("session:delegatedTaskRows.title", { value1: requested }) : undefined}
         >
           <AgentIdentity
             compact
@@ -287,9 +281,7 @@ function DelegatedTaskRow(
           />
         </span>
         {child.attempt > 0 ? (
-          <span className={sx(styles.metaTextNums)}>
-            Attempt {child.attempt + 1}
-          </span>
+          <span className={sx(styles.metaTextNums)}>{i18n.t("session:delegatedTaskRows.sentence43", { value1: child.attempt + 1 })}</span>
         ) : null}
       </div>
 
@@ -341,16 +333,17 @@ export interface DelegatedTaskRowsSurfaceProps {
  * shelf and from the Fleet control panel without either owning the transport.
  */
 export function DelegatedTaskRowsSurface(props: DelegatedTaskRowsSurfaceProps) {
+  useTranslation();
   if (!props.rows.length) {
     return null;
   }
   return (
     <section
       className={cx(sx(styles.sectionRoot), props.className)}
-      aria-label="Subagents"
+      aria-label={i18n.t("session:delegatedTaskRows.ariaLabel")}
       data-testid="delegated-task-rows"
     >
-      <h3 className={sx(styles.sectionHeading)}>Subagents</h3>
+      <h3 className={sx(styles.sectionHeading)}>{i18n.t("session:delegatedTaskRows.delegatedTaskRowsSurface")}</h3>
       <div className={sx(styles.sectionList)}>
         {props.rows.map((child) => (
           <DelegatedTaskRow
@@ -488,17 +481,17 @@ export function useDelegatedTaskRowController(args: {
           }
           applyResult(child.delegationKey, {
             ok: false,
-            error: "This delegated task's conversation could not be found.",
+            error: i18n.t("session:delegatedTaskRows.extraCopy91"),
           });
         })
         .catch(() => {
           applyResult(child.delegationKey, {
             ok: false,
-            error: "This delegated task could not be opened.",
+            error: i18n.t("session:delegatedTaskRows.extraCopy92"),
           });
         });
     },
-    [applyResult, repositoryPath],
+    [applyResult, repositoryPath, i18n.language],
   );
 
   const handleFollowUp = useCallback(
@@ -568,6 +561,7 @@ export function DelegatedTaskRows(props: {
   source?: DelegatedTaskListingSource;
   className?: string;
 }) {
+  useTranslation();
   // Disabled rather than skipped: a hook cannot be conditional, and an disabled
   // `useDelegatedTasks` neither lists nor subscribes.
   const ownListing = useDelegatedTasks({
@@ -607,6 +601,7 @@ export function DelegatedTaskParentBacklink(props: {
   repositoryPath?: string | null;
   className?: string;
 }) {
+  useTranslation();
   const { taskId } = props;
   const [link, setLink] = useState<DelegatedTaskSummary | null>(null);
   const parentTaskId = link?.parentTaskId ?? null;
@@ -652,7 +647,7 @@ export function DelegatedTaskParentBacklink(props: {
       className={cx(sx(styles.backlink), props.className)}
       data-testid="delegated-task-parent-backlink"
     >
-      <span className={sx(styles.backlinkLabel)}>Delegated by</span>
+      <span className={sx(styles.backlinkLabel)}>{i18n.t("session:delegatedTaskRows.delegatedTaskParentBacklink")}</span>
       <span className={sx(styles.backlinkTitle)}>
         {parentTitle?.trim() || parentTaskId}
       </span>
@@ -668,8 +663,7 @@ export function DelegatedTaskParentBacklink(props: {
           });
         }}
       >
-        Open parent task
-        <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
+        {i18n.t("session:delegatedTaskRows.delegatedTaskParentBacklink2")}<ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
       </Button>
     </div>
   );

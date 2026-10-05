@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { MAX_WORKFLOWS, WorkflowSchema, type Workflow } from "./schema";
 
 const MAX_DIAGNOSTIC_ISSUES = 5;
@@ -72,7 +73,7 @@ export function normalizePersistedWorkflows(input: unknown): {
     return { workflows: [], diagnostics: [], rejected: [] };
   }
   if (!Array.isArray(input)) {
-    const issues = ["Saved workflows are not a list."];
+    const issues = [i18n.t("agentRuns:normalize.extraCopy416")];
     return {
       workflows: [],
       diagnostics: [{ index: -1, outcome: "dropped", issues }],
@@ -93,7 +94,7 @@ export function normalizePersistedWorkflows(input: unknown): {
       rejected.push({ value: candidate, issues });
     };
     if (workflows.length >= MAX_WORKFLOWS) {
-      drop([`Only ${MAX_WORKFLOWS} workflows are kept.`]);
+      drop([i18n.t("agentRuns:normalize.extraCopy413", { value1: MAX_WORKFLOWS })]);
       return;
     }
     const parsed = parseWorkflow(candidate);
@@ -108,14 +109,14 @@ export function normalizePersistedWorkflows(input: unknown): {
       diagnostics.push({
         ...label,
         outcome: "renamed-id",
-        issues: [`Id "${previousId}" was already used; saved as "${workflow.id}".`],
+        issues: [i18n.t("agentRuns:normalize.extraCopy414", { value1: previousId, value2: workflow.id })],
       });
     }
     if (workflow.shortcut !== undefined && seenShortcuts.has(workflow.shortcut)) {
       diagnostics.push({
         ...label,
         outcome: "cleared-shortcut",
-        issues: [`Shortcut "${workflow.shortcut}" was already used.`],
+        issues: [i18n.t("agentRuns:normalize.extraCopy415", { value1: workflow.shortcut })],
       });
       delete workflow.shortcut;
     }
@@ -150,7 +151,7 @@ export function restorePersistedWorkflows(input: { workflows: unknown; unreadabl
   const saved = input.workflows ?? [];
   const notAList: UnreadableWorkflow[] = Array.isArray(saved)
     ? []
-    : [{ value: saved, issues: ["Saved workflows are not a list."] }];
+    : [{ value: saved, issues: [i18n.t("agentRuns:normalize.extraCopy416")] }];
   const result = normalizePersistedWorkflows([
     ...(Array.isArray(saved) ? saved : []),
     ...readKeptAsideValues(input.unreadable),

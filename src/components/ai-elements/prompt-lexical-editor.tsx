@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   forwardRef,
   type ClipboardEvent,
@@ -542,6 +543,7 @@ function deletePromptTokenBeforeSelection() {
 }
 
 function PromptLexicalEditablePlugin(args: { disabled?: boolean }) {
+  useTranslation();
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
@@ -554,6 +556,7 @@ function PromptLexicalEditablePlugin(args: { disabled?: boolean }) {
 function PromptLexicalSelectionPlugin(args: {
   onSelectionChange?: (range: PromptLexicalEditorSelectionRange) => void;
 }) {
+  useTranslation();
   const [editor] = useLexicalComposerContext();
   const onSelectionChangeRef = useRef(args.onSelectionChange);
   onSelectionChangeRef.current = args.onSelectionChange;
@@ -578,6 +581,7 @@ function PromptLexicalSelectionPlugin(args: {
 }
 
 function PromptLexicalTokenDeletionPlugin() {
+  useTranslation();
   const [editor] = useLexicalComposerContext();
 
   useEffect(
@@ -601,6 +605,7 @@ function PromptLexicalTokenDeletionPlugin() {
 }
 
 function PromptLexicalPreventedEnterPlugin() {
+  useTranslation();
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => registerPromptLexicalPreventedEnterCommand(editor), [editor]);
@@ -611,6 +616,7 @@ function PromptLexicalPreventedEnterPlugin() {
 function PromptLexicalImperativePlugin(args: {
   forwardedRef: ForwardedRef<PromptLexicalEditorHandle>;
 }) {
+  useTranslation();
   const [editor] = useLexicalComposerContext();
 
   useImperativeHandle(
@@ -641,6 +647,7 @@ function PromptLexicalExternalSyncPlugin(args: {
   syncNonce?: number;
   tokenOptions: PromptTokenParseOptions;
 }) {
+  useTranslation();
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
@@ -692,6 +699,7 @@ function PromptLexicalChangePlugin(args: {
   onChange: (value: string) => void;
   onSelectionChange?: (range: PromptLexicalEditorSelectionRange) => void;
 }) {
+  useTranslation();
   const valueRef = useRef(args.value);
   const tokenOptionsRef = useRef(args.tokenOptions);
   const onChangeRef = useRef(args.onChange);
@@ -750,6 +758,7 @@ export const PromptLexicalEditor = forwardRef<
   PromptLexicalEditorHandle,
   PromptLexicalEditorProps
 >(function PromptLexicalEditor(props, ref) {
+  useTranslation();
   const tokenOptions = useMemo<PromptTokenParseOptions>(
     () => ({
       commandPaletteItems: props.commandPaletteItems,
@@ -793,7 +802,7 @@ export const PromptLexicalEditor = forwardRef<
         <PlainTextPlugin
           contentEditable={
             <ContentEditable
-              aria-label="Prompt"
+              aria-label={i18n.t("composer:promptLexicalEditor.ariaLabel")}
               aria-multiline="true"
               aria-disabled={props.disabled}
               className={cx(sx(lexicalEditorStyles.editable), props.className)}

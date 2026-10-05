@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes } from "react";
 import { useMemo, useState } from "react";
@@ -60,7 +61,7 @@ export function parseSubagentToolInput(args: { input: string }): ParsedSubagentT
  */
 function stripProgressPrefix(text: string): string {
   const trimmed = text.trimStart();
-  const prefix = "Subagent progress:";
+  const prefix = i18n.t("composer:subagent.extraCopy70");
   return trimmed.startsWith(prefix) ? trimmed.slice(prefix.length).trimStart() : trimmed;
 }
 
@@ -75,9 +76,10 @@ function firstLine(text: string): string {
 }
 
 export function SubagentCard({ className, input, output, state, defaultOpen = false, progressMessages, ...props }: SubagentCardProps) {
+  useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const details = useMemo(() => parseSubagentToolInput({ input }), [input]);
-  const title = details.description ?? details.subagentType ?? "Subagent activity";
+  const title = details.description ?? details.subagentType ?? i18n.t("composer:subagent.title");
   const promptText = details.prompt ?? details.raw;
 
   const visibleProgress = useMemo(() => {
@@ -85,7 +87,7 @@ export function SubagentCard({ className, input, output, state, defaultOpen = fa
       return [];
     }
     return progressMessages.map((msg) => firstLine(stripProgressPrefix(msg)));
-  }, [progressMessages]);
+  }, [progressMessages, i18n.language]);
 
   return (
     <section className={cx(sx(s.root), className)} {...props}>
@@ -99,8 +101,7 @@ export function SubagentCard({ className, input, output, state, defaultOpen = fa
           <div className={sx(s.titleRow)}>
             <span className={sx(s.kindLabel)}>
               <Bot className={sx(s.kindIcon)} />
-              Subagent
-            </span>
+              {i18n.t("composer:subagent.subagentCard")}</span>
             {details.subagentType ? <Badge variant="secondary">{details.subagentType}</Badge> : null}
           </div>
           <p className={sx(s.title)}>{title}</p>
@@ -143,7 +144,7 @@ export function SubagentCard({ className, input, output, state, defaultOpen = fa
           {state !== "input-streaming" ? (
             <ToolOutput
               outputText={output}
-              errorText={state === "output-error" ? (output ?? "Subagent failed.") : undefined}
+              errorText={state === "output-error" ? (output ?? i18n.t("composer:subagent.errorText")) : undefined}
             />
           ) : null}
         </div>

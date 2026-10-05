@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   Bug,
   FolderOpen,
@@ -43,17 +44,17 @@ const EMPTY_MESSAGES: readonly unknown[] = [];
 
 const TASK_START_OPTIONS = [
   {
-    label: "Plan a feature",
+    get label() { return i18n.t("session:chatArea.label"); },
     prompt: "Help me plan and implement a new feature in this workspace.",
     icon: ListChecks,
   },
   {
-    label: "Fix an issue",
+    get label() { return i18n.t("session:chatArea.label2"); },
     prompt: "Investigate and fix an issue in this workspace.",
     icon: Bug,
   },
   {
-    label: "Review the code",
+    get label() { return i18n.t("session:chatArea.label3"); },
     prompt:
       "Review the current code and suggest the most valuable improvements.",
     icon: SearchCode,
@@ -65,6 +66,7 @@ const TASK_START_OPTIONS = [
 }[];
 
 function TaskStartPanel(props: { onSelect: (prompt: string) => void }) {
+  useTranslation();
   return (
     <section
       data-testid="empty-splash"
@@ -74,7 +76,7 @@ function TaskStartPanel(props: { onSelect: (prompt: string) => void }) {
         <TaskStartGuide onSelect={props.onSelect} />
         <div
           className={sx(chatAreaStyles.startOptions)}
-          aria-label="Task starting points"
+          aria-label={i18n.t("session:chatArea.ariaLabel")}
         >
           {TASK_START_OPTIONS.map((option) => {
             const Icon = option.icon;
@@ -108,6 +110,7 @@ export interface ChatAreaProps {
 }
 
 export const ChatArea = memo(function ChatArea(props: ChatAreaProps) {
+  useTranslation();
   return (
     // Scope every session descendant (message list, prompt input, plan
     // viewer, ...) to this panel's task so unfocused split panels never
@@ -126,6 +129,7 @@ export const ChatArea = memo(function ChatArea(props: ChatAreaProps) {
  * halves of the same measurement.
  */
 function ChatAreaComposerDock() {
+  useTranslation();
   return (
     <div className={sx(chatAreaStyles.dock)}>
       <RenderProfiler id="ChatInput" thresholdMs={8}>
@@ -136,6 +140,7 @@ function ChatAreaComposerDock() {
 }
 
 function ChatAreaImpl(props: ChatAreaProps) {
+  useTranslation();
   const explicitTaskId = props.taskId;
   const sessionAreaRef = useRef<HTMLDivElement>(null);
   const [
@@ -281,16 +286,14 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <EmptyMedia variant="icon">
               <FolderOpen strokeWidth={1.25} />
             </EmptyMedia>
-            <EmptyTitle>Open a Repository</EmptyTitle>
+            <EmptyTitle>{i18n.t("session:chatArea.chatAreaImpl")}</EmptyTitle>
             <EmptyDescription>
-              Select a local repository folder to get started.
-            </EmptyDescription>
+              {i18n.t("session:chatArea.chatAreaImpl2")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button onClick={() => void createRepository({})}>
               <FolderOpen className={sx(chatAreaStyles.buttonIcon)} />
-              Select Folder
-            </Button>
+              {i18n.t("session:chatArea.chatAreaImpl3")}</Button>
           </EmptyContent>
         </Empty>
       </div>
@@ -317,10 +320,9 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <EmptyMedia variant="icon">
               <Layers strokeWidth={1.25} />
             </EmptyMedia>
-            <EmptyTitle>Pick a Workspace</EmptyTitle>
+            <EmptyTitle>{i18n.t("session:chatArea.chatAreaImpl4")}</EmptyTitle>
             <EmptyDescription>
-              Select a workspace from the left sidebar to continue.
-            </EmptyDescription>
+              {i18n.t("session:chatArea.chatAreaImpl5")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       </div>

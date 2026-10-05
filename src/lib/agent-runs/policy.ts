@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Agent run supervisor policy: the pure half of an agent run.
  *
@@ -168,7 +169,7 @@ export function resolveConsentStageSignOff(
   index: number,
 ): SignOff {
   const stage = agentRun.workflow.stages[index];
-  if (!stage) throw new RangeError(`Stage index ${index} is outside the workflow.`);
+  if (!stage) throw new RangeError(i18n.t("agentRuns:remaining.presentationCopy446", { v1: index }));
   if (stageNeedsEffectConsent(stage, agentRun.consent)) return "ask";
   return resolveStageSignOff(
     { checkIns: agentRun.consent.checkIns, stages: agentRun.workflow.stages },
@@ -185,7 +186,7 @@ function nextAfterCompletion(agentRun: AgentRun): "sign-off" | "start" | "finish
 /** The sentence for a stage that is done but cannot hand over to the next one. */
 function attemptLimitDetail(error: AgentRunCommandError) {
   return clampReason(
-    `This stage is done, but ${error.message} Cancel the run and finish the rest by hand.`,
+    i18n.t("agentRuns:policy.extraCopy307", { value1: error.message }),
   );
 }
 
@@ -227,7 +228,7 @@ function turnCapStop(agentRun: AgentRun): AgentRunDecision | null {
   return {
     action: "stop",
     reason: "turn-cap-reached",
-    detail: `This run reached its limit of ${agentRun.maxTurns} turns.`,
+    detail: i18n.t("agentRuns:policy.detail", { value1: agentRun.maxTurns }),
   };
 }
 
@@ -245,7 +246,7 @@ function startTurn(args: {
           action: "block",
           reason: "reporting-unavailable",
           detail:
-            "Stave's local tools are unreachable, so the agent could not report this stage. The run continues when they are back.",
+            i18n.t("agentRuns:policy.detail2"),
         };
   }
   const capped = turnCapStop(agentRun);
@@ -321,7 +322,7 @@ function decideAiStage(
   }
   return {
     action: "mark-stuck",
-    detail: "The agent ended two turns without reporting this stage.",
+    detail: i18n.t("agentRuns:policy.detail3"),
   };
 }
 
@@ -390,19 +391,19 @@ export function decideAgentRunAction(args: {
   if (!lead.workspaceAvailable) {
     return manuallyPaused
       ? { action: "idle" }
-      : pauseFor(agentRun, "task-identity-changed", "The lead task's workspace is not loaded right now.");
+      : pauseFor(agentRun, "task-identity-changed", i18n.t("agentRuns:policy.extraCopy308"));
   }
   if (!lead.taskExists) {
-    return { action: "stop", reason: "task-unavailable", detail: "The lead task no longer exists." };
+    return { action: "stop", reason: "task-unavailable", detail: i18n.t("agentRuns:policy.detail4") };
   }
   if (lead.taskArchived) {
-    return { action: "stop", reason: "task-unavailable", detail: "The lead task was archived." };
+    return { action: "stop", reason: "task-unavailable", detail: i18n.t("agentRuns:policy.detail5") };
   }
   if (agentRun.expiresAt && Date.parse(agentRun.expiresAt) <= now.getTime()) {
     return {
       action: "stop",
       reason: "expired",
-      detail: `This run expired at ${agentRun.expiresAt}.`,
+      detail: i18n.t("agentRuns:policy.detail6", { value1: agentRun.expiresAt }),
     };
   }
 
@@ -419,14 +420,14 @@ export function decideAgentRunAction(args: {
     return pauseFor(
       agentRun,
       "runtime-changed",
-      `The lead task now runs on ${formatAgentRunFingerprint(lead.fingerprint)}, not ${formatAgentRunFingerprint(agentRun.fingerprint)}.`,
+      i18n.t("agentRuns:policy.extraCopy309", { value1: formatAgentRunFingerprint(lead.fingerprint), value2: formatAgentRunFingerprint(agentRun.fingerprint) }),
     );
   }
   if (lead.activeTurn?.startedBy === "user" && observation.userTurnIntent === "take-over") {
     return {
       action: "pause",
       reason: "taken-over",
-      detail: "You took over the lead task. Resume the run when you are done.",
+      detail: i18n.t("agentRuns:policy.detail7"),
     };
   }
   if (agentRun.state === "paused") return { action: "resume" };

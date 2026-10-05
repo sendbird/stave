@@ -1,3 +1,5 @@
+import { getWorkGraphFallbackLabel } from "@/lib/work-graph/work-graph-tree";
+import { i18n, useTranslation } from "@/i18n";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { transition } from "@/components/ads/recipes/transition";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -76,9 +78,9 @@ const WORK_GRAPH_CONTROL_ICONS: Record<WorkGraphControl, LucideIcon> = {
 };
 
 const WORK_GRAPH_CONTROL_LABELS: Record<WorkGraphControl, string> = {
-  message: "Message",
-  interrupt: "Interrupt",
-  stop: "Stop",
+  get message() { return i18n.t("session:workGraphTree.message"); },
+  get interrupt() { return i18n.t("session:workGraphTree.interrupt"); },
+  get stop() { return i18n.t("session:workGraphTree.stop"); },
 };
 
 /** The shelf's badge shape, so a node badge reads as the same kind of tag. */
@@ -129,6 +131,7 @@ export interface WorkGraphTreeProps {
 export const WorkGraphTree = memo(function WorkGraphTree(
   props: WorkGraphTreeProps,
 ) {
+  useTranslation();
   const graph = props.graph ?? null;
   const rows = useMemo(() => (graph ? buildWorkGraphTree(graph) : []), [graph]);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -182,11 +185,11 @@ export const WorkGraphTree = memo(function WorkGraphTree(
   return (
     <section
       className={cx(sx(styles.root), props.className)}
-      aria-label="Agent tree"
+      aria-label={i18n.t("session:workGraphTree.ariaLabel")}
       data-testid="work-graph-tree"
     >
       {props.showHeading !== false ? (
-        <h3 className={sx(styles.heading)}>Agent tree</h3>
+        <h3 className={sx(styles.heading)}>{i18n.t("session:workGraphTree.workGraphTree")}</h3>
       ) : null}
       <div className={sx(styles.list)}>
         {activeRows.map((row) => (
@@ -212,7 +215,7 @@ export const WorkGraphTree = memo(function WorkGraphTree(
           className={sx(styles.completedToggle)}
           aria-expanded={showCompleted}
           aria-controls={completedRowsId}
-          aria-label={`${showCompleted ? "Hide" : "Show"} ${collapsibleCompletedKeys.size} completed agents`}
+          aria-label={i18n.t("session:workGraphTree.ariaLabel2", { value1: showCompleted ? i18n.t("session:workGraphTree.extraCopy130") : i18n.t("session:workGraphTree.extraCopy131"), value2: collapsibleCompletedKeys.size })}
           data-testid="work-graph-completed-toggle"
           onClick={() => setShowCompleted((current) => !current)}
         >
@@ -224,8 +227,7 @@ export const WorkGraphTree = memo(function WorkGraphTree(
               aria-hidden="true"
             />
           )}
-          {collapsibleCompletedKeys.size} done
-        </Button>
+          {collapsibleCompletedKeys.size} {i18n.t("session:workGraphTree.workGraphTree2")}</Button>
       ) : null}
       {collapsibleCompletedKeys.size > 0 ? (
         <div
@@ -275,7 +277,9 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   controlError?: string | null;
   expandCopy?: boolean;
 }) {
+  useTranslation();
   const { node } = row;
+  const displayLabel = getWorkGraphFallbackLabel(node.label);
   const controls = resolveWorkGraphControls({
     node,
     capabilities,
@@ -285,7 +289,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   // node's own status as.
   const status = row.blocked ? "waiting" : WORK_GRAPH_ROW_STATUS[node.status];
   const detail = node.reason ?? node.progress.at(-1);
-  const title = [node.label, detail, controls.reason]
+  const title = [displayLabel, detail, controls.reason]
     .filter((part): part is string => Boolean(part))
     .join(" · ");
   const elapsedSeconds =
@@ -295,7 +299,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   const elapsedLabel = formatTurnActivityElapsedSeconds(elapsedSeconds / 1_000);
   const statusLabel =
     node.status === "cancelled"
-      ? "Cancelled"
+      ? i18n.t("session:workGraphTree.statusLabel")
       : getTurnActivityStatusLabel(status);
   const revealToolUseId = onSelectTool ? node.spawnedByToolUseId : undefined;
   const body = (
@@ -304,7 +308,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
         <TurnActivityStatusIcon
           status={status}
           iconKey="subagent"
-          label={node.status === "cancelled" ? "Cancelled" : undefined}
+          label={node.status === "cancelled" ? i18n.t("session:workGraphTree.label") : undefined}
         />
       </span>
       <div className={sx(styles.body)}>
@@ -316,7 +320,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
           )}
         >
           <span className={sx(styles.label, expandCopy && styles.labelExpanded)}>
-            {node.label}
+            {displayLabel}
           </span>
           <AgentIdentity compact model={node.model} effort={node.effort} />
           {node.modelEvidence ? <span className={sx(styles.badge)}>{node.modelEvidence}</span> : null}
@@ -327,8 +331,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
           ) : null}
           {row.blocked ? (
             <span className={sx(styles.badge, styles.badgeWarning)}>
-              Needs you
-            </span>
+              {i18n.t("session:workGraphTree.body")}</span>
           ) : null}
         </p>
         {detail ? (
@@ -348,8 +351,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
       </div>
       <span className={sx(styles.elapsed)}>
         <VisuallyHidden>
-          {statusLabel}, {elapsedLabel} elapsed
-        </VisuallyHidden>
+          {statusLabel}, {elapsedLabel} {i18n.t("session:workGraphTree.body2")}</VisuallyHidden>
         <span aria-hidden="true">{elapsedLabel}</span>
       </span>
     </>
@@ -377,7 +379,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
             styles.contentRevealable,
             hostSurface.inertChrome,
           ]}
-          title={`${title} — ${onInspectAgent ? "view activity" : "show in conversation"}`}
+          title={`${title} — ${onInspectAgent ? i18n.t("session:workGraphTree.extraCopy132") : i18n.t("session:workGraphTree.extraCopy133")}`}
           onClick={() => onInspectAgent ? onInspectAgent(node) : revealToolUseId && onSelectTool?.(revealToolUseId)}
         >
           {body}
@@ -398,7 +400,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
                 size="icon-xs"
                 variant="ghost"
                 title={WORK_GRAPH_CONTROL_LABELS[control]}
-                aria-label={`${WORK_GRAPH_CONTROL_LABELS[control]} ${node.label}`}
+                aria-label={i18n.t("session:workGraphTree.controlAgent", { control: WORK_GRAPH_CONTROL_LABELS[control], agent: displayLabel })}
                 onClick={() => onControl?.({ control, node })}
               >
                 <Icon className={sx(styles.controlIcon)} aria-hidden="true" />

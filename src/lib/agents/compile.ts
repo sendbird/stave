@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { DelegateTaskArgs } from "@/lib/runs/delegated-task";
 import type { NativeSubagentDefinition } from "./native-subagents";
@@ -167,7 +168,7 @@ function modelSupport(model: AgentModelResolution): AgentSupportEntry {
     return {
       field: "model",
       level: "unavailable",
-      reason: `The agent pins ${model.requestedProviderId}; the provider default is used instead.`,
+      reason: i18n.t("agents:compile.extraCopy350", { value1: model.requestedProviderId }),
     };
   }
   return { field: "model", level: "enforced" };
@@ -194,7 +195,7 @@ function toolSupport(agent: AgentConfig, providerId: ProviderId, role: AgentRole
   return {
     field: "tools",
     level: "instructed",
-    reason: "Some of this agent's tool limits are not enforced here; they are stated in the instructions.",
+    reason: i18n.t("agents:compile.extraCopy351"),
   };
 }
 
@@ -203,14 +204,14 @@ function instructionsSupport(providerId: ProviderId, role: AgentRole): AgentSupp
     return {
       field: "instructions",
       level: "instructed",
-      reason: "Delegated tasks receive the agent instructions at the start of the delegation prompt.",
+      reason: i18n.t("agents:compile.extraCopy352"),
     };
   }
   if (role === "primary" && !SYSTEM_CHANNEL_PROVIDERS.includes(providerId)) {
     return {
       field: "instructions",
       level: "instructed",
-      reason: "This provider has no instruction channel Stave controls; instructions precede the first message.",
+      reason: i18n.t("agents:compile.extraCopy353"),
     };
   }
   return { field: "instructions", level: "enforced" };
@@ -282,20 +283,20 @@ export function compileAgent(args: {
   const { agent } = snapshot;
 
   if (agent.archived) {
-    return { ok: false, code: "archived", message: `"${agent.name}" is archived and takes no new work.` };
+    return { ok: false, code: "archived", message: i18n.t("agents:compile.message", { value1: agent.name }) };
   }
   if (!isUsableAs(agent, role)) {
     return {
       ok: false,
       code: "role-not-allowed",
-      message: `"${agent.name}" can't be used as a ${AGENT_ROLE_LABELS[role].toLowerCase()}.`,
+      message: i18n.t("agents:compile.message2", { value1: agent.name, value2: AGENT_ROLE_LABELS[role].toLowerCase() }),
     };
   }
   if (role === "delegate" && !DELEGATE_PROVIDERS.includes(providerId)) {
     return {
       ok: false,
       code: "provider-unavailable",
-      message: `Delegated tasks run on ${DELEGATE_PROVIDERS.join(" or ")}, not ${providerId}.`,
+      message: i18n.t("agents:compile.message3", { value1: DELEGATE_PROVIDERS.join(" or "), value2: providerId }),
     };
   }
 
@@ -311,7 +312,7 @@ export function compileAgent(args: {
           {
             field: "permission" as const,
             level: permissionLevel,
-            ...(permissionLevel === "instructed" ? { reason: "Kiro has no read-only mode; it asks before every tool." } : {}),
+            ...(permissionLevel === "instructed" ? { reason: i18n.t("agents:compile.extraCopy360") } : {}),
           },
         ]
       : []),

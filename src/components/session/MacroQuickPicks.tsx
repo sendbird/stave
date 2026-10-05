@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   COMPOSER_CONTROL_BUTTON,
   ComposerControlLabel,
@@ -19,7 +20,7 @@ function describeMacro(macro: Macro): string {
   const runtime = macro.runtime
     ? ` · ${macro.runtime.model}${macro.runtime.effort ? ` · ${macro.runtime.effort}` : ""}`
     : "";
-  const instant = isMacroInstantRun(macro) ? " · runs immediately" : "";
+  const instant = isMacroInstantRun(macro) ? i18n.t("session:macroQuickPicks.extraCopy93") : "";
   return `${macro.label} · !${macro.slug}${runtime}${instant}`;
 }
 
@@ -39,6 +40,7 @@ export function MacroQuickPicks(props: {
   disabled?: boolean;
   onSelect: (macro: Macro) => void;
 }) {
+  useTranslation();
   const picks = props.macros.slice(0, MACRO_QUICK_PICK_LIMIT);
   if (picks.length === 0) {
     return null;
@@ -57,8 +59,8 @@ export function MacroQuickPicks(props: {
           disabled={props.disabled}
           aria-label={
             isMacroInstantRun(macro)
-              ? `Run macro ${macro.label}`
-              : `Insert macro ${macro.label}`
+              ? i18n.t("session:macroQuickPicks.ariaLabel", { value1: macro.label })
+              : i18n.t("session:macroQuickPicks.ariaLabel2", { value1: macro.label })
           }
           title={describeMacro(macro)}
           className={COMPOSER_CONTROL_BUTTON}

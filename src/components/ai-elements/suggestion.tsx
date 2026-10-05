@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 import { useCallback } from "react";
 import { Button } from "@/components/ui";
@@ -7,6 +8,7 @@ import { cx, sx } from "../ads/utils/stylex";
 type SuggestionsProps = HTMLAttributes<HTMLDivElement>;
 
 export function Suggestions({ className, ...props }: SuggestionsProps) {
+  useTranslation();
   return (
     <div
       className={cx(sx(coreStyles.suggestionList), className)}
@@ -33,6 +35,7 @@ export function Suggestion({
   size = "sm",
   ...props
 }: SuggestionProps) {
+  useTranslation();
   const handleClick = useCallback(() => {
     onClick?.(suggestion);
   }, [onClick, suggestion]);

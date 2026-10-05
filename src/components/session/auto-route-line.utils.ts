@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { TASK_CLASS_LABELS, type TaskClass } from "@/lib/providers/auto-routing-profile";
 import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
 import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
@@ -75,16 +76,16 @@ export function buildAutoRouteLineView(args: {
       : null;
   const lead =
     fallback === "skipped"
-      ? "Classifier skipped, so Auto used local rules"
+      ? i18n.t("session:autoRouteLineUtils.extraCopy134")
       : fallback === "unavailable"
-        ? "Classifier unavailable, so Auto used local rules"
+        ? i18n.t("session:autoRouteLineUtils.extraCopy135")
         : resolution.source === "classifier"
-          ? "Auto routed this turn with the classifier"
-          : "Auto routed this turn with local rules";
+          ? i18n.t("session:autoRouteLineUtils.extraCopy136")
+          : i18n.t("session:autoRouteLineUtils.extraCopy137");
   const description = [
     `${lead}: ${modelLabel}`,
-    taskLabel ? `task ${taskLabel}` : null,
-    ranLabel ? `ran on ${ranLabel}` : null,
+    taskLabel ? i18n.t("session:remaining.presentationCopy300", { v1: taskLabel }) : null,
+    ranLabel ? i18n.t("session:autoRouteLineUtils.extraCopy138", { value1: ranLabel }) : null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -104,11 +105,11 @@ export function buildPendingAutoRouteView(
   pending: Pick<PendingAutoRoute, "phase" | "skipped" | "routedLabel">,
 ): PendingAutoRouteView {
   if (pending.phase === "starting") {
-    return { target: pending.routedLabel ?? null, phrase: "Starting", canSkip: false };
+    return { target: pending.routedLabel ?? null, phrase: i18n.t("session:autoRouteLineUtils.extraCopy139"), canSkip: false };
   }
   return pending.skipped
-    ? { target: null, phrase: "Using local rules", canSkip: false }
-    : { target: null, phrase: "Choosing a model", canSkip: true };
+    ? { target: null, phrase: i18n.t("session:autoRouteLineUtils.extraCopy140"), canSkip: false }
+    : { target: null, phrase: i18n.t("session:autoRouteLineUtils.extraCopy141"), canSkip: true };
 }
 
 /**

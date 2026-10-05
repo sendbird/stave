@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { resolveAgentRunPrompt, type AgentRunPromptView } from "@/lib/agent-runs/agent-run-status";
 import { useAppStore } from "@/store/app.store";
@@ -44,5 +45,6 @@ export function useAgentRunPrompt(args: {
  * the run has not written it yet, so the bubble keeps its shape.
  */
 export function AgentRunInstructions({ text }: { text: string | null }) {
-  return <InstructionDisclosure label="Run instructions" text={text ?? ""} disabled={text === null} />;
+  useTranslation();
+  return <InstructionDisclosure label={i18n.t("agentRuns:agentRunPrompt.label")} text={text ?? ""} disabled={text === null} />;
 }

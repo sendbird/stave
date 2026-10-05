@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   buildRoleSignals,
   resolveRoute,
@@ -46,12 +47,12 @@ export function resolveAssignRoute(args: {
       providerId: agent.model.providerId,
       model: agent.model.model ?? null,
       ...(agent.model.effort ? { effort: agent.model.effort } : {}),
-      reason: "Set by the agent.",
+      reason: i18n.t("agents:assignRoute.extraCopy328"),
       source: "agent",
     };
   }
   if (args.choice !== "auto") {
-    return { providerId: args.choice, model: null, reason: "Runs your default model for this provider.", source: "picked" };
+    return { providerId: args.choice, model: null, reason: i18n.t("agents:assignRoute.extraCopy329"), source: "picked" };
   }
   const taskClass = agent.model.taskClass;
   if (args.autoRoutingEnabled) {
@@ -59,8 +60,8 @@ export function resolveAssignRoute(args: {
       providerId: args.preferredProviderId,
       model: null,
       reason: taskClass
-        ? `Stave Auto picks the model for each turn, routed as ${TASK_CLASS_LABELS[taskClass]} work.`
-        : "Stave Auto picks the model for each turn.",
+        ? i18n.t("agents:assignRoute.extraCopy330", { value1: TASK_CLASS_LABELS[taskClass] })
+        : i18n.t("agents:assignRoute.extraCopy331"),
       source: "stave-auto",
     };
   }
@@ -79,7 +80,7 @@ export function resolveAssignRoute(args: {
         providerId: route.providerId,
         model: route.model,
         ...(route.effort ? { effort: route.effort } : {}),
-        reason: `Stave Auto is off, so your routing rules chose this once for the task. ${route.reason}`.trim(),
+        reason: i18n.t("agents:assignRoute.extraCopy332", { value1: route.reason }).trim(),
         source: "auto-routing",
       };
     } catch (error) {
@@ -89,14 +90,14 @@ export function resolveAssignRoute(args: {
   return {
     providerId: args.preferredProviderId,
     model: null,
-    reason: "Auto-routing is unavailable; your default model for this provider runs.",
+    reason: i18n.t("agents:assignRoute.extraCopy334"),
     source: "fallback",
   };
 }
 
 /** The model part of "Agent settings: Claude · … · …" on the assign surfaces. */
 export function describeAssignRouteModel(route: AssignRoute): string {
-  if (route.source === "stave-auto") return "Stave Auto, each turn";
-  const model = route.model ?? "your default model";
+  if (route.source === "stave-auto") return i18n.t("agents:assignRoute.describeAssignRouteModel");
+  const model = route.model ?? i18n.t("agents:assignRoute.extraCopy335");
   return route.effort ? `${model} · ${route.effort}` : model;
 }

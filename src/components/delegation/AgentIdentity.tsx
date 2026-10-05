@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { Badge } from "@/components/ads/components/Badge";
 import { sx } from "@/components/ads/utils/stylex";
@@ -12,10 +13,10 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import { delegationStyles as styles, delegationWaveTone } from "./delegation.styles";
 
 const SOURCE_LABEL: Record<DelegationIdentitySource, string> = {
-  auto: "Auto",
-  preset: "Preset",
-  explicit: "Explicit",
-  "provider-default": "Default",
+  get auto() { return i18n.t("agentRuns:agentIdentity.auto"); },
+  get preset() { return i18n.t("agentRuns:agentIdentity.preset"); },
+  get explicit() { return i18n.t("agentRuns:agentIdentity.explicit"); },
+  get "provider-default"() { return i18n.t("agentRuns:agentIdentity.providerDefault"); },
 };
 
 export interface AgentIdentityProps {
@@ -34,6 +35,7 @@ export interface AgentIdentityProps {
 }
 
 function ProviderMark(props: { providerId: ProviderId }) {
+  useTranslation();
   const [failed, setFailed] = useState(false);
   const url = getProviderIconUrl({ providerId: props.providerId });
   if (failed || !url) {
@@ -62,6 +64,7 @@ function ProviderMark(props: { providerId: ProviderId }) {
  * catalog name.
  */
 export function AgentIdentity(props: AgentIdentityProps) {
+  useTranslation();
   const identity = describeAgentIdentity({
     providerId: props.providerId,
     model: props.model,
@@ -72,7 +75,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
     ? getProviderWaveTone({ providerId: props.providerId })
     : null;
   const nameLabel =
-    identity.modelLabel ?? identity.providerLabel ?? "Not resolved";
+    identity.modelLabel ?? identity.providerLabel ?? i18n.t("agentRuns:agentIdentity.nameLabel");
   const nameStyle = [
     styles.identityModel,
     tone ? delegationWaveTone[tone] : styles.identityModelMuted,
@@ -107,7 +110,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
           variant="soft"
           tone={props.source === "auto" ? "accent" : "neutral"}
           xstyle={styles.identityChip}
-          title={`Model selected by ${SOURCE_LABEL[props.source].toLowerCase()}`}
+          title={i18n.t("agentRuns:agentIdentity.title", { value1: SOURCE_LABEL[props.source].toLowerCase() })}
         >
           {SOURCE_LABEL[props.source]}
         </Badge>

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { memo, useCallback, useMemo, useState } from "react";
 import {
   Check,
@@ -54,11 +55,12 @@ const TONE_INK = {
  * task, so checking how it reviewed never leaves this one.
  */
 export const ShelfReviews = memo(function ShelfReviews(props: ShelfReviewsProps) {
+  useTranslation();
   const running = props.items.some((item) => item.status === "running");
   // Elapsed time reads in seconds under a minute; a 5s tick keeps it honest.
   const now = useNow(running, 5_000);
   return (
-    <div role="group" aria-label="Reviews" data-testid="composer-shelf-reviews">
+    <div role="group" aria-label={i18n.t("composer:shelfReviews.ariaLabel")} data-testid="composer-shelf-reviews">
       {props.items.map((item) => (
         <ReviewLine
           key={item.child.delegationKey}
@@ -83,12 +85,13 @@ export function ReviewActivityDialog(props: {
   actions: ShelfReviewActions;
   onClose: () => void;
 }) {
+  useTranslation();
   const { item, actions, onClose } = props;
   const taskTitle = useAppStore(
     (state) => state.tasks.find((task) => task.id === item.child.delegatedTaskId)?.title,
   );
   const repositoryPath = useAppStore((state) => state.repositoryPath);
-  const title = taskTitle?.trim() || "Review";
+  const title = taskTitle?.trim() || i18n.t("composer:shelfReviews.title");
   const { transcript, findings } = useReviewTranscript(item);
   const { state: revision, refresh: refreshRevision } = useReviewRevision(item);
   const attachedFindingIds = useAppStore((state) => {
@@ -100,7 +103,7 @@ export function ReviewActivityDialog(props: {
   });
   const exchange = useMemo(
     () => buildReviewExchange({ item, title, transcript }),
-    [item, title, transcript],
+    [item, title, transcript, i18n.language],
   );
   const onAction = useCallback(
     (action: DelegationActionId) => {
@@ -126,12 +129,12 @@ export function ReviewActivityDialog(props: {
     });
     setRerunning(false);
     if (!started.ok) {
-      toast.error("Could not run the review again", { description: started.error });
+      toast.error(i18n.t("composer:shelfReviews.copy"), { description: started.error });
       return;
     }
-    toast.success("Review started again in its own task");
+    toast.success(i18n.t("composer:shelfReviews.copy2"));
     onClose();
-  }, [item.child, onClose, rerunning, title, transcript?.prompt]);
+  }, [item.child, onClose, rerunning, title, transcript?.prompt, i18n.language]);
   const [rechecking, setRechecking] = useState(false);
   const recheck = useCallback(async () => {
     const prompt = transcript?.prompt;
@@ -146,12 +149,12 @@ export function ReviewActivityDialog(props: {
     });
     setRechecking(false);
     if (!started.ok) {
-      toast.error("Could not check the fixes", { description: started.error });
+      toast.error(i18n.t("composer:shelfReviews.copy3"), { description: started.error });
       return;
     }
-    toast.success("Checking the earlier findings in a new review task");
+    toast.success(i18n.t("composer:shelfReviews.copy4"));
     onClose();
-  }, [findings, item.child, onClose, rechecking, title, transcript?.prompt]);
+  }, [findings, item.child, onClose, rechecking, title, transcript?.prompt, i18n.language]);
   const leadContent =
     item.status === "ready" && findings ? (
       <ReviewFindingsPanel
@@ -175,13 +178,12 @@ export function ReviewActivityDialog(props: {
       <>
         {item.status !== "ready" ? null : props.attached ? (
           <span className={sx(styles.meta)}>
-            <Check aria-hidden className={sx(styles.markIcon)} /> Attached to your message
-          </span>
+            <Check aria-hidden className={sx(styles.markIcon)} /> {i18n.t("composer:shelfReviews.copy5")}</span>
         ) : (
           <Button
             variant="quiet"
             size="sm"
-            title="Attach the review's findings to your next message, with your follow-up prompt when the message is empty"
+            title={i18n.t("composer:shelfReviews.title2")}
             onClick={() => {
               actions.attach(item);
               onClose();
@@ -189,24 +191,22 @@ export function ReviewActivityDialog(props: {
             xstyle={styles.itemAccent}
           >
             <Paperclip aria-hidden />
-            Attach to message
-          </Button>
+            {i18n.t("composer:shelfReviews.copy6")}</Button>
         )}
         {item.status !== "running" && transcript?.prompt ? (
           <Button
             variant="quiet"
             size="sm"
             disabled={rerunning}
-            title="Run the same review again, on the same model, against the workspace as it is now"
+            title={i18n.t("composer:shelfReviews.title3")}
             onClick={() => void rerun()}
           >
             <RotateCcw aria-hidden />
-            Run again
-          </Button>
+            {i18n.t("composer:shelfReviews.copy7")}</Button>
         ) : null}
       </>
     ),
-    [actions, item, onClose, props.attached, rerun, rerunning, transcript?.prompt],
+    [actions, item, onClose, props.attached, rerun, rerunning, transcript?.prompt, i18n.language],
   );
   return (
     <ActivityDetailDialog
@@ -224,6 +224,7 @@ export function ReviewActivityDialog(props: {
 }
 
 function ReviewMark(props: { item: ReviewShelfItem }) {
+  useTranslation();
   if (props.item.status === "running") {
     return <Loader aria-hidden cadence="reduced" size="sm" variant="verify" />;
   }
@@ -249,6 +250,7 @@ function ReviewLine(props: {
   actions: ShelfReviewActions;
   onView: (item: ReviewShelfItem) => void;
 }) {
+  useTranslation();
   const { item, actions } = props;
   // Only a finished review has findings to count; reading is cached.
   const { findings } = useReviewTranscript(item, { enabled: item.status === "ready" });
@@ -278,39 +280,38 @@ function ReviewLine(props: {
       <span className={sx(styles.actions)}>
         {item.status === "ready" ? (
           props.attached ? (
-            <span className={sx(styles.meta)} title="Sent with your next message">
-              <Check aria-hidden className={sx(styles.markIcon)} /> Attached
-            </span>
+            <span className={sx(styles.meta)} title={i18n.t("composer:shelfReviews.title4")}>
+              <Check aria-hidden className={sx(styles.markIcon)} /> {i18n.t("composer:shelfReviews.reviewLine")}</span>
           ) : (
             <Button
               variant="quiet"
               size="xs"
-              title="Attach the review's findings to your next message, with your follow-up prompt when the message is empty"
+              title={i18n.t("composer:shelfReviews.title5")}
               onClick={() => actions.attach(item)}
               xstyle={styles.itemAccent}
             >
               <Paperclip aria-hidden />
-              <span className={sx(styles.actionWord)}>Attach</span>
+              <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfReviews.reviewLine2")}</span>
             </Button>
           )
         ) : null}
         <Button
           variant="quiet"
           size="xs"
-          title="See the review's result and how it reviewed, without leaving this task"
+          title={i18n.t("composer:shelfReviews.title6")}
           onClick={() => props.onView(item)}
           xstyle={styles.quiet}
         >
           <PanelTopOpen aria-hidden />
-          <span className={sx(styles.actionWord)}>View</span>
+          <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfReviews.reviewLine3")}</span>
         </Button>
         {item.status === "running" ? (
           <Button
             variant="quiet"
             size="xs"
             iconOnly
-            aria-label="Stop the review"
-            title="Stop the review"
+            aria-label={i18n.t("composer:shelfReviews.ariaLabel2")}
+            title={i18n.t("composer:shelfReviews.title7")}
             onClick={() => actions.stop(item)}
             xstyle={styles.quiet}
           >
@@ -321,8 +322,8 @@ function ReviewLine(props: {
             variant="quiet"
             size="xs"
             iconOnly
-            aria-label="Dismiss"
-            title="Dismiss"
+            aria-label={i18n.t("composer:shelfReviews.ariaLabel3")}
+            title={i18n.t("composer:shelfReviews.title8")}
             onClick={() => actions.dismiss(item)}
             xstyle={styles.quiet}
           >

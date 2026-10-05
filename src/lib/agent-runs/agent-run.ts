@@ -66,7 +66,7 @@ export function buildAgentRunWorkflow(args: {
     stages: args.agent.workflow?.length ? structuredClone(args.agent.workflow) : [
       {
         id: AGENT_RUN_STAGE_ID,
-        title: "Work",
+        title: "Work", // i18n-ignore: model-facing implicit stage name; localized by UI helper
         kind: "ai",
         instruction: AGENT_RUN_INSTRUCTION,
         doneWhen,

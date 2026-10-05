@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { Info } from "lucide-react";
 
@@ -57,6 +58,7 @@ export function TraceSystemNotice(args: {
   status?: "failed";
   title: ReactNode;
 }) {
+  useTranslation();
   const { children, status, title } = args;
   const hasPayload = children != null;
 
@@ -71,8 +73,7 @@ export function TraceSystemNotice(args: {
       </span>
       {status === "failed" ? (
         <span className={sx(styles.noticeStatus, agentStatusWord.danger)}>
-          Failed
-        </span>
+          {i18n.t("session:turnEventNotice.summary")}</span>
       ) : null}
     </>
   );

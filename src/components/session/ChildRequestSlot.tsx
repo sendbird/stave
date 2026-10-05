@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
@@ -66,6 +67,7 @@ export function findChildPendingRequest(args: {
  * only while it still matches the identity the notification recorded.
  */
 export function ChildRequestSlot(props: { taskId: string }) {
+  useTranslation();
   const notifications = useAppStore((state) => state.notifications);
   const repositoryPath = useAppStore((state) => state.repositoryPath);
   const requests = useMemo(
@@ -95,6 +97,7 @@ function ChildRequestCard(props: {
   request: DelegatedInteractionRequest;
   queuedCount: number;
 }) {
+  useTranslation();
   // The card is keyed by notification, so its identity is fixed for its life.
   const [expected] = useState(props.request.identity);
   const [loaded, setLoaded] = useState(false);
@@ -111,7 +114,7 @@ function ChildRequestCard(props: {
       (cause: unknown) => {
         if (cancelled) return;
         setLoaded(true);
-        setError(cause instanceof Error ? cause.message : "This request could not be loaded.");
+        setError(cause instanceof Error ? cause.message : i18n.t("session:childRequestSlot.extraCopy88"));
       },
     );
     return () => {
@@ -168,34 +171,35 @@ export function ChildRequestView(props: {
   loaded: boolean;
   onRespond: (response: ChildInteractionResponse) => void;
 }) {
+  useTranslation();
   const { pending, busy, error } = props;
-  const disabledReason = busy ? "Sending the response to the delegated task…" : undefined;
+  const disabledReason = busy ? i18n.t("session:childRequestSlot.extraCopy89") : undefined;
   const statusText = error
     ? error
     : busy
-      ? "Waiting for the delegated task to accept the response…"
+      ? i18n.t("session:childRequestSlot.statusText")
       : pending
         ? null
         : props.loaded
-          ? "This request was answered or expired."
-          : "Loading request…";
+          ? i18n.t("session:childRequestSlot.statusText2")
+          : i18n.t("session:childRequestSlot.statusText3");
 
   return (
     <section
-      aria-label="Requests from delegated tasks"
+      aria-label={i18n.t("session:childRequestSlot.ariaLabel")}
       className={sx(styles.section, pending?.part.type === "user_input" ? styles.sectionCapped : null)}
       data-delegated-request-id={props.requestId}
     >
       <div className={sx(styles.header)}>
         <p className={sx(styles.attribution)}>
-          <span className={sx(styles.eyebrow)}>Delegated task</span>
+          <span className={sx(styles.eyebrow)}>{i18n.t("session:childRequestSlot.childRequestView")}</span>
           <span className={sx(styles.childTitle)} title={props.childTitle}>
             {props.childTitle}
           </span>
           <AgentIdentity compact providerId={props.providerId} model={pending?.model} />
         </p>
         {props.queuedCount > 0 ? (
-          <span className={sx(styles.queued)}>+{props.queuedCount} more</span>
+          <span className={sx(styles.queued)}>+{props.queuedCount} {i18n.t("session:childRequestSlot.childRequestView2")}</span>
         ) : null}
       </div>
       {pending?.part.type === "approval" ? (

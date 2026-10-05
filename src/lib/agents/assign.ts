@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { AgentInstructionDelivery } from "./turn-provenance";
 import { z } from "zod";
 import { MY_STANDARDS_MAX_CHARS } from "./standards";
@@ -75,10 +76,10 @@ export type AssignmentState = (typeof ASSIGNMENT_STATES)[number];
 
 /** UI: Preparing / Started / Couldn't start / Interrupted — check before retrying. */
 export const ASSIGNMENT_STATE_LABELS: Readonly<Record<AssignmentState, string>> = {
-  preparing: "Preparing",
-  started: "Started",
-  failed: "Couldn't start",
-  interrupted: "Interrupted",
+  get preparing() { return i18n.t("agents:assign.preparing"); },
+  get started() { return i18n.t("agents:assign.started"); },
+  get failed() { return i18n.t("agents:assign.failed"); },
+  get interrupted() { return i18n.t("agents:assign.interrupted"); },
 };
 
 export interface AgentAssignment {

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { ChatMessage, CodeDiffPart, FileContextPart, ImageContextPart, MessagePart, ToolUsePart } from "@/types/chat";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
@@ -304,7 +305,9 @@ export function isCodeDiffSummarySystemEvent(content: string): boolean {
   const normalized = content.trimStart().toLowerCase();
   return (
     normalized.startsWith("modifying:")
+    // i18n-ignore: canonical provider or lifecycle text used for parsing
     || normalized.startsWith("applied file change(s):")
+    // i18n-ignore: canonical provider or lifecycle text used for parsing
     || normalized.startsWith("skipped inline diff for file(s):")
   );
 }
@@ -381,6 +384,7 @@ export function getMessageScrollFingerprint(message?: Pick<ChatMessage, "id" | "
 }
 
 export function isSubagentProgressSystemEvent(content: string): boolean {
+  // i18n-ignore: canonical provider or lifecycle text used for parsing
   return content.trimStart().startsWith("Subagent progress:");
 }
 
@@ -412,7 +416,7 @@ export function formatInlineSystemEventContent(args: { content: string }) {
 
   const body = stripProviderErrorPrefix(args.content);
   if (!body) {
-    return "Provider error.";
+    return i18n.t("session:chatPanelUtils.formatInlineSystemEventContent");
   }
 
   let parsed: unknown;
@@ -421,27 +425,27 @@ export function formatInlineSystemEventContent(args: { content: string }) {
   } catch {
     return body.toLowerCase().startsWith("provider error:")
       ? body
-      : `Provider error: ${body}`;
+      : i18n.t("session:chatPanelUtils.formatInlineSystemEventContent2", { value1: body });
   }
 
   if (!isRecord(parsed)) {
-    return `Provider error: ${body}`;
+    return i18n.t("session:chatPanelUtils.formatInlineSystemEventContent3", { value1: body });
   }
   const error = isRecord(parsed.error) ? parsed.error : null;
   const message =
     toTrimmedString(error?.message) ?? toTrimmedString(parsed.message);
   if (!message) {
-    return `Provider error: ${body}`;
+    return i18n.t("session:chatPanelUtils.formatInlineSystemEventContent4", { value1: body });
   }
   const details = [
     toTrimmedString(error?.param) ?? toTrimmedString(parsed.param)
-      ? `param: ${toTrimmedString(error?.param) ?? toTrimmedString(parsed.param)}`
+      ? i18n.t("session:remaining.presentationCopy322", { v1: toTrimmedString(error?.param) ?? toTrimmedString(parsed.param) })
       : null,
-    typeof parsed.status === "number" ? `status: ${parsed.status}` : null,
+    typeof parsed.status === "number" ? i18n.t("session:remaining.presentationCopy323", { v1: parsed.status }) : null,
   ].filter(Boolean);
   return details.length > 0
-    ? `Provider error: ${message} (${details.join(", ")})`
-    : `Provider error: ${message}`;
+    ? i18n.t("session:chatPanelUtils.formatInlineSystemEventContent5", { value1: message, value2: details.join(", ") })
+    : i18n.t("session:chatPanelUtils.formatInlineSystemEventContent6", { value1: message });
 }
 
 export function shouldRenderInlineSystemEvent(args: { content: string }): boolean {
@@ -517,7 +521,7 @@ export function summarizeReplayOnlyToolParts(parts: MessagePart[]): ReplayOnlyTo
       failedActions += 1;
     }
 
-    const normalizedName = part.toolName.trim() || "Tool";
+    const normalizedName = part.toolName.trim() || i18n.t("session:chatPanelUtils.extraCopy169");
     counts.set(normalizedName, (counts.get(normalizedName) ?? 0) + 1);
   }
 

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import {
@@ -94,6 +95,7 @@ export interface DelegationsBlockProps {
  * the Delegations panel hosts it as history.
  */
 export function DelegationsBlock(props: DelegationsBlockProps) {
+  useTranslation();
   const { exchanges, nowMs } = props;
   if (exchanges.length === 0 && !props.children) {
     return null;
@@ -104,13 +106,13 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
   return (
     <section
       className={props.className}
-      aria-label={props.title ?? "Agents"}
+      aria-label={props.title ?? i18n.t("agentRuns:delegationsBlock.ariaLabel")}
       data-testid={props["data-testid"] ?? "delegations-block"}
     >
       {props.showHeader !== false ? (
         <div className={sx(styles.blockHeader)}>
           <h3 className={sx(styles.blockTitle)}>
-            {props.title ?? "Agents"}
+            {props.title ?? i18n.t("agentRuns:delegationsBlock.delegationsBlock")}
             {countsLabel ? (
               <span className={sx(styles.blockCounts)}> · {countsLabel}</span>
             ) : null}
@@ -118,7 +120,7 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
           {spanMs !== null ? (
             <span
               className={sx(styles.blockElapsed)}
-              title="Elapsed across delegations"
+              title={i18n.t("agentRuns:delegationsBlock.title")}
             >
               {formatExchangeDuration(spanMs)}
             </span>

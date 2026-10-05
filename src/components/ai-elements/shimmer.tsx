@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import type { CSSProperties, ElementType, HTMLAttributes, ReactNode } from "react";
 import { memo, useMemo } from "react";
 import { coreStyles } from "./ai-element-core.styles";
@@ -40,6 +41,7 @@ function ShimmerComponent({
   style,
   ...props
 }: ShimmerProps) {
+  useTranslation();
   const resolvedSpread = useMemo(
     () => {
       const length = textLength ?? (typeof children === "string" ? children.length : 1);

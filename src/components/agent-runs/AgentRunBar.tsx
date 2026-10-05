@@ -1,3 +1,5 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CirclePause } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -40,7 +42,7 @@ import {
 const STAGE_HOLD_MS = 3_000;
 
 export const TAKE_OVER_HINT =
-  "Your replies guide this stage and the run carries on. Take over pauses the run so you can steer it yourself.";
+  "agentRuns:agentRunBar.tAKEOVERHINT";
 
 /** The phrase for the running turn's latest tool call, or null. */
 export function selectNowPhrase(activity: ProviderTurnActivitySnapshot | undefined): string | null {
@@ -50,7 +52,7 @@ export function selectNowPhrase(activity: ProviderTurnActivitySnapshot | undefin
     const item = activity.workItemsById[id];
     if (item?.kind === "tool" && (!latest || item.updatedAt >= latest.updatedAt)) latest = item;
   }
-  if (!latest) return "Thinking";
+  if (!latest) return i18n.t("agentRuns:agentRunBar.thinking");
   return describeToolActivity({ toolName: latest.toolName ?? latest.title, detail: latest.detail });
 }
 
@@ -80,7 +82,7 @@ function useNowLine(candidate: string | null) {
 function describeCompletedChange(row: AgentRunStageRow): string | null {
   const diff = row.record?.facts?.diff;
   return diff && diff.filesChanged > 0
-    ? `${diff.filesChanged} ${diff.filesChanged === 1 ? "file" : "files"} +${diff.insertions} −${diff.deletions}`
+    ? i18n.t("agentRuns:counts.changedFiles", { count: diff.filesChanged, insertions: diff.insertions, deletions: diff.deletions })
     : null;
 }
 
@@ -124,6 +126,7 @@ type AgentRunBarViewProps = AgentRunLineShelfProps & {
 
 /** An agent run's line in the composer shelf: the stage track for a workflow, the agent's status for an agent run. */
 export function AgentRunBarView(props: AgentRunBarViewProps) {
+  useTranslation();
   return hasAgentOrigin(props.detail.agentRun) ? (
     <AgentRunLineView {...props} actions={props.agentActions} onOpenPanel={props.actions?.onOpenPanel} />
   ) : (
@@ -132,14 +135,15 @@ export function AgentRunBarView(props: AgentRunBarViewProps) {
 }
 
 function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
+  useTranslation();
   const { detail, now, actions = {} } = props;
   const { agentRun } = detail;
-  const rows = useMemo(() => projectAgentRunStages(detail, new Date(now)), [detail, now]);
+  const rows = useMemo(() => projectAgentRunStages(detail, new Date(now)), [detail, now, i18n.language]);
   const current = rows[agentRun.currentStageIndex]!;
   const line = describeAgentRunStatusLine(detail);
 
   // The completed stage holds for a moment before the next takes over.
-  const [held, setHeld] = useState<{ title: string; detail: string | null } | null>(null);
+  const [held, setHeld] = useState<AgentRunStageRow | null>(null);
   const previousIndex = useRef(agentRun.currentStageIndex);
   useEffect(() => {
     const before = previousIndex.current;
@@ -147,7 +151,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
     if (props.reducedMotion || agentRun.currentStageIndex <= before) return;
     const finished = rows[before];
     if (!finished || finished.status !== "completed") return;
-    setHeld({ title: `${finished.stage.title} done`, detail: describeCompletedChange(finished) });
+    setHeld(finished);
   }, [agentRun.currentStageIndex, props.reducedMotion, rows]);
   // Its own effect: `rows` changes every tick, and must not cancel the release.
   useEffect(() => {
@@ -160,13 +164,13 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
   const alert = held ? null : (props.turnAlert ?? null);
   const announcement =
     current.status === "awaiting-sign-off"
-      ? `Waiting for your sign-off: ${current.stage.title}`
-      : `${alert ? `${alert.label}, s` : "S"}tage ${current.index + 1} of ${rows.length}: ${current.stage.title}`;
+      ? i18n.t("agentRuns:agentRunBar.extraCopy0", { value1: getStageDisplayTitle(current.stage) })
+      : i18n.t(alert ? "agentRuns:agentRunBar.alertStageAnnouncement" : "agentRuns:agentRunBar.stageAnnouncement", { alert: alert?.label ?? "", index: current.index + 1, total: rows.length, stage: getStageDisplayTitle(current.stage) });
 
   const showNow = !held && !alert && line.live && props.nowPhrase !== null;
-  const title = held?.title ?? line.title;
+  const title = held ? i18n.t("agentRuns:agentRunBar.stageDone", { stage: getStageDisplayTitle(held.stage) }) : line.title;
   const state = held ? null : line.state;
-  const detailText = held ? held.detail : showNow ? props.nowPhrase : line.detail;
+  const detailText = held ? describeCompletedChange(held) : showNow ? props.nowPhrase : line.detail;
   const age = held || showNow ? null : formatAge(now - Date.parse(line.since));
   const paused = agentRun.state === "paused";
   const userPaused = paused && (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over");
@@ -182,7 +186,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
     <ShelfRunLine
       testId="agent-run-bar"
       dataState={held ? "done" : line.tone}
-      ariaLabel={`Run: ${agentRun.workflow.name}`}
+      ariaLabel={i18n.t("agentRuns:agentRunBar.ariaLabel", { value1: agentRun.workflow.name })}
       announcement={announcement}
       mark={
         <StageStatusIcon
@@ -219,11 +223,11 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
           <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} showPercent={false} />
         </span>
       }
-      meta={<span title="Time since the run started">{elapsed}</span>}
+      meta={<span title={i18n.t("agentRuns:agentRunBar.title")}>{elapsed}</span>}
       actions={
         <>
           {agentRun.state === "running" && actions.onTakeOver ? (
-            <Tooltip content={TAKE_OVER_HINT}>
+            <Tooltip content={i18n.t(TAKE_OVER_HINT)}>
               <Button
                 variant="quiet"
                 size="xs"
@@ -231,20 +235,18 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
                 onClick={actions.onTakeOver}
                 xstyle={shelfStyles.quiet}
               >
-                Take over
-              </Button>
+                {i18n.t("agentRuns:agentRunBar.actions")}</Button>
             </Tooltip>
           ) : null}
           {userPaused && actions.onResume ? (
             <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onResume}>
-              Resume
-            </Button>
+              {i18n.t("agentRuns:agentRunBar.actions2")}</Button>
           ) : null}
         </>
       }
       panel={
         actions.onOpenPanel
-          ? { label: "Open Progress in the Task panel", onOpen: actions.onOpenPanel, keep: props.panelKeep ?? "always" }
+          ? { label: i18n.t("agentRuns:agentRunBar.label"), onOpen: actions.onOpenPanel, keep: props.panelKeep ?? "always" }
           : null
       }
       detail={props.detailToggle ?? null}
@@ -257,6 +259,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
  * shelf mounts it whenever one is active, between turns included.
  */
 export function AgentRunBar(props: AgentRunBarProps) {
+  useTranslation();
   const { turnActivity = null, steering = false, ...shelf } = props;
   const { detail, taskId } = useScopedTaskAgentRun();
   const active = Boolean(detail && isActiveAgentRunState(detail.agentRun.state));

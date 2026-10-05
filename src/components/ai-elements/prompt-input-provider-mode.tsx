@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   Bot,
   Compass,
@@ -75,24 +76,24 @@ function modeVisual(status: PromptInputProviderModeStatus): {
   if (status.id === "manual") {
     return {
       icon: Shield,
-      summary: "Review-first setup",
+      summary: i18n.t("composer:promptInputProviderMode.summary"),
     };
   }
   if (status.id === "guided") {
     return {
       icon: Compass,
-      summary: "Balanced default",
+      summary: i18n.t("composer:promptInputProviderMode.summary2"),
     };
   }
   if (status.id === "auto") {
     return {
       icon: Bot,
-      summary: "High autonomy",
+      summary: i18n.t("composer:promptInputProviderMode.summary3"),
     };
   }
   return {
     icon: SlidersHorizontal,
-    summary: "Custom setup",
+    summary: i18n.t("composer:promptInputProviderMode.summary4"),
   };
 }
 
@@ -104,6 +105,7 @@ export function PromptInputProviderModePill(args: {
   disabled?: boolean;
   className?: string;
 }) {
+  useTranslation();
   const [open, setOpen] = useState(false);
   const { icon: Icon } = modeVisual(args.status);
   const isInteractive =
@@ -149,7 +151,7 @@ export function PromptInputProviderModePill(args: {
           align="start"
           side="top"
           sideOffset={8}
-          aria-label={`${args.status.providerLabel} mode presets`}
+          aria-label={i18n.t("composer:promptInputProviderMode.ariaLabel", { value1: args.status.providerLabel })}
           xstyle={[COMPOSER_OPTION_MENU_CONTENT, providerModeStyles.popover]}
         >
           <div className={sx(providerModeStyles.optionList)}>

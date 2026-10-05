@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { PromptInput } from "@/components/ai-elements";
 import { ComposerContextDock } from "@/components/session/ComposerContextDock";
 import { AgentAttachmentNotice } from "@/components/session/AgentAttachmentNotice";
@@ -212,6 +213,7 @@ interface ChatInputComposerProps {
 }
 
 export function ChatInputComposer(args: ChatInputComposerProps) {
+  useTranslation();
   const [focusNonce, setFocusNonce] = useState(0);
   const [guidanceFocusNonce, setGuidanceFocusNonce] = useState(0);
   const pendingSteerTaskIdsRef = useRef(new Set<string>());
@@ -365,9 +367,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       return;
     }
     if (sendResult.status === "blocked") {
-      toast.warning("Couldn't run the macro immediately", {
+      toast.warning(i18n.t("session:chatInputComposer.submitInstantMacro"), {
         description:
-          "The prompt is in the composer. Finish the pending action and send it.",
+          i18n.t("session:chatInputComposer.description"),
       });
     }
   }
@@ -590,7 +592,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     if (!enhancePrompt) {
       reportUtilityInferenceError({
         feature: "prompt-enhancement",
-        error: "Prompt-enhancement bridge unavailable.",
+        error: i18n.t("session:chatInputComposer.extraCopy87"),
       });
       return;
     }
@@ -650,15 +652,15 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           currentText: draftTextRef.current,
         })
       ) {
-        toast.info("Draft changed while the prompt was being enhanced", {
-          description: "Your newer draft was kept unchanged.",
+        toast.info(i18n.t("session:chatInputComposer.handleEnhancePrompt"), {
+          description: i18n.t("session:chatInputComposer.description2"),
         });
         return;
       }
 
       const enhancedPrompt = result.prompt.trim();
       if (enhancedPrompt === sourceText.trim()) {
-        toast.info("This prompt is already clear");
+        toast.info(i18n.t("session:chatInputComposer.handleEnhancePrompt2"));
         setFocusNonce((current) => current + 1);
         return;
       }
@@ -711,9 +713,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       enhanced: enhancementResult.enhancedPrompt,
       outcome: "kept",
     });
-    toast.success("Prompt enhanced", {
+    toast.success(i18n.t("session:chatInputComposer.handlePromptEnhancementRevealComplete"), {
       action: {
-        label: "Undo",
+        label: i18n.t("session:chatInputComposer.label"),
         onClick: () => {
           if (
             syncedDraftRef.current.taskId !== enhancementResult.targetTaskId ||
@@ -802,20 +804,20 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     try {
       const result = await useAppStore.getState().startCompareRun(preparation);
       if (!result.ok) {
-        toast.error("Unable to start compare run", {
+        toast.error(i18n.t("session:chatInputComposer.handleStartCompareRun"), {
           description: result.message,
         });
         return;
       }
       setComparePrepareOpen(false);
-      toast.success("Compare candidates are running separately", {
+      toast.success(i18n.t("session:chatInputComposer.handleStartCompareRun2"), {
         description:
-          "A fresh-context judge will score the results after every candidate finishes.",
+          i18n.t("session:chatInputComposer.description3"),
       });
     } catch (error) {
-      toast.error("Unable to start compare run", {
+      toast.error(i18n.t("session:chatInputComposer.handleStartCompareRun3"), {
         description:
-          error instanceof Error ? error.message : "Unexpected runtime error.",
+          error instanceof Error ? error.message : i18n.t("session:chatInputComposer.description4"),
       });
     } finally {
       setCompareStarting(false);
@@ -855,9 +857,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       text: nextText,
     });
     setFocusNonce((current) => current + 1);
-    toast.message("Guidance drafted", {
+    toast.message(i18n.t("session:chatInputComposer.stageApprovalGuidance"), {
       description:
-        "The current approval will be denied. Send the staged follow-up after the turn stops.",
+        i18n.t("session:chatInputComposer.description5"),
     });
   }
 
@@ -957,9 +959,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       queuedTurnId: itemId,
     });
     if (result.status === "blocked") {
-      toast.warning("Couldn't send the queued prompt", {
+      toast.warning(i18n.t("session:chatInputComposer.sendQueuedTurnNow"), {
         description:
-          "The task is busy or waiting on another action. The prompt stays queued.",
+          i18n.t("session:chatInputComposer.description6"),
       });
     }
   }
@@ -989,17 +991,17 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         submitIntent: "steer",
       });
       if (result.status === "steer-unavailable") {
-        toast.error("Couldn't steer this queued prompt", {
+        toast.error(i18n.t("session:chatInputComposer.steerQueuedTurnNow"), {
           description: result.message,
         });
       } else if (result.status === "steer-delivery-unknown") {
-        toast.warning("Steer delivery is unconfirmed", {
+        toast.warning(i18n.t("session:chatInputComposer.steerQueuedTurnNow2"), {
           description: result.message,
         });
       } else if (result.status === "blocked") {
-        toast.warning("Couldn't steer the queued prompt", {
+        toast.warning(i18n.t("session:chatInputComposer.steerQueuedTurnNow3"), {
           description:
-            "The task is busy or waiting on another action. The prompt stays queued.",
+            i18n.t("session:chatInputComposer.description7"),
         });
       }
     } finally {
@@ -1098,9 +1100,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         }
 
         if (attachedCount === 0) {
-          toast.warning("No workspace files were attached", {
+          toast.warning(i18n.t("session:chatInputComposer.copy"), {
             description:
-              "Paste files copied from the current workspace, or use Attach Files.",
+              i18n.t("session:chatInputComposer.description8"),
           });
           return;
         }
@@ -1493,7 +1495,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                           COMPOSER_CONTROL_BUTTON,
                           COMPOSER_CONTROL_GROUP_PRIMARY,
                         )}
-                        aria-label="Prepare a comparison in isolated candidate workspaces"
+                        aria-label={i18n.t("session:chatInputComposer.ariaLabel")}
                         {...composerControlAttributes}
                         disabled={
                           isInputBlocked || draftText.trim().length === 0
@@ -1503,12 +1505,10 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                     }
                   >
                     <SplitSquareHorizontal size={16} />
-                    <ComposerControlLabel>Compare</ComposerControlLabel>
+                    <ComposerControlLabel>{i18n.t("session:chatInputComposer.compareControl")}</ComposerControlLabel>
                   </TooltipTrigger>
                   <TooltipContent side="top" className={sx(chatInputStyles.tooltipContent)}>
-                    Prepare a shared brief and review criteria before running
-                    two configurable candidates in separate workspaces.
-                  </TooltipContent>
+                    {i18n.t("session:chatInputComposer.compareControl2")}</TooltipContent>
                 </Tooltip>
 
                 <DropdownMenu>
@@ -1523,7 +1523,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                           COMPOSER_CONTROL_GROUP_MENU,
                           sx(chatInputStyles.compareControlMenuTrigger),
                         )}
-                        aria-label="Compare options and recent runs"
+                        aria-label={i18n.t("session:chatInputComposer.ariaLabel2")}
                         {...composerControlAttributes}
                         disabled={
                           recentCompareRuns.length === 0 &&
@@ -1542,8 +1542,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                   >
                     <DropdownMenuLabel className={sx(chatInputStyles.menuLabelRow)}>
                       <SplitSquareHorizontal size={14} />
-                      Compare
-                    </DropdownMenuLabel>
+                      {i18n.t("session:chatInputComposer.compareControl3")}</DropdownMenuLabel>
                     <DropdownMenuItem
                       disabled={isInputBlocked || draftText.trim().length === 0}
                       onSelect={handleOpenComparePreparation}
@@ -1551,11 +1550,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                       <SplitSquareHorizontal size={16} />
                       <span className={sx(chatInputStyles.itemText)}>
                         <span className={sx(chatInputStyles.itemTitle)}>
-                          Prepare new comparison
-                        </span>
+                          {i18n.t("session:chatInputComposer.compareControl4")}</span>
                         <span className={sx(chatInputStyles.itemDescription)}>
-                          Configure candidates, criteria, and judge
-                        </span>
+                          {i18n.t("session:chatInputComposer.compareControl5")}</span>
                       </span>
                     </DropdownMenuItem>
 
@@ -1564,8 +1561,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel className={sx(chatInputStyles.menuLabelRecent)}>
                         <History size={14} />
-                        Recent runs
-                      </DropdownMenuLabel>
+                        {i18n.t("session:chatInputComposer.compareControl6")}</DropdownMenuLabel>
                       {recentCompareRuns.map((run) => (
                         <DropdownMenuItem
                           key={run.id}
@@ -1595,12 +1591,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                         <History size={16} />
                         <span className={sx(chatInputStyles.itemText)}>
                           <span className={sx(chatInputStyles.itemTitle)}>
-                            View all compare runs…
-                          </span>
-                          <span className={sx(chatInputStyles.itemDescription)}>
-                            Search and filter {compareRunHistoryEntries.length}{" "}
-                            saved runs
-                          </span>
+                            {i18n.t("session:chatInputComposer.compareControl7")}</span>
+                          <span className={sx(chatInputStyles.itemDescription)}>{i18n.t("session:chatInputComposer.sentence38", { value1: compareRunHistoryEntries.length, value2: " " })}</span>
                         </span>
                       </DropdownMenuItem>
                     </>
@@ -1854,11 +1846,11 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                 // of silently queueing it, so the user can see what happened
                 // and choose (edit and retry, or press Tab to queue).
                 restoreSubmittedDraft();
-                toast.error("Couldn't steer this turn", {
+                toast.error(i18n.t("session:chatInputComposer.copy2"), {
                   description: result.message,
                 });
               } else if (result.status === "steer-delivery-unknown") {
-                toast.warning("Steer delivery is unconfirmed", {
+                toast.warning(i18n.t("session:chatInputComposer.copy3"), {
                   description: result.message,
                 });
               }

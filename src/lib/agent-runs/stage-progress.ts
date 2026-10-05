@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * How far a run of stages has come, as one progress value: the fraction the
  * track fills, the stage boundaries it marks, the tone it takes and the words
@@ -52,7 +53,7 @@ export function projectStageProgress(
   const presentation = STAGE_STATUS_PRESENTATION[current.status];
   // A current stage that has not started yet is about to: it reads as the run.
   const ownTone = held ? "waiting" : presentation.tone === "idle" ? "active" : presentation.tone;
-  const statusLabel = held ? "Paused" : presentation.label;
+  const statusLabel = held ? i18n.t("agentRuns:stageProgress.statusLabel") : presentation.label;
   const position = `${current.index + 1}`;
   return {
     fraction,
@@ -63,7 +64,7 @@ export function projectStageProgress(
     tone: options.tone ?? ownTone,
     statusLabel,
     count: `${position}/${total}`,
-    valueText: `Stage ${position} of ${total}, ${current.stage.title}, ${statusLabel.toLowerCase()}`,
+    valueText: i18n.t("agentRuns:stageProgress.valueText", { value1: position, value2: total, value3: current.stage.title, value4: statusLabel.toLowerCase() }),
   };
 }
 

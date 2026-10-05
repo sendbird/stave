@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { frameStyles } from "./composer-frame.styles";
 import { sx } from "../ads/utils/stylex";
 import type { CSSProperties, ReactNode } from "react";
@@ -47,6 +48,7 @@ export function ComposerFrame(props: {
   children: ReactNode;
   className?: string;
 }) {
+  useTranslation();
   const hasTop = Boolean(props.top);
   const hasBottom = Boolean(props.bottom);
   const hasLeft = Boolean(props.left);
@@ -143,6 +145,7 @@ export function ComposerFrameWing(props: {
   children: ReactNode;
   className?: string;
 }) {
+  useTranslation();
   return (
     <ComposerControlDensityProvider value="icon">
       <div
@@ -171,6 +174,7 @@ export function ComposerFrameStatusBar(props: {
   trailing?: ReactNode;
   className?: string;
 }) {
+  useTranslation();
   return (
     <div
       data-composer-frame-status-bar="true"

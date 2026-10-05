@@ -1,3 +1,5 @@
+import { getAgentDisplayName } from "@/lib/agents/display";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { AlertCircle, Bot, ChevronDown, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
 import {
@@ -154,6 +156,7 @@ function ModelOnlyList(args: {
   disabled?: boolean;
   onChoose: (option: ModelSelectorOption) => void;
 }) {
+  useTranslation();
   const optionRefs = useRef(new Map<string, HTMLElement>());
   const selectedIndex = args.options.findIndex(
     (option) => option.key === args.selectedModelKey,
@@ -197,7 +200,7 @@ function ModelOnlyList(args: {
   return (
     <div
       role="listbox"
-      aria-label={`${getProviderLabel({ providerId: args.providerId })} models`}
+      aria-label={i18n.t("composer:modelEffortSelector.ariaLabel", { value1: getProviderLabel({ providerId: args.providerId }) })}
       className={sx(styles.modelList)}
     >
       {args.options.map((option, optionIndex) => {
@@ -238,8 +241,7 @@ function ModelOnlyList(args: {
                 </span>
                 {option.isDefault ? (
                   <span className={sx(styles.modelRowDefaultBadge)}>
-                    Default
-                  </span>
+                    {i18n.t("composer:modelEffortSelector.copy")}</span>
                 ) : null}
                 {option.badge ? (
                   <span className={sx(styles.modelRowNoticeBadge)} title={option.description}>
@@ -276,13 +278,13 @@ function CatalogNotice(args: {
   selectedMissing: boolean;
   onRefresh?: () => void;
 }) {
+  useTranslation();
   return (
     <>
       {args.catalog?.status === "loading" ? (
         <div role="status" className={sx(styles.notice)}>
           <Loader aria-hidden="true" size="xs" variant="decode" />
-          Loading the runtime model catalog…
-        </div>
+          {i18n.t("composer:modelEffortSelector.catalogNotice")}</div>
       ) : null}
       {args.catalog?.status === "error" ? (
         <div
@@ -291,7 +293,7 @@ function CatalogNotice(args: {
         >
           <AlertCircle className={sx(styles.noticeIcon)} aria-hidden="true" />
           <span className={sx(styles.noticeBody)}>
-            {args.catalog.detail || "The runtime model catalog is unavailable."}
+            {args.catalog.detail || i18n.t("composer:modelEffortSelector.catalogNotice2")}
           </span>
           {args.onRefresh ? (
             <Button
@@ -302,22 +304,20 @@ function CatalogNotice(args: {
               className={sx(styles.retryButton)}
             >
               <RefreshCcw className={sx(styles.retryIcon)} />
-              Retry
-            </Button>
+              {i18n.t("composer:modelEffortSelector.catalogNotice3")}</Button>
           ) : null}
         </div>
       ) : null}
       {args.selectedMissing ? (
         <div role="alert" className={sx(styles.noticeError)}>
-          The selected model is no longer in this runtime catalog. Choose
-          another model before sending.
-        </div>
+          {i18n.t("composer:modelEffortSelector.catalogNotice4")}</div>
       ) : null}
     </>
   );
 }
 
 export function ModelEffortSelector(args: ModelEffortSelectorProps) {
+  useTranslation();
   const [openPanel, setOpenPanel] = useState<PanelMode | null>(null);
   const open = openPanel !== null;
   // The pin picker lists the models for the agent's turns: no Agents section,
@@ -686,7 +686,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         fallbackAxisSide: "none",
       }}
       finalFocus={pinMode ? pinTriggerRef : triggerRef}
-      aria-label={pinMode ? "Model for the agent" : "Model and effort selector"}
+      aria-label={pinMode ? i18n.t("composer:modelEffortSelector.ariaLabel2") : i18n.t("composer:modelEffortSelector.ariaLabel3")}
       // Search + footer chrome is ~7.5rem. Each model row is ~3.5rem
       // (min-h-11 plus row padding/gap), so 25rem keeps five rows in
       // view and everything below reachable by scrolling.
@@ -700,7 +700,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         xstyle={styles.tabs}
       >
         <SelectionRail
-          label={searchesAgents ? "Model providers and agents" : "Model provider"}
+          label={searchesAgents ? i18n.t("composer:modelEffortSelector.label") : i18n.t("composer:modelEffortSelector.label2")}
           value={railValue}
           onPreview={(value) => showTab(value as RailValue)}
           items={planPickerRail({
@@ -723,7 +723,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             if (tab.kind === "agents") {
               return {
                 value: AGENTS_TAB,
-                label: "Agents",
+                label: i18n.t("composer:modelEffortSelector.label3"),
                 icon: (
                   <Bot
                     className={sx(styles.railAutoIcon)}
@@ -761,7 +761,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           {/* The Auto tab is the route itself: its preference list replaces the row. */}
           {pinMode && agent && args.agents?.route && !isAutoTab ? (
             <AgentRouteRow
-              agentName={agent.name}
+              agentName={getAgentDisplayName(agent)}
               route={args.agents.route}
               fixedModel={args.agents.fixedModel}
               autoAvailable={args.agents.autoAvailable}
@@ -782,8 +782,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                   autoFocus
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  aria-label={searchesAgents ? "Search models and agents" : "Search models"}
-                  placeholder={searchesAgents ? "Search models and agents" : "Search models"}
+                  aria-label={searchesAgents ? i18n.t("composer:modelEffortSelector.ariaLabel4") : i18n.t("composer:modelEffortSelector.ariaLabel5")}
+                  placeholder={searchesAgents ? i18n.t("composer:modelEffortSelector.placeholder") : i18n.t("composer:modelEffortSelector.placeholder2")}
                   className={sx(styles.searchInput)}
                 />
               </div>
@@ -792,8 +792,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  aria-label="Refresh model catalog"
-                  title="Refresh model catalog"
+                  aria-label={i18n.t("composer:modelEffortSelector.ariaLabel6")}
+                  title={i18n.t("composer:modelEffortSelector.title")}
                   disabled={args.disabled || catalog.status === "loading"}
                   onClick={() => args.onRefreshCatalogs?.()}
                   className={sx(styles.actionButton)}
@@ -806,7 +806,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     )}
                     aria-hidden="true"
                   />
-                  <span className={sx(styles.refreshLabel)}>Refresh</span>
+                  <span className={sx(styles.refreshLabel)}>{i18n.t("composer:modelEffortSelector.popoverContent")}</span>
                 </Button>
               ) : null}
             </div>
@@ -856,8 +856,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 visibleOptions.length === 0 ? (
                   <div className={sx(styles.empty)}>
                     {query.trim().length > 0
-                      ? "No models match this search."
-                      : "Every model for this provider is turned off. Show all models below, or re-enable them in Settings › Models."}
+                      ? i18n.t("composer:modelEffortSelector.copy2")
+                      : i18n.t("composer:modelEffortSelector.copy3")}
                   </div>
                 ) : (
                   <>
@@ -934,8 +934,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
               >
                 <span>
                   {showAllModels
-                    ? "Show current models"
-                    : "Show all models"}
+                    ? i18n.t("composer:modelEffortSelector.popoverContent2")
+                    : i18n.t("composer:modelEffortSelector.popoverContent3")}
                 </span>
                 <span className={sx(styles.showAllCount)}>
                   {showAllModels
@@ -971,13 +971,13 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     <div
       role="group"
       data-model-effort-control="true"
-      aria-label="Model controls"
+      aria-label={i18n.t("composer:modelEffortSelector.ariaLabel7")}
       className={sx(styles.group)}
     >
       {agent && args.agents ? (
         <div
           role="group"
-          aria-label="Agent and model"
+          aria-label={i18n.t("composer:modelEffortSelector.ariaLabel8")}
           data-agent-segments="true"
           className={sx(styles.segments)}
         >
@@ -989,9 +989,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                   ref={triggerRef}
                   type="button"
                   disabled={args.disabled}
-                  aria-label={`Agent: ${agent.name}. Open the model and agent selector.`}
+                  aria-label={i18n.t("composer:modelEffortSelector.ariaLabel9", { value1: getAgentDisplayName(agent) })}
                   data-agent-active="true"
-                  title="Open model and agent selector (Alt+P). Use Alt+1..0 for mapped models."
+                  title={i18n.t("composer:modelEffortSelector.title2")}
                   xstyle={[
                     styles.trigger,
                     styles.segment,
@@ -1003,7 +1003,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             >
               <AgentAvatar agent={agent} size="xs" aria-label={null} />
               <span className={sx(styles.triggerLabel, styles.triggerAgent)}>
-                {agent.name}
+                {getAgentDisplayName(agent)}
               </span>
               <ChevronDown aria-hidden="true" className={sx(styles.segmentChevron)} />
             </PopoverTrigger>
@@ -1023,17 +1023,13 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                   disabled={args.disabled}
                   aria-label={
                     args.value.isAuto
-                      ? `Model: Stave Auto. ${agent.name} chooses the model for each turn.`
-                      : `Model: ${displayLabel}. ${
-                          args.agents.route === "pinned" ? "Pinned" : "Set"
-                        } for ${agent.name}${
-                          selectedEffortLabel
-                            ? `. Effort: ${selectedEffortLabel}`
-                            : ""
-                        }`
+                      ? i18n.t("composer:modelEffortSelector.ariaLabel10", { value1: getAgentDisplayName(agent) })
+                      : i18n.t("composer:modelEffortSelector.ariaLabel11", { value1: displayLabel, value2: args.agents.route === "pinned" ? i18n.t("composer:modelEffortSelector.extraCopy54") : i18n.t("composer:modelEffortSelector.extraCopy55"), value3: getAgentDisplayName(agent), value4: selectedEffortLabel
+                            ? i18n.t("composer:modelEffortSelector.extraCopy57", { value1: selectedEffortLabel })
+                            : "" })
                   }
                   data-agent-route={args.agents.route ?? undefined}
-                  title={`Choose the model for ${agent.name}`}
+                  title={i18n.t("composer:modelEffortSelector.title3", { value1: getAgentDisplayName(agent) })}
                   xstyle={[
                     styles.trigger,
                     styles.segment,
@@ -1049,7 +1045,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 <>
                   {args.agents.route === "pinned" && args.agents.autoAvailable ? (
                     <>
-                      <span className={sx(styles.segmentPinned)}>Pinned</span>
+                      <span className={sx(styles.segmentPinned)}>{i18n.t("composer:modelEffortSelector.modelEffortSelector")}</span>
                       <span aria-hidden="true" className={sx(styles.triggerDot)}>
                         ·
                       </span>
@@ -1080,14 +1076,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 disabled={args.disabled}
                 aria-label={
                   args.value.isAuto
-                    ? "Model: Stave Auto. Stave chooses the provider, model, and effort."
-                    : `Model: ${displayLabel}${
-                        selectedEffortLabel
-                          ? `. Effort: ${selectedEffortLabel}`
-                          : ""
-                      }`
+                    ? i18n.t("composer:modelEffortSelector.ariaLabel12")
+                    : i18n.t("composer:modelEffortSelector.ariaLabel13", { value1: displayLabel, value2: selectedEffortLabel
+                          ? i18n.t("composer:modelEffortSelector.extraCopy57", { value1: selectedEffortLabel })
+                          : "" })
                 }
-                title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
+                title={i18n.t("composer:modelEffortSelector.title4")}
                 xstyle={[styles.trigger, open && styles.triggerOpen]}
               />
             }
@@ -1116,7 +1110,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         <AdsButton
           layout="host"
           type="button"
-          aria-label={`Fast mode: ${cursorComposerControls.fastMode ? "On" : "Off"}`}
+          aria-label={i18n.t("composer:modelEffortSelector.ariaLabel14", { value1: cursorComposerControls.fastMode ? i18n.t("composer:modelEffortSelector.extraCopy60") : i18n.t("composer:modelEffortSelector.extraCopy61") })}
           aria-pressed={cursorComposerControls.fastMode ?? false}
           disabled={args.disabled}
           onClick={() => {
@@ -1151,7 +1145,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         <AdsButton
           layout="host"
           type="button"
-          aria-label={`1M context: ${isClaudeContext1MModel(args.value.model) ? "On" : "Off"}`}
+          aria-label={i18n.t("composer:remaining.presentationCopy140", { v1: isClaudeContext1MModel(args.value.model) ? i18n.t("composer:modelEffortSelector.extraCopy60") : i18n.t("composer:modelEffortSelector.extraCopy61") })}
           aria-pressed={isClaudeContext1MModel(args.value.model)}
           disabled={args.disabled}
           onClick={toggleContext1M}

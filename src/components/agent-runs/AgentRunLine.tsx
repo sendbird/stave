@@ -1,3 +1,5 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { TextShimmer } from "@/components/ads/components/TextShimmer";
@@ -23,7 +25,7 @@ import { describeRunPlan } from "@/lib/agent-runs/progress";
 import { agentRunStoredPlan } from "@/lib/agent-runs/agent-run-status";
 import type { StagePlan } from "@/lib/agent-runs/domain";
 
-export const TAKE_CONTROL_HINT = "Ends the run and keeps this task in Chat, on the model the agent was using.";
+export const TAKE_CONTROL_HINT = "agentRuns:agentRunLine.tAKECONTROLHINT";
 
 /**
  * An agent run's line in the composer shelf: the agent, where it stands
@@ -55,6 +57,7 @@ export function AgentRunLineView(props: {
   /** The turn's stall, steer, retry or failure, said instead of the run's state. */
   turnAlert?: ShelfTurnAlert | null;
 }) {
+  useTranslation();
   const { detail, actions = {} } = props;
   const status = describeAgentRunStatus(detail);
   const alert = props.turnAlert ?? null;
@@ -66,19 +69,19 @@ export function AgentRunLineView(props: {
   const planText = staged || !plan?.items.length ? null : describeRunPlan(plan);
   const rows = useMemo(
     () => (staged ? projectAgentRunStages(detail, new Date(props.now)) : null),
-    [detail, props.now, staged],
+    [detail, props.now, staged, i18n.language],
   );
   const current = rows?.[detail.agentRun.currentStageIndex] ?? null;
   const paused = detail.agentRun.state === "paused";
   const waiting = status.state === "needs-you";
-  const stageWords = current && rows ? `${current.stage.title} ${current.index + 1}/${rows.length}` : null;
+  const stageWords = current && rows ? `${getStageDisplayTitle(current.stage)} ${current.index + 1}/${rows.length}` : null;
   return (
     <>
       <ShelfRunLine
         testId="agent-run-bar"
         dataState={status.state}
         ariaLabel={`${status.agentName}: ${status.label}`}
-        announcement={`${status.agentName}: ${alert ? alert.label : status.label}${current ? `, stage ${current.index + 1} of ${rows!.length}: ${current.stage.title}` : planText ? `, ${planText}` : ""}`}
+        announcement={`${status.agentName}: ${alert ? alert.label : status.label}${current ? i18n.t("agentRuns:agentRunLine.extraCopy2", { value1: current.index + 1, value2: rows!.length, value3: getStageDisplayTitle(current.stage) }) : planText ? `, ${planText}` : ""}`}
         mark={
           <StageStatusIcon
             tone={AGENT_RUN_VIEW_STATE_TONES[status.state]}
@@ -109,7 +112,7 @@ export function AgentRunLineView(props: {
                     reason ?? planText ?? (showNow ? (
                       <TextShimmer active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
                     ) : (
-                      status.state === "working" && !staged ? "Planning…" : reason
+                      status.state === "working" && !staged ? i18n.t("agentRuns:agentRunLine.extraCopy3") : reason
                     )),
                   ]
             }
@@ -124,21 +127,19 @@ export function AgentRunLineView(props: {
             <ShelfTodoProgressView progress={props.todo} />
           ) : null
         }
-        meta={<span title="Time since the run started">{elapsed}</span>}
+        meta={<span title={i18n.t("agentRuns:agentRunLine.title")}>{elapsed}</span>}
         actions={
           <>
             {status.recovery === "retry-stage" && actions.onRetry ? (
               <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onRetry}>
-                Retry
-              </Button>
+                {i18n.t("agentRuns:agentRunLine.actions")}</Button>
             ) : null}
             {actions.onStop ? (
               <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onStop} xstyle={shelfStyles.quiet}>
-                Stop
-              </Button>
+                {i18n.t("agentRuns:agentRunLine.actions2")}</Button>
             ) : null}
             {actions.onTakeControl ? (
-              <Tooltip content={TAKE_CONTROL_HINT}>
+              <Tooltip content={i18n.t(TAKE_CONTROL_HINT)}>
                 <Button
                   variant="quiet"
                   size="xs"
@@ -146,15 +147,14 @@ export function AgentRunLineView(props: {
                   onClick={actions.onTakeControl}
                   xstyle={shelfStyles.quiet}
                 >
-                  Take control
-                </Button>
+                  {i18n.t("agentRuns:agentRunLine.actions3")}</Button>
               </Tooltip>
             ) : null}
         </>
       }
       panel={
         props.onOpenPanel
-          ? { label: "Open Progress in the Task panel", onOpen: props.onOpenPanel, keep: props.panelKeep ?? "always" }
+          ? { label: i18n.t("agentRuns:agentRunLine.label"), onOpen: props.onOpenPanel, keep: props.panelKeep ?? "always" }
           : null
       }
       detail={props.detailToggle ?? null}

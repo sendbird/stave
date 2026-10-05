@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { createContext, useContext, type ReactNode } from "react";
 import { useAppStore } from "@/store/app.store";
 
@@ -18,6 +19,7 @@ export function TaskScopeProvider(props: {
   taskId: string | null;
   children: ReactNode;
 }) {
+  useTranslation();
   return (
     <TaskIdContext.Provider value={props.taskId}>
       {props.children}

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * What an agent run spent: the provider-reported usage of the turns it started,
  * summed. Claude reports a cost with each turn; Codex reports tokens only, so
@@ -84,14 +85,14 @@ export function formatCostUsd(cost: number): string {
 export function describeUsageShort(usage: AgentRunUsage | null | undefined): string | null {
   if (!usage || usage.measuredTurns === 0) return null;
   if (usage.costUsd !== null) return formatCostUsd(usage.costUsd);
-  return `${formatTokenCount(usage.inputTokens + usage.outputTokens)} tokens`;
+  return i18n.t("agentRuns:counts.tokens", { value: formatTokenCount(usage.inputTokens + usage.outputTokens) });
 }
 
 /** The long form: `$1.24 · 182k tokens`, with a note when some turns reported nothing. */
 export function describeUsageLong(usage: AgentRunUsage | null | undefined): string | null {
   if (!usage || usage.measuredTurns === 0) return null;
-  const tokens = `${formatTokenCount(usage.inputTokens + usage.outputTokens)} tokens`;
+  const tokens = i18n.t("agentRuns:counts.tokens", { value: formatTokenCount(usage.inputTokens + usage.outputTokens) });
   const text = usage.costUsd !== null ? `${formatCostUsd(usage.costUsd)} · ${tokens}` : tokens;
   const unmeasured = usage.turns - usage.measuredTurns;
-  return unmeasured > 0 ? `${text} (${unmeasured} ${unmeasured === 1 ? "turn" : "turns"} not reported)` : text;
+  return unmeasured > 0 ? i18n.t("agentRuns:usage.describeUsageLong", { value1: text, value2: unmeasured, count: unmeasured }) : text;
 }

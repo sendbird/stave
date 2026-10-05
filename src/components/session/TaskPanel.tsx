@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 import { vars } from "../ads/tokens/tokens.stylex";
@@ -45,6 +46,7 @@ import {
  * a tab bar.
  */
 export function TaskPanel() {
+  useTranslation();
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const taskId = useAppStore((state) => state.activeTaskId);
   const repositoryPath = useAppStore((state) => state.repositoryPath);
@@ -89,6 +91,7 @@ export function TaskPanelView(props: {
   tab: TaskPanelTab;
   onTabChange: (tab: TaskPanelTab) => void;
 }) {
+  useTranslation();
   const { workspaceId, taskId, repositoryPath } = props;
   const scopeKey = `${workspaceId}:${taskId}`;
   return (
@@ -103,7 +106,7 @@ export function TaskPanelView(props: {
     >
       <RightRailPanelHeader>
         <h2 className={sx(styles.srOnly)}>{RIGHT_RAIL_PANEL_TITLES.task}</h2>
-        <TabsList aria-label="Task sections" xstyle={styles.tabList}>
+        <TabsList aria-label={i18n.t("session:taskPanel.ariaLabel")} xstyle={styles.tabList}>
           {TASK_PANEL_TABS.map((item) => (
             <TabsTrigger key={item.id} value={item.id} xstyle={styles.tab}>
               {item.label}
@@ -147,8 +150,7 @@ export function TaskPanelView(props: {
           />
         ) : (
           <p className={sx(styles.notice)}>
-            Subagents are available in a local repository task.
-          </p>
+            {i18n.t("session:taskPanel.taskPanelView")}</p>
         )}
       </TabsContent>
       <TabsContent value="results" xstyle={[styles.panel, styles.panelScroll]}>
@@ -170,6 +172,7 @@ function TaskTabMark(props: {
   taskId: string;
   agentRun: AgentRunDetail | undefined;
 }) {
+  useTranslation();
   switch (props.tab) {
     case "activity":
       return <ActivityMark taskId={props.taskId} />;
@@ -183,6 +186,7 @@ function TaskTabMark(props: {
 }
 
 function ActivityMark(props: { taskId: string }) {
+  useTranslation();
   const running = useAppStore((state) =>
     Boolean(state.activeTurnIdsByTask[props.taskId]),
   );
@@ -194,6 +198,7 @@ function ActivityMark(props: { taskId: string }) {
 }
 
 function ProgressMark(props: { agentRun: AgentRunDetail | undefined }) {
+  useTranslation();
   const { agentRun } = props;
   if (!agentRun || !isActiveAgentRunState(agentRun.agentRun.state)) return null;
   const badge = hasAgentOrigin(agentRun.agentRun) ? describeAgentRunStatus(agentRun) : describeAgentRunBadge(agentRun);
@@ -201,6 +206,7 @@ function ProgressMark(props: { agentRun: AgentRunDetail | undefined }) {
 }
 
 function SubagentsMark(props: { taskId: string }) {
+  useTranslation();
   const graph = useAppStore(
     (state) =>
       state.providerTurnActivityByTask[props.taskId]?.workGraph ??
@@ -215,6 +221,7 @@ function SubagentsMark(props: { taskId: string }) {
 }
 
 function ResultsMark(props: { workspaceId: string; taskId: string }) {
+  useTranslation();
   const { page } = useResultReviews({
     workspaceId: props.workspaceId,
     taskId: props.taskId,
@@ -230,6 +237,7 @@ function ResultsMark(props: { workspaceId: string; taskId: string }) {
  * after the label, vertically centered on it.
  */
 function Mark(props: { mark: TaskTabMark | null }) {
+  useTranslation();
   const { mark } = props;
   if (!mark) return null;
   if (mark.kind === "state") {

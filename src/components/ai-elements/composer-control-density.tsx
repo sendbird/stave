@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { controlStyles, toolbarMarker, wingMarker, shelfMarker, menuMarker, groupMarker } from "./composer-control.stylex";
 import { sx } from "../ads/utils/stylex";
 import { createContext, useContext, type ReactNode } from "react";
@@ -66,6 +67,7 @@ export function ComposerControlDensityProvider(props: {
   value: ComposerControlDensity;
   children: ReactNode;
 }) {
+  useTranslation();
   return (
     <ComposerControlDensityContext.Provider value={props.value}>
       {props.children}
@@ -86,6 +88,7 @@ export function ComposerControlLabel(props: {
   /** Render this label only when the control lives in a side wing. */
   wingOnly?: boolean;
 }) {
+  useTranslation();
   if (!useComposerControlIconOnly()) {
     return props.wingOnly ? null : props.children;
   }

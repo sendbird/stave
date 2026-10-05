@@ -1,3 +1,5 @@
+import { getAgentDisplayName } from "@/lib/agents/display";
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -43,6 +45,7 @@ export function SubagentsSection(props: {
   /** A managed task's subagents are read-only until the user takes over. */
   readOnly?: boolean;
 }) {
+  useTranslation();
   const listing = useDelegatedTasks({
     parentTaskId: props.taskId,
     parentWorkspaceId: props.workspaceId,
@@ -64,8 +67,8 @@ export function SubagentsSection(props: {
   const tasks = useAppStore((state) => state.tasks);
   const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
   const agentNames = useMemo(
-    () => new Map(listAgents({ custom: customAgents }).map((agent) => [agent.id, agent.name])),
-    [customAgents],
+    () => new Map(listAgents({ custom: customAgents }).map((agent) => [agent.id, getAgentDisplayName(agent)])),
+    [customAgents, i18n.language],
   );
   // The answer and how the subagent got there, without leaving this task.
   const [viewingId, setViewingId] = useState<string | null>(null);
@@ -105,14 +108,14 @@ export function SubagentsSection(props: {
     return (
       <p className={sx(styles.muted)} role={listing.loading ? "status" : undefined}>
         {listing.loading
-          ? "Loading subagents…"
-          : listing.error ?? "No subagents yet. An agent calls one when part of its work fits another agent or model."}
+          ? i18n.t("session:subagentsSection.subagentsSection")
+          : listing.error ?? i18n.t("session:subagentsSection.subagentsSection2")}
       </p>
     );
   }
   return (
     <>
-      <ul aria-label="Subagents" className={sx(styles.list)} data-testid="subagents-list">
+      <ul aria-label={i18n.t("session:subagentsSection.ariaLabel")} className={sx(styles.list)} data-testid="subagents-list">
         {rows.map((exchange) => {
           const child = exchange.ref.delegationKey && exchange.kind === "delegated-task"
             ? controller.children.find((row) => row.delegationKey === exchange.ref.delegationKey)
@@ -169,7 +172,7 @@ function whoLabel(
   if (exchange.kind === "subagent") return exchange.title;
   const model = exchange.identity.model;
   if (model) return toHumanModelName({ model });
-  return "Subagent";
+  return i18n.t("session:subagentsSection.whoLabel");
 }
 
 function SubagentRow(props: {
@@ -183,6 +186,7 @@ function SubagentRow(props: {
   onStop?: () => void;
   onView?: () => void;
 }) {
+  useTranslation();
   const { exchange } = props;
   const { error, result } = exchange.outcome;
   // The answer renders like the conversation, and only once it is opened, so
@@ -203,13 +207,13 @@ function SubagentRow(props: {
           onToggle={(event) => setAnswerOpen(event.currentTarget.open)}
         >
           <summary className={sx(styles.answerSummary)}>
-            {error ? "Why it stopped" : "Answer"}
+            {error ? i18n.t("session:subagentsSection.subagentRow") : i18n.t("session:subagentsSection.subagentRow2")}
           </summary>
           {error ? (
             <p className={sx(styles.answerText)}>{error}</p>
           ) : answerOpen && result ? (
             <div className={sx(styles.answerBody)}>
-              <CollapsibleResponse text={result} label={`${props.who}'s answer`} />
+              <CollapsibleResponse text={result} label={i18n.t("session:remaining.presentationCopy283", { v1: props.who })} />
             </div>
           ) : null}
         </details>
@@ -219,18 +223,15 @@ function SubagentRow(props: {
         <div className={sx(styles.actions)}>
           {props.onView ? (
             <ActionButton size="md" weight="quiet" xstyle={styles.target} onClick={props.onView}>
-              View activity
-            </ActionButton>
+              {i18n.t("session:subagentsSection.subagentRow3")}</ActionButton>
           ) : null}
           {props.onOpen ? (
             <ActionButton size="md" weight="quiet" xstyle={styles.target} onClick={props.onOpen}>
-              Open transcript
-            </ActionButton>
+              {i18n.t("session:subagentsSection.subagentRow4")}</ActionButton>
           ) : null}
           {props.canStop && props.onStop ? (
             <ActionButton size="md" weight="quiet" tone="danger" xstyle={styles.target} disabled={props.busy} onClick={props.onStop}>
-              Stop
-            </ActionButton>
+              {i18n.t("session:subagentsSection.subagentRow5")}</ActionButton>
           ) : null}
         </div>
       ) : null}

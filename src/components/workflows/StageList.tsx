@@ -1,3 +1,5 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { Plus, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -47,6 +49,7 @@ export function StageList<T extends StageListValue>(props: {
   issues: ReadonlyMap<string, string>;
   onChange: (value: T) => void;
 }) {
+  useTranslation();
   const workflow = props.value;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -59,7 +62,7 @@ export function StageList<T extends StageListValue>(props: {
   const move = (from: number, to: number) => {
     if (to < 0 || to >= stages.length) return;
     setStages(moveStage(stages, from, to));
-    setAnnouncement(`Moved ${stages[from]!.title} to position ${to + 1} of ${stages.length}.`);
+    setAnnouncement(i18n.t("agentRuns:stageList.extraCopy206", { value1: stages[from]!.title, value2: to + 1, value3: stages.length }));
   };
   const addStage = (stage: WorkflowStage) => {
     setStages([...stages, stage]);
@@ -68,13 +71,13 @@ export function StageList<T extends StageListValue>(props: {
   const takenIds = stages.map((stage) => stage.id);
 
   return (
-    <section className={sx(agentRunStyles.section)} aria-label="Stages">
+    <section className={sx(agentRunStyles.section)} aria-label={i18n.t("agentRuns:stageList.ariaLabel")}>
       {/* With no stages there is nothing to head or count, only the Add stage button. */}
       {stages.length > 0 ? (
         <div className={sx(styles.sectionHeader)}>
-          <h3 className={sx(styles.sectionTitle)}>Stages</h3>
+          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:stageList.stageList")}</h3>
           <span className={sx(styles.sectionAside)}>
-            {stages.length} of {MAX_WORKFLOW_STAGES}
+            {stages.length} {i18n.t("agentRuns:stageList.stageList2")}{MAX_WORKFLOW_STAGES}
           </span>
         </div>
       ) : null}
@@ -102,12 +105,12 @@ export function StageList<T extends StageListValue>(props: {
                 onMove={(to) => move(index, to)}
                 onDuplicate={() => {
                   if (full || stage.kind !== "ai") return;
-                  const copy = { ...stage, id: uniqueStageId(stage.title, takenIds), title: `${stage.title} again` };
+                  const copy = { ...stage, id: uniqueStageId(stage.title, takenIds), title: i18n.t("agentRuns:remaining.presentationCopy402", { v1: stage.title }) };
                   setStages([...stages.slice(0, index + 1), copy, ...stages.slice(index + 1)]);
                 }}
                 onRemove={() => {
                   setStages(stages.filter((_, position) => position !== index));
-                  setAnnouncement(`Deleted ${stage.title}.`);
+                  setAnnouncement(i18n.t("agentRuns:stageList.extraCopy207", { value1: stage.title }));
                 }}
                 dragHandlers={{
                   onDragStart: (event) => {
@@ -149,15 +152,14 @@ export function StageList<T extends StageListValue>(props: {
           trigger={
             <Button variant="secondary" size="sm" disabled={full}>
               <Plus aria-hidden />
-              Add stage
-            </Button>
+              {i18n.t("agentRuns:stageList.trigger")}</Button>
           }
           groups={[
             {
-              label: "AI stage",
+              label: i18n.t("agentRuns:stageList.label"),
               items: [
                 {
-                  label: "Blank stage",
+                  label: i18n.t("agentRuns:stageList.label2"),
                   icon: <Sparkles />,
                   onSelect: () => addStage(createBlankAiStage(takenIds)),
                 },
@@ -165,7 +167,7 @@ export function StageList<T extends StageListValue>(props: {
                   label: template.label,
                   icon: <Sparkles />,
                   onSelect: () =>
-                    addStage({ ...structuredClone(template.stage), id: uniqueStageId(template.stage.title, takenIds) }),
+                    addStage({ ...structuredClone(template.stage), id: uniqueStageId(getStageDisplayTitle(template.stage), takenIds) }),
                 })),
               ],
             },
@@ -183,7 +185,7 @@ export function StageList<T extends StageListValue>(props: {
             },
           ]}
         />
-        {full ? <span className={sx(styles.hint)}>A workflow has at most {MAX_WORKFLOW_STAGES} stages.</span> : null}
+        {full ? <span className={sx(styles.hint)}>{i18n.t("agentRuns:stageList.sentence58", { value1: MAX_WORKFLOW_STAGES })}</span> : null}
       </div>
       <p className={sx(agentRunStyles.visuallyHidden)} aria-live="polite">
         {announcement}

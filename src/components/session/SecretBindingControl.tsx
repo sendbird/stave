@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound } from "lucide-react";
 import {
@@ -39,6 +40,7 @@ export function SecretBindingControl({
   onChange,
   disabled,
 }: SecretBindingControlProps) {
+  useTranslation();
   const [secrets, setSecrets] = useState<SecretMetadata[]>([]);
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -110,7 +112,7 @@ export function SecretBindingControl({
   );
 
   const label =
-    activeBoundCount > 0 ? `Secrets · ${activeBoundCount}` : "Secrets";
+    activeBoundCount > 0 ? i18n.t("session:secretBindingControl.label", { value1: activeBoundCount }) : i18n.t("session:secretBindingControl.label2");
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -124,8 +126,8 @@ export function SecretBindingControl({
             {...composerControlAttributes}
             data-secret-binding-control="true"
             disabled={disabled}
-            aria-label="Bind secrets to this task as environment variables"
-            title="Bind secrets to this task"
+            aria-label={i18n.t("session:secretBindingControl.ariaLabel")}
+            title={i18n.t("session:secretBindingControl.title")}
           />
         }
       >
@@ -139,13 +141,10 @@ export function SecretBindingControl({
       >
         <DropdownMenuLabel className={sx(styles.label)}>
           <KeyRound className={sx(styles.labelIcon)} />
-          Bind secrets as env vars
-        </DropdownMenuLabel>
+          {i18n.t("session:secretBindingControl.secretBindingControl")}</DropdownMenuLabel>
         {loaded && injectableSecrets.length === 0 ? (
           <p className={sx(styles.empty)}>
-            No secrets define an environment variable name yet. Add one in
-            Settings → Secrets to make it injectable.
-          </p>
+            {i18n.t("session:secretBindingControl.secretBindingControl2")}</p>
         ) : (
           <>
             {injectableSecrets.map((secret) => {
@@ -177,10 +176,7 @@ export function SecretBindingControl({
             })}
             <DropdownMenuSeparator />
             <p className={sx(styles.footnote)}>
-              Bound values are available to shell commands and supported MCP
-              authentication for this task. They are never shown to the agent,
-              but a command that echoes the variable can still surface it.
-            </p>
+              {i18n.t("session:secretBindingControl.secretBindingControl3")}</p>
           </>
         )}
       </DropdownMenuContent>

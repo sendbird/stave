@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { ChatMessage, ToolUsePart } from "@/types/chat";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import { createWorkGraph, reduceWorkGraphEvent } from "@/lib/work-graph/work-graph-reducer";
@@ -74,7 +75,7 @@ export function selectTaskSubagents(args: SelectDelegationExchangesArgs & { mess
 }
 
 export function describeSubagentState(exchange: DelegationExchange): string {
-  return { queued: "queued", running: "running", returned: "done", failed: "failed", cancelled: "stopped", timed_out: "timed out", unresolved: "unresolved" }[exchange.outcome.status];
+  return { queued: "queued", running: "running", returned: "done", failed: "failed", cancelled: "stopped", timed_out: i18n.t("agentRuns:subagentSummary.extraCopy405"), unresolved: "unresolved" }[exchange.outcome.status];
 }
 
 export function describeSubagentSummary(rows: readonly DelegationExchange[]): string | null {

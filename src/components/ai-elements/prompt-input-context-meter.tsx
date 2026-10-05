@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Gauge } from "lucide-react";
 
 import {
@@ -35,6 +36,7 @@ export function PromptInputContextMeter(args: {
   compactDisabledReason?: string;
   onCompact?: () => void;
 }) {
+  useTranslation();
   const tone = conversationContextUsageTone(args.usage.usedPercent);
   const percentLabel = formatConversationContextPercent(args.usage.usedPercent);
   const countLabel = formatConversationContextCounts(args.usage);
@@ -49,7 +51,7 @@ export function PromptInputContextMeter(args: {
             variant="ghost"
             size="sm"
             className={sx(contextMeterStyles.trigger)}
-            aria-label={`Conversation context ${percentLabel} used`}
+            aria-label={i18n.t("composer:promptInputContextMeter.ariaLabel", { value1: percentLabel })}
           />
         }
       >
@@ -69,18 +71,15 @@ export function PromptInputContextMeter(args: {
       <PopoverContent align="end" side="top" xstyle={contextMeterStyles.popover}>
         <PopoverTitle className={sx(contextMeterStyles.popoverTitle)}>
           <Gauge className={sx(contextMeterStyles.titleIcon)} />
-          Conversation context
-        </PopoverTitle>
+          {i18n.t("composer:promptInputContextMeter.promptInputContextMeter")}</PopoverTitle>
         <PopoverDescription className={sx(contextMeterStyles.popoverDescription)}>
-          Latest context usage for the selected provider. Compact summarizes this
-          provider's session.
-        </PopoverDescription>
+          {i18n.t("composer:promptInputContextMeter.promptInputContextMeter2")}</PopoverDescription>
         <dl className={sx(contextMeterStyles.metricsList)}>
-          <dt className={sx(contextMeterStyles.metricTerm)}>Used</dt>
+          <dt className={sx(contextMeterStyles.metricTerm)}>{i18n.t("composer:promptInputContextMeter.promptInputContextMeter3")}</dt>
           <dd className={sx(contextMeterStyles.metricValue)}>{percentLabel}</dd>
           {countLabel ? (
             <>
-              <dt className={sx(contextMeterStyles.metricTerm)}>Tokens</dt>
+              <dt className={sx(contextMeterStyles.metricTerm)}>{i18n.t("composer:promptInputContextMeter.promptInputContextMeter4")}</dt>
               <dd className={sx(contextMeterStyles.metricValue)}>{countLabel}</dd>
             </>
           ) : null}
@@ -97,12 +96,11 @@ export function PromptInputContextMeter(args: {
             }
             onClick={args.onCompact}
           >
-            {args.compactPending ? "Compacting…" : "Compact context"}
+            {args.compactPending ? i18n.t("composer:promptInputContextMeter.promptInputContextMeter5") : i18n.t("composer:promptInputContextMeter.promptInputContextMeter6")}
           </Button>
         ) : (
           <p className={sx(contextMeterStyles.emptyNote)}>
-            This provider has no compact command.
-          </p>
+            {i18n.t("composer:promptInputContextMeter.promptInputContextMeter7")}</p>
         )}
       </PopoverContent>
     </Popover>

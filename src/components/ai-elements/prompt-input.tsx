@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   Brain,
@@ -532,6 +533,7 @@ function PromptEnhancementRevealOverlay(args: {
   stepMs: number;
   className?: string;
 }) {
+  useTranslation();
   return (
     <div
       aria-hidden="true"
@@ -588,6 +590,7 @@ function getRuntimeProfileToneStyle(tone: PromptInputRuntimeProfile["tone"]) {
 function PromptInputRuntimeTriggerIcon(args: {
   profile: PromptInputRuntimeProfile;
 }) {
+  useTranslation();
   return (
     <span className={sx(promptInputStyles.runtimeTriggerIcon)}>
       <SlidersHorizontal
@@ -605,9 +608,7 @@ function PromptInputRuntimeTriggerIcon(args: {
               : promptInputStyles.runtimeDotSuccess,
         )}
       />
-      <span className={sx(promptInputStyles.srOnly)}>
-        Runtime profile: {args.profile.label}
-      </span>
+      <span className={sx(promptInputStyles.srOnly)}>{i18n.t("composer:promptInput.sentence29", { value1: args.profile.label })}</span>
     </span>
   );
 }
@@ -635,6 +636,7 @@ function LensAnnotationStylePopover(args: {
     patch: Record<string, string>,
   ) => Promise<void>;
 }) {
+  useTranslation();
   const { annotation, disabled, onApply } = args;
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -674,7 +676,7 @@ function LensAnnotationStylePopover(args: {
             size="icon-xs"
             variant="ghost"
             disabled={disabled || !annotation.selector}
-            aria-label={`Edit styles for comment ${annotation.pin}`}
+            aria-label={i18n.t("composer:promptInput.ariaLabel", { value1: annotation.pin })}
           />
         }
       >
@@ -682,10 +684,9 @@ function LensAnnotationStylePopover(args: {
       </PopoverTrigger>
       <PopoverContent align="end" xstyle={promptInputStyles.lensPopover72}>
         <div>
-          <PopoverTitle>Style</PopoverTitle>
+          <PopoverTitle>{i18n.t("composer:promptInput.lensAnnotationStylePopover")}</PopoverTitle>
           <PopoverDescription>
-            Live inline edits for the selected element.
-          </PopoverDescription>
+            {i18n.t("composer:promptInput.lensAnnotationStylePopover2")}</PopoverDescription>
         </div>
         <div className={sx(promptInputStyles.fieldGrid)}>
           {LENS_ANNOTATION_STYLE_FIELDS.map((field) => (
@@ -714,8 +715,7 @@ function LensAnnotationStylePopover(args: {
             void onApply(annotation, patch).finally(() => setSaving(false));
           }}
         >
-          Apply
-        </Button>
+          {i18n.t("composer:promptInput.lensAnnotationStylePopover3")}</Button>
       </PopoverContent>
     </Popover>
   );
@@ -733,6 +733,7 @@ function LensAnnotationFeedbackPopover(args: {
     feedback: LensAnnotationFeedback,
   ) => void;
 }) {
+  useTranslation();
   const { annotation, disabled, onApply } = args;
   const feedback = resolveLensAnnotationReview(annotation).feedback;
   const [intent, setIntent] = useState(feedback.intent);
@@ -754,7 +755,7 @@ function LensAnnotationFeedbackPopover(args: {
             size="icon-xs"
             variant="ghost"
             disabled={disabled}
-            aria-label={`Edit intent and priority for comment ${annotation.pin}`}
+            aria-label={i18n.t("composer:promptInput.ariaLabel2", { value1: annotation.pin })}
           />
         }
       >
@@ -762,19 +763,18 @@ function LensAnnotationFeedbackPopover(args: {
       </PopoverTrigger>
       <PopoverContent align="end" xstyle={promptInputStyles.lensPopover64}>
         <div>
-          <PopoverTitle>Review details</PopoverTitle>
+          <PopoverTitle>{i18n.t("composer:promptInput.lensAnnotationFeedbackPopover")}</PopoverTitle>
           <PopoverDescription>
-            Set what this comment asks for and how urgent it is.
-          </PopoverDescription>
+            {i18n.t("composer:promptInput.lensAnnotationFeedbackPopover2")}</PopoverDescription>
         </div>
         <div className={sx(promptInputStyles.fieldGridCols2)}>
           <label className={sx(promptInputStyles.fieldLabel)}>
-            <span className={sx(promptInputStyles.fieldLabelText)}>Intent</span>
+            <span className={sx(promptInputStyles.fieldLabelText)}>{i18n.t("composer:promptInput.lensAnnotationFeedbackPopover3")}</span>
             <Select value={intent} onValueChange={setIntent}>
               <SelectTrigger
                 size="sm"
                 className={sx(promptInputStyles.fullWidth)}
-                aria-label={`Intent for comment ${annotation.pin}`}
+                aria-label={i18n.t("composer:promptInput.ariaLabel3", { value1: annotation.pin })}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -788,12 +788,12 @@ function LensAnnotationFeedbackPopover(args: {
             </Select>
           </label>
           <label className={sx(promptInputStyles.fieldLabel)}>
-            <span className={sx(promptInputStyles.fieldLabelText)}>Priority</span>
+            <span className={sx(promptInputStyles.fieldLabelText)}>{i18n.t("composer:promptInput.lensAnnotationFeedbackPopover4")}</span>
             <Select value={priority} onValueChange={setPriority}>
               <SelectTrigger
                 size="sm"
                 className={sx(promptInputStyles.fullWidth)}
-                aria-label={`Priority for comment ${annotation.pin}`}
+                aria-label={i18n.t("composer:promptInput.ariaLabel4", { value1: annotation.pin })}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -820,14 +820,14 @@ function LensAnnotationFeedbackPopover(args: {
             })
           }
         >
-          Apply
-        </Button>
+          {i18n.t("composer:promptInput.lensAnnotationFeedbackPopover5")}</Button>
       </PopoverContent>
     </Popover>
   );
 }
 
 export function PromptInput(args: PromptInputProps) {
+  useTranslation();
   const {
     disabled,
     minimal = false,
@@ -1119,10 +1119,10 @@ export function PromptInput(args: PromptInputProps) {
       ? "applying"
       : "idle";
   const promptEnhancementLabel = promptEnhancementPending
-    ? "Enhancing prompt"
+    ? i18n.t("composer:promptInput.promptEnhancementLabel")
     : promptEnhancementRevealing
-      ? "Applying enhanced prompt"
-      : "Enhance prompt";
+      ? i18n.t("composer:promptInput.promptEnhancementLabel2")
+      : i18n.t("composer:promptInput.promptEnhancementLabel3");
   const hasDraftPayload =
     value.trim().length > 0 ||
     attachedFilePaths.length > 0 ||
@@ -1377,7 +1377,7 @@ export function PromptInput(args: PromptInputProps) {
   const hasRuntimeContent = Boolean((runtimeStatusItems?.length ?? 0) > 0);
   const runtimeProfile = useMemo(
     () => getPromptInputRuntimeProfile(runtimeStatusItems ?? []),
-    [runtimeStatusItems],
+    [runtimeStatusItems, i18n.language],
   );
   const [composerTrayOpen, setComposerTrayOpen] = useState(false);
   const [composerCustomizeOpen, setComposerCustomizeOpen] = useState(false);
@@ -1746,7 +1746,7 @@ export function PromptInput(args: PromptInputProps) {
   async function submitCurrentMessage(intent?: "steer" | "queue") {
     if (clipboardReadQueue.isPending()) {
       toast.info(
-        "Images are still loading. Send again when the thumbnails appear.",
+        i18n.t("composer:promptInput.submitCurrentMessage"),
       );
       return;
     }
@@ -1849,9 +1849,9 @@ export function PromptInput(args: PromptInputProps) {
           documentId: resolveLensAnnotationReview(annotation).page.documentId,
         });
         if (!result?.ok) {
-          toast.error("Comment removal failed", {
+          toast.error(i18n.t("composer:promptInput.copy"), {
             description:
-              result?.message ?? "Lens could not remove that comment.",
+              result?.message ?? i18n.t("composer:promptInput.description"),
           });
         }
       }
@@ -1863,7 +1863,7 @@ export function PromptInput(args: PromptInputProps) {
         removeImageAnnotationIds: [annotation.id],
       });
     },
-    [updateLensAnnotationAttachment],
+    [updateLensAnnotationAttachment, i18n.language],
   );
 
   const applyLensAnnotationStyle = useCallback(
@@ -1886,8 +1886,8 @@ export function PromptInput(args: PromptInputProps) {
       });
 
       if (!result?.ok || !result.edits) {
-        toast.error("Style edit failed", {
-          description: result?.message ?? "Lens could not edit that element.",
+        toast.error(i18n.t("composer:promptInput.copy2"), {
+          description: result?.message ?? i18n.t("composer:promptInput.description2"),
         });
         return;
       }
@@ -1929,11 +1929,11 @@ export function PromptInput(args: PromptInputProps) {
         }),
       });
 
-      toast.success("Style updated", {
-        description: `${edits.length} propert${edits.length === 1 ? "y" : "ies"} changed.`,
+      toast.success(i18n.t("composer:promptInput.copy3"), {
+        description: i18n.t("composer:promptInput.description3", { value1: edits.length, count: edits.length }),
       });
     },
-    [updateLensAnnotationAttachment],
+    [updateLensAnnotationAttachment, i18n.language],
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -2357,7 +2357,7 @@ export function PromptInput(args: PromptInputProps) {
         <TooltipTrigger
           type="button"
           disabled={interactionsDisabled}
-          aria-label={planMode ? "Plan mode ON" : "Plan mode OFF"}
+          aria-label={planMode ? i18n.t("composer:promptInput.ariaLabel5") : i18n.t("composer:promptInput.ariaLabel6")}
           onClick={() => onPlanModeChange(!planMode)}
           {...composerControlAttributes}
           className={tooltipTriggerButtonClassName({
@@ -2372,11 +2372,11 @@ export function PromptInput(args: PromptInputProps) {
         >
           <ClipboardCheck className={sx(promptInputStyles.icon4)} />
           <ComposerControlLabel>
-            <span>Plan</span>
+            <span>{i18n.t("composer:promptInput.plan")}</span>
           </ComposerControlLabel>
         </TooltipTrigger>
         <TooltipContent side="top">
-          {planMode ? "Plan mode ON" : "Plan mode OFF"}
+          {planMode ? i18n.t("composer:promptInput.plan2") : i18n.t("composer:promptInput.plan3")}
         </TooltipContent>
       </Tooltip>
     ) : null,
@@ -2394,7 +2394,7 @@ export function PromptInput(args: PromptInputProps) {
         <TooltipTrigger
           type="button"
           disabled={interactionsDisabled}
-          aria-label={`Thinking: ${thinkingMode ?? "adaptive"}`}
+          aria-label={i18n.t("composer:promptInput.ariaLabel7", { value1: thinkingMode ?? "adaptive" })}
           onClick={() => {
             const cycle = {
               adaptive: "enabled",
@@ -2425,10 +2425,10 @@ export function PromptInput(args: PromptInputProps) {
             )}
           />
           <ComposerControlLabel>
-            <span>Thinking</span>
+            <span>{i18n.t("composer:promptInput.thinking")}</span>
           </ComposerControlLabel>
         </TooltipTrigger>
-        <TooltipContent side="top">{`Thinking: ${thinkingMode ?? "adaptive"}`}</TooltipContent>
+        <TooltipContent side="top">{i18n.t("composer:promptInput.thinking2", { value1: thinkingMode ?? "adaptive" })}</TooltipContent>
       </Tooltip>
     ) : null,
     review: hasReviewControl ? (
@@ -2455,20 +2455,19 @@ export function PromptInput(args: PromptInputProps) {
                 disabled={interactionsDisabled}
                 {...composerControlAttributes}
                 className={PROMPT_TOOLBAR_ICON_BUTTON}
-                aria-label={`Runtime · ${runtimeProfile.label}`}
-                title="Runtime profile for the next turn"
+                aria-label={i18n.t("composer:promptInput.ariaLabel8", { value1: runtimeProfile.label })}
+                title={i18n.t("composer:promptInput.title")}
               />
             }
           >
             <PromptInputRuntimeTriggerIcon profile={runtimeProfile} />
-            <ComposerControlLabel wingOnly>Runtime</ComposerControlLabel>
+            <ComposerControlLabel wingOnly>{i18n.t("composer:promptInput.runtime")}</ComposerControlLabel>
           </DrawerTrigger>
           <DrawerContent className={sx(promptInputStyles.drawerContent)}>
             <DrawerHeader className={sx(promptInputStyles.drawerHeader)}>
               <div className={sx(promptInputStyles.rowBaseline)}>
                 <DrawerTitle className={sx(promptInputStyles.titleBase)}>
-                  Runtime profile
-                </DrawerTitle>
+                  {i18n.t("composer:promptInput.runtime2")}</DrawerTitle>
                 <span
                   className={sx(
                     promptInputStyles.toneLabel,
@@ -2478,10 +2477,7 @@ export function PromptInput(args: PromptInputProps) {
                   {runtimeProfile.label}
                 </span>
               </div>
-              <DrawerDescription>
-                {runtimeProfile.description} Effective values for the next turn
-                are shown below.
-              </DrawerDescription>
+              <DrawerDescription>{i18n.t("composer:promptInput.sentence30", { value1: runtimeProfile.description })}</DrawerDescription>
             </DrawerHeader>
             <div className={sx(promptInputStyles.drawerScroll)}>
               <PromptInputRuntimeBar statusItems={runtimeStatusItems} />
@@ -2499,13 +2495,13 @@ export function PromptInput(args: PromptInputProps) {
                 disabled={interactionsDisabled}
                 {...composerControlAttributes}
                 className={PROMPT_TOOLBAR_ICON_BUTTON}
-                aria-label={`Runtime · ${runtimeProfile.label}`}
-                title="Runtime profile for the next turn"
+                aria-label={i18n.t("composer:promptInput.ariaLabel9", { value1: runtimeProfile.label })}
+                title={i18n.t("composer:promptInput.title2")}
               />
             }
           >
             <PromptInputRuntimeTriggerIcon profile={runtimeProfile} />
-            <ComposerControlLabel wingOnly>Runtime</ComposerControlLabel>
+            <ComposerControlLabel wingOnly>{i18n.t("composer:promptInput.runtime4")}</ComposerControlLabel>
           </PopoverTrigger>
           <PopoverContent
             align="start"
@@ -2522,8 +2518,7 @@ export function PromptInput(args: PromptInputProps) {
             <div className={sx(promptInputStyles.runtimePopoverHeader)}>
               <div className={sx(promptInputStyles.rowBaseline)}>
                 <PopoverTitle className={sx(promptInputStyles.titleBase)}>
-                  Runtime profile
-                </PopoverTitle>
+                  {i18n.t("composer:promptInput.runtime5")}</PopoverTitle>
                 <span
                   className={sx(
                     promptInputStyles.toneLabel,
@@ -2533,10 +2528,7 @@ export function PromptInput(args: PromptInputProps) {
                   {runtimeProfile.label}
                 </span>
               </div>
-              <PopoverDescription className={sx(promptInputStyles.mt1)}>
-                {runtimeProfile.description} Effective values for the next turn
-                are shown below.
-              </PopoverDescription>
+              <PopoverDescription className={sx(promptInputStyles.mt1)}>{i18n.t("composer:promptInput.sentence31", { value1: runtimeProfile.description })}</PopoverDescription>
             </div>
             <PromptInputRuntimeBar statusItems={runtimeStatusItems} />
           </PopoverContent>
@@ -2633,8 +2625,7 @@ export function PromptInput(args: PromptInputProps) {
         }}
       >
         <SlidersHorizontal className={sx(promptInputStyles.icon3)} />
-        Customize controls…
-      </Button>
+        {i18n.t("composer:promptInput.composerCustomizeMenuFooter")}</Button>
     </>
   ) : null;
   const composerOverflowTray =
@@ -2651,8 +2642,8 @@ export function PromptInput(args: PromptInputProps) {
               size={composerIconButtonSize}
               disabled={interactionsDisabled}
               className={PROMPT_TOOLBAR_ICON_BUTTON}
-              aria-label={`More composer controls (${overflowMenuItems.length})`}
-              title="More composer controls"
+              aria-label={i18n.t("composer:promptInput.ariaLabel10", { value1: overflowMenuItems.length })}
+              title={i18n.t("composer:promptInput.title3")}
               data-composer-tray-trigger="true"
             />
           }
@@ -2764,7 +2755,7 @@ export function PromptInput(args: PromptInputProps) {
             <PromptInputGoalStatusStrip status={goalStatus} compact={minimal} />
           ) : null}
           {!minimal && promptSuggestions && promptSuggestions.length > 0 ? (
-            <Suggestions aria-label="Suggestions" className={sx(promptInputStyles.suggestions)}>
+            <Suggestions aria-label={i18n.t("composer:promptInput.ariaLabel11")} className={sx(promptInputStyles.suggestions)}>
               {promptSuggestions.map((suggestion) => (
                 <Suggestion
                   key={suggestion}
@@ -2829,8 +2820,7 @@ export function PromptInput(args: PromptInputProps) {
                 >
                   {minimal ? (
                     <span className={sx(promptInputStyles.promptCaretGlyph)}>
-                      &gt;
-                    </span>
+                      {i18n.t("composer:promptInput.composerCard")}</span>
                   ) : null}
                   <div
                     className={sx(promptInputStyles.editorArea)}
@@ -2898,15 +2888,15 @@ export function PromptInput(args: PromptInputProps) {
                             {promptEnhancementBusy ? (
                               <span aria-hidden="true">
                                 {promptEnhancementPending
-                                  ? "Enhancing"
-                                  : "Applying"}
+                                  ? i18n.t("composer:promptInput.composerCard2")
+                                  : i18n.t("composer:promptInput.composerCard3")}
                               </span>
                             ) : null}
                           </TooltipTrigger>
                           <TooltipContent side="top" className={sx(promptInputStyles.maxW64)}>
                             {promptEnhancementBusy
                               ? promptEnhancementLabel
-                              : "Enhance prompt — rewrite this draft into a clearer, execution-ready prompt."}
+                              : i18n.t("composer:promptInput.composerCard4")}
                           </TooltipContent>
                         </Tooltip>
                         {promptEnhancementBusy ? (
@@ -2916,8 +2906,8 @@ export function PromptInput(args: PromptInputProps) {
                             aria-live="polite"
                           >
                             {promptEnhancementPending
-                              ? "Enhancing prompt"
-                              : "Applying enhanced prompt"}
+                              ? i18n.t("composer:promptInput.composerCard5")
+                              : i18n.t("composer:promptInput.composerCard6")}
                           </span>
                         ) : null}
                       </div>
@@ -2992,7 +2982,7 @@ export function PromptInput(args: PromptInputProps) {
                                     kind: "image" as const,
                                     id: crypto.randomUUID(),
                                     dataUrl: await readClipboardImage(file),
-                                    label: file.name || "Pasted image",
+                                    label: file.name || i18n.t("composer:promptInput.label"),
                                     mimeType: file.type || "image/png",
                                   })),
                                 ),
@@ -3017,7 +3007,7 @@ export function PromptInput(args: PromptInputProps) {
                                 }),
                             )
                             .catch((error: unknown) => {
-                              toast.error("Images could not be attached", {
+                              toast.error(i18n.t("composer:promptInput.copy4"), {
                                 description:
                                   error instanceof Error
                                     ? error.message
@@ -3364,15 +3354,15 @@ export function PromptInput(args: PromptInputProps) {
                                   steerQueueEnterAction,
                                 )
                               : isQueueNextMode
-                                ? "Type the next turn..."
-                                : "Type a request..."
+                                ? i18n.t("composer:promptInput.placeholder")
+                                : i18n.t("composer:promptInput.placeholder2")
                             : isSteerOrQueueMode
                               ? formatSteerQueueEnterActionLabel(
                                   steerQueueEnterAction,
                                 )
                               : isQueueNextMode
-                                ? "Queue the next turn… (↵)"
-                                : "Use / for commands, $ for skills, ! for macros, @ for Information"
+                                ? i18n.t("composer:promptInput.placeholder3")
+                                : i18n.t("composer:promptInput.placeholder4")
                       }
                       className={sx(
                         // Height and overflow belong to these classes alone.
@@ -3444,27 +3434,27 @@ export function PromptInput(args: PromptInputProps) {
                   filteredWorkspaceInformationItems.length === 0 ? (
                     <CommandEmpty>
                       {taskMentionOptions && taskMentionOptions.length > 0
-                        ? "No matching task or Information reference."
-                        : "No matching Information reference."}
+                        ? i18n.t("composer:promptInput.composerCard7")
+                        : i18n.t("composer:promptInput.composerCard8")}
                     </CommandEmpty>
                   ) : activePalette === "skill" &&
                     filteredSkillItems.length === 0 ? (
-                    <CommandEmpty>No matching skill.</CommandEmpty>
+                    <CommandEmpty>{i18n.t("composer:promptInput.composerCard9")}</CommandEmpty>
                   ) : activePalette === "macro" &&
                     filteredMacroItems.length === 0 ? (
                     <CommandEmpty>
                       {paletteMacros.length > 0
-                        ? "No matching macro."
-                        : "No macros yet. Add one in Settings → Macros."}
+                        ? i18n.t("composer:promptInput.composerCard10")
+                        : i18n.t("composer:promptInput.composerCard11")}
                     </CommandEmpty>
                   ) : activePalette === "command" &&
                     filteredCommandItems.length === 0 ? (
-                    <CommandEmpty>No matching slash command.</CommandEmpty>
+                    <CommandEmpty>{i18n.t("composer:promptInput.composerCard12")}</CommandEmpty>
                   ) : (
                     <>
                       {activePalette === "info" &&
                       workspaceInformationSectionItems.length > 0 ? (
-                        <CommandGroup heading="Information sections">
+                        <CommandGroup heading={i18n.t("composer:promptInput.heading")}>
                           {workspaceInformationSectionItems.map(
                             ({ item, index }) => (
                               <CommandItem
@@ -3495,8 +3485,7 @@ export function PromptInput(args: PromptInputProps) {
                                       variant="secondary"
                                       className={sx(promptInputStyles.badgeUpper)}
                                     >
-                                      Section
-                                    </Badge>
+                                      {i18n.t("composer:promptInput.copy5")}</Badge>
                                   </div>
                                   <p className={sx(promptInputStyles.itemDesc)}>
                                     {item.description}
@@ -3509,7 +3498,7 @@ export function PromptInput(args: PromptInputProps) {
                       ) : null}
                       {activePalette === "info" &&
                       taskMentionItems.length > 0 ? (
-                        <CommandGroup heading="Tasks">
+                        <CommandGroup heading={i18n.t("composer:promptInput.heading2")}>
                           {taskMentionItems.map(({ item, index }) => (
                             <CommandItem
                               key={item.taskId}
@@ -3541,8 +3530,7 @@ export function PromptInput(args: PromptInputProps) {
                                   </span>
                                 </div>
                                 <p className={sx(promptInputStyles.itemDesc)}>
-                                  Attach its latest reply as context
-                                </p>
+                                  {i18n.t("composer:promptInput.copy6")}</p>
                               </div>
                             </CommandItem>
                           ))}
@@ -3550,7 +3538,7 @@ export function PromptInput(args: PromptInputProps) {
                       ) : null}
                       {activePalette === "info" &&
                       workspaceInformationEntryItems.length > 0 ? (
-                        <CommandGroup heading="Information items">
+                        <CommandGroup heading={i18n.t("composer:promptInput.heading3")}>
                           {workspaceInformationEntryItems.map(
                             ({ item, index }) => (
                               <CommandItem
@@ -3581,8 +3569,7 @@ export function PromptInput(args: PromptInputProps) {
                                       variant="outline"
                                       className={sx(promptInputStyles.badgeUpper)}
                                     >
-                                      Item
-                                    </Badge>
+                                      {i18n.t("composer:promptInput.copy7")}</Badge>
                                   </div>
                                   <p className={sx(promptInputStyles.itemDesc)}>
                                     {item.description}
@@ -3595,7 +3582,7 @@ export function PromptInput(args: PromptInputProps) {
                       ) : null}
                       {activePalette === "skill" &&
                       localSkillItems.length > 0 ? (
-                        <CommandGroup heading="Workspace skills">
+                        <CommandGroup heading={i18n.t("composer:promptInput.heading4")}>
                           {localSkillItems.map(({ item, index }) => (
                             <CommandItem
                               key={item.id}
@@ -3622,7 +3609,7 @@ export function PromptInput(args: PromptInputProps) {
                                     className={sx(promptInputStyles.badgeUpperShrink)}
                                   >
                                     {item.provider === "shared"
-                                      ? "Shared"
+                                      ? i18n.t("composer:promptInput.copy8")
                                       : item.provider === "claude-code"
                                         ? "Claude"
                                         : "Codex"}
@@ -3641,7 +3628,7 @@ export function PromptInput(args: PromptInputProps) {
                       ) : null}
                       {activePalette === "skill" &&
                       userSkillItems.length > 0 ? (
-                        <CommandGroup heading="User skills">
+                        <CommandGroup heading={i18n.t("composer:promptInput.heading5")}>
                           {userSkillItems.map(({ item, index }) => (
                             <CommandItem
                               key={item.id}
@@ -3668,7 +3655,7 @@ export function PromptInput(args: PromptInputProps) {
                                     className={sx(promptInputStyles.badgeUpperShrink)}
                                   >
                                     {item.provider === "shared"
-                                      ? "Shared"
+                                      ? i18n.t("composer:promptInput.copy9")
                                       : item.provider === "claude-code"
                                         ? "Claude"
                                         : "Codex"}
@@ -3687,7 +3674,7 @@ export function PromptInput(args: PromptInputProps) {
                       ) : null}
                       {activePalette === "skill" &&
                       globalSkillItems.length > 0 ? (
-                        <CommandGroup heading="Global skills">
+                        <CommandGroup heading={i18n.t("composer:promptInput.heading6")}>
                           {globalSkillItems.map(({ item, index }) => (
                             <CommandItem
                               key={item.id}
@@ -3714,7 +3701,7 @@ export function PromptInput(args: PromptInputProps) {
                                     className={sx(promptInputStyles.badgeUpperShrink)}
                                   >
                                     {item.provider === "shared"
-                                      ? "Shared"
+                                      ? i18n.t("composer:promptInput.copy10")
                                       : item.provider === "claude-code"
                                         ? "Claude"
                                         : "Codex"}
@@ -3734,7 +3721,7 @@ export function PromptInput(args: PromptInputProps) {
                       {activePalette === "macro" &&
                       indexedMacroItems.length > 0 ? (
                         <CommandGroup
-                          heading="Macros"
+                          heading={i18n.t("composer:promptInput.heading7")}
                         >
                           {indexedMacroItems.map(({ item, index }) => (
                             <CommandItem
@@ -3784,10 +3771,10 @@ export function PromptInput(args: PromptInputProps) {
                         <CommandGroup
                           heading={
                             selectedModel.providerId === "claude-code"
-                              ? "Claude native commands"
+                              ? i18n.t("composer:promptInput.heading8")
                               : selectedModel.providerId === "codex"
-                                ? "Codex commands"
-                                : "Provider commands"
+                                ? i18n.t("composer:promptInput.heading9")
+                                : i18n.t("composer:promptInput.heading10")
                           }
                         >
                           {providerCommandItems.map(({ item, index }) => (
@@ -3818,7 +3805,7 @@ export function PromptInput(args: PromptInputProps) {
                                       ? "Claude"
                                       : selectedModel.providerId === "codex"
                                         ? "Codex"
-                                        : "Provider"}
+                                        : i18n.t("composer:promptInput.copy11")}
                                   </Badge>
                                 </div>
                                 <p className={sx(promptInputStyles.itemDesc)}>
@@ -3839,49 +3826,32 @@ export function PromptInput(args: PromptInputProps) {
                       {filteredWorkspaceInformationItems[
                         selectedWorkspaceInformationIndex
                       ]?.kind === "task"
-                        ? "Enter or Tab attaches the highlighted task as context."
-                        : "Enter or Tab inserts the highlighted Information reference."}
+                        ? i18n.t("composer:promptInput.composerCard13")
+                        : i18n.t("composer:promptInput.composerCard14")}
                     </p>
                     <p className={sx(promptInputStyles.mt2)}>
-                      Type `@` to search Information and tasks. A task attaches
-                      below the prompt; you can also drag one in from the
-                      sidebar. Information selection inserts
-                      `@info:section` for a full section or `@info:section/item`
-                      for one item. `@lens` references the current Lens browser
-                      page; `@web` connects the active provider to its native
-                      browser extension.
-                    </p>
+                      {i18n.t("composer:promptInput.composerCard15")}</p>
                   </div>
                 ) : activePalette === "skill" ? (
                   <div className={sx(promptInputStyles.paletteFooter)}>
                     <p className={sx(promptInputStyles.paletteFooterTitle)}>
                       <Sparkles className={sx(promptInputStyles.icon35)} />
-                      Enter or Tab inserts the highlighted skill token. Selected
-                      skills are normalized on send.
-                    </p>
+                      {i18n.t("composer:promptInput.composerCard16")}</p>
                     <p className={sx(promptInputStyles.mt2)}>
-                      `$skill` activates Stave skill instructions for both
-                      `Claude` and `Codex` via prompt context. Use `/` commands
-                      only for provider-native commands.
-                    </p>
+                      {i18n.t("composer:promptInput.composerCard17")}</p>
                   </div>
                 ) : activePalette === "macro" ? (
                   <div className={sx(promptInputStyles.paletteFooter)}>
                     <p className={sx(promptInputStyles.paletteFooterTitle)}>
                       <Zap className={sx(promptInputStyles.icon35)} />
-                      Enter or Tab expands the highlighted macro into the draft.
-                    </p>
+                      {i18n.t("composer:promptInput.composerCard18")}</p>
                     <p className={sx(promptInputStyles.mt2)}>
-                      The prompt text is inserted immediately so you can edit it
-                      before sending. A pinned model or effort updates this
-                      turn&apos;s selector.
-                    </p>
+                      {i18n.t("composer:promptInput.composerCard19")}</p>
                   </div>
                 ) : activePalette === "command" ? (
                   <div className={sx(promptInputStyles.paletteFooter)}>
                     <p className={sx(promptInputStyles.paletteFooterTitlePlain)}>
-                      Enter or Tab inserts the highlighted command.
-                    </p>
+                      {i18n.t("composer:promptInput.composerCard20")}</p>
                     {commandPaletteProviderNote ? (
                       <>
                         <p className={sx(promptInputStyles.mt2Title)}>
@@ -3904,12 +3874,8 @@ export function PromptInput(args: PromptInputProps) {
                   variant="outline"
                   className={sx(promptInputStyles.badgeUpper)}
                 >
-                  Comment
-                </Badge>
-                <span className={sx(promptInputStyles.captionMuted)}>
-                  {commentItemCount} item
-                  {commentItemCount === 1 ? "" : "s"} will send as one prompt
-                </span>
+                  {i18n.t("composer:promptInput.composerCard21")}</Badge>
+                <span className={sx(promptInputStyles.captionMuted)}>{i18n.t("composer:promptInput.sentence32", { value1: commentItemCount, count: commentItemCount })}</span>
               </div>
               <div className={sx(promptInputStyles.flexWrapGap)}>
                 {promptBatch.map((item, index) => {
@@ -3934,7 +3900,7 @@ export function PromptInput(args: PromptInputProps) {
                       {attachmentCount > 0 ? (
                         <span
                           className={sx(promptInputStyles.chipAttachCount)}
-                          title={`${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}`}
+                          title={i18n.t("composer:promptInput.title4", { value1: attachmentCount, count: attachmentCount })}
                         >
                           <Paperclip className={sx(promptInputStyles.icon3)} />
                           {attachmentCount}
@@ -3947,7 +3913,7 @@ export function PromptInput(args: PromptInputProps) {
                           onRemovePromptBatchItem?.({ itemId: item.id })
                         }
                         xstyle={promptInputStyles.chipRemove}
-                        aria-label={`Remove comment ${index + 1}`}
+                        aria-label={i18n.t("composer:promptInput.ariaLabel12", { value1: index + 1 })}
                       >
                         <X className={sx(promptInputStyles.icon3)} />
                       </AdsButton>
@@ -4020,7 +3986,7 @@ export function PromptInput(args: PromptInputProps) {
                             })
                           }
                           xstyle={promptInputStyles.lensChipRemove}
-                          aria-label={`Remove ${attachment.label}`}
+                          aria-label={i18n.t("composer:promptInput.ariaLabel13", { value1: attachment.label })}
                         >
                           <X className={sx(promptInputStyles.icon3)} />
                         </AdsButton>
@@ -4051,7 +4017,7 @@ export function PromptInput(args: PromptInputProps) {
                           <AdsButton layout="host"
                             type="button"
                             xstyle={promptInputStyles.screenshotButton}
-                            title="View visual comment screenshot"
+                            title={i18n.t("composer:promptInput.title5")}
                             onClick={() =>
                               setImagePreviewSrc({
                                 dataUrl: screenshot.dataUrl,
@@ -4089,7 +4055,7 @@ export function PromptInput(args: PromptInputProps) {
                                 {formatLensFeedbackOption(feedback.priority)}
                                 {" · "}
                                 {annotation.kind === "area"
-                                  ? "area"
+                                  ? i18n.t("composer:promptInput.copy12")
                                   : annotation.selector}
                               </span>
                             </TooltipTrigger>
@@ -4138,7 +4104,7 @@ export function PromptInput(args: PromptInputProps) {
                           size="icon-xs"
                           variant="ghost"
                           disabled={interactionsDisabled}
-                          aria-label={`Remove comment ${annotation.pin}`}
+                          aria-label={i18n.t("composer:promptInput.ariaLabel14", { value1: annotation.pin })}
                           onClick={() => {
                             void removeLensAnnotation(attachment, annotation);
                           }}
@@ -4157,13 +4123,12 @@ export function PromptInput(args: PromptInputProps) {
           referenceAttachments.length > 0 ? (
             <div
               role="group"
-              aria-label="Current prompt attachments"
+              aria-label={i18n.t("composer:promptInput.ariaLabel15")}
               className={sx(promptInputStyles.attachmentsRow)}
             >
               <span className={sx(promptInputStyles.attachmentsCount)}>
                 <Paperclip className={sx(promptInputStyles.icon3)} aria-hidden="true" />
-                {currentAttachmentCount} attached
-              </span>
+                {currentAttachmentCount} {i18n.t("composer:promptInput.composerCard24")}</span>
               {workspaceInformationAttachments.map((attachment) => (
                 <WorkspaceInformationReferenceChip
                   key={attachment.id}
@@ -4233,8 +4198,8 @@ export function PromptInput(args: PromptInputProps) {
                     size="xs"
                     variant="ghost"
                     disabled={interactionsDisabled || !onOpenAttachedFile}
-                    aria-label={`Open attached file ${filePath}`}
-                    title="Open in editor"
+                    aria-label={i18n.t("composer:promptInput.ariaLabel16", { value1: filePath })}
+                    title={i18n.t("composer:promptInput.title6")}
                     className={sx(promptInputStyles.fileOpenButton)}
                     onClick={() => void onOpenAttachedFile?.({ filePath })}
                   >
@@ -4250,8 +4215,8 @@ export function PromptInput(args: PromptInputProps) {
                     iconOnly
                     variant="ghost"
                     disabled={interactionsDisabled}
-                    aria-label={`Remove attached file ${filePath}`}
-                    title="Remove attachment"
+                    aria-label={i18n.t("composer:promptInput.ariaLabel17", { value1: filePath })}
+                    title={i18n.t("composer:promptInput.title7")}
                     onClick={() =>
                       onAttachFilesChange({
                         filePaths: attachedFilePaths.filter(
@@ -4278,8 +4243,8 @@ export function PromptInput(args: PromptInputProps) {
                   <AdsButton layout="host"
                     type="button"
                     disabled={interactionsDisabled}
-                    aria-label={`Preview attached image ${img.label}`}
-                    title="View full size"
+                    aria-label={i18n.t("composer:promptInput.ariaLabel18", { value1: img.label })}
+                    title={i18n.t("composer:promptInput.title8")}
                     xstyle={promptInputStyles.imagePreviewButton}
                     onClick={() =>
                       setImagePreviewSrc({
@@ -4300,8 +4265,8 @@ export function PromptInput(args: PromptInputProps) {
                     iconOnly
                     variant="floating"
                     disabled={interactionsDisabled}
-                    aria-label={`Remove attached image ${img.label}`}
-                    title="Remove attachment"
+                    aria-label={i18n.t("composer:promptInput.ariaLabel19", { value1: img.label })}
+                    title={i18n.t("composer:promptInput.title9")}
                     onClick={() =>
                       onAttachmentsChange?.({
                         attachments: (attachments ?? []).filter(
@@ -4361,8 +4326,7 @@ export function PromptInput(args: PromptInputProps) {
                       xstyle={promptInputStyles.customizePopover}
                     >
                       <PopoverTitle className={sx(promptInputStyles.customizeTitle)}>
-                        Composer controls
-                      </PopoverTitle>
+                        {i18n.t("composer:promptInput.composerCard25")}</PopoverTitle>
                       <ComposerControlPlacementList
                         placements={composerControlPlacements ?? {}}
                         forcedIds={composerControlLayout.forced}
@@ -4444,11 +4408,11 @@ export function PromptInput(args: PromptInputProps) {
                         : undefined,
                     ),
                   })}
-                  aria-label="Attach files"
+                  aria-label={i18n.t("composer:promptInput.ariaLabel20")}
                 >
                   <Paperclip className={sx(promptInputStyles.icon35)} />
                 </TooltipTrigger>
-                <TooltipContent side="top">Attach files</TooltipContent>
+                <TooltipContent side="top">{i18n.t("composer:promptInput.composerCard26")}</TooltipContent>
               </Tooltip>
               {isTurnActive && !hasDraftPayload ? (
                 <Tooltip>
@@ -4464,15 +4428,14 @@ export function PromptInput(args: PromptInputProps) {
                         ),
                       ),
                     })}
-                    aria-label="Stop responding"
+                    aria-label={i18n.t("composer:promptInput.ariaLabel21")}
                     onClick={() => onAbort?.()}
                   >
                     <Square className={sx(promptInputStyles.iconSquare)} />
                   </TooltipTrigger>
                   <TooltipContent side="top">
                     <span className={sx(promptInputStyles.inlineGap1)}>
-                      Stop responding
-                      <KbdGroup>
+                      {i18n.t("composer:promptInput.composerCard27")}<KbdGroup>
                         <Kbd>Esc</Kbd>
                       </KbdGroup>
                     </span>
@@ -4497,13 +4460,13 @@ export function PromptInput(args: PromptInputProps) {
                     aria-label={
                       isSteerOrQueueMode
                         ? steerQueueEnterAction === "steer"
-                          ? "Steer this turn"
-                          : "Queue next turn"
+                          ? i18n.t("composer:promptInput.ariaLabel22")
+                          : i18n.t("composer:promptInput.ariaLabel23")
                         : isQueueNextMode
-                          ? "Queue next turn"
+                          ? i18n.t("composer:promptInput.ariaLabel24")
                           : assignOnSend
-                            ? "Assign"
-                            : "Send"
+                            ? i18n.t("composer:promptInput.ariaLabel25")
+                            : i18n.t("composer:promptInput.ariaLabel26")
                     }
                   >
                     <Send className={sx(promptInputStyles.icon35)} />
@@ -4519,20 +4482,20 @@ export function PromptInput(args: PromptInputProps) {
                     <span className={sx(promptInputStyles.inlineGap1)}>
                       {isSteerOrQueueMode
                         ? steerQueueEnterAction === "steer"
-                          ? "Steer"
-                          : "Queue"
+                          ? i18n.t("composer:promptInput.composerCard28")
+                          : i18n.t("composer:promptInput.composerCard29")
                         : isQueueNextMode
-                          ? "Queue next turn"
+                          ? i18n.t("composer:promptInput.composerCard30")
                           : assignOnSend
-                            ? "Assign"
-                            : "Send"}
+                            ? i18n.t("composer:promptInput.composerCard31")
+                            : i18n.t("composer:promptInput.composerCard32")}
                       <KbdGroup>
                         <Kbd>↵</Kbd>
                       </KbdGroup>
                     </span>
                     {isSteerOrQueueMode ? (
                       <span className={sx(promptInputStyles.inlineGapBg70)}>
-                        {steerQueueEnterAction === "steer" ? "Queue" : "Steer"}
+                        {steerQueueEnterAction === "steer" ? i18n.t("composer:promptInput.composerCard33") : i18n.t("composer:promptInput.composerCard34")}
                         <KbdGroup>
                           <Kbd>Tab</Kbd>
                         </KbdGroup>
@@ -4548,8 +4511,8 @@ export function PromptInput(args: PromptInputProps) {
       <ImageLightbox
         open={Boolean(imagePreviewSrc)}
         imageSrc={imagePreviewSrc?.dataUrl ?? ""}
-        alt={imagePreviewSrc?.label ?? "Image preview"}
-        imageTitle="Click to close"
+        alt={imagePreviewSrc?.label ?? i18n.t("composer:promptInput.alt")}
+        imageTitle={i18n.t("composer:promptInput.imageTitle")}
         onClose={() => setImagePreviewSrc(null)}
       />
     </>

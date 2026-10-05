@@ -1,3 +1,5 @@
+import { formatTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { Fragment, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui/button";
@@ -22,30 +24,30 @@ const SOURCE_COPY: Record<
   NonNullable<DelegationExchange["identity"]["source"]>,
   string
 > = {
-  auto: "Automatic routing",
-  preset: "Preset",
-  explicit: "Explicit model",
-  "provider-default": "Provider default",
+  get auto() { return i18n.t("agentRuns:exchangeDetail.auto"); },
+  get preset() { return i18n.t("agentRuns:exchangeDetail.preset"); },
+  get explicit() { return i18n.t("agentRuns:exchangeDetail.explicit"); },
+  get "provider-default"() { return i18n.t("agentRuns:exchangeDetail.providerDefault"); },
 };
 
 const ASK_LABEL: Record<DelegationExchange["kind"], string> = {
-  "delegated-task": "Assignment",
-  subagent: "Assignment",
+  get "delegated-task"() { return i18n.t("agentRuns:exchangeDetail.delegatedTask"); },
+  get subagent() { return i18n.t("agentRuns:exchangeDetail.subagent"); },
 };
 
 const RESULT_LABEL: Record<DelegationExchange["kind"], string> = {
-  "delegated-task": "Answer",
-  subagent: "Outcome",
+  get "delegated-task"() { return i18n.t("agentRuns:exchangeDetail.delegatedTask2"); },
+  get subagent() { return i18n.t("agentRuns:exchangeDetail.subagent2"); },
 };
 
 /** `120 in · 40 out · 10 cache read · $0.0123`. */
 function formatSpend(spend: NonNullable<DelegationExchange["outcome"]["spend"]>): string {
   const cache = [
-    spend.cacheReadTokens ? `${spend.cacheReadTokens} cache read` : null,
-    spend.cacheCreationTokens ? `${spend.cacheCreationTokens} cache write` : null,
+    spend.cacheReadTokens ? i18n.t("agentRuns:exchangeDetail.extraCopy75", { value1: spend.cacheReadTokens }) : null,
+    spend.cacheCreationTokens ? i18n.t("agentRuns:exchangeDetail.extraCopy76", { value1: spend.cacheCreationTokens }) : null,
   ].filter(Boolean).join(" · ");
   const cost = spend.totalCostUsd === undefined ? "" : ` · $${spend.totalCostUsd.toFixed(4)}`;
-  return `${spend.inputTokens ?? 0} in · ${spend.outputTokens ?? 0} out${cache ? ` · ${cache}` : ""}${cost}`;
+  return i18n.t("agentRuns:exchangeDetail.formatSpend", { value1: spend.inputTokens ?? 0, value2: spend.outputTokens ?? 0, value3: cache ? ` · ${cache}` : "", value4: cost });
 }
 
 export interface ExchangeDetailProps {
@@ -68,6 +70,7 @@ export interface ExchangeDetailProps {
 }
 
 function Section(props: { label: string; children: ReactNode; testId?: string }) {
+  useTranslation();
   return (
     <div className={sx(styles.section)} data-testid={props.testId}>
       <p className={sx(styles.label)}>{props.label}</p>
@@ -84,6 +87,7 @@ function Section(props: { label: string; children: ReactNode; testId?: string })
  * the same place — in the others.
  */
 export function ExchangeDetail(props: ExchangeDetailProps) {
+  useTranslation();
   const { exchange, nowMs } = props;
   const live =
     exchange.outcome.status === "running" ||
@@ -98,57 +102,57 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
   const resultText = exchange.outcome.result;
 
   const setupItems: KeyValueItem[] = [];
-  if (exchange.identity.modelEvidence) setupItems.push({ key: "modelEvidence", label: "Model source", value: exchange.identity.modelEvidence });
-  setupItems.push({ key: "effortEvidence", label: "Effort source", value: exchange.identity.effort ? "Requested or configured; runtime execution not reported" : "Not reported" });
+  if (exchange.identity.modelEvidence) setupItems.push({ key: "modelEvidence", label: i18n.t("agentRuns:exchangeDetail.label"), value: exchange.identity.modelEvidence });
+  setupItems.push({ key: "effortEvidence", label: i18n.t("agentRuns:exchangeDetail.label2"), value: exchange.identity.effort ? i18n.t("agentRuns:exchangeDetail.extraCopy77") : i18n.t("agentRuns:exchangeDetail.extraCopy81") });
   if (exchange.setup.isolation) {
     setupItems.push({
       key: "isolation",
-      label: "Isolation",
-      value: exchange.setup.isolation ?? "Not reported",
+      label: i18n.t("agentRuns:exchangeDetail.label3"),
+      value: exchange.setup.isolation ?? i18n.t("agentRuns:exchangeDetail.extraCopy81"),
     });
   }
   setupItems.push({
     key: "effort",
-    label: "Effort",
+    label: i18n.t("agentRuns:exchangeDetail.label4"),
     value: exchange.identity.effort
       ? describeAgentIdentity({ effort: exchange.identity.effort }).effortLabel
-      : "Not reported",
+      : i18n.t("agentRuns:exchangeDetail.extraCopy81"),
   });
   if (exchange.setup.deadlineMs !== undefined) {
     setupItems.push({
       key: "deadline",
-      label: "Deadline",
+      label: i18n.t("agentRuns:exchangeDetail.label5"),
       value:
         exchange.setup.deadlineMs === undefined
-          ? "Not reported"
+          ? i18n.t("agentRuns:exchangeDetail.extraCopy81")
           : formatExchangeDuration(exchange.setup.deadlineMs),
     });
   }
   if (exchange.identity.source) {
     setupItems.push({
       key: "selection",
-      label: "Selection",
+      label: i18n.t("agentRuns:exchangeDetail.label6"),
       value: SOURCE_COPY[exchange.identity.source],
     });
   }
   if (exchange.setup.attempt !== undefined) {
     setupItems.push({
       key: "attempt",
-      label: "Attempt",
+      label: i18n.t("agentRuns:exchangeDetail.label7"),
       value: String(exchange.setup.attempt + 1),
     });
   }
   if (exchange.setup.lifecycle) {
     setupItems.push({
       key: "lifecycle",
-      label: "Lifecycle",
+      label: i18n.t("agentRuns:exchangeDetail.label8"),
       value: exchange.setup.lifecycle,
     });
   }
   if (exchange.identity.rationale) {
     setupItems.push({
       key: "reason",
-      label: "Reason",
+      label: i18n.t("agentRuns:exchangeDetail.label9"),
       value: exchange.identity.rationale,
     });
   }
@@ -177,33 +181,30 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
   const diagnostics = (
     <Fragment>
       {exchange.timing.startedAt !== null ? (
-        <Section label="Timeline">
+        <Section label={i18n.t("agentRuns:exchangeDetail.label10")}>
           {exchange.timing.stages.length > 0 ? (
             <StageTimeline
               stages={exchange.timing.stages}
               startedAt={exchange.timing.startedAt}
             />
           ) : (
-            <p className={sx(styles.meta)}>
-              Started {new Date(exchange.timing.startedAt).toLocaleTimeString()}
-              {exchange.timing.endedAt !== undefined
-                ? ` · ended ${new Date(exchange.timing.endedAt).toLocaleTimeString()}`
+            <p className={sx(styles.meta)}>{i18n.t("agentRuns:exchangeDetail.sentence33", { value1: formatTime(new Date(exchange.timing.startedAt)), value2: exchange.timing.endedAt !== undefined
+                ? i18n.t("agentRuns:remaining.presentationCopy266", { v1: formatTime(new Date(exchange.timing.endedAt)) })
                 : live
                   ? " · still running"
-                  : ""}
-            </p>
+                  : "" })}</p>
           )}
         </Section>
       ) : null}
 
       {setupItems.length > 0 ? (
-        <Section label="Setup">
+        <Section label={i18n.t("agentRuns:exchangeDetail.label11")}>
           <KeyValueGrid items={setupItems} />
         </Section>
       ) : null}
 
       {hasSpend && spend ? (
-        <Section label="Spend">
+        <Section label={i18n.t("agentRuns:exchangeDetail.label12")}>
           <p className={sx(styles.gridValue)}>
             {formatSpend(spend)}
           </p>
@@ -232,24 +233,21 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
             showSource
           />
           {primary ? (
-            <span className={sx(styles.meta)}>
-              asked by{" "}
-              {describeAgentIdentity({
+            <span className={sx(styles.meta)}>{i18n.t("agentRuns:exchangeDetail.sentence34", { value1: " ", value2: describeAgentIdentity({
                 providerId: primary.providerId,
                 model: primary.model,
-              }).text}
-            </span>
+              }).text })}</span>
           ) : null}
         </div>
       </div>
 
       {!props.resultFirst || live ? <Section label={ASK_LABEL[exchange.kind]}>
-        <CollapsibleResponse text={exchange.ask} label="the assignment" />
+        <CollapsibleResponse text={exchange.ask} label={i18n.t("agentRuns:exchangeDetail.label13")} />
       </Section> : null}
 
       <div className={sx(styles.section)}>
         <div className={sx(styles.sectionRow)}>
-          <p className={sx(styles.label)}>Outcome</p>
+          <p className={sx(styles.label)}>{i18n.t("agentRuns:exchangeDetail.exchangeDetail2")}</p>
           <ExchangeStatusBadge
             status={exchange.outcome.status}
             data-testid="exchange-detail-status"
@@ -263,7 +261,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
               )}
             >
               {deadline.passed
-                ? "Deadline passed · waiting on runtime"
+                ? i18n.t("agentRuns:exchangeDetail.exchangeDetail3")
                 : deadline.label}
             </span>
           ) : null}
@@ -279,7 +277,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
             <p className={sx(styles.label)}>{RESULT_LABEL[exchange.kind]}</p>
             <CollapsibleResponse
               text={resultText}
-              label={`the ${RESULT_LABEL[exchange.kind].toLowerCase()}`}
+              label={i18n.t("agentRuns:exchangeDetail.label14", { value1: RESULT_LABEL[exchange.kind].toLowerCase() })}
             />
           </>
         ) : null}
@@ -287,8 +285,8 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
       </div>
 
       {props.resultFirst && !live ? <details>
-        <summary className={sx(styles.diagnosticToggle)}>Assignment and execution details</summary>
-        <Section label={ASK_LABEL[exchange.kind]}><CollapsibleResponse text={exchange.ask} label="the assignment" /></Section>
+        <summary className={sx(styles.diagnosticToggle)}>{i18n.t("agentRuns:exchangeDetail.exchangeDetail4")}</summary>
+        <Section label={ASK_LABEL[exchange.kind]}><CollapsibleResponse text={exchange.ask} label={i18n.t("agentRuns:exchangeDetail.label15")} /></Section>
         {progress}
         {diagnostics}
       </details> : diagnostics}

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { cx, sx } from "../ads/utils/stylex";
 import { runtimeBarStyles } from "./prompt-input-runtime-bar.styles";
 
@@ -15,7 +16,7 @@ interface PromptInputRuntimeBarProps {
 }
 
 export interface PromptInputRuntimeProfile {
-  label: "Safe" | "Custom" | "Elevated";
+  label: string;
   tone: "default" | "custom" | "warning";
   description: string;
 }
@@ -23,9 +24,9 @@ export interface PromptInputRuntimeProfile {
 type RuntimeSectionId = "access" | "reasoning" | "execution";
 
 const RUNTIME_SECTIONS = [
-  { id: "access", label: "Access" },
-  { id: "reasoning", label: "Reasoning" },
-  { id: "execution", label: "Execution" },
+  { id: "access", get label() { return i18n.t("composer:promptInputRuntimeBar.label"); } },
+  { id: "reasoning", get label() { return i18n.t("composer:promptInputRuntimeBar.label2"); } },
+  { id: "execution", get label() { return i18n.t("composer:promptInputRuntimeBar.label3"); } },
 ] as const satisfies readonly {
   id: RuntimeSectionId;
   label: string;
@@ -118,24 +119,24 @@ export function getPromptInputRuntimeProfile(
 ): PromptInputRuntimeProfile {
   if (statusItems.some(isElevatedRuntimeItem)) {
     return {
-      label: "Elevated",
+      label: i18n.t("composer:promptInputRuntimeBar.label4"),
       tone: "warning",
-      description: "Expanded access is active for the next turn.",
+      description: i18n.t("composer:promptInputRuntimeBar.description"),
     };
   }
 
   if (statusItems.some(isCustomRuntimeItem)) {
     return {
-      label: "Custom",
+      label: i18n.t("composer:promptInputRuntimeBar.label5"),
       tone: "custom",
-      description: "One or more runtime overrides are active.",
+      description: i18n.t("composer:promptInputRuntimeBar.description2"),
     };
   }
 
   return {
-    label: "Safe",
+    label: i18n.t("composer:promptInputRuntimeBar.label6"),
     tone: "default",
-    description: "The next turn uses the standard protected runtime.",
+    description: i18n.t("composer:promptInputRuntimeBar.description3"),
   };
 }
 
@@ -152,6 +153,7 @@ function getRuntimeSectionId(
 }
 
 export function PromptInputRuntimeBar(args: PromptInputRuntimeBarProps) {
+  useTranslation();
   const statusItems = args.statusItems ?? [];
 
   if (statusItems.length === 0) {
@@ -176,7 +178,7 @@ export function PromptInputRuntimeBar(args: PromptInputRuntimeBarProps) {
         {renderedSections.map(({ section, sectionItems }, sectionIndex) => (
           <section
             key={section.id}
-            aria-label={`${section.label} runtime settings`}
+            aria-label={i18n.t("composer:promptInputRuntimeBar.ariaLabel", { value1: section.label })}
             className={sx(
               runtimeBarStyles.section,
               sectionIndex === 0 && runtimeBarStyles.sectionFirst,

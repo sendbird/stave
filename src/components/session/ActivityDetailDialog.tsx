@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,9 +33,9 @@ export interface ActivityDetailSelection {
 }
 const EMPTY: ChatMessage[] = [];
 const SOURCE_LABEL: Record<ActivityEntrySource, string> = {
-  live: "Live turn",
-  saved: "Saved transcript",
-  provider: "Provider history",
+  get live() { return i18n.t("session:activityDetailDialog.live"); },
+  get saved() { return i18n.t("session:activityDetailDialog.saved"); },
+  get provider() { return i18n.t("session:activityDetailDialog.provider"); },
 };
 
 function ActivityEntryRow(props: {
@@ -42,6 +43,7 @@ function ActivityEntryRow(props: {
   initiallyOpen: boolean;
   searching: boolean;
 }) {
+  useTranslation();
   const [open, setOpen] = useState(props.initiallyOpen);
   return (
     <details
@@ -51,9 +53,9 @@ function ActivityEntryRow(props: {
         if (!props.searching) setOpen(event.currentTarget.open);
       }}
     >
-      <summary className={sx(s.summary)}><span>{props.entry.title}{props.entry.model ? ` · ${props.entry.model} (reported)` : ""}</span><span className={sx(s.source)}>{SOURCE_LABEL[props.entry.source]}</span></summary>
+      <summary className={sx(s.summary)}><span>{props.entry.title}{props.entry.model ? i18n.t("session:activityDetailDialog.activityEntryRow", { value1: props.entry.model }) : ""}</span><span className={sx(s.source)}>{SOURCE_LABEL[props.entry.source]}</span></summary>
       <TraceOutput text={props.entry.text} />
-      {props.entry.truncated ? <p className={sx(s.meta)}>This entry is truncated.</p> : null}
+      {props.entry.truncated ? <p className={sx(s.meta)}>{i18n.t("session:activityDetailDialog.activityEntryRow2")}</p> : null}
     </details>
   );
 }
@@ -73,6 +75,7 @@ export function ActivityDetailDialog(props: {
   statusNoteFor?: (exchange: DelegationExchange) => string | undefined;
   onShowInConversation?: (id: string) => void;
 }) {
+  useTranslation();
   const { selection } = props;
   const node = selection.nodeKey ? props.graph?.nodesByKey[selection.nodeKey] : undefined;
   const exchange = node ? fromWorkGraphNode(node, props.graph) : selection.exchange;
@@ -168,7 +171,7 @@ export function ActivityDetailDialog(props: {
     if (!canReadProviderHistory || !agentId || !sessionId || !props.repositoryPath || (provider !== "codex" && provider !== "claude-code")) return;
     let cancelled = false;
     const read = window.api?.provider?.readAgentHistory;
-    if (!read) { setError("Agent history is unavailable in this runtime."); return; }
+    if (!read) { setError(i18n.t("session:activityDetailDialog.extraCopy82")); return; }
     setLoading(true);
     void (async () => {
       const collected = new Map<string, AgentHistoryEntry>();
@@ -227,7 +230,7 @@ export function ActivityDetailDialog(props: {
       ...(exchange?.outcome.progress ?? []),
     ])].map((text, index) => ({
       id: `progress:${toolUseId ?? agentId ?? exchange?.id ?? "activity"}:${index}`,
-      title: `Progress ${index + 1}`,
+      title: i18n.t("session:activityDetailDialog.title", { value1: index + 1 }),
       text,
       source: live ? "live" as const : "saved" as const,
     }));
@@ -235,7 +238,7 @@ export function ActivityDetailDialog(props: {
       currentEntries: mergeActivityEntries(localEntries, progress),
       providerEntries: providerEntriesToActivityEntries(history),
     };
-  }, [agentId, delegatedTaskId, exchange?.id, exchange?.outcome.progress, history, live, messages, parentMessages, saved, tool, toolUseId]);
+  }, [agentId, delegatedTaskId, exchange?.id, exchange?.outcome.progress, history, live, messages, parentMessages, saved, tool, toolUseId, i18n.language]);
   const entries = useMemo(
     () => [...providerEntries, ...currentEntries],
     [currentEntries, providerEntries],
@@ -249,45 +252,45 @@ export function ActivityDetailDialog(props: {
   const statusLabel = exchange
     ? describeExchangeStatus(exchange.outcome.status).label
     : live
-      ? "Running"
-      : "Recorded";
+      ? i18n.t("session:activityDetailDialog.statusLabel")
+      : i18n.t("session:activityDetailDialog.statusLabel2");
   const sourceLabel = delegatedTaskId
     ? live
       ? childStreamConnected
-        ? "Live delegated task stream"
-        : "Saved child transcript · reconnecting"
-      : "Delegated task transcript"
+        ? i18n.t("session:activityDetailDialog.sourceLabel")
+        : i18n.t("session:activityDetailDialog.sourceLabel2")
+      : i18n.t("session:activityDetailDialog.sourceLabel3")
     : canReadProviderHistory
       ? live
-        ? "Provider agent history · refreshes every 4 seconds"
-        : "Provider agent history"
+        ? i18n.t("session:activityDetailDialog.sourceLabel4")
+        : i18n.t("session:activityDetailDialog.sourceLabel5")
       : currentEntries.some(entry => entry.source === "live")
-        ? "Live parent-turn events"
+        ? i18n.t("session:activityDetailDialog.sourceLabel6")
         : live
-          ? "Waiting for turn events"
-          : "Captured turn events";
+          ? i18n.t("session:activityDetailDialog.sourceLabel7")
+          : i18n.t("session:activityDetailDialog.sourceLabel8");
   const emptyMessage = live
     ? delegatedTaskId
       ? childStreamConnected
-        ? "Waiting for the delegated task’s first event."
-        : "No live child events are connected yet. Saved activity remains available."
+        ? i18n.t("session:activityDetailDialog.emptyMessage")
+        : i18n.t("session:activityDetailDialog.emptyMessage2")
       : canReadProviderHistory
-        ? "Waiting for provider agent events."
-        : "No per-agent events have been reported yet. Live status remains available in the activity tree."
-    : "No event history was retained for this run. The assignment and returned result remain available below.";
+        ? i18n.t("session:activityDetailDialog.emptyMessage3")
+        : i18n.t("session:activityDetailDialog.emptyMessage4")
+    : i18n.t("session:activityDetailDialog.emptyMessage5");
   const nextOffset = delegatedTaskId ? savedNextOffset : historyResponse?.nextOffset;
 
   const activityLog = (
-        <section className={sx(s.activitySection)} aria-label={live ? "Live activity" : "Activity"}>
+        <section className={sx(s.activitySection)} aria-label={live ? i18n.t("session:activityDetailDialog.ariaLabel") : i18n.t("session:activityDetailDialog.ariaLabel2")}>
           <div className={sx(s.activityHeader)}>
             <div className={sx(s.activityHeading)}>
-              <h3 className={sx(s.heading)}>{live ? "Live activity" : "Activity"}</h3>
+              <h3 className={sx(s.heading)}>{live ? i18n.t("session:activityDetailDialog.activityLog") : i18n.t("session:activityDetailDialog.activityLog2")}</h3>
               <p className={sx(s.statusLine)} role="status">{statusLabel} · {sourceLabel}</p>
             </div>
-            {!following && live ? <Button size="sm" variant="ghost" onClick={() => setFollowing(true)}>Follow latest</Button> : null}
+            {!following && live ? <Button size="sm" variant="ghost" onClick={() => setFollowing(true)}>{i18n.t("session:activityDetailDialog.activityLog3")}</Button> : null}
           </div>
-          <Input aria-label="Search execution log" placeholder="Search loaded events" value={query} onChange={event => { setQuery(event.target.value); if (event.target.value) setFollowing(false); }} />
-          {loading || savedLoading ? <p role="status" className={sx(s.meta)}>Loading saved activity…</p> : null}
+          <Input aria-label={i18n.t("session:activityDetailDialog.ariaLabel3")} placeholder={i18n.t("session:activityDetailDialog.placeholder")} value={query} onChange={event => { setQuery(event.target.value); if (event.target.value) setFollowing(false); }} />
+          {loading || savedLoading ? <p role="status" className={sx(s.meta)}>{i18n.t("session:activityDetailDialog.activityLog4")}</p> : null}
           {error ? <p role="alert">{error}</p> : null}
           <div
             className={sx(s.logViewport)}
@@ -299,14 +302,14 @@ export function ActivityDetailDialog(props: {
           >
             {!loading && !savedLoading && !entries.length ? <p className={sx(s.empty)}>{emptyMessage}</p> : null}
             {filteredProviderEntries.length > 0 ? <details className={sx(s.historyGroup)} open={query ? true : undefined}>
-              <summary className={sx(s.historySummary)}>Provider history · {filteredProviderEntries.length}</summary>
+              <summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.sentence35", { value1: filteredProviderEntries.length })}</summary>
               {filteredProviderEntries.map(entry => <ActivityEntryRow key={entry.id} entry={entry} initiallyOpen={false} searching={Boolean(query)} />)}
             </details> : null}
-            {filteredCurrentEntries.length > 0 && filteredProviderEntries.length > 0 ? <p className={sx(s.groupLabel)}>Current turn events</p> : null}
+            {filteredCurrentEntries.length > 0 && filteredProviderEntries.length > 0 ? <p className={sx(s.groupLabel)}>{i18n.t("session:activityDetailDialog.activityLog6")}</p> : null}
             {filteredCurrentEntries.map((entry, index) => <ActivityEntryRow key={entry.id} entry={entry} initiallyOpen={Boolean(live) && !query && index === filteredCurrentEntries.length - 1} searching={Boolean(query)} />)}
           </div>
-          {nextOffset !== undefined ? <Button variant="outline" disabled={loading || savedLoading} onClick={() => setOffset(nextOffset)}>Load older events</Button> : null}
-          <p className={sx(s.meta)}>{delegatedTaskId ? "The live child transcript is merged with saved history; matching events appear once." : historyResponse?.detail ?? "Only events reported by this runtime are shown."}</p>
+          {nextOffset !== undefined ? <Button variant="outline" disabled={loading || savedLoading} onClick={() => setOffset(nextOffset)}>{i18n.t("session:activityDetailDialog.activityLog7")}</Button> : null}
+          <p className={sx(s.meta)}>{delegatedTaskId ? i18n.t("session:activityDetailDialog.activityLog8") : historyResponse?.detail ?? i18n.t("session:activityDetailDialog.activityLog9")}</p>
         </section>
   );
 
@@ -314,19 +317,19 @@ export function ActivityDetailDialog(props: {
 
   return <Dialog open onOpenChange={open => { if (!open) props.onClose(); }}>
     <DialogContent xstyle={s.dialog}>
-      <DialogHeader><DialogTitle>{selection.title}</DialogTitle><DialogDescription>Assignment, activity and results for this execution.</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>{selection.title}</DialogTitle><DialogDescription>{i18n.t("session:activityDetailDialog.activityDetailDialog")}</DialogDescription></DialogHeader>
       <div className={sx(s.actions)}>
-        <Button size="sm" variant="outline" disabled={loading || savedLoading} onClick={() => { setSavedRefresh(value => value + 1); setHistoryRefresh(value => value + 1); props.onRefresh?.(); }}>Refresh</Button>
-        {toolUseId && props.onShowInConversation ? <Button size="sm" variant="ghost" onClick={() => { props.onShowInConversation?.(toolUseId); props.onClose(); }}>Show in conversation</Button> : null}
+        <Button size="sm" variant="outline" disabled={loading || savedLoading} onClick={() => { setSavedRefresh(value => value + 1); setHistoryRefresh(value => value + 1); props.onRefresh?.(); }}>{i18n.t("session:activityDetailDialog.activityDetailDialog2")}</Button>
+        {toolUseId && props.onShowInConversation ? <Button size="sm" variant="ghost" onClick={() => { props.onShowInConversation?.(toolUseId); props.onClose(); }}>{i18n.t("session:activityDetailDialog.activityDetailDialog3")}</Button> : null}
       </div>
       <div className={sx(s.body)}>
         {props.leadContent}
         {!live ? exchangeDetail : null}
-        {live ? activityLog : <details><summary className={sx(s.historySummary)}>Activity log</summary>{activityLog}</details>}
+        {live ? activityLog : <details><summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.activityDetailDialog4")}</summary>{activityLog}</details>}
         {live ? exchangeDetail : null}
-        {historyResponse?.model || historyResponse?.effort ? <p className={sx(s.meta)}>Thread configuration (may differ from execution): {historyResponse.model ?? "Model not reported"} · {historyResponse.effort ?? "Effort not reported"}. Current or last saved settings, not per-turn execution telemetry.</p> : null}
-        {selection.detail ? <details><summary className={sx(s.historySummary)}>Recorded details</summary><TraceOutput text={selection.detail} /></details> : null}
-        {tool?.type === "tool_use" ? <details className={sx(s.section)}><summary className={sx(s.historySummary)}>Original call details</summary><p className={sx(s.subheading)}>Original input</p><TraceOutput text={tool.input} /><p className={sx(s.subheading)}>Result · {tool.state}</p><TraceOutput text={tool.output ?? "No result reported yet."} /></details> : null}
+        {historyResponse?.model || historyResponse?.effort ? <p className={sx(s.meta)}>{i18n.t("session:activityDetailDialog.sentence36", { value1: historyResponse.model ?? "Model not reported", value2: historyResponse.effort ?? "Effort not reported" })}</p> : null}
+        {selection.detail ? <details><summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.activityDetailDialog9")}</summary><TraceOutput text={selection.detail} /></details> : null}
+        {tool?.type === "tool_use" ? <details className={sx(s.section)}><summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.activityDetailDialog10")}</summary><p className={sx(s.subheading)}>{i18n.t("session:activityDetailDialog.activityDetailDialog11")}</p><TraceOutput text={tool.input} /><p className={sx(s.subheading)}>{i18n.t("session:activityDetailDialog.sentence37", { value1: tool.state })}</p><TraceOutput text={tool.output ?? i18n.t("session:activityDetailDialog.text")} /></details> : null}
       </div>
     </DialogContent>
   </Dialog>;

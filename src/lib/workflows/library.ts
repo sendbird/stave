@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Editing operations on stages, for an agent's workflow in the agent editor.
  * Pure.
@@ -37,7 +38,7 @@ export function uniqueStageId(title: string, taken: Iterable<string>): string {
   }
 }
 
-export function createBlankAiStage(taken: Iterable<string>, title = "New stage"): AiStage {
+export function createBlankAiStage(taken: Iterable<string>, title = i18n.t("agentRuns:library.createBlankAiStage")): AiStage {
   return { id: uniqueStageId(title, taken), title, kind: "ai", instruction: "", doneWhen: "" };
 }
 
@@ -95,9 +96,9 @@ export function applyCheckIns<T extends Pick<Workflow, "checkIns" | "stages">>(w
 
 /** Why a Stave action cannot be added now, or null when it can. */
 export function explainActionUnavailable(workflow: Pick<Workflow, "stages">, type: StaveActionType): string | null {
-  if (workflow.stages.length >= MAX_WORKFLOW_STAGES) return `A workflow has at most ${MAX_WORKFLOW_STAGES} stages.`;
+  if (workflow.stages.length >= MAX_WORKFLOW_STAGES) return i18n.t("agentRuns:library.extraCopy410", { value1: MAX_WORKFLOW_STAGES });
   const present = workflow.stages.some((stage) => stage.kind === "action" && stage.action.type === type);
-  if (present) return `The workflow already has "${STAVE_ACTION_LABELS[type]}".`;
+  if (present) return i18n.t("agentRuns:library.extraCopy411", { value1: STAVE_ACTION_LABELS[type] });
   return null;
 }
 

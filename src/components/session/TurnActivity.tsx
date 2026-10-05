@@ -1,3 +1,5 @@
+import { getWorkGraphFallbackLabel } from "@/lib/work-graph/work-graph-tree";
+import { i18n, useTranslation } from "@/i18n";
 import { ActivityDetailDialog, type ActivityDetailSelection } from "./ActivityDetailDialog";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
@@ -118,17 +120,18 @@ import { useShelfDetail } from "./composer-shelf/use-shelf-detail";
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const DELEGATED_TASKS_UNAVAILABLE = {
   ok: false as const,
-  error: "Delegated task controls are unavailable on this surface.",
+  get error() { return i18n.t("session:turnActivity.extraCopy123"); },
 };
 /** Stable no-op source for surfaces rendered without a delegated-task listing. */
 const EMPTY_CHILD_SOURCE: DelegatedTaskListingSource = {
   children: [],
   actions: {
-    followUp: async () => DELEGATED_TASKS_UNAVAILABLE,
-    retry: async () => DELEGATED_TASKS_UNAVAILABLE,
-    stop: async () => DELEGATED_TASKS_UNAVAILABLE,
-    detach: async () => DELEGATED_TASKS_UNAVAILABLE,
-    refresh: () => {},
+    followUp: async () => { useTranslation(); return DELEGATED_TASKS_UNAVAILABLE; },
+    retry: async () => { useTranslation(); return DELEGATED_TASKS_UNAVAILABLE; },
+    stop: async () => { useTranslation(); return DELEGATED_TASKS_UNAVAILABLE; },
+    detach: async () => { useTranslation(); return DELEGATED_TASKS_UNAVAILABLE; },
+    refresh: () => {
+  useTranslation();},
   },
 };
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
@@ -212,6 +215,7 @@ function getLatestPlanMessages(messages: ChatMessage[]) {
  * The inline (`docked`) list is drawn by the shelf itself.
  */
 export function TurnActivity(props: { host: "floating" | "panel" }) {
+  useTranslation();
   return props.host === "panel" ? (
     <PanelTurnActivity />
   ) : (
@@ -220,6 +224,7 @@ export function TurnActivity(props: { host: "floating" | "panel" }) {
 }
 
 function PanelTurnActivity() {
+  useTranslation();
   const model = useTurnActivityModel({ host: "panel", detail: true });
   if (!model.props) {
     return (
@@ -227,8 +232,7 @@ function PanelTurnActivity() {
         data-testid="turn-activity-panel-idle"
         className={sx(styles.panelIdle)}
       >
-        Activity appears here while a turn is running.
-      </div>
+        {i18n.t("session:turnActivity.panelTurnActivity")}</div>
     );
   }
   // A live turn already has its status line over the composer, so the panel
@@ -246,6 +250,7 @@ function PanelTurnActivity() {
 }
 
 function FloatingTurnActivity() {
+  useTranslation();
   const taskId = useScopedTaskId();
   const placement = useAppStore(
     (state) => state.settings.turnActivityPlacement,
@@ -260,6 +265,7 @@ function FloatingTurnActivity() {
 }
 
 function FloatingTurnActivityCard(props: { onClose: () => void }) {
+  useTranslation();
   const model = useTurnActivityModel({ host: "floating", detail: true });
   if (!model.props) {
     return null;
@@ -511,14 +517,14 @@ export function useTurnActivityModel(args: {
       if (request.control !== "stop") {
         setControlError(
           node.key,
-          "Only Stop is wired up for agents in this turn so far.",
+          i18n.t("session:turnActivity.extraCopy124"),
         );
         return;
       }
       if (!node.delegationKey) {
         setControlError(
           node.key,
-          "Only a delegated task can be stopped from this row.",
+          i18n.t("session:turnActivity.extraCopy125"),
         );
         return;
       }
@@ -531,7 +537,7 @@ export function useTurnActivityModel(args: {
       if (!child) {
         setControlError(
           node.key,
-          "This delegated task is still being recorded. Try again in a moment.",
+          i18n.t("session:turnActivity.extraCopy126"),
         );
         return;
       }
@@ -545,12 +551,12 @@ export function useTurnActivityModel(args: {
           if (!result.ok) {
             setControlError(
               node.key,
-              result.error ?? "This delegated task could not be stopped.",
+              result.error ?? i18n.t("session:turnActivity.extraCopy127"),
             );
           }
         });
     },
-    [delegatedTaskActions, delegatedTaskRows, setControlError],
+    [delegatedTaskActions, delegatedTaskRows, setControlError, i18n.language],
   );
 
   useEffect(() => {
@@ -737,6 +743,7 @@ const TURN_ACTIVITY_FLOAT_DEFAULT_RIGHT_PX = 16;
 function TurnActivityFloatingShell(props: {
   children: (dragHandleProps: HTMLAttributes<HTMLDivElement>) => ReactNode;
 }) {
+  useTranslation();
   const [storedPos, setLayout] = useAppStore(
     useShallow(
       (state) => [state.layout.turnActivityFloatPos, state.setLayout] as const,
@@ -940,6 +947,7 @@ export interface TurnActivitySurfaceProps {
  * for a `Brain` when it stops streaming.
  */
 export function TurnRestMark({ outcome }: { outcome: RetainedTurnOutcome }) {
+  useTranslation();
   if (outcome === "failed") {
     return (
       <CircleAlert
@@ -970,6 +978,7 @@ export function TurnRestMark({ outcome }: { outcome: RetainedTurnOutcome }) {
 export const TurnActivitySurface = memo(function TurnActivitySurface(
   props: TurnActivitySurfaceProps,
 ) {
+  useTranslation();
   const [detailSelection, setDetailSelection] = useState<ActivityDetailSelection | null>(null);
 
   const variant = props.variant ?? "docked";
@@ -1012,7 +1021,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       props.isPlanPreparing,
       props.todos,
       props.workItems,
-    ],
+    , i18n.language],
   );
   const elapsedLabel = formatProviderTurnElapsedDuration({
     activity: props.activity,
@@ -1065,7 +1074,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       props.todos,
       props.workItems,
       stalledIdleLabel,
-    ],
+    , i18n.language],
   );
   const graphSummary = useMemo(
     () => (props.workGraph ? summarizeWorkGraph(props.workGraph) : null),
@@ -1260,7 +1269,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     >
       <section
         aria-label={
-          props.replayOutcome ? "Last turn activity" : "Turn activity"
+          props.replayOutcome ? i18n.t("session:turnActivity.ariaLabel") : i18n.t("session:turnActivity.ariaLabel2")
         }
         data-testid="turn-activity"
         data-replay={props.replayOutcome}
@@ -1323,15 +1332,14 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
             )}
           </span>
           <h2 className={sx(styles.srOnly)}>
-            {props.replayOutcome ? "Last turn activity" : "Turn activity"}
+            {props.replayOutcome ? i18n.t("session:turnActivity.turnActivitySurface") : i18n.t("session:turnActivity.turnActivitySurface2")}
           </h2>
           {props.replayOutcome ? (
             <span
               data-testid="turn-activity-replay-badge"
               className={sx(styles.replayBadge)}
             >
-              Last turn
-            </span>
+              {i18n.t("session:turnActivity.turnActivitySurface3")}</span>
           ) : null}
           <p
             aria-live="polite"
@@ -1353,9 +1361,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               className={sx(styles.progress)}
               data-testid="turn-activity-progress"
             >
-              <VisuallyHidden>
-                {counts.completedCount} of {counts.totalCount} activities done
-              </VisuallyHidden>
+              <VisuallyHidden>{i18n.t("session:turnActivity.sentence52", { value1: counts.completedCount, value2: counts.totalCount })}</VisuallyHidden>
               <span aria-hidden="true">
                 {counts.completedCount}/{counts.totalCount}
               </span>
@@ -1371,7 +1377,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                     ? styles.overflowWaiting
                     : styles.overflowDefault,
               )}
-              aria-label={`${hiddenItemCount} more activities`}
+              aria-label={i18n.t("session:turnActivity.ariaLabel3", { value1: hiddenItemCount })}
             >
               +{hiddenItemCount}
             </span>
@@ -1379,9 +1385,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
           {elapsedLabel ? (
             <span
               className={sx(styles.elapsed)}
-              title={`Elapsed time: ${elapsedLabel}`}
+              title={i18n.t("session:turnActivity.title", { value1: elapsedLabel })}
             >
-              <VisuallyHidden>Turn elapsed </VisuallyHidden>
+              <VisuallyHidden>{i18n.t("session:turnActivity.turnActivitySurface6")}</VisuallyHidden>
               {elapsedLabel}
             </span>
           ) : null}
@@ -1392,7 +1398,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               size="icon-xs"
               aria-expanded={expanded}
               aria-label={
-                expanded ? "Minimize turn activity" : "Expand turn activity"
+                expanded ? i18n.t("session:turnActivity.ariaLabel4") : i18n.t("session:turnActivity.ariaLabel5")
               }
               onClick={() => setExpandedOverride(!expanded)}
             >
@@ -1473,7 +1479,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                     }
                     onControl={props.onWorkGraphControl}
                     onSelectTool={props.onSelectTool}
-                    onInspectAgent={node => setDetailSelection({ title: node.label, nodeKey: node.key })}
+                    onInspectAgent={node => setDetailSelection({ title: getWorkGraphFallbackLabel(node.label), nodeKey: node.key })}
                     controlErrorByNodeKey={props.workGraphControlErrorByNodeKey}
                     className={sx(styles.childBlockNested)}
                     showHeading={!hasDelegationRows}
@@ -1497,8 +1503,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         ) : null}
         {listOnly && !canExpand ? (
           <p className={sx(styles.listEmpty)}>
-            The turn has not reported a step yet.
-          </p>
+            {i18n.t("session:turnActivity.turnActivitySurface7")}</p>
         ) : null}
         {isListOpen && variant === "panel" && props.executionSummary ? (
           <div className={sx(styles.summaryPinned)}>
@@ -1526,6 +1531,7 @@ function TurnActivityFloatingGrip(props: {
   dragHandleProps?: HTMLAttributes<HTMLDivElement>;
   onClose?: () => void;
 }) {
+  useTranslation();
   return (
     <div
       {...props.dragHandleProps}
@@ -1533,14 +1539,14 @@ function TurnActivityFloatingGrip(props: {
       className={sx(styles.floatingGrip, props.dragHandleProps && styles.headerGrab)}
     >
       <GripHorizontal aria-hidden className={sx(styles.floatingGripIcon)} />
-      <h2 className={sx(styles.floatingGripTitle)}>Turn activity</h2>
+      <h2 className={sx(styles.floatingGripTitle)}>{i18n.t("session:turnActivity.turnActivityFloatingGrip")}</h2>
       {props.onClose ? (
         <AdsButton
           variant="quiet"
           size="xs"
           iconOnly
-          aria-label="Close the activity card"
-          title="Close the activity card"
+          aria-label={i18n.t("session:turnActivity.ariaLabel6")}
+          title={i18n.t("session:turnActivity.title2")}
           onClick={props.onClose}
           xstyle={styles.floatingGripClose}
         >
@@ -1575,6 +1581,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
    */
   expandCopy?: boolean;
 }) {
+  useTranslation();
   const detail =
     item.detail && item.detail !== item.title ? item.detail : undefined;
   const providerDetail =
@@ -1657,9 +1664,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
       </div>
       {startOffsetLabel ? (
         <span className={sx(styles.rowStartOffset)}>
-          <VisuallyHidden>
-            Started {startOffsetLabel} into the turn
-          </VisuallyHidden>
+          <VisuallyHidden>{i18n.t("session:turnActivity.sentence53", { value1: startOffsetLabel })}</VisuallyHidden>
           <span aria-hidden="true">{startOffsetLabel}</span>
         </span>
       ) : null}
@@ -1667,8 +1672,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
         <span className={sx(styles.rowElapsed)}>
           <VisuallyHidden>
             {getTurnActivityStatusLabel(item.status)},{" "}
-            {formatTurnActivityElapsedSeconds(item.elapsedSeconds)} elapsed
-          </VisuallyHidden>
+            {formatTurnActivityElapsedSeconds(item.elapsedSeconds)} {i18n.t("session:turnActivity.body3")}</VisuallyHidden>
           <span aria-hidden="true">
             {formatTurnActivityElapsedSeconds(item.elapsedSeconds)}
           </span>
@@ -1708,8 +1712,8 @@ const TurnActivityRow = memo(function TurnActivityRow({
       ]}
       title={
         handler.reveal
-          ? `${baseTitle} — show in conversation`
-          : `${baseTitle} — details`
+          ? i18n.t("session:turnActivity.title3", { value1: baseTitle })
+          : i18n.t("session:remaining.presentationCopy291", { v1: baseTitle })
       }
       onClick={handler.onClick}
     >

@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { useRef, type CSSProperties, type RefObject } from "react";
 import { PanelResizeHandle } from "@/components/layout/PanelResizeHandle";
 import { useAppStore } from "@/store/app.store";
@@ -32,6 +33,7 @@ export function AgentsListResizeHandle({
   tabRef: RefObject<HTMLDivElement | null>;
   listRef: RefObject<HTMLElement | null>;
 }) {
+  useTranslation();
   const setLayout = useAppStore((state) => state.setLayout);
   const draggedWidth = useRef<number | null>(null);
   return (

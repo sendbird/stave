@@ -1,3 +1,4 @@
+import { i18n, type I18nKey } from "@/i18n/runtime";
 import { parseMarkdownFrontmatter } from "@/lib/markdown-frontmatter";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { hashAgentContent } from "./compile";
@@ -73,8 +74,8 @@ const FORMAT_PROVIDER: Readonly<Record<AgentFileFormat, ProviderId | null>> = {
  * what the agent may do — the permission is enforced, not the tool list.
  */
 const WRITE_TOOLS = new Set(["Edit", "Write", "NotebookEdit", "MultiEdit", "fs_write", "write", "edit"]);
-const RUNS_CODE = "It would run commands from this repository when the agent starts.";
-const SKIPS_APPROVAL = "It would skip approvals. Choose a permission when you assign work.";
+const RUNS_CODE = "agents:import.extraCopy367";
+const SKIPS_APPROVAL = "agents:import.extraCopy368";
 
 export function detectAgentFileFormat(path: string): AgentFileFormat | null {
   const normalized = path.replace(/\\/g, "/");
@@ -227,10 +228,10 @@ function readClaudePermission(mode: string | undefined, notes: AgentImportNote[]
     case "auto":
       return "auto";
     case "bypassPermissions":
-      notes.push({ field: "permissionMode", outcome: "refused", reason: SKIPS_APPROVAL });
+      notes.push({ field: "permissionMode", outcome: "refused", reason: i18n.t(SKIPS_APPROVAL) });
       return undefined;
     default:
-      notes.push({ field: "permissionMode", outcome: "dropped", reason: `Unknown permission mode "${mode}".` });
+      notes.push({ field: "permissionMode", outcome: "dropped", reason: i18n.t("agents:import.extraCopy369", { value1: mode }) });
       return undefined;
   }
 }
@@ -244,10 +245,10 @@ function readCodexSandbox(mode: string | undefined, notes: AgentImportNote[]): A
     case "workspace-write":
       return "guided";
     case "danger-full-access":
-      notes.push({ field: "sandbox_mode", outcome: "refused", reason: SKIPS_APPROVAL });
+      notes.push({ field: "sandbox_mode", outcome: "refused", reason: i18n.t(SKIPS_APPROVAL) });
       return undefined;
     default:
-      notes.push({ field: "sandbox_mode", outcome: "dropped", reason: `Unknown sandbox mode "${mode}".` });
+      notes.push({ field: "sandbox_mode", outcome: "dropped", reason: i18n.t("agents:import.extraCopy370", { value1: mode }) });
       return undefined;
   }
 }
@@ -281,7 +282,7 @@ function readDraft(format: AgentFileFormat, fields: Fields, body: string, notes:
     case "kiro-json": {
       const prompt = takeText(fields, "prompt");
       if (prompt?.startsWith("file://")) {
-        notes.push({ field: "prompt", outcome: "dropped", reason: "The prompt points at another file; paste its text into the instructions." });
+        notes.push({ field: "prompt", outcome: "dropped", reason: i18n.t("agents:import.extraCopy371") });
       } else {
         draft.instructions = prompt;
       }
@@ -310,7 +311,7 @@ function readDraft(format: AgentFileFormat, fields: Fields, body: string, notes:
       notes.push({
         field: "allowedTools",
         outcome: "dropped",
-        reason: "Tools that run without asking are a permission choice; pick one when you assign work.",
+        reason: i18n.t("agents:import.extraCopy372"),
       });
     }
   }
@@ -321,7 +322,7 @@ function modelFor(format: AgentFileFormat, draft: Draft, notes: AgentImportNote[
   const providerId = FORMAT_PROVIDER[format];
   if (!draft.model) return { mode: "auto" };
   if (!providerId) {
-    notes.push({ field: "model", outcome: "changed", reason: `"${draft.model}" has no Stave provider; the agent follows auto-routing.` });
+    notes.push({ field: "model", outcome: "changed", reason: i18n.t("agents:import.extraCopy373", { value1: draft.model }) });
     return { mode: "auto" };
   }
   return {
@@ -338,7 +339,7 @@ function reportFor(permission: AgentPermission): AgentReportSection[] {
 
 function clip(value: string, max: number, field: string, notes: AgentImportNote[]) {
   if (value.length <= max) return value;
-  notes.push({ field, outcome: "changed", reason: `Shortened to ${max} characters.` });
+  notes.push({ field, outcome: "changed", reason: i18n.t("agents:import.extraCopy374", { value1: max }) });
   return value.slice(0, max);
 }
 
@@ -346,7 +347,7 @@ export function importAgentFile(args: { path: string; content: string }): AgentI
   const notes: AgentImportNote[] = [];
   const format = detectAgentFileFormat(args.path);
   if (!format) {
-    return { ok: false, code: "unknown-format", message: `${args.path} is not in a known agent folder.`, notes };
+    return { ok: false, code: "unknown-format", message: i18n.t("agents:import.message", { value1: args.path }), notes };
   }
 
   let fields: Fields;
@@ -359,22 +360,22 @@ export function importAgentFile(args: { path: string; content: string }): AgentI
       notes.push({
         field: table,
         outcome: REFUSED_FIELDS.has(root) ? "refused" : "dropped",
-        reason: REFUSED_FIELDS.get(root) ?? "Stave has no place for this section.",
+        reason: REFUSED_FIELDS.has(root) ? i18n.t(REFUSED_FIELDS.get(root) as Extract<I18nKey, `${string}:${string}`>) : i18n.t("agents:import.extraCopy375"),
       });
     }
     for (const error of parsed.errors) notes.push({ field: "file", outcome: "dropped", reason: error });
   } else if (format === "kiro-json") {
     try {
       const parsed: unknown = JSON.parse(args.content);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(i18n.t("agents:import.extraCopy376"));
       fields = fieldsFromObject(parsed as Record<string, unknown>);
     } catch {
-      return { ok: false, code: "unreadable", message: `${args.path} is not a JSON object.`, notes };
+      return { ok: false, code: "unreadable", message: i18n.t("agents:import.message2", { value1: args.path }), notes };
     }
   } else {
     const parsed = fieldsFromFrontmatter(args.content);
     if (!parsed.hasFrontmatter && format !== "copilot-md") {
-      return { ok: false, code: "unreadable", message: `${args.path} has no frontmatter.`, notes };
+      return { ok: false, code: "unreadable", message: i18n.t("agents:import.message3", { value1: args.path }), notes };
     }
     fields = parsed.fields;
     body = parsed.body;
@@ -391,20 +392,20 @@ export function importAgentFile(args: { path: string; content: string }): AgentI
     notes.push({
       field: root,
       outcome: refusal ? "refused" : "dropped",
-      reason: refusal ?? "Stave has no place for this field.",
+      reason: refusal ?? i18n.t("agents:import.extraCopy377"),
     });
   }
 
   const draft = readDraft(format, fields, body, notes);
   const instructions = draft.instructions?.trim();
   if (!instructions) {
-    return { ok: false, code: "missing-instructions", message: `${args.path} has no instructions to import.`, notes };
+    return { ok: false, code: "missing-instructions", message: i18n.t("agents:import.message4", { value1: args.path }), notes };
   }
   if (instructions.length > AGENT_CONFIG_LIMITS.instructions) {
     return {
       ok: false,
       code: "too-long",
-      message: `Instructions are ${instructions.length} characters; the limit is ${AGENT_CONFIG_LIMITS.instructions}.`,
+      message: i18n.t("agents:import.message5", { value1: instructions.length, value2: AGENT_CONFIG_LIMITS.instructions }),
       notes,
     };
   }
@@ -414,7 +415,7 @@ export function importAgentFile(args: { path: string; content: string }): AgentI
   const permission: AgentPermission = draft.permission ?? (allowOnlyReads ? "read-only" : "guided");
   const workspace: AgentWorkspace = permission === "read-only" ? "same-workspace" : (draft.workspace ?? "same-workspace");
   if (draft.workspace === "new-worktree" && workspace !== "new-worktree") {
-    notes.push({ field: "isolation", outcome: "changed", reason: "A read-only agent works in the current workspace." });
+    notes.push({ field: "isolation", outcome: "changed", reason: i18n.t("agents:import.extraCopy378") });
   }
 
   const name = clip(draft.name ?? fileStem(args.path), AGENT_CONFIG_LIMITS.name, "name", notes);
@@ -424,7 +425,7 @@ export function importAgentFile(args: { path: string; content: string }): AgentI
     id: slugify(draft.name ?? fileStem(args.path)),
     source: "repository",
     name,
-    description: clip(draft.description ?? `Imported from ${args.path}.`, AGENT_CONFIG_LIMITS.description, "description", notes),
+    description: clip(draft.description ?? i18n.t("agents:import.extraCopy379", { value1: args.path }), AGENT_CONFIG_LIMITS.description, "description", notes),
     instructions,
     skills: draft.skills?.slice(0, AGENT_CONFIG_LIMITS.skills) ?? [],
     model: modelFor(format, draft, notes),

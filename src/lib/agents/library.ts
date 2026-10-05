@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { AGENT_CONFIG_VERSION, AgentConfigSchema, MAX_AGENT_CONFIGS, type AgentConfig, type AgentSource } from "./schema";
 import { BUILTIN_AGENTS, RETIRED_BUILTIN_AGENT_ALIASES } from "./starters";
 
@@ -33,7 +34,7 @@ function describeIssues(error: { issues: ReadonlyArray<{ path: PropertyKey[]; me
 /** Parses saved custom agents; anything that is not a readable custom agent is rejected, not dropped silently. */
 export function normalizeCustomAgents(input: unknown): { agents: AgentConfig[]; rejected: UnreadableAgent[] } {
   if (input === undefined || input === null) return { agents: [], rejected: [] };
-  if (!Array.isArray(input)) return { agents: [], rejected: [{ value: input, issues: ["Saved agents are not a list."] }] };
+  if (!Array.isArray(input)) return { agents: [], rejected: [{ value: input, issues: [i18n.t("agents:library.extraCopy384")] }] };
   const agents: AgentConfig[] = [];
   const rejected: UnreadableAgent[] = [];
   const seen = new Set<string>(reservedAgentIds());
@@ -44,15 +45,15 @@ export function normalizeCustomAgents(input: unknown): { agents: AgentConfig[]; 
       continue;
     }
     if (parsed.data.source !== "custom") {
-      rejected.push({ value: candidate, issues: ["Only custom agents are saved in settings."] });
+      rejected.push({ value: candidate, issues: [i18n.t("agents:library.extraCopy381")] });
       continue;
     }
     if (seen.has(parsed.data.id)) {
-      rejected.push({ value: candidate, issues: [`The id "${parsed.data.id}" is already used.`] });
+      rejected.push({ value: candidate, issues: [i18n.t("agents:library.extraCopy382", { value1: parsed.data.id })] });
       continue;
     }
     if (agents.length >= MAX_AGENT_CONFIGS) {
-      rejected.push({ value: candidate, issues: [`Only ${MAX_AGENT_CONFIGS} custom agents are kept.`] });
+      rejected.push({ value: candidate, issues: [i18n.t("agents:library.extraCopy383", { value1: MAX_AGENT_CONFIGS })] });
       continue;
     }
     seen.add(parsed.data.id);
@@ -70,7 +71,7 @@ export function restoreCustomAgents(input: { agents: unknown; unreadable: unknow
   const notAList: UnreadableAgent[] =
     input.agents === undefined || input.agents === null || Array.isArray(input.agents)
       ? []
-      : [{ value: input.agents, issues: ["Saved agents are not a list."] }];
+      : [{ value: input.agents, issues: [i18n.t("agents:library.extraCopy384")] }];
   const keptAside = Array.isArray(input.unreadable)
     ? input.unreadable.flatMap((entry) =>
         entry && typeof entry === "object" && "value" in entry ? [(entry as UnreadableAgent).value] : [],
@@ -126,7 +127,7 @@ export function hiddenRepositoryAgents(args: {
     return [
       {
         path: agent.origin?.path ?? agent.id,
-        message: `Not used: a ${owner} agent already has the id "${agent.id}". Rename the agent in the file to use it.`,
+        message: i18n.t("agents:library.message", { value1: owner, value2: agent.id }),
       },
     ];
   });
@@ -153,7 +154,7 @@ export function duplicateAgent(agent: AgentConfig, takenIds: Iterable<string>): 
     ...rest,
     id: uniqueId(`${agent.id}-copy`, taken),
     source: "custom",
-    name: `${agent.name} (copy)`.slice(0, 80),
+    name: i18n.t("agents:remaining.presentationCopy494", { v1: agent.name }).slice(0, 80),
     archived: false,
   });
 }
@@ -174,9 +175,9 @@ export function blankCustomAgent(args: { name: string; takenIds: Iterable<string
     version: AGENT_CONFIG_VERSION,
     id: uniqueId(stem || "agent", taken),
     source: "custom",
-    name: args.name.trim() || "New agent",
-    description: "Use when …",
-    instructions: "You …",
+    name: args.name.trim() || i18n.t("agents:library.extraCopy385"),
+    description: i18n.t("agents:library.description"),
+    instructions: i18n.t("agents:library.extraCopy386"),
     model: { mode: "auto" },
     tools: {},
     permission: "auto",
@@ -190,11 +191,11 @@ export function blankCustomAgent(args: { name: string; takenIds: Iterable<string
 /** Replaces a custom agent in place; refuses anything that is not one. */
 export function upsertCustomAgent(list: readonly AgentConfig[], agent: AgentConfig): AgentConfig[] {
   const parsed = AgentConfigSchema.parse(agent);
-  if (parsed.source !== "custom") throw new Error("Only custom agents can be saved.");
-  if (reservedAgentIds().includes(parsed.id)) throw new Error(`"${parsed.id}" is a built-in agent id.`);
+  if (parsed.source !== "custom") throw new Error(i18n.t("agents:library.extraCopy387"));
+  if (reservedAgentIds().includes(parsed.id)) throw new Error(i18n.t("agents:library.extraCopy388", { value1: parsed.id }));
   const index = list.findIndex((candidate) => candidate.id === parsed.id);
   if (index < 0) {
-    if (list.length >= MAX_AGENT_CONFIGS) throw new Error(`You have ${MAX_AGENT_CONFIGS} custom agents, the most Stave keeps.`);
+    if (list.length >= MAX_AGENT_CONFIGS) throw new Error(i18n.t("agents:library.extraCopy389", { value1: MAX_AGENT_CONFIGS }));
     return [...list, parsed];
   }
   return list.map((candidate, position) => (position === index ? parsed : candidate));

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, Zap } from "lucide-react";
 import {
@@ -25,11 +26,11 @@ import type { ModelSelectorOption } from "./model-selector.utils";
 const CURSOR_ACCENT_COLOR = PROVIDER_ACCENT_COLORS.cursor;
 
 const FIXED_PARAMETER_TITLE =
-  "Cursor advertises a single value for this parameter, so it cannot be changed from here.";
+  "composer:cursorModelConfigList.fIXEDPARAMETERTITLE";
 
 function getEffortShortLabel(label: string) {
   if (label === "Medium") {
-    return "Med";
+    return i18n.t("composer:cursorModelConfigList.getEffortShortLabel");
   }
   if (label === "X-High") {
     return "XH";
@@ -83,6 +84,7 @@ function getSelectedControlKey(args: {
  * parameter is shown as a plain label instead of a button that cannot move.
  */
 function FixedCapabilityChip(args: { title: string; children: ReactNode }) {
+  useTranslation();
   return (
     <span
       data-cursor-fixed-capability="true"
@@ -109,6 +111,7 @@ function ConfigurationButton(args: {
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
   onClick: () => void;
 }) {
+  useTranslation();
   return (
     <AdsButton
       layout="host"
@@ -141,6 +144,7 @@ function CursorModelRow(args: {
   onTabStopChange: (controlKey: string) => void;
   onChoose: (option: ModelSelectorOption) => void;
 }) {
+  useTranslation();
   const anchor = getAnchorVariant(args);
   const selected = anchor?.option.key === args.selectedModelKey;
   const defaultTabStopKey = getSelectedControlKey({
@@ -232,7 +236,7 @@ function CursorModelRow(args: {
     >
       <div
         role="toolbar"
-        aria-label={`${args.group.label} configuration`}
+        aria-label={i18n.t("composer:cursorModelConfigList.ariaLabel", { value1: args.group.label })}
         className={sx(styles.toolbar)}
       >
         <AdsButton
@@ -252,17 +256,16 @@ function CursorModelRow(args: {
           <ModelIcon providerId="cursor" className={sx(styles.modelIcon)} />
           <span className={sx(styles.modelLabel)}>{args.group.label}</span>
           {anchor.option.isDefault ? (
-            <span className={sx(styles.defaultLabel)}>Default</span>
+            <span className={sx(styles.defaultLabel)}>{i18n.t("composer:cursorModelConfigList.cursorModelRow")}</span>
           ) : null}
         </AdsButton>
 
         <div className={cx(sx(styles.controlStrip), "tab-strip-scroll")}>
           {hasFast && !fastAdjustable ? (
             anchor.fast ? (
-              <FixedCapabilityChip title={FIXED_PARAMETER_TITLE}>
+              <FixedCapabilityChip title={i18n.t(FIXED_PARAMETER_TITLE)}>
                 <Zap className={sx(styles.fastIconFixed)} aria-hidden="true" />
-                Fast
-              </FixedCapabilityChip>
+                {i18n.t("composer:cursorModelConfigList.cursorModelRow2")}</FixedCapabilityChip>
             ) : null
           ) : null}
 
@@ -270,7 +273,7 @@ function CursorModelRow(args: {
             <ConfigurationButton
               controlKey={`${args.group.key}:fast`}
               tabStopKey={tabStopKey}
-              label={`${args.group.label}, Fast ${anchor.fast ? "on" : "off"}`}
+              label={i18n.t("composer:cursorModelConfigList.label", { value1: args.group.label, value2: i18n.t(anchor.fast ? "composer:presentation.on" : "composer:presentation.off") })}
               pressed={anchor.fast === true}
               disabled={
                 Boolean(args.disabled) ||
@@ -303,12 +306,11 @@ function CursorModelRow(args: {
                 )}
                 aria-hidden="true"
               />
-              Fast
-            </ConfigurationButton>
+              {i18n.t("composer:cursorModelConfigList.cursorModelRow3")}</ConfigurationButton>
           ) : null}
 
           {!contextAdjustable && anchor.context ? (
-            <FixedCapabilityChip title={FIXED_PARAMETER_TITLE}>
+            <FixedCapabilityChip title={i18n.t(FIXED_PARAMETER_TITLE)}>
               {anchor.context.toUpperCase()}
             </FixedCapabilityChip>
           ) : null}
@@ -325,7 +327,7 @@ function CursorModelRow(args: {
                 key={context}
                 controlKey={controlKey}
                 tabStopKey={tabStopKey}
-                label={`${args.group.label}, ${context.toUpperCase()} context`}
+                label={i18n.t("composer:remaining.presentationCopy64", { v1: args.group.label, v2: context.toUpperCase() })}
                 pressed={anchor.context === context}
                 disabled={
                   Boolean(args.disabled) ||
@@ -343,9 +345,8 @@ function CursorModelRow(args: {
 
           {hasThinking && !thinkingAdjustable ? (
             anchor.thinking ? (
-              <FixedCapabilityChip title={FIXED_PARAMETER_TITLE}>
-                Thinking
-              </FixedCapabilityChip>
+              <FixedCapabilityChip title={i18n.t(FIXED_PARAMETER_TITLE)}>
+                {i18n.t("composer:cursorModelConfigList.cursorModelRow4")}</FixedCapabilityChip>
             ) : null
           ) : null}
 
@@ -353,7 +354,7 @@ function CursorModelRow(args: {
             <ConfigurationButton
               controlKey={`${args.group.key}:thinking`}
               tabStopKey={tabStopKey}
-              label={`${args.group.label}, Thinking ${anchor.thinking ? "on" : "off"}`}
+              label={i18n.t("composer:cursorModelConfigList.label2", { value1: args.group.label, value2: i18n.t(anchor.thinking ? "composer:presentation.on" : "composer:presentation.off") })}
               pressed={anchor.thinking === true}
               disabled={
                 Boolean(args.disabled) ||
@@ -375,12 +376,11 @@ function CursorModelRow(args: {
                 )
               }
             >
-              Thinking
-            </ConfigurationButton>
+              {i18n.t("composer:cursorModelConfigList.cursorModelRow5")}</ConfigurationButton>
           ) : null}
 
           {hasEffort && !effortAdjustable && anchor.effort ? (
-            <FixedCapabilityChip title={FIXED_PARAMETER_TITLE}>
+            <FixedCapabilityChip title={i18n.t(FIXED_PARAMETER_TITLE)}>
               {CURSOR_MODEL_EFFORT_OPTIONS.find(
                 (effort) => effort.value === anchor.effort,
               )?.label ?? anchor.effort}
@@ -401,11 +401,11 @@ function CursorModelRow(args: {
                     key={effort.value}
                     controlKey={controlKey}
                     tabStopKey={tabStopKey}
-                    label={`${args.group.label}, ${effort.label} effort${variant ? "" : ", unavailable"}`}
+                    label={i18n.t("composer:remaining.presentationCopy67", { v1: args.group.label, v2: effort.label, v3: variant ? "" : i18n.t("composer:cursorModelConfigList.unavailableSuffix") })}
                     pressed={selected && active}
                     disabled={Boolean(args.disabled) || !variant}
                     title={
-                      variant ? effort.label : "Not advertised by Cursor ACP."
+                      variant ? effort.label : i18n.t("composer:cursorModelConfigList.title")
                     }
                     onFocus={args.onTabStopChange}
                     onKeyDown={handleKeyDown}
@@ -458,6 +458,7 @@ export function CursorModelConfigList(args: {
   disabled?: boolean;
   onChoose: (option: ModelSelectorOption) => void;
 }) {
+  useTranslation();
   const groups = useMemo(
     () => groupCursorModelOptions(args.options),
     [args.options],
@@ -472,7 +473,7 @@ export function CursorModelConfigList(args: {
     <div>
       <div
         role="list"
-        aria-label="Cursor model configurations"
+        aria-label={i18n.t("composer:cursorModelConfigList.ariaLabel2")}
         className={sx(styles.list)}
       >
         {groups.map((group) => (
@@ -493,9 +494,7 @@ export function CursorModelConfigList(args: {
         ))}
       </div>
       <p className={sx(styles.footer)}>
-        Buttons change the model. Plain labels are parameters Cursor reports but
-        advertises only one value for, so they cannot be changed from here.
-      </p>
+        {i18n.t("composer:cursorModelConfigList.cursorModelConfigList")}</p>
     </div>
   );
 }

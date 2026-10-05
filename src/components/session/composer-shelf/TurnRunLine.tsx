@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { memo, useMemo } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { TextShimmer } from "@/components/ads/components/TextShimmer";
@@ -55,6 +56,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
   detail: ShelfRunDetailToggle | null;
   onStop?: () => void;
 }) {
+  useTranslation();
   const { surface } = props;
   const activity = surface.activity;
   const completedAt = activity?.completedAt ?? null;
@@ -102,7 +104,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
       turnError,
       turnErrorRecoverable,
       turnStartedAt,
-    ],
+    , i18n.language],
   );
   const graphSummary = useMemo(
     () => (surface.workGraph ? summarizeWorkGraph(surface.workGraph) : null),
@@ -168,7 +170,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     <ShelfRunLine
       testId="composer-shelf-run"
       dataState={tone}
-      ariaLabel="Turn"
+      ariaLabel={i18n.t("composer:turnRunLine.ariaLabel")}
       announcement={label}
       mark={
         <span
@@ -219,8 +221,8 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
       progress={todo ? <ShelfTodoProgressView progress={todo} /> : null}
       meta={
         elapsed ? (
-          <span title={`Elapsed time: ${elapsed}`}>
-            <span className={sx(styles.visuallyHidden)}>Turn elapsed </span>
+          <span title={i18n.t("composer:turnRunLine.title", { value1: elapsed })}>
+            <span className={sx(styles.visuallyHidden)}>{i18n.t("composer:turnRunLine.meta")}</span>
             {elapsed}
           </span>
         ) : null
@@ -233,8 +235,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
             onClick={props.onStop}
             xstyle={styles.quiet}
           >
-            Stop
-          </Button>
+            {i18n.t("composer:turnRunLine.actions")}</Button>
         ) : null
       }
       panel={props.panel}

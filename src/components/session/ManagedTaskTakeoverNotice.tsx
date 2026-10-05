@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Hand, ShieldCheck } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
 import { cx, sx } from "@/components/ads/utils/stylex";
@@ -11,11 +12,12 @@ export function ManagedTaskTakeoverNotice(props: {
   onTakeOver: () => void;
   className?: string;
 }) {
+  useTranslation();
   const ownerLabel =
-    props.owner === "external" ? "Managed externally" : "Managed by Stave";
+    props.owner === "external" ? i18n.t("session:managedTaskTakeoverNotice.ownerLabel") : i18n.t("session:managedTaskTakeoverNotice.ownerLabel2");
   const detail = props.isTurnActive
-    ? "Take over to stop the current managed run and continue directly."
-    : "The managed run ended. Take over to continue directly in this task.";
+    ? i18n.t("session:managedTaskTakeoverNotice.detail")
+    : i18n.t("session:managedTaskTakeoverNotice.detail2");
 
   return (
     <div
@@ -34,8 +36,7 @@ export function ManagedTaskTakeoverNotice(props: {
         <div className={sx(styles.headerRow)}>
           <p className={sx(styles.ownerLabel)}>{ownerLabel}</p>
           <Badge variant="secondary" className={sx(styles.managedBadge)}>
-            Managed
-          </Badge>
+            {i18n.t("session:managedTaskTakeoverNotice.managedTaskTakeoverNotice")}</Badge>
         </div>
         <p className={sx(styles.detail)}>{detail}</p>
       </div>
@@ -44,12 +45,11 @@ export function ManagedTaskTakeoverNotice(props: {
         size="sm"
         variant="outline"
         disabled={!props.canTakeOver}
-        aria-label="Take over managed task"
+        aria-label={i18n.t("session:managedTaskTakeoverNotice.ariaLabel")}
         onClick={props.onTakeOver}
       >
         <Hand aria-hidden="true" />
-        Take Over
-      </Button>
+        {i18n.t("session:managedTaskTakeoverNotice.managedTaskTakeoverNotice2")}</Button>
     </div>
   );
 }

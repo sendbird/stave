@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   forwardRef,
@@ -36,6 +37,7 @@ export const ConversationTurnRail = forwardRef<
   ConversationTurnRailHandle,
   ConversationTurnRailProps
 >(function ConversationTurnRail(props, forwardedRef) {
+  useTranslation();
   const uid = useId();
   const rootRef = useRef<HTMLElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -253,7 +255,7 @@ export const ConversationTurnRail = forwardRef<
     <aside
       ref={rootRef}
       data-testid="conversation-turn-rail"
-      aria-label="Conversation turn navigator"
+      aria-label={i18n.t("session:conversationTurnRail.ariaLabel")}
       className={cx(
         // The rail floats over the conversation, so only its own affordances
         // (tick hit strips and the open preview) may capture pointer events.
@@ -291,7 +293,7 @@ export const ConversationTurnRail = forwardRef<
       <div
         ref={viewportRef}
         role="toolbar"
-        aria-label="Conversation turns"
+        aria-label={i18n.t("session:conversationTurnRail.ariaLabel2")}
         aria-orientation="vertical"
         data-surface={surfaceVisible ? "visible" : "hidden"}
         className={sx(
@@ -311,8 +313,8 @@ export const ConversationTurnRail = forwardRef<
             });
             const triggerId = `conversation-turn-trigger-${uid}-${index}`;
             const positionLabel = props.hasEarlierMessages
-              ? `Loaded turn ${index + 1} of ${props.items.length}`
-              : `Turn ${index + 1} of ${props.items.length}`;
+              ? i18n.t("session:conversationTurnRail.positionLabel", { value1: index + 1, value2: props.items.length })
+              : i18n.t("session:conversationTurnRail.positionLabel2", { value1: index + 1, value2: props.items.length });
             return (
               <AdsButton
                 layout="host"
@@ -401,8 +403,8 @@ export const ConversationTurnRail = forwardRef<
                 className={sx(styles.previewMetaIcon)}
               />
               <span>
-                {props.hasEarlierMessages ? "Loaded turn" : "Turn"}{" "}
-                {props.items.indexOf(renderedItem) + 1} of {props.items.length}
+                {props.hasEarlierMessages ? i18n.t("session:conversationTurnRail.conversationTurnRail") : i18n.t("session:conversationTurnRail.conversationTurnRail2")}{" "}
+                {props.items.indexOf(renderedItem) + 1} {i18n.t("session:conversationTurnRail.conversationTurnRail3")}{props.items.length}
               </span>
               <span aria-hidden="true">·</span>
               <span className={sx(styles.previewMetaModel)}>
@@ -431,9 +433,7 @@ export const ConversationTurnRail = forwardRef<
               }}
             />
             <p className={sx(styles.previewHint)}>
-              Select a tick to jump to that response. Workspace files stay
-              unchanged.
-            </p>
+              {i18n.t("session:conversationTurnRail.conversationTurnRail4")}</p>
           </div>
         ) : null}
       </section>

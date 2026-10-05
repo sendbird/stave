@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { AgentConfigSchema, type AgentConfig } from "./schema";
 import { hashAgentContent } from "./compile";
 
@@ -103,21 +104,21 @@ export function revisionRan(args: { agent: AgentConfig; ranContentHashes: Readon
 }
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
-  name: "Name",
-  description: "Use when",
-  avoidWhen: "Don't use when",
-  instructions: "Instructions",
-  skills: "Skills",
-  model: "Model",
-  tools: "Tools & limits",
-  permission: "Permission",
-  workspace: "Works in",
-  usableAs: "Usable as",
-  canCall: "Can call",
-  report: "Report",
-  appearance: "Colour",
-  concurrency: "Concurrency",
-  archived: "Archived",
+  get name() { return i18n.t("agents:revisions.name"); },
+  get description() { return i18n.t("agents:revisions.description"); },
+  get avoidWhen() { return i18n.t("agents:revisions.avoidWhen"); },
+  get instructions() { return i18n.t("agents:revisions.instructions"); },
+  get skills() { return i18n.t("agents:revisions.skills"); },
+  get model() { return i18n.t("agents:revisions.model"); },
+  get tools() { return i18n.t("agents:revisions.tools"); },
+  get permission() { return i18n.t("agents:revisions.permission"); },
+  get workspace() { return i18n.t("agents:revisions.workspace"); },
+  get usableAs() { return i18n.t("agents:revisions.usableAs"); },
+  get canCall() { return i18n.t("agents:revisions.canCall"); },
+  get report() { return i18n.t("agents:revisions.report"); },
+  get appearance() { return i18n.t("agents:revisions.appearance"); },
+  get concurrency() { return i18n.t("agents:revisions.concurrency"); },
+  get archived() { return i18n.t("agents:revisions.archived"); },
 };
 
 const DIFF_FIELDS = Object.keys(FIELD_LABELS) as Array<keyof AgentConfig>;
@@ -132,7 +133,7 @@ export interface AgentFieldChange {
 function renderFieldValue(value: unknown): string {
   if (value === undefined || value === null) return "—";
   if (typeof value === "string") return value.trim() || "—";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "boolean") return value ? i18n.t("agents:revisions.renderFieldValue") : i18n.t("agents:revisions.renderFieldValue2");
   if (Array.isArray(value)) return value.length ? value.map((entry) => String(entry)).join(", ") : "—";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);

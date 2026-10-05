@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Dialog } from "@/components/ads/components/Dialog";
@@ -94,7 +95,7 @@ export function useRunTurnMessages(args: {
           message:
             error instanceof Error && error.message
               ? error.message
-              : "The run could not be read.",
+              : i18n.t("session:runTurnDialog.message"),
         });
       },
     );
@@ -128,6 +129,7 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
   startedTurnId?: string;
   showInterimMessages: boolean;
 }) {
+  useTranslation();
   const { message, taskId } = props;
   const text = message.displayContent ?? message.content;
   const agentRunPrompt = useAgentRunPrompt({
@@ -193,11 +195,12 @@ export function RunTurnTranscript(props: {
   taskId: string;
   turnId: string;
 }) {
+  useTranslation();
   const showInterimMessages = useAppStore(
     (state) => state.settings.showInterimMessages,
   );
   return (
-    <ol aria-label="Run transcript" className={sx(styles.transcript)}>
+    <ol aria-label={i18n.t("session:runTurnDialog.ariaLabel")} className={sx(styles.transcript)}>
       {props.messages.map((message, index) => (
         <RunTurnMessageRow
           key={message.id}
@@ -218,12 +221,12 @@ function RunTurnBody(props: {
   taskId: string;
   turnId: string;
 }) {
+  useTranslation();
   const state = useRunTurnMessages(props);
   if (state.status === "loading") {
     return (
       <p role="status" className={sx(styles.note)}>
-        Loading the run…
-      </p>
+        {i18n.t("session:runTurnDialog.runTurnBody")}</p>
     );
   }
   if (state.status === "failed") {
@@ -233,17 +236,14 @@ function RunTurnBody(props: {
           {state.message}
         </p>
         <Button size="xs" variant="secondary" onClick={state.retry}>
-          Retry
-        </Button>
+          {i18n.t("session:runTurnDialog.runTurnBody2")}</Button>
       </div>
     );
   }
   if (state.status === "missing") {
     return (
       <p className={sx(styles.note)}>
-        This run is no longer in the conversation. It may have been cleared or
-        rewound since it ended.
-      </p>
+        {i18n.t("session:runTurnDialog.runTurnBody3")}</p>
     );
   }
   return (
@@ -269,11 +269,12 @@ export function RunTurnDialog(props: {
   turnId: string;
   description?: ReactNode;
 }) {
+  useTranslation();
   return (
     <Dialog
       open={props.open}
       onOpenChange={props.onOpenChange}
-      title="Run transcript"
+      title={i18n.t("session:runTurnDialog.title")}
       description={props.description}
       width="xl"
       xstyle={styles.popup}

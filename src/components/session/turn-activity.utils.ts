@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { TodoItem } from "@/components/ai-elements/todo";
 import {
   describeHookEventLabel,
@@ -175,13 +176,13 @@ export function resolveTurnActivityReplay<T>(args: {
 export function describeRetainedTurnHeadline(outcome: RetainedTurnOutcome) {
   switch (outcome) {
     case "failed":
-      return "Turn failed";
+      return i18n.t("session:turnActivityUtils.describeRetainedTurnHeadline");
     case "stopped":
-      return "Turn stopped";
+      return i18n.t("session:turnActivityUtils.describeRetainedTurnHeadline2");
     case "completed":
-      return "Turn finished";
+      return i18n.t("session:turnActivityUtils.describeRetainedTurnHeadline3");
     case "unknown":
-      return "Turn result unknown";
+      return i18n.t("session:turnActivityUtils.describeRetainedTurnHeadline4");
   }
 }
 
@@ -408,14 +409,14 @@ function describeHookActivityItem(args: {
   const title = eventLabel
     ? `${eventLabel} ${count > 1 ? "hooks" : "hook"}`
     : count > 1 || leader.hookSource
-      ? `Provider hook${count > 1 ? "s" : ""}`
+      ? i18n.t("session:turnActivityUtils.title", { count: count })
       : leader.title;
   const detail =
     failedCount === 0
       ? undefined
       : count > 1
-        ? `${failedCount} of ${count} handlers failed`
-        : "Handler failed";
+        ? i18n.t("session:turnActivityUtils.detail", { value1: failedCount, value2: count })
+        : i18n.t("session:turnActivityUtils.detail2");
   // Raw token first: it is the string that appears in the provider's own logs
   // and hook config. Dropped when the normalized label is only a re-casing of
   // it (`sessionStart` -> `Session start`), because then it adds a second
@@ -459,12 +460,12 @@ function describeHookActivityItem(args: {
   return {
     id: `work:${leader.id}`,
     status,
-    title: truncateWorkText(title) ?? "Provider hook",
+    title: truncateWorkText(title) ?? i18n.t("session:turnActivityUtils.title2"),
     ...(detail ? { detail } : {}),
     ...(providerDetail
       ? { providerDetail: truncateWorkText(providerDetail) ?? providerDetail }
       : {}),
-    ...(count > 1 ? { badge: `${count} handlers` } : {}),
+    ...(count > 1 ? { badge: i18n.t("session:remaining.presentationCopy389", { v1: count }) } : {}),
     // The group spans every handler run, so it reports the longest handler and
     // the earliest start rather than an arbitrary member's numbers.
     ...(elapsedCandidates.length > 0
@@ -525,9 +526,9 @@ export function buildTurnActivityItems(args: {
     items.push({
       id: "turn-error",
       status: isRecovering ? "waiting" : "failed",
-      title: isRecovering ? "Provider issue" : "Turn failed",
+      title: isRecovering ? i18n.t("session:turnActivityUtils.title3") : i18n.t("session:turnActivityUtils.title4"),
       detail: args.activity.turnError,
-      ...(isRecovering ? { badge: "Retrying" } : {}),
+      ...(isRecovering ? { badge: i18n.t("session:turnActivityUtils.extraCopy201") } : {}),
       iconKey: "alert",
     });
   }
@@ -537,8 +538,8 @@ export function buildTurnActivityItems(args: {
       items.push({
         id: `interaction:${args.activity.pendingInteraction}`,
         status: "waiting",
-        title: needsApproval ? "Approval needed" : "Input needed",
-        detail: needsApproval ? "Review to continue" : "Reply to continue",
+        title: needsApproval ? i18n.t("session:turnActivityUtils.title5") : i18n.t("session:turnActivityUtils.title6"),
+        detail: needsApproval ? i18n.t("session:turnActivityUtils.detail3") : i18n.t("session:turnActivityUtils.detail4"),
         iconKey: "pause",
       });
     }
@@ -546,10 +547,10 @@ export function buildTurnActivityItems(args: {
     items.push({
       id: "stalled",
       status: "waiting",
-      title: "Activity paused",
+      title: i18n.t("session:turnActivityUtils.title7"),
       detail: args.idleLabel
-        ? `No updates for ${args.idleLabel}`
-        : "Waiting for the provider",
+        ? i18n.t("session:turnActivityUtils.detail5", { value1: args.idleLabel })
+        : i18n.t("session:turnActivityUtils.detail6"),
       iconKey: "pause",
     });
   }
@@ -557,7 +558,7 @@ export function buildTurnActivityItems(args: {
     items.push({
       id: "plan",
       status: "running",
-      title: "Preparing the plan",
+      title: i18n.t("session:turnActivityUtils.title8"),
       iconKey: "plan",
     });
   }
@@ -611,7 +612,7 @@ export function buildTurnActivityItems(args: {
       id: `todo:${todo.content}:${index}`,
       status: resolveTodoStatus(todo),
       title: todo.content,
-      ...(todo.promoted ? { badge: "Next" } : {}),
+      ...(todo.promoted ? { badge: i18n.t("session:turnActivityUtils.extraCopy202") } : {}),
       iconKey: "todo",
     });
   });
@@ -739,11 +740,11 @@ export function mergeTurnActivityCounts(
 /** `2 running · 1 waiting · 3 done` — the expanded-state headline. */
 export function formatTurnActivityCountsLabel(counts: TurnActivityCounts) {
   const segments = [
-    counts.failedCount > 0 ? `${counts.failedCount} failed` : null,
-    counts.waitingCount > 0 ? `${counts.waitingCount} waiting` : null,
-    counts.runningCount > 0 ? `${counts.runningCount} running` : null,
-    counts.pendingCount > 0 ? `${counts.pendingCount} queued` : null,
-    counts.completedCount > 0 ? `${counts.completedCount} done` : null,
+    counts.failedCount > 0 ? i18n.t("session:remaining.presentationCopy393", { v1: counts.failedCount }) : null,
+    counts.waitingCount > 0 ? i18n.t("session:remaining.presentationCopy394", { v1: counts.waitingCount }) : null,
+    counts.runningCount > 0 ? i18n.t("session:remaining.presentationCopy395", { v1: counts.runningCount }) : null,
+    counts.pendingCount > 0 ? i18n.t("session:remaining.presentationCopy396", { v1: counts.pendingCount }) : null,
+    counts.completedCount > 0 ? i18n.t("session:remaining.presentationCopy397", { v1: counts.completedCount }) : null,
   ].filter((segment): segment is string => segment !== null);
   return segments.length > 0 ? segments.join(" · ") : null;
 }
@@ -854,7 +855,7 @@ export function resolveTurnActivitySummary(args: {
 
   if (args.pendingInteraction === "approval") {
     return {
-      label: "Waiting for approval",
+      label: i18n.t("session:turnActivityUtils.label"),
       activeCount,
       completedCount,
       failedCount: failedWorkCount,
@@ -863,7 +864,7 @@ export function resolveTurnActivitySummary(args: {
   }
   if (args.pendingInteraction === "user_input") {
     return {
-      label: "Waiting for your input",
+      label: i18n.t("session:turnActivityUtils.label2"),
       activeCount,
       completedCount,
       failedCount: failedWorkCount,
@@ -872,7 +873,7 @@ export function resolveTurnActivitySummary(args: {
   }
   if (args.isStalled) {
     return {
-      label: "Activity paused",
+      label: i18n.t("session:turnActivityUtils.label3"),
       activeCount,
       completedCount,
       failedCount: failedWorkCount,
@@ -881,7 +882,7 @@ export function resolveTurnActivitySummary(args: {
   }
   if (args.isPlanPreparing) {
     return {
-      label: "Preparing the plan",
+      label: i18n.t("session:turnActivityUtils.label4"),
       activeCount,
       completedCount,
       failedCount: failedWorkCount,
@@ -892,8 +893,8 @@ export function resolveTurnActivitySummary(args: {
     return {
       label:
         failedWorkCount === 1
-          ? "1 activity failed"
-          : `${failedWorkCount} activities failed`,
+          ? i18n.t("session:turnActivityUtils.label5")
+          : i18n.t("session:turnActivityUtils.label6", { value1: failedWorkCount }),
       activeCount,
       completedCount,
       failedCount: failedWorkCount,
@@ -904,8 +905,8 @@ export function resolveTurnActivitySummary(args: {
     return {
       label:
         activeWorkCount === 1
-          ? "1 background activity"
-          : `${activeWorkCount} background activities`,
+          ? i18n.t("session:turnActivityUtils.label7")
+          : i18n.t("session:turnActivityUtils.label8", { value1: activeWorkCount }),
       activeCount,
       completedCount,
       failedCount: failedWorkCount,
@@ -916,8 +917,8 @@ export function resolveTurnActivitySummary(args: {
     return {
       label:
         activeTodoCount === 1
-          ? "1 task in progress"
-          : `${activeTodoCount} tasks in progress`,
+          ? i18n.t("session:turnActivityUtils.label9")
+          : i18n.t("session:turnActivityUtils.label10", { value1: activeTodoCount }),
       activeCount,
       completedCount,
       failedCount: failedWorkCount,
@@ -926,7 +927,7 @@ export function resolveTurnActivitySummary(args: {
   }
 
   return {
-    label: "Working on your request",
+    label: i18n.t("session:turnActivityUtils.label11"),
     activeCount,
     completedCount,
     failedCount: failedWorkCount,

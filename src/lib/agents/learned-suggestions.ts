@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Learned suggestions: after a user follow-up, Stave asks the utility model
  * whether it expresses a correction and lasting preference for saved instructions.
@@ -113,18 +114,18 @@ export type LearningResult =
  */
 export function parseLearningAnswer(text: string, current: string): LearningResult {
   const json = extractJsonObject(text);
-  if (!json) return { ok: false, message: "No JSON object in the answer." };
+  if (!json) return { ok: false, message: i18n.t("agents:learnedSuggestions.message") };
   let raw: Record<string, unknown>;
   try {
     raw = JSON.parse(json) as Record<string, unknown>;
   } catch {
-    return { ok: false, message: "The answer could not be read." };
+    return { ok: false, message: i18n.t("agents:learnedSuggestions.message2") };
   }
   if (raw.change !== true) return { ok: true, suggestion: null };
   const summary = typeof raw.summary === "string" ? raw.summary.trim().slice(0, MAX_SUMMARY_CHARS) : "";
   const instructions =
     typeof raw.instructions === "string" ? raw.instructions.trim().slice(0, AGENT_CONFIG_LIMITS.instructions) : "";
-  if (!summary || !instructions) return { ok: false, message: "The answer had no summary or instructions." };
+  if (!summary || !instructions) return { ok: false, message: i18n.t("agents:learnedSuggestions.message3") };
   if (instructions === current.trim()) return { ok: true, suggestion: null };
   return { ok: true, suggestion: { summary, instructions } };
 }

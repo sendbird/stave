@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * The composer's side of agent runs (`src/lib/agent-runs/agent-run.ts`).
  *
@@ -74,7 +75,7 @@ type AgentRunSendArgs = {
   now?: Date;
 };
 
-const UNSENT_RUN_REASON = "The run ended before it started.";
+const UNSENT_RUN_REASON = "agentRuns:agentRunSend.unsentReason";
 
 type RecoveryState = Pick<
   AppState,
@@ -148,7 +149,7 @@ export function recoverUnsentAgentRunPrompt(
           attachments: args.submittedDraft?.attachments ?? [],
           ...(args.submittedDraft?.runtimeOverrides ? { runtimeOverrides: args.submittedDraft.runtimeOverrides } : {}),
         },
-        error: args.reason ?? UNSENT_RUN_REASON,
+        error: args.reason ?? i18n.t(UNSENT_RUN_REASON),
       }),
     ),
   };
@@ -222,7 +223,7 @@ export function prepareAgentRunForSend(
           endPendingAutoRoute({ taskId: args.taskId, id: pendingId });
         }
       }
-      if (response.message) toast.info("Sent as a single turn", { description: response.message });
+      if (response.message) toast.info(i18n.t("agentRuns:agentRunSend.copy"), { description: response.message });
       return null;
     }
     const agentRunId = response.agentRun.agentRun.id;

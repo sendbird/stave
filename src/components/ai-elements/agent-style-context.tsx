@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { createContext, useContext, useMemo } from "react";
 import type { ReasoningTextVariant } from "./reasoning-text";
@@ -31,6 +32,7 @@ export function AgentStyleProvider({
   phraseVariant?: ReasoningTextVariant;
   children: ReactNode;
 }) {
+  useTranslation();
   const value = useMemo(() => ({ style, phraseVariant }), [style, phraseVariant]);
   return <AgentStyleContext.Provider value={value}>{children}</AgentStyleContext.Provider>;
 }

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { sx } from "../ads/utils/stylex";
 import { resultStyles as styles } from "./result-review.styles";
@@ -21,6 +22,7 @@ export function ResultFileSnapshots({
   evidence: ResultEvidence;
   taskId: string;
 }) {
+  useTranslation();
   const snapshots = evidence.snapshots;
   const parts = useMemo<CodeDiffPart[]>(
     () =>
@@ -43,7 +45,7 @@ export function ResultFileSnapshots({
   const excerpted = Boolean(snapshots?.some((snapshot) => snapshot.truncated));
   return (
     <div className={sx(styles.files)}>
-      <h4 className={sx(styles.evidenceHeading)}>Files this run changed</h4>
+      <h4 className={sx(styles.evidenceHeading)}>{i18n.t("session:resultFileSnapshots.resultFileSnapshots")}</h4>
       {parts.length > 0 ? (
         <ChangedFilesBlock
           parts={parts}
@@ -57,19 +59,14 @@ export function ResultFileSnapshots({
           rows={pathOnly}
           title={
             parts.length > 0
-              ? `${pathOnly.length} more · contents not saved`
-              : `${pathOnly.length} ${pathOnly.length === 1 ? "file" : "files"} · contents not saved`
+              ? i18n.t("session:resultFileSnapshots.title", { value1: pathOnly.length })
+              : i18n.t("session:resultFileSnapshots.title2", { value1: pathOnly.length, count: pathOnly.length })
           }
         />
       ) : null}
-      <p className={sx(styles.muted)}>
-        {excerpted
+      <p className={sx(styles.muted)}>{i18n.t("session:resultFileSnapshots.sentence48", { value1: excerpted
           ? "Some changes were saved as excerpts, so their diffs are partial. "
-          : ""}
-        Saved when the run ended; the files may have changed since
-        {evidence.filesTruncated ? ", and the recorded list is incomplete" : ""}
-        .
-      </p>
+          : "", value2: evidence.filesTruncated ? ", and the recorded list is incomplete" : "" })}</p>
     </div>
   );
 }

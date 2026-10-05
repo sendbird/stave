@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import { compileAgent, snapshotAgent, type CompiledPrimary, type CompiledDelegate } from "./compile";
 import { agentPermissionOverrides } from "./permission";
@@ -55,7 +56,7 @@ export function compileTaskAgent(args: {
   standards?: string | null;
 }): CompiledPrimary {
   const compiled = compileTaskAgentRole({ ...args, role: "primary" });
-  if (compiled.role !== "primary") throw new Error("The task's Agent cannot run as a main agent.");
+  if (compiled.role !== "primary") throw new Error(i18n.t("agents:runtimeOptions.extraCopy393"));
   return compiled;
 }
 
@@ -66,17 +67,17 @@ export function compileTaskAgentRole(args: {
   role: "primary" | "delegate";
 }): CompiledPrimary | CompiledDelegate {
   const parsed = AgentConfigSchema.safeParse({ ...args.agent, archived: false });
-  if (!parsed.success) throw new Error("The task's saved Agent configuration is invalid.");
+  if (!parsed.success) throw new Error(i18n.t("agents:runtimeOptions.extraCopy394"));
   const result = compileAgent({
     snapshot: snapshotAgent(parsed.data), role: args.role, providerId: args.providerId,
     ...(args.standards ? { standards: args.standards } : {}),
   });
   if (!result.ok) throw new Error(result.message);
   if (result.compiled.role !== "primary" && result.compiled.role !== "delegate") {
-    throw new Error("The task's Agent role is unavailable.");
+    throw new Error(i18n.t("agents:runtimeOptions.extraCopy395"));
   }
   const unavailable = result.compiled.support.find((entry) => entry.level === "unavailable");
-  if (unavailable) throw new Error(unavailable.reason ?? `The Agent's ${unavailable.field} constraint is unavailable.`);
+  if (unavailable) throw new Error(unavailable.reason ?? i18n.t("agents:runtimeOptions.extraCopy396", { value1: unavailable.field }));
   return result.compiled;
 }
 

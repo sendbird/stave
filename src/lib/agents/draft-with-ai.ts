@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Describe to create: one line about what an agent should do becomes an
  * editable custom agent. The model answers with JSON; this module builds the
@@ -82,17 +83,17 @@ export type AgentDraftResult = { ok: true; agent: AgentConfig } | { ok: false; m
  */
 export function parseAgentDraft(text: string, takenIds: Iterable<string>): AgentDraftResult {
   const json = extractJsonObject(text);
-  if (!json) return { ok: false, message: "The draft came back without an agent. Try describing it again." };
+  if (!json) return { ok: false, message: i18n.t("agents:draftWithAi.message") };
   let raw: Record<string, unknown>;
   try {
     raw = JSON.parse(json) as Record<string, unknown>;
   } catch {
-    return { ok: false, message: "The draft could not be read. Try again." };
+    return { ok: false, message: i18n.t("agents:draftWithAi.message2") };
   }
   const name = asText(raw.name, AGENT_CONFIG_LIMITS.name);
   const instructions = asText(raw.instructions, AGENT_CONFIG_LIMITS.instructions);
   if (!name || !instructions) {
-    return { ok: false, message: "The draft had no name or instructions. Try describing the job in more detail." };
+    return { ok: false, message: i18n.t("agents:draftWithAi.message3") };
   }
   const base = blankCustomAgent({ name, takenIds });
   const permission = pick(AGENT_PERMISSIONS, raw.permission) ?? base.permission;
@@ -112,5 +113,5 @@ export function parseAgentDraft(text: string, takenIds: Iterable<string>): Agent
   const parsed = AgentConfigSchema.safeParse(candidate);
   return parsed.success
     ? { ok: true, agent: parsed.data }
-    : { ok: false, message: "The draft did not make a valid agent. Try again or start blank." };
+    : { ok: false, message: i18n.t("agents:draftWithAi.message4") };
 }

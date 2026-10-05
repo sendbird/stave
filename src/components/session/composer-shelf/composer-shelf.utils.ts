@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * The composer shelf: one surface over the prompt input that holds what is in
  * flight for the task — the run line (a turn, or the agent run heading it) and
@@ -204,23 +205,23 @@ export function describeTurnRunLabel(
 ): string {
   switch (tone) {
     case "active":
-      return "Working";
+      return i18n.t("composer:composerShelfUtils.describeTurnRunLabel");
     case "waiting":
       return pendingInteraction === "approval"
-        ? "Waiting for approval"
-        : "Waiting for your input";
+        ? i18n.t("composer:composerShelfUtils.describeTurnRunLabel2")
+        : i18n.t("composer:composerShelfUtils.describeTurnRunLabel3");
     case "steering":
-      return "Steering";
+      return i18n.t("composer:composerShelfUtils.describeTurnRunLabel4");
     case "stalled":
-      return "Stalled";
+      return i18n.t("composer:composerShelfUtils.describeTurnRunLabel5");
     case "retrying":
-      return "Retrying";
+      return i18n.t("composer:composerShelfUtils.describeTurnRunLabel6");
     case "failed":
-      return "Failed";
+      return i18n.t("composer:composerShelfUtils.describeTurnRunLabel7");
     case "done":
-      return "Done";
+      return i18n.t("composer:composerShelfUtils.describeTurnRunLabel8");
     case "stopped":
-      return "Stopped";
+      return i18n.t("composer:composerShelfUtils.describeTurnRunLabel9");
   }
 }
 
@@ -254,21 +255,21 @@ export function resolveTurnRunHeadline(args: {
         text: args.hasPendingInteractionCard
           ? null
           : args.pendingInteraction === "approval"
-            ? "Review to continue"
-            : "Reply to continue",
+            ? i18n.t("composer:composerShelfUtils.text")
+            : i18n.t("composer:composerShelfUtils.text2"),
         detail: null,
         live: false,
       };
     case "steering":
       return {
-        text: "Waiting for the provider to accept your message",
+        text: i18n.t("composer:composerShelfUtils.text3"),
         detail: null,
         live: false,
       };
     case "stalled":
       return {
-        text: `No updates for ${args.idleLabel ?? "a while"}`,
-        detail: "Esc stops it, or send a message to interrupt and continue",
+        text: i18n.t("composer:composerShelfUtils.text4", { value1: args.idleLabel ?? "a while" }),
+        detail: i18n.t("composer:composerShelfUtils.detail"),
         live: false,
       };
     case "retrying":
@@ -291,7 +292,7 @@ export function resolveTurnRunHeadline(args: {
     return { text: args.featured.title, detail, live: true };
   }
   return {
-    text: args.isPlanPreparing ? "Preparing the plan" : null,
+    text: args.isPlanPreparing ? i18n.t("composer:composerShelfUtils.text5") : null,
     detail: null,
     live: args.isPlanPreparing,
   };
@@ -480,7 +481,7 @@ export function summarizeQueuedTurnText(
 ): string {
   return (
     item.content.replace(/\s+/g, " ").trim() ||
-    "Queued follow-up with attached context."
+    i18n.t("composer:composerShelfUtils.summarizeQueuedTurnText")
   );
 }
 
@@ -496,9 +497,9 @@ export function describeQueuedTurnAttachments(
     (attachment) => attachment.kind === "task-context",
   ).length;
   const parts = [
-    files > 0 ? `${files} ${files === 1 ? "file" : "files"}` : null,
+    files > 0 ? i18n.t("composer:counts.files", { count: files }) : null,
     images > 0 ? `${images} ${images === 1 ? "image" : "images"}` : null,
-    tasks > 0 ? `${tasks} ${tasks === 1 ? "task" : "tasks"}` : null,
+    tasks > 0 ? i18n.t("composer:counts.tasks", { count: tasks }) : null,
   ].filter((part): part is string => part !== null);
   return parts.length > 0 ? parts.join(" · ") : null;
 }
@@ -526,22 +527,22 @@ export function describeQueueLine(args: {
   }
   if (args.pause === "restart") {
     return {
-      countLabel: `${args.items.length} queued`,
+      countLabel: i18n.t("session:remaining.presentationCopy338", { v1: args.items.length }),
       preview: summarizeQueuedTurnText(front),
       pausedLabel: "paused",
       // Nothing sends on its own until the user says the work still applies.
       frontAction: "resume",
-      hint: "Restored after Stave restarted, so nothing sends on its own. Resume to send them in order, or edit them first.",
+      hint: i18n.t("composer:composerShelfUtils.hint"),
     };
   }
   if (args.pause === "usage-limit") {
     return {
-      countLabel: `${args.items.length} queued`,
+      countLabel: i18n.t("session:remaining.presentationCopy339", { v1: args.items.length }),
       preview: summarizeQueuedTurnText(front),
       pausedLabel: "paused",
       // The limit line above owns Resume; a second copy here would compete.
       frontAction: null,
-      hint: "Waiting for the usage limit. They send in order once the task resumes.",
+      hint: i18n.t("composer:composerShelfUtils.hint2"),
     };
   }
   const frontAction =
@@ -552,13 +553,13 @@ export function describeQueueLine(args: {
         : null;
   const hint = args.isTurnActive
     ? args.actions.canSteer
-      ? "The next one sends when the current response finishes, or steer one into it now."
-      : "The next one sends when the current response finishes."
+      ? i18n.t("composer:composerShelfUtils.hint3")
+      : i18n.t("composer:composerShelfUtils.hint4")
     : args.actions.canSend
-      ? "Send one now, or it sends after your next message finishes."
+      ? i18n.t("composer:composerShelfUtils.hint5")
       : null;
   return {
-    countLabel: `${args.items.length} queued`,
+    countLabel: i18n.t("session:remaining.presentationCopy340", { v1: args.items.length }),
     preview: summarizeQueuedTurnText(front),
     pausedLabel: null,
     frontAction,
@@ -592,20 +593,20 @@ export function describeUsageLimitLine(args: {
   const provider = providerAccountUsageLabel(pause.providerId);
   // Window names are provider-specific (`Session`, `codex primary`), so they
   // stay in the description rather than the line.
-  const ranOut = `${provider} usage ran out${pause.windowLabel ? ` (${pause.windowLabel})` : ""}.`;
+  const ranOut = i18n.t("composer:composerShelfUtils.extraCopy170", { value1: provider, value2: pause.windowLabel ? ` (${pause.windowLabel})` : "" });
   const resumeTarget = pause.stoppedTurn
     ? args.queuedCount > 0
-      ? `Resume continues the stopped turn, then sends ${args.queuedCount} queued.`
-      : "Resume continues the stopped turn where it left off."
-    : `Resume sends ${args.queuedCount} queued in order.`;
+      ? i18n.t("composer:composerShelfUtils.extraCopy171", { value1: args.queuedCount })
+      : i18n.t("composer:composerShelfUtils.extraCopy172")
+    : i18n.t("composer:composerShelfUtils.extraCopy173", { value1: args.queuedCount });
   if (pause.autoResumeAt != null) {
     const seconds = pause.autoResumeAt / 1000;
     const countdown = formatResetCountdown(seconds, now);
     return {
-      label: `Resumes at ${formatResetClock(seconds, now, args.locale)}`,
+      label: i18n.t("composer:composerShelfUtils.label", { value1: formatResetClock(seconds, now, args.locale) }),
       armed: true,
-      detail: `${provider} usage limit${countdown && countdown !== "now" ? ` · in ${countdown}` : ""}`,
-      hint: `${ranOut} Stave resumes on its own after the limit resets, while the app is open. ${resumeTarget}`,
+      detail: i18n.t("composer:composerShelfUtils.detail2", { value1: provider, value2: countdown && countdown !== "now" ? i18n.t("session:remaining.presentationCopy341", { v1: countdown }) : "" }),
+      hint: i18n.t("composer:composerShelfUtils.hint6", { value1: ranOut, value2: resumeTarget }),
       canResumeAtReset: false,
       canDismiss: false,
     };
@@ -615,12 +616,12 @@ export function describeUsageLimitLine(args: {
   const resetAhead = resetSeconds != null && countdown !== "now";
   const detail =
     resetSeconds == null
-      ? "reset time unknown"
+      ? i18n.t("composer:composerShelfUtils.detail3")
       : resetAhead
-        ? `resets ${formatResetClock(resetSeconds, now, args.locale)} · in ${countdown}`
-        : "reset time passed";
+        ? i18n.t("composer:composerShelfUtils.detail4", { value1: formatResetClock(resetSeconds, now, args.locale), value2: countdown })
+        : i18n.t("composer:composerShelfUtils.detail5");
   return {
-    label: `${provider} usage limit`,
+    label: i18n.t("composer:composerShelfUtils.label2", { value1: provider }),
     armed: false,
     detail,
     hint: `${ranOut} ${resumeTarget}`,
@@ -678,7 +679,7 @@ export function describeReviewShelfLine(args: {
   if (status === "running") {
     const elapsedMs = args.now - Date.parse(child.createdAt);
     return {
-      label: "Reviewing",
+      label: i18n.t("composer:composerShelfUtils.label3"),
       detail: Number.isFinite(elapsedMs)
         ? `${model} · ${formatExchangeDuration(elapsedMs)}`
         : model,
@@ -688,20 +689,20 @@ export function describeReviewShelfLine(args: {
   if (status === "ready") {
     const findings = args.findings;
     if (!findings) {
-      return { label: "Review ready", detail: model, tone: "ready" };
+      return { label: i18n.t("composer:composerShelfUtils.label4"), detail: model, tone: "ready" };
     }
     if (findings.kind === "unreadable") {
-      return { label: "Review ready", detail: `${model} · findings unreadable`, tone: "ready" };
+      return { label: i18n.t("composer:composerShelfUtils.label5"), detail: i18n.t("composer:composerShelfUtils.detail6", { value1: model }), tone: "ready" };
     }
     return {
-      label: findings.incomplete ? "Fix checks incomplete" : findings.recheck ? "Fixes checked" : "Review ready",
+      label: findings.incomplete ? i18n.t("composer:composerShelfUtils.label6") : findings.recheck ? i18n.t("composer:composerShelfUtils.label7") : i18n.t("composer:composerShelfUtils.label8"),
       detail: `${model} · ${findings.text}`,
       tone: findings.blocking ? "danger" : "ready",
     };
   }
   const reason = child.reason?.trim();
   return {
-    label: status === "stopped" ? "Review stopped" : "Review failed",
+    label: status === "stopped" ? i18n.t("composer:composerShelfUtils.label9") : i18n.t("composer:composerShelfUtils.label10"),
     detail: reason ? `${model} · ${reason}` : model,
     tone: status === "stopped" ? "muted" : "danger",
   };
@@ -722,7 +723,7 @@ export function buildReviewExchange(args: {
   const exchange = fromDelegatedTask(args.item.child, {
     prompt:
       args.transcript?.prompt ??
-      `${args.title}\n\nThe reviewer's full instructions are the first message of the review task.`,
+      i18n.t("composer:composerShelfUtils.extraCopy174", { value1: args.title }),
   });
   // The ledger keeps a bounded copy of the answer; the task holds all of it.
   // The findings block is for Stave, so the written answer is shown alone.
