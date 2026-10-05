@@ -293,6 +293,12 @@ export async function getDraftFileContexts(args: {
       filePath,
     });
     if (!result.ok) {
+      // A restored draft can outlive the file it referenced. Preserve the
+      // existing send behavior for stale paths; surface read/size failures
+      // while the selected file still exists.
+      if (result.stderr?.toLowerCase().includes("not found")) {
+        continue;
+      }
       throw new Error(
         "Cannot read attached file " + filePath + ": " + result.stderr,
       );

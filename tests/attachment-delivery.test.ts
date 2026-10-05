@@ -71,3 +71,13 @@ test("unreadable file attachments fail explicitly instead of sending an incomple
     session: { editorTabs: [] }, workspaceRootPath: "/tmp/project",
   })).rejects.toThrow("Cannot read attached file large.txt");
 });
+
+test("skips stale file paths restored from an older draft", async () => {
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { api: { fs: {
+    readFile: async () => ({ ok: false, content: "", stderr: "File not found." }),
+  } } } });
+  await expect(getDraftFileContexts({
+    promptDraft: { text: "Continue", attachedFilePaths: ["removed.txt"], attachments: [] },
+    session: { editorTabs: [] }, workspaceRootPath: "/tmp/project",
+  })).resolves.toEqual([]);
+});
