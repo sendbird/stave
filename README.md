@@ -69,17 +69,19 @@ Recommended next steps:
 
 ## Features
 
+- English (default) and Korean throughout the app; switch in Settings or the home menu, with the choice saved across restarts
 - task-based Claude, Codex, Cursor Agent, and Kiro CLI chats with approvals, diffs, plans, and queued follow-ups
 - usage-limit pauses with manual or reset-time resume, and restored queues that wait for you after a restart
 - other tasks attached as context through title search or a sidebar drag, with a choice of the latest reply or recent conversation
 - Monaco editor, docked terminal, quick open, command palette, and source control actions
 - Lens browser panel for inspecting a live page and pulling DOM, console, or element context into a task draft
-- Compare Runs with candidate and judge turns, and Review tasks that run a read-only review on the model you pick beside the task and hand back only the findings
+- Compare Runs with candidate and judge turns, and Review tasks that run a read-only review on the model you pick beside the task and hand back only the findings, with configurable review presets, installed skills or custom prompts
 - Crane connector for queuing repository issues into approval-gated local Claude or Codex runs
 - Issues surface listing assigned Crane and Jira Cloud tickets with one-click local kickoff
 - workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
 - scheduled Claude and Codex automations with per-run results, repository selection, and reusable Information context
 - agents with a workflow: the stages you would otherwise prompt one by one — Stave opens the draft PR, watches checks, and checks in with you only where the agent says
+- Agent performance for comparing delegated runs across workspaces, and task Outputs for inspecting saved answers and changes
 - git worktree-aware repository and workspace management
 - editable workspace kickoff proposals from external sources and prompts
 - Fleet `Action required` inbox for questions, approvals, agent run sign-offs, failed runs, results, and PR blockers across every workspace
@@ -95,6 +97,7 @@ Recommended next steps:
 - [Turn Activity](docs/features/turn-activity.md) for queued follow-ups, restart recovery, and resuming work after a usage limit
 - [Attachments](docs/features/attachments.md) for files, images, and other tasks used as context
 - [Review Tasks](docs/features/review-tasks.md) for reviews and second opinions that run in their own read-only task
+- [Agent Performance and Task Outputs](docs/features/results.md) for choosing between cross-workspace metrics and a task's saved outputs
 - [Local MCP User Guide](docs/features/local-mcp-user-guide.md) for same-machine automation setup
 - [Crane Connector Guide](docs/features/crane-connector.md) for pairing Crane with this Stave installation and approving issue runs locally
 - [Issues Guide](docs/features/issues.md) for reviewing assigned Crane and Jira tickets and kicking one off locally

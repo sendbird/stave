@@ -46,7 +46,6 @@ import {
   updateApiConnectionRecord,
   type SavedApiConnection,
 } from "./api-connection-records";
-import { migrateLegacyGatewayProfiles } from "./api-connection-migration";
 
 const SavedProfileSchema = ProviderAccountCreateArgsSchema.extend({
   id: z.uuid(),
@@ -277,17 +276,6 @@ export class ProviderAccountRegistry {
     this.writeState({ ...state, connections: removeApiConnectionRecord(state.connections, id) });
   }
 
-  // temporary-migration: claude-gateway-api-connections
-  /** Persists the gateway-profile conversion `readState` applies in memory. Main only. */
-  persistMigrations() {
-    let raw: { profiles?: Array<{ gateway?: unknown }> };
-    try { raw = JSON.parse(readFileSync(this.filePath, "utf8")); } catch { return 0; }
-    const legacy = raw.profiles?.filter((profile) => profile.gateway).length ?? 0;
-    if (legacy > 0) this.writeState(this.readState());
-    return legacy;
-  }
-  // end temporary-migration: claude-gateway-api-connections
-
   private resolveApiConnectionDirectory(connection: SavedApiConnection, providerId: ApiConnectionRuntime) {
     const directory = apiConnectionDirectory(connection, providerId, this.managedRoot);
     if (!connection.directories?.[providerId]) mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -323,11 +311,8 @@ export class ProviderAccountRegistry {
     }
     try {
       const stored = RegistrySchema.parse(JSON.parse(content));
-      let { profiles } = stored;
-      let connections = stored.connections ?? [];
-      // temporary-migration: claude-gateway-api-connections
-      ({ profiles, connections } = migrateLegacyGatewayProfiles({ profiles, connections }));
-      // end temporary-migration: claude-gateway-api-connections
+      const { profiles } = stored;
+      const connections = stored.connections ?? [];
       const ids = new Set([...profiles, ...connections].map((entry) => entry.id));
       const directories = [
         ...profiles.map((profile) => profile.configDirectory),

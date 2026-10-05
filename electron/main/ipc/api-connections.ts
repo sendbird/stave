@@ -14,14 +14,6 @@ function failure(error: unknown, fallback: string) {
 }
 
 export function registerApiConnectionHandlers() {
-  // temporary-migration: claude-gateway-api-connections
-  try {
-    const migrated = getProviderAccountRegistry().persistMigrations();
-    if (migrated > 0) console.info(`[api-connections] moved ${migrated} Claude gateway account(s) to API connections`);
-  } catch {
-    console.warn("[api-connections] gateway account migration deferred; storage is read compatibly until it succeeds");
-  }
-  // end temporary-migration: claude-gateway-api-connections
   ipcMain.handle(API_CONNECTION_IPC.list, () => {
     try { return { ok: true, connections: getProviderAccountRegistry().listApiConnections() }; }
     catch (error) { return { ...failure(error, "API connections could not be read."), connections: [] }; }
