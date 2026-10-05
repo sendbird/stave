@@ -26,6 +26,7 @@ const STATUS_TONE: Record<PreviousFindingStatus, BadgeTone> = {
   resolved: "success",
   outdated: "neutral",
   unresolved: "danger",
+  unchecked: "warning",
 };
 
 const VERDICT_LABEL: Record<ReviewVerdict, string> = {
@@ -78,11 +79,14 @@ export function ReviewFindingsPanel(props: {
     <section className={sx(styles.root)} aria-label="Review findings">
       <div className={sx(styles.header)}>
         <span className={sx(styles.heading)}>Findings</span>
-        <Badge size="sm" tone={summary.verdict === "request-changes" ? "danger" : summary.verdict === "approve" ? "success" : "warning"}>
+        <Badge size="sm" tone={summary.verdict === "request-changes" ? "danger" : summary.previous?.unchecked || summary.checkWarnings ? "warning" : summary.verdict === "approve" ? "success" : "warning"}>
           {VERDICT_LABEL[summary.verdict]}
         </Badge>
         <span className={sx(styles.meta)}>{describeReviewFindingsSummary(summary)}</span>
       </div>
+      {(report.previousWarnings ?? []).map((warning, index) => (
+        <p key={index} className={sx(styles.notice)} role="note">{warning}</p>
+      ))}
       {report.previous && report.previous.length > 0 ? (
         <ul className={sx(styles.list)} aria-label="Earlier findings">
           {report.previous.map((check) => (

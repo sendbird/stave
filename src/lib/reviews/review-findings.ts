@@ -19,7 +19,8 @@ export const REVIEW_VERDICTS = ["approve", "approve-with-changes", "request-chan
 export type ReviewVerdict = (typeof REVIEW_VERDICTS)[number];
 
 export const PREVIOUS_FINDING_STATUSES = ["resolved", "unresolved", "outdated"] as const;
-export type PreviousFindingStatus = (typeof PREVIOUS_FINDING_STATUSES)[number];
+/** unchecked is Stave's state for an absent, invalid or contradictory check, not a provider verdict. */
+export type PreviousFindingStatus = (typeof PREVIOUS_FINDING_STATUSES)[number] | "unchecked";
 
 // Only the shape is strict; fields are coerced one by one, so one long title
 // or a line given as a string does not cost the whole report.
@@ -75,6 +76,9 @@ export interface ReviewFindingsReport {
   findings: ReviewFinding[];
   /** Present when the review re-checked earlier findings. */
   previous: PreviousFindingCheck[] | null;
+  /** The requested scope, recovered from the persisted re-check prompt. */
+  earlierFindings?: readonly ReviewFinding[];
+  previousWarnings?: string[];
 }
 
 export type ParsedReviewFindings =
@@ -111,7 +115,10 @@ function findFindingsBlock(raw: string) {
 
 const SEVERITY_ORDER: Record<ReviewFindingSeverity, number> = { critical: 0, major: 1, minor: 2 };
 
-export function parseReviewFindings(text: string | null | undefined): ParsedReviewFindings {
+export function parseReviewFindings(
+  text: string | null | undefined,
+  options: { earlierFindings?: readonly ReviewFinding[] } = {},
+): ParsedReviewFindings {
   const block = text ? findFindingsBlock(text) : null;
   if (!block) {
     return { ok: false, reason: "missing" };
@@ -126,14 +133,46 @@ export function parseReviewFindings(text: string | null | undefined): ParsedRevi
   if (!parsed.success) {
     return { ok: false, reason: "invalid" };
   }
-  // A re-check is a reply that checked at least one earlier finding; an
-  // empty or all-invalid list is a first review.
-  const checked = (parsed.data.previous ?? []).slice(0, MAX_REVIEW_FINDINGS).flatMap((check) => {
+  const expectedIds = options.earlierFindings
+    ? new Set(options.earlierFindings.map((finding) => finding.id)) : null;
+  const warnings: string[] = [];
+  const unknownIds = new Set<string>();
+  let unreadableId = false;
+  const checked = new Map<string, PreviousFindingCheck>();
+  for (const check of parsed.data.previous ?? []) {
     const id = findingId(check.id);
     const status = PREVIOUS_FINDING_STATUSES.find((candidate) => candidate === check.status);
-    return id && status ? [{ id, status, note: fieldText(check.note, 500) }] : [];
-  });
-  const previous = checked.length > 0 ? checked : null;
+    if (!id) {
+      unreadableId = true;
+      continue;
+    }
+    if (expectedIds && !expectedIds.has(id)) {
+      unknownIds.add(id);
+      continue;
+    }
+    if (!expectedIds && !checked.has(id) && checked.size >= MAX_REVIEW_FINDINGS) {
+      if (!warnings.length) warnings.push("The reply has more earlier finding IDs than Stave can display.");
+      continue;
+    }
+    const entry: PreviousFindingCheck = {
+      id, status: status ?? "unchecked",
+      note: status ? fieldText(check.note, 500) : "The reply did not provide a valid check status.",
+    };
+    const existing = checked.get(id);
+    if (existing && existing.status !== entry.status) {
+      checked.set(id, { id, status: "unchecked", note: "The reply gave conflicting statuses for this finding." });
+    } else if (!existing) checked.set(id, entry);
+  }
+  if (unreadableId) warnings.push("Some earlier checks have unreadable finding IDs.");
+  if (unknownIds.size > 0) warnings.push(`Checks for unrequested IDs were not counted: ${[...unknownIds].slice(0, 5).join(", ")}${unknownIds.size > 5 ? "…" : ""}.`);
+  if (expectedIds) {
+    for (const id of expectedIds) {
+      if (!checked.has(id)) checked.set(id, { id, status: "unchecked", note: "The reply did not check this finding." });
+    }
+  }
+  // An invalid list must never make a re-check look like a clean first review.
+  if (!expectedIds && parsed.data.previous?.length && checked.size === 0) return { ok: false, reason: "invalid" };
+  const previous = checked.size > 0 ? [...checked.values()] : null;
   // Ids address findings later (selection, re-checks); keep them unique.
   const seen = new Set<string>();
   const findings: ReviewFinding[] = [];
@@ -142,7 +181,10 @@ export function parseReviewFindings(text: string | null | undefined): ParsedRevi
     const title = fieldText(finding.title, 200) ?? detail?.slice(0, 200) ?? null;
     if (!title) return { ok: false, reason: "invalid" };
     // A re-check's own findings default to N ids, so they never pose as earlier ones.
-    let id = findingId(finding.id) ?? `${previous ? "N" : "F"}${index + 1}`;
+    const suppliedId = findingId(finding.id);
+    let sequence = index + 1;
+    let id = suppliedId ?? `${previous ? "N" : "F"}${sequence}`;
+    if (!suppliedId) while (expectedIds?.has(id) || seen.has(id)) id = `${previous ? "N" : "F"}${++sequence}`;
     while (seen.has(id)) id = `${id}-${index + 1}`;
     seen.add(id);
     findings.push({
@@ -156,7 +198,16 @@ export function parseReviewFindings(text: string | null | undefined): ParsedRevi
     });
   }
   findings.sort((left, right) => SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity]);
-  return { ok: true, report: { verdict: parsed.data.verdict, findings, previous } };
+  for (const check of previous ?? []) {
+    if ((check.status === "resolved" || check.status === "outdated") && findings.some((finding) => finding.id === check.id)) {
+      check.status = "unchecked";
+      check.note = "The reply also lists this finding as open, so its check is inconsistent.";
+    }
+  }
+  return { ok: true, report: { verdict: parsed.data.verdict, findings, previous,
+    ...(options.earlierFindings ? { earlierFindings: options.earlierFindings } : {}),
+    ...(warnings.length ? { previousWarnings: warnings } : {}),
+  } };
 }
 
 /** The reply without its findings block, for reading. */
@@ -172,6 +223,7 @@ export interface ReviewFindingsSummary {
   fresh: number;
   bySeverity: Record<ReviewFindingSeverity, number>;
   previous: Record<PreviousFindingStatus, number> | null;
+  checkWarnings: number;
 }
 
 export function summarizeReviewFindings(report: ReviewFindingsReport): ReviewFindingsSummary {
@@ -180,11 +232,12 @@ export function summarizeReviewFindings(report: ReviewFindingsReport): ReviewFin
   let previous: ReviewFindingsSummary["previous"] = null;
   const earlierIds = new Set(report.previous?.map((check) => check.id) ?? []);
   if (report.previous) {
-    previous = { resolved: 0, unresolved: 0, outdated: 0 };
+    previous = { resolved: 0, unresolved: 0, outdated: 0, unchecked: 0 };
     for (const check of report.previous) previous[check.status] += 1;
   }
   const fresh = report.findings.filter((finding) => !earlierIds.has(finding.id)).length;
-  return { verdict: report.verdict, total: report.findings.length, fresh, bySeverity, previous };
+  return { verdict: report.verdict, total: report.findings.length, fresh, bySeverity, previous,
+    checkWarnings: report.previousWarnings?.length ?? 0 };
 }
 
 function plural(count: number, word: string) {
@@ -194,8 +247,11 @@ function plural(count: number, word: string) {
 /** `3 findings · 1 critical`, `No findings`, or `2 of 3 fixed · 1 new`. */
 export function describeReviewFindingsSummary(summary: ReviewFindingsSummary) {
   if (summary.previous) {
-    const checked = summary.previous.resolved + summary.previous.unresolved + summary.previous.outdated;
-    const parts = [`${summary.previous.resolved + summary.previous.outdated} of ${checked} fixed`];
+    const total = Object.values(summary.previous).reduce((sum, count) => sum + count, 0);
+    const parts = [`${summary.previous.resolved} of ${total} fixed`];
+    if (summary.previous.outdated > 0) parts.push(`${summary.previous.outdated} outdated`);
+    if (summary.previous.unchecked > 0) parts.push(`${summary.previous.unchecked} unchecked`);
+    if (summary.checkWarnings > 0) parts.push(plural(summary.checkWarnings, "check warning"));
     if (summary.fresh > 0) parts.push(`${summary.fresh} new`);
     return parts.join(" · ");
   }
@@ -203,6 +259,16 @@ export function describeReviewFindingsSummary(summary: ReviewFindingsSummary) {
   const parts = [plural(summary.total, "finding")];
   if (summary.bySeverity.critical > 0) parts.push(`${summary.bySeverity.critical} critical`);
   return parts.join(" · ");
+}
+
+/** Keep unverified earlier findings available for another check without attaching them as new findings. */
+export function reviewFindingsToRecheck(report: ReviewFindingsReport): ReviewFinding[] {
+  const wanted = new Map(report.findings.map((finding) => [finding.id, finding]));
+  for (const finding of report.earlierFindings ?? []) {
+    const status = report.previous?.find((check) => check.id === finding.id)?.status;
+    if ((status === "unchecked" || status === "unresolved") && !wanted.has(finding.id)) wanted.set(finding.id, finding);
+  }
+  return [...wanted.values()];
 }
 
 function locate(finding: Pick<ReviewFinding, "file" | "line">) {
@@ -245,8 +311,8 @@ export function buildReviewFindingsInstructions(args: { recheck: boolean }) {
     "- findings: every concrete finding you wrote above, as critical (breaks correctness, security or data), major (should be fixed before shipping) or minor (worth fixing, not blocking). Use an empty list when there are none.",
     ...(args.recheck
       ? [
-          "- previous: one entry per earlier finding id, with status resolved, unresolved or outdated (the code it referred to is gone or changed so it no longer applies), and a short note.",
-          "- findings: repeat every unresolved earlier finding with its original id, then add any new blocking finding with an id starting with N (N1, N2, ...).",
+          "- previous: one entry per earlier finding id, with status resolved, unresolved or outdated (the code it referred to is gone or changed so it no longer applies), and a short note. Do not omit, repeat or invent earlier IDs. Outdated does not mean fixed.",
+          "- findings: repeat every unresolved earlier finding with its original id, then add any new blocking finding with an unused id starting with N (N1, N2, ...). Never reuse an earlier ID for a new finding.",
         ]
       : []),
     "- file is repository-relative; line is the first relevant line when you know it, otherwise null.",
@@ -264,7 +330,7 @@ export function buildReviewRecheckPrompt(args: {
   report: ReviewFindingsReport;
 }) {
   const earlier = JSON.stringify(
-    args.report.findings.map((finding) => ({
+    reviewFindingsToRecheck(args.report).map((finding) => ({
       id: finding.id,
       severity: finding.severity,
       title: finding.title,

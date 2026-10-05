@@ -19,6 +19,7 @@ import type { DelegationActionId } from "@/lib/delegation/exchange";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
 import { useAppStore } from "@/store/app.store";
 import { recheckReviewTask, rerunReviewTask } from "@/store/review-task-runtime";
+import { reviewFindingsToRecheck } from "@/lib/reviews/review-findings";
 import {
   buildReviewExchange,
   describeReviewShelfFindings,
@@ -162,7 +163,7 @@ export function ReviewActivityDialog(props: {
           onClose();
         }}
         onRecheck={
-          findings.ok && findings.report.findings.length > 0 && transcript?.prompt
+          findings.ok && reviewFindingsToRecheck(findings.report).length > 0 && transcript?.prompt
             ? () => void recheck()
             : null
         }

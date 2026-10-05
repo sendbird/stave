@@ -14,6 +14,7 @@ import {
 } from "@/lib/reviews/review-task";
 import {
   buildReviewRecheckPrompt,
+  reviewFindingsToRecheck,
   type ReviewFindingsReport,
 } from "@/lib/reviews/review-findings";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
@@ -258,7 +259,7 @@ export async function recheckReviewTask(args: {
   now?: Date;
   nonce?: string;
 }): Promise<StartReviewTaskResult> {
-  if (args.report.findings.length === 0) {
+  if (reviewFindingsToRecheck(args.report).length === 0) {
     return { ok: false, error: "The earlier review has no findings to re-check." };
   }
   return rerunReviewTask({

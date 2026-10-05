@@ -694,7 +694,7 @@ export function describeReviewShelfLine(args: {
       return { label: "Review ready", detail: `${model} · findings unreadable`, tone: "ready" };
     }
     return {
-      label: findings.recheck ? "Fixes checked" : "Review ready",
+      label: findings.incomplete ? "Fix checks incomplete" : findings.recheck ? "Fixes checked" : "Review ready",
       detail: `${model} · ${findings.text}`,
       tone: findings.blocking ? "danger" : "ready",
     };
@@ -745,7 +745,7 @@ export interface ReviewTranscript {
 
 export type ReviewShelfFindings =
   | { kind: "unreadable" }
-  | { kind: "summary"; text: string; blocking: boolean; recheck: boolean };
+  | { kind: "summary"; text: string; blocking: boolean; recheck: boolean; incomplete: boolean };
 
 /**
  * The shelf's reading of a review's structured findings. Blocking means a
@@ -764,8 +764,10 @@ export function describeReviewShelfFindings(
     blocking:
       summary.bySeverity.critical > 0 ||
       summary.verdict === "request-changes" ||
-      (summary.previous?.unresolved ?? 0) > 0,
+      (summary.previous?.unresolved ?? 0) > 0 ||
+      (summary.previous?.unchecked ?? 0) > 0 || summary.checkWarnings > 0,
     recheck: summary.previous !== null,
+    incomplete: (summary.previous?.unchecked ?? 0) > 0 || summary.checkWarnings > 0,
   };
 }
 

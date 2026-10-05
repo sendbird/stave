@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   REVIEW_FINDINGS_FENCE,
-  parseReviewFindings,
   type ParsedReviewFindings,
 } from "@/lib/reviews/review-findings";
+import { parseReviewFindingsForPrompt } from "@/lib/reviews/review-recheck-context";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
 import { useAppStore } from "@/store/app.store";
 import { readAttachedTaskMessages } from "@/store/attached-task-context-runtime";
@@ -87,7 +87,7 @@ export function useReviewTranscript(
   const transcript = loaded?.key === loadKey ? loaded.transcript : null;
   const findings = useMemo(() => {
     if (item.status !== "ready" || !transcript) return null;
-    const parsed = parseReviewFindings(transcript.reply);
+    const parsed = parseReviewFindingsForPrompt(transcript.reply, transcript.prompt);
     // A review started before findings existed never promised a block, so
     // its reply is not "unreadable", it simply has no findings list.
     if (!parsed.ok && !transcript.prompt?.includes(REVIEW_FINDINGS_FENCE)) return null;
