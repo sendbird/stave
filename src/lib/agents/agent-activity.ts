@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { AgentAssignment, AssignmentState } from "./assign";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 
@@ -70,10 +71,10 @@ export const AGENT_ACTIVITY_FILTERS = ["all", "started", "failed", "interrupted"
 export type AgentActivityFilter = (typeof AGENT_ACTIVITY_FILTERS)[number];
 
 export const AGENT_ACTIVITY_FILTER_LABELS: Readonly<Record<AgentActivityFilter, string>> = {
-  all: "All",
-  started: "Started",
-  failed: "Couldn't start",
-  interrupted: "Interrupted",
+  get all() { return i18n.t("agents:agentActivity.all"); },
+  get started() { return i18n.t("agents:agentActivity.started"); },
+  get failed() { return i18n.t("agents:agentActivity.failed"); },
+  get interrupted() { return i18n.t("agents:agentActivity.interrupted"); },
 };
 
 export function matchesAgentActivityFilter(state: AssignmentState, filter: AgentActivityFilter): boolean {

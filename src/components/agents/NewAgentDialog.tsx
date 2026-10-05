@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Dialog } from "@/components/ads/components/Dialog";
@@ -36,6 +37,7 @@ export function NewAgentDialog(props: {
   /** Injected in tests and the dev preview. */
   runDraft?: RunAgentDraft;
 }) {
+  useTranslation();
   const [description, setDescription] = useState("");
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
@@ -66,7 +68,7 @@ export function NewAgentDialog(props: {
     const result = await run(description, { takenIds: props.takenIds, signal: controller.signal }).catch(
       (error: unknown): AgentDraftResult => ({
         ok: false,
-        message: error instanceof Error && error.message ? error.message : "Drafting failed. Try again.",
+        message: error instanceof Error && error.message ? error.message : i18n.t("agents:newAgentDialog.message"),
       }),
     );
     if (controller.signal.aborted) return;
@@ -85,13 +87,13 @@ export function NewAgentDialog(props: {
         props.onOpenChange(open);
       }}
       width="md"
-      title="New agent"
-      description="Describe the job in a sentence, or duplicate an agent. Nothing is saved until you save the editor."
+      title={i18n.t("agents:newAgentDialog.title")}
+      description={i18n.t("agents:newAgentDialog.description")}
     >
-      <section className={sx(styles.draftPanel)} aria-label="Describe the agent">
+      <section className={sx(styles.draftPanel)} aria-label={i18n.t("agents:newAgentDialog.ariaLabel")}>
         <Textarea
-          label="What should it do?"
-          placeholder="Reviews my PRs for missing tests and risky changes, and never edits files."
+          label={i18n.t("agents:newAgentDialog.label")}
+          placeholder={i18n.t("agents:newAgentDialog.placeholder")}
           value={description}
           maxLength={MAX_AGENT_DESCRIPTION_CHARS}
           autoResize
@@ -118,19 +120,17 @@ export function NewAgentDialog(props: {
                 setPending(false);
               }}
             >
-              Cancel
-            </Button>
+              {i18n.t("agents:newAgentDialog.newAgentDialog")}</Button>
           ) : null}
           <Button size="sm" disabled={!description.trim() || pending} loading={pending} onClick={() => void submit()}>
             <Sparkles aria-hidden />
-            Draft agent
-          </Button>
+            {i18n.t("agents:newAgentDialog.newAgentDialog2")}</Button>
         </div>
       </section>
 
       {props.templates.length > 0 ? (
         <>
-          <p className={sx(styles.listLabel, styles.listLabelFlush)}>Or duplicate one and edit it</p>
+          <p className={sx(styles.listLabel, styles.listLabelFlush)}>{i18n.t("agents:newAgentDialog.newAgentDialog3")}</p>
           <div className={sx(styles.templates)}>
             {props.templates.map((template) => (
               <Button
@@ -156,14 +156,14 @@ export function NewAgentDialog(props: {
           </div>
         </>
       ) : null}
-      <p className={sx(styles.listLabel, styles.listLabelFlush)}>Or start blank</p>
+      <p className={sx(styles.listLabel, styles.listLabelFlush)}>{i18n.t("agents:newAgentDialog.newAgentDialog4")}</p>
       <div className={sx(agentStyles.blankRow)}>
         <TextField
           size="sm"
           controlOnly
-          aria-label="Name"
+          aria-label={i18n.t("agents:newAgentDialog.ariaLabel2")}
           value={name}
-          placeholder="Name, e.g. Docs writer"
+          placeholder={i18n.t("agents:newAgentDialog.placeholder2")}
           onChange={(event) => setName(event.target.value)}
         />
         <Button
@@ -172,8 +172,7 @@ export function NewAgentDialog(props: {
           disabled={!trimmedName}
           onClick={() => create(blankCustomAgent({ name: trimmedName, takenIds: props.takenIds }))}
         >
-          Start blank
-        </Button>
+          {i18n.t("agents:newAgentDialog.newAgentDialog5")}</Button>
       </div>
 
     </Dialog>

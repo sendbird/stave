@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { StaveIcon } from "@/components/brand-icons";
@@ -30,17 +31,18 @@ interface ConfirmationCompactProps {
 function getApprovalDecisionText(state: ConfirmationCompactProps["state"]) {
   switch (state) {
     case "approval-responded":
-      return "Decision: approved.";
+      return i18n.t("composer:confirmation.getApprovalDecisionText");
     case "output-denied":
-      return "Decision: denied.";
+      return i18n.t("composer:confirmation.getApprovalDecisionText2");
     case "approval-interrupted":
-      return "Request expired because the turn was interrupted.";
+      return i18n.t("composer:confirmation.getApprovalDecisionText3");
     default:
       return null;
   }
 }
 
 export function ConfirmationCompact(args: ConfirmationCompactProps) {
+  useTranslation();
   const {
     toolName,
     description,
@@ -89,8 +91,7 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
               disabled={disabled}
               onClick={onApprove}
             >
-              Approve
-            </Button>
+              {i18n.t("composer:confirmation.confirmationCompact")}</Button>
             {onApproveAlways ? (
               <Button
                 size="sm"
@@ -98,10 +99,9 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
                 xstyle={actionXstyle}
                 disabled={disabled}
                 onClick={onApproveAlways}
-                title="Approve and let the provider remember this decision."
+                title={i18n.t("composer:confirmation.title")}
               >
-                Always allow
-              </Button>
+                {i18n.t("composer:confirmation.confirmationCompact2")}</Button>
             ) : null}
             <Button
               size="sm"
@@ -110,18 +110,16 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
               disabled={disabled}
               onClick={onReject}
             >
-              Reject
-            </Button>
+              {i18n.t("composer:confirmation.confirmationCompact3")}</Button>
             {!disabled && onApprove && showShortcutHint ? (
               <span className={sx(s.shortcutHint)}>
-                <Kbd className={sx(s.shortcutKbd)}>↵</Kbd> approve
-              </span>
+                <Kbd className={sx(s.shortcutKbd)}>↵</Kbd> {i18n.t("composer:confirmation.confirmationCompact4")}</span>
             ) : null}
           </div>
         </>
       ) : (
         <p className={sx(s.decisionText)}>
-          {decisionText ?? "Decision recorded."}
+          {decisionText ?? i18n.t("composer:confirmation.confirmationCompact5")}
         </p>
       )}
     </div>

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { contrastRatio, formatOklch, mixOklab, parseCssColor, type Oklab } from "@/lib/themes/contrast";
 import { AGENT_COLORS, type AgentColor, type AgentConfig } from "./schema";
 
@@ -28,14 +29,14 @@ export const AGENT_COLOR_CHART_INDEX: Readonly<Record<AgentColor, number>> = {
 };
 
 export const AGENT_COLOR_LABELS: Readonly<Record<AgentColor, string>> = {
-  blue: "Blue",
-  orange: "Orange",
-  green: "Green",
-  violet: "Violet",
-  amber: "Amber",
-  red: "Red",
-  purple: "Purple",
-  cyan: "Cyan",
+  get blue() { return i18n.t("agents:agentAppearance.blue"); },
+  get orange() { return i18n.t("agents:agentAppearance.orange"); },
+  get green() { return i18n.t("agents:agentAppearance.green"); },
+  get violet() { return i18n.t("agents:agentAppearance.violet"); },
+  get amber() { return i18n.t("agents:agentAppearance.amber"); },
+  get red() { return i18n.t("agents:agentAppearance.red"); },
+  get purple() { return i18n.t("agents:agentAppearance.purple"); },
+  get cyan() { return i18n.t("agents:agentAppearance.cyan"); },
 };
 
 /** A small, stable, order-independent hash of a string (FNV-1a, 32-bit). */

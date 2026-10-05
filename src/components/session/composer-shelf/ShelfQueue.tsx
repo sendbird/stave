@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { memo, useState } from "react";
 import {
   ChevronDown,
@@ -67,6 +68,7 @@ export interface ComposerShelfQueueProps {
  * to another model than the composer's says so, on its row.
  */
 export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProps) {
+  useTranslation();
   const [open, setOpen] = useState(props.defaultOpen ?? false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
@@ -91,7 +93,7 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
   const listId = `composer-shelf-queue-${props.listId}`;
   return (
     <div data-testid="composer-shelf-queue">
-      <div className={sx(styles.line)} role="group" aria-label="Queued messages">
+      <div className={sx(styles.line)} role="group" aria-label={i18n.t("composer:shelfQueue.ariaLabel")}>
         <span className={sx(styles.mark)}>
           <CornerDownRight aria-hidden className={sx(styles.queueIcon)} />
         </span>
@@ -109,7 +111,7 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
             <>
               <span>{` · ${line.preview}`}</span>
               {frontDispatch.mismatchesComposer && frontDispatch.targetLabel ? (
-                <span className={sx(styles.caution)}>{` · as ${frontDispatch.targetLabel}`}</span>
+                <span className={sx(styles.caution)}>{i18n.t("composer:shelfQueue.shelfQueue", { value1: frontDispatch.targetLabel })}</span>
               ) : null}
             </>
           )}
@@ -123,8 +125,7 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
               ) : null}
               {props.onClearAll ? (
                 <Button variant="quiet" size="xs" onClick={props.onClearAll} xstyle={styles.quiet}>
-                  Clear all
-                </Button>
+                  {i18n.t("composer:shelfQueue.shelfQueue2")}</Button>
               ) : null}
             </>
           ) : line.frontAction === "resume" && props.onResume ? (
@@ -133,33 +134,33 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
             <Button
               variant="quiet"
               size="xs"
-              aria-label="Steer queued prompt 1 into the current response"
-              title="Steer it into the current response"
+              aria-label={i18n.t("composer:shelfQueue.ariaLabel2")}
+              title={i18n.t("composer:shelfQueue.title")}
               onClick={() => props.onSteer(front.id)}
               xstyle={styles.itemAccent}
             >
               <Zap aria-hidden />
-              <span className={sx(styles.actionWord)}>Steer</span>
+              <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfQueue.shelfQueue3")}</span>
             </Button>
           ) : line.frontAction === "send" ? (
             <Button
               variant="quiet"
               size="xs"
-              aria-label="Send queued prompt 1 now"
-              title="Send it now"
+              aria-label={i18n.t("composer:shelfQueue.ariaLabel3")}
+              title={i18n.t("composer:shelfQueue.title2")}
               onClick={() => props.onSend(front.id)}
               xstyle={styles.itemAccent}
             >
               <Send aria-hidden />
-              <span className={sx(styles.actionWord)}>Send</span>
+              <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfQueue.shelfQueue4")}</span>
             </Button>
           ) : null}
           <Button
             variant="quiet"
             size="xs"
             iconOnly
-            aria-label={expanded ? "Hide queued messages" : "Show queued messages"}
-            title={expanded ? "Hide queued messages" : "Show queued messages"}
+            aria-label={expanded ? i18n.t("composer:shelfQueue.ariaLabel4") : i18n.t("composer:shelfQueue.ariaLabel5")}
+            title={expanded ? i18n.t("composer:shelfQueue.title3") : i18n.t("composer:shelfQueue.title4")}
             aria-expanded={expanded}
             onClick={() => {
               if (expanded) {
@@ -200,17 +201,18 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
 });
 
 function QueueResumeButton(props: { onResume: () => void }) {
+  useTranslation();
   return (
     <Button
       variant="quiet"
       size="xs"
-      aria-label="Resume the queue"
-      title="Send the queued messages in order"
+      aria-label={i18n.t("composer:shelfQueue.ariaLabel6")}
+      title={i18n.t("composer:shelfQueue.title5")}
       onClick={props.onResume}
       xstyle={styles.itemAccent}
     >
       <Play aria-hidden />
-      <span className={sx(styles.actionWord)}>Resume</span>
+      <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfQueue.queueResumeButton")}</span>
     </Button>
   );
 }
@@ -225,6 +227,7 @@ interface QueueListProps extends ComposerShelfQueueProps {
 }
 
 function QueueList(props: QueueListProps) {
+  useTranslation();
   const { onReorder, listId } = props;
   useSortableListMonitor({
     isListMatch: (candidate) => candidate === listId,
@@ -243,7 +246,7 @@ function QueueList(props: QueueListProps) {
   // Only real queue entries can move; a legacy single item has nothing to swap with.
   const sortable = Boolean(onReorder) && props.items.length > 1 && props.editingId == null;
   return (
-    <ol className={sx(styles.queueList)} aria-label="Queued messages, in the order they send">
+    <ol className={sx(styles.queueList)} aria-label={i18n.t("composer:shelfQueue.ariaLabel7")}>
       {props.items.map((item, index) => (
         <QueueItem key={item.id} {...props} item={item} index={index} sortable={sortable} />
       ))}
@@ -254,6 +257,7 @@ function QueueList(props: QueueListProps) {
 function QueueItem(
   props: QueueListProps & { item: PromptDraftQueuedTurn; index: number; sortable: boolean },
 ) {
+  useTranslation();
   const { item, index } = props;
   const summary = summarizeQueuedTurnText(item);
   const { setRowElement, setHandleElement, isDragging, closestEdge } = useSortableRow({
@@ -272,7 +276,7 @@ function QueueItem(
         <div className={sx(styles.editArea)}>
           <Textarea
             value={props.editingContent}
-            aria-label={`Edit queued prompt ${index + 1}`}
+            aria-label={i18n.t("composer:shelfQueue.ariaLabel8", { value1: index + 1 })}
             autoFocus
             onChange={(event) => props.onEditingContentChange(event.target.value)}
             onKeyDown={(event) => {
@@ -296,11 +300,9 @@ function QueueItem(
           />
           <div className={sx(styles.editActions)}>
             <Button variant="quiet" size="xs" onClick={props.onCancelEdit}>
-              Cancel
-            </Button>
+              {i18n.t("composer:shelfQueue.queueItem")}</Button>
             <Button variant="primary" size="xs" onClick={() => props.onSaveEdit(item.id)}>
-              Save
-            </Button>
+              {i18n.t("composer:shelfQueue.queueItem2")}</Button>
           </div>
         </div>
       </li>
@@ -322,7 +324,7 @@ function QueueItem(
       <span className={sx(styles.itemSlot)}>
         <span className={sx(styles.itemIndex)}>{position}</span>
         {props.sortable ? (
-          <span ref={setHandleElement} className={sx(styles.itemGrip)} title="Drag to reorder">
+          <span ref={setHandleElement} className={sx(styles.itemGrip)} title={i18n.t("composer:shelfQueue.title6")}>
             <GripVertical aria-hidden className={sx(styles.itemGripIcon)} />
           </span>
         ) : null}
@@ -342,8 +344,8 @@ function QueueItem(
             variant="quiet"
             size="xs"
             iconOnly
-            aria-label={`Steer queued prompt ${position} into the current response`}
-            title="Steer into the current response"
+            aria-label={i18n.t("composer:shelfQueue.ariaLabel9", { value1: position })}
+            title={i18n.t("composer:shelfQueue.title7")}
             onClick={() => props.onSteer(item.id)}
             xstyle={styles.itemAccent}
           >
@@ -355,8 +357,8 @@ function QueueItem(
             variant="quiet"
             size="xs"
             iconOnly
-            aria-label={`Send queued prompt ${position} now`}
-            title="Send now"
+            aria-label={i18n.t("composer:shelfQueue.ariaLabel10", { value1: position })}
+            title={i18n.t("composer:shelfQueue.title8")}
             onClick={() => props.onSend(item.id)}
             xstyle={styles.itemAccent}
           >
@@ -367,8 +369,8 @@ function QueueItem(
           variant="quiet"
           size="xs"
           iconOnly
-          aria-label={`Edit queued prompt ${position}`}
-          title="Edit"
+          aria-label={i18n.t("composer:shelfQueue.ariaLabel11", { value1: position })}
+          title={i18n.t("composer:shelfQueue.title9")}
           onClick={() => props.onStartEdit(item)}
           xstyle={styles.quiet}
         >
@@ -378,8 +380,8 @@ function QueueItem(
           variant="quiet"
           size="xs"
           iconOnly
-          aria-label={`Delete queued prompt ${position}`}
-          title="Delete"
+          aria-label={i18n.t("composer:shelfQueue.ariaLabel12", { value1: position })}
+          title={i18n.t("composer:shelfQueue.title10")}
           onClick={() => props.onRemove(item.id)}
           xstyle={styles.itemDanger}
         >

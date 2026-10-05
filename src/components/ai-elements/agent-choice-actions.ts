@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { toast } from "@/components/ui";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
 import type { AgentsBridgeApi } from "@/lib/agents/api";
@@ -84,7 +85,7 @@ export function composerFixedModel(
   return option ? { providerId: fixed.providerId, model: option.model } : fixed;
 }
 
-const UNAVAILABLE = "Changing the task's agent is unavailable here.";
+const UNAVAILABLE = "composer:agentChoiceActions.extraCopy43";
 
 /**
  * What each choice in the selector does to the task's agent (a host call) and
@@ -114,12 +115,12 @@ export function createAgentChoiceActions(read: () => AgentChoiceContext) {
   async function apply(next: AgentConfig): Promise<boolean> {
     const c = read();
     if (!c.api) {
-      toast.error(UNAVAILABLE);
+      toast.error(i18n.t(UNAVAILABLE));
       return false;
     }
     c.setBusy(true);
     try {
-      if (!c.repositoryPath) throw new Error("Open a repository before choosing an agent.");
+      if (!c.repositoryPath) throw new Error(i18n.t("composer:agentChoiceActions.extraCopy44"));
       const fixedOption = fixedOptionFor(c, fixedModelOf(next));
       const { draft } = planSelectorChoice({
         choice: { kind: "agent", agent: next },
@@ -142,7 +143,7 @@ export function createAgentChoiceActions(read: () => AgentChoiceContext) {
         workspaceId: c.workspaceId,
         repositoryPath: c.repositoryPath,
         agent: next,
-        assignment: c.taskTitle.trim() || `Runs as ${next.name}`,
+        assignment: c.taskTitle.trim() || i18n.t("composer:agentChoiceActions.extraCopy45", { value1: next.name }),
         providerId: route.providerId,
         model: route.model,
         ...(c.standards ? { standards: c.standards } : {}),
@@ -157,7 +158,7 @@ export function createAgentChoiceActions(read: () => AgentChoiceContext) {
       latest.reload();
       return true;
     } catch (error) {
-      toast.error("The task's agent was not changed", {
+      toast.error(i18n.t("composer:agentChoiceActions.apply"), {
         description: error instanceof Error ? error.message : undefined,
       });
       return false;
@@ -170,7 +171,7 @@ export function createAgentChoiceActions(read: () => AgentChoiceContext) {
   async function release(): Promise<boolean> {
     const c = read();
     if (!c.api) {
-      toast.error(UNAVAILABLE);
+      toast.error(i18n.t(UNAVAILABLE));
       return false;
     }
     try {
@@ -181,7 +182,7 @@ export function createAgentChoiceActions(read: () => AgentChoiceContext) {
       latest.reload();
       return true;
     } catch (error) {
-      toast.error("The task's agent was not released", {
+      toast.error(i18n.t("composer:agentChoiceActions.release"), {
         description: error instanceof Error ? error.message : undefined,
       });
       return false;
@@ -228,8 +229,8 @@ export function createAgentChoiceActions(read: () => AgentChoiceContext) {
         if (!done) return;
         read().onModelSelect(selectionArgs);
         if (released && switchWidensPermission({ from: released, to: null })) {
-          toast.info(`${current.agentName} no longer runs this task`, {
-            description: "It runs with its own permissions now.",
+          toast.info(i18n.t("composer:agentChoiceActions.copy", { value1: current.agentName }), {
+            description: i18n.t("composer:agentChoiceActions.description"),
           });
         }
       });

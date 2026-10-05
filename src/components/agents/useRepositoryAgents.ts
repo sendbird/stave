@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useCallback, useEffect, useState } from "react";
 import { scanRepositoryAgents, type RepositoryAgentScan, type RepositoryFileAccess } from "@/lib/agents/repository";
 
@@ -18,11 +19,11 @@ function repositoryFileAccess(rootPath: string): RepositoryFileAccess | null {
       try {
         result = await readFile({ rootPath, filePath });
       } catch (error) {
-        return { error: `Not read: ${String(error)}` };
+        return { error: i18n.t("agents:useRepositoryAgents.extraCopy41", { value1: String(error) }) };
       }
       if (result.ok) return { content: result.content };
-      if (result.tooLarge) return { error: "Not read: the file is too large." };
-      return { error: result.stderr ? `Not read: ${result.stderr}` : "Not read." };
+      if (result.tooLarge) return { error: i18n.t("agents:useRepositoryAgents.extraCopy40") };
+      return { error: result.stderr ? i18n.t("agents:useRepositoryAgents.extraCopy41", { value1: result.stderr }) : i18n.t("agents:useRepositoryAgents.extraCopy42") };
     },
   };
 }

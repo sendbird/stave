@@ -1,0 +1,1324 @@
+{
+  "providersSection": {
+    "describedSelect": {
+      "example": "Example: {{example}}"
+    },
+    "accountUsageLimit": {
+      "title": "Account usage limit",
+      "description": "Shared stop for Claude, Codex, Cursor, and Kiro when included account usage is exhausted.",
+      "stopTurns": {
+        "title": "Stop turns at 100% usage",
+        "description": "When a provider reports included usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish. Turn this off to keep working on overage."
+      }
+    },
+    "trustedApprovals": {
+      "title": "Trusted Approvals",
+      "description": "Approvals marked as always allowed. Bash entries are stored as command prefixes instead of trusting every shell command.",
+      "empty": "No trusted approvals yet. Use approve and always allow from an approval prompt to add one."
+    },
+    "tabsAriaLabel": "Provider settings",
+    "modePresetTitle": "Mode Preset",
+    "effortLevels": {
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "X-High",
+      "max": "Max",
+      "ultra": "Ultra"
+    },
+    "claudeRuntime": {
+      "title": "Claude Runtime Controls",
+      "description": "Permission, sandbox, thinking, and subagent progress behavior passed into each Claude turn.",
+      "modePreset": {
+        "description": "Apply a recommended Claude autonomy preset. Editing the fields below can move the card into Custom.",
+        "active": "{{preset}} is active. Reapply a preset any time to restore its full permission and sandbox combination.",
+        "custom": "Custom is active. The current Claude permission and sandbox combination does not match a built-in preset."
+      },
+      "permissionMode": {
+        "title": "Permission Mode",
+        "description": "Controls how aggressively Claude asks for permission during a chat turn. Claude CLI sessions always launch in `auto`.",
+        "guide": {
+          "title": "Claude Permission Mode",
+          "summary": "This is the main autonomy dial for Claude turns.",
+          "note": "`plan` is special in Stave: it becomes a planning workflow rather than a normal implementation turn.",
+          "tooltip": "Compare Claude permission modes"
+        },
+        "options": {
+          "default": {
+            "description": "Use Claude's standard permission behavior without asking Stave to bias the mode.",
+            "example": "Pick this when you want the least opinionated baseline and do not need a special workflow."
+          },
+          "acceptEdits": {
+            "description": "Good default for normal coding sessions where edits are expected but you still want guardrails.",
+            "example": "Use this for day-to-day feature work, bug fixes, and iterative patching."
+          },
+          "bypassPermissions": {
+            "description": "Most autonomous Claude path. Pair it carefully with permission-skipping controls.",
+            "example": "Use this only when you trust the task scope and want Claude to move with minimal interruption."
+          },
+          "plan": {
+            "description": "Planning-only mode. Stave keeps plan turns separate so you can review strategy before implementation.",
+            "example": "Use this for architecture, investigation, or task breakdowns before writing code."
+          },
+          "dontAsk": {
+            "description": "Tell Claude not to stop for interactive permission questions during the turn.",
+            "example": "Useful for fast local workflows when you want fewer pauses but do not want plan mode."
+          },
+          "auto": {
+            "description": "Let Claude choose the most appropriate permission behavior for the turn. Claude CLI sessions require Claude Code 2.1.71+ for this mode; older CLI builds fall back to `default`.",
+            "example": "Good when your workload shifts between analysis, coding, and light automation throughout the day."
+          }
+        }
+      },
+      "dangerousSkip": {
+        "title": "Dangerous Skip Permissions",
+        "description": "Only applies when `bypassPermissions` is active."
+      },
+      "sandbox": {
+        "title": "Sandbox Enabled",
+        "description": "Wrap Claude tool execution in its sandbox configuration."
+      },
+      "unsandboxedCommands": {
+        "title": "Allow Unsandboxed Commands",
+        "description": "Controls whether Claude may fall back to commands outside the sandbox."
+      },
+      "credentialFiles": {
+        "title": "Protected Credential Files",
+        "description": "Comma-separated file paths Claude's sandbox must deny as credentials. Enter paths only, never secret contents."
+      },
+      "credentialVariables": {
+        "title": "Protected Credential Variables",
+        "description": "Comma-separated environment variable names Claude's sandbox must deny. Enter names only; values never belong here."
+      },
+      "settingSources": {
+        "title": "Setting Sources",
+        "description": "Controls which Claude filesystem setting layers are loaded. `project` is required for CLAUDE.md and project slash commands.",
+        "guide": {
+          "title": "Claude Setting Sources",
+          "summary": "These layers decide which Claude configuration files and commands participate in each turn.",
+          "tooltip": "What each Claude setting source does"
+        },
+        "options": {
+          "project": {
+            "label": "Project",
+            "description": "Load repo-level Claude settings such as `CLAUDE.md` and project-native slash commands."
+          },
+          "local": {
+            "label": "Local",
+            "description": "Load machine-local or workspace-local Claude settings from the runtime environment."
+          },
+          "user": {
+            "label": "User",
+            "description": "Load your user-wide Claude settings and personal defaults."
+          }
+        },
+        "active": "Active: {{sources}}",
+        "activeNone": "Active: none"
+      },
+      "taskBudget": {
+        "title": "Task Budget (Tokens)",
+        "description": "Advisory token budget sent to Claude so it can pace tool use and wrap up earlier. Use `0` to disable."
+      },
+      "thinkingMode": {
+        "title": "Thinking Mode",
+        "guide": {
+          "title": "Claude Thinking Mode",
+          "summary": "Thinking controls whether Claude spends extra effort on explicit reasoning before answering.",
+          "tooltip": "Compare Claude thinking modes"
+        },
+        "options": {
+          "adaptive": {
+            "label": "Adaptive",
+            "description": "Claude decides when deeper thinking is worth the extra latency.",
+            "example": "Best default when some turns are simple and others need real analysis."
+          },
+          "enabled": {
+            "description": "Always ask for explicit thinking, even on simpler prompts.",
+            "example": "Use this when you prioritize careful reasoning over response speed."
+          },
+          "disabled": {
+            "description": "Prefer direct answers without extra thinking overhead.",
+            "example": "Useful for tiny edits, routing, or repetitive low-risk tasks."
+          }
+        }
+      },
+      "effort": {
+        "title": "Effort",
+        "guide": {
+          "title": "Claude Effort",
+          "summary": "Higher effort spends more model budget on reasoning and usually increases latency.",
+          "tooltip": "Compare Claude effort levels"
+        },
+        "options": {
+          "low": {
+            "description": "Fastest and lightest reasoning budget.",
+            "example": "Good for short questions, quick rewrites, and simple code edits."
+          },
+          "medium": {
+            "description": "Balanced reasoning depth for most day-to-day tasks.",
+            "example": "Use this as the default if you frequently switch between analysis and implementation."
+          },
+          "high": {
+            "description": "Spend more effort on difficult debugging, design, or review work.",
+            "example": "Useful for tricky bugs, architecture questions, or larger refactors."
+          },
+          "xhigh": {
+            "description": "Go deeper than `high` when the Claude model supports it, with a larger latency cost.",
+            "example": "Best for complex root-cause analysis or hard multi-step implementation planning."
+          },
+          "max": {
+            "description": "Highest deliberation and the most latency.",
+            "example": "Reserve this for genuinely hard tasks where accuracy matters more than speed."
+          }
+        }
+      },
+      "agentProgressSummaries": {
+        "title": "Agent Progress Summaries",
+        "description": "Enables Claude SDK `task_progress.summary` updates for running subagents."
+      },
+      "promptSuggestions": {
+        "title": "Prompt Suggestions",
+        "description": "Offers follow-up prompt chips after each completed turn. Costs one extra lightweight request per turn on top of the turn itself; background lanes never request suggestions."
+      },
+      "forwardSubagentText": {
+        "title": "Forward Subagent Text",
+        "description": "Streams nested subagent transcript text instead of only subagent progress heartbeats."
+      },
+      "fileCheckpointing": {
+        "title": "File Checkpointing",
+        "description": "Enables Claude SDK file checkpoints so changed files can be rewound by session controls."
+      },
+      "forkSession": {
+        "title": "Fork Resumed Session",
+        "description": "When resuming a Claude session, fork to a new session instead of continuing the previous one."
+      },
+      "strictMcpConfig": {
+        "title": "Strict MCP Config",
+        "description": "Only use MCP servers passed by Stave and explicitly configured SDK agents."
+      },
+      "planModeApprovals": {
+        "title": "Plan Mode Approvals",
+        "guide": {
+          "title": "Claude Plan Mode Approvals",
+          "summary": "Controls how many approval prompts plan mode shows. Plan mode is always read-only — mutating file edits and mutating Bash are hard-denied at every level; these options only relax the prompt for non-mutating Bash, subagents, and read-only MCP tools.",
+          "tooltip": "Compare plan-mode approval scopes"
+        },
+        "options": {
+          "strict": {
+            "label": "Strict",
+            "description": "Only read-only built-ins (Read/Grep/Glob/…) and Stave workspace tools auto-run. Bash, subagents, and other MCP tools each prompt. Most interruptions.",
+            "example": "Pick this when you want to confirm every shell command and tool call during planning."
+          },
+          "bash": {
+            "label": "Read-only Bash",
+            "description": "Also auto-runs Bash commands that don't mutate files or task state (git status, cat, ls, typecheck). Mutating commands stay hard-denied.",
+            "example": "Good when you mostly want quiet read-only inspection but keep subagents and MCP gated."
+          },
+          "bashAndTask": {
+            "label": "Bash + Subagents",
+            "description": "Also auto-runs read-only Bash and lets Claude spawn subagents (Task) without a prompt. Subagent mutations are still hard-denied.",
+            "example": "Useful when planning fans out research across Explore subagents."
+          },
+          "bashTaskAndMcp": {
+            "label": "Bash + Subagents + MCP reads",
+            "description": "Broadest. Also auto-runs read-only third-party / lens MCP tools (classified by name). Mutating-looking MCP tools still prompt. Closest to auto mode.",
+            "example": "Default. Fewest plan-mode interruptions while every mutation stays blocked."
+          }
+        }
+      },
+      "skills": {
+        "title": "Skills",
+        "description": "Comma- or newline-separated Claude skill names. Use `all` to enable every discovered skill."
+      },
+      "pluginPaths": {
+        "title": "Plugin Paths",
+        "description": "Comma- or newline-separated local Claude plugin directories. Stave owns MCP discovery for these plugins."
+      },
+      "mainAgent": {
+        "title": "Main Agent",
+        "description": "Optional Claude agent name from settings or loaded plugins for the main conversation."
+      },
+      "fallbackModels": {
+        "title": "Fallback Models",
+        "description": "Comma-separated Claude fallback models used when the primary model is overloaded or unavailable. Opus 5.5 automatically falls back to Opus 4.8 when left blank."
+      },
+      "resumeAt": {
+        "title": "Resume At Message",
+        "description": "Optional Claude assistant message UUID for partial resume from a previous session.",
+        "placeholder": "message uuid"
+      }
+    },
+    "codexRuntime": {
+      "title": "Codex Runtime Controls",
+      "description": "Per-turn Codex file access, approvals, network, reasoning, and search settings.",
+      "modePreset": {
+        "description": "Apply a recommended Codex autonomy preset. Editing the fields below can move the card into Custom.",
+        "active": "{{preset}} is active. Reapply a preset any time to restore its full file access, approval, and network combination.",
+        "custom": "Custom is active. The current Codex file-access and approval combination does not match a built-in preset."
+      },
+      "networkAccess": {
+        "title": "Network Access",
+        "description": "Controls whether Codex may use networked capabilities during a turn."
+      },
+      "fileAccess": {
+        "title": "File Access",
+        "guide": {
+          "title": "Codex File Access",
+          "summary": "This setting controls where Codex can read and write on disk.",
+          "note": "When Stave runs Codex in plan mode, it forces `read-only` regardless of the normal setting.",
+          "tooltip": "Compare Codex file access levels"
+        },
+        "options": {
+          "readOnly": {
+            "description": "Read and inspect only. Codex should not mutate files.",
+            "example": "Use this for reviews, audits, repo exploration, or planning."
+          },
+          "workspaceWrite": {
+            "description": "Allow edits inside the current workspace and writable roots.",
+            "example": "Recommended App Server-style starting point for normal local work."
+          },
+          "dangerFullAccess": {
+            "description": "Remove most filesystem restrictions and allow broad mutation.",
+            "example": "Use this only for trusted automation that truly needs unrestricted file access."
+          }
+        }
+      },
+      "approvals": {
+        "title": "Approvals",
+        "guide": {
+          "title": "Codex Approvals",
+          "summary": "Approval policy controls when Codex pauses to ask before acting.",
+          "note": "Stave forces `never` during Codex plan mode so planning turns do not stop on approval prompts.",
+          "tooltip": "Compare Codex approval policies"
+        },
+        "options": {
+          "untrusted": {
+            "description": "Only pause for actions the runtime treats as untrusted or higher risk.",
+            "example": "Recommended App Server-style baseline when you want fewer routine approval pauses."
+          },
+          "never": {
+            "description": "Do not stop for approval prompts. Codex proceeds directly.",
+            "example": "Good for trusted local workflows when you want continuous execution."
+          },
+          "onRequest": {
+            "description": "Pause when approval is needed and ask you to confirm.",
+            "example": "Use this when you want more explicit checkpoints than the default low-friction setup."
+          },
+          "onFailure": {
+            "description": "Let Codex retry with approval only after an operation fails without it.",
+            "example": "Useful when you want low-friction execution but still want a recovery path for blocked commands."
+          }
+        }
+      },
+      "appToolApprovals": {
+        "title": "App Tool Approvals",
+        "description": "Controls App and MCP tools separately from shell command approvals.",
+        "guide": {
+          "title": "Codex App Tool Approvals",
+          "summary": "This controls approval prompts for connected App and MCP tools, not shell commands or sandbox permissions.",
+          "note": "`writes` trusts each tool's read-only annotation; it is not a security boundary.",
+          "tooltip": "Compare App tool approval modes"
+        },
+        "options": {
+          "inherit": {
+            "label": "Inherit",
+            "description": "Keep the user's Codex config for App and MCP tool approvals.",
+            "example": "Use this when Codex config.toml is the source of truth."
+          },
+          "auto": {
+            "description": "Let Codex choose when an App or MCP tool needs approval."
+          },
+          "prompt": {
+            "label": "Prompt",
+            "description": "Ask before every App or MCP tool call."
+          },
+          "writes": {
+            "label": "Writes",
+            "description": "Ask only for tools not marked read-only by their tool annotation.",
+            "example": "This is an approval hint, not a filesystem or network sandbox boundary."
+          },
+          "approve": {
+            "label": "Approve",
+            "description": "Approve App and MCP tool calls without prompting."
+          }
+        }
+      },
+      "reasoning": {
+        "title": "Reasoning",
+        "guide": {
+          "title": "Codex Reasoning Effort",
+          "summary": "Higher effort gives Codex more room to reason, but it also tends to slow the turn down.",
+          "tooltip": "Compare Codex reasoning effort levels"
+        },
+        "options": {
+          "minimal": {
+            "description": "Shortest reasoning path and the least latency.",
+            "example": "Use this for rote edits, quick file lookups, or tiny transformations."
+          },
+          "low": {
+            "description": "Light reasoning for straightforward work.",
+            "example": "Good for small implementation tasks and direct answers."
+          },
+          "medium": {
+            "description": "Balanced depth for everyday coding and debugging.",
+            "example": "Recommended default when task difficulty varies."
+          },
+          "high": {
+            "description": "More deliberate reasoning for harder or more ambiguous tasks.",
+            "example": "Use this for larger bug hunts, refactors, or multi-step design questions."
+          },
+          "xhigh": {
+            "description": "Deepest reasoning budget and the highest latency cost.",
+            "example": "Reserve this for genuinely complex work where you want Codex to think much longer."
+          },
+          "max": {
+            "description": "Highest deliberation on the GPT-5.6 effort scale, above `xhigh`.",
+            "example": "Reserve this for hard multi-step implementation or debugging work where accuracy matters more than speed."
+          },
+          "ultra": {
+            "description": "The deepest reasoning budget Codex offers and the highest latency cost. Not every model accepts this tier (e.g. GPT-5.6 Luna caps at `max`).",
+            "example": "Reserve this for the hardest frontier-model tasks where you want Codex to think as long as possible."
+          }
+        }
+      },
+      "reasoningSummary": {
+        "title": "Reasoning Summary",
+        "description": "Codex config for model-side reasoning summaries when supported.",
+        "guide": {
+          "title": "Codex Reasoning Summary",
+          "summary": "This controls how much reasoning summary Codex should try to return when the model supports it.",
+          "tooltip": "Compare Codex reasoning summary modes"
+        },
+        "options": {
+          "auto": {
+            "description": "Let Codex decide whether and how much reasoning summary to return.",
+            "example": "Good default when you want Stave to adapt across different models."
+          },
+          "concise": {
+            "label": "Concise",
+            "description": "Request a short summary of model-side reasoning.",
+            "example": "Useful when you want quick visibility without a lot of extra text."
+          },
+          "detailed": {
+            "label": "Detailed",
+            "description": "Request a fuller reasoning summary when the model supports it.",
+            "example": "Use this when you care about understanding why Codex chose a path."
+          },
+          "none": {
+            "description": "Do not request a reasoning summary.",
+            "example": "Useful when you want the leanest possible UI output."
+          }
+        }
+      },
+      "summarySupport": {
+        "title": "Summary Support",
+        "description": "Override Codex capability detection when a model supports reasoning summaries but the runtime cannot infer it.",
+        "guide": {
+          "title": "Reasoning Summary Capability Override",
+          "summary": "Only touch this when automatic capability detection is wrong.",
+          "tooltip": "How reasoning summary support override works"
+        },
+        "options": {
+          "auto": {
+            "description": "Let Stave and the Codex runtime infer whether reasoning summaries are supported.",
+            "example": "Start here unless you know a model is being detected incorrectly."
+          },
+          "enabled": {
+            "description": "Force-enable reasoning summary support even if automatic detection misses it.",
+            "example": "Use this when a model supports summaries but the runtime does not infer it correctly."
+          },
+          "disabled": {
+            "description": "Force-disable reasoning summary support.",
+            "example": "Use this if a model claims support but returns noisy or broken summary behavior."
+          }
+        }
+      },
+      "rawReasoning": {
+        "title": "Raw Reasoning",
+        "description": "Shows low-level reasoning traces when Codex emits them."
+      },
+      "webSearch": {
+        "title": "Web Search",
+        "description": "Default is `cached`, which allows lower-volatility search without turning on live external lookup.",
+        "guide": {
+          "title": "Codex Web Search",
+          "summary": "Use this when Codex needs outside knowledge rather than only repo-local context.",
+          "tooltip": "Compare Codex web search modes"
+        },
+        "options": {
+          "cached": {
+            "label": "Cached",
+            "description": "Allow search in a lower-volatility mode when cached results are available.",
+            "example": "Recommended default when you want some search help without always relying on live web access."
+          },
+          "disabled": {
+            "description": "Do not let Codex use web search.",
+            "example": "Best when you want fully local reasoning or reproducible offline behavior."
+          },
+          "indexed": {
+            "label": "Indexed",
+            "description": "Use Codex's indexed search corpus without requesting a live fetch for every query.",
+            "example": "Use this for broad documentation discovery when the selected Codex runtime is 0.142 or newer."
+          },
+          "live": {
+            "label": "Live",
+            "description": "Allow live web search when the task needs current external information.",
+            "example": "Use this for latest docs, breaking API changes, or recent news-style facts."
+          }
+        },
+        "indexedUnavailable": "Indexed search is unavailable in the selected Codex version; Stave will use cached search instead."
+      },
+      "fastMode": {
+        "title": "Fast Mode",
+        "description": "Enables Codex fast_mode feature flag for faster responses on simpler tasks."
+      }
+    }
+  },
+  "cursorSection": {
+    "runtime": {
+      "title": "Cursor Runtime Controls",
+      "description": "Session mode and model preferences passed to interactive Cursor Agent turns."
+    },
+    "modes": {
+      "agent": {
+        "label": "Agent",
+        "description": "Work through the task with the normal interactive tool flow."
+      },
+      "plan": {
+        "label": "Plan",
+        "description": "Prepare a plan and pause for review before implementation."
+      },
+      "ask": {
+        "label": "Ask",
+        "description": "Focus the session on questions and read-oriented exploration."
+      }
+    },
+    "mode": {
+      "title": "Mode",
+      "description": "Sets the starting mode for each new or resumed session."
+    },
+    "approvalPreset": {
+      "title": "Approval Preset",
+      "description": "How much Cursor may run without asking. Delivered as Cursor Agent process flags, so it applies for the whole session rather than per tool call.",
+      "note": "Guided uses Cursor's own Auto-review classifier, so which calls it runs unattended is decided by Cursor, not Stave."
+    },
+    "defaultModel": {
+      "title": "Default Model",
+      "description": "Use Auto unless the connected runtime advertises another model identifier. Unsupported values fall back to the runtime default."
+    },
+    "defaultEffort": {
+      "title": "Default Effort",
+      "description": "Used when the connected Cursor session advertises a separate effort option. Individual model choices are remembered from the composer.",
+      "ariaLabel": "Cursor default effort"
+    },
+    "fastMode": {
+      "title": "Fast Mode",
+      "description": "Uses the Cursor Fast session option when the connected runtime advertises it. Individual model choices are remembered from the composer."
+    },
+    "cli": {
+      "title": "Cursor Agent CLI",
+      "description": "Stave resolves the Agent CLI from this path first, then checks supported environment overrides and standard executable locations."
+    },
+    "agentPath": {
+      "title": "Agent Path",
+      "description": "Leave blank to use automatic discovery. The configured executable must support ACP and be signed in."
+    }
+  },
+  "kiroSection": {
+    "runtime": {
+      "title": "Kiro Runtime Controls",
+      "description": "Model preferences passed to interactive Kiro turns."
+    },
+    "approvalPreset": {
+      "title": "Approval Preset",
+      "description": "How much Kiro may run without asking. Delivered as a Kiro CLI process flag, so it applies for the whole session rather than per tool call.",
+      "note": "Kiro has no partial-trust tier: its CLI accepts unknown tool names for a partial grant without reporting an error, so Stave does not offer a middle setting it cannot verify."
+    },
+    "defaultModel": {
+      "title": "Default Model",
+      "description": "Use Auto unless the connected CLI reports another model identifier. The composer shows a warning if a saved model disappears from the runtime catalog."
+    },
+    "defaultEffort": {
+      "title": "Default Effort",
+      "description": "Used for Kiro models without a task-specific effort choice. Individual model choices are remembered from the composer.",
+      "ariaLabel": "Kiro default effort"
+    },
+    "cli": {
+      "title": "Kiro CLI",
+      "description": "Stave resolves Kiro CLI from this path first, then checks supported environment overrides and standard executable locations."
+    },
+    "cliPath": {
+      "title": "CLI Path",
+      "description": "Leave blank to use automatic discovery. The configured executable must support ACP and be signed in."
+    }
+  },
+  "claudePlugins": {
+    "modes": {
+      "claudeConfig": {
+        "label": "Claude config",
+        "description": "Load exactly the plugins Claude's own settings enable (what `claude plugin install` / `claude plugin enable` wrote)."
+      },
+      "all": {
+        "label": "All installed",
+        "description": "Load every plugin installed through the Claude CLI, even ones disabled in Claude settings."
+      },
+      "off": {
+        "description": "Load no CLI-installed plugins. Plugin Paths still apply."
+      }
+    },
+    "scope": {
+      "notInstalled": "not installed locally",
+      "userAndProject": "user + project install",
+      "project": "project install",
+      "user": "user install"
+    },
+    "scopeLine": {
+      "enabled": "{{scope}} · enabled in {{source}} settings",
+      "notEnabled": "{{scope}} · not enabled in Claude settings"
+    },
+    "errors": {
+      "unavailable": "Claude plugin discovery is unavailable in this build.",
+      "loadFailed": "Failed to load installed Claude plugins."
+    },
+    "field": {
+      "title": "Installed Plugins",
+      "description": "Plugins installed with `claude plugin install`. Stave loads them itself, so they work without turning on the `user` setting source."
+    },
+    "guide": {
+      "title": "Claude Installed Plugins",
+      "summary": "Stave re-states Claude's plugin decision through the SDK, so CLI-installed plugins load under the narrowed setting sources.",
+      "tooltip": "How installed Claude plugins are loaded"
+    },
+    "clearOverrides": "Clear overrides",
+    "empty": "No Claude CLI plugins found. Install one with `{{command}}`.",
+    "checking": "Checking installed Claude plugins...",
+    "overrideBadge": "Stave override",
+    "enableAriaLabel": "Enable {{plugin}}"
+  },
+  "claudeGuardrails": {
+    "writesOutsideRepo": {
+      "title": "Ask Before Writes Outside the Repository",
+      "description": "In Agent mode, stop before writing outside this repository's checkouts and worktrees. Temp folders and tool caches stay allowed. Chat turns never stop for this."
+    },
+    "credentials": {
+      "title": "Ask Before Touching Credentials",
+      "description": "In Agent mode, stop before reading or writing ~/.ssh, ~/.aws, ~/.npmrc and similar files, or the protected paths and variables below. Chat turns never stop for this."
+    },
+    "remoteActions": {
+      "title": "Ask Before Irreversible Remote Actions",
+      "description": "In Agent mode, stop before force-pushing a default or protected branch, deleting remote refs, publishing a package or release, or running sudo. Chat turns never stop for this."
+    }
+  },
+  "auxiliaryInference": {
+    "lanes": {
+      "intentGuard": {
+        "title": "Intent guard",
+        "switchTitle": "Run intent guard",
+        "description": "After a turn that changed files, compares the diff against the workspace's pinned intent anchors and badges the Changes panel. Runs only while an anchor is pinned.",
+        "modelDescription": "Model that judges the diff against the pinned intent. Empty follows the provider default."
+      },
+      "turnSummary": {
+        "title": "Turn summary",
+        "switchTitle": "Run turn summary",
+        "description": "Writes the short 'what was asked / what was done' line at the top of the Information panel after each completed turn.",
+        "modelDescription": "Preferred model for the latest-turn workspace summary."
+      },
+      "taskName": {
+        "title": "Task naming",
+        "switchTitle": "Run task naming",
+        "description": "Suggests a task title from the opening prompts. Renaming a task by hand disables it for that task.",
+        "modelDescription": "Model that proposes the task title."
+      },
+      "utility": {
+        "title": "Utility inference",
+        "switchTitle": "Run utility inference",
+        "description": "Mechanical helper calls: route classification, commit messages, and prompt enhancement.",
+        "modelDescription": "Model used for mechanical utility calls."
+      },
+      "prDescription": {
+        "title": "PR description",
+        "switchTitle": "Run PR description",
+        "description": "Drafts the pull request title and body from the branch diff. Off keeps Stave's non-AI fallback draft.",
+        "modelDescription": "Model that drafts the PR title and body."
+      },
+      "prePrReview": {
+        "title": "Pre-PR review",
+        "switchTitle": "Run pre-PR review",
+        "description": "One-shot review of the branch diff before Stave opens a pull request.",
+        "modelDescription": "Model that reviews the branch diff. Leave empty to use the provider's configured default."
+      },
+      "inlineCompletion": {
+        "title": "Inline completion",
+        "switchTitle": "Run inline completion",
+        "description": "Fill-in-the-middle code suggestions in the editor, requested on a keystroke debounce.",
+        "modelDescription": "Model that generates inline completions."
+      }
+    },
+    "providerOptions": {
+      "claude": "Run this lane on Claude.",
+      "codex": "Run this lane on Codex."
+    },
+    "laneSwitch": {
+      "on": "This lane makes a model call in the background.",
+      "off": "Off. No model call is made for this lane."
+    },
+    "provider": {
+      "title": "Provider",
+      "pinned": "Pinned. This lane always runs on the selected provider.",
+      "unpinned": "Not pinned: the lane follows the task's provider. Selecting one pins it."
+    },
+    "model": {
+      "title": "Model",
+      "currentDefault": "{{description}} Currently using the default: {{model}}.",
+      "currentProviderChoice": "{{description}} Currently using the default: the provider's own choice."
+    },
+    "fallbackModel": {
+      "title": "Fallback model",
+      "description": "Tried once when the primary model is unavailable or its answer cannot be parsed."
+    },
+    "promptEnhancement": {
+      "title": "Prompt enhancement",
+      "description": "Enhance already reads the task conversation, the Information panel, and the repo's AGENTS.md or CLAUDE.md when they exist. Add what those cannot tell it: how you like prompts written.",
+      "style": {
+        "title": "Prompt style",
+        "description": "Language, tone, detail level, and anything Enhance should always include or never add. Empty sends nothing.",
+        "placeholder": "e.g. Write in Korean. Always ask for typecheck and the smallest focused test. Never add acceptance criteria I did not mention."
+      },
+      "learn": {
+        "title": "Learn from kept and undone rewrites",
+        "remembered_one": "{{count}} remembered rewrite is shown to the model as an example.",
+        "remembered_other": "{{count}} remembered rewrites are shown to the model as examples.",
+        "empty": "Rewrites you keep or undo will be remembered as examples.",
+        "off": "Off. Past rewrites are neither remembered nor sent."
+      },
+      "forget": "Forget remembered rewrites"
+    }
+  },
+  "delegationSection": {
+    "title": "Delegated tasks",
+    "description": "An agent can hand work to a new Stave task with its own conversation and permissions, recorded on the run ledger and kept across restarts. There is no switch to turn on: ask the agent to delegate, and this card shows whether it can.",
+    "badge": {
+      "checking": "Checking",
+      "unavailable": "Unavailable",
+      "partial": "Partly available",
+      "available": "Available"
+    },
+    "availability": {
+      "heading": "Availability",
+      "providerTasks": "{{provider}} tasks:",
+      "ready": "can delegate.",
+      "checking": "checking the Local MCP server…",
+      "note": "Delegation reaches the model as Local MCP tools, so a task can only start subagents while that server is running.",
+      "openSettings": "Open Settings → Developer → Local MCP."
+    },
+    "asking": {
+      "heading": "Asking for one, and what you can specify",
+      "body": "There is no button: delegation happens when an agent calls<code>stave_delegate_task</code>during its turn, so you steer it by asking — for example <emphasis>“get a read-only second opinion on this plan from Codex at high effort”</emphasis>. Only the prompt is required: anything a delegation leaves out follows this task's provider, effort and permissions, and the child runs one turn in this workspace. Settings holds no global default for any of it.",
+      "required": "required",
+      "optional": "optional",
+      "controls": "Once a delegation starts, its child appears in the task's turn activity with Open, Follow-up, Stop, Detach and Retry controls."
+    },
+    "parameters": {
+      "prompt": "What the child should do.",
+      "access": "read-only for second opinions, reviews and research: the child cannot change files, needs no approvals, and runs beside other work in the same workspace. Defaults to inherit: this task's permissions on the same provider, otherwise that provider's user settings.",
+      "provider": "Claude or Codex. Defaults to this task's provider.",
+      "lifecycle": "Defaults to one-turn, which ends the delegation when the child's first turn ends; detached keeps the child open until stopped.",
+      "workspace": "Defaults to the same workspace. A new worktree on its own branch keeps edits isolated.",
+      "model": "Defaults to the child provider's default model.",
+      "effort": "low → max (Codex also has ultra), clamped to what the child's model accepts. Defaults to this task's effort on the same provider, otherwise medium. A bounded brief often does better on a cheaper model at high effort."
+    }
+  },
+  "modelVisibility": {
+    "title": "Selector Models",
+    "description": "The model selector lists the current model of each family by default. Turn a model on to pin it into that list, or off to keep it out. Search and the selector's “Show all models” expansion still reach every catalog model.",
+    "resetAll": "Reset all providers",
+    "tabsAriaLabel": "Model visibility provider",
+    "panel": {
+      "empty": "No {{provider}} models are available yet. Sign in to the runtime, then reopen this section.",
+      "unverified": "Status unverified. Refresh Settings > Tooling to verify these models.",
+      "shownCount": "{{visible}} of {{total}} shown by default",
+      "reset": "Reset to current models",
+      "current": "Current",
+      "pinned": "Pinned",
+      "showAriaLabel": "Show {{model}} in the model selector"
+    }
+  },
+  "toolingSection": {
+    "card": {
+      "title": "Native Tooling Status",
+      "description": "These checks mirror the native binaries and auth surfaces Stave uses for provider turns, PR actions, and terminal-backed workflows."
+    },
+    "purpose": {
+      "shell": "Integrated terminal sessions and command execution surfaces.",
+      "git": "Workspace branch, diff, sync, and source-control actions.",
+      "gh": "Pull request creation, PR status refresh, merge, and branch update flows.",
+      "claude": "Claude Code turns, plugin refresh, and Claude-native diagnostics. Opus 5.5: {{opusGuidance}} Sonnet 5.5: {{sonnetGuidance}}",
+      "codex": "Codex turns and Codex-native execution flows. {{guidance}}",
+      "cursor": "Cursor Agent turns over the Agent Client Protocol.",
+      "kiro": "Kiro turns over the Agent Client Protocol."
+    },
+    "auth": {
+      "authenticated": "Authenticated",
+      "unauthenticated": "Login Required",
+      "notRequired": "No Auth",
+      "unknown": "Unknown Auth"
+    },
+    "state": {
+      "warning": "Needs Attention",
+      "error": "Unavailable"
+    },
+    "rows": {
+      "summary": "Summary",
+      "executable": "Executable"
+    },
+    "copyPathAriaLabel": "Copy {{label}}",
+    "actions": {
+      "copyLoginCommand": "Copy Login Command",
+      "fixInTerminal": "Fix In Terminal",
+      "openTerminal": "Open Terminal"
+    },
+    "detail": {
+      "loading": "Refreshing native tooling status...",
+      "bridgeUnavailable": "Tooling diagnostics bridge unavailable.",
+      "loadFailed": "Failed to load tooling diagnostics."
+    },
+    "toasts": {
+      "pathCopied": "Path copied",
+      "terminalUnavailable": {
+        "title": "Terminal bridge unavailable",
+        "description": "Open a workspace before launching an external terminal."
+      },
+      "openTerminalFailed": "Failed to open terminal",
+      "openedInTerminal": "Opened workspace in terminal",
+      "commandCopied": "{{tool}} command copied",
+      "copyCommandFailed": "Failed to copy command"
+    }
+  },
+  "codexShared": {
+    "accountBadge": {
+      "unknown": "unknown",
+      "needsLogin": "needs login",
+      "notRequired": "not required",
+      "ready": "ready"
+    }
+  },
+  "codexSection": {
+    "status": {
+      "snapshotError": "snapshot error",
+      "loadingSnapshot": "loading snapshot",
+      "appServerReady": "app server ready",
+      "snapshotIdle": "snapshot idle",
+      "dynamicModelCatalog": "dynamic model catalog",
+      "fallbackModelCatalog": "fallback model catalog",
+      "currentThread": "current thread {{id}}"
+    },
+    "updatedAt": "Updated {{time}}",
+    "tabs": {
+      "overview": "Overview",
+      "extensions": "Extensions",
+      "threads": "Threads",
+      "commands": "Commands",
+      "advanced": "Advanced"
+    },
+    "jsonInputEmpty": "JSON input is empty.",
+    "snapshot": {
+      "bridgeUnavailable": "Codex App Server snapshot bridge is unavailable.",
+      "loading": "Loading Codex App Server snapshot...",
+      "loadFailed": "Failed to load Codex App Server snapshot."
+    },
+    "pluginDetail": {
+      "loading": "Loading plugin details for {{name}}...",
+      "loadFailed": "Failed to load Codex plugin details."
+    },
+    "threadDetail": {
+      "loading": "Loading thread {{id}}...",
+      "loadFailed": "Failed to load Codex thread details."
+    },
+    "resourcePreview": {
+      "authorizationUrlTitle": "{{server}} authorization URL",
+      "reading": "Reading {{uri}}...",
+      "binaryBlob": "[binary blob] {{preview}}",
+      "emptyBody": "(empty resource body)"
+    },
+    "toasts": {
+      "installFailed": "Install failed",
+      "installUnavailable": "Codex plugin install bridge is unavailable.",
+      "installed": "Installed {{name}}",
+      "uninstallFailed": "Uninstall failed",
+      "uninstallUnavailable": "Codex plugin uninstall bridge is unavailable.",
+      "removed": "Removed {{name}}",
+      "featureToggleUnavailable": "Feature toggle unavailable",
+      "featureUpdated": "Updated {{name}}",
+      "oauthUnavailable": "OAuth login unavailable",
+      "oauthFailed": "OAuth login failed",
+      "oauthStarted": "Started OAuth login for {{server}}",
+      "oauthOpenUrl": "Open the authorization URL to finish the flow.",
+      "resourceBridgeUnavailable": "MCP resource bridge unavailable",
+      "selectThreadFirst": "Select a Codex thread first",
+      "resourceNeedsThread": "Resource reads require a thread context.",
+      "renameUnavailable": "Thread rename unavailable",
+      "renamed": "Renamed Codex thread",
+      "forkUnavailable": "Thread fork unavailable",
+      "forkFailed": "Thread fork failed",
+      "forked": "Forked Codex thread",
+      "archiveUnavailable": "Thread archive unavailable",
+      "archived": "Archived Codex thread",
+      "restored": "Restored Codex thread",
+      "compactUnavailable": "Thread compaction unavailable",
+      "compacted": "Compacted thread context",
+      "rollbackUnavailable": "Thread rollback unavailable",
+      "rollbackCountInvalid": "Rollback count must be at least 1.",
+      "rolledBack": "Rolled back Codex thread",
+      "noExternalConfig": "No external config items to import.",
+      "importedExternalConfig": "Imported external config",
+      "configWriteUnavailable": "Config write bridge unavailable",
+      "configKeyPathRequired": "Config key path is required.",
+      "invalidJsonValue": "Invalid JSON value",
+      "configUpdated": "Updated {{keyPath}}",
+      "batchWriteUnavailable": "Batch config write bridge unavailable",
+      "invalidBatchJson": "Invalid batch edit JSON",
+      "batchNotArray": "Batch edits must be a JSON array.",
+      "batchApplied": "Applied Codex config batch"
+    }
+  },
+  "codexOverviewTab": {
+    "metrics": {
+      "models": "Models",
+      "plugins": "Plugins",
+      "apps": "Apps",
+      "threads": "Threads",
+      "skills": "Skills",
+      "slashCommands": "Slash Commands"
+    },
+    "empty": {
+      "unavailable": "Codex snapshot unavailable",
+      "loading": "Loading Codex snapshot"
+    },
+    "runtime": {
+      "title": "Runtime summary",
+      "description": "Live App Server data for the current workspace and Codex binary.",
+      "account": "Account",
+      "accountType": "Type: {{value}}",
+      "accountEmail": "Email: {{value}}",
+      "accountPlan": "Plan: {{value}}",
+      "unknownValue": "unknown",
+      "modelCatalog": "Model catalog",
+      "catalogLive": "live app server",
+      "catalogFallback": "fallback",
+      "catalogDefaultDetail": "Using the configured Codex model catalog.",
+      "defaultModel": "default",
+      "workspaceScope": "Workspace scope",
+      "scoped": "scoped",
+      "noWorkspaceCwd": "No workspace cwd available.",
+      "binary": "Binary: {{path}}",
+      "defaultBinary": "Default Codex executable",
+      "slashCommands": "Slash commands",
+      "builtInCount": "{{total}} built-in"
+    },
+    "sectionErrors": {
+      "title": "Section errors",
+      "description": "Snapshot sections that failed independently while the rest of the App Server surface loaded.",
+      "empty": "No partial section failures."
+    },
+    "rateLimits": {
+      "title": "Rate limits",
+      "description": "Current limit buckets and credit state reported by Codex.",
+      "empty": "No rate-limit buckets returned by the App Server.",
+      "unnamedBucket": "Unnamed bucket",
+      "unknownPlan": "unknown plan",
+      "unlimitedCredits": "unlimited credits",
+      "creditsBalance": "credits {{balance}}",
+      "creditsAvailable": "credits available",
+      "noCredits": "no credits",
+      "primary": "Primary",
+      "secondary": "Secondary",
+      "usedWithReset": "{{percent}} · resets {{time}}"
+    }
+  },
+  "codexExtensionsTab": {
+    "pluginsAndApps": {
+      "title": "Plugins and apps",
+      "description": "Installed, discoverable, and currently accessible extension surfaces."
+    },
+    "plugins": "Plugins",
+    "noPlugins": "No plugins returned by the current App Server runtime.",
+    "installed": "installed",
+    "discoverable": "discoverable",
+    "enabled": "enabled",
+    "apps": "Apps",
+    "noApps": "No apps returned by the current App Server runtime.",
+    "noDescription": "No description",
+    "accessible": "accessible",
+    "notAccessible": "not accessible",
+    "skills": "Skills",
+    "noSkills": "No skill groups returned by the current workspace.",
+    "mcpServers": "MCP servers",
+    "noMcpServers": "No MCP servers returned by the current App Server runtime.",
+    "unknownAuth": "unknown auth",
+    "login": "Login",
+    "preview": "Preview",
+    "hooks": "Provider hooks",
+    "noHooks": "No hook inventory was returned by the selected Codex runtime.",
+    "experimental": "Experimental features",
+    "noExperimental": "No experimental features are currently reported.",
+    "defaultOn": "default on",
+    "inspector": {
+      "title": "Inspector",
+      "description": "Selected plugin detail or the latest MCP resource preview.",
+      "empty": "Select a plugin or preview an MCP resource to inspect it here.",
+      "noPluginDescription": "No plugin description.",
+      "uninstall": "Uninstall",
+      "install": "Install",
+      "noPluginSkills": "No plugin skills.",
+      "appsNeedingAuth": "Apps needing auth",
+      "noAppAuth": "No app-level auth requirements.",
+      "openAuthorizationUrl": "Open authorization URL",
+      "emptyBody": "(empty)"
+    }
+  },
+  "codexThreadsTab": {
+    "list": {
+      "title": "Thread list",
+      "description": "Active and archived Codex threads returned for the current workspace."
+    },
+    "groups": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "empty": {
+      "active": "No active threads.",
+      "archived": "No archived threads."
+    },
+    "current": "current",
+    "updatedAt": "Updated {{time}}",
+    "inspector": {
+      "title": "Thread inspector",
+      "description": "Inspect the selected thread and run fork, review, rename, compact, archive, or rollback actions.",
+      "empty": "Select a thread to inspect it here."
+    },
+    "currentSession": "current session",
+    "archivedBadge": "archived",
+    "metrics": {
+      "turns": "Turns",
+      "modelProvider": "Model provider",
+      "cliVersion": "CLI version",
+      "updated": "Updated"
+    },
+    "threadNamePlaceholder": "Thread name",
+    "quickActions": "Quick actions",
+    "fork": "Fork",
+    "compact": "Compact",
+    "archive": "Archive",
+    "rollback": "Rollback",
+    "rollBackTurns": "Roll back turns"
+  },
+  "codexCommandsTab": {
+    "categories": {
+      "session": "Session control",
+      "runtime": "Runtime and behavior",
+      "workspace": "Workspace context",
+      "inspection": "Inspection and review",
+      "integrations": "Apps and plugins"
+    },
+    "catalog": {
+      "title": "Slash command catalog",
+      "description": "Bundled from the official Codex CLI slash-command guide so the popup stays useful even though App Server does not expose a live command-list RPC."
+    },
+    "filterPlaceholder": "Filter by command, behavior, or category",
+    "total": "{{total}} total",
+    "noMatches": {
+      "title": "No matches",
+      "description": "Try a shorter query or clear the filter.",
+      "detail": "No slash commands matched <query/>."
+    },
+    "commandCount_one": "{{count}} command",
+    "commandCount_other": "{{count}} commands"
+  },
+  "codexAdvancedTab": {
+    "requirements": {
+      "title": "Config requirements",
+      "description": "Policy limits the App Server reports for approvals, sandbox, residency, and feature gates.",
+      "importDetected": "Import detected config",
+      "approval": "approval {{value}}",
+      "sandbox": "sandbox {{value}}",
+      "search": "search {{value}}",
+      "residency": "residency {{value}}",
+      "detectedExternal": "Detected external configs"
+    },
+    "layers": {
+      "title": "Config layers",
+      "description": "Merged config plus per-layer diagnostics returned by Codex.",
+      "disabled": "disabled"
+    },
+    "edits": {
+      "title": "Advanced config edits",
+      "description": "Raw JSON utilities for targeted Codex config changes. Most users should only inspect this area when diagnosing App Server behavior.",
+      "single": "Single edit",
+      "mergeStrategyPlaceholder": "Optional mergeStrategy",
+      "applySingle": "Apply single edit",
+      "batch": "Batch edits",
+      "applyBatch": "Apply batch"
+    },
+    "merged": {
+      "title": "Merged advanced config",
+      "description": "Read-only raw config payload returned by `config/read`."
+    }
+  },
+  "mcpSection": {
+    "sources": {
+      "claudeUser": "Claude user",
+      "claudeProject": "Claude project",
+      "claudeLocal": "Claude local project",
+      "codexUser": "Codex user",
+      "cursorUser": "Cursor user",
+      "cursorProject": "Cursor project",
+      "kiroUser": "Kiro user",
+      "kiroProject": "Kiro project"
+    },
+    "load": {
+      "apiUnavailable": "{{label}} API unavailable.",
+      "discovery": "MCP discovery",
+      "configuration": "MCP configuration",
+      "claudeStatus": "Claude MCP status",
+      "codexStatus": "Codex MCP status"
+    },
+    "acp": {
+      "portable": {
+        "label": "Cursor/Kiro eligible",
+        "detail": "Stave can forward this file-backed server to primary Cursor and Kiro sessions."
+      },
+      "targetNative": {
+        "label": "Native route",
+        "detail": "Cursor or Kiro loads this server from its native MCP configuration. Stave does not inject a duplicate route into that target session."
+      },
+      "providerManaged": {
+        "label": "Provider-only",
+        "detail": "This account-managed connector exposes no reusable command, URL, or OAuth credential, so it stays with the provider that authenticated it."
+      },
+      "notForwarded": {
+        "label": "Not sent to ACP",
+        "detail": "This server is disabled or uses a transport that Cursor and Kiro sessions cannot receive."
+      }
+    },
+    "provider": {
+      "waitingForSignIn": "Waiting for sign-in",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools",
+      "checkedAt": "Checked {{time}}",
+      "recentError": "Recent error",
+      "recentErrorAt": "Recent error · {{time}}",
+      "signInAriaLabel": "Sign in to {{server}} for {{provider}}",
+      "starting": "Starting...",
+      "waitingForBrowser": "Waiting for browser",
+      "signIn": "Sign in"
+    },
+    "share": {
+      "addToCodex": "Add to Codex",
+      "addToClaude": "Add to Claude",
+      "addToCursor": "Add to Cursor",
+      "addToKiro": "Add to Kiro"
+    },
+    "config": {
+      "heading": "Native configuration",
+      "hiddenValues_one": "{{count}} protected value hidden",
+      "hiddenValues_other": "{{count}} protected values hidden",
+      "editAriaLabel": "Edit {{name}} in {{source}}",
+      "deleteAriaLabel": "Delete {{name}} from {{source}}",
+      "managedByStave": "Managed by Stave"
+    },
+    "card": {
+      "title": "MCP Connections",
+      "description": "Install native MCP servers for Claude, Codex, Cursor, and Kiro. Each provider keeps its own configuration and OAuth session; Stave forwards compatible entries only when the target has no native route.",
+      "addServer": "Add server",
+      "refreshing": "Refreshing..."
+    },
+    "stats": {
+      "servers": "Servers",
+      "connected": "Connected",
+      "needsAttention": "Needs attention"
+    },
+    "availability": {
+      "ariaLabel": "Connector availability",
+      "description": "Provider-native configuration and available runtime status. Account-managed OAuth sessions stay with the provider that owns them."
+    },
+    "loading": "Loading MCP connections…",
+    "empty": "No MCP servers were found in the current Claude, Codex, Cursor, or Kiro configuration.",
+    "serverListAriaLabel": "MCP server status",
+    "runtimeDetected": "Runtime detected",
+    "auth": {
+      "cursorUnavailable": "Cursor OAuth login API unavailable.",
+      "providerUnavailable": "{{provider}} OAuth login API unavailable.",
+      "browserUnavailable": "{{detail}} External browser access is unavailable.",
+      "browserCouldNotOpen": "The external browser could not be opened.",
+      "finishInBrowser": "{{detail}} Finish in your browser; status will refresh automatically.",
+      "failed": "OAuth login failed: {{detail}}"
+    }
+  },
+  "mcpConfigEditor": {
+    "checkingLatest": "Checking the latest provider configuration…",
+    "review": {
+      "beforeApply": "Before you apply",
+      "verifyNote": "Stave will verify that the provider configuration has not changed since this preview before writing it."
+    },
+    "errors": {
+      "formIncomplete": "MCP configuration form is incomplete.",
+      "previewUnavailable": "MCP configuration preview API is unavailable.",
+      "applyUnavailable": "MCP configuration apply API is unavailable."
+    },
+    "editor": {
+      "titleEdit": "Edit MCP server",
+      "titleAdd": "Add MCP server",
+      "description": "Credentials stay outside Stave: bind authentication through environment-variable names, then review the native provider change before applying it.",
+      "provider": "Provider",
+      "installTo": "Install to",
+      "installToMany": "One review writes provider-native copies for every selected target.",
+      "installToOne": "Register once, or add another provider later from the connection list.",
+      "installToAriaLabel": "Install to {{provider}}",
+      "scope": "Scope",
+      "scopeCodexOnly": "Codex App Server currently supports safe writes to user scope.",
+      "scopeCodexMixed": "Project-capable providers use this scope. Codex receives a user-scope copy.",
+      "scopeDefault": "Project is shared in .mcp.json; local stays private to this workspace.",
+      "scopes": {
+        "user": "User",
+        "project": "Project",
+        "local": "Local project"
+      },
+      "serverName": "Server name",
+      "transport": "Transport",
+      "sseLegacy": "SSE (legacy)",
+      "command": "Command",
+      "replaceArgs": {
+        "title": "Replace command arguments",
+        "hint_one": "{{count}} existing argument is hidden. Leave this off to preserve it.",
+        "hint_other": "{{count}} existing arguments are hidden. Leave this off to preserve them.",
+        "ariaLabel": "Replace existing MCP command arguments"
+      },
+      "arguments": "Arguments",
+      "argumentsHint": "One argument per line. Empty lines are ignored.",
+      "envVars": "Inherited environment variables",
+      "envVarsHint": "One variable name per line. Stave writes references only, never values.",
+      "replaceUrl": {
+        "title": "Replace remote URL",
+        "hint": "Credentials or query details are hidden. Leave this off to preserve the complete URL.",
+        "ariaLabel": "Replace redacted MCP URL"
+      },
+      "urlHints": {
+        "cursorAndKiro": "Cursor writes Slack's published Cursor client ID. Kiro needs the client ID from your Slack app.",
+        "cursor": "Stave writes Slack's published Cursor MCP client ID. Use Sign in on the Cursor card after applying.",
+        "kiro": "Kiro needs the OAuth client ID from your Slack app. Cursor's Slack client ID cannot be reused."
+      },
+      "oauthClientId": {
+        "slackLabel": "Slack app client ID",
+        "label": "OAuth client ID",
+        "slackHint": "Required for Kiro. Paste oauth.clientId from your Slack app. This is not a secret.",
+        "hint": "Optional public client ID written to Kiro as oauth.clientId. Never enter a client secret."
+      },
+      "bearer": {
+        "label": "Bearer token environment variable",
+        "hint": "Optional. Enter the variable name, not the token."
+      },
+      "headers": {
+        "label": "Header environment bindings",
+        "hint": "One Header-Name=ENV_VAR binding per line."
+      },
+      "enabled": {
+        "title": "Enabled",
+        "hint": "Disabled servers stay in the provider's native configuration without connecting.",
+        "ariaLabel": "Enable {{provider}} MCP server"
+      },
+      "protected_one": "<strong>Protected existing values.</strong> {{count}} sensitive or opaque value is hidden from this dialog and preserved when the transport remains compatible.",
+      "protected_other": "<strong>Protected existing values.</strong> {{count}} sensitive or opaque values are hidden from this dialog and preserved when the transport remains compatible.",
+      "status": {
+        "applying": "Applying MCP configuration",
+        "preparing": "Preparing MCP configuration preview"
+      },
+      "applying": "Applying…",
+      "preparing": "Preparing…",
+      "apply": "Apply change",
+      "review": "Review change"
+    },
+    "delete": {
+      "title": "Delete MCP server?",
+      "description": "This removes {{name}} from {{source}} configuration. This cannot be undone from Stave.",
+      "descriptionFallback": "This removes the selected MCP server configuration.",
+      "deleting": "Deleting…",
+      "confirm": "Delete server"
+    },
+    "share": {
+      "addTo": "Add to {{provider}}",
+      "description": "Copy this server into {{provider}} using the same name, transport, and environment-variable bindings. Opaque values stay in the source and are not copied.",
+      "adding": "Adding…"
+    }
+  },
+  "settingsDialogModelVisibility": {
+    "noModelsAreAvailableYetSign": "No {{value1}} models are available yet. Sign in to the runtime, then reopen this section.",
+    "statusUnverifiedRefreshSettingsGtTooling": "Status unverified. Refresh Settings &gt; Tooling to verify these models.",
+    "shownByDefault": "shown by default",
+    "showInTheModelSelector": "Show {{value1}} in the model selector"
+  },
+  "settingsDialogToolingSection": {
+    "commandCopied": "{{value1}} command copied",
+    "claudeCodeTurnsPluginRefreshAnd": "Claude Code turns, plugin refresh, and Claude-native diagnostics. Opus 5.5: {{value1}} Sonnet 5.5: {{value2}}",
+    "codexTurnsAndCodexNativeExecution": "Codex turns and Codex-native execution flows. {{value1}}"
+  },
+  "settingsDialogAuxiliaryInferenceSection": {
+    "rememberedRewriteAreShownToThe": "{{value1}} remembered rewrite{{value2}} are shown to the model as examples."
+  },
+  "settingsDialogClaudePlugins": {
+    "loading": "Loading...",
+    "noClaudeCLIPluginsFoundInstall": "No Claude CLI plugins found. Install one with `claude plugin install <plugin>@<marketplace>`.",
+    "enabledInSettings": " · enabled in {{value1}} settings",
+    "notEnabledInClaudeSettings": " · not enabled in Claude settings",
+    "enable": "Enable {{value1}}"
+  },
+  "settingsDialogMcpConfigEditor": {
+    "installTo": "Install to {{value1}}",
+    "enableMCPServer": "Enable {{value1}} MCP server",
+    "thisRemovesFromConfigurationThisCannot": "This removes {{value1}} from {{value2}} configuration. This cannot be undone from Stave.",
+    "addTo": "Add to {{value1}}"
+  },
+  "settingsDialogMcpSection": {
+    "checked": "Checked",
+    "signInToFor": "Sign in to {{value1}} for {{value2}}",
+    "protectedValue": "protected value",
+    "hidden": "hidden",
+    "editIn": "Edit {{value1}} in {{value2}}",
+    "deleteFrom": "Delete {{value1}} from {{value2}}",
+    "apiUnavailable": "{{value1}} API unavailable.",
+    "oauthLoginAPIUnavailable": "{{value1}} OAuth login API unavailable.",
+    "externalBrowserAccessIsUnavailable": "{{value1}} External browser access is unavailable.",
+    "finishInYourBrowserStatusWill": "{{value1}} Finish in your browser; status will refresh automatically.",
+    "oauthLoginFailed": "OAuth login failed: {{value1}}"
+  },
+  "settingsDialogProvidersSection": {
+    "example": " Example: {{value1}}",
+    "isActiveReapplyAPresetAny": "{{value1}} is active. Reapply a preset any time to restore its full permission and sandbox combination.",
+    "active": "Active:",
+    "none": "none",
+    "all": "all",
+    "isActiveReapplyAPresetAnyVariantcdc4723b": "{{value1}} is active. Reapply a preset any time to restore its full file access, approval, and network combination."
+  },
+  "whole": {
+    "hiddenArguments_one": "{{count}} existing argument is hidden. Leave this off to preserve it.",
+    "hiddenArguments_other": "{{count}} existing arguments are hidden. Leave this off to preserve them.",
+    "protectedValues_one": "Protected existing values. {{count}} sensitive or opaque value is hidden from this dialog and preserved when the transport remains compatible.",
+    "protectedValues_other": "Protected existing values. {{count}} sensitive or opaque values are hidden from this dialog and preserved when the transport remains compatible.",
+    "shareMcp": "Copy this server into {{destination}} using the same name, transport, and environment-variable bindings. Opaque values stay in the source and are not copied.",
+    "addMcp": "Add to {{destination}}",
+    "tools_one": "{{count}} tool",
+    "tools_other": "{{count}} tools",
+    "rewriteExamples_one": "{{count}} remembered rewrite is shown to the model as an example.",
+    "rewriteExamples_other": "{{count}} remembered rewrites are shown to the model as examples."
+  },
+  "messages": {
+    "checkedAt": "Checked {{checkedAt}}",
+    "hiddenValues_one": "{{count}} protected value hidden",
+    "hiddenValues_other": "{{count}} protected values hidden",
+    "mcpApplyUnavailable": "MCP configuration apply API is unavailable.",
+    "planWorkflowNote": "`plan` is special in Stave: it becomes a planning workflow rather than a normal implementation turn.",
+    "codexPlanReadOnly": "When Stave runs Codex in plan mode, it forces `read-only` regardless of the normal setting.",
+    "codexPlanNever": "Stave forces `never` during Codex plan mode so planning turns do not stop on approval prompts.",
+    "writesTrustNote": "`writes` trusts each tool's read-only annotation; it is not a security boundary."
+  }
+}

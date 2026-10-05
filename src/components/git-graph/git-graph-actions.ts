@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type {
   GraphCommitDetailsResult,
   GraphResult,
@@ -31,7 +32,7 @@ export async function loadGraph(
       worktreePathByBranch: {},
       worktreePathsAvailable: false,
       hasMore: false,
-      stderr: "Unavailable",
+      stderr: i18n.t("gitGraph:gitGraphActions.unavailable"),
     };
   }
   return api({ cwd, ...opts });
@@ -43,7 +44,7 @@ export async function loadCommitDetails(
 ): Promise<GraphCommitDetailsResult> {
   const api = window.api?.sourceControl?.getCommitDetails;
   if (!api) {
-    return { ok: false, details: null, stderr: "Unavailable" };
+    return { ok: false, details: null, stderr: i18n.t("gitGraph:gitGraphActions.unavailable") };
   }
   return api({ cwd, hash });
 }
@@ -54,7 +55,7 @@ export async function loadCommitFiles(cwd: string, hash: string) {
     return {
       ok: false,
       files: [] as Array<{ path: string; status: string; oldPath?: string }>,
-      stderr: "Unavailable",
+      stderr: i18n.t("gitGraph:gitGraphActions.unavailable"),
     };
   }
   return api({ cwd, hash });
@@ -74,7 +75,7 @@ export async function loadWorkingTree(cwd: string) {
         workingTreeStatus?: string;
       }>,
       hasConflicts: false,
-      stderr: "Unavailable",
+      stderr: i18n.t("gitGraph:gitGraphActions.unavailable"),
     };
   }
   return api({ cwd });
@@ -88,7 +89,7 @@ export async function loadWorkingTreeDiff(cwd: string, path: string) {
       content: "",
       oldContent: "",
       newContent: "",
-      stderr: "Unavailable",
+      stderr: i18n.t("gitGraph:gitGraphActions.unavailable"),
     };
   }
   return api({ cwd, path });
@@ -107,7 +108,7 @@ export async function loadCommitDiff(
 }> {
   const api = window.api?.sourceControl?.getCommitDiff;
   if (!api) {
-    return { ok: false, oldContent: "", newContent: "", stderr: "Unavailable" };
+    return { ok: false, oldContent: "", newContent: "", stderr: i18n.t("gitGraph:gitGraphActions.unavailable") };
   }
   return api({ cwd, hash, path, oldPath });
 }
@@ -124,7 +125,7 @@ interface ActionResult {
 }
 
 function unavailable(): ActionResult {
-  return { ok: false, stderr: "API unavailable" };
+  return { ok: false, stderr: i18n.t("gitGraph:gitGraphActions.aPIUnavailable") };
 }
 
 export async function revertCommit(
@@ -283,7 +284,7 @@ export async function listBranches(cwd: string): Promise<ListBranchesResult> {
       branches: [],
       remoteBranches: [],
       worktreePathByBranch: {},
-      stderr: "API unavailable",
+      stderr: i18n.t("gitGraph:gitGraphActions.aPIUnavailable"),
     };
   }
   return api({ cwd }) as Promise<ListBranchesResult>;

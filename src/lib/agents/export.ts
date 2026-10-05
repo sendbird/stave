@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { AgentConfig } from "./schema";
 
 /**
@@ -17,8 +18,8 @@ export const AGENT_EXPORT_FORMATS = ["claude-md", "codex-toml"] as const;
 export type AgentExportFormat = (typeof AGENT_EXPORT_FORMATS)[number];
 
 export const AGENT_EXPORT_FORMAT_LABELS: Readonly<Record<AgentExportFormat, string>> = {
-  "claude-md": "Claude agent file",
-  "codex-toml": "Codex agent file",
+  get "claude-md"() { return i18n.t("agents:export.claudeMd"); },
+  get "codex-toml"() { return i18n.t("agents:export.codexToml"); },
 };
 
 export interface AgentExport {

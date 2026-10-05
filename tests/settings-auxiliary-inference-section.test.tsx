@@ -1,10 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { i18n } from "@/i18n/runtime";
 import { SettingsAuxiliaryInferenceSection } from "@/components/layout/settings-dialog-auxiliary-inference-section";
 import { AUX_LANES } from "@/lib/providers/auxiliary-inference-policy";
 import { settingDefinitions } from "@/components/layout/settings-dialog.registry";
-import { settingsSections } from "@/components/layout/settings-dialog.schema";
+import {
+  matchesSettingsSection,
+  settingsSectionGroups,
+  settingsSections,
+} from "@/components/layout/settings-dialog.schema";
 
 describe("Settings → Background AI", () => {
   const html = renderToStaticMarkup(
@@ -46,8 +51,14 @@ describe("Settings → Background AI", () => {
     const section = settingsSections.find(
       (candidate) => candidate.id === "auxiliaryInference",
     );
-    expect(section?.label).toBe("Background AI");
+    expect(section?.labelKey).toBe("settings:sections.auxiliaryInference.label");
+    expect(i18n.getFixedT("en")(section!.labelKey)).toBe("Background AI");
+    expect(i18n.getFixedT("ko")(section!.labelKey)).toBe("백그라운드 AI");
     expect(section?.keywords).toContain("credits");
+    expect(matchesSettingsSection(section!, "credits")).toBe(true);
+    expect(
+      settingsSectionGroups.some((group) => group.ids.includes("auxiliaryInference")),
+    ).toBe(true);
 
     const definition = settingDefinitions.find(
       (candidate) => candidate.key === "auxiliaryInferencePolicy",

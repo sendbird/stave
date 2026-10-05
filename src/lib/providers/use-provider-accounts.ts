@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useEffect, useMemo } from "react";
 import { create } from "zustand";
 import { useAppStore } from "@/store/app.store";
@@ -5,7 +6,7 @@ import type { ProviderRuntimeOptions } from "./provider.types";
 import { SYSTEM_ACCOUNT_PROFILE_ID, type ProviderAccountProfile } from "./provider-accounts";
 
 const defaults: ProviderAccountProfile[] = ["claude-code", "codex"].map((providerId) => ({
-  id: SYSTEM_ACCOUNT_PROFILE_ID, providerId: providerId as "claude-code" | "codex", label: "System default", kind: "system",
+  id: SYSTEM_ACCOUNT_PROFILE_ID, providerId: providerId as "claude-code" | "codex", label: i18n.t("usage:usageViewUtils.systemDefault"), kind: "system",
 }));
 let refreshGeneration = 0;
 export const useProviderAccounts = create<{

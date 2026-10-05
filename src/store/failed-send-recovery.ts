@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   Attachment,
   PromptDraft,
@@ -14,7 +15,7 @@ import type {
  */
 export const FAILED_OUTGOING_SEND_LIMIT = 10;
 
-const DEFAULT_SEND_FAILURE_REASON = "The message could not be sent.";
+const DEFAULT_SEND_FAILURE_REASON_KEY = "app:errors.sendFailure" as const;
 
 /**
  * An outgoing message that never reached the provider, parked with everything
@@ -50,7 +51,7 @@ export function describeSendFailureReason(error: unknown): string {
   if (typeof error === "string" && error.trim().length > 0) {
     return error.trim();
   }
-  return DEFAULT_SEND_FAILURE_REASON;
+  return i18n.t(DEFAULT_SEND_FAILURE_REASON_KEY);
 }
 
 export function buildFailedOutgoingSend(args: {
@@ -159,5 +160,5 @@ export function describeFailedSendAttachments(
   if (count === 0) {
     return null;
   }
-  return count === 1 ? "1 attachment" : `${count} attachments`;
+  return i18n.t("app:errors.attachments", { count });
 }

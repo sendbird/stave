@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   AlertCircle,
   ChevronDown,
@@ -38,18 +39,19 @@ export function ScriptEntryCard(props: {
   onDuplicate: () => void;
   onOpenInRail: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["scripts", "common"]);
   const title =
     props.entry.label.trim() ||
     props.entry.id.trim() ||
-    `${props.kind === "service" ? "Process" : "Command"} ${props.index + 1}`;
-  const kindLabel = props.kind === "service" ? "process" : "command";
+    tI18n(props.kind === "service" ? "scripts:scriptEntryCard.processTitle" : "scripts:scriptEntryCard.commandTitle", { number: props.index + 1 });
+  const kindLabel = tI18n(props.kind === "service" ? "scripts:scriptEntryCard.process" : "scripts:scriptEntryCard.command");
   const moveUpDisabled = props.index === 0;
   const moveDownDisabled = props.index === props.totalCount - 1;
   const hasIssues = Object.keys(props.issues).length > 0;
   const metaParts = [
     targetLabel(props.entry.target, props.targetOptions),
-    props.kind === "service" && props.entry.orbitEnabled ? "Orbit" : null,
-    props.entry.enabled ? null : "Disabled",
+    props.kind === "service" && props.entry.orbitEnabled ? tI18n("scripts:scriptEntryCard.orbit") : null,
+    props.entry.enabled ? null : tI18n("common:status.disabled"),
   ].filter((part): part is string => Boolean(part));
 
   return (
@@ -82,14 +84,12 @@ export function ScriptEntryCard(props: {
                   variant="secondary"
                   className={sx(entryCardStyles.runningBadge)}
                 >
-                  Running
-                </Badge>
+                  {tI18n("scripts:scriptEntryCard.running")}</Badge>
               ) : null}
               {hasIssues ? (
                 <span className={sx(entryCardStyles.attention)}>
                   <AlertCircle className={sx(entryCardStyles.attentionIcon)} />
-                  Needs attention
-                </span>
+                  {tI18n("scripts:scriptEntryCard.needsAttention")}</span>
               ) : null}
             </div>
             {metaParts.length > 0 ? (
@@ -105,8 +105,7 @@ export function ScriptEntryCard(props: {
             {props.triggers.length > 0 ? (
               <div className={sx(entryCardStyles.triggerRow)}>
                 <span className={sx(entryCardStyles.triggerLabel)}>
-                  Triggers
-                </span>
+                  {tI18n("scripts:scriptEntryCard.triggers")}</span>
                 {props.triggers.map((trigger) => (
                   <Badge
                     key={trigger}
@@ -129,16 +128,15 @@ export function ScriptEntryCard(props: {
             xstyle={entryCardStyles.actionButtonTall}
             onClick={props.onOpenInRail}
           >
-            Open in rail
-          </Button>
+            {tI18n("scripts:scriptEntryCard.openInRail")}</Button>
           <Button
             variant="outline"
             size="icon"
             xstyle={entryCardStyles.iconButton}
             disabled={moveUpDisabled}
             onClick={props.onMove.bind(null, -1)}
-            aria-label="Move up"
-            title="Move up"
+            aria-label={tI18n("scripts:scriptEntryCard.moveUp")}
+            title={tI18n("scripts:scriptEntryCard.moveUp")}
           >
             <ChevronDown className={sx(entryCardStyles.iconFlipped)} />
           </Button>
@@ -148,8 +146,8 @@ export function ScriptEntryCard(props: {
             xstyle={entryCardStyles.iconButton}
             disabled={moveDownDisabled}
             onClick={props.onMove.bind(null, 1)}
-            aria-label="Move down"
-            title="Move down"
+            aria-label={tI18n("scripts:scriptEntryCard.moveDown")}
+            title={tI18n("scripts:scriptEntryCard.moveDown")}
           >
             <ChevronDown className={sx(entryCardStyles.icon)} />
           </Button>
@@ -158,21 +156,21 @@ export function ScriptEntryCard(props: {
             size="icon"
             xstyle={entryCardStyles.iconButton}
             onClick={props.onDuplicate}
-            aria-label={`Duplicate ${kindLabel}`}
-            title={`Duplicate ${kindLabel}`}
+            aria-label={tI18n("scripts:scriptEntryCard.duplicateValue", { kindLabel: kindLabel })}
+            title={tI18n("scripts:scriptEntryCard.duplicateValue", { kindLabel: kindLabel })}
           >
             <Copy className={sx(entryCardStyles.icon)} />
           </Button>
           <Button variant="outline" size="sm" onClick={props.onToggleExpand}>
-            {props.expanded ? "Done" : "Edit"}
+            {props.expanded ? tI18n("scripts:scriptEntryCard.done") : tI18n("scripts:scriptEntryCard.edit")}
           </Button>
           <Button
             variant="outline"
             size="icon"
             xstyle={entryCardStyles.destructiveButton}
             onClick={props.onRemove}
-            aria-label={`Delete ${kindLabel}`}
-            title={`Delete ${kindLabel}`}
+            aria-label={tI18n("scripts:scriptEntryCard.deleteValue", { kindLabel: kindLabel })}
+            title={tI18n("scripts:scriptEntryCard.deleteValue", { kindLabel: kindLabel })}
           >
             <Trash2 className={sx(entryCardStyles.icon)} />
           </Button>

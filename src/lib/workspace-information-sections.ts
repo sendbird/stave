@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { WorkspaceInformationState } from "./workspace-information";
 
 export const WORKSPACE_INFORMATION_SECTION_IDS = [
@@ -24,11 +25,11 @@ export const WORKSPACE_INFORMATION_SECTION_LABELS: Record<
   WorkspaceInformationSectionId,
   string
 > = {
-  overview: "Summary",
-  todo: "Todos",
-  note: "Notes",
-  memory: "Memory",
-  plans: "Plans",
+  get overview() { return i18n.t("workspace:workspaceInformationSections.summary"); },
+  get todo() { return i18n.t("workspace:workspaceInformationSections.todos"); },
+  get note() { return i18n.t("workspace:workspaceInformationSections.notes"); },
+  get memory() { return i18n.t("workspace:workspaceInformationSections.memory"); },
+  get plans() { return i18n.t("workspace:workspaceInformationSections.plans"); },
   github: "GitHub",
   jira: "Jira",
   crane: "Crane",
@@ -37,7 +38,7 @@ export const WORKSPACE_INFORMATION_SECTION_LABELS: Record<
   amplify: "Amplify",
   slack: "Slack",
   figma: "Figma",
-  custom: "Custom fields",
+  get custom() { return i18n.t("workspace:workspaceInformationSections.customFields"); },
 };
 
 export const CORE_WORKSPACE_INFORMATION_SECTIONS = [

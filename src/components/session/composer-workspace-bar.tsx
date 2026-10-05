@@ -1,3 +1,5 @@
+import { i18n } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { FolderGit2, GitBranch } from "lucide-react";
 import { sessionCoreStyles } from "./session-core.styles";
 import { sx } from "../ads/utils/stylex";
@@ -39,6 +41,7 @@ export function ComposerWorkspaceBarView(props: {
   folderLabel: string;
   branchLabel: string;
 }) {
+  useTranslation();
   // No branch (a plain directory, or git not resolved yet): the workspace name
   // stands in for it.
   const branch = props.branchLabel;
@@ -53,10 +56,10 @@ export function ComposerWorkspaceBarView(props: {
     return null;
   }
   const details = [
-    repository ? `Repository: ${repository}` : "",
-    props.workspaceLabel ? `Workspace: ${props.workspaceLabel}` : "",
-    props.branchLabel ? `Branch: ${props.branchLabel}` : "",
-    props.folderLabel ? `Folder: ${props.folderLabel}` : "",
+    repository ? i18n.t("session:composerWorkspaceBar.extraCopy175", { value1: repository }) : "",
+    props.workspaceLabel ? i18n.t("session:composerWorkspaceBar.extraCopy176", { value1: props.workspaceLabel }) : "",
+    props.branchLabel ? i18n.t("session:composerWorkspaceBar.extraCopy177", { value1: props.branchLabel }) : "",
+    props.folderLabel ? i18n.t("session:composerWorkspaceBar.extraCopy178", { value1: props.folderLabel }) : "",
   ].filter(Boolean);
 
   return (
@@ -94,6 +97,7 @@ export function ComposerWorkspaceBarView(props: {
 }
 
 export function ComposerWorkspaceBar() {
+  useTranslation();
   const workspaceLabel = useAppStore((state) => {
     const workspaceId = state.activeWorkspaceId;
     return (

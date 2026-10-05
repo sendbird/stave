@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Checkbox } from "@/components/ads/components/Checkbox";
@@ -38,9 +39,9 @@ import { autoRoutingWizardStyles as styles } from "./settings-dialog-auto-routin
 type WizardStep = "scan" | "review" | "apply";
 
 const STEPS: ReadonlyArray<{ id: WizardStep; label: string }> = [
-  { id: "scan", label: "Scan" },
-  { id: "review", label: "Review" },
-  { id: "apply", label: "Apply" },
+  { id: "scan", get label() { return i18n.t("settingsConnections:settingsDialogAutoRoutingWizard.scan"); } },
+  { id: "review", get label() { return i18n.t("settingsConnections:settingsDialogAutoRoutingWizard.review"); } },
+  { id: "apply", get label() { return i18n.t("common:actions.apply"); } },
 ];
 
 /** Older tasks whose messages are not resident get fetched, newest first. */
@@ -53,9 +54,9 @@ const CONFIDENCE_TONE: Readonly<Record<UsageConfidence, "warning" | "info" | "su
   high: "success",
 };
 const CONFIDENCE_LABEL: Readonly<Record<UsageConfidence, string>> = {
-  low: "Low confidence",
-  medium: "Medium confidence",
-  high: "High confidence",
+  get low() { return i18n.t("settingsConnections:settingsDialogAutoRoutingWizard.lowConfidence"); },
+  get medium() { return i18n.t("settingsConnections:settingsDialogAutoRoutingWizard.mediumConfidence"); },
+  get high() { return i18n.t("settingsConnections:settingsDialogAutoRoutingWizard.highConfidence"); },
 };
 
 interface ScanProgress {
@@ -71,7 +72,7 @@ function changeSubject(change: WizardChange) {
   if (change.skill) {
     return `/${change.skill}`;
   }
-  return change.taskClass ? TASK_CLASS_LABELS[change.taskClass] : "Rule";
+  return change.taskClass ? TASK_CLASS_LABELS[change.taskClass] : i18n.t("settingsConnections:flow.headerRule");
 }
 
 /**
@@ -81,6 +82,7 @@ function changeSubject(change: WizardChange) {
  * exactly like a manual edit would.
  */
 export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample[] }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const profile = useAppStore((state) => state.settings.autoRoutingProfile);
   const updateSettings = useAppStore((state) => state.updateSettings);
 
@@ -105,10 +107,10 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
     };
   }, []);
 
-  const analysis = useMemo(() => analyzeUsage(samples ?? []), [samples]);
+  const analysis = useMemo(() => analyzeUsage(samples ?? []), [samples, t]);
   const proposal = useMemo(
     () => buildProfileFromUsage(analysis, { base: profile, include: { stance: false } }),
-    [analysis, profile],
+    [analysis, profile, t],
   );
   const ruleChanges = proposal.changes;
   const selectedStance = stance ?? analysis.recommendedStance;
@@ -177,10 +179,10 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
     setScanning(false);
     if (failed > 0) {
       setScanError(
-        `${failed} ${failed === 1 ? "task" : "tasks"} could not be loaded and were skipped.`,
+        t("settingsConnections:messages.skippedTasks", { count: failed }),
       );
     }
-  }, [props.samplesOverride]);
+  }, [props.samplesOverride, t]);
 
   const startOver = () => {
     scanTokenRef.current += 1;
@@ -232,18 +234,16 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
     target === "scan" || (hasSamples && !scanning);
 
   const summary = hasAnythingToApply
-    ? `Apply ${includedChanges.length} ${includedChanges.length === 1 ? "rule" : "rules"}${
-        stanceChanges ? ` and switch the stance to ${STANCE_LABELS[selectedStance]}` : ""
-      } based on ${analysis.totalSamples} ${analysis.totalSamples === 1 ? "prompt" : "prompts"}.`
-    : "Nothing selected. Include at least one change or pick a different stance.";
+    ? t(stanceChanges ? "settingsConnections:messages.applyWithStance" : "settingsConnections:messages.applyRules", { count: includedChanges.length, samples: analysis.totalSamples, stance: STANCE_LABELS[selectedStance] })
+    : t("settingsConnections:settingsDialogAutoRoutingWizard.nothingSelectedIncludeAtLeastOne");
 
   return (
     <SettingsCard
-      title="Set up from my usage"
-      description="Stave reads which models you actually used for which kinds of prompts and proposes a routing profile you can accept or edit."
+      title={t("settingsConnections:settingsDialogAutoRoutingWizard.setUpFromMyUsage")}
+      description={t("settingsConnections:settingsDialogAutoRoutingWizard.staveReadsWhichModelsYouActually")}
     >
       <div className={sx(styles.stack)}>
-        <ol className={sx(styles.stepper)} aria-label="Setup steps">
+        <ol className={sx(styles.stepper)} aria-label={t("settingsConnections:settingsDialogAutoRoutingWizard.setupSteps")}>
           {STEPS.map((entry, index) => {
             const active = entry.id === step;
             const done = stepIndex(entry.id) < stepIndex(step);
@@ -301,19 +301,15 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
                 disabled={!hasAnythingToApply || applied}
                 onClick={apply}
               >
-                Apply profile
-              </ActionButton>
+                {t("settingsConnections:settingsDialogAutoRoutingWizard.applyProfile")}</ActionButton>
               <ActionButton weight="quiet" onClick={() => setStep("review")}>
-                Back
-              </ActionButton>
+                {t("common:actions.back")}</ActionButton>
               <ActionButton weight="quiet" onClick={startOver}>
-                Start over
-              </ActionButton>
+                {t("settingsConnections:settingsDialogAutoRoutingWizard.startOver")}</ActionButton>
             </div>
             {applied ? (
               <p className={sx(styles.success)} role="status">
-                Profile applied. You can still edit every rule under Rules below.
-              </p>
+                {t("settingsConnections:settingsDialogAutoRoutingWizard.profileAppliedYouCanStillEdit")}</p>
             ) : null}
           </div>
         ) : null}
@@ -332,38 +328,36 @@ function ScanStep(props: {
   onContinue: () => void;
   onScan: () => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const { analysis } = props;
   return (
     <div className={sx(styles.stack)}>
       <div className={sx(styles.toolbar)}>
         <ActionButton weight="primary" disabled={props.scanning} onClick={props.onScan}>
-          {props.scanning ? "Scanning…" : props.scanned ? "Scan again" : "Scan my history"}
+          {props.scanning ? t("settingsConnections:settingsDialogAutoRoutingWizard.scanning") : props.scanned ? t("settingsConnections:settingsDialogAutoRoutingWizard.scanAgain") : t("settingsConnections:settingsDialogAutoRoutingWizard.scanMyHistory")}
         </ActionButton>
         {props.progress ? (
           <p className={sx(styles.progress)} role="status">
-            Scanned {props.progress.tasks} {props.progress.tasks === 1 ? "task" : "tasks"} ·{" "}
-            {props.progress.prompts} {props.progress.prompts === 1 ? "prompt" : "prompts"}
+            {t(props.progress.prompts === 1 ? "settingsConnections:messages.scanProgressOnePrompt" : "settingsConnections:messages.scanProgress", { count: props.progress.tasks, prompts: props.progress.prompts })}
           </p>
         ) : null}
         <span className={sx(styles.toolbarSpacer)} />
         {props.hasSamples ? (
           <ActionButton weight="secondary" onClick={props.onContinue}>
-            Continue to review
-          </ActionButton>
+            {t("settingsConnections:settingsDialogAutoRoutingWizard.continueToReview")}</ActionButton>
         ) : null}
       </div>
       {props.scanError ? <p className={sx(styles.error)}>{props.scanError}</p> : null}
 
       {props.scanned && !props.scanning && !props.hasSamples ? (
         <p className={sx(styles.emptyState)}>
-          No history yet. Use Stave for a while, or pick a starter profile.
-        </p>
+          {t("settingsConnections:settingsDialogAutoRoutingWizard.noHistoryYetUseStaveFor")}</p>
       ) : null}
 
       {props.hasSamples ? (
         <>
           <div className={sx(styles.headingRow)}>
-            <h4 className={sx(styles.heading)}>What your history shows</h4>
+            <h4 className={sx(styles.heading)}>{t("settingsConnections:settingsDialogAutoRoutingWizard.whatYourHistoryShows")}</h4>
             <Badge tone={CONFIDENCE_TONE[analysis.confidence]} variant="outline" dot>
               {CONFIDENCE_LABEL[analysis.confidence]}
             </Badge>
@@ -376,15 +370,14 @@ function ScanStep(props: {
             </ul>
           ) : (
             <p className={sx(styles.helper)}>
-              Not enough repeated prompts yet to summarise a pattern.
-            </p>
+              {t("settingsConnections:settingsDialogAutoRoutingWizard.notEnoughRepeatedPromptsYetTo")}</p>
           )}
-          <Table density="compact" aria-label="Dominant model per task class">
+          <Table density="compact" aria-label={t("settingsConnections:settingsDialogAutoRoutingWizard.dominantModelPerTaskClass")}>
             <TableHeader>
               <TableRow>
-                <TableHead>Task class</TableHead>
-                <TableHead>Usually runs on</TableHead>
-                <TableHead>Prompts</TableHead>
+                <TableHead>{t("settingsConnections:settingsDialogAutoRoutingSection.taskClass")}</TableHead>
+                <TableHead>{t("settingsConnections:settingsDialogAutoRoutingWizard.usuallyRunsOn")}</TableHead>
+                <TableHead>{t("settings:sections.prompts.label")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -405,7 +398,7 @@ function ScanStep(props: {
                   </TableCell>
                   <TableCell>
                     <span className={sx(styles.cellMuted)}>
-                      {entry.dominantCount} of {entry.count} · {entry.share}%
+                      {entry.dominantCount} {i18n.t("compare:compareRunHistoryDialog.of")}{entry.count} · {entry.share}%
                     </span>
                   </TableCell>
                 </TableRow>
@@ -428,12 +421,13 @@ function ReviewStep(props: {
   onStanceChange: (stance: Stance) => void;
   onToggle: (change: WizardChange, include: boolean) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   return (
     <div className={sx(styles.stack)}>
       <LabeledField
         layout="stacked"
-        title="Stance"
-        description={`Recommended: ${STANCE_LABELS[props.recommendedStance]}. ${STANCE_DESCRIPTIONS[props.recommendedStance]}`}
+        title={t("settingsConnections:settingsDialogAutoRoutingWizard.stance")}
+        description={t("settingsConnections:settingsDialogAutoRoutingWizard.recommended", { value1: STANCE_LABELS[props.recommendedStance], value2: STANCE_DESCRIPTIONS[props.recommendedStance] })}
       >
         <ChoiceButtons
           columns={3}
@@ -447,16 +441,13 @@ function ReviewStep(props: {
       </LabeledField>
 
       <div className={sx(styles.headingRow)}>
-        <h4 className={sx(styles.heading)}>Proposed rule changes</h4>
+        <h4 className={sx(styles.heading)}>{t("settingsConnections:settingsDialogAutoRoutingWizard.proposedRuleChanges")}</h4>
         <span className={sx(styles.helper)}>
-          Untick a row to keep the current rule for that class or skill.
-        </span>
+          {t("settingsConnections:settingsDialogAutoRoutingWizard.untickARowToKeepThe")}</span>
       </div>
       {props.changes.length === 0 ? (
         <p className={sx(styles.helper)}>
-          No class or skill repeated often enough to propose a rule. The stance
-          above is the only change.
-        </p>
+          {t("settingsConnections:settingsDialogAutoRoutingWizard.noClassOrSkillRepeatedOften")}</p>
       ) : (
         <ul className={sx(styles.changeList)}>
           {props.changes.map((change) => {
@@ -475,8 +466,8 @@ function ReviewStep(props: {
                   <span className={sx(styles.changeText)}>
                     <span className={sx(styles.changeTitle)}>
                       <span className={sx(styles.changeSubject)}>{changeSubject(change)}</span>
-                      {change.before ? ` · was: ${change.before}` : " · new rule"}
-                      {` → now: ${change.after}`}
+                      {change.before ? i18n.t("settingsConnections:settingsDialogAutoRoutingWizard.was", { value1: change.before }) : i18n.t("settingsConnections:settingsDialogAutoRoutingWizard.newRule")}
+                      {i18n.t("settingsConnections:settingsDialogAutoRoutingWizard.now", { value1: change.after })}
                     </span>
                     <span className={sx(styles.changeEvidence)}>{change.evidence}</span>
                   </span>
@@ -489,12 +480,10 @@ function ReviewStep(props: {
 
       <div className={sx(styles.toolbar)}>
         <ActionButton weight="quiet" onClick={props.onBack}>
-          Back
-        </ActionButton>
+          {t("common:actions.back")}</ActionButton>
         <span className={sx(styles.toolbarSpacer)} />
         <ActionButton weight="primary" onClick={props.onContinue}>
-          Continue
-        </ActionButton>
+          {t("common:actions.continue")}</ActionButton>
       </div>
     </div>
   );

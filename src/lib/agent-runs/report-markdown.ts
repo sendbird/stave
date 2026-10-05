@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * An Agent run report as Markdown, for Copy Markdown and, later, for adding it
  * to a pull request description.
@@ -11,33 +12,31 @@ import type { AgentRunMetrics, AgentRunReport } from "./report";
 /** "2 replies from you · 1 reminder to report · sign-offs waited 12m on average (longest 20m)". */
 export function describeAgentRunMetrics(metrics: AgentRunMetrics): string {
   const parts = [
-    `${metrics.userReplies} ${metrics.userReplies === 1 ? "reply" : "replies"} from you`,
-    `${metrics.nudges} ${metrics.nudges === 1 ? "reminder" : "reminders"} to report`,
-    `${metrics.stuckStages} stuck`,
+    i18n.t("agentRuns:reportMarkdown.extraCopy312", { value1: metrics.userReplies, count: metrics.userReplies }),
+    i18n.t("agentRuns:reportMarkdown.extraCopy313", { value1: metrics.nudges, count: metrics.nudges }),
+    i18n.t("agentRuns:remaining.presentationCopy449", { v1: metrics.stuckStages }),
   ];
   if (metrics.signOffWaitAverageMs !== null && metrics.signOffWaitLongestMs !== null) {
     const average = formatAge(metrics.signOffWaitAverageMs);
     const longest = formatAge(metrics.signOffWaitLongestMs);
     parts.push(
-      `${metrics.signOffs} ${metrics.signOffs === 1 ? "sign-off" : "sign-offs"} waited ${average} on average${
-        metrics.signOffs > 1 ? ` (longest ${longest})` : ""
-      }`,
+      i18n.t("agentRuns:reportMarkdown.extraCopy314", { value1: metrics.signOffs, value3: average, value4: metrics.signOffs > 1 ? i18n.t("agentRuns:remaining.presentationCopy450", { v1: longest }) : "", count: metrics.signOffs }),
     );
   }
   return parts.join(" · ");
 }
 
 const OUTCOME_TITLES: Record<AgentRunReport["outcome"], string> = {
-  completed: "Run complete",
-  cancelled: "Run cancelled",
-  stopped: "Run stopped",
+  get completed() { return i18n.t("agentRuns:reportMarkdown.completed"); },
+  get cancelled() { return i18n.t("agentRuns:reportMarkdown.cancelled"); },
+  get stopped() { return i18n.t("agentRuns:reportMarkdown.stopped"); },
 };
 
 const CRITERION_MARKS = { met: "[x]", unmet: "[ ]", unverified: "[?]" } as const;
 
 export function describeReportTitle(report: AgentRunReport): string {
   const duration = formatAge(Date.parse(report.endedAt) - Date.parse(report.startedAt));
-  return `${OUTCOME_TITLES[report.outcome]} · ${duration} · ${report.turnCount} ${report.turnCount === 1 ? "turn" : "turns"}`;
+  return i18n.t("agentRuns:reportMarkdown.summary", { outcome: OUTCOME_TITLES[report.outcome], duration, count: report.turnCount });
 }
 
 export function formatAgentRunReportMarkdown(report: AgentRunReport): string {
@@ -46,41 +45,44 @@ export function formatAgentRunReportMarkdown(report: AgentRunReport): string {
     "",
     `**${report.workflowName}:** ${report.assignment.trim()}`,
   ];
-  if (report.reason) lines.push("", `Reason: ${report.reason}`);
-  lines.push("", "### Stages");
+  if (report.reason) lines.push("", i18n.t("agentRuns:reportMarkdown.extraCopy315", { value1: report.reason }));
+  lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.stagesHeading")}`);
   for (const stage of report.stages) {
     const summary = stage.summary ?? stage.detail;
-    lines.push(`- **${stage.title}** — ${stage.status.replaceAll("-", " ")}${summary ? `: ${summary}` : ""}`);
+    const statusKey = stage.status === "awaiting-sign-off"
+      ? "agentRuns:reportMarkdown.stageStatus.awaitingSignOff"
+      : `agentRuns:reportMarkdown.stageStatus.${stage.status}` as const;
+    lines.push(`- **${stage.title}** — ${i18n.t(statusKey)}${summary ? `: ${summary}` : ""}`);
     for (const item of stage.plan ?? []) {
       lines.push(`  - [${item.status === "completed" ? "x" : " "}] ${item.content}`);
     }
     for (const decision of stage.decisions) {
-      lines.push(`  - Decision: ${decision.decision} — ${decision.reason}`);
+      lines.push(i18n.t("agentRuns:reportMarkdown.extraCopy316", { value1: decision.decision, value2: decision.reason }));
     }
     for (const evidence of stage.evidence) {
       const ref = evidence.ref ? ` (${evidence.ref})` : evidence.command ? ` (\`${evidence.command}\`)` : "";
       const status = [
-        evidence.outcome === "failed" ? "Failed" : null,
-        evidence.exitCode !== undefined ? `Exit ${evidence.exitCode ?? "unknown"}` : null,
-        evidence.freshness === "stale" ? "Changed since this check" : evidence.freshness === "unknown" && evidence.kind === "check" ? "Current work unverified" : null,
+        evidence.outcome === "failed" ? i18n.t("agentRuns:reportMarkdown.extraCopy317") : null,
+        evidence.exitCode !== undefined ? i18n.t("agentRuns:reportMarkdown.extraCopy318", { value1: evidence.exitCode ?? i18n.t("agentRuns:reportMarkdown.unknownExit") }) : null,
+        evidence.freshness === "stale" ? i18n.t("agentRuns:reportMarkdown.extraCopy319") : evidence.freshness === "unknown" && evidence.kind === "check" ? i18n.t("agentRuns:reportMarkdown.extraCopy320") : null,
       ].filter(Boolean).join(" · ");
       lines.push(`  - ${evidenceSourceLabel(evidence)}: ${evidence.label}${ref}${status ? ` · ${status}` : ""}`);
     }
   }
   if (report.acceptanceCriteria.length > 0) {
-    lines.push("", "### Acceptance criteria");
+    lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.criteriaHeading")}`);
     for (const criterion of report.acceptanceCriteria) {
       lines.push(`- ${CRITERION_MARKS[criterion.status]} ${criterion.text}`);
     }
   }
   if (report.links.length > 0) {
-    lines.push("", "### Links");
+    lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.linksHeading")}`);
     for (const link of report.links) {
       lines.push(`- [${link.label}](${link.url}) — ${EVIDENCE_SOURCE_LABELS[link.source]}`);
     }
   }
   if (report.leftBehind.length > 0) {
-    lines.push("", "### Left behind");
+    lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.leftBehindHeading")}`);
     for (const item of report.leftBehind) lines.push(`- ${item}`);
   }
   if (report.metrics) {

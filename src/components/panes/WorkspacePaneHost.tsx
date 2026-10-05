@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -88,6 +89,7 @@ const STAVE_DOCKVIEW_THEME: DockviewTheme = {
 };
 
 function PaneIconPicker(props: IContextMenuItemComponentProps) {
+  useTranslation();
   const options = props.componentProps as
     { panelId?: string; selectedIcon?: string | null } | undefined;
   const panelId = options?.panelId;
@@ -105,12 +107,12 @@ function PaneIconPicker(props: IContextMenuItemComponentProps) {
 
   return (
     <div className={sx(styles.picker)}>
-      <span className={sx(styles.label)}>Icon</span>
+      <span className={sx(styles.label)}>{i18n.t("panes:workspacePaneHost.icon")}</span>
       <AdsButton layout="host"
         type="button"
         xstyle={[styles.reset, transition.colors]}
-        aria-label="Use default tab icon"
-        title="Default"
+        aria-label={i18n.t("panes:workspacePaneHost.useDefaultTabIcon")}
+        title={i18n.t("panes:workspacePaneHost.default")}
         onClick={() => setIcon(undefined)}
       >
         ×
@@ -123,7 +125,7 @@ function PaneIconPicker(props: IContextMenuItemComponentProps) {
             key={option.id}
             type="button"
             xstyle={[styles.choice, selected && styles.selected, transition.colors]}
-            aria-label={`Use ${option.label} tab icon`}
+            aria-label={i18n.t("panes:workspacePaneHost.useTabIcon", { value1: option.label })}
             title={option.label}
             onClick={() => setIcon(option.id)}
           >
@@ -445,23 +447,23 @@ function buildTabContextMenuItems(
         kind: "all",
         tabIds: targetTabs.map((tab) => tab.id),
         dirtyTabIds,
-        title: "Close Editor Tabs",
+        title: i18n.t("panes:workspacePaneHost.closeEditorTabs"),
         description:
           dirtyTabIds.length > 0
-            ? `Close the selected tabs? ${dirtyTabIds.length} unsaved tab(s) will also be closed.`
-            : "Close the selected editor tabs?",
+            ? i18n.t("panes:workspacePaneHost.closeTheSelectedTabsUnsavedTabSWill", { value1: dirtyTabIds.length })
+            : i18n.t("panes:workspacePaneHost.closeTheSelectedEditorTabs"),
       });
     }
   };
 
   const items: (BuiltInContextMenuItem | ReactContextMenuItemConfig)[] = [
     {
-      label: surface.kind === "task" ? "Rename task" : "Rename",
+      label: surface.kind === "task" ? i18n.t("panes:workspacePaneHost.renameTask") : i18n.t("panes:workspacePaneHost.rename"),
       disabled: isManagedTask,
       action: () => dispatchPaneRenameRequest({ panelId }),
     },
     {
-      label: pinned ? "Unpin" : "Pin",
+      label: pinned ? i18n.t("panes:workspacePaneHost.unpin") : i18n.t("panes:workspacePaneHost.pin"),
       action: () =>
         useAppStore.getState().setPaneTabMeta({
           panelId,
@@ -481,11 +483,11 @@ function buildTabContextMenuItems(
     },
     "separator",
     {
-      label: "Split Right",
+      label: i18n.t("panes:workspacePaneHost.splitRight"),
       action: () => splitPanelInDirection(params.api, params.panel, "right"),
     },
     {
-      label: "Split Down",
+      label: i18n.t("panes:workspacePaneHost.splitDown"),
       action: () => splitPanelInDirection(params.api, params.panel, "below"),
     },
   ];
@@ -493,20 +495,20 @@ function buildTabContextMenuItems(
   if (surface.kind === "task") {
     items.push("separator");
     items.push({
-      label: "View results",
+      label: i18n.t("panes:workspacePaneHost.viewResults"),
       action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "results"),
     });
     if (!isManagedTask) {
       items.push({
-        label: "View progress",
+        label: i18n.t("panes:workspacePaneHost.viewProgress"),
         action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "progress"),
       });
       items.push({
-        label: "View subagents",
+        label: i18n.t("panes:workspacePaneHost.viewSubagents"),
         action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "team"),
       });
       items.push({
-        label: "Check back…",
+        label: i18n.t("panes:workspacePaneHost.checkBack"),
         disabled: task?.provider !== "claude-code" && task?.provider !== "codex",
         action: () => {
           useScheduleRequestStore
@@ -518,7 +520,7 @@ function buildTabContextMenuItems(
     }
     if (isManagedTask) {
       items.push({
-        label: "Take Over",
+        label: i18n.t("panes:workspacePaneHost.takeOver"),
         disabled: !canTakeOverTask({
           task,
         }),
@@ -529,17 +531,17 @@ function buildTabContextMenuItems(
     }
     items.push(
       {
-        label: "Session IDs",
+        label: i18n.t("panes:workspacePaneHost.sessionIDs"),
         action: () => dispatchOpenTaskSessionIds({ taskId: surface.taskId }),
       },
       {
-        label: "Archive",
+        label: i18n.t("panes:workspacePaneHost.archive"),
         disabled: isManagedTask,
         action: () =>
           useAppStore.getState().archiveTask({ taskId: surface.taskId }),
       },
       {
-        label: "Export",
+        label: i18n.t("panes:workspacePaneHost.export"),
         action: () =>
           void useAppStore.getState().exportTask({ taskId: surface.taskId }),
       },
@@ -580,7 +582,7 @@ function buildTabContextMenuItems(
       items.push(
         "separator",
         {
-          label: "Copy Path",
+          label: i18n.t("panes:workspacePaneHost.copyPath"),
           action: () =>
             void copyEditorTabPath({
               filePath: editorTab.filePath,
@@ -588,12 +590,12 @@ function buildTabContextMenuItems(
             }),
         },
         {
-          label: "Copy Relative Path",
+          label: i18n.t("panes:workspacePaneHost.copyRelativePath"),
           action: () =>
             void copyEditorTabRelativePath({ filePath: editorTab.filePath }),
         },
         {
-          label: "Copy Breadcrumbs",
+          label: i18n.t("panes:workspacePaneHost.copyBreadcrumbs"),
           action: () =>
             void copyEditorTabBreadcrumbsPath({
               filePath: editorTab.filePath,
@@ -604,20 +606,20 @@ function buildTabContextMenuItems(
     items.push(
       "separator",
       {
-        label: "Close",
+        label: i18n.t("panes:workspacePaneHost.close"),
         disabled: pinned,
         action: () => closePaneSurface(surface),
       },
       {
-        label: "Close Others",
+        label: i18n.t("panes:workspacePaneHost.closeOthers"),
         action: () => runBulkClose("others"),
       },
       {
-        label: "Close to the Right",
+        label: i18n.t("panes:workspacePaneHost.closeToTheRight"),
         action: () => runBulkClose("right"),
       },
       {
-        label: "Close Saved",
+        label: i18n.t("panes:workspacePaneHost.closeSaved"),
         action: () => runBulkClose("saved"),
       },
     );
@@ -627,17 +629,17 @@ function buildTabContextMenuItems(
   items.push(
     "separator",
     {
-      label: "Close",
+      label: i18n.t("panes:workspacePaneHost.close"),
       disabled: pinned,
       action: () => closePaneSurface(surface),
     },
     {
-      label: "Close Others",
+      label: i18n.t("panes:workspacePaneHost.closeOthers"),
       action: () =>
         closeSurfaces(groupPanels.filter((panel) => panel.id !== panelId)),
     },
     {
-      label: "Close to the Right",
+      label: i18n.t("panes:workspacePaneHost.closeToTheRight"),
       disabled: panelIndex < 0 || panelIndex >= groupPanels.length - 1,
       action: () => closeSurfaces(groupPanels.slice(panelIndex + 1)),
     },
@@ -647,6 +649,7 @@ function buildTabContextMenuItems(
 }
 
 export function WorkspacePaneHost() {
+  useTranslation();
   const apiRef = useRef<DockviewApi | null>(null);
   /** True while this host mutates panels itself (reconcile / restore). */
   const reconcilingRef = useRef(false);
@@ -714,15 +717,7 @@ export function WorkspacePaneHost() {
       ),
     // Collections are the actual inputs of buildDesiredSurfaces.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      openTaskTabIds,
-      tasks,
-      cliSessionTabs,
-      terminalTabs,
-      lensTabs,
-      editorTabs,
-      activeCompareRunId,
-    ],
+    [openTaskTabIds, tasks, cliSessionTabs, terminalTabs, lensTabs, editorTabs, activeCompareRunId],
   );
 
   const focusActiveSurface = useCallback((api: DockviewApi) => {
@@ -1159,13 +1154,13 @@ export function WorkspacePaneHost() {
       />
       <ConfirmDialog
         open={Boolean(cliSessionToClose)}
-        title="Close CLI Session"
+        title={i18n.t("panes:workspacePaneHost.closeCLISession")}
         description={
           cliSessionToClose
-            ? `Close CLI session "${cliSessionToClose.title}"? The underlying process will be terminated.`
+            ? i18n.t("panes:workspacePaneHost.closeCLISessionTheUnderlyingProcess", { value1: cliSessionToClose.title })
             : ""
         }
-        confirmLabel="Close"
+        confirmLabel={i18n.t("panes:workspacePaneHost.close")}
         onCancel={() => setCliSessionToClose(null)}
         onConfirm={() => {
           if (!cliSessionToClose) {
@@ -1179,9 +1174,9 @@ export function WorkspacePaneHost() {
       />
       <ConfirmDialog
         open={Boolean(editorTabsToClose)}
-        title={editorTabsToClose?.title ?? "Close Editor Tabs"}
+        title={editorTabsToClose?.title ?? i18n.t("panes:workspacePaneHost.closeEditorTabs")}
         description={editorTabsToClose?.description ?? ""}
-        confirmLabel="Close"
+        confirmLabel={i18n.t("panes:workspacePaneHost.close")}
         onCancel={() => setEditorTabsToClose(null)}
         onConfirm={() => {
           if (!editorTabsToClose) {

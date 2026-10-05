@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
@@ -43,6 +44,7 @@ interface PrContextDialogProps {
 }
 
 export function PrContextDialog(props: PrContextDialogProps) {
+  useTranslation();
   const attachTaskSourceContext = useAppStore(
     (state) => state.attachTaskSourceContext,
   );
@@ -58,7 +60,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
 
   const loadIndex = useCallback(async () => {
     if (!prUrl) {
-      setError("This workspace has no pull request yet.");
+      setError(i18n.t("sourceControl:prContextDialog.thisWorkspaceHasNoPullRequestYet"));
       return;
     }
     setLoading(true);
@@ -70,7 +72,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
       });
       if (!result?.ok || !result.index) {
         setIndex(null);
-        setError(result?.stderr || "Could not read this pull request.");
+        setError(result?.stderr || i18n.t("sourceControl:prContextDialog.couldNotReadThisPullRequest"));
         return;
       }
       setIndex(result.index);
@@ -143,7 +145,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
           cwd: cwd || undefined,
         });
         if (!result?.ok) {
-          setError(result?.stderr || "Could not read the check logs.");
+          setError(result?.stderr || i18n.t("sourceControl:prContextDialog.couldNotReadTheCheckLogs"));
           return;
         }
         excerpts = result.excerpts;
@@ -177,25 +179,23 @@ export function PrContextDialog(props: PrContextDialogProps) {
     if (!index) {
       return "";
     }
-    return `${index.threads.length} review thread(s) · ${index.failedChecks.length} failed check(s)`;
-  }, [index]);
+    return i18n.t("sourceControl:prContextDialog.reviewThreadSFailedCheckS", { value1: index.threads.length, value2: index.failedChecks.length });
+  }, [index, i18n.language]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent xstyle={prContextStyles.content}>
         <DialogHeader>
-          <DialogTitle>Attach PR context</DialogTitle>
+          <DialogTitle>{i18n.t("sourceControl:prContextDialog.attachPRContext")}</DialogTitle>
           <DialogDescription>
-            Review threads and failed-check evidence are attached to this task
-            as untrusted context and re-sent with every turn until you remove
-            them.
+            {i18n.t("sourceControl:prContextDialog.reviewThreadsAndFailedCheckEvidenceAreAttached")}
           </DialogDescription>
         </DialogHeader>
 
         {loading ? (
           <div className={sx(prContextStyles.loading)}>
             <Loader aria-hidden="true" size="xs" variant="scan" />
-            Reading the pull request…
+            {i18n.t("sourceControl:prContextDialog.readingThePullRequest")}
           </div>
         ) : null}
 
@@ -216,7 +216,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
           <div className={sx(prContextStyles.body)}>
             <p className={sx(prContextStyles.meta)}>
               {index.ref.owner}/{index.ref.repo}#{index.ref.number} · {summary}{" "}
-              · head {index.headSha.slice(0, 7) || "unknown"}
+              {i18n.t("sourceControl:prContextDialog.head")} {index.headSha.slice(0, 7) || i18n.t("sourceControl:prContextDialog.unknown")}
             </p>
 
             <section aria-labelledby="pr-context-threads">
@@ -228,11 +228,11 @@ export function PrContextDialog(props: PrContextDialogProps) {
                   className={sx(prContextStyles.sectionHeadingIcon)}
                   aria-hidden="true"
                 />
-                Review threads
+                {i18n.t("sourceControl:prContextDialog.reviewThreads")}
               </h3>
               {index.threads.length === 0 ? (
                 <p className={sx(prContextStyles.emptyNote)}>
-                  No review threads on this pull request.
+                  {i18n.t("sourceControl:prContextDialog.noReviewThreadsOnThisPullRequest")}
                 </p>
               ) : (
                 <ul className={sx(prContextStyles.list)}>
@@ -253,19 +253,19 @@ export function PrContextDialog(props: PrContextDialogProps) {
                         <span className={sx(prContextStyles.rowText)}>
                           <span className={sx(prContextStyles.rowTitleLine)}>
                             <span className={sx(prContextStyles.rowTitle)}>
-                              {thread.path || "(no file)"}
+                              {thread.path || i18n.t("sourceControl:prContextDialog.noFile")}
                               {thread.line === null ? "" : `:${thread.line}`}
                             </span>
                             <span className={sx(prContextStyles.rowStatus)}>
-                              {thread.isResolved ? "resolved" : "unresolved"}
-                              {thread.isOutdated ? " · outdated" : ""}
+                              {thread.isResolved ? i18n.t("sourceControl:prContextDialog.resolved") : i18n.t("sourceControl:prContextDialog.unresolved")}
+                              {thread.isOutdated ? i18n.t("sourceControl:prContextDialog.outdated") : ""}
                             </span>
                           </span>
                           <span className={sx(prContextStyles.rowExcerpt)}>
                             {thread.comments.at(-1)?.author
                               ? `${thread.comments.at(-1)?.author}: `
                               : ""}
-                            {thread.comments.at(-1)?.body ?? "(no comment)"}
+                            {thread.comments.at(-1)?.body ?? i18n.t("sourceControl:prContextDialog.noComment")}
                           </span>
                         </span>
                       </label>
@@ -274,9 +274,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
                 </ul>
               )}
               {index.truncatedThreads > 0 ? (
-                <p className={sx(prContextStyles.footnote)}>
-                  {index.truncatedThreads} further thread(s) not listed.
-                </p>
+                <p className={sx(prContextStyles.footnote)}>{i18n.t("sourceControl:prContextDialog.omittedThreads", { count: index.truncatedThreads })}</p>
               ) : null}
             </section>
 
@@ -289,11 +287,11 @@ export function PrContextDialog(props: PrContextDialogProps) {
                   className={sx(prContextStyles.sectionHeadingIcon)}
                   aria-hidden="true"
                 />
-                Failed checks
+                {i18n.t("sourceControl:prContextDialog.failedChecks")}
               </h3>
               {index.failedChecks.length === 0 ? (
                 <p className={sx(prContextStyles.emptyNote)}>
-                  No failed checks on this commit.
+                  {i18n.t("sourceControl:prContextDialog.noFailedChecksOnThisCommit")}
                 </p>
               ) : (
                 <ul className={sx(prContextStyles.list)}>
@@ -318,7 +316,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
                           />
                           <span className={sx(prContextStyles.rowText)}>
                             <span className={sx(prContextStyles.rowTitle)}>
-                              {check.name || `Check ${check.id}`}
+                              {check.name || i18n.t("sourceControl:prContextDialog.check", { value1: check.id })}
                             </span>
                             <span className={sx(prContextStyles.rowSubtitle)}>
                               {check.workflowName
@@ -326,8 +324,8 @@ export function PrContextDialog(props: PrContextDialogProps) {
                                 : ""}
                               {check.conclusion}
                               {check.annotationCount > 0
-                                ? ` · ${check.annotationCount} annotation(s)`
-                                : " · log excerpt"}
+                                ? i18n.t("sourceControl:prContextDialog.annotationS", { value1: check.annotationCount })
+                                : i18n.t("sourceControl:prContextDialog.logExcerpt")}
                             </span>
                           </span>
                         </label>
@@ -336,13 +334,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
                   })}
                 </ul>
               )}
-              <p className={sx(prContextStyles.footnote)}>
-                Log evidence is fetched only for the checks you tick, at most{" "}
-                {PR_CONTEXT_LIMITS.maxSelectedChecks} at a time.
-                {index.truncatedFailedChecks > 0
-                  ? ` ${index.truncatedFailedChecks} further failed check(s) not listed.`
-                  : ""}
-              </p>
+              <p className={sx(prContextStyles.footnote)}>{i18n.t("sourceControl:prContextDialog.logLimit", { limit: PR_CONTEXT_LIMITS.maxSelectedChecks, omitted: index.truncatedFailedChecks > 0 ? i18n.t("sourceControl:prContextDialog.furtherFailedCheckSNotListed", { value1: index.truncatedFailedChecks }) : "" })}</p>
             </section>
           </div>
         ) : null}
@@ -353,14 +345,14 @@ export function PrContextDialog(props: PrContextDialogProps) {
             onClick={() => onOpenChange(false)}
             disabled={attaching}
           >
-            Cancel
+            {i18n.t("sourceControl:prContextDialog.cancel")}
           </Button>
           <Button
             onClick={() => void handleAttach()}
             disabled={!index || selectionEmpty || !taskId || attaching}
           >
             {attaching ? <Loader aria-hidden size="xs" variant="scan" /> : null}
-            Attach to task
+            {i18n.t("sourceControl:prContextDialog.attachToTask")}
           </Button>
         </DialogFooter>
       </DialogContent>

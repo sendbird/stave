@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { type LucideIcon } from "lucide-react";
 import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
 import { sx, type XstyleProp } from "@/components/ads/utils/stylex";
@@ -36,6 +37,7 @@ export function StageStatusIcon({
   /** The work state whose glyph to draw, when the tone alone is not specific enough (stopped). */
   state?: WorkState;
 } & XstyleProp) {
+  useTranslation();
   const Icon = icon ?? WORK_STATE[state ?? STAGE_TONE_WORK_STATE[tone]].icon;
   return <Icon aria-hidden className={sx(styles.icon, STAGE_TONE_STYLES[tone], xstyle)} />;
 }

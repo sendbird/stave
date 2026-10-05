@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useAgentAssignmentsSync } from "@/store/agent-assignments-store";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
@@ -146,8 +147,7 @@ function useFleetRepositories() {
     recentRepositories,
     workspaceBranchById,
     workspaceDefaultById,
-    workspaces,
-  ]);
+    workspaces, i18n.resolvedLanguage]);
 }
 
 /**
@@ -192,6 +192,7 @@ function useCoarseClock() {
 }
 
 export function FleetView() {
+  const { t: tI18n } = useTranslation(["fleet"]);
   useAgentAssignmentsSync();
   const repositories = useFleetRepositories();
   const [
@@ -250,9 +251,9 @@ export function FleetView() {
           getFleetWorkspaceKey(repository.repositoryPath, workspace.id),
         ),
       ),
-    [repositories],
+    [repositories, i18n.resolvedLanguage],
   );
-  const allCardKeySet = useMemo(() => new Set(allCardKeys), [allCardKeys]);
+  const allCardKeySet = useMemo(() => new Set(allCardKeys), [allCardKeys, i18n.resolvedLanguage]);
 
   useEffect(() => {
     setVisibilityByCardKey((current) => {
@@ -392,7 +393,7 @@ export function FleetView() {
           toast.error(
             error instanceof Error
               ? error.message
-              : "Review was not saved. Retry.",
+              : tI18n("fleet:fleetView.reviewWasNotSavedRetry"),
           );
         })
         .finally(() => {
@@ -436,7 +437,7 @@ export function FleetView() {
           toast.error(
             error instanceof Error
               ? error.message
-              : "Snooze was not saved. Retry.",
+              : tI18n("fleet:fleetView.snoozeWasNotSavedRetry"),
           );
         })
         .finally(() => {
@@ -458,7 +459,7 @@ export function FleetView() {
         toast.error(
           error instanceof Error
             ? error.message
-            : "Snoozed items were not restored. Retry.",
+            : tI18n("fleet:fleetView.snoozedItemsWereNotRestoredRetry"),
         );
       },
     );
@@ -528,14 +529,14 @@ export function FleetView() {
         cleared += 1;
       }
       toast.success(
-        cleared === 1 ? "Cleared 1 item." : `Cleared ${cleared} items.`,
+        cleared === 1 ? tI18n("fleet:fleetView.cleared1Item") : tI18n("fleet:fleetView.clearedValueItems", { cleared: cleared }),
       );
     })()
       .catch((error: unknown) => {
         toast.error(
           error instanceof Error
             ? error.message
-            : "Some items were not cleared. Retry.",
+            : tI18n("fleet:fleetView.someItemsWereNotClearedRetry"),
         );
       })
       .finally(() => setClearingReview(false));
@@ -645,12 +646,12 @@ export function FleetView() {
       <header className={sx(styles.header)}>
         <div className={sx(styles.headerIdentity)}>
           <Radar className={sx(styles.headerIcon)} aria-hidden="true" />
-          <h1 className={sx(styles.headerTitle)}>Fleet View</h1>
+          <h1 className={sx(styles.headerTitle)}>{tI18n("fleet:fleetView.fleetView")}</h1>
           <span className={sx(styles.headerSummary)}>
             {liveCount > 0
-              ? `${liveCount} workspace${liveCount === 1 ? "" : "s"} in flight`
-              : "No agent turns in flight"}
-            {visibleCount > 0 ? ` · ${visibleCount} shown` : ""}
+              ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: liveCount })
+              : tI18n("fleet:fleetView.noAgentTurnsInFlight")}
+            {visibleCount > 0 ? tI18n("fleet:fleetView.valueShown", { visibleCount: visibleCount }) : ""}
           </span>
         </div>
         <div className={sx(styles.headerActions)}>
@@ -671,10 +672,10 @@ export function FleetView() {
               />
             )}
             {blockingItems.length > 0
-              ? "Open next item"
+              ? tI18n("fleet:fleetView.openNextItem")
               : attentionTargets.length > 0
-                ? "Review queue"
-                : "All clear"}
+                ? tI18n("fleet:fleetView.reviewQueue")
+                : tI18n("fleet:fleetView.allClear")}
             {blockingItems.length > 0 ? (
               <Kbd>N</Kbd>
             ) : null}
@@ -687,15 +688,15 @@ export function FleetView() {
             onClick={openResults}
           >
             <ChartNoAxesColumn className={sx(styles.actionIcon)} aria-hidden="true" />
-            Results
-          </Button>
+            {tI18n("fleet:fleetView.results")}</Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             xstyle={styles.headerIconAction}
-            aria-label="close-fleet-view"
-            title="Close Fleet View"
+            data-testid="close-fleet-view"
+            aria-label={i18n.t("fleet:fleetView.accessibility.closeFleetView")}
+            title={tI18n("fleet:fleetView.closeFleetView")}
             onClick={closeFleetView}
           >
             <X className={sx(styles.closeIcon)} />
@@ -710,16 +711,14 @@ export function FleetView() {
         >
           <span>{resultReviewError}</span>
           <Button size="sm" variant="outline" onClick={refreshResultReviews}>
-            Retry result reviews
-          </Button>
+            {tI18n("fleet:fleetView.retryResultReviews")}</Button>
         </div>
       ) : resultReviewHasMore ? (
         <p
           role="status"
           className={sx(styles.noticeMuted)}
         >
-          Showing the latest 200 of {resultReviewTotal} pending results. Open a
-          task to review its full result history.
+          {tI18n("fleet:fleetView.pendingResultsLimit", { count: resultReviewTotal })}
         </p>
       ) : null}
       <div
@@ -781,8 +780,8 @@ export function FleetView() {
                 data-fleet-filter-input="true"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Find workspace, branch, or task…"
-                aria-label="Search workspaces, branches, or tasks"
+                placeholder={tI18n("fleet:fleetView.findWorkspaceBranchOrTask")}
+                aria-label={tI18n("fleet:fleetView.searchWorkspacesBranchesOrTasks")}
                 xstyle={styles.searchInput}
               />
               {searchQuery ? (
@@ -791,8 +790,8 @@ export function FleetView() {
                   variant="ghost"
                   size="icon-xs"
                   xstyle={styles.searchClear}
-                  aria-label="Clear search"
-                  title="Clear search"
+                  aria-label={tI18n("fleet:fleetView.clearSearch")}
+                  title={tI18n("fleet:fleetView.clearSearch")}
                   onClick={() => setSearchQuery("")}
                 >
                   <X className={sx(styles.actionIcon)} />
@@ -807,8 +806,7 @@ export function FleetView() {
                 xstyle={styles.filterChip}
                 onClick={clearFilters}
               >
-                Reset
-              </Button>
+                {tI18n("fleet:fleetView.reset")}</Button>
             ) : null}
           </div>
 
@@ -822,21 +820,20 @@ export function FleetView() {
                   <EmptyMedia variant="icon">
                     <FolderTree />
                   </EmptyMedia>
-                  <EmptyTitle>No Workspaces</EmptyTitle>
+                  <EmptyTitle>{tI18n("fleet:fleetView.noWorkspaces")}</EmptyTitle>
                   <EmptyDescription>
-                    Open a repository or workspace to see agent activity here.
-                  </EmptyDescription>
+                    {tI18n("fleet:fleetView.openARepositoryOrWorkspaceToSee")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : (
               <>
                 {isBoardEmpty ? (
                   <div className={sx(styles.boardEmpty)}>
-                    <p className={sx(styles.boardEmptyTitle)}>Nothing active</p>
+                    <p className={sx(styles.boardEmptyTitle)}>{tI18n("fleet:fleetView.nothingActive")}</p>
                     <p className={sx(styles.boardEmptyHint)}>
                       {hiddenDormantCount > 0
-                        ? `${hiddenDormantCount} dormant workspace${hiddenDormantCount === 1 ? "" : "s"} hidden.`
-                        : "No workspaces match the current filter."}
+                        ? tI18n("fleet:fleetView.valueDormantWorkspacevalueHidden", { count: hiddenDormantCount })
+                        : tI18n("fleet:fleetView.noWorkspacesMatchTheCurrentFilter")}
                     </p>
                     <Button
                       type="button"
@@ -850,8 +847,8 @@ export function FleetView() {
                       }
                     >
                       {hiddenDormantCount > 0
-                        ? "Show dormant"
-                        : "Reset filters"}
+                        ? tI18n("fleet:fleetView.showDormant")
+                        : tI18n("fleet:fleetView.resetFilters")}
                     </Button>
                   </div>
                 ) : null}
@@ -879,7 +876,7 @@ export function FleetView() {
                         type="button"
                         xstyle={[styles.repositoryHeader, focusRing.ringInset]}
                         aria-expanded={!isCollapsed}
-                        aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${repository.repositoryName} project`}
+                        aria-label={tI18n("fleet:fleetView.valueValueProject", { value1: isCollapsed ? "Expand" : "Collapse", value2: repository.repositoryName })}
                         onClick={() => toggleRepository(repository.repositoryPath)}
                       >
                         {isCollapsed ? (
@@ -907,8 +904,7 @@ export function FleetView() {
                             className={sx(styles.repositoryCurrent)}
                             variant="outline"
                           >
-                            Current
-                          </Badge>
+                            {tI18n("fleet:fleetView.current")}</Badge>
                         ) : null}
                       </AdsButton>
                       <div
@@ -970,16 +966,12 @@ export function FleetView() {
                     />
                     {hiddenDormantCount > 0 ? (
                       <span>
-                        {hiddenDormantCount} dormant workspace
-                        {hiddenDormantCount === 1 ? "" : "s"} hidden
-                      </span>
+                        {tI18n("fleet:fleetView.valueDormantWorkspacevalueHidden", { count: hiddenDormantCount })}</span>
                     ) : null}
                     {suppressedDefaultCount > 0 ? (
-                      <span title="Remembered repositories always carry a default workspace row. These have no tasks, no messages, and no recorded activity.">
+                      <span title={tI18n("fleet:fleetView.rememberedRepositoriesAlwaysCarryADefaultWorkspace")}>
                         {hiddenDormantCount > 0 ? "· " : ""}
-                        {suppressedDefaultCount} unused default
-                        {suppressedDefaultCount === 1 ? "" : "s"} suppressed
-                      </span>
+                        {tI18n("fleet:fleetView.unusedDefaultsHidden", { count: suppressedDefaultCount })}</span>
                     ) : null}
                     {hiddenDormantCount > 0 && boardFilter !== "all" ? (
                       <Button
@@ -989,8 +981,7 @@ export function FleetView() {
                         xstyle={styles.footnoteAction}
                         onClick={() => setBoardFilter("all")}
                       >
-                        Show dormant
-                      </Button>
+                        {tI18n("fleet:fleetView.showDormant")}</Button>
                     ) : null}
                   </div>
                 ) : null}

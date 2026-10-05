@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { i18n } from "@/i18n/runtime";
 import type {
   ProviderId,
   RateLimitsSnapshotResponse,
@@ -187,7 +189,7 @@ function buildElapsedMetric(args: {
         running: completedAt == null,
       },
       provenance: "derived",
-      detail: "Derived from persisted assistant message timestamps.",
+      detail: i18n.t("fleet:taskExecutionSummary.derivedFromPersistedAssistantMessageTimestamps"),
       sourceRefs: [`message:${message.id}`],
     };
   }
@@ -209,12 +211,12 @@ function summarizeMessageActivity(message: ChatMessage) {
     if (part?.type === "approval") {
       const label =
         part.state === "approval-requested"
-          ? "Waiting for approval"
+          ? i18n.t("fleet:taskExecutionSummary.waitingForApproval")
           : part.state === "approval-responded"
-            ? "Approval answered"
+            ? i18n.t("fleet:taskExecutionSummary.approvalAnswered")
             : part.state === "output-denied"
-              ? "Approval denied"
-              : "Approval interrupted";
+              ? i18n.t("fleet:taskExecutionSummary.approvalDenied")
+              : i18n.t("fleet:taskExecutionSummary.approvalInterrupted");
       return boundActivityText(
         `${label} · ${part.toolName}: ${part.description}`,
       );
@@ -222,12 +224,12 @@ function summarizeMessageActivity(message: ChatMessage) {
     if (part?.type === "user_input") {
       const label =
         part.state === "input-requested"
-          ? "Waiting for your answer"
+          ? i18n.t("fleet:taskExecutionSummary.waitingForYourAnswer")
           : part.state === "input-responded"
-            ? "Question answered"
+            ? i18n.t("fleet:taskExecutionSummary.questionAnswered")
             : part.state === "input-denied"
-              ? "Question declined"
-              : "Question interrupted";
+              ? i18n.t("fleet:taskExecutionSummary.questionDeclined")
+              : i18n.t("fleet:taskExecutionSummary.questionInterrupted");
       const question = part.questions[0]?.question.trim();
       return boundActivityText(`${label} · ${question || part.toolName}`);
     }
@@ -248,8 +250,8 @@ function buildLatestActivityMetric(args: {
       value: {
         label:
           activity.pendingInteraction === "approval"
-            ? "Waiting for approval"
-            : "Waiting for your answer",
+            ? i18n.t("fleet:taskExecutionSummary.waitingForApproval")
+            : i18n.t("fleet:taskExecutionSummary.waitingForYourAnswer"),
         occurredAt: activity.lastEventAt,
       },
       provenance: "reported",
@@ -259,7 +261,7 @@ function buildLatestActivityMetric(args: {
   if (activity?.turnError) {
     return {
       value: {
-        label: "Run failed",
+        label: i18n.t("fleet:taskExecutionSummary.runFailed"),
         detail: boundActivityText(activity.turnError),
         occurredAt: activity.completedAt ?? activity.lastEventAt,
       },
@@ -304,7 +306,7 @@ function buildLatestActivityMetric(args: {
           undefined,
       },
       provenance: "derived",
-      detail: "Derived from the latest persisted assistant message.",
+      detail: i18n.t("fleet:taskExecutionSummary.derivedFromTheLatestPersistedAssistantMessage"),
       sourceRefs: [`message:${message.id}`],
     };
   }
@@ -445,8 +447,8 @@ function buildChangesMetric(
     },
     provenance: "derived",
     detail: partial
-      ? "File paths are complete; line totals are unavailable for oversized diffs."
-      : "Line totals are derived from the first and latest reported diff per file.",
+      ? i18n.t("fleet:taskExecutionSummary.filePathsAreCompleteLineTotalsAre")
+      : i18n.t("fleet:taskExecutionSummary.lineTotalsAreDerivedFromTheFirst"),
     sourceRefs: [...sourceRefs],
   };
 }
@@ -527,7 +529,7 @@ function buildUsageMetric(
   return {
     value,
     provenance: "reported",
-    detail: `Cumulative usage from ${withUsage.length} persisted message${withUsage.length === 1 ? "" : "s"}.`,
+    detail: i18n.t("fleet:taskExecutionSummary.cumulativeUsageFromValuePersistedMessagevalue", { count: withUsage.length }),
     sourceRefs: withUsage.map((message) => `message:${message.id}`),
   };
 }
@@ -687,10 +689,10 @@ function buildAgentsMetric(
 }
 
 function formatCount(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return formatNumber(value, {
     notation: value >= 10_000 ? "compact" : "standard",
     maximumFractionDigits: 1,
-  }).format(value);
+  });
 }
 
 export function buildTaskReviewArtifact(
@@ -747,9 +749,9 @@ export function buildTaskReviewArtifact(
       : null;
     const costLabel =
       usage.totalCostUsd != null
-        ? `$${usage.totalCostUsd.toFixed(4)}`
+        ? formatNumber(usage.totalCostUsd, { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4 })
         : usage.costAmount !== undefined && usage.costCurrency
-          ? `${usage.costAmount.toFixed(usage.costAmount >= 1 ? 2 : 4)} ${usage.costCurrency}`
+          ? `${formatNumber(usage.costAmount, { minimumFractionDigits: usage.costAmount >= 1 ? 2 : 4, maximumFractionDigits: usage.costAmount >= 1 ? 2 : 4 })} ${usage.costCurrency}`
           : null;
     const usageLabel = [tokenLabel, costLabel].filter(Boolean).join(" · ");
     if (usageLabel) {

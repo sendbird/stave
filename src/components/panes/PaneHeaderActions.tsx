@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -22,8 +23,8 @@ import { openPaneTabInGroup } from "@/components/panes/pane-host-controller";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import type { PaneSurfaceDescriptor } from "@/lib/panes/types";
 import { isTaskArchived } from "@/lib/tasks";
+import { getCliSessionContextLabel } from "@/lib/terminal/terminal-tab-labels";
 import {
-  getCliSessionContextLabel,
   getCliSessionProviderLabel,
   type CliSessionContextMode,
 } from "@/lib/terminal/types";
@@ -41,6 +42,7 @@ const CLI_SESSION_CHOICES = [
 
 /** Group header "+" menu: create any surface kind as a new pane tab. */
 export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
+  useTranslation();
   const [
     providerAvailability,
     hasActiveTask,
@@ -100,7 +102,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
               variant="ghost"
               size="icon"
               className={sx(styles.trigger)}
-              aria-label="Create new pane tab"
+              aria-label={i18n.t("panes:paneHeaderActions.createNewPaneTab")}
             />
           }
         >
@@ -109,15 +111,15 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
         <DropdownMenuContent align="end" xstyle={styles.menu}>
           <DropdownMenuItem onSelect={createTaskInGroup}>
             <Plus className={sx(styles.icon)} />
-            New Task
+            {i18n.t("panes:paneHeaderActions.newTask")}
           </DropdownMenuItem>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <SquareTerminal className={sx(styles.icon)} />
-              New CLI Session
+              {i18n.t("panes:paneHeaderActions.newCLISession")}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className={sx(styles.submenu)}>
-              <DropdownMenuLabel>Start Here</DropdownMenuLabel>
+              <DropdownMenuLabel>{i18n.t("panes:paneHeaderActions.startHere")}</DropdownMenuLabel>
               {CLI_SESSION_CHOICES.map((choice) => {
                 const providerAvailable = providerAvailability[choice.provider];
                 const requiresTask = choice.contextMode === "active-task";
@@ -130,12 +132,12 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
                   choice.contextMode,
                 );
                 const secondaryLabel = !providerAvailable
-                  ? `${providerLabel} is unavailable in this environment`
+                  ? i18n.t("panes:paneHeaderActions.isUnavailableInThisEnvironment", { value1: providerLabel })
                   : requiresTask
                     ? hasActiveTask
-                      ? "Continue from the active task context"
-                      : "Select an active task first"
-                    : "Use the current workspace context";
+                      ? i18n.t("panes:paneHeaderActions.continueFromTheActiveTaskContext")
+                      : i18n.t("panes:paneHeaderActions.selectAnActiveTaskFirst")
+                    : i18n.t("panes:paneHeaderActions.useTheCurrentWorkspaceContext");
                 const taskHint =
                   requiresTask && hasActiveTask ? activeTaskTitle : null;
 
@@ -183,11 +185,11 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
           </DropdownMenuSub>
           <DropdownMenuItem onSelect={() => createTerminalTab()}>
             <SquareTerminal className={sx(styles.icon)} />
-            New Terminal
+            {i18n.t("panes:paneHeaderActions.newTerminal")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={createLensInGroup}>
             <Globe className={sx(styles.icon)} />
-            New Lens
+            {i18n.t("panes:paneHeaderActions.newLens")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -199,7 +201,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
               variant="ghost"
               size="icon"
               className={sx(styles.trigger)}
-              aria-label="Pane options"
+              aria-label={i18n.t("panes:paneHeaderActions.paneOptions")}
             />
           }
         >
@@ -207,7 +209,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" xstyle={styles.options}>
           <DropdownMenuItem onSelect={() => dispatchOpenTaskHistory()}>
-            Task History
+            {i18n.t("panes:paneHeaderActions.taskHistory")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuCheckboxItem
@@ -216,7 +218,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
               updateSettings({ patch: { showPresetBar: checked } })
             }
           >
-            Show preset bar
+            {i18n.t("panes:paneHeaderActions.showPresetBar")}
           </DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>

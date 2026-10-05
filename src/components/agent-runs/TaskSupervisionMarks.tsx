@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import { AlarmClock, AlarmClockOff, Hand, Target } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -14,6 +15,7 @@ import { agentRunStyles as styles } from "./agent-runs.styles";
  * the user) and the task's wake-up. Each carries its meaning as a label.
  */
 export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { taskId: string }) {
+  useTranslation();
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const agentRun = useTaskAgentRun(workspaceId, props.taskId);
   const wakeUp = useTaskWakeUp(workspaceId, props.taskId);
@@ -29,10 +31,10 @@ export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { 
   const agentRunLabel = agentStatus
     ? `${agentStatus.agentName}: ${agentStatus.label}`
     : waitingOnUser
-      ? "Run waits for your sign-off"
+      ? i18n.t("agentRuns:taskSupervisionMarks.agentRunLabel")
       : agentRun?.agentRun.state === "paused"
-        ? "Run paused"
-        : "Running";
+        ? i18n.t("agentRuns:taskSupervisionMarks.agentRunLabel2")
+        : i18n.t("agentRuns:taskSupervisionMarks.agentRunLabel3");
   return (
     <span className={sx(styles.inline)}>
       {agentRunActive ? (
@@ -52,12 +54,12 @@ export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { 
       ) : null}
       {wakeUpShown ? (
         wakeUp.summary.state === "scheduled" ? (
-          <AlarmClock role="img" aria-label="Schedule on" className={sx(styles.icon, styles.toneIdle)}>
-            <title>Schedule on</title>
+          <AlarmClock role="img" aria-label={i18n.t("agentRuns:taskSupervisionMarks.ariaLabel")} className={sx(styles.icon, styles.toneIdle)}>
+            <title>{i18n.t("agentRuns:taskSupervisionMarks.taskSupervisionMarks")}</title>
           </AlarmClock>
         ) : (
-          <AlarmClockOff role="img" aria-label="Schedule paused" className={sx(styles.icon, styles.toneIdle)}>
-            <title>Schedule paused</title>
+          <AlarmClockOff role="img" aria-label={i18n.t("agentRuns:taskSupervisionMarks.ariaLabel2")} className={sx(styles.icon, styles.toneIdle)}>
+            <title>{i18n.t("agentRuns:taskSupervisionMarks.taskSupervisionMarks2")}</title>
           </AlarmClockOff>
         )
       ) : null}

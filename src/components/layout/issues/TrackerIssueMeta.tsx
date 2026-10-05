@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   trackerVisualStyles,
   priorityToneStyles,
@@ -30,6 +31,7 @@ function MetaField(props: { label: string; children: React.ReactNode }) {
 
 /** The fixed facts about a ticket, in a two-column grid above the description. */
 export function TrackerIssueMeta(props: { task: TrackerIssue; now: Date }) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const { task } = props;
   const status = TRACKER_STATUS_PRESENTATION[task.status.category];
   const priority = TRACKER_PRIORITY_PRESENTATION[task.priority.level];
@@ -38,14 +40,14 @@ export function TrackerIssueMeta(props: { task: TrackerIssue; now: Date }) {
   return (
     <div className={sx(taskLayoutStyles.meta)}>
       <dl className={sx(taskLayoutStyles.metaGrid)}>
-        <MetaField label="Status">
+        <MetaField label={tI18n("issues:trackerIssueMeta.status")}>
           <Badge variant="outline" tone={status.tone}>
             {/* The raw status is what the tracker actually shows, so it wins
                 over the normalized label the list groups by. */}
             {task.status.raw || status.label}
           </Badge>
         </MetaField>
-        <MetaField label="Priority">
+        <MetaField label={tI18n("issues:trackerIssueMeta.priority")}>
           <span
             className={sx(
               taskLayoutStyles.metaInline,
@@ -60,11 +62,11 @@ export function TrackerIssueMeta(props: { task: TrackerIssue; now: Date }) {
             {task.priority.raw ?? priority.label}
           </span>
         </MetaField>
-        <MetaField label="Assignee">
-          {task.assignee?.name ?? "Unassigned"}
+        <MetaField label={tI18n("issues:trackerIssueMeta.assignee")}>
+          {task.assignee?.name ?? tI18n("issues:trackerIssueMeta.unassigned")}
         </MetaField>
-        <MetaField label="Due">{due?.label ?? "No due date"}</MetaField>
-        <MetaField label="Source">
+        <MetaField label={tI18n("issues:trackerIssueMeta.due")}>{due?.label ?? tI18n("issues:trackerIssueMeta.noDueDate")}</MetaField>
+        <MetaField label={tI18n("issues:trackerIssueMeta.source")}>
           <span className={sx(taskLayoutStyles.metaInline)}>
             <ServiceLinkIcon
               kind={task.source === "crane" ? "crane" : "jira"}
@@ -73,22 +75,21 @@ export function TrackerIssueMeta(props: { task: TrackerIssue; now: Date }) {
             {TRACKER_SOURCE_LABELS[task.source]} {task.key}
           </span>
         </MetaField>
-        <MetaField label={task.project ? "Project" : "Team"}>
-          {task.project?.name ?? task.team?.name ?? "None"}
+        <MetaField label={task.project ? tI18n("issues:trackerIssueMeta.project") : tI18n("issues:trackerIssueMeta.team")}>
+          {task.project?.name ?? task.team?.name ?? tI18n("issues:trackerIssueMeta.none")}
         </MetaField>
         {task.issueType ? (
-          <MetaField label="Type">{task.issueType}</MetaField>
+          <MetaField label={tI18n("issues:trackerIssueMeta.type")}>{task.issueType}</MetaField>
         ) : null}
         {task.effort === null ? null : (
-          <MetaField label="Estimate">{task.effort}</MetaField>
+          <MetaField label={tI18n("issues:trackerIssueMeta.estimate")}>{task.effort}</MetaField>
         )}
         {task.parentKey ? (
-          <MetaField label="Parent">{task.parentKey}</MetaField>
+          <MetaField label={tI18n("issues:trackerIssueMeta.parent")}>{task.parentKey}</MetaField>
         ) : null}
         {task.subtasks ? (
-          <MetaField label="Subtasks">
-            {task.subtasks.done} / {task.subtasks.count} done
-          </MetaField>
+          <MetaField label={tI18n("issues:trackerIssueMeta.subtasks")}>
+            {tI18n("issues:trackerIssueMeta.subtaskProgress", { completed: task.subtasks.done, total: task.subtasks.count })}</MetaField>
         ) : null}
       </dl>
 

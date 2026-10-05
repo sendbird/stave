@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Describe to create: runs one utility turn and turns the answer into an
  * unsaved custom agent draft. Nothing is saved here.
@@ -14,6 +15,6 @@ export async function draftAgentWithAi(
     turnIdPrefix: "agent-draft",
     signal: options.signal,
   });
-  if (!result.ok) return { ok: false, message: result.cancelled ? "Drafting was cancelled." : result.message };
+  if (!result.ok) return { ok: false, message: result.cancelled ? i18n.t("notifications:agentDraftRuntime.draftingWasCancelled") : result.message };
   return parseAgentDraft(result.text, options.takenIds);
 }

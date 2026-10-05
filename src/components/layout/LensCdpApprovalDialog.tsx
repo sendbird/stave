@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
@@ -34,6 +35,7 @@ function removeRequest(
 }
 
 export function LensCdpApprovalDialog() {
+  useTranslation();
   const [requests, setRequests] = useState<LensCdpApprovalRequestPayload[]>([]);
   const [responding, setResponding] = useState(false);
   const denyButtonRef = useRef<HTMLButtonElement>(null);
@@ -60,9 +62,9 @@ export function LensCdpApprovalDialog() {
     const delay = Math.max(0, current.expiresAt - Date.now());
     const timer = window.setTimeout(() => {
       setRequests((existing) => removeRequest(existing, current.requestId));
-      toast.error("CDP approval expired", {
+      toast.error(i18n.t("lens:lensCdpApprovalDialog.cDPApprovalExpired"), {
         description:
-          "Retry the Lens action to show a new approval request, or add the host in Settings > Lens > Developer Mode > Approved CDP Hosts.",
+          i18n.t("lens:lensCdpApprovalDialog.retryTheLensActionToShowA"),
       });
     }, delay);
     return () => window.clearTimeout(timer);
@@ -85,7 +87,7 @@ export function LensCdpApprovalDialog() {
       }
       const respondCdpApproval = window.api?.lens?.respondCdpApproval;
       if (!respondCdpApproval) {
-        toast.error("Lens approval controls are unavailable.");
+        toast.error(i18n.t("lens:lensCdpApprovalDialog.lensApprovalControlsAreUnavailable"));
         return;
       }
 
@@ -97,9 +99,9 @@ export function LensCdpApprovalDialog() {
           remember,
         });
         if (!result.ok) {
-          toast.error("CDP approval expired", {
+          toast.error(i18n.t("lens:lensCdpApprovalDialog.cDPApprovalExpired"), {
             description:
-              "Retry the Lens action to show a new approval request, or add the host in Settings > Lens > Developer Mode > Approved CDP Hosts.",
+              i18n.t("lens:lensCdpApprovalDialog.retryTheLensActionToShowA"),
           });
           setRequests((existing) => removeRequest(existing, current.requestId));
           return;
@@ -121,7 +123,7 @@ export function LensCdpApprovalDialog() {
         }
         setRequests((existing) => removeRequest(existing, current.requestId));
       } catch (error) {
-        toast.error("Failed to answer the CDP approval", {
+        toast.error(i18n.t("lens:lensCdpApprovalDialog.failedToAnswerTheCDPApproval"), {
           description: error instanceof Error ? error.message : String(error),
         });
       } finally {
@@ -151,39 +153,37 @@ export function LensCdpApprovalDialog() {
               <ShieldAlert className={sx(lensApprovalStyles.headerIcon)} />
             </span>
             <div className={sx(lensApprovalStyles.headerText)}>
-              <DialogTitle>Allow Lens CDP access?</DialogTitle>
+              <DialogTitle>{i18n.t("lens:lensCdpApprovalDialog.allowLensCDPAccess")}</DialogTitle>
               <DialogDescription className={sx(lensApprovalStyles.description)}>
-                An agent wants to inspect and control this site through Lens.
+                {i18n.t("lens:lensCdpApprovalDialog.anAgentWantsToInspectAndControl")}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
         <div className={sx(lensApprovalStyles.body)}>
           <div className={sx(lensApprovalStyles.fact)}>
-            <span className={sx(lensApprovalStyles.factLabel)}>Host</span>
+            <span className={sx(lensApprovalStyles.factLabel)}>{i18n.t("lens:lensCdpApprovalDialog.host")}</span>
             <span className={sx(lensApprovalStyles.factValueMono)}>
               {current?.host ?? ""}
             </span>
           </div>
           <div className={sx(lensApprovalStyles.fact)}>
-            <span className={sx(lensApprovalStyles.factLabel)}>Workspace</span>
+            <span className={sx(lensApprovalStyles.factLabel)}>{i18n.t("lens:lensCdpApprovalDialog.workspace")}</span>
             <span className={sx(lensApprovalStyles.factValueTruncated)}>
               {workspaceName}
             </span>
           </div>
           <div className={sx(lensApprovalStyles.fact)}>
-            <span className={sx(lensApprovalStyles.factLabel)}>Action</span>
+            <span className={sx(lensApprovalStyles.factLabel)}>{i18n.t("lens:lensCdpApprovalDialog.action")}</span>
             <span className={sx(lensApprovalStyles.factValue)}>
               {current?.reason ?? ""}
             </span>
           </div>
           <p className={sx(lensApprovalStyles.hint)}>
-            Allow once grants temporary access. Always allow saves only the
-            hostname under Settings &gt; Lens &gt; Developer Mode; ports and
-            paths are ignored.
+            {i18n.t("lens:lensCdpApprovalDialog.allowOnceGrantsTemporaryAccessAlwaysAllow")}
           </p>
           <VisuallyHidden aria-live="polite">
-            {responding ? "Submitting approval response." : ""}
+            {responding ? i18n.t("lens:lensCdpApprovalDialog.submittingApprovalResponse") : ""}
           </VisuallyHidden>
         </div>
         <DialogFooter>
@@ -196,7 +196,7 @@ export function LensCdpApprovalDialog() {
               void respond(false, false);
             }}
           >
-            Deny
+            {i18n.t("lens:lensCdpApprovalDialog.deny")}
           </Button>
           <Button
             type="button"
@@ -206,7 +206,7 @@ export function LensCdpApprovalDialog() {
               void respond(true, false);
             }}
           >
-            Allow once
+            {i18n.t("lens:lensCdpApprovalDialog.allowOnce")}
           </Button>
           <Button
             type="button"
@@ -218,7 +218,7 @@ export function LensCdpApprovalDialog() {
             {responding ? (
               <Loader aria-hidden size="xs" variant="spinner" />
             ) : null}
-            Always allow
+            {i18n.t("lens:lensCdpApprovalDialog.alwaysAllow")}
           </Button>
         </DialogFooter>
       </DialogContent>

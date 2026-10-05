@@ -1,3 +1,4 @@
+import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useId, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -8,7 +9,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Input } from "@/components/ui";
 import type { ProviderAccountProfile, ProviderAccountProviderId } from "@/lib/providers/provider-accounts";
 import { describeProviderAccountSetup } from "@/lib/providers/provider-account-setup";
-import { USE_SYSTEM_SETUP_LABEL } from "./ProviderAccountSetupSharing";
+import { USE_SYSTEM_SETUP_LABEL_KEY } from "./ProviderAccountSetupSharing";
 import { accountStyles as styles } from "./provider-accounts.styles";
 
 const FOLDER_ENV = { "claude-code": "CLAUDE_CONFIG_DIR", codex: "CODEX_HOME" } as const;
@@ -25,6 +26,7 @@ export function ProviderAccountAddForm(props: {
   run: (action: () => Promise<unknown>) => void;
   login: (profile: ProviderAccountProfile) => Promise<void>;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const { providerId, name } = props;
   const nameId = useId();
   const folderId = useId();
@@ -46,47 +48,42 @@ export function ProviderAccountAddForm(props: {
     const problems: string[] = [];
     if (shareSetup) {
       const shared = await window.api!.providerAccounts!.shareSetup({ providerId, id: result.profile.id, enabled: true })
-        .catch(() => ({ ok: false as const, message: "Could not update the shared setup." }));
-      if (!shared.ok) problems.push(`Added ${trimmedLabel}, but could not share your setup. ${shared.message} Turn it on from the account.`);
+        .catch(() => ({ ok: false as const, message: i18n.t("settingsConnections:providerAccountAddForm.couldNotUpdateTheSharedSetup") }));
+      if (!shared.ok) problems.push(i18n.t("settingsConnections:providerAccountAddForm.addedButCouldNotShareYour", { value1: trimmedLabel, value2: shared.message }));
     }
     try {
       await props.login(result.profile);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      problems.push(`Added ${trimmedLabel}, but its sign-in terminal did not open. ${reason} Then select Sign in on the account.`);
+      problems.push(i18n.t("settingsConnections:providerAccountAddForm.addedButItsSignInTerminal", { value1: trimmedLabel, value2: reason }));
     }
     if (problems.length) throw new Error(problems.join(" "));
   });
   return <div className={sx(styles.stack)}>
-    <span className={sx(styles.subheading)}>Add an account</span>
+    <span className={sx(styles.subheading)}>{t("settingsConnections:providerAccountAddForm.addAnAccount")}</span>
     <div className={sx(styles.stackTight)}>
-      <label htmlFor={nameId} className={sx(styles.label)}>Name</label>
+      <label htmlFor={nameId} className={sx(styles.label)}>{t("common:labels.name")}</label>
       <div className={sx(styles.row)}>
-        <Input id={nameId} placeholder="For example, Work or Personal" value={label}
+        <Input id={nameId} placeholder={t("settingsConnections:providerAccountAddForm.forExampleWorkOrPersonal")} value={label}
           onChange={e => setLabel(e.target.value)} xstyle={styles.field} />
         <Button size="sm" disabled={props.busy || !label.trim()} onClick={add}>
-          {reuseFolder ? "Add account" : "Add and sign in"}
+          {reuseFolder ? t("settingsConnections:providerAccountAddForm.addAccount") : t("settingsConnections:providerAccountAddForm.addAndSignIn")}
         </Button>
       </div>
     </div>
-    {!reuseFolder && <Checkbox label={USE_SYSTEM_SETUP_LABEL} description={describeProviderAccountSetup(providerId, null)}
+    {!reuseFolder && <Checkbox label={t(USE_SYSTEM_SETUP_LABEL_KEY)} description={describeProviderAccountSetup(providerId, null)}
       checked={shareSetup} onCheckedChange={checked => setShareSetup(checked === true)} />}
-    <p className={sx(styles.muted)}>
-      Sign in once per account: the sign-in is saved in the account's own folder, so it keeps working in every task and CLI tab, whichever {name} binary runs it. Removing an account only forgets it in Stave; its folder and sign-in stay on disk.
-    </p>
+    <p className={sx(styles.muted)}>{t("settingsConnections:messages.accountLoginPersistence", { provider: name })}</p>
     <CollapsibleRoot open={advancedOpen} onOpenChange={setAdvancedOpen}>
       <CollapsibleTrigger render={<Button size="sm" variant="quiet" flushInline />}>
         <ChevronRight aria-hidden className={sx(styles.advancedChevron, transition.transform, advancedOpen && styles.advancedChevronOpen)} />
-        Advanced: reuse a folder you already use
-      </CollapsibleTrigger>
+        {t("settingsConnections:providerAccountAddForm.advancedReuseAFolderYouAlready")}</CollapsibleTrigger>
       <CollapsiblePanel className={sx(styles.advancedPanel)}>
         <div className={sx(styles.stackTight)}>
-          <label htmlFor={folderId} className={sx(styles.label)}>Existing {name} folder</label>
-          <Input id={folderId} placeholder="Absolute folder path" value={directory}
+          <label htmlFor={folderId} className={sx(styles.label)}>{t("settingsConnections:messages.existingAccountFolder", { provider: name })}</label>
+          <Input id={folderId} placeholder={t("settingsConnections:providerAccountAddForm.absoluteFolderPath")} value={directory}
             onChange={e => setDirectory(e.target.value)} />
-          <p className={sx(styles.muted)}>
-            Point Stave at a folder you already signed in to, such as one you use with {FOLDER_ENV[providerId]}. Stave uses the sign-in saved there and never moves or deletes the folder. Leave this empty and Stave creates a new folder for the account.
-          </p>
+          <p className={sx(styles.muted)}>{t("settingsConnections:messages.existingAccountFolderHelp", { env: FOLDER_ENV[providerId] })}</p>
         </div>
       </CollapsiblePanel>
     </CollapsibleRoot>

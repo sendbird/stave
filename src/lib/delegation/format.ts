@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   getProviderLabel,
   toHumanModelName,
@@ -78,7 +79,7 @@ export function describeAgentIdentity(args: {
     modelLabel,
     effortLabel,
     roleLabel,
-    text: segments.length > 0 ? segments.join(" · ") : "Not resolved",
+    text: segments.length > 0 ? segments.join(" · ") : i18n.t("agentRuns:format.text"),
   };
 }
 
@@ -117,13 +118,13 @@ const EXCHANGE_STATUS_DESCRIPTIONS: Record<
   ExchangeStatus,
   ExchangeStatusDescription
 > = {
-  queued: { label: "Queued", tone: "neutral", settled: false },
-  running: { label: "Running", tone: "info", settled: false },
-  returned: { label: "Returned", tone: "success", settled: true },
-  failed: { label: "Failed", tone: "danger", settled: true },
-  cancelled: { label: "Cancelled", tone: "warning", settled: true },
-  timed_out: { label: "Timed out", tone: "warning", settled: true },
-  unresolved: { label: "Unresolved", tone: "neutral", settled: true },
+  queued: { get label() { return i18n.t("agentRuns:format.label"); }, tone: "neutral", settled: false },
+  running: { get label() { return i18n.t("agentRuns:format.label2"); }, tone: "info", settled: false },
+  returned: { get label() { return i18n.t("agentRuns:format.label3"); }, tone: "success", settled: true },
+  failed: { get label() { return i18n.t("agentRuns:format.label4"); }, tone: "danger", settled: true },
+  cancelled: { get label() { return i18n.t("agentRuns:format.label5"); }, tone: "warning", settled: true },
+  timed_out: { get label() { return i18n.t("agentRuns:format.label6"); }, tone: "warning", settled: true },
+  unresolved: { get label() { return i18n.t("agentRuns:format.label7"); }, tone: "neutral", settled: true },
 };
 
 export function describeExchangeStatus(

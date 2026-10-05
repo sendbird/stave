@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type {
   ClaudeUsageSnapshot,
   CodexUsageSnapshot,
@@ -36,24 +37,24 @@ export function windowDurationTag(windowMs: number | null): string | null {
   }
   const hours = windowMs / 3_600_000;
   if (hours < 24) {
-    return `${Math.round(hours)}h`;
+    return i18n.t("shell:usageUnits.hoursShort", { count: Math.round(hours) });
   }
-  return `${Math.round(hours / 24)}d`;
+  return i18n.t("shell:usageUnits.daysShort", { count: Math.round(hours / 24) });
 }
 
 /** `5h` → `5-hour limit`, a week → `Weekly limit`. */
 export function windowDurationTitle(windowMs: number | null): string {
   if (windowMs === null || !Number.isFinite(windowMs) || windowMs <= 0) {
-    return "Usage limit";
+    return i18n.t("shell:statusBarUsageUtils.usageLimit");
   }
   const hours = Math.round(windowMs / 3_600_000);
   if (hours === 7 * 24) {
-    return "Weekly limit";
+    return i18n.t("shell:statusBarUsageUtils.weeklyLimit");
   }
   if (hours < 24) {
-    return `${hours}-hour limit`;
+    return i18n.t("shell:usageUnits.hoursLimit", { count: hours });
   }
-  return `${Math.round(hours / 24)}-day limit`;
+  return i18n.t("shell:usageUnits.daysLimit", { count: Math.round(hours / 24) });
 }
 
 function codexWindow(
@@ -99,9 +100,9 @@ export function buildUsageHeadlineWindows(args: {
       ...(claude.session
         ? [
             {
-              short: "5h",
-              label: "5h",
-              title: "5-hour limit",
+              short: i18n.t("shell:usageUnits.hoursShort", { count: 5 }),
+              label: i18n.t("shell:usageUnits.hoursShort", { count: 5 }),
+              title: i18n.t("shell:usageUnits.hoursLimit", { count: 5 }),
               note: null,
               usedPercent: claude.session.usedPercent,
               resetsAt: claude.session.resetsAt,
@@ -112,9 +113,9 @@ export function buildUsageHeadlineWindows(args: {
       ...(claude.weekly
         ? [
             {
-              short: "7d",
-              label: "7d",
-              title: "Weekly limit",
+              short: i18n.t("shell:usageUnits.daysShort", { count: 7 }),
+              label: i18n.t("shell:usageUnits.daysShort", { count: 7 }),
+              title: i18n.t("shell:statusBarUsageUtils.weeklyLimit"),
               note: null,
               usedPercent: claude.weekly.usedPercent,
               resetsAt: claude.weekly.resetsAt,
@@ -125,10 +126,10 @@ export function buildUsageHeadlineWindows(args: {
       ...(claude.fableWeekly
         ? [
             {
-              short: "7d·F",
-              label: "7d Fable",
-              title: "Weekly Fable limit",
-              note: "Counts Fable models only.",
+              short: i18n.t("shell:usageUnits.fableShort"),
+              label: i18n.t("shell:statusBarUsageUtils.text7dFable"),
+              title: i18n.t("shell:statusBarUsageUtils.weeklyFableLimit"),
+              note: i18n.t("shell:statusBarUsageUtils.countsFableModelsOnly"),
               usedPercent: claude.fableWeekly.usedPercent,
               resetsAt: claude.fableWeekly.resetsAt,
               windowMs: SEVEN_DAYS_MS,
@@ -143,8 +144,8 @@ export function buildUsageHeadlineWindows(args: {
       ? [
           {
             short: "",
-            label: "month",
-            title: "Monthly included usage",
+            label: i18n.t("shell:usageUnits.month"),
+            title: i18n.t("shell:statusBarUsageUtils.monthlyIncludedUsage"),
             note: null,
             usedPercent: provider.monthly.usedPercent,
             resetsAt: provider.monthly.resetsAt,
@@ -156,16 +157,16 @@ export function buildUsageHeadlineWindows(args: {
   const bucket = args.codex?.buckets[0] ?? null;
   if (bucket?.primary) {
     return [
-      codexWindow(bucket.primary, "Usage limit"),
-      ...(bucket.secondary ? [codexWindow(bucket.secondary, "Second usage limit")] : []),
+      codexWindow(bucket.primary, i18n.t("shell:statusBarUsageUtils.usageLimit")),
+      ...(bucket.secondary ? [codexWindow(bucket.secondary, i18n.t("shell:statusBarUsageUtils.secondUsageLimit"))] : []),
     ];
   }
   if (bucket?.individualLimit) {
     return [
       {
         short: "",
-        label: "credits",
-        title: "Credit limit",
+        label: i18n.t("shell:usageUnits.credits"),
+        title: i18n.t("shell:statusBarUsageUtils.creditLimit"),
         note: null,
         usedPercent: bucket.individualLimit.usedPercent,
         resetsAt: bucket.individualLimit.resetsAt,
@@ -286,11 +287,11 @@ export function resolveStatusBarAccountView(args: {
   const selected = options.find((profile) => profile.id === args.selectedId) ?? null;
   const gateway = Boolean(selected?.gateway);
   const triggerLabel = gateway
-    ? "API billing"
+    ? i18n.t("shell:statusBarUsageUtils.aPIBilling")
     : !selected
       ? args.selectedId === SYSTEM_ACCOUNT_PROFILE_ID
         ? null
-        : "Account unavailable"
+        : i18n.t("shell:statusBarUsageUtils.accountUnavailable")
       : selected.id === SYSTEM_ACCOUNT_PROFILE_ID
         ? null
         : selected.label;

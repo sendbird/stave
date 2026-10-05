@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { delegationStyles as styles } from "./delegation.styles";
@@ -13,6 +14,7 @@ export interface KeyValueItem {
 
 /** A `dl` grid of setup facts, one label style, one value style. */
 export function KeyValueGrid(props: { items: readonly KeyValueItem[] }) {
+  useTranslation();
   if (props.items.length === 0) {
     return null;
   }

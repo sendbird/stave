@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 export type VisualCommentShortcut =
   | "mod-period"
   | "mod-alt-period"
@@ -15,22 +16,22 @@ export const VISUAL_COMMENT_SHORTCUT_OPTIONS: readonly {
   {
     value: "mod-alt-period",
     label: "Cmd/Ctrl+Alt+.",
-    description: "Use a browser-safe modifier chord for visual comments.",
+    get description() { return i18n.t("shell:visualCommentShortcuts.useABrowserSafeModifierChordForVisual"); },
   },
   {
     value: "mod-period",
     label: "Cmd/Ctrl+.",
-    description: "Legacy shortcut that may collide inside browser views.",
+    get description() { return i18n.t("shell:visualCommentShortcuts.legacyShortcutThatMayCollideInsideBrowser"); },
   },
   {
     value: "mod-shift-period",
     label: "Cmd/Ctrl+Shift+.",
-    description: "Use a shifted modifier shortcut for visual comments.",
+    get description() { return i18n.t("shell:visualCommentShortcuts.useAShiftedModifierShortcutForVisual"); },
   },
   {
     value: "disabled",
-    label: "Disabled",
-    description: "Do not toggle visual comments from the keyboard.",
+    get label() { return i18n.t("shell:visualCommentShortcuts.disabled"); },
+    get description() { return i18n.t("shell:visualCommentShortcuts.doNotToggleVisualCommentsFromThe"); },
   },
 ];
 

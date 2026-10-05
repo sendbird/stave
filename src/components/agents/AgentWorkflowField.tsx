@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
@@ -7,9 +8,9 @@ import { CHECK_INS, type CheckIns, type WorkflowStage } from "@/lib/workflows/sc
 
 /** What a run does at each check-in level, read from `deriveStageSignOff`. */
 const CHECK_IN_EFFECTS: Readonly<Record<CheckIns, string>> = {
-  "when-stuck": "The run goes through every stage on its own and stops only when a stage is blocked or stuck.",
-  "plan-and-publishing": "The run waits for you after a plan stage and before it publishes or marks a pull request ready.",
-  "every-stage": "The run waits for you before each stage after the first.",
+  get "when-stuck"() { return i18n.t("agents:agentWorkflowField.extraCopy25"); },
+  get "plan-and-publishing"() { return i18n.t("agents:agentWorkflowField.extraCopy26"); },
+  get "every-stage"() { return i18n.t("agents:agentWorkflowField.extraCopy27"); },
 };
 import { StageList } from "../workflows/StageList";
 import { workflowStyles as styles } from "../workflows/workflows.styles";
@@ -35,6 +36,7 @@ export function AgentWorkflowField(props: {
   issues: Readonly<Record<string, string>>;
   onChange: (agent: AgentConfig) => void;
 }) {
+  useTranslation();
   const { agent } = props;
   const checkIns = agent.checkIns ?? DEFAULT_AGENT_CHECK_INS;
   const value = useMemo(() => ({ checkIns, stages: agent.workflow ?? [] }), [agent.workflow, checkIns]);
@@ -50,16 +52,16 @@ export function AgentWorkflowField(props: {
   return (
     <>
       {value.stages.length === 0 ? (
-        <p className={sx(styles.hint)}>Runs as one stage that plans its own steps. Add stages to work in a fixed order.</p>
+        <p className={sx(styles.hint)}>{i18n.t("agents:agentWorkflowField.agentWorkflowField")}</p>
       ) : null}
       <StageList value={value} issues={issues} onChange={apply} />
       {value.stages.length > 1 ? (
         <dl className={sx(styles.properties)}>
-          <dt className={sx(styles.propertyLabel)}>Check in with me</dt>
+          <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentWorkflowField.agentWorkflowField2")}</dt>
           <dd className={sx(styles.propertyValue)}>
             <Select
               size="sm"
-              aria-label="Check in with me"
+              aria-label={i18n.t("agents:agentWorkflowField.ariaLabel")}
               value={checkIns}
               options={[...CHECK_INS].reverse().map((level) => ({ value: level, label: AGENT_CHECK_IN_LABELS[level] }))}
               onValueChange={(level) => apply(applyCheckIns(value, String(level) as CheckIns))}
@@ -68,7 +70,7 @@ export function AgentWorkflowField(props: {
         </dl>
       ) : null}
       {value.stages.length > 1 ? (
-        <p className={sx(styles.hint)}>{CHECK_IN_EFFECTS[checkIns]} A stage's hand toggle overrides this for that stage.</p>
+        <p className={sx(styles.hint)}>{i18n.t("agents:agentWorkflowField.sentence13", { value1: CHECK_IN_EFFECTS[checkIns] })}</p>
       ) : null}
     </>
   );

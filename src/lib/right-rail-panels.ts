@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   ClipboardList,
   FolderTree,
@@ -27,12 +28,12 @@ export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
 ];
 
 export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
-  explorer: "Explorer",
-  changes: "Source Control",
-  information: "Information",
-  skills: "Skills",
-  scripts: WORKSPACE_TOOLS_PRESENTATION.label,
-  task: "Task",
+  get explorer() { return i18n.t("shell:rightRailPanels.explorer"); },
+  get changes() { return i18n.t("shell:rightRailPanels.sourceControl"); },
+  get information() { return i18n.t("shell:rightRailPanels.information"); },
+  get skills() { return i18n.t("shell:rightRailPanels.skills"); },
+  get scripts() { return WORKSPACE_TOOLS_PRESENTATION.label; },
+  get task() { return i18n.t("shell:rightRailPanels.task"); },
 };
 
 export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
@@ -59,10 +60,10 @@ export const TASK_PANEL_TABS: ReadonlyArray<{
   /** One line for the empty panel, which lists what each tab will show. */
   description: string;
 }> = [
-  { id: "activity", label: "Activity", description: "The live turn, step by step" },
-  { id: "progress", label: "Progress", description: "The run's stages, or the task's flow" },
-  { id: "team", label: "Subagents", description: "Every agent the task called" },
-  { id: "results", label: "Results", description: "Each run's answer and changes, to review" },
+  { id: "activity", get label() { return i18n.t("shell:rightRailPanels.activity"); }, get description() { return i18n.t("shell:rightRailPanels.theLiveTurnStepByStep"); } },
+  { id: "progress", get label() { return i18n.t("shell:rightRailPanels.progress"); }, get description() { return i18n.t("shell:rightRailPanels.theRunSStagesOrTheTaskSFlow"); } },
+  { id: "team", get label() { return i18n.t("shell:rightRailPanels.subagents"); }, get description() { return i18n.t("shell:rightRailPanels.everyAgentTheTaskCalled"); } },
+  { id: "results", get label() { return i18n.t("shell:rightRailPanels.results"); }, get description() { return i18n.t("shell:rightRailPanels.eachRunSAnswerAndChangesToReview"); } },
 ];
 
 export const DEFAULT_TASK_PANEL_TAB: TaskPanelTab = "activity";

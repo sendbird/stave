@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { FileWarning, Power, TerminalSquare } from "lucide-react";
 import { useEffect, useRef, type FormEvent } from "react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -20,6 +21,7 @@ interface QuitConfirmationDialogProps {
 }
 
 export function QuitConfirmationDialog(props: QuitConfirmationDialogProps) {
+  useTranslation();
   const { open, quitting = false, shortcutLabel, onCancel, onConfirm } = props;
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -61,19 +63,18 @@ export function QuitConfirmationDialog(props: QuitConfirmationDialogProps) {
                 </div>
                 <div className={sx(quitDialogStyles.headerCopy)}>
                   <div className={sx(quitDialogStyles.eyebrow)}>
-                    <span>Application</span>
+                    <span>{i18n.t("shell:quitConfirmationDialog.application")}</span>
                     {shortcutLabel ? (
                       <span className={sx(quitDialogStyles.shortcutChip)}>
                         {shortcutLabel}
                       </span>
                     ) : null}
                   </div>
-                  <DialogTitle>Quit Stave?</DialogTitle>
+                  <DialogTitle>{i18n.t("shell:quitConfirmationDialog.quitStave")}</DialogTitle>
                   <DialogDescription
                     className={sx(quitDialogStyles.description)}
                   >
-                    Any running tasks will stop and unsaved editor changes may
-                    be lost.
+                    {i18n.t("shell:quitConfirmationDialog.anyRunningTasksWillStopAndUnsaved")}
                   </DialogDescription>
                 </div>
               </div>
@@ -85,14 +86,13 @@ export function QuitConfirmationDialog(props: QuitConfirmationDialogProps) {
               <div className={sx(quitDialogStyles.factRow)}>
                 <TerminalSquare className={sx(quitDialogStyles.factIcon)} />
                 <p className={sx(quitDialogStyles.factText)}>
-                  Running tasks and CLI sessions will be interrupted
-                  immediately.
+                  {i18n.t("shell:quitConfirmationDialog.runningTasksAndCLISessionsWillBe")}
                 </p>
               </div>
               <div className={sx(quitDialogStyles.factRow)}>
                 <FileWarning className={sx(quitDialogStyles.factIcon)} />
                 <p className={sx(quitDialogStyles.factText)}>
-                  Unsaved editor changes in open files may not be recoverable.
+                  {i18n.t("shell:quitConfirmationDialog.unsavedEditorChangesInOpenFilesMay")}
                 </p>
               </div>
             </div>
@@ -101,11 +101,11 @@ export function QuitConfirmationDialog(props: QuitConfirmationDialogProps) {
               <div className={sx(quitDialogStyles.hintRow)}>
                 <div className={sx(quitDialogStyles.hint)}>
                   <Kbd>Esc</Kbd>
-                  <span>Cancel</span>
+                  <span>{i18n.t("shell:quitConfirmationDialog.cancel")}</span>
                 </div>
                 <div className={sx(quitDialogStyles.hint)}>
                   <Kbd>Enter</Kbd>
-                  <span>Quit</span>
+                  <span>{i18n.t("shell:quitConfirmationDialog.quit")}</span>
                 </div>
               </div>
 
@@ -116,7 +116,7 @@ export function QuitConfirmationDialog(props: QuitConfirmationDialogProps) {
                   disabled={quitting}
                   onClick={onCancel}
                 >
-                  Cancel
+                  {i18n.t("shell:quitConfirmationDialog.cancel")}
                 </Button>
                 <Button
                   ref={confirmButtonRef}
@@ -127,7 +127,7 @@ export function QuitConfirmationDialog(props: QuitConfirmationDialogProps) {
                   {quitting ? (
                     <Loader aria-hidden size="xs" variant="persist" />
                   ) : null}
-                  {quitting ? "Quitting..." : "Quit Stave"}
+                  {quitting ? i18n.t("shell:quitConfirmationDialog.quitting") : i18n.t("shell:quitConfirmationDialog.quitStave2")}
                 </Button>
               </div>
             </div>

@@ -1,0 +1,1452 @@
+{
+  "general": {
+    "language": {
+      "title": "Language",
+      "description": "Choose the language for Stave menus, settings and messages. Your prompts, files and AI responses are not translated."
+    },
+    "windowBehavior": {
+      "title": "Window Behavior",
+      "description": "Control how the app handles the close shortcut.",
+      "confirmBeforeClose": {
+        "title": "Confirm Before Close",
+        "description": "Show a confirmation dialog before closing the app with ⌘W / Ctrl+W when no tabs or tasks are open."
+      }
+    },
+    "notificationSound": {
+      "title": "Notification Sound",
+      "description": "Customize the success sound played when a task turn finishes.",
+      "enableTitle": "Sound",
+      "enableDescription": "Enable or mute the task completion sound.",
+      "presetDescription": "Choose the synthesized tone used for task completion.",
+      "volumeDescription": "Adjust playback level for the task completion sound.",
+      "volumeAriaLabel": "Notification sound volume",
+      "sourceTitle": "Source",
+      "presetTitle": "Preset",
+      "customAudioTitle": "Custom Audio",
+      "volumeTitle": "Volume",
+      "previewTitle": "Preview"
+    },
+    "attentionSound": {
+      "title": "Attention Sound",
+      "description": "Customize the sound played when the AI asks you a question or requests permission and is waiting on you.",
+      "enableTitle": "Attention chime",
+      "enableDescription": "Play a sound when the AI needs your input or approval.",
+      "presetDescription": "Choose the synthesized tone used when the AI needs you.",
+      "volumeDescription": "Adjust playback level for the attention sound.",
+      "volumeAriaLabel": "Attention sound volume",
+      "sourceTitle": "Attention chime origin",
+      "presetTitle": "Attention chime tone",
+      "customAudioTitle": "Attention chime upload",
+      "volumeTitle": "Attention chime level",
+      "previewTitle": "Attention chime test"
+    },
+    "soundControls": {
+      "sourceDescription": "Use a built-in preset or upload your own audio file.",
+      "sourcePreset": "Preset",
+      "presets": {
+        "chime": "Chime",
+        "bell": "Bell",
+        "pulse": "Pulse",
+        "bright": "Bright",
+        "harvest": "Harvest"
+      },
+      "customAudioDescription": "Upload an audio file (MP3, WAV, OGG, M4A, WebM). Max {{maxKb}} KB.",
+      "replace": "Replace",
+      "upload": "Upload Audio File",
+      "readFailed": "Failed to read the audio file.",
+      "previewCustomDescription": "Play the uploaded audio once with the current volume.",
+      "previewPresetDescription": "Play the current preset once with the current volume.",
+      "testSound": "Test Sound"
+    }
+  },
+  "desktopNotifications": {
+    "title": "Desktop Notifications",
+    "description": "Show task completion, approval, input requests and run sign-offs through the operating system.",
+    "native": {
+      "title": "Native Notifications",
+      "description": "Notify you when a task needs attention outside the active workspace."
+    },
+    "signOffReminder": {
+      "title": "Run Sign-off Reminders",
+      "description": "A run waiting for your sign-off notifies once. Remind again, in one batched notification, after it has waited this long.",
+      "never": "Never",
+      "afterMinutes_one": "After {{count}} minute",
+      "afterMinutes_other": "After {{count}} minutes",
+      "afterHours_one": "After {{count}} hour",
+      "afterHours_other": "After {{count}} hours"
+    }
+  },
+  "turnActivityFields": {
+    "placement": {
+      "title": "Open Run Details In",
+      "description": "Where the toggle on the run line above the prompt opens the turn's tools, agents and to-dos. The run line itself stays above the prompt either way, and its panel button always opens the Task panel.",
+      "docked": "Above the prompt",
+      "floating": "Floating card",
+      "panel": "Task panel"
+    },
+    "expanded": {
+      "title": "Open Run Details",
+      "description": "Open the details when a run starts instead of showing the run line alone. Your toggle during a run lasts until that run ends."
+    }
+  },
+  "chatSection": {
+    "typography": {
+      "title": "Typography",
+      "description": "Font sizes and families applied to the shared chat surface.",
+      "messageFontSize": {
+        "title": "Message Font Size",
+        "description": "Prose font size for chat messages. Line height scales proportionally.",
+        "ariaLabel": "Message font size"
+      },
+      "codeFontSize": {
+        "title": "Code Font Size",
+        "description": "Font size for inline code and code blocks in chat messages.",
+        "ariaLabel": "Code font size"
+      },
+      "fontFamily": {
+        "title": "Font Family",
+        "description": "Base sans-serif font for the app UI and chat messages. Pick a preset or type any installed family. Falls back to the Korean font, then sans-serif."
+      },
+      "monoFontFamily": {
+        "title": "Mono Font Family",
+        "description": "Monospace font for inline code and code blocks in messages."
+      },
+      "koreanFontFamily": {
+        "title": "Korean Font Family",
+        "description": "Fallback font for Korean (CJK) text in messages. Pretendard Variable is loaded by default."
+      },
+      "infoPanelScale": {
+        "title": "Information Panel Scale",
+        "description": "Zoom level for the workspace information panel. Affects text, icons, buttons, and spacing uniformly.",
+        "ariaLabel": "Information panel scale"
+      }
+    },
+    "behavior": {
+      "title": "Behavior",
+      "description": "Toggle chat features and display preferences.",
+      "streaming": "Streaming UI",
+      "reasoningExpansion": {
+        "title": "Reasoning Expansion",
+        "description": "Auto expands the reasoning trace while a turn is streaming, then collapses it again. Manual keeps it collapsed until you open it.",
+        "manual": "Manual"
+      },
+      "interimMessages": {
+        "title": "Show Interim Messages",
+        "description": "Show pre-final assistant text segments between execution steps. Hidden by default to keep the final response cleaner."
+      },
+      "turnRail": {
+        "title": "Show Conversation Turn Rail",
+        "description": "Show the turn navigator on the right side of conversations with multiple eligible responses."
+      }
+    },
+    "composerControls": {
+      "title": "Composer Controls",
+      "description": "Choose where each prompt input control lives: pinned to the toolbar, tucked into the ⋯ tray, or off. You can also right-click the toolbar to edit this in place.",
+      "layout": {
+        "title": "Composer Layout",
+        "description": "Framed raises the input card and hangs four bars off it: the run and queue shelf above, workspace and runtime below, and the control shelves beside it. Classic is the previous stack, with every control in the toolbar row. A narrow composer falls back to Classic either way.",
+        "framed": "Framed",
+        "classic": "Classic"
+      }
+    },
+    "activeTurn": {
+      "title": "Active Turn",
+      "description": "Control what happens when you send a follow-up while an assistant turn is still running.",
+      "midTurnSteering": {
+        "title": "Mid-Turn Steering",
+        "description": "When off, follow-ups are queued until the current turn finishes. When on, supported providers can receive live steering messages."
+      },
+      "keys": {
+        "title": "Active-Turn Keys",
+        "description": "Choose which Enter action steers into the live turn and which queues for later.",
+        "queue": "Enter queues, Tab steers",
+        "steer": "Enter steers, Tab queues"
+      }
+    }
+  },
+  "themeSection": {
+    "appearance": {
+      "title": "Appearance",
+      "description": "Choose how the app resolves light and dark mode.",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "sidebar": {
+      "title": "Sidebar",
+      "description": "Choose which workspace navigation surfaces appear in the left sidebar.",
+      "fleetView": {
+        "title": "Fleet View Shortcut",
+        "description": "Show the Fleet View entry in the sidebar header area."
+      },
+      "view": {
+        "title": "Sidebar View",
+        "description": "Repositories lists workspaces by where they live; Work queue groups every workspace by what it wants from you. The toggle in the sidebar header changes this too, so the sidebar reopens in whichever view you used last.",
+        "repositories": "Repositories",
+        "workQueue": "Work queue"
+      },
+      "agents": {
+        "title": "Agents Shortcut",
+        "description": "Show Agents and its active agent rows in the sidebar header area."
+      },
+      "results": {
+        "title": "Results Shortcut",
+        "description": "Show the Results entry in the sidebar header area."
+      },
+      "aiUsage": {
+        "title": "AI Usage Shortcut",
+        "description": "Show the AI usage entry in the sidebar header area."
+      }
+    },
+    "motion": {
+      "title": "Motion",
+      "description": "Opt-in animated accents. All motion honors your system Reduced Motion preference.",
+      "borderBeam": {
+        "title": "Border Beam",
+        "description": "Animate a soft highlight around the prompt input and the active workspace row while a task is streaming. Style presets come from the border-beam library."
+      },
+      "beamSize": {
+        "title": "Beam Size",
+        "description": "Library size preset. Choose between a full border glow, compact controls, or a bottom sweep.",
+        "rotate": {
+          "label": "Rotate",
+          "description": "Full border glow"
+        },
+        "compact": {
+          "label": "Compact",
+          "description": "Small controls"
+        },
+        "line": {
+          "label": "Line",
+          "description": "Bottom sweep"
+        }
+      },
+      "beamColors": {
+        "title": "Beam Colors",
+        "description": "Library color palette. `Colorful` is a full rainbow sweep; `Ocean` and `Sunset` are cool and warm variants; `Mono` is grayscale.",
+        "colorful": "Colorful",
+        "mono": "Mono",
+        "ocean": "Ocean",
+        "sunset": "Sunset"
+      },
+      "beamStrength": {
+        "title": "Beam Strength",
+        "description": "Controls the library `strength` prop without changing the wrapped content.",
+        "ariaLabel": "Border Beam strength"
+      }
+    },
+    "presets": {
+      "title": "Theme Presets",
+      "description": "Choose a Stave original or a curated palette inspired by popular editor themes. Presets override the base light / dark tokens; manual token tweaks below still take priority.",
+      "userBadge": "User",
+      "active": "Active",
+      "byAuthor": "by {{author}}",
+      "byAuthorWithVersion": "by {{author}} · v{{version}}"
+    },
+    "baseModes": {
+      "light": "light",
+      "dark": "dark"
+    },
+    "importTheme": {
+      "button": "Import Theme JSON",
+      "userThemeCount": "{{used}} / {{max}} user themes",
+      "tooLarge": "File too large (max 256 KB).",
+      "unknownValidationError": "Unknown validation error.",
+      "installFailed": "Failed to install theme.",
+      "help": "Drop a <code>.theme.json</code> file to install a community theme. The JSON must include <code>id</code>, <code>name</code>, <code>baseMode</code>, and a <code>tokens</code> map."
+    },
+    "designTokens": {
+      "title": "Design Tokens",
+      "description": "These are Stave's base light and dark tokens. Custom presets layer on top, and manual overrides below still win.",
+      "lightTokens": "Light Tokens",
+      "darkTokens": "Dark Tokens",
+      "resetLight": "Reset light",
+      "resetDark": "Reset dark",
+      "presetValue": "Preset: {{value}}"
+    }
+  },
+  "editorSection": {
+    "typography": {
+      "title": "Typography",
+      "description": "Base editor type and spacing defaults.",
+      "fontSize": "Font Size",
+      "fontFamily": "Font Family",
+      "tabSize": "Tab Size"
+    },
+    "display": {
+      "title": "Display",
+      "description": "Toggle editor line wrapping and chrome.",
+      "wordWrap": "Word Wrap",
+      "lineNumbers": "Line Numbers",
+      "relative": "Relative",
+      "minimap": "Minimap"
+    },
+    "aiCompletions": {
+      "title": "AI Inline Completions",
+      "description": "Ghost-text code suggestions powered by Claude. Uses the Claude SDK with your local Claude auth when available, or falls back to the Anthropic API (requires ANTHROPIC_API_KEY).",
+      "enable": {
+        "title": "Enable AI Completions",
+        "description": "Shows AI-generated inline suggestions as you type. Press Tab to accept. Uses Claude Haiku for fast, low-cost completions."
+      }
+    },
+    "languageServers": {
+      "title": "Repository Language Servers",
+      "description": "LSP-backed intelligence for TypeScript/JavaScript and Python. Uses Electron-managed stdio language-server sessions per active workspace.",
+      "enable": {
+        "title": "Enable LSP Runtime",
+        "description": "Uses Electron-managed stdio language-server sessions per active workspace. Keep this off if you only want Monaco's built-in syntax support."
+      },
+      "typescript": {
+        "title": "TypeScript LSP Command",
+        "description": "Leave empty to auto-discover `typescript-language-server` from PATH. Install via `npm i -g typescript-language-server typescript`. Handles .ts, .tsx, .js, and .jsx files."
+      },
+      "python": {
+        "title": "Python LSP Command",
+        "description": "Leave empty to auto-discover `pyright-langserver` or `basedpyright-langserver` from PATH. You can also point this at an absolute executable path."
+      }
+    },
+    "eslint": {
+      "enable": {
+        "title": "Enable ESLint",
+        "description": "Reads ESLint config from the opened repository and shows diagnostics in the editor. Requires ESLint installed in the repository's node_modules."
+      },
+      "formatOnSave": {
+        "title": "Format on Save",
+        "description": "Automatically apply ESLint auto-fix when saving a file."
+      }
+    }
+  },
+  "terminalSection": {
+    "typography": {
+      "title": "Typography",
+      "description": "Tune readability for the integrated terminal.",
+      "fontSize": "Font Size",
+      "fontFamily": "Font Family",
+      "lineHeight": "Line Height"
+    },
+    "cursor": {
+      "title": "Cursor",
+      "description": "Choose the terminal cursor shape.",
+      "block": "Block",
+      "bar": "Bar",
+      "underline": "Underline"
+    }
+  },
+  "lensSection": {
+    "session": {
+      "title": "Session & Sign-in",
+      "description": "Control where Lens keeps website cookies and local browser storage. Saved account passwords are managed separately below.",
+      "repositoryProfile": {
+        "label": "Repository profile",
+        "description": "Share Lens sign-in across workspaces for this repository."
+      },
+      "workspaceIsolated": {
+        "label": "Workspace isolated",
+        "description": "Keep Lens sign-in separate for the active workspace."
+      },
+      "clearRepositoryData": "Clear repository data",
+      "clearWorkspaceData": "Clear workspace data"
+    },
+    "toasts": {
+      "selectWorkspace": "Select a workspace before clearing Lens data.",
+      "controlsUnavailable": "Lens session controls are unavailable.",
+      "clearFailed": "Failed to clear Lens data",
+      "repositoryCleared": "Repository Lens data cleared",
+      "workspaceCleared": "Workspace Lens data cleared",
+      "invalidHost": "Enter a valid host or URL.",
+      "hostAlreadyApproved": "Host is already approved"
+    },
+    "agentActivity": {
+      "title": "Agent Activity",
+      "description": "Choose how a hidden Lens session appears when an agent starts visual inspection or page interaction. Navigation, DOM reads, and diagnostics alone stay hidden.",
+      "splitRight": {
+        "label": "Show beside task",
+        "description": "Open Lens in a right split without taking focus from the task."
+      },
+      "backgroundTab": {
+        "label": "Background tab",
+        "description": "Add a Lens tab without changing the visible task surface."
+      },
+      "agentDecides": {
+        "label": "Agent decides",
+        "description": "Keep agent sessions hidden until the agent explicitly presents one."
+      }
+    },
+    "sourceMapping": {
+      "title": "Source Code Mapping",
+      "description": "Choose which strategies the element picker uses to help AI locate source files.",
+      "heuristic": {
+        "title": "Heuristic Search",
+        "description": "AI uses class names, text content, and IDs to search for source files via grep. Recommended for most repositories."
+      },
+      "reactDebugSource": {
+        "description": "Extract exact file and line number from React fiber internals. Only works with dev builds that include @babel/plugin-transform-react-jsx-source (enabled by default in Vite React plugin, CRA, and Next.js dev)."
+      }
+    },
+    "visualComments": {
+      "title": "Visual Comments",
+      "description": "Control whether visual comment screenshots are used only as local UI context or also sent to the selected AI provider.",
+      "screenshots": {
+        "title": "Send screenshots as AI image context",
+        "description": "Off by default. When enabled, screenshots captured through visual comment are included with the next message so the AI can inspect the selected region."
+      }
+    },
+    "developerMode": {
+      "title": "Developer Mode",
+      "description": "Control CDP-backed Lens actions such as screenshots, JavaScript evaluation, and agent page control. Approval prompts appear app-wide, even when the Lens panel is closed.",
+      "cdpTools": {
+        "title": "CDP Tools",
+        "description": "Ask before the first CDP action for each host. Allow once is temporary; always allow saves the hostname below."
+      },
+      "approvedHosts": "Approved CDP Hosts",
+      "hostPlaceholder": "localhost or https://example.com",
+      "hostAriaLabel": "CDP approved host",
+      "addHost": "Add host",
+      "hostHelp": "Enter a hostname or URL. Ports and paths are ignored, so <code>localhost</code> covers <code>localhost:3000</code>, <code>localhost:8899</code>, and other localhost ports.",
+      "removeHost": "Remove {{host}}",
+      "noHosts": "No hosts are pre-approved. The first CDP action will show an approval dialog."
+    },
+    "siteAccess": {
+      "title": "Site Access",
+      "description": "Restrict Lens navigation by hostname. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation, but CDP actions still require approval above.",
+      "allowed": {
+        "title": "Allowed Hosts",
+        "description": "One host per line. Leave empty to allow any host that is not blocked."
+      },
+      "blocked": {
+        "title": "Blocked Hosts",
+        "description": "One host per line. These hosts are blocked even when they also match the allow list."
+      }
+    }
+  },
+  "modelsSection": {
+    "routing": {
+      "title": "Model Routing",
+      "description": "Pick the default Claude and Codex models used for new turns. Stave falls back to its verified Codex baseline if the App Server catalog is unavailable.",
+      "claudeModelAriaLabel": "Claude model: {{model}}",
+      "codexModelAriaLabel": "Codex model: {{model}}",
+      "claudeEffort": {
+        "title": "Claude Effort",
+        "description": "Default reasoning effort applied to new Claude turns."
+      },
+      "codexEffort": {
+        "title": "Codex Effort",
+        "description": "Default reasoning effort applied to new Codex turns."
+      },
+      "utility": {
+        "title": "Utility AI",
+        "description": "Provider used for task names, route classification, commit messages, and prompt enhancement. Auto prefers Claude or Codex from the active task, then falls back through installed utility runners.",
+        "ariaLabel": "Utility AI provider"
+      }
+    }
+  },
+  "promptsSection": {
+    "field": {
+      "placeholder": "(empty = disabled)",
+      "usingDefault": "Using default",
+      "customised": "Customised",
+      "resetToDefault": "Reset to default"
+    },
+    "responseStyle": {
+      "title": "Response Style",
+      "description": "Formatting guidance injected into every Claude and Codex turn. Controls how the model structures its answers — headings, bullet lists, conciseness, etc.",
+      "field": {
+        "title": "Response Formatting Rules",
+        "description": "Appended to the system prompt (Claude) or injected as hidden developer instructions (Codex). Empty disables the injection."
+      }
+    },
+    "prDescription": {
+      "title": "Pull Request Description",
+      "description": "Template used when Stave auto-generates a PR title and body from the branch diff.",
+      "field": {
+        "title": "PR Description Prompt",
+        "description": "The instruction part of the prompt. Branch context (diff, commit log, file list) is appended automatically."
+      }
+    },
+    "prCompletion": {
+      "title": "PR Completion",
+      "description": "Controls the final steps after Stave creates a ready pull request.",
+      "autoMerge": {
+        "title": "Queue Auto-Merge",
+        "description": "After the ready PR is created, queue the selected merge strategy using GitHub's configured checks."
+      },
+      "mergeMethod": {
+        "title": "Merge Method",
+        "description": "Choose the strategy passed to GitHub when auto-merge is queued.",
+        "default": {
+          "label": "Repository default",
+          "description": "Let GitHub choose the configured strategy or merge queue."
+        },
+        "merge": {
+          "label": "Merge",
+          "description": "Create a merge commit."
+        },
+        "squash": {
+          "label": "Squash",
+          "description": "Combine the branch into one commit."
+        },
+        "rebase": {
+          "label": "Rebase",
+          "description": "Rebase and merge without a merge commit."
+        }
+      }
+    },
+    "inlineCompletion": {
+      "title": "Inline Code Completion",
+      "description": "System prompt for the FIM (fill-in-the-middle) code completion engine in the editor.",
+      "field": {
+        "title": "Completion System Prompt",
+        "description": "Controls how the model generates code completions. Must instruct the model to output raw code only."
+      }
+    },
+    "turnSummary": {
+      "title": "Workspace Latest Turn Summary",
+      "description": "Automatically writes a short 'what the user asked / what the AI did' summary to the top of the Information panel after each completed turn. Its model lives in Settings → Background AI.",
+      "field": {
+        "title": "Summary Prompt",
+        "description": "Instruction template for the Information panel's automatic latest-turn summary. Task title, latest user request, and latest assistant response are appended automatically. Empty disables automatic summaries."
+      }
+    }
+  },
+  "reviewCards": {
+    "tasks": {
+      "title": "Review Tasks",
+      "description": "The composer's Review button runs a read-only review in its own task, beside the task you are working in. When it finishes, attach its findings to your next message.",
+      "defaultReviewer": {
+        "title": "Default Reviewer",
+        "description": "The reviewer the dialog suggests. Other provider cross-checks the latest reply with the provider that did not write it. You can still pick any model when you start a review.",
+        "otherProvider": "Other provider"
+      },
+      "crossCheck": {
+        "title": "Cross-check With Both Providers",
+        "description": "Start a second, independent review on the other provider with each review. You can still turn it off in the dialog."
+      },
+      "claudeModel": "Claude Review Model",
+      "codexModel": "Codex Review Model",
+      "modelField": {
+        "description": "Used when this provider reviews. The default follows the provider's model setting.",
+        "defaultModel": "Default model ({{model}})"
+      },
+      "focus": {
+        "title": "Default Focus",
+        "description": "Focus areas selected when the dialog opens. Each adds an explicit instruction to the review.",
+        "ariaLabel": "Default review focus"
+      },
+      "skill": {
+        "title": "Review Skill",
+        "description": "A skill whose instructions every review follows, such as a team review checklist. Skills come from this workspace and your shared skills; a review cannot use one its reviewer cannot load.",
+        "none": "No skill",
+        "notInWorkspace": "${{slug}} (not in this workspace)"
+      },
+      "instructions": {
+        "title": "Review Instructions",
+        "description": "Added to every review prompt, for example risk areas your team always checks. Up to {{max}} characters.",
+        "placeholder": "For example: check that new settings are persisted and covered by a test."
+      },
+      "followUp": {
+        "title": "Follow-up Prompt",
+        "description": "Filled into an empty message when you attach a finished review, so asking the task to act on it is one send away. Empty turns it off.",
+        "placeholder": "(empty = attach only)",
+        "resetToDefault": "Reset to default"
+      },
+      "skillPreviewNote": "Skill precedence depends on the reviewer and workspace. Confirm the resolved instructions in the Review dialog."
+    },
+    "prePr": {
+      "title": "Pre-PR Review",
+      "description": "Run a best-effort one-shot AI review before Stave pushes a branch and opens a pull request.",
+      "enable": {
+        "title": "Review Before Opening PR",
+        "description": "Shows concrete findings in the PR dialog with options to stop and fix or proceed anyway. Model failures never block PR creation."
+      },
+      "provider": {
+        "title": "Review Provider",
+        "description": "Choose which provider runs the one-shot review. The provider uses its configured default model.",
+        "claudeDescription": "Uses the configured Claude model.",
+        "codexDescription": "Uses the configured Codex model."
+      }
+    }
+  },
+  "repositoriesSection": {
+    "panel": {
+      "settingsBadge": "Repository Settings",
+      "currentBadge": "Current",
+      "workspaceCount_one": "{{count}} workspace",
+      "workspaceCount_other": "{{count}} workspaces",
+      "defaultBranch": "default: {{branch}}",
+      "intro": "Review repository-specific workspace defaults, git metadata, scripts config, and removal actions for this repository."
+    },
+    "metadata": {
+      "refreshing": "Refreshing repository metadata...",
+      "terminalUnavailable": "Terminal bridge unavailable.",
+      "notGitRepository": "This repository folder is unavailable or is no longer a git repository.",
+      "remotesConfigured_one": "{{count}} remote configured.",
+      "remotesConfigured_other": "{{count}} remotes configured.",
+      "noGitRemotes": "No git remotes configured.",
+      "inspectRemotesFailed": "Failed to inspect git remotes."
+    },
+    "appearance": {
+      "title": "Repository Appearance",
+      "description": "Give each repository a stable visual identity across the sidebar and repository switcher.",
+      "icon": {
+        "title": "Icon",
+        "description": "Choose a shape that makes this repository recognizable at a glance.",
+        "legend": "Repository icon"
+      },
+      "color": {
+        "title": "Color",
+        "description": "Color applies to the repository icon while the surrounding surface follows the active theme.",
+        "legend": "Repository color"
+      },
+      "sidebarPreview": "Sidebar preview"
+    },
+    "settings": {
+      "title": "Repository Settings",
+      "description": "Repository-specific defaults, git metadata, and list management for this repository.",
+      "instructions": {
+        "title": "Repository Instructions",
+        "description": "Prepended to every Claude and Codex turn for this repository. Use it for repo-specific guardrails, tooling preferences, and workflow rules.",
+        "placeholder": "Prefer bun over npm. Preserve existing Zustand selector stability patterns. Keep documentation in sync with user-facing changes."
+      },
+      "postCreateCommand": {
+        "title": "Post-Create Command",
+        "description": "Runs once in the new workspace root after creation. Useful for `bun install`, `npm install`, or multi-line bootstrap commands."
+      },
+      "kickoffBranchNaming": {
+        "title": "Kickoff Branch Naming Rule",
+        "description": "Included in workspace kickoff resolution for this repository. Use it to encode repository-specific prefixes, ticket conventions, or casing rules.",
+        "placeholder": "Use feat/<jira-key>-<short-description> for feature work and fix/<jira-key>-<short-description> for bugs."
+      },
+      "rootNodeModules": {
+        "title": "Reuse Root node_modules",
+        "description": "Creates `node_modules` in each new worktree as a symlink to the repository root install. Faster startup, but later installs in that workspace will modify the shared dependency tree.",
+        "toggleTitle": "Enable shared `node_modules` symlink",
+        "toggleHint": "The symlink exists only inside the created workspace, so deleting the workspace leaves the repository root untouched."
+      },
+      "rootPath": {
+        "title": "Repository Root Path",
+        "notDetected": "Not detected"
+      },
+      "remoteStatus": {
+        "title": "Remote Status",
+        "noRemotes": "No remotes configured.",
+        "configured": "configured",
+        "fetchUrl": "fetch: {{url}}",
+        "pushUrl": "push: {{url}}"
+      },
+      "remove": {
+        "title": "Remove repository",
+        "description": "Removes this repository from Stave's registered repository list without deleting files on disk.",
+        "button": "Remove repository"
+      }
+    },
+    "workspaceTools": {
+      "title": "Workspace Tools",
+      "description": "One-shot commands, long-running processes, lifecycle triggers, and execution environments for this repository.",
+      "manage": "Manage workspace tools",
+      "commandCount_one": "{{count}} Command",
+      "commandCount_other": "{{count}} Commands",
+      "processCount_one": "{{count}} Process",
+      "processCount_other": "{{count}} Processes",
+      "triggerCount_one": "{{count}} Trigger",
+      "triggerCount_other": "{{count}} Triggers",
+      "environmentCount_one": "{{count}} Environment",
+      "environmentCount_other": "{{count}} Environments",
+      "footer": "Configure and run them from the dedicated Workspace Tools section."
+    },
+    "empty": {
+      "title": "No Repositories Yet",
+      "description": "Open a repository from the sidebar to register it here.",
+      "body": "Registered repositories will show their repository defaults and metadata in this section."
+    },
+    "noSelection": {
+      "title": "Repository Details",
+      "description": "Choose a repository from the Settings sidebar to open its settings panel.",
+      "body": "Pick a repository from the sidebar to inspect its workspace defaults and repository metadata."
+    },
+    "removeDialog": {
+      "title": "Remove Repository",
+      "description": "Remove \"{{name}}\" from Stave's repository list? This does not delete files on disk.",
+      "confirm": "Remove Repository"
+    }
+  },
+  "skillsSection": {
+    "skills": {
+      "title": "Skills",
+      "description": "Control skill suggestions and automatic prompting.",
+      "enabled": "Enabled",
+      "autoSuggest": "Auto Suggest",
+      "sharedRoot": {
+        "title": "Shared Skills Root",
+        "description": "Optional shared global skill directory. Leave blank to follow STAVE_SHARED_SKILLS_HOME when present. Supports ~/..."
+      }
+    },
+    "detected": {
+      "title": "Detected Skills",
+      "description": "Stave scans global, user, and workspace-local skill roots. The shared global root follows Settings first, then STAVE_SHARED_SKILLS_HOME.",
+      "refreshing": "Refreshing catalog...",
+      "discoveryFailed": "Skill discovery failed",
+      "summary_one": "{{count}} skill across {{roots}} roots",
+      "summary_other": "{{count}} skills across {{roots}} roots",
+      "lastUpdated": "Last updated {{time}}",
+      "roots": "Roots",
+      "noRoots": "No skill roots were discovered for the current workspace.",
+      "rootSkillCount_one": "{{count}} skill",
+      "rootSkillCount_other": "{{count}} skills",
+      "catalog": "Catalog",
+      "loading": "Loading skills...",
+      "empty": "No SKILL.md entries were found."
+    },
+    "scopes": {
+      "global": "global",
+      "user": "user",
+      "local": "local"
+    }
+  },
+  "commandPaletteSection": {
+    "behavior": {
+      "title": "Behavior",
+      "description": "Pinned commands appear first, hidden commands stay out of the palette, and recent history can be shown as its own section.",
+      "recentCommands": "Recent Commands",
+      "clearRecent": "Clear Recent History",
+      "resetPalette": "Reset Palette Settings"
+    },
+    "shellChords": {
+      "title": "Shell Shortcut Chords",
+      "description": "Keep panel and navigation shortcuts on a single Cmd/Ctrl+K prefix so they do not collide with editor and IDE bindings.",
+      "resetDefaults": "Reset Default Chords",
+      "clearAll": "Clear All Chords",
+      "conflictNote": "Assigning a key moves it off any conflicting shell command automatically.",
+      "then": "then",
+      "stateGroup": "Shortcut State",
+      "assignableKeys": "Assignable Keys",
+      "currentChord": "Current chord: {{chord}}."
+    },
+    "composerShortcut": {
+      "title": "Composer Shortcut",
+      "description": "Choose the shortcut that stages the current prompt text as a comment instead of sending it.",
+      "stageComment": {
+        "title": "Stage Comment",
+        "description": "The staged comment appears under the composer and is merged into the next sent prompt."
+      },
+      "shortcutGroup": "Shortcut"
+    },
+    "lensShortcut": {
+      "title": "Lens Shortcut",
+      "description": "Choose the shortcut that toggles Lens visual comment mode.",
+      "visualComment": {
+        "title": "Visual Comment",
+        "description": "The shortcut turns visual comment picking on or off while Lens is available."
+      },
+      "shortcutGroup": "Shortcut"
+    },
+    "modelShortcuts": {
+      "title": "Model Shortcuts",
+      "description": "Map Alt+1..0 to prompt models and optional effort overrides. These shortcuts switch the active task provider and draft model immediately.",
+      "resetDefaults": "Reset Default Shortcuts",
+      "clearAll": "Clear All Shortcuts",
+      "slotTitle": "Model Slot {{slot}}",
+      "defaultModel": "Default: {{model}}",
+      "unassigned": "Unassigned",
+      "stateGroup": "Shortcut State",
+      "recommended": "Recommended",
+      "allModels": "All Models",
+      "effort": "Effort",
+      "effortAriaLabel": "Effort for Model Slot {{slot}}",
+      "useCurrentEffort": "Use current effort",
+      "selectionWithEffort": "Currently selects {{model}} on {{provider}} with {{effort}} effort.",
+      "selectionWithCurrentEffort": "Currently selects {{model}} on {{provider}} with the current effort setting.",
+      "noModel": "No model assigned. The shortcut stays inactive until you set one."
+    },
+    "visibility": {
+      "title": "Command Visibility",
+      "description": "Pin the core actions you use most, or hide the ones you never want in the global palette.",
+      "pinned": "Pinned",
+      "hidden": "Hidden",
+      "pin": "Pin",
+      "unpin": "Unpin"
+    },
+    "contributors": {
+      "title": "Programmatic Contributors",
+      "description": "The palette is backed by a registry so internal modules can add commands without coupling to the dialog component.",
+      "body": "Use <code>registerCommandPaletteContributor()</code> to inject additional commands. Core Stave commands are customizable here; dynamic workspace/task entries and future contributed commands inherit the same execution surface automatically."
+    }
+  },
+  "developerSection": {
+    "providerTimeout": {
+      "title": "Provider Timeout",
+      "description": "Maximum time to wait for a Claude or Codex runtime response before showing a timeout error.",
+      "windowTitle": "Timeout Window",
+      "windowDescription": "Default is 12 hours so long-running coding turns, refactors, and tool-heavy sessions do not time out too early."
+    },
+    "codexBinary": {
+      "title": "Codex Binary",
+      "description": "Override the path to the local `codex` binary. Leave empty to use the system install discovered from your PATH/home bin locations.",
+      "baselineTitle": "Supported Codex baseline",
+      "baselineBody": "Stave targets the Codex App Server path in local `codex` CLI `{{version}}`. Older binaries may work for existing features, but newly adopted controls must be capability-gated. Update Codex or point this field at the version you want Stave to use."
+    },
+    "claudeBinary": {
+      "title": "Claude Binary",
+      "description": "Override the path to the local `claude` binary. Leave empty to let Stave auto-select the newest working Claude install it can resolve.",
+      "note": "Use this when the shell `claude` auth state and Stave's Tooling panel disagree, or when multiple Claude installs exist on the same machine."
+    },
+    "claudeRuntime": {
+      "title": "Claude Runtime Tools",
+      "description": "Inspect current Claude session/workspace context pressure and refresh plugin-driven commands without leaving Stave.",
+      "inspectContext": "Inspect Context Usage",
+      "loadingContext": "Loading Context...",
+      "reloadPlugins": "Reload Plugins",
+      "reloadingPlugins": "Reloading Plugins...",
+      "workspace": "Workspace",
+      "processCwd": "<process cwd>",
+      "settingSources": "Setting Sources",
+      "taskBudget": "Task Budget",
+      "contextUsage": "Context usage",
+      "memoryFiles": "Memory files",
+      "mcpTools": "MCP tools",
+      "commands": "Commands",
+      "agents": "Agents",
+      "plugins": "Plugins",
+      "errors": "Errors",
+      "contextApiUnavailable": "Claude context usage API unavailable.",
+      "contextLoadFailed": "Failed to load Claude context usage.",
+      "pluginApiUnavailable": "Claude plugin reload API unavailable.",
+      "pluginReloadFailed": "Failed to reload Claude plugins."
+    },
+    "debugLogging": {
+      "title": "Provider Debug Logging",
+      "description": "Enables verbose stream event logging for all providers in the Electron main-process console."
+    },
+    "gpu": {
+      "title": "GPU Acceleration",
+      "description": "Electron-reported compositor status for diagnosing WSL2 and filtered transparency performance.",
+      "hardwareAcceleration": "Hardware acceleration",
+      "enabled": "enabled",
+      "disabled": "disabled",
+      "loading": "Loading GPU status…",
+      "apiUnavailable": "GPU status API unavailable.",
+      "loadFailed": "Failed to load GPU status."
+    },
+    "localMcp": {
+      "title": "Local MCP Server",
+      "description": "Manage the packaged-app loopback MCP endpoint used by same-machine bots and helpers.",
+      "descriptionWithOptIn": "Manage the packaged-app loopback MCP endpoint used by same-machine bots and helpers. CLI auto-registration stays off until you explicitly enable it.",
+      "optInNote": "`Claude Code` and `Codex` are opt-in. Stave only writes its managed MCP entry to your user-level CLI config files after you turn those settings on.",
+      "server": {
+        "title": "Server",
+        "description": "Enable or disable the localhost MCP surface exposed by the desktop app."
+      },
+      "port": {
+        "title": "Port",
+        "description": "A fixed port keeps the endpoint stable across restarts, so clients that cached it keep working. Use `0` to let Stave choose any available localhost port instead."
+      },
+      "claudeCode": {
+        "description": "Opt-in and off by default. When enabled, Stave manages only its own user-scope MCP entry in Claude Code's `.claude.json` (under `CLAUDE_CONFIG_DIR`, or `~/.claude.json`) for the external Claude Code app. This does not affect Stave's internal Claude runtime."
+      },
+      "codex": {
+        "description": "Opt-in and off by default. When enabled, Stave manages only its own MCP entry in `~/.codex/config.toml` for Codex. Stave also injects the current token into the in-app Codex runtime env."
+      },
+      "browserTools": {
+        "title": "Lens browser tools",
+        "description": "Expose the ~27 `stave_lens_*` browser tools to connected agents. Every tool schema is part of the prompt of each new provider session, so turning this off measurably shrinks the prompt for workspaces that never drive a browser from an agent turn."
+      },
+      "token": {
+        "title": "Token",
+        "description": "Bearer token required by local clients. Rotate it to immediately revoke previous access.",
+        "rotate": "Rotate"
+      },
+      "info": {
+        "status": "Status",
+        "configFile": "Config file",
+        "claudeSettings": "Claude settings",
+        "codexConfig": "Codex config",
+        "mcpUrl": "MCP URL",
+        "healthUrl": "Health URL",
+        "manifest": "Manifest"
+      },
+      "serverState": {
+        "running": "running",
+        "stopped": "stopped",
+        "disabled": "disabled"
+      },
+      "registrationState": {
+        "error": "error",
+        "notManaged": "not managed",
+        "registered": "registered",
+        "stale": "stale",
+        "notInstalled": "not installed"
+      },
+      "actions": {
+        "refreshStatus": "Refresh Status",
+        "copyUrl": "Copy URL",
+        "copyConfigPath": "Copy Config Path"
+      },
+      "detail": {
+        "loading": "Loading local MCP server status...",
+        "apiUnavailable": "Local MCP settings API unavailable.",
+        "loadFailed": "Failed to load local MCP status.",
+        "running": "Local MCP server is running.",
+        "configuredNotRunning": "Local MCP server is configured but not currently running.",
+        "disabled": "Local MCP server is disabled.",
+        "restarting": "Restarting local MCP server...",
+        "updateFailed": "Failed to update local MCP settings.",
+        "savedAndRestarted": "Local MCP settings saved and server restarted.",
+        "saved": "Local MCP settings saved.",
+        "serverDisabled": "Local MCP server disabled.",
+        "rotating": "Generating a new local MCP token and restarting the server...",
+        "rotateFailed": "Failed to rotate local MCP token.",
+        "rotated": "Generated a new local MCP token and restarted the server."
+      },
+      "copy": {
+        "token": {
+          "copied": "Token copied to clipboard.",
+          "failed": "Failed to copy token."
+        },
+        "mcpUrl": {
+          "copied": "MCP URL copied to clipboard.",
+          "failed": "Failed to copy MCP URL."
+        },
+        "configPath": {
+          "copied": "Config path copied to clipboard.",
+          "failed": "Failed to copy config path."
+        }
+      }
+    },
+    "requestLog": {
+      "title": "Local MCP Request Log",
+      "description": "Captures recent inbound requests to the embedded local MCP server.",
+      "newer": "Newer",
+      "older": "Older",
+      "empty": "No requests yet. Health checks are excluded, the latest page auto-refreshes while it stays open, and payloads load only when you expand a row.",
+      "columns": {
+        "time": "Time",
+        "request": "Request",
+        "status": "Status",
+        "payload": "Payload"
+      },
+      "page": "Page {{page}} of {{totalPages}}",
+      "autoRefreshing": "Auto-refreshing latest page every {{seconds}}s.",
+      "autoRefreshPaused": "Auto-refresh is paused on older pages to keep pagination stable.",
+      "detail": {
+        "loading": "Loading local MCP request logs...",
+        "apiUnavailable": "Local MCP request log API unavailable.",
+        "loadFailed": "Failed to load local MCP request logs.",
+        "clearing": "Clearing local MCP request logs...",
+        "clearFailed": "Failed to clear local MCP request logs.",
+        "cleared_one": "Cleared {{count}} local MCP request log.",
+        "cleared_other": "Cleared {{count}} local MCP request logs.",
+        "none": "No local MCP requests recorded yet.",
+        "summaryLive_one": "Showing {{start}}-{{end}} of {{count}} local MCP request (page {{page}} of {{totalPages}}). Auto-refresh is active on this page.",
+        "summaryLive_other": "Showing {{start}}-{{end}} of {{count}} local MCP requests (page {{page}} of {{totalPages}}). Auto-refresh is active on this page.",
+        "summaryPaused_one": "Showing {{start}}-{{end}} of {{count}} local MCP request (page {{page}} of {{totalPages}}). Auto-refresh pauses while browsing older pages.",
+        "summaryPaused_other": "Showing {{start}}-{{end}} of {{count}} local MCP requests (page {{page}} of {{totalPages}}). Auto-refresh pauses while browsing older pages."
+      },
+      "payload": {
+        "none": "No payload",
+        "show": "View request payload",
+        "hide": "Hide request payload",
+        "loading": "Loading request payload...",
+        "notRecorded": "No payload recorded for this request.",
+        "loadFailed": "Failed to load request payload."
+      }
+    }
+  },
+  "dialog": {
+    "title": "Settings",
+    "backToApp": "Back to app",
+    "search": {
+      "label": "Search settings",
+      "clear": "Clear settings search",
+      "results": "Search results",
+      "noMatches": "No settings match \"{{query}}\"."
+    },
+    "noRepositories": "No repositories yet",
+    "currentRepository": "current",
+    "sectionSelect": "Settings section"
+  },
+  "shared": {
+    "choiceGroupFallbackLabel": "Setting",
+    "toggleGroupFallbackLabel": "Settings",
+    "guide": {
+      "trigger": "About {{title}}",
+      "tooltip": "Show guidance",
+      "examples": "Examples"
+    }
+  },
+  "sections": {
+    "general": {
+      "label": "General",
+      "description": "Workspace defaults, notifications, and app behavior."
+    },
+    "presets": {
+      "label": "Presets",
+      "description": "Reusable prompt and provider presets."
+    },
+    "macros": {
+      "label": "Macros",
+      "description": "Reusable prompt snippets with optional model pins and instant run."
+    },
+    "projects": {
+      "label": "Repositories",
+      "description": "Repository-level paths, setup prompts, and workspace defaults."
+    },
+    "scripts": {
+      "label": "Workspace Tools",
+      "description": "Long-running processes you leave up while developing, plus one-shot commands, lifecycle triggers, and environments."
+    },
+    "theme": {
+      "label": "Design",
+      "description": "Theme, color, and visual styling."
+    },
+    "chat": {
+      "label": "Chat",
+      "description": "Task mode, chat typography, streaming, reasoning, and active-turn behavior."
+    },
+    "providers": {
+      "label": "Providers",
+      "description": "Claude, Codex, Cursor, and Kiro provider runtime settings."
+    },
+    "models": {
+      "label": "Models",
+      "description": "Default model selection, visibility, and Utility AI provider."
+    },
+    "autoRouting": {
+      "label": "Auto (Model Router)",
+      "description": "How Auto sizes each turn: a level picks the model, your preference sets the effort."
+    },
+    "codex": {
+      "label": "Codex Inspector",
+      "description": "Advanced App Server, plugin, thread, command, and config diagnostics."
+    },
+    "mcp": {
+      "label": "MCP",
+      "description": "Model Context Protocol servers and runtime status."
+    },
+    "integrations": {
+      "label": "Integrations",
+      "description": "Personal outbound connectors and external task sources."
+    },
+    "issues": {
+      "label": "Issues",
+      "description": "Assigned ticket list defaults: starting view, refresh cadence, and how a kickoff begins."
+    },
+    "kickoff": {
+      "label": "Kickoff",
+      "description": "External source matching and workspace proposal settings."
+    },
+    "auxiliaryInference": {
+      "label": "Background AI",
+      "description": "Background model calls Stave makes on your behalf, and what each one costs."
+    },
+    "prompts": {
+      "label": "Prompts",
+      "description": "Default prompt text, response instructions, and review settings."
+    },
+    "memory": {
+      "label": "Memory",
+      "description": "Repository memory collection, recall, templates, and reset controls."
+    },
+    "skills": {
+      "label": "Skills",
+      "description": "Skill discovery and prompt input suggestions."
+    },
+    "commandPalette": {
+      "label": "Command Palette",
+      "description": "Global command launcher, shell shortcut chords, and model hotkeys."
+    },
+    "terminal": {
+      "label": "Terminal",
+      "description": "Integrated terminal typography and cursor behavior."
+    },
+    "editor": {
+      "label": "Editor",
+      "description": "Editor typography, display, and language tooling."
+    },
+    "tooling": {
+      "label": "Tooling",
+      "description": "Claude and Codex accounts, API connections, and local tool health checks."
+    },
+    "lens": {
+      "label": "Lens",
+      "description": "Browser Lens sessions and visual comment capture."
+    },
+    "secrets": {
+      "label": "Secrets",
+      "description": "Encrypted API tokens and other secret values."
+    },
+    "developer": {
+      "label": "Developer",
+      "description": "Developer diagnostics and internal runtime toggles."
+    },
+    "changelog": {
+      "label": "Changelog",
+      "description": "Release notes and product changes."
+    },
+    "groups": {
+      "workspace": "Workspace",
+      "appearance": "Appearance",
+      "repositories": "Repositories",
+      "aiAgents": "AI & Agents",
+      "interface": "Interface",
+      "systemAdvanced": "System & Advanced"
+    },
+    "fields": {
+      "autoRoutingEnabled": {
+        "title": "Enable Auto routing",
+        "description": "Global kill switch for the model router behind the composer's Auto option."
+      },
+      "autoRoutingProfile": {
+        "title": "Auto routing profile",
+        "description": "Routing levels, preference, allowed models, usage budget, signals, and rules the router reads."
+      },
+      "accountUsageLimit": {
+        "title": "Stop turns at 100% usage",
+        "description": "When Claude, Codex, Cursor, or Kiro reports included account usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish."
+      },
+      "auxiliaryInference": {
+        "title": "Background AI",
+        "description": "Per-lane switch, provider, and model for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated tasks."
+      },
+      "promptStyle": {
+        "title": "Prompt style",
+        "description": "How you like prompts written: language, tone, detail level, and anything Enhance should always include or never add. Sent with every Enhance request when non-empty."
+      },
+      "promptLearnFromEdits": {
+        "title": "Learn from kept and undone rewrites",
+        "description": "Remembers the last few Enhance results you kept or undid and shows them to the rewrite model as examples. Stored locally with your settings."
+      },
+      "modelVisibility": {
+        "title": "Selector models",
+        "description": "Per-provider overrides for which catalog models the model selector lists by default."
+      },
+      "craneConnector": {
+        "title": "Crane connector",
+        "description": "Pair this Stave installation with your Crane account for locally approved, outbound-only task dispatch."
+      },
+      "jiraConnector": {
+        "title": "Jira connector",
+        "description": "Read your assigned Jira Cloud issues over outbound HTTPS and map Jira projects to local Stave repositories."
+      },
+      "trackerIssues": {
+        "title": "Issues",
+        "description": "Opens on tickets assigned to you. Choose which trackers Issues reads, the first tab, the refresh interval, and whether a kickoff starts immediately."
+      },
+      "martinSync": {
+        "title": "Martin sync",
+        "description": "Push workspace events and resource links to a linked Martin project and pull its context snapshot."
+      },
+      "claudeAccounts": {
+        "title": "Claude accounts",
+        "description": "Keep more than one Claude sign-in, such as work and personal: add one, sign in, and choose the account new turns use."
+      },
+      "codexAccounts": {
+        "title": "Codex accounts",
+        "description": "Keep more than one Codex sign-in, such as work and personal: add one, sign in, and choose the account new turns use."
+      },
+      "apiConnections": {
+        "title": "API connections",
+        "description": "Send Claude and Codex turns through a gateway such as Vercel AI Gateway with one key, billed per token instead of a subscription."
+      },
+      "standaloneCliFolder": {
+        "title": "Standalone CLI folder",
+        "description": "Absolute folder the Standalone CLI overlay runs every AI CLI in, without registering it as a repository."
+      },
+      "reviewTask": {
+        "title": "Review Tasks",
+        "description": "Default review rubric, preset, installed skill, custom prompt, models and follow-up instructions."
+      }
+    }
+  },
+  "macroEditor": {
+    "swapTheCurrentComposerTextFor": "Swap the current composer text for this prompt.",
+    "append": "Append",
+    "addThisPromptAfterTheCurrent": "Add this prompt after the current composer text.",
+    "prepend": "Prepend",
+    "addThisPromptBeforeTheCurrent": "Add this prompt before the current composer text.",
+    "label": "Label",
+    "theNameShownInSettingsThe": "The name shown in Settings, the Macros control, and the left-wing quick picks.",
+    "conventionalCommit": "Conventional commit",
+    "slug": "Slug",
+    "typeInTheComposerToInsert": "Type !{{value1}} in the composer to insert this macro.",
+    "optionalHintShownUnderTheLabel": "Optional hint shown under the label in the composer picker.",
+    "writeAConventionalCommitMessage": "Write a conventional commit message",
+    "theTextInsertedIntoTheComposer": "The text inserted into the composer. Instant-run macros send this as soon as they are applied.",
+    "insertMode": "Insert mode",
+    "chooseHowThisPromptCombinesWith": "Choose how this prompt combines with whatever is already in the composer.",
+    "macroInsertMode": "Macro insert mode",
+    "runImmediately": "Run immediately",
+    "sendThePromptAsSoonAs": "Send the prompt as soon as this macro is applied, instead of leaving it in the composer to edit.",
+    "pinModel": "Pin model",
+    "overrideThisTurnSModelAnd": "Override this turn's model and effort when the macro is applied.",
+    "theExecutionProviderUsedForThis": "The execution provider used for this macro's pinned model.",
+    "theModelUsedWhenThisMacro": "The model used when this macro is applied.",
+    "leaveOnTheModelDefaultOr": "Leave on the model default, or pin an effort for this macro.",
+    "defaultPerModel": "Default (per model)",
+    "enterALabelAndASlug": "Enter a label and a slug like conventional-commit."
+  },
+  "repositoryAppearance": {
+    "folder": "Folder",
+    "code": "Code",
+    "layers": "Layers",
+    "package": "Package",
+    "database": "Database",
+    "sparkles": "Sparkles",
+    "bot": "Bot",
+    "blocks": "Blocks",
+    "braces": "Braces",
+    "globe": "Globe",
+    "rocket": "Rocket",
+    "blue": "Blue",
+    "violet": "Violet",
+    "emerald": "Emerald",
+    "amber": "Amber",
+    "rose": "Rose",
+    "slate": "Slate"
+  },
+  "settingsDialogIssuesSection": {
+    "assignedToMe": "Assigned to me",
+    "allOpen": "All open",
+    "recentlyDone": "Recently done",
+    "alreadyInStave": "Already in Stave",
+    "startTheRunImmediately": "Start the run immediately",
+    "stageThePromptInTheComposer": "Stage the prompt in the composer",
+    "theTicketListOpensOnAssigned": "The ticket list opens on Assigned to me, with no extra filters. Chips you pick narrow that list; Reset clears the chips and keeps the tab.",
+    "defaultView": "Default view",
+    "firstTabWhenYouOpenIssues": "First tab when you open Issues. Assigned to me is the default. Filter chips start empty, so you see every ticket in that tab until you pick one.",
+    "refreshIntervalSeconds": "Refresh interval (seconds)",
+    "currently": "Currently",
+    "whenATicketStartsWork": "When a ticket starts work",
+    "stagingLeavesTheGeneratedPromptIn": "Staging leaves the generated prompt in the composer so you can edit it before the first turn.",
+    "sources": "Sources",
+    "chooseWhichTrackersIssuesReadsPairing": "Choose which trackers Issues reads. Pairing and credentials stay under Settings → Integrations. Jira is first in the list; Crane follows.",
+    "usedInTheIssuesList": "Used in the Issues list.",
+    "hiddenFromIssuesPairingAndCredentials": "Hidden from Issues. Pairing and credentials are unchanged.",
+    "setUp": "Set up",
+    "openSettingsIntegrations": "Open Settings → Integrations"
+  },
+  "settingsDialogMacrosSection": {
+    "saveReusablePromptsAndInsertThem": "Save reusable prompts and insert them from the composer with !. Optionally pin a model, or send the prompt as soon as the macro is applied.",
+    "addMacro": "Add macro",
+    "noMacrosYetAddOneTo": "No macros yet. Add one to insert a saved prompt from the composer toolbar or by typing !.",
+    "instant": "Instant",
+    "moveUp": "Move {{value1}} up",
+    "moveDown": "Move {{value1}} down",
+    "edit": "Edit {{value1}}",
+    "delete": "Delete {{value1}}",
+    "saveMacro": "Save macro",
+    "deleteSavedMacro": "Delete saved macro?",
+    "willBeRemovedFromSettingsAnd": "!{{value1}} will be removed from Settings and the composer.",
+    "thisMacroWillBeRemovedFrom": "This macro will be removed from Settings and the composer.",
+    "deleteMacro": "Delete macro",
+    "runsImmediately": "runs immediately",
+    "keepsTheCurrentModel": "keeps the current model"
+  },
+  "settingsDialogPresetsSection": {
+    "cliSession": "{{value1}} CLI session",
+    "presetBar": "Preset Bar",
+    "showThePresetBarBetweenTask": "Show the preset bar between task tabs and the main chat surface.",
+    "showPresetBar": "Show Preset Bar",
+    "hideTheRowWithoutDeletingIts": "Hide the row without deleting its presets. The task-tab overflow menu can toggle this too.",
+    "managePresets": "Manage Presets",
+    "addEditDeleteAndReorderThe": "Add, edit, delete, and reorder the quick-launch presets used by the bar and keyboard shortcuts.",
+    "addPreset": "Add preset",
+    "restoreDefaultPresets": "Restore Default Presets",
+    "noPresetsYetAddOneTo": "No presets yet. Add one to create task and CLI-session launch shortcuts.",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "editPreset": "Edit preset",
+    "deletePreset": "Delete preset",
+    "savePreset": "Save preset"
+  },
+  "settingsDialogScriptsSection": {
+    "openARepositoryFromTheSidebar": "Open a repository from the sidebar to configure its processes and commands.",
+    "configurationRepository": "Configuration repository",
+    "selectARepository": "Select a repository",
+    "current": " (current)"
+  },
+  "settingsDialogStandaloneCliCard": {
+    "standaloneCLI": "Standalone CLI",
+    "runClaudeCodeCodexCursorAnd": "Run Claude Code, Codex, Cursor, and Kiro against one folder without registering it as a repository.",
+    "standaloneCLIFolder": "Standalone CLI Folder",
+    "absolutePathChangingItRestartsEvery": "Absolute path. Changing it restarts every CLI tab in the new folder and discards their conversations.",
+    "enterAnAbsoluteFolderPath": "Enter an absolute folder path."
+  },
+  "settingsDialogCommandPaletteSection": {
+    "currentChord": "Current chord:",
+    "theCurrentEffortSetting": "the current effort setting",
+    "modelSlot": "Model Slot",
+    "default": "Default:",
+    "effortForModelSlot": "Effort for Model Slot {{value1}}",
+    "currentlySelectsOnWith": "Currently selects {{value1}} on {{value2}} with {{value3}}.",
+    "effort": "{{value1}} effort"
+  },
+  "settingsDialogLensSection": {
+    "remove": "Remove {{value1}}",
+    "reactDebugSource": "React _debugSource"
+  },
+  "settingsDialogRepositoriesSection": {
+    "remoteConfigured": "{{value1}} remote{{value2}} configured.",
+    "workspace": "workspace",
+    "default": "default:",
+    "fetch": "fetch:",
+    "push": "push:",
+    "removesThisRepositoryFromStaveApos": "Removes this repository from Stave&apos;s registered repository list without deleting files on disk.",
+    "configureAndRunThemFromThe": "Configure and run them from the dedicated",
+    "section": "section.",
+    "removeFromStaveSRepositoryList": "Remove \"{{value1}}\" from Stave's repository list? This does not delete files on disk.",
+    "processes": "Processes",
+    "triggers": "Triggers",
+    "environments": "Environments"
+  },
+  "settingsDialogReviewCards": {
+    "defaultModel": "Default model ({{value1}})",
+    "notInThisWorkspace": "${{value1}} (not in this workspace)",
+    "addedToEveryReviewPromptFor": "Added to every review prompt, for example risk areas your team always checks. Up to {{value1}} characters."
+  },
+  "settingsDialogSkillsSection": {
+    "skillsAcrossRoots": "{{value1}} skills across {{value2}} roots",
+    "lastUpdated": "Last updated",
+    "skills": "skills"
+  },
+  "settingsDialogThemeSection": {
+    "by": "by",
+    "userThemes": "user themes",
+    "dropA": "Drop a",
+    "fileToInstallACommunityTheme": "file to install a community theme. The JSON must include",
+    "andA": ", and a",
+    "map": "map.",
+    "preset": "Preset:"
+  },
+  "taskPresetEditor": {
+    "type": "Type",
+    "cliSession": "CLI session",
+    "cursorAgent": "Cursor Agent"
+  },
+  "settingsDialogChangelogSection": {
+    "releaseNotes": "Release notes",
+    "sourcedFromTheRepositoryCHANGELOGMd": "Sourced from the repository CHANGELOG.md bundled with this build."
+  },
+  "settingsDialogDeveloperSection": {
+    "staveTargetsTheCodexAppServer": "Stave targets the Codex App Server path in local `codex` CLI `0.145.0`. Older binaries may work for existing features, but newly adopted controls must be capability-gated. Update Codex or point this field at the version you want Stave to use.",
+    "useThisWhenTheShellClaude": "Use this when the shell `claude` auth state and Stave&apos;s Tooling panel disagree, or when multiple Claude installs exist on the same machine.",
+    "copiedToClipboard": "{{value1}} copied to clipboard.",
+    "failedToCopy": "Failed to copy {{value1}}.",
+    "showingOfLocalMCPRequestsPage": "Showing {{value1}}-{{value2}} of {{value3}} local MCP requests (page {{value4}} of {{value5}}). {{value6}}",
+    "clearedLocalMCPRequestLog": "Cleared {{value1}} local MCP request log{{value2}}.",
+    "page": "Page",
+    "justNow": "just now",
+    "configPath": "Config path",
+    "autoRefreshIsActiveOnThis": "Auto-refresh is active on this page.",
+    "autoRefreshPausesWhileBrowsingOlder": "Auto-refresh pauses while browsing older pages."
+  },
+  "settingsDialogKickoffSection": {
+    "noMatcherConfigured": "No matcher configured",
+    "resolutionPrompt": "Resolution prompt",
+    "instructsTheOneShotResolverSource": "Instructs the one-shot resolver. Source metadata, repository instructions, and branch naming rules are appended automatically. Empty skips AI resolution.",
+    "kickoffSources": "Kickoff Sources",
+    "enabledMatchersClassifyPastedURLsOr": "Enabled matchers classify pasted URLs or keys. MCP dependencies improve resolution but never block workspace creation.",
+    "refreshMCP": "Refresh MCP",
+    "customSource": "Custom source",
+    "addSource": "Add source",
+    "builtIn": "Built-in",
+    "moveEarlier": "Move {{value1}} earlier",
+    "moveLater": "Move {{value1}} later",
+    "found": "found",
+    "missing": "missing",
+    "informationPanelTarget": "Information panel target",
+    "hostSuffixes": "Host suffixes",
+    "pathRegex": "Path regex",
+    "keyRegex": "Key regex",
+    "mcpServerNames": "MCP server names",
+    "resolutionHint": "Resolution hint",
+    "removeSource": "Remove source",
+    "noConfiguredSourcesFreeFormPrompts": "No configured sources. Free-form prompts still work.",
+    "sourceOrderControlsMatchPriorityConfluence": "Source order controls match priority. Confluence precedes Jira by default because they can share a host.",
+    "restoreDefaultSources": "Restore default sources",
+    "resolution": "Resolution",
+    "thePrimaryAndFallbackModelsProduce": "The primary and fallback models produce the editable preview. If both fail, deterministic parsing still creates a proposal.",
+    "primaryModel": "Primary model",
+    "preferredModelForSourceResolutionAnd": "Preferred model for source resolution and proposal generation.",
+    "usedWhenThePrimaryModelIs": "Used when the primary model is unavailable or returns an invalid proposal."
+  },
+  "appStoreCompareActions": {
+    "writeAPromptBeforeStartingA": "Write a prompt before starting a compare run.",
+    "compareRunPromptIsRequired": "Compare run prompt is required.",
+    "openARepositoryBeforeStartingA": "Open a repository before starting a compare run.",
+    "compareRunsNeedAtLeastTwo": "Compare runs need at least two variants.",
+    "noCompareVariantsCouldBeStarted": "No compare variants could be started.",
+    "compareVariantIsNoLongerAvailable": "Compare variant is no longer available.",
+    "waitUntilThisCandidateFinishesBefore": "Wait until this candidate finishes before keeping it.",
+    "waitForTheIndependentJudgeBefore": "Wait for the independent judge before keeping a result.",
+    "compareRunWasNotFound": "Compare run was not found.",
+    "theKeptCandidateIsNoLonger": "The kept candidate is no longer part of this run."
+  },
+  "whole": {
+    "delegationGuide": "There is no button: delegation happens when an agent calls <code>stave_delegate_task</code> during its turn. Ask for it, for example <em>“get a read-only second opinion on this plan from Codex at high effort”</em>. Only the prompt is required. Omitted parameters follow this task’s provider, effort and permissions. The child runs one turn in this workspace; Settings has no global delegation defaults.",
+    "delegationActivity": "Once a delegation starts, its child appears in the task’s turn activity with Open, Follow-up, Stop, Detach and Retry controls.",
+    "themeImport": "Drop a <file>.theme.json</file> file to install a community theme. The JSON must include <id>id</id>, <name>name</name>, <mode>baseMode</mode>, and a <tokens>tokens</tokens> map.",
+    "commandContributors": "Use <code>registerCommandPaletteContributor()</code> to inject additional commands. Core Stave commands are customizable here; dynamic workspace/task entries and future contributed commands inherit the same execution surface automatically.",
+    "lensHostScope": "Enter a hostname or URL. Ports and paths are ignored, so <host>localhost</host> covers <portA>localhost:3000</portA>, <portB>localhost:8899</portB>, and other localhost ports.",
+    "presetShortcuts": "The first nine presets in the list below respond to <keys>Ctrl+1..9</keys> from top-to-bottom order.",
+    "issueRefresh": "Currently {{interval}}. Each refresh makes one request per connected tracker, so a short interval consumes rate limits. Accepted range is {{min}}–{{max}} seconds; values outside it are clamped.",
+    "providerTasks": "{{provider}} tasks:",
+    "durationMs": "{{value}}ms",
+    "autoRefresh": "Auto-refreshing latest page every {{seconds}}s.",
+    "pageOf": "Page {{page}} of {{total}}"
+  },
+  "providerBrowserAccessSettingsCard": {
+    "browserAccessSetup": "{{value1}} browser access setup",
+    "setup": "Setup:",
+    "additionalAutoArmHosts": "Additional auto-arm hosts",
+    "commaOrSpaceSeparatedSubdomainsMatch": "Comma- or space-separated; subdomains match. Always included:",
+    "browserAccess": "Browser access",
+    "useTheActiveProviderSNative": "Use the active provider's native external Chrome connection to reference existing tabs and signed-in page state. Stave requests access only for an interactive prompt containing @web.",
+    "perPrompt": "Per prompt",
+    "automaticBrowserFallback": "Automatic browser fallback",
+    "withoutAnExplicitWebArmThe": "Without an explicit @web, arm the browser up front for hosts a plain fetch cannot read, and retry once with it after a fetch is blocked by a login wall or bot check.",
+    "sendAnInteractivePromptContaining": "Send an interactive prompt containing",
+    "chromeAccessIsAttemptedForThat": ". Chrome access is attempted for that turn, and any failure is reported in the conversation. Site approval remains in the provider&apos;s extension; Stave cannot install, enable, or grant access on its behalf.",
+    "planModeUnattendedAutomationAndSecondary": "Plan mode, unattended automation, and secondary analysis keep provider-native browser access off, and automatic fallback never overrides them. With fallback off, a prompt without",
+    "alsoKeepsItOff": "also keeps it off.",
+    "connectClaudeCodeSNativeChrome": "Connect Claude Code's native Chrome extension to the profile you want to share, allow access to the target site, then try @web again."
+  },
+  "duration": {
+    "seconds_one": "{{count}} second",
+    "seconds_other": "{{count}} seconds",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes"
+  },
+  "messages": {
+    "autoArmDomains": "Comma- or space-separated; subdomains match. Always included: {{domains}}.",
+    "modelVisibilityTotal": "{{shown}} of {{total}} shown by default",
+    "currentChord": "Current chord: {{shortcut}}.",
+    "modelSlot": "Model Slot {{slot}}",
+    "defaultBranch": "default: {{branch}}",
+    "workspaceToolsLink": "Configure and run them from the dedicated {{section}} section.",
+    "skillsUpdated": "Last updated {{updatedAt}}",
+    "resetMode": "Reset {{mode}}",
+    "userThemesTotal": "{{count}} / {{max}} user themes",
+    "tokenPreset": "Preset: {{value}}",
+    "clearedLogs_one": "Cleared {{count}} local MCP request log.",
+    "clearedLogs_other": "Cleared {{count}} local MCP request logs.",
+    "remotesConfigured_one": "{{count}} remote configured.",
+    "remotesConfigured_other": "{{count}} remotes configured.",
+    "workspaces_one": "{{count}} workspace",
+    "workspaces_other": "{{count}} workspaces",
+    "dark": "dark",
+    "light": "light",
+    "folderPickerUnavailable": "Folder picker unavailable. Use bun run dev:desktop.",
+    "gpuStatusUnavailable": "GPU status API unavailable.",
+    "gpuStatusFailed": "Failed to load GPU status.",
+    "enableConfig": "Enable {{label}}",
+    "disableConfig": "Disable {{label}}",
+    "codexBrowserSetup": "Enable chrome@openai-bundled and unified-computer-use@openai-bundled in the Codex CLI environment used by Stave, connect its Chrome extension, then try @web again.",
+    "interactiveBrowser": "Send an interactive prompt containing <code>@web</code>. Chrome access is attempted for that turn, and any failure is reported in the conversation. Site approval remains in the provider's extension; Stave cannot install, enable, or grant access on its behalf.",
+    "browserRestrictions": "Plan mode, unattended automation, and secondary analysis keep provider-native browser access off, and automatic fallback never overrides them. With fallback off, a prompt without <code>@web</code> also keeps it off.",
+    "tokenName": "Token",
+    "invalidRoutingProfile": "Expected an Auto routing profile"
+  },
+  "settingsDialogModelsSection": {
+    "claudeModel": "Claude model: {{value1}}",
+    "codexModel": "Codex model: {{value1}}"
+  }
+}

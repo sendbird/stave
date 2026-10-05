@@ -1,3 +1,4 @@
+import { i18n, useTranslation, Trans } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { BrainCircuit } from "lucide-react";
 import * as React from "react";
@@ -123,7 +124,7 @@ export function Thinking({
   className,
   defaultOpen,
   durationMs,
-  label = "Reasoning trace",
+  label = i18n.t("ui:thinking.reasoningTrace"),
   loaderVariant = "reason",
   now,
   onOpenChange,
@@ -136,6 +137,7 @@ export function Thinking({
   xstyle,
   ...props
 }: ThinkingProps) {
+  useTranslation();
   const thinking = status === "thinking";
   const elapsedMs = useMeasuredElapsed(
     { durationMs, now, settledAt, startedAt },
@@ -180,14 +182,9 @@ export function Thinking({
       {settledLabel ?? (
         <>
           {elapsedText ? (
-            <>
-              Thought for{" "}
-              <span className={sx(agentSurface.meta, styles.elapsedInline)}>
-                {elapsedText}
-              </span>
-            </>
+            <Trans ns="ui" i18nKey="thinking.thoughtFor" components={{ duration: <span className={sx(agentSurface.meta, styles.elapsedInline)}>{elapsedText}</span> }} />
           ) : (
-            "Finished thinking"
+            i18n.t("ui:thinking.finishedThinking")
           )}
         </>
       )}
@@ -207,10 +204,10 @@ export function Thinking({
   const announcement = useTransitionAnnouncement(
     status,
     thinking
-      ? "Thinking"
+      ? i18n.t("ui:thinking.thinking")
       : spokenElapsed
-        ? `Thought for ${spokenElapsed}`
-        : "Finished thinking",
+        ? i18n.t("ui:thinking.thoughtForSpoken", { duration: spokenElapsed })
+        : i18n.t("ui:thinking.finishedThinking"),
     announcementReady,
   );
 

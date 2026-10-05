@@ -1,3 +1,6 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { formatTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { Bot, Gauge, ListChecks, ListOrdered, ListTodo } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
@@ -26,7 +29,7 @@ import { agentRunResultStyles } from "./agent-run-result.styles";
 import { agentRunStyles as styles } from "./agent-runs.styles";
 
 const formatClock = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  formatTime(new Date(iso), { hour: "2-digit", minute: "2-digit" });
 
 /**
  * An agent run in the Task panel's Progress tab: the agent and its state, the
@@ -48,6 +51,7 @@ export function AgentRunOverview(props: {
   /** Jumps from a stage's evidence to its tool call in the transcript. */
   onShowTool?: (toolCallId: string) => void;
 }) {
+  useTranslation();
   const { detail, now, actions = {}, onCommand } = props;
   const { agentRun } = detail;
   const result = describeAgentRunResult(detail, now);
@@ -55,14 +59,14 @@ export function AgentRunOverview(props: {
   const active = isActiveAgentRunState(agentRun.state);
   const met = result.doneWhen.filter((line) => line.status.startsWith("met")).length;
   // The badge names the state; the line beside it says why, or how long.
-  const statusText = status.reason ?? (active ? `${result.duration} so far` : result.duration);
+  const statusText = status.reason ?? (active ? i18n.t("agentRuns:agentRunOverview.statusText", { value1: result.duration }) : result.duration);
   const staged = agentRun.workflow.stages.length > 1;
-  const rows = useMemo(() => (staged ? projectAgentRunStages(detail, new Date(now)) : null), [detail, now, staged]);
+  const rows = useMemo(() => (staged ? projectAgentRunStages(detail, new Date(now)) : null), [detail, now, staged, i18n.language]);
   const observedPlan = useAgentRunProgress(detail);
   const plan = props.plan ?? observedPlan;
   const subagents = useTaskSubagents(agentRun.leadTaskId, detail);
   // The run follows the agent's workflow: say which, so its stages are never a surprise.
-  const workflowTitle = staged ? agentRun.workflow.stages.map((stage) => stage.title).join(" → ") : null;
+  const workflowTitle = staged ? agentRun.workflow.stages.map((stage) => getStageDisplayTitle(stage)).join(" → ") : null;
   return (
     <section className={sx(styles.panel)} aria-label={`${status.agentName}: ${status.label}`} data-testid="agent-run-panel">
       <header className={sx(styles.head)}>
@@ -73,7 +77,7 @@ export function AgentRunOverview(props: {
           <div className={sx(styles.headText)}>
             <p className={sx(styles.eyebrow)} title={workflowTitle ?? undefined}>
               {status.agentName}
-              {workflowTitle ? ` · Workflow: ${workflowTitle}` : ""}
+              {workflowTitle ? i18n.t("agentRuns:agentRunOverview.agentRunOverview", { value1: workflowTitle }) : ""}
             </p>
             <h2 className={sx(styles.title)} title={agentRun.assignment}>
               {agentRun.assignment}
@@ -97,23 +101,21 @@ export function AgentRunOverview(props: {
         </p>
       ) : null}
 
-      <section className={sx(styles.section, styles.sectionRule)} aria-label="Done when">
+      <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel")}>
         <div className={sx(styles.sectionHeader)}>
           <ListChecks aria-hidden className={sx(styles.sectionIcon)} />
-          <h3 className={sx(styles.sectionTitle)}>Done when</h3>
-          <span className={sx(styles.sectionAside)}>
-            {met} of {result.doneWhen.length} met
-          </span>
+          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunOverview.agentRunOverview2")}</h3>
+          <span className={sx(styles.sectionAside)}>{i18n.t("agentRuns:agentRunOverview.sentence1", { value1: met, value2: result.doneWhen.length })}</span>
         </div>
         <AgentRunDoneWhen lines={result.doneWhen} staveChecks={result.staveChecks} />
       </section>
 
       {plan ? (
-        <section className={sx(styles.section, styles.sectionRule)} aria-label="Plan">
+        <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel2")}>
           <div className={sx(styles.sectionHeader)}>
             <ListTodo aria-hidden className={sx(styles.sectionIcon)} />
-            <h3 className={sx(styles.sectionTitle)}>Plan</h3>
-            <span className={sx(styles.sectionAside)} title="Updated as the agent works">
+            <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunOverview.agentRunOverview5")}</h3>
+            <span className={sx(styles.sectionAside)} title={i18n.t("agentRuns:agentRunOverview.title")}>
               {describePlanProgress(plan.items)}
             </span>
           </div>
@@ -124,11 +126,11 @@ export function AgentRunOverview(props: {
       <AgentRunSubagents rows={subagents} />
 
       {rows ? (
-        <section className={sx(styles.section, styles.sectionRule)} aria-label="Stages">
+        <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel3")}>
           <div className={sx(styles.sectionHeader)}>
             <ListOrdered aria-hidden className={sx(styles.sectionIcon)} />
-            <h3 className={sx(styles.sectionTitle)}>Stages</h3>
-            <span className={sx(styles.sectionAside)}>Check in: {AGENT_CHECK_IN_LABELS[agentRun.consent.checkIns]}</span>
+            <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunOverview.agentRunOverview6")}</h3>
+            <span className={sx(styles.sectionAside)}>{i18n.t("agentRuns:agentRunOverview.sentence2", { value1: AGENT_CHECK_IN_LABELS[agentRun.consent.checkIns] })}</span>
           </div>
           <StepRail density="compact" role="list">
             {rows.map((row) => {
@@ -155,7 +157,7 @@ export function AgentRunOverview(props: {
       ) : null}
 
       {status.state === "ready" ? (
-        <section className={sx(styles.section, styles.sectionRule)} aria-label="Result">
+        <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel4")}>
           <div className={sx(agentRunResultStyles.group)}>
             <AgentRunOutcome result={result} actions={actions} />
           </div>
@@ -166,10 +168,10 @@ export function AgentRunOverview(props: {
         <AgentRunReportView report={detail.report} actions={props.reportActions} context="panel" agentOrigin />
       ) : null}
 
-      <section className={sx(styles.section, styles.sectionRule)} aria-label="Run">
+      <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel5")}>
         <div className={sx(styles.sectionHeader)}>
           <Gauge aria-hidden className={sx(styles.sectionIcon)} />
-          <h3 className={sx(styles.sectionTitle)}>Run</h3>
+          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunOverview.agentRunOverview8")}</h3>
         </div>
         <AgentRunSummary
           agentRun={agentRun}

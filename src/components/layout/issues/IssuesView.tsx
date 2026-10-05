@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -58,6 +59,7 @@ const CLOCK_TICK_MS = 60_000;
 const REFRESH_FEEDBACK_MS = 800;
 
 export function IssuesView(props: { onClose: () => void }) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const snapshot = useTrackerIssuesClientState();
   const [
     activeWorkspaceId,
@@ -125,7 +127,7 @@ export function IssuesView(props: { onClose: () => void }) {
     });
   }, [filter.sources, filter.view, group, layout, peekWidth, sort]);
 
-  const now = useMemo(() => new Date(nowMs), [nowMs]);
+  const now = useMemo(() => new Date(nowMs), [nowMs, i18n.resolvedLanguage]);
   const pipeline = useTrackerIssueListPipeline({
     allItems: snapshot.allItems,
     linksByKey: snapshot.linksByKey,
@@ -138,7 +140,7 @@ export function IssuesView(props: { onClose: () => void }) {
   const { orderedKeys } = pipeline;
   const boardItems = useMemo(
     () => pipeline.groups.flatMap((entry) => entry.items),
-    [pipeline.groups],
+    [pipeline.groups, i18n.resolvedLanguage],
   );
   const layoutKeys = useMemo(
     () =>
@@ -147,7 +149,7 @@ export function IssuesView(props: { onClose: () => void }) {
             trackerIssueKey(item.task.source, item.task.ref),
           )
         : orderedKeys,
-    [boardItems, layout, orderedKeys],
+    [boardItems, layout, orderedKeys, i18n.resolvedLanguage],
   );
 
   // Selection follows the visible set. Opening a ticket is explicit: do not
@@ -171,14 +173,14 @@ export function IssuesView(props: { onClose: () => void }) {
 
   const summaries = useMemo(
     () => describeTrackerSources(snapshot.syncBySource),
-    [snapshot.syncBySource],
+    [snapshot.syncBySource, i18n.resolvedLanguage],
   );
   const sourceStatuses = useMemo(
     () =>
       TRACKER_SOURCE_IDS.map((source) => snapshot.syncBySource[source]).filter(
         (status): status is NonNullable<typeof status> => status != null,
       ),
-    [snapshot.syncBySource],
+    [snapshot.syncBySource, i18n.resolvedLanguage],
   );
 
   // A cold start on the board draws the column shape with placeholder cards
@@ -355,9 +357,8 @@ export function IssuesView(props: { onClose: () => void }) {
               </div>
               {sourceStatuses.some((status) => status.truncated) ? (
                 <p className={sx(taskLayoutStyles.truncationNotice)}>
-                  Showing {layoutKeys.length} loaded tickets. A tracker had
-                  more than one refresh can load.
-                </p>
+          {tI18n("issues:issuesView.loadedTicketsNotice", { count: layoutKeys.length })}
+        </p>
               ) : null}
             </div>
           )}
@@ -365,7 +366,7 @@ export function IssuesView(props: { onClose: () => void }) {
         <IssuesPeekPanel
           dock="split"
           open={selectedItem !== null}
-          title={selectedItem?.task.key ?? "Ticket"}
+          title={selectedItem?.task.key ?? tI18n("issues:issuesView.ticket")}
           width={peekWidth}
           onWidthChange={setPeekWidth}
           onClose={() => setSelectedKey(null)}

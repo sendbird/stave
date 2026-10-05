@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useState } from "react";
 import {
   CheckCircle2,
@@ -17,29 +19,31 @@ import { InfoRow, SettingsCard, StatusBadge } from "./settings-dialog.shared";
 import { workspaceSyncStatusCardStyles as styles } from "./workspace-sync-status-card.styles";
 
 function WorkspaceStateLabel(state: WorkspaceSyncStatus["state"]): string {
+  useTranslation();
   switch (state) {
     case "synced":
-      return "Synced";
+      return i18n.t("shell:workspaceSyncStatusCard.synced");
     case "behind":
-      return "Behind";
+      return i18n.t("shell:workspaceSyncStatusCard.behind");
     case "ahead":
-      return "Ahead";
+      return i18n.t("shell:workspaceSyncStatusCard.ahead");
     case "diverged":
-      return "Diverged";
+      return i18n.t("shell:workspaceSyncStatusCard.diverged");
     case "dirty":
-      return "Dirty";
+      return i18n.t("shell:workspaceSyncStatusCard.dirty");
     case "missing-origin":
-      return "No Origin";
+      return i18n.t("shell:workspaceSyncStatusCard.noOrigin");
     case "missing-origin-main":
-      return "No default branch";
+      return i18n.t("shell:workspaceSyncStatusCard.noDefaultBranch");
     case "not-git":
-      return "Not Git";
+      return i18n.t("shell:workspaceSyncStatusCard.notGit");
     default:
-      return "Unknown";
+      return i18n.t("shell:workspaceSyncStatusCard.unknown");
   }
 }
 
 export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
+  useTranslation();
   const workspaceCwd = props.cwd;
   const [viewState, setViewState] = useState<{
     status: "loading" | "ready" | "error";
@@ -48,7 +52,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
   }>({
     status: "loading",
     snapshot: null,
-    detail: "Refreshing workspace sync status...",
+    detail: i18n.t("shell:workspaceSyncStatusCard.refreshingWorkspaceSyncStatus"),
   });
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -60,7 +64,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
       setViewState({
         status: "error",
         snapshot: null,
-        detail: "Tooling diagnostics bridge unavailable.",
+        detail: i18n.t("shell:workspaceSyncStatusCard.toolingDiagnosticsBridgeUnavailable"),
       });
       return;
     }
@@ -69,7 +73,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
     setViewState((current) => ({
       ...current,
       status: "loading",
-      detail: "Refreshing workspace sync status...",
+      detail: i18n.t("shell:workspaceSyncStatusCard.refreshingWorkspaceSyncStatus"),
     }));
 
     void (async () => {
@@ -93,7 +97,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
           detail:
             error instanceof Error
               ? error.message
-              : "Failed to load workspace sync status.",
+              : i18n.t("shell:workspaceSyncStatusCard.failedToLoadWorkspaceSyncStatus"),
         });
       }
     })();
@@ -106,30 +110,30 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
   async function handleOpenTerminal() {
     const openInTerminal = window.api?.shell?.openInTerminal;
     if (!workspaceCwd || !openInTerminal) {
-      toast.error("Terminal bridge unavailable", {
-        description: "Open a workspace before launching an external terminal.",
+      toast.error(i18n.t("shell:workspaceSyncStatusCard.terminalBridgeUnavailable"), {
+        description: i18n.t("shell:workspaceSyncStatusCard.openAWorkspaceBeforeLaunchingAnExternal"),
       });
       return;
     }
 
     const result = await openInTerminal({ path: workspaceCwd });
     if (!result.ok) {
-      toast.error("Failed to open terminal", {
+      toast.error(i18n.t("shell:workspaceSyncStatusCard.failedToOpenTerminal"), {
         description: result.stderr,
       });
       return;
     }
-    toast.success("Opened workspace in terminal");
+    toast.success(i18n.t("shell:workspaceSyncStatusCard.openedWorkspaceInTerminal"));
   }
 
   async function handleCopyWorkspaceCommand(command: string) {
     try {
       await copyTextToClipboard(command);
-      toast.success("Workspace command copied", {
+      toast.success(i18n.t("shell:workspaceSyncStatusCard.workspaceCommandCopied"), {
         description: command,
       });
     } catch (error) {
-      toast.error("Failed to copy workspace command", {
+      toast.error(i18n.t("shell:workspaceSyncStatusCard.failedToCopyWorkspaceCommand"), {
         description: error instanceof Error ? error.message : String(error),
       });
     }
@@ -141,11 +145,11 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
   ) {
     try {
       await copyTextToClipboard(command);
-      toast.success(`${label} command copied`, {
+      toast.success(i18n.t("shell:workspaceSyncStatusCard.commandCopied", { value1: label }), {
         description: command,
       });
     } catch (error) {
-      toast.error("Failed to copy command", {
+      toast.error(i18n.t("shell:workspaceSyncStatusCard.failedToCopyCommand"), {
         description: error instanceof Error ? error.message : String(error),
       });
     }
@@ -155,7 +159,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
   async function handleSyncOriginMain() {
     const syncOriginMain = window.api?.tooling?.syncOriginMain;
     if (!workspaceCwd || !syncOriginMain) {
-      toast.error("Workspace sync unavailable");
+      toast.error(i18n.t("shell:workspaceSyncStatusCard.workspaceSyncUnavailable"));
       return;
     }
 
@@ -173,7 +177,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setActionDetail(message);
-      toast.error("Workspace sync failed", {
+      toast.error(i18n.t("shell:workspaceSyncStatusCard.workspaceSyncFailed"), {
         description: message,
       });
     } finally {
@@ -185,13 +189,13 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
   const snapshot = viewState.snapshot;
   const workspace = snapshot?.workspace ?? null;
   const checkedAt = snapshot?.checkedAt
-    ? new Date(snapshot.checkedAt).toLocaleString()
+    ? formatDateTime(snapshot.checkedAt)
     : null;
 
   return (
     <SettingsCard
-      title="Workspace Sync"
-      description="Track how this workspace relates to the default remote branch (origin/main or origin/master), then fast-forward safely when no local commits or uncommitted edits block the update."
+      title={i18n.t("shell:workspaceSyncStatusCard.workspaceSync")}
+      description={i18n.t("shell:workspaceSyncStatusCard.trackHowThisWorkspaceRelatesToThe")}
     >
       <div className={sx(styles.header)}>
         <div className={sx(styles.headerLead)}>
@@ -206,19 +210,17 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
                 paints the identical fact `warning`; both are now neutral, and
                 the status word beside them is the thing that carries tone. */}
             {workspace?.dirty ? (
-              <Badge variant="secondary">
-                {workspace.dirtyFileCount} dirty
-              </Badge>
+              <Badge variant="secondary">{i18n.t("shell:workspaceSyncStatusCard.dirtyCount", { count: workspace.dirtyFileCount })}</Badge>
             ) : (
-              <Badge variant="secondary">clean</Badge>
+              <Badge variant="secondary">{i18n.t("shell:workspaceSyncStatusCard.clean")}</Badge>
             )}
           </div>
           <div className={sx(styles.summaryBlock)}>
             <p className={sx(styles.summary)}>
-              {workspace?.summary ?? "Open a workspace to inspect sync status."}
+              {workspace?.summary ?? i18n.t("shell:workspaceSyncStatusCard.openAWorkspaceToInspectSyncStatus")}
             </p>
             <p className={sx(styles.path)}>
-              {workspaceCwd ?? "No workspace path is selected."}
+              {workspaceCwd ?? i18n.t("shell:workspaceSyncStatusCard.noWorkspacePathIsSelected")}
             </p>
           </div>
         </div>
@@ -237,7 +239,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
                 viewState.status === "loading" && styles.actionIconSpinning,
               )}
             />
-            Refresh
+            {i18n.t("shell:workspaceSyncStatusCard.refresh")}
           </Button>
           <Button
             type="button"
@@ -247,7 +249,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
             onClick={() => void handleOpenTerminal()}
           >
             <TerminalSquare className={sx(styles.actionIcon)} />
-            Open Terminal
+            {i18n.t("shell:workspaceSyncStatusCard.openTerminal")}
           </Button>
           <Button
             type="button"
@@ -260,7 +262,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
             ) : (
               <CheckCircle2 className={sx(styles.actionIcon)} />
             )}
-            Sync {workspace?.baseBranch ?? "origin/main"}
+            {i18n.t("shell:workspaceSyncStatusCard.syncBranch", { branch: workspace?.baseBranch ?? "origin/main" })}
           </Button>
         </div>
       </div>
@@ -269,31 +271,31 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
         <div className={sx(styles.detailGrid)}>
           <div className={sx(styles.detailPanel)}>
             <div className={sx(styles.infoRows)}>
-              <InfoRow label="Branch" value={workspace.branch} />
-              <InfoRow label="Tracking" value={workspace.trackingBranch} />
-              <InfoRow label="origin" value={workspace.originUrl} monospace />
+              <InfoRow label={i18n.t("shell:workspaceSyncStatusCard.branch")} value={workspace.branch} />
+              <InfoRow label={i18n.t("shell:workspaceSyncStatusCard.tracking")} value={workspace.trackingBranch} />
+              <InfoRow label={i18n.t("shell:workspaceSyncStatusCard.remote")} value={workspace.originUrl} monospace />
               <InfoRow
-                label="Relation"
+                label={i18n.t("shell:workspaceSyncStatusCard.relation")}
                 value={
                   workspace.ahead !== null && workspace.behind !== null
-                    ? `${workspace.ahead} ahead / ${workspace.behind} behind`
+                    ? i18n.t("shell:workspaceSyncStatusCard.aheadBehind", { value1: workspace.ahead, value2: workspace.behind })
                     : workspace.summary
                 }
               />
-              <InfoRow label="Last Checked" value={checkedAt} />
+              <InfoRow label={i18n.t("shell:workspaceSyncStatusCard.lastChecked")} value={checkedAt} />
             </div>
           </div>
 
           <div className={sx(styles.detailPanel)}>
             <div className={sx(styles.nextStep)}>
-              <p className={sx(styles.nextStepTitle)}>Next step</p>
+              <p className={sx(styles.nextStepTitle)}>{i18n.t("shell:workspaceSyncStatusCard.nextStep")}</p>
               <p className={sx(styles.nextStepBody)}>
                 {workspace.detail}
               </p>
               {workspace.recommendedCommand ? (
                 <div className={sx(styles.commandBlock)}>
                   <p className={sx(styles.commandLabel)}>
-                    Suggested Command
+                    {i18n.t("shell:workspaceSyncStatusCard.suggestedCommand")}
                   </p>
                   <p className={sx(styles.commandText)}>
                     {workspace.recommendedCommand}
@@ -310,7 +312,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
                       }
                     >
                       <Copy className={sx(styles.actionIcon)} />
-                      Copy Command
+                      {i18n.t("shell:workspaceSyncStatusCard.copyCommand")}
                     </Button>
                     <Button
                       type="button"
@@ -320,12 +322,12 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
                       onClick={() =>
                         void handleCopyRepairAndOpenTerminal(
                           workspace.recommendedCommand ?? "",
-                          "Workspace",
+                          i18n.t("shell:workspaceSyncStatusCard.workspace"),
                         )
                       }
                     >
                       <TerminalSquare className={sx(styles.actionIcon)} />
-                      Copy + Open Terminal
+                      {i18n.t("shell:workspaceSyncStatusCard.copyOpenTerminal")}
                     </Button>
                   </div>
                 </div>
@@ -339,7 +341,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
         <div className={sx(styles.outputPanel)}>
           <p className={sx(styles.outputTitle)}>
             <ShieldAlert className={sx(styles.outputIcon)} />
-            Last action output
+            {i18n.t("shell:workspaceSyncStatusCard.lastActionOutput")}
           </p>
           <p className={sx(styles.outputBody)}>
             {actionDetail}

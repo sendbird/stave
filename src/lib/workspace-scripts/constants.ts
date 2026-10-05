@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Constants
 // ---------------------------------------------------------------------------
@@ -8,7 +9,7 @@ export const STAVE_CONFIG_DIR = ".stave";
 export const SCRIPTS_CONFIG_FILENAME = "scripts.json";
 export const SCRIPTS_LOCAL_CONFIG_FILENAME = "scripts.local.json";
 export const SCRIPT_LOG_HISTORY_LIMIT = 12_000;
-export const WORKSPACE_TOOLS_LABEL = "Workspace Tools";
+export const WORKSPACE_TOOLS_LABEL_KEY = "scripts:workspaceTools.title" as const;
 
 export const SCRIPT_TRIGGER_IDS: readonly ScriptTrigger[] = [
   "task.created",
@@ -27,30 +28,28 @@ export const SCRIPT_TRIGGER_METADATA: Record<
   }
 > = {
   "task.created": {
-    label: "Task Created",
-    description: "Runs when Stave creates a new task in the active workspace.",
+    get label() { return i18n.t("scripts:constants.taskCreated"); },
+    get description() { return i18n.t("scripts:constants.runsWhenStaveCreatesANewTask"); },
   },
   "task.archiving": {
-    label: "Task Archiving",
-    description:
-      "Runs when Stave archives a task from the workspace task list.",
+    get label() { return i18n.t("scripts:constants.taskArchiving"); },
+    get description() { return i18n.t("scripts:constants.runsWhenStaveArchivesATaskFrom"); },
   },
   "turn.started": {
-    label: "Turn Started",
-    description: "Runs when a provider turn starts for a task.",
+    get label() { return i18n.t("scripts:constants.turnStarted"); },
+    get description() { return i18n.t("scripts:constants.runsWhenAProviderTurnStartsFor"); },
   },
   "turn.completed": {
-    label: "Turn Completed",
-    description:
-      "Runs after a provider turn finishes and the task returns to idle.",
+    get label() { return i18n.t("scripts:constants.turnCompleted"); },
+    get description() { return i18n.t("scripts:constants.runsAfterAProviderTurnFinishesAnd"); },
   },
   "pr.beforeOpen": {
-    label: "PR Before Open",
-    description: "Runs before Stave pushes and opens a pull request.",
+    get label() { return i18n.t("scripts:constants.prBeforeOpen"); },
+    get description() { return i18n.t("scripts:constants.runsBeforeStavePushesAndOpensA"); },
   },
   "pr.afterOpen": {
-    label: "PR After Open",
-    description: "Runs after Stave opens a pull request.",
+    get label() { return i18n.t("scripts:constants.prAfterOpen"); },
+    get description() { return i18n.t("scripts:constants.runsAfterStaveOpensAPullRequest"); },
   },
 };
 

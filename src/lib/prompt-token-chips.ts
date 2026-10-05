@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { CommandPaletteItem } from "@/lib/commands";
 import { stripTrailingUrlPunctuation } from "@/lib/external-links";
 import {
@@ -138,11 +139,11 @@ function resolveInformationDescriptor(args: {
     detail:
       reference.section === "lens" || reference.section === "web"
         ? reference.section === "lens"
-          ? "Lens browser"
-          : "Provider browser"
+          ? i18n.t("app:promptTokenChips.lensBrowser")
+          : i18n.t("app:promptTokenChips.providerBrowser")
         : reference.scope === "section"
-          ? "Information section"
-          : "Information item",
+          ? i18n.t("app:promptTokenChips.informationSection")
+          : i18n.t("app:promptTokenChips.informationItem"),
     informationReference: reference,
   };
 }

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   buildWorkspaceTurnSummaryPrompt,
   createWorkspaceTurnSummary,
@@ -276,7 +277,7 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
             summary: createWorkspaceTurnSummary({
               turnId: args.turnId,
               taskId: args.taskId,
-              taskTitle: task?.title ?? "Untitled Task",
+              taskTitle: task?.title ?? i18n.t("workspace:workspaceTurnSummaryRuntime.untitledTask"),
               model,
               generatedAt: new Date().toISOString(),
               draft: parsedSummary,

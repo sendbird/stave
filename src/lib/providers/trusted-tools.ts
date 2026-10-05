@@ -70,6 +70,7 @@ function resolveTrustedBashCommandPrefix(entry: string) {
 export function formatTrustedToolEntry(entry: string) {
   const bashPrefix = resolveTrustedBashCommandPrefix(entry);
   if (bashPrefix) {
+    // i18n-ignore: canonical tool name and shell command prefix
     return `Bash: ${bashPrefix}`;
   }
   return entry.trim();

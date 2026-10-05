@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 import { ApiConnectionModelIdSchema, HttpsBaseUrlSchema, VERCEL_AI_GATEWAY } from "./api-connections";
 
@@ -20,7 +21,7 @@ export const ClaudeGatewaySchema = z.object({
   baseUrl: HttpsBaseUrlSchema,
   secretId: z.uuid(),
   models: z.array(ClaudeGatewayModelSchema).min(1).max(50)
-    .refine(values => new Set(values).size === values.length, "Model IDs must be unique."),
+    .refine(values => new Set(values).size === values.length, { error: () => i18n.t("providers:validation.uniqueModels") }),
 }).strict();
 
 export type ClaudeGateway = z.infer<typeof ClaudeGatewaySchema>;

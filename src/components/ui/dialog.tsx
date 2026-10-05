@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { StyleXValue } from "../ads/utils/stylex";
 import { VisuallyHidden } from "../ads/components/VisuallyHidden";
 import { overlayLayout } from "./overlay-layout.styles";
@@ -20,18 +21,22 @@ type DialogProps = Omit<DialogPrimitive.Root.Props, "children"> & {
 };
 
 function Dialog({ ...props }: DialogProps) {
+  useTranslation();
   return <AdsDialog.Root data-slot="dialog" {...props} />;
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
+  useTranslation();
   return <AdsDialog.Trigger data-slot="dialog-trigger" {...props} />;
 }
 
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
+  useTranslation();
   return <AdsDialog.Portal data-slot="dialog-portal" {...props} />;
 }
 
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
+  useTranslation();
   return <AdsDialog.Close data-slot="dialog-close" {...props} />;
 }
 
@@ -39,6 +44,7 @@ function DialogOverlay({
   className,
   ...props
 }: DialogPrimitive.Backdrop.Props) {
+  useTranslation();
   return (
     <AdsDialog.Backdrop
       data-slot="dialog-overlay"
@@ -59,6 +65,7 @@ function DialogContent({
   showCloseButton?: boolean;
   xstyle?: StyleXValue;
 }) {
+  useTranslation();
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -93,7 +100,7 @@ function DialogContent({
             }
           >
             <XIcon />
-            <VisuallyHidden>Close</VisuallyHidden>
+            <VisuallyHidden>{i18n.t("ui:dialog.close")}</VisuallyHidden>
           </AdsDialog.Close>
         )}
       </DialogPrimitive.Popup>
@@ -102,6 +109,7 @@ function DialogContent({
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+  useTranslation();
   return (
     <div
       data-slot="dialog-header"
@@ -119,6 +127,7 @@ function DialogFooter({
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean;
 }) {
+  useTranslation();
   return (
     <div
       data-slot="dialog-footer"
@@ -131,14 +140,14 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <AdsDialog.Close render={<Button variant="outline" />}>
-          Close
-        </AdsDialog.Close>
+          {i18n.t("ui:dialog.close")}</AdsDialog.Close>
       )}
     </div>
   );
 }
 
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
+  useTranslation();
   return (
     <AdsDialog.Title
       data-slot="dialog-title"
@@ -152,6 +161,7 @@ function DialogDescription({
   className,
   ...props
 }: DialogPrimitive.Description.Props) {
+  useTranslation();
   return (
     <AdsDialog.Description
       data-slot="dialog-description"

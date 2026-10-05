@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useMemo } from "react";
 import { toast } from "@/lib/notifications/toast";
 import {
@@ -44,8 +45,8 @@ export function useTaskContextMentions(args: {
   );
   const attach = (task: { taskId: string; workspaceId: string; title: string }) => {
     if (task.taskId === args.taskId) {
-      toast.message("This is the current task", {
-        description: "Its conversation is already the context.",
+      toast.message(i18n.t("session:useTaskContextMentions.copy"), {
+        description: i18n.t("session:useTaskContextMentions.description"),
       });
       return;
     }
@@ -56,10 +57,10 @@ export function useTaskContextMentions(args: {
     });
     if (next === args.attachments) {
       toast.message(
-        attachedTaskIds.has(task.taskId) ? "Task already attached" : "Too many attached tasks",
+        attachedTaskIds.has(task.taskId) ? i18n.t("session:useTaskContextMentions.copy2") : i18n.t("session:useTaskContextMentions.copy3"),
         attachedTaskIds.has(task.taskId)
           ? undefined
-          : { description: `Attach up to ${MAX_ATTACHED_TASKS} tasks to one message.` },
+          : { description: i18n.t("session:useTaskContextMentions.description2", { value1: MAX_ATTACHED_TASKS }) },
       );
       return;
     }

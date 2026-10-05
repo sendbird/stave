@@ -22,30 +22,50 @@ import {
   TerminalSquare,
   Wrench,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
+import { getAppLocale, i18n, type I18nKey } from "@/i18n";
 import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
+
+/** A fully qualified key in the `settings` namespace. */
+export type SettingsI18nKey = Extract<I18nKey, `settings:${string}`>;
+
+/**
+ * Section labels and descriptions are catalog keys so they follow the display
+ * language: render them with `t(section.labelKey)`. `keywords` are extra
+ * search aliases matched on top of the translated text.
+ */
 
 export const settingsSections = [
   {
     id: "general",
-    label: "General",
+    labelKey: "settings:sections.general.label",
     icon: Cog,
-    description: "Workspace defaults, notifications, and app behavior.",
-    keywords: ["workspace", "sound", "notifications", "branch"],
+    descriptionKey: "settings:sections.general.description",
+    // The language picker lives here; "언어" lets a Korean UI find it even when
+    // the query does not match the translated section copy.
+    keywords: [
+      "workspace",
+      "sound",
+      "notifications",
+      "branch",
+      "language",
+      "locale",
+      "언어",
+    ],
   },
   {
     id: "presets",
-    label: "Presets",
+    labelKey: "settings:sections.presets.label",
     icon: SlidersHorizontal,
-    description: "Reusable prompt and provider presets.",
+    descriptionKey: "settings:sections.presets.description",
     keywords: ["defaults", "templates", "profiles"],
   },
   {
     id: "macros",
-    label: "Macros",
+    labelKey: "settings:sections.macros.label",
     icon: Zap,
-    description:
-      "Reusable prompt snippets with optional model pins and instant run.",
+    descriptionKey: "settings:sections.macros.description",
     keywords: [
       "snippet",
       "prompt",
@@ -59,17 +79,16 @@ export const settingsSections = [
   },
   {
     id: "projects",
-    label: "Repositories",
+    labelKey: "settings:sections.projects.label",
     icon: Folder,
-    description: "Repository-level paths, setup prompts, and workspace defaults.",
+    descriptionKey: "settings:sections.projects.description",
     keywords: ["repo", "repository", "root", "workspaces"],
   },
   {
     id: "scripts",
-    label: WORKSPACE_TOOLS_PRESENTATION.label,
+    labelKey: "settings:sections.scripts.label",
     icon: WORKSPACE_TOOLS_PRESENTATION.icon,
-    description:
-      "Long-running processes you leave up while developing, plus one-shot commands, lifecycle triggers, and environments.",
+    descriptionKey: "settings:sections.scripts.description",
     keywords: [
       "quick commands",
       "commands",
@@ -84,17 +103,16 @@ export const settingsSections = [
   },
   {
     id: "theme",
-    label: "Design",
+    labelKey: "settings:sections.theme.label",
     icon: Palette,
-    description: "Theme, color, and visual styling.",
+    descriptionKey: "settings:sections.theme.description",
     keywords: ["appearance", "color", "dark", "light", "custom theme"],
   },
   {
     id: "chat",
-    label: "Chat",
+    labelKey: "settings:sections.chat.label",
     icon: Bot,
-    description:
-      "Task mode, chat typography, streaming, reasoning, and active-turn behavior.",
+    descriptionKey: "settings:sections.chat.description",
     keywords: [
       "task mode",
       "agentic",
@@ -113,9 +131,9 @@ export const settingsSections = [
   },
   {
     id: "providers",
-    label: "Providers",
+    labelKey: "settings:sections.providers.label",
     icon: Wrench,
-    description: "Claude, Codex, Cursor, and Kiro provider runtime settings.",
+    descriptionKey: "settings:sections.providers.description",
     keywords: [
       "claude",
       "codex",
@@ -155,9 +173,9 @@ export const settingsSections = [
   },
   {
     id: "models",
-    label: "Models",
+    labelKey: "settings:sections.models.label",
     icon: Sparkles,
-    description: "Default model selection, visibility, and Utility AI provider.",
+    descriptionKey: "settings:sections.models.description",
     keywords: [
       "claude",
       "codex",
@@ -173,10 +191,9 @@ export const settingsSections = [
   },
   {
     id: "autoRouting",
-    label: "Auto (Model Router)",
+    labelKey: "settings:sections.autoRouting.label",
     icon: Sparkles,
-    description:
-      "How Auto sizes each turn: a level picks the model, your preference sets the effort.",
+    descriptionKey: "settings:sections.autoRouting.description",
     keywords: [
       "auto",
       "routing",
@@ -204,10 +221,9 @@ export const settingsSections = [
   },
   {
     id: "codex",
-    label: "Codex Inspector",
+    labelKey: "settings:sections.codex.label",
     icon: Package2,
-    description:
-      "Advanced App Server, plugin, thread, command, and config diagnostics.",
+    descriptionKey: "settings:sections.codex.description",
     keywords: [
       "app server",
       "plugins",
@@ -219,16 +235,16 @@ export const settingsSections = [
   },
   {
     id: "mcp",
-    label: "MCP",
+    labelKey: "settings:sections.mcp.label",
     icon: Cable,
-    description: "Model Context Protocol servers and runtime status.",
+    descriptionKey: "settings:sections.mcp.description",
     keywords: ["servers", "tools", "context"],
   },
   {
     id: "integrations",
-    label: "Integrations",
+    labelKey: "settings:sections.integrations.label",
     icon: Cable,
-    description: "Personal outbound connectors and external task sources.",
+    descriptionKey: "settings:sections.integrations.description",
     keywords: [
       "crane",
       "atelier",
@@ -246,10 +262,9 @@ export const settingsSections = [
   },
   {
     id: "issues",
-    label: "Issues",
+    labelKey: "settings:sections.issues.label",
     icon: ListTodo,
-    description:
-      "Assigned ticket list defaults: starting view, refresh cadence, and how a kickoff begins.",
+    descriptionKey: "settings:sections.issues.description",
     keywords: [
       "tickets",
       "ticket",
@@ -265,17 +280,16 @@ export const settingsSections = [
   },
   {
     id: "kickoff",
-    label: "Kickoff",
+    labelKey: "settings:sections.kickoff.label",
     icon: Rocket,
-    description: "External source matching and workspace proposal settings.",
+    descriptionKey: "settings:sections.kickoff.description",
     keywords: ["workspace", "jira", "slack", "figma", "prd", "source"],
   },
   {
     id: "auxiliaryInference",
-    label: "Background AI",
+    labelKey: "settings:sections.auxiliaryInference.label",
     icon: Gauge,
-    description:
-      "Background model calls Stave makes on your behalf, and what each one costs.",
+    descriptionKey: "settings:sections.auxiliaryInference.description",
     keywords: [
       "background",
       "auxiliary",
@@ -295,9 +309,9 @@ export const settingsSections = [
   },
   {
     id: "prompts",
-    label: "Prompts",
+    labelKey: "settings:sections.prompts.label",
     icon: ScrollText,
-    description: "Default prompt text, response instructions, and review settings.",
+    descriptionKey: "settings:sections.prompts.description",
     keywords: [
       "instructions",
       "templates",
@@ -310,24 +324,23 @@ export const settingsSections = [
   },
   {
     id: "memory",
-    label: "Memory",
+    labelKey: "settings:sections.memory.label",
     icon: Brain,
-    description: "Repository memory collection, recall, templates, and reset controls.",
+    descriptionKey: "settings:sections.memory.description",
     keywords: ["memory", "remember", "forget", "candidate", "collection", "template", "reset"],
   },
   {
     id: "skills",
-    label: "Skills",
+    labelKey: "settings:sections.skills.label",
     icon: SearchCheck,
-    description: "Skill discovery and prompt input suggestions.",
+    descriptionKey: "settings:sections.skills.description",
     keywords: ["catalog", "suggestions", "agents"],
   },
   {
     id: "commandPalette",
-    label: "Command Palette",
+    labelKey: "settings:sections.commandPalette.label",
     icon: KeyRound,
-    description:
-      "Global command launcher, shell shortcut chords, and model hotkeys.",
+    descriptionKey: "settings:sections.commandPalette.description",
     keywords: [
       "shortcuts",
       "hotkeys",
@@ -340,24 +353,23 @@ export const settingsSections = [
   },
   {
     id: "terminal",
-    label: "Terminal",
+    labelKey: "settings:sections.terminal.label",
     icon: TerminalSquare,
-    description: "Integrated terminal typography and cursor behavior.",
+    descriptionKey: "settings:sections.terminal.description",
     keywords: ["shell", "font", "cursor", "line height"],
   },
   {
     id: "editor",
-    label: "Editor",
+    labelKey: "settings:sections.editor.label",
     icon: Code2,
-    description: "Editor typography, display, and language tooling.",
+    descriptionKey: "settings:sections.editor.description",
     keywords: ["font", "lsp", "eslint", "line numbers", "word wrap"],
   },
   {
     id: "tooling",
-    label: "Tooling",
+    labelKey: "settings:sections.tooling.label",
     icon: Shield,
-    description:
-      "Claude and Codex accounts, API connections, and local tool health checks.",
+    descriptionKey: "settings:sections.tooling.description",
     keywords: [
       "status",
       "dependencies",
@@ -370,72 +382,113 @@ export const settingsSections = [
   },
   {
     id: "lens",
-    label: "Lens",
+    labelKey: "settings:sections.lens.label",
     icon: Globe,
-    description: "Browser Lens sessions and visual comment capture.",
+    descriptionKey: "settings:sections.lens.description",
     keywords: ["browser", "snapshot", "visual comment", "preview"],
   },
   {
     id: "secrets",
-    label: "Secrets",
+    labelKey: "settings:sections.secrets.label",
     icon: Lock,
-    description: "Encrypted API tokens and other secret values.",
+    descriptionKey: "settings:sections.secrets.description",
     keywords: ["api", "token", "key", "credential", "password", "vault"],
   },
   {
     id: "developer",
-    label: "Developer",
+    labelKey: "settings:sections.developer.label",
     icon: Wrench,
-    description: "Developer diagnostics and internal runtime toggles.",
+    descriptionKey: "settings:sections.developer.description",
     keywords: ["debug", "diagnostics", "binary", "runtime"],
   },
   {
     id: "changelog",
-    label: "Changelog",
+    labelKey: "settings:sections.changelog.label",
     icon: FileText,
-    description: "Release notes and product changes.",
+    descriptionKey: "settings:sections.changelog.description",
     keywords: ["release", "updates", "versions"],
   },
-] as const;
+] as const satisfies ReadonlyArray<{
+  id: string;
+  labelKey: SettingsI18nKey;
+  icon: LucideIcon;
+  descriptionKey: SettingsI18nKey;
+  keywords: readonly string[];
+}>;
 
 export type SectionId = (typeof settingsSections)[number]["id"];
 
-export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
-  [
-    { label: "Workspace", ids: ["general"] },
-    { label: "Appearance", ids: ["theme", "chat", "editor", "terminal"] },
-    { label: "Repositories", ids: ["projects", "scripts"] },
-    {
-      label: "AI & Agents",
-      ids: [
-        "providers",
-        "presets",
-        "macros",
-        "models",
-        "autoRouting",
-        "mcp",
-        "integrations",
-        "issues",
-        "kickoff",
-        "auxiliaryInference",
-        "prompts",
-        "memory",
-        "skills",
-      ],
-    },
-    { label: "Interface", ids: ["commandPalette", "lens", "secrets"] },
-    {
-      label: "System & Advanced",
-      ids: ["tooling", "codex", "developer", "changelog"],
-    },
-  ];
+export const settingsSectionGroups: Array<{
+  labelKey: SettingsI18nKey;
+  ids: SectionId[];
+}> = [
+  { labelKey: "settings:sections.groups.workspace", ids: ["general"] },
+  {
+    labelKey: "settings:sections.groups.appearance",
+    ids: ["theme", "chat", "editor", "terminal"],
+  },
+  {
+    labelKey: "settings:sections.groups.repositories",
+    ids: ["projects", "scripts"],
+  },
+  {
+    labelKey: "settings:sections.groups.aiAgents",
+    ids: [
+      "providers",
+      "presets",
+      "macros",
+      "models",
+      "autoRouting",
+      "mcp",
+      "integrations",
+      "issues",
+      "kickoff",
+      "auxiliaryInference",
+      "prompts",
+      "memory",
+      "skills",
+    ],
+  },
+  {
+    labelKey: "settings:sections.groups.interface",
+    ids: ["commandPalette", "lens", "secrets"],
+  },
+  {
+    labelKey: "settings:sections.groups.systemAdvanced",
+    ids: ["tooling", "codex", "developer", "changelog"],
+  },
+];
+
+/**
+ * Lowercased search haystack for catalog-backed copy plus keyword aliases.
+ *
+ * Matches the active display language and English, so a Korean UI still finds
+ * a setting by the English words people often type. Reads the shared i18n
+ * instance at call time; callers that render the results subscribe with
+ * `useTranslation` so a language change re-runs the search.
+ */
+export function buildSettingsSearchText(
+  keys: readonly SettingsI18nKey[],
+  keywords: readonly string[],
+) {
+  const includeEnglish = getAppLocale() !== "en";
+  const parts: string[] = [];
+  for (const key of keys) {
+    parts.push(i18n.t(key));
+    if (includeEnglish) {
+      parts.push(i18n.t(key, { lng: "en" }));
+    }
+  }
+  return [...parts, ...keywords].join(" ").toLowerCase();
+}
 
 export function getSettingsSectionSearchText(
   section: (typeof settingsSections)[number],
 ) {
-  return [section.label, section.description, ...section.keywords]
-    .join(" ")
-    .toLowerCase();
+  return buildSettingsSearchText(
+    [section.labelKey, section.descriptionKey],
+    section.keywords,
+  );
 }
 
 export function matchesSettingsSection(

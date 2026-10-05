@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { createProviderSupportActions } from "./app-store-provider-actions";
 import type { StoreApi } from "zustand";
 import { workspaceFsAdapter } from "@/lib/fs";
@@ -159,7 +160,7 @@ export function createSupportActions(args: {
         taskTitle:
           targetTask.title.trim() ||
           notification.taskTitle?.trim() ||
-          "Untitled Task",
+          i18n.t("notifications:appStoreSupportActions.untitledTask"),
       };
     }
 
@@ -221,7 +222,7 @@ export function createSupportActions(args: {
         if (!result.ok) {
           // Keep the last known PR so the badge does not flip to "Create PR"
           // just because gh is unavailable; surface the reason instead.
-          const lastError = result.stderr?.trim() || "PR status unavailable.";
+          const lastError = result.stderr?.trim() || i18n.t("notifications:supportActions.prUnavailable");
           set((s) => {
             if (
               s.workspaceDefaultById[workspaceId] ||
@@ -508,7 +509,7 @@ export function createSupportActions(args: {
             fetchedAt: new Date().toISOString(),
             skills: [],
             roots: [],
-            detail: "Skill catalog API is unavailable in this build.",
+            detail: i18n.t("notifications:appStoreSupportActions.skillCatalogApiIsUnavailableInThisBuild"),
           },
         }));
         return;
@@ -520,7 +521,7 @@ export function createSupportActions(args: {
           status: "loading",
           workspacePath,
           sharedSkillsHome,
-          detail: "Loading skill catalog...",
+          detail: i18n.t("notifications:appStoreSupportActions.loadingSkillCatalog"),
         },
       }));
 

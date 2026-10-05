@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { useState } from "react";
 import {
   getProviderFallbackLabel,
@@ -19,6 +20,7 @@ interface ModelIconProps {
 }
 
 export function ModelIcon(args: ModelIconProps) {
+  useTranslation();
   const { providerId, className } = args;
   const [failed, setFailed] = useState(false);
   const iconUrl = getProviderIconUrl({ providerId });

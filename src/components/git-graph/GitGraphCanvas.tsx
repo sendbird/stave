@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   forwardRef,
   memo,
@@ -100,6 +101,7 @@ const GraphSvg = memo(function GraphSvg({
   visibleStart,
   visibleEnd,
 }: GraphSvgProps) {
+  useTranslation();
   const commitByHash = useMemo(
     () => new Map(commits.map((commit) => [commit.hash, commit])),
     [commits],
@@ -232,6 +234,7 @@ function useVirtualRows(args: {
   scrollElement: HTMLDivElement | null;
   rowCount: number;
 }) {
+  useTranslation();
   const [viewport, setViewport] = useState({
     height: 0,
     width: 0,
@@ -285,6 +288,7 @@ function ResizeHandle({
   width: number;
   onWidthChange: (column: keyof GitGraphColumnWidths, width: number) => void;
 }) {
+  useTranslation();
   const cleanupRef = useRef<(() => void) | null>(null);
   useEffect(() => () => cleanupRef.current?.(), []);
 
@@ -318,7 +322,7 @@ function ResizeHandle({
     <span
       role="separator"
       aria-orientation="vertical"
-      aria-label={`Resize ${column} column`}
+      aria-label={i18n.t("gitGraph:gitGraphCanvas.resizeColumn", { value1: column })}
       className={sx(styles.resizeHandle, transition.colors)}
       onPointerDown={onPointerDown}
     />
@@ -383,6 +387,7 @@ export const GitGraphCanvas = forwardRef<
   },
   forwardedRef,
 ) {
+  useTranslation();
   const workingTreeVisible = hasWorkingTreeChanges(workingTree);
   const layoutCommits = useMemo<GraphCommit[]>(
     () =>
@@ -395,13 +400,13 @@ export const GitGraphCanvas = forwardRef<
               authorEmail: "",
               authorDate: "",
               committerDate: "",
-              subject: "Uncommitted changes",
+              subject: i18n.t("gitGraph:gitGraphCanvas.uncommittedChanges"),
               refs: [],
             },
             ...commits,
           ]
         : commits,
-    [commits, headHash, workingTreeVisible],
+    [commits, headHash, workingTreeVisible, i18n.language],
   );
   const layout = useMemo(
     () =>
@@ -496,7 +501,7 @@ export const GitGraphCanvas = forwardRef<
   return (
     <div
       role="grid"
-      aria-label="Commit graph"
+      aria-label={i18n.t("gitGraph:gitGraphCanvas.commitGraph")}
       aria-rowcount={rowCount + 1}
       className={sx(styles.root)}
     >
@@ -514,7 +519,7 @@ export const GitGraphCanvas = forwardRef<
           }}
         >
           <div role="columnheader" className={sx(styles.headerCellLead)}>
-            Graph / Description
+            {i18n.t("gitGraph:gitGraphCanvas.graphDescription")}
           </div>
           {columns.author ? (
             <div role="columnheader" className={sx(styles.headerCell)}>
@@ -523,7 +528,7 @@ export const GitGraphCanvas = forwardRef<
                 width={columnWidths.author}
                 onWidthChange={onColumnWidthChange}
               />
-              Author
+              {i18n.t("gitGraph:gitGraphCanvas.author")}
             </div>
           ) : null}
           {columns.date ? (
@@ -533,7 +538,7 @@ export const GitGraphCanvas = forwardRef<
                 width={columnWidths.date}
                 onWidthChange={onColumnWidthChange}
               />
-              Date
+              {i18n.t("gitGraph:gitGraphCanvas.date")}
             </div>
           ) : null}
           {columns.hash ? (
@@ -543,7 +548,7 @@ export const GitGraphCanvas = forwardRef<
                 width={columnWidths.hash}
                 onWidthChange={onColumnWidthChange}
               />
-              Commit
+              {i18n.t("gitGraph:gitGraphCanvas.commit")}
             </div>
           ) : null}
         </div>
@@ -626,7 +631,7 @@ export const GitGraphCanvas = forwardRef<
         {loadingMore ? (
           <div className={sx(styles.loadingMore)}>
             <Loader aria-hidden size="xs" variant="scan" />
-            Loading more commits…
+            {i18n.t("gitGraph:gitGraphCanvas.loadingMoreCommits")}
           </div>
         ) : null}
       </div>

@@ -55,6 +55,7 @@ export const CraneRepositoryMappingSchema = z
     if (!value.craneTeamKey && !value.craneProjectId) {
       context.addIssue({
         code: "custom",
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: "A Crane team key or repository id is required.",
       });
     }

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { workspaceCleanupBlocker } from "@/lib/workspace-cleanup";
 import { loadWorkspaceShell } from "@/lib/db/workspaces.db";
@@ -774,10 +775,10 @@ export function createWorkspaceManagementActions(args: {
       const normalizedWorkspaceId = workspaceId.trim();
       const normalizedName = name.trim();
       if (!normalizedWorkspaceId) {
-        return { ok: false, message: "Workspace is required." };
+        return { ok: false, message: i18n.t("workspace:appStoreWorkspaceManagementActions.workspaceIsRequired") };
       }
       if (!normalizedName) {
-        return { ok: false, message: "Label is required." };
+        return { ok: false, message: i18n.t("workspace:appStoreWorkspaceManagementActions.labelIsRequired") };
       }
 
       const stateBefore = get();
@@ -803,12 +804,12 @@ export function createWorkspaceManagementActions(args: {
         targetRepository?.workspaceDefaultById[normalizedWorkspaceId] === true;
 
       if (!targetWorkspace) {
-        return { ok: false, message: "Workspace not found." };
+        return { ok: false, message: i18n.t("workspace:appStoreWorkspaceManagementActions.workspaceNotFound") };
       }
       if (isDefaultWorkspace) {
         return {
           ok: false,
-          message: "Default workspace labels cannot be changed.",
+          message: i18n.t("workspace:appStoreWorkspaceManagementActions.defaultWorkspaceLabelsCannotBeChanged"),
         };
       }
       if (targetWorkspace.name === normalizedName) {

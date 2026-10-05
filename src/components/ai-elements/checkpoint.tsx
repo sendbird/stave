@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useState, type HTMLAttributes } from "react";
 import { BookmarkIcon, RotateCcw } from "lucide-react";
 import { Button, Loader } from "@/components/ui";
@@ -12,6 +13,7 @@ export function CompactingIndicator({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   return (
     <div className={cx(sx(s.compacting), className)} {...props}>
       <Loader
@@ -20,7 +22,7 @@ export function CompactingIndicator({
         size="xs"
         variant="persist"
       />
-      <span>Compacting conversation context…</span>
+      <span>{i18n.t("composer:checkpoint.compactingIndicator")}</span>
     </div>
   );
 }
@@ -30,7 +32,7 @@ export function CompactingIndicator({
  * Renders a full-width divider with a bookmark icon + label at the center.
  */
 export function ContextCompactedCheckpoint({
-  label = "Context compacted",
+  label = i18n.t("composer:checkpoint.contextCompactedCheckpoint"),
   trigger,
   onRestore,
   restorePending = false,
@@ -49,6 +51,7 @@ export function ContextCompactedCheckpoint({
   /** Disable restore action when boundary metadata is unavailable. */
   restoreDisabled?: boolean;
 }) {
+  useTranslation();
   const displayTrigger = trigger ? ` (${trigger})` : "";
   // Restore runs a destructive `git restore --worktree` that discards
   // uncommitted changes, so require an explicit second click to confirm.
@@ -84,7 +87,7 @@ export function ContextCompactedCheckpoint({
                   setConfirmingRestore(false);
                   onRestore();
                 }}
-                title="Discards uncommitted changes in the worktree and restores this checkpoint."
+                title={i18n.t("composer:checkpoint.title")}
               >
                 {restorePending ? (
                   <Loader
@@ -96,8 +99,7 @@ export function ContextCompactedCheckpoint({
                 ) : (
                   <RotateCcw className={sx(s.actionIcon)} />
                 )}
-                Confirm restore
-              </Button>
+                {i18n.t("composer:checkpoint.contextCompactedCheckpoint2")}</Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -106,8 +108,7 @@ export function ContextCompactedCheckpoint({
                 disabled={restorePending}
                 onClick={() => setConfirmingRestore(false)}
               >
-                Cancel
-              </Button>
+                {i18n.t("composer:checkpoint.contextCompactedCheckpoint3")}</Button>
             </span>
           ) : (
             <Button
@@ -119,8 +120,8 @@ export function ContextCompactedCheckpoint({
               onClick={() => setConfirmingRestore(true)}
               title={
                 restoreDisabled
-                  ? "Restore unavailable for this checkpoint."
-                  : "Restore workspace to this checkpoint (discards uncommitted changes)."
+                  ? i18n.t("composer:checkpoint.title2")
+                  : i18n.t("composer:checkpoint.title3")
               }
             >
               {restorePending ? (
@@ -133,8 +134,7 @@ export function ContextCompactedCheckpoint({
               ) : (
                 <RotateCcw className={sx(s.actionIcon)} />
               )}
-              Restore
-            </Button>
+              {i18n.t("composer:checkpoint.contextCompactedCheckpoint4")}</Button>
           )
         ) : null}
       </div>

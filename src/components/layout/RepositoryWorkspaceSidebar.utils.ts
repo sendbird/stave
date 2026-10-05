@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type {
   FleetAttentionItem,
   FleetAttentionKind,
@@ -81,18 +82,18 @@ export interface RepositorySidebarAttentionAlert {
 }
 
 const REPOSITORY_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
-  "user-input": "answer needed",
-  approval: "approval needed",
-  "run-failed": "run failed",
-  "pr-changes-requested": "PR changes requested",
-  "pr-checks-failed": "PR checks failed",
-  "pr-merge-conflict": "PR merge conflict",
-  "pr-behind-base": "PR behind base",
-  "result-ready": "result ready",
-  "pr-ready-to-merge": "PR ready to merge",
+  get "user-input"() { return i18n.t("workspace:repositoryWorkspaceSidebar.answerNeeded"); },
+  get approval() { return i18n.t("workspace:repositoryWorkspaceSidebar.approvalNeeded"); },
+  get "run-failed"() { return i18n.t("workspace:repositoryWorkspaceSidebar.runFailed"); },
+  get "pr-changes-requested"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prChangesRequested"); },
+  get "pr-checks-failed"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prChecksFailed"); },
+  get "pr-merge-conflict"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prMergeConflict"); },
+  get "pr-behind-base"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prBehindBase"); },
+  get "result-ready"() { return i18n.t("workspace:repositoryWorkspaceSidebar.resultReady"); },
+  get "pr-ready-to-merge"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prReadyToMerge"); },
   "agent-run-sign-off": "run sign-off",
-  "agent-run-blocked": "run blocked",
-  "agent-run-stuck": "run stuck",
+  get "agent-run-blocked"() { return i18n.t("workspace:repositoryWorkspaceSidebar.runBlocked"); },
+  get "agent-run-stuck"() { return i18n.t("workspace:repositoryWorkspaceSidebar.runStuck"); },
 };
 
 function formatRepositoryAttentionAlertLabel(args: {
@@ -109,14 +110,14 @@ function formatRepositoryAttentionAlertLabel(args: {
   // they "need attention" would overstate them next to a genuinely blocked agent.
   if (getFleetAttentionTier(args.kind) === "review") {
     if (args.attentionItemCount <= 1) {
-      return `1 item to review${scope}: ${reason}`;
+      return i18n.t("workspace:repositoryWorkspaceSidebar.text1", { scope: scope, reason: reason });
     }
-    return `${formatCountLabel(args.attentionItemCount, "item")} to review${scope}, latest: ${reason}`;
+    return i18n.t("workspace:repositoryWorkspaceSidebar.valueToReviewvalueLatestValue", { value1: formatCountLabel(args.attentionItemCount, "item"), scope: scope, reason: reason });
   }
   if (args.attentionItemCount <= 1) {
-    return `1 item needs attention${scope}: ${reason}`;
+    return i18n.t("workspace:repositoryWorkspaceSidebar.text2", { scope: scope, reason: reason });
   }
-  return `${formatCountLabel(args.attentionItemCount, "item")} need attention${scope}, most urgent: ${reason}`;
+  return i18n.t("workspace:repositoryWorkspaceSidebar.valueNeedAttentionvalueMostUrgentValue", { value1: formatCountLabel(args.attentionItemCount, "item"), scope: scope, reason: reason });
 }
 
 function formatCountLabel(count: number, singular: string) {
@@ -281,7 +282,7 @@ export function formatWorkspaceDisplayName(args: {
   isDefault: boolean;
 }) {
   if (args.isDefault) {
-    return "Default";
+    return i18n.t("workspace:repositoryWorkspaceSidebar.default");
   }
 
   const name = args.name.trim();
@@ -323,7 +324,7 @@ export function formatWorkQueueWorkspaceLabel(args: {
   if (branch) {
     return branch;
   }
-  return args.isDefault ? "Default" : "worktree";
+  return args.isDefault ? i18n.t("workspace:repositoryWorkspaceSidebar.default") : "worktree";
 }
 
 function normalizeWorkspaceSearchText(value: string) {
@@ -552,13 +553,13 @@ export function buildWorkspaceArchiveDialogCopy(args: {
   if (args.isLinkedWorktree) {
     return {
       canDeleteBranch: false,
-      description: `Archive workspace "${args.workspaceName}"? It is a linked worktree owned outside this repository, so Stave only removes its shortcut — the worktree and its git branch stay untouched.`,
+      description: i18n.t("workspace:repositoryWorkspaceSidebar.archiveWorkspaceValueItIsALinked", { value1: args.workspaceName }),
     };
   }
 
   return {
     canDeleteBranch: true,
-    description: `Archive workspace "${args.workspaceName}"? Stave will remove the associated git worktree only when it is clean and will preserve local changes.`,
+    description: i18n.t("workspace:repositoryWorkspaceSidebar.archiveWorkspaceValueStaveWillRemoveThe", { value1: args.workspaceName }),
   };
 }
 

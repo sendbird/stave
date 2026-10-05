@@ -1,3 +1,4 @@
+import { getAgentDisplayName, getAgentDisplayDescription } from "./display";
 import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { listAgents } from "./library";
@@ -31,14 +32,15 @@ export function selectableMainAgents(custom: readonly AgentConfig[]): AgentConfi
 }
 
 /** The agents whose name or description contains every word of the selector's search. */
-export function matchAgents<T extends Pick<AgentConfig, "name" | "description">>(
+export function matchAgents<T extends Pick<AgentConfig, "name" | "description"> & Partial<Pick<AgentConfig, "id" | "source">>>(
   agents: readonly T[],
   query: string,
 ): T[] {
   const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (terms.length === 0) return [...agents];
   return agents.filter((agent) => {
-    const haystack = `${agent.name} ${agent.description}`.toLowerCase();
+    const display = { ...agent, id: agent.id ?? "" };
+    const haystack = `${agent.id ?? ""} ${agent.name} ${agent.description} ${getAgentDisplayName(display)} ${getAgentDisplayDescription(display)}`.toLowerCase();
     return terms.every((term) => haystack.includes(term));
   });
 }

@@ -1,3 +1,6 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { getAgentDisplayName, getAgentDisplayAvoidWhen } from "@/lib/agents/display";
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArchiveRestore, Copy, Plus, RefreshCw, Rocket, Trash2 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -100,19 +103,20 @@ function useAssignments(agentConfigId: string | null) {
 }
 
 const IMPORT_OUTCOME_LABELS: Readonly<Record<AgentImportNote["outcome"], string>> = {
-  refused: "Not imported",
-  dropped: "Left out",
-  changed: "Changed",
+  get refused() { return i18n.t("agents:agentsTab.refused"); },
+  get dropped() { return i18n.t("agents:agentsTab.dropped"); },
+  get changed() { return i18n.t("agents:agentsTab.changed"); },
 };
 
 /** What reading the file did not carry over, so a repository agent never looks more capable than it is. */
 function ImportNotes(props: { notes: readonly AgentImportNote[] }) {
+  useTranslation();
   if (props.notes.length === 0) return null;
   return (
-    <section aria-label="Read from the file">
+    <section aria-label={i18n.t("agents:agentsTab.ariaLabel")}>
       <div className={sx(styles.sectionHeader)}>
-        <h3 className={sx(styles.sectionTitle)}>Read from the file</h3>
-        <span className={sx(styles.sectionAside)}>The file itself is not changed</span>
+        <h3 className={sx(styles.sectionTitle)}>{i18n.t("agents:agentsTab.importNotes")}</h3>
+        <span className={sx(styles.sectionAside)}>{i18n.t("agents:agentsTab.importNotes2")}</span>
       </div>
       <ul className={sx(agentStyles.runs)}>
         {props.notes.map((note) => (
@@ -130,26 +134,27 @@ function ImportNotes(props: { notes: readonly AgentImportNote[] }) {
 
 /** How each provider runs the agent as a main agent; absent for an agent that cannot be one. */
 export function ProviderSupport(props: { agent: AgentConfig }) {
+  useTranslation();
   const { agent } = props;
   const support = useMemo(() => describeProviderSupport(agent, PROVIDERS), [agent]);
   // Every row would only say it can't be used as a main agent; "Usable as" already does.
   if (!isUsableAs(agent, "primary")) return null;
   return (
-    <section aria-label="Provider support">
+    <section aria-label={i18n.t("agents:agentsTab.ariaLabel2")}>
       <div className={sx(styles.sectionHeader)}>
-        <h3 className={sx(styles.sectionTitle)}>As a main agent</h3>
+        <h3 className={sx(styles.sectionTitle)}>{i18n.t("agents:agentsTab.providerSupport")}</h3>
         <span className={sx(styles.sectionAside)}>
           {agent.permission === "auto"
-            ? "Runs with your permission settings"
-            : `Every turn stays within ${AGENT_PERMISSION_LABELS[agent.permission]}; narrower settings of yours are kept`}
+            ? i18n.t("agents:agentsTab.providerSupport2")
+            : i18n.t("agents:agentsTab.providerSupport3", { value1: AGENT_PERMISSION_LABELS[agent.permission] })}
         </span>
       </div>
       <table className={sx(agentStyles.support)}>
         <thead>
           <tr>
-            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Provider</th>
-            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Instructions</th>
-            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Tool limits</th>
+            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>{i18n.t("agents:agentsTab.providerSupport4")}</th>
+            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>{i18n.t("agents:agentsTab.providerSupport5")}</th>
+            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>{i18n.t("agents:agentsTab.providerSupport6")}</th>
             <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>{AGENT_PERMISSION_LABELS[agent.permission]}</th>
           </tr>
         </thead>
@@ -164,9 +169,9 @@ export function ProviderSupport(props: { agent: AgentConfig }) {
               ) : (
                 <>
                   <td className={sx(agentStyles.supportCell)}>{row.instructions ? SUPPORT_LEVEL_LABELS[row.instructions] : "—"}</td>
-                  <td className={sx(agentStyles.supportCell)}>{row.tools ? SUPPORT_LEVEL_LABELS[row.tools] : "None set"}</td>
+                  <td className={sx(agentStyles.supportCell)}>{row.tools ? SUPPORT_LEVEL_LABELS[row.tools] : i18n.t("agents:agentsTab.copy")}</td>
                   <td className={sx(agentStyles.supportCell)}>
-                    {row.permission ? SUPPORT_LEVEL_LABELS[row.permission] : "Your settings"}
+                    {row.permission ? SUPPORT_LEVEL_LABELS[row.permission] : i18n.t("agents:agentsTab.copy2")}
                   </td>
                 </>
               )}
@@ -188,6 +193,7 @@ function AgentDetail(props: {
   onSave: (agent: AgentConfig) => string | null;
   onRestore: (agent: AgentConfig) => void;
 }) {
+  useTranslation();
   const { agent } = props;
   const assignments = useAssignments(agent.id);
   const editable = agent.source === "custom";
@@ -217,32 +223,26 @@ function AgentDetail(props: {
       ) : (
         <div>
           <dl className={sx(styles.properties)}>
-            <dt className={sx(styles.propertyLabel)}>Source</dt>
-            <dd className={sx(styles.propertyValue)}>
-              {AGENT_SOURCE_LABELS[agent.source]}
-              {agent.origin ? ` · ${agent.origin.path}` : ""} · Usable as {describeUsableAs(agent)}
-            </dd>
-            {agent.avoidWhen ? (
+            <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentsTab.settingsTab")}</dt>
+            <dd className={sx(styles.propertyValue)}>{i18n.t("agents:agentsTab.sentence14", { value1: AGENT_SOURCE_LABELS[agent.source], value2: agent.origin ? ` · ${agent.origin.path}` : "", value3: describeUsableAs(agent) })}</dd>
+            {getAgentDisplayAvoidWhen(agent) ? (
               <>
-                <dt className={sx(styles.propertyLabel)}>Don't use when</dt>
-                <dd className={sx(styles.propertyValue)}>{agent.avoidWhen}</dd>
+                <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentsTab.settingsTab3")}</dt>
+                <dd className={sx(styles.propertyValue)}>{getAgentDisplayAvoidWhen(agent)}</dd>
               </>
             ) : null}
-            <dt className={sx(styles.propertyLabel)}>Runs with</dt>
+            <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentsTab.settingsTab4")}</dt>
             <dd className={sx(styles.propertyValue)}>{describeAgent(agent)}</dd>
             {agent.workflow && agent.workflow.length > 1 ? (
               <>
-                <dt className={sx(styles.propertyLabel)}>Workflow</dt>
-                <dd className={sx(styles.propertyValue)}>
-                  {agent.workflow.map((stage) => stage.title).join(" → ")} · Check in:{" "}
-                  {AGENT_CHECK_IN_LABELS[agent.checkIns ?? DEFAULT_AGENT_CHECK_INS]}
-                </dd>
+                <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentsTab.settingsTab5")}</dt>
+                <dd className={sx(styles.propertyValue)}>{i18n.t("agents:agentsTab.sentence15", { value1: agent.workflow.map((stage) => getStageDisplayTitle(stage)).join(" → "), value2: " ", value3: AGENT_CHECK_IN_LABELS[agent.checkIns ?? DEFAULT_AGENT_CHECK_INS] })}</dd>
               </>
             ) : null}
-            <dt className={sx(styles.propertyLabel)}>Instructions</dt>
+            <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentsTab.settingsTab7")}</dt>
             <dd className={sx(styles.propertyValue)}>
               <pre className={sx(agentStyles.instructions)}>{agent.instructions}</pre>
-              <span className={sx(styles.hint)}>Duplicate this agent to change it.</span>
+              <span className={sx(styles.hint)}>{i18n.t("agents:agentsTab.settingsTab8")}</span>
             </dd>
           </dl>
         </div>
@@ -268,10 +268,10 @@ function AgentDetail(props: {
   // Only custom agents keep a history, so the others have nothing to tab between.
   const tabs = editable
     ? [
-        { value: "settings", label: "Settings", content: settingsTab },
+        { value: "settings", label: i18n.t("agents:agentsTab.label"), content: settingsTab },
         {
           value: "history",
-          label: "History",
+          label: i18n.t("agents:agentsTab.label2"),
           content: (
             <div className={sx(agentStyles.pane, agentStyles.tabPane)}>
               <AgentHistory
@@ -298,23 +298,21 @@ function AgentDetail(props: {
                 onClick={() => useAgentsUiStore.getState().openKickoffWithAgent({ agentConfigId: agent.id })}
               >
                 <Rocket aria-hidden />
-                Assign…
-              </Button>
+                {i18n.t("agents:agentsTab.agentDetail")}</Button>
             ) : null}
             <Button size="sm" variant="quiet" onClick={props.onDuplicate}>
               <Copy aria-hidden />
-              {editable ? "Duplicate" : "Duplicate and edit"}
+              {editable ? i18n.t("agents:agentsTab.agentDetail2") : i18n.t("agents:agentsTab.agentDetail3")}
             </Button>
             {editable ? (
               <>
                 <Button size="sm" variant="quiet" onClick={() => props.onSave({ ...agent, archived: !agent.archived })}>
                   {agent.archived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
-                  {agent.archived ? "Restore" : "Archive"}
+                  {agent.archived ? i18n.t("agents:agentsTab.agentDetail4") : i18n.t("agents:agentsTab.agentDetail5")}
                 </Button>
                 <Button size="sm" variant="quiet" tone="danger" onClick={props.onDelete}>
                   <Trash2 aria-hidden />
-                  Delete
-                </Button>
+                  {i18n.t("agents:agentsTab.agentDetail6")}</Button>
               </>
             ) : null}
           </div>
@@ -328,11 +326,12 @@ function AgentDetail(props: {
 
 /** Agent files that were not used, with why; shown under the list and, in a narrow window, under the picker. */
 function UnusedFiles(props: { problems: ReadonlyArray<{ path: string; message: string }> }) {
+  useTranslation();
   if (props.problems.length === 0) return null;
   return (
     <details className={sx(agentStyles.problems)}>
       <summary className={sx(styles.hint, styles.hintWarning)}>
-        {props.problems.length === 1 ? "1 agent file was not used" : `${props.problems.length} agent files were not used`}
+        {props.problems.length === 1 ? i18n.t("agents:agentsTab.unusedFiles") : i18n.t("agents:agentsTab.unusedFiles2", { value1: props.problems.length })}
       </summary>
       <ul className={sx(agentStyles.runs)}>
         {props.problems.map((problem) => (
@@ -353,6 +352,7 @@ function UnusedFiles(props: { problems: ReadonlyArray<{ path: string; message: s
  * Duplicate makes an editable custom copy.
  */
 export function AgentsTab() {
+  useTranslation();
   const custom = useAppStore((state) => state.settings.customAgents);
   const customAgentRevisions = useAppStore((state) => state.settings.customAgentRevisions);
   const updateSettings = useAppStore((state) => state.updateSettings);
@@ -377,9 +377,9 @@ export function AgentsTab() {
   const takenIds = useMemo(() => agents.map((agent) => agent.id), [agents]);
   const problems = useMemo(
     () => [...repository.scan.problems, ...hiddenRepositoryAgents({ custom, repository: repositoryAgents })],
-    [repository.scan, custom, repositoryAgents],
+    [repository.scan, custom, repositoryAgents, i18n.language],
   );
-  const groups = useMemo(() => groupAgents(agents, query), [agents, query]);
+  const groups = useMemo(() => groupAgents(agents, query), [agents, query, i18n.language]);
   const selected = agents.find((agent) => agent.id === selectedId) ?? agents[0] ?? null;
   const selectedNotes = useMemo(
     () =>
@@ -395,10 +395,10 @@ export function AgentsTab() {
     try {
       updateSettings({ patch: { customAgents: upsertCustomAgent(state.settings.customAgents, agent) } });
     } catch (error) {
-      return error instanceof Error ? error.message : "Stave could not save this agent.";
+      return error instanceof Error ? error.message : i18n.t("agents:agentsTab.extraCopy28");
     }
     const stored = useAppStore.getState().settings.customAgents.find((candidate) => candidate.id === agent.id);
-    if (!stored) return "Stave could not save this agent. Check the fields and try again.";
+    if (!stored) return i18n.t("agents:agentsTab.extraCopy29");
     // A revision is only pushed when an existing agent's behaviour changed;
     // creating one, or a no-op save, adds nothing (pushAgentRevision decides).
     if (previous) {
@@ -461,27 +461,27 @@ export function AgentsTab() {
       style={listWidthStyle}
       data-testid="agents-tab"
     >
-      <aside ref={listRef} className={sx(styles.master, agentStyles.masterResizable)} aria-label="Agents">
+      <aside ref={listRef} className={sx(styles.master, agentStyles.masterResizable)} aria-label={i18n.t("agents:agentsTab.ariaLabel3")}>
         <div className={sx(styles.masterHeader)}>
           <div className={sx(styles.masterSearch)}>
             <TextField
               size="sm"
               controlOnly
-              aria-label="Search agents"
-              placeholder="Search"
+              aria-label={i18n.t("agents:agentsTab.ariaLabel4")}
+              placeholder={i18n.t("agents:agentsTab.placeholder")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <Button size="sm" variant="quiet" iconOnly aria-label="New agent" title="New agent" onClick={() => setNewOpen(true)}>
+          <Button size="sm" variant="quiet" iconOnly aria-label={i18n.t("agents:agentsTab.ariaLabel5")} title={i18n.t("agents:agentsTab.title")} onClick={() => setNewOpen(true)}>
             <Plus aria-hidden />
           </Button>
           <Button
             size="sm"
             variant="quiet"
             iconOnly
-            aria-label="Read agent files again"
-            title="Read agent files again"
+            aria-label={i18n.t("agents:agentsTab.ariaLabel6")}
+            title={i18n.t("agents:agentsTab.title2")}
             disabled={!rootPath || repository.loading}
             onClick={repository.reload}
           >
@@ -505,7 +505,7 @@ export function AgentsTab() {
                     <span className={sx(agentStyles.rowLead)}>
                       <AgentAvatar agent={agent} size="sm" aria-label={null} />
                       <span className={sx(agentStyles.rowText)}>
-                        <span className={sx(styles.cardTitle, agent.archived && agentStyles.archived)}>{agent.name}</span>
+                        <span className={sx(styles.cardTitle, agent.archived && agentStyles.archived)}>{getAgentDisplayName(agent)}</span>
                         <span className={sx(styles.cardMeta)}>{describeAgent(agent)}</span>
                       </span>
                     </span>
@@ -517,21 +517,19 @@ export function AgentsTab() {
         ))}
         {groups.length === 0 && !query ? (
           <div className={sx(styles.empty)} style={{ padding: 0 }}>
-            <p className={sx(styles.emptyText)}>No agents yet. Create one to assign work to it.</p>
+            <p className={sx(styles.emptyText)}>{i18n.t("agents:agentsTab.agentsTab")}</p>
             <div className={sx(styles.emptyActions)}>
               <Button size="sm" onClick={() => setNewOpen(true)}>
                 <Plus aria-hidden />
-                New agent
-              </Button>
+                {i18n.t("agents:agentsTab.agentsTab2")}</Button>
             </div>
           </div>
         ) : null}
-        {groups.length === 0 && query ? <p className={sx(styles.hint)}>No agent matches “{query}”.</p> : null}
+        {groups.length === 0 && query ? <p className={sx(styles.hint)}>{i18n.t("agents:agentsTab.sentence16", { value1: query })}</p> : null}
         <UnusedFiles problems={problems} />
         {rootPath && repositoryAgents.length === 0 && problems.length === 0 && !query ? (
           <p className={sx(styles.hint)}>
-            Agent files in this repository's .claude, .codex, .kiro, .cursor or .github agents folder are listed here too.
-          </p>
+            {i18n.t("agents:agentsTab.agentsTab4")}</p>
         ) : null}
       </aside>
       <AgentsListResizeHandle tabRef={tabRef} listRef={listRef} />
@@ -540,20 +538,20 @@ export function AgentsTab() {
           <div className={sx(styles.compactPicker)}>
             <Select
               size="sm"
-              aria-label="Agent"
+              aria-label={i18n.t("agents:agentsTab.ariaLabel7")}
               value={selected.id}
-              options={agents.map((agent) => ({ value: agent.id, label: agent.name }))}
+              options={agents.map((agent) => ({ value: agent.id, label: getAgentDisplayName(agent) }))}
               onValueChange={(value) => setSelectedId(String(value))}
             />
-            <Button size="sm" variant="quiet" iconOnly aria-label="New agent" title="New agent" onClick={() => setNewOpen(true)}>
+            <Button size="sm" variant="quiet" iconOnly aria-label={i18n.t("agents:agentsTab.ariaLabel8")} title={i18n.t("agents:agentsTab.title3")} onClick={() => setNewOpen(true)}>
               <Plus aria-hidden />
             </Button>
             <Button
               size="sm"
               variant="quiet"
               iconOnly
-              aria-label="Read agent files again"
-              title="Read agent files again"
+              aria-label={i18n.t("agents:agentsTab.ariaLabel9")}
+              title={i18n.t("agents:agentsTab.title4")}
               disabled={!rootPath || repository.loading}
               onClick={repository.reload}
             >
@@ -622,6 +620,7 @@ function NewAgentDraftEditor(props: {
   onSave: (agent: AgentConfig) => string | null;
   onCancel: () => void;
 }) {
+  useTranslation();
   return (
     <Dialog
       open
@@ -629,11 +628,11 @@ function NewAgentDraftEditor(props: {
         if (!open) props.onCancel();
       }}
       width="lg"
-      title="New agent"
-      description="Nothing is saved until you save."
+      title={i18n.t("agents:agentsTab.title5")}
+      description={i18n.t("agents:agentsTab.description")}
     >
       <div data-testid="agents-new-draft">
-        <AgentEditor agent={props.draft} onSave={props.onSave} onCancel={props.onCancel} saveLabel="Save agent" embedded />
+        <AgentEditor agent={props.draft} onSave={props.onSave} onCancel={props.onCancel} saveLabel={i18n.t("agents:agentsTab.saveLabel")} embedded />
       </div>
     </Dialog>
   );

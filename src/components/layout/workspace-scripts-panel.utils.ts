@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type { LensSessionScope } from "@/lib/lens/lens.types";
 import {
   scriptEntryKey,
@@ -96,7 +97,7 @@ export async function openOrbitUrlWithLensPriority(args: {
 }): Promise<OpenOrbitUrlWithLensPriorityResult> {
   const url = args.url.trim();
   if (!url) {
-    return { ok: false, target: "lens", message: "Orbit URL is empty." };
+    return { ok: false, target: "lens", message: i18n.t("scripts:workspaceScriptsPanel.orbitUrlIsEmpty") };
   }
 
   if (!args.workspaceId) {
@@ -132,7 +133,7 @@ export async function openOrbitUrlWithLensPriority(args: {
       return {
         ok: false,
         target: "lens",
-        message: openResult.message ?? "Lens could not create a browser view.",
+        message: openResult.message ?? i18n.t("scripts:workspaceScriptsPanel.lensCouldNotCreateABrowserView"),
       };
     }
 
@@ -146,7 +147,7 @@ export async function openOrbitUrlWithLensPriority(args: {
         ok: false,
         target: "lens",
         message:
-          navigateResult.message ?? "Lens could not load that Orbit URL.",
+          navigateResult.message ?? i18n.t("scripts:workspaceScriptsPanel.lensCouldNotLoadThatOrbitUrl"),
       };
     }
   } catch (error) {

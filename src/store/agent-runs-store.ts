@@ -1,3 +1,5 @@
+import { formatTime as formatLocaleTime } from "@/i18n/format";
+import { i18n } from "@/i18n/runtime";
 /**
  * Renderer state for agent runs: the latest agent run of each task in the active
  * workspace, its detail and its transcript dividers.
@@ -94,15 +96,7 @@ function agentRunsApi(): AgentRunsBridgeApi | null {
   return typeof window === "undefined" ? null : (window.api?.agentRuns ?? null);
 }
 
-const timeFormatter =
-  typeof Intl === "undefined"
-    ? null
-    : new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
-
-function formatTime(iso: string) {
-  const date = new Date(iso);
-  return timeFormatter ? timeFormatter.format(date) : date.toISOString().slice(11, 16);
-}
+const formatTime = (iso: string) => formatLocaleTime(iso, { hour: "2-digit", minute: "2-digit" });
 
 /** The task's agent run to show: an active one wins, else the newest. */
 function pickAgentRunPerTask(agentRuns: readonly AgentRun[]) {
@@ -197,7 +191,7 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
 
     startAgentRun: async (input) => {
       const api = agentRunsApi();
-      if (!api) return { ok: false, agentRun: null, code: "failed", message: "Runs need the desktop app." };
+      if (!api) return { ok: false, agentRun: null, code: "failed", message: i18n.t("agentRuns:agentRunsStore.message") };
       try {
         const response = await api.start(input);
         if (response.ok && response.agentRun) storeDetail(response.agentRun);
@@ -219,7 +213,7 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
           ok: false,
           agentRun: null,
           code: "failed",
-          message: "Stave could not confirm that the run started. Check the task's Progress tab before trying again.",
+          message: i18n.t("agentRuns:agentRunsStore.message2"),
         };
       }
     },
@@ -228,7 +222,7 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
       const api = agentRunsApi();
       const agentRunId = (args as { agentRunId: string }).agentRunId;
       if (!api) {
-        return { ok: false, agentRun: null, code: "failed", message: "Runs are unavailable here." };
+        return { ok: false, agentRun: null, code: "failed", message: i18n.t("agentRuns:agentRunsStore.message3") };
       }
       set((state) => ({
         pendingByAgentRun: { ...state.pendingByAgentRun, [agentRunId]: command },
@@ -240,7 +234,7 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
           ok: false,
           agentRun: null,
           code: "failed",
-          message: error instanceof Error ? error.message : "The run request failed.",
+          message: error instanceof Error ? error.message : i18n.t("agentRuns:agentRunsStore.message4"),
         }),
       );
       set((state) => ({ pendingByAgentRun: { ...state.pendingByAgentRun, [agentRunId]: undefined } }));
@@ -258,7 +252,7 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
             ...state.failureByAgentRun,
             [agentRunId]: {
               code: response.code ?? "failed",
-              message: response.message ?? "The run request failed.",
+              message: response.message ?? i18n.t("agentRuns:agentRunsStore.message5"),
               stageKey,
             },
           },

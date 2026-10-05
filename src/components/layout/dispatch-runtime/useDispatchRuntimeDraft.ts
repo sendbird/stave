@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import {
@@ -156,13 +157,13 @@ export function useDispatchRuntimeDraft(args: {
     }));
     return autonomyPreset
       ? presets
-      : [...presets, { value: "custom", label: "Custom" }];
+      : [...presets, { value: "custom", label: i18n.t("kickoff:useDispatchRuntimeDraft.custom") }];
   }, [autonomyPreset, model.providerId]);
   const autonomyDescription = autonomyPreset
     ? listCraneAutonomyOptions({ providerId: model.providerId }).find(
         (preset) => preset.value === autonomyPreset,
       )?.description
-    : "These access settings no longer match a built-in preset.";
+    : i18n.t("kickoff:useDispatchRuntimeDraft.theseAccessSettingsNoLongerMatchA");
   const seed = useCallback((seedArgs: DispatchRuntimeSeedArgs) => {
     const seededModel = resolveCraneDispatchModelDefaults({
       settings: seedArgs.settings,

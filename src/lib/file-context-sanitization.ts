@@ -83,6 +83,7 @@ export function sanitizeFileContextPayload<T extends FileContextPayload>(
       ? part.instruction
       : sanitizeTextField({
           value: part.instruction,
+          // i18n-ignore: provider payload truncation diagnostic, not display copy
           label: "file context instruction",
           maxChars: MAX_PROVIDER_FILE_CONTEXT_INSTRUCTION_CHARS,
         });
@@ -119,6 +120,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
     case "text": {
       const text = sanitizeTextField({
         value: part.text,
+        // i18n-ignore: provider payload truncation diagnostic, not display copy
         label: "message text",
       });
       return text === part.text ? part : ({ ...part, text } as T);
@@ -126,6 +128,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
     case "thinking": {
       const text = sanitizeTextField({
         value: part.text,
+        // i18n-ignore: provider payload truncation diagnostic, not display copy
         label: "thinking text",
       });
       return text === part.text ? part : ({ ...part, text } as T);
@@ -133,11 +136,13 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
     case "tool_use": {
       const input = sanitizeTextField({
         value: part.input,
+        // i18n-ignore: provider payload truncation diagnostic, not display copy
         label: "tool input",
       });
       const output =
         part.output == null
           ? part.output
+          // i18n-ignore: provider payload truncation diagnostic, not display copy
           : sanitizeTextField({ value: part.output, label: "tool output" });
       return input === part.input && output === part.output
         ? part
@@ -150,10 +155,12 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
     case "code_diff": {
       const oldContent = sanitizeTextField({
         value: part.oldContent,
+        // i18n-ignore: provider payload truncation diagnostic, not display copy
         label: "diff old content",
       });
       const newContent = sanitizeTextField({
         value: part.newContent,
+        // i18n-ignore: provider payload truncation diagnostic, not display copy
         label: "diff new content",
       });
       return oldContent === part.oldContent && newContent === part.newContent
@@ -181,6 +188,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
     case "system_event": {
       const content = sanitizeTextField({
         value: part.content,
+        // i18n-ignore: provider payload truncation diagnostic, not display copy
         label: "system event",
       });
       return content === part.content ? part : ({ ...part, content } as T);
@@ -188,6 +196,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
     case "approval": {
       const description = sanitizeTextField({
         value: part.description,
+        // i18n-ignore: provider payload truncation diagnostic, not display copy
         label: "approval description",
         maxChars: MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
       });
@@ -196,6 +205,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
           ? part.input
           : sanitizeTextField({
               value: part.input,
+              // i18n-ignore: provider payload truncation diagnostic, not display copy
               label: "approval input",
               maxChars: MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
             });
@@ -214,6 +224,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
           ? {
               key: sanitizeTextField({
                 value: question.key,
+                // i18n-ignore: provider payload truncation diagnostic, not display copy
                 label: "user input key",
                 maxChars: MAX_PROVIDER_USER_INPUT_HEADER_CHARS,
               }),
@@ -221,11 +232,13 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
           : {}),
         question: sanitizeTextField({
           value: question.question,
+          // i18n-ignore: provider payload truncation diagnostic, not display copy
           label: "user input question",
           maxChars: MAX_PROVIDER_USER_INPUT_QUESTION_CHARS,
         }),
         header: sanitizeTextField({
           value: question.header,
+          // i18n-ignore: provider payload truncation diagnostic, not display copy
           label: "user input header",
           maxChars: MAX_PROVIDER_USER_INPUT_HEADER_CHARS,
         }),
@@ -233,11 +246,13 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
           ...option,
           label: sanitizeTextField({
             value: option.label,
+            // i18n-ignore: provider payload truncation diagnostic, not display copy
             label: "user input option label",
             maxChars: MAX_PROVIDER_USER_INPUT_OPTION_LABEL_CHARS,
           }),
           description: sanitizeTextField({
             value: option.description,
+            // i18n-ignore: provider payload truncation diagnostic, not display copy
             label: "user input option description",
             maxChars: MAX_PROVIDER_USER_INPUT_OPTION_DESCRIPTION_CHARS,
           }),
@@ -246,6 +261,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
           ? {
               placeholder: sanitizeTextField({
                 value: question.placeholder,
+                // i18n-ignore: provider payload truncation diagnostic, not display copy
                 label: "user input placeholder",
                 maxChars: MAX_PROVIDER_USER_INPUT_OPTION_LABEL_CHARS,
               }),
@@ -255,6 +271,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
           ? {
               defaultValue: sanitizeTextField({
                 value: question.defaultValue,
+                // i18n-ignore: provider payload truncation diagnostic, not display copy
                 label: "user input default value",
                 maxChars: MAX_PROVIDER_USER_INPUT_QUESTION_CHARS,
               }),
@@ -264,6 +281,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
           ? {
               linkUrl: sanitizeTextField({
                 value: question.linkUrl,
+                // i18n-ignore: provider payload truncation diagnostic, not display copy
                 label: "user input link url",
                 maxChars: MAX_PROVIDER_USER_INPUT_QUESTION_CHARS,
               }),
@@ -309,6 +327,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
 export function sanitizeChatMessagePayload(message: ChatMessage): ChatMessage {
   const content = sanitizeTextField({
     value: message.content,
+    // i18n-ignore: provider payload truncation diagnostic, not display copy
     label: `${message.role} message content`,
   });
   const displayContent =
@@ -316,11 +335,13 @@ export function sanitizeChatMessagePayload(message: ChatMessage): ChatMessage {
       ? message.displayContent
       : sanitizeTextField({
           value: message.displayContent,
+          // i18n-ignore: provider payload truncation diagnostic, not display copy
           label: `${message.role} message display content`,
         });
   const planText =
     message.planText == null
       ? message.planText
+      // i18n-ignore: provider payload truncation diagnostic, not display copy
       : sanitizeTextField({ value: message.planText, label: "plan text" });
   const parts = message.parts.map((part) => sanitizeMessagePartPayload(part));
   const displayParts = message.displayParts?.map((part) =>

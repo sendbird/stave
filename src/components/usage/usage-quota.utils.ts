@@ -1,14 +1,16 @@
+import { i18n } from "@/i18n";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { QuotaObservation } from "@/lib/providers/usage-statistics";
 
 export function quotaResetCountdown(resetsAt: number | null, now: number) {
-  if (resetsAt === null) return "Reset time not reported";
+  if (resetsAt === null) return i18n.t("usage:countdown.missing");
   const minutes = Math.ceil((resetsAt * 1000 - now) / 60_000);
-  if (minutes <= 0) return "Reset time passed";
+  if (minutes <= 0) return i18n.t("usage:countdown.passed");
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const rest = minutes % 60;
-  return `Resets in ${days ? `${days}d ` : ""}${hours ? `${hours}h ` : ""}${rest || (!days && !hours) ? `${rest}m` : ""}`.trim();
+  const key = days ? (hours ? (rest ? "daysHoursMinutes" : "daysHours") : rest ? "daysMinutes" : "days") : hours ? (rest ? "hoursMinutes" : "hours") : "minutes";
+  return i18n.t(`usage:countdown.${key}`, { days, hours, minutes: rest });
 }
 
 /** Account rows remain separate: different subscriptions do not share a quota. */

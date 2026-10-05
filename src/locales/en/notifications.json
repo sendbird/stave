@@ -1,0 +1,123 @@
+{
+  "appStoreTaskPauseActions": {
+    "pausedAccountIsUnknown": "Paused account is unknown",
+    "resumeManuallyToUseYourCurrentlySelectedAccount": "Resume manually to use your currently selected account.",
+    "couldnTVerifyPausedAccountUsage": "Couldn't verify paused account usage",
+    "theTaskStaysPausedResumeManuallyOrReserveAnotherResetTimeResume": "The task stays paused. Resume manually or reserve another reset-time resume.",
+    "couldnTResumeTheTask": "Couldn't resume the task",
+    "theTaskIsBusyOrWaitingOnAnotherActionItStaysPaused": "The task is busy or waiting on another action. It stays paused.",
+    "theContinuationTurnDidNotStart": "The continuation turn did not start."
+  },
+  "notificationUtils": {
+    "completedNormally": "Completed normally",
+    "tokenLimitReached": "Token limit reached",
+    "pausedOnToolCall": "Paused on tool call",
+    "stopSequenceHit": "Stop sequence hit",
+    "endedWithError": "Ended with error",
+    "task": "Task",
+    "runFailed": "Run failed — {{label}}",
+    "approvalNeeded": "Approval needed — {{label}}",
+    "inputNeeded": "Input needed — {{label}}"
+  },
+  "appStoreSendUserMessage": {
+    "newTask": "New Task",
+    "thisTaskSWorkspaceFolderCouldNotBeResolvedSoTheTurnWouldRunOutsideTheWorkspaceReopenO": "This task's workspace folder could not be resolved, so the turn would run outside the workspace. Reopen or relink the workspace and send again.",
+    "workspaceFolderUnavailable": "Workspace folder unavailable",
+    "staveAutoIsTurnedOffEnableItInSettingsOrChooseAProviderModelBeforeSending": "Stave Auto is turned off. Enable it in Settings or choose a provider model before sending.",
+    "staveAutoIsUnavailable": "Stave Auto is unavailable",
+    "midTurnSteeringIsNotAvailableInThisBuild": "Mid-turn steering is not available in this build."
+  },
+  "appNotificationBuilders": {
+    "untitledTask": "Untitled Task",
+    "theProviderStoppedBeforeCompleting": "The provider stopped before completing.",
+    "userInputRequested": "User input requested",
+    "openTask": "Open task",
+    "runFinished": "Latest run finished in {{workspaceName}}.{{reviewFacts}}",
+    "runFailed": "Latest run failed in {{workspaceName}}."
+  },
+  "appStoreTaskCoreActions": {
+    "newTask": "New Task",
+    "waitForTheActiveTurnToFinishBeforeRewindingFiles": "Wait for the active turn to finish before rewinding files.",
+    "theSelectedClaudeRuntimeDoesNotSupportFileRewind": "The selected Claude runtime does not support file rewind.",
+    "thisMessageIsNotAClaudeFileRewindCheckpoint": "This message is not a Claude file-rewind checkpoint.",
+    "theClaudeSessionIsUnavailable": "The Claude session is unavailable.",
+    "claudeFileRewindIsUnavailableInThisBuild": "Claude file rewind is unavailable in this build."
+  },
+  "managedTaskTakeover": {
+    "thisTaskIsNotManaged": "This task is not managed.",
+    "managedTaskControlsAreUnavailable": "Managed task controls are unavailable.",
+    "couldNotTakeOverTheManagedTask": "Could not take over the managed task."
+  },
+  "steerSubmit": {
+    "steerDeliveryCouldNotBeConfirmedTheProviderMayStillAcceptItWaitForTheCurrentResponseB": "Steer delivery could not be confirmed. The provider may still accept it; wait for the current response before retrying or queueing.",
+    "theSteerRequestCouldNotReachTheProvider": "The steer request could not reach the provider.",
+    "steerDeliveryCouldNotBeConfirmedWaitForTheCurrentResponseBeforeRetryingOrQueueing": "Steer delivery could not be confirmed. Wait for the current response before retrying or queueing.",
+    "theActiveTurnRejectedTheSteerRequestPressTabToQueueInstead": "The active turn rejected the steer request — press Tab to queue instead."
+  },
+  "utilityTextTurn": {
+    "cancelled": "Cancelled.",
+    "thisNeedsTheDesktopApp": "This needs the desktop app.",
+    "theUtilityModelIsTurnedOffInSettings": "The utility model is turned off in Settings.",
+    "theRequestFailedTryAgain": "The request failed. Try again."
+  },
+  "appStoreConversationThreadActions": {
+    "returnedTheTaskToThisCodexResponseWorkspaceFilesWereNotChanged": "Returned the task to this Codex response. Workspace files were not changed."
+  },
+  "appStoreSupportActions": {
+    "untitledTask": "Untitled Task",
+    "skillCatalogApiIsUnavailableInThisBuild": "Skill catalog API is unavailable in this build.",
+    "loadingSkillCatalog": "Loading skill catalog..."
+  },
+  "accountUsageGuard": {
+    "accountUsageLimitReached": "Account usage limit reached"
+  },
+  "appStoreProviderActions": {
+    "providerStatusCouldNotBeVerified": "Provider status could not be verified.",
+    "retryTheStatusCheckInSettingsTooling": "Retry the status check in Settings > Tooling."
+  },
+  "appStoreTaskLifecycleActions": {
+    "contextCompacted": "context compacted"
+  },
+  "chatStateHelpers": {
+    "attachmentsCanTBeSteeredIntoALiveTurnPressTabToQueueInstead": "Attachments can't be steered into a live turn — press Tab to queue instead.",
+    "steerUnsupported": "{{provider}} does not support mid-turn steering."
+  },
+  "delegatedAttention": {
+    "subagent": "Subagent"
+  },
+  "agentDraftRuntime": {
+    "draftingWasCancelled": "Drafting was cancelled."
+  },
+  "appStore": {
+    "skillCatalogHasNotBeenLoadedYet": "Skill catalog has not been loaded yet."
+  },
+  "reviewTaskRuntime": {
+    "reviewResult": "Review result"
+  },
+  "wakeUpsStore": {
+    "theWakeUpRequestFailed": "The wake-up request failed."
+  },
+  "repositoryUtils": {
+    "withWarnings": ", with warnings",
+    "workspaceCreated": "Workspace created{{warnings}}. {{detail}}"
+  },
+  "conversationThreadActions": {
+    "forkedTask": "Forked a new task from this {{provider}} response.",
+    "rolledBack_one": "Rolled back {{count}} Codex turn and removed the later task messages. Workspace files were not changed.",
+    "rolledBack_other": "Rolled back {{count}} Codex turns and removed the later task messages. Workspace files were not changed."
+  },
+  "taskLifecycleActions": {
+    "contextCompactedWithTrigger": "context compacted ({{trigger}})"
+  },
+  "promptDraftMessageContent": {
+    "visualComment": "Visual comment {{pin}}"
+  },
+  "providerTurnRuntime": {
+    "streamFailed": "Provider stream failed: {{detail}}"
+  },
+  "notificationUtils.questions_one": "{{count}} question",
+  "notificationUtils.questions_other": "{{count}} questions",
+  "appNotificationBuilders.questions_one": "{{count}} question",
+  "appNotificationBuilders.questions_other": "{{count}} questions",
+  "supportActions.prUnavailable": "PR status unavailable."
+}

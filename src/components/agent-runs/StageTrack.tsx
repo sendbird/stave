@@ -1,3 +1,5 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
@@ -31,8 +33,9 @@ export function StageTrack(props: {
   showPercent?: boolean;
   "aria-label"?: string;
 }) {
+  useTranslation();
   const { rows, live = true, size = "sm", paused = false, tone, showPercent = true } = props;
-  const progress = useMemo(() => projectStageProgress(rows, { paused, tone }), [rows, paused, tone]);
+  const progress = useMemo(() => projectStageProgress(rows, { paused, tone }), [rows, paused, tone, i18n.language]);
   if (!progress) return null;
   const { current } = progress;
   return (
@@ -41,24 +44,24 @@ export function StageTrack(props: {
         value={progress.fraction}
         ticks={progress.ticks}
         tone={progress.tone}
-        label={current.stage.title}
+        label={getStageDisplayTitle(current.stage)}
         count={progress.count}
         valueText={progress.valueText}
-        title={`${progress.count} · ${current.stage.title} — ${progress.statusLabel}`}
+        title={`${progress.count} · ${getStageDisplayTitle(current.stage)} — ${progress.statusLabel}`}
         live={live}
         size={size}
         showPercent={showPercent}
-        aria-label={props["aria-label"] ? `${props["aria-label"]} progress` : "Stage progress"}
+        aria-label={props["aria-label"] ? i18n.t("agentRuns:stageTrack.ariaLabel", { value1: props["aria-label"] }) : i18n.t("agentRuns:stageTrack.ariaLabel2")}
       />
-      <ol className={sx(agentRunStyles.visuallyHidden)} aria-label={props["aria-label"] ?? "Stages"}>
+      <ol className={sx(agentRunStyles.visuallyHidden)} aria-label={props["aria-label"] ?? i18n.t("agentRuns:stageTrack.ariaLabel3")}>
         {rows.map((row) => {
           const heldByPause = paused && row.current && row.status === "running";
-          const statusLabel = heldByPause ? "Paused" : STAGE_STATUS_PRESENTATION[row.status].label;
+          const statusLabel = heldByPause ? i18n.t("agentRuns:stageTrack.statusLabel") : STAGE_STATUS_PRESENTATION[row.status].label;
           const asks = row.asksFirst && (row.status === "pending" || row.status === "awaiting-sign-off");
           return (
             <li key={row.stage.id} aria-current={row.current ? "step" : undefined}>
-              {row.index + 1}. {row.stage.title} — {statusLabel}
-              {asks ? ", asks you first" : ""}
+              {row.index + 1}. {getStageDisplayTitle(row.stage)} — {statusLabel}
+              {asks ? i18n.t("agentRuns:stageTrack.copy") : ""}
             </li>
           );
         })}

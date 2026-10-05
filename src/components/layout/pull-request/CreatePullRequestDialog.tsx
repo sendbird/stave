@@ -1,3 +1,4 @@
+import { i18n, useTranslation, Trans } from "@/i18n";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
@@ -124,6 +125,7 @@ interface CreatePullRequestDialogProps {
 
 /** Presentation for the create flow; the top bar owns every async transition. */
 export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
+  useTranslation();
   return (
     <Dialog
       open={props.dialog.open}
@@ -149,11 +151,10 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
         showCloseButton={!props.dialog.busy}
       >
         <DialogHeader>
-          <DialogTitle>Create Pull Request</DialogTitle>
+          <DialogTitle>{i18n.t("sourceControl:createPullRequestDialog.createPullRequest")}</DialogTitle>
           <VisuallyHidden>
             <DialogDescription>
-              Create a pull request from {props.branch.currentBranch ?? "HEAD"}{" "}
-              into {props.branch.targetBranch}
+              {i18n.t("sourceControl:createPullRequestDialog.createDescription", { head: props.branch.currentBranch ?? "HEAD", base: props.branch.targetBranch })}
             </DialogDescription>
           </VisuallyHidden>
         </DialogHeader>
@@ -189,7 +190,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
               />
 
               <div className={sx(openPrStyles.mergeCard)}>
-                <p className={FIELD_LABEL_CLASS}>Merge behavior</p>
+                <p className={FIELD_LABEL_CLASS}>{i18n.t("sourceControl:createPullRequestDialog.mergeBehavior")}</p>
 
                 <div className={sx(openPrStyles.settingRow)}>
                   <div className={sx(openPrStyles.minWidthZero)}>
@@ -197,10 +198,10 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                       className={sx(openPrStyles.settingLabel)}
                       htmlFor="create-pr-merge-method"
                     >
-                      Merge method
+                      {i18n.t("sourceControl:createPullRequestDialog.mergeMethod")}
                     </label>
                     <p className={sx(openPrStyles.settingHint)}>
-                      Used when the PR is merged.
+                      {i18n.t("sourceControl:createPullRequestDialog.usedWhenThePRIsMerged")}
                     </p>
                   </div>
                   <Select
@@ -223,9 +224,9 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                           props.merge.repoSettings?.squashMergeAllowed === false
                         }
                       >
-                        Squash
+                        {i18n.t("sourceControl:createPullRequestDialog.squash")}
                         {props.merge.repoSettings?.squashMergeAllowed === false
-                          ? " (not allowed)"
+                          ? i18n.t("sourceControl:createPullRequestDialog.notAllowed")
                           : ""}
                       </SelectItem>
                       <SelectItem
@@ -234,9 +235,9 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                           props.merge.repoSettings?.mergeCommitAllowed === false
                         }
                       >
-                        Merge commit
+                        {i18n.t("sourceControl:createPullRequestDialog.mergeCommit")}
                         {props.merge.repoSettings?.mergeCommitAllowed === false
-                          ? " (not allowed)"
+                          ? i18n.t("sourceControl:createPullRequestDialog.notAllowed")
                           : ""}
                       </SelectItem>
                       <SelectItem
@@ -245,9 +246,9 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                           props.merge.repoSettings?.rebaseMergeAllowed === false
                         }
                       >
-                        Rebase
+                        {i18n.t("sourceControl:createPullRequestDialog.rebase")}
                         {props.merge.repoSettings?.rebaseMergeAllowed === false
-                          ? " (not allowed)"
+                          ? i18n.t("sourceControl:createPullRequestDialog.notAllowed")
                           : ""}
                       </SelectItem>
                     </SelectContent>
@@ -265,12 +266,12 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                       className={sx(openPrStyles.settingLabel)}
                       htmlFor="create-pr-auto-merge"
                     >
-                      Auto-merge
+                      {i18n.t("sourceControl:createPullRequestDialog.autoMerge")}
                     </label>
                     <p className={sx(openPrStyles.settingHint)}>
                       {props.merge.repoSettings?.autoMergeAllowed === false
-                        ? "Disabled by repository settings."
-                        : "Merge automatically after required checks pass."}
+                        ? i18n.t("sourceControl:createPullRequestDialog.disabledByRepositorySettings")
+                        : i18n.t("sourceControl:createPullRequestDialog.mergeAutomaticallyAfterRequiredChecksPass")}
                     </p>
                   </div>
                   <Switch
@@ -304,13 +305,13 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                   className={sx(openPrStyles.settingLabel)}
                   htmlFor="pr-title-input"
                 >
-                  Title
+                  {i18n.t("sourceControl:createPullRequestDialog.title")}
                 </label>
                 <Input
                   autoFocus
                   id="pr-title-input"
                   xstyle={openPrStyles.textInput}
-                  placeholder="PR title"
+                  placeholder={i18n.t("sourceControl:createPullRequestDialog.pRTitle")}
                   value={props.draft.title}
                   onChange={(e) => {
                     props.draft.onTitleChange(e.target.value);
@@ -320,8 +321,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                 />
                 {props.draft.titleInvalid ? (
                   <p className={sx(openPrStyles.fieldError)}>
-                    Use a lowercase Conventional Commit title, for example{" "}
-                    <code>fix(topbar): stabilize create pr flow</code>.
+                    <Trans ns="sourceControl" i18nKey="createPullRequestDialog.invalidTitleExample" values={{ example: "fix(topbar): stabilize create pr flow" }} components={{ code: <code /> }} />
                   </p>
                 ) : null}
               </div>
@@ -337,14 +337,14 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                   className={sx(openPrStyles.settingLabel)}
                   htmlFor="pr-body-input"
                 >
-                  Description
+                  {i18n.t("sourceControl:createPullRequestDialog.description")}
                 </label>
                 <Textarea
                   id="pr-body-input"
                   xstyle={openPrStyles.bodyTextarea}
                   rows={6}
                   wrap="soft"
-                  placeholder="Describe your changes..."
+                  placeholder={i18n.t("sourceControl:createPullRequestDialog.describeYourChanges")}
                   value={props.draft.body}
                   onChange={(e) => {
                     props.draft.onBodyChange(e.target.value);
@@ -375,12 +375,9 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                         transition.transform,
                       )}
                     />
-                    <span className={sx(openPrStyles.changesCountLabel)}>
-                      {props.changes.files.length} uncommitted file
-                      {props.changes.files.length !== 1 ? "s" : ""}
-                    </span>
+                    <span className={sx(openPrStyles.changesCountLabel)}>{i18n.t("sourceControl:createPullRequestDialog.uncommittedCount", { count: props.changes.files.length })}</span>
                     <span className={sx(openPrStyles.changesHint)}>
-                      all files selected by default
+                      {i18n.t("sourceControl:createPullRequestDialog.allFilesSelectedByDefault")}
                     </span>
                   </AdsButton>
 
@@ -420,7 +417,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                                   )
                                 }
                                 disabled={props.dialog.busy}
-                                aria-label={`Include ${file.path} in the automatic commit`}
+                                aria-label={i18n.t("sourceControl:createPullRequestDialog.includeInTheAutomaticCommit", { value1: file.path })}
                               />
                               <span className={sx(openPrStyles.changesCode)}>
                                 {file.code}
@@ -434,8 +431,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
 
                         {props.changes.selectedFilePaths.length === 0 ? (
                           <p className={sx(openPrStyles.fieldHint)}>
-                            Select at least one file to enable automatic commit.
-                            Unselected files will remain untouched.
+                            {i18n.t("sourceControl:createPullRequestDialog.selectAtLeastOneFileToEnable")}
                           </p>
                         ) : null}
 
@@ -449,7 +445,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                             className={FIELD_LABEL_CLASS}
                             htmlFor="commit-message-input"
                           >
-                            Commit message
+                            {i18n.t("sourceControl:createPullRequestDialog.commitMessage")}
                           </label>
                           <Input
                             id="commit-message-input"
@@ -466,9 +462,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                           />
                           {props.changes.commitMessageInvalid ? (
                             <p className={sx(openPrStyles.fieldErrorTight)}>
-                              Use a Conventional Commit message such as{" "}
-                              <code>fix(topbar): stabilize create pr flow</code>
-                              .
+                              <Trans ns="sourceControl" i18nKey="createPullRequestDialog.invalidMessageExample" values={{ example: "fix(topbar): stabilize create pr flow" }} components={{ code: <code /> }} />
                             </p>
                           ) : null}
                         </div>
@@ -487,13 +481,13 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                   variant="outline"
                   onClick={props.review.onStopAfterReview}
                 >
-                  Stop and fix
+                  {i18n.t("sourceControl:createPullRequestDialog.stopAndFix")}
                 </Button>
                 <Button
                   type="button"
                   onClick={props.review.onProceedAfterReview}
                 >
-                  Proceed anyway
+                  {i18n.t("sourceControl:createPullRequestDialog.proceedAnyway")}
                 </Button>
               </DialogFooter>
             ) : props.review.verificationFailures.length > 0 ? (
@@ -503,14 +497,14 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                   variant="outline"
                   onClick={props.review.onStopAfterVerification}
                 >
-                  Stop and fix
+                  {i18n.t("sourceControl:createPullRequestDialog.stopAndFix")}
                 </Button>
                 {props.review.verificationBlocking ? null : (
                   <Button
                     type="button"
                     onClick={props.review.onProceedAfterVerification}
                   >
-                    Proceed anyway
+                    {i18n.t("sourceControl:createPullRequestDialog.proceedAnyway")}
                   </Button>
                 )}
               </DialogFooter>
@@ -523,7 +517,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                   {props.submit.submitting ? (
                     <Loader aria-hidden size="xs" variant="persist" />
                   ) : null}
-                  Create PR
+                  {i18n.t("sourceControl:createPullRequestDialog.createPR")}
                 </Button>
               </DialogFooter>
             )}

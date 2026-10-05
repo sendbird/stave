@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog } from "electron";
 import { createRendererRecovery } from "./renderer-recovery";
+import { tMain } from "./i18n";
 import { abortPendingLensGuestRequests } from "./browser/browser-guest-broker";
 import { installLensWebviewAttachClamp } from "./browser/browser-webview-attach";
 import { isDevToolsShortcut } from "./keyboard-shortcuts";
@@ -92,11 +93,13 @@ export function createMainWindow() {
         title: "Stave",
         message:
           failure === "crashed"
-            ? "The Stave conversation window stopped."
-            : "The Stave conversation window is not responding.",
-        detail:
-          "Reload to restore saved work. Recent changes that were not saved may be lost. Running tasks may continue in the background; check their activity after reloading before starting another run. Reloading does not resend your request.",
-        buttons: ["Reload window", "Keep open"],
+            ? tMain("rendererRecovery.crashed")
+            : tMain("rendererRecovery.unresponsive"),
+        detail: tMain("rendererRecovery.detail"),
+        buttons: [
+          tMain("rendererRecovery.reload"),
+          tMain("rendererRecovery.keepOpen"),
+        ],
         defaultId: 1,
         cancelId: 1,
         noLink: true,

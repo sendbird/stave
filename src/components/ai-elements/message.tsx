@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import type {
   ButtonHTMLAttributes,
@@ -88,6 +89,7 @@ function syncKnownRepositoryFilePaths() {
 syncKnownRepositoryFilePaths();
 
 export function Message({ from, className, style, ...props }: MessageProps) {
+  useTranslation();
   // `group` and `is-user`/`is-assistant` are a cross-component contract:
   // FailedOutgoingMessages targets `group-[.is-user]:` and a test asserts the
   // class, so they stay as literal class names, not utilities. The user-bubble
@@ -123,6 +125,7 @@ export function MessageContent({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   const messageFontSize = useAppStore(
     (state) => state.settings.messageFontSize,
   );
@@ -151,6 +154,7 @@ export function MessageResponse({
   style,
   ...props
 }: MessageResponseProps) {
+  useTranslation();
   const [
     openFileFromTree,
     settingsMessageFontSize,
@@ -309,7 +313,7 @@ export function MessageResponse({
                   }
                 />
               ) : null}
-              <span className={sx(styles.codeLanguage)}>{language ?? "code"}</span>
+              <span className={sx(styles.codeLanguage)}>{language ?? i18n.t("composer:message.copy")}</span>
             </CodeBlockTitle>
             <CodeBlockActions>
               <CodeBlockCopyButton />
@@ -325,10 +329,12 @@ export function MessageResponse({
 }
 
 export function MessageToolbar(props: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   return <div className={sx(styles.toolbar)} {...props} />;
 }
 
 export function MessageActions(props: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   return (
     <div className={cx(sx(styles.actions), props.className)} {...props} />
   );
@@ -345,6 +351,7 @@ export function MessageAction({
   className,
   ...props
 }: MessageActionProps) {
+  useTranslation();
   const button = (
     <Button
       variant="ghost"
@@ -401,6 +408,7 @@ export function MessageBranch({
   children,
   ...props
 }: MessageBranchProps) {
+  useTranslation();
   const childArray = (Array.isArray(children) ? children : [children]).filter(
     Boolean,
   );
@@ -423,6 +431,7 @@ export function MessageBranch({
 }
 
 export function MessageBranchContent(props: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   const { branch } = useMessageBranchContext();
   const childArray = (
     Array.isArray(props.children) ? props.children : [props.children]
@@ -441,6 +450,7 @@ export function MessageBranchSelector({
   className,
   ...props
 }: MessageBranchSelectorProps) {
+  useTranslation();
   return (
     <div
       className={cx(
@@ -460,6 +470,7 @@ export function MessageBranchSelector({
 export function MessageBranchPrevious(
   props: ButtonHTMLAttributes<HTMLButtonElement>,
 ) {
+  useTranslation();
   const { branch, setBranch } = useMessageBranchContext();
   const { className, onClick, ...rest } = props;
   return (
@@ -485,6 +496,7 @@ export function MessageBranchPrevious(
 export function MessageBranchNext(
   props: ButtonHTMLAttributes<HTMLButtonElement>,
 ) {
+  useTranslation();
   const { branch, setBranch, total } = useMessageBranchContext();
   const { className, onClick, ...rest } = props;
   return (
@@ -508,6 +520,7 @@ export function MessageBranchNext(
 }
 
 export function MessageBranchPage(props: HTMLAttributes<HTMLSpanElement>) {
+  useTranslation();
   const { branch, total } = useMessageBranchContext();
   return (
     <span
@@ -520,6 +533,7 @@ export function MessageBranchPage(props: HTMLAttributes<HTMLSpanElement>) {
 }
 
 export function MessageAttachments(props: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   const hasChildren = Boolean(props.children);
   if (!hasChildren) {
     return null;
@@ -549,20 +563,21 @@ export function MessageAttachment({
   className,
   ...props
 }: MessageAttachmentProps) {
+  useTranslation();
   const isImage = data.mediaType?.startsWith("image/");
   return (
     <div className={cx(sx(styles.attachment), className)} {...props}>
       {isImage && data.url ? (
         <img
           src={data.url}
-          alt={data.filename ?? "attachment"}
+          alt={data.filename ?? i18n.t("composer:message.alt")}
           className={sx(styles.attachmentImage)}
         />
       ) : (
         <div className={sx(styles.attachmentFile)}>
           <Paperclip className={sx(styles.attachmentFileIcon)} />
           <span className={sx(styles.attachmentFileName)}>
-            {data.filename ?? "attachment"}
+            {data.filename ?? i18n.t("composer:message.messageAttachment")}
           </span>
         </div>
       )}
@@ -572,7 +587,7 @@ export function MessageAttachment({
           type="button"
           xstyle={styles.attachmentRemove}
           onClick={onRemove}
-          aria-label="remove-attachment"
+          aria-label={i18n.t("composer:message.removeAttachment")}
         >
           <X className={sx(styles.attachmentRemoveIcon)} />
         </AdsButton>

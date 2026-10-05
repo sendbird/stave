@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { Macro } from "@/lib/macros/types";
 
 const ASSIGN_ENTRY_ID = "agents:assign";
@@ -9,9 +10,9 @@ const ASSIGN_ENTRY_ID = "agents:assign";
  */
 export const ASSIGN_PALETTE_ENTRY: Macro = {
   id: ASSIGN_ENTRY_ID,
-  label: "Assign to an agent…",
+  get label() { return i18n.t("session:assignPaletteEntry.label"); },
   slug: "assign",
-  description: "Open Kickoff with this request and choose the agent to assign it to",
+  get description() { return i18n.t("session:assignPaletteEntry.description"); },
   body: "",
   insertMode: "replace",
   createdAt: "1970-01-01T00:00:00.000Z",

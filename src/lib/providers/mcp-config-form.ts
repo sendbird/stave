@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   McpConfigProvider,
   McpConfigScope,
@@ -57,14 +58,14 @@ export function parseMcpHeaderBindings(value: string) {
       !ENV_VAR_PATTERN.test(envVar)
     ) {
       throw new Error(
-        `Header binding “${entry}” must use the format Header-Name=ENV_VAR.`,
+        i18n.t("providers:mcpConfigForm.headerBindingMustUseTheFormat", { value1: entry }),
       );
     }
     bindings.push({ name, envVar });
   }
   const normalizedNames = bindings.map((binding) => binding.name.toLowerCase());
   if (new Set(normalizedNames).size !== normalizedNames.length) {
-    throw new Error("Header binding names must be unique.");
+    throw new Error(i18n.t("providers:mcpConfigForm.headerBindingNamesMustBeUnique"));
   }
   return bindings;
 }
@@ -118,19 +119,19 @@ export function validateMcpConfigForm(args: {
   const { form } = args;
   if (!SERVER_NAME_PATTERN.test(form.name.trim())) {
     throw new Error(
-      "Server name must start with a letter or number and use only letters, numbers, dots, underscores, or hyphens.",
+      i18n.t("providers:mcpConfigForm.serverNameMustStartWithA"),
     );
   }
   const installProviders = resolveMcpInstallProviders(form);
   if (installProviders.length === 0) {
-    throw new Error("Choose at least one provider to install this MCP server.");
+    throw new Error(i18n.t("providers:mcpConfigForm.chooseAtLeastOneProviderTo"));
   }
   if (
     installProviders.includes("codex") &&
     form.scope !== "user" &&
     installProviders.length === 1
   ) {
-    throw new Error("Codex configuration editing supports user scope only.");
+    throw new Error(i18n.t("providers:mcpConfigForm.codexConfigurationEditingSupportsUserScope"));
   }
   if (
     (installProviders.includes("cursor") || installProviders.includes("kiro")) &&
@@ -138,53 +139,53 @@ export function validateMcpConfigForm(args: {
     installProviders.length === 1
   ) {
     throw new Error(
-      "Cursor and Kiro configuration editing supports user or project scope.",
+      i18n.t("providers:mcpConfigForm.cursorAndKiroConfigurationEditingSupports"),
     );
   }
   if (installProviders.includes("codex") && form.transport === "sse") {
-    throw new Error("Codex does not support creating SSE MCP servers.");
+    throw new Error(i18n.t("providers:mcpConfigForm.codexDoesNotSupportCreatingSSE"));
   }
   if (form.scope !== "user" && !args.workspaceCwd) {
     throw new Error(
-      "Open a workspace before editing project-scoped MCP servers.",
+      i18n.t("providers:mcpConfigForm.openAWorkspaceBeforeEditingProject"),
     );
   }
   if (form.transport === "stdio" && !form.command.trim()) {
-    throw new Error("Command is required for a stdio MCP server.");
+    throw new Error(i18n.t("providers:mcpConfigForm.commandIsRequiredForAStdio"));
   }
   if (
     form.transport !== "stdio" &&
     (!args.editing || form.replaceUrl) &&
     !form.url.trim()
   ) {
-    throw new Error("URL is required for a remote MCP server.");
+    throw new Error(i18n.t("providers:mcpConfigForm.urlIsRequiredForARemote"));
   }
   if (form.transport !== "stdio" && form.replaceUrl) {
     const parsed = new URL(form.url.trim());
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      throw new Error("Remote MCP URL must use HTTP or HTTPS.");
+      throw new Error(i18n.t("providers:mcpConfigForm.remoteMCPURLMustUseHTTP"));
     }
   }
   const envVars = lines(form.envVarsText);
   if (envVars.some((name) => !ENV_VAR_PATTERN.test(name))) {
     throw new Error(
-      "Environment variable names must use POSIX ENV_VAR syntax.",
+      i18n.t("providers:mcpConfigForm.environmentVariableNamesMustUsePOSIX"),
     );
   }
   if (new Set(envVars).size !== envVars.length) {
-    throw new Error("Environment variable names must be unique.");
+    throw new Error(i18n.t("providers:mcpConfigForm.environmentVariableNamesMustBeUnique"));
   }
   if (
     form.bearerTokenEnvVar.trim() &&
     !ENV_VAR_PATTERN.test(form.bearerTokenEnvVar.trim())
   ) {
-    throw new Error("Bearer token environment variable has an invalid name.");
+    throw new Error(i18n.t("providers:mcpConfigForm.bearerTokenEnvironmentVariableHasAn"));
   }
   parseMcpHeaderBindings(form.headerBindingsText);
   const oauthClientId = form.oauthClientId.trim();
   if (oauthClientId && !OAUTH_CLIENT_ID_PATTERN.test(oauthClientId)) {
     throw new Error(
-      "OAuth client ID must start with a letter or number and use only letters, numbers, dots, underscores, or hyphens.",
+      i18n.t("providers:mcpConfigForm.oauthClientIDMustStartWith"),
     );
   }
   if (formNeedsKiroSlackOAuthClientId(form)) {

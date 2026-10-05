@@ -1,3 +1,4 @@
+import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import {
   useCallback,
   useEffect,
@@ -11,10 +12,7 @@ import { SearchAddon } from "@xterm/addon-search";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal as XTerm } from "@xterm/xterm";
-import {
-  DEFAULT_TERMINAL_FONT_WEIGHT,
-  DEFAULT_TERMINAL_FONT_WEIGHT_BOLD,
-} from "@/lib/terminal/defaults";
+import { DEFAULT_TERMINAL_FONT_WEIGHT, DEFAULT_TERMINAL_FONT_WEIGHT_BOLD } from "@/lib/terminal/defaults";
 import { TerminalOutputScheduler } from "@/lib/terminal/terminal-output-scheduler";
 import {
   focusTerminalInstanceSurface,
@@ -93,6 +91,7 @@ export interface UseTerminalInstanceReturn {
 export function useTerminalInstance(
   args: UseTerminalInstanceArgs,
 ): UseTerminalInstanceReturn {
+  useTranslation();
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const outputSchedulerRef = useRef<TerminalOutputScheduler | null>(null);
@@ -166,6 +165,7 @@ export function useTerminalInstance(
 
       const message = describeTerminalError(
         caughtError,
+        // i18n-ignore: internal renderer diagnostic fallback
         "Unknown terminal renderer failure.",
       );
       const stack =
@@ -204,7 +204,7 @@ export function useTerminalInstance(
       options: {
         countWriteError?: boolean;
         countWriteSuccessWhen?: (result: T) => boolean;
-        message?: string;
+        messageKey?: Extract<I18nKey, `terminal:${string}`>;
       } = {},
     ) => {
       try {
@@ -231,7 +231,7 @@ export function useTerminalInstance(
         setError(
           describeTerminalError(
             caughtError,
-            options.message ?? "Terminal renderer failed.",
+            i18n.t(options.messageKey ?? "terminal:renderer.errors.generic"),
           ),
         );
         return undefined;
@@ -253,7 +253,7 @@ export function useTerminalInstance(
     const proposed = executeTerminalOperation(
       "measure-terminal-dimensions",
       () => fitAddon.proposeDimensions(),
-      { message: "Failed to measure terminal dimensions." },
+      { messageKey: "terminal:renderer.errors.measureDimensions" },
     );
     if (!proposed) {
       return undefined;
@@ -295,7 +295,7 @@ export function useTerminalInstance(
         () => {
           terminal.options.theme = theme;
         },
-        { message: "Failed to apply terminal theme." },
+        { messageKey: "terminal:renderer.errors.applyTheme" },
       );
     },
     [executeTerminalOperation],
@@ -417,7 +417,7 @@ export function useTerminalInstance(
           setError(
             describeTerminalError(
               caughtError,
-              "Failed to initialize terminal renderer.",
+              i18n.t("terminal:renderer.errors.initialize"),
             ),
           );
         }
@@ -438,7 +438,7 @@ export function useTerminalInstance(
             },
             {
               countWriteError: true,
-              message: "Failed to render terminal output.",
+              messageKey: "terminal:renderer.errors.renderOutput",
             },
           );
         },
@@ -603,7 +603,7 @@ export function useTerminalInstance(
           () => {
             terminal.resize(proposed.cols, proposed.rows);
           },
-          { message: "Failed to size terminal renderer." },
+          { messageKey: "terminal:renderer.errors.sizeRenderer" },
         );
         onResizeRef.current(proposed.cols, proposed.rows);
       }
@@ -756,7 +756,7 @@ export function useTerminalInstance(
         () => {
           terminal.refresh(0, Math.max(0, terminal.rows - 1));
         },
-        { message: "Failed to refresh terminal viewport." },
+        { messageKey: "terminal:renderer.errors.refreshViewport" },
       );
     })();
 
@@ -833,7 +833,7 @@ export function useTerminalInstance(
           {
             countWriteError: true,
             countWriteSuccessWhen: Boolean,
-            message: "Failed to render terminal output.",
+            messageKey: "terminal:renderer.errors.renderOutput",
           },
         );
       },
@@ -843,7 +843,7 @@ export function useTerminalInstance(
           () => {
             terminalRef.current?.resize(cols, rows);
           },
-          { message: "Failed to resize terminal renderer." },
+          { messageKey: "terminal:renderer.errors.resizeRenderer" },
         );
       },
       focus,
@@ -877,7 +877,7 @@ export function useTerminalInstance(
           () => {
             terminal.refresh(0, Math.max(0, terminal.rows - 1));
           },
-          { message: "Failed to refresh terminal viewport." },
+          { messageKey: "terminal:renderer.errors.refreshViewport" },
         );
       },
     }),

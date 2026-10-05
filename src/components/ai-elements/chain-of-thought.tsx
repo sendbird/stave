@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { CappedViewport } from "@/components/ads/components/CappedViewport";
 import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
@@ -24,8 +25,8 @@ import { Brain, Check, ChevronDown, Circle } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import {
-  getRandomCompletionPhrase,
-  getSeededCompletionPhrase,
+  getRandomCompletionPhraseKey,
+  getSeededCompletionPhraseKey,
 } from "@/lib/completion-phrases";
 import { useAgentStyle } from "./agent-style-context";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
@@ -137,6 +138,7 @@ function StepIcon(args: {
   icon?: ReactNode;
   variant?: "default" | "bullet";
 }) {
+  useTranslation();
   /* Bullet variant — small dot for text-only steps. */
   if (args.variant === "bullet") {
     return (
@@ -217,6 +219,7 @@ export function ChainOfThought({
   children,
   ...props
 }: ChainOfThoughtProps) {
+  useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const collapseSeenRef = useRef(false);
 
@@ -276,11 +279,11 @@ export function ChainOfThought({
 function formatTriggerDuration(seconds: number): string {
   const total = Math.max(1, Math.round(seconds));
   if (total < 60) {
-    return `${total}s`;
+    return i18n.t("session:duration.seconds", { count: total });
   }
   const minutes = Math.floor(total / 60);
   const remainder = total % 60;
-  return remainder === 0 ? `${minutes}m` : `${minutes}m ${remainder}s`;
+  return remainder === 0 ? i18n.t("session:duration.minutes", { count: minutes }) : i18n.t("session:duration.minutesSeconds", { minutes, seconds: remainder });
 }
 
 export function ChainOfThoughtTrigger(
@@ -290,6 +293,7 @@ export function ChainOfThoughtTrigger(
     ...args
   }: ButtonHTMLAttributes<HTMLButtonElement> & { completionLabel?: string },
 ) {
+  useTranslation();
   const { isStreaming, open, setOpen, summaryItems, seed, durationSeconds } =
     useChainOfThoughtContext();
   const showSummary = !open && !isStreaming && summaryItems.length > 0;
@@ -300,7 +304,7 @@ export function ChainOfThoughtTrigger(
      phrase. Fall back to the random variant for non-virtual contexts. */
   const completionPhrase = useMemo(
     () =>
-      seed ? getSeededCompletionPhrase(seed) : getRandomCompletionPhrase(),
+      seed ? getSeededCompletionPhraseKey(seed) : getRandomCompletionPhraseKey(),
     [seed],
   );
 
@@ -357,11 +361,11 @@ export function ChainOfThoughtTrigger(
       ) : (
         <>
           <span className={sx(s.completionLabel)}>
-            {completionLabel ?? completionPhrase}
+            {completionLabel ?? i18n.t(completionPhrase)}
           </span>
           {showDuration ? (
             <span className={sx(agentSurface.meta, s.durationLabel)}>
-              for {formatTriggerDuration(durationSeconds)}
+              {i18n.t("composer:chainOfThought.chainOfThoughtTrigger", { duration: formatTriggerDuration(durationSeconds) })}
             </span>
           ) : null}
         </>
@@ -402,6 +406,7 @@ export function ChainOfThoughtContent({
   className,
   ...args
 }: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   const { open } = useChainOfThoughtContext();
   const agentStyle = useAgentStyle();
   if (!open) return null;
@@ -455,10 +460,11 @@ export function StreamingThoughtViewport({
   className,
   ...args
 }: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   return (
     <CappedViewport
       className={className}
-      label="Streaming reasoning"
+      label={i18n.t("composer:chainOfThought.label")}
       live
       maxBlockSize={STREAMING_THOUGHT_CAP}
       xstyle={s.viewportBody}
@@ -494,6 +500,7 @@ export function ChainOfThoughtStep({
   children,
   ...props
 }: ChainOfThoughtStepProps) {
+  useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const collapseSeenRef = useRef(false);
   const agentStyle = useAgentStyle();

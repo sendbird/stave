@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Config Resolution
 // ---------------------------------------------------------------------------
@@ -34,13 +35,13 @@ export function createDefaultScriptTargets(): Record<string, ResolvedScriptTarge
   return {
     [DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE]: {
       id: DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE,
-      label: "Workspace",
+      label: i18n.t("scripts:config.workspace"),
       cwd: "workspace",
       env: {},
     },
     [DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY]: {
       id: DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY,
-      label: "Repository",
+      label: i18n.t("scripts:config.repository"),
       cwd: "project",
       env: {},
     },
@@ -160,9 +161,9 @@ function normalizeEntryDescription(args: {
     return args.entry.description.trim();
   }
   if (args.kind === "service") {
-    return "Long-running script service.";
+    return i18n.t("scripts:config.longRunningScriptService");
   }
-  return "Runnable workspace script.";
+  return i18n.t("scripts:config.runnableWorkspaceScript");
 }
 
 function normalizeEntries(

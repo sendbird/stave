@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -18,14 +20,15 @@ import type { ChatMessage } from "@/types/chat";
 const EMPTY_MESSAGES: readonly ChatMessage[] = [];
 
 const EVIDENCE_LABEL = (evidence: NonNullable<FlowNode["evidence"]>) =>
-  [
-    evidence.verified ? `${evidence.verified} verified by Stave` : null,
-    evidence.reported ? `${evidence.reported} agent reported` : null,
+  { useTranslation(); return [
+    evidence.verified ? i18n.t("agents:flowPanel.extraCopy37", { value1: evidence.verified }) : null,
+    evidence.reported ? i18n.t("agents:flowPanel.extraCopy38", { value1: evidence.reported }) : null,
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(" · "); };
 
 function FlowNodeRow(props: { node: FlowNode; last: boolean; depth: number }) {
+  useTranslation();
   const { node } = props;
   const [open, setOpen] = useState(false);
   const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
@@ -53,8 +56,7 @@ function FlowNodeRow(props: { node: FlowNode; last: boolean; depth: number }) {
           {hasTimeline ? (
             <Button size="xs" variant="quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
               <ChevronRight aria-hidden className={sx(styles.chevron, open && styles.chevronOpen)} />
-              Timeline
-            </Button>
+              {i18n.t("agents:flowPanel.flowNodeRow")}</Button>
           ) : null}
           {node.target ? (
             <Button
@@ -69,8 +71,7 @@ function FlowNodeRow(props: { node: FlowNode; last: boolean; depth: number }) {
                 })
               }
             >
-              Open task
-            </Button>
+              {i18n.t("agents:flowPanel.flowNodeRow2")}</Button>
           ) : null}
         </div>
         {open ? (
@@ -79,7 +80,7 @@ function FlowNodeRow(props: { node: FlowNode; last: boolean; depth: number }) {
               <li key={`${event.at}:${index}`} className={sx(styles.event)}>
                 {event.at ? (
                   <time dateTime={event.at} className={sx(styles.eventTime)}>
-                    {new Date(event.at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    {formatDateTime(new Date(event.at), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </time>
                 ) : null}
                 {event.label}
@@ -88,7 +89,7 @@ function FlowNodeRow(props: { node: FlowNode; last: boolean; depth: number }) {
           </ol>
         ) : null}
         {node.children.length > 0 ? (
-          <ol className={sx(styles.list, styles.nested)} aria-label={`Delegated from ${node.title}`}>
+          <ol className={sx(styles.list, styles.nested)} aria-label={i18n.t("agents:flowPanel.ariaLabel", { value1: node.title })}>
             {node.children.map((child, index) => (
               <FlowNodeRow key={child.id} node={child} last={index === node.children.length - 1} depth={props.depth + 1} />
             ))}
@@ -105,18 +106,19 @@ function FlowNodeRow(props: { node: FlowNode; last: boolean; depth: number }) {
  * repository agent's file is not read here, so its edits are not flagged.
  */
 function AssignmentReceived(props: { assignment: TaskAgent }) {
+  useTranslation();
   const custom = useAppStore((state) => state.settings.customAgents);
   const [open, setOpen] = useState(false);
   const view = useMemo(() => {
     const current = listAgents({ custom }).find((agent) => agent.id === props.assignment.agentConfigId) ?? null;
     return describeAssignmentReceived({ ...props.assignment, current });
-  }, [custom, props.assignment]);
+  }, [custom, props.assignment, i18n.language]);
   return (
-    <section aria-label="What it received" className={sx(styles.received)}>
+    <section aria-label={i18n.t("agents:flowPanel.ariaLabel2")} className={sx(styles.received)}>
       {view.changedSince ? <p className={sx(styles.detail, styles.changed)}>{view.changedSince}</p> : null}
       <Button size="xs" variant="quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
         <ChevronRight aria-hidden className={sx(styles.chevron, open && styles.chevronOpen)} />
-        What it received · version {view.version}
+        {i18n.t("agents:flowPanel.assignmentReceived")}{view.version}
       </Button>
       {open ? (
         <dl className={sx(styles.receivedList)}>
@@ -138,6 +140,7 @@ function AssignmentReceived(props: { assignment: TaskAgent }) {
  * record that owns it.
  */
 export function FlowPanel(props: { workspaceId: string; taskId: string; repositoryPath: string | null }) {
+  useTranslation();
   useAgentAssignmentsSync();
   const assignment = useAgentAssignmentsStore((state) => state.byTaskId[props.taskId]);
   const agentRun = useTaskAgentRun(props.workspaceId, props.taskId);
@@ -185,10 +188,10 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
         )).map((child) => child.delegatedTaskId)),
         base,
       }),
-    [taskTitle, assignment, agentRun, delegates.children, base, activeTurnIds, runtimeCache],
+    [taskTitle, assignment, agentRun, delegates.children, base, activeTurnIds, runtimeCache, i18n.language],
   );
   return (
-    <section aria-label="Flow">
+    <section aria-label={i18n.t("agents:flowPanel.ariaLabel3")}>
       {assignment ? <AssignmentReceived assignment={assignment} /> : null}
       <ol className={sx(styles.list)}>
         {nodes.map((node, index) => (

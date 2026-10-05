@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Minimal TOML reader for provider agent files (`.codex/agents/*.toml`).
  *
@@ -94,7 +95,7 @@ export function parseToml(content: string): ParsedToml {
 
     const assignment = /^("[^"]*"|'[^']*'|[A-Za-z0-9_.-]+)\s*=\s*(.*)$/.exec(trimmed);
     if (!assignment) {
-      errors.push(`Line ${index + 1}: not a key = value line.`);
+      errors.push(i18n.t("agents:remaining.presentationCopy499", { v1: index + 1 }));
       continue;
     }
     const rawKey = assignment[1]!;
@@ -113,7 +114,7 @@ export function parseToml(content: string): ParsedToml {
         closeAt = body.indexOf(multi);
       }
       if (closeAt < 0) {
-        errors.push(`Key "${key}": unterminated multi-line string.`);
+        errors.push(i18n.t("agents:remaining.presentationCopy500", { v1: key }));
         continue;
       }
       let text = body.slice(0, closeAt);
@@ -121,13 +122,13 @@ export function parseToml(content: string): ParsedToml {
       value = multi === "\"\"\"" ? unescapeBasic(text.replace(/\\\n\s*/g, "")) : text;
       rawValue = body.slice(closeAt + 3);
       if (!isTrailingOk(rawValue)) {
-        errors.push(`Key "${key}": unexpected text after the value.`);
+        errors.push(i18n.t("agents:remaining.presentationCopy501", { v1: key }));
         continue;
       }
     } else {
       const read = readValue(rawValue);
       if (!read || !isTrailingOk(read.rest)) {
-        errors.push(`Key "${key}": unsupported value.`);
+        errors.push(i18n.t("agents:remaining.presentationCopy502", { v1: key }));
         continue;
       }
       value = read.value;
@@ -135,7 +136,7 @@ export function parseToml(content: string): ParsedToml {
 
     if (inTable) continue; // values inside tables are reported by table name only
     if (!BARE_KEY.test(key)) {
-      errors.push(`Key "${key}": dotted keys are not supported.`);
+      errors.push(i18n.t("agents:remaining.presentationCopy503", { v1: key }));
       continue;
     }
     values[key] = value;

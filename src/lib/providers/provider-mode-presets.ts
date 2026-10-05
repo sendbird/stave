@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { AppSettings } from "@/store/app.store";
 
 export type ProviderModePresetId = "manual" | "guided" | "auto";
@@ -52,63 +53,54 @@ export interface ProviderModePresentation {
 export const CLAUDE_PROVIDER_MODE_PRESETS = [
   {
     id: "auto",
-    label: "Auto",
-    description:
-      "Highest-autonomy Claude mode for trusted local automation with minimal interruptions.",
+    get label() { return i18n.t("common:labels.auto"); },
+    get description() { return i18n.t("providers:providerModePresets.highestAutonomyClaudeModeForTrusted"); },
   },
   {
     id: "guided",
-    label: "Guided",
-    description:
-      "Balanced default for normal Claude work without forcing a fully hands-off path.",
+    get label() { return i18n.t("providers:providerModePresets.guided"); },
+    get description() { return i18n.t("providers:providerModePresets.balancedDefaultForNormalClaudeWork"); },
   },
   {
     id: "manual",
-    label: "Manual",
-    description:
-      "Guarded Claude mode for review, audit, and explicit checkpoints.",
+    get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); },
+    get description() { return i18n.t("providers:providerModePresets.guardedClaudeModeForReviewAudit"); },
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
 export const CODEX_PROVIDER_MODE_PRESETS = [
   {
     id: "auto",
-    label: "Auto",
-    description:
-      "Highest-autonomy Codex mode for trusted runs that should move without routine approval stops.",
+    get label() { return i18n.t("common:labels.auto"); },
+    get description() { return i18n.t("providers:providerModePresets.highestAutonomyCodexModeForTrusted"); },
   },
   {
     id: "guided",
-    label: "Guided",
-    description:
-      "Recommended App Server-style baseline for day-to-day implementation work.",
+    get label() { return i18n.t("providers:providerModePresets.guided"); },
+    get description() { return i18n.t("providers:providerModePresets.recommendedAppServerStyleBaselineFor"); },
   },
   {
     id: "manual",
-    label: "Manual",
-    description:
-      "Inspect-first Codex mode with strict checkpoints and no write access.",
+    get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); },
+    get description() { return i18n.t("providers:providerModePresets.inspectFirstCodexModeWithStrict"); },
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
 export const CURSOR_PROVIDER_MODE_PRESETS = [
   {
     id: "auto",
-    label: "Auto",
-    description:
-      "Cursor runs every tool call and MCP server without asking. Use only in trusted workspaces.",
+    get label() { return i18n.t("common:labels.auto"); },
+    get description() { return i18n.t("providers:providerModePresets.cursorRunsEveryToolCallAnd"); },
   },
   {
     id: "guided",
-    label: "Guided",
-    description:
-      "Cursor's own Auto-review classifier runs the calls it judges safe and asks for the rest.",
+    get label() { return i18n.t("providers:providerModePresets.guided"); },
+    get description() { return i18n.t("providers:providerModePresets.cursorSOwnAutoReviewClassifier"); },
   },
   {
     id: "manual",
-    label: "Manual",
-    description:
-      "Cursor asks before every tool call. Nothing runs without an explicit approval.",
+    get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); },
+    get description() { return i18n.t("providers:providerModePresets.cursorAsksBeforeEveryToolCall"); },
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
@@ -122,15 +114,13 @@ export const CURSOR_PROVIDER_MODE_PRESETS = [
 export const KIRO_PROVIDER_MODE_PRESETS = [
   {
     id: "auto",
-    label: "Auto",
-    description:
-      "Kiro auto-approves every tool permission request. Use only in trusted workspaces.",
+    get label() { return i18n.t("common:labels.auto"); },
+    get description() { return i18n.t("providers:providerModePresets.kiroAutoApprovesEveryToolPermission"); },
   },
   {
     id: "manual",
-    label: "Manual",
-    description:
-      "Kiro asks before every tool call. Nothing runs without an explicit approval.",
+    get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); },
+    get description() { return i18n.t("providers:providerModePresets.kiroAsksBeforeEveryToolCall"); },
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
@@ -205,41 +195,31 @@ function findPresetDefinition(
 ) {
   const fallback = presets[0];
   if (!fallback) {
-    throw new Error("Provider mode presets are required.");
+    throw new Error(i18n.t("providers:providerModePresets.providerModePresetsAreRequired"));
   }
   return presets.find((preset) => preset.id === presetId) ?? fallback;
 }
 
 function formatClaudeModeDetail(settings: ClaudeProviderModeSettings) {
-  return [
-    `Permission ${settings.claudePermissionMode}`,
-    `Sandbox ${settings.claudeSandboxEnabled ? "on" : "off"}`,
-    `Unsandboxed ${settings.claudeAllowUnsandboxedCommands ? "on" : "off"}`,
-    `Dangerous Skip ${settings.claudeAllowDangerouslySkipPermissions ? "on" : "off"}`,
-  ].join(" / ");
+  return i18n.t("providers:messages.claudeModeDetail", { permission: settings.claudePermissionMode, sandbox: i18n.t(settings.claudeSandboxEnabled ? "common:status.on" : "common:status.off"), unsandboxed: i18n.t(settings.claudeAllowUnsandboxedCommands ? "common:status.on" : "common:status.off"), skip: i18n.t(settings.claudeAllowDangerouslySkipPermissions ? "common:status.on" : "common:status.off") });
 }
 
 function formatCodexModeDetail(settings: CodexProviderModeSettings) {
-  return [
-    `Files ${settings.codexFileAccess}`,
-    `Approvals ${settings.codexApprovalPolicy}`,
-    `Network ${settings.codexNetworkAccess ? "on" : "off"}`,
-    `Web ${settings.codexWebSearch}`,
-  ].join(" / ");
+  return i18n.t("providers:messages.codexModeDetail", { files: settings.codexFileAccess, approvals: settings.codexApprovalPolicy, network: i18n.t(settings.codexNetworkAccess ? "common:status.on" : "common:status.off"), web: settings.codexWebSearch });
 }
 
 function formatCursorModeDetail(settings: CursorProviderModeSettings) {
   return settings.cursorApprovalMode === "auto"
-    ? "Approvals off / MCP auto-approved (--force --approve-mcps)"
+    ? i18n.t("providers:providerModePresets.approvalsOffMCPAutoApprovedForce")
     : settings.cursorApprovalMode === "guided"
-      ? "Auto-review classifier (--auto-review)"
-      : "Approve every tool call";
+      ? i18n.t("providers:providerModePresets.autoReviewClassifierAutoReview")
+      : i18n.t("providers:providerModePresets.approveEveryToolCall");
 }
 
 function formatKiroModeDetail(settings: KiroProviderModeSettings) {
   return settings.kiroApprovalMode === "auto"
-    ? "Approvals off (--trust-all-tools)"
-    : "Approve every tool call";
+    ? i18n.t("providers:providerModePresets.approvalsOffTrustAllTools")
+    : i18n.t("providers:providerModePresets.approveEveryToolCall");
 }
 
 function toPresentation(args: {
@@ -251,9 +231,9 @@ function toPresentation(args: {
   if (!args.presetId) {
     return {
       id: "custom",
-      label: "Custom",
+      label: i18n.t("common:labels.custom"),
       description:
-        "This settings combination no longer matches a built-in preset.",
+        i18n.t("providers:providerModePresets.thisSettingsCombinationNoLongerMatches"),
       detail: args.detail,
       tone: "warning",
       planNote: args.planNote,
@@ -333,7 +313,7 @@ export function resolveClaudeProviderModePresentation(args: {
     presets: CLAUDE_PROVIDER_MODE_PRESETS,
     detail: formatClaudeModeDetail(args.settings),
     planNote: args.planMode
-      ? "Plan is enabled for this draft, so the next Claude turn still runs in `plan` mode."
+      ? i18n.t("providers:messages.claudePlanNote")
       : undefined,
   });
 }
@@ -347,7 +327,7 @@ export function resolveCodexProviderModePresentation(args: {
     presets: CODEX_PROVIDER_MODE_PRESETS,
     detail: formatCodexModeDetail(args.settings),
     planNote: args.planMode
-      ? "Plan is enabled for this draft, so the next Codex turn is still forced to `read-only` + `never`."
+      ? i18n.t("providers:messages.codexPlanNote")
       : undefined,
   });
 }
@@ -402,7 +382,7 @@ export function resolveCursorProviderModePresentation(args: {
     presets: CURSOR_PROVIDER_MODE_PRESETS,
     detail: formatCursorModeDetail(args.settings),
     planNote: args.planMode
-      ? "Plan is enabled for this draft, so the next Cursor turn still runs in the read-only `plan` session mode."
+      ? i18n.t("providers:messages.cursorPlanNote")
       : undefined,
   });
 }

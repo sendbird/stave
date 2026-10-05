@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   useCallback,
   useEffect,
@@ -39,13 +40,14 @@ interface GlobalCommandPaletteProps {
 }
 
 export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
+  useTranslation();
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [query, setQuery] = useState("");
   const [selectedActionId, setSelectedActionId] = useState("");
   const [pinAnnouncement, setPinAnnouncement] = useState("");
   const sections = useMemo(
     () => buildCommandPaletteGroups(args.runtimeContext),
-    [args.runtimeContext],
+    [args.runtimeContext, i18n.language],
   );
   const visibleSections = useMemo(
     () => searchCommandPaletteGroups({ groups: sections, query }),
@@ -106,7 +108,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
       },
     });
     setPinAnnouncement(
-      `${selectedAction.title} ${next.isPinned ? "pinned" : "unpinned"}.`,
+      i18n.t(next.isPinned ? "shell:globalCommandPalette.pinnedAnnouncement" : "shell:globalCommandPalette.unpinnedAnnouncement", { title: selectedAction.title }),
     );
   }, [
     args.runtimeContext.preferences.hiddenIds,
@@ -134,8 +136,8 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
     <CommandDialog
       open={args.open}
       onOpenChange={args.onOpenChange}
-      title="Command Palette"
-      description="Run workspace commands, switch context, and open settings."
+      title={i18n.t("shell:globalCommandPalette.commandPalette")}
+      description={i18n.t("shell:globalCommandPalette.runWorkspaceCommandsSwitchContextAndOpen")}
       className={sx(commandPaletteStyles.dialog)}
     >
       <Command
@@ -151,7 +153,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
           autoFocus
           value={query}
           onValueChange={setQuery}
-          placeholder="Find a command, task, workspace, or setting…"
+          placeholder={i18n.t("shell:globalCommandPalette.findACommandTaskWorkspaceOrSetting")}
         />
         <CommandList className={sx(commandPaletteStyles.list)}>
           {/*
@@ -167,13 +169,13 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
             <CommandEmpty className={sx(commandPaletteStyles.empty)}>
               <p className={sx(commandPaletteStyles.emptyTitle)}>
                 {query.trim()
-                  ? `No command matches “${query.trim()}”`
-                  : "No commands available in this context"}
+                  ? i18n.t("shell:globalCommandPalette.noCommandMatches", { value1: query.trim() })
+                  : i18n.t("shell:globalCommandPalette.noCommandsAvailableInThisContext")}
               </p>
               <p className={sx(commandPaletteStyles.emptyHint)}>
                 {query.trim()
-                  ? "Try an action, destination, task, workspace, or a shorter phrase."
-                  : "Open a repository or task to make its contextual commands available."}
+                  ? i18n.t("shell:globalCommandPalette.tryAnActionDestinationTaskWorkspaceOr")
+                  : i18n.t("shell:globalCommandPalette.openARepositoryOrTaskToMake")}
               </p>
             </CommandEmpty>
           ) : null}
@@ -232,7 +234,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
                             variant="outline"
                             className={sx(commandPaletteStyles.extBadge)}
                           >
-                            Ext
+                            {i18n.t("shell:globalCommandPalette.ext")}
                           </Badge>
                         ) : null}
                         {action.contextLabel ? (
@@ -266,14 +268,14 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
                 className={sx(commandPaletteStyles.footerIcon)}
                 aria-hidden="true"
               />
-              Navigate
+              {i18n.t("shell:globalCommandPalette.navigate")}
             </span>
             <span className={sx(commandPaletteStyles.footerHint)}>
               <CornerDownLeft
                 className={sx(commandPaletteStyles.footerIcon)}
                 aria-hidden="true"
               />
-              Run
+              {i18n.t("shell:globalCommandPalette.run")}
             </span>
           </span>
           <span className={sx(commandPaletteStyles.footerGroupTight)}>
@@ -287,15 +289,15 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               aria-keyshortcuts="Alt+P"
               aria-label={
                 selectedAction
-                  ? `${selectedActionIsPinned ? "Unpin" : "Pin"} ${selectedAction.title}`
-                  : "Pin selected command"
+                  ? `${selectedActionIsPinned ? i18n.t("shell:globalCommandPalette.unpin") : i18n.t("shell:globalCommandPalette.pin")} ${selectedAction.title}`
+                  : i18n.t("shell:globalCommandPalette.pinSelectedCommand")
               }
               title={
                 selectedAction?.customizable === false
-                  ? "Context-generated commands cannot be pinned"
+                  ? i18n.t("shell:globalCommandPalette.contextGeneratedCommandsCannotBePinned")
                   : selectedAction
-                    ? `${selectedActionIsPinned ? "Unpin" : "Pin"} selected command (Alt+P)`
-                    : "Select a command to pin it"
+                    ? i18n.t("shell:globalCommandPalette.selectedCommandAltP", { value1: selectedActionIsPinned ? i18n.t("shell:globalCommandPalette.unpin") : i18n.t("shell:globalCommandPalette.pin") })
+                    : i18n.t("shell:globalCommandPalette.selectACommandToPinIt")
               }
             >
               {selectedActionIsPinned ? (
@@ -310,14 +312,14 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
                 />
               )}
               <span className={sx(commandPaletteStyles.pinLabel)}>
-                {selectedActionIsPinned ? "Unpin" : "Pin"}
+                {selectedActionIsPinned ? i18n.t("shell:globalCommandPalette.unpin") : i18n.t("shell:globalCommandPalette.pin")}
               </span>
               <Kbd aria-hidden="true">Alt+P</Kbd>
             </Button>
             <span className={sx(commandPaletteStyles.resultCount)}>
               {query.trim()
-                ? `${resultCount} result${resultCount === 1 ? "" : "s"}`
-                : `${actionCount} available`}
+                ? i18n.t("shell:globalCommandPalette.result", { count: resultCount })
+                : i18n.t("shell:globalCommandPalette.available", { value1: actionCount })}
             </span>
           </span>
         </div>

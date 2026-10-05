@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, Sparkles } from "lucide-react";
 import { type CSSProperties, type KeyboardEvent, useRef } from "react";
@@ -31,18 +32,18 @@ const PROFILE_ROWS: readonly {
 }[] = [
   {
     id: "starter-balanced",
-    label: STANCE_LABELS.balanced,
-    description: STANCE_DESCRIPTIONS.balanced,
+    get label() { return STANCE_LABELS.balanced; },
+    get description() { return STANCE_DESCRIPTIONS.balanced; },
   },
   {
     id: "starter-cost-saver",
-    label: STANCE_LABELS["cost-saver"],
-    description: STANCE_DESCRIPTIONS["cost-saver"],
+    get label() { return STANCE_LABELS["cost-saver"]; },
+    get description() { return STANCE_DESCRIPTIONS["cost-saver"]; },
   },
   {
     id: "starter-quality-first",
-    label: STANCE_LABELS["quality-first"],
-    description: STANCE_DESCRIPTIONS["quality-first"],
+    get label() { return STANCE_LABELS["quality-first"]; },
+    get description() { return STANCE_DESCRIPTIONS["quality-first"]; },
   },
 
 ];
@@ -86,6 +87,7 @@ export function AutoRoutingProfileList(args: {
   disabled?: boolean;
   onChoose: () => void;
 }) {
+  useTranslation();
   const profile = useAppStore((state) => state.settings.autoRoutingProfile);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const rowRefs = useRef(new Map<string, HTMLElement>());
@@ -128,22 +130,20 @@ export function AutoRoutingProfileList(args: {
           <span className={sx(styles.headerTitle)}>Stave Auto</span>
           <span className={sx(styles.headerText)}>
             {args.description ??
-              "Stave chooses the provider, model, and effort."}
+              i18n.t("composer:autoRoutingProfileList.autoRoutingProfileList")}
           </span>
         </span>
       </div>
 
       {args.available ? null : (
         <div role="alert" className={sx(styles.notice)}>
-          Auto routing is turned off. Enable it in Settings › Auto (Model
-          Router) before picking it here.
-        </div>
+          {i18n.t("composer:autoRoutingProfileList.autoRoutingProfileList2")}</div>
       )}
 
-      <div className={sx(styles.sectionLabel)}>Preference</div>
+      <div className={sx(styles.sectionLabel)}>{i18n.t("composer:autoRoutingProfileList.autoRoutingProfileList3")}</div>
       <div
         role="listbox"
-        aria-label="Auto routing preference"
+        aria-label={i18n.t("composer:autoRoutingProfileList.ariaLabel")}
         className={sx(styles.list)}
       >
         {rows.map((row, rowIndex) => {
@@ -184,7 +184,7 @@ export function AutoRoutingProfileList(args: {
                 <span className={sx(styles.titleLine)}>
                   <span className={sx(styles.title)}>{row.label}</span>
                   {row.id === activeId && !selected ? (
-                    <span className={sx(styles.badge)}>Current</span>
+                    <span className={sx(styles.badge)}>{i18n.t("composer:autoRoutingProfileList.copy")}</span>
                   ) : null}
                 </span>
                 <span className={sx(styles.description)}>

@@ -1,3 +1,4 @@
+import { i18n, type I18nKey } from "@/i18n/runtime";
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
 import {
   formatSelectedReviewFindings,
@@ -36,13 +37,14 @@ const MAX_CONVERSATION_MESSAGES = 16;
 /** Messages read from disk for a task that is not loaded. */
 export const ATTACHED_TASK_MESSAGE_PAGE = 40;
 
-export const TASK_CONTEXT_SCOPE_LABEL: Record<TaskContextScope, string> = {
-  "latest-reply": "Latest reply",
-  conversation: "Recent conversation",
-};
+export const TASK_CONTEXT_SCOPE_LABEL_KEYS = {
+  "latest-reply": "workspace:taskContext.scope.latestReply",
+  conversation: "workspace:taskContext.scope.conversation",
+} as const satisfies Record<TaskContextScope, I18nKey>;
 
+/** The stored title keeps the language active when the task was attached. */
 export function untitledTaskTitle(title: string | undefined) {
-  return title?.trim() || "Untitled task";
+  return title?.trim() || i18n.t("workspace:taskContext.untitledTask");
 }
 
 export function buildTaskMentionOptions(args: {
@@ -194,7 +196,7 @@ export interface TaskContextPreviewEntry {
   isStreaming: boolean;
 }
 
-export const PARTIAL_TASK_REPLY_NOTE = "Partial reply: still streaming; this is not a final answer.";
+export const PARTIAL_TASK_REPLY_NOTE = ("Partial reply: still streaming; this is not a final answer." /* i18n-ignore: model-facing context annotation */);
 
 /**
  * What an attached task contributes under a scope, one entry per message,
@@ -331,6 +333,7 @@ export function buildAttachedTaskRetrievedContext(args: {
   return {
     type: "retrieved_context",
     sourceId: ATTACHED_TASK_CONTEXT_SOURCE_ID,
+    // i18n-ignore: model-facing retrieved-context title
     title: "Attached Stave Tasks",
     content,
   };

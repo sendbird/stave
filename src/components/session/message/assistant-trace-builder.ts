@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { resolveToolTitle } from "@/lib/providers/subagent-identity";
 import {
   getRenderableMessageParts,
@@ -157,8 +158,8 @@ export function buildAssistantTrace(args: {
             candidate.type === "tool_use" && isSubagentToolPart({ toolName: candidate.toolName }) &&
             Boolean((part.parentToolUseId && candidate.toolUseId === part.parentToolUseId) ||
              (part.ownerAgentId && candidate.agentId === part.ownerAgentId))) : undefined;
-          const name = spawn ? resolveToolTitle(spawn.toolName, spawn.input, undefined, { isSubagent: true }) : "Subagent";
-          entries.push({ kind: "todo", id, part, title: owned ? `${name} · Plan` : "Plan" });
+          const name = spawn ? resolveToolTitle(spawn.toolName, spawn.input, undefined, { isSubagent: true }) : i18n.t("session:assistantTraceBuilder.extraCopy195");
+          entries.push({ kind: "todo", id, part, title: owned ? i18n.t("session:assistantTraceBuilder.title", { value1: name }) : i18n.t("session:assistantTraceBuilder.title2") });
         } else {
           entries.push({ kind: isSubagentToolPart({ toolName: part.toolName }) ? "subagent" : "tool", id, part });
         }

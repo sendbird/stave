@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import {
   buildDefaultCompareVariants,
@@ -73,7 +74,7 @@ export function createCompareActions(args: {
       if (!seedPrompt) {
         return {
           ok: false,
-          message: "Write a prompt before starting a compare run.",
+          message: i18n.t("settings:appStoreCompareActions.writeAPromptBeforeStartingA"),
         };
       }
       return get().startCompareRun({ seedPrompt });
@@ -88,7 +89,7 @@ export function createCompareActions(args: {
       if (!normalizedSeedPrompt) {
         return {
           ok: false,
-          message: "Compare run prompt is required.",
+          message: i18n.t("settings:appStoreCompareActions.compareRunPromptIsRequired"),
         };
       }
 
@@ -96,7 +97,7 @@ export function createCompareActions(args: {
       if (!stateBefore.repositoryPath || !stateBefore.activeWorkspaceId) {
         return {
           ok: false,
-          message: "Open a repository before starting a compare run.",
+          message: i18n.t("settings:appStoreCompareActions.openARepositoryBeforeStartingA"),
         };
       }
 
@@ -110,7 +111,7 @@ export function createCompareActions(args: {
       if (normalizedVariants.length < 2) {
         return {
           ok: false,
-          message: "Compare runs need at least two variants.",
+          message: i18n.t("settings:appStoreCompareActions.compareRunsNeedAtLeastTwo"),
         };
       }
 
@@ -215,7 +216,7 @@ export function createCompareActions(args: {
         return {
           ok: false,
           compareRunId,
-          message: finalRun.error || "No compare variants could be started.",
+          message: finalRun.error || i18n.t("settings:appStoreCompareActions.noCompareVariantsCouldBeStarted"),
         };
       }
       return { ok: true, compareRunId };
@@ -242,19 +243,19 @@ export function createCompareActions(args: {
       if (!run || !keptVariant?.workspaceId || !keptVariant.taskId) {
         return {
           ok: false,
-          message: "Compare variant is no longer available.",
+          message: i18n.t("settings:appStoreCompareActions.compareVariantIsNoLongerAvailable"),
         };
       }
       if (keptVariant.status !== "completed") {
         return {
           ok: false,
-          message: "Wait until this candidate finishes before keeping it.",
+          message: i18n.t("settings:appStoreCompareActions.waitUntilThisCandidateFinishesBefore"),
         };
       }
       if (run.judge?.status === "pending" || run.judge?.status === "running") {
         return {
           ok: false,
-          message: "Wait for the independent judge before keeping a result.",
+          message: i18n.t("settings:appStoreCompareActions.waitForTheIndependentJudgeBefore"),
         };
       }
 
@@ -305,12 +306,12 @@ export function createCompareActions(args: {
     cancelCompareRun: async ({ compareRunId }) => {
       const run = get().compareRunsById[compareRunId];
       if (!run) {
-        return { ok: false, message: "Compare run was not found." };
+        return { ok: false, message: i18n.t("settings:appStoreCompareActions.compareRunWasNotFound") };
       }
       if (run.keptVariantId) {
         return {
           ok: false,
-          message: "The kept candidate is no longer part of this run.",
+          message: i18n.t("settings:appStoreCompareActions.theKeptCandidateIsNoLonger"),
         };
       }
       if (run.status === "cancelled") {

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { contentLayout } from "./content-layout.styles";
 import { VisuallyHidden } from "../ads/components/VisuallyHidden";
 import * as React from "react";
@@ -18,6 +19,7 @@ function BreadcrumbLink({
   render,
   ...props
 }: useRender.ComponentProps<"a">) {
+  useTranslation();
   return useRender({
     defaultTagName: "a",
     props: mergeProps<"a">(
@@ -40,6 +42,7 @@ function BreadcrumbEllipsis({
   className,
   ...props
 }: React.ComponentProps<"span">) {
+  useTranslation();
   return (
     <span
       data-slot="breadcrumb-ellipsis"
@@ -52,7 +55,7 @@ function BreadcrumbEllipsis({
       {...props}
     >
       <MoreHorizontalIcon className={sx(contentLayout.ellipsisIcon)} />
-      <VisuallyHidden>More</VisuallyHidden>
+      <VisuallyHidden>{i18n.t("ui:breadcrumb.more")}</VisuallyHidden>
     </span>
   );
 }

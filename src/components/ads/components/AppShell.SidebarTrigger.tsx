@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 /**
  * The sidebar's collapse control, alone in a module.
  *
@@ -47,6 +48,7 @@ export function SidebarTrigger({
   type = "button",
   ...props
 }: SidebarTriggerProps) {
+  useTranslation();
   const sidebar = useSidebar();
   // A trigger in one of AppShell's chrome bands is THE collapse control for
   // the frame, so it takes the job from the rail's own header trigger rather
@@ -64,7 +66,7 @@ export function SidebarTrigger({
       ? PanelRightOpen
       : PanelLeftOpen;
 
-  const label = ariaLabel ?? (expanded ? "Collapse sidebar" : "Expand sidebar");
+  const label = ariaLabel ?? (expanded ? i18n.t("ui:appshellSidebartrigger.collapseSidebar") : i18n.t("ui:appshellSidebartrigger.expandSidebar"));
   // The trigger sits in the header row next to nav-shaped content, so it takes
   // the rail's own row height instead of a fixed 36px: at `density="compact"`
   // a 36px bordered square next to 32px rows read as a foreign control.

@@ -1,3 +1,5 @@
+import { formatDateTime as formatLocaleDateTime, formatRelativeTime as formatLocaleRelativeTime } from "@/i18n/format";
+import { i18n } from "@/i18n";
 import {
   createDefaultAutomationRuntime,
   type AutomationEnvironmentInput,
@@ -149,45 +151,11 @@ export function applyAutomationScheduleUnit(
 }
 
 export function formatDateTime(value: string | null) {
-  if (!value) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+  return value ? formatLocaleDateTime(value) : "—";
 }
 
-const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ["second", 1000],
-  ["minute", 60_000],
-  ["hour", 3_600_000],
-  ["day", 86_400_000],
-  ["week", 604_800_000],
-];
-
 export function formatRelativeTime(value: string | null, now = Date.now()) {
-  if (!value) {
-    return "—";
-  }
-  const target = new Date(value).getTime();
-  if (Number.isNaN(target)) {
-    return "—";
-  }
-  const deltaMs = target - now;
-  const absoluteMs = Math.abs(deltaMs);
-  const formatter = new Intl.RelativeTimeFormat(undefined, {
-    numeric: "auto",
-  });
-  let unit: Intl.RelativeTimeFormatUnit = "second";
-  let scale = 1000;
-  for (const [candidateUnit, candidateScale] of RELATIVE_UNITS) {
-    if (absoluteMs >= candidateScale) {
-      unit = candidateUnit;
-      scale = candidateScale;
-    }
-  }
-  return formatter.format(Math.round(deltaMs / scale), unit);
+  return value ? formatLocaleRelativeTime(value, now) || "—" : "—";
 }
 
 export function formatRunDuration(run: AutomationRun, now = Date.now()) {
@@ -200,19 +168,19 @@ export function formatRunDuration(run: AutomationRun, now = Date.now()) {
     : now;
   const durationMs = Math.max(0, completedAt - startedAt);
   if (durationMs < 1000) {
-    return "<1s";
+    return i18n.t("workspace:format.duration.lessThanSecond");
   }
   const totalSeconds = Math.round(durationMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+    return i18n.t("workspace:format.duration.hoursMinutes", { hours, minutes });
   }
   if (minutes > 0) {
-    return `${minutes}m ${seconds}s`;
+    return i18n.t("workspace:format.duration.minutesSeconds", { minutes, seconds });
   }
-  return `${seconds}s`;
+  return i18n.t("workspace:format.duration.seconds", { count: seconds });
 }
 
 /**
@@ -242,11 +210,11 @@ export const AUTOMATION_RUN_STATUS_PRESENTATION: Record<
   AutomationRun["status"],
   AutomationRunStatusPresentation
 > = {
-  running: { label: "Running", tone: "accent" },
-  waiting: { label: "Waiting", tone: "warning" },
-  completed: { label: "Completed", tone: "success" },
-  failed: { label: "Failed", tone: "danger" },
-  skipped: { label: "Skipped", tone: "neutral" },
+  running: { get label() { return i18n.t("automation:automationCenter.running"); }, tone: "accent" },
+  waiting: { get label() { return i18n.t("automation:automationCenter.waiting"); }, tone: "warning" },
+  completed: { get label() { return i18n.t("automation:automationCenter.completed"); }, tone: "success" },
+  failed: { get label() { return i18n.t("automation:automationCenter.failed"); }, tone: "danger" },
+  skipped: { get label() { return i18n.t("automation:automationCenter.skipped"); }, tone: "neutral" },
 };
 
 export function getRunStatusPresentation(
@@ -263,10 +231,10 @@ export function isActiveRunStatus(status: AutomationRun["status"]) {
 }
 
 export const AUTOMATION_RUN_FILTERS = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "completed", label: "Completed" },
-  { value: "failed", label: "Failed" },
+  { value: "all", get label() { return i18n.t("automation:automationCenter.all"); } },
+  { value: "active", get label() { return i18n.t("automation:automationCenter.active"); } },
+  { value: "completed", get label() { return i18n.t("automation:automationCenter.completed"); } },
+  { value: "failed", get label() { return i18n.t("automation:automationCenter.failed"); } },
 ] as const;
 
 export type AutomationRunFilter =

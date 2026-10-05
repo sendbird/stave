@@ -1,4 +1,5 @@
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
+import { applyRuntimeLocale } from "../src/i18n/runtime";
 import { readAgentHistory } from "./providers/agent-history";
 import { currentProviderAccountId, withRequestAccountScope } from "./provider-accounts/runtime-scope";
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
@@ -1512,6 +1513,7 @@ function requestNeedsCliDiscovery(method: string) {
 }
 
 async function handleRequest(request: AnyHostServiceRequestEnvelope) {
+  applyRuntimeLocale(request.displayLocale);
   return withGatewayCredential(request.gatewayCredential, () =>
     withRequestAccountScope(request.params, () => handleAccountRequest(request)));
 }

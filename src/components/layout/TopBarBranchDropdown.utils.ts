@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { isDetachedHead } from "@/lib/source-control-branch-label";
 import { isBranchAttachedElsewhere } from "@/lib/source-control-worktrees";
 
@@ -156,12 +157,12 @@ export function buildTopBarBranchGroups(args: {
   );
 
   const groups: TopBarBranchGroup[] = [
-    { id: "current", label: "Current", options: current },
-    { id: "local", label: "Local branches", options: availableLocal },
-    { id: "remote", label: "Remote branches", options: remoteOptions },
+    { id: "current", label: i18n.t("shell:topBarBranchDropdownUtils.current"), options: current },
+    { id: "local", label: i18n.t("shell:topBarBranchDropdownUtils.localBranches"), options: availableLocal },
+    { id: "remote", label: i18n.t("shell:topBarBranchDropdownUtils.remoteBranches"), options: remoteOptions },
     {
       id: "attached",
-      label: "Checked out in other workspaces",
+      label: i18n.t("shell:topBarBranchDropdownUtils.checkedOutInOtherWorkspaces"),
       options: attached,
     },
   ];
@@ -175,10 +176,10 @@ export function validateNewBranchName(args: {
 }) {
   const value = args.value.trim();
   if (!value) {
-    return "Enter a branch name.";
+    return i18n.t("shell:topBarBranchDropdownUtils.enterABranchName");
   }
   if (/\s/.test(value)) {
-    return "Branch names cannot contain spaces.";
+    return i18n.t("shell:topBarBranchDropdownUtils.branchNamesCannotContainSpaces");
   }
   if (
     value.startsWith("/") ||
@@ -190,10 +191,10 @@ export function validateNewBranchName(args: {
     value.endsWith(".lock") ||
     value.includes("@{")
   ) {
-    return "Use a valid git branch name.";
+    return i18n.t("shell:topBarBranchDropdownUtils.useAValidGitBranchName");
   }
   if (args.existingBranches.includes(value)) {
-    return "A local branch with that name already exists.";
+    return i18n.t("shell:topBarBranchDropdownUtils.aLocalBranchWithThatNameAlready");
   }
   return null;
 }

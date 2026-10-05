@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { AlarmClock, AlarmClockOff, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -20,6 +21,7 @@ const STATUS_TONES = {
 
 /** The task's schedule: trigger, where it stands and why, with its controls. */
 export function WakeUpSection(props: { workspaceId: string; taskId: string }) {
+  useTranslation();
   const entry = useTaskWakeUp(props.workspaceId, props.taskId);
   const wakeUpId = entry?.wakeUp.id ?? "";
   const busy = useWakeUpsStore((state) => Boolean(state.pendingById[wakeUpId]));
@@ -48,6 +50,7 @@ export function WakeUpSectionView(props: {
   onSetPaused: (paused: boolean) => void;
   onRemove: () => void;
 }) {
+  useTranslation();
   const { wakeUp, summary } = props.entry;
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const status = describeWakeUpStatus(summary, props.now);
@@ -55,38 +58,33 @@ export function WakeUpSectionView(props: {
   const Icon = summary.state === "scheduled" ? AlarmClock : AlarmClockOff;
   const busy = props.busy;
   return (
-    <section className={sx(styles.section, styles.sectionRule)} aria-label="Schedule" data-testid="wake-up-section">
+    <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:wakeUpSection.ariaLabel")} data-testid="wake-up-section">
       <div className={sx(styles.sectionHeader)}>
         <AlarmClock aria-hidden className={sx(styles.sectionIcon)} />
-        <h3 className={sx(styles.sectionTitle)}>Schedule</h3>
+        <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:wakeUpSection.wakeUpSectionView")}</h3>
         <div className={sx(styles.actions)}>
           {confirmingRemove ? (
             <>
-              <span className={sx(styles.notice)}>Remove this schedule?</span>
+              <span className={sx(styles.notice)}>{i18n.t("agentRuns:wakeUpSection.wakeUpSectionView2")}</span>
               <Button size="xs" variant="danger" disabled={busy} onClick={props.onRemove}>
-                Remove
-              </Button>
+                {i18n.t("agentRuns:wakeUpSection.wakeUpSectionView3")}</Button>
               <Button size="xs" variant="quiet" onClick={() => setConfirmingRemove(false)}>
-                Keep
-              </Button>
+                {i18n.t("agentRuns:wakeUpSection.wakeUpSectionView4")}</Button>
             </>
           ) : (
             <>
               {summary.state === "scheduled" ? (
                 <Button size="xs" variant="quiet" disabled={busy} onClick={() => props.onSetPaused(true)}>
                   <Pause aria-hidden />
-                  Pause
-                </Button>
+                  {i18n.t("agentRuns:wakeUpSection.wakeUpSectionView5")}</Button>
               ) : null}
               {summary.state === "paused" ? (
                 <Button size="xs" variant="secondary" disabled={busy} onClick={() => props.onSetPaused(false)}>
                   <Play aria-hidden />
-                  Resume
-                </Button>
+                  {i18n.t("agentRuns:wakeUpSection.wakeUpSectionView6")}</Button>
               ) : null}
               <Button size="xs" variant="quiet" disabled={busy} onClick={() => setConfirmingRemove(true)}>
-                Remove
-              </Button>
+                {i18n.t("agentRuns:wakeUpSection.wakeUpSectionView7")}</Button>
             </>
           )}
         </div>

@@ -365,6 +365,7 @@ function formatCheck(
     check.completedAt ? ` at ${check.completedAt}` : ""
   }`;
   if (!excerpt) {
+    // i18n-ignore: model-facing pull request evidence
     return `${header}\n  (no log excerpt selected)`;
   }
   const body =
@@ -374,7 +375,9 @@ function formatCheck(
           .map((line) => `    ${line}`)
           .join("\n")
       : "    (empty)";
+  // i18n-ignore: model-facing pull request evidence annotation.
   const note = excerpt.note ? `\n  Note: ${excerpt.note}` : "";
+  // i18n-ignore: model-facing pull request evidence
   return `${header}\n  Evidence source: ${excerpt.source}${note}\n${body}`;
 }
 

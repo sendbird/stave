@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { contentLayout } from "./content-layout.styles";
 import { cx, sx } from "../ads/utils/stylex";
 import { focusRing } from "../ads/recipes/focus-ring";
@@ -123,7 +124,7 @@ export function ServiceLinkBadge({
 }: ServiceLinkBadgeProps) {
   const Icon = SERVICE_BADGE_ICONS[badge.kind];
   const displayLabel = label?.trim() || badge.label;
-  const tooltipLabel = `Open in ${getServiceLinkName(badge.kind)} — ${href}`;
+  const tooltipLabel = i18n.t("ui:serviceLinkBadge.openIn", { service: getServiceLinkName(badge.kind), href });
 
   return (
     <TooltipProvider>

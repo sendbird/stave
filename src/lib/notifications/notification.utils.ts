@@ -1,11 +1,12 @@
+import { i18n } from "@/i18n/runtime";
 import type { AppNotification } from "@/lib/notifications/notification.types";
 
 const STOP_REASON_LABELS: Record<string, string> = {
-  end_turn: "Completed normally",
-  max_tokens: "Token limit reached",
-  tool_use: "Paused on tool call",
-  stop_sequence: "Stop sequence hit",
-  error: "Ended with error",
+  get end_turn() { return i18n.t("notifications:notificationUtils.completedNormally"); },
+  get max_tokens() { return i18n.t("notifications:notificationUtils.tokenLimitReached"); },
+  get tool_use() { return i18n.t("notifications:notificationUtils.pausedOnToolCall"); },
+  get stop_sequence() { return i18n.t("notifications:notificationUtils.stopSequenceHit"); },
+  get error() { return i18n.t("notifications:notificationUtils.endedWithError"); },
 };
 
 export const NOTIFICATION_TOAST_DURATIONS_MS = {
@@ -73,7 +74,7 @@ export function formatUserInputNotificationDetail(
     typeof payload.questionCount === "number" && payload.questionCount > 1
       ? payload.questionCount
       : null;
-  const detail = question || (questionCount ? `${questionCount} questions` : "");
+  const detail = question || (questionCount ? i18n.t("notifications:notificationUtils.questions", { count: questionCount }) : "");
 
   if (toolName && detail) {
     return `${toolName}: ${detail}`;
@@ -122,7 +123,7 @@ export function buildNotificationToastOptions(
   const label =
     notification.taskTitle?.trim() ||
     notification.workspaceName?.trim() ||
-    "Task";
+    i18n.t("notifications:notificationUtils.task");
   const description = buildNotificationDetail(notification) ?? undefined;
 
   if (notification.kind === "task.turn_completed") {
@@ -139,7 +140,7 @@ export function buildNotificationToastOptions(
   if (notification.kind === "task.turn_failed") {
     return {
       tone: "error",
-      title: `Run failed — ${label}`,
+      title: i18n.t("notifications:notificationUtils.runFailed", { label }),
       description,
       duration: NOTIFICATION_TOAST_DURATIONS_MS.turnFailed,
       closeButton: true,
@@ -150,7 +151,7 @@ export function buildNotificationToastOptions(
   if (notification.kind === "task.approval_requested") {
     return {
       tone: "warning",
-      title: `Approval needed — ${label}`,
+      title: i18n.t("notifications:notificationUtils.approvalNeeded", { label }),
       description,
       duration: NOTIFICATION_TOAST_DURATIONS_MS.approvalRequested,
       closeButton: true,
@@ -186,7 +187,7 @@ export function buildNotificationToastOptions(
 
   return {
     tone: "warning",
-    title: `Input needed — ${label}`,
+    title: i18n.t("notifications:notificationUtils.inputNeeded", { label }),
     description,
     duration: NOTIFICATION_TOAST_DURATIONS_MS.userInputRequested,
     closeButton: true,

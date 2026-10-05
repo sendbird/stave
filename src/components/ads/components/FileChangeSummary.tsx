@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import {
   FileDiff,
@@ -154,6 +155,7 @@ export function FileChangeSummary({
   xstyle,
   ...props
 }: FileChangeSummaryProps) {
+  useTranslation();
   const Icon = kindIcon[kind];
   const { basename, directory } = splitFileChangePath(path, directoryDepth);
 

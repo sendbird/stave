@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { RotateCcw } from "lucide-react";
 import { Radio } from "@base-ui/react/radio";
 import { RadioGroup } from "@base-ui/react/radio-group";
@@ -18,15 +19,15 @@ import { focusRing } from "../ads/recipes/focus-ring";
 import { controlMenuStyles } from "./prompt-input-control-menu.styles";
 
 const PLACEMENT_LABELS: Record<ComposerControlPlacement, string> = {
-  toolbar: "Bar",
-  overflow: "Tray",
-  hidden: "Off",
+  get toolbar() { return i18n.t("composer:promptInputControlMenu.toolbar"); },
+  get overflow() { return i18n.t("composer:promptInputControlMenu.overflow"); },
+  get hidden() { return i18n.t("composer:promptInputControlMenu.hidden"); },
 };
 
 const PLACEMENT_HINTS: Record<ComposerControlPlacement, string> = {
-  toolbar: "Always visible in the toolbar",
-  overflow: "Tucked into the ⋯ tray",
-  hidden: "Not rendered",
+  get toolbar() { return i18n.t("composer:promptInputControlMenu.toolbar2"); },
+  get overflow() { return i18n.t("composer:promptInputControlMenu.overflow2"); },
+  get hidden() { return i18n.t("composer:promptInputControlMenu.hidden2"); },
 };
 
 function PlacementSegments(args: {
@@ -34,6 +35,7 @@ function PlacementSegments(args: {
   value: ComposerControlPlacement;
   onSelect: (placement: ComposerControlPlacement) => void;
 }) {
+  useTranslation();
   const options = composerControlPlacementOptions(args.id);
   return (
     <RadioGroup
@@ -65,7 +67,7 @@ function PlacementSegments(args: {
         const nextPlacement = options[nextIndex];
         if (nextPlacement) args.onSelect(nextPlacement);
       }}
-      aria-label={`${COMPOSER_CONTROL_LABELS[args.id]} placement`}
+      aria-label={i18n.t("composer:promptInputControlMenu.ariaLabel", { value1: COMPOSER_CONTROL_LABELS[args.id] })}
       className={sx(controlMenuStyles.segmentGroup)}
     >
       {options.map((placement) => {
@@ -104,6 +106,7 @@ export function ComposerControlPlacementList(args: {
   forcedIds?: readonly ComposerControlId[];
   className?: string;
 }) {
+  useTranslation();
   const placements = normalizeComposerControlPlacements(args.placements);
   const forced = new Set(args.forcedIds ?? []);
   const isDefault = Object.keys(placements).length === 0;
@@ -132,7 +135,7 @@ export function ComposerControlPlacementList(args: {
               </div>
               <div className={sx(controlMenuStyles.rowDescription)}>
                 {forced.has(id)
-                  ? `Showing now — ${COMPOSER_CONTROL_LABELS[id]} is active.`
+                  ? i18n.t("composer:promptInputControlMenu.copy", { value1: COMPOSER_CONTROL_LABELS[id] })
                   : COMPOSER_CONTROL_DESCRIPTIONS[id]}
               </div>
             </div>
@@ -146,10 +149,7 @@ export function ComposerControlPlacementList(args: {
       })}
 
       <p className={sx(controlMenuStyles.footerNote)}>
-        A control set to Tray or Off returns to the toolbar while it is active,
-        so plan mode, bound secrets or a forced Thinking mode is never running
-        out of sight.
-      </p>
+        {i18n.t("composer:promptInputControlMenu.composerControlPlacementList")}</p>
 
       {isDefault ? null : (
         <div className={sx(controlMenuStyles.resetWrap)}>
@@ -161,8 +161,7 @@ export function ComposerControlPlacementList(args: {
             onClick={() => args.onChange({})}
           >
             <RotateCcw className={sx(controlMenuStyles.resetIcon)} />
-            Reset to defaults
-          </Button>
+            {i18n.t("composer:promptInputControlMenu.composerControlPlacementList2")}</Button>
         </div>
       )}
     </div>

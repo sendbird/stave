@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { Bot } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -7,12 +8,13 @@ import { describeSubagentState, subagentResultLine } from "@/lib/delegation/suba
 import { agentRunStyles as styles } from "./agent-runs.styles";
 
 export function AgentRunSubagents({ rows }: { rows: readonly DelegationExchange[] }) {
+  useTranslation();
   if (!rows.length) return null;
   return (
-    <section className={sx(styles.section, styles.sectionRule)} aria-label="Subagents">
+    <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunSubagents.ariaLabel")}>
       <div className={sx(styles.sectionHeader)}>
         <Bot aria-hidden className={sx(styles.sectionIcon)} />
-        <h3 className={sx(styles.sectionTitle)}>Subagents</h3>
+        <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunSubagents.agentRunSubagents")}</h3>
       </div>
       <ul className={sx(styles.checkList)}>
         {rows.map((row) => (

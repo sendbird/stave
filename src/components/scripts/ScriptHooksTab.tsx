@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { AlertCircle, Plus, X } from "lucide-react";
 import {
   Badge,
@@ -42,6 +43,7 @@ function HookTriggerCard(props: {
     blocking: boolean,
   ) => void;
 }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   const meta = SCRIPT_TRIGGER_METADATA[props.trigger];
   const linkedCandidates = props.candidates.filter((candidate) =>
     isHookLinked(props.links, candidate),
@@ -66,8 +68,7 @@ function HookTriggerCard(props: {
 
       {linkedCandidates.length === 0 ? (
         <p className={sx(hooksTabStyles.emptyLinks)}>
-          No commands or processes assigned yet.
-        </p>
+          {tI18n("scripts:scriptHooksTab.noCommandsOrProcessesAssignedYet")}</p>
       ) : (
         <div className={sx(hooksTabStyles.linkList)}>
           {linkedCandidates.map((candidate) => {
@@ -104,8 +105,7 @@ function HookTriggerCard(props: {
                     }
                   />
                   <span className={sx(hooksTabStyles.blockingLabel)}>
-                    Blocking
-                  </span>
+                    {tI18n("scripts:scriptHooksTab.blocking")}</span>
                 </div>
                 <Button
                   variant="ghost"
@@ -114,7 +114,7 @@ function HookTriggerCard(props: {
                   onClick={() =>
                     props.onToggleLink(props.trigger, candidate, false)
                   }
-                  aria-label="Remove assignment"
+                  aria-label={tI18n("scripts:scriptHooksTab.removeAssignment")}
                 >
                   <X className={sx(hooksTabStyles.icon)} />
                 </Button>
@@ -137,19 +137,17 @@ function HookTriggerCard(props: {
         >
           <Plus className={sx(hooksTabStyles.icon)} />
           {props.candidates.length === 0
-            ? "Nothing to assign"
-            : "Assign command or process"}
+            ? tI18n("scripts:scriptHooksTab.nothingToAssign")
+            : tI18n("scripts:scriptHooksTab.assignCommandOrProcess")}
         </PopoverTrigger>
         <PopoverContent align="end" xstyle={hooksTabStyles.popoverContent}>
           {unlinkedCandidates.length === 0 ? (
             <p className={sx(hooksTabStyles.popoverEmpty)}>
-              All candidates already assigned.
-            </p>
+              {tI18n("scripts:scriptHooksTab.allCandidatesAlreadyAssigned")}</p>
           ) : (
             <div className={sx(hooksTabStyles.popoverList)}>
               <p className={sx(hooksTabStyles.popoverHeading)}>
-                Available commands and processes
-              </p>
+                {tI18n("scripts:scriptHooksTab.availableCommandsAndProcesses")}</p>
               {unlinkedCandidates.map((candidate) => (
                 <AdsButton
                   key={`${candidate.scriptKind}:${candidate.scriptId}`}
@@ -207,14 +205,13 @@ export function ScriptHooksTab(props: {
     blocking: boolean,
   ) => void;
 }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   return (
     <div className={sx(hooksTabStyles.root)}>
       <div className={sx(hooksTabStyles.intro)}>
-        <p className={sx(hooksTabStyles.introTitle)}>Lifecycle triggers</p>
+        <p className={sx(hooksTabStyles.introTitle)}>{tI18n("scripts:scriptHooksTab.lifecycleTriggers")}</p>
         <p className={sx(hooksTabStyles.introDescription)}>
-          Start one-shot commands or long-running processes from task, turn, and
-          PR events.
-        </p>
+          {tI18n("scripts:scriptHooksTab.startOneShotCommandsOrLongRunning")}</p>
       </div>
 
       {props.candidates.length === 0 ? (
@@ -223,11 +220,9 @@ export function ScriptHooksTab(props: {
             <EmptyMedia>
               <AlertCircle className={sx(hooksTabStyles.emptyIcon)} />
             </EmptyMedia>
-            <EmptyTitle>No commands or processes yet</EmptyTitle>
+            <EmptyTitle>{tI18n("scripts:scriptHooksTab.noCommandsOrProcessesYet")}</EmptyTitle>
             <EmptyDescription>
-              Create a command or process first, then return here to attach it
-              to a trigger.
-            </EmptyDescription>
+              {tI18n("scripts:scriptHooksTab.createACommandOrProcessFirstThen")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -249,8 +244,7 @@ export function ScriptHooksTab(props: {
         <div className={sx(hooksTabStyles.unresolved)}>
           <div className={sx(hooksTabStyles.unresolvedHeader)}>
             <AlertCircle className={sx(hooksTabStyles.emptyIcon)} />
-            Preserved unresolved hook refs
-          </div>
+            {tI18n("scripts:scriptHooksTab.preservedUnresolvedHookRefs")}</div>
           <div className={sx(hooksTabStyles.unresolvedList)}>
             {props.unresolvedHookRefs.map(({ trigger, link }, index) => (
               <Badge
@@ -259,7 +253,7 @@ export function ScriptHooksTab(props: {
                 className={sx(hooksTabStyles.unresolvedBadge)}
               >
                 {SCRIPT_TRIGGER_METADATA[trigger].label} →{" "}
-                {link.scriptKind ?? "unknown"}:{link.scriptId}
+                {link.scriptKind ?? tI18n("scripts:scriptHooksTab.unknown")}:{link.scriptId}
               </Badge>
             ))}
           </div>

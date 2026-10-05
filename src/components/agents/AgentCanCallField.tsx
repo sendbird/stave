@@ -1,3 +1,5 @@
+import { getAgentDisplayName } from "@/lib/agents/display";
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Select } from "@/components/ads/components/Select";
@@ -17,6 +19,7 @@ export function AgentCanCallField(props: {
   agent: AgentConfig;
   onChange: (canCall: string[] | undefined) => void;
 }) {
+  useTranslation();
   const customAgents = useAppStore((state) => state.settings.customAgents);
   const candidates = useMemo(
     () =>
@@ -32,17 +35,17 @@ export function AgentCanCallField(props: {
     <div className={sx(agentStyles.canCall)}>
       <Select
         size="sm"
-        aria-label="Can call"
+        aria-label={i18n.t("agents:agentCanCallField.ariaLabel")}
         value={canCall ? "only" : "any"}
         options={[
-          { value: "any", label: "Any agent" },
-          { value: "only", label: "Only these agents" },
+          { value: "any", label: i18n.t("agents:agentCanCallField.label") },
+          { value: "only", label: i18n.t("agents:agentCanCallField.label2") },
         ]}
         onValueChange={(value) => props.onChange(value === "only" ? (canCall ?? []) : undefined)}
       />
       {canCall ? (
-        <div role="group" aria-label="Agents it can call" className={sx(agentStyles.roles)}>
-          {[...candidates.map((agent) => ({ id: agent.id, name: agent.name })), ...missing.map((id) => ({ id, name: id }))].map(
+        <div role="group" aria-label={i18n.t("agents:agentCanCallField.ariaLabel2")} className={sx(agentStyles.roles)}>
+          {[...candidates.map((agent) => ({ id: agent.id, name: getAgentDisplayName(agent) })), ...missing.map((id) => ({ id, name: id }))].map(
             (option) => (
               <Checkbox
                 key={option.id}
@@ -55,7 +58,7 @@ export function AgentCanCallField(props: {
             ),
           )}
           {candidates.length === 0 && missing.length === 0 ? (
-            <span className={sx(agentStyles.noteText)}>No other agent can take delegated tasks.</span>
+            <span className={sx(agentStyles.noteText)}>{i18n.t("agents:agentCanCallField.agentCanCallField")}</span>
           ) : null}
         </div>
       ) : null}

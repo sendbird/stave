@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 import { WorkspaceRevisionSchema, revisionsMatch } from "../agent-runs/verification-contract";
 import { DelegatedTaskStopArgsSchema, DelegatedTaskExpectedIdentitySchema } from "../runs/delegated-task";
@@ -17,20 +18,20 @@ export type ReviewRevisionState = z.infer<typeof ReviewRevisionStateSchema>;
 export function describeReviewRevision(state: ReviewRevisionState | null) {
   if (!state) return null;
   if (state.source.status !== "known" || state.completed.status !== "known")
-    return "The workspace state for this review is unavailable. Run the review again to check the current changes.";
+    return i18n.t("sourceControl:reviewRevision.theWorkspaceStateForThisReviewIs");
   if (!revisionsMatch(state.source, state.completed))
-    return "Code changed while this review was running. Run the review again before relying on its findings.";
+    return i18n.t("sourceControl:reviewRevision.codeChangedWhileThisReviewWasRunning");
   if (state.current.status !== "known")
-    return "Current workspace changes could not be checked. This review may refer to earlier code.";
+    return i18n.t("sourceControl:reviewRevision.currentWorkspaceChangesCouldNotBeChecked");
   if (!revisionsMatch(state.completed, state.current))
-    return "Code changed since this review. Run again or check the fixes against the current changes.";
+    return i18n.t("sourceControl:reviewRevision.codeChangedSinceThisReviewRunAgain");
   return null;
 }
 
 export function reviewRevisionLabel(state: ReviewRevisionState | null) {
   if (!state) return null;
-  if (state.source.status !== "known" || state.completed.status !== "known") return "Review state unavailable";
-  if (!revisionsMatch(state.source, state.completed)) return "Code changed during review";
-  if (state.current.status !== "known") return "Current changes not checked";
-  return revisionsMatch(state.completed, state.current) ? null : "Code changed since review";
+  if (state.source.status !== "known" || state.completed.status !== "known") return i18n.t("sourceControl:reviewRevision.reviewStateUnavailable");
+  if (!revisionsMatch(state.source, state.completed)) return i18n.t("sourceControl:reviewRevision.codeChangedDuringReview");
+  if (state.current.status !== "known") return i18n.t("sourceControl:reviewRevision.currentChangesNotChecked");
+  return revisionsMatch(state.completed, state.current) ? null : i18n.t("sourceControl:reviewRevision.codeChangedSinceReview");
 }

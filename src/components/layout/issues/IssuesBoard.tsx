@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { CornerDownRight, ExternalLink, GitBranch, Link2 } from "lucide-react";
@@ -92,6 +93,7 @@ const BOARD_STATES: Record<TrackerStatusCategory, WorkflowState> = {
 
 /** Shared read-only board anatomy with host-owned ticket actions. */
 export function IssuesBoard(props: IssuesBoardProps) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const columns = groupTrackerIssuesForBoard(props.items);
   const loading = props.loading === true;
 
@@ -116,8 +118,8 @@ export function IssuesBoard(props: IssuesBoardProps) {
           data-board-column={column.id}
           aria-label={
             loading
-              ? `${column.title}, loading`
-              : `${column.title}, ${column.items.length} tickets`
+              ? i18n.t("issues:issuesBoard.accessibility.columnLoading", { value1: column.title })
+              : i18n.t("issues:issuesBoard.accessibility.columnTicketCount", { value1: column.title, count: column.items.length })
           }
           xstyle={taskLayoutStyles.boardColumn}
         >
@@ -128,8 +130,7 @@ export function IssuesBoard(props: IssuesBoardProps) {
               )
             ) : column.items.length === 0 ? (
               <p className={sx(taskLayoutStyles.boardColumnEmpty)}>
-                No tickets
-              </p>
+                {tI18n("issues:issuesBoard.noTickets")}</p>
             ) : (
               column.items.map((item) => {
                 const key = trackerIssueKey(item.task.source, item.task.ref);
@@ -180,6 +181,7 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
   onOpenStaveTask: (key: string) => void;
   attachTargetLabel: string | null;
 }) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const { task } = props.item;
   const key = trackerIssueKey(task.source, task.ref);
   // Same contract as the list row: the pushed mirror wins once a kickoff lands,
@@ -245,7 +247,7 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
             {task.parentKey ? (
               <CornerDownRight
                 className={sx(trackerVisualStyles.icon)}
-                aria-label={`Subtask of ${task.parentKey}`}
+                aria-label={tI18n("issues:issuesBoard.subtaskOfValue", { value1: task.parentKey })}
               />
             ) : null}
           </span>
@@ -335,44 +337,38 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
 
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => props.onKickoff(key)}>
-          Kick off in Stave
-        </ContextMenuItem>
+          {tI18n("issues:issuesBoard.kickOffInStave")}</ContextMenuItem>
         <ContextMenuItem onSelect={() => assignTrackerIssueToAgent(task)}>
-          Assign to agent
-        </ContextMenuItem>
+          {tI18n("issues:issuesBoard.assignToAgent")}</ContextMenuItem>
         {link ? (
           <ContextMenuItem onSelect={() => props.onOpenStaveTask(key)}>
-            Jump to Stave task
-          </ContextMenuItem>
+            {tI18n("issues:issuesBoard.jumpToStaveTask")}</ContextMenuItem>
         ) : null}
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => openTrackerIssueInBrowser(task.url)}>
           <ExternalLink className={sx(trackerVisualStyles.icon)} />
-          Open in browser
-        </ContextMenuItem>
+          {tI18n("issues:issuesBoard.openInBrowser")}</ContextMenuItem>
         <ContextMenuItem
           onSelect={() =>
-            copyTrackerIssueValue({ value: task.key, label: "ticket key" })
+            copyTrackerIssueValue({ value: task.key, label: tI18n("issues:issuesBoard.ticketKey") })
           }
         >
-          Copy key
-        </ContextMenuItem>
+          {tI18n("issues:issuesBoard.copyKey")}</ContextMenuItem>
         <ContextMenuItem
           onSelect={() =>
-            copyTrackerIssueValue({ value: task.url, label: "ticket link" })
+            copyTrackerIssueValue({ value: task.url, label: tI18n("issues:issuesBoard.ticketLink") })
           }
         >
           <Link2 className={sx(trackerVisualStyles.icon)} />
-          Copy link
-        </ContextMenuItem>
+          {tI18n("issues:issuesBoard.copyLink")}</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
           disabled={props.attachTargetLabel === null}
           onSelect={() => props.onAttach(key)}
         >
           {props.attachTargetLabel
-            ? `Attach to ${props.attachTargetLabel}`
-            : "Attach to current workspace"}
+            ? tI18n("issues:issuesBoard.attachToValue", { value1: props.attachTargetLabel })
+            : tI18n("issues:issuesBoard.attachToCurrentWorkspace")}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

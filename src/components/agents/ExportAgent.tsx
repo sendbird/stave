@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
@@ -25,6 +26,7 @@ type WriteState =
  * a second press that names it.
  */
 export function ExportAgent(props: { agent: AgentConfig; rootPath: string | null }) {
+  useTranslation();
   const [format, setFormat] = useState<AgentExportFormat>("claude-md");
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<WriteState>({ step: "idle" });
@@ -45,12 +47,12 @@ export function ExportAgent(props: { agent: AgentConfig; rootPath: string | null
           return;
         }
         const created = await fs.createFile({ rootPath, filePath: file.path });
-        if (!created.ok) throw new Error(created.stderr ?? "The file could not be created.");
+        if (!created.ok) throw new Error(created.stderr ?? i18n.t("agents:exportAgent.extraCopy34"));
         revision = created.revision ?? null;
       }
       const written = await fs.writeFile({ rootPath, filePath: file.path, content: file.content, expectedRevision: revision });
       if (!written.ok) {
-        throw new Error(written.conflict ? "The file changed while exporting. Try again." : (written.stderr ?? "The file could not be written."));
+        throw new Error(written.conflict ? i18n.t("agents:exportAgent.extraCopy35") : (written.stderr ?? i18n.t("agents:exportAgent.extraCopy36")));
       }
       setState({ step: "done", path: file.path });
     } catch (error) {
@@ -59,15 +61,15 @@ export function ExportAgent(props: { agent: AgentConfig; rootPath: string | null
   };
 
   return (
-    <section aria-label="Export">
+    <section aria-label={i18n.t("agents:exportAgent.ariaLabel")}>
       <div className={sx(styles.sectionHeader)}>
-        <h3 className={sx(styles.sectionTitle)}>Export</h3>
-        <span className={sx(styles.sectionAside)}>Use this agent outside Stave</span>
+        <h3 className={sx(styles.sectionTitle)}>{i18n.t("agents:exportAgent.exportAgent")}</h3>
+        <span className={sx(styles.sectionAside)}>{i18n.t("agents:exportAgent.exportAgent2")}</span>
       </div>
       <div className={sx(agentStyles.assignRow)}>
         <Select
           size="sm"
-          aria-label="Export as"
+          aria-label={i18n.t("agents:exportAgent.ariaLabel2")}
           value={format}
           options={AGENT_EXPORT_FORMATS.map((value) => ({ value, label: AGENT_EXPORT_FORMAT_LABELS[value] }))}
           onValueChange={(value) => {
@@ -77,32 +79,25 @@ export function ExportAgent(props: { agent: AgentConfig; rootPath: string | null
         />
         <code className={sx(styles.hint)}>{file.path}</code>
         <Button size="sm" variant="quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? "Hide file" : "Show file"}
+          {open ? i18n.t("agents:exportAgent.exportAgent3") : i18n.t("agents:exportAgent.exportAgent4")}
         </Button>
         {state.step === "confirm-replace" ? (
-          <Button size="sm" variant="secondary" onClick={() => void write(state.revision)}>
-            Replace {file.path}
-          </Button>
+          <Button size="sm" variant="secondary" onClick={() => void write(state.revision)}>{i18n.t("agents:exportAgent.sentence17", { value1: file.path })}</Button>
         ) : (
           <Button size="sm" variant="secondary" disabled={!canWrite || state.step === "busy"} onClick={() => void write(null)}>
-            Write to repository
-          </Button>
+            {i18n.t("agents:exportAgent.exportAgent6")}</Button>
         )}
       </div>
       {open ? <pre className={sx(agentStyles.instructions)}>{file.content}</pre> : null}
       {file.leftOut.length ? (
-        <p className={sx(styles.hint)}>Not in the file: {file.leftOut.join(", ")}.</p>
+        <p className={sx(styles.hint)}>{i18n.t("agents:exportAgent.sentence18", { value1: file.leftOut.join(", ") })}</p>
       ) : null}
-      {!canWrite ? <p className={sx(styles.hint)}>Open a workspace to write the file.</p> : null}
+      {!canWrite ? <p className={sx(styles.hint)}>{i18n.t("agents:exportAgent.exportAgent8")}</p> : null}
       {state.step === "confirm-replace" ? (
-        <p className={sx(styles.hint, styles.hintWarning)} role="status">
-          {file.path} already exists. Replace it, or show the file and copy what you need.
-        </p>
+        <p className={sx(styles.hint, styles.hintWarning)} role="status">{i18n.t("agents:exportAgent.sentence19", { value1: file.path })}</p>
       ) : null}
       {state.step === "done" ? (
-        <p className={sx(styles.hint)} role="status">
-          Wrote {state.path}. Commit it to share the agent through the repository.
-        </p>
+        <p className={sx(styles.hint)} role="status">{i18n.t("agents:exportAgent.sentence20", { value1: state.path })}</p>
       ) : null}
       {state.step === "error" ? (
         <p className={sx(styles.hint, styles.hintWarning)} role="alert">

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Terminal } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -25,6 +26,7 @@ export function CommandResult(args: {
   isError?: boolean;
   output?: string;
 }) {
+  useTranslation();
   const { command, isError = false, isStreaming = false, output } = args;
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,11 +62,11 @@ export function CommandResult(args: {
           variant="quiet"
           xstyle={styles.copy}
         >
-          {copied ? "Copied" : "Copy"}
+          {copied ? i18n.t("session:commandResult.commandResult") : i18n.t("session:commandResult.commandResult2")}
         </Button>
       </div>
       {trimmed.length > 0 ? (
-        <CappedViewport label={`Output of ${command}`} live={isStreaming}>
+        <CappedViewport label={i18n.t("session:commandResult.label", { value1: command })} live={isStreaming}>
           <pre
             className={sx(styles.output, isError && styles.outputError)}
           >
@@ -73,7 +75,7 @@ export function CommandResult(args: {
         </CappedViewport>
       ) : (
         <span className={sx(styles.empty)}>
-          {isStreaming ? "Waiting for output…" : "No output."}
+          {isStreaming ? i18n.t("session:commandResult.commandResult3") : i18n.t("session:commandResult.commandResult4")}
         </span>
       )}
     </div>

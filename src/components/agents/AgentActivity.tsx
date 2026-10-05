@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
@@ -11,7 +13,7 @@ import {
   type AgentActivityFilter,
   type AgentActivitySummary,
 } from "@/lib/agents/agent-activity";
-import { formatRelativeTime } from "@/components/layout/automation-center/automation-center.utils";
+import { formatRelativeTime } from "@/i18n/format";
 import { classifyTaskStatus, type FleetTaskStatus } from "@/lib/fleet/task-status";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
@@ -94,23 +96,24 @@ function plural(count: number, one: string, many = `${one}s`): string {
  * relative time (the full timestamp is its title).
  */
 function ActivitySummary(props: { summary: AgentActivitySummary }) {
+  useTranslation();
   const { summary } = props;
   if (summary.total === 0) return null;
   const quiet = [
     plural(summary.total, "assignment"),
-    ...(summary.couldntStart > 0 ? [`${summary.couldntStart} couldn't start`] : []),
+    ...(summary.couldntStart > 0 ? [i18n.t("agents:agentActivity.extraCopy23", { value1: summary.couldntStart })] : []),
   ].join(" · ");
   const lastUsed = summary.lastUsedAt ? new Date(summary.lastUsedAt) : null;
   return (
     <div className={sx(agentStyles.summary)}>
-      {summary.running > 0 ? <span className={sx(agentStyles.attention)}>{summary.running} running</span> : null}
-      {summary.needsYou > 0 ? <span className={sx(agentStyles.attention)}>{summary.needsYou} need you</span> : null}
+      {summary.running > 0 ? <span className={sx(agentStyles.attention)}>{summary.running} {i18n.t("agents:agentActivity.activitySummary")}</span> : null}
+      {summary.needsYou > 0 ? <span className={sx(agentStyles.attention)}>{i18n.t("agents:agentActivity.sentence9", { value1: summary.needsYou })}</span> : null}
       <span className={sx(styles.hint)}>
         {quiet}
         {lastUsed && !Number.isNaN(lastUsed.getTime()) ? (
           <>
             {" · "}
-            <span title={lastUsed.toLocaleString()}>Last used {formatRelativeTime(summary.lastUsedAt)}</span>
+            <span title={formatDateTime(lastUsed)}>{i18n.t("agents:agentActivity.sentence10", { value1: formatRelativeTime(lastUsed) })}</span>
           </>
         ) : null}
       </span>
@@ -125,6 +128,7 @@ function ActivitySummary(props: { summary: AgentActivitySummary }) {
  * so they are tested once; the live status map avoids an unstable selector.
  */
 export function AgentActivity(props: { assignments: readonly AgentAssignment[] }) {
+  useTranslation();
   const [filter, setFilter] = useState<AgentActivityFilter>("all");
   const taskIds = useMemo(
     () => props.assignments.flatMap((row) => (row.taskId ? [row.taskId] : [])),
@@ -144,21 +148,21 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
   // An agent that was never assigned has no activity to show; the page starts at its settings.
   if (props.assignments.length === 0) return null;
   return (
-    <section aria-label="Activity" className={sx(agentStyles.activity)}>
+    <section aria-label={i18n.t("agents:agentActivity.ariaLabel")} className={sx(agentStyles.activity)}>
       <ActivitySummary summary={summary} />
-      <section aria-label="Work">
+      <section aria-label={i18n.t("agents:agentActivity.ariaLabel2")}>
         <div className={sx(styles.sectionHeader)}>
-          <h3 className={sx(styles.sectionTitle)}>Work</h3>
+          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agents:agentActivity.agentActivity")}</h3>
           <Select
             size="sm"
-            aria-label="Filter by state"
+            aria-label={i18n.t("agents:agentActivity.ariaLabel3")}
             value={filter}
             options={AGENT_ACTIVITY_FILTERS.map((value) => ({ value, label: AGENT_ACTIVITY_FILTER_LABELS[value] }))}
             onValueChange={(value) => setFilter(String(value) as AgentActivityFilter)}
           />
         </div>
         {filtered.length === 0 ? (
-          <p className={sx(styles.hint)}>Nothing in this state.</p>
+          <p className={sx(styles.hint)}>{i18n.t("agents:agentActivity.agentActivity2")}</p>
         ) : (
           <ul className={sx(agentStyles.runs)}>
             {filtered.map((row) => {
@@ -179,7 +183,7 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
                       variant="quiet"
                       press="none"
                       xstyle={[agentStyles.runTitle, agentStyles.runLink]}
-                      title={`${row.assignment}\nOpen the task`}
+                      title={i18n.t("agents:agentActivity.title", { value1: row.assignment })}
                       onClick={() => openAssignmentTask(row)}
                     >
                       {row.assignment.split("\n")[0]}
@@ -202,15 +206,16 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
 
 /** Each row subscribes only to its task's live plan. */
 function AssignmentProgress(props: { run: AgentRunDetail | undefined; stateLabel: string }) {
+  useTranslation();
   const plan = useAgentRunProgress(props.run);
   const progress = props.run ? describeAgentRunProgress(props.run, plan) : null;
   return <span className={sx(agentStyles.runState)}>{progress ? `${progress} · ` : ""}{props.stateLabel}</span>;
 }
 
 const FLEET_STATUS_LABELS: Readonly<Record<FleetTaskStatus, string>> = {
-  "waiting-input": "Needs you",
-  "waiting-approval": "Needs approval",
-  error: "Couldn't finish",
-  running: "Running",
-  idle: "Idle",
+  get "waiting-input"() { return i18n.t("agents:agentActivity.waitingInput"); },
+  get "waiting-approval"() { return i18n.t("agents:agentActivity.waitingApproval"); },
+  get error() { return i18n.t("agents:agentActivity.error"); },
+  get running() { return i18n.t("agents:agentActivity.running"); },
+  get idle() { return i18n.t("agents:agentActivity.idle"); },
 };

@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import { Loader } from "@/components/ui/loader";
+import { i18n, useTranslation } from "@/i18n";
 import { useShallow } from "zustand/react/shallow";
 import { useCliSessionManager } from "@/components/layout/useCliSessionManager";
 import { useCliTerminalInstance } from "@/components/layout/useCliTerminalInstance";
@@ -142,7 +143,15 @@ export function StandaloneCliTerminal(props: {
   installedTabIds: readonly StandaloneCliTabId[];
   visible: boolean;
 }) {
+  const { t } = useTranslation("terminal");
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const autofocusInterruptedRef = useRef(false);
+  const cancelAutofocusRef = useRef<(() => void) | null>(null);
+  // Delayed terminal readiness must not steal focus from a control the user chose.
+  const interruptAutofocus = useCallback(() => {
+    autofocusInterruptedRef.current = true;
+    cancelAutofocusRef.current?.();
+  }, []);
   const inputHandlerRef = useRef<(input: string) => void>(() => {});
   const resizeHandlerRef = useRef<
     (cols: number, rows: number) => Promise<void> | void
@@ -249,14 +258,14 @@ export function StandaloneCliTerminal(props: {
       if (!props.folderPath) {
         return {
           ok: false,
-          stderr: "Set a Standalone CLI folder in Settings.",
+          stderr: i18n.t("terminal:standaloneCli.errors.folderRequired"),
         };
       }
       const createCliSession = window.api?.terminal?.createCliSession;
       if (!createCliSession) {
         return {
           ok: false,
-          stderr: "CLI session bridge unavailable. Use bun run dev:desktop.",
+          stderr: i18n.t("terminal:cliSession.errors.bridgeUnavailable"),
         };
       }
       useStandaloneCliStore.getState().pinTabAccount(args.tab.id, args.tab.accountProfileId ?? "system-default");
@@ -354,11 +363,15 @@ export function StandaloneCliTerminal(props: {
     resizeHandlerRef.current = handleTerminalResize;
   }, [handleTerminalInput, handleTerminalResize]);
 
+  useLayoutEffect(() => {
+    autofocusInterruptedRef.current = false;
+  }, [activeTabKey, props.visible]);
+
   // Opening the popover leaves focus on the popup, so claim it for the terminal
   // instead of making the user click into it before typing. This re-runs on
   // every open because the panel is never unmounted in between.
   useEffect(() => {
-    if (!props.visible || !terminalInstance.ready) {
+    if (!props.visible || !terminalInstance.ready || autofocusInterruptedRef.current) {
       return;
     }
     let cancelFocus = terminalInstance.controller.focus();
@@ -372,12 +385,17 @@ export function StandaloneCliTerminal(props: {
         focusTerminalInstanceSurface({ container: containerRef.current });
       }, 50);
     });
-    return () => {
+    const cancelAutofocus = () => {
       window.cancelAnimationFrame(settleFrame);
       if (settleTimer !== null) {
         window.clearTimeout(settleTimer);
       }
       cancelFocus?.();
+    };
+    cancelAutofocusRef.current = cancelAutofocus;
+    return () => {
+      cancelAutofocus();
+      cancelAutofocusRef.current = null;
     };
   }, [
     activeTabKey,
@@ -399,7 +417,11 @@ export function StandaloneCliTerminal(props: {
         {/* The row keeps the account select's height whether or not the tab
             draws one (Cursor, Kiro, or a single account), so switching tabs
             never moves the terminal. */}
-        <div className={sx(styles.terminalHeaderRow, controlHeights.sm)}>
+        <div
+          className={sx(styles.terminalHeaderRow, controlHeights.sm)}
+          onPointerDownCapture={interruptAutofocus}
+          onKeyDownCapture={interruptAutofocus}
+        >
           <StandaloneCliAccountSelect
             tabId={activeTab.id}
             value={activeAccountProfileId}
@@ -408,11 +430,11 @@ export function StandaloneCliTerminal(props: {
           <AdsButton
             layout="host"
             type="button"
-            aria-label="Restart CLI session"
+            aria-label={t("standaloneCli.terminal.restartSessionLabel")}
             xstyle={styles.restartButton}
             onClick={restartActiveSession}
           >
-            Restart
+            {t("standaloneCli.terminal.restart")}
           </AdsButton>
         </div>
       </div>
@@ -427,20 +449,20 @@ export function StandaloneCliTerminal(props: {
                 xstyle={styles.statusAction}
                 onClick={() => setRendererRestartToken((value) => value + 1)}
               >
-                Restart renderer
+                {t("renderer.restart")}
               </AdsButton>
             </div>
           ) : null}
           {sessionExited ? (
             <div role="status" className={sx(styles.exitedBanner)}>
-              Session exited. Use Restart to start a new one.
+              {t("standaloneCli.terminal.sessionExited")}
             </div>
           ) : null}
           {!terminalInstance.ready ? (
             <div className={sx(styles.bootOverlay)}>
               <div className={sx(styles.bootLabel)}>
                 <Loader aria-hidden size="xs" variant="spinner" />
-                <span>Initializing terminal…</span>
+                <span>{t("renderer.initializing")}</span>
               </div>
             </div>
           ) : null}

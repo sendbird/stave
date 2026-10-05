@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   AlertTriangle,
   ChevronDown,
@@ -81,6 +82,7 @@ function BranchFilter({
   GitGraphToolbarProps,
   "head" | "availableRefs" | "selectedRefs" | "onSelectedRefsChange"
 >) {
+  useTranslation();
   const localRefs = availableRefs.filter((ref) => ref.type === "localBranch");
   const remoteRefs = availableRefs.filter((ref) => ref.type === "remoteBranch");
   const headRef = localRefs.find((ref) => ref.isHead);
@@ -91,10 +93,10 @@ function BranchFilter({
   const selectionLimitReached = selectedRefs.length >= MAX_GRAPH_SELECTED_REFS;
   const label =
     selectedRefs.length === 0
-      ? "All branches"
+      ? i18n.t("gitGraph:gitGraphToolbar.allBranches")
       : selectedRefs.length === 1
         ? (refByRevision.get(selectedRefs[0] ?? "")?.name ?? selectedRefs[0])
-        : `${selectedRefs.length} branches`;
+        : i18n.t("gitGraph:gitGraphToolbar.selectedBranches", { count: selectedRefs.length });
 
   function toggleRef(name: string, checked: boolean) {
     const next = new Set(selectedRefs);
@@ -118,7 +120,7 @@ function BranchFilter({
             size="sm"
             variant="outline"
             xstyle={styles.branchTrigger}
-            aria-label={`Branch filter: ${label}`}
+            aria-label={i18n.t("gitGraph:gitGraphToolbar.branchFilter", { value1: label })}
           />
         }
       >
@@ -127,26 +129,26 @@ function BranchFilter({
         <ChevronDown className={sx(styles.chevronMuted)} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" xstyle={styles.branchMenu}>
-        <DropdownMenuLabel>History scope</DropdownMenuLabel>
+        <DropdownMenuLabel>{i18n.t("gitGraph:gitGraphToolbar.historyScope")}</DropdownMenuLabel>
         {selectionLimitReached ? (
           <DropdownMenuLabel className={sx(styles.limitLabel)}>
-            Select up to {MAX_GRAPH_SELECTED_REFS} branches.
+            {i18n.t("gitGraph:gitGraphToolbar.selectionLimit", { count: MAX_GRAPH_SELECTED_REFS })}
           </DropdownMenuLabel>
         ) : null}
         <DropdownMenuItem onSelect={() => onSelectedRefsChange([])}>
-          All local and remote branches
+          {i18n.t("gitGraph:gitGraphToolbar.allLocalAndRemoteBranches")}
         </DropdownMenuItem>
         {head && headRef ? (
           <DropdownMenuItem
             onSelect={() => onSelectedRefsChange([headRef.revision])}
           >
-            Current branch · {head}
+            {i18n.t("gitGraph:gitGraphToolbar.currentBranchName", { branch: head })}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuSeparator />
         {localRefs.length > 0 ? (
           <>
-            <DropdownMenuLabel>Local branches</DropdownMenuLabel>
+            <DropdownMenuLabel>{i18n.t("gitGraph:gitGraphToolbar.localBranches")}</DropdownMenuLabel>
             {localRefs.map((ref) => (
               <DropdownMenuCheckboxItem
                 key={`local:${ref.name}`}
@@ -158,7 +160,7 @@ function BranchFilter({
               >
                 <span className={sx(styles.truncate)}>{ref.name}</span>
                 {ref.isHead ? (
-                  <span className={sx(styles.headBadge)}>HEAD</span>
+                  <span className={sx(styles.headBadge)}>{i18n.t("gitGraph:gitGraphToolbar.hEAD")}</span>
                 ) : null}
               </DropdownMenuCheckboxItem>
             ))}
@@ -172,7 +174,7 @@ function BranchFilter({
             }) ? (
               <DropdownMenuSeparator />
             ) : null}
-            <DropdownMenuLabel>Remote branches</DropdownMenuLabel>
+            <DropdownMenuLabel>{i18n.t("gitGraph:gitGraphToolbar.remoteBranches")}</DropdownMenuLabel>
             {remoteRefs.map((ref) => (
               <DropdownMenuCheckboxItem
                 key={`remote:${ref.name}`}
@@ -199,17 +201,18 @@ function WorkingTreeStatus({
   summary: GraphWorkingTreeSummary;
   available: boolean;
 }) {
+  useTranslation();
   if (!available) {
     return (
       <span
         className={sx(styles.statusUnavailable)}
-        title="Working tree status is too large or unavailable."
+        title={i18n.t("gitGraph:gitGraphToolbar.workingTreeStatusIsTooLargeOr")}
         role="status"
-        aria-label="Working tree status unavailable"
+        aria-label={i18n.t("gitGraph:gitGraphToolbar.workingTreeStatusUnavailable")}
       >
         <AlertTriangle className={sx(styles.statusIcon)} aria-hidden="true" />
         <span className={sx(styles.statusUnavailableText)}>
-          status unavailable
+          {i18n.t("gitGraph:gitGraphToolbar.statusUnavailable")}
         </span>
       </span>
     );
@@ -226,7 +229,7 @@ function WorkingTreeStatus({
   ].filter((entry) => entry.value > 0);
 
   if (entries.length === 0) {
-    return <span className={sx(styles.statusClean)}>clean</span>;
+    return <span className={sx(styles.statusClean)}>{i18n.t("gitGraph:gitGraphToolbar.clean")}</span>;
   }
 
   return (
@@ -268,6 +271,7 @@ export function GitGraphToolbar({
   onColumnsChange,
   searchInputRef,
 }: GitGraphToolbarProps) {
+  useTranslation();
   return (
     <div className={sx(styles.root)} data-testid="git-graph-toolbar">
       <div className={sx(styles.leftGroup)}>
@@ -295,13 +299,13 @@ export function GitGraphToolbar({
               ? styles.searchInputWithMatches
               : styles.searchInputNoMatches,
           ]}
-          placeholder="Find commits, authors, refs…"
-          aria-label="Find commits"
+          placeholder={i18n.t("gitGraph:gitGraphToolbar.findCommitsAuthorsRefs")}
+          aria-label={i18n.t("gitGraph:gitGraphToolbar.findCommits")}
         />
         <div className={sx(styles.searchControls)}>
           {searchQuery ? (
             <span className={sx(styles.matchCount)}>
-              {matchCount > 0 ? `${matchPosition}/${matchCount}` : "No matches"}
+              {matchCount > 0 ? `${matchPosition}/${matchCount}` : i18n.t("gitGraph:gitGraphToolbar.noMatches")}
             </span>
           ) : null}
           <Button
@@ -311,7 +315,7 @@ export function GitGraphToolbar({
             xstyle={styles.iconButtonSm}
             disabled={matchCount === 0}
             onClick={onPreviousMatch}
-            aria-label="Previous search match"
+            aria-label={i18n.t("gitGraph:gitGraphToolbar.previousSearchMatch")}
           >
             <ChevronUp className={sx(styles.iconGlyphSm)} />
           </Button>
@@ -322,7 +326,7 @@ export function GitGraphToolbar({
             xstyle={styles.iconButtonSm}
             disabled={matchCount === 0}
             onClick={onNextMatch}
-            aria-label="Next search match"
+            aria-label={i18n.t("gitGraph:gitGraphToolbar.nextSearchMatch")}
           >
             <ChevronDown className={sx(styles.iconGlyphSm)} />
           </Button>
@@ -333,7 +337,7 @@ export function GitGraphToolbar({
               variant="ghost"
               xstyle={styles.iconButtonSm}
               onClick={() => onSearchQueryChange("")}
-              aria-label="Clear commit search"
+              aria-label={i18n.t("gitGraph:gitGraphToolbar.clearCommitSearch")}
             >
               <X className={sx(styles.iconGlyphSm)} />
             </Button>
@@ -343,10 +347,7 @@ export function GitGraphToolbar({
 
       <TooltipProvider>
         <div className={sx(styles.rightGroup)}>
-          <span className={sx(styles.commitCount)}>
-            {loadedCount}
-            {hasMore ? "+" : ""} commits
-          </span>
+          <span className={sx(styles.commitCount)}>{i18n.t("gitGraph:gitGraphToolbar.commitCount", { count: loadedCount, more: hasMore ? "+" : "" })}</span>
           <Tooltip>
             <TooltipTrigger
               render={
@@ -356,13 +357,13 @@ export function GitGraphToolbar({
                   variant="ghost"
                   xstyle={styles.iconButtonMd}
                   onClick={onLocateHead}
-                  aria-label="Locate HEAD"
+                  aria-label={i18n.t("gitGraph:gitGraphToolbar.locateHEAD")}
                 />
               }
             >
               <LocateFixed className={sx(styles.iconGlyphMd)} />
             </TooltipTrigger>
-            <TooltipContent>Locate HEAD (Ctrl/Cmd H)</TooltipContent>
+            <TooltipContent>{i18n.t("gitGraph:gitGraphToolbar.locateHEADCtrlCmdH")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger
@@ -374,7 +375,7 @@ export function GitGraphToolbar({
                   xstyle={styles.iconButtonMd}
                   disabled={fetching}
                   onClick={onFetch}
-                  aria-label="Fetch all remotes"
+                  aria-label={i18n.t("gitGraph:gitGraphToolbar.fetchAllRemotes")}
                 />
               }
             >
@@ -384,7 +385,7 @@ export function GitGraphToolbar({
                 <Download className={sx(styles.iconGlyphMd)} />
               )}
             </TooltipTrigger>
-            <TooltipContent>Fetch all remotes</TooltipContent>
+            <TooltipContent>{i18n.t("gitGraph:gitGraphToolbar.fetchAllRemotes")}</TooltipContent>
           </Tooltip>
           <DropdownMenu>
             <Tooltip>
@@ -397,7 +398,7 @@ export function GitGraphToolbar({
                         size="icon-sm"
                         variant="ghost"
                         xstyle={styles.iconButtonMd}
-                        aria-label="Choose visible graph columns"
+                        aria-label={i18n.t("gitGraph:gitGraphToolbar.chooseVisibleGraphColumns")}
                       />
                     }
                   />
@@ -405,15 +406,15 @@ export function GitGraphToolbar({
               >
                 <Columns3 className={sx(styles.iconGlyphMd)} />
               </TooltipTrigger>
-              <TooltipContent>Visible columns</TooltipContent>
+              <TooltipContent>{i18n.t("gitGraph:gitGraphToolbar.visibleColumns")}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end" xstyle={styles.columnsMenu}>
-              <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+              <DropdownMenuLabel>{i18n.t("gitGraph:gitGraphToolbar.visibleColumns")}</DropdownMenuLabel>
               {(
                 [
-                  ["author", "Author"],
-                  ["date", "Date"],
-                  ["hash", "Commit"],
+                  ["author", i18n.t("gitGraph:gitGraphToolbar.author")],
+                  ["date", i18n.t("gitGraph:gitGraphToolbar.date")],
+                  ["hash", i18n.t("gitGraph:gitGraphToolbar.commit")],
                 ] as const
               ).map(([column, label]) => (
                 <DropdownMenuCheckboxItem
@@ -441,7 +442,7 @@ export function GitGraphToolbar({
                   xstyle={styles.iconButtonMd}
                   disabled={loading}
                   onClick={onRefresh}
-                  aria-label="Refresh commit graph"
+                  aria-label={i18n.t("gitGraph:gitGraphToolbar.refreshCommitGraph")}
                 />
               }
             >
@@ -452,7 +453,7 @@ export function GitGraphToolbar({
                 )}
               />
             </TooltipTrigger>
-            <TooltipContent>Refresh (Ctrl/Cmd R)</TooltipContent>
+            <TooltipContent>{i18n.t("gitGraph:gitGraphToolbar.refreshCtrlCmdR")}</TooltipContent>
           </Tooltip>
         </div>
       </TooltipProvider>

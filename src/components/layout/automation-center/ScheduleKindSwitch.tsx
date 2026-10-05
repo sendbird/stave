@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ChoiceButtons } from "@/components/layout/settings-dialog.shared";
 import type { ScheduleKind } from "@/lib/schedule-rows";
 
@@ -6,13 +7,14 @@ export function ScheduleKindSwitch(props: {
   value: ScheduleKind;
   onChange: (kind: ScheduleKind) => void;
 }) {
+  const { t: tI18n } = useTranslation(["automation"]);
   return (
     <ChoiceButtons
-      aria-label="Where"
+      aria-label={tI18n("automation:scheduleKindSwitch.where")}
       value={props.value}
       options={[
-        { value: "start", label: "New task in a repository" },
-        { value: "check-back", label: "An existing task" },
+        { value: "start", label: tI18n("automation:scheduleKindSwitch.newTaskInARepository") },
+        { value: "check-back", label: tI18n("automation:scheduleKindSwitch.anExistingTask") },
       ]}
       onChange={props.onChange}
     />

@@ -32,15 +32,16 @@ import {
   TooltipTrigger,
   toast,
 } from "@/components/ui";
+import { i18n, useTranslation } from "@/i18n";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { buildCliSessionRuntimeOptions } from "@/lib/terminal/cli-session-runtime-options";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
   DEFAULT_TERMINAL_FONT_SIZE,
 } from "@/lib/terminal/defaults";
+import { CLI_SESSION_CONTEXT_LABEL_KEYS } from "@/lib/terminal/terminal-tab-labels";
 import {
   buildTerminalSessionSlotKey,
-  getCliSessionContextLabel,
   getCliSessionProviderLabel,
   getWorkspaceCliSessionTabKey,
 } from "@/lib/terminal/types";
@@ -66,6 +67,7 @@ export interface CliSessionPanelProps {
 export const CliSessionPanel = memo(CliSessionPanelImpl);
 
 function CliSessionPanelImpl(props: CliSessionPanelProps) {
+  const { t } = useTranslation("terminal");
   const isScoped = props.cliSessionTabId !== undefined;
   const [
     activeWorkspaceId,
@@ -128,14 +130,17 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
       deliveryMode: "poll" | "push";
     }) => {
       if (!workspacePath) {
-        return { ok: false, stderr: "Workspace path unavailable." };
+        return {
+          ok: false,
+          stderr: i18n.t("terminal:cliSession.errors.workspacePathUnavailable"),
+        };
       }
 
       const createCliSession = window.api?.terminal?.createCliSession;
       if (!createCliSession) {
         return {
           ok: false,
-          stderr: "CLI session bridge unavailable. Use bun run dev:desktop.",
+          stderr: i18n.t("terminal:cliSession.errors.bridgeUnavailable"),
         };
       }
 
@@ -267,9 +272,9 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
     }
     try {
       await copyTextToClipboard(handoffSummary);
-      toast.message("Handoff copied");
+      toast.message(t("cliSessionPanel.toasts.handoffCopied"));
     } catch {
-      toast.error("Unable to copy handoff");
+      toast.error(t("cliSessionPanel.toasts.handoffCopyFailed"));
     }
   }
 
@@ -281,10 +286,10 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
       ? handoffSummary
       : `${handoffSummary}\n`;
     if (!writeToActiveSession(input)) {
-      toast.error("CLI session is not ready yet");
+      toast.error(t("cliSessionPanel.toasts.sessionNotReady"));
       return;
     }
-    toast.message("Handoff pasted");
+    toast.message(t("cliSessionPanel.toasts.handoffPasted"));
   }
 
   const surfaceError = bridgeError || terminalInstance.error || "";
@@ -298,7 +303,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
         ) : null}
         {terminalInstance.writeErrorCount > TERMINAL_WRITE_ERROR_THRESHOLD ? (
           <div className={sx(styles.degradedBanner)}>
-            <span>Terminal rendering may be degraded.</span>
+            <span>{t("renderer.degraded")}</span>
             <Button
               variant="ghost"
               size="sm"
@@ -306,7 +311,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
               onClick={() => setRendererRestartToken((value) => value + 1)}
               disabled={!activeTab}
             >
-              Restart renderer
+              {t("renderer.restart")}
             </Button>
           </div>
         ) : null}
@@ -314,7 +319,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
           <div className={sx(styles.bootOverlay)}>
             <div className={sx(styles.bootLabel)}>
               <Loader aria-hidden size="xs" variant="spinner" />
-              <span>Initializing terminal…</span>
+              <span>{t("renderer.initializing")}</span>
             </div>
           </div>
         ) : null}
@@ -377,21 +382,25 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                         variant="secondary"
                         className={sx(styles.badge)}
                       >
-                        {getCliSessionContextLabel(activeTab.contextMode)}
+                        {i18n.t(CLI_SESSION_CONTEXT_LABEL_KEYS[activeTab.contextMode])}
                       </Badge>
                     </>
                   ) : (
                     <span className={sx(styles.title)}>
                       <SquareTerminal className={sx(styles.providerIcon)} />
-                      CLI Session
+                      {t("cliSessionPanel.title")}
                     </span>
                   )}
                 </div>
                 <div className={sx(styles.metaRow)}>
                   <span className={sx(styles.truncate)}>
-                    {activeTab?.cwd ?? workspacePath ?? "Workspace"}
+                    {activeTab?.cwd ??
+                      workspacePath ??
+                      t("cliSessionPanel.workspaceFallback")}
                   </span>
-                  {handoffSummary ? <span>Task handoff ready</span> : null}
+                  {handoffSummary ? (
+                    <span>{t("cliSessionPanel.handoffReady")}</span>
+                  ) : null}
                   {sessionExited ? (
                     <span
                       className={sx(
@@ -401,10 +410,14 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                           : styles.exitStatusFailed,
                       )}
                     >
-                      exited ({sessionExited.exitCode})
+                      {t("cliSessionPanel.status.exited", {
+                        code: sessionExited.exitCode,
+                      })}
                     </span>
                   ) : activeSessionId ? (
-                    <span className={sx(styles.liveStatus)}>live</span>
+                    <span className={sx(styles.liveStatus)}>
+                      {t("cliSessionPanel.status.live")}
+                    </span>
                   ) : null}
                 </div>
               </div>
@@ -423,10 +436,10 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                       }
                     >
                       <Copy />
-                      Copy Handoff
+                      {t("cliSessionPanel.copyHandoff")}
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Copy the task handoff summary
+                      {t("cliSessionPanel.copyHandoffTooltip")}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -442,10 +455,10 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                       }
                     >
                       <ClipboardPaste />
-                      Paste Handoff
+                      {t("cliSessionPanel.pasteHandoff")}
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Paste the handoff into the live CLI session
+                      {t("cliSessionPanel.pasteHandoffTooltip")}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -457,17 +470,19 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                           xstyle={styles.iconButton}
                           onClick={() => {
                             restartActiveSession();
-                            toast.message("CLI session restarted");
+                            toast.message(
+                              t("cliSessionPanel.toasts.sessionRestarted"),
+                            );
                           }}
                           disabled={!activeTab}
-                          aria-label="restart-cli-session"
+                          aria-label={t("cliSessionPanel.restartSession")}
                         />
                       }
                     >
                       <RefreshCw />
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Restart Session
+                      {t("cliSessionPanel.restartSession")}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -493,13 +508,15 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                             }
                           }}
                           disabled={!activeTab}
-                          aria-label="close-cli-session"
+                          aria-label={t("cliSessionPanel.closeSession")}
                         />
                       }
                     >
                       <X />
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Close Session</TooltipContent>
+                    <TooltipContent side="bottom">
+                      {t("cliSessionPanel.closeSession")}
+                    </TooltipContent>
                   </Tooltip>
                 </div>
               </TooltipProvider>

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Turn-level verification – derive a pass/warn/fail status from a hook run
 // ---------------------------------------------------------------------------
@@ -90,9 +91,9 @@ export const VERIFICATION_STATUS_VISUAL: Record<
   TurnVerificationStatus,
   VerificationStatusVisual
 > = {
-  pass: { label: "Verification passed", tone: "success" },
-  warn: { label: "Verification warnings", tone: "warning" },
-  fail: { label: "Verification failed", tone: "danger" },
+  pass: { get label() { return i18n.t("scripts:verification.verificationPassed"); }, tone: "success" },
+  warn: { get label() { return i18n.t("scripts:verification.verificationWarnings"); }, tone: "warning" },
+  fail: { get label() { return i18n.t("scripts:verification.verificationFailed"); }, tone: "danger" },
 };
 
 /**
@@ -201,9 +202,9 @@ export function describeTurnVerification(
   result: TurnVerificationResult,
 ): string {
   if (result.status === "pass") {
-    return `Verification passed — ${result.executedEntries}/${result.totalEntries} checks`;
+    return i18n.t("scripts:verification.verificationPassedValueValueChecks", { value1: result.executedEntries, value2: result.totalEntries });
   }
   const names = result.failures.map((failure) => failure.scriptId).join(", ");
   const verb = result.status === "fail" ? "failed" : "reported warnings";
-  return `Verification ${verb}: ${names}`;
+  return i18n.t("scripts:verification.verificationValueValue", { verb: verb, names: names });
 }

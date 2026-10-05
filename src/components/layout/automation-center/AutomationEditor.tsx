@@ -1,3 +1,5 @@
+import { formatAutomationSchedule, formatAutomationRuntimePermissions, formatAutomationWeekday, getAutomationCadencePresetKeys, getAutomationPermissionModeKeys } from "@/lib/automation-presentation";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
@@ -36,18 +38,13 @@ import {
   automationPermissionModeToTrustPolicy,
   automationTrustPolicyToPermissionMode,
   AUTOMATION_PERMISSION_MODES,
-  AUTOMATION_PERMISSION_MODE_PRESENTATION,
   computeNextAutomationRunAt,
   createDefaultAutomationRuntime,
   detectAutomationCadencePreset,
-  formatAutomationRuntimePermissions,
-  formatAutomationSchedule,
   formatAutomationScheduleTime,
   getAutomationInformationReferenceKey,
   getAutomationScheduleWeekdays,
   AUTOMATION_CADENCE_PRESETS,
-  AUTOMATION_CADENCE_PRESENTATION,
-  AUTOMATION_WEEKDAY_LABELS,
   type AutomationPermissionMode,
   type AutomationCadencePreset,
   type AutomationRuntimeConfig,
@@ -154,6 +151,7 @@ export function CadenceSection<T extends CadenceDraft>(props: {
   /** Hide the "When" heading when the caller already shows one. */
   heading?: boolean;
 }) {
+  const { t: tI18n } = useTranslation(["automation"]);
   const { draft } = props;
   const manual = props.manual ?? true;
   const preset = detectAutomationCadencePreset({
@@ -181,7 +179,7 @@ export function CadenceSection<T extends CadenceDraft>(props: {
     } catch {
       return null;
     }
-  }, [draft.enabled, draft.schedule]);
+  }, [draft.enabled, draft.schedule, i18n.resolvedLanguage]);
 
   function selectPreset(next: AutomationCadencePreset) {
     const applied = applyAutomationCadencePreset({
@@ -222,11 +220,11 @@ export function CadenceSection<T extends CadenceDraft>(props: {
     <section className={sx(editorStyles.section)}>
       {props.heading === false ? null : (
         <SectionHeading
-          title="When"
-          description="Runs only while Stave is open. A run missed while Stave was closed happens once when it opens; Custom sets an exact interval."
+          title={tI18n("automation:automationEditor.when")}
+          description={tI18n("automation:automationEditor.runsOnlyWhileStaveIsOpenA")}
         />
       )}
-      <div className={sx(editorStyles.chipRow)} role="group" aria-label="When">
+      <div className={sx(editorStyles.chipRow)} role="group" aria-label={tI18n("automation:automationEditor.when")}>
         {AUTOMATION_CADENCE_PRESETS.filter((candidate) => manual || candidate !== "manual").map((candidate) => {
           const active = candidate === preset;
           return (
@@ -236,7 +234,7 @@ export function CadenceSection<T extends CadenceDraft>(props: {
               size="sm"
               variant={active ? "secondary" : "ghost"}
               aria-pressed={active}
-              title={AUTOMATION_CADENCE_PRESENTATION[candidate].detail}
+              title={tI18n(getAutomationCadencePresetKeys(candidate).detailKey)}
               xstyle={[
                 editorStyles.cadenceChip,
                 active
@@ -248,7 +246,7 @@ export function CadenceSection<T extends CadenceDraft>(props: {
               {active ? (
                 <Check className={sx(editorStyles.checkIcon)} aria-hidden="true" />
               ) : null}
-              {AUTOMATION_CADENCE_PRESENTATION[candidate].label}
+              {tI18n(getAutomationCadencePresetKeys(candidate).labelKey)}
             </Button>
           );
         })}
@@ -256,7 +254,7 @@ export function CadenceSection<T extends CadenceDraft>(props: {
 
       {showIntervalFields ? (
         <div className={sx(editorStyles.intervalGrid)}>
-          <FormLabel label="Every">
+          <FormLabel label={tI18n("automation:automationEditor.every")}>
             <Input
               type="number"
               min={1}
@@ -277,7 +275,7 @@ export function CadenceSection<T extends CadenceDraft>(props: {
               xstyle={editorStyles.compactControl}
             />
           </FormLabel>
-          <FormLabel label="Unit">
+          <FormLabel label={tI18n("automation:automationEditor.unit")}>
             <Select
               value={draft.schedule.unit}
               onValueChange={(unit) =>
@@ -294,9 +292,9 @@ export function CadenceSection<T extends CadenceDraft>(props: {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {["minutes", "hours", "days", "weeks"].map((unit) => (
+                {(["minutes", "hours", "days", "weeks"] as const).map((unit) => (
                   <SelectItem key={unit} value={unit}>
-                    {unit}
+                    {tI18n(`automation:editor.units.${unit}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -307,13 +305,13 @@ export function CadenceSection<T extends CadenceDraft>(props: {
 
       {showWeekdayPicker ? (
         <div className={sx(editorStyles.weekdayGroup)}>
-          <span className={sx(editorStyles.formLabelText)}>Days</span>
+          <span className={sx(editorStyles.formLabelText)}>{tI18n("automation:automationEditor.days")}</span>
           <div
             className={sx(editorStyles.weekdayRow)}
             role="group"
-            aria-label="Run days"
+            aria-label={tI18n("automation:automationEditor.runDays")}
           >
-            {AUTOMATION_WEEKDAY_LABELS.map((label, weekday) => {
+            {Array.from({ length: 7 }, (_, weekday) => formatAutomationWeekday(weekday)).map((label, weekday) => {
               const active = weekdays.includes(weekday);
               return (
                 <Button
@@ -341,8 +339,8 @@ export function CadenceSection<T extends CadenceDraft>(props: {
 
       {showTime ? (
         <FormLabel
-          label="Start time"
-          description="Local wall-clock time. Runs keep this time across daylight saving changes."
+          label={tI18n("automation:automationEditor.startTime")}
+          description={tI18n("automation:automationEditor.localWallClockTimeRunsKeepThis")}
         >
           <Input
             type="time"
@@ -386,12 +384,11 @@ export function CadenceSection<T extends CadenceDraft>(props: {
               <span className={sx(editorStyles.summaryStrong)}>
                 {formatAutomationSchedule(draft.schedule)}
               </span>
-              {nextRunAt ? ` · next run ${formatRelativeTime(nextRunAt)}` : ""}
+              {nextRunAt ? tI18n("automation:automationEditor.nextRunValue", { value1: formatRelativeTime(nextRunAt) }) : ""}
             </>
           ) : (
             <span className={sx(editorStyles.summaryStrong)}>
-              Manual only — this schedule runs when you press Run now.
-            </span>
+              {tI18n("automation:automationEditor.manualOnlyThisScheduleRunsWhenYou")}</span>
           )}
         </span>
       </div>
@@ -403,6 +400,7 @@ function PermissionSection(props: {
   draft: AutomationUpsertInput;
   onDraftChange: (draft: AutomationUpsertInput) => void;
 }) {
+  const { t: tI18n } = useTranslation(["automation"]);
   const { draft } = props;
   const mode = automationTrustPolicyToPermissionMode(draft.trustPolicy);
   const runtime = draft.runtime;
@@ -426,13 +424,13 @@ function PermissionSection(props: {
   return (
     <section className={sx(editorStyles.section)}>
       <SectionHeading
-        title="Permissions"
-        description="How much this automation may do on its own while it runs unattended."
+        title={tI18n("automation:automationEditor.permissions")}
+        description={tI18n("automation:automationEditor.howMuchThisAutomationMayDoOn")}
       />
-      <div className={sx(editorStyles.modeList)} role="radiogroup" aria-label="Permissions">
+      <div className={sx(editorStyles.modeList)} role="radiogroup" aria-label={tI18n("automation:automationEditor.permissions")}>
         {AUTOMATION_PERMISSION_MODES.map((candidate) => {
           const presentation =
-            AUTOMATION_PERMISSION_MODE_PRESENTATION[candidate];
+            getAutomationPermissionModeKeys(candidate);
           const Icon = PERMISSION_MODE_ICON[candidate];
           const active = candidate === mode;
           return (
@@ -458,22 +456,21 @@ function PermissionSection(props: {
               <span className={sx(editorStyles.modeBody)}>
                 <span className={sx(editorStyles.modeTitleRow)}>
                   <span className={sx(editorStyles.modeTitle)}>
-                    {presentation.label}
+                    {tI18n(presentation.labelKey)}
                   </span>
                   <Badge
                     variant="outline"
                     className={sx(editorStyles.modeBadge)}
                   >
-                    {presentation.summary}
+                    {tI18n(presentation.summaryKey)}
                   </Badge>
                   {candidate === "guided" ? (
                     <span className={sx(editorStyles.modeRecommended)}>
-                      Recommended
-                    </span>
+                      {tI18n("automation:automationEditor.recommended")}</span>
                   ) : null}
                 </span>
                 <span className={sx(editorStyles.modeDescription)}>
-                  {presentation.description}
+                  {tI18n(presentation.descriptionKey)}
                 </span>
               </span>
             </AdsButton>
@@ -485,7 +482,7 @@ function PermissionSection(props: {
         <div className={sx(editorStyles.manualPanel)}>
           {runtime.provider === "claude-code" ? (
             <>
-              <FormLabel label="Permission mode">
+              <FormLabel label={tI18n("automation:automationEditor.permissionMode")}>
                 <Select
                   value={runtime.permissionMode}
                   onValueChange={(permissionMode) =>
@@ -509,22 +506,22 @@ function PermissionSection(props: {
                 </Select>
               </FormLabel>
               <RuntimeSwitch
-                label="Sandbox"
+                label={tI18n("automation:automationEditor.sandbox")}
                 checked={runtime.sandboxEnabled}
                 onCheckedChange={(sandboxEnabled) =>
                   updateRuntime({ ...runtime, sandboxEnabled })
                 }
               />
               <RuntimeSwitch
-                label="Allow unsandboxed commands"
+                label={tI18n("automation:automationEditor.allowUnsandboxedCommands")}
                 checked={runtime.allowUnsandboxedCommands}
                 onCheckedChange={(allowUnsandboxedCommands) =>
                   updateRuntime({ ...runtime, allowUnsandboxedCommands })
                 }
               />
               <RuntimeSwitch
-                label="Dangerously skip permissions"
-                description="Removes every Claude permission check for this automation."
+                label={tI18n("automation:automationEditor.dangerouslySkipPermissions")}
+                description={tI18n("automation:automationEditor.removesEveryClaudePermissionCheckForThis")}
                 checked={runtime.allowDangerouslySkipPermissions}
                 onCheckedChange={(allowDangerouslySkipPermissions) =>
                   updateRuntime({
@@ -538,7 +535,7 @@ function PermissionSection(props: {
           ) : (
             <>
               <div className={sx(editorStyles.optionPair)}>
-                <FormLabel label="Approvals">
+                <FormLabel label={tI18n("automation:automationEditor.approvals")}>
                   <Select
                     value={runtime.approvalPolicy}
                     onValueChange={(approvalPolicy) =>
@@ -561,7 +558,7 @@ function PermissionSection(props: {
                     </SelectContent>
                   </Select>
                 </FormLabel>
-                <FormLabel label="File access">
+                <FormLabel label={tI18n("automation:automationEditor.fileAccess")}>
                   <Select
                     value={runtime.fileAccess}
                     onValueChange={(fileAccess) =>
@@ -584,7 +581,7 @@ function PermissionSection(props: {
                   </Select>
                 </FormLabel>
               </div>
-              <FormLabel label="Web search">
+              <FormLabel label={tI18n("automation:automationEditor.webSearch")}>
                 <Select
                   value={runtime.webSearch}
                   onValueChange={(webSearch) =>
@@ -607,7 +604,7 @@ function PermissionSection(props: {
                 </Select>
               </FormLabel>
               <RuntimeSwitch
-                label="Network access"
+                label={tI18n("automation:automationEditor.networkAccess")}
                 checked={runtime.networkAccess}
                 onCheckedChange={(networkAccess) =>
                   updateRuntime({ ...runtime, networkAccess })
@@ -639,6 +636,7 @@ export function AutomationEditor(props: {
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["automation"]);
   const environmentValue = props.draft.environment.repositoryPath
     ? `repository:${props.draft.environment.repositoryPath}`
     : "";
@@ -722,11 +720,10 @@ export function AutomationEditor(props: {
       <div className={sx(editorStyles.header)}>
         <div className={sx(editorStyles.headerText)}>
           <div className={sx(editorStyles.headerTitle)}>
-            {props.automationId ? "Edit schedule" : "New schedule"}
+            {props.automationId ? tI18n("automation:automationEditor.editSchedule") : tI18n("automation:automationEditor.newSchedule")}
           </div>
           <div className={sx(editorStyles.headerSubtitle)}>
-            Starts a fresh task while the Stave desktop app is open.
-          </div>
+            {tI18n("automation:automationEditor.startsAFreshTaskWhileTheStave")}</div>
         </div>
         <div className={sx(editorStyles.headerActions)}>
           <Button
@@ -736,15 +733,14 @@ export function AutomationEditor(props: {
             onClick={props.onCancel}
             disabled={props.saving}
           >
-            Cancel
-          </Button>
+            {tI18n("automation:automationEditor.cancel")}</Button>
           <Button
             size="sm"
             xstyle={editorStyles.headerButton}
             onClick={props.onSave}
             disabled={props.saving}
           >
-            {props.saving ? "Saving…" : "Save"}
+            {props.saving ? tI18n("automation:automationEditor.saving") : tI18n("automation:automationEditor.save")}
           </Button>
         </div>
       </div>
@@ -752,8 +748,8 @@ export function AutomationEditor(props: {
       <div className={sx(editorStyles.body)}>
         <div className={sx(editorStyles.bodyColumn)}>
           <section className={sx(editorStyles.section)}>
-            <SectionHeading title="What" />
-            <FormLabel label="Name">
+            <SectionHeading title={tI18n("automation:automationEditor.what")} />
+            <FormLabel label={tI18n("automation:automationEditor.name")}>
               <Input
                 value={props.draft.name}
                 onChange={(event) =>
@@ -762,13 +758,13 @@ export function AutomationEditor(props: {
                     name: event.target.value,
                   })
                 }
-                placeholder="Daily repository review"
+                placeholder={tI18n("automation:automationEditor.dailyRepositoryReview")}
                 xstyle={editorStyles.compactControl}
               />
             </FormLabel>
             <FormLabel
-              label="Instructions"
-              description="The complete prompt sent on every run."
+              label={tI18n("automation:automationEditor.instructions")}
+              description={tI18n("automation:automationEditor.theCompletePromptSentOnEveryRun")}
             >
               <Textarea
                 value={props.draft.prompt}
@@ -778,7 +774,7 @@ export function AutomationEditor(props: {
                     prompt: event.target.value,
                   })
                 }
-                placeholder="Review changes since the last run and summarize risks."
+                placeholder={tI18n("automation:automationEditor.reviewChangesSinceTheLastRunAnd")}
                 xstyle={editorStyles.promptControl}
               />
             </FormLabel>
@@ -786,8 +782,8 @@ export function AutomationEditor(props: {
 
           <section className={sx(editorStyles.section)}>
             <SectionHeading
-              title="Where"
-              description="Starts a new task in this repository's Default Workspace each time."
+              title={tI18n("automation:automationEditor.where")}
+              description={tI18n("automation:automationEditor.startsANewTaskInThisRepository")}
             />
             {props.kindSwitch}
             <Select
@@ -813,7 +809,7 @@ export function AutomationEditor(props: {
               }}
             >
               <SelectTrigger className={sx(editorStyles.repositorySelect)}>
-                <SelectValue placeholder="Select a repository" />
+                <SelectValue placeholder={tI18n("automation:automationEditor.selectARepository")} />
               </SelectTrigger>
               <SelectContent>
                 {props.environmentOptions.map((option) => (
@@ -841,7 +837,7 @@ export function AutomationEditor(props: {
           />
 
           <section className={sx(editorStyles.section)}>
-            <SectionHeading title="Agent" />
+            <SectionHeading title={tI18n("automation:automationEditor.agent")} />
             <ProviderModelPicker
               selectedProvider={runtime.provider}
               selectedModel={runtime.model}
@@ -858,13 +854,11 @@ export function AutomationEditor(props: {
               providerSelectClassName={sx(editorStyles.providerSelect)}
             />
             <div className={sx(editorStyles.effortGroup)}>
-              <span className={sx(editorStyles.formLabelText)}>Effort</span>
+              <span className={sx(editorStyles.formLabelText)}>{tI18n("automation:automationEditor.effort")}</span>
               <span className={sx(editorStyles.formLabelDescription)}>
-                Higher effort spends more model budget on reasoning and
-                increases each run&apos;s latency.
-              </span>
+                {tI18n("automation:automationEditor.higherEffortSpendsMoreModelBudgetOn")}</span>
               <ChoiceButtons
-                aria-label="Effort"
+                aria-label={tI18n("automation:automationEditor.effort")}
                 value={runtime.effort}
                 options={effortOptions.map((option) => ({
                   value: option.value,
@@ -882,8 +876,8 @@ export function AutomationEditor(props: {
               />
             </div>
             <FormLabel
-              label="Concurrent runs"
-              description="Occurrences beyond the limit are recorded as skipped."
+              label={tI18n("automation:automationEditor.concurrentRuns")}
+              description={tI18n("automation:automationEditor.occurrencesBeyondTheLimitAreRecordedAs")}
             >
               <Input
                 type="number"
@@ -906,14 +900,13 @@ export function AutomationEditor(props: {
 
           <section className={sx(editorStyles.section)}>
             <SectionHeading
-              title="Information resources"
-              detail={`${props.draft.informationReferences.length} attached`}
-              description="Each resource is created in the repository's Default Workspace, attached immediately, and resolved again on every run."
+              title={tI18n("automation:automationEditor.informationResources")}
+              detail={tI18n("automation:automationEditor.valueAttached", { propsdraftinformationReferencesCount: props.draft.informationReferences.length })}
+              description={tI18n("automation:automationEditor.eachResourceIsCreatedInTheRepository")}
             />
             {!props.draft.environment.workspaceId ? (
               <div className={sx(editorStyles.emptyPanel)}>
-                Select a repository before attaching Information.
-              </div>
+                {tI18n("automation:automationEditor.selectARepositoryBeforeAttachingInformation")}</div>
             ) : (
               <>
                 <AutomationInformationResourceCreator
@@ -927,14 +920,11 @@ export function AutomationEditor(props: {
                 />
                 {props.informationLoading ? (
                   <div className={sx(editorStyles.loadingNote)}>
-                    Refreshing Information resources…
-                  </div>
+                    {tI18n("automation:automationEditor.refreshingInformationResources")}</div>
                 ) : null}
                 {props.draft.informationReferences.length === 0 ? (
                   <div className={sx(editorStyles.emptyPanel)}>
-                    No Information attached yet. Add a resource above to create
-                    its Default Workspace entry and attach it.
-                  </div>
+                    {tI18n("automation:automationEditor.noInformationAttachedYetAddAResource")}</div>
                 ) : (
                   <div className={sx(editorStyles.referenceList)}>
                     {props.draft.informationReferences.map((reference) => {
@@ -954,7 +944,7 @@ export function AutomationEditor(props: {
                           />
                           <p className={sx(editorStyles.referenceDescription)}>
                             {option?.description ??
-                              `Injects ${reference.label} into each run.`}
+                              tI18n("automation:automationEditor.injectsValueIntoEachRun", { value1: reference.label })}
                           </p>
                           <div className={sx(editorStyles.referenceToken)}>
                             {reference.token}

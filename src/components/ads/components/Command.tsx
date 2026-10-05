@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ChevronLeft, Search } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import type * as React from "react";
@@ -62,6 +63,7 @@ export type CommandRootProps<ItemValue> = Omit<
  * callers keep full typing on `items`/`onValueChange`.
  */
 function Root<ItemValue>(props: CommandRootProps<ItemValue>) {
+  useTranslation();
   const { autoHighlight = "always", inline = true, open = true } = props;
   // `AutocompleteRoot` is two overloads — flat items and grouped items — and a
   // union that spans both matches neither from inside a generic wrapper. The
@@ -91,6 +93,7 @@ function Frame({
   xstyle,
   ...props
 }: CommandFrameProps) {
+  useTranslation();
   const theme = themeProps("command");
   return (
     <div
@@ -110,6 +113,7 @@ export type CommandInputProps = React.ComponentProps<typeof AutocompleteInput> &
 
 /** The search field: input group + leading search icon + text input. */
 function Input({ className, xstyle, ...props }: CommandInputProps) {
+  useTranslation();
   return (
     <AutocompleteInputGroup
       {...themeSlotProps("command", "input-group")}
@@ -135,6 +139,7 @@ export type CommandListProps = React.ComponentProps<typeof AutocompleteList> &
 
 /** The scrollable results list. Accepts a function child for item mapping. */
 function List({ className, xstyle, ...props }: CommandListProps) {
+  useTranslation();
   return (
     <AutocompleteList
       {...props}
@@ -149,6 +154,7 @@ export type CommandItemProps = React.ComponentProps<typeof AutocompleteItem> &
 
 /** One command row. Compose icon/label/shortcut children freely. */
 function ItemPart({ className, xstyle, ...props }: CommandItemProps) {
+  useTranslation();
   const theme = themeProps("command-item");
   return (
     <AutocompleteItem
@@ -175,6 +181,7 @@ export type CommandEmptyProps = React.ComponentProps<typeof AutocompleteEmpty> &
 
 /** Shown when the query matches nothing. */
 function Empty({ className, xstyle, ...props }: CommandEmptyProps) {
+  useTranslation();
   return (
     <AutocompleteEmpty
       {...props}
@@ -203,6 +210,7 @@ export type CommandCollectionProps = React.ComponentProps<
  * known once a filter has run.
  */
 function Collection(props: CommandCollectionProps) {
+  useTranslation();
   return <AutocompleteCollection {...props} />;
 }
 
@@ -211,6 +219,7 @@ export type CommandGroupProps = React.ComponentProps<typeof AutocompleteGroup> &
 
 /** Groups related items under one `Command.GroupLabel`. */
 function Group({ className, xstyle, ...props }: CommandGroupProps) {
+  useTranslation();
   return (
     <AutocompleteGroup
       {...props}
@@ -227,6 +236,7 @@ export type CommandGroupLabelProps = React.ComponentProps<
 
 /** Heading for a `Command.Group`. */
 function GroupLabel({ className, xstyle, ...props }: CommandGroupLabelProps) {
+  useTranslation();
   return (
     <AutocompleteGroupLabel
       {...props}
@@ -258,23 +268,24 @@ function CommandArray({
   defaultPageId,
   defaultRecentValues = [],
   defaultValue,
-  emptyText = "No matching commands.",
+  emptyText = i18n.t("ui:command.noMatchingCommands"),
   items,
-  label = "Command menu",
+  label = i18n.t("ui:command.commandMenu"),
   loading = false,
-  loadingText = "Loading commands...",
+  loadingText = i18n.t("ui:command.loadingCommands"),
   maxRecents = 5,
   onItemSelect,
   onPageChange,
   onRecentValuesChange,
   onValueChange,
   pages = [],
-  placeholder = "Search commands",
+  placeholder = i18n.t("ui:command.searchCommands"),
   recentValues,
   toolbar,
   value,
   xstyle,
 }: CommandProps) {
+  useTranslation();
   const [internalValue, setInternalValue] = useState(defaultValue ?? "");
   const [pageStack, setPageStack] = useState<string[]>(() =>
     defaultPageId ? [defaultPageId] : [],
@@ -311,11 +322,11 @@ function CommandArray({
     return [
       ...recentItems.map((item, index) => ({
         ...item,
-        sectionLabel: index === 0 ? "Recent" : undefined,
+        sectionLabel: index === 0 ? i18n.t("ui:command.recent") : undefined,
       })),
       ...remaining.map((item, index) => ({
         ...item,
-        sectionLabel: index === 0 ? "Commands" : undefined,
+        sectionLabel: index === 0 ? i18n.t("ui:command.commands") : undefined,
       })),
     ];
   }, [allItems, currentItems, currentPage, loading, query, resolvedRecents]);
@@ -389,7 +400,7 @@ function CommandArray({
         {currentPage ? (
           <div className={sx(styles.pageHeader)}>
             <Button
-              aria-label="Back one command page"
+              aria-label={i18n.t("ui:command.backOneCommandPage")}
               onClick={goBack}
               size="iconSm"
               variant="quiet"

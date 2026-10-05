@@ -1,3 +1,4 @@
+import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import { useEffect } from "react";
 import { Bot, X } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -9,14 +10,14 @@ import { useAppStore } from "@/store/app.store";
 import { useAgentsViewStore, type AgentsViewTab } from "@/store/agents-view-store";
 import { centerStyles } from "@/components/layout/automation-center/automation-center-view.styles";
 
-const TABS: ReadonlyArray<readonly [AgentsViewTab, string]> = [
-  ["agents", "Agents"],
-  ["standards", "My standards"],
+const TABS: ReadonlyArray<readonly [AgentsViewTab, Extract<I18nKey, `${string}:${string}`>]> = [
+  ["agents", "agents:agentsView.extraCopy30"],
+  ["standards", "agents:agentsView.extraCopy31"],
 ];
 
 const TAB_NOTES: Record<AgentsViewTab, string> = {
-  agents: "Saved agents to assign work to. An agent with a workflow works in stages.",
-  standards: "Your own rules, added after every agent's instructions when on.",
+  get agents() { return i18n.t("agents:agentsView.extraCopy32"); },
+  get standards() { return i18n.t("agents:agentsView.extraCopy33"); },
 };
 
 /**
@@ -26,6 +27,7 @@ const TAB_NOTES: Record<AgentsViewTab, string> = {
  * `useAgentsViewStore` so a deep link can open this surface on a given tab.
  */
 export function AgentsView() {
+  useTranslation();
   const activeTab = useAgentsViewStore((state) => state.activeTab);
   const setActiveTab = useAgentsViewStore((state) => state.setActiveTab);
   const closeAgents = useAppStore((state) => state.closeAgents);
@@ -53,20 +55,18 @@ export function AgentsView() {
         <div className={sx(centerStyles.headerText)}>
           <div className={sx(centerStyles.headerTitleRow)}>
             <Bot className={sx(centerStyles.headerIcon)} />
-            <h1 className={sx(centerStyles.headerTitle)}>Agents</h1>
+            <h1 className={sx(centerStyles.headerTitle)}>{i18n.t("agents:agentsView.agentsView")}</h1>
           </div>
           <p className={sx(centerStyles.headerSubtitle)}>
-            Assign work to a saved agent and set the standards every agent
-            follows.
-          </p>
+            {i18n.t("agents:agentsView.agentsView2")}</p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
           <Button
             variant="ghost"
             size="sm"
             xstyle={centerStyles.iconButton}
-            aria-label="close-agents"
-            title="Close Agents"
+            aria-label={i18n.t("agents:agentsView.close")}
+            title={i18n.t("agents:agentsView.title")}
             onClick={closeAgents}
           >
             <X className={sx(centerStyles.actionIcon)} />
@@ -75,7 +75,7 @@ export function AgentsView() {
       </header>
 
       <div className={sx(centerStyles.toolbar)}>
-        <nav aria-label="Agents views" className={sx(centerStyles.tabNav)}>
+        <nav aria-label={i18n.t("agents:agentsView.ariaLabel")} className={sx(centerStyles.tabNav)}>
           {TABS.map(([id, label]) => (
             <ActionButton
               key={id}
@@ -84,7 +84,7 @@ export function AgentsView() {
               aria-current={activeTab === id ? "page" : undefined}
               onClick={() => setActiveTab(id)}
             >
-              {label}
+              {i18n.t(label)}
             </ActionButton>
           ))}
         </nav>

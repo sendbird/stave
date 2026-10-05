@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronRight } from "lucide-react";
 import { createContext, Fragment, useContext, useMemo } from "react";
@@ -44,13 +45,14 @@ export type BreadcrumbRootCompoundProps = React.ComponentProps<"nav"> & {
 
 /** The breadcrumb landmark (`<nav aria-label="Breadcrumb">`). */
 function Root({
-  "aria-label": ariaLabel = "Breadcrumb",
+  "aria-label": ariaLabel = i18n.t("ui:breadcrumb.breadcrumb"),
   className,
   density = "default",
   wrap = true,
   xstyle,
   ...props
 }: BreadcrumbRootCompoundProps) {
+  useTranslation();
   const shape = useMemo(() => ({ density, wrap }), [density, wrap]);
   // `data-density` was already on this nav for consumers to query; it is now
   // the theme axis too, which is why the attribute is spread rather than
@@ -73,6 +75,7 @@ export type BreadcrumbListProps = React.ComponentProps<"ol"> & XstyleProp;
 
 /** The ordered list containing the crumb items. */
 function List({ className, xstyle, ...props }: BreadcrumbListProps) {
+  useTranslation();
   const { wrap } = useContext(BreadcrumbShapeContext);
 
   return (
@@ -93,6 +96,7 @@ export type BreadcrumbItemCompoundProps = React.ComponentProps<"li"> &
 
 /** One crumb (`<li>`); contains a `Link` or a `Page`. */
 function Item({ className, xstyle, ...props }: BreadcrumbItemCompoundProps) {
+  useTranslation();
   return (
     <li
       {...props}
@@ -106,6 +110,7 @@ export type BreadcrumbLinkProps = React.ComponentProps<"a"> & XstyleProp;
 
 /** A navigable crumb (`<a>`). */
 function Link({ className, xstyle, ...props }: BreadcrumbLinkProps) {
+  useTranslation();
   const { density } = useContext(BreadcrumbShapeContext);
 
   return (
@@ -144,6 +149,7 @@ function Page({
   xstyle,
   ...props
 }: BreadcrumbPageProps) {
+  useTranslation();
   const isCurrent = ariaCurrent !== false;
   const { density } = useContext(BreadcrumbShapeContext);
 
@@ -174,6 +180,7 @@ function Separator({
   xstyle,
   ...props
 }: BreadcrumbSeparatorProps) {
+  useTranslation();
   return (
     <li
       {...props}
@@ -221,11 +228,12 @@ export type BreadcrumbProps = Omit<BreadcrumbRootProps, "children"> & {
 function BreadcrumbArray({
   density = "default",
   items,
-  label = "Breadcrumb",
+  label = i18n.t("ui:breadcrumb.breadcrumb"),
   wrap = true,
   xstyle,
   ...props
 }: BreadcrumbProps) {
+  useTranslation();
   return (
     <Root
       xstyle={xstyle}

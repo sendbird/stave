@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import {
   BrainCircuit,
   GitBranch,
@@ -23,7 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  DEFAULT_COMPARE_REVIEW_CRITERIA,
+  getDefaultCompareReviewCriteria,
   normalizeCompareReviewCriteria,
   type CompareRunJudgeConfig,
   type CompareRunVariantConfig,
@@ -56,9 +57,10 @@ interface CompareRunPrepareDialogProps {
 }
 
 export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [preparedPrompt, setPreparedPrompt] = useState(props.seedPrompt);
   const [criteriaDraft, setCriteriaDraft] = useState(
-    DEFAULT_COMPARE_REVIEW_CRITERIA.join("\n"),
+    getDefaultCompareReviewCriteria().join("\n"),
   );
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const workspaces = useAppStore((state) => state.workspaces);
@@ -92,7 +94,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
           providerId: "claude-code",
           model: modelClaude,
         }),
-        label: "Candidate A",
+        label: i18n.t("compare:compareRunPrepareDialog.candidateA"),
       },
       {
         provider: "codex",
@@ -102,7 +104,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
           providerId: "codex",
           model: modelCodex,
         }),
-        label: "Candidate B",
+        label: i18n.t("compare:compareRunPrepareDialog.candidateB"),
       },
     ],
   );
@@ -118,7 +120,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
   const baseBranch =
     formatBranchLabel(workspaceBranchById[activeWorkspaceId]) ||
     workspace?.name ||
-    "Current branch";
+    t("compare:compareRunPrepareDialog.currentBranch");
   const reviewCriteria = normalizeCompareReviewCriteria(
     criteriaDraft.split("\n"),
   );
@@ -168,14 +170,11 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
             <div className={sx(styles.headerText)}>
               <div className={sx(styles.headerTitleRow)}>
                 <DialogTitle className={sx(styles.headerTitle)}>
-                  Prepare comparison
-                </DialogTitle>
-                <span className={sx(styles.headerStep)}>Step 1 of 5</span>
+                  {t("compare:compareRunPrepareDialog.prepareComparison")}</DialogTitle>
+                <span className={sx(styles.headerStep)}>{t("compare:compareRunPrepareDialog.stepOf")}</span>
               </div>
               <DialogDescription className={sx(styles.headerDescription)}>
-                Give both candidates the same brief and review contract before
-                Stave creates isolated worktrees.
-              </DialogDescription>
+                {t("compare:compareRunPrepareDialog.giveBothCandidatesTheSameBrief")}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -184,14 +183,12 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
           <section className={sx(styles.section)} aria-labelledby="compare-shared-brief">
             <div className={sx(styles.sectionIntro)}>
               <h3 id="compare-shared-brief" className={sx(styles.heading)}>
-                Shared brief
-              </h3>
+                {t("compare:compareRunPrepareDialog.sharedBrief")}</h3>
               <p className={sx(styles.helpText)}>
-                This exact request is sent to every candidate.
-              </p>
+                {t("compare:compareRunPrepareDialog.thisExactRequestIsSentTo")}</p>
             </div>
             <Textarea
-              aria-label="Compare shared brief"
+              aria-label={t("compare:compareRunPrepareDialog.compareSharedBrief")}
               value={preparedPrompt}
               onChange={(event) => setPreparedPrompt(event.target.value)}
               xstyle={styles.textarea}
@@ -205,12 +202,9 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
             <div className={sx(styles.sectionHeadingRow)}>
               <div className={sx(styles.sectionHeadingGroup)}>
                 <h3 id="compare-candidates" className={sx(styles.heading)}>
-                  Candidates
-                </h3>
+                  {t("compare:compareRunPrepareDialog.candidates")}</h3>
                 <p className={sx(styles.helpText)}>
-                  Both start from the same branch with independent files and
-                  provider sessions. Pick a model and reasoning effort for each.
-                </p>
+                  {t("compare:compareRunPrepareDialog.bothStartFromTheSameBranch")}</p>
               </div>
               <span className={sx(styles.branchTag)}>
                 <GitBranch className={sx(styles.smallIcon)} />
@@ -220,7 +214,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
             <div className={sx(styles.candidateList)}>
               {candidates.map((candidate, index) => {
                 const candidateName =
-                  candidate.label ?? `Candidate ${index + 1}`;
+                  candidate.label ?? i18n.t("compare:compareRunHistory.candidate", { value1: index + 1 });
                 const candidateModel = buildSelectorValue(candidate);
                 return (
                   <div
@@ -238,8 +232,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                         {candidate.label}
                       </p>
                       <p className={sx(styles.candidateSub)}>
-                        Isolated worktree
-                      </p>
+                        {i18n.t("compare:compareRunPrepareDialog.isolatedWorktree")}</p>
                     </div>
                     <ModelSelector
                       value={candidateModel}
@@ -257,7 +250,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                         })
                       }}
                       className={sx(styles.selectorFull)}
-                      triggerAriaLabel={`${candidateName} model and effort: ${candidateModel.label}${candidate.effort ? ` · ${candidate.effort}` : ""}`}
+                      triggerAriaLabel={i18n.t("compare:compareRunPrepareDialog.modelAndEffort", { value1: candidateName, value2: candidateModel.label, value3: candidate.effort ? ` · ${candidate.effort}` : "" })}
                       triggerClassName={sx(styles.selectorTrigger)}
                       menuClassName={sx(styles.selectorMenu)}
                     />
@@ -278,12 +271,9 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                 </span>
                 <div className={sx(styles.judgeIntroText)}>
                   <h3 id="compare-judge" className={sx(styles.heading)}>
-                    Independent judge
-                  </h3>
+                    {t("compare:compareRunPrepareDialog.independentJudge")}</h3>
                   <p className={sx(styles.helpText)}>
-                    Runs after every candidate finishes with fresh context and
-                    read-only access.
-                  </p>
+                    {t("compare:compareRunPrepareDialog.runsAfterEveryCandidateFinishesWith")}</p>
                 </div>
               </div>
               <ModelSelector
@@ -302,7 +292,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                   })
                 }}
                 className={sx(styles.selectorFull)}
-                triggerAriaLabel={`Independent judge model and effort: ${buildSelectorValue(judge).label}${judge.effort ? ` · ${judge.effort}` : ""}`}
+                triggerAriaLabel={t("compare:compareRunPrepareDialog.independentJudgeModelAndEffort", { value1: buildSelectorValue(judge).label, value2: judge.effort ? ` · ${judge.effort}` : "" })}
                 triggerClassName={sx(styles.selectorTrigger)}
                 menuClassName={sx(styles.selectorMenu)}
               />
@@ -318,15 +308,12 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                 id="compare-review-contract"
                 className={sx(styles.heading)}
               >
-                Review contract
-              </h3>
+                {t("compare:compareRunPrepareDialog.reviewContract")}</h3>
               <p className={sx(styles.helpText)}>
-                One criterion per line. These remain visible in the Review
-                stage. Leave this empty to use Stave&apos;s default rubric.
-              </p>
+                {t("compare:compareRunPrepareDialog.oneCriterionPerLineTheseRemain")}</p>
             </div>
             <Textarea
-              aria-label="Compare review criteria"
+              aria-label={t("compare:compareRunPrepareDialog.compareReviewCriteria")}
               value={criteriaDraft}
               onChange={(event) => setCriteriaDraft(event.target.value)}
               xstyle={styles.textareaShort}
@@ -336,23 +323,18 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
           <div className={sx(styles.safetyRow)}>
             <ShieldCheck className={sx(styles.safetyIcon)} />
             <p className={sx(styles.safetyText)}>
-              Keeping a candidate preserves its workspace. Stave closes the
-              other compare workspaces only after your explicit Keep choice.
-              Keeping does not merge code.
-            </p>
+              {t("compare:compareRunPrepareDialog.keepingACandidatePreservesItsWorkspace")}</p>
           </div>
         </div>
 
         <DialogFooter className={sx(styles.footer)}>
           <span className={sx(styles.footerTrail)}>
-            Prepare → Run → Judge → Review → Keep
-          </span>
+            {t("compare:compareRunPrepareDialog.prepareRunJudgeReviewKeep")}</span>
           <div className={sx(styles.footerActions)}>
             <DialogClose
               render={<Button variant="ghost" disabled={props.submitting} />}
             >
-              Cancel
-            </DialogClose>
+              {t("common:actions.cancel")}</DialogClose>
             <Button
               type="button"
               disabled={!canSubmit}
@@ -373,7 +355,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
               }
             >
               <Play className={sx(styles.playIcon)} />
-              {props.submitting ? "Preparing…" : "Start comparison"}
+              {props.submitting ? t("settingsProviders:mcpConfigEditor.editor.preparing") : t("compare:compareRunPrepareDialog.startComparison")}
             </Button>
           </div>
         </DialogFooter>

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import type { FleetDisplayStatus } from "@/lib/fleet/task-status";
 import type { Task } from "@/types/chat";
@@ -196,10 +197,10 @@ export const FLEET_BOARD_FILTER_OPTIONS: ReadonlyArray<{
   label: string;
   hint: string;
 }> = [
-  { value: "active", label: "Active", hint: "Worked in recently" },
-  { value: "running", label: "Running", hint: "An agent turn is in flight" },
-  { value: "blocked", label: "Blocked", hint: "Waiting on you" },
-  { value: "all", label: "All", hint: "Include dormant workspaces" },
+  { value: "active", get label() { return i18n.t("fleet:workspaceActivity.active"); }, get hint() { return i18n.t("fleet:workspaceActivity.workedInRecently"); } },
+  { value: "running", get label() { return i18n.t("fleet:workspaceActivity.running"); }, get hint() { return i18n.t("fleet:workspaceActivity.anAgentTurnIsInFlight"); } },
+  { value: "blocked", get label() { return i18n.t("fleet:workspaceActivity.blocked"); }, get hint() { return i18n.t("fleet:workspaceActivity.waitingOnYou"); } },
+  { value: "all", get label() { return i18n.t("fleet:workspaceActivity.all"); }, get hint() { return i18n.t("fleet:workspaceActivity.includeDormantWorkspaces"); } },
 ];
 
 export function matchesFleetBoardFilter(args: {

@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Renderer Runtime State (pure reducers/helpers)
 // ---------------------------------------------------------------------------
@@ -55,8 +57,8 @@ export function getScriptRunSourceLabel(
   source: WorkspaceScriptRunSource | undefined,
 ) {
   return source?.kind === "hook"
-    ? `Hook · ${SCRIPT_TRIGGER_METADATA[source.trigger].label}`
-    : "Manual";
+    ? i18n.t("scripts:runtimeState.hookValue", { value1: SCRIPT_TRIGGER_METADATA[source.trigger].label })
+    : i18n.t("scripts:runtimeState.manual");
 }
 
 export function getScriptSourceLabel(event: WorkspaceScriptEventEnvelope) {
@@ -158,7 +160,7 @@ export function buildScriptRunFailureState(args: {
     log: args.existing?.log ?? "",
     error: args.error,
     orbitUrl: undefined,
-    sourceLabel: args.sourceLabel ?? args.existing?.sourceLabel ?? "Manual",
+    sourceLabel: args.sourceLabel ?? args.existing?.sourceLabel ?? i18n.t("scripts:runtimeState.manual"),
   };
 }
 
@@ -167,15 +169,15 @@ export function formatScriptDuration(durationMs: number): string {
     return "";
   }
   if (durationMs < 1_000) {
-    return `${Math.round(durationMs)}ms`;
+    return i18n.t("workspace:format.duration.milliseconds", { value: formatNumber(Math.round(durationMs)) });
   }
   if (durationMs < 60_000) {
     const seconds = durationMs / 1_000;
-    return seconds >= 10 ? `${Math.round(seconds)}s` : `${seconds.toFixed(1)}s`;
+    return i18n.t("workspace:format.duration.secondsValue", { value: formatNumber(seconds, { minimumFractionDigits: seconds >= 10 ? 0 : 1, maximumFractionDigits: seconds >= 10 ? 0 : 1 }) });
   }
   const minutes = Math.floor(durationMs / 60_000);
   const seconds = Math.round((durationMs % 60_000) / 1_000);
-  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  return seconds > 0 ? i18n.t("workspace:format.duration.minutesSeconds", { minutes, seconds }) : i18n.t("workspace:format.duration.minutes", { count: minutes });
 }
 
 export function formatScriptRelativeTime(
@@ -184,7 +186,7 @@ export function formatScriptRelativeTime(
 ): string {
   const elapsed = Math.max(0, now - timestampMs);
   if (elapsed < 5_000) {
-    return "just now";
+    return i18n.t("scripts:runtimeState.justNow");
   }
   if (elapsed < 60_000) {
     return `${Math.round(elapsed / 1_000)}s ago`;

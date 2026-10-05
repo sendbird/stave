@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * The agent run report: what the agent run did, why, and what proves it. Built
  * once an agent run ends, whether it completed, was cancelled or was stopped. A
@@ -123,7 +124,7 @@ export function buildAgentRunReport(args: {
 }): AgentRunReport {
   const { agentRun, stages: records } = args.aggregate;
   if (agentRun.state !== "completed" && agentRun.state !== "cancelled" && agentRun.state !== "stopped") {
-    throw new Error(`Run ${agentRun.id} is still ${agentRun.state}; report it once it ends.`);
+    throw new Error(i18n.t("agentRuns:remaining.presentationCopy452", { v1: agentRun.id, v2: agentRun.state }));
   }
 
   const acceptanceCriteria = collectAcceptanceCriteria(args.aggregate, true);
@@ -161,7 +162,7 @@ export function buildAgentRunReport(args: {
       attempts,
       summary:
         report?.summary ??
-        (record?.report?.outcome === "blocked" ? `Blocked: ${record.report.missing}` : null),
+        (record?.report?.outcome === "blocked" ? i18n.t("agentRuns:report.summary", { value1: record.report.missing }) : null),
       decisions: report?.decisions ?? [],
       evidence,
       detail: record?.detail ?? null,
@@ -172,10 +173,10 @@ export function buildAgentRunReport(args: {
   const leftBehind: string[] = [];
   if (agentRun.state !== "completed") {
     const { branch, branchPushed, openPullRequest } = args.workspace;
-    if (branch && branchPushed) leftBehind.push(`Branch ${branch} is pushed.`);
+    if (branch && branchPushed) leftBehind.push(i18n.t("agentRuns:report.extraCopy325", { value1: branch }));
     if (openPullRequest) {
       leftBehind.push(
-        `${openPullRequest.isDraft ? "Draft PR" : "PR"} #${openPullRequest.number} is still open: ${openPullRequest.url}`,
+        i18n.t("agentRuns:remaining.presentationCopy453", { v1: openPullRequest.isDraft ? i18n.t("agentRuns:report.extraCopy326") : "PR", v2: openPullRequest.number, v3: openPullRequest.url }),
       );
     }
   }

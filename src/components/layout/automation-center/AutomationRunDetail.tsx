@@ -1,3 +1,5 @@
+import { formatAutomationTrustPolicy } from "@/lib/automation-presentation";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Copy, ExternalLink, RotateCw } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
@@ -5,7 +7,6 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
-  formatAutomationTrustPolicy,
   type AutomationRun,
   type AutomationSpec,
 } from "@/lib/automations";
@@ -27,6 +28,7 @@ export function AutomationRunRow(props: {
   active: boolean;
   onSelect: (run: AutomationRun) => void;
 }) {
+  const { t: tI18n } = useTranslation(["automation"]);
   const presentation = getRunStatusPresentation(props.run.status);
   return (
     <AdsButton layout="host"
@@ -44,7 +46,7 @@ export function AutomationRunRow(props: {
           aria-hidden="true"
         />
         <span className={sx(runDetailStyles.rowName)}>
-          {props.automationName ?? "Removed automation"}
+          {props.automationName ?? tI18n("automation:automationRunDetail.removedAutomation")}
         </span>
         <Badge
           variant="outline"
@@ -57,7 +59,7 @@ export function AutomationRunRow(props: {
       <div className={sx(runDetailStyles.rowMeta)}>
         <span>{formatRelativeTime(props.run.startedAt)}</span>
         <span className={sx(automationStyles.truncate)}>
-          {props.run.trigger === "scheduled" ? "Schedule" : "Manual"} ·{" "}
+          {props.run.trigger === "scheduled" ? tI18n("automation:automationRunDetail.schedule") : tI18n("automation:automationRunDetail.manual")} ·{" "}
           {formatRunDuration(props.run)}
         </span>
       </div>
@@ -95,6 +97,7 @@ export function AutomationRunDetail(props: {
   onOpenTask: (run: AutomationRun) => void;
   onRunAgain: (automation: AutomationSpec) => void;
 }) {
+  const { t: tI18n } = useTranslation(["automation"]);
   const presentation = getRunStatusPresentation(props.run.status);
   const automation = props.automation;
   return (
@@ -111,13 +114,12 @@ export function AutomationRunDetail(props: {
                 {presentation.label}
               </Badge>
               <h2 className={sx(runDetailStyles.headerTitle)}>
-                {automation?.name ?? "Removed automation"}
+                {automation?.name ?? tI18n("automation:automationRunDetail.removedAutomation")}
               </h2>
             </div>
             <p className={sx(runDetailStyles.headerSub)}>
-              Started {formatRelativeTime(props.run.startedAt)} ·{" "}
-              {formatDateTime(props.run.startedAt)}
-            </p>
+          {tI18n("automation:automationRunDetail.startedAt", { relative: formatRelativeTime(props.run.startedAt), date: formatDateTime(props.run.startedAt) })}
+        </p>
           </div>
           <div className={sx(runDetailStyles.headerActions)}>
             {automation ? (
@@ -129,8 +131,7 @@ export function AutomationRunDetail(props: {
                 onClick={() => props.onRunAgain(automation)}
               >
                 <RotateCw className={sx(runDetailStyles.buttonIcon)} />
-                Run again
-              </Button>
+                {tI18n("automation:automationRunDetail.runAgain")}</Button>
             ) : null}
             {props.run.taskId ? (
               <Button
@@ -139,8 +140,7 @@ export function AutomationRunDetail(props: {
                 onClick={() => props.onOpenTask(props.run)}
               >
                 <ExternalLink className={sx(runDetailStyles.buttonIcon)} />
-                Open task
-              </Button>
+                {tI18n("automation:automationRunDetail.openTask")}</Button>
             ) : null}
           </div>
         </div>
@@ -150,51 +150,51 @@ export function AutomationRunDetail(props: {
         <div className={sx(runDetailStyles.bodyGrid)}>
           <dl className={sx(runDetailStyles.facts)}>
             <DetailRow
-              label="Trigger"
+              label={tI18n("automation:automationRunDetail.trigger")}
               value={props.run.trigger === "scheduled" ? "Schedule" : "Manual"}
             />
             <DetailRow
-              label="Permissions"
+              label={tI18n("automation:automationRunDetail.permissions")}
               value={formatAutomationTrustPolicy(props.run.trustPolicy)}
             />
-            <DetailRow label="Duration" value={formatRunDuration(props.run)} />
+            <DetailRow label={tI18n("automation:automationRunDetail.duration")} value={formatRunDuration(props.run)} />
             <DetailRow
-              label="Scheduled for"
+              label={tI18n("automation:automationRunDetail.scheduledFor")}
               value={formatDateTime(props.run.scheduledFor)}
             />
             <DetailRow
-              label="Started"
+              label={tI18n("automation:automationRunDetail.started")}
               value={formatDateTime(props.run.startedAt)}
             />
             <DetailRow
-              label="Completed"
+              label={tI18n("automation:automationRunDetail.completed")}
               value={formatDateTime(props.run.completedAt)}
             />
             <DetailRow
-              label="Repository"
+              label={tI18n("automation:automationRunDetail.repository")}
               value={automation?.environment.label ?? props.run.repositoryPath}
             />
             <DetailRow
-              label="Model"
+              label={tI18n("automation:automationRunDetail.model")}
               value={automation?.runtime.model ?? "—"}
             />
             <DetailRow
-              label="Config hash"
+              label={tI18n("automation:automationRunDetail.configHash")}
               value={props.run.configHash ?? "legacy"}
               mono
             />
           </dl>
 
           <div className={sx(runDetailStyles.executionRow)}>
-            <span className={sx(runDetailStyles.detailTerm)}>Execution ID</span>
+            <span className={sx(runDetailStyles.detailTerm)}>{tI18n("automation:automationRunDetail.executionId")}</span>
             <span className={sx(runDetailStyles.executionId)}>
               {props.run.id}
             </span>
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label="Copy execution ID"
-              title="Copy execution ID"
+              aria-label={tI18n("automation:automationRunDetail.copyExecutionId")}
+              title={tI18n("automation:automationRunDetail.copyExecutionId")}
               onClick={() => void copyTextToClipboard(props.run.id)}
             >
               <Copy className={sx(runDetailStyles.buttonIcon)} />
@@ -204,7 +204,7 @@ export function AutomationRunDetail(props: {
           {props.run.error ? (
             <section className={sx(runDetailStyles.section)}>
               <h3 className={sx(automationStyles.sectionHeading)}>
-                {props.run.status === "skipped" ? "Skip reason" : "Error"}
+                {props.run.status === "skipped" ? tI18n("automation:automationRunDetail.skipReason") : tI18n("automation:automationRunDetail.error")}
               </h3>
               <p
                 className={sx(
@@ -220,7 +220,7 @@ export function AutomationRunDetail(props: {
           ) : null}
 
           <section className={sx(runDetailStyles.section)}>
-            <h3 className={sx(automationStyles.sectionHeading)}>Result</h3>
+            <h3 className={sx(automationStyles.sectionHeading)}>{tI18n("automation:automationRunDetail.result")}</h3>
             {props.run.resultPreview ? (
               <p className={sx(runDetailStyles.prose, runDetailStyles.proseResult)}>
                 {props.run.resultPreview}
@@ -228,12 +228,12 @@ export function AutomationRunDetail(props: {
             ) : (
               <p className={sx(runDetailStyles.prose, runDetailStyles.proseEmpty)}>
                 {props.run.status === "completed"
-                  ? "Completed without a text response. Open the task to inspect its tool output."
+                  ? tI18n("automation:automationRunDetail.completedWithoutATextResponseOpenThe")
                   : props.run.status === "waiting"
-                    ? "Waiting for approval or user input. Open the task to respond."
+                    ? tI18n("automation:automationRunDetail.waitingForApprovalOrUserInputOpen")
                     : props.run.status === "running"
-                      ? "The task is still running."
-                      : "No result was recorded for this run."}
+                      ? tI18n("automation:automationRunDetail.theTaskIsStillRunning")
+                      : tI18n("automation:automationRunDetail.noResultWasRecordedForThisRun")}
               </p>
             )}
           </section>
@@ -241,8 +241,7 @@ export function AutomationRunDetail(props: {
           {automation ? (
             <section className={sx(runDetailStyles.section)}>
               <h3 className={sx(automationStyles.sectionHeading)}>
-                Instructions
-              </h3>
+                {tI18n("automation:automationRunDetail.instructions")}</h3>
               <p
                 className={sx(
                   runDetailStyles.prose,

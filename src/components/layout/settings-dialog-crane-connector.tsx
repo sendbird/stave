@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useEffect, useState } from "react";
 import {
   BookOpen,
@@ -37,25 +38,26 @@ import { craneConnectorStyles as styles } from "./settings-dialog-crane-connecto
 function statusLabel(state: string | undefined) {
   switch (state) {
     case "connected":
-      return "Connected";
+      return i18n.t("settingsProviders:mcpSection.stats.connected");
     case "awaiting_local_approval":
-      return "Needs local approval";
+      return i18n.t("settingsConnections:settingsDialogCraneConnector.needsLocalApproval");
     case "running":
-      return "Running";
+      return i18n.t("common:status.running");
     case "connecting":
-      return "Connecting";
+      return i18n.t("settingsConnections:settingsDialogCraneConnector.connecting");
     case "offline":
-      return "Offline";
+      return i18n.t("settingsConnections:settingsDialogCraneConnector.offline");
     case "error":
-      return "Attention needed";
+      return i18n.t("settingsConnections:settingsDialogCraneConnector.attentionNeeded");
     case "unpaired":
-      return "Not paired";
+      return i18n.t("settingsConnections:settingsDialogCraneConnector.notPaired");
     default:
-      return "Disabled";
+      return i18n.t("common:status.disabled");
   }
 }
 
 export function CraneConnectorSettingsSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const connector = useAppStore((state) => state.settings.craneConnector);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const registeredRepositories = useAppStore((state) => state.recentRepositories);
@@ -106,7 +108,7 @@ export function CraneConnectorSettingsSection() {
         setCraneConnectorClientStatus(result.status);
       }
     } catch {
-      toast.error("Could not refresh the Crane connector status.");
+      toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.couldNotRefreshTheCraneConnector"));
     } finally {
       setBusy(null);
     }
@@ -115,11 +117,11 @@ export function CraneConnectorSettingsSection() {
   const pair = async () => {
     const pairConnector = window.api?.craneConnector?.pair;
     if (!pairConnector) {
-      toast.error("Crane connector controls are unavailable.");
+      toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.craneConnectorControlsAreUnavailable"));
       return;
     }
     if (!pairingCode.trim()) {
-      toast.error("Paste the one-time pairing code from Crane.");
+      toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.pasteTheOneTimePairingCode"));
       return;
     }
     setBusy("pair");
@@ -131,7 +133,7 @@ export function CraneConnectorSettingsSection() {
       });
       setCraneConnectorClientStatus(result.status);
       if (!result.ok) {
-        toast.error("Could not pair with Crane", {
+        toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.couldNotPairWithCrane"), {
           description: result.message,
         });
         return;
@@ -141,9 +143,9 @@ export function CraneConnectorSettingsSection() {
         enabled: true,
         baseUrl: baseUrl.trim().replace(/\/+$/, ""),
       });
-      toast.success("Crane is paired with this Stave installation.");
+      toast.success(i18n.t("settingsConnections:settingsDialogCraneConnector.craneIsPairedWithThisStave"));
     } catch {
-      toast.error("Could not pair with Crane.");
+      toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.couldNotPairWithCraneVariantae865285"));
     } finally {
       setBusy(null);
     }
@@ -160,14 +162,14 @@ export function CraneConnectorSettingsSection() {
       setCraneConnectorClientStatus(result.status);
       saveConnector({ enabled: false });
       if (result.ok) {
-        toast.success("Crane connector disconnected.");
+        toast.success(i18n.t("settingsConnections:settingsDialogCraneConnector.craneConnectorDisconnected"));
       } else {
-        toast.error("Could not fully disconnect the Crane connector", {
+        toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.couldNotFullyDisconnectTheCrane"), {
           description: result.message,
         });
       }
     } catch {
-      toast.error("Could not disconnect the Crane connector.");
+      toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.couldNotDisconnectTheCraneConnector"));
     } finally {
       setBusy(null);
     }
@@ -189,16 +191,13 @@ export function CraneConnectorSettingsSection() {
           </span>
           <div className={sx(styles.headerBody)}>
             <div className={sx(styles.headerTitleLine)}>
-              <h3 className={sx(styles.headerTitle)}>Crane connector</h3>
+              <h3 className={sx(styles.headerTitle)}>{t("settings:sections.fields.craneConnector.title")}</h3>
               <Badge variant="outline">
                 {statusLabel(status?.runtimeState)}
               </Badge>
             </div>
             <p className={sx(styles.headerDescription)}>
-              Poll your own Crane account over outbound HTTPS. Every job still
-              requires a local approval before Stave creates a workspace or
-              starts a provider.
-            </p>
+              {t("settingsConnections:settingsDialogCraneConnector.pollYourOwnCraneAccountOver")}</p>
             <Button
               type="button"
               size="xs"
@@ -210,19 +209,18 @@ export function CraneConnectorSettingsSection() {
                     url: STAVE_CRANE_CONNECTOR_GUIDE_URL,
                   })
                   .catch(() => {
-                    toast.error("Could not open the Crane connector guide.");
+                    toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.couldNotOpenTheCraneConnector"));
                   });
               }}
             >
               <BookOpen className={sx(styles.guideIcon)} />
-              Read setup guide
-            </Button>
+              {t("settingsConnections:settingsDialogCraneConnector.readSetupGuide")}</Button>
           </div>
           <Button
             type="button"
             size="icon-sm"
             variant="ghost"
-            aria-label="Refresh Crane connector status"
+            aria-label={t("settingsConnections:settingsDialogCraneConnector.refreshCraneConnectorStatus")}
             disabled={busy !== null}
             onClick={() => void refreshStatus()}
           >
@@ -242,15 +240,13 @@ export function CraneConnectorSettingsSection() {
                 htmlFor="settings-crane-enabled"
                 className={sx(styles.enableLabel)}
               >
-                Enable outbound polling
-              </label>
+                {t("settingsConnections:settingsDialogCraneConnector.enableOutboundPolling")}</label>
               <p className={sx(styles.enableHint)}>
-                Off means no connector timer or network traffic.
-              </p>
+                {t("settingsConnections:settingsDialogCraneConnector.offMeansNoConnectorTimerOr")}</p>
             </div>
             <Switch
               id="settings-crane-enabled"
-              aria-label="Enable outbound polling"
+              aria-label={t("settingsConnections:settingsDialogCraneConnector.enableOutboundPolling")}
               checked={enabled}
               disabled={busy !== null}
               onCheckedChange={(checked) => saveConnector({ enabled: checked })}
@@ -262,8 +258,7 @@ export function CraneConnectorSettingsSection() {
               htmlFor="settings-crane-base-url"
               className={sx(styles.fieldLabel)}
             >
-              Crane URL
-            </label>
+              {t("settingsConnections:settingsDialogCraneConnector.craneURL")}</label>
             <div className={sx(styles.urlRow)}>
               <Input
                 id="settings-crane-base-url"
@@ -282,7 +277,7 @@ export function CraneConnectorSettingsSection() {
               <Button
                 type="button"
                 variant="outline"
-                aria-label="Open Crane connector page"
+                aria-label={t("settingsConnections:settingsDialogCraneConnector.openCraneConnectorPage")}
                 onClick={() => {
                   const url =
                     baseUrl.trim() || DEFAULT_CRANE_CONNECTOR_BASE_URL;
@@ -292,23 +287,20 @@ export function CraneConnectorSettingsSection() {
                         url: buildCraneConnectorSettingsUrl(url),
                       })
                       .catch(() => {
-                        toast.error("Could not open the Crane connector page.");
+                        toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.couldNotOpenTheCraneConnectorVariant4ed670bc"));
                       });
                   } catch {
                     toast.error(
-                      "Enter a valid Crane URL before opening Crane.",
+                      i18n.t("settingsConnections:settingsDialogCraneConnector.enterAValidCraneURLBefore"),
                     );
                   }
                 }}
               >
                 <ExternalLink className={sx(styles.actionIcon)} />
-                Open Crane
-              </Button>
+                {t("settingsConnections:settingsDialogCraneConnector.openCrane")}</Button>
             </div>
             <p className={sx(styles.fieldHint)}>
-              Production endpoints must use HTTPS. Localhost HTTP is accepted
-              only in development builds.
-            </p>
+              {t("settingsConnections:settingsDialogCraneConnector.productionEndpointsMustUseHTTPSLocalhost")}</p>
           </div>
 
           <div className={sx(styles.field)}>
@@ -316,8 +308,7 @@ export function CraneConnectorSettingsSection() {
               htmlFor="settings-crane-poll-interval"
               className={sx(styles.fieldLabel)}
             >
-              Poll interval
-            </label>
+              {t("settingsConnections:settingsDialogCraneConnector.pollInterval")}</label>
             <Select
               value={String(connector.pollIntervalSeconds)}
               disabled={busy !== null}
@@ -334,10 +325,10 @@ export function CraneConnectorSettingsSection() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="15">15 seconds</SelectItem>
-                <SelectItem value="30">30 seconds</SelectItem>
-                <SelectItem value="60">1 minute</SelectItem>
-                <SelectItem value="120">2 minutes</SelectItem>
+                <SelectItem value="15">{t("settingsConnections:settingsDialogCraneConnector.seconds")}</SelectItem>
+                <SelectItem value="30">{t("settingsConnections:settingsDialogCraneConnector.secondsVariante9093fbc")}</SelectItem>
+                <SelectItem value="60">{t("settingsConnections:settingsDialogCraneConnector.minute")}</SelectItem>
+                <SelectItem value="120">{t("settingsConnections:settingsDialogCraneConnector.minutes")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -346,13 +337,9 @@ export function CraneConnectorSettingsSection() {
             <div className={sx(styles.pairPanel)}>
               <div>
                 <h4 className={sx(styles.panelTitle)}>
-                  Pair this installation
-                </h4>
+                  {t("settingsConnections:settingsDialogCraneConnector.pairThisInstallation")}</h4>
                 <p className={sx(styles.panelHint)}>
-                  Generate a short-lived code from the Crane connector page,
-                  then paste it here. The code is exchanged once and is never
-                  persisted in settings.
-                </p>
+                  {t("settingsConnections:settingsDialogCraneConnector.generateAShortLivedCodeFrom")}</p>
               </div>
               <div className={sx(styles.pairGrid)}>
                 <div className={sx(styles.field)}>
@@ -360,8 +347,7 @@ export function CraneConnectorSettingsSection() {
                     htmlFor="settings-crane-connector-name"
                     className={sx(styles.fieldLabel)}
                   >
-                    Connector name
-                  </label>
+                    {t("settingsConnections:settingsDialogCraneConnector.connectorName")}</label>
                   <Input
                     id="settings-crane-connector-name"
                     value={connectorName}
@@ -375,8 +361,7 @@ export function CraneConnectorSettingsSection() {
                     htmlFor="settings-crane-pairing-code"
                     className={sx(styles.fieldLabel)}
                   >
-                    One-time pairing code
-                  </label>
+                    {t("settingsConnections:settingsDialogCraneConnector.oneTimePairingCode")}</label>
                   <Input
                     id="settings-crane-pairing-code"
                     type="password"
@@ -403,14 +388,13 @@ export function CraneConnectorSettingsSection() {
                 ) : (
                   <LockKeyhole className={sx(styles.actionIcon)} />
                 )}
-                Pair securely
-              </Button>
+                {t("settingsConnections:settingsDialogCraneConnector.pairSecurely")}</Button>
             </div>
           ) : (
             <div className={sx(styles.pairedPanel)}>
               <div className={sx(styles.pairedMeta)}>
                 <p className={sx(styles.pairedName)}>
-                  {status?.connector?.name ?? "Paired Stave"}
+                  {status?.connector?.name ?? t("settingsConnections:settingsDialogCraneConnector.pairedStave")}
                 </p>
                 <p className={sx(styles.pairedId)}>{status?.connector?.id}</p>
               </div>
@@ -425,42 +409,32 @@ export function CraneConnectorSettingsSection() {
                 ) : (
                   <Unplug className={sx(styles.actionIcon)} />
                 )}
-                Disconnect
-              </Button>
+                {t("settingsConnections:settingsDialogCraneConnector.disconnect")}</Button>
             </div>
           )}
 
           {status?.connector ? (
             <p className={sx(styles.infoNote)}>
-              Crane and Martin share this one connector credential.
-              Disconnecting revokes both, so Martin workspace sync stops
-              delivering until you pair again. Queued items are kept and resume
-              after re-pairing.
-            </p>
+              {t("settingsConnections:settingsDialogCraneConnector.craneAndMartinShareThisOne")}</p>
           ) : null}
 
           {status && !status.secureStorageAvailable ? (
             <p className={sx(styles.warning)}>
-              OS credential encryption is unavailable. Pairing remains blocked
-              until a secure credential store is available.
-            </p>
+              {t("settingsConnections:settingsDialogCraneConnector.osCredentialEncryptionIsUnavailablePairing")}</p>
           ) : null}
 
           <div className={sx(styles.infoNote)}>
             {registeredRepositoryCount > 0
-              ? `${registeredRepositoryCount} registered repository${registeredRepositoryCount === 1 ? "" : "s"} can be selected per incoming job.`
-              : "Register a local Stave repository before approving a Crane job."}{" "}
-            Local paths are never sent to Crane.
-          </div>
+              ? t("settingsConnections:messages.selectableRepositories", { count: registeredRepositoryCount })
+              : t("settingsConnections:settingsDialogCraneConnector.registerALocalStaveRepositoryBefore")}{" "}
+            {t("settingsConnections:settingsDialogCraneConnector.localPathsAreNeverSentTo")}</div>
 
           {connector.repositoryMappings.length > 0 ? (
             <div className={sx(styles.mappings)}>
               <div>
-                <h4 className={sx(styles.panelTitle)}>Repository mappings</h4>
+                <h4 className={sx(styles.panelTitle)}>{t("settingsConnections:settingsDialogCraneConnector.repositoryMappings")}</h4>
                 <p className={sx(styles.panelHint)}>
-                  Incoming issue teams preselect these local Stave repositories. The
-                  mapping never leaves this device.
-                </p>
+                  {t("settingsConnections:settingsDialogCraneConnector.incomingIssueTeamsPreselectTheseLocal")}</p>
               </div>
               <div className={sx(styles.mappingsList)}>
                 {connector.repositoryMappings.map((mapping, index) => {
@@ -468,11 +442,11 @@ export function CraneConnectorSettingsSection() {
                     registeredRepositories.find(
                       (repository) =>
                         repository.repositoryPath === mapping.staveProjectPath,
-                    )?.repositoryName ?? "Unregistered repository";
+                    )?.repositoryName ?? i18n.t("settingsConnections:settingsDialogCraneConnector.unregisteredRepository");
                   const routeLabel =
                     mapping.craneTeamKey ??
                     mapping.craneProjectId ??
-                    "Crane route";
+                    i18n.t("settingsConnections:settingsDialogCraneConnector.craneRoute");
                   return (
                     <div
                       key={`${routeLabel}:${mapping.staveProjectPath}`}
@@ -489,7 +463,7 @@ export function CraneConnectorSettingsSection() {
                         type="button"
                         size="icon-sm"
                         variant="ghost"
-                        aria-label={`Remove ${routeLabel} repository mapping`}
+                        aria-label={i18n.t("settingsConnections:settingsDialogCraneConnector.removeRepositoryMapping", { value1: routeLabel })}
                         onClick={() =>
                           saveConnector({
                             repositoryMappings: connector.repositoryMappings.filter(
@@ -513,12 +487,9 @@ export function CraneConnectorSettingsSection() {
       </div>
 
       <div className={sx(styles.outboundCard)}>
-        <h3 className={sx(styles.outboundTitle)}>Outbound data</h3>
+        <h3 className={sx(styles.outboundTitle)}>{t("settingsConnections:settingsDialogCraneConnector.outboundData")}</h3>
         <p className={sx(styles.outboundText)}>
-          Crane receives job lifecycle states and safe error codes only.
-          Transcripts, reasoning, diffs, files, local paths, branches, provider
-          credentials, and Local MCP metadata remain on this machine.
-        </p>
+          {t("settingsConnections:settingsDialogCraneConnector.craneReceivesJobLifecycleStatesAnd")}</p>
       </div>
     </div>
   );

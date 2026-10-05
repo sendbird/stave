@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Renderer state for wake-ups in the active workspace: one entry per task,
  * with the summary the surfaces read. Refreshed on `wake-ups:changed`.
@@ -42,7 +43,7 @@ export const useWakeUpsStore = create<WakeUpsState>()((set, get) => {
     }));
     const result = await action().catch((error: unknown) => ({
       ok: false,
-      message: error instanceof Error ? error.message : "The wake-up request failed.",
+      message: error instanceof Error ? error.message : i18n.t("notifications:wakeUpsStore.theWakeUpRequestFailed"),
     }));
     set((state) => ({
       pendingById: { ...state.pendingById, [id]: undefined },

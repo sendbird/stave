@@ -1,4 +1,6 @@
 import { app, BrowserWindow, ipcMain } from "electron";
+import { setMainLocale } from "../i18n";
+import { SetAppLocaleArgsSchema } from "./window-schemas";
 import {
   cancelQuitPrompt,
   confirmQuitPrompt,
@@ -46,6 +48,14 @@ export function registerWindowHandlers() {
   ipcMain.handle("window:is-maximized", (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     return { isMaximized: window?.isMaximized() ?? false };
+  });
+
+  ipcMain.handle("window:set-locale", (_event, args: unknown) => {
+    const parsed = SetAppLocaleArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false };
+    }
+    return { ok: true, locale: setMainLocale(parsed.data.locale) };
   });
 
   ipcMain.handle("window:get-gpu-status", () => ({

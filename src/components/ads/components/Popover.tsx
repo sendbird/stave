@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { X } from "lucide-react";
 import type * as React from "react";
@@ -78,6 +79,7 @@ export function Popover({
   xstyle,
   ...props
 }: PopoverProps) {
+  useTranslation();
   const anchored = resolvePlacement(placement);
   const flush = density === "flush";
   // The trigger stays in the provider's tree; only the popup portals out, so
@@ -168,7 +170,7 @@ export function Popover({
                     controlSquares.sm,
                     focusRing.ring,
                   )}
-                  aria-label="Close"
+                  aria-label={i18n.t("ui:popover.close")}
                   // 16px glyph in the 32px quiet square, same as Dialog's close —
                   // it shipped at 14px, which read as a different (weaker) button
                   // on an otherwise identical surface. Sized through the tokenized

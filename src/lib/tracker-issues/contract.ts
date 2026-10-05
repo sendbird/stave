@@ -78,6 +78,7 @@ const httpsUrlSchema = z
   .min(1)
   .max(CRANE_TASKS_LIMITS.href)
   .url()
+  // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
   .refine(isHttpsUrl, { message: "Crane links must use HTTPS." });
 
 /**
@@ -186,6 +187,7 @@ function assertSubtaskCountsAgree(
     context.addIssue({
       code: "custom",
       path: ["subtaskDoneCount"],
+      // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
       message: "Completed subtasks cannot exceed the subtask count.",
     });
   }
@@ -235,6 +237,7 @@ export const CraneTaskListResponseV1Schema = z
     if (serializedByteLength(value) > CRANE_TASKS_LIMITS.listBytes) {
       context.addIssue({
         code: "custom",
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: "Crane task list exceeds the size budget.",
       });
     }
@@ -253,6 +256,7 @@ export const CraneTaskDetailResponseV1Schema = z
     if (serializedByteLength(value) > CRANE_TASKS_LIMITS.detailBytes) {
       context.addIssue({
         code: "custom",
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: "Crane task detail exceeds the size budget.",
       });
     }

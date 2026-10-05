@@ -1,3 +1,5 @@
+import { useTranslation } from "@/i18n";
+import { i18n } from "@/i18n";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "@/components/ui";
 import { formatElementForChat } from "@/lib/lens/lens-element-message";
@@ -45,6 +47,7 @@ export function useLensOverlayModes(args: {
   sourceMappingConfig: LensSourceMappingConfig;
   visualCommentShortcut: VisualCommentShortcut;
 }): LensOverlayModesHandle {
+  useTranslation();
   const {
     workspaceId,
     lensSessionId,
@@ -82,8 +85,8 @@ export function useLensOverlayModes(args: {
       },
     });
     if (!result?.ok) {
-      toast.error("Annotation mode failed", {
-        description: result?.message ?? "Lens could not start annotation mode.",
+      toast.error(i18n.t("lens:useLensOverlayModes.annotationModeFailed"), {
+        description: result?.message ?? i18n.t("lens:useLensOverlayModes.lensCouldNotStartAnnotationMode"),
       });
       return;
     }
@@ -107,8 +110,8 @@ export function useLensOverlayModes(args: {
       lensSessionId,
     });
     if (!result?.ok) {
-      toast.error("Annotation mode failed", {
-        description: result?.message ?? "Lens could not stop annotation mode.",
+      toast.error(i18n.t("lens:useLensOverlayModes.annotationModeFailed"), {
+        description: result?.message ?? i18n.t("lens:useLensOverlayModes.lensCouldNotStopAnnotationMode"),
       });
       return;
     }
@@ -134,8 +137,8 @@ export function useLensOverlayModes(args: {
         lensSessionId,
       });
       if (!result?.ok) {
-        toast.error("Inspect mode failed", {
-          description: result?.message ?? "Lens could not stop inspect mode.",
+        toast.error(i18n.t("lens:useLensOverlayModes.inspectModeFailed"), {
+          description: result?.message ?? i18n.t("lens:useLensOverlayModes.lensCouldNotStopInspectMode"),
         });
         return;
       }
@@ -153,8 +156,8 @@ export function useLensOverlayModes(args: {
       lensSessionId,
     });
     if (!result?.ok) {
-      toast.error("Inspect mode failed", {
-        description: result?.message ?? "Lens could not start inspect mode.",
+      toast.error(i18n.t("lens:useLensOverlayModes.inspectModeFailed"), {
+        description: result?.message ?? i18n.t("lens:useLensOverlayModes.lensCouldNotStartInspectMode"),
       });
       return;
     }
@@ -176,15 +179,15 @@ export function useLensOverlayModes(args: {
       return;
     }
     if (!hasLensApi) {
-      toast.error("Lens is unavailable", {
+      toast.error(i18n.t("lens:useLensOverlayModes.lensIsUnavailable"), {
         description:
-          "The embedded browser only works in the Electron desktop runtime.",
+          i18n.t("lens:useLensOverlayModes.theEmbeddedBrowserOnlyWorksInThe"),
       });
       return;
     }
     if (!activeTaskId) {
-      toast.warning("Select a task first", {
-        description: "Lens sends element context into the active task draft.",
+      toast.warning(i18n.t("lens:useLensOverlayModes.selectATaskFirst"), {
+        description: i18n.t("lens:useLensOverlayModes.lensSendsElementContextIntoTheActive"),
       });
       return;
     }
@@ -200,9 +203,9 @@ export function useLensOverlayModes(args: {
       });
 
       if (!result?.ok) {
-        toast.error("Element picker failed", {
+        toast.error(i18n.t("lens:useLensOverlayModes.elementPickerFailed"), {
           description:
-            result?.message ?? "Lens could not start the element picker.",
+            result?.message ?? i18n.t("lens:useLensOverlayModes.lensCouldNotStartTheElementPicker"),
         });
         return;
       }
@@ -235,8 +238,8 @@ export function useLensOverlayModes(args: {
         promptFocusNonce: state.promptFocusNonce + 1,
       }));
 
-      toast.success("Lens selection added", {
-        description: "Element details were appended to the active task draft.",
+      toast.success(i18n.t("lens:useLensOverlayModes.lensSelectionAdded"), {
+        description: i18n.t("lens:useLensOverlayModes.elementDetailsWereAppendedToTheActive"),
       });
       // Text is available immediately. A refused or failed optional capture
       // must not discard it or retry a permission request automatically.
@@ -287,11 +290,11 @@ export function useLensOverlayModes(args: {
         }
       }
     } catch (error) {
-      toast.error("Element picker failed", {
+      toast.error(i18n.t("lens:useLensOverlayModes.elementPickerFailed"), {
         description:
           error instanceof Error
             ? error.message
-            : "The page is no longer available.",
+            : i18n.t("lens:useLensOverlayModes.thePageIsNoLongerAvailable"),
       });
     } finally {
       setIsPickerActive(false);

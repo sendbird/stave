@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import {
   buildModelSelectorOptions,
@@ -35,6 +36,7 @@ import {
 } from "../settings-dialog.shared";
 
 export function ModelsSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     modelClaude,
     modelCodex,
@@ -102,172 +104,170 @@ export function ModelsSection() {
   );
 
   return (
-    <>
-      <SectionStack>
-        <SettingsModelVisibilitySection />
-        <SettingsCard
-          title="Model Routing"
-          description="Pick the default Claude and Codex models used for new turns. Stave falls back to its verified Codex baseline if the App Server catalog is unavailable."
-        >
-          <LabeledField title="Claude">
-            <ModelSelector
-              value={buildModelSelectorValue({
-                providerId: "claude-code",
-                model: modelClaude,
-              })}
-              triggerAriaLabel={`Claude model: ${toHumanModelName({
-                model: modelClaude,
-              })}`}
-              options={modelOptions.filter(
-                (option) => option.providerId === "claude-code",
-              )}
-              recommendedOptions={recommendedModelOptions.filter(
-                (option) => option.providerId === "claude-code",
-              )}
-              className={sx(styles.fullWidth)}
-              triggerClassName={sx(styles.modelTrigger)}
-              menuClassName={sx(styles.modelMenu)}
-              onSelect={({ selection }) => {
-                const nextModel = normalizeModelSelection({
-                  value: selection.model,
-                  fallback: getDefaultModelForProvider({
-                    providerId: "claude-code",
+    <SectionStack>
+      <SettingsModelVisibilitySection />
+      <SettingsCard
+        title={t("settings:modelsSection.routing.title")}
+        description={t("settings:modelsSection.routing.description")}
+      >
+        <LabeledField title="Claude">
+          <ModelSelector
+            value={buildModelSelectorValue({
+              providerId: "claude-code",
+              model: modelClaude,
+            })}
+            triggerAriaLabel={t("settings:settingsDialogModelsSection.claudeModel", { value1: toHumanModelName({
+              model: modelClaude,
+            }) })}
+            options={modelOptions.filter(
+              (option) => option.providerId === "claude-code",
+            )}
+            recommendedOptions={recommendedModelOptions.filter(
+              (option) => option.providerId === "claude-code",
+            )}
+            className={sx(styles.fullWidth)}
+            triggerClassName={sx(styles.modelTrigger)}
+            menuClassName={sx(styles.modelMenu)}
+            onSelect={({ selection }) => {
+              const nextModel = normalizeModelSelection({
+                value: selection.model,
+                fallback: getDefaultModelForProvider({
+                  providerId: "claude-code",
+                }),
+              });
+              updateSettings({
+                patch: {
+                  modelClaude: nextModel,
+                  claudeEffort: resolveClaudeEffortForModelSwitch({
+                    previousModel: modelClaude,
+                    nextModel,
+                    currentEffort: claudeEffort,
                   }),
-                });
-                updateSettings({
-                  patch: {
-                    modelClaude: nextModel,
-                    claudeEffort: resolveClaudeEffortForModelSwitch({
-                      previousModel: modelClaude,
-                      nextModel,
-                      currentEffort: claudeEffort,
-                    }),
-                  },
-                });
-              }}
-            />
-          </LabeledField>
-          <LabeledField
-            title="Claude Effort"
-            description="Default reasoning effort applied to new Claude turns."
-          >
-            <Select
-              value={claudeEffort}
-              onValueChange={(value) =>
-                updateSettings({
-                  patch: {
-                    claudeEffort: value as typeof claudeEffort,
-                  },
-                })
-              }
-            >
-              <SelectTrigger className={sx(styles.selectTrigger)}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CLAUDE_EFFORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </LabeledField>
-          <LabeledField
-            title="Codex"
-            description={
-              codexModelCatalog.detail.trim().length > 0
-                ? codexModelCatalog.detail
-                : undefined
+                },
+              });
+            }}
+          />
+        </LabeledField>
+        <LabeledField
+          title={t("settingsProviders:providersSection.claudeRuntime.effort.guide.title")}
+          description={t("settings:modelsSection.routing.claudeEffort.description")}
+        >
+          <Select
+            value={claudeEffort}
+            onValueChange={(value) =>
+              updateSettings({
+                patch: {
+                  claudeEffort: value as typeof claudeEffort,
+                },
+              })
             }
           >
-            <ModelSelector
-              value={buildModelSelectorValue({
-                providerId: "codex",
-                model: modelCodex,
-              })}
-              triggerAriaLabel={`Codex model: ${toHumanModelName({
-                model: modelCodex,
-              })}`}
-              options={modelOptions.filter(
-                (option) => option.providerId === "codex",
-              )}
-              recommendedOptions={recommendedModelOptions.filter(
-                (option) => option.providerId === "codex",
-              )}
-              className={sx(styles.fullWidth)}
-              triggerClassName={sx(styles.modelTrigger)}
-              menuClassName={sx(styles.modelMenu)}
-              onSelect={({ selection }) =>
-                updateSettings({
-                  patch: {
-                    modelCodex: normalizeModelSelection({
-                      value: selection.model,
-                      fallback: getDefaultModelForProvider({
-                        providerId: "codex",
-                      }),
+            <SelectTrigger className={sx(styles.selectTrigger)}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CLAUDE_EFFORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </LabeledField>
+        <LabeledField
+          title="Codex"
+          description={
+            codexModelCatalog.detail.trim().length > 0
+              ? codexModelCatalog.detail
+              : undefined
+          }
+        >
+          <ModelSelector
+            value={buildModelSelectorValue({
+              providerId: "codex",
+              model: modelCodex,
+            })}
+            triggerAriaLabel={t("settings:settingsDialogModelsSection.codexModel", { value1: toHumanModelName({
+              model: modelCodex,
+            }) })}
+            options={modelOptions.filter(
+              (option) => option.providerId === "codex",
+            )}
+            recommendedOptions={recommendedModelOptions.filter(
+              (option) => option.providerId === "codex",
+            )}
+            className={sx(styles.fullWidth)}
+            triggerClassName={sx(styles.modelTrigger)}
+            menuClassName={sx(styles.modelMenu)}
+            onSelect={({ selection }) =>
+              updateSettings({
+                patch: {
+                  modelCodex: normalizeModelSelection({
+                    value: selection.model,
+                    fallback: getDefaultModelForProvider({
+                      providerId: "codex",
                     }),
-                  },
-                })
-              }
-            />
-          </LabeledField>
-          <LabeledField
-            title="Codex Effort"
-            description="Default reasoning effort applied to new Codex turns."
+                  }),
+                },
+              })
+            }
+          />
+        </LabeledField>
+        <LabeledField
+          title={t("settings:modelsSection.routing.codexEffort.title")}
+          description={t("settings:modelsSection.routing.codexEffort.description")}
+        >
+          <Select
+            value={codexReasoningEffort}
+            onValueChange={(value) =>
+              updateSettings({
+                patch: {
+                  codexReasoningEffort: value as typeof codexReasoningEffort,
+                },
+              })
+            }
           >
-            <Select
-              value={codexReasoningEffort}
-              onValueChange={(value) =>
-                updateSettings({
-                  patch: {
-                    codexReasoningEffort: value as typeof codexReasoningEffort,
-                  },
-                })
-              }
-            >
-              <SelectTrigger className={sx(styles.selectTrigger)}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {codexEffortOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </LabeledField>
-          <LabeledField
-            title="Utility AI"
-            description="Provider used for task names, route classification, commit messages, and prompt enhancement. Auto prefers Claude or Codex from the active task, then falls back through installed utility runners."
+            <SelectTrigger className={sx(styles.selectTrigger)}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {codexEffortOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </LabeledField>
+        <LabeledField
+          title={t("settings:modelsSection.routing.utility.title")}
+          description={t("settings:modelsSection.routing.utility.description")}
+        >
+          <Select
+            value={utilityInferenceProvider}
+            onValueChange={(value) =>
+              updateSettings({
+                patch: {
+                  utilityInferenceProvider: value as
+                    "auto" | "claude-code" | "codex",
+                },
+              })
+            }
           >
-            <Select
-              value={utilityInferenceProvider}
-              onValueChange={(value) =>
-                updateSettings({
-                  patch: {
-                    utilityInferenceProvider: value as
-                      "auto" | "claude-code" | "codex",
-                  },
-                })
-              }
+            <SelectTrigger
+              className={sx(styles.selectTrigger)}
+              aria-label={t("settings:modelsSection.routing.utility.ariaLabel")}
             >
-              <SelectTrigger
-                className={sx(styles.selectTrigger)}
-                aria-label="Utility AI provider"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto">Auto</SelectItem>
-                <SelectItem value="claude-code">Claude</SelectItem>
-                <SelectItem value="codex">Codex</SelectItem>
-              </SelectContent>
-            </Select>
-          </LabeledField>
-        </SettingsCard>
-      </SectionStack>
-    </>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">{t("common:labels.auto")}</SelectItem>
+              <SelectItem value="claude-code">Claude</SelectItem>
+              <SelectItem value="codex">Codex</SelectItem>
+            </SelectContent>
+          </Select>
+        </LabeledField>
+      </SettingsCard>
+    </SectionStack>
   );
 }

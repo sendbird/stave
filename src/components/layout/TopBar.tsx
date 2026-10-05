@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   FolderTree,
@@ -27,8 +28,8 @@ import {
 } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
-  COMMIT_GRAPH_TITLE,
-  OPEN_COMMIT_GRAPH_TITLE,
+  COMMIT_GRAPH_TITLE_KEY,
+  OPEN_COMMIT_GRAPH_TITLE_KEY,
 } from "@/lib/git-graph/presentation";
 import { focusOrCreateGitGraphSurface } from "@/components/panes/pane-host-controller";
 import { resolveOpenableGitGraphWorkspaceId } from "@/store/app-store-editor-actions";
@@ -55,6 +56,7 @@ const TOP_BAR_DRAG_STYLE = { WebkitAppRegion: "drag" } as CSSProperties;
 const TOP_BAR_NO_DRAG_STYLE = { WebkitAppRegion: "no-drag" } as CSSProperties;
 
 export function TopBar() {
+  useTranslation();
   const [workspacePathMenuOpen, setWorkspacePathMenuOpen] = useState(false);
   const [
     activeWorkspaceId,
@@ -115,13 +117,13 @@ export function TopBar() {
                         patch: { workspaceSidebarCollapsed: false },
                       })
                     }
-                    aria-label="expand-project-list"
+                    aria-label={i18n.t("shell:topBar.expandProjectList")}
                   />
                 }
               >
                 <PanelLeft />
               </TooltipTrigger>
-              <TooltipContent side="bottom">Expand Repository List</TooltipContent>
+              <TooltipContent side="bottom">{i18n.t("shell:topBar.expandRepositoryList")}</TooltipContent>
             </Tooltip>
           ) : null}
           {hasRepositoryContext && activeWorkspacePath ? (
@@ -189,14 +191,14 @@ export function TopBar() {
                             topBarControlStyles.iconOnly,
                             topBarStyles.pathMenuTrigger,
                           ]}
-                          aria-label="open-workspace-path-actions"
+                          aria-label={i18n.t("shell:topBar.pathActions")}
                         />
                       }
                     >
                       <ChevronDown />
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">Open in…</TooltipContent>
+                  <TooltipContent side="bottom">{i18n.t("shell:topBar.openIn")}</TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent
                   align="start"
@@ -211,7 +213,7 @@ export function TopBar() {
                     }}
                   >
                     <FolderOpen {...stylex.props(layoutShellStyles.icon16)} />
-                    Open in Finder
+                    {i18n.t("shell:topBar.openInFinder")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => {
@@ -222,7 +224,7 @@ export function TopBar() {
                     }}
                   >
                     <VSCodeIcon {...stylex.props(layoutShellStyles.icon16)} />
-                    Open in VS Code
+                    {i18n.t("shell:topBar.openInVSCode")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => {
@@ -233,7 +235,7 @@ export function TopBar() {
                     }}
                   >
                     <GhosttyIcon {...stylex.props(layoutShellStyles.icon16)} />
-                    Open in Ghostty
+                    {i18n.t("shell:topBar.openInGhostty")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => {
@@ -244,20 +246,20 @@ export function TopBar() {
                     }}
                   >
                     <SquareTerminal {...stylex.props(layoutShellStyles.icon16)} />
-                    Open in Terminal
+                    {i18n.t("shell:topBar.openInTerminal")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onSelect={() => {
                       setWorkspacePathMenuOpen(false);
                       void copyTextToClipboard(activeWorkspacePath).then(
-                        () => toast.success("Workspace path copied"),
-                        () => toast.error("Could not copy workspace path"),
+                        () => toast.success(i18n.t("shell:topBar.workspacePathCopied")),
+                        () => toast.error(i18n.t("shell:topBar.couldNotCopyWorkspacePath")),
                       );
                     }}
                   >
                     <Copy {...stylex.props(layoutShellStyles.icon16)} />
-                    Copy workspace path
+                    {i18n.t("shell:topBar.copyWorkspacePath")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -288,18 +290,18 @@ export function TopBar() {
                   style={TOP_BAR_NO_DRAG_STYLE}
                   disabled={!canOpenGitGraph}
                   onClick={focusOrCreateGitGraphSurface}
-                  aria-label={COMMIT_GRAPH_TITLE}
+                  aria-label={i18n.t(COMMIT_GRAPH_TITLE_KEY)}
                 >
                   <GitGraph />
                   <span className={sx(topBarStyles.collapsibleLabel)}>
-                    {COMMIT_GRAPH_TITLE}
+                    {i18n.t(COMMIT_GRAPH_TITLE_KEY)}
                   </span>
                 </AdsButton>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 {canOpenGitGraph
-                  ? OPEN_COMMIT_GRAPH_TITLE
-                  : "Select an active workspace to open the commit graph"}
+                  ? i18n.t(OPEN_COMMIT_GRAPH_TITLE_KEY)
+                  : i18n.t("shell:topBar.selectAnActiveWorkspaceToOpenThe")}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -320,7 +322,7 @@ export function TopBar() {
 
         {/* Surfaces the bar opens, then the tools and alerts that stay with
             the window: two groups with a rule between them, one geometry. */}
-        <div className={sx(topBarStyles.actionGroup)} role="group" aria-label="Views">
+        <div className={sx(topBarStyles.actionGroup)} role="group" aria-label={i18n.t("shell:topBar.views")}>
           {hasRepositoryContext ? (
             <TopBarFleetAttention noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
           ) : null}
@@ -328,7 +330,7 @@ export function TopBar() {
           <TopBarAutomations noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         </div>
         <span className={sx(layoutShellStyles.windowDivider)} aria-hidden="true" />
-        <div className={sx(topBarStyles.actionGroup)} role="group" aria-label="Tools">
+        <div className={sx(topBarStyles.actionGroup)} role="group" aria-label={i18n.t("shell:topBar.tools")}>
           <TopBarStandaloneCli noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
           {hasRepositoryContext ? (
             <TopBarNotifications noDragStyle={TOP_BAR_NO_DRAG_STYLE} />

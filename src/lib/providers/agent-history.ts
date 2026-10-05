@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { ProviderAccountProfileIdSchema } from "./provider-accounts";
 import { z } from "zod";
 
@@ -51,7 +52,7 @@ export function mapAgentHistory(provider: "claude-code" | "codex", payload: unkn
       const r = record(value);
       const message = record(r.message);
       return {
-        id: String(r.uuid ?? i), title: String(r.type ?? "Message"),
+        id: String(r.uuid ?? i), title: String(r.type ?? i18n.t("providers:agentHistory.message")),
         text: historyText(message.content ?? r.message),
         ...(typeof message.model === "string" ? { model: message.model } : {}),
       };
@@ -64,7 +65,7 @@ export function mapAgentHistory(provider: "claude-code" | "codex", payload: unkn
       const item = record(value);
       return {
         id: `${String(turn.id ?? turnIndex)}:${String(item.id ?? i)}`,
-        title: String(item.type ?? "Event"),
+        title: String(item.type ?? i18n.t("providers:agentHistory.event")),
         text: historyText(item.text ?? item.content ?? item),
       };
     });

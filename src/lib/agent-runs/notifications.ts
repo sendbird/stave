@@ -1,3 +1,5 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { i18n } from "@/i18n/runtime";
 /**
  * The notification an agent run raises when it stops for the user or finishes:
  * a sign-off, a blocker, a stuck stage, or the end. One per state, keyed so a
@@ -69,14 +71,14 @@ function describeAgentOriginNotification(
   const attemptKey = `${record.stageId}:${record.attempt}`;
   switch (agentRun.state) {
     case "completed":
-      return draft(detail, context, { kind: "agent_run.completed", title: `Ready — ${agent}`, detail: null, key: "completed" });
+      return draft(detail, context, { kind: "agent_run.completed", title: i18n.t("agentRuns:notifications.title", { value1: agent }), detail: null, key: "completed" });
     case "stopped":
-      return draft(detail, context, { kind: "agent_run.blocked", title: `Failed — ${agent}`, detail: agentRun.reasonDetail, key: "stopped" });
+      return draft(detail, context, { kind: "agent_run.blocked", title: i18n.t("agentRuns:notifications.title2", { value1: agent }), detail: agentRun.reasonDetail, key: "stopped" });
     case "paused":
       if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over") return null;
       return draft(detail, context, {
         kind: "agent_run.blocked",
-        title: `Needs you — ${agent}`,
+        title: i18n.t("agentRuns:notifications.title3", { value1: agent }),
         detail: agentRun.reasonDetail,
         key: `paused:${agentRun.pauseReason}:${attemptKey}`,
       });
@@ -88,7 +90,7 @@ function describeAgentOriginNotification(
   if (record.status === "blocked" || record.status === "stuck") {
     return draft(detail, context, {
       kind: record.status === "stuck" ? "agent_run.stuck" : "agent_run.blocked",
-      title: `Needs you — ${agent}`,
+      title: i18n.t("agentRuns:notifications.title4", { value1: agent }),
       detail: record.detail,
       key: `${record.status}:${attemptKey}`,
     });
@@ -110,14 +112,14 @@ export function describeAgentRunNotification(
     case "completed":
       return draft(detail, context, {
         kind: "agent_run.completed",
-        title: `Run complete — ${agentRun.workflow.name}`,
+        title: i18n.t("agentRuns:notifications.title5", { value1: agentRun.workflow.name }),
         detail: null,
         key: "completed",
       });
     case "stopped":
       return draft(detail, context, {
         kind: "agent_run.blocked",
-        title: "Run stopped",
+        title: i18n.t("agentRuns:notifications.title6"),
         detail: agentRun.reasonDetail,
         key: "stopped",
       });
@@ -126,7 +128,7 @@ export function describeAgentRunNotification(
       if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over") return null;
       return draft(detail, context, {
         kind: "agent_run.blocked",
-        title: `Run paused before ${stage.title}`,
+        title: i18n.t("agentRuns:notifications.title7", { value1: getStageDisplayTitle(stage) }),
         detail: agentRun.reasonDetail,
         key: `paused:${agentRun.pauseReason}:${attemptKey}`,
       });
@@ -139,7 +141,7 @@ export function describeAgentRunNotification(
     case "awaiting-sign-off":
       return draft(detail, context, {
         kind: "agent_run.sign_off_requested",
-        title: `${stage.title} waits for your sign-off`,
+        title: i18n.t("agentRuns:remaining.presentationCopy439", { v1: getStageDisplayTitle(stage) }),
         detail: null,
         key: `sign-off:${attemptKey}`,
       });
@@ -148,15 +150,15 @@ export function describeAgentRunNotification(
         kind: "agent_run.blocked",
         title:
           record.blockReason === "reporting-unavailable"
-            ? `${stage.title} cannot report its stage`
-            : `${stage.title} is blocked`,
+            ? i18n.t("agentRuns:notifications.title8", { value1: getStageDisplayTitle(stage) })
+            : i18n.t("agentRuns:notifications.title9", { value1: getStageDisplayTitle(stage) }),
         detail: record.detail,
         key: `blocked:${attemptKey}`,
       });
     case "stuck":
       return draft(detail, context, {
         kind: "agent_run.stuck",
-        title: `${stage.title} is stuck`,
+        title: i18n.t("agentRuns:notifications.title10", { value1: getStageDisplayTitle(stage) }),
         detail: record.detail,
         key: `stuck:${attemptKey}`,
       });
@@ -210,9 +212,9 @@ export function describeSignOffReminder(args: {
     kind: "agent_run.sign_off_requested",
     title:
       overdue.length === 1
-        ? `Still waiting for your sign-off — ${names[0]}`
-        : `${overdue.length} runs are waiting for your sign-off`,
-    body: names.slice(0, 3).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : ""),
+        ? i18n.t("agentRuns:notifications.title11", { value1: names[0] })
+        : i18n.t("agentRuns:remaining.presentationCopy444", { v1: overdue.length }),
+    body: names.slice(0, 3).join(", ") + (names.length > 3 ? i18n.t("agentRuns:notifications.body", { value1: names.length - 3 }) : ""),
     repositoryPath: null,
     repositoryName: null,
     workspaceId: overdue.length === 1 ? first.detail.agentRun.workspaceId : null,

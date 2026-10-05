@@ -73,6 +73,7 @@ function resolveAgentExecution(event: Extract<NormalizedProviderEvent, { type: "
   };
 }
 
+// i18n-ignore: canonical persisted placeholder used to merge provider identities
 const UNNAMED_AGENT_LABEL = "Agent";
 
 /**
@@ -160,7 +161,7 @@ export function createWorkGraph(args: {
     key: rootKey,
     identitySource: "provider",
     parentKey: null,
-    label: "This turn",
+    label: ("This turn" /* i18n-ignore: canonical persisted work-graph fallback; translated by the presentation layer */),
     status: "running",
     startedAt: args.startedAt,
     updatedAt: args.startedAt,
@@ -921,7 +922,7 @@ export function reduceWorkGraphEvent(
             nodeKey: ownerKey,
             kind: "delegation",
             status,
-            title: next.nodesByKey[nodeKey]?.label ?? "Delegated work",
+            title: next.nodesByKey[nodeKey]?.label ?? ("Delegated work" /* i18n-ignore: canonical persisted work-graph fallback; translated by the presentation layer */),
             toolUseId: event.toolUseId,
             startedAt: now,
           },
@@ -960,7 +961,7 @@ export function reduceWorkGraphEvent(
               nodeKey: ownerKey,
               kind: "delegation",
               status,
-              title: next.nodesByKey[spawned.key]?.label ?? "Delegated work",
+              title: next.nodesByKey[spawned.key]?.label ?? ("Delegated work" /* i18n-ignore: canonical persisted work-graph fallback; translated by the presentation layer */),
               toolUseId: event.toolUseId,
               startedAt: now,
             },
@@ -1110,7 +1111,7 @@ export function reduceWorkGraphEvent(
           title:
             truncateWorkText(event.description) ??
             truncateWorkText(event.toolName) ??
-            "Approval needed",
+            ("Approval needed" /* i18n-ignore: canonical persisted work-graph fallback; translated by the presentation layer */),
           raisedAt: now,
         },
         now,
@@ -1127,7 +1128,7 @@ export function reduceWorkGraphEvent(
           kind: "user-input",
           title:
             truncateWorkText(event.questions[0]?.question) ??
-            "Question for you",
+            ("Question for you" /* i18n-ignore: canonical persisted work-graph fallback; translated by the presentation layer */),
           raisedAt: now,
         },
         now,

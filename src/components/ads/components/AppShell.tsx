@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   cloneElement,
   isValidElement,
@@ -175,6 +176,7 @@ export function SidebarProvider({
   open,
   ...props
 }: SidebarProviderProps) {
+  useTranslation();
   const generatedId = useId();
   const sidebarId = `${generatedId}-sidebar`;
   const [isMobile, setIsMobile] = useState(false);
@@ -344,13 +346,14 @@ export function Sidebar({
   footer,
   header,
   items,
-  label = "Sidebar",
+  label = i18n.t("ui:appshell.sidebar"),
   side = "left",
   showTrigger,
   variant = "sidebar",
   workspace,
   ...props
 }: SidebarProps) {
+  useTranslation();
   const sidebarContext = useOptionalSidebar();
   // Below the provider's mobile query, `openMobile` is THE open state for any
   // collapsible sidebar — not just `offcanvas`. It used to be read for
@@ -515,6 +518,7 @@ export function Sidebar({
 export type SidebarInsetProps = React.ComponentProps<"div">;
 
 export function SidebarInset({ className, ...props }: SidebarInsetProps) {
+  useTranslation();
   return (
     <div {...props} className={cx(sx(styles.sidebarInsetSlot), className)} />
   );
@@ -523,6 +527,7 @@ export function SidebarInset({ className, ...props }: SidebarInsetProps) {
 export type SidebarSlotProps = React.ComponentProps<"div">;
 
 export function SidebarHeader({ className, ...props }: SidebarSlotProps) {
+  useTranslation();
   const sidebarLayout = useOptionalSidebarLayout();
 
   return (
@@ -540,6 +545,7 @@ export function SidebarHeader({ className, ...props }: SidebarSlotProps) {
 }
 
 export function SidebarContent({ className, ...props }: SidebarSlotProps) {
+  useTranslation();
   const sidebarLayout = useOptionalSidebarLayout();
   return (
     <div
@@ -561,6 +567,7 @@ export function SidebarContent({ className, ...props }: SidebarSlotProps) {
 }
 
 export function SidebarFooter({ className, ...props }: SidebarSlotProps) {
+  useTranslation();
   return <div {...props} className={cx(sx(styles.sidebarFooter), className)} />;
 }
 
@@ -584,6 +591,7 @@ export function SidebarGroup({
   open,
   ...props
 }: SidebarGroupProps) {
+  useTranslation();
   const contentId = useId();
   const sidebarLayout = useOptionalSidebarLayout();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -667,6 +675,7 @@ export function SidebarGroupLabel({
   className,
   ...props
 }: SidebarGroupLabelProps & { asChild?: boolean }) {
+  useTranslation();
   const sidebarLayout = useOptionalSidebarLayout();
   const resolvedClassName = cx(
     sx(
@@ -703,6 +712,7 @@ export function SidebarGroupContent({
   hidden,
   ...props
 }: SidebarGroupContentProps) {
+  useTranslation();
   // `styles.sidebarGroupContent` sets `display: grid`, which overrides the
   // `hidden` attribute's UA `display: none` — so a collapsed group would keep
   // rendering its children. Apply `display: none` within the SAME sx() call
@@ -734,6 +744,7 @@ export function SidebarGroupAction({
   type = "button",
   ...props
 }: SidebarGroupActionProps) {
+  useTranslation();
   const sidebarLayout = useOptionalSidebarLayout();
   const resolvedClassName = cx(
     sx(
@@ -773,6 +784,7 @@ export function SidebarGroupAction({
 export type SidebarMenuProps = React.ComponentProps<"ul">;
 
 export function SidebarMenu({ className, ...props }: SidebarMenuProps) {
+  useTranslation();
   return <ul {...props} className={cx(sx(styles.sidebarMenu), className)} />;
 }
 
@@ -794,6 +806,7 @@ export function SidebarMenuItem({
   onMouseLeave,
   ...props
 }: SidebarMenuItemProps) {
+  useTranslation();
   const [actionVisible, setActionVisible] = useState(false);
   const [floatingActions, setFloatingActions] = useState(0);
   const registerFloatingAction = useCallback(() => {
@@ -888,6 +901,7 @@ export function SidebarMenuButton({
   variant = "default",
   ...props
 }: SidebarMenuButtonProps) {
+  useTranslation();
   const sidebarLayout = useOptionalSidebarLayout();
   const sidebar = useOptionalSidebar();
   const tooltipContent =
@@ -1130,6 +1144,7 @@ function SidebarMenuTooltip({
   content,
   side,
 }: SidebarMenuTooltipProps) {
+  useTranslation();
   return (
     <TooltipProvider>
       <TooltipRoot>
@@ -1153,6 +1168,7 @@ function SidebarMenuTooltip({
 }
 
 export function SidebarMenuSub(props: SidebarMenuSubProps) {
+  useTranslation();
   return (
     <SidebarMenuSubBase
       {...props}
@@ -1167,6 +1183,7 @@ export function SidebarMenuSubItem({
   className,
   ...props
 }: SidebarMenuSubItemProps) {
+  useTranslation();
   return (
     <li {...props} className={cx(sx(styles.sidebarMenuSubItem), className)} />
   );
@@ -1196,6 +1213,7 @@ export function SidebarMenuSubButton({
   size = "md",
   ...props
 }: SidebarMenuSubButtonProps) {
+  useTranslation();
   const sidebar = useOptionalSidebar();
   const title =
     props.title ?? (typeof children === "string" ? children : undefined);
@@ -1336,6 +1354,7 @@ export function SidebarMenuSkeleton({
   showIcon = true,
   ...props
 }: SidebarMenuSkeletonProps) {
+  useTranslation();
   const sidebarLayout = useOptionalSidebarLayout();
 
   return (

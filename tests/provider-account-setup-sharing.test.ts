@@ -280,7 +280,7 @@ describe("sharing into a managed Claude account", () => {
     expect(readFileSync(path.join(profileDir, "agents", "own.md"), "utf8")).toBe("own agent");
     expect(isLinkTo(path.join(profileDir, "commands"), path.join(sourceDir, "commands"))).toBe(true);
     expect(describeProviderAccountSetup("claude-code", setup)).toBe(
-      "Sharing skills, commands and settings from System default. Kept this account's own agents and instructions. Sign-in and conversation history are never shared.",
+      "Sharing skills, commands, and settings from System default. Kept this account's own agents and instructions. Sign-in and conversation history are never shared.",
     );
   });
 

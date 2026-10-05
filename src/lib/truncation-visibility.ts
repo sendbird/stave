@@ -1,4 +1,5 @@
 import type { MessagePart } from "@/types/chat";
+import { i18n } from "@/i18n/runtime";
 
 export type TruncationNoticeSource =
   | "system"
@@ -12,9 +13,11 @@ export interface TruncationNotice {
 }
 
 export const PROVIDER_MAX_TOKENS_TRUNCATION_NOTICE =
+  // i18n-ignore: canonical transcript marker recognized during provider replay.
   "Response was cut off because the model output limit was reached.";
 
 export const PROVIDER_OUTPUT_OVERFLOW_TRUNCATION_NOTICE =
+  // i18n-ignore: canonical transcript marker recognized during provider replay.
   "Stave truncated part of this run's provider output because it exceeded the retained output limit.";
 
 const TRUNCATION_PATTERNS: RegExp[] = [
@@ -48,6 +51,17 @@ export function buildProviderOutputTruncationNotice(
   return null;
 }
 
+/** Translate presentation while leaving replay markers stable in stored parts. */
+export function buildProviderOutputTruncationDisplay(text: string): string {
+  if (text === PROVIDER_MAX_TOKENS_TRUNCATION_NOTICE) {
+    return i18n.t("app:truncation.maxTokens");
+  }
+  if (text === PROVIDER_OUTPUT_OVERFLOW_TRUNCATION_NOTICE) {
+    return i18n.t("app:truncation.overflow");
+  }
+  return text;
+}
+
 export function hasTruncationMarker(text?: string | null) {
   const value = text ?? "";
   if (!value.trim()) {
@@ -59,13 +73,13 @@ export function hasTruncationMarker(text?: string | null) {
 function buildTruncationDescription(source: TruncationNoticeSource) {
   switch (source) {
     case "tool_input":
-      return "The tool input was shortened before display or model reuse. The omitted content may matter.";
+      return i18n.t("shell:truncationVisibility.theToolInputWasShortenedBeforeDisplay");
     case "tool_output":
-      return "The tool output was shortened before display or model reuse. The visible output may be incomplete.";
+      return i18n.t("shell:truncationVisibility.theToolOutputWasShortenedBeforeDisplay");
     case "request":
-      return "Part of the request payload was shortened before it was sent. The model may not have seen every detail.";
+      return i18n.t("shell:truncationVisibility.partOfTheRequestPayloadWasShortened");
     case "system":
-      return "Some output was omitted because it exceeded a size limit. Treat the visible result as incomplete.";
+      return i18n.t("shell:truncationVisibility.someOutputWasOmittedBecauseItExceeded");
   }
 }
 
@@ -77,7 +91,7 @@ export function detectTruncationNotice(args: {
     return null;
   }
   return {
-    title: "Output truncated",
+    title: i18n.t("shell:truncationVisibility.outputTruncated"),
     description: buildTruncationDescription(args.source ?? "system"),
   };
 }

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // PR Status – types, derivation, and visual config
 // ---------------------------------------------------------------------------
@@ -126,13 +127,13 @@ export function derivePrStatus(pr: GitHubPrPayload): WorkspacePrStatus {
 export function describePrStatusHint(pr: GitHubPrPayload): string | null {
   const status = derivePrStatus(pr);
   if (status === "blocked") {
-    return "GitHub branch protection is still blocking this merge (required reviewers, unresolved conversations, or required checks that have not reported).";
+    return i18n.t("sourceControl:prStatus.gitHubBranchProtectionIsStillBlockingThis");
   }
   if (status === "checks_pending" && pr.checksRollup !== "PENDING") {
-    return "GitHub is still computing mergeability for the latest push.";
+    return i18n.t("sourceControl:prStatus.gitHubIsStillComputingMergeabilityForThe");
   }
   if (status === "review_required" && pr.mergeStateStatus === "BLOCKED") {
-    return "GitHub requires an approving review before this can merge.";
+    return i18n.t("sourceControl:prStatus.gitHubRequiresAnApprovingReviewBeforeThis");
   }
   return null;
 }
@@ -153,18 +154,18 @@ export interface PrStatusVisual {
 }
 
 export const PR_STATUS_VISUAL: Record<WorkspacePrStatus, PrStatusVisual> = {
-  no_pr:             { icon: "GitPullRequestCreateArrow", tone: "neutral",   label: "No PR" },
-  draft:             { icon: "GitPullRequestDraft",       tone: "neutral",   label: "Draft" },
-  review_required:   { icon: "GitPullRequest",            tone: "open",      label: "Review required" },
-  changes_requested: { icon: "GitPullRequest",            tone: "danger",    label: "Changes requested" },
-  checks_pending:    { icon: "GitPullRequest",            tone: "attention", label: "Checks running" },
-  checks_failed:     { icon: "GitPullRequest",            tone: "danger",    label: "Checks failed" },
-  merge_conflict:    { icon: "GitCompareArrows",          tone: "danger",    label: "Merge conflict" },
-  behind_base:       { icon: "GitBranch",                 tone: "attention", label: "Behind base" },
-  blocked:           { icon: "GitPullRequest",            tone: "attention", label: "Merge blocked" },
-  ready_to_merge:    { icon: "GitMerge",                  tone: "open",      label: "Ready to merge" },
-  merged:            { icon: "GitMerge",                  tone: "done",      label: "Merged" },
-  closed_unmerged:   { icon: "GitPullRequestClosed",      tone: "closed",    label: "Closed" },
+  no_pr:             { icon: "GitPullRequestCreateArrow", tone: "neutral",   get label() { return i18n.t("sourceControl:prStatus.noPR"); } },
+  draft:             { icon: "GitPullRequestDraft",       tone: "neutral",   get label() { return i18n.t("sourceControl:prStatus.draft"); } },
+  review_required:   { icon: "GitPullRequest",            tone: "open",      get label() { return i18n.t("sourceControl:prStatus.reviewRequired"); } },
+  changes_requested: { icon: "GitPullRequest",            tone: "danger",    get label() { return i18n.t("sourceControl:prStatus.changesRequested"); } },
+  checks_pending:    { icon: "GitPullRequest",            tone: "attention", get label() { return i18n.t("sourceControl:prStatus.checksRunning"); } },
+  checks_failed:     { icon: "GitPullRequest",            tone: "danger",    get label() { return i18n.t("sourceControl:prStatus.checksFailed"); } },
+  merge_conflict:    { icon: "GitCompareArrows",          tone: "danger",    get label() { return i18n.t("sourceControl:prStatus.mergeConflict"); } },
+  behind_base:       { icon: "GitBranch",                 tone: "attention", get label() { return i18n.t("sourceControl:prStatus.behindBase"); } },
+  blocked:           { icon: "GitPullRequest",            tone: "attention", get label() { return i18n.t("sourceControl:prStatus.mergeBlocked"); } },
+  ready_to_merge:    { icon: "GitMerge",                  tone: "open",      get label() { return i18n.t("sourceControl:prStatus.readyToMerge"); } },
+  merged:            { icon: "GitMerge",                  tone: "done",      get label() { return i18n.t("sourceControl:prStatus.merged"); } },
+  closed_unmerged:   { icon: "GitPullRequestClosed",      tone: "closed",    get label() { return i18n.t("sourceControl:prStatus.closed"); } },
 };
 
 /**
@@ -193,51 +194,51 @@ export interface PrActionConfig {
 
 export const PR_STATUS_ACTIONS: Record<WorkspacePrStatus, { primary: PrActionConfig | null; secondary: PrActionConfig[] }> = {
   no_pr: {
-    primary: { key: "create_pr", label: "Create PR" },
+    primary: { key: "create_pr", get label() { return i18n.t("sourceControl:prStatus.createPR"); } },
     secondary: [],
   },
   draft: {
-    primary: { key: "mark_ready", label: "Mark Ready" },
-    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+    primary: { key: "mark_ready", get label() { return i18n.t("sourceControl:prStatus.markReady"); } },
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.openOnGitHub"); }, variant: "ghost" }, { key: "refresh", get label() { return i18n.t("sourceControl:prStatus.refresh"); }, variant: "ghost" }],
   },
   review_required: {
     primary: null,
-    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.openOnGitHub"); }, variant: "ghost" }, { key: "refresh", get label() { return i18n.t("sourceControl:prStatus.refresh"); }, variant: "ghost" }],
   },
   changes_requested: {
     primary: null,
-    secondary: [{ key: "update_branch", label: "Update Branch", variant: "outline" }, { key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+    secondary: [{ key: "update_branch", get label() { return i18n.t("sourceControl:prStatus.updateBranch"); }, variant: "outline" }, { key: "open_github", get label() { return i18n.t("sourceControl:prStatus.openOnGitHub"); }, variant: "ghost" }, { key: "refresh", get label() { return i18n.t("sourceControl:prStatus.refresh"); }, variant: "ghost" }],
   },
   checks_pending: {
     primary: null,
-    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.openOnGitHub"); }, variant: "ghost" }, { key: "refresh", get label() { return i18n.t("sourceControl:prStatus.refresh"); }, variant: "ghost" }],
   },
   checks_failed: {
     primary: null,
-    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.openOnGitHub"); }, variant: "ghost" }, { key: "refresh", get label() { return i18n.t("sourceControl:prStatus.refresh"); }, variant: "ghost" }],
   },
   merge_conflict: {
     primary: null,
-    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.openOnGitHub"); }, variant: "ghost" }, { key: "refresh", get label() { return i18n.t("sourceControl:prStatus.refresh"); }, variant: "ghost" }],
   },
   behind_base: {
-    primary: { key: "update_branch", label: "Update Branch" },
-    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+    primary: { key: "update_branch", get label() { return i18n.t("sourceControl:prStatus.updateBranch"); } },
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.openOnGitHub"); }, variant: "ghost" }, { key: "refresh", get label() { return i18n.t("sourceControl:prStatus.refresh"); }, variant: "ghost" }],
   },
   blocked: {
     primary: null,
-    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.openOnGitHub"); }, variant: "ghost" }, { key: "refresh", get label() { return i18n.t("sourceControl:prStatus.refresh"); }, variant: "ghost" }],
   },
   ready_to_merge: {
-    primary: { key: "merge", label: "Merge PR" },
-    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+    primary: { key: "merge", get label() { return i18n.t("sourceControl:prStatus.mergePR"); } },
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.openOnGitHub"); }, variant: "ghost" }, { key: "refresh", get label() { return i18n.t("sourceControl:prStatus.refresh"); }, variant: "ghost" }],
   },
   merged: {
     primary: null,
-    secondary: [{ key: "open_github", label: "View on GitHub", variant: "ghost" }],
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.viewOnGitHub"); }, variant: "ghost" }],
   },
   closed_unmerged: {
     primary: null,
-    secondary: [{ key: "open_github", label: "View on GitHub", variant: "ghost" }],
+    secondary: [{ key: "open_github", get label() { return i18n.t("sourceControl:prStatus.viewOnGitHub"); }, variant: "ghost" }],
   },
 };

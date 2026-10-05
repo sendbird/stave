@@ -1,4 +1,6 @@
+import { i18n } from "@/i18n/runtime";
 import {
+  WORKSPACE_INFO_FIELD_TYPE_LABELS,
   formatStorybookAccessContext,
   resolveWorkspaceTodoStatus,
   type WorkspaceInformationState,
@@ -48,22 +50,25 @@ export interface WorkspaceInformationReferenceOption {
   searchText: string;
 }
 
-const SECTION_LABELS: Record<WorkspaceInformationReferenceSection, string> = {
-  "turn-summary": "Latest turn summary",
-  lens: "Lens browser",
-  web: "Web browser",
-  notes: "Notes",
-  todo: "Todos",
-  pr: "Linked pull requests",
-  jira: "Jira issues",
-  crane: "Crane issues",
-  confluence: "Confluence pages",
-  storybook: "Storybook resources",
-  amplify: "Amplify links",
-  slack: "Slack threads",
-  figma: "Figma resources",
-  custom: "Custom fields",
-};
+const SECTION_LABEL_KEYS = {
+  "turn-summary": "workspace:workspaceInformationReferences.latestTurnSummary",
+  "lens": "workspace:workspaceInformationReferences.lensBrowser",
+  "web": "workspace:workspaceInformationReferences.webBrowser",
+  "notes": "workspace:workspaceInformationReferences.notes",
+  "todo": "workspace:workspaceInformationReferences.todos",
+  "pr": "workspace:workspaceInformationReferences.linkedPullRequests",
+  "jira": "workspace:workspaceInformationReferences.jiraIssues",
+  "crane": "workspace:workspaceInformationReferences.craneIssues",
+  "confluence": "workspace:workspaceInformationReferences.confluencePages",
+  "storybook": "workspace:workspaceInformationReferences.storybookResources",
+  "amplify": "workspace:workspaceInformationReferences.amplifyLinks",
+  "slack": "workspace:workspaceInformationReferences.slackThreads",
+  "figma": "workspace:workspaceInformationReferences.figmaResources",
+  "custom": "workspace:workspaceInformationReferences.customFields",
+} as const;
+function sectionLabel(section: WorkspaceInformationReferenceSection, sourceLocale = false) {
+  return i18n.t(SECTION_LABEL_KEYS[section], { lng: sourceLocale ? "en" : undefined });
+}
 
 const SECTION_ALIASES: Record<string, WorkspaceInformationReferenceSection> = {
   "turn-summary": "turn-summary",
@@ -120,7 +125,7 @@ function createSectionReference(
   return {
     section,
     scope: "section",
-    label: SECTION_LABELS[section],
+    label: sectionLabel(section),
     // Browser surfaces are first-class mentions rather than generic entries.
     token:
       section === "lens"
@@ -145,20 +150,21 @@ function createItemReference(args: {
   };
 }
 
-function sectionDescription(section: WorkspaceInformationReferenceSection, count: number) {
+function sectionDescription(section: WorkspaceInformationReferenceSection, count: number, sourceLocale = false) {
+  const t = i18n.getFixedT(sourceLocale ? "en" : null, ["workspace"]);
   if (section === "lens") {
-    return "Reference the current Lens browser page.";
+    return t("workspace:workspaceInformationReferences.referenceTheCurrentLensBrowserPage");
   }
   if (section === "web") {
-    return "Use the provider's native browser extension.";
+    return t("workspace:workspaceInformationReferences.useTheProviderSNativeBrowserExtension");
   }
   if (section === "notes") {
-    return "Reference the full workspace notes field.";
+    return t("workspace:workspaceInformationReferences.referenceTheFullWorkspaceNotesField");
   }
   if (section === "turn-summary") {
-    return "Reference the latest completed turn summary.";
+    return t("workspace:workspaceInformationReferences.referenceTheLatestCompletedTurnSummary");
   }
-  return `Reference all ${count} ${count === 1 ? "item" : "items"} in this Information section.`;
+  return t("workspace:workspaceInformationReferences.referenceAllValueValueInThisInformation", { count });
 }
 
 function optionFromReference(args: {
@@ -184,19 +190,22 @@ function optionFromReference(args: {
 
 function getCustomFieldValue(
   field: WorkspaceInformationState["customFields"][number],
+  sourceLocale = false,
 ) {
   if (field.type === "boolean") {
     return String(field.value);
   }
   if (field.type === "number") {
-    return field.value == null ? "(empty)" : String(field.value);
+    return field.value == null ? i18n.t("workspace:workspaceInformationReferences.empty", { lng: sourceLocale ? "en" : undefined }) : String(field.value);
   }
-  return field.value.trim() || "(empty)";
+  return field.value.trim() || i18n.t("workspace:workspaceInformationReferences.empty", { lng: sourceLocale ? "en" : undefined });
 }
 
 export function buildWorkspaceInformationReferenceOptions(
   info: WorkspaceInformationState,
+  sourceLocale = false,
 ): WorkspaceInformationReferenceOption[] {
+  const t = i18n.getFixedT(sourceLocale ? "en" : null, ["workspace"]);
   const sectionCounts: Record<WorkspaceInformationReferenceSection, number> = {
     "turn-summary": info.turnSummary ? 1 : 0,
     lens: 1,
@@ -217,10 +226,10 @@ export function buildWorkspaceInformationReferenceOptions(
   const options: WorkspaceInformationReferenceOption[] =
     WORKSPACE_INFORMATION_REFERENCE_SECTIONS.map((section) =>
       optionFromReference({
-        reference: createSectionReference(section),
-        title: SECTION_LABELS[section],
-        description: sectionDescription(section, sectionCounts[section]),
-        group: "Sections",
+        reference: { ...createSectionReference(section), label: sectionLabel(section, sourceLocale) },
+        title: sectionLabel(section, sourceLocale),
+        description: sectionDescription(section, sectionCounts[section], sourceLocale),
+        group: t("workspace:workspaceInformationReferences.sections"),
         kind: "section",
       }),
     );
@@ -231,15 +240,15 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "turn-summary",
           itemId: info.turnSummary.turnId,
-          label: info.turnSummary.taskTitle || "Latest turn",
+          label: info.turnSummary.taskTitle || t("workspace:workspaceInformationReferences.latestTurn"),
         }),
-        title: info.turnSummary.taskTitle || "Latest turn",
+        title: info.turnSummary.taskTitle || t("workspace:workspaceInformationReferences.latestTurn"),
         description: truncate(
           [info.turnSummary.requestSummary, info.turnSummary.workSummary]
             .filter(Boolean)
             .join(" | "),
         ),
-        group: SECTION_LABELS["turn-summary"],
+        group: sectionLabel("turn-summary", sourceLocale),
         kind: "item",
       }),
     );
@@ -252,11 +261,11 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "todo",
           itemId: todo.id,
-          label: todo.text || "Todo",
+          label: todo.text || t("workspace:workspaceInformationReferences.todo"),
         }),
-        title: todo.text || "Todo",
-        description: status,
-        group: SECTION_LABELS.todo,
+        title: todo.text || t("workspace:workspaceInformationReferences.todo"),
+        description: sourceLocale ? status : t(`workspace:workspaceInformationReferences.todoStatus.${status === "in_progress" ? "inProgress" : status}`),
+        group: sectionLabel("todo", sourceLocale),
         kind: "item",
       }),
     );
@@ -268,11 +277,11 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "pr",
           itemId: item.id,
-          label: item.title || item.url || "Pull request",
+          label: item.title || item.url || t("workspace:workspaceInformationReferences.pullRequest"),
         }),
-        title: item.title || item.url || "Pull request",
+        title: item.title || item.url || t("workspace:workspaceInformationReferences.pullRequest"),
         description: truncate([item.status, item.url, item.note].filter(Boolean).join(" | ")),
-        group: SECTION_LABELS.pr,
+        group: sectionLabel("pr", sourceLocale),
         kind: "item",
       }),
     );
@@ -284,11 +293,11 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "jira",
           itemId: item.id,
-          label: item.issueKey || item.title || "Jira issue",
+          label: item.issueKey || item.title || t("workspace:workspaceInformationReferences.jiraIssue"),
         }),
-        title: [item.issueKey, item.title].filter(Boolean).join(" · ") || "Jira issue",
+        title: [item.issueKey, item.title].filter(Boolean).join(" · ") || t("workspace:workspaceInformationReferences.jiraIssue"),
         description: truncate([item.status, item.url, item.note].filter(Boolean).join(" | ")),
-        group: SECTION_LABELS.jira,
+        group: sectionLabel("jira", sourceLocale),
         kind: "item",
       }),
     );
@@ -300,11 +309,11 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "crane",
           itemId: item.id,
-          label: item.issueKey || item.title || "Crane issue",
+          label: item.issueKey || item.title || t("workspace:workspaceInformationReferences.craneIssue"),
         }),
-        title: [item.issueKey, item.title].filter(Boolean).join(" · ") || "Crane issue",
+        title: [item.issueKey, item.title].filter(Boolean).join(" · ") || t("workspace:workspaceInformationReferences.craneIssue"),
         description: truncate([item.status, item.url, item.note].filter(Boolean).join(" | ")),
-        group: SECTION_LABELS.crane,
+        group: sectionLabel("crane", sourceLocale),
         kind: "item",
       }),
     );
@@ -316,11 +325,11 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "confluence",
           itemId: item.id,
-          label: item.title || item.url || "Confluence page",
+          label: item.title || item.url || t("workspace:workspaceInformationReferences.confluencePage"),
         }),
-        title: item.title || item.url || "Confluence page",
+        title: item.title || item.url || t("workspace:workspaceInformationReferences.confluencePage"),
         description: truncate([item.spaceKey, item.url, item.note].filter(Boolean).join(" | ")),
-        group: SECTION_LABELS.confluence,
+        group: sectionLabel("confluence", sourceLocale),
         kind: "item",
       }),
     );
@@ -332,15 +341,15 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "storybook",
           itemId: item.id,
-          label: item.title || item.url || "Storybook resource",
+          label: item.title || item.url || t("workspace:workspaceInformationReferences.storybookResource"),
         }),
-        title: item.title || item.url || "Storybook resource",
+        title: item.title || item.url || t("workspace:workspaceInformationReferences.storybookResource"),
         description: truncate(
           [item.url, formatStorybookAccessContext(item), item.note]
             .filter(Boolean)
             .join(" | "),
         ),
-        group: SECTION_LABELS.storybook,
+        group: sectionLabel("storybook", sourceLocale),
         kind: "item",
       }),
     );
@@ -352,11 +361,11 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "amplify",
           itemId: item.id,
-          label: item.label || item.url || "Amplify link",
+          label: item.label || item.url || t("workspace:workspaceInformationReferences.amplifyLink"),
         }),
-        title: item.label || item.url || "Amplify link",
+        title: item.label || item.url || t("workspace:workspaceInformationReferences.amplifyLink"),
         description: truncate([item.url, item.note].filter(Boolean).join(" | ")),
-        group: SECTION_LABELS.amplify,
+        group: sectionLabel("amplify", sourceLocale),
         kind: "item",
       }),
     );
@@ -368,11 +377,11 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "slack",
           itemId: item.id,
-          label: item.channelName || item.url || "Slack thread",
+          label: item.channelName || item.url || t("workspace:workspaceInformationReferences.slackThread"),
         }),
-        title: item.channelName || item.url || "Slack thread",
+        title: item.channelName || item.url || t("workspace:workspaceInformationReferences.slackThread"),
         description: truncate([item.url, item.note].filter(Boolean).join(" | ")),
-        group: SECTION_LABELS.slack,
+        group: sectionLabel("slack", sourceLocale),
         kind: "item",
       }),
     );
@@ -384,15 +393,15 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "figma",
           itemId: item.id,
-          label: item.title || item.url || "Figma resource",
+          label: item.title || item.url || t("workspace:workspaceInformationReferences.figmaResource"),
         }),
-        title: item.title || item.url || "Figma resource",
+        title: item.title || item.url || t("workspace:workspaceInformationReferences.figmaResource"),
         description: truncate(
           [item.nodeId ? `node ${item.nodeId}` : "", item.url, item.note]
             .filter(Boolean)
             .join(" | "),
         ),
-        group: SECTION_LABELS.figma,
+        group: sectionLabel("figma", sourceLocale),
         kind: "item",
       }),
     );
@@ -404,11 +413,11 @@ export function buildWorkspaceInformationReferenceOptions(
         reference: createItemReference({
           section: "custom",
           itemId: field.id,
-          label: field.label || "Custom field",
+          label: field.label || t("workspace:workspaceInformationReferences.customField"),
         }),
-        title: field.label || "Custom field",
-        description: truncate(`${field.type}: ${getCustomFieldValue(field)}`),
-        group: SECTION_LABELS.custom,
+        title: field.label || t("workspace:workspaceInformationReferences.customField"),
+        description: truncate(`${sourceLocale ? field.type : WORKSPACE_INFO_FIELD_TYPE_LABELS[field.type]}: ${getCustomFieldValue(field, sourceLocale)}`),
+        group: sectionLabel("custom", sourceLocale),
         kind: "item",
       }),
     );
@@ -474,7 +483,7 @@ export function resolveWorkspaceInformationReferenceFromToken(
     return createItemReference({
       section,
       itemId,
-      label: `${SECTION_LABELS[section]} item`,
+      label: i18n.t("workspace:workspaceInformationReferences.sectionItem", { section: sectionLabel(section) }),
     });
   }
   return createSectionReference(section);
@@ -498,7 +507,7 @@ function findReferenceOption(args: {
   reference: WorkspaceInformationReference;
 }) {
   const targetItemId = normalizeTokenValue(args.reference.itemId ?? "");
-  return buildWorkspaceInformationReferenceOptions(args.info).find((option) => {
+  return buildWorkspaceInformationReferenceOptions(args.info, true).find((option) => {
     const ref = option.reference;
     const optionTokens = [
       ref.itemId,
@@ -551,7 +560,7 @@ function formatSectionItemLines(args: {
   if (args.section === "web") {
     return formatWebReferenceLines();
   }
-  const optionItems = buildWorkspaceInformationReferenceOptions(args.info)
+  const optionItems = buildWorkspaceInformationReferenceOptions(args.info, true)
     .filter(
       (option) =>
         option.kind === "item" && option.reference.section === args.section,
@@ -578,7 +587,7 @@ function formatSectionItemLines(args: {
   if (optionItems.length === 0) {
     return ["(none)"];
   }
-  const omitted = buildWorkspaceInformationReferenceOptions(args.info).filter(
+  const omitted = buildWorkspaceInformationReferenceOptions(args.info, true).filter(
     (option) =>
       option.kind === "item" && option.reference.section === args.section,
   ).length - optionItems.length;
@@ -601,7 +610,7 @@ export function formatWorkspaceInformationReferencesContext(args: {
   for (const reference of args.references) {
     if (reference.scope === "section") {
       sections.push(
-        `Section: ${SECTION_LABELS[reference.section]} (${reference.token})`,
+        `Section: ${sectionLabel(reference.section, true)} (${reference.token})`,
         ...formatSectionItemLines({
           info: args.info,
           section: reference.section,
@@ -627,6 +636,6 @@ export function getWorkspaceInformationReferenceLabel(
   reference: WorkspaceInformationReference,
 ) {
   return reference.scope === "section"
-    ? SECTION_LABELS[reference.section]
+    ? sectionLabel(reference.section)
     : reference.label;
 }

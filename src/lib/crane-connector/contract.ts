@@ -45,6 +45,7 @@ const httpsUrlSchema = z
   .max(CRANE_STAVE_DISPATCH_LIMITS.href)
   .url()
   .refine((value) => new URL(value).protocol === "https:", {
+    // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
     message: "Crane issue links must use HTTPS.",
   });
 
@@ -138,6 +139,7 @@ export function assertNoHostControlKeys(
       context.addIssue({
         code: "custom",
         path: [...path, key],
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: `Crane jobs may not carry host-control field "${key}".`,
       });
       continue;
@@ -203,12 +205,14 @@ const craneStaveJobV1BodySchema = z
       context.addIssue({
         code: "custom",
         path: ["expiresAt"],
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: "expiresAt must be later than requestedAt.",
       });
     }
     if (serializedByteLength(value) > CRANE_STAVE_DISPATCH_LIMITS.jobBytes) {
       context.addIssue({
         code: "custom",
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: "Crane Stave job payload exceeds the V1 byte limit.",
       });
     }
@@ -227,6 +231,7 @@ export const CraneStaveJobV1Schema = z
     if (serializedByteLength(value) > CRANE_STAVE_DISPATCH_LIMITS.jobBytes) {
       context.addIssue({
         code: "custom",
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: "Crane Stave job payload exceeds the V1 byte limit.",
       });
       return;
@@ -258,6 +263,7 @@ export const CraneStaveReceiptV1Schema = z
     ) {
       context.addIssue({
         code: "custom",
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: "Crane Stave receipt payload exceeds the V1 byte limit.",
       });
     }

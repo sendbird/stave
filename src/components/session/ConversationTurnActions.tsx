@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { transition } from "@/components/ads/recipes/transition";
 import { GitFork, Undo2 } from "lucide-react";
@@ -24,6 +25,7 @@ export function ConversationTurnActions(props: {
   className?: string;
   onRollbackDialogOpenChange?: (open: boolean) => void;
 }) {
+  useTranslation();
   const [pendingAction, setPendingAction] = useState<
     "fork" | "rollback" | null
   >(null);
@@ -47,12 +49,12 @@ export function ConversationTurnActions(props: {
         messageId: props.messageId,
       });
       if (result.ok) {
-        toast.success("Task forked", { description: result.detail });
+        toast.success(i18n.t("session:conversationTurnActions.forkHere"), { description: result.detail });
       } else {
-        toast.error("Could not fork here", { description: result.detail });
+        toast.error(i18n.t("session:conversationTurnActions.forkHere2"), { description: result.detail });
       }
     } catch (error) {
-      toast.error("Could not fork here", {
+      toast.error(i18n.t("session:conversationTurnActions.forkHere3"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -74,14 +76,14 @@ export function ConversationTurnActions(props: {
         });
       if (result.ok) {
         setRollbackDialogOpen(false);
-        toast.success("Conversation rolled back", {
+        toast.success(i18n.t("session:conversationTurnActions.confirmRollback"), {
           description: result.detail,
         });
       } else {
-        toast.error("Could not roll back", { description: result.detail });
+        toast.error(i18n.t("session:conversationTurnActions.confirmRollback2"), { description: result.detail });
       }
     } catch (error) {
-      toast.error("Could not roll back", {
+      toast.error(i18n.t("session:conversationTurnActions.confirmRollback3"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -96,14 +98,14 @@ export function ConversationTurnActions(props: {
     <>
       <div
         role="group"
-        aria-label="Conversation history actions"
+        aria-label={i18n.t("session:conversationTurnActions.ariaLabel")}
         className={cx(
           sx(preview ? styles.groupPreview : styles.groupInline),
           props.className,
         )}
       >
         <MessageAction
-          label="Fork here"
+          label={i18n.t("session:conversationTurnActions.label")}
           tooltip={props.state.fork.reason}
           aria-disabled={forkDisabled}
           aria-busy={pendingAction === "fork"}
@@ -122,10 +124,9 @@ export function ConversationTurnActions(props: {
           ) : (
             <GitFork className={sx(styles.iconSm)} />
           )}
-          Fork here
-        </MessageAction>
+          {i18n.t("session:conversationTurnActions.conversationTurnActions")}</MessageAction>
         <MessageAction
-          label="Rollback to here"
+          label={i18n.t("session:conversationTurnActions.label2")}
           tooltip={props.state.rollback.reason}
           aria-disabled={rollbackDisabled}
           aria-busy={pendingAction === "rollback"}
@@ -144,19 +145,15 @@ export function ConversationTurnActions(props: {
           }}
         >
           <Undo2 className={sx(styles.iconSm)} />
-          Rollback here
-        </MessageAction>
+          {i18n.t("session:conversationTurnActions.conversationTurnActions2")}</MessageAction>
       </div>
 
       <Dialog open={rollbackOpen} onOpenChange={setRollbackDialogOpen}>
         <DialogContent showCloseButton={!busy} xstyle={styles.dialogContent}>
           <DialogHeader>
-            <DialogTitle>Roll back to this response?</DialogTitle>
+            <DialogTitle>{i18n.t("session:conversationTurnActions.conversationTurnActions3")}</DialogTitle>
             <DialogDescription>
-              Stave will remove every later message from this task. Any later
-              Codex turns will also be removed from its thread. Workspace file
-              changes are not reverted.
-            </DialogDescription>
+              {i18n.t("session:conversationTurnActions.conversationTurnActions4")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
@@ -166,8 +163,7 @@ export function ConversationTurnActions(props: {
               disabled={busy}
               onClick={() => setRollbackDialogOpen(false)}
             >
-              Cancel
-            </Button>
+              {i18n.t("session:conversationTurnActions.conversationTurnActions5")}</Button>
             <Button
               type="button"
               variant="destructive"
@@ -182,8 +178,7 @@ export function ConversationTurnActions(props: {
               ) : (
                 <Undo2 className={sx(styles.iconMd)} />
               )}
-              Roll back conversation
-            </Button>
+              {i18n.t("session:conversationTurnActions.conversationTurnActions6")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

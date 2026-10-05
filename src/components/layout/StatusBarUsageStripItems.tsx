@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { QuotaRing } from "@/components/layout/QuotaRing";
@@ -36,6 +37,7 @@ import type { StatusBarUsageProvider } from "@/components/layout/status-bar-usag
 const HINT_DELAY_MS = 400;
 
 function UsageHintContent({ hint }: { hint: UsageHint }) {
+  useTranslation();
   return (
     <span className={sx(styles.hint)}>
       <span>{hint.title}</span>
@@ -63,6 +65,7 @@ export function UsageWindowItem({
   breakpoint: UsageStripBreakpoint;
   hintsDisabled: boolean;
 }) {
+  useTranslation();
   const visibility = usageStripVisibility(breakpoint);
   const timeLeftRatio = resolveWindowTimeLeftRatio({
     resetsAt: window.resetsAt,
@@ -125,6 +128,7 @@ export function UsageTokensItem({
   breakpoint: UsageStripBreakpoint;
   hintsDisabled: boolean;
 }) {
+  useTranslation();
   const visibility = usageStripVisibility(breakpoint);
   const { amount, context } = formatStripTokens(tokens);
   return (

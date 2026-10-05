@@ -1,0 +1,357 @@
+{
+  "automationCenterView": {
+    "automationServiceIsUnavailable": "Automation service is unavailable.",
+    "failedToSaveAutomation": "Failed to save automation.",
+    "scheduleUpdated": "Schedule updated",
+    "scheduleCreated": "Schedule created",
+    "failedToStartAutomation": "Failed to start automation.",
+    "scheduleStarted": "Schedule started",
+    "failedToUpdateAutomation": "Failed to update automation.",
+    "failedToDeleteAutomation": "Failed to delete automation.",
+    "scheduleDeleted": "Schedule deleted",
+    "schedulesAreAvailableInTheStaveDesktop": "Schedules are available in the Stave desktop app.",
+    "failedToUpdateTheSchedule": "Failed to update the schedule.",
+    "failedToRemoveTheSchedule": "Failed to remove the schedule.",
+    "scheduleRemoved": "Schedule removed",
+    "thisAutomationSTaskConversationCouldNot": "This automation's task conversation could not be found.",
+    "schedules": "Schedules",
+    "workThatRunsOnItsOwnAnd": "Work that runs on its own, and what it last did.",
+    "newSchedule": "New schedule",
+    "openValue": "Open {{WORKSPACE_TOOLS_LABEL}}",
+    "refreshSchedules": "Refresh schedules",
+    "refresh": "Refresh",
+    "closeSchedules": "Close Schedules",
+    "scheduleViews": "Schedule views",
+    "runsWhileStaveIsOpenAfterReopening": "Runs while Stave is open. After reopening, one missed run is caught up.",
+    "filterRunsByAutomation": "Filter runs by automation",
+    "allAutomations": "All automations",
+    "shown": "shown",
+    "loadingSchedules": "Loading schedules",
+    "restoringSchedulesExecutionPolicyAndRunHistory": "Restoring schedules, execution policy, and run history.",
+    "noSchedulesYet": "No schedules yet",
+    "startATaskOnACadenceOr": "Start a task on a cadence, or check back on one that already exists.",
+    "selectSchedule": "Select schedule",
+    "selectASchedule": "Select a schedule",
+    "concurrencyLimitReached": "Concurrency limit reached",
+    "runNow": "Run now",
+    "editSchedule": "Edit schedule",
+    "edit": "Edit",
+    "status": "Status",
+    "cadence": "Cadence",
+    "nextRun": "Next run",
+    "lastRun": "Last run",
+    "permissions": "Permissions",
+    "provider": "Provider",
+    "repository": "Repository",
+    "concurrency": "Concurrency",
+    "viewRunHistory": "View run history",
+    "pauseSchedule": "Pause schedule",
+    "enableSchedule": "Enable schedule",
+    "waitForActiveRunsToFinish": "Wait for active runs to finish",
+    "deleteSchedule": "Delete schedule",
+    "delete": "Delete",
+    "selectAScheduleToSeeItsConfiguration": "Select a schedule to see its configuration.",
+    "noMatchingRuns": "No matching runs",
+    "everyManualOrScheduledExecutionIsRecorded": "Every manual or scheduled execution is recorded here with its execution ID, config hash, permissions, and result.",
+    "selectARunToSeeItsFull": "Select a run to see its full result.",
+    "deleteValueAndItsSavedRunHistory": "Delete \"{{value1}}\" and its saved run history? Created task conversations remain in their workspaces.",
+    "removeSchedule": "Remove schedule",
+    "removeThisCheckBackAndItsHistory": "Remove this check-back and its history? The task itself is untouched.",
+    "remove": "Remove",
+    "shownCount": "{{count}} shown",
+    "accessibility": {
+      "closeSchedules": "Close schedules"
+    }
+  },
+  "automationEditor": {
+    "when": "When",
+    "runsOnlyWhileStaveIsOpenA": "Runs only while Stave is open. A run missed while Stave was closed happens once when it opens; Custom sets an exact interval.",
+    "every": "Every",
+    "unit": "Unit",
+    "days": "Days",
+    "runDays": "Run days",
+    "startTime": "Start time",
+    "localWallClockTimeRunsKeepThis": "Local wall-clock time. Runs keep this time across daylight saving changes.",
+    "nextRunValue": " · next run {{value1}}",
+    "manualOnlyThisScheduleRunsWhenYou": "Manual only — this schedule runs when you press Run now.",
+    "permissions": "Permissions",
+    "howMuchThisAutomationMayDoOn": "How much this automation may do on its own while it runs unattended.",
+    "recommended": "Recommended",
+    "permissionMode": "Permission mode",
+    "sandbox": "Sandbox",
+    "allowUnsandboxedCommands": "Allow unsandboxed commands",
+    "dangerouslySkipPermissions": "Dangerously skip permissions",
+    "removesEveryClaudePermissionCheckForThis": "Removes every Claude permission check for this automation.",
+    "approvals": "Approvals",
+    "fileAccess": "File access",
+    "webSearch": "Web search",
+    "networkAccess": "Network access",
+    "editSchedule": "Edit schedule",
+    "newSchedule": "New schedule",
+    "startsAFreshTaskWhileTheStave": "Starts a fresh task while the Stave desktop app is open.",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "save": "Save",
+    "what": "What",
+    "name": "Name",
+    "dailyRepositoryReview": "Daily repository review",
+    "instructions": "Instructions",
+    "theCompletePromptSentOnEveryRun": "The complete prompt sent on every run.",
+    "reviewChangesSinceTheLastRunAnd": "Review changes since the last run and summarize risks.",
+    "where": "Where",
+    "startsANewTaskInThisRepository": "Starts a new task in this repository's Default Workspace each time.",
+    "selectARepository": "Select a repository",
+    "agent": "Agent",
+    "effort": "Effort",
+    "higherEffortSpendsMoreModelBudgetOn": "Higher effort spends more model budget on reasoning and increases each run&apos;s latency.",
+    "concurrentRuns": "Concurrent runs",
+    "occurrencesBeyondTheLimitAreRecordedAs": "Occurrences beyond the limit are recorded as skipped.",
+    "informationResources": "Information resources",
+    "valueAttached": "{{propsdraftinformationReferencesCount}} attached",
+    "eachResourceIsCreatedInTheRepository": "Each resource is created in the repository's Default Workspace, attached immediately, and resolved again on every run.",
+    "selectARepositoryBeforeAttachingInformation": "Select a repository before attaching Information.",
+    "refreshingInformationResources": "Refreshing Information resources…",
+    "noInformationAttachedYetAddAResource": "No Information attached yet. Add a resource above to create its Default Workspace entry and attach it.",
+    "injectsValueIntoEachRun": "Injects {{value1}} into each run."
+  },
+  "automationLatestRun": {
+    "latestRun": "Latest run",
+    "noRunsYetUseRunNowOr": "No runs yet. Use Run now, or wait for the next scheduled occurrence.",
+    "scheduled": "Scheduled",
+    "manual": "Manual",
+    "openTask": "Open task",
+    "openRunDetail": "Open run detail"
+  },
+  "automationRunDetail": {
+    "removedAutomation": "Removed automation",
+    "schedule": "Schedule",
+    "manual": "Manual",
+    "started": "Started",
+    "runAgain": "Run again",
+    "openTask": "Open task",
+    "trigger": "Trigger",
+    "permissions": "Permissions",
+    "duration": "Duration",
+    "scheduledFor": "Scheduled for",
+    "completed": "Completed",
+    "repository": "Repository",
+    "model": "Model",
+    "configHash": "Config hash",
+    "executionId": "Execution ID",
+    "copyExecutionId": "Copy execution ID",
+    "skipReason": "Skip reason",
+    "error": "Error",
+    "result": "Result",
+    "completedWithoutATextResponseOpenThe": "Completed without a text response. Open the task to inspect its tool output.",
+    "waitingForApprovalOrUserInputOpen": "Waiting for approval or user input. Open the task to respond.",
+    "theTaskIsStillRunning": "The task is still running.",
+    "noResultWasRecordedForThisRun": "No result was recorded for this run.",
+    "instructions": "Instructions",
+    "startedAt": "Started {{relative}} · {{date}}"
+  },
+  "checkBackDetail": {
+    "editSchedule": "Edit schedule",
+    "edit": "Edit",
+    "status": "Status",
+    "when": "When",
+    "next": "Next",
+    "checked": "Checked",
+    "pause": "Pause",
+    "resume": "Resume",
+    "remove": "Remove"
+  },
+  "checkBackEditor": {
+    "pickATaskToCheckBackOn": "Pick a task to check back on.",
+    "schedulesAreAvailableInTheStaveDesktop": "Schedules are available in the Stave desktop app.",
+    "failedToSaveTheSchedule": "Failed to save the schedule.",
+    "scheduleUpdated": "Schedule updated",
+    "scheduleCreated": "Schedule created",
+    "editSchedule": "Edit schedule",
+    "newSchedule": "New schedule",
+    "resumesTheSameTaskWhileTheStave": "Resumes the same task while the Stave desktop app is open.",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "save": "Save",
+    "what": "What",
+    "instructions": "Instructions",
+    "sentToTheTaskEachTimeIt": "Sent to the task each time it is checked. Uses the task's own agent.",
+    "where": "Where",
+    "resumesThisTaskInItsOwnSession": "Resumes this task in its own session; it never starts a new one.",
+    "task": "Task",
+    "selectATask": "Select a task",
+    "when": "When",
+    "onACadence": "On a cadence",
+    "whenSubagentsFinish": "When subagents finish"
+  },
+  "scheduleKindSwitch": {
+    "where": "Where",
+    "newTaskInARepository": "New task in a repository",
+    "anExistingTask": "An existing task"
+  },
+  "scheduleRows": {
+    "pause": "Pause",
+    "turnOn": "Turn on",
+    "resume": "Resume",
+    "nextValue": "Next {{value1}}",
+    "schedules": "Schedules",
+    "runValueNow": "Run {{value1}} now",
+    "runNow": "Run now",
+    "notRunYet": "Not run yet",
+    "checkedValue": "Checked {{checked}}×",
+    "notYet": "Not yet",
+    "startATask": "Start a task",
+    "checkBackOnATask": "Check back on a task",
+    "on": "On",
+    "paused": "Paused",
+    "stopped": "Stopped",
+    "manual": "Manual",
+    "running": "Running",
+    "waiting": "Waiting",
+    "done": "Done",
+    "failed": "Failed",
+    "skipped": "Skipped"
+  },
+  "automationCenter": {
+    "running": "Running",
+    "waiting": "Waiting",
+    "completed": "Completed",
+    "failed": "Failed",
+    "skipped": "Skipped",
+    "all": "All",
+    "active": "Active"
+  },
+  "scheduleText": {
+    "every": {
+      "minutes_one": "Every {{count}} minute",
+      "minutes_other": "Every {{count}} minutes",
+      "hours_one": "Every {{count}} hour",
+      "hours_other": "Every {{count}} hours",
+      "days_one": "Every {{count}} day",
+      "days_other": "Every {{count}} days",
+      "daysAt_one": "Every {{count}} day at {{time}}",
+      "daysAt_other": "Every {{count}} days at {{time}}",
+      "weeks_one": "Every {{count}} week",
+      "weeks_other": "Every {{count}} weeks",
+      "weeksAt_one": "Every {{count}} week at {{time}}",
+      "weeksAt_other": "Every {{count}} weeks at {{time}}",
+      "weeksOn_one": "Every {{count}} week on {{days}}",
+      "weeksOn_other": "Every {{count}} weeks on {{days}}",
+      "weeksOnAt_one": "Every {{count}} week on {{days}} at {{time}}",
+      "weeksOnAt_other": "Every {{count}} weeks on {{days}} at {{time}}"
+    },
+    "everyOne": {
+      "minutes": "Every minute",
+      "hours": "Every hour",
+      "days": "Every day",
+      "daysAt": "Every day at {{time}}",
+      "weeks": "Every week",
+      "weeksAt": "Every week at {{time}}",
+      "weeksOn": "Every week on {{days}}",
+      "weeksOnAt": "Every week on {{days}} at {{time}}"
+    },
+    "sets": {
+      "everyDay": "Every day",
+      "everyDayAt": "Every day at {{time}}",
+      "workweek": "Every weekday",
+      "workweekAt": "Every weekday at {{time}}",
+      "weekend": "Every weekend day",
+      "weekendAt": "Every weekend day at {{time}}"
+    },
+    "setNames": {
+      "everyDay": "day",
+      "workweek": "weekday",
+      "weekend": "weekend day"
+    }
+  },
+  "editor": {
+    "cadence": {
+      "presets": {
+        "manual": {
+          "label": "Manual only",
+          "detail": "Runs when you press Run now."
+        },
+        "every15Minutes": {
+          "label": "Every 15 minutes",
+          "detail": "High-frequency polling. Watch the concurrency limit."
+        },
+        "hourly": {
+          "label": "Hourly",
+          "detail": "Runs once an hour from the last run."
+        },
+        "daily": {
+          "label": "Daily",
+          "detail": "Runs once a day at a local time."
+        },
+        "weekdays": {
+          "label": "Weekdays",
+          "detail": "Monday through Friday."
+        },
+        "weekends": {
+          "label": "Weekends",
+          "detail": "Saturday and Sunday."
+        },
+        "weekly": {
+          "label": "Weekly",
+          "detail": "One chosen day each week."
+        },
+        "custom": {
+          "label": "Custom",
+          "detail": "Set the interval and days yourself."
+        }
+      }
+    },
+    "permissions": {
+      "modes": {
+        "auto": {
+          "label": "Auto",
+          "summary": "Runs fully unattended",
+          "description": "Runs every provider action, MCP tool, and Lens action without approval prompts, because nobody is watching a scheduled run. Lens Developer Mode must still be enabled in Settings > Lens."
+        },
+        "guided": {
+          "label": "Guided",
+          "summary": "Asks before sensitive actions",
+          "description": "Sensitive provider actions take the strict approval path, so a run can pause and wait for you in its task."
+        },
+        "manual": {
+          "label": "Manual",
+          "summary": "Exactly what you configure",
+          "description": "Skip the guardrails and run with the provider permissions you set by hand below."
+        }
+      },
+      "summary": {
+        "on": "on",
+        "off": "off",
+        "codex": "Approvals {{approvals}} · Files {{files}} · Network {{network}} · Web {{web}}",
+        "claude": "Permission {{mode}} · Sandbox {{sandbox}} · Unsandboxed {{unsandboxed}} · Skip prompts {{skipPrompts}}"
+      }
+    },
+    "units": {
+      "minutes": "minutes",
+      "hours": "hours",
+      "days": "days",
+      "weeks": "weeks"
+    }
+  },
+  "validation": {
+    "schedule": {
+      "timeNeedsDayOrWeek": "Start time applies only to day or week schedules.",
+      "weekdayNeedsWeek": "Start day applies only to week schedules.",
+      "weekdayNeedsTime": "Start day requires a start time.",
+      "weekdaysNeedWeek": "Start days apply only to week schedules.",
+      "weekdaysNeedTime": "Start days require a start time.",
+      "weekdaysUnique": "Start days must be unique.",
+      "weekdayOrWeekdays": "Use either a single start day or a set of start days."
+    },
+    "invalid": "Invalid automation.",
+    "name": "Enter an automation name.",
+    "instructions": "Enter valid automation instructions.",
+    "repository": "Choose a valid repository.",
+    "invalidWithDetail": "Invalid automation: {{detail}}"
+  },
+  "additionalCopy": {
+    "message20": "Failed to load automations.",
+    "message21": "Failed to load check-backs: {{value1}}",
+    "message22": "Failed to load check-backs.",
+    "message38": "Waiting"
+  }
+}

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Results: how ended agent runs and legacy runs went, from the events
  * each one recorded. A run is an agent run with an implicit one-stage workflow
@@ -18,12 +19,12 @@ export const RUN_OUTCOMES: readonly RunOutcome[] = ["ready", "rework", "failed",
 export type RunEndReason = AgentRunStopReason | "stuck-stage" | "turn-failed" | "stopped-by-you";
 
 export const RUN_END_REASON_LABELS: Record<RunEndReason, string> = {
-  "stuck-stage": "Stuck stage",
-  "turn-cap-reached": "Turn cap reached",
-  expired: "Expired",
-  "task-unavailable": "Task unavailable",
-  "turn-failed": "Turn failed",
-  "stopped-by-you": "Stopped by you",
+  get "stuck-stage"() { return i18n.t("agentRuns:insights.stuckStage"); },
+  get "turn-cap-reached"() { return i18n.t("agentRuns:insights.turnCapReached"); },
+  get expired() { return i18n.t("agentRuns:insights.expired"); },
+  get "task-unavailable"() { return i18n.t("agentRuns:insights.taskUnavailable"); },
+  get "turn-failed"() { return i18n.t("agentRuns:insights.turnFailed"); },
+  get "stopped-by-you"() { return i18n.t("agentRuns:insights.stoppedByYou"); },
 };
 
 /** What a run's events say about it. */

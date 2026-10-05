@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   DELEGATED_TASK_DETACHED_REASON,
   describeDelegatedTaskRejection,
@@ -34,8 +35,8 @@ export interface DelegatedTaskPhaseDescription {
 export type DelegatedTaskBlockedKind = "user-input" | "approval";
 
 const BLOCKED_LABEL: Record<DelegatedTaskBlockedKind, string> = {
-  "user-input": "Needs answer",
-  approval: "Needs approval",
+  get "user-input"() { return i18n.t("workspace:delegatedTaskView.needsAnswer"); },
+  get approval() { return i18n.t("workspace:delegatedTaskView.needsApproval"); },
 };
 
 /**
@@ -116,21 +117,21 @@ export function describeDelegatedTaskPhase(
   }
   switch (child.phase) {
     case "pending":
-      return { label: "Queued", tone: "waiting", blocked: false };
+      return { label: i18n.t("workspace:delegatedTaskView.queued"), tone: "waiting", blocked: false };
     case "running":
-      return { label: "Running", tone: "active", blocked: false };
+      return { label: i18n.t("workspace:delegatedTaskView.running"), tone: "active", blocked: false };
     case "waiting":
-      return { label: "Waiting", tone: "waiting", blocked: false };
+      return { label: i18n.t("workspace:delegatedTaskView.waiting"), tone: "waiting", blocked: false };
     case "completed":
-      return { label: "Completed", tone: "done", blocked: false };
+      return { label: i18n.t("workspace:delegatedTaskView.completed"), tone: "done", blocked: false };
     case "failed":
-      return { label: "Failed", tone: "failed", blocked: false };
+      return { label: i18n.t("workspace:delegatedTaskView.failed"), tone: "failed", blocked: false };
     case "interrupted":
-      return { label: "Interrupted", tone: "failed", blocked: false };
+      return { label: i18n.t("workspace:delegatedTaskView.interrupted"), tone: "failed", blocked: false };
     case "cancelled":
       return child.reason === DELEGATED_TASK_DETACHED_REASON
-        ? { label: "Detached", tone: "released", blocked: false }
-        : { label: "Stopped", tone: "failed", blocked: false };
+        ? { label: i18n.t("workspace:delegatedTaskView.detached"), tone: "released", blocked: false }
+        : { label: i18n.t("workspace:delegatedTaskView.stopped"), tone: "failed", blocked: false };
   }
 }
 

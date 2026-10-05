@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { X } from "lucide-react";
 import * as React from "react";
@@ -103,6 +104,7 @@ export function Drawer({
   xstyle,
   ...props
 }: DrawerProps) {
+  useTranslation();
   // The side owns the cross axis and the seam border; width owns the docked
   // axis. Splitting them is what keeps the map at 4 sides + 4 sizes instead of
   // the 16 popup styles a single combined lookup would need.
@@ -190,7 +192,7 @@ export function Drawer({
                       controlSquares.sm,
                       focusRing.ring,
                     )}
-                    aria-label="Close"
+                    aria-label={i18n.t("ui:drawer.close")}
                     // Same close contract as Popover/Dialog: a 16px glyph in the
                     // 32px quiet square, sized through the tokenized control-icon
                     // custom property rather than a literal `size`.

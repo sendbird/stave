@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -32,6 +33,7 @@ export function TraceOutput(args: {
   prose?: boolean;
   text: string;
 }) {
+  useTranslation();
   const { linkify = true, prose = false, text } = args;
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,7 +69,7 @@ export function TraceOutput(args: {
         variant="quiet"
         xstyle={styles.copy}
       >
-        {copied ? "Copied" : "Copy"}
+        {copied ? i18n.t("session:turnEventRows.traceOutput") : i18n.t("session:turnEventRows.traceOutput2")}
       </Button>
     </div>
   );
@@ -84,6 +86,7 @@ export function TraceOutput(args: {
  * here, first-seen order in the output.
  */
 export function TraceCitations(args: { output?: string }) {
+  useTranslation();
   const sources = useMemo<CitationSource[]>(
     () =>
       extractOutputUrls(args.output).map((url, position) => ({
@@ -98,6 +101,7 @@ export function TraceCitations(args: { output?: string }) {
 
   if (sources.length === 0) return null;
 
+  // i18n-ignore: component presentation enum, not visible text
   return <Citation.List detail="compact" sources={sources} />;
 }
 
@@ -122,15 +126,16 @@ export function ReasoningRow(args: {
   isStreaming: boolean;
   text: string;
 }) {
+  useTranslation();
   const { durationMs, isStreaming, text } = args;
   const body = text.trim();
 
   return (
     <Thinking
       durationMs={durationMs}
-      label="Reasoning trace"
+      label={i18n.t("session:turnEventRows.label")}
       loaderVariant="think"
-      phase={isStreaming ? "Thinking" : "Reasoning"}
+      phase={isStreaming ? "Thinking" : i18n.t("session:turnEventRows.extraCopy197")}
       status={isStreaming ? "thinking" : "settled"}
     >
       {body.length === 0 ? null : isStreaming ? (
@@ -161,6 +166,7 @@ export function ReasoningRow(args: {
 
 /** A running subagent's streamed progress lines, for `ToolRun`'s payload. */
 export function SubagentProgress(args: { messages: string[] }): ReactNode {
+  useTranslation();
   if (args.messages.length === 0) return null;
   return (
     <ul className={sx(styles.progressList)}>

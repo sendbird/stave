@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
@@ -107,6 +108,7 @@ function resolveWorkspaceAbsolutePath(args: { workspacePath?: string; relativePa
 }
 
 export function EditorPanel(props: EditorPanelProps) {
+  useTranslation();
   const [
     activeWorkspaceId,
     hasHydratedWorkspaces,
@@ -158,13 +160,13 @@ export function EditorPanel(props: EditorPanelProps) {
         scriptId: args?.scriptId,
       });
       if (result.status === "blocked") {
-        toast.error("Couldn't forward the failures to the agent");
+        toast.error(i18n.t("editor:editorPanel.couldnTForwardTheFailuresToTheAgent"));
         return;
       }
       toast.success(
         result.status === "queued"
-          ? "Queued fix for the next turn"
-          : "Sent failing checks to the agent",
+          ? i18n.t("editor:editorPanel.queuedFixForTheNextTurn")
+          : i18n.t("editor:editorPanel.sentFailingChecksToTheAgent"),
       );
     },
     [requestVerificationFix, activeWorkspaceId],
@@ -220,24 +222,24 @@ export function EditorPanel(props: EditorPanelProps) {
   const filteredScmItems = sourceItems;
   const sourceControlSections = useMemo(
     () => buildSourceControlSections({ items: filteredScmItems, verification: turnVerification ?? null }),
-    [filteredScmItems, turnVerification],
+    [filteredScmItems, turnVerification, i18n.language],
   );
   const sourceControlSummary = useMemo(
     () => buildSourceControlSummary({ items: filteredScmItems }),
-    [filteredScmItems],
+    [filteredScmItems, i18n.language],
   );
   const canCommitStagedChanges = sourceControlSummary.committableCount > 0 && !hasConflicts;
   const canUnstageAnyChanges = sourceControlSummary.stagedCount > 0;
   const sourceControlHint = hasConflicts
-    ? "Resolve or discard conflicted files before treating the tree as clean."
+    ? i18n.t("editor:editorPanel.resolveOrDiscardConflictedFilesBeforeTreating")
     : canCommitStagedChanges && sourceControlSummary.workingTreeCount > 0
-      ? "Commit will include staged changes only. Working-tree edits remain local."
+      ? i18n.t("editor:editorPanel.commitWillIncludeStagedChangesOnlyWorkingTree")
       : canCommitStagedChanges
-        ? "Staged changes are ready to commit."
+        ? i18n.t("editor:editorPanel.stagedChangesAreReadyToCommit")
         : filteredScmItems.length > 0
-      ? "Stage files to prepare the next commit."
-      : "Working tree is clean.";
-  const explorerRepositoryName = repositoryName?.trim() || "Repository";
+      ? i18n.t("editor:editorPanel.stageFilesToPrepareTheNextCommit")
+      : i18n.t("editor:editorPanel.workingTreeIsClean");
+  const explorerRepositoryName = repositoryName?.trim() || i18n.t("editor:editorPanel.repository");
   const rightTab = sidebarOverlayTab;
 
   function updateExplorerDirectoryState(
@@ -252,7 +254,7 @@ export function EditorPanel(props: EditorPanelProps) {
 
   async function loadExplorerDirectory(args: { directoryPath: string; force?: boolean }) {
     if (!workspaceCwd) {
-      setExplorerError("Workspace path unavailable.");
+      setExplorerError(i18n.t("editor:editorPanel.workspacePathUnavailable2"));
       return null;
     }
 
@@ -282,11 +284,11 @@ export function EditorPanel(props: EditorPanelProps) {
         [args.directoryPath]: {
           entries: cached?.entries ?? [],
           status: "error",
-          error: "Failed to load folder.",
+          error: i18n.t("editor:editorPanel.failedToLoadFolder"),
         },
       }));
       if (args.directoryPath === "") {
-        setExplorerError("Failed to load explorer contents.");
+        setExplorerError(i18n.t("editor:editorPanel.failedToLoadExplorerContents"));
       }
       return null;
     }
@@ -402,7 +404,7 @@ export function EditorPanel(props: EditorPanelProps) {
       setSourceBranch(statusResult.branch);
       setSourceItems(statusResult.items);
       setHasConflicts(statusResult.hasConflicts);
-      setSourceError(statusResult.ok ? "" : statusResult.stderr || "git status failed");
+      setSourceError(statusResult.ok ? "" : statusResult.stderr || i18n.t("editor:editorPanel.gitStatusFailed"));
 
       if (historyResult?.ok) {
         setSourceHistory(historyResult.items);
@@ -474,7 +476,7 @@ export function EditorPanel(props: EditorPanelProps) {
   async function handleStageAll() {
     const stageAll = window.api?.sourceControl?.stageAll;
     if (!stageAll) {
-      setSourceError("Source Control bridge unavailable.");
+      setSourceError(i18n.t("editor:editorPanel.sourceControlBridgeUnavailable"));
       return;
     }
 
@@ -482,7 +484,7 @@ export function EditorPanel(props: EditorPanelProps) {
     try {
       const result = await stageAll({ cwd: workspaceCwd });
       if (!result.ok) {
-        setSourceError(result.stderr || "git add failed");
+        setSourceError(result.stderr || i18n.t("editor:editorPanel.gitAddFailed"));
       } else {
         setSourceError("");
       }
@@ -495,7 +497,7 @@ export function EditorPanel(props: EditorPanelProps) {
   async function handleUnstageAll() {
     const unstageAll = window.api?.sourceControl?.unstageAll;
     if (!unstageAll) {
-      setSourceError("Source Control bridge unavailable.");
+      setSourceError(i18n.t("editor:editorPanel.sourceControlBridgeUnavailable"));
       return;
     }
 
@@ -516,15 +518,15 @@ export function EditorPanel(props: EditorPanelProps) {
   async function handleCommit() {
     const commit = window.api?.sourceControl?.commit;
     if (!commit) {
-      setSourceError("Source Control bridge unavailable.");
+      setSourceError(i18n.t("editor:editorPanel.sourceControlBridgeUnavailable"));
       return;
     }
     if (hasConflicts) {
-      setSourceError("Resolve or discard conflicted files before committing.");
+      setSourceError(i18n.t("editor:editorPanel.resolveOrDiscardConflictedFilesBeforeCommitting"));
       return;
     }
     if (!canCommitStagedChanges) {
-      setSourceError("Stage at least one change before committing.");
+      setSourceError(i18n.t("editor:editorPanel.stageAtLeastOneChangeBeforeCommitting"));
       return;
     }
 
@@ -532,7 +534,7 @@ export function EditorPanel(props: EditorPanelProps) {
     try {
       const result = await commit({ message: commitMessage, cwd: workspaceCwd });
       if (!result.ok) {
-        setSourceError(result.stderr || "git commit failed");
+        setSourceError(result.stderr || i18n.t("editor:editorPanel.gitCommitFailed"));
       } else {
         setCommitMessage("");
         setSourceError("");
@@ -551,7 +553,7 @@ export function EditorPanel(props: EditorPanelProps) {
     const stageFile = window.api?.sourceControl?.stageFile;
     const unstageFile = window.api?.sourceControl?.unstageFile;
     if (!stageFile || !unstageFile) {
-      setSourceError("Source Control bridge unavailable.");
+      setSourceError(i18n.t("editor:editorPanel.sourceControlBridgeUnavailable"));
       return;
     }
 
@@ -569,7 +571,7 @@ export function EditorPanel(props: EditorPanelProps) {
         : await stageFile({ path, cwd: workspaceCwd });
 
       if (!result.ok) {
-        setSourceError(result.stderr || "git stage toggle failed");
+        setSourceError(result.stderr || i18n.t("editor:editorPanel.gitStageToggleFailed"));
       } else {
         setSourceError("");
       }
@@ -582,7 +584,7 @@ export function EditorPanel(props: EditorPanelProps) {
   async function handleDiscardChange(args: { item: SourceControlStatusItem }) {
     const discardFile = window.api?.sourceControl?.discardFile;
     if (!discardFile) {
-      setSourceError("Source Control bridge unavailable.");
+      setSourceError(i18n.t("editor:editorPanel.sourceControlBridgeUnavailable"));
       return;
     }
 
@@ -596,7 +598,7 @@ export function EditorPanel(props: EditorPanelProps) {
         cwd: workspaceCwd,
       });
       if (!result.ok) {
-        setSourceError(result.stderr || "git discard failed");
+        setSourceError(result.stderr || i18n.t("editor:editorPanel.gitDiscardFailed"));
       } else {
         setSourceError("");
       }
@@ -611,7 +613,7 @@ export function EditorPanel(props: EditorPanelProps) {
     const requestId = selectedDiffRequestIdRef.current + 1;
     selectedDiffRequestIdRef.current = requestId;
     if (!getDiff) {
-      setSourceError("Source Control bridge unavailable.");
+      setSourceError(i18n.t("editor:editorPanel.sourceControlBridgeUnavailable"));
       return;
     }
 
@@ -689,37 +691,37 @@ export function EditorPanel(props: EditorPanelProps) {
       ? resolveWorkspaceAbsolutePath({ workspacePath: workspaceCwd, relativePath: args.path })
       : args.path;
     if (!pathToCopy) {
-      toast.error("Workspace path unavailable");
+      toast.error(i18n.t("editor:editorPanel.workspacePathUnavailable"));
       return;
     }
 
     try {
       await copyTextToClipboard(pathToCopy);
-      toast.success(args.mode === "absolute" ? "Copied absolute path" : "Copied relative path");
+      toast.success(args.mode === "absolute" ? i18n.t("editor:editorPanel.copiedAbsolutePath") : i18n.t("editor:editorPanel.copiedRelativePath"));
     } catch {
-      toast.error("Failed to copy path");
+      toast.error(i18n.t("editor:editorPanel.failedToCopyPath"));
     }
   }
 
   async function handleCopySourceControlPath(path: string) {
     try {
       await copyTextToClipboard(path);
-      toast.success("Copied relative path");
+      toast.success(i18n.t("editor:editorPanel.copiedRelativePath"));
     } catch {
-      toast.error("Failed to copy path");
+      toast.error(i18n.t("editor:editorPanel.failedToCopyPath"));
     }
   }
 
   async function handleOpenExplorerPath(args: { path: string; target: "finder" | "vscode" | "terminal" | "ghostty" }) {
     const shellApi = window.api?.shell;
     if (!shellApi) {
-      toast.error("Shell bridge unavailable");
+      toast.error(i18n.t("editor:editorPanel.shellBridgeUnavailable"));
       return;
     }
 
     const absolutePath = resolveWorkspaceAbsolutePath({ workspacePath: workspaceCwd, relativePath: args.path });
     if (!absolutePath) {
-      toast.error("Workspace path unavailable");
+      toast.error(i18n.t("editor:editorPanel.workspacePathUnavailable"));
       return;
     }
 
@@ -731,7 +733,7 @@ export function EditorPanel(props: EditorPanelProps) {
       ? shellApi.openInGhostty
       : shellApi.openInTerminal;
     if (!action) {
-      toast.error("Shell action unavailable");
+      toast.error(i18n.t("editor:editorPanel.shellActionUnavailable"));
       return;
     }
 
@@ -741,13 +743,13 @@ export function EditorPanel(props: EditorPanelProps) {
     }
 
     const actionLabel = args.target === "finder"
-      ? "open in Finder"
+      ? i18n.t("editor:editorPanel.openInFinder")
       : args.target === "vscode"
-      ? "open in VS Code"
+      ? i18n.t("editor:editorPanel.openInVSCode")
       : args.target === "ghostty"
-      ? "open in Ghostty"
-      : "open in Terminal";
-    toast.error(`Failed to ${actionLabel}`, { description: result.stderr });
+      ? i18n.t("editor:editorPanel.openInGhostty")
+      : i18n.t("editor:editorPanel.openInTerminal");
+    toast.error(i18n.t("editor:editorPanel.failedTo", { value1: actionLabel }), { description: result.stderr });
   }
 
   function handleRefreshExplorerDirectory(path: string) {
@@ -756,7 +758,7 @@ export function EditorPanel(props: EditorPanelProps) {
 
   async function handleExpandAllFolders() {
     if (!workspaceCwd) {
-      setExplorerError("Workspace path unavailable.");
+      setExplorerError(i18n.t("editor:editorPanel.workspacePathUnavailable2"));
       return;
     }
 
@@ -937,8 +939,8 @@ export function EditorPanel(props: EditorPanelProps) {
             : workspaceFsAdapter.deleteDirectory({ directoryPath: deleteRequest.path })
         ),
         fallbackError: deleteRequest.type === "file"
-          ? "Failed to delete file."
-          : "Failed to delete folder.",
+          ? i18n.t("editor:editorPanel.failedToDeleteFile")
+          : i18n.t("editor:editorPanel.failedToDeleteFolder"),
       });
       if (!result) {
         setPendingExplorerDelete(null);
@@ -956,7 +958,7 @@ export function EditorPanel(props: EditorPanelProps) {
         reloadExplorer({ expandedPaths: nextExpandedPaths }),
       ]);
 
-      toast.success(deleteRequest.type === "file" ? "Deleted file" : "Deleted folder", {
+      toast.success(deleteRequest.type === "file" ? i18n.t("editor:editorPanel.deletedFile") : i18n.t("editor:editorPanel.deletedFolder"), {
         description: deleteRequest.path,
       });
     } finally {
@@ -971,7 +973,7 @@ export function EditorPanel(props: EditorPanelProps) {
 
     const entryPath = normalizeRelativeInputPath({ value: pendingExplorerCreatePath });
     if (!entryPath) {
-      setExplorerError(`Enter a valid relative ${pendingExplorerCreate.type} path.`);
+      setExplorerError(i18n.t("editor:editorPanel.enterAValidRelativePath", { value1: pendingExplorerCreate.type }));
       return;
     }
 
@@ -984,8 +986,8 @@ export function EditorPanel(props: EditorPanelProps) {
             : workspaceFsAdapter.createDirectory({ directoryPath: entryPath })
         ),
         fallbackError: pendingExplorerCreate.type === "file"
-          ? "Failed to create file."
-          : "Failed to create folder.",
+          ? i18n.t("editor:editorPanel.failedToCreateFile")
+          : i18n.t("editor:editorPanel.failedToCreateFolder"),
       });
       if (!result) {
         return;
@@ -1114,21 +1116,21 @@ export function EditorPanel(props: EditorPanelProps) {
       </div>
       <ConfirmDialog
         open={Boolean(pendingExplorerDelete)}
-        title={pendingExplorerDelete?.type === "folder" ? "Delete Folder" : "Delete File"}
+        title={pendingExplorerDelete?.type === "folder" ? i18n.t("editor:editorPanel.deleteFolder") : i18n.t("editor:editorPanel.deleteFile")}
         description={pendingExplorerDelete
           ? [
               pendingExplorerDelete.type === "folder"
-                ? `Delete "${pendingExplorerDelete.name}" and all of its contents from disk?`
-                : `Delete "${pendingExplorerDelete.name}" from disk?`,
+                ? i18n.t("editor:editorPanel.deleteAndAllOfItsContents", { value1: pendingExplorerDelete.name })
+                : i18n.t("editor:editorPanel.deleteFromDisk", { value1: pendingExplorerDelete.name }),
               pendingExplorerDelete.affectedTabIds.length > 0
                 ? pendingExplorerDelete.dirtyTabCount > 0
-                  ? `${pendingExplorerDelete.affectedTabIds.length} open tab(s) will be closed, including ${pendingExplorerDelete.dirtyTabCount} with unsaved changes.`
-                  : `${pendingExplorerDelete.affectedTabIds.length} open tab(s) will be closed.`
+                  ? i18n.t("editor:editorPanel.openTabSWillBeClosedIncluding", { value1: pendingExplorerDelete.affectedTabIds.length, value2: pendingExplorerDelete.dirtyTabCount })
+                  : i18n.t("editor:editorPanel.openTabSWillBeClosed", { value1: pendingExplorerDelete.affectedTabIds.length })
                 : null,
             ].filter(Boolean).join(" ")
           : ""
         }
-        confirmLabel={pendingExplorerDelete?.type === "folder" ? "Delete Folder" : "Delete File"}
+        confirmLabel={pendingExplorerDelete?.type === "folder" ? i18n.t("editor:editorPanel.deleteFolder") : i18n.t("editor:editorPanel.deleteFile")}
         loading={isDeletingExplorerEntry}
         onCancel={cancelExplorerDelete}
         onConfirm={() => {

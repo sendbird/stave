@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { AgentRunAggregate, AgentRunStageRecord } from "./domain";
 import { collectAcceptanceCriteria } from "./briefing";
 import { revisionsMatch } from "./verification-contract";
@@ -13,13 +14,13 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
   const goalCriteria = finalStage ? inheritedCriteria.filter((criterion) => criterion.required !== false) : [];
   if (stage.kind === "action") {
     const unresolved = goalCriteria.find((criterion) => criterion.status !== "met" && !explicit.some((current) => current.text.trim() === criterion.text.trim()));
-    if (unresolved) return `Acceptance criterion remains unresolved: ${unresolved.text}`;
+    if (unresolved) return i18n.t("agentRuns:acceptance.extraCopy212", { value1: unresolved.text });
     if (!explicit.length) return null;
     const action = record.facts?.action;
     return action?.type === "run-script" && action.exitCode === 0 &&
       revisionsMatch(action.verification?.sourceRevision, action.verification?.completedRevision) &&
       revisionsMatch(action.verification?.sourceRevision, record.facts?.workspaceRevision)
-      ? null : "The required workspace script check has no successful, current verification evidence.";
+      ? null : i18n.t("agentRuns:acceptance.extraCopy211");
   }
   const report = record.report?.outcome === "complete" ? record.report : null;
   const required = new Map(explicit.map((criterion) => [criterion.text.trim(), criterion]));
@@ -33,7 +34,7 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
   }
   for (const text of required.keys()) {
     const reported = report?.acceptanceCriteria?.find((entry) => entry.text.trim() === text);
-    if (reported?.status !== "met") return `Acceptance criterion remains unresolved: ${text}`;
+    if (reported?.status !== "met") return i18n.t("agentRuns:acceptance.extraCopy212", { value1: text });
   }
   return null;
 }

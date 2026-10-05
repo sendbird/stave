@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Pause, Play } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { transition } from "@/components/ads/recipes/transition";
@@ -14,11 +15,11 @@ import { centerStyles } from "./automation-center-view.styles";
 import { scheduleRowStyles as styles } from "./schedule-rows.styles";
 
 function toggleLabel(row: ScheduleRow) {
-  return row.toggle === "pause" ? "Pause" : row.kind === "start" ? "Turn on" : "Resume";
+  return row.toggle === "pause" ? i18n.t("automation:scheduleRows.pause") : row.kind === "start" ? i18n.t("automation:scheduleRows.turnOn") : i18n.t("automation:scheduleRows.resume");
 }
 
 function nextText(row: ScheduleRow) {
-  return row.nextRunAt ? `Next ${formatRelativeTime(row.nextRunAt)}` : (row.nextNote ?? "");
+  return row.nextRunAt ? i18n.t("automation:scheduleRows.nextValue", { value1: formatRelativeTime(row.nextRunAt) }) : (row.nextNote ?? "");
 }
 
 /**
@@ -33,8 +34,9 @@ export function ScheduleRows(props: {
   onRunNow: (row: ScheduleRow) => void;
   onToggle: (row: ScheduleRow) => void;
 }) {
+  const { t: tI18n } = useTranslation(["automation"]);
   return (
-    <ul className={sx(styles.list)} aria-label="Schedules">
+    <ul className={sx(styles.list)} aria-label={tI18n("automation:scheduleRows.schedules")}>
       {props.rows.map((row) => {
         const active = row.key === props.selectedKey;
         const busy = row.id === props.busyId;
@@ -84,11 +86,10 @@ export function ScheduleRows(props: {
                 xstyle={styles.action}
                 disabled={busy}
                 onClick={() => props.onRunNow(row)}
-                aria-label={`Run ${row.name} now`}
+                aria-label={tI18n("automation:scheduleRows.runValueNow", { value1: row.name })}
               >
                 <Play className={sx(centerStyles.buttonIcon)} />
-                Run now
-              </Button>
+                {tI18n("automation:scheduleRows.runNow")}</Button>
             ) : null}
             {row.toggle ? (
               <Button

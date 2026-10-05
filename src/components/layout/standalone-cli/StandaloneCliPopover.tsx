@@ -6,17 +6,18 @@ import { Button, PopoverContent } from "@/components/ui";
 import { StandaloneCliTabBar } from "@/components/layout/standalone-cli/StandaloneCliTabBar";
 import { StandaloneCliTerminal } from "@/components/layout/standalone-cli/StandaloneCliTerminal";
 import { useStandaloneCliInstalledTabIds } from "@/components/layout/standalone-cli/useStandaloneCliInstalledTabIds";
+import { i18n, useTranslation, type AppTFunction } from "@/i18n";
 import type { StandaloneCliTabId } from "@/lib/terminal/standalone-cli";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 
-export function buildStandaloneCliEmptyStateText() {
-  return "Set a Standalone CLI folder in Settings to run Claude Code, Codex, Cursor, and Kiro here. Nothing is added to your repositories.";
+export function buildStandaloneCliEmptyStateText(t: AppTFunction = i18n.t) {
+  return t("terminal:standaloneCli.emptyState.noFolder");
 }
 
-export function buildStandaloneCliNoInstalledCliText() {
-  return "No supported CLI was found on this machine. Install Claude Code, Codex, Cursor, or Kiro, or set its binary path in Settings.";
+export function buildStandaloneCliNoInstalledCliText(t: AppTFunction = i18n.t) {
+  return t("terminal:standaloneCli.emptyState.noInstalledCli");
 }
 
 /**
@@ -45,19 +46,20 @@ export function StandaloneCliPanel(props: {
 }) {
   const { folderPath, installedTabIds, visible, onClose, onOpenSettings } =
     props;
+  const { t } = useTranslation("terminal");
   const emptyStateText = !folderPath
-    ? buildStandaloneCliEmptyStateText()
+    ? buildStandaloneCliEmptyStateText(t)
     : installedTabIds.length === 0
-      ? buildStandaloneCliNoInstalledCliText()
+      ? buildStandaloneCliNoInstalledCliText(t)
       : null;
   const folderLabel = folderPath
     ? resolvePathBaseName({ path: folderPath, fallback: folderPath })
-    : "No folder set";
+    : t("standaloneCli.noFolder");
 
   return (
     <section
       data-testid="standalone-cli-panel"
-      aria-label="Standalone CLI"
+      aria-label={t("standaloneCli.panelLabel")}
       className={sx(styles.panel)}
     >
       <header className={sx(styles.panelHeader)}>
@@ -74,7 +76,7 @@ export function StandaloneCliPanel(props: {
           type="button"
           variant="ghost"
           size="sm"
-          aria-label="Close Standalone CLI"
+          aria-label={t("standaloneCli.closePanel")}
           xstyle={styles.closeButton}
           onClick={onClose}
         >
@@ -99,7 +101,7 @@ export function StandaloneCliPanel(props: {
             size="sm"
             onClick={onOpenSettings}
           >
-            Open Settings
+            {t("standaloneCli.openSettings")}
           </Button>
         </div>
       )}

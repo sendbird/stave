@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 export type PromptCommentShortcut = "mod-enter" | "shift-enter" | "disabled";
 
 export const DEFAULT_PROMPT_COMMENT_SHORTCUT: PromptCommentShortcut =
@@ -11,17 +12,17 @@ export const PROMPT_COMMENT_SHORTCUT_OPTIONS: readonly {
   {
     value: "mod-enter",
     label: "Cmd/Ctrl+Enter",
-    description: "Stage the current prompt text as a comment.",
+    get description() { return i18n.t("shell:promptCommentShortcuts.stageTheCurrentPromptTextAsA"); },
   },
   {
     value: "shift-enter",
     label: "Shift+Enter",
-    description: "Use the previous comment staging shortcut.",
+    get description() { return i18n.t("shell:promptCommentShortcuts.useThePreviousCommentStagingShortcut"); },
   },
   {
     value: "disabled",
-    label: "Disabled",
-    description: "Do not stage comments from the keyboard.",
+    get label() { return i18n.t("shell:promptCommentShortcuts.disabled"); },
+    get description() { return i18n.t("shell:promptCommentShortcuts.doNotStageCommentsFromTheKeyboard"); },
   },
 ];
 

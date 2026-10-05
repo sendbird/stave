@@ -4,8 +4,16 @@ import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import type { WorkspaceExecutionState } from "@/lib/performance/workspace-execution";
 import { managerStyles as styles } from "./resource-manager.styles";
+import { useTranslation } from "@/i18n";
+
+/** Translated notices are kept as keys so a language change re-renders them; IPC errors stay raw. */
+type ExecutionMessage =
+  | { key: "stopped" | "allowed" | "statusUnavailable" | "controlUnavailable" }
+  | { detail: string }
+  | null;
 
 export function WorkspaceExecutionControls() {
+  const { t } = useTranslation(["workspace", "common"]);
   const workspaces = useAppStore((s) => s.workspaces);
   const activeWorkspaceId = useAppStore((s) => s.activeWorkspaceId);
   const paths = useAppStore((s) => s.workspacePathById);
@@ -13,7 +21,7 @@ export function WorkspaceExecutionControls() {
   const [loaded, setLoaded] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<ExecutionMessage>(null);
   const operating = useRef(false);
   const mounted = useRef(false);
   useEffect(() => {
@@ -25,7 +33,7 @@ export function WorkspaceExecutionControls() {
       try {
         const next = await window.api?.workspaceExecution?.status();
         if (mounted.current && next) { setStates(next); setLoaded(true); }
-      } catch { if (mounted.current) { setLoaded(false); setMessage("Execution status unavailable."); } }
+      } catch { if (mounted.current) { setLoaded(false); setMessage({ key: "statusUnavailable" }); } }
       finally { pending = false; }
     };
     void read();
@@ -38,22 +46,26 @@ export function WorkspaceExecutionControls() {
     const current = useAppStore.getState();
     const workspacePath = current.workspacePathById[workspaceId];
     if (!current.workspaces.some((workspace) => workspace.id === workspaceId) || !workspacePath) return;
-    operating.current = true; setBusy(true); setMessage("");
+    operating.current = true; setBusy(true); setMessage(null);
     try {
       const result = await window.api?.workspaceExecution?.update({ workspaceId, workspacePath, action });
       if (!mounted.current) return;
       if (result) setStates(result.states);
-      if (!result?.ok) throw new Error(result?.message ?? "Execution control unavailable.");
-      setMessage(action === "stop" ? "Execution stopped. Code, conversations and tabs are kept. Lens pages use their separate sleep and release controls." : "Execution allowed. Open a terminal or run a task to start again; previous commands are not rerun.");
-    } catch (error) { if (mounted.current) setMessage(String(error)); }
+      if (!result?.ok) {
+        if (result?.message) throw new Error(result.message);
+        setMessage({ key: "controlUnavailable" });
+        return;
+      }
+      setMessage({ key: action === "stop" ? "stopped" : "allowed" });
+    } catch (error) { if (mounted.current) setMessage({ detail: String(error) }); }
     finally { operating.current = false; if (mounted.current) { setBusy(false); setConfirming(null); } }
   };
 
   if (!window.api?.workspaceExecution) return null;
   return <section className={sx(styles.group)}>
-    <h3 className={sx(styles.heading)}>Workspace execution</h3>
+    <h3 className={sx(styles.heading)}>{t("executionControls.heading")}</h3>
     <div className={sx(styles.detail)}>
-      <p className={sx(styles.muted)}>Stop terminals and managed services without removing the workspace. Running tasks and scripts must finish first. The stop lasts until you resume or the runtime restarts.</p>
+      <p className={sx(styles.muted)}>{t("executionControls.description")}</p>
       {workspaces
         .filter(
           (workspace) =>
@@ -64,19 +76,19 @@ export function WorkspaceExecutionControls() {
         const state = states.find((entry) => entry.workspaceId === workspace.id);
         return <div key={workspace.id} className={sx(styles.section)}>
           <div className={sx(styles.process)}>
-            <span className={sx(styles.truncate)} title={workspace.name}>{workspace.name} · {!loaded ? "Checking status" : state?.stopping ? "Stopping" : state?.failed ? "Stop incomplete; new execution blocked" : state ? "Stopped" : "Execution allowed"}</span>
-            <Button size="sm" variant="secondary" disabled={!loaded || busy || state?.stopping || !paths[workspace.id]} onClick={() => state ? void update(workspace.id, "resume") : setConfirming(workspace.id)}>{state ? "Resume execution" : "Stop execution"}</Button>
+            <span className={sx(styles.truncate)} title={workspace.name}>{workspace.name} · {t(!loaded ? "executionControls.status.checking" : state?.stopping ? "executionControls.status.stopping" : state?.failed ? "executionControls.status.failed" : state ? "executionControls.status.stopped" : "executionControls.status.allowed")}</span>
+            <Button size="sm" variant="secondary" disabled={!loaded || busy || state?.stopping || !paths[workspace.id]} onClick={() => state ? void update(workspace.id, "resume") : setConfirming(workspace.id)}>{state ? t("executionControls.resume") : t("executionControls.stop")}</Button>
           </div>
           {confirming === workspace.id && <div className={sx(styles.section)}>
-            <p className={sx(styles.muted)}>Terminal commands and managed services in {workspace.name} will end. Unsaved state inside those processes may be lost. Code files, conversations and tabs stay available.</p>
+            <p className={sx(styles.muted)}>{t("executionControls.confirmBody", { name: workspace.name })}</p>
             <div className={sx(styles.actions)}>
-              <Button size="sm" variant="secondary" disabled={busy} onClick={() => setConfirming(null)}>Cancel</Button>
-              <Button size="sm" disabled={busy} onClick={() => void update(workspace.id, "stop")}>Confirm stop</Button>
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => setConfirming(null)}>{t("common:actions.cancel")}</Button>
+              <Button size="sm" disabled={busy} onClick={() => void update(workspace.id, "stop")}>{t("executionControls.confirmStop")}</Button>
             </div>
           </div>}
         </div>;
       })}
-      {message && <p role="status" className={sx(styles.message)}>{message}</p>}
+      {message && <p role="status" className={sx(styles.message)}>{"key" in message ? t(`executionControls.messages.${message.key}`) : message.detail}</p>}
     </div>
   </section>;
 }

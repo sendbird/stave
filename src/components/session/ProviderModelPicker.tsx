@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import {
   Select,
@@ -58,6 +59,7 @@ export function pickDefaultModelForProvider(providerId: ProviderId): string {
 }
 
 export function ProviderModelPicker(args: ProviderModelPickerProps) {
+  useTranslation();
   const readiness = useProviderReadinessStore((state) => state.providers);
   const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
   const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
@@ -93,7 +95,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
         disabled={args.disabled}
       >
         <SelectTrigger
-          aria-label={`${args.ariaLabel ?? "Model"} provider`}
+          aria-label={i18n.t("session:providerModelPicker.ariaLabel", { value1: args.ariaLabel ?? i18n.t("session:providerModelPicker.extraCopy114") })}
           className={cx(
             sx(
               styles.trigger,
@@ -130,7 +132,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
         disabled={args.disabled || !providerAvailable}
       >
         <SelectTrigger
-          aria-label={`${args.ariaLabel ?? "Model"} model`}
+          aria-label={i18n.t("session:providerModelPicker.ariaLabel2", { value1: args.ariaLabel ?? i18n.t("session:providerModelPicker.extraCopy114") })}
           className={cx(
             sx(styles.trigger, styles.modelTriggerWidth),
             args.modelSelectClassName,

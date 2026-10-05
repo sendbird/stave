@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { FilePenLine, Plus } from "lucide-react";
 import {
   Button,
@@ -42,12 +43,13 @@ export function ScriptEntriesTab(props: {
   runStateByKey: Record<string, ScriptUiState>;
   onOpenInRail: () => void;
 }) {
-  const kindLabel = props.kind === "service" ? "Processes" : "Commands";
+  const { t: tI18n } = useTranslation(["scripts"]);
+  const kindLabel = props.kind === "service" ? tI18n("scripts:scriptEntriesTab.processes") : tI18n("scripts:scriptEntriesTab.commands");
   const kindDescription =
     props.kind === "service"
-      ? "Dev servers, watchers, and other long-running processes. They stay up after you close Settings, and you control them from the right rail."
-      : "One-shot commands you run on demand or from lifecycle triggers.";
-  const addLabel = props.kind === "service" ? "Add process" : "Add command";
+      ? tI18n("scripts:scriptEntriesTab.devServersWatchersAndOtherLongRunning")
+      : tI18n("scripts:scriptEntriesTab.oneShotCommandsYouRunOnDemand");
+  const addLabel = props.kind === "service" ? tI18n("scripts:scriptEntriesTab.addProcess") : tI18n("scripts:scriptEntriesTab.addCommand");
 
   const duplicates = findDuplicateEntryIds(props.entries);
 
@@ -76,12 +78,12 @@ export function ScriptEntriesTab(props: {
               <FilePenLine className={sx(entriesTabStyles.emptyIcon)} />
             </EmptyMedia>
             <EmptyTitle>
-              No {props.kind === "service" ? "processes" : "commands"} yet
-            </EmptyTitle>
+          {tI18n("scripts:scriptEntriesTab.emptyTitle", { kind: props.kind === "service" ? tI18n("scripts:scriptEntriesTab.processes2") : tI18n("scripts:scriptEntriesTab.commands2") })}
+        </EmptyTitle>
             <EmptyDescription>
               {props.kind === "service"
-                ? `Click "${addLabel}" to define a server or watcher you can leave running while you work.`
-                : `Click "${addLabel}" to create the first entry.`}
+                ? tI18n("scripts:scriptEntriesTab.clickValueToDefineAServerOr", { addLabel: addLabel })
+                : tI18n("scripts:scriptEntriesTab.clickValueToCreateTheFirstEntry", { addLabel: addLabel })}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

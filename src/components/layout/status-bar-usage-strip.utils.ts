@@ -1,3 +1,4 @@
+import { i18n, getIntlLocale } from "@/i18n";
 import { formatCostUsd, formatTokenCount } from "@/lib/agent-runs/usage";
 import type { ProviderTurnSpend } from "@/lib/providers/turn-spend";
 import type {
@@ -93,22 +94,22 @@ export function formatResetCountdown(
     return null;
   }
   const deltaMs = resetsAt * 1000 - now;
-  if (deltaMs <= 0) return "now";
+  if (deltaMs <= 0) return i18n.t("shell:usageUnits.now");
   const totalMinutes = Math.floor(deltaMs / 60_000);
-  if (totalMinutes < 1) return "<1m";
+  if (totalMinutes < 1) return i18n.t("shell:usageUnits.underMinute");
   const days = Math.floor(totalMinutes / (24 * 60));
   const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
   const minutes = totalMinutes % 60;
-  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
-  if (hours > 0) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-  return `${minutes}m`;
+  if (days > 0) return hours > 0 ? i18n.t("shell:usageUnits.daysHours", { days, hours }) : i18n.t("shell:usageUnits.daysShort", { count: days });
+  if (hours > 0) return minutes > 0 ? i18n.t("shell:usageUnits.hoursMinutes", { hours, minutes }) : i18n.t("shell:usageUnits.hoursShort", { count: hours });
+  return i18n.t("shell:usageUnits.minutes", { count: minutes });
 }
 
 /** The reset as a wall-clock time: `3:42 PM` today, `Mon 9:00 AM` this week, the date and time later. */
 export function formatResetClock(
   resetsAt: number,
   now: number,
-  locale?: string,
+  locale: string = getIntlLocale(),
 ): string {
   const at = new Date(resetsAt * 1000);
   const today = new Date(now);
@@ -132,7 +133,7 @@ export function formatResetClock(
 /** Muted context after the percent: `5h · resets 1h 7m`. */
 export function formatWindowContext(window: UsageHeadlineWindow, now: number): string {
   const countdown = formatResetCountdown(window.resetsAt, now);
-  const reset = countdown === null ? null : `resets ${countdown}`;
+  const reset = countdown === null ? null : i18n.t("shell:usageUnits.reset", { time: countdown });
   return [window.label || null, reset].filter(Boolean).join(" · ");
 }
 
@@ -153,13 +154,13 @@ export function describeUsageWindow(args: {
   const countdown = formatResetCountdown(window.resetsAt, now);
   const reset =
     countdown === null || window.resetsAt === null
-      ? `${providerName} did not report when this resets.`
-      : countdown === "now"
-        ? "Resets now. Stave reads the new numbers shortly."
-        : `Resets in ${countdown} (${formatResetClock(window.resetsAt, now, args.locale)}).`;
+      ? i18n.t("shell:statusBarUsageStripUtils.didNotReportWhenThisResets", { value1: providerName })
+      : countdown === i18n.t("shell:usageUnits.now")
+        ? i18n.t("shell:statusBarUsageStripUtils.resetsNowStaveReadsTheNewNumbers")
+        : i18n.t("shell:statusBarUsageStripUtils.resetsIn", { value1: countdown, value2: formatResetClock(window.resetsAt, now, args.locale) });
   const atLimit = args.blockAtLimit
-    ? `At 100%, Stave holds new ${providerName} turns until it resets. Running turns finish.`
-    : `At 100%, Stave keeps sending ${providerName} turns, because Stop turns at 100% usage is off.`;
+    ? i18n.t("shell:statusBarUsageStripUtils.at100StaveHoldsNewTurnsUntil", { value1: providerName })
+    : i18n.t("shell:statusBarUsageStripUtils.at100StaveKeepsSendingTurnsBecause", { value1: providerName });
   return {
     title: `${window.title} · ${formatUsagePercent(window.usedPercent)} used`,
     lines: [...(window.note ? [window.note] : []), reset, atLimit],
@@ -185,14 +186,14 @@ export interface UsageStripTokens {
 }
 
 function formatTurnCount(turns: number): string {
-  return turns === 1 ? "1 turn" : `${turns} turns`;
+  return i18n.t("shell:usageUnits.turns", { count: turns });
 }
 
 /** Bold figure and muted context for the bar: `1.2M` + `tok today · 18M mo`. */
 export function formatStripTokens(tokens: UsageStripTokens): { amount: string; context: string } {
   return {
     amount: formatTokenCount(tokens.todayTokens),
-    context: `tok today · ${formatTokenCount(tokens.monthTokens)} mo`,
+    context: i18n.t("shell:statusBarUsageStripUtils.tokTodayMo", { value1: formatTokenCount(tokens.monthTokens) }),
   };
 }
 
@@ -206,8 +207,8 @@ export function describeTurnTokenCounting(args: {
   providerName: string;
 }): string {
   return args.provider === "claude" || args.provider === "codex"
-    ? "Counts input and output tokens. Prompt tokens read from the cache are left out."
-    : `Counts input and output tokens as ${args.providerName} reports them.`;
+    ? i18n.t("shell:statusBarUsageStripUtils.countsInputAndOutputTokensPromptTokens")
+    : i18n.t("shell:statusBarUsageStripUtils.countsInputAndOutputTokensAsReports", { value1: args.providerName });
 }
 
 export function describeTurnTokens(args: {
@@ -219,18 +220,18 @@ export function describeTurnTokens(args: {
 }): UsageHint {
   const { tokens, cost, providerName } = args;
   return {
-    title: "Tokens in turns run in Stave",
+    title: i18n.t("shell:statusBarUsageStripUtils.tokensInTurnsRunInStave"),
     lines: [
-      `${formatTokenCount(tokens.todayTokens)} today, ${formatTokenCount(tokens.monthTokens)} this month, from ${formatTurnCount(tokens.monthTurns)}.`,
+      i18n.t("shell:statusBarUsageStripUtils.todayThisMonthFrom", { value1: formatTokenCount(tokens.todayTokens), value2: formatTokenCount(tokens.monthTokens), value3: formatTurnCount(tokens.monthTurns) }),
       describeTurnTokenCounting(args),
       ...(args.multipleAccounts
-        ? [`Includes turns from every ${providerName} account.`]
+        ? [i18n.t("shell:statusBarUsageStripUtils.includesTurnsFromEveryAccount", { value1: providerName })]
         : []),
       ...(cost
         ? [
             cost.meaning === "spend"
-              ? "Click for their spend."
-              : "Click for their API value.",
+              ? i18n.t("shell:statusBarUsageStripUtils.clickForTheirSpend")
+              : i18n.t("shell:statusBarUsageStripUtils.clickForTheirAPIValue"),
           ]
         : []),
     ],
@@ -243,16 +244,16 @@ export function describeTurnSpend(args: {
   providerName: string;
 }): UsageHint {
   const { cost, providerName } = args;
-  const totals = `${formatCostUsd(cost.todayUsd)} today, ${formatCostUsd(cost.monthUsd)} this month, from ${formatTurnCount(cost.monthTurns)}.`;
+  const totals = i18n.t("shell:statusBarUsageStripUtils.todayThisMonthFrom", { value1: formatCostUsd(cost.todayUsd), value2: formatCostUsd(cost.monthUsd), value3: formatTurnCount(cost.monthTurns) });
   const meaning =
     cost.meaning === "spend"
-      ? `${providerName}'s estimate of what these turns cost. Your gateway bills them, and its invoice is final.`
-      : `Not billed to your subscription. ${providerName} estimates it from token use at API prices.`;
+      ? i18n.t("shell:statusBarUsageStripUtils.sEstimateOfWhatTheseTurnsCost", { value1: providerName })
+      : i18n.t("shell:statusBarUsageStripUtils.notBilledToYourSubscriptionEstimatesIt", { value1: providerName });
   return {
     title:
       cost.meaning === "spend"
-        ? "Spend on turns run in Stave"
-        : "API value of turns run in Stave",
+        ? i18n.t("shell:statusBarUsageStripUtils.spendOnTurnsRunInStave")
+        : i18n.t("shell:statusBarUsageStripUtils.aPIValueOfTurnsRunInStave"),
     lines: [totals, meaning],
   };
 }
@@ -442,11 +443,13 @@ export function describeUsageSegmentForAssistiveTech(
 ): string {
   const parts = segment.windows.map((window) => {
     const countdown = formatResetCountdown(window.resetsAt, now);
-    return `${window.title} ${formatUsagePercent(window.usedPercent)} used${countdown && countdown !== "now" ? `, resets in ${countdown}` : ""}`;
+    return countdown && window.resetsAt !== null && window.resetsAt * 1000 > now
+      ? i18n.t("shell:usageUnits.windowUsedReset", { title: window.title, percent: formatUsagePercent(window.usedPercent), time: countdown })
+      : i18n.t("shell:usageUnits.windowUsed", { title: window.title, percent: formatUsagePercent(window.usedPercent) });
   });
   if (segment.tokens) {
-    parts.push(`${formatTokenCount(segment.tokens.todayTokens)} tokens today`);
+    parts.push(i18n.t("shell:statusBarUsageStripUtils.tokensToday", { value1: formatTokenCount(segment.tokens.todayTokens) }));
   }
-  if (segment.pending) parts.unshift("reading usage");
-  return `${segment.name} usage${parts.length ? `: ${parts.join("; ")}` : ""}`;
+  if (segment.pending) parts.unshift(i18n.t("shell:usageUnits.reading"));
+  return parts.length ? i18n.t("shell:usageUnits.segmentUsageDetails", { name: segment.name, details: parts.join("; ") }) : i18n.t("shell:usageUnits.segmentUsage", { name: segment.name });
 }

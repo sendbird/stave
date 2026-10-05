@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Duration and deadline vocabulary shared by every delegation surface.
  *
@@ -16,20 +17,20 @@ export function formatExchangeDuration(durationMs: number): string {
   const safeMs = Math.max(0, Math.round(durationMs));
   if (safeMs < 10_000) {
     const tenths = Math.round(safeMs / 100) / 10;
-    return `${tenths}s`;
+    return i18n.t("agentRuns:duration.seconds", { value: tenths });
   }
   const totalSeconds = Math.round(safeMs / 1_000);
   if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
+    return i18n.t("agentRuns:duration.seconds", { value: totalSeconds });
   }
   const totalMinutes = Math.floor(totalSeconds / 60);
   if (totalMinutes < 60) {
     const seconds = totalSeconds % 60;
-    return seconds > 0 ? `${totalMinutes}m ${seconds}s` : `${totalMinutes}m`;
+    return seconds > 0 ? i18n.t("agentRuns:duration.minutesSeconds", { minutes: totalMinutes, seconds }) : i18n.t("agentRuns:duration.minutes", { value: totalMinutes });
   }
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  return minutes > 0 ? i18n.t("agentRuns:duration.hoursMinutes", { hours, minutes }) : i18n.t("agentRuns:duration.hours", { value: hours });
 }
 
 export interface DeadlineDescription {
@@ -58,13 +59,13 @@ export function describeDeadline(args: {
         ? args.deadlineAtMs - args.nowMs
         : null;
   if (remaining === null || !Number.isFinite(remaining)) {
-    return { label: "No deadline", passed: false, remainingMs: null };
+    return { label: i18n.t("agentRuns:duration.label"), passed: false, remainingMs: null };
   }
   if (remaining <= 0) {
-    return { label: "Deadline passed", passed: true, remainingMs: 0 };
+    return { label: i18n.t("agentRuns:duration.label2"), passed: true, remainingMs: 0 };
   }
   return {
-    label: `Deadline in ${formatExchangeDuration(remaining)}`,
+    label: i18n.t("agentRuns:duration.label3", { value1: formatExchangeDuration(remaining) }),
     passed: false,
     remainingMs: remaining,
   };

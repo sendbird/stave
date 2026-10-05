@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
@@ -54,6 +55,7 @@ interface CodeBlockProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export function CodeBlock({ code, language, showLineNumbers, className, children, ...props }: CodeBlockProps) {
+  useTranslation();
   return (
     <CodeBlockContext.Provider value={{ code }}>
       <div className={cx(sx(styles.root), className)} {...props}>
@@ -87,6 +89,7 @@ interface CodeBlockContentProps {
 }
 
 export const CodeBlockContent = memo(function CodeBlockContent({ code, language }: CodeBlockContentProps) {
+  useTranslation();
   const resolvedLang = language ?? "bash";
   const cacheKey = getHighlightCacheKey(code, resolvedLang);
   const cached = _highlightCache.get(cacheKey);
@@ -161,18 +164,22 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language 
 // ---------------------------------------------------------------------------
 
 export function CodeBlockHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   return <div className={cx(sx(styles.header), className)} {...props} />;
 }
 
 export function CodeBlockTitle({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   return <div className={cx(sx(styles.title), className)} {...props} />;
 }
 
 export function CodeBlockFilename({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  useTranslation();
   return <span className={cx(sx(styles.filename), className)} {...props} />;
 }
 
 export function CodeBlockActions({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  useTranslation();
   return <div className={cx(sx(styles.actions), className)} {...props} />;
 }
 
@@ -193,6 +200,7 @@ export function CodeBlockCopyButton({
   className,
   ...props
 }: CodeBlockCopyButtonProps) {
+  useTranslation();
   const { code } = useCodeBlockContext();
   const [copied, setCopied] = useState(false);
 
@@ -203,7 +211,7 @@ export function CodeBlockCopyButton({
         onCopy?.();
         setTimeout(() => setCopied(false), timeout);
       })
-      .catch((error) => onError?.(error instanceof Error ? error : new Error("Clipboard write failed.")));
+      .catch((error) => onError?.(error instanceof Error ? error : new Error(i18n.t("composer:codeBlock.extraCopy48"))));
   };
 
   return (
@@ -213,8 +221,8 @@ export function CodeBlockCopyButton({
       xstyle={[styles.copyButton, transition.colors]}
       className={className}
       onClick={handleCopy}
-      aria-label="Copy code"
-      title="Copy code"
+      aria-label={i18n.t("composer:codeBlock.ariaLabel")}
+      title={i18n.t("composer:codeBlock.title")}
       {...props}
     >
       {copied ? (

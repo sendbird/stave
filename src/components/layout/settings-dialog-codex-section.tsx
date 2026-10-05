@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import {
   Button,
@@ -36,7 +37,7 @@ import { AdvancedTab } from "./codex-settings/advanced-tab";
 function parseJsonInput(value: string) {
   const trimmed = value.trim();
   if (!trimmed) {
-    return { ok: false as const, error: "JSON input is empty." };
+    return { ok: false as const, error: i18n.t("settingsProviders:codexSection.jsonInputEmpty") };
   }
   try {
     return {
@@ -52,6 +53,7 @@ function parseJsonInput(value: string) {
 }
 
 export function CodexSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     codexBinaryPath,
     activeTaskId,
@@ -153,7 +155,7 @@ export function CodexSection() {
     if (!getCodexAppServerSnapshot) {
       setSnapshotState({
         status: "error",
-        detail: "Codex App Server snapshot bridge is unavailable.",
+        detail: i18n.t("settingsProviders:codexSection.snapshot.bridgeUnavailable"),
         sectionErrors: {},
         snapshot: null,
         updatedAt: null,
@@ -166,9 +168,7 @@ export function CodexSection() {
     setSnapshotState((current) => ({
       ...current,
       status: current.snapshot ? "ready" : "loading",
-      detail: current.snapshot
-        ? current.detail
-        : "Loading Codex App Server snapshot...",
+      detail: current.snapshot ? current.detail : i18n.t("settingsProviders:codexSection.snapshot.loading"),
     }));
 
     try {
@@ -184,8 +184,7 @@ export function CodexSection() {
         setSnapshotState((current) => ({
           ...current,
           status: "error",
-          detail:
-            response.detail || "Failed to load Codex App Server snapshot.",
+          detail: response.detail || i18n.t("settingsProviders:codexSection.snapshot.loadFailed"),
           sectionErrors: response.sectionErrors ?? {},
         }));
         return;
@@ -204,10 +203,7 @@ export function CodexSection() {
       setSnapshotState((current) => ({
         ...current,
         status: "error",
-        detail:
-          error instanceof Error
-            ? error.message
-            : "Failed to load Codex App Server snapshot.",
+        detail: error instanceof Error ? error.message : i18n.t("settingsProviders:codexSection.snapshot.loadFailed"),
       }));
     }
   }, [runtimeOptions, workspaceCwd]);
@@ -289,7 +285,7 @@ export function CodexSection() {
     pluginRequestIdRef.current = requestId;
     setPluginDetailState({
       status: "loading",
-      detail: `Loading plugin details for ${selectedPluginSummary.name}...`,
+      detail: i18n.t("settingsProviders:codexSection.pluginDetail.loading", { name: selectedPluginSummary.name }),
       value: null,
     });
 
@@ -322,10 +318,7 @@ export function CodexSection() {
         }
         setPluginDetailState({
           status: "error",
-          detail:
-            error instanceof Error
-              ? error.message
-              : "Failed to load Codex plugin details.",
+          detail: error instanceof Error ? error.message : i18n.t("settingsProviders:codexSection.pluginDetail.loadFailed"),
           value: null,
         });
       });
@@ -346,7 +339,7 @@ export function CodexSection() {
     threadRequestIdRef.current = requestId;
     setThreadDetailState({
       status: "loading",
-      detail: `Loading thread ${selectedThreadId}...`,
+      detail: i18n.t("settingsProviders:codexSection.threadDetail.loading", { id: selectedThreadId }),
       value: null,
     });
 
@@ -379,10 +372,7 @@ export function CodexSection() {
         }
         setThreadDetailState({
           status: "error",
-          detail:
-            error instanceof Error
-              ? error.message
-              : "Failed to load Codex thread details.",
+          detail: error instanceof Error ? error.message : i18n.t("settingsProviders:codexSection.threadDetail.loadFailed"),
           value: null,
         });
       });
@@ -429,14 +419,14 @@ export function CodexSection() {
     }
     const installCodexPlugin = window.api?.provider?.installCodexPlugin;
     if (!installCodexPlugin) {
-      toast.error("Install failed", {
-        description: "Codex plugin install bridge is unavailable.",
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.installFailed"), {
+        description: i18n.t("settingsProviders:codexSection.toasts.installUnavailable"),
       });
       return;
     }
     await runMutation({
       busyKey: `plugin-install:${selectedPluginSummary.id}`,
-      label: `Installed ${selectedPluginSummary.name}`,
+      label: i18n.t("settingsProviders:codexSection.toasts.installed", { name: selectedPluginSummary.name }),
       action: () =>
         installCodexPlugin({
           marketplacePath: selectedPluginSummary.marketplacePath,
@@ -452,14 +442,14 @@ export function CodexSection() {
     }
     const uninstallCodexPlugin = window.api?.provider?.uninstallCodexPlugin;
     if (!uninstallCodexPlugin) {
-      toast.error("Uninstall failed", {
-        description: "Codex plugin uninstall bridge is unavailable.",
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.uninstallFailed"), {
+        description: i18n.t("settingsProviders:codexSection.toasts.uninstallUnavailable"),
       });
       return;
     }
     await runMutation({
       busyKey: `plugin-uninstall:${selectedPluginSummary.id}`,
-      label: `Removed ${selectedPluginSummary.name}`,
+      label: i18n.t("settingsProviders:codexSection.toasts.removed", { name: selectedPluginSummary.name }),
       action: () =>
         uninstallCodexPlugin({
           pluginId: selectedPluginSummary.id,
@@ -480,12 +470,12 @@ export function CodexSection() {
       const setCodexExperimentalFeatureEnablement =
         window.api?.provider?.setCodexExperimentalFeatureEnablement;
       if (!setCodexExperimentalFeatureEnablement) {
-        toast.error("Feature toggle unavailable");
+        toast.error(i18n.t("settingsProviders:codexSection.toasts.featureToggleUnavailable"));
         return;
       }
       await runMutation({
         busyKey: `feature:${featureName}`,
-        label: `Updated ${featureName}`,
+        label: i18n.t("settingsProviders:codexSection.toasts.featureUpdated", { name: featureName }),
         action: () =>
           setCodexExperimentalFeatureEnablement({
             enablement: { [featureName]: enabled },
@@ -501,7 +491,7 @@ export function CodexSection() {
       const startCodexMcpOauthLogin =
         window.api?.provider?.startCodexMcpOauthLogin;
       if (!startCodexMcpOauthLogin) {
-        toast.error("OAuth login unavailable");
+        toast.error(i18n.t("settingsProviders:codexSection.toasts.oauthUnavailable"));
         return;
       }
       setBusyKey(`oauth:${serverName}`);
@@ -511,26 +501,26 @@ export function CodexSection() {
           runtimeOptions,
         });
         if (!result.ok) {
-          toast.error("OAuth login failed", {
+          toast.error(i18n.t("settingsProviders:codexSection.toasts.oauthFailed"), {
             description: result.detail,
           });
           return;
         }
-        toast.success(`Started OAuth login for ${serverName}`, {
+        toast.success(i18n.t("settingsProviders:codexSection.toasts.oauthStarted", { server: serverName }), {
           description: result.authorizationUrl
-            ? "Open the authorization URL to finish the flow."
+            ? i18n.t("settingsProviders:codexSection.toasts.oauthOpenUrl")
             : result.detail,
         });
         if (result.authorizationUrl) {
           setResourcePreview({
             status: "ready",
-            title: `${serverName} authorization URL`,
+            title: i18n.t("settingsProviders:codexSection.resourcePreview.authorizationUrlTitle", { server: serverName }),
             detail: result.detail,
             body: result.authorizationUrl,
           });
         }
       } catch (error) {
-        toast.error("OAuth login failed", {
+        toast.error(i18n.t("settingsProviders:codexSection.toasts.oauthFailed"), {
           description: error instanceof Error ? error.message : String(error),
         });
       } finally {
@@ -546,12 +536,12 @@ export function CodexSection() {
     async (args: { server: string; uri: string }) => {
       const readCodexMcpResource = window.api?.provider?.readCodexMcpResource;
       if (!readCodexMcpResource) {
-        toast.error("MCP resource bridge unavailable");
+        toast.error(i18n.t("settingsProviders:codexSection.toasts.resourceBridgeUnavailable"));
         return;
       }
       if (!selectedThreadId) {
-        toast.error("Select a Codex thread first", {
-          description: "Resource reads require a thread context.",
+        toast.error(i18n.t("settingsProviders:codexSection.toasts.selectThreadFirst"), {
+          description: i18n.t("settingsProviders:codexSection.toasts.resourceNeedsThread"),
         });
         return;
       }
@@ -559,7 +549,7 @@ export function CodexSection() {
       setResourcePreview({
         status: "loading",
         title: args.uri,
-        detail: `Reading ${args.uri}...`,
+        detail: i18n.t("settingsProviders:codexSection.resourcePreview.reading", { uri: args.uri }),
         body: "",
       });
       try {
@@ -583,7 +573,7 @@ export function CodexSection() {
             content.text
               ? content.text
               : content.blob
-                ? `[binary blob] ${content.blob.slice(0, 120)}`
+                ? i18n.t("settingsProviders:codexSection.resourcePreview.binaryBlob", { preview: content.blob.slice(0, 120) })
                 : "",
           )
           .filter(Boolean)
@@ -592,7 +582,7 @@ export function CodexSection() {
           status: "ready",
           title: args.uri,
           detail: result.detail,
-          body: body || "(empty resource body)",
+          body: body || i18n.t("settingsProviders:codexSection.resourcePreview.emptyBody"),
         });
       } catch (error) {
         setResourcePreview({
@@ -613,12 +603,12 @@ export function CodexSection() {
   const handleRenameThread = useCallback(async () => {
     const renameCodexThread = window.api?.provider?.renameCodexThread;
     if (!renameCodexThread || !selectedThreadId) {
-      toast.error("Thread rename unavailable");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.renameUnavailable"));
       return;
     }
     await runMutation({
       busyKey: `thread-rename:${selectedThreadId}`,
-      label: "Renamed Codex thread",
+      label: i18n.t("settingsProviders:codexSection.toasts.renamed"),
       action: () =>
         renameCodexThread({
           threadId: selectedThreadId,
@@ -631,7 +621,7 @@ export function CodexSection() {
   const handleForkThread = useCallback(async () => {
     const forkCodexThread = window.api?.provider?.forkCodexThread;
     if (!forkCodexThread || !selectedThreadId) {
-      toast.error("Thread fork unavailable");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.forkUnavailable"));
       return;
     }
     setBusyKey(`thread-fork:${selectedThreadId}`);
@@ -641,12 +631,12 @@ export function CodexSection() {
         runtimeOptions,
       });
       if (!result.ok) {
-        toast.error("Thread fork failed", {
+        toast.error(i18n.t("settingsProviders:codexSection.toasts.forkFailed"), {
           description: result.detail,
         });
         return;
       }
-      toast.success("Forked Codex thread", {
+      toast.success(i18n.t("settingsProviders:codexSection.toasts.forked"), {
         description: result.detail,
       });
       if (result.threadId) {
@@ -654,7 +644,7 @@ export function CodexSection() {
       }
       await loadSnapshot();
     } catch (error) {
-      toast.error("Thread fork failed", {
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.forkFailed"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -668,12 +658,12 @@ export function CodexSection() {
     async (archived: boolean) => {
       const archiveCodexThread = window.api?.provider?.archiveCodexThread;
       if (!archiveCodexThread || !selectedThreadId) {
-        toast.error("Thread archive unavailable");
+        toast.error(i18n.t("settingsProviders:codexSection.toasts.archiveUnavailable"));
         return;
       }
       await runMutation({
         busyKey: `thread-archive:${selectedThreadId}`,
-        label: archived ? "Archived Codex thread" : "Restored Codex thread",
+        label: i18n.t(archived ? "settingsProviders:codexSection.toasts.archived" : "settingsProviders:codexSection.toasts.restored"),
         action: () =>
           archiveCodexThread({
             threadId: selectedThreadId,
@@ -688,12 +678,12 @@ export function CodexSection() {
   const handleCompactThread = useCallback(async () => {
     const compactCodexThread = window.api?.provider?.compactCodexThread;
     if (!compactCodexThread || !selectedThreadId) {
-      toast.error("Thread compaction unavailable");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.compactUnavailable"));
       return;
     }
     await runMutation({
       busyKey: `thread-compact:${selectedThreadId}`,
-      label: "Compacted thread context",
+      label: i18n.t("settingsProviders:codexSection.toasts.compacted"),
       action: () =>
         compactCodexThread({
           threadId: selectedThreadId,
@@ -705,17 +695,17 @@ export function CodexSection() {
   const handleRollbackThread = useCallback(async () => {
     const rollbackCodexThread = window.api?.provider?.rollbackCodexThread;
     if (!rollbackCodexThread || !selectedThreadId) {
-      toast.error("Thread rollback unavailable");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.rollbackUnavailable"));
       return;
     }
     const turns = Number.parseInt(rollbackTurns, 10);
     if (!Number.isFinite(turns) || turns < 1) {
-      toast.error("Rollback count must be at least 1.");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.rollbackCountInvalid"));
       return;
     }
     await runMutation({
       busyKey: `thread-rollback:${selectedThreadId}`,
-      label: "Rolled back Codex thread",
+      label: i18n.t("settingsProviders:codexSection.toasts.rolledBack"),
       action: () =>
         rollbackCodexThread({
           threadId: selectedThreadId,
@@ -730,12 +720,12 @@ export function CodexSection() {
       window.api?.provider?.importCodexExternalConfig;
     const items = snapshotState.snapshot?.externalAgentConfigItems ?? [];
     if (!importCodexExternalConfig || items.length === 0) {
-      toast.error("No external config items to import.");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.noExternalConfig"));
       return;
     }
     await runMutation({
       busyKey: "config-import",
-      label: "Imported external config",
+      label: i18n.t("settingsProviders:codexSection.toasts.importedExternalConfig"),
       action: () =>
         importCodexExternalConfig({
           migrationItems: items,
@@ -751,23 +741,23 @@ export function CodexSection() {
   const handleSingleConfigWrite = useCallback(async () => {
     const writeCodexConfigValue = window.api?.provider?.writeCodexConfigValue;
     if (!writeCodexConfigValue) {
-      toast.error("Config write bridge unavailable");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.configWriteUnavailable"));
       return;
     }
     if (!singleConfigKeyPath.trim()) {
-      toast.error("Config key path is required.");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.configKeyPathRequired"));
       return;
     }
     const parsed = parseJsonInput(singleConfigValue);
     if (!parsed.ok) {
-      toast.error("Invalid JSON value", {
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.invalidJsonValue"), {
         description: parsed.error,
       });
       return;
     }
     await runMutation({
       busyKey: "config-write-single",
-      label: `Updated ${singleConfigKeyPath.trim()}`,
+      label: i18n.t("settingsProviders:codexSection.toasts.configUpdated", { keyPath: singleConfigKeyPath.trim() }),
       action: () =>
         writeCodexConfigValue({
           keyPath: singleConfigKeyPath.trim(),
@@ -789,23 +779,23 @@ export function CodexSection() {
   const handleBatchConfigWrite = useCallback(async () => {
     const batchWriteCodexConfig = window.api?.provider?.batchWriteCodexConfig;
     if (!batchWriteCodexConfig) {
-      toast.error("Batch config write bridge unavailable");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.batchWriteUnavailable"));
       return;
     }
     const parsed = parseJsonInput(batchConfigEdits);
     if (!parsed.ok) {
-      toast.error("Invalid batch edit JSON", {
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.invalidBatchJson"), {
         description: parsed.error,
       });
       return;
     }
     if (!Array.isArray(parsed.value)) {
-      toast.error("Batch edits must be a JSON array.");
+      toast.error(i18n.t("settingsProviders:codexSection.toasts.batchNotArray"));
       return;
     }
     await runMutation({
       busyKey: "config-write-batch",
-      label: "Applied Codex config batch",
+      label: i18n.t("settingsProviders:codexSection.toasts.batchApplied"),
       action: () =>
         batchWriteCodexConfig({
           edits: parsed.value as Array<{
@@ -881,15 +871,15 @@ export function CodexSection() {
         <div className={sx(codexStyles.rootHeader)}>
           <div className={sx(codexStyles.rowWrapCenterGap2)}>
             <StatusPill
-              label={
+              label={t(
                 snapshotState.status === "error"
-                  ? "snapshot error"
+                  ? "settingsProviders:codexSection.status.snapshotError"
                   : snapshotState.status === "loading"
-                    ? "loading snapshot"
+                    ? "settingsProviders:codexSection.status.loadingSnapshot"
                     : snapshot
-                      ? "app server ready"
-                      : "snapshot idle"
-              }
+                      ? "settingsProviders:codexSection.status.appServerReady"
+                      : "settingsProviders:codexSection.status.snapshotIdle",
+              )}
               tone={
                 snapshotState.status === "error"
                   ? "danger"
@@ -899,15 +889,15 @@ export function CodexSection() {
               }
             />
             <StatusPill
-              label={
+              label={t(
                 codexModelCatalog.isDynamic
-                  ? "dynamic model catalog"
-                  : "fallback model catalog"
-              }
+                  ? "settingsProviders:codexSection.status.dynamicModelCatalog"
+                  : "settingsProviders:codexSection.status.fallbackModelCatalog",
+              )}
               tone={codexModelCatalog.isDynamic ? "success" : "warning"}
             />
             {currentThreadId ? (
-              <StatusPill label={`current thread ${currentThreadId}`} />
+              <StatusPill label={t("settingsProviders:codexSection.status.currentThread", { id: currentThreadId })} />
             ) : null}
             {snapshot?.account?.planType ? (
               <StatusPill label={snapshot.account.planType} />
@@ -915,7 +905,7 @@ export function CodexSection() {
           </div>
           <div className={sx(codexStyles.headerMeta)}>
             {snapshotState.updatedAt ? (
-              <span>Updated {formatDateTime(snapshotState.updatedAt)}</span>
+              <span>{t("settingsProviders:codexSection.updatedAt", { time: formatDateTime(t, snapshotState.updatedAt) })}</span>
             ) : null}
             <Button
               type="button"
@@ -932,7 +922,7 @@ export function CodexSection() {
                   snapshotState.status === "loading" && codexStyles.iconSpin,
                 )}
               />
-              Refresh
+              {t("common:actions.refresh")}
             </Button>
           </div>
         </div>
@@ -945,19 +935,19 @@ export function CodexSection() {
           <div className={sx(codexStyles.tabsBar)}>
             <TabsList xstyle={codexStyles.tabsList}>
               <TabsTrigger value="overview" xstyle={codexStyles.tabsTrigger}>
-                Overview
+                {t("settingsProviders:codexSection.tabs.overview")}
               </TabsTrigger>
               <TabsTrigger value="extensions" xstyle={codexStyles.tabsTrigger}>
-                Extensions
+                {t("settingsProviders:codexSection.tabs.extensions")}
               </TabsTrigger>
               <TabsTrigger value="threads" xstyle={codexStyles.tabsTrigger}>
-                Threads
+                {t("settingsProviders:codexSection.tabs.threads")}
               </TabsTrigger>
               <TabsTrigger value="commands" xstyle={codexStyles.tabsTrigger}>
-                Commands
+                {t("settingsProviders:codexSection.tabs.commands")}
               </TabsTrigger>
               <TabsTrigger value="config" xstyle={codexStyles.tabsTrigger}>
-                Advanced
+                {t("settingsProviders:codexSection.tabs.advanced")}
               </TabsTrigger>
             </TabsList>
           </div>

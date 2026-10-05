@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
@@ -16,6 +17,7 @@ import {
 } from "../settings-dialog.shared";
 
 export function SkillsSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     skillsEnabled,
     skillsAutoSuggest,
@@ -120,191 +122,182 @@ export function SkillsSection() {
   ]);
 
   return (
-    <>
-      <SectionStack>
-        <SettingsCard
-          title="Skills"
-          description="Control skill suggestions and automatic prompting."
+    <SectionStack>
+      <SettingsCard
+        title={t("settingsProviders:codexExtensionsTab.skills")}
+        description={t("settings:skillsSection.skills.description")}
+      >
+        <SwitchField
+          title={t("common:status.enabled")}
+          checked={skillsEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { skillsEnabled: checked } })
+          }
+        />
+        <SwitchField
+          title={t("settings:skillsSection.skills.autoSuggest")}
+          checked={skillsAutoSuggest}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { skillsAutoSuggest: checked } })
+          }
+        />
+        <LabeledField
+          title={t("settings:skillsSection.skills.sharedRoot.title")}
+          description={t("settings:skillsSection.skills.sharedRoot.description")}
         >
-          <SwitchField
-            title="Enabled"
-            checked={skillsEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { skillsEnabled: checked } })
+          <DraftInput
+            xstyle={styles.input40}
+            placeholder="~/shared-skills"
+            value={sharedSkillsHome}
+            onCommit={(nextValue) =>
+              updateSettings({ patch: { sharedSkillsHome: nextValue } })
             }
           />
-          <SwitchField
-            title="Auto Suggest"
-            checked={skillsAutoSuggest}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { skillsAutoSuggest: checked } })
-            }
-          />
-          <LabeledField
-            title="Shared Skills Root"
-            description="Optional shared global skill directory. Leave blank to follow STAVE_SHARED_SKILLS_HOME when present. Supports ~/..."
-          >
-            <DraftInput
-              xstyle={styles.input40}
-              placeholder="~/shared-skills"
-              value={sharedSkillsHome}
-              onCommit={(nextValue) =>
-                updateSettings({ patch: { sharedSkillsHome: nextValue } })
-              }
-            />
-          </LabeledField>
-        </SettingsCard>
-        <SettingsCard
-          title="Detected Skills"
-          description="Stave scans global, user, and workspace-local skill roots. The shared global root follows Settings first, then STAVE_SHARED_SKILLS_HOME."
-        >
-          <div className={sx(styles.rowBetween)}>
-            <div className={sx(styles.spaceY1)}>
-              <p className={sx(styles.smallMedium)}>
-                {skillCatalog.status === "loading"
-                  ? "Refreshing catalog..."
-                  : skillCatalog.status === "error"
-                    ? "Skill discovery failed"
-                    : `${skillCatalog.skills.length} skills across ${skillCatalog.roots.length} roots`}
-              </p>
-              <p className={sx(styles.mutedBody)}>{skillCatalog.detail}</p>
-              {skillCatalog.fetchedAt ? (
-                <p className={sx(styles.captionMuted)}>
-                  Last updated{" "}
-                  {formatTaskUpdatedAt({ value: skillCatalog.fetchedAt })}
-                </p>
-              ) : null}
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void refreshSkillCatalog({ workspacePath })}
-            >
-              Refresh
-            </Button>
+        </LabeledField>
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:skillsSection.detected.title")}
+        description={t("settings:skillsSection.detected.description")}
+      >
+        <div className={sx(styles.rowBetween)}>
+          <div className={sx(styles.spaceY1)}>
+            <p className={sx(styles.smallMedium)}>
+              {skillCatalog.status === "loading"
+                ? t("settings:skillsSection.detected.refreshing")
+                : skillCatalog.status === "error"
+                  ? t("settings:skillsSection.detected.discoveryFailed")
+                  : t("settings:settingsDialogSkillsSection.skillsAcrossRoots", { value1: skillCatalog.skills.length, value2: skillCatalog.roots.length })}
+            </p>
+            <p className={sx(styles.mutedBody)}>{skillCatalog.detail}</p>
+            {skillCatalog.fetchedAt ? (
+              <p className={sx(styles.captionMuted)}>{t("settings:messages.skillsUpdated", { updatedAt: formatTaskUpdatedAt({ value: skillCatalog.fetchedAt }) })}</p>
+            ) : null}
           </div>
-          <div className={sx(styles.spaceY2)}>
-            <p className={sx(styles.metaLabel)}>Roots</p>
-            {skillCatalog.roots.length === 0 ? (
-              <p className={sx(styles.mutedBody)}>
-                No skill roots were discovered for the current workspace.
-              </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void refreshSkillCatalog({ workspacePath })}
+          >
+            {t("common:actions.refresh")}</Button>
+        </div>
+        <div className={sx(styles.spaceY2)}>
+          <p className={sx(styles.metaLabel)}>{t("settings:skillsSection.detected.roots")}</p>
+          {skillCatalog.roots.length === 0 ? (
+            <p className={sx(styles.mutedBody)}>
+              {t("settings:skillsSection.detected.noRoots")}</p>
+          ) : (
+            skillCatalog.roots.map((root) => (
+              <div key={root.id} className={sx(styles.listCard)}>
+                <div className={sx(styles.rowWrapGap2)}>
+                  <span className={sx(styles.smallMedium)}>{root.path}</span>
+                  <Badge
+                    variant="secondary"
+                    className={sx(styles.smallBadge)}
+                  >
+                    {root.scope}
+                  </Badge>
+                  <Badge variant="outline" className={sx(styles.smallBadge)}>
+                    {root.provider}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={sx(styles.smallBadgePlain)}
+                  >
+                    {skillCountByRootPath.get(root.path) ?? 0} {i18n.t("settings:settingsDialogSkillsSection.skills")}</Badge>
+                </div>
+                {root.detail ? (
+                  <p className={sx(styles.microMutedTop1)}>{root.detail}</p>
+                ) : null}
+              </div>
+            ))
+          )}
+        </div>
+        <div className={sx(styles.spaceY2)}>
+          <p className={sx(styles.metaLabel)}>{t("settings:skillsSection.detected.catalog")}</p>
+          {skillCatalog.skills.length === 0 ? (
+            skillCatalog.status === "loading" ? (
+              <p className={sx(styles.mutedBody)}>{t("settings:skillsSection.detected.loading")}</p>
             ) : (
-              skillCatalog.roots.map((root) => (
-                <div key={root.id} className={sx(styles.listCard)}>
-                  <div className={sx(styles.rowWrapGap2)}>
-                    <span className={sx(styles.smallMedium)}>{root.path}</span>
-                    <Badge
-                      variant="secondary"
-                      className={sx(styles.smallBadge)}
-                    >
-                      {root.scope}
-                    </Badge>
-                    <Badge variant="outline" className={sx(styles.smallBadge)}>
-                      {root.provider}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={sx(styles.smallBadgePlain)}
-                    >
-                      {skillCountByRootPath.get(root.path) ?? 0} skills
-                    </Badge>
-                  </div>
-                  {root.detail ? (
-                    <p className={sx(styles.microMutedTop1)}>{root.detail}</p>
+              <p className={sx(styles.mutedBody)}>
+                {t("settings:skillsSection.detected.empty")}</p>
+            )
+          ) : (
+            Array.from(skillsByRoot.entries()).map(([rootPath, group]) => {
+              const isCollapsed = collapsedGroups.includes(rootPath);
+              return (
+                <div key={rootPath} className={sx(styles.groupCard)}>
+                  <Button
+                    layout="host"
+                    type="button"
+                    xstyle={styles.groupToggle}
+                    onClick={() => {
+                      setCollapsedGroups((current) =>
+                        current.includes(rootPath)
+                          ? current.filter((v) => v !== rootPath)
+                          : [...current, rootPath],
+                      );
+                    }}
+                  >
+                    <div className={sx(styles.groupToggleLeft)}>
+                      <span className={sx(styles.smallMediumTruncate)}>
+                        {rootPath}
+                      </span>
+                      <Badge
+                        variant="secondary"
+                        className={sx(styles.smallBadgePlain)}
+                      >
+                        {group.skills.length}
+                      </Badge>
+                      {group.root ? (
+                        <Badge
+                          variant="outline"
+                          className={sx(styles.smallBadge)}
+                        >
+                          {group.root.scope}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    {isCollapsed ? (
+                      <ChevronRight className={sx(styles.chevron)} />
+                    ) : (
+                      <ChevronDown className={sx(styles.chevron)} />
+                    )}
+                  </Button>
+                  {!isCollapsed ? (
+                    <div className={sx(styles.groupBody)}>
+                      {group.skills.map((skill) => (
+                        <div key={skill.id} className={sx(styles.listCard)}>
+                          <div className={sx(styles.rowWrapGap2)}>
+                            <span className={sx(styles.smallMedium)}>
+                              {skill.name}
+                            </span>
+                            <Badge
+                              variant="secondary"
+                              className={sx(styles.smallBadge)}
+                            >
+                              {skill.scope}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={sx(styles.smallBadge)}
+                            >
+                              {skill.provider}
+                            </Badge>
+                          </div>
+                          <p className={sx(styles.bodyMutedTop1)}>
+                            {skill.description}
+                          </p>
+                          <p className={sx(styles.skillMeta)}>{skill.path}</p>
+                        </div>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
-              ))
-            )}
-          </div>
-          <div className={sx(styles.spaceY2)}>
-            <p className={sx(styles.metaLabel)}>Catalog</p>
-            {skillCatalog.skills.length === 0 ? (
-              skillCatalog.status === "loading" ? (
-                <p className={sx(styles.mutedBody)}>Loading skills...</p>
-              ) : (
-                <p className={sx(styles.mutedBody)}>
-                  No SKILL.md entries were found.
-                </p>
-              )
-            ) : (
-              Array.from(skillsByRoot.entries()).map(([rootPath, group]) => {
-                const isCollapsed = collapsedGroups.includes(rootPath);
-                return (
-                  <div key={rootPath} className={sx(styles.groupCard)}>
-                    <Button
-                      layout="host"
-                      type="button"
-                      xstyle={styles.groupToggle}
-                      onClick={() => {
-                        setCollapsedGroups((current) =>
-                          current.includes(rootPath)
-                            ? current.filter((v) => v !== rootPath)
-                            : [...current, rootPath],
-                        );
-                      }}
-                    >
-                      <div className={sx(styles.groupToggleLeft)}>
-                        <span className={sx(styles.smallMediumTruncate)}>
-                          {rootPath}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className={sx(styles.smallBadgePlain)}
-                        >
-                          {group.skills.length}
-                        </Badge>
-                        {group.root ? (
-                          <Badge
-                            variant="outline"
-                            className={sx(styles.smallBadge)}
-                          >
-                            {group.root.scope}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      {isCollapsed ? (
-                        <ChevronRight className={sx(styles.chevron)} />
-                      ) : (
-                        <ChevronDown className={sx(styles.chevron)} />
-                      )}
-                    </Button>
-                    {!isCollapsed ? (
-                      <div className={sx(styles.groupBody)}>
-                        {group.skills.map((skill) => (
-                          <div key={skill.id} className={sx(styles.listCard)}>
-                            <div className={sx(styles.rowWrapGap2)}>
-                              <span className={sx(styles.smallMedium)}>
-                                {skill.name}
-                              </span>
-                              <Badge
-                                variant="secondary"
-                                className={sx(styles.smallBadge)}
-                              >
-                                {skill.scope}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className={sx(styles.smallBadge)}
-                              >
-                                {skill.provider}
-                              </Badge>
-                            </div>
-                            <p className={sx(styles.bodyMutedTop1)}>
-                              {skill.description}
-                            </p>
-                            <p className={sx(styles.skillMeta)}>{skill.path}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </SettingsCard>
-      </SectionStack>
-    </>
+              );
+            })
+          )}
+        </div>
+      </SettingsCard>
+    </SectionStack>
   );
 }

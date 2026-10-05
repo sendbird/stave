@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useSyncExternalStore } from "react";
 import type * as React from "react";
@@ -112,22 +113,14 @@ function formatClock(totalSeconds: number): string {
 function formatSpokenElapsed(totalSeconds: number, label: string): string {
   const clamped = Math.max(0, totalSeconds);
 
-  if (clamped < 60) {
-    return `${label} less than a minute`;
-  }
-
+  if (clamped < 60) return i18n.t("ui:durationTimer.lessThanMinute", { label });
   const hours = Math.floor(clamped / 3600);
   const minutes = Math.floor((clamped % 3600) / 60);
-  const parts: string[] = [];
-
-  if (hours > 0) {
-    parts.push(`${hours} ${hours === 1 ? "hour" : "hours"}`);
-  }
-  if (minutes > 0) {
-    parts.push(`${minutes} ${minutes === 1 ? "minute" : "minutes"}`);
-  }
-
-  return `${label} ${parts.join(" ")}`;
+  const hourText = i18n.t("ui:durationTimer.hours", { count: hours });
+  const minuteText = i18n.t("ui:durationTimer.minutes", { count: minutes });
+  return hours > 0 && minutes > 0
+    ? i18n.t("ui:durationTimer.hoursAndMinutes", { label, hours: hourText, minutes: minuteText })
+    : i18n.t("ui:durationTimer.elapsed", { label, duration: hours > 0 ? hourText : minuteText });
 }
 
 /**
@@ -143,13 +136,14 @@ function formatSpokenElapsed(totalSeconds: number, label: string): string {
  */
 export function DurationTimer({
   className,
-  label = "elapsed",
+  label = i18n.t("ui:durationTimer.defaultLabel"),
   now,
   paused = false,
   startedAt,
   xstyle,
   ...props
 }: DurationTimerProps) {
+  useTranslation();
   const live = now === undefined && !paused;
   const tickedNow = useSharedNow(live);
   const reference =

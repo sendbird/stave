@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 import type * as React from "react";
@@ -157,6 +158,7 @@ export function DiffViewer({
   xstyle,
   ...props
 }: DiffViewerProps) {
+  useTranslation();
   const ops = useMemo(() => {
     const lineOps = diffLines(splitLines(before), splitLines(after));
     if (granularity === "word") annotateWordDiff(lineOps);
@@ -193,7 +195,7 @@ export function DiffViewer({
         onClick={() => expand(start)}
         type="button"
       >
-        Expand {count} unchanged {count === 1 ? "line" : "lines"}
+        {i18n.t("ui:diffViewer.expandUnchanged", { count })}
       </button>
     </div>
   );
@@ -202,7 +204,7 @@ export function DiffViewer({
     <div
       {...props}
       {...theme}
-      aria-label={props["aria-label"] ?? "Text diff"}
+      aria-label={props["aria-label"] ?? i18n.t("ui:diffviewer.textDiff")}
       className={cx(sx(styles.root, xstyle), theme.className, className)}
       role="group"
     >

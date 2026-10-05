@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   useCallback,
   useEffect,
@@ -33,7 +34,6 @@ import {
   type ConsoleLevelFilter,
   type LensPanelTab,
 } from "@/lib/lens/lens-log-format";
-
 /**
  * Console and network diagnostics log for one lens session: the log state and
  * its pause buffers, the event subscriptions that feed them, the detail and
@@ -52,6 +52,7 @@ export function useLensDiagnosticsLog(args: {
   lensPanelTab: LensPanelTab;
   setLastLoadError: Dispatch<SetStateAction<string | null>>;
 }) {
+  useTranslation();
   const {
     workspaceId,
     lensSessionId,
@@ -149,7 +150,6 @@ export function useLensDiagnosticsLog(args: {
   consolePausedRef.current = consolePaused;
   networkPausedRef.current = networkPaused;
   networkBodyStateRef.current = networkBodyState;
-
   useEffect(() => {
     setConsoleEntries([]);
     setSelectedConsoleEntryId(null);
@@ -318,7 +318,7 @@ export function useLensDiagnosticsLog(args: {
         }
         setDiagnosticsCaptureState({
           enabled: false,
-          message: result.message ?? "Full diagnostics capture is unavailable.",
+          message: result.message ?? i18n.t("lens:useLensDiagnosticsLog.fullDiagnosticsCaptureIsUnavailable"),
         });
       })
       .catch((error) => {
@@ -356,7 +356,7 @@ export function useLensDiagnosticsLog(args: {
     const getDetail = window.api?.lens?.getConsoleEntryDetail;
     if (!getDetail) {
       setConsoleEntryDetail(null);
-      setConsoleDetailError("Console detail capture is unavailable.");
+      setConsoleDetailError(i18n.t("lens:useLensDiagnosticsLog.consoleDetailCaptureIsUnavailable"));
       return;
     }
 
@@ -378,7 +378,7 @@ export function useLensDiagnosticsLog(args: {
           return;
         }
         setConsoleDetailError(
-          result.message ?? "Console detail is unavailable for this entry.",
+          result.message ?? i18n.t("lens:useLensDiagnosticsLog.consoleDetailIsUnavailableForThisEntry"),
         );
       })
       .catch((error) => {
@@ -418,7 +418,7 @@ export function useLensDiagnosticsLog(args: {
     const getDetail = window.api?.lens?.getNetworkEntryDetail;
     if (!getDetail) {
       setNetworkEntryDetail(null);
-      setNetworkDetailError("Network detail capture is unavailable.");
+      setNetworkDetailError(i18n.t("lens:useLensDiagnosticsLog.networkDetailCaptureIsUnavailable"));
       return;
     }
 
@@ -440,7 +440,7 @@ export function useLensDiagnosticsLog(args: {
           return;
         }
         setNetworkDetailError(
-          result.message ?? "Network detail is unavailable for this entry.",
+          result.message ?? i18n.t("lens:useLensDiagnosticsLog.networkDetailIsUnavailableForThisEntry"),
         );
       })
       .catch((error) => {
@@ -502,7 +502,7 @@ export function useLensDiagnosticsLog(args: {
           entryState: selectedNetworkEntryState,
           loading: false,
           body: null,
-          error: "Network body capture is unavailable.",
+          error: i18n.t("lens:useLensDiagnosticsLog.networkBodyCaptureIsUnavailable"),
         },
       }));
       return;
@@ -538,7 +538,7 @@ export function useLensDiagnosticsLog(args: {
             body: result.ok ? (result.body ?? null) : null,
             error: result.ok
               ? null
-              : (result.message ?? "Network body is unavailable."),
+              : (result.message ?? i18n.t("lens:useLensDiagnosticsLog.networkBodyIsUnavailable")),
           },
         }));
       })
@@ -653,20 +653,20 @@ export function useLensDiagnosticsLog(args: {
   const copyConsoleLog = useCallback(() => {
     void copyTextToClipboard(formatConsoleEntries(filteredConsoleEntries))
       .then(() => {
-        toast.success("Console copied");
+        toast.success(i18n.t("lens:useLensDiagnosticsLog.consoleCopied"));
       })
       .catch(() => {
-        toast.error("Failed to copy console log");
+        toast.error(i18n.t("lens:useLensDiagnosticsLog.failedToCopyConsoleLog"));
       });
   }, [filteredConsoleEntries]);
 
   const copyNetworkLog = useCallback(() => {
     void copyTextToClipboard(formatNetworkEntries(filteredNetworkEntries))
       .then(() => {
-        toast.success("Network log copied");
+        toast.success(i18n.t("lens:useLensDiagnosticsLog.networkLogCopied"));
       })
       .catch(() => {
-        toast.error("Failed to copy network log");
+        toast.error(i18n.t("lens:useLensDiagnosticsLog.failedToCopyNetworkLog"));
       });
   }, [filteredNetworkEntries]);
 
@@ -723,13 +723,13 @@ export function useLensDiagnosticsLog(args: {
     void clear({ workspaceId, lensSessionId })
       .then((result) => {
         if (!result.ok) {
-          toast.error("Could not clear console history", {
+          toast.error(i18n.t("lens:useLensDiagnosticsLog.couldNotClearConsoleHistory"), {
             description: result.message,
           });
         }
       })
       .catch((error) => {
-        toast.error("Could not clear console history", {
+        toast.error(i18n.t("lens:useLensDiagnosticsLog.couldNotClearConsoleHistory"), {
           description: error instanceof Error ? error.message : String(error),
         });
       });
@@ -752,13 +752,13 @@ export function useLensDiagnosticsLog(args: {
     void clear({ workspaceId, lensSessionId })
       .then((result) => {
         if (!result.ok) {
-          toast.error("Could not clear network history", {
+          toast.error(i18n.t("lens:useLensDiagnosticsLog.couldNotClearNetworkHistory"), {
             description: result.message,
           });
         }
       })
       .catch((error) => {
-        toast.error("Could not clear network history", {
+        toast.error(i18n.t("lens:useLensDiagnosticsLog.couldNotClearNetworkHistory"), {
           description: error instanceof Error ? error.message : String(error),
         });
       });
@@ -769,8 +769,8 @@ export function useLensDiagnosticsLog(args: {
       return;
     }
     void copyTextToClipboard(formatConsoleEntries([selectedConsoleEntry])).then(
-      () => toast.success("Console entry copied"),
-      () => toast.error("Failed to copy console entry"),
+      () => toast.success(i18n.t("lens:useLensDiagnosticsLog.consoleEntryCopied")),
+      () => toast.error(i18n.t("lens:useLensDiagnosticsLog.failedToCopyConsoleEntry")),
     );
   }, [selectedConsoleEntry]);
 
@@ -781,8 +781,8 @@ export function useLensDiagnosticsLog(args: {
     void copyTextToClipboard(
       formatNetworkEntryDetails(selectedNetworkEntry),
     ).then(
-      () => toast.success("Network entry copied"),
-      () => toast.error("Failed to copy network entry"),
+      () => toast.success(i18n.t("lens:useLensDiagnosticsLog.networkEntryCopied")),
+      () => toast.error(i18n.t("lens:useLensDiagnosticsLog.failedToCopyNetworkEntry")),
     );
   }, [selectedNetworkEntry]);
 
@@ -790,7 +790,7 @@ export function useLensDiagnosticsLog(args: {
     async (objectHandle: string) => {
       const getProperties = window.api?.lens?.getConsoleObjectProperties;
       if (!workspaceId || !selectedConsoleEntryId || !getProperties) {
-        throw new Error("Object inspection is unavailable.");
+        throw new Error(i18n.t("lens:useLensDiagnosticsLog.objectInspectionIsUnavailable"));
       }
       const result = await getProperties({
         workspaceId,
@@ -801,7 +801,7 @@ export function useLensDiagnosticsLog(args: {
       });
       if (!result.ok || !result.properties) {
         throw new Error(
-          result.message ?? "Object properties are no longer available.",
+          result.message ?? i18n.t("lens:useLensDiagnosticsLog.objectPropertiesAreNoLongerAvailable"),
         );
       }
       return result.properties;
@@ -832,11 +832,11 @@ export function useLensDiagnosticsLog(args: {
         if (!result.ok || !result.state) {
           toast.error(
             enabled
-              ? "Could not start full capture"
-              : "Could not stop full capture",
+              ? i18n.t("lens:useLensDiagnosticsLog.couldNotStartFullCapture")
+              : i18n.t("lens:useLensDiagnosticsLog.couldNotStopFullCapture"),
             {
               description:
-                result.message ?? "Lens diagnostics capture did not respond.",
+                result.message ?? i18n.t("lens:useLensDiagnosticsLog.lensDiagnosticsCaptureDidNotRespond"),
             },
           );
           return;
@@ -850,8 +850,8 @@ export function useLensDiagnosticsLog(args: {
         }
         toast.error(
           enabled
-            ? "Could not start full capture"
-            : "Could not stop full capture",
+            ? i18n.t("lens:useLensDiagnosticsLog.couldNotStartFullCapture")
+            : i18n.t("lens:useLensDiagnosticsLog.couldNotStopFullCapture"),
           {
             description: error instanceof Error ? error.message : String(error),
           },

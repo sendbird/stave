@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { Plus } from "lucide-react";
 import { vars } from "../ads/tokens/tokens.stylex";
@@ -18,6 +19,7 @@ const IS_MAC =
  * the selected workspace, with the shortcut that does the same.
  */
 export function TaskPanelEmpty(props: { hasWorkspace: boolean }) {
+  useTranslation();
   const createTask = useAppStore((state) => state.createTask);
   return (
     <div className={sx(styles.root)}>
@@ -26,14 +28,14 @@ export function TaskPanelEmpty(props: { hasWorkspace: boolean }) {
       </RightRailPanelHeader>
       <div className={sx(styles.body)}>
         <div className={sx(styles.intro)}>
-          <p className={sx(styles.title)}>No task open</p>
+          <p className={sx(styles.title)}>{i18n.t("session:taskPanelEmpty.taskPanelEmpty")}</p>
           <p className={sx(styles.reason)}>
             {props.hasWorkspace
-              ? "Select a task tab or start one, and its sections appear here."
-              : "Select a workspace in the sidebar, then start a task in it."}
+              ? i18n.t("session:taskPanelEmpty.taskPanelEmpty2")
+              : i18n.t("session:taskPanelEmpty.taskPanelEmpty3")}
           </p>
         </div>
-        <ul className={sx(styles.list)} aria-label="Task sections">
+        <ul className={sx(styles.list)} aria-label={i18n.t("session:taskPanelEmpty.ariaLabel")}>
           {TASK_PANEL_TABS.map((tab, index) => (
             <li key={tab.id} className={sx(styles.row, index > 0 && styles.rowDivided)}>
               <span className={sx(styles.rowLabel)}>{tab.label}</span>
@@ -49,8 +51,7 @@ export function TaskPanelEmpty(props: { hasWorkspace: boolean }) {
             onClick={() => createTask({ title: "" })}
           >
             <Plus aria-hidden />
-            New task
-            <KbdGroup className={sx(styles.shortcut)}>
+            {i18n.t("session:taskPanelEmpty.taskPanelEmpty4")}<KbdGroup className={sx(styles.shortcut)}>
               <Kbd>{IS_MAC ? "⌘" : "Ctrl"}</Kbd>
               <Kbd>N</Kbd>
             </KbdGroup>

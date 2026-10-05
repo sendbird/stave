@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { Button, Input } from "@/components/ui";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -6,6 +7,7 @@ import type {
   CodexThreadDetailSnapshot,
   CodexThreadSnapshot,
 } from "@/lib/providers/provider.types";
+import { formatNumber } from "@/i18n/format";
 import { DraftInput } from "../settings-dialog.shared";
 import { codexStyles } from "../settings-dialog-codex-section.styles";
 import {
@@ -54,27 +56,28 @@ export function ThreadsTab({
   onArchiveThread,
   onRollbackThread,
 }: ThreadsTabProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   return (
     <>
       {!snapshot ? null : (
         <div className={sx(codexStyles.twoColGridThreads)}>
           <DenseSection
-            title="Thread list"
-            description="Active and archived Codex threads returned for the current workspace."
+            title={t("settingsProviders:codexThreadsTab.list.title")}
+            description={t("settingsProviders:codexThreadsTab.list.description")}
           >
             <div className={sx(codexStyles.stack4)}>
               {[
-                ["Active", snapshot.threads] as const,
-                ["Archived", snapshot.archivedThreads] as const,
-              ].map(([label, threads]) => (
-                <div key={label} className={sx(codexStyles.stack2)}>
+                ["active", snapshot.threads] as const,
+                ["archived", snapshot.archivedThreads] as const,
+              ].map(([group, threads]) => (
+                <div key={group} className={sx(codexStyles.stack2)}>
                   <div className={sx(codexStyles.rowCenterBetweenGap2)}>
-                    <p className={sx(codexStyles.eyebrow)}>{label}</p>
-                    <StatusPill label={`${threads.length}`} />
+                    <p className={sx(codexStyles.eyebrow)}>{t(`settingsProviders:codexThreadsTab.groups.${group}`)}</p>
+                    <StatusPill label={formatNumber(threads.length)} />
                   </div>
                   {threads.length === 0 ? (
                     <div className={sx(codexStyles.tileDashed)}>
-                      No {label.toLowerCase()} threads.
+                      {t(`settingsProviders:codexThreadsTab.empty.${group}`)}
                     </div>
                   ) : (
                     <div className={sx(codexStyles.stack2)}>
@@ -98,14 +101,14 @@ export function ThreadsTab({
                                 {(thread.name ?? thread.preview) || thread.id}
                               </p>
                               {thread.id === currentThreadId ? (
-                                <StatusPill label="current" tone="success" />
+                                <StatusPill label={t("settingsProviders:codexThreadsTab.current")} tone="success" />
                               ) : null}
                             </div>
                             <p className={sx(codexStyles.truncateXsMuted)}>
                               {thread.preview || thread.id}
                             </p>
                             <p className={sx(codexStyles.truncateMicroMuted)}>
-                              Updated {formatDateTime(thread.updatedAt)}
+                              {t("settingsProviders:codexThreadsTab.updatedAt", { time: formatDateTime(t, thread.updatedAt) })}
                             </p>
                           </div>
                           <div className={sx(codexStyles.threadStatusMeta)}>
@@ -123,8 +126,8 @@ export function ThreadsTab({
 
           <div className={sx(codexStyles.stack4)}>
             <DenseSection
-              title="Thread inspector"
-              description="Inspect the selected thread and run fork, review, rename, compact, archive, or rollback actions."
+              title={t("settingsProviders:codexThreadsTab.inspector.title")}
+              description={t("settingsProviders:codexThreadsTab.inspector.description")}
             >
               {selectedThreadSummary ? (
                 <div className={sx(codexStyles.stack4)}>
@@ -134,10 +137,10 @@ export function ThreadsTab({
                         {selectedThreadSummary.name ?? selectedThreadSummary.id}
                       </p>
                       {selectedThreadSummary.id === currentThreadId ? (
-                        <StatusPill label="current session" tone="success" />
+                        <StatusPill label={t("settingsProviders:codexThreadsTab.currentSession")} tone="success" />
                       ) : null}
                       {selectedThreadSummary.archived ? (
-                        <StatusPill label="archived" />
+                        <StatusPill label={t("settingsProviders:codexThreadsTab.archivedBadge")} />
                       ) : null}
                     </div>
                     <p className={sx(codexStyles.textSmMuted)}>
@@ -148,33 +151,31 @@ export function ThreadsTab({
 
                   <div className={sx(codexStyles.smTwoCol)}>
                     <DenseMetric
-                      label="Turns"
-                      value={String(threadDetailState.value?.turnCount ?? "—")}
+                      label={t("settingsProviders:codexThreadsTab.metrics.turns")}
+                      value={threadDetailState.value?.turnCount != null ? formatNumber(threadDetailState.value.turnCount) : "—"}
                     />
                     <DenseMetric
-                      label="Model provider"
+                      label={t("settingsProviders:codexThreadsTab.metrics.modelProvider")}
                       value={selectedThreadSummary.modelProvider}
                     />
                     <DenseMetric
-                      label="CLI version"
+                      label={t("settingsProviders:codexThreadsTab.metrics.cliVersion")}
                       value={selectedThreadSummary.cliVersion}
                     />
                     <DenseMetric
-                      label="Updated"
-                      value={formatDateTime(selectedThreadSummary.updatedAt)}
+                      label={t("settingsProviders:codexThreadsTab.metrics.updated")}
+                      value={formatDateTime(t, selectedThreadSummary.updatedAt)}
                     />
                   </div>
 
                   <div className={sx(codexStyles.lgTwoColGap3)}>
                     <div className={sx(codexStyles.stack2)}>
-                      <p className={sx(codexStyles.eyebrow)}>Rename</p>
+                      <p className={sx(codexStyles.eyebrow)}>{t("common:actions.rename")}</p>
                       <div className={sx(codexStyles.rowCenterGap2)}>
                         <Input
                           value={renameDraft}
-                          onChange={(event) =>
-                            onRenameDraftChange(event.target.value)
-                          }
-                          placeholder="Thread name"
+                          onChange={(event) => onRenameDraftChange(event.target.value)}
+                          placeholder={t("settingsProviders:codexThreadsTab.threadNamePlaceholder")}
                         />
                         <Button
                           type="button"
@@ -187,13 +188,13 @@ export function ThreadsTab({
                             busyKey === `thread-rename:${selectedThreadId}`
                           }
                         >
-                          Save
+                          {t("common:actions.save")}
                         </Button>
                       </div>
                     </div>
 
                     <div className={sx(codexStyles.stack2)}>
-                      <p className={sx(codexStyles.eyebrow)}>Quick actions</p>
+                      <p className={sx(codexStyles.eyebrow)}>{t("settingsProviders:codexThreadsTab.quickActions")}</p>
                       <div className={sx(codexStyles.wrapGap2)}>
                         <Button
                           type="button"
@@ -206,7 +207,7 @@ export function ThreadsTab({
                             busyKey === `thread-fork:${selectedThreadId}`
                           }
                         >
-                          Fork
+                          {t("settingsProviders:codexThreadsTab.fork")}
                         </Button>
                         <Button
                           type="button"
@@ -219,7 +220,7 @@ export function ThreadsTab({
                             busyKey === `thread-compact:${selectedThreadId}`
                           }
                         >
-                          Compact
+                          {t("settingsProviders:codexThreadsTab.compact")}
                         </Button>
                         <Button
                           type="button"
@@ -234,9 +235,7 @@ export function ThreadsTab({
                             busyKey === `thread-archive:${selectedThreadId}`
                           }
                         >
-                          {selectedThreadSummary.archived
-                            ? "Restore"
-                            : "Archive"}
+                          {t(selectedThreadSummary.archived ? "common:actions.restore" : "settingsProviders:codexThreadsTab.archive")}
                         </Button>
                       </div>
                     </div>
@@ -244,7 +243,7 @@ export function ThreadsTab({
 
                   <div className={sx(codexStyles.maxWSm)}>
                     <div className={sx(codexStyles.rollbackTile)}>
-                      <p className={sx(codexStyles.eyebrow)}>Rollback</p>
+                      <p className={sx(codexStyles.eyebrow)}>{t("settingsProviders:codexThreadsTab.rollback")}</p>
                       <DraftInput
                         value={rollbackTurns}
                         onCommit={onRollbackTurnsChange}
@@ -261,7 +260,7 @@ export function ThreadsTab({
                           busyKey === `thread-rollback:${selectedThreadId}`
                         }
                       >
-                        Roll back turns
+                        {t("settingsProviders:codexThreadsTab.rollBackTurns")}
                       </Button>
                     </div>
                   </div>
@@ -284,7 +283,7 @@ export function ThreadsTab({
                 </div>
               ) : (
                 <div className={sx(codexStyles.tileDashedCentered)}>
-                  Select a thread to inspect it here.
+                  {t("settingsProviders:codexThreadsTab.inspector.empty")}
                 </div>
               )}
             </DenseSection>

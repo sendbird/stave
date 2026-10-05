@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { toolStyles } from "./workspace-tools.styles";
 import { sx } from "../ads/utils/stylex";
 import { Textarea as AdsTextarea } from "@/components/ui/textarea";
@@ -15,6 +16,7 @@ export function WorkspaceToolQuickAdd(props: {
   workspaceId: string;
   workspacePath: string;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const id = useId();
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
@@ -22,14 +24,14 @@ export function WorkspaceToolQuickAdd(props: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const process = props.kind === "service";
-  const noun = process ? "process" : "command";
-  if (!open) return <div className={sx(toolStyles.quickAddClosed)}><ActionButton onClick={() => { setError(""); setOpen(true); }}><Plus className={sx(toolStyles.icon)} />Add {noun}</ActionButton>{error ? <p role="status" className={sx(toolStyles.muted)}>{error}</p> : null}</div>;
+  const noun = process ? tI18n("workspace:workspaceToolQuickAdd.process") : tI18n("workspace:workspaceToolQuickAdd.command");
+  if (!open) return <div className={sx(toolStyles.quickAddClosed)}><ActionButton onClick={() => { setError(""); setOpen(true); }}><Plus className={sx(toolStyles.icon)} />{tI18n("workspace:workspaceToolQuickAdd.addValue", { noun })}</ActionButton>{error ? <p role="status" className={sx(toolStyles.muted)}>{error}</p> : null}</div>;
   return (
-    <form className={sx(toolStyles.quickAddForm)} aria-label={`Add ${noun}`} onSubmit={(event) => {
+    <form className={sx(toolStyles.quickAddForm)} aria-label={tI18n("workspace:workspaceToolQuickAdd.addValue", { noun: noun })} onSubmit={(event) => {
       event.preventDefault();
       if (saving) return;
       if (useAppStore.getState().activeWorkspaceId !== props.workspaceId) {
-        setError("Return to this workspace before saving the entry.");
+        setError(i18n.t("workspace:additionalCopy.message17"));
         return;
       }
       setSaving(true);
@@ -42,24 +44,26 @@ export function WorkspaceToolQuickAdd(props: {
           setCommand("");
           setOpen(false);
           void refreshScriptsRuntime(props.workspaceId).catch(() => {
-            setError("Entry saved. Refresh Workspace tools to see it.");
+            setError(i18n.t("workspace:additionalCopy.message18"));
           });
         } catch {
-          setError("The entry could not be saved or refreshed. Your input is kept. Check Workspace tools and retry.");
+          setError(i18n.t("workspace:additionalCopy.message19"));
         } finally {
           setSaving(false);
         }
       })();
     }}>
-      <label htmlFor={`${id}-name`} className={sx(toolStyles.fieldLabel)}>Name</label>
-      <AdsInput id={`${id}-name`} autoFocus maxLength={200} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={process ? "Dev server" : "Check the repository"} />
-      <label htmlFor={`${id}-command`} className={sx(toolStyles.fieldLabel)}>Command</label>
-      <AdsTextarea id={`${id}-command`} required maxLength={16_000} value={command} onChange={(e) => setCommand(e.target.value)} placeholder={process ? "bun run dev" : "bun run typecheck"} xstyle={toolStyles.commandInput} />
-      <p className={sx(toolStyles.muted)}>Saved to this workspace. You choose when to {process ? "start it" : "run it"}. Advanced targets, environment and triggers are available in settings.</p>
+      <label htmlFor={`${id}-name`} className={sx(toolStyles.fieldLabel)}>{tI18n("workspace:workspaceToolQuickAdd.name")}</label>
+      <AdsInput id={`${id}-name`} autoFocus maxLength={200} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={process ? tI18n("workspace:workspaceToolQuickAdd.devServer") : tI18n("workspace:workspaceToolQuickAdd.checkTheRepository")} />
+      <label htmlFor={`${id}-command`} className={sx(toolStyles.fieldLabel)}>{tI18n("workspace:workspaceToolQuickAdd.command")}</label>
+      <AdsTextarea id={`${id}-command`} required maxLength={16_000} value={command} onChange={(e) => setCommand(e.target.value)} placeholder={process ? ("bun run dev" /* i18n-ignore: shell command example */) : ("bun run typecheck" /* i18n-ignore: shell command example */)} xstyle={toolStyles.commandInput} />
+      <p className={sx(toolStyles.muted)}>
+          {tI18n("workspace:workspaceToolQuickAdd.savedGuidance")}
+        </p>
       {error ? <p role="alert" className={sx(toolStyles.failed)}>{error}</p> : null}
       <div className={sx(toolStyles.formActions)}>
-        <ActionButton weight="quiet" disabled={saving} onClick={() => setOpen(false)}>Cancel</ActionButton>
-        <ActionButton type="submit" weight="primary" disabled={saving || !command.trim()}>{saving ? "Saving…" : `Save ${noun}`}</ActionButton>
+        <ActionButton weight="quiet" disabled={saving} onClick={() => setOpen(false)}>{tI18n("workspace:workspaceToolQuickAdd.cancel")}</ActionButton>
+        <ActionButton type="submit" weight="primary" disabled={saving || !command.trim()}>{saving ? tI18n("workspace:workspaceToolQuickAdd.saving") : tI18n("workspace:workspaceToolQuickAdd.saveValue", { noun: noun })}</ActionButton>
       </div>
     </form>
   );

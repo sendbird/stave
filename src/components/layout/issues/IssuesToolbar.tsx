@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { trackerVisualStyles } from "./tracker-visual.styles";
 import type { RefObject } from "react";
 import { LayoutGrid, LayoutList, Search, X } from "lucide-react";
@@ -49,28 +50,28 @@ import { TRACKER_SOURCE_LABELS } from "./tracker-issue-ui";
 import { taskLayoutStyles } from "./issues-layout.stylex";
 
 const VIEW_LABELS: Record<TrackerIssueView, string> = {
-  "assigned-open": "Assigned to me",
-  "all-open": "All open",
-  "recently-done": "Recently done",
-  "in-stave": "In Stave",
+  get "assigned-open"() { return i18n.t("issues:issuesToolbar.assignedToMe"); },
+  get "all-open"() { return i18n.t("issues:issuesToolbar.allOpen"); },
+  get "recently-done"() { return i18n.t("issues:issuesToolbar.recentlyDone"); },
+  get "in-stave"() { return i18n.t("issues:issuesToolbar.inStave"); },
 };
 
 const GROUP_LABELS: Record<TrackerIssueGroupMode, string> = {
-  status: "Group: Status",
-  due: "Group: Due date",
+  get status() { return i18n.t("issues:issuesToolbar.groupStatus"); },
+  get due() { return i18n.t("issues:issuesToolbar.groupDueDate"); },
 };
 
 const SORT_LABELS: Record<TrackerIssueSort, string> = {
-  priority: "Sort: Priority",
-  due: "Sort: Due date",
-  updated: "Sort: Updated",
-  key: "Sort: Key",
+  get priority() { return i18n.t("issues:issuesToolbar.sortPriority"); },
+  get due() { return i18n.t("issues:issuesToolbar.sortDueDate"); },
+  get updated() { return i18n.t("issues:issuesToolbar.sortUpdated"); },
+  get key() { return i18n.t("issues:issuesToolbar.sortKey"); },
 };
 
 const LINKED_LABELS: Record<TrackerIssueLinkedFilter, string> = {
-  any: "Any",
-  linked: "In Stave",
-  unlinked: "Not in Stave",
+  get any() { return i18n.t("issues:issuesToolbar.any"); },
+  get linked() { return i18n.t("issues:issuesToolbar.inStave"); },
+  get unlinked() { return i18n.t("issues:issuesToolbar.notInStave"); },
 };
 
 const SOURCE_OPTIONS: TrackerIssueFilterOption[] = TRACKER_SOURCE_IDS.map(
@@ -110,6 +111,7 @@ export interface IssuesToolbarProps {
 }
 
 export function IssuesToolbar(props: IssuesToolbarProps) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const { filter } = props;
   const activeFilterCount = countActiveTrackerIssueFilters(filter);
 
@@ -123,7 +125,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
         <div
           className={sx(taskLayoutStyles.tabList)}
           role="tablist"
-          aria-label="Tracker issue views"
+          aria-label={tI18n("issues:issuesToolbar.trackerIssueViews")}
         >
           {TRACKER_ISSUE_VIEWS.map((view) => {
             const selected = filter.view === view;
@@ -159,8 +161,8 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
             ref={props.searchInputRef}
             value={filter.query}
             onChange={(event) => patch({ query: event.target.value })}
-            placeholder="Search key, title, #label"
-            aria-label="Search tracker tickets"
+            placeholder={tI18n("issues:issuesToolbar.searchKeyTitleLabel")}
+            aria-label={tI18n("issues:issuesToolbar.searchTrackerTickets")}
             xstyle={taskLayoutStyles.searchInput}
           />
         </div>
@@ -168,14 +170,14 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
 
       <div className={sx(taskLayoutStyles.toolbarRow)}>
         <TrackerIssueFilterChip
-          label="Source"
+          label={tI18n("issues:issuesToolbar.source")}
           searchable={false}
           options={SOURCE_OPTIONS}
           selected={filter.sources}
           onChange={(next) => patch({ sources: next as TrackerSourceId[] })}
         />
         <TrackerIssueFilterChip
-          label="Status"
+          label={tI18n("issues:issuesToolbar.status")}
           searchable={false}
           options={STATUS_OPTIONS}
           selected={filter.statusCategories}
@@ -184,7 +186,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
           }
         />
         <TrackerIssueFilterChip
-          label="Priority"
+          label={tI18n("issues:issuesToolbar.priority")}
           searchable={false}
           options={PRIORITY_OPTIONS}
           selected={filter.priorities}
@@ -193,18 +195,18 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
           }
         />
         <TrackerIssueFilterChip
-          label="Project"
+          label={tI18n("issues:issuesToolbar.project")}
           options={props.projectOptions}
           selected={filter.projectKeys}
           onChange={(next) => patch({ projectKeys: next })}
-          emptyMessage="No projects on the loaded tickets."
+          emptyMessage={tI18n("issues:issuesToolbar.noProjectsOnTheLoadedTickets")}
         />
         <TrackerIssueFilterChip
-          label="Label"
+          label={tI18n("issues:issuesToolbar.label")}
           options={props.labelOptions}
           selected={filter.labels}
           onChange={(next) => patch({ labels: next })}
-          emptyMessage="No labels on the loaded tickets."
+          emptyMessage={tI18n("issues:issuesToolbar.noLabelsOnTheLoadedTickets")}
         />
 
         <Select
@@ -215,7 +217,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
         >
           <SelectTrigger
             className={sx(taskLayoutStyles.selectShort)}
-            aria-label="Filter by Stave runs"
+            aria-label={tI18n("issues:issuesToolbar.filterByStaveRuns")}
           >
             <SelectValue />
           </SelectTrigger>
@@ -234,7 +236,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
           <div
             className={sx(taskLayoutStyles.segmented)}
             role="group"
-            aria-label="Ticket layout"
+            aria-label={tI18n("issues:issuesToolbar.ticketLayout")}
           >
             <Button
               type="button"
@@ -245,8 +247,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
               onClick={() => props.onLayoutChange("list")}
             >
               <LayoutList className={sx(trackerVisualStyles.icon)} />
-              List
-            </Button>
+              {tI18n("issues:issuesToolbar.list")}</Button>
             <Button
               type="button"
               size="sm"
@@ -256,8 +257,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
               onClick={() => props.onLayoutChange("board")}
             >
               <LayoutGrid className={sx(trackerVisualStyles.icon)} />
-              Board
-            </Button>
+              {tI18n("issues:issuesToolbar.board")}</Button>
           </div>
           {props.layout === "list" ? (
             <Select
@@ -268,7 +268,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
             >
               <SelectTrigger
                 className={sx(taskLayoutStyles.selectMedium)}
-                aria-label="Group tickets"
+                aria-label={tI18n("issues:issuesToolbar.groupTickets")}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -289,7 +289,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
           >
             <SelectTrigger
               className={sx(taskLayoutStyles.selectMedium)}
-              aria-label="Sort tickets"
+              aria-label={tI18n("issues:issuesToolbar.sortTickets")}
             >
               <SelectValue />
             </SelectTrigger>
@@ -314,7 +314,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
               }
             >
               <X className={sx(trackerVisualStyles.icon)} />
-              Reset {activeFilterCount}
+              {tI18n("issues:issuesToolbar.resetCount", { count: activeFilterCount })}
             </Button>
           ) : null}
         </div>

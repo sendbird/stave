@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import {
   Badge,
   Button,
@@ -86,50 +87,38 @@ const CLAUDE_PERMISSION_MODE_HELP = [
   {
     value: "default",
     label: "default",
-    description:
-      "Use Claude's standard permission behavior without asking Stave to bias the mode.",
-    example:
-      "Pick this when you want the least opinionated baseline and do not need a special workflow.",
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.default.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.default.example"); },
   },
   {
     value: "acceptEdits",
     label: "acceptEdits",
-    description:
-      "Good default for normal coding sessions where edits are expected but you still want guardrails.",
-    example:
-      "Use this for day-to-day feature work, bug fixes, and iterative patching.",
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.acceptEdits.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.acceptEdits.example"); },
   },
   {
     value: "bypassPermissions",
     label: "bypassPermissions",
-    description:
-      "Most autonomous Claude path. Pair it carefully with permission-skipping controls.",
-    example:
-      "Use this only when you trust the task scope and want Claude to move with minimal interruption.",
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.bypassPermissions.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.bypassPermissions.example"); },
   },
   {
     value: "plan",
     label: "plan",
-    description:
-      "Planning-only mode. Stave keeps plan turns separate so you can review strategy before implementation.",
-    example:
-      "Use this for architecture, investigation, or task breakdowns before writing code.",
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.plan.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.plan.example"); },
   },
   {
     value: "dontAsk",
     label: "dontAsk",
-    description:
-      "Tell Claude not to stop for interactive permission questions during the turn.",
-    example:
-      "Useful for fast local workflows when you want fewer pauses but do not want plan mode.",
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.dontAsk.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.dontAsk.example"); },
   },
   {
     value: "auto",
     label: "auto",
-    description:
-      "Let Claude choose the most appropriate permission behavior for the turn. Claude CLI sessions require Claude Code 2.1.71+ for this mode; older CLI builds fall back to `default`.",
-    example:
-      "Good when your workload shifts between analysis, coding, and light automation throughout the day.",
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.auto.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.auto.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["claudePermissionMode"]>
@@ -138,34 +127,27 @@ const CLAUDE_PERMISSION_MODE_HELP = [
 const CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP = [
   {
     value: "strict",
-    label: "Strict",
-    description:
-      "Only read-only built-ins (Read/Grep/Glob/…) and Stave workspace tools auto-run. Bash, subagents, and other MCP tools each prompt. Most interruptions.",
-    example:
-      "Pick this when you want to confirm every shell command and tool call during planning.",
+    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.strict.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.strict.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.strict.example"); },
   },
   {
     value: "bash",
-    label: "Read-only Bash",
-    description:
-      "Also auto-runs Bash commands that don't mutate files or task state (git status, cat, ls, typecheck). Mutating commands stay hard-denied.",
-    example:
-      "Good when you mostly want quiet read-only inspection but keep subagents and MCP gated.",
+    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bash.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bash.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bash.example"); },
   },
   {
     value: "bashAndTask",
-    label: "Bash + Subagents",
-    description:
-      "Also auto-runs read-only Bash and lets Claude spawn subagents (Task) without a prompt. Subagent mutations are still hard-denied.",
-    example: "Useful when planning fans out research across Explore subagents.",
+    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashAndTask.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashAndTask.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashAndTask.example"); },
   },
   {
     value: "bashTaskAndMcp",
-    label: "Bash + Subagents + MCP reads",
-    description:
-      "Broadest. Also auto-runs read-only third-party / lens MCP tools (classified by name). Mutating-looking MCP tools still prompt. Closest to auto mode.",
-    example:
-      "Default. Fewest plan-mode interruptions while every mutation stays blocked.",
+    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashTaskAndMcp.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashTaskAndMcp.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashTaskAndMcp.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["claudePlanModeApprovalScope"]>
@@ -174,24 +156,21 @@ const CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP = [
 const CLAUDE_THINKING_MODE_HELP = [
   {
     value: "adaptive",
-    label: "Adaptive",
-    description:
-      "Claude decides when deeper thinking is worth the extra latency.",
-    example:
-      "Best default when some turns are simple and others need real analysis.",
+    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.adaptive.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.adaptive.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.adaptive.example"); },
   },
   {
     value: "enabled",
-    label: "Enabled",
-    description: "Always ask for explicit thinking, even on simpler prompts.",
-    example:
-      "Use this when you prioritize careful reasoning over response speed.",
+    get label() { return i18n.t("common:status.enabled"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.enabled.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.enabled.example"); },
   },
   {
     value: "disabled",
-    label: "Disabled",
-    description: "Prefer direct answers without extra thinking overhead.",
-    example: "Useful for tiny edits, routing, or repetitive low-risk tasks.",
+    get label() { return i18n.t("common:status.disabled"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.disabled.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.disabled.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["claudeThinkingMode"]>
@@ -200,39 +179,33 @@ const CLAUDE_THINKING_MODE_HELP = [
 const CLAUDE_EFFORT_HELP = [
   {
     value: "low",
-    label: "Low",
-    description: "Fastest and lightest reasoning budget.",
-    example: "Good for short questions, quick rewrites, and simple code edits.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.low"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.low.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.low.example"); },
   },
   {
     value: "medium",
-    label: "Medium",
-    description: "Balanced reasoning depth for most day-to-day tasks.",
-    example:
-      "Use this as the default if you frequently switch between analysis and implementation.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.medium"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.medium.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.medium.example"); },
   },
   {
     value: "high",
-    label: "High",
-    description:
-      "Spend more effort on difficult debugging, design, or review work.",
-    example:
-      "Useful for tricky bugs, architecture questions, or larger refactors.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.high"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.high.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.high.example"); },
   },
   {
     value: "xhigh",
     label: "X-High",
-    description:
-      "Go deeper than `high` when the Claude model supports it, with a larger latency cost.",
-    example:
-      "Best for complex root-cause analysis or hard multi-step implementation planning.",
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.xhigh.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.xhigh.example"); },
   },
   {
     value: "max",
-    label: "Max",
-    description: "Highest deliberation and the most latency.",
-    example:
-      "Reserve this for genuinely hard tasks where accuracy matters more than speed.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.max"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.max.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.max.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["claudeEffort"]>
@@ -241,20 +214,18 @@ const CLAUDE_EFFORT_HELP = [
 const CLAUDE_SETTING_SOURCE_HELP = [
   {
     value: "project",
-    label: "Project",
-    description:
-      "Load repo-level Claude settings such as `CLAUDE.md` and project-native slash commands.",
+    get label() { return i18n.t("settingsProviders:mcpConfigEditor.editor.scopes.project"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.settingSources.options.project.description"); },
   },
   {
     value: "local",
-    label: "Local",
-    description:
-      "Load machine-local or workspace-local Claude settings from the runtime environment.",
+    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.settingSources.options.local.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.settingSources.options.local.description"); },
   },
   {
     value: "user",
-    label: "User",
-    description: "Load your user-wide Claude settings and personal defaults.",
+    get label() { return i18n.t("settingsProviders:mcpConfigEditor.editor.scopes.user"); },
+    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.settingSources.options.user.description"); },
   },
 ] as const satisfies ReadonlyArray<{
   value: ClaudeSettingSource;
@@ -266,23 +237,20 @@ const CODEX_FILE_ACCESS_HELP = [
   {
     value: "read-only",
     label: "read-only",
-    description: "Read and inspect only. Codex should not mutate files.",
-    example: "Use this for reviews, audits, repo exploration, or planning.",
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.readOnly.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.readOnly.example"); },
   },
   {
     value: "workspace-write",
     label: "workspace-write",
-    description: "Allow edits inside the current workspace and writable roots.",
-    example:
-      "Recommended App Server-style starting point for normal local work.",
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.workspaceWrite.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.workspaceWrite.example"); },
   },
   {
     value: "danger-full-access",
     label: "danger-full-access",
-    description:
-      "Remove most filesystem restrictions and allow broad mutation.",
-    example:
-      "Use this only for trusted automation that truly needs unrestricted file access.",
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.dangerFullAccess.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.dangerFullAccess.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexFileAccess"]>
@@ -292,32 +260,26 @@ const CODEX_APPROVAL_POLICY_HELP = [
   {
     value: "untrusted",
     label: "untrusted",
-    description:
-      "Only pause for actions the runtime treats as untrusted or higher risk.",
-    example:
-      "Recommended App Server-style baseline when you want fewer routine approval pauses.",
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.untrusted.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.untrusted.example"); },
   },
   {
     value: "never",
     label: "never",
-    description: "Do not stop for approval prompts. Codex proceeds directly.",
-    example:
-      "Good for trusted local workflows when you want continuous execution.",
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.never.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.never.example"); },
   },
   {
     value: "on-request",
     label: "on-request",
-    description: "Pause when approval is needed and ask you to confirm.",
-    example:
-      "Use this when you want more explicit checkpoints than the default low-friction setup.",
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.onRequest.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.onRequest.example"); },
   },
   {
     value: "on-failure",
     label: "on-failure",
-    description:
-      "Let Codex retry with approval only after an operation fails without it.",
-    example:
-      "Useful when you want low-friction execution but still want a recovery path for blocked commands.",
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.onFailure.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.onFailure.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexApprovalPolicy"]>
@@ -326,53 +288,45 @@ const CODEX_APPROVAL_POLICY_HELP = [
 const CODEX_REASONING_EFFORT_HELP = [
   {
     value: "minimal",
-    label: "Minimal",
-    description: "Shortest reasoning path and the least latency.",
-    example:
-      "Use this for rote edits, quick file lookups, or tiny transformations.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.minimal"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.minimal.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.minimal.example"); },
   },
   {
     value: "low",
-    label: "Low",
-    description: "Light reasoning for straightforward work.",
-    example: "Good for small implementation tasks and direct answers.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.low"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.low.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.low.example"); },
   },
   {
     value: "medium",
-    label: "Medium",
-    description: "Balanced depth for everyday coding and debugging.",
-    example: "Recommended default when task difficulty varies.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.medium"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.medium.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.medium.example"); },
   },
   {
     value: "high",
-    label: "High",
-    description:
-      "More deliberate reasoning for harder or more ambiguous tasks.",
-    example:
-      "Use this for larger bug hunts, refactors, or multi-step design questions.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.high"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.high.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.high.example"); },
   },
   {
     value: "xhigh",
     label: "X-High",
-    description: "Deepest reasoning budget and the highest latency cost.",
-    example:
-      "Reserve this for genuinely complex work where you want Codex to think much longer.",
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.xhigh.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.xhigh.example"); },
   },
   {
     value: "max",
-    label: "Max",
-    description:
-      "Highest deliberation on the GPT-5.6 effort scale, above `xhigh`.",
-    example:
-      "Reserve this for hard multi-step implementation or debugging work where accuracy matters more than speed.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.max"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.max.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.max.example"); },
   },
   {
     value: "ultra",
-    label: "Ultra",
-    description:
-      "The deepest reasoning budget Codex offers and the highest latency cost. Not every model accepts this tier (e.g. GPT-5.6 Luna caps at `max`).",
-    example:
-      "Reserve this for the hardest frontier-model tasks where you want Codex to think as long as possible.",
+    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.ultra"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.ultra.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.ultra.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
@@ -381,32 +335,27 @@ const CODEX_REASONING_EFFORT_HELP = [
 const CODEX_REASONING_SUMMARY_HELP = [
   {
     value: "auto",
-    label: "Auto",
-    description:
-      "Let Codex decide whether and how much reasoning summary to return.",
-    example:
-      "Good default when you want Stave to adapt across different models.",
+    get label() { return i18n.t("common:labels.auto"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.auto.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.auto.example"); },
   },
   {
     value: "concise",
-    label: "Concise",
-    description: "Request a short summary of model-side reasoning.",
-    example:
-      "Useful when you want quick visibility without a lot of extra text.",
+    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.concise.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.concise.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.concise.example"); },
   },
   {
     value: "detailed",
-    label: "Detailed",
-    description:
-      "Request a fuller reasoning summary when the model supports it.",
-    example:
-      "Use this when you care about understanding why Codex chose a path.",
+    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.detailed.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.detailed.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.detailed.example"); },
   },
   {
     value: "none",
-    label: "None",
-    description: "Do not request a reasoning summary.",
-    example: "Useful when you want the leanest possible UI output.",
+    get label() { return i18n.t("common:status.none"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.none.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.none.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexReasoningSummary"]>
@@ -415,26 +364,21 @@ const CODEX_REASONING_SUMMARY_HELP = [
 const CODEX_REASONING_SUPPORT_HELP = [
   {
     value: "auto",
-    label: "Auto",
-    description:
-      "Let Stave and the Codex runtime infer whether reasoning summaries are supported.",
-    example:
-      "Start here unless you know a model is being detected incorrectly.",
+    get label() { return i18n.t("common:labels.auto"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.summarySupport.options.auto.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.summarySupport.options.auto.example"); },
   },
   {
     value: "enabled",
-    label: "Enabled",
-    description:
-      "Force-enable reasoning summary support even if automatic detection misses it.",
-    example:
-      "Use this when a model supports summaries but the runtime does not infer it correctly.",
+    get label() { return i18n.t("common:status.enabled"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.summarySupport.options.enabled.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.summarySupport.options.enabled.example"); },
   },
   {
     value: "disabled",
-    label: "Disabled",
-    description: "Force-disable reasoning summary support.",
-    example:
-      "Use this if a model claims support but returns noisy or broken summary behavior.",
+    get label() { return i18n.t("common:status.disabled"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.summarySupport.options.disabled.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.summarySupport.options.disabled.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexReasoningSummarySupport"]>
@@ -443,34 +387,27 @@ const CODEX_REASONING_SUPPORT_HELP = [
 const CODEX_WEB_SEARCH_HELP = [
   {
     value: "cached",
-    label: "Cached",
-    description:
-      "Allow search in a lower-volatility mode when cached results are available.",
-    example:
-      "Recommended default when you want some search help without always relying on live web access.",
+    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.cached.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.cached.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.cached.example"); },
   },
   {
     value: "disabled",
-    label: "Disabled",
-    description: "Do not let Codex use web search.",
-    example:
-      "Best when you want fully local reasoning or reproducible offline behavior.",
+    get label() { return i18n.t("common:status.disabled"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.disabled.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.disabled.example"); },
   },
   {
     value: "indexed",
-    label: "Indexed",
-    description:
-      "Use Codex's indexed search corpus without requesting a live fetch for every query.",
-    example:
-      "Use this for broad documentation discovery when the selected Codex runtime is 0.142 or newer.",
+    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.indexed.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.indexed.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.indexed.example"); },
   },
   {
     value: "live",
-    label: "Live",
-    description:
-      "Allow live web search when the task needs current external information.",
-    example:
-      "Use this for latest docs, breaking API changes, or recent news-style facts.",
+    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.live.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.live.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.live.example"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexWebSearch"]>
@@ -479,32 +416,30 @@ const CODEX_WEB_SEARCH_HELP = [
 const CODEX_APP_TOOL_APPROVAL_HELP = [
   {
     value: "inherit",
-    label: "Inherit",
-    description: "Keep the user's Codex config for App and MCP tool approvals.",
-    example: "Use this when Codex config.toml is the source of truth.",
+    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.inherit.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.inherit.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.inherit.example"); },
   },
   {
     value: "auto",
-    label: "Auto",
-    description: "Let Codex choose when an App or MCP tool needs approval.",
+    get label() { return i18n.t("common:labels.auto"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.auto.description"); },
   },
   {
     value: "prompt",
-    label: "Prompt",
-    description: "Ask before every App or MCP tool call.",
+    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.prompt.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.prompt.description"); },
   },
   {
     value: "writes",
-    label: "Writes",
-    description:
-      "Ask only for tools not marked read-only by their tool annotation.",
-    example:
-      "This is an approval hint, not a filesystem or network sandbox boundary.",
+    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.writes.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.writes.description"); },
+    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.writes.example"); },
   },
   {
     value: "approve",
-    label: "Approve",
-    description: "Approve App and MCP tool calls without prompting.",
+    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.approve.label"); },
+    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.approve.description"); },
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexAppToolApprovalMode"]>
@@ -543,6 +478,7 @@ function DescribedSelect<T extends string>(args: {
   onValueChange: (value: T) => void;
   triggerClassName?: string;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const selected = findExplainedOption(args.options, args.value);
   const fallbackValue = args.options[0]?.value;
   const selectValue = selected?.value ?? fallbackValue;
@@ -588,7 +524,7 @@ function DescribedSelect<T extends string>(args: {
             {selected.label}:
           </span>{" "}
           {selected.description}
-          {selected.example ? ` Example: ${selected.example}` : ""}
+          {selected.example ? t("settingsProviders:settingsDialogProvidersSection.example", { value1: selected.example }) : ""}
         </p>
       ) : null}
     </div>
@@ -615,6 +551,7 @@ function ProviderModePresetButtons(args: {
 }
 
 export function ProvidersSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     claudePermissionMode,
     claudePlanModeApprovalScope,
@@ -722,13 +659,13 @@ export function ProvidersSection() {
   const currentClaudeModeLabel = currentClaudeModePresetId
     ? (CLAUDE_PROVIDER_MODE_PRESETS.find(
         (preset) => preset.id === currentClaudeModePresetId,
-      )?.label ?? "Custom")
-    : "Custom";
+      )?.label ?? t("common:labels.custom"))
+    : t("common:labels.custom");
   const currentCodexModeLabel = currentCodexModePresetId
     ? (CODEX_PROVIDER_MODE_PRESETS.find(
         (preset) => preset.id === currentCodexModePresetId,
-      )?.label ?? "Custom")
-    : "Custom";
+      )?.label ?? t("common:labels.custom"))
+    : t("common:labels.custom");
   // Scoped to the default Codex model so, e.g., GPT-5.6 Luna never offers
   // "Ultra" here — a value only Sol/Terra accept. "Minimal" is always kept
   // available since it's a legacy value Stave still maps to "low" at
@@ -769,12 +706,12 @@ export function ProvidersSection() {
     <>
       <SettingsCard
         id="settings-field-account-usage-limit"
-        title="Account usage limit"
-        description="Shared stop for Claude, Codex, Cursor, and Kiro when included account usage is exhausted."
+        title={t("settingsProviders:providersSection.accountUsageLimit.title")}
+        description={t("settingsProviders:providersSection.accountUsageLimit.description")}
       >
         <SwitchField
-          title="Stop turns at 100% usage"
-          description="When a provider reports included usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish. Turn this off to keep working on overage."
+          title={t("settingsProviders:providersSection.accountUsageLimit.stopTurns.title")}
+          description={t("settingsProviders:providersSection.accountUsageLimit.stopTurns.description")}
           checked={blockTurnsWhenAccountLimitReached}
           onCheckedChange={(checked) =>
             updateSettings({
@@ -797,8 +734,8 @@ export function ProvidersSection() {
       />
       <SettingsDelegationSection />
       <SettingsCard
-        title="Trusted Approvals"
-        description="Approvals marked as always allowed. Bash entries are stored as command prefixes instead of trusting every shell command."
+        title={t("settingsProviders:providersSection.trustedApprovals.title")}
+        description={t("settingsProviders:providersSection.trustedApprovals.description")}
         titleAccessory={
           <Badge variant={trustedTools.length > 0 ? "secondary" : "outline"}>
             {trustedTools.length}
@@ -831,29 +768,26 @@ export function ProvidersSection() {
                     })
                   }
                 >
-                  Remove
-                </Button>
+                  {i18n.t("common:actions.remove")}</Button>
               </div>
             ))}
           </div>
         ) : (
           <p className={sx(providersStyles.emptyCopy)}>
-            No trusted approvals yet. Use approve and always allow from an
-            approval prompt to add one.
-          </p>
+            {t("settingsProviders:providersSection.trustedApprovals.empty")}</p>
         )}
       </SettingsCard>
       <Tabs defaultValue="claude-code" xstyle={providersStyles.tabs}>
         <SettingsProviderTabsList
           providerIds={PROVIDER_SETTINGS_TAB_IDS}
-          aria-label="Provider settings"
+          aria-label={t("settingsProviders:providersSection.tabsAriaLabel")}
         />
 
         <TabsContent value="claude-code">
           <SectionStack>
             <SettingsCard
-              title="Claude Runtime Controls"
-              description="Permission, sandbox, thinking, and subagent progress behavior passed into each Claude turn."
+              title={t("settingsProviders:providersSection.claudeRuntime.title")}
+              description={t("settingsProviders:providersSection.claudeRuntime.description")}
               titleAccessory={
                 <Badge
                   variant={currentClaudeModePresetId ? "secondary" : "outline"}
@@ -863,8 +797,8 @@ export function ProvidersSection() {
               }
             >
               <LabeledField
-                title="Mode Preset"
-                description="Apply a recommended Claude autonomy preset. Editing the fields below can move the card into Custom."
+                title={t("settingsProviders:providersSection.modePresetTitle")}
+                description={t("settingsProviders:providersSection.claudeRuntime.modePreset.description")}
               >
                 <ProviderModePresetButtons
                   presets={CLAUDE_PROVIDER_MODE_PRESETS}
@@ -877,21 +811,21 @@ export function ProvidersSection() {
                 />
                 <p className={sx(providersStyles.presetHint)}>
                   {currentClaudeModePresetId
-                    ? `${currentClaudeModeLabel} is active. Reapply a preset any time to restore its full permission and sandbox combination.`
-                    : "Custom is active. The current Claude permission and sandbox combination does not match a built-in preset."}
+                    ? t("settingsProviders:settingsDialogProvidersSection.isActiveReapplyAPresetAny", { value1: currentClaudeModeLabel })
+                    : t("settingsProviders:providersSection.claudeRuntime.modePreset.custom")}
                 </p>
               </LabeledField>
               <LabeledField
-                title="Permission Mode"
-                description="Controls how aggressively Claude asks for permission during a chat turn. Claude CLI sessions always launch in `auto`."
+                title={t("settingsProviders:providersSection.claudeRuntime.permissionMode.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.permissionMode.description")}
                 guide={
                   <SettingsFieldGuide
-                    title="Claude Permission Mode"
-                    summary="This is the main autonomy dial for Claude turns."
+                    title={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.title")}
+                    summary={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.summary")}
                     items={buildGuideItems(CLAUDE_PERMISSION_MODE_HELP)}
                     examples={buildGuideExamples(CLAUDE_PERMISSION_MODE_HELP)}
-                    note="`plan` is special in Stave: it becomes a planning workflow rather than a normal implementation turn."
-                    tooltip="Compare Claude permission modes"
+                    note={t("settingsProviders:messages.planWorkflowNote")}
+                    tooltip={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.tooltip")}
                   />
                 }
               >
@@ -908,8 +842,8 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <SwitchField
-                title="Dangerous Skip Permissions"
-                description="Only applies when `bypassPermissions` is active."
+                title={t("settingsProviders:providersSection.claudeRuntime.dangerousSkip.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.dangerousSkip.description")}
                 checked={claudeAllowDangerouslySkipPermissions}
                 onCheckedChange={(checked) =>
                   updateSettings({
@@ -918,16 +852,16 @@ export function ProvidersSection() {
                 }
               />
               <SwitchField
-                title="Sandbox Enabled"
-                description="Wrap Claude tool execution in its sandbox configuration."
+                title={t("settingsProviders:providersSection.claudeRuntime.sandbox.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.sandbox.description")}
                 checked={claudeSandboxEnabled}
                 onCheckedChange={(checked) =>
                   updateSettings({ patch: { claudeSandboxEnabled: checked } })
                 }
               />
               <SwitchField
-                title="Allow Unsandboxed Commands"
-                description="Controls whether Claude may fall back to commands outside the sandbox."
+                title={t("settingsProviders:providersSection.claudeRuntime.unsandboxedCommands.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.unsandboxedCommands.description")}
                 checked={claudeAllowUnsandboxedCommands}
                 onCheckedChange={(checked) =>
                   updateSettings({
@@ -939,8 +873,8 @@ export function ProvidersSection() {
               {claudeRuntimeCapabilities.sandbox.credentialGuards ? (
                 <>
                   <LabeledField
-                    title="Protected Credential Files"
-                    description="Comma-separated file paths Claude's sandbox must deny as credentials. Enter paths only, never secret contents."
+                    title={t("settingsProviders:providersSection.claudeRuntime.credentialFiles.title")}
+                    description={t("settingsProviders:providersSection.claudeRuntime.credentialFiles.description")}
                   >
                     <DraftInput
                       xstyle={providersStyles.fieldMono}
@@ -954,8 +888,8 @@ export function ProvidersSection() {
                     />
                   </LabeledField>
                   <LabeledField
-                    title="Protected Credential Variables"
-                    description="Comma-separated environment variable names Claude's sandbox must deny. Enter names only; values never belong here."
+                    title={t("settingsProviders:providersSection.claudeRuntime.credentialVariables.title")}
+                    description={t("settingsProviders:providersSection.claudeRuntime.credentialVariables.description")}
                   >
                     <DraftInput
                       xstyle={providersStyles.fieldMono}
@@ -971,17 +905,17 @@ export function ProvidersSection() {
                 </>
               ) : null}
               <LabeledField
-                title="Setting Sources"
-                description="Controls which Claude filesystem setting layers are loaded. `project` is required for CLAUDE.md and project slash commands."
+                title={t("settingsProviders:providersSection.claudeRuntime.settingSources.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.settingSources.description")}
                 guide={
                   <SettingsFieldGuide
-                    title="Claude Setting Sources"
-                    summary="These layers decide which Claude configuration files and commands participate in each turn."
+                    title={t("settingsProviders:providersSection.claudeRuntime.settingSources.guide.title")}
+                    summary={t("settingsProviders:providersSection.claudeRuntime.settingSources.guide.summary")}
                     items={CLAUDE_SETTING_SOURCE_HELP.map((option) => ({
                       label: option.label,
                       description: option.description,
                     }))}
-                    tooltip="What each Claude setting source does"
+                    tooltip={t("settingsProviders:providersSection.claudeRuntime.settingSources.guide.tooltip")}
                   />
                 }
               >
@@ -991,15 +925,15 @@ export function ProvidersSection() {
                   onToggle={toggleClaudeSettingSource}
                 />
                 <p className={sx(providersStyles.presetHint)}>
-                  Active:{" "}
+                  {t("settingsProviders:settingsDialogProvidersSection.active")}{" "}
                   {claudeSettingSources.length > 0
                     ? claudeSettingSources.join(" + ")
-                    : "none"}
+                    : t("settingsProviders:settingsDialogProvidersSection.none")}
                 </p>
               </LabeledField>
               <LabeledField
-                title="Task Budget (Tokens)"
-                description="Advisory token budget sent to Claude so it can pace tool use and wrap up earlier. Use `0` to disable."
+                title={t("settingsProviders:providersSection.claudeRuntime.taskBudget.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.taskBudget.description")}
               >
                 <DraftInput
                   xstyle={providersStyles.field}
@@ -1017,14 +951,14 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <LabeledField
-                title="Thinking Mode"
+                title={t("settingsProviders:providersSection.claudeRuntime.thinkingMode.title")}
                 guide={
                   <SettingsFieldGuide
-                    title="Claude Thinking Mode"
-                    summary="Thinking controls whether Claude spends extra effort on explicit reasoning before answering."
+                    title={t("settingsProviders:providersSection.claudeRuntime.thinkingMode.guide.title")}
+                    summary={t("settingsProviders:providersSection.claudeRuntime.thinkingMode.guide.summary")}
                     items={buildGuideItems(CLAUDE_THINKING_MODE_HELP)}
                     examples={buildGuideExamples(CLAUDE_THINKING_MODE_HELP)}
-                    tooltip="Compare Claude thinking modes"
+                    tooltip={t("settingsProviders:providersSection.claudeRuntime.thinkingMode.guide.tooltip")}
                   />
                 }
               >
@@ -1041,14 +975,14 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <LabeledField
-                title="Effort"
+                title={t("settingsProviders:providersSection.claudeRuntime.effort.title")}
                 guide={
                   <SettingsFieldGuide
-                    title="Claude Effort"
-                    summary="Higher effort spends more model budget on reasoning and usually increases latency."
+                    title={t("settingsProviders:providersSection.claudeRuntime.effort.guide.title")}
+                    summary={t("settingsProviders:providersSection.claudeRuntime.effort.guide.summary")}
                     items={buildGuideItems(CLAUDE_EFFORT_HELP)}
                     examples={buildGuideExamples(CLAUDE_EFFORT_HELP)}
-                    tooltip="Compare Claude effort levels"
+                    tooltip={t("settingsProviders:providersSection.claudeRuntime.effort.guide.tooltip")}
                   />
                 }
               >
@@ -1065,8 +999,8 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <SwitchField
-                title="Agent Progress Summaries"
-                description="Enables Claude SDK `task_progress.summary` updates for running subagents."
+                title={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.description")}
                 checked={claudeAgentProgressSummaries}
                 onCheckedChange={(checked) =>
                   updateSettings({
@@ -1075,8 +1009,8 @@ export function ProvidersSection() {
                 }
               />
               <SwitchField
-                title="Prompt Suggestions"
-                description="Offers follow-up prompt chips after each completed turn. Costs one extra lightweight request per turn on top of the turn itself; background lanes never request suggestions."
+                title={t("settingsProviders:providersSection.claudeRuntime.promptSuggestions.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.promptSuggestions.description")}
                 checked={claudePromptSuggestions}
                 onCheckedChange={(checked) =>
                   updateSettings({
@@ -1085,8 +1019,8 @@ export function ProvidersSection() {
                 }
               />
               <SwitchField
-                title="Forward Subagent Text"
-                description="Streams nested subagent transcript text instead of only subagent progress heartbeats."
+                title={t("settingsProviders:providersSection.claudeRuntime.forwardSubagentText.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.forwardSubagentText.description")}
                 checked={claudeForwardSubagentText}
                 onCheckedChange={(checked) =>
                   updateSettings({
@@ -1095,8 +1029,8 @@ export function ProvidersSection() {
                 }
               />
               <SwitchField
-                title="File Checkpointing"
-                description="Enables Claude SDK file checkpoints so changed files can be rewound by session controls."
+                title={t("settingsProviders:providersSection.claudeRuntime.fileCheckpointing.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.fileCheckpointing.description")}
                 checked={claudeEnableFileCheckpointing}
                 onCheckedChange={(checked) =>
                   updateSettings({
@@ -1105,16 +1039,16 @@ export function ProvidersSection() {
                 }
               />
               <SwitchField
-                title="Fork Resumed Session"
-                description="When resuming a Claude session, fork to a new session instead of continuing the previous one."
+                title={t("settingsProviders:providersSection.claudeRuntime.forkSession.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.forkSession.description")}
                 checked={claudeForkSession}
                 onCheckedChange={(checked) =>
                   updateSettings({ patch: { claudeForkSession: checked } })
                 }
               />
               <SwitchField
-                title="Strict MCP Config"
-                description="Only use MCP servers passed by Stave and explicitly configured SDK agents."
+                title={t("settingsProviders:providersSection.claudeRuntime.strictMcpConfig.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.strictMcpConfig.description")}
                 checked={claudeStrictMcpConfig}
                 onCheckedChange={(checked) =>
                   updateSettings({
@@ -1123,18 +1057,18 @@ export function ProvidersSection() {
                 }
               />
               <LabeledField
-                title="Plan Mode Approvals"
+                title={t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.title")}
                 guide={
                   <SettingsFieldGuide
-                    title="Claude Plan Mode Approvals"
-                    summary="Controls how many approval prompts plan mode shows. Plan mode is always read-only — mutating file edits and mutating Bash are hard-denied at every level; these options only relax the prompt for non-mutating Bash, subagents, and read-only MCP tools."
+                    title={t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.guide.title")}
+                    summary={t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.guide.summary")}
                     items={buildGuideItems(
                       CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP,
                     )}
                     examples={buildGuideExamples(
                       CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP,
                     )}
-                    tooltip="Compare plan-mode approval scopes"
+                    tooltip={t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.guide.tooltip")}
                   />
                 }
               >
@@ -1151,21 +1085,21 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <LabeledField
-                title="Skills"
-                description="Comma- or newline-separated Claude skill names. Use `all` to enable every discovered skill."
+                title={t("settingsProviders:codexExtensionsTab.skills")}
+                description={t("settingsProviders:providersSection.claudeRuntime.skills.description")}
               >
                 <DraftInput
                   xstyle={providersStyles.field}
                   value={claudeSkills}
-                  placeholder="all"
+                  placeholder={t("settingsProviders:settingsDialogProvidersSection.all")}
                   onCommit={(value) =>
                     updateSettings({ patch: { claudeSkills: value } })
                   }
                 />
               </LabeledField>
               <LabeledField
-                title="Plugin Paths"
-                description="Comma- or newline-separated local Claude plugin directories. Stave owns MCP discovery for these plugins."
+                title={t("settingsProviders:providersSection.claudeRuntime.pluginPaths.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.pluginPaths.description")}
               >
                 <DraftInput
                   xstyle={providersStyles.field}
@@ -1178,8 +1112,8 @@ export function ProvidersSection() {
               </LabeledField>
               <ClaudeInstalledPluginsField />
               <LabeledField
-                title="Main Agent"
-                description="Optional Claude agent name from settings or loaded plugins for the main conversation."
+                title={t("settingsProviders:providersSection.claudeRuntime.mainAgent.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.mainAgent.description")}
               >
                 <DraftInput
                   xstyle={providersStyles.field}
@@ -1191,8 +1125,8 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <LabeledField
-                title="Fallback Models"
-                description="Comma-separated Claude fallback models used when the primary model is overloaded or unavailable. Opus 5.5 automatically falls back to Opus 4.8 when left blank."
+                title={t("settingsProviders:providersSection.claudeRuntime.fallbackModels.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.fallbackModels.description")}
               >
                 <DraftInput
                   xstyle={providersStyles.field}
@@ -1204,13 +1138,13 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <LabeledField
-                title="Resume At Message"
-                description="Optional Claude assistant message UUID for partial resume from a previous session."
+                title={t("settingsProviders:providersSection.claudeRuntime.resumeAt.title")}
+                description={t("settingsProviders:providersSection.claudeRuntime.resumeAt.description")}
               >
                 <DraftInput
                   xstyle={providersStyles.field}
                   value={claudeResumeSessionAt}
-                  placeholder="message uuid"
+                  placeholder={t("settingsProviders:providersSection.claudeRuntime.resumeAt.placeholder")}
                   onCommit={(value) =>
                     updateSettings({
                       patch: { claudeResumeSessionAt: value },
@@ -1227,8 +1161,8 @@ export function ProvidersSection() {
         <TabsContent value="codex">
           <SectionStack>
             <SettingsCard
-              title="Codex Runtime Controls"
-              description="Per-turn Codex file access, approvals, network, reasoning, and search settings."
+              title={t("settingsProviders:providersSection.codexRuntime.title")}
+              description={t("settingsProviders:providersSection.codexRuntime.description")}
               titleAccessory={
                 <Badge
                   variant={currentCodexModePresetId ? "secondary" : "outline"}
@@ -1238,8 +1172,8 @@ export function ProvidersSection() {
               }
             >
               <LabeledField
-                title="Mode Preset"
-                description="Apply a recommended Codex autonomy preset. Editing the fields below can move the card into Custom."
+                title={t("settingsProviders:providersSection.modePresetTitle")}
+                description={t("settingsProviders:providersSection.codexRuntime.modePreset.description")}
               >
                 <ProviderModePresetButtons
                   presets={CODEX_PROVIDER_MODE_PRESETS}
@@ -1252,28 +1186,28 @@ export function ProvidersSection() {
                 />
                 <p className={sx(providersStyles.presetHint)}>
                   {currentCodexModePresetId
-                    ? `${currentCodexModeLabel} is active. Reapply a preset any time to restore its full file access, approval, and network combination.`
-                    : "Custom is active. The current Codex file-access and approval combination does not match a built-in preset."}
+                    ? t("settingsProviders:settingsDialogProvidersSection.isActiveReapplyAPresetAnyVariantcdc4723b", { value1: currentCodexModeLabel })
+                    : t("settingsProviders:providersSection.codexRuntime.modePreset.custom")}
                 </p>
               </LabeledField>
               <SwitchField
-                title="Network Access"
-                description="Controls whether Codex may use networked capabilities during a turn."
+                title={t("settingsProviders:providersSection.codexRuntime.networkAccess.title")}
+                description={t("settingsProviders:providersSection.codexRuntime.networkAccess.description")}
                 checked={codexNetworkAccess}
                 onCheckedChange={(checked) =>
                   updateSettings({ patch: { codexNetworkAccess: checked } })
                 }
               />
               <LabeledField
-                title="File Access"
+                title={t("settingsProviders:providersSection.codexRuntime.fileAccess.title")}
                 guide={
                   <SettingsFieldGuide
-                    title="Codex File Access"
-                    summary="This setting controls where Codex can read and write on disk."
+                    title={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.title")}
+                    summary={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.summary")}
                     items={buildGuideItems(CODEX_FILE_ACCESS_HELP)}
                     examples={buildGuideExamples(CODEX_FILE_ACCESS_HELP)}
-                    note="When Stave runs Codex in plan mode, it forces `read-only` regardless of the normal setting."
-                    tooltip="Compare Codex file access levels"
+                    note={t("settingsProviders:messages.codexPlanReadOnly")}
+                    tooltip={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.tooltip")}
                   />
                 }
               >
@@ -1290,15 +1224,15 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <LabeledField
-                title="Approvals"
+                title={t("settingsProviders:providersSection.codexRuntime.approvals.title")}
                 guide={
                   <SettingsFieldGuide
-                    title="Codex Approvals"
-                    summary="Approval policy controls when Codex pauses to ask before acting."
+                    title={t("settingsProviders:providersSection.codexRuntime.approvals.guide.title")}
+                    summary={t("settingsProviders:providersSection.codexRuntime.approvals.guide.summary")}
                     items={buildGuideItems(CODEX_APPROVAL_POLICY_HELP)}
                     examples={buildGuideExamples(CODEX_APPROVAL_POLICY_HELP)}
-                    note="Stave forces `never` during Codex plan mode so planning turns do not stop on approval prompts."
-                    tooltip="Compare Codex approval policies"
+                    note={t("settingsProviders:messages.codexPlanNever")}
+                    tooltip={t("settingsProviders:providersSection.codexRuntime.approvals.guide.tooltip")}
                   />
                 }
               >
@@ -1316,18 +1250,18 @@ export function ProvidersSection() {
               </LabeledField>
               {codexRuntimeCapabilities.approval.appToolModes.length > 0 ? (
                 <LabeledField
-                  title="App Tool Approvals"
-                  description="Controls App and MCP tools separately from shell command approvals."
+                  title={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.title")}
+                  description={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.description")}
                   guide={
                     <SettingsFieldGuide
-                      title="Codex App Tool Approvals"
-                      summary="This controls approval prompts for connected App and MCP tools, not shell commands or sandbox permissions."
+                      title={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.title")}
+                      summary={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.summary")}
                       items={buildGuideItems(CODEX_APP_TOOL_APPROVAL_HELP)}
                       examples={buildGuideExamples(
                         CODEX_APP_TOOL_APPROVAL_HELP,
                       )}
-                      note="`writes` trusts each tool's read-only annotation; it is not a security boundary."
-                      tooltip="Compare App tool approval modes"
+                      note={t("settingsProviders:messages.writesTrustNote")}
+                      tooltip={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.tooltip")}
                     />
                   }
                 >
@@ -1343,14 +1277,14 @@ export function ProvidersSection() {
                 </LabeledField>
               ) : null}
               <LabeledField
-                title="Reasoning"
+                title={t("settingsProviders:providersSection.codexRuntime.reasoning.title")}
                 guide={
                   <SettingsFieldGuide
-                    title="Codex Reasoning Effort"
-                    summary="Higher effort gives Codex more room to reason, but it also tends to slow the turn down."
+                    title={t("settingsProviders:providersSection.codexRuntime.reasoning.guide.title")}
+                    summary={t("settingsProviders:providersSection.codexRuntime.reasoning.guide.summary")}
                     items={buildGuideItems(codexReasoningEffortOptions)}
                     examples={buildGuideExamples(codexReasoningEffortOptions)}
-                    tooltip="Compare Codex reasoning effort levels"
+                    tooltip={t("settingsProviders:providersSection.codexRuntime.reasoning.guide.tooltip")}
                   />
                 }
               >
@@ -1367,15 +1301,15 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <LabeledField
-                title="Reasoning Summary"
-                description="Codex config for model-side reasoning summaries when supported."
+                title={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.title")}
+                description={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.description")}
                 guide={
                   <SettingsFieldGuide
-                    title="Codex Reasoning Summary"
-                    summary="This controls how much reasoning summary Codex should try to return when the model supports it."
+                    title={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.guide.title")}
+                    summary={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.guide.summary")}
                     items={buildGuideItems(CODEX_REASONING_SUMMARY_HELP)}
                     examples={buildGuideExamples(CODEX_REASONING_SUMMARY_HELP)}
-                    tooltip="Compare Codex reasoning summary modes"
+                    tooltip={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.guide.tooltip")}
                   />
                 }
               >
@@ -1392,15 +1326,15 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <LabeledField
-                title="Summary Support"
-                description="Override Codex capability detection when a model supports reasoning summaries but the runtime cannot infer it."
+                title={t("settingsProviders:providersSection.codexRuntime.summarySupport.title")}
+                description={t("settingsProviders:providersSection.codexRuntime.summarySupport.description")}
                 guide={
                   <SettingsFieldGuide
-                    title="Reasoning Summary Capability Override"
-                    summary="Only touch this when automatic capability detection is wrong."
+                    title={t("settingsProviders:providersSection.codexRuntime.summarySupport.guide.title")}
+                    summary={t("settingsProviders:providersSection.codexRuntime.summarySupport.guide.summary")}
                     items={buildGuideItems(CODEX_REASONING_SUPPORT_HELP)}
                     examples={buildGuideExamples(CODEX_REASONING_SUPPORT_HELP)}
-                    tooltip="How reasoning summary support override works"
+                    tooltip={t("settingsProviders:providersSection.codexRuntime.summarySupport.guide.tooltip")}
                   />
                 }
               >
@@ -1417,23 +1351,23 @@ export function ProvidersSection() {
                 />
               </LabeledField>
               <SwitchField
-                title="Raw Reasoning"
-                description="Shows low-level reasoning traces when Codex emits them."
+                title={t("settingsProviders:providersSection.codexRuntime.rawReasoning.title")}
+                description={t("settingsProviders:providersSection.codexRuntime.rawReasoning.description")}
                 checked={codexShowRawReasoning}
                 onCheckedChange={(checked) =>
                   updateSettings({ patch: { codexShowRawReasoning: checked } })
                 }
               />
               <LabeledField
-                title="Web Search"
-                description="Default is `cached`, which allows lower-volatility search without turning on live external lookup."
+                title={t("settingsProviders:providersSection.codexRuntime.webSearch.title")}
+                description={t("settingsProviders:providersSection.codexRuntime.webSearch.description")}
                 guide={
                   <SettingsFieldGuide
-                    title="Codex Web Search"
-                    summary="Use this when Codex needs outside knowledge rather than only repo-local context."
+                    title={t("settingsProviders:providersSection.codexRuntime.webSearch.guide.title")}
+                    summary={t("settingsProviders:providersSection.codexRuntime.webSearch.guide.summary")}
                     items={buildGuideItems(CODEX_WEB_SEARCH_HELP)}
                     examples={buildGuideExamples(CODEX_WEB_SEARCH_HELP)}
-                    tooltip="Compare Codex web search modes"
+                    tooltip={t("settingsProviders:providersSection.codexRuntime.webSearch.guide.tooltip")}
                   />
                 }
               >
@@ -1451,14 +1385,12 @@ export function ProvidersSection() {
                 {codexWebSearch === "indexed" &&
                 effectiveCodexWebSearch !== "indexed" ? (
                   <p className={sx(providersStyles.webSearchHint)}>
-                    Indexed search is unavailable in the selected Codex version;
-                    Stave will use cached search instead.
-                  </p>
+                    {t("settingsProviders:providersSection.codexRuntime.webSearch.indexedUnavailable")}</p>
                 ) : null}
               </LabeledField>
               <SwitchField
-                title="Fast Mode"
-                description="Enables Codex fast_mode feature flag for faster responses on simpler tasks."
+                title={t("settingsProviders:cursorSection.fastMode.title")}
+                description={t("settingsProviders:providersSection.codexRuntime.fastMode.description")}
                 checked={codexFastMode}
                 onCheckedChange={(checked) =>
                   updateSettings({ patch: { codexFastMode: checked } })

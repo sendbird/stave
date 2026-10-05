@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@/components/ads/components/Button";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -15,6 +16,7 @@ export function Segmented<Value extends string>(props: {
   disabled?: boolean;
   size?: "xs" | "sm";
 }) {
+  useTranslation();
   const size = props.size ?? "sm";
   return (
     <div role="radiogroup" aria-label={props["aria-label"]} className={sx(styles.root)}>

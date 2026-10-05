@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -242,6 +243,7 @@ export function ToastHost({
   timeout = DEFAULT_TOAST_TIMEOUT_MS,
   toastManager,
 }: ToastHostProps) {
+  useTranslation();
   const { horizontal, isTop, swipe } = resolvePosition(position);
   // The stack leaves the host's DOM subtree through the portal, so it carries
   // the brand with it. `@scope` is a fact about the DOM tree and a portal is
@@ -256,6 +258,7 @@ export function ToastHost({
         <PortalProductThemeScope>
           <ToastViewport
             {...portalTheme}
+            aria-label={i18n.t("ui:toastHost.notifications")}
             className={sx(
               styles.viewport,
               isTop ? styles.viewportTop : styles.viewportBottom,
@@ -279,6 +282,7 @@ function ToastHostList({
   isTop: boolean;
   swipe: SwipeDirection;
 }) {
+  useTranslation();
   const { toasts } = useToastManager();
 
   return toasts.map((toast) => {
@@ -371,7 +375,7 @@ function ToastHostList({
                 controlSquares.sm,
                 focusRing.ring,
               )}
-              aria-label="Dismiss toast"
+              aria-label={i18n.t("ui:toasthost.dismissToast")}
               // Same close contract as Popover/Dialog: a 16px glyph in the 32px
               // quiet square. It shipped at 14px, so the identical-looking
               // button read weaker here than on every other overlay surface.

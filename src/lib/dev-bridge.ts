@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   CanonicalConversationRequest,
   ProviderId,
@@ -105,14 +106,14 @@ export function installDevApiBridge() {
         ok: false,
         providerId: args.providerId,
         detail:
-          "Connected-tool preflight is unavailable in the web dev bridge.",
+          i18n.t("app:devBridge.connectedToolPreflightIsUnavailableInTheWebDevBridge"),
         tools: (args.toolIds ?? []).map((toolId) => ({
           id: toolId,
           label: toolId,
           state: "unknown" as const,
           available: true,
           detail:
-            "Connected-tool preflight is unavailable in the web dev bridge.",
+            i18n.t("app:devBridge.connectedToolPreflightIsUnavailableInTheWebDevBridge"),
         })),
       }),
     },

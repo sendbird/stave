@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { Badge } from "@/components/ads/components/Badge";
 import {
   describeExchangeStatus,
@@ -15,6 +16,7 @@ export function ExchangeStatusBadge(props: {
   className?: string;
   "data-testid"?: string;
 }) {
+  useTranslation();
   const description = describeExchangeStatus(props.status);
   return (
     <Badge

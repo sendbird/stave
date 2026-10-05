@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Agent run domain: the records an agent run is made of.
  *
@@ -464,14 +465,14 @@ export const AgentRunStageRecordSchema = z
       context.addIssue({
         code: "custom",
         path: ["blockReason"],
-        message: "A blocked stage must carry a block reason.",
+        message: i18n.t("agentRuns:domain.message"),
       });
     }
     if (record.status !== "blocked" && record.blockReason) {
       context.addIssue({
         code: "custom",
         path: ["blockReason"],
-        message: "Only a blocked stage carries a block reason.",
+        message: i18n.t("agentRuns:domain.message2"),
       });
     }
   });
@@ -550,7 +551,7 @@ export const AgentRunStartInputSchema = z
       context.addIssue({
         code: "custom",
         path: ["startStageIndex"],
-        message: "The run must start at a stage of its workflow.",
+        message: i18n.t("agentRuns:domain.message3"),
       });
     }
     const effectIds = new Set(
@@ -561,7 +562,7 @@ export const AgentRunStartInputSchema = z
         context.addIssue({
           code: "custom",
           path: ["consent", "authorizedEffectStageIds", index],
-          message: `"${stageId}" is not a stage with an external effect in this workflow.`,
+          message: i18n.t("agentRuns:domain.message4", { value1: stageId }),
         });
       }
     });
@@ -601,21 +602,21 @@ export const AgentRunSchema = z
       context.addIssue({
         code: "custom",
         path: ["currentStageIndex"],
-        message: "The current stage must exist in the workflow.",
+        message: i18n.t("agentRuns:domain.message5"),
       });
     }
     if ((agentRun.state === "paused") !== Boolean(agentRun.pauseReason)) {
       context.addIssue({
         code: "custom",
         path: ["pauseReason"],
-        message: "A paused run, and only a paused one, carries a pause reason.",
+        message: i18n.t("agentRuns:domain.message6"),
       });
     }
     if ((agentRun.state === "stopped") !== Boolean(agentRun.stopReason)) {
       context.addIssue({
         code: "custom",
         path: ["stopReason"],
-        message: "A stopped run, and only a stopped one, carries a stop reason.",
+        message: i18n.t("agentRuns:domain.message7"),
       });
     }
   });
@@ -660,7 +661,7 @@ const EventDetailSchema = z
   .record(z.string(), z.unknown())
   .refine(
     (detail) => JSON.stringify(detail).length <= AGENT_RUN_LIMITS.maxEventDetailChars,
-    `Event detail must stay under ${AGENT_RUN_LIMITS.maxEventDetailChars} characters.`,
+    { error: () => i18n.t("agentRuns:domain.extraCopy247", { value1: AGENT_RUN_LIMITS.maxEventDetailChars }) },
   );
 
 export const AgentRunEventSchema = z
@@ -764,7 +765,7 @@ export function latestStageRecord(
 export function workflowStageAt(agentRun: AgentRun, index: number): WorkflowStage {
   const stage = agentRun.workflow.stages[index];
   if (!stage) {
-    throw new RangeError(`Run ${agentRun.id} has no stage at index ${index}.`);
+    throw new RangeError(i18n.t("agentRuns:remaining.presentationCopy433", { v1: agentRun.id, v2: index }));
   }
   return stage;
 }
@@ -774,7 +775,7 @@ export function currentStageRecord(aggregate: AgentRunAggregate): AgentRunStageR
   const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
   const record = latestStageRecord(aggregate.stages, stage.id);
   if (!record) {
-    throw new Error(`Run ${aggregate.agentRun.id} has no record for stage "${stage.id}".`);
+    throw new Error(i18n.t("agentRuns:remaining.presentationCopy434", { v1: aggregate.agentRun.id, v2: stage.id }));
   }
   return record;
 }
@@ -802,7 +803,7 @@ export function enterStage(args: {
   if (attempt > AGENT_RUN_LIMITS.maxStageAttempts) {
     throw new AgentRunCommandError(
       "attempt-limit",
-      `"${stage.title}" reached its limit of ${AGENT_RUN_LIMITS.maxStageAttempts} attempts.`,
+      i18n.t("agentRuns:domain.extraCopy250", { value1: stage.title, value2: AGENT_RUN_LIMITS.maxStageAttempts }),
     );
   }
   return createStageRecord({
@@ -894,7 +895,7 @@ export function createAgentRun(args: {
     (stage): AgentRunStageRecord => ({
       ...createStageRecord({ agentRunId: agentRun.id, stageId: stage.id, attempt: 1 }),
       status: "skipped",
-      detail: `Not run: the run started at ${startStage.title}.`,
+      detail: i18n.t("agentRuns:domain.detail", { value1: startStage.title }),
       endedAt: timestamp,
     }),
   );

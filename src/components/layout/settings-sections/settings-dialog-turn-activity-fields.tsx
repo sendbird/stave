@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useShallow } from "zustand/react/shallow";
 import {
   normalizeTurnActivityPlacement,
@@ -16,6 +17,7 @@ import {
  * open.
  */
 export function TurnActivityFields() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [placement, expandedByDefault, updateSettings] = useAppStore(
     useShallow(
       (state) =>
@@ -29,8 +31,8 @@ export function TurnActivityFields() {
   return (
     <>
       <LabeledField
-        title="Open Run Details In"
-        description="Where the toggle on the run line above the prompt opens the turn's tools, agents and to-dos. The run line itself stays above the prompt either way, and its panel button always opens the Task panel."
+        title={t("settings:turnActivityFields.placement.title")}
+        description={t("settings:turnActivityFields.placement.description")}
       >
         <ChoiceButtons<TurnActivityPlacement>
           value={normalizeTurnActivityPlacement(placement)}
@@ -38,15 +40,15 @@ export function TurnActivityFields() {
             updateSettings({ patch: { turnActivityPlacement: value } })
           }
           options={[
-            { value: "docked", label: "Above the prompt" },
-            { value: "floating", label: "Floating card" },
-            { value: "panel", label: "Task panel" },
+            { value: "docked", label: t("settings:turnActivityFields.placement.docked") },
+            { value: "floating", label: t("settings:turnActivityFields.placement.floating") },
+            { value: "panel", label: t("settings:turnActivityFields.placement.panel") },
           ]}
         />
       </LabeledField>
       <SwitchField
-        title="Open Run Details"
-        description="Open the details when a run starts instead of showing the run line alone. Your toggle during a run lasts until that run ends."
+        title={t("settings:turnActivityFields.expanded.title")}
+        description={t("settings:turnActivityFields.expanded.description")}
         checked={expandedByDefault}
         onCheckedChange={(checked) =>
           updateSettings({ patch: { turnActivityExpandedByDefault: checked } })

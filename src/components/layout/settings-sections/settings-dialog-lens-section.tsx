@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, Trans, useTranslation, i18n } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -42,6 +43,7 @@ function formatLensHostList(hosts: readonly string[]): string {
 }
 
 export function LensSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     heuristic,
     reactDebugSource,
@@ -88,13 +90,13 @@ export function LensSection() {
   const clearLensSessionData = useCallback(
     async (scope: LensSessionScope) => {
       if (!activeWorkspaceId) {
-        toast.error("Select a workspace before clearing Lens data.");
+        toast.error(i18n.t("settings:lensSection.toasts.selectWorkspace"));
         return;
       }
 
       const clearSessionData = window.api?.lens?.clearSessionData;
       if (!clearSessionData) {
-        toast.error("Lens session controls are unavailable.");
+        toast.error(i18n.t("settings:lensSection.toasts.controlsUnavailable"));
         return;
       }
 
@@ -106,18 +108,18 @@ export function LensSection() {
           repositoryKey: repositoryPath,
         });
         if (!result.ok) {
-          toast.error("Failed to clear Lens data", {
+          toast.error(i18n.t("settings:lensSection.toasts.clearFailed"), {
             description: result.message,
           });
           return;
         }
         toast.success(
           scope === "project"
-            ? "Repository Lens data cleared"
-            : "Workspace Lens data cleared",
+            ? i18n.t("settings:lensSection.toasts.repositoryCleared")
+            : i18n.t("settings:lensSection.toasts.workspaceCleared"),
         );
       } catch (err) {
-        toast.error("Failed to clear Lens data", {
+        toast.error(i18n.t("settings:lensSection.toasts.clearFailed"), {
           description: err instanceof Error ? err.message : String(err),
         });
       } finally {
@@ -129,7 +131,7 @@ export function LensSection() {
   const addCdpApprovedHost = useCallback(() => {
     const host = normalizeLensHostEntry(cdpHostDraft);
     if (!host) {
-      toast.error("Enter a valid host or URL.");
+      toast.error(i18n.t("settings:lensSection.toasts.invalidHost"));
       return;
     }
 
@@ -137,7 +139,7 @@ export function LensSection() {
       (entry) => normalizeLensHostEntry(entry) === host,
     );
     if (alreadyApproved) {
-      toast.message("Host is already approved", {
+      toast.message(i18n.t("settings:lensSection.toasts.hostAlreadyApproved"), {
         description: host,
       });
       setCdpHostDraft("");
@@ -153,270 +155,259 @@ export function LensSection() {
   }, [cdpApprovedHosts, cdpHostDraft, updateSettings]);
 
   return (
-    <>
-      <SectionStack>
-        <SettingsCard
-          title="Session & Sign-in"
-          description="Control where Lens keeps website cookies and local browser storage. Saved account passwords are managed separately below."
-        >
-          <ChoiceButtons<LensSessionScope>
-            value={sessionScope}
-            columns={2}
-            options={[
-              {
-                value: "project",
-                label: "Repository profile",
-                description:
-                  "Share Lens sign-in across workspaces for this repository.",
-              },
-              {
-                value: "workspace",
-                label: "Workspace isolated",
-                description:
-                  "Keep Lens sign-in separate for the active workspace.",
-              },
-            ]}
-            onChange={(value) =>
-              updateSettings({ patch: { lensSessionScope: value } })
+    <SectionStack>
+      <SettingsCard
+        title={t("settings:lensSection.session.title")}
+        description={t("settings:lensSection.session.description")}
+      >
+        <ChoiceButtons<LensSessionScope>
+          value={sessionScope}
+          columns={2}
+          options={[
+            {
+              value: "project",
+              label: t("settings:lensSection.session.repositoryProfile.label"),
+              description:
+                t("settings:lensSection.session.repositoryProfile.description"),
+            },
+            {
+              value: "workspace",
+              label: t("settings:lensSection.session.workspaceIsolated.label"),
+              description:
+                t("settings:lensSection.session.workspaceIsolated.description"),
+            },
+          ]}
+          onChange={(value) =>
+            updateSettings({ patch: { lensSessionScope: value } })
+          }
+        />
+        <div className={sx(styles.clearButtonsGrid)}>
+          <Button
+            type="button"
+            variant="soft"
+            tone="danger"
+            size="sm"
+            disabled={
+              !activeWorkspaceId || !repositoryPath || clearingScope !== null
             }
-          />
-          <div className={sx(styles.clearButtonsGrid)}>
-            <Button
-              type="button"
-              variant="soft"
-              tone="danger"
-              size="sm"
-              disabled={
-                !activeWorkspaceId || !repositoryPath || clearingScope !== null
-              }
-              onClick={() => {
-                void clearLensSessionData("project");
+            onClick={() => {
+              void clearLensSessionData("project");
+            }}
+            xstyle={styles.clearButton}
+          >
+            {clearingScope === "project" ? (
+              <Loader2 className={sx(styles.spinIcon)} />
+            ) : (
+              <Trash2 className={sx(styles.iconSm)} />
+            )}
+            {t("settings:lensSection.session.clearRepositoryData")}</Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!activeWorkspaceId || clearingScope !== null}
+            onClick={() => {
+              void clearLensSessionData("workspace");
+            }}
+            xstyle={styles.clearButton}
+          >
+            {clearingScope === "workspace" ? (
+              <Loader2 className={sx(styles.spinIcon)} />
+            ) : (
+              <Trash2 className={sx(styles.iconSm)} />
+            )}
+            {t("settings:lensSection.session.clearWorkspaceData")}</Button>
+        </div>
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:lensSection.agentActivity.title")}
+        description={t("settings:lensSection.agentActivity.description")}
+      >
+        <ChoiceButtons<LensAgentPresentationMode>
+          value={agentPresentationMode}
+          columns={3}
+          options={[
+            {
+              value: "split-right",
+              label: t("settings:lensSection.agentActivity.splitRight.label"),
+              description:
+                t("settings:lensSection.agentActivity.splitRight.description"),
+            },
+            {
+              value: "background-tab",
+              label: t("settings:lensSection.agentActivity.backgroundTab.label"),
+              description:
+                t("settings:lensSection.agentActivity.backgroundTab.description"),
+            },
+            {
+              value: "agent-decides",
+              label: t("settings:lensSection.agentActivity.agentDecides.label"),
+              description:
+                t("settings:lensSection.agentActivity.agentDecides.description"),
+            },
+          ]}
+          onChange={(value) =>
+            updateSettings({
+              patch: { lensAgentPresentationMode: value },
+            })
+          }
+        />
+      </SettingsCard>
+      <LensCredentialsSettingsCard />
+      <SettingsCard
+        title={t("settings:lensSection.sourceMapping.title")}
+        description={t("settings:lensSection.sourceMapping.description")}
+      >
+        <SwitchField
+          title={t("settings:lensSection.sourceMapping.heuristic.title")}
+          description={t("settings:lensSection.sourceMapping.heuristic.description")}
+          checked={heuristic}
+          onCheckedChange={(checked) =>
+            updateSettings({
+              patch: { lensSourceMappingHeuristic: checked },
+            })
+          }
+        />
+        <SwitchField
+          title={t("settings:settingsDialogLensSection.reactDebugSource")}
+          description={t("settings:lensSection.sourceMapping.reactDebugSource.description")}
+          checked={reactDebugSource}
+          onCheckedChange={(checked) =>
+            updateSettings({
+              patch: { lensSourceMappingReactDebugSource: checked },
+            })
+          }
+        />
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:lensSection.visualComments.title")}
+        description={t("settings:lensSection.visualComments.description")}
+      >
+        <SwitchField
+          title={t("settings:lensSection.visualComments.screenshots.title")}
+          description={t("settings:lensSection.visualComments.screenshots.description")}
+          checked={visualCommentScreenshotsAsImageContext}
+          onCheckedChange={(checked) =>
+            updateSettings({
+              patch: {
+                lensVisualCommentScreenshotsAsImageContext: checked,
+              },
+            })
+          }
+        />
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:lensSection.developerMode.title")}
+        description={t("settings:lensSection.developerMode.description")}
+      >
+        <SwitchField
+          title={t("settings:lensSection.developerMode.cdpTools.title")}
+          description={t("settings:lensSection.developerMode.cdpTools.description")}
+          checked={developerModeCdp}
+          onCheckedChange={(checked) =>
+            updateSettings({
+              patch: { lensDeveloperModeCdp: checked },
+            })
+          }
+        />
+        <div className={sx(styles.spaceY2)}>
+          <div className={sx(styles.cdpLabel)}>{t("settings:lensSection.developerMode.approvedHosts")}</div>
+          <div className={sx(styles.cdpInputRow)}>
+            <Input
+              value={cdpHostDraft}
+              placeholder={t("settings:lensSection.developerMode.hostPlaceholder")}
+              aria-label={t("settings:lensSection.developerMode.hostAriaLabel")}
+              xstyle={styles.input8Mono}
+              onChange={(event) => setCdpHostDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addCdpApprovedHost();
+                }
               }}
-              xstyle={styles.clearButton}
-            >
-              {clearingScope === "project" ? (
-                <Loader2 className={sx(styles.spinIcon)} />
-              ) : (
-                <Trash2 className={sx(styles.iconSm)} />
-              )}
-              Clear repository data
-            </Button>
+            />
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={!activeWorkspaceId || clearingScope !== null}
-              onClick={() => {
-                void clearLensSessionData("workspace");
-              }}
-              xstyle={styles.clearButton}
+              xstyle={styles.cdpAddButton}
+              onClick={addCdpApprovedHost}
             >
-              {clearingScope === "workspace" ? (
-                <Loader2 className={sx(styles.spinIcon)} />
-              ) : (
-                <Trash2 className={sx(styles.iconSm)} />
-              )}
-              Clear workspace data
-            </Button>
+              <Plus className={sx(styles.iconSm)} />
+              {t("settings:lensSection.developerMode.addHost")}</Button>
           </div>
-        </SettingsCard>
-        <SettingsCard
-          title="Agent Activity"
-          description="Choose how a hidden Lens session appears when an agent starts visual inspection or page interaction. Navigation, DOM reads, and diagnostics alone stay hidden."
-        >
-          <ChoiceButtons<LensAgentPresentationMode>
-            value={agentPresentationMode}
-            columns={3}
-            options={[
-              {
-                value: "split-right",
-                label: "Show beside task",
-                description:
-                  "Open Lens in a right split without taking focus from the task.",
-              },
-              {
-                value: "background-tab",
-                label: "Background tab",
-                description:
-                  "Add a Lens tab without changing the visible task surface.",
-              },
-              {
-                value: "agent-decides",
-                label: "Agent decides",
-                description:
-                  "Keep agent sessions hidden until the agent explicitly presents one.",
-              },
-            ]}
-            onChange={(value) =>
-              updateSettings({
-                patch: { lensAgentPresentationMode: value },
-              })
-            }
-          />
-        </SettingsCard>
-        <LensCredentialsSettingsCard />
-        <SettingsCard
-          title="Source Code Mapping"
-          description="Choose which strategies the element picker uses to help AI locate source files."
-        >
-          <SwitchField
-            title="Heuristic Search"
-            description="AI uses class names, text content, and IDs to search for source files via grep. Recommended for most repositories."
-            checked={heuristic}
-            onCheckedChange={(checked) =>
-              updateSettings({
-                patch: { lensSourceMappingHeuristic: checked },
-              })
-            }
-          />
-          <SwitchField
-            title="React _debugSource"
-            description="Extract exact file and line number from React fiber internals. Only works with dev builds that include @babel/plugin-transform-react-jsx-source (enabled by default in Vite React plugin, CRA, and Next.js dev)."
-            checked={reactDebugSource}
-            onCheckedChange={(checked) =>
-              updateSettings({
-                patch: { lensSourceMappingReactDebugSource: checked },
-              })
-            }
-          />
-        </SettingsCard>
-        <SettingsCard
-          title="Visual Comments"
-          description="Control whether visual comment screenshots are used only as local UI context or also sent to the selected AI provider."
-        >
-          <SwitchField
-            title="Send screenshots as AI image context"
-            description="Off by default. When enabled, screenshots captured through visual comment are included with the next message so the AI can inspect the selected region."
-            checked={visualCommentScreenshotsAsImageContext}
-            onCheckedChange={(checked) =>
-              updateSettings({
-                patch: {
-                  lensVisualCommentScreenshotsAsImageContext: checked,
-                },
-              })
-            }
-          />
-        </SettingsCard>
-        <SettingsCard
-          title="Developer Mode"
-          description="Control CDP-backed Lens actions such as screenshots, JavaScript evaluation, and agent page control. Approval prompts appear app-wide, even when the Lens panel is closed."
-        >
-          <SwitchField
-            title="CDP Tools"
-            description="Ask before the first CDP action for each host. Allow once is temporary; always allow saves the hostname below."
-            checked={developerModeCdp}
-            onCheckedChange={(checked) =>
-              updateSettings({
-                patch: { lensDeveloperModeCdp: checked },
-              })
-            }
-          />
-          <div className={sx(styles.spaceY2)}>
-            <div className={sx(styles.cdpLabel)}>Approved CDP Hosts</div>
-            <div className={sx(styles.cdpInputRow)}>
-              <Input
-                value={cdpHostDraft}
-                placeholder="localhost or https://example.com"
-                aria-label="CDP approved host"
-                xstyle={styles.input8Mono}
-                onChange={(event) => setCdpHostDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addCdpApprovedHost();
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                xstyle={styles.cdpAddButton}
-                onClick={addCdpApprovedHost}
-              >
-                <Plus className={sx(styles.iconSm)} />
-                Add host
-              </Button>
-            </div>
-            <p className={sx(styles.cdpHelp)}>
-              Enter a hostname or URL. Ports and paths are ignored, so{" "}
-              <code>localhost</code> covers <code>localhost:3000</code>,{" "}
-              <code>localhost:8899</code>, and other localhost ports.
-            </p>
-            {cdpApprovedHosts.length > 0 ? (
-              <div className={sx(styles.cdpHostList)}>
-                {cdpApprovedHosts.map((host) => (
-                  <Badge
-                    key={host}
-                    variant="secondary"
-                    className={sx(styles.cdpHostBadge)}
+          <p className={sx(styles.cdpHelp)}><Trans t={t} i18nKey="settings:whole.lensHostScope" components={{ host: <code />, portA: <code />, portB: <code /> }} /></p>
+          {cdpApprovedHosts.length > 0 ? (
+            <div className={sx(styles.cdpHostList)}>
+              {cdpApprovedHosts.map((host) => (
+                <Badge
+                  key={host}
+                  variant="secondary"
+                  className={sx(styles.cdpHostBadge)}
+                >
+                  <span className={sx(styles.cdpHostText)}>{host}</span>
+                  <Button
+                    type="button"
+                    size="xs"
+                    iconOnly
+                    variant="quiet"
+                    aria-label={i18n.t("settings:settingsDialogLensSection.remove", { value1: host })}
+                    onClick={() =>
+                      updateSettings({
+                        patch: {
+                          lensCdpApprovedHosts: cdpApprovedHosts.filter(
+                            (entry) => entry !== host,
+                          ),
+                        },
+                      })
+                    }
                   >
-                    <span className={sx(styles.cdpHostText)}>{host}</span>
-                    <Button
-                      type="button"
-                      size="xs"
-                      iconOnly
-                      variant="quiet"
-                      aria-label={`Remove ${host}`}
-                      onClick={() =>
-                        updateSettings({
-                          patch: {
-                            lensCdpApprovedHosts: cdpApprovedHosts.filter(
-                              (entry) => entry !== host,
-                            ),
-                          },
-                        })
-                      }
-                    >
-                      <Trash2 className={sx(styles.iconXs)} />
-                    </Button>
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className={sx(styles.captionMuted)}>
-                No hosts are pre-approved. The first CDP action will show an
-                approval dialog.
-              </p>
-            )}
-          </div>
-        </SettingsCard>
-        <SettingsCard
-          title="Site Access"
-          description="Restrict Lens navigation by hostname. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation, but CDP actions still require approval above."
+                    <Trash2 className={sx(styles.iconXs)} />
+                  </Button>
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className={sx(styles.captionMuted)}>
+              {t("settings:lensSection.developerMode.noHosts")}</p>
+          )}
+        </div>
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:lensSection.siteAccess.title")}
+        description={t("settings:lensSection.siteAccess.description")}
+      >
+        <LabeledField
+          title={t("settings:lensSection.siteAccess.allowed.title")}
+          description={t("settings:lensSection.siteAccess.allowed.description")}
         >
-          <LabeledField
-            title="Allowed Hosts"
-            description="One host per line. Leave empty to allow any host that is not blocked."
-          >
-            <DraftTextarea
-              value={allowedHostsText}
-              placeholder={"example.com\napp.example.com"}
-              rows={4}
-              onCommit={(value) =>
-                updateSettings({
-                  patch: { lensAllowedHosts: parseLensHostList(value) },
-                })
-              }
-            />
-          </LabeledField>
-          <LabeledField
-            title="Blocked Hosts"
-            description="One host per line. These hosts are blocked even when they also match the allow list."
-          >
-            <DraftTextarea
-              value={blockedHostsText}
-              placeholder={"example.org\nstaging.example.com"}
-              rows={4}
-              onCommit={(value) =>
-                updateSettings({
-                  patch: { lensBlockedHosts: parseLensHostList(value) },
-                })
-              }
-            />
-          </LabeledField>
-        </SettingsCard>
-      </SectionStack>
-    </>
+          <DraftTextarea
+            value={allowedHostsText}
+            placeholder={"example.com\napp.example.com"}
+            rows={4}
+            onCommit={(value) =>
+              updateSettings({
+                patch: { lensAllowedHosts: parseLensHostList(value) },
+              })
+            }
+          />
+        </LabeledField>
+        <LabeledField
+          title={t("settings:lensSection.siteAccess.blocked.title")}
+          description={t("settings:lensSection.siteAccess.blocked.description")}
+        >
+          <DraftTextarea
+            value={blockedHostsText}
+            placeholder={"example.org\nstaging.example.com"}
+            rows={4}
+            onCommit={(value) =>
+              updateSettings({
+                patch: { lensBlockedHosts: parseLensHostList(value) },
+              })
+            }
+          />
+        </LabeledField>
+      </SettingsCard>
+    </SectionStack>
   );
 }

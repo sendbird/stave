@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslation } from "@/i18n";
 import {
   useLoadProviderAccounts,
   useProviderAccounts,
@@ -32,6 +33,7 @@ export function StandaloneCliAccountSelect(props: {
   value: string;
   onValueChange: (accountProfileId: string) => void;
 }) {
+  const { t } = useTranslation("terminal");
   const [pendingAccountId, setPendingAccountId] = useState<string | null>(null);
   useEffect(() => setPendingAccountId(null), [props.tabId, props.value]);
   useLoadProviderAccounts();
@@ -66,25 +68,38 @@ export function StandaloneCliAccountSelect(props: {
         <SelectTrigger
           size="sm"
           className={sx(styles.accountSelect)}
-          aria-label={`${getStandaloneCliTabTitle(props.tabId)} account for this tab`}
-          title="Run this tab under another account. Stave asks first, because switching ends this session and starts a new conversation."
+          aria-label={t("standaloneCli.accountSelect.ariaLabel", {
+            provider: getStandaloneCliTabTitle(props.tabId),
+          })}
+          title={t("standaloneCli.accountSelect.tooltip")}
         >
-          <SelectValue>{selected?.label ?? "Account unavailable"}</SelectValue>
+          <SelectValue>
+            {selected?.label ?? t("standaloneCli.accountSelect.unavailable")}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {options.map((profile) => (
             <SelectItem key={profile.id} value={profile.id}>
-              {profile.label}
-              {profile.gateway ? " · API billing" : ""}
+              {profile.gateway
+                ? t("standaloneCli.accountSelect.apiBillingOption", {
+                    label: profile.label,
+                  })
+                : profile.label}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
       <ConfirmDialog
         open={pendingAccountId !== null}
-        title="End session and switch account?"
-        description={`This will end this tab's current CLI session and stop any running commands. A new conversation will start with ${pendingAccount?.label ?? "the selected account"}. The current conversation will not be resumed.`}
-        confirmLabel="End session and switch"
+        title={t("standaloneCli.accountSelect.confirm.title")}
+        description={
+          pendingAccount
+            ? t("standaloneCli.accountSelect.confirm.description", {
+                account: pendingAccount.label,
+              })
+            : t("standaloneCli.accountSelect.confirm.descriptionUnknownAccount")
+        }
+        confirmLabel={t("standaloneCli.accountSelect.confirm.confirm")}
         onCancel={() => setPendingAccountId(null)}
         onConfirm={() => {
           const accountProfileId = pendingAccountId;

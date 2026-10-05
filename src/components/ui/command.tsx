@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { commandLayout, commandDialogMarker, commandItemMarker } from "./command-layout.stylex";
 import { VisuallyHidden } from "../ads/components/VisuallyHidden";
 import * as React from "react";
@@ -45,6 +46,7 @@ function Command({
   onValueChange,
   ...props
 }: CommandProps) {
+  useTranslation();
   const [query, setQuery] = React.useState("");
   const [highlighted, setHighlighted] = React.useState<string>();
   const items: string[] = [];
@@ -115,8 +117,8 @@ function Command({
 }
 
 function CommandDialog({
-  title = "Command Palette",
-  description = "Search for a command to run...",
+  title = i18n.t("ui:command.commandPalette"),
+  description = i18n.t("ui:command.searchForACommandToRun"),
   children,
   className,
   showCloseButton = false,
@@ -127,6 +129,7 @@ function CommandDialog({
   className?: string;
   showCloseButton?: boolean;
 }) {
+  useTranslation();
   return (
     <Dialog {...props}>
       <VisuallyHidden><DialogHeader>
@@ -153,6 +156,7 @@ function CommandInput({
 }: Omit<React.ComponentProps<"input">, "onChange"> & {
   onValueChange?: (value: string) => void;
 }) {
+  useTranslation();
   const context = React.useContext(CommandContext);
   const { onValueChange, value, ...inputProps } = props;
   return (
@@ -177,7 +181,7 @@ function CommandInput({
         }}
       />
       <span aria-hidden="true" className={sx(commandLayout.escape)}>
-        <Kbd>ESC</Kbd>
+        <Kbd>{/* i18n-ignore: keyboard key name */}ESC</Kbd>
       </span>
     </div>
   );
@@ -187,6 +191,7 @@ function CommandList({
   className,
   ...props
 }: React.ComponentProps<typeof AdsCommand.List>) {
+  useTranslation();
   return (
     <AdsCommand.List
       data-slot="command-list"
@@ -201,6 +206,7 @@ function CommandEmpty({
   className,
   ...props
 }: React.ComponentProps<typeof AdsCommand.Empty>) {
+  useTranslation();
   return (
     <AdsCommand.Empty
       data-slot="command-empty"
@@ -217,6 +223,7 @@ function CommandGroup({
   children,
   ...props
 }: React.ComponentProps<"div"> & { heading?: React.ReactNode }) {
+  useTranslation();
   return (
     <AdsCommand.Group
       data-slot="command-group"
@@ -236,6 +243,7 @@ function CommandSeparator({
   className,
   ...props
 }: React.ComponentProps<typeof Separator>) {
+  useTranslation();
   return (
     <Separator
       data-slot="command-separator"
@@ -258,6 +266,7 @@ function CommandItem({
   onSelect?: (value: string) => void;
   keywords?: string[];
 }) {
+  useTranslation();
   const context = React.useContext(CommandContext);
   return (
     <AdsCommand.Item
@@ -285,6 +294,7 @@ function CommandShortcut({
   children,
   ...props
 }: React.ComponentProps<"span">) {
+  useTranslation();
   return (
     <span
       data-slot="command-shortcut"

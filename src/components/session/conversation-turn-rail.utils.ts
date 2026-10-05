@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { ConversationTurnActionState } from "@/lib/providers/thread-actions";
 import type { ChatMessage } from "@/types/chat";
 
@@ -64,11 +65,11 @@ export function buildConversationTurnRailItems(args: {
       messageIndex,
       providerId: message.providerId,
       model: message.model,
-      promptPreview: latestUserPrompt || "Assistant response",
+      promptPreview: latestUserPrompt || i18n.t("session:conversationTurnRailUtils.extraCopy179"),
       responsePreview:
         toConversationTurnPreviewText(
           message.displayContent ?? message.content,
-        ) || "Provider activity completed without a text response.",
+        ) || i18n.t("session:conversationTurnRailUtils.extraCopy180"),
       state,
     });
   }

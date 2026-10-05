@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import {
@@ -76,6 +77,7 @@ export function StatusBarUsageSegment({
   tokensBreakpoint: UsageStripBreakpoint;
   now: number;
 }) {
+  useTranslation();
   const { provider, providerName, stale } = segment;
   const providerId = STATUS_BAR_USAGE_PROVIDER_IDS[provider];
   const [open, setOpen] = useState(false);
@@ -144,7 +146,7 @@ export function StatusBarUsageSegment({
         />
         <span className={sx(usageStripStyles.name)}>
           {segment.name}
-          {stale ? " (unverified)" : ""}
+          {stale ? i18n.t("shell:statusBarUsageSegment.unverified") : ""}
         </span>
         {gateway ? null : segment.windows.length === 0 ? (
           segment.pending ? (
@@ -185,12 +187,12 @@ export function StatusBarUsageSegment({
         initialFocus={false}
       >
         <div className={sx(statusBarUsageStyles.popoverHeader)}>
-          <span className={sx(statusBarUsageStyles.popoverTitle)}>{providerName} usage</span>
+          <span className={sx(statusBarUsageStyles.popoverTitle)}>{i18n.t("shell:statusBarUsageSegment.providerUsage", { provider: providerName })}</span>
           {gateway ? null : <Button
             variant="ghost"
             size="sm"
             xstyle={statusBarUsageStyles.refreshButton}
-            aria-label="refresh-rate-limits"
+            aria-label={i18n.t("shell:statusBarUsageSegment.refreshUsage")}
             disabled={stale}
             onClick={() =>
               void refreshRateLimits({
@@ -211,8 +213,7 @@ export function StatusBarUsageSegment({
         <div className={sx(statusBarUsageStyles.popoverBody)}>
           {gateway ? (
             <p className={sx(statusBarUsageStyles.note)}>
-              Usage and charges are managed by your Gateway. Subscription quota
-              is unavailable.
+              {i18n.t("shell:statusBarUsageSegment.usageAndChargesAreManagedByYour")}
             </p>
           ) : segment.pending ? (
             <UsageReadPending providerName={providerName} accountLabel={accountLabel} />
@@ -254,7 +255,7 @@ export function StatusBarUsageSegment({
         <Button variant="ghost" size="sm" onClick={() => {
           setOpen(false); noteRateLimitsMeterClosed(providerId);
           openUsage({ providerId, accountProfileId: account?.selected?.id ?? "system-default" });
-        }}>View usage statistics</Button>
+        }}>{i18n.t("shell:statusBarUsageSegment.viewUsageStatistics")}</Button>
         {account && accountProviderId ? (
           <StatusBarAccountSection
             providerId={accountProviderId}

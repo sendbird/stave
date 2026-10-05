@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import {
@@ -151,14 +152,15 @@ export function fromDelegatedTask(
   const phase = describeDelegatedTaskPhase(child, opts?.blockedKind ?? null);
   const status: ExchangeStatus = exchangeStatusFromDelegatedTaskPhase(child.phase);
   const failed = status === "failed" || status === "cancelled";
-  const actions: DelegationAction[] = [{ id: "open", label: "Open" }];
+  const actions: DelegationAction[] = [{ id: "open", label: i18n.t("agentRuns:exchange.label") }];
   const live = child.phase === "pending" || child.phase === "running" || child.phase === "waiting";
   if (live) {
-    actions.push({ id: "follow-up", label: "Follow-up" });
-    actions.push({ id: "stop", label: "Stop" });
-    actions.push({ id: "detach", label: "Detach" });
+    actions.push({ id: "follow-up", label: i18n.t("agentRuns:exchange.followUp") });
+    actions.push({ id: "stop", label: i18n.t("agentRuns:exchange.label2") });
+    actions.push({ id: "detach", label: i18n.t("agentRuns:exchange.label3") });
+  // i18n-ignore: canonical provider or lifecycle text used for parsing
   } else if (child.phase !== "cancelled" || !child.reason?.startsWith("Detached")) {
-    actions.push({ id: "retry", label: "Retry" });
+    actions.push({ id: "retry", label: i18n.t("agentRuns:exchange.label4") });
   }
   const startedAt = parseIsoMs(child.createdAt) ?? null;
   const endedAt = parseIsoMs(child.completedAt);
@@ -167,14 +169,14 @@ export function fromDelegatedTask(
     kind: "delegated-task",
     title: child.delegationKey,
     identity: {
-      role: "Subagent",
+      role: i18n.t("agentRuns:exchange.extraCopy404"),
       modelEvidence: "requested",
       providerId: child.providerId,
       ...(child.requestedModel ? { model: child.requestedModel } : {}),
       ...(child.requestedEffort ? { effort: child.requestedEffort } : {}),
       source: child.requestedModel ? "explicit" : "provider-default",
     },
-    ask: opts?.prompt ?? `Subagent ${child.delegationKey}`,
+    ask: opts?.prompt ?? i18n.t("agentRuns:exchange.extraCopy403", { value1: child.delegationKey }),
     outcome: {
       status,
       ...(failed && child.reason
@@ -212,7 +214,7 @@ export function fromWorkGraphNode(
     kind: "subagent",
     title: node.badge ? `${node.badge} · ${node.label}` : node.label,
     identity: {
-      role: "Subagent",
+      role: i18n.t("agentRuns:exchange.extraCopy404"),
       model: node.model,
       effort: node.effort,
       modelEvidence: node.modelEvidence,
@@ -235,7 +237,7 @@ export function fromWorkGraphNode(
       stages: [],
     },
     actions: node.spawnedByToolUseId
-      ? [{ id: "show-in-conversation", label: "Show in conversation" }]
+      ? [{ id: "show-in-conversation", label: i18n.t("agentRuns:exchange.label5") }]
       : [],
     setup: {
       ...(node.attempt !== undefined ? { attempt: node.attempt } : {}),
@@ -373,9 +375,9 @@ export function countDelegationExchanges(
 
 export function formatDelegationCounts(counts: DelegationCounts): string {
   return [
-    counts.running > 0 ? `${counts.running} running` : null,
-    counts.done > 0 ? `${counts.done} done` : null,
-    counts.failed > 0 ? `${counts.failed} failed` : null,
+    counts.running > 0 ? i18n.t("agentRuns:remaining.presentationCopy506", { v1: counts.running }) : null,
+    counts.done > 0 ? i18n.t("agentRuns:remaining.presentationCopy507", { v1: counts.done }) : null,
+    counts.failed > 0 ? i18n.t("agentRuns:remaining.presentationCopy508", { v1: counts.failed }) : null,
   ]
     .filter((segment): segment is string => segment !== null)
     .join(" · ");

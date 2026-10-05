@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ChevronDown, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -69,6 +70,7 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector(args: ModelSelectorProps) {
+  useTranslation();
   const {
     value,
     options,
@@ -177,7 +179,7 @@ export function ModelSelector(args: ModelSelectorProps) {
         <span className={sx(styles.optionTitleRow)}>
           <span className={sx(styles.optionLabel)}>{option.label}</span>
           {option.isDefault ? (
-            <span className={sx(styles.optionDefaultBadge)}>default</span>
+            <span className={sx(styles.optionDefaultBadge)}>{i18n.t("composer:modelSelector.copy")}</span>
           ) : null}
           {option.badge ? (
             <span className={sx(styles.optionNoticeBadge)} title={option.description}>{option.badge}</span>
@@ -216,7 +218,7 @@ export function ModelSelector(args: ModelSelectorProps) {
               xstyle={[styles.trigger, open && styles.triggerOpen]}
               disabled={disabled}
               aria-label={triggerAriaLabel}
-              title="Open model selector (Alt+P). Use Alt+1..0 for mapped models."
+              title={i18n.t("composer:modelSelector.title")}
             />
           }
         >
@@ -244,20 +246,19 @@ export function ModelSelector(args: ModelSelectorProps) {
         showCloseButton={false}
       >
         <DialogHeader className={sx(styles.srOnly)}>
-          <DialogTitle>Select model</DialogTitle>
+          <DialogTitle>{i18n.t("composer:modelSelector.modelSelector")}</DialogTitle>
           <DialogDescription>
-            Search and select the model for this composer.
-          </DialogDescription>
+            {i18n.t("composer:modelSelector.modelSelector2")}</DialogDescription>
         </DialogHeader>
         <Command className={sx(styles.command)}>
-          <CommandInput autoFocus placeholder="Search model" />
+          <CommandInput autoFocus placeholder={i18n.t("composer:modelSelector.placeholder")} />
           {/*
             Each option row is 3.5rem tall (py-2.5 + a 20px label and a 16px
             description line), so the 17.5rem cap keeps roughly five rows in
             view and everything below reachable by scrolling.
           */}
           <CommandList className={sx(styles.commandList)}>
-            <CommandEmpty>No models found.</CommandEmpty>
+            <CommandEmpty>{i18n.t("composer:modelSelector.modelSelector3")}</CommandEmpty>
             {autoOptions.length > 0 ? (
               <CommandGroup>{autoOptions.map(renderOption)}</CommandGroup>
             ) : null}
@@ -270,7 +271,7 @@ export function ModelSelector(args: ModelSelectorProps) {
                 heading={
                   <span className={sx(styles.groupHeading)}>
                     <Sparkles className={sx(styles.groupHeadingIcon)} />
-                    <span>Recommended</span>
+                    <span>{i18n.t("composer:modelSelector.heading")}</span>
                   </span>
                 }
               >
@@ -297,11 +298,9 @@ export function ModelSelector(args: ModelSelectorProps) {
         </Command>
         {effortEnabled && effortOptions.length > 0 ? (
           <div className={sx(styles.effortRow)}>
-            <p className={sx(styles.effortLabel)}>
-              Reasoning effort for {value.label}
-            </p>
+            <p className={sx(styles.effortLabel)}>{i18n.t("composer:modelSelector.sentence28", { value1: value.label })}</p>
             <ChoiceChips
-              label={`Reasoning effort for ${value.label}`}
+              label={i18n.t("composer:modelSelector.label", { value1: value.label })}
               options={effortOptions}
               value={effort}
               disabled={disabled}

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { AiStage, Workflow } from "./schema";
 
 export const ACCEPTANCE_CRITERION_STATUSES = [
@@ -76,12 +77,12 @@ function requireAiStage(workflow: Workflow, stageIndex: number): AiStage {
   const stage = workflow.stages[stageIndex];
   if (!stage) {
     throw new RangeError(
-      `Stage index ${stageIndex} is outside a workflow with ${workflow.stages.length} stages.`,
+      i18n.t("agentRuns:remaining.presentationCopy523", { v1: stageIndex, v2: workflow.stages.length }),
     );
   }
   if (stage.kind !== "ai") {
     throw new TypeError(
-      `Stage "${stage.title}" is a Stave action and has no prompt.`,
+      i18n.t("agentRuns:remaining.presentationCopy524", { v1: stage.title }),
     );
   }
   return stage;

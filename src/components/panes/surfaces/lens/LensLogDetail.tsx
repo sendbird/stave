@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { chromeStyles } from "./lens-chrome.styles";
 import { sx } from "../../../ads/utils/stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -42,6 +43,7 @@ export function LensLogDetailBlock(props: {
   label: string;
   children: ReactNode;
 }) {
+  useTranslation();
   return (
     <div>
       <div className={sx(d.label)}>
@@ -63,6 +65,7 @@ export function ConsoleInspectableRow(props: {
     objectHandle: string,
   ) => Promise<BrowserConsoleObjectProperties>;
 }) {
+  useTranslation();
   const { entryId, label, value, depth = 0, loadProperties } = props;
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -90,7 +93,7 @@ export function ConsoleInspectableRow(props: {
       setError(
         loadError instanceof Error
           ? loadError.message
-          : "Object properties are unavailable.",
+          : i18n.t("lens:lensLogDetail.objectPropertiesAreUnavailable"),
       );
     } finally {
       setLoading(false);
@@ -117,7 +120,7 @@ export function ConsoleInspectableRow(props: {
             variant="ghost"
             xstyle={d.toggle}
             onClick={() => void toggleExpanded()}
-            aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
+            aria-label={`${expanded ? i18n.t("lens:lensLogDetail.collapse") : i18n.t("lens:lensLogDetail.expand")} ${label}`}
             aria-expanded={expanded}
           >
             {loading ? (
@@ -175,17 +178,17 @@ export function ConsoleInspectableRow(props: {
               ))}
               {properties.overflow ? (
                 <p className={sx(d.note)}>
-                  Additional properties were omitted by the capture limit.
+                  {i18n.t("lens:lensLogDetail.additionalPropertiesWereOmittedByTheCapture")}
                 </p>
               ) : null}
             </>
           ) : loading ? (
             <p className={sx(d.note)}>
-              Loading properties…
+              {i18n.t("lens:lensLogDetail.loadingProperties")}
             </p>
           ) : (
             <p className={sx(d.note)}>
-              No enumerable properties.
+              {i18n.t("lens:lensLogDetail.noEnumerableProperties")}
             </p>
           )}
         </div>
@@ -199,11 +202,12 @@ export function DetailLoadState(props: {
   error: string | null;
   empty: string;
 }) {
+  useTranslation();
   if (props.loading) {
     return (
       <div className={sx(d.state)}>
         <Loader aria-hidden size="xs" variant="scan" />
-        Loading diagnostic detail…
+        {i18n.t("lens:lensLogDetail.loadingDiagnosticDetail")}
       </div>
     );
   }
@@ -229,13 +233,14 @@ export function NetworkBodyView(props: {
   metadata?: Omit<BrowserNetworkBody, "content">;
   available: boolean;
 }) {
+  useTranslation();
   const { label, loading, error, body, metadata, available } = props;
   if (loading) {
     return (
       <DetailLoadState
         loading
         error={null}
-        empty={`No ${label.toLowerCase()} body.`}
+        empty={i18n.t("lens:lensLogDetail.noBody", { value1: label.toLowerCase() })}
       />
     );
   }
@@ -247,7 +252,7 @@ export function NetworkBodyView(props: {
       <DetailLoadState
         loading={false}
         error={null}
-        empty={`No ${label.toLowerCase()} body was captured.`}
+        empty={i18n.t("lens:lensLogDetail.noBodyWasCaptured", { value1: label.toLowerCase() })}
       />
     );
   }
@@ -259,7 +264,7 @@ export function NetworkBodyView(props: {
         error={null}
         empty={
           resolved?.unavailableReason ??
-          `${label} body is unavailable for this request.`
+          i18n.t("lens:lensLogDetail.bodyIsUnavailableForThisRequest", { value1: label })
         }
       />
     );
@@ -270,23 +275,22 @@ export function NetworkBodyView(props: {
     <div className={sx(d.stack)}>
       <div className={sx(d.metadata)}>
         <span className={sx(d.kind)}>
-          {resolved.kind}
+          {i18n.t(`lens:networkBody.kind.${resolved.kind}`)}
         </span>
         {resolved.mimeType ? <span>{resolved.mimeType}</span> : null}
         <span>
-          {formatLensNetworkBytes(resolved.capturedBytes)}
           {resolved.size && resolved.size !== resolved.capturedBytes
-            ? ` of ${formatLensNetworkBytes(resolved.size)}`
-            : ""}
+            ? i18n.t("lens:lensLogDetail.capturedOf", { captured: formatLensNetworkBytes(resolved.capturedBytes), total: formatLensNetworkBytes(resolved.size) })
+            : formatLensNetworkBytes(resolved.capturedBytes)}
         </span>
         {resolved.redacted ? (
           <span className={sx(d.warning)}>
-            Sensitive fields redacted
+            {i18n.t("lens:lensLogDetail.sensitiveFieldsRedacted")}
           </span>
         ) : null}
         {resolved.truncated ? (
           <span className={sx(d.warning)}>
-            Truncated
+            {i18n.t("lens:lensLogDetail.truncated")}
           </span>
         ) : null}
       </div>
@@ -294,7 +298,7 @@ export function NetworkBodyView(props: {
         <DetailLoadState
           loading={false}
           error={null}
-          empty="Binary content is represented by capture metadata only."
+          empty={i18n.t("lens:lensLogDetail.binaryContentIsRepresentedByCaptureMetadata")}
         />
       ) : content ? (
         <LensLogDetailBlock label={label}>
@@ -306,7 +310,7 @@ export function NetworkBodyView(props: {
         <DetailLoadState
           loading={false}
           error={null}
-          empty={`${label} body metadata was captured, but no displayable content is available.`}
+          empty={i18n.t("lens:lensLogDetail.bodyMetadataWasCapturedButNo", { value1: label })}
         />
       )}
     </div>
@@ -317,13 +321,14 @@ export function NetworkTimingView(props: {
   timing: BrowserNetworkTiming | undefined;
   durationMs: number | undefined;
 }) {
+  useTranslation();
   const phases = getNetworkTimingPhases(props.timing, props.durationMs);
   if (!props.timing) {
     return (
       <DetailLoadState
         loading={false}
         error={null}
-        empty="Timing phases are unavailable for this request."
+        empty={i18n.t("lens:lensLogDetail.timingPhasesAreUnavailableForThisRequest")}
       />
     );
   }
@@ -334,25 +339,25 @@ export function NetworkTimingView(props: {
   );
   return (
     <div className={sx(d.spacedStack)}>
-      <LensLogDetailBlock label="Raw timestamps">
+      <LensLogDetailBlock label={i18n.t("lens:lensLogDetail.rawTimestamps")}>
         <dl className={sx(d.timestamps)}>
-          <dt className={sx(d.muted)}>Request monotonic</dt>
+          <dt className={sx(d.muted)}>{i18n.t("lens:lensLogDetail.requestMonotonic")}</dt>
           <dd>{props.timing.requestTimestamp}</dd>
-          <dt className={sx(d.muted)}>Wall time</dt>
+          <dt className={sx(d.muted)}>{i18n.t("lens:lensLogDetail.wallTime")}</dt>
           <dd>{props.timing.wallTime ?? "-"}</dd>
-          <dt className={sx(d.muted)}>Response monotonic</dt>
+          <dt className={sx(d.muted)}>{i18n.t("lens:lensLogDetail.responseMonotonic")}</dt>
           <dd>{props.timing.responseTimestamp ?? "-"}</dd>
-          <dt className={sx(d.muted)}>Finished monotonic</dt>
+          <dt className={sx(d.muted)}>{i18n.t("lens:lensLogDetail.finishedMonotonic")}</dt>
           <dd>{props.timing.finishedTimestamp ?? "-"}</dd>
         </dl>
       </LensLogDetailBlock>
       {phases.length ? (
         <div className={sx(d.table)}>
           <div className={sx(d.phaseRow, d.phaseHeading)}>
-            <span>Phase</span>
-            <span>Start</span>
-            <span>Time</span>
-            <span>Waterfall</span>
+            <span>{i18n.t("lens:lensLogDetail.phase")}</span>
+            <span>{i18n.t("lens:lensLogDetail.start")}</span>
+            <span>{i18n.t("lens:lensLogDetail.time")}</span>
+            <span>{i18n.t("lens:lensLogDetail.waterfall")}</span>
           </div>
           {phases.map((phase) => {
             const duration = phase.end - phase.start;
@@ -387,7 +392,7 @@ export function NetworkTimingView(props: {
         <DetailLoadState
           loading={false}
           error={null}
-          empty="Chromium did not report any request phases."
+          empty={i18n.t("lens:lensLogDetail.chromiumDidNotReportAnyRequestPhases")}
         />
       )}
     </div>
@@ -398,6 +403,7 @@ export function NetworkWaterfallCell(props: {
   entry: BrowserNetworkEntry;
   maxDurationMs: number;
 }) {
+  useTranslation();
   const duration = props.entry.durationMs ?? 0;
   const width =
     props.entry.state === "pending"
@@ -408,8 +414,8 @@ export function NetworkWaterfallCell(props: {
       className={sx(d.track, d.smallTrack)}
       aria-label={
         props.entry.state === "pending"
-          ? "Request pending"
-          : `Request duration ${formatDuration(props.entry.durationMs)}`
+          ? i18n.t("lens:lensLogDetail.requestPending")
+          : i18n.t("lens:lensLogDetail.requestDuration", { value1: formatDuration(props.entry.durationMs) })
       }
     >
       <span
@@ -426,6 +432,7 @@ export function LensDiagnosticsCaptureControls(props: {
   disabled: boolean;
   onChange: (enabled: boolean) => void;
 }) {
+  useTranslation();
   const { state, busy, disabled, onChange } = props;
   const enabled = Boolean(state?.enabled);
   return (
@@ -439,7 +446,7 @@ export function LensDiagnosticsCaptureControls(props: {
           <span className={sx(d.captureStatus)}>
             <span className={sx(d.dot)} />
             <span className={sx(d.truncated)}>
-              Full capture · {state?.host ?? "current host"}
+              {i18n.t("lens:lensLogDetail.fullCapture")} {state?.host ?? i18n.t("lens:lensLogDetail.currentHost")}
             </span>
           </span>
           <Button
@@ -449,14 +456,14 @@ export function LensDiagnosticsCaptureControls(props: {
             xstyle={d.captureButton}
             disabled={disabled || busy}
             onClick={() => onChange(false)}
-            aria-label="Stop full diagnostics capture"
+            aria-label={i18n.t("lens:lensLogDetail.stopFullDiagnosticsCapture")}
           >
             {busy ? (
               <Loader aria-hidden size="xs" variant="scan" />
             ) : (
               <Square className={sx(d.stopIcon)} />
             )}
-            Stop
+            {i18n.t("lens:lensLogDetail.stop")}
           </Button>
         </>
       ) : (
@@ -467,14 +474,14 @@ export function LensDiagnosticsCaptureControls(props: {
           xstyle={d.captureButton}
           disabled={disabled || busy}
           onClick={() => onChange(true)}
-          aria-label="Enable full diagnostics capture for the current host"
+          aria-label={i18n.t("lens:lensLogDetail.enableFullDiagnosticsCaptureForTheCurrent")}
         >
           {busy ? (
             <Loader aria-hidden size="xs" variant="scan" />
           ) : (
             <Crosshair className={sx(d.icon)} />
           )}
-          Full capture
+          {i18n.t("lens:lensLogDetail.fullCapture2")}
         </Button>
       )}
     </div>
@@ -491,6 +498,7 @@ export function LensLogEntryDetail(props: {
   onClose: () => void;
   onCopy: () => void;
 }) {
+  useTranslation();
   const {
     ariaLabel,
     testId,
@@ -540,7 +548,7 @@ export function LensLogEntryDetail(props: {
       <div className={sx(d.sticky)}>
         <div className={sx(d.header)}>
           <span className={sx(d.title)}>
-            Entry details
+            {i18n.t("lens:lensLogDetail.entryDetails")}
           </span>
           <div className={sx(d.actions)}>
             <Button
@@ -548,7 +556,7 @@ export function LensLogEntryDetail(props: {
               size="icon-xs"
               variant="ghost"
               onClick={onCopy}
-              aria-label={`Copy ${ariaLabel.toLowerCase()}`}
+              aria-label={i18n.t("lens:lensLogDetail.copy", { value1: ariaLabel.toLowerCase() })}
             >
               <Copy className={sx(d.icon)} />
             </Button>
@@ -557,7 +565,7 @@ export function LensLogEntryDetail(props: {
               size="icon-xs"
               variant="ghost"
               onClick={onClose}
-              aria-label={`Close ${ariaLabel.toLowerCase()}`}
+              aria-label={i18n.t("lens:lensLogDetail.close", { value1: ariaLabel.toLowerCase() })}
             >
               <X className={sx(d.icon)} />
             </Button>
@@ -565,7 +573,7 @@ export function LensLogEntryDetail(props: {
         </div>
         <div
           role="tablist"
-          aria-label={`${ariaLabel} sections`}
+          aria-label={i18n.t("lens:lensLogDetail.sections", { value1: ariaLabel })}
           className={sx(d.tablist)}
         >
           {tabs.map((tab, index) => {

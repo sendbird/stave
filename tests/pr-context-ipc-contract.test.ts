@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { i18n } from "@/i18n/runtime";
 import {
   FetchPrCheckLogsArgsSchema,
   FetchPrContextIndexArgsSchema,
@@ -175,7 +176,15 @@ describe("PR context IPC argument schemas", () => {
 describe("PR context ships with its consumer", () => {
   test("the dialog is reachable from the PR menu", () => {
     expect(topBarPrSource).toContain("PrContextDialog");
-    expect(topBarPrSource).toContain("Attach PR context");
+    const labelKey = "sourceControl:topBarOpenPR.attachPRContext";
+    expect(topBarPrSource).toMatch(
+      /<DropdownMenuItem\s+onSelect=\{\(\) => setPrContextDialogOpen\(true\)\}[\s\S]*?i18n\.t\("sourceControl:topBarOpenPR\.attachPRContext"\)[\s\S]*?<\/DropdownMenuItem>/,
+    );
+    expect(topBarPrSource).toMatch(
+      /<PrContextDialog\s+open=\{prContextDialogOpen\}\s+onOpenChange=\{setPrContextDialogOpen\}/,
+    );
+    expect(i18n.getFixedT("en")(labelKey)).toBe("Attach PR context…");
+    expect(i18n.getFixedT("ko")(labelKey)).toBe("PR 컨텍스트 첨부…");
   });
 
   test("the dialog fetches metadata first and logs only on attach", () => {

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -12,6 +13,7 @@ import type { PromptDraft } from "@/types/chat";
 
 /** Explain the same attachment fallback that the send path will choose. */
 export function AgentAttachmentNotice(props: { taskId: string; providerId: string; draft: PromptDraft }) {
+  useTranslation();
   const { taskId } = props;
   const workspaceId = useAppStore((state) => state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId);
   const turnActive = useAppStore((state) => Boolean(workspaceId === state.activeWorkspaceId
@@ -31,8 +33,7 @@ export function AgentAttachmentNotice(props: { taskId: string; providerId: strin
   });
   if (plan.kind !== "plain-turn" || plan.reason !== "attachments") return null;
   return <p role="status" className={sx(styles.notice)} data-testid="agent-attachment-notice">
-    This message will run as a single turn because it includes attachments. Automatic agent execution will not start.
-  </p>;
+    {i18n.t("session:agentAttachmentNotice.agentAttachmentNotice")}</p>;
 }
 
 const styles = stylex.create({

@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ArrowDownRight, ArrowUpRight, Gauge, Zap } from "lucide-react";
 import { useId } from "react";
@@ -123,23 +125,23 @@ function DelegatedUsageDetails(props: {
   entries: readonly DelegatedExecutionUsage[];
   includedInTurnTotal: boolean;
 }) {
+  useTranslation();
   if (props.entries.length === 0) {
     return null;
   }
   return (
     <div className={sx(styles.delegatedSection)}>
-      <p className={sx(styles.sectionTitle)}>Delegated breakdown</p>
+      <p className={sx(styles.sectionTitle)}>{i18n.t("session:messageUsageSummary.delegatedUsageDetails")}</p>
       <p className={sx(styles.mutedLine)}>
         {props.includedInTurnTotal
-          ? "Included in the turn total above."
-          : "Reported by delegated executions."}
+          ? i18n.t("session:messageUsageSummary.delegatedUsageDetails2")
+          : i18n.t("session:messageUsageSummary.delegatedUsageDetails3")}
       </p>
       {props.entries.map((entry) => (
         <div key={entry.executionId} className={sx(styles.entry)}>
           <div className={sx(styles.entryHeader)}>
             <span className={sx(styles.entryLabel)}>
-              Subagent
-            </span>
+              {i18n.t("session:messageUsageSummary.copy")}</span>
             <span className={sx(styles.entryMeta)}>
               {getProviderLabel({ providerId: entry.providerId })} ·{" "}
               {entry.model}
@@ -147,58 +149,52 @@ function DelegatedUsageDetails(props: {
           </div>
           {hasReportedDelegatedTokens(entry) ? (
             <div className={sx(styles.metricsGrid)}>
-              <span className={sx(styles.metricLabel)}>Input</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy2")}</span>
               <span className={sx(styles.metricValue)}>
-                {(entry.inputTokens ?? 0).toLocaleString()} tokens
-              </span>
-              <span className={sx(styles.metricLabel)}>Output</span>
+                {formatNumber((entry.inputTokens ?? 0))} {i18n.t("session:messageUsageSummary.copy3")}</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy4")}</span>
               <span className={sx(styles.metricValue)}>
-                {(entry.outputTokens ?? 0).toLocaleString()} tokens
-              </span>
+                {formatNumber((entry.outputTokens ?? 0))} {i18n.t("session:messageUsageSummary.copy5")}</span>
               {entry.cacheReadTokens !== undefined ? (
                 <>
-                  <span className={sx(styles.metricLabel)}>Cache read</span>
+                  <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy6")}</span>
                   <span className={sx(styles.metricValue)}>
-                    {entry.cacheReadTokens.toLocaleString()} tokens
-                  </span>
+                    {formatNumber(entry.cacheReadTokens)} {i18n.t("session:messageUsageSummary.copy7")}</span>
                 </>
               ) : null}
               {entry.cacheCreationTokens !== undefined ? (
                 <>
-                  <span className={sx(styles.metricLabel)}>Cache write</span>
+                  <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy8")}</span>
                   <span className={sx(styles.metricValue)}>
-                    {entry.cacheCreationTokens.toLocaleString()} tokens
-                  </span>
+                    {formatNumber(entry.cacheCreationTokens)} {i18n.t("session:messageUsageSummary.copy9")}</span>
                 </>
               ) : null}
               {entry.thoughtTokens !== undefined ? (
                 <>
-                  <span className={sx(styles.metricLabel)}>Reasoning</span>
+                  <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy10")}</span>
                   <span className={sx(styles.metricValue)}>
-                    {entry.thoughtTokens.toLocaleString()} tokens
-                  </span>
+                    {formatNumber(entry.thoughtTokens)} {i18n.t("session:messageUsageSummary.copy11")}</span>
                 </>
               ) : null}
               {entry.contextUsedTokens !== undefined &&
               entry.contextWindowTokens !== undefined ? (
                 <>
-                  <span className={sx(styles.metricLabel)}>Context</span>
+                  <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy12")}</span>
                   <span className={sx(styles.metricValue)}>
-                    {entry.contextUsedTokens.toLocaleString()} /{" "}
-                    {entry.contextWindowTokens.toLocaleString()}
+                    {formatNumber(entry.contextUsedTokens)} /{" "}
+                    {formatNumber(entry.contextWindowTokens)}
                   </span>
                 </>
               ) : entry.contextUsedPercent !== undefined ? (
                 <>
-                  <span className={sx(styles.metricLabel)}>Context</span>
+                  <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy13")}</span>
                   <span className={sx(styles.metricValue)}>
-                    {formatContextPercent(entry.contextUsedPercent)} used
-                  </span>
+                    {formatContextPercent(entry.contextUsedPercent)} {i18n.t("session:messageUsageSummary.copy14")}</span>
                 </>
               ) : null}
               {entry.totalCostUsd !== undefined ? (
                 <>
-                  <span className={sx(styles.metricLabel)}>Cost</span>
+                  <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy15")}</span>
                   <span className={sx(styles.metricValue)}>
                     {formatCostUsd(entry.totalCostUsd)}
                   </span>
@@ -206,7 +202,7 @@ function DelegatedUsageDetails(props: {
               ) : entry.contextCostAmount !== undefined &&
                 entry.contextCostCurrency ? (
                 <>
-                  <span className={sx(styles.metricLabel)}>Session cost</span>
+                  <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy16")}</span>
                   <span className={sx(styles.metricValue)}>
                     {formatReportedCost(
                       entry.contextCostAmount,
@@ -218,12 +214,11 @@ function DelegatedUsageDetails(props: {
             </div>
           ) : (
             <p className={sx(styles.mutedLine)}>
-              This provider did not report delegated token usage.
-            </p>
+              {i18n.t("session:messageUsageSummary.copy17")}</p>
           )}
           {entry.sessionReused !== undefined ? (
             <p className={sx(styles.mutedLine)}>
-              {entry.sessionReused ? "Session resumed" : "New role session"}
+              {entry.sessionReused ? i18n.t("session:messageUsageSummary.copy18") : i18n.t("session:messageUsageSummary.copy19")}
             </p>
           ) : null}
         </div>
@@ -239,6 +234,7 @@ function TurnUsageDetails(props: {
   model?: string;
   cacheMissLabel?: string | null;
 }) {
+  useTranslation();
   const usage = props.usage;
   const tokensReported = props.tokensReported;
   // Prompt size and cache hit rate are the two numbers that show whether
@@ -253,11 +249,11 @@ function TurnUsageDetails(props: {
   const providerName =
     props.providerId && props.providerId !== "user"
       ? getProviderLabel({ providerId: props.providerId })
-      : "This provider";
+      : i18n.t("session:messageUsageSummary.extraCopy181");
   return (
     <div className={sx(styles.turnTotal)}>
       <div className={sx(styles.turnTotalHeader)}>
-        <p className={sx(styles.turnTotalTitle)}>Turn total</p>
+        <p className={sx(styles.turnTotalTitle)}>{i18n.t("session:messageUsageSummary.turnUsageDetails")}</p>
         {props.providerId && props.providerId !== "user" && props.model ? (
           <span className={sx(styles.entryMeta)}>
             {getProviderLabel({ providerId: props.providerId })} · {props.model}
@@ -265,84 +261,75 @@ function TurnUsageDetails(props: {
         ) : null}
       </div>
       {tokensReported ? null : (
-        <p className={sx(styles.mutedLine)}>
-          {providerName} did not report token usage for this turn.
-        </p>
+        <p className={sx(styles.mutedLine)}>{i18n.t("session:messageUsageSummary.sentence57", { value1: providerName })}</p>
       )}
       {usage ? (
         <div className={sx(styles.metricsGrid)}>
           {tokensReported ? (
             <>
-              <span className={sx(styles.metricLabel)}>Prompt</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails3")}</span>
               <span className={sx(styles.metricValue)}>
-                {cacheStats.promptTokens.toLocaleString()} tokens
-              </span>
-              <span className={sx(styles.metricLabel)}>Input</span>
+                {formatNumber(cacheStats.promptTokens)} {i18n.t("session:messageUsageSummary.turnUsageDetails4")}</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails5")}</span>
               <span className={sx(styles.metricValue)}>
-                {usage.inputTokens.toLocaleString()} tokens
-              </span>
-              <span className={sx(styles.metricLabel)}>Output</span>
+                {formatNumber(usage.inputTokens)} {i18n.t("session:messageUsageSummary.turnUsageDetails6")}</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails7")}</span>
               <span className={sx(styles.metricValue)}>
-                {usage.outputTokens.toLocaleString()} tokens
-              </span>
+                {formatNumber(usage.outputTokens)} {i18n.t("session:messageUsageSummary.turnUsageDetails8")}</span>
             </>
           ) : null}
           {cacheHitLabel ? (
             <>
-              <span className={sx(styles.metricLabel)}>Cache hit</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails9")}</span>
               <span className={sx(styles.metricValue)}>{cacheHitLabel}</span>
             </>
           ) : null}
           {cacheMissLabel ? (
             <>
-              <span className={sx(styles.metricLabel)}>Cache miss</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails10")}</span>
               <span className={sx(styles.metricValue)}>{cacheMissLabel}</span>
             </>
           ) : null}
           {usage.cacheReadTokens ? (
             <>
-              <span className={sx(styles.metricLabel)}>Cache read</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails11")}</span>
               <span className={sx(styles.metricValue)}>
-                {usage.cacheReadTokens.toLocaleString()} tokens
-              </span>
+                {formatNumber(usage.cacheReadTokens)} {i18n.t("session:messageUsageSummary.turnUsageDetails12")}</span>
             </>
           ) : null}
           {usage.cacheCreationTokens ? (
             <>
-              <span className={sx(styles.metricLabel)}>Cache write</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails13")}</span>
               <span className={sx(styles.metricValue)}>
-                {usage.cacheCreationTokens.toLocaleString()} tokens
-              </span>
+                {formatNumber(usage.cacheCreationTokens)} {i18n.t("session:messageUsageSummary.turnUsageDetails14")}</span>
             </>
           ) : null}
           {usage.thoughtTokens ? (
             <>
-              <span className={sx(styles.metricLabel)}>Reasoning</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails15")}</span>
               <span className={sx(styles.metricValue)}>
-                {usage.thoughtTokens.toLocaleString()} tokens
-              </span>
+                {formatNumber(usage.thoughtTokens)} {i18n.t("session:messageUsageSummary.turnUsageDetails16")}</span>
             </>
           ) : null}
           {usage.contextUsedTokens !== undefined &&
           usage.contextWindowTokens !== undefined ? (
             <>
-              <span className={sx(styles.metricLabel)}>Context</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails17")}</span>
               <span className={sx(styles.metricValue)}>
-                {usage.contextUsedTokens.toLocaleString()} /{" "}
-                {usage.contextWindowTokens.toLocaleString()}
+                {formatNumber(usage.contextUsedTokens)} /{" "}
+                {formatNumber(usage.contextWindowTokens)}
               </span>
             </>
           ) : usage.contextUsedPercent !== undefined ? (
             <>
-              <span className={sx(styles.metricLabel)}>Context</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails18")}</span>
               <span className={sx(styles.metricValue)}>
-                {formatContextPercent(usage.contextUsedPercent)} used
-              </span>
+                {formatContextPercent(usage.contextUsedPercent)} {i18n.t("session:messageUsageSummary.turnUsageDetails19")}</span>
             </>
           ) : null}
           {usage.totalCostUsd != null ? (
             <>
-              <span className={sx(styles.metricLabel)}>Cost</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails20")}</span>
               <span className={sx(styles.metricValue)}>
                 {formatCostUsd(usage.totalCostUsd)}
               </span>
@@ -350,7 +337,7 @@ function TurnUsageDetails(props: {
           ) : usage.contextCostAmount !== undefined &&
             usage.contextCostCurrency ? (
             <>
-              <span className={sx(styles.metricLabel)}>Session cost</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails21")}</span>
               <span className={sx(styles.metricValue)}>
                 {formatReportedCost(
                   usage.contextCostAmount,
@@ -361,11 +348,11 @@ function TurnUsageDetails(props: {
           ) : null}
           {usage.ttftMs != null ? (
             <>
-              <span className={sx(styles.metricLabel)}>TTFT</span>
+              <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails22")}</span>
               <span className={sx(styles.metricValue)}>
                 {usage.ttftMs >= 1000
                   ? `${(usage.ttftMs / 1000).toFixed(1)}s`
-                  : `${Math.round(usage.ttftMs)}ms`}
+                  : i18n.t("session:messageUsageSummary.turnUsageDetails23", { value1: Math.round(usage.ttftMs) })}
               </span>
             </>
           ) : null}
@@ -385,6 +372,7 @@ export function MessageUsageSummary(props: {
   /** The previous assistant turn of the same task, for cache-miss detection. */
   previousTurn?: PromptCacheTurnSnapshot | null;
 }) {
+  useTranslation();
   const tooltipId = useId();
   const usage = props.usage;
   const delegatedUsage = (props.delegatedUsage ?? []).filter(
@@ -414,10 +402,10 @@ export function MessageUsageSummary(props: {
   ) {
     return null;
   }
-  const delegatedLabel = `${delegatedUsage.length} delegated ${delegatedUsage.length === 1 ? "execution" : "executions"}`;
+  const delegatedLabel = i18n.t("session:messageUsageSummary.delegatedExecutions", { count: delegatedUsage.length });
   const providerLabel =
     props.providerId && props.providerId !== "user" && props.model
-      ? ` for ${getProviderLabel({ providerId: props.providerId })} · ${props.model}`
+      ? i18n.t("session:remaining.presentationCopy353", { v1: getProviderLabel({ providerId: props.providerId }), v2: props.model })
       : "";
   // The cache hit rate is the number that says whether prompt caching is
   // working, so it belongs in the accessible label too, not only in the tooltip
@@ -448,10 +436,10 @@ export function MessageUsageSummary(props: {
   const cacheMissLabel = cacheMiss ? formatPromptCacheMissLabel(cacheMiss) : null;
   const accessibleLabel =
     usage && tokensReported
-      ? `Turn usage details${providerLabel}: ${usage.inputTokens.toLocaleString()} input tokens, ${usage.outputTokens.toLocaleString()} output tokens${summaryCacheHitLabel ? `, ${summaryCacheHitLabel}` : ""}${cacheMissLabel ? `, cache miss (${cacheMissLabel})` : ""}${delegatedUsage.length ? `, ${delegatedLabel}` : ""}`
+      ? i18n.t("session:messageUsageSummary.accessibleLabel", { value1: providerLabel, value2: formatNumber(usage.inputTokens), value3: formatNumber(usage.outputTokens), value4: summaryCacheHitLabel ? `, ${summaryCacheHitLabel}` : "", value5: cacheMissLabel ? i18n.t("session:messageUsageSummary.extraCopy182", { value1: cacheMissLabel }) : "", value6: delegatedUsage.length ? `, ${delegatedLabel}` : "" })
       : delegatedUsage.length
-        ? `Turn usage details${providerLabel}: ${delegatedLabel}`
-        : `Turn usage details${providerLabel}: token usage not reported by the provider`;
+        ? i18n.t("session:messageUsageSummary.accessibleLabel2", { value1: providerLabel, value2: delegatedLabel })
+        : i18n.t("session:messageUsageSummary.accessibleLabel3", { value1: providerLabel });
 
   return (
     <TooltipProvider>
@@ -509,14 +497,14 @@ export function MessageUsageSummary(props: {
             </span>
           ) : null}
           {delegatedUsage.length ? (
-            <span>{delegatedUsage.length} delegated</span>
+            <span>{delegatedUsage.length} {i18n.t("session:messageUsageSummary.messageUsageSummary")}</span>
           ) : null}
           {mayOmitUsage &&
           !tokensReported &&
           usage?.contextUsedPercent === undefined &&
           usage?.contextCostAmount === undefined &&
           delegatedUsage.length === 0 ? (
-            <span>usage not reported</span>
+            <span>{i18n.t("session:messageUsageSummary.messageUsageSummary2")}</span>
           ) : null}
         </TooltipTrigger>
         <TooltipContent

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   resolveFleetCurrentTaskControlState,
   validateFleetInteractionAction,
@@ -28,11 +29,11 @@ export function respondToChildInteraction(
   });
   if (!validation.ok || response.kind !== expected.kind) {
     return validation.ok
-      ? { ok: false, reason: "This response does not match the pending request." }
+      ? { ok: false, reason: i18n.t("app:errors.childMismatch") }
       : validation;
   }
   if (!validation.messageId) {
-    return { ok: false, reason: "The pending request no longer has a valid message target." };
+    return { ok: false, reason: i18n.t("app:errors.childMissingTarget") };
   }
   if (response.kind === "approval") {
     state.resolveApproval({

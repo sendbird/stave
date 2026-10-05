@@ -1,3 +1,5 @@
+import { getAgentDisplayName } from "@/lib/agents/display";
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Select } from "@/components/ads/components/Select";
@@ -16,6 +18,7 @@ const LEAD = "lead";
  * an agent that is gone keeps its id and says so.
  */
 export function StageAgentField(props: { stage: AiStage; onChange: (stage: WorkflowStage) => void }) {
+  useTranslation();
   const { stage } = props;
   const custom = useAppStore((state) => state.settings.customAgents);
   const agents = useMemo(
@@ -25,15 +28,15 @@ export function StageAgentField(props: { stage: AiStage; onChange: (stage: Workf
   const missing = stage.agentConfigId && !agents.some((agent) => agent.id === stage.agentConfigId);
   return (
     <div className={sx(styles.propertyValue)}>
-      <span className={sx(styles.propertyLabel)}>Done by</span>
+      <span className={sx(styles.propertyLabel)}>{i18n.t("agentRuns:stageAgentField.stageAgentField")}</span>
       <Select
         size="sm"
-        aria-label="Done by"
+        aria-label={i18n.t("agentRuns:stageAgentField.ariaLabel")}
         value={stage.agentConfigId ?? LEAD}
         options={[
-          { value: LEAD, label: "This run's task" },
-          ...(missing ? [{ value: stage.agentConfigId!, label: `${stage.agentConfigId} (not found)` }] : []),
-          ...agents.map((agent) => ({ value: agent.id, label: `${agent.name} · delegated task` })),
+          { value: LEAD, label: i18n.t("agentRuns:stageAgentField.label") },
+          ...(missing ? [{ value: stage.agentConfigId!, label: i18n.t("agentRuns:stageAgentField.label2", { value1: stage.agentConfigId }) }] : []),
+          ...agents.map((agent) => ({ value: agent.id, label: i18n.t("agentRuns:stageAgentField.label3", { value1: getAgentDisplayName(agent) }) })),
         ]}
         onValueChange={(value) => {
           const { agentConfigId: _id, pinCommit: _pin, ...rest } = stage;
@@ -42,8 +45,8 @@ export function StageAgentField(props: { stage: AiStage; onChange: (stage: Workf
       />
       {stage.agentConfigId ? (
         <Checkbox
-          label="Work on the commit checked out when it starts"
-          description="Stave refuses to start it if the workspace has moved. Use it for review stages."
+          label={i18n.t("agentRuns:stageAgentField.label4")}
+          description={i18n.t("agentRuns:stageAgentField.description")}
           checked={stage.pinCommit === true}
           onCheckedChange={(value) => {
             const { pinCommit: _pin, ...rest } = stage;
@@ -52,7 +55,7 @@ export function StageAgentField(props: { stage: AiStage; onChange: (stage: Workf
         />
       ) : null}
       {missing ? (
-        <span className={sx(styles.hint, styles.hintWarning)}>No agent usable as a delegated task has this id.</span>
+        <span className={sx(styles.hint, styles.hintWarning)}>{i18n.t("agentRuns:stageAgentField.stageAgentField2")}</span>
       ) : null}
     </div>
   );

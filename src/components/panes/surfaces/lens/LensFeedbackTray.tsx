@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { feedbackStyles } from "./lens-feedback.styles";
 import { LensFeedbackComparison } from "./LensFeedbackComparison";
 import { LensFeedbackSelection } from "./LensFeedbackSelection";
@@ -35,6 +36,7 @@ export function LensFeedbackTray({
   onReload: () => void;
   onNavigate: (url: string) => void;
 }) {
+  useTranslation();
   const draft = useAppStore((state) => state.promptDraftByTask[taskId]);
   const messages = useAppStore((state) => state.messagesByTask[taskId]);
   const taskTitle = useAppStore(
@@ -124,16 +126,13 @@ export function LensFeedbackTray({
 
   return (
     <section
-      aria-label={sent ? "Sent visual feedback" : "Visual feedback draft"}
+      aria-label={sent ? i18n.t("lens:lensFeedbackTray.sentVisualFeedback") : i18n.t("lens:lensFeedbackTray.visualFeedbackDraft")}
       className={sx(feedbackStyles.tray)}
     >
       <div className={sx(feedbackStyles.header)}>
         <div className={sx(feedbackStyles.headingGroup)}>
-          <h2 className={sx(feedbackStyles.title)}>Visual feedback</h2>
-          <p className={sx(feedbackStyles.subtitle)}>
-            {sent ? "Sent with" : "In the draft for"} {taskTitle ?? "this task"}{" "}
-            · {attachment.annotations.length} selected
-          </p>
+          <h2 className={sx(feedbackStyles.title)}>{i18n.t("lens:lensFeedbackTray.visualFeedback")}</h2>
+          <p className={sx(feedbackStyles.subtitle)}>{i18n.t(sent ? "lens:lensFeedbackTray.sentSummary" : "lens:lensFeedbackTray.draftSummary", { task: taskTitle ?? i18n.t("lens:lensFeedbackTray.thisTask"), count: attachment.annotations.length })}</p>
         </div>
         <div className={sx(feedbackStyles.actions)}>
           <Button
@@ -141,16 +140,16 @@ export function LensFeedbackTray({
             size="xs"
             onClick={() => onNavigate(selected.review.page.url)}
           >
-            Open captured page
+            {i18n.t("lens:lensFeedbackTray.openCapturedPage")}
           </Button>
           <Button variant="quiet" size="xs" onClick={onReload}>
-            {sent ? "Reload to check changes" : "Reload preview"}
+            {sent ? i18n.t("lens:lensFeedbackTray.reloadToCheckChanges") : i18n.t("lens:lensFeedbackTray.reloadPreview")}
           </Button>
         </div>
       </div>
       <div
         className={sx(feedbackStyles.targets)}
-        aria-label="Selected page targets"
+        aria-label={i18n.t("lens:lensFeedbackTray.selectedPageTargets")}
       >
         {attachment.annotations.map((item) => (
           <Button
@@ -160,7 +159,7 @@ export function LensFeedbackTray({
             aria-pressed={selected.id === item.id}
             onClick={() => setSelectedId(item.id)}
           >
-            {item.pin}. {item.tagName ?? "Area"}
+            {item.pin}. {item.tagName ?? i18n.t("lens:lensFeedbackTray.area")}
           </Button>
         ))}
       </div>
@@ -170,27 +169,27 @@ export function LensFeedbackTray({
           <Button
             layout="host"
             type="button"
-            aria-label={`Enlarge captured target ${selected.pin}`}
+            aria-label={i18n.t("lens:lensFeedbackTray.enlargeCapturedTarget", { value1: selected.pin })}
             onClick={() => setPreviewOpen(true)}
           >
             <img
               className={sx(feedbackStyles.thumbnail)}
               src={screenshot.dataUrl}
-              alt={`Captured target ${selected.pin}`}
+              alt={i18n.t("lens:lensFeedbackTray.capturedTarget", { value1: selected.pin })}
             />
           </Button>
         ) : null}
         <div className={sx(feedbackStyles.context)}>
           <p className={sx(feedbackStyles.selector)} title={selected.selector}>
-            {selected.selector ?? "Selected area"}
+            {selected.selector ?? i18n.t("lens:lensFeedbackTray.selectedArea")}
           </p>
           <p className={sx(feedbackStyles.excerpt)}>
             {selected.textContent}
           </p>
           <p className={sx(feedbackStyles.explanation)}>
             {sent
-              ? "Original capture. Compare it with the current page above."
-              : "Captured context stays attached while you edit the request."}
+              ? i18n.t("lens:lensFeedbackTray.originalCaptureCompareItWithTheCurrent")
+              : i18n.t("lens:lensFeedbackTray.capturedContextStaysAttachedWhileYouEdit")}
           </p>
         </div>
       </div>
@@ -209,7 +208,7 @@ export function LensFeedbackTray({
           open={previewOpen}
           onClose={() => setPreviewOpen(false)}
           imageSrc={screenshot.dataUrl}
-          alt={`Original captured target ${selected.pin}`}
+          alt={i18n.t("lens:lensFeedbackTray.originalCapturedTarget", { value1: selected.pin })}
         />
       ) : null}
     </section>
@@ -223,11 +222,12 @@ function FeedbackEditor({
   annotation: LensAnnotation;
   onSave: (annotation: LensAnnotation, comment: string) => void;
 }) {
+  useTranslation();
   const [edit, setEdit] = useState<string | null>(null);
   return (
     <div className={sx(feedbackStyles.editor)}>
       <Textarea
-        label="Requested change"
+        label={i18n.t("lens:lensFeedbackTray.requestedChange")}
         size="sm"
         value={edit ?? annotation.comment}
         onChange={(event) => setEdit(event.target.value)}
@@ -242,15 +242,15 @@ function FeedbackEditor({
               setEdit(null);
             }}
           >
-            Save to draft
+            {i18n.t("lens:lensFeedbackTray.saveToDraft")}
           </Button>
           <Button variant="quiet" size="xs" onClick={() => setEdit(null)}>
-            Cancel
+            {i18n.t("lens:lensFeedbackTray.cancel")}
           </Button>
         </div>
       ) : (
         <p className={sx(feedbackStyles.hint)}>
-          Review and send from the task composer.
+          {i18n.t("lens:lensFeedbackTray.reviewAndSendFromTheTaskComposer")}
         </p>
       )}
     </div>

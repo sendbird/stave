@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Check, ChevronDown } from "lucide-react";
 
 import {
@@ -41,6 +42,7 @@ export interface TrackerIssueFilterChipProps {
  * is the state people get stuck in when a list looks empty for no reason.
  */
 export function TrackerIssueFilterChip(props: TrackerIssueFilterChipProps) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const selected = props.selected;
   const summary =
     selected.length === 0
@@ -82,11 +84,11 @@ export function TrackerIssueFilterChip(props: TrackerIssueFilterChipProps) {
       <PopoverContent xstyle={styles.filterPopup} align="start">
         <Command>
           {props.searchable === false ? null : (
-            <CommandInput placeholder={`Filter ${props.label.toLowerCase()}`} />
+            <CommandInput placeholder={tI18n("issues:trackerIssueFilterChip.filterValue", { value1: props.label.toLowerCase() })} />
           )}
           <CommandList>
             <CommandEmpty>
-              {props.emptyMessage ?? "Nothing to filter by yet."}
+              {props.emptyMessage ?? tI18n("issues:trackerIssueFilterChip.nothingToFilterByYet")}
             </CommandEmpty>
             <CommandGroup>
               {props.options.map((option) => {

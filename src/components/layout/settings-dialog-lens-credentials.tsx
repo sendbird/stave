@@ -1,3 +1,4 @@
+import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound, Pencil, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { Badge, Button, Input, Loader, Switch, toast } from "@/components/ui";
@@ -19,6 +20,7 @@ function hostsToRows(hosts: string[]): string[] {
 }
 
 export function LensCredentialsSettingsCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [credentials, setCredentials] = useState<LensCredentialMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,14 +46,14 @@ export function LensCredentialsSettingsCard() {
     try {
       const result = await listCredentials();
       if (!result.ok) {
-        toast.error("Failed to load saved Lens accounts", {
+        toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.failedToLoadSavedLensAccounts"), {
           description: result.message,
         });
         return;
       }
       setCredentials(result.credentials);
     } catch (error) {
-      toast.error("Failed to load saved Lens accounts", {
+      toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.failedToLoadSavedLensAccounts"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -107,23 +109,23 @@ export function LensCredentialsSettingsCard() {
     const normalizedHosts = normalizeLensCredentialHosts(hostRows);
     if (!normalizedHosts) {
       toast.error(
-        "Enter at least one valid hostname or http(s) URL. Add a row for each host.",
+        i18n.t("settingsConnections:settingsDialogLensCredentials.enterAtLeastOneValidHostname"),
       );
       return;
     }
     if (!username.trim()) {
-      toast.error("Enter a username or email address.");
+      toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.enterAUsernameOrEmailAddress"));
       return;
     }
     if (!editingId && !password) {
-      toast.error("Enter a password for the new account.");
+      toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.enterAPasswordForTheNew"));
       return;
     }
 
     const upsertCredential = window.api?.lens?.upsertCredential;
     if (!upsertCredential) {
       toast.error(
-        "Secure Lens account storage is available in the desktop app.",
+        i18n.t("settingsConnections:settingsDialogLensCredentials.secureLensAccountStorageIsAvailable"),
       );
       return;
     }
@@ -138,16 +140,16 @@ export function LensCredentialsSettingsCard() {
         autoFill,
       });
       if (!result.ok) {
-        toast.error("Failed to save Lens account", {
+        toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.failedToSaveLensAccount"), {
           description: result.message,
         });
         return;
       }
-      toast.success(editingId ? "Lens account updated" : "Lens account saved");
+      toast.success(editingId ? i18n.t("settingsConnections:settingsDialogLensCredentials.lensAccountUpdated") : i18n.t("settingsConnections:settingsDialogLensCredentials.lensAccountSaved"));
       closeEditor();
       await loadCredentials();
     } catch (error) {
-      toast.error("Failed to save Lens account", {
+      toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.failedToSaveLensAccount"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -169,26 +171,26 @@ export function LensCredentialsSettingsCard() {
     }
     const removeCredential = window.api?.lens?.deleteCredential;
     if (!removeCredential) {
-      toast.error("Secure Lens account storage is unavailable.");
+      toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.secureLensAccountStorageIsUnavailable"));
       return;
     }
     setSaving(true);
     try {
       const result = await removeCredential({ id: deletingId });
       if (!result.ok) {
-        toast.error("Failed to delete Lens account", {
+        toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.failedToDeleteLensAccount"), {
           description: result.message,
         });
         return;
       }
-      toast.success("Lens account deleted");
+      toast.success(i18n.t("settingsConnections:settingsDialogLensCredentials.lensAccountDeleted"));
       setDeletingId(null);
       if (editingId === deletingId) {
         closeEditor();
       }
       await loadCredentials();
     } catch (error) {
-      toast.error("Failed to delete Lens account", {
+      toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.failedToDeleteLensAccount"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -199,8 +201,8 @@ export function LensCredentialsSettingsCard() {
   return (
     <>
       <SettingsCard
-        title="Saved Accounts"
-        description="Store multiple accounts, each covering one or more exact hostnames. Usernames and passwords are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses."
+        title={t("settingsConnections:settingsDialogLensCredentials.savedAccounts")}
+        description={t("settingsConnections:settingsDialogLensCredentials.storeMultipleAccountsEachCoveringOne")}
         titleAccessory={
           <Button
             type="button"
@@ -210,17 +212,13 @@ export function LensCredentialsSettingsCard() {
             onClick={openNewEditor}
           >
             <Plus className={sx(styles.addIcon)} />
-            Add account
-          </Button>
+            {t("settingsConnections:providerAccountAddForm.addAccount")}</Button>
         }
       >
         <div className={sx(styles.notice)}>
           <ShieldCheck className={sx(styles.noticeIcon)} />
           <p className={sx(styles.noticeText)}>
-            Lens fills matching login fields directly in Electron. Automatic
-            fill never submits the form; an agent may submit only through a
-            separate Lens tool call.
-          </p>
+            {t("settingsConnections:settingsDialogLensCredentials.lensFillsMatchingLoginFieldsDirectly")}</p>
         </div>
 
         {editorOpen ? (
@@ -233,7 +231,7 @@ export function LensCredentialsSettingsCard() {
           >
             <div className={sx(styles.grid)}>
               <div className={sx(styles.hostsField)}>
-                <span>Hosts</span>
+                <span>{t("settingsConnections:settingsDialogLensCredentials.hosts")}</span>
                 <div className={sx(styles.hostRows)}>
                   {hostRows.map((host, index) => (
                     <div key={index} className={sx(styles.hostRow)}>
@@ -244,7 +242,7 @@ export function LensCredentialsSettingsCard() {
                             ? "dashboard-dev.sendbird.com"
                             : "another-host.example.com"
                         }
-                        aria-label={`Saved account host ${index + 1}`}
+                        aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.savedAccountHost", { value1: index + 1 })}
                         autoComplete="url"
                         className={sx(styles.hostInput)}
                         onChange={(event) =>
@@ -256,7 +254,7 @@ export function LensCredentialsSettingsCard() {
                         variant="ghost"
                         size="icon-xs"
                         className={sx(styles.removeHost)}
-                        aria-label={`Remove host ${index + 1}`}
+                        aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.removeHost", { value1: index + 1 })}
                         disabled={hostRows.length <= 1 && host.length === 0}
                         onClick={() => removeHostRow(index)}
                       >
@@ -273,18 +271,15 @@ export function LensCredentialsSettingsCard() {
                   onClick={addHostRow}
                 >
                   <Plus className={sx(styles.addHostIcon)} />
-                  Add host
-                </Button>
+                  {t("settings:lensSection.developerMode.addHost")}</Button>
                 <span className={sx(styles.hostHelp)}>
-                  Add one exact hostname per row.
-                </span>
+                  {t("settingsConnections:settingsDialogLensCredentials.addOneExactHostnamePerRow")}</span>
               </div>
               <label className={sx(styles.fieldLabel)}>
-                Username or email
-                <Input
+                {t("settingsConnections:settingsDialogLensCredentials.usernameOrEmail")}<Input
                   value={username}
                   placeholder="name@example.com"
-                  aria-label="Saved account username"
+                  aria-label={t("settingsConnections:settingsDialogLensCredentials.savedAccountUsername")}
                   autoComplete="username"
                   className={sx(styles.stacked, styles.fieldControl)}
                   onChange={(event) => setUsername(event.target.value)}
@@ -292,16 +287,15 @@ export function LensCredentialsSettingsCard() {
               </label>
             </div>
             <label className={sx(styles.fieldLabel)}>
-              Password
-              <Input
+              {t("settingsConnections:settingsDialogLensCredentials.password")}<Input
                 type="password"
                 value={password}
                 placeholder={
                   editingCredential
-                    ? "Leave blank to keep the saved password"
-                    : "Required"
+                    ? t("settingsConnections:settingsDialogLensCredentials.leaveBlankToKeepTheSaved")
+                    : t("common:labels.required")
                 }
-                aria-label="Saved account password"
+                aria-label={t("settingsConnections:settingsDialogLensCredentials.savedAccountPassword")}
                 autoComplete="new-password"
                 className={sx(styles.stacked, styles.fieldControl)}
                 onChange={(event) => setPassword(event.target.value)}
@@ -309,17 +303,14 @@ export function LensCredentialsSettingsCard() {
             </label>
             <div className={sx(styles.autoFillRow)}>
               <div>
-                <p className={sx(styles.autoFillTitle)}>Fill automatically</p>
+                <p className={sx(styles.autoFillTitle)}>{t("settingsConnections:settingsDialogLensCredentials.fillAutomatically")}</p>
                 <p className={sx(styles.autoFillDescription)}>
-                  Use this account after Lens loads any of its hosts. Enabling
-                  it turns automatic fill off for other accounts that share a
-                  host with this one. The form is not submitted automatically.
-                </p>
+                  {t("settingsConnections:settingsDialogLensCredentials.useThisAccountAfterLensLoads")}</p>
               </div>
               <Switch
                 checked={autoFill}
                 onCheckedChange={setAutoFill}
-                aria-label="Fill saved Lens account automatically"
+                aria-label={t("settingsConnections:settingsDialogLensCredentials.fillSavedLensAccountAutomatically")}
               />
             </div>
             <div className={sx(styles.formActions)}>
@@ -330,13 +321,12 @@ export function LensCredentialsSettingsCard() {
                 disabled={saving}
                 onClick={closeEditor}
               >
-                Cancel
-              </Button>
+                {t("common:actions.cancel")}</Button>
               <Button type="submit" size="sm" disabled={saving}>
                 {saving ? (
                   <Loader aria-hidden size="xs" variant="persist" />
                 ) : null}
-                {editingId ? "Update account" : "Save account"}
+                {editingId ? t("settingsConnections:settingsDialogLensCredentials.updateAccount") : t("settingsConnections:settingsDialogLensCredentials.saveAccount")}
               </Button>
             </div>
           </form>
@@ -345,10 +335,9 @@ export function LensCredentialsSettingsCard() {
         {loading ? (
           <div className={sx(styles.loadingRow)}>
             <Loader aria-hidden size="xs" variant="persist" />
-            Loading saved accounts…
-          </div>
+            {t("settingsConnections:settingsDialogLensCredentials.loadingSavedAccounts")}</div>
         ) : credentials.length === 0 ? (
-          <p className={sx(styles.emptyText)}>No accounts are saved yet.</p>
+          <p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogLensCredentials.noAccountsAreSavedYet")}</p>
         ) : (
           <div className={sx(styles.list)}>
             {credentials.map((credential) => (
@@ -364,7 +353,7 @@ export function LensCredentialsSettingsCard() {
                       </span>
                     ))}
                     <Badge variant="secondary" className={sx(styles.badge)}>
-                      {credential.autoFill ? "Auto-fill" : "On demand"}
+                      {credential.autoFill ? i18n.t("settingsConnections:settingsDialogLensCredentials.autoFill") : i18n.t("settingsConnections:settingsDialogLensCredentials.onDemand")}
                     </Badge>
                   </div>
                   <p className={sx(styles.rowUsername)}>
@@ -375,7 +364,7 @@ export function LensCredentialsSettingsCard() {
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Edit ${credential.username} for ${credential.hosts.join(", ")}`}
+                  aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.editFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
                   onClick={() => openEditEditor(credential)}
                 >
                   <Pencil className={sx(styles.actionIcon)} />
@@ -384,7 +373,7 @@ export function LensCredentialsSettingsCard() {
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Delete ${credential.username} for ${credential.hosts.join(", ")}`}
+                  aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.deleteFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
                   onClick={() => setDeletingId(credential.id)}
                 >
                   <Trash2 className={sx(styles.actionIcon)} />
@@ -397,9 +386,9 @@ export function LensCredentialsSettingsCard() {
 
       <ConfirmDialog
         open={deletingId !== null}
-        title="Delete saved Lens account?"
-        description="The encrypted password and account metadata will be removed from this Stave installation."
-        confirmLabel="Delete account"
+        title={t("settingsConnections:settingsDialogLensCredentials.deleteSavedLensAccount")}
+        description={t("settingsConnections:settingsDialogLensCredentials.theEncryptedPasswordAndAccountMetadata")}
+        confirmLabel={t("settingsConnections:settingsDialogLensCredentials.deleteAccount")}
         loading={saving}
         onConfirm={() => {
           void deleteCredential();

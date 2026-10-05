@@ -1,3 +1,5 @@
+import { formatDate } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { Check, Lightbulb, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -15,6 +17,7 @@ function SuggestionCard(props: {
   onApply: (instructions: string) => void;
   onDismiss: () => void;
 }) {
+  useTranslation();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(props.suggestion.instructions);
   return (
@@ -23,14 +26,11 @@ function SuggestionCard(props: {
         <Lightbulb aria-hidden size={14} />
         <span className={sx(agentStyles.historyWhen)}>{props.suggestion.summary}</span>
       </div>
-      <span className={sx(styles.hint)}>
-        Learned from a correction on {new Date(props.suggestion.createdAt).toLocaleDateString()}.
-        {props.stale ? " The instructions changed since; applying replaces them with this version." : ""}
-      </span>
+      <span className={sx(styles.hint)}>{i18n.t("agents:agentSuggestions.sentence12", { value1: formatDate(new Date(props.suggestion.createdAt)), value2: props.stale ? " The instructions changed since; applying replaces them with this version." : "" })}</span>
       {editing ? (
         <Textarea
           size="sm"
-          aria-label="Suggested instructions"
+          aria-label={i18n.t("agents:agentSuggestions.ariaLabel")}
           value={text}
           maxLength={AGENT_CONFIG_LIMITS.instructions}
           autoResize
@@ -38,25 +38,22 @@ function SuggestionCard(props: {
         />
       ) : (
         <details>
-          <summary className={sx(styles.hint)}>Show the suggested instructions</summary>
+          <summary className={sx(styles.hint)}>{i18n.t("agents:agentSuggestions.suggestionCard3")}</summary>
           <pre className={sx(agentStyles.instructions)}>{props.suggestion.instructions}</pre>
         </details>
       )}
       <div className={sx(agentStyles.suggestionActions)}>
         <Button size="sm" variant="quiet" onClick={props.onDismiss}>
           <X aria-hidden />
-          Dismiss
-        </Button>
+          {i18n.t("agents:agentSuggestions.suggestionCard4")}</Button>
         {editing ? null : (
           <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
             <Pencil aria-hidden />
-            Edit
-          </Button>
+            {i18n.t("agents:agentSuggestions.suggestionCard5")}</Button>
         )}
         <Button size="sm" disabled={!text.trim()} onClick={() => props.onApply(text.trim())}>
           <Check aria-hidden />
-          Apply
-        </Button>
+          {i18n.t("agents:agentSuggestions.suggestionCard6")}</Button>
       </div>
     </li>
   );
@@ -78,24 +75,25 @@ export function AgentSuggestions(props: {
   onApply: (suggestion: AgentSuggestion, instructions: string) => void;
   onDismiss: (suggestion: AgentSuggestion) => void;
 }) {
+  useTranslation();
   const empty = props.suggestions.length === 0;
   const learningSwitch = (
     <Switch
       density="compact"
-      label="Learn from my corrections"
+      label={i18n.t("agents:agentSuggestions.label")}
       checked={props.learning}
       onCheckedChange={(checked) => props.onLearningChange(checked)}
     />
   );
   if (empty) {
     return (
-      <section aria-label="Learned suggestions" className={sx(agentStyles.suggestionsLine)}>
+      <section aria-label={i18n.t("agents:agentSuggestions.ariaLabel2")} className={sx(agentStyles.suggestionsLine)}>
         <div className={sx(styles.sectionHeader, agentStyles.suggestionsLineText)}>
-          <h3 className={sx(styles.sectionTitle, agentStyles.suggestionsLineTitle)}>Learned suggestions</h3>
+          <h3 className={sx(styles.sectionTitle, agentStyles.suggestionsLineTitle)}>{i18n.t("agents:agentSuggestions.agentSuggestions")}</h3>
           <span className={sx(styles.hint)}>
             {props.learning
-              ? "None yet. When you correct this agent in a task, a suggested change to its instructions appears here. Each corrected task uses one utility-model request."
-              : "Learning is off. Your corrections are not reviewed and nothing is suggested."}
+              ? i18n.t("agents:agentSuggestions.agentSuggestions2")
+              : i18n.t("agents:agentSuggestions.agentSuggestions3")}
           </span>
         </div>
         {learningSwitch}
@@ -103,9 +101,9 @@ export function AgentSuggestions(props: {
     );
   }
   return (
-    <section aria-label="Learned suggestions" className={sx(agentStyles.suggestions)}>
+    <section aria-label={i18n.t("agents:agentSuggestions.ariaLabel3")} className={sx(agentStyles.suggestions)}>
       <div className={sx(styles.sectionHeader)}>
-        <h3 className={sx(styles.sectionTitle)}>Learned suggestions</h3>
+        <h3 className={sx(styles.sectionTitle)}>{i18n.t("agents:agentSuggestions.agentSuggestions4")}</h3>
         {learningSwitch}
       </div>
       <ul className={sx(agentStyles.runs)}>

@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, Trans, useTranslation, i18n } from "@/i18n";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -28,41 +29,37 @@ const DELEGATION_PARAMETERS: ReadonlyArray<{
   {
     name: "prompt",
     required: true,
-    detail: "What the child should do.",
+    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.prompt"); },
   },
   {
     name: "access",
     required: false,
-    detail:
-      "read-only for second opinions, reviews and research: the child cannot change files, needs no approvals, and runs beside other work in the same workspace. Defaults to inherit: this task's permissions on the same provider, otherwise that provider's user settings.",
+    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.access"); },
   },
   {
     name: "provider",
     required: false,
-    detail: "Claude or Codex. Defaults to this task's provider.",
+    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.provider"); },
   },
   {
     name: "lifecycle",
     required: false,
-    detail:
-      "Defaults to one-turn, which ends the delegation when the child's first turn ends; detached keeps the child open until stopped.",
+    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.lifecycle"); },
   },
   {
     name: "workspace",
     required: false,
-    detail:
-      "Defaults to the same workspace. A new worktree on its own branch keeps edits isolated.",
+    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.workspace"); },
   },
   {
     name: "model",
     required: false,
-    detail: "Defaults to the child provider's default model.",
+    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.model"); },
   },
   {
     name: "effort",
     required: false,
-    detail:
-      "low → max (Codex also has ultra), clamped to what the child's model accepts. Defaults to this task's effort on the same provider, otherwise medium. A bounded brief often does better on a cheaper model at high effort.",
+    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.effort"); },
   },
 ];
 
@@ -77,6 +74,7 @@ const DELEGATION_PARAMETERS: ReadonlyArray<{
  * absent UI leaves open: what can be asked for, and would it work right now.
  */
 export function SettingsDelegationSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const providerIds = listProviderIdsForCapability({
     capability: "unattendedRuns",
   });
@@ -103,8 +101,8 @@ export function SettingsDelegationSection() {
     <SettingsCard
       id="settings-field-delegation"
       tabIndex={-1}
-      title="Delegated tasks"
-      description="An agent can hand work to a new Stave task with its own conversation and permissions, recorded on the run ledger and kept across restarts. There is no switch to turn on: ask the agent to delegate, and this card shows whether it can."
+      title={t("settingsProviders:delegationSection.title")}
+      description={t("settingsProviders:delegationSection.description")}
       titleAccessory={
         <Badge
           variant={
@@ -118,12 +116,12 @@ export function SettingsDelegationSection() {
           }
         >
           {unknown
-            ? "Checking"
+            ? t("settingsProviders:delegationSection.badge.checking")
             : blocked.length === providerIds.length
-              ? "Unavailable"
+              ? t("settingsProviders:toolingSection.state.error")
               : blocked.length > 0
-                ? "Partly available"
-                : "Available"}
+                ? t("settingsProviders:delegationSection.badge.partial")
+                : t("settingsProviders:delegationSection.badge.available")}
         </Badge>
       }
     >
@@ -131,25 +129,23 @@ export function SettingsDelegationSection() {
         data-testid="delegation-readiness"
         className={sx(delegationStyles.panel)}
       >
-        <p className={sx(delegationStyles.panelHeading)}>Availability</p>
+        <p className={sx(delegationStyles.panelHeading)}>{t("settingsProviders:delegationSection.availability.heading")}</p>
         <ul className={sx(delegationStyles.list)}>
           {readinessByProvider.map((entry) => (
             <li key={entry.providerId}>
               <span className={sx(delegationStyles.emphasis)}>
-                {getProviderLabel({ providerId: entry.providerId })} tasks:
+                {t("settings:whole.providerTasks", { provider: getProviderLabel({ providerId: entry.providerId }) })}
               </span>{" "}
               {entry.readiness.state === "ready"
-                ? "can delegate."
+                ? i18n.t("settingsProviders:delegationSection.availability.ready")
                 : entry.readiness.state === "unknown"
-                  ? "checking the Local MCP server…"
+                  ? i18n.t("settingsProviders:delegationSection.availability.checking")
                   : entry.readiness.detail}
             </li>
           ))}
         </ul>
         <p className={sx(delegationStyles.paragraphSpaced)}>
-          Delegation reaches the model as Local MCP tools, so a task can only
-          start subagents while that server is running.
-        </p>
+          {t("settingsProviders:delegationSection.availability.note")}</p>
         <Button
           type="button"
           variant="link"
@@ -164,27 +160,13 @@ export function SettingsDelegationSection() {
             );
           }}
         >
-          Open Settings → Developer → Local MCP.
-        </Button>
+          {t("settingsProviders:delegationSection.availability.openSettings")}</Button>
       </div>
 
       <div className={sx(delegationStyles.panel)}>
         <p className={sx(delegationStyles.panelHeading)}>
-          Asking for one, and what you can specify
-        </p>
-        <p className={sx(delegationStyles.paragraphTight)}>
-          There is no button: delegation happens when an agent calls
-          <code className={sx(delegationStyles.code)}>stave_delegate_task</code>
-          during its turn, so you steer it by asking — for example{" "}
-          <span className={sx(delegationStyles.emphasis)}>
-            &ldquo;get a read-only second opinion on this plan from Codex at
-            high effort&rdquo;
-          </span>
-          . Only the prompt is required: anything a delegation leaves out
-          follows this task&apos;s provider, effort and permissions, and the
-          child runs one turn in this workspace. Settings holds no global
-          default for any of it.
-        </p>
+          {t("settingsProviders:delegationSection.asking.heading")}</p>
+        <p className={sx(delegationStyles.paragraphTight)}><Trans t={t} i18nKey="settings:whole.delegationGuide" components={{ code: <code className={sx(delegationStyles.code)} />, em: <span className={sx(delegationStyles.emphasis)} /> }} /></p>
         <ul className={sx(delegationStyles.detailList)}>
           {DELEGATION_PARAMETERS.map((parameter) => (
             <li key={parameter.name}>
@@ -192,16 +174,13 @@ export function SettingsDelegationSection() {
                 {parameter.name}
               </code>{" "}
               <span className={sx(delegationStyles.requiredTag)}>
-                {parameter.required ? "required" : "optional"}
+                {parameter.required ? i18n.t("settingsProviders:delegationSection.asking.required") : i18n.t("settingsProviders:delegationSection.asking.optional")}
               </span>{" "}
               — {parameter.detail}
             </li>
           ))}
         </ul>
-        <p className={sx(delegationStyles.paragraphSpaced)}>
-          Once a delegation starts, its child appears in the task&apos;s turn
-          activity with Open, Follow-up, Stop, Detach and Retry controls.
-        </p>
+        <p className={sx(delegationStyles.paragraphSpaced)}>{t("settings:whole.delegationActivity")}</p>
       </div>
     </SettingsCard>
   );

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Input as AdsInput } from "@/components/ui/input";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { IDockviewPanelHeaderProps } from "dockview-react";
@@ -21,7 +22,7 @@ import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Loader } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
-import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
+import { COMMIT_GRAPH_TITLE_KEY } from "@/lib/git-graph/presentation";
 import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
@@ -69,6 +70,7 @@ interface TaskChipState {
 
 /** Row-local subscription: each chip only tracks its own entity. */
 function useTaskChipState(taskId: string): TaskChipState {
+  useTranslation();
   const [title, isResponding, isStalled, isManaged, toneClass, provider] =
     useAppStore(
       useShallow((state) => {
@@ -83,7 +85,7 @@ function useTaskChipState(taskId: string): TaskChipState {
           messages: state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
         });
         return [
-          task?.title ?? "Task",
+          task?.title ?? i18n.t("panes:paneTabChip.task"),
           turnState !== "idle",
           turnState === "stalled",
           isTaskManaged(task),
@@ -99,6 +101,7 @@ function PaneChipIcon(args: {
   surface: PaneSurfaceDescriptor;
   lensState: LensTabState;
 }) {
+  useTranslation();
   const surface = args.surface;
   switch (surface.kind) {
     case "terminal":
@@ -130,6 +133,7 @@ function PaneChipIcon(args: {
 }
 
 export function EditorPaneChipGlyph(args: { kind: EditorTab["kind"] }) {
+  useTranslation();
   return isGitGraphEditorTab(args) ? (
     <GitGraph data-pane-tab-icon="git-graph" className={sx(c.icon)} />
   ) : (
@@ -138,6 +142,7 @@ export function EditorPaneChipGlyph(args: { kind: EditorTab["kind"] }) {
 }
 
 function EditorPaneChipIcon(args: { editorTabId: string }) {
+  useTranslation();
   const kind = useAppStore(
     (state) =>
       state.editorTabs.find((tab) => tab.id === args.editorTabId)?.kind,
@@ -146,6 +151,7 @@ function EditorPaneChipIcon(args: { editorTabId: string }) {
 }
 
 function CliSessionChipIcon(args: { cliSessionTabId: string }) {
+  useTranslation();
   const provider = useAppStore(
     (state) =>
       state.cliSessionTabs.find((tab) => tab.id === args.cliSessionTabId)
@@ -164,6 +170,7 @@ function CliSessionChipIcon(args: { cliSessionTabId: string }) {
 }
 
 function TaskChipIcon(args: { taskChip: TaskChipState }) {
+  useTranslation();
   const { taskChip } = args;
   return (
     <span className={sx(c.taskIconWrap)}>
@@ -185,6 +192,7 @@ function usePaneChipTitle(
   surface: PaneSurfaceDescriptor,
   lensState: LensTabState,
 ): string {
+  useTranslation();
   const panelId = buildPanePanelId(surface);
   return useAppStore((state) => {
     const customTitle = state.paneTabMeta[panelId]?.customTitle;
@@ -195,17 +203,17 @@ function usePaneChipTitle(
       case "task":
         return (
           state.tasks.find((task) => task.id === surface.taskId)?.title ??
-          "Task"
+          i18n.t("panes:paneTabChip.task")
         );
       case "cli-session":
         return (
           state.cliSessionTabs.find((tab) => tab.id === surface.cliSessionTabId)
-            ?.title ?? "CLI Session"
+            ?.title ?? i18n.t("panes:paneTabChip.cLISession")
         );
       case "terminal":
         return (
           state.terminalTabs.find((tab) => tab.id === surface.terminalTabId)
-            ?.title ?? "Terminal"
+            ?.title ?? i18n.t("panes:paneTabChip.terminal")
         );
       case "editor": {
         const editorTab = state.editorTabs.find(
@@ -213,43 +221,45 @@ function usePaneChipTitle(
         );
         return editorTab
           ? isGitGraphEditorTab(editorTab)
-            ? COMMIT_GRAPH_TITLE
+            ? i18n.t(COMMIT_GRAPH_TITLE_KEY)
             : resolvePathBaseName({
                 path: editorTab.filePath,
-                fallback: "Editor",
+                fallback: i18n.t("panes:paneTabChip.editor"),
               })
-          : "Editor";
+          : i18n.t("panes:paneTabChip.editor");
       }
       case "lens":
         return lensState.title?.trim() || lensState.url?.trim() || "Lens";
       case "compare-run":
-        return "Compare Run";
+        return i18n.t("panes:paneTabChip.compareRun");
     }
   });
 }
 
 function EditorDirtyIndicator(args: { editorTabId: string }) {
+  useTranslation();
   const isDirty = useAppStore(
     (state) =>
       state.editorTabs.find((tab) => tab.id === args.editorTabId)?.isDirty ??
       false,
   );
   return isDirty ? (
-    <span className={sx(c.dirtyDot)} aria-label="Unsaved changes" />
+    <span className={sx(c.dirtyDot)} aria-label={i18n.t("panes:paneTabChip.unsavedChanges")} />
   ) : null;
 }
 
 function TaskChipBadges(args: { taskChip: TaskChipState }) {
+  useTranslation();
   return (
     <>
       {args.taskChip.isStalled ? (
         <Badge variant="warning" className={sx(c.statusBadge)}>
-          Stalled
+          {i18n.t("panes:paneTabChip.stalled")}
         </Badge>
       ) : null}
       {args.taskChip.isManaged ? (
         <Badge variant="secondary" className={sx(c.statusBadge)}>
-          Managed
+          {i18n.t("panes:paneTabChip.managed")}
         </Badge>
       ) : null}
     </>
@@ -259,6 +269,7 @@ function TaskChipBadges(args: { taskChip: TaskChipState }) {
 export const PaneTabChip = memo(function PaneTabChip(
   props: IDockviewPanelHeaderProps,
 ) {
+  useTranslation();
   const surface = parsePanePanelId(props.api.id);
   const panelId = props.api.id;
   const [isActive, setIsActive] = useState(props.api.isActive);
@@ -408,7 +419,8 @@ export const PaneTabChip = memo(function PaneTabChip(
             transition.motionDurationQuick,
             isActive ? c.closeVisible : c.closeHidden,
           ]}
-          aria-label={`close-pane-${panelId}`}
+          aria-label={i18n.t("panes:paneTabChip.closeNamed", { title })}
+          data-testid={`close-pane-${panelId}`}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.preventDefault();
@@ -428,11 +440,13 @@ export const PaneTabChip = memo(function PaneTabChip(
  * for the turn-activity subscription.
  */
 function TaskChipIconSlot(args: { taskId: string }) {
+  useTranslation();
   const taskChip = useTaskChipState(args.taskId);
   return <TaskChipIcon taskChip={taskChip} />;
 }
 
 function TaskChipBadgesSlot(args: { taskId: string }) {
+  useTranslation();
   const taskChip = useTaskChipState(args.taskId);
   return (
     <>

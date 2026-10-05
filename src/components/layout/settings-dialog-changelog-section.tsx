@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -14,14 +15,15 @@ function extractLatestVersion(source: string): string | null {
 }
 
 export function ChangelogSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const content = useMemo(() => changelogSource.trim(), []);
   const latestVersion = useMemo(() => extractLatestVersion(content), [content]);
 
   return (
     <SectionStack>
       <SettingsCard
-        title="Release notes"
-        description="Sourced from the repository CHANGELOG.md bundled with this build."
+        title={t("settings:settingsDialogChangelogSection.releaseNotes")}
+        description={t("settings:settingsDialogChangelogSection.sourcedFromTheRepositoryCHANGELOGMd")}
         titleAccessory={
           latestVersion ? (
             <Badge variant="outline">v{latestVersion}</Badge>

@@ -1,0 +1,1313 @@
+{
+  "providersSection": {
+    "describedSelect": {
+      "example": "예: {{example}}"
+    },
+    "accountUsageLimit": {
+      "title": "계정 사용량 한도",
+      "description": "포함된 계정 사용량을 모두 소진하면 Claude, Codex, Cursor, Kiro에 공통으로 적용되는 중지 설정입니다.",
+      "stopTurns": {
+        "title": "사용량 100%에서 턴 중지",
+        "description": "프로바이더가 포함 사용량 100%를 보고하면 추가 크레딧이 사용되지 않도록 해당 프로바이더의 새 턴과 백그라운드 AI를 차단합니다. 이미 실행 중인 턴은 끝까지 완료됩니다. 초과 사용량으로 계속 작업하려면 이 설정을 끄세요."
+      }
+    },
+    "trustedApprovals": {
+      "title": "신뢰된 승인",
+      "description": "항상 허용으로 표시된 승인입니다. Bash 항목은 모든 셸 명령을 신뢰하는 대신 명령 접두사로 저장됩니다.",
+      "empty": "아직 신뢰된 승인이 없습니다. 승인 프롬프트에서 승인 및 항상 허용을 선택하면 추가됩니다."
+    },
+    "tabsAriaLabel": "프로바이더 설정",
+    "modePresetTitle": "모드 프리셋",
+    "effortLevels": {
+      "minimal": "최소",
+      "low": "낮음",
+      "medium": "보통",
+      "high": "높음",
+      "xhigh": "매우 높음",
+      "max": "최대",
+      "ultra": "울트라"
+    },
+    "claudeRuntime": {
+      "title": "Claude 런타임 제어",
+      "description": "각 Claude 턴에 전달되는 권한, 샌드박스, 사고, 하위 에이전트 진행 동작입니다.",
+      "modePreset": {
+        "description": "권장 Claude 자율성 프리셋을 적용합니다. 아래 필드를 수정하면 사용자 지정으로 바뀔 수 있습니다.",
+        "active": "{{preset}} 프리셋이 적용되어 있습니다. 언제든 프리셋을 다시 적용하면 해당 권한과 샌드박스 조합 전체가 복원됩니다.",
+        "custom": "사용자 지정이 적용되어 있습니다. 현재 Claude 권한과 샌드박스 조합이 기본 제공 프리셋과 일치하지 않습니다."
+      },
+      "permissionMode": {
+        "title": "권한 모드",
+        "description": "채팅 턴에서 Claude가 권한을 얼마나 적극적으로 요청할지 제어합니다. Claude CLI 세션은 항상 `auto`로 시작합니다.",
+        "guide": {
+          "title": "Claude 권한 모드",
+          "summary": "Claude 턴의 자율성을 정하는 핵심 설정입니다.",
+          "note": "Stave에서 `plan`은 특별하게 동작합니다. 일반 구현 턴이 아니라 계획 워크플로가 됩니다.",
+          "tooltip": "Claude 권한 모드 비교"
+        },
+        "options": {
+          "default": {
+            "description": "Stave가 모드를 조정하지 않고 Claude의 표준 권한 동작을 사용합니다.",
+            "example": "특별한 워크플로가 필요 없고 가장 중립적인 기본 동작을 원할 때 선택합니다."
+          },
+          "acceptEdits": {
+            "description": "편집이 예상되지만 가드레일은 유지하고 싶은 일반 코딩 세션에 적합한 기본값입니다.",
+            "example": "일상적인 기능 작업, 버그 수정, 반복적인 패치에 사용합니다."
+          },
+          "bypassPermissions": {
+            "description": "가장 자율적인 Claude 모드입니다. 권한 건너뛰기 설정과 함께 신중하게 사용하세요.",
+            "example": "작업 범위를 신뢰하고 Claude가 최소한의 중단으로 진행하기를 원할 때만 사용합니다."
+          },
+          "plan": {
+            "description": "계획 전용 모드입니다. Stave는 계획 턴을 분리해 구현 전에 전략을 검토할 수 있게 합니다.",
+            "example": "코드를 작성하기 전 아키텍처 설계, 조사, 작업 분해에 사용합니다."
+          },
+          "dontAsk": {
+            "description": "턴 중에 대화형 권한 질문으로 멈추지 않도록 Claude에 지시합니다.",
+            "example": "계획 모드는 원하지 않지만 중단을 줄이고 싶은 빠른 로컬 워크플로에 유용합니다."
+          },
+          "auto": {
+            "description": "턴에 가장 적합한 권한 동작을 Claude가 선택합니다. Claude CLI 세션에서 이 모드를 쓰려면 Claude Code 2.1.71 이상이 필요하며, 이전 CLI 빌드는 `default`로 대체됩니다.",
+            "example": "하루 동안 분석, 코딩, 가벼운 자동화를 오가는 작업에 적합합니다."
+          }
+        }
+      },
+      "dangerousSkip": {
+        "title": "위험한 권한 건너뛰기",
+        "description": "`bypassPermissions`가 활성화된 경우에만 적용됩니다."
+      },
+      "sandbox": {
+        "title": "샌드박스 사용",
+        "description": "Claude의 도구 실행을 샌드박스 구성 안에서 수행합니다."
+      },
+      "unsandboxedCommands": {
+        "title": "샌드박스 외부 명령 허용",
+        "description": "Claude가 샌드박스 밖의 명령으로 대체 실행할 수 있는지 제어합니다."
+      },
+      "credentialFiles": {
+        "title": "보호할 자격 증명 파일",
+        "description": "Claude 샌드박스가 자격 증명으로 간주해 거부해야 하는 파일 경로를 쉼표로 구분해 입력합니다. 경로만 입력하고 시크릿 내용은 절대 입력하지 마세요."
+      },
+      "credentialVariables": {
+        "title": "보호할 자격 증명 변수",
+        "description": "Claude 샌드박스가 거부해야 하는 환경 변수 이름을 쉼표로 구분해 입력합니다. 이름만 입력하고 값은 절대 입력하지 마세요."
+      },
+      "settingSources": {
+        "title": "설정 소스",
+        "description": "불러올 Claude 파일 시스템 설정 계층을 제어합니다. CLAUDE.md와 프로젝트 슬래시 명령을 쓰려면 `project`가 필요합니다.",
+        "guide": {
+          "title": "Claude 설정 소스",
+          "summary": "각 턴에 어떤 Claude 구성 파일과 명령이 적용될지 이 계층들이 결정합니다.",
+          "tooltip": "각 Claude 설정 소스의 역할"
+        },
+        "options": {
+          "project": {
+            "label": "프로젝트",
+            "description": "`CLAUDE.md`와 프로젝트 고유 슬래시 명령 같은 저장소 수준 Claude 설정을 불러옵니다."
+          },
+          "local": {
+            "label": "로컬",
+            "description": "런타임 환경에서 머신 로컬 또는 워크스페이스 로컬 Claude 설정을 불러옵니다."
+          },
+          "user": {
+            "label": "사용자",
+            "description": "사용자 전체 Claude 설정과 개인 기본값을 불러옵니다."
+          }
+        },
+        "active": "활성: {{sources}}",
+        "activeNone": "활성: 없음"
+      },
+      "taskBudget": {
+        "title": "작업 예산(토큰)",
+        "description": "Claude가 도구 사용 속도를 조절하고 더 일찍 마무리할 수 있도록 전달하는 권장 토큰 예산입니다. 사용하지 않으려면 `0`을 입력하세요."
+      },
+      "thinkingMode": {
+        "title": "사고 모드",
+        "guide": {
+          "title": "Claude 사고 모드",
+          "summary": "사고 모드는 Claude가 답하기 전에 명시적 추론에 추가 노력을 들일지 결정합니다.",
+          "tooltip": "Claude 사고 모드 비교"
+        },
+        "options": {
+          "adaptive": {
+            "label": "적응형",
+            "description": "더 깊은 사고가 추가 지연을 감수할 만한지 Claude가 판단합니다.",
+            "example": "간단한 턴과 깊은 분석이 필요한 턴이 섞여 있을 때 가장 좋은 기본값입니다."
+          },
+          "enabled": {
+            "description": "간단한 프롬프트에서도 항상 명시적 사고를 요청합니다.",
+            "example": "응답 속도보다 신중한 추론을 우선할 때 사용합니다."
+          },
+          "disabled": {
+            "description": "추가 사고 부담 없이 바로 답하는 쪽을 선호합니다.",
+            "example": "작은 수정, 라우팅, 반복적인 저위험 작업에 유용합니다."
+          }
+        }
+      },
+      "effort": {
+        "title": "추론 강도",
+        "guide": {
+          "title": "Claude 추론 강도",
+          "summary": "강도가 높을수록 추론에 더 많은 모델 예산을 쓰며 보통 지연 시간이 늘어납니다.",
+          "tooltip": "Claude 추론 강도 비교"
+        },
+        "options": {
+          "low": {
+            "description": "가장 빠르고 가벼운 추론 예산입니다.",
+            "example": "짧은 질문, 빠른 문장 수정, 간단한 코드 편집에 적합합니다."
+          },
+          "medium": {
+            "description": "대부분의 일상 작업에 맞는 균형 잡힌 추론 깊이입니다.",
+            "example": "분석과 구현을 자주 오간다면 기본값으로 사용하세요."
+          },
+          "high": {
+            "description": "어려운 디버깅, 설계, 리뷰 작업에 더 많은 노력을 들입니다.",
+            "example": "까다로운 버그, 아키텍처 질문, 대규모 리팩터링에 유용합니다."
+          },
+          "xhigh": {
+            "description": "Claude 모델이 지원하면 `high`보다 더 깊이 추론하며, 지연 시간 비용이 더 큽니다.",
+            "example": "복잡한 근본 원인 분석이나 어려운 다단계 구현 계획에 가장 적합합니다."
+          },
+          "max": {
+            "description": "가장 깊이 숙고하며 지연 시간이 가장 깁니다.",
+            "example": "속도보다 정확성이 중요한 정말 어려운 작업에만 사용하세요."
+          }
+        }
+      },
+      "agentProgressSummaries": {
+        "title": "에이전트 진행 요약",
+        "description": "실행 중인 하위 에이전트에 대해 Claude SDK `task_progress.summary` 업데이트를 켭니다."
+      },
+      "promptSuggestions": {
+        "title": "프롬프트 제안",
+        "description": "턴이 완료될 때마다 후속 프롬프트 칩을 제안합니다. 턴 자체와 별도로 턴마다 가벼운 요청이 한 번 더 발생하며, 백그라운드 레인은 제안을 요청하지 않습니다."
+      },
+      "forwardSubagentText": {
+        "title": "하위 에이전트 텍스트 전달",
+        "description": "하위 에이전트의 진행 신호만이 아니라 중첩된 하위 에이전트의 대화 텍스트까지 스트리밍합니다."
+      },
+      "fileCheckpointing": {
+        "title": "파일 체크포인트",
+        "description": "Claude SDK 파일 체크포인트를 켜서 세션 제어로 변경된 파일을 되돌릴 수 있게 합니다."
+      },
+      "forkSession": {
+        "title": "재개한 세션 포크",
+        "description": "Claude 세션을 재개할 때 이전 세션을 이어가지 않고 새 세션으로 포크합니다."
+      },
+      "strictMcpConfig": {
+        "title": "엄격한 MCP 구성",
+        "description": "Stave가 전달한 MCP 서버와 명시적으로 구성된 SDK 에이전트만 사용합니다."
+      },
+      "planModeApprovals": {
+        "title": "계획 모드 승인",
+        "guide": {
+          "title": "Claude 계획 모드 승인",
+          "summary": "계획 모드에서 표시할 승인 프롬프트의 양을 제어합니다. 계획 모드는 항상 읽기 전용이며, 파일을 변경하는 편집과 Bash는 모든 수준에서 차단됩니다. 이 옵션은 변경하지 않는 Bash, 하위 에이전트, 읽기 전용 MCP 도구에 대한 프롬프트만 완화합니다.",
+          "tooltip": "계획 모드 승인 범위 비교"
+        },
+        "options": {
+          "strict": {
+            "label": "엄격",
+            "description": "읽기 전용 기본 도구(Read/Grep/Glob/…)와 Stave 워크스페이스 도구만 자동 실행됩니다. Bash, 하위 에이전트, 기타 MCP 도구는 매번 확인을 요청합니다. 중단이 가장 많습니다.",
+            "example": "계획 중 모든 셸 명령과 도구 호출을 직접 확인하려면 선택하세요."
+          },
+          "bash": {
+            "label": "읽기 전용 Bash",
+            "description": "파일이나 작업 상태를 변경하지 않는 Bash 명령(git status, cat, ls, typecheck)도 자동 실행합니다. 변경하는 명령은 계속 차단됩니다.",
+            "example": "대부분 조용한 읽기 전용 검사를 원하면서 하위 에이전트와 MCP는 확인을 거치게 하고 싶을 때 적합합니다."
+          },
+          "bashAndTask": {
+            "label": "Bash + 하위 에이전트",
+            "description": "읽기 전용 Bash도 자동 실행하고, Claude가 확인 없이 하위 에이전트(Task)를 생성하도록 허용합니다. 하위 에이전트의 변경 작업은 여전히 차단됩니다.",
+            "example": "계획 과정에서 여러 Explore 하위 에이전트로 조사를 나눌 때 유용합니다."
+          },
+          "bashTaskAndMcp": {
+            "label": "Bash + 하위 에이전트 + MCP 읽기",
+            "description": "가장 넓은 범위입니다. 읽기 전용 서드파티 / Lens MCP 도구(이름으로 분류)도 자동 실행합니다. 변경 작업으로 보이는 MCP 도구는 계속 확인을 요청합니다. auto 모드에 가장 가깝습니다.",
+            "example": "기본값입니다. 모든 변경 작업을 차단한 채 계획 모드 중단을 가장 적게 합니다."
+          }
+        }
+      },
+      "skills": {
+        "title": "스킬",
+        "description": "쉼표나 줄바꿈으로 구분한 Claude 스킬 이름입니다. 발견된 모든 스킬을 켜려면 `all`을 입력하세요."
+      },
+      "pluginPaths": {
+        "title": "플러그인 경로",
+        "description": "쉼표나 줄바꿈으로 구분한 로컬 Claude 플러그인 디렉터리입니다. 이 플러그인의 MCP 검색은 Stave가 담당합니다."
+      },
+      "mainAgent": {
+        "title": "메인 에이전트",
+        "description": "메인 대화에 사용할 Claude 에이전트 이름입니다(선택 사항). 설정이나 불러온 플러그인에 있는 이름을 사용합니다."
+      },
+      "fallbackModels": {
+        "title": "대체 모델",
+        "description": "기본 모델이 과부하 상태이거나 사용할 수 없을 때 사용할 Claude 대체 모델을 쉼표로 구분해 입력합니다. 비워 두면 Opus 5.5는 자동으로 Opus 4.8로 대체됩니다."
+      },
+      "resumeAt": {
+        "title": "재개할 메시지",
+        "description": "이전 세션의 일부부터 재개할 때 사용할 Claude 어시스턴트 메시지 UUID입니다(선택 사항).",
+        "placeholder": "메시지 UUID"
+      }
+    },
+    "codexRuntime": {
+      "title": "Codex 런타임 제어",
+      "description": "턴별 Codex 파일 접근, 승인, 네트워크, 추론, 검색 설정입니다.",
+      "modePreset": {
+        "description": "권장 Codex 자율성 프리셋을 적용합니다. 아래 필드를 수정하면 사용자 지정으로 바뀔 수 있습니다.",
+        "active": "{{preset}} 프리셋이 적용되어 있습니다. 언제든 프리셋을 다시 적용하면 해당 파일 접근, 승인, 네트워크 조합 전체가 복원됩니다.",
+        "custom": "사용자 지정이 적용되어 있습니다. 현재 Codex 파일 접근과 승인 조합이 기본 제공 프리셋과 일치하지 않습니다."
+      },
+      "networkAccess": {
+        "title": "네트워크 접근",
+        "description": "턴 중에 Codex가 네트워크 기능을 사용할 수 있는지 제어합니다."
+      },
+      "fileAccess": {
+        "title": "파일 접근",
+        "guide": {
+          "title": "Codex 파일 접근",
+          "summary": "Codex가 디스크의 어디에서 읽고 쓸 수 있는지 제어합니다.",
+          "note": "Stave가 Codex를 계획 모드로 실행하면 일반 설정과 관계없이 `read-only`를 강제합니다.",
+          "tooltip": "Codex 파일 접근 수준 비교"
+        },
+        "options": {
+          "readOnly": {
+            "description": "읽고 검사만 합니다. Codex는 파일을 변경하지 않아야 합니다.",
+            "example": "리뷰, 감사, 저장소 탐색, 계획에 사용합니다."
+          },
+          "workspaceWrite": {
+            "description": "현재 워크스페이스와 쓰기 가능한 루트 안에서 편집을 허용합니다.",
+            "example": "일반 로컬 작업에 권장되는 App Server 방식의 시작점입니다."
+          },
+          "dangerFullAccess": {
+            "description": "대부분의 파일 시스템 제한을 없애고 광범위한 변경을 허용합니다.",
+            "example": "제한 없는 파일 접근이 꼭 필요한 신뢰할 수 있는 자동화에만 사용하세요."
+          }
+        }
+      },
+      "approvals": {
+        "title": "승인",
+        "guide": {
+          "title": "Codex 승인",
+          "summary": "승인 정책은 Codex가 실행 전에 멈추고 확인을 요청하는 시점을 제어합니다.",
+          "note": "Stave는 Codex 계획 모드에서 `never`를 강제하므로 계획 턴이 승인 프롬프트에서 멈추지 않습니다.",
+          "tooltip": "Codex 승인 정책 비교"
+        },
+        "options": {
+          "untrusted": {
+            "description": "런타임이 신뢰할 수 없거나 위험도가 높다고 판단하는 작업에서만 멈춥니다.",
+            "example": "일상적인 승인 중단을 줄이고 싶을 때 권장되는 App Server 방식의 기본값입니다."
+          },
+          "never": {
+            "description": "승인 프롬프트로 멈추지 않습니다. Codex가 바로 진행합니다.",
+            "example": "중단 없이 실행하고 싶은 신뢰할 수 있는 로컬 워크플로에 적합합니다."
+          },
+          "onRequest": {
+            "description": "승인이 필요할 때 멈추고 확인을 요청합니다.",
+            "example": "마찰이 적은 기본 설정보다 더 명시적인 확인 지점을 원할 때 사용합니다."
+          },
+          "onFailure": {
+            "description": "승인 없이 실행한 작업이 실패한 경우에만 Codex가 승인을 받아 다시 시도합니다.",
+            "example": "마찰 없이 실행하면서도 차단된 명령을 복구할 방법은 남겨 두고 싶을 때 유용합니다."
+          }
+        }
+      },
+      "appToolApprovals": {
+        "title": "App 도구 승인",
+        "description": "셸 명령 승인과 별도로 App 및 MCP 도구 승인을 제어합니다.",
+        "guide": {
+          "title": "Codex App 도구 승인",
+          "summary": "셸 명령이나 샌드박스 권한이 아니라 연결된 App 및 MCP 도구의 승인 프롬프트를 제어합니다.",
+          "note": "`writes`는 각 도구의 읽기 전용 어노테이션을 신뢰할 뿐 보안 경계가 아닙니다.",
+          "tooltip": "App 도구 승인 모드 비교"
+        },
+        "options": {
+          "inherit": {
+            "label": "상속",
+            "description": "App 및 MCP 도구 승인에 사용자의 Codex 구성을 그대로 사용합니다.",
+            "example": "Codex config.toml을 기준으로 삼을 때 사용합니다."
+          },
+          "auto": {
+            "description": "App 또는 MCP 도구에 승인이 필요한 시점을 Codex가 선택합니다."
+          },
+          "prompt": {
+            "label": "확인 요청",
+            "description": "모든 App 또는 MCP 도구 호출 전에 확인을 요청합니다."
+          },
+          "writes": {
+            "label": "쓰기 작업만",
+            "description": "도구 어노테이션에 읽기 전용으로 표시되지 않은 도구에 대해서만 확인을 요청합니다.",
+            "example": "승인 힌트일 뿐 파일 시스템이나 네트워크 샌드박스 경계가 아닙니다."
+          },
+          "approve": {
+            "label": "자동 승인",
+            "description": "확인 없이 App 및 MCP 도구 호출을 승인합니다."
+          }
+        }
+      },
+      "reasoning": {
+        "title": "추론",
+        "guide": {
+          "title": "Codex 추론 강도",
+          "summary": "강도가 높을수록 Codex가 더 깊이 추론할 수 있지만 턴이 느려지는 경향이 있습니다.",
+          "tooltip": "Codex 추론 강도 비교"
+        },
+        "options": {
+          "minimal": {
+            "description": "가장 짧은 추론 경로이며 지연 시간이 가장 짧습니다.",
+            "example": "단순 반복 편집, 빠른 파일 조회, 아주 작은 변환에 사용합니다."
+          },
+          "low": {
+            "description": "간단한 작업을 위한 가벼운 추론입니다.",
+            "example": "작은 구현 작업과 바로 답할 수 있는 질문에 적합합니다."
+          },
+          "medium": {
+            "description": "일상적인 코딩과 디버깅에 맞는 균형 잡힌 깊이입니다.",
+            "example": "작업 난이도가 다양할 때 권장되는 기본값입니다."
+          },
+          "high": {
+            "description": "더 어렵거나 모호한 작업을 위한 신중한 추론입니다.",
+            "example": "대규모 버그 추적, 리팩터링, 다단계 설계 질문에 사용합니다."
+          },
+          "xhigh": {
+            "description": "가장 깊은 추론 예산이며 지연 시간 비용이 가장 큽니다.",
+            "example": "Codex가 훨씬 오래 생각하길 원하는 정말 복잡한 작업에만 사용하세요."
+          },
+          "max": {
+            "description": "GPT-5.6 추론 강도 단계에서 `xhigh`보다 높은 최고 수준의 숙고입니다.",
+            "example": "속도보다 정확성이 중요한 어려운 다단계 구현이나 디버깅 작업에만 사용하세요."
+          },
+          "ultra": {
+            "description": "Codex가 제공하는 가장 깊은 추론 예산이며 지연 시간 비용이 가장 큽니다. 모든 모델이 이 단계를 지원하지는 않습니다(예: GPT-5.6 Luna는 `max`까지만 지원).",
+            "example": "Codex가 최대한 오래 생각하길 원하는 가장 어려운 프런티어 모델 작업에만 사용하세요."
+          }
+        }
+      },
+      "reasoningSummary": {
+        "title": "추론 요약",
+        "description": "지원되는 경우 모델 측 추론 요약에 대한 Codex 구성입니다.",
+        "guide": {
+          "title": "Codex 추론 요약",
+          "summary": "모델이 지원할 때 Codex가 반환할 추론 요약의 양을 제어합니다.",
+          "tooltip": "Codex 추론 요약 모드 비교"
+        },
+        "options": {
+          "auto": {
+            "description": "추론 요약을 반환할지, 얼마나 반환할지 Codex가 결정합니다.",
+            "example": "여러 모델에 걸쳐 Stave가 알아서 맞추길 원할 때 좋은 기본값입니다."
+          },
+          "concise": {
+            "label": "간결",
+            "description": "모델 측 추론의 짧은 요약을 요청합니다.",
+            "example": "긴 추가 텍스트 없이 빠르게 파악하고 싶을 때 유용합니다."
+          },
+          "detailed": {
+            "label": "자세히",
+            "description": "모델이 지원하면 더 자세한 추론 요약을 요청합니다.",
+            "example": "Codex가 특정 방향을 선택한 이유를 이해하고 싶을 때 사용합니다."
+          },
+          "none": {
+            "description": "추론 요약을 요청하지 않습니다.",
+            "example": "UI 출력을 최대한 간결하게 유지하고 싶을 때 유용합니다."
+          }
+        }
+      },
+      "summarySupport": {
+        "title": "요약 지원",
+        "description": "모델이 추론 요약을 지원하지만 런타임이 이를 감지하지 못할 때 Codex 기능 감지를 재정의합니다.",
+        "guide": {
+          "title": "추론 요약 기능 재정의",
+          "summary": "자동 기능 감지가 잘못된 경우에만 변경하세요.",
+          "tooltip": "추론 요약 지원 재정의 방식"
+        },
+        "options": {
+          "auto": {
+            "description": "추론 요약 지원 여부를 Stave와 Codex 런타임이 추론합니다.",
+            "example": "모델이 잘못 감지되고 있다는 확신이 없다면 이 설정으로 시작하세요."
+          },
+          "enabled": {
+            "description": "자동 감지가 놓치더라도 추론 요약 지원을 강제로 켭니다.",
+            "example": "모델이 요약을 지원하지만 런타임이 올바르게 감지하지 못할 때 사용합니다."
+          },
+          "disabled": {
+            "description": "추론 요약 지원을 강제로 끕니다.",
+            "example": "모델이 지원한다고 하지만 요약이 지저분하거나 깨져서 나올 때 사용합니다."
+          }
+        }
+      },
+      "rawReasoning": {
+        "title": "원시 추론",
+        "description": "Codex가 저수준 추론 기록을 내보내면 표시합니다."
+      },
+      "webSearch": {
+        "title": "웹 검색",
+        "description": "기본값은 `cached`이며, 실시간 외부 조회를 켜지 않고 변동성이 낮은 검색을 허용합니다.",
+        "guide": {
+          "title": "Codex 웹 검색",
+          "summary": "Codex에 저장소 내부 맥락만이 아니라 외부 지식이 필요할 때 사용합니다.",
+          "tooltip": "Codex 웹 검색 모드 비교"
+        },
+        "options": {
+          "cached": {
+            "label": "캐시",
+            "description": "캐시된 결과가 있을 때 변동성이 낮은 모드로 검색을 허용합니다.",
+            "example": "항상 실시간 웹 접근에 의존하지 않으면서 검색의 도움을 받고 싶을 때 권장되는 기본값입니다."
+          },
+          "disabled": {
+            "description": "Codex가 웹 검색을 사용하지 못하게 합니다.",
+            "example": "완전한 로컬 추론이나 재현 가능한 오프라인 동작을 원할 때 가장 적합합니다."
+          },
+          "indexed": {
+            "label": "색인",
+            "description": "쿼리마다 실시간으로 가져오지 않고 Codex의 색인된 검색 코퍼스를 사용합니다.",
+            "example": "선택한 Codex 런타임이 0.142 이상일 때 폭넓은 문서 탐색에 사용합니다."
+          },
+          "live": {
+            "label": "실시간",
+            "description": "작업에 최신 외부 정보가 필요할 때 실시간 웹 검색을 허용합니다.",
+            "example": "최신 문서, 호환성을 깨는 API 변경, 최근 소식 같은 정보에 사용합니다."
+          }
+        },
+        "indexedUnavailable": "선택한 Codex 버전에서는 색인 검색을 사용할 수 없어 Stave가 캐시 검색을 대신 사용합니다."
+      },
+      "fastMode": {
+        "title": "빠른 모드",
+        "description": "간단한 작업에서 더 빠르게 응답하도록 Codex fast_mode 기능 플래그를 켭니다."
+      }
+    }
+  },
+  "cursorSection": {
+    "runtime": {
+      "title": "Cursor 런타임 제어",
+      "description": "대화형 Cursor Agent 턴에 전달되는 세션 모드와 모델 기본 설정입니다."
+    },
+    "modes": {
+      "agent": {
+        "label": "에이전트",
+        "description": "일반적인 대화형 도구 흐름으로 작업을 진행합니다."
+      },
+      "plan": {
+        "label": "계획",
+        "description": "계획을 준비하고 구현 전에 검토를 위해 멈춥니다."
+      },
+      "ask": {
+        "label": "질문",
+        "description": "질문과 읽기 중심 탐색에 세션을 집중합니다."
+      }
+    },
+    "mode": {
+      "title": "모드",
+      "description": "새 세션이나 재개한 세션의 시작 모드를 설정합니다."
+    },
+    "approvalPreset": {
+      "title": "승인 프리셋",
+      "description": "Cursor가 확인 없이 실행할 수 있는 범위입니다. Cursor Agent 프로세스 플래그로 전달되므로 도구 호출마다가 아니라 세션 전체에 적용됩니다.",
+      "note": "Guided 프리셋은 Cursor 자체의 Auto-review 분류기를 사용하므로, 어떤 호출을 확인 없이 실행할지는 Stave가 아니라 Cursor가 결정합니다."
+    },
+    "defaultModel": {
+      "title": "기본 모델",
+      "description": "연결된 런타임이 다른 모델 식별자를 제공하지 않는 한 Auto를 사용합니다. 지원되지 않는 값은 런타임 기본값으로 대체됩니다."
+    },
+    "defaultEffort": {
+      "title": "기본 추론 강도",
+      "description": "연결된 Cursor 세션이 별도의 추론 강도 옵션을 제공할 때 사용합니다. 모델별 선택은 입력창에서 기억됩니다.",
+      "ariaLabel": "Cursor 기본 추론 강도"
+    },
+    "fastMode": {
+      "title": "빠른 모드",
+      "description": "연결된 런타임이 제공하면 Cursor Fast 세션 옵션을 사용합니다. 모델별 선택은 입력창에서 기억됩니다."
+    },
+    "cli": {
+      "title": "Cursor 에이전트 CLI",
+      "description": "Stave는 먼저 이 경로에서 Agent CLI를 찾은 다음, 지원되는 환경 변수 재정의와 표준 실행 파일 위치를 확인합니다."
+    },
+    "agentPath": {
+      "title": "Agent 경로",
+      "description": "비워 두면 자동으로 찾습니다. 설정한 실행 파일은 ACP를 지원하고 로그인되어 있어야 합니다."
+    }
+  },
+  "kiroSection": {
+    "runtime": {
+      "title": "Kiro 런타임 제어",
+      "description": "대화형 Kiro 턴에 전달되는 모델 기본 설정입니다."
+    },
+    "approvalPreset": {
+      "title": "승인 프리셋",
+      "description": "Kiro가 확인 없이 실행할 수 있는 범위입니다. Kiro CLI 프로세스 플래그로 전달되므로 도구 호출마다가 아니라 세션 전체에 적용됩니다.",
+      "note": "Kiro에는 부분 신뢰 단계가 없습니다. Kiro CLI는 부분 허용에 알 수 없는 도구 이름이 있어도 오류를 보고하지 않으므로, Stave는 검증할 수 없는 중간 설정을 제공하지 않습니다."
+    },
+    "defaultModel": {
+      "title": "기본 모델",
+      "description": "연결된 CLI가 다른 모델 식별자를 보고하지 않는 한 Auto를 사용합니다. 저장된 모델이 런타임 카탈로그에서 사라지면 입력창에 경고가 표시됩니다."
+    },
+    "defaultEffort": {
+      "title": "기본 추론 강도",
+      "description": "작업별 추론 강도 선택이 없는 Kiro 모델에 사용합니다. 모델별 선택은 입력창에서 기억됩니다.",
+      "ariaLabel": "Kiro 기본 추론 강도"
+    },
+    "cli": {
+      "title": "Kiro CLI",
+      "description": "Stave는 먼저 이 경로에서 Kiro CLI를 찾은 다음, 지원되는 환경 변수 재정의와 표준 실행 파일 위치를 확인합니다."
+    },
+    "cliPath": {
+      "title": "CLI 경로",
+      "description": "비워 두면 자동으로 찾습니다. 설정한 실행 파일은 ACP를 지원하고 로그인되어 있어야 합니다."
+    }
+  },
+  "claudePlugins": {
+    "modes": {
+      "claudeConfig": {
+        "label": "Claude 구성",
+        "description": "Claude 자체 설정에서 켠 플러그인만 정확히 불러옵니다(`claude plugin install` / `claude plugin enable`이 기록한 항목)."
+      },
+      "all": {
+        "label": "설치된 모든 플러그인",
+        "description": "Claude 설정에서 꺼져 있더라도 Claude CLI로 설치한 모든 플러그인을 불러옵니다."
+      },
+      "off": {
+        "description": "CLI로 설치한 플러그인을 불러오지 않습니다. 플러그인 경로 설정은 계속 적용됩니다."
+      }
+    },
+    "scope": {
+      "notInstalled": "로컬에 설치되지 않음",
+      "userAndProject": "사용자 + 프로젝트 설치",
+      "project": "프로젝트 설치",
+      "user": "사용자 설치"
+    },
+    "scopeLine": {
+      "enabled": "{{scope}} · {{source}} 설정에서 켜짐",
+      "notEnabled": "{{scope}} · Claude 설정에서 켜지지 않음"
+    },
+    "errors": {
+      "unavailable": "이 빌드에서는 Claude 플러그인 검색을 사용할 수 없습니다.",
+      "loadFailed": "설치된 Claude 플러그인을 불러오지 못했습니다."
+    },
+    "field": {
+      "title": "설치된 플러그인",
+      "description": "`claude plugin install`로 설치한 플러그인입니다. Stave가 직접 불러오므로 `user` 설정 소스를 켜지 않아도 동작합니다."
+    },
+    "guide": {
+      "title": "Claude 설치 플러그인",
+      "summary": "Stave가 SDK를 통해 Claude의 플러그인 결정을 다시 전달하므로, 설정 소스가 좁혀져 있어도 CLI로 설치한 플러그인이 로드됩니다.",
+      "tooltip": "설치된 Claude 플러그인을 불러오는 방식"
+    },
+    "clearOverrides": "재정의 지우기",
+    "empty": "Claude CLI 플러그인이 없습니다. `{{command}}` 명령으로 설치하세요.",
+    "checking": "설치된 Claude 플러그인 확인 중...",
+    "overrideBadge": "Stave 재정의",
+    "enableAriaLabel": "{{plugin}} 켜기"
+  },
+  "claudeGuardrails": {
+    "writesOutsideRepo": {
+      "title": "저장소 외부에 쓰기 전 확인",
+      "description": "에이전트 모드에서 이 저장소의 체크아웃과 워크트리 밖에 쓰기 전에 멈춥니다. 임시 폴더와 도구 캐시는 계속 허용됩니다. 채팅 턴은 이 이유로 멈추지 않습니다."
+    },
+    "credentials": {
+      "title": "자격 증명 접근 전 확인",
+      "description": "에이전트 모드에서 ~/.ssh, ~/.aws, ~/.npmrc 같은 파일이나 아래의 보호 경로와 변수를 읽거나 쓰기 전에 멈춥니다. 채팅 턴은 이 이유로 멈추지 않습니다."
+    },
+    "remoteActions": {
+      "title": "되돌릴 수 없는 원격 작업 전 확인",
+      "description": "에이전트 모드에서 기본 브랜치나 보호된 브랜치에 강제 푸시, 원격 ref 삭제, 패키지나 릴리스 게시, sudo 실행을 하기 전에 멈춥니다. 채팅 턴은 이 이유로 멈추지 않습니다."
+    }
+  },
+  "auxiliaryInference": {
+    "lanes": {
+      "intentGuard": {
+        "title": "의도 가드",
+        "switchTitle": "의도 가드 실행",
+        "description": "파일을 변경한 턴이 끝나면 diff를 워크스페이스에 고정된 의도 앵커와 비교하고 변경 사항 패널에 배지를 표시합니다. 앵커가 고정되어 있을 때만 실행됩니다.",
+        "modelDescription": "고정된 의도와 diff를 비교해 판단하는 모델입니다. 비워 두면 프로바이더 기본값을 따릅니다."
+      },
+      "turnSummary": {
+        "title": "턴 요약",
+        "switchTitle": "턴 요약 실행",
+        "description": "턴이 완료될 때마다 정보 패널 상단에 '요청한 내용 / 수행한 내용'을 한 줄로 적습니다.",
+        "modelDescription": "최신 턴 워크스페이스 요약에 우선 사용할 모델입니다."
+      },
+      "taskName": {
+        "title": "작업 이름 지정",
+        "switchTitle": "작업 이름 지정 실행",
+        "description": "첫 프롬프트를 바탕으로 작업 제목을 제안합니다. 작업 이름을 직접 바꾸면 해당 작업에서는 꺼집니다.",
+        "modelDescription": "작업 제목을 제안하는 모델입니다."
+      },
+      "utility": {
+        "title": "유틸리티 추론",
+        "switchTitle": "유틸리티 추론 실행",
+        "description": "라우팅 분류, 커밋 메시지, 프롬프트 개선 같은 기계적인 보조 호출입니다.",
+        "modelDescription": "기계적인 유틸리티 호출에 사용하는 모델입니다."
+      },
+      "prDescription": {
+        "title": "PR 설명",
+        "switchTitle": "PR 설명 작성 실행",
+        "description": "브랜치 diff로 풀 리퀘스트 제목과 본문 초안을 작성합니다. 끄면 AI를 쓰지 않는 Stave 기본 초안을 사용합니다.",
+        "modelDescription": "PR 제목과 본문 초안을 작성하는 모델입니다."
+      },
+      "prePrReview": {
+        "title": "PR 전 리뷰",
+        "switchTitle": "PR 전 리뷰 실행",
+        "description": "Stave가 풀 리퀘스트를 열기 전에 브랜치 diff를 한 번 리뷰합니다.",
+        "modelDescription": "브랜치 diff를 리뷰하는 모델입니다. 비워 두면 프로바이더에 설정된 기본값을 사용합니다."
+      },
+      "inlineCompletion": {
+        "title": "인라인 완성",
+        "switchTitle": "인라인 완성 실행",
+        "description": "편집기에서 키 입력 디바운스마다 요청하는 중간 채우기(fill-in-the-middle) 코드 제안입니다.",
+        "modelDescription": "인라인 완성을 생성하는 모델입니다."
+      }
+    },
+    "providerOptions": {
+      "claude": "이 레인을 Claude에서 실행합니다.",
+      "codex": "이 레인을 Codex에서 실행합니다."
+    },
+    "laneSwitch": {
+      "on": "이 레인은 백그라운드에서 모델을 호출합니다.",
+      "off": "꺼짐. 이 레인에서는 모델을 호출하지 않습니다."
+    },
+    "provider": {
+      "title": "프로바이더",
+      "pinned": "고정됨. 이 레인은 항상 선택한 프로바이더에서 실행됩니다.",
+      "unpinned": "고정되지 않음: 레인이 작업의 프로바이더를 따릅니다. 하나를 선택하면 고정됩니다."
+    },
+    "model": {
+      "title": "모델",
+      "currentDefault": "{{description}} 현재 기본값인 {{model}} 모델을 사용합니다.",
+      "currentProviderChoice": "{{description}} 현재 기본값에 따라 프로바이더가 직접 모델을 선택합니다."
+    },
+    "fallbackModel": {
+      "title": "대체 모델",
+      "description": "기본 모델을 사용할 수 없거나 응답을 해석할 수 없을 때 한 번 시도합니다."
+    },
+    "promptEnhancement": {
+      "title": "프롬프트 개선",
+      "description": "프롬프트 개선 기능은 작업 대화와 정보 패널, 그리고 저장소에 AGENTS.md나 CLAUDE.md가 있으면 그 내용까지 이미 읽습니다. 여기에는 그것들로 알 수 없는 내용, 즉 원하는 프롬프트 작성 방식을 적어 주세요.",
+      "style": {
+        "title": "프롬프트 스타일",
+        "description": "언어, 어조, 상세 수준, 그리고 프롬프트 개선 시 항상 포함하거나 절대 추가하지 말아야 할 내용입니다. 비워 두면 아무것도 보내지 않습니다.",
+        "placeholder": "예: 한국어로 작성. 항상 typecheck와 가장 작은 범위의 테스트를 요청. 내가 말하지 않은 인수 조건은 절대 추가하지 않기."
+      },
+      "learn": {
+        "title": "유지하거나 되돌린 재작성에서 학습",
+        "remembered_other": "기억된 재작성 {{count}}개를 모델에 예시로 보여 줍니다.",
+        "empty": "유지하거나 되돌린 재작성은 예시로 기억됩니다.",
+        "off": "꺼짐. 이전 재작성은 기억하지도 보내지도 않습니다."
+      },
+      "forget": "기억된 재작성 지우기"
+    }
+  },
+  "delegationSection": {
+    "title": "위임된 작업",
+    "description": "에이전트는 자체 대화와 권한을 가진 새 Stave 작업에 일을 넘길 수 있으며, 이 작업은 실행 원장에 기록되고 재시작 후에도 유지됩니다. 켜야 할 스위치는 없습니다. 에이전트에게 위임을 요청하면 이 카드에서 위임 가능 여부를 확인할 수 있습니다.",
+    "badge": {
+      "checking": "확인 중",
+      "unavailable": "사용 불가",
+      "partial": "일부 사용 가능",
+      "available": "사용 가능"
+    },
+    "availability": {
+      "heading": "사용 가능 여부",
+      "providerTasks": "{{provider}} 작업:",
+      "ready": "위임할 수 있습니다.",
+      "checking": "Local MCP 서버를 확인하는 중…",
+      "note": "위임은 Local MCP 도구로 모델에 전달되므로, 해당 서버가 실행 중일 때만 작업에서 하위 에이전트를 시작할 수 있습니다.",
+      "openSettings": "설정 → 개발자 → Local MCP 열기"
+    },
+    "asking": {
+      "heading": "위임 요청 방법과 지정할 수 있는 항목",
+      "body": "별도의 버튼은 없습니다. 에이전트가 턴 중에<code>stave_delegate_task</code>도구를 호출하면 위임이 이루어지므로, 요청하는 말로 방향을 조정합니다. 예: <emphasis>“이 계획에 대해 Codex로 high 추론 강도의 읽기 전용 두 번째 의견을 받아 줘”</emphasis>. 필수 항목은 프롬프트뿐입니다. 위임에서 지정하지 않은 항목은 이 작업의 프로바이더, 추론 강도, 권한을 따르며, 하위 작업은 이 워크스페이스에서 한 턴만 실행합니다. 설정에는 이에 대한 전역 기본값이 없습니다.",
+      "required": "필수",
+      "optional": "선택",
+      "controls": "위임이 시작되면 하위 작업이 작업의 턴 활동에 열기, 후속 요청, 중지, 분리, 다시 시도 컨트롤과 함께 표시됩니다."
+    },
+    "parameters": {
+      "prompt": "하위 작업이 수행할 내용입니다.",
+      "access": "read-only는 두 번째 의견, 리뷰, 조사용입니다. 하위 작업은 파일을 변경할 수 없고 승인이 필요 없으며 같은 워크스페이스에서 다른 작업과 나란히 실행됩니다. 기본값은 inherit이며, 같은 프로바이더면 이 작업의 권한을, 아니면 해당 프로바이더의 사용자 설정을 따릅니다.",
+      "provider": "Claude 또는 Codex입니다. 기본값은 이 작업의 프로바이더입니다.",
+      "lifecycle": "기본값은 one-turn으로, 하위 작업의 첫 턴이 끝나면 위임도 끝납니다. detached는 중지할 때까지 하위 작업을 열어 둡니다.",
+      "workspace": "기본값은 같은 워크스페이스입니다. 자체 브랜치를 가진 새 워크트리를 쓰면 편집이 격리됩니다.",
+      "model": "기본값은 하위 작업 프로바이더의 기본 모델입니다.",
+      "effort": "low → max(Codex는 ultra도 지원)이며, 하위 작업 모델이 허용하는 범위로 제한됩니다. 기본값은 같은 프로바이더면 이 작업의 추론 강도, 아니면 medium입니다. 범위가 명확한 지시는 저렴한 모델을 high 강도로 쓸 때 더 나은 경우가 많습니다."
+    }
+  },
+  "modelVisibility": {
+    "title": "선택기에 표시할 모델",
+    "description": "모델 선택기는 기본적으로 각 계열의 현재 모델을 표시합니다. 모델을 켜면 목록에 고정되고, 끄면 목록에서 제외됩니다. 검색과 선택기의 “모든 모델 표시” 확장에서는 여전히 카탈로그의 모든 모델을 찾을 수 있습니다.",
+    "resetAll": "모든 프로바이더 초기화",
+    "tabsAriaLabel": "모델 표시 프로바이더",
+    "panel": {
+      "empty": "아직 사용할 수 있는 {{provider}} 모델이 없습니다. 런타임에 로그인한 다음 이 섹션을 다시 여세요.",
+      "unverified": "상태가 확인되지 않았습니다. 이 모델들을 확인하려면 설정 > 도구에서 새로고침하세요.",
+      "shownCount": "기본 표시 {{visible}}/{{total}}개",
+      "reset": "현재 모델로 초기화",
+      "current": "현재",
+      "pinned": "고정됨",
+      "showAriaLabel": "모델 선택기에 {{model}} 표시"
+    }
+  },
+  "toolingSection": {
+    "card": {
+      "title": "네이티브 도구 상태",
+      "description": "Stave가 프로바이더 턴, PR 작업, 터미널 기반 워크플로에 사용하는 네이티브 바이너리와 인증 상태를 확인합니다."
+    },
+    "purpose": {
+      "shell": "통합 터미널 세션과 명령 실행 화면에 사용합니다.",
+      "git": "워크스페이스 브랜치, diff, 동기화, 소스 제어 작업에 사용합니다.",
+      "gh": "풀 리퀘스트 생성, PR 상태 새로고침, 병합, 브랜치 업데이트 흐름에 사용합니다.",
+      "claude": "Claude Code 턴, 플러그인 새로고침, Claude 자체 진단에 사용합니다. Opus 5.5: {{opusGuidance}} Sonnet 5.5: {{sonnetGuidance}}",
+      "codex": "Codex 턴과 Codex 자체 실행 흐름에 사용합니다. {{guidance}}",
+      "cursor": "Agent Client Protocol을 통한 Cursor Agent 턴에 사용합니다.",
+      "kiro": "Agent Client Protocol을 통한 Kiro 턴에 사용합니다."
+    },
+    "auth": {
+      "authenticated": "인증됨",
+      "unauthenticated": "로그인 필요",
+      "notRequired": "인증 불필요",
+      "unknown": "인증 상태 알 수 없음"
+    },
+    "state": {
+      "warning": "확인 필요",
+      "error": "사용 불가"
+    },
+    "rows": {
+      "summary": "요약",
+      "executable": "실행 파일"
+    },
+    "copyPathAriaLabel": "{{label}} 복사",
+    "actions": {
+      "copyLoginCommand": "로그인 명령어 복사",
+      "fixInTerminal": "터미널에서 해결",
+      "openTerminal": "터미널 열기"
+    },
+    "detail": {
+      "loading": "네이티브 도구 상태를 새로고침하는 중...",
+      "bridgeUnavailable": "도구 진단 브리지를 사용할 수 없습니다.",
+      "loadFailed": "도구 진단을 불러오지 못했습니다."
+    },
+    "toasts": {
+      "pathCopied": "경로를 복사했습니다",
+      "terminalUnavailable": {
+        "title": "터미널 브리지를 사용할 수 없음",
+        "description": "외부 터미널을 실행하기 전에 워크스페이스를 여세요."
+      },
+      "openTerminalFailed": "터미널을 열지 못했습니다",
+      "openedInTerminal": "터미널에서 워크스페이스를 열었습니다",
+      "commandCopied": "{{tool}} 명령어를 복사했습니다",
+      "copyCommandFailed": "명령어를 복사하지 못했습니다"
+    }
+  },
+  "codexShared": {
+    "accountBadge": {
+      "unknown": "알 수 없음",
+      "needsLogin": "로그인 필요",
+      "notRequired": "필요 없음",
+      "ready": "준비됨"
+    }
+  },
+  "codexSection": {
+    "status": {
+      "snapshotError": "스냅샷 오류",
+      "loadingSnapshot": "스냅샷 불러오는 중",
+      "appServerReady": "App Server 준비됨",
+      "snapshotIdle": "스냅샷 대기 중",
+      "dynamicModelCatalog": "동적 모델 카탈로그",
+      "fallbackModelCatalog": "대체 모델 카탈로그",
+      "currentThread": "현재 스레드 {{id}}"
+    },
+    "updatedAt": "{{time}} 업데이트됨",
+    "tabs": {
+      "overview": "개요",
+      "extensions": "확장",
+      "threads": "스레드",
+      "commands": "명령",
+      "advanced": "고급"
+    },
+    "jsonInputEmpty": "JSON 입력이 비어 있습니다.",
+    "snapshot": {
+      "bridgeUnavailable": "Codex App Server 스냅샷 브리지를 사용할 수 없습니다.",
+      "loading": "Codex App Server 스냅샷을 불러오는 중...",
+      "loadFailed": "Codex App Server 스냅샷을 불러오지 못했습니다."
+    },
+    "pluginDetail": {
+      "loading": "{{name}} 플러그인 세부 정보를 불러오는 중...",
+      "loadFailed": "Codex 플러그인 세부 정보를 불러오지 못했습니다."
+    },
+    "threadDetail": {
+      "loading": "{{id}} 스레드를 불러오는 중...",
+      "loadFailed": "Codex 스레드 세부 정보를 불러오지 못했습니다."
+    },
+    "resourcePreview": {
+      "authorizationUrlTitle": "{{server}} 인증 URL",
+      "reading": "{{uri}} 읽는 중...",
+      "binaryBlob": "[바이너리 blob] {{preview}}",
+      "emptyBody": "(빈 리소스 본문)"
+    },
+    "toasts": {
+      "installFailed": "설치 실패",
+      "installUnavailable": "Codex 플러그인 설치 브리지를 사용할 수 없습니다.",
+      "installed": "{{name}} 플러그인을 설치했습니다",
+      "uninstallFailed": "제거 실패",
+      "uninstallUnavailable": "Codex 플러그인 제거 브리지를 사용할 수 없습니다.",
+      "removed": "{{name}} 플러그인을 제거했습니다",
+      "featureToggleUnavailable": "기능 전환을 사용할 수 없습니다",
+      "featureUpdated": "{{name}} 기능을 업데이트했습니다",
+      "oauthUnavailable": "OAuth 로그인을 사용할 수 없습니다",
+      "oauthFailed": "OAuth 로그인 실패",
+      "oauthStarted": "{{server}} 서버의 OAuth 로그인을 시작했습니다",
+      "oauthOpenUrl": "인증 URL을 열어 로그인을 완료하세요.",
+      "resourceBridgeUnavailable": "MCP 리소스 브리지를 사용할 수 없습니다",
+      "selectThreadFirst": "먼저 Codex 스레드를 선택하세요",
+      "resourceNeedsThread": "리소스를 읽으려면 스레드 컨텍스트가 필요합니다.",
+      "renameUnavailable": "스레드 이름 바꾸기를 사용할 수 없습니다",
+      "renamed": "Codex 스레드 이름을 바꿨습니다",
+      "forkUnavailable": "스레드 포크를 사용할 수 없습니다",
+      "forkFailed": "스레드 포크 실패",
+      "forked": "Codex 스레드를 포크했습니다",
+      "archiveUnavailable": "스레드 보관을 사용할 수 없습니다",
+      "archived": "Codex 스레드를 보관했습니다",
+      "restored": "Codex 스레드를 복원했습니다",
+      "compactUnavailable": "스레드 압축을 사용할 수 없습니다",
+      "compacted": "스레드 컨텍스트를 압축했습니다",
+      "rollbackUnavailable": "스레드 롤백을 사용할 수 없습니다",
+      "rollbackCountInvalid": "롤백할 턴 수는 1 이상이어야 합니다.",
+      "rolledBack": "Codex 스레드를 롤백했습니다",
+      "noExternalConfig": "가져올 외부 설정 항목이 없습니다.",
+      "importedExternalConfig": "외부 설정을 가져왔습니다",
+      "configWriteUnavailable": "설정 쓰기 브리지를 사용할 수 없습니다",
+      "configKeyPathRequired": "설정 키 경로를 입력해야 합니다.",
+      "invalidJsonValue": "잘못된 JSON 값",
+      "configUpdated": "{{keyPath}} 설정을 업데이트했습니다",
+      "batchWriteUnavailable": "일괄 설정 쓰기 브리지를 사용할 수 없습니다",
+      "invalidBatchJson": "잘못된 일괄 편집 JSON",
+      "batchNotArray": "일괄 편집은 JSON 배열이어야 합니다.",
+      "batchApplied": "Codex 설정 일괄 편집을 적용했습니다"
+    }
+  },
+  "codexOverviewTab": {
+    "metrics": {
+      "models": "모델",
+      "plugins": "플러그인",
+      "apps": "앱",
+      "threads": "스레드",
+      "skills": "스킬",
+      "slashCommands": "슬래시 명령"
+    },
+    "empty": {
+      "unavailable": "Codex 스냅샷을 사용할 수 없음",
+      "loading": "Codex 스냅샷 불러오는 중"
+    },
+    "runtime": {
+      "title": "런타임 요약",
+      "description": "현재 워크스페이스와 Codex 바이너리의 실시간 App Server 데이터입니다.",
+      "account": "계정",
+      "accountType": "유형: {{value}}",
+      "accountEmail": "이메일: {{value}}",
+      "accountPlan": "플랜: {{value}}",
+      "unknownValue": "알 수 없음",
+      "modelCatalog": "모델 카탈로그",
+      "catalogLive": "실시간 App Server",
+      "catalogFallback": "대체",
+      "catalogDefaultDetail": "구성된 Codex 모델 카탈로그를 사용합니다.",
+      "defaultModel": "기본값",
+      "workspaceScope": "워크스페이스 범위",
+      "scoped": "범위 지정됨",
+      "noWorkspaceCwd": "사용할 수 있는 워크스페이스 cwd가 없습니다.",
+      "binary": "바이너리: {{path}}",
+      "defaultBinary": "기본 Codex 실행 파일",
+      "slashCommands": "슬래시 명령",
+      "builtInCount": "기본 제공 {{total}}개"
+    },
+    "sectionErrors": {
+      "title": "섹션 오류",
+      "description": "App Server의 나머지 영역은 불러왔지만 개별적으로 실패한 스냅샷 섹션입니다.",
+      "empty": "일부만 실패한 섹션이 없습니다."
+    },
+    "rateLimits": {
+      "title": "사용 한도",
+      "description": "Codex가 보고한 현재 한도 버킷과 크레딧 상태입니다.",
+      "empty": "App Server가 반환한 사용 한도 버킷이 없습니다.",
+      "unnamedBucket": "이름 없는 버킷",
+      "unknownPlan": "알 수 없는 플랜",
+      "unlimitedCredits": "무제한 크레딧",
+      "creditsBalance": "크레딧 {{balance}}",
+      "creditsAvailable": "크레딧 사용 가능",
+      "noCredits": "크레딧 없음",
+      "primary": "기본",
+      "secondary": "보조",
+      "usedWithReset": "{{percent}} · {{time}} 초기화"
+    }
+  },
+  "codexExtensionsTab": {
+    "pluginsAndApps": {
+      "title": "플러그인 및 앱",
+      "description": "설치되었거나, 검색할 수 있거나, 현재 접근할 수 있는 확장 영역입니다."
+    },
+    "plugins": "플러그인",
+    "noPlugins": "현재 App Server 런타임이 반환한 플러그인이 없습니다.",
+    "installed": "설치됨",
+    "discoverable": "검색 가능",
+    "enabled": "켜짐",
+    "apps": "앱",
+    "noApps": "현재 App Server 런타임이 반환한 앱이 없습니다.",
+    "noDescription": "설명 없음",
+    "accessible": "접근 가능",
+    "notAccessible": "접근 불가",
+    "skills": "스킬",
+    "noSkills": "현재 워크스페이스가 반환한 스킬 그룹이 없습니다.",
+    "mcpServers": "MCP 서버",
+    "noMcpServers": "현재 App Server 런타임이 반환한 MCP 서버가 없습니다.",
+    "unknownAuth": "인증 상태 알 수 없음",
+    "login": "로그인",
+    "preview": "미리 보기",
+    "hooks": "프로바이더 훅",
+    "noHooks": "선택한 Codex 런타임이 훅 목록을 반환하지 않았습니다.",
+    "experimental": "실험적 기능",
+    "noExperimental": "현재 보고된 실험적 기능이 없습니다.",
+    "defaultOn": "기본 켜짐",
+    "inspector": {
+      "title": "검사기",
+      "description": "선택한 플러그인의 세부 정보 또는 최근 MCP 리소스 미리 보기입니다.",
+      "empty": "플러그인을 선택하거나 MCP 리소스를 미리 보면 여기에서 검사할 수 있습니다.",
+      "noPluginDescription": "플러그인 설명이 없습니다.",
+      "uninstall": "제거",
+      "install": "설치",
+      "noPluginSkills": "플러그인 스킬이 없습니다.",
+      "appsNeedingAuth": "인증이 필요한 앱",
+      "noAppAuth": "앱 수준 인증 요구 사항이 없습니다.",
+      "openAuthorizationUrl": "인증 URL 열기",
+      "emptyBody": "(비어 있음)"
+    }
+  },
+  "codexThreadsTab": {
+    "list": {
+      "title": "스레드 목록",
+      "description": "현재 워크스페이스에 대해 반환된 활성 및 보관된 Codex 스레드입니다."
+    },
+    "groups": {
+      "active": "활성",
+      "archived": "보관됨"
+    },
+    "empty": {
+      "active": "활성 스레드가 없습니다.",
+      "archived": "보관된 스레드가 없습니다."
+    },
+    "current": "현재",
+    "updatedAt": "{{time}} 업데이트됨",
+    "inspector": {
+      "title": "스레드 검사기",
+      "description": "선택한 스레드를 검사하고 포크, 리뷰, 이름 바꾸기, 압축, 보관, 롤백 작업을 실행합니다.",
+      "empty": "여기에서 검사할 스레드를 선택하세요."
+    },
+    "currentSession": "현재 세션",
+    "archivedBadge": "보관됨",
+    "metrics": {
+      "turns": "턴",
+      "modelProvider": "모델 프로바이더",
+      "cliVersion": "CLI 버전",
+      "updated": "업데이트"
+    },
+    "threadNamePlaceholder": "스레드 이름",
+    "quickActions": "빠른 작업",
+    "fork": "포크",
+    "compact": "압축",
+    "archive": "보관",
+    "rollback": "롤백",
+    "rollBackTurns": "턴 롤백"
+  },
+  "codexCommandsTab": {
+    "categories": {
+      "session": "세션 제어",
+      "runtime": "런타임 및 동작",
+      "workspace": "워크스페이스 컨텍스트",
+      "inspection": "검사 및 리뷰",
+      "integrations": "앱 및 플러그인"
+    },
+    "catalog": {
+      "title": "슬래시 명령 카탈로그",
+      "description": "App Server가 실시간 명령 목록 RPC를 제공하지 않아도 팝업을 유용하게 쓸 수 있도록 공식 Codex CLI 슬래시 명령 가이드의 내용을 함께 제공합니다."
+    },
+    "filterPlaceholder": "명령, 동작 또는 카테고리로 필터링",
+    "total": "총 {{total}}개",
+    "noMatches": {
+      "title": "일치 항목 없음",
+      "description": "더 짧은 검색어를 사용하거나 필터를 지우세요.",
+      "detail": "<query/> 검색어와 일치하는 슬래시 명령이 없습니다."
+    },
+    "commandCount_other": "명령 {{count}}개"
+  },
+  "codexAdvancedTab": {
+    "requirements": {
+      "title": "설정 요구 사항",
+      "description": "App Server가 보고하는 승인, 샌드박스, 데이터 상주, 기능 게이트 관련 정책 제한입니다.",
+      "importDetected": "감지된 설정 가져오기",
+      "approval": "승인 {{value}}",
+      "sandbox": "샌드박스 {{value}}",
+      "search": "검색 {{value}}",
+      "residency": "데이터 상주 {{value}}",
+      "detectedExternal": "감지된 외부 설정"
+    },
+    "layers": {
+      "title": "설정 레이어",
+      "description": "Codex가 반환한 병합된 설정과 레이어별 진단 정보입니다.",
+      "disabled": "비활성화됨"
+    },
+    "edits": {
+      "title": "고급 설정 편집",
+      "description": "특정 Codex 설정을 변경하는 원시 JSON 도구입니다. 대부분의 사용자는 App Server 동작을 진단할 때만 이 영역을 확인하면 됩니다.",
+      "single": "단일 편집",
+      "mergeStrategyPlaceholder": "mergeStrategy (선택 사항)",
+      "applySingle": "단일 편집 적용",
+      "batch": "일괄 편집",
+      "applyBatch": "일괄 적용"
+    },
+    "merged": {
+      "title": "병합된 고급 설정",
+      "description": "`config/read`가 반환한 읽기 전용 원시 설정 페이로드입니다."
+    }
+  },
+  "mcpSection": {
+    "sources": {
+      "claudeUser": "Claude 사용자",
+      "claudeProject": "Claude 프로젝트",
+      "claudeLocal": "Claude 로컬 프로젝트",
+      "codexUser": "Codex 사용자",
+      "cursorUser": "Cursor 사용자",
+      "cursorProject": "Cursor 프로젝트",
+      "kiroUser": "Kiro 사용자",
+      "kiroProject": "Kiro 프로젝트"
+    },
+    "load": {
+      "apiUnavailable": "{{label}} API를 사용할 수 없습니다.",
+      "discovery": "MCP 검색",
+      "configuration": "MCP 설정",
+      "claudeStatus": "Claude MCP 상태",
+      "codexStatus": "Codex MCP 상태"
+    },
+    "acp": {
+      "portable": {
+        "label": "Cursor/Kiro 사용 가능",
+        "detail": "Stave가 이 파일 기반 서버를 기본 Cursor 및 Kiro 세션에 전달할 수 있습니다."
+      },
+      "targetNative": {
+        "label": "네이티브 경로",
+        "detail": "Cursor 또는 Kiro가 자체 네이티브 MCP 설정에서 이 서버를 불러옵니다. Stave는 해당 대상 세션에 중복 경로를 주입하지 않습니다."
+      },
+      "providerManaged": {
+        "label": "프로바이더 전용",
+        "detail": "이 계정 관리형 커넥터는 재사용할 수 있는 명령, URL, OAuth 자격 증명을 노출하지 않으므로 인증한 프로바이더에서만 사용됩니다."
+      },
+      "notForwarded": {
+        "label": "ACP로 전송되지 않음",
+        "detail": "이 서버는 꺼져 있거나 Cursor 및 Kiro 세션이 받을 수 없는 전송 방식을 사용합니다."
+      }
+    },
+    "provider": {
+      "waitingForSignIn": "로그인 대기 중",
+      "toolCount_other": "도구 {{count}}개",
+      "checkedAt": "{{time}} 확인됨",
+      "recentError": "최근 오류",
+      "recentErrorAt": "최근 오류 · {{time}}",
+      "signInAriaLabel": "{{provider}}용 {{server}} 서버에 로그인",
+      "starting": "시작 중...",
+      "waitingForBrowser": "브라우저 대기 중",
+      "signIn": "로그인"
+    },
+    "share": {
+      "addToCodex": "Codex에 추가",
+      "addToClaude": "Claude에 추가",
+      "addToCursor": "Cursor에 추가",
+      "addToKiro": "Kiro에 추가"
+    },
+    "config": {
+      "heading": "네이티브 설정",
+      "hiddenValues_other": "보호된 값 {{count}}개 숨김",
+      "editAriaLabel": "{{name}} 편집 ({{source}})",
+      "deleteAriaLabel": "{{name}} 삭제 ({{source}})",
+      "managedByStave": "Stave에서 관리"
+    },
+    "card": {
+      "title": "MCP 연결",
+      "description": "Claude, Codex, Cursor, Kiro용 네이티브 MCP 서버를 설치합니다. 각 프로바이더는 자체 설정과 OAuth 세션을 유지하며, Stave는 대상에 네이티브 경로가 없을 때만 호환되는 항목을 전달합니다.",
+      "addServer": "서버 추가",
+      "refreshing": "새로고침 중..."
+    },
+    "stats": {
+      "servers": "서버",
+      "connected": "연결됨",
+      "needsAttention": "확인 필요"
+    },
+    "availability": {
+      "ariaLabel": "커넥터 가용성",
+      "description": "프로바이더 네이티브 설정과 사용 가능한 런타임 상태입니다. 계정 관리형 OAuth 세션은 해당 세션을 소유한 프로바이더에 남습니다."
+    },
+    "loading": "MCP 연결을 불러오는 중…",
+    "empty": "현재 Claude, Codex, Cursor, Kiro 설정에서 MCP 서버를 찾지 못했습니다.",
+    "serverListAriaLabel": "MCP 서버 상태",
+    "runtimeDetected": "런타임에서 감지됨",
+    "auth": {
+      "cursorUnavailable": "Cursor OAuth 로그인 API를 사용할 수 없습니다.",
+      "providerUnavailable": "{{provider}} OAuth 로그인 API를 사용할 수 없습니다.",
+      "browserUnavailable": "{{detail}} 외부 브라우저에 접근할 수 없습니다.",
+      "browserCouldNotOpen": "외부 브라우저를 열 수 없습니다.",
+      "finishInBrowser": "{{detail}} 브라우저에서 로그인을 완료하세요. 상태는 자동으로 새로고침됩니다.",
+      "failed": "OAuth 로그인 실패: {{detail}}"
+    }
+  },
+  "mcpConfigEditor": {
+    "checkingLatest": "최신 프로바이더 설정을 확인하는 중…",
+    "review": {
+      "beforeApply": "적용하기 전에",
+      "verifyNote": "Stave는 설정을 쓰기 전에 이 미리 보기 이후 프로바이더 설정이 변경되지 않았는지 확인합니다."
+    },
+    "errors": {
+      "formIncomplete": "MCP 설정 양식이 완성되지 않았습니다.",
+      "previewUnavailable": "MCP 설정 미리 보기 API를 사용할 수 없습니다.",
+      "applyUnavailable": "MCP 설정 적용 API를 사용할 수 없습니다."
+    },
+    "editor": {
+      "titleEdit": "MCP 서버 편집",
+      "titleAdd": "MCP 서버 추가",
+      "description": "자격 증명은 Stave 외부에 보관됩니다. 환경 변수 이름으로 인증을 연결한 다음, 적용하기 전에 네이티브 프로바이더 변경 사항을 검토하세요.",
+      "provider": "프로바이더",
+      "installTo": "설치 대상",
+      "installToMany": "한 번 검토하면 선택한 모든 대상에 프로바이더 네이티브 사본을 씁니다.",
+      "installToOne": "한 번 등록하거나, 나중에 연결 목록에서 다른 프로바이더를 추가하세요.",
+      "installToAriaLabel": "설치 대상: {{provider}}",
+      "scope": "범위",
+      "scopeCodexOnly": "Codex App Server는 현재 사용자 범위에 대한 안전한 쓰기만 지원합니다.",
+      "scopeCodexMixed": "프로젝트를 지원하는 프로바이더는 이 범위를 사용합니다. Codex는 사용자 범위 사본을 받습니다.",
+      "scopeDefault": "프로젝트 범위는 .mcp.json으로 공유되고, 로컬 범위는 이 워크스페이스에서만 사용됩니다.",
+      "scopes": {
+        "user": "사용자",
+        "project": "프로젝트",
+        "local": "로컬 프로젝트"
+      },
+      "serverName": "서버 이름",
+      "transport": "전송 방식",
+      "sseLegacy": "SSE (레거시)",
+      "command": "명령",
+      "replaceArgs": {
+        "title": "명령 인수 바꾸기",
+        "hint_other": "기존 인수 {{count}}개가 숨겨져 있습니다. 유지하려면 이 옵션을 끈 상태로 두세요.",
+        "ariaLabel": "기존 MCP 명령 인수 바꾸기"
+      },
+      "arguments": "인수",
+      "argumentsHint": "한 줄에 인수를 하나씩 입력합니다. 빈 줄은 무시됩니다.",
+      "envVars": "상속할 환경 변수",
+      "envVarsHint": "한 줄에 변수 이름을 하나씩 입력합니다. Stave는 값이 아닌 참조만 기록합니다.",
+      "replaceUrl": {
+        "title": "원격 URL 바꾸기",
+        "hint": "자격 증명이나 쿼리 세부 정보는 숨겨져 있습니다. 전체 URL을 유지하려면 이 옵션을 끈 상태로 두세요.",
+        "ariaLabel": "가려진 MCP URL 바꾸기"
+      },
+      "urlHints": {
+        "cursorAndKiro": "Cursor에는 Slack이 공개한 Cursor 클라이언트 ID가 기록됩니다. Kiro에는 Slack 앱의 클라이언트 ID가 필요합니다.",
+        "cursor": "Stave가 Slack이 공개한 Cursor MCP 클라이언트 ID를 기록합니다. 적용한 후 Cursor 카드에서 로그인을 사용하세요.",
+        "kiro": "Kiro에는 Slack 앱의 OAuth 클라이언트 ID가 필요합니다. Cursor의 Slack 클라이언트 ID는 재사용할 수 없습니다."
+      },
+      "oauthClientId": {
+        "slackLabel": "Slack 앱 클라이언트 ID",
+        "label": "OAuth 클라이언트 ID",
+        "slackHint": "Kiro에 필요합니다. Slack 앱의 oauth.clientId를 붙여 넣으세요. 이 값은 시크릿이 아닙니다.",
+        "hint": "Kiro에 oauth.clientId로 기록되는 공개 클라이언트 ID입니다(선택 사항). 클라이언트 시크릿은 절대 입력하지 마세요."
+      },
+      "bearer": {
+        "label": "Bearer 토큰 환경 변수",
+        "hint": "선택 사항입니다. 토큰이 아닌 변수 이름을 입력하세요."
+      },
+      "headers": {
+        "label": "헤더 환경 변수 바인딩",
+        "hint": "한 줄에 Header-Name=ENV_VAR 바인딩을 하나씩 입력합니다."
+      },
+      "enabled": {
+        "title": "사용",
+        "hint": "꺼진 서버는 연결되지 않은 채 프로바이더의 네이티브 설정에 남습니다.",
+        "ariaLabel": "{{provider}} MCP 서버 사용"
+      },
+      "protected_other": "<strong>기존 값이 보호됩니다.</strong> 민감하거나 불투명한 값 {{count}}개는 이 대화상자에 표시되지 않으며, 전송 방식이 호환되면 그대로 유지됩니다.",
+      "status": {
+        "applying": "MCP 설정 적용 중",
+        "preparing": "MCP 설정 미리 보기 준비 중"
+      },
+      "applying": "적용 중…",
+      "preparing": "준비 중…",
+      "apply": "변경 사항 적용",
+      "review": "변경 사항 검토"
+    },
+    "delete": {
+      "title": "MCP 서버를 삭제하시겠습니까?",
+      "description": "{{source}} 설정에서 {{name}} 서버를 제거합니다. Stave에서는 이 작업을 되돌릴 수 없습니다.",
+      "descriptionFallback": "선택한 MCP 서버 설정을 제거합니다.",
+      "deleting": "삭제 중…",
+      "confirm": "서버 삭제"
+    },
+    "share": {
+      "addTo": "{{provider}} 설정에 추가",
+      "description": "같은 이름, 전송 방식, 환경 변수 바인딩으로 이 서버를 {{provider}} 설정에 복사합니다. 불투명한 값은 원본에 남으며 복사되지 않습니다.",
+      "adding": "추가 중…"
+    }
+  },
+  "settingsDialogModelVisibility": {
+    "noModelsAreAvailableYetSign": "사용 가능한 {{value1}} 모델이 없습니다. 런타임에 로그인한 뒤 이 섹션을 다시 여십시오.",
+    "statusUnverifiedRefreshSettingsGtTooling": "상태를 확인하지 못했습니다. 설정 > 도구에서 새로고침하여 모델을 확인하십시오.",
+    "shownByDefault": "기본 표시됨",
+    "showInTheModelSelector": "모델 선택 메뉴에 {{value1}} 표시"
+  },
+  "settingsDialogToolingSection": {
+    "commandCopied": "{{value1}} 명령을 복사했습니다.",
+    "claudeCodeTurnsPluginRefreshAnd": "Claude Code 턴, 플러그인 새로 고침, Claude 전용 진단에 사용합니다. Opus 5.5: {{value1}} Sonnet 5.5: {{value2}}",
+    "codexTurnsAndCodexNativeExecution": "Codex 턴과 Codex 전용 실행 흐름에 사용합니다. {{value1}}"
+  },
+  "settingsDialogAuxiliaryInferenceSection": {
+    "rememberedRewriteAreShownToThe": "기억한 수정 {{value1}}개를 모델에 예시로 표시합니다{{value2}}."
+  },
+  "settingsDialogClaudePlugins": {
+    "loading": "불러오는 중…",
+    "noClaudeCLIPluginsFoundInstall": "Claude CLI 플러그인을 찾지 못했습니다. `claude plugin install <plugin>@<marketplace>` 명령으로 설치하십시오.",
+    "enabledInSettings": " · {{value1}} 설정에서 활성화됨",
+    "notEnabledInClaudeSettings": " · Claude 설정에서 활성화되지 않음",
+    "enable": "{{value1}} 활성화"
+  },
+  "settingsDialogMcpConfigEditor": {
+    "installTo": "{{value1}}에 설치",
+    "enableMCPServer": "{{value1}} MCP 서버 활성화",
+    "thisRemovesFromConfigurationThisCannot": "{{value2}} 설정에서 {{value1}} 항목을 제거합니다. Stave에서 되돌릴 수 없습니다.",
+    "addTo": "{{value1}}에 추가"
+  },
+  "settingsDialogMcpSection": {
+    "checked": "확인됨",
+    "signInToFor": "{{value2}}용 {{value1}} 로그인",
+    "protectedValue": "보호된 값",
+    "hidden": "숨김",
+    "editIn": "{{value2}}의 {{value1}} 편집",
+    "deleteFrom": "{{value2}}의 {{value1}} 삭제",
+    "apiUnavailable": "{{value1}} API를 사용할 수 없습니다.",
+    "oauthLoginAPIUnavailable": "{{value1}} OAuth 로그인 API를 사용할 수 없습니다.",
+    "externalBrowserAccessIsUnavailable": "{{value1}} 외부 브라우저 접근을 사용할 수 없습니다.",
+    "finishInYourBrowserStatusWill": "{{value1}} 브라우저에서 완료하세요. 상태가 자동으로 새로 고쳐집니다.",
+    "oauthLoginFailed": "OAuth 로그인 실패: {{value1}}"
+  },
+  "settingsDialogProvidersSection": {
+    "example": " 예: {{value1}}",
+    "isActiveReapplyAPresetAny": "{{value1}} 프리셋이 활성화되었습니다. 프리셋을 다시 적용하면 전체 권한과 샌드박스 조합을 복원합니다.",
+    "active": "활성:",
+    "none": "없음",
+    "all": "모두",
+    "isActiveReapplyAPresetAnyVariantcdc4723b": "{{value1}} 프리셋이 활성화되었습니다. 다시 적용하면 전체 파일 접근, 승인과 네트워크 조합을 복원합니다."
+  },
+  "whole": {
+    "hiddenArguments_other": "기존 인수 {{count}}개를 숨겼습니다. 유지하려면 이 옵션을 끄십시오.",
+    "protectedValues_other": "기존 값을 보호합니다. 민감하거나 읽을 수 없는 값 {{count}}개를 이 대화상자에서 숨겼으며 전송 방식이 호환되면 유지합니다.",
+    "shareMcp": "같은 이름, 전송 방식과 환경 변수 연결을 사용하여 이 서버를 {{destination}}에 복사합니다. 읽을 수 없는 값은 원본에 유지하며 복사하지 않습니다.",
+    "addMcp": "{{destination}}에 추가",
+    "tools_other": "도구 {{count}}개",
+    "rewriteExamples_other": "기억한 수정 {{count}}개를 모델에 예시로 표시합니다."
+  },
+  "messages": {
+    "checkedAt": "확인: {{checkedAt}}",
+    "hiddenValues_other": "보호된 값 {{count}}개 숨김",
+    "mcpApplyUnavailable": "MCP 구성을 적용하는 API를 사용할 수 없습니다.",
+    "planWorkflowNote": "Stave의 `plan`은 일반 구현 턴 대신 계획 워크플로로 실행됩니다.",
+    "codexPlanReadOnly": "Stave에서 Codex를 계획 모드로 실행하면 일반 설정과 관계없이 `read-only`가 강제 적용됩니다.",
+    "codexPlanNever": "Stave는 Codex 계획 모드에서 `never`를 강제 적용하므로 계획 턴이 승인 요청으로 멈추지 않습니다.",
+    "writesTrustNote": "`writes`는 각 도구의 읽기 전용 선언을 신뢰하며 보안 경계가 아닙니다."
+  }
+}

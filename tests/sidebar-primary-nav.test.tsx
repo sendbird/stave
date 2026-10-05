@@ -1,4 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { applyAppLocale, i18n } from "@/i18n";
+import { SidebarPrimaryNav, SidebarPrimaryNavCollapsed } from "@/components/layout/SidebarPrimaryNav";
+import { SidebarSettingsCard } from "@/components/layout/settings-sections/settings-dialog-sidebar-card";
 import { createAppStorePersistenceOptions } from "@/store/app-store-persistence";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
@@ -17,6 +22,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   useAppStore.setState(initial, true);
+  applyAppLocale("en");
   globalThis.window = originalWindow;
 });
 
@@ -50,4 +56,24 @@ describe("sidebar shortcut visibility", () => {
       for (const key of shortcuts) expect(state.settings[key]).toBe(true);
     }
   });
+});
+
+
+describe("localized sidebar shortcuts", () => {
+  for (const locale of ["en", "ko"] as const) {
+    test(`settings and both navigation forms stay translated in ${locale}`, () => {
+      applyAppLocale(locale);
+      const settingsHtml = renderToStaticMarkup(createElement(SidebarSettingsCard));
+      for (const key of ["fleetView", "agents", "results", "aiUsage"]) {
+        expect(settingsHtml).toContain(i18n.t(`settings:themeSection.sidebar.${key}.title`));
+      }
+      for (const Component of [SidebarPrimaryNav, SidebarPrimaryNavCollapsed]) {
+        const visible = renderToStaticMarkup(createElement(Component, { showFleetView: true }));
+        for (const key of ["agents", "results", "aIUsage"]) {
+          expect(visible).toContain(i18n.t(`shell:sidebarPrimaryNav.${key}`));
+        }
+
+      }
+    });
+  }
 });

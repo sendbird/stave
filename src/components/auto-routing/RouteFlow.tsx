@@ -1,3 +1,4 @@
+import { useTranslation, i18n } from "@/i18n";
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx } from "@/components/ads/utils/stylex";
@@ -43,38 +44,38 @@ export function explainRuleMiss(
 ): string | null {
   const { when } = rule;
   if (!rule.enabled) {
-    return "disabled";
+    return i18n.t("settingsConnections:flow.disabled");
   }
   if ((when.role ?? "primary") !== role) {
-    return `role is ${ROUTER_ROLE_LABELS[role]}`;
+    return i18n.t("settingsConnections:flow.roleMiss", { role: ROUTER_ROLE_LABELS[role] });
   }
   if (when.taskClass && when.taskClass !== signals.taskClass) {
-    return `task class is ${TASK_CLASS_LABELS[signals.taskClass]}`;
+    return i18n.t("settingsConnections:flow.taskClassMiss", { taskClass: TASK_CLASS_LABELS[signals.taskClass] });
   }
   if (when.skill && when.skill.length > 0) {
     if (options.skillRouting === false) {
-      return "skill routing off";
+      return i18n.t("settingsConnections:flow.skillRoutingOff");
     }
     if (!signals.skill) {
-      return "skill not present";
+      return i18n.t("settingsConnections:flow.skillNotPresent");
     }
     if (!when.skill.includes(signals.skill.toLowerCase())) {
-      return `skill is /${signals.skill}`;
+      return i18n.t("settingsConnections:flow.skillMiss", { skill: signals.skill });
     }
   }
   if (when.complexity && when.complexity !== signals.complexity) {
-    return `level is ${ROUTE_COMPLEXITY_LABELS[signals.complexity].toLowerCase()}`;
+    return i18n.t("settingsConnections:flow.levelMiss", { level: ROUTE_COMPLEXITY_LABELS[signals.complexity].toLowerCase() });
   }
   if (typeof when.sensitive === "boolean" && when.sensitive !== signals.sensitive) {
-    return when.sensitive ? "not sensitive" : "sensitive";
+    return when.sensitive ? i18n.t("settingsConnections:flow.notSensitive") : i18n.t("settingsConnections:flow.sensitive");
   }
   if (typeof when.budgetUsedAtLeast === "number") {
     const used = signals.budgetUsedPercent;
     if (typeof used !== "number") {
-      return "usage unknown";
+      return i18n.t("settingsConnections:flow.usageUnknown");
     }
     if (used < when.budgetUsedAtLeast) {
-      return `usage ${Math.round(used)}% < ${when.budgetUsedAtLeast}%`;
+      return i18n.t("settingsConnections:flow.usageMiss", { used: Math.round(used), threshold: when.budgetUsedAtLeast });
     }
   }
   return null;
@@ -84,18 +85,18 @@ export function explainRuleMiss(
 export function describeRuleConditions(rule: RouteRule): string[] {
   const { when } = rule;
   const parts: string[] = [];
-  if (when.taskClass) parts.push(when.taskClass);
+  if (when.taskClass) parts.push(TASK_CLASS_LABELS[when.taskClass].toLowerCase());
   if (when.skill && when.skill.length > 0) {
     parts.push(when.skill.map((skill) => `/${skill}`).join(" "));
   }
-  if (when.complexity) parts.push(`${ROUTE_COMPLEXITY_LABELS[when.complexity].toLowerCase()} level`);
+  if (when.complexity) parts.push(i18n.t("settingsConnections:flow.conditionLevel", { level: ROUTE_COMPLEXITY_LABELS[when.complexity].toLowerCase() }));
   if (typeof when.sensitive === "boolean") {
-    parts.push(when.sensitive ? "sensitive" : "not sensitive");
+    parts.push(when.sensitive ? i18n.t("settingsConnections:flow.sensitive") : i18n.t("settingsConnections:flow.notSensitive"));
   }
   if (typeof when.budgetUsedAtLeast === "number") {
-    parts.push(`≥${when.budgetUsedAtLeast}% used`);
+    parts.push(i18n.t("settingsConnections:flow.conditionUsage", { percent: when.budgetUsedAtLeast }));
   }
-  return parts.length > 0 ? parts : ["always"];
+  return parts.length > 0 ? parts : [i18n.t("settingsConnections:flow.always")];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -119,28 +120,28 @@ function buildSignalNodes(args: {
   const nodes: SignalNode[] = [
     {
       id: "task-class",
-      label: "task class",
+      label: i18n.t("settingsConnections:routeFlow.taskClass"),
       value: TASK_CLASS_LABELS[summary.taskClass],
       decisive: false,
     },
-    { id: "complexity", label: "level", value: ROUTE_COMPLEXITY_LABELS[summary.complexity] ?? summary.complexity, decisive: false },
+    { id: "complexity", label: i18n.t("settingsConnections:flow.level"), value: ROUTE_COMPLEXITY_LABELS[summary.complexity] ?? summary.complexity, decisive: false },
     {
       id: "sensitive",
-      label: "sensitive",
-      value: summary.sensitive ? "yes" : "no",
+      label: i18n.t("settingsConnections:flow.sensitiveLabel"),
+      value: summary.sensitive ? i18n.t("settingsConnections:flow.yes") : i18n.t("settingsConnections:flow.no"),
       decisive: summary.sensitive,
     },
   ];
   if (summary.skill) {
-    nodes.push({ id: "skill", label: "skill", value: `/${summary.skill}`, decisive: true });
+    nodes.push({ id: "skill", label: i18n.t("settingsConnections:flow.skill"), value: `/${summary.skill}`, decisive: true });
   }
   if (summary.phase) {
-    nodes.push({ id: "phase", label: "phase", value: summary.phase, decisive: false });
+    nodes.push({ id: "phase", label: i18n.t("settingsConnections:flow.phase"), value: summary.phase, decisive: false });
   }
   if (summary.fileContextCount > 0) {
     nodes.push({
       id: "files",
-      label: "files",
+      label: i18n.t("settingsConnections:flow.files"),
       value: String(summary.fileContextCount),
       decisive: false,
     });
@@ -148,7 +149,7 @@ function buildSignalNodes(args: {
   if (typeof summary.budgetUsedPercent === "number") {
     nodes.push({
       id: "budget",
-      label: "budget used",
+      label: i18n.t("settingsConnections:routeFlow.budgetUsed"),
       value: `${summary.budgetUsedPercent}%`,
       decisive: summary.budgetUsedPercent >= profile.budgetGuard.stepDownAt,
     });
@@ -159,7 +160,7 @@ function buildSignalNodes(args: {
   if (unavailable.length > 0) {
     nodes.push({
       id: "providers",
-      label: "unavailable",
+      label: i18n.t("settingsConnections:flow.unavailable"),
       value: unavailable.map((providerId) => getProviderLabel({ providerId })).join(", "),
       decisive: true,
     });
@@ -235,13 +236,13 @@ function buildLadder(args: {
   const targetIndex = matchedRule?.then.model
     ? Math.max(0, rungs.findIndex((rung) => rung.model === matchedRule.then.model))
     : pickRungForTier(rungs, targetTier);
-  const targetNote = matchedRule ? "rule target" : "fallback target";
+  const targetNote = matchedRule ? i18n.t("settingsConnections:flow.ruleTarget") : i18n.t("settingsConnections:flow.fallbackTarget");
   rungs[targetIndex]?.notes.push(targetNote);
 
   if (route.budgetShift === -2) {
     const cheapest = pickRungForTier(rungs, "light");
     if (cheapest !== targetIndex) {
-      rungs[cheapest]?.notes.push("budget guard → cheapest");
+      rungs[cheapest]?.notes.push(i18n.t("settingsConnections:flow.budgetCheapest"));
     }
     return rungs;
   }
@@ -250,17 +251,17 @@ function buildLadder(args: {
   const cursorIndex = targetIndex;
   if (route.stanceShift !== 0) {
     // The preference moves effort inside the level's range, never the rung.
-    rungs[cursorIndex]?.notes.push(route.stanceShift > 0 ? "preference +1 effort" : "preference −1 effort");
+    rungs[cursorIndex]?.notes.push(route.stanceShift > 0 ? i18n.t("settingsConnections:flow.preferenceMoreEffort") : i18n.t("settingsConnections:flow.preferenceLessEffort"));
   }
   if (route.budgetShift === -1) {
     if (route.budgetHeldModel) {
       // Effort-first step-down: the rung stays, only the effort dropped.
-      rungs[cursorIndex]?.notes.push("budget guard −1 effort");
+      rungs[cursorIndex]?.notes.push(i18n.t("settingsConnections:flow.budgetLessEffort"));
     } else {
       cursorTier = shiftTier(rungs, cursorTier, -1);
       const next = pickRungForTier(rungs, cursorTier);
       if (next !== cursorIndex) {
-        rungs[next]?.notes.push("budget guard −1");
+        rungs[next]?.notes.push(i18n.t("settingsConnections:flow.budgetLessTier"));
       }
     }
   }
@@ -268,7 +269,7 @@ function buildLadder(args: {
     // The step-down was undone to keep the previous turn's prompt cache.
     const held = pickRungForTier(rungs, route.tier);
     if (held !== cursorIndex) {
-      rungs[held]?.notes.push("kept for prompt cache");
+      rungs[held]?.notes.push(i18n.t("settingsConnections:flow.keptForCache"));
     }
   }
   return rungs;
@@ -377,7 +378,7 @@ export interface RouteFlowProps {
   "data-testid"?: string;
 }
 
-const HEADERS = ["Prompt", "Signals", "Task", "Rule", "Model"] as const;
+const HEADER_KEYS = ["settingsConnections:flow.headerPrompt", "settingsConnections:flow.headerSignals", "settingsConnections:flow.headerTask", "settingsConnections:flow.headerRule", "settingsConnections:flow.headerModel"] as const;
 
 /**
  * Prompt → Signals → Task class → Rule → Model as five columns of nodes. The
@@ -386,6 +387,7 @@ const HEADERS = ["Prompt", "Signals", "Task", "Rule", "Model"] as const;
  * every rule it skipped on the way down the table.
  */
 export function RouteFlow(props: RouteFlowProps) {
+  const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
   const { profile, signals, route, summary, role, compact = false } = props;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const segments = useLitConnectors(rootRef);
@@ -403,9 +405,7 @@ export function RouteFlow(props: RouteFlowProps) {
     runtimeModels: props.runtimeModelsByProvider?.[route.providerId],
   });
   const modelLabel = toHumanModelName({ model: route.model });
-  const hiddenSummary = `${TASK_CLASS_LABELS[route.taskClass]} via ${
-    route.ruleId ? `rule ${route.ruleId}` : "fallback"
-  } → ${modelLabel}${route.effort ? ` · ${route.effort}` : ""}: ${route.reason}`;
+  const hiddenSummary = t(route.ruleId ? "settingsConnections:flow.summaryRule" : "settingsConnections:flow.summaryFallback", { taskClass: TASK_CLASS_LABELS[route.taskClass], rule: route.ruleId, model: modelLabel, effort: route.effort ? ` · ${route.effort}` : "", reason: route.reason });
 
   const nodeStyle = (lit: boolean, extra?: { warn?: boolean }) =>
     sx(
@@ -421,21 +421,21 @@ export function RouteFlow(props: RouteFlowProps) {
       ref={rootRef}
       className={sx(styles.root)}
       role="group"
-      aria-label="Routing decision"
+      aria-label={t("settingsConnections:routeFlow.routingDecision")}
       data-testid={props["data-testid"]}
     >
       <span className={sx(styles.srOnly)} data-testid="route-flow-summary">
         {hiddenSummary}
       </span>
-      {HEADERS.map((header, index) => (
-        <HeaderCell key={header} label={header} withGap={index < HEADERS.length - 1} />
+      {HEADER_KEYS.map((header, index) => (
+        <HeaderCell key={header} label={t(header)} withGap={index < HEADER_KEYS.length - 1} />
       ))}
 
       {/* Col 1 · Prompt */}
       <div className={sx(styles.column, compact && styles.columnCompact)} data-flow-col={0}>
         <div className={nodeStyle(true)} data-flow-lit="true" aria-current="true">
           <span className={sx(styles.prompt)} title={props.prompt}>
-            {props.prompt?.trim() || "(empty prompt)"}
+            {props.prompt?.trim() || t("settingsConnections:routeFlow.emptyPrompt")}
           </span>
           <span className={sx(styles.caption)}>{ROUTER_ROLE_LABELS[role]}</span>
         </div>
@@ -515,7 +515,7 @@ export function RouteFlow(props: RouteFlowProps) {
               </span>
               {skipped && !compact ? (
                 <span className={sx(styles.caption)} data-rule-miss>
-                  skipped · {miss ?? "lower rule matched first"}
+                  {i18n.t("settingsConnections:messages.ruleSkipped", { reason: miss ?? i18n.t("settingsConnections:routeFlow.lowerRuleMatchedFirst") })}
                 </span>
               ) : null}
             </div>
@@ -531,9 +531,9 @@ export function RouteFlow(props: RouteFlowProps) {
           >
             <span className={sx(styles.nodeRow)}>
               <span className={sx(styles.dot, styles.dotLit)} aria-hidden />
-              <span className={sx(styles.ruleId)}>Fallback</span>
+              <span className={sx(styles.ruleId)}>{t("settingsConnections:routeFlow.fallback")}</span>
             </span>
-            <span className={sx(styles.caption)}>no rule matched</span>
+            <span className={sx(styles.caption)}>{t("settingsConnections:routeFlow.noRuleMatched")}</span>
           </div>
         ) : null}
       </div>
@@ -569,7 +569,7 @@ export function RouteFlow(props: RouteFlowProps) {
                 <span
                   key={note}
                   className={sx(
-                    note.endsWith("target") ? styles.accentNote : styles.adjustNote,
+                    note === t("settingsConnections:flow.ruleTarget") || note === t("settingsConnections:flow.fallbackTarget") ? styles.accentNote : styles.adjustNote,
                   )}
                   data-ladder-note
                 >

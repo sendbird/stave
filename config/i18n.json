@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "sourceLocale": "en",
+  "locales": [
+    "en",
+    "ko"
+  ],
+  "catalogDir": "src/locales",
+  "resourcesFile": "src/i18n/resources.ts",
+  "scan": {
+    "include": [
+      "src/**/*.ts",
+      "src/**/*.tsx"
+    ],
+    "exclude": [
+      "src/**/*.d.ts",
+      "src/**/*.test.ts",
+      "src/**/*.test.tsx",
+      "src/dev/**",
+      "src/locales/**",
+      "src/i18n/**"
+    ],
+    "mainProcessFiles": [
+      "electron/main.ts",
+      "electron/main/application-menu.ts",
+      "electron/main/window.ts"
+    ],
+    "nativeUiInclude": [
+      "electron/**/*.ts"
+    ]
+  },
+  "terms": [
+    "Stave",
+    "Fleet",
+    "Stave Auto",
+    "Claude Code",
+    "Claude",
+    "Codex",
+    "Cursor",
+    "Kiro",
+    "Gemini",
+    "OpenAI",
+    "Anthropic",
+    "Opus",
+    "Sonnet",
+    "Haiku",
+    "GitHub",
+    "GitLab",
+    "Git",
+    "Jira",
+    "Confluence",
+    "Atlassian",
+    "Slack",
+    "Figma",
+    "Storybook",
+    "Amplify",
+    "Atelier",
+    "Crane",
+    "Martin",
+    "Lens",
+    "Electron",
+    "Chrome",
+    "Chromium",
+    "Finder",
+    "macOS",
+    "Windows",
+    "Linux",
+    "VS Code",
+    "Monaco",
+    "ESLint",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "Bun",
+    "npm",
+    "SQLite",
+    "OAuth",
+    "Markdown",
+    "Mermaid",
+    "Esc",
+    "Enter",
+    "Shift",
+    "Ctrl",
+    "Alt",
+    "Option",
+    "Cmd",
+    "Tab"
+  ],
+  "untranslatedKeys": []
+}

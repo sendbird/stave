@@ -1,0 +1,105 @@
+{
+  "terminalTab": {
+    "defaultTitle": "Terminal"
+  },
+  "terminalSession": {
+    "errors": {
+      "bridgeUnavailable": "Terminal bridge unavailable. Use bun run dev:desktop.",
+      "createFailed": "Failed to create terminal session.",
+      "attachFailed": "Failed to attach terminal session.",
+      "resumeStreamFailed": "Failed to resume terminal session stream."
+    }
+  },
+  "renderer": {
+    "degraded": "Terminal rendering may be degraded.",
+    "restart": "Restart renderer",
+    "initializing": "Initializing terminal…",
+    "errors": {
+      "generic": "Terminal renderer failed.",
+      "initialize": "Failed to initialize terminal renderer.",
+      "measureDimensions": "Failed to measure terminal dimensions.",
+      "applyTheme": "Failed to apply terminal theme.",
+      "renderOutput": "Failed to render terminal output.",
+      "sizeRenderer": "Failed to size terminal renderer.",
+      "resizeRenderer": "Failed to resize terminal renderer.",
+      "refreshViewport": "Failed to refresh terminal viewport."
+    }
+  },
+  "cliSession": {
+    "context": {
+      "workspace": "Workspace",
+      "activeTask": "Active Task"
+    },
+    "defaultTitle": {
+      "workspace": "{{provider}} Workspace",
+      "activeTask": "{{provider}} Active Task"
+    },
+    "errors": {
+      "bridgeUnavailable": "CLI session bridge unavailable. Use bun run dev:desktop.",
+      "workspacePathUnavailable": "Workspace path unavailable.",
+      "createFailed": "Failed to create CLI session.",
+      "resumeStreamFailed": "Failed to resume CLI session stream."
+    }
+  },
+  "cliSessionPanel": {
+    "title": "CLI Session",
+    "workspaceFallback": "Workspace",
+    "handoffReady": "Task handoff ready",
+    "status": {
+      "exited": "exited ({{code}})",
+      "live": "live"
+    },
+    "copyHandoff": "Copy Handoff",
+    "copyHandoffTooltip": "Copy the task handoff summary",
+    "pasteHandoff": "Paste Handoff",
+    "pasteHandoffTooltip": "Paste the handoff into the live CLI session",
+    "restartSession": "Restart Session",
+    "closeSession": "Close Session",
+    "toasts": {
+      "handoffCopied": "Handoff copied",
+      "handoffCopyFailed": "Unable to copy handoff",
+      "sessionNotReady": "CLI session is not ready yet",
+      "handoffPasted": "Handoff pasted",
+      "sessionRestarted": "CLI session restarted"
+    }
+  },
+  "standaloneCli": {
+    "panelLabel": "Standalone CLI",
+    "closePanel": "Close Standalone CLI",
+    "providersLabel": "Standalone CLI providers",
+    "noFolder": "No folder set",
+    "openSettings": "Open Settings",
+    "emptyState": {
+      "noFolder": "Set a Standalone CLI folder in Settings to run Claude Code, Codex, Cursor, and Kiro here. Nothing is added to your repositories.",
+      "noInstalledCli": "No supported CLI was found on this machine. Install Claude Code, Codex, Cursor, or Kiro, or set its binary path in Settings."
+    },
+    "errors": {
+      "folderRequired": "Set a Standalone CLI folder in Settings."
+    },
+    "terminal": {
+      "restartSessionLabel": "Restart CLI session",
+      "restart": "Restart",
+      "sessionExited": "Session exited. Use Restart to start a new one."
+    },
+    "accountSelect": {
+      "ariaLabel": "{{provider}} account for this tab",
+      "tooltip": "Run this tab under another account. Stave asks first, because switching ends this session and starts a new conversation.",
+      "unavailable": "Account unavailable",
+      "apiBillingOption": "{{label}} · API billing",
+      "confirm": {
+        "title": "End session and switch account?",
+        "description": "This will end this tab's current CLI session and stop any running commands. A new conversation will start with {{account}}. The current conversation will not be resumed.",
+        "descriptionUnknownAccount": "This will end this tab's current CLI session and stop any running commands. A new conversation will start with the selected account. The current conversation will not be resumed.",
+        "confirm": "End session and switch"
+      }
+    }
+  },
+  "useCliSessionManager": {
+    "failedToResizeBackendSession": "Failed to resize backend session.",
+    "failedToCreateCLISession": "failed to create CLI session."
+  },
+  "useTerminalSessionManager": {
+    "failedToResizeBackendSession": "Failed to resize backend session.",
+    "failedToCreateTerminalSession": "failed to create terminal session."
+  }
+}

@@ -1,3 +1,6 @@
+import { formatNumber } from "@/i18n/format";
+import { formatPercent } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -167,7 +170,7 @@ function Meter({ gauge }: { gauge: ResourceGauge }) {
         aria-valuenow={Math.min(100, Math.max(0, gauge.percent))}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuetext={`${gauge.detail}, ${gauge.percent} percent, ${LEVEL_WORD[gauge.level]}`}
+        aria-valuetext={i18n.t("workspace:resourceDashboard.accessibility.meterValue", { value1: gauge.detail, value2: gauge.percent, value3: LEVEL_WORD[gauge.level] })}
       >
         <div
           className={sx(
@@ -192,10 +195,10 @@ function Meter({ gauge }: { gauge: ResourceGauge }) {
  * legend would have put side by side. The labels already carry the identity.
  */
 const ROLE_LEGEND = [
-  { key: "main", label: "Main", roles: ["main"] },
-  { key: "renderer", label: "Renderer", roles: ["host-renderer"] },
+  { key: "main", get label() { return i18n.t("workspace:resourceDashboard.main"); }, roles: ["main"] },
+  { key: "renderer", get label() { return i18n.t("workspace:resourceDashboard.renderer"); }, roles: ["host-renderer"] },
   { key: "lens", label: "Lens", roles: ["lens-guest"] },
-  { key: "helper", label: "Helper", roles: ["gpu", "utility", "other"] },
+  { key: "helper", get label() { return i18n.t("workspace:resourceDashboard.helper"); }, roles: ["gpu", "utility", "other"] },
 ] as const;
 
 function trendIconFor(deltaKB: number | null) {
@@ -224,6 +227,7 @@ export function ResourceDashboard({
   hiddenLensWorkingSetKB: number;
   hostProcessCount: number;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const deviceTotalBytes = metrics.systemMemory
     ? metrics.systemMemory.totalKB * 1024
     : null;
@@ -234,13 +238,13 @@ export function ResourceDashboard({
     : null;
   const memoryDetail =
     deviceShare === null
-      ? `App footprint at ${formatKB(totalFootprintKB)}`
-      : `App footprint at ${deviceShare}% of ${formatKB(metrics.systemMemory!.totalKB)} device memory`;
+      ? tI18n("workspace:resourceDashboard.appFootprintAtValue", { value1: formatKB(totalFootprintKB) })
+      : tI18n("workspace:resourceDashboard.appFootprintAtValueOfValueDevice", { deviceShare: deviceShare, value1: formatKB(metrics.systemMemory!.totalKB) });
 
   const gauges = [
     buildResourceGauge({
       id: "renderer-heap",
-      label: "App renderer JS heap",
+      label: tI18n("workspace:resourceDashboard.appRendererJsHeap"),
       used: rendererMemory?.heap.usedHeapSize,
       limit: rendererMemory?.heap.heapSizeLimit,
       detail: rendererMemory
@@ -249,14 +253,14 @@ export function ResourceDashboard({
     }),
     buildResourceGauge({
       id: "main-heap",
-      label: "Main process JS heap",
+      label: tI18n("workspace:resourceDashboard.mainProcessJsHeap"),
       used: metrics.mainProcess.heapUsed / 1024,
       limit: metrics.mainProcess.heapSizeLimit / 1024,
       detail: `${formatKB(metrics.mainProcess.heapUsed / 1024)} / ${formatKB(metrics.mainProcess.heapSizeLimit / 1024)}`,
     }),
     buildResourceGauge({
       id: "lens-budget",
-      label: "Hidden Lens pages",
+      label: tI18n("workspace:resourceDashboard.hiddenLensPages"),
       used: hiddenLensWorkingSetKB,
       limit: metrics.lens.memoryBudgetKB,
       detail: `${formatKB(hiddenLensWorkingSetKB)} / ${formatKB(metrics.lens.memoryBudgetKB ?? 0)}`,
@@ -282,10 +286,10 @@ export function ResourceDashboard({
   const plural = (count: number, noun: string) =>
     `${count} ${noun}${count === 1 ? "" : "s"}`;
   const stabilityCaption = metrics.renderer.currentlyUnresponsive
-    ? "Renderer not responding"
+    ? tI18n("workspace:resourceDashboard.rendererNotResponding")
     : stabilityLevel === "elevated"
       ? `${plural(metrics.renderer.unresponsiveEvents, "stall")} · ${plural(metrics.renderer.renderProcessGoneEvents, "renderer exit")}`
-      : "No stalls or renderer exits";
+      : tI18n("workspace:resourceDashboard.noStallsOrRendererExits");
   const StabilityIcon = LEVEL_ICON[stabilityLevel];
 
   const footprintSeries = recent?.footprintSeriesKB ?? [];
@@ -303,13 +307,13 @@ export function ResourceDashboard({
         (entry.roles as readonly string[]).includes(process.role),
       ).length,
     })),
-    { key: "host" as const, label: "Host", count: hostProcessCount },
+    { key: "host" as const, label: tI18n("workspace:resourceDashboard.host"), count: hostProcessCount },
     // Without a color key there is nothing for a zero to hold a slot for, and
     // "0 Helper" is a line of text that says nothing.
   ].filter((entry) => entry.count > 0);
 
   return (
-    <section className={sx(styles.root)} aria-label="Resource summary">
+    <section className={sx(styles.root)} aria-label={tI18n("workspace:resourceDashboard.resourceSummary")}>
       <div className={sx(styles.statusBand)}>
         <Badge tone={LEVEL_TONE[health.level]} variant="soft" size="sm">
           <HealthIcon className={sx(styles.badgeIcon)} aria-hidden />
@@ -320,21 +324,21 @@ export function ResourceDashboard({
         </span>
         {windowSeconds > 0 ? (
           <span className={sx(styles.statusReason, styles.statusSpacer)}>
-            Last {windowSeconds}s · {recent?.sampleCount ?? 0} samples
-          </span>
+          {tI18n("workspace:resourceDashboard.sampleWindow", { seconds: windowSeconds, count: recent?.sampleCount ?? 0 })}
+        </span>
         ) : null}
       </div>
 
       <div className={sx(styles.tiles)}>
         <Tile
           icon={MemoryStick}
-          label="Memory footprint"
+          label={tI18n("workspace:resourceDashboard.memoryFootprint")}
           value={formatKB(totalFootprintKB)}
           level={memoryLevel}
         >
           <Sparkline
             values={footprintSeries}
-            label={`Memory footprint over the last ${windowSeconds} seconds`}
+            label={tI18n("workspace:resourceDashboard.memoryFootprintOverTheLastValueSeconds", { windowSeconds: windowSeconds })}
           />
           <span className={sx(styles.tileCaptionRow)}>
             <TrendIcon className={sx(styles.trendIcon)} aria-hidden />
@@ -343,32 +347,32 @@ export function ResourceDashboard({
                 ? `${formatSignedKB(recent.footprintDeltaKB)} · `
                 : ""}
               {deviceShare === null
-                ? `RSS ${formatKB(totalWorkingSetKB)}`
-                : `${deviceShare}% of ${formatKB(metrics.systemMemory!.totalKB)}`}
+                ? tI18n("workspace:resourceDashboard.rssValue", { value1: formatKB(totalWorkingSetKB) })
+                : tI18n("workspace:resourceDashboard.valueOfValue", { deviceShare: deviceShare, value1: formatKB(metrics.systemMemory!.totalKB) })}
             </span>
           </span>
         </Tile>
 
         <Tile
           icon={Cpu}
-          label="Electron CPU"
-          value={`${totalCpuPercent.toFixed(1)}%`}
+          label={tI18n("workspace:resourceDashboard.electronCpu")}
+          value={formatPercent(totalCpuPercent / 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
           level={cpuPressureLevel(totalCpuPercent)}
         >
           <Sparkline
             values={cpuSeries}
-            label={`Electron CPU over the last ${windowSeconds} seconds`}
+            label={tI18n("workspace:resourceDashboard.electronCpuOverTheLastValueSeconds", { windowSeconds: windowSeconds })}
           />
           <span className={sx(styles.tileCaption)}>
             {recent?.cpuPeakPercent != null
-              ? `Peak ${recent.cpuPeakPercent.toFixed(1)}% · Electron processes`
-              : "Electron processes"}
+              ? tI18n("workspace:resourceDashboard.peakValueElectronProcesses", { value1: formatNumber(recent.cpuPeakPercent, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
+              : tI18n("workspace:resourceDashboard.electronProcesses")}
           </span>
         </Tile>
 
         <Tile
           icon={Layers}
-          label="Processes"
+          label={tI18n("workspace:resourceDashboard.processes")}
           value={String(metrics.processes.length + hostProcessCount)}
         >
           <div className={sx(styles.legend)}>
@@ -380,14 +384,13 @@ export function ResourceDashboard({
             ))}
           </div>
           <span className={sx(styles.tileCaption)}>
-            {metrics.lens.sessions} Lens · {metrics.lens.visibleSessions}{" "}
-            visible
-          </span>
+          {tI18n("workspace:resourceDashboard.lensVisibility", { sessions: metrics.lens.sessions, visible: metrics.lens.visibleSessions })}
+        </span>
         </Tile>
 
         <Tile
           icon={TimerReset}
-          label="Uptime"
+          label={tI18n("workspace:resourceDashboard.uptime")}
           value={formatUptime(metrics.uptimeSeconds)}
         >
           <span className={sx(styles.tileCaptionRow)}>
@@ -415,8 +418,7 @@ export function ResourceDashboard({
       {gauges.length > 0 ? (
         <div className={sx(styles.meters)}>
           <span className={sx(styles.sectionLabel, styles.metersLabel)}>
-            Usage against a known limit
-          </span>
+            {tI18n("workspace:resourceDashboard.usageAgainstAKnownLimit")}</span>
           {gauges.map((gauge) => (
             <Meter key={gauge.id} gauge={gauge} />
           ))}

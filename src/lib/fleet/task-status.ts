@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   classifyProviderTurnStopReason,
   resolveProviderTurnDisplayState,
@@ -312,10 +313,10 @@ export const FLEET_LIFECYCLE_DISPLAY_ORDER: readonly FleetLifecycleStatus[] = [
 ];
 
 export const FLEET_LIFECYCLE_LABEL: Record<FleetLifecycleStatus, string> = {
-  "in-progress": "In progress",
-  "in-review": "In review",
-  backlog: "Backlog",
-  done: "Done",
+  get "in-progress"() { return i18n.t("fleet:taskStatus.inProgress"); },
+  get "in-review"() { return i18n.t("fleet:taskStatus.inReview"); },
+  get backlog() { return i18n.t("fleet:taskStatus.backlog"); },
+  get done() { return i18n.t("fleet:taskStatus.done"); },
 };
 
 /**

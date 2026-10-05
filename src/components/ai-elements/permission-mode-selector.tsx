@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ChevronDown, Shield } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,18 +23,18 @@ interface PermissionModeOption {
 }
 
 const CLAUDE_OPTIONS: PermissionModeOption[] = [
-  { value: "default", label: "Default" },
-  { value: "acceptEdits", label: "Accept Edits" },
-  { value: "bypassPermissions", label: "Bypass" },
-  { value: "plan", label: "Plan" },
-  { value: "dontAsk", label: "Don't Ask" },
-  { value: "auto", label: "Auto" },
+  { value: "default", get label() { return i18n.t("composer:permissionModeSelector.label"); } },
+  { value: "acceptEdits", get label() { return i18n.t("composer:permissionModeSelector.label2"); } },
+  { value: "bypassPermissions", get label() { return i18n.t("composer:permissionModeSelector.label3"); } },
+  { value: "plan", get label() { return i18n.t("composer:permissionModeSelector.label4"); } },
+  { value: "dontAsk", get label() { return i18n.t("composer:permissionModeSelector.label5"); } },
+  { value: "auto", get label() { return i18n.t("composer:permissionModeSelector.label6"); } },
 ];
 
 const CODEX_OPTIONS: PermissionModeOption[] = [
-  { value: "untrusted", label: "Untrusted" },
-  { value: "on-request", label: "On Request" },
-  { value: "never", label: "Never" },
+  { value: "untrusted", get label() { return i18n.t("composer:permissionModeSelector.label7"); } },
+  { value: "on-request", get label() { return i18n.t("composer:permissionModeSelector.label8"); } },
+  { value: "never", get label() { return i18n.t("composer:permissionModeSelector.label9"); } },
 ];
 
 export function getPermissionModeOptions(
@@ -73,6 +74,7 @@ interface PermissionModeSelectorProps {
  * without.
  */
 export function PermissionModeSelector(args: PermissionModeSelectorProps) {
+  useTranslation();
   const { providerId, value, disabled, onSelect } = args;
   const [open, setOpen] = useState(false);
   const options = getPermissionModeOptions(providerId);
@@ -88,7 +90,7 @@ export function PermissionModeSelector(args: PermissionModeSelectorProps) {
             size="sm"
             className={sx(styles.trigger, open && styles.triggerOpen)}
             disabled={disabled}
-            title="Permission mode"
+            title={i18n.t("composer:permissionModeSelector.title")}
           />
         }
       >

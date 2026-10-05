@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { providersWithChangedAccount, resetRateLimitsForProviders } from "@/store/rate-limits-account-reset";
 import type { StoreApi } from "zustand";
 import { normalizeMyStandards } from "@/lib/agents/standards";
@@ -35,6 +36,7 @@ import {
   resolveDarkModeForTheme,
 } from "@/lib/themes";
 import { normalizeVisualCommentShortcut } from "@/lib/visual-comment-shortcuts";
+import { applyAppLocale, normalizeAppLocale } from "@/i18n";
 import { normalizeWorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import {
@@ -290,7 +292,7 @@ export function createSettingsActions(args: {
       if (existing.length >= MAX_USER_THEMES) {
         return {
           ok: false,
-          error: `Maximum of ${MAX_USER_THEMES} user themes reached.`,
+          error: i18n.t("app:errors.themeLimit", { count: MAX_USER_THEMES }),
         };
       }
       const allIds = new Set([
@@ -300,7 +302,7 @@ export function createSettingsActions(args: {
       if (allIds.has(theme.id)) {
         return {
           ok: false,
-          error: `Theme id "${theme.id}" already exists.`,
+          error: i18n.t("app:errors.themeId", { id: theme.id }),
         };
       }
       set((s) => ({
@@ -402,6 +404,9 @@ export function createSettingsActions(args: {
           : {
               sidebarNavView: normalizeSidebarNavView(patch.sidebarNavView),
             }),
+        ...(patch.language === undefined
+          ? {}
+          : { language: normalizeAppLocale(patch.language) }),
         ...(patch.turnActivityPlacement === undefined
           ? {}
           : {
@@ -704,6 +709,9 @@ export function createSettingsActions(args: {
       }
       if (nextIsDark !== null) {
         applyThemeClass({ enabled: nextIsDark });
+      }
+      if (normalizedPatch.language !== undefined) {
+        applyAppLocale(get().settings.language);
       }
       if (
         normalizedPatch.messageFontFamily !== undefined ||

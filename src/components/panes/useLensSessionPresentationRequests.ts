@@ -1,3 +1,5 @@
+import { useTranslation } from "@/i18n";
+import { i18n } from "@/i18n";
 import { useEffect } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { resolveLensPresentationRequestPolicy } from "@/lib/lens/lens-agent-presentation";
@@ -20,6 +22,7 @@ function presentationKey(
  * is active so background agent activity cannot pull the user away.
  */
 export function useLensSessionPresentationRequests(): void {
+  useTranslation();
   useEffect(() => {
     let disposed = false;
     let pendingFlushTimer: number | null = null;
@@ -127,7 +130,7 @@ export function useLensSessionPresentationRequests(): void {
           payload.requestKind !== "agent-activity" &&
           reason
         ) {
-          toast.info("Lens opened for agent", { description: reason });
+          toast.info(i18n.t("lens:useLensSessionPresentationRequests.lensOpenedForAgent"), { description: reason });
         }
       } catch (error) {
         console.error("[lens] Failed to present session", error);

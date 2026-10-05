@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   ManagedExecutionProviderId,
   ProviderId,
@@ -123,7 +124,7 @@ export const PROVIDER_DESCRIPTORS = [
     models: CLAUDE_SDK_MODEL_OPTIONS,
     modelCatalogSource: "static",
     defaultModel: DEFAULT_CLAUDE_OPUS_MODEL,
-    sessionLabel: "Claude session ID",
+    get sessionLabel() { return i18n.t("providers:modelCatalog.claudeSessionID"); },
     capabilities: {
       primaryTurns: true,
       advisor: true,
@@ -137,8 +138,7 @@ export const PROVIDER_DESCRIPTORS = [
         forkFromTurn: { supported: true },
         rollbackToTurn: {
           supported: false,
-          reason:
-            "Claude Code does not expose in-place session rollback. Use Fork here to branch from this response.",
+          get reason() { return i18n.t("providers:modelCatalog.claudeCodeDoesNotExposeIn"); },
         },
         renameNativeSession: { supported: true },
       },
@@ -157,7 +157,7 @@ export const PROVIDER_DESCRIPTORS = [
     models: CODEX_MODEL_OPTIONS,
     modelCatalogSource: "runtime",
     defaultModel: DEFAULT_CODEX_MODEL,
-    sessionLabel: "Codex thread ID",
+    get sessionLabel() { return i18n.t("providers:modelCatalog.codexThreadID"); },
     capabilities: {
       primaryTurns: true,
       advisor: true,
@@ -180,14 +180,15 @@ export const PROVIDER_DESCRIPTORS = [
   },
   {
     id: "cursor",
-    label: "Cursor Agent",
+    get label() { return i18n.t("settings:taskPresetEditor.cursorAgent"); },
     shortLabel: "Cursor",
     iconUrl: CURSOR_COLOR_ICON_URL,
+    // i18n-ignore: provider icon initials
     fallbackLabel: "Cu",
     models: ["auto"],
     modelCatalogSource: "runtime",
     defaultModel: "auto",
-    sessionLabel: "Cursor session ID",
+    get sessionLabel() { return i18n.t("providers:modelCatalog.cursorSessionID"); },
     capabilities: {
       primaryTurns: true,
       advisor: false,
@@ -200,17 +201,15 @@ export const PROVIDER_DESCRIPTORS = [
       threadActions: {
         forkFromTurn: {
           supported: false,
-          reason:
-            "Cursor Agent does not expose point-in-time session forks through Stave.",
+          get reason() { return i18n.t("providers:modelCatalog.cursorAgentDoesNotExposePoint"); },
         },
         rollbackToTurn: {
           supported: false,
-          reason:
-            "Cursor Agent does not expose in-place session rollback through Stave.",
+          get reason() { return i18n.t("providers:modelCatalog.cursorAgentDoesNotExposeIn"); },
         },
         renameNativeSession: {
           supported: false,
-          reason: "Cursor Agent session rename is not wired through Stave.",
+          get reason() { return i18n.t("providers:modelCatalog.cursorAgentSessionRenameIsNot"); },
         },
       },
       utilityInference: {
@@ -224,11 +223,12 @@ export const PROVIDER_DESCRIPTORS = [
     label: "Kiro CLI",
     shortLabel: "Kiro",
     iconUrl: KIRO_COLOR_ICON_URL,
+    // i18n-ignore: provider icon initials
     fallbackLabel: "Ki",
     models: ["auto"],
     modelCatalogSource: "runtime",
     defaultModel: "auto",
-    sessionLabel: "Kiro session ID",
+    get sessionLabel() { return i18n.t("providers:modelCatalog.kiroSessionID"); },
     capabilities: {
       primaryTurns: true,
       advisor: false,
@@ -241,17 +241,15 @@ export const PROVIDER_DESCRIPTORS = [
       threadActions: {
         forkFromTurn: {
           supported: false,
-          reason:
-            "Kiro does not expose point-in-time session forks through Stave.",
+          get reason() { return i18n.t("providers:modelCatalog.kiroDoesNotExposePointIn"); },
         },
         rollbackToTurn: {
           supported: false,
-          reason:
-            "Kiro does not expose in-place session rollback through Stave.",
+          get reason() { return i18n.t("providers:modelCatalog.kiroDoesNotExposeInPlace"); },
         },
         renameNativeSession: {
           supported: false,
-          reason: "Kiro session rename is not wired through Stave.",
+          get reason() { return i18n.t("providers:modelCatalog.kiroSessionRenameIsNotWired"); },
         },
       },
       utilityInference: {
@@ -1185,7 +1183,7 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     outputPerMTok: 20,
     source: CLAUDE_PRICING_SOURCE,
     asOf: "2026-09-23",
-    note: "The 1M context window bills at the standard rate.",
+    get note() { return i18n.t("providers:modelCatalog.theMContextWindowBillsAt"); },
   },
   "claude-opus-5": {
     inputPerMTok: 5,
@@ -1204,14 +1202,14 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     outputPerMTok: 10,
     source: CLAUDE_PRICING_SOURCE,
     asOf: "2026-09-28",
-    note: "Per-token price matches Sonnet 5. The base id already includes the native 1M window.",
+    get note() { return i18n.t("providers:modelCatalog.perTokenPriceMatchesSonnetThe"); },
   },
   [DEFAULT_CLAUDE_SONNET_1M_MODEL]: {
     inputPerMTok: 2,
     outputPerMTok: 10,
     source: CLAUDE_PRICING_SOURCE,
     asOf: "2026-09-28",
-    note: "The 1M context window bills at the standard rate.",
+    get note() { return i18n.t("providers:modelCatalog.theMContextWindowBillsAt"); },
   },
   "claude-sonnet-5": {
     inputPerMTok: 2,
@@ -1224,7 +1222,7 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     outputPerMTok: 10,
     source: CLAUDE_PRICING_SOURCE,
     asOf: "2026-09-14",
-    note: "The 1M context window bills at the standard rate.",
+    get note() { return i18n.t("providers:modelCatalog.theMContextWindowBillsAt"); },
   },
   [DEFAULT_CLAUDE_HAIKU_MODEL]: {
     inputPerMTok: 1,
@@ -1243,14 +1241,14 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     outputPerMTok: 10,
     source: CODEX_PRICING_SOURCE,
     asOf: "2026-09-30",
-    note: "Standard price below the 272K input-token threshold. Cached input is $0.10 per million tokens.",
+    get note() { return i18n.t("providers:modelCatalog.standardPriceBelowTheKInput"); },
   },
   "gpt-6-sol": {
     inputPerMTok: 2,
     outputPerMTok: 10,
     source: CODEX_PRICING_SOURCE,
     asOf: "2026-09-23",
-    note: "Standard price below the 272K input-token threshold.",
+    get note() { return i18n.t("providers:modelCatalog.standardPriceBelowTheKInputVariantca1656d7"); },
   },
   "gpt-6-luna": {
     inputPerMTok: 0.1,
@@ -1263,7 +1261,7 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     outputPerMTok: 20,
     source: CODEX_PRICING_SOURCE,
     asOf: "2026-09-14",
-    note: "Promotional price published through at least 2026-11-21.",
+    get note() { return i18n.t("providers:modelCatalog.promotionalPricePublishedThroughAtLeast"); },
   },
   "gpt-5.6-terra": {
     inputPerMTok: 2,
@@ -1282,7 +1280,7 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     outputPerMTok: 30,
     source: CODEX_PRICING_SOURCE,
     asOf: "2026-09-14",
-    note: "Standard price below the 272K context threshold.",
+    get note() { return i18n.t("providers:modelCatalog.standardPriceBelowTheKContext"); },
   },
 };
 

@@ -284,6 +284,7 @@ function canonicalPartToContextText(
     case "file_context":
       return `[file_context:${part.filePath}] ${part.instruction ?? ""}`.trim();
     case "image_context":
+      // i18n-ignore: model-facing image attachment provenance, not display copy
       return `[image attachment label: ${part.label}; display name only, not a filesystem path]`;
     case "workspace_information_context":
       return `[workspace_information:${part.reference.token}] ${part.reference.label}`;

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   useCallback,
   useEffect,
@@ -205,6 +206,7 @@ function checkoutRevision(
 }
 
 export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
+  useTranslation();
   const {
     graph,
     selectedRefs,
@@ -331,7 +333,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
       try {
         const result = await operation();
         if (!result.ok) {
-          const message = result.stderr || `${label} failed.`;
+          const message = result.stderr || i18n.t("gitGraph:gitGraphView.mutationFailed", { action: label });
           setError(message);
           toast.error(label, { description: message });
           return false;
@@ -342,7 +344,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
         }
         return true;
       } catch (requestFailure) {
-        const message = operationError(requestFailure, `${label} failed.`);
+        const message = operationError(requestFailure, i18n.t("gitGraph:gitGraphView.mutationFailed", { action: label }));
         setError(message);
         toast.error(label, { description: message });
         return false;
@@ -360,7 +362,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
     }
     setFetching(true);
     try {
-      await runMutation("Fetched all remotes", () =>
+      await runMutation(i18n.t("gitGraph:gitGraphView.fetchedAllRemotes"), () =>
         fetchAllRemotes(workspaceCwd),
       );
     } finally {
@@ -390,7 +392,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
                 file.oldPath,
               );
         if (!result.ok) {
-          setError(result.stderr || "Failed to load file diff.");
+          setError(result.stderr || i18n.t("gitGraph:gitGraphView.failedToLoadFileDiff"));
           return;
         }
         const revision =
@@ -407,7 +409,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
           newContent: result.newContent ?? "",
         });
       } catch (requestFailure) {
-        setError(operationError(requestFailure, "Failed to load file diff."));
+        setError(operationError(requestFailure, i18n.t("gitGraph:gitGraphView.failedToLoadFileDiff")));
       }
     },
     [openDiffInEditor, selection, setError, workspaceCwd],
@@ -416,12 +418,12 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
   const locateHash = useCallback(
     (hash: string | null) => {
       if (!hash) {
-        setError("HEAD is not available in this repository.");
+        setError(i18n.t("gitGraph:gitGraphView.hEADIsNotAvailableInThisRepository"));
         return;
       }
       if (!graph.commits.some((commit) => commit.hash === hash)) {
         setError(
-          "HEAD is outside the loaded history. Clear the branch filter or load more commits.",
+          i18n.t("gitGraph:gitGraphView.hEADIsOutsideTheLoadedHistoryClear"),
         );
         return;
       }
@@ -572,7 +574,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
       if (!workspaceCwd) {
         return;
       }
-      await runMutation(`Checked out ${graphRef.name}`, () =>
+      await runMutation(i18n.t("gitGraph:gitGraphView.checkedOut", { value1: graphRef.name }), () =>
         checkoutBranch(
           workspaceCwd,
           checkoutRevision(graphRef, graph.availableRefs),
@@ -672,7 +674,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
             variant="ghost"
             className={sx(styles.errorDismiss)}
             onClick={() => setError("")}
-            aria-label="Dismiss commit graph error"
+            aria-label={i18n.t("gitGraph:gitGraphView.dismissCommitGraphError")}
           >
             <X className={sx(styles.errorDismissIcon)} />
           </Button>
@@ -684,7 +686,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
           <div className={sx(styles.loadingInner)}>
             <Loader aria-hidden size="sm" variant="scan" />
             <p className={sx(styles.loadingText)}>
-              Reading repository history…
+              {i18n.t("gitGraph:gitGraphView.readingRepositoryHistory")}
             </p>
           </div>
         </div>
@@ -692,9 +694,9 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
         <div className={sx(styles.emptyState)}>
           <div className={sx(styles.emptyInner)}>
             <GitGraph className={sx(styles.emptyIcon)} />
-            <p className={sx(styles.emptyTitle)}>No commits found</p>
+            <p className={sx(styles.emptyTitle)}>{i18n.t("gitGraph:gitGraphView.noCommitsFound")}</p>
             <p className={sx(styles.emptyBody)}>
-              This repository has no commits in the selected branch scope.
+              {i18n.t("gitGraph:gitGraphView.thisRepositoryHasNoCommitsInThe")}
             </p>
           </div>
         </div>
@@ -741,7 +743,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
                 aria-orientation={
                   detailLocation === "right" ? "vertical" : "horizontal"
                 }
-                aria-label="Resize commit details"
+                aria-label={i18n.t("gitGraph:gitGraphView.resizeCommitDetails")}
                 className={sx(
                   styles.resizer,
                   detailLocation === "right"
@@ -787,42 +789,42 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
         onCopyHash={(hash) => void navigator.clipboard.writeText(hash)}
         onCheckout={(hash) => {
           if (workspaceCwd) {
-            void runMutation("Checked out commit", () =>
+            void runMutation(i18n.t("gitGraph:gitGraphView.checkedOutCommit"), () =>
               checkoutCommit(workspaceCwd, hash),
             );
           }
         }}
         onCreateBranch={async (hash, name) => {
           if (workspaceCwd) {
-            await runMutation(`Created branch ${name}`, () =>
+            await runMutation(i18n.t("gitGraph:gitGraphView.createdBranch", { value1: name }), () =>
               createBranchFrom(workspaceCwd, name, hash),
             );
           }
         }}
         onCreateTag={async (hash, name) => {
           if (workspaceCwd) {
-            await runMutation(`Created tag ${name}`, () =>
+            await runMutation(i18n.t("gitGraph:gitGraphView.createdTag", { value1: name }), () =>
               createTag(workspaceCwd, name, hash),
             );
           }
         }}
         onCherryPick={async (hash) => {
           if (workspaceCwd) {
-            await runMutation("Cherry-picked commit", () =>
+            await runMutation(i18n.t("gitGraph:gitGraphView.cherryPickedCommit"), () =>
               cherryPickCommit(workspaceCwd, hash),
             );
           }
         }}
         onRevert={async (hash) => {
           if (workspaceCwd) {
-            await runMutation("Reverted commit", () =>
+            await runMutation(i18n.t("gitGraph:gitGraphView.revertedCommit"), () =>
               revertCommit(workspaceCwd, hash),
             );
           }
         }}
         onReset={async (hash, mode) => {
           if (workspaceCwd) {
-            await runMutation(`${mode} reset complete`, () =>
+            await runMutation(i18n.t("gitGraph:gitGraphView.resetComplete", { value1: mode }), () =>
               resetCommit(workspaceCwd, hash, mode),
             );
           }
@@ -840,7 +842,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
         onRename={async (graphRef, newName) => {
           if (workspaceCwd) {
             const succeeded = await runMutation(
-              `Renamed branch to ${newName}`,
+              i18n.t("gitGraph:gitGraphView.renamedBranchTo", { value1: newName }),
               () => renameBranch(workspaceCwd, graphRef.name, newName),
               { reload: false },
             );
@@ -861,7 +863,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
             return;
           }
           const succeeded = await runMutation(
-            `Deleted ${graphRef.name}`,
+            i18n.t("gitGraph:gitGraphView.deleted", { value1: graphRef.name }),
             () =>
               graphRef.type === "tag"
                 ? deleteTag(workspaceCwd, graphRef.name)
@@ -877,21 +879,21 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
         }}
         onMergeInto={async (graphRef) => {
           if (workspaceCwd) {
-            await runMutation(`Merged ${graphRef.name}`, () =>
+            await runMutation(i18n.t("gitGraph:gitGraphView.merged", { value1: graphRef.name }), () =>
               mergeBranch(workspaceCwd, exactRevision(graphRef)),
             );
           }
         }}
         onRebaseOnto={async (graphRef) => {
           if (workspaceCwd) {
-            await runMutation(`Rebased onto ${graphRef.name}`, () =>
+            await runMutation(i18n.t("gitGraph:gitGraphView.rebasedOnto", { value1: graphRef.name }), () =>
               rebaseBranch(workspaceCwd, exactRevision(graphRef)),
             );
           }
         }}
         onPush={async (graphRef, force) => {
           if (workspaceCwd) {
-            await runMutation(`Pushed ${graphRef.name}`, () =>
+            await runMutation(i18n.t("gitGraph:gitGraphView.pushed", { value1: graphRef.name }), () =>
               pushBranch(workspaceCwd, exactRevision(graphRef), force),
             );
           }

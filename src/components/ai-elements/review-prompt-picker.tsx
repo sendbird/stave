@@ -1,3 +1,5 @@
+import { useTranslation } from "@/i18n";
+import { formatNumber } from "@/i18n/format";
 import { useId, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@/components/ads/components/Button";
@@ -35,13 +37,14 @@ export function ReviewPromptPicker(args: {
   skillPreviewNote?: string;
   onChange: (patch: Partial<ReviewPromptSelection> & { skillSlug?: string }) => void;
 }) {
+  const { t } = useTranslation("composer");
   const id = useId();
   const [showPreview, setShowPreview] = useState(false);
   const { promptSource, presetId, customPrompt } = args.selection;
   const preset = getReviewPromptPreset(presetId);
   const skillMissing = promptSource === "skill" && !args.skillInstructions?.trim();
   const skillOptions = args.skillSlug && !args.skillOptions.some((entry) => entry.value === args.skillSlug)
-    ? [...args.skillOptions, { value: args.skillSlug, label: `$${args.skillSlug} (unavailable)` }]
+    ? [...args.skillOptions, { value: args.skillSlug, label: t("reviewPromptPicker.unavailableSkill", { skill: args.skillSlug }) }]
     : args.skillOptions;
   const rubric = promptSource === "preset" ? preset.instructions
     : promptSource === "custom" ? customPrompt : args.skillInstructions ?? "";
@@ -49,8 +52,8 @@ export function ReviewPromptPicker(args: {
   return (
     <div className={sx(styles.stack)}>
       <div className={sx(styles.field)}>
-        <label id={`${id}-source`} className={sx(styles.label)}>Review prompt</label>
-        <p className={sx(styles.help)}>Choose a built-in rubric, an installed skill, or your own prompt. Every choice uses evidence checks and a read-only review.</p>
+        <label id={`${id}-source`} className={sx(styles.label)}>{t("reviewPromptPicker.title")}</label>
+        <p className={sx(styles.help)}>{t("reviewPromptPicker.description")}</p>
         <Select
           size="sm"
           aria-labelledby={`${id}-source`}
@@ -61,7 +64,7 @@ export function ReviewPromptPicker(args: {
       </div>
       {promptSource === "preset" ? (
         <div className={sx(styles.field)}>
-          <label id={`${id}-preset`} className={sx(styles.label)}>Review preset</label>
+          <label id={`${id}-preset`} className={sx(styles.label)}>{t("reviewPromptPicker.preset")}</label>
           <Select
             size="sm"
             aria-labelledby={`${id}-preset`}
@@ -73,7 +76,7 @@ export function ReviewPromptPicker(args: {
         </div>
       ) : promptSource === "skill" ? (
         <div className={sx(styles.field)}>
-          <label id={`${id}-skill`} className={sx(styles.label)}>Review skill</label>
+          <label id={`${id}-skill`} className={sx(styles.label)}>{t("reviewPromptPicker.skill")}</label>
           <ReviewSkillSelector
             aria-labelledby={`${id}-skill`}
             value={args.skillSlug}
@@ -81,35 +84,35 @@ export function ReviewPromptPicker(args: {
             onValueChange={(value) => args.onChange({ skillSlug: value })}
           />
           <p className={sx(styles.help)} role={skillMissing ? "status" : undefined}>
-            {skillMissing ? "Choose a skill available to this reviewer. An unavailable skill cannot start a review."
-              : "The skill supplies the rubric. Its instructions cannot permit file changes or publishing a review."}
+            {skillMissing ? t("reviewPromptPicker.skillMissing")
+              : t("reviewPromptPicker.skillDescription")}
           </p>
         </div>
       ) : (
         <div className={sx(styles.field)}>
-          <label htmlFor={`${id}-custom`} className={sx(styles.label)}>Custom review prompt</label>
+          <label htmlFor={`${id}-custom`} className={sx(styles.label)}>{t("reviewPromptPicker.custom")}</label>
           <Textarea
             id={`${id}-custom`}
             xstyle={styles.prompt}
             value={customPrompt}
             maxLength={REVIEW_CUSTOM_PROMPT_MAX_CHARS}
-            placeholder="Describe what to check, the evidence required, and the relevant repository or domain rules."
+            placeholder={t("reviewPromptPicker.placeholder")}
             onChange={(event) => args.onChange({ customPrompt: event.target.value })}
           />
-          <p className={sx(styles.help)}>Replaces the preset rubric. Scope, evidence checks and the findings format still apply. Up to {REVIEW_CUSTOM_PROMPT_MAX_CHARS.toLocaleString()} characters.</p>
+          <p className={sx(styles.help)}>{t("reviewPromptPicker.customDescription", { limit: formatNumber(REVIEW_CUSTOM_PROMPT_MAX_CHARS) })}</p>
         </div>
       )}
       <Button type="button" size="sm" variant="quiet" xstyle={styles.previewButton}
         aria-expanded={showPreview} aria-controls={`${id}-preview`}
         onClick={() => setShowPreview((shown) => !shown)}>
-        {showPreview ? "Hide prompt preview" : "Preview prompt"}
+        {showPreview ? t("reviewPromptPicker.hidePreview") : t("reviewPromptPicker.showPreview")}
       </Button>
       {showPreview ? (
         <div id={`${id}-preview`} className={sx(styles.field)}>
-          <p className={sx(styles.help)}>Selected rubric and shared evidence checks. The review also receives its scope, focus, additional instructions and required findings format.</p>
+          <p className={sx(styles.help)}>{t("reviewPromptPicker.previewDescription")}</p>
           {promptSource === "skill" && args.skillPreviewNote ? <p className={sx(styles.help)}>{args.skillPreviewNote}</p> : null}
-          <Textarea aria-label="Review prompt preview" readOnly xstyle={styles.preview}
-            value={`${rubric || "(Choose a skill or enter a custom prompt.)"}\n\n${REVIEW_EVIDENCE_INSTRUCTIONS}`} />
+          <Textarea aria-label={t("reviewPromptPicker.previewLabel")} readOnly xstyle={styles.preview}
+            value={`${rubric || t("reviewPromptPicker.emptyRubric")}\n\n${REVIEW_EVIDENCE_INSTRUCTIONS}`} />
         </div>
       ) : null}
     </div>

@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useShallow } from "zustand/react/shallow";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import { useAppStore } from "@/store/app.store";
@@ -45,159 +46,158 @@ export function EditorSection() {
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const { t } = useTranslation(I18N_NAMESPACES);
 
   return (
-    <>
-      <SectionStack>
-        <SettingsCard
-          title="Typography"
-          description="Base editor type and spacing defaults."
-        >
-          <LabeledField title="Font Size">
-            <DraftInput
-              xstyle={styles.input40}
-              type="number"
-              min={10}
-              max={32}
-              value={String(editorFontSize)}
-              onCommit={(nextValue) =>
-                updateSettings({
-                  patch: { editorFontSize: readInt(nextValue, editorFontSize) },
-                })
-              }
-            />
-          </LabeledField>
-          <LabeledField title="Font Family">
-            <DraftInput
-              xstyle={styles.input40MonoPlain}
-              value={editorFontFamily}
-              onCommit={(nextValue) =>
-                updateSettings({ patch: { editorFontFamily: nextValue } })
-              }
-            />
-          </LabeledField>
-          <LabeledField title="Tab Size">
-            <DraftInput
-              xstyle={styles.input40}
-              type="number"
-              min={1}
-              max={8}
-              value={String(editorTabSize)}
-              onCommit={(nextValue) =>
-                updateSettings({
-                  patch: { editorTabSize: readInt(nextValue, editorTabSize) },
-                })
-              }
-            />
-          </LabeledField>
-        </SettingsCard>
+    <SectionStack>
+      <SettingsCard
+        title={t("settings:editorSection.typography.title")}
+        description={t("settings:editorSection.typography.description")}
+      >
+        <LabeledField title={t("settings:editorSection.typography.fontSize")}>
+          <DraftInput
+            xstyle={styles.input40}
+            type="number"
+            min={10}
+            max={32}
+            value={String(editorFontSize)}
+            onCommit={(nextValue) =>
+              updateSettings({
+                patch: { editorFontSize: readInt(nextValue, editorFontSize) },
+              })
+            }
+          />
+        </LabeledField>
+        <LabeledField title={t("settings:editorSection.typography.fontFamily")}>
+          <DraftInput
+            xstyle={styles.input40MonoPlain}
+            value={editorFontFamily}
+            onCommit={(nextValue) =>
+              updateSettings({ patch: { editorFontFamily: nextValue } })
+            }
+          />
+        </LabeledField>
+        <LabeledField title={t("settings:editorSection.typography.tabSize")}>
+          <DraftInput
+            xstyle={styles.input40}
+            type="number"
+            min={1}
+            max={8}
+            value={String(editorTabSize)}
+            onCommit={(nextValue) =>
+              updateSettings({
+                patch: { editorTabSize: readInt(nextValue, editorTabSize) },
+              })
+            }
+          />
+        </LabeledField>
+      </SettingsCard>
 
-        <SettingsCard
-          title="Display"
-          description="Toggle editor line wrapping and chrome."
-        >
-          <SwitchField
-            title="Word Wrap"
-            checked={editorWordWrap}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { editorWordWrap: checked } })
+      <SettingsCard
+        title={t("settings:editorSection.display.title")}
+        description={t("settings:editorSection.display.description")}
+      >
+        <SwitchField
+          title={t("settings:editorSection.display.wordWrap")}
+          checked={editorWordWrap}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { editorWordWrap: checked } })
+          }
+        />
+        <LabeledField title={t("settings:editorSection.display.lineNumbers")}>
+          <ChoiceButtons
+            value={editorLineNumbers}
+            columns={3}
+            onChange={(value) =>
+              updateSettings({ patch: { editorLineNumbers: value } })
             }
+            options={[
+              { value: "on", label: t("common:status.on") },
+              { value: "off", label: t("common:status.off") },
+              { value: "relative", label: t("settings:editorSection.display.relative") },
+            ]}
           />
-          <LabeledField title="Line Numbers">
-            <ChoiceButtons
-              value={editorLineNumbers}
-              columns={3}
-              onChange={(value) =>
-                updateSettings({ patch: { editorLineNumbers: value } })
-              }
-              options={[
-                { value: "on", label: "On" },
-                { value: "off", label: "Off" },
-                { value: "relative", label: "Relative" },
-              ]}
-            />
-          </LabeledField>
-          <SwitchField
-            title="Minimap"
-            checked={editorMinimap}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { editorMinimap: checked } })
-            }
-          />
-        </SettingsCard>
+        </LabeledField>
+        <SwitchField
+          title={t("settings:editorSection.display.minimap")}
+          checked={editorMinimap}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { editorMinimap: checked } })
+          }
+        />
+      </SettingsCard>
 
-        <SettingsCard
-          title="AI Inline Completions"
-          description="Ghost-text code suggestions powered by Claude. Uses the Claude SDK with your local Claude auth when available, or falls back to the Anthropic API (requires ANTHROPIC_API_KEY)."
-        >
-          <SwitchField
-            title="Enable AI Completions"
-            description="Shows AI-generated inline suggestions as you type. Press Tab to accept. Uses Claude Haiku for fast, low-cost completions."
-            checked={editorAiCompletions}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { editorAiCompletions: checked } })
-            }
-          />
-        </SettingsCard>
+      <SettingsCard
+        title={t("settings:editorSection.aiCompletions.title")}
+        description={t("settings:editorSection.aiCompletions.description")}
+      >
+        <SwitchField
+          title={t("settings:editorSection.aiCompletions.enable.title")}
+          description={t("settings:editorSection.aiCompletions.enable.description")}
+          checked={editorAiCompletions}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { editorAiCompletions: checked } })
+          }
+        />
+      </SettingsCard>
 
-        <SettingsCard
-          title="Repository Language Servers"
-          description="LSP-backed intelligence for TypeScript/JavaScript and Python. Uses Electron-managed stdio language-server sessions per active workspace."
+      <SettingsCard
+        title={t("settings:editorSection.languageServers.title")}
+        description={t("settings:editorSection.languageServers.description")}
+      >
+        <SwitchField
+          title={t("settings:editorSection.languageServers.enable.title")}
+          description={t("settings:editorSection.languageServers.enable.description")}
+          checked={editorLspEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { editorLspEnabled: checked } })
+          }
+        />
+        <LabeledField
+          title={t("settings:editorSection.languageServers.typescript.title")}
+          description={t("settings:editorSection.languageServers.typescript.description")}
         >
-          <SwitchField
-            title="Enable LSP Runtime"
-            description="Uses Electron-managed stdio language-server sessions per active workspace. Keep this off if you only want Monaco's built-in syntax support."
-            checked={editorLspEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { editorLspEnabled: checked } })
+          <DraftInput
+            xstyle={styles.input40Mono}
+            placeholder="typescript-language-server"
+            value={typescriptLspCommand}
+            onCommit={(nextValue) =>
+              updateSettings({ patch: { typescriptLspCommand: nextValue } })
             }
           />
-          <LabeledField
-            title="TypeScript LSP Command"
-            description="Leave empty to auto-discover `typescript-language-server` from PATH. Install via `npm i -g typescript-language-server typescript`. Handles .ts, .tsx, .js, and .jsx files."
-          >
-            <DraftInput
-              xstyle={styles.input40Mono}
-              placeholder="typescript-language-server"
-              value={typescriptLspCommand}
-              onCommit={(nextValue) =>
-                updateSettings({ patch: { typescriptLspCommand: nextValue } })
-              }
-            />
-          </LabeledField>
-          <LabeledField
-            title="Python LSP Command"
-            description="Leave empty to auto-discover `pyright-langserver` or `basedpyright-langserver` from PATH. You can also point this at an absolute executable path."
-          >
-            <DraftInput
-              xstyle={styles.input40Mono}
-              placeholder="pyright-langserver"
-              value={pythonLspCommand}
-              onCommit={(nextValue) =>
-                updateSettings({ patch: { pythonLspCommand: nextValue } })
-              }
-            />
-          </LabeledField>
-        </SettingsCard>
-        <SettingsCard title="ESLint">
-          <SwitchField
-            title="Enable ESLint"
-            description="Reads ESLint config from the opened repository and shows diagnostics in the editor. Requires ESLint installed in the repository's node_modules."
-            checked={editorEslintEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { editorEslintEnabled: checked } })
+        </LabeledField>
+        <LabeledField
+          title={t("settings:editorSection.languageServers.python.title")}
+          description={t("settings:editorSection.languageServers.python.description")}
+        >
+          <DraftInput
+            xstyle={styles.input40Mono}
+            placeholder="pyright-langserver"
+            value={pythonLspCommand}
+            onCommit={(nextValue) =>
+              updateSettings({ patch: { pythonLspCommand: nextValue } })
             }
           />
-          <SwitchField
-            title="Format on Save"
-            description="Automatically apply ESLint auto-fix when saving a file."
-            checked={editorFormatOnSave}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { editorFormatOnSave: checked } })
-            }
-          />
-        </SettingsCard>
-      </SectionStack>
-    </>
+        </LabeledField>
+      </SettingsCard>
+      <SettingsCard title="ESLint">
+        <SwitchField
+          title={t("settings:editorSection.eslint.enable.title")}
+          description={t("settings:editorSection.eslint.enable.description")}
+          checked={editorEslintEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { editorEslintEnabled: checked } })
+          }
+        />
+        <SwitchField
+          title={t("settings:editorSection.eslint.formatOnSave.title")}
+          description={t("settings:editorSection.eslint.formatOnSave.description")}
+          checked={editorFormatOnSave}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { editorFormatOnSave: checked } })
+          }
+        />
+      </SettingsCard>
+    </SectionStack>
   );
 }

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import { AlarmClock, Gauge, Play, X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -21,6 +22,7 @@ export interface ShelfUsageLimitProps {
  * Once armed, the line says when Stave resumes and offers to cancel that.
  */
 export const ShelfUsageLimit = memo(function ShelfUsageLimit(props: ShelfUsageLimitProps) {
+  useTranslation();
   // The countdown moves by the minute; a 30s tick keeps it within one.
   const now = useNow(true);
   const line = describeUsageLimitLine({
@@ -33,7 +35,7 @@ export const ShelfUsageLimit = memo(function ShelfUsageLimit(props: ShelfUsageLi
     <div
       className={sx(styles.line)}
       role="group"
-      aria-label="Usage limit"
+      aria-label={i18n.t("composer:shelfUsageLimit.ariaLabel")}
       data-testid="composer-shelf-usage-limit"
       data-armed={line.armed ? "true" : undefined}
     >
@@ -55,42 +57,41 @@ export const ShelfUsageLimit = memo(function ShelfUsageLimit(props: ShelfUsageLi
           <Button
             variant="quiet"
             size="xs"
-            title="Resume on its own once the limit resets, while Stave is open"
+            title={i18n.t("composer:shelfUsageLimit.title")}
             onClick={() => props.onResumeAtReset(true)}
             xstyle={styles.itemAccent}
           >
             <AlarmClock aria-hidden />
-            <span className={sx(styles.actionWord)}>Resume at reset</span>
+            <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfUsageLimit.shelfUsageLimit")}</span>
           </Button>
         ) : null}
         {line.armed ? (
           <Button
             variant="quiet"
             size="xs"
-            title="Don't resume on its own"
+            title={i18n.t("composer:shelfUsageLimit.title2")}
             onClick={() => props.onResumeAtReset(false)}
             xstyle={styles.quiet}
           >
-            Cancel
-          </Button>
+            {i18n.t("composer:shelfUsageLimit.shelfUsageLimit2")}</Button>
         ) : null}
         <Button
           variant="quiet"
           size="xs"
-          title="Resume now"
+          title={i18n.t("composer:shelfUsageLimit.title3")}
           onClick={props.onResumeNow}
           xstyle={styles.itemAccent}
         >
           <Play aria-hidden />
-          <span className={sx(styles.actionWord)}>Resume now</span>
+          <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfUsageLimit.shelfUsageLimit3")}</span>
         </Button>
         {line.canDismiss ? (
           <Button
             variant="quiet"
             size="xs"
             iconOnly
-            aria-label="Dismiss without resuming"
-            title="Dismiss without resuming"
+            aria-label={i18n.t("composer:shelfUsageLimit.ariaLabel2")}
+            title={i18n.t("composer:shelfUsageLimit.title4")}
             onClick={props.onDismiss}
             xstyle={styles.quiet}
           >

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   Children,
   memo,
@@ -65,6 +66,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   steering: boolean;
   queue: ComposerShelfQueueProps | null;
 }) {
+  useTranslation();
   const taskId = useScopedTaskId();
   const placement = useAppStore((state) => state.settings.turnActivityPlacement);
   const setLayout = useAppStore((state) => state.setLayout);
@@ -126,9 +128,9 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   const panel = useMemo<ShelfRunPanelButton | null>(
     () =>
       controls.panelButton
-        ? { label: "Open activity in the Task panel", onOpen: openPanel, keep: controls.panelButton }
+        ? { label: i18n.t("composer:composerShelf.label"), onOpen: openPanel, keep: controls.panelButton }
         : null,
-    [controls.panelButton, openPanel],
+    [controls.panelButton, openPanel, i18n.language],
   );
   const onStop = useCallback(() => abortTaskTurn({ taskId }), [abortTaskTurn, taskId]);
   const turnTodos = turnProps?.todos ?? NO_TODOS;
@@ -170,7 +172,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
 
   return (
     <section
-      aria-label="Turn activity and queue"
+      aria-label={i18n.t("composer:composerShelf.ariaLabel")}
       data-testid="composer-shelf"
       data-rows={rows.join(" ")}
       data-detail-host={detailHost}
@@ -252,6 +254,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
  * mount, so a re-render never restarts the animation.
  */
 function ShelfRow(props: { joining: boolean; leaving?: boolean; children: ReactNode }) {
+  useTranslation();
   const [joined] = useState(props.joining);
   return (
     <div
@@ -271,6 +274,7 @@ function ShelfRow(props: { joining: boolean; leaving?: boolean; children: ReactN
  * single line: the classic inset and tuck, one row per child.
  */
 export function ComposerShelfSurface(props: { children: ReactNode }) {
+  useTranslation();
   return (
     <section className={cx("turn-activity-surface", sx(styles.surface, styles.standalone))}>
       {Children.map(props.children, (child) =>

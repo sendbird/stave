@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { ArrowUpCircle, RefreshCcw } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
@@ -32,6 +34,7 @@ import { layoutShellStyles } from "./layout-shell.styles";
 import { updateStyles } from "./top-bar-update.styles";
 
 function InfoRow(args: { label: string; value: string | null }) {
+  useTranslation();
   return (
     <div className={sx(updateStyles.infoRow)}>
       <span className={sx(updateStyles.infoLabel)}>{args.label}</span>
@@ -41,6 +44,7 @@ function InfoRow(args: { label: string; value: string | null }) {
 }
 
 export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
+  useTranslation();
   const [tasks, activeTurnIdsByTask] = useAppStore(
     useShallow((state) => [state.tasks, state.activeTurnIdsByTask] as const),
   );
@@ -61,7 +65,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
   );
   const respondingTaskSummaries = respondingTasks.slice(0, 3).map((task) => ({
     id: task.id,
-    title: task.title.trim() || "Untitled Task",
+    title: task.title.trim() || i18n.t("shell:topBarUpdate.untitledTask"),
   }));
 
   async function refreshStatus() {
@@ -73,8 +77,8 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
         checkedAt: new Date().toISOString(),
         currentVersion: null,
         latestVersion: null,
-        summary: "App update bridge unavailable.",
-        detail: "The renderer could not reach the app update service.",
+        summary: i18n.t("shell:topBarUpdate.appUpdateBridgeUnavailable"),
+        detail: i18n.t("shell:topBarUpdate.theRendererCouldNotReachTheApp"),
         canInstall: false,
       });
       setLoading(false);
@@ -92,7 +96,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
         checkedAt: new Date().toISOString(),
         currentVersion: null,
         latestVersion: null,
-        summary: "Failed to check for app updates.",
+        summary: i18n.t("shell:topBarUpdate.failedToCheckForAppUpdates"),
         detail: error instanceof Error ? error.message : String(error),
         canInstall: false,
       });
@@ -110,7 +114,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
   }
 
   const checkedAt = snapshot?.checkedAt
-    ? new Date(snapshot.checkedAt).toLocaleString()
+    ? formatDateTime(snapshot.checkedAt)
     : null;
   const hasUpdate = snapshot?.state === "available";
   const hasIssue = snapshot?.state === "blocked" || snapshot?.state === "error";
@@ -118,7 +122,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
   async function startInstall() {
     const install = window.api?.tooling?.installAppUpdateAndRestart;
     if (!install) {
-      toast.error("App update bridge unavailable");
+      toast.error(i18n.t("shell:topBarUpdate.appUpdateBridgeUnavailable2"));
       return;
     }
 
@@ -135,7 +139,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
         description: result.detail,
       });
     } catch (error) {
-      toast.error("Failed to start the app update", {
+      toast.error(i18n.t("shell:topBarUpdate.failedToStartTheAppUpdate"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -168,7 +172,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                     hasUpdate && updateStyles.triggerHasUpdate,
                   ]}
                   style={props.noDragStyle}
-                  aria-label="app-update"
+                  aria-label={i18n.t("shell:topBarUpdate.appUpdate")}
                 />
               }
             >
@@ -189,7 +193,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
               ) : null}
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent side="bottom">App Update</TooltipContent>
+          <TooltipContent side="bottom">{i18n.t("shell:topBarUpdate.appUpdate")}</TooltipContent>
         </Tooltip>
         <PopoverContent
           align="end"
@@ -200,10 +204,10 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
           <PopoverHeader className={sx(updateStyles.panelHeader)}>
             <div className={sx(updateStyles.panelHeaderRow)}>
               <div className={sx(updateStyles.panelHeaderText)}>
-                <PopoverTitle>App Update</PopoverTitle>
+                <PopoverTitle>{i18n.t("shell:topBarUpdate.appUpdate")}</PopoverTitle>
                 <p className={sx(updateStyles.panelSummary)}>
                   {snapshot?.summary ??
-                    "Checking for the latest Stave release..."}
+                    i18n.t("shell:topBarUpdate.checkingForTheLatestStaveRelease")}
                 </p>
               </div>
               {snapshot ? (
@@ -214,12 +218,12 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                   className={sx(updateStyles.stateBadge)}
                 >
                   {snapshot.state === "available"
-                    ? "Available"
+                    ? i18n.t("shell:topBarUpdate.available")
                     : snapshot.state === "blocked"
-                      ? "Blocked"
+                      ? i18n.t("shell:topBarUpdate.blocked")
                       : snapshot.state === "error"
-                        ? "Error"
-                        : "Current"}
+                        ? i18n.t("shell:topBarUpdate.error")
+                        : i18n.t("shell:topBarUpdate.current")}
                 </Badge>
               ) : null}
             </div>
@@ -228,11 +232,11 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
           <div className={sx(updateStyles.panelBody)}>
             <div className={sx(updateStyles.infoList)}>
               <InfoRow
-                label="Installed"
+                label={i18n.t("shell:topBarUpdate.installed")}
                 value={snapshot?.currentVersion ?? null}
               />
-              <InfoRow label="Latest" value={snapshot?.latestVersion ?? null} />
-              <InfoRow label="Last Checked" value={checkedAt} />
+              <InfoRow label={i18n.t("shell:topBarUpdate.latest")} value={snapshot?.latestVersion ?? null} />
+              <InfoRow label={i18n.t("shell:topBarUpdate.lastChecked")} value={checkedAt} />
             </div>
 
             {snapshot?.detail ? (
@@ -252,7 +256,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                 <RefreshCcw
                   {...stylex.props(loading && updateStyles.spinning)}
                 />
-                Refresh
+                {i18n.t("shell:topBarUpdate.refresh")}
               </Button>
               <Button
                 type="button"
@@ -265,7 +269,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                 ) : (
                   <ArrowUpCircle />
                 )}
-                Install & Restart
+                {i18n.t("shell:topBarUpdate.installRestart")}
               </Button>
             </div>
           </div>
@@ -275,22 +279,21 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent xstyle={updateStyles.confirmSurface}>
           <DialogHeader>
-            <DialogTitle>Interrupt active tasks and update Stave?</DialogTitle>
+            <DialogTitle>{i18n.t("shell:topBarUpdate.interruptActiveTasksAndUpdateStave")}</DialogTitle>
             <DialogDescription>
               {respondingTasks.length === 1
-                ? "This update will stop the task that is currently responding."
-                : `This update will stop ${respondingTasks.length} tasks that are currently responding.`}
+                ? i18n.t("shell:topBarUpdate.thisUpdateWillStopTheTaskThat")
+                : i18n.t("shell:topBarUpdate.thisUpdateWillStopTasksThatAre", { value1: respondingTasks.length })}
             </DialogDescription>
           </DialogHeader>
 
           <div className={sx(updateStyles.confirmBody)}>
             <div className={sx(updateStyles.warningNote)}>
-              Save any context you still need before continuing. Stave will
-              close and restart to apply the update.
+              {i18n.t("shell:topBarUpdate.saveAnyContextYouStillNeedBefore")}
             </div>
 
             <div className={sx(updateStyles.detailBox)}>
-              <p className={sx(updateStyles.taskListEyebrow)}>Active Tasks</p>
+              <p className={sx(updateStyles.taskListEyebrow)}>{i18n.t("shell:topBarUpdate.activeTasks")}</p>
               <ul className={sx(updateStyles.taskList)}>
                 {respondingTaskSummaries.map((task) => (
                   <li key={task.id} className={sx(updateStyles.taskListItem)}>
@@ -300,7 +303,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                 {respondingTasks.length > respondingTaskSummaries.length ? (
                   <li className={sx(updateStyles.taskListOverflow)}>
                     +{respondingTasks.length - respondingTaskSummaries.length}{" "}
-                    more
+                    {i18n.t("shell:topBarUpdate.more")}
                   </li>
                 ) : null}
               </ul>
@@ -314,7 +317,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
               disabled={installing}
               onClick={() => setConfirmOpen(false)}
             >
-              Cancel
+              {i18n.t("shell:topBarUpdate.cancel")}
             </Button>
             <Button
               type="button"
@@ -329,7 +332,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
               ) : (
                 <ArrowUpCircle />
               )}
-              Continue Update
+              {i18n.t("shell:topBarUpdate.continueUpdate")}
             </Button>
           </DialogFooter>
         </DialogContent>

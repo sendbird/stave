@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { trackerVisualStyles } from "./tracker-visual.styles";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
@@ -50,8 +51,9 @@ export interface IssuesPeekPanelProps {
  * reader's width.
  */
 export function IssuesPeekPanel(props: IssuesPeekPanelProps) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const {
-    closeLabel = "Close",
+    closeLabel = tI18n("issues:issuesPeekPanel.close"),
     dock = "split",
     nextDisabled = false,
     prevDisabled = false,
@@ -168,7 +170,7 @@ export function IssuesPeekPanel(props: IssuesPeekPanelProps) {
         <AdsButton
           layout="host"
           type="button"
-          aria-label="Resize ticket peek"
+          aria-label={tI18n("issues:issuesPeekPanel.resizeTicketPeek")}
           aria-orientation="vertical"
           aria-valuemin={TRACKER_ISSUES_PEEK_MIN_PX}
           aria-valuemax={TRACKER_ISSUES_PEEK_MAX_PX}
@@ -190,7 +192,7 @@ export function IssuesPeekPanel(props: IssuesPeekPanelProps) {
               type="button"
               size="icon-xs"
               variant="ghost"
-              aria-label="Previous ticket"
+              aria-label={tI18n("issues:issuesPeekPanel.previousTicket")}
               disabled={prevDisabled}
               onClick={() => props.onNavigate?.("prev")}
             >
@@ -200,7 +202,7 @@ export function IssuesPeekPanel(props: IssuesPeekPanelProps) {
               type="button"
               size="icon-xs"
               variant="ghost"
-              aria-label="Next ticket"
+              aria-label={tI18n("issues:issuesPeekPanel.nextTicket")}
               disabled={nextDisabled}
               onClick={() => props.onNavigate?.("next")}
             >
@@ -222,7 +224,7 @@ export function IssuesPeekPanel(props: IssuesPeekPanelProps) {
               type="button"
               size="icon-sm"
               variant="ghost"
-              aria-label="Open in browser"
+              aria-label={tI18n("issues:issuesPeekPanel.openInBrowser")}
               onClick={props.onExpand}
             >
               <Maximize2 aria-hidden className={sx(trackerVisualStyles.icon)} />

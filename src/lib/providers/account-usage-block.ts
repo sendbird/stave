@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   AccountUsageBucket,
   AccountUsageWindow,
@@ -73,14 +74,14 @@ function collectClaudeWindows(
   );
   return [
     snapshot.session
-      ? { label: "Session", usedPercent: snapshot.session.usedPercent, resetsAt: snapshot.session.resetsAt }
+      ? { label: i18n.t("providers:accountUsageBlock.session"), usedPercent: snapshot.session.usedPercent, resetsAt: snapshot.session.resetsAt }
       : null,
     snapshot.weekly
-      ? { label: "Weekly", usedPercent: snapshot.weekly.usedPercent, resetsAt: snapshot.weekly.resetsAt }
+      ? { label: i18n.t("providers:accountUsageBlock.weekly"), usedPercent: snapshot.weekly.usedPercent, resetsAt: snapshot.weekly.resetsAt }
       : null,
     snapshot.fableWeekly && !knownNonFableModel
       ? {
-          label: "Model weekly",
+          label: i18n.t("providers:accountUsageBlock.modelWeekly"),
           usedPercent: snapshot.fableWeekly.usedPercent,
           resetsAt: snapshot.fableWeekly.resetsAt,
         }
@@ -110,14 +111,14 @@ function collectCodexWindows(
     const label = bucket.limitName?.trim() || bucket.limitId?.trim() || "Codex";
     if (bucket.primary) {
       windows.push({
-        label: `${label} primary`,
+        label: i18n.t("providers:accountUsageBlock.primary", { value1: label }),
         usedPercent: bucket.primary.usedPercent,
         resetsAt: bucket.primary.resetsAt,
       });
     }
     if (bucket.secondary) {
       windows.push({
-        label: `${label} secondary`,
+        label: i18n.t("providers:accountUsageBlock.secondary", { value1: label }),
         usedPercent: bucket.secondary.usedPercent,
         resetsAt: bucket.secondary.resetsAt,
       });
@@ -194,16 +195,16 @@ export function collectProviderAccountUsageWindows(args: {
       ? snapshot.cursor.buckets.find((bucket) => bucket.id === poolId)
       : undefined;
     if (pool) {
-      return collectAccountWindows(null, [pool], "Monthly");
+      return collectAccountWindows(null, [pool], i18n.t("providers:accountUsageBlock.monthly"));
     }
     if (poolId) {
       // The model maps to one pool, but the snapshot omits it (Cursor's API
       // drops `autoPercentUsed`/`apiPercentUsed`). Fall back to the
       // account-wide monthly limit only: the other pool is a separate
       // allocation this model never consumes, so it must not block.
-      return collectAccountWindows(snapshot.cursor.monthly, [], "Monthly");
+      return collectAccountWindows(snapshot.cursor.monthly, [], i18n.t("providers:accountUsageBlock.monthly"));
     }
-    return collectAccountWindows(snapshot.cursor.monthly, snapshot.cursor.buckets, "Monthly");
+    return collectAccountWindows(snapshot.cursor.monthly, snapshot.cursor.buckets, i18n.t("providers:accountUsageBlock.monthly"));
   }
   if (!snapshot.kiro || snapshot.kiro.source === "unavailable") {
     return null;
@@ -217,7 +218,7 @@ export function collectProviderAccountUsageWindows(args: {
   return collectAccountWindows(
     snapshot.kiro.buckets.length === 0 ? snapshot.kiro.monthly : null,
     credits,
-    "Monthly",
+    i18n.t("providers:accountUsageBlock.monthly"),
   );
 }
 
@@ -265,16 +266,16 @@ export function resolveEarliestAccountUsageResetAtMs(args: {
 
 function formatResetPhrase(resetsAt: number | null, now: number): string {
   if (resetsAt == null || !Number.isFinite(resetsAt)) {
-    return "it resets";
+    return i18n.t("providers:accountUsageBlock.itResets");
   }
   const deltaMs = resetsAt * 1000 - now;
   if (deltaMs <= 0) {
-    return "it resets";
+    return i18n.t("providers:accountUsageBlock.itResets");
   }
   const hours = Math.floor(deltaMs / 3_600_000);
   const minutes = Math.floor((deltaMs % 3_600_000) / 60_000);
-  const wait = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-  return `it resets in ${wait}`;
+  const wait = i18n.t(hours > 0 ? "providers:compactDuration.hoursMinutes" : "providers:compactDuration.minutes", { hours, minutes });
+  return i18n.t("providers:accountUsageBlock.itResetsIn", { value1: wait });
 }
 
 export function resolveAccountUsageBlock(args: {
@@ -307,7 +308,7 @@ export function resolveAccountUsageBlock(args: {
     windowLabel: exhausted.label,
     usedPercent: exhausted.usedPercent,
     resetsAt: exhausted.resetsAt,
-    message: `${providerLabel} ${exhausted.label.toLowerCase()} usage is at ${Math.round(exhausted.usedPercent)}%. New work is paused until ${formatResetPhrase(exhausted.resetsAt, now)}.`,
+    message: i18n.t("providers:accountUsageBlock.usageIsAtNewWorkIs", { value1: providerLabel, value2: exhausted.label.toLowerCase(), value3: Math.round(exhausted.usedPercent), value4: formatResetPhrase(exhausted.resetsAt, now) }),
   };
 }
 

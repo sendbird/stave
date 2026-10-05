@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -40,6 +41,7 @@ import { useAppStore } from "@/store/app.store";
  * visible simultaneously in separate groups).
  */
 export function LensSurfacePanel(props: IDockviewPanelProps) {
+  useTranslation();
   const surface = parsePanePanelId(props.api.id);
   if (surface?.kind !== "lens") {
     return null;
@@ -57,6 +59,7 @@ function LensSessionSurface(args: {
   lensSessionId: string;
   panelApi: IDockviewPanelProps["api"];
 }) {
+  useTranslation();
   const { lensSessionId, panelApi } = args;
   // Keep the store subscription primitive-only. Returning a nested object here
   // causes a fresh selector snapshot on every render, which can trigger React
@@ -245,13 +248,13 @@ function LensSessionSurface(args: {
       });
 
       if (!result?.ok) {
-        toast.error("Screenshot failed", {
-          description: result?.message ?? "Lens could not save the screenshot.",
+        toast.error(i18n.t("lens:lensSurfacePanel.screenshotFailed"), {
+          description: result?.message ?? i18n.t("lens:lensSurfacePanel.lensCouldNotSaveTheScreenshot"),
         });
         return;
       }
 
-      toast.success("Screenshot saved", {
+      toast.success(i18n.t("lens:lensSurfacePanel.screenshotSaved"), {
         description: result.path,
       });
     },
@@ -269,19 +272,19 @@ function LensSessionSurface(args: {
     });
 
     if (!result?.ok) {
-      toast.error("Download failed", {
-        description: result?.message ?? "Lens could not download page assets.",
+      toast.error(i18n.t("lens:lensSurfacePanel.downloadFailed"), {
+        description: result?.message ?? i18n.t("lens:lensSurfacePanel.lensCouldNotDownloadPageAssets"),
       });
       return;
     }
 
     const count = result.entries?.length ?? 0;
     const failed = result.errors?.length ?? 0;
-    toast.success("Page assets downloaded", {
+    toast.success(i18n.t("lens:lensSurfacePanel.pageAssetsDownloaded"), {
       description:
         failed > 0
-          ? `${count} saved, ${failed} skipped.`
-          : `${count} asset${count === 1 ? "" : "s"} saved.`,
+          ? i18n.t("lens:lensSurfacePanel.savedSkipped", { value1: count, value2: failed })
+          : i18n.t("lens:lensSurfacePanel.assetSaved", { count: count }),
     });
   }, [hasLensApi, lensSessionId, workspaceId]);
 
@@ -293,19 +296,19 @@ function LensSessionSurface(args: {
   const pickerDisabled = lensPageActionDisabled || !activeTaskId;
   const pickerTooltip = useMemo(() => {
     if (overlayModes.isPickerActive) {
-      return "Pick mode is active. Click an element in the page or press Escape to cancel.";
+      return i18n.t("lens:lensSurfacePanel.pickModeIsActiveClickAnElement");
     }
     if (!hasLensApi) {
-      return "Lens is only available in the Electron desktop runtime.";
+      return i18n.t("lens:lensSurfacePanel.lensIsOnlyAvailableInTheElectron");
     }
     if (!activeTaskId) {
-      return "Select a task first so Lens can append element context to its draft.";
+      return i18n.t("lens:lensSurfacePanel.selectATaskFirstSoLensCan");
     }
     if (url === "about:blank") {
-      return "Open a page first.";
+      return i18n.t("lens:lensSurfacePanel.openAPageFirst");
     }
-    return "Pick an element and append a compact selector, style, and source summary to the active task.";
-  }, [activeTaskId, hasLensApi, overlayModes.isPickerActive, url]);
+    return i18n.t("lens:lensSurfacePanel.pickAnElementAndAppendACompact");
+  }, [activeTaskId, hasLensApi, overlayModes.isPickerActive, url, i18n.language]);
 
   return (
     <TooltipProvider delay={120}>

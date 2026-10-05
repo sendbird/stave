@@ -1,3 +1,5 @@
+import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { i18n } from "@/i18n/runtime";
 import { classifyStageEvidence, isVerifiedEvidence } from "@/lib/agent-runs/evidence";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { AgentRunStageRecord, StageStatus } from "@/lib/agent-runs/domain";
@@ -25,13 +27,13 @@ export const FLOW_STATES = ["waiting", "running", "action-required", "done", "fa
 export type FlowState = (typeof FLOW_STATES)[number];
 
 export const FLOW_STATE_LABELS: Readonly<Record<FlowState, string>> = {
-  waiting: "Waiting",
-  running: "Running",
-  "action-required": "Action required",
-  done: "Done",
-  failed: "Failed",
-  skipped: "Skipped",
-  cancelled: "Cancelled",
+  get waiting() { return i18n.t("agents:flowView.waiting"); },
+  get running() { return i18n.t("agents:flowView.running"); },
+  get "action-required"() { return i18n.t("agents:flowView.actionRequired"); },
+  get done() { return i18n.t("agents:flowView.done"); },
+  get failed() { return i18n.t("agents:flowView.failed"); },
+  get skipped() { return i18n.t("agents:flowView.skipped"); },
+  get cancelled() { return i18n.t("agents:flowView.cancelled"); },
 };
 
 export interface FlowEvent {
@@ -193,24 +195,24 @@ const PR_STATE: Readonly<Record<WorkspacePrStatus, FlowState>> = {
 };
 
 const PR_STATUS_LABELS: Readonly<Record<WorkspacePrStatus, string>> = {
-  no_pr: "No pull request",
-  draft: "Draft",
-  review_required: "Review required",
-  changes_requested: "Changes requested",
-  checks_pending: "Checks running",
-  checks_failed: "Checks failed",
-  merge_conflict: "Merge conflict",
-  behind_base: "Behind base",
-  blocked: "Merge blocked",
-  ready_to_merge: "Ready to merge",
-  merged: "Merged",
-  closed_unmerged: "Closed",
+  get no_pr() { return i18n.t("agents:flowView.noPr"); },
+  get draft() { return i18n.t("agents:flowView.draft"); },
+  get review_required() { return i18n.t("agents:flowView.reviewRequired"); },
+  get changes_requested() { return i18n.t("agents:flowView.changesRequested"); },
+  get checks_pending() { return i18n.t("agents:flowView.checksPending"); },
+  get checks_failed() { return i18n.t("agents:flowView.checksFailed"); },
+  get merge_conflict() { return i18n.t("agents:flowView.mergeConflict"); },
+  get behind_base() { return i18n.t("agents:flowView.behindBase"); },
+  get blocked() { return i18n.t("agents:flowView.blocked"); },
+  get ready_to_merge() { return i18n.t("agents:flowView.readyToMerge"); },
+  get merged() { return i18n.t("agents:flowView.merged"); },
+  get closed_unmerged() { return i18n.t("agents:flowView.closedUnmerged"); },
 };
 
 const CHECKS_LABELS: Readonly<Record<NonNullable<FlowPullRequestInput["checks"]>, string>> = {
-  success: "Checks passed",
-  failure: "Checks failed",
-  pending: "Checks running",
+  get success() { return i18n.t("agents:flowView.success"); },
+  get failure() { return i18n.t("agents:flowView.failure"); },
+  get pending() { return i18n.t("agents:flowView.pending"); },
 };
 
 const FLOW_REQUEST_MAX_CHARS = 140;
@@ -235,12 +237,12 @@ export function buildBaseSteps(base: FlowBaseInput): FlowNode[] {
     steps.push({
       id: "base:request",
       kind: "task",
-      title: "Request",
+      title: i18n.t("agents:flowView.title"),
       detail: boundRequestText(base.request.text) || null,
       state: "done",
       evidence: null,
       target: null,
-      events: [{ at: base.request.at, label: "Requested" }],
+      events: [{ at: base.request.at, label: i18n.t("agents:flowView.label") }],
       children: [],
     });
   }
@@ -250,8 +252,8 @@ export function buildBaseSteps(base: FlowBaseInput): FlowNode[] {
     steps.push({
       id: "base:plan",
       kind: "task",
-      title: "Plan",
-      detail: `${base.plan.done}/${base.plan.total} done`,
+      title: i18n.t("agents:flowView.title2"),
+      detail: i18n.t("agents:remaining.presentationCopy486", { v1: base.plan.done, v2: base.plan.total }),
       state: allDone ? "done" : base.taskRunning ? "running" : "waiting",
       evidence: null,
       target: null,
@@ -268,14 +270,14 @@ export function buildBaseSteps(base: FlowBaseInput): FlowNode[] {
     const lines =
       base.changes.additions == null || base.changes.deletions == null
         ? base.changes.partial
-          ? " · line totals unavailable"
+          ? i18n.t("agents:flowView.extraCopy362")
           : ""
         : ` · +${base.changes.additions}/−${base.changes.deletions}`;
     steps.push({
       id: "base:changes",
       kind: "task",
-      title: "Changes",
-      detail: `${base.changes.fileCount} file${base.changes.fileCount === 1 ? "" : "s"}${lines}`,
+      title: i18n.t("agents:flowView.title3"),
+      detail: i18n.t("agents:flowView.files", { count: base.changes.fileCount, changes: lines }),
       state: base.taskRunning ? "running" : "done",
       evidence: null,
       target: null,
@@ -288,23 +290,23 @@ export function buildBaseSteps(base: FlowBaseInput): FlowNode[] {
     steps.push({
       id: "base:verification",
       kind: "task",
-      title: "Verification",
-      detail: `${base.verification.executedEntries}/${base.verification.totalEntries} checks`,
+      title: i18n.t("agents:flowView.title4"),
+      detail: i18n.t("agents:remaining.presentationCopy488", { v1: base.verification.executedEntries, v2: base.verification.totalEntries }),
       state: VERIFICATION_STATE[base.verification.status],
       evidence: null,
       target: null,
-      events: [{ at: new Date(base.verification.completedAt).toISOString(), label: "Verified" }],
+      events: [{ at: new Date(base.verification.completedAt).toISOString(), label: i18n.t("agents:flowView.label2") }],
       children: [],
     });
   }
 
   if (base.pullRequest) {
     const pr = base.pullRequest;
-    const events: FlowEvent[] = pr.createdAt ? [{ at: pr.createdAt, label: "Opened" }] : [];
+    const events: FlowEvent[] = pr.createdAt ? [{ at: pr.createdAt, label: i18n.t("agents:flowView.label3") }] : [];
     steps.push({
       id: "base:pull-request",
       kind: "task",
-      title: "Workspace PR",
+      title: i18n.t("agents:flowView.title5"),
       detail: [`#${pr.number} ${pr.title}`, PR_STATUS_LABELS[pr.status], pr.checks ? CHECKS_LABELS[pr.checks] : null]
         .filter(Boolean)
         .join(" · "),
@@ -320,12 +322,12 @@ export function buildBaseSteps(base: FlowBaseInput): FlowNode[] {
     steps.push({
       id: "base:needs-you",
       kind: "task",
-      title: base.needsYou.kind === "approval" ? "Waiting for approval" : "Waiting for your answer",
+      title: base.needsYou.kind === "approval" ? i18n.t("agents:flowView.title6") : i18n.t("agents:flowView.title7"),
       detail: base.needsYou.label || null,
       state: "action-required",
       evidence: null,
       target: null,
-      events: base.needsYou.at ? [{ at: base.needsYou.at, label: "Asked" }] : [],
+      events: base.needsYou.at ? [{ at: base.needsYou.at, label: i18n.t("agents:flowView.label4") }] : [],
       children: [],
     });
   }
@@ -436,23 +438,23 @@ export function deriveFlowBase(args: {
 function stageEvents(records: readonly AgentRunStageRecord[]): FlowEvent[] {
   const events: FlowEvent[] = [];
   for (const record of records) {
-    const attempt = record.attempt > 1 ? ` (attempt ${record.attempt})` : "";
-    if (record.startedAt) events.push({ at: record.startedAt, label: `Started${attempt}` });
-    if (record.feedback && record.startedAt) events.push({ at: record.startedAt, label: "Changes requested" });
+    const attempt = record.attempt > 1 ? i18n.t("agents:remaining.presentationCopy489", { v1: record.attempt }) : "";
+    if (record.startedAt) events.push({ at: record.startedAt, label: i18n.t("agents:flowView.label5", { value1: attempt }) });
+    if (record.feedback && record.startedAt) events.push({ at: record.startedAt, label: i18n.t("agents:flowView.label6") });
     if (record.endedAt) events.push({ at: record.endedAt, label: `${FLOW_STATE_LABELS[STAGE_STATE[record.status]]}${attempt}` });
   }
   return events.sort((a, b) => a.at.localeCompare(b.at));
 }
 
 function delegateNode(child: DelegatedTaskSummary, turnRunning = false): FlowNode {
-  const events: FlowEvent[] = [{ at: child.createdAt, label: child.attempt > 0 ? `Retried (attempt ${child.attempt + 1})` : "Delegated" }];
+  const events: FlowEvent[] = [{ at: child.createdAt, label: child.attempt > 0 ? i18n.t("agents:flowView.label7", { value1: child.attempt + 1 }) : i18n.t("agents:flowView.label8") }];
   if (child.completedAt) events.push({ at: child.completedAt, label: FLOW_STATE_LABELS[DELEGATE_STATE[child.phase]] });
   return {
     id: `delegate:${child.runId}`,
     kind: "delegate",
     title: child.delegationKey,
     detail: [child.providerId === "codex" ? "Codex" : "Claude", child.requestedModel,
-      child.phase === "waiting" ? (turnRunning ? "Follow-up running · delegation remains open" : "Open for follow-up") : null,
+      child.phase === "waiting" ? (turnRunning ? i18n.t("agents:flowView.extraCopy363") : i18n.t("agents:flowView.extraCopy364")) : null,
       child.reason].filter(Boolean).join(" · "),
     state: child.phase === "waiting" && turnRunning ? "running" : DELEGATE_STATE[child.phase],
     evidence: null,
@@ -488,20 +490,20 @@ export function buildFlow(args: {
   const baseSteps = buildBaseSteps(base);
 
   if (assignment) {
-    const where = assignment.workspaceMode === "new-worktree" ? `New worktree ${assignment.branch ?? ""}`.trim() : "Current workspace";
+    const where = assignment.workspaceMode === "new-worktree" ? i18n.t("agents:flowView.extraCopy365", { value1: assignment.branch ?? "" }).trim() : i18n.t("agents:flowView.extraCopy366");
     nodes.push({
       id: `assignment:${assignment.id}`,
       kind: "assignment",
-      title: `Assigned to ${assignment.agentName}`,
+      title: i18n.t("agents:flowView.title8", { value1: assignment.agentName }),
       detail: assignment.detail ?? [assignment.providerId, assignment.model, where].filter(Boolean).join(" · "),
       state: ASSIGNMENT_STATE[assignment.state],
       evidence: null,
       target: null,
       agent: { id: assignment.agentConfigId ?? assignment.id, name: assignment.agentName },
       events: [
-        { at: assignment.createdAt, label: "Assigned" },
+        { at: assignment.createdAt, label: i18n.t("agents:flowView.label9") },
         ...(assignment.updatedAt !== assignment.createdAt
-          ? [{ at: assignment.updatedAt, label: assignment.state === "started" ? "First turn started" : FLOW_STATE_LABELS[ASSIGNMENT_STATE[assignment.state]] }]
+          ? [{ at: assignment.updatedAt, label: assignment.state === "started" ? i18n.t("agents:flowView.label10") : FLOW_STATE_LABELS[ASSIGNMENT_STATE[assignment.state]] }]
           : []),
       ],
       children: [],
@@ -528,7 +530,7 @@ export function buildFlow(args: {
       return {
         id: `stage:${stage.id}`,
         kind: "stage" as const,
-        title: `${index + 1}. ${stage.title}`,
+        title: `${index + 1}. ${getStageDisplayTitle(stage)}`,
         detail: latest?.detail ?? (complete ? complete.summary.split("\n")[0]! : null),
         state: latest ? STAGE_STATE[latest.status] : "waiting",
         evidence: complete
@@ -566,7 +568,7 @@ export function buildFlow(args: {
       id: "task",
       kind: "task",
       title: args.taskTitle,
-      detail: "Waiting for the first message.",
+      detail: i18n.t("agents:flowView.detail"),
       state: "waiting",
       evidence: null,
       target: null,
@@ -584,7 +586,7 @@ function taskNode(title: string, children: FlowNode[], running: boolean): FlowNo
     id: "task",
     kind: "task",
     title,
-    detail: children.length ? `${children.length} delegated task${children.length === 1 ? "" : "s"}` : null,
+    detail: children.length ? i18n.t("agents:flowView.detail2", { value1: children.length, count: children.length }) : null,
     // The conversation itself has no end state; it is running or open.
     state: running || children.some((child) => child.state === "running") ? "running" : "waiting",
     evidence: null,

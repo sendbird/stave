@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "@/components/ui";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
@@ -103,8 +104,8 @@ export function useShelfReviews(taskId: string) {
         findingsReplyId: selection?.replyId,
       });
       if (result === "unchanged") {
-        toast.error("Could not attach the review", {
-          description: "It is already attached, or the message already has five tasks attached.",
+        toast.error(i18n.t("composer:useShelfReviews.copy"), {
+          description: i18n.t("composer:useShelfReviews.description"),
         });
         return;
       }
@@ -131,7 +132,7 @@ export function useShelfReviews(taskId: string) {
         expected: buildDelegatedTaskExpectedIdentity(item.child),
       }).then((result) => {
         if (!result.ok && result.error) {
-          toast.error("Could not stop the review", { description: result.error });
+          toast.error(i18n.t("composer:useShelfReviews.copy2"), { description: result.error });
         }
       });
     },
@@ -146,8 +147,8 @@ export function useShelfReviews(taskId: string) {
         delegationKey: item.child.delegationKey,
       });
       if (!saved) {
-        toast.error("Could not save the dismissed review", {
-          description: "It is hidden for this session, but may return after Stave restarts.",
+        toast.error(i18n.t("composer:useShelfReviews.copy3"), {
+          description: i18n.t("composer:useShelfReviews.description2"),
         });
       }
     },

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useId, useMemo, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -23,6 +24,7 @@ export function CollapsibleResponse(props: {
   /** Names what "Show all" expands, for assistive technology. */
   label?: string;
 }) {
+  useTranslation();
   const collapsible = useMemo(
     () => shouldCollapseResponse(props.text),
     [props.text],
@@ -55,12 +57,12 @@ export function CollapsibleResponse(props: {
             aria-controls={bodyId}
             aria-label={
               props.label
-                ? `${expanded ? "Show less of" : "Show all of"} ${props.label}`
+                ? `${expanded ? i18n.t("composer:collapsibleResponse.extraCopy49") : i18n.t("composer:collapsibleResponse.extraCopy50")} ${props.label}`
                 : undefined
             }
             onClick={() => setExpanded((value) => !value)}
           >
-            {expanded ? "Show less" : "Show all"}
+            {expanded ? i18n.t("composer:collapsibleResponse.collapsibleResponse") : i18n.t("composer:collapsibleResponse.collapsibleResponse2")}
           </Button>
         ) : null}
       </div>

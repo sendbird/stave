@@ -1,3 +1,5 @@
+import { i18n } from "@/i18n/runtime";
+import { formatNumber } from "@/i18n/format";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
 /**
@@ -102,7 +104,7 @@ export function computePromptCacheStats(args: {
 export function formatCacheHitLabel(stats: PromptCacheStats) {
   return stats.cacheHitPercent === null || !stats.cacheReported
     ? null
-    : `${stats.cacheHitPercent}% cached`;
+    : i18n.t("providers:cache.hit", { percent: stats.cacheHitPercent });
 }
 
 /**
@@ -211,21 +213,11 @@ export function detectPromptCacheMiss(args: {
 
 /** `"likely cause: model changed (claude-opus-5 → claude-sonnet-5)"`. */
 export function formatPromptCacheMissLabel(miss: PromptCacheMiss) {
-  const tokens = miss.rebuiltTokens > 0
-    ? ` · ${miss.rebuiltTokens.toLocaleString()} tokens re-cached`
-    : "";
+  const tokens = miss.rebuiltTokens > 0 ? i18n.t("providers:cache.rebuilt", { count: miss.rebuiltTokens, tokens: formatNumber(miss.rebuiltTokens) }) : "";
   switch (miss.cause) {
-    case "provider_changed":
-      return `likely cause: provider changed${tokens}`;
-    case "model_changed":
-      return `likely cause: model changed${
-        miss.previousModel && miss.model
-          ? ` (${miss.previousModel} → ${miss.model})`
-          : ""
-      }${tokens}`;
-    case "session_changed":
-      return `likely cause: new provider session${tokens}`;
-    case "context_rebuilt":
-      return `context re-read uncached${tokens}`;
+    case "provider_changed": return i18n.t("providers:cache.providerChanged", { tokens });
+    case "model_changed": return i18n.t("providers:cache.modelChanged", { tokens, modelChange: miss.previousModel && miss.model ? ` (${miss.previousModel} → ${miss.model})` : "" });
+    case "session_changed": return i18n.t("providers:cache.sessionChanged", { tokens });
+    case "context_rebuilt": return i18n.t("providers:cache.contextRebuilt", { tokens });
   }
 }

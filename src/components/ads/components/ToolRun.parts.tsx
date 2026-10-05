@@ -1,3 +1,5 @@
+import { i18n } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import * as React from "react";
 
 import { agentStatusWord, agentSurface } from "../recipes/agent-surface";
@@ -130,7 +132,7 @@ export function aggregateRunStatus(
 
 /** "4 tool calls" — the roll-up's own title. */
 export function defaultRollupSummary(count: number): string {
-  return `${count} tool ${count === 1 ? "call" : "calls"}`;
+  return i18n.t("ui:toolRunParts.callCount", { count });
 }
 
 /**
@@ -213,6 +215,7 @@ export function ToolRunSummary({
   tool,
   xstyle,
 }: ToolRunSummaryProps) {
+  useTranslation();
   const loaderVariant = toolLoaderVariant(status);
   const word = statusLabel ?? agentStateLabel[status];
   /*

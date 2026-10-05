@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { ProviderWorkGraphCapabilities } from "@/lib/providers/provider.types";
 import {
   isTerminalWorkGraphStatus,
@@ -192,7 +193,7 @@ export function summarizeWorkGraph(graph: WorkGraph): WorkGraphSummary {
     failedCount: failed,
     completedCount: completed,
     maxDepth,
-    label: parts.join(" · ") || "No agents",
+    label: parts.join(" · ") || i18n.t("workspace:workGraphTree.noAgents"),
   };
 }
 
@@ -241,17 +242,17 @@ export function resolveWorkGraphControls(args: {
     return {
       available: [],
       reason:
-        "This provider does not name the agent behind this call, so it cannot be steered on its own.",
+        i18n.t("workspace:additionalCopy.message40"),
     };
   }
   if (isTerminalWorkGraphStatus(node.status)) {
-    return { available: [], reason: "This agent has already finished." };
+    return { available: [], reason: i18n.t("workspace:additionalCopy.message41") };
   }
   const identity = node.delegationKey ?? node.agentId;
   if (!identity || !liveIdentities.has(identity)) {
     return {
       available: [],
-      reason: "This agent is no longer running in the current turn.",
+      reason: i18n.t("workspace:additionalCopy.message42"),
     };
   }
   if (node.identitySource === "ledger") {
@@ -273,7 +274,7 @@ export function resolveWorkGraphControls(args: {
   if (available.length === 0) {
     return {
       available,
-      reason: "This provider cannot steer one agent without ending the turn.",
+      reason: i18n.t("workspace:additionalCopy.message43"),
     };
   }
   return { available };
@@ -302,4 +303,16 @@ export function collectLiveWorkGraphIdentities(graph: WorkGraph) {
     }
   }
   return live;
+}
+
+/** Translate generated fallback labels when presenting a saved graph, without mutating its identities. */
+export function getWorkGraphFallbackLabel(value: string): string {
+  switch (value) {
+    case "Agent": return i18n.t("workspace:workGraph.unnamedAgent");
+    case "This turn": return i18n.t("workspace:workGraphReducer.thisTurn");
+    case "Delegated work": return i18n.t("workspace:workGraphReducer.delegatedWork");
+    case "Approval needed": return i18n.t("workspace:workGraphReducer.approvalNeeded");
+    case "Question for you": return i18n.t("workspace:workGraphReducer.questionForYou");
+    default: return value;
+  }
 }

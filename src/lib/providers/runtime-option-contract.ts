@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import type {
   ClaudeSettingSource,
@@ -19,8 +20,8 @@ export const PROVIDER_TIMEOUT_OPTIONS = [
 export const DEFAULT_PROVIDER_TIMEOUT_MS = 43200000;
 
 export const BOOLEAN_TOGGLE_OPTIONS = [
-  { value: "on", label: "On" },
-  { value: "off", label: "Off" },
+  { value: "on", get label() { return i18n.t("common:status.on"); } },
+  { value: "off", get label() { return i18n.t("common:status.off"); } },
 ] as const satisfies readonly SelectOption<"on" | "off">[];
 
 export const CLAUDE_PERMISSION_MODE_OPTIONS = [
@@ -35,36 +36,36 @@ export const CLAUDE_PERMISSION_MODE_OPTIONS = [
 >[];
 
 export const CLAUDE_PLAN_MODE_APPROVAL_SCOPE_OPTIONS = [
-  { value: "strict", label: "Strict" },
-  { value: "bash", label: "Read-only Bash" },
-  { value: "bashAndTask", label: "Bash + Subagents" },
-  { value: "bashTaskAndMcp", label: "Bash + Subagents + MCP reads" },
+  { value: "strict", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.strict.label"); } },
+  { value: "bash", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bash.label"); } },
+  { value: "bashAndTask", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashAndTask.label"); } },
+  { value: "bashTaskAndMcp", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashTaskAndMcp.label"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["claudePlanModeApprovalScope"]>
 >[];
 
 export const CLAUDE_THINKING_OPTIONS = [
-  { value: "adaptive", label: "Adaptive" },
-  { value: "enabled", label: "Enabled" },
-  { value: "disabled", label: "Disabled" },
+  { value: "adaptive", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.adaptive.label"); } },
+  { value: "enabled", get label() { return i18n.t("common:status.enabled"); } },
+  { value: "disabled", get label() { return i18n.t("common:status.disabled"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["claudeThinkingMode"]>
 >[];
 
 export const CLAUDE_EFFORT_OPTIONS = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
+  { value: "low", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.low"); } },
+  { value: "medium", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.medium"); } },
+  { value: "high", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.high"); } },
   { value: "xhigh", label: "X-High" },
-  { value: "max", label: "Max" },
+  { value: "max", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.max"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["claudeEffort"]>
 >[];
 
 export const CLAUDE_SETTING_SOURCE_OPTIONS = [
-  { value: "project", label: "Repository" },
-  { value: "local", label: "Local" },
-  { value: "user", label: "User" },
+  { value: "project", get label() { return i18n.t("providers:runtimeOptionContract.repository"); } },
+  { value: "local", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.settingSources.options.local.label"); } },
+  { value: "user", get label() { return i18n.t("settingsProviders:mcpConfigEditor.editor.scopes.user"); } },
 ] as const satisfies readonly SelectOption<ClaudeSettingSource>[];
 
 export const CODEX_APPROVAL_POLICY_OPTIONS = [
@@ -88,12 +89,12 @@ export const CODEX_SANDBOX_MODE_OPTIONS = [
 // no longer selectable; legacy persisted values still validate and map to
 // "low" at runtime (see resolveCodexAppServerReasoningEffort).
 export const CODEX_EFFORT_OPTIONS = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
+  { value: "low", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.low"); } },
+  { value: "medium", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.medium"); } },
+  { value: "high", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.high"); } },
   { value: "xhigh", label: "X-High" },
-  { value: "max", label: "Max" },
-  { value: "ultra", label: "Ultra" },
+  { value: "max", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.max"); } },
+  { value: "ultra", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.ultra"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
 >[];
@@ -102,9 +103,9 @@ export const CODEX_EFFORT_OPTIONS = [
 // `agent acp`. The flags are absent from `agent acp --help` but are accepted,
 // and `--force` was confirmed to suppress every `session/request_permission`.
 export const CURSOR_APPROVAL_MODE_OPTIONS = [
-  { value: "manual", label: "Manual" },
-  { value: "guided", label: "Guided" },
-  { value: "auto", label: "Auto" },
+  { value: "manual", get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); } },
+  { value: "guided", get label() { return i18n.t("providers:providerModePresets.guided"); } },
+  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["cursorApprovalMode"]>
 >[];
@@ -114,18 +115,18 @@ export const CURSOR_APPROVAL_MODE_OPTIONS = [
 // accepts unknown tool names without error, so a Guided preset built on it
 // would silently degrade to Manual instead of failing loudly.
 export const KIRO_APPROVAL_MODE_OPTIONS = [
-  { value: "manual", label: "Manual" },
-  { value: "auto", label: "Auto" },
+  { value: "manual", get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); } },
+  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["kiroApprovalMode"]>
 >[];
 
 export const KIRO_EFFORT_OPTIONS = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
+  { value: "low", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.low"); } },
+  { value: "medium", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.medium"); } },
+  { value: "high", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.high"); } },
   { value: "xhigh", label: "X-High" },
-  { value: "max", label: "Max" },
+  { value: "max", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.max"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["kiroEffort"]>
 >[];
@@ -152,37 +153,37 @@ export function listCodexEffortOptionsForModel(args: {
 }
 
 export const CODEX_WEB_SEARCH_OPTIONS = [
-  { value: "cached", label: "Cached" },
-  { value: "disabled", label: "Disabled" },
-  { value: "indexed", label: "Indexed" },
-  { value: "live", label: "Live" },
+  { value: "cached", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.cached.label"); } },
+  { value: "disabled", get label() { return i18n.t("common:status.disabled"); } },
+  { value: "indexed", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.indexed.label"); } },
+  { value: "live", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.live.label"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["codexWebSearch"]>
 >[];
 
 export const CODEX_APP_TOOL_APPROVAL_MODE_OPTIONS = [
-  { value: "inherit", label: "Inherit" },
-  { value: "auto", label: "Auto" },
-  { value: "prompt", label: "Prompt" },
-  { value: "writes", label: "Writes" },
-  { value: "approve", label: "Approve" },
+  { value: "inherit", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.inherit.label"); } },
+  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
+  { value: "prompt", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.prompt.label"); } },
+  { value: "writes", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.writes.label"); } },
+  { value: "approve", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.approve.label"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["codexAppToolApprovalMode"]>
 >[];
 
 export const CODEX_REASONING_SUMMARY_OPTIONS = [
-  { value: "auto", label: "Auto" },
-  { value: "concise", label: "Concise" },
-  { value: "detailed", label: "Detailed" },
-  { value: "none", label: "None" },
+  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
+  { value: "concise", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.concise.label"); } },
+  { value: "detailed", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoningSummary.options.detailed.label"); } },
+  { value: "none", get label() { return i18n.t("common:status.none"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["codexReasoningSummary"]>
 >[];
 
 export const CODEX_REASONING_SUPPORT_OPTIONS = [
-  { value: "auto", label: "Auto" },
-  { value: "enabled", label: "Enabled" },
-  { value: "disabled", label: "Disabled" },
+  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
+  { value: "enabled", get label() { return i18n.t("common:status.enabled"); } },
+  { value: "disabled", get label() { return i18n.t("common:status.disabled"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["codexReasoningSummarySupport"]>
 >[];
@@ -323,9 +324,9 @@ export function formatProviderTimeoutLabel(value: number) {
   const minutes = Math.round(value / 60000);
   if (minutes >= 60) {
     const hours = minutes / 60;
-    return hours === 1 ? `${hours} hour` : `${hours} hours`;
+    return i18n.t("providers:duration.hours", { count: hours });
   }
-  return `${minutes} min`;
+  return i18n.t("providers:duration.minutes", { count: minutes });
 }
 
 export function formatTitleCaseRuntimeValue(value: string) {
@@ -350,7 +351,7 @@ export function formatShortRuntimePath(value: string) {
 
 export function formatClaudeSettingSources(value: ClaudeSettingSource[]) {
   if (value.length === 0) {
-    return "None";
+    return i18n.t("common:status.none");
   }
   return value
     .map((source) => findOptionLabel(CLAUDE_SETTING_SOURCE_OPTIONS, source))
@@ -359,7 +360,7 @@ export function formatClaudeSettingSources(value: ClaudeSettingSource[]) {
 
 export function formatTokenBudget(value: number) {
   if (value <= 0) {
-    return "Off";
+    return i18n.t("common:status.off");
   }
   if (value >= 1000) {
     const compact =

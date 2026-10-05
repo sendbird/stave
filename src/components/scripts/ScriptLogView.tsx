@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Check, Copy, Maximize2, Minimize2, Trash2 } from "lucide-react";
 import { Button, toast } from "@/components/ui";
@@ -30,6 +31,7 @@ export interface ScriptLogViewProps {
  * while new output streams, and exposes copy/clear/expand affordances.
  */
 export function ScriptLogView(props: ScriptLogViewProps) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   const { log, running, error, exitCode, startedAt, endedAt, onClear } = props;
   const expandable = props.expandable ?? true;
 
@@ -39,7 +41,7 @@ export function ScriptLogView(props: ScriptLogViewProps) {
   const [showJump, setShowJump] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const displayLog = useMemo(() => stripAnsiControlSequences(log), [log]);
+  const displayLog = useMemo(() => stripAnsiControlSequences(log), [log, i18n.resolvedLanguage]);
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -81,7 +83,7 @@ export function ScriptLogView(props: ScriptLogViewProps) {
       await copyTextToClipboard(displayLog);
       setCopied(true);
     } catch {
-      toast.error("Copy failed");
+      toast.error(tI18n("scripts:scriptLogView.copyFailed"));
     }
   }, [displayLog]);
 
@@ -93,7 +95,7 @@ export function ScriptLogView(props: ScriptLogViewProps) {
       return "";
     }
     return formatScriptDuration(endedAt - startedAt);
-  }, [startedAt, endedAt]);
+  }, [startedAt, endedAt, i18n.resolvedLanguage]);
 
   const hasLog = displayLog.length > 0;
   const showFooter =
@@ -115,8 +117,8 @@ export function ScriptLogView(props: ScriptLogViewProps) {
                 variant="ghost"
                 xstyle={logStyles.action}
                 onClick={() => void handleCopy()}
-                title="Copy log"
-                aria-label="Copy log"
+                title={tI18n("scripts:scriptLogView.copyLog")}
+                aria-label={tI18n("scripts:scriptLogView.copyLog")}
               >
                 {copied ? <Check className={sx(logStyles.icon, logStyles.success)} /> : <Copy className={sx(logStyles.icon)} />}
               </Button>
@@ -127,8 +129,8 @@ export function ScriptLogView(props: ScriptLogViewProps) {
                   variant="ghost"
                   xstyle={logStyles.action}
                   onClick={onClear}
-                  title="Clear log"
-                  aria-label="Clear log"
+                  title={tI18n("scripts:scriptLogView.clearLog")}
+                  aria-label={tI18n("scripts:scriptLogView.clearLog")}
                 >
                   <Trash2 className={sx(logStyles.icon)} />
                 </Button>
@@ -140,8 +142,8 @@ export function ScriptLogView(props: ScriptLogViewProps) {
                   variant="ghost"
                   xstyle={logStyles.action}
                   onClick={() => setExpanded((value) => !value)}
-                  title={expanded ? "Collapse log" : "Expand log"}
-                  aria-label={expanded ? "Collapse log" : "Expand log"}
+                  title={expanded ? tI18n("scripts:scriptLogView.collapseLog") : tI18n("scripts:scriptLogView.expandLog")}
+                  aria-label={expanded ? tI18n("scripts:scriptLogView.collapseLog") : tI18n("scripts:scriptLogView.expandLog")}
                 >
                   {expanded ? <Minimize2 className={sx(logStyles.icon)} /> : <Maximize2 className={sx(logStyles.icon)} />}
                 </Button>
@@ -163,8 +165,7 @@ export function ScriptLogView(props: ScriptLogViewProps) {
                 onClick={scrollToBottom}
               >
                 <ArrowDown className={sx(logStyles.smallIcon)} />
-                Jump to bottom
-              </Button>
+                {tI18n("scripts:scriptLogView.jumpToBottom")}</Button>
             ) : null}
           </>
         ) : null}
@@ -178,8 +179,8 @@ export function ScriptLogView(props: ScriptLogViewProps) {
         <div className={sx(logStyles.footer)}>
           {exitCode !== undefined ? (
             <span className={sx(logStyles.exit, exitCode === 0 ? logStyles.success : logStyles.failed)}>
-              Exit {exitCode}
-            </span>
+          {tI18n("scripts:scriptLogView.exitStatus", { code: exitCode })}
+        </span>
           ) : null}
           {durationLabel ? <span>· {durationLabel}</span> : null}
         </div>

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -17,6 +18,7 @@ export function TagField(props: {
   maxLength?: number;
   onChange: (values: string[]) => void;
 }) {
+  useTranslation();
   const [entry, setEntry] = useState("");
   const add = () => {
     const value = entry.trim();
@@ -33,7 +35,7 @@ export function TagField(props: {
             size="sm"
             variant="quiet"
             iconOnly
-            aria-label={`Remove ${value}`}
+            aria-label={i18n.t("agents:tagField.ariaLabel", { value1: value })}
             xstyle={agentStyles.tagRemove}
             onClick={() => props.onChange(props.values.filter((candidate) => candidate !== value))}
           >
@@ -45,7 +47,7 @@ export function TagField(props: {
         <TextField
           size="sm"
           controlOnly
-          aria-label={`Add to ${props.label}`}
+          aria-label={i18n.t("agents:tagField.ariaLabel2", { value1: props.label })}
           placeholder={props.placeholder}
           value={entry}
           maxLength={props.maxLength}

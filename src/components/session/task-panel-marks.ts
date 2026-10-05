@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { WorkState } from "@/components/ads/components/state-vocabulary";
 
 /**
@@ -22,13 +23,13 @@ export function resolveActivityTabMark(args: {
   pendingInteraction: string | null;
 }): TaskTabMark | null {
   if (args.pendingInteraction === "approval") {
-    return { kind: "state", state: "approval", label: "Approval needed" };
+    return { kind: "state", state: "approval", label: i18n.t("session:taskPanelMarks.label") };
   }
   if (args.pendingInteraction === "user_input") {
-    return { kind: "state", state: "needs-you", label: "Input needed" };
+    return { kind: "state", state: "needs-you", label: i18n.t("session:taskPanelMarks.label2") };
   }
   if (args.running) {
-    return { kind: "state", state: "working", label: "Running" };
+    return { kind: "state", state: "working", label: i18n.t("session:taskPanelMarks.label3") };
   }
   return null;
 }
@@ -57,7 +58,7 @@ export function resolveSubagentsTabMark(runningCount: number): TaskTabMark | nul
     kind: "count",
     count: runningCount,
     text: formatTaskTabCount(runningCount),
-    label: `${runningCount} running`,
+    label: i18n.t("session:remaining.presentationCopy374", { v1: runningCount }),
   };
 }
 
@@ -68,6 +69,6 @@ export function resolveResultsTabMark(pendingReviews: number): TaskTabMark | nul
     kind: "count",
     count: pendingReviews,
     text: formatTaskTabCount(pendingReviews),
-    label: `${pendingReviews} to review`,
+    label: i18n.t("session:taskPanelMarks.label4", { value1: pendingReviews }),
   };
 }

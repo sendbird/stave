@@ -176,6 +176,7 @@ function buildFallbackTitleFromBranch(headBranch?: string) {
   const cleanedBranch = formatSubjectTokens(
     branchSegments.flatMap((segment) => tokenizeBranchSegment(segment)),
   );
+  // i18n-ignore: generated Conventional Commit content remains canonical English
   return cleanedBranch ? `chore: update ${cleanedBranch}` : "chore: update branch";
 }
 

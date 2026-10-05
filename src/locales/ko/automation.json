@@ -1,0 +1,349 @@
+{
+  "automationCenterView": {
+    "automationServiceIsUnavailable": "자동화 서비스를 사용할 수 없습니다.",
+    "failedToSaveAutomation": "자동화를 저장하지 못했습니다.",
+    "scheduleUpdated": "일정 업데이트됨",
+    "scheduleCreated": "일정 생성됨",
+    "failedToStartAutomation": "자동화를 시작하지 못했습니다.",
+    "scheduleStarted": "일정 시작됨",
+    "failedToUpdateAutomation": "자동화를 업데이트하지 못했습니다.",
+    "failedToDeleteAutomation": "자동화를 삭제하지 못했습니다.",
+    "scheduleDeleted": "일정 삭제됨",
+    "schedulesAreAvailableInTheStaveDesktop": "Stave 데스크톱 앱에서 일정을 사용할 수 있습니다.",
+    "failedToUpdateTheSchedule": "일정을 업데이트하지 못했습니다.",
+    "failedToRemoveTheSchedule": "일정을 제거하지 못했습니다.",
+    "scheduleRemoved": "일정 제거됨",
+    "thisAutomationSTaskConversationCouldNot": "이 자동화의 작업 대화를 찾지 못했습니다.",
+    "schedules": "일정",
+    "workThatRunsOnItsOwnAnd": "자동으로 실행할 작업과 최근 결과를 확인합니다.",
+    "newSchedule": "새 일정",
+    "openValue": "{{WORKSPACE_TOOLS_LABEL}} 열기",
+    "refreshSchedules": "일정 새로 고침",
+    "refresh": "새로 고침",
+    "closeSchedules": "일정 닫기",
+    "scheduleViews": "일정 보기",
+    "runsWhileStaveIsOpenAfterReopening": "Stave가 열려 있는 동안 실행합니다. 다시 열면 놓친 실행을 한 번 수행합니다.",
+    "filterRunsByAutomation": "자동화별 실행 필터",
+    "allAutomations": "모든 자동화",
+    "shown": "표시됨",
+    "loadingSchedules": "일정 불러오는 중",
+    "restoringSchedulesExecutionPolicyAndRunHistory": "일정, 실행 정책과 실행 기록을 복원합니다.",
+    "noSchedulesYet": "일정 없음",
+    "startATaskOnACadenceOr": "주기적으로 작업을 시작하거나 기존 작업을 다시 확인합니다.",
+    "selectSchedule": "일정 선택",
+    "selectASchedule": "일정 선택",
+    "concurrencyLimitReached": "동시 실행 한도에 도달함",
+    "runNow": "즉시 실행",
+    "editSchedule": "일정 편집",
+    "edit": "편집",
+    "status": "상태",
+    "cadence": "주기",
+    "nextRun": "다음 실행",
+    "lastRun": "마지막 실행",
+    "permissions": "권한",
+    "provider": "프로바이더",
+    "repository": "저장소",
+    "concurrency": "동시 실행",
+    "viewRunHistory": "실행 기록 보기",
+    "pauseSchedule": "일정 일시 중지",
+    "enableSchedule": "일정 활성화",
+    "waitForActiveRunsToFinish": "진행 중인 실행이 끝날 때까지 대기",
+    "deleteSchedule": "일정 삭제",
+    "delete": "삭제",
+    "selectAScheduleToSeeItsConfiguration": "구성을 보려면 일정을 선택합니다.",
+    "noMatchingRuns": "일치하는 실행 없음",
+    "everyManualOrScheduledExecutionIsRecorded": "모든 수동 또는 예약 실행의 실행 ID, 구성 해시, 권한과 결과를 여기에 기록합니다.",
+    "selectARunToSeeItsFull": "전체 결과를 보려면 실행을 선택합니다.",
+    "deleteValueAndItsSavedRunHistory": "\"{{value1}}\" 일정과 저장된 실행 기록을 삭제하시겠습니까? 생성된 작업 대화는 워크스페이스에 유지합니다.",
+    "removeSchedule": "일정 제거",
+    "removeThisCheckBackAndItsHistory": "이 다시 확인 일정과 기록을 제거하시겠습니까? 작업 자체는 유지합니다.",
+    "remove": "제거",
+    "shownCount": "{{count}}개 표시됨",
+    "accessibility": {
+      "closeSchedules": "일정 닫기"
+    }
+  },
+  "automationEditor": {
+    "when": "시점",
+    "runsOnlyWhileStaveIsOpenA": "Stave가 열려 있는 동안만 실행합니다. 앱이 닫힌 동안 놓친 실행은 다시 열 때 한 번 수행합니다. 사용자 지정으로 정확한 간격을 설정합니다.",
+    "every": "반복 간격",
+    "unit": "단위",
+    "days": "요일",
+    "runDays": "실행 요일",
+    "startTime": "시작 시간",
+    "localWallClockTimeRunsKeepThis": "현지 시각입니다. 서머타임이 변경돼도 이 시각을 유지합니다.",
+    "nextRunValue": " · 다음 실행 {{value1}}",
+    "manualOnlyThisScheduleRunsWhenYou": "수동 전용 — 즉시 실행을 누르면 실행합니다.",
+    "permissions": "권한",
+    "howMuchThisAutomationMayDoOn": "무인 실행 중 자동화가 수행할 수 있는 동작의 범위입니다.",
+    "recommended": "권장",
+    "permissionMode": "권한 모드",
+    "sandbox": "샌드박스",
+    "allowUnsandboxedCommands": "샌드박스 외부 명령 허용",
+    "dangerouslySkipPermissions": "권한 검사 모두 건너뛰기",
+    "removesEveryClaudePermissionCheckForThis": "이 자동화의 모든 Claude 권한 검사를 해제합니다.",
+    "approvals": "승인",
+    "fileAccess": "파일 접근",
+    "webSearch": "웹 검색",
+    "networkAccess": "네트워크 접근",
+    "editSchedule": "일정 편집",
+    "newSchedule": "새 일정",
+    "startsAFreshTaskWhileTheStave": "Stave 데스크톱 앱이 열려 있는 동안 새 작업을 시작합니다.",
+    "cancel": "취소",
+    "saving": "저장 중…",
+    "save": "저장",
+    "what": "내용",
+    "name": "이름",
+    "dailyRepositoryReview": "매일 저장소 리뷰",
+    "instructions": "지침",
+    "theCompletePromptSentOnEveryRun": "매 실행마다 전송할 전체 프롬프트입니다.",
+    "reviewChangesSinceTheLastRunAnd": "마지막 실행 이후 변경 사항을 검토하고 위험을 요약합니다.",
+    "where": "위치",
+    "startsANewTaskInThisRepository": "매번 이 저장소의 기본 워크스페이스에서 새 작업을 시작합니다.",
+    "selectARepository": "저장소 선택",
+    "agent": "에이전트",
+    "effort": "추론 수준",
+    "higherEffortSpendsMoreModelBudgetOn": "추론 수준이 높으면 추론에 더 많은 모델 예산을 사용하며 각 실행의 응답 시간이 늘어납니다.",
+    "concurrentRuns": "동시 실행 수",
+    "occurrencesBeyondTheLimitAreRecordedAs": "한도를 넘는 실행은 건너뜀으로 기록합니다.",
+    "informationResources": "정보 리소스",
+    "valueAttached": "{{propsdraftinformationReferencesCount}}개 첨부됨",
+    "eachResourceIsCreatedInTheRepository": "각 리소스는 저장소 기본 워크스페이스에 생성하며 즉시 첨부하고 매 실행마다 다시 읽습니다.",
+    "selectARepositoryBeforeAttachingInformation": "정보를 첨부하기 전에 저장소를 선택합니다.",
+    "refreshingInformationResources": "정보 리소스 새로 고치는 중…",
+    "noInformationAttachedYetAddAResource": "첨부된 정보가 없습니다. 위에서 리소스를 추가해 기본 워크스페이스 항목을 만들고 첨부합니다.",
+    "injectsValueIntoEachRun": "매 실행마다 {{value1}} 리소스를 주입합니다."
+  },
+  "automationLatestRun": {
+    "latestRun": "최신 실행",
+    "noRunsYetUseRunNowOr": "실행이 없습니다. 즉시 실행을 사용하거나 다음 예약 시점을 기다립니다.",
+    "scheduled": "예약됨",
+    "manual": "수동",
+    "openTask": "작업 열기",
+    "openRunDetail": "실행 세부 정보 열기"
+  },
+  "automationRunDetail": {
+    "removedAutomation": "제거된 자동화",
+    "schedule": "일정",
+    "manual": "수동",
+    "started": "시작됨",
+    "runAgain": "다시 실행",
+    "openTask": "작업 열기",
+    "trigger": "트리거",
+    "permissions": "권한",
+    "duration": "실행 시간",
+    "scheduledFor": "예약 시점",
+    "completed": "완료됨",
+    "repository": "저장소",
+    "model": "모델",
+    "configHash": "구성 해시",
+    "executionId": "실행 ID",
+    "copyExecutionId": "실행 ID 복사",
+    "skipReason": "건너뛴 이유",
+    "error": "오류",
+    "result": "결과",
+    "completedWithoutATextResponseOpenThe": "텍스트 응답 없이 완료됐습니다. 도구 출력을 확인하려면 작업을 엽니다.",
+    "waitingForApprovalOrUserInputOpen": "승인 또는 사용자 입력을 기다리고 있습니다. 응답하려면 작업을 엽니다.",
+    "theTaskIsStillRunning": "작업이 아직 실행 중입니다.",
+    "noResultWasRecordedForThisRun": "이 실행에 기록된 결과가 없습니다.",
+    "instructions": "지침",
+    "startedAt": "시작 {{relative}} · {{date}}"
+  },
+  "checkBackDetail": {
+    "editSchedule": "일정 편집",
+    "edit": "편집",
+    "status": "상태",
+    "when": "시점",
+    "next": "다음",
+    "checked": "확인됨",
+    "pause": "일시 중지",
+    "resume": "재개",
+    "remove": "제거"
+  },
+  "checkBackEditor": {
+    "pickATaskToCheckBackOn": "다시 확인할 작업을 선택합니다.",
+    "schedulesAreAvailableInTheStaveDesktop": "Stave 데스크톱 앱에서 일정을 사용할 수 있습니다.",
+    "failedToSaveTheSchedule": "일정을 저장하지 못했습니다.",
+    "scheduleUpdated": "일정 업데이트됨",
+    "scheduleCreated": "일정 생성됨",
+    "editSchedule": "일정 편집",
+    "newSchedule": "새 일정",
+    "resumesTheSameTaskWhileTheStave": "Stave 데스크톱 앱이 열려 있는 동안 같은 작업을 재개합니다.",
+    "cancel": "취소",
+    "saving": "저장 중…",
+    "save": "저장",
+    "what": "내용",
+    "instructions": "지침",
+    "sentToTheTaskEachTimeIt": "다시 확인할 때마다 작업에 전송합니다. 작업의 에이전트를 사용합니다.",
+    "where": "위치",
+    "resumesThisTaskInItsOwnSession": "이 작업을 자체 세션에서 재개하며 새 세션을 시작하지 않습니다.",
+    "task": "작업",
+    "selectATask": "작업 선택",
+    "when": "시점",
+    "onACadence": "주기적으로",
+    "whenSubagentsFinish": "하위 에이전트가 완료되면"
+  },
+  "scheduleKindSwitch": {
+    "where": "위치",
+    "newTaskInARepository": "저장소에 새 작업 만들기",
+    "anExistingTask": "기존 작업"
+  },
+  "scheduleRows": {
+    "pause": "일시 중지",
+    "turnOn": "켜기",
+    "resume": "재개",
+    "nextValue": "다음 {{value1}}",
+    "schedules": "일정",
+    "runValueNow": "지금 {{value1}} 실행",
+    "runNow": "즉시 실행",
+    "notRunYet": "아직 실행하지 않음",
+    "checkedValue": "{{checked}}회 확인됨",
+    "notYet": "아직 없음",
+    "startATask": "작업 시작",
+    "checkBackOnATask": "작업 다시 확인",
+    "on": "켜짐",
+    "paused": "일시 중지됨",
+    "stopped": "중지됨",
+    "manual": "수동",
+    "running": "실행 중",
+    "waiting": "대기 중",
+    "done": "완료됨",
+    "failed": "실패",
+    "skipped": "건너뜀"
+  },
+  "automationCenter": {
+    "running": "실행 중",
+    "waiting": "대기 중",
+    "completed": "완료됨",
+    "failed": "실패",
+    "skipped": "건너뜀",
+    "all": "전체",
+    "active": "활성"
+  },
+  "scheduleText": {
+    "every": {
+      "minutes_other": "{{count}}분마다",
+      "hours_other": "{{count}}시간마다",
+      "days_other": "{{count}}일마다",
+      "daysAt_other": "{{count}}일마다 {{time}}에",
+      "weeks_other": "{{count}}주마다",
+      "weeksAt_other": "{{count}}주마다 {{time}}에",
+      "weeksOn_other": "{{count}}주마다 {{days}}에",
+      "weeksOnAt_other": "{{count}}주마다 {{days}} {{time}}에"
+    },
+    "everyOne": {
+      "minutes": "매분",
+      "hours": "매시간",
+      "days": "매일",
+      "daysAt": "매일 {{time}}에",
+      "weeks": "매주",
+      "weeksAt": "매주 {{time}}에",
+      "weeksOn": "매주 {{days}}에",
+      "weeksOnAt": "매주 {{days}} {{time}}에"
+    },
+    "sets": {
+      "everyDay": "매일",
+      "everyDayAt": "매일 {{time}}에",
+      "workweek": "평일마다",
+      "workweekAt": "평일마다 {{time}}에",
+      "weekend": "주말마다",
+      "weekendAt": "주말마다 {{time}}에"
+    },
+    "setNames": {
+      "everyDay": "매일",
+      "workweek": "평일",
+      "weekend": "주말"
+    }
+  },
+  "editor": {
+    "cadence": {
+      "presets": {
+        "manual": {
+          "label": "수동 전용",
+          "detail": "즉시 실행을 누르면 실행합니다."
+        },
+        "every15Minutes": {
+          "label": "15분마다",
+          "detail": "자주 확인합니다. 동시 실행 한도를 확인합니다."
+        },
+        "hourly": {
+          "label": "매시간",
+          "detail": "마지막 실행부터 한 시간마다 실행합니다."
+        },
+        "daily": {
+          "label": "매일",
+          "detail": "현지 시각으로 하루에 한 번 실행합니다."
+        },
+        "weekdays": {
+          "label": "평일",
+          "detail": "월요일부터 금요일까지 실행합니다."
+        },
+        "weekends": {
+          "label": "주말",
+          "detail": "토요일과 일요일에 실행합니다."
+        },
+        "weekly": {
+          "label": "매주",
+          "detail": "매주 선택한 요일에 실행합니다."
+        },
+        "custom": {
+          "label": "사용자 지정",
+          "detail": "간격과 요일을 직접 설정합니다."
+        }
+      }
+    },
+    "permissions": {
+      "modes": {
+        "auto": {
+          "label": "자동",
+          "summary": "완전 무인 실행",
+          "description": "무인 예약 실행이므로 모든 프로바이더 동작, MCP 도구와 Lens 동작을 승인 요청 없이 실행합니다. 설정 > Lens에서 Lens 개발자 모드를 활성화해야 합니다."
+        },
+        "guided": {
+          "label": "안내",
+          "summary": "민감한 동작 전 승인 요청",
+          "description": "민감한 프로바이더 동작에는 엄격한 승인 절차를 적용하므로 실행이 일시 중지되고 작업에서 승인을 기다릴 수 있습니다."
+        },
+        "manual": {
+          "label": "수동",
+          "summary": "직접 설정한 권한 적용",
+          "description": "가드레일을 건너뛰고 아래에서 직접 설정한 프로바이더 권한으로 실행합니다."
+        }
+      },
+      "summary": {
+        "on": "켜짐",
+        "off": "꺼짐",
+        "codex": "승인 {{approvals}} · 파일 {{files}} · 네트워크 {{network}} · 웹 {{web}}",
+        "claude": "권한 {{mode}} · 샌드박스 {{sandbox}} · 샌드박스 외부 {{unsandboxed}} · 승인 건너뛰기 {{skipPrompts}}"
+      }
+    },
+    "units": {
+      "minutes": "분",
+      "hours": "시간",
+      "days": "일",
+      "weeks": "주"
+    }
+  },
+  "validation": {
+    "schedule": {
+      "timeNeedsDayOrWeek": "시작 시간은 일 단위 또는 주 단위 일정에만 적용합니다.",
+      "weekdayNeedsWeek": "시작 요일은 주 단위 일정에만 적용합니다.",
+      "weekdayNeedsTime": "시작 요일에는 시작 시간이 필요합니다.",
+      "weekdaysNeedWeek": "시작 요일은 주 단위 일정에만 적용합니다.",
+      "weekdaysNeedTime": "시작 요일에는 시작 시간이 필요합니다.",
+      "weekdaysUnique": "시작 요일은 중복될 수 없습니다.",
+      "weekdayOrWeekdays": "시작 요일 한 개 또는 여러 개 중 하나만 사용합니다."
+    },
+    "invalid": "유효하지 않은 자동화입니다.",
+    "name": "자동화 이름을 입력합니다.",
+    "instructions": "유효한 자동화 지침을 입력합니다.",
+    "repository": "유효한 저장소를 선택합니다.",
+    "invalidWithDetail": "유효하지 않은 자동화입니다: {{detail}}"
+  },
+  "additionalCopy": {
+    "message20": "자동화를 불러오지 못했습니다.",
+    "message21": "후속 확인을 불러오지 못했습니다: {{value1}}",
+    "message22": "후속 확인을 불러오지 못했습니다.",
+    "message38": "대기 중"
+  }
+}

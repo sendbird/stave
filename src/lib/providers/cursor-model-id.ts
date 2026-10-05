@@ -1,3 +1,4 @@
+import { i18n, type I18nKey } from "@/i18n/runtime";
 import { toHumanModelName } from "./model-catalog";
 
 const cursorDisplayNames = new Map<string, string>();
@@ -43,14 +44,14 @@ export function getCursorModelBaseId(model: string) {
   return model.split("[")[0]?.trim() || model.trim();
 }
 
-const CURSOR_EFFORT_LABELS = new Map([
-  ["low", "Low"],
-  ["medium", "Medium"],
-  ["high", "High"],
-  ["xhigh", "X-High"],
-  ["extra-high", "X-High"],
-  ["extra_high", "X-High"],
-  ["max", "Max"],
+const CURSOR_EFFORT_LABEL_KEYS = new Map<string, Extract<I18nKey, `providers:cursorLabels.${string}`>>([
+  ["low", "providers:cursorLabels.low"],
+  ["medium", "providers:cursorLabels.medium"],
+  ["high", "providers:cursorLabels.high"],
+  ["xhigh", "providers:cursorLabels.xhigh"],
+  ["extra-high", "providers:cursorLabels.xhigh"],
+  ["extra_high", "providers:cursorLabels.xhigh"],
+  ["max", "providers:cursorLabels.max"],
 ]);
 
 function toTitleCase(value: string) {
@@ -64,7 +65,8 @@ function toTitleCase(value: string) {
 
 export function formatCursorEffortLabel(effort: string) {
   const normalized = effort.trim().toLowerCase();
-  return CURSOR_EFFORT_LABELS.get(normalized) ?? toTitleCase(normalized);
+  const key = CURSOR_EFFORT_LABEL_KEYS.get(normalized);
+  return key ? i18n.t(key) : toTitleCase(normalized);
 }
 
 /**
@@ -88,14 +90,14 @@ export function listCursorModelParameterLabels(args: {
     labels.push(context.toUpperCase());
   }
   if (parameters.get("thinking") === "true") {
-    labels.push("Thinking");
+    labels.push(i18n.t("providers:cursorLabels.thinking"));
   }
   const effort = parameters.get("effort") ?? parameters.get("reasoning");
   if (effort) {
     labels.push(formatCursorEffortLabel(effort));
   }
   if (parameters.get("fast") === "true") {
-    labels.push("Fast");
+    labels.push(i18n.t("providers:cursorLabels.fast"));
   }
   const optimizeFor = parameters.get("optimize_for");
   if (args.includeOptimizeFor && optimizeFor) {

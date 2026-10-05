@@ -1,3 +1,6 @@
+import { formatPercent } from "@/i18n/format";
+import { formatNumber } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import {
   Dialog,
   DialogContent,
@@ -159,20 +162,20 @@ interface RendererMemoryMetrics {
 
 /** Map Electron process type labels to friendlier display names. */
 const processLabel: Record<string, string> = {
-  Browser: "Main",
-  Tab: "Renderer",
+  get Browser() { return i18n.t("workspace:resourcesPopover.main"); },
+  get Tab() { return i18n.t("workspace:resourcesPopover.renderer"); },
   GPU: "GPU",
-  Utility: "Utility",
-  Zygote: "Zygote",
+  get Utility() { return i18n.t("workspace:resourcesPopover.utility"); },
+  get Zygote() { return i18n.t("workspace:resourcesPopover.zygote"); },
 };
 
 const processRoleLabel: Record<ProcessMetric["role"], string> = {
-  main: "Main",
-  "host-renderer": "App renderer",
+  get main() { return i18n.t("workspace:resourcesPopover.main"); },
+  get "host-renderer"() { return i18n.t("workspace:resourcesPopover.appRenderer"); },
   "lens-guest": "Lens guest",
   gpu: "GPU",
-  utility: "Utility",
-  other: "Other",
+  get utility() { return i18n.t("workspace:resourcesPopover.utility"); },
+  get other() { return i18n.t("workspace:resourcesPopover.other"); },
 };
 
 /** Tone per Electron process type for the pills. */
@@ -194,6 +197,7 @@ export function MemoryUsagePopover({
   /** When the bar trigger's label shows; the status bar's shrink order decides. */
   barLabelXstyle?: StyleXValue;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const isBar = variant === "bar";
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"usage" | "diagnostics">("usage");
@@ -426,7 +430,7 @@ export function MemoryUsagePopover({
                         ],
                     ringSuppressed && resourceStyles.triggerRingSuppressed,
                   ]}
-                  aria-label="Resource Manager"
+                  aria-label={tI18n("workspace:resourcesPopover.resourceManager")}
                   onPointerDown={() => {
                     openedByPointerRef.current = true;
                   }}
@@ -439,15 +443,14 @@ export function MemoryUsagePopover({
               }
             >
               <Activity className={sx(resourceStyles.triggerIcon)} />
-              {isBar ? <span className={sx(barLabelXstyle)}>Resource Manager</span> : null}
+              {isBar ? <span className={sx(barLabelXstyle)}>{tI18n("workspace:resourcesPopover.resourceManager")}</span> : null}
             </DialogTrigger>
           </TooltipTrigger>
           {!open ? (
             <TooltipContent
               side={collapsed ? "right" : isBar ? "top" : "bottom"}
             >
-              Resource Manager
-            </TooltipContent>
+              {tI18n("workspace:resourcesPopover.resourceManager")}</TooltipContent>
           ) : null}
         </Tooltip>
 
@@ -460,14 +463,14 @@ export function MemoryUsagePopover({
             <div className={sx(resourceStyles.headerTitleGroup)}>
               <Activity className={sx(resourceStyles.headerIcon)} />
               <DialogTitle className={sx(resourceStyles.headerTitle)}>
-                Resource Manager
-              </DialogTitle>
+                {tI18n("workspace:resourcesPopover.resourceManager")}</DialogTitle>
             </div>
             <div className={sx(managerStyles.actions)}>
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="refresh-metrics"
+                data-testid="refresh-metrics"
+                aria-label={i18n.t("workspace:resourcesPopover.accessibility.refreshMetrics")}
                 onClick={() => {
                   setLoading(true);
                   fetchMetrics();
@@ -485,7 +488,7 @@ export function MemoryUsagePopover({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Close Resource Manager"
+                    aria-label={tI18n("workspace:resourcesPopover.closeResourceManager")}
                   />
                 }
               >
@@ -517,7 +520,7 @@ export function MemoryUsagePopover({
             <div
               className={sx(managerStyles.segmented)}
               role="group"
-              aria-label="Resource view"
+              aria-label={tI18n("workspace:resourcesPopover.resourceView")}
             >
               <Button
                 size="sm"
@@ -526,8 +529,7 @@ export function MemoryUsagePopover({
                 xstyle={managerStyles.segment}
                 onClick={() => setView("usage")}
               >
-                Workspaces and processes
-              </Button>
+                {tI18n("workspace:resourcesPopover.workspacesAndProcesses")}</Button>
               <Button
                 size="sm"
                 variant={view === "diagnostics" ? "secondary" : "ghost"}
@@ -535,8 +537,7 @@ export function MemoryUsagePopover({
                 xstyle={managerStyles.segment}
                 onClick={() => setView("diagnostics")}
               >
-                Diagnostics and storage
-              </Button>
+                {tI18n("workspace:resourcesPopover.diagnosticsAndStorage")}</Button>
             </div>
             <Button
               variant="outline"
@@ -547,8 +548,7 @@ export function MemoryUsagePopover({
               }}
             >
               <Trash2 className={sx(resourceStyles.refreshIcon)} />
-              Clean up workspaces
-            </Button>
+              {tI18n("workspace:resourcesPopover.cleanUpWorkspaces")}</Button>
           </div>
           {/* Content */}
           <div className={sx(resourceStyles.body)}>
@@ -556,7 +556,7 @@ export function MemoryUsagePopover({
               <div className={sx(resourceStyles.emptyState)}>
                 <Activity className={sx(resourceStyles.emptyIcon)} />
                 <p className={sx(resourceStyles.emptyCopy)}>
-                  {loading ? "Loading metrics…" : "Metrics unavailable"}
+                  {loading ? tI18n("workspace:resourcesPopover.loadingMetrics") : tI18n("workspace:resourcesPopover.metricsUnavailable")}
                 </p>
               </div>
             ) : (
@@ -569,7 +569,7 @@ export function MemoryUsagePopover({
                 </div>
                 <section
                   hidden={view !== "diagnostics"}
-                  aria-label="Memory diagnostics and storage"
+                  aria-label={tI18n("workspace:resourcesPopover.memoryDiagnosticsAndStorage")}
                 >
                   <div className={sx(resourceStyles.stack)}>
                     <Button
@@ -578,30 +578,26 @@ export function MemoryUsagePopover({
                       onClick={() => void fetchStorageReport()}
                     >
                       <Search className={sx(resourceStyles.refreshIcon)} />
-                      Scan app storage
-                    </Button>
+                      {tI18n("workspace:resourcesPopover.scanAppStorage")}</Button>
                     <div className={sx(resourceStyles.detailGrid)}>
                       <span className={sx(resourceStyles.detailKey)}>
-                        Main process
-                      </span>
+                        {tI18n("workspace:resourcesPopover.mainProcess")}</span>
                       <span className={sx(resourceStyles.detailValue)}>
                         {mainPrivateBytes !== null
-                          ? `${formatBytes(mainPrivateBytes)} · RSS ${formatBytes(metrics.mainProcess.rss)}`
-                          : `RSS ${formatBytes(metrics.mainProcess.rss)}`}
+                          ? tI18n("workspace:resourcesPopover.valueRssValue", { value1: formatBytes(mainPrivateBytes), value2: formatBytes(metrics.mainProcess.rss) })
+                          : tI18n("workspace:resourcesPopover.rssValue", { value1: formatBytes(metrics.mainProcess.rss) })}
                       </span>
                       <span className={sx(resourceStyles.detailKey)}>
-                        App footprint
-                      </span>
+                        {tI18n("workspace:resourcesPopover.appFootprint")}</span>
                       <span className={sx(resourceStyles.detailValue)}>
                         {totalFootprintKB !== totalWorkingSetKB
-                          ? `${formatKB(totalFootprintKB)} · RSS ${formatKB(totalWorkingSetKB)}`
+                          ? tI18n("workspace:resourcesPopover.valueRssValue", { value1: formatKB(totalFootprintKB), value2: formatKB(totalWorkingSetKB) })
                           : formatKB(totalFootprintKB)}
                       </span>
                       {rendererMemory ? (
                         <>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Renderer memory
-                          </span>
+                            {tI18n("workspace:resourcesPopover.rendererMemory")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {formatKB(
                               rendererMemory.process.residentSet ??
@@ -613,16 +609,14 @@ export function MemoryUsagePopover({
                       {rendererMemory ? (
                         <>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Blink allocated
-                          </span>
+                            {tI18n("workspace:resourcesPopover.blinkAllocated")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {formatKB(rendererMemory.blink.allocated)}
                           </span>
                         </>
                       ) : null}
                       <span className={sx(resourceStyles.detailKey)}>
-                        Renderer stalls
-                      </span>
+                        {tI18n("workspace:resourcesPopover.rendererStalls")}</span>
                       <span
                         className={sx(
                           resourceStyles.detailValuePlain,
@@ -633,12 +627,11 @@ export function MemoryUsagePopover({
                       >
                         {metrics.renderer.unresponsiveEvents}
                         {metrics.renderer.currentlyUnresponsive
-                          ? " active"
+                          ? tI18n("workspace:resourcesPopover.active")
                           : ""}
                       </span>
                       <span className={sx(resourceStyles.detailKey)}>
-                        Renderer exits
-                      </span>
+                        {tI18n("workspace:resourcesPopover.rendererExits")}</span>
                       <span
                         className={sx(
                           resourceStyles.detailValue,
@@ -656,36 +649,24 @@ export function MemoryUsagePopover({
                       <div className={sx(resourceStyles.group)}>
                         <div className={sx(resourceStyles.groupHead)}>
                           <span className={sx(resourceStyles.groupTitle)}>
-                            Recent pressure
-                          </span>
+                            {tI18n("workspace:resourcesPopover.recentPressure")}</span>
                           <span className={sx(resourceStyles.groupMeta)}>
-                            {Math.max(
-                              1,
-                              Math.round(recentMetrics.durationMs / 1_000),
-                            )}
-                            s · {recentMetrics.sampleCount} samples
-                          </span>
+          {tI18n("workspace:resourcesPopover.sampleWindow", { seconds: Math.max(1, Math.round(recentMetrics.durationMs / 1_000)), count: recentMetrics.sampleCount })}
+        </span>
                         </div>
                         <div className={sx(resourceStyles.detailGrid)}>
                           <span className={sx(resourceStyles.detailKey)}>
-                            App renderer CPU
-                          </span>
+                            {tI18n("workspace:resourcesPopover.appRendererCpu")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
-                            {recentMetrics.rendererCpuAverage.toFixed(1)}% avg ·{" "}
-                            {recentMetrics.rendererCpuPeak.toFixed(1)}% peak
-                          </span>
+                            {tI18n("workspace:resourcesPopover.cpuSummary", { average: formatNumber(recentMetrics.rendererCpuAverage, { minimumFractionDigits: 1, maximumFractionDigits: 1 }), peak: formatNumber(recentMetrics.rendererCpuPeak, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}</span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            GPU CPU
-                          </span>
+                            {tI18n("workspace:resourcesPopover.gpuCpu")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
-                            {recentMetrics.gpuCpuAverage.toFixed(1)}% avg ·{" "}
-                            {recentMetrics.gpuCpuPeak.toFixed(1)}% peak
-                          </span>
+                            {tI18n("workspace:resourcesPopover.cpuSummary", { average: formatNumber(recentMetrics.gpuCpuAverage, { minimumFractionDigits: 1, maximumFractionDigits: 1 }), peak: formatNumber(recentMetrics.gpuCpuPeak, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}</span>
                           {recentMetrics.rendererHeapDeltaKB != null ? (
                             <>
                               <span className={sx(resourceStyles.detailKey)}>
-                                Renderer heap change
-                              </span>
+                                {tI18n("workspace:resourcesPopover.rendererHeapChange")}</span>
                               <span className={sx(resourceStyles.detailValue)}>
                                 {formatSignedKB(
                                   recentMetrics.rendererHeapDeltaKB,
@@ -701,30 +682,25 @@ export function MemoryUsagePopover({
                       <div className={sx(resourceStyles.group)}>
                         <div className={sx(resourceStyles.groupHead)}>
                           <span className={sx(resourceStyles.groupTitle)}>
-                            Host service
-                          </span>
+                            {tI18n("workspace:resourcesPopover.hostService")}</span>
                           <span className={sx(resourceStyles.groupMeta)}>
-                            {formatBytes(metrics.hostService.memory.rss)} RSS
-                          </span>
+                            {formatBytes(metrics.hostService.memory.rss)} {tI18n("workspace:resourcesPopover.rss")}</span>
                         </div>
                         <div className={sx(resourceStyles.detailGrid)}>
                           <span className={sx(resourceStyles.detailKey)}>
-                            All descendants
-                          </span>
+                            {tI18n("workspace:resourcesPopover.allDescendants")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {metrics.hostService.childProcesses.length} ·{" "}
                             {formatBytes(childProcessRss)}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            ↳ Provider trees (subset)
-                          </span>
+                            {tI18n("workspace:resourcesPopover.providerTreesSubset")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {providerChildProcesses.length} ·{" "}
                             {formatBytes(providerChildRss)}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            PTY sessions
-                          </span>
+                            {tI18n("workspace:resourcesPopover.ptySessions")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {metrics.hostService.terminalSessions}
                           </span>
@@ -736,62 +712,52 @@ export function MemoryUsagePopover({
                     <div className={sx(resourceStyles.group)}>
                       <div className={sx(resourceStyles.groupHead)}>
                         <span className={sx(resourceStyles.groupTitle)}>
-                          Lens resources
-                        </span>
+                          {tI18n("workspace:resourcesPopover.lensResources")}</span>
                         <span className={sx(resourceStyles.groupMeta)}>
-                          {metrics.lens.sessions} sessions ·{" "}
-                          {metrics.lens.visibleSessions} visible
-                        </span>
+          {tI18n("workspace:resourcesPopover.lensVisibility", { sessions: metrics.lens.sessions, visible: metrics.lens.visibleSessions })}
+        </span>
                       </div>
                       <div className={sx(resourceStyles.detailGrid)}>
                         <span className={sx(resourceStyles.detailKey)}>
-                          Diagnostics
-                        </span>
+                          {tI18n("workspace:resourcesPopover.diagnostics")}</span>
                         <span className={sx(resourceStyles.detailValue)}>
-                          {metrics.lens.diagnosticsSessions} active
-                        </span>
+          {tI18n("workspace:resourcesPopover.activeSessions", { count: metrics.lens.diagnosticsSessions })}
+        </span>
                         <span className={sx(resourceStyles.detailKey)}>
-                          MCP sessions
-                        </span>
+                          {tI18n("workspace:resourcesPopover.mcpSessions")}</span>
                         <span className={sx(resourceStyles.detailValue)}>
                           {metrics.lens.managedByMcpSessions}
                         </span>
                         <span className={sx(resourceStyles.detailKey)}>
-                          Hidden guests
-                        </span>
+                          {tI18n("workspace:resourcesPopover.hiddenGuests")}</span>
                         <span className={sx(resourceStyles.detailValue)}>
                           {metrics.lens.sessions - metrics.lens.visibleSessions}
                         </span>
                         <span className={sx(resourceStyles.detailKey)}>
-                          Guest working set
-                        </span>
+                          {tI18n("workspace:resourcesPopover.guestWorkingSet")}</span>
                         <span className={sx(resourceStyles.detailValue)}>
                           {formatKB(lensWorkingSetKB)}
                         </span>
                         <span className={sx(resourceStyles.detailKey)}>
-                          Buffered logs
-                        </span>
+                          {tI18n("workspace:resourcesPopover.bufferedLogs")}</span>
                         <span className={sx(resourceStyles.detailValue)}>
                           {metrics.lens.consoleEntries} C ·{" "}
                           {metrics.lens.networkEntries} N ·{" "}
                           {metrics.lens.downloadEntries} D
                         </span>
                         <span className={sx(resourceStyles.detailKey)}>
-                          Auth popups
-                        </span>
+                          {tI18n("workspace:resourcesPopover.authPopups")}</span>
                         <span className={sx(resourceStyles.detailValue)}>
                           {metrics.lens.authPopups}
                         </span>
                         <span className={sx(resourceStyles.detailKey)}>
-                          CDP active / closing
-                        </span>
+                          {tI18n("workspace:resourcesPopover.cdpActiveClosing")}</span>
                         <span className={sx(resourceStyles.detailValue)}>
                           {metrics.lens.cdpControllers} /{" "}
                           {metrics.lens.cdpClosingControllers}
                         </span>
                         <span className={sx(resourceStyles.detailKey)}>
-                          CDP in-flight / timeouts
-                        </span>
+                          {tI18n("workspace:resourcesPopover.cdpInFlightTimeouts")}</span>
                         <span
                           className={sx(
                             resourceStyles.detailValuePlain,
@@ -809,18 +775,15 @@ export function MemoryUsagePopover({
                     {metrics.persistence ? (
                       <div className={sx(resourceStyles.group)}>
                         <div className={sx(resourceStyles.groupTitleBlock)}>
-                          Persistence
-                        </div>
+                          {tI18n("workspace:resourcesPopover.persistence")}</div>
                         <div className={sx(resourceStyles.detailGrid)}>
                           <span className={sx(resourceStyles.detailKey)}>
-                            SQLite used
-                          </span>
+                            {tI18n("workspace:resourcesPopover.sqliteUsed")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {formatBytes(metrics.persistence.usedBytes)}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            File / reclaimable
-                          </span>
+                            {tI18n("workspace:resourcesPopover.fileReclaimable")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {formatBytes(metrics.persistence.fileBytes)} /{" "}
                             {formatBytes(
@@ -829,12 +792,11 @@ export function MemoryUsagePopover({
                             )}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Incremental vacuum
-                          </span>
+                            {tI18n("workspace:resourcesPopover.incrementalVacuum")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {metrics.persistence.autoVacuum === 2
-                              ? "on"
-                              : "pending"}
+                              ? tI18n("workspace:resourcesPopover.on")
+                              : tI18n("workspace:resourcesPopover.pending")}
                           </span>
                         </div>
                       </div>
@@ -844,27 +806,23 @@ export function MemoryUsagePopover({
                       <div className={sx(resourceStyles.group)}>
                         <div className={sx(resourceStyles.groupHead)}>
                           <span className={sx(resourceStyles.groupTitle)}>
-                            Storage
-                          </span>
+                            {tI18n("workspace:resourcesPopover.storage")}</span>
                           <span className={sx(resourceStyles.groupMeta)}>
                             {formatBytes(
                               storageReport.totals.partitionBytes +
                                 storageReport.totals.staleDatabaseBytes,
                             )}{" "}
-                            on disk
-                          </span>
+                            {tI18n("workspace:resourcesPopover.onDisk")}</span>
                         </div>
                         <div className={sx(resourceStyles.detailGrid)}>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Lens partitions
-                          </span>
+                            {tI18n("workspace:resourcesPopover.lensPartitions")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {storageReport.partitions.length} ·{" "}
                             {formatBytes(storageReport.totals.partitionBytes)}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Orphaned
-                          </span>
+                            {tI18n("workspace:resourcesPopover.orphaned")}</span>
                           <span
                             className={sx(
                               storageReport.totals.orphanedPartitionCount > 0
@@ -878,8 +836,7 @@ export function MemoryUsagePopover({
                             )}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Oversized caches
-                          </span>
+                            {tI18n("workspace:resourcesPopover.oversizedCaches")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {storageReport.totals.oversizedCacheCount} ·{" "}
                             {formatBytes(
@@ -887,8 +844,7 @@ export function MemoryUsagePopover({
                             )}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Stale DB files
-                          </span>
+                            {tI18n("workspace:resourcesPopover.staleDbFiles")}</span>
                           <span
                             className={sx(
                               storageReport.staleDatabaseFiles.length > 0
@@ -912,7 +868,7 @@ export function MemoryUsagePopover({
                             <Trash2
                               className={sx(resourceStyles.refreshIcon)}
                             />
-                            {storageBusy ? "Cleaning…" : "Clean up"}
+                            {storageBusy ? tI18n("workspace:resourcesPopover.cleaning") : tI18n("workspace:resourcesPopover.cleanUp")}
                           </Button>
                           <Button
                             variant="ghost"
@@ -922,8 +878,7 @@ export function MemoryUsagePopover({
                               void runStorageCleanup("clear-all-caches")
                             }
                           >
-                            Clear Lens caches
-                          </Button>
+                            {tI18n("workspace:resourcesPopover.clearLensCaches")}</Button>
                         </div>
                         {storageMessage ? (
                           <div className={sx(resourceStyles.storageMessage)}>
@@ -937,44 +892,38 @@ export function MemoryUsagePopover({
                       <div className={sx(resourceStyles.group)}>
                         <div className={sx(resourceStyles.groupHead)}>
                           <span className={sx(resourceStyles.groupTitle)}>
-                            Last workspace switch
-                          </span>
+                            {tI18n("workspace:resourcesPopover.lastWorkspaceSwitch")}</span>
                           <span className={sx(resourceStyles.groupMeta)}>
                             {latestWorkspaceSwitch.cacheHit
-                              ? "cache"
-                              : "storage"}
+                              ? tI18n("workspace:resourcesPopover.cache")
+                              : tI18n("workspace:resourcesPopover.storage2")}
                           </span>
                         </div>
                         <div className={sx(resourceStyles.detailGrid)}>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Interactive
-                          </span>
+                            {tI18n("workspace:resourcesPopover.interactive")}</span>
                           <span
                             className={sx(resourceStyles.detailValueStrong)}
                           >
                             {formatDuration(latestWorkspaceSwitch.totalMs)}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Outgoing save
-                          </span>
+                            {tI18n("workspace:resourcesPopover.outgoingSave")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {formatDuration(latestWorkspaceSwitch.flushMs)}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Shell load
-                          </span>
+                            {tI18n("workspace:resourcesPopover.shellLoad")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {formatDuration(latestWorkspaceSwitch.shellMs)}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Files ready
-                          </span>
+                            {tI18n("workspace:resourcesPopover.filesReady")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {formatDuration(latestWorkspaceSwitch.filesMs)}
                           </span>
                           <span className={sx(resourceStyles.detailKey)}>
-                            Messages ready
-                          </span>
+                            {tI18n("workspace:resourcesPopover.messagesReady")}</span>
                           <span className={sx(resourceStyles.detailValue)}>
                             {formatDuration(latestWorkspaceSwitch.messagesMs)}
                           </span>
@@ -989,8 +938,8 @@ export function MemoryUsagePopover({
                           className={sx(resourceStyles.processHeadIcon)}
                         />
                         <span className={sx(resourceStyles.groupTitle)}>
-                          Processes ({metrics.processes.length})
-                        </span>
+          {tI18n("workspace:resourcesPopover.processCount", { count: metrics.processes.length })}
+        </span>
                       </div>
                       <div className={sx(resourceStyles.processList)}>
                         {metrics.processes
@@ -1027,7 +976,7 @@ export function MemoryUsagePopover({
                               </span>
                               {proc.cpu.percentCPUUsage > 0.1 && (
                                 <span className={sx(resourceStyles.processCpu)}>
-                                  {proc.cpu.percentCPUUsage.toFixed(1)}%
+                                  {formatPercent(proc.cpu.percentCPUUsage / 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                                 </span>
                               )}
                             </div>
@@ -1039,16 +988,14 @@ export function MemoryUsagePopover({
                     <div className={sx(resourceStyles.group)}>
                       <div className={sx(resourceStyles.externalRow)}>
                         <span className={sx(resourceStyles.detailKey)}>
-                          External
-                        </span>
+                          {tI18n("workspace:resourcesPopover.external")}</span>
                         <span className={sx(resourceStyles.externalValue)}>
                           {formatBytes(metrics.mainProcess.external)}
                         </span>
                       </div>
                       <div className={sx(resourceStyles.externalRowSpaced)}>
                         <span className={sx(resourceStyles.detailKey)}>
-                          ArrayBuffers
-                        </span>
+                          {tI18n("workspace:resourcesPopover.arraybuffers")}</span>
                         <span className={sx(resourceStyles.externalValue)}>
                           {formatBytes(metrics.mainProcess.arrayBuffers)}
                         </span>

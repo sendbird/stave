@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { DockviewPanelApi, IDockviewPanelProps } from "dockview-react";
 import { Eraser, SquareTerminal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -39,6 +40,7 @@ const TERMINAL_TRANSCRIPT_STORAGE_KEY = "stave:terminal-tab-transcript:v2";
  * disposes it via the session manager's removed-tab sweep.
  */
 export function TerminalSurfacePanel(props: IDockviewPanelProps) {
+  useTranslation();
   const surface = parsePanePanelId(props.api.id);
   if (surface?.kind !== "terminal") {
     return null;
@@ -55,6 +57,7 @@ function TerminalSurfacePanelContent(props: {
   terminalTabId: string;
   panelApi: DockviewPanelApi;
 }) {
+  useTranslation();
   // Dockview visibility drives renderer mounting + PTY creation; the active
   // state gates keyboard-focus stealing to the focused panel only.
   const [isPanelVisible, setIsPanelVisible] = useState(
@@ -129,7 +132,7 @@ function TerminalSurfacePanelContent(props: {
       deliveryMode: "poll" | "push";
     }) => {
       if (!workspacePath) {
-        return { ok: false, stderr: "Workspace path unavailable." };
+        return { ok: false, stderr: i18n.t("panes:terminalSurfacePanel.workspacePathUnavailable") };
       }
 
       const createSessionApi = window.api?.terminal?.createSession;
@@ -233,7 +236,7 @@ function TerminalSurfacePanelContent(props: {
       <div className={sx(terminalSurfacePanelStyles.header)}>
         <SquareTerminal className={sx(terminalSurfacePanelStyles.headerIcon)} />
         <span className={sx(terminalSurfacePanelStyles.headerPath)}>
-          {tab?.cwd ?? workspacePath ?? "Terminal"}
+          {tab?.cwd ?? workspacePath ?? i18n.t("panes:terminalSurfacePanel.terminal")}
         </span>
         {sessionExited ? (
           <span
@@ -244,7 +247,7 @@ function TerminalSurfacePanelContent(props: {
                 : terminalSurfacePanelStyles.statusExitedFailed,
             )}
           >
-            exited ({sessionExited.exitCode})
+            {i18n.t("panes:terminalSurfacePanel.exitedWithCode", { code: sessionExited.exitCode })}
           </span>
         ) : shellStatus ? (
           <span
@@ -265,7 +268,7 @@ function TerminalSurfacePanelContent(props: {
               terminalSurfacePanelStyles.statusLive,
             )}
           >
-            live
+            {i18n.t("panes:terminalSurfacePanel.live")}
           </span>
         ) : null}
         <Button
@@ -273,7 +276,8 @@ function TerminalSurfacePanelContent(props: {
           size="icon-xs"
           xstyle={terminalSurfacePanelStyles.clearButton}
           onClick={clearActiveTranscript}
-          aria-label={`clear-terminal-${props.terminalTabId}`}
+          aria-label={i18n.t("panes:terminalSurfacePanel.clear")}
+          data-testid={`clear-terminal-${props.terminalTabId}`}
           disabled={!tab}
         >
           <Eraser aria-hidden size={12} />
@@ -298,7 +302,7 @@ function TerminalSurfacePanelContent(props: {
                 terminalSurfacePanelStyles.noticeWarning,
               )}
             >
-              <span>Terminal rendering may be degraded.</span>
+              <span>{i18n.t("panes:terminalSurfacePanel.terminalRenderingMayBeDegraded")}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -306,7 +310,7 @@ function TerminalSurfacePanelContent(props: {
                 onClick={restartActiveTerminalRenderer}
                 disabled={!tab}
               >
-                Restart renderer
+                {i18n.t("panes:terminalSurfacePanel.restartRenderer")}
               </Button>
             </div>
           ) : null}
@@ -314,7 +318,7 @@ function TerminalSurfacePanelContent(props: {
             <div className={sx(terminalSurfacePanelStyles.loadingOverlay)}>
               <div className={sx(terminalSurfacePanelStyles.loadingLabel)}>
                 <Loader aria-hidden size="xs" variant="spinner" />
-                <span>Initializing terminal…</span>
+                <span>{i18n.t("panes:terminalSurfacePanel.initializingTerminal")}</span>
               </div>
             </div>
           ) : null}

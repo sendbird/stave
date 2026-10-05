@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { trackerVisualStyles } from "./tracker-visual.styles";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useMemo } from "react";
@@ -72,9 +73,10 @@ function GroupHeader(props: {
  * knowing which path is active.
  */
 export function TrackerIssueList(props: TrackerIssueListProps) {
+  const { t: tI18n } = useTranslation(["issues"]);
   const collapsed = useMemo(
     () => new Set(props.collapsedGroupIds),
-    [props.collapsedGroupIds],
+    [props.collapsedGroupIds, i18n.resolvedLanguage],
   );
   const visibleGroups = useMemo(
     () =>
@@ -84,7 +86,7 @@ export function TrackerIssueList(props: TrackerIssueListProps) {
           ? ([] as TrackerIssueListItem[])
           : group.items,
       })),
-    [collapsed, props.groups],
+    [collapsed, props.groups, i18n.resolvedLanguage],
   );
   const totalVisibleRows = visibleGroups.reduce(
     (total, entry) => total + entry.items.length,
@@ -92,7 +94,7 @@ export function TrackerIssueList(props: TrackerIssueListProps) {
   );
   const flatItems = useMemo(
     () => visibleGroups.flatMap((entry) => entry.items),
-    [visibleGroups],
+    [visibleGroups, i18n.resolvedLanguage],
   );
 
   const renderRow = (item: TrackerIssueListItem) => (
@@ -138,7 +140,7 @@ export function TrackerIssueList(props: TrackerIssueListProps) {
   return (
     <div
       role="listbox"
-      aria-label="Tracker tickets"
+      aria-label={tI18n("issues:trackerIssueList.trackerTickets")}
       className={sx(taskLayoutStyles.list)}
     >
       {visibleGroups.map((entry) => (

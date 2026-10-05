@@ -1266,6 +1266,8 @@ export interface HostServiceReadyEnvelope {
 }
 
 export interface HostServiceRequestEnvelope<TMethod extends HostServiceMethod> {
+  /** Display-only locale for shared validation and presentation helpers. */
+  displayLocale?: import("../../src/i18n/locale").AppLocale;
   /** Internal main-to-host credential; never included in a response or renderer API. */
   gatewayCredential?: import("../provider-accounts/gateway-runtime").GatewayCredentials;
   type: "request";

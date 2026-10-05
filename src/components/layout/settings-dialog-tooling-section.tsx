@@ -1,7 +1,8 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { ProviderAccountsSettings } from "./ProviderAccountsSettings";
 import { ApiConnectionsSettings } from "./ApiConnectionsSettings";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
-import { CODEX_MODEL_AVAILABILITY_GUIDANCE } from "@/lib/providers/codex-model-requirements";
+import { getCodexModelAvailabilityGuidance } from "@/lib/providers/codex-model-requirements";
 import { getClaudeModelVersionGuidance } from "@/lib/providers/claude-model-requirements";
 import { useEffect, useState } from "react";
 import {
@@ -37,13 +38,13 @@ import {
 import { toolingStyles } from "./settings-dialog-tooling-section.styles";
 
 const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
-  shell: "Integrated terminal sessions and command execution surfaces.",
-  git: "Workspace branch, diff, sync, and source-control actions.",
-  gh: "Pull request creation, PR status refresh, merge, and branch update flows.",
-  claude: `Claude Code turns, plugin refresh, and Claude-native diagnostics. Opus 5.5: ${getClaudeModelVersionGuidance("claude-opus-5-5")} Sonnet 5.5: ${getClaudeModelVersionGuidance("claude-sonnet-5-5")}`,
-  codex: `Codex turns and Codex-native execution flows. ${CODEX_MODEL_AVAILABILITY_GUIDANCE}`,
-  cursor: "Cursor Agent turns over the Agent Client Protocol.",
-  kiro: "Kiro turns over the Agent Client Protocol.",
+  get shell() { return i18n.t("settingsProviders:toolingSection.purpose.shell"); },
+  get git() { return i18n.t("settingsProviders:toolingSection.purpose.git"); },
+  get gh() { return i18n.t("settingsProviders:toolingSection.purpose.gh"); },
+  get claude() { return i18n.t("settingsProviders:settingsDialogToolingSection.claudeCodeTurnsPluginRefreshAnd", { value1: getClaudeModelVersionGuidance("claude-opus-5-5"), value2: getClaudeModelVersionGuidance("claude-sonnet-5-5") }); },
+  get codex() { return i18n.t("settingsProviders:settingsDialogToolingSection.codexTurnsAndCodexNativeExecution", { value1: getCodexModelAvailabilityGuidance() }); },
+  get cursor() { return i18n.t("settingsProviders:toolingSection.purpose.cursor"); },
+  get kiro() { return i18n.t("settingsProviders:toolingSection.purpose.kiro"); },
 };
 
 const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = {
@@ -55,14 +56,15 @@ const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = {
 };
 
 function AuthBadge(args: { tool: ToolingStatusEntry }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const label =
     args.tool.authState === "authenticated"
-      ? "Authenticated"
+      ? t("settingsProviders:toolingSection.auth.authenticated")
       : args.tool.authState === "unauthenticated"
-        ? "Login Required"
+        ? t("settingsProviders:toolingSection.auth.unauthenticated")
         : args.tool.authState === "not-required"
-          ? "No Auth"
-          : "Unknown Auth";
+          ? t("settingsProviders:toolingSection.auth.notRequired")
+          : t("settingsProviders:toolingSection.auth.unknown");
 
   const toneStyle =
     args.tool.authState === "authenticated"
@@ -82,15 +84,16 @@ function AuthBadge(args: { tool: ToolingStatusEntry }) {
 }
 
 function ToolStateLabel(state: ToolingStatusState) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   switch (state) {
     case "ready":
-      return "Ready";
+      return t("common:status.ready");
     case "warning":
-      return "Needs Attention";
+      return t("settingsProviders:toolingSection.state.warning");
     case "error":
-      return "Unavailable";
+      return t("settingsProviders:toolingSection.state.error");
     default:
-      return "Unknown";
+      return t("common:status.unknown");
   }
 }
 
@@ -110,6 +113,7 @@ function ToolIcon(args: { id: ToolingStatusId }) {
 }
 
 function PathRow(args: { label: string; value: string | null }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   if (!args.value) {
     return (
       <div className={sx(toolingStyles.pathRowEmpty)}>
@@ -128,11 +132,11 @@ function PathRow(args: { label: string; value: string | null }) {
           variant="quiet"
           iconOnly
           size="xs"
-          aria-label={`Copy ${args.label}`}
+          aria-label={t("settingsConnections:settingsDialogSecrets.copy", { value1: args.label })}
           xstyle={toolingStyles.copyButton}
           onClick={() => {
             void copyTextToClipboard(args.value!).then(() => {
-              toast.success("Path copied");
+              toast.success(i18n.t("settingsProviders:toolingSection.toasts.pathCopied"));
             });
           }}
         >
@@ -153,6 +157,7 @@ function ToolCard(args: {
     label: string,
   ) => Promise<void>;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const repairCommand = AUTH_COMMAND_BY_ID[args.tool.id] ?? null;
 
   return (
@@ -190,8 +195,8 @@ function ToolCard(args: {
       </div>
 
       <div className={sx(toolingStyles.cardBody)}>
-        <InfoRow label="Summary" value={args.tool.summary} />
-        <PathRow label="Executable" value={args.tool.executablePath} />
+        <InfoRow label={t("settingsProviders:toolingSection.rows.summary")} value={args.tool.summary} />
+        <PathRow label={t("settingsProviders:toolingSection.rows.executable")} value={args.tool.executablePath} />
       </div>
 
       {args.tool.detail ? (
@@ -212,8 +217,7 @@ function ToolCard(args: {
               }
             >
               <Copy className={sx(toolingStyles.actionIcon)} />
-              Copy Login Command
-            </Button>
+              {t("settingsProviders:toolingSection.actions.copyLoginCommand")}</Button>
             <Button
               type="button"
               size="sm"
@@ -226,8 +230,7 @@ function ToolCard(args: {
               }
             >
               <TerminalSquare className={sx(toolingStyles.actionIcon)} />
-              Fix In Terminal
-            </Button>
+              {t("settingsProviders:toolingSection.actions.fixInTerminal")}</Button>
           </>
         ) : (
           <Button
@@ -238,8 +241,7 @@ function ToolCard(args: {
             onClick={() => void args.onOpenTerminal()}
           >
             <TerminalSquare className={sx(toolingStyles.actionIcon)} />
-            Open Terminal
-          </Button>
+            {t("settingsProviders:toolingSection.actions.openTerminal")}</Button>
         )}
       </div>
     </div>
@@ -247,6 +249,7 @@ function ToolCard(args: {
 }
 
 export function ToolingSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     activeWorkspaceId,
     repositoryPath,
@@ -279,7 +282,7 @@ export function ToolingSection() {
   }>({
     status: "loading",
     snapshot: null,
-    detail: "Refreshing native tooling status...",
+    detail: t("settingsProviders:toolingSection.detail.loading"),
   });
   const [refreshNonce, setRefreshNonce] = useState(0);
   const readiness = useProviderReadinessStore((state) => state.providers);
@@ -290,7 +293,7 @@ export function ToolingSection() {
       setViewState({
         status: "error",
         snapshot: null,
-        detail: "Tooling diagnostics bridge unavailable.",
+        detail: i18n.t("settingsProviders:toolingSection.detail.bridgeUnavailable"),
       });
       return;
     }
@@ -299,7 +302,7 @@ export function ToolingSection() {
     setViewState((current) => ({
       ...current,
       status: "loading",
-      detail: "Refreshing native tooling status...",
+      detail: i18n.t("settingsProviders:toolingSection.detail.loading"),
     }));
 
     void (async () => {
@@ -333,7 +336,7 @@ export function ToolingSection() {
           detail:
             error instanceof Error
               ? error.message
-              : "Failed to load tooling diagnostics.",
+              : i18n.t("settingsProviders:toolingSection.detail.loadFailed"),
         });
       }
     })();
@@ -354,30 +357,30 @@ export function ToolingSection() {
   async function handleOpenTerminal() {
     const openInTerminal = window.api?.shell?.openInTerminal;
     if (!workspaceCwd || !openInTerminal) {
-      toast.error("Terminal bridge unavailable", {
-        description: "Open a workspace before launching an external terminal.",
+      toast.error(i18n.t("settingsProviders:toolingSection.toasts.terminalUnavailable.title"), {
+        description: i18n.t("settingsProviders:toolingSection.toasts.terminalUnavailable.description"),
       });
       return;
     }
 
     const result = await openInTerminal({ path: workspaceCwd });
     if (!result.ok) {
-      toast.error("Failed to open terminal", {
+      toast.error(i18n.t("settingsProviders:toolingSection.toasts.openTerminalFailed"), {
         description: result.stderr,
       });
       return;
     }
-    toast.success("Opened workspace in terminal");
+    toast.success(i18n.t("settingsProviders:toolingSection.toasts.openedInTerminal"));
   }
 
   async function handleCopyRepairCommand(command: string, label: string) {
     try {
       await copyTextToClipboard(command);
-      toast.success(`${label} command copied`, {
+      toast.success(i18n.t("settingsProviders:settingsDialogToolingSection.commandCopied", { value1: label }), {
         description: command,
       });
     } catch (error) {
-      toast.error("Failed to copy command", {
+      toast.error(i18n.t("settingsProviders:toolingSection.toasts.copyCommandFailed"), {
         description: error instanceof Error ? error.message : String(error),
       });
     }
@@ -399,8 +402,8 @@ export function ToolingSection() {
         <ProviderAccountsSettings />
         <ApiConnectionsSettings />
         <SettingsCard
-          title="Native Tooling Status"
-          description="These checks mirror the native binaries and auth surfaces Stave uses for provider turns, PR actions, and terminal-backed workflows."
+          title={t("settingsProviders:toolingSection.card.title")}
+          description={t("settingsProviders:toolingSection.card.description")}
           titleAccessory={
             <Button
               type="button"
@@ -416,8 +419,7 @@ export function ToolingSection() {
                     : toolingStyles.refreshIcon,
                 )}
               />
-              Refresh
-            </Button>
+              {t("common:actions.refresh")}</Button>
           }
         >
           {snapshot ? (

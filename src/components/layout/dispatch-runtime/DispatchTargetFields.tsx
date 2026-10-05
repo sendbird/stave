@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
 import { Input } from "@/components/ui";
@@ -35,6 +36,7 @@ export interface DispatchTargetFieldsProps {
 
 /** The "Where it runs" controls: repository, workspace strategy, and branch. */
 export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
+  const { t: tI18n } = useTranslation(["kickoff"]);
   const { idPrefix } = props;
   return (
     <section
@@ -42,16 +44,15 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
       aria-labelledby={`${idPrefix}-target-heading`}
     >
       <h3 id={`${idPrefix}-target-heading`} className={sx(dispatchFieldStyles.sectionHeading)}>
-        Where it runs
-      </h3>
+        {tI18n("kickoff:dispatchTargetFields.whereItRuns")}</h3>
       <Select
-        label="Stave repository"
+        label={tI18n("kickoff:dispatchTargetFields.staveRepository")}
         value={props.repositoryPath}
         options={props.repositories.map((repository) => ({
           value: repository.repositoryPath,
           label: repository.repositoryName,
         }))}
-        placeholder="Choose a repository"
+        placeholder={tI18n("kickoff:dispatchTargetFields.chooseARepository")}
         onValueChange={(value) => {
           if (typeof value === "string") {
             props.onRepositoryPathChange(value);
@@ -59,14 +60,14 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
         }}
       />
       <p className={sx(dispatchFieldStyles.monoPath)}>
-        {props.repositoryPath || "No registered repository available"}
+        {props.repositoryPath || tI18n("kickoff:dispatchTargetFields.noRegisteredRepositoryAvailable")}
       </p>
       <Select
-        label="Workspace"
+        label={tI18n("kickoff:dispatchTargetFields.workspace")}
         value={props.workspaceStrategy}
         options={[
-          { value: "new", label: "Create a new workspace" },
-          { value: "existing", label: "Use an existing workspace" },
+          { value: "new", label: tI18n("kickoff:dispatchTargetFields.createANewWorkspace") },
+          { value: "existing", label: tI18n("kickoff:dispatchTargetFields.useAnExistingWorkspace") },
         ]}
         onValueChange={(value) => {
           if (value === "new" || value === "existing") {
@@ -81,8 +82,7 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
               htmlFor={`${idPrefix}-branch`}
               className={sx(dispatchFieldStyles.fieldLabel)}
             >
-              Branch name
-            </label>
+              {tI18n("kickoff:dispatchTargetFields.branchName")}</label>
             <Input
               id={`${idPrefix}-branch`}
               value={props.branchName}
@@ -90,16 +90,14 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
               autoComplete="off"
             />
             <p className={sx(dispatchFieldStyles.hint)}>
-              Based on the selected repository&apos;s remote default branch.
-            </p>
+              {tI18n("kickoff:dispatchTargetFields.basedOnTheSelectedRepositoryAposS")}</p>
           </div>
           <div className={sx(dispatchFieldStyles.field)}>
             <label
               htmlFor={`${idPrefix}-label`}
               className={sx(dispatchFieldStyles.fieldLabel)}
             >
-              Workspace label
-            </label>
+              {tI18n("kickoff:dispatchTargetFields.workspaceLabel")}</label>
             <Input
               id={`${idPrefix}-label`}
               value={props.workspaceLabel}
@@ -109,20 +107,18 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
               autoComplete="off"
             />
             <p className={sx(dispatchFieldStyles.hint)}>
-              Shown in the repository workspace list. Prefilled from the issue
-              title.
-            </p>
+              {tI18n("kickoff:dispatchTargetFields.shownInTheRepositoryWorkspaceListPrefilled")}</p>
           </div>
         </>
       ) : (
         <Select
-          label="Existing workspace"
+          label={tI18n("kickoff:dispatchTargetFields.existingWorkspace")}
           value={props.workspaceId}
           options={props.workspaces.map((workspace) => ({
             value: workspace.id,
             label: workspace.name,
           }))}
-          placeholder="Choose a workspace"
+          placeholder={tI18n("kickoff:dispatchTargetFields.chooseAWorkspace")}
           onValueChange={(value) => {
             if (typeof value === "string") {
               props.onWorkspaceIdChange(value);

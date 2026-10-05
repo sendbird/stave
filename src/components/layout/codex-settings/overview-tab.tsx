@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import {
   Badge,
   Button,
@@ -17,6 +18,7 @@ import {
 import type { CodexAppServerSnapshot } from "@/lib/providers/provider.types";
 import type { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { useMemo } from "react";
+import { formatNumber } from "@/i18n/format";
 import { codexStyles } from "../settings-dialog-codex-section.styles";
 import {
   DenseMetric,
@@ -45,37 +47,35 @@ export function OverviewTab({
   workspaceCwd,
   trimmedBinaryPath,
 }: OverviewTabProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const accountBadge = getCodexAccountBadgeState(snapshot?.account ?? null);
   const metrics = useMemo(() => {
     if (!snapshot) return [];
     return [
       {
-        label: "Models",
-        value: String(codexModelCatalog.models.length),
+        label: t("settingsProviders:codexOverviewTab.metrics.models"),
+        value: formatNumber(codexModelCatalog.models.length),
         tone: codexModelCatalog.isDynamic ? "success" : "muted",
       },
-      { label: "Plugins", value: String(snapshot.plugins.length) },
-      { label: "Apps", value: String(snapshot.apps.length) },
-      { label: "Threads", value: String(snapshot.threads.length) },
+      { label: t("settingsProviders:codexOverviewTab.metrics.plugins"), value: formatNumber(snapshot.plugins.length) },
+      { label: t("settingsProviders:codexOverviewTab.metrics.apps"), value: formatNumber(snapshot.apps.length) },
+      { label: t("settingsProviders:codexOverviewTab.metrics.threads"), value: formatNumber(snapshot.threads.length) },
       {
-        label: "Skills",
-        value: String(
-          snapshot.skills.reduce(
-            (total, group) => total + group.skills.length,
-            0,
-          ),
+        label: t("settingsProviders:codexOverviewTab.metrics.skills"),
+        value: formatNumber(
+          snapshot.skills.reduce((total, group) => total + group.skills.length, 0),
         ),
       },
       {
-        label: "Slash Commands",
-        value: String(CODEX_CLI_SLASH_COMMANDS.length),
+        label: t("settingsProviders:codexOverviewTab.metrics.slashCommands"),
+        value: formatNumber(CODEX_CLI_SLASH_COMMANDS.length),
       },
     ] as Array<{
       label: string;
       value: string;
       tone?: "default" | "muted" | "success" | "warning";
     }>;
-  }, [codexModelCatalog.isDynamic, codexModelCatalog.models.length, snapshot]);
+  }, [codexModelCatalog.isDynamic, codexModelCatalog.models.length, snapshot, t]);
   return (
     <>
       {!snapshot ? (
@@ -89,9 +89,7 @@ export function OverviewTab({
               )}
             </EmptyMedia>
             <EmptyTitle>
-              {snapshotState.status === "error"
-                ? "Codex snapshot unavailable"
-                : "Loading Codex snapshot"}
+              {t(snapshotState.status === "error" ? "settingsProviders:codexOverviewTab.empty.unavailable" : "settingsProviders:codexOverviewTab.empty.loading")}
             </EmptyTitle>
             <EmptyDescription>{snapshotState.detail}</EmptyDescription>
           </EmptyHeader>
@@ -111,38 +109,36 @@ export function OverviewTab({
 
           <div className={sx(codexStyles.twoColGrid1)}>
             <DenseSection
-              title="Runtime summary"
-              description="Live App Server data for the current workspace and Codex binary."
+              title={t("settingsProviders:codexOverviewTab.runtime.title")}
+              description={t("settingsProviders:codexOverviewTab.runtime.description")}
             >
               <div className={sx(codexStyles.lgTwoCol)}>
                 <div className={sx(codexStyles.stack3)}>
                   <div className={sx(codexStyles.tile)}>
                     <div className={sx(codexStyles.rowCenterBetween)}>
-                      <p className={sx(codexStyles.textSmMedium)}>Account</p>
+                      <p className={sx(codexStyles.textSmMedium)}>{t("settingsProviders:codexOverviewTab.runtime.account")}</p>
                       <StatusPill
-                        label={accountBadge.label}
+                        label={t(accountBadge.labelKey)}
                         tone={accountBadge.tone}
                       />
                     </div>
                     <div className={sx(codexStyles.mt2Space1SmMuted)}>
-                      <p>Type: {snapshot.account?.type ?? "unknown"}</p>
-                      <p>Email: {snapshot.account?.email ?? "unknown"}</p>
-                      <p>Plan: {snapshot.account?.planType ?? "unknown"}</p>
+                      <p>{t("settingsProviders:codexOverviewTab.runtime.accountType", { value: snapshot.account?.type ?? t("settingsProviders:codexOverviewTab.runtime.unknownValue") })}</p>
+                      <p>{t("settingsProviders:codexOverviewTab.runtime.accountEmail", { value: snapshot.account?.email ?? t("settingsProviders:codexOverviewTab.runtime.unknownValue") })}</p>
+                      <p>{t("settingsProviders:codexOverviewTab.runtime.accountPlan", { value: snapshot.account?.planType ?? t("settingsProviders:codexOverviewTab.runtime.unknownValue") })}</p>
                     </div>
                   </div>
 
                   <div className={sx(codexStyles.tile)}>
                     <div className={sx(codexStyles.rowCenterBetween)}>
-                      <p className={sx(codexStyles.textSmMedium)}>
-                        Model catalog
-                      </p>
+                      <p className={sx(codexStyles.textSmMedium)}>{t("settingsProviders:codexOverviewTab.runtime.modelCatalog")}</p>
                       <div className={sx(codexStyles.rowCenterGap2)}>
                         <StatusPill
-                          label={
+                          label={t(
                             codexModelCatalog.isDynamic
-                              ? "live app server"
-                              : "fallback"
-                          }
+                              ? "settingsProviders:codexOverviewTab.runtime.catalogLive"
+                              : "settingsProviders:codexOverviewTab.runtime.catalogFallback",
+                          )}
                           tone={
                             codexModelCatalog.isDynamic ? "success" : "warning"
                           }
@@ -166,7 +162,7 @@ export function OverviewTab({
                     </div>
                     <p className={sx(codexStyles.textSmMutedMt2)}>
                       {codexModelCatalog.detail ||
-                        "Using the configured Codex model catalog."}
+                        t("settingsProviders:codexOverviewTab.runtime.catalogDefaultDetail")}
                     </p>
                     {codexModelCatalog.entries.length > 0 ? (
                       <div className={sx(codexStyles.mt3Space15)}>
@@ -191,7 +187,7 @@ export function OverviewTab({
                                   variant="outline"
                                   className={sx(codexStyles.badgeTiny)}
                                 >
-                                  default
+                                  {t("settingsProviders:codexOverviewTab.runtime.defaultModel")}
                                 </Badge>
                               ) : null}
                               {entry.supportedReasoningEfforts.length > 0 ? (
@@ -214,27 +210,22 @@ export function OverviewTab({
                 <div className={sx(codexStyles.stack3)}>
                   <div className={sx(codexStyles.tile)}>
                     <div className={sx(codexStyles.rowCenterBetween)}>
-                      <p className={sx(codexStyles.textSmMedium)}>
-                        Workspace scope
-                      </p>
-                      {workspaceCwd ? <StatusPill label="scoped" /> : null}
+                      <p className={sx(codexStyles.textSmMedium)}>{t("settingsProviders:codexOverviewTab.runtime.workspaceScope")}</p>
+                      {workspaceCwd ? <StatusPill label={t("settingsProviders:codexOverviewTab.runtime.scoped")} /> : null}
                     </div>
                     <div className={sx(codexStyles.mt2Space1BreakAllSmMuted)}>
-                      <p>{workspaceCwd ?? "No workspace cwd available."}</p>
+                      <p>{workspaceCwd ?? t("settingsProviders:codexOverviewTab.runtime.noWorkspaceCwd")}</p>
                       <p>
-                        Binary:{" "}
-                        {trimmedBinaryPath || "Default Codex executable"}
+                        {t("settingsProviders:codexOverviewTab.runtime.binary", { path: trimmedBinaryPath || t("settingsProviders:codexOverviewTab.runtime.defaultBinary") })}
                       </p>
                     </div>
                   </div>
 
                   <div className={sx(codexStyles.tile)}>
                     <div className={sx(codexStyles.rowCenterBetween)}>
-                      <p className={sx(codexStyles.textSmMedium)}>
-                        Slash commands
-                      </p>
+                      <p className={sx(codexStyles.textSmMedium)}>{t("settingsProviders:codexOverviewTab.runtime.slashCommands")}</p>
                       <StatusPill
-                        label={`${CODEX_CLI_SLASH_COMMANDS.length} built-in`}
+                        label={t("settingsProviders:codexOverviewTab.runtime.builtInCount", { total: CODEX_CLI_SLASH_COMMANDS.length })}
                       />
                     </div>
                     <p className={sx(codexStyles.textSmMutedMt2)}>
@@ -246,12 +237,12 @@ export function OverviewTab({
             </DenseSection>
 
             <DenseSection
-              title="Section errors"
-              description="Snapshot sections that failed independently while the rest of the App Server surface loaded."
+              title={t("settingsProviders:codexOverviewTab.sectionErrors.title")}
+              description={t("settingsProviders:codexOverviewTab.sectionErrors.description")}
             >
               {Object.entries(snapshotState.sectionErrors).length === 0 ? (
                 <div className={sx(codexStyles.tileDashed)}>
-                  No partial section failures.
+                  {t("settingsProviders:codexOverviewTab.sectionErrors.empty")}
                 </div>
               ) : (
                 <div className={sx(codexStyles.stack2)}>
@@ -271,12 +262,12 @@ export function OverviewTab({
           </div>
 
           <DenseSection
-            title="Rate limits"
-            description="Current limit buckets and credit state reported by Codex."
+            title={t("settingsProviders:codexOverviewTab.rateLimits.title")}
+            description={t("settingsProviders:codexOverviewTab.rateLimits.description")}
           >
             {snapshot.rateLimits.length === 0 ? (
               <div className={sx(codexStyles.tileDashed)}>
-                No rate-limit buckets returned by the App Server.
+                {t("settingsProviders:codexOverviewTab.rateLimits.empty")}
               </div>
             ) : (
               <div className={sx(codexStyles.stack3)}>
@@ -288,20 +279,22 @@ export function OverviewTab({
                     <div className={sx(codexStyles.rowWrapCenterBetween)}>
                       <div>
                         <p className={sx(codexStyles.textSmMedium)}>
-                          {limit.limitName ?? limit.limitId ?? "Unnamed bucket"}
+                          {limit.limitName ?? limit.limitId ?? t("settingsProviders:codexOverviewTab.rateLimits.unnamedBucket")}
                         </p>
                         <p className={sx(codexStyles.textXsMuted)}>
-                          {limit.planType ?? "unknown plan"}
+                          {limit.planType ?? t("settingsProviders:codexOverviewTab.rateLimits.unknownPlan")}
                         </p>
                       </div>
                       {limit.credits ? (
                         <StatusPill
                           label={
                             limit.credits.unlimited
-                              ? "unlimited credits"
-                              : limit.credits.hasCredits
-                                ? `credits ${limit.credits.balance ?? "available"}`
-                                : "no credits"
+                              ? t("settingsProviders:codexOverviewTab.rateLimits.unlimitedCredits")
+                              : !limit.credits.hasCredits
+                                ? t("settingsProviders:codexOverviewTab.rateLimits.noCredits")
+                                : limit.credits.balance != null
+                                  ? t("settingsProviders:codexOverviewTab.rateLimits.creditsBalance", { balance: limit.credits.balance })
+                                  : t("settingsProviders:codexOverviewTab.rateLimits.creditsAvailable")
                           }
                           tone={
                             limit.credits.hasCredits ? "success" : "warning"
@@ -312,19 +305,18 @@ export function OverviewTab({
 
                     <div className={sx(codexStyles.mt3Space3)}>
                       {[
-                        ["Primary", limit.primary] as const,
-                        ["Secondary", limit.secondary] as const,
+                        ["primary", limit.primary] as const,
+                        ["secondary", limit.secondary] as const,
                       ]
                         .filter(([, bucket]) => bucket)
-                        .map(([label, bucket]) => (
-                          <div key={label} className={sx(codexStyles.space15)}>
+                        .map(([bucketName, bucket]) => (
+                          <div key={bucketName} className={sx(codexStyles.space15)}>
                             <div className={sx(codexStyles.rateRow)}>
-                              <span>{label}</span>
+                              <span>{t(`settingsProviders:codexOverviewTab.rateLimits.${bucketName}`)}</span>
                               <span>
-                                {formatPercent(bucket?.usedPercent)}
                                 {bucket?.resetsAt
-                                  ? ` · resets ${formatDateTime(bucket.resetsAt)}`
-                                  : ""}
+                                  ? t("settingsProviders:codexOverviewTab.rateLimits.usedWithReset", { percent: formatPercent(bucket.usedPercent), time: formatDateTime(t, bucket.resetsAt) })
+                                  : formatPercent(bucket?.usedPercent)}
                               </span>
                             </div>
                             <div className={sx(codexStyles.progressTrack)}>

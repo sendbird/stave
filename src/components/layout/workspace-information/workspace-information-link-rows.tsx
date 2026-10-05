@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ExternalLink,
@@ -34,14 +35,12 @@ import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import { informationRow } from "../information-row.styles";
 import { hostSurface } from "@/components/ui/host-surface.styles";
 import { workspaceInformationPanelStyles as styles } from "../workspace-information-panel.styles";
-
 export function openExternalUrl(url: string) {
   if (!isWorkspaceInfoUrl(url)) {
     return;
   }
   void window.api?.shell?.openExternal?.({ url: url.trim() });
 }
-
 export interface LinkedPullRequestPreview {
   url: string;
   loading: boolean;
@@ -51,19 +50,17 @@ export interface LinkedPullRequestPreview {
   } | null;
   error?: string;
 }
-
 export function formatFigmaKindLabel(
   kind?: "file" | "design" | "proto" | "board" | "slides" | "unknown",
 ) {
   if (kind === "proto") {
-    return "Prototype";
+    return i18n.t("workspace:workspaceInformationLinkRows.prototype");
   }
   if (kind === "unknown" || !kind) {
-    return "Resource";
+    return i18n.t("workspace:workspaceInformationLinkRows.resource");
   }
-  return kind.charAt(0).toUpperCase() + kind.slice(1);
+  return i18n.t(`workspace:workspaceInformationLinkRows.figmaKinds.${kind}`);
 }
-
 function formatStorybookAccessBadgeLabel(
   access?: WorkspaceStorybookResourceAccess | null,
 ) {
@@ -71,17 +68,16 @@ function formatStorybookAccessBadgeLabel(
     return null;
   }
   if (access.kind === "requires_github_auth") {
-    return "GitHub auth";
+    return i18n.t("workspace:workspaceInformationLinkRows.githubAuthentication");
   }
   if (access.kind === "public") {
-    return "Public";
+    return i18n.t("workspace:workspaceInformationLinkRows.public");
   }
   if (access.provider === "github-pages") {
-    return "GitHub Pages";
+    return ("GitHub Pages" /* i18n-ignore: hosting platform proper name */);
   }
   return null;
 }
-
 function storybookAccessBadgeVariant(
   access?: WorkspaceStorybookResourceAccess | null,
 ) {
@@ -93,6 +89,7 @@ function storybookAccessBadgeVariant(
 export function StorybookAccessBadges({
   access,
 }: { access?: WorkspaceStorybookResourceAccess | null }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const label = formatStorybookAccessBadgeLabel(access);
   return (
     <>
@@ -103,7 +100,7 @@ export function StorybookAccessBadges({
       ) : null}
       {access?.externalRepo ? (
         <Badge size="sm" variant="outline" xstyle={[styles.chip, styles.chipRepo]} title={access.externalRepo}>
-          <span className={sx(styles.chipRepoLabel)}>repo {access.externalRepo}</span>
+          <span className={sx(styles.chipRepoLabel)}>{tI18n("workspace:workspaceInformationLinkRows.repositoryName", { name: access.externalRepo })}</span>
         </Badge>
       ) : null}
     </>
@@ -120,7 +117,7 @@ export async function fetchLinkedPullRequestPreview(args: {
       url: args.url,
       loading: false,
       info: null,
-      error: "GitHub lookup unavailable.",
+      error: i18n.t("workspace:additionalCopy.message23"),
     };
   }
 
@@ -134,7 +131,7 @@ export async function fetchLinkedPullRequestPreview(args: {
         url: args.url,
         loading: false,
         info: null,
-        error: result.stderr || "GitHub PR metadata unavailable.",
+        error: result.stderr || i18n.t("workspace:additionalCopy.message24"),
       };
     }
 
@@ -152,7 +149,7 @@ export async function fetchLinkedPullRequestPreview(args: {
       url: args.url,
       loading: false,
       info: null,
-      error: "GitHub PR metadata unavailable.",
+      error: i18n.t("workspace:additionalCopy.message25"),
     };
   }
 }
@@ -294,6 +291,7 @@ export function InlineLinkRow(props: {
   pinned?: boolean;
   onTogglePin?: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   return (
     <div className={sx(styles.linkRow)}>
       <span className={sx(styles.linkRowMark)}>{props.icon}</span>
@@ -335,8 +333,8 @@ export function InlineLinkRow(props: {
                     aria-pressed={props.pinned}
                     aria-label={
                       props.pinned
-                        ? "Unpin intent anchor"
-                        : "Pin as intent anchor"
+                        ? tI18n("workspace:workspaceInformationLinkRows.unpinIntentAnchor")
+                        : tI18n("workspace:workspaceInformationLinkRows.pinAsIntentAnchor")
                     }
                   />
                 }
@@ -354,13 +352,13 @@ export function InlineLinkRow(props: {
               >
                 <span className={sx(styles.pinTooltipTitle)}>
                   {props.pinned
-                    ? "Pinned as intent anchor"
-                    : "Pin as intent anchor"}
+                    ? tI18n("workspace:workspaceInformationLinkRows.pinnedAsIntentAnchor")
+                    : tI18n("workspace:workspaceInformationLinkRows.pinAsIntentAnchor")}
                 </span>
                 <span className={sx(styles.pinTooltipBody)}>
                   {props.pinned
-                    ? "The intent guard checks your changes against this and flags scope or intent drift. Click to unpin."
-                    : "Pin this PRD, spec, or design so the AI checks each change against it after a turn."}
+                    ? tI18n("workspace:workspaceInformationLinkRows.theIntentGuardChecksYourChangesAgainst")
+                    : tI18n("workspace:workspaceInformationLinkRows.pinThisPrdSpecOrDesignSo")}
                 </span>
               </TooltipContent>
             </Tooltip>
@@ -377,13 +375,13 @@ export function InlineLinkRow(props: {
                     type="button"
                     xstyle={[styles.iconButton, styles.iconButtonDanger]}
                     onClick={props.onRemove}
-                    aria-label="Remove"
+                    aria-label={tI18n("workspace:workspaceInformationLinkRows.remove")}
                   />
                 }
               >
                 <X className={sx(styles.glyphSm)} />
               </TooltipTrigger>
-              <TooltipContent side="left">Remove</TooltipContent>
+              <TooltipContent side="left">{tI18n("workspace:workspaceInformationLinkRows.remove")}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -396,6 +394,7 @@ export function CreateTaskActionButton(props: {
   disabled?: boolean;
   onClick: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   return (
     <TooltipProvider delay={300}>
       <Tooltip>
@@ -411,13 +410,13 @@ export function CreateTaskActionButton(props: {
               ]}
               disabled={props.disabled}
               onClick={props.onClick}
-              aria-label="Create task"
+              aria-label={tI18n("workspace:workspaceInformationLinkRows.createTask")}
             />
           }
         >
           <MessageSquarePlus className={sx(styles.glyphSm)} />
         </TooltipTrigger>
-        <TooltipContent side="left">Create task</TooltipContent>
+        <TooltipContent side="left">{tI18n("workspace:workspaceInformationLinkRows.createTask")}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -430,6 +429,7 @@ export function InlineUrlInput(props: {
   placeholder: string;
   icon: ReactNode;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   return (
     <div className={sx(styles.urlInputRow)}>
       <span className={sx(styles.urlInputMark)}>{props.icon}</span>
@@ -449,7 +449,7 @@ export function InlineUrlInput(props: {
           styles.iconButtonDanger,
         ]}
         onClick={props.onRemove}
-        aria-label="Remove"
+        aria-label={tI18n("workspace:workspaceInformationLinkRows.remove")}
       >
         <X className={sx(styles.glyphSm)} />
       </AdsButton>
@@ -492,6 +492,7 @@ export function GitHubPrRow(props: {
   isCurrent?: boolean;
   actions?: ReactNode;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const visual = PR_STATUS_VISUAL[props.status];
 
   return (
@@ -518,8 +519,7 @@ export function GitHubPrRow(props: {
           </Badge>
           {props.isCurrent ? (
             <Badge size="sm" variant="outline" xstyle={styles.chipTight}>
-              Current branch
-            </Badge>
+              {tI18n("workspace:workspaceInformationLinkRows.currentBranch")}</Badge>
           ) : null}
           {props.repo ? (
             <span className={sx(informationRow.metaText)}>{props.repo}</span>
@@ -541,7 +541,7 @@ export function GitHubPrRow(props: {
               props.loading && styles.glyphSpinning,
             ]}
             onClick={props.onRefresh}
-            aria-label="Refresh"
+            aria-label={tI18n("workspace:workspaceInformationLinkRows.refresh")}
           >
             <RefreshCcw className={sx(styles.glyphSm)} />
           </AdsButton>
@@ -551,7 +551,7 @@ export function GitHubPrRow(props: {
           type="button"
           xstyle={[styles.iconButton, styles.iconButtonHoverSurface]}
           onClick={() => openExternalUrl(props.url)}
-          aria-label="Open on GitHub"
+          aria-label={tI18n("workspace:workspaceInformationLinkRows.openOnGithub")}
         >
           <ExternalLink className={sx(styles.glyphSm)} />
         </AdsButton>
@@ -561,7 +561,7 @@ export function GitHubPrRow(props: {
             type="button"
             xstyle={[styles.iconButton, styles.iconButtonDanger]}
             onClick={props.onRemove}
-            aria-label="Remove"
+            aria-label={tI18n("workspace:workspaceInformationLinkRows.remove")}
           >
             <X className={sx(styles.glyphSm)} />
           </AdsButton>

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { getAppLocale } from "../../src/i18n/runtime";
 import { resolveHostGatewayCredential } from "./provider-gateway-credential";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -112,12 +113,13 @@ export function measureSerializedHostServiceRequestBytes(args: {
   method: HostServiceMethod;
   params: HostServiceRequestMap[HostServiceMethod];
 }) {
-  return serializeJsonFramedMessage({
-    type: "request",
-    id: 1,
-    method: args.method,
-    params: args.params,
-  }).serializedBytes;
+  return serializeJsonFramedMessage(buildHostServiceRequestEnvelope(1, args.method, args.params)).serializedBytes;
+}
+
+export function buildHostServiceRequestEnvelope<TMethod extends HostServiceMethod>(
+  id: number, method: TMethod, params: HostServiceRequestMap[TMethod],
+): HostServiceRequestEnvelope<TMethod> {
+  return { type: "request", id, method, params, displayLocale: getAppLocale() };
 }
 
 class HostServiceClient {
@@ -383,10 +385,7 @@ class HostServiceClient {
     this.nextRequestId += 1;
 
     const request: HostServiceRequestEnvelope<TMethod> = {
-      type: "request",
-      id: requestId,
-      method,
-      params,
+      ...buildHostServiceRequestEnvelope(requestId, method, params),
       ...(gatewayCredential ? { gatewayCredential } : {}),
     };
     const serializedRequest = serializeJsonFramedMessage(request);

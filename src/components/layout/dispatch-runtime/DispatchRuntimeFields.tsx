@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { Accordion } from "@/components/ads/components/Accordion";
 import { Select } from "@/components/ads/components/Select";
@@ -51,6 +52,7 @@ function AccessSelectField(props: {
 
 /** The "How it runs" controls: model, effort, autonomy and access. */
 export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
+  const { t: tI18n } = useTranslation(["kickoff"]);
   const { draft, idPrefix } = props;
   const { access, model, setAccess } = draft;
   // One setter for every access control. The child fields work in `string` /
@@ -67,16 +69,13 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
       aria-labelledby={`${idPrefix}-runtime-heading`}
     >
       <h3 id={`${idPrefix}-runtime-heading`} className={sx(dispatchFieldStyles.sectionHeading)}>
-        How it runs
-      </h3>
+        {tI18n("kickoff:dispatchRuntimeFields.howItRuns")}</h3>
       <div className={sx(dispatchFieldStyles.panelRow)}>
         <div className={sx(dispatchFieldStyles.rowText)}>
           <p className={sx(dispatchFieldStyles.fieldLabel)}>
-            Model and effort
-          </p>
+            {tI18n("kickoff:dispatchRuntimeFields.modelAndEffort")}</p>
           <p className={sx(dispatchFieldStyles.rowDescription)}>
-            Same picker as the composer, including reasoning effort.
-          </p>
+            {tI18n("kickoff:dispatchRuntimeFields.samePickerAsTheComposerIncludingReasoning")}</p>
         </div>
         <ModelEffortSelector
           value={draft.selectedModelOption}
@@ -93,14 +92,13 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
       </div>
       {!draft.providerAvailable ? (
         <p className={sx(dispatchFieldStyles.hintDanger)} role="alert">
-          This provider is unavailable. Choose another model before approving.
-        </p>
+          {tI18n("kickoff:dispatchRuntimeFields.thisProviderIsUnavailableChooseAnotherModel")}</p>
       ) : null}
 
       <div className={sx(dispatchFieldStyles.field)}>
-        <p className={sx(dispatchFieldStyles.fieldLabel)}>Autonomy</p>
+        <p className={sx(dispatchFieldStyles.fieldLabel)}>{tI18n("kickoff:dispatchRuntimeFields.autonomy")}</p>
         <ChoiceButtons
-          aria-label="Autonomy"
+          aria-label={tI18n("kickoff:dispatchRuntimeFields.autonomy")}
           value={draft.autonomyPreset ?? "custom"}
           options={draft.autonomyOptions}
           onChange={(value) => {
@@ -123,13 +121,13 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
         items={[
           {
             value: "advanced",
-            title: "Advanced",
+            title: tI18n("kickoff:dispatchRuntimeFields.advanced"),
             content: (
               <div className={sx(dispatchFieldStyles.accordionPanel)}>
                 {model.providerId === "claude-code" ? (
                   <>
                     <AccessSelectField
-                      label="Claude permission mode"
+                      label={tI18n("kickoff:dispatchRuntimeFields.claudePermissionMode")}
                       value={access.claudePermissionMode}
                       options={CLAUDE_PERMISSION_MODE_OPTIONS}
                       disabled={props.disabled}
@@ -137,14 +135,14 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
                     />
                     <Switch
                       variant="row"
-                      label="Claude sandbox"
+                      label={tI18n("kickoff:dispatchRuntimeFields.claudeSandbox")}
                       checked={access.claudeSandboxEnabled}
                       disabled={props.disabled}
                       onCheckedChange={setAccessField("claudeSandboxEnabled")}
                     />
                     <Switch
                       variant="row"
-                      label="Allow unsandboxed commands"
+                      label={tI18n("kickoff:dispatchRuntimeFields.allowUnsandboxedCommands")}
                       checked={access.claudeAllowUnsandboxedCommands}
                       disabled={props.disabled}
                       onCheckedChange={setAccessField(
@@ -156,14 +154,14 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
                   <>
                     <div className={sx(dispatchFieldStyles.accessPair)}>
                       <AccessSelectField
-                        label="File access"
+                        label={tI18n("kickoff:dispatchRuntimeFields.fileAccess")}
                         value={access.codexFileAccess}
                         options={CODEX_SANDBOX_MODE_OPTIONS}
                         disabled={props.disabled}
                         onValueChange={setAccessField("codexFileAccess")}
                       />
                       <AccessSelectField
-                        label="Approval policy"
+                        label={tI18n("kickoff:dispatchRuntimeFields.approvalPolicy")}
                         value={access.codexApprovalPolicy}
                         options={CODEX_APPROVAL_POLICY_OPTIONS}
                         disabled={props.disabled}
@@ -171,7 +169,7 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
                       />
                     </div>
                     <AccessSelectField
-                      label="Web search"
+                      label={tI18n("kickoff:dispatchRuntimeFields.webSearch")}
                       value={access.codexWebSearch}
                       options={CODEX_WEB_SEARCH_OPTIONS}
                       disabled={props.disabled}
@@ -179,7 +177,7 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
                     />
                     <Switch
                       variant="row"
-                      label="Network access"
+                      label={tI18n("kickoff:dispatchRuntimeFields.networkAccess")}
                       checked={access.codexNetworkAccess}
                       disabled={props.disabled}
                       onCheckedChange={setAccessField("codexNetworkAccess")}
@@ -188,10 +186,8 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
                 )}
 
                 <p className={sx(dispatchFieldStyles.hintRelaxed)}>
-                  Provider timeout{" "}
-                  {formatProviderTimeoutLabel(props.providerTimeoutMs)}, from your
-                  Stave provider settings.
-                </p>
+          {tI18n("kickoff:dispatchRuntimeFields.timeoutHint", { timeout: formatProviderTimeoutLabel(props.providerTimeoutMs) })}
+        </p>
               </div>
             ),
           },

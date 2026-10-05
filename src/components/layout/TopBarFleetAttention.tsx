@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Bot } from "lucide-react";
 import type { CSSProperties } from "react";
 import * as stylex from "@stylexjs/stylex";
@@ -14,6 +15,7 @@ import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
 export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
+  useTranslation();
   const [repositoryPath, recentRepositories, toggleFleetView, isFleetViewActive] =
     useAppStore(
       useShallow(
@@ -47,7 +49,7 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
             ]}
             style={props.noDragStyle}
             aria-label={
-              isFleetViewActive ? "close-fleet-view" : "open-fleet-view"
+              isFleetViewActive ? i18n.t("shell:topBarFleetAttention.closeFleet") : i18n.t("shell:topBarFleetAttention.openFleet")
             }
             aria-pressed={isFleetViewActive}
             onClick={toggleFleetView}
@@ -63,10 +65,10 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
       </TooltipTrigger>
       <TooltipContent side="bottom">
         {isFleetViewActive
-          ? "Close Fleet View"
+          ? i18n.t("shell:topBarFleetAttention.closeFleetView")
           : attentionCount > 0
-            ? `Fleet View · ${attentionCount} action${attentionCount === 1 ? "" : "s"} required`
-            : "Fleet View"}
+            ? i18n.t("shell:topBarFleetAttention.fleetViewActionRequired", { count: attentionCount })
+            : i18n.t("shell:topBarFleetAttention.fleetView")}
       </TooltipContent>
     </Tooltip>
   );

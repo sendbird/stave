@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { controlStyles } from "./composer-control.stylex";
 import { sx } from "../ads/utils/stylex";
 import type { ReactNode } from "react";
@@ -37,6 +38,7 @@ export function ComposerControlMenuList(props: {
   items: readonly ComposerControlMenuItem[];
   className?: string;
 }) {
+  useTranslation();
   return (
     <ComposerControlDensityProvider value="default">
       <div

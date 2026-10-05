@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
@@ -84,10 +85,11 @@ export function Plan({
   emptyState,
   steps = NO_STEPS,
   substeps = "indent",
-  title = "Plan",
+  title = i18n.t("ui:plan.plan"),
   xstyle,
   ...props
 }: PlanProps) {
+  useTranslation();
   const titleId = `${React.useId()}title`;
   const flat = React.useMemo(() => flattenPlan(steps), [steps]);
   const total = steps.length;
@@ -145,7 +147,7 @@ export function Plan({
               {done} / {total}
             </span>
             <VisuallyHidden>
-              {done} of {total} steps complete
+              {i18n.t("ui:plan.progress", { done, total })}
             </VisuallyHidden>
           </>
         )}
@@ -154,8 +156,7 @@ export function Plan({
       {total === 0 ? (
         (emptyState ?? (
           <p className={sx(styles.empty)}>
-            No steps yet. The plan appears once the agent commits to one.
-          </p>
+            {i18n.t("ui:plan.noStepsYetThePlanAppearsOnceTheAgentCommitsToOne")}</p>
         ))
       ) : (
         <ol className={sx(agentSurface.rowGroup, styles.list)} role="list">
@@ -208,6 +209,7 @@ function PlanStepRow({
   item: PlanStepItem;
   substeps: PlanSubsteps;
 }) {
+  useTranslation();
   const status = item.status ?? "pending";
   const nested = item.steps ?? NO_STEPS;
   const top = depth === 0;

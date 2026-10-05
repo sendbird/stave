@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
@@ -39,6 +40,7 @@ export function TextShimmer({
   xstyle,
   ...props
 }: TextShimmerProps) {
+  useTranslation();
   return (
     <span
       {...props}
@@ -105,12 +107,13 @@ export function TextShimmerLines({
   active = true,
   className,
   duration,
-  label = "Loading",
+  label = i18n.t("ui:textshimmer.loading"),
   lines = 3,
   widths = DEFAULT_LINE_WIDTHS,
   xstyle,
   ...props
 }: TextShimmerLinesProps) {
+  useTranslation();
   const scale = widths.length > 0 ? widths : DEFAULT_LINE_WIDTHS;
 
   return (

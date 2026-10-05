@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { DelegateTaskArgs } from "@/lib/runs/delegated-task";
 import { compileAgent, snapshotAgent, type AgentSnapshot } from "./compile";
 import type { AgentConfig, AgentPermission } from "./schema";
@@ -57,8 +58,8 @@ export function applyAgentToDelegation(input: {
       ok: false,
       code: "not-allowed",
       message: input.parentCanCall.length
-        ? `This task's agent cannot call "${agent.name}". It can call: ${input.parentCanCall.join(", ")}.`
-        : "This task's agent does not call other agents.",
+        ? i18n.t("agents:delegate.message", { value1: agent.name, value2: input.parentCanCall.join(", ") })
+        : i18n.t("agents:delegate.message2"),
     };
   }
   const snapshot = snapshotAgent(agent);
@@ -74,7 +75,7 @@ export function applyAgentToDelegation(input: {
     return {
       ok: false,
       code: "not-a-delegate",
-      message: `"${agent.name}" did not compile as a delegated task.`,
+      message: i18n.t("agents:delegate.message3", { value1: agent.name }),
     };
   }
   const delegate = compiled.compiled;
@@ -97,7 +98,7 @@ export function applyAgentToDelegation(input: {
     return {
       ok: false,
       code: "widens-permission",
-      message: `This task runs within ${input.parentPermission}; "${agent.name}" would run with ${profile}. Ask for a narrower profile.`,
+      message: i18n.t("agents:delegate.message4", { value1: input.parentPermission, value2: agent.name, value3: profile }),
     };
   }
   const fixedModel = delegate.delegate.model;

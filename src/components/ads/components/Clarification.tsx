@@ -1,3 +1,4 @@
+import { i18n, useTranslation, Trans } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
@@ -51,12 +52,12 @@ export type ClarificationProps = Omit<
 } & XstyleProp;
 
 const resultWord: Record<ClarificationResult, string> = {
-  answered: "Answered",
+  get answered() { return i18n.t("ui:resultWord.answered"); },
   // Same word as `Approval`'s lapsed resolution, deliberately: one vocabulary
   // for "the run ended before the reader answered" across both decision
   // surfaces, so a transcript holding one of each cannot name it two ways.
-  lapsed: "Withdrawn",
-  skipped: "Skipped",
+  get lapsed() { return i18n.t("ui:resultWord.withdrawn"); },
+  get skipped() { return i18n.t("ui:resultWord.skipped"); },
 };
 
 const resultTone = {
@@ -78,18 +79,19 @@ export function Clarification({
   busy = false,
   children,
   className,
-  continueLabel = "Continue",
+  continueLabel = i18n.t("ui:clarification.continue"),
   currentStep,
   description,
   onContinue,
   onSkip,
   outcome,
-  skipLabel = "Skip",
+  skipLabel = i18n.t("ui:clarification.skip"),
   title,
   totalSteps,
   xstyle,
   ...props
 }: ClarificationProps) {
+  useTranslation();
   const titleId = React.useId();
   const auditId = React.useId();
   const interactionRef = React.useRef<HTMLDivElement>(null);
@@ -101,8 +103,8 @@ export function Clarification({
   const status = resolved
     ? resultWord[outcome.result]
     : busy
-      ? "Recording answer"
-      : "Needs your input";
+      ? i18n.t("ui:clarification.recordinganswer")
+      : i18n.t("ui:clarification.needsyourinput");
   const step =
     !resolved && currentStep != null && totalSteps != null && totalSteps > 0
       ? `${Math.min(Math.max(1, currentStep), totalSteps)} / ${totalSteps}`
@@ -159,7 +161,7 @@ export function Clarification({
         <span className={sx(styles.headerMeta)}>
           {step == null ? null : (
             <span
-              aria-label={`Step ${step.replace(" / ", " of ")}`}
+              aria-label={i18n.t("ui:clarification.stepProgress", { current: Math.min(Math.max(1, currentStep ?? 1), totalSteps ?? 1), total: totalSteps })}
               className={sx(agentSurface.meta)}
             >
               {step}
@@ -255,18 +257,19 @@ function ClarificationAudit({
   id: string;
   outcome: ClarificationOutcome;
 }) {
+  useTranslation();
   return (
     <div className={sx(styles.audit)} id={id}>
       {outcome.content == null ? null : (
         <div className={sx(agentSurface.well, styles.answer)}>
-          <span className={sx(styles.answerLabel)}>Recorded answer</span>
+          <span className={sx(styles.answerLabel)}>{i18n.t("ui:clarification.recordedAnswer")}</span>
           <span className={sx(styles.answerCopy)}>{outcome.content}</span>
         </div>
       )}
       {outcome.by == null && outcome.at == null ? null : (
         <div className={sx(agentSurface.metaRow)}>
           <span className={sx(agentSurface.metaRowLabel, styles.by)}>
-            {outcome.by == null ? null : <>by {outcome.by}</>}
+            {outcome.by == null ? null : <Trans i18n={i18n} ns="ui" i18nKey="clarification.byAuthor" components={{ author: <span>{outcome.by}</span> }} />}
           </span>
           {outcome.at == null ? null : (
             <span className={sx(agentSurface.meta)}>{outcome.at}</span>

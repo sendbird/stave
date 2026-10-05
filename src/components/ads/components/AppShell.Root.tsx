@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useId, useMemo, useState } from "react";
 import type * as React from "react";
 
@@ -70,11 +71,12 @@ export function AppShell({
   dir,
   sidebar,
   sidebarSide = "left",
-  skipLinkLabel = "Skip to content",
+  skipLinkLabel = i18n.t("ui:appshellRoot.skipToContent"),
   topbar,
   workspaceHeader,
   ...props
 }: AppShellProps) {
+  useTranslation();
   const sidebarContext = useOptionalSidebar();
   const contentDir = dir ?? sidebarContext?.dir;
   const generatedId = useId();

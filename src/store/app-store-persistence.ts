@@ -1,3 +1,4 @@
+import { applyAppLocale, normalizeAppLocale } from "@/i18n";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeMyStandards } from "@/lib/agents/standards";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
@@ -277,6 +278,9 @@ export function createAppStorePersistenceOptions() {
       state.settings.sidebarNavView = normalizeSidebarNavView(
         raw.sidebarNavView,
       );
+      // `language` once held an unused free-text value ("English"); anything
+      // that is not a supported locale id normalizes to the default.
+      state.settings.language = normalizeAppLocale(raw.language);
       if (
         typeof persistedSettings?.terminalFontFamily === "string" &&
         persistedSettings.terminalFontFamily.trim() ===
@@ -553,7 +557,6 @@ export function createAppStorePersistenceOptions() {
       delete raw.codexSupportsReasoningSummaries;
       delete raw.codexExperimentalPlanMode;
       delete raw.codexAdditionalReadableRoots;
-      delete raw.language;
       delete raw.updateMode;
       delete raw.httpProxy;
       delete raw.smartSuggestions;
@@ -778,6 +781,7 @@ export function createAppStorePersistenceOptions() {
       });
       state.isDarkMode = isDark;
       applyThemeClass({ enabled: isDark });
+      applyAppLocale(state.settings.language);
       // Apply persisted custom theme before user overrides so cascade order
       // is correct: base → custom-theme → manual overrides.
       if (state.settings.customThemeId) {

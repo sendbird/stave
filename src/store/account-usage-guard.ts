@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import {
   resolveAccountUsageBlock,
@@ -68,7 +69,7 @@ export async function guardSendAgainstAccountUsage(
     const snapshot = await readProviderAccountUsage(getState, providerId, accountProfileId);
     const block = snapshot && resolveAccountUsageBlock({ providerId, model: options.model, snapshot });
     if (!block) return null;
-    toast.warning("Account usage limit reached", { description: block.message });
+    toast.warning(i18n.t("notifications:accountUsageGuard.accountUsageLimitReached"), { description: block.message });
     return buildAccountLimitBlockedResult(block, options.model, accountProfileId);
   }
   const usage = resolveTightestAccountUsageWindow({
@@ -110,7 +111,7 @@ export async function guardSendAgainstAccountUsage(
   if (!block) {
     return null;
   }
-  toast.warning("Account usage limit reached", {
+  toast.warning(i18n.t("notifications:accountUsageGuard.accountUsageLimitReached"), {
     description: block.message,
   });
   return buildAccountLimitBlockedResult(block, options?.model, accountProfileId);

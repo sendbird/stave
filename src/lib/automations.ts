@@ -24,6 +24,23 @@ export const AutomationScheduleTimeSchema = z
   .strict();
 export type AutomationScheduleTime = z.infer<typeof AutomationScheduleTimeSchema>;
 
+/**
+ * Schedule validation sentences. The host and the Stave Local MCP tools return
+ * them to agents as-is; the renderer shows a translation picked by id (see
+ * `describeAutomationScheduleIssue` in `./automation-presentation`).
+ */
+// i18n-ignore: host and MCP validation text; the renderer translates it by id
+export const AUTOMATION_SCHEDULE_ISSUE_MESSAGES = {
+  timeNeedsDayOrWeek: "Start time applies only to day or week schedules.",
+  weekdayNeedsWeek: "Start day applies only to week schedules.",
+  weekdayNeedsTime: "Start day requires a start time.",
+  weekdaysNeedWeek: "Start days apply only to week schedules.",
+  weekdaysNeedTime: "Start days require a start time.",
+  weekdaysUnique: "Start days must be unique.",
+  weekdayOrWeekdays: "Use either a single start day or a set of start days.",
+} as const;
+export type AutomationScheduleIssueId = keyof typeof AUTOMATION_SCHEDULE_ISSUE_MESSAGES;
+
 export const AutomationScheduleSchema = z
   .object({
     every: z.number().int().min(1).max(999),
@@ -48,60 +65,38 @@ export const AutomationScheduleSchema = z
   })
   .strict()
   .superRefine((schedule, context) => {
+    const issue = (path: string, id: AutomationScheduleIssueId) =>
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [path],
+        message: AUTOMATION_SCHEDULE_ISSUE_MESSAGES[id],
+      });
     if (
       schedule.at &&
       (schedule.unit === "minutes" || schedule.unit === "hours")
     ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["at"],
-        message: "Start time applies only to day or week schedules.",
-      });
+      issue("at", "timeNeedsDayOrWeek");
     }
     if (schedule.weekday !== undefined && schedule.unit !== "weeks") {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["weekday"],
-        message: "Start day applies only to week schedules.",
-      });
+      issue("weekday", "weekdayNeedsWeek");
     }
     if (schedule.weekday !== undefined && !schedule.at) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["weekday"],
-        message: "Start day requires a start time.",
-      });
+      issue("weekday", "weekdayNeedsTime");
     }
     if (schedule.weekdays && schedule.unit !== "weeks") {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["weekdays"],
-        message: "Start days apply only to week schedules.",
-      });
+      issue("weekdays", "weekdaysNeedWeek");
     }
     if (schedule.weekdays && !schedule.at) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["weekdays"],
-        message: "Start days require a start time.",
-      });
+      issue("weekdays", "weekdaysNeedTime");
     }
     if (
       schedule.weekdays &&
       new Set(schedule.weekdays).size !== schedule.weekdays.length
     ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["weekdays"],
-        message: "Start days must be unique.",
-      });
+      issue("weekdays", "weekdaysUnique");
     }
     if (schedule.weekdays && schedule.weekday !== undefined) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["weekdays"],
-        message: "Use either a single start day or a set of start days.",
-      });
+      issue("weekdays", "weekdayOrWeekdays");
     }
   });
 export type AutomationSchedule = z.infer<typeof AutomationScheduleSchema>;
@@ -466,16 +461,7 @@ export function computeNextAutomationRunAt(args: {
   return earliest.toISOString();
 }
 
-export const AUTOMATION_WEEKDAY_LABELS = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Sat",
-] as const;
-
+/** `HH:MM`, the value an `<input type="time">` reads and writes. */
 export function formatAutomationScheduleTime(at: AutomationScheduleTime) {
   const hour = String(at.hour).padStart(2, "0");
   const minute = String(at.minute).padStart(2, "0");
@@ -485,62 +471,15 @@ export function formatAutomationScheduleTime(at: AutomationScheduleTime) {
 export const AUTOMATION_WORKWEEK_WEEKDAYS = [1, 2, 3, 4, 5] as const;
 export const AUTOMATION_WEEKEND_WEEKDAYS = [0, 6] as const;
 
-function sameWeekdaySet(weekdays: number[], expected: readonly number[]) {
+/** True when `weekdays` names exactly the days in `expected`, in any order. */
+export function isAutomationWeekdaySet(
+  weekdays: readonly number[],
+  expected: readonly number[],
+) {
   return (
     weekdays.length === expected.length &&
     expected.every((weekday) => weekdays.includes(weekday))
   );
-}
-
-function formatAutomationWeekdaySet(weekdays: number[]) {
-  if (weekdays.length === 7) {
-    return "day";
-  }
-  if (sameWeekdaySet(weekdays, AUTOMATION_WORKWEEK_WEEKDAYS)) {
-    return "weekday";
-  }
-  if (sameWeekdaySet(weekdays, AUTOMATION_WEEKEND_WEEKDAYS)) {
-    return "weekend day";
-  }
-  return weekdays.map((weekday) => AUTOMATION_WEEKDAY_LABELS[weekday]).join(", ");
-}
-
-export function formatAutomationSchedule(schedule: AutomationSchedule) {
-  const labels: Record<AutomationScheduleUnit, [string, string]> = {
-    minutes: ["minute", "minutes"],
-    hours: ["hour", "hours"],
-    days: ["day", "days"],
-    weeks: ["week", "weeks"],
-  };
-  const at =
-    schedule.at && (schedule.unit === "days" || schedule.unit === "weeks")
-      ? ` at ${formatAutomationScheduleTime(schedule.at)}`
-      : "";
-
-  // Multi-weekday week schedules read better as "Every weekday at 09:00" than
-  // as "Every 1 week on Mon, Tue, Wed, Thu, Fri at 09:00".
-  if (schedule.unit === "weeks" && schedule.weekdays?.length) {
-    const weekdays = getAutomationScheduleWeekdays(schedule);
-    const set = formatAutomationWeekdaySet(weekdays);
-    if (schedule.every === 1) {
-      return weekdays.length === 7 ||
-        sameWeekdaySet(weekdays, AUTOMATION_WORKWEEK_WEEKDAYS) ||
-        sameWeekdaySet(weekdays, AUTOMATION_WEEKEND_WEEKDAYS)
-        ? `Every ${set}${at}`
-        : `Every week on ${set}${at}`;
-    }
-    return `Every ${schedule.every} weeks on ${set}${at}`;
-  }
-
-  const [singular, plural] = labels[schedule.unit];
-  const base = `Every ${schedule.every} ${
-    schedule.every === 1 ? singular : plural
-  }`;
-  const weekday =
-    schedule.unit === "weeks" && schedule.weekday !== undefined
-      ? ` on ${AUTOMATION_WEEKDAY_LABELS[schedule.weekday]}`
-      : "";
-  return `${base}${weekday}${at}`;
 }
 
 export const DEFAULT_AUTOMATION_SCHEDULE_TIME: AutomationScheduleTime = {
@@ -564,23 +503,6 @@ export const AUTOMATION_CADENCE_PRESETS = [
   "custom",
 ] as const;
 export type AutomationCadencePreset = (typeof AUTOMATION_CADENCE_PRESETS)[number];
-
-export const AUTOMATION_CADENCE_PRESENTATION: Record<
-  AutomationCadencePreset,
-  { label: string; detail: string }
-> = {
-  manual: { label: "Manual only", detail: "Runs when you press Run now." },
-  "every-15-minutes": {
-    label: "Every 15 minutes",
-    detail: "High-frequency polling. Watch the concurrency limit.",
-  },
-  hourly: { label: "Hourly", detail: "Runs once an hour from the last run." },
-  daily: { label: "Daily", detail: "Runs once a day at a local time." },
-  weekdays: { label: "Weekdays", detail: "Monday through Friday." },
-  weekends: { label: "Weekends", detail: "Saturday and Sunday." },
-  weekly: { label: "Weekly", detail: "One chosen day each week." },
-  custom: { label: "Custom", detail: "Set the interval and days yourself." },
-};
 
 export function applyAutomationCadencePreset(args: {
   preset: AutomationCadencePreset;
@@ -658,10 +580,10 @@ export function detectAutomationCadencePreset(args: {
     return "custom";
   }
   const weekdays = getAutomationScheduleWeekdays(schedule);
-  if (sameWeekdaySet(weekdays, AUTOMATION_WORKWEEK_WEEKDAYS)) {
+  if (isAutomationWeekdaySet(weekdays, AUTOMATION_WORKWEEK_WEEKDAYS)) {
     return "weekdays";
   }
-  if (sameWeekdaySet(weekdays, AUTOMATION_WEEKEND_WEEKDAYS)) {
+  if (isAutomationWeekdaySet(weekdays, AUTOMATION_WEEKEND_WEEKDAYS)) {
     return "weekends";
   }
   return weekdays.length > 0 ? "weekly" : "custom";
@@ -699,30 +621,6 @@ const AUTOMATION_TRUST_POLICY_PERMISSION_MODE: Record<
   "workspace-trusted": "manual",
 };
 
-export const AUTOMATION_PERMISSION_MODE_PRESENTATION: Record<
-  AutomationPermissionMode,
-  { label: string; summary: string; description: string }
-> = {
-  auto: {
-    label: "Auto",
-    summary: "Runs fully unattended",
-    description:
-      "Runs every provider action, MCP tool, and Lens action without approval prompts, because nobody is watching a scheduled run. Lens Developer Mode must still be enabled in Settings > Lens.",
-  },
-  guided: {
-    label: "Guided",
-    summary: "Asks before sensitive actions",
-    description:
-      "Sensitive provider actions take the strict approval path, so a run can pause and wait for you in its task.",
-  },
-  manual: {
-    label: "Manual",
-    summary: "Exactly what you configure",
-    description:
-      "Skip the guardrails and run with the provider permissions you set by hand below.",
-  },
-};
-
 export function automationTrustPolicyToPermissionMode(
   policy: AutomationTrustPolicy,
 ): AutomationPermissionMode {
@@ -733,12 +631,6 @@ export function automationPermissionModeToTrustPolicy(
   mode: AutomationPermissionMode,
 ): AutomationTrustPolicy {
   return AUTOMATION_PERMISSION_MODE_TRUST_POLICY[mode];
-}
-
-export function formatAutomationTrustPolicy(policy: AutomationTrustPolicy) {
-  return AUTOMATION_PERMISSION_MODE_PRESENTATION[
-    automationTrustPolicyToPermissionMode(policy)
-  ].label;
 }
 
 /**
@@ -776,25 +668,6 @@ export function applyAutomationTrustPolicyToRuntime(
     allowUnsandboxedCommands: false,
     allowDangerouslySkipPermissions: false,
   };
-}
-
-export function formatAutomationRuntimePermissions(
-  runtime: AutomationRuntimeConfig,
-) {
-  if (runtime.provider === "codex") {
-    return [
-      `Approvals ${runtime.approvalPolicy}`,
-      `Files ${runtime.fileAccess}`,
-      `Network ${runtime.networkAccess ? "on" : "off"}`,
-      `Web ${runtime.webSearch}`,
-    ].join(" · ");
-  }
-  return [
-    `Permission ${runtime.permissionMode}`,
-    `Sandbox ${runtime.sandboxEnabled ? "on" : "off"}`,
-    `Unsandboxed ${runtime.allowUnsandboxedCommands ? "on" : "off"}`,
-    `Skip prompts ${runtime.allowDangerouslySkipPermissions ? "on" : "off"}`,
-  ].join(" · ");
 }
 
 export function createDefaultAutomationRuntime(

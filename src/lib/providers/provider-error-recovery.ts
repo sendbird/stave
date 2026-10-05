@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 const PROVIDER_ERROR_PREFIX = /^\[error\]\s*/i;
 const TERMINAL_FAILURE_STOP_REASONS = new Set([
   "aborted",
@@ -28,7 +29,7 @@ export function parseProviderErrorNotice(
   const guidance = lines.join("\n").trim();
   const normalized = trimmed.toLowerCase();
   return {
-    message: message || "The provider run failed.",
+    message: message || i18n.t("providers:providerErrorRecovery.theProviderRunFailed"),
     guidance,
     capacityFailure:
       normalized.includes("server_overloaded") ||

@@ -19,6 +19,26 @@ async function selectWork(page: Page) {
 }
 
 for (const provider of ["claude-code", "codex"]) {
+  test(`${provider}: changing display language preserves the live session attachment`, async ({ page }) => {
+    await open(page, `?provider=${provider}`);
+    await expect.poll(() => calls(page)).toContain("attach:session-1");
+    const baseline = await page.evaluate(() => ({
+      calls: [...(window as any).cliFixture.calls],
+      detach: [...(window as any).cliFixture.detachCalls],
+    }));
+    await page.evaluate(() => (window as any).cliFixture.locale("ko"));
+    await expect(page.locator("html")).toHaveAttribute("lang", "ko-KR");
+    await expect(page.getByRole("button", { name: "CLI 세션 다시 시작" })).toBeVisible();
+    expect(await calls(page)).toEqual(baseline.calls);
+    expect(await page.evaluate(() => (window as any).cliFixture.detachCalls)).toEqual(baseline.detach);
+    await page.evaluate(() => (window as any).cliFixture.locale("en"));
+    await expect(page.getByRole("button", { name: "Restart CLI session" })).toBeVisible();
+    expect(await calls(page)).toEqual(baseline.calls);
+    expect(await page.evaluate(() => (window as any).cliFixture.detachCalls)).toEqual(baseline.detach);
+  });
+}
+
+for (const provider of ["claude-code", "codex"]) {
   test(`${provider}: cancellation preserves the session and confirmation switches after pending launch shutdown`, async ({ page }) => {
     await open(page, `?pending&pending-close&provider=${provider}`);
     await selectWork(page);

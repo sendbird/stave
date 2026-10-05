@@ -1,3 +1,5 @@
+import { getAgentDisplayName } from "@/lib/agents/display";
+import { useTranslation } from "@/i18n";
 import type * as React from "react";
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
@@ -48,8 +50,9 @@ export function AgentAvatar({
   className,
   xstyle,
 }: AgentAvatarProps) {
+  useTranslation();
   const decorative = ariaLabel === null;
-  const label = decorative ? undefined : (ariaLabel ?? agent.name);
+  const label = decorative ? undefined : (ariaLabel ?? getAgentDisplayName(agent));
   const palette = useAgentAvatarPalette();
   const tone = palette?.[agentColor(agent)] ?? agentAvatarTone(agent);
   const providerIcon = providerId ? getProviderIconUrl({ providerId }) : null;
@@ -62,7 +65,7 @@ export function AgentAvatar({
       style={{ "--agent-avatar-fill": tone.fill, "--agent-avatar-ink": tone.ink } as React.CSSProperties}
     >
       <span aria-hidden className={sx(styles.initials)}>
-        {agentInitials(agent.name)}
+        {agentInitials(getAgentDisplayName(agent))}
       </span>
       {providerIcon ? (
         <span aria-hidden className={sx(styles.provider)}>

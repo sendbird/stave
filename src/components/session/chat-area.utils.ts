@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 export type ChatAreaViewMode =
   | "no_project"
   | "hydrating_project"
@@ -44,15 +45,15 @@ export function resolveHydratingRepositoryCopy(args: {
 }) {
   if (args.persistenceBootstrapPhase === "purging-legacy-turn-journal") {
     return {
-      title: "Preparing local data",
+      title: i18n.t("session:chatAreaUtils.title"),
       description:
         args.persistenceBootstrapMessage ||
-        "Cleaning up legacy workspace data from a previous version. This only runs once.",
+        i18n.t("session:chatAreaUtils.description"),
     };
   }
 
   return {
-    title: "Opening workspace",
-    description: "Loading tasks and recent conversation state for this repository.",
+    title: i18n.t("session:chatAreaUtils.title2"),
+    description: i18n.t("session:chatAreaUtils.description2"),
   };
 }

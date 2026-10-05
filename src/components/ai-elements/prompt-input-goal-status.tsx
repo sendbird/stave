@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Target } from "lucide-react";
 import { Badge } from "@/components/ui";
 import { sx } from "../ads/utils/stylex";
@@ -46,6 +47,7 @@ export function PromptInputGoalStatusStrip(args: {
   status: PromptInputGoalStatus;
   compact?: boolean;
 }) {
+  useTranslation();
   const progressWidth =
     args.status.progressPercent == null
       ? null
@@ -67,7 +69,7 @@ export function PromptInputGoalStatusStrip(args: {
           className={sx(goalStatusStyles.badge)}
         >
           <Target className={sx(goalStatusStyles.badgeIcon)} />
-          Goal {args.status.statusLabel}
+          {i18n.t("composer:promptInputGoalStatus.goalLabel", { status: args.status.statusLabel })}
         </Badge>
         <p
           className={sx(goalStatusStyles.objective)}

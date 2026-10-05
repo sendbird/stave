@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
@@ -57,7 +58,7 @@ export type LoaderProps = Omit<React.ComponentProps<"span">, "children"> & {
  */
 export function Loader({
   className,
-  label = "Loading",
+  label = i18n.t("ui:loader.loading"),
   showLabel = false,
   size = "sm",
   tone = "inherit",
@@ -65,6 +66,7 @@ export function Loader({
   xstyle,
   ...props
 }: LoaderProps) {
+  useTranslation();
   const hidden =
     props["aria-hidden"] === true || props["aria-hidden"] === "true";
   const theme = themeProps("loader", { tone });

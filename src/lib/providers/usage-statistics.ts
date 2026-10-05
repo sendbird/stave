@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 import type { ProviderId, RateLimitsSnapshotResponse } from "./provider.types";
 import { ProviderAccountProfileIdSchema } from "./provider-accounts";
@@ -26,8 +27,8 @@ export const UsageStatisticsArgsSchema = z.object({
 }).strict().refine((args) => {
   const duration = Date.parse(args.to) - Date.parse(args.from);
   return duration > 0 && duration <= 366 * 86_400_000;
-}, "Choose a period of at most 366 days.")
-  .refine((args) => !args.accountProfileId || Boolean(args.providerId), "An account filter needs a provider.");
+}, { error: () => i18n.t("providers:validation.periodLimit") })
+  .refine((args) => !args.accountProfileId || Boolean(args.providerId), { error: () => i18n.t("providers:validation.accountProvider") });
 export type UsageStatisticsArgs = z.infer<typeof UsageStatisticsArgsSchema>;
 
 export interface UsageMetrics {
@@ -126,22 +127,22 @@ export function quotaObservations(snapshot: RateLimitsSnapshotResponse, provider
       resetsAt: window.resetsAt, source });
   };
   if (providerId === "claude-code") {
-    push("session", "5-hour limit", snapshot.claude.session, snapshot.claude.source);
-    push("weekly", "Weekly limit", snapshot.claude.weekly, snapshot.claude.source);
-    push("fable-weekly", "Weekly Fable limit", snapshot.claude.fableWeekly, snapshot.claude.source);
+    push("session", i18n.t("providers:usageStatistics.hourLimit"), snapshot.claude.session, snapshot.claude.source);
+    push("weekly", i18n.t("providers:usageStatistics.weeklyLimit"), snapshot.claude.weekly, snapshot.claude.source);
+    push("fable-weekly", i18n.t("providers:usageStatistics.weeklyFableLimit"), snapshot.claude.fableWeekly, snapshot.claude.source);
   } else if (providerId === "codex") {
     snapshot.codex.buckets.forEach((bucket, index) => {
       const id = bucket.limitId ?? `bucket-${index}`;
-      const label = bucket.limitName ?? bucket.limitId ?? "Quota";
+      const label = bucket.limitName ?? bucket.limitId ?? i18n.t("usage:usageView.quota");
       for (const key of ["primary", "secondary", "individualLimit"] as const) {
         const window = bucket[key];
         const minutes = window && "windowDurationMins" in window ? window.windowDurationMins : null;
-        push(`${id}:${key}`, `${label} · ${minutes ? `${minutes / 60}-hour limit` : key === "individualLimit" ? "Credits" : key}`, window, snapshot.codex.source);
+        push(`${id}:${key}`, `${label} · ${minutes ? i18n.t("providers:usageStatistics.hourLimitVariant9f03f68c", { value1: minutes / 60 }) : key === "individualLimit" ? i18n.t("providers:usageStatistics.credits") : key}`, window, snapshot.codex.source);
       }
     });
   } else {
     const value = snapshot[providerId];
-    push("monthly", "Monthly included usage", value.monthly, value.source);
+    push("monthly", i18n.t("providers:usageStatistics.monthlyIncludedUsage"), value.monthly, value.source);
     for (const bucket of value.buckets) push(`bucket:${bucket.id}`, bucket.label, bucket, value.source);
   }
   return rows;

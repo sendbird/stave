@@ -1,0 +1,53 @@
+{
+  "menu": {
+    "about": "About {{appName}}",
+    "services": "Services",
+    "hide": "Hide {{appName}}",
+    "hideOthers": "Hide Others",
+    "showAll": "Show All",
+    "quit": "Quit {{appName}}",
+    "edit": "Edit",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "pasteAndMatchStyle": "Paste and Match Style",
+    "delete": "Delete",
+    "selectAll": "Select All",
+    "speech": "Speech",
+    "startSpeaking": "Start Speaking",
+    "stopSpeaking": "Stop Speaking",
+    "view": "View",
+    "reload": "Reload",
+    "forceReload": "Force Reload",
+    "toggleDevTools": "Toggle Developer Tools",
+    "window": "Window",
+    "minimize": "Minimize",
+    "zoom": "Zoom",
+    "bringAllToFront": "Bring All to Front",
+    "close": "Close"
+  },
+  "quitConfirmation": {
+    "title": "Quit Stave",
+    "message": "Are you sure you want to quit?",
+    "detail": "Any running tasks will be stopped and unsaved changes may be lost.",
+    "quit": "Quit",
+    "cancel": "Cancel"
+  },
+  "unsavedChanges": {
+    "title": "Changes have not been saved",
+    "message": "Stave could not save your latest workspace changes.",
+    "detail": "Keep Stave open to preserve your current work, or retry saving before quitting.",
+    "keepOpen": "Keep Stave open",
+    "retry": "Retry saving",
+    "quitWithoutSaving": "Quit without saving"
+  },
+  "rendererRecovery": {
+    "crashed": "The Stave conversation window stopped.",
+    "unresponsive": "The Stave conversation window is not responding.",
+    "detail": "Reload to restore saved work. Recent changes that were not saved may be lost. Running tasks may continue in the background; check their activity after reloading before starting another run. Reloading does not resend your request.",
+    "reload": "Reload window",
+    "keepOpen": "Keep open"
+  }
+}

@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { Zap } from "lucide-react";
 import type { TurnModelInfoParts } from "@/lib/providers/turn-model-info";
 import { classifyTurnModelDetail } from "@/lib/providers/turn-model-info";
@@ -26,6 +27,7 @@ export function TurnModelChip(args: {
   parts: TurnModelInfoParts;
   className?: string;
 }) {
+  useTranslation();
   return (
     <span
       data-turn-model-chip="true"

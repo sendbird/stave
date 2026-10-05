@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -8,6 +9,7 @@ import { feedbackStyles as styles } from "./lens-feedback.styles";
 export function LensFeedbackComparison({ workspaceId, lensSessionId, annotation, original }: {
   workspaceId: string; lensSessionId: string; annotation: LensAnnotation; original?: string;
 }) {
+  useTranslation();
   const [after, setAfter] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -18,7 +20,7 @@ export function LensFeedbackComparison({ workspaceId, lensSessionId, annotation,
       if (!matchesSession(event, workspaceId, lensSessionId) || !event.loading) return;
       generation.current++;
       setAfter(undefined); setResolved(false); setBusy(false);
-      setMessage("The page changed. Capture it again to review.");
+      setMessage(i18n.t("lens:lensFeedbackComparison.thePageChangedCaptureItAgainTo"));
     });
     return () => { generation.current++; unsubscribe?.(); };
   }, [workspaceId, lensSessionId]);
@@ -28,22 +30,22 @@ export function LensFeedbackComparison({ workspaceId, lensSessionId, annotation,
     try {
       const result = await window.api?.lens?.compareAnnotation({ workspaceId, lensSessionId, annotation });
       if (token !== generation.current) return;
-      if (!result?.ok || !result.dataUrl) throw new Error(result?.message ?? "Could not capture the current target.");
+      if (!result?.ok || !result.dataUrl) throw new Error(result?.message ?? i18n.t("lens:lensFeedbackComparison.couldNotCaptureTheCurrentTarget"));
       setAfter(result.dataUrl);
-    } catch (error) { if (token === generation.current) setMessage(error instanceof Error ? error.message : "Capture failed."); }
+    } catch (error) { if (token === generation.current) setMessage(error instanceof Error ? error.message : i18n.t("lens:lensFeedbackComparison.captureFailed")); }
     finally { if (token === generation.current) setBusy(false); }
   }
   return <div className={sx(styles.editor)}>
     <div className={sx(styles.actions)}>
-      <Button size="xs" disabled={busy || !original} onClick={() => void compare()}>{busy ? "Capturing…" : "Compare current target"}</Button>
-      {after ? <Button size="xs" variant="quiet" aria-pressed={resolved} onClick={() => setResolved(!resolved)}>{resolved ? "Reopen review" : "Mark resolved"}</Button> : null}
+      <Button size="xs" disabled={busy || !original} onClick={() => void compare()}>{busy ? i18n.t("lens:lensFeedbackComparison.capturing") : i18n.t("lens:lensFeedbackComparison.compareCurrentTarget")}</Button>
+      {after ? <Button size="xs" variant="quiet" aria-pressed={resolved} onClick={() => setResolved(!resolved)}>{resolved ? i18n.t("lens:lensFeedbackComparison.reopenReview") : i18n.t("lens:lensFeedbackComparison.markResolved")}</Button> : null}
     </div>
-    {!original ? <p className={sx(styles.hint)}>No original image was captured. Select the target again to start a visual comparison.</p> : null}
+    {!original ? <p className={sx(styles.hint)}>{i18n.t("lens:lensFeedbackComparison.noOriginalImageWasCapturedSelectThe")}</p> : null}
     {after ? <div className={sx(styles.comparison)}>
-      <figure><img className={sx(styles.preview)} src={original} alt="Original target" /><figcaption>Before</figcaption></figure>
-      <figure><img className={sx(styles.preview)} src={after} alt="Current target candidate" /><figcaption>Current capture</figcaption></figure>
+      <figure><img className={sx(styles.preview)} src={original} alt={i18n.t("lens:lensFeedbackComparison.originalTarget")} /><figcaption>{i18n.t("lens:lensFeedbackComparison.before")}</figcaption></figure>
+      <figure><img className={sx(styles.preview)} src={after} alt={i18n.t("lens:lensFeedbackComparison.currentTargetCandidate")} /><figcaption>{i18n.t("lens:lensFeedbackComparison.currentCapture")}</figcaption></figure>
     </div> : null}
-    {after ? <p className={sx(styles.hint)} role="status">{resolved ? "Marked resolved by you in this view. Reloading or leaving this target resets the review." : "Confirm this is the same target and inspect the change. Matching a selector does not prove the issue is fixed."}</p> : null}
+    {after ? <p className={sx(styles.hint)} role="status">{resolved ? i18n.t("lens:lensFeedbackComparison.markedResolvedByYouInThisView") : i18n.t("lens:lensFeedbackComparison.confirmThisIsTheSameTargetAnd")}</p> : null}
     {message ? <p role="status" className={sx(styles.hint)}>{message}</p> : null}
   </div>;
 }

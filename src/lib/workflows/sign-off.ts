@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { CheckIns, Workflow, WorkflowStage, SignOff } from "./schema";
 
 type SignOffInput = Pick<Workflow, "checkIns" | "stages">;
@@ -6,7 +7,7 @@ function stageAt(stages: WorkflowStage[], index: number): WorkflowStage {
   const stage = stages[index];
   if (!stage) {
     throw new RangeError(
-      `Stage index ${index} is outside a workflow with ${stages.length} stages.`,
+      i18n.t("agentRuns:remaining.presentationCopy519", { v1: index, v2: stages.length }),
     );
   }
   return stage;

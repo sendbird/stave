@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { createTurnReceipt } from "@/lib/providers/turn-terminal-receipt";
 import { sanitizeFileContextPayload } from "@/lib/file-context-sanitization";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
@@ -59,13 +60,13 @@ export function resolveMidTurnSteeringContext(args: {
     return {
       providerId,
       unavailableMessage:
-        "Attachments can't be steered into a live turn — press Tab to queue instead.",
+        i18n.t("notifications:chatStateHelpers.attachmentsCanTBeSteeredIntoALiveTurnPressTabToQueueInstead"),
     };
   }
   if (!providerSupportsMidTurnSteering({ providerId })) {
     return {
       providerId,
-      unavailableMessage: `${providerId} does not support mid-turn steering.`,
+      unavailableMessage: i18n.t("notifications:chatStateHelpers.steerUnsupported", { provider: providerId }),
     };
   }
   return { providerId, unavailableMessage: null };

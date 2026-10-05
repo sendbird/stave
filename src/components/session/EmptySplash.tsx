@@ -1,3 +1,5 @@
+import { getCliSessionContextLabel } from "@/lib/terminal/terminal-tab-labels";
+import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import {
   ArrowRight,
@@ -26,7 +28,6 @@ import {
 } from "@/components/ui";
 import { STAVE_LOGO_URL } from "@/lib/providers/model-catalog";
 import {
-  getCliSessionContextLabel,
   getCliSessionProviderLabel,
   type CliSessionContextMode,
 } from "@/lib/terminal/types";
@@ -53,14 +54,15 @@ interface EmptySplashProps {
 }
 
 export function EmptySplash({
-  description = "Create a task to start a conversation, or open a CLI session for workspace work.",
+  description = i18n.t("session:emptySplash.emptySplash"),
   layout = "centered",
   onCreateTask,
   showCreateTaskAction = false,
   showCreateCliSessionAction = false,
   supplementaryContent,
-  title = "New task",
+  title = i18n.t("session:emptySplash.emptySplash2"),
 }: EmptySplashProps) {
+  useTranslation();
   const createCliSessionTab = useAppStore((state) => state.createCliSessionTab);
   const providerAvailability = useAppStore(
     (state) => state.providerAvailability,
@@ -73,7 +75,7 @@ export function EmptySplash({
   const showActions = showCreateTaskAction || showCreateCliSessionAction;
 
   const shortcutLabel = (
-    <KbdGroup aria-label={`Keyboard shortcut ${shortcutModifierLabel} N`}>
+    <KbdGroup aria-label={i18n.t("session:emptySplash.ariaLabel", { value1: shortcutModifierLabel })}>
       <Kbd>{shortcutModifierLabel}</Kbd>
       <KbdSeparator>+</KbdSeparator>
       <Kbd>N</Kbd>
@@ -87,14 +89,14 @@ export function EmptySplash({
     >
       <span className={sx(styles.buttonInner)}>
         <MessageSquarePlus size={16} />
-        <span className={sx(styles.buttonLabel)}>New Task</span>
+        <span className={sx(styles.buttonLabel)}>{i18n.t("session:emptySplash.createTaskButton")}</span>
       </span>
       {isTopCard ? (
         <ArrowRight size={16} className={sx(styles.arrowIcon)} />
       ) : (
         <KbdGroup
           className={sx(styles.keyGroupSpaced)}
-          aria-label={`Keyboard shortcut ${shortcutModifierLabel} N`}
+          aria-label={i18n.t("session:emptySplash.ariaLabel2", { value1: shortcutModifierLabel })}
         >
           <Kbd className={sx(styles.onAccentKey)}>{shortcutModifierLabel}</Kbd>
           <KbdSeparator className={sx(styles.onAccentSeparator)}>
@@ -122,14 +124,14 @@ export function EmptySplash({
       >
         <span className={sx(styles.buttonInner)}>
           <SquareTerminal size={16} />
-          <span className={sx(styles.buttonLabel)}>New CLI Session</span>
+          <span className={sx(styles.buttonLabel)}>{i18n.t("session:emptySplash.cliSessionDropdown")}</span>
         </span>
         {isTopCard ? (
           <ChevronDown size={16} className={sx(styles.chevronIcon)} />
         ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" xstyle={styles.menuContent}>
-        <DropdownMenuLabel>Start Here</DropdownMenuLabel>
+        <DropdownMenuLabel>{i18n.t("session:emptySplash.cliSessionDropdown2")}</DropdownMenuLabel>
         {CLI_SESSION_CHOICES.map((choice) => {
           const providerAvailable = providerAvailability[choice.provider];
           const providerLabel = getCliSessionProviderLabel(choice.provider);
@@ -157,8 +159,8 @@ export function EmptySplash({
                   </div>
                   <div className={sx(styles.menuItemDescription)}>
                     {!providerAvailable
-                      ? `${providerLabel} is unavailable in this environment`
-                      : "Use the current workspace context"}
+                      ? i18n.t("session:emptySplash.copy", { value1: providerLabel })
+                      : i18n.t("session:emptySplash.copy2")}
                   </div>
                 </div>
               </div>
@@ -199,7 +201,7 @@ export function EmptySplash({
               <div className={sx(styles.brandCopy)}>
                 <div className={sx(styles.brandName)}>Stave</div>
                 <div className={sx(styles.brandStatus)}>
-                  {showActions ? "Ready" : "Task ready"}
+                  {showActions ? i18n.t("session:emptySplash.emptySplash3") : i18n.t("session:emptySplash.emptySplash4")}
                 </div>
               </div>
             </div>
@@ -213,12 +215,12 @@ export function EmptySplash({
               {showActions ? (
                 <>
                   {shortcutLabel}
-                  <span>New task shortcut</span>
+                  <span>{i18n.t("session:emptySplash.emptySplash5")}</span>
                 </>
               ) : (
                 <>
                   <SendHorizontal size={16} />
-                  <span>Awaiting first prompt</span>
+                  <span>{i18n.t("session:emptySplash.emptySplash6")}</span>
                 </>
               )}
             </div>
@@ -229,11 +231,9 @@ export function EmptySplash({
               <div className={sx(styles.asideInner)}>
                 <div className={sx(styles.asideHeading)}>
                   <div className={sx(styles.asideTitle)}>
-                    Choose a starting point
-                  </div>
+                    {i18n.t("session:emptySplash.emptySplash7")}</div>
                   <p className={sx(styles.asideDescription)}>
-                    Choose the surface for this workspace.
-                  </p>
+                    {i18n.t("session:emptySplash.emptySplash8")}</p>
                 </div>
 
                 <div className={sx(styles.actionColumn)}>
@@ -242,8 +242,7 @@ export function EmptySplash({
                 </div>
 
                 <div className={sx(styles.asideNote)}>
-                  Current workspace context is used by default.
-                </div>
+                  {i18n.t("session:emptySplash.emptySplash9")}</div>
               </div>
             </aside>
           ) : null}

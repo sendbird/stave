@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Renderer Runtime Store (module-level, refcounted)
 // ---------------------------------------------------------------------------
@@ -170,7 +171,7 @@ export async function refreshScriptsRuntime(workspaceId: string): Promise<void> 
     patchSnapshot(record, {
       configStatus: "error",
       config: null,
-      configError: "Scripts bridge unavailable.",
+      configError: i18n.t("scripts:additionalCopy.message45"),
     });
     return;
   }
@@ -194,7 +195,7 @@ export async function refreshScriptsRuntime(workspaceId: string): Promise<void> 
     patchSnapshot(record, {
       configStatus: "error",
       config: null,
-      configError: configResult.error ?? "Failed to load scripts.",
+      configError: configResult.error ?? i18n.t("scripts:additionalCopy.message46"),
       origins,
     });
     return;
@@ -329,7 +330,7 @@ export async function runScriptEntry(args: {
   const context = record?.context;
   const api = getScriptsApi()?.runEntry;
   if (!api || !context || !context.repositoryPath || !context.workspacePath) {
-    toast.error("Scripts bridge unavailable");
+    toast.error(i18n.t("scripts:runtimeStore.scriptsBridgeUnavailable"));
     return;
   }
 
@@ -352,19 +353,19 @@ export async function runScriptEntry(args: {
           ...live.snapshot.entries,
           [key]: buildScriptRunFailureState({
             existing: live.snapshot.entries[key],
-            error: result.error ?? "Unknown error",
+            error: result.error ?? i18n.t("scripts:additionalCopy.message47"),
           }),
         },
       });
     }
-    toast.error("Script failed to start", {
-      description: result.error ?? "Unknown error",
+    toast.error(i18n.t("scripts:runtimeStore.scriptFailedToStart"), {
+      description: result.error ?? i18n.t("scripts:runtimeStore.unknownError"),
     });
     return;
   }
 
   if (result.alreadyRunning) {
-    toast.message("Service already running");
+    toast.message(i18n.t("scripts:runtimeStore.serviceAlreadyRunning"));
   }
 }
 
@@ -375,7 +376,7 @@ export async function stopScriptEntry(args: {
 }): Promise<void> {
   const api = getScriptsApi()?.stopEntry;
   if (!api) {
-    toast.error("Scripts bridge unavailable");
+    toast.error(i18n.t("scripts:runtimeStore.scriptsBridgeUnavailable"));
     return;
   }
   const result = await api({
@@ -384,8 +385,8 @@ export async function stopScriptEntry(args: {
     scriptKind: args.scriptKind,
   });
   if (!result.ok) {
-    toast.error("Failed to stop script", {
-      description: result.error ?? "Unknown error",
+    toast.error(i18n.t("scripts:runtimeStore.failedToStopScript"), {
+      description: result.error ?? i18n.t("scripts:runtimeStore.unknownError"),
     });
   }
 }
@@ -399,7 +400,7 @@ export async function runScriptHook(args: {
   const context = record?.context;
   const api = getScriptsApi()?.runHook;
   if (!api || !context || !context.repositoryPath || !context.workspacePath) {
-    toast.error("Scripts bridge unavailable");
+    toast.error(i18n.t("scripts:runtimeStore.scriptsBridgeUnavailable"));
     return;
   }
 
@@ -430,13 +431,13 @@ export async function runScriptHook(args: {
       ...(args.context?.turnId ? { turnId: args.context.turnId } : {}),
     });
     if (!result.ok) {
-      toast.error("Hook execution failed", {
-        description: result.error ?? result.summary?.failures[0]?.message ?? "Unknown error",
+      toast.error(i18n.t("scripts:runtimeStore.hookExecutionFailed"), {
+        description: result.error ?? result.summary?.failures[0]?.message ?? i18n.t("scripts:runtimeStore.unknownError"),
       });
       return;
     }
-    toast.success("Hook executed", {
-      description: `${result.summary?.executedEntries ?? 0} script(s) ran for ${triggerMeta.label}.`,
+    toast.success(i18n.t("scripts:runtimeStore.hookExecuted"), {
+      description: i18n.t("scripts:runtimeStore.valueScriptSRanForValue", { value1: result.summary?.executedEntries ?? 0, value2: triggerMeta.label }),
     });
   } finally {
     setHookRunning(false);
@@ -446,13 +447,13 @@ export async function runScriptHook(args: {
 export async function stopAllScripts(workspaceId: string): Promise<void> {
   const api = getScriptsApi()?.stopAll;
   if (!api) {
-    toast.error("Scripts bridge unavailable");
+    toast.error(i18n.t("scripts:runtimeStore.scriptsBridgeUnavailable"));
     return;
   }
   const result = await api({ workspaceId });
   if (!result.ok) {
-    toast.error("Failed to stop scripts", {
-      description: result.error ?? "Unknown error",
+    toast.error(i18n.t("scripts:runtimeStore.failedToStopScripts"), {
+      description: result.error ?? i18n.t("scripts:runtimeStore.unknownError"),
     });
   }
 }

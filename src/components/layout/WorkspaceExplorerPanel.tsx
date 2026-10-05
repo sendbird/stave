@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ChevronDown,
@@ -140,6 +142,7 @@ function ExplorerSearchPanel(props: {
   workspaceCwd: string | undefined;
   onOpenFile: (path: string, line?: number) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResultFile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -176,7 +179,7 @@ function ExplorerSearchPanel(props: {
         } else {
           setResults([]);
           setLimitHit(false);
-          setError(response?.stderr ?? "Search failed.");
+          setError(response?.stderr ?? i18n.t("workspace:additionalCopy.message10"));
         }
       } catch (err) {
         setResults([]);
@@ -251,13 +254,13 @@ function ExplorerSearchPanel(props: {
 
   const flatRows = useMemo(
     () => buildFlatRows(results, collapsedFiles),
-    [results, collapsedFiles],
+    [results, collapsedFiles, i18n.resolvedLanguage],
   );
   const totalMatches = useMemo(
     () => results.reduce((sum, r) => sum + r.matches.length, 0),
-    [results],
+    [results, i18n.resolvedLanguage],
   );
-  const normalizedQuery = useMemo(() => normalizeSearchQuery(query), [query]);
+  const normalizedQuery = useMemo(() => normalizeSearchQuery(query), [query, i18n.resolvedLanguage]);
   const isMultilineQuery = normalizedQuery.includes("\n");
   const queryLineCount = Math.max(1, query.split(/\r\n?|\n/).length);
 
@@ -292,7 +295,7 @@ function ExplorerSearchPanel(props: {
               Math.max(1, isMultilineQuery ? queryLineCount : 1),
             )}
             xstyle={explorerStyles.searchInput}
-            placeholder="Search in files or paste a code block..."
+            placeholder={tI18n("workspace:workspaceExplorerPanel.searchInFilesOrPasteACode")}
             autoFocus
           />
           {query ? (
@@ -309,20 +312,19 @@ function ExplorerSearchPanel(props: {
         </div>
         <p className={sx(explorerStyles.searchHint)}>
           {isMultilineQuery
-            ? "Exact multiline search enabled. Press Cmd/Ctrl+Enter to run immediately."
-            : "Type to search. Paste multiple lines to search an exact code block."}
+            ? tI18n("workspace:workspaceExplorerPanel.exactMultilineSearchEnabledPressCmdCtrl")
+            : tI18n("workspace:workspaceExplorerPanel.typeToSearchPasteMultipleLinesTo")}
         </p>
       </div>
 
       {isSearching ? (
         <p className={sx(explorerStyles.searchStatus)}>
           <Loader aria-hidden size="xs" variant="scan" />
-          Searching...
-        </p>
+          {tI18n("workspace:workspaceExplorerPanel.searching")}</p>
       ) : null}
 
       {!isSearching && hasSearched && results.length === 0 && !error ? (
-        <p className={sx(explorerStyles.searchEmpty)}>No results found.</p>
+        <p className={sx(explorerStyles.searchEmpty)}>{tI18n("workspace:workspaceExplorerPanel.noResultsFound")}</p>
       ) : null}
 
       {error ? (
@@ -332,11 +334,8 @@ function ExplorerSearchPanel(props: {
       {!isSearching && results.length > 0 ? (
         <>
           <p className={sx(explorerStyles.searchCount)}>
-            {totalMatches.toLocaleString()} match
-            {totalMatches !== 1 ? "es" : ""} in{" "}
-            {results.length.toLocaleString()} file
-            {results.length !== 1 ? "s" : ""}
-            {limitHit ? " (result limit reached)" : ""}
+            {tI18n("workspace:workspaceExplorerPanel.searchResultsSummary", { count: totalMatches, matches: formatNumber(totalMatches), files: formatNumber(results.length) })}
+            {limitHit ? tI18n("workspace:workspaceExplorerPanel.resultLimitReached") : ""}
           </p>
           <div className={sx(explorerStyles.searchResults)}>
             <Virtuoso
@@ -425,6 +424,7 @@ function ExplorerTreeRow(args: {
   onRequestDeleteFile: (path: string, name: string) => void;
   onRequestDeleteFolder: (path: string, name: string) => void;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const isFolder = args.entry.type === "folder";
   const isOpen = isFolder && args.expanded.has(args.entry.path);
   const directoryState = isFolder
@@ -484,64 +484,55 @@ function ExplorerTreeRow(args: {
               ) : (
                 <ChevronRight className={sx(explorerStyles.menuIcon)} />
               )}
-              {isOpen ? "Collapse folder" : "Expand folder"}
+              {isOpen ? tI18n("workspace:workspaceExplorerPanel.collapseFolder") : tI18n("workspace:workspaceExplorerPanel.expandFolder")}
             </ContextMenuItem>
           ) : (
             <ContextMenuItem onSelect={() => args.onOpenFile(args.entry.path)}>
               <File className={sx(explorerStyles.menuIcon)} />
-              Open file
-            </ContextMenuItem>
+              {tI18n("workspace:workspaceExplorerPanel.openFile")}</ContextMenuItem>
           )}
           <ContextMenuItem
             onSelect={() => args.onStartCreateFile(parentDirectoryPath)}
           >
             <FilePlus className={sx(explorerStyles.menuIcon)} />
-            New file here
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceExplorerPanel.newFileHere")}</ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onStartCreateFolder(parentDirectoryPath)}
           >
             <FolderPlus className={sx(explorerStyles.menuIcon)} />
-            New folder here
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceExplorerPanel.newFolderHere")}</ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() => args.onCopyRelativePath(args.entry.path)}
           >
             <Copy className={sx(explorerStyles.menuIcon)} />
-            Copy relative path
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceExplorerPanel.copyRelativePath")}</ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onCopyAbsolutePath(args.entry.path)}
           >
             <Copy className={sx(explorerStyles.menuIcon)} />
-            Copy absolute path
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceExplorerPanel.copyAbsolutePath")}</ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() => args.onOpenInFinder(args.entry.path)}
           >
             <FolderOpen className={sx(explorerStyles.menuIcon)} />
-            Open in Finder
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceExplorerPanel.openInFinder")}</ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onOpenInVSCode(args.entry.path)}
           >
             <VSCodeIcon className={sx(explorerStyles.menuIcon)} />
-            Open in VS Code
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceExplorerPanel.openInVsCode")}</ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onOpenInGhostty(terminalTargetPath)}
           >
             <GhosttyIcon className={sx(explorerStyles.menuIcon)} />
-            Open in Ghostty
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceExplorerPanel.openInGhostty")}</ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onOpenInTerminal(terminalTargetPath)}
           >
             <SquareTerminal className={sx(explorerStyles.menuIcon)} />
-            Open in Terminal
-          </ContextMenuItem>
+            {tI18n("workspace:workspaceExplorerPanel.openInTerminal")}</ContextMenuItem>
           {isFolder ? (
             <>
               <ContextMenuSeparator />
@@ -549,8 +540,7 @@ function ExplorerTreeRow(args: {
                 onSelect={() => args.onRefreshDirectory(args.entry.path)}
               >
                 <RefreshCcw className={sx(explorerStyles.menuIcon)} />
-                Refresh folder
-              </ContextMenuItem>
+                {tI18n("workspace:workspaceExplorerPanel.refreshFolder")}</ContextMenuItem>
             </>
           ) : null}
           <ContextMenuSeparator />
@@ -563,7 +553,7 @@ function ExplorerTreeRow(args: {
             }
           >
             <Trash2 className={sx(explorerStyles.menuIcon)} />
-            {isFolder ? "Delete folder" : "Delete file"}
+            {isFolder ? tI18n("workspace:workspaceExplorerPanel.deleteFolder") : tI18n("workspace:workspaceExplorerPanel.deleteFile")}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -574,7 +564,7 @@ function ExplorerTreeRow(args: {
               className={sx(explorerStyles.childError)}
               style={{ paddingLeft: `${24 + args.depth * 14}px` }}
             >
-              {directoryState.error ?? "Failed to load folder."}
+              {directoryState.error ?? tI18n("workspace:workspaceExplorerPanel.failedToLoadFolder")}
             </p>
           ) : null}
           {directoryState?.status === "ready" && childEntries.length === 0 ? (
@@ -582,8 +572,7 @@ function ExplorerTreeRow(args: {
               className={sx(explorerStyles.childEmpty)}
               style={{ paddingLeft: `${24 + args.depth * 14}px` }}
             >
-              Empty
-            </p>
+              {tI18n("workspace:workspaceExplorerPanel.empty")}</p>
           ) : null}
           {childEntries.map((child) => (
             <ExplorerTreeRow
@@ -646,6 +635,7 @@ export function WorkspaceExplorerPanel(props: {
   searchRequestNonce: number;
   workspaceCwd?: string;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchFocusNonce, setSearchFocusNonce] = useState(0);
 
@@ -687,7 +677,7 @@ export function WorkspaceExplorerPanel(props: {
               >
                 <Search className={sx(explorerStyles.toolIcon)} />
               </TooltipTrigger>
-              <TooltipContent side="bottom">Search in files</TooltipContent>
+              <TooltipContent side="bottom">{tI18n("workspace:workspaceExplorerPanel.searchInFiles")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -703,7 +693,7 @@ export function WorkspaceExplorerPanel(props: {
               >
                 <FilePlus className={sx(explorerStyles.menuIcon)} />
               </TooltipTrigger>
-              <TooltipContent side="bottom">Add file</TooltipContent>
+              <TooltipContent side="bottom">{tI18n("workspace:workspaceExplorerPanel.addFile")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -719,7 +709,7 @@ export function WorkspaceExplorerPanel(props: {
               >
                 <FolderPlus className={sx(explorerStyles.menuIcon)} />
               </TooltipTrigger>
-              <TooltipContent side="bottom">Add folder</TooltipContent>
+              <TooltipContent side="bottom">{tI18n("workspace:workspaceExplorerPanel.addFolder")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -735,7 +725,7 @@ export function WorkspaceExplorerPanel(props: {
               >
                 <ChevronsUp className={sx(explorerStyles.toolIcon)} />
               </TooltipTrigger>
-              <TooltipContent side="bottom">Collapse all</TooltipContent>
+              <TooltipContent side="bottom">{tI18n("workspace:workspaceExplorerPanel.collapseAll")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -751,7 +741,7 @@ export function WorkspaceExplorerPanel(props: {
               >
                 <ChevronsDown className={sx(explorerStyles.toolIcon)} />
               </TooltipTrigger>
-              <TooltipContent side="bottom">Expand all</TooltipContent>
+              <TooltipContent side="bottom">{tI18n("workspace:workspaceExplorerPanel.expandAll")}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -804,8 +794,8 @@ export function WorkspaceExplorerPanel(props: {
                   placeholder={props.pendingExplorerCreate.placeholder}
                   aria-label={
                     props.pendingExplorerCreate.type === "file"
-                      ? "New file path"
-                      : "New folder path"
+                      ? tI18n("workspace:workspaceExplorerPanel.newFilePath")
+                      : tI18n("workspace:workspaceExplorerPanel.newFolderPath")
                   }
                   disabled={props.isCreatingExplorerEntry}
                 />
@@ -815,7 +805,7 @@ export function WorkspaceExplorerPanel(props: {
                   xstyle={explorerStyles.createSubmit}
                   disabled={props.isCreatingExplorerEntry}
                 >
-                  {props.isCreatingExplorerEntry ? "Creating..." : "Create"}
+                  {props.isCreatingExplorerEntry ? tI18n("workspace:workspaceExplorerPanel.creating") : tI18n("workspace:workspaceExplorerPanel.create")}
                 </Button>
                 <Button
                   type="button"
@@ -825,25 +815,21 @@ export function WorkspaceExplorerPanel(props: {
                   onClick={props.onCancelExplorerCreate}
                   disabled={props.isCreatingExplorerEntry}
                 >
-                  Cancel
-                </Button>
+                  {tI18n("workspace:workspaceExplorerPanel.cancel")}</Button>
               </div>
               <p className={sx(explorerStyles.createHint)}>
-                Enter a path relative to the repository root. Press Enter to create
-                or Esc to cancel.
-              </p>
+                {tI18n("workspace:workspaceExplorerPanel.enterAPathRelativeToTheRepository")}</p>
             </form>
           ) : null}
           {props.isExplorerLoading && props.explorerTree.length === 0 ? (
             <p className={sx(explorerStyles.statusLine)}>
               <Loader aria-hidden size="xs" variant="scan" />
-              Loading files...
-            </p>
+              {tI18n("workspace:workspaceExplorerPanel.loadingFiles")}</p>
           ) : null}
           {!props.explorerError &&
           !props.isExplorerLoading &&
           props.explorerTree.length === 0 ? (
-            <p className={sx(explorerStyles.emptyLine)}>No files found.</p>
+            <p className={sx(explorerStyles.emptyLine)}>{tI18n("workspace:workspaceExplorerPanel.noFilesFound")}</p>
           ) : null}
           {props.explorerTree.map((entry) => (
             <ExplorerTreeRow

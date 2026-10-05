@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   Blocks,
   Bot,
@@ -27,18 +28,18 @@ export const REPOSITORY_ICON_OPTIONS: ReadonlyArray<{
   label: string;
   icon: LucideIcon;
 }> = [
-  { id: "folder", label: "Folder", icon: FolderTree },
-  { id: "code", label: "Code", icon: Code2 },
-  { id: "layers", label: "Layers", icon: Layers3 },
-  { id: "package", label: "Package", icon: Package },
-  { id: "database", label: "Database", icon: Database },
-  { id: "sparkles", label: "Sparkles", icon: Sparkles },
-  { id: "bot", label: "Bot", icon: Bot },
-  { id: "blocks", label: "Blocks", icon: Blocks },
-  { id: "braces", label: "Braces", icon: Braces },
-  { id: "globe", label: "Globe", icon: Globe2 },
-  { id: "rocket", label: "Rocket", icon: Rocket },
-  { id: "terminal", label: "Terminal", icon: SquareTerminal },
+  { id: "folder", get label() { return i18n.t("settings:repositoryAppearance.folder"); }, icon: FolderTree },
+  { id: "code", get label() { return i18n.t("settings:repositoryAppearance.code"); }, icon: Code2 },
+  { id: "layers", get label() { return i18n.t("settings:repositoryAppearance.layers"); }, icon: Layers3 },
+  { id: "package", get label() { return i18n.t("settings:repositoryAppearance.package"); }, icon: Package },
+  { id: "database", get label() { return i18n.t("settings:repositoryAppearance.database"); }, icon: Database },
+  { id: "sparkles", get label() { return i18n.t("settings:repositoryAppearance.sparkles"); }, icon: Sparkles },
+  { id: "bot", get label() { return i18n.t("settings:repositoryAppearance.bot"); }, icon: Bot },
+  { id: "blocks", get label() { return i18n.t("settings:repositoryAppearance.blocks"); }, icon: Blocks },
+  { id: "braces", get label() { return i18n.t("settings:repositoryAppearance.braces"); }, icon: Braces },
+  { id: "globe", get label() { return i18n.t("settings:repositoryAppearance.globe"); }, icon: Globe2 },
+  { id: "rocket", get label() { return i18n.t("settings:repositoryAppearance.rocket"); }, icon: Rocket },
+  { id: "terminal", get label() { return i18n.t("settings:sections.terminal.label"); }, icon: SquareTerminal },
 ];
 
 export const REPOSITORY_COLOR_OPTIONS: ReadonlyArray<{
@@ -46,12 +47,12 @@ export const REPOSITORY_COLOR_OPTIONS: ReadonlyArray<{
   label: string;
   accent: string;
 }> = [
-  { id: "blue", label: "Blue", accent: "oklch(0.67 0.14 245)" },
-  { id: "violet", label: "Violet", accent: "oklch(0.66 0.15 295)" },
-  { id: "emerald", label: "Emerald", accent: "oklch(0.68 0.12 160)" },
-  { id: "amber", label: "Amber", accent: "oklch(0.76 0.13 78)" },
-  { id: "rose", label: "Rose", accent: "oklch(0.68 0.14 20)" },
-  { id: "slate", label: "Slate", accent: "oklch(0.63 0.05 255)" },
+  { id: "blue", get label() { return i18n.t("settings:repositoryAppearance.blue"); }, accent: "oklch(0.67 0.14 245)" },
+  { id: "violet", get label() { return i18n.t("settings:repositoryAppearance.violet"); }, accent: "oklch(0.66 0.15 295)" },
+  { id: "emerald", get label() { return i18n.t("settings:repositoryAppearance.emerald"); }, accent: "oklch(0.68 0.12 160)" },
+  { id: "amber", get label() { return i18n.t("settings:repositoryAppearance.amber"); }, accent: "oklch(0.76 0.13 78)" },
+  { id: "rose", get label() { return i18n.t("settings:repositoryAppearance.rose"); }, accent: "oklch(0.68 0.14 20)" },
+  { id: "slate", get label() { return i18n.t("settings:repositoryAppearance.slate"); }, accent: "oklch(0.63 0.05 255)" },
 ];
 
 function getRepositoryAppearanceTone(color?: RepositoryAppearanceColorId | null) {

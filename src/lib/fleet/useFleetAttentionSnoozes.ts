@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   getFleetAttentionSnoozeRevision,
@@ -48,7 +49,7 @@ export function useFleetAttentionSnoozes() {
           error:
             error instanceof Error
               ? error.message
-              : "Could not load snoozed Fleet items.",
+              : i18n.t("fleet:additionalCopy.message35"),
         });
       },
     );

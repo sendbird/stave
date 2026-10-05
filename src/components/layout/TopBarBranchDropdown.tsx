@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -58,6 +59,7 @@ const CLEAN_BRANCH_STATUS: BranchStatusSummary = {
 };
 
 export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
+  useTranslation();
   const [branchOpen, setBranchOpen] = useState(false);
   const [branchFilter, setBranchFilter] = useState("");
   const [newBranchName, setNewBranchName] = useState("");
@@ -141,7 +143,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         value: newBranchName,
         existingBranches: branches,
       }),
-    [branches, newBranchName],
+    [branches, newBranchName, i18n.language],
   );
   const canCreateBranch = Boolean(
     newBranchName.trim() && !createBranchError && currentBranch && !isBusy,
@@ -275,8 +277,8 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       return;
     }
     lastBranchDriftWarningRef.current = warningKey;
-    toast.warning("Default workspace changed branches", {
-      description: `Git is on ${branchDrift.actualBranch}. Open the branch menu to return to ${branchDrift.expectedBranch}.`,
+    toast.warning(i18n.t("shell:topBarBranchDropdown.defaultWorkspaceChangedBranches"), {
+      description: i18n.t("shell:topBarBranchDropdown.gitIsOnOpenTheBranch", { value1: branchDrift.actualBranch, value2: branchDrift.expectedBranch }),
       position: "bottom-right",
     });
   }, [activeWorkspaceId, branchDrift]);
@@ -284,13 +286,13 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   const loadBranches = useCallback(
     async (args?: { refreshRemote?: boolean }) => {
       if (!hasWorkspaceContext) {
-        setBranchError("No workspace selected.");
+        setBranchError(i18n.t("shell:topBarBranchDropdown.noWorkspaceSelected"));
         return false;
       }
 
       const listBranches = window.api?.sourceControl?.listBranches;
       if (!listBranches) {
-        setBranchError("Source Control bridge unavailable.");
+        setBranchError(i18n.t("shell:topBarBranchDropdown.sourceControlBridgeUnavailable"));
         return false;
       }
 
@@ -306,7 +308,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
           return false;
         }
         if (!result.ok) {
-          setBranchError(result.stderr || "Failed to load branches.");
+          setBranchError(result.stderr || i18n.t("shell:topBarBranchDropdown.failedToLoadBranches"));
           return false;
         }
         setDetectedCurrentBranch({
@@ -322,7 +324,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       } catch (err) {
         if (branchRequestIdRef.current === requestId) {
           setBranchError(
-            err instanceof Error ? err.message : "Failed to load branches.",
+            err instanceof Error ? err.message : i18n.t("shell:topBarBranchDropdown.failedToLoadBranches"),
           );
         }
         return false;
@@ -345,9 +347,9 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     if (!currentBranch) return;
     const fetchBranch = window.api?.sourceControl?.fetchBranch;
     if (!fetchBranch) {
-      const message = "Fetch bridge unavailable.";
+      const message = i18n.t("shell:topBarBranchDropdown.fetchBridgeUnavailable");
       setBranchError(message);
-      toast.error("Branch fetch failed", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.branchFetchFailed"), { description: message });
       return;
     }
 
@@ -360,18 +362,18 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         branch: currentBranch,
       });
       if (!result.ok) {
-        const message = formatScmCommandError(result, "Branch fetch failed.");
+        const message = formatScmCommandError(result, i18n.t("shell:topBarBranchDropdown.branchFetchFailed2"));
         setBranchError(message);
-        toast.error("Branch fetch failed", { description: message });
+        toast.error(i18n.t("shell:topBarBranchDropdown.branchFetchFailed"), { description: message });
         return;
       }
-      toast.success("Branch fetched", { description: currentBranch });
+      toast.success(i18n.t("shell:topBarBranchDropdown.branchFetched"), { description: currentBranch });
       await loadBranches();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Branch fetch failed.";
+        err instanceof Error ? err.message : i18n.t("shell:topBarBranchDropdown.branchFetchFailed2");
       setBranchError(message);
-      toast.error("Branch fetch failed", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.branchFetchFailed"), { description: message });
     } finally {
       setBranchOperation(null);
       setIsBusy(false);
@@ -382,15 +384,15 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     if (!currentBranch) return;
     const pullBranch = window.api?.sourceControl?.pullBranch;
     if (!pullBranch) {
-      const message = "Pull bridge unavailable.";
+      const message = i18n.t("shell:topBarBranchDropdown.pullBridgeUnavailable");
       setBranchError(message);
-      toast.error("Branch pull failed", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.branchPullFailed"), { description: message });
       return;
     }
 
     if (branchStatus.dirtyCount > 0) {
-      toast.warning("Working tree has local changes", {
-        description: "Git may block pull if local edits would be overwritten.",
+      toast.warning(i18n.t("shell:topBarBranchDropdown.workingTreeHasLocalChanges"), {
+        description: i18n.t("shell:topBarBranchDropdown.gitMayBlockPullIfLocalEdits"),
       });
     }
 
@@ -403,18 +405,18 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         branch: currentBranch,
       });
       if (!result.ok) {
-        const message = formatScmCommandError(result, "Branch pull failed.");
+        const message = formatScmCommandError(result, i18n.t("shell:topBarBranchDropdown.branchPullFailed2"));
         setBranchError(message);
-        toast.error("Branch pull failed", { description: message });
+        toast.error(i18n.t("shell:topBarBranchDropdown.branchPullFailed"), { description: message });
         return;
       }
-      toast.success("Branch pulled", { description: currentBranch });
+      toast.success(i18n.t("shell:topBarBranchDropdown.branchPulled"), { description: currentBranch });
       await loadBranches();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Branch pull failed.";
+        err instanceof Error ? err.message : i18n.t("shell:topBarBranchDropdown.branchPullFailed2");
       setBranchError(message);
-      toast.error("Branch pull failed", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.branchPullFailed"), { description: message });
     } finally {
       setBranchOperation(null);
       setIsBusy(false);
@@ -425,9 +427,9 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     const checkoutDefaultBranchDetached =
       window.api?.sourceControl?.checkoutDefaultBranchDetached;
     if (!checkoutDefaultBranchDetached) {
-      const message = "Detached checkout bridge unavailable.";
+      const message = i18n.t("shell:topBarBranchDropdown.detachedCheckoutBridgeUnavailable");
       setBranchError(message);
-      toast.error("Detached checkout failed", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.detachedCheckoutFailed"), { description: message });
       return;
     }
 
@@ -439,10 +441,10 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       if (!result.ok) {
         const message = formatScmCommandError(
           result,
-          "Detached checkout failed.",
+          i18n.t("shell:topBarBranchDropdown.detachedCheckoutFailed2"),
         );
         setBranchError(message);
-        toast.error("Detached checkout failed", { description: message });
+        toast.error(i18n.t("shell:topBarBranchDropdown.detachedCheckoutFailed"), { description: message });
         return;
       }
       // Mirror `checkoutLocalBranch`: the persisted workspace branch has to follow the
@@ -455,17 +457,17 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         workspaceId: activeWorkspaceId,
         branch: DETACHED_HEAD_BRANCH,
       });
-      toast.success(`Checked out ${result.ref}`, {
+      toast.success(i18n.t("shell:topBarBranchDropdown.checkedOut", { value1: result.ref }), {
         description: result.head
-          ? `Detached HEAD at ${result.head}`
-          : "Detached HEAD",
+          ? i18n.t("shell:topBarBranchDropdown.detachedHEADAt", { value1: result.head })
+          : i18n.t("shell:topBarBranchDropdown.detachedHEAD"),
       });
       await loadBranches();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Detached checkout failed.";
+        err instanceof Error ? err.message : i18n.t("shell:topBarBranchDropdown.detachedCheckoutFailed2");
       setBranchError(message);
-      toast.error("Detached checkout failed", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.detachedCheckoutFailed"), { description: message });
     } finally {
       setBranchOperation(null);
       setIsBusy(false);
@@ -513,6 +515,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       remoteBranches,
       workspaceCwd,
       worktreePathByBranch,
+      i18n.language,
     ],
   );
   const firstCheckoutOption = useMemo(
@@ -526,17 +529,17 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   async function checkoutLocalBranch(args: { name: string }) {
     const checkoutBranch = window.api?.sourceControl?.checkoutBranch;
     if (!checkoutBranch) {
-      const message = "Checkout bridge unavailable.";
+      const message = i18n.t("shell:topBarBranchDropdown.checkoutBridgeUnavailable");
       setBranchError(message);
-      toast.error("Branch checkout failed", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.branchCheckoutFailed"), { description: message });
       return false;
     }
 
     const result = await checkoutBranch({ name: args.name, cwd: workspaceCwd });
     if (!result.ok) {
-      const message = result.stderr || "Branch checkout failed.";
+      const message = result.stderr || i18n.t("shell:topBarBranchDropdown.branchCheckoutFailed2");
       setBranchError(message);
-      toast.error("Branch checkout failed", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.branchCheckoutFailed"), { description: message });
       return false;
     }
     setWorkspaceBranch({ workspaceId: activeWorkspaceId, branch: args.name });
@@ -550,7 +553,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   async function handleCreateBranch() {
     const createBranch = window.api?.sourceControl?.createBranch;
     if (!createBranch) {
-      setBranchError("Create branch bridge unavailable.");
+      setBranchError(i18n.t("shell:topBarBranchDropdown.createBranchBridgeUnavailable"));
       return;
     }
     const targetName = newBranchName.trim();
@@ -572,7 +575,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         cwd: workspaceCwd,
       });
       if (!result.ok) {
-        setBranchError(result.stderr || "Branch creation failed.");
+        setBranchError(result.stderr || i18n.t("shell:topBarBranchDropdown.branchCreationFailed"));
         return;
       }
       const checkedOut = await checkoutLocalBranch({ name: targetName });
@@ -584,7 +587,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       }
     } catch (err) {
       setBranchError(
-        err instanceof Error ? err.message : "Branch creation failed.",
+        err instanceof Error ? err.message : i18n.t("shell:topBarBranchDropdown.branchCreationFailed"),
       );
     } finally {
       setIsBusy(false);
@@ -604,17 +607,17 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       const attachedPath =
         option.attachedPath ?? worktreePathByBranch[option.localName];
       const message = attachedPath
-        ? `Branch "${option.localName}" is already checked out in ${formatWorkspacePathLabel({ workspacePath: attachedPath, repositoryPath })}.`
-        : `Branch "${option.localName}" is already checked out in another workspace.`;
+        ? i18n.t("shell:topBarBranchDropdown.branchIsAlreadyCheckedOutIn", { value1: option.localName, value2: formatWorkspacePathLabel({ workspacePath: attachedPath, repositoryPath }) })
+        : i18n.t("shell:topBarBranchDropdown.branchIsAlreadyCheckedOutIn2", { value1: option.localName });
       setBranchError(message);
-      toast.error("Branch unavailable", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.branchUnavailable"), { description: message });
       return false;
     }
 
     if (branchStatus.dirtyCount > 0) {
-      toast.warning("Working tree has local changes", {
+      toast.warning(i18n.t("shell:topBarBranchDropdown.workingTreeHasLocalChanges"), {
         description:
-          "Stave will ask Git to switch branches. Git may block if files would be overwritten.",
+          i18n.t("shell:topBarBranchDropdown.staveWillAskGitToSwitchBranches"),
       });
     }
 
@@ -623,9 +626,9 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       if (option.kind === "remote") {
         const createBranch = window.api?.sourceControl?.createBranch;
         if (!createBranch) {
-          const message = "Create branch bridge unavailable.";
+          const message = i18n.t("shell:topBarBranchDropdown.createBranchBridgeUnavailable");
           setBranchError(message);
-          toast.error("Branch checkout failed", { description: message });
+          toast.error(i18n.t("shell:topBarBranchDropdown.branchCheckoutFailed"), { description: message });
           return false;
         }
         const result = await createBranch({
@@ -634,9 +637,9 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
           cwd: workspaceCwd,
         });
         if (!result.ok) {
-          const message = result.stderr || "Branch creation failed.";
+          const message = result.stderr || i18n.t("shell:topBarBranchDropdown.branchCreationFailed");
           setBranchError(message);
-          toast.error("Branch checkout failed", { description: message });
+          toast.error(i18n.t("shell:topBarBranchDropdown.branchCheckoutFailed"), { description: message });
           return false;
         }
       }
@@ -646,9 +649,9 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       return checkedOut;
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Branch checkout failed.";
+        err instanceof Error ? err.message : i18n.t("shell:topBarBranchDropdown.branchCheckoutFailed2");
       setBranchError(message);
-      toast.error("Branch checkout failed", { description: message });
+      toast.error(i18n.t("shell:topBarBranchDropdown.branchCheckoutFailed"), { description: message });
       return false;
     } finally {
       setIsBusy(false);
@@ -660,9 +663,9 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       return;
     }
     if (branchStatus.dirtyCount > 0) {
-      toast.warning("Working tree has local changes", {
+      toast.warning(i18n.t("shell:topBarBranchDropdown.workingTreeHasLocalChanges"), {
         description:
-          "Git may block the return if local edits would be overwritten.",
+          i18n.t("shell:topBarBranchDropdown.gitMayBlockTheReturnIfLocal"),
       });
     }
 
@@ -674,7 +677,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       if (!checkedOut) {
         return;
       }
-      toast.success("Returned to the default branch", {
+      toast.success(i18n.t("shell:topBarBranchDropdown.returnedToTheDefaultBranch"), {
         description: branchDrift.expectedBranch,
       });
       await loadBranches();
@@ -714,8 +717,8 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   style={props.noDragStyle}
                   aria-label={
                     branchDrift
-                      ? `Switch branch. Default workspace is on ${branchDrift.actualBranch} instead of ${branchDrift.expectedBranch}.`
-                      : "switch-branch"
+                      ? i18n.t("shell:topBarBranchDropdown.switchBranchDefaultWorkspaceIsOnInstead", { value1: branchDrift.actualBranch, value2: branchDrift.expectedBranch })
+                      : i18n.t("shell:topBarBranchDropdown.switchBranch")
                   }
                 />
               }
@@ -751,10 +754,10 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
           </TooltipTrigger>
           <TooltipContent side="bottom">
             {branchStatus.dirtyCount > 0
-              ? `${branchStatus.dirtyCount} local change${branchStatus.dirtyCount === 1 ? "" : "s"}`
+              ? i18n.t("shell:topBarBranchDropdown.localChange", { count: branchStatus.dirtyCount })
               : branchDrift
-                ? `Return to ${branchDrift.expectedBranch}`
-                : "Switch branch"}
+                ? i18n.t("shell:topBarBranchDropdown.returnTo", { value1: branchDrift.expectedBranch })
+                : i18n.t("shell:topBarBranchDropdown.switchBranch")}
           </TooltipContent>
         </Tooltip>
 
@@ -770,7 +773,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                 <Input
                   ref={searchInputRef}
                   xstyle={branchDropdownStyles.searchInput}
-                  placeholder="Search branches"
+                  placeholder={i18n.t("shell:topBarBranchDropdown.searchBranches")}
                   value={branchFilter}
                   onChange={(event) => setBranchFilter(event.target.value)}
                   onKeyDown={(event) => {
@@ -798,8 +801,8 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                 // rung, so the refresh trigger was the one control in the row
                 // that did not line up with its own neighbour.
                 size="icon"
-                title="Refresh branches"
-                aria-label="Refresh branches"
+                title={i18n.t("shell:topBarBranchDropdown.refreshBranches")}
+                aria-label={i18n.t("shell:topBarBranchDropdown.refreshBranches")}
                 disabled={isBusy}
                 onClick={() => void loadBranches({ refreshRemote: true })}
               >
@@ -819,14 +822,8 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   aria-hidden="true"
                 />
                 <div className={sx(branchDropdownStyles.driftBody)}>
-                  <p className={sx(branchDropdownStyles.driftTitle)}>
-                    Default workspace is on {branchDrift.actualBranch}
-                  </p>
-                  <p className={sx(branchDropdownStyles.driftText)}>
-                    This workspace normally tracks {branchDrift.expectedBranch}.
-                    Return before starting work that should land on the default
-                    branch.
-                  </p>
+                  <p className={sx(branchDropdownStyles.driftTitle)}>{i18n.t("shell:topBarBranchDropdown.actualBranch", { branch: branchDrift.actualBranch })}</p>
+                  <p className={sx(branchDropdownStyles.driftText)}>{i18n.t("shell:topBarBranchDropdown.expectedBranch", { branch: branchDrift.expectedBranch })}</p>
                 </div>
                 <Button
                   type="button"
@@ -836,7 +833,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   disabled={isBusy}
                   onClick={() => void handleReturnToDefaultBranch()}
                 >
-                  Return
+                  {i18n.t("shell:topBarBranchDropdown.return")}
                 </Button>
               </div>
             ) : null}
@@ -858,18 +855,18 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   className={sx(branchDropdownStyles.statusBadge)}
                 >
                   {branchStatus.hasConflicts
-                    ? "Conflicts"
+                    ? i18n.t("shell:topBarBranchDropdown.conflicts")
                     : branchStatus.dirtyCount > 0
-                      ? `${branchStatus.dirtyCount} changed`
-                      : "Clean"}
+                      ? i18n.t("shell:topBarBranchDropdown.changed", { value1: branchStatus.dirtyCount })
+                      : i18n.t("shell:topBarBranchDropdown.clean")}
                 </Badge>
               </div>
               <p className={sx(branchDropdownStyles.statusHint)}>
                 {branchStatus.dirtyCount > 0
-                  ? "Local edits stay in this workspace. Git may block unsafe checkouts."
+                  ? i18n.t("shell:topBarBranchDropdown.localEditsStayInThisWorkspaceGit")
                   : isDetachedCheckout
-                    ? "HEAD is detached, so no local branch moves. Check out a branch to reattach."
-                    : "Create or switch branches for this default workspace."}
+                    ? i18n.t("shell:topBarBranchDropdown.hEADIsDetachedSoNoLocalBranch")
+                    : i18n.t("shell:topBarBranchDropdown.createOrSwitchBranchesForThisDefault")}
               </p>
               <div className={sx(branchDropdownStyles.actionRow)}>
                 <Button
@@ -885,7 +882,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   ) : (
                     <RefreshCw />
                   )}
-                  Fetch
+                  {i18n.t("shell:topBarBranchDropdown.fetch")}
                 </Button>
                 <Button
                   type="button"
@@ -900,7 +897,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   ) : (
                     <Download />
                   )}
-                  Pull
+                  {i18n.t("shell:topBarBranchDropdown.pull")}
                 </Button>
                 <Tooltip>
                   <TooltipTrigger
@@ -923,15 +920,15 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                       )}
                       <span className={sx(branchDropdownStyles.truncate)}>
                         {originDefaultRef
-                          ? `Checkout ${originDefaultRef}`
-                          : "Checkout origin default"}
+                          ? i18n.t("shell:topBarBranchDropdown.checkout", { value1: originDefaultRef })
+                          : i18n.t("shell:topBarBranchDropdown.checkoutOriginDefault")}
                       </span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     {originDefaultRef
-                      ? `Fetch origin and check out ${originDefaultRef} as a detached HEAD, without creating or moving a local branch`
-                      : "Neither origin/main nor origin/master is available"}
+                      ? i18n.t("shell:topBarBranchDropdown.fetchOriginAndCheckOutAsA", { value1: originDefaultRef })
+                      : i18n.t("shell:topBarBranchDropdown.neitherOriginMainNorOriginMasterIsAvailable")}
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -940,7 +937,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
             <div className={sx(branchDropdownStyles.createRow)}>
               <Input
                 xstyle={branchDropdownStyles.createInput}
-                placeholder={`New branch from ${currentBranchLabel}`}
+                placeholder={i18n.t("shell:topBarBranchDropdown.newBranchFrom", { value1: currentBranchLabel })}
                 value={newBranchName}
                 aria-invalid={Boolean(
                   newBranchName.trim() && createBranchError,
@@ -964,7 +961,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                 onClick={() => void handleCreateBranch()}
               >
                 <Plus />
-                Create
+                {i18n.t("shell:topBarBranchDropdown.create")}
               </Button>
             </div>
             {newBranchName.trim() && createBranchError ? (
@@ -1056,7 +1053,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               </div>
             ) : (
               <div className={sx(branchDropdownStyles.emptyState)}>
-                No branches match the current search.
+                {i18n.t("shell:topBarBranchDropdown.noBranchesMatchTheCurrentSearch")}
               </div>
             )}
           </div>
@@ -1085,7 +1082,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         </span>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        Branch is managed by this worktree
+        {i18n.t("shell:topBarBranchDropdown.branchIsManagedByThisWorktree")}
         {workspaceCwd
           ? `: ${formatWorkspacePathLabel({ workspacePath: workspaceCwd, repositoryPath })}`
           : `: ${currentBranchLabel}`}
@@ -1099,20 +1096,20 @@ function getBranchOptionDescription(args: {
   repositoryPath?: string | null;
 }) {
   if (args.option.state === "current") {
-    return "Current branch";
+    return i18n.t("shell:topBarBranchDropdown.currentBranch");
   }
   if (args.option.state === "attached") {
     return args.option.attachedPath
-      ? `Checked out in ${formatWorkspacePathLabel({
+      ? i18n.t("shell:topBarBranchDropdown.checkedOutIn", { value1: formatWorkspacePathLabel({
           workspacePath: args.option.attachedPath,
           repositoryPath: args.repositoryPath,
-        })}`
-      : "Checked out in another workspace";
+        }) })
+      : i18n.t("shell:topBarBranchDropdown.checkedOutInAnotherWorkspace");
   }
   if (args.option.kind === "remote") {
-    return `Create local branch ${args.option.localName}`;
+    return i18n.t("shell:topBarBranchDropdown.createLocalBranch", { value1: args.option.localName });
   }
-  return "Checkout branch";
+  return i18n.t("shell:topBarBranchDropdown.checkoutBranch");
 }
 
 function formatScmCommandError(

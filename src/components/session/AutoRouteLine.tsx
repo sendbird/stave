@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { memo, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Route, TriangleAlert } from "lucide-react";
 import { Button, Loader } from "@/components/ui";
@@ -30,11 +31,12 @@ export const AutoRouteLine = memo(function AutoRouteLine(props: {
     "providerId" | "model" | "modelInfo" | "modelExecution"
   >;
 }) {
+  useTranslation();
   const { resolution, message } = props;
   const [expanded, setExpanded] = useState(false);
   const view = useMemo(
     () => buildAutoRouteLineView({ resolution, message }),
-    [message, resolution],
+    [message, resolution, i18n.language],
   );
   const Icon = view.fallback ? TriangleAlert : Route;
   return (
@@ -50,7 +52,7 @@ export const AutoRouteLine = memo(function AutoRouteLine(props: {
             className={sx(styles.icon, view.fallback !== null && styles.iconWarn)}
           />
         </span>
-        <span className={sx(styles.lead)}>Auto →</span>
+        <span className={sx(styles.lead)}>{i18n.t("session:autoRouteLine.autoRouteLine")}</span>
         <span className={sx(styles.model)}>{view.modelLabel}</span>
         {view.taskLabel ? (
           <>
@@ -69,7 +71,7 @@ export const AutoRouteLine = memo(function AutoRouteLine(props: {
               className={sx(styles.meta, styles.metaWarn)}
               data-testid="auto-route-fallback"
             >
-              {view.fallback === "skipped" ? "Skipped classifier" : "Local rules"}
+              {view.fallback === "skipped" ? i18n.t("session:autoRouteLine.autoRouteLine2") : i18n.t("session:autoRouteLine.autoRouteLine3")}
             </span>
           </>
         ) : null}
@@ -89,7 +91,7 @@ export const AutoRouteLine = memo(function AutoRouteLine(props: {
               ·
             </span>
             <span className={sx(styles.meta)} data-testid="auto-route-ran">
-              ran {view.ranLabel}
+              {i18n.t("session:autoRouteLine.autoRouteLine4")}{view.ranLabel}
             </span>
           </>
         ) : null}
@@ -100,11 +102,11 @@ export const AutoRouteLine = memo(function AutoRouteLine(props: {
           className={sx(styles.toggle)}
           aria-expanded={expanded}
           aria-label={
-            expanded ? "Hide how Auto chose this model" : "Show how Auto chose this model"
+            expanded ? i18n.t("session:autoRouteLine.ariaLabel") : i18n.t("session:autoRouteLine.ariaLabel2")
           }
           onClick={() => setExpanded((value) => !value)}
         >
-          {expanded ? "Hide" : "Why"}
+          {expanded ? i18n.t("session:autoRouteLine.autoRouteLine5") : i18n.t("session:autoRouteLine.autoRouteLine6")}
           {expanded ? (
             <ChevronUp aria-hidden size={12} />
           ) : (
@@ -152,6 +154,7 @@ function usePendingElapsedMs(startedAt: number) {
  * second, so a quick classifier answer goes straight to the turn.
  */
 export function PendingAutoRouteStatus(props: { pending: PendingAutoRoute }) {
+  useTranslation();
   const { pending } = props;
   const elapsedMs = usePendingElapsedMs(pending.startedAt);
   if (elapsedMs < PENDING_AUTO_ROUTE_REVEAL_DELAY_MS) {
@@ -170,7 +173,7 @@ export function PendingAutoRouteStatus(props: { pending: PendingAutoRoute }) {
       </span>
       {/* The live region holds the words only, so the clock is not read out every second. */}
       <span className={sx(styles.pendingStatus)} role="status" aria-live="polite">
-        <span className={sx(styles.lead)}>Auto →</span>
+        <span className={sx(styles.lead)}>{i18n.t("session:autoRouteLine.pendingAutoRouteStatus")}</span>
         {view.target ? (
           <>
             <span className={sx(styles.model)}>{view.target}</span>
@@ -197,7 +200,7 @@ export function PendingAutoRouteStatus(props: { pending: PendingAutoRoute }) {
           variant="ghost"
           size="xs"
           className={sx(styles.toggle)}
-          title="Stop waiting for the classifier and pick a model with local rules"
+          title={i18n.t("session:autoRouteLine.title")}
           data-testid="pending-auto-route-skip"
           onClick={() => {
             if (skipPendingAutoRoutingClassifier(pending.taskId)) {
@@ -209,8 +212,7 @@ export function PendingAutoRouteStatus(props: { pending: PendingAutoRoute }) {
             }
           }}
         >
-          Skip
-        </Button>
+          {i18n.t("session:autoRouteLine.pendingAutoRouteStatus2")}</Button>
       ) : null}
     </div>
   );

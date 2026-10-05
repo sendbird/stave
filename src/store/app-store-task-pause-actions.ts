@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { collectProviderAccountUsageWindows, resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
@@ -187,7 +188,7 @@ export function createTaskPauseActions(args: {
       }
       if (!pause.accountProfileId) {
         get().setUsageLimitAutoResume({ taskId, enabled: false });
-        toast.info("Paused account is unknown", { description: "Resume manually to use your currently selected account." });
+        toast.info(i18n.t("notifications:appStoreTaskPauseActions.pausedAccountIsUnknown"), { description: i18n.t("notifications:appStoreTaskPauseActions.resumeManuallyToUseYourCurrentlySelectedAccount") });
         return;
       }
       const expected = pause;
@@ -201,7 +202,7 @@ export function createTaskPauseActions(args: {
       }
       if (!snapshot || collectProviderAccountUsageWindows({ providerId: pause.providerId, model: pause.model, snapshot }) == null) {
         get().setUsageLimitAutoResume({ taskId, enabled: false });
-        toast.warning("Couldn't verify paused account usage", { description: "The task stays paused. Resume manually or reserve another reset-time resume." });
+        toast.warning(i18n.t("notifications:appStoreTaskPauseActions.couldnTVerifyPausedAccountUsage"), { description: i18n.t("notifications:appStoreTaskPauseActions.theTaskStaysPausedResumeManuallyOrReserveAnotherResetTimeResume") });
         return;
       }
       const reading = readUsageLimitReset({
@@ -298,20 +299,20 @@ export function createTaskPauseActions(args: {
           return;
         }
         repause();
-        toast.warning("Couldn't resume the task", {
+        toast.warning(i18n.t("notifications:appStoreTaskPauseActions.couldnTResumeTheTask"), {
           description:
             result.message ??
-            "The task is busy or waiting on another action. It stays paused.",
+            i18n.t("notifications:appStoreTaskPauseActions.theTaskIsBusyOrWaitingOnAnotherActionItStaysPaused"),
         });
       } else if (result.status === "send-failed") {
         repause();
-        toast.error("Couldn't resume the task", { description: result.message });
+        toast.error(i18n.t("notifications:appStoreTaskPauseActions.couldnTResumeTheTask"), { description: result.message });
       }
     } catch (error) {
       repause();
-      toast.error("Couldn't resume the task", {
+      toast.error(i18n.t("notifications:appStoreTaskPauseActions.couldnTResumeTheTask"), {
         description:
-          error instanceof Error ? error.message : "The continuation turn did not start.",
+          error instanceof Error ? error.message : i18n.t("notifications:appStoreTaskPauseActions.theContinuationTurnDidNotStart"),
       });
     }
   };
@@ -322,7 +323,7 @@ export function createTaskPauseActions(args: {
     setUsageLimitAutoResume: ({ taskId, enabled }) => {
       if (!enabled) autoResumeRetryUntil.delete(taskId);
       if (enabled && get().usageLimitPauseByTask[taskId] && !get().usageLimitPauseByTask[taskId]?.accountProfileId) {
-        toast.info("Paused account is unknown", { description: "Resume manually to use your currently selected account." });
+        toast.info(i18n.t("notifications:appStoreTaskPauseActions.pausedAccountIsUnknown"), { description: i18n.t("notifications:appStoreTaskPauseActions.resumeManuallyToUseYourCurrentlySelectedAccount") });
         return;
       }
       patchPause(taskId, (pause) => {

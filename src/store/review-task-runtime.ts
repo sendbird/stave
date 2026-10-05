@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   normalizeReviewCommitRef,
   type LocalChangeReviewFocus,
@@ -72,16 +73,16 @@ export async function startReviewTask(args: {
   nonce?: string;
 }): Promise<StartReviewTaskResult> {
   if (!isReviewTaskDelegationAvailable()) {
-    return { ok: false, error: "Review tasks need the desktop app." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.desktopRequired") };
   }
   const state = args.getState();
   const providerId = args.request.reviewer.providerId;
   if (providerId !== "claude-code" && providerId !== "codex") {
-    return { ok: false, error: "Reviews run on Claude or Codex." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.providerRequired") };
   }
   const repositoryPath = state.repositoryPath?.trim();
   if (!repositoryPath) {
-    return { ok: false, error: "Open the task's project to start a review." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.openProject") };
   }
   const { workspaceId } = resolveTaskWorkspaceContext({
     taskId: args.taskId,
@@ -92,14 +93,14 @@ export async function startReviewTask(args: {
     repositoryPath,
   });
   if (!workspaceId) {
-    return { ok: false, error: "This task has no workspace to review." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.noWorkspace") };
   }
 
   const promptSource = args.request.promptSource ?? (args.request.skillSlug ? "skill" : "preset");
   const customPrompt = (args.request.customPrompt ?? state.settings.reviewTask.customPrompt)
     .slice(0, REVIEW_CUSTOM_PROMPT_MAX_CHARS).trim();
   if (promptSource === "custom" && !customPrompt) {
-    return { ok: false, error: "Enter a custom review prompt before starting the review." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.customPromptRequired") };
   }
   const skillSlug = promptSource === "skill"
     ? args.request.skillSlug?.trim().replace(/^\$/, "").toLowerCase() : undefined;
@@ -111,18 +112,18 @@ export async function startReviewTask(args: {
     return {
       ok: false,
       error: skillSlug
-        ? `The skill $${skillSlug} is not available to this reviewer in this workspace.`
-        : "Choose an installed review skill before starting the review.",
+        ? i18n.t("app:reviewRuntime.skillUnavailable", { skill: skillSlug })
+        : i18n.t("app:reviewRuntime.skillRequired"),
     };
   }
   if (skill && !skill.instructions.trim()) {
-    return { ok: false, error: `The skill $${skill.slug} has no review instructions.` };
+    return { ok: false, error: i18n.t("app:reviewRuntime.skillInstructionsMissing", { skill: skill.slug }) };
   }
 
   const commitRef =
     args.request.target === "commit" ? normalizeReviewCommitRef(args.request.commitRef) : null;
   if (args.request.target === "commit" && !commitRef) {
-    return { ok: false, error: "Enter a commit, such as HEAD~1, a short hash, or a range like main..HEAD." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.enterCommit") };
   }
   const reply =
     args.request.target === "latest-reply"
@@ -144,7 +145,7 @@ export async function startReviewTask(args: {
     customPrompt,
   });
   if (!prompt) {
-    return { ok: false, error: "This task has no finished reply to review yet." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.noReply") };
   }
 
   return delegateReview({
@@ -179,7 +180,7 @@ async function delegateReview(args: {
 }): Promise<StartReviewTaskResult> {
   const delegateTask = window.api?.runs?.delegateTask;
   if (!delegateTask) {
-    return { ok: false, error: "Review tasks need the desktop app." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.desktopRequired") };
   }
   const delegationKey = buildReviewDelegationKey({
     now: args.now ?? new Date(),
@@ -217,7 +218,7 @@ async function delegateReview(args: {
       error:
         cause instanceof Error && cause.message
           ? cause.message
-          : "The review task could not be started.",
+          : i18n.t("app:reviewRuntime.startFailed"),
     };
   }
 }
@@ -240,11 +241,11 @@ export async function rerunReviewTask(args: {
 }): Promise<StartReviewTaskResult> {
   const repositoryPath = args.getState().repositoryPath?.trim();
   if (!repositoryPath) {
-    return { ok: false, error: "Open the task's project to run the review again." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.openToRerun") };
   }
   const prompt = args.prompt.trim();
   if (!prompt) {
-    return { ok: false, error: "The earlier review's instructions could not be read." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.instructionsUnreadable") };
   }
   return delegateReview({
     taskId: args.review.parentTaskId,
@@ -276,7 +277,7 @@ export async function recheckReviewTask(args: {
   nonce?: string;
 }): Promise<StartReviewTaskResult> {
   if (reviewFindingsToRecheck(args.report).length === 0) {
-    return { ok: false, error: "The earlier review has no findings to re-check." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.noFindings") };
   }
   return rerunReviewTask({
     getState: args.getState,
@@ -298,7 +299,7 @@ export function resolveReviewAttachmentTitle(args: {
 }) {
   return (
     args.tasks.find((task) => task.id === args.child.delegatedTaskId)?.title?.trim() ||
-    "Review result"
+    i18n.t("notifications:reviewTaskRuntime.reviewResult")
   );
 }
 

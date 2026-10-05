@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { resolveSourceControlDiffPaths } from "@/lib/source-control-diff";
 import {
   getSourceControlDisplayCode,
@@ -99,32 +100,32 @@ const SOURCE_CONTROL_SECTION_META: Record<
    */
   conflicted: {
     id: "conflicted",
-    title: "Conflicts",
-    description: "Files that need resolution before the tree is clean.",
+    get title() { return i18n.t("editor:editorPanelUtils.conflicts"); },
+    get description() { return i18n.t("editor:editorPanelUtils.filesThatNeedResolutionBeforeTheTree"); },
     badgeVariant: "destructive",
   },
   mixed: {
     id: "mixed",
-    title: "Partially Staged",
-    description: "These files have both staged and unstaged edits.",
+    get title() { return i18n.t("editor:editorPanelUtils.partiallyStaged"); },
+    get description() { return i18n.t("editor:editorPanelUtils.theseFilesHaveBothStagedAndUnstaged"); },
     badgeVariant: "secondary",
   },
   unstaged: {
     id: "unstaged",
-    title: "Working Tree",
-    description: "Tracked files with local edits that are not staged yet.",
+    get title() { return i18n.t("editor:editorPanelUtils.workingTree"); },
+    get description() { return i18n.t("editor:editorPanelUtils.trackedFilesWithLocalEditsThatAre"); },
     badgeVariant: "secondary",
   },
   staged: {
     id: "staged",
-    title: "Staged",
-    description: "These changes are ready to be included in the next commit.",
+    get title() { return i18n.t("editor:editorPanelUtils.staged"); },
+    get description() { return i18n.t("editor:editorPanelUtils.theseChangesAreReadyToBeIncluded"); },
     badgeVariant: "secondary",
   },
   untracked: {
     id: "untracked",
-    title: "Untracked",
-    description: "Files not yet added to Git.",
+    get title() { return i18n.t("editor:editorPanelUtils.untracked"); },
+    get description() { return i18n.t("editor:editorPanelUtils.filesNotYetAddedToGit"); },
     badgeVariant: "secondary",
   },
 };
@@ -284,7 +285,7 @@ export function buildSourceControlItemViewModel(args: { item: SourceControlStatu
   const fileName = workingTreeSegments.at(-1) ?? displayPath.workingTreePath ?? displayPath.displayPath;
   const directoryLabel = workingTreeSegments.length > 1
     ? workingTreeSegments.slice(0, -1).join("/")
-    : "repository root";
+    : i18n.t("editor:editorPanelUtils.repositoryRoot");
   const hasStagedChanges = hasSourceControlStagedChanges({ item: args.item });
   const hasUnstagedChanges = hasSourceControlUnstagedChanges({ item: args.item });
   const isConflict = hasSourceControlConflicts({ item: args.item });
@@ -318,7 +319,7 @@ export function buildSourceControlItemViewModel(args: { item: SourceControlStatu
     isConflict,
     isUntracked,
     pathDetail: displayPath.headPath !== displayPath.workingTreePath
-      ? `renamed from ${displayPath.headPath}`
+      ? i18n.t("editor:editorPanelUtils.renamedFrom", { value1: displayPath.headPath })
       : directoryLabel,
     pathLabel: displayPath.displayPath,
     sectionId,

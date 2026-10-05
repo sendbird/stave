@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { CheckCircle2 } from "lucide-react";
 import { useId } from "react";
@@ -137,6 +138,7 @@ export function FieldLabelRow({
   id,
   required = false,
 }: FieldLabelRowProps) {
+  useTranslation();
   return (
     /*
      * A sibling `<label htmlFor>`, never a `<label>` wrapping the whole
@@ -176,6 +178,7 @@ export function FieldGroupLabelRow({
   id,
   required = false,
 }: FieldGroupLabelRowProps) {
+  useTranslation();
   return (
     <span
       aria-disabled={disabled || undefined}
@@ -194,6 +197,7 @@ export function FieldGroupLabelRow({
  * every label name is noise. Colour is not the signal either — the glyph is.
  */
 function RequiredMarker() {
+  useTranslation();
   return (
     <span aria-hidden className={sx(styles.required)}>
       *
@@ -218,6 +222,7 @@ export function FieldMessages({
   error,
   successMessage,
 }: FieldMessagesProps) {
+  useTranslation();
   return (
     <>
       {description ? (
@@ -237,7 +242,7 @@ export function FieldMessages({
             className={sx(styles.successIcon)}
             size={14}
           />
-          {successMessage ?? <VisuallyHidden>Valid</VisuallyHidden>}
+          {successMessage ?? <VisuallyHidden>{i18n.t("ui:fieldAnatomy.valid")}</VisuallyHidden>}
         </span>
       ) : null}
     </>

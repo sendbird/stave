@@ -20,6 +20,7 @@ const httpsUrlSchema = z
   .max(STAVE_SYNC_LIMITS.url)
   .url()
   .refine((value) => value.startsWith("https://"), {
+    // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
     message: "Martin sync links must use HTTPS.",
   });
 

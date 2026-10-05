@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { chromeStyles } from "./lens-chrome.styles";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "../../../ads/utils/stylex";
@@ -108,6 +109,7 @@ export function LensChrome(props: {
   capture: LensChromeCapture;
   onFloatingSurfaceOpenChange: (open: boolean) => void;
 }) {
+  useTranslation();
   const {
     hasLensApi,
     lensPageActionDisabled,
@@ -166,13 +168,13 @@ export function LensChrome(props: {
                 xstyle={chromeStyles.toolInactive}
                 disabled={!canGoBack || !hasLensApi}
                 onClick={goBack}
-                aria-label="Go back"
+                aria-label={i18n.t("lens:lensChrome.goBack")}
               />
             }
           >
             <ArrowLeft className={LENS_TOOL_ICON_CLASS} />
           </TooltipTrigger>
-          <TooltipContent>Back</TooltipContent>
+          <TooltipContent>{i18n.t("lens:lensChrome.back")}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -185,13 +187,13 @@ export function LensChrome(props: {
                 xstyle={chromeStyles.toolInactive}
                 disabled={!canGoForward || !hasLensApi}
                 onClick={goForward}
-                aria-label="Go forward"
+                aria-label={i18n.t("lens:lensChrome.goForward")}
               />
             }
           >
             <ArrowRight className={LENS_TOOL_ICON_CLASS} />
           </TooltipTrigger>
-          <TooltipContent>Forward</TooltipContent>
+          <TooltipContent>{i18n.t("lens:lensChrome.forward")}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -204,7 +206,7 @@ export function LensChrome(props: {
                 xstyle={chromeStyles.toolInactive}
                 disabled={!hasLensApi}
                 onClick={isLoading ? stop : reload}
-                aria-label={isLoading ? "Stop loading" : "Reload page"}
+                aria-label={isLoading ? i18n.t("lens:lensChrome.stopLoading") : i18n.t("lens:lensChrome.reloadPage")}
               />
             }
           >
@@ -215,7 +217,7 @@ export function LensChrome(props: {
             )}
           </TooltipTrigger>
           <TooltipContent>
-            {isLoading ? "Stop loading" : "Reload"}
+            {isLoading ? i18n.t("lens:lensChrome.stopLoading") : i18n.t("lens:lensChrome.reload")}
           </TooltipContent>
         </Tooltip>
 
@@ -236,7 +238,7 @@ export function LensChrome(props: {
             <InputGroupInput
               ref={urlInputRef}
               type="text"
-              aria-label="Page address"
+              aria-label={i18n.t("lens:lensChrome.pageAddress")}
               value={inputUrl}
               onChange={(event) => setInputUrl(event.target.value)}
               onKeyDown={handleUrlKeyDown}
@@ -264,7 +266,7 @@ export function LensChrome(props: {
               >
                 <InputGroupButton
                   size="icon-sm"
-                  aria-label="Clear address"
+                  aria-label={i18n.t("lens:lensChrome.clearAddress")}
                   onClick={() => setInputUrl("")}
                 >
                   <X className={sx(chromeStyles.compactIcon)} />
@@ -279,19 +281,19 @@ export function LensChrome(props: {
           {[
             {
               id: "preview" as const,
-              label: "Preview",
+              label: i18n.t("lens:lensChrome.preview"),
               icon: Monitor,
               count: null,
             },
             {
               id: "console" as const,
-              label: "Console",
+              label: i18n.t("lens:lensChrome.console"),
               icon: Terminal,
               count: Math.min(LENS_LOG_LIMIT, consoleEntryCount),
             },
             {
               id: "network" as const,
-              label: "Network",
+              label: i18n.t("lens:lensChrome.network"),
               icon: Network,
               count: Math.min(LENS_LOG_LIMIT, networkEntryCount),
             },
@@ -313,7 +315,7 @@ export function LensChrome(props: {
                           : chromeStyles.toolInactive,
                       ]}
                       onClick={() => setLensPanelTab(tab.id)}
-                      aria-label={`Show ${tab.label.toLowerCase()}`}
+                      aria-label={i18n.t("lens:lensChrome.show", { value1: tab.label.toLowerCase() })}
                       aria-pressed={active}
                       indicator={
                         tab.count ? (
@@ -347,7 +349,7 @@ export function LensChrome(props: {
                 onClick={() => {
                   void startElementPicker();
                 }}
-                aria-label="Pick element"
+                aria-label={i18n.t("lens:lensChrome.pickElement")}
                 aria-pressed={isPickerActive}
               />
             }
@@ -375,7 +377,7 @@ export function LensChrome(props: {
                 onClick={() => {
                   void toggleAnnotationMode();
                 }}
-                aria-label="Toggle visual comments"
+                aria-label={i18n.t("lens:lensChrome.toggleVisualComments")}
                 aria-pressed={isAnnotationModeActive}
               />
             }
@@ -384,8 +386,8 @@ export function LensChrome(props: {
           </TooltipTrigger>
           <TooltipContent>
             {isAnnotationModeActive
-              ? "Visual comments active"
-              : "Visual comments"}
+              ? i18n.t("lens:lensChrome.visualCommentsActive")
+              : i18n.t("lens:lensChrome.visualComments")}
           </TooltipContent>
         </Tooltip>
 
@@ -398,13 +400,13 @@ export function LensChrome(props: {
                 variant="ghost"
                 disabled={lensPageActionDisabled}
                 onClick={openDevTools}
-                aria-label="Open developer tools"
+                aria-label={i18n.t("lens:lensChrome.openDeveloperTools")}
               />
             }
           >
             <CodeXml className={LENS_TOOL_ICON_CLASS} />
           </TooltipTrigger>
-          <TooltipContent>Developer tools</TooltipContent>
+          <TooltipContent>{i18n.t("lens:lensChrome.developerTools")}</TooltipContent>
         </Tooltip>
         <DropdownMenu onOpenChange={setFloatingSurfaceOpen}>
           <DropdownMenuTrigger
@@ -414,7 +416,7 @@ export function LensChrome(props: {
                 size="icon-sm"
                 variant="ghost"
                 disabled={!hasLensApi}
-                aria-label="More browser tools"
+                aria-label={i18n.t("lens:lensChrome.moreBrowserTools")}
               />
             }
           >
@@ -427,7 +429,7 @@ export function LensChrome(props: {
                 void toggleBoxInspect();
               }}
             >
-              {isBoxInspectActive ? "Stop measuring" : "Measure spacing"}
+              {isBoxInspectActive ? i18n.t("lens:lensChrome.stopMeasuring") : i18n.t("lens:lensChrome.measureSpacing")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -436,7 +438,7 @@ export function LensChrome(props: {
                 void saveScreenshot(false);
               }}
             >
-              Save viewport screenshot
+              {i18n.t("lens:lensChrome.saveViewportScreenshot")}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={lensPageActionDisabled}
@@ -444,7 +446,7 @@ export function LensChrome(props: {
                 void saveScreenshot(true);
               }}
             >
-              Save full page screenshot
+              {i18n.t("lens:lensChrome.saveFullPageScreenshot")}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={lensPageActionDisabled}
@@ -452,10 +454,10 @@ export function LensChrome(props: {
                 void downloadPageAssets();
               }}
             >
-              Download page assets
+              {i18n.t("lens:lensChrome.downloadPageAssets")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Recent downloads</DropdownMenuLabel>
+            <DropdownMenuLabel>{i18n.t("lens:lensChrome.recentDownloads")}</DropdownMenuLabel>
             {downloads.length > 0 ? (
               downloads
                 .slice(-5)
@@ -475,7 +477,7 @@ export function LensChrome(props: {
                   </DropdownMenuItem>
                 ))
             ) : (
-              <DropdownMenuItem disabled>No downloads yet</DropdownMenuItem>
+              <DropdownMenuItem disabled>{i18n.t("lens:lensChrome.noDownloadsYet")}</DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   useCallback,
@@ -63,6 +64,7 @@ interface DragState {
 }
 
 export function PlanViewer() {
+  useTranslation();
   const [revising, setRevising] = useState(false);
   const [revisionText, setRevisionText] = useState("");
   const [viewState, setViewState] = useState<PlanViewerViewState>("normal");
@@ -125,7 +127,7 @@ export function PlanViewer() {
   const providerLabel = getProviderLabel({ providerId: activeProvider });
   const isManagedTask = isExternallyManagedTask(activeTask);
   const managedNotice = isManagedTask
-    ? `Plan responses are managed by ${getTaskControlOwner(activeTask) === "external" ? "an external controller" : "Stave"}. Take over to reply here.`
+    ? i18n.t("session:planViewer.extraCopy103", { value1: getTaskControlOwner(activeTask) === "external" ? i18n.t("session:planViewer.extraCopy104") : "Stave" })
     : null;
 
   const [latestPlanMessage, lastMessage, activeTurnId] = useAppStore(
@@ -166,9 +168,9 @@ export function PlanViewer() {
   const planReplyNotice =
     planResponseError ||
     (planResponseSent
-      ? `Response sent. Waiting for ${providerLabel} to continue.`
+      ? i18n.t("session:planViewer.extraCopy105", { value1: providerLabel })
       : !isManagedTask && isPlanPending && !canReplyToPlan
-        ? `Wait for ${providerLabel} to finish the current turn before replying to the plan.`
+        ? i18n.t("session:planViewer.extraCopy106", { value1: providerLabel })
         : null);
   const replyNotice = managedNotice ?? planReplyNotice;
   const planViewerContextKey = buildPlanViewerContextKey({
@@ -221,7 +223,7 @@ export function PlanViewer() {
       }
       const responder = window.api?.provider?.respondApproval;
       if (!responder) {
-        setPlanResponseError("Plan response is unavailable in this build.");
+        setPlanResponseError(i18n.t("session:planViewer.extraCopy107"));
         return false;
       }
       setPlanResponsePending(true);
@@ -235,7 +237,7 @@ export function PlanViewer() {
         });
         if (!result.ok) {
           setPlanResponseError(
-            result.message || "The plan response could not be delivered.",
+            result.message || i18n.t("session:planViewer.extraCopy109"),
           );
           return false;
         }
@@ -245,14 +247,14 @@ export function PlanViewer() {
         setPlanResponseError(
           error instanceof Error
             ? error.message
-            : "The plan response could not be delivered.",
+            : i18n.t("session:planViewer.extraCopy109"),
         );
         return false;
       } finally {
         setPlanResponsePending(false);
       }
     },
-    [activeTurnId, blockingReview, planResponsePending],
+    [activeTurnId, blockingReview, planResponsePending, i18n.language],
   );
 
   const handleApprove = useCallback(() => {
@@ -317,7 +319,7 @@ export function PlanViewer() {
     if (isManagedTask) {
       return;
     }
-    createTask({ title: "Plan handoff" });
+    createTask({ title: i18n.t("session:planViewer.title") });
     // createTask synchronously sets activeTaskId to the new task.
     const newTaskId = useAppStore.getState().activeTaskId;
     if (newTaskId && newTaskId !== activeTaskId) {
@@ -456,20 +458,20 @@ export function PlanViewer() {
               className={sx(styles.headerIcon)}
             />
             <p className={sx(styles.headerTitle)}>
-              {`Review ${providerLabel}'s Plan`}
+              {i18n.t("session:planViewer.planViewer", { value1: providerLabel })}
             </p>
           </div>
           <AdsButton layout="host" type="submit"
             onClick={() => setViewState(isMinimized ? "normal" : "minimized")}
             xstyle={styles.headerButton}
-            title={isMinimized ? "Restore" : "Minimize"}
+            title={isMinimized ? i18n.t("session:planViewer.title2") : i18n.t("session:planViewer.title3")}
           >
             <Minus aria-hidden size={16} />
           </AdsButton>
           <AdsButton layout="host" type="submit"
             onClick={() => setViewState(isExpanded ? "normal" : "expanded")}
             xstyle={styles.headerButton}
-            title={isExpanded ? "Restore" : "Expand"}
+            title={isExpanded ? i18n.t("session:planViewer.title4") : i18n.t("session:planViewer.title5")}
           >
             <Maximize2 aria-hidden size={14} />
           </AdsButton>
@@ -484,7 +486,7 @@ export function PlanViewer() {
                 isExpanded ? styles.bodyExpanded : styles.bodyNormal,
               )}
             >
-              <MessageResponse>{planText || "Plan ready."}</MessageResponse>
+              <MessageResponse>{planText || i18n.t("session:planViewer.planViewer2")}</MessageResponse>
             </div>
             {revising ? (
               <div className={sx(styles.reviseRegion)}>
@@ -509,7 +511,7 @@ export function PlanViewer() {
                       setRevisionText("");
                     }
                   }}
-                  placeholder={`Tell ${providerLabel} what to change\u2026`}
+                  placeholder={i18n.t("session:planViewer.placeholder", { value1: providerLabel })}
                   xstyle={styles.revisionField}
                 />
                 <div className={sx(styles.reviseActions)}>
@@ -523,8 +525,7 @@ export function PlanViewer() {
                       planResponseSent
                     }
                   >
-                    Send
-                  </Button>
+                    {i18n.t("session:planViewer.planViewer3")}</Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -533,8 +534,7 @@ export function PlanViewer() {
                       setRevisionText("");
                     }}
                   >
-                    Cancel
-                  </Button>
+                    {i18n.t("session:planViewer.planViewer4")}</Button>
                 </div>
               </div>
             ) : (
@@ -546,7 +546,7 @@ export function PlanViewer() {
                   disabled={!planText}
                 >
                   <Copy />
-                  {copied ? "Copied!" : "Copy"}
+                  {copied ? i18n.t("session:planViewer.planViewer5") : i18n.t("session:planViewer.planViewer6")}
                 </Button>
                 <Button
                   size="sm"
@@ -555,8 +555,7 @@ export function PlanViewer() {
                   disabled={isManagedTask || !planText}
                 >
                   <ArrowRightCircle />
-                  Handoff
-                </Button>
+                  {i18n.t("session:planViewer.planViewer7")}</Button>
                 <Button
                   size="sm"
                   disabled={
@@ -572,8 +571,7 @@ export function PlanViewer() {
                   ) : (
                     <ClipboardCheck />
                   )}
-                  Approve
-                </Button>
+                  {i18n.t("session:planViewer.planViewer8")}</Button>
                 <Button
                   size="sm"
                   variant="outline"
@@ -585,8 +583,7 @@ export function PlanViewer() {
                   }
                   onClick={() => setRevising(true)}
                 >
-                  Revise
-                </Button>
+                  {i18n.t("session:planViewer.planViewer9")}</Button>
                 {blockingReview ? (
                   <Button
                     size="sm"
@@ -600,8 +597,7 @@ export function PlanViewer() {
                     onClick={handleCancelPlan}
                   >
                     <XCircle />
-                    Cancel plan
-                  </Button>
+                    {i18n.t("session:planViewer.planViewer10")}</Button>
                 ) : null}
                 {replyNotice ? (
                   <p className={sx(styles.notice)}>{replyNotice}</p>

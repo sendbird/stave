@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -25,6 +26,7 @@ export function ScriptsSection(props: {
   currentRepositoryPath?: string | null;
   selectedRepositoryPath?: string | null;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     activeWorkspaceId,
     workspaces,
@@ -78,7 +80,7 @@ export function ScriptsSection(props: {
     if (!repository) {
       return undefined;
     }
-    return `${repository.repositoryName}${isCurrent ? " (current)" : ""}`;
+    return `${repository.repositoryName}${isCurrent ? i18n.t("settings:settingsDialogScriptsSection.current") : ""}`;
   }, [isCurrent, props.repositories, selectedRepositoryPath]);
   const scriptsWorkspacePath = isCurrent
     ? (workspacePathById[activeWorkspaceId] ?? selectedRepositoryPath ?? "")
@@ -129,25 +131,22 @@ export function ScriptsSection(props: {
             <EmptyMedia>
               <Sparkles className={sx(scriptsSectionStyles.emptyIcon)} />
             </EmptyMedia>
-            <EmptyTitle>No repositories yet</EmptyTitle>
+            <EmptyTitle>{t("settings:dialog.noRepositories")}</EmptyTitle>
             <EmptyDescription>
-              Open a repository from the sidebar to configure its processes and
-              commands.
-            </EmptyDescription>
+              {t("settings:settingsDialogScriptsSection.openARepositoryFromTheSidebar")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
         <>
           <label className={sx(scriptsSectionStyles.repositoryLabel)}>
             <span className={sx(scriptsSectionStyles.repositoryLabelText)}>
-              Configuration repository
-            </span>
+              {t("settings:settingsDialogScriptsSection.configurationRepository")}</span>
             <Select
               value={selectedRepositoryPath ?? undefined}
               onValueChange={(value) => setSelectedRepositoryPath(value)}
             >
               <SelectTrigger className={sx(scriptsSectionStyles.triggerFull)}>
-                <SelectValue placeholder="Select a repository">
+                <SelectValue placeholder={t("settings:settingsDialogScriptsSection.selectARepository")}>
                   {selectedRepositoryLabel}
                 </SelectValue>
               </SelectTrigger>
@@ -159,7 +158,7 @@ export function ScriptsSection(props: {
                   >
                     {repository.repositoryName}
                     {repository.repositoryPath === currentRepositoryPath
-                      ? " (current)"
+                      ? i18n.t("settings:settingsDialogScriptsSection.current")
                       : ""}
                   </SelectItem>
                 ))}

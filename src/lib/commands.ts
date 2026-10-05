@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type {
   ProviderCommandCatalogState,
@@ -106,19 +107,19 @@ function buildProviderPaletteNote(args: {
   const catalog = args.providerCommandCatalog;
   const catalogTitle =
     args.provider === "codex"
-      ? `${providerLabel} slash commands`
-      : `${providerLabel} command catalog`;
+      ? i18n.t("shell:commands.slashCommands", { value1: providerLabel })
+      : i18n.t("shell:commands.commandCatalog", { value1: providerLabel });
   const readyTitle =
     args.provider === "codex"
-      ? `${providerLabel} slash commands`
-      : `${providerLabel} native commands`;
+      ? i18n.t("shell:commands.slashCommands", { value1: providerLabel })
+      : i18n.t("shell:commands.nativeCommands", { value1: providerLabel });
   if (!catalog || catalog.status === "idle") {
     return {
       title: catalogTitle,
       description:
         args.provider === "codex"
-          ? `Loading the bundled ${providerLabel} slash-command reference for this workspace.`
-          : `${providerLabel} native slash commands have not been loaded yet for this workspace.`,
+          ? i18n.t("shell:commands.loadingTheBundledSlashCommandReferenceForThis", { value1: providerLabel })
+          : i18n.t("shell:commands.nativeSlashCommandsHaveNotBeen", { value1: providerLabel }),
     };
   }
   if (catalog.status === "loading") {
@@ -126,14 +127,14 @@ function buildProviderPaletteNote(args: {
       title: catalogTitle,
       description:
         args.provider === "codex"
-          ? `Loading the bundled ${providerLabel} slash-command reference for the current workspace...`
-          : `Loading ${providerLabel} native slash commands for the current workspace...`,
+          ? i18n.t("shell:commands.loadingTheBundledSlashCommandReferenceForThe", { value1: providerLabel })
+          : i18n.t("shell:commands.loadingNativeSlashCommandsForTheCurrent", { value1: providerLabel }),
     };
   }
   if (catalog.status === "error") {
     return {
       title: catalogTitle,
-      description: `${catalog.detail}\nSlash commands are still passed through unchanged while the catalog is unavailable.`,
+      description: i18n.t("shell:commands.slashCommandsAreStillPassedThrough", { value1: catalog.detail }),
     };
   }
   if (catalog.status === "unsupported") {

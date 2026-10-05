@@ -1,3 +1,4 @@
+import { applyAppLocale } from "@/i18n";
 import { useLayoutEffect, useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@/components/ads/components/Button";
@@ -19,7 +20,7 @@ export function UsagePreview() {
   const state = params.get("state");
   const width = Number(params.get("width"));
   const delay = Number(params.get("delay")) || 0;
-  useLayoutEffect(() => { applyThemeClass({ enabled: dark }); applyCustomTheme({ theme: builtin }); }, [dark, builtin]);
+  useLayoutEffect(() => { applyAppLocale(params.get("lang")); applyThemeClass({ enabled: dark }); applyCustomTheme({ theme: builtin }); }, [dark, builtin]);
   const load = useMemo(() => async (args: import("@/lib/providers/usage-statistics").UsageStatisticsArgs) => {
     if (state === "loading") return new Promise<never>(() => {});
     if (state === "unavailable") return null;

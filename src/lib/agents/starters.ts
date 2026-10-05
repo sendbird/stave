@@ -56,6 +56,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     id: "implementer",
     name: "Implementer",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Implements a change end to end in its own worktree and verifies it. Use for bug fixes and features that need code changes.",
     avoidWhen: "The work is a question, a review, or a plan with no code change.",
     instructions: [
@@ -74,6 +75,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     id: "lead",
     name: "Lead",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Splits a multi-part goal across agents and supervises it to a verified result. Use when the work has several parts or needs more than one kind of agent.",
     avoidWhen: "The task is small enough for one agent, or it is only a question.",
     instructions: [
@@ -96,6 +98,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     id: "debugger",
     name: "Debugger",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Finds the cause of something broken and fixes it at the cause. Use for runtime errors, failing checks and wrong data when the cause is unknown.",
     avoidWhen: "The cause is already known and only the edit is left.",
     instructions: [
@@ -115,6 +118,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     id: "ui-polisher",
     name: "UI Polisher",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Fixes layout, spacing and visual defects with the design system and shows before and after. Use for UI that looks wrong or drifts from its neighbours.",
     avoidWhen: "The change is behaviour or data with nothing to see, or the design is still undecided.",
     instructions: [
@@ -134,6 +138,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     id: "reviewer",
     name: "Reviewer",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Reviews one fixed commit or diff for correctness and reports findings without editing. Use after an implementation stage and before publishing.",
     avoidWhen: "There is no finished change to review yet.",
     instructions: [
@@ -155,6 +160,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     id: "researcher",
     name: "Researcher",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Answers a question by reading code and documentation and returns a conclusion with sources. Use for investigations and briefs that change nothing.",
     avoidWhen: "The answer needs a code change.",
     instructions: [
@@ -176,6 +182,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     id: "shipper",
     name: "Shipper",
     description:
+      // i18n-ignore: model-facing agent identity and selection trigger; localized only in UI
       "Takes a finished change through commit, push, pull request, auto-merge and CI. Use when the change is done and needs to land.",
     avoidWhen: "The change is not finished or not verified locally.",
     instructions: [

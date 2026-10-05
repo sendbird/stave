@@ -1,11 +1,26 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { applyRuntimeLocale } from "../src/i18n/runtime";
 import { EventEmitter } from "node:events";
 import {
   buildHostServiceSpawnArgs,
+  buildHostServiceRequestEnvelope,
   forwardHostServiceStderr,
   measureSerializedHostServiceRequestBytes,
   resolveHostServiceScriptPath,
 } from "../electron/main/host-service-client";
+afterEach(() => applyRuntimeLocale("en"));
+
+test("host requests carry current display locale without changing provider prompts", () => {
+  const params = { providerId: "codex" as const, prompt: "User content stays unchanged", taskId: "task-1", workspaceId: "ws-1", cwd: "/tmp/project", turnId: "turn-1" };
+  expect(buildHostServiceRequestEnvelope(1, "provider.start-push-turn", params).displayLocale).toBe("en");
+  applyRuntimeLocale("ko");
+  const request = buildHostServiceRequestEnvelope(2, "provider.start-push-turn", params);
+  expect(request.displayLocale).toBe("ko");
+  expect(request.params).toBe(params);
+  expect(request.params.prompt).toBe("User content stays unchanged");
+  applyRuntimeLocale("invalid");
+  expect(buildHostServiceRequestEnvelope(3, "provider.start-push-turn", params).displayLocale).toBe("en");
+});
 import {
   HOST_SERVICE_DEFAULT_REQUEST_TIMEOUT_MS,
   resolveHostServiceRequestTimeoutMs,

@@ -10,21 +10,21 @@ export const BUILTIN_AGENT_WORKFLOWS: Readonly<Record<string, AgentWorkflow>> = 
   debugger: [
     {
       id: "reproduce",
-      title: "Reproduce",
+      title: "Reproduce" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
       kind: "ai",
       instruction: "Reproduce the problem. Record the exact steps, the inputs and what you observed. Change nothing yet.",
       doneWhen: "The steps and the observed behaviour are recorded.",
     },
     {
       id: "cause",
-      title: "Cause",
+      title: "Cause" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
       kind: "ai",
       instruction: "Find the root cause. Show the evidence for it and keep confirmed facts apart from hypotheses.",
       doneWhen: "The root cause is shown with evidence, apart from hypotheses.",
     },
     {
       id: "fix",
-      title: "Fix",
+      title: "Fix" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
       kind: "ai",
       instruction: "Make the smallest change at the cause, then run the reproduction again and the checks that cover it.",
       doneWhen: "The reproduction now passes and the relevant checks pass.",
@@ -33,21 +33,21 @@ export const BUILTIN_AGENT_WORKFLOWS: Readonly<Record<string, AgentWorkflow>> = 
   "ui-polisher": [
     {
       id: "reproduce",
-      title: "Reproduce",
+      title: "Reproduce" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
       kind: "ai",
       instruction: "Open the screen in the rendered app and capture the defect before you edit anything.",
       doneWhen: "The defect is captured in the rendered app.",
     },
     {
       id: "fix",
-      title: "Fix",
+      title: "Fix" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
       kind: "ai",
       instruction: "Fix the defect with the existing components and tokens. Check light and dark themes and a sibling screen that shares the component.",
       doneWhen: "The fix uses existing components and tokens, and both themes and a sibling screen look right.",
     },
     {
       id: "report",
-      title: "Report",
+      title: "Report" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
       kind: "ai",
       instruction: "Attach before and after screenshots and list what a designer still has to decide.",
       doneWhen: "Before and after screenshots are attached.",
@@ -56,18 +56,18 @@ export const BUILTIN_AGENT_WORKFLOWS: Readonly<Record<string, AgentWorkflow>> = 
   shipper: [
     {
       id: "validate",
-      title: "Validate",
+      title: "Validate" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
       kind: "ai",
       instruction: "Read the diff, leave unrelated changes unstaged, run the required checks and commit the scoped change.",
       doneWhen: "The scoped change is committed and the required checks pass locally.",
     },
-    { id: "open-draft-pr", title: "Open draft PR", kind: "action", action: { type: "open-draft-pr" } },
+    { id: "open-draft-pr", title: "Open draft PR" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */, kind: "action", action: { type: "open-draft-pr" } },
     {
       id: "watch-checks",
-      title: "Watch checks",
+      title: "Watch checks" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
       kind: "action",
       action: { type: "watch-checks", repairAttempts: 2, timeoutMinutes: 30 },
     },
-    { id: "ready-for-review", title: "Ready for review", kind: "action", action: { type: "mark-pr-ready" } },
+    { id: "ready-for-review", title: "Ready for review" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */, kind: "action", action: { type: "mark-pr-ready" } },
   ],
 };

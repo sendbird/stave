@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
@@ -28,29 +29,30 @@ import { sx } from "@/components/ads/utils/stylex";
 import { tasksSectionStyles as styles } from "./settings-dialog-issues-section.styles";
 
 const VIEW_LABELS: Record<(typeof TRACKER_ISSUE_VIEWS)[number], string> = {
-  "assigned-open": "Assigned to me",
-  "all-open": "All open",
-  "recently-done": "Recently done",
-  "in-stave": "Already in Stave",
+  get "assigned-open"() { return i18n.t("settings:settingsDialogIssuesSection.assignedToMe"); },
+  get "all-open"() { return i18n.t("settings:settingsDialogIssuesSection.allOpen"); },
+  get "recently-done"() { return i18n.t("settings:settingsDialogIssuesSection.recentlyDone"); },
+  get "in-stave"() { return i18n.t("settings:settingsDialogIssuesSection.alreadyInStave"); },
 };
 
 const START_MODE_LABELS: Record<
   (typeof TRACKER_ISSUE_START_MODES)[number],
   string
 > = {
-  run: "Start the run immediately",
-  stage: "Stage the prompt in the composer",
+  get run() { return i18n.t("settings:settingsDialogIssuesSection.startTheRunImmediately"); },
+  get stage() { return i18n.t("settings:settingsDialogIssuesSection.stageThePromptInTheComposer"); },
 };
 
 const HINT = sx(styles.hint);
 
 function describeInterval(seconds: number): string {
-  if (seconds % 60 !== 0) return `${seconds} seconds`;
+  if (seconds % 60 !== 0) return i18n.t("settings:duration.seconds", { count: seconds });
   const minutes = seconds / 60;
-  return minutes === 1 ? "1 minute" : `${minutes} minutes`;
+  return i18n.t("settings:duration.minutes", { count: minutes });
 }
 
 export function IssueTrackerSettingsSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const tasks = useAppStore((state) => state.settings.trackerIssues);
   const updateSettings = useAppStore((state) => state.updateSettings);
   // Live status rather than the enabled switches: a connector turned on but
@@ -95,11 +97,9 @@ export function IssueTrackerSettingsSection() {
       className={sx(styles.card)}
     >
       <div className={sx(styles.cardHeader)}>
-        <h3 className={sx(styles.cardTitle)}>Issues</h3>
+        <h3 className={sx(styles.cardTitle)}>{t("settings:sections.fields.trackerIssues.title")}</h3>
         <p className={sx(styles.hintSpaced)}>
-          The ticket list opens on Assigned to me, with no extra filters. Chips
-          you pick narrow that list; Reset clears the chips and keeps the tab.
-        </p>
+          {t("settings:settingsDialogIssuesSection.theTicketListOpensOnAssigned")}</p>
       </div>
 
       <div className={sx(styles.cardBody)}>
@@ -108,8 +108,7 @@ export function IssueTrackerSettingsSection() {
             htmlFor="settings-tasks-default-view"
             className={sx(styles.fieldLabel)}
           >
-            Default view
-          </label>
+            {t("settings:settingsDialogIssuesSection.defaultView")}</label>
           <Select
             value={tasks.defaultView}
             onValueChange={(value) =>
@@ -131,10 +130,7 @@ export function IssueTrackerSettingsSection() {
             </SelectContent>
           </Select>
           <p className={HINT}>
-            First tab when you open Issues. Assigned to me is the default. Filter
-            chips start empty, so you see every ticket in that tab until you
-            pick one.
-          </p>
+            {t("settings:settingsDialogIssuesSection.firstTabWhenYouOpenIssues")}</p>
         </div>
 
         <div className={sx(styles.field)}>
@@ -142,8 +138,7 @@ export function IssueTrackerSettingsSection() {
             htmlFor="settings-tasks-refresh-interval"
             className={sx(styles.fieldLabel)}
           >
-            Refresh interval (seconds)
-          </label>
+            {t("settings:settingsDialogIssuesSection.refreshIntervalSeconds")}</label>
           <Input
             id="settings-tasks-refresh-interval"
             type="number"
@@ -156,14 +151,7 @@ export function IssueTrackerSettingsSection() {
             onChange={(event) => setIntervalDraft(event.target.value)}
             onBlur={commitInterval}
           />
-          <p className={HINT}>
-            Currently {describeInterval(tasks.refreshIntervalSeconds)}. Each
-            refresh is one request per connected tracker, so a short interval
-            spends rate limit you may want for your own work. Accepted range is{" "}
-            {MIN_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS}–
-            {MAX_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS} seconds; anything else
-            is clamped.
-          </p>
+          <p className={HINT}>{t("settings:whole.issueRefresh", { interval: describeInterval(tasks.refreshIntervalSeconds), min: MIN_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS, max: MAX_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS })}</p>
         </div>
 
         <div className={sx(styles.field)}>
@@ -171,8 +159,7 @@ export function IssueTrackerSettingsSection() {
             htmlFor="settings-tasks-start-mode"
             className={sx(styles.fieldLabel)}
           >
-            When a ticket starts work
-          </label>
+            {t("settings:settingsDialogIssuesSection.whenATicketStartsWork")}</label>
           <Select
             value={tasks.defaultKickoffStartMode}
             onValueChange={(value) =>
@@ -197,19 +184,14 @@ export function IssueTrackerSettingsSection() {
             </SelectContent>
           </Select>
           <p className={HINT}>
-            Staging leaves the generated prompt in the composer so you can edit
-            it before the first turn.
-          </p>
+            {t("settings:settingsDialogIssuesSection.stagingLeavesTheGeneratedPromptIn")}</p>
         </div>
 
         <div className={sx(styles.sourcesCard)}>
           <div>
-            <h4 className={sx(styles.sourcesTitle)}>Sources</h4>
+            <h4 className={sx(styles.sourcesTitle)}>{t("settings:settingsDialogIssuesSection.sources")}</h4>
             <p className={sx(styles.hintSpaced)}>
-              Choose which trackers Issues reads. Pairing and credentials stay
-              under Settings → Integrations. Jira is first in the list; Crane
-              follows.
-            </p>
+              {t("settings:settingsDialogIssuesSection.chooseWhichTrackersIssuesReadsPairing")}</p>
           </div>
           <ul className={sx(styles.sourceList)}>
             {TRACKER_SOURCE_IDS.map((source) => {
@@ -245,8 +227,8 @@ export function IssueTrackerSettingsSection() {
                     </div>
                     <p className={sx(styles.hintTight)}>
                       {enabled
-                        ? (summary?.detail ?? "Used in the Issues list.")
-                        : "Hidden from Issues. Pairing and credentials are unchanged."}
+                        ? (summary?.detail ?? i18n.t("settings:settingsDialogIssuesSection.usedInTheIssuesList"))
+                        : i18n.t("settings:settingsDialogIssuesSection.hiddenFromIssuesPairingAndCredentials")}
                     </p>
                   </div>
                   <div className={sx(styles.sourceActions)}>
@@ -264,8 +246,7 @@ export function IssueTrackerSettingsSection() {
                           );
                         }}
                       >
-                        Set up
-                      </Button>
+                        {i18n.t("settings:settingsDialogIssuesSection.setUp")}</Button>
                     ) : null}
                     <Switch
                       id={`settings-tasks-source-${source}`}
@@ -297,8 +278,7 @@ export function IssueTrackerSettingsSection() {
               );
             }}
           >
-            Open Settings → Integrations
-          </Button>
+            {t("settings:settingsDialogIssuesSection.openSettingsIntegrations")}</Button>
         </div>
       </div>
     </div>

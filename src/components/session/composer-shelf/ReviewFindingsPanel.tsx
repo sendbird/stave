@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 import { ListChecks, Paperclip } from "lucide-react";
@@ -30,9 +31,9 @@ const STATUS_TONE: Record<PreviousFindingStatus, BadgeTone> = {
 };
 
 const VERDICT_LABEL: Record<ReviewVerdict, string> = {
-  approve: "Approve",
-  "approve-with-changes": "Approve with changes",
-  "request-changes": "Request changes",
+  get approve() { return i18n.t("composer:reviewFindingsPanel.approve"); },
+  get "approve-with-changes"() { return i18n.t("composer:reviewFindingsPanel.approveWithChanges"); },
+  get "request-changes"() { return i18n.t("composer:reviewFindingsPanel.requestChanges"); },
 };
 
 /**
@@ -49,6 +50,7 @@ export function ReviewFindingsPanel(props: {
   onRecheck: (() => void) | null;
   recheckBusy: boolean;
 }) {
+  useTranslation();
   const report = props.findings.ok ? props.findings.report : null;
   const [selected, setSelected] = useState<ReadonlySet<string>>(
     () => new Set(props.attachedFindingIds ?? report?.findings.map((finding) => finding.id) ?? []),
@@ -57,11 +59,9 @@ export function ReviewFindingsPanel(props: {
 
   if (!report || !summary) {
     return (
-      <section className={sx(styles.root)} aria-label="Review findings">
+      <section className={sx(styles.root)} aria-label={i18n.t("composer:reviewFindingsPanel.ariaLabel")}>
         <p className={sx(styles.notice)} role="note">
-          This reply has no readable findings list, so Stave cannot count or
-          pick findings. Attach the whole answer instead.
-        </p>
+          {i18n.t("composer:reviewFindingsPanel.reviewFindingsPanel")}</p>
       </section>
     );
   }
@@ -76,9 +76,9 @@ export function ReviewFindingsPanel(props: {
   const chosen = report.findings.filter((finding) => selected.has(finding.id)).map((finding) => finding.id);
 
   return (
-    <section className={sx(styles.root)} aria-label="Review findings">
+    <section className={sx(styles.root)} aria-label={i18n.t("composer:reviewFindingsPanel.ariaLabel2")}>
       <div className={sx(styles.header)}>
-        <span className={sx(styles.heading)}>Findings</span>
+        <span className={sx(styles.heading)}>{i18n.t("composer:reviewFindingsPanel.reviewFindingsPanel2")}</span>
         <Badge size="sm" tone={summary.verdict === "request-changes" ? "danger" : summary.previous?.unchecked || summary.checkWarnings ? "warning" : summary.verdict === "approve" ? "success" : "warning"}>
           {VERDICT_LABEL[summary.verdict]}
         </Badge>
@@ -88,7 +88,7 @@ export function ReviewFindingsPanel(props: {
         <p key={index} className={sx(styles.notice)} role="note">{warning}</p>
       ))}
       {report.previous && report.previous.length > 0 ? (
-        <ul className={sx(styles.list)} aria-label="Earlier findings">
+        <ul className={sx(styles.list)} aria-label={i18n.t("composer:reviewFindingsPanel.ariaLabel3")}>
           {report.previous.map((check) => (
             <li key={check.id} className={sx(styles.row)}>
               <Badge size="sm" tone={STATUS_TONE[check.status]}>{check.status}</Badge>
@@ -101,13 +101,13 @@ export function ReviewFindingsPanel(props: {
         </ul>
       ) : null}
       {report.findings.length > 0 ? (
-        <ul className={sx(styles.list)} aria-label="New findings">
+        <ul className={sx(styles.list)} aria-label={i18n.t("composer:reviewFindingsPanel.ariaLabel4")}>
           {report.findings.map((finding) => (
             <li key={finding.id}>
               <label className={sx(styles.row, styles.selectable, transition.colors)}>
                 <Checkbox
                   controlOnly
-                  aria-label={`Send ${finding.id}: ${finding.title}`}
+                  aria-label={i18n.t("composer:reviewFindingsPanel.ariaLabel5", { value1: finding.id, value2: finding.title })}
                   checked={selected.has(finding.id)}
                   onCheckedChange={() => toggle(finding.id)}
                 />
@@ -120,7 +120,7 @@ export function ReviewFindingsPanel(props: {
                     </span>
                   ) : null}
                   {finding.detail ? <span className={sx(styles.detail)}>{finding.detail}</span> : null}
-                  {finding.fix ? <span className={sx(styles.detail)}>Fix: {finding.fix}</span> : null}
+                  {finding.fix ? <span className={sx(styles.detail)}>{i18n.t("composer:reviewFindingsPanel.sentence56", { value1: finding.fix })}</span> : null}
                 </span>
               </label>
             </li>
@@ -133,11 +133,11 @@ export function ReviewFindingsPanel(props: {
             variant="quiet"
             size="sm"
             disabled={chosen.length === 0}
-            title="Send only the chosen findings with your next message"
+            title={i18n.t("composer:reviewFindingsPanel.title")}
             onClick={() => props.onAttachSelected(chosen)}
           >
             <Paperclip aria-hidden />
-            Attach {chosen.length} of {report.findings.length}
+            {i18n.t("composer:reviewFindingsPanel.reviewFindingsPanel3")}{chosen.length} {i18n.t("composer:reviewFindingsPanel.reviewFindingsPanel4")}{report.findings.length}
           </Button>
         ) : null}
         {props.onRecheck ? (
@@ -145,12 +145,11 @@ export function ReviewFindingsPanel(props: {
             variant="quiet"
             size="sm"
             disabled={props.recheckBusy}
-            title="Check whether each finding is fixed now, on the same model, without reviewing from scratch"
+            title={i18n.t("composer:reviewFindingsPanel.title2")}
             onClick={props.onRecheck}
           >
             <ListChecks aria-hidden />
-            Check fixes
-          </Button>
+            {i18n.t("composer:reviewFindingsPanel.reviewFindingsPanel5")}</Button>
         ) : null}
       </div>
     </section>

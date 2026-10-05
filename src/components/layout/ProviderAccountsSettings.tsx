@@ -1,3 +1,4 @@
+import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useState, type ReactElement } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Input, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
@@ -27,45 +28,47 @@ function AccountRow({ profile, name, run, login, busy, signingIn }: {
   run: (action: () => Promise<unknown>) => void;
   login: (profile: ProviderAccountProfile) => Promise<void>;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [label, setLabel] = useState(profile.label);
   const [checkMessage, setCheckMessage] = useState("");
   return <div className={sx(styles.profile, styles.stack)}>
     <div className={sx(styles.row)}>
-      {profile.kind === "system" ? <strong>{profile.label}</strong> : <Input aria-label={`Name for ${profile.label}`} value={label} onChange={e => setLabel(e.target.value)} xstyle={styles.field} />}
+      {profile.kind === "system" ? <strong>{profile.label}</strong> : <Input aria-label={t("settingsConnections:providerAccountsSettings.nameFor", { value1: profile.label })} value={label} onChange={e => setLabel(e.target.value)} xstyle={styles.field} />}
       {profile.kind !== "system" && <Button size="sm" variant="quiet" disabled={busy || !label.trim() || label.trim() === profile.label} onClick={() => run(async () => {
         const result = await window.api!.providerAccounts!.rename({ providerId: profile.providerId, id: profile.id, label });
         if (!result.ok) throw new Error(result.message);
-      })}>Save name</Button>}
+      })}>{t("settingsConnections:providerAccountsSettings.saveName")}</Button>}
       {profile.gateway
-        ? <WithTooltip tip="Asks the gateway for its model list and confirms this connection's models are on it. No prompt is sent and nothing is billed.">
+        ? <WithTooltip tip={t("settingsConnections:providerAccountsSettings.asksTheGatewayForItsModel")}>
           <Button size="sm" variant="outline" disabled={busy} onClick={() => run(async () => {
             const result = await window.api!.providerAccounts!.checkGateway({ providerId: profile.providerId, id: profile.id });
             setCheckMessage(result.message);
-          })}>Check model list</Button>
+          })}>{t("settingsConnections:providerAccountsSettings.checkModelList")}</Button>
         </WithTooltip>
-        : <WithTooltip tip={`Opens ${LOGIN_COMMAND[profile.providerId]} for this account in a terminal below. Stave can't see the result until you close that terminal; it then refreshes sign-in status and usage.`}>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => login(profile))}>Sign in</Button>
+        : <WithTooltip tip={t("settingsConnections:providerAccountsSettings.opensForThisAccountInA", { value1: LOGIN_COMMAND[profile.providerId] })}>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => login(profile))}>{t("settingsProviders:mcpSection.provider.signIn")}</Button>
         </WithTooltip>}
-      {profile.kind !== "system" && <WithTooltip tip="Forgets this account in Stave. Its folder and sign-in stay on disk, so you can add the folder again later.">
+      {profile.kind !== "system" && <WithTooltip tip={t("settingsConnections:providerAccountsSettings.forgetsThisAccountInStaveIts")}>
         <Button size="sm" variant="quiet" disabled={busy} onClick={() => run(async () => {
           const result = await window.api!.providerAccounts!.remove({ providerId: profile.providerId, id: profile.id });
           if (!result.ok) throw new Error(result.message);
           const state = useAppStore.getState();
           const key = profile.providerId === "codex" ? "codexAccountProfileId" : "claudeAccountProfileId";
           if (state.settings[key] === profile.id) state.updateSettings({ patch: { [key]: SYSTEM_ACCOUNT_PROFILE_ID } });
-        })}>Remove</Button>
+        })}>{t("common:actions.remove")}</Button>
       </WithTooltip>}
     </div>
-    {profile.kind === "system" && <div className={sx(styles.muted)}>The {name} sign-in this computer already uses.</div>}
+    {profile.kind === "system" && <div className={sx(styles.muted)}>{t("settingsConnections:messages.systemAccountHelp", { provider: name })}</div>}
     {!profile.gateway && <ProviderAccountIdentityLine profile={profile} providerName={name} signingIn={signingIn} />}
-    {profile.configDirectory && !profile.gateway && <div className={sx(styles.muted)}>Folder: {profile.configDirectory}</div>}
-    {profile.gateway && <div className={sx(styles.muted)}>Billed per token by the gateway · {profile.gateway.baseUrl}<br />Models: {profile.gateway.models.join(", ")}</div>}
+    {profile.configDirectory && !profile.gateway && <div className={sx(styles.muted)}>{t("settingsConnections:messages.accountFolder", { path: profile.configDirectory })}</div>}
+    {profile.gateway && <div className={sx(styles.muted)}>{t("settingsConnections:messages.gatewayBilling", { endpoint: profile.gateway.baseUrl })}<br />{t("settingsConnections:messages.gatewayModels", { models: profile.gateway.models.join(", ") })}</div>}
     {checkMessage && <p role="status" className={sx(styles.muted)}>{checkMessage}</p>}
     {profile.kind === "managed" && !profile.gateway && <ProviderAccountSetupSharing profile={profile} busy={busy} run={run} />}
   </div>;
 }
 
 function AccountsForProvider({ providerId }: { providerId: ProviderAccountProviderId }) {
+  const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
   const profiles = useProviderAccounts(s => s.profiles);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +83,7 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
   const login = async (profile: ProviderAccountProfile) => {
     const state = useAppStore.getState();
     const workspacePath = state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath;
-    if (!workspacePath) throw new Error("Open a workspace before signing in.");
+    if (!workspacePath) throw new Error(i18n.t("settingsConnections:providerAccountsSettings.openAWorkspaceBeforeSigningIn"));
     if (loginSession) await window.api?.terminal?.closeSession?.({ sessionId: loginSession.id });
     const result = await window.api!.providerAccounts!.login({ providerId, profileId: profile.id,
       workspaceId: state.activeWorkspaceId, workspacePath,
@@ -92,9 +95,9 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
   return <SettingsCard
     id={PROVIDER_ACCOUNTS_FIELD_ID[providerId]}
     tabIndex={-1}
-    title={`${name} accounts`}
-    titleAccessory={<AccountsGuideButton url={STAVE_ACCOUNTS_GUIDE_URL}>Read the accounts guide</AccountsGuideButton>}
-    description={`Keep more than one ${providerId === "codex" ? "Codex sign-in (a ChatGPT account)" : "Claude sign-in"}, for example work and personal; each account has its own history and usage limits. Switching accounts changes new turns only: running turns, queued messages and open CLI tabs keep the account they started with.`}
+    title={t("settingsConnections:providerAccountsSettings.accounts", { value1: name })}
+    titleAccessory={<AccountsGuideButton url={STAVE_ACCOUNTS_GUIDE_URL}>{t("settingsConnections:providerAccountsSettings.readTheAccountsGuide")}</AccountsGuideButton>}
+    description={t("settingsConnections:providerAccountsSettings.keepMoreThanOneForExample", { value1: t(providerId === "codex" ? "settingsConnections:messages.codexSignin" : "settingsConnections:messages.claudeSignin") })}
   >
     <div className={sx(styles.stack)}>
       <ProviderAccountPicker providerId={providerId} />
@@ -102,15 +105,15 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
       <ProviderAccountAddForm providerId={providerId} name={name} busy={busy} run={run} login={login} />
       {error && <p role="alert" className={sx(styles.error)}>{error}</p>}
       {loginSession && <div className={sx(styles.stack)}>
-        <div className={sx(styles.row)}><strong>Signing in: {loginSession.label}</strong><Button size="sm" variant="quiet" onClick={() => run(async () => {
+        <div className={sx(styles.row)}><strong>{t("settingsConnections:messages.accountSigningIn", { name: loginSession.label })}</strong><Button size="sm" variant="quiet" onClick={() => run(async () => {
           await window.api?.terminal?.closeSession?.({ sessionId: loginSession.id }); setLoginSession(null);
           await useAppStore.getState().refreshProviderAvailability();
           await useAppStore.getState().refreshRateLimits();
           // The terminal closing is when the answer to "who is signed in" can change.
           await useProviderAccountIdentities.getState().load({ providerId, profileId: loginSession.profileId, refresh: true });
-        })}>Close sign-in terminal</Button></div>
+        })}>{t("settingsConnections:providerAccountsSettings.closeSignInTerminal")}</Button></div>
         <ProviderAccountLoginTerminal key={loginSession.id} sessionId={loginSession.id} />
-        <p className={sx(styles.muted)}>Follow the steps in the terminal; it may open your browser. When it says you are signed in, close the terminal. Stave then checks who is signed in and refreshes usage for the account new turns use.</p>
+        <p className={sx(styles.muted)}>{t("settingsConnections:providerAccountsSettings.followTheStepsInTheTerminal")}</p>
       </div>}
     </div>
   </SettingsCard>;

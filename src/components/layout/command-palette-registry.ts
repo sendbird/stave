@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   Bot,
   Command as CommandIcon,
@@ -26,7 +27,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
-import { OPEN_COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
+import { OPEN_COMMIT_GRAPH_TITLE_KEY } from "@/lib/git-graph/presentation";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   formatAppShortcutLabel,
@@ -38,7 +39,7 @@ import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
 import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
 
-const { icon: WorkspaceToolsIcon, label: WORKSPACE_TOOLS_LABEL } =
+const { icon: WorkspaceToolsIcon } =
   WORKSPACE_TOOLS_PRESENTATION;
 
 export type CommandPaletteGroup =
@@ -54,16 +55,16 @@ export const COMMAND_PALETTE_GROUP_LABELS: Record<
   CommandPaletteGroup | "pinned" | "suggested" | "recent",
   string
 > = {
-  pinned: "Pinned",
-  suggested: "Suggested",
-  recent: "Recent",
-  navigation: "Navigation",
-  view: "View",
-  task: "Task",
-  scripts: WORKSPACE_TOOLS_LABEL,
-  provider: "Provider",
-  settings: "Settings",
-  external: "External",
+  get pinned() { return i18n.t("shell:commandPaletteRegistry.pinned"); },
+  get suggested() { return i18n.t("shell:commandPaletteRegistry.suggested"); },
+  get recent() { return i18n.t("shell:commandPaletteRegistry.recent"); },
+  get navigation() { return i18n.t("shell:commandPaletteRegistry.navigation"); },
+  get view() { return i18n.t("shell:commandPaletteRegistry.view"); },
+  get task() { return i18n.t("shell:commandPaletteRegistry.task"); },
+  get scripts() { return WORKSPACE_TOOLS_PRESENTATION.label; },
+  get provider() { return i18n.t("shell:commandPaletteRegistry.provider"); },
+  get settings() { return i18n.t("shell:commandPaletteRegistry.settings"); },
+  get external() { return i18n.t("shell:commandPaletteRegistry.external"); },
 };
 
 const COMMAND_PALETTE_GROUP_ORDER: CommandPaletteGroup[] = [
@@ -269,21 +270,21 @@ function formatShortcut(args: {
 }
 
 function formatTaskTitle(title: string) {
-  return title.trim() || "Untitled task";
+  return title.trim() || i18n.t("shell:commandPaletteRegistry.untitledTask");
 }
 
 function formatWorkspaceTitle(args: { isDefault: boolean; name: string }) {
   if (args.isDefault) {
-    return "Default workspace";
+    return i18n.t("shell:commandPaletteRegistry.defaultWorkspace");
   }
-  return args.name.trim() || "Workspace";
+  return args.name.trim() || i18n.t("shell:commandPaletteRegistry.workspace");
 }
 
 const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   {
     id: "navigation.quick-open-file",
-    title: "Quick Open File",
-    description: "Focus the workspace file search in the top bar.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.quickOpenFile"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.focusTheWorkspaceFileSearchInThe"); },
     group: "navigation",
     icon: Search,
     keywords: ["file", "quick open", "go to file", "search"],
@@ -292,8 +293,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.repositoryPath
         ? {
             id: "navigation.quick-open-file",
-            title: "Quick Open File",
-            subtitle: "Focus the top-bar file search.",
+            title: i18n.t("shell:commandPaletteRegistry.quickOpenFile"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.focusTheTopBarFileSearch"),
             group: "navigation",
             icon: Search,
             keywords: ["file", "quick open", "go to file", "search"],
@@ -305,16 +306,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "navigation.home",
-    title: "Go Home",
-    description: "Clear the active task selection and return to the home view.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.goHome"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.clearTheActiveTaskSelectionAndReturn"); },
     group: "navigation",
     icon: Home,
     keywords: ["home", "dashboard", "clear task selection"],
     shortcut: (modifierLabel) => `${modifierLabel}+K H`,
     build: (args) => ({
       id: "navigation.home",
-      title: "Go Home",
-      subtitle: "Return to the repository overview.",
+      title: i18n.t("shell:commandPaletteRegistry.goHome"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.returnToTheRepositoryOverview"),
       group: "navigation",
       icon: Home,
       keywords: ["home", "dashboard", "clear task selection"],
@@ -325,9 +326,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "navigation.latest-completed-turn-task",
-    title: "Go to Latest Completed Turn Task",
-    description:
-      "Jump to the task with the most recently completed turn across workspaces.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.goToLatestCompletedTurnTask"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.jumpToTheTaskWithTheMost"); },
     group: "navigation",
     icon: History,
     keywords: [
@@ -338,8 +338,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     ],
     build: (args) => ({
       id: "navigation.latest-completed-turn-task",
-      title: "Go to Latest Completed Turn Task",
-      subtitle: "Jump to the newest completed task run.",
+      title: i18n.t("shell:commandPaletteRegistry.goToLatestCompletedTurnTask"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.jumpToTheNewestCompletedTaskRun"),
       group: "navigation",
       icon: History,
       keywords: [
@@ -354,8 +354,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "navigation.fleet-view",
-    title: "Open Fleet View",
-    description: "Open the cross-workspace agent status view.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openFleetView"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openTheCrossWorkspaceAgentStatusView"); },
     group: "navigation",
     icon: Bot,
     keywords: ["fleet", "agents", "status", "parallel", "needs input"],
@@ -364,8 +364,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.repositoryPath
         ? {
             id: "navigation.fleet-view",
-            title: "Open Fleet View",
-            subtitle: "Show agent status across workspaces.",
+            title: i18n.t("shell:commandPaletteRegistry.openFleetView"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.showAgentStatusAcrossWorkspaces"),
             group: "navigation",
             icon: Bot,
             keywords: ["fleet", "agents", "status", "parallel", "needs input"],
@@ -377,8 +377,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "navigation.automation-center",
-    title: "Open Schedules",
-    description: "Open work that runs on its own, and its run history.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openSchedules"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openWorkThatRunsOnItsOwn"); },
     group: "navigation",
     icon: Workflow,
     keywords: [
@@ -395,8 +395,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     shortcut: (modifierLabel) => `${modifierLabel}+K A`,
     build: (args) => ({
       id: "navigation.automation-center",
-      title: "Open Schedules",
-      subtitle: "Work that runs on its own, and what it last did.",
+      title: i18n.t("shell:commandPaletteRegistry.openSchedules"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.workThatRunsOnItsOwnAnd"),
       group: "navigation",
       icon: Workflow,
       keywords: [
@@ -417,8 +417,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "navigation.issues",
-    title: "Open Issues",
-    description: "Open assigned tracker tickets and start a run from one.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openIssues"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openAssignedTrackerTicketsAndStartA"); },
     group: "navigation",
     icon: ListTodo,
     keywords: [
@@ -433,8 +433,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     shortcut: (modifierLabel) => `${modifierLabel}+K T`,
     build: (args) => ({
       id: "navigation.issues",
-      title: "Open Issues",
-      subtitle: "Review assigned tickets and start a run from one.",
+      title: i18n.t("shell:commandPaletteRegistry.openIssues"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.reviewAssignedTicketsAndStartARun"),
       group: "navigation",
       icon: ListTodo,
       keywords: [
@@ -453,8 +453,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "navigation.agents",
-    title: "Open Agents",
-    description: "Open saved agents, their workflows, and your standards.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openAgents"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openSavedAgentsTheirWorkflowsAndYour"); },
     group: "navigation",
     icon: Bot,
     keywords: [
@@ -468,8 +468,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     shortcut: (modifierLabel) => `${modifierLabel}+K G`,
     build: (args) => ({
       id: "navigation.agents",
-      title: "Open Agents",
-      subtitle: "Saved agents, their workflows, and your standards.",
+      title: i18n.t("shell:commandPaletteRegistry.openAgents"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.savedAgentsTheirWorkflowsAndYourStandards"),
       group: "navigation",
       icon: Bot,
       keywords: [
@@ -487,15 +487,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "navigation.results",
-    title: "Open Results",
-    description: "See how ended agent runs and runs came out.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openResults"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.seeHowEndedAgentRunsAndRuns"); },
     group: "navigation",
     icon: ChartNoAxesColumn,
     keywords: ["results", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],
     build: (args) => ({
       id: "navigation.results",
-      title: "Open Results",
-      subtitle: "Outcomes, time and cost of ended agent runs.",
+      title: i18n.t("shell:commandPaletteRegistry.openResults"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.outcomesTimeAndCostOfEndedAgent"),
       group: "navigation",
       icon: ChartNoAxesColumn,
       keywords: ["results", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],
@@ -505,15 +505,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "agents.start-work",
-    title: "Assign to an agent…",
-    description: "Choose an agent in the composer, or in Kickoff when no task is open.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.assignToAnAgent"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.chooseAnAgentInTheComposerOr"); },
     group: "navigation",
     icon: Bot,
     keywords: ["agent", "assign", "delegate", "kickoff", "start work", "workflow"],
     build: (args) => ({
       id: "agents.start-work",
-      title: "Assign to an agent…",
-      subtitle: "Choose the agent that does this task's work.",
+      title: i18n.t("shell:commandPaletteRegistry.assignToAnAgent"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.chooseTheAgentThatDoesThisTaskS"),
       group: "navigation",
       icon: Bot,
       keywords: ["agent", "assign", "delegate", "kickoff", "start work", "workflow"],
@@ -523,15 +523,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "agents.new",
-    title: "New agent",
-    description: "Create a saved agent from blank or a template.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.newAgent"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.createASavedAgentFromBlankOr"); },
     group: "navigation",
     icon: Bot,
     keywords: ["agent", "new", "create", "add", "make"],
     build: (args) => ({
       id: "agents.new",
-      title: "New agent",
-      subtitle: "Create a saved agent from blank or a template.",
+      title: i18n.t("shell:commandPaletteRegistry.newAgent"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.createASavedAgentFromBlankOr"),
       group: "navigation",
       icon: Bot,
       keywords: ["agent", "new", "create", "add", "make"],
@@ -541,15 +541,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "tracker.refresh-issues",
-    title: "Refresh Issues",
-    description: "Re-poll every connected tracker for assigned tickets.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.refreshIssues"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.rePollEveryConnectedTrackerForAssignedTickets"); },
     group: "navigation",
     icon: RefreshCw,
     keywords: ["refresh", "tasks", "tickets", "tracker", "sync"],
     build: (args) => ({
       id: "tracker.refresh-issues",
-      title: "Refresh Issues",
-      subtitle: "Re-poll connected trackers for assigned tickets.",
+      title: i18n.t("shell:commandPaletteRegistry.refreshIssues"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.rePollConnectedTrackersForAssignedTickets"),
       group: "navigation",
       icon: RefreshCw,
       keywords: ["refresh", "tasks", "tickets", "tracker", "sync"],
@@ -559,16 +559,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "task.new",
-    title: "New Task",
-    description: "Create a new task in the active workspace.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.newTask"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.createANewTaskInTheActive"); },
     group: "task",
     icon: Bot,
     keywords: ["create task", "new chat", "new conversation"],
     shortcut: (modifierLabel) => `${modifierLabel}+N`,
     build: (args) => ({
       id: "task.new",
-      title: "New Task",
-      subtitle: "Start a fresh task in the current workspace.",
+      title: i18n.t("shell:commandPaletteRegistry.newTask"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.startAFreshTaskInTheCurrent"),
       group: "task",
       icon: Bot,
       keywords: ["create task", "new chat", "new conversation"],
@@ -579,8 +579,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "task.create-pr",
-    title: "Create Pull Request",
-    description: "Open the pull request flow for the active workspace.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.createPullRequest"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openThePullRequestFlowForThe"); },
     group: "task",
     icon: GitPullRequest,
     keywords: ["create pr", "pull request", "github", "open pr"],
@@ -588,10 +588,10 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       !args.activeWorkspaceIsDefault && args.activeWorkspacePrStatus === "no_pr"
         ? {
             id: "task.create-pr",
-            title: "Create Pull Request",
+            title: i18n.t("shell:commandPaletteRegistry.createPullRequest"),
             subtitle: args.activeWorkspaceBranch
-              ? `Open the PR flow for ${args.activeWorkspaceBranch}.`
-              : "Open the PR flow for the active workspace.",
+              ? i18n.t("shell:commandPaletteRegistry.openThePRFlowFor", { value1: args.activeWorkspaceBranch })
+              : i18n.t("shell:commandPaletteRegistry.openThePRFlowForTheActive"),
             group: "task",
             icon: GitPullRequest,
             keywords: ["create pr", "pull request", "github", "open pr"],
@@ -602,9 +602,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "task.continue-workspace",
-    title: "Continue in New Workspace",
-    description:
-      "Create a follow-up workspace with a continuation brief attached.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.continueInNewWorkspace"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.createAFollowUpWorkspaceWithAContinuation"); },
     group: "task",
     icon: GitBranch,
     keywords: ["continue", "workspace", "follow up", "branch"],
@@ -614,10 +613,10 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
         args.activeWorkspacePrStatus === "closed_unmerged")
         ? {
             id: "task.continue-workspace",
-            title: "Continue in New Workspace",
+            title: i18n.t("shell:commandPaletteRegistry.continueInNewWorkspace"),
             subtitle: args.activeWorkspaceBranch
-              ? `Create a follow-up workspace from ${args.activeWorkspaceBranch}.`
-              : "Create a follow-up workspace from the active branch.",
+              ? i18n.t("shell:commandPaletteRegistry.createAFollowUpWorkspaceFrom", { value1: args.activeWorkspaceBranch })
+              : i18n.t("shell:commandPaletteRegistry.createAFollowUpWorkspaceFromTheActive"),
             group: "task",
             icon: GitBranch,
             keywords: ["continue", "workspace", "follow up", "branch"],
@@ -628,8 +627,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "task.stop-active-turn",
-    title: "Stop Active Turn",
-    description: "Abort the current provider run for the active task.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.stopActiveTurn"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.abortTheCurrentProviderRunForThe"); },
     group: "task",
     icon: CommandIcon,
     keywords: ["stop", "abort", "cancel generation"],
@@ -637,8 +636,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.hasActiveTurn
         ? {
             id: "task.stop-active-turn",
-            title: "Stop Active Turn",
-            subtitle: "Abort the current provider run.",
+            title: i18n.t("shell:commandPaletteRegistry.stopActiveTurn"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.abortTheCurrentProviderRun"),
             group: "task",
             icon: CommandIcon,
             keywords: ["stop", "abort", "cancel generation"],
@@ -649,9 +648,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "task.compare-providers",
-    title: "Compare Current Draft Across Providers",
-    description:
-      "Launch Claude and Codex variants from the current prompt draft.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.compareCurrentDraftAcrossProviders"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.launchClaudeAndCodexVariantsFromThe"); },
     group: "task",
     icon: SplitSquareHorizontal,
     keywords: [
@@ -666,8 +664,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.activeTaskId
         ? {
             id: "task.compare-providers",
-            title: "Compare Current Draft Across Providers",
-            subtitle: "Start Claude and Codex in isolated workspaces.",
+            title: i18n.t("shell:commandPaletteRegistry.compareCurrentDraftAcrossProviders"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.startClaudeAndCodexInIsolatedWorkspaces"),
             group: "task",
             icon: SplitSquareHorizontal,
             keywords: [
@@ -685,8 +683,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.toggle-workspace-sidebar",
-    title: "Toggle Workspace Sidebar",
-    description: "Collapse or expand the left workspace sidebar.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.toggleWorkspaceSidebar"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.collapseOrExpandTheLeftWorkspaceSidebar"); },
     group: "view",
     icon: PanelLeft,
     keywords: ["sidebar", "repository list", "collapse"],
@@ -694,9 +692,9 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     build: (args) => ({
       id: "view.toggle-workspace-sidebar",
       title: args.layout.workspaceSidebarCollapsed
-        ? "Expand Workspace Sidebar"
-        : "Collapse Workspace Sidebar",
-      subtitle: "Toggle the left repository and workspace list.",
+        ? i18n.t("shell:commandPaletteRegistry.expandWorkspaceSidebar")
+        : i18n.t("shell:commandPaletteRegistry.collapseWorkspaceSidebar"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.toggleTheLeftRepositoryAndWorkspaceList"),
       group: "view",
       icon: PanelLeft,
       keywords: ["sidebar", "repository list", "collapse"],
@@ -707,8 +705,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.toggle-changes-panel",
-    title: "Toggle Source Control Panel",
-    description: "Show or hide the source control overlay panel.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.toggleSourceControlPanel"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.showOrHideTheSourceControlOverlay"); },
     group: "view",
     icon: Layers3,
     keywords: ["source control", "changes", "diff", "git"],
@@ -718,9 +716,9 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       title:
         args.layout.sidebarOverlayVisible &&
         args.layout.sidebarOverlayTab === "changes"
-          ? "Hide Source Control Panel"
-          : "Show Source Control Panel",
-      subtitle: "Toggle the source control overlay on the right rail.",
+          ? i18n.t("shell:commandPaletteRegistry.hideSourceControlPanel")
+          : i18n.t("shell:commandPaletteRegistry.showSourceControlPanel"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.toggleTheSourceControlOverlayOnThe"),
       group: "view",
       icon: Layers3,
       keywords: ["source control", "changes", "diff", "git"],
@@ -731,16 +729,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.show-explorer",
-    title: "Show Explorer Panel",
-    description: "Open the explorer overlay on the right rail.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.showExplorerPanel"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openTheExplorerOverlayOnTheRight"); },
     group: "view",
     icon: FolderOpen,
     keywords: ["explorer", "files", "right rail"],
     shortcut: (modifierLabel) => `${modifierLabel}+E`,
     build: (args) => ({
       id: "view.show-explorer",
-      title: "Show Explorer Panel",
-      subtitle: "Open the explorer overlay.",
+      title: i18n.t("shell:commandPaletteRegistry.showExplorerPanel"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.openTheExplorerOverlay"),
       group: "view",
       icon: FolderOpen,
       keywords: ["explorer", "files", "right rail"],
@@ -751,16 +749,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.search-in-files",
-    title: "Search in Files",
-    description: "Open the explorer search panel for exact content search.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.searchInFiles"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openTheExplorerSearchPanelForExact"); },
     group: "view",
     icon: Search,
     keywords: ["search", "files", "content", "ripgrep", "explorer"],
     shortcut: (modifierLabel) => `${modifierLabel}+Shift+F`,
     build: (args) => ({
       id: "view.search-in-files",
-      title: "Search in Files",
-      subtitle: "Search the active workspace contents from the explorer.",
+      title: i18n.t("shell:commandPaletteRegistry.searchInFiles"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.searchTheActiveWorkspaceContentsFromThe"),
       group: "view",
       icon: Search,
       keywords: ["search", "files", "content", "ripgrep", "explorer"],
@@ -771,9 +769,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.show-information",
-    title: "Toggle Information Panel",
-    description:
-      "Show or hide the workspace information overlay on the right rail.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.toggleInformationPanel"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.showOrHideTheWorkspaceInformationOverlay"); },
     group: "view",
     icon: LibraryBig,
     keywords: ["knowledge", "information", "goals", "decisions", "notes", "jira", "figma", "slack"],
@@ -783,9 +780,9 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       title:
         args.layout.sidebarOverlayVisible &&
         args.layout.sidebarOverlayTab === "information"
-          ? "Hide Information Panel"
-          : "Show Information Panel",
-      subtitle: "Open notes, links, plans, and structured workspace fields.",
+          ? i18n.t("shell:commandPaletteRegistry.hideInformationPanel")
+          : i18n.t("shell:commandPaletteRegistry.showInformationPanel"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.openNotesLinksPlansAndStructuredWorkspace"),
       group: "view",
       icon: LibraryBig,
       keywords: ["knowledge", "information", "goals", "decisions", "notes", "jira", "figma", "slack"],
@@ -796,9 +793,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.show-scripts",
-    title: `Show ${WORKSPACE_TOOLS_LABEL}`,
-    description:
-      "Open long-running processes and one-shot commands on the right rail.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.show", { value1: WORKSPACE_TOOLS_PRESENTATION.label }); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openLongRunningProcessesAndOneShotCommandsOn"); },
     group: "view",
     icon: WorkspaceToolsIcon,
     keywords: [
@@ -812,8 +808,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     shortcut: (modifierLabel) => `${modifierLabel}+K S`,
     build: (args) => ({
       id: "view.show-scripts",
-      title: `Show ${WORKSPACE_TOOLS_LABEL}`,
-      subtitle: "Open long-running processes, one-shot commands, and triggers.",
+      title: i18n.t("shell:commandPaletteRegistry.show", { value1: WORKSPACE_TOOLS_PRESENTATION.label }),
+      subtitle: i18n.t("shell:commandPaletteRegistry.openLongRunningProcessesOneShotCommandsAndTriggers"),
       group: "view",
       icon: WorkspaceToolsIcon,
       keywords: [
@@ -831,16 +827,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.show-lens",
-    title: "Open Lens Tab",
-    description: "Focus the latest Lens tab, or create one.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openLensTab"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.focusTheLatestLensTabOrCreate"); },
     group: "view",
     icon: Globe,
     keywords: ["lens", "browser", "preview", "inspect", "right rail"],
     shortcut: (modifierLabel) => `${modifierLabel}+K L`,
     build: (args) => ({
       id: "view.show-lens",
-      title: "Open Lens Tab",
-      subtitle: "Focus the latest embedded browser tab, or create one.",
+      title: i18n.t("shell:commandPaletteRegistry.openLensTab"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.focusTheLatestEmbeddedBrowserTabOr"),
       group: "view",
       icon: Globe,
       keywords: ["lens", "browser", "preview", "inspect", "right rail"],
@@ -851,8 +847,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.open-git-graph",
-    title: OPEN_COMMIT_GRAPH_TITLE,
-    description: "Open the commit graph for the active workspace.",
+    get title() { return i18n.t(OPEN_COMMIT_GRAPH_TITLE_KEY); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openTheCommitGraphForTheActive"); },
     group: "view",
     icon: GitGraph,
     keywords: ["git", "graph", "commits", "log", "branches", "history"],
@@ -861,8 +857,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.workspaces.some((workspace) => workspace.isActive)
         ? {
             id: "view.open-git-graph",
-            title: OPEN_COMMIT_GRAPH_TITLE,
-            subtitle: "Open the commit graph in an editor tab.",
+            get title() { return i18n.t(OPEN_COMMIT_GRAPH_TITLE_KEY); },
+            subtitle: i18n.t("shell:commandPaletteRegistry.openTheCommitGraphInAnEditor"),
             group: "view",
             icon: GitGraph,
             keywords: ["git", "graph", "commits", "log", "branches", "history"],
@@ -873,16 +869,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.split-pane-right",
-    title: "Split Pane Right",
-    description: "Move the active tab into a new pane on the right.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.splitPaneRight"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.moveTheActiveTabIntoANew"); },
     group: "view",
     icon: SplitSquareHorizontal,
     keywords: ["split", "pane", "right", "group"],
     shortcut: (modifierLabel) => `${modifierLabel}+\\`,
     build: (args) => ({
       id: "view.split-pane-right",
-      title: "Split Pane Right",
-      subtitle: "Move the active tab into a new pane on the right.",
+      title: i18n.t("shell:commandPaletteRegistry.splitPaneRight"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.moveTheActiveTabIntoANew"),
       group: "view",
       icon: SplitSquareHorizontal,
       keywords: ["split", "pane", "right", "group"],
@@ -893,16 +889,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.split-pane-down",
-    title: "Split Pane Down",
-    description: "Move the active tab into a new pane below.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.splitPaneDown"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.moveTheActiveTabIntoANew2"); },
     group: "view",
     icon: SplitSquareHorizontal,
     keywords: ["split", "pane", "down", "below", "group"],
     shortcut: (modifierLabel) => `${modifierLabel}+Shift+\\`,
     build: (args) => ({
       id: "view.split-pane-down",
-      title: "Split Pane Down",
-      subtitle: "Move the active tab into a new pane below.",
+      title: i18n.t("shell:commandPaletteRegistry.splitPaneDown"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.moveTheActiveTabIntoANew2"),
       group: "view",
       icon: SplitSquareHorizontal,
       keywords: ["split", "pane", "down", "below", "group"],
@@ -913,17 +909,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.toggle-editor",
-    title: "Focus Editor",
-    description:
-      "Focus the active editor tab, or search files when none is open.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.focusEditor"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.focusTheActiveEditorTabOrSearch"); },
     group: "view",
     icon: PanelRight,
     keywords: ["editor", "code", "panel", "focus"],
     shortcut: (modifierLabel) => `${modifierLabel}+\\`,
     build: (args) => ({
       id: "view.toggle-editor",
-      title: "Focus Editor",
-      subtitle: "Focus the active editor tab.",
+      title: i18n.t("shell:commandPaletteRegistry.focusEditor"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.focusTheActiveEditorTab"),
       group: "view",
       icon: PanelRight,
       keywords: ["editor", "code", "panel", "focus"],
@@ -934,16 +929,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.toggle-terminal",
-    title: "Toggle Terminal",
-    description: "Focus the terminal pane, or return to the previous tab.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.toggleTerminal"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.focusTheTerminalPaneOrReturnTo"); },
     group: "view",
     icon: Terminal,
     keywords: ["terminal", "console", "shell"],
     shortcut: (modifierLabel) => `${modifierLabel}+\``,
     build: (args) => ({
       id: "view.toggle-terminal",
-      title: "Toggle Terminal",
-      subtitle: "Focus the terminal pane, or return to the previous tab.",
+      title: i18n.t("shell:commandPaletteRegistry.toggleTerminal"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.focusTheTerminalPaneOrReturnTo"),
       group: "view",
       icon: Terminal,
       keywords: ["terminal", "console", "shell"],
@@ -954,8 +949,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "task.save-file",
-    title: "Save File",
-    description: "Save the active editor tab.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.saveFile"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.saveTheActiveEditorTab"); },
     group: "task",
     icon: Save,
     keywords: ["save", "editor", "write file"],
@@ -964,8 +959,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.activeEditorTabId
         ? {
             id: "task.save-file",
-            title: "Save File",
-            subtitle: "Write the current editor tab to disk.",
+            title: i18n.t("shell:commandPaletteRegistry.saveFile"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.writeTheCurrentEditorTabToDisk"),
             group: "task",
             icon: Save,
             keywords: ["save", "editor", "write file"],
@@ -977,8 +972,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "provider.set.claude-code",
-    title: "Set Provider: Claude",
-    description: "Switch the active task to Claude Code.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.setProviderClaude"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.switchTheActiveTaskToClaudeCode"); },
     group: "provider",
     providerIcon: "claude-code",
     keywords: ["provider", "claude", "model"],
@@ -986,8 +981,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.activeTaskId
         ? {
             id: "provider.set.claude-code",
-            title: "Set Provider: Claude",
-            subtitle: "Switch the active task to Claude Code.",
+            title: i18n.t("shell:commandPaletteRegistry.setProviderClaude"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.switchTheActiveTaskToClaudeCode"),
             group: "provider",
             providerIcon: "claude-code",
             keywords: ["provider", "claude", "model"],
@@ -999,8 +994,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "provider.set.codex",
-    title: "Set Provider: Codex",
-    description: "Switch the active task to Codex.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.setProviderCodex"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.switchTheActiveTaskToCodex"); },
     group: "provider",
     providerIcon: "codex",
     keywords: ["provider", "codex", "model"],
@@ -1008,8 +1003,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.activeTaskId
         ? {
             id: "provider.set.codex",
-            title: "Set Provider: Codex",
-            subtitle: "Switch the active task to Codex.",
+            title: i18n.t("shell:commandPaletteRegistry.setProviderCodex"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.switchTheActiveTaskToCodex"),
             group: "provider",
             providerIcon: "codex",
             keywords: ["provider", "codex", "model"],
@@ -1021,16 +1016,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "settings.open",
-    title: "Open Settings",
-    description: "Open the main settings dialog.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openSettings"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openTheMainSettingsDialog"); },
     group: "settings",
     icon: Settings,
     keywords: ["settings", "preferences"],
     shortcut: (modifierLabel) => `${modifierLabel}+,`,
     build: (args) => ({
       id: "settings.open",
-      title: "Open Settings",
-      subtitle: "Open the main settings dialog.",
+      title: i18n.t("shell:commandPaletteRegistry.openSettings"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.openTheMainSettingsDialog"),
       group: "settings",
       icon: Settings,
       keywords: ["settings", "preferences"],
@@ -1041,15 +1036,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "settings.open.design",
-    title: "Open Settings: Design",
-    description: "Jump to the Design settings section.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openSettingsDesign"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.jumpToTheDesignSettingsSection"); },
     group: "settings",
     icon: Settings,
     keywords: ["settings", "design", "theme", "appearance"],
     build: (args) => ({
       id: "settings.open.design",
-      title: "Open Settings: Design",
-      subtitle: "Jump to theme and design settings.",
+      title: i18n.t("shell:commandPaletteRegistry.openSettingsDesign"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.jumpToThemeAndDesignSettings"),
       group: "settings",
       icon: Settings,
       keywords: ["settings", "design", "theme", "appearance"],
@@ -1059,15 +1054,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "settings.open.autoRouting",
-    title: "Open Settings: Auto (Model Router)",
-    description: "Jump to the Auto model router role table and stance.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openSettingsAutoModelRouter"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.jumpToTheAutoModelRouterRole"); },
     group: "settings",
     icon: Settings,
     keywords: ["settings", "auto", "routing", "router", "stance", "model"],
     build: (args) => ({
       id: "settings.open.autoRouting",
-      title: "Open Settings: Auto (Model Router)",
-      subtitle: "Routing levels, preference, allowed models, and rules.",
+      title: i18n.t("shell:commandPaletteRegistry.openSettingsAutoModelRouter"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.routingLevelsPreferenceAllowedModelsAndRules"),
       group: "settings",
       icon: Settings,
       keywords: ["settings", "auto", "routing", "router", "stance", "model"],
@@ -1077,15 +1072,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "settings.open.providers",
-    title: "Open Settings: Providers",
-    description: "Jump to the Providers settings section.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openSettingsProviders"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.jumpToTheProvidersSettingsSection"); },
     group: "settings",
     icon: Settings,
     keywords: ["settings", "providers", "models"],
     build: (args) => ({
       id: "settings.open.providers",
-      title: "Open Settings: Providers",
-      subtitle: "Jump to provider and model settings.",
+      title: i18n.t("shell:commandPaletteRegistry.openSettingsProviders"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.jumpToProviderAndModelSettings"),
       group: "settings",
       icon: Settings,
       keywords: ["settings", "providers", "models"],
@@ -1095,15 +1090,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "settings.open.models",
-    title: "Open Settings: Models",
-    description: "Jump to the Models settings section.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openSettingsModels"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.jumpToTheModelsSettingsSection"); },
     group: "settings",
     icon: Settings,
     keywords: ["settings", "models", "auto", "routing", "model routing"],
     build: (args) => ({
       id: "settings.open.models",
-      title: "Open Settings: Models",
-      subtitle: "Configure default model routing and Auto routing.",
+      title: i18n.t("shell:commandPaletteRegistry.openSettingsModels"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.configureDefaultModelRoutingAndAutoRouting"),
       group: "settings",
       icon: Settings,
       keywords: ["settings", "models", "auto", "routing", "model routing"],
@@ -1113,15 +1108,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "settings.open.command-palette",
-    title: "Open Settings: Command Palette",
-    description: "Jump to the global command palette settings section.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openSettingsCommandPalette"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.jumpToTheGlobalCommandPaletteSettings"); },
     group: "settings",
     icon: Settings,
     keywords: ["settings", "command palette", "commands"],
     build: (args) => ({
       id: "settings.open.command-palette",
-      title: "Open Settings: Command Palette",
-      subtitle: "Configure the global IDE command launcher.",
+      title: i18n.t("shell:commandPaletteRegistry.openSettingsCommandPalette"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.configureTheGlobalIDECommandLauncher"),
       group: "settings",
       icon: Settings,
       keywords: ["settings", "command palette", "commands"],
@@ -1131,16 +1126,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "settings.open.shortcuts",
-    title: "Open Keyboard Shortcuts",
-    description: "Show the keyboard shortcut guide drawer.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openKeyboardShortcuts"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.showTheKeyboardShortcutGuideDrawer"); },
     group: "settings",
     icon: Keyboard,
     keywords: ["keyboard", "shortcuts", "help"],
     shortcut: (modifierLabel) => `${modifierLabel}+/`,
     build: (args) => ({
       id: "settings.open.shortcuts",
-      title: "Open Keyboard Shortcuts",
-      subtitle: "Show the shortcut guide drawer.",
+      title: i18n.t("shell:commandPaletteRegistry.openKeyboardShortcuts"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.showTheShortcutGuideDrawer"),
       group: "settings",
       icon: Keyboard,
       keywords: ["keyboard", "shortcuts", "help"],
@@ -1151,8 +1146,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "workspace.kickoff",
-    title: "Kick off Workspace",
-    description: "Create a workspace from an external source or prompt.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.kickOffWorkspace"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.createAWorkspaceFromAnExternalSource"); },
     group: "task",
     icon: Rocket,
     keywords: [
@@ -1168,9 +1163,9 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.repositoryPath
         ? {
             id: "workspace.kickoff",
-            title: "Kick off Workspace",
+            title: i18n.t("shell:commandPaletteRegistry.kickOffWorkspace"),
             subtitle:
-              "Resolve a source, preview details, and create a worktree.",
+              i18n.t("shell:commandPaletteRegistry.resolveASourcePreviewDetailsAndCreate"),
             group: "task",
             icon: Rocket,
             keywords: [
@@ -1189,8 +1184,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "workspace.refresh-files",
-    title: "Refresh Repository Files",
-    description: "Rescan the active workspace file list.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.refreshRepositoryFiles"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.rescanTheActiveWorkspaceFileList"); },
     group: "navigation",
     icon: RefreshCw,
     keywords: ["refresh", "files", "project"],
@@ -1198,8 +1193,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.repositoryPath
         ? {
             id: "workspace.refresh-files",
-            title: "Refresh Repository Files",
-            subtitle: "Rescan the active workspace file list.",
+            title: i18n.t("shell:commandPaletteRegistry.refreshRepositoryFiles"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.rescanTheActiveWorkspaceFileList"),
             group: "navigation",
             icon: RefreshCw,
             keywords: ["refresh", "files", "project"],
@@ -1210,8 +1205,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "workspace.refresh-workspaces",
-    title: "Refresh Workspaces",
-    description: "Rediscover repository workspaces and PR state.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.refreshWorkspaces"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.rediscoverRepositoryWorkspacesAndPRState"); },
     group: "navigation",
     icon: RefreshCw,
     keywords: ["refresh", "workspace", "worktree"],
@@ -1219,8 +1214,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.repositoryPath
         ? {
             id: "workspace.refresh-workspaces",
-            title: "Refresh Workspaces",
-            subtitle: "Rediscover workspaces for the current repository.",
+            title: i18n.t("shell:commandPaletteRegistry.refreshWorkspaces"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.rediscoverWorkspacesForTheCurrentRepository"),
             group: "navigation",
             icon: RefreshCw,
             keywords: ["refresh", "workspace", "worktree"],
@@ -1231,8 +1226,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "external.reveal-active-workspace",
-    title: "Reveal Active Workspace",
-    description: "Show the active workspace in the system file manager.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.revealActiveWorkspace"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.showTheActiveWorkspaceInTheSystem"); },
     group: "external",
     icon: FolderOpen,
     keywords: ["finder", "explorer", "file manager", "workspace"],
@@ -1240,7 +1235,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.workspacePath
         ? {
             id: "external.reveal-active-workspace",
-            title: "Reveal Active Workspace",
+            title: i18n.t("shell:commandPaletteRegistry.revealActiveWorkspace"),
             subtitle: args.workspacePath,
             group: "external",
             icon: FolderOpen,
@@ -1252,8 +1247,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "external.open-active-workspace-vscode",
-    title: "Open Active Workspace in VS Code",
-    description: "Open the active workspace folder in VS Code.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openActiveWorkspaceInVSCode"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openTheActiveWorkspaceFolderInVS"); },
     group: "external",
     icon: FolderOpen,
     keywords: ["external", "vscode", "editor"],
@@ -1261,7 +1256,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.workspacePath
         ? {
             id: "external.open-active-workspace-vscode",
-            title: "Open Active Workspace in VS Code",
+            title: i18n.t("shell:commandPaletteRegistry.openActiveWorkspaceInVSCode"),
             subtitle: args.workspacePath,
             group: "external",
             icon: FolderOpen,
@@ -1273,8 +1268,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "external.open-active-workspace-terminal",
-    title: "Open Active Workspace in Terminal",
-    description: "Open the active workspace folder in the OS default terminal.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openActiveWorkspaceInTerminal"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openTheActiveWorkspaceFolderInThe"); },
     group: "external",
     icon: Terminal,
     keywords: ["external", "terminal", "shell"],
@@ -1282,7 +1277,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.workspacePath
         ? {
             id: "external.open-active-workspace-terminal",
-            title: "Open Active Workspace in Terminal",
+            title: i18n.t("shell:commandPaletteRegistry.openActiveWorkspaceInTerminal"),
             subtitle: args.workspacePath,
             group: "external",
             icon: Terminal,
@@ -1294,9 +1289,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "external.open-active-workspace-ghostty",
-    title: "Open Active Workspace in Ghostty",
-    description:
-      "Open the active workspace folder in the Ghostty terminal app.",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openActiveWorkspaceInGhostty"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openTheActiveWorkspaceFolderInThe2"); },
     group: "external",
     icon: Terminal,
     keywords: ["external", "ghostty", "terminal"],
@@ -1304,7 +1298,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.workspacePath
         ? {
             id: "external.open-active-workspace-ghostty",
-            title: "Open Active Workspace in Ghostty",
+            title: i18n.t("shell:commandPaletteRegistry.openActiveWorkspaceInGhostty"),
             subtitle: args.workspacePath,
             group: "external",
             icon: Terminal,
@@ -1324,9 +1318,9 @@ function buildDynamicActions(
   for (const task of args.tasks) {
     actions.push({
       id: `task.select.${task.id}`,
-      title: `Switch Task: ${formatTaskTitle(task.title)}`,
+      title: i18n.t("shell:commandPaletteRegistry.switchTask", { value1: formatTaskTitle(task.title) }),
       subtitle: task.isActive
-        ? `Active task · ${getProviderLabel({ providerId: task.provider })}`
+        ? i18n.t("shell:commandPaletteRegistry.activeTask", { value1: getProviderLabel({ providerId: task.provider }) })
         : getProviderLabel({ providerId: task.provider }),
       group: "navigation",
       icon: Bot,
@@ -1340,10 +1334,10 @@ function buildDynamicActions(
   for (const workspace of args.workspaces) {
     actions.push({
       id: `workspace.select.${workspace.id}`,
-      title: `Switch Workspace: ${formatWorkspaceTitle({ isDefault: workspace.isDefault, name: workspace.name })}`,
+      title: i18n.t("shell:commandPaletteRegistry.switchWorkspace", { value1: formatWorkspaceTitle({ isDefault: workspace.isDefault, name: workspace.name }) }),
       subtitle: workspace.isActive
-        ? `Active workspace${workspace.branch ? ` · ${workspace.branch}` : ""}`
-        : (workspace.branch ?? workspace.path ?? "Workspace"),
+        ? i18n.t("shell:commandPaletteRegistry.activeWorkspace", { value1: workspace.branch ? ` · ${workspace.branch}` : "" })
+        : (workspace.branch ?? workspace.path ?? i18n.t("shell:commandPaletteRegistry.workspace")),
       group: "navigation",
       icon: FolderOpen,
       keywords: [
@@ -1361,8 +1355,8 @@ function buildDynamicActions(
   for (const repository of args.repositories) {
     actions.push({
       id: `project.open.${repository.repositoryPath}`,
-      title: `Open Repository: ${repository.repositoryName}`,
-      subtitle: repository.isCurrent ? "Current repository" : repository.repositoryPath,
+      title: i18n.t("shell:commandPaletteRegistry.openRepository", { value1: repository.repositoryName }),
+      subtitle: repository.isCurrent ? i18n.t("shell:commandPaletteRegistry.currentRepository") : repository.repositoryPath,
       group: "navigation",
       icon: LibraryBig,
       keywords: [
@@ -1401,8 +1395,8 @@ export function resolveCommandPaletteContextRelevance(args: {
       return null;
     }
     return task.isResponding
-      ? { label: "Running task", score: 118 }
-      : { label: "Task switch", score: 72 };
+      ? { label: i18n.t("shell:commandPaletteRegistry.runningTask"), score: 118 }
+      : { label: i18n.t("shell:commandPaletteRegistry.taskSwitch"), score: 72 };
   }
 
   if (action.id.startsWith("workspace.select.")) {
@@ -1412,7 +1406,7 @@ export function resolveCommandPaletteContextRelevance(args: {
     );
     return !workspace || workspace.isActive
       ? null
-      : { label: "Workspace switch", score: 66 };
+      : { label: i18n.t("shell:commandPaletteRegistry.workspaceSwitch"), score: 66 };
   }
 
   if (action.id.startsWith("project.open.")) {
@@ -1422,15 +1416,15 @@ export function resolveCommandPaletteContextRelevance(args: {
     );
     return !repository || repository.isCurrent
       ? null
-      : { label: "Recent repository", score: 52 };
+      : { label: i18n.t("shell:commandPaletteRegistry.recentRepository"), score: 52 };
   }
 
   if (action.id === "task.stop-active-turn" && context.hasActiveTurn) {
-    return { label: "Running now", score: 140 };
+    return { label: i18n.t("shell:commandPaletteRegistry.runningNow"), score: 140 };
   }
 
   if (action.id === "task.save-file" && context.activeEditorTabId) {
-    return { label: "Open editor", score: 130 };
+    return { label: i18n.t("shell:commandPaletteRegistry.openEditor"), score: 130 };
   }
 
   if (
@@ -1438,7 +1432,7 @@ export function resolveCommandPaletteContextRelevance(args: {
       action.id === "task.continue-workspace") &&
     !context.activeWorkspaceIsDefault
   ) {
-    return { label: "Current branch", score: 120 };
+    return { label: i18n.t("shell:commandPaletteRegistry.currentBranch"), score: 120 };
   }
 
   if (
@@ -1446,14 +1440,14 @@ export function resolveCommandPaletteContextRelevance(args: {
     context.layout.sidebarOverlayVisible &&
     context.layout.sidebarOverlayTab === "scripts"
   ) {
-    return { label: "Current panel", score: 112 };
+    return { label: i18n.t("shell:commandPaletteRegistry.currentPanel"), score: 112 };
   }
 
   if (
     action.id === "navigation.fleet-view" &&
     context.tasks.filter((task) => task.isResponding).length > 1
   ) {
-    return { label: "Parallel work", score: 108 };
+    return { label: i18n.t("shell:commandPaletteRegistry.parallelWork"), score: 108 };
   }
 
   if (
@@ -1462,14 +1456,14 @@ export function resolveCommandPaletteContextRelevance(args: {
       action.id === "view.toggle-editor") &&
     context.activeEditorTabId
   ) {
-    return { label: "Open editor", score: 96 };
+    return { label: i18n.t("shell:commandPaletteRegistry.openEditor"), score: 96 };
   }
 
   if (
     action.id === "view.toggle-changes-panel" &&
     !context.activeWorkspaceIsDefault
   ) {
-    return { label: "Current branch", score: 94 };
+    return { label: i18n.t("shell:commandPaletteRegistry.currentBranch"), score: 94 };
   }
 
   if (
@@ -1477,18 +1471,18 @@ export function resolveCommandPaletteContextRelevance(args: {
       action.id === "view.show-information") &&
     context.activeTaskId
   ) {
-    return { label: "Active task", score: 90 };
+    return { label: i18n.t("shell:commandPaletteRegistry.activeTask2"), score: 90 };
   }
 
   if (action.group === "provider" && activeTask) {
     const providerId = action.id.slice("provider.set.".length);
     return providerId === activeTask.provider
       ? null
-      : { label: "Active task", score: 86 };
+      : { label: i18n.t("shell:commandPaletteRegistry.activeTask2"), score: 86 };
   }
 
   if (action.id === "task.new" && !context.activeTaskId) {
-    return { label: "No task open", score: 84 };
+    return { label: i18n.t("shell:commandPaletteRegistry.noTaskOpen"), score: 84 };
   }
 
   if (
@@ -1496,7 +1490,7 @@ export function resolveCommandPaletteContextRelevance(args: {
       action.id === "view.search-in-files") &&
     context.repositoryPath
   ) {
-    return { label: "Current repository", score: 80 };
+    return { label: i18n.t("shell:commandPaletteRegistry.currentRepository"), score: 80 };
   }
 
   if (
@@ -1507,14 +1501,14 @@ export function resolveCommandPaletteContextRelevance(args: {
       context.layout.sidebarOverlayTab === "scripts"
     )
   ) {
-    return { label: "Current workspace", score: 62 };
+    return { label: i18n.t("shell:commandPaletteRegistry.currentWorkspace"), score: 62 };
   }
 
   if (
     action.id === "navigation.latest-completed-turn-task" &&
     !context.activeTaskId
   ) {
-    return { label: "Resume work", score: 60 };
+    return { label: i18n.t("shell:commandPaletteRegistry.resumeWork"), score: 60 };
   }
 
   return null;

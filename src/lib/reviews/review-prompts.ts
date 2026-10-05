@@ -1,12 +1,14 @@
+import { i18n } from "@/i18n/runtime";
+
 /** Portable review rubrics owned by Stave, independent of provider and repository. */
 export const REVIEW_PROMPT_SOURCES = ["preset", "skill", "custom"] as const;
 export type ReviewPromptSource = (typeof REVIEW_PROMPT_SOURCES)[number];
 export const REVIEW_CUSTOM_PROMPT_MAX_CHARS = 12_000;
 
 export const REVIEW_PROMPT_SOURCE_OPTIONS = [
-  { value: "preset", label: "Built-in preset" },
-  { value: "skill", label: "Installed skill" },
-  { value: "custom", label: "Custom prompt" },
+  { value: "preset", get label() { return i18n.t("composer:reviewPrompts.source.preset"); } },
+  { value: "skill", get label() { return i18n.t("composer:reviewPrompts.source.skill"); } },
+  { value: "custom", get label() { return i18n.t("composer:reviewPrompts.source.custom"); } },
 ] satisfies ReadonlyArray<{ value: ReviewPromptSource; label: string }>;
 
 /** Applies to every rubric. A chosen skill or prompt cannot replace this contract. */
@@ -25,8 +27,9 @@ export const REVIEW_EVIDENCE_INSTRUCTIONS = [
 export const REVIEW_PROMPT_PRESETS = [
   {
     id: "general",
-    label: "General review",
-    description: "Trace changed behavior, contracts and recovery; verify each defect before reporting.",
+    labelKey: "composer:reviewPrompts.preset.general.label",
+    get label() { return i18n.t("composer:reviewPrompts.preset.general.label"); },
+    get description() { return i18n.t("composer:reviewPrompts.preset.general.description"); },
     instructions: [
       "Map the intended behavior, changed entrypoints and affected contracts before examining details. Follow each relevant flow from user or caller input through validation, state/persistence and output, including callers outside the changed files.",
       "Check boundary values, empty/missing data, concurrent work, partial failure, cancellation and retries where the change can affect them. Check public compatibility, authorization and data ownership whenever those boundaries are touched.",
@@ -35,8 +38,9 @@ export const REVIEW_PROMPT_PRESETS = [
   },
   {
     id: "frontend-state",
-    label: "Frontend state & UI",
-    description: "Effects, subscriptions, server-state scope, interaction and accessibility.",
+    labelKey: "composer:reviewPrompts.preset.frontendState.label",
+    get label() { return i18n.t("composer:reviewPrompts.preset.frontendState.label"); },
+    get description() { return i18n.t("composer:reviewPrompts.preset.frontendState.description"); },
     instructions: [
       "Trace state ownership and the full interaction: initial/loading/empty/error/success states, navigation, editing, submission and recovery. Check stale closures, effect cleanup, subscription stability, render-time side effects and updates after unmount.",
       "Inspect request and cache keys for tenant, account, region and filter scope; check invalidation and late responses after scope changes. Check concurrent edits, duplicate submissions and preservation of user input.",
@@ -45,8 +49,9 @@ export const REVIEW_PROMPT_PRESETS = [
   },
   {
     id: "api-security",
-    label: "API & authorization",
-    description: "End-to-end payload contracts, tenant isolation and safe retries.",
+    labelKey: "composer:reviewPrompts.preset.apiSecurity.label",
+    get label() { return i18n.t("composer:reviewPrompts.preset.apiSecurity.label"); },
+    get description() { return i18n.t("composer:reviewPrompts.preset.apiSecurity.description"); },
     instructions: [
       "Follow changed payloads from client through transport, schema, handler, service, authorization and storage back to the consumer. Compare optional/null/default semantics, errors, pagination and compatibility with existing callers.",
       "Model the actor, resource owner, tenant and permission at each operation. Check server-side enforcement, object-level access, unsafe input reaching an interpreter/query, and credentials or sensitive data entering responses or logs. Show a reachable input and sink before calling something a vulnerability.",
@@ -55,8 +60,9 @@ export const REVIEW_PROMPT_PRESETS = [
   },
   {
     id: "runtime-lifecycle",
-    label: "Agent & desktop lifecycle",
-    description: "Streaming, IPC/provider symmetry, cancellation and durable completion.",
+    labelKey: "composer:reviewPrompts.preset.runtimeLifecycle.label",
+    get label() { return i18n.t("composer:reviewPrompts.preset.runtimeLifecycle.label"); },
+    get description() { return i18n.t("composer:reviewPrompts.preset.runtimeLifecycle.description"); },
     instructions: [
       "Trace the changed execution across UI, preload/IPC or transport, host/service, provider and persistence where present. Compare producer/consumer types and validators, sibling adapters and capability-specific behavior without assuming all providers are identical.",
       "Walk requested, running, awaiting input, completed, failed and cancelled states relevant to the change. Inspect duplicate/out-of-order events, reconnect, resume after restart, cancellation racing completion, stale run IDs, resource cleanup and durable result receipts.",
@@ -65,8 +71,9 @@ export const REVIEW_PROMPT_PRESETS = [
   },
   {
     id: "sdk-compatibility",
-    label: "SDK & public API",
-    description: "Source/wire compatibility, concurrency, callbacks and platform lifecycle.",
+    labelKey: "composer:reviewPrompts.preset.sdkCompatibility.label",
+    get label() { return i18n.t("composer:reviewPrompts.preset.sdkCompatibility.label"); },
+    get description() { return i18n.t("composer:reviewPrompts.preset.sdkCompatibility.description"); },
     instructions: [
       "Identify the exact supported versions and platforms from repository evidence. Compare public types, signatures, defaults, enum/error semantics, serialization and exports against the baseline, including existing clients and wrappers/bindings.",
       "Inspect initialization, connect/disconnect, ownership, disposal, callback/event ordering, thread or coroutine expectations and reconnect behavior. Check offline/retry paths, duplicate events, cancellation, pagination and resource retention using the actual language/runtime conventions.",
@@ -75,8 +82,9 @@ export const REVIEW_PROMPT_PRESETS = [
   },
   {
     id: "data-migrations",
-    label: "Persistence & migrations",
-    description: "Historical data, write ownership, concurrency and metric semantics.",
+    labelKey: "composer:reviewPrompts.preset.dataMigrations.label",
+    get label() { return i18n.t("composer:reviewPrompts.preset.dataMigrations.label"); },
+    get description() { return i18n.t("composer:reviewPrompts.preset.dataMigrations.description"); },
     instructions: [
       "Follow persisted data from write to read, restore and export. Check old records, absent/null fields, defaults, validation, ordering and compatibility across app/service versions.",
       "For migrations, check idempotency, transaction/partial-failure behavior, first-read ordering and the repository's removal/upgrade policy. Inspect concurrent writers, lost updates, uniqueness and whether a retry repeats a completed operation.",
@@ -85,8 +93,9 @@ export const REVIEW_PROMPT_PRESETS = [
   },
   {
     id: "performance",
-    label: "Performance & resources",
-    description: "Reachable hot paths, query growth, rendering and resource leaks.",
+    labelKey: "composer:reviewPrompts.preset.performance.label",
+    get label() { return i18n.t("composer:reviewPrompts.preset.performance.label"); },
+    get description() { return i18n.t("composer:reviewPrompts.preset.performance.description"); },
     instructions: [
       "Locate the real hot path and workload before claiming a regression. Check query counts/indexes, repeated scans, request fan-out, blocking work, render/subscription churn, memory growth and resources retained beyond their owner's lifetime.",
       "Compare baseline and changed work using realistic sizes and frequency. Inspect backpressure, batching, bounds, caches and cancellation. Distinguish algorithmic evidence from measured latency or memory; report measurements only when observed.",

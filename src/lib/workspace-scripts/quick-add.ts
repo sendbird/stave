@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { SCRIPTS_CONFIG_FILENAME, STAVE_CONFIG_DIR } from "./constants";
 import {
   appendScriptEntryToRawConfig,
@@ -25,7 +26,7 @@ export async function persistWorkspaceScriptQuickAdd(args: {
   const writeFile = window.api?.fs?.writeFile;
   const createDirectory = window.api?.fs?.createDirectory;
   if (!readFile || !writeFile || !createDirectory) {
-    return { ok: false, message: "Filesystem bridge unavailable" };
+    return { ok: false, message: i18n.t("scripts:quickAdd.filesystemBridgeUnavailable") };
   }
 
   const filePath = `${STAVE_CONFIG_DIR}/${SCRIPTS_CONFIG_FILENAME}`;
@@ -36,7 +37,7 @@ export async function persistWorkspaceScriptQuickAdd(args: {
   if (!mkdir.ok && !mkdir.alreadyExists) {
     return {
       ok: false,
-      message: mkdir.stderr ?? "Failed to prepare .stave directory",
+      message: mkdir.stderr ?? i18n.t("scripts:quickAdd.failedToPrepareStaveDirectory"),
     };
   }
 
@@ -45,7 +46,7 @@ export async function persistWorkspaceScriptQuickAdd(args: {
     .map((command) => command.trim())
     .filter(Boolean);
   if (commands.length === 0) {
-    return { ok: false, message: "Add at least one command." };
+    return { ok: false, message: i18n.t("scripts:quickAdd.addAtLeastOneCommand") };
   }
 
   let raw: Record<string, unknown> | null = null;
@@ -65,17 +66,17 @@ export async function persistWorkspaceScriptQuickAdd(args: {
       ) {
         return {
           ok: false,
-          message: `Expected an object in ${filePath}.`,
+          message: i18n.t("scripts:quickAdd.expectedAnObjectInValue", { filePath: filePath }),
         };
       }
       raw = parsed as Record<string, unknown>;
     } catch {
-      return { ok: false, message: `Invalid JSON in ${filePath}.` };
+      return { ok: false, message: i18n.t("scripts:quickAdd.invalidJsonInValue", { filePath: filePath }) };
     }
   } else if (!read.stderr?.includes("ENOENT")) {
     return {
       ok: false,
-      message: read.stderr ?? "Failed to read execution config.",
+      message: read.stderr ?? i18n.t("scripts:quickAdd.failedToReadExecutionConfig"),
     };
   }
 
@@ -87,7 +88,7 @@ export async function persistWorkspaceScriptQuickAdd(args: {
   if (raw?.[block] !== undefined && (
     !raw[block] || typeof raw[block] !== "object" || Array.isArray(raw[block])
   )) {
-    return { ok: false, message: `Fix the ${block} section in Workspace tools settings before adding an entry.` };
+    return { ok: false, message: i18n.t("scripts:quickAdd.fixTheValueSectionInWorkspaceTools", { block: block }) };
   }
   const next = appendScriptEntryToRawConfig({
     rawConfig: raw,
@@ -106,8 +107,8 @@ export async function persistWorkspaceScriptQuickAdd(args: {
     return {
       ok: false,
       message: write.conflict
-        ? "Execution config changed on disk. Refresh and try again."
-        : (write.stderr ?? "Failed to save execution config."),
+        ? i18n.t("scripts:quickAdd.executionConfigChangedOnDiskRefreshAnd")
+        : (write.stderr ?? i18n.t("scripts:quickAdd.failedToSaveExecutionConfig")),
     };
   }
   return { ok: true, id };

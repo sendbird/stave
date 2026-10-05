@@ -1,3 +1,4 @@
+import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -36,10 +37,11 @@ export function buildStandaloneCliFolderError(candidate: string) {
   }
   return isAbsolutePosixOrWindowsPath(trimmed)
     ? null
-    : "Enter an absolute folder path.";
+    : i18n.t("settings:settingsDialogStandaloneCliCard.enterAnAbsoluteFolderPath");
 }
 
 export function StandaloneCliSettingsCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const standaloneCliFolderPath = useAppStore(
     (state) => state.settings.standaloneCliFolderPath,
   );
@@ -58,7 +60,7 @@ export function StandaloneCliSettingsCard() {
   const browse = async () => {
     const pickDirectory = window.api?.fs?.pickDirectory;
     if (!pickDirectory) {
-      setError("Folder picker unavailable. Use bun run dev:desktop.");
+      setError(t("settings:messages.folderPickerUnavailable"));
       return;
     }
     const result = await pickDirectory();
@@ -75,12 +77,12 @@ export function StandaloneCliSettingsCard() {
     <SettingsCard
       id={STANDALONE_CLI_SETTING_FIELD_ID}
       tabIndex={-1}
-      title="Standalone CLI"
-      description="Run Claude Code, Codex, Cursor, and Kiro against one folder without registering it as a repository."
+      title={t("settings:settingsDialogStandaloneCliCard.standaloneCLI")}
+      description={t("settings:settingsDialogStandaloneCliCard.runClaudeCodeCodexCursorAnd")}
     >
       <LabeledField
-        title="Standalone CLI Folder"
-        description="Absolute path. Changing it restarts every CLI tab in the new folder and discards their conversations."
+        title={t("settings:settingsDialogStandaloneCliCard.standaloneCLIFolder")}
+        description={t("settings:settingsDialogStandaloneCliCard.absolutePathChangingItRestartsEvery")}
       >
         <div className={sx(styles.row)}>
           <DraftInput
@@ -98,8 +100,7 @@ export function StandaloneCliSettingsCard() {
             onClick={browse}
           >
             <FolderOpen className={sx(styles.browseIcon)} />
-            Browse
-          </Button>
+            {t("common:actions.browse")}</Button>
         </div>
         {error ? (
           <p

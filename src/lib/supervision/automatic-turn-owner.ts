@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * One source of automatic turns per task.
  *
@@ -38,18 +39,19 @@ export function resolveAutomaticTurnOwner(
   return null;
 }
 
+// i18n-ignore: legacy exported English message; display callers translate at use time
 export const AGENT_RUN_ACTIVE_WAKE_UP_DETAIL =
   "A run is running on this task. This schedule resumes when the run ends.";
 
-export const AGENT_RUN_ACTIVE_WAKE_UP_REFUSAL =
-  "This task has an active run, which starts its turns. Add a schedule after the run ends.";
+// i18n-ignore: canonical exported lifecycle message used by persistence
+export const AGENT_RUN_ACTIVE_WAKE_UP_REFUSAL = "This task has an active run, which starts its turns. Add a schedule after the run ends.";
 
-export const SECOND_AGENT_RUN_REFUSAL =
-  "This task already has an active run. Cancel it or wait for it to end before starting another.";
+// i18n-ignore: canonical exported lifecycle message used by persistence
+export const SECOND_AGENT_RUN_REFUSAL = "This task already has an active run. Cancel it or wait for it to end before starting another.";
 
 /** The sentence a wake-up create, update or resume is refused with, if any. */
 export function refuseWakeUpForAgentRun(
   activeAgentRun: { id: string } | null,
 ): string | null {
-  return activeAgentRun ? AGENT_RUN_ACTIVE_WAKE_UP_REFUSAL : null;
+  return activeAgentRun ? i18n.t("agentRuns:automaticTurnOwner.extraCopy406") : null;
 }

@@ -22,6 +22,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { presetBarStyles as styles } from "./preset-bar.styles";
+import { useTranslation, type AppTFunction } from "@/i18n";
 
 type PresetEditorTarget = { kind: "edit"; presetId: string } | null;
 
@@ -34,6 +35,7 @@ type PresetEditorTarget = { kind: "edit"; presetId: string } | null;
  * sessions.
  */
 export function PresetBar() {
+  const { t } = useTranslation("workspace");
   const [
     presets,
     applyTaskPreset,
@@ -119,7 +121,7 @@ export function PresetBar() {
             xstyle={styles.restore}
             onClick={() => resetTaskPresetsToDefault()}
           >
-            Restore default presets
+            {t("presetBar.restoreDefaults")}
           </Button>
         ) : null}
       </div>
@@ -130,7 +132,7 @@ export function PresetBar() {
           variant="ghost"
           size="icon-sm"
           xstyle={styles.manage}
-          aria-label="Manage presets"
+          aria-label={t("presetBar.manage")}
           onClick={handleOpenPresetSettings}
         >
           <Cog />
@@ -160,6 +162,7 @@ function PresetChip(props: PresetChipProps) {
     onSave,
     onDelete,
   } = props;
+  const { t } = useTranslation(["workspace", "common"]);
 
   return (
     <Popover
@@ -184,7 +187,7 @@ function PresetChip(props: PresetChipProps) {
           type="button"
           onClick={() => onApply(preset)}
           xstyle={styles.chipApply}
-          title={buildChipTitle(preset)}
+          title={buildChipTitle(preset, t)}
         >
           <ModelIcon
             providerId={preset.provider}
@@ -195,7 +198,7 @@ function PresetChip(props: PresetChipProps) {
           {preset.kind === "cli-session" ? (
             <SquareTerminal
               className={sx(styles.chipCliMark)}
-              aria-label="CLI session"
+              aria-label={t("presetBar.cliSession")}
             />
           ) : null}
         </AdsButton>
@@ -207,7 +210,7 @@ function PresetChip(props: PresetChipProps) {
                 variant="ghost"
                 size="icon-xs"
                 xstyle={[styles.chipActions, transition.fade]}
-                aria-label="Preset actions"
+                aria-label={t("presetBar.chipActions")}
               />
             }
           >
@@ -222,11 +225,11 @@ function PresetChip(props: PresetChipProps) {
             finalFocus={false}
           >
             <DropdownMenuItem onSelect={() => onRequestEdit()}>
-              Edit…
+              {t("presetBar.edit")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => onDelete()}>
-              Delete
+              {t("common:actions.delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -234,7 +237,7 @@ function PresetChip(props: PresetChipProps) {
       <PopoverContent align="start" xstyle={styles.chipEditor}>
         <TaskPresetEditor
           initialPreset={preset}
-          submitLabel="Save"
+          submitLabel={t("common:actions.save")}
           onSave={onSave}
           onCancel={onCloseEditor}
         />
@@ -243,9 +246,9 @@ function PresetChip(props: PresetChipProps) {
   );
 }
 
-function buildChipTitle(preset: TaskPreset) {
+function buildChipTitle(preset: TaskPreset, t: AppTFunction) {
   if (preset.kind === "cli-session") {
-    return `${preset.label} — CLI session`;
+    return t("workspace:presetBar.cliSessionTitle", { label: preset.label });
   }
   if (preset.model) {
     return `${preset.label} — ${toHumanModelName({ model: preset.model })}`;

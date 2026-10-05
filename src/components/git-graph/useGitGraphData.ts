@@ -1,3 +1,5 @@
+import { useTranslation } from "@/i18n";
+import { i18n } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { COMMIT_GRAPH_WORKING_TREE_REVISION } from "@/lib/git-graph/presentation";
 import type {
@@ -215,6 +217,7 @@ export function resolveGitGraphReloadEffects(args: {
 }
 
 export function useGitGraphData(workspaceCwd: string | undefined) {
+  useTranslation();
   const cached = workspaceCwd
     ? readLruCache(graphCache, workspaceCwd)
     : undefined;
@@ -288,7 +291,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
         return;
       }
       if (!result.ok) {
-        setError(result.stderr || "Failed to load working tree changes.");
+        setError(result.stderr || i18n.t("gitGraph:useGitGraphData.failedToLoadWorkingTreeChanges"));
         setWorkingTreeFiles([]);
         return;
       }
@@ -304,7 +307,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
     } catch (requestFailure) {
       if (requestId === detailsRequestRef.current) {
         setError(
-          requestError(requestFailure, "Failed to load working tree changes."),
+          requestError(requestFailure, i18n.t("gitGraph:useGitGraphData.failedToLoadWorkingTreeChanges")),
         );
         setWorkingTreeFiles([]);
       }
@@ -323,7 +326,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
     setLoadingMore(false);
     if (!workspaceCwd) {
       setGraph(emptyGraphResult());
-      setError("No workspace path available.");
+      setError(i18n.t("gitGraph:useGitGraphData.noWorkspacePathAvailable"));
       if (releaseGitGraphRequest(graphRequestOwnerRef, requestOwner)) {
         setLoading(false);
       }
@@ -344,7 +347,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
         return;
       }
       if (!result.ok) {
-        setError(result.stderr || "Failed to load repository history.");
+        setError(result.stderr || i18n.t("gitGraph:useGitGraphData.failedToLoadRepositoryHistory"));
         return;
       }
       setGraph(result);
@@ -377,7 +380,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
         graphRequestOwnerRef.current === requestOwner
       ) {
         setError(
-          requestError(requestFailure, "Failed to load repository history."),
+          requestError(requestFailure, i18n.t("gitGraph:useGitGraphData.failedToLoadRepositoryHistory")),
         );
       }
     } finally {
@@ -444,7 +447,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
       }
       if (!result.ok) {
         loadMoreBlockedRef.current = true;
-        setError(result.stderr || "Failed to load more history.");
+        setError(result.stderr || i18n.t("gitGraph:useGitGraphData.failedToLoadMoreHistory"));
         return;
       }
       const knownHashes = new Set(graph.commits.map((commit) => commit.hash));
@@ -454,7 +457,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
       if (appended.length === 0 && result.hasMore) {
         loadMoreBlockedRef.current = true;
         setError(
-          "Git returned no additional commits. Refresh the graph to retry pagination.",
+          i18n.t("gitGraph:useGitGraphData.gitReturnedNoAdditionalCommitsRefreshThe"),
         );
       }
       setGraph((current) => {
@@ -483,7 +486,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
         graphRequestOwnerRef.current === requestOwner
       ) {
         loadMoreBlockedRef.current = true;
-        setError(requestError(requestFailure, "Failed to load more history."));
+        setError(requestError(requestFailure, i18n.t("gitGraph:useGitGraphData.failedToLoadMoreHistory")));
       }
     } finally {
       if (releaseGitGraphRequest(graphRequestOwnerRef, requestOwner)) {
@@ -522,7 +525,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
           return;
         }
         if (!result.ok || !result.details) {
-          setError(result.stderr || "Failed to load commit details.");
+          setError(result.stderr || i18n.t("gitGraph:useGitGraphData.failedToLoadCommitDetails"));
           if (!cachedDetails) {
             setDetails(null);
           }
@@ -538,7 +541,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
       } catch (requestFailure) {
         if (requestId === detailsRequestRef.current) {
           setError(
-            requestError(requestFailure, "Failed to load commit details."),
+            requestError(requestFailure, i18n.t("gitGraph:useGitGraphData.failedToLoadCommitDetails")),
           );
           if (!cachedDetails) {
             setDetails(null);

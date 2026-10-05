@@ -1,0 +1,53 @@
+{
+  "menu": {
+    "about": "{{appName}} 정보",
+    "services": "서비스",
+    "hide": "{{appName}} 가리기",
+    "hideOthers": "기타 가리기",
+    "showAll": "모두 보기",
+    "quit": "{{appName}} 종료",
+    "edit": "편집",
+    "undo": "실행 취소",
+    "redo": "다시 실행",
+    "cut": "오려두기",
+    "copy": "복사하기",
+    "paste": "붙여넣기",
+    "pasteAndMatchStyle": "붙여넣고 스타일 일치시키기",
+    "delete": "삭제",
+    "selectAll": "전체 선택",
+    "speech": "말하기",
+    "startSpeaking": "말하기 시작",
+    "stopSpeaking": "말하기 중단",
+    "view": "보기",
+    "reload": "새로고침",
+    "forceReload": "강제 새로고침",
+    "toggleDevTools": "개발자 도구 전환",
+    "window": "윈도우",
+    "minimize": "최소화",
+    "zoom": "확대/축소",
+    "bringAllToFront": "모두 앞으로 가져오기",
+    "close": "닫기"
+  },
+  "quitConfirmation": {
+    "title": "Stave 종료",
+    "message": "Stave를 종료하시겠습니까?",
+    "detail": "실행 중인 작업이 중지되고 저장하지 않은 변경 사항이 사라질 수 있습니다.",
+    "quit": "종료",
+    "cancel": "취소"
+  },
+  "unsavedChanges": {
+    "title": "변경 사항이 저장되지 않았습니다",
+    "message": "Stave가 최근 워크스페이스 변경 사항을 저장하지 못했습니다.",
+    "detail": "현재 작업을 보존하려면 Stave를 열어 두거나, 종료하기 전에 다시 저장해 보세요.",
+    "keepOpen": "Stave 열어 두기",
+    "retry": "다시 저장",
+    "quitWithoutSaving": "저장하지 않고 종료"
+  },
+  "rendererRecovery": {
+    "crashed": "Stave 대화 창이 멈췄습니다.",
+    "unresponsive": "Stave 대화 창이 응답하지 않습니다.",
+    "detail": "다시 불러오면 저장된 작업이 복원됩니다. 저장되지 않은 최근 변경 사항은 사라질 수 있습니다. 실행 중인 작업은 백그라운드에서 계속될 수 있으니, 다시 불러온 뒤 새 실행을 시작하기 전에 작업 활동을 확인하세요. 다시 불러와도 요청이 다시 전송되지는 않습니다.",
+    "reload": "창 다시 불러오기",
+    "keepOpen": "열어 두기"
+  }
+}

@@ -1,3 +1,4 @@
+import { formatAutomationSchedule } from "@/lib/automation-presentation";
 import { describe, expect, test } from "bun:test";
 import {
   applyAutomationTrustPolicyToRuntime,
@@ -10,7 +11,6 @@ import {
   AUTOMATION_CADENCE_PRESETS,
   computeNextAutomationRunAt,
   createDefaultAutomationRuntime,
-  formatAutomationSchedule,
   normalizeAutomationState,
   pruneAutomationRuns,
   automationRuntimeToProviderOptions,

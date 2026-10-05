@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import {
   useCallback,
@@ -67,10 +68,10 @@ export type SessionTabsProps = Omit<
  * explicit overflow controls around one standards-compliant tablist.
  */
 export function SessionTabs({
-  addLabel = "Add tab",
+  addLabel = i18n.t("ui:tabsSession.addTab"),
   defaultValue,
   items,
-  label = "Open sessions",
+  label = i18n.t("ui:tabsSession.openSessions"),
   onAdd,
   onClose,
   onReorder,
@@ -80,6 +81,7 @@ export function SessionTabs({
   xstyle,
   ...props
 }: SessionTabsProps) {
+  useTranslation();
   const firstEnabled = items.find((item) => !item.disabled)?.value ?? "";
   const [internalValue, setInternalValue] = useState(
     defaultValue ?? firstEnabled,
@@ -166,7 +168,7 @@ export function SessionTabs({
     next.splice(target + (after ? 1 : 0), 0, fromValue);
     onReorder(next);
     const position = next.indexOf(fromValue) + 1;
-    setAnnouncement(`Tab moved to position ${position} of ${next.length}.`);
+    setAnnouncement(i18n.t("ui:tabsSession.moved", { position, total: next.length }));
     pendingFocus.current = fromValue;
   };
 
@@ -201,8 +203,8 @@ export function SessionTabs({
     onClose?.(item.value);
     setAnnouncement(
       closesSelectedTab && next
-        ? `${itemLabel(item)} closed. ${itemLabel(next)} selected.`
-        : `${itemLabel(item)} closed.`,
+        ? i18n.t("ui:tabsSession.closedSelected", { closed: itemLabel(item), selected: itemLabel(next) })
+        : i18n.t("ui:tabsSession.closed", { name: itemLabel(item) }),
     );
   };
 
@@ -235,7 +237,7 @@ export function SessionTabs({
       <div className={sx(styles.bar)}>
         {overflow.present ? (
           <button
-            aria-label="Scroll tabs backward"
+            aria-label={i18n.t("ui:tabsSession.scrollTabsBackward")}
             {...actionTheme}
             className={cx(
               sx(
@@ -359,7 +361,7 @@ export function SessionTabs({
                 {item.closable ? (
                   <button
                     aria-label={
-                      item.closeLabel ?? `Close ${itemLabel(item)} tab`
+                      item.closeLabel ?? i18n.t("ui:tabsSession.closeTab", { label: itemLabel(item) })
                     }
                     {...actionTheme}
                     className={cx(
@@ -387,7 +389,7 @@ export function SessionTabs({
         </div>
         {overflow.present ? (
           <button
-            aria-label="Scroll tabs forward"
+            aria-label={i18n.t("ui:tabsSession.scrollTabsForward")}
             {...actionTheme}
             className={cx(
               sx(

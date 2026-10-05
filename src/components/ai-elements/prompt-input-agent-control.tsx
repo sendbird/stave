@@ -1,3 +1,5 @@
+import { getAgentDisplayName, getAgentDisplayDescription } from "@/lib/agents/display";
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
@@ -98,7 +100,7 @@ export function useTaskAgentChoice(props: {
   useEffect(() => {
     latest.current = context;
   });
-  const actions = useMemo(() => createAgentChoiceActions(() => latest.current), []);
+  const actions = useMemo(() => createAgentChoiceActions(() => latest.current), [, i18n.language]);
 
   const route = current
     ? resolveAgentModelRoute({
@@ -162,10 +164,11 @@ export function ModelPickerAgentPanel(props: {
   disabled?: boolean;
   onDone: () => void;
 }) {
+  useTranslation();
   const { choice } = props;
   const openAgents = useAppStore((state) => state.openAgents);
   const currentLabel = choice.current?.agentName ?? "";
-  const agents = useMemo(() => matchAgents(choice.choices, props.query), [choice.choices, props.query]);
+  const agents = useMemo(() => matchAgents(choice.choices, props.query), [choice.choices, props.query, i18n.language]);
   // The panel scrolls; bring the confirm (and its Switch button) into view.
   const confirmRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -176,12 +179,12 @@ export function ModelPickerAgentPanel(props: {
     void choice.choose(next).then((done) => done && props.onDone());
   };
   const list = (
-    <div role="listbox" aria-label="Agents" className={sx(styles.list)}>
+    <div role="listbox" aria-label={i18n.t("composer:promptInputAgentControl.ariaLabel")} className={sx(styles.list)}>
       {agents.map((agent) => (
         <ComposerOptionCard
           key={agent.id}
-          label={agent.name}
-          summary={agent.description}
+          label={getAgentDisplayName(agent)}
+          summary={getAgentDisplayDescription(agent)}
           description={AGENT_PERMISSION_LABELS[agent.permission]}
           icon={<AgentAvatar agent={agent} size="xs" aria-label={null} />}
           active={choice.current?.agentConfigId === agent.id}
@@ -190,7 +193,7 @@ export function ModelPickerAgentPanel(props: {
         />
       ))}
       {agents.length === 0 && props.variant === "tab" ? (
-        <p className={sx(styles.empty)}>No agents match this search.</p>
+        <p className={sx(styles.empty)}>{i18n.t("composer:promptInputAgentControl.list")}</p>
       ) : null}
     </div>
   );
@@ -199,28 +202,23 @@ export function ModelPickerAgentPanel(props: {
       {choice.pending ? (
         <div ref={confirmRef}>
           <ComposerOptionMenuCallout tone="warning" testId="composer-agent-confirm">
-            {choice.pending.agent.name} may do more than {currentLabel} (
-            {AGENT_PERMISSION_LABELS[choice.pending.agent.permission]}). Switch from the next turn?
-            <span className={sx(styles.confirmActions)}>
+            {i18n.t("composer:promptInputAgentControl.confirmSwitch", { agent: getAgentDisplayName(choice.pending.agent), current: currentLabel, permission: AGENT_PERMISSION_LABELS[choice.pending.agent.permission] })}<span className={sx(styles.confirmActions)}>
               <Button type="button" size="sm" variant="ghost" onClick={choice.cancel}>
-                Cancel
-              </Button>
+                {i18n.t("composer:promptInputAgentControl.callouts3")}</Button>
               <Button
                 type="button"
                 size="sm"
                 disabled={choice.busy || props.disabled}
                 onClick={() => void choice.confirm().then((done) => done && props.onDone())}
               >
-                Switch
-              </Button>
+                {i18n.t("composer:promptInputAgentControl.callouts4")}</Button>
             </span>
           </ComposerOptionMenuCallout>
         </div>
       ) : null}
       {props.disabled ? (
         <ComposerOptionMenuCallout tone="note" testId="composer-agent-locked">
-          Finish or answer the current turn to switch agents.
-        </ComposerOptionMenuCallout>
+          {i18n.t("composer:promptInputAgentControl.callouts5")}</ComposerOptionMenuCallout>
       ) : null}
     </>
   );
@@ -229,7 +227,7 @@ export function ModelPickerAgentPanel(props: {
     if (agents.length === 0 && !choice.pending) return null;
     return (
       <div className={sx(styles.matches)} data-testid="composer-agent-matches">
-        <ComposerOptionMenuSection title="Agents">{list}</ComposerOptionMenuSection>
+        <ComposerOptionMenuSection title={i18n.t("composer:promptInputAgentControl.title")}>{list}</ComposerOptionMenuSection>
         {callouts}
       </div>
     );
@@ -240,8 +238,8 @@ export function ModelPickerAgentPanel(props: {
       {callouts}
       <ComposerOptionMenuHint>
         {choice.autoAvailable
-          ? "Applies from the next turn. An agent picks its own model through Stave Auto; pin one beside the agent. Pick a model to go back to Chat."
-          : "Applies from the next turn. An agent runs on the model shown beside it. Pick a model to go back to Chat."}
+          ? i18n.t("composer:promptInputAgentControl.modelPickerAgentPanel")
+          : i18n.t("composer:promptInputAgentControl.modelPickerAgentPanel2")}
       </ComposerOptionMenuHint>
       <Button
         type="button"
@@ -253,8 +251,7 @@ export function ModelPickerAgentPanel(props: {
           props.onDone();
         }}
       >
-        Manage agents…
-      </Button>
+        {i18n.t("composer:promptInputAgentControl.modelPickerAgentPanel3")}</Button>
     </div>
   );
 }

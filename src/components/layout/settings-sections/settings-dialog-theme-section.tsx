@@ -1,4 +1,5 @@
 import { SidebarSettingsCard } from "./settings-dialog-sidebar-card";
+import { I18N_NAMESPACES, Trans, useTranslation, i18n } from "@/i18n";
 import { memo, useMemo, useRef, useState } from "react";
 import {
   Check,
@@ -43,6 +44,7 @@ function formatThemeTokenLabel(token: ThemeTokenName) {
 }
 
 export function ThemeSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [themeEditorMode, setThemeEditorMode] =
     useState<ThemeModeName>("light");
   const themeMode = useAppStore((state) => state.settings.themeMode);
@@ -75,244 +77,235 @@ export function ThemeSection() {
   const borderBeamStrengthPercent = Math.round(borderBeamStrength * 100);
 
   return (
-    <>
-      <SectionStack>
-        <SettingsCard
-          title="Appearance"
-          description="Choose how the app resolves light and dark mode."
-        >
-          <div className={sx(styles.appearanceGridButtons)}>
-            <Button
-              xstyle={styles.modeButton}
-              variant={themeMode === "light" ? "primary" : "outline"}
-              onClick={() =>
-                updateSettings({
-                  patch: { themeMode: "light", customThemeId: null },
-                })
-              }
-            >
-              <Sun className={sx(styles.iconMd)} />
-              Light
-            </Button>
-            <Button
-              xstyle={styles.modeButton}
-              variant={themeMode === "dark" ? "primary" : "outline"}
-              onClick={() =>
-                updateSettings({
-                  patch: { themeMode: "dark", customThemeId: null },
-                })
-              }
-            >
-              <Moon className={sx(styles.iconMd)} />
-              Dark
-            </Button>
-            <Button
-              xstyle={styles.modeButton}
-              variant={themeMode === "system" ? "primary" : "outline"}
-              onClick={() =>
-                updateSettings({
-                  patch: { themeMode: "system", customThemeId: null },
-                })
-              }
-            >
-              <Monitor className={sx(styles.iconMd)} />
-              System
-            </Button>
-          </div>
-        </SettingsCard>
-
-        <SidebarSettingsCard />
-
-        <SettingsCard
-          title="Motion"
-          description="Opt-in animated accents. All motion honors your system Reduced Motion preference."
-        >
-          <SwitchField
-            title="Border Beam"
-            description="Animate a soft highlight around the prompt input and the active workspace row while a task is streaming. Style presets come from the border-beam library."
-            checked={borderBeamEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { borderBeamEnabled: checked } })
+    <SectionStack>
+      <SettingsCard
+        title={t("settings:themeSection.appearance.title")}
+        description={t("settings:themeSection.appearance.description")}
+      >
+        <div className={sx(styles.appearanceGridButtons)}>
+          <Button
+            xstyle={styles.modeButton}
+            variant={themeMode === "light" ? "primary" : "outline"}
+            onClick={() =>
+              updateSettings({
+                patch: { themeMode: "light", customThemeId: null },
+              })
             }
-          />
-          {borderBeamEnabled ? (
-            <div className={sx(styles.motionExpanded)}>
-              <LabeledField
-                title="Beam Size"
-                description="Library size preset. Choose between a full border glow, compact controls, or a bottom sweep."
-              >
-                <ChoiceButtons
-                  value={borderBeamSize}
-                  columns={2}
-                  onChange={(value) =>
-                    updateSettings({ patch: { borderBeamSize: value } })
-                  }
-                  options={[
-                    {
-                      value: "md",
-                      label: "Rotate",
-                      description: "Full border glow",
-                    },
-                    {
-                      value: "sm",
-                      label: "Compact",
-                      description: "Small controls",
-                    },
-                    {
-                      value: "line",
-                      label: "Line",
-                      description: "Bottom sweep",
-                    },
-                  ]}
-                />
-              </LabeledField>
-              <LabeledField
-                title="Beam Colors"
-                description="Library color palette. `Colorful` is a full rainbow sweep; `Ocean` and `Sunset` are cool and warm variants; `Mono` is grayscale."
-              >
-                <ChoiceButtons
-                  value={borderBeamVariant}
-                  columns={2}
-                  onChange={(value) =>
-                    updateSettings({ patch: { borderBeamVariant: value } })
-                  }
-                  options={[
-                    { value: "colorful", label: "Colorful" },
-                    { value: "mono", label: "Mono" },
-                    { value: "ocean", label: "Ocean" },
-                    { value: "sunset", label: "Sunset" },
-                  ]}
-                />
-              </LabeledField>
-              <LabeledField
-                title="Beam Strength"
-                description="Controls the library `strength` prop without changing the wrapped content."
-              >
-                <div className={sx(styles.sliderRow)}>
-                  <Slider
-                    aria-label="Border Beam strength"
-                    className={sx(styles.flex1)}
-                    value={borderBeamStrengthPercent}
-                    min={0}
-                    max={100}
-                    step={1}
-                    onValueChange={(nextValue) => {
-                      updateSettings({
-                        patch: { borderBeamStrength: nextValue / 100 },
-                      });
-                    }}
-                  />
-                  <Badge variant="outline" className={sx(styles.valueBadge)}>
-                    {borderBeamStrengthPercent}%
-                  </Badge>
-                </div>
-              </LabeledField>
-            </div>
-          ) : null}
-        </SettingsCard>
+          >
+            <Sun className={sx(styles.iconMd)} />
+            {t("settings:themeSection.appearance.light")}</Button>
+          <Button
+            xstyle={styles.modeButton}
+            variant={themeMode === "dark" ? "primary" : "outline"}
+            onClick={() =>
+              updateSettings({
+                patch: { themeMode: "dark", customThemeId: null },
+              })
+            }
+          >
+            <Moon className={sx(styles.iconMd)} />
+            {t("settings:themeSection.appearance.dark")}</Button>
+          <Button
+            xstyle={styles.modeButton}
+            variant={themeMode === "system" ? "primary" : "outline"}
+            onClick={() =>
+              updateSettings({
+                patch: { themeMode: "system", customThemeId: null },
+              })
+            }
+          >
+            <Monitor className={sx(styles.iconMd)} />
+            {t("settings:themeSection.appearance.system")}</Button>
+        </div>
+      </SettingsCard>
 
-        <SettingsCard
-          title="Theme Presets"
-          description="Choose a Stave original or a curated palette inspired by popular editor themes. Presets override the base light / dark tokens; manual token tweaks below still take priority."
-        >
-          <div className={sx(styles.stackMd)}>
-            {allThemes.map((theme) => (
-              <CustomThemeCard
-                key={theme.id}
-                theme={theme}
-                isActive={customThemeId === theme.id}
-                isBuiltin={builtinIds.has(theme.id)}
-                onSelect={() =>
-                  updateSettings({ patch: { customThemeId: theme.id } })
+      <SidebarSettingsCard />
+
+      <SettingsCard
+        title={t("settings:themeSection.motion.title")}
+        description={t("settings:themeSection.motion.description")}
+      >
+        <SwitchField
+          title={t("settings:themeSection.motion.borderBeam.title")}
+          description={t("settings:themeSection.motion.borderBeam.description")}
+          checked={borderBeamEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { borderBeamEnabled: checked } })
+          }
+        />
+        {borderBeamEnabled ? (
+          <div className={sx(styles.motionExpanded)}>
+            <LabeledField
+              title={t("settings:themeSection.motion.beamSize.title")}
+              description={t("settings:themeSection.motion.beamSize.description")}
+            >
+              <ChoiceButtons
+                value={borderBeamSize}
+                columns={2}
+                onChange={(value) =>
+                  updateSettings({ patch: { borderBeamSize: value } })
                 }
-                onDeselect={() =>
-                  updateSettings({ patch: { customThemeId: null } })
-                }
-                onRemove={
-                  builtinIds.has(theme.id)
-                    ? undefined
-                    : () => removeCustomTheme({ themeId: theme.id })
-                }
-                onExport={() => {
-                  const json = exportCustomThemeJson({ theme });
-                  const blob = new Blob([json], { type: "application/json" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `${theme.id}.theme.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
+                options={[
+                  {
+                    value: "md",
+                    label: t("settings:themeSection.motion.beamSize.rotate.label"),
+                    description: t("settings:themeSection.motion.beamSize.rotate.description"),
+                  },
+                  {
+                    value: "sm",
+                    label: t("settingsProviders:codexThreadsTab.compact"),
+                    description: t("settings:themeSection.motion.beamSize.compact.description"),
+                  },
+                  {
+                    value: "line",
+                    label: t("settings:themeSection.motion.beamSize.line.label"),
+                    description: t("settings:themeSection.motion.beamSize.line.description"),
+                  },
+                ]}
               />
-            ))}
+            </LabeledField>
+            <LabeledField
+              title={t("settings:themeSection.motion.beamColors.title")}
+              description={t("settings:themeSection.motion.beamColors.description")}
+            >
+              <ChoiceButtons
+                value={borderBeamVariant}
+                columns={2}
+                onChange={(value) =>
+                  updateSettings({ patch: { borderBeamVariant: value } })
+                }
+                options={[
+                  { value: "colorful", label: t("settings:themeSection.motion.beamColors.colorful") },
+                  { value: "mono", label: t("settings:themeSection.motion.beamColors.mono") },
+                  { value: "ocean", label: t("settings:themeSection.motion.beamColors.ocean") },
+                  { value: "sunset", label: t("settings:themeSection.motion.beamColors.sunset") },
+                ]}
+              />
+            </LabeledField>
+            <LabeledField
+              title={t("settings:themeSection.motion.beamStrength.title")}
+              description={t("settings:themeSection.motion.beamStrength.description")}
+            >
+              <div className={sx(styles.sliderRow)}>
+                <Slider
+                  aria-label={t("settings:themeSection.motion.beamStrength.ariaLabel")}
+                  className={sx(styles.flex1)}
+                  value={borderBeamStrengthPercent}
+                  min={0}
+                  max={100}
+                  step={1}
+                  onValueChange={(nextValue) => {
+                    updateSettings({
+                      patch: { borderBeamStrength: nextValue / 100 },
+                    });
+                  }}
+                />
+                <Badge variant="outline" className={sx(styles.valueBadge)}>
+                  {borderBeamStrengthPercent}%
+                </Badge>
+              </div>
+            </LabeledField>
           </div>
+        ) : null}
+      </SettingsCard>
 
-          <ThemeImportButton
-            existingIds={allThemes.map((t) => t.id)}
-            userThemeCount={userCustomThemes.length}
-            onInstall={(theme) => {
-              const result = installCustomTheme({ theme });
-              if (result.ok) {
-                updateSettings({ patch: { customThemeId: theme.id } });
+      <SettingsCard
+        title={t("settings:themeSection.presets.title")}
+        description={t("settings:themeSection.presets.description")}
+      >
+        <div className={sx(styles.stackMd)}>
+          {allThemes.map((theme) => (
+            <CustomThemeCard
+              key={theme.id}
+              theme={theme}
+              isActive={customThemeId === theme.id}
+              isBuiltin={builtinIds.has(theme.id)}
+              onSelect={() =>
+                updateSettings({ patch: { customThemeId: theme.id } })
               }
-              return result;
-            }}
-          />
-        </SettingsCard>
+              onDeselect={() =>
+                updateSettings({ patch: { customThemeId: null } })
+              }
+              onRemove={
+                builtinIds.has(theme.id)
+                  ? undefined
+                  : () => removeCustomTheme({ themeId: theme.id })
+              }
+              onExport={() => {
+                const json = exportCustomThemeJson({ theme });
+                const blob = new Blob([json], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${theme.id}.theme.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            />
+          ))}
+        </div>
 
-        <SettingsCard
-          title="Design Tokens"
-          description="These are Stave's base light and dark tokens. Custom presets layer on top, and manual overrides below still win."
-        >
-          <div className={sx(styles.tokenToolbar)}>
-            <div className={sx(styles.rowCenter)}>
-              <Button
-                size="sm"
-                variant={themeEditorMode === "light" ? "primary" : "outline"}
-                onClick={() => setThemeEditorMode("light")}
-              >
-                Light Tokens
-              </Button>
-              <Button
-                size="sm"
-                variant={themeEditorMode === "dark" ? "primary" : "outline"}
-                onClick={() => setThemeEditorMode("dark")}
-              >
-                Dark Tokens
-              </Button>
-            </div>
+        <ThemeImportButton
+          existingIds={allThemes.map((t) => t.id)}
+          userThemeCount={userCustomThemes.length}
+          onInstall={(theme) => {
+            const result = installCustomTheme({ theme });
+            if (result.ok) {
+              updateSettings({ patch: { customThemeId: theme.id } });
+            }
+            return result;
+          }}
+        />
+      </SettingsCard>
+
+      <SettingsCard
+        title={t("settings:themeSection.designTokens.title")}
+        description={t("settings:themeSection.designTokens.description")}
+      >
+        <div className={sx(styles.tokenToolbar)}>
+          <div className={sx(styles.rowCenter)}>
             <Button
               size="sm"
-              variant="outline"
-              onClick={() => {
-                const themeOverrides =
-                  useAppStore.getState().settings.themeOverrides;
-                updateSettings({
-                  patch: {
-                    themeOverrides: {
-                      ...themeOverrides,
-                      [themeEditorMode]: {},
-                    },
-                  },
-                });
-              }}
+              variant={themeEditorMode === "light" ? "primary" : "outline"}
+              onClick={() => setThemeEditorMode("light")}
             >
-              Reset {themeEditorMode}
-            </Button>
+              {t("settings:themeSection.designTokens.lightTokens")}</Button>
+            <Button
+              size="sm"
+              variant={themeEditorMode === "dark" ? "primary" : "outline"}
+              onClick={() => setThemeEditorMode("dark")}
+            >
+              {t("settings:themeSection.designTokens.darkTokens")}</Button>
           </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const themeOverrides =
+                useAppStore.getState().settings.themeOverrides;
+              updateSettings({
+                patch: {
+                  themeOverrides: {
+                    ...themeOverrides,
+                    [themeEditorMode]: {},
+                  },
+                },
+              });
+            }}
+          >{t("settings:messages.resetMode", { mode: t(themeEditorMode === "dark" ? "settings:messages.dark" : "settings:messages.light") })}</Button>
+        </div>
 
-          <div className={sx(styles.stackMd)}>
-            {THEME_TOKEN_NAMES.map((token) => (
-              <ThemeTokenRow
-                key={`${themeEditorMode}-${token}`}
-                token={token}
-                themeEditorMode={themeEditorMode}
-              />
-            ))}
-          </div>
-        </SettingsCard>
-      </SectionStack>
-    </>
+        <div className={sx(styles.stackMd)}>
+          {THEME_TOKEN_NAMES.map((token) => (
+            <ThemeTokenRow
+              key={`${themeEditorMode}-${token}`}
+              token={token}
+              themeEditorMode={themeEditorMode}
+            />
+          ))}
+        </div>
+      </SettingsCard>
+    </SectionStack>
   );
 }
 
@@ -325,6 +318,7 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
   onRemove?: () => void;
   onExport?: () => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const { theme, isActive, isBuiltin } = args;
   const previewTokens = [
     "background",
@@ -353,25 +347,24 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
           <Contrast className={sx(styles.audioIcon)} />
           <p className={sx(styles.themeCardName)}>{theme.name}</p>
           <Badge variant="outline" className={sx(styles.microBadge)}>
-            {theme.baseMode}
+            {t(theme.baseMode === "dark" ? "settings:themeSection.baseModes.dark" : "settings:themeSection.baseModes.light")}
           </Badge>
           {!isBuiltin && (
             <Badge variant="secondary" className={sx(styles.microBadge)}>
-              User
-            </Badge>
+              {t("settingsProviders:mcpConfigEditor.editor.scopes.user")}</Badge>
           )}
           {isActive && (
             <span className={sx(styles.activeMark)}>
               <Check className={sx(styles.iconSm)} />
-              Active
-            </span>
+              {t("common:status.active")}</span>
           )}
         </div>
         <p className={sx(styles.themeDescription)}>{theme.description}</p>
         {theme.author && (
           <p className={sx(styles.themeAuthor)}>
-            by {theme.author}
-            {theme.version ? ` \u00B7 v${theme.version}` : ""}
+            {theme.version
+              ? t("settings:themeSection.presets.byAuthorWithVersion", { author: theme.author, version: theme.version })
+              : t("settings:themeSection.presets.byAuthor", { author: theme.author })}
           </p>
         )}
       </Button>
@@ -403,8 +396,7 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
               }}
             >
               <Upload className={sx(styles.iconXs)} />
-              Export
-            </Button>
+              {t("common:actions.export")}</Button>
           )}
           {args.onRemove && (
             <Button
@@ -417,8 +409,7 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
               }}
             >
               <Trash2 className={sx(styles.iconXs)} />
-              Remove
-            </Button>
+              {t("common:actions.remove")}</Button>
           )}
         </div>
       </div>
@@ -431,6 +422,7 @@ function ThemeImportButton(args: {
   userThemeCount: number;
   onInstall: (theme: CustomThemeDefinition) => { ok: boolean; error?: string };
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
@@ -443,7 +435,7 @@ function ThemeImportButton(args: {
     e.target.value = "";
 
     if (file.size > 256 * 1024) {
-      setImportError("File too large (max 256 KB).");
+      setImportError(i18n.t("settings:themeSection.importTheme.tooLarge"));
       return;
     }
 
@@ -453,13 +445,13 @@ function ThemeImportButton(args: {
       existingIds: args.existingIds,
     });
     if (!result.ok) {
-      setImportError(result.errors?.join(" ") ?? "Unknown validation error.");
+      setImportError(result.errors?.join(" ") ?? i18n.t("settings:themeSection.importTheme.unknownValidationError"));
       return;
     }
 
     const installResult = args.onInstall(result.theme!);
     if (!installResult.ok) {
-      setImportError(installResult.error ?? "Failed to install theme.");
+      setImportError(installResult.error ?? i18n.t("settings:themeSection.importTheme.installFailed"));
     }
   };
 
@@ -474,11 +466,8 @@ function ThemeImportButton(args: {
           onClick={() => fileInputRef.current?.click()}
         >
           <Upload className={sx(styles.iconSm)} />
-          Import Theme JSON
-        </Button>
-        <span className={sx(styles.captionMuted)}>
-          {args.userThemeCount} / {MAX_USER_THEMES} user themes
-        </span>
+          {t("settings:themeSection.importTheme.button")}</Button>
+        <span className={sx(styles.captionMuted)}>{t("settings:messages.userThemesTotal", { count: args.userThemeCount, max: MAX_USER_THEMES })}</span>
       </div>
 
       <input
@@ -493,15 +482,7 @@ function ThemeImportButton(args: {
         <p className={sx(styles.importErrorBox)}>{importError}</p>
       )}
 
-      <p className={sx(styles.importHelp)}>
-        Drop a{" "}
-        <code className={sx(styles.code)}>.theme.json</code> file to install a
-        community theme. The JSON must include{" "}
-        <code className={sx(styles.code)}>id</code>,{" "}
-        <code className={sx(styles.code)}>name</code>,{" "}
-        <code className={sx(styles.code)}>baseMode</code>, and a{" "}
-        <code className={sx(styles.code)}>tokens</code> map.
-      </p>
+      <p className={sx(styles.importHelp)}><Trans t={t} i18nKey="settings:whole.themeImport" components={{ file: <code className={sx(styles.code)} />, id: <code className={sx(styles.code)} />, name: <code className={sx(styles.code)} />, mode: <code className={sx(styles.code)} />, tokens: <code className={sx(styles.code)} /> }} /></p>
     </div>
   );
 }
@@ -510,6 +491,7 @@ const ThemeTokenRow = memo(function ThemeTokenRow(args: {
   token: ThemeTokenName;
   themeEditorMode: ThemeModeName;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const overrideValue = useAppStore(
     (state) =>
@@ -524,9 +506,7 @@ const ThemeTokenRow = memo(function ThemeTokenRow(args: {
         <p className={sx(styles.tokenName)}>
           {formatThemeTokenLabel(args.token)}
         </p>
-        <p className={sx(styles.tokenPreset)}>
-          Preset: {PRESET_THEME_TOKENS[args.themeEditorMode][args.token]}
-        </p>
+        <p className={sx(styles.tokenPreset)}>{t("settings:messages.tokenPreset", { value: PRESET_THEME_TOKENS[args.themeEditorMode][args.token] })}</p>
       </div>
       <span
         className={sx(styles.tokenSwatch)}
@@ -570,8 +550,7 @@ const ThemeTokenRow = memo(function ThemeTokenRow(args: {
           });
         }}
       >
-        Reset
-      </Button>
+        {t("common:actions.reset")}</Button>
     </div>
   );
 });

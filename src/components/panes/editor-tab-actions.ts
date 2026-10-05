@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { buildPanePanelId } from "@/lib/panes/types";
@@ -30,20 +31,20 @@ const BULK_CLOSE_COPY: Record<
   { title: string; description: string }
 > = {
   others: {
-    title: "Close Other Tabs",
-    description: "Close all editor tabs except this tab?",
+    get title() { return i18n.t("panes:editorTabActions.closeOtherTabs"); },
+    get description() { return i18n.t("panes:editorTabActions.closeAllEditorTabsExceptThisTab"); },
   },
   right: {
-    title: "Close Tabs to the Right",
-    description: "Close all editor tabs to the right?",
+    get title() { return i18n.t("panes:editorTabActions.closeTabsToTheRight"); },
+    get description() { return i18n.t("panes:editorTabActions.closeAllEditorTabsToTheRight"); },
   },
   saved: {
-    title: "Close Saved Tabs",
-    description: "Close all saved editor tabs?",
+    get title() { return i18n.t("panes:editorTabActions.closeSavedTabs"); },
+    get description() { return i18n.t("panes:editorTabActions.closeAllSavedEditorTabs"); },
   },
   all: {
-    title: "Close All Tabs",
-    description: "Close all open editor tabs?",
+    get title() { return i18n.t("panes:editorTabActions.closeAllTabs"); },
+    get description() { return i18n.t("panes:editorTabActions.closeAllOpenEditorTabs"); },
   },
 };
 
@@ -100,7 +101,7 @@ export function buildEditorBulkClosePlan(args: {
     title: copy.title,
     description:
       dirtyTabIds.length > 0
-        ? `${copy.description} ${dirtyTabIds.length} unsaved tab(s) will also be closed.`
+        ? i18n.t("panes:editorTabActions.unsavedTabSWillAlsoBeClosed", { value1: copy.description, value2: dirtyTabIds.length })
         : copy.description,
   };
 }

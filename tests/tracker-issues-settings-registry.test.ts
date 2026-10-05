@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { i18n } from "@/i18n/runtime";
 
 import { settingDefinitions } from "../src/components/layout/settings-dialog.registry";
 import {
@@ -50,7 +51,9 @@ describe("tracker issues and Jira settings registry", () => {
     const section = settingsSections.find(
       (candidate) => candidate.id === "issues",
     );
-    expect(section?.label).toBe("Issues");
+    expect(section?.labelKey).toBe("settings:sections.issues.label");
+    expect(i18n.getFixedT("en")(section!.labelKey)).toBe("Issues");
+    expect(i18n.getFixedT("ko")(section!.labelKey)).toBe("이슈");
     expect(
       settingsSectionGroups.some((group) => group.ids.includes("issues")),
     ).toBe(true);

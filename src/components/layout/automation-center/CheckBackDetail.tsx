@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Pause, Pencil, Play, Trash2 } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui";
@@ -15,6 +16,7 @@ export function CheckBackDetail(props: {
   onToggle: () => void;
   onRemove: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["automation"]);
   const { row, wakeUp } = props;
   return (
     <div className={sx(centerStyles.detailBody)}>
@@ -29,20 +31,20 @@ export function CheckBackDetail(props: {
             size="sm"
             xstyle={centerStyles.iconButton}
             onClick={props.onEdit}
-            aria-label="Edit schedule"
-            title="Edit"
+            aria-label={tI18n("automation:checkBackDetail.editSchedule")}
+            title={tI18n("automation:checkBackDetail.edit")}
           >
             <Pencil className={sx(centerStyles.buttonIcon)} />
           </Button>
         </div>
       </div>
       <dl className={sx(centerStyles.facts)}>
-        <Fact label="Status" value={wakeUp.reasonDetail ? `${SCHEDULE_STATE_LABEL[row.state]} · ${wakeUp.reasonDetail}` : SCHEDULE_STATE_LABEL[row.state]} />
-        {row.cadence ? <Fact label="When" value={row.cadence} /> : null}
+        <Fact label={tI18n("automation:checkBackDetail.status")} value={wakeUp.reasonDetail ? `${SCHEDULE_STATE_LABEL[row.state]} · ${wakeUp.reasonDetail}` : SCHEDULE_STATE_LABEL[row.state]} />
+        {row.cadence ? <Fact label={tI18n("automation:checkBackDetail.when")} value={row.cadence} /> : null}
         {row.nextRunAt || row.nextNote ? (
-          <Fact label="Next" value={row.nextRunAt ? formatRelativeTime(row.nextRunAt) : (row.nextNote ?? "")} />
+          <Fact label={tI18n("automation:checkBackDetail.next")} value={row.nextRunAt ? formatRelativeTime(row.nextRunAt) : (row.nextNote ?? "")} />
         ) : null}
-        <Fact label="Checked" value={`${wakeUp.occurrenceCount}×`} />
+        <Fact label={tI18n("automation:checkBackDetail.checked")} value={`${wakeUp.occurrenceCount}×`} />
       </dl>
       <div className={sx(centerStyles.footerActions)}>
         {row.toggle ? (
@@ -50,20 +52,17 @@ export function CheckBackDetail(props: {
             {row.toggle === "pause" ? (
               <>
                 <Pause className={sx(centerStyles.buttonIcon)} />
-                Pause
-              </>
+                {tI18n("automation:checkBackDetail.pause")}</>
             ) : (
               <>
                 <Play className={sx(centerStyles.buttonIcon)} />
-                Resume
-              </>
+                {tI18n("automation:checkBackDetail.resume")}</>
             )}
           </Button>
         ) : null}
         <Button variant="ghost" size="sm" xstyle={centerStyles.deleteButton} onClick={props.onRemove} disabled={props.busy}>
           <Trash2 className={sx(centerStyles.buttonIcon)} />
-          Remove
-        </Button>
+          {tI18n("automation:checkBackDetail.remove")}</Button>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { isProviderTurnContinuationEvent } from "./turn-event-evidence";
 import { classifyProviderTurnStopReason } from "./turn-stop-reason";
 import {
@@ -538,7 +539,7 @@ function resolveTurnErrorState(args: {
   for (const event of args.events) {
     if (event.type === "error") {
       const message =
-        truncateWorkText(event.message) ?? "The provider run failed.";
+        truncateWorkText(event.message) ?? i18n.t("providers:providerErrorRecovery.theProviderRunFailed");
       if (!errorState || errorState.recoverable || !event.recoverable) {
         errorState = {
           message,
@@ -590,7 +591,7 @@ function formatPathListPreview(values: unknown) {
     return undefined;
   }
   const preview = formatPathPreview(first);
-  return paths.length > 1 ? `${preview} +${paths.length - 1} more` : preview;
+  return paths.length > 1 ? i18n.t("providers:turnStatus.more", { value1: preview, value2: paths.length - 1 }) : preview;
 }
 
 function resolveGeneralToolDetail(input: string) {
@@ -828,7 +829,7 @@ function applyTurnWorkEvents(args: {
             : event.status === "completed" || event.status === "cancelled"
               ? "completed"
               : "failed",
-        title: truncateWorkText(event.hookName) ?? "Provider hook",
+        title: truncateWorkText(event.hookName) ?? i18n.t("providers:turnStatus.providerHook"),
         progressMessages: [],
         startedAt: currentItem?.startedAt ?? args.now,
         updatedAt: args.now,
@@ -926,7 +927,7 @@ function applyTurnWorkEvents(args: {
           currentItem?.title ??
           describeToolOperationLabel(event.toolName) ??
           formatToolDisplayName(event.toolName) ??
-          "Background work",
+          i18n.t("providers:subagentIdentity.backgroundWork"),
         detail: currentItem?.detail,
         ...(currentItem?.badge ? { badge: currentItem.badge } : {}),
         toolUseId: event.toolUseId,
@@ -1032,7 +1033,7 @@ export function reduceProviderTurnActivityEvents(args: {
     );
     turnErrorState = terminalReceipt.outcome === "failed"
       ? {
-          message: terminalReceipt.error ?? "The provider run failed.",
+          message: terminalReceipt.error ?? i18n.t("providers:providerErrorRecovery.theProviderRunFailed"),
           recoverable: terminalReceipt.lastError?.recoverable ?? false,
         }
       : undefined;
@@ -1117,12 +1118,12 @@ export function resolveProviderTurnDisplayState(args: {
 function formatDurationLabel(elapsedMs: number) {
   const totalSeconds = Math.floor(Math.max(0, elapsedMs) / 1000);
   if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
+    return i18n.t("providers:compactDuration.seconds", { seconds: totalSeconds });
   }
 
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  return i18n.t(seconds > 0 ? "providers:compactDuration.minutesSeconds" : "providers:compactDuration.minutes", { minutes, seconds });
 }
 
 export function formatProviderTurnIdleDuration(args: {

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { CircleCheck, CircleDashed, CircleX } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunDoneWhenLine, DoneWhenStatus } from "@/lib/agent-runs/agent-run-status";
@@ -17,10 +18,11 @@ export function AgentRunDoneWhen({ lines, staveChecks = [] }: {
   lines: readonly AgentRunDoneWhenLine[];
   staveChecks?: readonly string[];
 }) {
+  useTranslation();
   if (lines.length === 0 && staveChecks.length === 0) return null;
   return (
     <>
-    <ul className={sx(styles.checkList)} aria-label="Done when">
+    <ul className={sx(styles.checkList)} aria-label={i18n.t("agentRuns:agentRunDoneWhen.ariaLabel")}>
       {lines.map((line) => {
         const presentation = PRESENTATION[line.status];
         const Icon = presentation.icon;
@@ -36,9 +38,9 @@ export function AgentRunDoneWhen({ lines, staveChecks = [] }: {
       })}
     </ul>
     {staveChecks.length > 0 ? (
-      <p className={sx(styles.checkNote, styles.inline)} aria-label="Checked by Stave">
+      <p className={sx(styles.checkNote, styles.inline)} aria-label={i18n.t("agentRuns:agentRunDoneWhen.ariaLabel2")}>
         <CircleCheck aria-hidden className={sx(styles.iconSm, styles.toneDone)} />
-        Checked by Stave · {staveChecks.join(" · ")}
+        {i18n.t("agentRuns:agentRunDoneWhen.agentRunDoneWhen")}{staveChecks.join(" · ")}
       </p>
     ) : null}
     </>

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
 import { listProviderIds } from "@/lib/providers/model-catalog";
@@ -59,9 +60,9 @@ export const AGENT_ROLES = ["primary", "worker", "delegate"] as const;
 export type AgentRole = (typeof AGENT_ROLES)[number];
 
 export const AGENT_ROLE_LABELS: Readonly<Record<AgentRole, string>> = {
-  primary: "Main agent",
-  worker: "Subagent in a turn",
-  delegate: "Subagent as a task",
+  get primary() { return i18n.t("agents:schema.primary"); },
+  get worker() { return i18n.t("agents:schema.worker"); },
+  get delegate() { return i18n.t("agents:schema.delegate"); },
 };
 
 /** Effort tiers an agent may fix, low to high, across both providers' scales. */
@@ -73,8 +74,8 @@ export const AGENT_WORKSPACES = ["new-worktree", "same-workspace"] as const;
 export type AgentWorkspace = (typeof AGENT_WORKSPACES)[number];
 
 export const AGENT_WORKSPACE_LABELS: Readonly<Record<AgentWorkspace, string>> = {
-  "new-worktree": "New worktree",
-  "same-workspace": "Current workspace",
+  get "new-worktree"() { return i18n.t("agents:schema.newWorktree"); },
+  get "same-workspace"() { return i18n.t("agents:schema.sameWorkspace"); },
 };
 
 /**
@@ -86,10 +87,10 @@ export const AGENT_PERMISSIONS = ["read-only", "manual", "guided", "auto"] as co
 export type AgentPermission = (typeof AGENT_PERMISSIONS)[number];
 
 export const AGENT_PERMISSION_LABELS: Readonly<Record<AgentPermission, string>> = {
-  "read-only": "Read only",
-  manual: "Manual",
-  guided: "Guided",
-  auto: "Auto",
+  get "read-only"() { return i18n.t("agents:schema.readOnly"); },
+  get manual() { return i18n.t("agents:schema.manual"); },
+  get guided() { return i18n.t("agents:schema.guided"); },
+  get auto() { return i18n.t("agents:schema.auto"); },
 };
 
 /** Sections the agent's report must contain. */
@@ -148,8 +149,8 @@ export type AgentSource = (typeof AGENT_SOURCES)[number];
 
 export const AGENT_SOURCE_LABELS: Readonly<Record<AgentSource, string>> = {
   builtin: "Built-in",
-  custom: "Custom",
-  repository: "From repository",
+  get custom() { return i18n.t("agents:schema.custom"); },
+  get repository() { return i18n.t("agents:schema.repository"); },
 };
 
 export const AGENT_FILE_FORMATS = [
@@ -172,7 +173,7 @@ export const AgentConfigIdSchema = z
   .max(AGENT_CONFIG_LIMITS.id)
   .regex(
     /^[A-Za-z0-9._-]+$/,
-    "An agent id may only contain letters, digits, dot, underscore and hyphen.",
+    { error: () => i18n.t("agents:schema.extraCopy400") },
   );
 
 export const AgentModelSchema = z.discriminatedUnion("mode", [
@@ -280,27 +281,27 @@ export const AgentConfigSchema = z
   .strict()
   .superRefine((agent, ctx) => {
     if (new Set(agent.usableAs).size !== agent.usableAs.length) {
-      ctx.addIssue({ code: "custom", path: ["usableAs"], message: "Roles must be unique." });
+      ctx.addIssue({ code: "custom", path: ["usableAs"], message: i18n.t("agents:schema.message") });
     }
     if (agent.canCall && new Set(agent.canCall).size !== agent.canCall.length) {
-      ctx.addIssue({ code: "custom", path: ["canCall"], message: "Each agent is listed once." });
+      ctx.addIssue({ code: "custom", path: ["canCall"], message: i18n.t("agents:schema.message2") });
     }
     if (new Set(agent.report).size !== agent.report.length) {
-      ctx.addIssue({ code: "custom", path: ["report"], message: "Report sections must be unique." });
+      ctx.addIssue({ code: "custom", path: ["report"], message: i18n.t("agents:schema.message3") });
     }
     // A read-only agent that gets its own worktree has nothing to write there.
     if (agent.permission === "read-only" && agent.workspace === "new-worktree") {
       ctx.addIssue({
         code: "custom",
         path: ["workspace"],
-        message: "A read-only agent works in the current workspace.",
+        message: i18n.t("agents:schema.message4"),
       });
     }
     if (agent.source === "builtin" && agent.origin) {
-      ctx.addIssue({ code: "custom", path: ["origin"], message: "A built-in agent has no import origin." });
+      ctx.addIssue({ code: "custom", path: ["origin"], message: i18n.t("agents:schema.message5") });
     }
     if (agent.source === "repository" && !agent.origin) {
-      ctx.addIssue({ code: "custom", path: ["origin"], message: "A repository agent records the file it came from." });
+      ctx.addIssue({ code: "custom", path: ["origin"], message: i18n.t("agents:schema.message6") });
     }
     if (agent.workflow) {
       for (const issue of listWorkflowStructureIssues({ purpose: "", stages: agent.workflow })) {
@@ -313,7 +314,7 @@ export const AgentConfigSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["tools"],
-        message: `A tool cannot be both allowed and denied: ${overlap.join(", ")}.`,
+        message: i18n.t("agents:schema.message7", { value1: overlap.join(", ") }),
       });
     }
   });
@@ -327,7 +328,7 @@ export const AgentConfigListSchema = z
     const seen = new Set<string>();
     agents.forEach((agent, index) => {
       if (seen.has(agent.id)) {
-        ctx.addIssue({ code: "custom", path: [index, "id"], message: `Duplicate agent id "${agent.id}".` });
+        ctx.addIssue({ code: "custom", path: [index, "id"], message: i18n.t("agents:schema.message8", { value1: agent.id }) });
       }
       seen.add(agent.id);
     });

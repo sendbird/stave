@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   TASK_DRAG_MIME,
@@ -31,11 +32,11 @@ const EMPTY_ACTIVE_TURN_IDS_BY_TASK: Record<string, string | undefined> = {};
 const EMPTY_OPEN_TASK_TAB_IDS: string[] = [];
 
 const STATUS_LABEL: Record<FleetTaskStatus, string> = {
-  "waiting-input": "Awaiting input",
-  "waiting-approval": "Awaiting approval",
-  error: "Error",
-  running: "Running",
-  idle: "Idle",
+  get "waiting-input"() { return i18n.t("workspace:workspaceProgressTaskTree.awaitingInput"); },
+  get "waiting-approval"() { return i18n.t("workspace:workspaceProgressTaskTree.awaitingApproval"); },
+  get error() { return i18n.t("workspace:workspaceProgressTaskTree.error"); },
+  get running() { return i18n.t("workspace:workspaceProgressTaskTree.running"); },
+  get idle() { return i18n.t("workspace:workspaceProgressTaskTree.idle"); },
 };
 
 function StatusMark(args: {
@@ -76,14 +77,15 @@ function StatusMark(args: {
 function ProviderMark(args: {
   providerId: WorkspaceProgressTaskItem["providerId"];
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const label = getProviderLabel({ providerId: args.providerId });
   return (
     <span
       className={sx(styles.providerMark)}
-      title={`${label} provider`}
+      title={tI18n("workspace:workspaceProgressTaskTree.valueProvider", { label: label })}
     >
       <ModelIcon providerId={args.providerId} className={sx(styles.providerIcon)} />
-      <VisuallyHidden>{label} provider</VisuallyHidden>
+      <VisuallyHidden>{tI18n("workspace:workspaceProgressTaskTree.providerName", { label })}</VisuallyHidden>
     </span>
   );
 }
@@ -95,6 +97,7 @@ export function WorkspaceProgressTaskTreeView(args: {
   /** Lets a row be dragged into a composer to attach the task as context. */
   workspaceId?: string;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   if (!args.loading && args.items.length === 0) {
     return null;
   }
@@ -113,7 +116,7 @@ export function WorkspaceProgressTaskTreeView(args: {
             size="xs"
             variant="pulse"
           />
-          <span>Loading tasks</span>
+          <span>{tI18n("workspace:workspaceProgressTaskTree.loadingTasks")}</span>
         </div>
       </li>
     );
@@ -128,7 +131,7 @@ export function WorkspaceProgressTaskTreeView(args: {
             data-workspace-progress-status={item.status}
             xstyle={styles.row}
             aria-label={`${item.title}, ${statusLabel}`}
-            title={args.workspaceId ? "Open, or drag into a prompt to attach as context" : undefined}
+            title={args.workspaceId ? tI18n("workspace:workspaceProgressTaskTree.openOrDragIntoAPromptTo") : undefined}
             onClick={() => args.onOpenTask(item.taskId)}
             draggable={Boolean(args.workspaceId)}
             onDragStart={(event) => {
@@ -171,7 +174,7 @@ export function WorkspaceProgressTaskTreeView(args: {
     <ul
       data-testid="workspace-progress-tasks"
       className={sx(styles.list)}
-      aria-label="Open tasks"
+      aria-label={tI18n("workspace:workspaceProgressTaskTree.openTasks")}
     >
       {body}
     </ul>
@@ -228,8 +231,7 @@ export const WorkspaceProgressTaskTree = memo(
         messagesByTask,
         openTaskTabIds,
         providerTurnActivityByTask,
-        tasks,
-      ],
+        tasks, i18n.resolvedLanguage],
     );
 
     if (items.length === 0) {

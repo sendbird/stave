@@ -98,6 +98,7 @@ export function useLensGuestHost(): void {
           ok: focused,
           message: focused
             ? undefined
+            // i18n-ignore: internal Lens host diagnostic
             : "No Lens guest is mounted for that session",
         });
       },

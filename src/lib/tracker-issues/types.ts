@@ -82,6 +82,7 @@ const httpsUrlSchema = z
   .max(2_048)
   .url()
   .refine((value) => value.startsWith("https://"), {
+    // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
     message: "Only https URLs are accepted.",
   });
 
@@ -336,6 +337,7 @@ export const TrackerIssueKickoffArgsSchema = z
       context.addIssue({
         code: "custom",
         path: ["craneWriteBack"],
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: "Write-back is only available for Crane tickets.",
       });
       return;
@@ -344,6 +346,7 @@ export const TrackerIssueKickoffArgsSchema = z
       context.addIssue({
         code: "custom",
         path: ["craneWriteBack"],
+        // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
         message: "Write-back requires the run to start now.",
       });
     }

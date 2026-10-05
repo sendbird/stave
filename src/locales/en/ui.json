@@ -1,0 +1,311 @@
+{
+  "agentState": {
+    "awaitingApproval": "Awaiting approval",
+    "canceled": "Canceled",
+    "checkpointed": "Checkpointed",
+    "completed": "Completed",
+    "denied": "Denied",
+    "error": "Error",
+    "failed": "Failed",
+    "interrupted": "Interrupted",
+    "pending": "Pending",
+    "queued": "Queued",
+    "retrying": "Retrying",
+    "resumed": "Resumed",
+    "running": "Running",
+    "skipped": "Skipped"
+  },
+  "calendar": {
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "start": "Start",
+    "end": "End",
+    "dateRangePresets": "Date range presets",
+    "calendar": "Calendar"
+  },
+  "lightbox": {
+    "closeLightbox": "Close lightbox",
+    "mediaViewer": "Media viewer",
+    "zoomControls": "Zoom controls",
+    "zoomOut": "Zoom out",
+    "resetZoom": "Reset zoom",
+    "zoomIn": "Zoom in",
+    "noMediaToDisplay": "No media to display",
+    "previousMedia": "Previous media",
+    "nextMedia": "Next media",
+    "showingMedia": "Showing {{alt}}{{position}}",
+    "galleryPosition": ", item {{current}} of {{total}}"
+  },
+  "workflowicon": {
+    "highPriority": "High priority",
+    "lowPriority": "Low priority",
+    "mediumPriority": "Medium priority",
+    "noPriority": "No priority",
+    "urgentPriority": "Urgent priority",
+    "backlog": "Backlog",
+    "canceled": "Canceled",
+    "done": "Done",
+    "inProgress": "In Progress",
+    "inReview": "In Review",
+    "todo": "Todo"
+  },
+  "stateVocabulary": {
+    "working": "Working",
+    "needsYou": "Needs you",
+    "awaitingApproval": "Awaiting approval",
+    "ready": "Ready",
+    "failed": "Failed",
+    "stopped": "Stopped",
+    "queued": "Queued",
+    "idle": "Idle",
+    "skipped": "Skipped",
+    "unknown": "Unknown"
+  },
+  "command": {
+    "noMatchingCommands": "No matching commands.",
+    "commandMenu": "Command menu",
+    "loadingCommands": "Loading commands...",
+    "searchCommands": "Search commands",
+    "recent": "Recent",
+    "commands": "Commands",
+    "backOneCommandPage": "Back one command page",
+    "commandPalette": "Command Palette",
+    "searchForACommandToRun": "Search for a command to run..."
+  },
+  "planParts": {
+    "awaitingApproval": "Awaiting approval",
+    "done": "Done",
+    "failed": "Failed",
+    "pending": "Pending",
+    "running": "Running"
+  },
+  "clarification": {
+    "continue": "Continue",
+    "skip": "Skip",
+    "recordedAnswer": "Recorded answer",
+    "byAuthor": "by <author/>",
+    "stepProgress": "Step {{current}} of {{total}}",
+    "recordinganswer": "Recording answer",
+    "needsyourinput": "Needs your input"
+  },
+  "diffviewer": {
+    "textDiff": "Text diff"
+  },
+  "tabsSession": {
+    "addTab": "Add tab",
+    "openSessions": "Open sessions",
+    "scrollTabsBackward": "Scroll tabs backward",
+    "scrollTabsForward": "Scroll tabs forward",
+    "closeTab": "Close {{label}} tab"
+  },
+  "reviewSkillSelector": {
+    "reviewSkill": "Review skill",
+    "noSkill": "No skill",
+    "searchReviewSkills": "Search review skills",
+    "searchSkills": "Search skills…",
+    "noSkillsFound": "No skills found."
+  },
+  "approval": {
+    "alwaysAllow": "Always allow",
+    "allowOnce": "Allow once",
+    "deny": "Deny",
+    "byAuthor": "by <author/>",
+    "recordingdecision": "Recording decision",
+    "needsyourapproval": "Needs your approval"
+  },
+  "commandParts": {
+    "navigate": "navigate",
+    "select": "select",
+    "backClose": "back / close"
+  },
+  "plan": {
+    "plan": "Plan",
+    "noStepsYetThePlanAppearsOnceTheAgentCommitsToOne": "No steps yet. The plan appears once the agent commits to one.",
+    "progress": "{{done}} of {{total}} steps complete"
+  },
+  "selectArray": {
+    "clearSelection": "Clear selection",
+    "noOptionsAvailable": "No options available.",
+    "loadingOptions": "Loading options…",
+    "selectAnOption": "Select an option"
+  },
+  "appshellSidebarsearch": {
+    "search": "Search",
+    "collapseSidebarRail": "Collapse sidebar rail",
+    "expandSidebarRail": "Expand sidebar rail"
+  },
+  "checkpoint": {
+    "restore": "Restore",
+    "restoring": "Restoring",
+    "checkpointSaved": "Checkpoint saved"
+  },
+  "thinking": {
+    "reasoningTrace": "Reasoning trace",
+    "finishedThinking": "Finished thinking",
+    "thoughtFor": "Thought for <duration/>",
+    "thoughtForSpoken": "Thought for {{duration}}",
+    "thinking": "Thinking"
+  },
+  "toolrun": {
+    "arguments": "Arguments",
+    "output": "Output",
+    "error": "Error"
+  },
+  "dateRange": {
+    "today": "Today",
+    "last7Days": "Last 7 days",
+    "thisMonth": "This month"
+  },
+  "appshellSidebartrigger": {
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar"
+  },
+  "boardColumn": {
+    "dropCardsHere": "Drop cards here",
+    "empty": "Nothing in <label/>"
+  },
+  "citation": {
+    "source": "Source",
+    "openSource": "Open source"
+  },
+  "toast": {
+    "datasetCatalogIsNowInSync": "Dataset catalog is now in sync.",
+    "recordsUpdated": "Records updated"
+  },
+  "dialog": {
+    "close": "Close"
+  },
+  "imageLightbox": {
+    "imageFullScreenPreview": "Image full screen preview",
+    "closePreview": "Close preview"
+  },
+  "appshellRoot": {
+    "skipToContent": "Skip to content"
+  },
+  "appshell": {
+    "sidebar": "Sidebar"
+  },
+  "badge": {
+    "remove": "Remove"
+  },
+  "breadcrumb": {
+    "breadcrumb": "Breadcrumb",
+    "more": "More"
+  },
+  "citationParts": {
+    "sources": "Sources"
+  },
+  "commandDialog": {
+    "commandMenu": "Command menu"
+  },
+  "drawer": {
+    "close": "Close"
+  },
+  "loader": {
+    "loading": "Loading"
+  },
+  "popover": {
+    "close": "Close"
+  },
+  "textfield": {
+    "validating": "Validating"
+  },
+  "textshimmer": {
+    "loading": "Loading"
+  },
+  "toasthost": {
+    "dismissToast": "Dismiss toast"
+  },
+  "agentRetry": {
+    "retry": "Retry"
+  },
+  "fieldAnatomy": {
+    "valid": "Valid"
+  },
+  "panelresizehandle": {
+    "dragToResizeDoubleClickToReset": "Drag to resize · Double-click to reset"
+  },
+  "sheet": {
+    "close": "Close"
+  },
+  "serviceLinkBadge": {
+    "openIn": "Open in {{service}} — {{href}}"
+  },
+  "diffViewer": {
+    "expandUnchanged_one": "Expand {{count}} unchanged line",
+    "expandUnchanged_other": "Expand {{count}} unchanged lines"
+  },
+  "boardCard": {
+    "draggableCard": "draggable card"
+  },
+  "durationTimer": {
+    "lessThanMinute": "{{label}} less than a minute",
+    "hoursAndMinutes": "{{label}} {{hours}} {{minutes}}",
+    "elapsed": "{{label}} {{duration}}",
+    "defaultLabel": "elapsed",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes"
+  },
+  "decisionWord": {
+    "aAllowed": "Always allowed",
+    "aOnce": "Allowed once",
+    "allowed": "Allowed",
+    "denied": "Denied",
+    "withdrawn": "Withdrawn"
+  },
+  "resultWord": {
+    "answered": "Answered",
+    "withdrawn": "Withdrawn",
+    "skipped": "Skipped"
+  },
+  "panelResizeHandle": {
+    "dragToResizeDoubleClickToReset": "Drag to resize · Double-click to reset"
+  },
+  "elapsed.milliseconds": "{{value}}ms",
+  "elapsed.seconds": "{{value}}s",
+  "elapsed.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "elapsed.hoursMinutes": "{{hours}}h {{minutes}}m",
+  "elapsed.spokenMilliseconds_one": "{{value}} millisecond",
+  "elapsed.spokenMilliseconds_other": "{{value}} milliseconds",
+  "elapsed.spokenSeconds_one": "{{value}} second",
+  "elapsed.spokenSeconds_other": "{{value}} seconds",
+  "elapsed.spokenMinutes_one": "{{value}} minute",
+  "elapsed.spokenMinutes_other": "{{value}} minutes",
+  "elapsed.spokenMinuteSeconds_one": "{{minutes}} minute {{seconds}} second",
+  "elapsed.spokenMinuteSeconds_other": "{{minutes}} minute {{seconds}} seconds",
+  "elapsed.spokenMinutesSeconds_one": "{{minutes}} minutes {{seconds}} second",
+  "elapsed.spokenMinutesSeconds_other": "{{minutes}} minutes {{seconds}} seconds",
+  "planParts.stepAt": "Step {{position}}",
+  "planParts.stepState": "{{name}}: {{status}}",
+  "planParts.moreChanged_one": "and {{count}} more step changed",
+  "planParts.moreChanged_other": "and {{count}} more steps changed",
+  "planParts.stepsAdded_one": "{{count}} step added",
+  "planParts.stepsAdded_other": "{{count}} steps added",
+  "planParts.stepsRemoved_one": "{{count}} step removed",
+  "planParts.stepsRemoved_other": "{{count}} steps removed",
+  "planParts.completeCount": "{{done}} of {{total}} complete",
+  "board.dropped": "Card dropped in \"{{column}}\" at position {{position}} of {{total}}.",
+  "board.pickedUp": "Card picked up from \"{{column}}\", position {{position}} of {{total}}. Use arrow keys to move, Space to drop, Escape to cancel.",
+  "board.moved": "Card moved to \"{{column}}\", position {{position}} of {{total}}.",
+  "board.moveCancelled": "Move cancelled.",
+  "tabsSession.moved": "Tab moved to position {{position}} of {{total}}.",
+  "tabsSession.closedSelected": "{{closed}} closed. {{selected}} selected.",
+  "tabsSession.closed": "{{name}} closed.",
+  "commandDialog.showCommand": "Show command",
+  "toast.showToast": "Show toast",
+  "toolRunParts.callCount_one": "{{count}} tool call",
+  "toolRunParts.callCount_other": "{{count}} tool calls",
+  "toolRunGroup.toolCalls": "Tool calls",
+  "toolRun.toolRun": "Tool run",
+  "toastHost": {
+    "notifications": "Notifications"
+  },
+  "selectionRail": {
+    "models_one": "{{label}}, {{count}} model",
+    "models_other": "{{label}}, {{count}} models",
+    "agents_one": "{{label}}, {{count}} agent",
+    "agents_other": "{{label}}, {{count}} agents"
+  }
+}

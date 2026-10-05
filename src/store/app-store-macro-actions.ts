@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { applyMacroInsert } from "@/lib/macros/token";
 import { buildMacroRuntimeOverrides } from "@/lib/macros/apply";
@@ -22,7 +23,7 @@ export function createMacroActions(args: {
     upsertMacro: ({ macro }) => {
       const normalized = normalizeMacro(macro);
       if (!normalized) {
-        return { ok: false, error: "Macro needs a label and a valid slug." };
+        return { ok: false, error: i18n.t("app:errors.macroInvalid") };
       }
 
       const existing = get().settings.macros;
@@ -33,7 +34,7 @@ export function createMacroActions(args: {
       if (slugOwner) {
         return {
           ok: false,
-          error: `Slug "${normalized.slug}" is already in use.`,
+          error: i18n.t("app:errors.macroSlug", { slug: normalized.slug }),
         };
       }
 
@@ -43,7 +44,7 @@ export function createMacroActions(args: {
       if (existingIndex < 0 && existing.length >= MAX_MACROS) {
         return {
           ok: false,
-          error: `Maximum of ${MAX_MACROS} macros reached.`,
+          error: i18n.t("app:errors.macroLimit", { count: MAX_MACROS }),
         };
       }
 
@@ -132,7 +133,7 @@ export function createMacroActions(args: {
         (candidate) => candidate.id === macroId,
       );
       if (!macro) {
-        return { ok: false, error: "Macro not found." };
+        return { ok: false, error: i18n.t("app:errors.macroMissing") };
       }
 
       const currentDraft = state.promptDraftByTask[taskId];

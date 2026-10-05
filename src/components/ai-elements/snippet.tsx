@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes } from "react";
 import { useState } from "react";
@@ -18,6 +19,7 @@ interface SnippetProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export function Snippet({ code, prefix, className, ...props }: SnippetProps) {
+  useTranslation();
   return (
     <div className={cx(sx(styles.root), className)} {...props}>
       {prefix ? <span className={sx(styles.prefix)}>{prefix}</span> : null}
@@ -32,6 +34,7 @@ export function Snippet({ code, prefix, className, ...props }: SnippetProps) {
 // ---------------------------------------------------------------------------
 
 function SnippetCopyButton({ code }: { code: string }) {
+  useTranslation();
   const [copied, setCopied] = useState(false);
   return (
     <AdsButton
@@ -46,8 +49,8 @@ function SnippetCopyButton({ code }: { code: string }) {
           })
           .catch(() => {});
       }}
-      aria-label="Copy"
-      title="Copy"
+      aria-label={i18n.t("composer:snippet.ariaLabel")}
+      title={i18n.t("composer:snippet.title")}
     >
       {copied ? (
         <Check className={sx(styles.copiedIcon)} />

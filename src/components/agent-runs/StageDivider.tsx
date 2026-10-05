@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { memo } from "react";
 import { Target } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -20,6 +21,7 @@ export function splitDividerText(text: string): { stage: string; reason: string 
  * any other turn, or for a turn of a one-stage agent run.
  */
 export const StageDivider = memo(function StageDivider(props: { taskId: string; turnId: string | undefined }) {
+  useTranslation();
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const text = useAgentRunTurnDivider(workspaceId, props.taskId, props.turnId);
   // A one-stage run has nothing to divide; a run with a workflow shows its stages.
@@ -29,6 +31,7 @@ export const StageDivider = memo(function StageDivider(props: { taskId: string; 
 });
 
 export function StageDividerView({ text }: { text: string }) {
+  useTranslation();
   const { stage, reason } = splitDividerText(text);
   return (
     <div className={sx(styles.divider)} role="separator" aria-label={text} data-testid="agent-run-stage-divider">

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Watch checks, the pure half: normalize what GitHub reports for a pull
  * request and decide what the action does about it.
@@ -93,7 +94,7 @@ export const CHECKS_POLL_INTERVAL_MS = 60_000;
 
 function listNames(checks: readonly PullRequestCheck[]) {
   const names = checks.slice(0, 5).map((check) => check.name);
-  const more = checks.length > 5 ? ` and ${checks.length - 5} more` : "";
+  const more = checks.length > 5 ? i18n.t("agentRuns:checks.extraCopy235", { value1: checks.length - 5 }) : "";
   return `${names.join(", ")}${more}`;
 }
 
@@ -180,7 +181,7 @@ export function decideWatchChecks(args: {
       if (age >= args.timeoutMinutes) {
         return {
           status: "stuck",
-          detail: `${oldest.check.name} has been pending for ${age} minutes.`,
+          detail: i18n.t("agentRuns:checks.detail", { value1: oldest.check.name, value2: age }),
         };
       }
       return { status: "in-progress" };
@@ -196,33 +197,33 @@ export function decideWatchChecks(args: {
             repair: args.repairsUsed + 1,
             repairAttempts: args.repairAttempts,
           }),
-          detail: `Checks failed: ${listNames(observation.failing)}.`,
+          detail: i18n.t("agentRuns:checks.detail2", { value1: listNames(observation.failing) }),
         };
       }
       return {
         status: "failed",
         detail:
           args.repairAttempts === 0
-            ? `Checks failed: ${listNames(observation.failing)}.`
-            : `Checks still fail after ${args.repairsUsed} ${args.repairsUsed === 1 ? "repair" : "repairs"}: ${listNames(observation.failing)}.`,
+            ? i18n.t("agentRuns:checks.detail3", { value1: listNames(observation.failing) })
+            : i18n.t("agentRuns:checks.detail4", { value1: args.repairsUsed, value3: listNames(observation.failing), count: args.repairsUsed }),
       };
     case "conflict":
       return {
         status: "failed",
         detail: observation.behind
-          ? "The pull request is behind its base branch and must be updated before it can merge. Rebase it, or ask the agent to, then retry this stage."
-          : "The pull request conflicts with its base branch. Rebase it, or ask the agent to, then retry this stage.",
+          ? i18n.t("agentRuns:checks.detail5")
+          : i18n.t("agentRuns:checks.detail6"),
       };
     case "no-pull-request":
       return {
         status: "failed",
         detail:
-          "This workspace has no open pull request to watch. Open one, or add an Open draft PR stage before this one.",
+          i18n.t("agentRuns:checks.detail7"),
       };
     case "closed":
       return {
         status: "failed",
-        detail: `The pull request is ${observation.state === "MERGED" ? "merged" : "closed"}, so there are no checks to watch.`,
+        detail: i18n.t("agentRuns:checks.detail8", { value1: i18n.t(observation.state === "MERGED" ? "agentRuns:checks.mergedState" : "agentRuns:checks.closedState") }),
       };
   }
 }

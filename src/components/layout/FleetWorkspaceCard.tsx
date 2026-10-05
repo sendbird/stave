@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { FleetAgentRunStrip, useFleetActiveAgentRun } from "@/components/agent-runs/FleetAgentRunStrip";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { AGENT_RUN_VIEW_STATE_LABELS, agentRunFleetState, describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
@@ -105,7 +106,7 @@ export function getFleetTaskKey(
 export function formatFleetWorkspaceName(name: string, branch?: string) {
   if (isDefaultWorkspaceName(name)) {
     const branchLabel = formatBranchLabel(branch);
-    return branchLabel ? `Default · ${branchLabel}` : "Default";
+    return branchLabel ? i18n.t("fleet:fleetWorkspaceCard.defaultValue", { branchLabel: branchLabel }) : i18n.t("fleet:fleetWorkspaceCard.default");
   }
   return name;
 }
@@ -160,16 +161,18 @@ const FLEET_STATUS_VISUAL = Object.fromEntries(
 ) as Record<FleetDisplayStatus, { label: string; icon: ReactNode; tone: StyleXValue }>;
 
 function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
+  const { t: tI18n } = useTranslation(["fleet"]);
   const label = getProviderLabel({ providerId: provider });
   return (
-    <span className={sx(styles.providerMark)} title={`${label} provider`}>
+    <span className={sx(styles.providerMark)} title={tI18n("fleet:fleetWorkspaceCard.valueProvider", { label: label })}>
       <ModelIcon providerId={provider} className={sx(styles.providerIcon)} />
-      <VisuallyHidden>{label} provider</VisuallyHidden>
+      <VisuallyHidden>{tI18n("fleet:fleetWorkspaceCard.providerName", { label })}</VisuallyHidden>
     </span>
   );
 }
 
 function FleetCardPrBadge({ status }: { status: WorkspacePrStatus | null }) {
+  const { t: tI18n } = useTranslation(["fleet"]);
   if (!status || status === "no_pr") {
     return null;
   }
@@ -177,7 +180,7 @@ function FleetCardPrBadge({ status }: { status: WorkspacePrStatus | null }) {
   return (
     <Badge
       xstyle={[styles.chip, prToneBadgeStyles[visual.tone]]}
-      title={`Pull request: ${visual.label}`}
+      title={tI18n("fleet:fleetWorkspaceCard.pullRequestValue", { value1: visual.label })}
       tone="neutral"
     >
       <PrStatusIcon status={status} />
@@ -212,6 +215,7 @@ export function FleetWorkspaceCard(args: {
     visibility: FleetWorkspaceCardVisibility,
   ) => void;
 }) {
+  const { t: tI18n } = useTranslation(["fleet"]);
   const taskKeyFor = (taskId: string) =>
     getFleetTaskKey(args.repositoryPath, args.workspace.id, taskId);
   const [
@@ -324,8 +328,7 @@ export function FleetWorkspaceCard(args: {
     activeTurnIdsByTask,
     isActiveWorkspace,
     loadedShell,
-    runtimeState,
-  ]);
+    runtimeState, i18n.resolvedLanguage]);
 
   const openTasks = useMemo(
     () =>
@@ -333,7 +336,7 @@ export function FleetWorkspaceCard(args: {
         openTaskTabIds: taskState.openTaskTabIds,
         activeTurnIdsByTask: taskState.activeTurnIdsByTask,
       }),
-    [taskState],
+    [taskState, i18n.resolvedLanguage],
   );
 
   const rows = useMemo(
@@ -358,7 +361,7 @@ export function FleetWorkspaceCard(args: {
             ? order
             : right.task.updatedAt.localeCompare(left.task.updatedAt);
         }) satisfies FleetCardTaskView[],
-    [openTasks, providerTurnActivityByTask, taskState],
+    [openTasks, providerTurnActivityByTask, taskState, i18n.resolvedLanguage],
   );
 
   // Counted across every task, archived included. This is evidence that real
@@ -371,7 +374,7 @@ export function FleetWorkspaceCard(args: {
         (total, count) => total + count,
         0,
       ),
-    [taskState.messageCountByTask],
+    [taskState.messageCountByTask, i18n.resolvedLanguage],
   );
 
   const hasLiveTask = hasFleetLiveTask({
@@ -384,7 +387,7 @@ export function FleetWorkspaceCard(args: {
 
   const activityAt = useMemo(
     () => resolveFleetWorkspaceActivityAt({ lastActiveAt, openTasks }),
-    [lastActiveAt, openTasks],
+    [lastActiveAt, openTasks, i18n.resolvedLanguage],
   );
   const activity = classifyFleetWorkspaceActivity({
     activityAt,
@@ -461,7 +464,7 @@ export function FleetWorkspaceCard(args: {
         repositoryPath: args.repositoryPath,
         workspaceId: args.workspace.id,
         taskId: expandedRow.task.id,
-        taskTitle: expandedRow.task.title || "Untitled Task",
+        taskTitle: expandedRow.task.title || tI18n("fleet:fleetWorkspaceCard.untitledTask"),
       });
     }
     setShowAllTasks((current) => !current);
@@ -474,7 +477,7 @@ export function FleetWorkspaceCard(args: {
             getFleetTaskKey(args.repositoryPath, args.workspace.id, row.task.id),
           )
         : [],
-    [args.repositoryPath, args.workspace.id, rows, visible],
+    [args.repositoryPath, args.workspace.id, rows, visible, i18n.resolvedLanguage],
   );
 
   const { onVisibilityChange, cardKey } = args;
@@ -502,7 +505,7 @@ export function FleetWorkspaceCard(args: {
       (todo) => resolveWorkspaceTodoStatus(todo) === "completed",
     ).length;
     return { completed, total };
-  }, [activeTodos]);
+  }, [activeTodos, i18n.resolvedLanguage]);
 
   if (!visible) {
     return null;
@@ -518,22 +521,22 @@ export function FleetWorkspaceCard(args: {
         activity === "dormant" && styles.cardDormant,
         expandedRow && styles.cardExpanded,
       )}
-      aria-label={`${displayName} workspace in ${args.repositoryName}`}
+      aria-label={tI18n("fleet:fleetWorkspaceCard.valueWorkspaceInValue", { displayName: displayName, value1: args.repositoryName })}
     >
       <div className={sx(styles.header)}>
         <div className={sx(styles.headerMain)}>
           <div className={sx(styles.titleRow)}>
             <span className={sx(styles.name)}>{displayName}</span>
             {args.workspace.isDefault ? (
-              <Badge xstyle={styles.chip}>Default</Badge>
+              <Badge xstyle={styles.chip}>{tI18n("fleet:fleetWorkspaceCard.default")}</Badge>
             ) : null}
             {activity === "dormant" ? (
               <span
                 className={sx(styles.dormantMark)}
-                title="Dormant: no recorded activity recently"
+                title={tI18n("fleet:fleetWorkspaceCard.dormantNoRecordedActivityRecently")}
               >
                 <Moon className={sx(styles.dormantIcon)} aria-hidden="true" />
-                <VisuallyHidden>Dormant workspace</VisuallyHidden>
+                <VisuallyHidden>{tI18n("fleet:fleetWorkspaceCard.dormantWorkspace")}</VisuallyHidden>
               </span>
             ) : null}
           </div>
@@ -567,10 +570,10 @@ export function FleetWorkspaceCard(args: {
         {rows.length === 0 ? (
           <p className={sx(styles.tasksEmpty)}>
             {taskState.hasRuntimeState || loadedShell !== undefined
-              ? "No open tasks"
+              ? tI18n("fleet:fleetWorkspaceCard.noOpenTasks")
               : didShellLoadFail
-                ? "Tasks unavailable"
-                : "Loading tasks…"}
+                ? tI18n("fleet:fleetWorkspaceCard.tasksUnavailable")
+                : tI18n("fleet:fleetWorkspaceCard.loadingTasks")}
           </p>
         ) : (
           <ul className={sx(styles.list)}>
@@ -578,7 +581,7 @@ export function FleetWorkspaceCard(args: {
               const visual = FLEET_STATUS_VISUAL[row.status];
               const taskKey = taskKeyFor(row.task.id);
               const isExpanded = args.expandedTaskKey === taskKey;
-              const taskTitle = row.task.title || "Untitled Task";
+              const taskTitle = row.task.title || tI18n("fleet:fleetWorkspaceCard.untitledTask");
               const runLead = row.task.id === runLeadTaskId;
               const taskAgent = runLead ? undefined : taskAgents[row.task.id];
               return (
@@ -595,7 +598,7 @@ export function FleetWorkspaceCard(args: {
                       isExpanded && styles.taskRowExpanded,
                     ]}
                     aria-expanded={isExpanded}
-                    aria-label={`${isExpanded ? "Hide" : "Show"} controls for ${taskTitle}, ${runLead ? runLeadLabel : visual.label}`}
+                    aria-label={tI18n("fleet:fleetWorkspaceCard.valueControlsForValueValue", { value1: isExpanded ? "Hide" : "Show", taskTitle: taskTitle, value2: runLead ? runLeadLabel : visual.label })}
                     onClick={() =>
                       args.onToggleTaskControl({
                         repositoryPath: args.repositoryPath,
@@ -610,7 +613,7 @@ export function FleetWorkspaceCard(args: {
                     <FleetProviderIcon provider={row.task.provider} />
                     <span className={sx(styles.taskTitle)}>{taskTitle}</span>
                     {taskAgent ? (
-                      <Badge xstyle={styles.chip} title={`Runs as the ${taskAgent.agentName} agent`}>
+                      <Badge xstyle={styles.chip} title={tI18n("fleet:fleetWorkspaceCard.runsAsTheValueAgent", { value1: taskAgent.agentName })}>
                         <AgentAvatar
                           agent={{ id: taskAgent.agentConfigId, name: taskAgent.agentName, appearance: taskAgent.agentAppearance }}
                           size="xs"
@@ -644,8 +647,8 @@ export function FleetWorkspaceCard(args: {
                   onClick={toggleTaskDisclosure}
                 >
                   {showAllTasks
-                    ? "Show fewer"
-                    : `+${hiddenTaskCount} more task${hiddenTaskCount === 1 ? "" : "s"}`}
+                    ? tI18n("fleet:fleetWorkspaceCard.showFewer")
+                    : tI18n("fleet:fleetWorkspaceCard.valueMoreTaskvalue", { count: hiddenTaskCount })}
                 </AdsButton>
               </li>
             ) : null}
@@ -663,7 +666,7 @@ export function FleetWorkspaceCard(args: {
               repositoryPath: args.repositoryPath,
               workspaceId: args.workspace.id,
               taskId: expandedRow.task.id,
-              taskTitle: expandedRow.task.title || "Untitled Task",
+              taskTitle: expandedRow.task.title || tI18n("fleet:fleetWorkspaceCard.untitledTask"),
               turnId:
                 taskState.activeTurnIdsByTask[expandedRow.task.id] ?? null,
             }}
@@ -674,7 +677,7 @@ export function FleetWorkspaceCard(args: {
                 repositoryPath: args.repositoryPath,
                 workspaceId: args.workspace.id,
                 taskId: expandedRow.task.id,
-                taskTitle: expandedRow.task.title || "Untitled Task",
+                taskTitle: expandedRow.task.title || tI18n("fleet:fleetWorkspaceCard.untitledTask"),
               })
             }
           />
@@ -685,7 +688,7 @@ export function FleetWorkspaceCard(args: {
         {todoProgress.total > 0 ? (
           <span
             className={sx(styles.todo)}
-            title={`${todoProgress.completed} of ${todoProgress.total} todos done`}
+            title={tI18n("fleet:fleetWorkspaceCard.valueOfValueTodosDone", { value1: todoProgress.completed, value2: todoProgress.total })}
           >
             <span className={sx(styles.todoTrack)}>
               <span
@@ -705,14 +708,14 @@ export function FleetWorkspaceCard(args: {
         <span className={sx(styles.activity)}>
           {activityAt
             ? formatTaskUpdatedAt({ value: activityAt })
-            : "No recorded activity"}
+            : tI18n("fleet:fleetWorkspaceCard.noRecordedActivity")}
         </span>
         <Button
           type="button"
           size="sm"
           variant="ghost"
           xstyle={styles.openAction}
-          aria-label={`Open ${displayName} workspace`}
+          aria-label={tI18n("fleet:fleetWorkspaceCard.openValueWorkspace", { displayName: displayName })}
           onClick={() =>
             args.onOpenWorkspace({
               repositoryPath: args.repositoryPath,
@@ -720,8 +723,7 @@ export function FleetWorkspaceCard(args: {
             })
           }
         >
-          Open
-          <ArrowRight className={sx(styles.openIcon)} aria-hidden="true" />
+          {tI18n("fleet:fleetWorkspaceCard.open")}<ArrowRight className={sx(styles.openIcon)} aria-hidden="true" />
         </Button>
       </div>
     </article>

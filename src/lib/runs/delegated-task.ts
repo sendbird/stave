@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 import {
   RUN_RESPONSE_TEXT_MAX_CHARS,
@@ -358,8 +359,8 @@ export const DelegatedTaskLinkArgsSchema = z
 export type DelegatedTaskLinkArgs = z.infer<typeof DelegatedTaskLinkArgsSchema>;
 
 export const DELEGATED_TASK_DETACHED_REASON =
-  "Detached from the parent task; the delegated task keeps running on its own.";
-export const DELEGATED_TASK_STOPPED_REASON = "Stopped from the parent task.";
+  ("Detached from the parent task; the delegated task keeps running on its own." /* i18n-ignore: persisted delegation reason identity */);
+export const DELEGATED_TASK_STOPPED_REASON = ("Stopped from the parent task." /* i18n-ignore: persisted delegation reason identity */);
 
 /**
  * What the parent is allowed to learn about a child: who it is, what phase it
@@ -625,7 +626,7 @@ export function validateDelegatedTaskIdentity(args: {
       ok: false,
       reason: "not-found",
       message:
-        "This delegation is no longer on the run ledger. Refresh the parent task.",
+        i18n.t("workspace:delegatedTask.thisDelegationIsNoLongerOnThe"),
     };
   }
   if (
@@ -636,7 +637,7 @@ export function validateDelegatedTaskIdentity(args: {
       ok: false,
       reason: "stale-identity",
       message:
-        "This delegation now points at a different delegated task. Refresh the parent task.",
+        i18n.t("workspace:delegatedTask.thisDelegationNowPointsAtADifferent"),
     };
   }
   if (args.child.attempt !== args.expected.attempt) {
@@ -644,7 +645,7 @@ export function validateDelegatedTaskIdentity(args: {
       ok: false,
       reason: "stale-identity",
       message:
-        "The child was retried after this control was shown. Review the latest attempt.",
+        i18n.t("workspace:delegatedTask.theChildWasRetriedAfterThisControl"),
     };
   }
   if (args.expected.phase && args.child.phase !== args.expected.phase) {
@@ -652,7 +653,7 @@ export function validateDelegatedTaskIdentity(args: {
       ok: false,
       reason: "stale-identity",
       message:
-        "The child changed state before this action was sent. Review the latest child state.",
+        i18n.t("workspace:delegatedTask.theChildChangedStateBeforeThisAction"),
     };
   }
   if (
@@ -663,7 +664,7 @@ export function validateDelegatedTaskIdentity(args: {
       ok: false,
       reason: "stale-identity",
       message:
-        "The child's turn changed before this action was sent. Review the latest child state.",
+        i18n.t("workspace:delegatedTask.theChildSTurnChangedBeforeThis"),
     };
   }
   return { ok: true };
@@ -671,35 +672,24 @@ export function validateDelegatedTaskIdentity(args: {
 
 const DELEGATED_TASK_REJECTION_MESSAGES: Record<DelegatedTaskRejectionReason, string> =
   {
-    "agent-refused": "That agent cannot take this delegation.",
-    "head-mismatch": "The workspace is no longer at the commit this work is for.",
-    "already-active": "This child is already running.",
-    "already-completed": "This delegation already finished.",
-    "attempt-limit-reached":
-      "This delegation has used every attempt it is allowed.",
-    cancelled: "A stopped delegation cannot be started again.",
-    "concurrency-limit-reached":
-      "This task already has as many live children as it may run.",
-    "input-mismatch":
-      "This delegation key already names a child started from different instructions.",
-    "invalid-ownership":
-      "This task does not own the delegation it tried to act on.",
-    "invalid-request": "This action was not understood.",
-    "invalid-state": "The child is not in a state where this action applies.",
-    "not-found":
-      "This delegation is no longer on the run ledger. Refresh the parent task.",
-    "run-conflict":
-      "The delegation changed while this action was being applied.",
-    "stale-execution":
-      "The child moved on to another execution before this action was sent. Review the latest child state.",
-    "stale-identity":
-      "The child's identity changed before this action was sent. Review the latest child state.",
-    "step-conflict":
-      "The delegation changed while this action was being applied.",
-    "workspace-unavailable":
-      "The child's workspace could not be reached. Try again once it is available.",
-    "workspace-writer-busy":
-      "Another subagent is writing in this workspace. Run this one in a new worktree, or wait for it to finish.",
+    get "agent-refused"() { return i18n.t("workspace:delegatedTask.thatAgentCannotTakeThisDelegation"); },
+    get "head-mismatch"() { return i18n.t("workspace:delegatedTask.theWorkspaceIsNoLongerAtThe"); },
+    get "already-active"() { return i18n.t("workspace:delegatedTask.thisChildIsAlreadyRunning"); },
+    get "already-completed"() { return i18n.t("workspace:delegatedTask.thisDelegationAlreadyFinished"); },
+    get "attempt-limit-reached"() { return i18n.t("workspace:delegatedTask.thisDelegationHasUsedEveryAttemptIt"); },
+    get cancelled() { return i18n.t("workspace:delegatedTask.aStoppedDelegationCannotBeStartedAgain"); },
+    get "concurrency-limit-reached"() { return i18n.t("workspace:delegatedTask.thisTaskAlreadyHasAsManyLive"); },
+    get "input-mismatch"() { return i18n.t("workspace:delegatedTask.thisDelegationKeyAlreadyNamesAChild"); },
+    get "invalid-ownership"() { return i18n.t("workspace:delegatedTask.thisTaskDoesNotOwnTheDelegation"); },
+    get "invalid-request"() { return i18n.t("workspace:delegatedTask.thisActionWasNotUnderstood"); },
+    get "invalid-state"() { return i18n.t("workspace:delegatedTask.theChildIsNotInAState"); },
+    get "not-found"() { return i18n.t("workspace:delegatedTask.thisDelegationIsNoLongerOnThe"); },
+    get "run-conflict"() { return i18n.t("workspace:delegatedTask.theDelegationChangedWhileThisActionWas"); },
+    get "stale-execution"() { return i18n.t("workspace:delegatedTask.theChildMovedOnToAnotherExecution"); },
+    get "stale-identity"() { return i18n.t("workspace:delegatedTask.theChildSIdentityChangedBeforeThis"); },
+    get "step-conflict"() { return i18n.t("workspace:delegatedTask.theDelegationChangedWhileThisActionWas"); },
+    get "workspace-unavailable"() { return i18n.t("workspace:delegatedTask.theChildSWorkspaceCouldNotBe"); },
+    get "workspace-writer-busy"() { return i18n.t("workspace:delegatedTask.anotherSubagentIsWritingInThisWorkspace"); },
   };
 
 export function describeDelegatedTaskRejection(reason: DelegatedTaskRejectionReason) {

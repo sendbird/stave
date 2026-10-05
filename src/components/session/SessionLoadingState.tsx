@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { ThinkingOrb } from "thinking-orbs";
 import {
   Empty,
@@ -18,6 +19,7 @@ interface SessionLoadingStateProps {
 }
 
 export function SessionLoadingState(args: SessionLoadingStateProps) {
+  useTranslation();
   return (
     <section className={sx(styles.section)}>
       <Empty data-testid={args.testId} xstyle={styles.empty}>

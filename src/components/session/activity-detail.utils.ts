@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { historyText, type AgentHistoryEntry } from "@/lib/providers/agent-history";
 import type { ChatMessage, MessagePart } from "@/types/chat";
 
@@ -48,11 +49,11 @@ function describePart(part: MessagePart, role: ChatMessage["role"]) {
   switch (part.type) {
     case "text":
       return {
-        title: role === "user" ? "Prompt" : "Response",
+        title: role === "user" ? i18n.t("session:activityDetailUtils.title") : i18n.t("session:activityDetailUtils.title2"),
         text: part.text,
       };
     case "thinking":
-      return { title: "Thinking", text: part.text };
+      return { title: i18n.t("session:activityDetailUtils.title3"), text: part.text };
     case "tool_use":
       return {
         title: `${part.toolName} · ${part.state}`,
@@ -75,20 +76,20 @@ function describePart(part: MessagePart, role: ChatMessage["role"]) {
         text: historyText({ questions: part.questions, answers: part.answers }),
       };
     case "system_event":
-      return { title: "System event", text: part.content };
+      return { title: i18n.t("session:activityDetailUtils.title4"), text: part.content };
     case "code_diff":
-      return { title: `Code change · ${part.status}`, text: part.filePath };
+      return { title: i18n.t("session:activityDetailUtils.title5", { value1: part.status }), text: part.filePath };
     case "file_context":
-      return { title: "File context", text: part.filePath };
+      return { title: i18n.t("session:activityDetailUtils.title6"), text: part.filePath };
     case "image_context":
-      return { title: "Image context", text: part.label };
+      return { title: i18n.t("session:activityDetailUtils.title7"), text: part.label };
     case "workspace_information_context":
       return {
-        title: "Workspace context",
-        text: "Workspace information was attached to this turn.",
+        title: i18n.t("session:activityDetailUtils.title8"),
+        text: i18n.t("session:activityDetailUtils.text"),
       };
     case "task_context":
-      return { title: "Task context", text: part.title };
+      return { title: i18n.t("session:activityDetailUtils.title9"), text: part.title };
   }
 }
 

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AppState } from "@/store/app-store.types";
@@ -99,6 +100,7 @@ import {
 import { createDefaultProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
 
 const LOCAL_ABORT_SYSTEM_EVENT_CONTENT =
+  // i18n-ignore: canonical transcript marker; renderer translates its presentation.
   "Generation was stopped locally before completion.";
 export { WORKSPACE_SIDEBAR_MIN_WIDTH } from "@/store/layout.utils";
 export type { LayoutState } from "@/store/layout.utils";
@@ -262,6 +264,7 @@ function clearRestoredTaskProviderSession(args: {
 }
 
 const ARCHIVED_TASK_TURN_NOTICE =
+  // i18n-ignore: canonical transcript marker; renderer translates its presentation.
   "Generation stopped because the task was archived before this turn completed.";
 export const STAVE_OPEN_SETTINGS_EVENT = "stave:open-settings";
 const WORKSPACE_PR_STATUS_FRESH_MS = 4 * 60 * 1000;
@@ -1219,7 +1222,7 @@ export const useAppStore = create<AppState>()(
         fetchedAt: null,
         skills: [],
         roots: [],
-        detail: "Skill catalog has not been loaded yet.",
+        detail: i18n.t("notifications:appStore.skillCatalogHasNotBeenLoadedYet"),
       },
       notifications: [],
       reviewCommentsByTask: {},

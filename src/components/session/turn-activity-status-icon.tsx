@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   Bot,
   CheckCircle2,
@@ -40,18 +41,18 @@ export const TURN_ACTIVITY_ICONS: Record<TurnActivityIconKey, LucideIcon> = {
 
 export function getTurnActivityStatusLabel(status: TurnActivityRowStatus) {
   if (status === "completed") {
-    return "Done";
+    return i18n.t("session:turnActivityStatusIcon.getTurnActivityStatusLabel");
   }
   if (status === "failed") {
-    return "Failed";
+    return i18n.t("session:turnActivityStatusIcon.getTurnActivityStatusLabel2");
   }
   if (status === "waiting") {
-    return "Waiting";
+    return i18n.t("session:turnActivityStatusIcon.getTurnActivityStatusLabel3");
   }
   if (status === "pending") {
-    return "Queued";
+    return i18n.t("session:turnActivityStatusIcon.getTurnActivityStatusLabel4");
   }
-  return "Running";
+  return i18n.t("session:turnActivityStatusIcon.getTurnActivityStatusLabel5");
 }
 
 export function TurnActivityStatusIcon({
@@ -68,6 +69,7 @@ export function TurnActivityStatusIcon({
    */
   label?: string;
 }) {
+  useTranslation();
   if (status === "completed") {
     return (
       <span className={sx(styles.slot)}>
@@ -75,7 +77,7 @@ export function TurnActivityStatusIcon({
           className={sx(styles.iconLg, styles.success)}
           aria-hidden
         />
-        <VisuallyHidden>{label ?? "Done"}</VisuallyHidden>
+        <VisuallyHidden>{label ?? i18n.t("session:turnActivityStatusIcon.turnActivityStatusIcon")}</VisuallyHidden>
       </span>
     );
   }
@@ -83,7 +85,7 @@ export function TurnActivityStatusIcon({
     return (
       <span className={sx(styles.slot)}>
         <CircleAlert className={sx(styles.iconLg, styles.danger)} aria-hidden />
-        <VisuallyHidden>{label ?? "Failed"}</VisuallyHidden>
+        <VisuallyHidden>{label ?? i18n.t("session:turnActivityStatusIcon.turnActivityStatusIcon2")}</VisuallyHidden>
       </span>
     );
   }
@@ -94,7 +96,7 @@ export function TurnActivityStatusIcon({
           className={sx(styles.iconLg, styles.warning)}
           aria-hidden
         />
-        <VisuallyHidden>{label ?? "Waiting"}</VisuallyHidden>
+        <VisuallyHidden>{label ?? i18n.t("session:turnActivityStatusIcon.turnActivityStatusIcon3")}</VisuallyHidden>
       </span>
     );
   }
@@ -102,7 +104,7 @@ export function TurnActivityStatusIcon({
     return (
       <span className={sx(styles.slot)}>
         <Circle className={sx(styles.iconSm, styles.pending)} aria-hidden />
-        <VisuallyHidden>{label ?? "Queued"}</VisuallyHidden>
+        <VisuallyHidden>{label ?? i18n.t("session:turnActivityStatusIcon.turnActivityStatusIcon4")}</VisuallyHidden>
       </span>
     );
   }
@@ -110,7 +112,7 @@ export function TurnActivityStatusIcon({
   return (
     <span className={sx(styles.slot)}>
       <Icon className={sx(styles.iconSm, styles.running)} aria-hidden />
-      <VisuallyHidden>{label ?? "Running"}</VisuallyHidden>
+      <VisuallyHidden>{label ?? i18n.t("session:turnActivityStatusIcon.turnActivityStatusIcon5")}</VisuallyHidden>
     </span>
   );
 }

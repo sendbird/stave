@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ListTodo } from "lucide-react";
 import type { CSSProperties } from "react";
 import * as stylex from "@stylexjs/stylex";
@@ -14,6 +15,7 @@ import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
 export function TopBarIssues(props: { noDragStyle: CSSProperties }) {
+  useTranslation();
   const [toggleIssues, isIssuesActive] = useAppStore(
     useShallow(
       (state) =>
@@ -23,7 +25,7 @@ export function TopBarIssues(props: { noDragStyle: CSSProperties }) {
   const attention = useTrackerIssuesAttention();
   const attentionCount = attention.overdue + attention.dueToday;
 
-  const dueLabel = `${attentionCount} ticket${attentionCount === 1 ? "" : "s"} due`;
+  const dueLabel = i18n.t("shell:topBarIssues.ticketDue", { count: attentionCount });
 
   return (
     <Tooltip>
@@ -39,7 +41,7 @@ export function TopBarIssues(props: { noDragStyle: CSSProperties }) {
               isIssuesActive && layoutShellStyles.topBarButtonActive,
             ]}
             style={props.noDragStyle}
-            aria-label={isIssuesActive ? "close-tasks" : "open-tasks"}
+            aria-label={isIssuesActive ? i18n.t("shell:topBarIssues.closeTasks") : i18n.t("shell:topBarIssues.openTasks")}
             aria-pressed={isIssuesActive}
             onClick={toggleIssues}
             indicator={
@@ -54,10 +56,10 @@ export function TopBarIssues(props: { noDragStyle: CSSProperties }) {
       </TooltipTrigger>
       <TooltipContent side="bottom">
         {isIssuesActive
-          ? "Close Issues"
+          ? i18n.t("shell:topBarIssues.closeIssues")
           : attentionCount > 0
-            ? `Issues · ${dueLabel}`
-            : "Issues"}
+            ? i18n.t("shell:topBarIssues.issues", { value1: dueLabel })
+            : i18n.t("shell:topBarIssues.issues2")}
       </TooltipContent>
     </Tooltip>
   );

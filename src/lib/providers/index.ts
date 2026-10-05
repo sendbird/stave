@@ -1,10 +1,11 @@
+import { i18n } from "@/i18n/runtime";
 import { createBridgeProviderSource, hasBridgeProviderSource } from "@/lib/providers/bridge.source";
 import { createProviderAdapter } from "@/lib/providers/adapter.factory";
 import type { NormalizedProviderEvent, ProviderAdapter, ProviderEventSource, ProviderId } from "@/lib/providers/provider.types";
 
 const bridgeUnavailableSource: ProviderEventSource<NormalizedProviderEvent> = {
   async *streamTurn() {
-    yield { type: "system", content: "Provider bridge unavailable. Use bun run dev:desktop or bun run dev:all." };
+    yield { type: "system", get content() { return i18n.t("providers:index.providerBridgeUnavailableUseBunRun"); } };
     yield { type: "done" };
   },
 };

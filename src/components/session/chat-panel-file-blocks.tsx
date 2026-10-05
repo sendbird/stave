@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { DiffViewer } from "@/components/ads/components/DiffViewer";
 import { FileChangeSummary } from "@/components/ads/components/FileChangeSummary";
@@ -70,12 +71,13 @@ function OpenedFileDiff(args: {
   displayFilePath: string;
   filePath: string;
 }) {
+  useTranslation();
   const language = languageFromFilePath(args.filePath);
   const highlighter = useDiffLineHighlighter(language);
   return (
     <DiffViewer
       after={args.after}
-      aria-label={`Diff for ${args.displayFilePath}`}
+      aria-label={i18n.t("session:chatPanelFileBlocks.ariaLabel", { value1: args.displayFilePath })}
       before={args.before}
       granularity="word"
       highlighter={highlighter}
@@ -87,6 +89,7 @@ function OpenedFileDiff(args: {
 }
 
 function ChangeCount(args: { value: number; tone: "added" | "removed" }) {
+  useTranslation();
   return (
     <span
       className={sx(
@@ -114,6 +117,7 @@ export function ChangedFilesBlock(args: {
    */
   readOnly?: boolean;
 }) {
+  useTranslation();
   const { parts, taskId, messageId, startIndex = 0, readOnly = false } = args;
   const resolveDiff = useAppStore((state) => state.resolveDiff);
   const openDiffInEditor = useAppStore((state) => state.openDiffInEditor);
@@ -187,8 +191,7 @@ export function ChangedFilesBlock(args: {
       <div className={sx(styles.cardHeader)}>
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleSmall)}>
-            {parts.length} {parts.length === 1 ? "file" : "files"} edited
-          </span>
+            {parts.length} {parts.length === 1 ? i18n.t("session:chatPanelFileBlocks.changedFilesBlock") : i18n.t("session:chatPanelFileBlocks.changedFilesBlock2")} {i18n.t("session:chatPanelFileBlocks.changedFilesBlock3")}</span>
           <ChangeCount value={totalAdded} tone="added" />
           <ChangeCount value={totalRemoved} tone="removed" />
           {/* "Pending" is a not-yet state, not a fault, and `failed` two
@@ -196,7 +199,7 @@ export function ChangedFilesBlock(args: {
               collapsed two counts that mean different things onto one pair.
               A queue length is a tally, so it reads neutral. */}
           {pendingCount > 0 ? (
-            <Badge variant="secondary">{pendingCount} pending</Badge>
+            <Badge variant="secondary">{pendingCount} {i18n.t("session:chatPanelFileBlocks.changedFilesBlock4")}</Badge>
           ) : null}
         </div>
         <Button
@@ -210,8 +213,7 @@ export function ChangedFilesBlock(args: {
             });
           }}
         >
-          Open All
-        </Button>
+          {i18n.t("session:chatPanelFileBlocks.changedFilesBlock5")}</Button>
       </div>
       <div className={sx(styles.divideList)}>
         {rows.map((row, index) => {
@@ -268,8 +270,7 @@ export function ChangedFilesBlock(args: {
                       variant="outline"
                       onClick={() => openDiff({ part: row.part, index })}
                     >
-                      Open in Editor
-                    </Button>
+                      {i18n.t("session:chatPanelFileBlocks.copy")}</Button>
                     {isPendingDiff ? (
                       <>
                         <Button
@@ -283,8 +284,7 @@ export function ChangedFilesBlock(args: {
                             })
                           }
                         >
-                          Accept
-                        </Button>
+                          {i18n.t("session:chatPanelFileBlocks.copy2")}</Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -297,8 +297,7 @@ export function ChangedFilesBlock(args: {
                             })
                           }
                         >
-                          Reject
-                        </Button>
+                          {i18n.t("session:chatPanelFileBlocks.copy3")}</Button>
                       </>
                     ) : null}
                   </div>
@@ -321,6 +320,7 @@ export function FileChangeSummaryBlock(args: {
   /** Replaces the "N files changed" header. */
   title?: string;
 }) {
+  useTranslation();
   const { rows } = args;
   const openFileFromTree = useAppStore((state) => state.openFileFromTree);
   const workspaceCwd = useAppStore(
@@ -382,16 +382,16 @@ export function FileChangeSummaryBlock(args: {
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleBody)}>
             {args.title ??
-              `${normalizedRows.length} ${normalizedRows.length === 1 ? "file" : "files"} changed`}
+              i18n.t("session:chatPanelFileBlocks.fileChangeSummaryBlock", { value1: normalizedRows.length, count: normalizedRows.length })}
           </span>
           {appliedCount > 0 ? (
-            <Badge variant="success">{appliedCount} applied</Badge>
+            <Badge variant="success">{appliedCount} {i18n.t("session:chatPanelFileBlocks.fileChangeSummaryBlock2")}</Badge>
           ) : null}
           {skippedCount > 0 ? (
-            <Badge variant="warning">{skippedCount} skipped</Badge>
+            <Badge variant="warning">{skippedCount} {i18n.t("session:chatPanelFileBlocks.fileChangeSummaryBlock3")}</Badge>
           ) : null}
           {failedCount > 0 ? (
-            <Badge variant="destructive">{failedCount} failed</Badge>
+            <Badge variant="destructive">{failedCount} {i18n.t("session:chatPanelFileBlocks.fileChangeSummaryBlock4")}</Badge>
           ) : null}
         </div>
       </div>
@@ -415,8 +415,7 @@ export function FileChangeSummaryBlock(args: {
               className={sx(styles.shrink0)}
               onClick={() => void openFileFromTree({ filePath: openFilePath })}
             >
-              Open
-            </Button>
+              {i18n.t("session:chatPanelFileBlocks.copy4")}</Button>
           </div>
         ))}
       </div>
@@ -425,6 +424,7 @@ export function FileChangeSummaryBlock(args: {
 }
 
 export function FileChangeToolBlock(args: { input: string }) {
+  useTranslation();
   const rows = useMemo(
     () => parseFileChangeToolInput(args.input),
     [args.input],
@@ -436,6 +436,7 @@ export function FileChangeToolBlock(args: { input: string }) {
 }
 
 export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
+  useTranslation();
   const { parts } = args;
   const openFileFromTree = useAppStore((state) => state.openFileFromTree);
   const workspaceCwd = useAppStore(
@@ -471,7 +472,7 @@ export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleSmall)}>
             {parts.length}{" "}
-            {parts.length === 1 ? "referenced file" : "referenced files"}
+            {parts.length === 1 ? i18n.t("session:chatPanelFileBlocks.referencedFilesBlock") : i18n.t("session:chatPanelFileBlocks.referencedFilesBlock2")}
           </span>
         </div>
         <Button
@@ -488,8 +489,7 @@ export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
           }}
           disabled={parts.length === 0}
         >
-          Open
-        </Button>
+          {i18n.t("session:chatPanelFileBlocks.referencedFilesBlock3")}</Button>
       </div>
       <div className={sx(styles.divideList)}>
         {resolvedParts.map(({ part, displayFilePath, openFilePath }, index) => {
@@ -547,8 +547,7 @@ export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
                         void openFileFromTree({ filePath: openFilePath })
                       }
                     >
-                      Open in Editor
-                    </Button>
+                      {i18n.t("session:chatPanelFileBlocks.copy5")}</Button>
                   </div>
                 </div>
               ) : null}
@@ -561,6 +560,7 @@ export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
 }
 
 export function ImageAttachmentBlock(args: { parts: ImageContextPart[] }) {
+  useTranslation();
   const [previewSrc, setPreviewSrc] = useState<{
     dataUrl: string;
     label: string;
@@ -575,7 +575,7 @@ export function ImageAttachmentBlock(args: { parts: ImageContextPart[] }) {
               src={part.dataUrl}
               alt={part.label}
               className={sx(styles.image)}
-              title="Click to view full size"
+              title={i18n.t("session:chatPanelFileBlocks.title")}
               onClick={() =>
                 setPreviewSrc({ dataUrl: part.dataUrl, label: part.label })
               }
@@ -587,7 +587,7 @@ export function ImageAttachmentBlock(args: { parts: ImageContextPart[] }) {
       <ImageLightbox
         open={Boolean(previewSrc)}
         imageSrc={previewSrc?.dataUrl ?? ""}
-        alt={previewSrc?.label ?? "Image preview"}
+        alt={previewSrc?.label ?? i18n.t("session:chatPanelFileBlocks.alt")}
         onClose={() => setPreviewSrc(null)}
       />
     </>

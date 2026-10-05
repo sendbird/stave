@@ -60,6 +60,7 @@ const SiteUrlSchema = z
         message:
           error instanceof Error
             ? error.message
+            // i18n-ignore: protocol schema validation detail; callers provide localized UI summaries
             : "Enter a valid Jira site URL.",
       });
     }

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -18,11 +19,12 @@ import { agentRunResultStyles as styles } from "./agent-run-result.styles";
 import { agentRunStyles } from "./agent-runs.styles";
 
 function pluralFiles(count: number) {
-  return `${count} ${count === 1 ? "file" : "files"}`;
+  return i18n.t("agentRuns:counts.files", { count });
 }
 
 /** What a ready run produced: the changes, the pull request, the summary, and what to do next. */
 export function AgentRunOutcome(props: { result: AgentRunResult; actions?: AgentRunActions }) {
+  useTranslation();
   const { result, actions = {} } = props;
   return (
     <>
@@ -35,20 +37,18 @@ export function AgentRunOutcome(props: { result: AgentRunResult; actions?: Agent
               <span className={sx(agentRunStyles.removed)}>−{result.changes.deletions}</span>
             </span>
           ) : null}
-          {result.pullRequest ? <span>PR #{result.pullRequest.number}</span> : null}
+          {result.pullRequest ? <span>{i18n.t("agentRuns:agentRunResultCard.agentRunOutcome")}{result.pullRequest.number}</span> : null}
         </p>
       ) : null}
       {result.summary ? <p className={sx(styles.summary)}>{result.summary}</p> : null}
       <div className={sx(styles.actions)}>
         {actions.onAskForChanges ? (
           <Button size="xs" variant="secondary" onClick={actions.onAskForChanges}>
-            Ask for changes
-          </Button>
+            {i18n.t("agentRuns:agentRunResultCard.agentRunOutcome2")}</Button>
         ) : null}
         {result.pullRequest && actions.onOpenPullRequest ? (
           <Button size="xs" variant="secondary" onClick={() => actions.onOpenPullRequest!(result.pullRequest!.url)}>
-            Open PR
-            <ArrowUpRight aria-hidden />
+            {i18n.t("agentRuns:agentRunResultCard.agentRunOutcome3")}<ArrowUpRight aria-hidden />
           </Button>
         ) : null}
       </div>
@@ -71,6 +71,7 @@ export function AgentRunResultCardView(props: {
   /** When the transcript's last message started; a later one makes the card history. */
   lastMessageStartedAt?: string | null;
 }) {
+  useTranslation();
   const { detail, actions = {} } = props;
   const kind = selectAgentRunCard({ detail, lastMessageStartedAt: props.lastMessageStartedAt });
   if (!kind) return null;
@@ -94,7 +95,7 @@ export function AgentRunResultCardView(props: {
       {ready ? (
         <>
           <div className={sx(styles.group)}>
-            <p className={sx(agentRunStyles.groupLabel)}>Done when</p>
+            <p className={sx(agentRunStyles.groupLabel)}>{i18n.t("agentRuns:agentRunResultCard.agentRunResultCardView")}</p>
             <AgentRunDoneWhen lines={result.doneWhen} staveChecks={result.staveChecks} />
           </div>
           <AgentRunOutcome result={result} actions={actions} />
@@ -105,13 +106,11 @@ export function AgentRunResultCardView(props: {
           <div className={sx(styles.actions)}>
             {actions.onRetry ? (
               <Button size="xs" variant="secondary" disabled={actions.busy} onClick={actions.onRetry}>
-                Retry
-              </Button>
+                {i18n.t("agentRuns:agentRunResultCard.agentRunResultCardView2")}</Button>
             ) : null}
             {actions.onTakeControl ? (
               <Button size="xs" variant="quiet" disabled={actions.busy} onClick={actions.onTakeControl}>
-                Take control
-              </Button>
+                {i18n.t("agentRuns:agentRunResultCard.agentRunResultCardView3")}</Button>
             ) : null}
           </div>
         </>
@@ -122,6 +121,7 @@ export function AgentRunResultCardView(props: {
 
 /** The card for the scoped task, at the end of its conversation. */
 export function AgentRunResultCard(props: { taskId: string }) {
+  useTranslation();
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const detail = useTaskAgentRun(workspaceId, props.taskId);
   const lastStartedAt = useAppStore((state) => {

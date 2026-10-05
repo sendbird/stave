@@ -1,3 +1,4 @@
+import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { KeyRound, Plug, RotateCcw, Trash2 } from "lucide-react";
 import {
@@ -32,18 +33,18 @@ import { jiraConnectorStyles as styles } from "./settings-dialog-jira-connector.
 // read-back. Failure copy is derived from `lastErrorCode` alone because a Jira
 // error body can quote the JQL and request headers.
 const ERROR_COPY: Record<string, string> = {
-  unauthorized: "Jira rejected the email and API token.",
-  forbidden: "This account cannot read the requested issues.",
-  invalid_jql: "Jira rejected the search query.",
-  not_found: "The site responded, but the resource was not found.",
-  rate_limited: "Jira is rate limiting requests. Try again shortly.",
-  server_error: "Jira reported a server error.",
-  network_unavailable: "Jira could not be reached from this machine.",
-  response_too_large: "The Jira response was too large to read.",
-  invalid_response: "Jira returned an unexpected response.",
-  not_configured: "Add a site URL and an API token first.",
-  secure_storage_unavailable: "OS credential encryption is unavailable.",
-  request_failed: "The Jira request failed.",
+  get unauthorized() { return i18n.t("settingsConnections:settingsDialogJiraConnector.jiraRejectedTheEmailAndAPI"); },
+  get forbidden() { return i18n.t("settingsConnections:settingsDialogJiraConnector.thisAccountCannotReadTheRequested"); },
+  get invalid_jql() { return i18n.t("settingsConnections:settingsDialogJiraConnector.jiraRejectedTheSearchQuery"); },
+  get not_found() { return i18n.t("settingsConnections:settingsDialogJiraConnector.theSiteRespondedButTheResource"); },
+  get rate_limited() { return i18n.t("settingsConnections:settingsDialogJiraConnector.jiraIsRateLimitingRequestsTry"); },
+  get server_error() { return i18n.t("settingsConnections:settingsDialogJiraConnector.jiraReportedAServerError"); },
+  get network_unavailable() { return i18n.t("settingsConnections:settingsDialogJiraConnector.jiraCouldNotBeReachedFrom"); },
+  get response_too_large() { return i18n.t("settingsConnections:settingsDialogJiraConnector.theJiraResponseWasTooLarge"); },
+  get invalid_response() { return i18n.t("settingsConnections:settingsDialogJiraConnector.jiraReturnedAnUnexpectedResponse"); },
+  get not_configured() { return i18n.t("settingsConnections:settingsDialogJiraConnector.addASiteURLAndAn"); },
+  get secure_storage_unavailable() { return i18n.t("settingsConnections:settingsDialogJiraConnector.osCredentialEncryptionIsUnavailable"); },
+  get request_failed() { return i18n.t("settingsConnections:settingsDialogJiraConnector.theJiraRequestFailed"); },
 };
 
 function errorCopy(code: string | null | undefined): string {
@@ -59,6 +60,7 @@ type BusyKey = "credential" | "clear" | "test";
 type JiraReply = { ok: boolean; status: JiraConnectorPublicStatus };
 
 export function JiraConnectorSettingsSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const connector = useAppStore((state) => state.settings.jiraConnector);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const repositories = useAppStore((state) => state.recentRepositories);
@@ -113,7 +115,7 @@ export function JiraConnectorSettingsSection() {
     call: (() => Promise<JiraReply>) | undefined | null,
   ): Promise<JiraReply | null> => {
     if (!call) {
-      toast.error("Jira connector controls are unavailable.");
+      toast.error(i18n.t("settingsConnections:settingsDialogJiraConnector.jiraConnectorControlsAreUnavailable"));
       return null;
     }
     setBusy(key);
@@ -145,7 +147,7 @@ export function JiraConnectorSettingsSection() {
       save({ siteUrl: normalized });
     } catch (error) {
       setSiteUrlError(
-        error instanceof Error ? error.message : "Enter a valid Jira site URL.",
+        error instanceof Error ? error.message : i18n.t("settingsConnections:settingsDialogJiraConnector.enterAValidJiraSiteURL"),
       );
     }
   };
@@ -158,7 +160,7 @@ export function JiraConnectorSettingsSection() {
     );
     if (!result) return;
     if (!result.ok) {
-      toast.error("Jira did not accept the credential", {
+      toast.error(i18n.t("settingsConnections:settingsDialogJiraConnector.jiraDidNotAcceptTheCredential"), {
         description: errorCopy(result.status.lastErrorCode),
       });
       return;
@@ -169,7 +171,7 @@ export function JiraConnectorSettingsSection() {
     setToken("");
     setReplacing(false);
     setTestCode("ok");
-    toast.success("Jira credential stored.");
+    toast.success(i18n.t("settingsConnections:settingsDialogJiraConnector.jiraCredentialStored"));
   };
 
   const clearCredential = async () => {
@@ -177,7 +179,7 @@ export function JiraConnectorSettingsSection() {
     if (!(await invoke("clear", call && (() => call())))) return;
     setTestCode(null);
     setReplacing(false);
-    toast.success("Jira credential removed from this device.");
+    toast.success(i18n.t("settingsConnections:settingsDialogJiraConnector.jiraCredentialRemovedFromThisDevice"));
   };
 
   const testConnection = async () => {
@@ -195,11 +197,11 @@ export function JiraConnectorSettingsSection() {
   const addMapping = () => {
     const key = mappingKey.trim().toUpperCase();
     if (!PROJECT_KEY_PATTERN.test(key) || mappingPath.length === 0) {
-      toast.error("Enter a Jira project key and pick a registered project.");
+      toast.error(i18n.t("settingsConnections:settingsDialogJiraConnector.enterAJiraProjectKeyAnd"));
       return;
     }
     if (connector.repositoryMappings.some((row) => row.jiraProjectKey === key)) {
-      toast.error(`${key} is already mapped.`);
+      toast.error(i18n.t("settingsConnections:settingsDialogJiraConnector.isAlreadyMapped", { value1: key }));
       return;
     }
     save({
@@ -232,16 +234,14 @@ export function JiraConnectorSettingsSection() {
           <div className={sx(styles.headerTitleLine)}>
             <h3 className={sx(styles.headerTitle)}>Jira</h3>
             <Badge variant={configured ? "success" : "outline"}>
-              {configured ? "Credential stored" : "Not connected"}
+              {configured ? t("settingsConnections:settingsDialogJiraConnector.credentialStored") : t("settingsConnections:settingsDialogJiraConnector.notConnected")}
             </Badge>
           </div>
           <p className={sx(styles.headerHint)}>
-            Read your assigned issues over outbound HTTPS. The API token stays
-            in this machine&apos;s credential vault and is never readable here.
-          </p>
+            {t("settingsConnections:settingsDialogJiraConnector.readYourAssignedIssuesOverOutbound")}</p>
         </div>
         <Switch
-          aria-label="Enable Jira as a task source"
+          aria-label={t("settingsConnections:settingsDialogJiraConnector.enableJiraAsATaskSource")}
           checked={connector.enabled}
           disabled={busy !== null}
           onCheckedChange={(checked) => save({ enabled: checked })}
@@ -250,9 +250,9 @@ export function JiraConnectorSettingsSection() {
 
       <div className={sx(styles.body)}>
         <div className={sx(styles.field)}>
-          <span className={sx(styles.fieldLabel)}>Site URL</span>
+          <span className={sx(styles.fieldLabel)}>{t("settingsConnections:settingsDialogJiraConnector.siteURL")}</span>
           <Input
-            aria-label="Jira site URL"
+            aria-label={t("settingsConnections:settingsDialogJiraConnector.jiraSiteURL")}
             aria-invalid={siteUrlError !== null}
             value={siteUrl}
             placeholder="https://your-team.atlassian.net"
@@ -267,25 +267,23 @@ export function JiraConnectorSettingsSection() {
             )}
           >
             {siteUrlError ??
-              "HTTPS only. A path prefix is kept, so a site proxied at /jira works."}
+              t("settingsConnections:settingsDialogJiraConnector.httpsOnlyAPathPrefixIs")}
           </p>
         </div>
 
         <div className={sx(styles.tokenPanel)}>
-          <h4 className={sx(styles.panelTitle)}>API token</h4>
+          <h4 className={sx(styles.panelTitle)}>{t("settingsConnections:settingsDialogJiraConnector.apiToken")}</h4>
           <p className={sx(styles.hint)}>
-            Create a token in your Atlassian account settings. It is verified
-            once, then stored encrypted and never read back into this window.
-          </p>
+            {t("settingsConnections:settingsDialogJiraConnector.createATokenInYourAtlassian")}</p>
 
           {configured ? (
             <div className={sx(styles.accountRow)}>
               <div className={sx(styles.accountMeta)}>
                 <p className={sx(styles.accountName)}>
-                  {status?.displayName ?? "Connected account"}
+                  {status?.displayName ?? t("settingsConnections:settingsDialogJiraConnector.connectedAccount")}
                 </p>
                 <p className={sx(styles.accountId)}>
-                  {status?.accountId ?? "Account id unavailable"}
+                  {status?.accountId ?? t("settingsConnections:settingsDialogJiraConnector.accountIdUnavailable")}
                 </p>
               </div>
               <div className={sx(styles.accountActions)}>
@@ -300,7 +298,7 @@ export function JiraConnectorSettingsSection() {
                     setReplacing(!replacing);
                   }}
                 >
-                  {replacing ? "Cancel" : "Replace"}
+                  {replacing ? t("common:actions.cancel") : t("settings:general.soundControls.replace")}
                 </Button>
                 <Button
                   type="button"
@@ -310,8 +308,7 @@ export function JiraConnectorSettingsSection() {
                   onClick={() => void clearCredential()}
                 >
                   {spinner("clear", Trash2)}
-                  Clear
-                </Button>
+                  {t("common:actions.clear")}</Button>
               </div>
             </div>
           ) : null}
@@ -319,7 +316,7 @@ export function JiraConnectorSettingsSection() {
           {configured && !replacing ? null : (
             <div className={sx(styles.credentialGrid)}>
               <Input
-                aria-label="Jira account email"
+                aria-label={t("settingsConnections:settingsDialogJiraConnector.jiraAccountEmail")}
                 type="email"
                 placeholder="you@example.com"
                 value={email}
@@ -328,9 +325,9 @@ export function JiraConnectorSettingsSection() {
                 autoComplete="off"
               />
               <Input
-                aria-label="Jira API token"
+                aria-label={t("settingsConnections:settingsDialogJiraConnector.jiraAPIToken")}
                 type="password"
-                placeholder="API token"
+                placeholder={t("settingsConnections:settingsDialogJiraConnector.apiToken")}
                 value={token}
                 onChange={(event) => setToken(event.target.value)}
                 maxLength={512}
@@ -344,23 +341,20 @@ export function JiraConnectorSettingsSection() {
                 onClick={() => void saveCredential()}
               >
                 {spinner("credential", KeyRound)}
-                Save
-              </Button>
+                {t("common:actions.save")}</Button>
             </div>
           )}
 
           {canStore ? null : (
             <p className={sx(styles.warning)}>
-              OS credential encryption is unavailable, so the token cannot be
-              stored safely. Saving stays blocked until it returns.
-            </p>
+              {t("settingsConnections:settingsDialogJiraConnector.osCredentialEncryptionIsUnavailableSo")}</p>
           )}
         </div>
 
         <div className={sx(styles.field)}>
-          <span className={sx(styles.fieldLabel)}>Issue query (JQL)</span>
+          <span className={sx(styles.fieldLabel)}>{t("settingsConnections:settingsDialogJiraConnector.issueQueryJQL")}</span>
           <Textarea
-            aria-label="Jira issue query"
+            aria-label={t("settingsConnections:settingsDialogJiraConnector.jiraIssueQuery")}
             value={connector.jql}
             rows={3}
             maxLength={2_000}
@@ -370,9 +364,7 @@ export function JiraConnectorSettingsSection() {
           />
           <div className={sx(styles.jqlFooter)}>
             <p className={sx(styles.hint)}>
-              Runs as the token holder. Keep it narrow: every refresh fetches
-              this whole result page.
-            </p>
+              {t("settingsConnections:settingsDialogJiraConnector.runsAsTheTokenHolderKeep")}</p>
             <Button
               type="button"
               size="xs"
@@ -382,8 +374,7 @@ export function JiraConnectorSettingsSection() {
               onClick={() => save({ jql: DEFAULT_JIRA_JQL })}
             >
               <RotateCcw className={sx(styles.resetIcon)} aria-hidden="true" />
-              Reset to default
-            </Button>
+              {t("settings:reviewCards.tasks.followUp.resetToDefault")}</Button>
           </div>
         </div>
 
@@ -394,16 +385,14 @@ export function JiraConnectorSettingsSection() {
             onValueChange={(value) => save({ maxResults: Number(value) })}
           >
             <SelectTrigger
-              aria-label="Issues per refresh"
+              aria-label={t("settingsConnections:settingsDialogJiraConnector.issuesPerRefresh")}
               className={sx(styles.maxResultsTrigger)}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {MAX_RESULTS_OPTIONS.map((option) => (
-                <SelectItem key={option} value={String(option)}>
-                  {option} issues per refresh
-                </SelectItem>
+                <SelectItem key={option} value={String(option)}>{t("settingsConnections:messages.refreshIssues", { count: option })}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -414,21 +403,18 @@ export function JiraConnectorSettingsSection() {
             onClick={() => void testConnection()}
           >
             {spinner("test", Plug)}
-            Test connection
-          </Button>
+            {t("settingsConnections:settingsDialogJiraConnector.testConnection")}</Button>
           {testCode === null ? null : (
             <Badge variant={testCode === "ok" ? "success" : "destructive"}>
-              {testCode === "ok" ? "Connection works" : errorCopy(testCode)}
+              {testCode === "ok" ? t("settingsConnections:settingsDialogJiraConnector.connectionWorks") : errorCopy(testCode)}
             </Badge>
           )}
         </div>
 
         <div className={sx(styles.mappings)}>
-          <h4 className={sx(styles.panelTitle)}>Project mappings</h4>
+          <h4 className={sx(styles.panelTitle)}>{t("settingsConnections:settingsDialogJiraConnector.projectMappings")}</h4>
           <p className={sx(styles.hint)}>
-            A Jira project key preselects a registered Stave project when a
-            ticket starts a run. Local paths never leave this device.
-          </p>
+            {t("settingsConnections:settingsDialogJiraConnector.aJiraProjectKeyPreselectsA")}</p>
 
           {connector.repositoryMappings.map((mapping, index) => (
             <div key={mapping.jiraProjectKey} className={sx(styles.mappingRow)}>
@@ -437,7 +423,7 @@ export function JiraConnectorSettingsSection() {
                 <p className={sx(styles.mappingName)}>
                   {repositories.find(
                     (p) => p.repositoryPath === mapping.staveProjectPath,
-                  )?.repositoryName ?? "Unregistered project"}
+                  )?.repositoryName ?? i18n.t("settingsConnections:settingsDialogJiraConnector.unregisteredProject")}
                 </p>
                 <p className={sx(styles.mappingPath)}>
                   {mapping.staveProjectPath}
@@ -452,7 +438,7 @@ export function JiraConnectorSettingsSection() {
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                aria-label={`Remove the ${mapping.jiraProjectKey} project mapping`}
+                aria-label={i18n.t("settingsConnections:settingsDialogJiraConnector.removeTheProjectMapping", { value1: mapping.jiraProjectKey })}
                 onClick={() =>
                   save({
                     repositoryMappings: connector.repositoryMappings.filter(
@@ -468,16 +454,16 @@ export function JiraConnectorSettingsSection() {
 
           <div className={sx(styles.mappingForm)}>
             <Input
-              aria-label="Jira project key"
+              aria-label={t("settingsConnections:settingsDialogJiraConnector.jiraProjectKey")}
               value={mappingKey}
               onChange={(event) => setMappingKey(event.target.value)}
-              placeholder="PLAT"
+              placeholder={t("settingsConnections:settingsDialogJiraConnector.plat")}
               maxLength={64}
               autoComplete="off"
             />
             <Select value={mappingPath} onValueChange={setMappingPath}>
-              <SelectTrigger aria-label="Stave project">
-                <SelectValue placeholder="Select a registered project" />
+              <SelectTrigger aria-label={t("settingsConnections:settingsDialogJiraConnector.staveProject")}>
+                <SelectValue placeholder={t("settingsConnections:settingsDialogJiraConnector.selectARegisteredProject")} />
               </SelectTrigger>
               <SelectContent>
                 {repositories.map((repository) => (
@@ -491,8 +477,7 @@ export function JiraConnectorSettingsSection() {
               </SelectContent>
             </Select>
             <Button type="button" variant="outline" onClick={addMapping}>
-              Add mapping
-            </Button>
+              {t("settingsConnections:settingsDialogJiraConnector.addMapping")}</Button>
           </div>
         </div>
       </div>

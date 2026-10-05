@@ -52,7 +52,9 @@ export function buildKickoffSourceEvidence(
     input,
     status: referenceOnly ? "reference-only" : "pasted",
     detail: referenceOnly
+      // i18n-ignore: model-facing source verification instruction
       ? "Source content has not been verified. Read the source before implementing."
+      // i18n-ignore: model-facing source verification instruction
       : "Based on pasted text. Linked pages have not been verified.",
     truncated: false,
   };

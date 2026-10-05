@@ -13,6 +13,7 @@ import {
   Textarea,
   toast,
 } from "@/components/ui";
+import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   REPOSITORY_MEMORY_KINDS,
@@ -28,12 +29,16 @@ import {
 import { informationRow } from "./information-row.styles";
 import { workspaceMemorySectionStyles as styles } from "./workspace-memory-section.styles";
 import { MemoryCollectionInvitation } from "./MemoryCollectionInvitation";
+import { failureMessage } from "./workspace-information/failure-message";
 
-const RECALL_LABELS = {
-  candidate: "Candidate · not used yet",
-  contextual: "When relevant",
-  core: "Always included",
-};
+type RecallMode = (typeof REPOSITORY_MEMORY_RECALL_MODES)[number];
+type MemoryKind = (typeof REPOSITORY_MEMORY_KINDS)[number];
+
+const RECALL_LABEL_KEYS = {
+  candidate: "workspace:memory.recall.candidate",
+  contextual: "workspace:memory.recall.contextual",
+  core: "workspace:memory.recall.core",
+} as const satisfies Record<RecallMode, I18nKey>;
 
 /**
  * The row's own metadata says the mode plainly; the long select labels stay in
@@ -41,11 +46,19 @@ const RECALL_LABELS = {
  * explanation. "Candidate · not used yet" beside a candidate glyph is the
  * explanation twice.
  */
-const RECALL_META_LABELS = {
-  candidate: "Not used yet",
-  contextual: "Used when relevant",
-  core: "Always included",
-};
+const RECALL_META_LABEL_KEYS = {
+  candidate: "workspace:memory.recallMeta.candidate",
+  contextual: "workspace:memory.recallMeta.contextual",
+  core: "workspace:memory.recallMeta.core",
+} as const satisfies Record<RecallMode, I18nKey>;
+
+/** Kinds are stored as protocol values; the label is what a reader sees. */
+const KIND_LABEL_KEYS = {
+  decision: "workspace:memory.kinds.decision",
+  convention: "workspace:memory.kinds.convention",
+  gotcha: "workspace:memory.kinds.gotcha",
+  fact: "workspace:memory.kinds.fact",
+} as const satisfies Record<MemoryKind, I18nKey>;
 
 /**
  * The recall mode is the one thing a reader scans this list for — will the
@@ -68,6 +81,7 @@ export function WorkspaceMemorySection(props: {
   onEntriesChange?: (args: { count: number; loading: boolean }) => void;
 }) {
   const { repositoryPath, refreshKey, onEntriesChange } = props;
+  const { t } = useTranslation(["workspace", "common"]);
   const [items, setItems] = useState<RepositoryMemory[]>([]);
   const [loading, setLoading] = useState(Boolean(repositoryPath));
   const [error, setError] = useState("");
@@ -83,13 +97,13 @@ export function WorkspaceMemorySection(props: {
       const result = await window.api.repositoryMemory.list({ repositoryPath });
       if (request !== generation.current) return;
       if (!result.ok)
-        throw new Error(result.message ?? "Could not load repository memory.");
+        throw new Error(result.message ?? "");
       setItems(result.items);
       setError("");
     } catch (err) {
       if (request === generation.current)
         setError(
-          err instanceof Error ? err.message : "Could not load repository memory.",
+          failureMessage(i18n.t("workspace:memory.section.loadFailed"), err),
         );
     } finally {
       if (request === generation.current) setLoading(false);
@@ -116,7 +130,7 @@ export function WorkspaceMemorySection(props: {
       const result = await window.api?.repositoryMemory?.update?.(patch);
       if (request !== generation.current) return false;
       if (!result?.ok || !result.memory)
-        throw new Error(result?.message ?? "Could not save memory.");
+        throw new Error(result?.message ?? "");
       setItems((current) =>
         current.map((item) => (item.id === patch.id ? result.memory! : item)),
       );
@@ -124,9 +138,7 @@ export function WorkspaceMemorySection(props: {
       return true;
     } catch (err) {
       if (request === generation.current)
-        toast.error(
-          err instanceof Error ? err.message : "Could not save memory.",
-        );
+        toast.error(failureMessage(t("memory.section.saveFailed"), err));
       return false;
     }
   };
@@ -136,19 +148,17 @@ export function WorkspaceMemorySection(props: {
       const result = await window.api?.repositoryMemory?.delete?.({ id });
       if (request !== generation.current) return;
       if (!result?.ok)
-        throw new Error(result?.message ?? "Could not forget memory.");
+        throw new Error(result?.message ?? "");
       window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
     } catch (err) {
       if (request === generation.current)
-        toast.error(
-          err instanceof Error ? err.message : "Could not forget memory.",
-        );
+        toast.error(failureMessage(t("memory.section.forgetFailed"), err));
     }
   };
   if (!repositoryPath)
     return (
       <p className={sx(styles.empty)}>
-        Open a repository to see its memory.
+        {t("memory.section.noRepository")}
       </p>
     );
   return (
@@ -156,15 +166,14 @@ export function WorkspaceMemorySection(props: {
       <MemoryCollectionInvitation key={repositoryPath} repositoryPath={repositoryPath} />
       <details className={sx(styles.controls)}>
         <summary className={sx(styles.controlsSummary)}>
-          Memory settings and actions
+          {t("memory.section.settingsSummary")}
         </summary>
         <div className={sx(styles.controlsBody)}>
           <RepositoryMemoryControls key={repositoryPath} repositoryPath={repositoryPath} />
         </div>
       </details>
       <p className={sx(styles.hint)}>
-        Read the full memory below. Candidates stay out of conversations until
-        reviewed. Edit to change the text or how it is used.
+        {t("memory.section.hint")}
       </p>
       {error && (
         <p role="alert" className={sx(styles.error)}>
@@ -175,14 +184,13 @@ export function WorkspaceMemorySection(props: {
             xstyle={styles.retry}
             onClick={() => void reload()}
           >
-            Retry
+            {t("common:actions.retry")}
           </AdsButton>
         </p>
       )}
       {!loading && !error && !items.length && (
         <p className={sx(styles.empty)}>
-          No memories yet. Once collection is enabled, ask the agent to remember
-          a lasting repository decision.
+          {t("memory.section.empty")}
         </p>
       )}
       {items.length > 0 ? (
@@ -207,6 +215,7 @@ export function MemoryRow(props: {
   onRemove: () => Promise<void>;
 }) {
   const { memory } = props;
+  const { t } = useTranslation(["workspace", "common"]);
   const [editing, setEditing] = useState(false);
   const [confirmingForget, setConfirmingForget] = useState(false);
   const [draft, setDraft] = useState(memory.content);
@@ -277,7 +286,7 @@ export function MemoryRow(props: {
         }}
       >
         <label className={sx(styles.fieldLabel)}>
-          Memory text
+          {t("memory.row.textLabel")}
           <Textarea
             autoFocus
             value={draft}
@@ -289,12 +298,15 @@ export function MemoryRow(props: {
           />
         </label>
         <p className={sx(styles.counter)}>
-          {draft.length} / {REPOSITORY_MEMORY_CONTENT_MAX_CHARS} characters
+          {t("memory.row.counter", {
+            length: draft.length,
+            max: REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
+          })}
         </p>
         <div className={sx(styles.controlRow)}>
           <Select value={kind} onValueChange={setKind} disabled={busy}>
             <SelectTrigger
-              aria-label="Memory kind"
+              aria-label={t("memory.row.kindAriaLabel")}
               className={sx(styles.kindTrigger)}
             >
               <SelectValue />
@@ -302,14 +314,14 @@ export function MemoryRow(props: {
             <SelectContent>
               {REPOSITORY_MEMORY_KINDS.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {value}
+                  {t(KIND_LABEL_KEYS[value])}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={mode} onValueChange={setMode} disabled={busy}>
             <SelectTrigger
-              aria-label="Memory usage"
+              aria-label={t("memory.row.usageAriaLabel")}
               className={sx(styles.modeTrigger)}
             >
               <SelectValue />
@@ -317,7 +329,7 @@ export function MemoryRow(props: {
             <SelectContent>
               {REPOSITORY_MEMORY_RECALL_MODES.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {RECALL_LABELS[value]}
+                  {t(RECALL_LABEL_KEYS[value])}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -325,7 +337,7 @@ export function MemoryRow(props: {
         </div>
         <div className={sx(styles.actionRow)}>
           <Button type="submit" size="sm" disabled={busy || !draft.trim()}>
-            Save memory
+            {t("memory.row.save")}
           </Button>
           <Button
             type="button"
@@ -334,7 +346,7 @@ export function MemoryRow(props: {
             disabled={busy}
             onClick={finish}
           >
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
         </div>
       </form>
@@ -371,9 +383,9 @@ export function MemoryRow(props: {
                 sentence about behaviour, so it stays text. Two bare words at a
                 6px gap read as one phrase — this is the same number/status/repo
                 rhythm the pull-request row uses. */}
-            <Badge variant="outline">{memory.kind}</Badge>
+            <Badge variant="outline">{t(KIND_LABEL_KEYS[memory.kind])}</Badge>
             <span className={sx(informationRow.metaText)}>
-              {RECALL_META_LABELS[memory.recallMode]}
+              {t(RECALL_META_LABEL_KEYS[memory.recallMode])}
             </span>
           </div>
         </div>
@@ -385,8 +397,8 @@ export function MemoryRow(props: {
               disabled={busy}
               onClick={() => void promote()}
               xstyle={styles.rowAction}
-              title="Start using this memory when it is relevant"
-              aria-label={`Start using this memory when relevant: ${memory.content}`}
+              title={t("memory.row.promoteTitle")}
+              aria-label={t("memory.row.promoteAriaLabel", { content: memory.content })}
             >
               <Sparkles className={sx(styles.rowActionIcon)} aria-hidden />
             </AdsButton>
@@ -403,8 +415,8 @@ export function MemoryRow(props: {
               setEditing(true);
             }}
             xstyle={styles.rowAction}
-            title="Edit this memory"
-            aria-label={`Edit memory: ${memory.content}`}
+            title={t("memory.row.editTitle")}
+            aria-label={t("memory.row.editAriaLabel", { content: memory.content })}
           >
             <Pencil className={sx(styles.rowActionIcon)} aria-hidden />
           </AdsButton>
@@ -414,8 +426,8 @@ export function MemoryRow(props: {
             disabled={busy}
             onClick={() => setConfirmingForget(true)}
             xstyle={[styles.rowAction, styles.rowActionDanger]}
-            title="Forget this memory"
-            aria-label={`Forget memory: ${memory.content}`}
+            title={t("memory.row.forgetTitle")}
+            aria-label={t("memory.row.forgetAriaLabel", { content: memory.content })}
           >
             <Trash2 className={sx(styles.rowActionIcon)} aria-hidden />
           </AdsButton>
@@ -427,9 +439,9 @@ export function MemoryRow(props: {
           delete this way. */}
       <ConfirmDialog
         open={confirmingForget}
-        title="Forget this memory?"
-        description={`"${memory.content}" will be removed from this repository's memory. This cannot be undone.`}
-        confirmLabel="Forget memory"
+        title={t("memory.forgetDialog.title")}
+        description={t("memory.forgetDialog.description", { content: memory.content })}
+        confirmLabel={t("memory.forgetDialog.confirm")}
         loading={busy}
         onConfirm={async () => {
           setBusy(true);

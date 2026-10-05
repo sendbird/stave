@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
@@ -195,6 +196,7 @@ export function ComposerStatusTray(props: {
   overflowFooter?: ReactNode;
   disabled?: boolean;
 }) {
+  useTranslation();
   const [open, setOpen] = useState(false);
   const overflowItems = props.overflowItems ?? [];
   const { ref, collapsed } = useStatusTrayCollapsed(
@@ -226,8 +228,8 @@ export function ComposerStatusTray(props: {
                 size="icon-sm"
                 disabled={props.disabled}
                 className={sx(statusTrayStyles.trigger, statusTrayStyles.triggerHover)}
-                aria-label={`More composer controls (${props.items.length + overflowItems.length})`}
-                title="More composer controls"
+                aria-label={i18n.t("composer:composerStatusTray.ariaLabel", { value1: props.items.length + overflowItems.length })}
+                title={i18n.t("composer:composerStatusTray.title")}
               />
             }
           >

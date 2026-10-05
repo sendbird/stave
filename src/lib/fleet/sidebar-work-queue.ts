@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { FleetAttentionKind } from "./attention-projection";
 import { getFleetAttentionTier } from "./attention-projection";
 import type { FleetTaskStatus } from "./task-status";
@@ -42,10 +43,10 @@ export const SIDEBAR_WORK_QUEUE_LANE_LABEL: Record<
   SidebarWorkQueueLane,
   string
 > = {
-  "action-required": "Action required",
-  "in-progress": "In progress",
-  "in-review": "In review",
-  idle: "Idle",
+  get "action-required"() { return i18n.t("fleet:sidebarWorkQueue.actionRequired"); },
+  get "in-progress"() { return i18n.t("fleet:sidebarWorkQueue.inProgress"); },
+  get "in-review"() { return i18n.t("fleet:sidebarWorkQueue.inReview"); },
+  get idle() { return i18n.t("fleet:sidebarWorkQueue.idle"); },
 };
 
 /**

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { AppNotification } from "@/lib/notifications/notification.types";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { currentStageRecord } from "@/lib/agent-runs/domain";
@@ -253,7 +254,7 @@ function buildLiveBase(args: {
     workspaceId: args.workspace.workspaceId,
     workspaceName: args.workspace.workspaceName,
     taskId: args.task.id,
-    taskTitle: args.task.title.trim() || "Untitled task",
+    taskTitle: args.task.title.trim() || i18n.t("fleet:attentionProjection.untitledTask"),
     providerId: args.task.provider,
     createdAt: normalizeTimestamp(args.task.updatedAt),
     source: "live" as const,
@@ -347,7 +348,7 @@ export function collectFleetLiveAttentionItems(
           kind,
           priority: FLEET_ATTENTION_PRIORITY[kind],
           turnId: activeTurnId,
-          detail: "The active provider turn needs review.",
+          detail: i18n.t("fleet:attentionProjection.theActiveProviderTurnNeedsReview"),
         });
       }
     }
@@ -390,7 +391,7 @@ export function collectFleetNotificationAttentionItems(
       taskTitle:
         normalizeRequired(notification.taskTitle) ??
         normalizeRequired(notification.title) ??
-        "Untitled task",
+        i18n.t("fleet:attentionProjection.untitledTask"),
       notificationId: notification.id,
       providerId: notification.providerId ?? undefined,
       createdAt: normalizeTimestamp(notification.createdAt),
@@ -581,7 +582,7 @@ export function collectFleetAgentRunAttentionItems(
         detail:
           kind === "agent-run-sign-off"
             ? describeSignOffDetail(input.detail, stage.title)
-            : `${stage.title} · ${record.detail ?? (kind === "agent-run-stuck" ? "stopped moving" : "needs you")}`,
+            : i18n.t("fleet:attention.agentRunNeedsAttention", { stage: stage.title, detail: record.detail ?? i18n.t(kind === "agent-run-stuck" ? "fleet:attention.stoppedMoving" : "fleet:attention.needsYou") }),
         agentRunStage: { agentRunId: agentRun.id, stageId: record.stageId, attempt: record.attempt },
       },
     ];

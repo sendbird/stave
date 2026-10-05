@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Schedules: the one list over work that runs on its own.
  *
@@ -8,7 +9,8 @@
  *
  * Used by `src/components/layout/automation-center/` and `tests/schedule-rows.test.ts`.
  */
-import { formatAutomationSchedule, type AutomationRun, type AutomationSpec } from "./automations";
+import type { AutomationRun, AutomationSpec } from "./automations";
+import { formatAutomationSchedule } from "./automation-presentation";
 import type { WakeUp, WakeUpSummary } from "./supervision/wake-up-policy";
 
 export type ScheduleKind = "start" | "check-back";
@@ -16,15 +18,15 @@ export type ScheduleState = "on" | "paused" | "stopped" | "manual";
 export type ScheduleTone = "neutral" | "accent" | "warning" | "success" | "danger";
 
 export const SCHEDULE_KIND_LABEL: Record<ScheduleKind, string> = {
-  start: "Start a task",
-  "check-back": "Check back on a task",
+  get start() { return i18n.t("automation:scheduleRows.startATask"); },
+  get "check-back"() { return i18n.t("automation:scheduleRows.checkBackOnATask"); },
 };
 
 export const SCHEDULE_STATE_LABEL: Record<ScheduleState, string> = {
-  on: "On",
-  paused: "Paused",
-  stopped: "Stopped",
-  manual: "Manual",
+  get on() { return i18n.t("automation:scheduleRows.on"); },
+  get paused() { return i18n.t("automation:scheduleRows.paused"); },
+  get stopped() { return i18n.t("automation:scheduleRows.stopped"); },
+  get manual() { return i18n.t("automation:scheduleRows.manual"); },
 };
 
 export interface ScheduleLastResult {
@@ -56,16 +58,16 @@ export interface ScheduleRow {
 }
 
 const RUN_RESULT: Record<AutomationRun["status"], { label: string; tone: ScheduleTone }> = {
-  running: { label: "Running", tone: "accent" },
-  waiting: { label: "Waiting", tone: "warning" },
-  completed: { label: "Done", tone: "success" },
-  failed: { label: "Failed", tone: "danger" },
-  skipped: { label: "Skipped", tone: "neutral" },
+  running: { get label() { return i18n.t("automation:scheduleRows.running"); }, tone: "accent" },
+  waiting: { get label() { return i18n.t("automation:scheduleRows.waiting"); }, tone: "warning" },
+  completed: { get label() { return i18n.t("automation:scheduleRows.done"); }, tone: "success" },
+  failed: { get label() { return i18n.t("automation:scheduleRows.failed"); }, tone: "danger" },
+  skipped: { get label() { return i18n.t("automation:scheduleRows.skipped"); }, tone: "neutral" },
 };
 
 /** "Every 1 hour" reads as "Every hour". */
 export function formatScheduleCadence(schedule: Parameters<typeof formatAutomationSchedule>[0]) {
-  return formatAutomationSchedule(schedule).replace(/^Every 1 (\w+)/, "Every $1");
+  return formatAutomationSchedule(schedule, undefined, { compact: true });
 }
 
 function firstLine(text: string, max = 80) {
@@ -89,7 +91,7 @@ export function automationScheduleRow(
     state: automation.enabled ? "on" : "manual",
     lastResult: latestRun
       ? { ...(result ?? RUN_RESULT.running), at: latestRun.completedAt ?? latestRun.startedAt }
-      : { label: "Not run yet", tone: "neutral", at: null },
+      : { label: i18n.t("automation:scheduleRows.notRunYet"), tone: "neutral", at: null },
     nextRunAt: automation.enabled ? automation.nextRunAt : null,
     nextNote: null,
     canRunNow: true,
@@ -106,7 +108,7 @@ export function wakeUpScheduleRow(
   const completion = wakeUp.trigger.kind === "completion";
   const checked = wakeUp.occurrenceCount;
   // Paused and stopped are the row's state; repeating them as the next run says nothing new.
-  const nextNote = wakeUp.state === "scheduled" && completion ? "Waiting" : null;
+  const nextNote = wakeUp.state === "scheduled" && completion ? i18n.t("automation:additionalCopy.message38") : null;
   return {
     key: `check-back:${wakeUp.id}`,
     kind: "check-back",
@@ -120,8 +122,8 @@ export function wakeUpScheduleRow(
         : "When subagents finish",
     state,
     lastResult: wakeUp.lastOccurrenceAt
-      ? { label: `Checked ${checked}×`, tone: "success", at: wakeUp.lastOccurrenceAt }
-      : { label: "Not yet", tone: "neutral", at: null },
+      ? { label: i18n.t("automation:scheduleRows.checkedValue", { checked: checked }), tone: "success", at: wakeUp.lastOccurrenceAt }
+      : { label: i18n.t("automation:scheduleRows.notYet"), tone: "neutral", at: null },
     nextRunAt: wakeUp.state === "scheduled" && !completion ? (summary?.nextRunAt ?? wakeUp.nextRunAt) : null,
     nextNote,
     canRunNow: false,

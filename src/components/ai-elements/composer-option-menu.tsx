@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { optionStyles } from "./composer-option.styles";
 import { styles as selectStyles } from "../ads/recipes/select-styles";
 import { sx } from "../ads/utils/stylex";
@@ -35,6 +36,7 @@ export function ComposerOptionMenuToggle(props: {
   onCheckedChange: (checked: boolean) => void;
   testId?: string;
 }) {
+  useTranslation();
   return (
     <div className={sx(optionStyles.toggle)}>
       <label
@@ -64,6 +66,7 @@ export function ComposerOptionMenuSection(props: {
   className?: string;
   testId?: string;
 }) {
+  useTranslation();
   return (
     <div
       className={cx(
@@ -105,6 +108,7 @@ export function ComposerOptionCard(props: {
   /** Matching tone for the selected mark. */
   checkClassName?: string;
 }) {
+  useTranslation();
   return (
     <AdsButton
       layout="host"
@@ -156,6 +160,7 @@ function ComposerOptionRowCopy(props: {
   label: ReactNode;
   summary?: ReactNode;
 }) {
+  useTranslation();
   return (
     <span className={sx(selectStyles.itemText)}>
       <span className={sx(selectStyles.itemCopy)}>
@@ -204,6 +209,7 @@ export function ComposerOptionModelRow(props: {
   onSelect: () => void;
   testId?: string;
 }) {
+  useTranslation();
   return (
     <AdsButton
       layout="host"
@@ -245,9 +251,10 @@ export function ComposerOptionEffortChips<TValue>(props: {
   onSelect: (value: TValue) => void;
   testId?: (value: TValue) => string;
 }) {
+  useTranslation();
   return (
     <ChoiceChips
-      label="Reasoning effort"
+      label={i18n.t("composer:composerOptionMenu.label")}
       options={props.options}
       value={props.selected}
       onValueChange={props.onSelect}
@@ -261,6 +268,7 @@ export function ComposerOptionMenuHint(props: {
   children: ReactNode;
   testId?: string;
 }) {
+  useTranslation();
   return (
     <p
       className={sx(optionStyles.hint)}
@@ -277,6 +285,7 @@ export function ComposerOptionMenuCallout(props: {
   children: ReactNode;
   testId?: string;
 }) {
+  useTranslation();
   const Icon = props.tone === "warning" ? TriangleAlert : Info;
   return (
     <p
@@ -300,6 +309,7 @@ export function ComposerOptionMenuSettingsLink(props: {
   section: string;
   testId?: string;
 }) {
+  useTranslation();
   return (
     <AdsButton layout="host"
       type="button"

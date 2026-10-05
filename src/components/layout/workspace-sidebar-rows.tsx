@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   AlertTriangle,
@@ -118,8 +119,7 @@ function formatWorkspaceName(name: string, branch?: string) {
   if (isDefault) {
     return (
       <>
-        Default
-        {branch ? (
+        {i18n.t("workspace:workspaceSidebarRows.default")}{branch ? (
           <span className={sx(repositorySidebarStyles.defaultBranchChip)}>
             {formatBranchLabel(branch)}
           </span>
@@ -201,8 +201,7 @@ function useWorkspaceSidebarActivityState(workspaceId: string) {
       messagesByTask,
       prStatus,
       providerTurnActivityByTask,
-      tasks,
-    ],
+      tasks, i18n.resolvedLanguage],
   );
 }
 
@@ -235,7 +234,7 @@ function useWorkspaceHoverPreviewState(workspaceId: string) {
       activeTurnIdsByTask,
       hasRuntimeState,
     }),
-    [activeTurnIdsByTask, hasRuntimeState, messageCountByTask, tasks],
+    [activeTurnIdsByTask, hasRuntimeState, messageCountByTask, tasks, i18n.resolvedLanguage],
   );
 }
 
@@ -253,6 +252,7 @@ export function WorkspaceHoverPreviewTooltip(args: {
   sideOffset?: number;
   children: ReactElement;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const { tasks, messageCountByTask, activeTurnIdsByTask, hasRuntimeState } =
     useWorkspaceHoverPreviewState(args.workspaceId);
   const [loadedShell, setLoadedShell] = useState<
@@ -282,8 +282,7 @@ export function WorkspaceHoverPreviewTooltip(args: {
     hasRuntimeState,
     loadedShell,
     messageCountByTask,
-    tasks,
-  ]);
+    tasks, i18n.resolvedLanguage]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
@@ -346,16 +345,13 @@ export function WorkspaceHoverPreviewTooltip(args: {
           <div className={sx(repositorySidebarStyles.previewBodyStack)}>
             {didShellLoadFail && !preview ? (
               <p className={sx(repositorySidebarStyles.previewMeta)}>
-                Preview unavailable
-              </p>
+                {tI18n("workspace:workspaceSidebarRows.previewUnavailable")}</p>
             ) : !preview || isShellLoading ? (
               <p className={sx(repositorySidebarStyles.previewMeta)}>
-                Loading summary...
-              </p>
+                {tI18n("workspace:workspaceSidebarRows.loadingSummary")}</p>
             ) : preview.isEmpty ? (
               <p className={sx(repositorySidebarStyles.previewMeta)}>
-                No tasks yet
-              </p>
+                {tI18n("workspace:workspaceSidebarRows.noTasksYet")}</p>
             ) : (
               <>
                 <div className={sx(repositorySidebarStyles.previewMetaRow)}>
@@ -364,7 +360,7 @@ export function WorkspaceHoverPreviewTooltip(args: {
                     <span
                       className={sx(repositorySidebarStyles.previewRunningChip)}
                     >
-                      {`${preview.runningTaskCount} running`}
+                      {tI18n("workspace:workspaceSidebarRows.valueRunning", { value1: preview.runningTaskCount })}
                     </span>
                   ) : null}
                 </div>
@@ -379,8 +375,7 @@ export function WorkspaceHoverPreviewTooltip(args: {
                   ))}
                   {preview.moreTaskCount > 0 ? (
                     <p className={sx(repositorySidebarStyles.previewMeta)}>
-                      +{preview.moreTaskCount} more
-                    </p>
+                      {tI18n("workspace:workspaceSidebarRows.moreCount", { count: preview.moreTaskCount })}</p>
                   ) : null}
                 </div>
               </>
@@ -533,7 +528,8 @@ export function WorkQueueRow(args: {
               workspaceId: entry.workspaceId,
             })
           }
-          aria-label={`active-workspace-${entry.workspaceId}`}
+          data-testid={`active-workspace-${entry.workspaceId}`}
+          aria-label={i18n.t("workspace:workspaceSidebarRows.accessibility.openWorkspace", { value1: entry.workspaceName })}
           xstyle={[
             repositorySidebarStyles.queueButton,
             transition.colors,
@@ -608,7 +604,8 @@ export const RepositoryAttentionAlertIcon = memo(
             <span
               className={sx(repositorySidebarStyles.attentionSlot)}
               role="status"
-              aria-label={`project-attention-${args.repositoryName}`}
+              data-testid={`project-attention-${args.repositoryName}`}
+              aria-label={i18n.t("workspace:workspaceSidebarRows.accessibility.projectAttention", { value1: args.repositoryName })}
             />
           }
         >
@@ -678,6 +675,7 @@ export function InlineWorkspaceLabel(args: {
     name: string;
   }) => Promise<{ ok: boolean; message?: string }>;
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(args.workspaceName);
@@ -755,7 +753,8 @@ export function InlineWorkspaceLabel(args: {
             ? repositorySidebarStyles.labelInputCompact
             : repositorySidebarStyles.labelInputWide,
         ]}
-        aria-label={`edit-workspace-label-${args.workspaceId}`}
+        data-testid={`edit-workspace-label-${args.workspaceId}`}
+        aria-label={i18n.t("workspace:workspaceSidebarRows.accessibility.editWorkspaceLabel", { value1: args.workspaceName })}
       />
     );
   }
@@ -770,7 +769,7 @@ export function InlineWorkspaceLabel(args: {
         canEdit && repositorySidebarStyles.labelEditable,
         canEdit && focusRing.ring,
       )}
-      title={canEdit ? "Edit workspace label" : String(displayName)}
+      title={canEdit ? tI18n("workspace:workspaceSidebarRows.editWorkspaceLabel") : String(displayName)}
       tabIndex={canEdit ? 0 : undefined}
       onClick={(event) => {
         if (!canEdit) {
@@ -951,6 +950,7 @@ export function WorkspaceRowActions(args: {
   shortcutModifier: string;
   placement?: "center" | "top";
 }) {
+  const { t: tI18n } = useTranslation(["workspace"]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const isClosing = args.closingWorkspaceId === args.workspaceId;
@@ -986,7 +986,8 @@ export function WorkspaceRowActions(args: {
                 size="sm"
                 xstyle={repositorySidebarStyles.rowActionsTrigger}
                 disabled={isClosing}
-                aria-label={`workspace-actions-${args.workspaceId}`}
+                data-testid={`workspace-actions-${args.workspaceId}`}
+                aria-label={i18n.t("workspace:workspaceSidebarRows.accessibility.workspaceActions", { value1: args.workspaceName })}
               />
             }
           >
@@ -1007,12 +1008,10 @@ export function WorkspaceRowActions(args: {
                 })
               }
             >
-              Task History
-            </DropdownMenuItem>
+              {tI18n("workspace:workspaceSidebarRows.taskHistory")}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-              Settings
-            </DropdownMenuItem>
+              {tI18n("workspace:workspaceSidebarRows.settings")}</DropdownMenuItem>
             {args.canArchiveWorkspace ? (
               <>
                 <DropdownMenuSeparator />
@@ -1020,8 +1019,7 @@ export function WorkspaceRowActions(args: {
                   variant="destructive"
                   onSelect={args.onArchive}
                 >
-                  Archive
-                </DropdownMenuItem>
+                  {tI18n("workspace:workspaceSidebarRows.archive")}</DropdownMenuItem>
               </>
             ) : null}
           </DropdownMenuContent>

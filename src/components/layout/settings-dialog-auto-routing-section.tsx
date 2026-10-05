@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Textarea } from "@/components/ui";
@@ -79,8 +80,8 @@ const ADVANCED_SECTION_VALUE = "advanced";
 const ANY_VALUE = "__any__";
 const DEFAULT_VALUE = "__default__";
 const PROVIDER_SELECTORS: ReadonlyArray<{ value: RouteProviderSelector; label: string }> = [
-  { value: "any-eligible", label: "Same provider as the task" },
-  { value: "alternate-provider", label: "The other provider" },
+  { value: "any-eligible", get label() { return i18n.t("settingsConnections:settingsDialogAutoRoutingSection.sameProviderAsTheTask"); } },
+  { value: "alternate-provider", get label() { return i18n.t("settingsConnections:settingsDialogAutoRoutingSection.theOtherProvider"); } },
   ...listProviderIds().map((providerId) => ({
     value: providerId,
     label: getProviderLabel({ providerId }),
@@ -88,14 +89,14 @@ const PROVIDER_SELECTORS: ReadonlyArray<{ value: RouteProviderSelector; label: s
 ];
 const EFFORT_VALUES = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
 const ROLE_HINTS: Readonly<Record<RouterRole, string>> = {
-  primary: "The task's own turns. Rules without a role apply here.",
-  advisor: "No longer used. Second opinions run as read-only subagents, so these saved rules have no effect.",
-  worker: "No longer used. Subagents run on their agent's model, so these saved rules have no effect.",
-  delegate: "Seeds the model and effort a delegated task starts with.",
+  get primary() { return i18n.t("settingsConnections:settingsDialogAutoRoutingSection.theTaskSOwnTurnsRules"); },
+  get advisor() { return i18n.t("settingsConnections:settingsDialogAutoRoutingSection.noLongerUsedSecondOpinionsRun"); },
+  get worker() { return i18n.t("settingsConnections:settingsDialogAutoRoutingSection.noLongerUsedSubagentsRunOn"); },
+  get delegate() { return i18n.t("settingsConnections:settingsDialogAutoRoutingSection.seedsTheModelAndEffortA"); },
 };
 const EMPTY_ROLE_HINTS: Readonly<Record<(typeof SELECTABLE_ROUTER_ROLES)[number], string>> = {
-  primary: "No rules. Each turn uses the provider's default model, adjusted for your preference.",
-  delegate: "No rules. A delegated task starts on its provider's default model.",
+  get primary() { return i18n.t("settingsConnections:settingsDialogAutoRoutingSection.noRulesEachTurnUsesThe"); },
+  get delegate() { return i18n.t("settingsConnections:settingsDialogAutoRoutingSection.noRulesADelegatedTaskStarts"); },
 };
 const ROLE_OPTIONS = SELECTABLE_ROUTER_ROLES.map((role) => ({ value: role, label: ROUTER_ROLE_LABELS[role] }));
 
@@ -108,9 +109,9 @@ function describeRuleTarget(rule: RouteRule) {
     ? toHumanModelName({ model: rule.then.model })
     : rule.then.tier
       ? ROUTE_TIER_LABELS[rule.then.tier]
-      : "Provider default";
+      : i18n.t("settingsConnections:settingsDialogAutoRoutingSection.providerDefault");
   const effort = rule.then.effort
-    ? `${rule.then.effort.slice(0, 1).toUpperCase()}${rule.then.effort.slice(1)} effort`
+    ? i18n.t("settingsConnections:settingsDialogAutoRoutingSection.effort", { value1: rule.then.effort.slice(0, 1).toUpperCase(), value2: rule.then.effort.slice(1) })
     : null;
   return [provider, target, effort].filter(Boolean).join(" · ");
 }
@@ -138,6 +139,7 @@ function RoutingLevelsTable(args: {
   profile: AutoRoutingProfile;
   modelsByProvider: Partial<Record<ProviderId, readonly string[]>>;
 }) {
+  const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
   const previews = useMemo(
     () =>
       MANAGED_PROVIDERS.map((providerId) => ({
@@ -154,7 +156,7 @@ function RoutingLevelsTable(args: {
     <table className={sx(styles.levelTable)} data-testid="auto-routing-levels">
       <thead>
         <tr>
-          <th scope="col" className={sx(styles.levelHead)}>Level</th>
+          <th scope="col" className={sx(styles.levelHead)}>{t("settingsConnections:settingsDialogAutoRoutingSection.level")}</th>
           {previews.map(({ providerId }) => (
             <th key={providerId} scope="col" className={sx(styles.levelHead)}>
               {getProviderLabel({ providerId })}
@@ -179,8 +181,7 @@ function RoutingLevelsTable(args: {
                       <span className={sx(styles.levelRoute)}>{formatResolvedRouteLabel(entry.route)}</span>
                     ) : (
                       <span className={sx(styles.levelMissing)} title={entry?.error ?? undefined}>
-                        No allowed model
-                      </span>
+                        {i18n.t("settingsConnections:settingsDialogAutoRoutingSection.noAllowedModel")}</span>
                     )}
                   </td>
                 );
@@ -242,6 +243,7 @@ function RuleRow(args: {
   onMove: (direction: -1 | 1) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const { rule } = args;
   const [expanded, setExpanded] = useState(false);
   const role = rule.when.role ?? "primary";
@@ -267,7 +269,7 @@ function RuleRow(args: {
             size="sm"
             checked={rule.enabled}
             onCheckedChange={(enabled) => args.onChange({ ...rule, enabled })}
-            aria-label={`Enable rule ${rule.id}`}
+            aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.enableRule", { value1: rule.id })}
           />
           <span className={sx(styles.ruleSummary)}>
             <span className={sx(styles.ruleWhen)}>
@@ -282,7 +284,7 @@ function RuleRow(args: {
             type="button"
             variant="quiet"
             size="sm"
-            aria-label={expanded ? `Close rule ${rule.id}` : `Edit rule ${rule.id}`}
+            aria-label={expanded ? t("settingsConnections:settingsDialogAutoRoutingSection.closeRule", { value1: rule.id }) : t("settingsConnections:settingsDialogAutoRoutingSection.editRule", { value1: rule.id })}
             aria-expanded={expanded}
             onClick={() => setExpanded((open) => !open)}
           >
@@ -292,7 +294,7 @@ function RuleRow(args: {
             type="button"
             variant="quiet"
             size="sm"
-            aria-label="Move rule up"
+            aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.moveRuleUp")}
             disabled={args.index === 0}
             onClick={() => args.onMove(-1)}
           >
@@ -302,7 +304,7 @@ function RuleRow(args: {
             type="button"
             variant="quiet"
             size="sm"
-            aria-label="Move rule down"
+            aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.moveRuleDown")}
             disabled={args.index >= args.count - 1}
             onClick={() => args.onMove(1)}
           >
@@ -312,7 +314,7 @@ function RuleRow(args: {
             type="button"
             variant="quiet"
             size="sm"
-            aria-label="Delete rule"
+            aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.deleteRule")}
             onClick={args.onDelete}
           >
             <Trash2 className={sx(styles.icon)} aria-hidden="true" />
@@ -321,23 +323,23 @@ function RuleRow(args: {
       </div>
       {expanded ? (
         <div className={sx(styles.ruleGrid)}>
-          <RuleField label="Role">
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.role")}>
             <RuleSelect
-              ariaLabel="Rule role"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.ruleRole")}
               value={role}
               onChange={(value) => patchWhen({ role: value })}
               options={ROLE_OPTIONS}
             />
           </RuleField>
-          <RuleField label="Task class">
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.taskClass")}>
             <RuleSelect
-              ariaLabel="Task class condition"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.taskClassCondition")}
               value={rule.when.taskClass ?? ANY_VALUE}
               onChange={(value) =>
                 patchWhen({ taskClass: value === ANY_VALUE ? undefined : (value as TaskClass) })
               }
               options={[
-                { value: ANY_VALUE, label: "Any" },
+                { value: ANY_VALUE, label: t("settingsConnections:settingsDialogAutoRoutingSection.any") },
                 ...TASK_CLASSES.map((entry) => ({
                   value: entry,
                   label: TASK_CLASS_LABELS[entry],
@@ -345,10 +347,10 @@ function RuleRow(args: {
               ]}
             />
           </RuleField>
-          <RuleField label="Skill (comma-separated)">
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.skillCommaSeparated")}>
             <DraftInput
               xstyle={styles.ruleInput}
-              placeholder="ship, review"
+              placeholder={/* i18n-ignore: skill command identifiers */ "ship, review"}
               value={(rule.when.skill ?? []).join(", ")}
               onCommit={(value) => {
                 const skill = value
@@ -359,9 +361,9 @@ function RuleRow(args: {
               }}
             />
           </RuleField>
-          <RuleField label="Level">
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.level")}>
             <RuleSelect
-              ariaLabel="Level condition"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.levelCondition")}
               value={rule.when.complexity ?? ANY_VALUE}
               onChange={(value) =>
                 patchWhen({
@@ -369,7 +371,7 @@ function RuleRow(args: {
                 })
               }
               options={[
-                { value: ANY_VALUE, label: "Any" },
+                { value: ANY_VALUE, label: t("settingsConnections:settingsDialogAutoRoutingSection.any") },
                 ...ROUTE_COMPLEXITIES.map((entry) => ({
                   value: entry,
                   label: ROUTE_COMPLEXITY_LABELS[entry],
@@ -377,9 +379,9 @@ function RuleRow(args: {
               ]}
             />
           </RuleField>
-          <RuleField label="Sensitive">
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.sensitive")}>
             <RuleSelect
-              ariaLabel="Sensitive condition"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.sensitiveCondition")}
               value={
                 rule.when.sensitive === undefined ? ANY_VALUE : rule.when.sensitive ? "yes" : "no"
               }
@@ -387,13 +389,13 @@ function RuleRow(args: {
                 patchWhen({ sensitive: value === ANY_VALUE ? undefined : value === "yes" })
               }
               options={[
-                { value: ANY_VALUE, label: "Any" },
-                { value: "yes", label: "Only sensitive" },
-                { value: "no", label: "Only non-sensitive" },
+                { value: ANY_VALUE, label: t("settingsConnections:settingsDialogAutoRoutingSection.any") },
+                { value: "yes", label: t("settingsConnections:settingsDialogAutoRoutingSection.onlySensitive") },
+                { value: "no", label: t("settingsConnections:settingsDialogAutoRoutingSection.onlyNonSensitive") },
               ]}
             />
           </RuleField>
-          <RuleField label="Usage at least (%)">
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.usageAtLeast")}>
             <DraftInput
               xstyle={styles.ruleInput}
               inputMode="numeric"
@@ -411,23 +413,23 @@ function RuleRow(args: {
               }}
             />
           </RuleField>
-          <RuleField label="Provider">
+          <RuleField label={t("settingsProviders:mcpConfigEditor.editor.provider")}>
             <RuleSelect
-              ariaLabel="Target provider"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.targetProvider")}
               value={rule.then.providerId}
               onChange={(value) => patchThen({ providerId: value, model: undefined })}
               options={PROVIDER_SELECTORS}
             />
           </RuleField>
-          <RuleField label="Tier">
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.tier")}>
             <RuleSelect
-              ariaLabel="Target tier"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.targetTier")}
               value={rule.then.tier ?? DEFAULT_VALUE}
               onChange={(value) =>
                 patchThen({ tier: value === DEFAULT_VALUE ? undefined : (value as RouteTier) })
               }
               options={[
-                { value: DEFAULT_VALUE, label: rule.then.model ? "From model" : "Provider default" },
+                { value: DEFAULT_VALUE, label: rule.then.model ? t("settingsConnections:settingsDialogAutoRoutingSection.fromModel") : t("settingsConnections:settingsDialogAutoRoutingSection.providerDefault") },
                 ...ROUTE_TIERS.map((entry) => ({
                   value: entry,
                   label: ROUTE_TIER_LABELS[entry],
@@ -435,25 +437,25 @@ function RuleRow(args: {
               ]}
             />
           </RuleField>
-          <RuleField label="Model">
+          <RuleField label={t("settingsProviders:auxiliaryInference.model.title")}>
             <RuleSelect
-              ariaLabel="Target model"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.targetModel")}
               value={rule.then.model ?? DEFAULT_VALUE}
               onChange={(value) =>
                 patchThen({ model: value === DEFAULT_VALUE ? undefined : value })
               }
-              options={[{ value: DEFAULT_VALUE, label: "Pick by tier" }, ...modelOptions]}
+              options={[{ value: DEFAULT_VALUE, label: t("settingsConnections:settingsDialogAutoRoutingSection.pickByTier") }, ...modelOptions]}
             />
           </RuleField>
-          <RuleField label="Effort">
+          <RuleField label={t("settingsProviders:providersSection.claudeRuntime.effort.title")}>
             <RuleSelect
-              ariaLabel="Target effort"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.targetEffort")}
               value={rule.then.effort ?? DEFAULT_VALUE}
               onChange={(value) =>
                 patchThen({ effort: value === DEFAULT_VALUE ? undefined : value })
               }
               options={[
-                { value: DEFAULT_VALUE, label: "Model default" },
+                { value: DEFAULT_VALUE, label: t("settingsConnections:settingsDialogAutoRoutingSection.modelDefault") },
                 ...EFFORT_VALUES.map((entry) => ({
                   value: entry,
                   label: `${entry.slice(0, 1).toUpperCase()}${entry.slice(1)}`,
@@ -461,15 +463,15 @@ function RuleRow(args: {
               ]}
             />
           </RuleField>
-          <RuleField label="Reason shown to the user" wide>
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.reasonShownToTheUser")} wide>
             <DraftInput
               xstyle={styles.ruleInput}
-              placeholder="Why this route is the right one."
+              placeholder={t("settingsConnections:settingsDialogAutoRoutingSection.whyThisRouteIsTheRight")}
               value={rule.reason}
               onCommit={(value) => args.onChange({ ...rule, reason: value.trim().slice(0, 240) })}
             />
           </RuleField>
-          <p className={sx(styles.ruleIdNote)}>Rule id: {rule.id}</p>
+          <p className={sx(styles.ruleIdNote)}>{t("settingsConnections:messages.ruleIdentifier", { ruleId: rule.id })}</p>
         </div>
       ) : null}
     </div>
@@ -478,6 +480,7 @@ function RuleRow(args: {
 
 /** A stored rule for a role nothing routes any more: shown as saved, removable, not editable. */
 function LegacyRuleRow(args: { rule: RouteRule; onDelete: () => void }) {
+  const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
   return (
     <div className={sx(styles.ruleCard, styles.ruleCardDisabled)}>
       <div className={sx(styles.ruleHeader)}>
@@ -487,7 +490,7 @@ function LegacyRuleRow(args: { rule: RouteRule; onDelete: () => void }) {
           </span>
         </div>
         <div className={sx(styles.ruleActions)}>
-          <Button type="button" variant="quiet" size="sm" aria-label={`Delete rule ${args.rule.id}`} onClick={args.onDelete}>
+          <Button type="button" variant="quiet" size="sm" aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.deleteRuleVariant72daa72f", { value1: args.rule.id })} onClick={args.onDelete}>
             <Trash2 className={sx(styles.icon)} aria-hidden="true" />
           </Button>
         </div>
@@ -509,6 +512,7 @@ export function SettingsAutoRoutingSection(props: {
   /** Dev previews feed the usage wizard fixture prompts instead of history. */
   wizardSamples?: UsageSample[];
 } = {}) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const autoRoutingEnabled = useAppStore((state) => state.settings.autoRoutingEnabled);
   const profile = useAppStore((state) => state.settings.autoRoutingProfile);
@@ -563,7 +567,7 @@ export function SettingsAutoRoutingSection(props: {
       return { route, signals, summary: summarizeRouterSignals(signals), error: null };
     } catch (error) {
       return { route: null, signals, summary: summarizeRouterSignals(signals),
-        error: error instanceof Error ? error.message : "No eligible route is available." };
+        error: error instanceof Error ? error.message : i18n.t("settingsConnections:settingsDialogAutoRoutingSection.noEligibleRouteIsAvailable") };
     }
   }, [profile, providerAvailability, rateLimitsSnapshot, testPrompt, testProvider, testRole]);
 
@@ -573,23 +577,23 @@ export function SettingsAutoRoutingSection(props: {
       <SettingsCard
         id={AUTO_ROUTING_SETTING_FIELD_ID}
         tabIndex={-1}
-        title="Auto (Model Router)"
-        description="Auto reads each request, rates how much reasoning it needs, and runs it on the matching model and effort."
+        title={t("settings:sections.autoRouting.label")}
+        description={t("settingsConnections:settingsDialogAutoRoutingSection.autoReadsEachRequestRatesHow")}
         titleAccessory={
           <Badge variant={autoRoutingEnabled ? "secondary" : "outline"}>
-            {autoRoutingEnabled ? "On" : "Off"}
+            {autoRoutingEnabled ? t("common:status.on") : t("common:status.off")}
           </Badge>
         }
       >
         <SwitchField
-          title="Enable Auto routing"
-          description="Off hides the composer's Auto option; turns use the model you pick."
+          title={t("settings:sections.fields.autoRoutingEnabled.title")}
+          description={t("settingsConnections:settingsDialogAutoRoutingSection.offHidesTheComposerSAuto")}
           checked={autoRoutingEnabled}
           onCheckedChange={(checked) => updateSettings({ patch: { autoRoutingEnabled: checked } })}
         />
         <LabeledField layout="stacked"
-          title="Preference"
-          description="Sets the effort inside each level's range. The model for a level stays the same."
+          title={t("settingsConnections:settingsDialogAutoRoutingSection.preference")}
+          description={t("settingsConnections:settingsDialogAutoRoutingSection.setsTheEffortInsideEachLevel")}
         >
           <ChoiceButtons
             columns={3}
@@ -604,14 +608,14 @@ export function SettingsAutoRoutingSection(props: {
         </LabeledField>
       </SettingsCard>
       <SettingsCard
-        title="Routing levels"
-        description="Most work is Standard. Expert and Extreme run only when the classifier finds explicit evidence for them. Sensitive changes route as Complex or higher."
+        title={t("settingsConnections:settingsDialogAutoRoutingSection.routingLevels")}
+        description={t("settingsConnections:settingsDialogAutoRoutingSection.mostWorkIsStandardExpertAnd")}
       >
         <RoutingLevelsTable profile={profile} modelsByProvider={modelsByProvider} />
       </SettingsCard>
       <SettingsCard
-        title="Allowed models"
-        description="Models Auto may pick. Default allows every model except Claude Haiku 4.5. A level with no allowed model hands the turn to the other provider."
+        title={t("settingsConnections:settingsDialogAutoRoutingSection.allowedModels")}
+        description={t("settingsConnections:settingsDialogAutoRoutingSection.modelsAutoMayPickDefaultAllows")}
       >
         <div className={sx(styles.chipGroup)}>
           {MANAGED_PROVIDERS.map((providerId) => {
@@ -622,7 +626,7 @@ export function SettingsAutoRoutingSection(props: {
                 title={getProviderLabel({ providerId })}
               >
                 <ToggleChipGroup
-                  allLabel="Default"
+                  allLabel={i18n.t("common:labels.default")}
                   onSelectAll={() =>
                     edit((draft) => {
                       const { [providerId]: _dropped, ...rest } = draft.eligibleModelsByProvider;
@@ -645,7 +649,7 @@ export function SettingsAutoRoutingSection(props: {
                     value: model,
                     label: modelLabel(model),
                     ...(AUTO_ROUTING_OPT_IN_MODELS.has(model)
-                      ? { description: "Not in Default. Select it to let Auto use it." }
+                      ? { description: i18n.t("settingsConnections:settingsDialogAutoRoutingSection.notInDefaultSelectItTo") }
                       : {}),
                   }))}
                 />
@@ -672,7 +676,7 @@ export function SettingsAutoRoutingSection(props: {
       >
         <AccordionItem value={ADVANCED_SECTION_VALUE}>
           <AccordionTrigger className={sx(styles.advancedTrigger)}>
-            <span className={sx(styles.advancedTitle)}>Advanced settings</span>
+            <span className={sx(styles.advancedTitle)}>{t("settingsConnections:settingsDialogAutoRoutingSection.advancedSettings")}</span>
             <ChevronDown
               aria-hidden
               className={sx(
@@ -684,35 +688,35 @@ export function SettingsAutoRoutingSection(props: {
           </AccordionTrigger>
           <AccordionContent className={sx(styles.advancedPanel)}>
             <SectionStack>
-      <SettingsCard title="Classification and signals" description="What Auto may read before it picks a route.">
+      <SettingsCard title={t("settingsConnections:settingsDialogAutoRoutingSection.classificationAndSignals")} description={t("settingsConnections:settingsDialogAutoRoutingSection.whatAutoMayReadBeforeIt")}>
         <div className={sx(styles.signalsList)}>
           <SwitchField
-            title="Model classification"
-            description="The Utility model rates intent, level, and risk (up to 30 seconds). Off, or on failure, Auto uses local keyword rules, which never pick Expert or Extreme."
+            title={t("settingsConnections:settingsDialogAutoRoutingSection.modelClassification")}
+            description={t("settingsConnections:settingsDialogAutoRoutingSection.theUtilityModelRatesIntentLevel")}
             checked={profile.signals.classifier}
             onCheckedChange={(classifier) =>
               edit((draft) => ({ ...draft, signals: { ...draft.signals, classifier } }))
             }
           />
           <SwitchField
-            title="Safety escalation"
-            description="Changes to auth, secrets, payments, or production data route as Complex work or higher."
+            title={t("settingsConnections:settingsDialogAutoRoutingSection.safetyEscalation")}
+            description={t("settingsConnections:settingsDialogAutoRoutingSection.changesToAuthSecretsPaymentsOr")}
             checked={profile.signals.safetyEscalation}
             onCheckedChange={(safetyEscalation) =>
               edit((draft) => ({ ...draft, signals: { ...draft.signals, safetyEscalation } }))
             }
           />
           <SwitchField
-            title="Skill routing"
-            description="A prompt that starts with a skill, such as /ship or $ship, can match rules that name it."
+            title={t("settingsConnections:settingsDialogAutoRoutingSection.skillRouting")}
+            description={t("settingsConnections:settingsDialogAutoRoutingSection.aPromptThatStartsWithA")}
             checked={profile.signals.skillRouting}
             onCheckedChange={(skillRouting) =>
               edit((draft) => ({ ...draft, signals: { ...draft.signals, skillRouting } }))
             }
           />
           <SwitchField
-            title="Provider switch"
-            description="Let Auto move a task to the other provider by preference. A provider that cannot run the turn hands over either way."
+            title={t("settingsConnections:settingsDialogAutoRoutingSection.providerSwitch")}
+            description={t("settingsConnections:settingsDialogAutoRoutingSection.letAutoMoveATaskTo")}
             checked={profile.signals.providerSwitch}
             onCheckedChange={(providerSwitch) =>
               edit((draft) => ({ ...draft, signals: { ...draft.signals, providerSwitch } }))
@@ -721,10 +725,10 @@ export function SettingsAutoRoutingSection(props: {
         </div>
       </SettingsCard>
 
-      <SettingsCard title="Usage budget" description="Reads the tightest account usage window. Never routes below a level's minimum model.">
+      <SettingsCard title={t("settingsConnections:settingsDialogAutoRoutingSection.usageBudget")} description={t("settingsConnections:settingsDialogAutoRoutingSection.readsTheTightestAccountUsageWindow")}>
         <SwitchField
-          title="Budget guard"
-          description="Lower effort, then the model, as account usage climbs."
+          title={t("settingsConnections:settingsDialogAutoRoutingSection.budgetGuard")}
+          description={t("settingsConnections:settingsDialogAutoRoutingSection.lowerEffortThenTheModelAs")}
           checked={profile.signals.budgetGuard}
           onCheckedChange={(budgetGuard) =>
             edit((draft) => ({ ...draft, signals: { ...draft.signals, budgetGuard } }))
@@ -732,11 +736,11 @@ export function SettingsAutoRoutingSection(props: {
         />
         <div className={sx(styles.thresholdRow)}>
           <label className={sx(styles.thresholdField)}>
-            <span className={sx(styles.thresholdLabel)}>Save from (% used)</span>
+            <span className={sx(styles.thresholdLabel)}>{t("settingsConnections:settingsDialogAutoRoutingSection.saveFromUsed")}</span>
             <DraftInput
               xstyle={styles.thresholdInput}
               inputMode="numeric"
-              aria-label="Step down threshold percent"
+              aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.stepDownThresholdPercent")}
               value={String(profile.budgetGuard.stepDownAt)}
               onCommit={(value) => {
                 const parsed = Number.parseInt(value, 10);
@@ -747,14 +751,14 @@ export function SettingsAutoRoutingSection(props: {
                 }));
               }}
             />
-            <span className={sx(styles.thresholdHint)}>One effort step lower, or one model lower.</span>
+            <span className={sx(styles.thresholdHint)}>{t("settingsConnections:settingsDialogAutoRoutingSection.oneEffortStepLowerOrOne")}</span>
           </label>
           <label className={sx(styles.thresholdField)}>
-            <span className={sx(styles.thresholdLabel)}>Cheapest from (% used)</span>
+            <span className={sx(styles.thresholdLabel)}>{t("settingsConnections:settingsDialogAutoRoutingSection.cheapestFromUsed")}</span>
             <DraftInput
               xstyle={styles.thresholdInput}
               inputMode="numeric"
-              aria-label="Cheapest threshold percent"
+              aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.cheapestThresholdPercent")}
               value={String(profile.budgetGuard.cheapestAt)}
               onCommit={(value) => {
                 const parsed = Number.parseInt(value, 10);
@@ -765,7 +769,7 @@ export function SettingsAutoRoutingSection(props: {
                 }));
               }}
             />
-            <span className={sx(styles.thresholdHint)}>The least expensive model the level allows.</span>
+            <span className={sx(styles.thresholdHint)}>{t("settingsConnections:settingsDialogAutoRoutingSection.theLeastExpensiveModelTheLevel")}</span>
           </label>
         </div>
       </SettingsCard>
@@ -773,13 +777,12 @@ export function SettingsAutoRoutingSection(props: {
       <SettingsAutoRoutingWizard samplesOverride={props.wizardSamples} />
 
       <SettingsCard
-        title="Rules"
-        description="The levels above are these rules. First enabled match wins, top to bottom; every condition in a rule must hold. Its reason is shown on the route line."
+        title={t("settingsConnections:settingsDialogAutoRoutingSection.rules")}
+        description={t("settingsConnections:settingsDialogAutoRoutingSection.theLevelsAboveAreTheseRules")}
         titleAccessory={
           <Button type="button" variant="quiet" size="sm"
             onClick={() => edit((draft) => ({ ...draft, rules: buildStarterRules() }))}>
-            Reset to defaults
-          </Button>
+            {t("settingsConnections:settingsDialogAutoRoutingSection.resetToDefaults")}</Button>
         }
       >
         {roleGroups.map(({ role, legacy, rules }) => {
@@ -817,8 +820,7 @@ export function SettingsAutoRoutingSection(props: {
                     }
                   >
                     <Plus className={sx(styles.icon)} aria-hidden="true" />
-                    Add rule
-                  </Button>
+                    {i18n.t("settingsConnections:settingsDialogAutoRoutingSection.addRule")}</Button>
                 )}
               </div>
               {legacy ? (
@@ -868,29 +870,29 @@ export function SettingsAutoRoutingSection(props: {
       </SettingsCard>
 
       <SettingsCard
-        title="Rule preview"
-        description="Preview the local rules with heuristic signals. No AI call is made; model classification can produce a different route."
+        title={t("settingsConnections:settingsDialogAutoRoutingSection.rulePreview")}
+        description={t("settingsConnections:settingsDialogAutoRoutingSection.previewTheLocalRulesWithHeuristic")}
         titleAccessory={<Sparkles className={sx(styles.icon)} aria-hidden="true" />}
       >
         <Textarea
-          aria-label="Dry-run prompt"
+          aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.dryRunPrompt")}
           className={sx(styles.testerTextarea)}
-          placeholder="e.g. Plan the migration of the settings dialog to StyleX"
+          placeholder={t("settingsConnections:settingsDialogAutoRoutingSection.eGPlanTheMigrationOf")}
           value={testPrompt}
           onChange={(event) => setTestPrompt(event.target.value)}
         />
         <div className={sx(styles.testerControls)}>
-          <RuleField label="Role">
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.role")}>
             <RuleSelect
-              ariaLabel="Dry-run role"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.dryRunRole")}
               value={testRole}
               onChange={setTestRole}
               options={ROLE_OPTIONS}
             />
           </RuleField>
-          <RuleField label="Task currently on">
+          <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.taskCurrentlyOn")}>
             <RuleSelect
-              ariaLabel="Dry-run current provider"
+              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.dryRunCurrentProvider")}
               value={testProvider}
               onChange={setTestProvider}
               options={listProviderIds().map((providerId) => ({
@@ -903,22 +905,22 @@ export function SettingsAutoRoutingSection(props: {
         {dryRun?.error ? <p role="status">{dryRun.error}</p> : null}
         {dryRun?.route ? (
           <dl className={sx(styles.testerResult)}>
-            <dt className={sx(styles.testerKey)}>Route</dt>
+            <dt className={sx(styles.testerKey)}>{t("settingsConnections:routeTrace.route")}</dt>
             <dd className={sx(styles.testerRoute)}>
               {getProviderLabel({ providerId: dryRun.route.providerId })} ·{" "}
               {formatResolvedRouteLabel(dryRun.route)}
               {" · "}
               {formatModelPrice(dryRun.route.model) ?? ROUTE_TIER_LABELS[dryRun.route.tier]}
             </dd>
-            <dt className={sx(styles.testerKey)}>Rule</dt>
-            <dd className={sx(styles.testerValue)}>{dryRun.route.ruleId ?? "Fallback (no rule matched)"}</dd>
-            <dt className={sx(styles.testerKey)}>Reason</dt>
+            <dt className={sx(styles.testerKey)}>{t("settingsConnections:routeTrace.rule")}</dt>
+            <dd className={sx(styles.testerValue)}>{dryRun.route.ruleId ?? t("settingsConnections:settingsDialogAutoRoutingSection.fallbackNoRuleMatched")}</dd>
+            <dt className={sx(styles.testerKey)}>{t("settingsConnections:settingsDialogAutoRoutingSection.reason")}</dt>
             <dd className={sx(styles.testerValue)}>{dryRun.route.reason}</dd>
-            <dt className={sx(styles.testerKey)}>Signals</dt>
+            <dt className={sx(styles.testerKey)}>{t("settingsConnections:routeTrace.signals")}</dt>
             <dd className={sx(styles.testerValue)}>
               {formatAutoRoutingSignalSummary(dryRun.summary)}
             </dd>
-            <dt className={sx(styles.testerKey)}>Eligible</dt>
+            <dt className={sx(styles.testerKey)}>{t("settingsConnections:settingsDialogAutoRoutingSection.eligible")}</dt>
             <dd className={sx(styles.testerValue)}>
               {listEligibleRouteModels({ profile, providerId: dryRun.route.providerId })
                 .map((model) => toHumanModelName({ model }))

@@ -1,3 +1,5 @@
+import { describeAutomationDraftIssue } from "@/lib/automation-presentation";
+import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import {
@@ -26,6 +28,7 @@ import { ScheduleKindSwitch } from "./ScheduleKindSwitch";
 
 const DEFAULT_SCHEDULE: AutomationSchedule = { every: 1, unit: "hours" };
 
+// i18n-ignore: model-facing prompt examples inserted verbatim into task instructions
 const PROMPT_IDEAS = [
   "Re-check CI on the pull request. Report only on change.",
   "Look for new pull request feedback and address it.",
@@ -48,12 +51,13 @@ export function CheckBackEditor(props: {
   onCancel: () => void;
   onSaved: () => void;
 }) {
+  const { t: tI18n } = useTranslation(["automation"]);
   const { wakeUp } = props;
   const tasks = useAppStore((state) => state.tasks);
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const taskOptions = useMemo(
     () => tasks.filter((task) => !task.archivedAt && !isTaskManaged(task)),
-    [tasks],
+    [tasks, i18n.resolvedLanguage],
   );
   const [taskId, setTaskId] = useState(wakeUp?.taskId ?? props.taskId ?? "");
   const [prompt, setPrompt] = useState(wakeUp?.prompt ?? "");
@@ -77,12 +81,12 @@ export function CheckBackEditor(props: {
       expiresAt: wakeUp?.expiresAt ?? null,
     });
     if (!parsed.success) {
-      toast.error(!taskId ? "Pick a task to check back on." : (parsed.error.issues[0]?.message ?? "Invalid schedule."));
+      toast.error(!taskId ? tI18n("automation:checkBackEditor.pickATaskToCheckBackOn") : (describeAutomationDraftIssue(parsed.error.issues[0], tI18n)));
       return;
     }
     const api = window.api?.wakeUps;
     if (!api) {
-      toast.error("Schedules are available in the Stave desktop app.");
+      toast.error(tI18n("automation:checkBackEditor.schedulesAreAvailableInTheStaveDesktop"));
       return;
     }
     setSaving(true);
@@ -91,13 +95,13 @@ export function CheckBackEditor(props: {
         ? await api.update({ id: wakeUp.id, input: parsed.data })
         : await api.create(parsed.data);
       if (!result.ok) {
-        toast.error(result.message ?? "Failed to save the schedule.");
+        toast.error(result.message ?? tI18n("automation:checkBackEditor.failedToSaveTheSchedule"));
         return;
       }
-      toast.success(wakeUp ? "Schedule updated" : "Schedule created");
+      toast.success(wakeUp ? tI18n("automation:checkBackEditor.scheduleUpdated") : tI18n("automation:checkBackEditor.scheduleCreated"));
       props.onSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to save the schedule.");
+      toast.error(error instanceof Error ? error.message : tI18n("automation:checkBackEditor.failedToSaveTheSchedule"));
     } finally {
       setSaving(false);
     }
@@ -107,17 +111,15 @@ export function CheckBackEditor(props: {
     <div className={sx(editorStyles.root)}>
       <div className={sx(editorStyles.header)}>
         <div className={sx(editorStyles.headerText)}>
-          <div className={sx(editorStyles.headerTitle)}>{wakeUp ? "Edit schedule" : "New schedule"}</div>
+          <div className={sx(editorStyles.headerTitle)}>{wakeUp ? tI18n("automation:checkBackEditor.editSchedule") : tI18n("automation:checkBackEditor.newSchedule")}</div>
           <div className={sx(editorStyles.headerSubtitle)}>
-            Resumes the same task while the Stave desktop app is open.
-          </div>
+            {tI18n("automation:checkBackEditor.resumesTheSameTaskWhileTheStave")}</div>
         </div>
         <div className={sx(editorStyles.headerActions)}>
           <Button size="sm" variant="ghost" xstyle={editorStyles.headerButtonQuiet} onClick={props.onCancel} disabled={saving}>
-            Cancel
-          </Button>
+            {tI18n("automation:checkBackEditor.cancel")}</Button>
           <Button size="sm" xstyle={editorStyles.headerButton} onClick={() => void save()} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? tI18n("automation:checkBackEditor.saving") : tI18n("automation:checkBackEditor.save")}
           </Button>
         </div>
       </div>
@@ -125,8 +127,8 @@ export function CheckBackEditor(props: {
       <div className={sx(editorStyles.body)}>
         <div className={sx(editorStyles.bodyColumn)}>
           <section className={sx(editorStyles.section)}>
-            <SectionHeading title="What" />
-            <FormLabel label="Instructions" description="Sent to the task each time it is checked. Uses the task's own agent.">
+            <SectionHeading title={tI18n("automation:checkBackEditor.what")} />
+            <FormLabel label={tI18n("automation:checkBackEditor.instructions")} description={tI18n("automation:checkBackEditor.sentToTheTaskEachTimeIt")}>
               <Textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
@@ -146,11 +148,11 @@ export function CheckBackEditor(props: {
           </section>
 
           <section className={sx(editorStyles.section)}>
-            <SectionHeading title="Where" description="Resumes this task in its own session; it never starts a new one." />
+            <SectionHeading title={tI18n("automation:checkBackEditor.where")} description={tI18n("automation:checkBackEditor.resumesThisTaskInItsOwnSession")} />
             {wakeUp ? null : <ScheduleKindSwitch value="check-back" onChange={props.onKindChange} />}
             <Select value={taskId} onValueChange={setTaskId} disabled={Boolean(wakeUp)}>
-              <SelectTrigger className={sx(editorStyles.repositorySelect)} aria-label="Task">
-                <SelectValue placeholder="Select a task">
+              <SelectTrigger className={sx(editorStyles.repositorySelect)} aria-label={tI18n("automation:checkBackEditor.task")}>
+                <SelectValue placeholder={tI18n("automation:checkBackEditor.selectATask")}>
                   {taskOptions.find((task) => task.id === taskId)?.title ?? props.taskTitle ?? undefined}
                 </SelectValue>
               </SelectTrigger>
@@ -165,13 +167,13 @@ export function CheckBackEditor(props: {
           </section>
 
           <section className={sx(editorStyles.section)}>
-            <SectionHeading title="When" />
+            <SectionHeading title={tI18n("automation:checkBackEditor.when")} />
             <ChoiceButtons
-              aria-label="When"
+              aria-label={tI18n("automation:checkBackEditor.when")}
               value={when}
               options={[
-                { value: "cadence", label: "On a cadence" },
-                { value: "completion", label: "When subagents finish" },
+                { value: "cadence", label: tI18n("automation:checkBackEditor.onACadence") },
+                { value: "completion", label: tI18n("automation:checkBackEditor.whenSubagentsFinish") },
               ]}
               onChange={setWhen}
             />

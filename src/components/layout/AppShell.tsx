@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { WorkspaceWelcome } from "./WorkspaceWelcome";
 import {
   Suspense,
@@ -120,6 +121,7 @@ const WORKSPACE_SIDEBAR_MAX_WIDTH = 340;
 const DEFAULT_LAYOUT = createDefaultLayoutState();
 
 export function AppShell() {
+  useTranslation();
   const notifications = useAppStore((state) => state.notifications);
   const [
     repositoryPath,
@@ -335,7 +337,7 @@ export function AppShell() {
       (task) => task.id === taskId && !isTaskArchived(task),
     );
     if (!taskId || !taskExists) {
-      toast.error("Open a task before comparing runs");
+      toast.error(i18n.t("shell:appShell.openATaskBeforeComparingRuns"));
       return;
     }
     setCommandPaletteOpen(false);
@@ -345,7 +347,7 @@ export function AppShell() {
   const handleOpenLatestCompletedTurnTask = useCallback(async () => {
     const stateBefore = useAppStore.getState();
     if (stateBefore.workspaces.length === 0) {
-      toast.message("No workspaces available");
+      toast.message(i18n.t("shell:appShell.noWorkspacesAvailable"));
       return;
     }
 
@@ -366,7 +368,7 @@ export function AppShell() {
       });
 
       if (!latestTarget) {
-        toast.message("No completed turns yet");
+        toast.message(i18n.t("shell:appShell.noCompletedTurnsYet"));
         return;
       }
 
@@ -381,9 +383,9 @@ export function AppShell() {
         (task) => task.id === latestTarget.taskId,
       );
       if (!targetTask) {
-        toast.error("Unable to open the latest completed task", {
+        toast.error(i18n.t("shell:appShell.unableToOpenTheLatestCompletedTask"), {
           description:
-            "The task for the newest completed turn is no longer available.",
+            i18n.t("shell:appShell.theTaskForTheNewestCompletedTurn"),
         });
         return;
       }
@@ -399,11 +401,11 @@ export function AppShell() {
       stateAfter.selectTask({ taskId: latestTarget.taskId });
       stateAfter.requestTaskScrollToLatest({ taskId: latestTarget.taskId });
     } catch (error) {
-      toast.error("Unable to find the latest completed turn", {
+      toast.error(i18n.t("shell:appShell.unableToFindTheLatestCompletedTurn"), {
         description:
           error instanceof Error
             ? error.message
-            : "Turn history could not be loaded.",
+            : i18n.t("shell:appShell.turnHistoryCouldNotBeLoaded"),
       });
     }
   }, []);
@@ -444,13 +446,11 @@ export function AppShell() {
   }
 
   function OverlayLoadingFallback(args: { title: string }) {
+  useTranslation();
     return (
       <div className={sx(layers.dialog, appShellStyles.overlayFallback)}>
         <Card className={sx(appShellStyles.overlayCard)}>
-          <div className={sx(appShellStyles.overlayText)}>
-            Loading {args.title.toLowerCase()}
-            ...
-          </div>
+          <div className={sx(appShellStyles.overlayText)}>{i18n.t("shell:appShell.loadingSurface", { title: args.title })}</div>
         </Card>
       </div>
     );
@@ -488,10 +488,10 @@ export function AppShell() {
       UtilityInferenceNoticeDetail["feature"],
       string
     > = {
-      "task-name": "Task naming",
-      "route-classification": "Route classification",
-      "commit-message": "Commit message generation",
-      "prompt-enhancement": "Prompt enhancement",
+      "task-name": i18n.t("shell:appShell.taskNaming"),
+      "route-classification": i18n.t("shell:appShell.routeClassification"),
+      "commit-message": i18n.t("shell:appShell.commitMessageGeneration"),
+      "prompt-enhancement": i18n.t("shell:appShell.promptEnhancement"),
     };
     const onUtilityInferenceNotice = (event: Event) => {
       const { feature, ok, utility } = (
@@ -499,17 +499,17 @@ export function AppShell() {
       ).detail;
       const title = featureLabels[feature];
       if (ok && utility.providerId) {
-        toast.info(`${title} used a fallback provider`, {
+        toast.info(i18n.t("shell:appShell.usedAFallbackProvider", { value1: title }), {
           id: `utility-inference:${feature}`,
-          description: `${getProviderLabel({ providerId: utility.providerId })} · ${utility.model ?? "default model"}`,
+          description: `${getProviderLabel({ providerId: utility.providerId })} · ${utility.model ?? i18n.t("shell:appShell.defaultModel")}`,
         });
         return;
       }
-      toast.warning(`${title} is unavailable`, {
+      toast.warning(i18n.t("shell:appShell.isUnavailable", { value1: title }), {
         id: `utility-inference:${feature}`,
         description:
           utility.detail ||
-          "No utility runner completed the read-only utility request.",
+          i18n.t("shell:appShell.noUtilityRunnerCompletedTheReadOnlyUtility"),
       });
     };
     window.addEventListener(
@@ -1125,7 +1125,7 @@ export function AppShell() {
         return [
           {
             isCurrent: true,
-            repositoryName: repositoryName ?? "Current repository",
+            repositoryName: repositoryName ?? i18n.t("shell:appShell.currentRepository"),
             repositoryPath,
           },
           ...remembered,
@@ -1305,6 +1305,7 @@ export function AppShell() {
       workspaceSidebarCollapsed,
       workspaces,
       switchWorkspace,
+      i18n.language,
     ],
   );
   const showFleetView = activeAppSurface.kind === "fleet-view";
@@ -1320,18 +1321,16 @@ export function AppShell() {
     <div className={sx(appShellStyles.root)}>
       {zoomHudPercent !== null ? (
         <div className={sx(appShellStyles.zoomHud, layers.floatingChrome)}>
-          <div className={sx(appShellStyles.zoomHudPill)}>
-            Zoom {zoomHudPercent}%
-          </div>
+          <div className={sx(appShellStyles.zoomHudPill)}>{i18n.t("shell:appShell.zoomPercent", { percent: zoomHudPercent })}</div>
         </div>
       ) : null}
       <Toaster />
       <ConfirmDialog
         open={showCloseConfirm}
-        title="Close Stave?"
-        description="Are you sure you want to close the application window?"
-        confirmLabel="Close"
-        cancelLabel="Cancel"
+        title={i18n.t("shell:appShell.closeStave")}
+        description={i18n.t("shell:appShell.areYouSureYouWantToClose")}
+        confirmLabel={i18n.t("shell:appShell.close")}
+        cancelLabel={i18n.t("shell:appShell.cancel")}
         onCancel={() => setShowCloseConfirm(false)}
         onConfirm={() => {
           setShowCloseConfirm(false);
@@ -1357,17 +1356,17 @@ export function AppShell() {
               }
               setQuittingApp(false);
               setShowQuitConfirm(false);
-              toast.error("Unable to quit Stave", {
-                description: "The quit request is no longer pending.",
+              toast.error(i18n.t("shell:appShell.unableToQuitStave"), {
+                description: i18n.t("shell:appShell.theQuitRequestIsNoLongerPending"),
               });
             })
             .catch((error) => {
               setQuittingApp(false);
-              toast.error("Unable to quit Stave", {
+              toast.error(i18n.t("shell:appShell.unableToQuitStave"), {
                 description:
                   error instanceof Error
                     ? error.message
-                    : "The app could not confirm the quit request.",
+                    : i18n.t("shell:appShell.theAppCouldNotConfirmTheQuit"),
               });
             });
         }}
@@ -1379,7 +1378,7 @@ export function AppShell() {
       />
       {shortcutsOpen ? (
         <Suspense
-          fallback={<OverlayLoadingFallback title="Keyboard Shortcuts" />}
+          fallback={<OverlayLoadingFallback title={i18n.t("shell:appShell.keyboardShortcuts")} />}
         >
           <KeyboardShortcutsDrawer
             open={shortcutsOpen}
@@ -1388,7 +1387,7 @@ export function AppShell() {
         </Suspense>
       ) : null}
       {settingsOpen ? (
-        <Suspense fallback={<OverlayLoadingFallback title="Settings" />}>
+        <Suspense fallback={<OverlayLoadingFallback title={i18n.t("shell:appShell.settings")} />}>
           <SettingsDialog
             open={settingsOpen}
             initialSection={settingsInitialSection}
@@ -1398,7 +1397,7 @@ export function AppShell() {
         </Suspense>
       ) : null}
       {kickoffOpen ? (
-        <Suspense fallback={<OverlayLoadingFallback title="Kickoff" />}>
+        <Suspense fallback={<OverlayLoadingFallback title={i18n.t("shell:appShell.kickoff")} />}>
           <KickoffDialog open={kickoffOpen} onOpenChange={setKickoffOpen} />
         </Suspense>
       ) : null}
@@ -1484,7 +1483,7 @@ export function AppShell() {
                     <Suspense
                       fallback={
                         <div className={sx(appShellStyles.suspenseCenter)}>
-                          Loading tasks...
+                          {i18n.t("shell:appShell.loadingTasks")}
                         </div>
                       }
                     >
@@ -1537,7 +1536,7 @@ export function AppShell() {
                         className={sx(appShellStyles.panelFallback)}
                         style={{ width: `${desktopSidebarWidth}px` }}
                       >
-                        Loading panel...
+                        {i18n.t("shell:appShell.loadingPanel")}
                       </aside>
                     }
                   >
@@ -1557,7 +1556,7 @@ export function AppShell() {
                   <Suspense
                     fallback={
                       <aside className={sx(appShellStyles.panelFallbackFull)}>
-                        Loading panel...
+                        {i18n.t("shell:appShell.loadingPanel")}
                       </aside>
                     }
                   >

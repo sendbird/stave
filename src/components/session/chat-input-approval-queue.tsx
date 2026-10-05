@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { transition } from "@/components/ads/recipes/transition";
 import { useEffect, useRef, useState } from "react";
@@ -44,6 +45,7 @@ interface ChatInputApprovalQueueProps {
 }
 
 export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
+  useTranslation();
   const {
     approvals,
     compact,
@@ -185,7 +187,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
 
   return (
     <section
-      aria-label="Approval queue"
+      aria-label={i18n.t("session:chatInputApprovalQueue.ariaLabel")}
       className={sx(
         styles.section,
         compact ? styles.sectionCompact : styles.sectionRegular,
@@ -198,7 +200,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
         state={current.part.state}
         disabled={disabled || decisionPending}
         disabledReason={
-          decisionPending ? "Sending decision to the provider…" : disabledReason
+          decisionPending ? i18n.t("session:chatInputApprovalQueue.extraCopy142") : disabledReason
         }
         showShortcutHint={!disabled && !decisionPending}
         onApprove={() =>
@@ -234,8 +236,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
           className={sx(styles.status)}
         >
           <Loader aria-hidden size="xs" variant="signal" />
-          Waiting for the provider to accept the decision…
-        </p>
+          {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue")}</p>
       ) : null}
       {/*
         When the runtime persists the rule itself, Stave's client-side trusted
@@ -259,9 +260,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               input: current.part.input,
             })
           }
-        >
-          approve and always allow {formatTrustedToolEntry(trustedEntry)}
-        </AdsButton>
+        >{i18n.t("session:chatInputApprovalQueue.sentence54", { value1: formatTrustedToolEntry(trustedEntry) })}</AdsButton>
       ) : null}
 
       {/* Guidance inline */}
@@ -274,7 +273,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               rows={2}
               xstyle={styles.guidanceField}
               onChange={(event) => setGuidanceText(event.target.value)}
-              placeholder={`Instead of ${current.part.toolName}, do this…`}
+              placeholder={i18n.t("session:chatInputApprovalQueue.placeholder", { value1: current.part.toolName })}
             />
             <div className={sx(styles.guidanceActions)}>
               <Button
@@ -297,8 +296,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                   setGuidanceText("");
                 }}
               >
-                Reject & Guide
-              </Button>
+                {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue3")}</Button>
               <Button
                 type="button"
                 size="sm"
@@ -309,8 +307,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                   setGuidanceText("");
                 }}
               >
-                Cancel
-              </Button>
+                {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue4")}</Button>
             </div>
           </div>
         ) : (
@@ -320,7 +317,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
             onClick={() => openGuidanceDraft({ focusComposer: true })}
           >
             <Kbd className={sx(styles.guideKbd)}>Tab</Kbd>
-            <span>guide instead</span>
+            <span>{i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue5")}</span>
           </AdsButton>
         )
       ) : null}
@@ -329,9 +326,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
       {queuedCount > 0 ? (
         <div className={sx(styles.queuedGroup)}>
           <details className="group">
-            <summary className={sx(styles.queuedSummary, transition.colors)}>
-              +{queuedCount} more queued
-            </summary>
+            <summary className={sx(styles.queuedSummary, transition.colors)}>{i18n.t("session:chatInputApprovalQueue.sentence55", { value1: queuedCount })}</summary>
             <div className={sx(styles.queuedList)}>
               {approvals.slice(1).map((approval) => (
                 <ConfirmationCompact
@@ -342,7 +337,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                   disabled={disabled || decisionPending}
                   disabledReason={
                     decisionPending
-                      ? "Another decision is being delivered."
+                      ? i18n.t("session:chatInputApprovalQueue.extraCopy143")
                       : disabledReason
                   }
                   showShortcutHint={false}

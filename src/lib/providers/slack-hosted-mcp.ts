@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /** Slack-published public OAuth client ID for Cursor's hosted Slack MCP route. Not a secret. */
 export const CURSOR_SLACK_MCP_CLIENT_ID = "3660753192626.8903469228982";
 
@@ -44,16 +45,16 @@ export function isCursorOfficialSlackClientId(value: string | undefined) {
 export function assertKiroSlackOAuthClientId(clientId: string | undefined) {
   const id = normalizeOAuthClientId(clientId);
   if (!id) {
-    throw new Error("Kiro Slack MCP requires a Slack app OAuth client ID.");
+    throw new Error(i18n.t("providers:slackHostedMcp.kiroSlackMCPRequiresASlack"));
   }
   if (isCursorOfficialSlackClientId(id)) {
     throw new Error(
-      "Kiro Slack MCP cannot reuse Cursor's published Slack client ID. Enter the client ID from your Slack app.",
+      i18n.t("providers:slackHostedMcp.kiroSlackMCPCannotReuseCursor"),
     );
   }
   if (!SLACK_OAUTH_CLIENT_ID_PATTERN.test(id)) {
     throw new Error(
-      "Slack app client IDs use the form 1234567890.1234567890.",
+      i18n.t("providers:slackHostedMcp.slackAppClientIDsUseThe"),
     );
   }
   return id;

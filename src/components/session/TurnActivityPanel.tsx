@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { TurnActivity } from "@/components/session/TurnActivity";
 import { sx } from "@/components/ads/utils/stylex";
 import { TaskRunOverview } from "./TaskRunOverview";
@@ -12,6 +13,7 @@ import { turnActivityPanelStyles as styles } from "./turn-activity-panel.styles"
  * always leads here, so this tab is never a pointer to somewhere else.
  */
 export function TurnActivityPanel() {
+  useTranslation();
   return (
     <div className={sx(styles.column)}>
       <TaskRunOverview />

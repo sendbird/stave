@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
 import type { DelegationStage } from "@/lib/delegation/exchange";
 import { formatExchangeDuration } from "@/lib/delegation/format";
@@ -8,6 +9,7 @@ export function StageTimeline(props: {
   stages: readonly DelegationStage[];
   startedAt: number;
 }) {
+  useTranslation();
   if (props.stages.length === 0) {
     return null;
   }

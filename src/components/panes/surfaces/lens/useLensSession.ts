@@ -1,3 +1,5 @@
+import { useTranslation } from "@/i18n";
+import { i18n } from "@/i18n";
 import {
   useCallback,
   useEffect,
@@ -99,6 +101,7 @@ export function useLensSession(args: {
   /** Adopt annotations main already holds for the page being restored. */
   onAnnotationsRestored: (annotations: LensAnnotation[]) => void;
 }): LensSessionHandle {
+  useTranslation();
   const {
     workspaceId,
     lensSessionId,
@@ -249,10 +252,10 @@ export function useLensSession(args: {
         if (scheduleRebuild(150 * (rebuildAttemptsRef.current + 1))) {
           return;
         }
-        toast.error("Lens failed to start", {
+        toast.error(i18n.t("lens:useLensSession.lensFailedToStart"), {
           description:
             openResult?.message ??
-            "Could not create the embedded browser view.",
+            i18n.t("lens:useLensSession.couldNotCreateTheEmbeddedBrowserView"),
         });
         return;
       }
@@ -278,7 +281,7 @@ export function useLensSession(args: {
           url: target,
         });
         if (!result?.ok)
-          setLastLoadError(result?.message ?? "Could not load the page.");
+          setLastLoadError(result?.message ?? i18n.t("lens:useLensSession.couldNotLoadThePage"));
       }
 
       const stateResult = await lensApi?.getState?.({
@@ -308,7 +311,7 @@ export function useLensSession(args: {
         setLastLoadError(
           error instanceof Error
             ? error.message
-            : "Could not open Lens. Reload to retry.",
+            : i18n.t("lens:useLensSession.couldNotOpenLensReloadToRetry"),
         );
       }
     });
@@ -417,9 +420,9 @@ export function useLensSession(args: {
           return;
         }
         if (!scheduleRebuild(0) && isTabOpenRef.current) {
-          toast.error("Lens keeps closing", {
+          toast.error(i18n.t("lens:useLensSession.lensKeepsClosing"), {
             description:
-              "The page ended repeatedly right after opening. Reload the tab to try again.",
+              i18n.t("lens:useLensSession.thePageEndedRepeatedlyRightAfterOpening"),
           });
         }
       },
@@ -470,9 +473,9 @@ export function useLensSession(args: {
         return;
       }
       if (!hasLensApi) {
-        toast.error("Lens is unavailable", {
+        toast.error(i18n.t("lens:useLensSession.lensIsUnavailable"), {
           description:
-            "The embedded browser only works in the Electron desktop runtime.",
+            i18n.t("lens:useLensSession.theEmbeddedBrowserOnlyWorksInThe"),
         });
         return;
       }
@@ -492,12 +495,12 @@ export function useLensSession(args: {
         if (!result?.ok) {
           setLastLoadError(
             result?.message ??
-              "Lens could not load that address. Check the address and retry.",
+              i18n.t("lens:useLensSession.lensCouldNotLoadThatAddressCheck"),
           );
         }
       } catch {
         setLastLoadError(
-          "The browser connection was interrupted. Retry loading the page.",
+          i18n.t("lens:useLensSession.theBrowserConnectionWasInterruptedRetryLoading"),
         );
       }
     },
@@ -535,11 +538,11 @@ export function useLensSession(args: {
           });
           if (!result?.ok)
             setLastLoadError(
-              "Lens could not update the page. Check the address and retry.",
+              i18n.t("lens:useLensSession.lensCouldNotUpdateThePageCheck"),
             );
         } catch {
           setLastLoadError(
-            "The browser connection was interrupted. Retry loading the page.",
+            i18n.t("lens:useLensSession.theBrowserConnectionWasInterruptedRetryLoading"),
           );
         }
       })();

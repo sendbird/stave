@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   deriveCompareSeedTitle,
   type CompareRun,
@@ -7,12 +8,12 @@ import {
 export type CompareRunHistoryStatusFilter = "all" | CompareRunStatus;
 
 export const COMPARE_RUN_HISTORY_STATUS_FILTERS = [
-  { value: "all", label: "All" },
-  { value: "starting", label: "Preparing" },
-  { value: "running", label: "Running" },
-  { value: "completed", label: "Completed" },
-  { value: "failed", label: "Failed" },
-  { value: "cancelled", label: "Cancelled" },
+  { value: "all", get label() { return i18n.t("common:labels.all"); } },
+  { value: "starting", get label() { return i18n.t("compare:compareRunHistory.preparing"); } },
+  { value: "running", get label() { return i18n.t("common:status.running"); } },
+  { value: "completed", get label() { return i18n.t("common:status.completed"); } },
+  { value: "failed", get label() { return i18n.t("common:status.failed"); } },
+  { value: "cancelled", get label() { return i18n.t("common:status.cancelled"); } },
 ] as const satisfies readonly {
   value: CompareRunHistoryStatusFilter;
   label: string;
@@ -41,33 +42,33 @@ function getRecommendedVariantLabel(run: CompareRun) {
   if (index < 0) {
     return null;
   }
-  return run.variants[index]?.label?.trim() || `Candidate ${index + 1}`;
+  return run.variants[index]?.label?.trim() || i18n.t("compare:compareRunHistory.candidate", { value1: index + 1 });
 }
 
 export function getCompareRunStateLabel(run: CompareRun) {
   if (run.keptVariantId) {
-    return "Result kept";
+    return i18n.t("compare:compareRunHistory.resultKept");
   }
   if (run.judge?.status === "running") {
-    return "Judge scoring";
+    return i18n.t("compare:compareRunHistory.judgeScoring");
   }
   if (run.judge?.status === "failed" && run.status === "completed") {
-    return "Judge needs retry";
+    return i18n.t("compare:compareRunHistory.judgeNeedsRetry");
   }
   if (run.judge?.status === "completed" && run.status === "completed") {
-    return "Ready to review";
+    return i18n.t("compare:compareRunHistory.readyToReview");
   }
   switch (run.status) {
     case "starting":
-      return "Preparing candidates";
+      return i18n.t("compare:compareRunHistory.preparingCandidates");
     case "running":
-      return "Candidates running";
+      return i18n.t("compare:compareRunHistory.candidatesRunning");
     case "completed":
-      return "Completed";
+      return i18n.t("common:status.completed");
     case "failed":
-      return "Run failed";
+      return i18n.t("compare:compareRunHistory.runFailed");
     case "cancelled":
-      return "Cancelled";
+      return i18n.t("common:status.cancelled");
   }
 }
 
@@ -77,22 +78,22 @@ function buildCompareRunHistoryEntry(run: CompareRun): CompareRunHistoryEntry {
   ).length;
   const recommendedVariantLabel = getRecommendedVariantLabel(run);
   const judgeLabel = recommendedVariantLabel
-    ? `Judge recommends ${recommendedVariantLabel}`
+    ? i18n.t("compare:compareRunHistory.judgeRecommends", { value1: recommendedVariantLabel })
     : run.judge?.status === "running"
-      ? "Fresh-context judge is scoring"
+      ? i18n.t("compare:compareRunHistory.freshContextJudgeIsScoring")
       : run.judge?.status === "pending"
-        ? "Judge starts after candidates finish"
+        ? i18n.t("compare:compareRunHistory.judgeStartsAfterCandidatesFinish")
         : run.judge?.status === "failed"
-          ? "Fresh-context judge needs retry"
+          ? i18n.t("compare:compareRunHistory.freshContextJudgeNeedsRetry")
           : null;
 
   return {
     id: run.id,
-    title: deriveCompareSeedTitle(run.seedPrompt) || "Compare run",
+    title: deriveCompareSeedTitle(run.seedPrompt) || i18n.t("compare:compareRunHistory.compareRun"),
     seedPrompt: run.seedPrompt,
     status: run.status,
     stateLabel: getCompareRunStateLabel(run),
-    progressLabel: `${completedCount}/${run.variants.length} candidates completed`,
+    progressLabel: i18n.t("compare:compareRunHistory.candidatesCompleted", { value1: completedCount, value2: run.variants.length }),
     judgeLabel,
     createdAt: run.createdAt,
     updatedAt: run.updatedAt,

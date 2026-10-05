@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Button } from "@/components/ui";
@@ -71,21 +73,21 @@ function formatMcpSourceLabel(
 ) {
   switch (source) {
     case "claude-user":
-      return "Claude user";
+      return i18n.t("settingsProviders:mcpSection.sources.claudeUser");
     case "claude-project":
-      return "Claude project";
+      return i18n.t("settingsProviders:mcpSection.sources.claudeProject");
     case "claude-local":
-      return "Claude local project";
+      return i18n.t("settingsProviders:mcpSection.sources.claudeLocal");
     case "codex-user":
-      return "Codex user";
+      return i18n.t("settingsProviders:mcpSection.sources.codexUser");
     case "cursor-user":
-      return "Cursor user";
+      return i18n.t("settingsProviders:mcpSection.sources.cursorUser");
     case "cursor-project":
-      return "Cursor project";
+      return i18n.t("settingsProviders:mcpSection.sources.cursorProject");
     case "kiro-user":
-      return "Kiro user";
+      return i18n.t("settingsProviders:mcpSection.sources.kiroUser");
     case "kiro-project":
-      return "Kiro project";
+      return i18n.t("settingsProviders:mcpSection.sources.kiroProject");
   }
 }
 
@@ -94,7 +96,7 @@ async function loadMcpValue<T>(
   loader?: () => Promise<T>,
 ): Promise<McpLoadResult<T>> {
   if (!loader) {
-    return { value: null, error: `${label} API unavailable.` };
+    return { value: null, error: i18n.t("settingsProviders:settingsDialogMcpSection.apiUnavailable", { value1: label }) };
   }
   try {
     return { value: await loader() };
@@ -122,11 +124,11 @@ function getConnectionBadgeVariant(state: McpConnectionState) {
 
 function formatStatusTime(timestamp?: number) {
   if (!timestamp) return "";
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDateTime(timestamp, {
     hour: "numeric",
     minute: "2-digit",
     second: "2-digit",
-  }).format(timestamp);
+  });
 }
 
 function getAcpAvailabilityCopy(
@@ -135,27 +137,27 @@ function getAcpAvailabilityCopy(
   switch (availability) {
     case "portable":
       return {
-        label: "Cursor/Kiro eligible",
+        label: i18n.t("settingsProviders:mcpSection.acp.portable.label"),
         detail:
-          "Stave can forward this file-backed server to primary Cursor and Kiro sessions.",
+          i18n.t("settingsProviders:mcpSection.acp.portable.detail"),
       };
     case "target-native":
       return {
-        label: "Native route",
+        label: i18n.t("settingsProviders:mcpSection.acp.targetNative.label"),
         detail:
-          "Cursor or Kiro loads this server from its native MCP configuration. Stave does not inject a duplicate route into that target session.",
+          i18n.t("settingsProviders:mcpSection.acp.targetNative.detail"),
       };
     case "provider-managed":
       return {
         label: "Provider-only",
         detail:
-          "This account-managed connector exposes no reusable command, URL, or OAuth credential, so it stays with the provider that authenticated it.",
+          i18n.t("settingsProviders:mcpSection.acp.providerManaged.detail"),
       };
     case "not-forwarded":
       return {
-        label: "Not sent to ACP",
+        label: i18n.t("settingsProviders:mcpSection.acp.notForwarded.label"),
         detail:
-          "This server is disabled or uses a transport that Cursor and Kiro sessions cannot receive.",
+          i18n.t("settingsProviders:mcpSection.acp.notForwarded.detail"),
       };
   }
 }
@@ -167,6 +169,7 @@ function McpProviderStatus(args: {
   authBusy: boolean;
   onAuthenticate?: () => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const providerLabel =
     args.overview.provider === "claude-code"
       ? "Claude"
@@ -184,7 +187,7 @@ function McpProviderStatus(args: {
         <p className={sx(styles.providerName)}>{providerLabel}</p>
         <Badge variant={getConnectionBadgeVariant(args.overview.state)}>
           {args.authPending && args.overview.state !== "connected"
-            ? "Waiting for sign-in"
+            ? t("settingsProviders:mcpSection.provider.waitingForSignIn")
             : args.overview.label}
         </Badge>
       </div>
@@ -192,16 +195,15 @@ function McpProviderStatus(args: {
         {args.overview.detail ? <span>{args.overview.detail}</span> : null}
         {typeof args.overview.toolCount === "number" ? (
           <span>
-            {args.overview.toolCount} tool
-            {args.overview.toolCount === 1 ? "" : "s"}
+            {t("settingsProviders:whole.tools", { count: args.overview.toolCount })}
           </span>
         ) : null}
-        {statusTime ? <span>Checked {statusTime}</span> : null}
+        {statusTime ? <span>{t("settingsProviders:messages.checkedAt", { checkedAt: statusTime })}</span> : null}
       </div>
       {args.overview.lastError ? (
         <div className={sx(styles.errorBox)}>
           <p className={sx(styles.errorTitle)}>
-            Recent error{errorTime ? ` · ${errorTime}` : ""}
+            {t("settingsProviders:mcpSection.provider.recentError")}{errorTime ? ` · ${errorTime}` : ""}
           </p>
           <p className={sx(styles.errorDetail)}>{args.overview.lastError}</p>
         </div>
@@ -212,14 +214,14 @@ function McpProviderStatus(args: {
           size="sm"
           variant="outline"
           disabled={args.authBusy || args.authPending}
-          aria-label={`Sign in to ${args.serverName} for ${providerLabel}`}
+          aria-label={t("settingsProviders:settingsDialogMcpSection.signInToFor", { value1: args.serverName, value2: providerLabel })}
           onClick={args.onAuthenticate}
         >
           {args.authBusy
-            ? "Starting..."
+            ? t("settingsProviders:mcpSection.provider.starting")
             : args.authPending
-              ? "Waiting for browser"
-              : "Sign in"}
+              ? t("settingsProviders:mcpSection.provider.waitingForBrowser")
+              : t("settingsProviders:mcpSection.provider.signIn")}
         </Button>
       ) : null}
     </div>
@@ -252,6 +254,7 @@ function McpShareActions(args: {
     destinationProvider: McpConfigProvider,
   ) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   if (
     args.claudeConfigured &&
     args.codexConfigured &&
@@ -281,8 +284,7 @@ function McpShareActions(args: {
           variant="outline"
           onClick={() => args.onShare(toCodex, "codex")}
         >
-          Add to Codex
-        </Button>
+          {t("settingsProviders:mcpSection.share.addToCodex")}</Button>
       ) : null}
       {toClaude ? (
         <Button
@@ -291,8 +293,7 @@ function McpShareActions(args: {
           variant="outline"
           onClick={() => args.onShare(toClaude, "claude-code")}
         >
-          Add to Claude
-        </Button>
+          {t("settingsProviders:mcpSection.share.addToClaude")}</Button>
       ) : null}
       {toCursor ? (
         <Button
@@ -301,8 +302,7 @@ function McpShareActions(args: {
           variant="outline"
           onClick={() => args.onShare(toCursor, "cursor")}
         >
-          Add to Cursor
-        </Button>
+          {t("settingsProviders:mcpSection.share.addToCursor")}</Button>
       ) : null}
       {toKiro ? (
         <Button
@@ -311,8 +311,7 @@ function McpShareActions(args: {
           variant="outline"
           onClick={() => args.onShare(toKiro, "kiro")}
         >
-          Add to Kiro
-        </Button>
+          {t("settingsProviders:mcpSection.share.addToKiro")}</Button>
       ) : null}
     </div>
   );
@@ -323,10 +322,11 @@ function McpConfigurationRows(args: {
   onEdit: (snapshot: McpServerConfigSnapshot) => void;
   onDelete: (snapshot: McpServerConfigSnapshot) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   if (args.configs.length === 0) return null;
   return (
     <div className={sx(styles.configSection)}>
-      <p className={sx(styles.configHeading)}>Native configuration</p>
+      <p className={sx(styles.configHeading)}>{t("settingsProviders:mcpSection.config.heading")}</p>
       <div className={sx(styles.configList)}>
         {args.configs.map((config) => (
           <div key={config.id} className={sx(styles.configRow)}>
@@ -339,14 +339,12 @@ function McpConfigurationRows(args: {
                   {formatMcpTransportLabel(config.transport)}
                 </Badge>
                 {!config.enabled ? (
-                  <Badge variant="outline">Disabled</Badge>
+                  <Badge variant="outline">{i18n.t("common:status.disabled")}</Badge>
                 ) : null}
               </div>
               {config.hiddenValueCount ? (
                 <p className={sx(styles.configHidden)}>
-                  {config.hiddenValueCount} protected value
-                  {config.hiddenValueCount === 1 ? "" : "s"} hidden
-                </p>
+                  {i18n.t("settingsProviders:messages.hiddenValues", { count: config.hiddenValueCount })}</p>
               ) : null}
             </div>
             {config.canEdit || config.canDelete ? (
@@ -356,26 +354,24 @@ function McpConfigurationRows(args: {
                     type="button"
                     size="sm"
                     variant="outline"
-                    aria-label={`Edit ${config.name} in ${config.sourceLabel}`}
+                    aria-label={i18n.t("settingsProviders:settingsDialogMcpSection.editIn", { value1: config.name, value2: config.sourceLabel })}
                     onClick={() => args.onEdit(config)}
                   >
-                    Edit
-                  </Button>
+                    {i18n.t("common:actions.edit")}</Button>
                 ) : null}
                 {config.canDelete ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="destructive"
-                    aria-label={`Delete ${config.name} from ${config.sourceLabel}`}
+                    aria-label={i18n.t("settingsProviders:settingsDialogMcpSection.deleteFrom", { value1: config.name, value2: config.sourceLabel })}
                     onClick={() => args.onDelete(config)}
                   >
-                    Delete
-                  </Button>
+                    {i18n.t("common:actions.delete")}</Button>
                 ) : null}
               </div>
             ) : (
-              <Badge variant="outline">Managed by Stave</Badge>
+              <Badge variant="outline">{i18n.t("settingsProviders:mcpSection.config.managedByStave")}</Badge>
             )}
           </div>
         ))}
@@ -385,6 +381,7 @@ function McpConfigurationRows(args: {
 }
 
 function McpServerConnectionsCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [settings, activeWorkspaceId, workspacePathById, repositoryPath] =
     useAppStore(
       useShallow(
@@ -460,13 +457,13 @@ function McpServerConnectionsCard() {
     const provider = window.api?.provider;
     const [discovery, configs, claude, codex] = await Promise.all([
       loadMcpValue(
-        "MCP discovery",
+        i18n.t("settingsProviders:mcpSection.load.discovery"),
         provider?.discoverMcpServers
           ? () => provider.discoverMcpServers!({ cwd: workspaceCwd })
           : undefined,
       ),
       loadMcpValue(
-        "MCP configuration",
+        i18n.t("settingsProviders:mcpSection.load.configuration"),
         provider?.listMcpServerConfigs
           ? () =>
               provider.listMcpServerConfigs!({
@@ -483,7 +480,7 @@ function McpServerConnectionsCard() {
           : undefined,
       ),
       loadMcpValue(
-        "Claude MCP status",
+        i18n.t("settingsProviders:mcpSection.load.claudeStatus"),
         provider?.getClaudeMcpStatus
           ? () =>
               provider.getClaudeMcpStatus!({
@@ -493,7 +490,7 @@ function McpServerConnectionsCard() {
           : undefined,
       ),
       loadMcpValue(
-        "Codex MCP status",
+        i18n.t("settingsProviders:mcpSection.load.codexStatus"),
         provider?.getCodexMcpStatus
           ? () =>
               provider.getCodexMcpStatus!({
@@ -657,7 +654,7 @@ function McpServerConnectionsCard() {
           cwd: workspaceCwd,
           runtimeOptions: args.runtimeOptions,
         });
-        setAuthNotice(result?.detail ?? "Cursor OAuth login API unavailable.");
+        setAuthNotice(result?.detail ?? i18n.t("settingsProviders:mcpSection.auth.cursorUnavailable"));
         if (result?.ok) void refresh();
         return;
       }
@@ -674,7 +671,7 @@ function McpServerConnectionsCard() {
             });
       if (!result?.ok) {
         setAuthNotice(
-          result?.detail ?? `${args.provider} OAuth login API unavailable.`,
+          result?.detail ?? i18n.t("settingsProviders:settingsDialogMcpSection.oauthLoginAPIUnavailable", { value1: args.provider }),
         );
         return;
       }
@@ -682,14 +679,14 @@ function McpServerConnectionsCard() {
         const openExternal = window.api?.shell?.openExternal;
         if (!openExternal) {
           setAuthNotice(
-            `${result.detail} External browser access is unavailable.`,
+            i18n.t("settingsProviders:settingsDialogMcpSection.externalBrowserAccessIsUnavailable", { value1: result.detail }),
           );
           return;
         }
         const openResult = await openExternal({ url: result.authorizationUrl });
         if (!openResult.ok) {
           setAuthNotice(
-            `${result.detail} ${openResult.stderr ?? "The external browser could not be opened."}`,
+            `${result.detail} ${openResult.stderr ?? i18n.t("settingsProviders:mcpSection.auth.browserCouldNotOpen")}`,
           );
           return;
         }
@@ -704,13 +701,13 @@ function McpServerConnectionsCard() {
       }
       setAuthNotice(
         result.authorizationUrl
-          ? `${result.detail} Finish in your browser; status will refresh automatically.`
+          ? i18n.t("settingsProviders:settingsDialogMcpSection.finishInYourBrowserStatusWill", { value1: result.detail })
           : result.detail,
       );
       void refresh();
     } catch (error) {
       setAuthNotice(
-        `OAuth login failed: ${error instanceof Error ? error.message : String(error)}`,
+        i18n.t("settingsProviders:settingsDialogMcpSection.oauthLoginFailed", { value1: error instanceof Error ? error.message : String(error) }),
       );
     } finally {
       setAuthBusyByKey((current) => {
@@ -739,8 +736,8 @@ function McpServerConnectionsCard() {
 
   return (
     <SettingsCard
-      title="MCP Connections"
-      description="Install native MCP servers for Claude, Codex, Cursor, and Kiro. Each provider keeps its own configuration and OAuth session; Stave forwards compatible entries only when the target has no native route."
+      title={t("settingsProviders:mcpSection.card.title")}
+      description={t("settingsProviders:mcpSection.card.description")}
       titleAccessory={
         <div className={sx(styles.titleActions)}>
           <Button
@@ -752,8 +749,7 @@ function McpServerConnectionsCard() {
               setEditor({});
             }}
           >
-            Add server
-          </Button>
+            {t("settingsProviders:mcpSection.card.addServer")}</Button>
           <Button
             type="button"
             variant="outline"
@@ -761,16 +757,16 @@ function McpServerConnectionsCard() {
             onClick={() => void refresh()}
             disabled={state.busy}
           >
-            {state.busy ? "Refreshing..." : "Refresh"}
+            {state.busy ? t("settingsProviders:mcpSection.card.refreshing") : t("common:actions.refresh")}
           </Button>
         </div>
       }
     >
       <div className={sx(styles.statsGrid)}>
         {[
-          ["Servers", servers.length],
-          ["Connected", `${connectedCount}/${configuredCount}`],
-          ["Needs attention", attentionCount],
+          [t("settingsProviders:mcpSection.stats.servers"), servers.length],
+          [t("settingsProviders:mcpSection.stats.connected"), `${connectedCount}/${configuredCount}`],
+          [t("settingsProviders:mcpSection.stats.needsAttention"), attentionCount],
         ].map(([label, value]) => (
           <div key={label} className={sx(styles.statCard)}>
             <p className={sx(styles.statLabel)}>{label}</p>
@@ -783,13 +779,10 @@ function McpServerConnectionsCard() {
         <div
           className={sx(styles.availabilityBox)}
           role="group"
-          aria-label="Connector availability"
+          aria-label={t("settingsProviders:mcpSection.availability.ariaLabel")}
         >
           <p className={sx(styles.availabilityText)}>
-            Provider-native configuration and available runtime status.
-            Account-managed OAuth sessions stay with the provider that owns
-            them.
-          </p>
+            {t("settingsProviders:mcpSection.availability.description")}</p>
           <div className={sx(styles.availabilityChips)}>
             {connectedTools.map((tool) => (
               <Badge
@@ -809,19 +802,17 @@ function McpServerConnectionsCard() {
       ) : null}
 
       {state.busy && servers.length === 0 ? (
-        <p className={sx(styles.mutedText)}>Loading MCP connections…</p>
+        <p className={sx(styles.mutedText)}>{t("settingsProviders:mcpSection.loading")}</p>
       ) : null}
       {!state.busy && state.refreshedAt && servers.length === 0 ? (
         <p className={sx(styles.emptyBox)}>
-          No MCP servers were found in the current Claude, Codex, Cursor, or
-          Kiro configuration.
-        </p>
+          {t("settingsProviders:mcpSection.empty")}</p>
       ) : null}
 
       <div
         className={sx(styles.serverList)}
         role="list"
-        aria-label="MCP server status"
+        aria-label={t("settingsProviders:mcpSection.serverListAriaLabel")}
       >
         {servers.map((server) => (
           <article
@@ -837,7 +828,7 @@ function McpServerConnectionsCard() {
                     ? [...new Set(server.sources)]
                         .map(formatMcpSourceLabel)
                         .join(" · ")
-                    : "Runtime detected"}
+                    : i18n.t("settingsProviders:mcpSection.runtimeDetected")}
                 </p>
               </div>
               <div className={sx(styles.serverBadges)}>

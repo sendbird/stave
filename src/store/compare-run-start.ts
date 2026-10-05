@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   buildCompareWorkspaceName,
   type CompareRun,
@@ -67,14 +68,14 @@ export async function launchCompareRunVariants(args: {
         name: workspaceName,
         mode: "branch",
         fromBranch: args.baseBranch,
-        initialTaskTitle: variant.label?.trim() || `Compare ${index + 1}`,
+        initialTaskTitle: variant.label?.trim() || i18n.t("compare:compareRunStart.compare", { value1: index + 1 }),
       });
       if (!createResult.ok) {
         args.updateVariant(
           variant.id,
           {
             status: "failed",
-            error: createResult.message?.trim() || "Workspace creation failed.",
+            error: createResult.message?.trim() || i18n.t("compare:compareRunStart.workspaceCreationFailed"),
           },
           ["creating"],
         );
@@ -87,7 +88,7 @@ export async function launchCompareRunVariants(args: {
           variant.id,
           {
             status: "failed",
-            error: "Workspace creation did not return a candidate task.",
+            error: i18n.t("compare:compareRunStart.workspaceCreationDidNotReturnA"),
           },
           ["creating"],
         );
@@ -137,10 +138,10 @@ export async function launchCompareRunVariants(args: {
             status: "failed",
             error:
               launchResult.status === "steer-unavailable"
-                ? launchResult.message || "Candidate steering is unavailable."
+                ? launchResult.message || i18n.t("compare:compareRunStart.candidateSteeringIsUnavailable")
                 : launchResult.status === "blocked"
-                  ? "Candidate launch was blocked."
-                  : `Candidate launch returned an unexpected ${launchResult.status} state.`,
+                  ? i18n.t("compare:compareRunStart.candidateLaunchWasBlocked")
+                  : i18n.t("compare:compareRunStart.candidateLaunchReturnedAnUnexpectedState", { value1: launchResult.status }),
           },
           ["creating"],
         );
@@ -160,7 +161,7 @@ export async function launchCompareRunVariants(args: {
           error:
             error instanceof Error && error.message.trim()
               ? error.message.trim()
-              : "Candidate launch failed unexpectedly.",
+              : i18n.t("compare:compareRunStart.candidateLaunchFailedUnexpectedly"),
         },
         ["pending", "creating", "running"],
       );

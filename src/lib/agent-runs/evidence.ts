@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Evidence provenance. A report may cite a tool call or a command; the citation
  * distinguishes a provider result from a successful check of the same workspace
@@ -21,9 +22,9 @@ export interface ClassifiedEvidence extends StageEvidence {
 }
 
 export const EVIDENCE_SOURCE_LABELS: Record<EvidenceSource, string> = {
-  stave: "Verified by Stave",
-  provider: "Provider result",
-  agent: "Agent reported",
+  get stave() { return i18n.t("agentRuns:evidence.stave"); },
+  get provider() { return i18n.t("agentRuns:evidence.provider"); },
+  get agent() { return i18n.t("agentRuns:evidence.agent"); },
 };
 
 /** Observing an action does not verify a failed or no-longer-current check. */
@@ -32,7 +33,7 @@ export function isVerifiedEvidence(evidence: ClassifiedEvidence): boolean {
 }
 
 export function evidenceSourceLabel(evidence: ClassifiedEvidence): string {
-  return evidence.source === "stave" && !isVerifiedEvidence(evidence) ? "Stave result" : EVIDENCE_SOURCE_LABELS[evidence.source];
+  return evidence.source === "stave" && !isVerifiedEvidence(evidence) ? i18n.t("agentRuns:evidence.staveResult") : EVIDENCE_SOURCE_LABELS[evidence.source];
 }
 
 function normalizeCommand(command: string) {
@@ -69,13 +70,13 @@ export function classifyStageEvidence(
 }
 
 /** Host actions record their origin; script checks also expose outcome and freshness. */
-export function describeActionEvidence(result: ActionResult, facts?: StageFacts | null): ClassifiedEvidence {
+export function describeActionEvidence(result: ActionResult, facts?: StageFacts | null, translate = i18n.t): ClassifiedEvidence {
   switch (result.type) {
     case "open-draft-pr":
       return {
         label: result.created
-          ? `Opened draft PR #${result.prNumber}`
-          : `Reused existing PR #${result.prNumber}`,
+          ? translate("agentRuns:evidence.label", { value1: result.prNumber })
+          : translate("agentRuns:evidence.label2", { value1: result.prNumber }),
         kind: "link",
         ref: result.prUrl,
         source: "stave",
@@ -84,21 +85,21 @@ export function describeActionEvidence(result: ActionResult, facts?: StageFacts 
       return {
         label:
           result.outcome === "no-checks"
-            ? "No checks configured"
-            : `${result.checks.length} ${result.checks.length === 1 ? "check" : "checks"} passed`,
+            ? translate("agentRuns:evidence.label3")
+            : translate("agentRuns:evidence.checksPassed", { count: result.checks.length }),
         kind: "check",
         source: "stave",
       };
     case "mark-pr-ready":
       return {
-        label: "Marked the pull request ready for review",
+        label: translate("agentRuns:evidence.label4"),
         kind: "link",
         ref: result.prUrl,
         source: "stave",
       };
     case "run-script":
       return {
-        ...(result.url ? { label: `Ran “${result.scriptId}”`, kind: "link" as const, ref: result.url } : { label: `Ran “${result.scriptId}” (exit ${result.exitCode})`, kind: "check" as const }),
+        ...(result.url ? { label: translate("agentRuns:evidence.label5", { value1: result.scriptId }), kind: "link" as const, ref: result.url } : { label: translate("agentRuns:evidence.label6", { value1: result.scriptId, value2: result.exitCode }), kind: "check" as const }),
         source: "stave", exitCode: result.exitCode,
         outcome: result.exitCode === 0 ? "succeeded" : "failed",
         freshness: revisionsMatch(result.verification?.sourceRevision, result.verification?.completedRevision) && revisionsMatch(result.verification?.sourceRevision, facts?.workspaceRevision) ? "current" : result.verification?.sourceRevision.status === "known" && result.verification.completedRevision.status === "known" && facts?.workspaceRevision?.status === "known" ? "stale" : "unknown",

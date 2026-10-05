@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { AiStage } from "./schema";
 
 /**
@@ -13,7 +14,7 @@ export interface StageTemplate {
 
 export const createIssue: AiStage = {
   id: "create-issue",
-  title: "Create issue",
+  get title() { return i18n.t("agentRuns:stageTemplates.title"); },
   kind: "ai",
   role: "publish",
   instruction:
@@ -23,7 +24,7 @@ export const createIssue: AiStage = {
 
 export const reportBack: AiStage = {
   id: "report-back",
-  title: "Report back to the thread",
+  get title() { return i18n.t("agentRuns:stageTemplates.title2"); },
   kind: "ai",
   role: "publish",
   instruction:
@@ -34,17 +35,17 @@ export const reportBack: AiStage = {
 export const STAGE_TEMPLATES: readonly StageTemplate[] = [
   {
     id: "create-issue",
-    label: "Create issue",
-    description: "Find or create one tracker issue for the work.",
+    get label() { return i18n.t("agentRuns:stageTemplates.label"); },
+    get description() { return i18n.t("agentRuns:stageTemplates.description"); },
     stage: createIssue,
   },
   {
     id: "deploy-preview",
-    label: "Deploy preview",
-    description: "Deploy a preview of the branch with the repository's own steps.",
+    get label() { return i18n.t("agentRuns:stageTemplates.label2"); },
+    get description() { return i18n.t("agentRuns:stageTemplates.description2"); },
     stage: {
       id: "deploy-preview",
-      title: "Deploy preview",
+      get title() { return i18n.t("agentRuns:stageTemplates.title3"); },
       kind: "ai",
       role: "publish",
       instruction:
@@ -55,17 +56,17 @@ export const STAGE_TEMPLATES: readonly StageTemplate[] = [
   },
   {
     id: "report-back",
-    label: "Report back to the thread",
-    description: "Reply once in the Slack thread the request came from.",
+    get label() { return i18n.t("agentRuns:stageTemplates.label3"); },
+    get description() { return i18n.t("agentRuns:stageTemplates.description3"); },
     stage: reportBack,
   },
   {
     id: "visual-check",
-    label: "Visual check",
-    description: "Check the changed screens in Stave Lens.",
+    get label() { return i18n.t("agentRuns:stageTemplates.label4"); },
+    get description() { return i18n.t("agentRuns:stageTemplates.description4"); },
     stage: {
       id: "visual-check",
-      title: "Visual check",
+      get title() { return i18n.t("agentRuns:stageTemplates.title4"); },
       kind: "ai",
       instruction:
         "Open each changed screen in Stave Lens with `stave_lens_navigate`, then inspect it with `stave_lens_snapshot` and `stave_lens_screenshot` in light and dark themes. Check the acceptance criteria that concern the interface and fix visual defects this work caused.",

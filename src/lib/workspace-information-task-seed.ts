@@ -1,4 +1,5 @@
-const DEFAULT_TASK_SEED_TITLE = "Review linked workspace item";
+import { i18n } from "@/i18n/runtime";
+const DEFAULT_TASK_SEED_TITLE_KEY = "workspace:taskSeed.fallbackTitle" as const;
 const MAX_TASK_SEED_TITLE_LENGTH = 80;
 
 function normalizeWhitespace(value: string) {
@@ -17,7 +18,7 @@ export function resolveWorkspaceInfoTaskSeedTitle(args: {
     normalizedTitle ||
     normalizedReference ||
     normalizedFallback ||
-    DEFAULT_TASK_SEED_TITLE;
+    i18n.t(DEFAULT_TASK_SEED_TITLE_KEY);
 
   return title.slice(0, MAX_TASK_SEED_TITLE_LENGTH);
 }

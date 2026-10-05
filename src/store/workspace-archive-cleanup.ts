@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Detached workspace-archive cleanup: git worktree removal, branch deletion,
  * script/PTY teardown, and persistence close.
@@ -102,23 +103,23 @@ export function buildWorkspaceArchivePreservationToast(args: {
   switch (args.reason) {
     case "dirty-worktree":
       return {
-        title: "Worktree and branch kept",
-        description: `${subject}, but kept its git worktree and ${branch} because it has uncommitted changes.`,
+        title: i18n.t("workspace:workspaceArchiveCleanup.worktreeAndBranchKept"),
+        description: i18n.t("workspace:workspaceArchiveCleanup.valueButKeptItsGitWorktreeAnd", { subject: subject, branch: branch }),
       };
     case "worktree-remove-failed":
       return {
-        title: "Worktree removal failed",
-        description: `${subject}, but could not remove its git worktree, so ${branch} was kept.`,
+        title: i18n.t("workspace:workspaceArchiveCleanup.worktreeRemovalFailed"),
+        description: i18n.t("workspace:workspaceArchiveCleanup.valueButCouldNotRemoveItsGit", { subject: subject, branch: branch }),
       };
     case "branch-delete-failed":
       return {
-        title: "Branch deletion failed",
-        description: `${subject}, but could not delete ${branch}.`,
+        title: i18n.t("workspace:workspaceArchiveCleanup.branchDeletionFailed"),
+        description: i18n.t("workspace:workspaceArchiveCleanup.valueButCouldNotDeleteValue", { subject: subject, branch: branch }),
       };
     case "branch-unresolved":
       return {
-        title: "Branch kept",
-        description: `${subject}, but could not confirm which branch its git worktree had checked out, so no branch was deleted.`,
+        title: i18n.t("workspace:workspaceArchiveCleanup.branchKept"),
+        description: i18n.t("workspace:workspaceArchiveCleanup.valueButCouldNotConfirmWhichBranch", { subject: subject }),
       };
   }
 }

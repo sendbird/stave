@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Supervisor domain: the pure half of a wake-up.
  *
@@ -407,21 +408,21 @@ export const WakeUpSchema = WakeUpUpsertInputSchema.extend({
     context.addIssue({
       code: "custom",
       path: ["pauseReason"],
-      message: "A paused wake-up must carry a pause reason.",
+      message: i18n.t("agentRuns:wakeUpPolicy.message"),
     });
   }
   if (wakeUp.state === "stopped" && !wakeUp.stopReason) {
     context.addIssue({
       code: "custom",
       path: ["stopReason"],
-      message: "A stopped wake-up must carry a stop reason.",
+      message: i18n.t("agentRuns:wakeUpPolicy.message2"),
     });
   }
   if (wakeUp.state === "scheduled" && (wakeUp.pauseReason || wakeUp.stopReason)) {
     context.addIssue({
       code: "custom",
       path: ["state"],
-      message: "A scheduled wake-up carries no pause or stop reason.",
+      message: i18n.t("agentRuns:wakeUpPolicy.message3"),
     });
   }
 });
@@ -704,21 +705,21 @@ export function decideWakeUpAction(args: {
     return {
       action: "pause",
       reason: "task-identity-changed",
-      detail: "This task's workspace is not loaded right now.",
+      detail: i18n.t("agentRuns:wakeUpPolicy.detail"),
     };
   }
   if (!observation.taskExists) {
     return {
       action: "stop",
       reason: "task-unavailable",
-      detail: "The task this schedule checks back on no longer exists.",
+      detail: i18n.t("agentRuns:wakeUpPolicy.detail2"),
     };
   }
   if (observation.taskArchived) {
     return {
       action: "stop",
       reason: "task-unavailable",
-      detail: "The task this schedule checks back on was archived.",
+      detail: i18n.t("agentRuns:wakeUpPolicy.detail3"),
     };
   }
   // A completion wake-up that cannot observe completion never fires. Saying so
@@ -732,14 +733,14 @@ export function decideWakeUpAction(args: {
       action: "stop",
       reason: "completion-unobservable",
       detail:
-        "Stave cannot observe when this task's subagents finish, so this schedule would never run.",
+        i18n.t("agentRuns:wakeUpPolicy.detail4"),
     };
   }
   if (wakeUp.expiresAt && Date.parse(wakeUp.expiresAt) <= now.getTime()) {
     return {
       action: "stop",
       reason: "expired",
-      detail: `This schedule expired at ${wakeUp.expiresAt}.`,
+      detail: i18n.t("agentRuns:wakeUpPolicy.detail5", { value1: wakeUp.expiresAt }),
     };
   }
   if (
@@ -749,7 +750,7 @@ export function decideWakeUpAction(args: {
     return {
       action: "stop",
       reason: "occurrence-cap-reached",
-      detail: `This schedule reached its limit of ${wakeUp.maxOccurrences} occurrences.`,
+      detail: i18n.t("agentRuns:wakeUpPolicy.detail6", { value1: wakeUp.maxOccurrences }),
     };
   }
 
@@ -767,7 +768,7 @@ export function decideWakeUpAction(args: {
       : {
           action: "pause",
           reason: "agent-run-active",
-          detail: AGENT_RUN_ACTIVE_WAKE_UP_DETAIL,
+          detail: i18n.t("agentRuns:automaticTurnOwner.aGENTRUNACTIVEWAKEUPDETAIL"),
         };
   }
 
@@ -787,21 +788,21 @@ export function decideWakeUpAction(args: {
     return {
       action: "pause",
       reason: "runtime-changed",
-      detail: `The task now runs on ${formatWakeUpFingerprint(observation.fingerprint)}, not ${formatWakeUpFingerprint(wakeUp.fingerprint)}. Resume to accept the change.`,
+      detail: i18n.t("agentRuns:wakeUpPolicy.detail7", { value1: formatWakeUpFingerprint(observation.fingerprint), value2: formatWakeUpFingerprint(wakeUp.fingerprint) }),
     };
   }
   if (observation.pendingApprovalCount > 0) {
     return {
       action: "pause",
       reason: "awaiting-approval",
-      detail: "The task is waiting on an approval.",
+      detail: i18n.t("agentRuns:wakeUpPolicy.detail8"),
     };
   }
   if (observation.pendingUserInputCount > 0) {
     return {
       action: "pause",
       reason: "awaiting-user-input",
-      detail: "The task is waiting on an answer.",
+      detail: i18n.t("agentRuns:wakeUpPolicy.detail9"),
     };
   }
 
@@ -829,7 +830,7 @@ export function decideWakeUpAction(args: {
       return {
         action: "defer",
         dueAt: latestCompletionInstant(observation.completions, now),
-        detail: "The task is mid-turn; the schedule waits for it to finish.",
+        detail: i18n.t("agentRuns:wakeUpPolicy.detail10"),
       };
     }
     return {
@@ -862,7 +863,7 @@ export function decideWakeUpAction(args: {
     return {
       action: "defer",
       dueAt: due.dueAt,
-      detail: "The task is mid-turn; the schedule waits for it to finish.",
+      detail: i18n.t("agentRuns:wakeUpPolicy.detail11"),
     };
   }
 
@@ -959,7 +960,7 @@ export function applyWakeUpDecision(args: {
           ...fired,
           state: "stopped",
           stopReason: "occurrence-cap-reached",
-          reasonDetail: `This schedule reached its limit of ${fired.maxOccurrences} occurrences.`,
+          reasonDetail: i18n.t("agentRuns:wakeUpPolicy.reasonDetail", { value1: fired.maxOccurrences }),
           nextRunAt: null,
         };
       }
@@ -971,7 +972,7 @@ export function applyWakeUpDecision(args: {
           ...fired,
           state: "stopped",
           stopReason: "expired",
-          reasonDetail: `This schedule expired at ${fired.expiresAt}.`,
+          reasonDetail: i18n.t("agentRuns:wakeUpPolicy.reasonDetail2", { value1: fired.expiresAt }),
           nextRunAt: null,
         };
       }
@@ -1004,7 +1005,7 @@ export function applyWakeUpDecision(args: {
           ...woken,
           state: "stopped",
           stopReason: "occurrence-cap-reached",
-          reasonDetail: `This schedule reached its limit of ${woken.maxOccurrences} occurrences.`,
+          reasonDetail: i18n.t("agentRuns:wakeUpPolicy.reasonDetail3", { value1: woken.maxOccurrences }),
         };
       }
       return woken;

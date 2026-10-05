@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Plus, X } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
@@ -8,6 +9,7 @@ export function ScriptEnvEditor(props: {
   rows: ScriptEditorEnvRow[];
   onChange: (rows: ScriptEditorEnvRow[]) => void;
 }) {
+  const { t: tI18n } = useTranslation(["scripts"]);
   const update = (index: number, patch: Partial<ScriptEditorEnvRow>) => {
     props.onChange(
       props.rows.map((row, rowIndex) =>
@@ -24,9 +26,9 @@ export function ScriptEnvEditor(props: {
 
   return (
     <div className={sx(envEditorStyles.root)}>
-      <span className={sx(envEditorStyles.label)}>Environment</span>
+      <span className={sx(envEditorStyles.label)}>{tI18n("scripts:scriptEnvEditor.environment")}</span>
       {props.rows.length === 0 ? (
-        <p className={sx(envEditorStyles.empty)}>No environment overrides.</p>
+        <p className={sx(envEditorStyles.empty)}>{tI18n("scripts:scriptEnvEditor.noEnvironmentOverrides")}</p>
       ) : (
         <div className={sx(envEditorStyles.rows)}>
           {props.rows.map((row, index) => (
@@ -34,7 +36,7 @@ export function ScriptEnvEditor(props: {
               <Input
                 value={row.key}
                 onChange={(event) => update(index, { key: event.target.value })}
-                placeholder="KEY"
+                placeholder={tI18n("scripts:scriptEnvEditor.key")}
                 xstyle={envEditorStyles.input}
               />
               <span className={sx(envEditorStyles.equals)}>=</span>
@@ -43,7 +45,7 @@ export function ScriptEnvEditor(props: {
                 onChange={(event) =>
                   update(index, { value: event.target.value })
                 }
-                placeholder="value"
+                placeholder={tI18n("scripts:scriptEnvEditor.value")}
                 xstyle={envEditorStyles.input}
               />
               <Button
@@ -52,7 +54,7 @@ export function ScriptEnvEditor(props: {
                 size="icon-xs"
                 xstyle={envEditorStyles.removeButton}
                 onClick={() => remove(index)}
-                aria-label="Remove variable"
+                aria-label={tI18n("scripts:scriptEnvEditor.removeVariable")}
               >
                 <X className={sx(envEditorStyles.icon)} />
               </Button>
@@ -68,8 +70,7 @@ export function ScriptEnvEditor(props: {
         onClick={add}
       >
         <Plus className={sx(envEditorStyles.icon)} />
-        Add variable
-      </Button>
+        {tI18n("scripts:scriptEnvEditor.addVariable")}</Button>
     </div>
   );
 }

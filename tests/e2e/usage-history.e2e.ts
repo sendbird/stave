@@ -96,3 +96,20 @@ test("usage history pages by 20, handles the last partial page and resets after 
   await expect(previous).toBeDisabled();
   await expect(next).toBeDisabled();
 });
+
+
+test("usage history keeps Korean copy and dates with the new disclosure layout", async ({ page }) => {
+  await page.goto("/?stavePreview=usage&lang=ko&theme=dark&width=384");
+  await page.getByRole("tab", { name: "기록", exact: true }).click();
+  const history = page.getByRole("region", { name: "턴 사용량 기록" });
+  await expect(history.locator("details")).toHaveCount(20);
+  await expect(history).toContainText("페이지당 20개");
+  await expect(history.getByRole("heading", { level: 3 }).first()).toContainText("2026년");
+  const first = history.locator("details").first();
+  await expect(first.locator("summary")).toContainText("보고되지 않음");
+  await first.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(first.locator("dl")).toContainText("계정");
+  await expect(first.locator("dl")).toContainText("입력");
+  await expect(history.getByRole("button", { name: "다음 턴" })).toBeEnabled();
+});

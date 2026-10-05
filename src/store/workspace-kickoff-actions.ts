@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { readKickoffSource } from "@/store/kickoff-source-reader";
 import {
   resolveKickoffModel,
@@ -127,17 +128,17 @@ export function createWorkspaceKickoffResolver(args: {
     const state = args.getState();
     const normalizedInput = input.trim();
     if (!normalizedInput)
-      return { ok: false, message: "A kickoff source is required." };
+      return { ok: false, message: i18n.t("kickoff:workspaceKickoffActions.aKickoffSourceIsRequired") };
     if (normalizedInput.length > 80_000)
       return {
         ok: false,
         message:
-          "Keep the source under 80,000 characters. Link larger documents and paste the relevant requirements.",
+          i18n.t("kickoff:workspaceKickoffActions.keepTheSourceUnder80000Characters"),
       };
     if (!state.repositoryPath)
       return {
         ok: false,
-        message: "Open a repository before resolving a kickoff source.",
+        message: i18n.t("kickoff:workspaceKickoffActions.openARepositoryBeforeResolvingAKickoff"),
       };
     const controller = new AbortController();
     active = controller;
@@ -153,7 +154,7 @@ export function createWorkspaceKickoffResolver(args: {
       classification,
     }).sourceEvidence!;
     let reason =
-      "AI interpretation was unavailable. Review the task before starting.";
+      i18n.t("kickoff:additionalCopy.message48");
     try {
       if (!settings.kickoffPrompt.trim()) {
         return {
@@ -169,7 +170,7 @@ export function createWorkspaceKickoffResolver(args: {
         );
       } catch {
         if (signal.aborted)
-          return { ok: false, message: "Kickoff resolution was cancelled." };
+          return { ok: false, message: i18n.t("kickoff:workspaceKickoffActions.kickoffResolutionWasCancelled") };
         sourceEvidence.detail =
           "Source reading timed out. Paste its contents or read it in the first task.";
       }
@@ -207,7 +208,7 @@ export function createWorkspaceKickoffResolver(args: {
       const attemptDurationsMs: number[] = [];
       for (const model of models) {
         if (signal.aborted)
-          return { ok: false, message: "Kickoff resolution was cancelled." };
+          return { ok: false, message: i18n.t("kickoff:workspaceKickoffActions.kickoffResolutionWasCancelled") };
         const remaining = 60_000 - (Date.now() - startedAt);
         if (remaining < 1_000) {
           reason =
@@ -262,7 +263,7 @@ export function createWorkspaceKickoffResolver(args: {
               parseKickoffProposalResponse({ value, classification, model }),
           });
           if (signal.aborted)
-            return { ok: false, message: "Kickoff resolution was cancelled." };
+            return { ok: false, message: i18n.t("kickoff:workspaceKickoffActions.kickoffResolutionWasCancelled") };
           attemptDurationsMs.push(Date.now() - attemptStartedAt);
           return {
             ok: true,
@@ -288,7 +289,7 @@ export function createWorkspaceKickoffResolver(args: {
         }
       }
       if (signal.aborted)
-        return { ok: false, message: "Kickoff resolution was cancelled." };
+        return { ok: false, message: i18n.t("kickoff:workspaceKickoffActions.kickoffResolutionWasCancelled") };
       return {
         ok: true,
         proposal: {
@@ -337,7 +338,7 @@ function createKickoffTaskInCurrentWorkspace(args: {
   if (before.activeWorkspaceId !== args.workspaceId) {
     return {
       ok: false,
-      message: "Open the workspace this agent works in, then start again.",
+      message: i18n.t("kickoff:workspaceKickoffActions.openTheWorkspaceThisAgentWorksIn"),
     };
   }
   const previousTaskId = before.activeTaskId;
@@ -345,7 +346,7 @@ function createKickoffTaskInCurrentWorkspace(args: {
   const after = args.getState();
   const taskId = after.activeTaskId;
   if (!taskId || taskId === previousTaskId) {
-    return { ok: false, message: "The task could not be created." };
+    return { ok: false, message: i18n.t("kickoff:workspaceKickoffActions.theTaskCouldNotBeCreated") };
   }
   if (args.provider) {
     after.setTaskProvider({ taskId, provider: args.provider });

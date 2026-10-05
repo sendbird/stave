@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 
 /**
@@ -13,7 +14,7 @@ export const MAX_API_CONNECTION_MODELS = 50;
 
 /** Vercel AI Gateway endpoints, from vercel.com/docs/ai-gateway (checked 2026-10-02). */
 export const VERCEL_AI_GATEWAY = {
-  label: "Vercel AI Gateway",
+  get label() { return /* i18n-ignore: external service name */ "Vercel AI Gateway"; },
   endpoints: {
     // No `/v1`: the Anthropic SDK appends `/v1/messages` itself.
     "claude-code": "https://ai-gateway.vercel.sh/claude-code",
@@ -54,18 +55,18 @@ export const HttpsBaseUrlSchema = z.string().trim().max(2048).url().refine((valu
     const url = new URL(value);
     return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash;
   } catch { return false; }
-}, "Use an HTTPS base URL without credentials, query parameters, or a fragment.")
+}, { error: () => i18n.t("providers:validation.httpsUrl") })
   .transform((value) => value.replace(/\/+$/, ""));
 
 export const ApiConnectionEndpointsSchema = z.object({
   "claude-code": HttpsBaseUrlSchema.optional(),
   codex: HttpsBaseUrlSchema.optional(),
-}).strict().refine((value) => Boolean(value["claude-code"] || value.codex), "Add an endpoint for Claude Code, Codex, or both.");
+}).strict().refine((value) => Boolean(value["claude-code"] || value.codex), { error: () => i18n.t("providers:validation.endpoint") });
 export type ApiConnectionEndpoints = z.infer<typeof ApiConnectionEndpointsSchema>;
 
 const LabelSchema = z.string().trim().min(1).max(100).regex(/^[^\u0000-\u001f\u007f]+$/);
 const ModelListSchema = z.array(ApiConnectionModelSchema).min(1).max(MAX_API_CONNECTION_MODELS)
-  .refine((models) => new Set(models.map((model) => model.id)).size === models.length, "Model IDs must be unique.");
+  .refine((models) => new Set(models.map((model) => model.id)).size === models.length, { error: () => i18n.t("providers:validation.uniqueModels") });
 
 export const ApiConnectionSchema = z.object({
   id: z.uuid(),
@@ -85,7 +86,7 @@ export const ApiConnectionCreateArgsSchema = z.object({
   /** Required for `custom`; the Vercel preset derives both endpoints. */
   endpoints: ApiConnectionEndpointsSchema.optional(),
   models: ModelListSchema,
-}).strict().refine((args) => args.kind !== "custom" || Boolean(args.endpoints), "A custom connection needs at least one endpoint.");
+}).strict().refine((args) => args.kind !== "custom" || Boolean(args.endpoints), { error: () => i18n.t("providers:validation.customEndpoint") });
 export type ApiConnectionCreateArgs = z.infer<typeof ApiConnectionCreateArgsSchema>;
 
 /** Where a connection sends turns is fixed; name, key reference and models can change. */
@@ -169,9 +170,8 @@ export function isOpenAiModelId(id: string) {
   return /^openai\//i.test(apiConnectionRoutingModelId(id));
 }
 
-export const CLAUDE_CODE_EXPERIMENTAL_MODEL_LABEL = "Experimental in Claude Code";
-export const CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON =
-  "Anthropic doesn't support non-Claude models through gateways, so thinking or beta-header errors are possible.";
+export const CLAUDE_CODE_EXPERIMENTAL_MODEL_LABEL_KEY = "providers:apiConnections.experimentalLabel" as const;
+export const CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON_KEY = "providers:apiConnections.experimentalReason" as const;
 
 export function isExperimentalApiConnectionModel(runtime: ApiConnectionRuntime, id: string) {
   return runtime === "claude-code" && !isClaudeModelId(id);
@@ -196,7 +196,7 @@ export function apiConnectionRuntimes(connection: Pick<ApiConnection, "endpoints
 }
 
 export function apiConnectionGroupLabel(label: string) {
-  return `${label} · API billing`;
+  return i18n.t("providers:apiConnections.apiBilling", { value1: label });
 }
 
 export type ApiConnectionHttpStatus = Exclude<ApiConnectionCheckStatus, "ok" | "models-missing" | "missing-key" | "unreachable">;
@@ -212,13 +212,13 @@ export function classifyApiConnectionHttpStatus(status: number): ApiConnectionHt
 export function describeApiConnectionHttpStatus(status: number) {
   switch (classifyApiConnectionHttpStatus(status)) {
     case "invalid-key":
-      return `The gateway rejected the key (HTTP ${status}). Replace its value in Settings > Secrets, or ask for a key this gateway accepts.`;
+      return i18n.t("providers:apiConnections.theGatewayRejectedTheKeyHTTP", { value1: status });
     case "budget-exhausted":
-      return "This key's budget on the gateway is used up (HTTP 402). Ask whoever manages the gateway to raise it, or wait until it resets.";
+      return i18n.t("providers:apiConnections.thisKeySBudgetOnThe");
     case "rate-limited":
-      return "The gateway's rate limit or free-tier limit was reached (HTTP 429). Wait a minute, then check again.";
+      return i18n.t("providers:apiConnections.theGatewaySRateLimitOr");
     default:
-      return `The gateway answered with HTTP ${status}. Check the endpoint with whoever runs the gateway.`;
+      return i18n.t("providers:apiConnections.theGatewayAnsweredWithHTTPCheck", { value1: status });
   }
 }
 
@@ -232,13 +232,13 @@ export function formatApiConnectionPrice(model: Pick<ApiConnectionModel, "inputP
     const rounded = Math.round(amount * 100) / 100;
     return `$${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}`;
   };
-  return `${perMillion(model.inputPrice)} / ${perMillion(model.outputPrice)} per 1M tokens`;
+  return i18n.t("providers:apiConnections.perMTokens", { value1: perMillion(model.inputPrice), value2: perMillion(model.outputPrice) });
 }
 
 export function formatApiConnectionContext(contextWindow?: number) {
   if (!contextWindow) return "";
-  if (contextWindow >= 1_000_000) return `${Number((contextWindow / 1_000_000).toFixed(1))}M context`;
-  return `${Math.round(contextWindow / 1000)}K context`;
+  if (contextWindow >= 1_000_000) return i18n.t("providers:apiConnections.mContext", { value1: Number((contextWindow / 1_000_000).toFixed(1)) });
+  return i18n.t("providers:apiConnections.kContext", { value1: Math.round(contextWindow / 1000) });
 }
 
 /** One line under a model: its context and price, then why it is experimental. */
@@ -247,7 +247,7 @@ export function describeApiConnectionModel(runtime: ApiConnectionRuntime | null,
     formatApiConnectionContext(model.contextWindow),
     formatApiConnectionPrice(model),
     runtime && isExperimentalApiConnectionModel(runtime, model.id)
-      ? `${CLAUDE_CODE_EXPERIMENTAL_MODEL_LABEL}: ${CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON}`
+      ? `${i18n.t(CLAUDE_CODE_EXPERIMENTAL_MODEL_LABEL_KEY)}: ${i18n.t(CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON_KEY)}`
       : "",
   ].filter(Boolean).join(" · ");
 }

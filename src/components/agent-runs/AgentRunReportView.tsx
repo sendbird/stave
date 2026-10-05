@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import {
   ArrowUpRight,
@@ -29,12 +30,12 @@ import { agentRunStyles as styles } from "./agent-runs.styles";
 type ReportActionKey = "pr" | "memory" | "slack";
 
 const OUTCOME = {
-  completed: { title: "Run complete", icon: CircleCheck, tone: "success" },
-  cancelled: { title: "Run cancelled", icon: CircleMinus, tone: "neutral" },
-  stopped: { title: "Run stopped", icon: CircleX, tone: "danger" },
+  completed: { get title() { return i18n.t("agentRuns:agentRunReportView.title"); }, icon: CircleCheck, tone: "success" },
+  cancelled: { get title() { return i18n.t("agentRuns:agentRunReportView.title2"); }, icon: CircleMinus, tone: "neutral" },
+  stopped: { get title() { return i18n.t("agentRuns:agentRunReportView.title3"); }, icon: CircleX, tone: "danger" },
 } as const;
 
-const AGENT_RUN_OUTCOME_TITLES = { completed: "Ready", cancelled: "Stopped", stopped: "Failed" } as const;
+const AGENT_RUN_OUTCOME_TITLES = { get completed() { return i18n.t("agentRuns:agentRunReportView.completed"); }, get cancelled() { return i18n.t("agentRuns:agentRunReportView.cancelled"); }, get stopped() { return i18n.t("agentRuns:agentRunReportView.stopped"); } } as const;
 
 /**
  * The Agent run report: what the agent run did, why, and what proves it. It leads
@@ -57,6 +58,7 @@ export function AgentRunReportView({
   /** An agent run: its copy says "run", and a one-stage run's stage is not a figure. */
   agentOrigin?: boolean;
 }) {
+  useTranslation();
   const standalone = context === "standalone";
   const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null);
   const [running, setRunning] = useState<ReportActionKey | null>(null);
@@ -69,7 +71,7 @@ export function AgentRunReportView({
       setNotice({ text: await action(), error: false });
       return true;
     } catch (error) {
-      setNotice({ text: error instanceof Error ? error.message : "That did not work.", error: true });
+      setNotice({ text: error instanceof Error ? error.message : i18n.t("agentRuns:agentRunReportView.text"), error: true });
       return false;
     } finally {
       setRunning(null);
@@ -92,16 +94,16 @@ export function AgentRunReportView({
   const spent = describeUsageShort(report.usage);
   // In the Agent run panel the Run card already shows turns and spend.
   const figures: Array<readonly [string, string]> = [
-    ["Duration", duration],
-    ...(agentOrigin && report.stages.length <= 1 ? [] : ([["Stages", `${completedStages}/${report.stages.length}`]] as const)),
-    ...(standalone ? ([["Turns", String(report.turnCount)]] as const) : []),
-    ["Verified", String(verifiedCount)],
-    ...(standalone && spent ? ([["Spent", spent]] as const) : []),
+    [i18n.t("agentRuns:agentRunReportView.extraCopy4"), duration],
+    ...(agentOrigin && report.stages.length <= 1 ? [] : ([[i18n.t("agentRuns:agentRunReportView.extraCopy5"), `${completedStages}/${report.stages.length}`]] as const)),
+    ...(standalone ? ([[i18n.t("agentRuns:agentRunReportView.extraCopy6"), String(report.turnCount)]] as const) : []),
+    [i18n.t("agentRuns:agentRunReportView.extraCopy7"), String(verifiedCount)],
+    ...(standalone && spent ? ([[i18n.t("agentRuns:agentRunReportView.extraCopy8"), spent]] as const) : []),
   ];
   return (
     <section
       className={sx(styles.section, styles.sectionRoomy, standalone ? null : styles.sectionRule)}
-      aria-label="Run report"
+      aria-label={i18n.t("agentRuns:agentRunReportView.ariaLabel")}
       data-testid="agent-run-report"
     >
       {standalone ? (
@@ -119,7 +121,7 @@ export function AgentRunReportView({
       ) : (
         <div className={sx(styles.sectionHeader)}>
           <FileText aria-hidden className={sx(styles.sectionIcon)} />
-          <h3 className={sx(styles.sectionTitle)}>Report</h3>
+          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunReportView.agentRunReportView")}</h3>
         </div>
       )}
       <dl
@@ -131,7 +133,7 @@ export function AgentRunReportView({
           figures.length === 4 && styles.statsFour,
           figures.length === 5 && styles.statsFive,
         )}
-        aria-label="Run figures"
+        aria-label={i18n.t("agentRuns:agentRunReportView.ariaLabel2")}
       >
         {figures.map(([label, value]) => (
           <div key={label} className={sx(styles.statTile)}>
@@ -157,13 +159,13 @@ export function AgentRunReportView({
       ) : null}
       {plan ? (
         <div className={sx(styles.stageGroup)}>
-          <p className={sx(styles.groupLabel)}>Plan · {describePlanProgress(plan)}</p>
+          <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:agentRunReportView.sentence6", { value1: describePlanProgress(plan) })}</p>
           <AgentRunPlan items={plan} />
         </div>
       ) : null}
       {decisions.length > 0 ? (
         <div className={sx(styles.stageGroup)}>
-          <p className={sx(styles.groupLabel)}>Decisions</p>
+          <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:agentRunReportView.agentRunReportView3")}</p>
           <ul className={sx(styles.itemList)}>
             {decisions.map((item) => (
               <li key={item.decision} className={sx(styles.decision)}>
@@ -176,7 +178,7 @@ export function AgentRunReportView({
       ) : null}
       {standalone && open.length > 0 ? (
         <div className={sx(styles.stageGroup)}>
-          <p className={sx(styles.groupLabel)}>Still open</p>
+          <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:agentRunReportView.agentRunReportView4")}</p>
           <ul className={sx(styles.list)}>
             {open.map((criterion) => (
               <li key={criterion.text} className={sx(styles.check)}>
@@ -185,7 +187,7 @@ export function AgentRunReportView({
                 </span>
                 <span className={sx(styles.checkText)}>{criterion.text}</span>
                 <span className={sx(styles.checkState)}>
-                  {criterion.status === "unmet" ? "Not met" : "Not verified"}
+                  {criterion.status === "unmet" ? i18n.t("agentRuns:agentRunReportView.copy") : i18n.t("agentRuns:agentRunReportView.copy2")}
                 </span>
               </li>
             ))}
@@ -194,7 +196,7 @@ export function AgentRunReportView({
       ) : null}
       {report.leftBehind.length > 0 ? (
         <div className={sx(styles.stageGroup)}>
-          <p className={sx(styles.groupLabel)}>Left behind</p>
+          <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:agentRunReportView.agentRunReportView5")}</p>
           <ul className={sx(styles.itemList)}>
             {report.leftBehind.map((item) => (
               <li key={item} className={sx(styles.bulletItem)}>
@@ -207,7 +209,7 @@ export function AgentRunReportView({
       ) : null}
       {verifiedFirst.length > 0 ? (
         <div className={sx(styles.stageGroup)}>
-          <p className={sx(styles.groupLabel)}>Evidence</p>
+          <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:agentRunReportView.agentRunReportView6")}</p>
           <EvidenceList evidence={verifiedFirst} />
         </div>
       ) : null}
@@ -222,14 +224,13 @@ export function AgentRunReportView({
           variant="secondary"
           onClick={() => {
             void navigator.clipboard.writeText(formatAgentRunReportMarkdown(report)).then(
-              () => setNotice({ text: "Copied the report as Markdown.", error: false }),
-              () => setNotice({ text: "The clipboard is unavailable.", error: true }),
+              () => setNotice({ text: i18n.t("agentRuns:agentRunReportView.text2"), error: false }),
+              () => setNotice({ text: i18n.t("agentRuns:agentRunReportView.text3"), error: true }),
             );
           }}
         >
           <Copy aria-hidden />
-          Copy Markdown
-        </Button>
+          {i18n.t("agentRuns:agentRunReportView.agentRunReportView7")}</Button>
         {actions.addToPullRequest ? (
           <Button
             size="xs"
@@ -239,26 +240,24 @@ export function AgentRunReportView({
             onClick={() => void runAction("pr", actions.addToPullRequest!)}
           >
             <GitPullRequestArrow aria-hidden />
-            Add to PR description
-          </Button>
+            {i18n.t("agentRuns:agentRunReportView.agentRunReportView8")}</Button>
         ) : null}
         {actions.saveDecisions || actions.shareToSlack ? (
           <DropdownMenu
             placement="bottom-start"
             triggerAsChild
             trigger={
-              <Button size="xs" variant="quiet" aria-label="More report actions" disabled={running !== null}>
+              <Button size="xs" variant="quiet" aria-label={i18n.t("agentRuns:agentRunReportView.ariaLabel3")} disabled={running !== null}>
                 <Ellipsis aria-hidden />
-                More
-              </Button>
+                {i18n.t("agentRuns:agentRunReportView.trigger")}</Button>
             }
             groups={[
               {
                 items: [
                   ...(actions.saveDecisions
-                    ? [{ label: "Save decisions to memory", icon: <BookmarkPlus />, pending: running === "memory", onSelect: () => void runAction("memory", actions.saveDecisions!) }]
+                    ? [{ label: i18n.t("agentRuns:agentRunReportView.label"), icon: <BookmarkPlus />, pending: running === "memory", onSelect: () => void runAction("memory", actions.saveDecisions!) }]
                     : []),
-                  ...(actions.shareToSlack ? [{ label: "Share to Slack…", icon: <Send />, onSelect: () => setSharing(true) }] : []),
+                  ...(actions.shareToSlack ? [{ label: i18n.t("agentRuns:agentRunReportView.label2"), icon: <Send />, onSelect: () => setSharing(true) }] : []),
                 ],
               },
             ]}
@@ -275,8 +274,8 @@ export function AgentRunReportView({
         >
           <TextField
             size="sm"
-            label="Slack thread"
-            description="The agent posts the report once, as a reply, with your Slack tools. It changes no files."
+            label={i18n.t("agentRuns:agentRunReportView.label3")}
+            description={i18n.t("agentRuns:agentRunReportView.description")}
             placeholder="https://acme.slack.com/archives/C123/p456"
             value={threadUrl}
             autoFocus
@@ -284,11 +283,9 @@ export function AgentRunReportView({
           />
           <span className={sx(styles.shareActions)}>
             <Button type="button" size="xs" variant="quiet" onClick={() => setSharing(false)}>
-              Cancel
-            </Button>
+              {i18n.t("agentRuns:agentRunReportView.agentRunReportView9")}</Button>
             <Button type="submit" size="xs" loading={running === "slack"} disabled={!threadUrl.trim() || running !== null}>
-              Share
-            </Button>
+              {i18n.t("agentRuns:agentRunReportView.agentRunReportView10")}</Button>
           </span>
         </form>
       ) : null}
