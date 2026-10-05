@@ -5,7 +5,7 @@ import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-a
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { extractWorkspaceInformationReferencesFromText } from "@/lib/workspace-information-references";
 import { buildRecentTimestamp } from "@/store/chat-state-helpers";
-import { resolveLanguage } from "@/store/editor.utils";
+import { isImageFilePath, resolveLanguage } from "@/store/editor.utils";
 import {
   buildPromptDraftContentForSend,
   getImageAttachmentMimeType,
@@ -255,6 +255,20 @@ export async function getDraftFileContexts(args: {
     }
     seenFilePaths.add(filePath);
 
+    // Image files remain native, path-backed inputs on immediate and queued
+    // turns alike. Reading them through the text preview API corrupts bytes
+    // and silently drops images above its text-only size limit.
+    if (isImageFilePath({ filePath })) {
+      nextFileContexts.push({
+        filePath,
+        content: "[Workspace image attached by path.]",
+        language: "image",
+        instruction:
+          "Inspect the attached workspace image with an available image or file tool.",
+      });
+      continue;
+    }
+
     const openTab = args.session.editorTabs.find(
       (tab) =>
         tab.filePath === filePath &&
@@ -271,7 +285,7 @@ export async function getDraftFileContexts(args: {
     }
 
     if (!args.workspaceRootPath || !readFile) {
-      continue;
+      throw new Error("Cannot read attached file: " + filePath);
     }
 
     const result = await readFile({
@@ -279,7 +293,15 @@ export async function getDraftFileContexts(args: {
       filePath,
     });
     if (!result.ok) {
-      continue;
+      // A restored draft can outlive the file it referenced. Preserve the
+      // existing send behavior for stale paths; surface read/size failures
+      // while the selected file still exists.
+      if (result.stderr?.toLowerCase().includes("not found")) {
+        continue;
+      }
+      throw new Error(
+        "Cannot read attached file " + filePath + ": " + result.stderr,
+      );
     }
 
     nextFileContexts.push({

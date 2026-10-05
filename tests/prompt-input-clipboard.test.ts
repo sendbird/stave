@@ -130,3 +130,12 @@ describe("mergeClipboardImageAttachments", () => {
     })).toEqual([existing, next]);
   });
 });
+
+test("keeps distinct images with identical metadata across mirrored clipboard lists", () => {
+  const first = new File(["AAA"], "image.png", { type: "image/png", lastModified: 1 });
+  const second = new File(["BBB"], "image.png", { type: "image/png", lastModified: 1 });
+  expect(collectClipboardFiles({
+    items: [first, second].map((file) => ({ getAsFile: () => file })),
+    files: [first, second],
+  })).toEqual([first, second]);
+});

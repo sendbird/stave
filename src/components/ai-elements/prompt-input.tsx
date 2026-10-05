@@ -122,6 +122,8 @@ import { sx, cx } from "../ads/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import {
   collectClipboardFiles,
+  createClipboardReadQueue,
+  readClipboardImage,
   mergeClipboardImageAttachments,
   partitionClipboardFiles,
 } from "./prompt-input.clipboard";
@@ -281,6 +283,7 @@ interface PromptInputProps {
   windowShortcutsEnabled?: boolean;
   attachedFilePaths: string[];
   attachments?: Attachment[];
+  attachmentScopeId?: string;
   promptHistoryEntries?: readonly string[];
   promptSuggestions?: readonly string[];
   providerModeStatus?: PromptInputProviderModeStatus | null;
@@ -331,7 +334,9 @@ interface PromptInputProps {
   onAttachFilesChange: (args: { filePaths: string[] }) => void;
   onOpenAttachedFile?: (args: { filePath: string }) => void | Promise<void>;
   onOpenFileSelector?: () => void;
-  onAttachmentsChange?: (args: { attachments: Attachment[] }) => void;
+  onAttachmentsChange?: (args: {
+    attachments: Attachment[] | ((current: Attachment[]) => Attachment[]);
+  }) => void;
   onPasteFiles?: (args: { files: File[] }) => void | Promise<void>;
   onProviderModeSelect?: (presetId: ProviderModePresetId) => void;
   effortLabel?: string;
@@ -928,6 +933,12 @@ export function PromptInput(args: PromptInputProps) {
     value,
     onComplete: onPromptEnhancementRevealComplete,
   });
+  const clipboardReadQueue = useMemo(
+    () => createClipboardReadQueue(),
+    [args.attachmentScopeId, args.workspaceCwd],
+  );
+  useEffect(() => () => clipboardReadQueue.cancel(), [clipboardReadQueue]);
+
   const imageAttachments = useMemo(
     () =>
       (attachments ?? []).filter(
@@ -1733,6 +1744,12 @@ export function PromptInput(args: PromptInputProps) {
   ]);
 
   async function submitCurrentMessage(intent?: "steer" | "queue") {
+    if (clipboardReadQueue.isPending()) {
+      toast.info(
+        "Images are still loading. Send again when the thumbnails appear.",
+      );
+      return;
+    }
     const nextText = value.trim();
     if (
       !hasPromptSubmitPayload({
@@ -2967,51 +2984,46 @@ export function PromptInput(args: PromptInputProps) {
                           void onPasteFiles?.({ files: pastedFiles });
                         }
                         if (shouldHandleImages) {
-                          Promise.all(
-                            imageFiles.map(
-                              (file) =>
-                                new Promise<
-                                  Extract<Attachment, { kind: "image" }>
-                                >((resolve) => {
-                                  const reader = new FileReader();
-                                  reader.onload = () => {
-                                    resolve({
-                                      kind: "image",
-                                      id: crypto.randomUUID(),
-                                      dataUrl: reader.result as string,
-                                      label: file.name || "Pasted image",
-                                      mimeType: file.type || "image/png",
-                                    });
-                                  };
-                                  reader.readAsDataURL(file);
+                          void clipboardReadQueue
+                            .enqueue(
+                              () =>
+                                Promise.all(
+                                  imageFiles.map(async (file) => ({
+                                    kind: "image" as const,
+                                    id: crypto.randomUUID(),
+                                    dataUrl: await readClipboardImage(file),
+                                    label: file.name || "Pasted image",
+                                    mimeType: file.type || "image/png",
+                                  })),
+                                ),
+                              (newImages) =>
+                                onAttachmentsChange?.({
+                                  attachments: (current) => [
+                                    ...current.filter(
+                                      (attachment) => attachment.kind !== "image",
+                                    ),
+                                    ...mergeClipboardImageAttachments({
+                                      existing: current.filter(
+                                        (
+                                          attachment,
+                                        ): attachment is Extract<
+                                          Attachment,
+                                          { kind: "image" }
+                                        > => attachment.kind === "image",
+                                      ),
+                                      incoming: newImages,
+                                    }),
+                                  ],
                                 }),
-                            ),
-                          ).then((newImages) => {
-                            const existingImageAttachments = (
-                              attachments ?? []
-                            ).filter(
-                              (
-                                attachment,
-                              ): attachment is Extract<
-                                Attachment,
-                                { kind: "image" }
-                              > => attachment.kind === "image",
-                            );
-                            const retainedAttachments = (
-                              attachments ?? []
-                            ).filter(
-                              (attachment) => attachment.kind !== "image",
-                            );
-                            onAttachmentsChange?.({
-                              attachments: [
-                                ...retainedAttachments,
-                                ...mergeClipboardImageAttachments({
-                                  existing: existingImageAttachments,
-                                  incoming: newImages,
-                                }),
-                              ],
+                            )
+                            .catch((error: unknown) => {
+                              toast.error("Images could not be attached", {
+                                description:
+                                  error instanceof Error
+                                    ? error.message
+                                    : String(error),
+                              });
                             });
-                          });
                         }
                       }}
                       onKeyDown={(event) => {

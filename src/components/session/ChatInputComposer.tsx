@@ -117,7 +117,6 @@ import {
   TaskSourceContextNotice,
 } from "./TaskSourceContextNotice";
 import {
-  buildAttachedFileContext,
   resolvePastedFileAbsolutePath,
   toWorkspaceRelativeFilePath,
 } from "./chat-input.attachments";
@@ -1398,6 +1397,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             shelf; classic mode stacks it on the card, the frame tucks it in. */}
         {useFramedComposer ? null : composerShelf}
         <PromptInput
+          attachmentScopeId={args.providerSelectionTarget}
           framed={useFramedComposer}
           frameTop={useFramedComposer ? composerShelf : undefined}
           frameBottom={useFramedComposer ? <ComposerWorkspaceBar /> : undefined}
@@ -1754,9 +1754,18 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           }
           onOpenFileSelector={handleOpenFileSelector}
           onPasteFiles={handlePasteFiles}
-          onAttachmentsChange={({ attachments }) =>
-            updateNonTextPromptDraft({ attachments })
-          }
+          onAttachmentsChange={({ attachments }) => {
+            const current =
+              useAppStore.getState().promptDraftByTask[
+                args.providerSelectionTarget
+              ]?.attachments ?? [];
+            updateNonTextPromptDraft({
+              attachments:
+                typeof attachments === "function"
+                  ? attachments(current)
+                  : attachments,
+            });
+          }}
           workspaceCwd={args.workspaceCwd}
           reviewModelOptions={args.reviewModelOptions}
           preferredReviewModelKey={args.preferredReviewModelKey}
@@ -1764,7 +1773,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             commitCurrentDraftText();
             return args.onLocalChangeReview(request);
           }}
-          onSubmit={async ({ text, filePaths, intent }) => {
+          onSubmit={async ({ text, intent }) => {
             const steerSubmission = intent === "steer";
             const submissionTaskId = args.providerSelectionTarget;
             if (
@@ -1814,19 +1823,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               commitPromptDraftText(clearedDraft);
             };
             try {
-              for (const fp of filePaths) {
-                await openFileFromTree({ filePath: fp });
-              }
-              const latestTabs = useAppStore.getState().editorTabs;
-              const fileContexts = filePaths
-                .map((fp) => latestTabs.find((item) => item.filePath === fp))
-                .filter((tab): tab is NonNullable<typeof tab> => tab != null)
-                .map((tab) => buildAttachedFileContext({
-                  filePath: tab.filePath,
-                  kind: tab.kind === "image" ? "image" : "text",
-                  content: tab.content,
-                  language: tab.language,
-                }));
               const currentAttachments =
                 useAppStore.getState().promptDraftByTask[
                   args.providerSelectionTarget
@@ -1847,8 +1843,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               const result = await sendUserMessage({
                 taskId: args.activeTaskId,
                 content: text,
-                fileContexts:
-                  fileContexts.length > 0 ? fileContexts : undefined,
                 imageContexts:
                   imageContexts.length > 0 ? imageContexts : undefined,
                 submitIntent: intent,

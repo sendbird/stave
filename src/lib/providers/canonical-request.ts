@@ -284,7 +284,7 @@ function canonicalPartToContextText(
     case "file_context":
       return `[file_context:${part.filePath}] ${part.instruction ?? ""}`.trim();
     case "image_context":
-      return `[image: ${part.label}]`;
+      return `[image attachment label: ${part.label}; display name only, not a filesystem path]`;
     case "workspace_information_context":
       return `[workspace_information:${part.reference.token}] ${part.reference.label}`;
     case "task_context":
@@ -402,6 +402,7 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
       sections.push(
         "[Image Attachment]",
         `label: ${part.label}`,
+        "The label is a display name, not a filesystem path. Do not resolve it against the working directory or search for a file with that name. Inspect the supplied image input; if unavailable, report that instead of substituting a local file.",
         `type: ${part.mimeType}`,
         ...(args.includeImageData === false || !part.dataUrl
           ? []
