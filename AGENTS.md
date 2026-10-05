@@ -101,6 +101,12 @@ components follow the same ADS state, focus, motion, and token contracts.
   when changing tokens or component implementations.
 - Use Impeccable only to remove generic decorative patterns, redundant cards,
   and visual noise. It must not choose a replacement visual identity.
+- Dropdowns and selection pickers with many options or a growing catalog must
+  always provide a visible search input. Keyboard typeahead alone is not enough.
+  Search must match option labels and identifiers, plus descriptions when useful.
+  Apply this consistently across dialogs, Settings, and other entry points for
+  the same choice. Preserve keyboard selection, empty-result feedback, and any
+  clear or "No selection" option.
 
 Any UI, layout, or visual change must verify the theme system. Required check files:
 
