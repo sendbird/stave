@@ -33,6 +33,8 @@ test("settings searches review skills by name and description, clears, and reset
   await page.getByRole("button", { name: "open-settings", exact: true }).click();
   await page.getByRole("button", { name: "Prompts", exact: true }).click();
   await seedSkills(page);
+  await page.getByRole("combobox", { name: "Review prompt" }).click();
+  await page.getByRole("option", { name: "Installed skill" }).click();
   const trigger = page.getByRole("button", { name: "Review skill", exact: true });
   await trigger.click();
   const search = page.getByRole("combobox", { name: "Search review skills" });
@@ -52,9 +54,9 @@ test("settings searches review skills by name and description, clears, and reset
   await expect(trigger).toBeFocused();
   await expect(trigger).toContainText("$team-review");
   await trigger.click();
-  await search.fill("No skill");
-  await page.getByRole("option", { name: "No skill", exact: true }).click();
-  await expect(trigger).toContainText("No skill");
+  await search.fill("Choose a skill");
+  await page.getByRole("option", { name: "Choose a skill", exact: true }).click();
+  await expect(trigger).toContainText("Choose a skill");
 });
 
 test("review dialog searches compatible skills and supports no skill", async ({ page }) => {
@@ -88,6 +90,8 @@ test("review dialog searches compatible skills and supports no skill", async ({ 
   });
   await seedSkills(page);
   await page.getByRole("button", { name: "Review local changes", exact: true }).click();
+  await page.getByRole("combobox", { name: "Review prompt" }).click();
+  await page.getByRole("option", { name: "Installed skill" }).click();
   const trigger = page.getByRole("button", { name: "Review skill", exact: true });
   await trigger.click();
   const search = page.getByRole("combobox", { name: "Search review skills" });
@@ -98,6 +102,6 @@ test("review dialog searches compatible skills and supports no skill", async ({ 
   await expect(trigger).toContainText("$team-review");
   await trigger.click();
   await expect(search).toHaveValue("");
-  await page.getByRole("option", { name: "No skill", exact: true }).click();
-  await expect(trigger).toContainText("No skill");
+  await page.getByRole("option", { name: "Choose a skill", exact: true }).click();
+  await expect(trigger).toContainText("Choose a skill");
 });

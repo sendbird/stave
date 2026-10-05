@@ -135,6 +135,17 @@ describe("matchesSettingsSection", () => {
 });
 
 describe("settings field registry", () => {
+  test("review prompt settings are discoverable and normalize saved rubrics", () => {
+    const definition = settingDefinitions.find((candidate) => candidate.key === "reviewTask")!;
+    expect(searchSettingsFields("custom review prompt")).toContain(definition);
+    expect(definition.sectionId).toBe("prompts");
+    expect(definition.schema.safeParse("invalid").success).toBe(false);
+    const parsed = definition.schema.parse({ promptSource: "custom", customPrompt: "Check public callbacks.", presetId: "sdk-compatibility" });
+    expect(parsed.promptSource).toBe("custom");
+    expect(parsed.customPrompt).toBe("Check public callbacks.");
+    expect(definition.schema.parse({ skillSlug: "team-review" }).promptSource).toBe("skill");
+  });
+
   test("finds the shared account-usage stop by usage and credits terms", () => {
     const definition = settingDefinitions.find(
       (candidate) => candidate.key === "blockTurnsWhenAccountLimitReached",

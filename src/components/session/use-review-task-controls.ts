@@ -2,13 +2,14 @@ import { useCallback, useMemo } from "react";
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 import { toast } from "@/components/ui";
-import { buildLocalChangeReviewPrompt } from "@/lib/local-change-review";
+import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
 import { buildModelEffortRuntimeOverrides } from "@/lib/providers/model-effort";
 import { isManagedExecutionProviderId } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   resolveReviewModel,
   resolveReviewProvider,
+  buildReviewTaskPrompt,
   type ReviewTaskProviderId,
 } from "@/lib/reviews/review-task";
 import { useAppStore } from "@/store/app.store";
@@ -118,10 +119,13 @@ export function useReviewTaskControls(args: {
               target: review.target,
               focuses: review.focuses,
               instructions: review.instructions,
+              promptSource: review.promptSource,
+              presetId: review.presetId,
+              customPrompt: review.customPrompt,
               skillSlug: review.skillSlug,
               commitRef: review.commitRef,
               criteria: review.criteria,
-              skillOptional,
+              skillOptional: skillOptional && review.promptSource !== "skill",
             },
           });
         const started = await start(review.reviewer, review.effort);
@@ -151,23 +155,33 @@ export function useReviewTaskControls(args: {
         toast.error("Reply reviews need the desktop app.");
         return false;
       }
+      const currentState = useAppStore.getState();
+      const skill = review.promptSource === "skill"
+        ? getEffectiveSkillEntries({ skills: currentState.skillCatalog.skills, providerId: review.reviewer.providerId })
+          .find((entry) => entry.slug === review.skillSlug) : undefined;
+      if (review.promptSource === "skill" && !skill) {
+        toast.error("Choose a review skill available to this reviewer.");
+        return false;
+      }
+      const prompt = buildReviewTaskPrompt({
+        target: review.target,
+        focuses: review.focuses,
+        commitRef: review.commitRef,
+        savedInstructions: currentState.settings.reviewTask.instructions,
+        instructions: review.instructions,
+        criteria: review.criteria,
+        promptSource: review.promptSource,
+        presetId: review.presetId,
+        customPrompt: review.customPrompt,
+        skill,
+      });
+      if (!prompt) {
+        toast.error("Choose a review rubric and a valid review target.");
+        return false;
+      }
       const result = await sendUserMessage({
         taskId: activeTaskId,
-        content: buildLocalChangeReviewPrompt({
-          scope: review.target,
-          focuses: review.focuses,
-          commitRef: review.commitRef,
-          instructions:
-            [
-              useAppStore.getState().settings.reviewTask.instructions.trim(),
-              review.instructions?.trim(),
-              review.criteria?.trim()
-                ? `Also check the work against these acceptance criteria and report each one not met:\n${review.criteria.trim()}`
-                : "",
-            ]
-              .filter(Boolean)
-              .join("\n\n") || undefined,
-        }),
+        content: prompt,
         providerOverride: review.reviewer.providerId,
         turnOrigin: "utility",
         runtimeOverrides: {

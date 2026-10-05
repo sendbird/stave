@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
-import { ReviewSkillSelector } from "@/components/ai-elements/review-skill-selector";
+import { ReviewPromptPicker } from "@/components/ai-elements/review-prompt-picker";
 import { sx } from "@/components/ads/utils/stylex";
 import { LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS } from "@/lib/local-change-review";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
@@ -11,6 +11,7 @@ import {
   DEFAULT_REVIEW_FOLLOW_UP_PROMPT,
   REVIEW_FOLLOW_UP_PROMPT_MAX_CHARS,
   REVIEW_TASK_INSTRUCTIONS_MAX_CHARS,
+  REVIEW_TASK_SETTING_FIELD_ID,
   type ReviewTaskProviderId,
   type ReviewTaskSettings,
   type ReviewerPreference,
@@ -94,7 +95,7 @@ function ReviewTasksCard() {
   const skillOptions = useMemo(() => {
     const slugs = [...new Set(skills.map((skill) => skill.slug))].sort();
     return [
-      { value: FOLLOW_DEFAULT, label: "No skill" },
+      { value: "", label: "Choose a skill" },
       ...(reviewTask.skillSlug && !slugs.includes(reviewTask.skillSlug)
         ? [{ value: reviewTask.skillSlug, label: `$${reviewTask.skillSlug} (not in this workspace)` }]
         : []),
@@ -110,6 +111,8 @@ function ReviewTasksCard() {
 
   return (
     <SettingsCard
+      id={REVIEW_TASK_SETTING_FIELD_ID}
+      tabIndex={-1}
       title="Review Tasks"
       description="The composer's Review button runs a read-only review in its own task, beside the task you are working in. When it finishes, attach its findings to your next message."
     >
@@ -178,16 +181,11 @@ function ReviewTasksCard() {
           }
         />
       </LabeledField>
-      <LabeledField
-        title="Review Skill"
-        description="A skill whose instructions every review follows, such as a team review checklist. Skills come from this workspace and your shared skills; a review cannot use one its reviewer cannot load."
-      >
-        <ReviewSkillSelector
-          value={reviewTask.skillSlug || FOLLOW_DEFAULT}
-          options={skillOptions}
-          onValueChange={(slug) => patch({ skillSlug: slug === FOLLOW_DEFAULT ? "" : slug })}
-        />
-      </LabeledField>
+      <ReviewPromptPicker selection={reviewTask} skillSlug={reviewTask.skillSlug}
+        skillOptions={skillOptions}
+        skillInstructions={skills.find((skill) => skill.slug === reviewTask.skillSlug)?.instructions}
+        skillPreviewNote="Skill precedence depends on the reviewer and workspace. Confirm the resolved instructions in the Review dialog."
+        onChange={patch} />
       <LabeledField
         title="Review Instructions"
         description={`Added to every review prompt, for example risk areas your team always checks. Up to ${REVIEW_TASK_INSTRUCTIONS_MAX_CHARS.toLocaleString()} characters.`}

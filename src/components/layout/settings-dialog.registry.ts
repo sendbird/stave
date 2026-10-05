@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_REVIEW_TASK_SETTINGS, REVIEW_TASK_SETTING_FIELD_ID, normalizeReviewTaskSettings } from "@/lib/reviews/review-task";
 import type { AppSettings } from "@/store/app-settings";
 import { CraneConnectorSettingsSchema } from "@/lib/crane-connector/types";
 import {
@@ -57,6 +58,20 @@ const AutoRoutingProfileSchema = z
   .transform((value) => validateProfile(value));
 
 export const settingDefinitions = [
+  {
+    key: "reviewTask",
+    sectionId: "prompts",
+    fieldId: REVIEW_TASK_SETTING_FIELD_ID,
+    title: "Review Tasks",
+    description: "Default review rubric, preset, installed skill, custom prompt, models and follow-up instructions.",
+    keywords: ["review", "rubric", "preset", "skill", "custom prompt", "checklist", "cross-check", "follow-up"],
+    schema: z.record(z.string(), z.unknown()).transform(normalizeReviewTaskSettings),
+    defaultValue: DEFAULT_REVIEW_TASK_SETTINGS,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "include",
+  } satisfies SettingDefinition<"reviewTask">,
   {
     key: "autoRoutingEnabled",
     sectionId: "autoRouting",

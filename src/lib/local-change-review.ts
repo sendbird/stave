@@ -1,3 +1,8 @@
+import {
+  REVIEW_EVIDENCE_INSTRUCTIONS,
+  getReviewPromptPreset,
+} from "@/lib/reviews/review-prompts";
+
 export type LocalChangeReviewScope = "working-tree" | "branch" | "commit";
 
 /**
@@ -122,6 +127,8 @@ export function buildLocalChangeReviewPrompt(args: {
   instructions?: string;
   /** Required by the commit scope; ignored by the others. */
   commitRef?: string | null;
+  /** A selected rubric; absent uses the portable general review. */
+  rubric?: string;
 }) {
   const focusInstructions = buildReviewFocusInstructions(args.focuses);
   const customInstructions = args.instructions?.trim();
@@ -135,6 +142,10 @@ export function buildLocalChangeReviewPrompt(args: {
     "Treat this as a read-only review: do not modify files, create commits, or push anything.",
     "Read the repository instructions and inspect enough surrounding code to validate each finding.",
     "Report only concrete, actionable findings introduced by these changes. Avoid style-only comments and speculative improvements.",
+    "",
+    args.rubric ?? getReviewPromptPreset("general").instructions,
+    "",
+    REVIEW_EVIDENCE_INSTRUCTIONS,
     ...(focusInstructions.length > 0
       ? ["", "Review focus:", ...focusInstructions.map((item) => `- ${item}`)]
       : []),
