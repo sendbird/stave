@@ -17,20 +17,6 @@
       ]
     },
     {
-      "id": "claude-gateway-api-connections",
-      "description": "Reads a Claude account profile that carries a gateway (stored up to 0.22.2) as an app-level API connection with the same id, label, key reference, models and Claude folder, and persists that conversion once at startup, so selections, queued turns, session cursors and CLI tabs naming the id keep working.",
-      "introducedAfter": "0.22.2",
-      "removeInVersion": "0.25.0",
-      "files": [
-        "electron/main/ipc/api-connections.ts",
-        "electron/provider-accounts/api-connection-migration.ts",
-        "electron/provider-accounts/registry.ts"
-      ],
-      "tests": [
-        "tests/api-connection-migration.test.ts"
-      ]
-    },
-    {
       "id": "project-memory-export",
       "description": "Projects were removed after 0.24.1. On host start, writes the memories (accepted decisions and notes, plus unaccepted candidates) of every project in the retained project_memories table to <user data>/exports/project-memory/<project id>.md, once per project: an existing file is never rewritten. The project tables themselves are left in place and are never read otherwise.",
       "introducedAfter": "0.24.1",

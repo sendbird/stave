@@ -1520,14 +1520,15 @@ endpoint lists but strips before routing; the creator prefix is compared as
 written. A successful check does not establish tool, streaming, reasoning,
 cancellation, or billing compatibility; those require an authorized real turn.
 
-Claude account profiles that carried a `gateway` field (up to 0.22.2) are read
-as connections with the same id, label, key reference, models, and Claude
-directory, and Electron main persists that conversion once at startup
-(temporary migration `claude-gateway-api-connections`). A migrated Vercel AI
-Gateway connection also serves Codex. The older `providerAccounts.create`
-request with a `gateway` and the `checkGateway` channel still work and map to a
-connection.
-Local tests cover the schema and migration, request isolation, missing
+The temporary conversion of Claude account profiles with a `gateway` field
+(stored up to 0.22.2) was removed in 0.25.0. If those profiles have not already
+been converted, first launch 0.24.3 to persist them as API connections before
+upgrading to 0.25.0. Upgrades that skip the conversion releases no longer convert
+that old data. Existing converted API connections keep their ids, key references,
+models and directories.
+The `providerAccounts.create` request with a `gateway` and the `checkGateway`
+channel still work and map to a connection.
+Local tests cover the current schema and registry, request isolation, missing
 credentials, both adapters' environment and config overrides, exclusive
 catalogs, discovery filtering, and error mapping. Live gateway turns and
 multi-account acceptance remain a separate verification step.

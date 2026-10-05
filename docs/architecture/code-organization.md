@@ -73,7 +73,7 @@ is the Claude adapter and per-runtime credential scope;
 `electron/main/api-connection-check.ts` owns discovery and the key check, and
 `electron/main/ipc/api-connections.ts` the validated handlers. Focused checks
 are `tests/api-connections.test.ts`, `tests/claude-gateway.test.ts`, and
-`tests/api-connection-migration.test.ts`.
+`tests/provider-account-registry.test.ts`.
 
 Sign-in identity and shared setup add channels without changing the registry
 file. `src/lib/providers/provider-account-identity.ts` and

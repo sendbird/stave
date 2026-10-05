@@ -1,3 +1,26 @@
+## [0.25.0](https://github.com/sendbird/stave/compare/v0.24.3...v0.25.0) (2026-10-05)
+
+### Features
+
+- English (default) and Korean throughout the app, including native menus, accessible labels and locale-aware dates and numbers. Switch from Settings or the home menu; the choice is saved while drafts, active sessions and provider output are preserved.
+- Configurable review rubrics with built-in presets, installed skills or custom prompts, a rubric preview, and searchable skill selection in both Settings and the review dialog. Reviews keep their read-only access.
+- Distinct Agent performance and task Outputs screens: compare delegated runs across workspaces, or inspect one task's saved answers and changes with check and draft-follow-up actions inside expanded answers.
+- Choose which Fleet View, Agents, Agent performance and AI Usage shortcuts appear in the expanded or collapsed sidebar; choices persist across restarts.
+
+### Bug Fixes
+
+- Agent performance includes completion after change requests and median completion time, reports sample size and cost coverage, and keeps unreported costs unknown instead of treating them as zero.
+- AI Usage history stays scrollable, groups the newest 20 turns per page by date in the selected timezone, and expands each turn's timing, tokens and reported cost; labels and narrow panels remain readable.
+- Publish the linked Review Prompt Rubrics document on Pages and build the Pages site for every PR. Repository instructions require the Pages build before publication or marking a PR ready to merge.
+
+### Upgrade Notes
+
+- Remove the expired conversion of Claude gateway account profiles stored up to 0.22.2 into API connections. Upgrades that skip the conversion releases no longer convert this old data: launch 0.24.3 first if it has not already been converted, then upgrade to 0.25.0. Existing converted connections retain their ids, key references, models and directories.
+
+### References
+
+- [PR #682](https://github.com/sendbird/stave/pull/682), [PR #683](https://github.com/sendbird/stave/pull/683), [PR #684](https://github.com/sendbird/stave/pull/684), [PR #685](https://github.com/sendbird/stave/pull/685), [PR #686](https://github.com/sendbird/stave/pull/686), [PR #687](https://github.com/sendbird/stave/pull/687), [PR #688](https://github.com/sendbird/stave/pull/688)
+
 ## [0.24.3](https://github.com/sendbird/stave/compare/v0.24.2...v0.24.3) (2026-10-05)
 
 ### Features
