@@ -184,7 +184,7 @@ export function createCodexWorkerActivityMapper(args: {
   inputMaxBytes: number;
   outputMaxBytes: number;
 }) {
-  const startedCollabIds = new Set<string>();
+  const startedCollabInputs = new Map<string, Extract<BridgeEvent, { type: "tool" }>>();
   const startedActivityIds = new Set<string>();
   // Both directions of the same link. They are written and cleared together by
   // `linkChildThread` / `unlinkChildThread` so neither entry can outlive its
@@ -290,21 +290,16 @@ export function createCodexWorkerActivityMapper(args: {
       }
       const item = itemValue as CollabToolCallItem;
       const itemId = typeof item.id === "string" ? item.id : "";
-      if (!itemId || startedCollabIds.has(itemId)) {
+      if (!itemId || startedCollabInputs.has(itemId)) {
         return { handled: true, events: [] };
       }
-      startedCollabIds.add(itemId);
       const identity = buildCollabIdentity(item);
       if (identity.agentId) linkChildThread(identity.agentId, itemId);
+      const event = buildCollabInput(item, args.inputMaxBytes, identity);
+      startedCollabInputs.set(itemId, event);
       return {
         handled: true,
-        events: [
-          buildCollabInput(
-            item,
-            args.inputMaxBytes,
-            identity,
-          ),
-        ],
+        events: [event],
       };
     },
 
@@ -322,11 +317,13 @@ export function createCodexWorkerActivityMapper(args: {
       const item = itemValue as CollabToolCallItem;
       const itemId = typeof item.id === "string" ? item.id : "";
       const identity = buildCollabIdentity(item);
+      const startedInput = startedCollabInputs.get(itemId);
+      startedCollabInputs.delete(itemId);
       if (itemId && identity.agentId) linkChildThread(identity.agentId, itemId);
       return {
         handled: true,
         events: [
-          ...(!itemId || !startedCollabIds.delete(itemId)
+          ...(!startedInput
             ? [
                 buildCollabInput(
                   item,
@@ -334,7 +331,11 @@ export function createCodexWorkerActivityMapper(args: {
                   buildCollabIdentity(item),
                 ),
               ]
-            : []),
+            // A spawn often learns its child id only on completion. Publish
+            // that link before child plans arrive, keeping the original input.
+            : identity.agentId && identity.agentId !== startedInput.agentId
+              ? [{ ...startedInput, agentId: identity.agentId }]
+              : []),
           buildCollabResult(item),
         ],
       };

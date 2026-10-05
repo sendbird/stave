@@ -55,6 +55,10 @@ older than 15 minutes, or with a reset time already passed, are marked older;
 Stave does not turn an expired reading into an assumed 0% usage.
 Cached responses, including those served during failure backoff, do not create
 new observations or advance the saved observation time.
+Fresh turn-time quota updates are saved at their actual observation time for
+their execution account. A partial Claude update records only the window it
+observed; other cached windows keep their earlier times. Codex native-cache
+reads keep the original observation time instead of recording another sample.
 Each account groups its windows together and shows the last observed remaining
 percentage and time until reset. Within a provider, accounts with the soonest
 upcoming reset appear first. Expired readings remain marked older, and registered

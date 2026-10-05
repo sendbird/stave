@@ -137,10 +137,10 @@ export function parseReviewFindings(text: string | null | undefined): ParsedRevi
   // Ids address findings later (selection, re-checks); keep them unique.
   const seen = new Set<string>();
   const findings: ReviewFinding[] = [];
-  parsed.data.findings.slice(0, MAX_REVIEW_FINDINGS).forEach((finding, index) => {
+  for (const [index, finding] of parsed.data.findings.slice(0, MAX_REVIEW_FINDINGS).entries()) {
     const detail = fieldText(finding.detail, 2_000);
     const title = fieldText(finding.title, 200) ?? detail?.slice(0, 200) ?? null;
-    if (!title) return;
+    if (!title) return { ok: false, reason: "invalid" };
     // A re-check's own findings default to N ids, so they never pose as earlier ones.
     let id = findingId(finding.id) ?? `${previous ? "N" : "F"}${index + 1}`;
     while (seen.has(id)) id = `${id}-${index + 1}`;
@@ -154,7 +154,7 @@ export function parseReviewFindings(text: string | null | undefined): ParsedRevi
       detail,
       fix: fieldText(finding.fix, 1_000),
     });
-  });
+  }
   findings.sort((left, right) => SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity]);
   return { ok: true, report: { verdict: parsed.data.verdict, findings, previous } };
 }
