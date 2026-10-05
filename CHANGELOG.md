@@ -1,3 +1,29 @@
+## [0.24.3](https://github.com/sendbird/stave/compare/v0.24.2...v0.24.3) (2026-10-05)
+
+### Features
+
+- The composer Review button runs the review as a separate read-only task on the provider and model you pick, while your current task keeps going. A "Latest reply" target gives a second opinion on the task's last answer or plan, and Settings → Prompts → Review Tasks configures the default reviewer, models, focus, skill and follow-up prompt.
+- Reviews return a verdict and ranked findings. Pick only the findings worth fixing and attach them to your next message, then use Check fixes to re-check earlier findings as resolved, unresolved or outdated. Unreadable findings are shown as unreadable, never as a clean approval.
+- Account-scoped AI usage statistics in the sidebar and status-bar usage popovers: tokens and provider-reported cost by account, model, date and hour, with Tokens & cost, Quota and History tabs, model drilldown, per-account quota windows and reset countdowns. Existing local task-turn history is imported once; records without account evidence stay unattributed.
+- Agent runs require a provider-native plan and show the current step, plan and subagent progress on the composer shelf, Progress, Fleet and Agent Activity, including between turns.
+- The Task panel's Subagents tab can open a delegated task's activity, and an attached task chip opens that task.
+- Before sending, the composer explains when an attachment makes an agent run take the single-turn path. A streaming task reply attached as context is marked as a partial reply.
+
+### Bug Fixes
+
+- Pasting several images keeps each one, in paste order, even when file names match; sending waits for pending reads. Queued workspace images are passed as native path references, and image labels are no longer treated as local paths.
+- Reviews detect a changed or unavailable workspace revision, keep dismissed rows, and keep omitted or conflicting findings available for another check.
+- Paused work keeps its recorded provider, model and account after selection changes, and usage readings keep their native observation time and account attribution.
+
+### Notes
+
+- This patch release includes new features, as requested; no breaking changes.
+- Temporary migration support for the one-time usage history import (`usage-statistics-legacy-provider`) is scheduled for removal in 0.27.0.
+
+### References
+
+- [PR #672](https://github.com/sendbird/stave/pull/672), [PR #673](https://github.com/sendbird/stave/pull/673), [PR #674](https://github.com/sendbird/stave/pull/674), [PR #675](https://github.com/sendbird/stave/pull/675), [PR #676](https://github.com/sendbird/stave/pull/676), [PR #677](https://github.com/sendbird/stave/pull/677), [PR #679](https://github.com/sendbird/stave/pull/679)
+
 ## [0.24.2](https://github.com/sendbird/stave/compare/v0.24.1...v0.24.2) (2026-10-04)
 
 ### ⚠ BREAKING CHANGES
