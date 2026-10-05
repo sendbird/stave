@@ -330,7 +330,7 @@ export function buildReviewTaskPrompt(args: {
       ].join("\n")
     : source === "custom"
       ? fenced("Custom review rubric", customPrompt!)
-      : `Review preset: ${preset.label}\n\n${preset.instructions}`;
+      : `Review preset: ${i18n.t(preset.labelKey, { lng: "en" })}\n\n${preset.instructions}`;
   const instructions =
     [args.savedInstructions?.trim(), args.instructions?.trim()]
       .filter(Boolean)

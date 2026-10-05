@@ -797,7 +797,9 @@
     "description2": "Its findings appear above the composer when it finishes.",
     "copy5": "Reply reviews need the desktop app.",
     "copy6": "Could not start local change review",
-    "description3": "Finish the pending task interaction and try again."
+    "description3": "Finish the pending task interaction and try again.",
+    "chooseSkill": "Choose a review skill available to this reviewer.",
+    "chooseRubricAndTarget": "Choose a review rubric and a valid review target."
   },
   "useTaskContextMentions": {
     "copy": "This is the current task",

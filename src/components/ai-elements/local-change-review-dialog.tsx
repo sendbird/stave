@@ -227,7 +227,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
       ? getEffectiveSkillEntries({ skills, providerId: reviewer.providerId })
       : [];
     return [
-      { value: NO_SKILL, label: "Choose a skill" },
+      { value: NO_SKILL, label: i18n.t("composer:reviewPromptPicker.chooseSkill") },
       ...entries.map((entry) => ({
         value: entry.slug,
         label: `$${entry.slug}`,

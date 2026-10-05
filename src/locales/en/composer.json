@@ -679,5 +679,60 @@
   "presentation": {
     "on": "on",
     "off": "off"
+  },
+  "reviewPromptPicker": {
+    "title": "Review prompt",
+    "description": "Choose a built-in rubric, an installed skill, or your own prompt. Every choice uses evidence checks and a read-only review.",
+    "preset": "Review preset",
+    "skill": "Review skill",
+    "custom": "Custom review prompt",
+    "previewDescription": "Selected rubric and shared evidence checks. The review also receives its scope, focus, additional instructions and required findings format.",
+    "skillMissing": "Choose a skill available to this reviewer. An unavailable skill cannot start a review.",
+    "skillDescription": "The skill supplies the rubric. Its instructions cannot permit file changes or publishing a review.",
+    "placeholder": "Describe what to check, the evidence required, and the relevant repository or domain rules.",
+    "hidePreview": "Hide prompt preview",
+    "showPreview": "Preview prompt",
+    "previewLabel": "Review prompt preview",
+    "emptyRubric": "(Choose a skill or enter a custom prompt.)",
+    "unavailableSkill": "${{skill}} (unavailable)",
+    "customDescription": "Replaces the preset rubric. Scope, evidence checks and the findings format still apply. Up to {{limit}} characters.",
+    "chooseSkill": "Choose a skill"
+  },
+  "reviewPrompts": {
+    "source": {
+      "preset": "Built-in preset",
+      "skill": "Installed skill",
+      "custom": "Custom prompt"
+    },
+    "preset": {
+      "general": {
+        "label": "General review",
+        "description": "Trace changed behavior, contracts and recovery; verify each defect before reporting."
+      },
+      "frontendState": {
+        "label": "Frontend state & UI",
+        "description": "Effects, subscriptions, server-state scope, interaction and accessibility."
+      },
+      "apiSecurity": {
+        "label": "API & authorization",
+        "description": "End-to-end payload contracts, tenant isolation and safe retries."
+      },
+      "runtimeLifecycle": {
+        "label": "Agent & desktop lifecycle",
+        "description": "Streaming, IPC/provider symmetry, cancellation and durable completion."
+      },
+      "sdkCompatibility": {
+        "label": "SDK & public API",
+        "description": "Source/wire compatibility, concurrency, callbacks and platform lifecycle."
+      },
+      "dataMigrations": {
+        "label": "Persistence & migrations",
+        "description": "Historical data, write ownership, concurrency and metric semantics."
+      },
+      "performance": {
+        "label": "Performance & resources",
+        "description": "Reachable hot paths, query growth, rendering and resource leaks."
+      }
+    }
   }
 }

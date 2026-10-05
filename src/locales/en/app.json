@@ -346,5 +346,10 @@
     "secondaryInvalid": "The secondary provider finished without a valid structured result.",
     "routeBridge": "Route-classification bridge unavailable.",
     "nameBridge": "Task-name inference bridge unavailable."
+  },
+  "reviewRuntime": {
+    "customPromptRequired": "Enter a custom review prompt before starting the review.",
+    "skillRequired": "Choose an installed review skill before starting the review.",
+    "skillInstructionsMissing": "The skill ${{skill}} has no review instructions."
   }
 }

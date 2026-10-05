@@ -343,5 +343,10 @@
     "secondaryInvalid": "보조 제공자가 유효한 구조화된 결과 없이 종료되었습니다.",
     "routeBridge": "라우팅 분류 연결을 사용할 수 없습니다.",
     "nameBridge": "작업 이름 생성 연결을 사용할 수 없습니다."
+  },
+  "reviewRuntime": {
+    "customPromptRequired": "리뷰를 시작하기 전에 사용자 지정 리뷰 프롬프트를 입력하세요.",
+    "skillRequired": "리뷰를 시작하기 전에 설치된 리뷰 스킬을 선택하세요.",
+    "skillInstructionsMissing": "스킬 ${{skill}}에 리뷰 지침이 없습니다."
   }
 }

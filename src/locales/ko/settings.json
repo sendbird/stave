@@ -534,7 +534,8 @@
         "description": "완료된 리뷰를 첨부할 때 빈 메시지에 채워 넣어, 한 번만 보내면 작업이 리뷰 내용을 반영하도록 합니다. 비워 두면 사용하지 않습니다.",
         "placeholder": "(비워 두면 첨부만 함)",
         "resetToDefault": "기본값으로 재설정"
-      }
+      },
+      "skillPreviewNote": "스킬 우선순위는 리뷰어와 워크스페이스에 따라 달라집니다. 리뷰 대화상자에서 실제 적용될 지침을 확인하세요."
     },
     "prePr": {
       "title": "PR 전 리뷰",
@@ -1123,6 +1124,10 @@
       "standaloneCliFolder": {
         "title": "Standalone CLI 폴더",
         "description": "Standalone CLI 오버레이가 저장소로 등록하지 않고 모든 AI CLI를 실행하는 절대 경로 폴더입니다."
+      },
+      "reviewTask": {
+        "title": "리뷰 작업",
+        "description": "기본 리뷰 기준, 프리셋, 설치된 스킬, 사용자 지정 프롬프트, 모델과 후속 지침을 설정합니다."
       }
     }
   },

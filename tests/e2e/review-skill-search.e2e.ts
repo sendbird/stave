@@ -30,7 +30,7 @@ async function seedSkills(page: Page) {
 
 test("settings searches review skills by name and description, clears, and resets the query", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "open-settings", exact: true }).click();
+  await page.getByRole("button", { name: "Open settings", exact: true }).click();
   await page.getByRole("button", { name: "Prompts", exact: true }).click();
   await seedSkills(page);
   await page.getByRole("combobox", { name: "Review prompt" }).click();

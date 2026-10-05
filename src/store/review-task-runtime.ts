@@ -100,7 +100,7 @@ export async function startReviewTask(args: {
   const customPrompt = (args.request.customPrompt ?? state.settings.reviewTask.customPrompt)
     .slice(0, REVIEW_CUSTOM_PROMPT_MAX_CHARS).trim();
   if (promptSource === "custom" && !customPrompt) {
-    return { ok: false, error: "Enter a custom review prompt before starting the review." };
+    return { ok: false, error: i18n.t("app:reviewRuntime.customPromptRequired") };
   }
   const skillSlug = promptSource === "skill"
     ? args.request.skillSlug?.trim().replace(/^\$/, "").toLowerCase() : undefined;
@@ -113,11 +113,11 @@ export async function startReviewTask(args: {
       ok: false,
       error: skillSlug
         ? i18n.t("app:reviewRuntime.skillUnavailable", { skill: skillSlug })
-        : "Choose an installed review skill before starting the review.",
+        : i18n.t("app:reviewRuntime.skillRequired"),
     };
   }
   if (skill && !skill.instructions.trim()) {
-    return { ok: false, error: `The skill $${skill.slug} has no review instructions.` };
+    return { ok: false, error: i18n.t("app:reviewRuntime.skillInstructionsMissing", { skill: skill.slug }) };
   }
 
   const commitRef =

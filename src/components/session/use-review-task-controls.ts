@@ -161,7 +161,7 @@ export function useReviewTaskControls(args: {
         ? getEffectiveSkillEntries({ skills: currentState.skillCatalog.skills, providerId: review.reviewer.providerId })
           .find((entry) => entry.slug === review.skillSlug) : undefined;
       if (review.promptSource === "skill" && !skill) {
-        toast.error("Choose a review skill available to this reviewer.");
+        toast.error(i18n.t("session:useReviewTaskControls.chooseSkill"));
         return false;
       }
       const prompt = buildReviewTaskPrompt({
@@ -177,7 +177,7 @@ export function useReviewTaskControls(args: {
         skill,
       });
       if (!prompt) {
-        toast.error("Choose a review rubric and a valid review target.");
+        toast.error(i18n.t("session:useReviewTaskControls.chooseRubricAndTarget"));
         return false;
       }
       const result = await sendUserMessage({

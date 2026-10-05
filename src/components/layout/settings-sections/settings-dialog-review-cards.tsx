@@ -66,7 +66,7 @@ function ReviewModelField(props: {
         .filter(Boolean)
         .map((model) => ({ value: model, label: toHumanModelName({ model }) })),
     ],
-    [props.defaultModel, props.models, props.value],
+    [props.defaultModel, props.models, props.value, i18n.language],
   );
   return (
     <SelectField<string>
@@ -99,7 +99,7 @@ function ReviewTasksCard() {
   const skillOptions = useMemo(() => {
     const slugs = [...new Set(skills.map((skill) => skill.slug))].sort();
     return [
-      { value: "", label: "Choose a skill" },
+      { value: "", label: i18n.t("composer:reviewPromptPicker.chooseSkill") },
       ...(reviewTask.skillSlug && !slugs.includes(reviewTask.skillSlug)
         ? [{ value: reviewTask.skillSlug, label: i18n.t("settings:settingsDialogReviewCards.notInThisWorkspace", { value1: reviewTask.skillSlug }) }]
         : []),
@@ -111,7 +111,7 @@ function ReviewTasksCard() {
           .flatMap((skill) => [skill.name, skill.description]),
       })),
     ];
-  }, [reviewTask.skillSlug, skills]);
+  }, [reviewTask.skillSlug, skills, i18n.language]);
 
   return (
     <SettingsCard
@@ -188,7 +188,7 @@ function ReviewTasksCard() {
       <ReviewPromptPicker selection={reviewTask} skillSlug={reviewTask.skillSlug}
         skillOptions={skillOptions}
         skillInstructions={skills.find((skill) => skill.slug === reviewTask.skillSlug)?.instructions}
-        skillPreviewNote="Skill precedence depends on the reviewer and workspace. Confirm the resolved instructions in the Review dialog."
+        skillPreviewNote={t("settings:reviewCards.tasks.skillPreviewNote")}
         onChange={patch} />
       <LabeledField
         title={t("settings:reviewCards.tasks.instructions.title")}

@@ -536,7 +536,8 @@
         "description": "Filled into an empty message when you attach a finished review, so asking the task to act on it is one send away. Empty turns it off.",
         "placeholder": "(empty = attach only)",
         "resetToDefault": "Reset to default"
-      }
+      },
+      "skillPreviewNote": "Skill precedence depends on the reviewer and workspace. Confirm the resolved instructions in the Review dialog."
     },
     "prePr": {
       "title": "Pre-PR Review",
@@ -1136,6 +1137,10 @@
       "standaloneCliFolder": {
         "title": "Standalone CLI folder",
         "description": "Absolute folder the Standalone CLI overlay runs every AI CLI in, without registering it as a repository."
+      },
+      "reviewTask": {
+        "title": "Review Tasks",
+        "description": "Default review rubric, preset, installed skill, custom prompt, models and follow-up instructions."
       }
     }
   },

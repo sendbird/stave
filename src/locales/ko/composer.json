@@ -673,5 +673,60 @@
   "presentation": {
     "on": "켜짐",
     "off": "꺼짐"
+  },
+  "reviewPromptPicker": {
+    "title": "리뷰 프롬프트",
+    "description": "기본 제공 기준, 설치된 스킬 또는 직접 작성한 프롬프트를 선택하세요. 모든 리뷰는 근거를 확인하며 파일을 변경하지 않습니다.",
+    "preset": "리뷰 프리셋",
+    "skill": "리뷰 스킬",
+    "custom": "사용자 지정 리뷰 프롬프트",
+    "previewDescription": "선택한 리뷰 기준과 공통 근거 확인 지침입니다. 리뷰에는 범위, 중점 사항, 추가 지침과 결과 형식도 함께 전달됩니다.",
+    "skillMissing": "이 리뷰어가 사용할 수 있는 스킬을 선택하세요. 사용할 수 없는 스킬로는 리뷰를 시작할 수 없습니다.",
+    "skillDescription": "스킬이 리뷰 기준을 제공합니다. 스킬 지침으로 파일 변경이나 리뷰 게시를 허용할 수 없습니다.",
+    "placeholder": "확인할 내용, 필요한 근거, 관련 저장소 또는 도메인 규칙을 입력하세요.",
+    "hidePreview": "프롬프트 미리보기 숨기기",
+    "showPreview": "프롬프트 미리보기",
+    "previewLabel": "리뷰 프롬프트 미리보기",
+    "emptyRubric": "(스킬을 선택하거나 사용자 지정 프롬프트를 입력하세요.)",
+    "unavailableSkill": "${{skill}} (사용 불가)",
+    "customDescription": "프리셋의 리뷰 기준을 대체합니다. 범위, 근거 확인, 결과 형식은 그대로 적용됩니다. 최대 {{limit}}자까지 입력할 수 있습니다.",
+    "chooseSkill": "스킬 선택"
+  },
+  "reviewPrompts": {
+    "source": {
+      "preset": "기본 제공 프리셋",
+      "skill": "설치된 스킬",
+      "custom": "사용자 지정 프롬프트"
+    },
+    "preset": {
+      "general": {
+        "label": "일반 리뷰",
+        "description": "변경된 동작, 계약, 복구 흐름을 추적하고 각 결함을 확인한 후 보고합니다."
+      },
+      "frontendState": {
+        "label": "프론트엔드 상태 및 UI",
+        "description": "이펙트, 구독, 서버 상태의 범위, 상호작용과 접근성을 확인합니다."
+      },
+      "apiSecurity": {
+        "label": "API 및 권한",
+        "description": "전체 페이로드 계약, 테넌트 격리와 안전한 재시도를 확인합니다."
+      },
+      "runtimeLifecycle": {
+        "label": "에이전트 및 데스크톱 수명주기",
+        "description": "스트리밍, IPC와 제공자 간 일관성, 취소와 완료 기록을 확인합니다."
+      },
+      "sdkCompatibility": {
+        "label": "SDK 및 공개 API",
+        "description": "소스 및 통신 호환성, 동시성, 콜백과 플랫폼 수명주기를 확인합니다."
+      },
+      "dataMigrations": {
+        "label": "영속성 및 마이그레이션",
+        "description": "기존 데이터, 쓰기 권한, 동시성과 지표의 의미를 확인합니다."
+      },
+      "performance": {
+        "label": "성능 및 리소스",
+        "description": "실제 실행 경로, 쿼리 증가, 렌더링과 리소스 누수를 확인합니다."
+      }
+    }
   }
 }
