@@ -203,7 +203,7 @@ export function StandaloneCliTerminal(props: {
         nativeSessionIdByTab,
         accountProfileIdByTab, defaults,
       }),
-    [props.folderPath, nativeSessionIdByTab, accountProfileIdByTab, defaults, i18n.language],
+    [props.folderPath, nativeSessionIdByTab, accountProfileIdByTab, defaults],
   );
   // The session bootstrap effect restarts whenever `activeTab` changes
   // identity. Keep the active tab keyed on its own fields only: launching pins
@@ -228,7 +228,7 @@ export function StandaloneCliTerminal(props: {
       activeNativeSessionId,
       activeTabId,
       props.folderPath,
-    , i18n.language],
+    ],
   );
   const activeTabKey = getStandaloneCliTabKey(activeTabId);
 

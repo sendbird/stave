@@ -8,6 +8,10 @@ function scan(source: string, fileName = "src/components/demo.tsx") {
 }
 
 describe("hardcoded user-facing string scan", () => {
+  test("requires human accessible names even when they resemble automation ids", () => {
+    expect(scan('<button aria-label="open-settings" data-testid="open-settings" />')).toEqual(["jsx-attribute:open-settings"]);
+    expect(scan('<button aria-label={`toggle-project-${projectId}`} />')).toEqual(["jsx-attribute:toggle-project- ${}"]);
+  });
   test("covers aliased accessibility defaults, error results and announcements", () => {
     const findings = scan(`
       function Demo({ "aria-label": label = "Tool calls", trigger = "Show command" }) {

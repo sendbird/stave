@@ -807,5 +807,13 @@
     "monthTurns_one": "This month · {{count}} turn",
     "monthTurns_other": "This month · {{count}} turns",
     "tokens": "{{amount}} tokens"
-  }
+  },
+  "topBarAutomations.closeSchedules": "Close schedules",
+  "topBarAutomations.openSchedules": "Open schedules",
+  "topBarFleetAttention.closeFleet": "Close Fleet View",
+  "topBarFleetAttention.openFleet": "Open Fleet View",
+  "topBarIssues.closeTasks": "Close tasks",
+  "topBarIssues.openTasks": "Open tasks",
+  "topBarBranchDropdown.switchBranch": "Switch branch",
+  "workspaceAccountLimitIcon.limit": "{{provider}} account limit reached"
 }

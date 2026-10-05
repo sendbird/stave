@@ -61,7 +61,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
         tasks,
         activeTurnIdsByTask,
       }),
-    [activeTurnIdsByTask, tasks, i18n.language],
+    [activeTurnIdsByTask, tasks],
   );
   const respondingTaskSummaries = respondingTasks.slice(0, 3).map((task) => ({
     id: task.id,

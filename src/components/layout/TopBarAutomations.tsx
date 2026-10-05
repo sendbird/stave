@@ -39,8 +39,8 @@ export function TopBarAutomations(props: { noDragStyle: CSSProperties }) {
             style={props.noDragStyle}
             aria-label={
               isAutomationCenterActive
-                ? "close-schedules"
-                : "open-schedules"
+                ? i18n.t("shell:topBarAutomations.closeSchedules")
+                : i18n.t("shell:topBarAutomations.openSchedules")
             }
             aria-pressed={isAutomationCenterActive}
             onClick={toggleAutomationCenter}

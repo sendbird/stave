@@ -126,14 +126,14 @@ export function useLensDiagnosticsLog(args: {
     () =>
       consoleEntries.find((entry) => entry.id === selectedConsoleEntryId) ??
       null,
-    [consoleEntries, selectedConsoleEntryId, i18n.language],
+    [consoleEntries, selectedConsoleEntryId],
   );
   const selectedNetworkEntry = useMemo(
     () =>
       networkEntries.find(
         (entry) => entry.entryId === selectedNetworkEntryId,
       ) ?? null,
-    [networkEntries, selectedNetworkEntryId, i18n.language],
+    [networkEntries, selectedNetworkEntryId],
   );
   const selectedNetworkEntryState = selectedNetworkEntry?.state ?? null;
   const selectedRequestBodyState =
@@ -584,7 +584,7 @@ export function useLensDiagnosticsLog(args: {
         entry.source?.toLowerCase().includes(query)
       );
     });
-  }, [consoleEntries, consoleLevelFilter, consoleSearch, i18n.language]);
+  }, [consoleEntries, consoleLevelFilter, consoleSearch]);
 
   const filteredNetworkEntries = useMemo(() => {
     const query = networkSearch.trim().toLowerCase();
@@ -600,14 +600,14 @@ export function useLensDiagnosticsLog(args: {
         entry.error?.toLowerCase().includes(query) ||
         String(entry.status ?? "").includes(query),
     );
-  }, [networkEntries, networkSearch, i18n.language]);
+  }, [networkEntries, networkSearch]);
   const networkWaterfallMaxMs = useMemo(
     () =>
       Math.max(
         1,
         ...filteredNetworkEntries.map((entry) => entry.durationMs ?? 0),
       ),
-    [filteredNetworkEntries, i18n.language],
+    [filteredNetworkEntries],
   );
 
   useEffect(() => {

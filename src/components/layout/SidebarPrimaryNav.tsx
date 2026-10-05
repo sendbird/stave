@@ -47,7 +47,7 @@ function useAgentsWithWork() {
       [byTaskId],
     ),
   );
-  return useMemo(() => JSON.parse(key) as ReturnType<typeof collectAgentsWithWork>, [key, i18n.language]);
+  return useMemo(() => JSON.parse(key) as ReturnType<typeof collectAgentsWithWork>, [key]);
 }
 
 /**

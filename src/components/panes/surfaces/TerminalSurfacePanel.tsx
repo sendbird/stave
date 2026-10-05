@@ -111,7 +111,7 @@ function TerminalSurfacePanelContent(props: {
 
   const tab = useMemo(
     () => terminalTabs.find((item) => item.id === props.terminalTabId) ?? null,
-    [props.terminalTabId, terminalTabs, i18n.language],
+    [props.terminalTabId, terminalTabs],
   );
 
   const getTabKey = useCallback(
@@ -276,7 +276,8 @@ function TerminalSurfacePanelContent(props: {
           size="icon-xs"
           xstyle={terminalSurfacePanelStyles.clearButton}
           onClick={clearActiveTranscript}
-          aria-label={`clear-terminal-${props.terminalTabId}`}
+          aria-label={i18n.t("panes:terminalSurfacePanel.clear")}
+          data-testid={`clear-terminal-${props.terminalTabId}`}
           disabled={!tab}
         >
           <Eraser aria-hidden size={12} />

@@ -104,7 +104,7 @@ const GraphSvg = memo(function GraphSvg({
   useTranslation();
   const commitByHash = useMemo(
     () => new Map(commits.map((commit) => [commit.hash, commit])),
-    [commits, i18n.language],
+    [commits],
   );
   const totalHeight = nodes.length * ROW_HEIGHT;
   const renderStart = Math.max(0, visibleStart - 1);
@@ -112,7 +112,7 @@ const GraphSvg = memo(function GraphSvg({
   const visibleNodes = useMemo(
     () =>
       nodes.filter((node) => node.row >= renderStart && node.row < renderEnd),
-    [nodes, renderEnd, renderStart, i18n.language],
+    [nodes, renderEnd, renderStart],
   );
   const branchPaths = useMemo(
     () =>
@@ -132,7 +132,7 @@ const GraphSvg = memo(function GraphSvg({
           ),
         }))
         .filter(({ paths }) => paths.some((path) => path.d)),
-    [branches, renderEnd, renderStart, i18n.language],
+    [branches, renderEnd, renderStart],
   );
   const nodeRadius = 4;
 
@@ -415,7 +415,7 @@ export const GitGraphCanvas = forwardRef<
           ? WORKING_TREE_LAYOUT_HASH
           : undefined,
       }),
-    [layoutCommits, workingTreeVisible, i18n.language],
+    [layoutCommits, workingTreeVisible],
   );
   const rowOffset = workingTreeVisible ? 1 : 0;
   const rowCount = layoutCommits.length;

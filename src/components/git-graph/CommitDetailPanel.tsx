@@ -231,7 +231,7 @@ export function CommitDetailPanel({
         }),
         { additions: 0, deletions: 0 },
       ),
-    [files, i18n.language],
+    [files],
   );
 
   if (!selection) {

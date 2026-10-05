@@ -1058,7 +1058,7 @@ export function AppShell() {
       /(Mac|iPhone|iPad)/i.test(navigator.platform || navigator.userAgent)
         ? "Cmd"
         : "Ctrl",
-    [i18n.language],
+    [],
   );
   const activeWorkspacePath =
     workspacePathById[activeWorkspaceId] ?? repositoryPath;
@@ -1069,7 +1069,7 @@ export function AppShell() {
         ?.name ??
       workspaceBranchById[activeWorkspaceId] ??
       "workspace",
-    [activeWorkspaceId, workspaceBranchById, workspaces, i18n.language],
+    [activeWorkspaceId, workspaceBranchById, workspaces],
   );
   const scriptsRevision = useScriptsCommandPaletteContributor(
     activeWorkspaceId && repositoryPath && activeWorkspacePath
@@ -1305,7 +1305,8 @@ export function AppShell() {
       workspaceSidebarCollapsed,
       workspaces,
       switchWorkspace,
-    , i18n.language],
+      i18n.language,
+    ],
   );
   const showFleetView = activeAppSurface.kind === "fleet-view";
   const showAutomationCenter = activeAppSurface.kind === "automation-center";

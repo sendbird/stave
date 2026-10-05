@@ -152,5 +152,7 @@
     "copyPath": "Copy Path",
     "copyRelativePath": "Copy Relative Path",
     "copyBreadcrumbsPath": "Copy Breadcrumbs Path"
-  }
+  },
+  "paneTabChip.closeNamed": "Close {{title}} pane",
+  "terminalSurfacePanel.clear": "Clear terminal"
 }

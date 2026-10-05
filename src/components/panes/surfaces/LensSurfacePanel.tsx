@@ -108,7 +108,7 @@ function LensSessionSurface(args: {
         heuristic: lensSourceMappingHeuristic,
         reactDebugSource: lensSourceMappingReactDebugSource,
       }) satisfies LensSourceMappingConfig,
-    [lensSourceMappingHeuristic, lensSourceMappingReactDebugSource, i18n.language],
+    [lensSourceMappingHeuristic, lensSourceMappingReactDebugSource],
   );
 
   const hasLensApi = Boolean(window.api?.lens);

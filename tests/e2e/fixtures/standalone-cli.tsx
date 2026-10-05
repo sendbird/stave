@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { applyAppLocale } from "@/i18n";
 import { TopBarStandaloneCli } from "@/components/layout/TopBarStandaloneCli";
 import { TooltipProvider } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
@@ -11,6 +12,7 @@ import "@/globals.css";
 // Real React effects and xterm, with controllable IPC and no operating-system PTYs.
 const params = new URLSearchParams(location.search);
 const calls: string[] = [];
+const detachCalls: string[] = [];
 const sessions = new Map<string, { slotKey: string; account: string }>();
 let releaseCreate = () => {};
 let releaseClose = () => {};
@@ -41,7 +43,7 @@ window.api = {
       calls.push(`attach:${sessionId}`);
       return { ok: sessions.has(sessionId), attachmentId: `attachment-${sessionId}`, backlog: "Ready\r\n" };
     },
-    detachSession: async () => ({ ok: true }),
+    detachSession: async ({ sessionId }) => { detachCalls.push(sessionId); return { ok: true }; },
     resumeSessionStream: async () => ({ ok: true }),
     resizeSession: async () => ({ ok: true }),
     closeSession: async ({ sessionId }) => {
@@ -76,6 +78,8 @@ useStandaloneCliStore.setState({
 Object.assign(window, {
   cliFixture: {
     calls,
+    detachCalls,
+    locale: applyAppLocale,
     releaseCreate: () => releaseCreate(),
     releaseClose: () => releaseClose(),
     state: () => useStandaloneCliStore.getState(),

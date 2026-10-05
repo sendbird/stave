@@ -98,7 +98,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
 
   const activeTab = useMemo(
     () => cliSessionTabs.find((tab) => tab.id === scopedTabId) ?? null,
-    [scopedTabId, cliSessionTabs, i18n.language],
+    [scopedTabId, cliSessionTabs],
   );
   const isSurfaceVisible = isScoped
     ? activeSurface.kind === "cli-session" &&

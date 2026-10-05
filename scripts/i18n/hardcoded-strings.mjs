@@ -289,11 +289,12 @@ export function scanSource(fileName, sourceText, { terms = [] } = {}) {
     } else if (ts.isJsxAttribute(node) && node.initializer) {
       const name = nameOf(node.name);
       if (name && (isUserFacingName(name) || USER_FACING_ATTRIBUTE.test(name))) {
+        const judge = USER_FACING_ATTRIBUTE.test(name) ? isJsxProse : isAttributeProse;
         const initializer = node.initializer;
         if (ts.isStringLiteral(initializer)) {
-          if (isAttributeProse(initializer.text, sortedTerms)) report(initializer, initializer.text, "jsx-attribute");
+          if (judge(initializer.text, sortedTerms)) report(initializer, initializer.text, "jsx-attribute");
         } else if (ts.isJsxExpression(initializer) && initializer.expression) {
-          checkExpression(initializer.expression, "jsx-attribute", isAttributeProse);
+          checkExpression(initializer.expression, "jsx-attribute", judge);
         }
       }
     } else if (ts.isPropertyAssignment(node)) {
@@ -320,7 +321,7 @@ export function scanSource(fileName, sourceText, { terms = [] } = {}) {
       }
     } else if (ts.isBindingElement(node) && node.initializer) {
       const name = nameOf(node.propertyName ?? node.name);
-      if (isUserFacingName(name)) checkExpression(node.initializer, "copy-default");
+      if (isUserFacingName(name)) checkExpression(node.initializer, "copy-default", USER_FACING_ATTRIBUTE.test(name) ? isJsxProse : isCodeProse);
     } else if (ts.isParameter(node) && node.initializer) {
       const name = nameOf(node.name);
       if (isUserFacingName(name)) checkExpression(node.initializer, "copy-default");

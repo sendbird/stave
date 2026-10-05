@@ -103,7 +103,7 @@ export function KeyboardShortcutsDrawer({
       /(Mac|iPhone|iPad)/i.test(navigator.platform || navigator.userAgent)
         ? "Cmd"
         : "Ctrl",
-    [i18n.language],
+    [],
   );
   const [
     storedModelShortcutKeys,
@@ -127,15 +127,15 @@ export function KeyboardShortcutsDrawer({
   );
   const normalizedAppShortcutKeys = useMemo(
     () => normalizeAppShortcutKeys(storedAppShortcutKeys),
-    [storedAppShortcutKeys, i18n.language],
+    [storedAppShortcutKeys],
   );
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(storedModelShortcutKeys),
-    [storedModelShortcutKeys, i18n.language],
+    [storedModelShortcutKeys],
   );
   const normalizedModelShortcutEfforts = useMemo(
     () => normalizeModelShortcutEfforts(storedModelShortcutEfforts),
-    [storedModelShortcutEfforts, i18n.language],
+    [storedModelShortcutEfforts],
   );
   const normalizedPromptCommentShortcut = normalizePromptCommentShortcut(
     storedPromptCommentShortcut ?? DEFAULT_PROMPT_COMMENT_SHORTCUT,
@@ -477,7 +477,8 @@ export function KeyboardShortcutsDrawer({
       promptCommentShortcutSequences,
       presetShortcutItems,
       visualCommentShortcutSequences,
-    , i18n.language],
+      i18n.language,
+    ],
   );
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredSections = useMemo(() => {
@@ -499,14 +500,14 @@ export function KeyboardShortcutsDrawer({
           );
       return shortcuts.length > 0 ? [{ ...section, shortcuts }] : [];
     });
-  }, [normalizedSearchQuery, sections, i18n.language]);
+  }, [normalizedSearchQuery, sections]);
   const visibleShortcutCount = useMemo(
     () =>
       filteredSections.reduce(
         (count, section) => count + section.shortcuts.length,
         0,
       ),
-    [filteredSections, i18n.language],
+    [filteredSections],
   );
 
   if (!open) {

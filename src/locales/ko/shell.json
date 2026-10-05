@@ -800,5 +800,13 @@
     "turns_other": "턴 {{count}}개",
     "monthTurns_other": "이번 달 · 턴 {{count}}개",
     "tokens": "토큰 {{amount}}개"
-  }
+  },
+  "topBarAutomations.closeSchedules": "일정 닫기",
+  "topBarAutomations.openSchedules": "일정 열기",
+  "topBarFleetAttention.closeFleet": "Fleet 뷰 닫기",
+  "topBarFleetAttention.openFleet": "Fleet 뷰 열기",
+  "topBarIssues.closeTasks": "작업 닫기",
+  "topBarIssues.openTasks": "작업 열기",
+  "topBarBranchDropdown.switchBranch": "브랜치 전환",
+  "workspaceAccountLimitIcon.limit": "{{provider}} 계정 한도에 도달함"
 }

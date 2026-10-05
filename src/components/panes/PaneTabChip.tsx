@@ -419,7 +419,8 @@ export const PaneTabChip = memo(function PaneTabChip(
             transition.motionDurationQuick,
             isActive ? c.closeVisible : c.closeHidden,
           ]}
-          aria-label={`close-pane-${panelId}`}
+          aria-label={i18n.t("panes:paneTabChip.closeNamed", { title })}
+          data-testid={`close-pane-${panelId}`}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.preventDefault();

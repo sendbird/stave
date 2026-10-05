@@ -277,11 +277,11 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
 
   const searchMatchHashes = useMemo(
     () => findGraphCommitMatches(graph.commits, searchQuery),
-    [graph.commits, searchQuery, i18n.language],
+    [graph.commits, searchQuery],
   );
   const searchMatches = useMemo(
     () => new Set(searchMatchHashes),
-    [searchMatchHashes, i18n.language],
+    [searchMatchHashes],
   );
   const activeMatchHash =
     searchMatchHashes.length > 0
@@ -305,7 +305,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
     return (
       graph.commits.find((commit) => commit.hash === selection.hash) ?? null
     );
-  }, [graph.commits, selection, i18n.language]);
+  }, [graph.commits, selection]);
   const effectiveDetailWidth =
     rootSize.width > 0
       ? Math.min(preferences.detailWidth, Math.max(320, rootSize.width * 0.62))

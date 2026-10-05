@@ -126,7 +126,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     : currentBranch;
   const originDefaultRef = useMemo(
     () => resolveOriginDefaultBranchLabel({ remoteBranches }),
-    [remoteBranches, i18n.language],
+    [remoteBranches],
   );
   const branchDrift = useMemo(
     () =>
@@ -135,7 +135,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         expectedBranch: defaultBranch,
         actualBranch: detectedActualBranch,
       }),
-    [defaultBranch, detectedActualBranch, isDefaultWorkspace, i18n.language],
+    [defaultBranch, detectedActualBranch, isDefaultWorkspace],
   );
   const createBranchError = useMemo(
     () =>
@@ -515,14 +515,15 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       remoteBranches,
       workspaceCwd,
       worktreePathByBranch,
-    , i18n.language],
+      i18n.language,
+    ],
   );
   const firstCheckoutOption = useMemo(
     () =>
       branchGroups
         .flatMap((group) => group.options)
         .find((option) => option.state === "available") ?? null,
-    [branchGroups, i18n.language],
+    [branchGroups],
   );
 
   async function checkoutLocalBranch(args: { name: string }) {
@@ -717,7 +718,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   aria-label={
                     branchDrift
                       ? i18n.t("shell:topBarBranchDropdown.switchBranchDefaultWorkspaceIsOnInstead", { value1: branchDrift.actualBranch, value2: branchDrift.expectedBranch })
-                      : "switch-branch"
+                      : i18n.t("shell:topBarBranchDropdown.switchBranch")
                   }
                 />
               }

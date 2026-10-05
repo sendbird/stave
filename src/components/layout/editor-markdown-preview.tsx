@@ -85,7 +85,7 @@ export function EditorMarkdownPreview({
   const isEmbedded = variant === "embedded";
   const frontmatter = useMemo(
     () => parseMarkdownFrontmatter(content),
-    [content, i18n.language],
+    [content],
   );
 
   return (

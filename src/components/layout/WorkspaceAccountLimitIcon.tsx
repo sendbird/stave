@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Gauge } from "lucide-react";
 import { memo, useMemo } from "react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -16,6 +17,7 @@ const EMPTY_TASKS: Task[] = [];
  */
 export const WorkspaceAccountLimitIcon = memo(
   function WorkspaceAccountLimitIcon(args: { workspaceId: string }) {
+    useTranslation();
     const enabled = useAppStore(
       (state) => state.settings.blockTurnsWhenAccountLimitReached,
     );
@@ -48,7 +50,7 @@ export const WorkspaceAccountLimitIcon = memo(
         }
       }
       return null;
-    }, [enabled, snapshot, tasks]);
+    }, [enabled, snapshot, tasks, i18n.language]);
 
     if (!block) {
       return null;
@@ -61,7 +63,7 @@ export const WorkspaceAccountLimitIcon = memo(
             <span
               className={sx(workspaceAccountLimitIconStyles.trigger)}
               role="status"
-              aria-label={`${block.providerLabel.toLowerCase()}-account-limit`}
+              aria-label={i18n.t("shell:workspaceAccountLimitIcon.limit", { provider: block.providerLabel })}
             />
           }
         >

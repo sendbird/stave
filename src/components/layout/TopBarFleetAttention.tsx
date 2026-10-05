@@ -49,7 +49,7 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
             ]}
             style={props.noDragStyle}
             aria-label={
-              isFleetViewActive ? "close-fleet-view" : "open-fleet-view"
+              isFleetViewActive ? i18n.t("shell:topBarFleetAttention.closeFleet") : i18n.t("shell:topBarFleetAttention.openFleet")
             }
             aria-pressed={isFleetViewActive}
             onClick={toggleFleetView}

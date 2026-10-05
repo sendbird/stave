@@ -48,7 +48,7 @@ export function TaskSessionIdsDialog({
   );
   const sessionRows = useMemo(
     () => listProviderSessions({ sessions: providerSessions }),
-    [providerSessions, i18n.language],
+    [providerSessions],
   );
 
   useEffect(() => {

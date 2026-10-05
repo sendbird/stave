@@ -41,7 +41,7 @@ export function TopBarIssues(props: { noDragStyle: CSSProperties }) {
               isIssuesActive && layoutShellStyles.topBarButtonActive,
             ]}
             style={props.noDragStyle}
-            aria-label={isIssuesActive ? "close-tasks" : "open-tasks"}
+            aria-label={isIssuesActive ? i18n.t("shell:topBarIssues.closeTasks") : i18n.t("shell:topBarIssues.openTasks")}
             aria-pressed={isIssuesActive}
             onClick={toggleIssues}
             indicator={

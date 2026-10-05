@@ -717,15 +717,7 @@ export function WorkspacePaneHost() {
       ),
     // Collections are the actual inputs of buildDesiredSurfaces.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      openTaskTabIds,
-      tasks,
-      cliSessionTabs,
-      terminalTabs,
-      lensTabs,
-      editorTabs,
-      activeCompareRunId,
-    , i18n.language],
+    [openTaskTabIds, tasks, cliSessionTabs, terminalTabs, lensTabs, editorTabs, activeCompareRunId],
   );
 
   const focusActiveSurface = useCallback((api: DockviewApi) => {

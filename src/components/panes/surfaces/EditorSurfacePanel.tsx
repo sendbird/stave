@@ -404,7 +404,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     return reviewCommentsForActiveTask.filter(
       (comment) => comment.filePath === tab.filePath,
     );
-  }, [tab?.filePath, reviewCommentsForActiveTask, i18n.language]);
+  }, [tab?.filePath, reviewCommentsForActiveTask]);
   const reviewDraft = resolveTaskReviewDraft(reviewDraftState, activeTaskId);
   const canAddReviewComment = Boolean(
     activeTaskId && tab && diffSessionKey && !tabContentUnavailable,

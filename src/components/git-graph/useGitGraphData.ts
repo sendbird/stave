@@ -257,7 +257,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
 
   const selectedRefKey = useMemo(
     () => graphQueryKey(selectedRefs),
-    [selectedRefs, i18n.language],
+    [selectedRefs],
   );
 
   const cacheCurrent = useCallback(

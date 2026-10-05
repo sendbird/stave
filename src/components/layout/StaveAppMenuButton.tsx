@@ -70,7 +70,7 @@ export function StaveAppMenuButton(args?: {
       /(Mac|iPhone|iPad)/i.test(navigator.platform || navigator.userAgent)
         ? "⌘⇧P"
         : "Ctrl+Shift+P",
-    [i18n.language],
+    [],
   );
 
   return (

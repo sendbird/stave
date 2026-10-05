@@ -881,7 +881,7 @@ export function useTerminalInstance(
         );
       },
     }),
-    [executeTerminalOperation, focus, measureProposedDimensions, i18n.language],
+    [executeTerminalOperation, focus, measureProposedDimensions],
   );
 
   return {

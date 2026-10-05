@@ -191,7 +191,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
 
   const openEditorFilePaths = useMemo(
     () => new Set(openEditorItems.map((item) => item.filePath)),
-    [openEditorItems, i18n.language],
+    [openEditorItems],
   );
 
   const filteredFileItems = useMemo(
@@ -209,7 +209,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
       filteredFileItems
         .filter((item) => !openEditorFilePaths.has(item.filePath))
         .slice(0, DEFAULT_FILE_RESULT_LIMIT),
-    [filteredFileItems, openEditorFilePaths, i18n.language],
+    [filteredFileItems, openEditorFilePaths],
   );
 
   const hasItems = normalizedQuery

@@ -189,7 +189,7 @@ export function EditorPanel(props: EditorPanelProps) {
       totalTodoCount: workspaceTodos.length,
       openTodos: openTodos.map((todo) => todo.text),
     };
-  }, [workspaceTodos, workspacePrInfo, i18n.language]);
+  }, [workspaceTodos, workspacePrInfo]);
 
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [explorerDirectoryStateByPath, setExplorerDirectoryStateByPath] = useState<Record<string, ExplorerDirectoryState>>({});

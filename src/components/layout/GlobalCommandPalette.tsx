@@ -51,7 +51,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
   );
   const visibleSections = useMemo(
     () => searchCommandPaletteGroups({ groups: sections, query }),
-    [query, sections, i18n.language],
+    [query, sections],
   );
   const actionById = useMemo(
     () =>
@@ -60,7 +60,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
           section.items.map((action) => [action.id, action] as const),
         ),
       ),
-    [sections, i18n.language],
+    [sections],
   );
   const selectedAction = actionById.get(selectedActionId);
   const selectedActionIsPinned = Boolean(
@@ -72,7 +72,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
   );
   const actionCount = useMemo(
     () => sections.reduce((count, section) => count + section.items.length, 0),
-    [sections, i18n.language],
+    [sections],
   );
   const resultCount = useMemo(
     () =>
@@ -80,7 +80,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
         (count, section) => count + section.items.length,
         0,
       ),
-    [visibleSections, i18n.language],
+    [visibleSections],
   );
 
   useEffect(() => {
