@@ -8,6 +8,45 @@ function scan(source: string, fileName = "src/components/demo.tsx") {
 }
 
 describe("hardcoded user-facing string scan", () => {
+  test("finds array copy in exported Markdown and plain text display formatters", () => {
+    expect(scan(`
+      export function formatAgentRunReportMarkdown(report) {
+        const lines = [];
+        lines.push("", "### Stages", "### Acceptance criteria", "### Links", "### Left behind");
+        report.rows.forEach(() => lines.push("Waiting for results"));
+        return lines.join("\\n");
+      }
+      export const formatReportPlainText = () => {
+        const lines = [];
+        lines.unshift("작업 보고서", t("tasks:title"));
+        lines.push("", "---");
+        return lines.join("\\n");
+      };
+    `, "src/lib/report.ts")).toEqual([
+      "display-formatter:### Stages", "display-formatter:### Acceptance criteria",
+      "display-formatter:### Links", "display-formatter:### Left behind",
+      "display-formatter:Waiting for results", "display-formatter:작업 보고서",
+    ]);
+  });
+
+  test("display formatter writes preserve prompts, private helpers and ignored expressions", () => {
+    expect(scan(`
+      export function buildShareReportPrompt() {
+        const lines = [];
+        lines.push("Summarize the report for the model.");
+        return lines.join("\\n");
+      }
+      function formatInternalMarkdown() { lines.push("Internal protocol heading"); }
+      export function formatReportMarkdown() {
+        // i18n-ignore: model-facing example included verbatim in the report
+        lines.push("Preserve original model instructions");
+        lines.unshift(ok ? "Original protocol value" : "Original protocol fallback"); // i18n-ignore: protocol output
+        function buildPrompt() { lines.push("Nested model instructions"); }
+        lines.push(t("tasks:report"), "Stave");
+      }
+    `, "src/lib/report.ts")).toEqual([]);
+  });
+
   test("a sentence ending in a field colon is prose while class and path tokens stay code", () => {
     expect(isCodeProse(' ${} is not a valid shared scripts config: ${} ', [])).toBe(true);
     expect(scan('const result = { error: `${filePath} is not a valid shared scripts config: ${issue}` };')).toEqual(["object-property:${} is not a valid shared scripts config: ${}"]);

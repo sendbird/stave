@@ -201,6 +201,30 @@ function enclosingFunctionName(node) {
   return null;
 }
 
+/** Array writes in exported display formatters carry human-facing report copy. */
+function isDisplayFormatterWrite(call) {
+  const callee = call.expression;
+  if (!ts.isPropertyAccessExpression(callee) || !["push", "unshift"].includes(callee.name.text)) return false;
+  const exported = (node) => node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+  const matches = (name) => /^format\w*(?:Markdown|PlainText)$/.test(name ?? "");
+  let current = call.parent;
+  while (current) {
+    if (ts.isFunctionDeclaration(current)) return matches(nameOf(current.name)) && exported(current);
+    if (ts.isArrowFunction(current) || ts.isFunctionExpression(current)) {
+      const parent = current.parent;
+      if (ts.isVariableDeclaration(parent)) {
+        const statement = parent.parent?.parent;
+        return matches(nameOf(parent.name)) && ts.isVariableStatement(statement) && exported(statement);
+      }
+      // Anonymous iteration callbacks still write the enclosing formatter's output.
+      if (current.name || ts.isPropertyAssignment(parent)) return false;
+    }
+    if (ts.isMethodDeclaration(current) || ts.isClassDeclaration(current) || ts.isSourceFile(current)) return false;
+    current = current.parent;
+  }
+  return false;
+}
+
 /** `STATUS_LABELS` → `statusLabels` so constant tables follow the same naming rules. */
 function normalizeName(name) {
   if (!name || !/^[A-Z0-9_]+$/.test(name)) return name;
@@ -350,6 +374,8 @@ export function scanSource(fileName, sourceText, { terms = [], nativeUiOnly = fa
         if (options && ts.isObjectLiteralExpression(options)) checkObjectLiteral(options, "toast");
       } else if (isNativeDialogCall(node)) {
         for (const argument of node.arguments) checkExpression(argument, "native-dialog", isJsxProse);
+      } else if (isDisplayFormatterWrite(node)) {
+        for (const argument of node.arguments) checkExpression(argument, "display-formatter", isJsxProse);
       } else if (/^(?:announce|setAnnouncement|setError|setNote|setReason|failure)$/.test(nameOf(node.expression))) {
         for (const argument of node.arguments) checkExpression(argument, "copy-call");
       }
