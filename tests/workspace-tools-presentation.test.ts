@@ -21,12 +21,20 @@ describe("Workspace Tools presentation", () => {
   test("uses one umbrella name without collapsing its distinct tool types", () => {
     expect(RIGHT_RAIL_PANEL_TITLES.scripts).toBe(WORKSPACE_TOOLS_LABEL);
     expect(COMMAND_PALETTE_GROUP_LABELS.scripts).toBe(WORKSPACE_TOOLS_LABEL);
-    expect(settingsSections.find(({ id }) => id === "scripts")?.label).toBe(
-      WORKSPACE_TOOLS_LABEL,
-    );
-    expect(
-      settingsSections.find(({ id }) => id === "scripts")?.description,
-    ).toMatch(/^Long-running processes/);
+    const section = settingsSections.find(({ id }) => id === "scripts");
+    expect(section?.labelKey).toBe("settings:sections.scripts.label");
+    expect(section?.descriptionKey).toBe("settings:sections.scripts.description");
+    expect(i18n.t(section!.labelKey)).toBe(WORKSPACE_TOOLS_LABEL);
+    expect(i18n.t(section!.descriptionKey)).toMatch(/^Long-running processes/);
+    for (const [locale, label, descriptionPrefix] of [
+      ["en", "Workspace Tools", /^Long-running processes/],
+      ["ko", "워크스페이스 도구", /^개발하는 동안 켜 두는 장기 실행 프로세스/],
+    ] as const) {
+      const t = i18n.getFixedT(locale);
+      expect(t(section!.labelKey)).toBe(label);
+      expect(t(section!.labelKey)).toBe(t(WORKSPACE_TOOLS_LABEL_KEY));
+      expect(t(section!.descriptionKey)).toMatch(descriptionPrefix);
+    }
     expect(
       APP_SHORTCUT_DEFINITIONS.find(
         ({ commandId }) => commandId === "view.show-scripts",
