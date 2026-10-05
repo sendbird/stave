@@ -40,6 +40,7 @@ test("seals a saved Agent version across reassignment and release, excluding sec
     permission: { source: "agent-autonomy", agentLimit: "read-only",
       applied: { codexFileAccess: "read-only", codexApprovalPolicy: "never", codexNetworkAccess: false } } });
   expect(turn.runtimeOptions.agentInstructions).toContain("Researcher");
+  expect(turn.runtimeOptions.nativePlanTools).toBe(true);
   expect(JSON.stringify(turn.provenance)).not.toContain("secret-id");
   expect(JSON.stringify(turn.provenance)).not.toContain(row.agent.instructions);
   expect(turn.observe({ type: "error", recoverable: false, message: "Startup failed" })).toBeNull();
@@ -79,6 +80,7 @@ test("delegated snapshots use their own role, keep host permissions and nested C
   const turn = h.prepare();
   expect(turn.runtimeOptions).toMatchObject({ codexFileAccess: "danger-full-access", codexApprovalPolicy: "never" });
   expect(turn.runtimeOptions.agentInstructions).toContain("Researcher");
+  expect(turn.runtimeOptions.nativePlanTools).toBe(false);
   expect(turn.provenance).toMatchObject({ role: "delegate", permission: { source: "delegation-policy" } });
   expect(h.runtime.agentForTask("task")?.canCall).toEqual(["implementer"]);
   expect(h.runtime.prepareTurn({ taskId: "task", providerId: "codex", prompt: "Aux", executionPolicy: "secondary-read-only" })).toBeNull();

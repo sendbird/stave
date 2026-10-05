@@ -60,7 +60,7 @@ export function AgentRunOverview(props: {
   const rows = useMemo(() => (staged ? projectAgentRunStages(detail, new Date(now)) : null), [detail, now, staged]);
   const observedPlan = useAgentRunProgress(detail);
   const plan = props.plan ?? observedPlan;
-  const subagents = useTaskSubagents(agentRun.leadTaskId);
+  const subagents = useTaskSubagents(agentRun.leadTaskId, detail);
   // The run follows the agent's workflow: say which, so its stages are never a surprise.
   const workflowTitle = staged ? agentRun.workflow.stages.map((stage) => stage.title).join(" → ") : null;
   return (

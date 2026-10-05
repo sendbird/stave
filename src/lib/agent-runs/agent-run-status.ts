@@ -8,6 +8,7 @@
  * Pure. Used by the agent run surfaces in `src/components/agent-runs/` for runs
  * marked `origin: "agent"`; a legacy run keeps its own copy.
  */
+import { describeRunPlan } from "./plan-progress";
 import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
 import type { AgentRunPromptProvenance, ChatMessage } from "@/types/chat";
 import { extractRunAssignment, hasAgentOrigin } from "./agent-run";
@@ -363,15 +364,11 @@ export function agentRunStoredPlan(detail: AgentRunDetail | null | undefined): S
  * Where a run stands, in a few words: its current stage of a workflow
  * ("Reproduce 2/3"), else its plan ("Plan 3/5"), else nothing.
  */
-export function describeAgentRunProgress(detail: AgentRunDetail): string | null {
+export function describeAgentRunProgress(detail: AgentRunDetail, plan = agentRunStoredPlan(detail)): string | null {
   const { stages } = detail.agentRun.workflow;
   if (stages.length > 1) {
     const index = Math.min(detail.agentRun.currentStageIndex, stages.length - 1);
     return `${stages[index]!.title} ${index + 1}/${stages.length}`;
   }
-  const plan = agentRunStoredPlan(detail);
-  if (!plan) return null;
-  const done = plan.items.filter((item) => item.status === "completed").length;
-  const current = plan.items.find((item) => item.status === "in_progress");
-  return `Plan ${done}/${plan.items.length}${current ? ` · Now: ${current.content}` : ""}`;
+  return plan ? describeRunPlan(plan) : null;
 }

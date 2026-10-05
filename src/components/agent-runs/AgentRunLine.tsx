@@ -62,7 +62,8 @@ export function AgentRunLineView(props: {
   const reason = status.state === "needs-you" && !props.reasonShownElsewhere && !alert ? status.reason : null;
   const elapsed = agentRunDuration(detail, props.now);
   const staged = detail.agentRun.workflow.stages.length > 1;
-  const planText = staged ? null : describeRunPlan(props.plan ?? agentRunStoredPlan(detail));
+  const plan = props.plan ?? agentRunStoredPlan(detail);
+  const planText = staged || !plan?.items.length ? null : describeRunPlan(plan);
   const rows = useMemo(
     () => (staged ? projectAgentRunStages(detail, new Date(props.now)) : null),
     [detail, props.now, staged],
@@ -108,7 +109,7 @@ export function AgentRunLineView(props: {
                     reason ?? planText ?? (showNow ? (
                       <TextShimmer active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
                     ) : (
-                      reason
+                      status.state === "working" && !staged ? "Planning…" : reason
                     )),
                   ]
             }

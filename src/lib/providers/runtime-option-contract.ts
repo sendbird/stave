@@ -258,6 +258,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "kiroApprovalMode",
   "kiroResumeSessionId",
   "nativeSubagents",
+  "nativePlanTools",
   "agentInstructions",
   "responseStylePrompt",
   "promptPrDescription",

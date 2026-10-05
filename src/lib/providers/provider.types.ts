@@ -1230,6 +1230,8 @@ export interface ProviderRuntimeOptions {
    * message instead and reports them as instructed.
    */
   agentInstructions?: string;
+  /** Host-owned opt-in for the assigned primary agent; caller values are dropped at turn entry. */
+  nativePlanTools?: boolean;
   // ---- Customisable AI prompt overrides ----
   /** Response formatting guidance injected into both Claude and Codex. */
   responseStylePrompt?: string;

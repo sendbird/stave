@@ -173,7 +173,9 @@ export function buildAgentRunTurnContextPart(args: {
         ? `Agent: ${agentRun.workflow.name}. Workflow ${position}`
         : `Workflow: ${agentRun.workflow.name}. Stage ${position.slice("stage ".length)}`,
       TURN_REASON_LINES[args.reason],
-      ...(hasAgentOrigin(agentRun) ? [AGENT_RUN_PLAN_INSTRUCTION] : []),
+      // Stage prompts already include the implicit workflow's plan instruction.
+      ...(hasAgentOrigin(agentRun) && (args.reason === "nudge" || args.reason === "repair-checks" ||
+        stage.kind !== "ai" || !stage.instruction.includes(AGENT_RUN_PLAN_INSTRUCTION)) ? [AGENT_RUN_PLAN_INSTRUCTION] : []),
       args.reason === "repair-checks" ? ACTION_TURN_CLOSING : STAGE_TURN_CLOSING,
     ].join("\n"),
   };

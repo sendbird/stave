@@ -496,23 +496,24 @@ export function createCodexWorkerActivityMapper(args: {
           };
         }
       }
-      if (input.method === "turn/completed") {
+      const threadStatus = isRecord(input.params.status) ? input.params.status.type : null;
+      if (input.method === "turn/completed" || input.method === "thread/closed" ||
+          (input.method === "thread/status/changed" && threadStatus === "systemError")) {
         const turn = isRecord(input.params.turn) ? input.params.turn : null;
         const status = typeof turn?.status === "string" ? turn.status : "";
-        if (status && status !== "completed") {
-          unlinkChildThread(input.threadId);
-          return {
-            handled: true,
-            events: [
-              {
-                type: "tool_result",
-                tool_use_id: toolUseId,
-                output: `[error] Worker turn ${status}.`,
-                isError: true,
-              },
-            ],
-          };
-        }
+        const reason = input.method === "thread/closed" ? "thread closed without a final answer" :
+          threadStatus === "systemError" ? "thread failed" :
+          status === "completed" ? "turn completed without a final answer" : `turn ${status || "ended"}`;
+        unlinkChildThread(input.threadId);
+        return {
+          handled: true,
+          events: [{
+            type: "tool_result",
+            tool_use_id: toolUseId,
+            output: `[error] Worker ${reason}.`,
+            isError: true,
+          }],
+        };
       }
       return { handled: true, events: [] };
     },

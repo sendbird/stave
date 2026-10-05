@@ -19,6 +19,7 @@ import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { describeAgentRunProgress, describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
+import { useAgentRunProgress } from "../agent-runs/useAgentRunProgress";
 import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 
@@ -165,7 +166,6 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
               // The run this agent is doing on the task, when Fleet has it.
               const run = row.taskId ? runByTaskId[row.taskId] : undefined;
               const ownRun = run && run.agentRun.workflow.name === row.agentName ? run : undefined;
-              const progress = ownRun ? describeAgentRunProgress(ownRun) : null;
               const stateLabel = ownRun
                 ? describeAgentRunStatus(ownRun).label
                 : live
@@ -189,10 +189,7 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
                       {row.assignment.split("\n")[0]}
                     </span>
                   )}
-                  <span className={sx(agentStyles.runState)}>
-                    {progress ? `${progress} · ` : ""}
-                    {stateLabel}
-                  </span>
+                  <AssignmentProgress run={ownRun} stateLabel={stateLabel} />
                 </li>
               );
             })}
@@ -201,6 +198,13 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
       </section>
     </section>
   );
+}
+
+/** Each row subscribes only to its task's live plan. */
+function AssignmentProgress(props: { run: AgentRunDetail | undefined; stateLabel: string }) {
+  const plan = useAgentRunProgress(props.run);
+  const progress = props.run ? describeAgentRunProgress(props.run, plan) : null;
+  return <span className={sx(agentStyles.runState)}>{progress ? `${progress} · ` : ""}{props.stateLabel}</span>;
 }
 
 const FLEET_STATUS_LABELS: Readonly<Record<FleetTaskStatus, string>> = {

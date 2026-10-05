@@ -3,18 +3,34 @@ import type { AgentRunDetail } from "./api";
 import type { StagePlan } from "./domain";
 import { agentRunStoredPlan } from "./agent-run-status";
 import { extractLatestPlan } from "./facts";
+import { isActiveAgentRunState } from "./domain";
+export { describeRunPlan } from "./plan-progress";
 
-/** Scope by persisted run prompts, not today's selected agent or a clock. */
+/** Run events include user replies; prompt marks cover a turn before its link arrives. */
 export function agentRunMessages(detail: AgentRunDetail, messages: readonly ChatMessage[]): ChatMessage[] {
-  const turnIds = new Set<string>();
+  const turnIds = new Set(detail.events.flatMap((event) =>
+    (event.kind === "turn-linked" || event.kind === "user-turn") && typeof event.detail.turnId === "string"
+      ? [event.detail.turnId] : []));
   let belongs = false;
   for (const message of messages) {
     if (message.role === "user" && !message.steeredIntoTurnId) {
       belongs = message.agentRunPrompt?.agentRunId === detail.agentRun.id;
     }
-    if (belongs && message.turnId) turnIds.add(message.turnId);
+    // A live user reply has no supervisor prompt or event yet. Its persisted
+    // start time ties it to the run, including after restart, without pulling
+    // in ordinary chat after the run ended.
+    if (message.turnId && (belongs || agentRunIncludesTime(detail, message.startedAt))) turnIds.add(message.turnId);
   }
-  return messages.filter((message) => message.turnId && turnIds.has(message.turnId));
+  return messages.filter((message) => Boolean(message.turnId && turnIds.has(message.turnId)));
+}
+
+/** Durable delegations have creation times but no parent turn id. */
+export function agentRunIncludesTime(detail: AgentRunDetail, timestamp: string | undefined): boolean {
+  if (!timestamp) return false;
+  const time = Date.parse(timestamp);
+  return time >= Date.parse(detail.agentRun.createdAt) &&
+    (isActiveAgentRunState(detail.agentRun.state) || time <= Date.parse(
+      detail.report?.endedAt ?? detail.events.reduce((endedAt, event) => event.kind === "agent-run-ended" ? event.createdAt : endedAt, detail.agentRun.updatedAt)));
 }
 
 export function resolveAgentRunPlan(detail: AgentRunDetail, messages: readonly ChatMessage[]): StagePlan | null {
@@ -22,11 +38,4 @@ export function resolveAgentRunPlan(detail: AgentRunDetail, messages: readonly C
   const scoped = agentRunMessages(detail, messages);
   const plan = extractLatestPlan({ messages: scoped, turnIds: new Set(scoped.flatMap((m) => m.turnId ? [m.turnId] : [])) });
   return plan ?? agentRunStoredPlan(detail);
-}
-
-export function describeRunPlan(plan: StagePlan | null): string {
-  if (!plan?.items.length) return "Planning…";
-  const done = plan.items.filter((item) => item.status === "completed").length;
-  const current = plan.items.find((item) => item.status === "in_progress");
-  return `Plan ${done}/${plan.items.length}${current ? ` · Now: ${current.content}` : ""}`;
 }

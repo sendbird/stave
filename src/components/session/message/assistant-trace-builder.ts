@@ -1,3 +1,4 @@
+import { resolveToolTitle } from "@/lib/providers/subagent-identity";
 import {
   getRenderableMessageParts,
   isCodeDiffSummarySystemEvent,
@@ -56,7 +57,7 @@ export type AssistantTraceEntry =
   | { kind: "assistant_text"; id: string; parts: TextPart[] }
   | { kind: "tool"; id: string; part: ToolUsePart }
   | { kind: "subagent"; id: string; part: ToolUsePart }
-  | { kind: "todo"; id: string; part: ToolUsePart }
+  | { kind: "todo"; id: string; part: ToolUsePart; title: string }
   | { kind: "approval"; id: string; part: ApprovalPart }
   | { kind: "user_input"; id: string; part: UserInputPart }
   | { kind: "diff"; id: string; parts: CodeDiffPart[] }
@@ -148,17 +149,21 @@ export function buildAssistantTrace(args: {
         });
         return;
       }
-      case "tool_use":
-        entries.push({
-          kind: isSubagentToolPart({ toolName: part.toolName })
-            ? "subagent"
-            : isTodoToolPart({ toolName: part.toolName })
-            ? "todo"
-            : "tool",
-          id: `tool-${index}`,
-          part,
-        });
+      case "tool_use": {
+        const id = `tool-${index}`;
+        if (isTodoToolPart({ toolName: part.toolName })) {
+          const owned = Boolean(part.ownerAgentId || part.parentToolUseId);
+          const spawn = owned ? renderableParts.find((candidate): candidate is ToolUsePart =>
+            candidate.type === "tool_use" && isSubagentToolPart({ toolName: candidate.toolName }) &&
+            Boolean((part.parentToolUseId && candidate.toolUseId === part.parentToolUseId) ||
+             (part.ownerAgentId && candidate.agentId === part.ownerAgentId))) : undefined;
+          const name = spawn ? resolveToolTitle(spawn.toolName, spawn.input, undefined, { isSubagent: true }) : "Subagent";
+          entries.push({ kind: "todo", id, part, title: owned ? `${name} · Plan` : "Plan" });
+        } else {
+          entries.push({ kind: isSubagentToolPart({ toolName: part.toolName }) ? "subagent" : "tool", id, part });
+        }
         return;
+      }
       case "approval":
         entries.push({ kind: "approval", id: `approval-${index}`, part });
         return;

@@ -1,7 +1,7 @@
 import type { ProviderRuntimeOptions } from "../../src/lib/providers/provider.types";
 
 function needsNativePlan(runtimeOptions: ProviderRuntimeOptions | undefined, secondaryReadOnly?: boolean) {
-  return !secondaryReadOnly && Boolean(runtimeOptions?.agentInstructions?.trim());
+  return !secondaryReadOnly && runtimeOptions?.nativePlanTools === true;
 }
 
 /** Assigned primary agents publish progress through the existing TodoWrite contract. */

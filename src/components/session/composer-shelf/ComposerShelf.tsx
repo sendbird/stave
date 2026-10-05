@@ -135,7 +135,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   // A run's text and segments share the live plan, or saved facts between turns.
   const plan = useAgentRunProgress(agentRun);
   const planItems = plan?.items ?? NO_TODOS;
-  const subagents = useTaskSubagents(taskId, agentRun != null);
+  const subagents = useTaskSubagents(taskId, agentRun);
   const todo = useMemo<ShelfTodoProgress | null>(
     () => summarizeShelfTodos(agentRun ? planItems : turnTodos),
     [agentRun, turnTodos, planItems],

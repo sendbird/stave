@@ -794,8 +794,8 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
   try {
     const agentTurn = rawArgs.taskId && !rawArgs.executionPolicy
       ? taskAgentTurnResolver?.(rawArgs) ?? null : null;
-    // In-turn subagents come only from the task's agent; any other value is dropped.
-    const { nativeSubagents: _unowned, ...ownOptions } = rawArgs.runtimeOptions ?? {};
+    // Native agent tools come only from the saved assignment; caller values are dropped.
+    const { nativeSubagents: _unowned, nativePlanTools: _unownedPlan, ...ownOptions } = rawArgs.runtimeOptions ?? {};
     // A task whose Agent was released says so in the Agent channel, so the
     // model stops obeying the role its resumed session still remembers.
     const releasedNotice = !agentTurn && rawArgs.taskId && !rawArgs.executionPolicy && !ownOptions.agentInstructions

@@ -2,11 +2,11 @@ import type { ChatMessage, ToolUsePart } from "@/types/chat";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import { createWorkGraph, reduceWorkGraphEvent } from "@/lib/work-graph/work-graph-reducer";
 import { parseToolInput, truncateWorkText } from "@/lib/providers/subagent-identity";
-import { selectDelegationExchanges, type DelegationExchange, type SelectDelegationExchangesArgs } from "./exchange";
+import { selectDelegationExchanges, sortDelegationExchanges, type DelegationExchange, type SelectDelegationExchangesArgs } from "./exchange";
 import { isExchangeStatusLive } from "./format";
 
 function isSpawnHandle(part: ToolUsePart) {
-  if (!/^collaboration:spawn_?agent$/i.test(part.toolName)) return false;
+  if (part.state === "output-error" || !/^collaboration:spawn_?agent$/i.test(part.toolName)) return false;
   const output = part.output ? parseToolInput(part.output) : null;
   return Boolean(output && (output.newThreadId || output.receiverThreadId || Array.isArray(output.receiverThreadIds)));
 }
@@ -67,7 +67,7 @@ export function selectTaskSubagents(args: SelectDelegationExchangesArgs & { mess
       });
     }
   }
-  return rows;
+  return sortDelegationExchanges(rows);
 }
 
 export function describeSubagentState(exchange: DelegationExchange): string {
