@@ -1235,7 +1235,7 @@ async function persistTurnCompletedNotification(args: {
   });
   const taskTitle =
     args.session.tasks.find((task) => task.id === args.taskId)?.title ?? "Task";
-  const review = resolveReviewTurnNotification({ tasks: args.session.tasks, taskId: args.taskId, failed: outcome === "failed" });
+  const review = resolveReviewTurnNotification({ tasks: args.session.tasks, taskId: args.taskId, failed: outcome === "failed", messages: args.session.messagesByTask[args.taskId] });
 
   await persistNotification({
     id: randomUUID(),

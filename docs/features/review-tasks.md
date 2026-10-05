@@ -86,6 +86,16 @@ dismiss it, or a day passes. Sending other messages meanwhile does not share it.
 **View** opens the review in a dialog over the task you are working in, so
 checking it never moves you away:
 
+- **Findings**: the reviewer's verdict (approve, approve with changes, or
+  request changes) and each finding with its severity (critical, major or
+  minor), file and line, detail and suggested fix, most severe first. Tick
+  the findings to send and select **Attach N of M**: only those reach the task,
+  and the chip reads `N findings`. Opening the dialog again shows the current
+  choice; attaching again replaces it.
+- **Check fixes**: a new review task, on the same model, that decides for each
+  earlier finding whether it is resolved, still unresolved, or outdated
+  against the workspace as it is now, instead of reviewing from scratch. Its
+  line reads **Fixes checked** with, for example, `2 of 3 fixed · 1 new`.
 - **Answer**: the review task's full final reply, rendered as in the
   conversation.
 - **Assignment and execution details**: the exact prompt the reviewer got,
@@ -108,7 +118,9 @@ review task when you select its title.
 1. Leave **Default Reviewer** on **Other provider**.
 2. Select **Review**. The dialog suggests the provider that did not write the
    latest reply.
-3. Start the review, then select **Attach**. The follow-up prompt asks the
+3. Start the review. The notification and the line say how many findings it
+   has, for example `3 findings · 1 critical`.
+4. Select **Attach**. The follow-up prompt asks the
    task to apply the valid findings and explain the rest; send it as is.
 
 ### Review a plan before it is carried out
@@ -119,12 +131,22 @@ review task when you select its title.
    changes, or disagree.
 3. Attach the verdict and decide how to continue.
 
+### Send only the findings worth fixing
+
+1. When the line reads `Review ready · … · 3 findings · 1 critical`, select
+   **View**.
+2. Untick the findings you disagree with and select **Attach 2 of 3**. The
+   follow-up prompt fills an empty draft as usual.
+3. Send. The task receives the verdict and the chosen findings, not the whole
+   reply.
+
 ### Check a fix with the same reviewer
 
 1. After the task addresses the findings, open the earlier review with
    **View**.
-2. Select **Run again**. A new review task starts with the same prompt and
-   model against the current workspace.
+2. Select **Check fixes** to confirm each earlier finding is resolved, or
+   **Run again** to review the current workspace from scratch with the same
+   prompt and model.
 
 ### Apply a team checklist to every review
 
@@ -159,6 +181,22 @@ follow-up prompt attaches the findings only.
   finished review that is less than a day old and was never sent shows again.
 
 ## Limitations And Advanced Options
+
+- Findings come from a fenced `stave-review-findings` JSON block that every
+  review prompt asks the reviewer to end with. A reply without a readable
+  block is shown as `findings unreadable`, never as `No findings`; its whole
+  answer can still be attached. A narrowed chip whose findings can no longer
+  be read sends the whole latest reply instead.
+- Only the block that ends the reply counts, so a quoted example earlier in
+  the answer is ignored. Up to 50 findings are read; an unknown severity is
+  treated as major.
+- **Check fixes** quotes the earlier findings and up to 12,000 characters of
+  the earlier instructions. The re-check repeats every unresolved finding with
+  its original id, so the next **Check fixes** still includes it.
+- Chosen findings belong to the reply they were read from. If the review task
+  gets another turn before you send, the whole newest reply goes instead.
+- Reviews started before findings existed show no findings list rather than
+  `findings unreadable`.
 
 - The reviewer cannot change files. Stave applies the provider's read-only
   posture described in [Read-only consults](delegated-tasks.md#read-only-consults);

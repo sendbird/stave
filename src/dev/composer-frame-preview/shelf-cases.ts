@@ -382,6 +382,32 @@ function previewReviewMessages(): Record<string, ChatMessage[]> {
           "2. Medium: the composer test does not cover a queued attachment.",
           "",
           "Residual risk: the live provider path was not exercised.",
+          "",
+          "```stave-review-findings",
+          JSON.stringify({
+            verdict: "request-changes",
+            findings: [
+              {
+                id: "F1",
+                severity: "critical",
+                title: "Dismissed reviews return after a restart",
+                file: "src/components/session/composer-shelf/use-shelf-reviews.ts",
+                line: 45,
+                detail: "Dismissal is held in session memory only.",
+                fix: "Persist dismissed keys per task.",
+              },
+              {
+                id: "F2",
+                severity: "major",
+                title: "Queued attachment is not covered",
+                file: "tests/composer-shelf.test.ts",
+                line: null,
+                detail: "No test queues a message carrying a review chip.",
+              },
+              { id: "F3", severity: "minor", title: "Tooltip copy is long", file: null, line: null },
+            ],
+          }),
+          "```",
         ].join("\n"),
         parts: [
           {

@@ -57,6 +57,7 @@ function toTaskContextPart(
     workspaceId: attachment.workspaceId,
     title: attachment.title,
     scope: attachment.scope,
+    ...(attachment.findingIds?.length ? { findingIds: [...attachment.findingIds] } : {}),
   };
 }
 

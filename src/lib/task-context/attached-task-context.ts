@@ -1,4 +1,8 @@
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
+import {
+  formatSelectedReviewFindings,
+  parseReviewFindings,
+} from "@/lib/reviews/review-findings";
 import type {
   Attachment,
   ChatMessage,
@@ -230,11 +234,45 @@ export function selectTaskContextEntries(args: {
   return [];
 }
 
+function latestAssistantReply(messages: readonly ChatMessage[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (message.role === "assistant") {
+      const text = messageText(message);
+      if (text) return { id: message.id, text };
+    }
+  }
+  return null;
+}
+
 /** The text an attached task contributes, or null when it has nothing to say yet. */
 export function buildAttachedTaskSection(args: {
-  attachment: Pick<TaskContextAttachment, "taskId" | "title" | "scope">;
+  attachment: Pick<
+    TaskContextAttachment,
+    "taskId" | "title" | "scope" | "findingIds" | "findingsReplyId"
+  >;
   messages: readonly ChatMessage[];
 }): string | null {
+  const header = [
+    `task: ${args.attachment.title}`,
+    `stave task id: ${args.attachment.taskId}`,
+  ];
+  // A review the user narrowed to chosen findings sends only those. If they
+  // can no longer be read, the whole latest reply goes instead, so a choice
+  // never turns into silence.
+  if (args.attachment.findingIds?.length) {
+    const latest = latestAssistantReply(args.messages);
+    // Ids were read from one reply; after a later turn they may name others.
+    const sameReply =
+      !args.attachment.findingsReplyId || latest?.id === args.attachment.findingsReplyId;
+    const parsed = sameReply ? parseReviewFindings(latest?.text) : null;
+    const selected = parsed?.ok
+      ? formatSelectedReviewFindings({ report: parsed.report, findingIds: args.attachment.findingIds })
+      : null;
+    if (selected) {
+      return [...header, selected].join("\n");
+    }
+  }
   const entries = selectTaskContextEntries({
     scope: args.attachment.scope,
     messages: args.messages,
@@ -242,10 +280,6 @@ export function buildAttachedTaskSection(args: {
   if (entries.length === 0) {
     return null;
   }
-  const header = [
-    `task: ${args.attachment.title}`,
-    `stave task id: ${args.attachment.taskId}`,
-  ];
   if (args.attachment.scope === "conversation") {
     return [
       ...header,

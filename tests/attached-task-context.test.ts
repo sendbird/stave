@@ -246,4 +246,28 @@ describe("context sent with the prompt", () => {
     expect(snapshot?.promptDraftByTask.current?.attachments).toEqual([attachment]);
     expect(snapshot?.promptDraftByTask.current?.queuedTurns?.[0]?.attachments).toEqual([attachment]);
   });
+
+  test("a review chip's chosen findings survive a save and load, and bad ones are dropped", () => {
+    const attachment = {
+      ...createTaskContextAttachment({ taskId: "r1", workspaceId: "ws-1", title: "Review" }),
+      findingIds: ["F1", "F3"],
+    };
+    const snapshot = parseWorkspaceSnapshot({
+      payload: {
+        activeTaskId: "current",
+        tasks: [],
+        messagesByTask: {},
+        promptDraftByTask: {
+          current: {
+            text: "",
+            attachedFilePaths: [],
+            attachments: [attachment, { ...attachment, id: "bad", taskId: "r2", findingIds: "F1" }],
+          },
+        },
+      },
+    });
+    const [kept, bad] = snapshot?.promptDraftByTask.current?.attachments ?? [];
+    expect(kept).toEqual(attachment);
+    expect(bad).not.toHaveProperty("findingIds", "F1");
+  });
 });

@@ -2,7 +2,12 @@ import {
   describeReviewCompletionNotification,
   isReviewDelegation,
 } from "../../src/lib/reviews/review-task";
-import type { Task } from "../../src/types/chat";
+import {
+  describeReviewFindingsSummary,
+  parseReviewFindings,
+  summarizeReviewFindings,
+} from "../../src/lib/reviews/review-findings";
+import type { ChatMessage, Task } from "../../src/types/chat";
 import { listDelegatedTaskSummaries } from "./delegated-task-signals";
 
 /**
@@ -14,6 +19,8 @@ export function resolveReviewTurnNotification(args: {
   tasks: readonly Pick<Task, "id" | "title" | "parentTaskId">[];
   taskId: string;
   failed: boolean;
+  /** The review task's messages, for a findings count in the body. */
+  messages?: readonly Pick<ChatMessage, "role" | "content">[];
 }) {
   const task = args.tasks.find((candidate) => candidate.id === args.taskId);
   const parentTaskId = task?.parentTaskId?.trim();
@@ -32,5 +39,16 @@ export function resolveReviewTurnNotification(args: {
       args.tasks.find((candidate) => candidate.id === parentTaskId)?.title?.trim() || "Task",
     reviewTitle: task.title?.trim() || "Review",
     failed: args.failed,
+    findingsSummary: args.failed ? null : summarizeLatestReply(args.messages ?? []),
   });
+}
+
+function summarizeLatestReply(messages: readonly Pick<ChatMessage, "role" | "content">[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (message.role !== "assistant" || !message.content.trim()) continue;
+    const parsed = parseReviewFindings(message.content);
+    return parsed.ok ? describeReviewFindingsSummary(summarizeReviewFindings(parsed.report)) : null;
+  }
+  return null;
 }

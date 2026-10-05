@@ -5,6 +5,7 @@ import {
   type LocalChangeReviewFocus,
   type LocalChangeReviewScope,
 } from "@/lib/local-change-review";
+import { buildReviewFindingsInstructions } from "@/lib/reviews/review-findings";
 import {
   REVIEW_DELEGATION_KEY_PREFIX,
   isActiveDelegatedTaskPhase,
@@ -311,6 +312,8 @@ export function buildReviewTaskPrompt(args: {
       : []),
     "",
     "Your final reply is handed back to the task that asked for this review, so make it complete on its own.",
+    "",
+    buildReviewFindingsInstructions({ recheck: false }),
   ].join("\n");
 }
 
@@ -472,12 +475,14 @@ export function describeReviewCompletionNotification(args: {
   parentTitle: string;
   reviewTitle: string;
   failed: boolean;
+  /** `3 findings · 1 critical`, when the reply's findings could be read. */
+  findingsSummary?: string | null;
 }) {
   return {
     title: args.parentTitle,
     body: args.failed
       ? `Review stopped without findings: ${args.reviewTitle}.`
-      : `Review finished: ${args.reviewTitle}.`,
+      : `Review finished: ${args.reviewTitle}.${args.findingsSummary ? ` ${args.findingsSummary}.` : ""}`,
     payload: {
       reviewParentTaskId: args.parentTaskId,
       reviewParentTaskTitle: args.parentTitle,

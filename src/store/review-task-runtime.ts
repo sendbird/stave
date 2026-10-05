@@ -9,6 +9,10 @@ import {
   selectLatestReplyForReview,
   type ReviewTarget,
 } from "@/lib/reviews/review-task";
+import {
+  buildReviewRecheckPrompt,
+  type ReviewFindingsReport,
+} from "@/lib/reviews/review-findings";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import { resolveDelegatedTaskActionError } from "@/lib/runs/delegated-task-view";
 import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
@@ -223,6 +227,36 @@ export async function rerunReviewTask(args: {
   });
 }
 
+/**
+ * Re-check an earlier review: a new review task, on the same provider, model
+ * and effort, that decides whether each earlier finding is resolved against
+ * the workspace as it is now, instead of reviewing from scratch.
+ */
+export async function recheckReviewTask(args: {
+  getState: () => AppState;
+  review: Parameters<typeof rerunReviewTask>[0]["review"];
+  originalPrompt: string;
+  report: ReviewFindingsReport;
+  title: string;
+  now?: Date;
+  nonce?: string;
+}): Promise<StartReviewTaskResult> {
+  if (args.report.findings.length === 0) {
+    return { ok: false, error: "The earlier review has no findings to re-check." };
+  }
+  return rerunReviewTask({
+    getState: args.getState,
+    review: args.review,
+    prompt: buildReviewRecheckPrompt({
+      originalPrompt: args.originalPrompt,
+      report: args.report,
+    }),
+    title: `Re-check · ${args.title.replace(/^Re-check · /, "")}`.slice(0, 200),
+    now: args.now,
+    nonce: args.nonce,
+  });
+}
+
 /** Title of the chip a review's answer becomes, from the child's own title. */
 export function resolveReviewAttachmentTitle(args: {
   child: Pick<DelegatedTaskSummary, "delegatedTaskId">;
@@ -234,7 +268,20 @@ export function resolveReviewAttachmentTitle(args: {
   );
 }
 
-export type AttachReviewResult = "attached" | "attached-with-prompt" | "unchanged";
+export type AttachReviewResult =
+  | "attached"
+  | "attached-with-prompt"
+  | "updated"
+  /** The same review, with the same choice, is already on the draft. */
+  | "already-attached"
+  /** The draft cannot take another task. */
+  | "unchanged";
+
+function sameIds(left: readonly string[] | undefined, right: readonly string[] | undefined) {
+  const a = [...(left ?? [])].sort();
+  const b = [...(right ?? [])].sort();
+  return a.length === b.length && a.every((id, index) => id === b[index]);
+}
 
 /**
  * Attach a finished review's final reply to the reviewed task's draft. An
@@ -247,18 +294,51 @@ export function attachReviewResultToDraft(args: {
   getState: () => AppState;
   taskId: string;
   child: Pick<DelegatedTaskSummary, "delegatedTaskId" | "delegatedWorkspaceId">;
+  /** Send only these structured findings; omitted sends the whole reply. */
+  findingIds?: readonly string[];
+  /** The reply the findings were read from, so later turns cannot re-point them. */
+  findingsReplyId?: string | null;
 }): AttachReviewResult {
   const state = args.getState();
   const draft = state.promptDraftByTask[args.taskId];
   const attachments = draft?.attachments ?? [];
+  const findingIds = args.findingIds?.length ? [...new Set(args.findingIds)] : undefined;
+  const replyAnchor = findingIds && args.findingsReplyId ? { findingsReplyId: args.findingsReplyId } : {};
+  // Choosing findings again replaces the earlier choice on the same chip.
+  const existing = attachments.find(
+    (attachment) =>
+      attachment.kind === "task-context" && attachment.taskId === args.child.delegatedTaskId,
+  );
+  if (existing) {
+    if (existing.kind !== "task-context") {
+      return "unchanged";
+    }
+    if (sameIds(existing.findingIds, findingIds)) {
+      return "already-attached";
+    }
+    state.updatePromptDraft({
+      taskId: args.taskId,
+      patch: {
+        attachments: attachments.map((attachment) => {
+          if (attachment !== existing || attachment.kind !== "task-context") return attachment;
+          const { findingIds: _previous, findingsReplyId: _reply, ...rest } = attachment;
+          return findingIds ? { ...rest, findingIds, ...replyAnchor } : rest;
+        }),
+      },
+    });
+    return "updated";
+  }
   const next = addTaskContextAttachment({
     attachments,
-    attachment: createTaskContextAttachment({
-      taskId: args.child.delegatedTaskId,
-      workspaceId: args.child.delegatedWorkspaceId,
-      title: resolveReviewAttachmentTitle({ child: args.child, tasks: state.tasks }),
-      scope: "latest-reply",
-    }),
+    attachment: {
+      ...createTaskContextAttachment({
+        taskId: args.child.delegatedTaskId,
+        workspaceId: args.child.delegatedWorkspaceId,
+        title: resolveReviewAttachmentTitle({ child: args.child, tasks: state.tasks }),
+        scope: "latest-reply",
+      }),
+      ...(findingIds ? { findingIds, ...replyAnchor } : {}),
+    },
     currentTaskId: args.taskId,
   });
   if (next === attachments) {

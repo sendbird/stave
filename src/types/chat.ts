@@ -48,6 +48,13 @@ export type Attachment =
       /** The task's title when attached, so the chip reads even if it is renamed or archived. */
       title: string;
       scope: TaskContextScope;
+      /**
+       * For a review task: the structured findings the user chose to send.
+       * The provider receives those findings instead of the whole reply.
+       */
+      findingIds?: string[];
+      /** The review reply `findingIds` were read from. */
+      findingsReplyId?: string;
     }
   | {
       kind: "lens-annotations";
@@ -335,6 +342,7 @@ export interface TaskContextPart extends MessagePartBase {
   workspaceId: string;
   title: string;
   scope: TaskContextScope;
+  findingIds?: string[];
 }
 
 export interface SystemEventPart extends MessagePartBase {

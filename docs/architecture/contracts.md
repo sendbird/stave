@@ -192,6 +192,16 @@ Review tasks reuse both contracts without adding a new one:
 - The skill a review follows is resolved in the renderer and embedded in the
   delegated prompt, because the host's `run-task` path does not resolve `$skill`
   tokens.
+- Structured findings are a reply contract, not an IPC one:
+  `src/lib/reviews/review-findings.ts` writes the instructions into every
+  review prompt and parses the last fenced `stave-review-findings` JSON block
+  with Zod, failing safe to "unreadable". A `task-context` attachment and its
+  `task_context` display part may carry `findingIds`, and the attachment
+  `findingsReplyId` (both validated in `src/lib/task-context/schemas.ts`);
+  `buildAttachedTaskSection` then sends only those findings and falls back to
+  the latest reply when they cannot be read or the review task has a newer
+  reply. Only the block that ends a reply counts; fields are coerced one by
+  one, and an unknown severity is kept as major.
 
 Keep `tests/review-task.test.ts` and `tests/review-task-runtime.test.ts`
 aligned with these rules.

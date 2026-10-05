@@ -26,6 +26,12 @@ import type { ShelfDetailOverride } from "@/store/composer-shelf-store";
 import { formatExchangeDuration } from "@/lib/delegation/duration";
 import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
+import {
+  describeReviewFindingsSummary,
+  stripReviewFindingsBlock,
+  summarizeReviewFindings,
+  type ParsedReviewFindings,
+} from "@/lib/reviews/review-findings";
 import { fromDelegatedTask, type DelegationExchange } from "@/lib/delegation/exchange";
 import type {
   ChatMessage,
@@ -664,6 +670,8 @@ function reviewModelLabel(child: ReviewShelfItem["child"]) {
 export function describeReviewShelfLine(args: {
   item: ReviewShelfItem;
   now: number;
+  /** What the structured findings say, once the review's reply is read. */
+  findings?: ReviewShelfFindings | null;
 }): ReviewShelfLine {
   const { child, status } = args.item;
   const model = reviewModelLabel(child);
@@ -678,7 +686,18 @@ export function describeReviewShelfLine(args: {
     };
   }
   if (status === "ready") {
-    return { label: "Review ready", detail: model, tone: "ready" };
+    const findings = args.findings;
+    if (!findings) {
+      return { label: "Review ready", detail: model, tone: "ready" };
+    }
+    if (findings.kind === "unreadable") {
+      return { label: "Review ready", detail: `${model} · findings unreadable`, tone: "ready" };
+    }
+    return {
+      label: findings.recheck ? "Fixes checked" : "Review ready",
+      detail: `${model} · ${findings.text}`,
+      tone: findings.blocking ? "danger" : "ready",
+    };
   }
   const reason = child.reason?.trim();
   return {
@@ -706,7 +725,9 @@ export function buildReviewExchange(args: {
       `${args.title}\n\nThe reviewer's full instructions are the first message of the review task.`,
   });
   // The ledger keeps a bounded copy of the answer; the task holds all of it.
-  const reply = args.item.status === "ready" ? args.transcript?.reply : null;
+  // The findings block is for Stave, so the written answer is shown alone.
+  const fullReply = args.item.status === "ready" ? args.transcript?.reply : null;
+  const reply = fullReply ? stripReviewFindingsBlock(fullReply) || fullReply : null;
   return {
     ...exchange,
     title: args.title,
@@ -718,20 +739,50 @@ export function buildReviewExchange(args: {
 export interface ReviewTranscript {
   prompt: string | null;
   reply: string | null;
+  /** The message the reply came from, when it was read from the task. */
+  replyId?: string | null;
+}
+
+export type ReviewShelfFindings =
+  | { kind: "unreadable" }
+  | { kind: "summary"; text: string; blocking: boolean; recheck: boolean };
+
+/**
+ * The shelf's reading of a review's structured findings. Blocking means a
+ * critical finding, a request for changes, or an earlier finding still open.
+ */
+export function describeReviewShelfFindings(
+  parsed: ParsedReviewFindings,
+): ReviewShelfFindings {
+  if (!parsed.ok) {
+    return { kind: "unreadable" };
+  }
+  const summary = summarizeReviewFindings(parsed.report);
+  return {
+    kind: "summary",
+    text: describeReviewFindingsSummary(summary),
+    blocking:
+      summary.bySeverity.critical > 0 ||
+      summary.verdict === "request-changes" ||
+      (summary.previous?.unresolved ?? 0) > 0,
+    recheck: summary.previous !== null,
+  };
 }
 
 /** A review task's prompt (its first message) and its finished final answer. */
 export function summarizeReviewTranscript(
-  messages: readonly Pick<ChatMessage, "role" | "content" | "isStreaming">[],
+  messages: readonly (Pick<ChatMessage, "role" | "content" | "isStreaming"> & { id?: string })[],
 ): ReviewTranscript {
   const prompt = messages.find((message) => message.role === "user" && message.content.trim());
   let reply: string | null = null;
+  let replyId: string | null = null;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]!;
     if (message.role === "assistant" && !message.isStreaming && message.content.trim()) {
       reply = message.content.trim();
+      replyId = message.id ?? null;
       break;
     }
   }
-  return { prompt: prompt?.content.trim() ?? null, reply };
+  return { prompt: prompt?.content.trim() ?? null, reply, replyId };
 }

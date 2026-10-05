@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
   Check,
   CircleAlert,
@@ -18,14 +18,14 @@ import { Loader, toast } from "@/components/ui";
 import type { DelegationActionId } from "@/lib/delegation/exchange";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
 import { useAppStore } from "@/store/app.store";
-import { readAttachedTaskMessages } from "@/store/attached-task-context-runtime";
-import { rerunReviewTask } from "@/store/review-task-runtime";
+import { recheckReviewTask, rerunReviewTask } from "@/store/review-task-runtime";
 import {
   buildReviewExchange,
+  describeReviewShelfFindings,
   describeReviewShelfLine,
-  summarizeReviewTranscript,
-  type ReviewTranscript,
 } from "./composer-shelf.utils";
+import { ReviewFindingsPanel } from "./ReviewFindingsPanel";
+import { useReviewTranscript } from "./use-review-transcript";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import type { ShelfReviewActions } from "./use-shelf-reviews";
 
@@ -85,24 +85,14 @@ export function ReviewActivityDialog(props: {
   );
   const repositoryPath = useAppStore((state) => state.repositoryPath);
   const title = taskTitle?.trim() || "Review";
-  const [transcript, setTranscript] = useState<ReviewTranscript | null>(null);
-  const { delegatedTaskId, delegatedWorkspaceId } = item.child;
-  // Read again when the review settles, so the full answer replaces the
-  // ledger's bounded copy as soon as there is one.
-  useEffect(() => {
-    let cancelled = false;
-    void readAttachedTaskMessages({
-      getState: useAppStore.getState,
-      attachment: { taskId: delegatedTaskId, workspaceId: delegatedWorkspaceId },
-    })
-      .then((messages) => {
-        if (!cancelled) setTranscript(summarizeReviewTranscript(messages));
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [delegatedTaskId, delegatedWorkspaceId, item.status]);
+  const { transcript, findings } = useReviewTranscript(item);
+  const attachedFindingIds = useAppStore((state) => {
+    const chip = state.promptDraftByTask[item.child.parentTaskId]?.attachments.find(
+      (attachment) =>
+        attachment.kind === "task-context" && attachment.taskId === item.child.delegatedTaskId,
+    );
+    return chip?.kind === "task-context" ? (chip.findingIds ?? null) : null;
+  });
   const exchange = useMemo(
     () => buildReviewExchange({ item, title, transcript }),
     [item, title, transcript],
@@ -137,6 +127,44 @@ export function ReviewActivityDialog(props: {
     toast.success("Review started again in its own task");
     onClose();
   }, [item.child, onClose, rerunning, title, transcript?.prompt]);
+  const [rechecking, setRechecking] = useState(false);
+  const recheck = useCallback(async () => {
+    const prompt = transcript?.prompt;
+    if (!prompt || !findings?.ok || rechecking) return;
+    setRechecking(true);
+    const started = await recheckReviewTask({
+      getState: useAppStore.getState,
+      review: item.child,
+      originalPrompt: prompt,
+      report: findings.report,
+      title,
+    });
+    setRechecking(false);
+    if (!started.ok) {
+      toast.error("Could not check the fixes", { description: started.error });
+      return;
+    }
+    toast.success("Checking the earlier findings in a new review task");
+    onClose();
+  }, [findings, item.child, onClose, rechecking, title, transcript?.prompt]);
+  const leadContent =
+    item.status === "ready" && findings ? (
+      <ReviewFindingsPanel
+        key={`${item.child.delegationKey}:${attachedFindingIds?.join(",") ?? ""}`}
+        findings={findings}
+        attachedFindingIds={attachedFindingIds}
+        onAttachSelected={(findingIds) => {
+          actions.attach(item, { findingIds, replyId: transcript?.replyId ?? null });
+          onClose();
+        }}
+        onRecheck={
+          findings.ok && findings.report.findings.length > 0 && transcript?.prompt
+            ? () => void recheck()
+            : null
+        }
+        recheckBusy={rechecking}
+      />
+    ) : null;
   const renderExtraActions = useCallback(
     () => (
       <>
@@ -184,6 +212,7 @@ export function ReviewActivityDialog(props: {
       onClose={onClose}
       onAction={onAction}
       renderExtraActions={renderExtraActions}
+      leadContent={leadContent}
     />
   );
 }
@@ -215,7 +244,13 @@ function ReviewLine(props: {
   onView: (item: ReviewShelfItem) => void;
 }) {
   const { item, actions } = props;
-  const line = describeReviewShelfLine({ item, now: props.now });
+  // Only a finished review has findings to count; reading is cached.
+  const { findings } = useReviewTranscript(item, { enabled: item.status === "ready" });
+  const line = describeReviewShelfLine({
+    item,
+    now: props.now,
+    findings: findings ? describeReviewShelfFindings(findings) : null,
+  });
   return (
     <div
       className={sx(styles.line)}
