@@ -109,6 +109,12 @@ checking it never moves you away:
 - **Activity log**: each tool call the reviewer made, such as the Git
   commands it ran and the files it read, with their output. While the review
   runs, the log follows it live.
+- **Workspace changes**: completed reviews warn when code changed during the
+  review or since it finished. Stave compares the commit, staged changes and
+  bounded file contents at review start, completion, result access and app
+  focus. A missing or unavailable comparison shows a warning instead of
+  claiming the review still covers the current code. Use **Run again** or
+  **Check fixes** to review the current changes.
 - **Attach to message**, **Run again** (the same prompt on the same model,
   against the workspace as it is now), **Open** (switches to the review task
   for its whole conversation and Task panel), and **Stop** while it runs.
@@ -227,6 +233,8 @@ follow-up prompt attaches the findings only.
   gets another turn before you send, the whole newest reply goes instead.
 - Reviews started before findings existed show no findings list rather than
   `findings unreadable`.
+- Reviews without recorded workspace fingerprints cannot establish unchanged
+  code. Large or changing workspaces may make the comparison unavailable.
 
 - The reviewer cannot change files. Stave applies the provider's read-only
   posture described in [Read-only consults](delegated-tasks.md#read-only-consults);

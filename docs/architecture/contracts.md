@@ -174,7 +174,7 @@ history exclusion and prompt-batch attachment coverage. See
 path and [Attachments](../features/attachments.md#attach-another-task-as-context)
 for the user flow.
 
-Review tasks reuse both contracts without adding a new one:
+Review tasks reuse both contracts and record workspace provenance:
 
 - The renderer starts a review through the existing `delegations:create`
   IPC (`DelegateTaskArgsSchema`) with `access: "read-only"`,
@@ -199,6 +199,13 @@ Review tasks reuse both contracts without adding a new one:
 - The skill a review follows is resolved in the renderer and embedded in the
   delegated prompt, because the host's `run-task` path does not resolve `$skill`
   tokens.
+- Review claim and completion receipts optionally record bounded host-only
+  `WorkspaceRevision` fingerprints. `delegations:review-revision` validates
+  the expected child identity and reads the child-owned workspace, comparing
+  start, completion and current state. It returns hashes or explicit unknown
+  states, never file contents. Old receipts and interrupted completions keep
+  unknown provenance; they cannot prove unchanged code. The renderer checks
+  on result access and app focus, without polling each token or timer tick.
 - Structured findings are a reply contract, not an IPC one:
   `src/lib/reviews/review-findings.ts` writes the instructions into every
   review prompt and parses the last fenced `stave-review-findings` JSON block

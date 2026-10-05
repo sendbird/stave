@@ -2,6 +2,7 @@ import type { PendingApprovalQueueItem } from "@/components/session/chat-input-a
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
+import { buildReviewRecheckPrompt, parseReviewFindings } from "@/lib/reviews/review-findings";
 import { agentRunTaskKey, useAgentRunsStore } from "@/store/agent-runs-store";
 import { useAppStore } from "@/store/app.store";
 import type { TurnActivityPlacement } from "@/store/app-settings";
@@ -373,7 +374,7 @@ function seedPreviewReviews(caseId: ShelfCaseId) {
 /** What the finished review task holds, so View shows a real transcript. */
 function previewReviewMessages(): Record<string, ChatMessage[]> {
   const taskId = "task-stave-review-preview-ready";
-  return {
+  const messages = {
     [taskId]: [
       {
         id: "review-request",
@@ -443,4 +444,16 @@ function previewReviewMessages(): Record<string, ChatMessage[]> {
       },
     ] as ChatMessage[],
   };
+  if (new URLSearchParams(window.location.search).get("recheck") === "incomplete") {
+    const [prompt, answer] = messages[taskId]!;
+    const findings = parseReviewFindings(answer!.content);
+    if (findings.ok) {
+      prompt!.content = buildReviewRecheckPrompt({ originalPrompt: prompt!.content, report: findings.report });
+      answer!.content = "```stave-review-findings\n" + JSON.stringify({
+        verdict: "approve", findings: [],
+        previous: [{ id: "F1", status: "resolved" }, { id: "F2", status: "outdated" }],
+      }) + "\n```";
+    }
+  }
+  return messages;
 }
