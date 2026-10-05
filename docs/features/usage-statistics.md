@@ -17,7 +17,11 @@ today, 7/30/90 calendar days and this month. Custom dates include the final date
 and span at most 366 days. Your local timezone or UTC controls both date
 boundaries and grouping; repeated daylight-saving hours retain their UTC offset.
 Selecting a daily bar opens that day's hourly report. Tables expose exact
-bucket values and individual turn start times, with pagination.
+bucket values. Turn history groups records by date in the selected timezone,
+with time, model, tokens and reported cost visible in each summary. Expand a
+turn for its account, exact start time, input/output and cache counters.
+Turn history shows the most recent records first, up to 20 per page. Use
+**Previous turns** and **Next turns** to browse the selected period.
 Select a model in **By model** to filter totals, trends and turn history to that
 provider and model. **Clear model filter** returns to all models. Records with
 no saved model remain available as **Model not recorded**. Model filters never

@@ -47,7 +47,7 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
     <p className={sx(styles.note)}>Accounts are listed separately, with the next reset first within each provider. Percentages are never pooled across accounts.</p>
     {accounts.length === 0 ? <p className={sx(styles.note)}>No accounts in this selection. Unsupported or unavailable limits are never shown as 0%.</p> : <div className={sx(styles.quotas)}>
       {accounts.map((account) => <div className={sx(styles.quota)} key={`${account.providerId}:${account.accountProfileId}`}>
-        <Button variant="link" size="sm" onClick={() => props.onAccount(account.providerId, account.accountProfileId)}>{usageScopeLabel(account.providerId, account.accountProfileId, props.profiles)}</Button>
+        <Button variant="link" size="sm" flushInline onClick={() => props.onAccount(account.providerId, account.accountProfileId)}>{usageScopeLabel(account.providerId, account.accountProfileId, props.profiles)}</Button>
         {account.windows.length === 0 ? <p className={sx(styles.note)}>No saved quota. Select this account and refresh to check available limits.</p> : account.windows.map((row) => {
         const stale = props.now - Date.parse(row.observedAt) > 15 * 60_000;
         const expired = row.resetsAt !== null && row.resetsAt * 1000 <= props.now;

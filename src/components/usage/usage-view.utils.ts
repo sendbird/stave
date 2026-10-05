@@ -1,9 +1,10 @@
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
-import { UNATTRIBUTED_ACCOUNT_ID, USAGE_PROVIDER_NAMES, type UsageStatisticsArgs } from "@/lib/providers/usage-statistics";
+import { UNATTRIBUTED_ACCOUNT_ID, USAGE_PROVIDER_NAMES, type UsageStatisticsArgs, type UsageTurn } from "@/lib/providers/usage-statistics";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
 export type UsagePeriod = "today" | "7" | "30" | "90" | "month" | "custom";
+export const USAGE_TURN_PAGE_SIZE = 20;
 export const USAGE_PERIOD_OPTIONS = [
   { value: "today", label: "Today" }, { value: "7", label: "Last 7 days" },
   { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" },
@@ -48,6 +49,20 @@ export function usageScopeLabel(providerId: ProviderId, accountProfileId: string
 export function usageTimestamp(at: string, timeZone: string) {
   return new Intl.DateTimeFormat(undefined, { timeZone, year: "numeric", month: "short", day: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(at));
+}
+export function groupUsageTurnsByDay(turns: readonly UsageTurn[], timeZone: string) {
+  const date = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+  const groups = new Map<string, { day: string; turns: UsageTurn[] }>();
+  for (const turn of turns) {
+    const day = date.format(new Date(turn.createdAt));
+    let group = groups.get(day);
+    if (!group) {
+      group = { day, turns: [] };
+      groups.set(day, group);
+    }
+    group.turns.push(turn);
+  }
+  return [...groups.values()];
 }
 export type UsageStatisticsLoader = (args: UsageStatisticsArgs) => Promise<import("@/lib/providers/usage-statistics").UsageStatisticsReport | null>;
 export async function loadUsageStatistics(args: UsageStatisticsArgs) {

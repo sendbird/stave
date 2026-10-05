@@ -4,6 +4,7 @@ import { Button } from "@/components/ads/components/Button";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { UsageView } from "@/components/usage/UsageView";
+import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { USAGE_PREVIEW_NOW, USAGE_PREVIEW_PROFILES, usagePreviewReport } from "./fixtures";
@@ -33,13 +34,15 @@ export function UsagePreview() {
       <Button variant="quiet" size="sm" onClick={() => setQuotaFailed((value) => !value)}>{quotaFailed ? "Recover quota" : "Fail quota"}</Button>
     </div>
     <div className={sx(styles.frame)} style={width ? { maxInlineSize: width } : undefined}>
-      <UsageView load={load} profiles={USAGE_PREVIEW_PROFILES} now={USAGE_PREVIEW_NOW} onClose={() => {}}
-        readQuota={async () => ({ error: quotaFailed ? "Quota endpoint temporarily unavailable." : null,
-          feedback: { status: quotaFailed ? "unavailable" : params.get("quota") === "cached" ? "cached" : "fresh",
-            reason: params.get("quota") === "cached" ? "manual-floor" : "request",
-            nextRefreshAt: new Date(USAGE_PREVIEW_NOW + 60_000).toISOString(),
-            nextAutomaticReadAt: new Date(USAGE_PREVIEW_NOW + (quotaFailed ? 300_000 : 120_000)).toISOString(),
-            lastReadFailed: quotaFailed } })} />
+      <div className={sx(appShellStyles.mainSurface)}>
+        <UsageView load={load} profiles={USAGE_PREVIEW_PROFILES} now={USAGE_PREVIEW_NOW} onClose={() => {}}
+          readQuota={async () => ({ error: quotaFailed ? "Quota endpoint temporarily unavailable." : null,
+            feedback: { status: quotaFailed ? "unavailable" : params.get("quota") === "cached" ? "cached" : "fresh",
+              reason: params.get("quota") === "cached" ? "manual-floor" : "request",
+              nextRefreshAt: new Date(USAGE_PREVIEW_NOW + 60_000).toISOString(),
+              nextAutomaticReadAt: new Date(USAGE_PREVIEW_NOW + (quotaFailed ? 300_000 : 120_000)).toISOString(),
+              lastReadFailed: quotaFailed } })} />
+      </div>
     </div>
   </div>;
 }
