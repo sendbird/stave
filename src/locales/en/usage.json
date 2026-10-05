@@ -44,7 +44,10 @@
     "ofTurnsReportedTokens": "{{value1}} of {{value2}} turns reported tokens",
     "providerInputCountersUseDifferentCache": "Provider input counters use different cache conventions",
     "reasoningTokensReportedNotAddedTo": "{{value1}} reasoning tokens reported; not added to output",
-    "ofTurnsReportedUSDNotAn": "{{value1}} of {{value2}} turns reported USD · not an invoice"
+    "ofTurnsReportedUSDNotAn": "{{value1}} of {{value2}} turns reported USD · not an invoice",
+    "historyDescription": "Newest first · {{zone}} · {{pageSize}} per page. Expand a turn for its account and token details. Running turns appear when they finish.",
+    "noCompletedTurns": "No completed turns in this selection.",
+    "historyMeasurements": "Tokens exclude cache reads. USD is provider-reported; missing measurements are not zero."
   },
   "usageQuota": {
     "accountQuota": "Account quota",

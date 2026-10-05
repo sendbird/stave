@@ -2,10 +2,11 @@ import { formatDateTime } from "@/i18n/format";
 import { i18n } from "@/i18n";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
-import { UNATTRIBUTED_ACCOUNT_ID, USAGE_PROVIDER_NAMES, type UsageStatisticsArgs } from "@/lib/providers/usage-statistics";
+import { UNATTRIBUTED_ACCOUNT_ID, USAGE_PROVIDER_NAMES, type UsageStatisticsArgs, type UsageTurn } from "@/lib/providers/usage-statistics";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
 export type UsagePeriod = "today" | "7" | "30" | "90" | "month" | "custom";
+export const USAGE_TURN_PAGE_SIZE = 20;
 export const USAGE_PERIOD_OPTIONS = [
   { value: "today", get label() { return i18n.t("common:time.today"); } }, { value: "7", get label() { return i18n.t("usage:usageViewUtils.lastDays"); } },
   { value: "30", get label() { return i18n.t("usage:usageViewUtils.lastDaysVariant7942d8d0"); } }, { value: "90", get label() { return i18n.t("usage:usageViewUtils.lastDaysVariantb6a83c56"); } },
@@ -50,6 +51,20 @@ export function usageScopeLabel(providerId: ProviderId, accountProfileId: string
 export function usageTimestamp(at: string, timeZone: string) {
   return formatDateTime(at, { timeZone, year: "numeric", month: "short", day: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+}
+export function groupUsageTurnsByDay(turns: readonly UsageTurn[], timeZone: string) {
+  const date = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+  const groups = new Map<string, { day: string; turns: UsageTurn[] }>();
+  for (const turn of turns) {
+    const day = date.format(new Date(turn.createdAt));
+    let group = groups.get(day);
+    if (!group) {
+      group = { day, turns: [] };
+      groups.set(day, group);
+    }
+    group.turns.push(turn);
+  }
+  return [...groups.values()];
 }
 export type UsageStatisticsLoader = (args: UsageStatisticsArgs) => Promise<import("@/lib/providers/usage-statistics").UsageStatisticsReport | null>;
 export async function loadUsageStatistics(args: UsageStatisticsArgs) {
