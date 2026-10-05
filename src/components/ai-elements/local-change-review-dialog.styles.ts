@@ -95,14 +95,6 @@ export const localChangeReviewStyles = stylex.create({
       "@media (min-width: 640px)": "repeat(2, minmax(0, 1fr))",
     },
   },
-  targetGrid: {
-    display: "grid",
-    gap: vars["--ads-space-8"],
-    gridTemplateColumns: {
-      default: "1fr",
-      "@media (min-width: 640px)": "repeat(3, minmax(0, 1fr))",
-    },
-  },
   cardDisabled: {
     opacity: vars["--ads-opacity-disabled"],
     cursor: "not-allowed",

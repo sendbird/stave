@@ -1,4 +1,14 @@
-export type LocalChangeReviewScope = "working-tree" | "branch";
+export type LocalChangeReviewScope = "working-tree" | "branch" | "commit";
+
+/**
+ * A commit, or a range such as `main..HEAD`, as typed by the user. It only
+ * ever reaches a prompt, never a shell, but is still held to ref characters so
+ * it cannot smuggle text into the instructions.
+ */
+export function normalizeReviewCommitRef(value: string | null | undefined) {
+  const ref = value?.trim() ?? "";
+  return /^[A-Za-z0-9][A-Za-z0-9._/~^@{}-]{0,119}$/.test(ref) ? ref : null;
+}
 
 export type LocalChangeReviewFocus =
   | "correctness"
@@ -73,7 +83,19 @@ export const LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS: ReadonlyArray<{
   },
 ];
 
-function buildScopeInstructions(scope: LocalChangeReviewScope) {
+function buildScopeInstructions(scope: LocalChangeReviewScope, commitRef: string | null) {
+  if (scope === "commit") {
+    const ref = commitRef ?? "HEAD";
+    return ref.includes("..")
+      ? [
+          `Review only the commits in the range ${ref}. Start with \`git log --oneline ${ref}\` and \`git diff ${ref}\`, then read the changed files as needed for context.`,
+          "Ignore uncommitted work in the workspace; it is not part of this review.",
+        ]
+      : [
+          `Review only the changes introduced by commit ${ref}. Start with \`git show --stat ${ref}\` and \`git show ${ref}\`, then read the changed files as needed for context.`,
+          "Ignore uncommitted work and other commits; they are not part of this review.",
+        ];
+  }
   if (scope === "branch") {
     return [
       "Review all changes on the current local branch before they are pushed, including committed branch changes and any staged, unstaged, or untracked work.",
@@ -98,13 +120,17 @@ export function buildLocalChangeReviewPrompt(args: {
   scope: LocalChangeReviewScope;
   focuses: readonly LocalChangeReviewFocus[];
   instructions?: string;
+  /** Required by the commit scope; ignored by the others. */
+  commitRef?: string | null;
 }) {
   const focusInstructions = buildReviewFocusInstructions(args.focuses);
   const customInstructions = args.instructions?.trim();
 
   return [
-    "Review the local changes in this workspace before they are pushed.",
-    ...buildScopeInstructions(args.scope),
+    args.scope === "commit"
+      ? "Review committed changes in this workspace."
+      : "Review the local changes in this workspace before they are pushed.",
+    ...buildScopeInstructions(args.scope, normalizeReviewCommitRef(args.commitRef)),
     "Do not look for a pull request and do not use remote PR metadata as the review source.",
     "Treat this as a read-only review: do not modify files, create commits, or push anything.",
     "Read the repository instructions and inspect enough surrounding code to validate each finding.",

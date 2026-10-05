@@ -3,6 +3,7 @@ import {
   Check,
   FileDiff,
   GitBranch,
+  GitCommitHorizontal,
   GitCompareArrows,
   LockKeyhole,
   MessageSquareText,
@@ -15,7 +16,8 @@ import {
   ComposerControlLabel,
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
-import { Button, Loader, Textarea } from "@/components/ui";
+import { Checkbox } from "@/components/ads/components/Checkbox";
+import { Button, Input, Loader, Textarea } from "@/components/ui";
 import {
   Dialog,
   DialogClose,
@@ -35,6 +37,7 @@ import {
 } from "@/lib/source-control-status";
 import {
   LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS,
+  normalizeReviewCommitRef,
   type LocalChangeReviewFocus,
 } from "@/lib/local-change-review";
 import {
@@ -79,6 +82,12 @@ const REVIEW_TARGET_OPTIONS: ReadonlyArray<{
     icon: GitBranch,
   },
   {
+    value: "commit",
+    label: "Specific commit",
+    description: "One commit or a range, such as HEAD~1 or main..HEAD.",
+    icon: GitCommitHorizontal,
+  },
+  {
     value: "latest-reply",
     label: REVIEW_TARGET_LABEL["latest-reply"],
     description: "A second opinion on this task's latest answer or plan.",
@@ -99,6 +108,12 @@ export interface LocalChangeReviewRequest {
   instructions?: string;
   /** Empty runs without a skill. */
   skillSlug?: string;
+  /** The commit or range, for the commit target. */
+  commitRef?: string;
+  /** A plan or acceptance criteria to check the work against. */
+  criteria?: string;
+  /** A second, independent review on the other provider. */
+  secondReviewer?: { reviewer: ModelSelectorOption; effort: ModelEffort };
 }
 
 interface LocalChangeReviewDialogProps {
@@ -148,6 +163,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
   );
   const [skillSlug, setSkillSlug] = useState(reviewSettings.skillSlug);
   const [instructions, setInstructions] = useState("");
+  const [commitRef, setCommitRef] = useState("HEAD");
+  const [criteria, setCriteria] = useState("");
+  const [crossCheck, setCrossCheck] = useState(reviewSettings.crossCheck);
   const taskId = useScopedTaskId();
   const hasReply = useAppStore(
     (state) =>
@@ -218,6 +236,22 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
     target === "latest-reply" && (!hasReply || !runsSeparately)
       ? "working-tree"
       : target;
+  const validCommitRef = normalizeReviewCommitRef(commitRef);
+  const commitMissing = effectiveTarget === "commit" && !validCommitRef;
+  // The cross-check runs on the provider the main reviewer does not, with
+  // that provider's review model and its own effort setting.
+  const crossReviewer = reviewer
+    ? (args.reviewerOptions.find(
+        (option) => option.providerId !== reviewer.providerId && option.isDefault === true,
+      ) ?? args.reviewerOptions.find((option) => option.providerId !== reviewer.providerId))
+    : undefined;
+  const crossEffort = crossReviewer
+    ? resolveModelEffortFromSettings({
+        settings,
+        providerId: crossReviewer.providerId,
+        model: crossReviewer.model,
+      })
+    : undefined;
   const changeSummary = useMemo(
     () =>
       changeStatus.state === "ready"
@@ -274,6 +308,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
       // Each review starts from the saved defaults.
       setFocuses(reviewSettings.focuses);
       setSkillSlug(reviewSettings.skillSlug);
+      setCrossCheck(reviewSettings.crossCheck);
       void loadChangeStatus();
     }
   }
@@ -299,7 +334,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
   }
 
   async function handleSubmit() {
-    if (!reviewer || !effort || isSubmitting) {
+    if (!reviewer || !effort || isSubmitting || commitMissing) {
       return;
     }
     setIsSubmitting(true);
@@ -311,10 +346,16 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
         focuses,
         instructions: instructions.trim() || undefined,
         skillSlug: effectiveSkillSlug || undefined,
+        ...(effectiveTarget === "commit" && validCommitRef ? { commitRef: validCommitRef } : {}),
+        ...(criteria.trim() ? { criteria: criteria.trim() } : {}),
+        ...(runsSeparately && crossCheck && crossReviewer && crossEffort && effectiveTarget !== "latest-reply"
+          ? { secondReviewer: { reviewer: crossReviewer, effort: crossEffort } }
+          : {}),
       });
       if (submitted) {
         setOpen(false);
         setInstructions("");
+        setCriteria("");
       }
     } finally {
       setIsSubmitting(false);
@@ -406,7 +447,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 {changeStatus.state === "error" ? changeStatus.detail : null}
               </div>
             </div>
-            <div className={sx(runsSeparately ? styles.targetGrid : styles.cardGrid)}>
+            <div className={sx(styles.cardGrid)}>
               {REVIEW_TARGET_OPTIONS.filter(
                 (option) => runsSeparately || option.value !== "latest-reply",
               ).map((option) => {
@@ -453,7 +494,27 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 );
               })}
             </div>
-            {changeSummary && effectiveTarget !== "latest-reply" ? (
+            {effectiveTarget === "commit" ? (
+              <div className={sx(styles.labelStack)}>
+                <label htmlFor={`${idPrefix}-commit`} className={sx(styles.instructionsLabel)}>
+                  Commit or range
+                </label>
+                <Input
+                  id={`${idPrefix}-commit`}
+                  value={commitRef}
+                  onChange={(event) => setCommitRef(event.target.value)}
+                  placeholder="HEAD~1, a1b2c3d or main..HEAD"
+                  aria-invalid={commitMissing}
+                  spellCheck={false}
+                />
+                {commitMissing ? (
+                  <p className={sx(styles.focusDescription)} role="alert">
+                    Use a commit, branch or range that starts with a letter or digit and uses only letters, digits and . _ / ~ ^ @ {"{"} {"}"} -.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {changeSummary && effectiveTarget !== "latest-reply" && effectiveTarget !== "commit" ? (
               <p className={sx(styles.summaryLine)}>
                 {changeSummary.staged} staged · {changeSummary.unstaged}{" "}
                 unstaged · {changeSummary.untracked} untracked
@@ -528,6 +589,19 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
               triggerClassName={sx(styles.modelTrigger)}
               menuClassName={sx(styles.modelMenu)}
             />
+            {/* A reply review already goes to the other model; a cross-check would
+                hand the reply back to the model that wrote it. */}
+            {runsSeparately && crossReviewer && effectiveTarget !== "latest-reply" ? (
+              <Checkbox
+                checked={crossCheck}
+                onCheckedChange={(checked) => setCrossCheck(checked === true)}
+                label={`Also review with ${crossReviewer.label}`}
+                description={`Runs a second, independent read-only review on ${getProviderLabel({
+                  providerId: crossReviewer.providerId,
+                  variant: "full",
+                })} at the same time, so each model checks the work on its own.`}
+              />
+            ) : null}
           </section>
 
           <section className={sx(styles.section)} aria-labelledby={`${idPrefix}-focus`}>
@@ -632,6 +706,25 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
               }}
             />
           </section>
+
+          <section className={sx(styles.section)}>
+            <div className={sx(styles.labelStack)}>
+              <label htmlFor={`${idPrefix}-criteria`} className={sx(styles.instructionsLabel)}>
+                Check against a plan or acceptance criteria
+              </label>
+              <p className={sx(styles.focusDescription)}>
+                Optional. Paste the plan or the criteria the work must meet; each
+                one that is not met becomes a finding.
+              </p>
+            </div>
+            <Textarea
+              id={`${idPrefix}-criteria`}
+              value={criteria}
+              onChange={(event) => setCriteria(event.target.value)}
+              placeholder="For example: a dismissed review stays dismissed after a restart."
+              className={sx(styles.instructionsTextarea)}
+            />
+          </section>
         </div>
 
         <DialogFooter className={sx(styles.footer)}>
@@ -657,7 +750,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             <Button
               type="button"
               className={sx(styles.submitButton)}
-              disabled={isSubmitting}
+              disabled={isSubmitting || commitMissing}
               onClick={() => void handleSubmit()}
             >
               {isSubmitting ? (

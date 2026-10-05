@@ -237,6 +237,45 @@ describe("starting a review task", () => {
     expect(args.prompt).toContain("Rank findings by blast radius.");
   });
 
+  test("a cross-check runs without a skill its provider cannot load", async () => {
+    const result = await startReviewTask({
+      getState: useAppStore.getState,
+      taskId: "task-main",
+      request: {
+        reviewer: { providerId: "codex", model: "gpt-5.5", label: "GPT-5.5" },
+        target: "working-tree",
+        focuses: [],
+        skillSlug: "missing-skill",
+        skillOptional: true,
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(DelegateTaskArgsSchema.parse(delegated[0]).prompt).not.toContain("Review skill");
+  });
+
+  test("a commit review needs a valid ref and carries criteria into the prompt", async () => {
+    const reviewer = { providerId: "codex" as const, model: "gpt-5.5", label: "GPT-5.5" };
+    const bad = await startReviewTask({
+      getState: useAppStore.getState,
+      taskId: "task-main",
+      request: { reviewer, target: "commit", focuses: [], commitRef: "HEAD && echo" },
+    });
+    expect(bad.ok).toBe(false);
+    expect(delegated).toHaveLength(0);
+    const good = await startReviewTask({
+      getState: useAppStore.getState,
+      taskId: "task-main",
+      request: { reviewer, target: "commit", focuses: [], commitRef: "HEAD~2", criteria: "Must keep drafts." },
+      now: new Date("2026-10-04T15:00:00.000Z"),
+      nonce: "d",
+    });
+    expect(good.ok).toBe(true);
+    const args = DelegateTaskArgsSchema.parse(delegated[0]);
+    expect(args.title).toBe("Review · Commit HEAD~2 · GPT-5.5");
+    expect(args.prompt).toContain("introduced by commit HEAD~2");
+    expect(args.prompt).toContain("Must keep drafts.");
+  });
+
   test("a refusal is reported with the coordinator's sentence", async () => {
     delegateResponse = {
       accepted: false,

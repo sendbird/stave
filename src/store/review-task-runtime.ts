@@ -1,4 +1,7 @@
-import type { LocalChangeReviewFocus } from "@/lib/local-change-review";
+import {
+  normalizeReviewCommitRef,
+  type LocalChangeReviewFocus,
+} from "@/lib/local-change-review";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   REVIEW_TASK_INSTRUCTIONS_MAX_CHARS,
@@ -39,6 +42,12 @@ export interface ReviewTaskRequest {
   instructions?: string;
   /** Empty or absent runs without a skill. */
   skillSlug?: string;
+  /** The commit or range the commit target reviews. */
+  commitRef?: string;
+  /** A plan or acceptance criteria to check the work against. */
+  criteria?: string;
+  /** Run without the skill when this reviewer cannot load it (a cross-check). */
+  skillOptional?: boolean;
 }
 
 export type StartReviewTaskResult =
@@ -89,13 +98,18 @@ export async function startReviewTask(args: {
     ? getEffectiveSkillEntries({ skills: state.skillCatalog.skills, providerId })
         .find((entry) => entry.slug.toLowerCase() === skillSlug)
     : undefined;
-  if (skillSlug && !skill) {
+  if (skillSlug && !skill && !args.request.skillOptional) {
     return {
       ok: false,
       error: `The skill $${skillSlug} is not available to this reviewer in this workspace.`,
     };
   }
 
+  const commitRef =
+    args.request.target === "commit" ? normalizeReviewCommitRef(args.request.commitRef) : null;
+  if (args.request.target === "commit" && !commitRef) {
+    return { ok: false, error: "Enter a commit, such as HEAD~1, a short hash, or a range like main..HEAD." };
+  }
   const reply =
     args.request.target === "latest-reply"
       ? selectLatestReplyForReview(state.messagesByTask[args.taskId] ?? [])
@@ -109,6 +123,8 @@ export async function startReviewTask(args: {
       ? { name: skill.name, slug: skill.slug, instructions: skill.instructions }
       : null,
     reply,
+    commitRef,
+    criteria: args.request.criteria,
   });
   if (!prompt) {
     return { ok: false, error: "This task has no finished reply to review yet." };
@@ -122,6 +138,7 @@ export async function startReviewTask(args: {
     title: buildReviewTaskTitle({
       target: args.request.target,
       modelLabel: args.request.reviewer.label,
+      commitRef,
     }),
     providerId,
     model: args.request.reviewer.model,
