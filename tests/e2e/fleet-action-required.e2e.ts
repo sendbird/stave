@@ -407,7 +407,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   // Marking the completed-turn result reviewed clears it from the rail, and the
   // "Worth a look" group disappears with its last member.
   await reviewToggle.click();
-  await items.nth(0).getByRole("button", { name: "Mark reviewed" }).click();
+  await items.nth(0).getByRole("button", { name: "Mark checked" }).click();
   await expect(items).toHaveCount(0);
   await expect(needs).not.toContainText("Review summary");
   await expect(reviewToggle).toHaveCount(0);

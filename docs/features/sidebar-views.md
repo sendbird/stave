@@ -13,7 +13,7 @@ to navigate. Switching is a change of question, not a change of scope.
 
 Above either view, the sidebar's top navigation holds **Fleet View**,
 **Agents** with each agent at work and the number of things that need you, and
-**Results**.
+**Agent performance**.
 
 ## When To Use It
 
@@ -46,7 +46,8 @@ Above either view, the sidebar's top navigation holds **Fleet View**,
 
 - Sidebar header bar: the `Repositories` / `Work queue` toggle.
 - Top navigation: **Fleet View**, **Agents** and the agents at work (a count
-  on each), and **Results**. Clicking an agent opens it in the Agents tab.
+  on each), and **Agent performance**. Clicking an agent opens it in the Agents tab. Agent performance compares ended
+  runs across workspaces; see [Agent performance and task outputs](results.md).
 - `Settings → Design → Sidebar → Sidebar View`: the same two choices. Both
   controls write the same preference, so neither can disagree with the other.
 
@@ -93,7 +94,7 @@ the queue exactly the way it narrows the tree.
 
 - The collapsed icon rail shows one flat list regardless of view; the toggle is
   an expanded-sidebar control. The rail keeps **Fleet View**, **Agents** and
-  **Results** as icons; a dot on Agents means an agent needs you.
+  **Agent performance** as icons; a dot on Agents means an agent needs you.
 - Row actions (`⋮` menu, drag-to-reorder, rename in place) exist only in
   `Repositories`. Open the workspace from the queue and use the tree, Fleet View, or
   workspace settings for those.

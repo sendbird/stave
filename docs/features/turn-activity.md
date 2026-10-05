@@ -169,14 +169,17 @@ The right rail's **Task** panel is the one place for the active task. Its tabs:
   Verification → Pull request), with the task's wake-up under either.
 - **Subagents**: every agent the task called, in its turn or as a
   [delegated task](delegated-tasks.md), with its state and answer.
-- **Results**: the run history, one entry per finished run.
+- **Outputs**: saved answers and reported file changes, one entry per ended execution.
 
 A tab can carry a small mark from data the app already holds: a dot on
 **Activity** while the turn runs or waits on you, a dot on **Progress** when the
 agent run needs you or is blocked, the number of running agents on **Subagents**, and
-the number of unreviewed runs on **Results**. The tab you choose is kept with
+the number of unchecked outputs on **Outputs**. The tab you choose is kept with
 the layout, so the panel reopens where you left it, and a task tab's context
-menu opens it straight to **Results**, **Progress** or **Subagents**.
+menu opens it straight to **Outputs**, **Progress** or **Subagents**.
+
+The left-navigation **Agent performance** screen compares runs across workspaces.
+See [Agent performance and task outputs](results.md) for the difference and examples.
 
 ### With An Agent Run
 

@@ -12,13 +12,11 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ActionButton } from "@/components/system/ActionButton";
-import { Badge } from "@/components/ads/components/Badge";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import { setResultReviewed } from "@/lib/reviews/result-review-client";
 import type { ResultReview } from "@/lib/reviews/result-review";
 import { useAppStore } from "@/store/app.store";
-import type { RightRailPanelId } from "@/lib/right-rail-panels";
 import { ResultFileSnapshots } from "./ResultFileSnapshots";
 import { RunTurnDialog } from "./RunTurnDialog";
 import { AgentRunReportView } from "@/components/agent-runs/AgentRunReportView";
@@ -26,7 +24,6 @@ import { useAgentRunReportActions } from "@/components/agent-runs/useAgentRunRep
 import { useTaskAgentRun } from "@/store/agent-runs-store";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import {
-  formatActualRunModel,
   ModelResolutionSummary,
 } from "./ModelResolutionSummary";
 import { appendWorkflowDraft } from "@/lib/collaboration/workflows";
@@ -41,7 +38,7 @@ type Filter = "all" | "pending";
  * tree at once; the list itself is fetched without evidence. The answer
  * renders like the conversation and opens collapsed when long, so the row
  * needs no scroll box of its own; the whole run is one click away in
- * "Show the turn".
+ * "View execution".
  */
 function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
   useTranslation();
@@ -92,18 +89,12 @@ function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
       </div>
     );
   }
-  const modelLabel = formatActualRunModel({
-    providerId: evidence.providerId,
-    model: evidence.model,
-    modelInfo: evidence.modelInfo,
-  });
   return (
     <div className={sx(styles.evidence)}>
       <div className={sx(styles.answerSection)}>
         <div className={sx(styles.answerHeader)}>
           <div className={sx(styles.answerHeading)}>
             <h4 className={sx(styles.evidenceHeading)}>{i18n.t("session:taskResultReviews.runEvidence4")}</h4>
-            <p className={sx(styles.evidenceDescription)}>{i18n.t("session:taskResultReviews.sentence49", { value1: modelLabel })}</p>
           </div>
           {showTurn}
         </div>
@@ -131,8 +122,6 @@ function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
             resolution={evidence.modelResolution}
           />
         </div>
-        <p className={sx(styles.runId)}>{i18n.t("session:taskResultReviews.sentence50", { value1: result.turnId })}</p>
-        <p className={sx(styles.messageId)}>{i18n.t("session:taskResultReviews.sentence51", { value1: evidence.messageId })}</p>
       </details>
     </div>
   );
@@ -198,41 +187,35 @@ export function RunHistoryRow(props: {
                 >
                   {formatRelativeTime(result.createdAt)}
                 </time>
-                {result.reviewedAt ? (
-                  <Badge tone="success" variant="outline" dot>
-                    {i18n.t("session:taskResultReviews.runHistoryRow3")}</Badge>
-                ) : (
-                  <Badge tone="neutral" variant="outline">
-                    {i18n.t("session:taskResultReviews.runHistoryRow4")}</Badge>
-                )}
+                <span className={sx(styles.caption)}>
+                  {result.reviewedAt ? i18n.t("session:taskResultReviews.runHistoryRow3") : i18n.t("session:taskResultReviews.runHistoryRow4")}
+                </span>
               </span>
             </span>
           </span>
         </AccordionTrigger>
-        <ActionButton
-          xstyle={styles.rowAction}
-          size="xs"
-          weight="quiet"
-          loading={props.busy}
-          disabled={props.disabled}
-          onClick={props.onReview}
-          title={
-            result.reviewedAt
-              ? i18n.t("session:taskResultReviews.title")
-              : i18n.t("session:taskResultReviews.title2")
-          }
-        >
-          {result.reviewedAt ? i18n.t("session:taskResultReviews.runHistoryRow5") : i18n.t("session:taskResultReviews.runHistoryRow6")}
-        </ActionButton>
       </div>
       <AccordionContent mount="lazy" className={sx(styles.rowDetails)}>
         <RunEvidence result={result} onShowTurn={() => setTurnOpen(true)} />
         <div className={sx(styles.rowActions)}>
+          <ActionButton
+            size="xs"
+            weight="quiet"
+            loading={props.busy}
+            disabled={props.disabled}
+            onClick={props.onReview}
+            title={
+              result.reviewedAt
+                ? i18n.t("session:taskResultReviews.title")
+                : i18n.t("session:taskResultReviews.title2")
+            }
+          >
+            {result.reviewedAt ? i18n.t("session:taskResultReviews.runHistoryRow5") : i18n.t("session:taskResultReviews.runHistoryRow6")}
+          </ActionButton>
           <ActionButton size="xs" onClick={props.onFollowUp}>
             {i18n.t("session:taskResultReviews.runHistoryRow7")}</ActionButton>
-          <span className={sx(styles.caption)}>
-            {i18n.t("session:taskResultReviews.runHistoryRow8")}</span>
         </div>
+        <p className={sx(styles.caption)}>{i18n.t("session:taskResultReviews.runHistoryRow8")}</p>
       </AccordionContent>
       <RunTurnDialog
         open={turnOpen}
@@ -246,13 +229,16 @@ export function RunHistoryRow(props: {
   );
 }
 
-/** The task's latest finished agent run report heads its results. */
+/** Optional run-level detail stays available without preceding the saved answers. */
 function TaskAgentRunReport(props: { workspaceId: string; taskId: string }) {
   useTranslation();
   const detail = useTaskAgentRun(props.workspaceId, props.taskId);
   const actions = useAgentRunReportActions(detail);
   return detail?.report ? (
-    <AgentRunReportView report={detail.report} actions={actions} agentOrigin={hasAgentOrigin(detail.agentRun)} />
+    <details className={sx(styles.agentReport)}>
+      <summary className={sx(styles.disclosure, focusRing.ring)}>{i18n.t("session:taskResultReviews.agentRunReport")}</summary>
+      <AgentRunReportView report={detail.report} actions={actions} agentOrigin={hasAgentOrigin(detail.agentRun)} />
+    </details>
   ) : null;
 }
 
@@ -293,17 +279,6 @@ export function TaskResultReviews(props: {
     setFilter(next);
     setOffset(0);
     setExpandedId(null);
-  };
-  const inspect = (panel: RightRailPanelId) => {
-    const state = useAppStore.getState();
-    if (
-      state.activeWorkspaceId !== props.workspaceId ||
-      state.activeTaskId !== props.taskId
-    )
-      return;
-    state.setLayout({
-      patch: { sidebarOverlayVisible: true, sidebarOverlayTab: panel },
-    });
   };
   const review = async (result: ResultReview) => {
     if (busyId) return;
@@ -352,12 +327,12 @@ export function TaskResultReviews(props: {
 
   return (
     <section aria-label={i18n.t("session:taskResultReviews.ariaLabel")} className={sx(styles.panel)}>
-      <TaskAgentRunReport workspaceId={props.workspaceId} taskId={props.taskId} />
       <div className={sx(styles.header)}>
         <h3 className={sx(styles.heading)}>{i18n.t("session:taskResultReviews.taskResultReviews")}</h3>
         <p className={sx(styles.introduction)}>
           {i18n.t("session:taskResultReviews.taskResultReviews2")}</p>
       </div>
+      <TaskAgentRunReport workspaceId={props.workspaceId} taskId={props.taskId} />
       <div className={sx(styles.toolbar)} role="group" aria-label={i18n.t("session:taskResultReviews.ariaLabel2")}>
         <div className={sx(styles.filterGroup)}>
           <ActionButton
@@ -445,7 +420,7 @@ export function TaskResultReviews(props: {
             >
               {i18n.t("session:taskResultReviews.taskResultReviews12")}</ActionButton>
             <span className={sx(styles.caption)}>
-              {rangeStart}–{rangeEnd} {i18n.t("session:taskResultReviews.taskResultReviews13")}{page.total}
+              {i18n.t("session:taskResultReviews.taskResultReviews8", { value1: rangeStart, value2: rangeEnd, value3: page.total })}
             </span>
             <ActionButton
               size="xs"
@@ -459,27 +434,6 @@ export function TaskResultReviews(props: {
               {i18n.t("session:taskResultReviews.taskResultReviews14")}</ActionButton>
           </div>
         ) : null}
-        <div className={sx(styles.footer)}>
-          <p className={sx(styles.guidance)}>
-            {i18n.t("session:taskResultReviews.taskResultReviews15")}</p>
-          <div
-            className={sx(styles.navigation)}
-            aria-label={i18n.t("session:taskResultReviews.ariaLabel3")}
-          >
-            <ActionButton
-              size="xs"
-              weight="quiet"
-              onClick={() => inspect("changes")}
-            >
-              {i18n.t("session:taskResultReviews.taskResultReviews16")}</ActionButton>
-            <ActionButton
-              size="xs"
-              weight="quiet"
-              onClick={() => inspect("explorer")}
-            >
-              {i18n.t("session:taskResultReviews.taskResultReviews17")}</ActionButton>
-          </div>
-        </div>
       </div>
     </section>
   );

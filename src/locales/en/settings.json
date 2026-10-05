@@ -190,8 +190,8 @@
         "description": "Show Agents and its active agent rows in the sidebar header area."
       },
       "results": {
-        "title": "Results Shortcut",
-        "description": "Show the Results entry in the sidebar header area."
+        "title": "Agent performance Shortcut",
+        "description": "Show Agent performance in the sidebar to compare completed runs, time, and reported costs."
       },
       "aiUsage": {
         "title": "AI Usage Shortcut",

@@ -188,7 +188,7 @@
     "agentsAtWork": "에이전트, {{value1}}개 작업 중",
     "agents": "에이전트",
     "agent": "에이전트 {{value1}}{{value2}}",
-    "results": "결과",
+    "results": "에이전트 성과",
     "aIUsage": "AI 사용량",
     "agentsAtWork2": "에이전트 · {{value1}}개 작업 중",
     "needYou": ", {{value1}}개에 사용자 응답 필요",
@@ -526,9 +526,9 @@
     "openAgents": "에이전트 열기",
     "openSavedAgentsTheirWorkflowsAndYour": "저장된 에이전트, 워크플로 및 기준을 엽니다.",
     "savedAgentsTheirWorkflowsAndYourStandards": "저장된 에이전트, 워크플로 및 기준.",
-    "openResults": "결과 열기",
-    "seeHowEndedAgentRunsAndRuns": "완료된 에이전트 실행 결과를 확인합니다.",
-    "outcomesTimeAndCostOfEndedAgent": "완료된 에이전트 실행의 결과, 시간 및 비용.",
+    "openResults": "에이전트 성과 열기",
+    "seeHowEndedAgentRunsAndRuns": "종료된 에이전트 실행의 완료율, 시간, 보고된 비용을 비교합니다.",
+    "outcomesTimeAndCostOfEndedAgent": "에이전트 완료율, 시간, 보고된 비용.",
     "assignToAnAgent": "에이전트에 할당…",
     "chooseAnAgentInTheComposerOr": "작업이 열려 있으면 입력창에서, 없으면 킥오프에서 에이전트를 선택합니다.",
     "chooseTheAgentThatDoesThisTaskS": "이 작업을 수행할 에이전트를 선택합니다.",
@@ -755,8 +755,8 @@
     "theRunSStagesOrTheTaskSFlow": "실행 단계 또는 작업 흐름",
     "subagents": "하위 에이전트",
     "everyAgentTheTaskCalled": "작업에서 호출한 모든 에이전트",
-    "results": "결과",
-    "eachRunSAnswerAndChangesToReview": "리뷰할 각 실행의 답변과 변경 사항"
+    "results": "산출물",
+    "eachRunSAnswerAndChangesToReview": "이 작업의 저장된 답변과 파일 변경"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter로 대기열에 추가, Tab으로 방향 조정",

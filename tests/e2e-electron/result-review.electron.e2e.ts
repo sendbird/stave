@@ -104,7 +104,7 @@ test("result review survives notification cleanup and renderer restart, with exp
       },
       { projectPath: repositoryPath, workspaceId: workspaceId },
     );
-    const results = stave.page.getByRole("region", { name: "Task results" });
+    const results = stave.page.getByRole("region", { name: "Task outputs" });
     const taskSections = stave.page.getByRole("tablist", {
       name: "Task sections",
     });
@@ -120,8 +120,8 @@ test("result review survives notification cleanup and renderer restart, with exp
     await expect(
       stave.page.getByRole("navigation", { name: "Task activity shortcuts" }),
     ).toHaveCount(0);
-    await openTaskTab(/^Results/);
-    await expect(results.getByRole("button", { name: "Needs review" })).toHaveAttribute("aria-pressed", "true");
+    await openTaskTab(/^Outputs/);
+    await expect(results.getByRole("button", { name: "Unchecked" })).toHaveAttribute("aria-pressed", "true");
     await expect(
       stave.page.getByRole("tablist", { name: "Task inspection" }),
     ).toHaveCount(0);
@@ -129,7 +129,7 @@ test("result review survives notification cleanup and renderer restart, with exp
     await editor.fill("Keep my existing note.");
     await results.getByText("The saved result survives notification cleanup.").click();
     await results
-      .getByRole("button", { name: "Request changes", exact: true })
+      .getByRole("button", { name: "Draft follow-up", exact: true })
       .click();
     await expect(editor).toContainText("Keep my existing note.");
     await expect(editor).toContainText("Requested changes:");
@@ -137,7 +137,7 @@ test("result review survives notification cleanup and renderer restart, with exp
       "Added to your draft",
     );
     await expect(
-      results.getByText("Not reviewed", { exact: true }),
+      results.getByRole("button", { name: /^The saved result survives/ }).getByText("Unchecked", { exact: true }),
     ).toBeVisible();
     await expect(
       results.getByText("The saved result survives notification cleanup."),
@@ -147,7 +147,7 @@ test("result review survives notification cleanup and renderer restart, with exp
         exact: true,
       }),
     ).toBeVisible();
-    await results.getByText("Run details", { exact: true }).click();
+    await results.getByText("Model and routing details", { exact: true }).click();
     await expect(
       results.getByText("A small scoped edit fits this route.", {
         exact: true,
@@ -160,24 +160,24 @@ test("result review survives notification cleanup and renderer restart, with exp
       results.getByText("docs/result.md", { exact: true }),
     ).toBeVisible();
     await results
-      .locator("summary")
-      .filter({ hasText: /^docs\/result\.md$/ })
+      .getByRole("button", { name: /result\.md/ })
       .focus();
     await stave.page.keyboard.press("Enter");
     await expect(
-      results.getByLabel("After: docs/result.md", { exact: true }),
-    ).toHaveText("Original run output");
+      results.getByRole("group", { name: "Diff for docs/result.md", exact: true }),
+    ).toContainText("Original run output");
     await writeFile(
       path.join(repositoryPath, "docs/result.md"),
       "Changed after review",
     );
     await results
-      .getByRole("button", { name: "Mark reviewed", exact: true })
+      .getByRole("button", { name: "Mark checked", exact: true })
       .click();
-    await expect(results.getByText("Every saved run has been reviewed.")).toBeVisible();
-    await results.getByRole("button", { name: "All runs" }).click();
+    await expect(results.getByText("No unchecked outputs. Open All outputs to revisit saved answers.")).toBeVisible();
+    await results.getByRole("button", { name: "All outputs" }).click();
+    await results.getByText("The saved result survives notification cleanup.").click();
     await expect(
-      results.getByRole("button", { name: "Reopen", exact: true }),
+      results.getByRole("button", { name: "Mark unchecked", exact: true }),
     ).toBeVisible();
     await stave.page.reload();
     // Wait for the restored task before inspecting its persisted panel layout.
@@ -186,31 +186,30 @@ test("result review survives notification cleanup and renderer restart, with exp
     await expect(
       stave.page.getByRole("heading", { name: "Task", exact: true }),
     ).toBeVisible();
-    await openTaskTab(/^Results/);
-    await expect(results.getByRole("button", { name: "Needs review" })).toHaveAttribute("aria-pressed", "true");
-    await results.getByRole("button", { name: "All runs" }).click();
+    await openTaskTab(/^Outputs/);
+    await expect(results.getByRole("button", { name: "Unchecked" })).toHaveAttribute("aria-pressed", "true");
+    await results.getByRole("button", { name: "All outputs" }).click();
+    await results.getByText("The saved result survives notification cleanup.").click();
     await expect(
-      results.getByRole("button", { name: "Reopen", exact: true }),
+      results.getByRole("button", { name: "Mark unchecked", exact: true }),
     ).toBeVisible();
     await results
-      .getByRole("button", { name: "Reopen", exact: true })
+      .getByRole("button", { name: "Mark unchecked", exact: true })
       .click();
     await expect(
-      results.getByRole("button", { name: "Mark reviewed", exact: true }),
+      results.getByRole("button", { name: "Mark checked", exact: true }),
     ).toBeVisible();
-    await results.getByText("The saved result survives notification cleanup.").click();
     await expect(
       results.getByText("The captured answer remains attached to this run.", {
         exact: true,
       }),
     ).toBeVisible();
     await results
-      .locator("summary")
-      .filter({ hasText: /^docs\/result\.md$/ })
+      .getByRole("button", { name: /result\.md/ })
       .click();
     await expect(
-      results.getByLabel("After: docs/result.md", { exact: true }),
-    ).toHaveText("Original run output");
+      results.getByRole("group", { name: "Diff for docs/result.md", exact: true }),
+    ).toContainText("Original run output");
     const wrong = await stave.page.evaluate(
       (scope) =>
         window.api.persistence!.setResultReviewed!({
@@ -232,11 +231,10 @@ test("result review survives notification cleanup and renderer restart, with exp
     await expect(results).toBeVisible();
     await results.getByText("The saved result survives notification cleanup.").click();
     await results
-      .locator("summary")
-      .filter({ hasText: /^docs\/result\.md$/ })
+      .getByRole("button", { name: /result\.md/ })
       .click();
     await results
-      .getByLabel("After: docs/result.md", { exact: true })
+      .getByRole("group", { name: "Diff for docs/result.md", exact: true })
       .scrollIntoViewIfNeeded();
     expect(
       await results.evaluate(

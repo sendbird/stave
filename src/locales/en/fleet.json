@@ -1,7 +1,7 @@
 {
   "fleetAttentionInbox": {
     "valueForValueInValue": "{{value1}} for {{title}} in {{value2}}",
-    "markReviewed": "Mark reviewed",
+    "markReviewed": "Mark checked",
     "markRead": "Mark read",
     "dismissValueForValueInValue": "Dismiss {{value1}} for {{title}} in {{value2}}",
     "dismiss": "Dismiss",
@@ -81,7 +81,7 @@
     "openNextItem": "Open next item",
     "reviewQueue": "Review queue",
     "allClear": "All clear",
-    "results": "Results",
+    "results": "Agent performance",
     "closeFleetView": "Close Fleet View",
     "retryResultReviews": "Retry result reviews",
     "findWorkspaceBranchOrTask": "Find workspace, branch, or task…",

@@ -54,11 +54,11 @@ test("Progress marks only a run that needs attention", () => {
   });
 });
 
-test("Subagents and Results carry counts, and nothing at zero", () => {
+test("Subagents and Outputs carry counts, and nothing at zero", () => {
   expect(resolveSubagentsTabMark(0)).toBeNull();
   expect(resolveResultsTabMark(0)).toBeNull();
   expect(resolveSubagentsTabMark(2)).toEqual({ kind: "count", count: 2, text: "2", label: "2 running" });
-  expect(resolveResultsTabMark(3)).toEqual({ kind: "count", count: 3, text: "3", label: "3 to review" });
+  expect(resolveResultsTabMark(3)).toEqual({ kind: "count", count: 3, text: "3", label: "3 unchecked" });
 });
 
 test("counts read literally to 99", () => {

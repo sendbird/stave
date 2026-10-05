@@ -141,7 +141,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   sidebarShowFleetView: boolean;
   /** Show Agents and its active agent rows in the left sidebar. */
   sidebarShowAgents: boolean;
-  /** Show the Results shortcut in the left sidebar. */
+  /** Show the Agent performance shortcut in the left sidebar. */
   sidebarShowResults: boolean;
   /** Show the AI usage shortcut in the left sidebar. */
   sidebarShowAiUsage: boolean;
