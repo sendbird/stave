@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ReviewRevisionStateSchema, type ReviewRevisionState } from "@/lib/reviews/review-revision";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
 
@@ -17,6 +17,7 @@ export function useReviewRevision(item: ReviewShelfItem) {
   const { parentTaskId, delegationKey, delegatedTaskId, delegatedWorkspaceId, phase } = child;
   const key = `${child.runId}:${child.attempt}:${child.delegatedTurnId}:${child.updatedAt}`;
   const enabled = item.status === "ready";
+  const refresh = useCallback(() => setAttempt((value) => value + 1), []);
   useEffect(() => {
     const read = window.api?.runs?.getReviewRevision;
     if (!enabled) return;
@@ -37,9 +38,8 @@ export function useReviewRevision(item: ReviewShelfItem) {
   }, [attempt, child.attempt, delegatedTaskId, delegatedWorkspaceId, delegationKey, enabled, key, parentTaskId, phase]);
   useEffect(() => {
     if (!enabled) return;
-    const refresh = () => setAttempt((value) => value + 1);
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
-  }, [enabled]);
-  return loaded?.key === key ? loaded.state : null;
+  }, [enabled, refresh]);
+  return { state: loaded?.key === key ? loaded.state : null, refresh };
 }

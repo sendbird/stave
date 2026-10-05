@@ -90,7 +90,7 @@ export function ReviewActivityDialog(props: {
   const repositoryPath = useAppStore((state) => state.repositoryPath);
   const title = taskTitle?.trim() || "Review";
   const { transcript, findings } = useReviewTranscript(item);
-  const revision = useReviewRevision(item);
+  const { state: revision, refresh: refreshRevision } = useReviewRevision(item);
   const attachedFindingIds = useAppStore((state) => {
     const chip = state.promptDraftByTask[item.child.parentTaskId]?.attachments.find(
       (attachment) =>
@@ -216,6 +216,7 @@ export function ReviewActivityDialog(props: {
       repositoryPath={repositoryPath ?? undefined}
       onClose={onClose}
       onAction={onAction}
+      onRefresh={refreshRevision}
       renderExtraActions={renderExtraActions}
       leadContent={<><ReviewRevisionNotice state={revision} />{leadContent}</>}
     />
@@ -251,7 +252,7 @@ function ReviewLine(props: {
   const { item, actions } = props;
   // Only a finished review has findings to count; reading is cached.
   const { findings } = useReviewTranscript(item, { enabled: item.status === "ready" });
-  const revision = useReviewRevision(item);
+  const { state: revision } = useReviewRevision(item);
   const revisionNote = describeReviewRevision(revision);
   const line = describeReviewShelfLine({
     item,

@@ -66,6 +66,7 @@ export function ActivityDetailDialog(props: {
   graph?: WorkGraph | null;
   onClose: () => void;
   onAction?: (action: DelegationActionId, exchange: DelegationExchange) => void;
+  onRefresh?: () => void;
   renderExtraActions?: (exchange: DelegationExchange) => ReactNode;
   /** Shown first in the body, above the result, for surface-specific detail. */
   leadContent?: ReactNode;
@@ -315,7 +316,7 @@ export function ActivityDetailDialog(props: {
     <DialogContent xstyle={s.dialog}>
       <DialogHeader><DialogTitle>{selection.title}</DialogTitle><DialogDescription>Assignment, activity and results for this execution.</DialogDescription></DialogHeader>
       <div className={sx(s.actions)}>
-        <Button size="sm" variant="outline" disabled={loading || savedLoading} onClick={() => { setSavedRefresh(value => value + 1); setHistoryRefresh(value => value + 1); }}>Refresh</Button>
+        <Button size="sm" variant="outline" disabled={loading || savedLoading} onClick={() => { setSavedRefresh(value => value + 1); setHistoryRefresh(value => value + 1); props.onRefresh?.(); }}>Refresh</Button>
         {toolUseId && props.onShowInConversation ? <Button size="sm" variant="ghost" onClick={() => { props.onShowInConversation?.(toolUseId); props.onClose(); }}>Show in conversation</Button> : null}
       </div>
       <div className={sx(s.body)}>

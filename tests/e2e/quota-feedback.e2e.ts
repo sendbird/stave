@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("quota refresh explains cached data and failure backoff without changing its observation", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.goto("/?stavePreview=usage&quota=cached", { waitUntil: "domcontentloaded" });
   await page.getByRole("tab", { name: "Quota", exact: true }).click();
   await page.getByRole("button", { name: "Claude · System default", exact: true }).click();

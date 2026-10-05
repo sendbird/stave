@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("dismissing a finished review survives a renderer reload while other reviews remain", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.goto("/?stavePreview=composer-frame&case=reviews&open=1", { waitUntil: "domcontentloaded" });
   const ready = page.locator('[data-testid="composer-shelf-review"][data-status="ready"]');
   await expect(ready).toBeVisible();

@@ -205,7 +205,8 @@ Review tasks reuse both contracts and record workspace provenance:
   start, completion and current state. It returns hashes or explicit unknown
   states, never file contents. Old receipts and interrupted completions keep
   unknown provenance; they cannot prove unchanged code. The renderer checks
-  on result access and app focus, without polling each token or timer tick.
+  on result access, app focus and explicit result refresh, without polling each
+  token or timer tick.
 - Structured findings are a reply contract, not an IPC one:
   `src/lib/reviews/review-findings.ts` writes the instructions into every
   review prompt and parses the last fenced `stave-review-findings` JSON block

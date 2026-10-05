@@ -111,8 +111,8 @@ checking it never moves you away:
   runs, the log follows it live.
 - **Workspace changes**: completed reviews warn when code changed during the
   review or since it finished. Stave compares the commit, staged changes and
-  bounded file contents at review start, completion, result access and app
-  focus. A missing or unavailable comparison shows a warning instead of
+  bounded file contents at review start, completion, result access, app
+  focus and the result dialog's **Refresh**. A missing or unavailable comparison shows a warning instead of
   claiming the review still covers the current code. Use **Run again** or
   **Check fixes** to review the current changes.
 - **Attach to message**, **Run again** (the same prompt on the same model,
