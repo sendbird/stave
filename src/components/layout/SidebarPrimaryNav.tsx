@@ -56,6 +56,9 @@ function useAgentsWithWork() {
  */
 export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   useTranslation();
+  const showAgents = useAppStore((state) => state.settings.sidebarShowAgents);
+  const showResults = useAppStore((state) => state.settings.sidebarShowResults);
+  const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
@@ -82,69 +85,77 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           {i18n.t("shell:sidebarPrimaryNav.fleetView")}
         </AdsButton>
       ) : null}
-      <AdsButton
-        layout="host"
-        type="button"
-        onClick={() => openAgents()}
-        aria-label={agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
-        xstyle={[
-          repositorySidebarStyles.navButton,
-          transition.colors,
-          surface === "agents" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
-        ]}
-      >
-        <Bot className={sx(repositorySidebarStyles.iconMd)} />
-        <span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.agents")}</span>
-        {agentsWithWork.total > 0 ? (
-          <span className={sx(styles.count)}>{agentsWithWork.total}</span>
-        ) : null}
-      </AdsButton>
-      {agentsWithWork.agents.map((agent) => (
+      {showAgents ? (
+        <>
+          <AdsButton
+            layout="host"
+            type="button"
+            onClick={() => openAgents()}
+            aria-label={agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
+            xstyle={[
+              repositorySidebarStyles.navButton,
+              transition.colors,
+              surface === "agents" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+            ]}
+          >
+            <Bot className={sx(repositorySidebarStyles.iconMd)} />
+            <span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.agents")}</span>
+            {agentsWithWork.total > 0 ? (
+              <span className={sx(styles.count)}>{agentsWithWork.total}</span>
+            ) : null}
+          </AdsButton>
+          {agentsWithWork.agents.map((agent) => (
+            <AdsButton
+              key={agent.agentConfigId}
+              layout="host"
+              type="button"
+              onClick={() => {
+                selectAgent(agent.agentConfigId);
+                openAgents();
+              }}
+              aria-label={i18n.t("shell:sidebarPrimaryNav.agent", { value1: agent.agentName, value2: agent.needsYou ? i18n.t("shell:sidebarPrimaryNav.needYou", { value1: agent.count }) : i18n.t("shell:sidebarPrimaryNav.atWork", { value1: agent.count }) })}
+              xstyle={[
+                repositorySidebarStyles.navButton,
+                styles.childRow,
+                transition.colors,
+                surface === "agents" && selectedAgentId === agent.agentConfigId ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+              ]}
+            >
+              <AgentAvatar
+                agent={{ id: agent.agentConfigId, name: agent.agentName, appearance: agent.agentAppearance }}
+                size="xs"
+                status={agent.needsYou ? "needs-you" : "running"}
+                aria-label={null}
+              />
+              <span className={sx(styles.label)}>{agent.agentName}</span>
+              {agent.count > 0 ? <span className={sx(styles.count)}>{agent.count}</span> : null}
+            </AdsButton>
+          ))}
+        </>
+      ) : null}
+      {showResults ? (
         <AdsButton
-          key={agent.agentConfigId}
           layout="host"
           type="button"
-          onClick={() => {
-            selectAgent(agent.agentConfigId);
-            openAgents();
-          }}
-          aria-label={i18n.t("shell:sidebarPrimaryNav.agent", { value1: agent.agentName, value2: agent.needsYou ? i18n.t("shell:sidebarPrimaryNav.needYou", { value1: agent.count }) : i18n.t("shell:sidebarPrimaryNav.atWork", { value1: agent.count }) })}
+          onClick={() => openResults()}
+          aria-label={i18n.t("shell:sidebarPrimaryNav.results")}
           xstyle={[
             repositorySidebarStyles.navButton,
-            styles.childRow,
             transition.colors,
-            surface === "agents" && selectedAgentId === agent.agentConfigId ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+            surface === "results" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
           ]}
         >
-          <AgentAvatar
-            agent={{ id: agent.agentConfigId, name: agent.agentName, appearance: agent.agentAppearance }}
-            size="xs"
-            status={agent.needsYou ? "needs-you" : "running"}
-            aria-label={null}
-          />
-          <span className={sx(styles.label)}>{agent.agentName}</span>
-          {agent.count > 0 ? <span className={sx(styles.count)}>{agent.count}</span> : null}
+          <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
+          <span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.results")}</span>
         </AdsButton>
-      ))}
-      <AdsButton
-        layout="host"
-        type="button"
-        onClick={() => openResults()}
-        aria-label={i18n.t("shell:sidebarPrimaryNav.results")}
-        xstyle={[
-          repositorySidebarStyles.navButton,
-          transition.colors,
-          surface === "results" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
-        ]}
-      >
-        <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
-        <span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.results")}</span>
-      </AdsButton>
-      <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")}
-        xstyle={[repositorySidebarStyles.navButton, transition.colors,
-          surface === "usage" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
-        <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</span>
-      </AdsButton>
+      ) : null}
+      {showAiUsage ? (
+        <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")}
+          xstyle={[repositorySidebarStyles.navButton, transition.colors,
+            surface === "usage" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
+          <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</span>
+        </AdsButton>
+      ) : null}
     </>
   );
 }
@@ -152,6 +163,9 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
 /** The collapsed sidebar's rail: Fleet View, Agents and Results, with a dot when an agent needs you. */
 export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   useTranslation();
+  const showAgents = useAppStore((state) => state.settings.sidebarShowAgents);
+  const showResults = useAppStore((state) => state.settings.sidebarShowResults);
+  const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
@@ -178,38 +192,44 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
           <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.fleetView")}</TooltipContent>
         </Tooltip>
       ) : null}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="sm"
-              xstyle={railButton(surface === "agents")}
-              onClick={() => openAgents()}
-              aria-label={agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
-            />
-          }
-        >
-          <Bot className={sx(repositorySidebarStyles.iconMd)} />
-          {agentsNeedYou ? <span aria-hidden className={sx(styles.railDot)} /> : null}
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          {agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork2", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
-        </TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button variant="ghost" size="sm" xstyle={railButton(surface === "results")} onClick={() => openResults()} aria-label={i18n.t("shell:sidebarPrimaryNav.results")} />
-          }
-        >
-          <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
-        </TooltipTrigger>
-        <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.results")}</TooltipContent>
-      </Tooltip>
-      <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm" xstyle={railButton(surface === "usage")}
-        onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")} />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
-        <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</TooltipContent></Tooltip>
+      {showAgents ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                xstyle={railButton(surface === "agents")}
+                onClick={() => openAgents()}
+                aria-label={agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
+              />
+            }
+          >
+            <Bot className={sx(repositorySidebarStyles.iconMd)} />
+            {agentsNeedYou ? <span aria-hidden className={sx(styles.railDot)} /> : null}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork2", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+      {showResults ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button variant="ghost" size="sm" xstyle={railButton(surface === "results")} onClick={() => openResults()} aria-label={i18n.t("shell:sidebarPrimaryNav.results")} />
+            }
+          >
+            <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
+          </TooltipTrigger>
+          <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.results")}</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {showAiUsage ? (
+        <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm" xstyle={railButton(surface === "usage")}
+          onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")} />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
+          <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</TooltipContent></Tooltip>
+      ) : null}
     </>
   );
 }

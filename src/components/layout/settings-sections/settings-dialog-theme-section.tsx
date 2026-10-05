@@ -1,10 +1,9 @@
+import { SidebarSettingsCard } from "./settings-dialog-sidebar-card";
 import { I18N_NAMESPACES, Trans, useTranslation, i18n } from "@/i18n";
 import { memo, useMemo, useRef, useState } from "react";
 import {
   Check,
   Contrast,
-  FolderTree,
-  ListChecks,
   Monitor,
   Moon,
   Sun,
@@ -26,7 +25,6 @@ import {
   type CustomThemeDefinition,
   type ThemeModeName,
   type ThemeTokenName,
-  type SidebarNavView,
   useAppStore,
 } from "@/store/app.store";
 import {
@@ -45,25 +43,12 @@ function formatThemeTokenLabel(token: ThemeTokenName) {
     .join(" ");
 }
 
-const SIDEBAR_NAV_VIEW_FIELDS: readonly {
-  value: SidebarNavView;
-  label: string;
-  Icon: typeof FolderTree;
-}[] = [
-  { value: "projects", get label() { return i18n.t("settings:themeSection.sidebar.view.repositories"); }, Icon: FolderTree },
-  { value: "work-queue", get label() { return i18n.t("settings:themeSection.sidebar.view.workQueue"); }, Icon: ListChecks },
-] as const;
-
 export function ThemeSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [themeEditorMode, setThemeEditorMode] =
     useState<ThemeModeName>("light");
   const themeMode = useAppStore((state) => state.settings.themeMode);
   const customThemeId = useAppStore((state) => state.settings.customThemeId);
-  const sidebarShowFleetView = useAppStore(
-    (state) => state.settings.sidebarShowFleetView,
-  );
-  const sidebarNavView = useAppStore((state) => state.settings.sidebarNavView);
   const borderBeamEnabled = useAppStore(
     (state) => state.settings.borderBeamEnabled,
   );
@@ -134,43 +119,7 @@ export function ThemeSection() {
         </div>
       </SettingsCard>
 
-      <SettingsCard
-        title={t("settings:themeSection.sidebar.title")}
-        description={t("settings:themeSection.sidebar.description")}
-      >
-        <SwitchField
-          title={t("settings:themeSection.sidebar.fleetView.title")}
-          description={t("settings:themeSection.sidebar.fleetView.description")}
-          checked={sidebarShowFleetView}
-          onCheckedChange={(checked) =>
-            updateSettings({ patch: { sidebarShowFleetView: checked } })
-          }
-        />
-        <LabeledField
-          title={t("settings:themeSection.sidebar.view.title")}
-          description={t("settings:themeSection.sidebar.view.description")}
-        >
-          <div className={sx(styles.rowWrapGap2)}>
-            {SIDEBAR_NAV_VIEW_FIELDS.map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                variant={
-                  sidebarNavView === option.value ? "primary" : "outline"
-                }
-                size="sm"
-                aria-pressed={sidebarNavView === option.value}
-                onClick={() =>
-                  updateSettings({ patch: { sidebarNavView: option.value } })
-                }
-              >
-                <option.Icon className={sx(styles.iconMd)} />
-                {option.label}
-              </Button>
-            ))}
-          </div>
-        </LabeledField>
-      </SettingsCard>
+      <SidebarSettingsCard />
 
       <SettingsCard
         title={t("settings:themeSection.motion.title")}
