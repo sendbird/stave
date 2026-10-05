@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import {
   createContext,
   memo,
@@ -193,6 +194,7 @@ export function ChoiceButtons<T extends string>(args: {
   }>;
   "aria-label"?: string;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const hasDescriptions = args.options.some((option) => option.description);
   const labelledBy = useContext(SettingsControlLabelContext);
 
@@ -201,7 +203,11 @@ export function ChoiceButtons<T extends string>(args: {
       value={args.value}
       onValueChange={(value: T) => args.onChange(value)}
       aria-labelledby={labelledBy ?? undefined}
-      aria-label={labelledBy ? undefined : (args["aria-label"] ?? "Setting")}
+      aria-label={
+        labelledBy
+          ? undefined
+          : (args["aria-label"] ?? t("settings:shared.choiceGroupFallbackLabel"))
+      }
       className={sx(
         hasDescriptions ? styles.radioGroupGrid : styles.radioGroupInline,
         hasDescriptions &&
@@ -260,6 +266,7 @@ export function ToggleChipGroup<T extends string>(args: {
   onSelectAll?: () => void;
   "aria-label"?: string;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const labelledBy = useContext(SettingsControlLabelContext);
   const groupValue: string[] =
     args.allLabel && args.onSelectAll && args.selected.length === 0
@@ -287,7 +294,11 @@ export function ToggleChipGroup<T extends string>(args: {
       value={groupValue}
       onValueChange={handleValueChange}
       aria-labelledby={labelledBy ?? undefined}
-      aria-label={labelledBy ? undefined : (args["aria-label"] ?? "Settings")}
+      aria-label={
+        labelledBy
+          ? undefined
+          : (args["aria-label"] ?? t("settings:shared.toggleGroupFallbackLabel"))
+      }
       className={sx(styles.toggleGroup)}
     >
       {args.allLabel && args.onSelectAll ? (
@@ -460,6 +471,7 @@ export function SettingsFieldGuide(args: {
   align?: "start" | "center" | "end";
   side?: "top" | "right" | "bottom" | "left";
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   return (
     <Popover>
       <Tooltip>
@@ -474,7 +486,9 @@ export function SettingsFieldGuide(args: {
                 size="xs"
                 iconOnly
                 xstyle={styles.guideTriggerIcon}
-                aria-label={args.tooltip ?? `About ${args.title}`}
+                aria-label={
+                  args.tooltip ?? t("settings:shared.guide.trigger", { title: args.title })
+                }
               />
             }
           >
@@ -482,7 +496,7 @@ export function SettingsFieldGuide(args: {
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side={args.side ?? "top"}>
-          {args.tooltip ?? "Show guidance"}
+          {args.tooltip ?? t("settings:shared.guide.tooltip")}
         </TooltipContent>
       </Tooltip>
       <PopoverContent
@@ -512,7 +526,9 @@ export function SettingsFieldGuide(args: {
         ) : null}
         {args.examples?.length ? (
           <div className={sx(styles.guideList)}>
-            <p className={sx(styles.guideItemLabel)}>Examples</p>
+            <p className={sx(styles.guideItemLabel)}>
+              {t("settings:shared.guide.examples")}
+            </p>
             {args.examples.map((example) => (
               <div key={example.label} className={sx(styles.fieldLabelBlock)}>
                 <p className={sx(styles.guideExampleLabel)}>{example.label}</p>

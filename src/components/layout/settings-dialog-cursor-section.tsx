@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { Badge } from "@/components/ui";
 import {
   Select,
@@ -27,22 +28,23 @@ import { cursorSectionStyles } from "./settings-dialog-cursor-section.styles";
 const CURSOR_MODE_OPTIONS = [
   {
     value: "agent",
-    label: "Agent",
-    description: "Work through the task with the normal interactive tool flow.",
+    get label() { return i18n.t("settingsProviders:cursorSection.modes.agent.label"); },
+    get description() { return i18n.t("settingsProviders:cursorSection.modes.agent.description"); },
   },
   {
     value: "plan",
-    label: "Plan",
-    description: "Prepare a plan and pause for review before implementation.",
+    get label() { return i18n.t("settingsProviders:cursorSection.modes.plan.label"); },
+    get description() { return i18n.t("settingsProviders:cursorSection.modes.plan.description"); },
   },
   {
     value: "ask",
-    label: "Ask",
-    description: "Focus the session on questions and read-oriented exploration.",
+    get label() { return i18n.t("settingsProviders:cursorSection.modes.ask.label"); },
+    get description() { return i18n.t("settingsProviders:cursorSection.modes.ask.description"); },
   },
 ] as const;
 
 export function SettingsCursorSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     cursorMode,
     cursorApprovalMode,
@@ -65,13 +67,13 @@ export function SettingsCursorSection() {
   return (
     <SectionStack>
       <SettingsCard
-        title="Cursor Runtime Controls"
-        description="Session mode and model preferences passed to interactive Cursor Agent turns."
-        titleAccessory={<Badge variant="secondary">ACP</Badge>}
+        title={t("settingsProviders:cursorSection.runtime.title")}
+        description={t("settingsProviders:cursorSection.runtime.description")}
+        titleAccessory={<Badge variant="secondary">{/* i18n-ignore: provider protocol acronym */}ACP</Badge>}
       >
         <LabeledField
-          title="Mode"
-          description="Sets the starting mode for each new or resumed session."
+          title={t("settingsProviders:cursorSection.mode.title")}
+          description={t("settingsProviders:cursorSection.mode.description")}
         >
           <ChoiceButtons
             columns={3}
@@ -83,8 +85,8 @@ export function SettingsCursorSection() {
           />
         </LabeledField>
         <LabeledField
-          title="Approval Preset"
-          description="How much Cursor may run without asking. Delivered as Cursor Agent process flags, so it applies for the whole session rather than per tool call."
+          title={t("settingsProviders:kiroSection.approvalPreset.title")}
+          description={t("settingsProviders:cursorSection.approvalPreset.description")}
         >
           <ChoiceButtons
             columns={3}
@@ -101,17 +103,16 @@ export function SettingsCursorSection() {
             }
           />
           <p className={sx(cursorSectionStyles.note)}>
-            Guided uses Cursor's own Auto-review classifier, so which calls it
-            runs unattended is decided by Cursor, not Stave.
-          </p>
+            {t("settingsProviders:cursorSection.approvalPreset.note")}</p>
         </LabeledField>
         <LabeledField
-          title="Default Model"
-          description="Use Auto unless the connected runtime advertises another model identifier. Unsupported values fall back to the runtime default."
+          title={t("settingsProviders:kiroSection.defaultModel.title")}
+          description={t("settingsProviders:cursorSection.defaultModel.description")}
         >
           <DraftInput
             xstyle={cursorSectionStyles.field}
             value={modelCursor}
+            // i18n-ignore: literal runtime model identifier
             placeholder="auto"
             onCommit={(value) =>
               updateSettings({
@@ -121,8 +122,8 @@ export function SettingsCursorSection() {
           />
         </LabeledField>
         <LabeledField
-          title="Default Effort"
-          description="Used when the connected Cursor session advertises a separate effort option. Individual model choices are remembered from the composer."
+          title={t("settingsProviders:kiroSection.defaultEffort.title")}
+          description={t("settingsProviders:cursorSection.defaultEffort.description")}
         >
           <Select
             value={cursorEffort}
@@ -135,7 +136,7 @@ export function SettingsCursorSection() {
             }
           >
             <SelectTrigger
-              aria-label="Cursor default effort"
+              aria-label={t("settingsProviders:cursorSection.defaultEffort.ariaLabel")}
               className={sx(cursorSectionStyles.field)}
             >
               <SelectValue />
@@ -150,8 +151,8 @@ export function SettingsCursorSection() {
           </Select>
         </LabeledField>
         <SwitchField
-          title="Fast Mode"
-          description="Uses the Cursor Fast session option when the connected runtime advertises it. Individual model choices are remembered from the composer."
+          title={t("settingsProviders:cursorSection.fastMode.title")}
+          description={t("settingsProviders:cursorSection.fastMode.description")}
           checked={cursorFastMode}
           onCheckedChange={(checked) =>
             updateSettings({ patch: { cursorFastMode: checked } })
@@ -159,16 +160,17 @@ export function SettingsCursorSection() {
         />
       </SettingsCard>
       <SettingsCard
-        title="Cursor Agent CLI"
-        description="Stave resolves the Agent CLI from this path first, then checks supported environment overrides and standard executable locations."
+        title={t("settingsProviders:cursorSection.cli.title")}
+        description={t("settingsProviders:cursorSection.cli.description")}
       >
         <LabeledField
-          title="Agent Path"
-          description="Leave blank to use automatic discovery. The configured executable must support ACP and be signed in."
+          title={t("settingsProviders:cursorSection.agentPath.title")}
+          description={t("settingsProviders:kiroSection.cliPath.description")}
         >
           <DraftInput
             xstyle={cursorSectionStyles.field}
             value={cursorBinaryPath}
+            // i18n-ignore: literal CLI executable name
             placeholder="agent"
             onCommit={(value) =>
               updateSettings({ patch: { cursorBinaryPath: value.trim() } })

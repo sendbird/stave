@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { useAccountRuntimeOptions } from "./use-provider-accounts";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -94,7 +95,7 @@ async function loadCodexModelCatalog(args: {
         models: FALLBACK_CODEX_MODELS,
         entries: [],
         detail:
-          "Using Stave fallback Codex model list because the App Server catalog API is unavailable.",
+          i18n.t("providers:useCodexModelCatalog.usingStaveFallbackCodexModelList"),
         dynamic: false,
         fetchedAt: Date.now(),
       };
@@ -159,7 +160,7 @@ async function loadCodexModelCatalog(args: {
         entries: visibleEntries,
         detail:
           result.detail ||
-          "Loaded Codex model catalog from the current App Server runtime.",
+          i18n.t("providers:useCodexModelCatalog.loadedCodexModelCatalogFromThe"),
         dynamic: result.ok && models.length > 0,
         fetchedAt: Date.now(),
       };
@@ -173,7 +174,7 @@ async function loadCodexModelCatalog(args: {
         detail:
           error instanceof Error
             ? error.message
-            : "Failed to load the Codex model catalog.",
+            : i18n.t("providers:useCodexModelCatalog.failedToLoadTheCodexModel"),
         dynamic: false,
         fetchedAt: Date.now(),
       };

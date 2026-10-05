@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { useAccountRuntimeOptions, useProviderAccounts } from "./use-provider-accounts";
 import { selectedProviderAccount } from "./provider-account-selection";
 import { buildApiConnectionCatalogEntries } from "./api-connection-models";
@@ -55,7 +56,7 @@ export function configuredGatewayCatalog(args: {
   const entries = buildApiConnectionCatalogEntries({ runtime: args.providerId, profile });
   return {
     status: "ready", models: entries.map((entry) => entry.model), entries,
-    detail: "Models pinned on the API connection; gateway support is unverified until checked.",
+    detail: i18n.t("providers:useProviderModelCatalogs.modelsPinnedOnTheAPIConnection"),
     isDynamic: true, fetchedAt: Date.now(),
   };
 }
@@ -67,7 +68,7 @@ function fallbackEntries(providerId: ProviderId): ProviderModelCatalogEntry[] {
     displayName: toHumanModelName({ model }),
     description:
       providerId === "codex"
-        ? "Runtime support unconfirmed. You can still select this model."
+        ? i18n.t("providers:useProviderModelCatalogs.runtimeSupportUnconfirmedYouCanStill")
         : "",
     hidden: false,
     isDefault: model === descriptor.defaultModel,
@@ -220,7 +221,7 @@ export async function loadProviderModelCatalog(args: {
       status: "ready",
       models: fallback.map((entry) => entry.model),
       entries: fallback,
-      detail: "Using the built-in model catalog.",
+      detail: i18n.t("providers:useProviderModelCatalogs.usingTheBuiltInModelCatalog"),
       isDynamic: false,
       fetchedAt: Date.now(),
     };
@@ -237,14 +238,14 @@ export async function loadProviderModelCatalog(args: {
       return {
         ...cached,
         detail:
-          "Status unverified. Showing the last model catalog; refresh Tooling to retry.",
+          i18n.t("providers:useProviderModelCatalogs.statusUnverifiedShowingTheLastModel"),
       };
     catalogCache.delete(key);
     return {
       status: "idle",
       models: [],
       entries: [],
-      detail: "Verify installation and login in Settings > Tooling.",
+      detail: i18n.t("providers:useProviderModelCatalogs.verifyInstallationAndLoginInSettings"),
       isDynamic: false,
       fetchedAt: 0,
     };
@@ -270,7 +271,7 @@ export async function loadProviderModelCatalog(args: {
         status: "ready",
         models: fallback.map((entry) => entry.model),
         entries: fallback,
-        detail: "Using the built-in model catalog.",
+        detail: i18n.t("providers:useProviderModelCatalogs.usingTheBuiltInModelCatalog"),
         isDynamic: false,
         fetchedAt: Date.now(),
         generation,
@@ -291,7 +292,7 @@ export async function loadProviderModelCatalog(args: {
           status: "idle",
           models: [],
           entries: [],
-          detail: "Provider status changed during model discovery.",
+          detail: i18n.t("providers:useProviderModelCatalogs.providerStatusChangedDuringModelDiscovery"),
           isDynamic: false,
           fetchedAt: 0,
         };
@@ -326,7 +327,7 @@ export async function loadProviderModelCatalog(args: {
           status: "idle",
           models: [],
           entries: [],
-          detail: "Provider status changed during model discovery.",
+          detail: i18n.t("providers:useProviderModelCatalogs.providerStatusChangedDuringModelDiscovery"),
           isDynamic: false,
           fetchedAt: 0,
         };
@@ -338,7 +339,7 @@ export async function loadProviderModelCatalog(args: {
         detail:
           error instanceof Error
             ? error.message
-            : "Failed to load the provider model catalog.",
+            : i18n.t("providers:useProviderModelCatalogs.failedToLoadTheProviderModel"),
         isDynamic: false,
         fetchedAt: Date.now(),
       };
@@ -426,13 +427,13 @@ export function useProviderModelCatalogs(args: {
           cached && providerSurfaceVisible(descriptor.id, args.runtimeOptions)
             ? {
                 ...cached,
-                detail: "Status unverified. Showing the last model catalog.",
+                detail: i18n.t("providers:useProviderModelCatalogs.statusUnverifiedShowingTheLastModelVariantfd01a02b"),
               }
             : {
                 status: "idle",
                 models: [],
                 entries: [],
-                detail: "Verify installation and login in Settings > Tooling.",
+                detail: i18n.t("providers:useProviderModelCatalogs.verifyInstallationAndLoginInSettings"),
                 isDynamic: false,
               };
         continue;

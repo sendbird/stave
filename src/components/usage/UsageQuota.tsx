@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
@@ -13,12 +15,13 @@ import type { QuotaReadFeedback } from "@/lib/providers/quota-read-feedback";
 import { quotaReadFeedbackText } from "./quota-read-feedback";
 
 const identity = (row: QuotaObservation) => `${row.providerId}:${row.accountProfileId}:${row.windowId}`;
-const percent = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
+const percent = (value: number) => `${formatNumber(value, { maximumFractionDigits: 1 })}%`;
 
 export function UsageQuota(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string;
   canRefresh: boolean; reading: boolean; error: string | null; onRefresh: () => void; now: number; apiBilling: boolean;
   feedback?: QuotaReadFeedback | null;
   providerId?: ProviderId; accountProfileId?: string; onAccount: (providerId: ProviderId, accountProfileId: string) => void }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [showHistory, setShowHistory] = useState(false);
   const [windowId, setWindowId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -35,42 +38,42 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
     accounts: [...props.report.knownAccounts, ...props.profiles.map((profile) => ({ providerId: profile.providerId, accountProfileId: profile.id }))],
     providerId: props.providerId, accountProfileId: props.accountProfileId, now: props.now });
   const feedbackText = quotaReadFeedbackText(props.feedback, props.timeZone, props.now);
-  return <section className={sx(styles.section)} aria-label="Account quota">
+  return <section className={sx(styles.section)} aria-label={t("usage:usageQuota.accountQuota")}>
     <div className={sx(styles.header)}>
-      <div className={sx(styles.stack, styles.headerCopy)}><h2 className={sx(styles.heading)}>Account quota</h2>
-        <p className={sx(styles.note)}>Latest observed account limits · includes usage outside Stave · independent of the token period above</p></div>
-      <Button xstyle={styles.control} variant="outline" size="sm" disabled={!props.canRefresh || props.reading} onClick={props.onRefresh}>{props.reading ? "Reading quota…" : "Refresh quota"}</Button>
+      <div className={sx(styles.stack, styles.headerCopy)}><h2 className={sx(styles.heading)}>{t("usage:usageQuota.accountQuota")}</h2>
+        <p className={sx(styles.note)}>{t("usage:usageQuota.latestObservedAccountLimitsIncludesUsage")}</p></div>
+      <Button xstyle={styles.control} variant="outline" size="sm" disabled={!props.canRefresh || props.reading} onClick={props.onRefresh}>{props.reading ? t("usage:usageQuota.readingQuota") : t("usage:usageQuota.refreshQuota")}</Button>
     </div>
     {feedbackText ? <p role="status" className={sx(styles.note)}>{feedbackText}</p> : null}
-    {props.error ? <p role="alert" className={sx(styles.note)}>{props.error} Saved observations below may be older.</p> : null}
-    {props.apiBilling ? <p className={sx(styles.note)}>This API connection is billed by its gateway. Subscription quota is unavailable; see Tokens & cost for Stave turn usage.</p> : null}
-    <p className={sx(styles.note)}>Accounts are listed separately, with the next reset first within each provider. Percentages are never pooled across accounts.</p>
-    {accounts.length === 0 ? <p className={sx(styles.note)}>No accounts in this selection. Unsupported or unavailable limits are never shown as 0%.</p> : <div className={sx(styles.quotas)}>
+    {props.error ? <p role="alert" className={sx(styles.note)}>{props.error} {t("usage:usageQuota.savedObservationsBelowMayBeOlder")}</p> : null}
+    {props.apiBilling ? <p className={sx(styles.note)}>{t("usage:usageQuota.thisAPIConnectionIsBilledBy")}</p> : null}
+    <p className={sx(styles.note)}>{t("usage:usageQuota.accountsAreListedSeparatelyWithThe")}</p>
+    {accounts.length === 0 ? <p className={sx(styles.note)}>{t("usage:usageQuota.noAccountsInThisSelectionUnsupported")}</p> : <div className={sx(styles.quotas)}>
       {accounts.map((account) => <div className={sx(styles.quota)} key={`${account.providerId}:${account.accountProfileId}`}>
         <Button variant="link" size="sm" onClick={() => props.onAccount(account.providerId, account.accountProfileId)}>{usageScopeLabel(account.providerId, account.accountProfileId, props.profiles)}</Button>
-        {account.windows.length === 0 ? <p className={sx(styles.note)}>No saved quota. Select this account and refresh to check available limits.</p> : account.windows.map((row) => {
+        {account.windows.length === 0 ? <p className={sx(styles.note)}>{i18n.t("usage:usageQuota.noSavedQuotaSelectThisAccount")}</p> : account.windows.map((row) => {
         const stale = props.now - Date.parse(row.observedAt) > 15 * 60_000;
         const expired = row.resetsAt !== null && row.resetsAt * 1000 <= props.now;
         return <div className={sx(styles.quotaWindow)} key={identity(row)}>
-          <div className={sx(styles.header)}><span>{row.label}</span><strong className={sx(styles.number)}>{percent(Math.max(0, 100 - row.usedPercent))} remaining</strong></div>
-          <p className={sx(styles.note)}>{percent(row.usedPercent)} used{stale || expired ? " · older observation" : ""}</p>
+          <div className={sx(styles.header)}><span>{row.label}</span><strong className={sx(styles.number)}>{t("usage:messages.quotaRemaining", { percent: percent(Math.max(0, 100 - row.usedPercent)) })}</strong></div>
+          <p className={sx(styles.note)}>{t(stale || expired ? "usage:messages.quotaUsedOlder" : "usage:messages.quotaUsed", { percent: percent(row.usedPercent) })}</p>
           <div role="meter" aria-label={`${usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)} · ${row.label}`}
-            aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, row.usedPercent)} aria-valuetext={`${percent(row.usedPercent)} used${expired ? ", reset time has passed" : stale ? ", older observation" : ""}`}
+            aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, row.usedPercent)} aria-valuetext={t(expired ? "usage:messages.quotaUsedExpired" : stale ? "usage:messages.quotaUsedStale" : "usage:messages.quotaUsed", { percent: percent(row.usedPercent) })}
             className={sx(styles.track)}><div className={sx(styles.fill, row.usedPercent >= 97 ? styles.danger : row.usedPercent >= 80 && styles.warning)} style={{ width: `${Math.min(100, row.usedPercent)}%` }} /></div>
           <p className={sx(styles.note)}>{quotaResetCountdown(row.resetsAt, props.now)}{row.resetsAt !== null ? ` · ${usageTimestamp(new Date(row.resetsAt * 1000).toISOString(), props.timeZone)}` : ""}</p>
-          <p className={sx(styles.note)}>{stale || expired ? "Older observation · " : "Observed · "}{usageTimestamp(row.observedAt, props.timeZone)}</p>
+          <p className={sx(styles.note)}>{stale || expired ? i18n.t("usage:usageQuota.olderObservationVariant27f01b69") : i18n.t("usage:usageQuota.observed")}{usageTimestamp(row.observedAt, props.timeZone)}</p>
         </div>;
       })}</div>)}
     </div>}
-    {!props.canRefresh ? <p className={sx(styles.note)}>Choose a provider and one registered account to refresh its quota. Browsing these filters keeps the account for new turns unchanged.</p> : null}
-    <Button variant="quiet" size="sm" aria-expanded={showHistory} onClick={() => setShowHistory((value) => !value)}>{showHistory ? "Hide quota history" : "Show quota history"}</Button>
+    {!props.canRefresh ? <p className={sx(styles.note)}>{t("usage:usageQuota.chooseAProviderAndOneRegistered")}</p> : null}
+    <Button variant="quiet" size="sm" aria-expanded={showHistory} onClick={() => setShowHistory((value) => !value)}>{showHistory ? t("usage:usageQuota.hideQuotaHistory") : t("usage:usageQuota.showQuotaHistory")}</Button>
     {showHistory ? <div className={sx(styles.section)}>
-      <p className={sx(styles.note)}>Observations within the selected period. Dots are sampled readings, without estimating consumption between them. The latest reading per window per minute is kept; resets start a new allowance.</p>
-      {props.report.quotaHistoryTruncated ? <p className={sx(styles.note)}>Showing the latest 2,000 observations in this period. Choose a shorter period for earlier detail.</p> : null}
-      {history.length === 0 ? <p className={sx(styles.note)}>No observations in this period. History starts when Stave reads quota; older usage cannot be reconstructed.</p> : <>
-        <Select size="sm" aria-label="Quota history window" value={selected} options={[...windows].map(([value, row]) => ({ value, label: `${usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)} · ${row.label}` }))}
+      <p className={sx(styles.note)}>{t("usage:usageQuota.observationsWithinTheSelectedPeriodDots")}</p>
+      {props.report.quotaHistoryTruncated ? <p className={sx(styles.note)}>{t("usage:usageQuota.showingTheLatestObservationsInThis")}</p> : null}
+      {history.length === 0 ? <p className={sx(styles.note)}>{t("usage:usageQuota.noObservationsInThisPeriodHistory")}</p> : <>
+        <Select size="sm" aria-label={t("usage:usageQuota.quotaHistoryWindow")} value={selected} options={[...windows].map(([value, row]) => ({ value, label: `${usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)} · ${row.label}` }))}
           onValueChange={(value) => { setWindowId(typeof value === "string" ? value : null); setPage(0); }} />
-        <svg viewBox="0 0 760 160" role="img" aria-label={`Observed quota, ${history.length} samples. Exact readings are in the table.`}>
+        <svg viewBox="0 0 760 160" role="img" aria-label={t("usage:usageQuota.observedQuotaSamplesExactReadingsAre", { value1: history.length })}>
           <text x="0" y="14" className={sx(styles.svgLabel)}>{percent(max)}</text>
           <text x="0" y="149" className={sx(styles.svgLabel)}>0%</text>
           <line x1="46" y1="140" x2="750" y2="140" className={sx(styles.svgAxis)} />
@@ -78,14 +81,14 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
             cy={140 - row.usedPercent / max * 125} r={3} className={sx(styles.svgPoint)}><title>{usageTimestamp(row.observedAt, props.timeZone)} · {percent(row.usedPercent)}</title></circle>)}
         </svg>
         <div className={sx(styles.chartEnds)}><span>{usageTimestamp(history[0]!.observedAt, props.timeZone)}</span><span>{usageTimestamp(history.at(-1)!.observedAt, props.timeZone)}</span></div>
-        <Table aria-label="Quota observation history"><TableHeader><TableRow><TableHead>Observed ({props.timeZone})</TableHead><TableHead>Used</TableHead><TableHead>Resets</TableHead><TableHead>Source</TableHead></TableRow></TableHeader>
+        <Table aria-label={t("usage:usageQuota.quotaObservationHistory")}><TableHeader><TableRow><TableHead>{t("usage:messages.observedZoneHeading", { zone: props.timeZone })}</TableHead><TableHead>{t("usage:usageQuota.usedVariant285fdd")}</TableHead><TableHead>{t("usage:usageQuota.resets")}</TableHead><TableHead>{t("settings:general.notificationSound.sourceTitle")}</TableHead></TableRow></TableHeader>
           <TableBody>{samples.slice(currentPage * 20, (currentPage + 1) * 20).map((row) => <TableRow key={row.observedAt}>
             <TableCell className={sx(styles.number)}>{usageTimestamp(row.observedAt, props.timeZone)}</TableCell><TableCell>{percent(row.usedPercent)}</TableCell>
-            <TableCell className={sx(styles.number)}>{row.resetsAt ? usageTimestamp(new Date(row.resetsAt * 1000).toISOString(), props.timeZone) : "Not reported"}</TableCell><TableCell>{row.source}</TableCell>
+            <TableCell className={sx(styles.number)}>{row.resetsAt ? usageTimestamp(new Date(row.resetsAt * 1000).toISOString(), props.timeZone) : i18n.t("usage:usageParts.notReported")}</TableCell><TableCell>{row.source}</TableCell>
           </TableRow>)}</TableBody></Table>
-        <div className={sx(styles.row)}><Button variant="quiet" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous observations</Button>
+        <div className={sx(styles.row)}><Button variant="quiet" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>{t("usage:usageQuota.previousObservations")}</Button>
           <span className={sx(styles.note)}>{currentPage + 1} / {Math.max(1, Math.ceil(samples.length / 20))}</span>
-          <Button variant="quiet" size="sm" disabled={(currentPage + 1) * 20 >= samples.length} onClick={() => setPage(currentPage + 1)}>Next observations</Button></div>
+          <Button variant="quiet" size="sm" disabled={(currentPage + 1) * 20 >= samples.length} onClick={() => setPage(currentPage + 1)}>{t("usage:usageQuota.nextObservations")}</Button></div>
       </>}
     </div> : null}
   </section>;

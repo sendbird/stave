@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useEffect, useState } from "react";
 import { ChartNoAxesColumn, X } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -14,9 +15,9 @@ import { AgentTable, Figures, OutcomeStrip, Reasons } from "./ResultsParts";
 import { resultsStyles as styles } from "./results.styles";
 
 const PERIODS = [
-  { value: "7", label: "7 days" },
-  { value: "30", label: "30 days" },
-  { value: "90", label: "90 days" },
+  { value: "7", get label() { return i18n.t("compare:resultsView.daysVariant5fcc6aa0"); } },
+  { value: "30", get label() { return i18n.t("compare:resultsView.daysVariantddb84c3a"); } },
+  { value: "90", get label() { return i18n.t("compare:resultsView.daysVariant1b1dafc0"); } },
 ] as const;
 type Period = (typeof PERIODS)[number]["value"];
 
@@ -29,7 +30,7 @@ async function loadResults(days: number): Promise<AgentRunInsights | null> {
   const insights = window.api?.agentRuns?.insights;
   if (!insights) return null;
   const response = await insights({ days });
-  if (!response.ok || !response.insights) throw new Error(response.message || "Results could not be read.");
+  if (!response.ok || !response.insights) throw new Error(response.message || i18n.t("compare:resultsView.resultsCouldNotBeReadAdditional"));
   return response.insights;
 }
 
@@ -37,7 +38,7 @@ async function loadReport(agentRunId: string): Promise<AgentRunReport | null> {
   const get = window.api?.agentRuns?.get;
   if (!get) return null;
   const response = await get({ agentRunId });
-  if (!response.ok) throw new Error(response.message || "The report could not be read.");
+  if (!response.ok) throw new Error(response.message || i18n.t("compare:resultsView.theReportCouldNotBeRead"));
   return response.agentRun?.report ?? null;
 }
 
@@ -59,13 +60,14 @@ export function beginResultsLoad(previous: ResultsState): ResultsState {
 
 /** Reading the results failed: why, and a way to try again. */
 export function ResultsFailure(props: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   return (
     <EmptyState
       role="alert"
       tone="danger"
-      title="Results could not be read"
+      title={t("compare:resultsView.resultsCouldNotBeRead")}
       description={props.message}
-      action={{ children: "Try again", onClick: props.onRetry }}
+      action={{ children: t("compare:resultsView.tryAgain"), onClick: props.onRetry }}
     />
   );
 }
@@ -78,6 +80,7 @@ type ReportState = { run: ResultRun } & (
 
 /** The ended run's report, opened from a row. */
 function ReportDialog(props: { state: ReportState | null; onClose: () => void }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const { state } = props;
   return (
     <Dialog
@@ -86,8 +89,8 @@ function ReportDialog(props: { state: ReportState | null; onClose: () => void })
         if (!open) props.onClose();
       }}
       width="lg"
-      title={state ? state.run.name : "Report"}
-      description={state?.run.kind === "agent" ? "Run report" : "Run report"}
+      title={state ? state.run.name : t("compare:resultsView.report")}
+      description={state?.run.kind === "agent" ? t("compare:resultsView.runReport") : t("compare:resultsView.runReport")}
     >
       {state?.status === "ready" && state.report ? (
         <AgentRunReportView report={state.report} agentOrigin={state.run.kind === "agent"} />
@@ -96,11 +99,10 @@ function ReportDialog(props: { state: ReportState | null; onClose: () => void })
           {state.message}
         </p>
       ) : state?.status === "ready" ? (
-        <p className={sx(styles.note)}>No report was saved for this run.</p>
+        <p className={sx(styles.note)}>{t("compare:resultsView.noReportWasSavedForThis")}</p>
       ) : (
         <p role="status" className={sx(styles.note)}>
-          Reading the report…
-        </p>
+          {t("compare:resultsView.readingTheReport")}</p>
       )}
     </Dialog>
   );
@@ -112,6 +114,7 @@ function ReportDialog(props: { state: ReportState | null; onClose: () => void })
  * the run report, so the page is a lens onto reports, not a second store.
  */
 export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultReportLoader; now?: number; period?: "7" | "30" | "90"; onClose?: () => void } = {}) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const storeClose = useAppStore((state) => state.closeResults);
   const close = props.onClose ?? storeClose;
   const [period, setPeriod] = useState<Period>(props.period ?? "30");
@@ -131,7 +134,7 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
       },
       (error: unknown) => {
         if (cancelled) return;
-        setState({ status: "failed", message: error instanceof Error && error.message ? error.message : "Results could not be read." });
+        setState({ status: "failed", message: error instanceof Error && error.message ? error.message : i18n.t("compare:resultsView.resultsCouldNotBeReadAdditional") });
       },
     );
     return () => {
@@ -155,7 +158,7 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
       (error: unknown) =>
         setReport((current) =>
           current?.run === run
-            ? { run, status: "failed", message: error instanceof Error && error.message ? error.message : "The report could not be read." }
+            ? { run, status: "failed", message: error instanceof Error && error.message ? error.message : i18n.t("compare:resultsView.theReportCouldNotBeRead") }
             : current,
         ),
     );
@@ -166,13 +169,12 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
     if (state.status === "loading") {
       return (
         <p role="status" className={sx(styles.note)}>
-          Reading runs…
-        </p>
+          {i18n.t("compare:resultsView.readingRuns")}</p>
       );
     }
     if (state.status === "failed") return <ResultsFailure message={state.message} onRetry={() => setAttempt((count) => count + 1)} />;
-    if (!insights) return <p className={sx(styles.note)}>Results are available in the desktop app.</p>;
-    if (insights.summary.ended === 0) return <p className={sx(styles.empty)}>No run ended in the last {insights.days} days.</p>;
+    if (!insights) return <p className={sx(styles.note)}>{i18n.t("compare:resultsView.resultsAreAvailableInTheDesktop")}</p>;
+    if (insights.summary.ended === 0) return <p className={sx(styles.empty)}>{t("compare:messages.noEndedRuns", { count: insights.days })}</p>;
     return (
       <>
         <OutcomeStrip summary={insights.summary} days={insights.days} />
@@ -189,15 +191,15 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
         <div className={sx(centerStyles.headerText)}>
           <div className={sx(centerStyles.headerTitleRow)}>
             <ChartNoAxesColumn className={sx(centerStyles.headerIcon)} aria-hidden />
-            <h1 className={sx(centerStyles.headerTitle)}>Results</h1>
+            <h1 className={sx(centerStyles.headerTitle)}>{t("compare:resultsView.results")}</h1>
           </div>
-          <p className={sx(centerStyles.headerSubtitle)}>Did delegated work come out ready, and where did you step in?</p>
+          <p className={sx(centerStyles.headerSubtitle)}>{t("compare:resultsView.didDelegatedWorkComeOutReady")}</p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
           <span className={sx(styles.toolbar)}>
-            <Segmented aria-label="Period" size="xs" value={period} options={PERIODS} onChange={setPeriod} />
+            <Segmented aria-label={t("compare:resultsView.period")} size="xs" value={period} options={PERIODS} onChange={setPeriod} />
           </span>
-          <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label="Close Results" title="Close Results" onClick={close}>
+          <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:resultsView.closeResults")} title={t("compare:resultsView.closeResults")} onClick={close}>
             <X className={sx(centerStyles.actionIcon)} />
           </Button>
         </div>

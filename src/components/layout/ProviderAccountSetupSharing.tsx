@@ -1,3 +1,4 @@
+import { useTranslation, i18n } from "@/i18n";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Checkbox } from "@/components/ads/components/Checkbox";
@@ -10,7 +11,7 @@ import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { accountStyles as styles } from "./provider-accounts.styles";
 import { sx } from "@/components/ads/utils/stylex";
 
-export const USE_SYSTEM_SETUP_LABEL = "Use my skills and instructions from System default";
+export const USE_SYSTEM_SETUP_LABEL_KEY = "settingsConnections:accountSetup.useSystem" as const;
 
 /**
  * Per-account switch for sharing System default's skills, instructions and
@@ -22,6 +23,7 @@ export function ProviderAccountSetupSharing(props: {
   busy: boolean;
   run: (action: () => Promise<unknown>) => void;
 }) {
+  const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
   const { profile } = props;
   const [setup, setSetup] = useState<ProviderAccountSetupState | null>(null);
   useEffect(() => {
@@ -47,7 +49,7 @@ export function ProviderAccountSetupSharing(props: {
   return (
     <div className={sx(styles.stackTight)}>
       <Checkbox
-        label={USE_SYSTEM_SETUP_LABEL}
+        label={t(USE_SYSTEM_SETUP_LABEL_KEY)}
         description={describeProviderAccountSetup(profile.providerId, setup)}
         checked={setup.enabled}
         disabled={props.busy}
@@ -58,13 +60,11 @@ export function ProviderAccountSetupSharing(props: {
           <TooltipTrigger
             render={
               <Button size="sm" variant="quiet" flushInline disabled={props.busy} onClick={() => apply(true)}>
-                Update copied settings
-              </Button>
+                {t("settingsConnections:providerAccountSetupSharing.updateCopiedSettings")}</Button>
             }
           />
           <TooltipContent>
-            Copies your System default settings again. Skills, agents, commands, plugins and instructions are linked and always current. A settings file you changed in this account is kept.
-          </TooltipContent>
+            {t("settingsConnections:providerAccountSetupSharing.copiesYourSystemDefaultSettingsAgain")}</TooltipContent>
         </Tooltip>
       )}
     </div>

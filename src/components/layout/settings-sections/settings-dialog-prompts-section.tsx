@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useEffect, useState } from "react";
 import { RefreshCcw } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -37,6 +38,7 @@ function PromptField({
   defaultValue,
   onCommit,
 }: PromptFieldProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [draft, setDraft] = useState(value);
   const isDefault = draft === defaultValue;
 
@@ -62,7 +64,7 @@ function PromptField({
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={handleBlur}
-        placeholder="(empty = disabled)"
+        placeholder={t("settings:promptsSection.field.placeholder")}
       />
       <div className={sx(styles.promptFooter)}>
         <p
@@ -70,7 +72,7 @@ function PromptField({
             isDefault ? styles.promptState : styles.promptStateCustom,
           )}
         >
-          {isDefault ? "Using default" : "Customised"}
+          {isDefault ? t("settings:promptsSection.field.usingDefault") : t("settings:promptsSection.field.customised")}
         </p>
         {!isDefault && (
           <Button
@@ -81,8 +83,7 @@ function PromptField({
             onClick={handleReset}
           >
             <RefreshCcw className={sx(styles.iconXs)} />
-            Reset to default
-          </Button>
+            {t("settings:reviewCards.tasks.followUp.resetToDefault")}</Button>
         )}
       </div>
     </LabeledField>
@@ -90,6 +91,7 @@ function PromptField({
 }
 
 export function PromptsSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     promptResponseStyle,
     promptPrDescription,
@@ -113,120 +115,118 @@ export function PromptsSection() {
   const updateSettings = useAppStore((state) => state.updateSettings);
 
   return (
-    <>
-      <SectionStack>
-        <ReviewSettingsCards />
+    <SectionStack>
+      <ReviewSettingsCards />
 
-        <SettingsCard
-          title="Response Style"
-          description="Formatting guidance injected into every Claude and Codex turn. Controls how the model structures its answers — headings, bullet lists, conciseness, etc."
-        >
-          <PromptField
-            title="Response Formatting Rules"
-            description="Appended to the system prompt (Claude) or injected as hidden developer instructions (Codex). Empty disables the injection."
-            value={promptResponseStyle}
-            defaultValue={DEFAULT_PROMPT_RESPONSE_STYLE}
-            onCommit={(v) =>
-              updateSettings({ patch: { promptResponseStyle: v } })
-            }
-          />
-        </SettingsCard>
+      <SettingsCard
+        title={t("settings:promptsSection.responseStyle.title")}
+        description={t("settings:promptsSection.responseStyle.description")}
+      >
+        <PromptField
+          title={t("settings:promptsSection.responseStyle.field.title")}
+          description={t("settings:promptsSection.responseStyle.field.description")}
+          value={promptResponseStyle}
+          defaultValue={DEFAULT_PROMPT_RESPONSE_STYLE}
+          onCommit={(v) =>
+            updateSettings({ patch: { promptResponseStyle: v } })
+          }
+        />
+      </SettingsCard>
 
-        <SettingsCard
-          title="Pull Request Description"
-          description="Template used when Stave auto-generates a PR title and body from the branch diff."
-        >
-          <PromptField
-            title="PR Description Prompt"
-            description="The instruction part of the prompt. Branch context (diff, commit log, file list) is appended automatically."
-            value={promptPrDescription}
-            defaultValue={DEFAULT_PROMPT_PR_DESCRIPTION}
-            onCommit={(v) =>
-              updateSettings({ patch: { promptPrDescription: v } })
-            }
-          />
-        </SettingsCard>
+      <SettingsCard
+        title={t("settings:promptsSection.prDescription.title")}
+        description={t("settings:promptsSection.prDescription.description")}
+      >
+        <PromptField
+          title={t("settings:promptsSection.prDescription.field.title")}
+          description={t("settings:promptsSection.prDescription.field.description")}
+          value={promptPrDescription}
+          defaultValue={DEFAULT_PROMPT_PR_DESCRIPTION}
+          onCommit={(v) =>
+            updateSettings({ patch: { promptPrDescription: v } })
+          }
+        />
+      </SettingsCard>
 
-        <SettingsCard
-          title="PR Completion"
-          description="Controls the final steps after Stave creates a ready pull request."
+      <SettingsCard
+        title={t("settings:promptsSection.prCompletion.title")}
+        description={t("settings:promptsSection.prCompletion.description")}
+      >
+        <SwitchField
+          title={t("settings:promptsSection.prCompletion.autoMerge.title")}
+          description={t("settings:promptsSection.prCompletion.autoMerge.description")}
+          checked={createPrAutoMergeEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { createPrAutoMergeEnabled: checked } })
+          }
+        />
+        <LabeledField
+          title={t("settings:promptsSection.prCompletion.mergeMethod.title")}
+          description={t("settings:promptsSection.prCompletion.mergeMethod.description")}
         >
-          <SwitchField
-            title="Queue Auto-Merge"
-            description="After the ready PR is created, queue the selected merge strategy using GitHub's configured checks."
-            checked={createPrAutoMergeEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { createPrAutoMergeEnabled: checked } })
+          <ChoiceButtons<PrMergeMethod>
+            value={createPrMergeMethod}
+            columns={3}
+            onChange={(method) =>
+              updateSettings({ patch: { createPrMergeMethod: method } })
             }
+            options={[
+              {
+                value: "default",
+                label: t("settings:promptsSection.prCompletion.mergeMethod.default.label"),
+                description:
+                  t("settings:promptsSection.prCompletion.mergeMethod.default.description"),
+              },
+              {
+                value: "merge",
+                label: t("settings:promptsSection.prCompletion.mergeMethod.merge.label"),
+                description: t("settings:promptsSection.prCompletion.mergeMethod.merge.description"),
+              },
+              {
+                value: "squash",
+                label: t("settings:promptsSection.prCompletion.mergeMethod.squash.label"),
+                description: t("settings:promptsSection.prCompletion.mergeMethod.squash.description"),
+              },
+              {
+                value: "rebase",
+                label: t("settings:promptsSection.prCompletion.mergeMethod.rebase.label"),
+                description: t("settings:promptsSection.prCompletion.mergeMethod.rebase.description"),
+              },
+            ]}
           />
-          <LabeledField
-            title="Merge Method"
-            description="Choose the strategy passed to GitHub when auto-merge is queued."
-          >
-            <ChoiceButtons<PrMergeMethod>
-              value={createPrMergeMethod}
-              columns={3}
-              onChange={(method) =>
-                updateSettings({ patch: { createPrMergeMethod: method } })
-              }
-              options={[
-                {
-                  value: "default",
-                  label: "Repository default",
-                  description:
-                    "Let GitHub choose the configured strategy or merge queue.",
-                },
-                {
-                  value: "merge",
-                  label: "Merge",
-                  description: "Create a merge commit.",
-                },
-                {
-                  value: "squash",
-                  label: "Squash",
-                  description: "Combine the branch into one commit.",
-                },
-                {
-                  value: "rebase",
-                  label: "Rebase",
-                  description: "Rebase and merge without a merge commit.",
-                },
-              ]}
-            />
-          </LabeledField>
-        </SettingsCard>
-        <SettingsCard
-          title="Inline Code Completion"
-          description="System prompt for the FIM (fill-in-the-middle) code completion engine in the editor."
-        >
-          <PromptField
-            title="Completion System Prompt"
-            description="Controls how the model generates code completions. Must instruct the model to output raw code only."
-            value={promptInlineCompletion}
-            defaultValue={DEFAULT_PROMPT_INLINE_COMPLETION}
-            onCommit={(v) =>
-              updateSettings({ patch: { promptInlineCompletion: v } })
-            }
-          />
-        </SettingsCard>
+        </LabeledField>
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:promptsSection.inlineCompletion.title")}
+        description={t("settings:promptsSection.inlineCompletion.description")}
+      >
+        <PromptField
+          title={t("settings:promptsSection.inlineCompletion.field.title")}
+          description={t("settings:promptsSection.inlineCompletion.field.description")}
+          value={promptInlineCompletion}
+          defaultValue={DEFAULT_PROMPT_INLINE_COMPLETION}
+          onCommit={(v) =>
+            updateSettings({ patch: { promptInlineCompletion: v } })
+          }
+        />
+      </SettingsCard>
 
-        <SettingsCard
-          title="Workspace Latest Turn Summary"
-          description="Automatically writes a short 'what the user asked / what the AI did' summary to the top of the Information panel after each completed turn. Its model lives in Settings → Background AI."
-        >
-          <PromptField
-            title="Summary Prompt"
-            description="Instruction template for the Information panel's automatic latest-turn summary. Task title, latest user request, and latest assistant response are appended automatically. Empty disables automatic summaries."
-            value={workspaceTurnSummaryPrompt}
-            defaultValue={DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY}
-            onCommit={(v) =>
-              updateSettings({
-                patch: { workspaceTurnSummaryPrompt: v },
-              })
-            }
-          />
-        </SettingsCard>
-      </SectionStack>
-    </>
+      <SettingsCard
+        title={t("settings:promptsSection.turnSummary.title")}
+        description={t("settings:promptsSection.turnSummary.description")}
+      >
+        <PromptField
+          title={t("settings:promptsSection.turnSummary.field.title")}
+          description={t("settings:promptsSection.turnSummary.field.description")}
+          value={workspaceTurnSummaryPrompt}
+          defaultValue={DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY}
+          onCommit={(v) =>
+            updateSettings({
+              patch: { workspaceTurnSummaryPrompt: v },
+            })
+          }
+        />
+      </SettingsCard>
+    </SectionStack>
   );
 }

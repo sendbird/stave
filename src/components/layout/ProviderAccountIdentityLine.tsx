@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { describeProviderAccountIdentity } from "@/lib/providers/provider-account-identity";
@@ -18,10 +19,11 @@ export function ProviderAccountIdentityLine(props: {
   providerName: string;
   signingIn: boolean;
 }) {
+  const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
   const { profile } = props;
   const identity = useProviderAccountIdentity(profile.providerId, profile.id, !props.signingIn);
   const line = props.signingIn
-    ? { text: "Signing in…", tone: "quiet" as const }
+    ? { text: t("settingsConnections:providerAccountIdentityLine.signingIn"), tone: "quiet" as const }
     : describeProviderAccountIdentity(identity, props.providerName);
   const canCheckAgain = !props.signingIn && (identity?.state === "unknown" || identity?.state === "signed-out");
   return (
@@ -39,8 +41,7 @@ export function ProviderAccountIdentityLine(props: {
               .load({ providerId: profile.providerId, profileId: profile.id, refresh: true })
           }
         >
-          Check again
-        </Button>
+          {t("settingsConnections:providerAccountIdentityLine.checkAgain")}</Button>
       )}
     </div>
   );

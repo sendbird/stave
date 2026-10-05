@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   describeToolOperationLabel,
   isPlaceholderToolName,
@@ -112,7 +113,7 @@ export function resolveToolTitle(
     // `bash`. The token itself still reaches the row's provider-specific slot.
     describeToolOperationLabel(toolName) ??
     formatToolDisplayName(toolName) ??
-    "Background work"
+    i18n.t("providers:subagentIdentity.backgroundWork")
   );
 }
 

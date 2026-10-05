@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { describe, expect, test } from "bun:test";
 import {
   buildStarterProfile,
@@ -9,7 +10,7 @@ import {
   collectUsageSamples,
   describeRuleThen,
   recommendStance,
-  USAGE_PROFILE_NAME,
+  USAGE_PROFILE_NAME_KEY,
   wizardChangeKey,
   type UsageSample,
 } from "@/lib/providers/auto-routing-wizard";
@@ -287,7 +288,7 @@ describe("buildProfileFromUsage", () => {
     const { profile, changes } = buildProfileFromUsage(analysis, { base });
 
     expect(profile.id).toBe("custom");
-    expect(profile.name).toBe(USAGE_PROFILE_NAME);
+    expect(profile.name).toBe(i18n.t(USAGE_PROFILE_NAME_KEY));
 
     const plan = findRule(profile.rules, (rule) => rule.when.taskClass === "plan");
     expect(plan.id).toBe("usage-plan");

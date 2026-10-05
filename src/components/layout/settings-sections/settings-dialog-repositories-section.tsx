@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, RefreshCcw, Sparkles, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
@@ -24,7 +25,7 @@ import {
   RepositoryIdentityMark,
 } from "@/components/layout/repository-appearance";
 import { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
-import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
+import { WORKSPACE_TOOLS_LABEL_KEY } from "@/lib/workspace-scripts/constants";
 import { LabeledField, SettingsCard } from "../settings-dialog.shared";
 import { DraftTextarea } from "../settings-dialog.shared";
 
@@ -72,6 +73,7 @@ function RepositorySettingsPanel(args: {
   onRequestRemove: (args: { repositoryPath: string; repositoryName: string }) => void;
   onNavigateSection?: (id: SectionId) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const setRepositoryBasePrompt = useAppStore(
     (state) => state.setRepositoryBasePrompt,
   );
@@ -134,7 +136,7 @@ function RepositorySettingsPanel(args: {
     status: "idle",
     rootPath: null,
     remotes: [],
-    detail: "Refreshing repository metadata...",
+    detail: t("settings:repositoriesSection.metadata.refreshing"),
   });
 
   const loadResolvedScriptsConfig = useCallback(async () => {
@@ -162,7 +164,7 @@ function RepositorySettingsPanel(args: {
         status: "error",
         rootPath: null,
         remotes: [],
-        detail: "Terminal bridge unavailable.",
+        detail: i18n.t("settings:repositoriesSection.metadata.terminalUnavailable"),
       });
       return;
     }
@@ -171,7 +173,7 @@ function RepositorySettingsPanel(args: {
     setRepositoryState((current) => ({
       ...current,
       status: "loading",
-      detail: "Refreshing repository metadata...",
+      detail: i18n.t("settings:repositoriesSection.metadata.refreshing"),
     }));
 
     void (async () => {
@@ -196,7 +198,7 @@ function RepositorySettingsPanel(args: {
           remotes: [],
           detail:
             rootResult.stderr?.trim() ||
-            "This repository folder is unavailable or is no longer a git repository.",
+            i18n.t("settings:repositoriesSection.metadata.notGitRepository"),
         });
         return;
       }
@@ -211,9 +213,9 @@ function RepositorySettingsPanel(args: {
         : [];
       const detail = remoteResult.ok
         ? remotes.length > 0
-          ? `${remotes.length} remote${remotes.length === 1 ? "" : "s"} configured.`
-          : "No git remotes configured."
-        : remoteResult.stderr?.trim() || "Failed to inspect git remotes.";
+          ? i18n.t("settings:messages.remotesConfigured", { count: remotes.length })
+          : i18n.t("settings:repositoriesSection.metadata.noGitRemotes")
+        : remoteResult.stderr?.trim() || i18n.t("settings:repositoriesSection.metadata.inspectRemotesFailed");
 
       setRepositoryState({
         status: "ready",
@@ -233,24 +235,19 @@ function RepositorySettingsPanel(args: {
       <div className={sx(styles.repositoryHeader)}>
         <div className={sx(styles.repositoryHeaderMain)}>
           <div className={sx(styles.rowWrapGap2)}>
-            <Badge variant="secondary">Repository Settings</Badge>
-            {args.isCurrent ? <Badge>Current</Badge> : null}
+            <Badge variant="secondary">{t("settings:repositoriesSection.settings.title")}</Badge>
+            {args.isCurrent ? <Badge>{t("settingsProviders:modelVisibility.panel.current")}</Badge> : null}
             <Badge variant="secondary">
-              {args.repository.workspaces.length} workspace
-              {args.repository.workspaces.length === 1 ? "" : "s"}
+              {t("settings:messages.workspaces", { count: args.repository.workspaces.length })}
             </Badge>
-            <Badge variant="secondary">
-              default: {args.repository.defaultBranch}
-            </Badge>
+            <Badge variant="secondary">{t("settings:messages.defaultBranch", { branch: args.repository.defaultBranch })}</Badge>
           </div>
           <div className={sx(styles.spaceY1)}>
             <h4 className={sx(styles.repositoryTitle)}>
               {args.repository.repositoryName}
             </h4>
             <p className={sx(styles.mutedBody)}>
-              Review repository-specific workspace defaults, git metadata,
-              scripts config, and removal actions for this repository.
-            </p>
+              {t("settings:repositoriesSection.panel.intro")}</p>
           </div>
           <p className={sx(styles.monoPath)}>{args.repository.repositoryPath}</p>
         </div>
@@ -268,24 +265,22 @@ function RepositorySettingsPanel(args: {
                   : styles.refreshIcon,
               )}
             />
-            Refresh
-          </Button>
+            {t("common:actions.refresh")}</Button>
         </div>
       </div>
 
       <SettingsCard
-        title="Repository Appearance"
-        description="Give each repository a stable visual identity across the sidebar and repository switcher."
+        title={t("settings:repositoriesSection.appearance.title")}
+        description={t("settings:repositoriesSection.appearance.description")}
       >
         <div className={sx(styles.appearanceGrid)}>
           <LabeledField
-            title="Icon"
-            description="Choose a shape that makes this repository recognizable at a glance."
+            title={t("settings:repositoriesSection.appearance.icon.title")}
+            description={t("settings:repositoriesSection.appearance.icon.description")}
           >
             <fieldset className={sx(styles.fieldset)}>
               <legend className={sx(styles.radioVisuallyHidden)}>
-                Repository icon
-              </legend>
+                {t("settings:repositoriesSection.appearance.icon.legend")}</legend>
               {REPOSITORY_ICON_OPTIONS.map((option) => (
                 <label
                   key={option.id}
@@ -322,13 +317,12 @@ function RepositorySettingsPanel(args: {
           </LabeledField>
 
           <LabeledField
-            title="Color"
-            description="Color applies to the repository icon while the surrounding surface follows the active theme."
+            title={t("settings:repositoriesSection.appearance.color.title")}
+            description={t("settings:repositoriesSection.appearance.color.description")}
           >
             <fieldset className={sx(styles.fieldset)}>
               <legend className={sx(styles.radioVisuallyHidden)}>
-                Repository color
-              </legend>
+                {t("settings:repositoriesSection.appearance.color.legend")}</legend>
               {REPOSITORY_COLOR_OPTIONS.map((option) => (
                 <label
                   key={option.id}
@@ -376,18 +370,18 @@ function RepositorySettingsPanel(args: {
             <p className={sx(styles.identityName)}>
               {args.repository.repositoryName}
             </p>
-            <p className={sx(styles.identityCaption)}>Sidebar preview</p>
+            <p className={sx(styles.identityCaption)}>{t("settings:repositoriesSection.appearance.sidebarPreview")}</p>
           </div>
         </div>
       </SettingsCard>
 
       <SettingsCard
-        title="Repository Settings"
-        description="Repository-specific defaults, git metadata, and list management for this repository."
+        title={t("settings:repositoriesSection.settings.title")}
+        description={t("settings:repositoriesSection.settings.description")}
       >
         <LabeledField
-          title="Repository Instructions"
-          description="Prepended to every Claude and Codex turn for this repository. Use it for repo-specific guardrails, tooling preferences, and workflow rules."
+          title={t("settings:repositoriesSection.settings.instructions.title")}
+          description={t("settings:repositoriesSection.settings.instructions.description")}
         >
           <DraftTextarea
             xstyle={styles.textarea140}
@@ -398,13 +392,13 @@ function RepositorySettingsPanel(args: {
                 prompt: nextValue,
               })
             }
-            placeholder="Prefer bun over npm. Preserve existing Zustand selector stability patterns. Keep documentation in sync with user-facing changes."
+            placeholder={t("settings:repositoriesSection.settings.instructions.placeholder")}
           />
         </LabeledField>
 
         <LabeledField
-          title="Post-Create Command"
-          description="Runs once in the new workspace root after creation. Useful for `bun install`, `npm install`, or multi-line bootstrap commands."
+          title={t("settings:repositoriesSection.settings.postCreateCommand.title")}
+          description={t("settings:repositoriesSection.settings.postCreateCommand.description")}
         >
           <DraftTextarea
             xstyle={styles.textarea120Mono}
@@ -415,13 +409,14 @@ function RepositorySettingsPanel(args: {
                 command: nextValue,
               })
             }
+            // i18n-ignore: example shell command
             placeholder="bun install"
           />
         </LabeledField>
 
         <LabeledField
-          title="Kickoff Branch Naming Rule"
-          description="Included in workspace kickoff resolution for this repository. Use it to encode repository-specific prefixes, ticket conventions, or casing rules."
+          title={t("settings:repositoriesSection.settings.kickoffBranchNaming.title")}
+          description={t("settings:repositoriesSection.settings.kickoffBranchNaming.description")}
         >
           <DraftTextarea
             xstyle={styles.textarea110}
@@ -432,13 +427,13 @@ function RepositorySettingsPanel(args: {
                 rule: nextValue,
               })
             }
-            placeholder="Use feat/<jira-key>-<short-description> for feature work and fix/<jira-key>-<short-description> for bugs."
+            placeholder={t("settings:repositoriesSection.settings.kickoffBranchNaming.placeholder")}
           />
         </LabeledField>
 
         <LabeledField
-          title="Reuse Root node_modules"
-          description="Creates `node_modules` in each new worktree as a symlink to the repository root install. Faster startup, but later installs in that workspace will modify the shared dependency tree."
+          title={t("settings:repositoriesSection.settings.rootNodeModules.title")}
+          description={t("settings:repositoriesSection.settings.rootNodeModules.description")}
         >
           <Button
             layout="host"
@@ -457,12 +452,9 @@ function RepositorySettingsPanel(args: {
           >
             <div>
               <p className={sx(styles.toggleButtonTitle)}>
-                Enable shared `node_modules` symlink
-              </p>
+                {t("settings:repositoriesSection.settings.rootNodeModules.toggleTitle")}</p>
               <p className={sx(styles.toggleButtonHint)}>
-                The symlink exists only inside the created workspace, so
-                deleting the workspace leaves the repository root untouched.
-              </p>
+                {t("settings:repositoriesSection.settings.rootNodeModules.toggleHint")}</p>
             </div>
             <span
               className={sx(
@@ -470,25 +462,25 @@ function RepositorySettingsPanel(args: {
                 repositoryUseRootNodeModulesSymlink && styles.toggleBadgeActive,
               )}
             >
-              {repositoryUseRootNodeModulesSymlink ? "On" : "Off"}
+              {repositoryUseRootNodeModulesSymlink ? t("common:status.on") : t("common:status.off")}
             </span>
           </Button>
         </LabeledField>
 
-        <LabeledField title="Repository Root Path">
+        <LabeledField title={t("settings:repositoriesSection.settings.rootPath.title")}>
           <div className={sx(styles.infoBox)}>
-            {repositoryState.rootPath ?? "Not detected"}
+            {repositoryState.rootPath ?? t("settings:repositoriesSection.settings.rootPath.notDetected")}
           </div>
         </LabeledField>
 
         <LabeledField
-          title="Remote Status"
+          title={t("settings:repositoriesSection.settings.remoteStatus.title")}
           description={repositoryState.detail}
         >
           {repositoryState.status === "error" ? (
             <p className={sx(styles.errorText)}>{repositoryState.detail}</p>
           ) : repositoryState.remotes.length === 0 ? (
-            <p className={sx(styles.mutedBody)}>No remotes configured.</p>
+            <p className={sx(styles.mutedBody)}>{t("settings:repositoriesSection.settings.remoteStatus.noRemotes")}</p>
           ) : (
             <div className={sx(styles.spaceY2)}>
               {repositoryState.remotes.map((remote) => (
@@ -499,14 +491,13 @@ function RepositorySettingsPanel(args: {
                       variant="secondary"
                       className={sx(styles.remoteBadge)}
                     >
-                      configured
-                    </Badge>
+                      {i18n.t("settings:repositoriesSection.settings.remoteStatus.configured")}</Badge>
                   </div>
                   <p className={sx(styles.remoteMono)}>
-                    fetch: {remote.fetchUrl ?? "-"}
+                    {i18n.t("settings:settingsDialogRepositoriesSection.fetch")}{remote.fetchUrl ?? "-"}
                   </p>
                   <p className={sx(styles.remoteMono)}>
-                    push: {remote.pushUrl ?? remote.fetchUrl ?? "-"}
+                    {i18n.t("settings:settingsDialogRepositoriesSection.push")}{remote.pushUrl ?? remote.fetchUrl ?? "-"}
                   </p>
                 </div>
               ))}
@@ -517,11 +508,9 @@ function RepositorySettingsPanel(args: {
         <div className={sx(styles.dangerZone)}>
           <div className={sx(styles.dangerRow)}>
             <div className={sx(styles.spaceY1)}>
-              <p className={sx(styles.dangerTitle)}>Remove repository</p>
+              <p className={sx(styles.dangerTitle)}>{t("settings:repositoriesSection.settings.remove.button")}</p>
               <p className={sx(styles.mutedBody)}>
-                Removes this repository from Stave&apos;s registered repository list
-                without deleting files on disk.
-              </p>
+                {t("settings:settingsDialogRepositoriesSection.removesThisRepositoryFromStaveApos")}</p>
             </div>
             <Button
               type="button"
@@ -536,15 +525,14 @@ function RepositorySettingsPanel(args: {
               }
             >
               <Trash2 className={sx(styles.iconMd)} />
-              Remove repository
-            </Button>
+              {t("settings:repositoriesSection.settings.remove.button")}</Button>
           </div>
         </div>
       </SettingsCard>
 
       <SettingsCard
-        title={WORKSPACE_TOOLS_LABEL}
-        description="One-shot commands, long-running processes, lifecycle triggers, and execution environments for this repository."
+        title={t(WORKSPACE_TOOLS_LABEL_KEY)}
+        description={t("settings:repositoriesSection.workspaceTools.description")}
         titleAccessory={
           <Button
             type="button"
@@ -554,22 +542,21 @@ function RepositorySettingsPanel(args: {
             onClick={() => args.onNavigateSection?.("scripts")}
           >
             <Sparkles className={sx(styles.iconSm)} />
-            Manage workspace tools
-            <ChevronRight className={sx(styles.iconSm)} />
+            {t("settings:repositoriesSection.workspaceTools.manage")}<ChevronRight className={sx(styles.iconSm)} />
           </Button>
         }
       >
         <div className={sx(styles.rowWrapGap2)}>
           {(
             [
-              ["Commands", resolvedScriptsConfig?.actions.length ?? 0],
-              ["Processes", resolvedScriptsConfig?.services.length ?? 0],
+              [t("settingsProviders:codexSection.tabs.commands"), resolvedScriptsConfig?.actions.length ?? 0],
+              [t("settings:settingsDialogRepositoriesSection.processes"), resolvedScriptsConfig?.services.length ?? 0],
               [
-                "Triggers",
+                t("settings:settingsDialogRepositoriesSection.triggers"),
                 Object.keys(resolvedScriptsConfig?.hooks ?? {}).length,
               ],
               [
-                "Environments",
+                t("settings:settingsDialogRepositoriesSection.environments"),
                 Object.keys(resolvedScriptsConfig?.targets ?? {}).length,
               ],
             ] as const
@@ -583,10 +570,7 @@ function RepositorySettingsPanel(args: {
             </Badge>
           ))}
         </div>
-        <p className={sx(styles.mutedBody)}>
-          Configure and run them from the dedicated {WORKSPACE_TOOLS_LABEL}{" "}
-          section.
-        </p>
+        <p className={sx(styles.mutedBody)}>{t("settings:messages.workspaceToolsLink", { section: t(WORKSPACE_TOOLS_LABEL_KEY) })}</p>
       </SettingsCard>
     </div>
   );
@@ -598,6 +582,7 @@ export function RepositoriesSection(args: {
   selectedRepositoryPath?: string | null;
   onNavigateSection?: (id: SectionId) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const removeRepositoryFromList = useAppStore(
     (state) => state.removeRepositoryFromList,
   );
@@ -614,13 +599,11 @@ export function RepositoriesSection(args: {
     <>
       {args.repositories.length === 0 ? (
         <SettingsCard
-          title="No Repositories Yet"
-          description="Open a repository from the sidebar to register it here."
+          title={t("settings:repositoriesSection.empty.title")}
+          description={t("settings:repositoriesSection.empty.description")}
         >
           <p className={sx(styles.mutedBody)}>
-            Registered repositories will show their repository defaults and metadata
-            in this section.
-          </p>
+            {t("settings:repositoriesSection.empty.body")}</p>
         </SettingsCard>
       ) : (
         <div className={sx(styles.minW0)}>
@@ -635,26 +618,24 @@ export function RepositoriesSection(args: {
             />
           ) : (
             <SettingsCard
-              title="Repository Details"
-              description="Choose a repository from the Settings sidebar to open its settings panel."
+              title={t("settings:repositoriesSection.noSelection.title")}
+              description={t("settings:repositoriesSection.noSelection.description")}
             >
               <p className={sx(styles.mutedBody)}>
-                Pick a repository from the sidebar to inspect its workspace
-                defaults and repository metadata.
-              </p>
+                {t("settings:repositoriesSection.noSelection.body")}</p>
             </SettingsCard>
           )}
         </div>
       )}
       <ConfirmDialog
         open={Boolean(repositoryToRemove)}
-        title="Remove Repository"
+        title={t("settings:repositoriesSection.removeDialog.confirm")}
         description={
           repositoryToRemove
-            ? `Remove "${repositoryToRemove.repositoryName}" from Stave's repository list? This does not delete files on disk.`
+            ? t("settings:settingsDialogRepositoriesSection.removeFromStaveSRepositoryList", { value1: repositoryToRemove.repositoryName })
             : ""
         }
-        confirmLabel="Remove Repository"
+        confirmLabel={t("settings:repositoriesSection.removeDialog.confirm")}
         onCancel={() => setRepositoryToRemove(null)}
         onConfirm={() => {
           if (!repositoryToRemove) {

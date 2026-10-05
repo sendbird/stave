@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import {
   ArrowRight,
   BrainCircuit,
@@ -31,7 +32,7 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import {
-  DEFAULT_COMPARE_REVIEW_CRITERIA,
+  getDefaultCompareReviewCriteria,
   type CompareRunVariant,
 } from "@/lib/compare-runs";
 import { useAppStore } from "@/store/app.store";
@@ -62,22 +63,22 @@ const COMPARE_JUDGE_STORE_ACCESS = {
 function getVariantStatusLabel(status: CompareRunVariant["status"]) {
   switch (status) {
     case "creating":
-      return "Creating";
+      return i18n.t("compare:compareRunPanel.creating");
     case "running":
-      return "Running";
+      return i18n.t("common:status.running");
     case "completed":
-      return "Ready";
+      return i18n.t("common:status.ready");
     case "failed":
-      return "Failed";
+      return i18n.t("common:status.failed");
     case "cancelled":
-      return "Cancelled";
+      return i18n.t("common:status.cancelled");
     case "kept":
-      return "Kept";
+      return i18n.t("compare:compareRunPanel.kept");
     case "discarded":
-      return "Discarded";
+      return i18n.t("compare:compareRunPanel.discarded");
     case "pending":
     default:
-      return "Pending";
+      return i18n.t("common:status.pending");
   }
 }
 
@@ -117,7 +118,7 @@ function VariantStatusIcon(props: { status: CompareRunVariant["status"] }) {
 }
 
 function formatVariantTitle(variant: CompareRunVariant, index: number) {
-  return variant.label?.trim() || `Variant ${index + 1}`;
+  return variant.label?.trim() || i18n.t("compare:compareRunPanel.variant", { value1: index + 1 });
 }
 
 function truncatePath(path: string) {
@@ -137,6 +138,7 @@ export interface CompareRunPanelProps {
 }
 
 export function CompareRunPanel(props: CompareRunPanelProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const activeCompareRunId = useAppStore(
     (state) =>
       props.compareRunId ??
@@ -199,17 +201,17 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
   const terminalNotice =
     compareRun?.status === "failed"
       ? {
-          title: "Comparison failed",
+          title: t("compare:compareRunPanel.comparisonFailed"),
           description:
             compareRun.error ||
-            "No candidate completed successfully. Inspect each candidate for details, then discard their workspaces when finished.",
+            t("compare:compareRunPanel.noCandidateCompletedSuccessfullyInspectEach"),
           destructive: true,
         }
       : compareRun?.status === "cancelled"
         ? {
-            title: "Candidates discarded",
+            title: t("compare:compareRunPanel.candidatesDiscarded"),
             description:
-              "The comparison ended and its candidate workspaces were closed.",
+              t("compare:compareRunPanel.theComparisonEndedAndItsCandidate"),
             destructive: false,
           }
         : null;
@@ -217,7 +219,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
   const reviewCriteria =
     configuredReviewCriteria && configuredReviewCriteria.length > 0
       ? configuredReviewCriteria
-      : [...DEFAULT_COMPARE_REVIEW_CRITERIA];
+      : getDefaultCompareReviewCriteria();
   const seedPreview = useMemo(() => {
     const seedPrompt = compareRun?.seedPrompt.trim() ?? "";
     return seedPrompt.length > 180
@@ -267,7 +269,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
               [variant.id]: {
                 status: "error",
                 items: EMPTY_STATUS_ITEMS,
-                error: "Source control bridge is unavailable.",
+                error: i18n.t("compare:compareRunPanel.sourceControlBridgeIsUnavailable"),
               },
             }));
           }
@@ -289,7 +291,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
               : {
                   status: "error",
                   items: EMPTY_STATUS_ITEMS,
-                  error: result.stderr || "Unable to read source status.",
+                  error: result.stderr || i18n.t("compare:compareRunPanel.unableToReadSourceStatus"),
                 },
           }));
         } catch (error) {
@@ -304,7 +306,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
               error:
                 error instanceof Error
                   ? error.message
-                  : "Unable to read source status.",
+                  : i18n.t("compare:compareRunPanel.unableToReadSourceStatus"),
             },
           }));
         }
@@ -326,13 +328,9 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
             </EmptyMedia>
             <div className={sx(styles.emptyTextGroup)}>
               <EmptyTitle xstyle={styles.emptyTitle}>
-                No compare run selected
-              </EmptyTitle>
+                {t("compare:compareRunPanel.noCompareRunSelected")}</EmptyTitle>
               <EmptyDescription xstyle={styles.emptyDescription}>
-                Write a prompt in the composer, then choose Compare beside the
-                send controls. Choose each candidate model and an independent
-                judge before starting.
-              </EmptyDescription>
+                {t("compare:compareRunPanel.writeAPromptInTheComposer")}</EmptyDescription>
             </div>
           </EmptyHeader>
         </Empty>
@@ -351,11 +349,11 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
         variantId: keepTarget.id,
       });
       if (!result.ok) {
-        toast.error("Unable to keep compare variant", {
+        toast.error(i18n.t("compare:compareRunPanel.unableToKeepCompareVariant"), {
           description: result.message,
         });
       } else {
-        toast.success("Compare variant kept");
+        toast.success(i18n.t("compare:compareRunPanel.compareVariantKept"));
       }
       setKeepTarget(null);
     } finally {
@@ -371,11 +369,11 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
     try {
       const result = await cancelCompareRun({ compareRunId: compareRun.id });
       if (!result.ok) {
-        toast.error("Unable to discard compare candidates", {
+        toast.error(i18n.t("compare:compareRunPanel.unableToDiscardCompareCandidates"), {
           description: result.message,
         });
       } else {
-        toast.success("Compare candidates discarded");
+        toast.success(i18n.t("compare:compareRunPanel.compareCandidatesDiscarded"));
       }
       setCancelConfirmOpen(false);
     } finally {
@@ -402,20 +400,20 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
     <div className={sx(styles.root)}>
       <ConfirmDialog
         open={Boolean(keepTarget)}
-        title="Keep this candidate?"
-        description="The selected candidate workspace will stay open. Stave will discard the other candidate workspaces; this does not merge code."
-        confirmLabel="Keep candidate"
-        cancelLabel="Cancel"
+        title={t("compare:compareRunPanel.keepThisCandidate")}
+        description={t("compare:compareRunPanel.theSelectedCandidateWorkspaceWillStay")}
+        confirmLabel={t("compare:compareRunPanel.keepCandidate")}
+        cancelLabel={t("common:actions.cancel")}
         loading={pendingAction?.startsWith("keep:")}
         onCancel={() => setKeepTarget(null)}
         onConfirm={() => void confirmKeepVariant()}
       />
       <ConfirmDialog
         open={cancelConfirmOpen}
-        title="Discard all candidates?"
-        description="Every candidate workspace in this comparison will be closed and cleaned up, including completed candidates."
-        confirmLabel="Discard all"
-        cancelLabel="Go back"
+        title={t("compare:compareRunPanel.discardAllCandidates")}
+        description={t("compare:compareRunPanel.everyCandidateWorkspaceInThisComparison")}
+        confirmLabel={t("compare:compareRunPanel.discardAll")}
+        cancelLabel={t("compare:compareRunPanel.goBack")}
         loading={pendingAction?.startsWith("cancel:")}
         onCancel={() => setCancelConfirmOpen(false)}
         onConfirm={() => void confirmCancelRun()}
@@ -426,15 +424,15 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
           <div className={sx(styles.headerMain)}>
             <div className={sx(styles.headerTitleRow)}>
               <SplitSquareHorizontal className={sx(styles.headerIcon)} />
-              <h2 className={sx(styles.headerTitle)}>Compare candidates</h2>
+              <h2 className={sx(styles.headerTitle)}>{t("compare:compareRunPanel.compareCandidates")}</h2>
               <Badge variant="outline">
                 {judge?.status === "running"
-                  ? "Judging"
+                  ? t("compare:compareRunPanel.judging")
                   : formatRunStatus(compareRun.status)}
               </Badge>
             </div>
             <div className={sx(styles.promptRow)}>
-              <span className={sx(styles.promptLabel)}>Prompt</span>
+              <span className={sx(styles.promptLabel)}>{t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.prompt.label")}</span>
               <p className={sx(styles.promptText)}>{seedPreview}</p>
             </div>
           </div>
@@ -447,8 +445,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
               onClick={() => setRefreshNonce((value) => value + 1)}
             >
               <RefreshCw className={sx(styles.icon14)} />
-              Refresh
-            </Button>
+              {t("common:actions.refresh")}</Button>
             <Button
               type="button"
               size="sm"
@@ -461,19 +458,18 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
               }
               onClick={() => setCancelConfirmOpen(true)}
             >
-              Discard all
-            </Button>
+              {t("compare:compareRunPanel.discardAll")}</Button>
           </div>
         </div>
       </div>
 
-      <ol aria-label="Compare workflow" className={sx(styles.stepper)}>
+      <ol aria-label={t("compare:compareRunPanel.compareWorkflow")} className={sx(styles.stepper)}>
         {[
-          ["1", "Prepare", "Shared brief and review contract."],
-          ["2", "Run", "Candidates work in isolation."],
-          ["3", "Judge", "Fresh-context scoring and recommendation."],
-          ["4", "Review", "Inspect evidence against one rubric."],
-          ["5", "Keep", "Preserve one workspace; discard the rest."],
+          ["1", t("compare:compareRunPanel.prepare"), t("compare:compareRunPanel.sharedBriefAndReviewContract")],
+          ["2", t("common:actions.run"), t("compare:compareRunPanel.candidatesWorkInIsolation")],
+          ["3", t("compare:compareRunPanel.judge"), t("compare:compareRunPanel.freshContextScoringAndRecommendation")],
+          ["4", t("settingsConnections:settingsDialogAutoRoutingWizard.review"), t("compare:compareRunPanel.inspectEvidenceAgainstOneRubric")],
+          ["5", t("compare:compareRunPanel.keep"), t("compare:compareRunPanel.preserveOneWorkspaceDiscardTheRest")],
         ].map(([number, label, description], index) => {
           const step = index + 1;
           const active = comparePhase === step;
@@ -516,7 +512,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
       {terminalNotice ? (
         <section
           role="status"
-          aria-label="Compare terminal status"
+          aria-label={t("compare:compareRunPanel.compareTerminalStatus")}
           className={sx(
             styles.notice,
             terminalNotice.destructive
@@ -543,7 +539,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
 
       {!terminalNotice && judge && comparePhase >= 3 ? (
         <section
-          aria-label="Fresh-context judge"
+          aria-label={t("compare:compareRunPanel.freshContextJudge")}
           aria-live="polite"
           className={sx(
             styles.judge,
@@ -574,10 +570,10 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
             <div className={sx(styles.judgeHeadRow)}>
               <p className={sx(styles.judgeTitle)}>
                 {judge.status === "completed" && recommendedTitle
-                  ? `Recommended: ${recommendedTitle}`
+                  ? t("compare:compareRunPanel.recommended", { value1: recommendedTitle })
                   : judge.status === "failed"
-                    ? "Independent judge unavailable"
-                    : "Independent judge reviewing candidates"}
+                    ? t("compare:compareRunPanel.independentJudgeUnavailable")
+                    : t("compare:compareRunPanel.independentJudgeReviewingCandidates")}
               </p>
               {judge.status === "completed" &&
               typeof recommendedScore === "number" ? (
@@ -593,9 +589,9 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                   ? ` · ${toHumanModelName({ model: displayedJudgeModel })}`
                   : ""}
                 {judge.effort ? ` · ${judge.effort}` : ""}
-                {" · Fresh context · Read only"}
+                {t("compare:compareRunPanel.freshContextReadOnly")}
                 {judge.status === "completed" && judgeProvenance
-                  ? ` · Rubric v${judgeProvenance.rubricVersion} · Attempt ${judgeProvenance.attempt}`
+                  ? t("compare:compareRunPanel.rubricVAttempt", { value1: judgeProvenance.rubricVersion, value2: judgeProvenance.attempt })
                   : ""}
               </span>
             </div>
@@ -604,7 +600,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                 ? judgment?.rationale
                 : judge.status === "failed"
                   ? judge.error
-                  : "Inspecting actual worktree changes against the shared review contract. No candidate context is reused."}
+                  : t("compare:compareRunPanel.inspectingActualWorktreeChangesAgainstThe")}
             </p>
           </div>
           {judge.status === "failed" && completedVariantCount >= 2 ? (
@@ -617,21 +613,20 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
               onClick={() => void handleRetryJudge()}
             >
               <RotateCcw className={sx(styles.icon14)} />
-              Retry
-            </Button>
+              {t("common:actions.retry")}</Button>
           ) : null}
         </section>
       ) : null}
 
       {!terminalNotice && comparePhase >= 4 ? (
         <section
-          aria-label="Compare review contract"
+          aria-label={t("compare:compareRunPanel.compareReviewContract")}
           className={sx(styles.review)}
         >
           <div className={sx(styles.reviewHead)}>
             <ListChecks className={sx(styles.reviewIcon)} />
             <span className={sx(styles.reviewHeadLabel)}>
-              {comparePhase === 5 ? "Candidate kept" : "Ready for review"}
+              {comparePhase === 5 ? t("compare:compareRunPanel.candidateKept") : t("compare:compareRunPanel.readyForReview")}
             </span>
           </div>
           <div className={sx(styles.reviewCriteria)}>
@@ -692,8 +687,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                         {recommended ? (
                           <span className={sx(styles.recommendedTag)}>
                             <Trophy className={sx(styles.icon12)} />
-                            Recommended
-                          </span>
+                            {i18n.t("settings:commandPaletteSection.modelShortcuts.recommended")}</span>
                         ) : null}
                       </div>
                       <div className={sx(styles.variantModelRow)}>
@@ -720,12 +714,9 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                       </span>
                     ) : null}
                     <span>
-                      {summary.workingTreeCount + summary.stagedCount} changed
-                    </span>
+                      {summary.workingTreeCount + summary.stagedCount} {i18n.t("compare:compareRunPanel.changed")}</span>
                     {summary.conflictCount > 0 ? (
-                      <span className={sx(styles.variantConflicts)}>
-                        {summary.conflictCount} conflicts
-                      </span>
+                      <span className={sx(styles.variantConflicts)}>{t("compare:messages.conflicts", { count: summary.conflictCount })}</span>
                     ) : null}
                   </div>
                 </div>
@@ -736,16 +727,14 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                   ) : sourceState?.status === "loading" ? (
                     <div className={sx(styles.variantLoading)}>
                       <Loader aria-hidden size="xs" variant="parallel" />
-                      Loading changes
-                    </div>
+                      {i18n.t("compare:compareRunPanel.loadingChanges")}</div>
                   ) : sourceState?.status === "error" ? (
                     <p className={sx(styles.variantWarning)}>
                       {sourceState.error}
                     </p>
                   ) : items.length === 0 ? (
                     <p className={sx(styles.variantEmptyFiles)}>
-                      No changed files yet.
-                    </p>
+                      {i18n.t("compare:compareRunPanel.noChangedFilesYet")}</p>
                   ) : (
                     <div className={sx(styles.fileList)}>
                       {items.map((item, itemIndex) => (
@@ -771,8 +760,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                     <div className={sx(styles.assessment)}>
                       <div className={sx(styles.assessmentHead)}>
                         <span className={sx(styles.assessmentHeadLabel)}>
-                          Judge assessment
-                        </span>
+                          {i18n.t("compare:compareRunPanel.judgeAssessment")}</span>
                         <span className={sx(styles.assessmentScore)}>
                           {candidateScore.score.toFixed(1)} / 10
                         </span>
@@ -804,9 +792,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                         ))}
                       </dl>
                       {candidateScore.risks[0] ? (
-                        <p className={sx(styles.risk)}>
-                          Risk · {candidateScore.risks[0]}
-                        </p>
+                        <p className={sx(styles.risk)}>{t("compare:messages.risk", { detail: candidateScore.risks[0] })}</p>
                       ) : null}
                     </div>
                   ) : null}
@@ -827,8 +813,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                     }
                   >
                     <Eye className={sx(styles.icon14)} />
-                    Open candidate
-                  </Button>
+                    {i18n.t("compare:compareRunPanel.openCandidate")}</Button>
                   <Button
                     type="button"
                     size="sm"
@@ -844,8 +829,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                     onClick={() => setKeepTarget(variant)}
                   >
                     <Trophy className={sx(styles.icon14)} />
-                    Keep
-                    <ArrowRight className={sx(styles.icon14)} />
+                    {i18n.t("compare:compareRunPanel.keep")}<ArrowRight className={sx(styles.icon14)} />
                   </Button>
                 </div>
               </section>

@@ -1,3 +1,4 @@
+import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
@@ -48,16 +49,16 @@ export function buildRouteTraceSignals(args: {
   }
   chips.push({
     id: "complexity",
-    label: `${ROUTE_COMPLEXITY_LABELS[signals.complexity] ?? signals.complexity} level`,
+    label: i18n.t("settingsConnections:messages.level", { level: ROUTE_COMPLEXITY_LABELS[signals.complexity] ?? signals.complexity }),
     decisive: false,
   });
   if (signals.sensitive) {
-    chips.push({ id: "sensitive", label: "sensitive", decisive: true });
+    chips.push({ id: "sensitive", label: i18n.t("settingsConnections:messages.sensitive"), decisive: true });
   }
   if (signals.fileContextCount > 0) {
     chips.push({
       id: "files",
-      label: `${signals.fileContextCount} ${signals.fileContextCount === 1 ? "file" : "files"}`,
+      label: i18n.t("settingsConnections:messages.files", { count: signals.fileContextCount }),
       decisive: false,
     });
   }
@@ -67,7 +68,7 @@ export function buildRouteTraceSignals(args: {
       signals.budgetUsedPercent >= args.budgetStepDownAt;
     chips.push({
       id: "budget",
-      label: `budget ${signals.budgetUsedPercent}%`,
+      label: i18n.t("settingsConnections:messages.budget", { percent: signals.budgetUsedPercent }),
       decisive: deep,
     });
   }
@@ -77,7 +78,7 @@ export function buildRouteTraceSignals(args: {
   if (unavailable.length > 0) {
     chips.push({
       id: "providers",
-      label: `${unavailable.map((providerId) => getProviderLabel({ providerId })).join(", ")} unavailable`,
+      label: i18n.t("settingsConnections:routeTrace.unavailable", { value1: unavailable.map((providerId) => getProviderLabel({ providerId })).join(", ") }),
       decisive: true,
     });
   }
@@ -87,15 +88,15 @@ export function buildRouteTraceSignals(args: {
 function toSourceLabel(source: AutoRoutingDecision["source"]) {
   switch (source) {
     case "classifier":
-      return "classifier";
+      return i18n.t("settingsConnections:messages.sourceClassifier");
     case "classifier_fallback":
-      return "classifier fallback";
+      return i18n.t("settingsConnections:routeTrace.classifierFallback");
     case "heuristic":
-      return "heuristic";
+      return i18n.t("settingsConnections:messages.sourceHeuristic");
     case "manual":
-      return "manual";
+      return i18n.t("settingsConnections:messages.sourceManual");
     case "disabled":
-      return "disabled";
+      return i18n.t("settingsConnections:messages.sourceDisabled");
   }
 }
 
@@ -139,6 +140,7 @@ interface Hop {
  * while the turn is live rather than as a table to study afterwards.
  */
 export function RouteTrace(props: RouteTraceProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const { record } = props;
   const { decision } = record;
   const [collapsed, setCollapsed] = useState(props.defaultCollapsed ?? false);
@@ -155,16 +157,16 @@ export function RouteTrace(props: RouteTraceProps) {
   const hops: Hop[] = [
     {
       id: "prompt",
-      label: "Prompt",
+      label: t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.prompt.label"),
       body: (
         <span className={sx(styles.prompt)} title={record.promptPreview}>
-          {record.promptPreview || "(empty prompt)"}
+          {record.promptPreview || t("settingsConnections:routeFlow.emptyPrompt")}
         </span>
       ),
     },
     {
       id: "signals",
-      label: "Signals",
+      label: t("settingsConnections:routeTrace.signals"),
       warn: decisive,
       body: (
         <span className={sx(styles.chips)}>
@@ -183,7 +185,7 @@ export function RouteTrace(props: RouteTraceProps) {
     },
     {
       id: "task",
-      label: "Task",
+      label: t("settingsConnections:routeTrace.task"),
       body: (
         <span className={sx(styles.row)}>
           <span className={sx(styles.hopValue)} data-task-class={decision.taskClass}>
@@ -192,7 +194,7 @@ export function RouteTrace(props: RouteTraceProps) {
           <span className={sx(styles.caption)}>
             {toSourceLabel(decision.source)}
             {decision.confidence !== null && decision.source === "classifier" && decision.confidence < 1
-              ? ` · ${Math.round(decision.confidence * 100)}% sure`
+              ? t("settingsConnections:routeTrace.sure", { value1: Math.round(decision.confidence * 100) })
               : null}
           </span>
         </span>
@@ -200,16 +202,14 @@ export function RouteTrace(props: RouteTraceProps) {
     },
     {
       id: "rule",
-      label: "Rule",
+      label: t("settingsConnections:routeTrace.rule"),
       body: (
         <>
           <span className={sx(styles.row)}>
             <span className={sx(styles.mono)} data-rule-id={ruleLabel}>
               {ruleLabel}
             </span>
-            <span className={sx(styles.caption)}>
-              {STANCE_LABELS[decision.stance]} stance
-            </span>
+            <span className={sx(styles.caption)}>{t("settingsConnections:messages.stance", { stance: STANCE_LABELS[decision.stance] })}</span>
           </span>
           {decision.ruleReason ? (
             <span className={sx(styles.caption)} data-testid="route-trace-reason">
@@ -221,7 +221,7 @@ export function RouteTrace(props: RouteTraceProps) {
     },
     {
       id: "model",
-      label: "Model",
+      label: t("settingsProviders:auxiliaryInference.model.title"),
       body: (
         <AgentIdentity
           providerId={decision.providerId}
@@ -233,20 +233,18 @@ export function RouteTrace(props: RouteTraceProps) {
     },
   ];
 
-  const summary = `${taskLabel} via ${
-    decision.ruleId ? `rule ${decision.ruleId}` : "fallback"
-  } → ${decision.model}${effort ? ` · ${effort}` : ""}`;
+  const summary = t(decision.ruleId ? "settingsConnections:messages.traceRuleSummary" : "settingsConnections:messages.traceFallbackSummary", { taskClass: taskLabel, rule: decision.ruleId, model: decision.model, effort: effort ? ` · ${effort}` : "" });
 
   return (
     <section
       className={props.className}
-      aria-label="Route"
+      aria-label={t("settingsConnections:routeTrace.route")}
       data-testid={props["data-testid"] ?? "route-trace"}
       data-collapsed={collapsed ? "true" : undefined}
     >
       <div className={sx(styles.header)} data-testid="route-trace-header">
         <h3 className={sx(styles.title)}>
-          <span className={sx(styles.titleLead)}>Route</span>
+          <span className={sx(styles.titleLead)}>{t("settingsConnections:routeTrace.route")}</span>
           <span className={sx(styles.titleSep)} aria-hidden>
             ·
           </span>
@@ -268,10 +266,10 @@ export function RouteTrace(props: RouteTraceProps) {
           size="xs"
           className={sx(styles.toggle)}
           aria-expanded={!collapsed}
-          aria-label={collapsed ? "Show how this model was chosen" : "Hide route"}
+          aria-label={collapsed ? t("settingsConnections:routeTrace.showHowThisModelWasChosen") : t("settingsConnections:routeTrace.hideRoute")}
           onClick={() => setCollapsed((value) => !value)}
         >
-          {collapsed ? "Why" : "Hide"}
+          {collapsed ? t("settingsConnections:routeTrace.why") : t("common:actions.hide")}
           {collapsed ? (
             <ChevronDown aria-hidden size={12} />
           ) : (

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "./provider-accounts";
 import type { ProviderId } from "./provider.types";
 
@@ -65,5 +66,5 @@ export function describeProviderSessionAccount(args: {
       candidate.id === args.accountProfileId,
   );
   if (profile) return profile.label;
-  return args.profilesLoaded ? "Removed account" : null;
+  return args.profilesLoaded ? i18n.t("usage:usageViewUtils.removedAccount") : null;
 }

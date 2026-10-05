@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { useCliTerminalInstance } from "./useCliTerminalInstance";
 import { useAppStore } from "@/store/app.store";
@@ -6,6 +7,7 @@ import { accountStyles as styles } from "./provider-accounts.styles";
 
 /** Login output is never persisted as a terminal transcript or copied into app state. */
 export function ProviderAccountLoginTerminal({ sessionId }: { sessionId: string }) {
+  useTranslation("settingsConnections");
   const containerRef = useRef<HTMLDivElement>(null);
   const isDarkMode = useAppStore(s => s.isDarkMode);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export function ProviderAccountLoginTerminal({ sessionId }: { sessionId: string 
       try {
         const result = await terminal?.readSession?.({ sessionId });
         if (cancelled) return;
-        if (!result?.ok) { setError(result?.stderr ?? "Login terminal disconnected."); return; }
+        if (!result?.ok) { setError(result?.stderr ?? i18n.t("settingsConnections:messages.loginTerminalDisconnected")); return; }
         if (result.output) controller.write(result.output);
         timer = setTimeout(poll, 150);
       } catch (error) { if (!cancelled) setError(String(error)); }
@@ -34,7 +36,7 @@ export function ProviderAccountLoginTerminal({ sessionId }: { sessionId: string 
     void terminal?.attachSession?.({ sessionId, deliveryMode: "poll" }).then(result => {
       attachmentId = result.attachmentId;
       if (cancelled) { detach(); return; }
-      if (!result.ok) { setError(result.stderr ?? "Could not attach login terminal."); return; }
+      if (!result.ok) { setError(result.stderr ?? i18n.t("settingsConnections:messages.loginTerminalAttachFailed")); return; }
       if (result.backlog) controller.write(result.backlog);
       controller.focus();
       void poll();

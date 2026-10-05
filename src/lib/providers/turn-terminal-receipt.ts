@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { isProviderTurnContinuationEvent } from "./turn-event-evidence";
 import { hasMeaningfulPlanText } from "../plan-text";
 import { classifyProviderTurnStopReason, isSuccessfulProviderTurnStopReason } from "./turn-stop-reason";
@@ -111,13 +112,13 @@ export function finishTurnReceipt(
     classifyProviderTurnStopReason(next.stopReason ?? undefined) === "cancelled"
   ) {
     next.outcome = "cancelled";
-    next.error = "Provider turn was interrupted before it completed.";
+    next.error = i18n.t("providers:turnTerminalReceipt.providerTurnWasInterruptedBeforeIt");
   } else if (
     classifyProviderTurnStopReason(next.stopReason ?? undefined) === "failed"
   ) {
     next.outcome = "failed";
     next.error =
-      next.lastError?.message || "Provider runtime failed before responding.";
+      next.lastError?.message || i18n.t("providers:turnTerminalReceipt.providerRuntimeFailedBeforeResponding");
   } else if (
     next.lastError &&
     (!next.lastError.continuationObserved || !next.outputObserved ||
@@ -131,7 +132,7 @@ export function finishTurnReceipt(
   } else if (!next.outputObserved) {
     next.outcome = observationComplete ? "failed" : "unknown";
     next.error = observationComplete
-      ? "Provider turn ended without a response." : null;
+      ? i18n.t("providers:turnTerminalReceipt.providerTurnEndedWithoutAResponse") : null;
   } else next.outcome = "completed";
   return next;
 }

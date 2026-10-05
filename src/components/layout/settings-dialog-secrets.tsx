@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -18,6 +19,7 @@ import { secretsStyles as styles } from "./settings-dialog-secrets.styles";
 import type { SecretMetadata } from "@/lib/secrets/secrets";
 
 export function SecretsSettingsCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [secrets, setSecrets] = useState<SecretMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,12 +49,12 @@ export function SecretsSettingsCard() {
     try {
       const result = await list();
       if (!result.ok) {
-        toast.error("Failed to load secrets", { description: result.message });
+        toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToLoadSecrets"), { description: result.message });
         return;
       }
       setSecrets(result.secrets);
     } catch (error) {
-      toast.error("Failed to load secrets", {
+      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToLoadSecrets"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -91,17 +93,17 @@ export function SecretsSettingsCard() {
 
   const saveSecret = useCallback(async () => {
     if (!name.trim()) {
-      toast.error("Enter a name for the secret.");
+      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.enterANameForTheSecret"));
       return;
     }
     if (!editingId && !value) {
-      toast.error("Enter a value for the new secret.");
+      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.enterAValueForTheNew"));
       return;
     }
 
     const upsert = window.api?.secrets?.upsert;
     if (!upsert) {
-      toast.error("Secure secret storage is available in the desktop app.");
+      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.secureSecretStorageIsAvailableIn"));
       return;
     }
 
@@ -115,14 +117,14 @@ export function SecretsSettingsCard() {
         ...(value ? { value } : {}),
       });
       if (!result.ok) {
-        toast.error("Failed to save secret", { description: result.message });
+        toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToSaveSecret"), { description: result.message });
         return;
       }
-      toast.success(editingId ? "Secret updated" : "Secret saved");
+      toast.success(editingId ? i18n.t("settingsConnections:settingsDialogSecrets.secretUpdated") : i18n.t("settingsConnections:settingsDialogSecrets.secretSaved"));
       closeEditor();
       await loadSecrets();
     } catch (error) {
-      toast.error("Failed to save secret", {
+      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToSaveSecret"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -144,17 +146,17 @@ export function SecretsSettingsCard() {
     }
     const remove = window.api?.secrets?.delete;
     if (!remove) {
-      toast.error("Secure secret storage is unavailable.");
+      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.secureSecretStorageIsUnavailable"));
       return;
     }
     setSaving(true);
     try {
       const result = await remove({ id: deletingId });
       if (!result.ok) {
-        toast.error("Failed to delete secret", { description: result.message });
+        toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToDeleteSecret"), { description: result.message });
         return;
       }
-      toast.success("Secret deleted");
+      toast.success(i18n.t("settingsConnections:settingsDialogSecrets.secretDeleted"));
       if (revealedId === deletingId) {
         setRevealedId(null);
         setRevealedValue("");
@@ -165,7 +167,7 @@ export function SecretsSettingsCard() {
       setDeletingId(null);
       await loadSecrets();
     } catch (error) {
-      toast.error("Failed to delete secret", {
+      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToDeleteSecret"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -182,13 +184,13 @@ export function SecretsSettingsCard() {
       }
       const reveal = window.api?.secrets?.reveal;
       if (!reveal) {
-        toast.error("Secure secret storage is unavailable.");
+        toast.error(i18n.t("settingsConnections:settingsDialogSecrets.secureSecretStorageIsUnavailable"));
         return;
       }
       try {
         const result = await reveal({ id: secret.id });
         if (!result.ok || result.value === undefined) {
-          toast.error("Failed to reveal secret", {
+          toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToRevealSecret"), {
             description: result.message,
           });
           return;
@@ -196,7 +198,7 @@ export function SecretsSettingsCard() {
         setRevealedId(secret.id);
         setRevealedValue(result.value);
       } catch (error) {
-        toast.error("Failed to reveal secret", {
+        toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToRevealSecret"), {
           description: error instanceof Error ? error.message : String(error),
         });
       }
@@ -207,13 +209,13 @@ export function SecretsSettingsCard() {
   const copySecret = useCallback(async (secret: SecretMetadata) => {
     const reveal = window.api?.secrets?.reveal;
     if (!reveal) {
-      toast.error("Secure secret storage is unavailable.");
+      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.secureSecretStorageIsUnavailable"));
       return;
     }
     try {
       const result = await reveal({ id: secret.id });
       if (!result.ok || result.value === undefined) {
-        toast.error("Failed to copy secret", { description: result.message });
+        toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToCopySecret"), { description: result.message });
         return;
       }
       await navigator.clipboard.writeText(result.value);
@@ -222,7 +224,7 @@ export function SecretsSettingsCard() {
         setCopiedId((current) => (current === secret.id ? null : current));
       }, 1500);
     } catch (error) {
-      toast.error("Failed to copy secret", {
+      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToCopySecret"), {
         description: error instanceof Error ? error.message : String(error),
       });
     }
@@ -231,8 +233,8 @@ export function SecretsSettingsCard() {
   return (
     <>
       <SettingsCard
-        title="Secrets"
-        description="Store API tokens and other secret values. Values are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses. They are revealed only when you explicitly ask, or injected into a bound task's provider runtime as an environment variable."
+        title={t("settings:sections.secrets.label")}
+        description={t("settingsConnections:settingsDialogSecrets.storeAPITokensAndOtherSecret")}
         titleAccessory={
           <Button
             type="button"
@@ -242,20 +244,13 @@ export function SecretsSettingsCard() {
             onClick={openNewEditor}
           >
             <Plus className={sx(styles.addIcon)} />
-            Add secret
-          </Button>
+            {t("settingsConnections:settingsDialogSecrets.addSecret")}</Button>
         }
       >
         <div className={sx(styles.notice)}>
           <ShieldCheck className={sx(styles.noticeIcon)} />
           <p className={sx(styles.noticeText)}>
-            A secret's value is never shown to an agent. Give a secret an
-            environment variable name to bind it to a task from the composer —
-            its value is then available to that task's shell and supported MCP
-            authentication (e.g. <code>$OPENAI_API_KEY</code>) without entering
-            the model's context. A command that echoes the variable can still
-            surface it.
-          </p>
+            {t("settingsConnections:settingsDialogSecrets.aSecretSValueIsNever")}<code>{t("settingsConnections:settingsDialogSecrets.openaiAPIKEY")}</code>{t("settingsConnections:settingsDialogSecrets.withoutEnteringTheModelSContext")}</p>
         </div>
 
         {editorOpen ? (
@@ -267,27 +262,25 @@ export function SecretsSettingsCard() {
             }}
           >
             <label className={sx(styles.fieldLabel)}>
-              Name
-              <Input
+              {t("common:labels.name")}<Input
                 value={name}
-                placeholder="OpenAI API key"
-                aria-label="Secret name"
+                placeholder={t("settingsConnections:settingsDialogSecrets.openaiAPIKey")}
+                aria-label={t("settingsConnections:settingsDialogSecrets.secretName")}
                 className={sx(styles.stacked, styles.fieldControl)}
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
             <label className={sx(styles.fieldLabel)}>
-              Value
-              <div className={sx(styles.stacked, styles.valueRow)}>
+              {t("settingsConnections:settingsDialogSecrets.value")}<div className={sx(styles.stacked, styles.valueRow)}>
                 <Input
                   type={showValue ? "text" : "password"}
                   value={value}
                   placeholder={
                     editingSecret
-                      ? "Leave blank to keep the saved value"
-                      : "Required"
+                      ? t("settingsConnections:settingsDialogSecrets.leaveBlankToKeepTheSaved")
+                      : t("common:labels.required")
                   }
-                  aria-label="Secret value"
+                  aria-label={t("settingsConnections:settingsDialogSecrets.secretValue")}
                   autoComplete="off"
                   className={sx(styles.fieldControlMono)}
                   onChange={(event) => setValue(event.target.value)}
@@ -297,7 +290,7 @@ export function SecretsSettingsCard() {
                   variant="ghost"
                   size="icon-xs"
                   className={sx(styles.iconAction)}
-                  aria-label={showValue ? "Hide value" : "Show value"}
+                  aria-label={showValue ? t("settingsConnections:settingsDialogSecrets.hideValue") : t("settingsConnections:settingsDialogSecrets.showValue")}
                   onClick={() => setShowValue((current) => !current)}
                 >
                   {showValue ? (
@@ -309,12 +302,11 @@ export function SecretsSettingsCard() {
               </div>
             </label>
             <label className={sx(styles.fieldLabel)}>
-              Environment variable name
-              <span className={sx(styles.fieldOptional)}>(optional)</span>
+              {t("settingsConnections:settingsDialogSecrets.environmentVariableName")}<span className={sx(styles.fieldOptional)}>{t("settingsConnections:settingsDialogSecrets.optional")}</span>
               <Input
                 value={envVarName}
                 placeholder="OPENAI_API_KEY"
-                aria-label="Secret environment variable name"
+                aria-label={t("settingsConnections:settingsDialogSecrets.secretEnvironmentVariableName")}
                 autoComplete="off"
                 autoCapitalize="off"
                 autoCorrect="off"
@@ -323,21 +315,17 @@ export function SecretsSettingsCard() {
                 onChange={(event) => setEnvVarName(event.target.value)}
               />
               <span className={sx(styles.stacked, styles.hint)}>
-                Set this to let a task inject the value into its runtime as
-                <code className={sx(styles.hintCode)}>
-                  ${envVarName.trim() || "NAME"}
+                {t("settingsConnections:settingsDialogSecrets.setThisToLetATask")}<code className={sx(styles.hintCode)}>
+                  ${envVarName.trim() || t("settingsConnections:settingsDialogSecrets.name")}
                 </code>
-                . Shell commands and supported MCP authentication can read it,
-                but the value is never shown to the agent.
-              </span>
+                {t("settingsConnections:settingsDialogSecrets.shellCommandsAndSupportedMCPAuthentication")}</span>
             </label>
             <label className={sx(styles.fieldLabel)}>
-              Description
-              <span className={sx(styles.fieldOptional)}>(optional)</span>
+              {t("common:labels.description")}<span className={sx(styles.fieldOptional)}>{t("settingsConnections:settingsDialogSecrets.optional")}</span>
               <Textarea
                 value={description}
-                placeholder="Where this token is used"
-                aria-label="Secret description"
+                placeholder={t("settingsConnections:settingsDialogSecrets.whereThisTokenIsUsed")}
+                aria-label={t("settingsConnections:settingsDialogSecrets.secretDescription")}
                 className={sx(styles.stacked, styles.descriptionArea)}
                 onChange={(event) => setDescription(event.target.value)}
               />
@@ -350,13 +338,12 @@ export function SecretsSettingsCard() {
                 disabled={saving}
                 onClick={closeEditor}
               >
-                Cancel
-              </Button>
+                {t("common:actions.cancel")}</Button>
               <Button type="submit" size="sm" disabled={saving}>
                 {saving ? (
                   <Loader aria-hidden size="xs" variant="persist" />
                 ) : null}
-                {editingId ? "Update secret" : "Save secret"}
+                {editingId ? t("settingsConnections:settingsDialogSecrets.updateSecret") : t("settingsConnections:settingsDialogSecrets.saveSecret")}
               </Button>
             </div>
           </form>
@@ -365,10 +352,9 @@ export function SecretsSettingsCard() {
         {loading ? (
           <div className={sx(styles.loadingRow)}>
             <Loader aria-hidden size="xs" variant="persist" />
-            Loading secrets…
-          </div>
+            {t("settingsConnections:settingsDialogSecrets.loadingSecrets")}</div>
         ) : secrets.length === 0 ? (
-          <p className={sx(styles.emptyText)}>No secrets are saved yet.</p>
+          <p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogSecrets.noSecretsAreSavedYet")}</p>
         ) : (
           <div className={sx(styles.list)}>
             {secrets.map((secret) => {
@@ -384,7 +370,7 @@ export function SecretsSettingsCard() {
                       {secret.envVarName ? (
                         <code
                           className={sx(styles.rowEnvVar)}
-                          title={`Injectable as $${secret.envVarName} when bound to a task`}
+                          title={i18n.t("settingsConnections:settingsDialogSecrets.injectableAsWhenBoundToA", { value1: secret.envVarName })}
                         >
                           ${secret.envVarName}
                         </code>
@@ -404,7 +390,7 @@ export function SecretsSettingsCard() {
                     variant="ghost"
                     size="icon-xs"
                     aria-label={
-                      revealed ? `Hide ${secret.name}` : `Reveal ${secret.name}`
+                      revealed ? i18n.t("settingsConnections:settingsDialogSecrets.hide", { value1: secret.name }) : i18n.t("settingsConnections:settingsDialogSecrets.reveal", { value1: secret.name })
                     }
                     onClick={() => void toggleReveal(secret)}
                   >
@@ -418,7 +404,7 @@ export function SecretsSettingsCard() {
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    aria-label={`Copy ${secret.name}`}
+                    aria-label={i18n.t("settingsConnections:settingsDialogSecrets.copy", { value1: secret.name })}
                     onClick={() => void copySecret(secret)}
                   >
                     {copiedId === secret.id ? (
@@ -431,7 +417,7 @@ export function SecretsSettingsCard() {
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    aria-label={`Edit ${secret.name}`}
+                    aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: secret.name })}
                     onClick={() => openEditEditor(secret)}
                   >
                     <Pencil className={sx(styles.actionIcon)} />
@@ -440,7 +426,7 @@ export function SecretsSettingsCard() {
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    aria-label={`Delete ${secret.name}`}
+                    aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: secret.name })}
                     onClick={() => setDeletingId(secret.id)}
                   >
                     <Trash2 className={sx(styles.actionIcon)} />
@@ -454,9 +440,9 @@ export function SecretsSettingsCard() {
 
       <ConfirmDialog
         open={deletingId !== null}
-        title="Delete saved secret?"
-        description="The encrypted value and its metadata will be removed from this Stave installation."
-        confirmLabel="Delete secret"
+        title={t("settingsConnections:settingsDialogSecrets.deleteSavedSecret")}
+        description={t("settingsConnections:settingsDialogSecrets.theEncryptedValueAndItsMetadata")}
+        confirmLabel={t("settingsConnections:settingsDialogSecrets.deleteSecret")}
         loading={saving}
         onConfirm={() => {
           void deleteSecret();

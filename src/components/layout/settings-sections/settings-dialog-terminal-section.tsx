@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useShallow } from "zustand/react/shallow";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import { useAppStore } from "@/store/app.store";
@@ -29,72 +30,71 @@ export function TerminalSection() {
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const { t } = useTranslation(I18N_NAMESPACES);
 
   return (
-    <>
-      <SectionStack>
-        <SettingsCard
-          title="Typography"
-          description="Tune readability for the integrated terminal."
-        >
-          <LabeledField title="Font Size">
-            <DraftInput
-              xstyle={styles.input40}
-              value={String(terminalFontSize)}
-              onCommit={(nextValue) =>
-                updateSettings({
-                  patch: {
-                    terminalFontSize: readInt(nextValue, terminalFontSize),
-                  },
-                })
-              }
-            />
-          </LabeledField>
-          <LabeledField title="Font Family">
-            <DraftInput
-              xstyle={styles.input40}
-              value={terminalFontFamily}
-              onCommit={(nextValue) =>
-                updateSettings({ patch: { terminalFontFamily: nextValue } })
-              }
-            />
-          </LabeledField>
-          <LabeledField title="Line Height">
-            <DraftInput
-              xstyle={styles.input40}
-              value={String(terminalLineHeight)}
-              onCommit={(nextValue) =>
-                updateSettings({
-                  patch: {
-                    terminalLineHeight: readFloat(
-                      nextValue,
-                      terminalLineHeight,
-                    ),
-                  },
-                })
-              }
-            />
-          </LabeledField>
-        </SettingsCard>
-
-        <SettingsCard
-          title="Cursor"
-          description="Choose the terminal cursor shape."
-        >
-          <ChoiceButtons
-            value={terminalCursorStyle}
-            columns={3}
-            onChange={(value) =>
-              updateSettings({ patch: { terminalCursorStyle: value } })
+    <SectionStack>
+      <SettingsCard
+        title={t("settings:terminalSection.typography.title")}
+        description={t("settings:terminalSection.typography.description")}
+      >
+        <LabeledField title={t("settings:terminalSection.typography.fontSize")}>
+          <DraftInput
+            xstyle={styles.input40}
+            value={String(terminalFontSize)}
+            onCommit={(nextValue) =>
+              updateSettings({
+                patch: {
+                  terminalFontSize: readInt(nextValue, terminalFontSize),
+                },
+              })
             }
-            options={[
-              { value: "block", label: "Block" },
-              { value: "bar", label: "Bar" },
-              { value: "underline", label: "Underline" },
-            ]}
           />
-        </SettingsCard>
-      </SectionStack>
-    </>
+        </LabeledField>
+        <LabeledField title={t("settings:terminalSection.typography.fontFamily")}>
+          <DraftInput
+            xstyle={styles.input40}
+            value={terminalFontFamily}
+            onCommit={(nextValue) =>
+              updateSettings({ patch: { terminalFontFamily: nextValue } })
+            }
+          />
+        </LabeledField>
+        <LabeledField title={t("settings:terminalSection.typography.lineHeight")}>
+          <DraftInput
+            xstyle={styles.input40}
+            value={String(terminalLineHeight)}
+            onCommit={(nextValue) =>
+              updateSettings({
+                patch: {
+                  terminalLineHeight: readFloat(
+                    nextValue,
+                    terminalLineHeight,
+                  ),
+                },
+              })
+            }
+          />
+        </LabeledField>
+      </SettingsCard>
+
+      <SettingsCard
+        title={t("settings:terminalSection.cursor.title")}
+        description={t("settings:terminalSection.cursor.description")}
+      >
+        <ChoiceButtons
+          value={terminalCursorStyle}
+          columns={3}
+          onChange={(value) =>
+            updateSettings({ patch: { terminalCursorStyle: value } })
+          }
+          options={[
+            { value: "block", label: t("settings:terminalSection.cursor.block") },
+            { value: "bar", label: t("settings:terminalSection.cursor.bar") },
+            { value: "underline", label: t("settings:terminalSection.cursor.underline") },
+          ]}
+        />
+      </SettingsCard>
+    </SectionStack>
   );
 }

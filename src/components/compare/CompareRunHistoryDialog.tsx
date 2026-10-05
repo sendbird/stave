@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   CheckCircle2,
@@ -61,6 +62,7 @@ function getStatusBadgeVariant(status: CompareRunStatus) {
 }
 
 export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<CompareRunHistoryStatusFilter>("all");
   const allEntries = useMemo(
@@ -106,12 +108,9 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
             </span>
             <div className={sx(styles.headerText)}>
               <DialogTitle className={sx(styles.headerTitle)}>
-                Compare history
-              </DialogTitle>
+                {t("compare:compareRunHistoryDialog.compareHistory")}</DialogTitle>
               <DialogDescription>
-                Search every saved comparison, then reopen its candidates, judge
-                result, and final decision.
-              </DialogDescription>
+                {t("compare:compareRunHistoryDialog.searchEverySavedComparisonThenReopen")}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -123,15 +122,15 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              aria-label="Search compare runs"
-              placeholder="Search prompts, state, or judge result…"
+              aria-label={t("compare:compareRunHistoryDialog.searchCompareRuns")}
+              placeholder={t("compare:compareRunHistoryDialog.searchPromptsStateOrJudgeResult")}
               xstyle={styles.searchInput}
             />
           </div>
           <div
             className={sx(styles.filterGroup)}
             role="group"
-            aria-label="Filter compare runs by status"
+            aria-label={t("compare:compareRunHistoryDialog.filterCompareRunsByStatus")}
           >
             {COMPARE_RUN_HISTORY_STATUS_FILTERS.map((option) => (
               <Button
@@ -157,7 +156,7 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
 
         <div className={sx(styles.list)}>
           {visibleEntries.length > 0 ? (
-            <ul aria-label="Compare runs">
+            <ul aria-label={t("compare:compareRunHistoryDialog.compareRuns")}>
               {visibleEntries.map((entry, entryIndex) => (
                 <li
                   key={entry.id}
@@ -171,7 +170,7 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
                     layout="host"
                     type="button"
                     xstyle={styles.rowButton}
-                    aria-label={`Open compare run: ${entry.title}`}
+                    aria-label={i18n.t("compare:compareRunHistoryDialog.openCompareRun", { value1: entry.title })}
                     onClick={() => {
                       props.onOpenRun(entry.id);
                       props.onOpenChange(false);
@@ -197,10 +196,7 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
                         {entry.judgeLabel ? (
                           <span>{entry.judgeLabel}</span>
                         ) : null}
-                        <span>
-                          Updated{" "}
-                          {formatTaskUpdatedAt({ value: entry.updatedAt })}
-                        </span>
+                        <span>{t("compare:messages.updated", { updatedAt: formatTaskUpdatedAt({ value: entry.updatedAt }) })}</span>
                       </span>
                     </span>
                   </AdsButton>
@@ -212,10 +208,9 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
               <span className={sx(styles.emptyMark)}>
                 <History className={sx(styles.markIcon)} />
               </span>
-              <h3 className={sx(styles.emptyTitle)}>No matching runs</h3>
+              <h3 className={sx(styles.emptyTitle)}>{t("compare:compareRunHistoryDialog.noMatchingRuns")}</h3>
               <p className={sx(styles.emptyText)}>
-                Try another prompt or include more lifecycle states.
-              </p>
+                {t("compare:compareRunHistoryDialog.tryAnotherPromptOrIncludeMore")}</p>
               {hasFilters ? (
                 <Button
                   type="button"
@@ -224,18 +219,15 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
                   className={sx(styles.clearButton)}
                   onClick={clearFilters}
                 >
-                  Clear filters
-                </Button>
+                  {t("compare:compareRunHistoryDialog.clearFilters")}</Button>
               ) : null}
             </div>
           )}
         </div>
 
         <div className={sx(styles.footer)}>
-          <span>
-            {visibleEntries.length} of {allEntries.length} saved runs
-          </span>
-          <span>Newest first</span>
+          <span>{t("compare:messages.historyTotal", { shown: visibleEntries.length, total: allEntries.length })}</span>
+          <span>{t("compare:compareRunHistoryDialog.newestFirst")}</span>
         </div>
       </DialogContent>
     </Dialog>

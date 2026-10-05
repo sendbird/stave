@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useMemo } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { useShallow } from "zustand/react/shallow";
@@ -53,11 +55,12 @@ function ReviewModelField(props: {
   models: readonly string[];
   onChange: (model: string) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const options = useMemo(
     () => [
       {
         value: FOLLOW_DEFAULT,
-        label: `Default model (${toHumanModelName({ model: props.defaultModel })})`,
+        label: i18n.t("settings:settingsDialogReviewCards.defaultModel", { value1: toHumanModelName({ model: props.defaultModel }) }),
       },
       ...[...new Set([props.value, ...props.models])]
         .filter(Boolean)
@@ -68,7 +71,7 @@ function ReviewModelField(props: {
   return (
     <SelectField<string>
       title={props.title}
-      description="Used when this provider reviews. The default follows the provider's model setting."
+      description={t("settings:reviewCards.tasks.modelField.description")}
       value={props.value || FOLLOW_DEFAULT}
       options={options}
       onChange={(model) => props.onChange(model === FOLLOW_DEFAULT ? "" : model)}
@@ -77,6 +80,7 @@ function ReviewModelField(props: {
 }
 
 function ReviewTasksCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [reviewTask, modelClaude, modelCodex, skills] = useAppStore(
     useShallow(
       (state) =>
@@ -97,7 +101,7 @@ function ReviewTasksCard() {
     return [
       { value: "", label: "Choose a skill" },
       ...(reviewTask.skillSlug && !slugs.includes(reviewTask.skillSlug)
-        ? [{ value: reviewTask.skillSlug, label: `$${reviewTask.skillSlug} (not in this workspace)` }]
+        ? [{ value: reviewTask.skillSlug, label: i18n.t("settings:settingsDialogReviewCards.notInThisWorkspace", { value1: reviewTask.skillSlug }) }]
         : []),
       ...slugs.map((slug) => ({
         value: slug,
@@ -113,12 +117,12 @@ function ReviewTasksCard() {
     <SettingsCard
       id={REVIEW_TASK_SETTING_FIELD_ID}
       tabIndex={-1}
-      title="Review Tasks"
-      description="The composer's Review button runs a read-only review in its own task, beside the task you are working in. When it finishes, attach its findings to your next message."
+      title={t("settings:reviewCards.tasks.title")}
+      description={t("settings:reviewCards.tasks.description")}
     >
       <LabeledField
-        title="Default Reviewer"
-        description="The reviewer the dialog suggests. Other provider cross-checks the latest reply with the provider that did not write it. You can still pick any model when you start a review."
+        title={t("settings:reviewCards.tasks.defaultReviewer.title")}
+        description={t("settings:reviewCards.tasks.defaultReviewer.description")}
       >
         <ChoiceButtons<ReviewerPreference>
           value={reviewTask.reviewer}
@@ -127,7 +131,7 @@ function ReviewTasksCard() {
           options={[
             {
               value: "other",
-              label: "Other provider",
+              label: t("settings:reviewCards.tasks.defaultReviewer.otherProvider"),
             },
             {
               value: "claude-code",
@@ -143,14 +147,14 @@ function ReviewTasksCard() {
         />
       </LabeledField>
       <SwitchField
-        title="Cross-check With Both Providers"
-        description="Start a second, independent review on the other provider with each review. You can still turn it off in the dialog."
+        title={t("settings:reviewCards.tasks.crossCheck.title")}
+        description={t("settings:reviewCards.tasks.crossCheck.description")}
         checked={reviewTask.crossCheck}
         onCheckedChange={(crossCheck) => patch({ crossCheck })}
       />
       <ReviewModelField
         providerId="claude-code"
-        title="Claude Review Model"
+        title={t("settings:reviewCards.tasks.claudeModel")}
         value={reviewTask.modelClaude}
         defaultModel={modelClaude}
         models={catalogs["claude-code"].models}
@@ -158,18 +162,18 @@ function ReviewTasksCard() {
       />
       <ReviewModelField
         providerId="codex"
-        title="Codex Review Model"
+        title={t("settings:reviewCards.tasks.codexModel")}
         value={reviewTask.modelCodex}
         defaultModel={modelCodex}
         models={catalogs.codex.models}
         onChange={(model) => patch({ modelCodex: model })}
       />
       <LabeledField
-        title="Default Focus"
-        description="Focus areas selected when the dialog opens. Each adds an explicit instruction to the review."
+        title={t("settings:reviewCards.tasks.focus.title")}
+        description={t("settings:reviewCards.tasks.focus.description")}
       >
         <ToggleChipGroup
-          aria-label="Default review focus"
+          aria-label={t("settings:reviewCards.tasks.focus.ariaLabel")}
           options={LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS}
           selected={reviewTask.focuses}
           onToggle={(focus) =>
@@ -187,26 +191,26 @@ function ReviewTasksCard() {
         skillPreviewNote="Skill precedence depends on the reviewer and workspace. Confirm the resolved instructions in the Review dialog."
         onChange={patch} />
       <LabeledField
-        title="Review Instructions"
-        description={`Added to every review prompt, for example risk areas your team always checks. Up to ${REVIEW_TASK_INSTRUCTIONS_MAX_CHARS.toLocaleString()} characters.`}
+        title={t("settings:reviewCards.tasks.instructions.title")}
+        description={t("settings:settingsDialogReviewCards.addedToEveryReviewPromptFor", { value1: formatNumber(REVIEW_TASK_INSTRUCTIONS_MAX_CHARS) })}
       >
         <DraftTextarea
           xstyle={styles.promptTextarea}
           value={reviewTask.instructions}
           maxLength={REVIEW_TASK_INSTRUCTIONS_MAX_CHARS}
-          placeholder="For example: check that new settings are persisted and covered by a test."
+          placeholder={t("settings:reviewCards.tasks.instructions.placeholder")}
           onCommit={(instructions) => patch({ instructions })}
         />
       </LabeledField>
       <LabeledField
-        title="Follow-up Prompt"
-        description="Filled into an empty message when you attach a finished review, so asking the task to act on it is one send away. Empty turns it off."
+        title={t("settings:reviewCards.tasks.followUp.title")}
+        description={t("settings:reviewCards.tasks.followUp.description")}
       >
         <DraftTextarea
           xstyle={styles.promptTextarea}
           value={reviewTask.followUpPrompt}
           maxLength={REVIEW_FOLLOW_UP_PROMPT_MAX_CHARS}
-          placeholder="(empty = attach only)"
+          placeholder={t("settings:reviewCards.tasks.followUp.placeholder")}
           onCommit={(followUpPrompt) => patch({ followUpPrompt })}
         />
         {reviewTask.followUpPrompt !== DEFAULT_REVIEW_FOLLOW_UP_PROMPT ? (
@@ -218,8 +222,7 @@ function ReviewTasksCard() {
               xstyle={styles.resetButton}
               onClick={() => patch({ followUpPrompt: DEFAULT_REVIEW_FOLLOW_UP_PROMPT })}
             >
-              Reset to default
-            </Button>
+              {t("settings:reviewCards.tasks.followUp.resetToDefault")}</Button>
           </div>
         ) : null}
       </LabeledField>
@@ -228,6 +231,7 @@ function ReviewTasksCard() {
 }
 
 function PrePrReviewCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [prePrReviewEnabled, prePrReviewProvider] = useAppStore(
     useShallow(
       (state) =>
@@ -237,20 +241,20 @@ function PrePrReviewCard() {
   const updateSettings = useAppStore((state) => state.updateSettings);
   return (
     <SettingsCard
-      title="Pre-PR Review"
-      description="Run a best-effort one-shot AI review before Stave pushes a branch and opens a pull request."
+      title={t("settings:reviewCards.prePr.title")}
+      description={t("settings:reviewCards.prePr.description")}
     >
       <SwitchField
-        title="Review Before Opening PR"
-        description="Shows concrete findings in the PR dialog with options to stop and fix or proceed anyway. Model failures never block PR creation."
+        title={t("settings:reviewCards.prePr.enable.title")}
+        description={t("settings:reviewCards.prePr.enable.description")}
         checked={prePrReviewEnabled}
         onCheckedChange={(checked) =>
           updateSettings({ patch: { prePrReviewEnabled: checked } })
         }
       />
       <LabeledField
-        title="Review Provider"
-        description="Choose which provider runs the one-shot review. The provider uses its configured default model."
+        title={t("settings:reviewCards.prePr.provider.title")}
+        description={t("settings:reviewCards.prePr.provider.description")}
       >
         <ChoiceButtons<PrePrReviewProviderId>
           value={prePrReviewProvider}
@@ -263,13 +267,13 @@ function PrePrReviewCard() {
             {
               value: "claude-code",
               label: "Claude",
-              description: "Uses the configured Claude model.",
+              description: t("settings:reviewCards.prePr.provider.claudeDescription"),
               icon: providerIcon("claude-code"),
             },
             {
               value: "codex",
               label: "Codex",
-              description: "Uses the configured Codex model.",
+              description: t("settings:reviewCards.prePr.provider.codexDescription"),
               icon: providerIcon("codex"),
             },
           ]}

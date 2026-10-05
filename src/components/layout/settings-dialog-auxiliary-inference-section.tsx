@@ -1,4 +1,5 @@
-import { useCallback } from "react";
+import { I18N_NAMESPACES, useTranslation, type I18nKey } from "@/i18n";
+import { useCallback, type ReactNode } from "react";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { PromptModelField } from "@/components/layout/settings-dialog-model-fields";
 import {
@@ -32,61 +33,86 @@ import { auxiliaryInferenceSectionStyles as styles } from "./settings-dialog-aux
  * whether the lane runs at all, which provider answers it, and which model.
  */
 
-const LANE_COPY: Record<
-  AuxLane,
-  { title: string; description: string; modelDescription: string }
-> = {
+const LANE_COPY_KEYS = {
   intentGuard: {
-    title: "Intent guard",
+    title: "settingsProviders:auxiliaryInference.lanes.intentGuard.title",
+    switchTitle:
+      "settingsProviders:auxiliaryInference.lanes.intentGuard.switchTitle",
     description:
-      "After a turn that changed files, compares the diff against the workspace's pinned intent anchors and badges the Changes panel. Runs only while an anchor is pinned.",
+      "settingsProviders:auxiliaryInference.lanes.intentGuard.description",
     modelDescription:
-      "Model that judges the diff against the pinned intent. Empty follows the provider default.",
+      "settingsProviders:auxiliaryInference.lanes.intentGuard.modelDescription",
   },
   turnSummary: {
-    title: "Turn summary",
+    title: "settingsProviders:auxiliaryInference.lanes.turnSummary.title",
+    switchTitle:
+      "settingsProviders:auxiliaryInference.lanes.turnSummary.switchTitle",
     description:
-      "Writes the short 'what was asked / what was done' line at the top of the Information panel after each completed turn.",
-    modelDescription: "Preferred model for the latest-turn workspace summary.",
+      "settingsProviders:auxiliaryInference.lanes.turnSummary.description",
+    modelDescription:
+      "settingsProviders:auxiliaryInference.lanes.turnSummary.modelDescription",
   },
   taskName: {
-    title: "Task naming",
+    title: "settingsProviders:auxiliaryInference.lanes.taskName.title",
+    switchTitle:
+      "settingsProviders:auxiliaryInference.lanes.taskName.switchTitle",
     description:
-      "Suggests a task title from the opening prompts. Renaming a task by hand disables it for that task.",
-    modelDescription: "Model that proposes the task title.",
+      "settingsProviders:auxiliaryInference.lanes.taskName.description",
+    modelDescription:
+      "settingsProviders:auxiliaryInference.lanes.taskName.modelDescription",
   },
   utility: {
-    title: "Utility inference",
+    title: "settingsProviders:auxiliaryInference.lanes.utility.title",
+    switchTitle:
+      "settingsProviders:auxiliaryInference.lanes.utility.switchTitle",
     description:
-      "Mechanical helper calls: route classification, commit messages, and prompt enhancement.",
-    modelDescription: "Model used for mechanical utility calls.",
+      "settingsProviders:auxiliaryInference.lanes.utility.description",
+    modelDescription:
+      "settingsProviders:auxiliaryInference.lanes.utility.modelDescription",
   },
   prDescription: {
-    title: "PR description",
+    title: "settingsProviders:auxiliaryInference.lanes.prDescription.title",
+    switchTitle:
+      "settingsProviders:auxiliaryInference.lanes.prDescription.switchTitle",
     description:
-      "Drafts the pull request title and body from the branch diff. Off keeps Stave's non-AI fallback draft.",
-    modelDescription: "Model that drafts the PR title and body.",
+      "settingsProviders:auxiliaryInference.lanes.prDescription.description",
+    modelDescription:
+      "settingsProviders:auxiliaryInference.lanes.prDescription.modelDescription",
   },
   prePrReview: {
-    title: "Pre-PR review",
+    title: "settingsProviders:auxiliaryInference.lanes.prePrReview.title",
+    switchTitle:
+      "settingsProviders:auxiliaryInference.lanes.prePrReview.switchTitle",
     description:
-      "One-shot review of the branch diff before Stave opens a pull request.",
+      "settingsProviders:auxiliaryInference.lanes.prePrReview.description",
     modelDescription:
-      "Model that reviews the branch diff. Leave empty to use the provider's configured default.",
+      "settingsProviders:auxiliaryInference.lanes.prePrReview.modelDescription",
   },
   inlineCompletion: {
-    title: "Inline completion",
+    title: "settingsProviders:auxiliaryInference.lanes.inlineCompletion.title",
+    switchTitle:
+      "settingsProviders:auxiliaryInference.lanes.inlineCompletion.switchTitle",
     description:
-      "Fill-in-the-middle code suggestions in the editor, requested on a keystroke debounce.",
-    modelDescription: "Model that generates inline completions.",
+      "settingsProviders:auxiliaryInference.lanes.inlineCompletion.description",
+    modelDescription:
+      "settingsProviders:auxiliaryInference.lanes.inlineCompletion.modelDescription",
   },
-};
+} as const satisfies Record<
+  AuxLane,
+  {
+    title: I18nKey;
+    switchTitle: I18nKey;
+    description: I18nKey;
+    modelDescription: I18nKey;
+  }
+>;
 
+/** Provider choices; product names stay as written, descriptions are keys. */
 const PROVIDER_OPTIONS = [
   {
     value: "claude-code" as const,
     label: "Claude",
-    description: "Run this lane on Claude.",
+    descriptionKey: "settingsProviders:auxiliaryInference.providerOptions.claude",
     icon: (
       <ModelIcon providerId="claude-code" className={sx(styles.providerIcon)} />
     ),
@@ -94,10 +120,15 @@ const PROVIDER_OPTIONS = [
   {
     value: "codex" as const,
     label: "Codex",
-    description: "Run this lane on Codex.",
+    descriptionKey: "settingsProviders:auxiliaryInference.providerOptions.codex",
     icon: <ModelIcon providerId="codex" className={sx(styles.providerIcon)} />,
   },
-];
+] as const satisfies ReadonlyArray<{
+  value: AuxLaneProviderId;
+  label: string;
+  descriptionKey: I18nKey;
+  icon: ReactNode;
+}>;
 
 function AuxLaneCard(args: { lane: AuxLane }) {
   // Row-local subscription: a lane card re-renders only when its own lane
@@ -111,7 +142,15 @@ function AuxLaneCard(args: { lane: AuxLane }) {
     (state) => state.settings.auxiliaryInferencePolicy,
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const copy = LANE_COPY[args.lane];
+  const { t } = useTranslation(I18N_NAMESPACES);
+  const copyKeys = LANE_COPY_KEYS[args.lane];
+  const modelDescription = t(copyKeys.modelDescription);
+  const providerOptions = PROVIDER_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+    description: t(option.descriptionKey),
+    icon: option.icon,
+  }));
 
   const patchLane = useCallback(
     (patch: Partial<AuxLaneConfig>) => {
@@ -130,13 +169,16 @@ function AuxLaneCard(args: { lane: AuxLane }) {
   const resolved = resolveAuxLaneRuntime({ lane: args.lane, policy });
 
   return (
-    <SettingsCard title={copy.title} description={copy.description}>
+    <SettingsCard
+      title={t(copyKeys.title)}
+      description={t(copyKeys.description)}
+    >
       <SwitchField
-        title={`Run ${copy.title.toLowerCase()}`}
+        title={t(copyKeys.switchTitle)}
         description={
           config.enabled
-            ? "This lane makes a model call in the background."
-            : "Off. No model call is made for this lane."
+            ? t("settingsProviders:auxiliaryInference.laneSwitch.on")
+            : t("settingsProviders:auxiliaryInference.laneSwitch.off")
         }
         checked={config.enabled}
         onCheckedChange={(checked) => patchLane({ enabled: checked })}
@@ -144,11 +186,11 @@ function AuxLaneCard(args: { lane: AuxLane }) {
       {config.enabled ? (
         <>
           <LabeledField
-            title="Provider"
+            title={t("settingsProviders:auxiliaryInference.provider.title")}
             description={
               config.providerId
-                ? "Pinned. This lane always runs on the selected provider."
-                : "Not pinned: the lane follows the task's provider. Selecting one pins it."
+                ? t("settingsProviders:auxiliaryInference.provider.pinned")
+                : t("settingsProviders:auxiliaryInference.provider.unpinned")
             }
           >
             <ChoiceButtons<AuxLaneProviderId>
@@ -157,23 +199,30 @@ function AuxLaneCard(args: { lane: AuxLane }) {
               // contradict the field's own description.
               value={config.providerId ?? ("" as AuxLaneProviderId)}
               onChange={(providerId) => patchLane({ providerId })}
-              options={PROVIDER_OPTIONS}
+              options={providerOptions}
             />
           </LabeledField>
           <PromptModelField
-            title="Model"
+            title={t("settingsProviders:auxiliaryInference.model.title")}
             description={
               config.model
-                ? copy.modelDescription
-                : `${copy.modelDescription} Currently using the default: ${resolved.model ?? "the provider's own choice"}.`
+                ? modelDescription
+                : resolved.model
+                  ? t("settingsProviders:auxiliaryInference.model.currentDefault", {
+                      description: modelDescription,
+                      model: resolved.model,
+                    })
+                  : t("settingsProviders:auxiliaryInference.model.currentProviderChoice", {
+                      description: modelDescription,
+                    })
             }
             value={config.model ?? resolved.model ?? ""}
             onSelect={(model) => patchLane({ model })}
           />
           {config.fallbackModel !== undefined ? (
             <PromptModelField
-              title="Fallback model"
-              description="Tried once when the primary model is unavailable or its answer cannot be parsed."
+              title={t("settingsProviders:auxiliaryInference.fallbackModel.title")}
+              description={t("settingsProviders:auxiliaryInference.fallbackModel.description")}
               value={config.fallbackModel ?? resolved.fallbackModel ?? ""}
               onSelect={(model) => patchLane({ fallbackModel: model })}
             />
@@ -190,6 +239,7 @@ function AuxLaneCard(args: { lane: AuxLane }) {
  * one. Both ride the utility lane above, so they share its provider and model.
  */
 function PromptEnhancementCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const styleProfile = useAppStore(
     (state) => state.settings.promptEnhancementStyleProfile,
   );
@@ -203,12 +253,12 @@ function PromptEnhancementCard() {
 
   return (
     <SettingsCard
-      title="Prompt enhancement"
-      description="Enhance already reads the task conversation, the Information panel, and the repo's AGENTS.md or CLAUDE.md when they exist. Add what those cannot tell it: how you like prompts written."
+      title={t("settingsProviders:auxiliaryInference.promptEnhancement.title")}
+      description={t("settingsProviders:auxiliaryInference.promptEnhancement.description")}
     >
       <LabeledField
-        title="Prompt style"
-        description="Language, tone, detail level, and anything Enhance should always include or never add. Empty sends nothing."
+        title={t("settingsProviders:auxiliaryInference.promptEnhancement.style.title")}
+        description={t("settingsProviders:auxiliaryInference.promptEnhancement.style.description")}
       >
         <Textarea
           id="settings-field-prompt-enhancement"
@@ -216,7 +266,7 @@ function PromptEnhancementCard() {
           maxLength={PROMPT_ENHANCEMENT_STYLE_PROFILE_CHARS}
           rows={4}
           placeholder={
-            "e.g. Write in Korean. Always ask for typecheck and the smallest focused test. Never add acceptance criteria I did not mention."
+            t("settingsProviders:auxiliaryInference.promptEnhancement.style.placeholder")
           }
           onChange={(event) =>
             updateSettings({
@@ -226,13 +276,13 @@ function PromptEnhancementCard() {
         />
       </LabeledField>
       <SwitchField
-        title="Learn from kept and undone rewrites"
+        title={t("settingsProviders:auxiliaryInference.promptEnhancement.learn.title")}
         description={
           learnFromEdits
             ? exemplarCount > 0
-              ? `${exemplarCount} remembered rewrite${exemplarCount === 1 ? "" : "s"} are shown to the model as examples.`
-              : "Rewrites you keep or undo will be remembered as examples."
-            : "Off. Past rewrites are neither remembered nor sent."
+              ? t("settingsProviders:whole.rewriteExamples", { count: exemplarCount })
+              : t("settingsProviders:auxiliaryInference.promptEnhancement.learn.empty")
+            : t("settingsProviders:auxiliaryInference.promptEnhancement.learn.off")
         }
         checked={learnFromEdits}
         onCheckedChange={(checked) =>
@@ -250,8 +300,7 @@ function PromptEnhancementCard() {
             updateSettings({ patch: { promptEnhancementExemplars: [] } })
           }
         >
-          Forget remembered rewrites
-        </Button>
+          {t("settingsProviders:auxiliaryInference.promptEnhancement.forget")}</Button>
       ) : null}
     </SettingsCard>
   );

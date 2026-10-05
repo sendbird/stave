@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, Trans, useTranslation, i18n } from "@/i18n";
 import { useMemo } from "react";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { type ModelSelectorOption } from "@/components/ai-elements/model-selector";
@@ -93,6 +94,7 @@ function ModelShortcutOptionLabel(args: { option: ModelSelectorOption }) {
 }
 
 export function CommandPaletteSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     commandPaletteShowRecent,
     commandPalettePinnedCommandIds,
@@ -237,552 +239,528 @@ export function CommandPaletteSection() {
   }
 
   return (
-    <>
-      <SectionStack>
-        <SettingsCard
-          title="Behavior"
-          description="Pinned commands appear first, hidden commands stay out of the palette, and recent history can be shown as its own section."
-        >
-          <SwitchField
-            title="Recent Commands"
-            checked={commandPaletteShowRecent}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { commandPaletteShowRecent: checked } })
+    <SectionStack>
+      <SettingsCard
+        title={t("settings:commandPaletteSection.behavior.title")}
+        description={t("settings:commandPaletteSection.behavior.description")}
+      >
+        <SwitchField
+          title={t("settings:commandPaletteSection.behavior.recentCommands")}
+          checked={commandPaletteShowRecent}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { commandPaletteShowRecent: checked } })
+          }
+        />
+        <div className={sx(styles.rowWrapGap2)}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              updateSettings({
+                patch: { commandPaletteRecentCommandIds: [] },
+              })
             }
-          />
-          <div className={sx(styles.rowWrapGap2)}>
-            <Button
-              variant="outline"
-              onClick={() =>
-                updateSettings({
-                  patch: { commandPaletteRecentCommandIds: [] },
-                })
-              }
-              disabled={commandPaletteRecentCommandIds.length === 0}
-            >
-              Clear Recent History
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                updateSettings({
-                  patch: {
-                    commandPalettePinnedCommandIds: [],
-                    commandPaletteHiddenCommandIds: [],
-                    commandPaletteRecentCommandIds: [],
-                    commandPaletteShowRecent: true,
-                  },
-                })
-              }
-              disabled={
-                commandPalettePinnedCommandIds.length === 0 &&
-                commandPaletteHiddenCommandIds.length === 0 &&
-                commandPaletteRecentCommandIds.length === 0 &&
-                commandPaletteShowRecent
-              }
-            >
-              Reset Palette Settings
-            </Button>
-          </div>
-        </SettingsCard>
+            disabled={commandPaletteRecentCommandIds.length === 0}
+          >
+            {t("settings:commandPaletteSection.behavior.clearRecent")}</Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              updateSettings({
+                patch: {
+                  commandPalettePinnedCommandIds: [],
+                  commandPaletteHiddenCommandIds: [],
+                  commandPaletteRecentCommandIds: [],
+                  commandPaletteShowRecent: true,
+                },
+              })
+            }
+            disabled={
+              commandPalettePinnedCommandIds.length === 0 &&
+              commandPaletteHiddenCommandIds.length === 0 &&
+              commandPaletteRecentCommandIds.length === 0 &&
+              commandPaletteShowRecent
+            }
+          >
+            {t("settings:commandPaletteSection.behavior.resetPalette")}</Button>
+        </div>
+      </SettingsCard>
 
-        <SettingsCard
-          title="Shell Shortcut Chords"
-          description="Keep panel and navigation shortcuts on a single Cmd/Ctrl+K prefix so they do not collide with editor and IDE bindings."
-          titleAccessory={<Badge variant="secondary">Cmd/Ctrl+K</Badge>}
-        >
-          <div className={sx(styles.rowWrapGap2)}>
-            <Button
-              variant="outline"
-              onClick={() =>
-                updateSettings({
-                  patch: {
-                    appShortcutKeys: { ...DEFAULT_APP_SHORTCUT_KEYS },
-                  },
-                })
-              }
-              disabled={APP_SHORTCUT_DEFINITIONS.every(
-                (definition) =>
-                  normalizedAppShortcutKeys[definition.commandId] ===
-                  definition.defaultKey,
-              )}
-            >
-              Reset Default Chords
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                updateSettings({
-                  patch: {
-                    appShortcutKeys: createEmptyAppShortcutKeys(),
-                  },
-                })
-              }
-              disabled={APP_SHORTCUT_DEFINITIONS.every(
-                (definition) =>
-                  normalizedAppShortcutKeys[definition.commandId].length === 0,
-              )}
-            >
-              Clear All Chords
-            </Button>
-          </div>
-          <p className={sx(styles.captionMuted)}>
-            Assigning a key moves it off any conflicting shell command
-            automatically.
-          </p>
-          <div className={sx(styles.spaceY25)}>
-            {APP_SHORTCUT_DEFINITIONS.map((definition) => {
-              const selectedKey =
-                normalizedAppShortcutKeys[definition.commandId] ?? "";
-              const currentValue = selectedKey || UNASSIGNED_APP_SHORTCUT_VALUE;
-              const currentShortcutLabel =
-                formatAppShortcutLabel({
-                  actionId: definition.commandId,
-                  modifierLabel: "Cmd/Ctrl",
-                  shortcutKeys: normalizedAppShortcutKeys,
-                }) ?? "Disabled";
-              const shortcutSequences = buildAppShortcutSequences({
+      <SettingsCard
+        title={t("settings:commandPaletteSection.shellChords.title")}
+        description={t("settings:commandPaletteSection.shellChords.description")}
+        titleAccessory={<Badge variant="secondary">Cmd/Ctrl+K</Badge>}
+      >
+        <div className={sx(styles.rowWrapGap2)}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              updateSettings({
+                patch: {
+                  appShortcutKeys: { ...DEFAULT_APP_SHORTCUT_KEYS },
+                },
+              })
+            }
+            disabled={APP_SHORTCUT_DEFINITIONS.every(
+              (definition) =>
+                normalizedAppShortcutKeys[definition.commandId] ===
+                definition.defaultKey,
+            )}
+          >
+            {t("settings:commandPaletteSection.shellChords.resetDefaults")}</Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              updateSettings({
+                patch: {
+                  appShortcutKeys: createEmptyAppShortcutKeys(),
+                },
+              })
+            }
+            disabled={APP_SHORTCUT_DEFINITIONS.every(
+              (definition) =>
+                normalizedAppShortcutKeys[definition.commandId].length === 0,
+            )}
+          >
+            {t("settings:commandPaletteSection.shellChords.clearAll")}</Button>
+        </div>
+        <p className={sx(styles.captionMuted)}>
+          {t("settings:commandPaletteSection.shellChords.conflictNote")}</p>
+        <div className={sx(styles.spaceY25)}>
+          {APP_SHORTCUT_DEFINITIONS.map((definition) => {
+            const selectedKey =
+              normalizedAppShortcutKeys[definition.commandId] ?? "";
+            const currentValue = selectedKey || UNASSIGNED_APP_SHORTCUT_VALUE;
+            const currentShortcutLabel =
+              formatAppShortcutLabel({
                 actionId: definition.commandId,
                 modifierLabel: "Cmd/Ctrl",
                 shortcutKeys: normalizedAppShortcutKeys,
-              });
+              }) ?? i18n.t("common:status.disabled");
+            const shortcutSequences = buildAppShortcutSequences({
+              actionId: definition.commandId,
+              modifierLabel: "Cmd/Ctrl",
+              shortcutKeys: normalizedAppShortcutKeys,
+            });
 
-              return (
-                <div
-                  key={definition.commandId}
-                  className={sx(styles.shortcutCard)}
-                >
-                  <div className={sx(styles.shortcutRow)}>
-                    <div className={sx(styles.shortcutLead)}>
-                      <div className={sx(styles.rowWrapGap2)}>
-                        {shortcutSequences.map((sequence, index) => (
-                          <div
-                            key={`${definition.commandId}-${sequence.join("-")}`}
-                            className={sx(styles.rowCenter)}
-                          >
-                            {index > 0 ? (
-                              <span className={sx(styles.seqThen)}>
-                                then
-                              </span>
-                            ) : null}
-                            <Badge variant="secondary">
-                              {sequence.join(" + ")}
-                            </Badge>
-                          </div>
-                        ))}
-                        <p className={sx(styles.commandTitle)}>
-                          {definition.title}
-                        </p>
-                      </div>
-                      <p className={sx(styles.captionMuted)}>
-                        {definition.description}
+            return (
+              <div
+                key={definition.commandId}
+                className={sx(styles.shortcutCard)}
+              >
+                <div className={sx(styles.shortcutRow)}>
+                  <div className={sx(styles.shortcutLead)}>
+                    <div className={sx(styles.rowWrapGap2)}>
+                      {shortcutSequences.map((sequence, index) => (
+                        <div
+                          key={`${definition.commandId}-${sequence.join("-")}`}
+                          className={sx(styles.rowCenter)}
+                        >
+                          {index > 0 ? (
+                            <span className={sx(styles.seqThen)}>
+                              {i18n.t("settings:commandPaletteSection.shellChords.then")}</span>
+                          ) : null}
+                          <Badge variant="secondary">
+                            {sequence.join(" + ")}
+                          </Badge>
+                        </div>
+                      ))}
+                      <p className={sx(styles.commandTitle)}>
+                        {definition.title}
                       </p>
                     </div>
-                    <div className={sx(styles.shortcutMain)}>
+                    <p className={sx(styles.captionMuted)}>
+                      {definition.description}
+                    </p>
+                  </div>
+                  <div className={sx(styles.shortcutMain)}>
+                    <Select
+                      value={currentValue}
+                      onValueChange={(value) =>
+                        updateAppShortcut(
+                          definition.commandId,
+                          value === UNASSIGNED_APP_SHORTCUT_VALUE
+                            ? ""
+                            : value,
+                        )
+                      }
+                    >
+                      <SelectTrigger className={sx(styles.selectTriggerPlain)}>
+                        <SelectValue placeholder={i18n.t("common:status.disabled")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>{i18n.t("settings:commandPaletteSection.modelShortcuts.stateGroup")}</SelectLabel>
+                          <SelectItem value={UNASSIGNED_APP_SHORTCUT_VALUE}>
+                            {i18n.t("common:status.disabled")}</SelectItem>
+                        </SelectGroup>
+                        <SelectSeparator />
+                        <SelectGroup>
+                          <SelectLabel>{i18n.t("settings:commandPaletteSection.shellChords.assignableKeys")}</SelectLabel>
+                          {APP_SHORTCUT_KEY_OPTIONS.map((option) => (
+                            <SelectItem key={option.key} value={option.key}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <p className={sx(styles.captionMuted)}>{t("settings:messages.currentChord", { shortcut: currentShortcutLabel })}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title={t("settings:commandPaletteSection.composerShortcut.title")}
+        description={t("settings:commandPaletteSection.composerShortcut.description")}
+        titleAccessory={
+          <Badge variant="secondary">
+            {formatPromptCommentShortcutLabel(
+              normalizedPromptCommentShortcut,
+            )}
+          </Badge>
+        }
+      >
+        <LabeledField
+          title={t("settings:commandPaletteSection.composerShortcut.stageComment.title")}
+          description={t("settings:commandPaletteSection.composerShortcut.stageComment.description")}
+        >
+          <Select
+            value={normalizedPromptCommentShortcut}
+            onValueChange={(value) =>
+              updateSettings({
+                patch: {
+                  promptCommentShortcut:
+                    normalizePromptCommentShortcut(value),
+                },
+              })
+            }
+          >
+            <SelectTrigger className={sx(styles.selectTriggerPlain)}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>{t("settings:commandPaletteSection.lensShortcut.shortcutGroup")}</SelectLabel>
+                {PROMPT_COMMENT_SHORTCUT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </LabeledField>
+      </SettingsCard>
+
+      <SettingsCard
+        title={t("settings:commandPaletteSection.lensShortcut.title")}
+        description={t("settings:commandPaletteSection.lensShortcut.description")}
+        titleAccessory={
+          <Badge variant="secondary">
+            {formatVisualCommentShortcutLabel(
+              normalizedVisualCommentShortcut,
+            )}
+          </Badge>
+        }
+      >
+        <LabeledField
+          title={t("settings:commandPaletteSection.lensShortcut.visualComment.title")}
+          description={t("settings:commandPaletteSection.lensShortcut.visualComment.description")}
+        >
+          <Select
+            value={normalizedVisualCommentShortcut}
+            onValueChange={(value) =>
+              updateSettings({
+                patch: {
+                  visualCommentShortcut:
+                    normalizeVisualCommentShortcut(value),
+                },
+              })
+            }
+          >
+            <SelectTrigger className={sx(styles.selectTriggerPlain)}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>{t("settings:commandPaletteSection.lensShortcut.shortcutGroup")}</SelectLabel>
+                {VISUAL_COMMENT_SHORTCUT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </LabeledField>
+      </SettingsCard>
+
+      <SettingsCard
+        title={t("settings:commandPaletteSection.modelShortcuts.title")}
+        description={t("settings:commandPaletteSection.modelShortcuts.description")}
+        titleAccessory={<Badge variant="secondary">Alt+1..0</Badge>}
+      >
+        <div className={sx(styles.rowWrapGap2)}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              updateSettings({
+                patch: {
+                  modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS],
+                  modelShortcutEfforts: [...DEFAULT_MODEL_SHORTCUT_EFFORTS],
+                },
+              })
+            }
+            disabled={
+              normalizedModelShortcutKeys.every(
+                (value, index) =>
+                  value === (DEFAULT_MODEL_SHORTCUT_KEYS[index] ?? ""),
+              ) &&
+              normalizedModelShortcutEfforts.every(
+                (value, index) =>
+                  value === (DEFAULT_MODEL_SHORTCUT_EFFORTS[index] ?? ""),
+              )
+            }
+          >
+            {t("settings:commandPaletteSection.modelShortcuts.resetDefaults")}</Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              updateSettings({
+                patch: {
+                  modelShortcutKeys: MODEL_SHORTCUT_SLOT_LABELS.map(() => ""),
+                  modelShortcutEfforts: [...DEFAULT_MODEL_SHORTCUT_EFFORTS],
+                },
+              })
+            }
+            disabled={
+              normalizedModelShortcutKeys.every(
+                (value) => value.length === 0,
+              ) &&
+              normalizedModelShortcutEfforts.every(
+                (value) => value.length === 0,
+              )
+            }
+          >
+            {t("settings:commandPaletteSection.modelShortcuts.clearAll")}</Button>
+        </div>
+        <div className={sx(styles.spaceY25)}>
+          {MODEL_SHORTCUT_SLOT_LABELS.map((slotLabel, slotIndex) => {
+            const selectedShortcutKey =
+              normalizedModelShortcutKeys[slotIndex] ?? "";
+            const selectedShortcutDetails = describeModelShortcutKey({
+              shortcutKey: selectedShortcutKey,
+            });
+            const defaultShortcutDetails = describeModelShortcutKey({
+              shortcutKey: DEFAULT_MODEL_SHORTCUT_KEYS[slotIndex] ?? "",
+            });
+            const currentValue = modelShortcutOptions.some(
+              (option) => option.key === selectedShortcutKey,
+            )
+              ? selectedShortcutKey
+              : UNASSIGNED_MODEL_SHORTCUT_VALUE;
+            const effortOptions = listModelShortcutEffortOptions({
+              shortcutKey: selectedShortcutKey,
+            });
+            const selectedShortcutEffort =
+              normalizedModelShortcutEfforts[slotIndex] ?? "";
+            const currentEffortValue = effortOptions.some(
+              (option) => option.value === selectedShortcutEffort,
+            )
+              ? selectedShortcutEffort
+              : MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE;
+            const selectedEffortLabel = effortOptions.find(
+              (option) => option.value === selectedShortcutEffort,
+            )?.label;
+            const selectedEffortDescription = selectedEffortLabel
+              ? i18n.t("settings:settingsDialogCommandPaletteSection.effort", { value1: selectedEffortLabel })
+              : i18n.t("settings:settingsDialogCommandPaletteSection.theCurrentEffortSetting");
+
+            return (
+              <div
+                key={slotLabel}
+                className={sx(styles.shortcutCard)}
+              >
+                <div className={sx(styles.shortcutRow)}>
+                  <div className={sx(styles.shortcutLeadNarrow)}>
+                    <div className={sx(styles.rowCenter)}>
+                      <WorkspaceShortcutChip
+                        modifier="Alt"
+                        label={slotLabel}
+                      />
+                      <p className={sx(styles.commandTitle)}>{t("settings:messages.modelSlot", { slot: slotLabel })}</p>
+                    </div>
+                    <p className={sx(styles.captionMuted)}>
+                      {i18n.t("settings:settingsDialogCommandPaletteSection.default")}{" "}
+                      {defaultShortcutDetails?.modelLabel ?? i18n.t("settings:commandPaletteSection.modelShortcuts.unassigned")}
+                    </p>
+                  </div>
+                  <div className={sx(styles.shortcutMain)}>
+                    <Select
+                      value={currentValue}
+                      onValueChange={(value) =>
+                        updateModelShortcutSlot(
+                          slotIndex,
+                          value === UNASSIGNED_MODEL_SHORTCUT_VALUE
+                            ? ""
+                            : value,
+                        )
+                      }
+                    >
+                      <SelectTrigger className={sx(styles.selectTriggerPlain)}>
+                        <SelectValue placeholder={i18n.t("settings:commandPaletteSection.modelShortcuts.unassigned")} />
+                      </SelectTrigger>
+                      <SelectContent className={sx(styles.selectContentTall)}>
+                        <SelectGroup>
+                          <SelectLabel>{i18n.t("settings:commandPaletteSection.modelShortcuts.stateGroup")}</SelectLabel>
+                          <SelectItem value={UNASSIGNED_MODEL_SHORTCUT_VALUE}>
+                            {i18n.t("settings:commandPaletteSection.modelShortcuts.unassigned")}</SelectItem>
+                        </SelectGroup>
+                        <SelectSeparator />
+                        <SelectGroup>
+                          <SelectLabel>{i18n.t("settings:commandPaletteSection.modelShortcuts.recommended")}</SelectLabel>
+                          {recommendedModelShortcutOptions.map((option) => (
+                            <SelectItem key={option.key} value={option.key}>
+                              <ModelShortcutOptionLabel option={option} />
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectSeparator />
+                        <SelectGroup>
+                          <SelectLabel>{i18n.t("settings:commandPaletteSection.modelShortcuts.allModels")}</SelectLabel>
+                          {additionalModelShortcutOptions.map((option) => (
+                            <SelectItem key={option.key} value={option.key}>
+                              <ModelShortcutOptionLabel option={option} />
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <div className={sx(styles.rowCenter)}>
+                      <span className={sx(styles.effortLabel)}>
+                        {i18n.t("settingsProviders:providersSection.claudeRuntime.effort.title")}</span>
                       <Select
-                        value={currentValue}
+                        value={currentEffortValue}
+                        disabled={!selectedShortcutDetails}
                         onValueChange={(value) =>
-                          updateAppShortcut(
-                            definition.commandId,
-                            value === UNASSIGNED_APP_SHORTCUT_VALUE
+                          updateModelShortcutEffort(
+                            slotIndex,
+                            value === MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE
                               ? ""
-                              : value,
+                              : (value as ModelShortcutEffort),
                           )
                         }
                       >
-                        <SelectTrigger className={sx(styles.selectTriggerPlain)}>
-                          <SelectValue placeholder="Disabled" />
+                        <SelectTrigger
+                          className={sx(styles.selectTriggerEffort)}
+                          aria-label={i18n.t("settings:settingsDialogCommandPaletteSection.effortForModelSlot", { value1: slotLabel })}
+                        >
+                          <SelectValue placeholder={i18n.t("settings:commandPaletteSection.modelShortcuts.useCurrentEffort")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Shortcut State</SelectLabel>
-                            <SelectItem value={UNASSIGNED_APP_SHORTCUT_VALUE}>
-                              Disabled
-                            </SelectItem>
-                          </SelectGroup>
-                          <SelectSeparator />
-                          <SelectGroup>
-                            <SelectLabel>Assignable Keys</SelectLabel>
-                            {APP_SHORTCUT_KEY_OPTIONS.map((option) => (
-                              <SelectItem key={option.key} value={option.key}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <p className={sx(styles.captionMuted)}>
-                        Current chord: {currentShortcutLabel}.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          title="Composer Shortcut"
-          description="Choose the shortcut that stages the current prompt text as a comment instead of sending it."
-          titleAccessory={
-            <Badge variant="secondary">
-              {formatPromptCommentShortcutLabel(
-                normalizedPromptCommentShortcut,
-              )}
-            </Badge>
-          }
-        >
-          <LabeledField
-            title="Stage Comment"
-            description="The staged comment appears under the composer and is merged into the next sent prompt."
-          >
-            <Select
-              value={normalizedPromptCommentShortcut}
-              onValueChange={(value) =>
-                updateSettings({
-                  patch: {
-                    promptCommentShortcut:
-                      normalizePromptCommentShortcut(value),
-                  },
-                })
-              }
-            >
-              <SelectTrigger className={sx(styles.selectTriggerPlain)}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Shortcut</SelectLabel>
-                  {PROMPT_COMMENT_SHORTCUT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </LabeledField>
-        </SettingsCard>
-
-        <SettingsCard
-          title="Lens Shortcut"
-          description="Choose the shortcut that toggles Lens visual comment mode."
-          titleAccessory={
-            <Badge variant="secondary">
-              {formatVisualCommentShortcutLabel(
-                normalizedVisualCommentShortcut,
-              )}
-            </Badge>
-          }
-        >
-          <LabeledField
-            title="Visual Comment"
-            description="The shortcut turns visual comment picking on or off while Lens is available."
-          >
-            <Select
-              value={normalizedVisualCommentShortcut}
-              onValueChange={(value) =>
-                updateSettings({
-                  patch: {
-                    visualCommentShortcut:
-                      normalizeVisualCommentShortcut(value),
-                  },
-                })
-              }
-            >
-              <SelectTrigger className={sx(styles.selectTriggerPlain)}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Shortcut</SelectLabel>
-                  {VISUAL_COMMENT_SHORTCUT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </LabeledField>
-        </SettingsCard>
-
-        <SettingsCard
-          title="Model Shortcuts"
-          description="Map Alt+1..0 to prompt models and optional effort overrides. These shortcuts switch the active task provider and draft model immediately."
-          titleAccessory={<Badge variant="secondary">Alt+1..0</Badge>}
-        >
-          <div className={sx(styles.rowWrapGap2)}>
-            <Button
-              variant="outline"
-              onClick={() =>
-                updateSettings({
-                  patch: {
-                    modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS],
-                    modelShortcutEfforts: [...DEFAULT_MODEL_SHORTCUT_EFFORTS],
-                  },
-                })
-              }
-              disabled={
-                normalizedModelShortcutKeys.every(
-                  (value, index) =>
-                    value === (DEFAULT_MODEL_SHORTCUT_KEYS[index] ?? ""),
-                ) &&
-                normalizedModelShortcutEfforts.every(
-                  (value, index) =>
-                    value === (DEFAULT_MODEL_SHORTCUT_EFFORTS[index] ?? ""),
-                )
-              }
-            >
-              Reset Default Shortcuts
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                updateSettings({
-                  patch: {
-                    modelShortcutKeys: MODEL_SHORTCUT_SLOT_LABELS.map(() => ""),
-                    modelShortcutEfforts: [...DEFAULT_MODEL_SHORTCUT_EFFORTS],
-                  },
-                })
-              }
-              disabled={
-                normalizedModelShortcutKeys.every(
-                  (value) => value.length === 0,
-                ) &&
-                normalizedModelShortcutEfforts.every(
-                  (value) => value.length === 0,
-                )
-              }
-            >
-              Clear All Shortcuts
-            </Button>
-          </div>
-          <div className={sx(styles.spaceY25)}>
-            {MODEL_SHORTCUT_SLOT_LABELS.map((slotLabel, slotIndex) => {
-              const selectedShortcutKey =
-                normalizedModelShortcutKeys[slotIndex] ?? "";
-              const selectedShortcutDetails = describeModelShortcutKey({
-                shortcutKey: selectedShortcutKey,
-              });
-              const defaultShortcutDetails = describeModelShortcutKey({
-                shortcutKey: DEFAULT_MODEL_SHORTCUT_KEYS[slotIndex] ?? "",
-              });
-              const currentValue = modelShortcutOptions.some(
-                (option) => option.key === selectedShortcutKey,
-              )
-                ? selectedShortcutKey
-                : UNASSIGNED_MODEL_SHORTCUT_VALUE;
-              const effortOptions = listModelShortcutEffortOptions({
-                shortcutKey: selectedShortcutKey,
-              });
-              const selectedShortcutEffort =
-                normalizedModelShortcutEfforts[slotIndex] ?? "";
-              const currentEffortValue = effortOptions.some(
-                (option) => option.value === selectedShortcutEffort,
-              )
-                ? selectedShortcutEffort
-                : MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE;
-              const selectedEffortLabel = effortOptions.find(
-                (option) => option.value === selectedShortcutEffort,
-              )?.label;
-              const selectedEffortDescription = selectedEffortLabel
-                ? `${selectedEffortLabel} effort`
-                : "the current effort setting";
-
-              return (
-                <div
-                  key={slotLabel}
-                  className={sx(styles.shortcutCard)}
-                >
-                  <div className={sx(styles.shortcutRow)}>
-                    <div className={sx(styles.shortcutLeadNarrow)}>
-                      <div className={sx(styles.rowCenter)}>
-                        <WorkspaceShortcutChip
-                          modifier="Alt"
-                          label={slotLabel}
-                        />
-                        <p className={sx(styles.commandTitle)}>
-                          Model Slot {slotLabel}
-                        </p>
-                      </div>
-                      <p className={sx(styles.captionMuted)}>
-                        Default:{" "}
-                        {defaultShortcutDetails?.modelLabel ?? "Unassigned"}
-                      </p>
-                    </div>
-                    <div className={sx(styles.shortcutMain)}>
-                      <Select
-                        value={currentValue}
-                        onValueChange={(value) =>
-                          updateModelShortcutSlot(
-                            slotIndex,
-                            value === UNASSIGNED_MODEL_SHORTCUT_VALUE
-                              ? ""
-                              : value,
-                          )
-                        }
-                      >
-                        <SelectTrigger className={sx(styles.selectTriggerPlain)}>
-                          <SelectValue placeholder="Unassigned" />
-                        </SelectTrigger>
-                        <SelectContent className={sx(styles.selectContentTall)}>
-                          <SelectGroup>
-                            <SelectLabel>Shortcut State</SelectLabel>
-                            <SelectItem value={UNASSIGNED_MODEL_SHORTCUT_VALUE}>
-                              Unassigned
-                            </SelectItem>
-                          </SelectGroup>
-                          <SelectSeparator />
-                          <SelectGroup>
-                            <SelectLabel>Recommended</SelectLabel>
-                            {recommendedModelShortcutOptions.map((option) => (
-                              <SelectItem key={option.key} value={option.key}>
-                                <ModelShortcutOptionLabel option={option} />
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                          <SelectSeparator />
-                          <SelectGroup>
-                            <SelectLabel>All Models</SelectLabel>
-                            {additionalModelShortcutOptions.map((option) => (
-                              <SelectItem key={option.key} value={option.key}>
-                                <ModelShortcutOptionLabel option={option} />
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <div className={sx(styles.rowCenter)}>
-                        <span className={sx(styles.effortLabel)}>
-                          Effort
-                        </span>
-                        <Select
-                          value={currentEffortValue}
-                          disabled={!selectedShortcutDetails}
-                          onValueChange={(value) =>
-                            updateModelShortcutEffort(
-                              slotIndex,
-                              value === MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE
-                                ? ""
-                                : (value as ModelShortcutEffort),
-                            )
-                          }
-                        >
-                          <SelectTrigger
-                            className={sx(styles.selectTriggerEffort)}
-                            aria-label={`Effort for Model Slot ${slotLabel}`}
+                          <SelectItem
+                            value={MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE}
                           >
-                            <SelectValue placeholder="Use current effort" />
-                          </SelectTrigger>
-                          <SelectContent>
+                            {i18n.t("settings:commandPaletteSection.modelShortcuts.useCurrentEffort")}</SelectItem>
+                          {effortOptions.map((option) => (
                             <SelectItem
-                              value={MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE}
+                              key={option.value}
+                              value={option.value}
                             >
-                              Use current effort
+                              {option.label}
                             </SelectItem>
-                            {effortOptions.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <p className={sx(styles.captionMuted)}>
-                        {selectedShortcutDetails
-                          ? `Currently selects ${selectedShortcutDetails.modelLabel} on ${selectedShortcutDetails.providerLabel} with ${selectedEffortDescription}.`
-                          : "No model assigned. The shortcut stays inactive until you set one."}
-                      </p>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
+                    <p className={sx(styles.captionMuted)}>
+                      {selectedShortcutDetails
+                        ? i18n.t("settings:settingsDialogCommandPaletteSection.currentlySelectsOnWith", { value1: selectedShortcutDetails.modelLabel, value2: selectedShortcutDetails.providerLabel, value3: selectedEffortDescription })
+                        : i18n.t("settings:commandPaletteSection.modelShortcuts.noModel")}
+                    </p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </SettingsCard>
+              </div>
+            );
+          })}
+        </div>
+      </SettingsCard>
 
-        <SettingsCard
-          title="Command Visibility"
-          description="Pin the core actions you use most, or hide the ones you never want in the global palette."
-        >
-          <div className={sx(styles.spaceY2)}>
-            {commands.map((command) => {
-              const isPinned = commandPalettePinnedCommandIds.includes(
-                command.id,
-              );
-              const isHidden = commandPaletteHiddenCommandIds.includes(
-                command.id,
-              );
+      <SettingsCard
+        title={t("settings:commandPaletteSection.visibility.title")}
+        description={t("settings:commandPaletteSection.visibility.description")}
+      >
+        <div className={sx(styles.spaceY2)}>
+          {commands.map((command) => {
+            const isPinned = commandPalettePinnedCommandIds.includes(
+              command.id,
+            );
+            const isHidden = commandPaletteHiddenCommandIds.includes(
+              command.id,
+            );
 
-              return (
-                <div
-                  key={command.id}
-                  className={sx(styles.shortcutCard)}
-                >
-                  <div className={sx(styles.commandRow)}>
-                    <div className={sx(styles.commandInfo)}>
-                      <div className={sx(styles.rowWrapGap2)}>
-                        <p className={sx(styles.mediumText)}>
-                          {command.title}
-                        </p>
-                        <Badge variant="outline">
-                          {COMMAND_PALETTE_GROUP_LABELS[command.group]}
-                        </Badge>
-                        {command.shortcut ? (
-                          <Badge variant="secondary">{command.shortcut}</Badge>
-                        ) : null}
-                        {isPinned ? <Badge>Pinned</Badge> : null}
-                        {isHidden ? (
-                          <Badge variant="destructive">Hidden</Badge>
-                        ) : null}
-                      </div>
-                      <p className={sx(styles.mutedBody)}>
-                        {command.description}
+            return (
+              <div
+                key={command.id}
+                className={sx(styles.shortcutCard)}
+              >
+                <div className={sx(styles.commandRow)}>
+                  <div className={sx(styles.commandInfo)}>
+                    <div className={sx(styles.rowWrapGap2)}>
+                      <p className={sx(styles.mediumText)}>
+                        {command.title}
                       </p>
-                      <p className={sx(styles.monoMicroMuted)}>
-                        {command.id}
-                      </p>
+                      <Badge variant="outline">
+                        {COMMAND_PALETTE_GROUP_LABELS[command.group]}
+                      </Badge>
+                      {command.shortcut ? (
+                        <Badge variant="secondary">{command.shortcut}</Badge>
+                      ) : null}
+                      {isPinned ? <Badge>{i18n.t("settingsProviders:modelVisibility.panel.pinned")}</Badge> : null}
+                      {isHidden ? (
+                        <Badge variant="destructive">{i18n.t("settings:commandPaletteSection.visibility.hidden")}</Badge>
+                      ) : null}
                     </div>
-                    <div className={sx(styles.commandActions)}>
-                      <Button
-                        variant={isPinned ? "primary" : "outline"}
-                        size="sm"
-                        onClick={() => togglePinnedCommand(command.id)}
-                      >
-                        {isPinned ? "Unpin" : "Pin"}
-                      </Button>
-                      <Button
-                        variant={isHidden ? "primary" : "outline"}
-                        size="sm"
-                        onClick={() => toggleHiddenCommand(command.id)}
-                      >
-                        {isHidden ? "Show" : "Hide"}
-                      </Button>
-                    </div>
+                    <p className={sx(styles.mutedBody)}>
+                      {command.description}
+                    </p>
+                    <p className={sx(styles.monoMicroMuted)}>
+                      {command.id}
+                    </p>
+                  </div>
+                  <div className={sx(styles.commandActions)}>
+                    <Button
+                      variant={isPinned ? "primary" : "outline"}
+                      size="sm"
+                      onClick={() => togglePinnedCommand(command.id)}
+                    >
+                      {isPinned ? i18n.t("settings:commandPaletteSection.visibility.unpin") : i18n.t("settings:commandPaletteSection.visibility.pin")}
+                    </Button>
+                    <Button
+                      variant={isHidden ? "primary" : "outline"}
+                      size="sm"
+                      onClick={() => toggleHiddenCommand(command.id)}
+                    >
+                      {isHidden ? i18n.t("common:actions.show") : i18n.t("common:actions.hide")}
+                    </Button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </SettingsCard>
+              </div>
+            );
+          })}
+        </div>
+      </SettingsCard>
 
-        <SettingsCard
-          title="Programmatic Contributors"
-          description="The palette is backed by a registry so internal modules can add commands without coupling to the dialog component."
-        >
-          <p className={sx(styles.contributorCopy)}>
-            Use <code>registerCommandPaletteContributor()</code> to inject
-            additional commands. Core Stave commands are customizable here;
-            dynamic workspace/task entries and future contributed commands
-            inherit the same execution surface automatically.
-          </p>
-        </SettingsCard>
-      </SectionStack>
-    </>
+      <SettingsCard
+        title={t("settings:commandPaletteSection.contributors.title")}
+        description={t("settings:commandPaletteSection.contributors.description")}
+      >
+        <p className={sx(styles.contributorCopy)}><Trans t={t} i18nKey="settings:whole.commandContributors" components={{ code: <code /> }} /></p>
+      </SettingsCard>
+    </SectionStack>
   );
 }

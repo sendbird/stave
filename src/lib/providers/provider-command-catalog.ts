@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { getProviderLabel, providerSupportsNativeCommandCatalog } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
@@ -35,7 +36,7 @@ export function getInitialProviderCommandCatalog(args: { providerId: ProviderId 
       providerId: args.providerId,
       status: "unsupported",
       commands: [],
-      detail: `${getProviderLabel({ providerId: args.providerId, variant: "full" })} does not expose a native slash-command catalog through the current SDK/CLI path. Slash commands are passed through unchanged.`,
+      detail: i18n.t("providers:providerCommandCatalog.doesNotExposeANativeSlash", { value1: getProviderLabel({ providerId: args.providerId, variant: "full" }) }),
     };
   }
 
@@ -88,7 +89,7 @@ export function toProviderCommandCatalogState(args: {
       providerId: args.providerId,
       status: "error",
       commands: [],
-      detail: `Failed to load provider command catalog: ${String(args.error)}`,
+      detail: i18n.t("providers:providerCommandCatalog.failedToLoadProviderCommandCatalog", { value1: String(args.error) }),
     };
   }
 

@@ -2,6 +2,8 @@ import { Badge, Textarea } from "@/components/ui";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import type { CodexAppServerSnapshot } from "@/lib/providers/provider.types";
 import type { ReactNode } from "react";
+import type { AppTFunction, I18nKey } from "@/i18n";
+import { formatDateTime as formatLocaleDateTime, formatPercent as formatLocalePercent } from "@/i18n/format";
 import { codexStyles } from "../settings-dialog-codex-section.styles";
 
 export type SnapshotState = {
@@ -18,19 +20,12 @@ export type DetailState<T> = {
   value: T | null;
 };
 
-export function formatDateTime(value?: number | null) {
-  if (!value) {
-    return "Unknown";
-  }
-  return new Date(value).toLocaleString();
+export function formatDateTime(t: AppTFunction, value?: number | null) {
+  return value ? formatLocaleDateTime(value) : t("common:status.unknown");
 }
 
 export function formatPercent(value?: number | null) {
-  if (value == null || Number.isNaN(value)) {
-    return "0%";
-  }
-  const normalized = value <= 1 ? value * 100 : value;
-  return `${Math.max(0, Math.min(100, Math.round(normalized)))}%`;
+  return formatLocalePercent(getPercentWidth(value) / 100);
 }
 
 export function getPercentWidth(value?: number | null) {
@@ -139,11 +134,11 @@ export function ReadOnlyCodeBlock(args: { value: string; minHeight?: number }) {
 
 export function getCodexAccountBadgeState(
   account: CodexAppServerSnapshot["account"],
-) {
+): { labelKey: Extract<I18nKey, `settingsProviders:codexShared.accountBadge.${string}`>; tone: "default" | "success" | "warning" } {
   if (!account) {
     return {
-      label: "unknown",
-      tone: "default" as const,
+      labelKey: "settingsProviders:codexShared.accountBadge.unknown",
+      tone: "default",
     };
   }
 
@@ -154,20 +149,20 @@ export function getCodexAccountBadgeState(
     account.planType != null;
   if (account.requiresOpenaiAuth && !hasResolvedAccount) {
     return {
-      label: "needs login",
-      tone: "warning" as const,
+      labelKey: "settingsProviders:codexShared.accountBadge.needsLogin",
+      tone: "warning",
     };
   }
 
   if (!account.requiresOpenaiAuth) {
     return {
-      label: "not required",
-      tone: "success" as const,
+      labelKey: "settingsProviders:codexShared.accountBadge.notRequired",
+      tone: "success",
     };
   }
 
   return {
-    label: "ready",
-    tone: "success" as const,
+    labelKey: "settingsProviders:codexShared.accountBadge.ready",
+    tone: "success",
   };
 }

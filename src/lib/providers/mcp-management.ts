@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type {
   ClaudeMcpServerStatusSnapshot,
   CodexMcpServerStatusSnapshot,
@@ -57,21 +58,21 @@ export type McpServerOverview = {
 function getMcpConnectionLabel(state: McpConnectionState) {
   switch (state) {
     case "connected":
-      return "Connected";
+      return i18n.t("settingsProviders:mcpSection.stats.connected");
     case "starting":
-      return "Starting";
+      return i18n.t("providers:mcpManagement.starting");
     case "needs-auth":
-      return "Sign in required";
+      return i18n.t("providers:mcpManagement.signInRequired");
     case "failed":
-      return "Failed";
+      return i18n.t("common:status.failed");
     case "disabled":
-      return "Disabled";
+      return i18n.t("common:status.disabled");
     case "configured":
-      return "Configured";
+      return i18n.t("providers:mcpManagement.configured");
     case "not-configured":
-      return "Not configured";
+      return i18n.t("providers:mcpManagement.notConfigured");
     default:
-      return "Status unavailable";
+      return i18n.t("providers:mcpManagement.statusUnavailable");
   }
 }
 
@@ -82,7 +83,7 @@ function normalizeMcpStatusToken(value?: string | null) {
 export function formatMcpTransportLabel(value: string) {
   switch (normalizeMcpStatusToken(value)) {
     case "streamablehttp":
-      return "Streamable HTTP";
+      return i18n.t("providers:mcpManagement.streamableHTTP");
     case "http":
       return "HTTP";
     case "sse":
@@ -90,7 +91,7 @@ export function formatMcpTransportLabel(value: string) {
     case "stdio":
       return "stdio";
     default:
-      return value === "unknown" ? "Transport unknown" : value;
+      return value === "unknown" ? i18n.t("providers:mcpManagement.transportUnknown") : value;
   }
 }
 
@@ -99,13 +100,13 @@ function formatCodexMcpAuthStatus(value?: string | null) {
     case "oauth":
       return "OAuth";
     case "bearertoken":
-      return "Bearer token";
+      return i18n.t("providers:mcpManagement.bearerToken");
     case "notauthenticated":
     case "notloggedin":
     case "unauthenticated":
-      return "Not signed in";
+      return i18n.t("providers:mcpManagement.notSignedIn");
     case "unsupported":
-      return "OAuth unavailable";
+      return i18n.t("providers:mcpManagement.oauthUnavailable");
     default:
       return value ?? undefined;
   }
@@ -271,7 +272,7 @@ function toNativeProviderOverview(args: {
     canAuthenticate: args.supportsExplicitLogin && enabledRemote,
     ...(transport
       ? {
-          detail: `${formatMcpTransportLabel(transport)} · ${args.label} native`,
+          detail: i18n.t("providers:mcpManagement.native", { value1: formatMcpTransportLabel(transport), value2: args.label }),
         }
       : {}),
   };

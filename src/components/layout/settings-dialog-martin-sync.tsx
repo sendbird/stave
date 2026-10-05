@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useEffect, useState } from "react";
 import {
   Bird,
@@ -34,12 +35,12 @@ const CONNECTOR_SCOPE_OPTIONS: ReadonlyArray<{
   {
     value: "martin",
     label: "Martin",
-    description: "Sync linked workspace activity and project context.",
+    get description() { return i18n.t("settingsConnections:settingsDialogMartinSync.syncLinkedWorkspaceActivityAndProject"); },
   },
   {
     value: "crane",
     label: "Crane",
-    description: "Keep remote job dispatch available with the same connector.",
+    get description() { return i18n.t("settingsConnections:settingsDialogMartinSync.keepRemoteJobDispatchAvailableWith"); },
   },
 ];
 
@@ -48,19 +49,19 @@ function runtimeLabel(
 ) {
   switch (state) {
     case "idle":
-      return "Ready";
+      return i18n.t("common:status.ready");
     case "syncing":
-      return "Syncing";
+      return i18n.t("settingsConnections:settingsDialogMartinSync.syncing");
     case "offline":
-      return "Offline";
+      return i18n.t("settingsConnections:settingsDialogCraneConnector.offline");
     case "unauthorized":
-      return "Pair again";
+      return i18n.t("settingsConnections:settingsDialogMartinSync.pairAgain");
     case "error":
-      return "Attention needed";
+      return i18n.t("settingsConnections:settingsDialogCraneConnector.attentionNeeded");
     case "unpaired":
-      return "Not paired";
+      return i18n.t("settingsConnections:settingsDialogCraneConnector.notPaired");
     default:
-      return "Disabled";
+      return i18n.t("common:status.disabled");
   }
 }
 
@@ -77,6 +78,7 @@ function runtimeBadgeStyle(
 }
 
 export function MartinSyncSettingsSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const martinSync = useAppStore((state) => state.settings.martinSync);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [status, setStatus] = useState<MartinSyncPublicStatus | null>(null);
@@ -142,7 +144,7 @@ export function MartinSyncSettingsSection() {
       if (syncResult) setStatus(syncResult.status);
       if (connectorResult) setConnector(connectorResult.status);
     } catch {
-      toast.error("Could not refresh Martin sync status.");
+      toast.error(i18n.t("settingsConnections:settingsDialogMartinSync.couldNotRefreshMartinSyncStatus"));
     } finally {
       setBusy(null);
     }
@@ -162,11 +164,11 @@ export function MartinSyncSettingsSection() {
   const pair = async () => {
     const pairConnector = window.api?.atelierConnector?.pair;
     if (!pairConnector) {
-      toast.error("Atelier connector controls are unavailable.");
+      toast.error(i18n.t("settingsConnections:settingsDialogMartinSync.atelierConnectorControlsAreUnavailable"));
       return;
     }
     if (!pairingCode.trim().startsWith("stp_")) {
-      toast.error("Paste a valid stp_ pairing code from Atelier.");
+      toast.error(i18n.t("settingsConnections:settingsDialogMartinSync.pasteAValidStpPairingCode"));
       return;
     }
 
@@ -184,17 +186,17 @@ export function MartinSyncSettingsSection() {
       setConnector(result.status);
       setBaseUrl(normalizedBaseUrl);
       if (!result.ok) {
-        toast.error("Could not pair with Atelier", {
+        toast.error(i18n.t("settingsConnections:settingsDialogMartinSync.couldNotPairWithAtelier"), {
           description: result.message,
         });
         return;
       }
       setPairingCode("");
-      toast.success("Atelier is paired for Martin sync.");
+      toast.success(i18n.t("settingsConnections:settingsDialogMartinSync.atelierIsPairedForMartinSync"));
       const syncResult = await window.api?.martinSync?.getStatus?.();
       if (syncResult) setStatus(syncResult.status);
     } catch {
-      toast.error("Could not pair with Atelier.");
+      toast.error(i18n.t("settingsConnections:settingsDialogMartinSync.couldNotPairWithAtelierVariantc6ffc372"));
     } finally {
       setBusy(null);
     }
@@ -203,7 +205,7 @@ export function MartinSyncSettingsSection() {
   const retryFailed = async () => {
     const retry = window.api?.martinSync?.retryFailed;
     if (!retry) {
-      toast.error("Martin sync controls are unavailable.");
+      toast.error(i18n.t("settingsConnections:settingsDialogMartinSync.martinSyncControlsAreUnavailable"));
       return;
     }
     setBusy("retry");
@@ -211,14 +213,14 @@ export function MartinSyncSettingsSection() {
       const result = await retry();
       setStatus(result.status);
       if (!result.ok) {
-        toast.error("Could not retry failed sync events", {
+        toast.error(i18n.t("settingsConnections:settingsDialogMartinSync.couldNotRetryFailedSyncEvents"), {
           description: result.message,
         });
         return;
       }
-      toast.success("Failed Martin sync events are queued again.");
+      toast.success(i18n.t("settingsConnections:settingsDialogMartinSync.failedMartinSyncEventsAreQueued"));
     } catch {
-      toast.error("Could not retry failed sync events.");
+      toast.error(i18n.t("settingsConnections:settingsDialogMartinSync.couldNotRetryFailedSyncEventsVariantb37a20ef"));
     } finally {
       setBusy(null);
     }
@@ -231,8 +233,8 @@ export function MartinSyncSettingsSection() {
     <SettingsCard
       id="settings-field-martin-sync"
       tabIndex={-1}
-      title="Martin sync"
-      description="Push selected workspace events and resource links to a linked Martin project, and pull its current context back into the workspace."
+      title={t("settings:sections.fields.martinSync.title")}
+      description={t("settingsConnections:settingsDialogMartinSync.pushSelectedWorkspaceEventsAndResource")}
       titleAccessory={
         <Badge
           variant="outline"
@@ -249,9 +251,9 @@ export function MartinSyncSettingsSection() {
           </span>
           <div className={sx(styles.headerBody)}>
             <div className={sx(styles.headerTitleLine)}>
-              <h4 className={sx(styles.headerTitle)}>Atelier connector</h4>
+              <h4 className={sx(styles.headerTitle)}>{t("settingsConnections:settingsDialogMartinSync.atelierConnector")}</h4>
               <Badge variant={paired ? "secondary" : "outline"}>
-                {paired ? "Paired" : "Not paired"}
+                {paired ? t("settingsConnections:settingsDialogMartinSync.paired") : t("settingsConnections:settingsDialogCraneConnector.notPaired")}
               </Badge>
               {connector?.scopes.map((scope) => (
                 <Badge
@@ -265,19 +267,15 @@ export function MartinSyncSettingsSection() {
             </div>
             <p className={sx(styles.headerDescription)}>
               {paired
-                ? `${connector.connector?.name ?? "This installation"} is paired${
-                    connector.connector?.lastSeenAt
-                      ? ` · last seen ${formatTaskUpdatedAt({ value: connector.connector.lastSeenAt })}`
-                      : ""
-                  }.`
-                : "Pair this installation with a short-lived code from Atelier."}
+                ? t(connector.connector?.lastSeenAt ? "settingsConnections:messages.connectorPairedLastSeen" : "settingsConnections:messages.connectorPaired", { name: connector.connector?.name ?? t("settingsConnections:messages.thisInstallation"), time: connector.connector?.lastSeenAt ? formatTaskUpdatedAt({ value: connector.connector.lastSeenAt }) : "" })
+                : t("settingsConnections:settingsDialogMartinSync.pairThisInstallationWithAShort")}
             </p>
           </div>
           <Button
             type="button"
             size="icon-sm"
             variant="ghost"
-            aria-label="Refresh Martin sync status"
+            aria-label={t("settingsConnections:settingsDialogMartinSync.refreshMartinSyncStatus")}
             disabled={busy !== null}
             onClick={() => void refreshStatus()}
           >
@@ -293,12 +291,10 @@ export function MartinSyncSettingsSection() {
         <div className={sx(styles.panelBody)}>
           <div>
             <h5 className={sx(styles.sectionTitle)}>
-              {paired ? "Update connector access" : "Pair this installation"}
+              {paired ? t("settingsConnections:settingsDialogMartinSync.updateConnectorAccess") : t("settingsConnections:settingsDialogCraneConnector.pairThisInstallation")}
             </h5>
             <p className={sx(styles.sectionDescription)}>
-              A new pairing replaces the stored connector credential. Keep every
-              integration you still use selected below.
-            </p>
+              {t("settingsConnections:settingsDialogMartinSync.aNewPairingReplacesTheStored")}</p>
           </div>
 
           <div className={sx(styles.fieldGrid)}>
@@ -307,8 +303,7 @@ export function MartinSyncSettingsSection() {
                 htmlFor="settings-martin-base-url"
                 className={sx(styles.fieldLabel)}
               >
-                Atelier URL
-              </label>
+                {t("settingsConnections:settingsDialogMartinSync.atelierURL")}</label>
               <Input
                 id="settings-martin-base-url"
                 value={baseUrl}
@@ -323,8 +318,7 @@ export function MartinSyncSettingsSection() {
                 htmlFor="settings-martin-connector-name"
                 className={sx(styles.fieldLabel)}
               >
-                Connector name
-              </label>
+                {t("settingsConnections:settingsDialogCraneConnector.connectorName")}</label>
               <Input
                 id="settings-martin-connector-name"
                 value={connectorName}
@@ -337,18 +331,18 @@ export function MartinSyncSettingsSection() {
           </div>
 
           <div className={sx(styles.field)}>
-            <span className={sx(styles.scopeLabel)}>Connector access</span>
+            <span className={sx(styles.scopeLabel)}>{t("settingsConnections:settingsDialogMartinSync.connectorAccess")}</span>
             <ToggleChipGroup
               options={CONNECTOR_SCOPE_OPTIONS}
               selected={requestedScopes}
               onToggle={toggleScope}
-              aria-label="Atelier connector access"
+              aria-label={t("settingsConnections:settingsDialogMartinSync.atelierConnectorAccess")}
             />
           </div>
 
           <div className={sx(styles.pairRow)}>
             <Input
-              aria-label="One-time Atelier pairing code"
+              aria-label={t("settingsConnections:settingsDialogMartinSync.oneTimeAtelierPairingCode")}
               type="password"
               value={pairingCode}
               disabled={busy !== null}
@@ -373,54 +367,50 @@ export function MartinSyncSettingsSection() {
               ) : (
                 <LockKeyhole className={sx(styles.pairIcon)} />
               )}
-              {paired ? "Pair again" : "Pair securely"}
+              {paired ? t("settingsConnections:settingsDialogMartinSync.pairAgain") : t("settingsConnections:settingsDialogCraneConnector.pairSecurely")}
             </Button>
           </div>
 
           {connector && !connector.secureStorageAvailable ? (
             <p className={sx(styles.warning)}>
-              OS credential encryption is unavailable. Pairing remains blocked
-              until a secure credential store is available.
-            </p>
+              {t("settingsConnections:settingsDialogCraneConnector.osCredentialEncryptionIsUnavailablePairing")}</p>
           ) : null}
 
           {paired && !hasMartinScope ? (
             <p className={sx(styles.scopeWarning)}>
-              This connector does not have Martin access. Pair again with the
-              Martin scope selected before enabling sync.
-            </p>
+              {t("settingsConnections:settingsDialogMartinSync.thisConnectorDoesNotHaveMartin")}</p>
           ) : null}
         </div>
       </div>
 
       <div className={sx(styles.toggles)}>
         <SwitchField
-          title="Enable Martin sync"
-          description="Off keeps queued events on this device and stops outbound delivery."
+          title={t("settingsConnections:settingsDialogMartinSync.enableMartinSync")}
+          description={t("settingsConnections:settingsDialogMartinSync.offKeepsQueuedEventsOnThis")}
           checked={martinSync.enabled}
           onCheckedChange={(enabled) => patch({ enabled })}
         />
         <SwitchField
-          title="PR opened events"
-          description="Send a factual event when a pull request is opened."
+          title={t("settingsConnections:settingsDialogMartinSync.prOpenedEvents")}
+          description={t("settingsConnections:settingsDialogMartinSync.sendAFactualEventWhenA")}
           checked={martinSync.prOpened}
           onCheckedChange={(prOpened) => patch({ prOpened })}
         />
         <SwitchField
-          title="Task completed events"
-          description="Send a factual event when a task is archived as completed."
+          title={t("settingsConnections:settingsDialogMartinSync.taskCompletedEvents")}
+          description={t("settingsConnections:settingsDialogMartinSync.sendAFactualEventWhenAVariant16b16a6a")}
           checked={martinSync.taskCompleted}
           onCheckedChange={(taskCompleted) => patch({ taskCompleted })}
         />
         <SwitchField
-          title="Resource link mirroring"
-          description="Mirror workspace links after changes settle."
+          title={t("settingsConnections:settingsDialogMartinSync.resourceLinkMirroring")}
+          description={t("settingsConnections:settingsDialogMartinSync.mirrorWorkspaceLinksAfterChangesSettle")}
           checked={martinSync.resourceLinks}
           onCheckedChange={(resourceLinks) => patch({ resourceLinks })}
         />
         <SwitchField
-          title="Turn summaries"
-          description="Send model-written work summaries. This interpretive data is off by default."
+          title={t("settingsConnections:settingsDialogMartinSync.turnSummaries")}
+          description={t("settingsConnections:settingsDialogMartinSync.sendModelWrittenWorkSummariesThis")}
           checked={martinSync.turnSummaries}
           onCheckedChange={(turnSummaries) => patch({ turnSummaries })}
         />
@@ -429,10 +419,10 @@ export function MartinSyncSettingsSection() {
       <div className={sx(styles.outbox)}>
         <ShieldCheck className={sx(styles.outboxIcon)} />
         <div className={sx(styles.outboxText)}>
-          <span className={sx(styles.outboxStrong)}>Outbox</span>
-          {` · ${status?.pendingCount ?? 0} pending · ${status?.failedCount ?? 0} failed`}
+          <span className={sx(styles.outboxStrong)}>{t("settingsConnections:settingsDialogMartinSync.outbox")}</span>
+          {t("settingsConnections:settingsDialogMartinSync.pendingFailed", { value1: status?.pendingCount ?? 0, value2: status?.failedCount ?? 0 })}
           {status?.lastDeliveredAt
-            ? ` · last delivered ${formatTaskUpdatedAt({ value: status.lastDeliveredAt })}`
+            ? t("settingsConnections:settingsDialogMartinSync.lastDelivered", { value1: formatTaskUpdatedAt({ value: status.lastDeliveredAt }) })
             : ""}
         </div>
         {(status?.failedCount ?? 0) > 0 ? (
@@ -448,8 +438,7 @@ export function MartinSyncSettingsSection() {
             ) : (
               <RotateCcw className={sx(styles.retryIcon)} />
             )}
-            Retry failed
-          </Button>
+            {t("settingsConnections:settingsDialogMartinSync.retryFailed")}</Button>
         ) : null}
       </div>
     </SettingsCard>

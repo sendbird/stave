@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -29,16 +30,16 @@ type MacroEditorTarget =
 function describeMacro(macro: Macro) {
   const insertLabel =
     macro.insertMode === "append"
-      ? "Append"
+      ? i18n.t("settings:macroEditor.append")
       : macro.insertMode === "prepend"
-        ? "Prepend"
-        : "Replace";
+        ? i18n.t("settings:macroEditor.prepend")
+        : i18n.t("settings:general.soundControls.replace");
   const parts = [insertLabel];
   if (isMacroInstantRun(macro)) {
-    parts.push("runs immediately");
+    parts.push(i18n.t("settings:settingsDialogMacrosSection.runsImmediately"));
   }
   if (!macro.runtime) {
-    parts.push("keeps the current model");
+    parts.push(i18n.t("settings:settingsDialogMacrosSection.keepsTheCurrentModel"));
     return parts.join(" · ");
   }
   const effortLabel = getModelEffortLabel({
@@ -57,6 +58,7 @@ function describeMacro(macro: Macro) {
 }
 
 export function MacrosSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [macros, upsertMacro, removeMacro, reorderMacros] = useAppStore(
     useShallow(
       (state) =>
@@ -128,8 +130,8 @@ export function MacrosSection() {
   return (
     <SectionStack>
       <SettingsCard
-        title="Macros"
-        description="Save reusable prompts and insert them from the composer with !. Optionally pin a model, or send the prompt as soon as the macro is applied."
+        title={t("settings:sections.macros.label")}
+        description={t("settings:settingsDialogMacrosSection.saveReusablePromptsAndInsertThem")}
         titleAccessory={
           <Button
             type="button"
@@ -141,15 +143,14 @@ export function MacrosSection() {
             }}
           >
             <Plus className={sx(styles.addIcon)} />
-            Add macro
-          </Button>
+            {t("settings:settingsDialogMacrosSection.addMacro")}</Button>
         }
       >
         {isAddingNew ? (
           <div className={sx(styles.editorWrap)}>
             <MacroEditor
               initialMacro={newMacroDraft}
-              submitLabel="Add macro"
+              submitLabel={t("settings:settingsDialogMacrosSection.addMacro")}
               error={editorError}
               onSave={handleSaveMacro}
               onCancel={closeEditor}
@@ -159,9 +160,7 @@ export function MacrosSection() {
 
         {macros.length === 0 && !isAddingNew ? (
           <div className={sx(styles.empty)}>
-            No macros yet. Add one to insert a saved prompt from the composer
-            toolbar or by typing !.
-          </div>
+            {t("settings:settingsDialogMacrosSection.noMacrosYetAddOneTo")}</div>
         ) : macros.length === 0 ? null : (
           <div className={sx(styles.list)}>
             {macros.map((macro, index) => {
@@ -193,8 +192,7 @@ export function MacrosSection() {
                             variant="secondary"
                             className={sx(styles.instantBadge)}
                           >
-                            Instant
-                          </Badge>
+                            {i18n.t("settings:settingsDialogMacrosSection.instant")}</Badge>
                         ) : null}
                       </div>
                       <p className={sx(styles.rowMeta)}>
@@ -212,7 +210,7 @@ export function MacrosSection() {
                         variant="ghost"
                         size="icon-xs"
                         disabled={index === 0}
-                        aria-label={`Move ${macro.label} up`}
+                        aria-label={i18n.t("settings:settingsDialogMacrosSection.moveUp", { value1: macro.label })}
                         onClick={() => handleMoveMacro(macro.id, -1)}
                       >
                         <ChevronUp className={sx(styles.actionIcon)} />
@@ -222,7 +220,7 @@ export function MacrosSection() {
                         variant="ghost"
                         size="icon-xs"
                         disabled={index === macros.length - 1}
-                        aria-label={`Move ${macro.label} down`}
+                        aria-label={i18n.t("settings:settingsDialogMacrosSection.moveDown", { value1: macro.label })}
                         onClick={() => handleMoveMacro(macro.id, 1)}
                       >
                         <ChevronDown className={sx(styles.actionIcon)} />
@@ -231,7 +229,7 @@ export function MacrosSection() {
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        aria-label={`Edit ${macro.label}`}
+                        aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: macro.label })}
                         onClick={() => {
                           setEditorError(undefined);
                           setEditorTarget({
@@ -247,7 +245,7 @@ export function MacrosSection() {
                         variant="ghost"
                         size="icon-xs"
                         xstyle={styles.deleteButton}
-                        aria-label={`Delete ${macro.label}`}
+                        aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: macro.label })}
                         onClick={() => setDeletingId(macro.id)}
                       >
                         <Trash2 className={sx(styles.actionIcon)} />
@@ -258,7 +256,7 @@ export function MacrosSection() {
                     <div className={sx(styles.editorWrapInline)}>
                       <MacroEditor
                         initialMacro={macro}
-                        submitLabel="Save macro"
+                        submitLabel={i18n.t("settings:settingsDialogMacrosSection.saveMacro")}
                         error={editorError}
                         onSave={handleSaveMacro}
                         onCancel={closeEditor}
@@ -274,13 +272,13 @@ export function MacrosSection() {
 
       <ConfirmDialog
         open={deletingId !== null}
-        title="Delete saved macro?"
+        title={t("settings:settingsDialogMacrosSection.deleteSavedMacro")}
         description={
           deletingMacro
-            ? `!${deletingMacro.slug} will be removed from Settings and the composer.`
-            : "This macro will be removed from Settings and the composer."
+            ? t("settings:settingsDialogMacrosSection.willBeRemovedFromSettingsAnd", { value1: deletingMacro.slug })
+            : t("settings:settingsDialogMacrosSection.thisMacroWillBeRemovedFrom")
         }
-        confirmLabel="Delete macro"
+        confirmLabel={t("settings:settingsDialogMacrosSection.deleteMacro")}
         onConfirm={() => {
           if (deletingId) {
             handleDeleteMacro(deletingId);

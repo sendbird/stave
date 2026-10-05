@@ -114,6 +114,7 @@ function summarizeMessagePart(part: MessagePart) {
     case "approval":
       return `[approval:${part.toolName}] ${part.description}`;
     case "user_input":
+      // i18n-ignore: bounded provider protocol diagnostic, not display copy
       return `[user_input:${part.toolName}] ${part.questions.length} questions`;
     case "system_event":
       return `[system] ${part.content}`;

@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button, Switch } from "@/components/ui";
@@ -19,20 +20,18 @@ import { claudePluginsStyles as styles } from "./settings-dialog-claude-plugins.
 const CLAUDE_PLUGIN_MODE_HELP = [
   {
     value: "claude-config" as const,
-    label: "Claude config",
-    description:
-      "Load exactly the plugins Claude's own settings enable (what `claude plugin install` / `claude plugin enable` wrote).",
+    get label() { return i18n.t("settingsProviders:claudePlugins.modes.claudeConfig.label"); },
+    get description() { return i18n.t("settingsProviders:claudePlugins.modes.claudeConfig.description"); },
   },
   {
     value: "all" as const,
-    label: "All installed",
-    description:
-      "Load every plugin installed through the Claude CLI, even ones disabled in Claude settings.",
+    get label() { return i18n.t("settingsProviders:claudePlugins.modes.all.label"); },
+    get description() { return i18n.t("settingsProviders:claudePlugins.modes.all.description"); },
   },
   {
     value: "off" as const,
-    label: "Off",
-    description: "Load no CLI-installed plugins. Plugin Paths still apply.",
+    get label() { return i18n.t("common:status.off"); },
+    get description() { return i18n.t("settingsProviders:claudePlugins.modes.off.description"); },
   },
 ] satisfies ReadonlyArray<{
   value: ClaudePluginMode;
@@ -42,13 +41,13 @@ const CLAUDE_PLUGIN_MODE_HELP = [
 
 function describePluginScope(plugin: ClaudeInstalledPluginSummary) {
   if (plugin.scopes.length === 0) {
-    return "not installed locally";
+    return i18n.t("settingsProviders:claudePlugins.scope.notInstalled");
   }
   return plugin.scopes.includes("project")
     ? plugin.scopes.includes("user")
-      ? "user + project install"
-      : "project install"
-    : "user install";
+      ? i18n.t("settingsProviders:claudePlugins.scope.userAndProject")
+      : i18n.t("settingsProviders:claudePlugins.scope.project")
+    : i18n.t("settingsProviders:claudePlugins.scope.user");
 }
 
 /**
@@ -63,6 +62,7 @@ function describePluginScope(plugin: ClaudeInstalledPluginSummary) {
  * enable state.
  */
 export function ClaudeInstalledPluginsField() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     settings,
     activeTaskId,
@@ -121,7 +121,7 @@ export function ClaudeInstalledPluginsField() {
       window.api?.provider?.listClaudeInstalledPlugins;
     if (!listClaudeInstalledPlugins) {
       setPlugins([]);
-      setDetail("Claude plugin discovery is unavailable in this build.");
+      setDetail(i18n.t("settingsProviders:claudePlugins.errors.unavailable"));
       setHasLoaded(true);
       return;
     }
@@ -148,7 +148,7 @@ export function ClaudeInstalledPluginsField() {
       setDetail(
         error instanceof Error
           ? error.message
-          : "Failed to load installed Claude plugins.",
+          : i18n.t("settingsProviders:claudePlugins.errors.loadFailed"),
       );
       setHasLoaded(true);
     } finally {
@@ -191,17 +191,17 @@ export function ClaudeInstalledPluginsField() {
   return (
     <>
       <LabeledField
-        title="Installed Plugins"
-        description="Plugins installed with `claude plugin install`. Stave loads them itself, so they work without turning on the `user` setting source."
+        title={t("settingsProviders:claudePlugins.field.title")}
+        description={t("settingsProviders:claudePlugins.field.description")}
         guide={
           <SettingsFieldGuide
-            title="Claude Installed Plugins"
-            summary="Stave re-states Claude's plugin decision through the SDK, so CLI-installed plugins load under the narrowed setting sources."
+            title={t("settingsProviders:claudePlugins.guide.title")}
+            summary={t("settingsProviders:claudePlugins.guide.summary")}
             items={CLAUDE_PLUGIN_MODE_HELP.map((option) => ({
               label: option.label,
               description: option.description,
             }))}
-            tooltip="How installed Claude plugins are loaded"
+            tooltip={t("settingsProviders:claudePlugins.guide.tooltip")}
           />
         }
       >
@@ -222,7 +222,7 @@ export function ClaudeInstalledPluginsField() {
               disabled={isLoading}
               onClick={() => void loadPlugins()}
             >
-              {isLoading ? "Loading..." : "Refresh"}
+              {isLoading ? t("settingsProviders:settingsDialogClaudePlugins.loading") : t("common:actions.refresh")}
             </Button>
             {hasOverrides ? (
               <Button
@@ -235,16 +235,15 @@ export function ClaudeInstalledPluginsField() {
                   void loadPlugins();
                 }}
               >
-                Clear overrides
-              </Button>
+                {t("settingsProviders:claudePlugins.clearOverrides")}</Button>
             ) : null}
           </div>
           {plugins.length === 0 ? (
             <p className={sx(styles.empty)}>
               {hasLoaded
                 ? detail ||
-                  "No Claude CLI plugins found. Install one with `claude plugin install <plugin>@<marketplace>`."
-                : "Checking installed Claude plugins..."}
+                  t("settingsProviders:settingsDialogClaudePlugins.noClaudeCLIPluginsFoundInstall")
+                : t("settingsProviders:claudePlugins.checking")}
             </p>
           ) : (
             <ul className={sx(styles.list)}>
@@ -264,14 +263,14 @@ export function ClaudeInstalledPluginsField() {
                         </span>
                       ) : null}
                       {overrides[plugin.id] !== undefined ? (
-                        <StatusBadge state="warning" label="Stave override" />
+                        <StatusBadge state="warning" label={i18n.t("settingsProviders:claudePlugins.overrideBadge")} />
                       ) : null}
                     </div>
                     <p className={sx(styles.itemScope)}>
                       {describePluginScope(plugin)}
                       {plugin.enabledInClaudeConfig
-                        ? ` · enabled in ${plugin.enabledSource ?? "claude"} settings`
-                        : " · not enabled in Claude settings"}
+                        ? i18n.t("settingsProviders:settingsDialogClaudePlugins.enabledInSettings", { value1: plugin.enabledSource ?? "claude" })
+                        : i18n.t("settingsProviders:settingsDialogClaudePlugins.notEnabledInClaudeSettings")}
                     </p>
                     {plugin.description ? (
                       <p className={sx(styles.itemDescription)}>
@@ -284,7 +283,7 @@ export function ClaudeInstalledPluginsField() {
                     onCheckedChange={(enabled) =>
                       setPluginEnabled({ plugin, enabled })
                     }
-                    aria-label={`Enable ${plugin.id}`}
+                    aria-label={i18n.t("settingsProviders:settingsDialogClaudePlugins.enable", { value1: plugin.id })}
                     className={sx(styles.itemSwitch)}
                   />
                 </li>

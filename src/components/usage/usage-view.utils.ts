@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n } from "@/i18n";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
 import { UNATTRIBUTED_ACCOUNT_ID, USAGE_PROVIDER_NAMES, type UsageStatisticsArgs } from "@/lib/providers/usage-statistics";
@@ -5,9 +7,9 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 
 export type UsagePeriod = "today" | "7" | "30" | "90" | "month" | "custom";
 export const USAGE_PERIOD_OPTIONS = [
-  { value: "today", label: "Today" }, { value: "7", label: "Last 7 days" },
-  { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" },
-  { value: "month", label: "This month" }, { value: "custom", label: "Custom dates" },
+  { value: "today", get label() { return i18n.t("common:time.today"); } }, { value: "7", get label() { return i18n.t("usage:usageViewUtils.lastDays"); } },
+  { value: "30", get label() { return i18n.t("usage:usageViewUtils.lastDaysVariant7942d8d0"); } }, { value: "90", get label() { return i18n.t("usage:usageViewUtils.lastDaysVariantb6a83c56"); } },
+  { value: "month", get label() { return i18n.t("usage:usageViewUtils.thisMonth"); } }, { value: "custom", get label() { return i18n.t("usage:usageViewUtils.customDates"); } },
 ];
 export function dateInputValue(date: Date, utc = false) {
   const year = utc ? date.getUTCFullYear() : date.getFullYear();
@@ -38,16 +40,16 @@ export function usageRange(args: { period: UsagePeriod; start: string; end: stri
   return { from: from.toISOString(), to: to.toISOString() };
 }
 export function usageAccountLabel(providerId: ProviderId, accountProfileId: string, profiles: readonly ProviderAccountProfile[]) {
-  if (accountProfileId === UNATTRIBUTED_ACCOUNT_ID) return "Unattributed history";
-  if (accountProfileId === SYSTEM_ACCOUNT_PROFILE_ID) return "System default";
-  return profiles.find((profile) => profile.providerId === providerId && profile.id === accountProfileId)?.label ?? "Removed account";
+  if (accountProfileId === UNATTRIBUTED_ACCOUNT_ID) return i18n.t("usage:usageViewUtils.unattributedHistory");
+  if (accountProfileId === SYSTEM_ACCOUNT_PROFILE_ID) return i18n.t("usage:usageViewUtils.systemDefault");
+  return profiles.find((profile) => profile.providerId === providerId && profile.id === accountProfileId)?.label ?? i18n.t("usage:usageViewUtils.removedAccount");
 }
 export function usageScopeLabel(providerId: ProviderId, accountProfileId: string, profiles: readonly ProviderAccountProfile[]) {
   return `${USAGE_PROVIDER_NAMES[providerId]} · ${usageAccountLabel(providerId, accountProfileId, profiles)}`;
 }
 export function usageTimestamp(at: string, timeZone: string) {
-  return new Intl.DateTimeFormat(undefined, { timeZone, year: "numeric", month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(at));
+  return formatDateTime(at, { timeZone, year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 }
 export type UsageStatisticsLoader = (args: UsageStatisticsArgs) => Promise<import("@/lib/providers/usage-statistics").UsageStatisticsReport | null>;
 export async function loadUsageStatistics(args: UsageStatisticsArgs) {

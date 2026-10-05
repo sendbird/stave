@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type {
   ProviderEventSource,
   ProviderId,
@@ -19,6 +20,7 @@ const POLLED_STREAM_ACTIVE_DELAY_MS = 80;
 const POLLED_STREAM_IDLE_DELAY_MS = 1000;
 const PUSH_STREAM_FALLBACK_SILENCE_MS = 15_000;
 const PUSH_STREAM_ACK_DELAY_MS = 250;
+// i18n-ignore: server diagnostic fragment used to recognize a stale stream cursor
 const STALE_STREAM_CURSOR_MESSAGE = "retained replay window";
 
 type StreamReadResult = {
@@ -44,7 +46,7 @@ async function* fromArray(args: { items: unknown[] }) {
 }
 
 async function* emitStartFailure(args: { message?: string }) {
-  const detail = args.message?.trim() || "Provider request could not start.";
+  const detail = args.message?.trim() || i18n.t("providers:bridgeSource.providerRequestCouldNotStart");
   yield {
     type: "error",
     message: detail,
@@ -177,7 +179,7 @@ async function* continueFromPolledStream(args: {
     if (!page.ok) {
       yield {
         type: "error",
-        message: page.message?.trim() || "Provider stream session not found.",
+        message: page.message?.trim() || i18n.t("providers:bridgeSource.providerStreamSessionNotFound"),
         recoverable: true,
       };
       yield { type: "done" };
@@ -223,7 +225,7 @@ async function* fromPolledStream(args: {
     });
   } catch (error) {
     yield* emitStartFailure({
-      message: getErrorMessage(error, "Provider request could not start."),
+      message: getErrorMessage(error, i18n.t("providers:bridgeSource.providerRequestCouldNotStart")),
     });
     return;
   }
@@ -417,7 +419,7 @@ async function* fromPushStream(args: {
       });
     } catch (error) {
       yield* emitStartFailure({
-        message: getErrorMessage(error, "Provider request could not start."),
+        message: getErrorMessage(error, i18n.t("providers:bridgeSource.providerRequestCouldNotStart")),
       });
       return;
     }
@@ -520,7 +522,7 @@ async function resolveBridgeStream(args: {
       return [
         {
           type: "system",
-          content: getErrorMessage(error, "Provider request could not start."),
+          content: getErrorMessage(error, i18n.t("providers:bridgeSource.providerRequestCouldNotStart")),
         },
         {
           type: "done",
@@ -577,7 +579,7 @@ async function resolveBridgeStream(args: {
     return [
       {
         type: "system",
-        content: getErrorMessage(error, "Provider request could not start."),
+        content: getErrorMessage(error, i18n.t("providers:bridgeSource.providerRequestCouldNotStart")),
       },
       {
         type: "done",

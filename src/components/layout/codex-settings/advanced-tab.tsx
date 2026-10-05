@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import {
   Accordion,
   AccordionContent,
@@ -45,14 +46,15 @@ export function AdvancedTab({
   onSingleConfigWrite,
   onBatchConfigWrite,
 }: AdvancedTabProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   return (
     <>
       {!snapshot ? null : (
         <div className={sx(codexStyles.twoColGridConfig)}>
           <div className={sx(codexStyles.stack4)}>
             <DenseSection
-              title="Config requirements"
-              description="Policy limits the App Server reports for approvals, sandbox, residency, and feature gates."
+              title={t("settingsProviders:codexAdvancedTab.requirements.title")}
+              description={t("settingsProviders:codexAdvancedTab.requirements.description")}
               action={
                 snapshot.externalAgentConfigItems.length > 0 ? (
                   <Button
@@ -72,7 +74,7 @@ export function AdvancedTab({
                         variant="spinner"
                       />
                     ) : null}
-                    Import detected config
+                    {t("settingsProviders:codexAdvancedTab.requirements.importDetected")}
                   </Button>
                 ) : null
               }
@@ -82,30 +84,21 @@ export function AdvancedTab({
                   {(
                     snapshot.configRequirements?.allowedApprovalPolicies ?? []
                   ).map((value) => (
-                    <StatusPill
-                      key={`approval:${value}`}
-                      label={`approval ${value}`}
-                    />
+                    <StatusPill key={`approval:${value}`} label={t("settingsProviders:codexAdvancedTab.requirements.approval", { value })} />
                   ))}
                   {(snapshot.configRequirements?.allowedSandboxModes ?? []).map(
                     (value) => (
-                      <StatusPill
-                        key={`sandbox:${value}`}
-                        label={`sandbox ${value}`}
-                      />
+                      <StatusPill key={`sandbox:${value}`} label={t("settingsProviders:codexAdvancedTab.requirements.sandbox", { value })} />
                     ),
                   )}
                   {(
                     snapshot.configRequirements?.allowedWebSearchModes ?? []
                   ).map((value) => (
-                    <StatusPill
-                      key={`search:${value}`}
-                      label={`search ${value}`}
-                    />
+                    <StatusPill key={`search:${value}`} label={t("settingsProviders:codexAdvancedTab.requirements.search", { value })} />
                   ))}
                   {snapshot.configRequirements?.enforceResidency ? (
                     <StatusPill
-                      label={`residency ${snapshot.configRequirements.enforceResidency}`}
+                      label={t("settingsProviders:codexAdvancedTab.requirements.residency", { value: snapshot.configRequirements.enforceResidency })}
                     />
                   ) : null}
                 </div>
@@ -113,7 +106,7 @@ export function AdvancedTab({
                 {snapshot.externalAgentConfigItems.length > 0 ? (
                   <div className={sx(codexStyles.tile)}>
                     <p className={sx(codexStyles.textSmMedium)}>
-                      Detected external configs
+                      {t("settingsProviders:codexAdvancedTab.requirements.detectedExternal")}
                     </p>
                     <div className={sx(codexStyles.mt2Space2)}>
                       {snapshot.externalAgentConfigItems.map((item, index) => (
@@ -143,8 +136,8 @@ export function AdvancedTab({
             </DenseSection>
 
             <DenseSection
-              title="Config layers"
-              description="Merged config plus per-layer diagnostics returned by Codex."
+              title={t("settingsProviders:codexAdvancedTab.layers.title")}
+              description={t("settingsProviders:codexAdvancedTab.layers.description")}
             >
               <Accordion multiple className={sx(codexStyles.wFullSpace3)}>
                 {snapshot.config?.layers.map((layer, index) => (
@@ -163,7 +156,7 @@ export function AdvancedTab({
                           <StatusPill label={layer.version} />
                         ) : null}
                         {layer.disabledReason ? (
-                          <StatusPill label="disabled" tone="warning" />
+                          <StatusPill label={t("settingsProviders:codexAdvancedTab.layers.disabled")} tone="warning" />
                         ) : null}
                       </div>
                     </AccordionTrigger>
@@ -185,12 +178,12 @@ export function AdvancedTab({
 
           <div className={sx(codexStyles.stack4)}>
             <DenseSection
-              title="Advanced config edits"
-              description="Raw JSON utilities for targeted Codex config changes. Most users should only inspect this area when diagnosing App Server behavior."
+              title={t("settingsProviders:codexAdvancedTab.edits.title")}
+              description={t("settingsProviders:codexAdvancedTab.edits.description")}
             >
               <div className={sx(codexStyles.stack4)}>
                 <div className={sx(codexStyles.stack2)}>
-                  <p className={sx(codexStyles.eyebrow)}>Single edit</p>
+                  <p className={sx(codexStyles.eyebrow)}>{t("settingsProviders:codexAdvancedTab.edits.single")}</p>
                   <Input
                     value={singleConfigKeyPath}
                     onChange={(event) =>
@@ -203,7 +196,7 @@ export function AdvancedTab({
                     onChange={(event) =>
                       onSingleMergeStrategyChange(event.target.value)
                     }
-                    placeholder="Optional mergeStrategy"
+                    placeholder={t("settingsProviders:codexAdvancedTab.edits.mergeStrategyPlaceholder")}
                   />
                   <Textarea
                     value={singleConfigValue}
@@ -228,12 +221,12 @@ export function AdvancedTab({
                         variant="spinner"
                       />
                     ) : null}
-                    Apply single edit
+                    {t("settingsProviders:codexAdvancedTab.edits.applySingle")}
                   </Button>
                 </div>
 
                 <div className={sx(codexStyles.stack2)}>
-                  <p className={sx(codexStyles.eyebrow)}>Batch edits</p>
+                  <p className={sx(codexStyles.eyebrow)}>{t("settingsProviders:codexAdvancedTab.edits.batch")}</p>
                   <Textarea
                     value={batchConfigEdits}
                     onChange={(event) =>
@@ -258,15 +251,15 @@ export function AdvancedTab({
                         variant="spinner"
                       />
                     ) : null}
-                    Apply batch
+                    {t("settingsProviders:codexAdvancedTab.edits.applyBatch")}
                   </Button>
                 </div>
               </div>
             </DenseSection>
 
             <DenseSection
-              title="Merged advanced config"
-              description="Read-only raw config payload returned by `config/read`."
+              title={t("settingsProviders:codexAdvancedTab.merged.title")}
+              description={t("settingsProviders:codexAdvancedTab.merged.description")}
             >
               <ReadOnlyCodeBlock
                 value={JSON.stringify(snapshot.config?.config ?? {}, null, 2)}

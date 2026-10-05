@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useEffect, useId, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -5,8 +6,8 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Input } from "@/components/ui";
 import {
   ApiConnectionModelIdSchema,
-  CLAUDE_CODE_EXPERIMENTAL_MODEL_LABEL,
-  CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON,
+  CLAUDE_CODE_EXPERIMENTAL_MODEL_LABEL_KEY,
+  CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON_KEY,
   MAX_API_CONNECTION_MODELS,
   formatApiConnectionContext,
   formatApiConnectionPrice,
@@ -22,6 +23,7 @@ import { apiConnectionStyles as styles } from "./api-connections.styles";
 const RESULT_LIMIT = 40;
 
 function ModelLine({ model, servesClaude, action }: { model: ApiConnectionModel; servesClaude: boolean; action: React.ReactNode }) {
+  useTranslation(I18N_NAMESPACES);
   const detail = [model.name && model.name !== model.id ? model.id : "", formatApiConnectionContext(model.contextWindow), formatApiConnectionPrice(model)]
     .filter(Boolean).join(" · ");
   return <li className={sx(styles.modelRow)}>
@@ -30,7 +32,7 @@ function ModelLine({ model, servesClaude, action }: { model: ApiConnectionModel;
       {detail && <span className={sx(styles.modelDetail)}>{detail}</span>}
     </span>
     {servesClaude && isExperimentalApiConnectionModel("claude-code", model.id) && (
-      <span className={sx(styles.experimental)} title={CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON}>{CLAUDE_CODE_EXPERIMENTAL_MODEL_LABEL}</span>
+      <span className={sx(styles.experimental)} title={i18n.t(CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON_KEY)}>{i18n.t(CLAUDE_CODE_EXPERIMENTAL_MODEL_LABEL_KEY)}</span>
     )}
     {action}
   </li>;
@@ -47,6 +49,7 @@ export function ApiConnectionModelPicker(props: {
   value: ApiConnectionModel[];
   onChange: (models: ApiConnectionModel[]) => void;
 }) {
+  const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
   const searchId = useId();
   const manualId = useId();
   const [catalog, setCatalog] = useState<ApiConnectionCatalogModel[] | null>(null);
@@ -83,40 +86,38 @@ export function ApiConnectionModelPicker(props: {
   };
   return <div className={sx(accountStyles.stack)}>
     <div className={sx(accountStyles.stackTight)}>
-      <span className={sx(accountStyles.label)}>Pinned models ({props.value.length})</span>
+      <span className={sx(accountStyles.label)}>{t("settingsConnections:messages.pinnedModels", { count: props.value.length })}</span>
       {props.value.length === 0
-        ? <p className={sx(accountStyles.muted)}>No models yet. Pin the models this connection offers in the model picker{discover ? ", from the list below or" : ""} by ID.</p>
-        : <ul className={sx(styles.modelList)} aria-label="Pinned models">
+        ? <p className={sx(accountStyles.muted)}>{t(discover ? "settingsConnections:messages.pinModelsDiscovery" : "settingsConnections:messages.pinModelsManual")}</p>
+        : <ul className={sx(styles.modelList)} aria-label={t("settingsConnections:apiConnectionModelPicker.pinnedModelsVariant12aa6b92")}>
           {props.value.map((model) => <ModelLine key={model.id} model={model} servesClaude={props.servesClaude} action={
-            <Button size="xs" variant="quiet" iconOnly aria-label={`Unpin ${model.name ?? model.id}`}
+            <Button size="xs" variant="quiet" iconOnly aria-label={i18n.t("settingsConnections:apiConnectionModelPicker.unpin", { value1: model.name ?? model.id })}
               onClick={() => props.onChange(props.value.filter((candidate) => candidate.id !== model.id))}>
               <X aria-hidden />
             </Button>} />)}
         </ul>}
-      {props.servesClaude && <p className={sx(accountStyles.muted)}>
-        Claude Code runs background requests and subagents on the first pinned Claude model. Other models are experimental in Claude Code: {CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON}
-      </p>}
+      {props.servesClaude && <p className={sx(accountStyles.muted)}>{t("settingsConnections:messages.experimentalExplanation", { reason: i18n.t(CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON_KEY) })}</p>}
     </div>
     {discover && <div className={sx(accountStyles.stackTight)}>
-      <label htmlFor={searchId} className={sx(accountStyles.label)}>Find models on Vercel AI Gateway</label>
-      <Input id={searchId} placeholder="For example, kimi, glm, sonnet or deepseek" value={query} onChange={(event) => setQuery(event.target.value)} />
+      <label htmlFor={searchId} className={sx(accountStyles.label)}>{t("settingsConnections:apiConnectionModelPicker.findModelsOnVercelAIGateway")}</label>
+      <Input id={searchId} placeholder={t("settingsConnections:apiConnectionModelPicker.forExampleKimiGlmSonnetOr")} value={query} onChange={(event) => setQuery(event.target.value)} />
       {catalogError ? <p role="alert" className={sx(accountStyles.error)}>{catalogError}</p>
-        : !catalog ? <p className={sx(accountStyles.muted)}>Loading the model list…</p>
-          : results.length === 0 ? <p className={sx(accountStyles.muted)}>No models match “{query}”. Clear the search, or add the model by ID below.</p>
-            : <ul className={sx(styles.results)} aria-label="Models you can pin">
+        : !catalog ? <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionModelPicker.loadingTheModelList")}</p>
+          : results.length === 0 ? <p className={sx(accountStyles.muted)}>{t("settingsConnections:messages.noMatchingModels", { query: query })}</p>
+            : <ul className={sx(styles.results)} aria-label={t("settingsConnections:apiConnectionModelPicker.modelsYouCanPin")}>
               {results.map((model) => <ModelLine key={model.id} model={model} servesClaude={props.servesClaude} action={
-                <Button size="xs" variant="outline" disabled={full} onClick={() => pin(model)}>Pin</Button>} />)}
+                <Button size="xs" variant="outline" disabled={full} onClick={() => pin(model)}>{i18n.t("settings:commandPaletteSection.visibility.pin")}</Button>} />)}
             </ul>}
-      <p className={sx(accountStyles.muted)}>Coding models only: language models that can use tools. Prices are the gateway's list price per 1M input / output tokens.</p>
+      <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionModelPicker.codingModelsOnlyLanguageModelsThat")}</p>
     </div>}
     <div className={sx(accountStyles.stackTight)}>
-      <label htmlFor={manualId} className={sx(accountStyles.label)}>Add a model by ID</label>
+      <label htmlFor={manualId} className={sx(accountStyles.label)}>{t("settingsConnections:apiConnectionModelPicker.addAModelByID")}</label>
       <div className={sx(accountStyles.row)}>
-        <Input id={manualId} placeholder="creator/model, for example moonshotai/kimi-k3" value={manual}
+        <Input id={manualId} placeholder={t("settingsConnections:apiConnectionModelPicker.creatorModelForExampleMoonshotaiKimi")} value={manual}
           onChange={(event) => setManual(event.target.value)} xstyle={accountStyles.field} />
-        <Button size="sm" variant="outline" disabled={!manualValid || full} onClick={addManual}>Add model</Button>
+        <Button size="sm" variant="outline" disabled={!manualValid || full} onClick={addManual}>{t("settingsConnections:apiConnectionModelPicker.addModel")}</Button>
       </div>
-      {manual.trim() && !manualValid && <p className={sx(accountStyles.muted)}>Use the gateway's model IDs, separated by commas, such as anthropic/claude-sonnet-5.</p>}
+      {manual.trim() && !manualValid && <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionModelPicker.useTheGatewaySModelIDs")}</p>}
     </div>
   </div>;
 }

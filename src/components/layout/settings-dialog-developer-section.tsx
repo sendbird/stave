@@ -1,3 +1,5 @@
+import { formatNumber, formatRelativeTime as formatLocaleRelativeTime } from "@/i18n/format";
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, TriangleAlert } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -84,7 +86,7 @@ function formatClaudeCodeRegistrationState(
     return "error";
   }
   if (!status.autoRegister) {
-    return "not managed";
+    return i18n.t("settings:developerSection.localMcp.registrationState.notManaged");
   }
   if (status.installed && status.matchesCurrentManifest) {
     return "registered";
@@ -92,7 +94,7 @@ function formatClaudeCodeRegistrationState(
   if (status.installed) {
     return "stale";
   }
-  return "not installed";
+  return i18n.t("settings:developerSection.localMcp.registrationState.notInstalled");
 }
 
 function formatCodexRegistrationState(
@@ -102,7 +104,7 @@ function formatCodexRegistrationState(
     return "error";
   }
   if (!status.autoRegister) {
-    return "not managed";
+    return i18n.t("settings:developerSection.localMcp.registrationState.notManaged");
   }
   if (status.installed && status.matchesCurrentManifest) {
     return "registered";
@@ -110,10 +112,11 @@ function formatCodexRegistrationState(
   if (status.installed) {
     return "stale";
   }
-  return "not installed";
+  return i18n.t("settings:developerSection.localMcp.registrationState.notInstalled");
 }
 
 export function ProviderTimeoutCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const providerTimeoutMs = useAppStore(
     (state) => state.settings.providerTimeoutMs,
   );
@@ -122,12 +125,12 @@ export function ProviderTimeoutCard() {
 
   return (
     <SettingsCard
-      title="Provider Timeout"
-      description="Maximum time to wait for a Claude or Codex runtime response before showing a timeout error."
+      title={t("settings:developerSection.providerTimeout.title")}
+      description={t("settings:developerSection.providerTimeout.description")}
     >
       <LabeledField
-        title="Timeout Window"
-        description="Default is 12 hours so long-running coding turns, refactors, and tool-heavy sessions do not time out too early."
+        title={t("settings:developerSection.providerTimeout.windowTitle")}
+        description={t("settings:developerSection.providerTimeout.windowDescription")}
       >
         <div className={sx(developerStyles.timeoutRow)}>
           <Select
@@ -159,6 +162,7 @@ export function ProviderTimeoutCard() {
 }
 
 export function CodexBinaryPathCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const codexBinaryPath = useAppStore(
     (state) => state.settings.codexBinaryPath,
   );
@@ -166,8 +170,8 @@ export function CodexBinaryPathCard() {
 
   return (
     <SettingsCard
-      title="Codex Binary"
-      description="Override the path to the local `codex` binary. Leave empty to use the system install discovered from your PATH/home bin locations."
+      title={t("settings:developerSection.codexBinary.title")}
+      description={t("settings:developerSection.codexBinary.description")}
     >
       <DraftInput
         xstyle={developerStyles.binaryInput}
@@ -180,20 +184,16 @@ export function CodexBinaryPathCard() {
       <div className={sx(developerStyles.warningNote)}>
         <p className={sx(developerStyles.warningTitle)}>
           <TriangleAlert className={sx(developerStyles.warningIcon)} />
-          Supported Codex baseline
-        </p>
+          {t("settings:developerSection.codexBinary.baselineTitle")}</p>
         <p className={sx(developerStyles.warningNoteBody)}>
-          Stave targets the Codex App Server path in local `codex` CLI
-          `0.145.0`. Older binaries may work for existing features, but newly
-          adopted controls must be capability-gated. Update Codex or point this
-          field at the version you want Stave to use.
-        </p>
+          {t("settings:settingsDialogDeveloperSection.staveTargetsTheCodexAppServer")}</p>
       </div>
     </SettingsCard>
   );
 }
 
 export function ClaudeBinaryPathCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const claudeBinaryPath = useAppStore(
     (state) => state.settings.claudeBinaryPath,
   );
@@ -201,8 +201,8 @@ export function ClaudeBinaryPathCard() {
 
   return (
     <SettingsCard
-      title="Claude Binary"
-      description="Override the path to the local `claude` binary. Leave empty to let Stave auto-select the newest working Claude install it can resolve."
+      title={t("settings:developerSection.claudeBinary.title")}
+      description={t("settings:developerSection.claudeBinary.description")}
     >
       <DraftInput
         xstyle={developerStyles.binaryInput}
@@ -213,15 +213,13 @@ export function ClaudeBinaryPathCard() {
         }
       />
       <p className={sx(developerStyles.note)}>
-        Use this when the shell `claude` auth state and Stave&apos;s Tooling
-        panel disagree, or when multiple Claude installs exist on the same
-        machine.
-      </p>
+        {t("settings:settingsDialogDeveloperSection.useThisWhenTheShellClaude")}</p>
     </SettingsCard>
   );
 }
 
 export function ClaudeRuntimeToolsCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     settings,
     activeTaskId,
@@ -269,7 +267,7 @@ export function ClaudeRuntimeToolsCard() {
     const getClaudeContextUsage = window.api?.provider?.getClaudeContextUsage;
     if (!getClaudeContextUsage) {
       setClaudeContextUsage(null);
-      setClaudeContextUsageDetail("Claude context usage API unavailable.");
+      setClaudeContextUsageDetail(i18n.t("settings:developerSection.claudeRuntime.contextApiUnavailable"));
       return;
     }
 
@@ -286,7 +284,7 @@ export function ClaudeRuntimeToolsCard() {
       setClaudeContextUsageDetail(
         error instanceof Error
           ? error.message
-          : "Failed to load Claude context usage.",
+          : i18n.t("settings:developerSection.claudeRuntime.contextLoadFailed"),
       );
     } finally {
       setIsLoadingClaudeContextUsage(false);
@@ -297,7 +295,7 @@ export function ClaudeRuntimeToolsCard() {
     const reloadClaudePlugins = window.api?.provider?.reloadClaudePlugins;
     if (!reloadClaudePlugins) {
       setClaudePluginReload(null);
-      setClaudePluginReloadDetail("Claude plugin reload API unavailable.");
+      setClaudePluginReloadDetail(i18n.t("settings:developerSection.claudeRuntime.pluginApiUnavailable"));
       return;
     }
 
@@ -317,7 +315,7 @@ export function ClaudeRuntimeToolsCard() {
       setClaudePluginReloadDetail(
         error instanceof Error
           ? error.message
-          : "Failed to reload Claude plugins.",
+          : i18n.t("settings:developerSection.claudeRuntime.pluginReloadFailed"),
       );
     } finally {
       setIsReloadingClaudePlugins(false);
@@ -326,8 +324,8 @@ export function ClaudeRuntimeToolsCard() {
 
   return (
     <SettingsCard
-      title="Claude Runtime Tools"
-      description="Inspect current Claude session/workspace context pressure and refresh plugin-driven commands without leaving Stave."
+      title={t("settings:developerSection.claudeRuntime.title")}
+      description={t("settings:developerSection.claudeRuntime.description")}
     >
       <div className={sx(developerStyles.buttonRow)}>
         <Button
@@ -337,33 +335,33 @@ export function ClaudeRuntimeToolsCard() {
           onClick={() => void handleLoadClaudeContextUsage()}
         >
           {isLoadingClaudeContextUsage
-            ? "Loading Context..."
-            : "Inspect Context Usage"}
+            ? t("settings:developerSection.claudeRuntime.loadingContext")
+            : t("settings:developerSection.claudeRuntime.inspectContext")}
         </Button>
         <Button
           xstyle={developerStyles.actionButtonMd}
           disabled={isReloadingClaudePlugins}
           onClick={() => void handleReloadClaudePlugins()}
         >
-          {isReloadingClaudePlugins ? "Reloading Plugins..." : "Reload Plugins"}
+          {isReloadingClaudePlugins ? t("settings:developerSection.claudeRuntime.reloadingPlugins") : t("settings:developerSection.claudeRuntime.reloadPlugins")}
         </Button>
       </div>
 
       <div className={sx(developerStyles.infoPanel)}>
         <div className={sx(developerStyles.infoRow)}>
-          <span className={sx(developerStyles.infoLabel)}>Workspace</span>
+          <span className={sx(developerStyles.infoLabel)}>{t("settings:sections.groups.workspace")}</span>
           <span className={sx(developerStyles.infoValueMono)}>
-            {workspaceCwd ?? "<process cwd>"}
+            {workspaceCwd ?? t("settings:developerSection.claudeRuntime.processCwd")}
           </span>
         </div>
         <div className={sx(developerStyles.infoRow)}>
-          <span className={sx(developerStyles.infoLabel)}>Setting Sources</span>
+          <span className={sx(developerStyles.infoLabel)}>{t("settingsProviders:providersSection.claudeRuntime.settingSources.title")}</span>
           <span className={sx(developerStyles.infoValueMono)}>
             {formatClaudeSettingSources(settings.claudeSettingSources)}
           </span>
         </div>
         <div className={sx(developerStyles.infoRow)}>
-          <span className={sx(developerStyles.infoLabel)}>Task Budget</span>
+          <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.claudeRuntime.taskBudget")}</span>
           <span className={sx(developerStyles.infoValueMono)}>
             {formatTokenBudget(settings.claudeTaskBudgetTokens)}
           </span>
@@ -374,11 +372,10 @@ export function ClaudeRuntimeToolsCard() {
         <div className={sx(developerStyles.infoPanelSpaced)}>
           <div className={sx(developerStyles.infoRow)}>
             <span className={sx(developerStyles.infoValueStrong)}>
-              Context usage
-            </span>
+              {t("settings:developerSection.claudeRuntime.contextUsage")}</span>
             <span className={sx(developerStyles.infoValueMonoMuted)}>
-              {claudeContextUsage.totalTokens.toLocaleString()} /{" "}
-              {claudeContextUsage.maxTokens.toLocaleString()} (
+              {formatNumber(claudeContextUsage.totalTokens)} /{" "}
+              {formatNumber(claudeContextUsage.maxTokens)} (
               {Math.round(claudeContextUsage.percentage)}%)
             </span>
           </div>
@@ -389,19 +386,19 @@ export function ClaudeRuntimeToolsCard() {
                   {category.name}
                 </span>
                 <span className={sx(developerStyles.infoValueMono)}>
-                  {category.tokens.toLocaleString()}
+                  {formatNumber(category.tokens)}
                 </span>
               </div>
             ))}
           </div>
           <div className={sx(developerStyles.infoRow)}>
-            <span className={sx(developerStyles.infoLabel)}>Memory files</span>
+            <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.claudeRuntime.memoryFiles")}</span>
             <span className={sx(developerStyles.infoValueMono)}>
               {claudeContextUsage.memoryFiles.length}
             </span>
           </div>
           <div className={sx(developerStyles.infoRow)}>
-            <span className={sx(developerStyles.infoLabel)}>MCP tools</span>
+            <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.claudeRuntime.mcpTools")}</span>
             <span className={sx(developerStyles.infoValueMono)}>
               {claudeContextUsage.mcpTools.length}
             </span>
@@ -416,25 +413,25 @@ export function ClaudeRuntimeToolsCard() {
         <div className={sx(developerStyles.infoPanelSpaced)}>
           <div className={sx(developerStyles.pluginGrid)}>
             <div className={sx(developerStyles.pluginCell)}>
-              <p className={sx(developerStyles.pluginCellLabel)}>Commands</p>
+              <p className={sx(developerStyles.pluginCellLabel)}>{t("settingsProviders:codexSection.tabs.commands")}</p>
               <p className={sx(developerStyles.pluginCellValue)}>
                 {claudePluginReload.commandCount}
               </p>
             </div>
             <div className={sx(developerStyles.pluginCell)}>
-              <p className={sx(developerStyles.pluginCellLabel)}>Agents</p>
+              <p className={sx(developerStyles.pluginCellLabel)}>{t("settings:developerSection.claudeRuntime.agents")}</p>
               <p className={sx(developerStyles.pluginCellValue)}>
                 {claudePluginReload.agentCount}
               </p>
             </div>
             <div className={sx(developerStyles.pluginCell)}>
-              <p className={sx(developerStyles.pluginCellLabel)}>Plugins</p>
+              <p className={sx(developerStyles.pluginCellLabel)}>{t("settingsProviders:codexExtensionsTab.plugins")}</p>
               <p className={sx(developerStyles.pluginCellValue)}>
                 {claudePluginReload.plugins.length}
               </p>
             </div>
             <div className={sx(developerStyles.pluginCell)}>
-              <p className={sx(developerStyles.pluginCellLabel)}>Errors</p>
+              <p className={sx(developerStyles.pluginCellLabel)}>{t("settings:developerSection.claudeRuntime.errors")}</p>
               <p className={sx(developerStyles.pluginCellValue)}>
                 {claudePluginReload.errorCount}
               </p>
@@ -481,6 +478,7 @@ export function ClaudeRuntimeToolsCard() {
 }
 
 export function DeveloperSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const providerDebugStream = useAppStore(
     (state) => state.settings.providerDebugStream,
   );
@@ -500,7 +498,7 @@ export function DeveloperSection() {
       const getGpuStatus = window.api?.window?.getGpuStatus;
       if (!getGpuStatus) {
         if (!cancelled) {
-          setGpuStatusError("GPU status API unavailable.");
+          setGpuStatusError(i18n.t("settings:messages.gpuStatusUnavailable"));
         }
         return;
       }
@@ -517,7 +515,7 @@ export function DeveloperSection() {
           return;
         }
         setGpuStatusError(
-          error instanceof Error ? error.message : "Failed to load GPU status.",
+          error instanceof Error ? error.message : i18n.t("settings:messages.gpuStatusFailed"),
         );
       }
     }
@@ -534,8 +532,8 @@ export function DeveloperSection() {
         <ProviderTimeoutCard />
 
         <SettingsCard
-          title="Provider Debug Logging"
-          description="Enables verbose stream event logging for all providers in the Electron main-process console."
+          title={t("settings:developerSection.debugLogging.title")}
+          description={t("settings:developerSection.debugLogging.description")}
         >
           <Switch
             checked={providerDebugStream}
@@ -546,19 +544,18 @@ export function DeveloperSection() {
         </SettingsCard>
 
         <SettingsCard
-          title="GPU Acceleration"
-          description="Electron-reported compositor status for diagnosing WSL2 and filtered transparency performance."
+          title={t("settings:developerSection.gpu.title")}
+          description={t("settings:developerSection.gpu.description")}
         >
           {gpuStatus ? (
             <div className={sx(developerStyles.infoPanelSpaced)}>
               <div className={sx(developerStyles.infoRow)}>
                 <span className={sx(developerStyles.infoValueStrong)}>
-                  Hardware acceleration
-                </span>
+                  {t("settings:developerSection.gpu.hardwareAcceleration")}</span>
                 <span className={sx(developerStyles.infoValueMonoMuted)}>
                   {gpuStatus.hardwareAccelerationEnabled
-                    ? "enabled"
-                    : "disabled"}
+                    ? t("settingsProviders:codexExtensionsTab.enabled")
+                    : t("settingsProviders:codexAdvancedTab.layers.disabled")}
                 </span>
               </div>
               <div className={sx(developerStyles.gpuStatusRows)}>
@@ -574,8 +571,7 @@ export function DeveloperSection() {
             </div>
           ) : gpuStatusError ? null : (
             <p className={sx(developerStyles.loadingCopy)}>
-              Loading GPU status…
-            </p>
+              {t("settings:developerSection.gpu.loading")}</p>
           )}
           {gpuStatusError ? (
             <p className={sx(developerStyles.warningNote)}>{gpuStatusError}</p>
@@ -587,10 +583,11 @@ export function DeveloperSection() {
 }
 
 export function LocalMcpServerCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [state, setState] = useState<LocalMcpViewState>({
     status: "loading",
     snapshot: null,
-    detail: "Loading local MCP server status...",
+    detail: t("settings:developerSection.localMcp.detail.loading"),
     busy: false,
   });
 
@@ -600,7 +597,7 @@ export function LocalMcpServerCard() {
       setState({
         status: "error",
         snapshot: null,
-        detail: "Local MCP settings API unavailable.",
+        detail: i18n.t("settings:developerSection.localMcp.detail.apiUnavailable"),
         busy: false,
       });
       return;
@@ -611,7 +608,7 @@ export function LocalMcpServerCard() {
       status: current.snapshot ? current.status : "loading",
       detail: current.snapshot
         ? current.detail
-        : "Loading local MCP server status...",
+        : i18n.t("settings:developerSection.localMcp.detail.loading"),
     }));
 
     try {
@@ -620,7 +617,7 @@ export function LocalMcpServerCard() {
         setState({
           status: "error",
           snapshot: null,
-          detail: result.message || "Failed to load local MCP status.",
+          detail: result.message || i18n.t("settings:developerSection.localMcp.detail.loadFailed"),
           busy: false,
         });
         return;
@@ -629,10 +626,10 @@ export function LocalMcpServerCard() {
         status: "ready",
         snapshot: result.status,
         detail: result.status.running
-          ? "Local MCP server is running."
+          ? i18n.t("settings:developerSection.localMcp.detail.running")
           : result.status.config.enabled
-            ? "Local MCP server is configured but not currently running."
-            : "Local MCP server is disabled.",
+            ? i18n.t("settings:developerSection.localMcp.detail.configuredNotRunning")
+            : i18n.t("settings:developerSection.localMcp.detail.disabled"),
         busy: false,
       });
     } catch (error) {
@@ -642,7 +639,7 @@ export function LocalMcpServerCard() {
         detail:
           error instanceof Error
             ? error.message
-            : "Failed to load local MCP status.",
+            : i18n.t("settings:developerSection.localMcp.detail.loadFailed"),
         busy: false,
       });
     }
@@ -665,7 +662,7 @@ export function LocalMcpServerCard() {
       setState((current) => ({
         ...current,
         status: "error",
-        detail: "Local MCP settings API unavailable.",
+        detail: i18n.t("settings:developerSection.localMcp.detail.apiUnavailable"),
         busy: false,
       }));
       return;
@@ -674,7 +671,7 @@ export function LocalMcpServerCard() {
     setState((current) => ({
       ...current,
       busy: true,
-      detail: "Restarting local MCP server...",
+      detail: i18n.t("settings:developerSection.localMcp.detail.restarting"),
     }));
 
     try {
@@ -683,7 +680,7 @@ export function LocalMcpServerCard() {
         setState((current) => ({
           ...current,
           status: "error",
-          detail: result.message || "Failed to update local MCP settings.",
+          detail: result.message || i18n.t("settings:developerSection.localMcp.detail.updateFailed"),
           busy: false,
         }));
         return;
@@ -692,10 +689,10 @@ export function LocalMcpServerCard() {
         status: "ready",
         snapshot: result.status,
         detail: result.status.running
-          ? "Local MCP settings saved and server restarted."
+          ? i18n.t("settings:developerSection.localMcp.detail.savedAndRestarted")
           : result.status.config.enabled
-            ? "Local MCP settings saved."
-            : "Local MCP server disabled.",
+            ? i18n.t("settings:developerSection.localMcp.detail.saved")
+            : i18n.t("settings:developerSection.localMcp.detail.serverDisabled"),
         busy: false,
       });
     } catch (error) {
@@ -705,7 +702,7 @@ export function LocalMcpServerCard() {
         detail:
           error instanceof Error
             ? error.message
-            : "Failed to update local MCP settings.",
+            : i18n.t("settings:developerSection.localMcp.detail.updateFailed"),
         busy: false,
       }));
     }
@@ -717,7 +714,7 @@ export function LocalMcpServerCard() {
       setState((current) => ({
         ...current,
         status: "error",
-        detail: "Local MCP settings API unavailable.",
+        detail: i18n.t("settings:developerSection.localMcp.detail.apiUnavailable"),
         busy: false,
       }));
       return;
@@ -726,7 +723,7 @@ export function LocalMcpServerCard() {
     setState((current) => ({
       ...current,
       busy: true,
-      detail: "Generating a new local MCP token and restarting the server...",
+      detail: i18n.t("settings:developerSection.localMcp.detail.rotating"),
     }));
 
     try {
@@ -735,7 +732,7 @@ export function LocalMcpServerCard() {
         setState((current) => ({
           ...current,
           status: "error",
-          detail: result.message || "Failed to rotate local MCP token.",
+          detail: result.message || i18n.t("settings:developerSection.localMcp.detail.rotateFailed"),
           busy: false,
         }));
         return;
@@ -743,7 +740,7 @@ export function LocalMcpServerCard() {
       setState({
         status: "ready",
         snapshot: result.status,
-        detail: "Generated a new local MCP token and restarted the server.",
+        detail: i18n.t("settings:developerSection.localMcp.detail.rotated"),
         busy: false,
       });
     } catch (error) {
@@ -753,7 +750,7 @@ export function LocalMcpServerCard() {
         detail:
           error instanceof Error
             ? error.message
-            : "Failed to rotate local MCP token.",
+            : i18n.t("settings:developerSection.localMcp.detail.rotateFailed"),
         busy: false,
       }));
     }
@@ -764,7 +761,7 @@ export function LocalMcpServerCard() {
       await copyTextToClipboard(value);
       setState((current) => ({
         ...current,
-        detail: `${label} copied to clipboard.`,
+        detail: i18n.t("settings:settingsDialogDeveloperSection.copiedToClipboard", { value1: label }),
       }));
     } catch (error) {
       setState((current) => ({
@@ -773,7 +770,7 @@ export function LocalMcpServerCard() {
         detail:
           error instanceof Error
             ? error.message
-            : `Failed to copy ${label.toLowerCase()}.`,
+            : i18n.t("settings:settingsDialogDeveloperSection.failedToCopy", { value1: label.toLowerCase() }),
       }));
     }
   }
@@ -781,12 +778,11 @@ export function LocalMcpServerCard() {
   if (state.status === "loading" && !state.snapshot) {
     return (
       <SettingsCard
-        title="Local MCP Server"
-        description="Manage the packaged-app loopback MCP endpoint used by same-machine bots and helpers."
+        title={t("settings:developerSection.localMcp.title")}
+        description={t("settings:developerSection.localMcp.description")}
       >
         <p className={sx(developerStyles.loadingCopy)}>
-          Loading local MCP server status...
-        </p>
+          {t("settings:developerSection.localMcp.detail.loading")}</p>
       </SettingsCard>
     );
   }
@@ -799,20 +795,17 @@ export function LocalMcpServerCard() {
 
   return (
     <SettingsCard
-      title="Local MCP Server"
-      description="Manage the packaged-app loopback MCP endpoint used by same-machine bots and helpers. CLI auto-registration stays off until you explicitly enable it."
+      title={t("settings:developerSection.localMcp.title")}
+      description={t("settings:developerSection.localMcp.descriptionWithOptIn")}
     >
       {snapshot && config ? (
         <>
           <p className={sx(developerStyles.note)}>
-            `Claude Code` and `Codex` are opt-in. Stave only writes its managed
-            MCP entry to your user-level CLI config files after you turn those
-            settings on.
-          </p>
+            {t("settings:developerSection.localMcp.optInNote")}</p>
 
           <SwitchField
-            title="Server"
-            description="Enable or disable the localhost MCP surface exposed by the desktop app."
+            title={t("settings:developerSection.localMcp.server.title")}
+            description={t("settings:developerSection.localMcp.server.description")}
             checked={config.enabled}
             onCheckedChange={(checked) =>
               void applyConfigPatch({ enabled: checked })
@@ -820,8 +813,8 @@ export function LocalMcpServerCard() {
           />
 
           <LabeledField
-            title="Port"
-            description="A fixed port keeps the endpoint stable across restarts, so clients that cached it keep working. Use `0` to let Stave choose any available localhost port instead."
+            title={t("settings:developerSection.localMcp.port.title")}
+            description={t("settings:developerSection.localMcp.port.description")}
           >
             <DraftInput
               xstyle={developerStyles.binaryInput}
@@ -841,7 +834,7 @@ export function LocalMcpServerCard() {
 
           <SwitchField
             title="Claude Code"
-            description="Opt-in and off by default. When enabled, Stave manages only its own user-scope MCP entry in Claude Code's `.claude.json` (under `CLAUDE_CONFIG_DIR`, or `~/.claude.json`) for the external Claude Code app. This does not affect Stave's internal Claude runtime."
+            description={t("settings:developerSection.localMcp.claudeCode.description")}
             checked={config.claudeCodeAutoRegister}
             onCheckedChange={(checked) =>
               void applyConfigPatch({ claudeCodeAutoRegister: checked })
@@ -850,7 +843,7 @@ export function LocalMcpServerCard() {
 
           <SwitchField
             title="Codex"
-            description="Opt-in and off by default. When enabled, Stave manages only its own MCP entry in `~/.codex/config.toml` for Codex. Stave also injects the current token into the in-app Codex runtime env."
+            description={t("settings:developerSection.localMcp.codex.description")}
             checked={config.codexAutoRegister}
             onCheckedChange={(checked) =>
               void applyConfigPatch({ codexAutoRegister: checked })
@@ -858,8 +851,8 @@ export function LocalMcpServerCard() {
           />
 
           <SwitchField
-            title="Lens browser tools"
-            description="Expose the ~27 `stave_lens_*` browser tools to connected agents. Every tool schema is part of the prompt of each new provider session, so turning this off measurably shrinks the prompt for workspaces that never drive a browser from an agent turn."
+            title={t("settings:developerSection.localMcp.browserTools.title")}
+            description={t("settings:developerSection.localMcp.browserTools.description")}
             checked={config.browserToolsEnabled !== false}
             onCheckedChange={(checked) =>
               void applyConfigPatch({ browserToolsEnabled: checked })
@@ -867,8 +860,8 @@ export function LocalMcpServerCard() {
           />
 
           <LabeledField
-            title="Token"
-            description="Bearer token required by local clients. Rotate it to immediately revoke previous access."
+            title={t("settings:developerSection.localMcp.token.title")}
+            description={t("settings:developerSection.localMcp.token.description")}
           >
             <div className={sx(developerStyles.tokenFieldRow)}>
               <DraftInput
@@ -884,35 +877,33 @@ export function LocalMcpServerCard() {
                   xstyle={developerStyles.actionButtonLg}
                   variant="outline"
                   disabled={state.busy}
-                  onClick={() => void handleCopy(config.token, "Token")}
+                  onClick={() => void handleCopy(config.token, t("settings:messages.tokenName"))}
                 >
-                  Copy
-                </Button>
+                  {t("common:actions.copy")}</Button>
                 <Button
                   xstyle={developerStyles.actionButtonLg}
                   variant="outline"
                   disabled={state.busy}
                   onClick={() => void handleRotateToken()}
                 >
-                  Rotate
-                </Button>
+                  {t("settings:themeSection.motion.beamSize.rotate.label")}</Button>
               </div>
             </div>
           </LabeledField>
 
           <div className={sx(developerStyles.infoPanelSpaced)}>
             <div className={sx(developerStyles.infoRow)}>
-              <span className={sx(developerStyles.infoLabel)}>Status</span>
+              <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.requestLog.columns.status")}</span>
               <span className={sx(developerStyles.infoValueMono)}>
                 {snapshot.running
-                  ? "running"
+                  ? t("settings:developerSection.localMcp.serverState.running")
                   : config.enabled
-                    ? "stopped"
-                    : "disabled"}
+                    ? t("settings:developerSection.localMcp.serverState.stopped")
+                    : t("settingsProviders:codexAdvancedTab.layers.disabled")}
               </span>
             </div>
             <div className={sx(developerStyles.infoRow)}>
-              <span className={sx(developerStyles.infoLabel)}>Config file</span>
+              <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.localMcp.info.configFile")}</span>
               <span className={sx(developerStyles.infoValueMono)}>
                 {snapshot.configPath}
               </span>
@@ -927,8 +918,7 @@ export function LocalMcpServerCard() {
             </div>
             <div className={sx(developerStyles.infoRow)}>
               <span className={sx(developerStyles.infoLabel)}>
-                Claude settings
-              </span>
+                {t("settings:developerSection.localMcp.info.claudeSettings")}</span>
               <span className={sx(developerStyles.infoValueMono)}>
                 {snapshot.claudeCodeRegistration.configPath}
               </span>
@@ -941,8 +931,7 @@ export function LocalMcpServerCard() {
             </div>
             <div className={sx(developerStyles.infoRow)}>
               <span className={sx(developerStyles.infoLabel)}>
-                Codex config
-              </span>
+                {t("settings:developerSection.localMcp.info.codexConfig")}</span>
               <span className={sx(developerStyles.infoValueMono)}>
                 {snapshot.codexRegistration.configPath}
               </span>
@@ -950,15 +939,14 @@ export function LocalMcpServerCard() {
             {manifest ? (
               <>
                 <div className={sx(developerStyles.infoRow)}>
-                  <span className={sx(developerStyles.infoLabel)}>MCP URL</span>
+                  <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.localMcp.info.mcpUrl")}</span>
                   <span className={sx(developerStyles.infoValueMono)}>
                     {manifest.url}
                   </span>
                 </div>
                 <div className={sx(developerStyles.infoRow)}>
                   <span className={sx(developerStyles.infoLabel)}>
-                    Health URL
-                  </span>
+                    {t("settings:developerSection.localMcp.info.healthUrl")}</span>
                   <span className={sx(developerStyles.infoValueMono)}>
                     {manifest.healthUrl}
                   </span>
@@ -967,7 +955,7 @@ export function LocalMcpServerCard() {
             ) : null}
             {snapshot.manifestPaths.map((manifestPath) => (
               <div key={manifestPath} className={sx(developerStyles.infoRow)}>
-                <span className={sx(developerStyles.infoLabel)}>Manifest</span>
+                <span className={sx(developerStyles.infoLabel)}>{i18n.t("settings:developerSection.localMcp.info.manifest")}</span>
                 <span className={sx(developerStyles.infoValueMono)}>
                   {manifestPath}
                 </span>
@@ -983,8 +971,7 @@ export function LocalMcpServerCard() {
               disabled={state.busy}
               onClick={() => void refreshStatus()}
             >
-              Refresh Status
-            </Button>
+              {t("settings:developerSection.localMcp.actions.refreshStatus")}</Button>
             {manifest?.url ? (
               <Button
                 xstyle={developerStyles.actionButtonMd}
@@ -993,8 +980,7 @@ export function LocalMcpServerCard() {
                 disabled={state.busy}
                 onClick={() => void handleCopy(manifest.url, "MCP URL")}
               >
-                Copy URL
-              </Button>
+                {t("settings:developerSection.localMcp.actions.copyUrl")}</Button>
             ) : null}
             <Button
               xstyle={developerStyles.actionButtonMd}
@@ -1002,11 +988,10 @@ export function LocalMcpServerCard() {
               variant="outline"
               disabled={state.busy}
               onClick={() =>
-                void handleCopy(snapshot.configPath, "Config path")
+                void handleCopy(snapshot.configPath, i18n.t("settings:settingsDialogDeveloperSection.configPath"))
               }
             >
-              Copy Config Path
-            </Button>
+              {t("settings:developerSection.localMcp.actions.copyConfigPath")}</Button>
           </div>
         </>
       ) : null}
@@ -1072,7 +1057,7 @@ function getLocalMcpRequestLogDetail(args: {
   limit: number;
 }) {
   if (args.total === 0) {
-    return "No local MCP requests recorded yet.";
+    return i18n.t("settings:developerSection.requestLog.detail.none");
   }
 
   const start = args.offset + 1;
@@ -1081,9 +1066,9 @@ function getLocalMcpRequestLogDetail(args: {
   const totalPages = Math.max(1, Math.ceil(args.total / args.limit));
   const refreshMode =
     args.offset === 0
-      ? "Auto-refresh is active on this page."
-      : "Auto-refresh pauses while browsing older pages.";
-  return `Showing ${start}-${end} of ${args.total} local MCP requests (page ${page} of ${totalPages}). ${refreshMode}`;
+      ? i18n.t("settings:settingsDialogDeveloperSection.autoRefreshIsActiveOnThis")
+      : i18n.t("settings:settingsDialogDeveloperSection.autoRefreshPausesWhileBrowsingOlder");
+  return i18n.t("settings:settingsDialogDeveloperSection.showingOfLocalMCPRequestsPage", { value1: start, value2: end, value3: args.total, value4: page, value5: totalPages, value6: refreshMode });
 }
 
 type LocalMcpRequestPayloadLoadState =
@@ -1099,6 +1084,7 @@ type LocalMcpRequestPayloadLoadState =
     };
 
 function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [open, setOpen] = useState(false);
   const [payloadState, setPayloadState] =
     useState<LocalMcpRequestPayloadLoadState>(
@@ -1146,7 +1132,7 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
       setPayloadState({
         status: "error",
         payload: null,
-        error: "Local MCP request log API unavailable.",
+        error: i18n.t("settings:developerSection.requestLog.detail.apiUnavailable"),
       });
       return;
     }
@@ -1159,7 +1145,7 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
         setPayloadState({
           status: "error",
           payload: null,
-          error: result.message || "Failed to load request payload.",
+          error: result.message || i18n.t("settings:developerSection.requestLog.payload.loadFailed"),
         });
         return;
       }
@@ -1179,14 +1165,14 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
         error:
           error instanceof Error
             ? error.message
-            : "Failed to load request payload.",
+            : i18n.t("settings:developerSection.requestLog.payload.loadFailed"),
       });
     }
   }
 
   if (!log.hasRequestPayload) {
     return (
-      <span className={sx(developerStyles.payloadEmptyLabel)}>No payload</span>
+      <span className={sx(developerStyles.payloadEmptyLabel)}>{t("settings:developerSection.requestLog.payload.none")}</span>
     );
   }
 
@@ -1200,7 +1186,7 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
         xstyle={developerStyles.payloadToggle}
         onClick={() => void handleTogglePayload()}
       >
-        <span>{open ? "Hide request payload" : "View request payload"}</span>
+        <span>{open ? t("settings:developerSection.requestLog.payload.hide") : t("settings:developerSection.requestLog.payload.show")}</span>
         {payloadState.status === "loading" ? (
           <Loader
             aria-hidden
@@ -1213,8 +1199,7 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
 
       {open && payloadState.status === "loading" ? (
         <div className={sx(developerStyles.payloadLoaderCell)}>
-          Loading request payload...
-        </div>
+          {t("settings:developerSection.requestLog.payload.loading")}</div>
       ) : null}
 
       {open && payloadState.status === "ready" ? (
@@ -1223,8 +1208,7 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
 
       {open && payloadState.status === "empty" ? (
         <div className={sx(developerStyles.payloadLoaderCell)}>
-          No payload recorded for this request.
-        </div>
+          {t("settings:developerSection.requestLog.payload.notRecorded")}</div>
       ) : null}
 
       {open && payloadState.status === "error" ? (
@@ -1237,11 +1221,12 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
 }
 
 export function LocalMcpRequestLogCard() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const latestRequestIdRef = useRef(0);
   const [state, setState] = useState<LocalMcpRequestLogViewState>({
     status: "loading",
     logs: [],
-    detail: "Loading local MCP request logs...",
+    detail: t("settings:developerSection.requestLog.detail.loading"),
     busy: false,
     total: 0,
     limit: LOCAL_MCP_REQUEST_LOG_PAGE_SIZE,
@@ -1258,7 +1243,7 @@ export function LocalMcpRequestLogCard() {
       setState({
         status: "error",
         logs: [],
-        detail: "Local MCP request log API unavailable.",
+        detail: i18n.t("settings:developerSection.requestLog.detail.apiUnavailable"),
         busy: false,
         total: 0,
         limit: LOCAL_MCP_REQUEST_LOG_PAGE_SIZE,
@@ -1281,7 +1266,7 @@ export function LocalMcpRequestLogCard() {
         detail:
           current.logs.length > 0
             ? current.detail
-            : "Loading local MCP request logs...",
+            : i18n.t("settings:developerSection.requestLog.detail.loading"),
       }));
     }
 
@@ -1298,7 +1283,7 @@ export function LocalMcpRequestLogCard() {
         setState((current) => ({
           ...current,
           status: "error",
-          detail: result.message || "Failed to load local MCP request logs.",
+          detail: result.message || i18n.t("settings:developerSection.requestLog.detail.loadFailed"),
           busy: false,
         }));
         return;
@@ -1328,7 +1313,7 @@ export function LocalMcpRequestLogCard() {
         detail:
           error instanceof Error
             ? error.message
-            : "Failed to load local MCP request logs.",
+            : i18n.t("settings:developerSection.requestLog.detail.loadFailed"),
         busy: false,
       }));
     }
@@ -1357,7 +1342,7 @@ export function LocalMcpRequestLogCard() {
       setState((current) => ({
         ...current,
         status: "error",
-        detail: "Local MCP request log API unavailable.",
+        detail: i18n.t("settings:developerSection.requestLog.detail.apiUnavailable"),
         busy: false,
       }));
       return;
@@ -1369,7 +1354,7 @@ export function LocalMcpRequestLogCard() {
     setState((current) => ({
       ...current,
       busy: true,
-      detail: "Clearing local MCP request logs...",
+      detail: i18n.t("settings:developerSection.requestLog.detail.clearing"),
     }));
 
     try {
@@ -1381,7 +1366,7 @@ export function LocalMcpRequestLogCard() {
         setState((current) => ({
           ...current,
           status: "error",
-          detail: result.message || "Failed to clear local MCP request logs.",
+          detail: result.message || i18n.t("settings:developerSection.requestLog.detail.clearFailed"),
           busy: false,
         }));
         return;
@@ -1389,7 +1374,7 @@ export function LocalMcpRequestLogCard() {
       setState({
         status: "ready",
         logs: [],
-        detail: `Cleared ${result.cleared} local MCP request log${result.cleared === 1 ? "" : "s"}.`,
+        detail: i18n.t("settings:messages.clearedLogs", { count: result.cleared }),
         busy: false,
         total: 0,
         limit: LOCAL_MCP_REQUEST_LOG_PAGE_SIZE,
@@ -1406,7 +1391,7 @@ export function LocalMcpRequestLogCard() {
         detail:
           error instanceof Error
             ? error.message
-            : "Failed to clear local MCP request logs.",
+            : i18n.t("settings:developerSection.requestLog.detail.clearFailed"),
         busy: false,
       }));
     }
@@ -1428,8 +1413,8 @@ export function LocalMcpRequestLogCard() {
 
   return (
     <SettingsCard
-      title="Local MCP Request Log"
-      description="Captures recent inbound requests to the embedded local MCP server."
+      title={t("settings:developerSection.requestLog.title")}
+      description={t("settings:developerSection.requestLog.description")}
     >
       <div className={sx(developerStyles.logHeaderRow)}>
         <span className={sx(developerStyles.logHeaderDetail)}>
@@ -1443,16 +1428,14 @@ export function LocalMcpRequestLogCard() {
             onClick={handleShowNewerLogs}
           >
             <ChevronLeft className={sx(developerStyles.pagerIcon)} />
-            Newer
-          </Button>
+            {t("settings:developerSection.requestLog.newer")}</Button>
           <Button
             xstyle={developerStyles.actionButtonSmGap}
             variant="outline"
             disabled={state.busy || !state.hasMore}
             onClick={handleShowOlderLogs}
           >
-            Older
-            <ChevronRight className={sx(developerStyles.pagerIcon)} />
+            {t("settings:developerSection.requestLog.older")}<ChevronRight className={sx(developerStyles.pagerIcon)} />
           </Button>
           <Button
             xstyle={developerStyles.actionButtonSmText}
@@ -1460,38 +1443,31 @@ export function LocalMcpRequestLogCard() {
             disabled={state.busy}
             onClick={() => void refreshLogs({ offset: state.offset })}
           >
-            Refresh
-          </Button>
+            {t("common:actions.refresh")}</Button>
           <Button
             xstyle={developerStyles.actionButtonSmText}
             variant="outline"
             disabled={state.busy || state.total === 0}
             onClick={() => void handleClearLogs()}
           >
-            Clear
-          </Button>
+            {t("common:actions.clear")}</Button>
         </div>
       </div>
 
       {state.logs.length === 0 ? (
         <p className={sx(developerStyles.logEmpty)}>
-          No requests yet. Health checks are excluded, the latest page
-          auto-refreshes while it stays open, and payloads load only when you
-          expand a row.
-        </p>
+          {t("settings:developerSection.requestLog.empty")}</p>
       ) : (
         <div className={sx(developerStyles.logTableFrame)}>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className={sx(developerStyles.colTime)}>
-                  Time
-                </TableHead>
-                <TableHead>Request</TableHead>
+                  {t("settings:developerSection.requestLog.columns.time")}</TableHead>
+                <TableHead>{t("settings:developerSection.requestLog.columns.request")}</TableHead>
                 <TableHead className={sx(developerStyles.colStatus)}>
-                  Status
-                </TableHead>
-                <TableHead>Payload</TableHead>
+                  {t("settings:developerSection.requestLog.columns.status")}</TableHead>
+                <TableHead>{t("settings:developerSection.requestLog.columns.payload")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1522,7 +1498,7 @@ export function LocalMcpRequestLogCard() {
                         {log.statusCode}
                       </Badge>
                       <span className={sx(developerStyles.statusDuration)}>
-                        {log.durationMs}ms
+                        {t("settings:whole.durationMs", { value: log.durationMs })}
                       </span>
                       {log.errorMessage ? (
                         <span className={sx(developerStyles.statusError)}>
@@ -1540,17 +1516,15 @@ export function LocalMcpRequestLogCard() {
           </Table>
           <div className={sx(developerStyles.tableFooter)}>
             <span className={sx(developerStyles.tableFooterNote)}>
-              Page {page} of {totalPages}
+              {t("settings:whole.pageOf", { page, total: totalPages })}
             </span>
             {state.offset === 0 ? (
               <span className={sx(developerStyles.tableFooterNote)}>
-                Auto-refreshing latest page every{" "}
-                {Math.floor(LOCAL_MCP_REQUEST_LOG_AUTO_REFRESH_MS / 1000)}s.
+                {t("settings:whole.autoRefresh", { seconds: Math.floor(LOCAL_MCP_REQUEST_LOG_AUTO_REFRESH_MS / 1000) })}
               </span>
             ) : (
               <span className={sx(developerStyles.tableFooterNote)}>
-                Auto-refresh is paused on older pages to keep pagination stable.
-              </span>
+                {t("settings:developerSection.requestLog.autoRefreshPaused")}</span>
             )}
           </div>
         </div>
@@ -1560,13 +1534,5 @@ export function LocalMcpRequestLogCard() {
 }
 
 function formatRelativeTime(isoString: string): string {
-  const deltaMs = Date.now() - Date.parse(isoString);
-  if (deltaMs < 0) return "just now";
-  const seconds = Math.floor(deltaMs / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  return formatLocaleRelativeTime(isoString);
 }

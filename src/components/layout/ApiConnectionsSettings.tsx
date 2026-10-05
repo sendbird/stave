@@ -1,3 +1,5 @@
+import { formatList } from "@/i18n/format";
+import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -24,7 +26,7 @@ import { apiConnectionStyles as styles } from "./api-connections.styles";
 const RUNTIME_NAME = { "claude-code": "Claude Code", codex: "Codex" } as const;
 
 function servesLine(connection: ApiConnection) {
-  return `Serves ${apiConnectionRuntimes(connection).map((runtime) => RUNTIME_NAME[runtime]).join(" and ")}`;
+  return i18n.t("settingsConnections:apiConnectionsSettings.serves", { value1: formatList(apiConnectionRuntimes(connection).map((runtime) => RUNTIME_NAME[runtime])) });
 }
 
 function ConnectionRow(props: {
@@ -34,6 +36,7 @@ function ConnectionRow(props: {
   run: (action: () => Promise<unknown>) => void;
   onRefreshSecrets: () => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const { connection } = props;
   const nameId = useId();
   const [editing, setEditing] = useState(false);
@@ -48,15 +51,15 @@ function ConnectionRow(props: {
     <div className={sx(styles.heading)}>
       <span className={sx(styles.name)}>{connection.label}</span>
       <span className={sx(styles.meta)}>
-        {connection.kind === "vercel-ai-gateway" ? VERCEL_AI_GATEWAY.label : "Other gateway"} · {servesLine(connection)} · Key: {keyName ?? "not found in Secrets"}
+        {connection.kind === "vercel-ai-gateway" ? VERCEL_AI_GATEWAY.label : t("settingsConnections:apiConnectionForm.otherGateway")} · {servesLine(connection)} {t("settingsConnections:apiConnectionsSettings.key")}{keyName ?? t("settingsConnections:apiConnectionsSettings.notFoundInSecrets")}
       </span>
     </div>
-    {!editing && <ul className={sx(styles.modelList)} aria-label={`Models pinned on ${connection.label}`}>
+    {!editing && <ul className={sx(styles.modelList)} aria-label={t("settingsConnections:apiConnectionsSettings.modelsPinnedOn", { value1: connection.label })}>
       {connection.models.map((model) => <li key={model.id} className={sx(styles.meta)}>{model.name ?? model.id}{model.name && model.name !== model.id ? ` (${model.id})` : ""}</li>)}
     </ul>}
     {editing && <div className={sx(accountStyles.stack)}>
       <div className={sx(accountStyles.stackTight)}>
-        <label htmlFor={nameId} className={sx(accountStyles.label)}>Name</label>
+        <label htmlFor={nameId} className={sx(accountStyles.label)}>{t("common:labels.name")}</label>
         <Input id={nameId} value={label} onChange={(event) => setLabel(event.target.value)} />
       </div>
       <ApiConnectionKeySelect value={secretId} onChange={setSecretId} secrets={props.secrets} onRefresh={props.onRefreshSecrets} />
@@ -68,17 +71,17 @@ function ConnectionRow(props: {
           const result = await window.api!.apiConnections!.update({ id: connection.id, label, secretId, models });
           if (!result.ok) throw new Error(result.message);
           setEditing(false);
-        })}>Save changes</Button>
-        <Button size="sm" variant="quiet" onClick={() => setEditing(false)}>Cancel</Button>
+        })}>{t("settingsConnections:apiConnectionsSettings.saveChanges")}</Button>
+        <Button size="sm" variant="quiet" onClick={() => setEditing(false)}>{t("common:actions.cancel")}</Button>
       </> : <>
         <Tooltip>
           <TooltipTrigger render={<Button size="sm" variant="outline" disabled={props.busy} onClick={() => props.run(async () => {
             setCheck(null);
             setCheck(await window.api!.apiConnections!.check({ id: connection.id }));
-          })} />}>Check connection</TooltipTrigger>
-          <TooltipContent>Checks that the gateway accepts the key and lists the pinned models. No prompt is sent and nothing is billed.</TooltipContent>
+          })} />}>{t("settingsConnections:apiConnectionsSettings.checkConnection")}</TooltipTrigger>
+          <TooltipContent>{t("settingsConnections:apiConnectionsSettings.checksThatTheGatewayAcceptsThe")}</TooltipContent>
         </Tooltip>
-        <Button size="sm" variant="quiet" disabled={props.busy} onClick={startEditing}>Edit</Button>
+        <Button size="sm" variant="quiet" disabled={props.busy} onClick={startEditing}>{t("common:actions.edit")}</Button>
         <Tooltip>
           <TooltipTrigger render={<Button size="sm" variant="quiet" disabled={props.busy} onClick={() => props.run(async () => {
             const result = await window.api!.apiConnections!.remove({ id: connection.id });
@@ -89,8 +92,8 @@ function ConnectionRow(props: {
               ...(state.settings.codexAccountProfileId === connection.id ? { codexAccountProfileId: SYSTEM_ACCOUNT_PROFILE_ID } : {}),
             };
             if (Object.keys(patch).length > 0) state.updateSettings({ patch });
-          })} />}>Remove</TooltipTrigger>
-          <TooltipContent>Forgets this connection in Stave. The key stays in Secrets. New turns that used it go back to System default.</TooltipContent>
+          })} />}>{t("common:actions.remove")}</TooltipTrigger>
+          <TooltipContent>{t("settingsConnections:apiConnectionsSettings.forgetsThisConnectionInStaveThe")}</TooltipContent>
         </Tooltip>
       </>}
     </div>
@@ -104,6 +107,7 @@ function ConnectionRow(props: {
  * so it is chosen the same way as a sign-in account.
  */
 export function ApiConnectionsSettings() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [connections, setConnections] = useState<ApiConnection[]>([]);
   const [secrets, setSecrets] = useState<SecretOption[]>([]);
   const [busy, setBusy] = useState(false);
@@ -117,7 +121,7 @@ export function ApiConnectionsSettings() {
   const refreshSecrets = useCallback(async () => {
     try {
       const result = await window.api?.secrets?.list?.();
-      if (!result?.ok) throw new Error(result?.message || "Secret storage is unavailable.");
+      if (!result?.ok) throw new Error(result?.message || i18n.t("settingsConnections:apiConnectionsSettings.secretStorageIsUnavailable"));
       setSecrets(result.secrets.map(({ id, name }) => ({ id, name })));
     } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
   }, []);
@@ -142,13 +146,13 @@ export function ApiConnectionsSettings() {
   return <SettingsCard
     id={API_CONNECTIONS_FIELD_ID}
     tabIndex={-1}
-    title="API connections"
-    titleAccessory={<AccountsGuideButton url={STAVE_API_CONNECTIONS_GUIDE_URL}>Read the API connections guide</AccountsGuideButton>}
-    description="Send turns through a gateway that bills per token, instead of your Claude or Codex subscription. One connection can serve both Claude and Codex with the same key. To use it, choose it as the account for new turns in the Claude or Codex accounts card, or in the status bar account switch."
+    title={t("settings:sections.fields.apiConnections.title")}
+    titleAccessory={<AccountsGuideButton url={STAVE_API_CONNECTIONS_GUIDE_URL}>{t("settingsConnections:apiConnectionsSettings.readTheAPIConnectionsGuide")}</AccountsGuideButton>}
+    description={t("settingsConnections:apiConnectionsSettings.sendTurnsThroughAGatewayThat")}
   >
     <div className={sx(accountStyles.stack)}>
       {connections.length === 0
-        ? <p className={sx(accountStyles.muted)}>No API connections yet. Save the gateway's key in Secrets, then add a connection below.</p>
+        ? <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionsSettings.noAPIConnectionsYetSaveThe")}</p>
         : connections.map((connection) => <ConnectionRow key={connection.id} connection={connection} secrets={secrets} busy={busy} run={run} onRefreshSecrets={() => void refreshSecrets()} />)}
       {error && <p role="alert" className={sx(accountStyles.error)}>{error}</p>}
       <ApiConnectionForm busy={busy} secrets={secrets} onRefreshSecrets={() => void refreshSecrets()} onCreate={create} />

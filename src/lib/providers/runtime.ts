@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { NormalizedProviderEventSchema, type ParsedNormalizedProviderEvent } from "@/lib/providers/schemas";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -61,7 +62,7 @@ function normalizeLegacyProviderEvent(payload: unknown): unknown | null {
     case "ERROR":
       return {
         type: "error",
-        message: asString(record.message) ?? "Provider error.",
+        message: asString(record.message) ?? i18n.t("providers:runtime.providerError"),
         recoverable: asBoolean(record.recoverable) ?? false,
       };
     case "EXEC_COMMAND_BEGIN":
@@ -110,7 +111,7 @@ function normalizeLegacyProviderEvent(payload: unknown): unknown | null {
     case "TASK_STARTED":
       return {
         type: "system",
-        content: asString(record.text) ?? "Task started.",
+        content: asString(record.text) ?? i18n.t("providers:runtime.taskStarted"),
       };
     case "TASK_COMPLETE":
       return { type: "done" };

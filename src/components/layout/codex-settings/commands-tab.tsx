@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, Trans, useTranslation, type I18nKey } from "@/i18n";
 import { Input } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { Search } from "lucide-react";
@@ -8,13 +9,13 @@ import {
 import { codexStyles } from "../settings-dialog-codex-section.styles";
 import { DenseSection, StatusPill } from "./shared";
 
-const COMMAND_CATEGORY_LABELS = {
-  session: "Session control",
-  runtime: "Runtime and behavior",
-  workspace: "Workspace context",
-  inspection: "Inspection and review",
-  integrations: "Apps and plugins",
-} as const;
+const COMMAND_CATEGORY_LABEL_KEYS = {
+  session: "settingsProviders:codexCommandsTab.categories.session",
+  runtime: "settingsProviders:codexCommandsTab.categories.runtime",
+  workspace: "settingsProviders:codexCommandsTab.categories.workspace",
+  inspection: "settingsProviders:codexCommandsTab.categories.inspection",
+  integrations: "settingsProviders:codexCommandsTab.categories.integrations",
+} as const satisfies Record<string, I18nKey>;
 
 type CommandsTabProps = {
   commandQuery: string;
@@ -25,6 +26,7 @@ export function CommandsTab({
   commandQuery,
   onCommandQueryChange,
 }: CommandsTabProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const normalizedQuery = commandQuery.trim().toLowerCase();
   const filtered = CODEX_CLI_SLASH_COMMANDS.filter((command) => {
     if (!normalizedQuery) return true;
@@ -34,7 +36,7 @@ export function CommandsTab({
       command.description,
       command.argumentHint,
       command.availabilityNote,
-      COMMAND_CATEGORY_LABELS[command.category],
+      t(COMMAND_CATEGORY_LABEL_KEYS[command.category]),
     ]
       .filter(Boolean)
       .join(" ")
@@ -43,7 +45,7 @@ export function CommandsTab({
   });
   const groupedCommands = filtered.reduce<
     Array<{
-      category: keyof typeof COMMAND_CATEGORY_LABELS;
+      category: keyof typeof COMMAND_CATEGORY_LABEL_KEYS;
       items: typeof filtered;
     }>
   >((groups, command) => {
@@ -59,8 +61,8 @@ export function CommandsTab({
     <>
       <div className={sx(codexStyles.stack4)}>
         <DenseSection
-          title="Slash command catalog"
-          description="Bundled from the official Codex CLI slash-command guide so the popup stays useful even though App Server does not expose a live command-list RPC."
+          title={t("settingsProviders:codexCommandsTab.catalog.title")}
+          description={t("settingsProviders:codexCommandsTab.catalog.description")}
         >
           <div className={sx(codexStyles.rowWrapCenterGap3)}>
             <div className={sx(codexStyles.searchWrap)}>
@@ -68,11 +70,11 @@ export function CommandsTab({
               <Input
                 value={commandQuery}
                 onChange={(event) => onCommandQueryChange(event.target.value)}
-                placeholder="Filter by command, behavior, or category"
+                placeholder={t("settingsProviders:codexCommandsTab.filterPlaceholder")}
                 xstyle={codexStyles.searchInput}
               />
             </div>
-            <StatusPill label={`${CODEX_CLI_SLASH_COMMANDS.length} total`} />
+            <StatusPill label={t("settingsProviders:codexCommandsTab.total", { total: CODEX_CLI_SLASH_COMMANDS.length })} />
           </div>
 
           <p className={sx(codexStyles.textSmMutedMt3)}>
@@ -82,23 +84,19 @@ export function CommandsTab({
 
         {groupedCommands.length === 0 ? (
           <DenseSection
-            title="No matches"
-            description="Try a shorter query or clear the filter."
+            title={t("settingsProviders:codexCommandsTab.noMatches.title")}
+            description={t("settingsProviders:codexCommandsTab.noMatches.description")}
           >
             <div className={sx(codexStyles.tileDashedCenteredSm)}>
-              No slash commands matched{" "}
-              <span className={sx(codexStyles.fontMediumFg)}>
-                {commandQuery}
-              </span>
-              .
+              <Trans t={t} i18nKey="settingsProviders:codexCommandsTab.noMatches.detail" components={{ query: <span className={sx(codexStyles.fontMediumFg)}>{commandQuery}</span> }} />
             </div>
           </DenseSection>
         ) : (
           groupedCommands.map((group) => (
             <DenseSection
               key={`${group.category}:${group.items[0]?.command}`}
-              title={COMMAND_CATEGORY_LABELS[group.category]}
-              description={`${group.items.length} command${group.items.length === 1 ? "" : "s"}`}
+              title={t(COMMAND_CATEGORY_LABEL_KEYS[group.category])}
+              description={t("settingsProviders:codexCommandsTab.commandCount", { count: group.items.length })}
             >
               <div className={sx(codexStyles.stack2)}>
                 {group.items.map((command) => (

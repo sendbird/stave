@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, type I18nKey } from "@/i18n";
 import { useShallow } from "zustand/react/shallow";
 import {
   agentModeClaudeGuardrails,
@@ -7,30 +8,29 @@ import {
 import { useAppStore } from "@/store/app.store";
 import { SwitchField } from "./settings-dialog.shared";
 
-const GUARDRAIL_FIELDS: ReadonlyArray<{
-  id: ClaudeGuardrailId;
-  title: string;
-  description: string;
-}> = [
+const GUARDRAIL_FIELDS = [
   {
     id: "G1",
-    title: "Ask Before Writes Outside the Repository",
-    description:
-      "In Agent mode, stop before writing outside this repository's checkouts and worktrees. Temp folders and tool caches stay allowed. Chat turns never stop for this.",
+    titleKey: "settingsProviders:claudeGuardrails.writesOutsideRepo.title",
+    descriptionKey:
+      "settingsProviders:claudeGuardrails.writesOutsideRepo.description",
   },
   {
     id: "G2",
-    title: "Ask Before Touching Credentials",
-    description:
-      "In Agent mode, stop before reading or writing ~/.ssh, ~/.aws, ~/.npmrc and similar files, or the protected paths and variables below. Chat turns never stop for this.",
+    titleKey: "settingsProviders:claudeGuardrails.credentials.title",
+    descriptionKey: "settingsProviders:claudeGuardrails.credentials.description",
   },
   {
     id: "G3",
-    title: "Ask Before Irreversible Remote Actions",
-    description:
-      "In Agent mode, stop before force-pushing a default or protected branch, deleting remote refs, publishing a package or release, or running sudo. Chat turns never stop for this.",
+    titleKey: "settingsProviders:claudeGuardrails.remoteActions.title",
+    descriptionKey:
+      "settingsProviders:claudeGuardrails.remoteActions.description",
   },
-];
+] as const satisfies ReadonlyArray<{
+  id: ClaudeGuardrailId;
+  titleKey: I18nKey;
+  descriptionKey: I18nKey;
+}>;
 
 /**
  * Stave's guardrails for Claude turns in Agent mode (a task that runs as an
@@ -38,6 +38,7 @@ const GUARDRAIL_FIELDS: ReadonlyArray<{
  * one off. Chat turns never run them, whatever their permission mode.
  */
 export function ClaudeGuardrailFields() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const enabled = useAppStore(
     useShallow((state) => agentModeClaudeGuardrails(state.settings.claudeGuardrails)),
   );
@@ -47,8 +48,8 @@ export function ClaudeGuardrailFields() {
       {GUARDRAIL_FIELDS.map((field) => (
         <SwitchField
           key={field.id}
-          title={field.title}
-          description={field.description}
+          title={t(field.titleKey)}
+          description={t(field.descriptionKey)}
           checked={enabled.includes(field.id)}
           onCheckedChange={(checked) =>
             updateSettings({

@@ -1,3 +1,5 @@
+import { formatList } from "@/i18n/format";
+import { i18n } from "@/i18n";
 import { z } from "zod";
 import { ProviderAccountProviderIdSchema, type ProviderAccountProviderId } from "./provider-accounts";
 import { sharedSetupSummary } from "./provider-account-setup-plan";
@@ -62,7 +64,7 @@ export interface ProviderAccountSetupBridgeApi {
 }
 
 function joinLabels(labels: readonly string[]) {
-  return labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}` : (labels[0] ?? "");
+  return formatList([...labels]);
 }
 
 /**
@@ -74,16 +76,16 @@ export function describeProviderAccountSetup(
   providerId: ProviderAccountProviderId,
   setup: ProviderAccountSetupState | null,
 ): string {
-  const never = "Sign-in and conversation history are never shared.";
-  if (!setup?.enabled) return `Shares your ${sharedSetupSummary(providerId)} from System default with this account. ${never}`;
+  const never = i18n.t("providers:providerAccountSetup.signInAndConversationHistoryAre");
+  if (!setup?.enabled) return i18n.t("providers:providerAccountSetup.sharesYourFromSystemDefaultWith", { value1: sharedSetupSummary(providerId), value2: never });
   const labelsIn = (state: ProviderAccountSetupEntryState) => [
     ...new Set(setup.entries.filter((entry) => entry.state === state).map((entry) => entry.label)),
   ];
   const shared = labelsIn("shared");
   const kept = labelsIn("kept");
   const parts = [
-    shared.length > 0 ? `Sharing ${joinLabels(shared)} from System default.` : "System default has nothing to share yet.",
-    kept.length > 0 ? `Kept this account's own ${joinLabels(kept)}.` : "",
+    shared.length > 0 ? i18n.t("providers:providerAccountSetup.sharingFromSystemDefault", { value1: joinLabels(shared) }) : i18n.t("providers:providerAccountSetup.systemDefaultHasNothingToShare"),
+    kept.length > 0 ? i18n.t("providers:providerAccountSetup.keptThisAccountSOwn", { value1: joinLabels(kept) }) : "",
     never,
   ];
   return parts.filter(Boolean).join(" ");

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { z } from "zod";
 import {
   ProviderAccountProfileIdSchema,
@@ -60,17 +61,17 @@ export function describeProviderAccountIdentity(
   identity: ProviderAccountIdentity | undefined,
   providerName: string,
 ): ProviderAccountIdentityLine {
-  if (!identity) return { text: "Checking sign-in…", tone: "quiet" };
+  if (!identity) return { text: i18n.t("providers:providerAccountIdentity.checkingSignIn"), tone: "quiet" };
   switch (identity.state) {
     case "signed-in": {
       const who = identity.email ? `Signed in as ${identity.email}` : "Signed in";
       return { text: identity.plan ? `${who} · ${identity.plan}` : who, tone: "quiet" };
     }
     case "signed-out":
-      return { text: "Not signed in", tone: "attention" };
+      return { text: i18n.t("providers:mcpManagement.notSignedIn"), tone: "attention" };
     case "unknown":
       return {
-        text: identity.reason === "cli-missing" ? `${providerName} CLI not found` : "Can't check sign-in",
+        text: identity.reason === "cli-missing" ? i18n.t("providers:providerAccountIdentity.cliNotFound", { value1: providerName }) : i18n.t("providers:providerAccountIdentity.canTCheckSignIn"),
         tone: "attention",
       };
   }

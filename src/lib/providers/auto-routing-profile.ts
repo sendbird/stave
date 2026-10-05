@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   CLAUDE_FABLE_MODEL,
   clampCodexEffortToModel,
@@ -254,14 +255,14 @@ function clampIndex(value: number, min: number, max: number) {
 
 export const STANCE_LABELS: Readonly<Record<Stance, string>> = {
   "cost-saver": "Cost-saver",
-  balanced: "Balanced",
+  get balanced() { return i18n.t("providers:autoRoutingProfile.balanced"); },
   "quality-first": "Quality-first",
 };
 
 export const STANCE_DESCRIPTIONS: Readonly<Record<Stance, string>> = {
-  "cost-saver": "Same models; each level runs at the low end of its effort range.",
-  balanced: "Same models; each level runs at its recommended effort.",
-  "quality-first": "Same models; each level runs at the high end of its effort range.",
+  get "cost-saver"() { return i18n.t("providers:autoRoutingProfile.sameModelsEachLevelRunsAt"); },
+  get balanced() { return i18n.t("providers:autoRoutingProfile.sameModelsEachLevelRunsAtVariant2ab0fa3e"); },
+  get "quality-first"() { return i18n.t("providers:autoRoutingProfile.sameModelsEachLevelRunsAtVariantc38c22b1"); },
 };
 
 /** Effort step the stance applies inside the level's effort range. */
@@ -340,29 +341,29 @@ export function withStance(
 /* -------------------------------------------------------------------------- */
 
 export const TASK_CLASS_LABELS: Readonly<Record<TaskClass, string>> = {
-  plan: "Plan",
-  implement: "Implement",
-  "quick-edit": "Quick edit",
-  debug: "Debug",
-  review: "Review",
-  "ci-fix": "CI fix",
-  docs: "Docs",
-  research: "Research",
+  get plan() { return i18n.t("settingsProviders:cursorSection.modes.plan.label"); },
+  get implement() { return i18n.t("providers:autoRoutingProfile.implement"); },
+  get "quick-edit"() { return i18n.t("providers:autoRoutingProfile.quickEdit"); },
+  get debug() { return i18n.t("providers:autoRoutingProfile.debug"); },
+  get review() { return i18n.t("settingsConnections:settingsDialogAutoRoutingWizard.review"); },
+  get "ci-fix"() { return i18n.t("providers:autoRoutingProfile.ciFix"); },
+  get docs() { return i18n.t("providers:autoRoutingProfile.docs"); },
+  get research() { return i18n.t("providers:autoRoutingProfile.research"); },
   "safety-critical": "Safety-critical",
 };
 
 export const ROUTER_ROLE_LABELS: Readonly<Record<RouterRole, string>> = {
-  primary: "Primary",
-  advisor: "Advisor",
-  worker: "Worker",
-  delegate: "Delegate",
+  get primary() { return i18n.t("settingsProviders:codexOverviewTab.rateLimits.primary"); },
+  get advisor() { return i18n.t("providers:autoRoutingProfile.advisor"); },
+  get worker() { return i18n.t("providers:autoRoutingProfile.worker"); },
+  get delegate() { return i18n.t("providers:autoRoutingProfile.delegate"); },
 };
 
 export const ROUTE_TIER_LABELS: Readonly<Record<RouteTier, string>> = {
-  frontier: "Frontier",
-  flagship: "Flagship",
-  balanced: "Balanced",
-  light: "Light",
+  get frontier() { return i18n.t("providers:autoRoutingProfile.frontier"); },
+  get flagship() { return i18n.t("providers:autoRoutingProfile.flagship"); },
+  get balanced() { return i18n.t("providers:autoRoutingProfile.balanced"); },
+  get light() { return i18n.t("settings:themeSection.appearance.light"); },
 };
 
 function rule(
@@ -375,11 +376,11 @@ function rule(
 }
 
 export const ROUTE_COMPLEXITY_LABELS: Readonly<Record<RouteComplexity, string>> = {
-  low: "Simple",
-  medium: "Standard",
-  high: "Complex",
-  expert: "Expert",
-  extreme: "Extreme",
+  get low() { return i18n.t("providers:autoRoutingProfile.simple"); },
+  get medium() { return i18n.t("providers:autoRoutingProfile.standard"); },
+  get high() { return i18n.t("providers:autoRoutingProfile.complex"); },
+  get expert() { return i18n.t("providers:autoRoutingProfile.expert"); },
+  get extreme() { return i18n.t("providers:autoRoutingProfile.extreme"); },
 };
 
 export interface RouteLevel {
@@ -412,7 +413,7 @@ export interface RouteLevel {
 export const ROUTE_LEVELS: readonly RouteLevel[] = [
   {
     complexity: "low",
-    description: "A bounded, obvious step: a typo, rename, small config edit, or direct answer.",
+    get description() { return i18n.t("providers:autoRoutingProfile.aBoundedObviousStepATypo"); },
     tier: "light",
     floor: "light",
     effort: "medium",
@@ -420,7 +421,7 @@ export const ROUTE_LEVELS: readonly RouteLevel[] = [
   },
   {
     complexity: "medium",
-    description: "Ordinary connected work in known code, including routine workflows such as shipping a PR.",
+    get description() { return i18n.t("providers:autoRoutingProfile.ordinaryConnectedWorkInKnownCode"); },
     tier: "flagship",
     floor: "balanced",
     effort: "medium",
@@ -428,7 +429,7 @@ export const ROUTE_LEVELS: readonly RouteLevel[] = [
   },
   {
     complexity: "high",
-    description: "Difficult coupled work: cross-module changes, non-obvious bugs, migrations, sensitive changes.",
+    get description() { return i18n.t("providers:autoRoutingProfile.difficultCoupledWorkCrossModuleChanges"); },
     tier: "flagship",
     floor: "flagship",
     effort: "high",
@@ -436,7 +437,7 @@ export const ROUTE_LEVELS: readonly RouteLevel[] = [
   },
   {
     complexity: "expert",
-    description: "Judgment beyond strong implementation: architecture design and its verification.",
+    get description() { return i18n.t("providers:autoRoutingProfile.judgmentBeyondStrongImplementationArchitectureDesign"); },
     tier: "frontier",
     floor: "flagship",
     effort: "medium",
@@ -444,7 +445,7 @@ export const ROUTE_LEVELS: readonly RouteLevel[] = [
   },
   {
     complexity: "extreme",
-    description: "Exceptional, research-grade reasoning. Rare by design.",
+    get description() { return i18n.t("providers:autoRoutingProfile.exceptionalResearchGradeReasoningRareBy"); },
     tier: "frontier",
     floor: "frontier",
     effort: "high",
@@ -466,11 +467,11 @@ export function maxComplexity(left: RouteComplexity, right: RouteComplexity): Ro
 }
 
 const LEVEL_RULE_REASONS: Readonly<Record<RouteComplexity, string>> = {
-  low: "A clearly bounded task runs on a light model.",
-  medium: "Ordinary work runs on the flagship model at medium effort.",
-  high: "Complex work runs on the flagship model at high effort.",
-  expert: "Expert design or verification work runs on the frontier model.",
-  extreme: "Exceptional reasoning runs on the frontier model at high effort.",
+  get low() { return i18n.t("providers:autoRoutingProfile.aClearlyBoundedTaskRunsOn"); },
+  get medium() { return i18n.t("providers:autoRoutingProfile.ordinaryWorkRunsOnTheFlagship"); },
+  get high() { return i18n.t("providers:autoRoutingProfile.complexWorkRunsOnTheFlagship"); },
+  get expert() { return i18n.t("providers:autoRoutingProfile.expertDesignOrVerificationWorkRuns"); },
+  get extreme() { return i18n.t("providers:autoRoutingProfile.exceptionalReasoningRunsOnTheFrontier"); },
 };
 
 /**
@@ -489,12 +490,12 @@ export function buildStarterRules(): RouteRule[] {
   return [
     rule("delegate-default", { role: "delegate" },
       { providerId: "any-eligible", tier: "flagship", effort: "medium" },
-      "Delegated tasks start on the flagship model at medium effort."),
+      i18n.t("providers:autoRoutingProfile.delegatedTasksStartOnTheFlagship")),
     levelRule("extreme"),
     levelRule("expert"),
     rule("safety-critical", { taskClass: "safety-critical" },
       { providerId: "any-eligible", tier: "flagship", effort: "high" },
-      "Sensitive changes run on the flagship model at high effort."),
+      i18n.t("providers:autoRoutingProfile.sensitiveChangesRunOnTheFlagship")),
     levelRule("high"),
     levelRule("medium"),
     levelRule("low"),
@@ -589,7 +590,7 @@ export function cloneProfileAsCustom(
   return {
     ...structuredCloneProfile(profile),
     id: CUSTOM_PROFILE_ID,
-    name: "Custom",
+    name: i18n.t("common:labels.custom"),
   };
 }
 
@@ -829,7 +830,7 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
         ? candidate.name.trim().slice(0, 80)
         : isStarterProfileId(id)
           ? STANCE_LABELS[stance]
-          : "Custom",
+          : i18n.t("common:labels.custom"),
     stance,
     rules: dedupedRules,
     fallbacks,
@@ -1215,7 +1216,7 @@ function clampEffortToRange(args: {
 }
 
 function noRouteMessage(complexity: RouteComplexity, floor: RouteTier) {
-  return `No available allowed model meets this task's capability requirements (${ROUTE_COMPLEXITY_LABELS[complexity]} work needs a ${ROUTE_TIER_LABELS[floor]} model or stronger). Adjust Auto's allowed models or choose a model manually.`;
+  return i18n.t("providers:autoRoutingProfile.noAvailableAllowedModelMeetsThis", { value1: ROUTE_COMPLEXITY_LABELS[complexity], value2: ROUTE_TIER_LABELS[floor] });
 }
 
 /**
@@ -1277,10 +1278,10 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
 
   const reasonParts: string[] = [];
   if (role === "primary" && signals.uncertain && complexity !== signals.complexity) {
-    reasonParts.push("Unclear scope routes as standard work rather than a light model.");
+    reasonParts.push(i18n.t("providers:autoRoutingProfile.unclearScopeRoutesAsStandardWork"));
   }
   if (role === "primary" && signals.sensitive && profile.signals.safetyEscalation && complexity !== signals.complexity) {
-    reasonParts.push("A sensitive change routes as complex work.");
+    reasonParts.push(i18n.t("providers:autoRoutingProfile.aSensitiveChangeRoutesAsComplex"));
   }
   const baseReason = matched?.reason ?? "";
   const preferredProvider = candidates[0] ?? signals.lastAssistantProvider ?? signals.currentProviderId;
@@ -1314,7 +1315,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       tier = cheapest.tier;
       model = cheapest.model;
       reasonParts.push(
-        `Usage is at ${Math.round(budgetUsed ?? 0)}%, so the least expensive model meeting the task requirements runs.`,
+        i18n.t("providers:autoRoutingProfile.usageIsAtSoTheLeast", { value1: Math.round(budgetUsed ?? 0) }),
       );
     } else {
       const requestedTier =
@@ -1350,14 +1351,14 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       if (budgetShift === -1) {
         reasonParts.push(
           budgetHeldModel
-            ? `Usage is at ${Math.round(budgetUsed ?? 0)}%, so effort stepped down while the model keeps its cache.`
-            : `Usage is at ${Math.round(budgetUsed ?? 0)}%, so the route favors lower cost within the task capability floor.`,
+            ? i18n.t("providers:autoRoutingProfile.usageIsAtSoEffortStepped", { value1: Math.round(budgetUsed ?? 0) })
+            : i18n.t("providers:autoRoutingProfile.usageIsAtSoTheRoute", { value1: Math.round(budgetUsed ?? 0) }),
         );
       }
     }
     if (failedOver) {
       reasonParts.push(
-        `${getProviderLabel({ providerId: preferredProvider })} has no allowed model for ${ROUTE_COMPLEXITY_LABELS[complexity].toLowerCase()} work, so ${getProviderLabel({ providerId })} runs it.`,
+        i18n.t("providers:autoRoutingProfile.hasNoAllowedModelForWork", { value1: getProviderLabel({ providerId: preferredProvider }), value2: ROUTE_COMPLEXITY_LABELS[complexity].toLowerCase(), value3: getProviderLabel({ providerId }) }),
       );
     }
 
@@ -1384,7 +1385,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
         tier = lastTier;
         cacheHeldModel = true;
         reasonParts.push(
-          `Kept ${toHumanModelName({ model: lastModel })} from the previous turn so the conversation's prompt cache stays warm.`,
+          i18n.t("providers:autoRoutingProfile.keptFromThePreviousTurnSo", { value1: toHumanModelName({ model: lastModel }) }),
         );
       }
     }
@@ -1420,7 +1421,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       taskClass: signals.taskClass,
       complexity,
       ruleId: matched?.id ?? null,
-      reason: [baseReason || (matched ? "" : `No rule matched; ${toHumanModelName({ model })} is the provider fallback.`), ...reasonParts]
+      reason: [baseReason || (matched ? "" : i18n.t("providers:autoRoutingProfile.noRuleMatchedIsTheProvider", { value1: toHumanModelName({ model }) })), ...reasonParts]
         .filter(Boolean)
         .join(" "),
       stanceShift: stance.shift,
@@ -1463,7 +1464,7 @@ export function previewRouteLevels(args: {
       });
       return { level, route, error: null };
     } catch (error) {
-      return { level, route: null, error: error instanceof Error ? error.message : "No route" };
+      return { level, route: null, error: error instanceof Error ? error.message : i18n.t("providers:autoRoutingProfile.noRoute") };
     }
   });
 }

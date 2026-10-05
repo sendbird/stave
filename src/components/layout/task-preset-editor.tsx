@@ -1,3 +1,4 @@
+import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Button,
@@ -35,6 +36,7 @@ interface TaskPresetEditorProps {
 }
 
 export function TaskPresetEditor(props: TaskPresetEditorProps) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const { initialPreset, submitLabel, onSave, onCancel } = props;
   const [kind, setKind] = useState<TaskPresetKind>(initialPreset.kind);
   const [provider, setProvider] = useState<ProviderId>(initialPreset.provider);
@@ -80,7 +82,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     return [
       { value: "claude-code", label: "Claude Code" },
       { value: "codex", label: "Codex" },
-      { value: "cursor", label: "Cursor Agent" },
+      { value: "cursor", label: i18n.t("settings:taskPresetEditor.cursorAgent") },
       { value: "kiro", label: "Kiro CLI" },
     ];
   }, [kind]);
@@ -161,8 +163,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     <form className={sx(styles.form)} onSubmit={handleSubmit}>
       <div className={sx(styles.field)}>
         <label htmlFor="task-preset-editor-label" className={sx(styles.label)}>
-          Label
-        </label>
+          {t("settings:macroEditor.label")}</label>
         <Input
           id="task-preset-editor-label"
           value={label}
@@ -172,19 +173,19 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
         />
       </div>
       <div className={sx(styles.field)}>
-        <span className={sx(styles.label)}>Type</span>
+        <span className={sx(styles.label)}>{t("settings:taskPresetEditor.type")}</span>
         <Select value={kind} onValueChange={handleKindChange}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="task">Task</SelectItem>
-            <SelectItem value="cli-session">CLI session</SelectItem>
+            <SelectItem value="task">{t("settingsConnections:routeTrace.task")}</SelectItem>
+            <SelectItem value="cli-session">{t("settings:taskPresetEditor.cliSession")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div className={sx(styles.field)}>
-        <span className={sx(styles.label)}>Provider</span>
+        <span className={sx(styles.label)}>{t("settingsProviders:mcpConfigEditor.editor.provider")}</span>
         <Select value={provider} onValueChange={handleProviderChange}>
           <SelectTrigger>
             <SelectValue />
@@ -206,7 +207,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
       </div>
       {kind === "task" && effortOptions.length > 0 ? (
         <div className={sx(styles.field)}>
-          <span className={sx(styles.label)}>Model</span>
+          <span className={sx(styles.label)}>{t("settingsProviders:auxiliaryInference.model.title")}</span>
           <Select value={model} onValueChange={handleModelChange}>
             <SelectTrigger>
               <SelectValue />
@@ -232,7 +233,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
       ) : null}
       {kind === "task" ? (
         <div className={sx(styles.field)}>
-          <span className={sx(styles.label)}>Effort</span>
+          <span className={sx(styles.label)}>{t("settingsProviders:providersSection.claudeRuntime.effort.title")}</span>
           <Select
             value={effort}
             onValueChange={(value) =>
@@ -244,8 +245,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={DEFAULT_EFFORT_VALUE}>
-                Default (per model)
-              </SelectItem>
+                {t("settings:macroEditor.defaultPerModel")}</SelectItem>
               {effortOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
@@ -257,8 +257,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
       ) : null}
       <div className={sx(styles.actions)}>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
+          {t("common:actions.cancel")}</Button>
         <Button type="submit" size="sm">
           {submitLabel}
         </Button>

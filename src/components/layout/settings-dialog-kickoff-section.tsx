@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import {
   ArrowDown,
   ArrowUp,
@@ -97,7 +98,7 @@ function matchSummary(config: KickoffSourceConfig) {
     config.match.pathPattern,
     config.match.keyPattern,
   ].filter(Boolean);
-  return parts.join(" · ") || "No matcher configured";
+  return parts.join(" · ") || i18n.t("settings:settingsDialogKickoffSection.noMatcherConfigured");
 }
 
 function KickoffModelField(props: {
@@ -132,14 +133,15 @@ function KickoffPromptField(props: {
   value: string;
   onCommit: (value: string) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [draft, setDraft] = useState(props.value);
   useEffect(() => setDraft(props.value), [props.value]);
   const isDefault = draft.trim() === DEFAULT_PROMPT_WORKSPACE_KICKOFF.trim();
 
   return (
     <LabeledField
-      title="Resolution prompt"
-      description="Instructs the one-shot resolver. Source metadata, repository instructions, and branch naming rules are appended automatically. Empty skips AI resolution."
+      title={t("settings:settingsDialogKickoffSection.resolutionPrompt")}
+      description={t("settings:settingsDialogKickoffSection.instructsTheOneShotResolverSource")}
     >
       <div className={sx(kickoffSectionStyles.promptField)}>
         <Textarea
@@ -154,7 +156,7 @@ function KickoffPromptField(props: {
         />
         <div className={sx(kickoffSectionStyles.promptFooter)}>
           <span className={sx(kickoffSectionStyles.promptStatus)}>
-            {isDefault ? "Using default" : "Customised"}
+            {isDefault ? t("settings:promptsSection.field.usingDefault") : t("settings:promptsSection.field.customised")}
           </span>
           {!isDefault ? (
             <Button
@@ -168,8 +170,7 @@ function KickoffPromptField(props: {
               }}
             >
               <RefreshCcw className={sx(kickoffSectionStyles.actionIcon)} />
-              Reset to default
-            </Button>
+              {t("settings:reviewCards.tasks.followUp.resetToDefault")}</Button>
           ) : null}
         </div>
       </div>
@@ -178,6 +179,7 @@ function KickoffPromptField(props: {
 }
 
 export function KickoffSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     repositoryPath,
     sourceConfigs,
@@ -270,8 +272,8 @@ export function KickoffSection() {
     <>
       <SectionStack>
         <SettingsCard
-          title="Kickoff Sources"
-          description="Enabled matchers classify pasted URLs or keys. MCP dependencies improve resolution but never block workspace creation."
+          title={t("settings:settingsDialogKickoffSection.kickoffSources")}
+          description={t("settings:settingsDialogKickoffSection.enabledMatchersClassifyPastedURLsOr")}
           titleAccessory={
             <div className={sx(kickoffSectionStyles.accessoryRow)}>
               <Button
@@ -288,15 +290,14 @@ export function KickoffSection() {
                       : kickoffSectionStyles.actionIcon,
                   )}
                 />
-                Refresh MCP
-              </Button>
+                {t("settings:settingsDialogKickoffSection.refreshMCP")}</Button>
               <Button
                 type="button"
                 size="sm"
                 onClick={() => {
                   const config: KickoffSourceConfig = {
                     id: `source-${crypto.randomUUID()}`,
-                    label: "Custom source",
+                    label: i18n.t("settings:settingsDialogKickoffSection.customSource"),
                     enabled: true,
                     builtIn: false,
                     match: {
@@ -313,8 +314,7 @@ export function KickoffSection() {
                 }}
               >
                 <Plus className={sx(kickoffSectionStyles.actionIcon)} />
-                Add source
-              </Button>
+                {t("settings:settingsDialogKickoffSection.addSource")}</Button>
             </div>
           }
         >
@@ -329,7 +329,7 @@ export function KickoffSection() {
                   <div className={sx(kickoffSectionStyles.sourceHeader)}>
                     <Switch
                       checked={config.enabled}
-                      aria-label={`${config.enabled ? "Disable" : "Enable"} ${config.label}`}
+                      aria-label={t(config.enabled ? "settings:messages.disableConfig" : "settings:messages.enableConfig", { label: config.label })}
                       onCheckedChange={(enabled) =>
                         patchConfig(config.id, { enabled })
                       }
@@ -359,7 +359,7 @@ export function KickoffSection() {
                         >
                           {config.label}
                           {config.builtIn ? (
-                            <Badge variant="secondary">Built-in</Badge>
+                            <Badge variant="secondary">{i18n.t("settings:settingsDialogKickoffSection.builtIn")}</Badge>
                           ) : null}
                         </span>
                         <span
@@ -375,7 +375,7 @@ export function KickoffSection() {
                         variant="ghost"
                         size="icon-sm"
                         disabled={index === 0}
-                        aria-label={`Move ${config.label} earlier`}
+                        aria-label={i18n.t("settings:settingsDialogKickoffSection.moveEarlier", { value1: config.label })}
                         onClick={() => moveConfig(index, -1)}
                       >
                         <ArrowUp
@@ -387,7 +387,7 @@ export function KickoffSection() {
                         variant="ghost"
                         size="icon-sm"
                         disabled={index === sourceConfigs.length - 1}
-                        aria-label={`Move ${config.label} later`}
+                        aria-label={i18n.t("settings:settingsDialogKickoffSection.moveLater", { value1: config.label })}
                         onClick={() => moveConfig(index, 1)}
                       >
                         <ArrowDown
@@ -405,7 +405,7 @@ export function KickoffSection() {
                             key={server}
                             variant={available ? "secondary" : "outline"}
                           >
-                            {server} · {available ? "found" : "missing"}
+                            {server} · {available ? i18n.t("settings:settingsDialogKickoffSection.found") : i18n.t("settings:settingsDialogKickoffSection.missing")}
                           </Badge>
                         );
                       })}
@@ -415,8 +415,7 @@ export function KickoffSection() {
                     <div className={sx(kickoffSectionStyles.sourcePanel)}>
                       <div className={sx(kickoffSectionStyles.fieldGrid)}>
                         <label className={sx(kickoffSectionStyles.labelField)}>
-                          Label
-                          <DraftInput
+                          {i18n.t("settings:macroEditor.label")}<DraftInput
                             value={config.label}
                             onCommit={(label) =>
                               patchConfig(config.id, {
@@ -426,8 +425,7 @@ export function KickoffSection() {
                           />
                         </label>
                         <label className={sx(kickoffSectionStyles.labelField)}>
-                          Information panel target
-                          <Select
+                          {i18n.t("settings:settingsDialogKickoffSection.informationPanelTarget")}<Select
                             value={config.panelTarget}
                             onValueChange={(panelTarget) =>
                               patchConfig(config.id, {
@@ -456,8 +454,7 @@ export function KickoffSection() {
                           kickoffSectionStyles.labelFieldBlock,
                         )}
                       >
-                        Host suffixes
-                        <DraftInput
+                        {i18n.t("settings:settingsDialogKickoffSection.hostSuffixes")}<DraftInput
                           value={config.match.hostSuffixes.join(", ")}
                           placeholder="example.com, internal.example.com"
                           onCommit={(value) =>
@@ -469,8 +466,7 @@ export function KickoffSection() {
                       </label>
                       <div className={sx(kickoffSectionStyles.fieldGrid)}>
                         <label className={sx(kickoffSectionStyles.labelField)}>
-                          Path regex
-                          <Input
+                          {i18n.t("settings:settingsDialogKickoffSection.pathRegex")}<Input
                             value={config.match.pathPattern}
                             xstyle={kickoffSectionStyles.monoInput}
                             placeholder="^/issues/"
@@ -482,8 +478,7 @@ export function KickoffSection() {
                           />
                         </label>
                         <label className={sx(kickoffSectionStyles.labelField)}>
-                          Key regex
-                          <Input
+                          {i18n.t("settings:settingsDialogKickoffSection.keyRegex")}<Input
                             value={config.match.keyPattern}
                             xstyle={kickoffSectionStyles.monoInput}
                             placeholder="\\bPROJ-\\d+\\b"
@@ -501,9 +496,9 @@ export function KickoffSection() {
                           kickoffSectionStyles.labelFieldBlock,
                         )}
                       >
-                        MCP server names
-                        <DraftInput
+                        {i18n.t("settings:settingsDialogKickoffSection.mcpServerNames")}<DraftInput
                           value={config.mcpServers.join(", ")}
+                          // i18n-ignore: example MCP server identifiers
                           placeholder="jira, company-reports"
                           onCommit={(value) =>
                             patchConfig(config.id, {
@@ -518,8 +513,7 @@ export function KickoffSection() {
                           kickoffSectionStyles.labelFieldBlock,
                         )}
                       >
-                        Resolution hint
-                        <KickoffDraftTextarea
+                        {i18n.t("settings:settingsDialogKickoffSection.resolutionHint")}<KickoffDraftTextarea
                           value={config.resolutionHint}
                           xstyle={kickoffSectionStyles.resolutionHint}
                           onCommit={(resolutionHint) =>
@@ -546,8 +540,7 @@ export function KickoffSection() {
                           <Trash2
                             className={sx(kickoffSectionStyles.actionIcon)}
                           />
-                          Remove source
-                        </Button>
+                          {i18n.t("settings:settingsDialogKickoffSection.removeSource")}</Button>
                       </div>
                     </div>
                   ) : null}
@@ -557,14 +550,11 @@ export function KickoffSection() {
           </div>
           {sourceConfigs.length === 0 ? (
             <p className={sx(kickoffSectionStyles.emptyNote)}>
-              No configured sources. Free-form prompts still work.
-            </p>
+              {t("settings:settingsDialogKickoffSection.noConfiguredSourcesFreeFormPrompts")}</p>
           ) : null}
           <div className={sx(kickoffSectionStyles.footer)}>
             <p className={sx(kickoffSectionStyles.footerNote)}>
-              Source order controls match priority. Confluence precedes Jira by
-              default because they can share a host.
-            </p>
+              {t("settings:settingsDialogKickoffSection.sourceOrderControlsMatchPriorityConfluence")}</p>
             <Button
               type="button"
               variant="ghost"
@@ -583,26 +573,25 @@ export function KickoffSection() {
               }}
             >
               <RefreshCcw className={sx(kickoffSectionStyles.actionIcon)} />
-              Restore default sources
-            </Button>
+              {t("settings:settingsDialogKickoffSection.restoreDefaultSources")}</Button>
           </div>
         </SettingsCard>
 
         <SettingsCard
-          title="Resolution"
-          description="The primary and fallback models produce the editable preview. If both fail, deterministic parsing still creates a proposal."
+          title={t("settings:settingsDialogKickoffSection.resolution")}
+          description={t("settings:settingsDialogKickoffSection.thePrimaryAndFallbackModelsProduce")}
         >
           <KickoffModelField
-            title="Primary model"
-            description="Preferred model for source resolution and proposal generation."
+            title={t("settings:settingsDialogKickoffSection.primaryModel")}
+            description={t("settings:settingsDialogKickoffSection.preferredModelForSourceResolutionAnd")}
             value={primaryModel}
             onSelect={(kickoffPrimaryModel) =>
               updateSettings({ patch: { kickoffPrimaryModel } })
             }
           />
           <KickoffModelField
-            title="Fallback model"
-            description="Used when the primary model is unavailable or returns an invalid proposal."
+            title={t("settingsProviders:auxiliaryInference.fallbackModel.title")}
+            description={t("settings:settingsDialogKickoffSection.usedWhenThePrimaryModelIs")}
             value={fallbackModel}
             onSelect={(kickoffFallbackModel) =>
               updateSettings({ patch: { kickoffFallbackModel } })

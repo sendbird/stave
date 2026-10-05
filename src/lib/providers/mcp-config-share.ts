@@ -1,3 +1,5 @@
+import { formatList } from "@/i18n/format";
+import { i18n } from "@/i18n";
 import type {
   McpConfigProvider,
   McpServerConfigDraft,
@@ -58,7 +60,7 @@ export function adaptMcpDraftForProvider(
 ): McpServerConfigDraft {
   if (provider === "codex") {
     if (draft.transport === "sse") {
-      throw new Error("Codex does not support creating SSE MCP servers.");
+      throw new Error(i18n.t("providers:mcpConfigForm.codexDoesNotSupportCreatingSSE"));
     }
     return {
       ...stripOauthClientId(draft),
@@ -112,30 +114,30 @@ export function describeMcpInstallAdaptation(args: {
   const warnings: string[] = [];
   if (args.provider === "codex" && args.draft.scope !== "user") {
     warnings.push(
-      "Codex will receive a user-scope copy. Project and local-project scope stay Claude-only.",
+      i18n.t("providers:mcpConfigShare.codexWillReceiveAUserScope"),
     );
   }
   if (args.provider === "codex" && args.draft.transport === "sse") {
-    warnings.push("Codex cannot receive an SSE server.");
+    warnings.push(i18n.t("providers:mcpConfigShare.codexCannotReceiveAnSSEServer"));
   }
   if (args.provider === "cursor" && args.draft.scope === "local") {
     warnings.push(
-      "Cursor will receive a project-scope copy because it has no local-project MCP scope.",
+      i18n.t("providers:mcpConfigShare.cursorWillReceiveAProjectScope"),
     );
   }
   if (args.provider === "kiro" && args.draft.scope === "local") {
     warnings.push(
-      "Kiro will receive a project-scope copy because it has no local-project MCP scope.",
+      i18n.t("providers:mcpConfigShare.kiroWillReceiveAProjectScope"),
     );
   }
   if (args.provider === "kiro" && isSlackHostedMcpUrl(args.draft.url)) {
     warnings.push(
-      "Kiro Slack MCP stores your Slack app client ID as oauth.clientId. Cursor's published Slack client ID is not copied.",
+      i18n.t("providers:mcpConfigShare.kiroSlackMCPStoresYourSlack"),
     );
   }
   if (args.provider === "cursor" && isSlackHostedMcpUrl(args.draft.url)) {
     warnings.push(
-      "Cursor Slack MCP writes Slack's published Cursor client ID. Sign in from Settings after applying.",
+      i18n.t("providers:mcpConfigShare.cursorSlackMCPWritesSlackS"),
     );
   }
   return warnings;
@@ -174,7 +176,7 @@ export function encodeMcpShareRevision(
     return revision ? [`${provider}:${revision}`] : [];
   });
   if (parts.length === 0) {
-    throw new Error("A shared MCP install requires at least one revision.");
+    throw new Error(i18n.t("providers:mcpConfigShare.aSharedMCPInstallRequiresAt"));
   }
   if (parts.length === 1) {
     const only = Object.values(revisions).find((value) => value?.trim());
@@ -219,7 +221,7 @@ export function expectedRevisionForProvider(args: {
   const matched = shared[args.provider];
   if (!matched) {
     throw new Error(
-      `The shared MCP preview is missing a ${formatMcpShareProviderLabel(args.provider)} revision.`,
+      i18n.t("providers:mcpConfigShare.theSharedMCPPreviewIsMissing", { value1: formatMcpShareProviderLabel(args.provider) }),
     );
   }
   return matched;
@@ -235,7 +237,7 @@ export function composeMcpSharePreview(args: {
   extraWarnings?: string[];
 }): McpServerConfigMutationPreview {
   if (args.previews.length === 0) {
-    throw new Error("A shared MCP install requires at least one target.");
+    throw new Error(i18n.t("providers:mcpConfigShare.aSharedMCPInstallRequiresAtVariant8c7f4a6a"));
   }
   if (args.previews.length === 1) {
     const only = args.previews[0]!;
@@ -244,7 +246,7 @@ export function composeMcpSharePreview(args: {
       return {
         ...only.preview,
         operation: "share",
-        title: `Share ${args.name} to ${formatMcpShareProviderLabel(only.provider)}`,
+        title: i18n.t("providers:mcpConfigShare.shareTo", { value1: args.name, value2: formatMcpShareProviderLabel(only.provider) }),
         warnings,
       };
     }
@@ -257,14 +259,7 @@ export function composeMcpSharePreview(args: {
   const labels = args.previews.map((entry) =>
     formatMcpShareProviderLabel(entry.provider),
   );
-  const verb =
-    args.operation === "share"
-      ? "Share"
-      : args.operation === "create"
-        ? "Add"
-        : args.operation === "update"
-          ? "Update"
-          : "Delete";
+  const titleKey = { share: "providers:mcpOperations.previewShare", create: "providers:mcpOperations.previewCreate", update: "providers:mcpOperations.previewUpdate", delete: "providers:mcpOperations.previewDelete" } as const;
 
   return {
     operation: args.operation,
@@ -273,7 +268,7 @@ export function composeMcpSharePreview(args: {
         args.previews.map((entry) => [entry.provider, entry.preview.revision]),
       ),
     ),
-    title: `${verb} ${args.name} on ${labels.join(" and ")}`,
+    title: i18n.t(titleKey[args.operation], { name: args.name, providers: formatList(labels) }),
     changes: args.previews.flatMap((entry) => {
       const label = formatMcpShareProviderLabel(entry.provider);
       return entry.preview.changes.map((change) => `${label}: ${change}`);
@@ -295,24 +290,15 @@ export function summarizeMcpShareResults(args: {
 }) {
   const succeeded = args.results.filter((result) => result.ok);
   const failed = args.results.filter((result) => !result.ok);
-  const verb =
-    args.operation === "share"
-      ? "Shared"
-      : args.operation === "create"
-        ? "Added"
-        : args.operation === "update"
-          ? "Updated"
-          : "Deleted";
+  const resultKey = { share: "providers:mcpOperations.resultShare", create: "providers:mcpOperations.resultCreate", update: "providers:mcpOperations.resultUpdate", delete: "providers:mcpOperations.resultDelete" } as const;
 
   if (failed.length === 0) {
     return {
       ok: true,
       detail:
         succeeded.length > 1
-          ? `${verb} the MCP server on ${succeeded
-              .map((result) => formatMcpShareProviderLabel(result.provider))
-              .join(" and ")}.`
-          : (succeeded[0]?.detail ?? `${verb} the MCP server.`),
+          ? i18n.t(resultKey[args.operation], { providers: formatList(succeeded.map((result) => formatMcpShareProviderLabel(result.provider))) })
+          : (succeeded[0]?.detail ?? i18n.t(resultKey[args.operation], { providers: formatList(succeeded.map((result) => formatMcpShareProviderLabel(result.provider))) })),
     };
   }
 
@@ -325,13 +311,11 @@ export function summarizeMcpShareResults(args: {
 
   return {
     ok: false,
-    detail: `Partial MCP update: ${succeeded
-      .map((result) => formatMcpShareProviderLabel(result.provider))
-      .join(" and ")} succeeded. ${failed
+    detail: i18n.t("providers:mcpConfigShare.partialMCPUpdateSucceeded", { value1: formatList(succeeded.map((result) => formatMcpShareProviderLabel(result.provider))), value2: failed
       .map(
         (result) =>
-          `${formatMcpShareProviderLabel(result.provider)} failed: ${result.detail}`,
+          i18n.t("providers:mcpOperations.failed", { provider: formatMcpShareProviderLabel(result.provider), detail: result.detail }),
       )
-      .join(" ")}`,
+      .join(" ") }),
   };
 }

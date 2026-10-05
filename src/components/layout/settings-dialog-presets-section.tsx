@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, Trans, useTranslation, i18n } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -42,13 +43,14 @@ type PresetEditorTarget =
 
 function describePreset(preset: TaskPreset) {
   if (preset.kind === "cli-session") {
-    return `${getProviderLabel({ providerId: preset.provider, variant: "full" })} CLI session`;
+    return i18n.t("settings:settingsDialogPresetsSection.cliSession", { value1: getProviderLabel({ providerId: preset.provider, variant: "full" }) });
   }
 
   return `${getProviderLabel({ providerId: preset.provider, variant: "full" })} · ${toHumanModelName({ model: preset.model ?? "" })}`;
 }
 
 export function PresetsSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     showPresetBar,
     presets,
@@ -127,27 +129,23 @@ export function PresetsSection() {
     <>
       <SectionStack>
         <SettingsCard
-          title="Preset Bar"
-          description="Show the preset bar between task tabs and the main chat surface."
+          title={t("settings:settingsDialogPresetsSection.presetBar")}
+          description={t("settings:settingsDialogPresetsSection.showThePresetBarBetweenTask")}
         >
           <SwitchField
-            title="Show Preset Bar"
-            description="Hide the row without deleting its presets. The task-tab overflow menu can toggle this too."
+            title={t("settings:settingsDialogPresetsSection.showPresetBar")}
+            description={t("settings:settingsDialogPresetsSection.hideTheRowWithoutDeletingIts")}
             checked={showPresetBar}
             onCheckedChange={(checked) =>
               updateSettings({ patch: { showPresetBar: checked } })
             }
           />
-          <p className={sx(styles.shortcutNote)}>
-            The first nine presets in the list below respond to{" "}
-            <span className={sx(styles.emphasis)}>Ctrl+1..9</span> from
-            top-to-bottom order.
-          </p>
+          <p className={sx(styles.shortcutNote)}><Trans t={t} i18nKey="settings:whole.presetShortcuts" components={{ keys: <span className={sx(styles.emphasis)} /> }} /></p>
         </SettingsCard>
 
         <SettingsCard
-          title="Manage Presets"
-          description="Add, edit, delete, and reorder the quick-launch presets used by the bar and keyboard shortcuts."
+          title={t("settings:settingsDialogPresetsSection.managePresets")}
+          description={t("settings:settingsDialogPresetsSection.addEditDeleteAndReorderThe")}
           titleAccessory={
             <Popover
               open={editorTarget?.kind === "new"}
@@ -159,12 +157,11 @@ export function PresetsSection() {
                 render={<Button size="sm" xstyle={styles.addButton} />}
               >
                 <Plus className={sx(styles.addIcon)} />
-                Add preset
-              </PopoverTrigger>
+                {t("settings:settingsDialogPresetsSection.addPreset")}</PopoverTrigger>
               <PopoverContent align="end" xstyle={styles.editorPopover}>
                 <TaskPresetEditor
                   initialPreset={newPresetDraft}
-                  submitLabel="Add preset"
+                  submitLabel={t("settings:settingsDialogPresetsSection.addPreset")}
                   onSave={handleSavePreset}
                   onCancel={() => setEditorTarget(null)}
                 />
@@ -178,15 +175,12 @@ export function PresetsSection() {
               onClick={() => resetTaskPresetsToDefault()}
               disabled={presets.length === 0}
             >
-              Restore Default Presets
-            </Button>
+              {t("settings:settingsDialogPresetsSection.restoreDefaultPresets")}</Button>
           </div>
 
           {presets.length === 0 ? (
             <div className={sx(styles.empty)}>
-              No presets yet. Add one to create task and CLI-session launch
-              shortcuts.
-            </div>
+              {t("settings:settingsDialogPresetsSection.noPresetsYetAddOneTo")}</div>
           ) : (
             <div className={sx(styles.list)}>
               {presets.map((preset, index) => {
@@ -248,8 +242,8 @@ export function PresetsSection() {
                           variant="quiet"
                           size="xs"
                           iconOnly
-                          aria-label={`Move ${preset.label} up`}
-                          title="Move up"
+                          aria-label={i18n.t("settings:settingsDialogMacrosSection.moveUp", { value1: preset.label })}
+                          title={i18n.t("settings:settingsDialogPresetsSection.moveUp")}
                           disabled={moveUpDisabled}
                           onClick={() => handleMovePreset(preset.id, -1)}
                         >
@@ -259,8 +253,8 @@ export function PresetsSection() {
                           variant="quiet"
                           size="xs"
                           iconOnly
-                          aria-label={`Move ${preset.label} down`}
-                          title="Move down"
+                          aria-label={i18n.t("settings:settingsDialogMacrosSection.moveDown", { value1: preset.label })}
+                          title={i18n.t("settings:settingsDialogPresetsSection.moveDown")}
                           disabled={moveDownDisabled}
                           onClick={() => handleMovePreset(preset.id, 1)}
                         >
@@ -272,8 +266,8 @@ export function PresetsSection() {
                               variant="quiet"
                               size="xs"
                               iconOnly
-                              aria-label={`Edit ${preset.label}`}
-                              title="Edit preset"
+                              aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: preset.label })}
+                              title={i18n.t("settings:settingsDialogPresetsSection.editPreset")}
                               onClick={() =>
                                 setEditorTarget({
                                   kind: "edit",
@@ -290,8 +284,8 @@ export function PresetsSection() {
                           size="xs"
                           iconOnly
                           xstyle={styles.deleteButton}
-                          aria-label={`Delete ${preset.label}`}
-                          title="Delete preset"
+                          aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: preset.label })}
+                          title={i18n.t("settings:settingsDialogPresetsSection.deletePreset")}
                           onClick={() => handleDeletePreset(preset.id)}
                         >
                           <Trash2 />
@@ -304,7 +298,7 @@ export function PresetsSection() {
                     >
                       <TaskPresetEditor
                         initialPreset={preset}
-                        submitLabel="Save preset"
+                        submitLabel={i18n.t("settings:settingsDialogPresetsSection.savePreset")}
                         onSave={handleSavePreset}
                         onCancel={() => setEditorTarget(null)}
                       />

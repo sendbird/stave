@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type { ProviderAccountProviderId } from "./provider-accounts";
 
 /**
@@ -31,29 +32,29 @@ export interface SetupSharingEntry {
 }
 
 const CLAUDE_PLAN: readonly SetupSharingEntry[] = [
-  { name: "skills", action: "link", kind: "directory", label: "skills", reason: "A link keeps every account in sync with the skills you add or edit." },
-  { name: "agents", action: "link", kind: "directory", label: "agents", reason: "A link keeps every account in sync with your subagents." },
-  { name: "commands", action: "link", kind: "directory", label: "commands", reason: "A link keeps every account in sync with your slash commands." },
-  { name: "plugins", action: "link", kind: "directory", label: "plugins", reason: "A link keeps installed plugins and their marketplaces in one place." },
-  { name: "CLAUDE.md", action: "link", kind: "file", label: "instructions", reason: "You edit it by hand and it holds no login, so a link applies each edit everywhere." },
-  { name: "settings.json", action: "copy", kind: "file", label: "settings", filter: "claude-settings", reason: "It can name API keys and login rules, and the CLI rewrites it per account, so each account gets a filtered copy." },
-  { name: ".credentials.json", action: "skip", label: "", reason: "The login. Every account signs in on its own." },
-  { name: ".claude.json", action: "skip", label: "", reason: "Holds who is signed in, per-project history and caches. MCP servers are not shared." },
-  { name: "projects", action: "skip", label: "", reason: "Conversation history belongs to the account that had it." },
-  { name: "history.jsonl", action: "skip", label: "", reason: "Prompt history belongs to the account that typed it." },
-  { name: "todos", action: "skip", label: "", reason: "Session state belongs to the account that created it." },
-  { name: "shell-snapshots", action: "skip", label: "", reason: "Session state belongs to the account that created it." },
-  { name: "statsig", action: "skip", label: "", reason: "Feature flags and caches are tied to the signed-in account." },
+  { name: "skills", action: "link", kind: "directory", label: "skills", get reason() { return i18n.t("providers:providerAccountSetupPlan.aLinkKeepsEveryAccountIn"); } },
+  { name: "agents", action: "link", kind: "directory", label: "agents", get reason() { return i18n.t("providers:providerAccountSetupPlan.aLinkKeepsEveryAccountInVariant977b670e"); } },
+  { name: "commands", action: "link", kind: "directory", label: "commands", get reason() { return i18n.t("providers:providerAccountSetupPlan.aLinkKeepsEveryAccountInVariantee083f15"); } },
+  { name: "plugins", action: "link", kind: "directory", label: "plugins", get reason() { return i18n.t("providers:providerAccountSetupPlan.aLinkKeepsInstalledPluginsAnd"); } },
+  { name: "CLAUDE.md", action: "link", kind: "file", label: "instructions", get reason() { return i18n.t("providers:providerAccountSetupPlan.youEditItByHandAnd"); } },
+  { name: "settings.json", action: "copy", kind: "file", label: "settings", filter: "claude-settings", get reason() { return i18n.t("providers:providerAccountSetupPlan.itCanNameAPIKeysAnd"); } },
+  { name: ".credentials.json", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.theLoginEveryAccountSignsIn"); } },
+  { name: ".claude.json", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.holdsWhoIsSignedInPer"); } },
+  { name: "projects", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.conversationHistoryBelongsToTheAccount"); } },
+  { name: "history.jsonl", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.promptHistoryBelongsToTheAccount"); } },
+  { name: "todos", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.sessionStateBelongsToTheAccount"); } },
+  { name: "shell-snapshots", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.sessionStateBelongsToTheAccount"); } },
+  { name: "statsig", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.featureFlagsAndCachesAreTied"); } },
 ];
 
 const CODEX_PLAN: readonly SetupSharingEntry[] = [
-  { name: "skills", action: "link", kind: "directory", label: "skills", reason: "A link keeps every account in sync with the skills you add or edit." },
-  { name: "prompts", action: "link", kind: "directory", label: "prompts", reason: "A link keeps every account in sync with your custom prompts." },
-  { name: "AGENTS.md", action: "link", kind: "file", label: "instructions", reason: "You edit it by hand and it holds no login, so a link applies each edit everywhere." },
-  { name: "config.toml", action: "skip", label: "", reason: "Codex can keep endpoint, login and MCP credential settings here and rewrites the file itself, so it is not shared." },
-  { name: "auth.json", action: "skip", label: "", reason: "The login. Every account signs in on its own." },
-  { name: "history.jsonl", action: "skip", label: "", reason: "Prompt history belongs to the account that typed it." },
-  { name: "sessions", action: "skip", label: "", reason: "Conversation history belongs to the account that had it." },
+  { name: "skills", action: "link", kind: "directory", label: "skills", get reason() { return i18n.t("providers:providerAccountSetupPlan.aLinkKeepsEveryAccountIn"); } },
+  { name: "prompts", action: "link", kind: "directory", label: "prompts", get reason() { return i18n.t("providers:providerAccountSetupPlan.aLinkKeepsEveryAccountInVariant40e8eda0"); } },
+  { name: "AGENTS.md", action: "link", kind: "file", label: "instructions", get reason() { return i18n.t("providers:providerAccountSetupPlan.youEditItByHandAnd"); } },
+  { name: "config.toml", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.codexCanKeepEndpointLoginAnd"); } },
+  { name: "auth.json", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.theLoginEveryAccountSignsIn"); } },
+  { name: "history.jsonl", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.promptHistoryBelongsToTheAccount"); } },
+  { name: "sessions", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.conversationHistoryBelongsToTheAccount"); } },
 ];
 
 /**

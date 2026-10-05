@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   buildCompareJudgeCandidateAliases,
   COMPARE_JUDGE_RUBRIC_VERSION,
@@ -111,6 +112,7 @@ export function buildCompareJudgePrompt(run: CompareRun) {
         candidateScores: candidates.map((candidate) => ({
           candidateId: candidate.candidateId,
           score: 0,
+          // i18n-ignore: model-facing JSON response example
           summary: "Concise assessment.",
           strengths: ["Evidence-backed strength"],
           risks: ["Concrete risk or uncertainty"],
@@ -249,7 +251,7 @@ export function buildCompareJudgeSecondaryClaim(args: {
 }): SecondaryRunClaimArgs {
   const judge = args.run.judge;
   if (!judge) {
-    throw new Error("No judge was configured.");
+    throw new Error(i18n.t("compare:compareRunJudge.noJudgeWasConfigured"));
   }
   const identity = buildCompareJudgeRunIdentity(args.run.id);
   return {
@@ -327,19 +329,19 @@ async function executeCompareJudge(args: {
 }) {
   const judge = args.run.judge;
   if (!judge) {
-    return { ok: false as const, error: "No judge was configured." };
+    return { ok: false as const, error: i18n.t("compare:compareRunJudge.noJudgeWasConfigured") };
   }
   const bridge = resolveBridge(args.bridge);
   if (!resolveSecondaryRunBridge(bridge)) {
     return {
       ok: false as const,
-      error: "The secondary run bridge is unavailable for compare judging.",
+      error: i18n.t("compare:compareRunJudge.theSecondaryRunBridgeIsUnavailable"),
     };
   }
   if (!args.cwd || !args.repositoryPath) {
     return {
       ok: false as const,
-      error: "The compare judge workspace is unavailable.",
+      error: i18n.t("compare:compareRunJudge.theCompareJudgeWorkspaceIsUnavailable"),
     };
   }
   const model =
@@ -365,13 +367,13 @@ async function executeCompareJudge(args: {
           error:
             availability.message?.trim() ||
             availability.detail?.trim() ||
-            "The selected judge provider is unavailable.",
+            i18n.t("compare:compareRunJudge.theSelectedJudgeProviderIsUnavailable"),
         };
       }
     } catch {
       return {
         ok: false as const,
-        error: "The selected judge provider could not be reached.",
+        error: i18n.t("compare:compareRunJudge.theSelectedJudgeProviderCouldNot"),
       };
     }
   }
@@ -386,7 +388,7 @@ async function executeCompareJudge(args: {
       runtimeOptions,
     }),
     resultArtifactRef: `compare-run:${args.run.id}:judge-result`,
-    parserError: "The judge finished without a valid comparison result.",
+    parserError: i18n.t("compare:messages.invalidJudgeResult"),
     parse: (text) =>
       parseCompareJudgment({
         text,
@@ -581,7 +583,7 @@ export async function launchReadyCompareJudges(
               ...run.judge,
               status: "failed" as const,
               error:
-                "At least two completed candidates are required for automatic judging.",
+                i18n.t("compare:compareRunJudge.atLeastTwoCompletedCandidatesAre"),
             },
           },
         ] as const;

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 /**
  * Provider-agnostic vocabulary for tool activity.
  *
@@ -21,7 +22,7 @@
  * because callers that decorate delegation rows need to recognize the generic
  * label and avoid stacking a second word for the same idea on top of it.
  */
-export const TOOL_DELEGATION_LABEL = "Delegate work";
+export const TOOL_DELEGATION_LABEL_KEY = "providers:toolActivity.delegateWork" as const;
 
 /**
  * Canonical operation per tool token. Keys are normalized leaf tokens — see
@@ -30,52 +31,52 @@ export const TOOL_DELEGATION_LABEL = "Delegate work";
  */
 const TOOL_OPERATION_LABELS: Record<string, string> = {
   // Shell
-  bash: "Run command",
-  sh: "Run command",
-  shell: "Run command",
-  localshell: "Run command",
-  terminal: "Run command",
-  runcommand: "Run command",
-  runterminalcommand: "Run command",
-  executecommand: "Run command",
-  commandexecution: "Run command",
+  get bash() { return i18n.t("providers:toolActivity.runCommand"); },
+  get sh() { return i18n.t("providers:toolActivity.runCommand"); },
+  get shell() { return i18n.t("providers:toolActivity.runCommand"); },
+  get localshell() { return i18n.t("providers:toolActivity.runCommand"); },
+  get terminal() { return i18n.t("providers:toolActivity.runCommand"); },
+  get runcommand() { return i18n.t("providers:toolActivity.runCommand"); },
+  get runterminalcommand() { return i18n.t("providers:toolActivity.runCommand"); },
+  get executecommand() { return i18n.t("providers:toolActivity.runCommand"); },
+  get commandexecution() { return i18n.t("providers:toolActivity.runCommand"); },
   // Read
-  read: "Read file",
-  readfile: "Read file",
-  view: "Read file",
-  viewfile: "Read file",
+  get read() { return i18n.t("providers:toolActivity.readFile"); },
+  get readfile() { return i18n.t("providers:toolActivity.readFile"); },
+  get view() { return i18n.t("providers:toolActivity.readFile"); },
+  get viewfile() { return i18n.t("providers:toolActivity.readFile"); },
   // Write and edit
-  edit: "Edit file",
-  multiedit: "Edit file",
-  editfile: "Edit file",
-  strreplace: "Edit file",
-  strreplaceeditor: "Edit file",
-  filechange: "Edit file",
-  write: "Write file",
-  writefile: "Write file",
-  createfile: "Write file",
-  notebookedit: "Edit notebook",
-  applypatch: "Apply patch",
-  patch: "Apply patch",
+  get edit() { return i18n.t("providers:toolActivity.editFile"); },
+  get multiedit() { return i18n.t("providers:toolActivity.editFile"); },
+  get editfile() { return i18n.t("providers:toolActivity.editFile"); },
+  get strreplace() { return i18n.t("providers:toolActivity.editFile"); },
+  get strreplaceeditor() { return i18n.t("providers:toolActivity.editFile"); },
+  get filechange() { return i18n.t("providers:toolActivity.editFile"); },
+  get write() { return i18n.t("providers:toolActivity.writeFile"); },
+  get writefile() { return i18n.t("providers:toolActivity.writeFile"); },
+  get createfile() { return i18n.t("providers:toolActivity.writeFile"); },
+  get notebookedit() { return i18n.t("providers:toolActivity.editNotebook"); },
+  get applypatch() { return i18n.t("providers:toolActivity.applyPatch"); },
+  get patch() { return i18n.t("providers:toolActivity.applyPatch"); },
   // Search
-  glob: "Find files",
-  filesearch: "Find files",
-  grep: "Search code",
-  ripgrep: "Search code",
-  codebasesearch: "Search code",
-  search: "Search",
+  get glob() { return i18n.t("providers:toolActivity.findFiles"); },
+  get filesearch() { return i18n.t("providers:toolActivity.findFiles"); },
+  get grep() { return i18n.t("providers:toolActivity.searchCode"); },
+  get ripgrep() { return i18n.t("providers:toolActivity.searchCode"); },
+  get codebasesearch() { return i18n.t("providers:toolActivity.searchCode"); },
+  get search() { return i18n.t("common:actions.search"); },
   // Web
-  websearch: "Web search",
-  webfetch: "Fetch page",
-  fetch: "Fetch page",
+  get websearch() { return i18n.t("providers:toolActivity.webSearch"); },
+  get webfetch() { return i18n.t("providers:toolActivity.fetchPage"); },
+  get fetch() { return i18n.t("providers:toolActivity.fetchPage"); },
   // Delegation
-  task: TOOL_DELEGATION_LABEL,
-  agent: TOOL_DELEGATION_LABEL,
-  spawnagent: TOOL_DELEGATION_LABEL,
-  worker: TOOL_DELEGATION_LABEL,
+  get task() { return i18n.t(TOOL_DELEGATION_LABEL_KEY); },
+  get agent() { return i18n.t(TOOL_DELEGATION_LABEL_KEY); },
+  get spawnagent() { return i18n.t(TOOL_DELEGATION_LABEL_KEY); },
+  get worker() { return i18n.t(TOOL_DELEGATION_LABEL_KEY); },
   // Turn-shaping
-  exitplanmode: "Submit plan",
-  todowrite: "Update todos",
+  get exitplanmode() { return i18n.t("providers:toolActivity.submitPlan"); },
+  get todowrite() { return i18n.t("providers:toolActivity.updateTodos"); },
 };
 
 /**

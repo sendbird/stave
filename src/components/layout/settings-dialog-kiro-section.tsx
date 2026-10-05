@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { Badge } from "@/components/ui";
 import {
   Select,
@@ -24,6 +25,7 @@ import {
 import { kiroSectionStyles } from "./settings-dialog-kiro-section.styles";
 
 export function SettingsKiroSection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [modelKiro, kiroBinaryPath, kiroEffort, kiroApprovalMode] = useAppStore(
     useShallow((state) => [
       state.settings.modelKiro,
@@ -37,13 +39,13 @@ export function SettingsKiroSection() {
   return (
     <SectionStack>
       <SettingsCard
-        title="Kiro Runtime Controls"
-        description="Model preferences passed to interactive Kiro turns."
-        titleAccessory={<Badge variant="secondary">ACP</Badge>}
+        title={t("settingsProviders:kiroSection.runtime.title")}
+        description={t("settingsProviders:kiroSection.runtime.description")}
+        titleAccessory={<Badge variant="secondary">{/* i18n-ignore: provider protocol acronym */}ACP</Badge>}
       >
         <LabeledField
-          title="Approval Preset"
-          description="How much Kiro may run without asking. Delivered as a Kiro CLI process flag, so it applies for the whole session rather than per tool call."
+          title={t("settingsProviders:kiroSection.approvalPreset.title")}
+          description={t("settingsProviders:kiroSection.approvalPreset.description")}
         >
           <ChoiceButtons
             columns={2}
@@ -60,19 +62,16 @@ export function SettingsKiroSection() {
             }
           />
           <p className={sx(kiroSectionStyles.note)}>
-            Kiro has no partial-trust tier: its CLI accepts unknown tool names
-            for a partial grant without reporting an error, so Stave does not
-            offer a middle setting it cannot verify.
-          </p>
+            {t("settingsProviders:kiroSection.approvalPreset.note")}</p>
         </LabeledField>
         <LabeledField
-          title="Default Model"
-          description="Use Auto unless the connected CLI reports another model identifier. The composer shows a warning if a saved model disappears from the runtime catalog."
+          title={t("settingsProviders:kiroSection.defaultModel.title")}
+          description={t("settingsProviders:kiroSection.defaultModel.description")}
         >
           <DraftInput
             xstyle={kiroSectionStyles.field}
             value={modelKiro}
-            placeholder="auto"
+            placeholder={/* i18n-ignore: runtime model identifier */ "auto"}
             onCommit={(value) =>
               updateSettings({
                 patch: { modelKiro: value.trim() || "auto" },
@@ -81,8 +80,8 @@ export function SettingsKiroSection() {
           />
         </LabeledField>
         <LabeledField
-          title="Default Effort"
-          description="Used for Kiro models without a task-specific effort choice. Individual model choices are remembered from the composer."
+          title={t("settingsProviders:kiroSection.defaultEffort.title")}
+          description={t("settingsProviders:kiroSection.defaultEffort.description")}
         >
           <Select
             value={kiroEffort}
@@ -95,7 +94,7 @@ export function SettingsKiroSection() {
             }
           >
             <SelectTrigger
-              aria-label="Kiro default effort"
+              aria-label={t("settingsProviders:kiroSection.defaultEffort.ariaLabel")}
               className={sx(kiroSectionStyles.field)}
             >
               <SelectValue />
@@ -111,12 +110,12 @@ export function SettingsKiroSection() {
         </LabeledField>
       </SettingsCard>
       <SettingsCard
-        title="Kiro CLI"
-        description="Stave resolves Kiro CLI from this path first, then checks supported environment overrides and standard executable locations."
+        title={t("settingsProviders:kiroSection.cli.title")}
+        description={t("settingsProviders:kiroSection.cli.description")}
       >
         <LabeledField
-          title="CLI Path"
-          description="Leave blank to use automatic discovery. The configured executable must support ACP and be signed in."
+          title={t("settingsProviders:kiroSection.cliPath.title")}
+          description={t("settingsProviders:kiroSection.cliPath.description")}
         >
           <DraftInput
             xstyle={kiroSectionStyles.field}

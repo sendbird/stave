@@ -303,6 +303,7 @@ export function migrateSettingsModelDefaults(
         preset.model === "gpt-5.6-sol"
       ) {
         result.changed = true;
+        // i18n-ignore: provider model display name
         return { ...preset, model: "gpt-6-sol", label: "GPT-6 Sol" };
       }
       return preset;
@@ -400,10 +401,12 @@ function applySol61Migration(result: SettingsModelMigrationResult) {
     if (
       preset.id === "default-gpt-5-6-task" &&
       preset.provider === "codex" &&
+      // i18n-ignore: provider model display name
       preset.label === "GPT-6 Sol" &&
       preset.model === "gpt-6-sol"
     ) {
       result.changed = true;
+      // i18n-ignore: provider model display name
       return { ...preset, model: "gpt-6.1-sol", label: "GPT-6.1 Sol" };
     }
     return preset;

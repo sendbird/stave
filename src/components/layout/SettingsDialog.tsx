@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ArrowLeft, Folder, Search, X } from "lucide-react";
@@ -56,6 +57,7 @@ const MAC_TRAFFIC_LIGHT_CLEARANCE = 40;
 
 export function SettingsDialog(args: SettingsDialogProps) {
   const { initialRepositoryPath, initialSection, open, onOpenChange } = args;
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [activeSection, setActiveSection] = useState<SectionId>("general");
   const [selectedRepositoryPath, setSelectedRepositoryPath] = useState<string | null>(
     null,
@@ -229,7 +231,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
           className={cx(UI_LAYER_CLASS.dialog, sx(styles.popup))}
         >
           <DialogPrimitive.Title render={<VisuallyHidden />}>
-            Settings
+            {t("settings:dialog.title")}
           </DialogPrimitive.Title>
           <SidebarProvider
             className={sx(styles.provider)}
@@ -257,12 +259,12 @@ export function SettingsDialog(args: SettingsDialogProps) {
                         variant="quiet"
                         size="sm"
                         xstyle={styles.backButton}
-                        aria-label="back-to-app"
+                        aria-label={t("settings:dialog.backToApp")}
                       />
                     }
                   >
                     <ArrowLeft className={sx(styles.icon)} />
-                    Back to app
+                    {t("settings:dialog.backToApp")}
                   </DialogPrimitive.Close>
                 </div>
                 <div className={sx(styles.sidebarSection)}>
@@ -271,8 +273,8 @@ export function SettingsDialog(args: SettingsDialogProps) {
                     <Input
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder="Search settings"
-                      aria-label="Search settings"
+                      placeholder={t("settings:dialog.search.label")}
+                      aria-label={t("settings:dialog.search.label")}
                       xstyle={styles.searchInput}
                     />
                     {searchQuery ? (
@@ -282,7 +284,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                         size="xs"
                         iconOnly
                         xstyle={styles.searchClear}
-                        aria-label="Clear settings search"
+                        aria-label={t("settings:dialog.search.clear")}
                         onClick={() => setSearchQuery("")}
                       >
                         <X className={sx(styles.icon)} />
@@ -293,7 +295,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                 {matchingFields.length > 0 ? (
                   <SidebarGroup>
                     <SidebarGroupLabel className={sx(styles.groupLabel)}>
-                      Search results
+                      {t("settings:dialog.search.results")}
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                       <SidebarMenu>
@@ -309,11 +311,11 @@ export function SettingsDialog(args: SettingsDialogProps) {
                               icon={<Search />}
                               badge={
                                 <span className={sx(styles.menuSectionLabel)}>
-                                  {sectionsById[field.sectionId].label}
+                                  {t(sectionsById[field.sectionId].labelKey)}
                                 </span>
                               }
                             >
-                              {field.title}
+                              {t(field.titleKey)}
                             </SidebarMenuButton>
                           </SidebarMenuItem>
                         ))}
@@ -323,9 +325,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
                 ) : null}
                 {visibleGroups.length > 0 ? (
                   visibleGroups.map((group) => (
-                    <SidebarGroup key={group.label}>
+                    <SidebarGroup key={group.labelKey}>
                       <SidebarGroupLabel className={sx(styles.groupLabel)}>
-                        {group.label}
+                        {t(group.labelKey)}
                       </SidebarGroupLabel>
                       <SidebarGroupContent>
                         <SidebarMenu>
@@ -339,7 +341,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                     onClick={() => setActiveSection("projects")}
                                     icon={<Folder />}
                                   >
-                                    No repositories yet
+                                    {t("settings:dialog.noRepositories")}
                                   </SidebarMenuButton>
                                 </SidebarMenuItem>
                               ) : (
@@ -374,7 +376,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                                   styles.currentPillActive,
                                               )}
                                             >
-                                              current
+                                              {t("settings:dialog.currentRepository")}
                                             </span>
                                           ) : undefined
                                         }
@@ -399,7 +401,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                   className={sx(styles.menuButton)}
                                   icon={<Icon />}
                                 >
-                                  {section.label}
+                                  {t(section.labelKey)}
                                 </SidebarMenuButton>
                               </SidebarMenuItem>
                             );
@@ -410,7 +412,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
                   ))
                 ) : matchingFields.length === 0 ? (
                   <div className={sx(styles.emptyResults)}>
-                    No settings match "{normalizedSearchQuery}".
+                    {t("settings:dialog.search.noMatches", {
+                      query: normalizedSearchQuery,
+                    })}
                   </div>
                 ) : null}
               </SidebarContent>
@@ -422,7 +426,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
               >
                 <div className={sx(styles.headerDesktop)}>
                   <div className={sx(styles.breadcrumbRow)}>
-                    <span className={sx(styles.eyebrow)}>Settings</span>
+                    <span className={sx(styles.eyebrow)}>
+                      {t("settings:dialog.title")}
+                    </span>
                     <span
                       className={sx(styles.breadcrumbSep)}
                       aria-hidden="true"
@@ -430,11 +436,11 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       /
                     </span>
                     <h1 className={sx(styles.headerTitle)}>
-                      {activeSectionData.label}
+                      {t(activeSectionData.labelKey)}
                     </h1>
                   </div>
                   <p className={sx(styles.headerDescription)}>
-                    {activeSectionData.description}
+                    {t(activeSectionData.descriptionKey)}
                   </p>
                 </div>
                 <div className={sx(styles.headerMobile)}>
@@ -446,7 +452,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                           size="md"
                           iconOnly
                           xstyle={styles.mobileBack}
-                          aria-label="back-to-app"
+                          aria-label={t("settings:dialog.backToApp")}
                         />
                       }
                     >
@@ -459,15 +465,17 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       }
                     >
                       <SelectTrigger
-                        aria-label="Settings section"
+                        aria-label={t("settings:dialog.sectionSelect")}
                         className={sx(styles.mobileSelectTrigger)}
                       >
-                        <SelectValue>{activeSectionData.label}</SelectValue>
+                        <SelectValue>
+                          {t(activeSectionData.labelKey)}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {settingsSections.map((section) => (
                           <SelectItem key={section.id} value={section.id}>
-                            {section.label}
+                            {t(section.labelKey)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -478,8 +486,8 @@ export function SettingsDialog(args: SettingsDialogProps) {
                     <Input
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder="Search settings"
-                      aria-label="Search settings"
+                      placeholder={t("settings:dialog.search.label")}
+                      aria-label={t("settings:dialog.search.label")}
                       xstyle={styles.mobileSearchInput}
                     />
                     {searchQuery ? (
@@ -489,7 +497,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                         size="xs"
                         iconOnly
                         xstyle={styles.mobileSearchClear}
-                        aria-label="Clear settings search"
+                        aria-label={t("settings:dialog.search.clear")}
                         onClick={() => setSearchQuery("")}
                       >
                         <X className={sx(styles.icon)} />

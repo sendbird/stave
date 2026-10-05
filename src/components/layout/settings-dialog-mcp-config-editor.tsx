@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useEffect, useId, useMemo, useState } from "react";
 import {
   Badge,
@@ -90,6 +91,7 @@ function FormField(props: {
 }
 
 function ReviewPanel(props: { preview: McpServerConfigMutationPreview }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   return (
     <div className={sx(styles.reviewStack)}>
       <div className={sx(styles.reviewCard)}>
@@ -102,7 +104,7 @@ function ReviewPanel(props: { preview: McpServerConfigMutationPreview }) {
       </div>
       {props.preview.warnings.length ? (
         <div className={sx(styles.warningCard)}>
-          <p className={sx(styles.warningTitle)}>Before you apply</p>
+          <p className={sx(styles.warningTitle)}>{t("settingsProviders:mcpConfigEditor.review.beforeApply")}</p>
           <ul className={sx(styles.warningList)}>
             {props.preview.warnings.map((warning) => (
               <li key={warning}>• {warning}</li>
@@ -111,9 +113,7 @@ function ReviewPanel(props: { preview: McpServerConfigMutationPreview }) {
         </div>
       ) : null}
       <p className={sx(styles.reviewNote)}>
-        Stave will verify that the provider configuration has not changed since
-        this preview before writing it.
-      </p>
+        {t("settingsProviders:mcpConfigEditor.review.verifyNote")}</p>
     </div>
   );
 }
@@ -126,6 +126,7 @@ export function McpServerConfigEditorDialog(props: {
   onOpenChange: (open: boolean) => void;
   onApplied: (detail: string, outcome?: "success" | "partial") => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const editing = Boolean(props.snapshot);
   const baseId = useId();
   const [form, setForm] = useState(() =>
@@ -192,10 +193,10 @@ export function McpServerConfigEditorDialog(props: {
         workspaceCwd: props.workspaceCwd,
       });
       const request = mutationRequest;
-      if (!request) throw new Error("MCP configuration form is incomplete.");
+      if (!request) throw new Error(i18n.t("settingsProviders:mcpConfigEditor.errors.formIncomplete"));
       const api = window.api?.provider?.previewMcpServerConfigMutation;
       if (!api)
-        throw new Error("MCP configuration preview API is unavailable.");
+        throw new Error(i18n.t("settingsProviders:mcpConfigEditor.errors.previewUnavailable"));
       setBusy(true);
       const result = await api(request);
       if (!result.ok || !result.preview) {
@@ -213,7 +214,7 @@ export function McpServerConfigEditorDialog(props: {
     if (!preview || !mutationRequest) return;
     const api = window.api?.provider?.applyMcpServerConfigMutation;
     if (!api) {
-      setError("MCP configuration apply API is unavailable.");
+      setError(i18n.t("settingsProviders:messages.mcpApplyUnavailable"));
       return;
     }
     setBusy(true);
@@ -284,13 +285,10 @@ export function McpServerConfigEditorDialog(props: {
       <DialogContent xstyle={styles.dialogSurface}>
         <DialogHeader className={sx(styles.headerBlock)}>
           <DialogTitle className={sx(styles.headerTitle)}>
-            {editing ? "Edit MCP server" : "Add MCP server"}
+            {editing ? t("settingsProviders:mcpConfigEditor.editor.titleEdit") : t("settingsProviders:mcpConfigEditor.editor.titleAdd")}
           </DialogTitle>
           <DialogDescription className={sx(styles.headerDescription)}>
-            Credentials stay outside Stave: bind authentication through
-            environment-variable names, then review the native provider change
-            before applying it.
-          </DialogDescription>
+            {t("settingsProviders:mcpConfigEditor.editor.description")}</DialogDescription>
         </DialogHeader>
 
         <div className={sx(styles.scrollArea)}>
@@ -307,14 +305,14 @@ export function McpServerConfigEditorDialog(props: {
             >
               <div className={sx(styles.columns)}>
                 <FormField
-                  label={editing ? "Provider" : "Install to"}
+                  label={editing ? t("settingsProviders:mcpConfigEditor.editor.provider") : t("settingsProviders:mcpConfigEditor.editor.installTo")}
                   htmlFor={`${baseId}-provider`}
                   description={
                     editing
                       ? undefined
                       : form.installProviders.length > 1
-                        ? "One review writes provider-native copies for every selected target."
-                        : "Register once, or add another provider later from the connection list."
+                        ? t("settingsProviders:mcpConfigEditor.editor.installToMany")
+                        : t("settingsProviders:mcpConfigEditor.editor.installToOne")
                   }
                 >
                   {editing ? (
@@ -354,7 +352,7 @@ export function McpServerConfigEditorDialog(props: {
                             onCheckedChange={(checked) =>
                               setInstallProvider(provider, checked)
                             }
-                            aria-label={`Install to ${label}`}
+                            aria-label={i18n.t("settingsProviders:settingsDialogMcpConfigEditor.installTo", { value1: label })}
                           />
                         </div>
                       ))}
@@ -362,16 +360,16 @@ export function McpServerConfigEditorDialog(props: {
                   )}
                 </FormField>
                 <FormField
-                  label="Scope"
+                  label={t("settingsProviders:mcpConfigEditor.editor.scope")}
                   htmlFor={`${baseId}-scope`}
                   description={
                     form.installProviders.includes("codex") &&
                     form.installProviders.length === 1
-                      ? "Codex App Server currently supports safe writes to user scope."
+                      ? t("settingsProviders:mcpConfigEditor.editor.scopeCodexOnly")
                       : form.installProviders.includes("codex") &&
                           form.scope !== "user"
-                        ? "Project-capable providers use this scope. Codex receives a user-scope copy."
-                        : "Project is shared in .mcp.json; local stays private to this workspace."
+                        ? t("settingsProviders:mcpConfigEditor.editor.scopeCodexMixed")
+                        : t("settingsProviders:mcpConfigEditor.editor.scopeDefault")
                   }
                 >
                   <Select
@@ -395,7 +393,7 @@ export function McpServerConfigEditorDialog(props: {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="user">{t("settingsProviders:mcpConfigEditor.editor.scopes.user")}</SelectItem>
                       {form.installProviders.includes("claude-code") ||
                       form.installProviders.includes("cursor") ||
                       form.installProviders.includes("kiro") ? (
@@ -403,16 +401,14 @@ export function McpServerConfigEditorDialog(props: {
                           value="project"
                           disabled={!props.workspaceCwd}
                         >
-                          Project
-                        </SelectItem>
+                          {t("settingsProviders:mcpConfigEditor.editor.scopes.project")}</SelectItem>
                       ) : null}
                       {form.installProviders.includes("claude-code") ? (
                         <SelectItem
                           value="local"
                           disabled={!props.workspaceCwd}
                         >
-                          Local project
-                        </SelectItem>
+                          {t("settingsProviders:mcpConfigEditor.editor.scopes.local")}</SelectItem>
                       ) : null}
                     </SelectContent>
                   </Select>
@@ -420,11 +416,12 @@ export function McpServerConfigEditorDialog(props: {
               </div>
 
               <div className={sx(styles.columns)}>
-                <FormField label="Server name" htmlFor={`${baseId}-name`}>
+                <FormField label={t("settingsProviders:mcpConfigEditor.editor.serverName")} htmlFor={`${baseId}-name`}>
                   <Input
                     id={`${baseId}-name`}
                     autoFocus
                     value={form.name}
+                    // i18n-ignore: example MCP server identifier
                     placeholder="github"
                     onChange={(event) =>
                       setForm((current) => ({
@@ -434,7 +431,7 @@ export function McpServerConfigEditorDialog(props: {
                     }
                   />
                 </FormField>
-                <FormField label="Transport" htmlFor={`${baseId}-transport`}>
+                <FormField label={t("settingsProviders:mcpConfigEditor.editor.transport")} htmlFor={`${baseId}-transport`}>
                   <Select
                     value={form.transport}
                     onValueChange={(value) =>
@@ -451,10 +448,10 @@ export function McpServerConfigEditorDialog(props: {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="stdio">stdio</SelectItem>
-                      <SelectItem value="http">HTTP</SelectItem>
+                      <SelectItem value="stdio">{/* i18n-ignore: MCP transport identifier */}stdio</SelectItem>
+                      <SelectItem value="http">{/* i18n-ignore: MCP transport identifier */}HTTP</SelectItem>
                       {!form.installProviders.includes("codex") ? (
-                        <SelectItem value="sse">SSE (legacy)</SelectItem>
+                        <SelectItem value="sse">{t("settingsProviders:mcpConfigEditor.editor.sseLegacy")}</SelectItem>
                       ) : null}
                     </SelectContent>
                   </Select>
@@ -463,10 +460,11 @@ export function McpServerConfigEditorDialog(props: {
 
               {form.transport === "stdio" ? (
                 <>
-                  <FormField label="Command" htmlFor={`${baseId}-command`}>
+                  <FormField label={t("settingsProviders:mcpConfigEditor.editor.command")} htmlFor={`${baseId}-command`}>
                     <Input
                       id={`${baseId}-command`}
                       value={form.command}
+                      // i18n-ignore: example command executable
                       placeholder="npx"
                       spellCheck={false}
                       onChange={(event) =>
@@ -481,14 +479,8 @@ export function McpServerConfigEditorDialog(props: {
                     <div className={sx(styles.toggleRow)}>
                       <div>
                         <p className={sx(styles.toggleTitle)}>
-                          Replace command arguments
-                        </p>
-                        <p className={sx(styles.toggleHint)}>
-                          {props.snapshot.argumentCount === 1
-                            ? "1 existing argument is hidden"
-                            : `${props.snapshot.argumentCount} existing arguments are hidden`}{" "}
-                          Leave this off to preserve them.
-                        </p>
+                          {t("settingsProviders:mcpConfigEditor.editor.replaceArgs.title")}</p>
+                        <p className={sx(styles.toggleHint)}>{t("settingsProviders:whole.hiddenArguments", { count: props.snapshot.argumentCount })}</p>
                       </div>
                       <Switch
                         checked={form.replaceArgs}
@@ -498,15 +490,15 @@ export function McpServerConfigEditorDialog(props: {
                             replaceArgs: checked,
                           }))
                         }
-                        aria-label="Replace existing MCP command arguments"
+                        aria-label={t("settingsProviders:mcpConfigEditor.editor.replaceArgs.ariaLabel")}
                       />
                     </div>
                   ) : null}
                   {!editing || form.replaceArgs ? (
                     <FormField
-                      label="Arguments"
+                      label={t("settingsProviders:mcpConfigEditor.editor.arguments")}
                       htmlFor={`${baseId}-args`}
-                      description="One argument per line. Empty lines are ignored."
+                      description={t("settingsProviders:mcpConfigEditor.editor.argumentsHint")}
                     >
                       <Textarea
                         id={`${baseId}-args`}
@@ -524,9 +516,9 @@ export function McpServerConfigEditorDialog(props: {
                     </FormField>
                   ) : null}
                   <FormField
-                    label="Inherited environment variables"
+                    label={t("settingsProviders:mcpConfigEditor.editor.envVars")}
                     htmlFor={`${baseId}-env-vars`}
-                    description="One variable name per line. Stave writes references only, never values."
+                    description={t("settingsProviders:mcpConfigEditor.editor.envVarsHint")}
                   >
                     <Textarea
                       id={`${baseId}-env-vars`}
@@ -549,12 +541,9 @@ export function McpServerConfigEditorDialog(props: {
                     <div className={sx(styles.toggleRow)}>
                       <div>
                         <p className={sx(styles.toggleTitle)}>
-                          Replace remote URL
-                        </p>
+                          {t("settingsProviders:mcpConfigEditor.editor.replaceUrl.title")}</p>
                         <p className={sx(styles.toggleHint)}>
-                          Credentials or query details are hidden. Leave this
-                          off to preserve the complete URL.
-                        </p>
+                          {t("settingsProviders:mcpConfigEditor.editor.replaceUrl.hint")}</p>
                       </div>
                       <Switch
                         checked={form.replaceUrl}
@@ -564,22 +553,22 @@ export function McpServerConfigEditorDialog(props: {
                             replaceUrl: checked,
                           }))
                         }
-                        aria-label="Replace redacted MCP URL"
+                        aria-label={t("settingsProviders:mcpConfigEditor.editor.replaceUrl.ariaLabel")}
                       />
                     </div>
                   ) : null}
                   {!editing || form.replaceUrl ? (
                     <FormField
-                      label="URL"
+                      label={/* i18n-ignore: protocol acronym */ "URL"}
                       htmlFor={`${baseId}-url`}
                       description={
                         formUsesCursorOfficialSlackClient(form) &&
                         formNeedsKiroSlackOAuthClientId(form)
-                          ? "Cursor writes Slack's published Cursor client ID. Kiro needs the client ID from your Slack app."
+                          ? t("settingsProviders:mcpConfigEditor.editor.urlHints.cursorAndKiro")
                           : formUsesCursorOfficialSlackClient(form)
-                            ? "Stave writes Slack's published Cursor MCP client ID. Use Sign in on the Cursor card after applying."
+                            ? t("settingsProviders:mcpConfigEditor.editor.urlHints.cursor")
                             : formNeedsKiroSlackOAuthClientId(form)
-                              ? "Kiro needs the OAuth client ID from your Slack app. Cursor's Slack client ID cannot be reused."
+                              ? t("settingsProviders:mcpConfigEditor.editor.urlHints.kiro")
                               : undefined
                       }
                     >
@@ -602,14 +591,14 @@ export function McpServerConfigEditorDialog(props: {
                     <FormField
                       label={
                         formNeedsKiroSlackOAuthClientId(form)
-                          ? "Slack app client ID"
-                          : "OAuth client ID"
+                          ? t("settingsProviders:mcpConfigEditor.editor.oauthClientId.slackLabel")
+                          : t("settingsProviders:mcpConfigEditor.editor.oauthClientId.label")
                       }
                       htmlFor={`${baseId}-oauth-client-id`}
                       description={
                         formNeedsKiroSlackOAuthClientId(form)
-                          ? "Required for Kiro. Paste oauth.clientId from your Slack app. This is not a secret."
-                          : "Optional public client ID written to Kiro as oauth.clientId. Never enter a client secret."
+                          ? t("settingsProviders:mcpConfigEditor.editor.oauthClientId.slackHint")
+                          : t("settingsProviders:mcpConfigEditor.editor.oauthClientId.hint")
                       }
                     >
                       <Input
@@ -628,9 +617,9 @@ export function McpServerConfigEditorDialog(props: {
                     </FormField>
                   ) : null}
                   <FormField
-                    label="Bearer token environment variable"
+                    label={t("settingsProviders:mcpConfigEditor.editor.bearer.label")}
                     htmlFor={`${baseId}-bearer`}
-                    description="Optional. Enter the variable name, not the token."
+                    description={t("settingsProviders:mcpConfigEditor.editor.bearer.hint")}
                   >
                     <Input
                       id={`${baseId}-bearer`}
@@ -646,9 +635,9 @@ export function McpServerConfigEditorDialog(props: {
                     />
                   </FormField>
                   <FormField
-                    label="Header environment bindings"
+                    label={t("settingsProviders:mcpConfigEditor.editor.headers.label")}
                     htmlFor={`${baseId}-headers`}
-                    description="One Header-Name=ENV_VAR binding per line."
+                    description={t("settingsProviders:mcpConfigEditor.editor.headers.hint")}
                   >
                     <Textarea
                       id={`${baseId}-headers`}
@@ -670,11 +659,9 @@ export function McpServerConfigEditorDialog(props: {
               {form.provider !== "claude-code" ? (
                 <div className={sx(styles.toggleRowPlain)}>
                   <div>
-                    <p className={sx(styles.toggleTitle)}>Enabled</p>
+                    <p className={sx(styles.toggleTitle)}>{t("common:status.enabled")}</p>
                     <p className={sx(styles.toggleHintTight)}>
-                      Disabled servers stay in the provider's native
-                      configuration without connecting.
-                    </p>
+                      {t("settingsProviders:mcpConfigEditor.editor.enabled.hint")}</p>
                   </div>
                   <Switch
                     checked={form.enabled}
@@ -684,22 +671,13 @@ export function McpServerConfigEditorDialog(props: {
                         enabled: checked,
                       }))
                     }
-                    aria-label={`Enable ${form.provider} MCP server`}
+                    aria-label={t("settingsProviders:settingsDialogMcpConfigEditor.enableMCPServer", { value1: form.provider })}
                   />
                 </div>
               ) : null}
 
               {editing && props.snapshot?.hiddenValueCount ? (
-                <div className={sx(styles.protectedNote)}>
-                  <span className={sx(styles.protectedStrong)}>
-                    Protected existing values.
-                  </span>{" "}
-                  {props.snapshot.hiddenValueCount === 1
-                    ? "1 sensitive or opaque value is hidden"
-                    : `${props.snapshot.hiddenValueCount} sensitive or opaque values are hidden`}{" "}
-                  from this dialog and preserved when the transport remains
-                  compatible.
-                </div>
+                <div className={sx(styles.protectedNote)}>{t("settingsProviders:whole.protectedValues", { count: props.snapshot.hiddenValueCount })}</div>
               ) : null}
             </form>
           )}
@@ -712,8 +690,8 @@ export function McpServerConfigEditorDialog(props: {
           <VisuallyHidden aria-live="polite" role="status">
             {busy
               ? preview
-                ? "Applying MCP configuration"
-                : "Preparing MCP configuration preview"
+                ? t("settingsProviders:mcpConfigEditor.editor.status.applying")
+                : t("settingsProviders:mcpConfigEditor.editor.status.preparing")
               : ""}
           </VisuallyHidden>
         </div>
@@ -729,12 +707,10 @@ export function McpServerConfigEditorDialog(props: {
                 setError("");
               }}
             >
-              Back
-            </Button>
+              {t("common:actions.back")}</Button>
           ) : (
             <DialogClose render={<Button type="button" variant="outline" />}>
-              Cancel
-            </DialogClose>
+              {t("common:actions.cancel")}</DialogClose>
           )}
           <Button
             type={preview ? "button" : "submit"}
@@ -744,11 +720,11 @@ export function McpServerConfigEditorDialog(props: {
           >
             {busy
               ? preview
-                ? "Applying…"
-                : "Preparing…"
+                ? t("settingsProviders:mcpConfigEditor.editor.applying")
+                : t("settingsProviders:mcpConfigEditor.editor.preparing")
               : preview
-                ? "Apply change"
-                : "Review change"}
+                ? t("settingsProviders:mcpConfigEditor.editor.apply")
+                : t("settingsProviders:mcpConfigEditor.editor.review")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -764,6 +740,7 @@ export function McpServerConfigDeleteDialog(props: {
   onOpenChange: (open: boolean) => void;
   onApplied: (detail: string) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [preview, setPreview] = useState<McpServerConfigMutationPreview | null>(
     null,
   );
@@ -781,7 +758,7 @@ export function McpServerConfigDeleteDialog(props: {
       try {
         const api = window.api?.provider?.previewMcpServerConfigMutation;
         if (!api)
-          throw new Error("MCP configuration preview API is unavailable.");
+          throw new Error(i18n.t("settingsProviders:mcpConfigEditor.errors.previewUnavailable"));
         const result = await api({
           operation: "delete",
           target: {
@@ -815,7 +792,7 @@ export function McpServerConfigDeleteDialog(props: {
     if (!preview || !props.snapshot) return;
     const api = window.api?.provider?.applyMcpServerConfigMutation;
     if (!api) {
-      setError("MCP configuration apply API is unavailable.");
+      setError(i18n.t("settingsProviders:messages.mcpApplyUnavailable"));
       return;
     }
     setBusy(true);
@@ -856,22 +833,20 @@ export function McpServerConfigDeleteDialog(props: {
         <DialogHeader>
           <div className={sx(styles.deleteTitleLine)}>
             <DialogTitle className={sx(styles.deleteTitle)}>
-              Delete MCP server?
-            </DialogTitle>
+              {t("settingsProviders:mcpConfigEditor.delete.title")}</DialogTitle>
             {props.snapshot ? (
               <Badge variant="outline">{props.snapshot.sourceLabel}</Badge>
             ) : null}
           </div>
           <DialogDescription>
             {props.snapshot
-              ? `This removes ${props.snapshot.name} from ${props.snapshot.sourceLabel} configuration. This cannot be undone from Stave.`
-              : "This removes the selected MCP server configuration."}
+              ? t("settingsProviders:settingsDialogMcpConfigEditor.thisRemovesFromConfigurationThisCannot", { value1: props.snapshot.name, value2: props.snapshot.sourceLabel })
+              : t("settingsProviders:mcpConfigEditor.delete.descriptionFallback")}
           </DialogDescription>
         </DialogHeader>
         {busy && !preview ? (
           <p className={sx(styles.statusText)} role="status">
-            Checking the latest provider configuration…
-          </p>
+            {t("settingsProviders:mcpConfigEditor.checkingLatest")}</p>
         ) : null}
         {preview?.warnings.length ? (
           <div className={sx(styles.deleteWarning)}>
@@ -885,15 +860,14 @@ export function McpServerConfigDeleteDialog(props: {
         ) : null}
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="outline" />}>
-            Cancel
-          </DialogClose>
+            {t("common:actions.cancel")}</DialogClose>
           <Button
             type="button"
             variant="destructive"
             disabled={busy || !preview}
             onClick={() => void confirmDelete()}
           >
-            {busy ? "Deleting…" : "Delete server"}
+            {busy ? t("settingsProviders:mcpConfigEditor.delete.deleting") : t("settingsProviders:mcpConfigEditor.delete.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -910,6 +884,7 @@ export function McpServerConfigShareDialog(props: {
   onOpenChange: (open: boolean) => void;
   onApplied: (detail: string) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const destinationProvider = props.destinationProvider;
   const destinationScope =
     props.snapshot && destinationProvider
@@ -943,7 +918,7 @@ export function McpServerConfigShareDialog(props: {
       try {
         const api = window.api?.provider?.previewMcpServerConfigMutation;
         if (!api)
-          throw new Error("MCP configuration preview API is unavailable.");
+          throw new Error(i18n.t("settingsProviders:mcpConfigEditor.errors.previewUnavailable"));
         const result = await api({
           operation: "share",
           target: {
@@ -989,7 +964,7 @@ export function McpServerConfigShareDialog(props: {
     if (!preview || !props.snapshot || !destinationProvider) return;
     const api = window.api?.provider?.applyMcpServerConfigMutation;
     if (!api) {
-      setError("MCP configuration apply API is unavailable.");
+      setError(i18n.t("settingsProviders:messages.mcpApplyUnavailable"));
       return;
     }
     setBusy(true);
@@ -1033,20 +1008,13 @@ export function McpServerConfigShareDialog(props: {
     >
       <DialogContent xstyle={styles.shareSurface}>
         <DialogHeader className={sx(styles.headerBlock)}>
-          <DialogTitle className={sx(styles.headerTitle)}>
-            Add to {destinationLabel}
-          </DialogTitle>
-          <DialogDescription className={sx(styles.headerDescription)}>
-            Copy this server into {destinationLabel} using the same name,
-            transport, and environment-variable bindings. Opaque values stay in
-            the source and are not copied.
-          </DialogDescription>
+          <DialogTitle className={sx(styles.headerTitle)}>{t("settingsProviders:whole.addMcp", { destination: destinationLabel })}</DialogTitle>
+          <DialogDescription className={sx(styles.headerDescription)}>{t("settingsProviders:whole.shareMcp", { destination: destinationLabel })}</DialogDescription>
         </DialogHeader>
         <div className={sx(styles.scrollArea)}>
           {busy && !preview ? (
             <p className={sx(styles.statusText)} role="status">
-              Checking the latest provider configuration…
-            </p>
+              {t("settingsProviders:mcpConfigEditor.checkingLatest")}</p>
           ) : null}
           {preview ? <ReviewPanel preview={preview} /> : null}
           {error ? (
@@ -1057,14 +1025,13 @@ export function McpServerConfigShareDialog(props: {
         </div>
         <DialogFooter className={sx(styles.footer)}>
           <DialogClose render={<Button type="button" variant="outline" />}>
-            Cancel
-          </DialogClose>
+            {t("common:actions.cancel")}</DialogClose>
           <Button
             type="button"
             disabled={busy || !preview}
             onClick={() => void confirmShare()}
           >
-            {busy ? "Adding…" : `Add to ${destinationLabel}`}
+            {busy ? t("settingsProviders:mcpConfigEditor.share.adding") : t("settingsProviders:settingsDialogMcpConfigEditor.addTo", { value1: destinationLabel })}
           </Button>
         </DialogFooter>
       </DialogContent>

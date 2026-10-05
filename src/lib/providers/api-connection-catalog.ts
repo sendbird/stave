@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { z } from "zod";
 import {
   ApiConnectionModelIdSchema,
@@ -28,7 +29,7 @@ const CatalogSchema = z.object({ data: z.array(z.unknown()).max(10_000) });
  */
 export function filterApiConnectionCatalog(payload: unknown, now = Date.now()): ApiConnectionCatalogModel[] {
   const catalog = CatalogSchema.safeParse(payload);
-  if (!catalog.success) throw new Error("The gateway did not return a supported model list.");
+  if (!catalog.success) throw new Error(i18n.t("providers:apiConnectionCatalog.theGatewayDidNotReturnA"));
   const models: ApiConnectionCatalogModel[] = [];
   for (const raw of catalog.data.data) {
     const entry = CatalogEntrySchema.safeParse(raw);

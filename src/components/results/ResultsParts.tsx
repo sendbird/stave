@@ -1,3 +1,5 @@
+import { formatRelativeTime } from "@/i18n/format";
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useState } from "react";
 import { ChevronDown, ChevronRight, ListChecks, OctagonAlert, Timer, Users } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -32,10 +34,10 @@ export const OUTCOME_STATE: Record<RunOutcome, WorkState> = {
 };
 
 export const OUTCOME_LABEL: Record<RunOutcome, string> = {
-  ready: "Ready",
-  rework: "Rework",
-  failed: "Failed",
-  stopped: "Stopped",
+  get ready() { return i18n.t("common:status.ready"); },
+  get rework() { return i18n.t("compare:resultsParts.rework"); },
+  get failed() { return i18n.t("common:status.failed"); },
+  get stopped() { return i18n.t("common:status.stopped"); },
 };
 
 /** The tone a bar segment paints: the same one its outcome's state icon wears in the legend. */
@@ -44,17 +46,18 @@ export function outcomeTone(outcome: RunOutcome) {
 }
 
 const cost = (value: number | null) => (value === null ? "—" : formatCostUsd(value));
-const ago = (iso: string, now: number) => `${formatAge(now - Date.parse(iso))} ago`;
+const ago = (iso: string, now: number) => formatRelativeTime(iso, now);
 
 /** Runs ended, split by outcome with the share that came out ready. */
 export function OutcomeStrip({ summary, days }: { summary: ResultsSummary; days: number }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   return (
-    <ResultsCard id="results-outcomes" icon={ListChecks} title="Outcomes" subtitle={`ended runs · ${days} d`} meta={`n = ${summary.ended}`}>
+    <ResultsCard id="results-outcomes" icon={ListChecks} title={t("compare:resultsParts.outcomes")} subtitle={t("compare:resultsParts.endedRunsD", { value1: days })} meta={`n = ${summary.ended}`}>
       <p className={sx(styles.headline)}>
         <span className={sx(styles.headlineValue)}>
           {summary.ready} / {summary.ended}
         </span>
-        <span className={sx(styles.accentLabel)}>ready / ended</span>
+        <span className={sx(styles.accentLabel)}>{t("compare:resultsParts.readyEnded")}</span>
         <span className={sx(styles.headlineRate)}>{formatReadyRate(summary.readyRate)}</span>
       </p>
       <ul className={sx(styles.bar)} aria-hidden>
@@ -77,18 +80,19 @@ export function OutcomeStrip({ summary, days }: { summary: ResultsSummary; days:
 
 /** Time and cost per ready result, and how much the runs needed you. */
 export function Figures({ summary }: { summary: ResultsSummary }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const figures: Array<{ label: string; value: string; unit: string; note?: string }> = [
-    { label: "Time to ready", value: summary.medianReadyMs === null ? "—" : formatRunDuration(summary.medianReadyMs), unit: "median" },
+    { label: t("compare:resultsParts.timeToReady"), value: summary.medianReadyMs === null ? "—" : formatRunDuration(summary.medianReadyMs), unit: t("compare:messages.median") },
     {
-      label: "Cost",
+      label: t("compare:resultsParts.cost"),
       value: cost(summary.costPerReady),
-      unit: "per ready result",
-      note: summary.unreportedCost > 0 ? `${summary.unreportedCost} ${summary.unreportedCost === 1 ? "run" : "runs"} not reported` : undefined,
+      unit: t("compare:resultsParts.perReadyResult"),
+      note: summary.unreportedCost > 0 ? t("compare:messages.unreportedRuns", { count: summary.unreportedCost }) : undefined,
     },
-    { label: "Corrections", value: summary.correctionsPerRun === null ? "—" : String(summary.correctionsPerRun), unit: "per run" },
+    { label: t("compare:resultsParts.corrections"), value: summary.correctionsPerRun === null ? "—" : String(summary.correctionsPerRun), unit: t("compare:resultsParts.perRun") },
   ];
   return (
-    <ResultsCard id="results-figures" icon={Timer} title="Figures" subtitle="ready results · medians">
+    <ResultsCard id="results-figures" icon={Timer} title={t("compare:resultsParts.figures")} subtitle={t("compare:resultsParts.readyResultsMedians")}>
       <dl className={sx(styles.figures)}>
         {figures.map((figure) => (
           <div key={figure.label} className={sx(styles.figure)}>
@@ -107,11 +111,12 @@ export function Figures({ summary }: { summary: ResultsSummary }) {
 
 /** Why runs did not finish, most common first. */
 export function Reasons({ summary, days }: { summary: ResultsSummary; days: number }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   if (summary.reasons.length === 0) return null;
   // Each bar is that reason's share of the runs that did not finish, so equal counts do not all read as full.
   const total = summary.reasons.reduce((sum, item) => sum + item.count, 0);
   return (
-    <ResultsCard id="results-reasons" icon={OctagonAlert} title="Why runs did not finish" subtitle={`unfinished runs · ${days} d`} meta={`n = ${total}`}>
+    <ResultsCard id="results-reasons" icon={OctagonAlert} title={t("compare:resultsParts.whyRunsDidNotFinish")} subtitle={t("compare:resultsParts.unfinishedRunsD", { value1: days })} meta={`n = ${total}`}>
       <ul className={sx(styles.reasons)}>
         {summary.reasons.map(({ reason, count }) => (
           <li key={reason} className={sx(styles.reason)}>
@@ -136,15 +141,16 @@ function describeLast(last: readonly RunOutcome[]): string {
     const count = last.filter((candidate) => candidate === outcome).length;
     return count ? [`${count} ${OUTCOME_LABEL[outcome].toLowerCase()}`] : [];
   });
-  return `Last ${last.length}: ${parts.join(", ")}`;
+  return i18n.t("compare:resultsParts.last", { value1: last.length, value2: parts.join(", ") });
 }
 
 function RunRow({ run, now, onOpen }: { run: ResultRun; now: number; onOpen: (run: ResultRun) => void }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const state = OUTCOME_STATE[run.outcome];
   const word = run.reason ? RUN_END_REASON_LABELS[run.reason] : OUTCOME_LABEL[run.outcome];
   return (
     <li>
-      <Button layout="host" variant="quiet" xstyle={styles.runButton} aria-label={`Open report: ${run.name}, ${word}, ${ago(run.endedAt, now)}`} onClick={() => onOpen(run)}>
+      <Button layout="host" variant="quiet" xstyle={styles.runButton} aria-label={t("compare:resultsParts.openReport", { value1: run.name, value2: word, value3: ago(run.endedAt, now) })} onClick={() => onOpen(run)}>
         <StateIcon state={state} />
         <span className={sx(styles.runTitle)}>{word}</span>
         <span className={sx(styles.runFigure)}>{ago(run.endedAt, now)}</span>
@@ -166,6 +172,7 @@ function AgentRow({
   now: number;
   onOpen: (run: ResultRun) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [open, setOpen] = useState(false);
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
@@ -175,7 +182,7 @@ function AgentRow({
         <span className={sx(styles.rowName)} title={row.name}>
           {row.name}
         </span>
-        {row.kind === "workflow" ? <span className={sx(styles.rowKind)}>workflow</span> : null}
+        {row.kind === "workflow" ? <span className={sx(styles.rowKind)}>{t("compare:resultsParts.workflow")}</span> : null}
         <span className={sx(styles.rowValue)}>{formatReadyRate(row.readyRate)}</span>
       </Button>
       <div className={sx(styles.agentBody)}>
@@ -184,15 +191,15 @@ function AgentRow({
         </span>
         <dl className={sx(styles.facts)}>
           <div className={sx(styles.fact)}>
-            <dt className={sx(styles.factLabel)}>Median cost</dt>
+            <dt className={sx(styles.factLabel)}>{t("compare:resultsParts.medianCost")}</dt>
             <dd className={sx(styles.factValue)}>{cost(row.medianCostUsd)}</dd>
           </div>
           <div className={sx(styles.fact)}>
-            <dt className={sx(styles.factLabel)}>Corrections</dt>
+            <dt className={sx(styles.factLabel)}>{t("compare:resultsParts.corrections")}</dt>
             <dd className={sx(styles.factValue)}>{row.correctionsPerRun}</dd>
           </div>
           <div className={sx(styles.fact)}>
-            <dt className={sx(styles.factLabel)}>Last 10</dt>
+            <dt className={sx(styles.factLabel)}>{t("compare:resultsParts.lastAdditional")}</dt>
             <dd className={sx(styles.factValue)}>
               <span className={sx(styles.cells)} role="img" aria-label={describeLast(row.last)}>
                 {row.last.map((outcome, index) => (
@@ -204,7 +211,7 @@ function AgentRow({
         </dl>
       </div>
       {open ? (
-        <ul className={sx(styles.runs)} aria-label={`${row.name} runs`}>
+        <ul className={sx(styles.runs)} aria-label={t("compare:resultsParts.runs", { value1: row.name })}>
           {runs.slice(0, 10).map((run) => (
             <RunRow key={run.agentRunId} run={run} now={now} onOpen={onOpen} />
           ))}
@@ -216,8 +223,9 @@ function AgentRow({
 
 /** One row per agent or workflow; a row opens its recent runs, and a run opens its report. */
 export function AgentTable({ insights, now, onOpen }: { insights: AgentRunInsights; now: number; onOpen: (run: ResultRun) => void }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   return (
-    <ResultsCard id="results-agents" icon={Users} title="Agents" subtitle={`ready rate · last 10 · ${insights.days} d`} meta={`n = ${insights.summary.ended}`}>
+    <ResultsCard id="results-agents" icon={Users} title={t("settings:developerSection.claudeRuntime.agents")} subtitle={t("compare:resultsParts.readyRateLastD", { value1: insights.days })} meta={`n = ${insights.summary.ended}`}>
       <ul className={sx(styles.agents)}>
         {insights.agents.map((row) => (
           <AgentRow key={row.key} row={row} runs={insights.runs.filter((run) => `${run.kind}:${run.name}` === row.key)} now={now} onOpen={onOpen} />

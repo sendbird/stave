@@ -1,3 +1,4 @@
+import { useTranslation, i18n } from "@/i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAppStore } from "@/store/app.store";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
@@ -12,6 +13,7 @@ import { accountStyles as styles } from "./provider-accounts.styles";
  * account was removed and the picker is the way back.
  */
 export function ProviderAccountPicker({ providerId }: { providerId: ProviderId }) {
+  const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
   useLoadProviderAccounts();
   const profiles = useProviderAccounts((s) => s.profiles);
   const value = useAppStore((s) => selectedProviderAccount(providerId, s.settings));
@@ -22,11 +24,11 @@ export function ProviderAccountPicker({ providerId }: { providerId: ProviderId }
   if (!shouldShowProviderAccountPicker({ options, selectedId: value })) return null;
   const name = providerId === "codex" ? "Codex" : "Claude";
   return <div className={sx(styles.picker)}>
-    <span>Account for new turns</span>
+    <span>{t("settingsConnections:providerAccountPicker.accountForNewTurns")}</span>
     <Select value={value} onValueChange={(id) => { if (id) update({ patch: providerId === "codex" ? { codexAccountProfileId: id } : { claudeAccountProfileId: id } }); }}>
-      <SelectTrigger size="sm" className={sx(styles.pickerSelect)} aria-label={`${name} account for new turns`}><SelectValue>{options.find(p => p.id === value)?.label ?? "Account unavailable"}</SelectValue></SelectTrigger>
-      <SelectContent>{options.map(p => <SelectItem key={p.id} value={p.id}>{p.label}{p.gateway ? " · API billing" : ""}</SelectItem>)}</SelectContent>
+      <SelectTrigger size="sm" className={sx(styles.pickerSelect)} aria-label={t("settingsConnections:providerAccountPicker.accountForNewTurnsVariantf1ac598c", { value1: name })}><SelectValue>{options.find(p => p.id === value)?.label ?? t("settingsConnections:providerAccountPicker.accountUnavailable")}</SelectValue></SelectTrigger>
+      <SelectContent>{options.map(p => <SelectItem key={p.id} value={p.id}>{p.label}{p.gateway ? i18n.t("settingsConnections:providerAccountPicker.apiBilling") : ""}</SelectItem>)}</SelectContent>
     </Select>
-    {options.find(p => p.id === value)?.gateway && <span>Billed per token by the gateway</span>}
+    {options.find(p => p.id === value)?.gateway && <span>{t("settingsConnections:providerAccountPicker.billedPerTokenByTheGateway")}</span>}
   </div>;
 }

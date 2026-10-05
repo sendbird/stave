@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   clampModelEffort,
   isClaudeModelEffort,
@@ -125,11 +126,16 @@ export type StartCompareRun = (
   args: StartCompareRunInput,
 ) => Promise<StartCompareRunResult>;
 
+// i18n-ignore: immutable model-facing rubric identifiers for previously saved runs
 export const DEFAULT_COMPARE_REVIEW_CRITERIA = [
   "Correctness",
   "Tests and verification",
   "Maintainability",
 ] as const;
+
+export function getDefaultCompareReviewCriteria() {
+  return [i18n.t("compare:rubric.correctness"), i18n.t("compare:rubric.tests"), i18n.t("compare:rubric.maintainability")];
+}
 
 export const COMPARE_JUDGE_RUBRIC_VERSION = "1";
 
@@ -405,7 +411,7 @@ export function parseCompareJudgment(args: {
     );
     const summary = normalizeJudgeText(
       rawRecord.summary,
-      "No candidate summary was returned.",
+      i18n.t("compare:compareRuns.noCandidateSummaryWasReturned"),
     );
     const rawCriteria = Array.isArray(rawRecord.criteria)
       ? rawRecord.criteria
@@ -472,7 +478,7 @@ export function parseCompareJudgment(args: {
       record.rationale,
       candidateScores.find(
         (candidate) => candidate.variantId === recommendedVariantId,
-      )?.summary ?? "The recommended candidate scored highest.",
+      )?.summary ?? i18n.t("compare:compareRuns.theRecommendedCandidateScoredHighest"),
       1_200,
     ),
     candidateScores,
@@ -561,7 +567,7 @@ export function finalizeCompareRunLaunch(args: {
       status,
       updatedAt: args.now,
       ...(status === "failed" && !currentRun.error
-        ? { error: "No compare variants could be started." }
+        ? { error: i18n.t("settings:appStoreCompareActions.noCompareVariantsCouldBeStarted") }
         : {}),
     },
   };
@@ -584,7 +590,7 @@ export function resolveCompareTurnOutcome(
   if (!doneEvent) {
     return {
       status: "failed",
-      error: "The provider stream ended without a completion event.",
+      error: i18n.t("compare:compareRuns.theProviderStreamEndedWithoutA"),
     };
   }
 
@@ -604,7 +610,7 @@ export function resolveCompareTurnOutcome(
   if (errorEvent && (!errorEvent.recoverable || !recoveredAfterError)) {
     return {
       status: "failed",
-      error: errorEvent.message.trim() || "The provider run failed.",
+      error: errorEvent.message.trim() || i18n.t("providers:providerErrorRecovery.theProviderRunFailed"),
     };
   }
 
@@ -617,7 +623,7 @@ export function resolveCompareTurnOutcome(
   ) {
     return {
       status: "cancelled",
-      error: "The candidate run was cancelled.",
+      error: i18n.t("compare:compareRuns.theCandidateRunWasCancelled"),
     };
   }
   if (
@@ -632,8 +638,8 @@ export function resolveCompareTurnOutcome(
       status: "failed",
       error:
         stopReason === "aborted"
-          ? "The provider stream ended unexpectedly."
-          : `The provider stopped before completing (${stopReason}).`,
+          ? i18n.t("compare:compareRuns.theProviderStreamEndedUnexpectedly")
+          : i18n.t("compare:compareRuns.theProviderStoppedBeforeCompleting", { value1: stopReason }),
     };
   }
 
@@ -673,7 +679,7 @@ export function normalizePersistedCompareRuns(args: {
                 status: "failed" as const,
                 error:
                   variant.error ||
-                  "Stave restarted before this candidate finished.",
+                  i18n.t("compare:compareRuns.staveRestartedBeforeThisCandidateFinished"),
               };
             }
             if (
@@ -683,7 +689,7 @@ export function normalizePersistedCompareRuns(args: {
               return {
                 ...variant,
                 status: "failed" as const,
-                error: variant.error || run.error || "Candidate run failed.",
+                error: variant.error || run.error || i18n.t("compare:compareRuns.candidateRunFailed"),
               };
             }
             return { ...variant, status: persistedStatus };
@@ -716,7 +722,7 @@ export function normalizePersistedCompareRuns(args: {
             ...(persistedJudgeStatus === "running"
               ? {
                   error:
-                    "Stave restarted before the fresh-context judge finished.",
+                    i18n.t("compare:compareRuns.staveRestartedBeforeTheFreshContext"),
                 }
               : {}),
           }
@@ -732,7 +738,7 @@ export function normalizePersistedCompareRuns(args: {
           judge,
           ...(wasInterrupted ? { updatedAt: args.now } : {}),
           ...(status === "failed" && !run.error
-            ? { error: "Comparison was interrupted before it finished." }
+            ? { error: i18n.t("compare:compareRuns.comparisonWasInterruptedBeforeItFinished") }
             : {}),
         },
       ] as const;
@@ -752,7 +758,7 @@ export function deriveCompareSeedTitle(seedPrompt: string) {
     .split("\n")
     .find((line) => line.trim().length > 0)
     ?.trim();
-  return firstLine?.slice(0, 48) || "Compare run";
+  return firstLine?.slice(0, 48) || i18n.t("compare:compareRunHistory.compareRun");
 }
 
 export function buildCompareWorkspaceName(args: {
@@ -858,10 +864,10 @@ export function finishCompareVariantForTask(args: {
     ...(status === "failed"
       ? {
           error:
-            args.run.error || "No compare candidates completed successfully.",
+            args.run.error || i18n.t("compare:compareRuns.noCompareCandidatesCompletedSuccessfully"),
         }
       : status === "cancelled"
-        ? { error: args.run.error || "All compare candidates were cancelled." }
+        ? { error: args.run.error || i18n.t("compare:compareRuns.allCompareCandidatesWereCancelled") }
         : {}),
   };
 }

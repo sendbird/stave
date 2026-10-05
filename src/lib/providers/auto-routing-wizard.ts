@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   cloneProfileAsCustom,
   resolveRouteTierForModel,
@@ -295,15 +296,6 @@ export function formatEffortLabel(effort: string) {
   return `${effort.slice(0, 1).toUpperCase()}${effort.slice(1)}`;
 }
 
-function pluralize(count: number, singular: string, plural = `${singular}s`) {
-  return count === 1 ? singular : plural;
-}
-
-function classNoun(taskClass: TaskClass, count: number) {
-  const label = TASK_CLASS_LABELS[taskClass];
-  return `${label} ${pluralize(count, "prompt")}`;
-}
-
 function buildInsights(args: {
   totalSamples: number;
   classes: readonly UsageClassSummary[];
@@ -318,8 +310,8 @@ function buildInsights(args: {
     const model = toHumanModelName({ model: entry.dominant.model });
     insights.push(
       entry.dominantCount === entry.count
-        ? `You ran all ${entry.count} ${classNoun(entry.taskClass, entry.count)} on ${model}`
-        : `You ran ${entry.dominantCount} of ${entry.count} ${classNoun(entry.taskClass, entry.count)} on ${model}`,
+        ? i18n.t("providers:messages.classInsightAll", { count: entry.count, taskClass: TASK_CLASS_LABELS[entry.taskClass], model })
+        : i18n.t("providers:messages.classInsightSome", { dominant: entry.dominantCount, count: entry.count, taskClass: TASK_CLASS_LABELS[entry.taskClass], model }),
     );
   }
   for (const entry of args.skills) {
@@ -329,14 +321,14 @@ function buildInsights(args: {
     const model = toHumanModelName({ model: entry.dominant.model });
     insights.push(
       entry.dominantCount === entry.count
-        ? `/${entry.skill} goes to ${model} every time (${entry.count} runs)`
-        : `/${entry.skill} goes to ${model} in ${entry.dominantCount} of ${entry.count} runs`,
+        ? i18n.t("providers:autoRoutingWizard.goesToEveryTimeRuns", { value1: entry.skill, value2: model, value3: entry.count })
+        : i18n.t("providers:autoRoutingWizard.goesToInOfRuns", { value1: entry.skill, value2: model, value3: entry.dominantCount, value4: entry.count }),
     );
   }
   if (args.providers.length > 1) {
     for (const entry of args.providers) {
       insights.push(
-        `${getProviderLabel({ providerId: entry.providerId })} answered ${entry.share}% of turns`,
+        i18n.t("providers:autoRoutingWizard.answeredOfTurns", { value1: getProviderLabel({ providerId: entry.providerId }), value2: entry.share }),
       );
     }
   }
@@ -447,7 +439,7 @@ export interface BuildProfileFromUsageOptions {
 }
 
 export const DEFAULT_WIZARD_MIN_SAMPLES = 3;
-export const USAGE_PROFILE_NAME = "My routing (from usage)";
+export const USAGE_PROFILE_NAME_KEY = "providers:autoRoutingWizard.usageProfileName" as const;
 
 /** Stable identity for a change so a review list can toggle it. */
 export function wizardChangeKey(change: WizardChange) {
@@ -462,14 +454,14 @@ export function describeRuleThen(then: RouteRuleThen) {
   if (then.model) {
     parts.push(toHumanModelName({ model: then.model }));
   } else if (then.tier) {
-    parts.push(`${ROUTE_TIER_LABELS[then.tier]} tier`);
+    parts.push(i18n.t("providers:messages.modelTier", { tier: ROUTE_TIER_LABELS[then.tier] }));
   } else {
-    parts.push("Provider default");
+    parts.push(i18n.t("settingsConnections:settingsDialogAutoRoutingSection.providerDefault"));
   }
   if (then.providerId !== "any-eligible" && then.providerId !== "alternate-provider") {
     parts[0] = `${parts[0]} (${getProviderLabel({ providerId: then.providerId })})`;
   } else if (then.providerId === "alternate-provider") {
-    parts[0] = `${parts[0]} (other provider)`;
+    parts[0] = i18n.t("providers:autoRoutingWizard.otherProvider", { value1: parts[0] });
   }
   if (then.effort) {
     parts.push(formatEffortLabel(then.effort));
@@ -538,7 +530,7 @@ export function buildProfileFromUsage(
   const minSamples = Math.max(1, opts.minSamplesPerClass ?? DEFAULT_WIZARD_MIN_SAMPLES);
   const changes: WizardChange[] = [];
   let profile = cloneProfileAsCustom(opts.base);
-  profile.name = opts.name ?? USAGE_PROFILE_NAME;
+  profile.name = opts.name ?? i18n.t(USAGE_PROFILE_NAME_KEY);
 
   const head: RouteRule[] = [];
   const complexityRules: RouteRule[] = [];
@@ -569,7 +561,7 @@ export function buildProfileFromUsage(
       model: summary.dominant.model,
       ...(summary.dominant.effort ? { effort: summary.dominant.effort } : {}),
     });
-    const evidence = `You usually run /${summary.skill} on ${toHumanModelName({ model: summary.dominant.model })} (${summary.dominantCount} of ${summary.count} turns)`;
+    const evidence = i18n.t("providers:autoRoutingWizard.youUsuallyRunOnOfTurns", { value1: summary.skill, value2: toHumanModelName({ model: summary.dominant.model }), value3: summary.dominantCount, value4: summary.count });
     const next = ruleFromTarget({
       id: existing?.id ?? `usage-skill-${summary.skill}`,
       when: { skill: [summary.skill] },
@@ -599,7 +591,7 @@ export function buildProfileFromUsage(
       model: summary.dominant.model,
       ...(summary.dominant.effort ? { effort: summary.dominant.effort } : {}),
     });
-    const evidence = `You usually run ${TASK_CLASS_LABELS[summary.taskClass].toLowerCase()} prompts on ${toHumanModelName({ model: summary.dominant.model })} (${summary.dominantCount} of ${summary.count} turns)`;
+    const evidence = i18n.t("providers:autoRoutingWizard.youUsuallyRunPromptsOnOf", { value1: TASK_CLASS_LABELS[summary.taskClass].toLowerCase(), value2: toHumanModelName({ model: summary.dominant.model }), value3: summary.dominantCount, value4: summary.count });
     const next = ruleFromTarget({
       id: existing?.id ?? `usage-${summary.taskClass}`,
       when: { taskClass: summary.taskClass },
@@ -655,10 +647,10 @@ function describeStanceEvidence(analysis: UsageAnalysis) {
   const light = tierCounts.get("light") ?? 0;
   switch (analysis.recommendedStance) {
     case "quality-first":
-      return `${percent(strong, analysis.totalSamples)}% of your turns ran on frontier or flagship models`;
+      return i18n.t("providers:autoRoutingWizard.ofYourTurnsRanOnFrontier", { value1: percent(strong, analysis.totalSamples) });
     case "cost-saver":
-      return `${percent(light, analysis.totalSamples)}% of your turns ran on light models`;
+      return i18n.t("providers:autoRoutingWizard.ofYourTurnsRanOnLight", { value1: percent(light, analysis.totalSamples) });
     case "balanced":
-      return "Your turns spread across model tiers";
+      return i18n.t("providers:autoRoutingWizard.yourTurnsSpreadAcrossModelTiers");
   }
 }

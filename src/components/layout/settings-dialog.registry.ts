@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { z } from "zod";
 import { DEFAULT_REVIEW_TASK_SETTINGS, REVIEW_TASK_SETTING_FIELD_ID, normalizeReviewTaskSettings } from "@/lib/reviews/review-task";
 import type { AppSettings } from "@/store/app-settings";
@@ -31,7 +32,11 @@ import {
   PROVIDER_ACCOUNTS_FIELD_ID,
 } from "@/lib/providers/accounts-guide";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
-import type { SectionId } from "./settings-dialog.schema";
+import {
+  buildSettingsSearchText,
+  type SectionId,
+  type SettingsI18nKey,
+} from "./settings-dialog.schema";
 
 export interface SettingDefinition<
   Key extends keyof AppSettings = keyof AppSettings,
@@ -39,8 +44,8 @@ export interface SettingDefinition<
   key: Key;
   sectionId: SectionId;
   fieldId: string;
-  title: string;
-  description: string;
+  titleKey: SettingsI18nKey;
+  descriptionKey: SettingsI18nKey;
   keywords: readonly string[];
   schema: z.ZodType<AppSettings[Key]>;
   defaultValue: AppSettings[Key];
@@ -53,7 +58,7 @@ export interface SettingDefinition<
 const AutoRoutingProfileSchema = z
   .custom<AutoRoutingProfile>(
     (value) => typeof value === "object" && value !== null,
-    "Expected an Auto routing profile",
+    { error: () => i18n.t("settings:messages.invalidRoutingProfile") },
   )
   .transform((value) => validateProfile(value));
 
@@ -76,9 +81,8 @@ export const settingDefinitions = [
     key: "autoRoutingEnabled",
     sectionId: "autoRouting",
     fieldId: AUTO_ROUTING_SETTING_FIELD_ID,
-    title: "Enable Auto routing",
-    description:
-      "Global kill switch for the model router behind the composer's Auto option.",
+    titleKey: "settings:sections.fields.autoRoutingEnabled.title",
+    descriptionKey: "settings:sections.fields.autoRoutingEnabled.description",
     keywords: ["auto", "routing", "router", "enable", "kill switch", "model"],
     schema: z.boolean(),
     defaultValue: false,
@@ -91,9 +95,8 @@ export const settingDefinitions = [
     key: "autoRoutingProfile",
     sectionId: "autoRouting",
     fieldId: AUTO_ROUTING_SETTING_FIELD_ID,
-    title: "Auto routing profile",
-    description:
-      "Routing levels, preference, allowed models, usage budget, signals, and rules the router reads.",
+    titleKey: "settings:sections.fields.autoRoutingProfile.title",
+    descriptionKey: "settings:sections.fields.autoRoutingProfile.description",
     keywords: [
       "auto",
       "routing",
@@ -118,9 +121,8 @@ export const settingDefinitions = [
     key: "blockTurnsWhenAccountLimitReached",
     sectionId: "providers",
     fieldId: "settings-field-account-usage-limit",
-    title: "Stop turns at 100% usage",
-    description:
-      "When Claude, Codex, Cursor, or Kiro reports included account usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish.",
+    titleKey: "settings:sections.fields.accountUsageLimit.title",
+    descriptionKey: "settings:sections.fields.accountUsageLimit.description",
     keywords: [
       "usage",
       "limit",
@@ -148,9 +150,8 @@ export const settingDefinitions = [
     key: "auxiliaryInferencePolicy",
     sectionId: "auxiliaryInference",
     fieldId: "settings-field-auxiliary-inference",
-    title: "Background AI",
-    description:
-      "Per-lane switch, provider, and model for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated tasks.",
+    titleKey: "settings:sections.fields.auxiliaryInference.title",
+    descriptionKey: "settings:sections.fields.auxiliaryInference.description",
     keywords: [
       "background ai",
       "auxiliary",
@@ -181,9 +182,8 @@ export const settingDefinitions = [
     key: "promptEnhancementStyleProfile",
     sectionId: "auxiliaryInference",
     fieldId: "settings-field-prompt-enhancement",
-    title: "Prompt style",
-    description:
-      "How you like prompts written: language, tone, detail level, and anything Enhance should always include or never add. Sent with every Enhance request when non-empty.",
+    titleKey: "settings:sections.fields.promptStyle.title",
+    descriptionKey: "settings:sections.fields.promptStyle.description",
     keywords: [
       "prompt enhancement",
       "enhance",
@@ -203,9 +203,8 @@ export const settingDefinitions = [
     key: "promptEnhancementLearnFromEdits",
     sectionId: "auxiliaryInference",
     fieldId: "settings-field-prompt-enhancement",
-    title: "Learn from kept and undone rewrites",
-    description:
-      "Remembers the last few Enhance results you kept or undid and shows them to the rewrite model as examples. Stored locally with your settings.",
+    titleKey: "settings:sections.fields.promptLearnFromEdits.title",
+    descriptionKey: "settings:sections.fields.promptLearnFromEdits.description",
     keywords: ["prompt enhancement", "enhance", "learn", "undo", "examples"],
     schema: z.boolean(),
     defaultValue: true,
@@ -218,9 +217,8 @@ export const settingDefinitions = [
     key: "modelVisibility",
     sectionId: "models",
     fieldId: "settings-field-model-visibility",
-    title: "Selector models",
-    description:
-      "Per-provider overrides for which catalog models the model selector lists by default.",
+    titleKey: "settings:sections.fields.modelVisibility.title",
+    descriptionKey: "settings:sections.fields.modelVisibility.description",
     keywords: [
       "model visibility",
       "hidden models",
@@ -244,9 +242,8 @@ export const settingDefinitions = [
     key: "craneConnector",
     sectionId: "integrations",
     fieldId: "settings-field-crane-connector",
-    title: "Crane connector",
-    description:
-      "Pair this Stave installation with your Crane account for locally approved, outbound-only task dispatch.",
+    titleKey: "settings:sections.fields.craneConnector.title",
+    descriptionKey: "settings:sections.fields.craneConnector.description",
     keywords: [
       "crane",
       "atelier",
@@ -274,9 +271,8 @@ export const settingDefinitions = [
     key: "jiraConnector",
     sectionId: "integrations",
     fieldId: "settings-field-jira-connector",
-    title: "Jira connector",
-    description:
-      "Read your assigned Jira Cloud issues over outbound HTTPS and map Jira projects to local Stave repositories.",
+    titleKey: "settings:sections.fields.jiraConnector.title",
+    descriptionKey: "settings:sections.fields.jiraConnector.description",
     keywords: [
       "jira",
       "jira cloud",
@@ -312,9 +308,8 @@ export const settingDefinitions = [
     key: "trackerIssues",
     sectionId: "issues",
     fieldId: "settings-field-tracker-issues",
-    title: "Issues",
-    description:
-      "Opens on tickets assigned to you. Choose which trackers Issues reads, the first tab, the refresh interval, and whether a kickoff starts immediately.",
+    titleKey: "settings:sections.fields.trackerIssues.title",
+    descriptionKey: "settings:sections.fields.trackerIssues.description",
     keywords: [
       "tasks",
       "tickets",
@@ -342,9 +337,8 @@ export const settingDefinitions = [
     key: "martinSync",
     sectionId: "integrations",
     fieldId: "settings-field-martin-sync",
-    title: "Martin sync",
-    description:
-      "Push workspace events and resource links to a linked Martin project and pull its context snapshot.",
+    titleKey: "settings:sections.fields.martinSync.title",
+    descriptionKey: "settings:sections.fields.martinSync.description",
     keywords: [
       "martin",
       "atelier",
@@ -369,9 +363,8 @@ export const settingDefinitions = [
     key: "claudeAccountProfileId",
     sectionId: "tooling",
     fieldId: PROVIDER_ACCOUNTS_FIELD_ID["claude-code"],
-    title: "Claude accounts",
-    description:
-      "Keep more than one Claude sign-in, such as work and personal: add one, sign in, and choose the account new turns use.",
+    titleKey: "settings:sections.fields.claudeAccounts.title",
+    descriptionKey: "settings:sections.fields.claudeAccounts.description",
     keywords: [
       "account",
       "accounts",
@@ -398,9 +391,8 @@ export const settingDefinitions = [
     key: "codexAccountProfileId",
     sectionId: "tooling",
     fieldId: PROVIDER_ACCOUNTS_FIELD_ID.codex,
-    title: "Codex accounts",
-    description:
-      "Keep more than one Codex sign-in, such as work and personal: add one, sign in, and choose the account new turns use.",
+    titleKey: "settings:sections.fields.codexAccounts.title",
+    descriptionKey: "settings:sections.fields.codexAccounts.description",
     keywords: [
       "account",
       "accounts",
@@ -428,9 +420,8 @@ export const settingDefinitions = [
     key: "claudeAccountProfileId",
     sectionId: "tooling",
     fieldId: API_CONNECTIONS_FIELD_ID,
-    title: "API connections",
-    description:
-      "Send Claude and Codex turns through a gateway such as Vercel AI Gateway with one key, billed per token instead of a subscription.",
+    titleKey: "settings:sections.fields.apiConnections.title",
+    descriptionKey: "settings:sections.fields.apiConnections.description",
     keywords: [
       "gateway",
       "api gateway",
@@ -464,9 +455,8 @@ export const settingDefinitions = [
     key: "standaloneCliFolderPath",
     sectionId: "general",
     fieldId: STANDALONE_CLI_SETTING_FIELD_ID,
-    title: "Standalone CLI folder",
-    description:
-      "Absolute folder the Standalone CLI overlay runs every AI CLI in, without registering it as a repository.",
+    titleKey: "settings:sections.fields.standaloneCliFolder.title",
+    descriptionKey: "settings:sections.fields.standaloneCliFolder.description",
     keywords: [
       "standalone",
       "cli",
@@ -489,9 +479,10 @@ export const settingDefinitions = [
 export function getSettingsFieldSearchText<Key extends keyof AppSettings>(
   definition: SettingDefinition<Key>,
 ) {
-  return [definition.title, definition.description, ...definition.keywords]
-    .join(" ")
-    .toLowerCase();
+  return buildSettingsSearchText(
+    [definition.titleKey, definition.descriptionKey],
+    definition.keywords,
+  );
 }
 
 export function matchesSettingsField<Key extends keyof AppSettings>(

@@ -1,12 +1,12 @@
+import { I18N_NAMESPACES, useTranslation, type I18nKey } from "@/i18n";
 import { ComposerControlPlacementList } from "@/components/ai-elements/prompt-input-control-menu";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Slider } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {
-  formatSteerQueueEnterActionLabel,
   normalizeSteerQueueEnterAction,
-  STEER_QUEUE_ENTER_ACTION_OPTIONS,
+  type SteerQueueEnterAction,
 } from "@/lib/steer-queue-shortcuts";
 import {
   normalizeComposerLayoutMode,
@@ -23,6 +23,12 @@ import {
   SettingsCard,
   SwitchField,
 } from "../settings-dialog.shared";
+
+const STEER_QUEUE_ENTER_ACTION_LABEL_KEYS = {
+  queue: "settings:chatSection.activeTurn.keys.queue",
+  steer: "settings:chatSection.activeTurn.keys.steer",
+} as const satisfies Record<SteerQueueEnterAction, I18nKey>;
+const STEER_QUEUE_ENTER_ACTIONS = ["queue", "steer"] as const satisfies readonly SteerQueueEnterAction[];
 
 export function ChatSection() {
   const [
@@ -63,245 +69,244 @@ export function ChatSection() {
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
   const normalizedSteerQueueEnterAction = normalizeSteerQueueEnterAction(steerQueueEnterAction);
+  const { t } = useTranslation(I18N_NAMESPACES);
 
   return (
-    <>
-      <SectionStack>
-        <SettingsCard
-          title="Typography"
-          description="Font sizes and families applied to the shared chat surface."
+    <SectionStack>
+      <SettingsCard
+        title={t("settings:chatSection.typography.title")}
+        description={t("settings:chatSection.typography.description")}
+      >
+        <LabeledField
+          title={t("settings:chatSection.typography.messageFontSize.title")}
+          description={t("settings:chatSection.typography.messageFontSize.description")}
         >
-          <LabeledField
-            title="Message Font Size"
-            description="Prose font size for chat messages. Line height scales proportionally."
-          >
-            <div className={sx(styles.sliderRow)}>
-              <Slider
-                aria-label="Message font size"
-                min={12}
-                max={24}
-                step={1}
-                value={messageFontSize}
-                onValueChange={(value) =>
-                  updateSettings({ patch: { messageFontSize: value } })
-                }
-                className={sx(styles.flex1)}
-              />
-              <span className={sx(styles.valueReadout)}>
-                {messageFontSize}px
-              </span>
-            </div>
-          </LabeledField>
-          <LabeledField
-            title="Code Font Size"
-            description="Font size for inline code and code blocks in chat messages."
-          >
-            <div className={sx(styles.sliderRow)}>
-              <Slider
-                aria-label="Code font size"
-                min={10}
-                max={20}
-                step={1}
-                value={messageCodeFontSize}
-                onValueChange={(value) =>
-                  updateSettings({ patch: { messageCodeFontSize: value } })
-                }
-                className={sx(styles.flex1)}
-              />
-              <span className={sx(styles.valueReadout)}>
-                {messageCodeFontSize}px
-              </span>
-            </div>
-          </LabeledField>
-          <LabeledField
-            title="Font Family"
-            description="Base sans-serif font for the app UI and chat messages. Pick a preset or type any installed family. Falls back to the Korean font, then sans-serif."
-          >
-            <div className={sx(styles.spaceY2)}>
-              <ChoiceButtons
-                value={messageFontFamily}
-                onChange={(value) =>
-                  updateSettings({ patch: { messageFontFamily: value } })
-                }
-                options={[
-                  { value: "Geist Variable", label: "Geist" },
-                  { value: "Inter Variable", label: "Inter" },
-                ]}
-              />
-              <DraftInput
-                value={messageFontFamily}
-                xstyle={styles.input9}
-                onCommit={(nextValue) =>
-                  updateSettings({ patch: { messageFontFamily: nextValue } })
-                }
-              />
-            </div>
-          </LabeledField>
-          <LabeledField
-            title="Mono Font Family"
-            description="Monospace font for inline code and code blocks in messages."
-          >
+          <div className={sx(styles.sliderRow)}>
+            <Slider
+              aria-label={t("settings:chatSection.typography.messageFontSize.ariaLabel")}
+              min={12}
+              max={24}
+              step={1}
+              value={messageFontSize}
+              onValueChange={(value) =>
+                updateSettings({ patch: { messageFontSize: value } })
+              }
+              className={sx(styles.flex1)}
+            />
+            <span className={sx(styles.valueReadout)}>
+              {/* i18n-ignore: CSS pixel unit readout */}
+              {messageFontSize}px
+            </span>
+          </div>
+        </LabeledField>
+        <LabeledField
+          title={t("settings:chatSection.typography.codeFontSize.title")}
+          description={t("settings:chatSection.typography.codeFontSize.description")}
+        >
+          <div className={sx(styles.sliderRow)}>
+            <Slider
+              aria-label={t("settings:chatSection.typography.codeFontSize.ariaLabel")}
+              min={10}
+              max={20}
+              step={1}
+              value={messageCodeFontSize}
+              onValueChange={(value) =>
+                updateSettings({ patch: { messageCodeFontSize: value } })
+              }
+              className={sx(styles.flex1)}
+            />
+            <span className={sx(styles.valueReadout)}>
+              {/* i18n-ignore: CSS pixel unit readout */}
+              {messageCodeFontSize}px
+            </span>
+          </div>
+        </LabeledField>
+        <LabeledField
+          title={t("settings:chatSection.typography.fontFamily.title")}
+          description={t("settings:chatSection.typography.fontFamily.description")}
+        >
+          <div className={sx(styles.spaceY2)}>
+            <ChoiceButtons
+              value={messageFontFamily}
+              onChange={(value) =>
+                updateSettings({ patch: { messageFontFamily: value } })
+              }
+              options={[
+                { value: "Geist Variable", label: "Geist" }, // i18n-ignore: font family name
+                { value: "Inter Variable", label: "Inter" }, // i18n-ignore: font family name
+              ]}
+            />
             <DraftInput
-              value={messageMonoFontFamily}
+              value={messageFontFamily}
               xstyle={styles.input9}
               onCommit={(nextValue) =>
-                updateSettings({ patch: { messageMonoFontFamily: nextValue } })
+                updateSettings({ patch: { messageFontFamily: nextValue } })
               }
             />
-          </LabeledField>
-          <LabeledField
-            title="Korean Font Family"
-            description="Fallback font for Korean (CJK) text in messages. Pretendard Variable is loaded by default."
-          >
-            <DraftInput
-              value={messageKoreanFontFamily}
-              xstyle={styles.input9}
-              onCommit={(nextValue) =>
+          </div>
+        </LabeledField>
+        <LabeledField
+          title={t("settings:chatSection.typography.monoFontFamily.title")}
+          description={t("settings:chatSection.typography.monoFontFamily.description")}
+        >
+          <DraftInput
+            value={messageMonoFontFamily}
+            xstyle={styles.input9}
+            onCommit={(nextValue) =>
+              updateSettings({ patch: { messageMonoFontFamily: nextValue } })
+            }
+          />
+        </LabeledField>
+        <LabeledField
+          title={t("settings:chatSection.typography.koreanFontFamily.title")}
+          description={t("settings:chatSection.typography.koreanFontFamily.description")}
+        >
+          <DraftInput
+            value={messageKoreanFontFamily}
+            xstyle={styles.input9}
+            onCommit={(nextValue) =>
+              updateSettings({
+                patch: { messageKoreanFontFamily: nextValue },
+              })
+            }
+          />
+        </LabeledField>
+        <LabeledField
+          title={t("settings:chatSection.typography.infoPanelScale.title")}
+          description={t("settings:chatSection.typography.infoPanelScale.description")}
+        >
+          <div className={sx(styles.sliderRow)}>
+            <Slider
+              aria-label={t("settings:chatSection.typography.infoPanelScale.ariaLabel")}
+              min={80}
+              max={130}
+              step={5}
+              value={Math.round(infoPanelScale * 100)}
+              onValueChange={(value) =>
                 updateSettings({
-                  patch: { messageKoreanFontFamily: nextValue },
+                  patch: { infoPanelScale: value / 100 },
                 })
               }
+              className={sx(styles.flex1)}
             />
-          </LabeledField>
-          <LabeledField
-            title="Information Panel Scale"
-            description="Zoom level for the workspace information panel. Affects text, icons, buttons, and spacing uniformly."
-          >
-            <div className={sx(styles.sliderRow)}>
-              <Slider
-                aria-label="Information panel scale"
-                min={80}
-                max={130}
-                step={5}
-                value={Math.round(infoPanelScale * 100)}
-                onValueChange={(value) =>
-                  updateSettings({
-                    patch: { infoPanelScale: value / 100 },
-                  })
-                }
-                className={sx(styles.flex1)}
-              />
-              <span className={sx(styles.valueReadout)}>
-                {Math.round(infoPanelScale * 100)}%
-              </span>
-            </div>
-          </LabeledField>
-        </SettingsCard>
-        <SettingsCard
-          title="Behavior"
-          description="Toggle chat features and display preferences."
+            <span className={sx(styles.valueReadout)}>
+              {Math.round(infoPanelScale * 100)}%
+            </span>
+          </div>
+        </LabeledField>
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:chatSection.behavior.title")}
+        description={t("settings:chatSection.behavior.description")}
+      >
+        <SwitchField
+          title={t("settings:chatSection.behavior.streaming")}
+          checked={chatStreamingEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { chatStreamingEnabled: checked } })
+          }
+        />
+        <LabeledField
+          title={t("settings:chatSection.behavior.reasoningExpansion.title")}
+          description={t("settings:chatSection.behavior.reasoningExpansion.description")}
         >
-          <SwitchField
-            title="Streaming UI"
-            checked={chatStreamingEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { chatStreamingEnabled: checked } })
+          <ChoiceButtons<"auto" | "manual">
+            value={reasoningExpansionMode}
+            onChange={(value) =>
+              updateSettings({ patch: { reasoningExpansionMode: value } })
             }
+            options={[
+              { value: "auto", label: t("common:labels.auto") },
+              { value: "manual", label: t("settings:chatSection.behavior.reasoningExpansion.manual") },
+            ]}
           />
-          <LabeledField
-            title="Reasoning Expansion"
-            description="Auto expands the reasoning trace while a turn is streaming, then collapses it again. Manual keeps it collapsed until you open it."
-          >
-            <ChoiceButtons<"auto" | "manual">
-              value={reasoningExpansionMode}
-              onChange={(value) =>
-                updateSettings({ patch: { reasoningExpansionMode: value } })
-              }
-              options={[
-                { value: "auto", label: "Auto" },
-                { value: "manual", label: "Manual" },
-              ]}
-            />
-          </LabeledField>
-          <SwitchField
-            title="Show Interim Messages"
-            description="Show pre-final assistant text segments between execution steps. Hidden by default to keep the final response cleaner."
-            checked={showInterimMessages}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { showInterimMessages: checked } })
-            }
-          />
-          <SwitchField
-            title="Show Conversation Turn Rail"
-            description="Show the turn navigator on the right side of conversations with multiple eligible responses."
-            checked={showConversationTurnRail}
-            onCheckedChange={(checked) =>
-              updateSettings({
-                patch: { showConversationTurnRail: checked },
-              })
-            }
-          />
-          <TurnActivityFields />
-        </SettingsCard>
-        <SettingsCard
-          title="Composer Controls"
-          description="Choose where each prompt input control lives: pinned to the toolbar, tucked into the ⋯ tray, or off. You can also right-click the toolbar to edit this in place."
+        </LabeledField>
+        <SwitchField
+          title={t("settings:chatSection.behavior.interimMessages.title")}
+          description={t("settings:chatSection.behavior.interimMessages.description")}
+          checked={showInterimMessages}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { showInterimMessages: checked } })
+          }
+        />
+        <SwitchField
+          title={t("settings:chatSection.behavior.turnRail.title")}
+          description={t("settings:chatSection.behavior.turnRail.description")}
+          checked={showConversationTurnRail}
+          onCheckedChange={(checked) =>
+            updateSettings({
+              patch: { showConversationTurnRail: checked },
+            })
+          }
+        />
+        <TurnActivityFields />
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:chatSection.composerControls.title")}
+        description={t("settings:chatSection.composerControls.description")}
+      >
+        <LabeledField
+          title={t("settings:chatSection.composerControls.layout.title")}
+          description={t("settings:chatSection.composerControls.layout.description")}
         >
-          <LabeledField
-            title="Composer Layout"
-            description="Framed raises the input card and hangs four bars off it: the run and queue shelf above, workspace and runtime below, and the control shelves beside it. Classic is the previous stack, with every control in the toolbar row. A narrow composer falls back to Classic either way."
-          >
-            <ChoiceButtons<ComposerLayoutMode>
-              value={normalizeComposerLayoutMode(composerLayout)}
-              onChange={(value) =>
-                updateSettings({ patch: { composerLayout: value } })
-              }
-              options={[
-                { value: "framed", label: "Framed" },
-                { value: "classic", label: "Classic" },
-              ]}
-            />
-          </LabeledField>
-          <ComposerControlPlacementList
-            placements={composerControlPlacements}
-            onChange={(next) =>
-              updateSettings({ patch: { composerControlPlacements: next } })
+          <ChoiceButtons<ComposerLayoutMode>
+            value={normalizeComposerLayoutMode(composerLayout)}
+            onChange={(value) =>
+              updateSettings({ patch: { composerLayout: value } })
             }
+            options={[
+              { value: "framed", label: t("settings:chatSection.composerControls.layout.framed") },
+              { value: "classic", label: t("settings:chatSection.composerControls.layout.classic") },
+            ]}
           />
-        </SettingsCard>
-        <SettingsCard
-          title="Active Turn"
-          description="Control what happens when you send a follow-up while an assistant turn is still running."
-          titleAccessory={
-            <Badge variant={midTurnSteeringEnabled ? "secondary" : "outline"}>
-              {midTurnSteeringEnabled ? "Enabled" : "Disabled"}
+        </LabeledField>
+        <ComposerControlPlacementList
+          placements={composerControlPlacements}
+          onChange={(next) =>
+            updateSettings({ patch: { composerControlPlacements: next } })
+          }
+        />
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:chatSection.activeTurn.title")}
+        description={t("settings:chatSection.activeTurn.description")}
+        titleAccessory={
+          <Badge variant={midTurnSteeringEnabled ? "secondary" : "outline"}>
+            {midTurnSteeringEnabled ? t("common:status.enabled") : t("common:status.disabled")}
+          </Badge>
+        }
+      >
+        <SwitchField
+          title={t("settings:chatSection.activeTurn.midTurnSteering.title")}
+          description={t("settings:chatSection.activeTurn.midTurnSteering.description")}
+          checked={midTurnSteeringEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { midTurnSteeringEnabled: checked } })
+          }
+        />
+        <SelectField
+          title={t("settings:chatSection.activeTurn.keys.title")}
+          description={t("settings:chatSection.activeTurn.keys.description")}
+          guide={
+            <Badge variant="secondary">
+              {t(STEER_QUEUE_ENTER_ACTION_LABEL_KEYS[normalizedSteerQueueEnterAction])}
             </Badge>
           }
-        >
-          <SwitchField
-            title="Mid-Turn Steering"
-            description="When off, follow-ups are queued until the current turn finishes. When on, supported providers can receive live steering messages."
-            checked={midTurnSteeringEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { midTurnSteeringEnabled: checked } })
-            }
-          />
-          <SelectField
-            title="Active-Turn Keys"
-            description="Choose which Enter action steers into the live turn and which queues for later."
-            guide={
-              <Badge variant="secondary">
-                {formatSteerQueueEnterActionLabel(
-                  normalizedSteerQueueEnterAction,
-                )}
-              </Badge>
-            }
-            value={normalizedSteerQueueEnterAction}
-            disabled={!midTurnSteeringEnabled}
-            onChange={(value) =>
-              updateSettings({
-                patch: {
-                  steerQueueEnterAction: normalizeSteerQueueEnterAction(value),
-                },
-              })
-            }
-            options={STEER_QUEUE_ENTER_ACTION_OPTIONS.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
-          />
-        </SettingsCard>
-      </SectionStack>
-    </>
+          value={normalizedSteerQueueEnterAction}
+          disabled={!midTurnSteeringEnabled}
+          onChange={(value) =>
+            updateSettings({
+              patch: {
+                steerQueueEnterAction: normalizeSteerQueueEnterAction(value),
+              },
+            })
+          }
+          options={STEER_QUEUE_ENTER_ACTIONS.map((action) => ({
+            value: action,
+            label: t(STEER_QUEUE_ENTER_ACTION_LABEL_KEYS[action]),
+          }))}
+        />
+      </SettingsCard>
+    </SectionStack>
   );
 }

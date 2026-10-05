@@ -1,3 +1,4 @@
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
@@ -122,6 +123,7 @@ function ModelVisibilityProviderPanel(args: {
   unverified?: boolean;
   onChange: (visibility: ModelVisibility) => void;
 }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const rows = useMemo(
     () =>
       buildModelVisibilityRows({
@@ -140,18 +142,16 @@ function ModelVisibilityProviderPanel(args: {
     return (
       <p className={sx(styles.emptyPanel)}>
         {args.catalogDetail ||
-          `No ${getProviderLabel({ providerId: args.providerId })} models are available yet. Sign in to the runtime, then reopen this section.`}
+          t("settingsProviders:settingsDialogModelVisibility.noModelsAreAvailableYetSign", { value1: getProviderLabel({ providerId: args.providerId }) })}
       </p>
     );
   }
 
   return (
     <div className={sx(styles.panel)}>
-      {args.unverified && <p className={sx(styles.panelSummary)}>Status unverified. Refresh Settings &gt; Tooling to verify these models.</p>}
+      {args.unverified && <p className={sx(styles.panelSummary)}>{t("settingsProviders:settingsDialogModelVisibility.statusUnverifiedRefreshSettingsGtTooling")}</p>}
       <div className={sx(styles.panelHead)}>
-        <p className={sx(styles.panelSummary)}>
-          {visibleCount} of {rows.length} shown by default
-        </p>
+        <p className={sx(styles.panelSummary)}>{t("settings:messages.modelVisibilityTotal", { shown: visibleCount, total: rows.length })}</p>
         <Button
           type="button"
           variant="ghost"
@@ -168,8 +168,7 @@ function ModelVisibilityProviderPanel(args: {
           xstyle={styles.resetButton}
         >
           <RotateCcw className={sx(styles.resetIcon)} aria-hidden="true" />
-          Reset to current models
-        </Button>
+          {t("settingsProviders:modelVisibility.panel.reset")}</Button>
       </div>
       <ul className={sx(styles.list)}>
         {rows.map((row) => (
@@ -192,17 +191,15 @@ function ModelVisibilityProviderPanel(args: {
               </div>
               {row.current ? (
                 <Badge variant="secondary" className={sx(styles.rowBadge)}>
-                  Current
-                </Badge>
+                  {i18n.t("settingsProviders:modelVisibility.panel.current")}</Badge>
               ) : row.visible ? (
                 <Badge variant="outline" className={sx(styles.rowBadge)}>
-                  Pinned
-                </Badge>
+                  {i18n.t("settingsProviders:modelVisibility.panel.pinned")}</Badge>
               ) : null}
             </div>
             <Switch
               checked={row.visible}
-              aria-label={`Show ${row.label} in the model selector`}
+              aria-label={i18n.t("settingsProviders:settingsDialogModelVisibility.showInTheModelSelector", { value1: row.label })}
               onCheckedChange={(checked) =>
                 args.onChange(
                   setModelVisibilityOverride({
@@ -234,6 +231,7 @@ function ModelVisibilityProviderPanel(args: {
  * selector's "Show all models" expansion.
  */
 export function SettingsModelVisibilitySection() {
+  const { t } = useTranslation(I18N_NAMESPACES);
   const [
     modelVisibility,
     codexBinaryPath,
@@ -311,8 +309,8 @@ export function SettingsModelVisibilitySection() {
     <SettingsCard
       id="settings-field-model-visibility"
       tabIndex={-1}
-      title="Selector Models"
-      description="The model selector lists the current model of each family by default. Turn a model on to pin it into that list, or off to keep it out. Search and the selector's “Show all models” expansion still reach every catalog model."
+      title={t("settingsProviders:modelVisibility.title")}
+      description={t("settingsProviders:modelVisibility.description")}
       titleAccessory={
         <Button
           type="button"
@@ -323,8 +321,7 @@ export function SettingsModelVisibilitySection() {
           xstyle={styles.titleResetButton}
         >
           <RotateCcw className={sx(styles.resetIcon)} aria-hidden="true" />
-          Reset all providers
-        </Button>
+          {t("settingsProviders:modelVisibility.resetAll")}</Button>
       }
     >
       <Tabs
@@ -333,7 +330,7 @@ export function SettingsModelVisibilitySection() {
       >
         <SettingsProviderTabsList
           providerIds={PROVIDER_IDS}
-          aria-label="Model visibility provider"
+          aria-label={t("settingsProviders:modelVisibility.tabsAriaLabel")}
         />
         {PROVIDER_IDS.map((providerId) => (
           <TabsContent

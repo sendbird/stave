@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { resolveCodexAppServerReasoningEffort } from "@/lib/providers/codex-runtime-options";
 import { describeCursorModel } from "@/lib/providers/cursor-model-id";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
@@ -133,7 +134,7 @@ export function getTurnModelInfoParts(
       findOptionLabel(CURSOR_EFFORT_OPTIONS, message.modelInfo.effort),
     ];
     if (message.modelInfo.fastMode) {
-      details.push("Fast");
+      details.push(i18n.t("providers:turnModelInfo.fast"));
     }
     return withPeeledContext({ name: described.name, details });
   }
@@ -151,7 +152,7 @@ export function getTurnModelInfoParts(
         : CODEX_EFFORT_OPTIONS;
   const details = [findOptionLabel(effortOptions, message.modelInfo.effort)];
   if (message.modelInfo.fastMode) {
-    details.push("Fast");
+    details.push(i18n.t("providers:turnModelInfo.fast"));
   }
 
   return withPeeledContext({ name, details });
