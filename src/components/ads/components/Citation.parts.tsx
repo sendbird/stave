@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { BookOpenText, ExternalLink, FileText, Globe2 } from "lucide-react";
 import * as React from "react";
@@ -80,13 +81,14 @@ export function CitationList({
   className,
   defaultOpen = false,
   detail = "compact",
-  label = "Sources",
+  label = i18n.t("ui:citationParts.sources"),
   onOpenChange,
   open,
   sources,
   xstyle,
   ...props
 }: CitationListProps) {
+  useTranslation();
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
   const resolvedOpen = open ?? uncontrolledOpen;
   const empty = sources.length === 0;
@@ -152,6 +154,7 @@ function CitationRow({
   detail: "compact" | "detailed";
   source: CitationSource;
 }) {
+  useTranslation();
   const body = (
     <>
       <span aria-hidden className={sx(styles.sourceGlyph)}>

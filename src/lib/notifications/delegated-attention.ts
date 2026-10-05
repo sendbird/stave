@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { FleetInteractionControlIdentity } from "@/lib/fleet/control-plane";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
@@ -152,7 +153,7 @@ export function selectDelegatedInteractionRequests(args: {
         requestId,
         messageId: getNotificationInteractionMessageId(notification),
       },
-      childTaskTitle: readId(notification.taskTitle) ?? "Subagent",
+      childTaskTitle: readId(notification.taskTitle) ?? i18n.t("notifications:delegatedAttention.subagent"),
       providerId: notification.providerId,
       createdAt: notification.createdAt,
     });

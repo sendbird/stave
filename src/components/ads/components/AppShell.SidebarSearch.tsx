@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { Search } from "lucide-react";
 import { useEffect, useRef } from "react";
@@ -23,6 +24,7 @@ import {
 export type SidebarInputProps = React.ComponentProps<"input">;
 
 export function SidebarInput({ className, ...props }: SidebarInputProps) {
+  useTranslation();
   const sidebarLayout = useOptionalSidebarLayout();
 
   return (
@@ -78,7 +80,7 @@ export type SidebarSearchProps = Omit<
  */
 export function SidebarSearch({
   className,
-  label = "Search",
+  label = i18n.t("ui:appshellSidebarsearch.search"),
   onOpen,
   onValueChange,
   placeholder,
@@ -86,6 +88,7 @@ export function SidebarSearch({
   value,
   ...props
 }: SidebarSearchProps) {
+  useTranslation();
   const sidebar = useOptionalSidebar();
   const sidebarLayout = useOptionalSidebarLayout();
   const collapsed = Boolean(sidebarLayout?.collapsed);
@@ -172,6 +175,7 @@ export function SidebarSeparator({
   role = "separator",
   ...props
 }: SidebarSeparatorProps) {
+  useTranslation();
   return (
     <div
       {...props}
@@ -190,6 +194,7 @@ export function SidebarRail({
   type = "button",
   ...props
 }: SidebarRailProps) {
+  useTranslation();
   const sidebar = useSidebar();
   const sidebarLayout = useOptionalSidebarLayout();
   const expanded = sidebar.isMobile ? sidebar.openMobile : sidebar.open;
@@ -199,7 +204,7 @@ export function SidebarRail({
       {...props}
       aria-label={
         ariaLabel ??
-        (expanded ? "Collapse sidebar rail" : "Expand sidebar rail")
+        (expanded ? i18n.t("ui:appshellSidebarsearch.collapseSidebarRail") : i18n.t("ui:appshellSidebarsearch.expandSidebarRail"))
       }
       aria-controls={sidebar.sidebarId}
       aria-expanded={expanded}

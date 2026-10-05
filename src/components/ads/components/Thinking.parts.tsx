@@ -1,4 +1,6 @@
 import * as React from "react";
+import { i18n } from "@/i18n";
+import { formatNumber } from "@/i18n/format";
 
 import { useSharedNow } from "./DurationTimer";
 
@@ -128,19 +130,19 @@ export function formatElapsed(ms: number, precise = false): string {
       ? Math.round(clamped)
       : Math.round(clamped / 100) * 100
     : clamped;
-  if (displayMs < 1000) return `${Math.round(displayMs)}ms`;
+  if (displayMs < 1000) return i18n.t("ui:elapsed.milliseconds", { value: formatNumber(Math.round(displayMs)) });
   if (displayMs < 60_000) {
     const seconds = displayMs / 1000;
-    return precise ? `${seconds.toFixed(1)}s` : `${Math.floor(seconds)}s`;
+    return i18n.t("ui:elapsed.seconds", { value: formatNumber(precise ? seconds : Math.floor(seconds), { minimumFractionDigits: precise ? 1 : 0, maximumFractionDigits: precise ? 1 : 0 }) });
   }
   if (displayMs < 3_600_000) {
     const minutes = Math.floor(displayMs / 60_000);
     const seconds = Math.floor((displayMs % 60_000) / 1000);
-    return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+    return i18n.t("ui:elapsed.minutesSeconds", { minutes: formatNumber(minutes), seconds: formatNumber(seconds, { minimumIntegerDigits: 2 }) });
   }
   const hours = Math.floor(displayMs / 3_600_000);
   const minutes = Math.floor((displayMs % 3_600_000) / 60_000);
-  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  return i18n.t("ui:elapsed.hoursMinutes", { hours: formatNumber(hours), minutes: formatNumber(minutes, { minimumIntegerDigits: 2 }) });
 }
 
 /**
@@ -150,20 +152,18 @@ export function formatElapsed(ms: number, precise = false): string {
  */
 export function formatSpokenElapsed(ms: number): string {
   const clamped = Math.max(0, ms);
-  if (clamped < 1000) return `${Math.round(clamped)} milliseconds`;
+  if (clamped < 1000) return i18n.t("ui:elapsed.spokenMilliseconds", { count: Math.round(clamped), value: formatNumber(Math.round(clamped)) });
   if (clamped < 60_000) {
     const seconds = clamped / 1000;
-    const value =
-      seconds < 10 ? seconds.toFixed(1) : String(Math.round(seconds));
-    return `${value} seconds`;
+    const count = seconds < 10 ? Math.round(seconds * 10) / 10 : Math.round(seconds);
+    return i18n.t("ui:elapsed.spokenSeconds", { count, value: formatNumber(count, { minimumFractionDigits: seconds < 10 ? 1 : 0, maximumFractionDigits: seconds < 10 ? 1 : 0 }) });
   }
   const totalSeconds = Math.round(clamped / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const minutePart = `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
   return seconds === 0
-    ? minutePart
-    : `${minutePart} ${seconds} ${seconds === 1 ? "second" : "seconds"}`;
+    ? i18n.t("ui:elapsed.spokenMinutes", { count: minutes, value: formatNumber(minutes) })
+    : i18n.t(minutes === 1 ? "ui:elapsed.spokenMinuteSeconds" : "ui:elapsed.spokenMinutesSeconds", { count: seconds, minutes: formatNumber(minutes), seconds: formatNumber(seconds) });
 }
 
 // ---------------------------------------------------------------------------

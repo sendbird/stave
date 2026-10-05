@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type { WorkspaceSummary } from "@/lib/db/workspaces.db";
 import type { Task } from "@/types/chat";
 import {
@@ -420,7 +421,7 @@ export function buildWorkspaceCreationNotice(args: {
     : "success";
   return {
     noticeLevel,
-    message: `Workspace created${noticeLevel === "warning" ? ", with warnings" : ""}. ${args.notices.map((notice) => notice.message).join(" ")}`,
+    message: i18n.t("notifications:repositoryUtils.workspaceCreated", { warnings: noticeLevel === "warning" ? i18n.t("notifications:repositoryUtils.withWarnings") : "", detail: args.notices.map((notice) => notice.message).join(" ") }),
   };
 }
 

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 import { CanonicalRetrievedContextPart, NormalizedProviderEvent } from "@/lib/providers/provider.types";
@@ -186,7 +187,7 @@ function buildWorkspaceInformationReferencesRetrievedContext(args: {
   return {
     type: "retrieved_context",
     sourceId: "stave:workspace-information-references",
-    title: "Explicit Information Panel References",
+    title: "Explicit Information Panel References", // i18n-ignore: model-facing retrieved context heading
     content: [
       "The user explicitly referenced these Information panel entries from the prompt composer.",
       "Treat section references as the full current section and item references as the specific item.",
@@ -312,7 +313,7 @@ export function createSendUserMessageAction(args: {
         providerId: seededProvider,
       }).normalizedText;
       const seededTitle =
-        seededTitleText.split("\n")[0]?.trim().slice(0, 48) || "New Task";
+        seededTitleText.split("\n")[0]?.trim().slice(0, 48) || i18n.t("notifications:appStoreSendUserMessage.newTask");
       const seededTask: Task = {
         id: seededTaskId,
         title: seededTitle,
@@ -398,8 +399,8 @@ export function createSendUserMessageAction(args: {
     // would run the task wherever the host process happens to live.
     if (!workspaceCwd) {
       const message =
-        "This task's workspace folder could not be resolved, so the turn would run outside the workspace. Reopen or relink the workspace and send again.";
-      toast.warning("Workspace folder unavailable", {
+        i18n.t("notifications:appStoreSendUserMessage.thisTaskSWorkspaceFolderCouldNotBeResolvedSoTheTurnWouldRunOutsideTheWorkspaceReopenO");
+      toast.warning(i18n.t("notifications:appStoreSendUserMessage.workspaceFolderUnavailable"), {
         description: message,
       });
       return {
@@ -470,8 +471,8 @@ export function createSendUserMessageAction(args: {
       })
     ) {
       const message =
-        "Stave Auto is turned off. Enable it in Settings or choose a provider model before sending.";
-      toast.warning("Stave Auto is unavailable", { description: message });
+        i18n.t("notifications:appStoreSendUserMessage.staveAutoIsTurnedOffEnableItInSettingsOrChooseAProviderModelBeforeSending");
+      toast.warning(i18n.t("notifications:appStoreSendUserMessage.staveAutoIsUnavailable"), { description: message });
       return {
         status: "blocked",
         reason: "auto-routing-disabled",
@@ -579,7 +580,7 @@ export function createSendUserMessageAction(args: {
           status: "steer-unavailable",
           taskId: resolvedTaskId,
           workspaceId: taskWorkspaceId,
-          message: "Mid-turn steering is not available in this build.",
+          message: i18n.t("notifications:appStoreSendUserMessage.midTurnSteeringIsNotAvailableInThisBuild"),
         } satisfies SendUserMessageResult;
       }
       const steeringContext = resolveMidTurnSteeringContext({

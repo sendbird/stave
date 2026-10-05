@@ -1,9 +1,10 @@
+import { i18n, useTranslation } from "@/i18n";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import { layers } from "@/lib/ui-layers.stylex";
 import { appShellStyles } from "./app-shell.styles";
 
-export const PANEL_RESIZE_HINT = "Drag to resize · Double-click to reset";
+export const PANEL_RESIZE_HINT = "ui:panelResizeHandle.dragToResizeDoubleClickToReset" as const;
 
 /**
  * The drag handle on a panel's edge, shared by the repository sidebar, the
@@ -36,10 +37,11 @@ export function PanelResizeHandle({
   onReset: () => void;
   xstyle?: StyleXValue;
 }) {
+  useTranslation();
   return (
     <div
       className={sx(appShellStyles.resizer, layers.resizer, xstyle)}
-      title={PANEL_RESIZE_HINT}
+      title={i18n.t(PANEL_RESIZE_HINT)}
       onDoubleClick={onReset}
       onMouseDown={(event) => {
         event.preventDefault();

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 /**
  * One read-only turn on the utility lane that returns the model's text. Shared
  * by the agent features that ask the model for a small JSON answer (drafting
@@ -35,7 +36,7 @@ function newTurnId(prefix: string): string {
     : `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const CANCELLED: UtilityTextResult = { ok: false, message: "Cancelled.", cancelled: true };
+const CANCELLED: UtilityTextResult = { ok: false, get message() { return i18n.t("notifications:utilityTextTurn.cancelled"); }, cancelled: true };
 
 /**
  * Runs `prompt` once. Aborting `signal` stops the turn and resolves as
@@ -50,14 +51,14 @@ export async function runUtilityTextTurn(args: {
   if (signal?.aborted) return CANCELLED;
   const provider = window.api?.provider;
   const streamTurn = provider?.streamTurn;
-  if (!streamTurn) return { ok: false, message: "This needs the desktop app." };
+  if (!streamTurn) return { ok: false, message: i18n.t("notifications:utilityTextTurn.thisNeedsTheDesktopApp") };
   const state = useAppStore.getState();
   const lane = resolveAuxLaneRuntime({
     lane: "utility",
     policy: state.settings.auxiliaryInferencePolicy,
     legacyProviderId: state.settings.utilityInferenceProvider,
   });
-  if (!lane.enabled) return { ok: false, message: "The utility model is turned off in Settings." };
+  if (!lane.enabled) return { ok: false, message: i18n.t("notifications:utilityTextTurn.theUtilityModelIsTurnedOffInSettings") };
   const turnId = newTurnId(args.turnIdPrefix);
   const abort = () => void provider?.abortTurn?.({ turnId })?.catch(() => undefined);
   signal?.addEventListener("abort", abort, { once: true });
@@ -80,7 +81,7 @@ export async function runUtilityTextTurn(args: {
     if (signal?.aborted) return CANCELLED;
     return {
       ok: false,
-      message: error instanceof Error && error.message ? error.message : "The request failed. Try again.",
+      message: error instanceof Error && error.message ? error.message : i18n.t("notifications:utilityTextTurn.theRequestFailedTryAgain"),
     };
   } finally {
     signal?.removeEventListener("abort", abort);

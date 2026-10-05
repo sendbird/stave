@@ -1,3 +1,4 @@
+import { i18n, useTranslation, Trans } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
@@ -82,13 +83,13 @@ export type ApprovalProps = Omit<React.ComponentProps<"section">, "title"> & {
 } & XstyleProp;
 
 const decisionWord: Record<ApprovalResolution, string> = {
-  "allow-always": "Always allowed",
-  "allow-once": "Allowed once",
-  allowed: "Allowed",
-  deny: "Denied",
+  get "allow-always"() { return i18n.t("ui:decisionWord.aAllowed"); },
+  get "allow-once"() { return i18n.t("ui:decisionWord.aOnce"); },
+  get allowed() { return i18n.t("ui:decisionWord.allowed"); },
+  get deny() { return i18n.t("ui:decisionWord.denied"); },
   // "Withdrawn", not "Expired": nothing timed out on its own — the run that
   // asked the question ended, so the question went with it.
-  lapsed: "Withdrawn",
+  get lapsed() { return i18n.t("ui:decisionWord.withdrawn"); },
 };
 
 const decisionTone = {
@@ -130,12 +131,12 @@ const decisionTone = {
 export function Approval({
   actions,
   allowAlways = true,
-  allowAlwaysLabel = "Always allow",
-  allowOnceLabel = "Allow once",
+  allowAlwaysLabel = i18n.t("ui:approval.alwaysAllow"),
+  allowOnceLabel = i18n.t("ui:approval.allowOnce"),
   arguments: argumentRows,
   busy = false,
   className,
-  denyLabel = "Deny",
+  denyLabel = i18n.t("ui:approval.deny"),
   description,
   onDecide,
   outcome,
@@ -143,6 +144,7 @@ export function Approval({
   xstyle,
   ...props
 }: ApprovalProps) {
+  useTranslation();
   const baseId = React.useId();
   const titleId = `${baseId}title`;
   const auditId = `${baseId}audit`;
@@ -156,8 +158,8 @@ export function Approval({
   const word = resolved
     ? decisionWord[outcome.decision]
     : busy
-      ? "Recording decision"
-      : "Needs your approval";
+      ? i18n.t("ui:approval.recordingdecision")
+      : i18n.t("ui:approval.needsyourapproval");
   // One predicate for "there is a record beyond the status word", used both to
   // render the audit line and to point `aria-describedby` at it — so a
   // note-only outcome cannot render text that focus never announces.
@@ -351,6 +353,7 @@ function ApprovalAudit({
   id: string;
   outcome: ApprovalOutcome;
 }) {
+  useTranslation();
   return (
     <div
       {...themeSlotProps("approval", "audit")}
@@ -360,7 +363,7 @@ function ApprovalAudit({
       {outcome.by == null && outcome.at == null ? null : (
         <div className={sx(agentSurface.metaRow)}>
           <span className={sx(agentSurface.metaRowLabel, styles.by)}>
-            {outcome.by == null ? null : <>by {outcome.by}</>}
+            {outcome.by == null ? null : <Trans i18n={i18n} ns="ui" i18nKey="approval.byAuthor" components={{ author: <span>{outcome.by}</span> }} />}
           </span>
           {outcome.at == null ? null : (
             <span className={sx(agentSurface.meta)}>{outcome.at}</span>

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type * as React from "react";
@@ -57,11 +58,12 @@ export function CommandDialog({
   open: openProp,
   shortcut = true,
   size,
-  title = "Command menu",
-  trigger = "Show command",
+  title = i18n.t("ui:commandDialog.commandMenu"),
+  trigger = i18n.t("ui:commandDialog.showCommand"),
   width = size ?? "md",
   ...commandProps
 }: CommandDialogProps) {
+  useTranslation();
   const { onItemSelect, ...commandRest } = commandProps;
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const isControlled = openProp !== undefined;

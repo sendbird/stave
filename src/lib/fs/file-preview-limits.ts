@@ -1,9 +1,10 @@
+import { i18n } from "@/i18n/runtime";
 export const WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES = 1024 * 1024;
 export const WORKSPACE_IMAGE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 
 export function formatFileSize(bytes: number | null | undefined) {
   if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes < 0) {
-    return "unknown size";
+    return i18n.t("app:filePreviewLimits.unknownSize");
   }
 
   if (bytes < 1024) {

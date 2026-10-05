@@ -19,7 +19,7 @@
 import ts from "typescript";
 
 const USER_FACING_NAME =
-  /^(?:label|title|description|placeholder|tooltip|message|hint|subtitle|heading|caption|body|detail|summary|text|copy|alt|helperText|emptyMessage|emptyState)$|(?:Label|Title|Description|Placeholder|Tooltip|Message|Hint|Subtitle|Heading|Caption|Text|Copy|Summary|Detail|Body)s?$/;
+  /^(?:label|title|description|placeholder|tooltip|message|hint|subtitle|heading|caption|body|detail|summary|text|copy|alt|helperText|emptyMessage|emptyState|note|error|reason|announcement|trigger)$|(?:Label|Title|Description|Placeholder|Tooltip|Message|Hint|Subtitle|Heading|Caption|Text|Copy|Summary|Detail|Body|Note|Error|Reason|Announcement|Phrase)s?$/;
 const USER_FACING_ATTRIBUTE = /^aria-(?:label|description|placeholder|roledescription|valuetext)$/;
 const USER_FACING_FUNCTION =
   /^(?:describe|format|render)[A-Z]|(?:Label|Title|Description|Placeholder|Tooltip|Message|Hint|Subtitle|Heading|Caption|Text|Copy|Summary|Detail)s?(?:For|Of|From)?[A-Z]?\w*$/;
@@ -205,7 +205,7 @@ function normalizeName(name) {
 
 function isUserFacingName(rawName) {
   const name = normalizeName(rawName);
-  return Boolean(name) && USER_FACING_NAME.test(name) && !NON_COPY_NAME.test(name);
+  return Boolean(name) && (USER_FACING_NAME.test(name) || USER_FACING_ATTRIBUTE.test(name)) && !NON_COPY_NAME.test(name);
 }
 
 function isUserFacingFunction(rawName) {
@@ -312,6 +312,9 @@ export function scanSource(fileName, sourceText, { terms = [] } = {}) {
           let initializer = node.initializer;
           while (ts.isAsExpression(initializer) || ts.isSatisfiesExpression?.(initializer)) initializer = initializer.expression;
           if (ts.isObjectLiteralExpression(initializer)) checkObjectLiteral(initializer, "copy-variable");
+          else if (ts.isArrayLiteralExpression(initializer)) {
+            for (const element of initializer.elements) checkExpression(element, "copy-variable");
+          }
           else checkExpression(initializer, "copy-variable");
         }
       }
@@ -339,6 +342,8 @@ export function scanSource(fileName, sourceText, { terms = [] } = {}) {
         if (options && ts.isObjectLiteralExpression(options)) checkObjectLiteral(options, "toast");
       } else if (isNativeDialogCall(node)) {
         for (const argument of node.arguments) checkExpression(argument, "native-dialog", isJsxProse);
+      } else if (/^(?:announce|setAnnouncement|setError|setNote|setReason|failure)$/.test(nameOf(node.expression))) {
+        for (const argument of node.arguments) checkExpression(argument, "copy-call");
       }
     } else if (ts.isCaseClause(node)) {
       // Switch-based label maps are covered through `copy-return`.

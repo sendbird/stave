@@ -1,3 +1,4 @@
+import { i18n, useTranslation, Trans } from "@/i18n";
 import { Children, useCallback } from "react";
 import type * as React from "react";
 
@@ -37,6 +38,7 @@ export function BoardColumn({
   xstyle,
   ...props
 }: BoardColumnProps) {
+  useTranslation();
   const board = useBoardContext();
   const label = typeof title === "string" ? title : id;
   const registerRef = useCallback(
@@ -87,10 +89,9 @@ export function BoardColumn({
       <div className={sx(styles.columnBody)} role="list">
         {isEmpty && board?.interactive ? (
           <div aria-hidden className={sx(styles.dropZone)}>
-            Drop cards here
-          </div>
+            {i18n.t("ui:boardColumn.dropCardsHere")}</div>
         ) : isEmpty ? (
-          <div className={sx(styles.emptyState)}>Nothing in {label}</div>
+          <div className={sx(styles.emptyState)}><Trans i18n={i18n} ns="ui" i18nKey="boardColumn.empty" components={{ label: <span>{label}</span> }} /></div>
         ) : (
           children
         )}

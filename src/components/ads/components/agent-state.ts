@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type { BadgeTone } from "./Badge";
 import type { StatusDotTone } from "./StatusDot";
 import { WORK_STATE, type WorkState } from "./state-vocabulary";
@@ -41,21 +42,21 @@ export type AgentRunState =
 
 /** Human-readable label for a run state. */
 export const agentStateLabel: Record<AgentRunState, string> = {
-  approval: "Awaiting approval",
-  canceled: "Canceled",
-  checkpointed: "Checkpointed",
-  completed: "Completed",
-  denied: "Denied",
-  done: "Completed",
-  error: "Error",
-  failed: "Failed",
-  interrupted: "Interrupted",
-  pending: "Pending",
-  queued: "Queued",
-  retrying: "Retrying",
-  resumed: "Resumed",
-  running: "Running",
-  skipped: "Skipped",
+  get approval() { return i18n.t("ui:agentState.awaitingApproval"); },
+  get canceled() { return i18n.t("ui:agentState.canceled"); },
+  get checkpointed() { return i18n.t("ui:agentState.checkpointed"); },
+  get completed() { return i18n.t("ui:agentState.completed"); },
+  get denied() { return i18n.t("ui:agentState.denied"); },
+  get done() { return i18n.t("ui:agentState.completed"); },
+  get error() { return i18n.t("ui:agentState.error"); },
+  get failed() { return i18n.t("ui:agentState.failed"); },
+  get interrupted() { return i18n.t("ui:agentState.interrupted"); },
+  get pending() { return i18n.t("ui:agentState.pending"); },
+  get queued() { return i18n.t("ui:agentState.queued"); },
+  get retrying() { return i18n.t("ui:agentState.retrying"); },
+  get resumed() { return i18n.t("ui:agentState.resumed"); },
+  get running() { return i18n.t("ui:agentState.running"); },
+  get skipped() { return i18n.t("ui:agentState.skipped"); },
 };
 
 /**

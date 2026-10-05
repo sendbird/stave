@@ -1,1 +1,290 @@
-{}
+{
+  "agentState": {
+    "awaitingApproval": "승인 대기 중",
+    "canceled": "취소됨",
+    "checkpointed": "체크포인트 저장됨",
+    "completed": "완료됨",
+    "denied": "거부됨",
+    "error": "오류",
+    "failed": "실패함",
+    "interrupted": "중단됨",
+    "pending": "대기 중",
+    "queued": "대기열에 있음",
+    "retrying": "다시 시도 중",
+    "resumed": "재개됨",
+    "running": "실행 중",
+    "skipped": "건너뜀"
+  },
+  "calendar": {
+    "previousMonth": "이전 달",
+    "nextMonth": "다음 달",
+    "start": "시작",
+    "end": "종료",
+    "dateRangePresets": "날짜 범위 프리셋",
+    "calendar": "달력"
+  },
+  "lightbox": {
+    "closeLightbox": "미디어 뷰어 닫기",
+    "mediaViewer": "미디어 뷰어",
+    "zoomControls": "확대·축소 제어",
+    "zoomOut": "축소",
+    "resetZoom": "확대·축소 초기화",
+    "zoomIn": "확대",
+    "noMediaToDisplay": "표시할 미디어가 없습니다",
+    "previousMedia": "이전 미디어",
+    "nextMedia": "다음 미디어",
+    "showingMedia": "{{alt}} 표시 중{{position}}",
+    "galleryPosition": ", 전체 {{total}}개 중 {{current}}번째"
+  },
+  "workflowicon": {
+    "highPriority": "높은 우선순위",
+    "lowPriority": "낮은 우선순위",
+    "mediumPriority": "보통 우선순위",
+    "noPriority": "우선순위 없음",
+    "urgentPriority": "긴급 우선순위",
+    "backlog": "백로그",
+    "canceled": "취소됨",
+    "done": "완료됨",
+    "inProgress": "진행 중",
+    "inReview": "리뷰 중",
+    "todo": "할 일"
+  },
+  "stateVocabulary": {
+    "working": "작업 중",
+    "needsYou": "사용자 확인 필요",
+    "awaitingApproval": "승인 대기 중",
+    "ready": "준비됨",
+    "failed": "실패함",
+    "stopped": "중지됨",
+    "queued": "대기열에 있음",
+    "idle": "대기 상태",
+    "skipped": "건너뜀",
+    "unknown": "알 수 없음"
+  },
+  "command": {
+    "noMatchingCommands": "일치하는 명령이 없습니다.",
+    "commandMenu": "명령 메뉴",
+    "loadingCommands": "명령을 불러오는 중...",
+    "searchCommands": "명령 검색",
+    "recent": "최근",
+    "commands": "명령",
+    "backOneCommandPage": "이전 명령 페이지로 돌아가기",
+    "commandPalette": "명령 팔레트",
+    "searchForACommandToRun": "실행할 명령 검색..."
+  },
+  "planParts": {
+    "awaitingApproval": "승인 대기 중",
+    "done": "완료됨",
+    "failed": "실패함",
+    "pending": "대기 중",
+    "running": "실행 중"
+  },
+  "clarification": {
+    "continue": "계속",
+    "skip": "건너뛰기",
+    "recordedAnswer": "기록된 답변",
+    "byAuthor": "<author/> 작성",
+    "stepProgress": "전체 {{total}}단계 중 {{current}}단계",
+    "recordinganswer": "답변 기록 중",
+    "needsyourinput": "사용자 입력 필요"
+  },
+  "diffviewer": {
+    "textDiff": "텍스트 변경 비교"
+  },
+  "tabsSession": {
+    "addTab": "탭 추가",
+    "openSessions": "세션 열기",
+    "scrollTabsBackward": "탭을 이전 방향으로 스크롤",
+    "scrollTabsForward": "탭을 다음 방향으로 스크롤",
+    "closeTab": "{{label}} 탭 닫기"
+  },
+  "reviewSkillSelector": {
+    "reviewSkill": "리뷰 스킬",
+    "noSkill": "스킬 없음",
+    "searchReviewSkills": "리뷰 스킬 검색",
+    "searchSkills": "스킬 검색…",
+    "noSkillsFound": "스킬을 찾지 못했습니다."
+  },
+  "approval": {
+    "alwaysAllow": "항상 허용",
+    "allowOnce": "한 번 허용",
+    "deny": "거부",
+    "byAuthor": "<author/> 작성",
+    "recordingdecision": "결정 기록 중",
+    "needsyourapproval": "사용자 승인 필요"
+  },
+  "commandParts": {
+    "navigate": "이동",
+    "select": "선택",
+    "backClose": "뒤로 / 닫기"
+  },
+  "plan": {
+    "plan": "계획",
+    "noStepsYetThePlanAppearsOnceTheAgentCommitsToOne": "아직 단계가 없습니다. 에이전트가 계획을 확정하면 표시됩니다.",
+    "progress": "전체 {{total}}단계 중 {{done}}단계 완료됨"
+  },
+  "selectArray": {
+    "clearSelection": "선택 해제",
+    "noOptionsAvailable": "선택할 항목이 없습니다.",
+    "loadingOptions": "항목을 불러오는 중…",
+    "selectAnOption": "항목 선택"
+  },
+  "appshellSidebarsearch": {
+    "search": "검색",
+    "collapseSidebarRail": "사이드바 레일 접기",
+    "expandSidebarRail": "사이드바 레일 펼치기"
+  },
+  "checkpoint": {
+    "restore": "복원",
+    "restoring": "복원 중",
+    "checkpointSaved": "체크포인트 저장됨"
+  },
+  "thinking": {
+    "reasoningTrace": "추론 기록",
+    "finishedThinking": "추론 완료됨",
+    "thoughtFor": "<duration/> 동안 추론함",
+    "thoughtForSpoken": "{{duration}} 동안 추론함",
+    "thinking": "추론 중"
+  },
+  "toolrun": {
+    "arguments": "인수",
+    "output": "출력",
+    "error": "오류"
+  },
+  "dateRange": {
+    "today": "오늘",
+    "last7Days": "최근 7일",
+    "thisMonth": "이번 달"
+  },
+  "appshellSidebartrigger": {
+    "collapseSidebar": "사이드바 접기",
+    "expandSidebar": "사이드바 펼치기"
+  },
+  "boardColumn": {
+    "dropCardsHere": "여기에 카드 놓기",
+    "empty": "<label/>에 항목이 없습니다"
+  },
+  "citation": {
+    "source": "출처",
+    "openSource": "출처 열기"
+  },
+  "toast": {
+    "datasetCatalogIsNowInSync": "데이터 세트 카탈로그를 동기화했습니다.",
+    "recordsUpdated": "레코드 업데이트됨"
+  },
+  "dialog": {
+    "close": "닫기"
+  },
+  "imageLightbox": {
+    "imageFullScreenPreview": "이미지 전체 화면 미리 보기",
+    "closePreview": "미리 보기 닫기"
+  },
+  "appshellRoot": {
+    "skipToContent": "본문으로 건너뛰기"
+  },
+  "appshell": {
+    "sidebar": "사이드바"
+  },
+  "badge": {
+    "remove": "제거"
+  },
+  "breadcrumb": {
+    "breadcrumb": "탐색 경로",
+    "more": "더 보기"
+  },
+  "citationParts": {
+    "sources": "출처"
+  },
+  "commandDialog": {
+    "commandMenu": "명령 메뉴"
+  },
+  "drawer": {
+    "close": "닫기"
+  },
+  "loader": {
+    "loading": "불러오는 중"
+  },
+  "popover": {
+    "close": "닫기"
+  },
+  "textfield": {
+    "validating": "검사 중"
+  },
+  "textshimmer": {
+    "loading": "불러오는 중"
+  },
+  "toasthost": {
+    "dismissToast": "알림 닫기"
+  },
+  "agentRetry": {
+    "retry": "다시 시도"
+  },
+  "fieldAnatomy": {
+    "valid": "유효함"
+  },
+  "panelresizehandle": {
+    "dragToResizeDoubleClickToReset": "드래그하여 크기 조절 · 두 번 클릭하여 초기화"
+  },
+  "sheet": {
+    "close": "닫기"
+  },
+  "serviceLinkBadge": {
+    "openIn": "{{service}}에서 열기 — {{href}}"
+  },
+  "diffViewer": {
+    "expandUnchanged_other": "변경되지 않은 줄 {{count}}개 펼치기"
+  },
+  "boardCard": {
+    "draggableCard": "드래그할 수 있는 카드"
+  },
+  "durationTimer": {
+    "lessThanMinute": "{{label}} 1분 미만",
+    "hoursAndMinutes": "{{label}} {{hours}} {{minutes}}",
+    "elapsed": "{{label}} {{duration}}",
+    "defaultLabel": "경과 시간",
+    "hours_other": "{{count}}시간",
+    "minutes_other": "{{count}}분"
+  },
+  "decisionWord": {
+    "aAllowed": "항상 허용됨",
+    "aOnce": "한 번 허용됨",
+    "allowed": "허용됨",
+    "denied": "거부됨",
+    "withdrawn": "철회됨"
+  },
+  "resultWord": {
+    "answered": "답변됨",
+    "withdrawn": "철회됨",
+    "skipped": "건너뜀"
+  },
+  "panelResizeHandle": {
+    "dragToResizeDoubleClickToReset": "드래그하여 크기 조절 · 두 번 클릭하여 초기화"
+  },
+  "elapsed.milliseconds": "{{value}}밀리초",
+  "elapsed.seconds": "{{value}}초",
+  "elapsed.minutesSeconds": "{{minutes}}분 {{seconds}}초",
+  "elapsed.hoursMinutes": "{{hours}}시간 {{minutes}}분",
+  "elapsed.spokenMilliseconds_other": "{{value}}밀리초",
+  "elapsed.spokenSeconds_other": "{{value}}초",
+  "elapsed.spokenMinutes_other": "{{value}}분",
+  "elapsed.spokenMinuteSeconds_other": "{{minutes}}분 {{seconds}}초",
+  "elapsed.spokenMinutesSeconds_other": "{{minutes}}분 {{seconds}}초",
+  "planParts.stepAt": "{{position}}단계",
+  "planParts.stepState": "{{name}}: {{status}}",
+  "planParts.moreChanged_other": "외 {{count}}개 단계 변경",
+  "planParts.stepsAdded_other": "{{count}}개 단계 추가",
+  "planParts.stepsRemoved_other": "{{count}}개 단계 삭제",
+  "planParts.completeCount": "{{total}}개 중 {{done}}개 완료",
+  "board.dropped": "\"{{column}}\"에 카드를 놓았습니다. {{total}}개 중 {{position}}번째입니다.",
+  "board.pickedUp": "\"{{column}}\"에서 카드를 선택했습니다. {{total}}개 중 {{position}}번째입니다. 방향키로 이동하고, Space로 놓고, Escape로 취소하세요.",
+  "board.moved": "\"{{column}}\"로 카드를 옮겼습니다. {{total}}개 중 {{position}}번째입니다.",
+  "board.moveCancelled": "이동을 취소했습니다.",
+  "tabsSession.moved": "탭을 {{total}}개 중 {{position}}번째로 옮겼습니다.",
+  "tabsSession.closedSelected": "{{closed}} 탭을 닫았습니다. {{selected}} 탭을 선택했습니다.",
+  "tabsSession.closed": "{{name}} 탭을 닫았습니다.",
+  "commandDialog.showCommand": "명령 메뉴 열기",
+  "toast.showToast": "알림 표시",
+  "toolRunParts.callCount_other": "도구 호출 {{count}}회",
+  "toolRunGroup.toolCalls": "도구 호출",
+  "toolRun.toolRun": "도구 실행"
+}

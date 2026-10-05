@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { loadWorkspaceShellLite } from "@/lib/db/workspaces.db";
 import {
   canTakeOverTask,
@@ -48,7 +49,7 @@ export async function requestManagedTaskTakeover(args: {
   const task =
     args.state.tasks.find((candidate) => candidate.id === args.taskId) ?? null;
   if (!task || !canTakeOverTask({ task })) {
-    return { ok: false, message: "This task is not managed." };
+    return { ok: false, message: i18n.t("notifications:managedTaskTakeover.thisTaskIsNotManaged") };
   }
   const workspaceId =
     args.state.taskWorkspaceIdById[args.taskId] ?? args.state.activeWorkspaceId;
@@ -56,7 +57,7 @@ export async function requestManagedTaskTakeover(args: {
   if (!workspaceId || !takeOver) {
     return {
       ok: false,
-      message: "Managed task controls are unavailable.",
+      message: i18n.t("notifications:managedTaskTakeover.managedTaskControlsAreUnavailable"),
     };
   }
   let result: Awaited<ReturnType<typeof takeOver>>;
@@ -65,13 +66,13 @@ export async function requestManagedTaskTakeover(args: {
   } catch {
     return {
       ok: false,
-      message: "Could not take over the managed task.",
+      message: i18n.t("notifications:managedTaskTakeover.couldNotTakeOverTheManagedTask"),
     };
   }
   if (!result.ok) {
     return {
       ok: false,
-      message: result.message ?? "Could not take over the managed task.",
+      message: result.message ?? i18n.t("notifications:managedTaskTakeover.couldNotTakeOverTheManagedTask"),
     };
   }
   const persistedTask = await loadWorkspaceShellLite({ workspaceId })

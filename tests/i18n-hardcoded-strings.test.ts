@@ -8,6 +8,22 @@ function scan(source: string, fileName = "src/components/demo.tsx") {
 }
 
 describe("hardcoded user-facing string scan", () => {
+  test("covers aliased accessibility defaults, error results and announcements", () => {
+    const findings = scan(`
+      function Demo({ "aria-label": label = "Tool calls", trigger = "Show command" }) {
+        announce("Move cancelled.");
+        setAnnouncement(\`Tab moved to position \${position}.\`);
+        return { error: "Cannot open this task", note: "Choose a workspace", reason: "No workspace linked" };
+      }
+      const THINKING_PHRASES = ["Compiling thoughts", "Reading the docs"] as const;
+    `);
+    expect(findings).toEqual(expect.arrayContaining([
+      "copy-default:Tool calls", "copy-default:Show command",
+      "copy-call:Move cancelled.", "copy-call:Tab moved to position ${} .",
+      "object-property:Cannot open this task", "object-property:Choose a workspace",
+      "object-property:No workspace linked", "copy-variable:Compiling thoughts", "copy-variable:Reading the docs",
+    ]));
+  });
   test("flags JSX text, user-facing attributes, string children and toasts", () => {
     const findings = scan(`
       export function Demo({ ok, title = "Untitled task" }) {

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   RENDERER_STEER_ACK_TIMEOUT_MS,
   waitForSteerDelivery,
@@ -27,13 +28,13 @@ export async function submitSteerWithDeadline(args: {
       ok: false,
       delivery: "unknown",
       message:
-        "Steer delivery could not be confirmed. The provider may still accept it; wait for the current response before retrying or queueing.",
+        i18n.t("notifications:steerSubmit.steerDeliveryCouldNotBeConfirmedTheProviderMayStillAcceptItWaitForTheCurrentResponseB"),
     };
   } catch {
     return {
       ok: false,
       delivery: "rejected",
-      message: "The steer request could not reach the provider.",
+      message: i18n.t("notifications:steerSubmit.theSteerRequestCouldNotReachTheProvider"),
     };
   }
 }
@@ -57,7 +58,7 @@ export function buildFailedSteerResult(args: {
       workspaceId: args.workspaceId,
       message:
         args.result.message ||
-        "Steer delivery could not be confirmed. Wait for the current response before retrying or queueing.",
+        i18n.t("notifications:steerSubmit.steerDeliveryCouldNotBeConfirmedWaitForTheCurrentResponseBeforeRetryingOrQueueing"),
     };
   }
   return {
@@ -66,6 +67,6 @@ export function buildFailedSteerResult(args: {
     workspaceId: args.workspaceId,
     message:
       args.result.message ||
-      "The active turn rejected the steer request — press Tab to queue instead.",
+      i18n.t("notifications:steerSubmit.theActiveTurnRejectedTheSteerRequestPressTabToQueueInstead"),
   };
 }

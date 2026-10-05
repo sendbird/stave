@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Lightbox } from "../ads/components/Lightbox";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 
@@ -10,6 +11,7 @@ export function ImageLightbox(args: {
   closeLabel?: string;
   imageTitle?: string;
 }) {
+  useTranslation();
   return (
     <Lightbox
       open={args.open}
@@ -18,8 +20,8 @@ export function ImageLightbox(args: {
       }}
       media={{ src: args.imageSrc, alt: args.alt }}
       hasZoom
-      title={args.ariaLabel ?? "Image full screen preview"}
-      closeLabel={args.closeLabel ?? "Close preview"}
+      title={args.ariaLabel ?? i18n.t("ui:imageLightbox.imageFullScreenPreview")}
+      closeLabel={args.closeLabel ?? i18n.t("ui:imageLightbox.closePreview")}
       className={UI_LAYER_CLASS.lightbox}
       testId="image-lightbox"
     />

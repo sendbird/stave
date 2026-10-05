@@ -6,36 +6,12 @@
  * so native surfaces that appear before the renderer loads (application menu,
  * crash-recovery dialog) already use the chosen language on the next launch.
  *
- * Only the `desktop` and `common` namespaces are bundled into the main process.
+ * The React-free runtime also serves shared main-process presentation helpers.
  */
 import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-import i18next from "i18next";
-import {
-  DEFAULT_APP_LOCALE,
-  normalizeAppLocale,
-  type AppLocale,
-} from "../../src/i18n/locale";
-import enCommon from "../../src/locales/en/common.json";
-import enDesktop from "../../src/locales/en/desktop.json";
-import koCommon from "../../src/locales/ko/common.json";
-import koDesktop from "../../src/locales/ko/desktop.json";
-
-const mainI18n = i18next.createInstance();
-void mainI18n.init({
-  resources: {
-    en: { common: enCommon, desktop: enDesktop },
-    ko: { common: koCommon, desktop: koDesktop },
-  },
-  lng: DEFAULT_APP_LOCALE,
-  fallbackLng: DEFAULT_APP_LOCALE,
-  ns: ["desktop", "common"],
-  defaultNS: "desktop",
-  initAsync: false,
-  interpolation: { escapeValue: false },
-  returnNull: false,
-});
+import { i18n as mainI18n, normalizeAppLocale, type AppLocale } from "../../src/i18n/runtime";
 
 /** Translate a `desktop` (or `common:`-prefixed) key in the current main-process locale. */
 export const tMain = mainI18n.getFixedT(null, "desktop");

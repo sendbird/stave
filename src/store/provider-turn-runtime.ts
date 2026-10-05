@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { getProviderAdapter } from "@/lib/providers";
 import type {
   NormalizedProviderEvent,
@@ -47,7 +48,7 @@ export function runProviderTurn(
       args.onEvent({
         event: {
           type: "error",
-          message: `Provider stream failed: ${String(error)}`,
+          message: i18n.t("notifications:providerTurnRuntime.streamFailed", { detail: String(error) }),
           recoverable: false,
         },
       });

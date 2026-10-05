@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import type { StoreApi } from "zustand";
 import {
@@ -565,7 +566,7 @@ export function createTaskCoreActions(args: {
       }
       const nextTask: Task = {
         id: crypto.randomUUID(),
-        title: trimmed.length > 0 ? trimmed : "New Task",
+        title: trimmed.length > 0 ? trimmed : i18n.t("notifications:appStoreTaskCoreActions.newTask"),
         provider: stateBefore.draftProvider,
         updatedAt: buildRecentTimestamp(),
         unread: false,
@@ -834,7 +835,7 @@ export function createTaskCoreActions(args: {
         const duplicatedTask: Task = {
           ...sourceTask,
           id: nextTaskId,
-          title: `${sourceTask.title} (copy)`,
+          title: i18n.t("app:taskCoreActions.copyTitle", { title: sourceTask.title }),
           updatedAt: buildRecentTimestamp(),
           unread: false,
           archivedAt: null,
@@ -880,7 +881,7 @@ export function createTaskCoreActions(args: {
         return {
           ok: false,
           canRewind: false,
-          detail: "Wait for the active turn to finish before rewinding files.",
+          detail: i18n.t("notifications:appStoreTaskCoreActions.waitForTheActiveTurnToFinishBeforeRewindingFiles"),
         };
       }
       if (
@@ -889,7 +890,7 @@ export function createTaskCoreActions(args: {
         return {
           ok: false,
           canRewind: false,
-          detail: "The selected Claude runtime does not support file rewind.",
+          detail: i18n.t("notifications:appStoreTaskCoreActions.theSelectedClaudeRuntimeDoesNotSupportFileRewind"),
         };
       }
       const message = state.messagesByTask[taskId]?.find(
@@ -905,7 +906,7 @@ export function createTaskCoreActions(args: {
         return {
           ok: false,
           canRewind: false,
-          detail: "This message is not a Claude file-rewind checkpoint.",
+          detail: i18n.t("notifications:appStoreTaskCoreActions.thisMessageIsNotAClaudeFileRewindCheckpoint"),
         };
       }
       const sessionId = getProviderSessionId({
@@ -917,7 +918,7 @@ export function createTaskCoreActions(args: {
         return {
           ok: false,
           canRewind: false,
-          detail: "The Claude session is unavailable.",
+          detail: i18n.t("notifications:appStoreTaskCoreActions.theClaudeSessionIsUnavailable"),
         };
       }
       const rewindClaudeFiles = window.api?.provider?.rewindClaudeFiles;
@@ -925,7 +926,7 @@ export function createTaskCoreActions(args: {
         return {
           ok: false,
           canRewind: false,
-          detail: "Claude file rewind is unavailable in this build.",
+          detail: i18n.t("notifications:appStoreTaskCoreActions.claudeFileRewindIsUnavailableInThisBuild"),
         };
       }
       const workspaceId =

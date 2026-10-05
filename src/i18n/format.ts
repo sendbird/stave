@@ -5,7 +5,7 @@
  * OS locale) or hardcoded `"en-US"`, so dates, numbers and relative times match
  * the rest of the UI.
  */
-import { getIntlLocale } from "@/i18n";
+import { getIntlLocale } from "@/i18n/runtime";
 
 type DateInput = Date | number | string;
 

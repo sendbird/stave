@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
 import type { StaveLocalMcpStatus } from "@/lib/local-mcp";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -44,10 +45,8 @@ const READY_READINESS: LocalMcpReadiness = {
 };
 
 const BLOCK_DETAIL: Record<LocalMcpBlockReason, string> = {
-  "server-disabled":
-    "The Local MCP server is turned off in Settings → Developer.",
-  "server-stopped":
-    "The Local MCP server is enabled but not running; restart it in Settings → Developer.",
+  get "server-disabled"() { return i18n.t("app:localMcpReadiness.theLocalMcpServerIsTurnedOffInSettingsDeveloper"); },
+  get "server-stopped"() { return i18n.t("app:localMcpReadiness.theLocalMcpServerIsEnabledButNotRunningRestartItInSettingsDeveloper"); },
 };
 
 function blocked(reason: LocalMcpBlockReason): LocalMcpReadiness {
@@ -89,7 +88,7 @@ export function describeLocalMcpBlock(args: {
   if (args.readiness.state !== "unavailable" || !args.readiness.detail) {
     return null;
   }
-  return `${args.capability} reach the model through the Local MCP server. ${args.readiness.detail}`;
+  return i18n.t("app:localMcpReadiness.capabilityBlock", { capability: args.capability, detail: args.readiness.detail });
 }
 
 const STATUS_CACHE_TTL_MS = 30_000;
@@ -149,6 +148,7 @@ export function useLocalMcpReadiness(args: {
   /** Change to force a fresh read, e.g. when a picker opens. */
   refreshKey?: string | number | boolean;
 }) {
+  const { i18n: localeInstance } = useTranslation();
   const [status, setStatus] = useState<StaveLocalMcpStatus | null>(
     () => cachedStatus?.status ?? null,
   );
@@ -179,6 +179,6 @@ export function useLocalMcpReadiness(args: {
       }),
       refresh: () => setRefreshNonce((value) => value + 1),
     }),
-    [status, args.primaryProviderId],
+    [status, args.primaryProviderId, localeInstance.resolvedLanguage],
   );
 }

@@ -225,7 +225,8 @@ Full rules, the namespace map, the Korean style guide and the glossary are in
   `src/locales/en/<namespace>.json` **and** `src/locales/ko/<namespace>.json` in
   the same change. Never add only the English entry.
 - Import `useTranslation`, `Trans` and `i18n` from `@/i18n`, not from
-  `react-i18next` or `i18next`.
+  `react-i18next` or `i18next`. Shared modules imported by main or preload use
+  the React-free `src/i18n/runtime.ts`; they must not pull React into those processes.
 - Components that render translated text call `useTranslation()`. Never call
   `t` at module scope; constant tables hold `I18nKey` values.
 - Translate whole sentences with interpolation and `count` plurals; never

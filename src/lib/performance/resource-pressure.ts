@@ -1,3 +1,5 @@
+import { i18n } from "@/i18n/runtime";
+import { formatNumber, formatPercent } from "@/i18n/format";
 /**
  * Severity for every colored signal in the Resource Manager.
  *
@@ -121,9 +123,9 @@ export interface ResourceHealth {
 }
 
 const HEALTH_TITLE: Record<ResourcePressureLevel, string> = {
-  healthy: "Healthy",
-  elevated: "Elevated",
-  high: "High pressure",
+  get healthy() { return i18n.t("app:resourcePressure.healthy"); },
+  get elevated() { return i18n.t("app:resourcePressure.elevated"); },
+  get high() { return i18n.t("app:resourcePressure.highPressure"); },
 };
 
 /**
@@ -141,7 +143,7 @@ export function summarizeResourceHealth(args: {
     return {
       level: "high",
       title: HEALTH_TITLE.high,
-      reason: "The app renderer is not responding to input",
+      reason: i18n.t("app:resourcePressure.notResponding"),
     };
   }
   const cpuLevel = cpuPressureLevel(args.cpuPercent);
@@ -149,11 +151,11 @@ export function summarizeResourceHealth(args: {
     { level: args.memoryLevel, reason: args.memoryDetail },
     {
       level: cpuLevel,
-      reason: `Electron CPU at ${args.cpuPercent.toFixed(1)}%`,
+      reason: i18n.t("app:resourcePressure.cpuAt", { percent: formatNumber(args.cpuPercent, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }),
     },
     ...args.gauges.map((gauge) => ({
       level: gauge.level,
-      reason: `${gauge.label}: ${gauge.percent}% of the limit`,
+      reason: i18n.t("app:resourcePressure.limitPercent", { label: gauge.label, percent: formatPercent(gauge.percent / 100) }),
     })),
   ];
   const level = worstPressureLevel(candidates.map((entry) => entry.level));
@@ -161,7 +163,7 @@ export function summarizeResourceHealth(args: {
     return {
       level,
       title: HEALTH_TITLE.healthy,
-      reason: "Every measured limit is within range",
+      reason: i18n.t("app:resourcePressure.withinRange"),
     };
   }
   const worst = candidates.find((entry) => entry.level === level)!;

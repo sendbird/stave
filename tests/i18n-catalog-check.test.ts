@@ -8,6 +8,14 @@ function check(en: object, ko: object) {
 }
 
 describe("i18n catalog check", () => {
+  test("rejects missing interpolation and markup in plural forms", () => {
+    const issues = check(
+      { files_one: "<strong>{{count}}</strong> file", files_other: "<strong>{{count}}</strong> files" },
+      { files_other: "파일 여러 개" },
+    );
+    expect(issues.some((issue) => issue.message.includes("interpolation mismatch"))).toBe(true);
+    expect(issues.some((issue) => issue.message.includes("markup mismatch"))).toBe(true);
+  });
   test("accepts complete English and Korean catalogs with Korean plural forms", () => {
     const issues = check(
       {

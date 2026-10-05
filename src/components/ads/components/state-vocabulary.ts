@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   CircleCheck,
   CircleDashed,
@@ -44,16 +45,16 @@ export interface WorkStateVisual {
 }
 
 export const WORK_STATE: Readonly<Record<WorkState, WorkStateVisual>> = {
-  working: { label: "Working", icon: CircleDot, tone: "accent", pulses: true },
-  "needs-you": { label: "Needs you", icon: Hand, tone: "warning", pulses: false },
-  approval: { label: "Awaiting approval", icon: ShieldQuestion, tone: "warning", pulses: false },
-  ready: { label: "Ready", icon: CircleCheck, tone: "success", pulses: false },
-  failed: { label: "Failed", icon: CircleX, tone: "danger", pulses: false },
-  stopped: { label: "Stopped", icon: Square, tone: "neutral", pulses: false },
-  queued: { label: "Queued", icon: CircleDashed, tone: "neutral", pulses: false },
-  idle: { label: "Idle", icon: CircleDashed, tone: "muted", pulses: false },
-  skipped: { label: "Skipped", icon: CircleMinus, tone: "neutral", pulses: false },
-  unknown: { label: "Unknown", icon: CircleHelp, tone: "muted", pulses: false },
+  working: { get label() { return i18n.t("ui:stateVocabulary.working"); }, icon: CircleDot, tone: "accent", pulses: true },
+  "needs-you": { get label() { return i18n.t("ui:stateVocabulary.needsYou"); }, icon: Hand, tone: "warning", pulses: false },
+  approval: { get label() { return i18n.t("ui:stateVocabulary.awaitingApproval"); }, icon: ShieldQuestion, tone: "warning", pulses: false },
+  ready: { get label() { return i18n.t("ui:stateVocabulary.ready"); }, icon: CircleCheck, tone: "success", pulses: false },
+  failed: { get label() { return i18n.t("ui:stateVocabulary.failed"); }, icon: CircleX, tone: "danger", pulses: false },
+  stopped: { get label() { return i18n.t("ui:stateVocabulary.stopped"); }, icon: Square, tone: "neutral", pulses: false },
+  queued: { get label() { return i18n.t("ui:stateVocabulary.queued"); }, icon: CircleDashed, tone: "neutral", pulses: false },
+  idle: { get label() { return i18n.t("ui:stateVocabulary.idle"); }, icon: CircleDashed, tone: "muted", pulses: false },
+  skipped: { get label() { return i18n.t("ui:stateVocabulary.skipped"); }, icon: CircleMinus, tone: "neutral", pulses: false },
+  unknown: { get label() { return i18n.t("ui:stateVocabulary.unknown"); }, icon: CircleHelp, tone: "muted", pulses: false },
 };
 
 export const WORK_STATES = Object.keys(WORK_STATE) as readonly WorkState[];

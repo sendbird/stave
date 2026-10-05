@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import {
   getLensCommentImageId,
   shouldIncludeImageAttachmentAsProviderContext,
@@ -134,7 +135,7 @@ export function buildPromptDraftDisplayPartsForSend(
           dataUrl: screenshot.dataUrl,
           lensFeedback,
           label:
-            annotation.comment.trim() || `Visual comment ${annotation.pin}`,
+            annotation.comment.trim() || i18n.t("notifications:promptDraftMessageContent.visualComment", { pin: annotation.pin }),
           mimeType: getImageAttachmentMimeType(screenshot),
         });
         continue;

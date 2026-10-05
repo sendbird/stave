@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Per-control placement for the prompt input toolbar.
  *
@@ -44,29 +45,28 @@ export type ComposerControlPlacements = Partial<
 >;
 
 export const COMPOSER_CONTROL_LABELS: Record<ComposerControlId, string> = {
-  plan: "Plan",
-  providerMode: "Provider mode",
-  thinking: "Thinking",
-  fast: "Fast mode",
-  review: "Review",
-  secrets: "Secrets",
-  macro: "Macros",
-  compare: "Compare",
-  runtime: "Runtime",
+  get plan() { return i18n.t("app:composerControls.plan"); },
+  get providerMode() { return i18n.t("app:composerControls.providerMode"); },
+  get thinking() { return i18n.t("app:composerControls.thinking"); },
+  get fast() { return i18n.t("app:composerControls.fastMode"); },
+  get review() { return i18n.t("app:composerControls.review"); },
+  get secrets() { return i18n.t("app:composerControls.secrets"); },
+  get macro() { return i18n.t("app:composerControls.macros"); },
+  get compare() { return i18n.t("app:composerControls.compare"); },
+  get runtime() { return i18n.t("app:composerControls.runtime"); },
 };
 
 export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
   {
-    plan: "Toggle plan mode before sending.",
-    providerMode: "Manual, Guided, or Auto permission preset.",
-    thinking: "Cycle extended thinking. Claude only.",
-    fast: "Fast toggle inside the model picker. Codex and Cursor.",
-    review: "Review uncommitted local changes.",
-    secrets: "Bind secrets into this run's environment.",
-    macro:
-      "Insert a saved prompt, optionally pin model + effort, and optionally send it immediately.",
-    compare: "Run the prompt in two candidate workspaces.",
-    runtime: "Effective sandbox, approval, and timeout values.",
+    get plan() { return i18n.t("app:composerControls.togglePlanModeBeforeSending"); },
+    get providerMode() { return i18n.t("app:composerControls.manualGuidedOrAutoPermissionPreset"); },
+    get thinking() { return i18n.t("app:composerControls.cycleExtendedThinkingClaudeOnly"); },
+    get fast() { return i18n.t("app:composerControls.fastToggleInsideTheModelPickerCodexAndCursor"); },
+    get review() { return i18n.t("app:composerControls.reviewUncommittedLocalChanges"); },
+    get secrets() { return i18n.t("app:composerControls.bindSecretsIntoThisRunSEnvironment"); },
+    get macro() { return i18n.t("app:composerControls.insertASavedPromptOptionallyPinModelEffortAndOptionallySendItImmediately"); },
+    get compare() { return i18n.t("app:composerControls.runThePromptInTwoCandidateWorkspaces"); },
+    get runtime() { return i18n.t("app:composerControls.effectiveSandboxApprovalAndTimeoutValues"); },
   };
 
 /**

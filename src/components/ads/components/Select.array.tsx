@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useId, useState } from "react";
 import type * as React from "react";
 
@@ -106,20 +107,20 @@ export function SelectArray({
   sideOffset,
   zIndex,
   clearable = false,
-  clearLabel = "Clear selection",
+  clearLabel = i18n.t("ui:selectArray.clearSelection"),
   defaultValue,
-  emptyText = "No options available.",
+  emptyText = i18n.t("ui:selectArray.noOptionsAvailable"),
   error,
   label,
   loading = false,
   // Unicode ellipsis — this package's convention (`FilterBar` "Search…",
   // `AlertDialog` "Working…"), not three ASCII periods.
-  loadingText = "Loading options…",
+  loadingText = i18n.t("ui:selectArray.loadingOptions"),
   onValueChange,
   options,
   // A placeholder stands in for an *unset value*; "Select" just restated the
   // control's own name, so an empty select read like a button label.
-  placeholder = "Select an option",
+  placeholder = i18n.t("ui:selectArray.selectAnOption"),
   // Defaulted once here rather than letting `Trigger` and `Item` each fall
   // back on their own — one value reaches the trigger and every option row.
   size: resolvedSize = "md",
@@ -127,6 +128,7 @@ export function SelectArray({
   xstyle,
   ...props
 }: SelectProps) {
+  useTranslation();
   const generatedId = useId();
   const errorId = error ? `${generatedId}-error` : undefined;
   /*

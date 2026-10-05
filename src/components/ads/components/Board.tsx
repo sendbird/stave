@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type * as React from "react";
 
@@ -43,6 +44,7 @@ function BoardRoot({
   xstyle,
   ...props
 }: BoardProps) {
+  useTranslation();
   const { reduceMotion } = useAtelierMotion();
   const interactive = !readOnly && onCardMove != null;
   const boardRef = useRef<HTMLDivElement>(null);
@@ -153,7 +155,7 @@ function BoardRoot({
         ? target.cardIds.length
         : target.cardIds.length + 1;
       announce(
-        `Card moved to "${columnLabel(toColumnId)}", position ${index + 1} of ${total}.`,
+        i18n.t("ui:board.moved", { column: columnLabel(toColumnId), position: index + 1, total }),
       );
       if (options?.refocus) {
         // The card remounts under its new column; restore focus afterwards.
@@ -208,7 +210,7 @@ function BoardRoot({
       if (origin) {
         moveCard(cardId, origin.columnId, origin.index, { refocus: true });
       }
-      announce("Move cancelled.");
+      announce(i18n.t("ui:board.moveCancelled"));
     },
     [announce, moveCard],
   );

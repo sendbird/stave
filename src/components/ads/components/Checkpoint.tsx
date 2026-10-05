@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { Bookmark, RotateCcw } from "lucide-react";
 import * as React from "react";
@@ -69,13 +70,14 @@ export function Checkpoint({
   disabled,
   meta,
   onRestore,
-  restoreLabel = "Restore",
-  restoringLabel = "Restoring",
+  restoreLabel = i18n.t("ui:checkpoint.restore"),
+  restoringLabel = i18n.t("ui:checkpoint.restoring"),
   restoring = false,
-  title = "Checkpoint saved",
+  title = i18n.t("ui:checkpoint.checkpointSaved"),
   xstyle,
   ...props
 }: CheckpointProps) {
+  useTranslation();
   const titleId = `${React.useId()}title`;
   const theme = themeProps("checkpoint");
 

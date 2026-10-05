@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { RotateCcw } from "lucide-react";
 import type * as React from "react";
 
@@ -24,8 +25,9 @@ export type AgentRetryButtonProps = AgentRetryProps & {
 export function AgentRetryButton({
   insetFocus = false,
   onRetry,
-  retryLabel = "Retry",
+  retryLabel = i18n.t("ui:agentRetry.retry"),
 }: AgentRetryButtonProps) {
+  useTranslation();
   if (!onRetry) return null;
 
   return (

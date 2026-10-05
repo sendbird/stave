@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { X } from "lucide-react";
 import * as React from "react";
@@ -79,13 +80,14 @@ export function Badge({
   className,
   dot = false,
   onRemove,
-  removeLabel = "Remove",
+  removeLabel = i18n.t("ui:badge.remove"),
   size = "md",
   tone = "neutral",
   variant = "soft",
   xstyle,
   ...props
 }: BadgeProps) {
+  useTranslation();
   const theme = themeProps("badge", { size, tone, variant });
   return (
     <span

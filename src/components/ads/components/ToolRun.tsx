@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Wrench } from "lucide-react";
 import * as React from "react";
 
@@ -133,13 +134,13 @@ function ToolRunRoot({
   error,
   icon,
   input,
-  inputLabel = "Arguments",
+  inputLabel = i18n.t("ui:toolrun.arguments"),
   now,
   onOpenChange,
   onRetry,
   open: openProp,
   output,
-  outputLabel = "Output",
+  outputLabel = i18n.t("ui:toolrun.output"),
   retryLabel,
   settledAt,
   startedAt,
@@ -150,6 +151,7 @@ function ToolRunRoot({
   xstyle,
   ...props
 }: ToolRunProps) {
+  useTranslation();
   const live = isLiveRunState(status);
   const elapsedMs = useMeasuredElapsed(
     { durationMs, now, settledAt, startedAt },
@@ -191,7 +193,7 @@ function ToolRunRoot({
   const announcement = useTransitionAnnouncement(
     status,
     [
-      nodeText(title) ?? nodeText(tool) ?? "Tool run",
+      nodeText(title) ?? nodeText(tool) ?? i18n.t("ui:toolRun.toolRun"),
       agentStateLabel[status],
     ].join(" "),
   );
@@ -278,7 +280,7 @@ function ToolRunRoot({
             </ToolRunSection>
           ) : null}
           {error != null ? (
-            <ToolRunSection danger label="Error" open={open}>
+            <ToolRunSection danger label={i18n.t("ui:toolrun.error")} open={open}>
               {error}
             </ToolRunSection>
           ) : null}

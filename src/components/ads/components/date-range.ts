@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type * as React from "react";
 
 export type DateRangeValue = {
@@ -44,17 +45,17 @@ export function createDateRangePresets(
 
   return [
     {
-      label: "Today",
+      label: i18n.t("ui:dateRange.today"),
       range: { end: toDateKey(today), start: toDateKey(today) },
       value: "today",
     },
     {
-      label: "Last 7 days",
+      label: i18n.t("ui:dateRange.last7Days"),
       range: { end: toDateKey(today), start: toDateKey(weekStart) },
       value: "last-7-days",
     },
     {
-      label: "This month",
+      label: i18n.t("ui:dateRange.thisMonth"),
       range: { end: toDateKey(today), start: toDateKey(monthStart) },
       value: "this-month",
     },

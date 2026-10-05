@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { X } from "lucide-react";
 import * as React from "react";
 
@@ -47,6 +48,7 @@ const DialogDensityContext = React.createContext<OverlayDensity>("regular");
 
 /** Base UI state root for the composed Dialog API. */
 export function DialogRoot(props: DialogRootCompoundProps) {
+  useTranslation();
   return <HeadlessDialogRoot {...props} />;
 }
 
@@ -56,6 +58,7 @@ export type DialogTriggerProps = React.ComponentProps<
 
 /** Trigger that preserves Base UI focus management and restore behavior. */
 export function DialogTrigger(props: DialogTriggerProps) {
+  useTranslation();
   return <HeadlessDialogTrigger {...props} />;
 }
 
@@ -64,6 +67,7 @@ export type DialogPortalProps = React.ComponentProps<
 >;
 
 export function DialogPortal({ children, ...props }: DialogPortalProps) {
+  useTranslation();
   return (
     <HeadlessDialogPortal {...props}>
       <PortalProductThemeScope>{children}</PortalProductThemeScope>
@@ -82,6 +86,7 @@ export function DialogBackdrop({
   xstyle,
   ...props
 }: DialogBackdropProps) {
+  useTranslation();
   // Portalled beside the popup, so it carries the brand for the same reason.
   const portalTheme = usePortalProductThemeProps();
   return (
@@ -121,6 +126,7 @@ export function DialogPopup({
   xstyle,
   ...props
 }: DialogPopupProps) {
+  useTranslation();
   const theme = themeProps("dialog-popup", { density, size: width });
   // The popup leaves its provider's DOM subtree through the portal, so it
   // carries the brand with it. `@scope` is a fact about the DOM tree and a
@@ -160,6 +166,7 @@ export function DialogHeader({
   xstyle,
   ...props
 }: DialogHeaderProps) {
+  useTranslation();
   return (
     <div
       {...props}
@@ -177,6 +184,7 @@ export function DialogHeaderContent({
   xstyle,
   ...props
 }: DialogHeaderContentProps) {
+  useTranslation();
   const density = React.useContext(DialogDensityContext);
   return (
     <div
@@ -196,6 +204,7 @@ export type DialogTitleProps = React.ComponentProps<
   XstyleProp;
 
 export function DialogTitle({ className, xstyle, ...props }: DialogTitleProps) {
+  useTranslation();
   return (
     <HeadlessDialogTitle
       {...props}
@@ -215,6 +224,7 @@ export function DialogDescription({
   xstyle,
   ...props
 }: DialogDescriptionProps) {
+  useTranslation();
   return (
     <HeadlessDialogDescription
       {...props}
@@ -231,6 +241,7 @@ export type DialogBodyProps = React.ComponentProps<"div"> & XstyleProp;
 
 /** The only scroll container, so the header and footer remain reachable. */
 export function DialogBody({ className, xstyle, ...props }: DialogBodyProps) {
+  useTranslation();
   return (
     <div
       {...props}
@@ -247,6 +258,7 @@ export function DialogFooter({
   xstyle,
   ...props
 }: DialogFooterProps) {
+  useTranslation();
   return (
     <div
       {...props}
@@ -260,6 +272,7 @@ export type DialogCloseProps = React.ComponentProps<typeof HeadlessDialogClose>;
 
 /** Unstyled dismiss part for composing footer buttons and custom controls. */
 export function DialogClose(props: DialogCloseProps) {
+  useTranslation();
   return <HeadlessDialogClose {...props} />;
 }
 
@@ -273,13 +286,14 @@ export type DialogCloseButtonProps = Omit<
 
 /** Standard 32px quiet close control shared by Dialog convenience and parts. */
 export function DialogCloseButton({
-  "aria-label": ariaLabel = "Close",
+  "aria-label": ariaLabel = i18n.t("ui:dialog.close"),
   children,
   className,
   style,
   xstyle,
   ...props
 }: DialogCloseButtonProps) {
+  useTranslation();
   return (
     <HeadlessDialogClose
       {...props}
@@ -349,7 +363,7 @@ export type DialogProps = Omit<DialogRootProps, "children"> & {
 
 function DialogConvenience({
   children,
-  closeLabel = "Close",
+  closeLabel = i18n.t("ui:dialog.close"),
   density = "regular",
   description,
   footer,
@@ -360,6 +374,7 @@ function DialogConvenience({
   xstyle,
   ...props
 }: DialogProps) {
+  useTranslation();
   const triggerElement =
     trigger === undefined ? null : React.isValidElement(trigger) &&
       trigger.type === Button ? (

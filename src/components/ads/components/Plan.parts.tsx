@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
@@ -33,11 +34,11 @@ export type PlanStepStatus =
   | "failed";
 
 export const planStatusLabel: Record<PlanStepStatus, string> = {
-  approval: "Awaiting approval",
-  done: "Done",
-  failed: "Failed",
-  pending: "Pending",
-  running: "Running",
+  get approval() { return i18n.t("ui:planParts.awaitingApproval"); },
+  get done() { return i18n.t("ui:planParts.done"); },
+  get failed() { return i18n.t("ui:planParts.failed"); },
+  get pending() { return i18n.t("ui:planParts.pending"); },
+  get running() { return i18n.t("ui:planParts.running"); },
 };
 
 export type PlanStepItem = {
@@ -93,6 +94,7 @@ export function PlanStatusMark({
   status,
   xstyle,
 }: { status: PlanStepStatus } & XstyleProp) {
+  useTranslation();
   if (status === "running") {
     return (
       <span
@@ -102,7 +104,7 @@ export function PlanStatusMark({
           themeTargetClassName("plan-status-mark"),
         )}
       >
-        <Loader aria-hidden label="Running" size="xs" tone="neutral" />
+        <Loader aria-hidden label={i18n.t("ui:planParts.running")} size="xs" tone="neutral" />
       </span>
     );
   }
@@ -237,7 +239,7 @@ export function flattenPlan(
         step.label ??
         (typeof step.title === "string"
           ? step.title
-          : `Step ${here.join(".")}`),
+          : i18n.t("ui:planParts.stepAt", { position: here.join(".") })),
       status: step.status ?? "pending",
     });
     if (step.steps && step.steps.length > 0) {
@@ -291,22 +293,22 @@ export function describePlanDelta(
 
   for (const step of moved.slice(0, 2)) {
     sentences.push(
-      `${step.name}: ${planStatusLabel[step.status].toLowerCase()}`,
+      i18n.t("ui:planParts.stepState", { name: step.name, status: planStatusLabel[step.status].toLowerCase() }),
     );
   }
   if (moved.length > 2) {
-    sentences.push(`and ${moved.length - 2} more steps changed`);
+    sentences.push(i18n.t("ui:planParts.moreChanged", { count: moved.length - 2 }));
   }
   if (added > 0) {
-    sentences.push(added === 1 ? "1 step added" : `${added} steps added`);
+    sentences.push(i18n.t("ui:planParts.stepsAdded", { count: added }));
   }
   if (removed > 0) {
     sentences.push(
-      removed === 1 ? "1 step removed" : `${removed} steps removed`,
+      i18n.t("ui:planParts.stepsRemoved", { count: removed }),
     );
   }
   if (total > 0) {
-    sentences.push(`${done} of ${total} complete`);
+    sentences.push(i18n.t("ui:planParts.completeCount", { done, total }));
   }
 
   return `${sentences.join(". ")}.`;

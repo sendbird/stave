@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
@@ -28,11 +29,11 @@ export type StateIconProps = Omit<React.ComponentProps<"span">, "children"> & {
 } & XstyleProp;
 
 const priorityText: Record<Priority, string> = {
-  high: "High priority",
-  low: "Low priority",
-  medium: "Medium priority",
-  none: "No priority",
-  urgent: "Urgent priority",
+  get high() { return i18n.t("ui:workflowicon.highPriority"); },
+  get low() { return i18n.t("ui:workflowicon.lowPriority"); },
+  get medium() { return i18n.t("ui:workflowicon.mediumPriority"); },
+  get none() { return i18n.t("ui:workflowicon.noPriority"); },
+  get urgent() { return i18n.t("ui:workflowicon.urgentPriority"); },
 };
 
 /** Bars filled per priority level (ascending: short → tall). */
@@ -61,6 +62,7 @@ export function PriorityIcon({
   xstyle,
   ...props
 }: PriorityIconProps) {
+  useTranslation();
   return (
     <span
       {...props}
@@ -125,12 +127,12 @@ export function PriorityIcon({
 }
 
 const stateText: Record<WorkflowState, string> = {
-  backlog: "Backlog",
-  canceled: "Canceled",
-  done: "Done",
-  inProgress: "In Progress",
-  inReview: "In Review",
-  todo: "Todo",
+  get backlog() { return i18n.t("ui:workflowicon.backlog"); },
+  get canceled() { return i18n.t("ui:workflowicon.canceled"); },
+  get done() { return i18n.t("ui:workflowicon.done"); },
+  get inProgress() { return i18n.t("ui:workflowicon.inProgress"); },
+  get inReview() { return i18n.t("ui:workflowicon.inReview"); },
+  get todo() { return i18n.t("ui:workflowicon.todo"); },
 };
 
 const STATE_BOX = 16;
@@ -181,6 +183,7 @@ export function StateIcon({
   xstyle,
   ...props
 }: StateIconProps) {
+  useTranslation();
   const pieFraction =
     state === "inReview"
       ? 0.75

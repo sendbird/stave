@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { sheetLayout } from "./sheet-layout.styles";
 import { transition } from "../ads/recipes/transition";
 import { overlayLayout } from "./overlay-layout.styles";
@@ -15,22 +16,27 @@ import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
+  useTranslation();
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;
 }
 
 function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {
+  useTranslation();
   return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />;
 }
 
 function SheetClose({ ...props }: SheetPrimitive.Close.Props) {
+  useTranslation();
   return <SheetPrimitive.Close data-slot="sheet-close" {...props} />;
 }
 
 function SheetPortal({ ...props }: SheetPrimitive.Portal.Props) {
+  useTranslation();
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />;
 }
 
 function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
+  useTranslation();
   return (
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
@@ -60,6 +66,7 @@ function SheetContent({
   showCloseButton?: boolean;
   xstyle?: StyleXValue;
 }) {
+  useTranslation();
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -96,7 +103,7 @@ function SheetContent({
             }
           >
             <XIcon />
-            <VisuallyHidden>Close</VisuallyHidden>
+            <VisuallyHidden>{i18n.t("ui:sheet.close")}</VisuallyHidden>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>
@@ -109,6 +116,7 @@ function SheetHeader({
   xstyle,
   ...props
 }: React.ComponentProps<"div"> & { xstyle?: StyleXValue }) {
+  useTranslation();
   return (
     <div
       data-slot="sheet-header"
@@ -123,6 +131,7 @@ function SheetFooter({
   xstyle,
   ...props
 }: React.ComponentProps<"div"> & { xstyle?: StyleXValue }) {
+  useTranslation();
   return (
     <div
       data-slot="sheet-footer"
@@ -133,6 +142,7 @@ function SheetFooter({
 }
 
 function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
+  useTranslation();
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
@@ -146,6 +156,7 @@ function SheetDescription({
   className,
   ...props
 }: SheetPrimitive.Description.Props) {
+  useTranslation();
   return (
     <SheetPrimitive.Description
       data-slot="sheet-description"

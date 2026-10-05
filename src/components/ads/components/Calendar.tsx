@@ -1,3 +1,5 @@
+import { formatDate } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import type * as React from "react";
@@ -66,7 +68,7 @@ type CalendarCell = {
   key: string;
 };
 
-const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 
 export function Calendar({
   className,
@@ -87,6 +89,7 @@ export function Calendar({
   xstyle,
   ...props
 }: CalendarProps) {
+  useTranslation();
   const titleId = useId();
   // The visible month is navigable (prev/next). Initialized from `month` (or the
   // selected value, else today); a controlled `month` prop keeps it in sync.
@@ -212,7 +215,7 @@ export function Calendar({
       <div className={sx(styles.header)}>
         <div className={sx(styles.nav)}>
           <button
-            aria-label="Previous month"
+            aria-label={i18n.t("ui:calendar.previousMonth")}
             className={cx(
               sx(styles.navButton, focusRing.ring),
               themeTargetClassName("calendar-nav"),
@@ -231,7 +234,7 @@ export function Calendar({
             {label ?? title}
           </div>
           <button
-            aria-label="Next month"
+            aria-label={i18n.t("ui:calendar.nextMonth")}
             className={cx(
               sx(styles.navButton, focusRing.ring),
               themeTargetClassName("calendar-nav"),
@@ -248,13 +251,13 @@ export function Calendar({
             className={sx(styles.rangeMeta)}
             {...themeSlotProps("calendar", "range-meta")}
           >
-            {rangeValue.start ?? "Start"} - {rangeValue.end ?? "End"}
+            {rangeValue.start ?? i18n.t("ui:calendar.start")} - {rangeValue.end ?? i18n.t("ui:calendar.end")}
           </div>
         ) : null}
       </div>
       {presets.length ? (
         <div
-          aria-label="Date range presets"
+          aria-label={i18n.t("ui:calendar.dateRangePresets")}
           className={sx(styles.presets)}
           {...themeSlotProps("calendar", "presets")}
         >
@@ -324,6 +327,8 @@ function CalendarGrid({
   value?: string;
   visibleMonth: Date;
 }) {
+  useTranslation();
+  const weekdayLabels = Array.from({ length: 7 }, (_, day) => formatDate(new Date(2024, 0, 7 + day), { weekday: "short" }));
   return (
     <div
       aria-label={formatMonth(visibleMonth)}
@@ -353,7 +358,7 @@ function CalendarGrid({
             {...themeProps("calendar-day", { density })}
             aria-current={today ? "date" : undefined}
             // The day's events are named here, not left to the marks alone.
-            aria-label={`${cell.date.toLocaleDateString("en-US", {
+            aria-label={`${formatDate(cell.date, {
               day: "numeric",
               month: "long",
               year: "numeric",
@@ -437,7 +442,7 @@ function addMonths(date: Date, amount: number) {
 }
 
 function formatMonth(date: Date) {
-  return date.toLocaleDateString("en-US", {
+  return formatDate(date, {
     month: "long",
     year: "numeric",
   });
@@ -447,10 +452,10 @@ function formatMonthRange(months: Date[]) {
   const first = months[0];
   const last = months[months.length - 1];
   if (!first || !last || first.getTime() === last.getTime()) {
-    return first ? formatMonth(first) : "Calendar";
+    return first ? formatMonth(first) : i18n.t("ui:calendar.calendar");
   }
   if (first.getFullYear() === last.getFullYear()) {
-    return `${first.toLocaleDateString("en-US", { month: "long" })} – ${formatMonth(last)}`;
+    return `${formatDate(first, { month: "long" })} – ${formatMonth(last)}`;
   }
   return `${formatMonth(first)} – ${formatMonth(last)}`;
 }

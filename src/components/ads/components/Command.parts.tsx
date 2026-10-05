@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { themeSlotProps } from "../theming/theme-props";
 import { sx } from "../utils/stylex";
 import { styles } from "./Command.styles";
@@ -9,6 +10,7 @@ import { Kbd } from "./Kbd";
  * `CommandDialog` only has to choose between this and the caller's override.
  */
 export function CommandFooterHint() {
+  useTranslation();
   return (
     <div
       aria-hidden
@@ -21,22 +23,19 @@ export function CommandFooterHint() {
       >
         <Kbd size="sm">↑</Kbd>
         <Kbd size="sm">↓</Kbd>
-        navigate
-      </span>
+        {i18n.t("ui:commandParts.navigate")}</span>
       <span
         {...themeSlotProps("command-dialog", "hint")}
         className={sx(styles.hint)}
       >
         <Kbd size="sm">↵</Kbd>
-        select
-      </span>
+        {i18n.t("ui:commandParts.select")}</span>
       <span
         {...themeSlotProps("command-dialog", "hint")}
         className={sx(styles.hint)}
       >
-        <Kbd size="sm">esc</Kbd>
-        back / close
-      </span>
+        <Kbd size="sm">{/* i18n-ignore: keyboard key name */}esc</Kbd>
+        {i18n.t("ui:commandParts.backClose")}</span>
     </div>
   );
 }

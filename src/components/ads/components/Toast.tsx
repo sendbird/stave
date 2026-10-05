@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import type * as React from "react";
 
@@ -31,16 +32,17 @@ export type ToastProps = Omit<ToastProviderProps, "children"> & {
  */
 export function Toast({
   actionLabel,
-  description = "Dataset catalog is now in sync.",
+  description = i18n.t("ui:toast.datasetCatalogIsNowInSync"),
   limit = 3,
   onAction,
   position = "bottom-right",
   priority = "low",
   timeout = 5000,
-  title = "Records updated",
+  title = i18n.t("ui:toast.recordsUpdated"),
   tone = "success",
-  trigger = "Show toast",
+  trigger = i18n.t("ui:toast.showToast"),
 }: ToastProps) {
+  useTranslation();
   return (
     <ToastHost limit={limit} position={position} timeout={timeout}>
       <ToastButton
@@ -70,6 +72,7 @@ function ToastButton({
   tone,
   trigger,
 }: ToastButtonProps) {
+  useTranslation();
   const toast = useToast();
   const [count, setCount] = useState(0);
 

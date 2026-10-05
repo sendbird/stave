@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as React from "react";
@@ -64,7 +65,7 @@ function clamp(value: number, min: number, max: number) {
  * restoration; Lightbox adds gallery navigation and optional image zoom/pan.
  */
 export function Lightbox({
-  className, title, closeLabel = "Close lightbox", testId,
+  className, title, closeLabel = i18n.t("ui:lightbox.closeLightbox"), testId,
   hasZoom = false,
   index,
   media,
@@ -72,6 +73,7 @@ export function Lightbox({
   onOpenChange,
   open,
 }: LightboxProps) {
+  useTranslation();
   const items: readonly LightboxMedia[] = Array.isArray(media)
     ? media
     : [media as LightboxMedia];
@@ -207,7 +209,7 @@ export function Lightbox({
           <header className={sx(styles.header)}>
             <div className={sx(styles.headingGroup)}>
               <DialogTitle className={sx(styles.title)}>
-                {title || current?.alt || "Media viewer"}
+                {title || current?.alt || i18n.t("ui:lightbox.mediaViewer")}
               </DialogTitle>
               {gallery ? (
                 <span className={sx(styles.counter)}>
@@ -217,9 +219,9 @@ export function Lightbox({
             </div>
             <div className={sx(styles.headerActions)}>
               {canZoom ? (
-                <div aria-label="Zoom controls" className={sx(styles.toolbar)}>
+                <div aria-label={i18n.t("ui:lightbox.zoomControls")} className={sx(styles.toolbar)}>
                   <Button
-                    aria-label="Zoom out"
+                    aria-label={i18n.t("ui:lightbox.zoomOut")}
                     disabled={view.scale <= MIN_SCALE}
                     onClick={() => setScale(view.scale - SCALE_STEP)}
                     size="iconSm"
@@ -228,7 +230,7 @@ export function Lightbox({
                     <ZoomOut aria-hidden />
                   </Button>
                   <Button
-                    aria-label="Reset zoom"
+                    aria-label={i18n.t("ui:lightbox.resetZoom")}
                     className={sx(styles.zoomReadout)}
                     disabled={view.scale === MIN_SCALE}
                     onClick={resetView}
@@ -238,7 +240,7 @@ export function Lightbox({
                     {Math.round(view.scale * 100)}%
                   </Button>
                   <Button
-                    aria-label="Zoom in"
+                    aria-label={i18n.t("ui:lightbox.zoomIn")}
                     disabled={view.scale >= MAX_SCALE}
                     onClick={() => setScale(view.scale + SCALE_STEP)}
                     size="iconSm"
@@ -310,14 +312,14 @@ export function Lightbox({
                 )}
               </div>
             ) : (
-              <p className={sx(styles.empty)}>No media to display.</p>
+              <p className={sx(styles.empty)}>{i18n.t("ui:lightbox.noMediaToDisplay")}</p>
             )}
 
             {gallery ? (
               <>
                 <span className={sx(styles.previous)}>
                   <Button
-                    aria-label="Previous media"
+                    aria-label={i18n.t("ui:lightbox.previousMedia")}
                     disabled={activeIndex === 0}
                     onClick={() => setActiveIndex(activeIndex - 1)}
                     size="iconLg"
@@ -328,7 +330,7 @@ export function Lightbox({
                 </span>
                 <span className={sx(styles.next)}>
                   <Button
-                    aria-label="Next media"
+                    aria-label={i18n.t("ui:lightbox.nextMedia")}
                     disabled={activeIndex === lastIndex}
                     onClick={() => setActiveIndex(activeIndex + 1)}
                     size="iconLg"
@@ -348,8 +350,8 @@ export function Lightbox({
           ) : null}
           <VisuallyHidden aria-live="polite">
             {current
-              ? `Showing ${current.alt}${gallery ? `, item ${activeIndex + 1} of ${items.length}` : ""}`
-              : "No media to display"}
+              ? i18n.t("ui:lightbox.showingMedia", { alt: current.alt, position: gallery ? i18n.t("ui:lightbox.galleryPosition", { current: activeIndex + 1, total: items.length }) : "" })
+              : i18n.t("ui:lightbox.noMediaToDisplay")}
           </VisuallyHidden>
         </DialogPopup>
       </DialogPortal>

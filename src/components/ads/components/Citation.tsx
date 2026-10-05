@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
@@ -75,12 +76,13 @@ function CitationMark({
   excerpt,
   href,
   index,
-  label = "Source",
+  label = i18n.t("ui:citation.source"),
   source,
   title,
   xstyle,
   ...props
 }: CitationProps) {
+  useTranslation();
   const accessibleName =
     props["aria-label"] ??
     (typeof title === "string"
@@ -171,8 +173,7 @@ function CitationMark({
             ) : null}
             {href ? (
               <LinkChip className={sx(styles.popupLink)} href={href}>
-                Open source
-              </LinkChip>
+                {i18n.t("ui:citation.openSource")}</LinkChip>
             ) : null}
           </PopoverPopup>
         </PopoverPositioner>

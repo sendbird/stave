@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { type HTMLMotionProps, m } from "motion/react";
 import { useRef, useState } from "react";
 import type * as React from "react";
@@ -41,12 +42,12 @@ function handleCardKeyDown(
     if (grabbed) {
       board.setGrabbedCard(
         null,
-        `Card dropped in "${board.columnLabel(from.id)}" at position ${fromIndex + 1} of ${from.cardIds.length}.`,
+        i18n.t("ui:board.dropped", { column: board.columnLabel(from.id), position: fromIndex + 1, total: from.cardIds.length }),
       );
     } else {
       board.setGrabbedCard(
         id,
-        `Card picked up from "${board.columnLabel(from.id)}", position ${fromIndex + 1} of ${from.cardIds.length}. Use arrow keys to move, Space to drop, Escape to cancel.`,
+        i18n.t("ui:board.pickedUp", { column: board.columnLabel(from.id), position: fromIndex + 1, total: from.cardIds.length }),
       );
     }
     return;
@@ -144,7 +145,7 @@ export function BoardCard({
   return (
     <m.div
       {...props}
-      aria-roledescription={interactive ? "draggable card" : undefined}
+      aria-roledescription={interactive ? i18n.t("ui:boardCard.draggableCard") : undefined}
       className={cx(
         sx(
           styles.card,

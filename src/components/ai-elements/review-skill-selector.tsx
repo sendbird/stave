@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import * as stylex from "@stylexjs/stylex";
@@ -28,6 +29,7 @@ export function ReviewSkillSelector(args: {
   options: readonly ReviewSkillOption[];
   onValueChange: (value: string) => void;
 }) {
+  useTranslation();
   const [open, setOpen] = useState(false);
   const selected = args.options.find((option) => option.value === args.value);
 
@@ -39,13 +41,13 @@ export function ReviewSkillSelector(args: {
             variant="outline"
             size="sm"
             fullWidth
-            aria-label={args["aria-labelledby"] ? undefined : "Review skill"}
+            aria-label={args["aria-labelledby"] ? undefined : i18n.t("ui:reviewSkillSelector.reviewSkill")}
             aria-labelledby={args["aria-labelledby"]}
             xstyle={styles.trigger}
           />
         }
       >
-        <span className={sx(styles.label)}>{selected?.label ?? "No skill"}</span>
+        <span className={sx(styles.label)}>{selected?.label ?? i18n.t("ui:reviewSkillSelector.noSkill")}</span>
         <ChevronDown aria-hidden="true" className={sx(styles.chevron)} />
       </PopoverTrigger>
       <PopoverContent align="start" density="flush" xstyle={styles.popup}>
@@ -53,11 +55,11 @@ export function ReviewSkillSelector(args: {
           <Command>
             <CommandInput
               autoFocus
-              aria-label="Search review skills"
-              placeholder="Search skills…"
+              aria-label={i18n.t("ui:reviewSkillSelector.searchReviewSkills")}
+              placeholder={i18n.t("ui:reviewSkillSelector.searchSkills")}
             />
             <CommandList className={sx(styles.list)}>
-              <CommandEmpty>No skills found.</CommandEmpty>
+              <CommandEmpty>{i18n.t("ui:reviewSkillSelector.noSkillsFound")}</CommandEmpty>
               {args.options.map((option) => (
                 <CommandItem
                   key={option.value}

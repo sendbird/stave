@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { isSuccessfulProviderTurnStopReason } from "@/lib/providers/turn-stop-reason";
 /**
  * Notification input builders for provider turn events.
@@ -59,7 +60,7 @@ function resolveTaskTitleFromSession(args: {
 }) {
   return (
     args.session.tasks.find((task) => task.id === args.taskId)?.title.trim() ||
-    "Untitled Task"
+    i18n.t("notifications:appNotificationBuilders.untitledTask")
   );
 }
 
@@ -159,7 +160,7 @@ export function buildTaskTurnCompletedNotificationInput(args: {
     id: crypto.randomUUID(),
     kind: "task.turn_completed",
     title: taskTitle,
-    body: `Latest run finished in ${workspaceName}.${reviewFacts.length > 0 ? ` ${reviewFacts.join(" · ")}.` : ""}`,
+    body: i18n.t("notifications:appNotificationBuilders.runFinished", { workspaceName, reviewFacts: reviewFacts.length > 0 ? ` ${reviewFacts.join(" · ")}.` : "" }),
     repositoryPath: repository?.repositoryPath ?? null,
     repositoryName: repository?.repositoryName ?? null,
     workspaceId: args.workspaceId,
@@ -241,7 +242,7 @@ export function buildTaskTurnFailedNotificationInput(args: {
     id: crypto.randomUUID(),
     kind: "task.turn_failed",
     title: taskTitle,
-    body: `Latest run failed in ${workspaceName}.`,
+    body: i18n.t("notifications:appNotificationBuilders.runFailed", { workspaceName }),
     repositoryPath: repository?.repositoryPath ?? null,
     repositoryName: repository?.repositoryName ?? null,
     workspaceId: args.workspaceId,
@@ -252,7 +253,7 @@ export function buildTaskTurnFailedNotificationInput(args: {
     providerId: args.provider,
     action: null,
     payload: {
-      message: errorEvent?.message ?? "The provider stopped before completing.",
+      message: errorEvent?.message ?? i18n.t("notifications:appNotificationBuilders.theProviderStoppedBeforeCompleting"),
       resultEvidence: captureResultEvidence(args.session.messagesByTask[args.taskId] ?? [], args.turnId),
     },
     dedupeKey: `task.turn_failed:${args.turnId}`,
@@ -380,9 +381,9 @@ function formatUserInputQuestionSummary(
     return questionText;
   }
   if (event.questions.length > 1) {
-    return `${event.questions.length} questions`;
+    return i18n.t("notifications:appNotificationBuilders.questions", { count: event.questions.length });
   }
-  return "User input requested";
+  return i18n.t("notifications:appNotificationBuilders.userInputRequested");
 }
 
 export function buildUserInputNotificationInputs(args: {
@@ -474,7 +475,7 @@ export function showNotificationToast(
     options.onOpen && notification.taskId?.trim()
       ? {
           action: {
-            label: "Open task",
+            label: i18n.t("notifications:appNotificationBuilders.openTask"),
             onClick: options.onOpen,
           },
         }

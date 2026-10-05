@@ -1,3 +1,5 @@
+import { formatDate, formatRelativeTime } from "@/i18n/format";
+import { i18n } from "@/i18n/runtime";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { resolveProviderDisplayId } from "@/lib/providers/model-catalog";
 import type {
@@ -10,12 +12,10 @@ import type {
 export type TaskFilter = "active" | "archived" | "all";
 
 export const MANAGED_TASK_STOP_NOTICE =
+  // i18n-ignore: canonical transcript marker; renderer translates its presentation.
   "Managed run stopped from Stave before completion.";
 
-const relativeTimeFormatter =
-  typeof Intl !== "undefined"
-    ? new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
-    : null;
+
 const AUTO_TASK_TITLE_MAX_LENGTH = 80;
 const AUTO_TASK_TITLE_MAX_WORDS = 12;
 
@@ -468,40 +468,14 @@ export function formatTaskUpdatedAt(args: {
   const diffSeconds = Math.round(diffMs / 1000);
   const absSeconds = Math.abs(diffSeconds);
 
-  if (absSeconds < 45) {
-    return "just now";
-  }
-
-  if (absSeconds < 60 * 60) {
-    return (
-      relativeTimeFormatter?.format(Math.round(diffSeconds / 60), "minute") ??
-      `${Math.round(absSeconds / 60)} min ago`
-    );
-  }
-
-  if (absSeconds < 60 * 60 * 24) {
-    return (
-      relativeTimeFormatter?.format(
-        Math.round(diffSeconds / (60 * 60)),
-        "hour",
-      ) ?? `${Math.round(absSeconds / (60 * 60))} hr ago`
-    );
-  }
-
-  if (absSeconds < 60 * 60 * 24 * 7) {
-    return (
-      relativeTimeFormatter?.format(
-        Math.round(diffSeconds / (60 * 60 * 24)),
-        "day",
-      ) ?? `${Math.round(absSeconds / (60 * 60 * 24))} days ago`
-    );
-  }
+  if (absSeconds < 45) return i18n.t("app:tasks.justNow");
+  if (absSeconds < 60 * 60 * 24 * 7) return formatRelativeTime(parsed, now);
 
   const date = new Date(parsed);
   const currentYear = new Date(now).getFullYear();
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDate(date, {
     month: "short",
     day: "numeric",
     ...(date.getFullYear() === currentYear ? {} : { year: "numeric" }),
-  }).format(date);
+  });
 }

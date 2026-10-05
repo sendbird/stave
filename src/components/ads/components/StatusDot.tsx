@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
@@ -70,11 +71,11 @@ export const statusDotWorkState: Record<StatusDotStatus, WorkState> = {
 };
 
 const statusText: Record<StatusDotStatus, string> = {
-  canceled: WORK_STATE.stopped.label,
-  error: WORK_STATE.failed.label,
-  queued: WORK_STATE.queued.label,
-  ready: WORK_STATE.ready.label,
-  running: WORK_STATE.working.label,
+get   canceled() { return WORK_STATE.stopped.label; },
+get   error() { return WORK_STATE.failed.label; },
+get   queued() { return WORK_STATE.queued.label; },
+get   ready() { return WORK_STATE.ready.label; },
+get   running() { return WORK_STATE.working.label; },
 };
 
 /**
@@ -101,6 +102,7 @@ export function StatusDot({
   xstyle,
   ...props
 }: StatusDotProps) {
+  useTranslation();
   const ringTone: StatusDotTone | undefined =
     variant === "ring"
       ? (tone ?? (status ? statusRingTone[status] : undefined))

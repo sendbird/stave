@@ -177,6 +177,17 @@ export function checkNamespace({ namespace, sourceLocale, catalogs, terms = [], 
           add(locale, `${groupKey}_${category}`, `plural form "${category}" is never used in ${locale}`);
         }
         if (!value.trim()) add(locale, `${groupKey}_${category}`, "empty translation");
+        const reference = sourceGroup.forms.get(category) ?? sourceGroup.forms.get("other") ?? "";
+        if (!sameSet(interpolationNames(reference), interpolationNames(value))) {
+          add(locale, `${groupKey}_${category}`, "interpolation mismatch in plural form");
+        }
+        if (!sameSet(tagNames(reference), tagNames(value))) {
+          add(locale, `${groupKey}_${category}`, "markup mismatch in plural form");
+        }
+        const nativeScript = NATIVE_SCRIPT[locale];
+        if (nativeScript && value && !allowedUntranslated.has(`${namespace}:${groupKey}`) && needsTranslation(reference, terms) && !nativeScript.test(value)) {
+          add(locale, `${groupKey}_${category}`, `not translated: "${value}"`);
+        }
       }
       const sourceVars = interpolationNames(sourceGroup.forms.get("other") ?? "");
       const otherValue = group.forms.get("other") ?? "";

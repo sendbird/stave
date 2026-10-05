@@ -1,106 +1,90 @@
-/**
- * Completion phrases – playful "done" messages shown on the CoT trigger
- * when thinking finishes. Inspired by Claude Code's SPINNER_VERBS but
- * in reverse: these announce that the work is *complete*.
- *
- * Mix of gaming references, movie/TV quotes, dev humour, memes, and
- * classic phrases – all short enough to fit a single-line trigger.
- */
+import { i18n } from "@/i18n/runtime";
+
+/** Localized status phrases; selection is stable across language changes. */
 
 const COMPLETION_PHRASES = [
-  // ── Gaming ────────────────────────────────────────────────────────
-  "Job's Done",                       // Warcraft peon
-  "GG",                               // universal gaming
-  "GG WP",                            // good game well played
-  "Victory Royale",                   // Fortnite
-  "Flawless Victory",                 // Mortal Kombat
-  "K.O.!",                            // Street Fighter
-  "Quest Complete",                   // RPGs
-  "Achievement Unlocked",             // Xbox
-  "Level Up!",                        // RPGs
-  "All Your Base Are Belong To Us",   // Zero Wing
-  "It's Super Effective!",            // Pokémon
-  "Praise The Sun!",                  // Dark Souls
-  "Now You're Thinking With Portals", // Portal
-  "Still Alive",                      // Portal end credits
-  "EZ Clap",                          // Twitch
-  "gg no re",                         // gaming
-  "Another Happy Landing",            // Star Wars Battlefront / Obi-Wan
-
-  // ── Movies & TV ───────────────────────────────────────────────────
-  "It Is Done",                       // epic villain energy
-  "That's All Folks!",                // Looney Tunes
-  "I Have Spoken",                    // The Mandalorian
-  "This Is The Way",                  // The Mandalorian
-  "Hasta La Vista, Baby",             // Terminator 2
-  "It's Over. It's Done.",            // LOTR – Sam
-  "Perfectly Balanced",               // Thanos
-  "You're Welcome",                   // Moana – Maui
-  "There And Back Again",             // The Hobbit
-  "Clever Girl",                      // Jurassic Park
-  "Great Scott!",                     // Back to the Future
-  "So Long, And Thanks For All The Fish", // Hitchhiker's Guide
-  "Don't Panic",                      // Hitchhiker's Guide
-  "42",                               // The Answer
-  "Make It So",                       // Star Trek – Picard
-  "Engage!",                          // Star Trek – Picard
-  "Live Long And Prosper",            // Star Trek – Spock
-  "May The Force Be With You",        // Star Wars
-  "The Eagle Has Landed",             // Apollo 11
-  "To Infinity And Beyond!",          // Buzz Lightyear
-  "Excelsior!",                       // Stan Lee
-  "Groovy",                           // Evil Dead
-  "That'll Do, Pig",                  // Babe
-  "Hakuna Matata",                    // The Lion King
-  "Oh Yeah, It's All Coming Together", // Emperor's New Groove
-  "I Am Speed",                       // Cars
-  "Hail To The King, Baby",           // Evil Dead
-  "Houston, We Have No Problem",      // Apollo 13 inverted
-
-  // ── Dev humour ────────────────────────────────────────────────────
-  "200 OK",                           // HTTP
-  "Shipped It!",                      // deploy culture
-  "Works On My Machine™",             // classic
-  "git push --force",                 // YOLO
-  "rm -rf doubts",                    // shell humour
-  "sudo done",                        // elevated completion
-  "Compiled On First Try",            // unicorn event
-  "No Semicolons Were Harmed",        // JS dev
-  "Zero Warnings, Zero Regrets",      // compiler nirvana
-  "All Tests Passing ✓",              // CI green
-  "Deployed And Forgotten™",          // fire and forget
-  "No Bugs™",                         // warranty void
-  "Task Failed Successfully",         // Windows meme
-  "// TODO: celebrate",               // code comment
-
-  // ── Memes & Internet ─────────────────────────────────────────────
-  "Nailed It",                        // universal
-  "Chef's Kiss",                      // perfection
-  "Mic Drop",                         // done with flair
-  "Big Brain Time",                   // meme
-  "Stonks",                           // meme man
-  "Outstanding Move",                 // chess meme
-  "It Ain't Much, But It's Honest Work", // farmer meme
-  "Modern Problems Require Modern Solutions", // meme
-  "This Sparks Joy",                  // Marie Kondo
-  "We Did It",                        // meme
-  "Easy Peasy Lemon Squeezy",         // classic
-  "Yeet!",                            // meme
-
-  // ── Classic / Latin ───────────────────────────────────────────────
-  "Veni, Vidi, Vici",                 // Caesar
-  "Eureka!",                          // Archimedes
-  "Alea Iacta Est",                   // Caesar – The Die Is Cast
-  "QED",                              // Quod Erat Demonstrandum
-  "Cogito, Ergo Sum",                 // Descartes
-  "Run Accomplished",             // classic
-  "The Deed Is Done",                 // dramatic
-  "So It Is Written, So It Is Done",  // The Ten Commandments
-
-  // ── Music ─────────────────────────────────────────────────────────
-  "Another One Bites The Dust",       // Queen
-  "We Are The Champions",             // Queen
-  "Don't Stop Me Now",                // Queen
+  "app:completionPhrases.jobSDone",
+  "app:completionPhrases.gg",
+  "app:completionPhrases.ggWP",
+  "app:completionPhrases.victoryRoyale",
+  "app:completionPhrases.flawlessVictory",
+  "app:completionPhrases.kO",
+  "app:completionPhrases.questComplete",
+  "app:completionPhrases.achievementUnlocked",
+  "app:completionPhrases.levelUp",
+  "app:completionPhrases.allYourBaseAreBelongToUs",
+  "app:completionPhrases.itSSuperEffective",
+  "app:completionPhrases.praiseTheSun",
+  "app:completionPhrases.nowYouReThinkingWithPortals",
+  "app:completionPhrases.stillAlive",
+  "app:completionPhrases.ezClap",
+  "app:completionPhrases.ggNoRe",
+  "app:completionPhrases.anotherHappyLanding",
+  "app:completionPhrases.itIsDone",
+  "app:completionPhrases.thatSAllFolks",
+  "app:completionPhrases.iHaveSpoken",
+  "app:completionPhrases.thisIsTheWay",
+  "app:completionPhrases.hastaLaVistaBaby",
+  "app:completionPhrases.itSOverItSDone",
+  "app:completionPhrases.perfectlyBalanced",
+  "app:completionPhrases.youReWelcome",
+  "app:completionPhrases.thereAndBackAgain",
+  "app:completionPhrases.cleverGirl",
+  "app:completionPhrases.greatScott",
+  "app:completionPhrases.soLongAndThanksForAllTheFish",
+  "app:completionPhrases.donTPanic",
+  "app:completionPhrases.answer42",
+  "app:completionPhrases.makeItSo",
+  "app:completionPhrases.engage",
+  "app:completionPhrases.liveLongAndProsper",
+  "app:completionPhrases.mayTheForceBeWithYou",
+  "app:completionPhrases.theEagleHasLanded",
+  "app:completionPhrases.toInfinityAndBeyond",
+  "app:completionPhrases.excelsior",
+  "app:completionPhrases.groovy",
+  "app:completionPhrases.thatLlDoPig",
+  "app:completionPhrases.hakunaMatata",
+  "app:completionPhrases.ohYeahItSAllComingTogether",
+  "app:completionPhrases.iAmSpeed",
+  "app:completionPhrases.hailToTheKingBaby",
+  "app:completionPhrases.houstonWeHaveNoProblem",
+  "app:completionPhrases.httpOk",
+  "app:completionPhrases.shippedIt",
+  "app:completionPhrases.worksOnMyMachine",
+  "app:completionPhrases.gitPushForce",
+  "app:completionPhrases.rmRfDoubts",
+  "app:completionPhrases.sudoDone",
+  "app:completionPhrases.compiledOnFirstTry",
+  "app:completionPhrases.noSemicolonsWereHarmed",
+  "app:completionPhrases.zeroWarningsZeroRegrets",
+  "app:completionPhrases.allTestsPassing",
+  "app:completionPhrases.deployedAndForgotten",
+  "app:completionPhrases.noBugs",
+  "app:completionPhrases.taskFailedSuccessfully",
+  "app:completionPhrases.todoCelebrate",
+  "app:completionPhrases.nailedIt",
+  "app:completionPhrases.chefSKiss",
+  "app:completionPhrases.micDrop",
+  "app:completionPhrases.bigBrainTime",
+  "app:completionPhrases.stonks",
+  "app:completionPhrases.outstandingMove",
+  "app:completionPhrases.itAinTMuchButItSHonestWork",
+  "app:completionPhrases.modernProblemsRequireModernSolutions",
+  "app:completionPhrases.thisSparksJoy",
+  "app:completionPhrases.weDidIt",
+  "app:completionPhrases.easyPeasyLemonSqueezy",
+  "app:completionPhrases.yeet",
+  "app:completionPhrases.veniVidiVici",
+  "app:completionPhrases.eureka",
+  "app:completionPhrases.aleaIactaEst",
+  "app:completionPhrases.qed",
+  "app:completionPhrases.cogitoErgoSum",
+  "app:completionPhrases.runAccomplished",
+  "app:completionPhrases.theDeedIsDone",
+  "app:completionPhrases.soItIsWrittenSoItIsDone",
+  "app:completionPhrases.anotherOneBitesTheDust",
+  "app:completionPhrases.weAreTheChampions",
+  "app:completionPhrases.donTStopMeNow",
 ] as const;
 
 export type CompletionPhrase = (typeof COMPLETION_PHRASES)[number];
@@ -121,9 +105,12 @@ function hashString(str: string): number {
  * Return a random completion phrase.
  * Stateless – each call picks independently.
  */
+export function getRandomCompletionPhraseKey(): CompletionPhrase {
+  return COMPLETION_PHRASES[Math.floor(Math.random() * COMPLETION_PHRASES.length)]!;
+}
+
 export function getRandomCompletionPhrase(): string {
-  const phrase = COMPLETION_PHRASES[Math.floor(Math.random() * COMPLETION_PHRASES.length)];
-  return phrase ?? "Done";
+  return i18n.t(getRandomCompletionPhraseKey());
 }
 
 /**
@@ -131,7 +118,11 @@ export function getRandomCompletionPhrase(): string {
  * Identical seeds always produce the same phrase, so the text stays
  * stable across Virtuoso unmount/remount cycles.
  */
-export function getSeededCompletionPhrase(seed: string): string {
+export function getSeededCompletionPhraseKey(seed: string): CompletionPhrase {
   const index = hashString(seed) % COMPLETION_PHRASES.length;
-  return COMPLETION_PHRASES[index] ?? "Done";
+  return COMPLETION_PHRASES[index]!;
+}
+
+export function getSeededCompletionPhrase(seed: string): string {
+  return i18n.t(getSeededCompletionPhraseKey(seed));
 }

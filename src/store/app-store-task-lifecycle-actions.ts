@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import type { StoreApi } from "zustand";
 import { loadAllTaskMessages } from "@/lib/db/workspaces.db";
@@ -149,14 +150,14 @@ export function createTaskLifecycleActions(args: {
         : "git status --porcelain";
       const result = await runCommand({ cwd: workspaceCwd, command });
       const rawOutput = result.ok
-        ? result.stdout.trim() || "No file changes for this task checkpoint."
-        : result.stderr.trim() || "Failed to load task changes.";
+        ? result.stdout.trim() || i18n.t("app:taskLifecycle.noChanges")
+        : result.stderr.trim() || i18n.t("app:taskLifecycle.loadFailed");
       const output =
-        result.ok && rawOutput !== "No file changes for this task checkpoint."
-          ? `### Task Changes\n\n\`\`\`diff\n${rawOutput}\n\`\`\``
+        result.ok && rawOutput !== i18n.t("app:taskLifecycle.noChanges")
+          ? i18n.t("app:taskLifecycle.changesDocument", { diff: rawOutput })
           : result.ok
             ? rawOutput
-            : `> **Failed to load task changes.** ${rawOutput}`;
+            : i18n.t("app:taskLifecycle.loadFailedDetail", { detail: rawOutput });
 
       set((nextState) => {
         const current = nextState.messagesByTask[taskId] ?? [];
@@ -223,11 +224,11 @@ export function createTaskLifecycleActions(args: {
       }
 
       const rawOutput = rollbackResult.ok
-        ? `Rollback complete to checkpoint ${checkpoint}. Provider session reset for the next turn.`
-        : rollbackResult.stderr.trim() || "Rollback failed.";
+        ? i18n.t("app:taskLifecycle.rollbackComplete", { checkpoint })
+        : rollbackResult.stderr.trim() || i18n.t("app:taskLifecycle.rollbackFailed");
       const output = rollbackResult.ok
-        ? `Rollback complete to checkpoint \`${checkpoint}\`. Provider session reset for the next turn.`
-        : `> **Rollback failed.** ${rollbackResult.stderr.trim() || "Unknown error."}`;
+        ? i18n.t("app:taskLifecycle.rollbackDocument", { checkpoint })
+        : i18n.t("app:taskLifecycle.rollbackFailedDetail", { detail: rollbackResult.stderr.trim() || i18n.t("app:taskLifecycle.unknownError") });
 
       const files = await workspaceFsAdapter.listFiles();
       set((nextState) => {
@@ -295,8 +296,8 @@ export function createTaskLifecycleActions(args: {
       }
 
       const compactBoundaryLabel = trigger?.trim()
-        ? `context compacted (${trigger.trim()})`
-        : "context compacted";
+        ? i18n.t("notifications:taskLifecycleActions.contextCompactedWithTrigger", { trigger: trigger.trim() })
+        : i18n.t("notifications:appStoreTaskLifecycleActions.contextCompacted");
 
       const appendResultMessage = (args: {
         rawOutput: string;
@@ -354,9 +355,9 @@ export function createTaskLifecycleActions(args: {
 
       if (state.activeTurnIdsByTask[taskId]) {
         appendResultMessage({
-          rawOutput: "Restore is blocked while a turn is still running.",
+          rawOutput: i18n.t("app:taskLifecycle.restoreBlocked"),
           output:
-            "> **Restore blocked.** Wait for the active turn to complete, then retry.",
+            i18n.t("app:taskLifecycle.restoreBlockedDetail"),
         });
         return;
       }
@@ -369,11 +370,11 @@ export function createTaskLifecycleActions(args: {
         cleanupRestoredTaskProviderRuntime({ taskId });
       }
       const rawOutput = restoreResult.ok
-        ? `Restore complete to ${compactBoundaryLabel} checkpoint ${resolvedGitRef}. Provider session reset for the next turn.`
-        : restoreResult.stderr.trim() || "Restore failed.";
+        ? i18n.t("app:taskLifecycle.restoreComplete", { boundary: compactBoundaryLabel, ref: resolvedGitRef })
+        : restoreResult.stderr.trim() || i18n.t("app:taskLifecycle.restoreFailed");
       const output = restoreResult.ok
-        ? `Restore complete to ${compactBoundaryLabel} checkpoint \`${resolvedGitRef}\`. Provider session reset for the next turn.`
-        : `> **Restore failed.** ${restoreResult.stderr.trim() || "Unknown error."}`;
+        ? i18n.t("app:taskLifecycle.restoreDocument", { boundary: compactBoundaryLabel, ref: resolvedGitRef })
+        : i18n.t("app:taskLifecycle.restoreFailedDetail", { detail: restoreResult.stderr.trim() || i18n.t("app:taskLifecycle.unknownError") });
       const files = await workspaceFsAdapter.listFiles();
       appendResultMessage({
         rawOutput,

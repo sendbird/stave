@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Built-in custom themes that ship with Stave
 // ---------------------------------------------------------------------------
@@ -123,14 +124,14 @@ const BUILTIN_THEME_BASE_TOKENS: Record<
 function createBuiltinTheme(args: {
   id: string;
   name: string;
-  description: string;
+  descriptionKey: Extract<import("@/i18n").I18nKey, `app:${string}`>;
   baseMode: ThemeModeName;
   overrides: Partial<BuiltinThemeTokenValues>;
 }): CustomThemeDefinition {
   return {
     id: args.id,
     name: args.name,
-    description: args.description,
+    get description() { return i18n.t(args.descriptionKey); },
     baseMode: args.baseMode,
     version: "1.0.0",
     author: "Stave",
@@ -149,8 +150,7 @@ function createBuiltinTheme(args: {
 const STAVE_SCORE = createBuiltinTheme({
   id: "stave-score",
   name: "Stave Score",
-  description:
-    "Warm paper surfaces, cool ink, and a restrained cobalt signal for focused daylight work.",
+  descriptionKey: "app:builtinThemes.staveScore",
   baseMode: "light",
   overrides: {
     background: "oklch(0.985 0.006 75)",
@@ -229,8 +229,7 @@ const STAVE_SCORE = createBuiltinTheme({
 const STAVE_NOCTURNE = createBuiltinTheme({
   id: "stave-nocturne",
   name: "Stave Nocturne",
-  description:
-    "Deep ink-blue layers with luminous cobalt actions and ember accents for focused late-night work.",
+  descriptionKey: "app:builtinThemes.staveNocturne",
   baseMode: "dark",
   overrides: {
     background: "oklch(0.17 0.025 255)",
@@ -314,8 +313,7 @@ const STAVE_NOCTURNE = createBuiltinTheme({
 const DARK_HIGH_CONTRAST = createBuiltinTheme({
   id: "dark-high-contrast",
   name: "Dark High Contrast",
-  description:
-    "Pure black background with maximum-contrast white text and vivid accent colours.",
+  descriptionKey: "app:builtinThemes.darkHighContrast",
   baseMode: "dark",
   overrides: {
     background: "#000000",
@@ -377,8 +375,7 @@ const DARK_HIGH_CONTRAST = createBuiltinTheme({
 const GITHUB_LIGHT_DEFAULT = createBuiltinTheme({
   id: "github-light-default",
   name: "GitHub Light Default",
-  description:
-    "Primer-inspired GitHub light palette with green actions and crisp neutral chrome.",
+  descriptionKey: "app:builtinThemes.githubLightDefault",
   baseMode: "light",
   overrides: {
     background: "#FFFFFF",
@@ -444,8 +441,7 @@ const GITHUB_LIGHT_DEFAULT = createBuiltinTheme({
 const GITHUB_DARK_DEFAULT = createBuiltinTheme({
   id: "github-dark-default",
   name: "GitHub Dark Default",
-  description:
-    "Primer-inspired GitHub dark palette with green primary actions and deep graphite panels.",
+  descriptionKey: "app:builtinThemes.githubDarkDefault",
   baseMode: "dark",
   overrides: {
     background: "#0D1117",
@@ -511,8 +507,7 @@ const GITHUB_DARK_DEFAULT = createBuiltinTheme({
 const ONE_LIGHT = createBuiltinTheme({
   id: "one-light",
   name: "One Light",
-  description:
-    "Atom's classic One Light palette with soft graphite text, indigo actions, and muted paper surfaces.",
+  descriptionKey: "app:builtinThemes.oneLight",
   baseMode: "light",
   overrides: {
     background: "#FAFAFA",
@@ -574,8 +569,7 @@ const ONE_LIGHT = createBuiltinTheme({
 const ONE_DARK_PRO = createBuiltinTheme({
   id: "one-dark-pro",
   name: "One Dark Pro",
-  description:
-    "Atom's classic One Dark palette with muted chrome, blue actions, and warm syntax accents.",
+  descriptionKey: "app:builtinThemes.oneDarkPro",
   baseMode: "dark",
   overrides: {
     background: "#282C34",
@@ -637,8 +631,7 @@ const ONE_DARK_PRO = createBuiltinTheme({
 const DRACULA = createBuiltinTheme({
   id: "dracula",
   name: "Dracula",
-  description:
-    "The official Dracula palette with violet primaries, neon green diffs, and saturated editor contrast.",
+  descriptionKey: "app:builtinThemes.dracula",
   baseMode: "dark",
   overrides: {
     background: "#282A36",
@@ -700,8 +693,7 @@ const DRACULA = createBuiltinTheme({
 const AYU_LIGHT = createBuiltinTheme({
   id: "ayu-light",
   name: "Ayu Light",
-  description:
-    "Ayu's light variant with warm amber actions, airy surfaces, and restrained blue accents.",
+  descriptionKey: "app:builtinThemes.ayuLight",
   baseMode: "light",
   overrides: {
     background: "#FCFCFC",
@@ -763,8 +755,7 @@ const AYU_LIGHT = createBuiltinTheme({
 const AYU_MIRAGE = createBuiltinTheme({
   id: "ayu-mirage",
   name: "Ayu Mirage",
-  description:
-    "Ayu's Mirage variant with warm gold actions, slate panels, and slate selection states.",
+  descriptionKey: "app:builtinThemes.ayuMirage",
   baseMode: "dark",
   overrides: {
     background: "#242936",
@@ -826,8 +817,7 @@ const AYU_MIRAGE = createBuiltinTheme({
 const CATPPUCCIN_LATTE = createBuiltinTheme({
   id: "catppuccin-latte",
   name: "Catppuccin Latte",
-  description:
-    "Catppuccin Latte with mauve actions, lavender focus, and pastel status colors on warm paper.",
+  descriptionKey: "app:builtinThemes.catppuccinLatte",
   baseMode: "light",
   overrides: {
     background: "#EFF1F5",
@@ -891,8 +881,7 @@ const CATPPUCCIN_LATTE = createBuiltinTheme({
 const CATPPUCCIN_MOCHA = createBuiltinTheme({
   id: "catppuccin-mocha",
   name: "Catppuccin Mocha",
-  description:
-    "Catppuccin Mocha with mauve actions, lavender focus, and pastel status colors on a dark cocoa base.",
+  descriptionKey: "app:builtinThemes.catppuccinMocha",
   baseMode: "dark",
   overrides: {
     background: "#1E1E2E",
@@ -956,8 +945,7 @@ const CATPPUCCIN_MOCHA = createBuiltinTheme({
 const EVERFOREST_LIGHT = createBuiltinTheme({
   id: "everforest-light",
   name: "Everforest Light",
-  description:
-    "Everforest Light with moss-green actions, warm paper surfaces, and forest status colors.",
+  descriptionKey: "app:builtinThemes.everforestLight",
   baseMode: "light",
   overrides: {
     background: "#FDF6E3",
@@ -1021,8 +1009,7 @@ const EVERFOREST_LIGHT = createBuiltinTheme({
 const EVERFOREST_DARK = createBuiltinTheme({
   id: "everforest-dark",
   name: "Everforest Dark",
-  description:
-    "Everforest Dark with moss-green actions, muted forest neutrals, and warm status colors.",
+  descriptionKey: "app:builtinThemes.everforestDark",
   baseMode: "dark",
   overrides: {
     background: "#2D353B",
@@ -1086,8 +1073,7 @@ const EVERFOREST_DARK = createBuiltinTheme({
 const KANAGAWA_LOTUS = createBuiltinTheme({
   id: "kanagawa-lotus",
   name: "Kanagawa Lotus",
-  description:
-    "Kanagawa Lotus with ink-wash paper, indigo actions, and autumn status colors.",
+  descriptionKey: "app:builtinThemes.kanagawaLotus",
   baseMode: "light",
   overrides: {
     background: "#F2ECBC",
@@ -1151,8 +1137,7 @@ const KANAGAWA_LOTUS = createBuiltinTheme({
 const KANAGAWA_WAVE = createBuiltinTheme({
   id: "kanagawa-wave",
   name: "Kanagawa Wave",
-  description:
-    "Kanagawa Wave with sumi-ink surfaces, crystal-blue actions, and autumn status colors.",
+  descriptionKey: "app:builtinThemes.kanagawaWave",
   baseMode: "dark",
   overrides: {
     background: "#1F1F28",
@@ -1216,8 +1201,7 @@ const KANAGAWA_WAVE = createBuiltinTheme({
 const NORD_SNOW = createBuiltinTheme({
   id: "nord-snow",
   name: "Nord Snow",
-  description:
-    "Nord Snow with frost-blue actions and polar-night ink on snow-storm paper.",
+  descriptionKey: "app:builtinThemes.nordSnow",
   baseMode: "light",
   overrides: {
     background: "#ECEFF4",
@@ -1281,8 +1265,7 @@ const NORD_SNOW = createBuiltinTheme({
 const NORD_POLAR = createBuiltinTheme({
   id: "nord-polar",
   name: "Nord Polar",
-  description:
-    "Nord Polar Night with frost-blue actions and aurora status colors on dim arctic surfaces.",
+  descriptionKey: "app:builtinThemes.nordPolar",
   baseMode: "dark",
   overrides: {
     background: "#2E3440",
@@ -1346,8 +1329,7 @@ const NORD_POLAR = createBuiltinTheme({
 const ROSE_PINE_DAWN = createBuiltinTheme({
   id: "rose-pine-dawn",
   name: "Rosé Pine Dawn",
-  description:
-    "Rosé Pine Dawn with iris actions, foam status colors, and warm paper surfaces.",
+  descriptionKey: "app:builtinThemes.rosePineDawn",
   baseMode: "light",
   overrides: {
     background: "#FAF4ED",
@@ -1411,8 +1393,7 @@ const ROSE_PINE_DAWN = createBuiltinTheme({
 const ROSE_PINE_MOON = createBuiltinTheme({
   id: "rose-pine-moon",
   name: "Rosé Pine Moon",
-  description:
-    "Rosé Pine Moon with iris actions, foam status colors, and muted dusk surfaces.",
+  descriptionKey: "app:builtinThemes.rosePineMoon",
   baseMode: "dark",
   overrides: {
     background: "#232136",
@@ -1476,8 +1457,7 @@ const ROSE_PINE_MOON = createBuiltinTheme({
 const FLEXOKI_LIGHT = createBuiltinTheme({
   id: "flexoki-light",
   name: "Flexoki Light",
-  description:
-    "Flexoki Light with inky paper surfaces, blue actions, and print-ink status colors.",
+  descriptionKey: "app:builtinThemes.flexokiLight",
   baseMode: "light",
   overrides: {
     background: "#FFFCF0",
@@ -1541,8 +1521,7 @@ const FLEXOKI_LIGHT = createBuiltinTheme({
 const FLEXOKI_DARK = createBuiltinTheme({
   id: "flexoki-dark",
   name: "Flexoki Dark",
-  description:
-    "Flexoki Dark with warm ink surfaces, blue actions, and print-ink status colors.",
+  descriptionKey: "app:builtinThemes.flexokiDark",
   baseMode: "dark",
   overrides: {
     background: "#100F0F",
@@ -1606,8 +1585,7 @@ const FLEXOKI_DARK = createBuiltinTheme({
 const GRUVBOX_MATERIAL_LIGHT = createBuiltinTheme({
   id: "gruvbox-material-light",
   name: "Gruvbox Material Light",
-  description:
-    "Gruvbox Material Light with moss-green actions and warm parchment surfaces.",
+  descriptionKey: "app:builtinThemes.gruvboxMaterialLight",
   baseMode: "light",
   overrides: {
     background: "#FBF1C7",
@@ -1671,8 +1649,7 @@ const GRUVBOX_MATERIAL_LIGHT = createBuiltinTheme({
 const GRUVBOX_MATERIAL_DARK = createBuiltinTheme({
   id: "gruvbox-material-dark",
   name: "Gruvbox Material Dark",
-  description:
-    "Gruvbox Material Dark with moss-green actions and muted earth surfaces.",
+  descriptionKey: "app:builtinThemes.gruvboxMaterialDark",
   baseMode: "dark",
   overrides: {
     background: "#282828",
@@ -1736,8 +1713,7 @@ const GRUVBOX_MATERIAL_DARK = createBuiltinTheme({
 const DAYFOX = createBuiltinTheme({
   id: "dayfox",
   name: "Dayfox",
-  description:
-    "Dayfox with indigo actions, warm paper surfaces, and dusk-fox status colors.",
+  descriptionKey: "app:builtinThemes.dayfox",
   baseMode: "light",
   overrides: {
     background: "#F6F2EE",
@@ -1801,8 +1777,7 @@ const DAYFOX = createBuiltinTheme({
 const OXOCARBON_LIGHT = createBuiltinTheme({
   id: "oxocarbon-light",
   name: "Oxocarbon Light",
-  description:
-    "Oxocarbon Light with IBM Carbon blues, cool paper, and electric status colors.",
+  descriptionKey: "app:builtinThemes.oxocarbonLight",
   baseMode: "light",
   overrides: {
     background: "#FFFFFF",
@@ -1866,8 +1841,7 @@ const OXOCARBON_LIGHT = createBuiltinTheme({
 const OXOCARBON = createBuiltinTheme({
   id: "oxocarbon",
   name: "Oxocarbon",
-  description:
-    "Oxocarbon with IBM Carbon blues, near-black panels, and electric status colors.",
+  descriptionKey: "app:builtinThemes.oxocarbon",
   baseMode: "dark",
   overrides: {
     background: "#161616",
@@ -1931,8 +1905,7 @@ const OXOCARBON = createBuiltinTheme({
 const VESPER = createBuiltinTheme({
   id: "vesper",
   name: "Vesper",
-  description:
-    "Vesper with warm peach actions, near-black panels, and mint status colors.",
+  descriptionKey: "app:builtinThemes.vesper",
   baseMode: "dark",
   overrides: {
     background: "#101010",
@@ -1996,8 +1969,7 @@ const VESPER = createBuiltinTheme({
 const POIMANDRES = createBuiltinTheme({
   id: "poimandres",
   name: "Poimandres",
-  description:
-    "Poimandres with mint actions, cool midnight surfaces, and pale status colors.",
+  descriptionKey: "app:builtinThemes.poimandres",
   baseMode: "dark",
   overrides: {
     background: "#1B1E28",
@@ -2061,8 +2033,7 @@ const POIMANDRES = createBuiltinTheme({
 const LIGHT_HIGH_CONTRAST = createBuiltinTheme({
   id: "light-high-contrast",
   name: "Light High Contrast",
-  description:
-    "Pure white background with maximum-contrast black text and vivid accent colours.",
+  descriptionKey: "app:builtinThemes.lightHighContrast",
   baseMode: "light",
   overrides: {
     background: "#FFFFFF",
@@ -2126,8 +2097,7 @@ const LIGHT_HIGH_CONTRAST = createBuiltinTheme({
 const ALUCARD = createBuiltinTheme({
   id: "alucard",
   name: "Alucard",
-  description:
-    "Alucard, the official Dracula light palette, with purple actions and warm parchment.",
+  descriptionKey: "app:builtinThemes.alucard",
   baseMode: "light",
   overrides: {
     background: "#FFFBEB",
@@ -2191,8 +2161,7 @@ const ALUCARD = createBuiltinTheme({
 const EDGE_LIGHT = createBuiltinTheme({
   id: "edge-light",
   name: "Edge Light",
-  description:
-    "Edge Light with cool paper surfaces, blue actions, and muted status colors.",
+  descriptionKey: "app:builtinThemes.edgeLight",
   baseMode: "light",
   overrides: {
     background: "#FAFAFA",
@@ -2256,8 +2225,7 @@ const EDGE_LIGHT = createBuiltinTheme({
 const CYBERDREAM_LIGHT = createBuiltinTheme({
   id: "cyberdream-light",
   name: "Cyberdream Light",
-  description:
-    "Cyberdream Light with high-chroma actions on cool white paper.",
+  descriptionKey: "app:builtinThemes.cyberdreamLight",
   baseMode: "light",
   overrides: {
     background: "#FFFFFF",
@@ -2321,8 +2289,7 @@ const CYBERDREAM_LIGHT = createBuiltinTheme({
 const AYU_DARK = createBuiltinTheme({
   id: "ayu-dark",
   name: "Ayu Dark",
-  description:
-    "Ayu's dark variant with warm gold actions, deep navy panels, and slate selection states.",
+  descriptionKey: "app:builtinThemes.ayuDark",
   baseMode: "dark",
   overrides: {
     background: "#10141C",
@@ -2386,8 +2353,7 @@ const AYU_DARK = createBuiltinTheme({
 const SELENIZED_LIGHT = createBuiltinTheme({
   id: "selenized-light",
   name: "Selenized Light",
-  description:
-    "Selenized Light with cream paper, blue actions, and sand selection surfaces.",
+  descriptionKey: "app:builtinThemes.selenizedLight",
   baseMode: "light",
   overrides: {
     background: "#FBF3DB",
@@ -2451,8 +2417,7 @@ const SELENIZED_LIGHT = createBuiltinTheme({
 const MODUS_OPERANDI_TINTED = createBuiltinTheme({
   id: "modus-operandi-tinted",
   name: "Modus Operandi Tinted",
-  description:
-    "Modus Operandi Tinted with warm paper, blue actions, and a marked selection region.",
+  descriptionKey: "app:builtinThemes.modusOperandiTinted",
   baseMode: "light",
   overrides: {
     background: "#FBF7F0",
@@ -2516,8 +2481,7 @@ const MODUS_OPERANDI_TINTED = createBuiltinTheme({
 const SELENIZED_DARK = createBuiltinTheme({
   id: "selenized-dark",
   name: "Selenized Dark",
-  description:
-    "Selenized Dark with deep teal panels, blue actions, and raised selection surfaces.",
+  descriptionKey: "app:builtinThemes.selenizedDark",
   baseMode: "dark",
   overrides: {
     background: "#103C48",
@@ -2581,8 +2545,7 @@ const SELENIZED_DARK = createBuiltinTheme({
 const MODUS_VIVENDI_TINTED = createBuiltinTheme({
   id: "modus-vivendi-tinted",
   name: "Modus Vivendi Tinted",
-  description:
-    "Modus Vivendi Tinted with indigo night panels, bright blue actions, and a gray selection region.",
+  descriptionKey: "app:builtinThemes.modusVivendiTinted",
   baseMode: "dark",
   overrides: {
     background: "#0D0E1C",

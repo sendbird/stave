@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
@@ -110,7 +111,7 @@ export function TextField({
   id,
   label,
   loading,
-  loadingLabel = "Validating",
+  loadingLabel = i18n.t("ui:textfield.validating"),
   maxLength,
   onChange,
   readOnly,
@@ -121,6 +122,7 @@ export function TextField({
   xstyle,
   ...props
 }: TextFieldProps) {
+  useTranslation();
   const anatomy = useFieldAnatomy({ description, error, id, tone });
   // A count with no limit is a fact about nothing, so the counter resolves to
   // the limit itself: present ⇒ count, absent ⇒ no row and no value mirror.

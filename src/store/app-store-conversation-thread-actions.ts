@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
 import type { StoreApi } from "zustand";
 import {
@@ -155,13 +156,13 @@ export function createConversationThreadActions(args: {
       const stateBefore = get();
       const sourceTask = stateBefore.tasks.find((task) => task.id === taskId);
       if (!sourceTask) {
-        return failure("The source task no longer exists.");
+        return failure(i18n.t("app:threadActions.sourceGone"));
       }
       const workspaceId =
         stateBefore.taskWorkspaceIdById[taskId] ??
         stateBefore.activeWorkspaceId;
       if (!workspaceId) {
-        return failure("No workspace is linked to this task.");
+        return failure(i18n.t("app:threadActions.noWorkspace"));
       }
 
       const completeMessages = await loadCompleteTaskMessages({
@@ -178,7 +179,7 @@ export function createConversationThreadActions(args: {
         target.role !== "assistant" ||
         (target.providerId !== "claude-code" && target.providerId !== "codex")
       ) {
-        return failure("The selected provider response could not be found.");
+        return failure(i18n.t("app:threadActions.responseMissing"));
       }
 
       const accountProfileId = target.nativeAccountProfileId ?? SYSTEM_ACCOUNT_PROFILE_ID;
@@ -190,7 +191,7 @@ export function createConversationThreadActions(args: {
         hasActiveTurn: Boolean(stateBefore.activeTurnIdsByTask[taskId]),
       }).get(messageId)?.fork;
       if (!actionState?.enabled) {
-        return failure(actionState?.reason ?? "Fork is unavailable here.");
+        return failure(actionState?.reason ?? i18n.t("app:threadActions.forkUnavailable"));
       }
       const sessionCursor = getProviderSessionCursor({
         accountProfileId,
@@ -198,11 +199,11 @@ export function createConversationThreadActions(args: {
         providerId: target.providerId,
       });
       if (!sessionCursor || !target.nativeProviderTurnId) {
-        return failure("Native provider turn metadata is unavailable.");
+        return failure(i18n.t("app:threadActions.noTurnMetadata"));
       }
 
       const nextTaskId = crypto.randomUUID();
-      const nextTaskTitle = `${sourceTask.title} (fork)`;
+      const nextTaskTitle = i18n.t("app:threadActions.forkTitle", { title: sourceTask.title });
       const nativeSessionTitle = toProviderSessionTitle(nextTaskTitle);
       const cwd = getWorkspaceCwd({ state: stateBefore, workspaceId });
       let nativeSessionId = "";
@@ -213,7 +214,7 @@ export function createConversationThreadActions(args: {
       if (target.providerId === "claude-code") {
         const forkClaudeSession = window.api?.provider?.forkClaudeSession;
         if (!forkClaudeSession) {
-          return failure("Claude session fork controls are unavailable.");
+          return failure(i18n.t("app:threadActions.claudeForkUnavailable"));
         }
         const result = await forkClaudeSession({
           runtimeOptions: accountOptions,
@@ -231,7 +232,7 @@ export function createConversationThreadActions(args: {
       } else {
         const forkCodexThread = window.api?.provider?.forkCodexThread;
         if (!forkCodexThread) {
-          return failure("Codex thread fork controls are unavailable.");
+          return failure(i18n.t("app:threadActions.codexForkUnavailable"));
         }
         const result = await forkCodexThread({
           threadId: sessionCursor.nativeSessionId,
@@ -257,7 +258,7 @@ export function createConversationThreadActions(args: {
         codexTurnIds,
       });
       if (!cloned.clonedTargetMessageId) {
-        return failure("The local fork boundary could not be created.");
+        return failure(i18n.t("app:threadActions.localForkFailed"));
       }
       const forkedTask: Task = {
         ...sourceTask,
@@ -334,7 +335,7 @@ export function createConversationThreadActions(args: {
 
       return {
         ok: true,
-        detail: `Forked a new task from this ${target.providerId === "codex" ? "Codex" : "Claude"} response.`,
+        detail: i18n.t("notifications:conversationThreadActions.forkedTask", { provider: target.providerId === "codex" ? "Codex" : "Claude" }),
         taskId: nextTaskId,
       };
     },
@@ -345,7 +346,7 @@ export function createConversationThreadActions(args: {
         stateBefore.taskWorkspaceIdById[taskId] ??
         stateBefore.activeWorkspaceId;
       if (!workspaceId) {
-        return failure("No workspace is linked to this task.");
+        return failure(i18n.t("app:threadActions.noWorkspace"));
       }
       const completeMessages = await loadCompleteTaskMessages({
         state: stateBefore,
@@ -357,7 +358,7 @@ export function createConversationThreadActions(args: {
       );
       const target = completeMessages[targetIndex];
       if (!target || target.role !== "assistant") {
-        return failure("The selected response could not be found.");
+        return failure(i18n.t("app:threadActions.selectedResponseMissing"));
       }
 
       const accountProfileId = target.nativeAccountProfileId ?? SYSTEM_ACCOUNT_PROFILE_ID;
@@ -373,7 +374,7 @@ export function createConversationThreadActions(args: {
         actionState.rollbackTurnCount === undefined
       ) {
         return failure(
-          actionState?.reason ?? "Rollback is unavailable at this response.",
+          actionState?.reason ?? i18n.t("app:threadActions.rollbackUnavailable"),
         );
       }
       const sessionCursor = getProviderSessionCursor({
@@ -383,12 +384,12 @@ export function createConversationThreadActions(args: {
       });
       const rollbackCodexThread = window.api?.provider?.rollbackCodexThread;
       if (!sessionCursor) {
-        return failure("Codex thread rollback controls are unavailable.");
+        return failure(i18n.t("app:threadActions.codexRollbackUnavailable"));
       }
 
       if (actionState.rollbackTurnCount > 0) {
         if (!rollbackCodexThread) {
-          return failure("Codex thread rollback controls are unavailable.");
+          return failure(i18n.t("app:threadActions.codexRollbackUnavailable"));
         }
         const result = await rollbackCodexThread({
           threadId: sessionCursor.nativeSessionId,
@@ -462,15 +463,15 @@ export function createConversationThreadActions(args: {
 
       if (persistenceFailure) {
         return failure(
-          `Codex rolled back, but Stave could not persist the local transcript boundary: ${persistenceFailure}`,
+          i18n.t("app:threadActions.persistenceFailure", { detail: persistenceFailure }),
         );
       }
       return {
         ok: true,
         detail:
           actionState.rollbackTurnCount > 0
-            ? `Rolled back ${actionState.rollbackTurnCount} Codex turn${actionState.rollbackTurnCount === 1 ? "" : "s"} and removed the later task messages. Workspace files were not changed.`
-            : "Returned the task to this Codex response. Workspace files were not changed.",
+            ? i18n.t("notifications:conversationThreadActions.rolledBack", { count: actionState.rollbackTurnCount })
+            : i18n.t("notifications:appStoreConversationThreadActions.returnedTheTaskToThisCodexResponseWorkspaceFilesWereNotChanged"),
       };
     },
   };

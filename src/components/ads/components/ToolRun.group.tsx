@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { ListTree } from "lucide-react";
 import * as React from "react";
 
@@ -43,7 +44,7 @@ export type ToolRunGroupProps = Omit<
   React.ComponentProps<"div">,
   "children"
 > & {
-  /** Accessible name for the list of runs. @default "Tool calls" */
+  /** Accessible name for the list of runs. @default i18n.t("ui:toolRunGroup.toolCalls") */
   "aria-label"?: string;
   children?: React.ReactNode;
   /** Initial open state of a rolled-up group. Defaults to closed. */
@@ -115,7 +116,7 @@ export type ToolRunGroupRun = ElapsedSource & {
  * product's copy to write, not a shape this component should guess.
  */
 export function ToolRunGroup({
-  "aria-label": ariaLabel = "Tool calls",
+  "aria-label": ariaLabel = i18n.t("ui:toolRunGroup.toolCalls"),
   children,
   className,
   defaultOpen,
@@ -129,6 +130,7 @@ export function ToolRunGroup({
   xstyle,
   ...props
 }: ToolRunGroupProps) {
+  useTranslation();
   const items = flattenRunRows(children);
   const derivedStatus =
     statusProp ?? aggregateRunStatus(runs.map((run) => run.status)) ?? "done";
