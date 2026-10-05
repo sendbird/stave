@@ -1,3 +1,5 @@
+import { useTranslation } from "@/i18n";
+import { i18n } from "@/i18n";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useAppStore } from "@/store/app.store";
 import type { ListResultReviewsArgs, ResultReviewPage } from "./result-review";
@@ -11,6 +13,7 @@ import {
 const EMPTY: ResultReviewPage = { results: [], total: 0, hasMore: false };
 
 export function useResultReviews(args: ListResultReviewsArgs = {}) {
+  useTranslation();
   const key = JSON.stringify(args);
   const revision = useSyncExternalStore(
     subscribeResultReviews,
@@ -51,7 +54,7 @@ export function useResultReviews(args: ListResultReviewsArgs = {}) {
             error:
               error instanceof Error
                 ? error.message
-                : "Could not load result reviews.",
+                : i18n.t("sourceControl:useResultReviews.couldNotLoadResultReviews"),
           }));
       },
     );

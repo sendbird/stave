@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Globe, TerminalSquare } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -29,6 +30,7 @@ function RightRailWorkspaceToolsButton(props: {
   isActive: boolean;
   onClick: () => void;
 }) {
+  useTranslation();
   const [workspaceId, repositoryPath, workspacePath, workspaceName, branch] =
     useAppStore(
       useShallow((state) => {
@@ -104,6 +106,7 @@ function RightRailWorkspaceToolsButton(props: {
 }
 
 export function RightRail() {
+  useTranslation();
   const [
     hasRepository,
     sidebarOverlayVisible,
@@ -206,7 +209,7 @@ export function RightRail() {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">
-              {hasLensApi ? "Lens" : "Lens is available in the desktop app"}
+              {hasLensApi ? "Lens" : i18n.t("shell:rightRail.lensIsAvailableInTheDesktopApp")}
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -221,13 +224,13 @@ export function RightRail() {
                     !terminalActive && rightRailStyles.railButtonInactive,
                   ]}
                   onClick={() => paneHost.toggleTerminalGroup()}
-                  aria-label="Terminal"
+                  aria-label={i18n.t("shell:rightRail.terminal")}
                 />
               }
             >
               <TerminalSquare className={sx(rightRailStyles.railIcon)} />
             </TooltipTrigger>
-            <TooltipContent side="left">Terminal</TooltipContent>
+            <TooltipContent side="left">{i18n.t("shell:rightRail.terminal")}</TooltipContent>
           </Tooltip>
         </div>
       </TooltipProvider>

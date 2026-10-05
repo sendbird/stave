@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { Attachment } from "@/types/chat";
 import {
   DEFAULT_LENS_SESSION_ID,
@@ -109,7 +110,7 @@ export function buildLensAnnotationsAttachment(args: {
     id: args.id ?? buildLensAnnotationsAttachmentId(args),
     workspaceId: args.workspaceId,
     ...(args.lensSessionId ? { lensSessionId: args.lensSessionId } : {}),
-    label: "Lens comments",
+    label: i18n.t("lens:annotations.title"),
     count: annotations.length,
     summary: annotations
       .map((annotation) => {

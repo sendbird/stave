@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Format element picker result into an AI-friendly chat message
 // Includes search hints so the AI agent can locate the source file.
@@ -305,6 +306,7 @@ export function buildDebugSourceHint(
     columnNumber != null
       ? `${fileName}:${lineNumber}:${columnNumber}`
       : `${fileName}:${lineNumber}`;
+  // i18n-ignore: model-facing source location context
   return `React source: \`${escapeInlineCode(loc)}\``;
 }
 
@@ -506,24 +508,24 @@ export function formatAnnotationsDisplayForChat(
   annotations: LensAnnotation[],
 ): string {
   const lines: string[] = [
-    `[Lens Visual Comments]`,
+    i18n.t("lens:annotations.displayTitle"),
     ``,
-    `The user left ${annotations.length} visual comment${annotations.length === 1 ? "" : "s"} on the live page. Each comment is paired with an attached screenshot of the selected region.`,
+    i18n.t("lens:annotations.displaySummary", { count: annotations.length }),
   ];
 
   for (const annotation of annotations) {
     const review = resolveLensAnnotationReview(annotation);
     lines.push(
       ``,
-      `## ${annotation.pin}. Visual Comment`,
-      `**Comment:** ${review.feedback.comment}`,
-      `**Intent:** ${formatFeedbackValue(review.feedback.intent)}`,
-      `**Priority:** ${formatFeedbackValue(review.feedback.priority)}`,
+      i18n.t("lens:annotations.pinTitle", { pin: annotation.pin }),
+      i18n.t("lens:annotations.comment", { comment: review.feedback.comment }),
+      i18n.t("lens:annotations.intent", { intent: formatFeedbackValue(review.feedback.intent) }),
+      i18n.t("lens:annotations.priority", { priority: formatFeedbackValue(review.feedback.priority) }),
     );
 
     if (review.evidence.styleEdits.length > 0) {
       lines.push(
-        `**Style edits:**`,
+        i18n.t("lens:annotations.styleEdits"),
         ...review.evidence.styleEdits.map(
           (edit) =>
             `- ${edit.property}: \`${escapeInlineCode(

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 /**
  * RefContextMenu — right-click menu for a git ref badge (branch / remote / tag).
@@ -97,6 +98,7 @@ function ConfirmDialog({
   destructive,
   onConfirm,
 }: ConfirmDialogProps) {
+  useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} xstyle={styles.dialogNarrow}>
@@ -119,7 +121,7 @@ function ConfirmDialog({
             size="sm"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {i18n.t("gitGraph:refContextMenu.cancel")}
           </Button>
           <Button
             variant={destructive ? "destructive" : "default"}
@@ -160,6 +162,7 @@ function NameInputDialog({
   confirmLabel,
   onConfirm,
 }: NameInputDialogProps) {
+  useTranslation();
   const [value, setValue] = useState(initialValue);
 
   useEffect(() => {
@@ -195,7 +198,7 @@ function NameInputDialog({
             size="sm"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {i18n.t("gitGraph:refContextMenu.cancel")}
           </Button>
           <Button size="sm" disabled={!value.trim()} onClick={handleSubmit}>
             {confirmLabel}
@@ -223,6 +226,7 @@ function DeleteBranchDialog({
   refName,
   onConfirm,
 }: DeleteBranchDialogProps) {
+  useTranslation();
   const [force, setForce] = useState(false);
 
   useEffect(() => {
@@ -236,13 +240,10 @@ function DeleteBranchDialog({
           <div className={sx(styles.destructiveHeader)}>
             <AlertTriangle className={sx(styles.destructiveIcon)} />
             <DialogTitle className={sx(styles.destructiveTitle)}>
-              Delete branch
+              {i18n.t("gitGraph:refContextMenu.deleteBranch")}
             </DialogTitle>
           </div>
-          <DialogDescription>
-            Delete branch &ldquo;{refName}&rdquo;? This cannot be undone if the
-            branch has unmerged changes.
-          </DialogDescription>
+          <DialogDescription>{i18n.t("gitGraph:refContextMenu.deleteBranchConfirmation", { name: refName })}</DialogDescription>
         </DialogHeader>
 
         {/* Force-delete toggle */}
@@ -257,7 +258,7 @@ function DeleteBranchDialog({
               force ? styles.forceLabelActive : styles.forceLabelMuted,
             )}
           >
-            Force delete (discard unmerged commits)
+            {i18n.t("gitGraph:refContextMenu.forceDeleteDiscardUnmergedCommits")}
           </span>
         </label>
 
@@ -267,7 +268,7 @@ function DeleteBranchDialog({
             size="sm"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {i18n.t("gitGraph:refContextMenu.cancel")}
           </Button>
           <Button
             variant="destructive"
@@ -277,7 +278,7 @@ function DeleteBranchDialog({
               onOpenChange(false);
             }}
           >
-            {force ? "Force delete" : "Delete"}
+            {force ? i18n.t("gitGraph:refContextMenu.forceDelete") : i18n.t("gitGraph:refContextMenu.delete")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -314,6 +315,7 @@ export function RefContextMenu({
   onPush,
   onCopyName,
 }: RefContextMenuProps) {
+  useTranslation();
   const [pendingDialog, setPendingDialog] = useState<PendingDialog>(null);
 
   // Snapshot ref at open time so dialogs retain data after anchor clears
@@ -339,9 +341,9 @@ export function RefContextMenu({
     refType === "localBranch" && !worktreePathsAvailable;
 
   const worktreeTooltip = worktreeLocationsUnavailable
-    ? "Worktree locations are unavailable, so this action is disabled."
+    ? i18n.t("gitGraph:refContextMenu.worktreeLocationsAreUnavailableSoThisAction")
     : attachedElsewhere
-      ? `"${refName}" is checked out in another worktree`
+      ? i18n.t("gitGraph:refContextMenu.isCheckedOutInAnotherWorktree", { value1: refName })
       : undefined;
 
   // Whether this ref IS the current HEAD branch
@@ -384,9 +386,9 @@ export function RefContextMenu({
           {/* Header label */}
           <DropdownMenuLabel className={sx(styles.menuLabel)}>
             {refType === "remoteBranch"
-              ? "remote: "
+              ? i18n.t("gitGraph:refContextMenu.remote")
               : refType === "tag"
-                ? "tag: "
+                ? i18n.t("gitGraph:refContextMenu.tag")
                 : ""}
             {refName}
           </DropdownMenuLabel>
@@ -399,8 +401,7 @@ export function RefContextMenu({
                 className={sx(styles.warningIcon)}
                 aria-hidden="true"
               />
-              Worktree locations could not be read. Checkout and delete are
-              disabled.
+              {i18n.t("gitGraph:refContextMenu.worktreeLocationsCouldNotBeReadCheckout")}
             </DropdownMenuLabel>
           ) : attachedElsewhere ? (
             <DropdownMenuLabel
@@ -411,8 +412,7 @@ export function RefContextMenu({
                 className={sx(styles.warningIcon)}
                 aria-hidden="true"
               />
-              This branch is checked out in another worktree. Checkout and
-              delete are disabled.
+              {i18n.t("gitGraph:refContextMenu.thisBranchIsCheckedOutInAnother")}
             </DropdownMenuLabel>
           ) : null}
           <DropdownMenuSeparator />
@@ -430,7 +430,7 @@ export function RefContextMenu({
                   worktreeLocationsUnavailable || attachedElsewhere
                     ? worktreeTooltip
                     : isCurrentBranch
-                      ? "Already on this branch"
+                      ? i18n.t("gitGraph:refContextMenu.alreadyOnThisBranch")
                       : undefined
                 }
                 onSelect={() => {
@@ -439,7 +439,7 @@ export function RefContextMenu({
                 }}
               >
                 <GitBranch className={sx(styles.menuIcon)} />
-                Checkout
+                {i18n.t("gitGraph:refContextMenu.checkout")}
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -449,7 +449,7 @@ export function RefContextMenu({
                 }}
               >
                 <Pencil className={sx(styles.menuIcon)} />
-                Rename
+                {i18n.t("gitGraph:refContextMenu.rename")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
@@ -458,7 +458,7 @@ export function RefContextMenu({
                 disabled={isCurrentBranch}
                 title={
                   isCurrentBranch
-                    ? "Cannot merge the current branch into itself"
+                    ? i18n.t("gitGraph:refContextMenu.cannotMergeTheCurrentBranchIntoItself")
                     : undefined
                 }
                 onSelect={() => {
@@ -467,14 +467,14 @@ export function RefContextMenu({
                 }}
               >
                 <GitMerge className={sx(styles.menuIcon)} />
-                Merge into current
+                {i18n.t("gitGraph:refContextMenu.mergeIntoCurrent")}
               </DropdownMenuItem>
 
               <DropdownMenuItem
                 disabled={isCurrentBranch}
                 title={
                   isCurrentBranch
-                    ? "Cannot rebase current branch onto itself"
+                    ? i18n.t("gitGraph:refContextMenu.cannotRebaseCurrentBranchOntoItself")
                     : undefined
                 }
                 onSelect={() => {
@@ -483,7 +483,7 @@ export function RefContextMenu({
                 }}
               >
                 <ChevronsUp className={sx(styles.menuIcon)} />
-                Rebase current onto
+                {i18n.t("gitGraph:refContextMenu.rebaseCurrentOnto")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
@@ -495,7 +495,7 @@ export function RefContextMenu({
                 }}
               >
                 <Upload className={sx(styles.menuIcon)} />
-                Push
+                {i18n.t("gitGraph:refContextMenu.push")}
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -506,7 +506,7 @@ export function RefContextMenu({
                 }}
               >
                 <Upload className={sx(styles.menuIcon)} />
-                Force push
+                {i18n.t("gitGraph:refContextMenu.forcePush")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
@@ -522,7 +522,7 @@ export function RefContextMenu({
                   worktreeLocationsUnavailable || attachedElsewhere
                     ? worktreeTooltip
                     : isCurrentBranch
-                      ? "Cannot delete the currently checked-out branch"
+                      ? i18n.t("gitGraph:refContextMenu.cannotDeleteTheCurrentlyCheckedOutBranch")
                       : undefined
                 }
                 onSelect={() => {
@@ -531,7 +531,7 @@ export function RefContextMenu({
                 }}
               >
                 <Trash2 className={sx(styles.menuIcon)} />
-                Delete branch
+                {i18n.t("gitGraph:refContextMenu.deleteBranch")}
               </DropdownMenuItem>
             </>
           )}
@@ -546,7 +546,7 @@ export function RefContextMenu({
                 }}
               >
                 <GitBranch className={sx(styles.menuIcon)} />
-                Checkout (track locally)
+                {i18n.t("gitGraph:refContextMenu.checkoutTrackLocally")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
@@ -558,7 +558,7 @@ export function RefContextMenu({
                 }}
               >
                 <GitMerge className={sx(styles.menuIcon)} />
-                Merge into current
+                {i18n.t("gitGraph:refContextMenu.mergeIntoCurrent")}
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -568,7 +568,7 @@ export function RefContextMenu({
                 }}
               >
                 <ChevronsUp className={sx(styles.menuIcon)} />
-                Rebase current onto
+                {i18n.t("gitGraph:refContextMenu.rebaseCurrentOnto")}
               </DropdownMenuItem>
             </>
           )}
@@ -583,7 +583,7 @@ export function RefContextMenu({
                 }}
               >
                 <GitBranch className={sx(styles.menuIcon)} />
-                Checkout (detached)
+                {i18n.t("gitGraph:refContextMenu.checkoutDetached")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
@@ -596,7 +596,7 @@ export function RefContextMenu({
                 }}
               >
                 <Trash2 className={sx(styles.menuIcon)} />
-                Delete tag
+                {i18n.t("gitGraph:refContextMenu.deleteTag")}
               </DropdownMenuItem>
             </>
           )}
@@ -611,7 +611,7 @@ export function RefContextMenu({
             }}
           >
             <Copy className={sx(styles.menuIcon)} />
-            Copy name
+            {i18n.t("gitGraph:refContextMenu.copyName")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -622,10 +622,10 @@ export function RefContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Rename branch"
-        placeholder="new-branch-name"
+        title={i18n.t("gitGraph:refContextMenu.renameBranch")}
+        placeholder={i18n.t("gitGraph:refContextMenu.newBranchName")}
         initialValue={refName}
-        confirmLabel="Rename"
+        confirmLabel={i18n.t("gitGraph:refContextMenu.rename")}
         onConfirm={(newName) => void onRename(ref!, newName)}
       />
 
@@ -645,9 +645,9 @@ export function RefContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Delete tag"
-        description={`Delete tag "${refName}"? This removes the local tag; it does not affect any remote.`}
-        confirmLabel="Delete tag"
+        title={i18n.t("gitGraph:refContextMenu.deleteTag")}
+        description={i18n.t("gitGraph:refContextMenu.deleteTagThisRemovesTheLocal", { value1: refName })}
+        confirmLabel={i18n.t("gitGraph:refContextMenu.deleteTag")}
         destructive
         onConfirm={() => void onDelete(ref!, false)}
       />
@@ -658,9 +658,9 @@ export function RefContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Merge branch"
-        description={`Merge "${refName}" into the current branch "${currentBranch}".`}
-        confirmLabel="Merge"
+        title={i18n.t("gitGraph:refContextMenu.mergeBranch")}
+        description={i18n.t("gitGraph:refContextMenu.mergeIntoTheCurrentBranch", { value1: refName, value2: currentBranch })}
+        confirmLabel={i18n.t("gitGraph:refContextMenu.merge")}
         onConfirm={() => void onMergeInto(ref!)}
       />
 
@@ -670,9 +670,9 @@ export function RefContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Rebase current branch"
-        description={`Rebase "${currentBranch}" onto "${refName}". In-progress work may require conflict resolution.`}
-        confirmLabel="Rebase"
+        title={i18n.t("gitGraph:refContextMenu.rebaseCurrentBranch")}
+        description={i18n.t("gitGraph:refContextMenu.rebaseOntoInProgressWorkMay", { value1: currentBranch, value2: refName })}
+        confirmLabel={i18n.t("gitGraph:refContextMenu.rebase")}
         onConfirm={() => void onRebaseOnto(ref!)}
       />
 
@@ -682,9 +682,9 @@ export function RefContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Push branch"
-        description={`Push "${refName}" to the remote. If the remote has diverged, the push will be rejected (use force-push if needed).`}
-        confirmLabel="Push"
+        title={i18n.t("gitGraph:refContextMenu.pushBranch")}
+        description={i18n.t("gitGraph:refContextMenu.pushToTheRemoteIfThe", { value1: refName })}
+        confirmLabel={i18n.t("gitGraph:refContextMenu.push")}
         onConfirm={() => void onPush(ref!, false)}
       />
 
@@ -694,9 +694,9 @@ export function RefContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Force-push branch"
-        description={`Force-push "${refName}" to the remote using --force-with-lease. This will overwrite remote history. Make sure collaborators are aware.`}
-        confirmLabel="Force push"
+        title={i18n.t("gitGraph:refContextMenu.forcePushBranch")}
+        description={i18n.t("gitGraph:refContextMenu.forcePushToTheRemoteUsingForceWithLease", { value1: refName })}
+        confirmLabel={i18n.t("gitGraph:refContextMenu.forcePush")}
         destructive
         onConfirm={() => void onPush(ref!, true)}
       />

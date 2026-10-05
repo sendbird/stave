@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   useEffect,
   useId,
@@ -27,12 +28,13 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog(args: ConfirmDialogProps) {
+  useTranslation();
   const {
     open,
     title,
     description,
-    confirmLabel = "Confirm",
-    cancelLabel = "Cancel",
+    confirmLabel = i18n.t("shell:confirmDialog.confirm"),
+    cancelLabel = i18n.t("shell:confirmDialog.cancel"),
     loading = false,
     children,
     onConfirm,

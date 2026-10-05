@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   DETACHED_HEAD_BRANCH,
-  DETACHED_HEAD_LABEL,
   formatBranchLabel,
   isDetachedHead,
 } from "../src/lib/source-control-branch-label";
@@ -24,8 +23,8 @@ describe("isDetachedHead", () => {
 
 describe("formatBranchLabel", () => {
   test("renders the detached sentinel as a human label", () => {
-    expect(formatBranchLabel(DETACHED_HEAD_BRANCH)).toBe(DETACHED_HEAD_LABEL);
-    expect(formatBranchLabel(" HEAD ")).toBe(DETACHED_HEAD_LABEL);
+    expect(formatBranchLabel(DETACHED_HEAD_BRANCH)).toBe("Detached HEAD");
+    expect(formatBranchLabel(" HEAD ")).toBe("Detached HEAD");
   });
 
   test("passes real branch names through trimmed", () => {

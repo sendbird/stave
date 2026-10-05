@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
 import * as stylex from "@stylexjs/stylex";
@@ -38,6 +39,7 @@ export function LensConsoleWorkbench(props: {
   diagnostics: LensDiagnosticsLog;
   lensPageActionDisabled: boolean;
 }) {
+  useTranslation();
   const { lensPageActionDisabled } = props;
   const {
     autoScrollLogs,
@@ -79,7 +81,7 @@ export function LensConsoleWorkbench(props: {
           <Input
             value={consoleSearch}
             onChange={(event) => setConsoleSearch(event.target.value)}
-            placeholder="Search console"
+            placeholder={i18n.t("lens:lensConsoleWorkbench.searchConsole")}
             xstyle={w.searchInput}
           />
         </div>
@@ -111,7 +113,7 @@ export function LensConsoleWorkbench(props: {
           variant={consolePaused ? "secondary" : "ghost"}
           onClick={toggleConsolePaused}
           aria-label={
-            consolePaused ? "Resume console log" : "Pause console log"
+            consolePaused ? i18n.t("lens:lensConsoleWorkbench.resumeConsoleLog") : i18n.t("lens:lensConsoleWorkbench.pauseConsoleLog")
           }
         >
           {consolePaused ? (
@@ -123,8 +125,8 @@ export function LensConsoleWorkbench(props: {
         {consolePaused ? (
           <Badge role="status" tone="warning">
             {consoleBufferedCount > 0
-              ? `${consoleBufferedCount} buffered`
-              : "Paused"}
+              ? i18n.t("lens:lensConsoleWorkbench.buffered", { value1: consoleBufferedCount })
+              : i18n.t("lens:lensConsoleWorkbench.paused")}
           </Badge>
         ) : null}
         <Button
@@ -132,7 +134,7 @@ export function LensConsoleWorkbench(props: {
           size="icon-xs"
           variant={autoScrollLogs ? "secondary" : "ghost"}
           onClick={() => setAutoScrollLogs((current) => !current)}
-          aria-label="Toggle log autoscroll"
+          aria-label={i18n.t("lens:lensConsoleWorkbench.toggleLogAutoscroll")}
         >
           <ArrowDownToLine {...stylex.props(w.icon)} />
         </Button>
@@ -144,13 +146,13 @@ export function LensConsoleWorkbench(props: {
           disabled={!selectedConsoleEntry}
           onClick={() => setConsoleDetailsOpen((current) => !current)}
           aria-label={
-            consoleDetailsOpen ? "Hide console details" : "Show console details"
+            consoleDetailsOpen ? i18n.t("lens:lensConsoleWorkbench.hideConsoleDetails") : i18n.t("lens:lensConsoleWorkbench.showConsoleDetails")
           }
           aria-expanded={consoleDetailsOpen}
           aria-controls="lens-console-entry-detail"
         >
           <PanelRightOpen {...stylex.props(w.icon)} />
-          Details
+          {i18n.t("lens:lensConsoleWorkbench.details")}
         </AdsButton>
         <Button
           type="button"
@@ -158,7 +160,7 @@ export function LensConsoleWorkbench(props: {
           variant="ghost"
           disabled={filteredConsoleEntries.length === 0}
           onClick={copyConsoleLog}
-          aria-label="Copy console log"
+          aria-label={i18n.t("lens:lensConsoleWorkbench.copyConsoleLog")}
         >
           <Copy {...stylex.props(w.icon)} />
         </Button>
@@ -168,7 +170,7 @@ export function LensConsoleWorkbench(props: {
           variant="ghost"
           disabled={consoleEntries.length === 0 && consoleBufferedCount === 0}
           onClick={clearConsoleLog}
-          aria-label="Clear console log"
+          aria-label={i18n.t("lens:lensConsoleWorkbench.clearConsoleLog")}
         >
           <Trash2 {...stylex.props(w.icon)} />
         </Button>
@@ -230,28 +232,28 @@ export function LensConsoleWorkbench(props: {
               })}
             </div>
           ) : (
-            <div {...stylex.props(w.empty)}>No console entries.</div>
+            <div {...stylex.props(w.empty)}>{i18n.t("lens:lensConsoleWorkbench.noConsoleEntries")}</div>
           )}
         </div>
         {selectedConsoleEntry && consoleDetailsOpen ? (
           <LensLogEntryDetail
-            ariaLabel="Console entry details"
+            ariaLabel={i18n.t("lens:lensConsoleWorkbench.consoleEntryDetails")}
             testId="lens-console-entry-detail"
             fields={[
               {
-                label: "Level",
+                label: i18n.t("lens:lensConsoleWorkbench.level"),
                 value: selectedConsoleEntry.level.toUpperCase(),
               },
               {
-                label: "Timestamp",
+                label: i18n.t("lens:lensConsoleWorkbench.timestamp"),
                 value: selectedConsoleEntry.timestamp,
               },
               {
-                label: "Source",
-                value: selectedConsoleEntry.source ?? "Page",
+                label: i18n.t("lens:lensConsoleWorkbench.source"),
+                value: selectedConsoleEntry.source ?? i18n.t("lens:lensConsoleWorkbench.page"),
               },
               {
-                label: "Line",
+                label: i18n.t("lens:lensConsoleWorkbench.line"),
                 value:
                   selectedConsoleEntry.lineNumber === undefined
                     ? "-"
@@ -261,9 +263,9 @@ export function LensConsoleWorkbench(props: {
             tabs={[
               {
                 id: "message",
-                label: "Message",
+                label: i18n.t("lens:lensConsoleWorkbench.message"),
                 content: (
-                  <LensLogDetailBlock label="Message">
+                  <LensLogDetailBlock label={i18n.t("lens:lensConsoleWorkbench.message")}>
                     <pre {...stylex.props(w.pre)}>
                       {selectedConsoleEntry.text}
                     </pre>
@@ -272,7 +274,7 @@ export function LensConsoleWorkbench(props: {
               },
               {
                 id: "arguments",
-                label: "Arguments",
+                label: i18n.t("lens:lensConsoleWorkbench.arguments"),
                 content: (
                   <div {...stylex.props(w.compactStack)}>
                     {consoleEntryDetail?.arguments.length ? (
@@ -289,7 +291,7 @@ export function LensConsoleWorkbench(props: {
                       <DetailLoadState
                         loading={consoleDetailLoading}
                         error={consoleDetailError}
-                        empty="This console entry has no captured arguments."
+                        empty={i18n.t("lens:lensConsoleWorkbench.thisConsoleEntryHasNoCapturedArguments")}
                       />
                     )}
                   </div>
@@ -297,7 +299,7 @@ export function LensConsoleWorkbench(props: {
               },
               {
                 id: "stack",
-                label: "Stack",
+                label: i18n.t("lens:lensConsoleWorkbench.stack"),
                 content: (
                   <div {...stylex.props(w.compactStack)}>
                     {consoleEntryDetail?.stackTrace ? (
@@ -310,7 +312,7 @@ export function LensConsoleWorkbench(props: {
                           >
                             <div {...stylex.props(w.stackFrameHeader)}>
                               <span {...stylex.props(w.stackFrameName)}>
-                                {frame.functionName || "(anonymous)"}
+                                {frame.functionName || i18n.t("lens:lensConsoleWorkbench.anonymous")}
                               </span>
                               {description ? (
                                 <span
@@ -321,7 +323,7 @@ export function LensConsoleWorkbench(props: {
                               ) : null}
                             </div>
                             <div {...stylex.props(w.stackFrameLocation)}>
-                              {frame.url || "(inline)"}
+                              {frame.url || i18n.t("lens:lensConsoleWorkbench.inline")}
                               {`:${frame.lineNumber}:${frame.columnNumber}`}
                             </div>
                           </div>
@@ -331,7 +333,7 @@ export function LensConsoleWorkbench(props: {
                       <DetailLoadState
                         loading={consoleDetailLoading}
                         error={consoleDetailError}
-                        empty="No JavaScript stack was captured for this entry."
+                        empty={i18n.t("lens:lensConsoleWorkbench.noJavaScriptStackWasCapturedForThis")}
                       />
                     )}
                   </div>
@@ -339,18 +341,18 @@ export function LensConsoleWorkbench(props: {
               },
               {
                 id: "context",
-                label: "Context",
+                label: i18n.t("lens:lensConsoleWorkbench.context"),
                 content: (
                   <div {...stylex.props(w.detailsGrid)}>
-                    <LensLogDetailBlock label="Execution context">
+                    <LensLogDetailBlock label={i18n.t("lens:lensConsoleWorkbench.executionContext")}>
                       {consoleEntryDetail?.executionContext?.name ??
                         consoleEntryDetail?.executionContext?.origin ??
                         (selectedConsoleEntry.executionContextId
-                          ? `Context ${selectedConsoleEntry.executionContextId}`
-                          : "Page")}
+                          ? i18n.t("lens:lensConsoleWorkbench.context2", { value1: selectedConsoleEntry.executionContextId })
+                          : i18n.t("lens:lensConsoleWorkbench.page"))}
                     </LensLogDetailBlock>
-                    <LensLogDetailBlock label="Location">
-                      {selectedConsoleEntry.source ?? "Page"}
+                    <LensLogDetailBlock label={i18n.t("lens:lensConsoleWorkbench.location")}>
+                      {selectedConsoleEntry.source ?? i18n.t("lens:lensConsoleWorkbench.page")}
                       {selectedConsoleEntry.lineNumber === undefined
                         ? ""
                         : `:${selectedConsoleEntry.lineNumber}`}
@@ -358,12 +360,12 @@ export function LensConsoleWorkbench(props: {
                         ? ""
                         : `:${selectedConsoleEntry.columnNumber}`}
                     </LensLogDetailBlock>
-                    <LensLogDetailBlock label="Captured">
+                    <LensLogDetailBlock label={i18n.t("lens:lensConsoleWorkbench.captured")}>
                       {selectedConsoleEntry.timestamp}
                     </LensLogDetailBlock>
-                    <LensLogDetailBlock label="Capture source">
+                    <LensLogDetailBlock label={i18n.t("lens:lensConsoleWorkbench.captureSource")}>
                       {selectedConsoleEntry.captureSource ??
-                        "Electron fallback"}
+                        i18n.t("lens:lensConsoleWorkbench.electronFallback")}
                     </LensLogDetailBlock>
                   </div>
                 ),

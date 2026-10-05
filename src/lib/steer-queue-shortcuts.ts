@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * Which explicit action (steer vs queue) Enter triggers during an active
  * turn's "steer-or-queue" composer mode. Tab always triggers the other
@@ -21,15 +22,13 @@ export const STEER_QUEUE_ENTER_ACTION_OPTIONS: readonly {
 }[] = [
   {
     value: "queue",
-    label: "Enter queues, Tab steers",
-    description:
-      "Enter queues the message for after the turn finishes. Tab steers it into the live turn immediately.",
+    get label() { return i18n.t("shell:steerQueueShortcuts.enterQueuesTabSteers"); },
+    get description() { return i18n.t("shell:steerQueueShortcuts.enterQueuesTheMessageForAfterThe"); },
   },
   {
     value: "steer",
-    label: "Enter steers, Tab queues",
-    description:
-      "Enter steers the message into the live turn immediately. Tab queues it for after the turn finishes.",
+    get label() { return i18n.t("shell:steerQueueShortcuts.enterSteersTabQueues"); },
+    get description() { return i18n.t("shell:steerQueueShortcuts.enterSteersTheMessageIntoTheLive"); },
   },
 ];
 
@@ -48,7 +47,7 @@ export function formatSteerQueueEnterActionLabel(
   return (
     STEER_QUEUE_ENTER_ACTION_OPTIONS.find(
       (option) => option.value === normalized,
-    )?.label ?? "Enter queues, Tab steers"
+    )?.label ?? i18n.t("shell:steerQueueShortcuts.enterQueuesTabSteers")
   );
 }
 

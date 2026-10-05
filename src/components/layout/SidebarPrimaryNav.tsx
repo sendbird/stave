@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 import { Bot, ChartNoAxesColumn, Gauge, LayoutGrid } from "lucide-react";
@@ -25,6 +26,7 @@ const MAX_LISTED_AGENTS = 5;
  * never returned from a zustand selector.
  */
 function useAgentsWithWork() {
+  useTranslation();
   useAgentAssignmentsSync();
   const byTaskId = useAgentAssignmentsStore((state) => state.byTaskId);
   // The selector returns a string, so a streamed token that changes no task's
@@ -45,7 +47,7 @@ function useAgentsWithWork() {
       [byTaskId],
     ),
   );
-  return useMemo(() => JSON.parse(key) as ReturnType<typeof collectAgentsWithWork>, [key]);
+  return useMemo(() => JSON.parse(key) as ReturnType<typeof collectAgentsWithWork>, [key, i18n.language]);
 }
 
 /**
@@ -53,6 +55,7 @@ function useAgentsWithWork() {
  * what waits for you, then Results.
  */
 export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
+  useTranslation();
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
@@ -68,7 +71,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           layout="host"
           type="button"
           onClick={() => openFleetView()}
-          aria-label="open-fleet-view"
+          aria-label={i18n.t("shell:sidebarPrimaryNav.openFleetView")}
           xstyle={[
             repositorySidebarStyles.navButton,
             transition.colors,
@@ -76,14 +79,14 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           ]}
         >
           <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
-          Fleet View
+          {i18n.t("shell:sidebarPrimaryNav.fleetView")}
         </AdsButton>
       ) : null}
       <AdsButton
         layout="host"
         type="button"
         onClick={() => openAgents()}
-        aria-label={agentsWithWork.total > 0 ? `Agents, ${agentsWithWork.total} at work` : "Agents"}
+        aria-label={agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
         xstyle={[
           repositorySidebarStyles.navButton,
           transition.colors,
@@ -91,7 +94,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
         ]}
       >
         <Bot className={sx(repositorySidebarStyles.iconMd)} />
-        <span className={sx(styles.label)}>Agents</span>
+        <span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.agents")}</span>
         {agentsWithWork.total > 0 ? (
           <span className={sx(styles.count)}>{agentsWithWork.total}</span>
         ) : null}
@@ -105,7 +108,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
             selectAgent(agent.agentConfigId);
             openAgents();
           }}
-          aria-label={`Agent ${agent.agentName}${agent.needsYou ? `, ${agent.count} need you` : `, ${agent.count} at work`}`}
+          aria-label={i18n.t("shell:sidebarPrimaryNav.agent", { value1: agent.agentName, value2: agent.needsYou ? i18n.t("shell:sidebarPrimaryNav.needYou", { value1: agent.count }) : i18n.t("shell:sidebarPrimaryNav.atWork", { value1: agent.count }) })}
           xstyle={[
             repositorySidebarStyles.navButton,
             styles.childRow,
@@ -127,7 +130,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
         layout="host"
         type="button"
         onClick={() => openResults()}
-        aria-label="Results"
+        aria-label={i18n.t("shell:sidebarPrimaryNav.results")}
         xstyle={[
           repositorySidebarStyles.navButton,
           transition.colors,
@@ -135,12 +138,12 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
         ]}
       >
         <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
-        <span className={sx(styles.label)}>Results</span>
+        <span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.results")}</span>
       </AdsButton>
-      <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label="AI usage"
+      <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")}
         xstyle={[repositorySidebarStyles.navButton, transition.colors,
           surface === "usage" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
-        <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>AI usage</span>
+        <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</span>
       </AdsButton>
     </>
   );
@@ -148,6 +151,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
 
 /** The collapsed sidebar's rail: Fleet View, Agents and Results, with a dot when an agent needs you. */
 export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
+  useTranslation();
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
@@ -166,12 +170,12 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button variant="ghost" size="sm" xstyle={railButton(surface === "fleet-view")} onClick={() => openFleetView()} aria-label="open-fleet-view" />
+              <Button variant="ghost" size="sm" xstyle={railButton(surface === "fleet-view")} onClick={() => openFleetView()} aria-label={i18n.t("shell:sidebarPrimaryNav.openFleetView")} />
             }
           >
             <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
           </TooltipTrigger>
-          <TooltipContent side="right">Fleet View</TooltipContent>
+          <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.fleetView")}</TooltipContent>
         </Tooltip>
       ) : null}
       <Tooltip>
@@ -182,7 +186,7 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
               size="sm"
               xstyle={railButton(surface === "agents")}
               onClick={() => openAgents()}
-              aria-label={agentsWithWork.total > 0 ? `Agents, ${agentsWithWork.total} at work` : "Agents"}
+              aria-label={agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
             />
           }
         >
@@ -190,22 +194,22 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
           {agentsNeedYou ? <span aria-hidden className={sx(styles.railDot)} /> : null}
         </TooltipTrigger>
         <TooltipContent side="right">
-          {agentsWithWork.total > 0 ? `Agents · ${agentsWithWork.total} at work` : "Agents"}
+          {agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork2", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
         </TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger
           render={
-            <Button variant="ghost" size="sm" xstyle={railButton(surface === "results")} onClick={() => openResults()} aria-label="Results" />
+            <Button variant="ghost" size="sm" xstyle={railButton(surface === "results")} onClick={() => openResults()} aria-label={i18n.t("shell:sidebarPrimaryNav.results")} />
           }
         >
           <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
         </TooltipTrigger>
-        <TooltipContent side="right">Results</TooltipContent>
+        <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.results")}</TooltipContent>
       </Tooltip>
       <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm" xstyle={railButton(surface === "usage")}
-        onClick={() => openUsage()} aria-label="AI usage" />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
-        <TooltipContent side="right">AI usage</TooltipContent></Tooltip>
+        onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")} />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
+        <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</TooltipContent></Tooltip>
     </>
   );
 }

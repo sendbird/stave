@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { FileCode2, Search } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
@@ -52,12 +53,13 @@ function toFileItem(filePath: string, score = 0): SearchCommandItem {
     id: `file:${filePath}`,
     filePath,
     title: fileName,
-    subtitle: directoryPath || "workspace root",
+    subtitle: directoryPath || i18n.t("shell:topBarFileSearch.workspaceRoot"),
     score,
   };
 }
 
 export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
+  useTranslation();
   const [
     repositoryFiles,
     editorTabs,
@@ -185,11 +187,11 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
     }
 
     return items;
-  }, [activeEditorTabId, editorTabs]);
+  }, [activeEditorTabId, editorTabs, i18n.language]);
 
   const openEditorFilePaths = useMemo(
     () => new Set(openEditorItems.map((item) => item.filePath)),
-    [openEditorItems],
+    [openEditorItems, i18n.language],
   );
 
   const filteredFileItems = useMemo(
@@ -199,7 +201,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
         query: normalizedQuery,
         limit: DEFAULT_FILE_RESULT_LIMIT,
       }).map((item) => toFileItem(item.filePath, item.score)),
-    [normalizedQuery, repositoryFiles],
+    [normalizedQuery, repositoryFiles, i18n.language],
   );
 
   const browseFileItems = useMemo(
@@ -207,7 +209,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
       filteredFileItems
         .filter((item) => !openEditorFilePaths.has(item.filePath))
         .slice(0, DEFAULT_FILE_RESULT_LIMIT),
-    [filteredFileItems, openEditorFilePaths],
+    [filteredFileItems, openEditorFilePaths, i18n.language],
   );
 
   const hasItems = normalizedQuery
@@ -265,7 +267,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
           isMobileExpanded && fileSearchStyles.compactTriggerHidden,
         ]}
         onClick={handleCompactButtonClick}
-        aria-label="Go to file"
+        aria-label={i18n.t("shell:topBarFileSearch.goToFile")}
         style={noDragStyle}
       >
         <Search />
@@ -319,8 +321,8 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                 closeSearch();
                 getInputElement()?.blur();
               }}
-              placeholder="Go to file..."
-              aria-label="Go to file"
+              placeholder={i18n.t("shell:topBarFileSearch.goToFile2")}
+              aria-label={i18n.t("shell:topBarFileSearch.goToFile")}
               aria-expanded={isOpen}
               data-file-search-input
             />
@@ -335,11 +337,11 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
             >
               <div className={sx(fileSearchStyles.panelHeader)}>
                 <div className={sx(fileSearchStyles.panelHeaderText)}>
-                  <p className={sx(fileSearchStyles.panelEyebrow)}>Go to File</p>
+                  <p className={sx(fileSearchStyles.panelEyebrow)}>{i18n.t("shell:topBarFileSearch.goToFile3")}</p>
                   <p className={sx(fileSearchStyles.panelSubtitle)}>
                     {normalizedQuery
-                      ? "Matching workspace files"
-                      : "Open editors and workspace files"}
+                      ? i18n.t("shell:topBarFileSearch.matchingWorkspaceFiles")
+                      : i18n.t("shell:topBarFileSearch.openEditorsAndWorkspaceFiles")}
                   </p>
                 </div>
                 <Badge
@@ -353,18 +355,18 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                 {isPreparingFiles ? (
                   <div className={sx(fileSearchStyles.loadingRow)}>
                     <Loader aria-hidden size="xs" variant="scan" />
-                    Refreshing workspace files...
+                    {i18n.t("shell:topBarFileSearch.refreshingWorkspaceFiles")}
                   </div>
                 ) : null}
                 {!isPreparingFiles && !hasItems ? (
                   <CommandEmpty className={sx(fileSearchStyles.emptyRow)}>
                     {repositoryFiles.length === 0
-                      ? "No workspace files are indexed yet."
-                      : "No matching files."}
+                      ? i18n.t("shell:topBarFileSearch.noWorkspaceFilesAreIndexedYet")
+                      : i18n.t("shell:topBarFileSearch.noMatchingFiles")}
                   </CommandEmpty>
                 ) : null}
                 {normalizedQuery ? (
-                  <CommandGroup heading={`Files (${filteredFileItems.length})`}>
+                  <CommandGroup heading={i18n.t("shell:topBarFileSearch.files", { value1: filteredFileItems.length })}>
                     {filteredFileItems.map((item) => {
                       const isOpenFile = editorTabs.some(
                         (tab) => tab.filePath === item.filePath,
@@ -399,14 +401,14 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                                   variant="secondary"
                                   className={sx(fileSearchStyles.resultBadge)}
                                 >
-                                  Active
+                                  {i18n.t("shell:topBarFileSearch.active")}
                                 </Badge>
                               ) : isOpenFile ? (
                                 <Badge
                                   variant="outline"
                                   className={sx(fileSearchStyles.resultBadge)}
                                 >
-                                  Open
+                                  {i18n.t("shell:topBarFileSearch.open")}
                                 </Badge>
                               ) : null}
                             </div>
@@ -422,7 +424,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                   <>
                     {openEditorItems.length > 0 ? (
                       <CommandGroup
-                        heading={`Open editors (${openEditorItems.length})`}
+                        heading={i18n.t("shell:topBarFileSearch.openEditors", { value1: openEditorItems.length })}
                       >
                         {openEditorItems.map((item) => {
                           const isActive =
@@ -461,7 +463,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                                         fileSearchStyles.resultBadge,
                                       )}
                                     >
-                                      Active
+                                      {i18n.t("shell:topBarFileSearch.active")}
                                     </Badge>
                                   ) : (
                                     <Badge
@@ -470,7 +472,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                                         fileSearchStyles.resultBadge,
                                       )}
                                     >
-                                      Open
+                                      {i18n.t("shell:topBarFileSearch.open")}
                                     </Badge>
                                   )}
                                 </div>
@@ -489,7 +491,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                     ) : null}
                     {browseFileItems.length > 0 ? (
                       <CommandGroup
-                        heading={`Workspace files (${Math.min(browseFileItems.length, DEFAULT_FILE_RESULT_LIMIT)})`}
+                        heading={i18n.t("shell:topBarFileSearch.workspaceFiles", { value1: Math.min(browseFileItems.length, DEFAULT_FILE_RESULT_LIMIT) })}
                       >
                         {browseFileItems.map((item) => (
                           <CommandItem

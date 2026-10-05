@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   AlignJustify,
   Columns2,
@@ -65,6 +66,7 @@ export function EditorSurfaceToolbar(args: {
   onCopyRelativePath: () => void;
   onCopyBreadcrumbsPath: () => void;
 }) {
+  useTranslation();
   return (
     <div className={sx(s.bar, panelBarStyles.bar)}>
       <TooltipProvider>
@@ -93,7 +95,7 @@ export function EditorSurfaceToolbar(args: {
                 <Save size={16} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Save (Ctrl S)</TooltipContent>
+            <TooltipContent side="bottom">{i18n.t("panes:editorSurfaceToolbar.saveCtrlS")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger render={<span className={sx(s.inlineFlex)} />}>
@@ -108,7 +110,7 @@ export function EditorSurfaceToolbar(args: {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              {args.diffMode ? "Back to Edit" : "View Diff"}
+              {args.diffMode ? i18n.t("panes:editorSurfaceToolbar.backToEdit") : i18n.t("panes:editorSurfaceToolbar.viewDiff")}
             </TooltipContent>
           </Tooltip>
           {args.tabIsMarkdown ? (
@@ -126,8 +128,8 @@ export function EditorSurfaceToolbar(args: {
                   onClick={args.onToggleMarkdownPreviewMode}
                   aria-label={
                     args.markdownPreviewMode
-                      ? "Show Markdown Source"
-                      : "Show Markdown Preview"
+                      ? i18n.t("panes:editorSurfaceToolbar.showMarkdownSource")
+                      : i18n.t("panes:editorSurfaceToolbar.showMarkdownPreview")
                   }
                   aria-pressed={args.markdownPreviewMode}
                   data-testid="editor-markdown-preview-toggle"
@@ -140,8 +142,8 @@ export function EditorSurfaceToolbar(args: {
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 {args.markdownPreviewMode
-                  ? "Show Markdown Source"
-                  : "Preview Markdown"}
+                  ? i18n.t("panes:editorSurfaceToolbar.showMarkdownSource")
+                  : i18n.t("panes:editorSurfaceToolbar.previewMarkdown")}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -159,13 +161,13 @@ export function EditorSurfaceToolbar(args: {
                           s.diffViewButtonActive,
                       ]}
                       onClick={() => args.onChangeDiffViewMode("unified")}
-                      aria-label="Unified Diff"
+                      aria-label={i18n.t("panes:editorSurfaceToolbar.unifiedDiff")}
                     />
                   }
                 >
                   <AlignJustify size={14} />
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Unified Diff</TooltipContent>
+                <TooltipContent side="bottom">{i18n.t("panes:editorSurfaceToolbar.unifiedDiff")}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger
@@ -178,13 +180,13 @@ export function EditorSurfaceToolbar(args: {
                         args.diffViewMode === "split" && s.diffViewButtonActive,
                       ]}
                       onClick={() => args.onChangeDiffViewMode("split")}
-                      aria-label="Split Diff"
+                      aria-label={i18n.t("panes:editorSurfaceToolbar.splitDiff")}
                     />
                   }
                 >
                   <Columns2 size={14} />
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Split Diff</TooltipContent>
+                <TooltipContent side="bottom">{i18n.t("panes:editorSurfaceToolbar.splitDiff")}</TooltipContent>
               </Tooltip>
             </div>
           ) : null}
@@ -198,13 +200,13 @@ export function EditorSurfaceToolbar(args: {
                     xstyle={s.iconButton}
                     disabled={!args.canAddReviewComment}
                     onClick={args.onAddReviewComment}
-                    aria-label="Add review comment"
+                    aria-label={i18n.t("panes:editorSurfaceToolbar.addReviewComment")}
                   >
                     <MessageSquarePlus size={16} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  Add review comment
+                  {i18n.t("panes:editorSurfaceToolbar.addReviewComment")}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -215,7 +217,7 @@ export function EditorSurfaceToolbar(args: {
                     xstyle={s.reviewButton}
                     disabled={!args.canSubmitReviewFeedback}
                     onClick={args.onSubmitReviewFeedback}
-                    aria-label="Send review to agent"
+                    aria-label={i18n.t("panes:editorSurfaceToolbar.sendReviewToAgent")}
                     indicator={
                       args.reviewCommentCount > 0 ? (
                         <CountBadge cap={9} count={args.reviewCommentCount} />
@@ -226,7 +228,7 @@ export function EditorSurfaceToolbar(args: {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  Send review to agent
+                  {i18n.t("panes:editorSurfaceToolbar.sendReviewToAgent")}
                 </TooltipContent>
               </Tooltip>
             </>
@@ -243,7 +245,7 @@ export function EditorSurfaceToolbar(args: {
                 <Send size={16} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Send to Agent</TooltipContent>
+            <TooltipContent side="bottom">{i18n.t("panes:editorSurfaceToolbar.sendToAgent")}</TooltipContent>
           </Tooltip>
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -252,7 +254,7 @@ export function EditorSurfaceToolbar(args: {
                   size="sm"
                   variant="ghost"
                   xstyle={s.iconButton}
-                  aria-label="More editor tab actions"
+                  aria-label={i18n.t("panes:editorSurfaceToolbar.moreEditorTabActions")}
                 />
               }
             >
@@ -260,26 +262,26 @@ export function EditorSurfaceToolbar(args: {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => args.onBulkClose("others")}>
-                Close Others
+                {i18n.t("panes:editorSurfaceToolbar.closeOthers")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => args.onBulkClose("right")}>
-                Close to the Right
+                {i18n.t("panes:editorSurfaceToolbar.closeToTheRight")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => args.onBulkClose("saved")}>
-                Close Saved
+                {i18n.t("panes:editorSurfaceToolbar.closeSaved")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => args.onBulkClose("all")}>
-                Close All
+                {i18n.t("panes:editorSurfaceToolbar.closeAll")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => args.onCopyPath()}>
-                Copy Path
+                {i18n.t("panes:editorSurfaceToolbar.copyPath")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => args.onCopyRelativePath()}>
-                Copy Relative Path
+                {i18n.t("panes:editorSurfaceToolbar.copyRelativePath")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => args.onCopyBreadcrumbsPath()}>
-                Copy Breadcrumbs Path
+                {i18n.t("panes:editorSurfaceToolbar.copyBreadcrumbsPath")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

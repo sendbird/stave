@@ -1,1 +1,105 @@
-{}
+{
+  "terminalTab": {
+    "defaultTitle": "터미널"
+  },
+  "terminalSession": {
+    "errors": {
+      "bridgeUnavailable": "터미널 브리지를 사용할 수 없습니다. bun run dev:desktop으로 실행해야 합니다.",
+      "createFailed": "터미널 세션을 만들지 못했습니다.",
+      "attachFailed": "터미널 세션에 연결하지 못했습니다.",
+      "resumeStreamFailed": "터미널 세션 스트림을 재개하지 못했습니다."
+    }
+  },
+  "renderer": {
+    "degraded": "터미널 렌더링 품질이 저하되었을 수 있습니다.",
+    "restart": "렌더러 다시 시작",
+    "initializing": "터미널 초기화 중…",
+    "errors": {
+      "generic": "터미널 렌더러에 오류가 발생했습니다.",
+      "initialize": "터미널 렌더러를 초기화하지 못했습니다.",
+      "measureDimensions": "터미널 크기를 측정하지 못했습니다.",
+      "applyTheme": "터미널 테마를 적용하지 못했습니다.",
+      "renderOutput": "터미널 출력을 표시하지 못했습니다.",
+      "sizeRenderer": "터미널 렌더러 크기를 맞추지 못했습니다.",
+      "resizeRenderer": "터미널 렌더러 크기를 조정하지 못했습니다.",
+      "refreshViewport": "터미널 화면을 새로 고치지 못했습니다."
+    }
+  },
+  "cliSession": {
+    "context": {
+      "workspace": "워크스페이스",
+      "activeTask": "활성 작업"
+    },
+    "defaultTitle": {
+      "workspace": "{{provider}} 워크스페이스",
+      "activeTask": "{{provider}} 활성 작업"
+    },
+    "errors": {
+      "bridgeUnavailable": "CLI 세션 브리지를 사용할 수 없습니다. bun run dev:desktop으로 실행해야 합니다.",
+      "workspacePathUnavailable": "워크스페이스 경로를 사용할 수 없습니다.",
+      "createFailed": "CLI 세션을 만들지 못했습니다.",
+      "resumeStreamFailed": "CLI 세션 스트림을 재개하지 못했습니다."
+    }
+  },
+  "cliSessionPanel": {
+    "title": "CLI 세션",
+    "workspaceFallback": "워크스페이스",
+    "handoffReady": "작업 인계 준비됨",
+    "status": {
+      "exited": "종료됨 ({{code}})",
+      "live": "실행 중"
+    },
+    "copyHandoff": "인계 내용 복사",
+    "copyHandoffTooltip": "작업 인계 요약 복사",
+    "pasteHandoff": "인계 내용 붙여넣기",
+    "pasteHandoffTooltip": "실행 중인 CLI 세션에 인계 내용 붙여넣기",
+    "restartSession": "세션 다시 시작",
+    "closeSession": "세션 닫기",
+    "toasts": {
+      "handoffCopied": "인계 내용을 복사했습니다",
+      "handoffCopyFailed": "인계 내용을 복사할 수 없습니다",
+      "sessionNotReady": "CLI 세션이 아직 준비되지 않았습니다",
+      "handoffPasted": "인계 내용을 붙여넣었습니다",
+      "sessionRestarted": "CLI 세션을 다시 시작했습니다"
+    }
+  },
+  "standaloneCli": {
+    "panelLabel": "독립형 CLI",
+    "closePanel": "독립형 CLI 닫기",
+    "providersLabel": "독립형 CLI 프로바이더",
+    "noFolder": "폴더가 설정되지 않음",
+    "openSettings": "설정 열기",
+    "emptyState": {
+      "noFolder": "설정에서 독립형 CLI 폴더를 지정하면 여기에서 Claude Code, Codex, Cursor, Kiro를 실행할 수 있습니다. 저장소에는 아무것도 추가되지 않습니다.",
+      "noInstalledCli": "이 컴퓨터에서 지원되는 CLI를 찾지 못했습니다. Claude Code, Codex, Cursor, Kiro 중 하나를 설치하거나 설정에서 바이너리 경로를 지정해야 합니다."
+    },
+    "errors": {
+      "folderRequired": "설정에서 독립형 CLI 폴더를 지정해야 합니다."
+    },
+    "terminal": {
+      "restartSessionLabel": "CLI 세션 다시 시작",
+      "restart": "다시 시작",
+      "sessionExited": "세션이 종료되었습니다. 다시 시작을 눌러 새 세션을 시작할 수 있습니다."
+    },
+    "accountSelect": {
+      "ariaLabel": "이 탭의 {{provider}} 계정",
+      "tooltip": "이 탭을 다른 계정으로 실행합니다. 계정을 전환하면 현재 세션이 종료되고 새 대화가 시작되므로 Stave가 먼저 확인합니다.",
+      "unavailable": "계정을 사용할 수 없음",
+      "apiBillingOption": "{{label}} · API 과금",
+      "confirm": {
+        "title": "세션을 종료하고 계정을 전환하시겠습니까?",
+        "description": "이 탭의 현재 CLI 세션이 종료되고 실행 중인 명령이 모두 중지됩니다. {{account}} 계정으로 새 대화가 시작되며, 현재 대화는 이어지지 않습니다.",
+        "descriptionUnknownAccount": "이 탭의 현재 CLI 세션이 종료되고 실행 중인 명령이 모두 중지됩니다. 선택한 계정으로 새 대화가 시작되며, 현재 대화는 이어지지 않습니다.",
+        "confirm": "세션 종료 후 전환"
+      }
+    }
+  },
+  "useCliSessionManager": {
+    "failedToResizeBackendSession": "백엔드 세션 크기를 조절하지 못했습니다.",
+    "failedToCreateCLISession": "CLI 세션을 생성하지 못했습니다."
+  },
+  "useTerminalSessionManager": {
+    "failedToResizeBackendSession": "백엔드 세션 크기를 조절하지 못했습니다.",
+    "failedToCreateTerminalSession": "터미널 세션을 생성하지 못했습니다."
+  }
+}

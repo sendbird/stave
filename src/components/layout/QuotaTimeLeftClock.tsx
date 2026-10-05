@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
 import { resolveTimeLeftHand } from "@/components/layout/status-bar-usage-strip.utils";
@@ -14,6 +15,7 @@ export function QuotaTimeLeftClock({
   timeLeftRatio: number;
   size?: number;
 }) {
+  useTranslation();
   const c = 8;
   const r = 6;
   const { handX, handY, wedge } = resolveTimeLeftHand({ timeLeftRatio, center: c, radius: r });
@@ -22,13 +24,13 @@ export function QuotaTimeLeftClock({
   return (
     <svg
       role="img"
-      aria-label={`${percentLeft}% of window left`}
+      aria-label={i18n.t("shell:quotaTimeLeftClock.ofWindowLeft", { value1: percentLeft })}
       viewBox="0 0 16 16"
       width={size}
       height={size}
       className={sx(statusBarUsageStyles.clock)}
     >
-      <title>{`${percentLeft}% of window left`}</title>
+      <title>{i18n.t("shell:quotaTimeLeftClock.ofWindowLeft", { value1: percentLeft })}</title>
       <g className={sx(statusBarUsageStyles.clockWedge)}>
         {wedge.kind === "full" ? <circle cx={c} cy={c} r={r} /> : null}
         {wedge.kind === "path" ? <path d={wedge.d} /> : null}

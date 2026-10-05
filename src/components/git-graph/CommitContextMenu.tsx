@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 /**
  * CommitContextMenu — right-click menu for a single git commit.
  *
@@ -92,6 +93,7 @@ function ConfirmDialog({
   destructive,
   onConfirm,
 }: ConfirmDialogProps) {
+  useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} xstyle={styles.dialogNarrow}>
@@ -114,7 +116,7 @@ function ConfirmDialog({
             size="sm"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {i18n.t("gitGraph:commitContextMenu.cancel")}
           </Button>
           <Button
             variant={destructive ? "destructive" : "default"}
@@ -153,6 +155,7 @@ function NameInputDialog({
   confirmLabel,
   onConfirm,
 }: NameInputDialogProps) {
+  useTranslation();
   const [value, setValue] = useState("");
 
   // Reset value when dialog opens
@@ -189,7 +192,7 @@ function NameInputDialog({
             size="sm"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {i18n.t("gitGraph:commitContextMenu.cancel")}
           </Button>
           <Button size="sm" disabled={!value.trim()} onClick={handleSubmit}>
             {confirmLabel}
@@ -225,6 +228,7 @@ export function CommitContextMenu({
   onRevert,
   onReset,
 }: CommitContextMenuProps) {
+  useTranslation();
   const triggerRef = useRef<HTMLDivElement>(null);
   const [pendingDialog, setPendingDialog] = useState<PendingDialog>(null);
 
@@ -289,7 +293,7 @@ export function CommitContextMenu({
             }}
           >
             <GitCommitHorizontal className={sx(styles.menuIcon)} />
-            Checkout (detached)
+            {i18n.t("gitGraph:commitContextMenu.checkoutDetached")}
           </DropdownMenuItem>
 
           <DropdownMenuItem
@@ -299,7 +303,7 @@ export function CommitContextMenu({
             }}
           >
             <GitBranch className={sx(styles.menuIcon)} />
-            Create branch here
+            {i18n.t("gitGraph:commitContextMenu.createBranchHere")}
           </DropdownMenuItem>
 
           <DropdownMenuItem
@@ -309,7 +313,7 @@ export function CommitContextMenu({
             }}
           >
             <Tag className={sx(styles.menuIcon)} />
-            Create tag
+            {i18n.t("gitGraph:commitContextMenu.createTag")}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -321,7 +325,7 @@ export function CommitContextMenu({
             }}
           >
             <Cherry className={sx(styles.menuIcon)} />
-            Cherry-pick
+            {i18n.t("gitGraph:commitContextMenu.cherryPick")}
           </DropdownMenuItem>
 
           <DropdownMenuItem
@@ -332,13 +336,13 @@ export function CommitContextMenu({
             }}
           >
             <RotateCcw className={sx(styles.menuIcon)} />
-            Revert
+            {i18n.t("gitGraph:commitContextMenu.revert")}
           </DropdownMenuItem>
 
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <ChevronsUp className={sx(styles.menuIcon)} />
-              Reset to here
+              {i18n.t("gitGraph:commitContextMenu.resetToHere")}
             </DropdownMenuSubTrigger>
             {/*
               Portal the submenu to <body> so it escapes the parent content's
@@ -355,7 +359,7 @@ export function CommitContextMenu({
                     setPendingDialog({ kind: "resetSoft" });
                   }}
                 >
-                  Soft
+                  {i18n.t("gitGraph:commitContextMenu.soft")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => {
@@ -363,7 +367,7 @@ export function CommitContextMenu({
                     setPendingDialog({ kind: "resetMixed" });
                   }}
                 >
-                  Mixed
+                  {i18n.t("gitGraph:commitContextMenu.mixed")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   variant="destructive"
@@ -372,7 +376,7 @@ export function CommitContextMenu({
                     setPendingDialog({ kind: "resetHard" });
                   }}
                 >
-                  Hard
+                  {i18n.t("gitGraph:commitContextMenu.hard")}
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
@@ -387,7 +391,7 @@ export function CommitContextMenu({
             }}
           >
             <Copy className={sx(styles.menuIcon)} />
-            Copy hash
+            {i18n.t("gitGraph:commitContextMenu.copyHash")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -398,9 +402,9 @@ export function CommitContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Create branch"
-        placeholder="branch-name"
-        confirmLabel="Create"
+        title={i18n.t("gitGraph:commitContextMenu.createBranch")}
+        placeholder={i18n.t("gitGraph:commitContextMenu.branchName")}
+        confirmLabel={i18n.t("gitGraph:commitContextMenu.create")}
         onConfirm={(name) => void onCreateBranch(hash, name)}
       />
 
@@ -410,9 +414,9 @@ export function CommitContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Create tag"
+        title={i18n.t("gitGraph:commitContextMenu.createTag")}
         placeholder="v1.0.0"
-        confirmLabel="Create tag"
+        confirmLabel={i18n.t("gitGraph:commitContextMenu.createTag")}
         onConfirm={(name) => void onCreateTag(hash, name)}
       />
 
@@ -422,8 +426,8 @@ export function CommitContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Cherry-pick commit"
-        description={`Apply the changes from ${shortHash} ("${subject}") onto the current branch as a new commit.`}
+        title={i18n.t("gitGraph:commitContextMenu.cherryPickCommit")}
+        description={i18n.t("gitGraph:commitContextMenu.applyTheChangesFromOntoThe", { value1: shortHash, value2: subject })}
         confirmLabel="Cherry-pick"
         onConfirm={() => void onCherryPick(hash)}
       />
@@ -434,9 +438,9 @@ export function CommitContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Revert commit"
-        description={`Create a new commit that undoes the changes from ${shortHash} ("${subject}"). The working tree must be clean.`}
-        confirmLabel="Revert"
+        title={i18n.t("gitGraph:commitContextMenu.revertCommit")}
+        description={i18n.t("gitGraph:commitContextMenu.createANewCommitThatUndoesThe", { value1: shortHash, value2: subject })}
+        confirmLabel={i18n.t("gitGraph:commitContextMenu.revert")}
         destructive
         onConfirm={() => void onRevert(hash)}
       />
@@ -447,9 +451,9 @@ export function CommitContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Reset (soft)"
-        description={`Move HEAD to ${shortHash}. Staged changes are preserved; working tree is untouched.`}
-        confirmLabel="Reset soft"
+        title={i18n.t("gitGraph:commitContextMenu.resetSoft")}
+        description={i18n.t("gitGraph:commitContextMenu.moveHEADToStagedChangesAre", { value1: shortHash })}
+        confirmLabel={i18n.t("gitGraph:commitContextMenu.resetSoft2")}
         onConfirm={() => void onReset(hash, "soft")}
       />
 
@@ -459,9 +463,9 @@ export function CommitContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Reset (mixed)"
-        description={`Move HEAD to ${shortHash}. Staged changes become unstaged; working tree is untouched.`}
-        confirmLabel="Reset mixed"
+        title={i18n.t("gitGraph:commitContextMenu.resetMixed")}
+        description={i18n.t("gitGraph:commitContextMenu.moveHEADToStagedChangesBecome", { value1: shortHash })}
+        confirmLabel={i18n.t("gitGraph:commitContextMenu.resetMixed2")}
         onConfirm={() => void onReset(hash, "mixed")}
       />
 
@@ -471,9 +475,9 @@ export function CommitContextMenu({
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Hard reset — all local changes will be lost"
-        description={`Move HEAD to ${shortHash} and discard ALL staged and unstaged changes. This cannot be undone.`}
-        confirmLabel="Hard reset"
+        title={i18n.t("gitGraph:commitContextMenu.hardResetAllLocalChangesWill")}
+        description={i18n.t("gitGraph:commitContextMenu.moveHEADToAndDiscardALLStaged", { value1: shortHash })}
+        confirmLabel={i18n.t("gitGraph:commitContextMenu.hardReset")}
         destructive
         onConfirm={() => void onReset(hash, "hard")}
       />

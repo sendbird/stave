@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -50,6 +51,7 @@ export function TaskHistoryDrawer(args: {
   workspaceId?: string | null;
   repositoryPath?: string | null;
 }) {
+  useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeWorkspaceId, restoreTask, selectTask] = useAppStore(
     useShallow(
@@ -169,15 +171,15 @@ export function TaskHistoryDrawer(args: {
     >
       <DrawerContent className={sx(styles.drawer)}>
         <DrawerHeader className={sx(styles.header)}>
-          <DrawerTitle>Task History</DrawerTitle>
+          <DrawerTitle>{i18n.t("panes:taskHistoryDrawer.taskHistory")}</DrawerTitle>
           <DrawerDescription>
             {isActiveWorkspace
-              ? "Closed and archived tasks for the current workspace."
-              : "Closed and archived tasks for this workspace."}
+              ? i18n.t("panes:taskHistoryDrawer.closedAndArchivedTasksForTheCurrent")
+              : i18n.t("panes:taskHistoryDrawer.closedAndArchivedTasksForThisWorkspace")}
           </DrawerDescription>
           <Input
             className={sx(styles.search)}
-            placeholder="Search tasks..."
+            placeholder={i18n.t("panes:taskHistoryDrawer.searchTasks")}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
@@ -185,15 +187,15 @@ export function TaskHistoryDrawer(args: {
         <div className={sx(styles.body)}>
           {isFetching ? (
             <div className={sx(styles.empty)}>
-              Loading tasks...
+              {i18n.t("panes:taskHistoryDrawer.loadingTasks")}
             </div>
           ) : historyTasks.length === 0 ? (
             <div className={sx(styles.empty)}>
-              No past tasks yet.
+              {i18n.t("panes:taskHistoryDrawer.noPastTasksYet")}
             </div>
           ) : filteredTasks.length === 0 ? (
             <div className={sx(styles.empty)}>
-              No tasks match &ldquo;{searchQuery}&rdquo;.
+              {i18n.t("panes:taskHistoryDrawer.noMatches", { query: searchQuery })}
             </div>
           ) : (
             <div className={sx(styles.list)}>
@@ -211,7 +213,7 @@ export function TaskHistoryDrawer(args: {
                   </span>
                   {isTaskArchived(task) ? (
                     <span className={sx(styles.badge)}>
-                      Archived
+                      {i18n.t("panes:taskHistoryDrawer.archived")}
                     </span>
                   ) : null}
                   <Button
@@ -222,7 +224,7 @@ export function TaskHistoryDrawer(args: {
                       void handleReopen(task);
                     }}
                   >
-                    {isTaskArchived(task) ? "Restore" : "Open"}
+                    {isTaskArchived(task) ? i18n.t("panes:taskHistoryDrawer.restore") : i18n.t("panes:taskHistoryDrawer.open")}
                   </Button>
                 </div>
               ))}
@@ -230,7 +232,7 @@ export function TaskHistoryDrawer(args: {
           )}
         </div>
         <DrawerFooter className={sx(styles.footer)}>
-          <DrawerClose render={<Button variant="outline" />}>Close</DrawerClose>
+          <DrawerClose render={<Button variant="outline" />}>{i18n.t("panes:taskHistoryDrawer.close")}</DrawerClose>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

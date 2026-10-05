@@ -1,7 +1,10 @@
+import type { I18nKey } from "@/i18n/runtime";
 import type { EditorTab } from "@/types/chat";
 
+// i18n-ignore: stable persisted editor-tab filePath discriminator
 export const COMMIT_GRAPH_TITLE = "Commit graph";
-export const OPEN_COMMIT_GRAPH_TITLE = "Open commit graph";
+export const COMMIT_GRAPH_TITLE_KEY = "gitGraph:gitGraphCanvas.commitGraph" satisfies I18nKey;
+export const OPEN_COMMIT_GRAPH_TITLE_KEY = "gitGraph:presentation.openCommitGraph" satisfies I18nKey;
 
 /** Revision segment used by the commit graph's uncommitted-changes selection. */
 export const COMMIT_GRAPH_WORKING_TREE_REVISION = "working-tree" as const;

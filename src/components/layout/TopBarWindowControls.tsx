@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Minus, Square, X } from "lucide-react";
 import { memo, useEffect, useState, type CSSProperties } from "react";
 import {
@@ -17,6 +18,7 @@ interface TopBarWindowControlsProps {
 export const TopBarWindowControls = memo(function TopBarWindowControls({
   noDragStyle,
 }: TopBarWindowControlsProps) {
+  useTranslation();
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
@@ -65,14 +67,14 @@ export const TopBarWindowControls = memo(function TopBarWindowControls({
                 size="sm"
                 xstyle={layoutShellStyles.windowButton}
                 onClick={() => void window.api?.window?.minimize?.()}
-                aria-label="window-minimize"
+                aria-label={i18n.t("shell:topBarWindowControls.minimize")}
                 style={noDragStyle}
               />
             }
           >
             <Minus {...stylex.props(layoutShellStyles.icon14)} />
           </TooltipTrigger>
-          <TooltipContent side="bottom">Minimize</TooltipContent>
+          <TooltipContent side="bottom">{i18n.t("shell:topBarWindowControls.minimize")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
@@ -87,7 +89,7 @@ export const TopBarWindowControls = memo(function TopBarWindowControls({
                     setIsMaximized(next.isMaximized);
                   }
                 }}
-                aria-label="window-maximize"
+                aria-label={isMaximized ? i18n.t("shell:topBarWindowControls.restoreWindow") : i18n.t("shell:topBarWindowControls.maximize")}
                 style={noDragStyle}
               />
             }
@@ -95,7 +97,7 @@ export const TopBarWindowControls = memo(function TopBarWindowControls({
             <Square {...stylex.props(layoutShellStyles.icon14, isMaximized && layoutShellStyles.subdued)} />
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {isMaximized ? "Restore window" : "Maximize"}
+            {isMaximized ? i18n.t("shell:topBarWindowControls.restoreWindow") : i18n.t("shell:topBarWindowControls.maximize")}
           </TooltipContent>
         </Tooltip>
         <Tooltip>
@@ -106,14 +108,14 @@ export const TopBarWindowControls = memo(function TopBarWindowControls({
                 size="sm"
                 xstyle={[layoutShellStyles.windowButton, layoutShellStyles.closeWindowButton]}
                 onClick={() => void window.api?.window?.close?.()}
-                aria-label="window-close"
+                aria-label={i18n.t("shell:topBarWindowControls.closeWindow")}
                 style={noDragStyle}
               />
             }
           >
             <X {...stylex.props(layoutShellStyles.icon14)} />
           </TooltipTrigger>
-          <TooltipContent side="bottom">Close window</TooltipContent>
+          <TooltipContent side="bottom">{i18n.t("shell:topBarWindowControls.closeWindow")}</TooltipContent>
         </Tooltip>
       </div>
     </TooltipProvider>

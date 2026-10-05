@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Skeleton } from "@/components/ads/components/Skeleton";
 import { sx } from "@/components/ads/utils/stylex";
 import * as stylex from "@stylexjs/stylex";
@@ -30,6 +31,7 @@ export interface InlineNotice {
 export const FIELD_LABEL_CLASS = sx(openPrStyles.fieldLabel);
 
 export function InlineNoticeBanner(props: { notice: InlineNotice }) {
+  useTranslation();
   const toneStyle =
     props.notice.tone === "success"
       ? openPrStyles.noticeSuccess
@@ -69,6 +71,7 @@ export function CreatePrLoadingSplash(props: {
   currentBranch?: string;
   baseBranch: string;
 }) {
+  useTranslation();
   return (
     <div className={sx(openPrStyles.splash)} role="status" aria-live="polite">
       <div className={sx(openPrStyles.splashCard)}>
@@ -82,11 +85,8 @@ export function CreatePrLoadingSplash(props: {
             />
           </div>
           <div className={sx(openPrStyles.splashCopy)}>
-            <p className={sx(openPrStyles.splashTitle)}>Preparing a PR draft</p>
-            <p className={sx(openPrStyles.splashText)}>
-              Reviewing {props.currentBranch ?? "HEAD"} against{" "}
-              {props.baseBranch}, recent commits, and workspace PR guidance.
-            </p>
+            <p className={sx(openPrStyles.splashTitle)}>{i18n.t("sourceControl:createPrDialogPanels.preparingAPRDraft")}</p>
+            <p className={sx(openPrStyles.splashText)}>{i18n.t("sourceControl:createPrDialogPanels.reviewScope", { head: props.currentBranch ?? "HEAD", base: props.baseBranch })}</p>
           </div>
         </div>
       </div>
@@ -115,7 +115,8 @@ function formatReviewFindingLocation(finding: PrePrReviewFinding) {
 }
 
 function formatReviewFindingKind(kind: PrePrReviewFinding["kind"]) {
-  return kind.replace(/_/g, " ");
+  const keys = { bug: "bug", race: "race", security: "security", intent_violation: "intentviolation", scope_drift: "scopedrift", other: "other" } as const;
+  return i18n.t(`sourceControl:findingKinds.${keys[kind]}`);
 }
 
 function getReviewSeverityStyle(severity: PrePrReviewFinding["severity"]) {
@@ -132,6 +133,7 @@ export function PrePrReviewFindingsPanel(props: {
   findings: PrePrReviewFinding[];
   truncated?: boolean;
 }) {
+  useTranslation();
   if (props.findings.length === 0) {
     return null;
   }
@@ -146,14 +148,10 @@ export function PrePrReviewFindingsPanel(props: {
           )}
         />
         <div className={sx(openPrStyles.panelCopy)}>
-          <p className={sx(openPrStyles.panelTitle)}>
-            AI review found {props.findings.length} issue
-            {props.findings.length === 1 ? "" : "s"}
-          </p>
+          <p className={sx(openPrStyles.panelTitle)}>{i18n.t("sourceControl:createPrDialogPanels.findingCount", { count: props.findings.length })}</p>
           <p className={sx(openPrStyles.panelText)}>
-            Stop to fix these before opening the PR, or proceed if they are not
-            relevant.
-            {props.truncated ? " The review used a truncated diff." : ""}
+            {i18n.t("sourceControl:createPrDialogPanels.stopToFixTheseBeforeOpeningThe")}
+            {props.truncated ? i18n.t("sourceControl:createPrDialogPanels.theReviewUsedATruncatedDiff") : ""}
           </p>
         </div>
       </div>
@@ -171,7 +169,7 @@ export function PrePrReviewFindingsPanel(props: {
                   getReviewSeverityStyle(finding.severity),
                 )}
               >
-                {finding.severity}
+                {i18n.t(`sourceControl:findingKinds.${finding.severity}`)}
               </span>
               <span className={sx(openPrStyles.tag, openPrStyles.tagNeutral)}>
                 {formatReviewFindingKind(finding.kind)}
@@ -194,6 +192,7 @@ export function PrePrVerificationPanel(props: {
   failures: Array<{ scriptId: string; message: string; blocking: boolean }>;
   blocking: boolean;
 }) {
+  useTranslation();
   if (props.failures.length === 0) {
     return null;
   }
@@ -211,14 +210,12 @@ export function PrePrVerificationPanel(props: {
         <TriangleAlert {...stylex.props(openPrStyles.panelIcon, iconStyle)} />
         <div className={sx(openPrStyles.panelCopy)}>
           <p className={sx(openPrStyles.panelTitle)}>
-            Verification {props.blocking ? "failed" : "reported warnings"} —{" "}
-            {props.failures.length} check
-            {props.failures.length === 1 ? "" : "s"}
+            {i18n.t(props.blocking ? "sourceControl:createPrDialogPanels.blockedChecks" : "sourceControl:createPrDialogPanels.warningChecks", { count: props.failures.length })}
           </p>
           <p className={sx(openPrStyles.panelText)}>
             {props.blocking
-              ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
-              : "These pr.beforeOpen checks are non-blocking — proceed anyway, or stop to fix them first."}
+              ? i18n.t("sourceControl:createPrDialogPanels.blockingPrBeforeOpenChecksFailedFixThemBefore")
+              : i18n.t("sourceControl:createPrDialogPanels.thesePrBeforeOpenChecksAreNonBlockingProceed")}
           </p>
         </div>
       </div>
@@ -241,7 +238,7 @@ export function PrePrVerificationPanel(props: {
                     : openPrStyles.tagOutlineWarning,
                 )}
               >
-                {failure.blocking ? "blocking" : "non-blocking"}
+                {failure.blocking ? i18n.t("sourceControl:createPrDialogPanels.blocking") : i18n.t("sourceControl:createPrDialogPanels.nonBlocking")}
               </span>
             </div>
             <p className={sx(openPrStyles.panelItemMessage)}>
@@ -263,13 +260,14 @@ export function PullRequestBranchFields(props: {
   targetBranch: string;
   targetBranchOptions: string[];
 }) {
+  useTranslation();
   const headBranch = props.currentBranch?.trim() || "HEAD";
 
   return (
     <div className={sx(openPrStyles.branchCard)}>
       <div className={sx(openPrStyles.branchGrid)}>
         <div className={sx(openPrStyles.branchField)}>
-          <p className={FIELD_LABEL_CLASS}>From</p>
+          <p className={FIELD_LABEL_CLASS}>{i18n.t("sourceControl:createPrDialogPanels.from")}</p>
           <div className={sx(openPrStyles.branchReadout)}>
             <GitBranch {...stylex.props(openPrStyles.branchReadoutIcon)} />
             <span className={sx(openPrStyles.truncate)}>{headBranch}</span>
@@ -282,7 +280,7 @@ export function PullRequestBranchFields(props: {
         />
 
         <div className={sx(openPrStyles.branchField)}>
-          <p className={FIELD_LABEL_CLASS}>Into</p>
+          <p className={FIELD_LABEL_CLASS}>{i18n.t("sourceControl:createPrDialogPanels.into")}</p>
           <CreateWorkspaceBranchPicker
             value={props.targetBranch}
             defaultBranch={props.defaultBranch}

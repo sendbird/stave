@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import * as stylex from "@stylexjs/stylex";
@@ -113,11 +114,9 @@ import {
   collectMartinTriggerContext,
   notifyMartinPrOpened,
 } from "@/lib/martin-sync/renderer-triggers";
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
 const PRE_COMMIT_HOOK_PATTERNS = [
   /pre-commit/i,
   /husky/i,
@@ -146,9 +145,9 @@ function describeGitHubAuthFailure(result: {
       detail,
     )
   ) {
-    return "GitHub CLI is not installed. Install `gh` before creating a pull request.";
+    return i18n.t("sourceControl:topBarOpenPR.gitHubCLIIsNotInstalledInstallGh");
   }
-  return "GitHub CLI is not authenticated. Run `gh auth login` before creating a pull request.";
+  return i18n.t("sourceControl:topBarOpenPR.gitHubCLIIsNotAuthenticatedRunGh");
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +161,7 @@ type Step = CreatePrDialogStep;
 // ---------------------------------------------------------------------------
 
 export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
+  useTranslation();
   const [step, setStep] = useState<Step>("idle");
   const [activeSubmitAction, setActiveSubmitAction] =
     useState<CreatePrSubmitAction | null>(null);
@@ -424,8 +424,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       window.api?.sourceControl?.getRepoMergeSettings;
     const suggestPRDescription = window.api?.provider?.suggestPRDescription;
     if (!getStatus) {
-      toast.error("Unable to create PR", {
-        description: "Source Control bridge unavailable.",
+      toast.error(i18n.t("sourceControl:topBarOpenPR.unableToCreatePR"), {
+        description: i18n.t("sourceControl:topBarOpenPR.sourceControlBridgeUnavailable"),
       });
       return;
     }
@@ -435,9 +435,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     // non-default workspace would cause git commands to return data from
     // the wrong branch, producing stale or cross-workspace PR drafts.
     if (!workspacePathById[activeWorkspaceId]) {
-      toast.error("Unable to create PR", {
+      toast.error(i18n.t("sourceControl:topBarOpenPR.unableToCreatePR"), {
         description:
-          "Workspace path is not available yet. Try switching away and back.",
+          i18n.t("sourceControl:topBarOpenPR.workspacePathIsNotAvailableYetTry"),
       });
       return;
     }
@@ -469,9 +469,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setReviewDiffTruncated(false);
     setInlineNotice({
       tone: "info",
-      title: "Preparing PR draft",
+      title: i18n.t("sourceControl:topBarOpenPR.preparingPRDraft"),
       description:
-        "Reviewing the branch diff, recent commits, and workspace PR guidance.",
+        i18n.t("sourceControl:topBarOpenPR.reviewingTheBranchDiffRecentCommitsAnd"),
     });
 
     const statusPromise = getStatus({ cwd: workspaceCwd });
@@ -549,8 +549,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     }
 
     if (!status.ok) {
-      toast.error("Unable to check status", {
-        description: status.stderr || "git status failed.",
+      toast.error(i18n.t("sourceControl:topBarOpenPR.unableToCheckStatus"), {
+        description: status.stderr || i18n.t("sourceControl:topBarOpenPR.gitStatusFailed"),
       });
       resetCreatePrDialogState({ closeDialog: true });
       return;
@@ -618,15 +618,15 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       mergeSettingsAuthFailure
         ? {
             tone: "error",
-            title: "GitHub authentication is required",
+            title: i18n.t("sourceControl:topBarOpenPR.gitHubAuthenticationIsRequired"),
             description: describeGitHubAuthFailure(mergeSettingsResult),
           }
         : shouldSuggestPrDescription && !descResult?.ok
           ? {
               tone: "warning",
-              title: "Using fallback PR draft",
+              title: i18n.t("sourceControl:topBarOpenPR.usingFallbackPRDraft"),
               description:
-                "Could not generate a tailored title and description. Review the suggested draft before creating the PR.",
+                i18n.t("sourceControl:topBarOpenPR.couldNotGenerateATailoredTitleAnd"),
             }
           : null,
     );
@@ -666,9 +666,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!runCommand || !createPR) {
       setInlineNotice({
         tone: "error",
-        title: "Unable to create PR",
+        title: i18n.t("sourceControl:topBarOpenPR.unableToCreatePR"),
         description:
-          "The source control bridge is unavailable in this workspace.",
+          i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeIsUnavailableIn"),
       });
       setStep("ready");
       setActiveSubmitAction(null);
@@ -684,8 +684,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!statusResult.ok) {
         setInlineNotice({
           tone: "error",
-          title: "Unable to refresh workspace changes",
-          description: statusResult.stderr || "git status failed.",
+          title: i18n.t("sourceControl:topBarOpenPR.unableToRefreshWorkspaceChanges"),
+          description: statusResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitStatusFailed"),
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -694,9 +694,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (statusResult.hasConflicts) {
         setInlineNotice({
           tone: "error",
-          title: "Cannot create PR with unresolved conflicts",
+          title: i18n.t("sourceControl:topBarOpenPR.cannotCreatePRWithUnresolvedConflicts"),
           description:
-            "Resolve the merge conflicts in this workspace, then refresh and try again.",
+            i18n.t("sourceControl:topBarOpenPR.resolveTheMergeConflictsInThisWorkspace"),
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -718,9 +718,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         setChangesExpanded(statusResult.items.length > 0);
         setInlineNotice({
           tone: "warning",
-          title: "Workspace changes changed",
+          title: i18n.t("sourceControl:topBarOpenPR.workspaceChangesChanged"),
           description:
-            "The file list changed while the dialog was open. Review the scope and submit again.",
+            i18n.t("sourceControl:topBarOpenPR.theFileListChangedWhileTheDialog"),
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -735,9 +735,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (statusResult.items.length > 0 && pendingFiles.length === 0) {
         setInlineNotice({
           tone: "warning",
-          title: "Select files to commit",
+          title: i18n.t("sourceControl:topBarOpenPR.selectFilesToCommit"),
           description:
-            "Choose at least one current workspace file before creating the PR.",
+            i18n.t("sourceControl:topBarOpenPR.chooseAtLeastOneCurrentWorkspaceFile"),
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -746,9 +746,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     } else if (changedFiles.length > 0 && pendingFiles.length === 0) {
       setInlineNotice({
         tone: "error",
-        title: "Unable to verify file scope",
+        title: i18n.t("sourceControl:topBarOpenPR.unableToVerifyFileScope"),
         description:
-          "The source control bridge cannot refresh workspace changes safely.",
+          i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeCannotRefreshWorkspace"),
       });
       setStep("ready");
       setActiveSubmitAction(null);
@@ -766,9 +766,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!isReasonablePullRequestTitle(title)) {
       setInlineNotice({
         tone: "error",
-        title: "PR title must use the repository convention",
+        title: i18n.t("sourceControl:topBarOpenPR.pRTitleMustUseTheRepositoryConvention"),
         description:
-          "Use a lowercase Conventional Commit title such as `fix(topbar): stabilize create pr flow`.",
+          i18n.t("sourceControl:topBarOpenPR.useALowercaseConventionalCommitTitleSuch"),
       });
       setStep("ready");
       setActiveSubmitAction(null);
@@ -852,8 +852,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setStep("reviewing");
       setInlineNotice({
         tone: "info",
-        title: "Running AI pre-PR review",
-        description: `${reviewProviderLabel} is checking the branch diff for concrete bugs, races, and security issues before any files are staged.`,
+        title: i18n.t("sourceControl:topBarOpenPR.runningAIPrePRReview"),
+        description: i18n.t("sourceControl:topBarOpenPR.isCheckingTheBranchDiffFor", { value1: reviewProviderLabel }),
       });
 
       try {
@@ -882,8 +882,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         if (intentContext) {
           setInlineNotice({
             tone: "info",
-            title: "Running AI intent guard",
-            description: `${reviewProviderLabel} is checking the change against the pinned product intent (PRD / spec / design).`,
+            title: i18n.t("sourceControl:topBarOpenPR.runningAIIntentGuard"),
+            description: i18n.t("sourceControl:topBarOpenPR.isCheckingTheChangeAgainstThe", { value1: reviewProviderLabel }),
           });
           try {
             const intentResult = await reviewDiff({
@@ -910,8 +910,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           setReviewDiffTruncated(truncated);
           setInlineNotice({
             tone: "warning",
-            title: "Review findings need a decision",
-            description: `${resultProviderLabel} found issues. Stop to fix them, or proceed anyway if they are acceptable for this PR.`,
+            title: i18n.t("sourceControl:topBarOpenPR.reviewFindingsNeedADecision"),
+            description: i18n.t("sourceControl:topBarOpenPR.foundIssuesStopToFixThem", { value1: resultProviderLabel }),
           });
           return;
         }
@@ -921,16 +921,16 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         if (!reviewResult.ok) {
           setInlineNotice({
             tone: "warning",
-            title: "AI pre-PR review was skipped",
-            description: `${reviewProviderLabel} review failed, so Stave will continue creating the PR.`,
+            title: i18n.t("sourceControl:topBarOpenPR.aIPrePRReviewWasSkipped"),
+            description: i18n.t("sourceControl:topBarOpenPR.reviewFailedSoStaveWillContinue", { value1: reviewProviderLabel }),
           });
         }
       } catch {
         if (!isCurrentOperation()) return;
         setInlineNotice({
           tone: "warning",
-          title: "AI pre-PR review was skipped",
-          description: `${reviewProviderLabel} review failed, so Stave will continue creating the PR.`,
+          title: i18n.t("sourceControl:topBarOpenPR.aIPrePRReviewWasSkipped"),
+          description: i18n.t("sourceControl:topBarOpenPR.reviewFailedSoStaveWillContinue", { value1: reviewProviderLabel }),
         });
       }
     }
@@ -944,9 +944,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setStep("action");
       setInlineNotice({
         tone: "info",
-        title: "Running PR preflight",
+        title: i18n.t("sourceControl:topBarOpenPR.runningPRPreflight"),
         description:
-          "Executing configured `pr.beforeOpen` verification before any files are staged or committed.",
+          i18n.t("sourceControl:topBarOpenPR.executingConfiguredPrBeforeOpenVerificationBeforeAnyFiles"),
       });
       const hookResult = await runScriptHook({
         workspaceId: submitWorkspaceId,
@@ -962,7 +962,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         if (hookResult.error) {
           setInlineNotice({
             tone: "error",
-            title: "PR preflight failed",
+            title: i18n.t("sourceControl:topBarOpenPR.pRPreflightFailed"),
             description: hookResult.error,
           });
           setStep("ready");
@@ -979,11 +979,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         setInlineNotice({
           tone: blocking ? "error" : "warning",
           title: blocking
-            ? "Verification failed"
-            : "Verification reported warnings",
+            ? i18n.t("sourceControl:topBarOpenPR.verificationFailed")
+            : i18n.t("sourceControl:topBarOpenPR.verificationReportedWarnings"),
           description: blocking
-            ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
-            : "Non-blocking pr.beforeOpen checks failed. Review them, then proceed or fix.",
+            ? i18n.t("sourceControl:topBarOpenPR.blockingPrBeforeOpenChecksFailedFixThemBefore")
+            : i18n.t("sourceControl:topBarOpenPR.nonBlockingPrBeforeOpenChecksFailedReviewThemThen"),
         });
         setStep("ready");
         return;
@@ -999,9 +999,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if ((!stageFiles && !stageFile) || !commit) {
         setInlineNotice({
           tone: "error",
-          title: "Automatic commit is unavailable",
+          title: i18n.t("sourceControl:topBarOpenPR.automaticCommitIsUnavailable"),
           description:
-            "The source control bridge cannot intentionally stage and commit the selected files.",
+            i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeCannotIntentionallyStage"),
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -1011,18 +1011,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setStep("committing");
       setInlineNotice({
         tone: "info",
-        title: "Preparing automatic commit",
+        title: i18n.t("sourceControl:topBarOpenPR.preparingAutomaticCommit"),
         description:
-          "The explicitly selected workspace changes will be staged and committed before the PR is created.",
+          i18n.t("sourceControl:topBarOpenPR.theExplicitlySelectedWorkspaceChangesWillBe"),
       });
 
       let message = commitMessage.trim();
       if (!message) {
         setInlineNotice({
           tone: "info",
-          title: "Generating commit message",
+          title: i18n.t("sourceControl:topBarOpenPR.generatingCommitMessage"),
           description:
-            "Creating a Conventional Commit message from the selected diff.",
+            i18n.t("sourceControl:topBarOpenPR.creatingAConventionalCommitMessageFromThe"),
         });
         if (commitMessageSuggestionPromise) {
           try {
@@ -1043,9 +1043,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!isConventionalCommitMessage(message)) {
         setInlineNotice({
           tone: "error",
-          title: "Commit message must use Conventional Commits",
+          title: i18n.t("sourceControl:topBarOpenPR.commitMessageMustUseConventionalCommits"),
           description:
-            "Use a message such as `fix(topbar): stabilize create pr flow`.",
+            i18n.t("sourceControl:topBarOpenPR.useAMessageSuchAsFixTopbarStabilize"),
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -1055,8 +1055,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       setInlineNotice({
         tone: "info",
-        title: "Staging changes",
-        description: `Reviewing and staging ${pendingFiles.length} explicitly selected workspace file${pendingFiles.length !== 1 ? "s" : ""} for the commit.`,
+        title: i18n.t("sourceControl:topBarOpenPR.stagingChanges"),
+        description: i18n.t("sourceControl:topBarOpenPR.reviewingAndStagingExplicitlySelectedWorkspaceFile", { count: pendingFiles.length }),
       });
       const stagePendingFiles = async () => {
         if (stageFiles) {
@@ -1081,8 +1081,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!stageResult.ok) {
         setInlineNotice({
           tone: "error",
-          title: "Staging failed",
-          description: stageResult.stderr || "git add failed.",
+          title: i18n.t("sourceControl:topBarOpenPR.stagingFailed"),
+          description: stageResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitAddFailed"),
         });
         setStep("ready");
         return;
@@ -1090,7 +1090,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       setInlineNotice({
         tone: "info",
-        title: "Creating commit",
+        title: i18n.t("sourceControl:topBarOpenPR.creatingCommit"),
         description: message,
       });
       let commitResult = await commit({ message, cwd: submitWorkspaceCwd });
@@ -1106,9 +1106,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         if (tryAutoFixLint) {
           setInlineNotice({
             tone: "info",
-            title: "Pre-commit hook failed — attempting auto-fix",
+            title: i18n.t("sourceControl:topBarOpenPR.preCommitHookFailedAttemptingAutoFix"),
             description:
-              "Running eslint --fix and prettier --write on the selected files…",
+              i18n.t("sourceControl:topBarOpenPR.runningEslintFixAndPrettierWriteOn"),
           });
           const fixResult = await tryAutoFixLint({
             cwd: submitWorkspaceCwd,
@@ -1121,15 +1121,15 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             if (!stageResult.ok) {
               setInlineNotice({
                 tone: "error",
-                title: "Re-staging after auto-fix failed",
-                description: stageResult.stderr || "git add failed.",
+                title: i18n.t("sourceControl:topBarOpenPR.reStagingAfterAutoFixFailed"),
+                description: stageResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitAddFailed"),
               });
               setStep("ready");
               return;
             }
             setInlineNotice({
               tone: "info",
-              title: "Retrying commit after auto-fix",
+              title: i18n.t("sourceControl:topBarOpenPR.retryingCommitAfterAutoFix"),
               description: message,
             });
             commitResult = await commit({ message, cwd: submitWorkspaceCwd });
@@ -1141,8 +1141,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!commitResult.ok) {
         setInlineNotice({
           tone: "error",
-          title: "Commit failed",
-          description: commitResult.stderr || "git commit failed.",
+          title: i18n.t("sourceControl:topBarOpenPR.commitFailed"),
+          description: commitResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitCommitFailed"),
         });
         setStep("ready");
         return;
@@ -1153,7 +1153,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setChangesExpanded(false);
       setInlineNotice({
         tone: "success",
-        title: "Changes committed automatically",
+        title: i18n.t("sourceControl:topBarOpenPR.changesCommittedAutomatically"),
         description: message,
       });
     }
@@ -1162,8 +1162,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setStep("pushing");
     setInlineNotice({
       tone: "info",
-      title: "Pushing branch",
-      description: `Updating ${currentBranch ?? "HEAD"} on origin before creating the pull request.`,
+      title: i18n.t("sourceControl:topBarOpenPR.pushingBranch"),
+      description: i18n.t("sourceControl:topBarOpenPR.updatingOnOriginBeforeCreatingThePull", { value1: currentBranch ?? "HEAD" }),
     });
     const pushResult = await runCommand({
       command: "git push -u origin HEAD",
@@ -1173,8 +1173,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!pushResult.ok) {
       setInlineNotice({
         tone: "error",
-        title: "Push failed",
-        description: pushResult.stderr || "git push failed.",
+        title: i18n.t("sourceControl:topBarOpenPR.pushFailed"),
+        description: pushResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitPushFailed"),
       });
       setStep("ready");
       return;
@@ -1186,10 +1186,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setStep("creating-pr");
     setInlineNotice({
       tone: "info",
-      title: "Creating ready pull request",
+      title: i18n.t("sourceControl:topBarOpenPR.creatingReadyPullRequest"),
       description: dialogAutoMerge
-        ? `Submitting the prepared title and description to GitHub, then queueing ${mergeMethodLabel.toLowerCase()} auto-merge (target: ${selectedTargetBranch}).`
-        : `Submitting the prepared title and description to GitHub (target: ${selectedTargetBranch}).`,
+        ? i18n.t("sourceControl:topBarOpenPR.submittingThePreparedTitleAndDescriptionTo", { value1: mergeMethodLabel.toLowerCase(), value2: selectedTargetBranch })
+        : i18n.t("sourceControl:topBarOpenPR.submittingThePreparedTitleAndDescriptionTo2", { value1: selectedTargetBranch }),
     });
     const prResult = await createPR({
       title,
@@ -1205,7 +1205,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!prResult.ok && prResult.existingPrUrl) {
       // The cached status was stale: GitHub already has a PR for this branch.
       resetCreatePrDialogState({ closeDialog: true });
-      toast.info("A pull request already exists for this branch", {
+      toast.info(i18n.t("sourceControl:topBarOpenPR.aPullRequestAlreadyExistsForThis"), {
         description: prResult.existingPrUrl,
       });
       fetchStatus();
@@ -1219,10 +1219,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setInlineNotice({
         tone: "error",
         title: prResult.prUrl
-          ? "PR created, but auto-merge failed"
-          : "PR creation failed",
+          ? i18n.t("sourceControl:topBarOpenPR.pRCreatedButAutoMergeFailed")
+          : i18n.t("sourceControl:topBarOpenPR.pRCreationFailed"),
         description: [
-          prResult.stderr || "gh pr create failed.",
+          prResult.stderr || i18n.t("sourceControl:topBarOpenPR.ghPrCreateFailed"),
           prResult.prUrl ? `PR URL: ${prResult.prUrl}` : "",
         ]
           .filter(Boolean)
@@ -1239,36 +1239,36 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setActiveSubmitAction(null);
 
     const autoMergeDescription = prResult.merged
-      ? `Ready PR created and merged with ${mergeMethodLabel.toLowerCase()}.`
+      ? i18n.t("sourceControl:topBarOpenPR.readyPRCreatedAndMergedWith", { value1: mergeMethodLabel.toLowerCase() })
       : dialogAutoMerge
-        ? `Ready PR created and ${mergeMethodLabel.toLowerCase()} auto-merge queued.`
-        : "Ready PR created.";
+        ? i18n.t("sourceControl:topBarOpenPR.readyPRCreatedAndAutoMergeQueued", { value1: mergeMethodLabel.toLowerCase() })
+        : i18n.t("sourceControl:topBarOpenPR.readyPRCreated");
     const autoMergeNotConfirmed =
       dialogAutoMerge &&
       !prResult.merged &&
       !prResult.autoMergeUnsupported &&
       prResult.autoMergeEnabled !== true;
     if (prResult.autoMergeUnsupported) {
-      toast.success("PR created", {
+      toast.success(i18n.t("sourceControl:topBarOpenPR.pRCreated"), {
         description: [
-          "Auto-merge is unavailable for this repository, so the PR remains ready for review.",
+          i18n.t("sourceControl:topBarOpenPR.autoMergeIsUnavailableForThisRepositorySo"),
           prResult.prUrl,
         ]
           .filter(Boolean)
           .join(" "),
       });
     } else if (prResult.stderr || autoMergeNotConfirmed) {
-      toast.warning("PR created, but auto-merge is not enabled", {
+      toast.warning(i18n.t("sourceControl:topBarOpenPR.pRCreatedButAutoMergeIsNotEnabled"), {
         description: [
           prResult.stderr ||
-            "Stave could not confirm that auto-merge was queued.",
+            i18n.t("sourceControl:topBarOpenPR.staveCouldNotConfirmThatAutoMergeWas"),
           prResult.prUrl,
         ]
           .filter(Boolean)
           .join(" "),
       });
     } else {
-      toast.success("PR created", {
+      toast.success(i18n.t("sourceControl:topBarOpenPR.pRCreated"), {
         description: prResult.prUrl
           ? `${autoMergeDescription} ${prResult.prUrl}`
           : autoMergeDescription,
@@ -1299,13 +1299,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       });
       if (!isCurrentOperation()) return;
       if (!hookResult.ok) {
-        toast.warning("Post-PR scripts reported failures", {
+        toast.warning(i18n.t("sourceControl:topBarOpenPR.postPRScriptsReportedFailures"), {
           description:
             hookResult.error ??
             hookResult.summary?.failures
               .map((failure) => `${failure.scriptId}: ${failure.message}`)
               .join(" ") ??
-            "Configured `pr.afterOpen` scripts failed.",
+            i18n.t("sourceControl:topBarOpenPR.configuredPrAfterOpenScriptsFailed"),
         });
       }
     }
@@ -1340,9 +1340,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setActiveSubmitAction(null);
     setInlineNotice({
       tone: "warning",
-      title: "PR creation paused",
+      title: i18n.t("sourceControl:topBarOpenPR.pRCreationPaused"),
       description:
-        "Fix the review findings, then create the PR again when ready.",
+        i18n.t("sourceControl:topBarOpenPR.fixTheReviewFindingsThenCreateThe"),
     });
   }
 
@@ -1362,9 +1362,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setActiveSubmitAction(null);
     setInlineNotice({
       tone: "warning",
-      title: "PR creation paused",
+      title: i18n.t("sourceControl:topBarOpenPR.pRCreationPaused"),
       description:
-        "Fix the verification failures, then create the PR again when ready.",
+        i18n.t("sourceControl:topBarOpenPR.fixTheVerificationFailuresThenCreateThe"),
     });
   }
 
@@ -1412,7 +1412,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   async function handleMarkReady() {
     const setPrReady = window.api?.sourceControl?.setPrReady;
     if (!setPrReady) {
-      toast.error("Bridge unavailable");
+      toast.error(i18n.t("sourceControl:topBarOpenPR.bridgeUnavailable"));
       return;
     }
 
@@ -1429,16 +1429,16 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!action.isCurrent()) return;
 
     if (!result.ok) {
-      toast.error("Failed to mark PR as ready", { description: result.stderr });
+      toast.error(i18n.t("sourceControl:topBarOpenPR.failedToMarkPRAsReady"), { description: result.stderr });
       return;
     }
-    toast.success("PR marked as ready for review");
+    toast.success(i18n.t("sourceControl:topBarOpenPR.pRMarkedAsReadyForReview"));
   }
 
   async function openMergeDialog() {
     const mergePr = window.api?.sourceControl?.mergePr;
     if (!mergePr) {
-      toast.error("Bridge unavailable");
+      toast.error(i18n.t("sourceControl:topBarOpenPR.bridgeUnavailable"));
       return;
     }
     const action = beginPrAction();
@@ -1480,7 +1480,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   async function handleConfirmMerge() {
     const mergePr = window.api?.sourceControl?.mergePr;
     if (!mergePr) {
-      toast.error("Bridge unavailable");
+      toast.error(i18n.t("sourceControl:topBarOpenPR.bridgeUnavailable"));
       return;
     }
 
@@ -1501,7 +1501,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!action.isCurrent()) return;
       setStep("idle");
       setMergeDialogError(
-        error instanceof Error ? error.message : "Merge request failed.",
+        error instanceof Error ? error.message : i18n.t("sourceControl:topBarOpenPR.mergeRequestFailed"),
       );
       action.refresh();
       return;
@@ -1511,19 +1511,19 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setStep("idle");
 
     if (!result.ok) {
-      setMergeDialogError(result.stderr || "gh pr merge failed.");
+      setMergeDialogError(result.stderr || i18n.t("sourceControl:topBarOpenPR.ghPrMergeFailed"));
       return;
     }
     setMergeDialogOpen(false);
     if (result.warning) {
-      toast.warning("PR merged with warnings", {
+      toast.warning(i18n.t("sourceControl:topBarOpenPR.pRMergedWithWarnings"), {
         description: result.warning,
       });
     } else {
-      toast.success("PR merged successfully", {
+      toast.success(i18n.t("sourceControl:topBarOpenPR.pRMergedSuccessfully"), {
         description: result.remoteBranchDeleted
-          ? `Merged with ${result.mergeMethod ?? mergeDialogMethod}; remote branch deleted.`
-          : `Merged with ${result.mergeMethod ?? mergeDialogMethod}.`,
+          ? i18n.t("sourceControl:topBarOpenPR.mergedWithRemoteBranchDeleted", { value1: result.mergeMethod ?? mergeDialogMethod })
+          : i18n.t("sourceControl:topBarOpenPR.mergedWith", { value1: result.mergeMethod ?? mergeDialogMethod }),
       });
     }
   }
@@ -1531,7 +1531,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   async function handleUpdateBranch() {
     const updatePrBranch = window.api?.sourceControl?.updatePrBranch;
     if (!updatePrBranch) {
-      toast.error("Bridge unavailable");
+      toast.error(i18n.t("sourceControl:topBarOpenPR.bridgeUnavailable"));
       return;
     }
 
@@ -1547,22 +1547,22 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!action.isCurrent()) return;
 
     if (!result.ok) {
-      toast.error("Branch update failed", { description: result.stderr });
+      toast.error(i18n.t("sourceControl:topBarOpenPR.branchUpdateFailed"), { description: result.stderr });
       return;
     }
     if (result.warning) {
-      toast.warning("Branch updated on GitHub", {
+      toast.warning(i18n.t("sourceControl:topBarOpenPR.branchUpdatedOnGitHub"), {
         description: result.warning,
       });
       return;
     }
     toast.success(
       result.remoteUpdated
-        ? "Branch updated"
-        : "Branch already up to date",
+        ? i18n.t("sourceControl:topBarOpenPR.branchUpdated")
+        : i18n.t("sourceControl:topBarOpenPR.branchAlreadyUpToDate"),
       {
         description: result.localSynced
-          ? "The PR branch and this worktree now include the latest base branch."
+          ? i18n.t("sourceControl:topBarOpenPR.thePRBranchAndThisWorktreeNow")
           : undefined,
       },
     );
@@ -1579,24 +1579,24 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         baseBranch: args.baseBranch,
       });
       if (!result.ok) {
-        toast.error("Unable to continue in a new workspace", {
+        toast.error(i18n.t("sourceControl:topBarOpenPR.unableToContinueInANewWorkspace"), {
           description:
-            result.message ?? "The continuation brief could not be prepared.",
+            result.message ?? i18n.t("sourceControl:topBarOpenPR.theContinuationBriefCouldNotBePrepared"),
         });
         return result;
       }
 
       if (result.noticeLevel === "warning") {
-        toast.warning("Workspace continued with warning", {
+        toast.warning(i18n.t("sourceControl:topBarOpenPR.workspaceContinuedWithWarning"), {
           description:
             result.message ??
-            "The workspace was created, but part of the continuation brief setup needs attention.",
+            i18n.t("sourceControl:topBarOpenPR.theWorkspaceWasCreatedButPartOf"),
         });
       } else {
-        toast.success("Workspace continued", {
+        toast.success(i18n.t("sourceControl:topBarOpenPR.workspaceContinued"), {
           description:
             result.message ??
-            "The new workspace is ready with a continuation brief attached.",
+            i18n.t("sourceControl:topBarOpenPR.theNewWorkspaceIsReadyWithA"),
         });
       }
       return result;
@@ -1672,17 +1672,17 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   );
   const statusLabel =
     step === "loading"
-      ? "Loading..."
+      ? i18n.t("sourceControl:topBarOpenPR.loading")
       : step === "committing"
-        ? "Committing..."
+        ? i18n.t("sourceControl:topBarOpenPR.committing")
         : step === "reviewing"
-          ? "Reviewing..."
+          ? i18n.t("sourceControl:topBarOpenPR.reviewing")
           : step === "pushing"
-            ? "Pushing..."
+            ? i18n.t("sourceControl:topBarOpenPR.pushing")
             : step === "creating-pr"
-              ? "Creating..."
+              ? i18n.t("sourceControl:topBarOpenPR.creating")
               : step === "action"
-                ? "Working..."
+                ? i18n.t("sourceControl:topBarOpenPR.working")
                 : null;
   const hasRespondingTask = tasks.some((task) =>
     Boolean(activeTurnIdsByTask[task.id]),
@@ -1695,10 +1695,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const prStatusError = prInfo?.lastError ?? null;
   const prStatusHint = prInfo?.pr ? describePrStatusHint(prInfo.pr) : null;
   const createPrTooltip = hasRespondingTask
-    ? "Pause or finish the running task before creating a pull request"
+    ? i18n.t("sourceControl:topBarOpenPR.pauseOrFinishTheRunningTaskBefore")
     : prStatusError
-      ? `PR status could not be refreshed (${prStatusError}). A pull request may already exist for this branch.`
-      : "Create a pull request on GitHub";
+      ? i18n.t("sourceControl:topBarOpenPR.pRStatusCouldNotBeRefreshed", { value1: prStatusError })
+      : i18n.t("sourceControl:topBarOpenPR.createAPullRequestOnGitHub");
   const mergeDialogAllowedMethods = resolveCreatePrMergeState({
     preferredMethod: mergeDialogMethod,
     autoMergeEnabled: false,
@@ -1706,8 +1706,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   }).allowedMethods;
   const mergeDialogHeadOid = prInfo?.pr?.headRefOid ?? null;
   const continueTooltip = hasRespondingTask
-    ? "Pause or finish the running task before continuing into a new workspace"
-    : "Create a new workspace and attach a continuation brief from this completed branch";
+    ? i18n.t("sourceControl:topBarOpenPR.pauseOrFinishTheRunningTaskBefore2")
+    : i18n.t("sourceControl:topBarOpenPR.createANewWorkspaceAndAttachA");
 
   const badgeToneStyle = prToneBadgeStyles[visual.tone];
 
@@ -1720,8 +1720,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       if (detail.action === "attach-context") {
         if (!prInfo?.pr?.url) {
-          toast.warning("No pull request to attach context from", {
-            description: "Create a pull request for this branch first.",
+          toast.warning(i18n.t("sourceControl:topBarOpenPR.noPullRequestToAttachContextFrom"), {
+            description: i18n.t("sourceControl:topBarOpenPR.createAPullRequestForThisBranch"),
           });
           return;
         }
@@ -1731,7 +1731,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       if (detail.action === "create-pr") {
         if (isCreateDisabled) {
-          toast.warning("Create PR is unavailable", {
+          toast.warning(i18n.t("sourceControl:topBarOpenPR.createPRIsUnavailable"), {
             description: createPrTooltip,
           });
           return;
@@ -1745,7 +1745,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
 
       if (isContinueDisabled) {
-        toast.warning("Continue is unavailable", {
+        toast.warning(i18n.t("sourceControl:topBarOpenPR.continueIsUnavailable"), {
           description: continueTooltip,
         });
         return;
@@ -1815,7 +1815,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 className={sx(openPrStyles.triggerIcon)}
               />
             )}
-            {statusLabel ?? "Create PR"}
+            {statusLabel ?? i18n.t("sourceControl:topBarOpenPR.createPR")}
           </TooltipTrigger>
           <TooltipContent side="bottom">{createPrTooltip}</TooltipContent>
         </Tooltip>
@@ -1848,7 +1848,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                       ]}
                       style={props.noDragStyle}
                       disabled={isBusy || continuingWorkspace}
-                      aria-label="open-pr-status-menu"
+                      aria-label={i18n.t("sourceControl:topBarOpenPR.statusMenu")}
                     />
                   }
                 >
@@ -1869,10 +1869,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                PR #{prInfo?.pr?.number ?? "?"}: {visual.label}
+                {i18n.t("sourceControl:topBarOpenPR.pR")}{prInfo?.pr?.number ?? "?"}: {visual.label}
                 {prStatusHint ? ` — ${prStatusHint}` : ""}
                 {prStatusError
-                  ? ` (status may be stale: ${prStatusError})`
+                  ? i18n.t("sourceControl:topBarOpenPR.statusMayBeStale", { value1: prStatusError })
                   : ""}
               </TooltipContent>
             </Tooltip>
@@ -1889,8 +1889,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   #{prInfo?.pr?.number} {prInfo?.pr?.title}
                 </span>
                 <span className={sx(openPrStyles.statusMenuSubtitle)}>
-                  {currentBranch} &rarr;{" "}
-                  {prInfo?.pr?.baseRefName ?? defaultBaseBranch}
+                  {i18n.t("sourceControl:topBarOpenPR.branchDirection", { head: currentBranch, base: prInfo?.pr?.baseRefName ?? defaultBaseBranch })}
                 </span>
               </DropdownMenuLabel>
 
@@ -1942,7 +1941,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                       <MessageSquare
                         {...stylex.props(openPrStyles.menuItemIcon)}
                       />
-                      Attach PR context&hellip;
+                      {i18n.t("sourceControl:topBarOpenPR.attachPRContext")}
                     </span>
                   </DropdownMenuItem>
                 </>
@@ -1979,7 +1978,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 ) : (
                   <GitBranch />
                 )}
-                Continue
+                {i18n.t("sourceControl:topBarOpenPR.continue")}
               </TooltipTrigger>
               <TooltipContent side="bottom">{continueTooltip}</TooltipContent>
             </Tooltip>
@@ -2059,7 +2058,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       >
         <DialogContent showCloseButton={step !== "action"}>
           <DialogHeader>
-            <DialogTitle>Merge Pull Request</DialogTitle>
+            <DialogTitle>{i18n.t("sourceControl:topBarOpenPR.mergePullRequest")}</DialogTitle>
             <DialogDescription>
               #{prInfo?.pr?.number} {prInfo?.pr?.title}
             </DialogDescription>
@@ -2069,13 +2068,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             <div className={sx(openPrStyles.branchCard)}>
               <div className={sx(openPrStyles.branchGrid)}>
                 <div className={sx(openPrStyles.branchField)}>
-                  <p className={FIELD_LABEL_CLASS}>From</p>
+                  <p className={FIELD_LABEL_CLASS}>{i18n.t("sourceControl:topBarOpenPR.from")}</p>
                   <div className={sx(openPrStyles.branchReadout)}>
                     <GitBranch
                       {...stylex.props(openPrStyles.branchReadoutIcon)}
                     />
                     <span className={sx(openPrStyles.truncate)}>
-                      {prInfo?.pr?.headRefName || currentBranch || "HEAD"}
+                      {prInfo?.pr?.headRefName || currentBranch || i18n.t("sourceControl:topBarOpenPR.hEAD")}
                     </span>
                   </div>
                 </div>
@@ -2084,7 +2083,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   aria-hidden="true"
                 />
                 <div className={sx(openPrStyles.branchField)}>
-                  <p className={FIELD_LABEL_CLASS}>Into</p>
+                  <p className={FIELD_LABEL_CLASS}>{i18n.t("sourceControl:topBarOpenPR.into")}</p>
                   <div className={sx(openPrStyles.branchReadout)}>
                     <GitBranch
                       {...stylex.props(openPrStyles.branchReadoutIcon)}
@@ -2098,21 +2097,21 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             </div>
 
             <div className={sx(openPrStyles.mergeCard)}>
-              <p className={FIELD_LABEL_CLASS}>Merge behavior</p>
+              <p className={FIELD_LABEL_CLASS}>{i18n.t("sourceControl:topBarOpenPR.mergeBehavior")}</p>
               <div className={sx(openPrStyles.settingRow)}>
                 <div className={sx(openPrStyles.minWidthZero)}>
                   <label
                     className={sx(openPrStyles.settingLabel)}
                     htmlFor="merge-pr-method"
                   >
-                    Merge method
+                    {i18n.t("sourceControl:topBarOpenPR.mergeMethod")}
                   </label>
                   <p className={sx(openPrStyles.settingHint)}>
                     {mergeDialogLoading
-                      ? "Checking which methods the repository allows…"
+                      ? i18n.t("sourceControl:topBarOpenPR.checkingWhichMethodsTheRepositoryAllows")
                       : mergeDialogRepoSettings
-                        ? "Limited to methods the repository allows."
-                        : "Repository settings unavailable; GitHub decides."}
+                        ? i18n.t("sourceControl:topBarOpenPR.limitedToMethodsTheRepositoryAllows")
+                        : i18n.t("sourceControl:topBarOpenPR.repositorySettingsUnavailableGitHubDecides")}
                   </p>
                 </div>
                 <Select
@@ -2133,22 +2132,22 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                       value="squash"
                       disabled={!mergeDialogAllowedMethods.squash}
                     >
-                      Squash
-                      {mergeDialogAllowedMethods.squash ? "" : " (not allowed)"}
+                      {i18n.t("sourceControl:topBarOpenPR.squash")}
+                      {mergeDialogAllowedMethods.squash ? "" : i18n.t("sourceControl:topBarOpenPR.notAllowed")}
                     </SelectItem>
                     <SelectItem
                       value="merge"
                       disabled={!mergeDialogAllowedMethods.merge}
                     >
-                      Merge commit
-                      {mergeDialogAllowedMethods.merge ? "" : " (not allowed)"}
+                      {i18n.t("sourceControl:topBarOpenPR.mergeCommit")}
+                      {mergeDialogAllowedMethods.merge ? "" : i18n.t("sourceControl:topBarOpenPR.notAllowed")}
                     </SelectItem>
                     <SelectItem
                       value="rebase"
                       disabled={!mergeDialogAllowedMethods.rebase}
                     >
-                      Rebase
-                      {mergeDialogAllowedMethods.rebase ? "" : " (not allowed)"}
+                      {i18n.t("sourceControl:topBarOpenPR.rebase")}
+                      {mergeDialogAllowedMethods.rebase ? "" : i18n.t("sourceControl:topBarOpenPR.notAllowed")}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -2159,8 +2158,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               />
               <p className={sx(openPrStyles.settingHint)}>
                 {mergeDialogHeadOid
-                  ? `Merges only if the PR head is still ${mergeDialogHeadOid.slice(0, 7)}. Refresh first if you pushed since.`
-                  : "Head commit unknown; the merge will not be pinned to a specific commit."}
+                  ? i18n.t("sourceControl:topBarOpenPR.mergesOnlyIfThePRHeadIs", { value1: mergeDialogHeadOid.slice(0, 7) })
+                  : i18n.t("sourceControl:topBarOpenPR.headCommitUnknownTheMergeWillNot")}
               </p>
             </div>
 
@@ -2168,7 +2167,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               <InlineNoticeBanner
                 notice={{
                   tone: "error",
-                  title: "Merge failed",
+                  title: i18n.t("sourceControl:topBarOpenPR.mergeFailed"),
                   description: mergeDialogError,
                 }}
               />
@@ -2182,7 +2181,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               onClick={() => setMergeDialogOpen(false)}
               disabled={step === "action"}
             >
-              Cancel
+              {i18n.t("sourceControl:topBarOpenPR.cancel")}
             </Button>
             <Button
               type="button"
@@ -2192,7 +2191,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               {step === "action" ? (
                 <Loader aria-hidden size="xs" variant="persist" />
               ) : null}
-              Merge PR
+              {i18n.t("sourceControl:topBarOpenPR.mergePR")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { Loader } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
@@ -39,7 +41,7 @@ const TONE_FILL = {
 } as const;
 
 function formatCredits(value: number): string {
-  return Math.round(value).toLocaleString();
+  return formatNumber(Math.round(value));
 }
 
 function UsageWindowRow({
@@ -55,11 +57,12 @@ function UsageWindowRow({
   note?: string | null;
   now: number;
 }) {
+  useTranslation();
   const normalizedPercent = clampUsagePercent(usedPercent);
   const countdown = formatResetCountdown(resetsAt, now);
   const reset =
-    countdown === null ? null : countdown === "now" ? "resets now" : `resets in ${countdown}`;
-  const value = [`${formatUsagePercent(usedPercent)} used`, reset].filter(Boolean).join(" · ");
+    countdown === null ? null : countdown === i18n.t("shell:usageUnits.now") ? i18n.t("shell:statusBarUsageDetails.resetsNow") : i18n.t("shell:statusBarUsageDetails.resetsIn", { value1: countdown });
+  const value = [i18n.t("shell:usageUnits.used", { percent: formatUsagePercent(usedPercent) }), reset].filter(Boolean).join(" · ");
 
   return (
     <div className={sx(statusBarUsageStyles.stackTight)}>
@@ -94,10 +97,11 @@ export function ClaudeDetail({
   snapshot: ClaudeUsageSnapshot | null;
   now: number;
 }) {
+  useTranslation();
   if (!snapshot || snapshot.source === "unavailable") {
     return (
       <p className={sx(statusBarUsageStyles.note)}>
-        {snapshot?.error ?? "Claude usage unavailable."}
+        {snapshot?.error ?? i18n.t("shell:statusBarUsageDetails.claudeUsageUnavailable")}
       </p>
     );
   }
@@ -130,6 +134,7 @@ export function CodexDetail({
   snapshot: CodexUsageSnapshot | null;
   now: number;
 }) {
+  useTranslation();
   if (
     !snapshot ||
     snapshot.source === "unavailable" ||
@@ -137,7 +142,7 @@ export function CodexDetail({
   ) {
     return (
       <p className={sx(statusBarUsageStyles.note)}>
-        {snapshot?.error ?? "No Codex rate-limit buckets reported."}
+        {snapshot?.error ?? i18n.t("shell:statusBarUsageDetails.noCodexRateLimitBucketsReported")}
       </p>
     );
   }
@@ -149,7 +154,7 @@ export function CodexDetail({
           className={sx(statusBarUsageStyles.stackTight)}
         >
           <p className={sx(statusBarUsageStyles.bucketTitle)}>
-            {bucket.limitName ?? bucket.limitId ?? "Rate limit"}
+            {bucket.limitName ?? bucket.limitId ?? i18n.t("shell:statusBarUsageDetails.rateLimit")}
             {bucket.planType ? (
               <span className={sx(statusBarUsageStyles.bucketPlan)}>
                 ({bucket.planType})
@@ -158,7 +163,7 @@ export function CodexDetail({
           </p>
           {bucket.primary ? (
             <UsageWindowRow
-              label={codexWindowLabel(bucket.primary, "Primary")}
+              label={codexWindowLabel(bucket.primary, i18n.t("shell:statusBarUsageDetails.primary"))}
               usedPercent={bucket.primary.usedPercent}
               resetsAt={bucket.primary.resetsAt}
               now={now}
@@ -166,7 +171,7 @@ export function CodexDetail({
           ) : null}
           {bucket.secondary ? (
             <UsageWindowRow
-              label={codexWindowLabel(bucket.secondary, "Secondary")}
+              label={codexWindowLabel(bucket.secondary, i18n.t("shell:statusBarUsageDetails.secondary"))}
               usedPercent={bucket.secondary.usedPercent}
               resetsAt={bucket.secondary.resetsAt}
               now={now}
@@ -175,7 +180,7 @@ export function CodexDetail({
           {bucket.individualLimit ? (
             <>
               <UsageWindowRow
-                label="Credit limit"
+                label={i18n.t("shell:statusBarUsageDetails.creditLimit")}
                 usedPercent={bucket.individualLimit.usedPercent}
                 resetsAt={bucket.individualLimit.resetsAt}
                 now={now}
@@ -183,7 +188,7 @@ export function CodexDetail({
               {bucket.individualLimit.used !== null &&
               bucket.individualLimit.limit !== null ? (
                 <div className={sx(statusBarUsageStyles.amountRow)}>
-                  <span className={sx(statusBarUsageStyles.amountLabel)}>Credits</span>
+                  <span className={sx(statusBarUsageStyles.amountLabel)}>{i18n.t("shell:statusBarUsageDetails.credits")}</span>
                   <span className={sx(statusBarUsageStyles.amountValue)}>
                     {formatCredits(bucket.individualLimit.used)} /{" "}
                     {formatCredits(bucket.individualLimit.limit)}
@@ -194,7 +199,7 @@ export function CodexDetail({
           ) : null}
           {!bucket.primary && !bucket.secondary && !bucket.individualLimit ? (
             <p className={sx(statusBarUsageStyles.note)}>
-              No usage windows reported for this bucket.
+              {i18n.t("shell:statusBarUsageDetails.noUsageWindowsReportedForThisBucket")}
             </p>
           ) : null}
         </div>
@@ -212,6 +217,7 @@ function UsageAmount({
   label: string;
   provider: "cursor" | "kiro";
 }) {
+  useTranslation();
   if (usage.used === null || usage.limit === null) {
     return null;
   }
@@ -236,11 +242,12 @@ export function AccountDetail({
   snapshot: CursorUsageSnapshot | KiroUsageSnapshot | null;
   now: number;
 }) {
+  useTranslation();
   if (!snapshot || snapshot.source === "unavailable" || !snapshot.monthly) {
     return (
       <p className={sx(statusBarUsageStyles.note)}>
         {snapshot?.error ??
-          `${provider === "cursor" ? "Cursor" : "Kiro"} usage unavailable.`}
+          i18n.t("shell:statusBarUsageDetails.usageUnavailable", { value1: provider === "cursor" ? "Cursor" : "Kiro" })}
       </p>
     );
   }
@@ -256,14 +263,14 @@ export function AccountDetail({
       {provider === "cursor" ? (
         <div className={sx(statusBarUsageStyles.stackTight)}>
           <UsageWindowRow
-            label="Included plan"
+            label={i18n.t("shell:statusBarUsageDetails.includedPlan")}
             usedPercent={snapshot.monthly.usedPercent}
             resetsAt={snapshot.monthly.resetsAt}
             now={now}
           />
           <UsageAmount
             usage={snapshot.monthly}
-            label="Included spend"
+            label={i18n.t("shell:statusBarUsageDetails.includedSpend")}
             provider="cursor"
           />
         </div>
@@ -280,7 +287,7 @@ export function AccountDetail({
             {provider === "kiro" ? (
               <UsageAmount
                 usage={bucket}
-                label={bucket.unit ?? "Usage"}
+                label={bucket.unit ?? i18n.t("shell:statusBarUsageDetails.usage")}
                 provider="kiro"
               />
             ) : null}
@@ -288,7 +295,7 @@ export function AccountDetail({
         ))
       ) : provider === "kiro" ? (
         <UsageWindowRow
-          label="Monthly"
+          label={i18n.t("shell:statusBarUsageDetails.monthly")}
           usedPercent={snapshot.monthly.usedPercent}
           resetsAt={snapshot.monthly.resetsAt}
           now={now}
@@ -297,10 +304,10 @@ export function AccountDetail({
       {provider === "kiro" &&
       (snapshot as KiroUsageSnapshot).overagesEnabled !== null ? (
         <p className={sx(statusBarUsageStyles.noteFaint)}>
-          overages:{" "}
+          {i18n.t("shell:statusBarUsageDetails.overages")}{" "}
           {(snapshot as KiroUsageSnapshot).overagesEnabled
-            ? "enabled"
-            : "disabled"}
+            ? i18n.t("shell:statusBarUsageDetails.enabled")
+            : i18n.t("shell:statusBarUsageDetails.disabled")}
         </p>
       ) : null}
     </div>
@@ -318,22 +325,22 @@ export function UsageReadPending({
   providerName: string;
   accountLabel: string | null;
 }) {
+  useTranslation();
   return (
     <p className={sx(statusBarUsageStyles.note, statusBarUsageStyles.pendingNote)}>
       <Loader aria-hidden size="xs" variant="spinner" />
       {accountLabel
-        ? `Reading ${providerName} usage for the ${accountLabel} account…`
-        : `Reading ${providerName} usage…`}
+        ? i18n.t("shell:statusBarUsageDetails.readingUsageForTheAccount", { value1: providerName, value2: accountLabel })
+        : i18n.t("shell:statusBarUsageDetails.readingUsage", { value1: providerName })}
     </p>
   );
 }
 
 /** Whose numbers these are, when the provider has more than one account. */
 export function UsageAccountNote({ accountLabel }: { accountLabel: string }) {
+  useTranslation();
   return (
-    <p className={sx(statusBarUsageStyles.noteFaint)}>
-      Usage for the {accountLabel} account.
-    </p>
+    <p className={sx(statusBarUsageStyles.noteFaint)}>{i18n.t("shell:statusBarUsageDetails.accountUsage", { account: accountLabel })}</p>
   );
 }
 
@@ -347,17 +354,17 @@ export function UsageLimitNote({
   blockAtLimit: boolean;
   canSwitch: boolean;
 }) {
+  useTranslation();
   return (
     <div className={sx(statusBarUsageStyles.limitNote)}>
       <p className={sx(statusBarUsageStyles.note)}>
         {blockAtLimit
-          ? `At 100%, Stave holds new ${providerName} turns until that limit resets. Running turns finish.`
-          : `Stop turns at 100% usage is off, so Stave keeps sending ${providerName} turns past a limit.`}
+          ? i18n.t("shell:statusBarUsageDetails.at100StaveHoldsNewTurnsUntil", { value1: providerName })
+          : i18n.t("shell:statusBarUsageDetails.stopTurnsAt100UsageIsOff", { value1: providerName })}
       </p>
       {canSwitch ? (
         <p className={sx(statusBarUsageStyles.note)}>
-          Stave doesn't switch accounts on its own. To keep working, choose
-          another account below.
+          {i18n.t("shell:statusBarUsageDetails.staveDoesnTSwitchAccountsOnItsOwn")}
         </p>
       ) : null}
     </div>
@@ -365,6 +372,7 @@ export function UsageLimitNote({
 }
 
 function TurnTotalRow({ label, value }: { label: string; value: string }) {
+  useTranslation();
   return (
     <div className={sx(statusBarUsageStyles.amountRow)}>
       <span className={sx(statusBarUsageStyles.amountLabel)}>{label}</span>
@@ -374,7 +382,7 @@ function TurnTotalRow({ label, value }: { label: string; value: string }) {
 }
 
 function monthLabel(turns: number): string {
-  return `This month · ${turns === 1 ? "1 turn" : `${turns} turns`}`;
+  return i18n.t("shell:usageUnits.monthTurns", { count: turns });
 }
 
 /**
@@ -395,14 +403,15 @@ export function TurnUsageDetail({
   providerName: string;
   multipleAccounts: boolean;
 }) {
+  useTranslation();
   const spend = cost ? describeTurnSpend({ cost, providerName }) : null;
   return (
     <div className={sx(statusBarUsageStyles.spendSection, statusBarUsageStyles.stack)}>
       {tokens ? (
         <div className={sx(statusBarUsageStyles.stackSnug)}>
-          <p className={sx(statusBarUsageStyles.bucketTitle)}>Tokens in turns run in Stave</p>
+          <p className={sx(statusBarUsageStyles.bucketTitle)}>{i18n.t("shell:statusBarUsageDetails.tokensInTurnsRunInStave")}</p>
           <div className={sx(statusBarUsageStyles.stackTight)}>
-            <TurnTotalRow label="Today" value={`${formatTokenCount(tokens.todayTokens)} tokens`} />
+            <TurnTotalRow label={i18n.t("shell:statusBarUsageDetails.today")} value={i18n.t("shell:usageUnits.tokens", { amount: formatTokenCount(tokens.todayTokens) })} />
             <TurnTotalRow
               label={monthLabel(tokens.monthTurns)}
               value={`${formatTokenCount(tokens.monthTokens)} tokens`}
@@ -417,7 +426,7 @@ export function TurnUsageDetail({
         <div className={sx(statusBarUsageStyles.stackSnug)}>
           <p className={sx(statusBarUsageStyles.bucketTitle)}>{spend.title}</p>
           <div className={sx(statusBarUsageStyles.stackTight)}>
-            <TurnTotalRow label="Today" value={formatCostUsd(cost.todayUsd)} />
+            <TurnTotalRow label={i18n.t("shell:statusBarUsageDetails.today")} value={formatCostUsd(cost.todayUsd)} />
             <TurnTotalRow label={monthLabel(cost.monthTurns)} value={formatCostUsd(cost.monthUsd)} />
           </div>
           {/* The rows above already give the totals, the hint's first line. */}
@@ -429,9 +438,7 @@ export function TurnUsageDetail({
         </div>
       ) : null}
       {multipleAccounts ? (
-        <p className={sx(statusBarUsageStyles.noteFaint)}>
-          Includes turns from every {providerName} account.
-        </p>
+        <p className={sx(statusBarUsageStyles.noteFaint)}>{i18n.t("shell:statusBarUsageDetails.allAccounts", { provider: providerName })}</p>
       ) : null}
     </div>
   );

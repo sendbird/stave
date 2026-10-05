@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -260,6 +261,7 @@ function syncLanguageIntelligenceLifecycle(monaco: Monaco | null) {
  * editorTabId.
  */
 export function EditorSurfacePanel(props: IDockviewPanelProps) {
+  useTranslation();
   const surface = parsePanePanelId(props.api.id);
   if (surface?.kind !== "editor") {
     return null;
@@ -273,6 +275,7 @@ export function EditorSurfacePanel(props: IDockviewPanelProps) {
 }
 
 function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
+  useTranslation();
   const tab = useAppStore(
     (state) => state.editorTabs.find((item) => item.id === editorTabId) ?? null,
   );
@@ -401,7 +404,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     return reviewCommentsForActiveTask.filter(
       (comment) => comment.filePath === tab.filePath,
     );
-  }, [tab?.filePath, reviewCommentsForActiveTask]);
+  }, [tab?.filePath, reviewCommentsForActiveTask, i18n.language]);
   const reviewDraft = resolveTaskReviewDraft(reviewDraftState, activeTaskId);
   const canAddReviewComment = Boolean(
     activeTaskId && tab && diffSessionKey && !tabContentUnavailable,
@@ -929,10 +932,10 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
                   </EmptyMedia>
                   <div className={sx(styles.emptyText)}>
                     <EmptyTitle className={sx(styles.title)}>
-                      File is too large to preview
+                      {i18n.t("panes:editorSurfacePanel.fileIsTooLargeToPreview")}
                     </EmptyTitle>
                     <EmptyDescription className={sx(styles.description)}>
-                      {`This file is ${formatFileSize(tab.fileSizeBytes)}. The built-in editor previews files up to ${formatFileSize(tab.fileSizeLimitBytes)}.`}
+                      {i18n.t("panes:editorSurfacePanel.thisFileIsTheBuiltInEditor", { value1: formatFileSize(tab.fileSizeBytes), value2: formatFileSize(tab.fileSizeLimitBytes) })}
                     </EmptyDescription>
                   </div>
                 </EmptyHeader>
@@ -947,11 +950,10 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
                   </EmptyMedia>
                   <div className={sx(styles.emptyText)}>
                     <EmptyTitle className={sx(styles.title)}>
-                      Loading tab…
+                      {i18n.t("panes:editorSurfacePanel.loadingTab")}
                     </EmptyTitle>
                     <EmptyDescription className={sx(styles.description)}>
-                      Restoring this editor tab without blocking the rest of the
-                      workspace.
+                      {i18n.t("panes:editorSurfacePanel.restoringThisEditorTabWithoutBlockingThe")}
                     </EmptyDescription>
                   </div>
                 </EmptyHeader>
@@ -967,12 +969,12 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
                     fallback: tab.filePath,
                   })}
                   className={sx(styles.image)}
-                  title="Click to open full screen"
+                  title={i18n.t("panes:editorSurfacePanel.clickToOpenFullScreen")}
                   onClick={() => setImagePreviewOpen(true)}
                 />
               ) : (
                 <div className={sx(styles.note)}>
-                  Unable to load image preview.
+                  {i18n.t("panes:editorSurfacePanel.unableToLoadImagePreview")}
                 </div>
               )}
             </div>
@@ -1117,9 +1119,9 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
       />
       <ConfirmDialog
         open={Boolean(bulkClosePlan)}
-        title={bulkClosePlan?.title ?? "Close Tabs"}
+        title={bulkClosePlan?.title ?? i18n.t("panes:editorSurfacePanel.closeTabs")}
         description={bulkClosePlan?.description ?? ""}
-        confirmLabel="Close Tabs"
+        confirmLabel={i18n.t("panes:editorSurfacePanel.closeTabs")}
         onCancel={() => setBulkClosePlan(null)}
         onConfirm={() => {
           if (!bulkClosePlan) {

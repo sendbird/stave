@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Workflow } from "lucide-react";
 import type { CSSProperties } from "react";
 import * as stylex from "@stylexjs/stylex";
@@ -12,6 +13,7 @@ import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
 export function TopBarAutomations(props: { noDragStyle: CSSProperties }) {
+  useTranslation();
   const [toggleAutomationCenter, isAutomationCenterActive] = useAppStore(
     useShallow(
       (state) =>
@@ -49,8 +51,8 @@ export function TopBarAutomations(props: { noDragStyle: CSSProperties }) {
       </TooltipTrigger>
       <TooltipContent side="bottom">
         {isAutomationCenterActive
-          ? "Close Schedules"
-          : "Schedules"}
+          ? i18n.t("shell:topBarAutomations.closeSchedules")
+          : i18n.t("shell:topBarAutomations.schedules")}
       </TooltipContent>
     </Tooltip>
   );

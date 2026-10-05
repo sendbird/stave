@@ -1,3 +1,5 @@
+import { useTranslation } from "@/i18n";
+import { i18n } from "@/i18n";
 import { useEffect, useState } from "react";
 import {
   getLensCommentImageId,
@@ -41,6 +43,7 @@ export function useLensAnnotationSync(args: {
   activeTaskId: string | null;
   sourceMappingConfig: LensSourceMappingConfig;
 }): LensAnnotationSyncHandle {
+  useTranslation();
   const {
     workspaceId,
     lensSessionId,
@@ -121,7 +124,7 @@ export function useLensAnnotationSync(args: {
               id: imageId,
               dataUrl: result.dataUrl,
               label:
-                annotation.comment.trim() || `Visual comment ${annotation.pin}`,
+                annotation.comment.trim() || i18n.t("lens:useLensAnnotationSync.visualComment", { value1: annotation.pin }),
             },
           ],
         },

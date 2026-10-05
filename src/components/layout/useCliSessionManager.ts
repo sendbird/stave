@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import {
   useCallback,
   useEffect,
@@ -16,6 +17,7 @@ import {
   type CliSessionLaunchScope,
 } from "@/components/layout/cli-session-launch-queue";
 import { createLatestAsyncDispatcher } from "@/components/layout/pty-session-surface.utils";
+import { i18n } from "@/i18n";
 import type { CliTerminalInstanceController } from "@/components/layout/useCliTerminalInstance";
 import {
   createTerminalTranscriptBuffer,
@@ -124,6 +126,7 @@ export interface UseCliSessionManagerReturn {
 export function useCliSessionManager<
   TTab extends { id: string; nativeSessionId?: string },
 >(args: UseCliSessionManagerArgs<TTab>): UseCliSessionManagerReturn {
+  useTranslation();
   const terminalControllerRef = useRef(args.terminalController);
 
   useEffect(() => {
@@ -271,7 +274,7 @@ export function useCliSessionManager<
         const result = await resizeSession({ sessionId, cols, rows });
         if (!result?.ok) {
           throw new Error(
-            result?.stderr || "Failed to resize backend session.",
+            result?.stderr || i18n.t("terminal:useCliSessionManager.failedToResizeBackendSession"),
           );
         }
 
@@ -410,7 +413,7 @@ export function useCliSessionManager<
         setBridgeErrorForTabKey(
           setBridgeErrorByTabKey,
           tabKey,
-          "CLI session bridge unavailable. Use bun run dev:desktop.",
+          i18n.t("terminal:cliSession.errors.bridgeUnavailable"),
         );
       }
       delete pendingInputBySessionRef.current[sessionId];
@@ -488,6 +491,7 @@ export function useCliSessionManager<
       clearSessionRegistration(tabKey, sessionId);
 
       const signalHint = signal ? ` (signal ${signal})` : "";
+      // i18n-ignore: terminal output written into the PTY stream and transcript
       const exitMessage =
         exitCode === 0
           ? `\r\n\x1b[2m[process exited with code 0${signalHint}]\x1b[0m\r\n`
@@ -798,7 +802,7 @@ export function useCliSessionManager<
       setBridgeErrorForTabKey(
         setBridgeErrorByTabKey,
         tabKey,
-        "CLI session bridge unavailable. Use bun run dev:desktop.",
+        i18n.t("terminal:cliSession.errors.bridgeUnavailable"),
       );
       return;
     }
@@ -920,7 +924,8 @@ export function useCliSessionManager<
           setBridgeErrorForTabKey(
             setBridgeErrorByTabKey,
             tabKey,
-            resumed.stderr?.trim() || "Failed to resume CLI session stream.",
+            resumed.stderr?.trim() ||
+              i18n.t("terminal:cliSession.errors.resumeStreamFailed"),
           );
         }
         return true;
@@ -981,10 +986,11 @@ export function useCliSessionManager<
         setBridgeErrorForTabKey(
           setBridgeErrorByTabKey,
           tabKey,
-          created.stderr?.trim() || "Failed to create CLI session.",
+          created.stderr?.trim() ||
+            i18n.t("terminal:cliSession.errors.createFailed"),
         );
         terminalControllerRef.current.writeln(
-          `\r\n[error] ${created.stderr?.trim() || "failed to create CLI session."}`,
+          `\r\n[error] ${created.stderr?.trim() || i18n.t("terminal:useCliSessionManager.failedToCreateCLISession")}`,
         );
         return;
       }

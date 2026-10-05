@@ -1,3 +1,5 @@
+import { useTranslation } from "@/i18n";
+import { i18n } from "@/i18n";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Command palette contributor
 // ---------------------------------------------------------------------------
@@ -26,8 +28,8 @@ function describeOrigin(origin?: ScriptEntryOrigin): string | null {
   if (!origin) {
     return null;
   }
-  const tier = origin.tier === "workspace" ? "Workspace" : "Repository";
-  return origin.localOverride ? `${tier} · Local` : tier;
+  const tier = origin.tier === "workspace" ? i18n.t("shell:commandPaletteScripts.workspace") : i18n.t("shell:commandPaletteScripts.repository");
+  return origin.localOverride ? i18n.t("shell:commandPaletteScripts.local", { value1: tier }) : tier;
 }
 
 function joinSubtitle(
@@ -63,8 +65,8 @@ export function buildScriptsCommandPaletteActions(args: {
     actions.push({
       id: `scripts.run.service.${entry.id}`,
       title: running
-        ? `Stop Process: ${entry.label}`
-        : `Start Process: ${entry.label}`,
+        ? i18n.t("shell:commandPaletteScripts.stopProcess", { value1: entry.label })
+        : i18n.t("shell:commandPaletteScripts.startProcess", { value1: entry.label }),
       group: "scripts",
       icon: running ? Square : Sparkles,
       subtitle: joinSubtitle([entry.description, origin]),
@@ -95,7 +97,7 @@ export function buildScriptsCommandPaletteActions(args: {
     const origin = describeOrigin(snapshot.origins.originByKey[key]);
     actions.push({
       id: `scripts.run.action.${entry.id}`,
-      title: `Run Command: ${entry.label}`,
+      title: i18n.t("shell:commandPaletteScripts.runCommand", { value1: entry.label }),
       group: "scripts",
       icon: Sparkles,
       subtitle: joinSubtitle([entry.description, origin]),
@@ -104,7 +106,7 @@ export function buildScriptsCommandPaletteActions(args: {
       customizable: false,
       run: () => {
         if (running) {
-          toast.message("Command already running");
+          toast.message(i18n.t("shell:commandPaletteScripts.commandAlreadyRunning"));
           return;
         }
         void runScriptEntry({
@@ -124,12 +126,12 @@ export function buildScriptsCommandPaletteActions(args: {
     const meta = SCRIPT_TRIGGER_METADATA[trigger];
     actions.push({
       id: `scripts.hook.${trigger}`,
-      title: `Run Trigger: ${meta.label}`,
+      title: i18n.t("shell:commandPaletteScripts.runTrigger", { value1: meta.label }),
       group: "scripts",
       icon: Sparkles,
       subtitle: joinSubtitle([
         meta.description,
-        `${refs.length} linked execution${refs.length === 1 ? "" : "s"}`,
+        i18n.t("shell:commandPaletteScripts.linkedExecution", { count: refs.length }),
       ]),
       keywords: ["scripts", "trigger", "hook", trigger, meta.label],
       source: "dynamic",
@@ -152,6 +154,7 @@ export function buildScriptsCommandPaletteActions(args: {
 export function useScriptsCommandPaletteContributor(
   args: ScriptsRuntimeContext | null,
 ): number {
+  useTranslation();
   const snapshot = useWorkspaceScriptsRuntime(args);
   const workspaceId = args?.workspaceId ?? null;
 

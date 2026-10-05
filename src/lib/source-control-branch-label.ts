@@ -1,10 +1,9 @@
+import { i18n } from "@/i18n/runtime";
 /**
  * The value `git rev-parse --abbrev-ref HEAD` reports for a detached checkout. Stored as-is
  * so persisted workspace branch state stays a faithful mirror of git.
  */
 export const DETACHED_HEAD_BRANCH = "HEAD";
-
-export const DETACHED_HEAD_LABEL = "Detached HEAD";
 
 /**
  * `git rev-parse --abbrev-ref HEAD` reports the literal string `HEAD` on a detached HEAD,
@@ -23,5 +22,5 @@ export function formatBranchLabel(branch?: string | null) {
   if (!normalized) {
     return "";
   }
-  return isDetachedHead(normalized) ? DETACHED_HEAD_LABEL : normalized;
+  return isDetachedHead(normalized) ? i18n.t("shell:topBarBranchDropdown.detachedHEAD") : normalized;
 }

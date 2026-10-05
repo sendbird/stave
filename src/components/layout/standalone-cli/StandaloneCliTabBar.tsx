@@ -1,6 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
 import { Button } from "@/components/ui";
+import { useTranslation } from "@/i18n";
 import {
   getStandaloneCliTabTitle,
   resolveStandaloneCliActiveTabId,
@@ -13,6 +14,7 @@ import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 export function StandaloneCliTabBar(props: {
   tabIds: readonly StandaloneCliTabId[];
 }) {
+  const { t } = useTranslation("terminal");
   const [storedActiveTabId, setActiveTab] = useStandaloneCliStore(
     useShallow((state) => [state.activeTabId, state.setActiveTab] as const),
   );
@@ -24,7 +26,7 @@ export function StandaloneCliTabBar(props: {
   return (
     <div
       role="group"
-      aria-label="Standalone CLI providers"
+      aria-label={t("standaloneCli.providersLabel")}
       className={sx(styles.tabBar)}
     >
       {props.tabIds.map((tabId) => (

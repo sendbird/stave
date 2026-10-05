@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { diffReviewHoverMenuStyles as styles } from "@/components/layout/editor-diff-review-hover-menu.styles";
@@ -22,9 +23,10 @@ export function DiffReviewHoverMenu(args: {
   hasThread: boolean;
   onAddComment: () => void;
 }) {
+  useTranslation();
   const ariaLabel = args.hasThread
-    ? `Add another review comment on modified line ${args.line}`
-    : `Add review comment on modified line ${args.line}`;
+    ? i18n.t("editor:editorDiffReviewHoverMenu.addAnotherReviewCommentOnModifiedLine", { value1: args.line })
+    : i18n.t("editor:editorDiffReviewHoverMenu.addReviewCommentOnModifiedLine", { value1: args.line });
   const stopEditorMouseDown = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();

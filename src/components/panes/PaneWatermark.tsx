@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -17,6 +18,7 @@ import { useAppStore } from "@/store/app.store";
 
 /** Shown by Dockview when a group (or the whole dock) has no panels. */
 export function PaneWatermark(_props: IWatermarkPanelProps) {
+  useTranslation();
   const [hasWorkspace, createTask, createTerminalTab] = useAppStore(
     useShallow(
       (state) =>
@@ -39,12 +41,12 @@ export function PaneWatermark(_props: IWatermarkPanelProps) {
             <Layers strokeWidth={1.25} />
           </EmptyMedia>
           <EmptyTitle>
-            {hasWorkspace ? "No open tabs" : "Pick a Workspace"}
+            {hasWorkspace ? i18n.t("panes:paneWatermark.noOpenTabs") : i18n.t("panes:paneWatermark.pickAWorkspace")}
           </EmptyTitle>
           <EmptyDescription>
             {hasWorkspace
-              ? "Open a task, CLI session, or terminal to get started."
-              : "Select a workspace from the left sidebar to continue."}
+              ? i18n.t("panes:paneWatermark.openATaskCLISessionOrTerminal")
+              : i18n.t("panes:paneWatermark.selectAWorkspaceFromTheLeftSidebar")}
           </EmptyDescription>
         </EmptyHeader>
         {hasWorkspace ? (
@@ -52,14 +54,14 @@ export function PaneWatermark(_props: IWatermarkPanelProps) {
             <div className={sx(styles.actions)}>
               <Button onClick={() => createTask({ title: "" })}>
                 <Plus className={sx(styles.icon)} />
-                New Task
+                {i18n.t("panes:paneWatermark.newTask")}
               </Button>
               <Button
                 variant="outline"
                 onClick={() => createTerminalTab()}
               >
                 <SquareTerminal className={sx(styles.icon)} />
-                New Terminal
+                {i18n.t("panes:paneWatermark.newTerminal")}
               </Button>
             </div>
           </EmptyContent>

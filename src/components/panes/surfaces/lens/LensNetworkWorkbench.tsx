@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Badge } from "@/components/ads/components/Badge";
 import * as stylex from "@stylexjs/stylex";
@@ -47,6 +48,7 @@ export function LensNetworkWorkbench(props: {
   diagnostics: LensDiagnosticsLog;
   lensPageActionDisabled: boolean;
 }) {
+  useTranslation();
   const { lensPageActionDisabled } = props;
   const {
     autoScrollLogs,
@@ -88,7 +90,7 @@ export function LensNetworkWorkbench(props: {
           <Input
             value={networkSearch}
             onChange={(event) => setNetworkSearch(event.target.value)}
-            placeholder="Search network"
+            placeholder={i18n.t("lens:lensNetworkWorkbench.searchNetwork")}
             xstyle={w.searchInput}
           />
         </div>
@@ -106,7 +108,7 @@ export function LensNetworkWorkbench(props: {
           variant={networkPaused ? "secondary" : "ghost"}
           onClick={toggleNetworkPaused}
           aria-label={
-            networkPaused ? "Resume network log" : "Pause network log"
+            networkPaused ? i18n.t("lens:lensNetworkWorkbench.resumeNetworkLog") : i18n.t("lens:lensNetworkWorkbench.pauseNetworkLog")
           }
         >
           {networkPaused ? (
@@ -118,8 +120,8 @@ export function LensNetworkWorkbench(props: {
         {networkPaused ? (
           <Badge role="status" tone="warning">
             {networkBufferedCount > 0
-              ? `${networkBufferedCount} buffered`
-              : "Paused"}
+              ? i18n.t("lens:lensNetworkWorkbench.buffered", { value1: networkBufferedCount })
+              : i18n.t("lens:lensNetworkWorkbench.paused")}
           </Badge>
         ) : null}
         <Button
@@ -127,7 +129,7 @@ export function LensNetworkWorkbench(props: {
           size="icon-xs"
           variant={autoScrollLogs ? "secondary" : "ghost"}
           onClick={() => setAutoScrollLogs((current) => !current)}
-          aria-label="Toggle log autoscroll"
+          aria-label={i18n.t("lens:lensNetworkWorkbench.toggleLogAutoscroll")}
         >
           <ArrowDownToLine {...stylex.props(w.icon)} />
         </Button>
@@ -139,13 +141,13 @@ export function LensNetworkWorkbench(props: {
           disabled={!selectedNetworkEntry}
           onClick={() => setNetworkDetailsOpen((current) => !current)}
           aria-label={
-            networkDetailsOpen ? "Hide network details" : "Show network details"
+            networkDetailsOpen ? i18n.t("lens:lensNetworkWorkbench.hideNetworkDetails") : i18n.t("lens:lensNetworkWorkbench.showNetworkDetails")
           }
           aria-expanded={networkDetailsOpen}
           aria-controls="lens-network-entry-detail"
         >
           <PanelRightOpen {...stylex.props(w.icon)} />
-          Details
+          {i18n.t("lens:lensNetworkWorkbench.details")}
         </Button>
         <Button
           type="button"
@@ -153,7 +155,7 @@ export function LensNetworkWorkbench(props: {
           variant="ghost"
           disabled={filteredNetworkEntries.length === 0}
           onClick={copyNetworkLog}
-          aria-label="Copy network log"
+          aria-label={i18n.t("lens:lensNetworkWorkbench.copyNetworkLog")}
         >
           <Copy {...stylex.props(w.icon)} />
         </Button>
@@ -163,7 +165,7 @@ export function LensNetworkWorkbench(props: {
           variant="ghost"
           disabled={networkEntries.length === 0 && networkBufferedCount === 0}
           onClick={clearNetworkLog}
-          aria-label="Clear network log"
+          aria-label={i18n.t("lens:lensNetworkWorkbench.clearNetworkLog")}
         >
           <Trash2 {...stylex.props(w.icon)} />
         </Button>
@@ -180,14 +182,14 @@ export function LensNetworkWorkbench(props: {
           {filteredNetworkEntries.length > 0 ? (
             <div {...stylex.props(w.networkTable)}>
               <div {...stylex.props(w.networkHeading)}>
-                <span>Time</span>
-                <span>Method</span>
-                <span>Status</span>
-                <span>URL</span>
-                <span>Type</span>
-                <span>Size</span>
-                <span>Time</span>
-                <span>Waterfall</span>
+                <span>{i18n.t("lens:lensNetworkWorkbench.time")}</span>
+                <span>{i18n.t("lens:lensNetworkWorkbench.method")}</span>
+                <span>{i18n.t("lens:lensNetworkWorkbench.status")}</span>
+                <span>{i18n.t("lens:lensNetworkWorkbench.uRL")}</span>
+                <span>{i18n.t("lens:lensNetworkWorkbench.type")}</span>
+                <span>{i18n.t("lens:lensNetworkWorkbench.size")}</span>
+                <span>{i18n.t("lens:lensNetworkWorkbench.time")}</span>
+                <span>{i18n.t("lens:lensNetworkWorkbench.waterfall")}</span>
               </div>
               <div {...stylex.props(w.entryRows)}>
                 {filteredNetworkEntries.map((entry) => {
@@ -250,44 +252,44 @@ export function LensNetworkWorkbench(props: {
               </div>
             </div>
           ) : (
-            <div {...stylex.props(w.empty)}>No network entries.</div>
+            <div {...stylex.props(w.empty)}>{i18n.t("lens:lensNetworkWorkbench.noNetworkEntries")}</div>
           )}
         </div>
         {selectedNetworkEntry && networkDetailsOpen ? (
           <LensLogEntryDetail
-            ariaLabel="Network entry details"
+            ariaLabel={i18n.t("lens:lensNetworkWorkbench.networkEntryDetails")}
             testId="lens-network-entry-detail"
             fields={[
               {
-                label: "Method",
+                label: i18n.t("lens:lensNetworkWorkbench.method"),
                 value: selectedNetworkEntry.method,
               },
               {
-                label: "Status",
+                label: i18n.t("lens:lensNetworkWorkbench.status"),
                 value: formatLensNetworkStatus(selectedNetworkEntry),
               },
               {
-                label: "Duration",
+                label: i18n.t("lens:lensNetworkWorkbench.duration"),
                 value: formatDuration(selectedNetworkEntry.durationMs),
               },
               {
-                label: "Transferred",
+                label: i18n.t("lens:lensNetworkWorkbench.transferred"),
                 value: formatLensNetworkBytes(
                   selectedNetworkEntry.responseSize,
                 ),
               },
               {
-                label: "Request ID",
+                label: i18n.t("lens:lensNetworkWorkbench.requestID"),
                 value: selectedNetworkEntry.requestId,
               },
             ]}
             tabs={[
               {
                 id: "headers",
-                label: "Headers",
+                label: i18n.t("lens:lensNetworkWorkbench.headers"),
                 content: (
                   <>
-                    <LensLogDetailBlock label="Request URL">
+                    <LensLogDetailBlock label={i18n.t("lens:lensNetworkWorkbench.requestURL")}>
                       <span {...stylex.props(w.breakWords)}>
                         {selectedNetworkEntry.url}
                       </span>
@@ -301,23 +303,23 @@ export function LensNetworkWorkbench(props: {
                         empty=""
                       />
                     ) : null}
-                    <LensLogDetailBlock label="General">
+                    <LensLogDetailBlock label={i18n.t("lens:lensNetworkWorkbench.general")}>
                       <dl {...stylex.props(w.definitionList)}>
-                        <dt {...stylex.props(w.definitionTerm)}>State</dt>
+                        <dt {...stylex.props(w.definitionTerm)}>{i18n.t("lens:lensNetworkWorkbench.state")}</dt>
                         <dd>{selectedNetworkEntry.state}</dd>
-                        <dt {...stylex.props(w.definitionTerm)}>Protocol</dt>
+                        <dt {...stylex.props(w.definitionTerm)}>{i18n.t("lens:lensNetworkWorkbench.protocol")}</dt>
                         <dd>{networkEntryDetail?.protocol ?? "-"}</dd>
                         <dt {...stylex.props(w.definitionTerm)}>
-                          Remote address
+                          {i18n.t("lens:lensNetworkWorkbench.remoteAddress")}
                         </dt>
                         <dd>{networkEntryDetail?.remoteAddress ?? "-"}</dd>
-                        <dt {...stylex.props(w.definitionTerm)}>Priority</dt>
+                        <dt {...stylex.props(w.definitionTerm)}>{i18n.t("lens:lensNetworkWorkbench.priority")}</dt>
                         <dd>{networkEntryDetail?.priority ?? "-"}</dd>
-                        <dt {...stylex.props(w.definitionTerm)}>Cache</dt>
-                        <dd>{selectedNetworkEntry.fromCache ? "Yes" : "No"}</dd>
+                        <dt {...stylex.props(w.definitionTerm)}>{i18n.t("lens:lensNetworkWorkbench.cache")}</dt>
+                        <dd>{selectedNetworkEntry.fromCache ? i18n.t("lens:lensNetworkWorkbench.yes") : i18n.t("lens:lensNetworkWorkbench.no")}</dd>
                       </dl>
                     </LensLogDetailBlock>
-                    <LensLogDetailBlock label="Request headers">
+                    <LensLogDetailBlock label={i18n.t("lens:lensNetworkWorkbench.requestHeaders")}>
                       <pre {...stylex.props(w.pre)}>
                         {formatNetworkHeaders(
                           networkEntryDetail?.requestHeaders ??
@@ -325,7 +327,7 @@ export function LensNetworkWorkbench(props: {
                         )}
                       </pre>
                     </LensLogDetailBlock>
-                    <LensLogDetailBlock label="Response headers">
+                    <LensLogDetailBlock label={i18n.t("lens:lensNetworkWorkbench.responseHeaders")}>
                       <pre {...stylex.props(w.pre)}>
                         {formatNetworkHeaders(
                           networkEntryDetail?.responseHeaders ??
@@ -338,10 +340,10 @@ export function LensNetworkWorkbench(props: {
               },
               {
                 id: "payload",
-                label: "Payload",
+                label: i18n.t("lens:lensNetworkWorkbench.payload"),
                 content: (
                   <NetworkBodyView
-                    label="Request payload"
+                    label={i18n.t("lens:lensNetworkWorkbench.requestPayload")}
                     loading={selectedRequestBodyState?.loading ?? false}
                     error={selectedRequestBodyState?.error ?? null}
                     body={selectedRequestBodyState?.body ?? null}
@@ -352,10 +354,10 @@ export function LensNetworkWorkbench(props: {
               },
               {
                 id: "response",
-                label: "Response",
+                label: i18n.t("lens:lensNetworkWorkbench.response"),
                 content: (
                   <NetworkBodyView
-                    label="Response"
+                    label={i18n.t("lens:lensNetworkWorkbench.response")}
                     loading={selectedResponseBodyState?.loading ?? false}
                     error={selectedResponseBodyState?.error ?? null}
                     body={selectedResponseBodyState?.body ?? null}
@@ -366,17 +368,17 @@ export function LensNetworkWorkbench(props: {
               },
               {
                 id: "initiator",
-                label: "Initiator",
+                label: i18n.t("lens:lensNetworkWorkbench.initiator"),
                 content: (
                   <div {...stylex.props(w.stack)}>
                     {networkEntryDetail?.initiator ? (
                       <>
-                        <LensLogDetailBlock label="Initiator">
+                        <LensLogDetailBlock label={i18n.t("lens:lensNetworkWorkbench.initiator")}>
                           <dl {...stylex.props(w.definitionList)}>
-                            <dt {...stylex.props(w.definitionTerm)}>Type</dt>
+                            <dt {...stylex.props(w.definitionTerm)}>{i18n.t("lens:lensNetworkWorkbench.type")}</dt>
                             <dd>{networkEntryDetail.initiator.type}</dd>
                             <dt {...stylex.props(w.definitionTerm)}>
-                              Location
+                              {i18n.t("lens:lensNetworkWorkbench.location")}
                             </dt>
                             <dd {...stylex.props(w.breakWords)}>
                               {networkEntryDetail.initiator.url ?? "-"}
@@ -404,10 +406,10 @@ export function LensNetworkWorkbench(props: {
                                 }}
                               >
                                 <div {...stylex.props(w.medium)}>
-                                  {frame.functionName || "(anonymous)"}
+                                  {frame.functionName || i18n.t("lens:lensNetworkWorkbench.anonymous")}
                                 </div>
                                 <div {...stylex.props(w.stackFrameLocation)}>
-                                  {frame.url || "(inline)"}
+                                  {frame.url || i18n.t("lens:lensNetworkWorkbench.inline")}
                                   {`:${frame.lineNumber}:${frame.columnNumber}`}
                                 </div>
                               </div>
@@ -419,11 +421,11 @@ export function LensNetworkWorkbench(props: {
                       <DetailLoadState
                         loading={networkDetailLoading}
                         error={networkDetailError}
-                        empty="No initiator information was captured."
+                        empty={i18n.t("lens:lensNetworkWorkbench.noInitiatorInformationWasCaptured")}
                       />
                     )}
                     {networkEntryDetail?.redirects?.length ? (
-                      <LensLogDetailBlock label="Redirect chain">
+                      <LensLogDetailBlock label={i18n.t("lens:lensNetworkWorkbench.redirectChain")}>
                         <ol {...stylex.props(w.list)}>
                           {networkEntryDetail.redirects.map(
                             (redirect, index) => (
@@ -443,23 +445,23 @@ export function LensNetworkWorkbench(props: {
               },
               {
                 id: "timing",
-                label: "Timing",
+                label: i18n.t("lens:lensNetworkWorkbench.timing"),
                 content: (
                   <div {...stylex.props(w.stack)}>
-                    <LensLogDetailBlock label="Summary">
+                    <LensLogDetailBlock label={i18n.t("lens:lensNetworkWorkbench.summary")}>
                       <dl {...stylex.props(w.definitionList)}>
-                        <dt {...stylex.props(w.definitionTerm)}>Started</dt>
+                        <dt {...stylex.props(w.definitionTerm)}>{i18n.t("lens:lensNetworkWorkbench.started")}</dt>
                         <dd>{selectedNetworkEntry.startedAt ?? "-"}</dd>
-                        <dt {...stylex.props(w.definitionTerm)}>Completed</dt>
+                        <dt {...stylex.props(w.definitionTerm)}>{i18n.t("lens:lensNetworkWorkbench.completed")}</dt>
                         <dd>
                           {selectedNetworkEntry.completedAt ??
                             selectedNetworkEntry.timestamp}
                         </dd>
-                        <dt {...stylex.props(w.definitionTerm)}>Duration</dt>
+                        <dt {...stylex.props(w.definitionTerm)}>{i18n.t("lens:lensNetworkWorkbench.duration")}</dt>
                         <dd>
                           {formatDuration(selectedNetworkEntry.durationMs)}
                         </dd>
-                        <dt {...stylex.props(w.definitionTerm)}>Transferred</dt>
+                        <dt {...stylex.props(w.definitionTerm)}>{i18n.t("lens:lensNetworkWorkbench.transferred")}</dt>
                         <dd>
                           {formatLensNetworkBytes(
                             selectedNetworkEntry.responseSize,

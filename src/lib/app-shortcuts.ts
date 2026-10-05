@@ -1,4 +1,5 @@
-import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
+import { i18n } from "@/i18n/runtime";
+import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
 
 export const APP_SHORTCUT_PREFIX_KEY = "k";
 export const APP_SHORTCUT_PREFIX_LABEL = "K";
@@ -38,82 +39,80 @@ export type AppShortcutKeys = Record<AppShortcutCommandId, string>;
 export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
   {
     commandId: "navigation.home",
-    title: "Go home",
-    description: "Clear the active task selection and return to the home view.",
+    get title() { return i18n.t("shell:appShortcuts.goHome"); },
+    get description() { return i18n.t("shell:appShortcuts.clearTheActiveTaskSelectionAndReturn"); },
     defaultKey: "h",
   },
   {
     commandId: "navigation.fleet-view",
-    title: "Open Fleet View",
-    description: "Open the cross-workspace agent status view.",
+    get title() { return i18n.t("shell:appShortcuts.openFleetView"); },
+    get description() { return i18n.t("shell:appShortcuts.openTheCrossWorkspaceAgentStatusView"); },
     defaultKey: "f",
   },
   {
     commandId: "navigation.automation-center",
-    title: "Open Schedules",
-    description: "Open work that runs on its own, and its run history.",
+    get title() { return i18n.t("shell:appShortcuts.openSchedules"); },
+    get description() { return i18n.t("shell:appShortcuts.openWorkThatRunsOnItsOwn"); },
     defaultKey: "a",
   },
   {
     commandId: "navigation.issues",
-    title: "Open Issues",
-    description: "Open assigned tracker tickets and start a run from one.",
+    get title() { return i18n.t("shell:appShortcuts.openIssues"); },
+    get description() { return i18n.t("shell:appShortcuts.openAssignedTrackerTicketsAndStartA"); },
     defaultKey: "t",
   },
   {
     commandId: "navigation.agents",
-    title: "Open Agents",
-    description: "Open saved agents, workflows, and your standards.",
+    get title() { return i18n.t("shell:appShortcuts.openAgents"); },
+    get description() { return i18n.t("shell:appShortcuts.openSavedAgentsWorkflowsAndYourStandards"); },
     defaultKey: "g",
   },
   {
     commandId: "view.toggle-workspace-sidebar",
-    title: "Toggle workspace sidebar",
-    description: "Collapse or expand the left repository and workspace list.",
+    get title() { return i18n.t("shell:appShortcuts.toggleWorkspaceSidebar"); },
+    get description() { return i18n.t("shell:appShortcuts.collapseOrExpandTheLeftRepositoryAnd"); },
     defaultKey: "b",
   },
   {
     commandId: "view.toggle-changes-panel",
-    title: "Toggle source control panel",
-    description: "Show or hide the source control overlay on the right rail.",
+    get title() { return i18n.t("shell:appShortcuts.toggleSourceControlPanel"); },
+    get description() { return i18n.t("shell:appShortcuts.showOrHideTheSourceControlOverlay"); },
     defaultKey: "c",
   },
   {
     commandId: "view.show-explorer",
-    title: "Open explorer panel",
-    description: "Open the explorer overlay on the right rail.",
+    get title() { return i18n.t("shell:appShortcuts.openExplorerPanel"); },
+    get description() { return i18n.t("shell:appShortcuts.openTheExplorerOverlayOnTheRight"); },
     defaultKey: "e",
   },
   {
     commandId: "view.show-information",
-    title: "Toggle information panel",
-    description: "Show or hide notes, links, plans, and workspace fields.",
+    get title() { return i18n.t("shell:appShortcuts.toggleInformationPanel"); },
+    get description() { return i18n.t("shell:appShortcuts.showOrHideNotesLinksPlansAnd"); },
     defaultKey: "i",
   },
   {
     commandId: "view.show-scripts",
-    title: `Open ${WORKSPACE_TOOLS_LABEL}`,
-    description:
-      "Open long-running processes, one-shot commands, lifecycle triggers, and recent runs.",
+    get title() { return i18n.t("shell:appShortcuts.open", { value1: WORKSPACE_TOOLS_PRESENTATION.label }); },
+    get description() { return i18n.t("shell:appShortcuts.openLongRunningProcessesOneShotCommandsLifecycleTriggers"); },
     defaultKey: "s",
   },
   {
     commandId: "view.show-lens",
-    title: "Open Lens tab",
-    description: "Focus the latest embedded browser tab, or create one.",
+    get title() { return i18n.t("shell:appShortcuts.openLensTab"); },
+    get description() { return i18n.t("shell:appShortcuts.focusTheLatestEmbeddedBrowserTabOr"); },
     defaultKey: "l",
   },
   {
     commandId: "view.toggle-editor",
-    title: "Focus editor",
-    description: "Focus the active editor tab.",
+    get title() { return i18n.t("shell:appShortcuts.focusEditor"); },
+    get description() { return i18n.t("shell:appShortcuts.focusTheActiveEditorTab"); },
     defaultKey: "\\",
   },
   {
     commandId: "view.toggle-terminal",
-    title: "Toggle terminal",
-    description:
-      "Focus the terminal pane (creating one if needed), or return to the previous tab.",
+    get title() { return i18n.t("shell:appShortcuts.toggleTerminal"); },
+    get description() { return i18n.t("shell:appShortcuts.focusTheTerminalPaneCreatingOneIf"); },
     defaultKey: "`",
   },
 ] as const;
@@ -159,7 +158,7 @@ function normalizeAppShortcutKeyValue(value: unknown): string {
 
 export function formatAppShortcutKeyLabel(key: string) {
   if (!key) {
-    return "Disabled";
+    return i18n.t("shell:appShortcuts.disabled");
   }
   if (key === "\\") {
     return "\\";

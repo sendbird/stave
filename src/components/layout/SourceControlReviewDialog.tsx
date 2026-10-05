@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Check, MessageSquare, RotateCcw } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -29,20 +30,20 @@ const REVIEW_OPTIONS: Array<{
 }> = [
   {
     event: "APPROVE",
-    title: "Approve",
-    description: "Approve the reviewed commit for merge.",
+    get title() { return i18n.t("sourceControl:sourceControlReviewDialog.approve"); },
+    get description() { return i18n.t("sourceControl:sourceControlReviewDialog.approveTheReviewedCommitForMerge"); },
     icon: Check,
   },
   {
     event: "REQUEST_CHANGES",
-    title: "Request changes",
-    description: "Block approval and explain what needs to change.",
+    get title() { return i18n.t("sourceControl:sourceControlReviewDialog.requestChanges"); },
+    get description() { return i18n.t("sourceControl:sourceControlReviewDialog.blockApprovalAndExplainWhatNeedsTo"); },
     icon: RotateCcw,
   },
   {
     event: "COMMENT",
-    title: "Comment",
-    description: "Leave feedback without an approval decision.",
+    get title() { return i18n.t("sourceControl:sourceControlReviewDialog.comment"); },
+    get description() { return i18n.t("sourceControl:sourceControlReviewDialog.leaveFeedbackWithoutAnApprovalDecision"); },
     icon: MessageSquare,
   },
 ];
@@ -58,6 +59,7 @@ export function SourceControlReviewDialog(props: {
     body: string;
   }) => Promise<void>;
 }) {
+  useTranslation();
   const isOwnPullRequest =
     Boolean(props.detail.viewerLogin) &&
     props.detail.viewerLogin.toLowerCase() ===
@@ -103,7 +105,7 @@ export function SourceControlReviewDialog(props: {
         disabled={props.detail.isDraft || !props.detail.headRefOid}
         render={<AdsButton fullWidth type="button" />}
       >
-        Review changes
+        {i18n.t("sourceControl:sourceControlReviewDialog.reviewChanges")}
       </DialogTrigger>
       <DialogContent
         xstyle={reviewDialogStyles.content}
@@ -114,19 +116,13 @@ export function SourceControlReviewDialog(props: {
         }
       >
         <DialogHeader>
-          <DialogTitle>Review changes</DialogTitle>
-          <DialogDescription>
-            Your decision will be pinned to commit{" "}
-            <span className={sx(reviewDialogStyles.commitHash)}>
-              {props.detail.headRefOid.slice(0, 8)}
-            </span>
-            . Stave checks the head again before submitting.
-          </DialogDescription>
+          <DialogTitle>{i18n.t("sourceControl:sourceControlReviewDialog.reviewChanges")}</DialogTitle>
+          <DialogDescription>{i18n.t("sourceControl:sourceControlReviewDialog.pinnedDecision", { commit: props.detail.headRefOid.slice(0, 7) })}</DialogDescription>
         </DialogHeader>
 
         <fieldset>
           <legend className={sx(reviewDialogStyles.legend)}>
-            Review decision
+            {i18n.t("sourceControl:sourceControlReviewDialog.reviewDecision")}
           </legend>
           {REVIEW_OPTIONS.map((option) => {
             const disabled = option.event === "APPROVE" && isOwnPullRequest;
@@ -171,7 +167,7 @@ export function SourceControlReviewDialog(props: {
                   </span>
                   <span className={sx(reviewDialogStyles.optionDescription)}>
                     {disabled
-                      ? "You cannot approve your own pull request."
+                      ? i18n.t("sourceControl:sourceControlReviewDialog.youCannotApproveYourOwnPullRequest")
                       : option.description}
                   </span>
                 </span>
@@ -185,7 +181,7 @@ export function SourceControlReviewDialog(props: {
             htmlFor="github-pr-review-body"
             className={sx(reviewDialogStyles.summaryLabel)}
           >
-            Summary{needsBody ? " (required)" : " (optional)"}
+            {i18n.t("sourceControl:sourceControlReviewDialog.summary")}{needsBody ? i18n.t("sourceControl:sourceControlReviewDialog.required") : i18n.t("sourceControl:sourceControlReviewDialog.optional")}
           </label>
           <Textarea
             id="github-pr-review-body"
@@ -193,8 +189,8 @@ export function SourceControlReviewDialog(props: {
             onChange={(event) => setBody(event.target.value)}
             placeholder={
               needsBody
-                ? "Explain what should change before approval."
-                : "Add a short review summary."
+                ? i18n.t("sourceControl:sourceControlReviewDialog.explainWhatShouldChangeBeforeApproval")
+                : i18n.t("sourceControl:sourceControlReviewDialog.addAShortReviewSummary")
             }
             rows={5}
             disabled={props.isSubmitting}
@@ -212,7 +208,7 @@ export function SourceControlReviewDialog(props: {
             aria-live="assertive"
           >
             {props.error ||
-              "GitHub records this review under your signed-in account."}
+              i18n.t("sourceControl:sourceControlReviewDialog.gitHubRecordsThisReviewUnderYourSignedIn")}
           </p>
         </div>
 
@@ -223,14 +219,14 @@ export function SourceControlReviewDialog(props: {
             onClick={() => props.onOpenChange(false)}
             disabled={props.isSubmitting}
           >
-            Cancel
+            {i18n.t("sourceControl:sourceControlReviewDialog.cancel")}
           </Button>
           <Button
             type="button"
             onClick={() => void props.onSubmit({ event, body })}
             disabled={!canSubmit}
           >
-            {props.isSubmitting ? "Submitting…" : "Submit review"}
+            {props.isSubmitting ? i18n.t("sourceControl:sourceControlReviewDialog.submitting") : i18n.t("sourceControl:sourceControlReviewDialog.submitReview")}
           </Button>
         </DialogFooter>
       </DialogContent>

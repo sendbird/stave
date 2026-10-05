@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useMemo, useState } from "react";
 import {
@@ -49,10 +51,10 @@ function formatDate(isoDate: string): string {
   if (!Number.isFinite(date.getTime())) {
     return isoDate;
   }
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDateTime(date, {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(date);
+  });
 }
 
 function fileStatusStyle(status: string) {
@@ -76,8 +78,8 @@ function fileStatusStyle(status: string) {
 
 function copyText(value: string, label: string) {
   void navigator.clipboard.writeText(value).then(
-    () => toast.success(`${label} copied`),
-    () => toast.error(`Could not copy ${label.toLocaleLowerCase()}`),
+    () => toast.success(i18n.t("gitGraph:commitDetailPanel.copied", { value1: label })),
+    () => toast.error(i18n.t("gitGraph:commitDetailPanel.couldNotCopy", { value1: label.toLocaleLowerCase() })),
   );
 }
 
@@ -92,6 +94,7 @@ function MetadataRow({
   labelStyle?: Parameters<typeof sx>[0];
   children: React.ReactNode;
 }) {
+  useTranslation();
   return (
     <div className={sx(styles.metaRow)}>
       <span className={sx(styles.metaLabel, labelStyle)}>
@@ -104,54 +107,55 @@ function MetadataRow({
 }
 
 function SignatureMetadata({ signature }: { signature: GraphCommitSignature }) {
+  useTranslation();
   const presentation = (() => {
     switch (signature.status) {
       case "G":
         return {
           Icon: ShieldCheck,
-          label: "Verified",
+          label: i18n.t("gitGraph:commitDetailPanel.verified"),
           tone: styles.toneSuccess,
         };
       case "U":
         return {
           Icon: ShieldCheck,
-          label: "Good · unknown trust",
+          label: i18n.t("gitGraph:commitDetailPanel.goodUnknownTrust"),
           tone: styles.toneWarning,
         };
       case "X":
         return {
           Icon: ShieldAlert,
-          label: "Expired signature",
+          label: i18n.t("gitGraph:commitDetailPanel.expiredSignature"),
           tone: styles.toneWarning,
         };
       case "Y":
         return {
           Icon: ShieldAlert,
-          label: "Expired signing key",
+          label: i18n.t("gitGraph:commitDetailPanel.expiredSigningKey"),
           tone: styles.toneWarning,
         };
       case "R":
         return {
           Icon: ShieldAlert,
-          label: "Revoked signing key",
+          label: i18n.t("gitGraph:commitDetailPanel.revokedSigningKey"),
           tone: styles.toneDanger,
         };
       case "B":
         return {
           Icon: ShieldAlert,
-          label: "Bad signature",
+          label: i18n.t("gitGraph:commitDetailPanel.badSignature"),
           tone: styles.toneDanger,
         };
       case "E":
         return {
           Icon: ShieldAlert,
-          label: "Verification error",
+          label: i18n.t("gitGraph:commitDetailPanel.verificationError"),
           tone: styles.toneDanger,
         };
       default:
         return {
           Icon: ShieldAlert,
-          label: `Status ${signature.status}`,
+          label: i18n.t("gitGraph:commitDetailPanel.status", { value1: signature.status }),
           tone: styles.toneMuted,
         };
     }
@@ -161,7 +165,7 @@ function SignatureMetadata({ signature }: { signature: GraphCommitSignature }) {
   return (
     <MetadataRow
       icon={presentation.Icon}
-      label="Signature"
+      label={i18n.t("gitGraph:commitDetailPanel.signature")}
       labelStyle={presentation.tone}
     >
       <span className={sx(presentation.tone)}>{presentation.label}</span>
@@ -173,6 +177,7 @@ function SignatureMetadata({ signature }: { signature: GraphCommitSignature }) {
 }
 
 function WorkingTreeSummary({ summary }: { summary: GraphWorkingTreeSummary }) {
+  useTranslation();
   const items = [
     ["staged", summary.staged, false],
     ["changed", summary.unstaged, false],
@@ -208,6 +213,7 @@ export function CommitDetailPanel({
   onOpenFile,
   onClose,
 }: CommitDetailPanelProps) {
+  useTranslation();
   const openFileFromTree = useAppStore((state) => state.openFileFromTree);
   const [fileMenuAnchor, setFileMenuAnchor] = useState<{
     x: number;
@@ -225,7 +231,7 @@ export function CommitDetailPanel({
         }),
         { additions: 0, deletions: 0 },
       ),
-    [files],
+    [files, i18n.language],
   );
 
   if (!selection) {
@@ -234,7 +240,7 @@ export function CommitDetailPanel({
 
   return (
     <aside
-      aria-label={isWorkingTree ? "Working tree details" : "Commit details"}
+      aria-label={isWorkingTree ? i18n.t("gitGraph:commitDetailPanel.workingTreeDetails") : i18n.t("gitGraph:commitDetailPanel.commitDetails")}
       className={sx(styles.aside)}
       data-testid="git-graph-details"
     >
@@ -244,16 +250,16 @@ export function CommitDetailPanel({
             <div className={sx(styles.headerTitleWrap)}>
               <p className={sx(styles.title)}>
                 {isWorkingTree
-                  ? "Uncommitted changes"
-                  : (details?.subject ?? commit?.subject ?? "Commit")}
+                  ? i18n.t("gitGraph:commitDetailPanel.uncommittedChanges")
+                  : (details?.subject ?? commit?.subject ?? i18n.t("gitGraph:commitDetailPanel.commit"))}
               </p>
               {!isWorkingTree && commit ? (
                 <AdsButton
                   layout="host"
                   type="button"
                   xstyle={styles.hashButton}
-                  onClick={() => copyText(commit.hash, "Commit hash")}
-                  title="Copy full commit hash"
+                  onClick={() => copyText(commit.hash, i18n.t("gitGraph:commitDetailPanel.commitHash"))}
+                  title={i18n.t("gitGraph:commitDetailPanel.copyFullCommitHash")}
                 >
                   {commit.hash.slice(0, 12)}
                   <Copy className={sx(styles.hashIcon)} />
@@ -266,7 +272,7 @@ export function CommitDetailPanel({
               variant="ghost"
               xstyle={styles.closeButton}
               onClick={onClose}
-              aria-label="Close details"
+              aria-label={i18n.t("gitGraph:commitDetailPanel.closeDetails")}
             >
               <X className={sx(styles.closeIcon)} />
             </Button>
@@ -277,27 +283,27 @@ export function CommitDetailPanel({
           ) : loading && !details ? (
             <div className={sx(styles.loadingRow)}>
               <Loader aria-hidden size="xs" variant="scan" />
-              Loading commit details…
+              {i18n.t("gitGraph:commitDetailPanel.loadingCommitDetails")}
             </div>
           ) : details ? (
             <div className={sx(styles.metaGroup)}>
-              <MetadataRow icon={User} label="Author">
+              <MetadataRow icon={User} label={i18n.t("gitGraph:commitDetailPanel.author")}>
                 {details.author}
               </MetadataRow>
-              <MetadataRow icon={Mail} label="Email">
+              <MetadataRow icon={Mail} label={i18n.t("gitGraph:commitDetailPanel.email")}>
                 {details.authorEmail}
               </MetadataRow>
-              <MetadataRow icon={Calendar} label="Authored">
+              <MetadataRow icon={Calendar} label={i18n.t("gitGraph:commitDetailPanel.authored")}>
                 {formatDate(details.authorDate)}
               </MetadataRow>
               {details.committer !== details.author ||
               details.committerDate !== details.authorDate ? (
-                <MetadataRow icon={GitCommitHorizontal} label="Committed">
+                <MetadataRow icon={GitCommitHorizontal} label={i18n.t("gitGraph:commitDetailPanel.committed")}>
                   {details.committer} · {formatDate(details.committerDate)}
                 </MetadataRow>
               ) : null}
               {details.parents.length > 0 ? (
-                <MetadataRow icon={GitCommitHorizontal} label="Parents">
+                <MetadataRow icon={GitCommitHorizontal} label={i18n.t("gitGraph:commitDetailPanel.parents")}>
                   <span className={sx(styles.metaMono)}>
                     {details.parents
                       .map((parent) => parent.slice(0, 8))
@@ -317,7 +323,7 @@ export function CommitDetailPanel({
         </div>
 
         <div className={sx(styles.filesHeader)}>
-          <span className={sx(styles.filesHeaderLabel)}>Changed files</span>
+          <span className={sx(styles.filesHeaderLabel)}>{i18n.t("gitGraph:commitDetailPanel.changedFiles")}</span>
           {loading ? (
             <Loader
               aria-hidden
@@ -347,7 +353,7 @@ export function CommitDetailPanel({
               />
             </div>
           ) : files.length === 0 ? (
-            <p className={sx(styles.emptyText)}>No file changes to display.</p>
+            <p className={sx(styles.emptyText)}>{i18n.t("gitGraph:commitDetailPanel.noFileChangesToDisplay")}</p>
           ) : (
             <div className={sx(styles.fileListEntries)}>
               {files.map((file) => (
@@ -359,7 +365,7 @@ export function CommitDetailPanel({
                   title={
                     file.oldPath
                       ? `${file.oldPath} → ${file.path}`
-                      : `Open diff for ${file.path}`
+                      : i18n.t("gitGraph:commitDetailPanel.openDiffFor", { value1: file.path })
                   }
                   onClick={() => onOpenFile(file)}
                   onContextMenu={(event) => {
@@ -440,18 +446,18 @@ export function CommitDetailPanel({
             }}
           >
             <FolderOpen className={sx(styles.menuIcon)} />
-            Open current file
+            {i18n.t("gitGraph:commitDetailPanel.openCurrentFile")}
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => {
               if (fileMenuAnchor) {
-                copyText(fileMenuAnchor.filePath, "File path");
+                copyText(fileMenuAnchor.filePath, i18n.t("gitGraph:commitDetailPanel.filePath"));
               }
               setFileMenuAnchor(null);
             }}
           >
             <Copy className={sx(styles.menuIcon)} />
-            Copy path
+            {i18n.t("gitGraph:commitDetailPanel.copyPath")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

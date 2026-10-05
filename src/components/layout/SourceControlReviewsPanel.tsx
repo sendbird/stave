@@ -1,3 +1,5 @@
+import { formatRelativeTime as formatRelativeAge, formatDateTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ArrowLeft,
@@ -38,51 +40,28 @@ import { reviewsStyles } from "./source-control-reviews-panel.styles";
 
 type ReviewDetailTab = "files" | "conversation" | "checks";
 
-const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", {
-  numeric: "auto",
-});
-
 function formatRelativeTime(value: string) {
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) {
-    return "Unknown activity";
-  }
-  const deltaSeconds = Math.round((timestamp - Date.now()) / 1_000);
-  if (Math.abs(deltaSeconds) < 60) {
-    return "Just now";
-  }
-  const deltaMinutes = Math.round(deltaSeconds / 60);
-  if (Math.abs(deltaMinutes) < 60) {
-    return relativeTimeFormatter.format(deltaMinutes, "minute");
-  }
-  const deltaHours = Math.round(deltaMinutes / 60);
-  if (Math.abs(deltaHours) < 24) {
-    return relativeTimeFormatter.format(deltaHours, "hour");
-  }
-  const deltaDays = Math.round(deltaHours / 24);
-  if (Math.abs(deltaDays) < 30) {
-    return relativeTimeFormatter.format(deltaDays, "day");
-  }
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year:
-      new Date(timestamp).getFullYear() === new Date().getFullYear()
-        ? undefined
-        : "numeric",
-  }).format(timestamp);
+  if (!Number.isFinite(timestamp)) return i18n.t("sourceControl:sourceControlReviewsPanel.unknownActivity");
+  const age = Math.abs(timestamp - Date.now());
+  if (age < 60_000) return i18n.t("sourceControl:sourceControlReviewsPanel.justNow");
+  if (age < 30 * 24 * 3_600_000) return formatRelativeAge(timestamp);
+  return formatDateTime(timestamp, {
+    month: "short", day: "numeric",
+    year: new Date(timestamp).getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+  });
 }
 
 function reviewDecisionLabel(value: string) {
   switch (value) {
     case "APPROVED":
-      return "Approved";
+      return i18n.t("sourceControl:sourceControlReviewsPanel.approved");
     case "CHANGES_REQUESTED":
-      return "Changes requested";
+      return i18n.t("sourceControl:sourceControlReviewsPanel.changesRequested");
     case "REVIEW_REQUIRED":
-      return "Review required";
+      return i18n.t("sourceControl:sourceControlReviewsPanel.reviewRequired");
     default:
-      return value ? value.toLowerCase().replaceAll("_", " ") : "No decision";
+      return value ? value.toLowerCase().replaceAll("_", " ") : i18n.t("sourceControl:sourceControlReviewsPanel.noDecision");
   }
 }
 
@@ -107,6 +86,7 @@ function InboxRow(props: {
   kind: GitHubPrInboxKind;
   onSelect: () => void;
 }) {
+  useTranslation();
   return (
     <li>
       <AdsButton layout="host"
@@ -127,18 +107,18 @@ function InboxRow(props: {
             </span>
             {props.item.isDraft ? (
               <Badge variant="outline" className={sx(reviewsStyles.shrink0)}>
-                Draft
+                {i18n.t("sourceControl:sourceControlReviewsPanel.draft")}
               </Badge>
             ) : null}
           </span>
           <span className={sx(reviewsStyles.inboxRowTitle)}>
-            {props.item.title || "Untitled pull request"}
+            {props.item.title || i18n.t("sourceControl:sourceControlReviewsPanel.untitledPullRequest")}
           </span>
           <span className={sx(reviewsStyles.inboxRowMeta)}>
             <span>
               {props.kind === "review-requested"
-                ? `Review requested by @${props.item.authorLogin || "unknown"}`
-                : `${props.item.commentsCount} comments`}
+                ? i18n.t("sourceControl:sourceControlReviewsPanel.reviewRequestedBy", { value1: props.item.authorLogin || "unknown" })
+                : i18n.t("sourceControl:sourceControlReviewsPanel.comments", { value1: props.item.commentsCount })}
             </span>
             <span>{formatRelativeTime(props.item.updatedAt)}</span>
           </span>
@@ -155,6 +135,7 @@ function InboxState(props: {
   kind: GitHubPrInboxKind;
   onSelect: (item: GitHubPrInboxItem) => void;
 }) {
+  useTranslation();
   if (props.isLoading) {
     return (
       <div
@@ -162,7 +143,7 @@ function InboxState(props: {
         role="status"
       >
         <Loader aria-hidden size="xs" variant="verify" />
-        Loading pull requests…
+        {i18n.t("sourceControl:sourceControlReviewsPanel.loadingPullRequests")}
       </div>
     );
   }
@@ -176,7 +157,7 @@ function InboxState(props: {
           <TriangleAlert className={sx(reviewsStyles.errorIcon)} />
           <div className={sx(reviewsStyles.detailHeaderText)}>
             <p className={sx(reviewsStyles.errorTitle)}>
-              Reviews unavailable
+              {i18n.t("sourceControl:sourceControlReviewsPanel.reviewsUnavailable")}
             </p>
             <p className={sx(reviewsStyles.errorDetail)}>
               {props.error}
@@ -194,13 +175,13 @@ function InboxState(props: {
         </span>
         <p className={sx(reviewsStyles.emptyTitle)}>
           {props.kind === "review-requested"
-            ? "No reviews waiting"
-            : "No open pull requests"}
+            ? i18n.t("sourceControl:sourceControlReviewsPanel.noReviewsWaiting")
+            : i18n.t("sourceControl:sourceControlReviewsPanel.noOpenPullRequests")}
         </p>
         <p className={sx(reviewsStyles.emptyBody)}>
           {props.kind === "review-requested"
-            ? "Pull requests requesting your review will appear here."
-            : "Open pull requests authored by you will appear here."}
+            ? i18n.t("sourceControl:sourceControlReviewsPanel.pullRequestsRequestingYourReviewWillAppear")
+            : i18n.t("sourceControl:sourceControlReviewsPanel.openPullRequestsAuthoredByYouWill")}
         </p>
       </div>
     );
@@ -223,6 +204,7 @@ function FilesView(props: {
   detail: GitHubPrReviewDetail;
   onOpenDiff: (file: GitHubPrFile) => Promise<void>;
 }) {
+  useTranslation();
   return (
     <div className={sx(reviewsStyles.filesPane)}>
       {props.detail.filesError ? (
@@ -239,8 +221,8 @@ function FilesView(props: {
           onClick={() => void props.onOpenDiff(file)}
           title={
             file.patch
-              ? `Open ${file.path}`
-              : "GitHub did not return a patch for this file"
+              ? i18n.t("sourceControl:sourceControlReviewsPanel.open", { value1: file.path })
+              : i18n.t("sourceControl:sourceControlReviewsPanel.gitHubDidNotReturnAPatchFor")
           }
         >
           <FileCode2 className={sx(reviewsStyles.fileIcon)} />
@@ -254,29 +236,27 @@ function FilesView(props: {
         </AdsButton>
       ))}
       {props.detail.filesTruncated ? (
-        <p className={sx(reviewsStyles.filesFootnote)}>
-          Showing the first {props.detail.files.length} of{" "}
-          {props.detail.changedFiles} files.
-        </p>
+        <p className={sx(reviewsStyles.filesFootnote)}>{i18n.t("sourceControl:sourceControlReviewsPanel.fileLimit", { shown: props.detail.files.length, total: props.detail.changedFiles })}</p>
       ) : null}
     </div>
   );
 }
 
 function ConversationView(props: { detail: GitHubPrReviewDetail }) {
+  useTranslation();
   return (
     <div className={sx(reviewsStyles.conversationPane)}>
       <section className={sx(reviewsStyles.conversationSection)}>
-        <p className={sx(reviewsStyles.sectionLabel)}>Description</p>
+        <p className={sx(reviewsStyles.sectionLabel)}>{i18n.t("sourceControl:sourceControlReviewsPanel.description")}</p>
         <p className={sx(reviewsStyles.bodyText)}>
-          {props.detail.body || "No description provided."}
+          {props.detail.body || i18n.t("sourceControl:sourceControlReviewsPanel.noDescriptionProvided")}
         </p>
       </section>
       <section className={sx(reviewsStyles.conversationSection)}>
-        <p className={sx(reviewsStyles.sectionLabel)}>Activity</p>
+        <p className={sx(reviewsStyles.sectionLabel)}>{i18n.t("sourceControl:sourceControlReviewsPanel.activity")}</p>
         {props.detail.timeline.length === 0 ? (
           <p className={sx(reviewsStyles.mutedText)}>
-            No submitted reviews or comments yet.
+            {i18n.t("sourceControl:sourceControlReviewsPanel.noSubmittedReviewsOrCommentsYet")}
           </p>
         ) : (
           <ul className={sx(reviewsStyles.timeline)}>
@@ -284,7 +264,7 @@ function ConversationView(props: { detail: GitHubPrReviewDetail }) {
               <li key={item.id} className={sx(reviewsStyles.timelineItem)}>
                 <div className={sx(reviewsStyles.timelineMeta)}>
                   <span className={sx(reviewsStyles.timelineAuthor)}>
-                    @{item.authorLogin || "unknown"}
+                    @{item.authorLogin || i18n.t("sourceControl:sourceControlReviewsPanel.unknown")}
                   </span>
                   <span>{reviewDecisionLabel(item.state)}</span>
                   <span>{formatRelativeTime(item.createdAt)}</span>
@@ -304,10 +284,11 @@ function ConversationView(props: { detail: GitHubPrReviewDetail }) {
 }
 
 function ChecksView(props: { checks: GitHubPrCheck[] }) {
+  useTranslation();
   if (props.checks.length === 0) {
     return (
       <p className={sx(reviewsStyles.checksEmpty)}>
-        No checks were reported for this head commit.
+        {i18n.t("sourceControl:sourceControlReviewsPanel.noChecksWereReportedForThisHead")}
       </p>
     );
   }
@@ -338,7 +319,7 @@ function ChecksView(props: { checks: GitHubPrCheck[] }) {
               {check.name}
             </span>
             <span className={sx(reviewsStyles.checkStatus)}>
-              {check.conclusion || check.status || "pending"}
+              {check.conclusion || check.status || i18n.t("sourceControl:sourceControlReviewsPanel.pending")}
             </span>
           </li>
         );
@@ -354,6 +335,7 @@ export function SourceControlReviewsPanel(props: {
     file: GitHubPrFile;
   }) => Promise<void>;
 }) {
+  useTranslation();
   const [kind, setKind] = useState<GitHubPrInboxKind>("review-requested");
   const [items, setItems] = useState<GitHubPrInboxItem[]>([]);
   const [isLoadingInbox, setIsLoadingInbox] = useState(true);
@@ -373,7 +355,7 @@ export function SourceControlReviewsPanel(props: {
     const requestId = inboxRequestRef.current + 1;
     inboxRequestRef.current = requestId;
     if (!listGitHubPrs) {
-      setInboxError("Source Control review bridge unavailable.");
+      setInboxError(i18n.t("sourceControl:sourceControlReviewsPanel.sourceControlReviewBridgeUnavailable"));
       setIsLoadingInbox(false);
       return;
     }
@@ -392,7 +374,7 @@ export function SourceControlReviewsPanel(props: {
         setInboxError(
           error instanceof Error
             ? error.message
-            : "Could not load pull requests.",
+            : i18n.t("sourceControl:sourceControlReviewsPanel.couldNotLoadPullRequests"),
         );
       }
     } finally {
@@ -408,7 +390,7 @@ export function SourceControlReviewsPanel(props: {
       const requestId = detailRequestRef.current + 1;
       detailRequestRef.current = requestId;
       if (!getDetail) {
-        setDetailError("Source Control review bridge unavailable.");
+        setDetailError(i18n.t("sourceControl:sourceControlReviewsPanel.sourceControlReviewBridgeUnavailable"));
         return null;
       }
       setIsLoadingDetail(true);
@@ -420,7 +402,7 @@ export function SourceControlReviewsPanel(props: {
         }
         if (!result.ok || !result.detail) {
           setDetail(null);
-          setDetailError(result.stderr || "Could not load the pull request.");
+          setDetailError(result.stderr || i18n.t("sourceControl:sourceControlReviewsPanel.couldNotLoadThePullRequest"));
           return null;
         }
         setDetail(result.detail);
@@ -439,7 +421,7 @@ export function SourceControlReviewsPanel(props: {
           setDetailError(
             error instanceof Error
               ? error.message
-              : "Could not load the pull request.",
+              : i18n.t("sourceControl:sourceControlReviewsPanel.couldNotLoadThePullRequest"),
           );
         }
         return null;
@@ -484,7 +466,7 @@ export function SourceControlReviewsPanel(props: {
     }
     const submit = window.api?.sourceControl?.submitGitHubPrReview;
     if (!submit) {
-      setReviewError("Source Control review bridge unavailable.");
+      setReviewError(i18n.t("sourceControl:sourceControlReviewsPanel.sourceControlReviewBridgeUnavailable"));
       return;
     }
     setIsSubmittingReview(true);
@@ -498,7 +480,7 @@ export function SourceControlReviewsPanel(props: {
         cwd: props.cwd,
       });
       if (!result.ok) {
-        setReviewError(result.stderr || "GitHub rejected the review.");
+        setReviewError(result.stderr || i18n.t("sourceControl:sourceControlReviewsPanel.gitHubRejectedTheReview"));
         if (result.stale) {
           await loadDetail(detail.url, { openFirstFile: false });
         }
@@ -507,10 +489,10 @@ export function SourceControlReviewsPanel(props: {
       setReviewDialogOpen(false);
       toast.success(
         args.event === "APPROVE"
-          ? "Pull request approved"
+          ? i18n.t("sourceControl:sourceControlReviewsPanel.pullRequestApproved")
           : args.event === "REQUEST_CHANGES"
-            ? "Changes requested"
-            : "Review comment submitted",
+            ? i18n.t("sourceControl:sourceControlReviewsPanel.changesRequested")
+            : i18n.t("sourceControl:sourceControlReviewsPanel.reviewCommentSubmitted"),
       );
       await Promise.all([
         loadDetail(detail.url, { openFirstFile: false }),
@@ -518,7 +500,7 @@ export function SourceControlReviewsPanel(props: {
       ]);
     } catch (error) {
       setReviewError(
-        error instanceof Error ? error.message : "Could not submit the review.",
+        error instanceof Error ? error.message : i18n.t("sourceControl:sourceControlReviewsPanel.couldNotSubmitTheReview"),
       );
     } finally {
       setIsSubmittingReview(false);
@@ -533,15 +515,15 @@ export function SourceControlReviewsPanel(props: {
             type="button"
             size="icon-sm"
             variant="ghost"
-            aria-label="Back to review inbox"
-            title="Back to review inbox"
+            aria-label={i18n.t("sourceControl:sourceControlReviewsPanel.backToReviewInbox")}
+            title={i18n.t("sourceControl:sourceControlReviewsPanel.backToReviewInbox")}
             onClick={returnToInbox}
           >
             <ArrowLeft className={sx(reviewsStyles.iconMd)} />
           </Button>
           <div className={sx(reviewsStyles.detailHeaderText)}>
             <p className={sx(reviewsStyles.breadcrumb)}>
-              Reviews
+              {i18n.t("sourceControl:sourceControlReviewsPanel.reviews")}
               {detail
                 ? ` / ${detail.repositoryWithOwner}#${detail.number}`
                 : ""}
@@ -557,8 +539,8 @@ export function SourceControlReviewsPanel(props: {
               type="button"
               size="icon-sm"
               variant="ghost"
-              aria-label="Open pull request on GitHub"
-              title="Open on GitHub"
+              aria-label={i18n.t("sourceControl:sourceControlReviewsPanel.openPullRequestOnGitHub")}
+              title={i18n.t("sourceControl:sourceControlReviewsPanel.openOnGitHub")}
               onClick={() =>
                 void window.api?.shell?.openExternal?.({ url: detail.url })
               }
@@ -574,7 +556,7 @@ export function SourceControlReviewsPanel(props: {
             role="status"
           >
             <Loader aria-hidden size="xs" variant="verify" />
-            Loading review…
+            {i18n.t("sourceControl:sourceControlReviewsPanel.loadingReview")}
           </div>
         ) : detailError || !detail ? (
           <div
@@ -582,10 +564,10 @@ export function SourceControlReviewsPanel(props: {
             role="alert"
           >
             <p className={sx(reviewsStyles.errorTitle)}>
-              Pull request unavailable
+              {i18n.t("sourceControl:sourceControlReviewsPanel.pullRequestUnavailable")}
             </p>
             <p className={sx(reviewsStyles.errorDetail)}>
-              {detailError || "Could not load the pull request."}
+              {detailError || i18n.t("sourceControl:sourceControlReviewsPanel.couldNotLoadThePullRequest")}
             </p>
           </div>
         ) : (
@@ -602,7 +584,7 @@ export function SourceControlReviewsPanel(props: {
                   {detail.headRefOid.slice(0, 8)}
                 </Badge>
                 {detail.isDraft ? (
-                  <Badge variant="outline">Draft</Badge>
+                  <Badge variant="outline">{i18n.t("sourceControl:sourceControlReviewsPanel.draft")}</Badge>
                 ) : null}
               </div>
               <p className={sx(reviewsStyles.summaryLine)}>
@@ -625,11 +607,11 @@ export function SourceControlReviewsPanel(props: {
             >
               <TabsList xstyle={reviewsStyles.detailTabList}>
                 <TabsTrigger value="files">
-                  Files {detail.changedFiles}
+                  {i18n.t("sourceControl:sourceControlReviewsPanel.files2")} {detail.changedFiles}
                 </TabsTrigger>
-                <TabsTrigger value="conversation">Conversation</TabsTrigger>
+                <TabsTrigger value="conversation">{i18n.t("sourceControl:sourceControlReviewsPanel.conversation")}</TabsTrigger>
                 <TabsTrigger value="checks">
-                  Checks {detail.checks.length}
+                  {i18n.t("sourceControl:sourceControlReviewsPanel.checks")} {detail.checks.length}
                 </TabsTrigger>
               </TabsList>
               <TabsContent
@@ -671,7 +653,7 @@ export function SourceControlReviewsPanel(props: {
               />
               {detail.isDraft ? (
                 <p className={sx(reviewsStyles.footerNote)}>
-                  Draft pull requests cannot be approved yet.
+                  {i18n.t("sourceControl:sourceControlReviewsPanel.draftPullRequestsCannotBeApprovedYet")}
                 </p>
               ) : null}
             </div>
@@ -689,15 +671,15 @@ export function SourceControlReviewsPanel(props: {
     >
       <div className={sx(reviewsStyles.inboxStrip)}>
         <TabsList xstyle={reviewsStyles.inboxTabList}>
-          <TabsTrigger value="review-requested">To review</TabsTrigger>
-          <TabsTrigger value="authored">My PRs</TabsTrigger>
+          <TabsTrigger value="review-requested">{i18n.t("sourceControl:sourceControlReviewsPanel.toReview")}</TabsTrigger>
+          <TabsTrigger value="authored">{i18n.t("sourceControl:sourceControlReviewsPanel.myPRs")}</TabsTrigger>
         </TabsList>
         <Button
           type="button"
           size="icon-sm"
           variant="ghost"
-          aria-label="Refresh pull request inbox"
-          title="Refresh"
+          aria-label={i18n.t("sourceControl:sourceControlReviewsPanel.refreshPullRequestInbox")}
+          title={i18n.t("sourceControl:sourceControlReviewsPanel.refresh")}
           disabled={isLoadingInbox}
           onClick={() => void loadInbox()}
         >
@@ -738,7 +720,7 @@ export function SourceControlReviewsPanel(props: {
       <div className={sx(reviewsStyles.inboxFooter)}>
         <p className={sx(reviewsStyles.inboxFooterText)}>
           <MessageSquare className={sx(reviewsStyles.iconXs)} />
-          Reviews are submitted as your signed-in GitHub account.
+          {i18n.t("sourceControl:sourceControlReviewsPanel.reviewsAreSubmittedAsYourSignedInGitHub")}
         </p>
       </div>
     </Tabs>

@@ -926,6 +926,7 @@ export const PersistedLensAnnotationSchema = AnnotationInputSchema.transform((ra
       title: raw.review?.page.title ?? "",
     });
   } catch (error) {
+    // i18n-ignore: schema validation diagnostic
     context.addIssue({ code: "custom", message: error instanceof Error ? error.message : "Invalid saved annotation" });
     return z.NEVER;
   }

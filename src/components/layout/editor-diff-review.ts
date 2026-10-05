@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
 
@@ -162,7 +163,7 @@ export function registerDiffReviewCommentAction(args: {
 }): Disposable {
   return args.editor.addAction({
     id: "stave.diffReview.addComment",
-    label: "Add Review Comment",
+    label: i18n.t("editor:editorDiffReview.addReviewComment"),
     contextMenuGroupId: "navigation",
     contextMenuOrder: 1.5,
     run: (editor) => {

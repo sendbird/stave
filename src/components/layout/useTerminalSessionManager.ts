@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createLatestAsyncDispatcher,
@@ -7,6 +8,7 @@ import {
   EMPTY_TERMINAL_TAB_INSTANCE_STATUS,
   type UseTerminalTabManagerReturn,
 } from "@/components/layout/useTerminalTabManager";
+import { i18n } from "@/i18n";
 import { getTerminalSessionRouter } from "@/lib/terminal/terminal-session-router";
 import {
   createTerminalTranscriptBuffer,
@@ -97,6 +99,7 @@ export interface UseTerminalSessionManagerReturn {
 export function useTerminalSessionManager<TTab extends { id: string }>(
   args: UseTerminalSessionManagerArgs<TTab>,
 ): UseTerminalSessionManagerReturn {
+  useTranslation();
   const tabManagerRef = useRef(args.tabManager);
   const tabsRef = useRef(args.tabs);
   useEffect(() => {
@@ -234,7 +237,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
         const result = await resizeSession({ sessionId, cols, rows });
         if (!result?.ok) {
           throw new Error(
-            result?.stderr || "Failed to resize backend session.",
+            result?.stderr || i18n.t("terminal:useTerminalSessionManager.failedToResizeBackendSession"),
           );
         }
 
@@ -375,7 +378,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
         );
         setBridgeErrorForTabKey(
           tabKey,
-          "Terminal bridge unavailable. Use bun run dev:desktop.",
+          i18n.t("terminal:terminalSession.errors.bridgeUnavailable"),
         );
       }
       delete pendingInputBySessionRef.current[sessionId];
@@ -631,6 +634,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
       exitedByTabKeyRef.current[tabKey] = { exitCode, signal };
 
       const signalHint = signal ? ` (signal ${signal})` : "";
+      // i18n-ignore: terminal output written into the PTY stream and transcript
       const exitMessage =
         exitCode === 0
           ? `\r\n\x1b[2m[process exited with code 0${signalHint}]\x1b[0m\r\n`
@@ -1012,7 +1016,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
             setBridgeErrorForTabKey(
               tabKey,
               resumed.stderr?.trim() ||
-                "Failed to resume terminal session stream.",
+                i18n.t("terminal:terminalSession.errors.resumeStreamFailed"),
             );
           }
         } catch {
@@ -1112,11 +1116,12 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
       }
       if (!created.ok || !created.sessionId) {
         const message =
-          created.stderr?.trim() || "Failed to create terminal session.";
+          created.stderr?.trim() ||
+          i18n.t("terminal:terminalSession.errors.createFailed");
         setBridgeErrorForTabKey(tabKey, message);
         tabManagerRef.current.writeln(
           tabKey,
-          `\r\n[error] ${created.stderr?.trim() || "failed to create terminal session."}`,
+          `\r\n[error] ${created.stderr?.trim() || i18n.t("terminal:useTerminalSessionManager.failedToCreateTerminalSession")}`,
         );
         return;
       }
@@ -1127,7 +1132,8 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
       });
       if (!attached.ok || !attached.attachmentId) {
         const message =
-          attached.stderr?.trim() || "Failed to attach terminal session.";
+          attached.stderr?.trim() ||
+          i18n.t("terminal:terminalSession.errors.attachFailed");
         setBridgeErrorForTabKey(tabKey, message);
         abandonCreatedSession({
           sessionId: created.sessionId,
@@ -1183,7 +1189,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
           setBridgeErrorForTabKey(
             tabKey,
             resumed.stderr?.trim() ||
-              "Failed to resume terminal session stream.",
+              i18n.t("terminal:terminalSession.errors.resumeStreamFailed"),
           );
         }
       } catch {

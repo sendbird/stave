@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { FolderOpen } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
@@ -17,6 +18,7 @@ type OpenPathDialogProps = {
 };
 
 export function OpenPathDialog(args: OpenPathDialogProps) {
+  useTranslation();
   const { open, onOpenChange, onSubmit, onSubmitPath, onBrowse } = args;
   const [inputPath, setInputPath] = useState("");
   const [error, setError] = useState("");
@@ -44,7 +46,7 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
       return;
     }
     if (!submitPath) {
-      setError("Open action is unavailable.");
+      setError(i18n.t("shell:openPathDialog.openActionIsUnavailable"));
       return;
     }
     setBusy(true);
@@ -54,7 +56,7 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
       if (result.ok) {
         close();
       } else {
-        setError(result.stderr || "Failed to open path.");
+        setError(result.stderr || i18n.t("shell:openPathDialog.failedToOpenPath"));
       }
     } catch (err) {
       setError(String(err));
@@ -105,9 +107,9 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleDialogKeyDown}>
-          <h3 className={sx(openPathDialogStyles.title)}>Open Repository</h3>
+          <h3 className={sx(openPathDialogStyles.title)}>{i18n.t("shell:openPathDialog.openRepository")}</h3>
           <p className={sx(openPathDialogStyles.description)}>
-            Enter a path or browse for a folder.
+            {i18n.t("shell:openPathDialog.enterAPathOrBrowseForA")}
           </p>
           <div className={sx(openPathDialogStyles.pathRow)}>
             <Input
@@ -129,7 +131,7 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
               disabled={busy}
             >
               <FolderOpen className={sx(openPathDialogStyles.browseIcon)} />
-              Browse
+              {i18n.t("shell:openPathDialog.browse")}
             </Button>
           </div>
           {error ? (
@@ -137,10 +139,10 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
           ) : null}
           <div className={sx(openPathDialogStyles.actions)}>
             <Button type="button" variant="outline" onClick={close} disabled={busy}>
-              Cancel
+              {i18n.t("shell:openPathDialog.cancel")}
             </Button>
             <Button type="submit" disabled={busy || !inputPath.trim()}>
-              {busy ? "Opening..." : "Open"}
+              {busy ? i18n.t("shell:openPathDialog.opening") : i18n.t("shell:openPathDialog.open")}
             </Button>
           </div>
         </form>

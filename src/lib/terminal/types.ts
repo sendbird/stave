@@ -3,7 +3,6 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
-import { resolvePathBaseName } from "@/lib/path-utils";
 
 export type SessionSlotState = "idle" | "running" | "background" | "exited";
 
@@ -78,40 +77,14 @@ export interface CliSessionCreateSessionArgs {
   runtimeOptions?: ProviderRuntimeOptions;
 }
 
-export function getTerminalTabDefaultTitle(args: {
-  cwd: string;
-  linkedTaskTitle?: string | null;
-}) {
-  const linkedTaskTitle = args.linkedTaskTitle?.trim();
-  if (linkedTaskTitle) {
-    return linkedTaskTitle;
-  }
-
-  return resolvePathBaseName({ path: args.cwd, fallback: "Terminal" });
-}
-
 export function getCliSessionProviderLabel(
   providerId: ManagedExecutionProviderId,
 ) {
   return providerId === "claude-code" ? "Claude" : "Codex";
 }
 
-export function getCliSessionContextLabel(contextMode: CliSessionContextMode) {
-  return contextMode === "active-task" ? "Active Task" : "Workspace";
-}
-
-export function getCliSessionTabDefaultTitle(args: {
-  providerId: ManagedExecutionProviderId;
-  contextMode: CliSessionContextMode;
-  linkedTaskTitle?: string | null;
-}) {
-  const providerLabel = getCliSessionProviderLabel(args.providerId);
-  const linkedTaskTitle = args.linkedTaskTitle?.trim();
-  if (args.contextMode === "active-task" && linkedTaskTitle) {
-    return `${providerLabel}: ${linkedTaskTitle}`;
-  }
-  return `${providerLabel} ${getCliSessionContextLabel(args.contextMode)}`;
-}
+// Translated tab labels and default titles live in `terminal-tab-labels.ts`:
+// this module is also bundled into the Electron host service.
 
 export function getWorkspaceTerminalTabKey(args: {
   workspaceId: string;

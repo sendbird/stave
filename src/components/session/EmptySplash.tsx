@@ -1,3 +1,4 @@
+import { getCliSessionContextLabel } from "@/lib/terminal/terminal-tab-labels";
 import type { ReactNode } from "react";
 import {
   ArrowRight,
@@ -26,7 +27,6 @@ import {
 } from "@/components/ui";
 import { STAVE_LOGO_URL } from "@/lib/providers/model-catalog";
 import {
-  getCliSessionContextLabel,
   getCliSessionProviderLabel,
   type CliSessionContextMode,
 } from "@/lib/terminal/types";

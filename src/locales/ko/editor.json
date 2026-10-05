@@ -1,1 +1,90 @@
-{}
+{
+  "editorPanel": {
+    "couldnTForwardTheFailuresToTheAgent": "실패 내용을 에이전트에 전달하지 못했습니다",
+    "queuedFixForTheNextTurn": "다음 턴에 수정 요청을 예약했습니다",
+    "sentFailingChecksToTheAgent": "실패한 검사를 에이전트에 보냈습니다",
+    "resolveOrDiscardConflictedFilesBeforeTreating": "작업 트리를 깨끗하게 만들려면 충돌 파일을 해결하거나 변경 사항을 삭제하세요.",
+    "commitWillIncludeStagedChangesOnlyWorkingTree": "스테이징된 변경 사항만 커밋에 포함합니다. 작업 트리의 수정 사항은 로컬에 남습니다.",
+    "stagedChangesAreReadyToCommit": "스테이징된 변경 사항을 커밋할 수 있습니다.",
+    "stageFilesToPrepareTheNextCommit": "다음 커밋을 준비하려면 파일을 스테이징하세요.",
+    "workingTreeIsClean": "작업 트리가 깨끗합니다.",
+    "workspacePathUnavailable": "워크스페이스 경로를 사용할 수 없음",
+    "copiedAbsolutePath": "절대 경로 복사됨",
+    "copiedRelativePath": "상대 경로 복사됨",
+    "failedToCopyPath": "경로를 복사하지 못했습니다",
+    "shellBridgeUnavailable": "셸 브리지를 사용할 수 없음",
+    "shellActionUnavailable": "셸 동작을 사용할 수 없음",
+    "openInFinder": "Finder에서 열기",
+    "openInVSCode": "VS Code에서 열기",
+    "openInGhostty": "Ghostty에서 열기",
+    "openInTerminal": "터미널에서 열기",
+    "failedTo": "{{value1}} 작업에 실패했습니다",
+    "deletedFile": "파일 삭제됨",
+    "deletedFolder": "폴더 삭제됨",
+    "deleteFolder": "폴더 삭제",
+    "deleteFile": "파일 삭제",
+    "repository": "저장소",
+    "workspacePathUnavailable2": "워크스페이스 경로를 사용할 수 없습니다.",
+    "failedToLoadFolder": "폴더를 불러오지 못했습니다.",
+    "failedToLoadExplorerContents": "탐색기 내용을 불러오지 못했습니다.",
+    "gitStatusFailed": "git status 실패",
+    "sourceControlBridgeUnavailable": "소스 제어 브리지를 사용할 수 없습니다.",
+    "gitAddFailed": "git add 실패",
+    "resolveOrDiscardConflictedFilesBeforeCommitting": "커밋하기 전에 충돌 파일을 해결하거나 변경 사항을 삭제하세요.",
+    "stageAtLeastOneChangeBeforeCommitting": "커밋하기 전에 변경 사항을 하나 이상 스테이징하세요.",
+    "gitCommitFailed": "git commit 실패",
+    "gitStageToggleFailed": "git 스테이징 전환 실패",
+    "gitDiscardFailed": "git 변경 사항 삭제 실패",
+    "failedToDeleteFile": "파일을 삭제하지 못했습니다.",
+    "failedToDeleteFolder": "폴더를 삭제하지 못했습니다.",
+    "enterAValidRelativePath": "유효한 상대 {{value1}} 경로를 입력하세요.",
+    "failedToCreateFile": "파일을 생성하지 못했습니다.",
+    "failedToCreateFolder": "폴더를 생성하지 못했습니다.",
+    "deleteAndAllOfItsContents": "\"{{value1}}\" 폴더와 모든 내용을 디스크에서 삭제하시겠습니까?",
+    "deleteFromDisk": "\"{{value1}}\" 파일을 디스크에서 삭제하시겠습니까?",
+    "openTabSWillBeClosedIncluding": "열린 탭 {{value1}}개를 닫으며 이 중 {{value2}}개에 저장되지 않은 변경 사항이 있습니다.",
+    "openTabSWillBeClosed": "열린 탭 {{value1}}개를 닫습니다."
+  },
+  "editorReviewPanel": {
+    "reviewComment": "리뷰 댓글",
+    "comment": "댓글",
+    "newComment": "새 댓글",
+    "commentOnModifiedLine": "수정된 {{value1}}번째 줄에 댓글 작성",
+    "commentOn": "댓글 작성 위치",
+    "addAnotherCommentOnModifiedLine": "수정된 {{value1}}번째 줄에 댓글 추가",
+    "removeCommentFromLine": "{{value1}}번째 줄의 댓글 삭제",
+    "leaveACommentOnLine": "{{value1}}번째 줄에 댓글 작성",
+    "toSave": "저장",
+    "cancelReviewComment": "리뷰 댓글 취소",
+    "addComment": "댓글 추가",
+    "commentCount_other": "댓글 {{count}}개"
+  },
+  "editorDiffReviewHoverMenu": {
+    "addAnotherReviewCommentOnModifiedLine": "수정된 {{value1}}번째 줄에 리뷰 댓글 추가",
+    "addReviewCommentOnModifiedLine": "수정된 {{value1}}번째 줄에 리뷰 댓글 작성"
+  },
+  "editorDiffReview": {
+    "addReviewComment": "리뷰 댓글 추가"
+  },
+  "editorMarkdownPreview": {
+    "text": "텍스트"
+  },
+  "editorPanelUtils": {
+    "conflicts": "충돌",
+    "filesThatNeedResolutionBeforeTheTree": "작업 트리를 깨끗하게 만들기 위해 해결해야 하는 파일.",
+    "partiallyStaged": "일부 스테이징됨",
+    "theseFilesHaveBothStagedAndUnstaged": "스테이징된 수정 사항과 스테이징되지 않은 수정 사항이 함께 있는 파일입니다.",
+    "workingTree": "작업 트리",
+    "trackedFilesWithLocalEditsThatAre": "아직 스테이징되지 않은 로컬 수정 사항이 있는 추적 파일.",
+    "staged": "스테이징됨",
+    "theseChangesAreReadyToBeIncluded": "다음 커밋에 포함할 준비가 된 변경 사항입니다.",
+    "untracked": "추적되지 않음",
+    "filesNotYetAddedToGit": "아직 Git에 추가되지 않은 파일.",
+    "repositoryRoot": "저장소 루트",
+    "renamedFrom": "이전 이름: {{value1}}"
+  },
+  "markdownFrontmatterCard": {
+    "label": "—",
+    "frontmatter": "프런트매터"
+  }
+}

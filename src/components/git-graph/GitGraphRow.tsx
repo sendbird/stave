@@ -1,3 +1,5 @@
+import { formatRelativeTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import * as React from "react";
 import { GitBranch, Tag } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -28,29 +30,7 @@ function formatRelativeDate(iso: string): string {
   if (!Number.isFinite(timestamp)) {
     return iso;
   }
-  const seconds = Math.round((timestamp - Date.now()) / 1_000);
-  const absoluteSeconds = Math.abs(seconds);
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-  if (absoluteSeconds < 60) {
-    return formatter.format(seconds, "second");
-  }
-  const minutes = Math.round(seconds / 60);
-  if (Math.abs(minutes) < 60) {
-    return formatter.format(minutes, "minute");
-  }
-  const hours = Math.round(minutes / 60);
-  if (Math.abs(hours) < 24) {
-    return formatter.format(hours, "hour");
-  }
-  const days = Math.round(hours / 24);
-  if (Math.abs(days) < 30) {
-    return formatter.format(days, "day");
-  }
-  const months = Math.round(days / 30);
-  if (Math.abs(months) < 12) {
-    return formatter.format(months, "month");
-  }
-  return formatter.format(Math.round(months / 12), "year");
+  return formatRelativeTime(timestamp);
 }
 
 export function graphGridTemplate(args: {
@@ -68,6 +48,7 @@ export function graphGridTemplate(args: {
 }
 
 function HighlightText({ value, query }: { value: string; query: string }) {
+  useTranslation();
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
     return value;
@@ -96,6 +77,7 @@ function RefLabel({
   onContextMenu: (event: React.MouseEvent, graphRef: GraphRef) => void;
   onDoubleClick: (graphRef: GraphRef) => void;
 }) {
+  useTranslation();
   const Icon = graphRef.type === "tag" ? Tag : GitBranch;
   return (
     <span
@@ -118,7 +100,7 @@ function RefLabel({
       <Icon className={sx(styles.refIcon)} />
       {graphRef.name}
       {graphRef.isHead ? (
-        <span className={sx(styles.refHeadTag)}>head</span>
+        <span className={sx(styles.refHeadTag)}>{i18n.t("gitGraph:gitGraphRow.head")}</span>
       ) : null}
     </span>
   );
@@ -155,6 +137,7 @@ export const GitGraphRow = React.memo(function GitGraphRow({
   onRefContextMenu,
   onRefDoubleClick,
 }: GitGraphRowProps) {
+  useTranslation();
   return (
     <div
       role="row"
@@ -259,6 +242,7 @@ export function GitGraphWorkingTreeRow({
   isSelected: boolean;
   onClick: () => void;
 }) {
+  useTranslation();
   const total =
     summary.staged + summary.unstaged + summary.untracked + summary.conflicts;
   return (
@@ -294,14 +278,10 @@ export function GitGraphWorkingTreeRow({
           style={{ width: graphWidth }}
           aria-hidden="true"
         />
-        <span className={sx(styles.workingTreeLabel)}>Uncommitted changes</span>
-        <span className={sx(styles.workingTreeBadge)}>
-          {total} {total === 1 ? "change" : "changes"}
-        </span>
+        <span className={sx(styles.workingTreeLabel)}>{i18n.t("gitGraph:gitGraphRow.uncommittedChanges")}</span>
+        <span className={sx(styles.workingTreeBadge)}>{i18n.t("gitGraph:gitGraphRow.changeCount", { count: total })}</span>
         {summary.conflicts > 0 ? (
-          <span className={sx(styles.workingTreeConflicts)}>
-            {summary.conflicts} conflicts
-          </span>
+          <span className={sx(styles.workingTreeConflicts)}>{i18n.t("gitGraph:gitGraphRow.conflictCount", { count: summary.conflicts })}</span>
         ) : null}
       </div>
       {columns.author ? (

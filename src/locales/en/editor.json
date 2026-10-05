@@ -1,1 +1,91 @@
-{}
+{
+  "editorPanel": {
+    "couldnTForwardTheFailuresToTheAgent": "Couldn't forward the failures to the agent",
+    "queuedFixForTheNextTurn": "Queued fix for the next turn",
+    "sentFailingChecksToTheAgent": "Sent failing checks to the agent",
+    "resolveOrDiscardConflictedFilesBeforeTreating": "Resolve or discard conflicted files before treating the tree as clean.",
+    "commitWillIncludeStagedChangesOnlyWorkingTree": "Commit will include staged changes only. Working-tree edits remain local.",
+    "stagedChangesAreReadyToCommit": "Staged changes are ready to commit.",
+    "stageFilesToPrepareTheNextCommit": "Stage files to prepare the next commit.",
+    "workingTreeIsClean": "Working tree is clean.",
+    "workspacePathUnavailable": "Workspace path unavailable",
+    "copiedAbsolutePath": "Copied absolute path",
+    "copiedRelativePath": "Copied relative path",
+    "failedToCopyPath": "Failed to copy path",
+    "shellBridgeUnavailable": "Shell bridge unavailable",
+    "shellActionUnavailable": "Shell action unavailable",
+    "openInFinder": "open in Finder",
+    "openInVSCode": "open in VS Code",
+    "openInGhostty": "open in Ghostty",
+    "openInTerminal": "open in Terminal",
+    "failedTo": "Failed to {{value1}}",
+    "deletedFile": "Deleted file",
+    "deletedFolder": "Deleted folder",
+    "deleteFolder": "Delete Folder",
+    "deleteFile": "Delete File",
+    "repository": "Repository",
+    "workspacePathUnavailable2": "Workspace path unavailable.",
+    "failedToLoadFolder": "Failed to load folder.",
+    "failedToLoadExplorerContents": "Failed to load explorer contents.",
+    "gitStatusFailed": "git status failed",
+    "sourceControlBridgeUnavailable": "Source Control bridge unavailable.",
+    "gitAddFailed": "git add failed",
+    "resolveOrDiscardConflictedFilesBeforeCommitting": "Resolve or discard conflicted files before committing.",
+    "stageAtLeastOneChangeBeforeCommitting": "Stage at least one change before committing.",
+    "gitCommitFailed": "git commit failed",
+    "gitStageToggleFailed": "git stage toggle failed",
+    "gitDiscardFailed": "git discard failed",
+    "failedToDeleteFile": "Failed to delete file.",
+    "failedToDeleteFolder": "Failed to delete folder.",
+    "enterAValidRelativePath": "Enter a valid relative {{value1}} path.",
+    "failedToCreateFile": "Failed to create file.",
+    "failedToCreateFolder": "Failed to create folder.",
+    "deleteAndAllOfItsContents": "Delete \"{{value1}}\" and all of its contents from disk?",
+    "deleteFromDisk": "Delete \"{{value1}}\" from disk?",
+    "openTabSWillBeClosedIncluding": "{{value1}} open tab(s) will be closed, including {{value2}} with unsaved changes.",
+    "openTabSWillBeClosed": "{{value1}} open tab(s) will be closed."
+  },
+  "editorReviewPanel": {
+    "reviewComment": "Review comment",
+    "comment": "comment",
+    "newComment": "New comment",
+    "commentOnModifiedLine": "Comment on modified line {{value1}}",
+    "commentOn": "Comment on",
+    "addAnotherCommentOnModifiedLine": "Add another comment on modified line {{value1}}",
+    "removeCommentFromLine": "Remove comment from line {{value1}}",
+    "leaveACommentOnLine": "Leave a comment on line {{value1}}",
+    "toSave": "to save",
+    "cancelReviewComment": "Cancel review comment",
+    "addComment": "Add comment",
+    "commentCount_one": "{{count}} comment",
+    "commentCount_other": "{{count}} comments"
+  },
+  "editorDiffReviewHoverMenu": {
+    "addAnotherReviewCommentOnModifiedLine": "Add another review comment on modified line {{value1}}",
+    "addReviewCommentOnModifiedLine": "Add review comment on modified line {{value1}}"
+  },
+  "editorDiffReview": {
+    "addReviewComment": "Add Review Comment"
+  },
+  "editorMarkdownPreview": {
+    "text": "text"
+  },
+  "editorPanelUtils": {
+    "conflicts": "Conflicts",
+    "filesThatNeedResolutionBeforeTheTree": "Files that need resolution before the tree is clean.",
+    "partiallyStaged": "Partially Staged",
+    "theseFilesHaveBothStagedAndUnstaged": "These files have both staged and unstaged edits.",
+    "workingTree": "Working Tree",
+    "trackedFilesWithLocalEditsThatAre": "Tracked files with local edits that are not staged yet.",
+    "staged": "Staged",
+    "theseChangesAreReadyToBeIncluded": "These changes are ready to be included in the next commit.",
+    "untracked": "Untracked",
+    "filesNotYetAddedToGit": "Files not yet added to Git.",
+    "repositoryRoot": "repository root",
+    "renamedFrom": "renamed from {{value1}}"
+  },
+  "markdownFrontmatterCard": {
+    "label": "—",
+    "frontmatter": "Frontmatter"
+  }
+}

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { useId } from "react";
 import { Check } from "lucide-react";
 import {
@@ -30,6 +31,7 @@ function AccountIdentityText(props: {
   providerName: string;
   profile: ProviderAccountProfile;
 }) {
+  useTranslation();
   const identity = useProviderAccountIdentity(props.providerId, props.profile.id);
   const line = describeProviderAccountIdentity(identity, props.providerName);
   return (
@@ -64,6 +66,7 @@ export function StatusBarAccountSection(props: {
   providerName: string;
   view: StatusBarAccountView;
 }) {
+  useTranslation();
   const labelId = useId();
   const updateSettings = useAppStore((state) => state.updateSettings);
   const { providerId, view } = props;
@@ -72,7 +75,7 @@ export function StatusBarAccountSection(props: {
       {view.canSwitch ? (
         <div className={sx(menu.group)}>
           <span id={labelId} className={sx(menu.groupLabel)}>
-            Account for new turns
+            {i18n.t("shell:statusBarAccountSection.accountForNewTurns")}
           </span>
           <RadioGroupRoot
             aria-labelledby={labelId}
@@ -118,12 +121,11 @@ export function StatusBarAccountSection(props: {
                       delay={400}
                       render={<span className={sx(styles.accountMeta)} />}
                     >
-                      API billing
+                      {i18n.t("shell:statusBarAccountSection.aPIBilling")}
                     </TooltipTrigger>
                     <TooltipContent side="right">
                       <span className={sx(styles.accountHint)}>
-                        Your gateway bills this account per token, not your
-                        subscription, and enforces any budget.
+                        {i18n.t("shell:statusBarAccountSection.yourGatewayBillsThisAccountPerToken")}
                       </span>
                     </TooltipContent>
                   </Tooltip>
@@ -149,7 +151,7 @@ export function StatusBarAccountSection(props: {
           )
         }
       >
-        {view.canSwitch ? "Manage accounts" : "Add an account"}
+        {view.canSwitch ? i18n.t("shell:statusBarAccountSection.manageAccounts") : i18n.t("shell:statusBarAccountSection.addAnAccount")}
       </Button>
     </div>
   );

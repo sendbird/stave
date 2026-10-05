@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   Bell,
@@ -53,6 +54,7 @@ interface ArchivedNotificationPrompt {
 }
 
 function NotificationKindIcon({ kind }: { kind: AppNotification["kind"] }) {
+  useTranslation();
   if (
     kind === "task.approval_requested" ||
     kind === "task.user_input_requested"
@@ -117,6 +119,7 @@ function buildLocationLabel(args: {
 }
 
 export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
+  useTranslation();
   const [
     notifications,
     tasks,
@@ -225,14 +228,14 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
       closeClearHistoryPrompt();
       toast.success(
         count === 1
-          ? "Cleared 1 notification"
-          : `Cleared ${count} notifications`,
+          ? i18n.t("shell:topBarNotifications.cleared1Notification")
+          : i18n.t("shell:topBarNotifications.clearedNotifications", { value1: count }),
         {
-          description: "Every notification that was in History was removed.",
+          description: i18n.t("shell:topBarNotifications.everyNotificationThatWasInHistoryWas"),
         },
       );
     } catch (error) {
-      toast.error("Could not clear notification history", {
+      toast.error(i18n.t("shell:topBarNotifications.couldNotClearNotificationHistory"), {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -317,7 +320,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                   size="icon-sm"
                   xstyle={notificationsStyles.trigger}
                   style={props.noDragStyle}
-                  aria-label="notifications"
+                  aria-label={i18n.t("shell:topBarNotifications.notifications")}
                   indicator={
                     unreadCount > 0 ? (
                       <CountBadge cap={99} count={unreadCount} />
@@ -329,7 +332,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
               <Bell className={sx(notificationsStyles.triggerIcon)} />
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Notifications</TooltipContent>
+          <TooltipContent side="bottom">{i18n.t("shell:topBarNotifications.notifications2")}</TooltipContent>
         </Tooltip>
         <PopoverContent
           align="end"
@@ -341,7 +344,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
             <div className={sx(notificationsStyles.headerRow)}>
               <div className={sx(notificationsStyles.headerTitleColumn)}>
                 <PopoverTitle className={sx(notificationsStyles.headerTitle)}>
-                  Notifications
+                  {i18n.t("shell:topBarNotifications.notifications2")}
                 </PopoverTitle>
               </div>
               <div className={sx(notificationsStyles.headerActions)}>
@@ -360,7 +363,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                     }}
                   >
                     <Trash2 className={sx(notificationsStyles.smallIcon)} />
-                    Clear history
+                    {i18n.t("shell:topBarNotifications.clearHistory")}
                   </Button>
                 ) : null}
                 <Button
@@ -371,16 +374,16 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                   onClick={() => void handleMarkAllRead()}
                 >
                   <CheckCheck className={sx(notificationsStyles.triggerIcon)} />
-                  Mark all read
+                  {i18n.t("shell:topBarNotifications.markAllRead")}
                 </Button>
               </div>
             </div>
             <p className={sx(notificationsStyles.headerSubtitle)}>
               {unreadCount > 0
-                ? `${unreadCount} unread`
+                ? i18n.t("shell:topBarNotifications.unread", { value1: unreadCount })
                 : historyCount > 0
-                  ? "All caught up. Browse read history below."
-                  : "No notifications yet."}
+                  ? i18n.t("shell:topBarNotifications.allCaughtUpBrowseReadHistoryBelow")
+                  : i18n.t("shell:topBarNotifications.noNotificationsYet")}
             </p>
             <div className={sx(notificationsStyles.viewSwitch)}>
               <AdsButton
@@ -396,7 +399,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 onClick={() => setView("unread")}
               >
                 <span className={sx(notificationsStyles.viewTabLabel)}>
-                  Unread
+                  {i18n.t("shell:topBarNotifications.unread2")}
                 </span>
                 {/* Always `outline`. The selected arm used to be `secondary`,
                     whose `colorCanvasSubtle` fill sits 1.5% of lightness from
@@ -420,7 +423,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 onClick={() => setView("history")}
               >
                 <span className={sx(notificationsStyles.viewTabLabel)}>
-                  History
+                  {i18n.t("shell:topBarNotifications.history")}
                 </span>
                 <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
                   {historyCount}
@@ -432,23 +435,23 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
             {!hasNotifications ? (
               <div className={sx(notificationsStyles.emptyState)}>
                 <p className={sx(notificationsStyles.emptyTitle)}>
-                  No notifications yet.
+                  {i18n.t("shell:topBarNotifications.noNotificationsYet")}
                 </p>
                 <p className={sx(notificationsStyles.emptyBody)}>
-                  Task completions and blocked requests will appear here.
+                  {i18n.t("shell:topBarNotifications.taskCompletionsAndBlockedRequestsWillAppear")}
                 </p>
               </div>
             ) : visibleNotifications.length === 0 ? (
               <div className={sx(notificationsStyles.emptyState)}>
                 <p className={sx(notificationsStyles.emptyTitle)}>
                   {view === "unread"
-                    ? "No unread notifications."
-                    : "No read notifications yet."}
+                    ? i18n.t("shell:topBarNotifications.noUnreadNotifications")
+                    : i18n.t("shell:topBarNotifications.noReadNotificationsYet")}
                 </p>
                 <p className={sx(notificationsStyles.emptyBody)}>
                   {view === "unread"
-                    ? "Marked items move into History so the inbox stays focused."
-                    : "Read notifications will collect here after you clear them from the unread list."}
+                    ? i18n.t("shell:topBarNotifications.markedItemsMoveIntoHistorySoThe")
+                    : i18n.t("shell:topBarNotifications.readNotificationsWillCollectHereAfterYou")}
                 </p>
                 {view === "unread" && historyCount > 0 ? (
                   <Button
@@ -458,7 +461,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                     xstyle={notificationsStyles.emptyAction}
                     onClick={() => setView("history")}
                   >
-                    View history
+                    {i18n.t("shell:topBarNotifications.viewHistory")}
                   </Button>
                 ) : null}
                 {view === "history" && unreadCount > 0 ? (
@@ -469,7 +472,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                     xstyle={notificationsStyles.emptyAction}
                     onClick={() => setView("unread")}
                   >
-                    Show unread
+                    {i18n.t("shell:topBarNotifications.showUnread")}
                   </Button>
                 ) : null}
               </div>
@@ -504,7 +507,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                   const archivedTaskTitle = showArchivedPrompt
                     ? (archivedPrompt?.taskTitle ??
                       notification.taskTitle ??
-                      "this task")
+                      i18n.t("shell:topBarNotifications.thisTask"))
                     : null;
                   const notificationDetail = row.detail;
 
@@ -592,7 +595,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                                           notificationsStyles.chipIcon,
                                         )}
                                       />
-                                      Archived
+                                      {i18n.t("shell:topBarNotifications.archived")}
                                     </span>
                                   ) : null}
                                 </div>
@@ -611,7 +614,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                                   <Check
                                     className={sx(notificationsStyles.tinyIcon)}
                                   />
-                                  Mark read
+                                  {i18n.t("shell:topBarNotifications.markRead")}
                                 </Button>
                               ) : null}
                             </div>
@@ -631,7 +634,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                                 )
                               }
                             >
-                              Deny
+                              {i18n.t("shell:topBarNotifications.deny")}
                             </Button>
                             <Button
                               type="button"
@@ -644,7 +647,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                                 )
                               }
                             >
-                              Approve
+                              {i18n.t("shell:topBarNotifications.approve")}
                             </Button>
                           </div>
                         ) : null}
@@ -653,19 +656,9 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                             className={sx(notificationsStyles.archivedPrompt)}
                           >
                             <p className={sx(notificationsStyles.promptTitle)}>
-                              This task is archived.
+                              {i18n.t("shell:topBarNotifications.thisTaskIsArchived")}
                             </p>
-                            <p className={sx(notificationsStyles.promptBody)}>
-                              Restore{" "}
-                              <span
-                                className={sx(
-                                  notificationsStyles.promptEmphasis,
-                                )}
-                              >
-                                {archivedTaskTitle}
-                              </span>{" "}
-                              to reopen it from notifications.
-                            </p>
+                            <p className={sx(notificationsStyles.promptBody)}>{i18n.t("shell:topBarNotifications.restoreTask", { title: archivedTaskTitle })}</p>
                             <div className={sx(notificationsStyles.actionRow)}>
                               <Button
                                 type="button"
@@ -674,7 +667,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                                 disabled={notificationBusy}
                                 onClick={() => setArchivedPrompt(null)}
                               >
-                                Cancel
+                                {i18n.t("shell:topBarNotifications.cancel")}
                               </Button>
                               <Button
                                 type="button"
@@ -682,7 +675,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                                 disabled={notificationBusy}
                                 onClick={() => void handleRestoreArchivedTask()}
                               >
-                                Restore and open
+                                {i18n.t("shell:topBarNotifications.restoreAndOpen")}
                               </Button>
                             </div>
                           </div>
@@ -701,13 +694,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                       onClick={() =>
                         setHistoryLimit((prev) => prev + HISTORY_PAGE_SIZE)
                       }
-                    >
-                      <ChevronDown
-                        className={sx(notificationsStyles.smallIcon)}
-                      />
-                      Load more ({historyNotifications.length - historyLimit}{" "}
-                      remaining)
-                    </Button>
+                    >{i18n.t("shell:topBarNotifications.loadMoreCount", { count: historyNotifications.length - pagedHistoryNotifications.length })}</Button>
                   </div>
                 ) : null}
               </>
@@ -717,9 +704,9 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
       </Popover>
       <ConfirmDialog
         open={clearHistoryPromptOpen}
-        title="Clear notification history?"
-        description="This permanently removes every notification currently in History, including approval and input requests. Unread notifications remain available."
-        confirmLabel="Clear history"
+        title={i18n.t("shell:topBarNotifications.clearNotificationHistory")}
+        description={i18n.t("shell:topBarNotifications.thisPermanentlyRemovesEveryNotificationCurrentlyIn")}
+        confirmLabel={i18n.t("shell:topBarNotifications.clearHistory")}
         loading={pendingActionId === "clear-history"}
         onCancel={closeClearHistoryPrompt}
         onConfirm={() => void handleClearHistory()}

@@ -1,3 +1,5 @@
+import { formatTime } from "@/i18n/format";
+import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -10,6 +12,7 @@ export function LensAutomationStatus({ workspaceId, lensSessionId, showPreview =
   lensSessionId?: string;
   showPreview?: boolean;
 }) {
+  useTranslation();
   const [state, setState] = useState<LensAutomationState>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -39,32 +42,33 @@ export function LensAutomationStatus({ workspaceId, lensSessionId, showPreview =
     setError(undefined);
     try {
       const result = await window.api!.lens!.setAutomationPaused({ workspaceId, lensSessionId: state.lensSessionId, paused: !state.paused });
-      if (!result.ok) throw new Error(result.message ?? "Could not change browser control.");
+      if (!result.ok) throw new Error(result.message ?? i18n.t("lens:lensAutomationStatus.couldNotChangeBrowserControl"));
       setState(result.state);
-    } catch (error) { setError(error instanceof Error ? error.message : "Could not change browser control."); }
+    } catch (error) { setError(error instanceof Error ? error.message : i18n.t("lens:lensAutomationStatus.couldNotChangeBrowserControl")); }
     finally { revision.current++; setBusy(false); }
   }
-  return <section className={sx(styles.automation)} aria-label="Lens browser control">
+  return <section className={sx(styles.automation)} aria-label={i18n.t("lens:lensAutomationStatus.lensBrowserControl")}>
     <div className={sx(styles.header)}>
-      <p className={sx(styles.hint)} role="status">{state.paused ? (state.running ? "Stopping browser actions…" : "Direct interaction · agent actions paused") : state.running ? "Agent is using this browser" : "Browser ready"}</p>
+      <p className={sx(styles.hint)} role="status">{state.paused ? (state.running ? i18n.t("lens:lensAutomationStatus.stoppingBrowserActions") : i18n.t("lens:lensAutomationStatus.directInteractionAgentActionsPaused")) : state.running ? i18n.t("lens:lensAutomationStatus.agentIsUsingThisBrowser") : i18n.t("lens:lensAutomationStatus.browserReady")}</p>
       <div className={sx(styles.actions)}>
-        <Button size="xs" variant="quiet" disabled={busy} onClick={() => void toggle()}>{state.paused ? "Resume agent access" : "Pause agent access"}</Button>
+        <Button size="xs" variant="quiet" disabled={busy} onClick={() => void toggle()}>{state.paused ? i18n.t("lens:lensAutomationStatus.resumeAgentAccess") : i18n.t("lens:lensAutomationStatus.pauseAgentAccess")}</Button>
         {showPreview && state.lensSessionId ? <Button size="xs" variant="quiet" onClick={() => {
           const store = useAppStore.getState();
           if (store.activeWorkspaceId === workspaceId) store.openLensTab({ lensSessionId: state.lensSessionId!, activate: true });
-        }}>View in Lens</Button> : null}
+        }}>{i18n.t("lens:lensAutomationStatus.viewInLens")}</Button> : null}
       </div>
     </div>
-    {state.paused ? <p className={sx(styles.hint)}>You can use the page. Already dispatched requests may finish; new agent actions stay blocked until you resume.</p> : null}
+    {state.paused ? <p className={sx(styles.hint)}>{i18n.t("lens:lensAutomationStatus.youCanUseThePageAlreadyDispatched")}</p> : null}
     {showPreview && state.preview ? <figure>
-      <img className={sx(styles.preview)} src={state.preview} alt="Latest browser action capture" />
-      <figcaption className={sx(styles.hint)}>Latest session capture · {state.capturedAt ? new Date(state.capturedAt).toLocaleTimeString() : ""}. Not a replay of this tool call.</figcaption>
+      <img className={sx(styles.preview)} src={state.preview} alt={i18n.t("lens:lensAutomationStatus.latestBrowserActionCapture")} />
+      <figcaption className={sx(styles.hint)}>{i18n.t("lens:lensAutomationStatus.latestCapture", { time: state.capturedAt ? formatTime(state.capturedAt) : "" })}</figcaption>
     </figure> : null}
     {error ? <p role="alert">{error}</p> : null}
   </section>;
 }
 
 export function LensToolPreview({ toolName, input }: { toolName: string; input: string }) {
+  useTranslation();
   if (!toolName.includes("stave_lens_")) return null;
   try {
     const target = JSON.parse(input) as { workspaceId?: unknown; lensSessionId?: unknown };

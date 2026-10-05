@@ -73,13 +73,13 @@ export function hasTruncationMarker(text?: string | null) {
 function buildTruncationDescription(source: TruncationNoticeSource) {
   switch (source) {
     case "tool_input":
-      return i18n.t("app:truncation.toolInput");
+      return i18n.t("shell:truncationVisibility.theToolInputWasShortenedBeforeDisplay");
     case "tool_output":
-      return i18n.t("app:truncation.toolOutput");
+      return i18n.t("shell:truncationVisibility.theToolOutputWasShortenedBeforeDisplay");
     case "request":
-      return i18n.t("app:truncation.request");
+      return i18n.t("shell:truncationVisibility.partOfTheRequestPayloadWasShortened");
     case "system":
-      return i18n.t("app:truncation.system");
+      return i18n.t("shell:truncationVisibility.someOutputWasOmittedBecauseItExceeded");
   }
 }
 
@@ -91,7 +91,7 @@ export function detectTruncationNotice(args: {
     return null;
   }
   return {
-    title: i18n.t("app:truncation.title"),
+    title: i18n.t("shell:truncationVisibility.outputTruncated"),
     description: buildTruncationDescription(args.source ?? "system"),
   };
 }

@@ -1,3 +1,5 @@
+import { formatTime } from "@/i18n/format";
+import { i18n } from "@/i18n/runtime";
 import {
   DEFAULT_LENS_SESSION_ID,
   type BrowserConsoleArgument,
@@ -72,7 +74,7 @@ export function formatLogTime(timestamp: string): string {
   if (Number.isNaN(date.getTime())) {
     return "";
   }
-  return date.toLocaleTimeString([], {
+  return formatTime(date, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -96,7 +98,7 @@ export function formatNetworkHeaders(
   headers: BrowserNetworkEntry["requestHeaders"],
 ): string {
   if (!headers || Object.keys(headers).length === 0) {
-    return "No captured headers.";
+    return i18n.t("lens:lensLogFormat.noCapturedHeaders");
   }
   return Object.entries(headers)
     .sort(([left], [right]) => left.localeCompare(right))
@@ -154,12 +156,12 @@ export function getNetworkStatusTone(entry: BrowserNetworkEntry): LensLogTone {
 
 export function formatNetworkRowStatus(entry: BrowserNetworkEntry): string {
   if (entry.state === "pending") {
-    return "Pending";
+    return i18n.t("lens:lensLogFormat.pending");
   }
   if (entry.state === "failed") {
-    return entry.status ? String(entry.status) : "Failed";
+    return entry.status ? String(entry.status) : i18n.t("lens:lensLogFormat.failed");
   }
-  return entry.status ? String(entry.status) : "Done";
+  return entry.status ? String(entry.status) : i18n.t("lens:lensLogFormat.done");
 }
 
 export function formatConsoleEntries(entries: BrowserConsoleEntry[]): string {
@@ -185,23 +187,23 @@ export function formatNetworkEntries(entries: BrowserNetworkEntry[]): string {
 
 export function formatNetworkEntryDetails(entry: BrowserNetworkEntry): string {
   return [
-    `Request URL: ${entry.url}`,
-    `Method: ${entry.method}`,
-    `Status: ${formatLensNetworkStatus(entry)}`,
-    `Resource type: ${entry.resourceType ?? "-"}`,
-    `MIME type: ${entry.mimeType ?? "-"}`,
-    `Started: ${entry.startedAt ?? "-"}`,
-    `Completed: ${entry.timestamp}`,
-    `Duration: ${formatDuration(entry.durationMs)}`,
-    `Transferred: ${formatLensNetworkBytes(entry.responseSize)}`,
-    `Cache: ${entry.fromCache ? "Yes" : "No"}`,
-    entry.referrer ? `Referrer: ${entry.referrer}` : "",
-    entry.error ? `Failure: ${entry.error}` : "",
+    i18n.t("lens:networkDetails.requestUrl", { value: entry.url }),
+    i18n.t("lens:networkDetails.method", { value: entry.method }),
+    i18n.t("lens:networkDetails.status", { value: formatLensNetworkStatus(entry) }),
+    i18n.t("lens:networkDetails.resourceType", { value: entry.resourceType ?? "-" }),
+    i18n.t("lens:networkDetails.mimeType", { value: entry.mimeType ?? "-" }),
+    i18n.t("lens:networkDetails.started", { value: entry.startedAt ?? "-" }),
+    i18n.t("lens:networkDetails.completed", { value: entry.timestamp }),
+    i18n.t("lens:networkDetails.duration", { value: formatDuration(entry.durationMs) }),
+    i18n.t("lens:networkDetails.transferred", { value: formatLensNetworkBytes(entry.responseSize) }),
+    i18n.t("lens:networkDetails.cache", { value: entry.fromCache ? i18n.t("lens:networkDetails.yes") : i18n.t("lens:networkDetails.no") }),
+    entry.referrer ? i18n.t("lens:networkDetails.referrer", { value: entry.referrer }) : "",
+    entry.error ? i18n.t("lens:networkDetails.failure", { value: entry.error }) : "",
     "",
-    "Request headers",
+    i18n.t("lens:networkDetails.requestHeaders"),
     formatNetworkHeaders(entry.requestHeaders),
     "",
-    "Response headers",
+    i18n.t("lens:networkDetails.responseHeaders"),
     formatNetworkHeaders(entry.responseHeaders),
   ]
     .filter((line, index, lines) => line || lines[index - 1])
@@ -283,14 +285,14 @@ export function getNetworkTimingPhases(
     return [];
   }
   const phases: Array<[string, number | undefined, number | undefined]> = [
-    ["Proxy", timing.proxyStart, timing.proxyEnd],
-    ["DNS", timing.dnsStart, timing.dnsEnd],
-    ["Connect", timing.connectStart, timing.connectEnd],
-    ["SSL", timing.sslStart, timing.sslEnd],
-    ["Worker", timing.workerStart, timing.workerRespondWithSettled],
-    ["Send", timing.sendStart, timing.sendEnd],
-    ["Waiting", timing.sendEnd, timing.receiveHeadersStart],
-    ["Headers", timing.receiveHeadersStart, timing.receiveHeadersEnd],
+    [i18n.t("lens:networkTiming.proxy"), timing.proxyStart, timing.proxyEnd],
+    [i18n.t("lens:networkTiming.dns"), timing.dnsStart, timing.dnsEnd],
+    [i18n.t("lens:networkTiming.connect"), timing.connectStart, timing.connectEnd],
+    [i18n.t("lens:networkTiming.ssl"), timing.sslStart, timing.sslEnd],
+    [i18n.t("lens:networkTiming.worker"), timing.workerStart, timing.workerRespondWithSettled],
+    [i18n.t("lens:networkTiming.send"), timing.sendStart, timing.sendEnd],
+    [i18n.t("lens:networkTiming.waiting"), timing.sendEnd, timing.receiveHeadersStart],
+    [i18n.t("lens:networkTiming.headers"), timing.receiveHeadersStart, timing.receiveHeadersEnd],
   ];
   const total =
     typeof durationMs === "number" && Number.isFinite(durationMs)
@@ -302,7 +304,7 @@ export function getNetworkTimingPhases(
     timing.receiveHeadersEnd >= 0 &&
     total >= timing.receiveHeadersEnd
   ) {
-    phases.push(["Download", timing.receiveHeadersEnd, total]);
+    phases.push([i18n.t("lens:networkTiming.download"), timing.receiveHeadersEnd, total]);
   }
   return phases.flatMap(([label, start, end]) =>
     start !== undefined && end !== undefined && start >= 0 && end >= start

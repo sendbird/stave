@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import { clearLensTabState } from "@/components/panes/lens-tab-state";
 import {
   closeEditorTabs,
@@ -136,8 +137,8 @@ export function closePaneSurface(surface: PaneSurfaceDescriptor) {
       if (closeRequest.isDirty) {
         dispatchEditorTabsCloseRequest({
           tabIds: [closeRequest.tabId],
-          title: "Close Unsaved File",
-          description: `Close "${closeRequest.fileName}" without saving? Your unsaved changes will be lost.`,
+          title: i18n.t("panes:paneSurfaceActions.closeUnsavedFile"),
+          description: i18n.t("panes:paneSurfaceActions.closeWithoutSavingYourUnsavedChanges", { value1: closeRequest.fileName }),
         });
         return;
       }

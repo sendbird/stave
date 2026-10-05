@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import {
   LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS,
   buildLocalChangeReviewPrompt,
@@ -88,10 +89,10 @@ export const DEFAULT_REVIEW_TASK_SETTINGS: ReviewTaskSettings = {
 export { REVIEW_DELEGATION_KEY_PREFIX };
 
 export const REVIEW_TARGET_LABEL: Record<ReviewTarget, string> = {
-  "working-tree": "Uncommitted changes",
-  branch: "Local branch",
-  commit: "Commit",
-  "latest-reply": "Latest reply",
+  get "working-tree"() { return i18n.t("sourceControl:reviewTask.uncommittedChanges"); },
+  get branch() { return i18n.t("sourceControl:reviewTask.localBranch"); },
+  get commit() { return i18n.t("sourceControl:reviewTask.commit"); },
+  get "latest-reply"() { return i18n.t("sourceControl:reviewTask.latestReply"); },
 };
 
 const KNOWN_FOCUSES = new Set<string>(
@@ -376,9 +377,9 @@ export function buildReviewTaskTitle(args: {
 }) {
   const target =
     args.target === "commit" && args.commitRef
-      ? `Commit ${args.commitRef}`
+      ? i18n.t("sourceControl:reviewTask.commitTarget", { ref: args.commitRef })
       : REVIEW_TARGET_LABEL[args.target];
-  return `Review · ${target} · ${args.modelLabel}`.slice(0, 200);
+  return i18n.t("sourceControl:reviewTask.taskTitle", { target, model: args.modelLabel }).slice(0, 200);
 }
 
 /** A read-only, one-turn child in the reviewed task's own workspace. */
@@ -541,8 +542,8 @@ export function describeReviewCompletionNotification(args: {
   return {
     title: args.parentTitle,
     body: args.failed
-      ? `Review stopped without findings: ${args.reviewTitle}.`
-      : `Review finished: ${args.reviewTitle}.${args.findingsSummary ? ` ${args.findingsSummary}.` : ""}`,
+      ? i18n.t("sourceControl:reviewTask.reviewStoppedWithoutFindings", { value1: args.reviewTitle })
+      : i18n.t("sourceControl:reviewTask.reviewFinished", { value1: args.reviewTitle, value2: args.findingsSummary ? ` ${args.findingsSummary}.` : "" }),
     payload: {
       reviewParentTaskId: args.parentTaskId,
       reviewParentTaskTitle: args.parentTitle,

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { HTMLAttributes, ReactNode } from "react";
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
@@ -79,11 +80,12 @@ export function EditorMarkdownPreview({
   className,
   ...props
 }: EditorMarkdownPreviewProps) {
+  useTranslation();
   const codeFontSize = Math.max(fontSize - 1, 12);
   const isEmbedded = variant === "embedded";
   const frontmatter = useMemo(
     () => parseMarkdownFrontmatter(content),
-    [content],
+    [content, i18n.language],
   );
 
   return (
@@ -159,7 +161,7 @@ export function EditorMarkdownPreview({
                   return (
                     <div className={sx(styles.codeBlock)}>
                       <div className={sx(styles.codeBlockLanguage)}>
-                        {language ?? "text"}
+                        {language ?? i18n.t("editor:editorMarkdownPreview.text")}
                       </div>
                       <pre
                         className={sx(styles.codeBlockPre)}

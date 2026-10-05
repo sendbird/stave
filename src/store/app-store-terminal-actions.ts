@@ -1,10 +1,9 @@
+import { getCliSessionTabDefaultTitle, getTerminalTabDefaultTitle } from "@/lib/terminal/terminal-tab-labels";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import type { StoreApi } from "zustand";
 import { buildPanePanelId } from "@/lib/panes/types";
 import { isTaskArchived } from "@/lib/tasks";
 import {
-  getCliSessionTabDefaultTitle,
-  getTerminalTabDefaultTitle,
   type CliSessionContextMode,
   type WorkspaceCliSessionTab,
   type WorkspaceTerminalTab,

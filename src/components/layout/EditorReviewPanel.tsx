@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { MessageSquarePlus, Trash2, X } from "lucide-react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -19,6 +20,7 @@ export function EditorReviewPanel(args: {
   onSubmitDraft: () => void;
   onRemoveComment: (commentId: string) => void;
 }) {
+  useTranslation();
   const handleDraftKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     event.stopPropagation();
     if (event.key === "Escape") {
@@ -44,22 +46,19 @@ export function EditorReviewPanel(args: {
     >
       <div className={sx(styles.header)}>
         <div className={sx(styles.headerLead)}>
-          <span className={sx(styles.headerTitle)}>Review comment</span>
+          <span className={sx(styles.headerTitle)}>{i18n.t("editor:editorReviewPanel.reviewComment")}</span>
           {args.comments.length > 0 ? (
-            <span className={sx(styles.headerMeta)}>
-              {args.comments.length} comment
-              {args.comments.length === 1 ? "" : "s"}
-            </span>
+            <span className={sx(styles.headerMeta)}>{i18n.t("editor:editorReviewPanel.commentCount", { count: args.comments.length })}</span>
           ) : (
-            <span className={sx(styles.headerMeta)}>New comment</span>
+            <span className={sx(styles.headerMeta)}>{i18n.t("editor:editorReviewPanel.newComment")}</span>
           )}
         </div>
         <div className={sx(styles.headerActions)}>
           <span
             className={sx(styles.headerMeta)}
-            title={`Comment on modified line ${args.line}`}
+            title={i18n.t("editor:editorReviewPanel.commentOnModifiedLine", { value1: args.line })}
           >
-            Comment on{" "}
+            {i18n.t("editor:editorReviewPanel.commentOn")}{" "}
             <span className={sx(styles.lineRef)}>R{args.line}</span>
           </span>
           {!args.draft ? (
@@ -69,7 +68,7 @@ export function EditorReviewPanel(args: {
               variant="ghost"
               xstyle={styles.addButton}
               onClick={args.onStartDraft}
-              aria-label={`Add another comment on modified line ${args.line}`}
+              aria-label={i18n.t("editor:editorReviewPanel.addAnotherCommentOnModifiedLine", { value1: args.line })}
             >
               <MessageSquarePlus />
             </Button>
@@ -88,7 +87,7 @@ export function EditorReviewPanel(args: {
                 variant="ghost"
                 xstyle={styles.removeButton}
                 onClick={() => args.onRemoveComment(comment.id)}
-                aria-label={`Remove comment from line ${args.line}`}
+                aria-label={i18n.t("editor:editorReviewPanel.removeCommentFromLine", { value1: args.line })}
               >
                 <Trash2 />
               </Button>
@@ -105,8 +104,8 @@ export function EditorReviewPanel(args: {
             onChange={(event) => args.onDraftBodyChange(event.target.value)}
             onKeyDown={handleDraftKeyDown}
             xstyle={styles.draftInput}
-            placeholder={`Leave a comment on line ${args.line}`}
-            aria-label={`Comment on modified line ${args.line}`}
+            placeholder={i18n.t("editor:editorReviewPanel.leaveACommentOnLine", { value1: args.line })}
+            aria-label={i18n.t("editor:editorReviewPanel.commentOnModifiedLine", { value1: args.line })}
           />
           <div className={sx(styles.draftFooter)}>
             <span className={sx(styles.draftHint)}>
@@ -117,7 +116,7 @@ export function EditorReviewPanel(args: {
                   : "Ctrl"}
               </Kbd>
               <Kbd>Enter</Kbd>
-              to save
+              {i18n.t("editor:editorReviewPanel.toSave")}
             </span>
             <div className={sx(styles.draftActions)}>
               <Button
@@ -126,7 +125,7 @@ export function EditorReviewPanel(args: {
                 variant="ghost"
                 xstyle={styles.cancelButton}
                 onClick={args.onCancelDraft}
-                aria-label="Cancel review comment"
+                aria-label={i18n.t("editor:editorReviewPanel.cancelReviewComment")}
               >
                 <X />
               </Button>
@@ -137,7 +136,7 @@ export function EditorReviewPanel(args: {
                 disabled={!args.draft.body.trim()}
                 onClick={args.onSubmitDraft}
               >
-                Add comment
+                {i18n.t("editor:editorReviewPanel.addComment")}
               </Button>
             </div>
           </div>

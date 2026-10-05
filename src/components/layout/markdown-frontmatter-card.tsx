@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { MarkdownFrontmatterEntry } from "@/lib/markdown-frontmatter";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { frontmatterStyles } from "./markdown-frontmatter-card.styles";
@@ -16,8 +17,9 @@ function FrontmatterValues({
   values: string[];
   fontSize: number;
 }) {
+  useTranslation();
   if (values.length === 0) {
-    return <span className={sx(frontmatterStyles.placeholder)}>&mdash;</span>;
+    return <span className={sx(frontmatterStyles.placeholder)}>{i18n.t("editor:markdownFrontmatterCard.label")}</span>;
   }
 
   if (values.length === 1) {
@@ -53,6 +55,7 @@ export function MarkdownFrontmatterCard({
   fontSize,
   className,
 }: MarkdownFrontmatterCardProps) {
+  useTranslation();
   if (entries.length === 0) {
     return null;
   }
@@ -61,7 +64,7 @@ export function MarkdownFrontmatterCard({
 
   return (
     <div className={cx(sx(frontmatterStyles.card), className)}>
-      <div className={sx(frontmatterStyles.header)}>Frontmatter</div>
+      <div className={sx(frontmatterStyles.header)}>{i18n.t("editor:markdownFrontmatterCard.frontmatter")}</div>
       <dl>
         {entries.map((entry) => (
           <div

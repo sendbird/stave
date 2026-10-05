@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { createPortal } from "react-dom";
 import * as stylex from "@stylexjs/stylex";
 import { ScanSearch } from "lucide-react";
@@ -41,6 +42,7 @@ export function LensPreviewSurface(args: {
   onOpenTools?: () => void;
   onRetry?: () => void;
 }) {
+  useTranslation();
   const { placeholderRef, chromeLayer, hasLensApi, isLoading, lastLoadError } =
     args;
 
@@ -52,17 +54,15 @@ export function LensPreviewSurface(args: {
             <EmptyMedia variant="icon">
               <ScanSearch />
             </EmptyMedia>
-            <EmptyTitle>Lens needs the desktop runtime</EmptyTitle>
+            <EmptyTitle>{i18n.t("lens:lensPreviewSurface.lensNeedsTheDesktopRuntime")}</EmptyTitle>
             <EmptyDescription>
-              Open Stave on your desktop to preview pages, inspect elements, and
-              bring visual evidence into your tasks.
+              {i18n.t("lens:lensPreviewSurface.openStaveOnYourDesktopToPreview")}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <div {...stylex.props(w.runtimeCopy)}>
               <p>
-                Your regular browser remains available for research. Lens keeps
-                page inspection and task feedback together inside Stave.
+                {i18n.t("lens:lensPreviewSurface.yourRegularBrowserRemainsAvailableForResearch")}
               </p>
             </div>
           </EmptyContent>
@@ -76,7 +76,7 @@ export function LensPreviewSurface(args: {
       <>
         {args.isBlank && !isLoading && !lastLoadError ? (
           <section
-            aria-label="Get started with Lens"
+            aria-label={i18n.t("lens:lensPreviewSurface.getStartedWithLens")}
             {...stylex.props(w.overlay)}
           >
             <div {...stylex.props(w.onboarding)}>
@@ -85,40 +85,37 @@ export function LensPreviewSurface(args: {
                 {...stylex.props(w.onboardingIcon)}
               />
               <h2 {...stylex.props(w.onboardingTitle)}>
-                See the page. Bring the evidence.
+                {i18n.t("lens:lensPreviewSurface.seeThePageBringTheEvidence")}
               </h2>
               <p {...stylex.props(w.onboardingCopy)}>
-                Open a development preview or a web page. Point to what needs
-                attention and send the element, image, or comment to your active
-                task.
+                {i18n.t("lens:lensPreviewSurface.openADevelopmentPreviewOrAWeb")}
               </p>
               <div {...stylex.props(w.actions)}>
                 {args.onEnterAddress ? (
                   <ActionButton weight="primary" onClick={args.onEnterAddress}>
-                    Enter a page address
+                    {i18n.t("lens:lensPreviewSurface.enterAPageAddress")}
                   </ActionButton>
                 ) : null}
                 {args.onOpenTools ? (
                   <ActionButton onClick={args.onOpenTools}>
-                    Start a dev server
+                    {i18n.t("lens:lensPreviewSurface.startADevServer")}
                   </ActionButton>
                 ) : null}
               </div>
               <ul {...stylex.props(w.onboardingList)}>
                 <li>
                   <strong {...stylex.props(w.strong)}>
-                    Inspect & comment.
+                    {i18n.t("lens:lensPreviewSurface.inspectComment")}
                   </strong>{" "}
-                  Select an element or mark an area to give an agent precise
-                  context.
+                  {i18n.t("lens:lensPreviewSurface.selectAnElementOrMarkAnArea")}
                 </li>
                 <li>
-                  <strong {...stylex.props(w.strong)}>Check behavior.</strong>{" "}
-                  Use Console and Network to inspect errors and requests.
+                  <strong {...stylex.props(w.strong)}>{i18n.t("lens:lensPreviewSurface.checkBehavior")}</strong>{" "}
+                  {i18n.t("lens:lensPreviewSurface.useConsoleAndNetworkToInspectErrors")}
                 </li>
                 <li>
-                  <strong {...stylex.props(w.strong)}>Keep evidence.</strong>{" "}
-                  Capture a screenshot or download page assets for review.
+                  <strong {...stylex.props(w.strong)}>{i18n.t("lens:lensPreviewSurface.keepEvidence")}</strong>{" "}
+                  {i18n.t("lens:lensPreviewSurface.captureAScreenshotOrDownloadPageAssets")}
                 </li>
               </ul>
             </div>
@@ -128,13 +125,13 @@ export function LensPreviewSurface(args: {
           <div {...stylex.props(w.loading)}>
             <span {...stylex.props(w.loadingContent)}>
               <Loader aria-hidden size="xs" variant="scan" />
-              Loading page
+              {i18n.t("lens:lensPreviewSurface.loadingPage")}
             </span>
           </div>
         ) : null}
         {lastLoadError ? (
           <div role="alert" {...stylex.props(w.error)}>
-            <p {...stylex.props(w.errorTitle)}>The page could not be loaded.</p>
+            <p {...stylex.props(w.errorTitle)}>{i18n.t("lens:lensPreviewSurface.thePageCouldNotBeLoaded")}</p>
             <p {...stylex.props(w.onboardingCopy, w.breakWords)}>
               {lastLoadError}
             </p>
@@ -145,7 +142,7 @@ export function LensPreviewSurface(args: {
                   disabled={isLoading}
                   onClick={args.onRetry}
                 >
-                  Retry loading
+                  {i18n.t("lens:lensPreviewSurface.retryLoading")}
                 </ActionButton>
               ) : null}
               {args.onEnterAddress ? (
@@ -154,7 +151,7 @@ export function LensPreviewSurface(args: {
                   weight="quiet"
                   onClick={args.onEnterAddress}
                 >
-                  Check the address
+                  {i18n.t("lens:lensPreviewSurface.checkTheAddress")}
                 </ActionButton>
               ) : null}
             </div>

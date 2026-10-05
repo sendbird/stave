@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import {
   Command,
   Home,
@@ -33,6 +34,7 @@ export function StaveAppMenuButton(args?: {
   onOpenKeyboardShortcuts?: () => void;
   onOpenSettings?: () => void;
 }) {
+  useTranslation();
   const compact = args?.compact ?? false;
   const [open, setOpen] = useState(false);
   const [
@@ -68,7 +70,7 @@ export function StaveAppMenuButton(args?: {
       /(Mac|iPhone|iPad)/i.test(navigator.platform || navigator.userAgent)
         ? "⌘⇧P"
         : "Ctrl+Shift+P",
-    [],
+    [i18n.language],
   );
 
   return (
@@ -79,7 +81,7 @@ export function StaveAppMenuButton(args?: {
             <Button
               variant="ghost"
               size="sm"
-              aria-label="Open Stave menu"
+              aria-label={i18n.t("shell:staveAppMenuButton.openStaveMenu")}
               xstyle={[
                 compact
                   ? staveAppMenuStyles.triggerCompact
@@ -106,13 +108,13 @@ export function StaveAppMenuButton(args?: {
           <DropdownMenuLabel>Stave</DropdownMenuLabel>
           <DropdownMenuItem onSelect={clearTaskSelection}>
             <Home {...stylex.props(staveAppMenuStyles.itemIcon)} />
-            Home
+            {i18n.t("shell:staveAppMenuButton.home")}
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={args?.onOpenCommandPalette}
           >
             <Command {...stylex.props(staveAppMenuStyles.itemIcon)} />
-            Command Palette
+            {i18n.t("shell:staveAppMenuButton.commandPalette")}
             <DropdownMenuShortcut
               className={sx(staveAppMenuStyles.shortcut)}
             >
@@ -125,7 +127,7 @@ export function StaveAppMenuButton(args?: {
               onSelect={handleRefreshRepositoryFiles}
             >
               <RefreshCw {...stylex.props(staveAppMenuStyles.itemIcon)} />
-              Refresh repository files
+              {i18n.t("shell:staveAppMenuButton.refreshRepositoryFiles")}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onSelect={handleToggleTheme}>
@@ -134,17 +136,17 @@ export function StaveAppMenuButton(args?: {
             ) : (
               <Moon {...stylex.props(staveAppMenuStyles.itemIcon)} />
             )}
-            {isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+            {isDarkMode ? i18n.t("shell:staveAppMenuButton.switchToLightMode") : i18n.t("shell:staveAppMenuButton.switchToDarkMode")}
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={args?.onOpenKeyboardShortcuts}
           >
             <Keyboard {...stylex.props(staveAppMenuStyles.itemIcon)} />
-            Keyboard shortcuts
+            {i18n.t("shell:staveAppMenuButton.keyboardShortcuts")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={args?.onOpenSettings}>
             <Settings {...stylex.props(staveAppMenuStyles.itemIcon)} />
-            Settings
+            {i18n.t("shell:staveAppMenuButton.settings")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

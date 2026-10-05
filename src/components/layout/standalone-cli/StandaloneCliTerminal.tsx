@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import { Loader } from "@/components/ui/loader";
+import { i18n, useTranslation } from "@/i18n";
 import { useShallow } from "zustand/react/shallow";
 import { useCliSessionManager } from "@/components/layout/useCliSessionManager";
 import { useCliTerminalInstance } from "@/components/layout/useCliTerminalInstance";
@@ -142,6 +143,7 @@ export function StandaloneCliTerminal(props: {
   installedTabIds: readonly StandaloneCliTabId[];
   visible: boolean;
 }) {
+  const { t } = useTranslation("terminal");
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputHandlerRef = useRef<(input: string) => void>(() => {});
   const resizeHandlerRef = useRef<
@@ -201,7 +203,7 @@ export function StandaloneCliTerminal(props: {
         nativeSessionIdByTab,
         accountProfileIdByTab, defaults,
       }),
-    [props.folderPath, nativeSessionIdByTab, accountProfileIdByTab, defaults],
+    [props.folderPath, nativeSessionIdByTab, accountProfileIdByTab, defaults, i18n.language],
   );
   // The session bootstrap effect restarts whenever `activeTab` changes
   // identity. Keep the active tab keyed on its own fields only: launching pins
@@ -226,7 +228,7 @@ export function StandaloneCliTerminal(props: {
       activeNativeSessionId,
       activeTabId,
       props.folderPath,
-    ],
+    , i18n.language],
   );
   const activeTabKey = getStandaloneCliTabKey(activeTabId);
 
@@ -249,14 +251,14 @@ export function StandaloneCliTerminal(props: {
       if (!props.folderPath) {
         return {
           ok: false,
-          stderr: "Set a Standalone CLI folder in Settings.",
+          stderr: i18n.t("terminal:standaloneCli.errors.folderRequired"),
         };
       }
       const createCliSession = window.api?.terminal?.createCliSession;
       if (!createCliSession) {
         return {
           ok: false,
-          stderr: "CLI session bridge unavailable. Use bun run dev:desktop.",
+          stderr: i18n.t("terminal:cliSession.errors.bridgeUnavailable"),
         };
       }
       useStandaloneCliStore.getState().pinTabAccount(args.tab.id, args.tab.accountProfileId ?? "system-default");
@@ -408,11 +410,11 @@ export function StandaloneCliTerminal(props: {
           <AdsButton
             layout="host"
             type="button"
-            aria-label="Restart CLI session"
+            aria-label={t("standaloneCli.terminal.restartSessionLabel")}
             xstyle={styles.restartButton}
             onClick={restartActiveSession}
           >
-            Restart
+            {t("standaloneCli.terminal.restart")}
           </AdsButton>
         </div>
       </div>
@@ -427,20 +429,20 @@ export function StandaloneCliTerminal(props: {
                 xstyle={styles.statusAction}
                 onClick={() => setRendererRestartToken((value) => value + 1)}
               >
-                Restart renderer
+                {t("renderer.restart")}
               </AdsButton>
             </div>
           ) : null}
           {sessionExited ? (
             <div role="status" className={sx(styles.exitedBanner)}>
-              Session exited. Use Restart to start a new one.
+              {t("standaloneCli.terminal.sessionExited")}
             </div>
           ) : null}
           {!terminalInstance.ready ? (
             <div className={sx(styles.bootOverlay)}>
               <div className={sx(styles.bootLabel)}>
                 <Loader aria-hidden size="xs" variant="spinner" />
-                <span>Initializing terminal…</span>
+                <span>{t("renderer.initializing")}</span>
               </div>
             </div>
           ) : null}

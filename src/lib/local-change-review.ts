@@ -3,6 +3,7 @@ import {
   getReviewPromptPreset,
 } from "@/lib/reviews/review-prompts";
 
+import { i18n } from "@/i18n/runtime";
 export type LocalChangeReviewScope = "working-tree" | "branch" | "commit";
 
 /**
@@ -53,38 +54,38 @@ export const LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS: ReadonlyArray<{
 }> = [
   {
     value: "correctness",
-    label: "Correctness",
-    description: "Logic errors, regressions, races, and data loss.",
+    get label() { return i18n.t("sourceControl:localChangeReview.correctness"); },
+    get description() { return i18n.t("sourceControl:localChangeReview.logicErrorsRegressionsRacesAndDataLoss"); },
   },
   {
     value: "tests",
-    label: "Test gaps",
-    description: "Missing coverage that could hide a real regression.",
+    get label() { return i18n.t("sourceControl:localChangeReview.testGaps"); },
+    get description() { return i18n.t("sourceControl:localChangeReview.missingCoverageThatCouldHideAReal"); },
   },
   {
     value: "security",
-    label: "Security",
-    description: "Unsafe input, secret exposure, permission bypasses.",
+    get label() { return i18n.t("sourceControl:localChangeReview.security"); },
+    get description() { return i18n.t("sourceControl:localChangeReview.unsafeInputSecretExposurePermissionBypasses"); },
   },
   {
     value: "performance",
-    label: "Performance",
-    description: "Hot-path, memory, I/O, and rendering regressions.",
+    get label() { return i18n.t("sourceControl:localChangeReview.performance"); },
+    get description() { return i18n.t("sourceControl:localChangeReview.hotPathMemoryIOAndRenderingRegressions"); },
   },
   {
     value: "architecture",
-    label: "Architecture",
-    description: "Contract drift and repository-guideline violations.",
+    get label() { return i18n.t("sourceControl:localChangeReview.architecture"); },
+    get description() { return i18n.t("sourceControl:localChangeReview.contractDriftAndRepositoryGuidelineViolations"); },
   },
   {
     value: "ui-accessibility",
-    label: "UI & accessibility",
-    description: "Theme tokens, keyboard/screen-reader, layout breakage.",
+    get label() { return i18n.t("sourceControl:localChangeReview.uIAccessibility"); },
+    get description() { return i18n.t("sourceControl:localChangeReview.themeTokensKeyboardScreenReaderLayoutBreakage"); },
   },
   {
     value: "error-handling",
-    label: "Error handling",
-    description: "Failure paths, cancellation, timeouts, recovery.",
+    get label() { return i18n.t("sourceControl:localChangeReview.errorHandling"); },
+    get description() { return i18n.t("sourceControl:localChangeReview.failurePathsCancellationTimeoutsRecovery"); },
   },
 ];
 

@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -32,6 +33,7 @@ export function TaskSessionIdsDialog({
   taskId,
   onOpenChange,
 }: TaskSessionIdsDialogProps) {
+  useTranslation();
   useLoadProviderAccounts();
   const profiles = useProviderAccounts((state) => state.profiles);
   const profilesLoaded = useProviderAccounts((state) => state.loaded);
@@ -46,7 +48,7 @@ export function TaskSessionIdsDialog({
   );
   const sessionRows = useMemo(
     () => listProviderSessions({ sessions: providerSessions }),
-    [providerSessions],
+    [providerSessions, i18n.language],
   );
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export function TaskSessionIdsDialog({
       setCopiedSessionIdKey(args.key);
     } catch {
       setCopiedSessionIdKey(null);
-      toast.error(`Could not copy ${args.label.toLowerCase()}.`);
+      toast.error(i18n.t("panes:taskSessionIdsDialog.couldNotCopy", { value1: args.label.toLowerCase() }));
     }
   }
 
@@ -85,35 +87,32 @@ export function TaskSessionIdsDialog({
         <DialogHeader className={sx(styles.header)}>
           <div className={sx(styles.heading)}>
             <div className={sx(styles.content)}>
-              <DialogTitle className={sx(styles.title)}>Session IDs</DialogTitle>
+              <DialogTitle className={sx(styles.title)}>{i18n.t("panes:taskSessionIdsDialog.sessionIDs")}</DialogTitle>
               <DialogDescription className={sx(styles.description)}>
-                Stave keeps one stable task ID while each provider keeps its own
-                native session ID. A task can collect both Claude and Codex IDs
-                as it switches providers.
+                {i18n.t("panes:taskSessionIdsDialog.staveKeepsOneStableTaskIDWhile")}
               </DialogDescription>
             </div>
             <span className={sx(styles.current)}>
-              Current: {getProviderLabel({ providerId: task.provider })}
+              {i18n.t("panes:taskSessionIdsDialog.currentProvider", { provider: getProviderLabel({ providerId: task.provider }) })}
             </span>
           </div>
         </DialogHeader>
         <div className={sx(styles.rows)}>
           <SessionIdentifierRow
-            label="Stave task ID"
+            label={i18n.t("panes:taskSessionIdsDialog.staveTaskID")}
             value={task.id}
             copied={copiedSessionIdKey === "task"}
             onCopy={() =>
               void copySessionIdentifier({
                 key: "task",
-                label: "Stave task ID",
+                label: i18n.t("panes:taskSessionIdsDialog.staveTaskID"),
                 value: task.id,
               })
             }
           />
           {sessionRows.length === 0 ? (
             <div className={sx(styles.empty)}>
-              No provider-native session IDs have been recorded for this task
-              yet.
+              {i18n.t("panes:taskSessionIdsDialog.noProviderNativeSessionIDsHaveBeenRecorded")}
             </div>
           ) : (
             sessionRows.map((row) => {
@@ -148,8 +147,7 @@ export function TaskSessionIdsDialog({
             })
           )}
           <p className={sx(styles.note)}>
-            Provider-native IDs are used for in-app resume and may not be
-            resumable from an external Claude or Codex terminal session.
+            {i18n.t("panes:taskSessionIdsDialog.providerNativeIDsAreUsedForInAppResume")}
           </p>
         </div>
         <DialogFooter className={sx(styles.footer)}>
@@ -158,7 +156,7 @@ export function TaskSessionIdsDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Close
+            {i18n.t("panes:taskSessionIdsDialog.close")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -173,6 +171,7 @@ function SessionIdentifierRow(props: {
   copied: boolean;
   onCopy: () => void;
 }) {
+  useTranslation();
   return (
     <div className={sx(styles.row)}>
       <div className={sx(styles.rowHeader)}>
@@ -201,7 +200,7 @@ function SessionIdentifierRow(props: {
           ) : (
             <Copy className={sx(styles.icon)} />
           )}
-          {props.copied ? "Copied" : "Copy"}
+          {props.copied ? i18n.t("panes:taskSessionIdsDialog.copied") : i18n.t("panes:taskSessionIdsDialog.copy")}
         </Button>
       </div>
     </div>

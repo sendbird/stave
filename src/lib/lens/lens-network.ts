@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   BrowserNetworkBody,
   BrowserNetworkEntry,
@@ -290,7 +291,7 @@ export function sanitizeLensNetworkBody(args: {
       redacted: false,
       unavailableReason:
         args.unavailableReason ??
-        "Binary or unknown response data is not retained by Lens.",
+        i18n.t("lens:networkBody.binaryUnavailable"),
     };
   }
 
@@ -304,7 +305,7 @@ export function sanitizeLensNetworkBody(args: {
       redacted: false,
       unavailableReason:
         args.unavailableReason ??
-        "Binary or unknown response data is not retained by Lens.",
+        i18n.t("lens:networkBody.binaryUnavailable"),
     };
   }
 

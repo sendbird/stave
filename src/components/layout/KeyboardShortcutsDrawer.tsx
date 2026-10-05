@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import { Fragment, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Keyboard, Search, X } from "lucide-react";
@@ -36,7 +37,7 @@ import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
   normalizeVisualCommentShortcut,
 } from "@/lib/visual-comment-shortcuts";
-import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
+import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
 import {
   getTaskPresetShortcutLabel,
   TASK_PRESET_SHORTCUT_SLOT_LABELS,
@@ -66,6 +67,7 @@ function ShortcutKeys({
   sequences,
   sequenceJoiner = "or",
 }: Pick<ShortcutItem, "sequences" | "sequenceJoiner">) {
+  useTranslation();
   return (
     <div className={sx(shortcutsDrawerStyles.keys)}>
       {sequences.map((sequence, sequenceIndex) => (
@@ -75,7 +77,7 @@ function ShortcutKeys({
               {sequenceJoiner}
             </span>
           ) : null}
-          <KbdGroup aria-label={`Keyboard shortcut ${sequence.join(" ")}`}>
+          <KbdGroup aria-label={i18n.t("shell:keyboardShortcutsDrawer.keyboardShortcut", { value1: sequence.join(" ") })}>
             {sequence.map((part, partIndex) => (
               <Fragment key={`${part}-${partIndex}`}>
                 {partIndex > 0 ? <KbdSeparator>+</KbdSeparator> : null}
@@ -93,6 +95,7 @@ export function KeyboardShortcutsDrawer({
   open,
   onOpenChange,
 }: KeyboardShortcutsDrawerProps) {
+  useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const modifierLabel = useMemo(
     () =>
@@ -100,7 +103,7 @@ export function KeyboardShortcutsDrawer({
       /(Mac|iPhone|iPad)/i.test(navigator.platform || navigator.userAgent)
         ? "Cmd"
         : "Ctrl",
-    [],
+    [i18n.language],
   );
   const [
     storedModelShortcutKeys,
@@ -124,15 +127,15 @@ export function KeyboardShortcutsDrawer({
   );
   const normalizedAppShortcutKeys = useMemo(
     () => normalizeAppShortcutKeys(storedAppShortcutKeys),
-    [storedAppShortcutKeys],
+    [storedAppShortcutKeys, i18n.language],
   );
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(storedModelShortcutKeys),
-    [storedModelShortcutKeys],
+    [storedModelShortcutKeys, i18n.language],
   );
   const normalizedModelShortcutEfforts = useMemo(
     () => normalizeModelShortcutEfforts(storedModelShortcutEfforts),
-    [storedModelShortcutEfforts],
+    [storedModelShortcutEfforts, i18n.language],
   );
   const normalizedPromptCommentShortcut = normalizePromptCommentShortcut(
     storedPromptCommentShortcut ?? DEFAULT_PROMPT_COMMENT_SHORTCUT,
@@ -143,8 +146,8 @@ export function KeyboardShortcutsDrawer({
         ? [[modifierLabel, "Enter"]]
         : normalizedPromptCommentShortcut === "shift-enter"
           ? [["Shift", "Enter"]]
-          : [["Disabled"]],
-    [modifierLabel, normalizedPromptCommentShortcut],
+          : [[i18n.t("shell:keyboardShortcutsDrawer.disabled")]],
+    [modifierLabel, normalizedPromptCommentShortcut, i18n.language],
   );
   const normalizedVisualCommentShortcut = normalizeVisualCommentShortcut(
     storedVisualCommentShortcut ?? DEFAULT_VISUAL_COMMENT_SHORTCUT,
@@ -157,8 +160,8 @@ export function KeyboardShortcutsDrawer({
           ? [[modifierLabel, "."]]
           : normalizedVisualCommentShortcut === "mod-shift-period"
             ? [[modifierLabel, "Shift", "."]]
-            : [["Disabled"]],
-    [modifierLabel, normalizedVisualCommentShortcut],
+            : [[i18n.t("shell:keyboardShortcutsDrawer.disabled")]],
+    [modifierLabel, normalizedVisualCommentShortcut, i18n.language],
   );
   const modelShortcutItems = useMemo<ShortcutItem[]>(() => {
     const assignedItems = MODEL_SHORTCUT_SLOT_LABELS.map((slotLabel, index) => {
@@ -173,11 +176,11 @@ export function KeyboardShortcutsDrawer({
         shortcutKey: details.key,
       }).find((option) => option.value === effort)?.label;
       const effortDescription = effortLabel
-        ? ` at ${effortLabel} effort`
-        : " with the current effort setting";
+        ? i18n.t("shell:keyboardShortcutsDrawer.atEffort", { value1: effortLabel })
+        : i18n.t("shell:keyboardShortcutsDrawer.withTheCurrentEffortSetting");
       return {
-        label: `Select ${details.modelLabel}`,
-        description: `Switch the active task to ${details.providerLabel} and use ${details.modelLabel}${effortDescription}. Customize this slot in Settings → Command Palette.`,
+        label: i18n.t("shell:keyboardShortcutsDrawer.select", { value1: details.modelLabel }),
+        description: i18n.t("shell:keyboardShortcutsDrawer.switchTheActiveTaskToAndUse", { value1: details.providerLabel, value2: details.modelLabel, value3: effortDescription }),
         sequences: [["Alt", slotLabel]],
       } satisfies ShortcutItem;
     }).filter((item): item is ShortcutItem => item != null);
@@ -188,13 +191,13 @@ export function KeyboardShortcutsDrawer({
 
     return [
       {
-        label: "Model shortcut slots",
+        label: i18n.t("shell:keyboardShortcutsDrawer.modelShortcutSlots"),
         description:
-          "Assign Alt+1..0 in Settings → Command Palette to jump directly to specific prompt models.",
+          i18n.t("shell:keyboardShortcutsDrawer.assignAlt10InSettingsCommandPalette"),
         sequences: [["Alt", "1-0"]],
       },
     ];
-  }, [normalizedModelShortcutEfforts, normalizedModelShortcutKeys]);
+  }, [normalizedModelShortcutEfforts, normalizedModelShortcutKeys, i18n.language]);
   const presetShortcutItems = useMemo<ShortcutItem[]>(() => {
     const assignedItems = taskPresets
       .slice(0, TASK_PRESET_SHORTCUT_SLOT_LABELS.length)
@@ -204,9 +207,9 @@ export function KeyboardShortcutsDrawer({
           return null;
         }
         return {
-          label: `Run ${preset.label}`,
+          label: i18n.t("shell:keyboardShortcutsDrawer.run", { value1: preset.label }),
           description:
-            "Launch this preset directly. Reorder presets in Settings → Presets to change Ctrl+1..9.",
+            i18n.t("shell:keyboardShortcutsDrawer.launchThisPresetDirectlyReorderPresetsIn"),
           sequences: [["Ctrl", slotLabel]],
         } satisfies ShortcutItem;
       })
@@ -218,13 +221,13 @@ export function KeyboardShortcutsDrawer({
 
     return [
       {
-        label: "Preset shortcut slots",
+        label: i18n.t("shell:keyboardShortcutsDrawer.presetShortcutSlots"),
         description:
-          "The first nine presets in Settings → Presets respond to Ctrl+1..9 in list order.",
+          i18n.t("shell:keyboardShortcutsDrawer.theFirstNinePresetsInSettings"),
         sequences: [["Ctrl", "1-9"]],
       },
     ];
-  }, [taskPresets]);
+  }, [taskPresets, i18n.language]);
   const buildShellShortcutItem = (
     args: Pick<ShortcutItem, "label" | "description"> & {
       actionId:
@@ -245,12 +248,12 @@ export function KeyboardShortcutsDrawer({
       shortcutKeys: normalizedAppShortcutKeys,
     });
     const isDisabled =
-      sequences.length === 1 && sequences[0]?.[0] === "Disabled";
+      sequences.length === 1 && sequences[0]?.[0] === i18n.t("shell:keyboardShortcutsDrawer.disabled");
 
     return {
       label: args.label,
       description: isDisabled
-        ? `${args.description} Disabled in Settings -> Command Palette.`
+        ? i18n.t("shell:keyboardShortcutsDrawer.disabledInSettingsCommandPalette", { value1: args.description })
         : args.description,
       sequences,
       sequenceJoiner: isDisabled ? "or" : "then",
@@ -260,38 +263,38 @@ export function KeyboardShortcutsDrawer({
   const sections = useMemo<ShortcutSection[]>(
     () => [
       {
-        title: "Issues",
+        title: i18n.t("shell:keyboardShortcutsDrawer.issues"),
         description:
-          "Create conversations and move around the current workspace.",
+          i18n.t("shell:keyboardShortcutsDrawer.createConversationsAndMoveAroundTheCurrent"),
         shortcuts: [
           {
-            label: "Select workspace",
+            label: i18n.t("shell:keyboardShortcutsDrawer.selectWorkspace"),
             description:
-              "Jump to the first nine visible workspaces in the sidebar, from top to bottom.",
+              i18n.t("shell:keyboardShortcutsDrawer.jumpToTheFirstNineVisibleWorkspaces"),
             sequences: [[modifierLabel, "Shift", "1-9"]],
           },
           {
-            label: "New task",
-            description: "Start a fresh task in the selected workspace.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.newTask"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.startAFreshTaskInTheSelected"),
             sequences: [[modifierLabel, "N"]],
           },
           {
-            label: "Close tab / task",
+            label: i18n.t("shell:keyboardShortcutsDrawer.closeTabTask"),
             description:
-              "Close the active pane tab without archiving its task.",
+              i18n.t("shell:keyboardShortcutsDrawer.closeTheActivePaneTabWithoutArchiving"),
             sequences: [[modifierLabel, "W"]],
           },
           {
-            label: "Next task",
-            description: "Move selection to the next task.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.nextTask"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.moveSelectionToTheNextTask"),
             sequences: [
               [modifierLabel, "Shift", "J"],
               [modifierLabel, "Shift", "ArrowDown"],
             ],
           },
           {
-            label: "Previous task",
-            description: "Move selection to the previous task.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.previousTask"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.moveSelectionToThePreviousTask"),
             sequences: [
               [modifierLabel, "Shift", "K"],
               [modifierLabel, "Shift", "ArrowUp"],
@@ -300,168 +303,168 @@ export function KeyboardShortcutsDrawer({
         ],
       },
       {
-        title: "Presets",
-        description: "Launch the preset bar without leaving the keyboard.",
+        title: i18n.t("shell:keyboardShortcutsDrawer.presets"),
+        description: i18n.t("shell:keyboardShortcutsDrawer.launchThePresetBarWithoutLeavingThe"),
         shortcuts: presetShortcutItems,
       },
       {
-        title: "Panels",
-        description: "Control the shell layout without leaving the keyboard.",
+        title: i18n.t("shell:keyboardShortcutsDrawer.panels"),
+        description: i18n.t("shell:keyboardShortcutsDrawer.controlTheShellLayoutWithoutLeavingThe"),
         shortcuts: [
           buildShellShortcutItem({
             actionId: "view.toggle-workspace-sidebar",
-            label: "Toggle workspace sidebar",
+            label: i18n.t("shell:keyboardShortcutsDrawer.toggleWorkspaceSidebar"),
             description:
-              "Collapse or expand the left repository and workspace list.",
+              i18n.t("shell:keyboardShortcutsDrawer.collapseOrExpandTheLeftRepositoryAnd"),
           }),
           buildShellShortcutItem({
             actionId: "view.toggle-changes-panel",
-            label: "Source control panel",
+            label: i18n.t("shell:keyboardShortcutsDrawer.sourceControlPanel"),
             description:
-              "Show or hide the source control overlay on the right rail.",
+              i18n.t("shell:keyboardShortcutsDrawer.showOrHideTheSourceControlOverlay"),
           }),
           buildShellShortcutItem({
             actionId: "view.show-explorer",
-            label: "Open explorer panel",
-            description: "Open the explorer overlay on the right rail.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.openExplorerPanel"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.openTheExplorerOverlayOnTheRight"),
           }),
           {
-            label: "Search in files",
+            label: i18n.t("shell:keyboardShortcutsDrawer.searchInFiles"),
             description:
-              "Open the explorer search UI and search file contents, including pasted multiline code blocks.",
+              i18n.t("shell:keyboardShortcutsDrawer.openTheExplorerSearchUIAndSearch"),
             sequences: [[modifierLabel, "Shift", "F"]],
           },
           buildShellShortcutItem({
             actionId: "view.show-information",
-            label: "Toggle information panel",
-            description: "Show or hide the workspace information panel.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.toggleInformationPanel"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.showOrHideTheWorkspaceInformationPanel"),
           }),
           buildShellShortcutItem({
             actionId: "view.show-scripts",
-            label: `Open ${WORKSPACE_TOOLS_LABEL}`,
+            label: i18n.t("shell:keyboardShortcutsDrawer.open", { value1: WORKSPACE_TOOLS_PRESENTATION.label }),
             description:
-              "Open long-running processes, one-shot commands, lifecycle triggers, and recent runs.",
+              i18n.t("shell:keyboardShortcutsDrawer.openLongRunningProcessesOneShotCommandsLifecycleTriggers"),
           }),
           buildShellShortcutItem({
             actionId: "view.show-lens",
-            label: "Open Lens tab",
+            label: i18n.t("shell:keyboardShortcutsDrawer.openLensTab"),
             description:
-              "Focus the latest embedded browser tab, or create one.",
+              i18n.t("shell:keyboardShortcutsDrawer.focusTheLatestEmbeddedBrowserTabOr"),
           }),
           {
-            label: "Visual comment",
+            label: i18n.t("shell:keyboardShortcutsDrawer.visualComment"),
             description:
-              "Toggle Lens visual comment mode while the Lens panel is available.",
+              i18n.t("shell:keyboardShortcutsDrawer.toggleLensVisualCommentModeWhileThe"),
             sequences: visualCommentShortcutSequences,
           },
           buildShellShortcutItem({
             actionId: "view.toggle-editor",
-            label: "Focus editor",
-            description: "Focus the active editor tab.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.focusEditor"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.focusTheActiveEditorTab"),
           }),
           {
-            label: "Split pane right",
-            description: "Move the active tab into a new pane on the right.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.splitPaneRight"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.moveTheActiveTabIntoANew"),
             sequences: [[modifierLabel, "\\"]],
           },
           {
-            label: "Split pane down",
-            description: "Move the active tab into a new pane below.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.splitPaneDown"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.moveTheActiveTabIntoANew2"),
             sequences: [[modifierLabel, "Shift", "\\"]],
           },
           buildShellShortcutItem({
             actionId: "view.toggle-terminal",
-            label: "Toggle terminal",
+            label: i18n.t("shell:keyboardShortcutsDrawer.toggleTerminal"),
             description:
-              "Focus the terminal pane, or return to the previous tab.",
+              i18n.t("shell:keyboardShortcutsDrawer.focusTheTerminalPaneOrReturnTo"),
           }),
         ],
       },
       {
-        title: "Actions",
-        description: "Common task and editor commands.",
+        title: i18n.t("shell:keyboardShortcutsDrawer.actions"),
+        description: i18n.t("shell:keyboardShortcutsDrawer.commonTaskAndEditorCommands"),
         shortcuts: [
           buildShellShortcutItem({
             actionId: "navigation.home",
-            label: "Go home",
+            label: i18n.t("shell:keyboardShortcutsDrawer.goHome"),
             description:
-              "Clear the active task selection and return to the repository overview.",
+              i18n.t("shell:keyboardShortcutsDrawer.clearTheActiveTaskSelectionAndReturn"),
           }),
           {
-            label: "Focus prompt composer",
+            label: i18n.t("shell:keyboardShortcutsDrawer.focusPromptComposer"),
             description:
-              "Move focus back to the chat prompt when the composer is not already focused.",
+              i18n.t("shell:keyboardShortcutsDrawer.moveFocusBackToTheChatPrompt"),
             sequences: [
               [modifierLabel, "L"],
               [modifierLabel, "J"],
             ],
           },
           {
-            label: "Open model selector",
-            description: "Open the prompt model picker from the keyboard.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.openModelSelector"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.openThePromptModelPickerFromThe"),
             sequences: [["Alt", "P"]],
           },
           {
-            label: "Quick open file",
+            label: i18n.t("shell:keyboardShortcutsDrawer.quickOpenFile"),
             description:
-              "Search the active workspace files and open a file in the editor.",
+              i18n.t("shell:keyboardShortcutsDrawer.searchTheActiveWorkspaceFilesAndOpen"),
             sequences: [[modifierLabel, "P"]],
           },
           {
-            label: "Open command palette",
+            label: i18n.t("shell:keyboardShortcutsDrawer.openCommandPalette"),
             description:
-              "Open the global Stave command launcher for IDE actions and settings.",
+              i18n.t("shell:keyboardShortcutsDrawer.openTheGlobalStaveCommandLauncherFor"),
             sequences: [[modifierLabel, "Shift", "P"]],
           },
           {
-            label: "Stage comment",
+            label: i18n.t("shell:keyboardShortcutsDrawer.stageComment"),
             description:
-              "Move the current composer text into the Comment strip instead of sending it.",
+              i18n.t("shell:keyboardShortcutsDrawer.moveTheCurrentComposerTextIntoThe"),
             sequences: promptCommentShortcutSequences,
           },
           {
-            label: "Toggle plan mode",
+            label: i18n.t("shell:keyboardShortcutsDrawer.togglePlanMode"),
             description:
-              "Switch the active prompt between normal and plan mode from anywhere in the app.",
+              i18n.t("shell:keyboardShortcutsDrawer.switchTheActivePromptBetweenNormalAnd"),
             sequences: [["Shift", "Tab"]],
           },
           {
-            label: "Dialog primary action",
+            label: i18n.t("shell:keyboardShortcutsDrawer.dialogPrimaryAction"),
             description:
-              "Run Save/Create/Open/Confirm in the active dialog. Use modifier+Enter in multiline fields.",
+              i18n.t("shell:keyboardShortcutsDrawer.runSaveCreateOpenConfirmInTheActiveDialogUse"),
             sequences: [["Enter"], [modifierLabel, "Enter"]],
           },
           {
-            label: "Save file",
-            description: "Save the active editor tab.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.saveFile"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.saveTheActiveEditorTab"),
             sequences: [[modifierLabel, "S"]],
           },
           {
-            label: "Stop active turn",
+            label: i18n.t("shell:keyboardShortcutsDrawer.stopActiveTurn"),
             description:
-              "Abort the current task run while focus is in the task pane.",
+              i18n.t("shell:keyboardShortcutsDrawer.abortTheCurrentTaskRunWhileFocus"),
             sequences: [["Esc"]],
           },
         ],
       },
       {
-        title: "Models",
+        title: i18n.t("shell:keyboardShortcutsDrawer.models"),
         description:
-          "Jump directly to the models you mapped for the prompt composer.",
+          i18n.t("shell:keyboardShortcutsDrawer.jumpDirectlyToTheModelsYouMapped"),
         shortcuts: modelShortcutItems,
       },
       {
-        title: "Help",
-        description: "Surface the guide itself when you need it.",
+        title: i18n.t("shell:keyboardShortcutsDrawer.help"),
+        description: i18n.t("shell:keyboardShortcutsDrawer.surfaceTheGuideItselfWhenYouNeed"),
         shortcuts: [
           {
-            label: "Open settings",
-            description: "Open the main Stave settings dialog.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.openSettings"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.openTheMainStaveSettingsDialog"),
             sequences: [[modifierLabel, ","]],
           },
           {
-            label: "Open shortcut guide",
-            description: "Show this panel from anywhere outside text inputs.",
+            label: i18n.t("shell:keyboardShortcutsDrawer.openShortcutGuide"),
+            description: i18n.t("shell:keyboardShortcutsDrawer.showThisPanelFromAnywhereOutsideText"),
             sequences: [[modifierLabel, "/"]],
           },
         ],
@@ -474,7 +477,7 @@ export function KeyboardShortcutsDrawer({
       promptCommentShortcutSequences,
       presetShortcutItems,
       visualCommentShortcutSequences,
-    ],
+    , i18n.language],
   );
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredSections = useMemo(() => {
@@ -496,14 +499,14 @@ export function KeyboardShortcutsDrawer({
           );
       return shortcuts.length > 0 ? [{ ...section, shortcuts }] : [];
     });
-  }, [normalizedSearchQuery, sections]);
+  }, [normalizedSearchQuery, sections, i18n.language]);
   const visibleShortcutCount = useMemo(
     () =>
       filteredSections.reduce(
         (count, section) => count + section.shortcuts.length,
         0,
       ),
-    [filteredSections],
+    [filteredSections, i18n.language],
   );
 
   if (!open) {
@@ -520,12 +523,12 @@ export function KeyboardShortcutsDrawer({
                 <Keyboard className={sx(shortcutsDrawerStyles.headerIcon)} />
                 <div className={sx(shortcutsDrawerStyles.headerText)}>
                   <DrawerTitle className={sx(shortcutsDrawerStyles.title)}>
-                    Keyboard reference
+                    {i18n.t("shell:keyboardShortcutsDrawer.keyboardReference")}
                   </DrawerTitle>
                   <DrawerDescription
                     className={sx(shortcutsDrawerStyles.description)}
                   >
-                    Search every active Stave shortcut and custom binding.
+                    {i18n.t("shell:keyboardShortcutsDrawer.searchEveryActiveStaveShortcutAndCustom")}
                   </DrawerDescription>
                 </div>
               </div>
@@ -538,8 +541,8 @@ export function KeyboardShortcutsDrawer({
                   <Input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Find an action or key…"
-                    aria-label="Search keyboard shortcuts"
+                    placeholder={i18n.t("shell:keyboardShortcutsDrawer.findAnActionOrKey")}
+                    aria-label={i18n.t("shell:keyboardShortcutsDrawer.searchKeyboardShortcuts")}
                     xstyle={shortcutsDrawerStyles.searchInput}
                   />
                   {searchQuery ? (
@@ -548,16 +551,14 @@ export function KeyboardShortcutsDrawer({
                       variant="ghost"
                       size="icon-xs"
                       xstyle={shortcutsDrawerStyles.clearButton}
-                      aria-label="Clear shortcut search"
+                      aria-label={i18n.t("shell:keyboardShortcutsDrawer.clearShortcutSearch")}
                       onClick={() => setSearchQuery("")}
                     >
                       <X className={sx(shortcutsDrawerStyles.clearIcon)} />
                     </Button>
                   ) : null}
                 </div>
-                <span className={sx(shortcutsDrawerStyles.shownCount)}>
-                  {visibleShortcutCount} shown
-                </span>
+                <span className={sx(shortcutsDrawerStyles.shownCount)}>{i18n.t("shell:keyboardShortcutsDrawer.shownCount", { count: visibleShortcutCount })}</span>
               </div>
             </div>
           </DrawerHeader>
@@ -613,22 +614,17 @@ export function KeyboardShortcutsDrawer({
               ))
             ) : (
               <div className={sx(shortcutsDrawerStyles.emptyState)}>
-                <p className={sx(shortcutsDrawerStyles.emptyTitle)}>
-                  No shortcut matches “{searchQuery.trim()}”
-                </p>
+                <p className={sx(shortcutsDrawerStyles.emptyTitle)}>{i18n.t("shell:keyboardShortcutsDrawer.noMatches", { query: searchQuery.trim() })}</p>
                 <p className={sx(shortcutsDrawerStyles.emptyHint)}>
-                  Try an action name, panel, or key combination.
+                  {i18n.t("shell:keyboardShortcutsDrawer.tryAnActionNamePanelOrKey")}
                 </p>
               </div>
             )}
           </div>
           <DrawerFooter className={sx(shortcutsDrawerStyles.footer)}>
-            <p className={sx(shortcutsDrawerStyles.footerNote)}>
-              Showing {modifierLabel} bindings for this device. Customize shell,
-              model, and preset shortcuts from Settings → Command Palette.
-            </p>
+            <p className={sx(shortcutsDrawerStyles.footerNote)}>{i18n.t("shell:keyboardShortcutsDrawer.deviceBindings", { modifier: modifierLabel })}</p>
             <DrawerClose render={<Button variant="outline" />}>
-              Close
+              {i18n.t("shell:keyboardShortcutsDrawer.close")}
             </DrawerClose>
           </DrawerFooter>
         </div>

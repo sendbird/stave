@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 
 /**
@@ -151,23 +152,23 @@ export function parseReviewFindings(
       continue;
     }
     if (!expectedIds && !checked.has(id) && checked.size >= MAX_REVIEW_FINDINGS) {
-      if (!warnings.length) warnings.push("The reply has more earlier finding IDs than Stave can display.");
+      if (!warnings.length) warnings.push(i18n.t("sourceControl:reviewFindings.theReplyHasMoreEarlierFindingIDs"));
       continue;
     }
     const entry: PreviousFindingCheck = {
       id, status: status ?? "unchecked",
-      note: status ? fieldText(check.note, 500) : "The reply did not provide a valid check status.",
+      note: status ? fieldText(check.note, 500) : i18n.t("sourceControl:reviewFindings.theReplyDidNotProvideAValid"),
     };
     const existing = checked.get(id);
     if (existing && existing.status !== entry.status) {
-      checked.set(id, { id, status: "unchecked", note: "The reply gave conflicting statuses for this finding." });
+      checked.set(id, { id, status: "unchecked", note: i18n.t("sourceControl:reviewFindings.theReplyGaveConflictingStatusesForThis") });
     } else if (!existing) checked.set(id, entry);
   }
-  if (unreadableId) warnings.push("Some earlier checks have unreadable finding IDs.");
+  if (unreadableId) warnings.push(i18n.t("sourceControl:reviewFindings.someEarlierChecksHaveUnreadableFindingIDs"));
   if (unknownIds.size > 0) warnings.push(`Checks for unrequested IDs were not counted: ${[...unknownIds].slice(0, 5).join(", ")}${unknownIds.size > 5 ? "…" : ""}.`);
   if (expectedIds) {
     for (const id of expectedIds) {
-      if (!checked.has(id)) checked.set(id, { id, status: "unchecked", note: "The reply did not check this finding." });
+      if (!checked.has(id)) checked.set(id, { id, status: "unchecked", note: i18n.t("sourceControl:reviewFindings.theReplyDidNotCheckThisFinding") });
     }
   }
   // An invalid list must never make a re-check look like a clean first review.
@@ -201,7 +202,7 @@ export function parseReviewFindings(
   for (const check of previous ?? []) {
     if ((check.status === "resolved" || check.status === "outdated") && findings.some((finding) => finding.id === check.id)) {
       check.status = "unchecked";
-      check.note = "The reply also lists this finding as open, so its check is inconsistent.";
+      check.note = i18n.t("sourceControl:reviewFindings.theReplyAlsoListsThisFindingAs");
     }
   }
   return { ok: true, report: { verdict: parsed.data.verdict, findings, previous,
@@ -240,24 +241,20 @@ export function summarizeReviewFindings(report: ReviewFindingsReport): ReviewFin
     checkWarnings: report.previousWarnings?.length ?? 0 };
 }
 
-function plural(count: number, word: string) {
-  return `${count} ${word}${count === 1 ? "" : "s"}`;
-}
-
 /** `3 findings · 1 critical`, `No findings`, or `2 of 3 fixed · 1 new`. */
 export function describeReviewFindingsSummary(summary: ReviewFindingsSummary) {
   if (summary.previous) {
     const total = Object.values(summary.previous).reduce((sum, count) => sum + count, 0);
-    const parts = [`${summary.previous.resolved} of ${total} fixed`];
-    if (summary.previous.outdated > 0) parts.push(`${summary.previous.outdated} outdated`);
-    if (summary.previous.unchecked > 0) parts.push(`${summary.previous.unchecked} unchecked`);
-    if (summary.checkWarnings > 0) parts.push(plural(summary.checkWarnings, "check warning"));
-    if (summary.fresh > 0) parts.push(`${summary.fresh} new`);
+    const parts = [i18n.t("sourceControl:reviewFindings.ofFixed", { value1: summary.previous.resolved, value2: total })];
+    if (summary.previous.outdated > 0) parts.push(i18n.t("sourceControl:reviewFindings.outdated", { count: summary.previous.outdated }));
+    if (summary.previous.unchecked > 0) parts.push(i18n.t("sourceControl:reviewFindings.unchecked", { count: summary.previous.unchecked }));
+    if (summary.checkWarnings > 0) parts.push(i18n.t("sourceControl:reviewFindings.warnings", { count: summary.checkWarnings }));
+    if (summary.fresh > 0) parts.push(i18n.t("sourceControl:reviewFindings.fresh", { count: summary.fresh }));
     return parts.join(" · ");
   }
-  if (summary.total === 0) return "No findings";
-  const parts = [plural(summary.total, "finding")];
-  if (summary.bySeverity.critical > 0) parts.push(`${summary.bySeverity.critical} critical`);
+  if (summary.total === 0) return i18n.t("sourceControl:reviewFindings.noFindings");
+  const parts = [i18n.t("sourceControl:reviewFindings.count", { count: summary.total })];
+  if (summary.bySeverity.critical > 0) parts.push(i18n.t("sourceControl:reviewFindings.critical", { count: summary.bySeverity.critical }));
   return parts.join(" · ");
 }
 

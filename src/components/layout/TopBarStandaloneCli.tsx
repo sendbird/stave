@@ -1,3 +1,4 @@
+import { i18n, useTranslation } from "@/i18n";
 import type { CSSProperties } from "react";
 import { Terminal } from "lucide-react";
 import {
@@ -19,9 +20,9 @@ export function buildStandaloneCliTriggerLabel(args: {
   open: boolean;
 }) {
   if (!args.folderPath) {
-    return "Standalone CLI — set a folder in Settings";
+    return i18n.t("shell:topBarStandaloneCli.standaloneCLISetAFolderIn");
   }
-  return args.open ? "Close Standalone CLI" : "Open Standalone CLI";
+  return args.open ? i18n.t("shell:topBarStandaloneCli.closeStandaloneCLI") : i18n.t("shell:topBarStandaloneCli.openStandaloneCLI");
 }
 
 /**
@@ -35,6 +36,7 @@ export function shouldCancelStandaloneCliOpenChange(reason: string) {
 }
 
 export function TopBarStandaloneCli(props: { noDragStyle: CSSProperties }) {
+  useTranslation();
   const open = useStandaloneCliStore((state) => state.open);
   const openOverlay = useStandaloneCliStore((state) => state.openOverlay);
   const closeOverlay = useStandaloneCliStore((state) => state.closeOverlay);
