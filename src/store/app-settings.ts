@@ -139,6 +139,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   customThemeId: string | null;
   /** Show the Fleet View shortcut in the left workspace sidebar. */
   sidebarShowFleetView: boolean;
+  /** Show Agents and its active agent rows in the left sidebar. */
+  sidebarShowAgents: boolean;
+  /** Show the Agent performance shortcut in the left sidebar. */
+  sidebarShowResults: boolean;
+  /** Show the AI usage shortcut in the left sidebar. */
+  sidebarShowAiUsage: boolean;
   /**
    * Which of the two sidebar views is showing. The header toggle writes this
    * same key, so "the view you mostly use" and "the view you are in" are one
@@ -666,6 +672,9 @@ export const defaultSettings: AppSettings = {
   themeMode: "dark",
   customThemeId: null,
   sidebarShowFleetView: true,
+  sidebarShowAgents: true,
+  sidebarShowResults: true,
+  sidebarShowAiUsage: true,
   sidebarNavView: "projects",
   borderBeamEnabled: false,
   borderBeamSize: "md",

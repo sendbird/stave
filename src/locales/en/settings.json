@@ -184,6 +184,18 @@
         "description": "Repositories lists workspaces by where they live; Work queue groups every workspace by what it wants from you. The toggle in the sidebar header changes this too, so the sidebar reopens in whichever view you used last.",
         "repositories": "Repositories",
         "workQueue": "Work queue"
+      },
+      "agents": {
+        "title": "Agents Shortcut",
+        "description": "Show Agents and its active agent rows in the sidebar header area."
+      },
+      "results": {
+        "title": "Agent performance Shortcut",
+        "description": "Show Agent performance in the sidebar to compare completed runs, time, and reported costs."
+      },
+      "aiUsage": {
+        "title": "AI Usage Shortcut",
+        "description": "Show the AI usage entry in the sidebar header area."
       }
     },
     "motion": {
