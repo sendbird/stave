@@ -47,6 +47,7 @@ test-prompts:
    - Inspect the diff so the commit contains exactly the intended work.
    - Run the repo's configured formatter for any edited source files when one exists. If the repo has no formatter, note that explicitly and continue.
    - Run the minimum meaningful verification for the changed area. Use the repo's standard typecheck or focused tests when available, and report any skipped verification.
+   - Always run `bun run build:pages`, regardless of change scope, and include its result in the PR test evidence. Resolve Pages failures before committing or publishing; other builds and `test:ci` do not cover this check.
 
 5. Commit from the execution worktree.
    - Stage intentionally with `git add -A` unless the user asked for a narrower commit.

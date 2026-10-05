@@ -269,6 +269,17 @@ When handing follow-up work to a newly created Stave workspace:
 
 Use the smallest relevant check set for the change, then escalate when the scope is broad.
 
+Always run `bun run build:pages` before publishing any change or marking a PR
+ready to merge, regardless of which files changed. Passing `test:ci`, the
+renderer build, or the desktop build does not verify the Pages site. Include the
+Pages build result in the PR's test evidence; a failure must be resolved before
+publication.
+
+When a public document links another end-user Markdown document, register the
+target in `site/src/public-docs.ts` in the same change. Keep the build's strict
+unpublished-link validation: do not bypass it to make a build pass. PR CI runs
+the Pages build on every pull request so these failures are caught before merge.
+
 Common commands:
 
 - `bun run check:licenses`
