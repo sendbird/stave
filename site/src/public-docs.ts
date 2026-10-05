@@ -221,6 +221,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Review local changes or a task's latest answer in a separate read-only task on the model you pick, then attach only the findings.",
       },
       {
+        routePath: "review-prompts",
+        sourcePath: "docs/features/review-prompts.md",
+        title: "Review Prompt Rubrics",
+        description:
+          "Choose a review preset, installed skill, or custom prompt and understand the evidence standard used to assess findings.",
+      },
+      {
         routePath: "delegated-tasks",
         sourcePath: "docs/features/delegated-tasks.md",
         title: "Delegated Tasks",
