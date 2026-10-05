@@ -5,12 +5,13 @@ import {
   type AccountUsageBlock,
 } from "@/lib/providers/account-usage-block";
 import { toast } from "@/lib/notifications/toast";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 
 function buildAccountLimitBlockedResult(
   block: AccountUsageBlock,
   model: string | undefined,
+  accountProfileId: string,
 ): Extract<SendUserMessageResult, { status: "blocked" }> {
   return {
     status: "blocked",
@@ -18,11 +19,35 @@ function buildAccountLimitBlockedResult(
     message: block.message,
     usageLimit: {
       providerId: block.providerId,
+      accountProfileId,
       ...(model ? { model } : {}),
       windowLabel: block.windowLabel,
       resetsAt: block.resetsAt == null ? null : block.resetsAt * 1000,
     },
   };
+}
+
+/** Read a captured execution account without replacing the selected account's meter. */
+export async function readProviderAccountUsage(
+  getState: () => AppState,
+  providerId: ProviderId,
+  accountProfileId: string,
+) {
+  const read = window.api?.provider?.getRateLimitsSnapshot;
+  if (!read) return null;
+  const settings = getState().settings;
+  const runtimeOptions: ProviderRuntimeOptions = providerId === "codex"
+    ? { codexAccountProfileId: accountProfileId, codexBinaryPath: settings.codexBinaryPath || undefined }
+    : providerId === "claude-code"
+      ? { claudeAccountProfileId: accountProfileId, claudeBinaryPath: settings.claudeBinaryPath || undefined }
+      : providerId === "cursor"
+        ? { cursorBinaryPath: settings.cursorBinaryPath || undefined }
+        : { kiroBinaryPath: settings.kiroBinaryPath || undefined };
+  try {
+    return await read({ providers: [providerId], runtimeOptions, force: true, reason: "dispatch-guard" });
+  } catch {
+    return null;
+  }
 }
 
 export async function guardSendAgainstAccountUsage(
@@ -35,19 +60,16 @@ export async function guardSendAgainstAccountUsage(
     return null;
   }
   const state = getState();
+  const accountProfileId = options?.accountProfileId ?? selectedProviderAccount(providerId, state.settings);
   // A queued turn retains its account even after the global selection changes.
   // Never block that turn using the newly selected account's cached usage.
   if (options?.accountProfileId && options.accountProfileId !== selectedProviderAccount(providerId, state.settings)) {
-    const read = window.api?.provider?.getRateLimitsSnapshot;
-    if (!read || options.cachedOnly) return null;
-    const runtimeOptions = providerId === "codex"
-      ? { codexAccountProfileId: options.accountProfileId, codexBinaryPath: state.settings.codexBinaryPath || undefined }
-      : { claudeAccountProfileId: options.accountProfileId, claudeBinaryPath: state.settings.claudeBinaryPath || undefined };
-    const snapshot = await read({ providers: [providerId], runtimeOptions, force: true, reason: "dispatch-guard" }).catch(() => null);
+    if (options.cachedOnly) return null;
+    const snapshot = await readProviderAccountUsage(getState, providerId, accountProfileId);
     const block = snapshot && resolveAccountUsageBlock({ providerId, model: options.model, snapshot });
     if (!block) return null;
     toast.warning("Account usage limit reached", { description: block.message });
-    return buildAccountLimitBlockedResult(block, options.model);
+    return buildAccountLimitBlockedResult(block, options.model, accountProfileId);
   }
   const usage = resolveTightestAccountUsageWindow({
     providerId,
@@ -75,7 +97,11 @@ export async function guardSendAgainstAccountUsage(
         .catch(() => undefined);
     }
   }
-  if (selectedProviderAccount(providerId, state.settings) !== selectedProviderAccount(providerId, getState().settings)) return null;
+  if (selectedProviderAccount(providerId, state.settings) !== selectedProviderAccount(providerId, getState().settings)) {
+    // The turn still owns the account captured before the await. Its refresh
+    // was discarded by the selected meter, so read that account separately.
+    return guardSendAgainstAccountUsage(getState, providerId, { ...options, accountProfileId });
+  }
   const block = resolveAccountUsageBlock({
     providerId,
     model: options?.model,
@@ -87,7 +113,7 @@ export async function guardSendAgainstAccountUsage(
   toast.warning("Account usage limit reached", {
     description: block.message,
   });
-  return buildAccountLimitBlockedResult(block, options?.model);
+  return buildAccountLimitBlockedResult(block, options?.model, accountProfileId);
 }
 
 export function isAccountUsageBlockingFromState(args: {

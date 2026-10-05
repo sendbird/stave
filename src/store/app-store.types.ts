@@ -84,6 +84,7 @@ export interface SkillCatalogState {
 
 export interface SendBlockedUsageLimit {
   providerId: ProviderId;
+  accountProfileId?: string;
   model?: string;
   windowLabel: string;
   /** Epoch ms, or null when the provider did not report a reset. */
@@ -666,6 +667,7 @@ export interface AppState
     taskId: string;
     workspaceId: string;
     providerId: ProviderId;
+    accountProfileId?: string;
     model?: string;
     stoppedTurn: boolean;
     usageLimit?: SendBlockedUsageLimit;

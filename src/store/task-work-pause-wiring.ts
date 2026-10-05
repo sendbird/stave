@@ -43,6 +43,7 @@ export function pauseQueueOnUsageLimitRefusal(
     taskId: blocked.taskId,
     workspaceId: blocked.workspaceId,
     providerId: usageLimit.providerId,
+    accountProfileId: usageLimit.accountProfileId,
     model: usageLimit.model,
     stoppedTurn: false,
     usageLimit,
@@ -71,8 +72,9 @@ export function settleTaskQueueAfterTurn(
   get: () => AppState,
   dispatchNextQueuedTaskTurn: (target: QueueTarget) => void,
   turn: QueueTarget & {
-    /** The turn's provider; defaults to the task's. */
+    /** Captured execution identity; the persisted assistant row takes precedence. */
     providerId?: ProviderId;
+    accountProfileId?: string;
     model?: string;
     turnOrigin?: "conversation" | "utility";
   },
@@ -81,19 +83,23 @@ export function settleTaskQueueAfterTurn(
     state: get(),
     workspaceId: turn.workspaceId,
   });
+  const messages = session?.messagesByTask[turn.taskId];
+  const last = messages?.at(-1);
+  const recorded = last?.role === "assistant" ? last : undefined;
   const providerId =
-    turn.providerId ??
+    (recorded?.providerId !== "user" ? recorded?.providerId : undefined) ?? turn.providerId ??
     session?.tasks.find((task) => task.id === turn.taskId)?.provider;
   if (
     turn.turnOrigin !== "utility" &&
     providerId &&
-    findUsageLimitStop(session?.messagesByTask[turn.taskId])
+    findUsageLimitStop(messages)
   ) {
     get().pauseTaskForUsageLimit({
       taskId: turn.taskId,
       workspaceId: turn.workspaceId,
       providerId,
-      model: turn.model,
+      accountProfileId: recorded?.nativeAccountProfileId ?? turn.accountProfileId,
+      model: recorded?.model || turn.model,
       stoppedTurn: true,
     });
   }

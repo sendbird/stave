@@ -223,6 +223,7 @@ function usageLimitPauseFor(caseId: ShelfCaseId): UsageLimitPauseByTask {
     [PREVIEW_TASK_ID]: {
       workspaceId: PREVIEW_WORKSPACE_ID,
       providerId: "claude-code",
+      accountProfileId: "system-default",
       stoppedTurn: true,
       pausedAt: Date.now() - 3 * 60_000,
       resetsAt,
