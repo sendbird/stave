@@ -262,6 +262,18 @@ export function createAppStorePersistenceOptions() {
         typeof raw.sidebarShowFleetView === "boolean"
           ? raw.sidebarShowFleetView
           : defaultSettings.sidebarShowFleetView;
+      state.settings.sidebarShowAgents =
+        typeof raw.sidebarShowAgents === "boolean"
+          ? raw.sidebarShowAgents
+          : defaultSettings.sidebarShowAgents;
+      state.settings.sidebarShowResults =
+        typeof raw.sidebarShowResults === "boolean"
+          ? raw.sidebarShowResults
+          : defaultSettings.sidebarShowResults;
+      state.settings.sidebarShowAiUsage =
+        typeof raw.sidebarShowAiUsage === "boolean"
+          ? raw.sidebarShowAiUsage
+          : defaultSettings.sidebarShowAiUsage;
       state.settings.sidebarNavView = normalizeSidebarNavView(
         raw.sidebarNavView,
       );

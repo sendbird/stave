@@ -1,9 +1,8 @@
+import { SidebarSettingsCard } from "./settings-dialog-sidebar-card";
 import { memo, useMemo, useRef, useState } from "react";
 import {
   Check,
   Contrast,
-  FolderTree,
-  ListChecks,
   Monitor,
   Moon,
   Sun,
@@ -25,7 +24,6 @@ import {
   type CustomThemeDefinition,
   type ThemeModeName,
   type ThemeTokenName,
-  type SidebarNavView,
   useAppStore,
 } from "@/store/app.store";
 import {
@@ -44,24 +42,11 @@ function formatThemeTokenLabel(token: ThemeTokenName) {
     .join(" ");
 }
 
-const SIDEBAR_NAV_VIEW_FIELDS: readonly {
-  value: SidebarNavView;
-  label: string;
-  Icon: typeof FolderTree;
-}[] = [
-  { value: "projects", label: "Repositories", Icon: FolderTree },
-  { value: "work-queue", label: "Work queue", Icon: ListChecks },
-] as const;
-
 export function ThemeSection() {
   const [themeEditorMode, setThemeEditorMode] =
     useState<ThemeModeName>("light");
   const themeMode = useAppStore((state) => state.settings.themeMode);
   const customThemeId = useAppStore((state) => state.settings.customThemeId);
-  const sidebarShowFleetView = useAppStore(
-    (state) => state.settings.sidebarShowFleetView,
-  );
-  const sidebarNavView = useAppStore((state) => state.settings.sidebarNavView);
   const borderBeamEnabled = useAppStore(
     (state) => state.settings.borderBeamEnabled,
   );
@@ -136,43 +121,7 @@ export function ThemeSection() {
           </div>
         </SettingsCard>
 
-        <SettingsCard
-          title="Sidebar"
-          description="Choose which workspace navigation surfaces appear in the left sidebar."
-        >
-          <SwitchField
-            title="Fleet View Shortcut"
-            description="Show the Fleet View entry in the sidebar header area."
-            checked={sidebarShowFleetView}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { sidebarShowFleetView: checked } })
-            }
-          />
-          <LabeledField
-            title="Sidebar View"
-            description="Repositories lists workspaces by where they live; Work queue groups every workspace by what it wants from you. The toggle in the sidebar header changes this too, so the sidebar reopens in whichever view you used last."
-          >
-            <div className={sx(styles.rowWrapGap2)}>
-              {SIDEBAR_NAV_VIEW_FIELDS.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant={
-                    sidebarNavView === option.value ? "primary" : "outline"
-                  }
-                  size="sm"
-                  aria-pressed={sidebarNavView === option.value}
-                  onClick={() =>
-                    updateSettings({ patch: { sidebarNavView: option.value } })
-                  }
-                >
-                  <option.Icon className={sx(styles.iconMd)} />
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          </LabeledField>
-        </SettingsCard>
+        <SidebarSettingsCard />
 
         <SettingsCard
           title="Motion"
