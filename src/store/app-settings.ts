@@ -5,6 +5,7 @@
  * max-lines ratchet. `app.store` re-exports the public names.
  */
 import { DEFAULT_MY_STANDARDS, type MyStandards } from "@/lib/agents/standards";
+import { DEFAULT_APP_LOCALE, type AppLocale } from "@/i18n/locale";
 import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import type {
   LensAgentPresentationMode,
@@ -128,6 +129,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
   showPresetBar: boolean;
+  /**
+   * Display language for Stave's own UI. User content, provider output and AI
+   * responses are never translated by this setting.
+   */
+  language: AppLocale;
   themeMode: "light" | "dark" | "system";
   /** ID of the active custom theme preset, or `null` for the default. */
   customThemeId: string | null;
@@ -656,6 +662,7 @@ export function normalizeSidebarNavView(value: unknown): SidebarNavView {
 
 export const defaultSettings: AppSettings = {
   showPresetBar: true,
+  language: DEFAULT_APP_LOCALE,
   themeMode: "dark",
   customThemeId: null,
   sidebarShowFleetView: true,

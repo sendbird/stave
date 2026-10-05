@@ -2702,6 +2702,11 @@ contextBridge.exposeInMainWorld("api", {
     cancelAppQuit: () =>
       ipcRenderer.invoke("window:cancel-app-quit") as Promise<{ ok: boolean }>,
     isMaximized: () => ipcRenderer.invoke("window:is-maximized"),
+    setLocale: (args: { locale: "en" | "ko" }) =>
+      ipcRenderer.invoke("window:set-locale", args) as Promise<{
+        ok: boolean;
+        locale?: "en" | "ko";
+      }>,
     getGpuStatus: () =>
       ipcRenderer.invoke("window:get-gpu-status") as Promise<{
         hardwareAccelerationEnabled: boolean;

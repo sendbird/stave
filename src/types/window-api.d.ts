@@ -1,3 +1,4 @@
+import type { AppLocale } from "@/i18n/locale";
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
 import type { ProviderAccountsBridgeApi } from "@/lib/providers/provider-accounts";
 import type { ApiConnectionsBridgeApi } from "@/lib/providers/api-connections";
@@ -3022,6 +3023,10 @@ interface WindowApi {
     confirmAppQuit?: () => Promise<{ ok: boolean }>;
     cancelAppQuit?: () => Promise<{ ok: boolean }>;
     isMaximized?: () => Promise<{ isMaximized: boolean }>;
+    /** Push the display language so native menus and dialogs follow it. */
+    setLocale?: (args: {
+      locale: AppLocale;
+    }) => Promise<{ ok: boolean; locale?: AppLocale }>;
     getGpuStatus?: () => Promise<{
       hardwareAccelerationEnabled: boolean;
       featureStatus: Record<string, string>;

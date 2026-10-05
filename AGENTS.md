@@ -213,6 +213,33 @@ Rules:
 - Keep shell chrome separate from PTY lifecycle logic.
 - Use shared slot-key helpers instead of hardcoded formats.
 
+## Internationalization Guardrails
+
+Stave's UI ships in English (default) and Korean. Every user-facing string
+exists in both languages; English-only copy is a build failure, not a follow-up.
+Full rules, the namespace map, the Korean style guide and the glossary are in
+`docs/developer/i18n.md`.
+
+- Put every user-facing string — visible text, `aria-label`, `title`, `alt`,
+  placeholders, toasts, dialog and menu copy, empty and error states — in
+  `src/locales/en/<namespace>.json` **and** `src/locales/ko/<namespace>.json` in
+  the same change. Never add only the English entry.
+- Import `useTranslation`, `Trans` and `i18n` from `@/i18n`, not from
+  `react-i18next` or `i18next`.
+- Components that render translated text call `useTranslation()`. Never call
+  `t` at module scope; constant tables hold `I18nKey` values.
+- Translate whole sentences with interpolation and `count` plurals; never
+  concatenate fragments. English plurals use `_one`/`_other`, Korean `_other`.
+- Format dates, numbers and relative times with the helpers in `src/i18n/format.ts`.
+- Do not translate user content, provider/AI output, model-facing prompts or
+  tool descriptions, protocol values, or diagnostic logs. Mark a flagged literal
+  of that kind with `// i18n-ignore: <reason>`.
+- Main-process menus and dialogs use `tMain` from `electron/main/i18n.ts` and
+  the `desktop` namespace.
+- `bun run check:i18n` runs in `test:ci`, `build` and `build:desktop`. Do not
+  weaken `config/i18n.json` (terms, scan scope, `untranslatedKeys`) to make it
+  pass; translate the text instead.
+
 ## Zustand And React Guardrails
 
 Hot surfaces in this repository are sensitive to unstable selectors and long-lived effect mistakes.
@@ -244,6 +271,7 @@ Use the smallest relevant check set for the change, then escalate when the scope
 Common commands:
 
 - `bun run check:licenses`
+- `bun run check:i18n`
 - `bun run typecheck`
 - `bun test`
 - `bun run build`

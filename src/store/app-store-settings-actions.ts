@@ -35,6 +35,7 @@ import {
   resolveDarkModeForTheme,
 } from "@/lib/themes";
 import { normalizeVisualCommentShortcut } from "@/lib/visual-comment-shortcuts";
+import { applyAppLocale, normalizeAppLocale } from "@/i18n";
 import { normalizeWorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import {
@@ -402,6 +403,9 @@ export function createSettingsActions(args: {
           : {
               sidebarNavView: normalizeSidebarNavView(patch.sidebarNavView),
             }),
+        ...(patch.language === undefined
+          ? {}
+          : { language: normalizeAppLocale(patch.language) }),
         ...(patch.turnActivityPlacement === undefined
           ? {}
           : {
@@ -704,6 +708,9 @@ export function createSettingsActions(args: {
       }
       if (nextIsDark !== null) {
         applyThemeClass({ enabled: nextIsDark });
+      }
+      if (normalizedPatch.language !== undefined) {
+        applyAppLocale(get().settings.language);
       }
       if (
         normalizedPatch.messageFontFamily !== undefined ||

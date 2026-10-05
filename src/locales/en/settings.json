@@ -1,0 +1,8 @@
+{
+  "general": {
+    "language": {
+      "title": "Language",
+      "description": "Choose the language for Stave menus, settings and messages. Your prompts, files and AI responses are not translated."
+    }
+  }
+}

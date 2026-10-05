@@ -13,6 +13,11 @@ import {
 } from "./main/stave-mcp-server";
 import { createMainWindow, getMainWindow } from "./main/window";
 import { buildApplicationMenu } from "./main/application-menu";
+import {
+  loadPersistedMainLocale,
+  onMainLocaleChange,
+  tMain,
+} from "./main/i18n";
 import { requestRendererPersistenceFlush } from "./main/persistence-flush-gate";
 import { confirmPersistenceBeforeQuit } from "./main/quit-persistence-policy";
 import {
@@ -66,13 +71,16 @@ function runBeforeQuitCleanup() {
         const { dialog } = await import("electron");
         const options = {
           type: "warning" as const,
-          buttons: ["Keep Stave open", "Retry saving", "Quit without saving"],
+          buttons: [
+            tMain("unsavedChanges.keepOpen"),
+            tMain("unsavedChanges.retry"),
+            tMain("unsavedChanges.quitWithoutSaving"),
+          ],
           defaultId: 0,
           cancelId: 0,
-          title: "Changes have not been saved",
-          message: "Stave could not save your latest workspace changes.",
-          detail:
-            "Keep Stave open to preserve your current work, or retry saving before quitting.",
+          title: tMain("unsavedChanges.title"),
+          message: tMain("unsavedChanges.message"),
+          detail: tMain("unsavedChanges.detail"),
         };
         const window = getMainWindow();
         const result =
@@ -124,7 +132,11 @@ if (hasSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
+    loadPersistedMainLocale();
     Menu.setApplicationMenu(buildApplicationMenu());
+    onMainLocaleChange(() => {
+      Menu.setApplicationMenu(buildApplicationMenu());
+    });
     registerHandlers();
     createMainWindow();
     startTrackerIssuesRuntime();
@@ -198,13 +210,12 @@ async function showQuitConfirmation(): Promise<boolean> {
 
   const options = {
     type: "question" as const,
-    buttons: ["Quit", "Cancel"],
+    buttons: [tMain("quitConfirmation.quit"), tMain("quitConfirmation.cancel")],
     defaultId: 0,
     cancelId: 1,
-    title: "Quit Stave",
-    message: "Are you sure you want to quit?",
-    detail:
-      "Any running tasks will be stopped and unsaved changes may be lost.",
+    title: tMain("quitConfirmation.title"),
+    message: tMain("quitConfirmation.message"),
+    detail: tMain("quitConfirmation.detail"),
   };
 
   const { response } = parentWindow

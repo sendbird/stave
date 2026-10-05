@@ -14,6 +14,7 @@ If you want to install and use the product, start with:
 - [Provider session stability](provider-session-stability.md)
 - [Terminal regression prevention](terminal-regression-prevention.md)
 - [Zustand selector stability](zustand-selector-stability.md)
+- [Internationalization (English and Korean)](i18n.md)
 
 ## Architecture And Runtime
 
