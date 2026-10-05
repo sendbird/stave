@@ -76,7 +76,9 @@ export function UsageTimeline(props: { report: UsageStatisticsReport; granularit
   </section>;
 }
 
-export function UsageBreakdowns(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; onAccount: (providerId: import("@/lib/providers/provider.types").ProviderId, id: string) => void }) {
+export function UsageBreakdowns(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[];
+  onAccount: (providerId: import("@/lib/providers/provider.types").ProviderId, id: string) => void;
+  onModel: (providerId: import("@/lib/providers/provider.types").ProviderId, id: string | null) => void }) {
   return <div className={sx(styles.columns)}>
     <section className={sx(styles.section)} aria-label="Usage by account"><h2 className={sx(styles.heading)}>By account</h2>
       <Table><TableHeader><TableRow><TableHead>Account</TableHead><TableHead>Turns</TableHead><TableHead>Tokens</TableHead><TableHead>Reported USD</TableHead></TableRow></TableHeader>
@@ -86,9 +88,10 @@ export function UsageBreakdowns(props: { report: UsageStatisticsReport; profiles
         </TableRow>)}</TableBody></Table>
     </section>
     <section className={sx(styles.section)} aria-label="Usage by model"><h2 className={sx(styles.heading)}>By model</h2>
+      <p className={sx(styles.note)}>Select a model to inspect its totals, trend and turn history.</p>
       <Table><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Turns</TableHead><TableHead>Tokens</TableHead><TableHead>Reported USD</TableHead></TableRow></TableHeader>
         <TableBody>{props.report.models.map((row) => <TableRow key={`${row.providerId}:${row.modelId}`}>
-          <TableCell className={sx(styles.wrap)}>{row.modelId ?? "Model not recorded"}<p className={sx(styles.note)}>{USAGE_PROVIDER_NAMES[row.providerId]}</p></TableCell>
+          <TableCell className={sx(styles.wrap)}><Button variant="link" size="sm" onClick={() => props.onModel(row.providerId, row.modelId)}>{row.modelId ?? "Model not recorded"}</Button><p className={sx(styles.note)}>{USAGE_PROVIDER_NAMES[row.providerId]}</p></TableCell>
           <TableCell>{row.turns}</TableCell><TableCell className={sx(styles.number)}>{row.measuredTurns ? exactNumber(row.tokens) : "Not reported"}</TableCell><TableCell className={sx(styles.number)}>{reportedCost(row.costUsd)}</TableCell>
         </TableRow>)}</TableBody></Table>
     </section>

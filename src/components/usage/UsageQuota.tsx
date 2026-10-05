@@ -7,12 +7,15 @@ import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import type { QuotaObservation, UsageStatisticsReport } from "@/lib/providers/usage-statistics";
 import { usageScopeLabel, usageTimestamp } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
+import { groupQuotaAccounts, quotaResetCountdown } from "./usage-quota.utils";
+import type { ProviderId } from "@/lib/providers/provider.types";
 
 const identity = (row: QuotaObservation) => `${row.providerId}:${row.accountProfileId}:${row.windowId}`;
 const percent = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
 
 export function UsageQuota(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string;
-  canRefresh: boolean; reading: boolean; error: string | null; onRefresh: () => void; now: number; apiBilling: boolean }) {
+  canRefresh: boolean; reading: boolean; error: string | null; onRefresh: () => void; now: number; apiBilling: boolean;
+  providerId?: ProviderId; accountProfileId?: string; onAccount: (providerId: ProviderId, accountProfileId: string) => void }) {
   const [showHistory, setShowHistory] = useState(false);
   const [windowId, setWindowId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -25,6 +28,9 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
   const first = Date.parse(history[0]?.observedAt ?? "");
   const last = Date.parse(history.at(-1)?.observedAt ?? "");
   const max = Math.max(100, ...history.map((row) => row.usedPercent));
+  const accounts = groupQuotaAccounts({ observations: props.report.latestQuota,
+    accounts: [...props.report.knownAccounts, ...props.profiles.map((profile) => ({ providerId: profile.providerId, accountProfileId: profile.id }))],
+    providerId: props.providerId, accountProfileId: props.accountProfileId, now: props.now });
   return <section className={sx(styles.section)} aria-label="Account quota">
     <div className={sx(styles.header)}>
       <div className={sx(styles.stack, styles.headerCopy)}><h2 className={sx(styles.heading)}>Account quota</h2>
@@ -32,21 +38,24 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
       <Button xstyle={styles.control} variant="outline" size="sm" disabled={!props.canRefresh || props.reading} onClick={props.onRefresh}>{props.reading ? "Reading quota…" : "Refresh quota"}</Button>
     </div>
     {props.error ? <p role="alert" className={sx(styles.note)}>{props.error} Saved observations below may be older.</p> : null}
-    {props.apiBilling ? <p className={sx(styles.note)}>This API connection is billed by its gateway. Subscription quota is unavailable; Stave turn tokens and reported cost are shown below.</p> : null}
-    {props.report.latestQuota.length === 0 ? <p className={sx(styles.note)}>No quota observations saved for this selection. Choose a provider and an account, then refresh. Unsupported or unavailable limits are never shown as 0%.</p> : <div className={sx(styles.quotas)}>
-      {props.report.latestQuota.map((row) => {
+    {props.apiBilling ? <p className={sx(styles.note)}>This API connection is billed by its gateway. Subscription quota is unavailable; see Tokens & cost for Stave turn usage.</p> : null}
+    <p className={sx(styles.note)}>Accounts are listed separately, with the next reset first within each provider. Percentages are never pooled across accounts.</p>
+    {accounts.length === 0 ? <p className={sx(styles.note)}>No accounts in this selection. Unsupported or unavailable limits are never shown as 0%.</p> : <div className={sx(styles.quotas)}>
+      {accounts.map((account) => <div className={sx(styles.quota)} key={`${account.providerId}:${account.accountProfileId}`}>
+        <Button variant="link" size="sm" onClick={() => props.onAccount(account.providerId, account.accountProfileId)}>{usageScopeLabel(account.providerId, account.accountProfileId, props.profiles)}</Button>
+        {account.windows.length === 0 ? <p className={sx(styles.note)}>No saved quota. Select this account and refresh to check available limits.</p> : account.windows.map((row) => {
         const stale = props.now - Date.parse(row.observedAt) > 15 * 60_000;
         const expired = row.resetsAt !== null && row.resetsAt * 1000 <= props.now;
-        return <div className={sx(styles.quota)} key={identity(row)}>
-          <p className={sx(styles.note)}>{usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}</p>
-          <div className={sx(styles.header)}><span>{row.label}</span><strong className={sx(styles.number)}>{percent(row.usedPercent)} used</strong></div>
+        return <div className={sx(styles.quotaWindow)} key={identity(row)}>
+          <div className={sx(styles.header)}><span>{row.label}</span><strong className={sx(styles.number)}>{percent(Math.max(0, 100 - row.usedPercent))} remaining</strong></div>
+          <p className={sx(styles.note)}>{percent(row.usedPercent)} used{stale || expired ? " · older observation" : ""}</p>
           <div role="meter" aria-label={`${usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)} · ${row.label}`}
             aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, row.usedPercent)} aria-valuetext={`${percent(row.usedPercent)} used${expired ? ", reset time has passed" : stale ? ", older observation" : ""}`}
             className={sx(styles.track)}><div className={sx(styles.fill, row.usedPercent >= 97 ? styles.danger : row.usedPercent >= 80 && styles.warning)} style={{ width: `${Math.min(100, row.usedPercent)}%` }} /></div>
-          <p className={sx(styles.note)}>{row.resetsAt === null ? "Reset time not reported" : `${expired ? "Reset time passed" : "Resets"} · ${usageTimestamp(new Date(row.resetsAt * 1000).toISOString(), props.timeZone)}`}</p>
+          <p className={sx(styles.note)}>{quotaResetCountdown(row.resetsAt, props.now)}{row.resetsAt !== null ? ` · ${usageTimestamp(new Date(row.resetsAt * 1000).toISOString(), props.timeZone)}` : ""}</p>
           <p className={sx(styles.note)}>{stale || expired ? "Older observation · " : "Observed · "}{usageTimestamp(row.observedAt, props.timeZone)}</p>
         </div>;
-      })}
+      })}</div>)}
     </div>}
     {!props.canRefresh ? <p className={sx(styles.note)}>Choose a provider and one registered account to refresh its quota. Browsing these filters keeps the account for new turns unchanged.</p> : null}
     <Button variant="quiet" size="sm" aria-expanded={showHistory} onClick={() => setShowHistory((value) => !value)}>{showHistory ? "Hide quota history" : "Show quota history"}</Button>

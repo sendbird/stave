@@ -107,19 +107,20 @@ export class UsageStatisticsStore {
   private readReport(args: UsageStatisticsArgs): UsageStatisticsReport {
     const params = [args.from, args.to, args.providerId ?? null, args.providerId ?? null,
       args.accountProfileId ?? null, args.accountProfileId ?? null];
-    const totals = this.db.prepare(`${USAGE_CTE} SELECT ${METRIC_SUMS} FROM usage`).get(...params) as UsageMetrics;
+    const turnParams = [...params, args.modelId === undefined ? 0 : 1, args.modelId ?? null];
+    const totals = this.db.prepare(`${USAGE_CTE} SELECT ${METRIC_SUMS} FROM usage`).get(...turnParams) as UsageMetrics;
     totals.measuredTurns ??= 0;
     totals.costReportedTurns ??= 0;
     const accounts = this.db.prepare(`${USAGE_CTE} SELECT provider_id AS providerId,
       account_profile_id AS accountProfileId, ${METRIC_SUMS} FROM usage GROUP BY provider_id, account_profile_id
-      ORDER BY tokens DESC, provider_id, account_profile_id`).all(...params) as UsageAccountTotal[];
+      ORDER BY tokens DESC, provider_id, account_profile_id`).all(...turnParams) as UsageAccountTotal[];
     const models = this.db.prepare(`${USAGE_CTE} SELECT provider_id AS providerId, model_id AS modelId,
       ${METRIC_SUMS} FROM usage GROUP BY provider_id, model_id ORDER BY tokens DESC, provider_id, model_id`)
-      .all(...params) as UsageModelTotal[];
+      .all(...turnParams) as UsageModelTotal[];
     // Minute groups preserve half/quarter-hour timezone boundaries. Aggregate in
     // SQLite first so all prompt-free rows need not cross into the renderer.
     const minutes = this.db.prepare(`${USAGE_CTE} SELECT strftime('%Y-%m-%dT%H:%M:00Z', created_at) AS at,
-      ${METRIC_SUMS} FROM usage GROUP BY at ORDER BY at`).all(...params) as Array<UsageMetrics & { at: string }>;
+      ${METRIC_SUMS} FROM usage GROUP BY at ORDER BY at`).all(...turnParams) as Array<UsageMetrics & { at: string }>;
     const buckets = new Map<string, UsageMetrics>();
     for (let at = Date.parse(args.from); at < Date.parse(args.to); at += 30 * 60_000) {
       buckets.set(usageBucketKey(new Date(at).toISOString(), args.timeZone, args.granularity), emptyUsageMetrics());
@@ -134,7 +135,7 @@ export class UsageStatisticsStore {
     const turns = this.db.prepare(`${USAGE_CTE} SELECT id, provider_id AS providerId,
       account_profile_id AS accountProfileId, model_id AS modelId, created_at AS createdAt,
       completed_at AS completedAt, ${TURN_METRICS} FROM usage ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`)
-      .all(...params, args.limit, args.offset) as UsageTurn[];
+      .all(...turnParams, args.limit, args.offset) as UsageTurn[];
     const knownAccounts = this.db.prepare(`SELECT DISTINCT provider_id AS providerId, account_profile_id AS accountProfileId
       FROM usage_turns UNION SELECT DISTINCT provider_id, account_profile_id FROM usage_quota_observations`)
       .all() as UsageStatisticsReport["knownAccounts"];

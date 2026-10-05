@@ -44,7 +44,8 @@ function quota(): QuotaObservation[] {
 export function usagePreviewReport(args: UsageStatisticsArgs, empty = false): UsageStatisticsReport {
   const all = empty ? [] : turns();
   const inScope = (row: { providerId: string; accountProfileId: string }) => (!args.providerId || row.providerId === args.providerId) && (!args.accountProfileId || row.accountProfileId === args.accountProfileId);
-  const selected = all.filter((row) => inScope(row) && row.createdAt >= args.from && row.createdAt < args.to);
+  const selected = all.filter((row) => inScope(row) && row.createdAt >= args.from && row.createdAt < args.to
+    && (args.modelId === undefined || row.modelId === args.modelId));
   const totals = emptyUsageMetrics();
   const accounts = new Map<string, UsageStatisticsReport["accounts"][number]>();
   const models = new Map<string, UsageStatisticsReport["models"][number]>();

@@ -14,6 +14,7 @@ export const USAGE_CTE = `WITH raw AS (
   FROM usage_turns
   WHERE created_at >= ? AND created_at < ? AND completed_at IS NOT NULL
     AND (? IS NULL OR provider_id = ?) AND (? IS NULL OR account_profile_id = ?)
+    AND (? = 0 OR model_id IS ?)
 ), counters AS (
   SELECT *,
     CASE WHEN ${valid("raw_input")} AND ${valid("raw_output")} THEN 1 ELSE 0 END AS measured,

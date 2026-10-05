@@ -19,6 +19,8 @@ export const UsageStatisticsArgsSchema = z.object({
   granularity: z.enum(["day", "hour"]).default("day"),
   providerId: z.enum(["claude-code", "codex", "cursor", "kiro"]).optional(),
   accountProfileId: z.union([ProviderAccountProfileIdSchema, z.literal(UNATTRIBUTED_ACCOUNT_ID)]).optional(),
+  /** null selects turns with no recorded model; omission selects every model. */
+  modelId: z.string().min(1).max(500).nullable().optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).max(1_000_000).default(0),
 }).strict().refine((args) => {

@@ -32,6 +32,27 @@ function sum(rows: import("../src/lib/providers/usage-statistics").UsageMetrics[
 }
 
 describe("account usage query", () => {
+  test("model drilldown filters every turn aggregate without filtering account quota", () => {
+    turn("model-a", "codex", ACCOUNT_A, { inputTokens: 100, outputTokens: 20 });
+    turn("model-b", "codex", ACCOUNT_A, { inputTokens: 500, outputTokens: 40 });
+    store.resolveModel("model-b", "model-b", 1);
+    store.beginTurn({ id: "unknown-model", providerId: "codex", accountProfileId: ACCOUNT_A, createdAt: FROM });
+    store.completeTurn("unknown-model", TO, JSON.stringify({ inputTokens: 3, outputTokens: 2 }));
+    const snapshot = emptyRateLimitsSnapshot();
+    snapshot.codex = { source: "rpc", error: null, buckets: [{ limitId: "account", limitName: "Account", primary: { usedPercent: 25, windowDurationMins: 300, resetsAt: null }, secondary: null, credits: null }] };
+    store.recordQuota(snapshot, { codexAccountProfileId: ACCOUNT_A }, FROM);
+    const onlyA = store.read(filters({ providerId: "codex", accountProfileId: ACCOUNT_A, modelId: "model-a" }));
+    expect(onlyA.totals.tokens).toBe(120);
+    expect(sum(onlyA.series)).toEqual(onlyA.totals);
+    expect(sum(onlyA.accounts)).toEqual(onlyA.totals);
+    expect(onlyA.models.map((row) => row.modelId)).toEqual(["model-a"]);
+    expect(onlyA.turns.map((row) => row.id)).toEqual(["model-a"]);
+    expect(onlyA.latestQuota[0]?.usedPercent).toBe(25);
+    expect(store.read(filters({ providerId: "codex", modelId: null })).totals.tokens).toBe(5);
+    expect(store.read(filters({ modelId: "not-a-model" })).totals.turns).toBe(0);
+    expect(UsageStatisticsArgsSchema.safeParse({ ...filters(), modelId: "" }).success).toBe(false);
+    expect(UsageStatisticsArgsSchema.safeParse({ ...filters(), modelId: "x".repeat(501) }).success).toBe(false);
+  });
   test("isolates accounts, reconciles cache-normalized totals and never adds reasoning twice", () => {
     turn("claude-a", "claude-code", ACCOUNT_A, { inputTokens: 100, outputTokens: 20, cacheReadTokens: 900, cacheCreationTokens: 50, thoughtTokens: 10, totalCostUsd: 0.25 });
     turn("claude-b", "claude-code", ACCOUNT_B, { inputTokens: 7, outputTokens: 3 });
