@@ -50,7 +50,7 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
     <p className={sx(styles.note)}>{t("usage:usageQuota.accountsAreListedSeparatelyWithThe")}</p>
     {accounts.length === 0 ? <p className={sx(styles.note)}>{t("usage:usageQuota.noAccountsInThisSelectionUnsupported")}</p> : <div className={sx(styles.quotas)}>
       {accounts.map((account) => <div className={sx(styles.quota)} key={`${account.providerId}:${account.accountProfileId}`}>
-        <Button variant="link" size="sm" onClick={() => props.onAccount(account.providerId, account.accountProfileId)}>{usageScopeLabel(account.providerId, account.accountProfileId, props.profiles)}</Button>
+        <Button variant="link" size="sm" flushInline onClick={() => props.onAccount(account.providerId, account.accountProfileId)}>{usageScopeLabel(account.providerId, account.accountProfileId, props.profiles)}</Button>
         {account.windows.length === 0 ? <p className={sx(styles.note)}>{i18n.t("usage:usageQuota.noSavedQuotaSelectThisAccount")}</p> : account.windows.map((row) => {
         const stale = props.now - Date.parse(row.observedAt) > 15 * 60_000;
         const expired = row.resetsAt !== null && row.resetsAt * 1000 <= props.now;

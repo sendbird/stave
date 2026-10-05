@@ -1,6 +1,7 @@
-import { formatNumber } from "@/i18n/format";
+import { formatDateTime, formatNumber } from "@/i18n/format";
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
 import { transition } from "@/components/ads/recipes/transition";
@@ -9,7 +10,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { USAGE_PROVIDER_NAMES, type UsageMetrics, type UsageStatisticsReport } from "@/lib/providers/usage-statistics";
-import { usageScopeLabel, usageTimestamp } from "./usage-view.utils";
+import { USAGE_TURN_PAGE_SIZE, groupUsageTurnsByDay, usageScopeLabel, usageTimestamp } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
 
 export const exactNumber = (value: number) => formatNumber(value);
@@ -96,31 +97,56 @@ export function UsageBreakdowns(props: { report: UsageStatisticsReport; profiles
       <p className={sx(styles.note)}>{t("usage:usageParts.selectAModelToInspectIts")}</p>
       <Table><TableHeader><TableRow><TableHead>{t("settingsProviders:auxiliaryInference.model.title")}</TableHead><TableHead>{t("settingsProviders:codexThreadsTab.metrics.turns")}</TableHead><TableHead>{t("usage:usageParts.tokens")}</TableHead><TableHead>{t("usage:usageParts.reportedUSD")}</TableHead></TableRow></TableHeader>
         <TableBody>{props.report.models.map((row) => <TableRow key={`${row.providerId}:${row.modelId}`}>
-          <TableCell className={sx(styles.wrap)}><Button variant="link" size="sm" onClick={() => props.onModel(row.providerId, row.modelId)}>{row.modelId ?? i18n.t("usage:usageParts.modelNotRecorded")}</Button><p className={sx(styles.note)}>{USAGE_PROVIDER_NAMES[row.providerId]}</p></TableCell>
+          <TableCell className={sx(styles.wrap)}><Button variant="link" size="sm" flushInline onClick={() => props.onModel(row.providerId, row.modelId)}>{row.modelId ?? i18n.t("usage:usageParts.modelNotRecorded")}</Button><p className={sx(styles.note)}>{USAGE_PROVIDER_NAMES[row.providerId]}</p></TableCell>
           <TableCell>{row.turns}</TableCell><TableCell className={sx(styles.number)}>{row.measuredTurns ? exactNumber(row.tokens) : i18n.t("usage:usageParts.notReported")}</TableCell><TableCell className={sx(styles.number)}>{reportedCost(row.costUsd)}</TableCell>
         </TableRow>)}</TableBody></Table>
     </section>
   </div>;
 }
 
-export function UsageTurnTable(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string; offset: number; onPage: (offset: number) => void }) {
+export function UsageTurnHistory(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string; offset: number; onPage: (offset: number) => void }) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  return <section className={sx(styles.section)} aria-label={t("usage:usageParts.turnUsageHistory")}>
-    <h2 className={sx(styles.heading)}>{t("usage:usageParts.turnHistory")}</h2><p className={sx(styles.note)}>{t("usage:whole.turnsTimezone", { zone: props.timeZone })}</p>
-    <Table><TableHeader><TableRow><TableHead>{t("usage:usageParts.started")}</TableHead><TableHead>{t("usage:usageParts.accountModel")}</TableHead><TableHead>{t("usage:usageParts.input")}</TableHead><TableHead>{t("usage:usageParts.output")}</TableHead><TableHead>{t("usage:usageParts.cacheReadWrite")}</TableHead><TableHead>{t("usage:usageParts.tokensExcludingCacheReadsAdditional")}</TableHead><TableHead>{t("usage:usageParts.reportedUSD")}</TableHead></TableRow></TableHeader>
-      <TableBody>{props.report.turns.map((row) => <TableRow key={row.id}>
-        <TableCell className={sx(styles.number)}><time dateTime={row.createdAt}>{usageTimestamp(row.createdAt, props.timeZone)}</time></TableCell>
-        <TableCell className={sx(styles.wrap)}>{usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}<p className={sx(styles.note)}>{row.modelId ?? i18n.t("usage:usageParts.modelNotRecorded")}</p></TableCell>
-        <TableCell className={sx(styles.end)}>{row.measuredTurns ? exactNumber(row.inputTokens) : "—"}</TableCell>
-        <TableCell className={sx(styles.end)}>{row.measuredTurns ? exactNumber(row.outputTokens) : "—"}</TableCell>
-        <TableCell className={sx(styles.end)}>{row.measuredTurns ? `${exactNumber(row.cacheReadTokens)} / ${exactNumber(row.cacheCreationTokens)}` : "—"}</TableCell>
-        <TableCell className={sx(styles.end)}>{row.measuredTurns ? exactNumber(row.tokens) : i18n.t("usage:usageParts.notReported")}</TableCell>
-        <TableCell className={sx(styles.end)}>{reportedCost(row.costUsd)}</TableCell>
-      </TableRow>)}</TableBody></Table>
+  const groups = groupUsageTurnsByDay(props.report.turns, props.timeZone);
+  const date = (value: string) => formatDateTime(value, { timeZone: props.timeZone, dateStyle: "full" });
+  const time = (value: string) => formatDateTime(value, { timeZone: props.timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  return <section className={sx(styles.section, styles.history)} aria-label={t("usage:usageParts.turnUsageHistory")}>
+    <h2 className={sx(styles.heading)}>{t("usage:usageParts.turnHistory")}</h2>
+    <p className={sx(styles.note)}>{t("usage:usageParts.historyDescription", { zone: props.timeZone, pageSize: USAGE_TURN_PAGE_SIZE })}</p>
+    {groups.length === 0 ? <p className={sx(styles.note)}>{t("usage:usageParts.noCompletedTurns")}</p> : groups.map((group) => <section key={group.day} className={sx(styles.stack)}>
+      <h3 className={sx(styles.historyDate)}>{date(group.turns[0]!.createdAt)}</h3>
+      <ul className={sx(styles.historyList)}>
+        {group.turns.map((row) => <li key={row.id}>
+          <details className={sx(styles.historyTurn)}>
+            <summary className={sx(styles.historySummary, focusRing.ring)}>
+              <time dateTime={row.createdAt} title={usageTimestamp(row.createdAt, props.timeZone)} className={sx(styles.note, styles.number)}>{time(row.createdAt)}</time>
+              <span className={sx(styles.historyIdentity)}>
+                <span className={sx(styles.historyModel)}>{row.modelId ?? t("usage:usageParts.modelNotRecorded")}</span>
+                <span className={sx(styles.note, styles.historyAccount)} title={usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}>{usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}</span>
+              </span>
+              <span className={sx(styles.historyMetrics)}>
+                <span className={sx(styles.historyMetric)}><span className={sx(styles.note)} title={t("usage:usageParts.tokensExcludingCacheReadsAdditional")}>{t("usage:usageParts.tokens")}</span><span className={sx(styles.number)}>{row.measuredTurns ? exactNumber(row.tokens) : t("usage:usageParts.notReported")}</span></span>
+                <span className={sx(styles.historyMetric)}><span className={sx(styles.note)}>{t("usage:usageParts.reportedUSD")}</span><span className={sx(styles.number)}>{reportedCost(row.costUsd)}</span></span>
+              </span>
+              <ChevronRight aria-hidden="true" className={sx(styles.historyChevron)} />
+            </summary>
+            <dl className={sx(styles.historyDetails)}>
+              {[{ label: t("settingsProviders:codexOverviewTab.runtime.account"), value: usageScopeLabel(row.providerId, row.accountProfileId, props.profiles) },
+                { label: t("usage:usageParts.started"), value: usageTimestamp(row.createdAt, props.timeZone) },
+                { label: t("usage:usageParts.input"), value: row.measuredTurns ? exactNumber(row.inputTokens) : t("usage:usageParts.notReported") },
+                { label: t("usage:usageParts.output"), value: row.measuredTurns ? exactNumber(row.outputTokens) : t("usage:usageParts.notReported") },
+                { label: t("usage:usageParts.cacheReadWrite"), value: row.measuredTurns ? `${exactNumber(row.cacheReadTokens)} / ${exactNumber(row.cacheCreationTokens)}` : t("usage:usageParts.notReported") }].map((item) => <div key={item.label} className={sx(styles.stack)}>
+                  <dt className={sx(styles.note)}>{item.label}</dt><dd className={sx(styles.historyDetailValue)}>{item.value}</dd>
+                </div>)}
+            </dl>
+          </details>
+        </li>)}
+      </ul>
+    </section>)}
+    <p className={sx(styles.note)}>{t("usage:usageParts.historyMeasurements")}</p>
     <div className={sx(styles.row)}>
-      <Button variant="outline" size="sm" disabled={props.offset === 0} onClick={() => props.onPage(Math.max(0, props.offset - 50))}>{t("usage:usageParts.previousTurns")}</Button>
+      <Button variant="outline" size="sm" disabled={props.offset === 0} onClick={() => props.onPage(Math.max(0, props.offset - USAGE_TURN_PAGE_SIZE))}>{t("usage:usageParts.previousTurns")}</Button>
       <p className={sx(styles.note)}>{props.report.totals.turns === 0 ? t("usage:usageParts.turns") : t("usage:usageParts.ofTurns", { value1: props.offset + 1, value2: props.offset + props.report.turns.length, value3: exactNumber(props.report.totals.turns) })}</p>
-      <Button variant="outline" size="sm" disabled={props.offset + 50 >= props.report.totals.turns} onClick={() => props.onPage(props.offset + 50)}>{t("usage:usageParts.nextTurns")}</Button>
+      <Button variant="outline" size="sm" disabled={props.offset + USAGE_TURN_PAGE_SIZE >= props.report.totals.turns} onClick={() => props.onPage(props.offset + USAGE_TURN_PAGE_SIZE)}>{t("usage:usageParts.nextTurns")}</Button>
     </div>
   </section>;
 }

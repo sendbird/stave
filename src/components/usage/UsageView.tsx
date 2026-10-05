@@ -14,9 +14,9 @@ import { UNATTRIBUTED_ACCOUNT_ID, USAGE_PROVIDER_NAMES, type UsageStatisticsArgs
 import type { QuotaReadFeedback } from "@/lib/providers/quota-read-feedback";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
-import { UsageBreakdowns, UsageFigures, UsageTimeline, UsageTurnTable } from "./UsageParts";
+import { UsageBreakdowns, UsageFigures, UsageTimeline, UsageTurnHistory } from "./UsageParts";
 import { UsageQuota } from "./UsageQuota";
-import { dateInputValue, loadUsageStatistics, USAGE_PERIOD_OPTIONS, usageAccountLabel, usageRange, type UsagePeriod, type UsageStatisticsLoader } from "./usage-view.utils";
+import { dateInputValue, loadUsageStatistics, USAGE_PERIOD_OPTIONS, USAGE_TURN_PAGE_SIZE, usageAccountLabel, usageRange, type UsagePeriod, type UsageStatisticsLoader } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
 import { readQuota, type QuotaReader } from "./quota-read-feedback";
 export type { QuotaReader } from "./quota-read-feedback";
@@ -62,7 +62,7 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
   const args = useMemo<UsageStatisticsArgs | null>(() => range ? ({ ...range, timeZone: zone, granularity,
     ...(provider !== ALL ? { providerId: provider } : {}), ...(provider !== ALL && account !== ALL ? { accountProfileId: account } : {}),
     ...(modelId !== undefined ? { modelId } : {}),
-    limit: 50, offset }) : null, [range?.from, range?.to, zone, granularity, provider, account, modelId, offset]);
+    limit: USAGE_TURN_PAGE_SIZE, offset }) : null, [range?.from, range?.to, zone, granularity, provider, account, modelId, offset]);
 
   useEffect(() => {
     if (!args) return;
@@ -146,7 +146,7 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
       </>}
       </Tabs.Panel>
       <Tabs.Panel value="history" xstyle={styles.section}>
-        <UsageTurnTable report={report} profiles={profiles} timeZone={zone} offset={offset} onPage={setOffset} />
+        <UsageTurnHistory report={report} profiles={profiles} timeZone={zone} offset={offset} onPage={setOffset} />
       </Tabs.Panel>
       <p className={sx(styles.note)}>{t("usage:messages.reportScope", { readAt: formatDateTime(report.generatedAt, { timeZone: zone, dateStyle: "medium", timeStyle: "short" }) })}</p>
     </>;
