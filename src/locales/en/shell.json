@@ -530,6 +530,8 @@
     "openAgents": "Open Agents",
     "openSavedAgentsTheirWorkflowsAndYour": "Open saved agents, their workflows, and your standards.",
     "savedAgentsTheirWorkflowsAndYourStandards": "Saved agents, their workflows, and your standards.",
+    "openAiUsage": "Open AI usage",
+    "aiUsageDescription": "View tokens, reported cost, account quotas and turn history.",
     "openResults": "Open agent performance",
     "seeHowEndedAgentRunsAndRuns": "Compare completion, time and reported cost across ended agent runs.",
     "outcomesTimeAndCostOfEndedAgent": "Agent completion, time and reported cost.",

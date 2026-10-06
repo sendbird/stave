@@ -526,6 +526,8 @@
     "openAgents": "에이전트 열기",
     "openSavedAgentsTheirWorkflowsAndYour": "저장된 에이전트, 워크플로 및 기준을 엽니다.",
     "savedAgentsTheirWorkflowsAndYourStandards": "저장된 에이전트, 워크플로 및 기준.",
+    "openAiUsage": "AI 사용량 열기",
+    "aiUsageDescription": "토큰, 보고된 비용, 계정 한도와 턴 기록을 확인합니다.",
     "openResults": "에이전트 성과 열기",
     "seeHowEndedAgentRunsAndRuns": "종료된 에이전트 실행의 완료율, 시간, 보고된 비용을 비교합니다.",
     "outcomesTimeAndCostOfEndedAgent": "에이전트 완료율, 시간, 보고된 비용.",

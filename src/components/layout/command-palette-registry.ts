@@ -1,6 +1,7 @@
 import { i18n } from "@/i18n";
 import {
   Bot,
+  Gauge,
   Command as CommandIcon,
   FolderOpen,
   GitBranch,
@@ -135,6 +136,7 @@ export interface CommandPaletteCommandHandlers {
   openIssues: () => void;
   openAgents: () => void;
   openResults: () => void;
+  openUsage: () => void;
   newAgent: () => void;
   startWorkWithAgent: () => void;
   refreshTrackerIssues: () => Promise<void> | void;
@@ -500,6 +502,24 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       icon: ChartNoAxesColumn,
       keywords: ["results", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],
       run: args.commands.openResults,
+      source: "core",
+    }),
+  },
+  {
+    id: "navigation.usage",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openAiUsage"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.aiUsageDescription"); },
+    group: "navigation",
+    icon: Gauge,
+    keywords: ["usage", "tokens", "cost", "quota", "account", "model", "AI"],
+    build: (args) => ({
+      id: "navigation.usage",
+      title: i18n.t("shell:commandPaletteRegistry.openAiUsage"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.aiUsageDescription"),
+      group: "navigation",
+      icon: Gauge,
+      keywords: ["usage", "tokens", "cost", "quota", "account", "model", "AI"],
+      run: args.commands.openUsage,
       source: "core",
     }),
   },
