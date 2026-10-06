@@ -61,10 +61,7 @@ import {
   buildRecentTimestamp,
   resolveMidTurnSteeringContext,
 } from "@/store/chat-state-helpers";
-import {
-  createProviderTurnEventController,
-  runProviderTurn,
-} from "@/store/provider-turn-runtime";
+import { createProviderTurnEventController, reportProviderEventConsumerFailure, runProviderTurn } from "@/store/provider-turn-runtime";
 import { endUsageLimitPauseOnTurnStart, settleTaskQueueAfterTurn } from "@/store/task-work-pause-wiring";
 import { guardSendAgainstAccountUsage } from "@/store/account-usage-guard";
 import { toast } from "@/lib/notifications/toast";
@@ -1302,6 +1299,7 @@ export function createSendUserMessageAction(args: {
         runtimeOverrides: promptDraft.runtimeOverrides,
       });
       const providerTurnEventController = createProviderTurnEventController({
+        onFlushError: (failure) => reportProviderEventConsumerFailure({ ...failure, provider, taskId: resolvedTaskId, turnId }),
         onEventArrived: () => {
           // Keeps a long-running turn inside the active usage tier
           // without a store write; the policy only re-arms its loop on
