@@ -56,6 +56,9 @@ export async function launchStave(
     args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
     cwd: REPO_ROOT,
     timeout: 60_000,
+    // Every launch would otherwise read each provider's account usage with the
+    // developer's own credentials; a suite run rate-limits those accounts.
+    env: { ...process.env, STAVE_DISABLE_ACCOUNT_USAGE_READS: "1" },
   });
 
   const page = await app.firstWindow({ timeout: 60_000 });

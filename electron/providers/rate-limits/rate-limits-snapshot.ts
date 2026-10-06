@@ -24,6 +24,22 @@ import { CODEX_RATE_LIMITS_ACTIVE_REFRESH_MS } from "../codex-rate-limits-cache"
  */
 export type RateLimitsForceReason = "manual" | "dispatch-guard";
 
+/**
+ * Turns every account-usage read into an immediate `unavailable` answer.
+ *
+ * Each launch otherwise reads every connected provider's usage with the
+ * signed-in user's own credentials, and an automated run that launches Stave
+ * dozens of times (the Electron e2e harness) turns that into rate-limited
+ * traffic against those accounts. Set to `1` for automated launches only.
+ */
+export const ACCOUNT_USAGE_READS_DISABLED_ENV = "STAVE_DISABLE_ACCOUNT_USAGE_READS";
+
+export function accountUsageReadsDisabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return env[ACCOUNT_USAGE_READS_DISABLED_ENV] === "1";
+}
+
 function shouldFetchProvider(
   providerId: ProviderId,
   providers: readonly ProviderId[] | undefined,
@@ -87,7 +103,21 @@ export async function getRateLimitsSnapshot(args: {
   optionalReadKey?: typeof optionalProviderReadKey;
   /** Host-only persistence hook. Cached responses are not new observations. */
   onObservation?: (snapshot: RateLimitsSnapshotResponse, metadata: QuotaObservationMetadata) => void;
+  env?: NodeJS.ProcessEnv;
 }): Promise<RateLimitsSnapshotResponse> {
+  if (accountUsageReadsDisabled(args.env)) {
+    const disabled: QuotaReadFeedback = { status: "unavailable", reason: "unavailable",
+      nextRefreshAt: null, nextAutomaticReadAt: null, lastReadFailed: false };
+    const providerIds: ProviderId[] = ["claude-code", "codex", "cursor", "kiro"];
+    return {
+      ...emptyRateLimitsSnapshot(),
+      reads: Object.fromEntries(
+        providerIds
+          .filter((providerId) => shouldFetchProvider(providerId, args.providers))
+          .map((providerId) => [providerId, disabled]),
+      ),
+    };
+  }
   return withProviderAccountScope(args.runtimeOptions, async () => {
   const providers = args.providers;
   const force = args.force;
