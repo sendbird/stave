@@ -1,4 +1,4 @@
-import type { Monaco } from "@monaco-editor/react";
+import type { Monaco } from "@/lib/monaco/bundled-monaco";
 import type { IPosition, IRange } from "monaco-editor";
 import { loadWorkspaceTypeScriptCompilerOptions, type WorkspaceTypeScriptCompilerOptions } from "./editor-monaco-tsconfig";
 
@@ -140,35 +140,35 @@ function buildMonacoCompilerOptions(args: {
   monaco: Monaco;
   workspaceCompilerOptions?: WorkspaceTypeScriptCompilerOptions | null;
 }) {
-  const scriptTargetValues = args.monaco.languages.typescript.ScriptTarget as unknown as Record<string, number>;
-  const moduleKindValues = args.monaco.languages.typescript.ModuleKind as unknown as Record<string, number>;
-  const moduleResolutionValues = args.monaco.languages.typescript.ModuleResolutionKind as unknown as Record<string, number>;
+  const scriptTargetValues = args.monaco.typescript.ScriptTarget as unknown as Record<string, number>;
+  const moduleKindValues = args.monaco.typescript.ModuleKind as unknown as Record<string, number>;
+  const moduleResolutionValues = args.monaco.typescript.ModuleResolutionKind as unknown as Record<string, number>;
   const workspaceCompilerOptions = args.workspaceCompilerOptions;
   return {
     target: resolveMonacoEnumValue({
       enumValues: scriptTargetValues,
       value: workspaceCompilerOptions?.target,
       fallbackKey: "ES2022",
-      fallbackValue: args.monaco.languages.typescript.ScriptTarget.ESNext,
+      fallbackValue: args.monaco.typescript.ScriptTarget.ESNext,
     }),
     lib: workspaceCompilerOptions?.lib?.map((entry) => entry.toLowerCase()) ?? ["es2022", "dom", "dom.iterable"],
     module: resolveMonacoEnumValue({
       enumValues: moduleKindValues,
       value: workspaceCompilerOptions?.module,
       fallbackKey: "ESNext",
-      fallbackValue: args.monaco.languages.typescript.ModuleKind.ESNext,
+      fallbackValue: args.monaco.typescript.ModuleKind.ESNext,
     }),
     moduleResolution: resolveMonacoEnumValue({
       enumValues: moduleResolutionValues,
       value: workspaceCompilerOptions?.moduleResolution,
       fallbackKey: "Bundler",
-      fallbackValue: args.monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      fallbackValue: args.monaco.typescript.ModuleResolutionKind.NodeJs,
     }),
     jsx: resolveMonacoEnumValue({
-      enumValues: args.monaco.languages.typescript.JsxEmit as unknown as Record<string, number>,
+      enumValues: args.monaco.typescript.JsxEmit as unknown as Record<string, number>,
       value: workspaceCompilerOptions?.jsx,
       fallbackKey: "ReactJSX",
-      fallbackValue: args.monaco.languages.typescript.JsxEmit.ReactJSX,
+      fallbackValue: args.monaco.typescript.JsxEmit.ReactJSX,
     }),
     allowJs: workspaceCompilerOptions?.allowJs ?? true,
     allowNonTsExtensions: true,
@@ -191,8 +191,8 @@ function applyMonacoCompilerOptions(args: {
   workspaceCompilerOptions?: WorkspaceTypeScriptCompilerOptions | null;
 }) {
   const compilerOptions = buildMonacoCompilerOptions(args);
-  args.monaco.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOptions);
-  args.monaco.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions);
+  args.monaco.typescript.typescriptDefaults.setCompilerOptions(compilerOptions);
+  args.monaco.typescript.javascriptDefaults.setCompilerOptions(compilerOptions);
 }
 
 function setMonacoTypeScriptSemanticDiagnosticsEnabled(args: {
@@ -204,8 +204,8 @@ function setMonacoTypeScriptSemanticDiagnosticsEnabled(args: {
     noSyntaxValidation: false,
     onlyVisible: true,
   };
-  args.monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
-  args.monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
+  args.monaco.typescript.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
+  args.monaco.typescript.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
 }
 
 export function configureMonacoDefaults(monaco: Monaco) {
@@ -215,8 +215,8 @@ export function configureMonacoDefaults(monaco: Monaco) {
 
   // Keep Monaco aligned with VS Code-style sync: only opened editor models are
   // mirrored to the TypeScript worker. Project-wide intelligence belongs to LSP.
-  monaco.languages.typescript.typescriptDefaults.setEagerModelSync(false);
-  monaco.languages.typescript.javascriptDefaults.setEagerModelSync(false);
+  monaco.typescript.typescriptDefaults.setEagerModelSync(false);
+  monaco.typescript.javascriptDefaults.setEagerModelSync(false);
   setMonacoTypeScriptSemanticDiagnosticsEnabled({
     monaco,
     enabled: false,

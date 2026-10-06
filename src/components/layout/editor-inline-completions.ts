@@ -1,4 +1,4 @@
-import type { Monaco } from "@monaco-editor/react";
+import type { Monaco } from "@/lib/monaco/bundled-monaco";
 import type { editor as MonacoEditorApi, IDisposable, IPosition } from "monaco-editor";
 import { useAppStore } from "@/store/app.store";
 import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
@@ -403,14 +403,7 @@ export function configureInlineCompletions(args: {
   savedTriggerRefresh = args.triggerInlineSuggestRefresh ?? null;
 
   if (!inlineCompletionChangeEmitter) {
-    const EmitterCtor = (args.monaco as Monaco & {
-      Emitter: new () => {
-        event: (listener: () => void, thisArg?: unknown) => IDisposable;
-        fire: (event: void) => void;
-        dispose: () => void;
-      };
-    }).Emitter;
-    inlineCompletionChangeEmitter = new EmitterCtor();
+    inlineCompletionChangeEmitter = new args.monaco.Emitter<void>();
   }
   const changeEmitter = inlineCompletionChangeEmitter!;
 

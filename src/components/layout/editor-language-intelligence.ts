@@ -1,4 +1,4 @@
-import type { Monaco } from "@monaco-editor/react";
+import type { Monaco } from "@/lib/monaco/bundled-monaco";
 import type {
   editor as MonacoEditorApi,
   IDisposable,
@@ -360,6 +360,8 @@ function registerProviders(monaco: Monaco) {
         const items = Array.isArray(payload) ? payload : Array.isArray(payload.items) ? payload.items : [];
 
         return {
+          // An item without a text edit has no range; Monaco then uses the word
+          // at the cursor, which its CompletionItem type does not express.
           suggestions: items
             .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
             .map((item) => {
@@ -385,7 +387,7 @@ function registerProviders(monaco: Monaco) {
                 filterText: typeof item.filterText === "string" ? item.filterText : undefined,
                 preselect: item.preselect === true,
               };
-            }),
+            }) as MonacoLanguages.CompletionItem[],
         };
       },
     });

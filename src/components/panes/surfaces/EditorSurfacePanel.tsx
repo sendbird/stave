@@ -2,7 +2,8 @@ import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
-import MonacoEditor, { DiffEditor, type Monaco } from "@monaco-editor/react";
+import MonacoEditor, { DiffEditor } from "@monaco-editor/react";
+import { useBundledMonaco, type Monaco } from "@/lib/monaco/bundled-monaco";
 import type {
   editor as MonacoEditorApi,
   IPosition,
@@ -276,6 +277,7 @@ export function EditorSurfacePanel(props: IDockviewPanelProps) {
 
 function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
   useTranslation();
+  const monacoReady = useBundledMonaco();
   const tab = useAppStore(
     (state) => state.editorTabs.find((item) => item.id === editorTabId) ?? null,
   );
@@ -984,6 +986,10 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
               content={tab.content}
               fontSize={editorFontSize}
             />
+          ) : !monacoReady ? (
+            // The bundled editor is still loading; mounting now would make the
+            // loader fetch its CDN build instead.
+            <div className={sx(styles.emptyHost)} aria-busy="true" />
           ) : renderDiffEditor ? (
             <DiffEditor
               key={diffSessionKey ?? "diff-editor"}
