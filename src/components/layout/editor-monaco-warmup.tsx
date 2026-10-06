@@ -1,4 +1,5 @@
 import MonacoEditor from "@monaco-editor/react";
+import { useBundledMonaco } from "@/lib/monaco/bundled-monaco";
 import { configureMonacoDefaults } from "./editor-monaco-workspace-support";
 
 // Mounts a hidden Monaco editor so module, workers, CSS and language services
@@ -6,6 +7,10 @@ import { configureMonacoDefaults } from "./editor-monaco-workspace-support";
 // the very first `editor.create()` blocks the main thread for a few hundred ms
 // and the UI appears to freeze when toggling the panel open on a file click.
 export function EditorMonacoWarmup({ onReady }: { onReady: () => void }) {
+  const monacoReady = useBundledMonaco();
+  if (!monacoReady) {
+    return null;
+  }
   return (
     <div
       aria-hidden="true"

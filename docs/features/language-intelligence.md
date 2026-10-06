@@ -14,6 +14,8 @@ TypeScript and JavaScript work immediately with lightweight Monaco support for t
 
 This keeps file opening fast in large workspaces. Stave does not mirror the full repository source tree or `node_modules` type graph into Monaco.
 
+The editor and its language workers ship with Stave, so they work offline and never load editor code from the network.
+
 For repository-aware behavior, turn on Repository Language Servers. With LSP enabled, you get:
 
 - module resolution based on your repository config

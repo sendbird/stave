@@ -12,6 +12,7 @@ This is the primary app architecture:
 - `electron/host-service.ts` owns isolated terminal, workspace script, provider, source-control, and local MCP task/session execution
 - `electron/providers/*` owns Claude SDK, Codex App Server, shared ACP profiles for Cursor and Kiro, and Stave routing execution plus event mapping used by the host-service runtime
 - `electron/main/lsp/*` owns optional stdio language-server sessions for Monaco
+- `src/lib/monaco/*` loads the bundled Monaco editor and its language workers on first use; editors mount only after it has configured `@monaco-editor/react`, so no editor code is fetched from a CDN
 - `electron/persistence/*` owns SQLite persistence
 
 The renderer does not call provider SDKs or git/PTY subprocesses directly. It sends provider, terminal, source-control, and local MCP task/session requests across the preload bridge, Electron main validates and routes them, and the dedicated `host-service` child process executes the heavy runtime work outside the main-process event loop.

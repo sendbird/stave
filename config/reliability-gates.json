@@ -378,6 +378,22 @@
         "src/lib/syntax-highlight.worker.ts",
         "src/components/ai-elements/code-block.tsx"
       ]
+    },
+    {
+      "id": "bundled-monaco-editor",
+      "title": "The editor runs from the bundled Monaco, never a CDN",
+      "invariant": "Every module that can mount a Monaco editor waits until the lazily loaded bundled runtime has called loader.config({ monaco }); an editor mounted earlier would make @monaco-editor/react fetch its CDN build. The editor, its diff view and the TypeScript worker work with the network offline.",
+      "testFiles": [
+        "tests/bundled-monaco-gate.test.ts",
+        "tests/editor-monaco-workspace-support.test.ts",
+        "tests/e2e-electron/bundled-monaco.electron.e2e.ts"
+      ],
+      "assertionRefs": [
+        "src/lib/monaco/bundled-monaco.ts",
+        "src/lib/monaco/monaco-runtime.ts",
+        "src/components/panes/surfaces/EditorSurfacePanel.tsx",
+        "src/components/layout/editor-monaco-warmup.tsx"
+      ]
     }
   ]
 }

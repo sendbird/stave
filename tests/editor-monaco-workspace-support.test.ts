@@ -33,44 +33,44 @@ function createFakeMonaco() {
         throw new Error("Workspace support should not create hidden Monaco models.");
       },
     },
-    languages: {
-      typescript: {
-        typescriptDefaults: {
-          addExtraLib: (_content: string, filePath: string) => {
-            incrementCount(extraLibAddCounts, filePath);
-            return {
-              dispose: () => {},
-            };
-          },
-          setCompilerOptions: (options: unknown) => compilerOptions.push(options),
-          setDiagnosticsOptions: (options: unknown) => diagnosticsOptions.push(options),
-          setEagerModelSync: (_enabled: boolean) => {},
+    // The bundled Monaco exposes the TypeScript service only at the top level;
+    // there is no `languages.typescript` alias at runtime.
+    typescript: {
+      typescriptDefaults: {
+        addExtraLib: (_content: string, filePath: string) => {
+          incrementCount(extraLibAddCounts, filePath);
+          return {
+            dispose: () => {},
+          };
         },
-        javascriptDefaults: {
-          addExtraLib: (_content: string, filePath: string) => {
-            incrementCount(extraLibAddCounts, filePath);
-            return {
-              dispose: () => {},
-            };
-          },
-          setCompilerOptions: (options: unknown) => compilerOptions.push(options),
-          setDiagnosticsOptions: (options: unknown) => diagnosticsOptions.push(options),
-          setEagerModelSync: (_enabled: boolean) => {},
+        setCompilerOptions: (options: unknown) => compilerOptions.push(options),
+        setDiagnosticsOptions: (options: unknown) => diagnosticsOptions.push(options),
+        setEagerModelSync: (_enabled: boolean) => {},
+      },
+      javascriptDefaults: {
+        addExtraLib: (_content: string, filePath: string) => {
+          incrementCount(extraLibAddCounts, filePath);
+          return {
+            dispose: () => {},
+          };
         },
-        ScriptTarget: {
-          ESNext: 99,
-          ES2022: 98,
-        },
-        ModuleKind: {
-          ESNext: 1,
-        },
-        ModuleResolutionKind: {
-          Bundler: 2,
-          NodeJs: 3,
-        },
-        JsxEmit: {
-          ReactJSX: 4,
-        },
+        setCompilerOptions: (options: unknown) => compilerOptions.push(options),
+        setDiagnosticsOptions: (options: unknown) => diagnosticsOptions.push(options),
+        setEagerModelSync: (_enabled: boolean) => {},
+      },
+      ScriptTarget: {
+        ESNext: 99,
+        ES2022: 98,
+      },
+      ModuleKind: {
+        ESNext: 1,
+      },
+      ModuleResolutionKind: {
+        Bundler: 2,
+        NodeJs: 3,
+      },
+      JsxEmit: {
+        ReactJSX: 4,
       },
     },
   };
