@@ -29,6 +29,9 @@ import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { describeAgentRunStatus, resolveAgentRunFirstPrompt } from "@/lib/agent-runs/agent-run-status";
 import { registerAgentRunBridge } from "@/store/agent-run-send";
 import { useAppStore } from "@/store/app.store";
+import { flushPendingSnapshotPersists, persistWorkspaceSnapshot } from "@/store/workspace-session-state";
+import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
+import { resolveWorkspaceName } from "@/store/repository.utils";
 import type { ChatMessage } from "@/types/chat";
 
 const NO_MESSAGES: ChatMessage[] = [];
@@ -192,6 +195,22 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
     startAgentRun: async (input) => {
       const api = agentRunsApi();
       if (!api) return { ok: false, agentRun: null, code: "failed", message: i18n.t("agentRuns:agentRunsStore.message") };
+      try {
+        // Kickoff can create a task just before this send. The host must see
+        // its acknowledged snapshot before it checks the lead task.
+        const state = useAppStore.getState();
+        const session = getWorkspaceSessionForState({ state, workspaceId: input.workspaceId });
+        if (session?.tasks.some((task) => task.id === input.leadTaskId)) {
+          // The renderer's autosave timer may not have enqueued this task yet.
+          await persistWorkspaceSnapshot({
+            ...session, workspaceId: input.workspaceId,
+            workspaceName: resolveWorkspaceName({ state, workspaceId: input.workspaceId }),
+          });
+        }
+        await flushPendingSnapshotPersists(input.workspaceId);
+      } catch {
+        return { ok: false, agentRun: null, code: "failed", message: i18n.t("agentRuns:agentRunsStore.saveFailed") };
+      }
       try {
         const response = await api.start(input);
         if (response.ok && response.agentRun) storeDetail(response.agentRun);

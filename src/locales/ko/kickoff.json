@@ -30,6 +30,10 @@
   },
   "kickoffBriefEditor": {
     "reviewTaskDetails": "작업 세부 정보 검토",
+    "decisions": "결정 사항",
+    "constraints": "제약 사항과 제외 범위",
+    "completionCriteria": "완료 조건",
+    "openQuestions": "열린 질문",
     "theseDetailsGoIntoTheFirstTask": "이 내용은 첫 작업에 포함됩니다. 모르는 내용은 비워 두거나 열린 질문을 추가합니다.",
     "oneItemPerLine": "한 줄에 한 항목",
     "previewFullFirstTaskPrompt": "전체 첫 작업 프롬프트 미리 보기",
@@ -37,21 +41,22 @@
   },
   "kickoffDialog": {
     "resolvingKickoffContext": "킥오프 맥락 확인 중",
-    "creatingYourWorkspace": "워크스페이스 생성 중",
+    "creatingYourWorkspace": "킥오프 준비 중",
     "staveIsReadingTheSourceAndPreparing": "Stave가 원본을 읽고 편집 가능한 워크스페이스 제안을 준비하고 있습니다.",
-    "staveIsCreatingTheWorktreeSeedingIts": "Stave가 워크트리를 만들고 맥락을 구성하며 첫 작업을 준비하고 있습니다.",
+    "staveIsCreatingTheWorktreeSeedingIts": "Stave가 워크스페이스와 첫 작업을 준비하고 있습니다.",
     "taskCreatedWithWarning": "경고와 함께 작업 생성됨",
     "workspaceCreatedWithWarning": "경고와 함께 워크스페이스 생성됨",
     "taskStartedInThisWorkspace": "이 워크스페이스에서 작업 시작됨",
+    "taskCreatedInThisWorkspace": "이 워크스페이스에서 작업 생성됨",
     "workspaceCreatedFromKickoffSource": "킥오프 원본으로 워크스페이스 생성됨",
     "kickOffWorkspace": "워크스페이스 킥오프",
     "turnAWorkSourceIntoAnEditable": "작업 원본을 편집 가능한 워크스페이스 제안으로 변환합니다.",
-    "reviewWhatStaveFoundBeforeCreatingThe": "워크트리를 만들기 전에 Stave가 찾은 내용을 검토합니다.",
+    "reviewWhatStaveFoundBeforeCreatingThe": "첫 작업을 만들기 전에 Stave가 찾은 내용을 검토합니다.",
     "kickoffProgress": "킥오프 진행 상황",
     "text1": "1. 원본",
     "text2": "2. 검토",
     "cancelResolution": "맥락 확인 취소",
-    "keepStaveOpenWhileTheWorktreeIs": "워크트리를 준비하는 동안 Stave를 열어 둡니다.",
+    "keepStaveOpenWhileTheWorktreeIs": "작업을 준비하는 동안 Stave를 열어 둡니다.",
     "workSource": "작업 원본",
     "freeFormPrompt": "자유 형식 프롬프트",
     "pasteAJiraIssueSlackThreadPrd": "Jira 이슈, Slack 스레드, PRD, Figma 링크, 보고서 또는 작업 설명 입력…",
@@ -121,7 +126,16 @@
     "createWorkspace": "워크스페이스 생성",
     "assign": "할당",
     "createAndStart": "생성 및 시작",
-    "valueCanTStartTheFirstTask": "{{value1}} 모델이 첫 작업을 시작할 수 없어 {{value2}} 모델로 엽니다."
+    "valueCanTStartTheFirstTask": "{{value1}} 모델이 첫 작업을 시작할 수 없어 {{value2}} 모델로 엽니다.",
+    "newWorkspace": "새 워크스페이스",
+    "currentWorkspace": "현재 워크스페이스",
+    "newWorkspaceHint": "이 목표를 위한 새 워크트리를 만듭니다. 선택한 에이전트가 첫 작업을 실행합니다.",
+    "currentWorkspaceHint": "현재 워크스페이스({{branch}})에 새 작업을 추가합니다. 기존 작업은 계속 실행되며, 워크스페이스 링크와 노트는 유지됩니다.",
+    "openCurrentWorkspace": "작업을 추가할 워크스페이스를 먼저 여세요.",
+    "startInCurrentWorkspace": "현재 워크스페이스에서 작업을 시작합니다",
+    "startInNewWorkspace": "새 워크스페이스를 만들고 작업을 시작합니다",
+    "createTask": "작업 만들기",
+    "currentWorkspaceDetails": "새 작업은 현재 워크스페이스와 공유 컨텍스트를 사용합니다."
   },
   "kickoffSourceWho": {
     "who": "담당자",
@@ -194,5 +208,10 @@
     "message9": "워크스페이스를 만들 수 없습니다.",
     "message44": "AI 해석을 건너뛰었습니다. 시작하기 전에 작업을 검토하세요.",
     "message48": "AI 해석을 사용할 수 없습니다. 시작하기 전에 작업을 검토하세요."
+  },
+  "whoPicker": {
+    "searchAgents": "에이전트 검색…",
+    "noAgentsFound": "일치하는 에이전트가 없습니다.",
+    "recordUnavailable": "작업의 에이전트를 기록할 수 없습니다."
   }
 }

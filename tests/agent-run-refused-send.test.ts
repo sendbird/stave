@@ -4,12 +4,12 @@ import type { AgentRunCommandResponse } from "../src/lib/agent-runs/api";
 import { useAgentAssignmentsStore, type TaskAgent } from "../src/store/agent-assignments-store";
 import { registerAgentRunBridge } from "../src/store/agent-run-send";
 import { defaultSettings } from "../src/store/app-settings";
-import { cancelPendingAutoRouting, skipPendingAutoRoutingClassifier } from "../src/store/auto-routing-dispatch";
+import { cancelPendingAutoRouting } from "../src/store/auto-routing-dispatch";
 import { usePendingAutoRoutingStore } from "../src/store/pending-auto-routing-store";
 
 // #646: the composer is cleared on send, then the agent-run start is awaited.
-// When the host refuses it, the prompt runs as a single turn, and nothing that
-// send does to the composer may overwrite text typed while the start was pending.
+// A refused run blocks the send without starting a plain turn or classifier.
+// Recovery may not overwrite text typed while the start was pending.
 
 const originalWindow = (globalThis as { window?: unknown }).window;
 const TASK_ID = "task-agent-refused";
@@ -17,16 +17,13 @@ const PROMPT = "Add CSV export to the report page.";
 const TYPED = "Also check the PDF export.";
 
 let startedTurns = 0;
-let classifierStarted: Promise<void>;
+let classifiersStarted = 0;
 let refuseStart: (() => void) | null = null;
 
 function installWindow() {
   startedTurns = 0;
   refuseStart = null;
-  let started!: () => void;
-  classifierStarted = new Promise<void>((resolve) => {
-    started = resolve;
-  });
+  classifiersStarted = 0;
   const storage = new Map<string, string>();
   (globalThis as { window?: unknown }).window = {
     localStorage: {
@@ -42,7 +39,7 @@ function installWindow() {
     api: {
       provider: {
         classifyRoute: () => {
-          started();
+          classifiersStarted += 1;
           return new Promise(() => {});
         },
         cancelRouteClassification: async () => ({ ok: true }),
@@ -121,7 +118,7 @@ async function sendTypeAndRefuse(typed: string) {
   if (typed) useAppStore.getState().updatePromptDraft({ taskId: TASK_ID, patch: { text: typed } });
   while (!refuseStart) await Bun.sleep(1);
   refuseStart();
-  await classifierStarted;
+  await send;
   return { useAppStore, send };
 }
 
@@ -139,27 +136,21 @@ afterEach(() => {
 });
 
 describe("a refused agent-run start", () => {
-  test("keeps text typed meanwhile when the single turn starts", async () => {
+  test("blocks a refused start, preserves newer text and never dispatches a single turn", async () => {
     const { useAppStore, send } = await sendTypeAndRefuse(TYPED);
-    expect(useAppStore.getState().promptDraftByTask[TASK_ID]?.text).toBe(TYPED);
-    expect(skipPendingAutoRoutingClassifier(TASK_ID)).toBe(true);
-    expect((await send).status).toBe("started");
-    expect(startedTurns).toBe(1);
-    expect(useAppStore.getState().promptDraftByTask[TASK_ID]?.text).toBe(TYPED);
-  });
-
-  test("keeps text typed meanwhile when the single turn is stopped, parking the prompt", async () => {
-    const { useAppStore, send } = await sendTypeAndRefuse(TYPED);
-    useAppStore.getState().abortTaskTurn({ taskId: TASK_ID });
-    expect(await send).toEqual({ status: "blocked" });
+    expect(await send).toMatchObject({ status: "blocked" });
+    expect(startedTurns).toBe(0);
+    expect(classifiersStarted).toBe(0);
     expect(useAppStore.getState().promptDraftByTask[TASK_ID]?.text).toBe(TYPED);
     expect(useAppStore.getState().failedSendsByTask[TASK_ID]).toEqual([expect.objectContaining({ text: PROMPT })]);
+    expect(useAppStore.getState().messagesByTask[TASK_ID]).toEqual([]);
+    expect(usePendingAutoRoutingStore.getState().byTaskId[TASK_ID]).toBeUndefined();
   });
 
   test("gives the prompt back to a composer still empty since the send", async () => {
     const { useAppStore, send } = await sendTypeAndRefuse("");
-    useAppStore.getState().abortTaskTurn({ taskId: TASK_ID });
-    expect(await send).toEqual({ status: "blocked" });
+    expect(await send).toMatchObject({ status: "blocked" });
+    expect(startedTurns).toBe(0);
     expect(useAppStore.getState().promptDraftByTask[TASK_ID]?.text).toBe(PROMPT);
     expect(useAppStore.getState().failedSendsByTask[TASK_ID]).toBeUndefined();
   });

@@ -22,7 +22,6 @@ import { appendFailedOutgoingSend, buildFailedOutgoingSend } from "@/store/faile
 import {
   beginPendingAgentRun,
   endPendingAutoRoute,
-  handOverPendingAgentRun,
   hasPendingAgentRun,
   updatePendingAutoRoute,
 } from "@/store/pending-auto-routing-store";
@@ -70,8 +69,6 @@ type AgentRunSendArgs = {
   queued: boolean;
   turnOrigin: "conversation" | "utility";
   preservePromptDraft?: boolean;
-  /** The id the send's own turn would take; a refused start hands the pending row to it. */
-  turnId?: string;
   now?: Date;
 };
 
@@ -161,12 +158,12 @@ export function recoverUnsentAgentRunPrompt(
  * and a workspace switch cannot revive it). Returns null for a plain turn —
  * Chat, a run already active or starting, a turn running — or the start to
  * await. The draft is cleared and the prompt drawn as a pending row before
- * the start is requested; a start the host refuses resolves to null and the
- * prompt runs as a single turn, as before agent runs, keeping the row.
+ * the start is requested. A refused start restores the prompt and blocks the
+ * send, so work requested as a run never silently becomes a single turn.
  */
 export function prepareAgentRunForSend(
   args: AgentRunSendArgs,
-): (() => Promise<SendUserMessageResult | null>) | null {
+): (() => Promise<SendUserMessageResult>) | null {
   const agent = useAgentAssignmentsStore.getState().byTaskId[args.taskId];
   const activeBridge = bridge;
   const active = activeBridge?.activeAgentRun(args.workspaceId, args.taskId);
@@ -215,16 +212,14 @@ export function prepareAgentRunForSend(
       )
       .catch((): AgentRunCommandResponse => ({ ok: false, agentRun: null }));
     if (!response.ok || !response.agentRun) {
-      if (ownsRow) {
-        // The single turn's send ends the row once its own rows land.
-        if (args.turnId) {
-          handOverPendingAgentRun({ taskId: args.taskId, id: pendingId, turnId: args.turnId });
-        } else {
-          endPendingAutoRoute({ taskId: args.taskId, id: pendingId });
-        }
-      }
-      if (response.message) toast.info(i18n.t("agentRuns:agentRunSend.copy"), { description: response.message });
-      return null;
+      if (ownsRow) endPendingAutoRoute({ taskId: args.taskId, id: pendingId });
+      const message = response.message ?? i18n.t("agentRuns:agentRunSend.unsentReason");
+      args.set((state) => recoverUnsentAgentRunPrompt(state, {
+        workspaceId: args.workspaceId, taskId: args.taskId, prompt: args.prompt,
+        submittedDraft, reason: message,
+      }));
+      toast.warning(i18n.t("agentRuns:agentRunSend.copy"), { description: message });
+      return { status: "blocked", message };
     }
     const agentRunId = response.agentRun.agentRun.id;
     if (ownsRow) {

@@ -54,6 +54,7 @@ export function createAcknowledgedWriteQueue<K, V>(options: {
   }
 
   return {
+    flush,
     save(key: K, value: V) {
       put(key, value);
       return flush(key);

@@ -31,14 +31,23 @@ While Stave Auto is turned on in Settings, the model control also offers
 and effort for the first turn and every later one, so the effort and Fast
 controls are hidden. Pick a model to pin one instead.
 
-**Who** can assign the first task to a saved [agent](agents.md) instead. With
+**Who** can assign the first task to a saved [agent](agents.md) instead. Search
+by name, identifier, or description on either screen, or select **Me**. With
 an agent, **Assign** on the first screen starts the work right away through
 the same start as **Assign** on the review screen, from the source as Skip AI
-reads it. The agent's workflow decides the stages the run follows. An
-agent that works in the current workspace gets a new task there instead of a
-worktree. An agent whose model is Auto-routing follows Stave Auto the same way
+reads it. The agent's workflow decides the stages the run follows. A
+kickoff starts in a **New workspace** by default, including when Lead is
+selected. **Where** is independent of the agent's saved workspace preference:
+choose **Current workspace** to add a new task beside its existing tasks instead
+of creating a worktree. An agent whose model is Auto-routing follows Stave Auto the same way
 when it is on; see the agents page for where an agent's task runs and which
 permissions apply.
+
+When **Start now** is enabled, an assigned Lead on a supported task starts an
+Agent Run through the same path as the composer. Kickoff applies the recorded
+assignment before sending and waits for the new task's save acknowledgement.
+If recording, saving, or starting the run fails, the task keeps its prompt for
+review and retry; it does not silently send that prompt as an ordinary turn.
 
 ## Source Configuration
 

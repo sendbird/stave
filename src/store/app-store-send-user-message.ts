@@ -510,9 +510,8 @@ export function createSendUserMessageAction(args: {
     // Decided synchronously: a Chat send must not pass an await before its draft is cleared.
     const agentRunStart = prepareAgentRunForSend({ set, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
       providerId: provider, prompt: promptContent, promptDraft, extraContextCount: (fileContexts?.length ?? 0) + (imageContexts?.length ?? 0),
-      turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft, turnId });
-    const agentRunStarted = agentRunStart ? await agentRunStart() : null;
-    if (agentRunStarted) return agentRunStarted;
+      turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft });
+    if (agentRunStart) return await agentRunStart();
     // A "stalled" turn is one whose provider stream has gone silent past the
     // stall threshold with no pending approval/user_input interaction — e.g. a
     // background task that never emitted `done`, or one whose runtime died. In
@@ -785,9 +784,7 @@ export function createSendUserMessageAction(args: {
     });
     const draftAfterSend = (currentDraft?: PromptDraft) =>
       resolvePromptDraftAfterSend({ currentDraft, storedDraft: storedPromptDraftForTask, sourceDraft: sourcePromptDraft,
-        sentDraft: promptDraft, preservePromptDraft, preservedQueuedDraft: preservedQueuedDispatchDraft, queuedTurns: codexGoalQueuedTurns,
-        // A refused agent-run start (non-null here) cleared the composer before its await.
-        composerClearedAtSend: Boolean(agentRunStart) });
+        sentDraft: promptDraft, preservePromptDraft, preservedQueuedDraft: preservedQueuedDispatchDraft, queuedTurns: codexGoalQueuedTurns });
 
     const submittedPromptDraft = createSubmittedPromptDraftLifecycle({
       taskId: resolvedTaskId,
@@ -801,7 +798,6 @@ export function createSendUserMessageAction(args: {
       queuedTurns: codexGoalQueuedTurns,
       queuedTurnToSend,
       updateDrafts: updatePromptDraftsForWorkspace,
-      composerClearedAtSend: Boolean(agentRunStart),
       ...guardTypedTextDuringSend({ get, set, taskId: resolvedTaskId, workspaceId: taskWorkspaceId, draft: promptDraft }),
     });
 

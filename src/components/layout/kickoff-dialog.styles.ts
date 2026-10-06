@@ -346,6 +346,32 @@ export const kickoffStyles = stylex.create({
     borderStyle: "solid",
     borderColor: vars["--ads-color-border"],
   },
+  briefSections: {
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopStyle: "solid",
+    borderTopColor: vars["--ads-color-border"],
+    paddingBlockStart: vars["--ads-space-8"],
+  },
+  briefToggle: {
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-normal"],
+    paddingInline: 0,
+  },
+  briefChevron: {
+    width: 16,
+    height: 16,
+    flexShrink: 0,
+    color: vars["--ads-color-text-muted"],
+  },
+  briefChevronOpen: {
+    transform: "rotate(180deg)",
+  },
+  briefPanel: {
+    paddingBlockStart: vars["--ads-space-4"],
+    paddingBlockEnd: vars["--ads-space-12"],
+    color: vars["--ads-color-text"],
+  },
   entryHeaderRow: {
     display: "flex",
     alignItems: "center",
