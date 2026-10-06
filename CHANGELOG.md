@@ -1,3 +1,32 @@
+## [0.25.1](https://github.com/sendbird/stave/compare/v0.25.0...v0.25.1) (2026-10-07)
+
+This is a patch release that includes one small feature (the navigation shortcuts below) alongside fixes and performance work.
+
+### Features
+
+- Fleet, Agents, Agent performance and AI usage stay reachable from the Stave menu even when their sidebar shortcuts are hidden, and AI usage is searchable in the command palette by usage, quota, tokens, account and model. The usage statistics button now sits in a full-width footer row below the account section and keeps the provider and account scope.
+
+### Bug Fixes
+
+- Agent turns no longer fail mid-run with "Provider stream failed: Minified React error #185". Provider events that arrive in a burst now apply in one update, and an error thrown while the interface applies an event no longer ends a healthy turn. Claude and Codex share this path. Tool, approval, usage and lifecycle events now appear one macrotask later than before; text cadence and completion are unchanged.
+- Assigned agent runs start reliably. A Lead no longer fails with "The lead task was not found" or starts Kickoff as an ordinary turn: the task is saved and its metadata refreshed before the run starts, and a failed start keeps its prompt available for retry.
+- Kickoff defaults to a new workspace with an explicit current-workspace choice, both agent pickers search by name, identifier and description, and the task-detail and full-prompt toggles show chevrons and expanded states.
+- The editor and diff view load the bundled Monaco instead of fetching a different version from a public CDN at runtime. They work offline, and no remote code runs in the renderer. Monaco assets add about 23.7 MB (4.5 MB gzip) to the renderer output, loaded lazily.
+
+### Performance Improvements
+
+- Desktop startup is faster: the built renderer is served from a code-cached `stave-app://renderer` origin instead of `file://` (DOMContentLoaded about 235 ms to 170 ms from the third launch, measured by the PR author), and the notification inbox no longer waits for provider CLI checks.
+- Code-block highlighting runs in a worker, removing the main-thread long task on the first block; the main thread takes over if the worker cannot start.
+
+### Upgrade Notes
+
+- The first launch of an upgraded profile briefly opens hidden pages (about 200 ms) to copy local settings, drafts and UI preferences to the new renderer origin. If the copy fails, the app keeps loading from `file://` and retries on the next launch. After migrating, downgrading to an older release reads the older `file://` copy of that data.
+- The temporary migration `renderer-origin-storage` is registered and is due for removal in 0.28.0; profiles that skip releases until then start with empty local settings.
+
+### References
+
+- [PR #690](https://github.com/sendbird/stave/pull/690), [PR #691](https://github.com/sendbird/stave/pull/691), [PR #692](https://github.com/sendbird/stave/pull/692), [PR #693](https://github.com/sendbird/stave/pull/693), [PR #694](https://github.com/sendbird/stave/pull/694)
+
 ## [0.25.0](https://github.com/sendbird/stave/compare/v0.24.3...v0.25.0) (2026-10-05)
 
 ### Features
