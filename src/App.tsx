@@ -317,6 +317,10 @@ export default function App() {
       if (cancelled) {
         return;
       }
+      // Notifications only need the workspace inventory. Starting them here
+      // instead of after the provider probes below (CLI checks that take
+      // seconds on a cold launch) shows the inbox as soon as workspaces load.
+      void useAppStore.getState().hydrateNotifications();
       const state = useAppStore.getState();
       const runtimeOptions = {
         claudeAccountProfileId: state.settings.claudeAccountProfileId,
@@ -340,10 +344,6 @@ export default function App() {
           undefined,
         runtimeOptions,
       });
-      void useAppStore.getState().hydrateNotifications();
-      if (cancelled) {
-        return;
-      }
     })();
     const onProviderFocus = () => {
       void useAppStore.getState().refreshProviderAvailability();
