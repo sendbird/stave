@@ -1,5 +1,9 @@
 import { APP_LOCALES, APP_LOCALE_NATIVE_NAMES, isAppLocale, i18n, useTranslation } from "@/i18n";
 import {
+  Bot,
+  ChartNoAxesColumn,
+  Gauge,
+  LayoutGrid,
   Command,
   Home,
   Keyboard,
@@ -45,6 +49,10 @@ export function StaveAppMenuButton(args?: {
   const [open, setOpen] = useState(false);
   const [
     clearTaskSelection,
+    openFleetView,
+    openAgents,
+    openResults,
+    openUsage,
     repositoryPath,
     isDarkMode,
     setDarkMode,
@@ -56,6 +64,10 @@ export function StaveAppMenuButton(args?: {
       (state) =>
         [
           state.clearTaskSelection,
+          state.openFleetView,
+          state.openAgents,
+          state.openResults,
+          state.openUsage,
           state.repositoryPath,
           state.isDarkMode,
           state.setDarkMode,
@@ -126,6 +138,23 @@ export function StaveAppMenuButton(args?: {
             <Home {...stylex.props(staveAppMenuStyles.itemIcon)} />
             {i18n.t("shell:staveAppMenuButton.home")}
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openFleetView()}>
+            <LayoutGrid {...stylex.props(staveAppMenuStyles.itemIcon)} />
+            {i18n.t("shell:sidebarPrimaryNav.fleetView")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openAgents()}>
+            <Bot {...stylex.props(staveAppMenuStyles.itemIcon)} />
+            {i18n.t("shell:sidebarPrimaryNav.agents")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openResults()}>
+            <ChartNoAxesColumn {...stylex.props(staveAppMenuStyles.itemIcon)} />
+            {i18n.t("shell:sidebarPrimaryNav.results")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openUsage()}>
+            <Gauge {...stylex.props(staveAppMenuStyles.itemIcon)} />
+            {i18n.t("shell:sidebarPrimaryNav.aIUsage")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={args?.onOpenCommandPalette}
           >

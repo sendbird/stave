@@ -252,10 +252,6 @@ export function StatusBarUsageSegment({
             multipleAccounts={multipleAccounts}
           />
         ) : null}
-        <Button variant="ghost" size="sm" onClick={() => {
-          setOpen(false); noteRateLimitsMeterClosed(providerId);
-          openUsage({ providerId, accountProfileId: account?.selected?.id ?? "system-default" });
-        }}>{i18n.t("shell:statusBarUsageSegment.viewUsageStatistics")}</Button>
         {account && accountProviderId ? (
           <StatusBarAccountSection
             providerId={accountProviderId}
@@ -263,6 +259,20 @@ export function StatusBarUsageSegment({
             view={account}
           />
         ) : null}
+        <div className={sx(statusBarUsageStyles.accountSection)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            xstyle={statusBarUsageStyles.manageAccounts}
+            onClick={() => {
+              setOpen(false);
+              noteRateLimitsMeterClosed(providerId);
+              openUsage({ providerId, accountProfileId: account?.selected?.id ?? "system-default" });
+            }}
+          >
+            {i18n.t("shell:statusBarUsageSegment.viewUsageStatistics")}
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );

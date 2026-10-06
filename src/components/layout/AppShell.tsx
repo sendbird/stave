@@ -161,6 +161,7 @@ export function AppShell() {
     closeIssues,
     openAgents,
     openResults,
+    openUsage,
     openRepository,
     switchWorkspace,
     abortTaskTurn,
@@ -207,6 +208,7 @@ export function AppShell() {
           state.closeIssues,
           state.openAgents,
           state.openResults,
+          state.openUsage,
           state.openRepository,
           state.switchWorkspace,
           state.abortTaskTurn,
@@ -1172,6 +1174,7 @@ export function AppShell() {
         openIssues: () => openIssues(),
         openAgents: () => openAgents(),
         openResults: () => openResults(),
+        openUsage: () => openUsage(),
         newAgent: () => {
           openAgents();
           useAgentsUiStore.getState().requestNewAgent();
@@ -1279,6 +1282,7 @@ export function AppShell() {
       openIssues,
       openAgents,
       openResults,
+      openUsage,
       handleStartCompareRun,
       openRepository,
       repositoryPath,

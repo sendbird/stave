@@ -95,6 +95,10 @@ function createContext(
       openInTerminal: async () => {},
       openInVSCode: async () => {},
       openFleetView: () => {},
+      openAutomationCenter: () => {},
+      openAgents: () => {},
+      openResults: () => {},
+      openUsage: () => {},
       openIssues: () => {},
       refreshTrackerIssues: async () => {},
       openKeyboardShortcuts: () => {},
@@ -122,6 +126,21 @@ function createContext(
 }
 
 describe("command palette registry", () => {
+  test("AI usage is searchable without a repository and opens the usage screen", () => {
+    let opened = false;
+    const context = createContext({ repositoryPath: null });
+    context.commands.openUsage = () => { opened = true; };
+    const groups = buildCommandPaletteGroups(context);
+    const action = groups.flatMap((group) => group.items).find((item) => item.id === "navigation.usage");
+    expect(action).toBeDefined();
+    action?.run();
+    expect(opened).toBe(true);
+    for (const query of ["usage", "quota", "tokens"]) {
+      const matches = searchCommandPaletteGroups({ groups, query });
+      expect(matches.flatMap((group) => group.items).some((item) => item.id === "navigation.usage")).toBe(true);
+    }
+  });
+
   test("exposes the Tasks commands without colliding with an existing binding", () => {
     const context = createContext();
     const actions = buildCommandPaletteGroups(context).flatMap(
