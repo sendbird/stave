@@ -1,5 +1,15 @@
-import { BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog } from "electron";
+import path from "node:path";
 import { createRendererRecovery } from "./renderer-recovery";
+import {
+  isRendererAppUrl,
+  RENDERER_ENTRY_URL,
+  type RendererEntryKind,
+} from "./renderer-entry";
+import { installRendererProtocol } from "./renderer-protocol";
+// temporary-migration: renderer-origin-storage
+import { migrateRendererOriginStorage } from "./renderer-origin-migration-electron";
+// end temporary-migration: renderer-origin-storage
 import { tMain } from "./i18n";
 import { abortPendingLensGuestRequests } from "./browser/browser-guest-broker";
 import { installLensWebviewAttachClamp } from "./browser/browser-webview-attach";
@@ -36,6 +46,42 @@ export function toggleMainWindowDevTools() {
 
 function clampZoomFactor(value: number) {
   return Math.min(MAX_ZOOM_FACTOR, Math.max(MIN_ZOOM_FACTOR, value));
+}
+
+/**
+ * Load the built renderer from the code-cached renderer scheme, or from
+ * `file://` while its localStorage has not been moved to that origin yet.
+ */
+async function loadBuiltRenderer(
+  window: BrowserWindow,
+  onEntryKind: (kind: RendererEntryKind) => void,
+) {
+  const entryPath = resolveRendererEntryPath(runtimeDir);
+  installRendererProtocol(path.dirname(entryPath));
+  let entryKind: RendererEntryKind = "scheme";
+  // temporary-migration: renderer-origin-storage
+  const migration = await migrateRendererOriginStorage({
+    userDataPath: app.getPath("userData"),
+    tempPath: app.getPath("temp"),
+  });
+  if (migration.status === "failed") {
+    console.warn(
+      `[renderer-origin] keeping file:// for this launch: ${migration.reason}`,
+    );
+    entryKind = "file";
+  } else if (migration.status === "migrated") {
+    console.info(
+      `[renderer-origin] moved ${migration.entryCount} localStorage entries to the renderer scheme`,
+    );
+  }
+  // end temporary-migration: renderer-origin-storage
+  if (window.isDestroyed()) return;
+  onEntryKind(entryKind);
+  if (entryKind === "scheme") {
+    await window.loadURL(RENDERER_ENTRY_URL);
+  } else {
+    await window.loadFile(entryPath);
+  }
 }
 
 function emitZoomChanged(window: BrowserWindow) {
@@ -128,10 +174,13 @@ export function createMainWindow() {
     return { action: "deny" };
   });
 
+  let rendererEntryKind: RendererEntryKind = "scheme";
   window.webContents.on("will-navigate", (event, url) => {
-    const isAppUrl = allowedOrigin
-      ? new URL(url).origin === allowedOrigin
-      : url.startsWith("file://");
+    const isAppUrl = isRendererAppUrl({
+      url,
+      entryKind: rendererEntryKind,
+      devServerOrigin: allowedOrigin,
+    });
     if (isAppUrl || url === window.webContents.getURL()) {
       return;
     }
@@ -171,7 +220,11 @@ export function createMainWindow() {
   if (devServerUrl) {
     void window.loadURL(devServerUrl);
   } else {
-    void window.loadFile(resolveRendererEntryPath(runtimeDir));
+    void loadBuiltRenderer(window, (kind) => {
+      rendererEntryKind = kind;
+    }).catch((error) => {
+      console.error("[renderer] could not load the built renderer", error);
+    });
   }
 
   window.webContents.on("before-input-event", (event, input) => {
