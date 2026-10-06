@@ -22,6 +22,10 @@ Automation specifications and bounded run history are persisted in SQLite. The h
 
 The desktop runtime still hosts the local-only MCP HTTP server in Electron main so same-machine tools can connect without the renderer, but the heavy project/workspace/task/session mutations now execute inside the dedicated `host-service` child runtime.
 
+### Code-block highlighting
+
+Chat code blocks are highlighted in a module worker (`src/lib/syntax-highlight.worker.ts`), so Shiki grammar compilation never blocks the renderer's main thread. When a worker cannot start, `src/lib/syntax-highlight-client.ts` highlights on the main thread instead.
+
 ## Browser dev runtime
 
 When Stave runs as plain Vite in a browser, there is no Electron preload bridge, IPC, or main process. In that mode, `server/dev-server.ts` provides a local HTTP bridge for provider turns, terminal commands, and source-control actions.

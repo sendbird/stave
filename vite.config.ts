@@ -30,6 +30,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Module workers keep their dynamic imports as chunks (code-block grammars).
+  worker: {
+    format: "es",
+  },
   build: {
     rolldownOptions: {
       output: {

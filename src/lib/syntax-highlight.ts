@@ -1,28 +1,13 @@
 import { createHighlighter } from "shiki";
 import type { BundledLanguage } from "shiki";
+import { SYNTAX_COMMON_LANGS } from "./syntax-highlight-shared";
 
 /**
  * Shared Shiki singleton for host-owned highlighting. ADS CodeBlock /
  * DiffViewer stay highlighter-free; this module is the app-side adapter.
  */
 
-export const SYNTAX_COMMON_LANGS: BundledLanguage[] = [
-  "javascript",
-  "typescript",
-  "tsx",
-  "jsx",
-  "python",
-  "bash",
-  "json",
-  "yaml",
-  "html",
-  "css",
-  "rust",
-  "go",
-  "markdown",
-  "sql",
-  "diff",
-];
+export { SYNTAX_COMMON_LANGS };
 
 export type SyntaxTheme = "github-dark" | "github-light";
 
@@ -65,7 +50,7 @@ let highlighter: Awaited<ReturnType<typeof createHighlighter>> | null = null;
 export function getSyntaxHighlighter() {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
-      langs: SYNTAX_COMMON_LANGS,
+      langs: [...SYNTAX_COMMON_LANGS],
       themes: ["github-dark", "github-light"],
     }).then((instance) => {
       highlighter = instance;

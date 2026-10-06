@@ -101,6 +101,10 @@ export default defineConfig({
       dedupe: ["react", "react-dom", "lexical"],
       alias: srcAlias,
     },
+    // Module workers keep their dynamic imports as chunks (code-block grammars).
+    worker: {
+      format: "es",
+    },
     build: {
       rolldownOptions: {
         input: path.resolve(__dirname, "index.html"),
