@@ -27,6 +27,46 @@ export type StaveApp = {
   close: () => Promise<void>;
 };
 
+function isAppDocument(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      (parsed.protocol === "stave-app:" || parsed.protocol === "file:") &&
+      parsed.pathname.endsWith("/index.html")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The window showing the app, not the first window to appear. The first launch
+ * of a profile written by an earlier release opens hidden pages to move its
+ * renderer storage (`electron/main/renderer-origin-migration-electron.ts`), and
+ * `firstWindow()` can return one of those just before it closes.
+ */
+async function waitForAppWindow(app: ElectronApplication): Promise<Page> {
+  await app.firstWindow({ timeout: 60_000 });
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const page = app.windows().find((candidate) => isAppDocument(candidate.url()));
+    if (page) {
+      try {
+        await page.waitForLoadState("domcontentloaded");
+        return page;
+      } catch {
+        // Closed while loading; look again.
+      }
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `the Stave window never loaded: ${app.windows().map((window) => window.url()).join(", ")}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 /**
  * Launch the built product for an end-to-end test.
  *
@@ -61,8 +101,7 @@ export async function launchStave(
     env: { ...process.env, STAVE_DISABLE_ACCOUNT_USAGE_READS: "1" },
   });
 
-  const page = await app.firstWindow({ timeout: 60_000 });
-  await page.waitForLoadState("domcontentloaded");
+  const page = await waitForAppWindow(app);
 
   return {
     app,

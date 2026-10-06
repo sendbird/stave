@@ -36,6 +36,22 @@ async function appPage(
   }
 }
 
+/**
+ * A killed Electron leaves helper processes flushing into the profile for a
+ * moment, so remove it with the same brief retry the harness uses for its own
+ * profiles instead of failing the test on ENOTEMPTY.
+ */
+async function removeProfile(directory: string) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    try {
+      await rm(directory, { recursive: true, force: true });
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+}
+
 async function flushAndClose(stave: StaveApp) {
   // The harness kills the process; persist localStorage the way a normal quit would.
   await stave.app.evaluate(({ session }) =>
@@ -103,7 +119,7 @@ test("the built renderer starts from the code-cached origin on every launch", as
       contentType: "application/json",
     });
   } finally {
-    await rm(userDataDir, { recursive: true, force: true });
+    await removeProfile(userDataDir);
   }
 });
 
@@ -143,6 +159,6 @@ test("a profile written at file:// keeps its localStorage when the renderer move
       await stave.close();
     }
   } finally {
-    await rm(userDataDir, { recursive: true, force: true });
+    await removeProfile(userDataDir);
   }
 });
