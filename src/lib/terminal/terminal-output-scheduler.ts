@@ -1,3 +1,5 @@
+import { scheduleMacrotask } from "@/lib/schedule-macrotask";
+
 export interface TerminalWriteTarget {
   write(data: string, callback?: () => void): void;
 }
@@ -14,21 +16,6 @@ interface PendingWrite {
   data: string;
   onParsed?: () => void;
   beforeWrite?: () => void;
-}
-
-function scheduleWithMessageChannel(callback: () => void) {
-  if (typeof MessageChannel === "undefined") {
-    setTimeout(callback, 0);
-    return;
-  }
-
-  const channel = new MessageChannel();
-  channel.port1.onmessage = () => {
-    channel.port1.close();
-    channel.port2.close();
-    callback();
-  };
-  channel.port2.postMessage(undefined);
 }
 
 /**
@@ -52,7 +39,7 @@ export class TerminalOutputScheduler {
     options: TerminalOutputSchedulerOptions = {},
   ) {
     this.maxChunkChars = Math.max(1, options.maxChunkChars ?? 128 * 1024);
-    this.schedule = options.schedule ?? scheduleWithMessageChannel;
+    this.schedule = options.schedule ?? scheduleMacrotask;
     this.onWriteError = options.onWriteError ?? (() => {});
     this.onWriteParsed = options.onWriteParsed ?? (() => {});
   }
