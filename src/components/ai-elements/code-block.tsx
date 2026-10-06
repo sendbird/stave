@@ -3,30 +3,16 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
-import type { BundledLanguage } from "shiki";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { getSyntaxHighlighter } from "@/lib/syntax-highlight";
+import { highlightCodeBlockHtml } from "@/lib/syntax-highlight-client";
 import { useAppStore } from "@/store/app.store";
 import { codeBlockStyles as styles } from "./code-block.styles";
 import {
   scaleMessageCodeFontSize,
   useMessageTextScale,
 } from "./message-text-scale";
-
-// Shiki emits its own `<pre>`; style it via a transformer so the layout lives
-// with the component instead of a descendant selector. Mirrors the previous
-// `[&>pre]:m-0 [&>pre]:overflow-x-auto [&>pre]:px-4 [&>pre]:py-3` contract.
-const PRE_TRANSFORMER = {
-  name: "stave-codeblock-pre",
-  pre(node: { properties: Record<string, unknown> }) {
-    const existingStyle =
-      typeof node.properties.style === "string" ? node.properties.style : "";
-    node.properties.style =
-      `margin:0;overflow-x:auto;padding:0.75rem 1rem;${existingStyle}`;
-  },
-} as const;
 
 // ---------------------------------------------------------------------------
 // Context
@@ -107,30 +93,23 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language 
     }
 
     let cancelled = false;
-    getSyntaxHighlighter().then((hl) => {
-      if (cancelled) return;
-      try {
-        const lang = resolvedLang as BundledLanguage;
-        const result = hl.codeToHtml(code, {
-          lang,
-          theme: "github-dark",
-          transformers: [PRE_TRANSFORMER],
-        });
-        if (!cancelled) {
-          // Evict oldest entry when cache is full.
-          if (_highlightCache.size >= MAX_HIGHLIGHT_CACHE_SIZE) {
-            const firstKey = _highlightCache.keys().next().value;
-            if (firstKey !== undefined) {
-              _highlightCache.delete(firstKey);
-            }
+    // Highlighting happens off the main thread; see syntax-highlight.worker.ts.
+    highlightCodeBlockHtml(code, resolvedLang).then(
+      (result) => {
+        // Evict oldest entry when cache is full.
+        if (_highlightCache.size >= MAX_HIGHLIGHT_CACHE_SIZE) {
+          const firstKey = _highlightCache.keys().next().value;
+          if (firstKey !== undefined) {
+            _highlightCache.delete(firstKey);
           }
-          _highlightCache.set(cacheKey, result);
-          setHtml(result);
         }
-      } catch {
+        _highlightCache.set(cacheKey, result);
+        if (!cancelled) setHtml(result);
+      },
+      () => {
         if (!cancelled) setHtml(null);
-      }
-    });
+      },
+    );
     return () => {
       cancelled = true;
     };

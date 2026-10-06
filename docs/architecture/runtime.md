@@ -22,6 +22,16 @@ Automation specifications and bounded run history are persisted in SQLite. The h
 
 The desktop runtime still hosts the local-only MCP HTTP server in Electron main so same-machine tools can connect without the renderer, but the heavy project/workspace/task/session mutations now execute inside the dedicated `host-service` child runtime.
 
+### Renderer origin and startup
+
+Built desktop runs load the renderer from `stave-app://renderer/index.html`, not `file://`. `electron/main/renderer-protocol.ts` registers that scheme with Chromium's `codeCache` privilege and serves only files inside the built renderer directory (`electron/main/renderer-entry.ts`). Chromium keeps V8 bytecode for such a scheme but not for `file://`, so from the third launch on the renderer bundle starts from cached code instead of being recompiled. `bun run dev:desktop` keeps loading the Vite dev server.
+
+localStorage belongs to an origin, so a profile from a release that loaded `file://` is copied once before the renderer first loads from the scheme (`electron/main/renderer-origin-migration*.ts`). Hidden pages read every `file://` entry, write it at the new origin and read it back; only then does main write `renderer-origin-migration.json` in the user data directory. Until that marker exists the renderer keeps loading from `file://`, so a failed or interrupted copy only delays the switch to a later launch. A profile that had no `stave.sqlite` at startup has nothing to copy and skips the pages. This copy is a temporary migration (see `config/temporary-migrations.json`).
+
+### Code-block highlighting
+
+Chat code blocks are highlighted in a module worker (`src/lib/syntax-highlight.worker.ts`), so Shiki grammar compilation never blocks the renderer's main thread. When a worker cannot start, `src/lib/syntax-highlight-client.ts` highlights on the main thread instead.
+
 ## Browser dev runtime
 
 When Stave runs as plain Vite in a browser, there is no Electron preload bridge, IPC, or main process. In that mode, `server/dev-server.ts` provides a local HTTP bridge for provider turns, terminal commands, and source-control actions.

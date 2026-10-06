@@ -39,7 +39,10 @@ test("notifications keep deduplication and read state across a native restart", 
     stave = null;
 
     stave = await launchStave({ userDataDir });
-    const persisted = await stave.page.evaluate(async () => {
+    // A read notification expires a while after `readAt`, and startup prunes
+    // expired rows; a fixed past date would let that prune race the restart.
+    const readAt = new Date().toISOString();
+    const persisted = await stave.page.evaluate(async (readAt) => {
       const listed = await window.api.persistence!.listNotifications!();
       const duplicate = await window.api.persistence!.createNotification!({
         notification: {
@@ -62,10 +65,10 @@ test("notifications keep deduplication and read state across a native restart", 
       });
       const read = await window.api.persistence!.markNotificationRead!({
         id: "native-notification",
-        readAt: "2026-09-25T00:00:00.000Z",
+        readAt,
       });
       return { listed, duplicate, read };
-    });
+    }, readAt);
     expect(persisted.listed).toMatchObject({
       ok: true,
       notifications: [{ id: "native-notification", readAt: null }],
@@ -79,7 +82,7 @@ test("notifications keep deduplication and read state across a native restart", 
       ok: true,
       notification: {
         id: "native-notification",
-        readAt: "2026-09-25T00:00:00.000Z",
+        readAt,
       },
     });
     await stave.close();

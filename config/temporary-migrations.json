@@ -117,6 +117,23 @@
       "tests": [
         "tests/usage-statistics-legacy-provider.test.ts"
       ]
+    },
+    {
+      "id": "renderer-origin-storage",
+      "description": "The built renderer moved from file:// to the code-cached stave-app://renderer origin after 0.25.0. Before the first load from the new origin, main copies every file:// localStorage entry to it through hidden pages (skipped for a profile that had no stave.sqlite at startup, which no earlier release used), reads the copy back, and only then writes <user data>/renderer-origin-migration.json; until that marker exists the renderer keeps loading from file://. At expiry, delete the marked blocks so the renderer always loads from the scheme; profiles that skipped these releases start the renderer with empty localStorage (settings, drafts and UI preferences).",
+      "introducedAfter": "0.25.0",
+      "removeInVersion": "0.28.0",
+      "files": [
+        "electron/main.ts",
+        "electron/main/renderer-origin-migration.ts",
+        "electron/main/renderer-origin-migration-electron.ts",
+        "electron/main/renderer-protocol.ts",
+        "electron/main/window.ts",
+        "tests/renderer-origin-migration.test.ts"
+      ],
+      "tests": [
+        "tests/renderer-origin-migration.test.ts"
+      ]
     }
   ]
 }

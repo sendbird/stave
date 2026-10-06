@@ -349,6 +349,35 @@
         "electron/main/ipc/provider-account-setup.ts",
         "src/lib/providers/provider-account-setup-plan.ts"
       ]
+    },
+    {
+      "id": "renderer-code-cache-origin",
+      "title": "The built renderer loads from the code-cached origin without losing localStorage",
+      "invariant": "Built renderer assets are served only from inside the renderer directory over the stave-app://renderer scheme, which Chromium may keep V8 code cache for. A profile whose localStorage is still at file:// keeps loading from file:// until every entry has been copied and read back at the new origin; only then is the marker written, and a timed-out or failed copy never writes it.",
+      "testFiles": [
+        "tests/renderer-entry.test.ts",
+        "tests/renderer-origin-migration.test.ts",
+        "tests/e2e-electron/renderer-origin.electron.e2e.ts"
+      ],
+      "assertionRefs": [
+        "electron/main/renderer-entry.ts",
+        "electron/main/renderer-protocol.ts",
+        "electron/main/renderer-origin-migration.ts",
+        "electron/main/window.ts"
+      ]
+    },
+    {
+      "id": "code-block-highlighting-off-main-thread",
+      "title": "Code-block highlighting stays off the renderer main thread",
+      "invariant": "Chat code blocks are highlighted by a module worker that loads the same grammar set as the main-thread highlighter. When workers are unavailable, the worker fails to start or its highlighter fails to initialise, every owed and later block is highlighted on the main thread instead of staying plain; an unknown language still rejects so the block renders plain text.",
+      "testFiles": [
+        "tests/syntax-highlight-client.test.ts"
+      ],
+      "assertionRefs": [
+        "src/lib/syntax-highlight-client.ts",
+        "src/lib/syntax-highlight.worker.ts",
+        "src/components/ai-elements/code-block.tsx"
+      ]
     }
   ]
 }

@@ -78,7 +78,11 @@ bun scripts/run-native-sqlite-tests.mjs
 
 After `bun run build:desktop`, run a focused desktop spec with
 `bun run test:e2e:electron tests/e2e-electron/notification-persistence.electron.e2e.ts`.
-These tests use temporary profiles. Provider authentication is checked separately:
+These tests use temporary profiles. The harness launches Stave with
+`STAVE_DISABLE_ACCOUNT_USAGE_READS=1`, so a suite run does not read provider
+account usage with your credentials on every launch; set the same variable for
+any other script that launches the desktop app repeatedly. Provider
+authentication is checked separately:
 
 ```bash
 STAVE_LIVE_PROVIDER_SMOKE=1 bun run test:e2e:electron tests/e2e-electron/provider-live-smoke.electron.e2e.ts
