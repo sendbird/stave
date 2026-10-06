@@ -945,6 +945,6 @@ export function scheduleWorkspaceSnapshotPersist(args: SnapshotWrite) {
 }
 
 /** Includes in-flight and failed writes, not just active debounce timers. */
-export function flushPendingSnapshotPersists() {
-  return snapshotWrites.flushAll();
+export function flushPendingSnapshotPersists(workspaceId?: string) {
+  return workspaceId ? snapshotWrites.flush(workspaceId) : snapshotWrites.flushAll();
 }

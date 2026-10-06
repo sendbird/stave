@@ -203,6 +203,14 @@ const fakeStore = {
     const snapshot = loadFakeWorkspaceSnapshot(workspaceId);
     return {
       ...snapshot,
+      ...lastUpsertSnapshotByWorkspaceId.get(workspaceId),
+      activeTaskId: rendererSelectedTaskByWorkspaceId.get(workspaceId) ??
+        lastUpsertSnapshotByWorkspaceId.get(workspaceId)?.activeTaskId ?? snapshot.activeTaskId,
+      workspaceInformation: snapshot.workspaceInformation,
+      tasks: (lastUpsertSnapshotByWorkspaceId.get(workspaceId)?.tasks ?? snapshot.tasks).map((task) => ({
+        ...task,
+        archivedAt: persistedTasksByWorkspaceId.get(workspaceId)?.find((row) => row.id === task.id)?.archivedAt ?? task.archivedAt,
+      })),
       promptDraftByTask: {},
       providerSessionByTask: {},
       messageCountByTask: Object.fromEntries(

@@ -37,6 +37,7 @@ import {
   type RecentRepositoryState,
 } from "@/store/repository.utils";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
+import { hasPromptDraftPayload } from "@/store/prompt-draft-state";
 
 export interface WorkspaceKickoffSettings {
   kickoffSourceConfigs: KickoffSourceConfig[];
@@ -79,8 +80,8 @@ export interface KickoffWorkspaceArgs {
   }) => Promise<void>;
   /**
    * Where the first task goes. By default Kickoff creates a worktree for it;
-   * an agent that works in the current workspace gets a new task there
-   * instead, with no worktree and no Information panel seed.
+   * selecting the current workspace creates a new task there instead,
+   * with no worktree and no Information panel seed.
    */
   target?: { kind: "current-workspace"; workspaceId: string };
 }
@@ -319,7 +320,7 @@ type KickoffWorkspaceState = Pick<
   | "setTaskProvider"
   | "activeWorkspaceId"
   | "activeTaskId"
->;
+> & Partial<Pick<AppState, "promptDraftByTask">>;
 
 /**
  * A new task in the workspace the user is in, for an agent that works where
@@ -413,6 +414,14 @@ export async function runWorkspaceKickoff(args: {
       "blocked",
     );
   }
+  const restorePromptIfEmpty = () => {
+    const state = args.getState();
+    if (state.activeWorkspaceId && state.activeWorkspaceId !== createResult.workspaceId) return;
+    const current = state.promptDraftByTask?.[taskId];
+    if (!current || !hasPromptDraftPayload(current)) {
+      state.updatePromptDraft({ taskId, patch: { text: prompt, runtimeOverrides } });
+    }
+  };
 
   if (args.input.beforeFirstTurn) {
     try {
@@ -424,12 +433,7 @@ export async function runWorkspaceKickoff(args: {
     } catch {
       // Recording who runs the task failed. Keep the prompt ready and never
       // send: sending as the wrong agent is worse than a staged task.
-      args
-        .getState()
-        .updatePromptDraft({
-          taskId,
-          patch: { text: prompt, runtimeOverrides },
-        });
+      restorePromptIfEmpty();
       return warning(
         `${made} The task's agent could not be recorded, so its prompt is ready in the composer instead of starting.`,
         "blocked",
@@ -443,22 +447,19 @@ export async function runWorkspaceKickoff(args: {
     const result = await args.getState().sendUserMessage({
       taskId,
       content: prompt,
-      turnOrigin: "utility",
+      // Kickoff is the user's first prompt, so an assigned agent starts a run
+      // through the same dispatch path as the composer.
+      turnOrigin: "conversation",
       providerOverride: args.input.firstTaskProvider,
       runtimeOverrides,
     });
-    if (result.status === "started" || result.status === "queued") {
-      return { ...createResult, startup: result.status };
+    if (result.status === "started" || result.status === "queued" || result.status === "run-started") {
+      return { ...createResult, startup: result.status === "run-started" ? "started" : result.status };
     }
     if (result.status === "blocked") {
-      args
-        .getState()
-        .updatePromptDraft({
-          taskId,
-          patch: { text: prompt, runtimeOverrides },
-        });
+      restorePromptIfEmpty();
       return warning(
-        `${made} The first task could not start; its prompt is ready in the composer.`,
+        `${made} The first task could not start; review its saved prompt before retrying.`,
         "blocked",
       );
     }

@@ -1,19 +1,11 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Rocket } from "lucide-react";
 import { Button } from "@/components/ui";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { KickoffWhoPicker } from "./KickoffWhoPicker";
 import { sx } from "@/components/ads/utils/stylex";
 import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import type { AgentConfig } from "@/lib/agents/schema";
-import { AgentAvatar } from "@/components/agents/AgentAvatar";
-
-const ME = "me";
+import type { ReactNode } from "react";
 
 /** Assign on the source screen; the dialog owns the start itself. */
 export interface KickoffStartNowProps {
@@ -38,39 +30,23 @@ export function KickoffSourceWho(props: {
   onAgentChange: (agentId: string) => void;
   startNow: KickoffStartNowProps;
   disabled?: boolean;
+  children?: ReactNode;
 }) {
   const { t: tI18n } = useTranslation(["kickoff"]);
   const agent = props.agents.find((candidate) => candidate.id === props.agentId) ?? null;
   return (
     <div className={sx(kickoffStyles.field)}>
       <p className={sx(kickoffStyles.label)}>{tI18n("kickoff:kickoffSourceWho.who")}</p>
-      <Select
-        value={props.who === "agent" && agent ? agent.id : ME}
+      <KickoffWhoPicker
+        agents={props.agents}
+        who={props.who}
+        agentId={props.agentId}
         disabled={props.disabled}
-        onValueChange={(value) => {
-          if (value === ME) {
-            props.onWhoChange("me");
-            return;
-          }
-          props.onWhoChange("agent");
-          props.onAgentChange(String(value));
-        }}
-      >
-        <SelectTrigger className={sx(kickoffStyles.fullWidth)} aria-label={tI18n("kickoff:kickoffSourceWho.whoDoesTheWork")}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ME}>{tI18n("kickoff:kickoffSourceWho.me")}</SelectItem>
-          {props.agents.map((candidate) => (
-            <SelectItem key={candidate.id} value={candidate.id}>
-              <span className={sx(kickoffStyles.whoOption)}>
-                <AgentAvatar agent={candidate} size="xs" aria-label={null} />
-                {candidate.name}
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        onWhoChange={props.onWhoChange}
+        onAgentChange={props.onAgentChange}
+        aria-label={tI18n("kickoff:kickoffSourceWho.whoDoesTheWork")}
+      />
+      {props.children}
       {props.who === "agent" && agent ? (
         <div className={sx(kickoffStyles.startNow)}>
           <div className={sx(kickoffStyles.startNowRow)}>

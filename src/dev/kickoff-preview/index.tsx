@@ -50,6 +50,10 @@ const withAgent = params.get("agent") === "1";
 useAppStore.setState({
   repositoryPath: "/tmp/kickoff-preview",
   repositoryName: "Kickoff preview",
+  activeWorkspaceId: "preview-current",
+  workspaces: [{ id: "preview-current", name: "Current work", updatedAt: "2026-10-06T00:00:00Z" }],
+  workspaceBranchById: { "preview-current": "current-goal" },
+  workspacePathById: { "preview-current": "/tmp/kickoff-preview" },
   defaultBranch: "main",
   draftProvider: "cursor",
   providerAvailability: {

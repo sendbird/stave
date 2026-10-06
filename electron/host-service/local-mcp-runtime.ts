@@ -589,9 +589,9 @@ async function ensureRepositoryRegistryEntry(args: {
   };
 }
 
-async function loadWorkspaceSession(workspaceId: string) {
+async function loadWorkspaceSession(workspaceId: string, refresh = false) {
   const cached = workspaceSessionCacheById.get(workspaceId);
-  if (cached) {
+  if (cached && !refresh) {
     workspaceSessionCacheById.delete(workspaceId);
     workspaceSessionCacheById.set(workspaceId, cached);
     return cached;
@@ -609,6 +609,8 @@ async function loadWorkspaceSession(workspaceId: string) {
   const session = buildWorkspaceSessionStateFromShell({
     shell: shell as never,
     latestTurns: latestTurns as never,
+    // Refresh task metadata without dropping bounded resident message windows.
+    ...(cached ? { messagesByTask: cached.messagesByTask } : {}),
   });
   return cacheWorkspaceSession(workspaceId, session);
 }
@@ -1729,7 +1731,7 @@ async function runTaskImpl(args: {
   const workspaceName = registration.workspace.name;
   let session = refreshWorkspaceInformationFromPersistence({
     workspaceId: args.workspaceId,
-    session: await loadWorkspaceSession(args.workspaceId),
+    session: await loadWorkspaceSession(args.workspaceId, true),
   });
 
   // Auto-fill the Information panel from the prompt: register any Jira/PR/
@@ -2247,7 +2249,7 @@ export async function getTaskSupervisionSnapshot(args: {
     return missing;
   }
 
-  const session = await loadWorkspaceSession(args.workspaceId);
+  const session = await loadWorkspaceSession(args.workspaceId, true);
   const task = session.tasks.find((item) => item.id === args.taskId);
   if (!task) {
     return { ...missing, repositoryPath: registration.project.repositoryPath };

@@ -733,7 +733,7 @@
     "title4": "Visual check"
   },
   "agentRunSend": {
-    "copy": "Sent as a single turn",
+    "copy": "The run did not start",
     "unsentReason": "The run ended before it started."
   },
   "agentRunsStore": {
@@ -741,7 +741,8 @@
     "message2": "Stave could not confirm that the run started. Check the task's Progress tab before trying again.",
     "message3": "Runs are unavailable here.",
     "message4": "The run request failed.",
-    "message5": "The run request failed."
+    "message5": "The run request failed.",
+    "saveFailed": "The task could not be saved. Your prompt is preserved; try again once saving is available."
   },
   "useAgentRunReportActions": {
     "extraCopy14": "Runs are unavailable here.",

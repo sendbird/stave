@@ -133,19 +133,28 @@ describe("agent run send path", () => {
     expect(bridge.started).toEqual([]);
   });
 
-  test("a start the host refuses falls back to a plain turn", async () => {
+  test("a refused run start blocks the send and restores its prompt", async () => {
     useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
-    const bridge = fakeBridge({ refuse: "Stave's local tools are off." });
-    const { args, state } = sendArgs({ turnId: "turn-plain" });
-    expect(await startAgentRunForSend(args)).toBeNull();
+    const bridge = fakeBridge({ refuse: "The lead task was not found." });
+    const { args, state } = sendArgs();
+    expect(await startAgentRunForSend(args)).toEqual({ status: "blocked", message: "The lead task was not found." });
     expect(bridge.started).toHaveLength(1);
-    // The draft is cleared before the start is requested, as for any send; the
-    // send path then runs the captured prompt as a plain turn.
-    expect(state().promptDraftByTask["task-1"]?.text).toBe("");
-    // The prompt's row stays, handed to the plain turn's send, which ends it.
-    expect(pendingRow()).toMatchObject({ id: "turn-plain", taskId: "task-1" });
-    expect(pendingRow()?.agentRun).toBeUndefined();
+    expect(state().promptDraftByTask["task-1"]?.text).toBe("Add CSV export.");
+    expect(pendingRow()).toBeUndefined();
     expect(bridge.watched).toEqual([]);
+  });
+
+  test("a refused start preserves text typed during startup and offers the original prompt for retry", async () => {
+    useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+    const bridge = fakeBridge({ refuse: "The task could not be saved." });
+    const { args, state } = sendArgs();
+    const pending = startAgentRunForSend(args);
+    args.set((current) => ({ promptDraftByTask: { ...current.promptDraftByTask,
+      "task-1": { ...current.promptDraftByTask["task-1"], text: "Another prompt" } } }));
+    expect((await pending)?.status).toBe("blocked");
+    expect(state().promptDraftByTask["task-1"]?.text).toBe("Another prompt");
+    expect(state().failedSendsByTask["task-1"]?.[0]?.text).toBe("Add CSV export.");
+    expect(bridge.started).toHaveLength(1);
   });
 
   test("the prompt shows as the run's row from the send until the run writes it", async () => {

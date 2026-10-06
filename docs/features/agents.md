@@ -66,9 +66,11 @@ from the source as **Skip AI** reads it. On the review screen, **Who** and
 workflow decides the stages.
 
 **Assign** on either screen is the same start; the first one only skips the
-review. An agent that works in a **New worktree** gets one; an agent
-that works in the **Current workspace** gets a new task in the workspace you
-are in, with no worktree. The task records its agent, then its first turn is
+review. **Where** starts on **New workspace** for every agent, including Lead.
+Choose **Current workspace** to add a new task where you are, with no worktree.
+This kickoff choice is independent of the agent's saved workspace preference,
+which still applies to delegation. Selecting the same agent for another kickoff
+creates a separate assigned task; it does not reuse or replace its existing task. The task records its agent, then its first turn is
 sent like any composer turn: your sandbox, deny lists, credential lists,
 network setting, trusted tools and Stave Auto apply, and the turn runs
 autonomously, exactly like every later turn. Kickoff shows where it runs as

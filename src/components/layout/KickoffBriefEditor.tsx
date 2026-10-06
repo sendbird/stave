@@ -1,4 +1,6 @@
-import { i18n, useTranslation } from "@/i18n";
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { useTranslation } from "@/i18n";
 import {
   Accordion,
   AccordionContent,
@@ -6,15 +8,22 @@ import {
   AccordionTrigger,
   Textarea,
 } from "@/components/ui";
+import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { kickoffStyles } from "./kickoff-dialog.styles";
 import {
   buildKickoffFirstTaskPrompt,
-  KICKOFF_BRIEF_FIELDS,
   normalizeKickoffBrief,
   type KickoffBrief,
 } from "@/lib/kickoff-brief";
 import type { KickoffProposalDraft } from "@/lib/workspace-kickoff";
+
+const BRIEF_LABEL_KEYS = {
+  decisions: "kickoff:kickoffBriefEditor.decisions",
+  constraints: "kickoff:kickoffBriefEditor.constraints",
+  acceptanceCriteria: "kickoff:kickoffBriefEditor.completionCriteria",
+  openQuestions: "kickoff:kickoffBriefEditor.openQuestions",
+} as const;
 
 export function KickoffBriefEditor({
   draft,
@@ -26,17 +35,24 @@ export function KickoffBriefEditor({
   onChange: (draft: KickoffProposalDraft) => void;
 }) {
   const { t: tI18n } = useTranslation(["kickoff"]);
+  const [expanded, setExpanded] = useState<unknown[]>([]);
   return (
-    <Accordion>
+    <Accordion id="kickoff-brief-editor" value={expanded} onValueChange={setExpanded} xstyle={kickoffStyles.briefSections}>
       <AccordionItem value="brief">
-        <AccordionTrigger>{tI18n("kickoff:kickoffBriefEditor.reviewTaskDetails")}</AccordionTrigger>
-        <AccordionContent>
+        <AccordionTrigger xstyle={kickoffStyles.briefToggle}>
+          <span>{tI18n("kickoff:kickoffBriefEditor.reviewTaskDetails")}</span>
+          <ChevronDown
+            aria-hidden="true"
+            className={sx(kickoffStyles.briefChevron, transition.transform, expanded.includes("brief") && kickoffStyles.briefChevronOpen)}
+          />
+        </AccordionTrigger>
+        <AccordionContent xstyle={kickoffStyles.briefPanel}>
           <div className={sx(kickoffStyles.sourceStack)}>
             <p className={sx(kickoffStyles.hint)}>
               {tI18n("kickoff:kickoffBriefEditor.theseDetailsGoIntoTheFirstTask")}</p>
-            {Object.entries(KICKOFF_BRIEF_FIELDS).map(([key, label]) => (
+            {Object.entries(BRIEF_LABEL_KEYS).map(([key, label]) => (
               <label key={key} className={sx(kickoffStyles.labeledField)}>
-                {label}
+                {tI18n(label)}
                 <Textarea
                   value={(draft.brief?.[key as keyof KickoffBrief] ?? []).join(
                     "\n",
@@ -59,8 +75,14 @@ export function KickoffBriefEditor({
         </AccordionContent>
       </AccordionItem>
       <AccordionItem value="prompt-preview">
-        <AccordionTrigger>{tI18n("kickoff:kickoffBriefEditor.previewFullFirstTaskPrompt")}</AccordionTrigger>
-        <AccordionContent>
+        <AccordionTrigger xstyle={kickoffStyles.briefToggle}>
+          <span>{tI18n("kickoff:kickoffBriefEditor.previewFullFirstTaskPrompt")}</span>
+          <ChevronDown
+            aria-hidden="true"
+            className={sx(kickoffStyles.briefChevron, transition.transform, expanded.includes("prompt-preview") && kickoffStyles.briefChevronOpen)}
+          />
+        </AccordionTrigger>
+        <AccordionContent xstyle={kickoffStyles.briefPanel}>
           <Textarea
             readOnly
             aria-label={tI18n("kickoff:kickoffBriefEditor.fullFirstTaskPrompt")}

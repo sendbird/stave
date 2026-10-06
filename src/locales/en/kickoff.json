@@ -30,6 +30,10 @@
   },
   "kickoffBriefEditor": {
     "reviewTaskDetails": "Review task details",
+    "decisions": "Decisions",
+    "constraints": "Constraints and excluded scope",
+    "completionCriteria": "Completion criteria",
+    "openQuestions": "Open questions",
     "theseDetailsGoIntoTheFirstTask": "These details go into the first task. Leave unknown details empty or add an open question.",
     "oneItemPerLine": "One item per line",
     "previewFullFirstTaskPrompt": "Preview full first-task prompt",
@@ -37,21 +41,22 @@
   },
   "kickoffDialog": {
     "resolvingKickoffContext": "Resolving kickoff context",
-    "creatingYourWorkspace": "Creating your workspace",
+    "creatingYourWorkspace": "Preparing kickoff",
     "staveIsReadingTheSourceAndPreparing": "Stave is reading the source and preparing an editable workspace proposal.",
-    "staveIsCreatingTheWorktreeSeedingIts": "Stave is creating the worktree, seeding its context, and preparing the first task.",
+    "staveIsCreatingTheWorktreeSeedingIts": "Stave is preparing the workspace and its first task.",
     "taskCreatedWithWarning": "Task created with warning",
     "workspaceCreatedWithWarning": "Workspace created with warning",
     "taskStartedInThisWorkspace": "Task started in this workspace",
+    "taskCreatedInThisWorkspace": "Task created in this workspace",
     "workspaceCreatedFromKickoffSource": "Workspace created from kickoff source",
     "kickOffWorkspace": "Kick off workspace",
     "turnAWorkSourceIntoAnEditable": "Turn a work source into an editable workspace proposal.",
-    "reviewWhatStaveFoundBeforeCreatingThe": "Review what Stave found before creating the worktree.",
+    "reviewWhatStaveFoundBeforeCreatingThe": "Review what Stave found before creating the first task.",
     "kickoffProgress": "Kickoff progress",
     "text1": "1. Source",
     "text2": "2. Review",
     "cancelResolution": "Cancel resolution",
-    "keepStaveOpenWhileTheWorktreeIs": "Keep Stave open while the worktree is prepared.",
+    "keepStaveOpenWhileTheWorktreeIs": "Keep Stave open while the task is prepared.",
     "workSource": "Work source",
     "freeFormPrompt": "Free-form prompt",
     "pasteAJiraIssueSlackThreadPrd": "Paste a Jira issue, Slack thread, PRD, Figma link, report, or describe the work…",
@@ -121,7 +126,16 @@
     "createWorkspace": "Create workspace",
     "assign": "Assign",
     "createAndStart": "Create and start",
-    "valueCanTStartTheFirstTask": "{{value1}} can't start the first task, so this opens on your {{value2}} model."
+    "valueCanTStartTheFirstTask": "{{value1}} can't start the first task, so this opens on your {{value2}} model.",
+    "newWorkspace": "New workspace",
+    "currentWorkspace": "Current workspace",
+    "newWorkspaceHint": "Create a new worktree for this goal. The selected agent runs in its first task.",
+    "currentWorkspaceHint": "Add a new task to the current workspace ({{branch}}). Existing tasks keep running; workspace links and notes stay as they are.",
+    "openCurrentWorkspace": "Open a workspace before adding a task to it.",
+    "startInCurrentWorkspace": "starts a task in the current workspace",
+    "startInNewWorkspace": "creates a new workspace and starts",
+    "createTask": "Create task",
+    "currentWorkspaceDetails": "The new task uses the current workspace and its shared context."
   },
   "kickoffSourceWho": {
     "who": "Who",
@@ -194,5 +208,10 @@
     "message9": "Unable to create the workspace.",
     "message44": "AI interpretation was skipped. Review the task before starting.",
     "message48": "AI interpretation was unavailable. Review the task before starting."
+  },
+  "whoPicker": {
+    "searchAgents": "Search agents…",
+    "noAgentsFound": "No agents found.",
+    "recordUnavailable": "Recording the task’s agent is unavailable."
   }
 }

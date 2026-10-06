@@ -156,6 +156,24 @@ describe("kickoff execution", () => {
     expect(sends).toBe(0);
   });
 
+  test("a refused kickoff preserves text typed during the run start", async () => {
+    const newerDraft = { text: "Another instruction", attachedFilePaths: [], attachments: [] };
+    let restored = false;
+    const result = await runWorkspaceKickoff({
+      input: { proposal: proposal(), startFirstTask: true },
+      getState: () => ({
+        activeWorkspaceId: "new",
+        promptDraftByTask: { created: newerDraft },
+        createWorkspace: async () => ({ ok: true, workspaceId: "new", taskId: "created" }),
+        updatePromptDraft: () => { restored = true; },
+        sendUserMessage: async () => ({ status: "blocked" as const }),
+      }),
+    });
+    expect(result.startup).toBe("blocked");
+    expect(restored).toBe(false);
+    expect(newerDraft.text).toBe("Another instruction");
+  });
+
   test("retains long input and all reviewed conditions in the dispatched text", () => {
     const input = "Background. ".repeat(1300) + "Do not change authentication.";
     const draft = buildDeterministicKickoffProposal({
@@ -536,6 +554,19 @@ describe("kickoff for an agent that works in the current workspace", () => {
       "record:ws-here:new-task",
       "send:new-task:codex",
     ]);
+  });
+
+  test("a started Agent Run counts as confirmed kickoff startup", async () => {
+    const state = currentWorkspaceState([], {
+      sendUserMessage: async () => ({ status: "run-started", agentRunId: "run-1" }),
+    });
+    const result = await runWorkspaceKickoff({
+      input: { proposal: proposal(), startFirstTask: true, firstTaskProvider: "codex",
+        target: { kind: "current-workspace", workspaceId: "ws-here" } },
+      getState: () => state,
+    });
+    expect(result).toMatchObject({ ok: true, startup: "started", taskId: "new-task", workspaceId: "ws-here" });
+    expect(result.noticeLevel).toBeUndefined();
   });
 
   test("refuses when the user moved to another workspace, creating nothing", async () => {

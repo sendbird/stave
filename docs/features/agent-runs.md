@@ -243,6 +243,9 @@ sample limits and examples of when each screen helps.
 ## Limitations And Advanced Options
 
 - Agent runs run on Claude and Codex tasks, one agent run per task at a time.
+- Before starting a run, Stave waits for its workspace changes to be saved and
+  reads the current task state. If startup is refused or saving fails, the
+  prompt is kept for retry and no ordinary turn is sent automatically.
 - When an Agent-mode message includes files, images or task/context attachments,
   the composer explains before sending that it will run as a single turn and
   automatic agent execution will not start. Attachments in staged prompt items
