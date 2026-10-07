@@ -85,7 +85,6 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
             }
           : null,
         idleLabel: null,
-        isPlanPreparing: surface.isPlanPreparing,
         isStalled,
         todos: surface.todos,
         workItems: surface.workItems,
@@ -98,7 +97,6 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
       isStalled,
       pendingInteraction,
       surface.hasPendingInteractionCard,
-      surface.isPlanPreparing,
       surface.todos,
       surface.workItems,
       turnError,
@@ -146,7 +144,6 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
       counts.hasGraphSubagentCounts && counts.subagentRunningCount >= 2
         ? formatTurnActivityCountsLabel(counts)
         : null,
-    isPlanPreparing: surface.isPlanPreparing,
   });
   const elapsed = formatProviderTurnElapsedDuration({
     activity,
@@ -159,7 +156,6 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
   const loaderVariant = resolveTurnActivityLoaderVariant({
     activity,
     isStalled,
-    isPlanPreparing: surface.isPlanPreparing,
     workItems: surface.workItems,
   });
   const words = [label, headline.text, headline.detail]

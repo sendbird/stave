@@ -66,7 +66,6 @@ async function renderToolbar(
   overrides: {
     framed?: boolean;
     composerControlPlacements?: ComposerControlPlacements;
-    planMode?: boolean;
     thinkingMode?: "adaptive" | "enabled" | "disabled";
     value?: string;
     onEnhancePrompt?: () => void;
@@ -92,7 +91,6 @@ async function renderToolbar(
         reviewModelOptions: [MODEL_OPTION],
         preferredReviewModelKey: MODEL_OPTION.key,
         onLocalChangeReview: () => true,
-        onPlanModeChange: () => {},
         onThinkingModeChange: () => {},
         onComposerControlPlacementsChange: () => {},
         runtimeStatusItems: [
@@ -169,7 +167,6 @@ describe("composer control placement in the toolbar", () => {
   test("renders every control and no tray button by default", async () => {
     const html = await renderToolbar();
     expect(html).toContain('aria-label="Review local changes"');
-    expect(html).toContain(">Plan<");
     expect(html).toContain(">Thinking<");
     // An empty tray must not cost a toolbar slot.
     expect(html).not.toContain('data-composer-tray-trigger="true"');
@@ -194,22 +191,12 @@ describe("composer control placement in the toolbar", () => {
     expect(html).not.toContain('aria-label="Review local changes"');
   });
 
-  test("pulls a hidden control back onto the toolbar while it is active", async () => {
-    // Plan mode changes what the next turn does; hiding the button must not
-    // hide the mode.
-    const html = await renderToolbar({
-      composerControlPlacements: { plan: "hidden" },
-      planMode: true,
-    });
-    expect(html).toContain(">Plan<");
-  });
-
   test("keeps a hidden control hidden while it is at rest", async () => {
     const html = await renderToolbar({
-      composerControlPlacements: { plan: "hidden" },
-      planMode: false,
+      composerControlPlacements: { thinking: "hidden" },
+      thinkingMode: "adaptive",
     });
-    expect(html).not.toContain(">Plan<");
+    expect(html).not.toContain(">Thinking<");
   });
 
   test("treats a forced-off thinking mode as active", async () => {
@@ -255,7 +242,6 @@ describe("composer control placement in the toolbar", () => {
           reviewModelOptions: [MODEL_OPTION],
           preferredReviewModelKey: MODEL_OPTION.key,
           onLocalChangeReview: () => true,
-          onPlanModeChange: () => {},
           onThinkingModeChange: () => {},
           onComposerControlPlacementsChange: () => {},
           runtimeStatusItems: [
@@ -277,10 +263,10 @@ describe("composer control placement in the toolbar", () => {
     // no reason to exist — an empty shelf is never drawn.
     expect(html).not.toContain('data-composer-frame-wing="left"');
     expect(html).toContain("Turn activity");
-    // Plan is provider-owned, so it stays in the right wing.
-    expect(html).toContain('aria-label="Plan mode OFF"');
+    // Thinking is provider-owned, so it stays in the right wing.
+    expect(html).toContain('aria-label="Thinking: adaptive"');
     expect(html).toContain('data-composer-control-label=""');
-    expect(html).toContain(">Plan<");
+    expect(html).toContain(">Thinking<");
     // Hover, focus and reduced-motion geometry are exercised in the renderer.
     expect(html).toContain('data-wing-reveal="on"');
     expect(html).toContain('data-testid="context-meter-slot"');
@@ -294,7 +280,8 @@ describe("composer control placement in the toolbar", () => {
     expect(statusBar).toContain(">Review<");
     expect(statusBar).toContain('aria-label="Runtime ·');
     expect(statusBar).not.toContain(">Runtime<");
-    // The raised card keeps the model picker and context meter; wings own Plan.
+    // The raised card keeps the model picker and context meter; wings own
+    // provider settings.
     expect(html).toContain("Opus 5");
   });
 
@@ -358,11 +345,10 @@ describe("composer control placement in the toolbar", () => {
     ]);
     const html = await renderToolbar();
 
-    // Plan, provider mode, Thinking, Review and Runtime all render through
+    // Provider mode, Thinking, Review and Runtime all render through
     // different primitives (tooltip trigger, popover pill, dialog trigger).
     // The lane can only reach them if each one carries the marker.
     for (const label of [
-      'aria-label="Plan mode OFF"',
       'aria-label="Thinking: adaptive"',
       'aria-label="Review local changes"',
       'aria-label="Runtime · ',

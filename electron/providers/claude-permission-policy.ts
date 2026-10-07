@@ -1,14 +1,10 @@
 import { z } from "zod";
-import {
-  DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
-  type ClaudePlanModeApprovalScope,
-} from "../../src/types/chat";
 import { toText } from "./utils";
 import { isAlwaysAllowedStaveLocalMcpTool, isPromptFreeStaveLocalMcpTool } from "./stave-local-mcp-approval";
 
 /** SDK-level permission modes accepted by the claude-agent-sdk query() API. */
 export type ClaudePermissionMode =
-  "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk" | "auto";
+  "default" | "acceptEdits" | "bypassPermissions" | "dontAsk" | "auto";
 
 const ClaudePermissionResultSchema = z.union([
   z.object({
@@ -29,21 +25,18 @@ const CLAUDE_MUTATING_FILE_TOOL_NAMES = [
   "Write",
   "NotebookEdit",
 ] as const;
-const CLAUDE_PLAN_MODE_MUTATING_TOOL_NAMES = new Set(
+const CLAUDE_MUTATING_FILE_TOOL_NAME_SET = new Set(
   CLAUDE_MUTATING_FILE_TOOL_NAMES.map((toolName) => toolName.toLowerCase()),
 );
-const CLAUDE_AUTO_ALLOWED_TOOL_NAMES = new Set(["exitplanmode"]);
 /**
  * Claude Code built-in tools that cannot mutate the filesystem or task state.
- * In plan mode these are safe to auto-allow — the whole point of plan mode is
- * that only read-only work is permitted, so surfacing an approval prompt for
+ * Auto mode lets these through without asking, since an approval prompt for
  * each Read/Grep/Glob/WebFetch/WebSearch/BashOutput/NotebookRead call is pure
  * noise. Bash is intentionally excluded: even "read-only" commands can have
  * network side effects, so we keep prompting for it.
  *
- * TodoWrite is included because it only mutates the in-session todo tracker —
- * no filesystem write — so blocking it in plan mode just broke the agent's
- * own progress tracking and caused mid-plan stalls.
+ * TodoWrite is included because it only mutates the in-session todo tracker,
+ * never the filesystem.
  */
 const CLAUDE_READ_ONLY_BUILTIN_TOOL_NAMES = new Set([
   "read",
@@ -59,11 +52,10 @@ const CLAUDE_READ_ONLY_BUILTIN_TOOL_NAMES = new Set([
 ]);
 const STAVE_LOCAL_MCP_TOOL_PREFIX = "mcp__stave-local-mcp__";
 /**
- * Tokens that mark a (non-Stave) MCP tool as read-only vs. mutating, used to
- * decide whether plan mode can auto-allow third-party / lens MCP calls when the
- * approval scope is `bashTaskAndMcp`. An MCP tool is treated as read-only only
- * when it contains a read verb AND no write verb — anything ambiguous keeps
- * prompting, so misclassification fails safe (toward asking the user).
+ * Tokens that mark a (non-Stave) MCP tool as read-only vs. mutating. An MCP
+ * tool is treated as read-only only when it contains a read verb AND no write
+ * verb — anything ambiguous keeps prompting, so misclassification fails safe
+ * (toward asking the user).
  */
 const CLAUDE_MCP_READ_VERB_TOKENS = new Set([
   "get",
@@ -192,7 +184,6 @@ export function resolveClaudePermissionMode(args: {
     candidate === "default" ||
     candidate === "acceptEdits" ||
     candidate === "bypassPermissions" ||
-    candidate === "plan" ||
     candidate === "dontAsk" ||
     candidate === "auto"
   ) {
@@ -278,35 +269,16 @@ export function shouldDenyClaudeToolInSecondaryReadOnly(args: {
 }
 
 /**
- * Tools that stay globally disallowed while plan mode is active. Unlike Write,
- * Edit / MultiEdit / NotebookEdit always target existing source files and
- * never a handoff plan file — so there is no reason to route them through the
- * per-call gate.
+ * Claude's own plan-mode tools. Stave has no plan mode: a turn always runs in
+ * the permission mode the user chose, so the agent must not switch itself into
+ * a read-only planning state that then waits for an approval Stave never asks.
  */
-const CLAUDE_PLAN_MODE_DISALLOWED_TOOL_NAMES = [
-  "Edit",
-  "MultiEdit",
-  "NotebookEdit",
+const CLAUDE_ALWAYS_DISALLOWED_TOOL_NAMES = [
+  "EnterPlanMode",
+  "ExitPlanMode",
 ] as const;
 
-/**
- * Matches `.stave/context/plans/<file>.md` anywhere in a path, so both
- * absolute workspace-rooted paths ("/workspace/.../.stave/context/plans/x.md")
- * and workspace-relative paths (".stave/context/plans/x.md") resolve as
- * handoff plan files.
- */
-const CLAUDE_HANDOFF_PLAN_FILE_PATTERN =
-  /(?:^|\/)\.stave\/context\/plans\/[^\\/]+\.md$/;
-
-function isHandoffPlanFilePath(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    CLAUDE_HANDOFF_PLAN_FILE_PATTERN.test(value.trim())
-  );
-}
-
 export function resolveClaudeDisallowedTools(args: {
-  permissionMode: ClaudePermissionMode;
   runtimeDisallowedTools?: readonly string[] | null;
 }) {
   const merged = new Set<string>();
@@ -317,36 +289,10 @@ export function resolveClaudeDisallowedTools(args: {
       }
     });
   }
-  if (args.permissionMode === "plan") {
-    CLAUDE_PLAN_MODE_DISALLOWED_TOOL_NAMES.forEach((toolName) => {
-      merged.add(toolName);
-    });
-  }
+  CLAUDE_ALWAYS_DISALLOWED_TOOL_NAMES.forEach((toolName) => {
+    merged.add(toolName);
+  });
   return [...merged];
-}
-
-export function shouldDenyClaudeToolInPlanMode(args: {
-  toolName: string;
-  input: Record<string, unknown>;
-}) {
-  const normalizedToolName = args.toolName.trim().toLowerCase();
-  if (CLAUDE_PLAN_MODE_MUTATING_TOOL_NAMES.has(normalizedToolName)) {
-    // Write is the one mutating tool we conditionally allow: the handoff
-    // convention writes plan files into `.stave/context/plans/**`, and the
-    // runtime already treats that directory as session metadata.
-    if (
-      normalizedToolName === "write" &&
-      isHandoffPlanFilePath(args.input.file_path)
-    ) {
-      return false;
-    }
-    return true;
-  }
-  if (normalizedToolName !== "bash") {
-    return false;
-  }
-  const command = extractClaudeBashCommand(args.input);
-  return typeof command === "string" && isMutatingClaudeBashCommand(command);
 }
 
 export function resolveClaudePermissionModeDecision(args: {
@@ -360,9 +306,6 @@ export function resolveClaudePermissionModeDecision(args: {
   if (normalizedToolName === "askuserquestion") {
     return "prompt" as const;
   }
-  if (CLAUDE_AUTO_ALLOWED_TOOL_NAMES.has(normalizedToolName)) {
-    return "allow" as const;
-  }
   if (isAlwaysAllowedStaveLocalMcpTool(normalizedToolName)) {
     return "allow" as const;
   }
@@ -375,16 +318,15 @@ export function resolveClaudePermissionModeDecision(args: {
   }
   if (
     (args.permissionMode === "acceptEdits" || args.permissionMode === "auto") &&
-    CLAUDE_PLAN_MODE_MUTATING_TOOL_NAMES.has(normalizedToolName)
+    CLAUDE_MUTATING_FILE_TOOL_NAME_SET.has(normalizedToolName)
   ) {
     return "allow" as const;
   }
-  // Plan mode is read-only by construction (mutating tools are hard-denied in
-  // canUseTool). Auto reaches here only when the CLI hands a call over, and
-  // already lets edits through. Either way asking about each read is noise.
+  // Auto reaches here only when the CLI hands a call over, and already lets
+  // edits through, so asking about each read is noise.
   if (
-    (args.permissionMode === "plan" ||
-      (args.permissionMode === "auto" && args.keepReadOnlyPrompt !== true)) &&
+    args.permissionMode === "auto" &&
+    args.keepReadOnlyPrompt !== true &&
     CLAUDE_READ_ONLY_BUILTIN_TOOL_NAMES.has(normalizedToolName)
   ) {
     return "allow" as const;
@@ -405,22 +347,6 @@ export function shouldAutoAllowClaudeTool(args: {
       toolName: args.toolName,
     }) === "allow"
   );
-}
-
-export function resolveClaudePlanModeApprovalScope(args: {
-  runtimeValue?: ClaudePlanModeApprovalScope;
-  envValue?: string;
-}): ClaudePlanModeApprovalScope {
-  const candidate = args.runtimeValue ?? args.envValue;
-  if (
-    candidate === "strict" ||
-    candidate === "bash" ||
-    candidate === "bashAndTask" ||
-    candidate === "bashTaskAndMcp"
-  ) {
-    return candidate;
-  }
-  return DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE;
 }
 
 /**
@@ -444,69 +370,6 @@ export function isReadOnlyMcpLeafToolName(leafToolName: string): boolean {
     return false;
   }
   return tokens.some((token) => CLAUDE_MCP_READ_VERB_TOKENS.has(token));
-}
-
-/**
- * Plan mode is read-only by construction — mutating file tools and mutating
- * Bash are hard-denied before this runs. This decides whether a *non-mutating*
- * tool call should skip the approval prompt based on the user's configured
- * plan-mode approval scope, so planning feels as frictionless as auto mode
- * without ever letting a mutation through.
- */
-export function shouldAutoAllowPlanModeScopedTool(args: {
-  scope: ClaudePlanModeApprovalScope;
-  toolName: string;
-  input: Record<string, unknown>;
-}): boolean {
-  if (args.scope === "strict") {
-    return false;
-  }
-  const normalizedToolName = args.toolName.trim().toLowerCase();
-
-  // Bash: only non-mutating commands. Mutating Bash is hard-denied upstream,
-  // but re-check here so the helper is correct in isolation.
-  if (normalizedToolName === "bash") {
-    const command = extractClaudeBashCommand(args.input);
-    return typeof command === "string" && !isMutatingClaudeBashCommand(command);
-  }
-
-  // Subagents (Task). The nested subagent's own tool calls still flow through
-  // this same canUseTool gate, so mutations remain hard-denied even when the
-  // spawn itself is auto-allowed.
-  if (normalizedToolName === "task") {
-    return args.scope === "bashAndTask" || args.scope === "bashTaskAndMcp";
-  }
-
-  // Read-only third-party / lens MCP tools, only at the broadest scope. Stave
-  // workspace MCP tools are already auto-allowed earlier, so this targets
-  // external servers (github, slack, lens, …).
-  if (
-    args.scope === "bashTaskAndMcp" &&
-    normalizedToolName.startsWith("mcp__")
-  ) {
-    const leafToolName =
-      normalizedToolName.split("__").at(-1) ?? normalizedToolName;
-    return isReadOnlyMcpLeafToolName(leafToolName);
-  }
-
-  return false;
-}
-
-/**
- * Once a plan was presented via ExitPlanMode in a plan-mode turn, every later
- * tool call (except re-presenting an updated plan) must be denied so the agent
- * stops and the turn completes — Stave has already captured the plan for review.
- */
-export function shouldDenyClaudePostPlanTool(args: {
-  permissionMode: ClaudePermissionMode;
-  planPresented: boolean;
-  toolName: string;
-}): boolean {
-  return (
-    args.permissionMode === "plan" &&
-    args.planPresented &&
-    args.toolName.trim().toLowerCase() !== "exitplanmode"
-  );
 }
 
 export function resolveTrustedApprovalInput(args: {

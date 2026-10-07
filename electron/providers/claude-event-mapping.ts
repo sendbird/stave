@@ -69,190 +69,10 @@ function resolveGitHeadRef(args: { cwd?: string }) {
   }
 }
 
-type ClaudePlanStreamBlockState = {
-  sourceSegmentId?: string;
-  partialJson: string;
-  lastPlanText?: string;
-};
-
-export type ClaudePlanStreamState = {
-  exitPlanBlocksByIndex: Map<number, ClaudePlanStreamBlockState>;
-};
-
-export function createClaudePlanStreamState(): ClaudePlanStreamState {
-  return {
-    exitPlanBlocksByIndex: new Map<number, ClaudePlanStreamBlockState>(),
-  };
-}
-
-function normalizeClaudeStreamIndex(value: unknown) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0
-    ? value
-    : null;
-}
-
 function extractClaudeToolUseId(value: unknown) {
   return typeof value === "string" && value.trim().length > 0
     ? value
     : undefined;
-}
-
-function extractClaudePlanTextFromToolInput(input: unknown) {
-  if (!input || typeof input !== "object" || Array.isArray(input)) {
-    return null;
-  }
-  const plan = (input as Record<string, unknown>).plan;
-  return typeof plan === "string" && plan.trim().length > 0 ? plan : null;
-}
-
-function parseClaudeToolInputJson(partialJson: string) {
-  const trimmed = partialJson.trim();
-  if (!trimmed) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(trimmed);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function buildClaudePlanReadyEvent(args: {
-  planText: string;
-  sourceSegmentId?: string;
-}): BridgeEvent {
-  return {
-    type: "plan_ready",
-    planText: args.planText,
-    ...(args.sourceSegmentId ? { sourceSegmentId: args.sourceSegmentId } : {}),
-  };
-}
-
-function buildClaudeFallbackPlanSegmentId(index: number) {
-  return `claude-exit-plan-${index}`;
-}
-
-function mapClaudeStreamPlanEvent(args: {
-  streamEvent: Record<string, unknown>;
-  planState: ClaudePlanStreamState;
-}): BridgeEvent[] {
-  const { streamEvent, planState } = args;
-
-  if (
-    streamEvent.type === "message_start" ||
-    streamEvent.type === "message_stop"
-  ) {
-    planState.exitPlanBlocksByIndex.clear();
-    return [];
-  }
-
-  if (streamEvent.type === "content_block_start") {
-    const index = normalizeClaudeStreamIndex(streamEvent.index);
-    const contentBlock =
-      streamEvent.content_block && typeof streamEvent.content_block === "object"
-        ? (streamEvent.content_block as Record<string, unknown>)
-        : null;
-    if (
-      index == null ||
-      !contentBlock ||
-      contentBlock.type !== "tool_use" ||
-      contentBlock.name !== "ExitPlanMode"
-    ) {
-      return [];
-    }
-
-    const sourceSegmentId =
-      extractClaudeToolUseId(contentBlock.id) ??
-      buildClaudeFallbackPlanSegmentId(index);
-    const initialInput =
-      contentBlock.input && typeof contentBlock.input === "object"
-        ? (contentBlock.input as Record<string, unknown>)
-        : null;
-    const initialPlanText = extractClaudePlanTextFromToolInput(initialInput);
-
-    planState.exitPlanBlocksByIndex.set(index, {
-      sourceSegmentId,
-      partialJson: "",
-      lastPlanText: initialPlanText ?? undefined,
-    });
-
-    return initialPlanText
-      ? [
-          buildClaudePlanReadyEvent({
-            planText: initialPlanText,
-            sourceSegmentId,
-          }),
-        ]
-      : [];
-  }
-
-  if (streamEvent.type === "content_block_delta") {
-    const index = normalizeClaudeStreamIndex(streamEvent.index);
-    const delta =
-      streamEvent.delta && typeof streamEvent.delta === "object"
-        ? (streamEvent.delta as Record<string, unknown>)
-        : null;
-    if (index == null || !delta || delta.type !== "input_json_delta") {
-      return [];
-    }
-
-    const blockState = planState.exitPlanBlocksByIndex.get(index);
-    if (!blockState) {
-      return [];
-    }
-
-    const partialJson =
-      typeof delta.partial_json === "string" ? delta.partial_json : "";
-    if (!partialJson) {
-      return [];
-    }
-
-    blockState.partialJson += partialJson;
-    const parsedInput = parseClaudeToolInputJson(blockState.partialJson);
-    const planText = extractClaudePlanTextFromToolInput(parsedInput);
-    if (!planText || planText === blockState.lastPlanText) {
-      return [];
-    }
-
-    blockState.lastPlanText = planText;
-    return [
-      buildClaudePlanReadyEvent({
-        planText,
-        sourceSegmentId: blockState.sourceSegmentId,
-      }),
-    ];
-  }
-
-  if (streamEvent.type === "content_block_stop") {
-    const index = normalizeClaudeStreamIndex(streamEvent.index);
-    if (index == null) {
-      return [];
-    }
-
-    const blockState = planState.exitPlanBlocksByIndex.get(index);
-    if (!blockState) {
-      return [];
-    }
-
-    planState.exitPlanBlocksByIndex.delete(index);
-    const parsedInput = parseClaudeToolInputJson(blockState.partialJson);
-    const planText = extractClaudePlanTextFromToolInput(parsedInput);
-    if (!planText || planText === blockState.lastPlanText) {
-      return [];
-    }
-
-    return [
-      buildClaudePlanReadyEvent({
-        planText,
-        sourceSegmentId: blockState.sourceSegmentId,
-      }),
-    ];
-  }
-
-  return [];
 }
 
 /**
@@ -389,7 +209,6 @@ export function mapClaudeMessageToEvents(args: {
   message: ClaudeIncomingMessage;
   claudeDebugStream: boolean;
   cwd?: string;
-  planState?: ClaudePlanStreamState;
   ownerAgentIdResolver?: ClaudeOwnerAgentIdResolver;
 }): BridgeEvent[] {
   const { message, claudeDebugStream } = args;
@@ -641,16 +460,6 @@ export function mapClaudeMessageToEvents(args: {
       }
       if (b.type === "tool_use") {
         const toolUseId = extractClaudeToolUseId(b.id);
-        if (b.name === "ExitPlanMode") {
-          const planText = extractClaudePlanTextFromToolInput(b.input) ?? "";
-          events.push(
-            buildClaudePlanReadyEvent({
-              planText,
-              sourceSegmentId: toolUseId,
-            }),
-          );
-          continue;
-        }
         // No `agentId` here: when an Agent/Task spawn call is emitted the
         // child's task_id does not exist yet, and guessing one would invert a
         // graph edge. The reducer binds the spawn call to its worker later,
@@ -684,15 +493,6 @@ export function mapClaudeMessageToEvents(args: {
       delta?: { type?: string; thinking?: string; text?: string };
       error?: { message?: string };
     };
-    const streamPlanEvents = args.planState
-      ? mapClaudeStreamPlanEvent({
-          streamEvent: event as Record<string, unknown>,
-          planState: args.planState,
-        })
-      : [];
-    if (streamPlanEvents.length > 0) {
-      return streamPlanEvents;
-    }
     if (streamEvent.type === "content_block_delta") {
       if (
         streamEvent.delta?.type === "thinking_delta" &&

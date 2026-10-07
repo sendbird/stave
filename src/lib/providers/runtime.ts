@@ -120,11 +120,28 @@ function normalizeLegacyProviderEvent(payload: unknown): unknown | null {
   }
 }
 
+// temporary-migration: plan-mode-removal
+function isRetiredPlanReadyPayload(payload: unknown) {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    (payload as { type?: unknown }).type === "plan_ready"
+  );
+}
+// end temporary-migration: plan-mode-removal
+
 export function parseNormalizedEvent(args: { payload: unknown }): ParsedNormalizedProviderEvent | null {
   const parsed = NormalizedProviderEventSchema.safeParse(args.payload);
   if (parsed.success) {
     return parsed.data;
   }
+  // temporary-migration: plan-mode-removal
+  // Plan mode is gone; a stored `plan_ready` event from an older turn is
+  // skipped quietly instead of being reported as an invalid event.
+  if (isRetiredPlanReadyPayload(args.payload)) {
+    return null;
+  }
+  // end temporary-migration: plan-mode-removal
 
   const legacyPayload = normalizeLegacyProviderEvent(args.payload);
   if (legacyPayload) {

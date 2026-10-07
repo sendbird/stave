@@ -8,13 +8,8 @@ export type CodexReasoningEffort = NonNullable<
 
 export function resolveEffectiveCodexApprovalPolicy(args: {
   approvalPolicy?: string;
-  planMode?: boolean;
   fallback?: CodexApprovalPolicy;
 }): CodexApprovalPolicy {
-  if (args.planMode) {
-    return "never";
-  }
-
   if (
     args.approvalPolicy === "never"
     || args.approvalPolicy === "on-request"
@@ -29,13 +24,8 @@ export function resolveEffectiveCodexApprovalPolicy(args: {
 
 export function resolveEffectiveCodexFileAccessMode(args: {
   fileAccessMode?: ProviderRuntimeOptions["codexFileAccess"];
-  planMode?: boolean;
   fallback?: CodexFileAccessMode;
 }): CodexFileAccessMode {
-  if (args.planMode) {
-    return "read-only";
-  }
-
   if (
     args.fileAccessMode === "read-only"
     || args.fileAccessMode === "workspace-write"

@@ -35,11 +35,10 @@ import {
   findMessageIndexByToolUseId,
   getReasoningTraceExpansionMode,
   getMessageScrollFingerprint,
-  resolvePlanMessagePresentation,
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
-import { ConversationPlanCard } from "@/components/session/ConversationPlanCard";
 import { FailedOutgoingMessages } from "@/components/session/FailedOutgoingMessages";
+import { TurnDocumentRevisions } from "@/components/session/TurnDocumentRevisions";
 import {
   AutoRouteLine,
   PendingAutoRouteStatus,
@@ -159,8 +158,6 @@ interface MessageRowProps {
     completedAt?: string;
     parts: MessagePart[];
     displayParts?: MessagePart[];
-    isPlanResponse?: boolean;
-    planText?: string;
     isStreaming?: boolean;
     steerDeliveryState?: ChatMessage["steerDeliveryState"];
     dispatchedFromQueue?: ChatMessage["dispatchedFromQueue"];
@@ -175,6 +172,8 @@ interface MessageRowProps {
   startedTurnId?: string;
   /** An Agent-mode send still waiting on its run: drawn as the row the run will write. */
   pendingAgentRun?: boolean;
+  /** On a turn's last reply: that turn, for the documents it wrote. */
+  documentTurnId?: string;
 }
 
 /**
@@ -256,10 +255,6 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
         nowMs: clockActive ? elapsedAnchorMs : undefined,
       }),
     [clockActive, elapsedAnchorMs, message],
-  );
-  const planPresentation = useMemo(
-    () => resolvePlanMessagePresentation(message),
-    [message],
   );
   const messageText = message.displayContent ?? message.content;
   // An agent run's first prompt: the user's assignment, with Stave's compiled
@@ -403,11 +398,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
             }
             onCopy={handleUserMessageCopy}
           >
-            {planPresentation.showPlanCard ? (
-              <ConversationPlanCard planText={planPresentation.planText} />
-            ) : null}
-            {planPresentation.showAssistantBody &&
-            !(agentRunPrompt && !agentRunPrompt.assignment) ? (
+            {!(agentRunPrompt && !agentRunPrompt.assignment) ? (
               <MemoizedAssistantMessageBody
                 message={bodyMessage}
                 taskId={taskId}
@@ -419,6 +410,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
             ) : null}
             {agentRunPrompt ? (
               <AgentRunInstructions text={agentRunPrompt.instructions} />
+            ) : null}
+            {message.role === "assistant" && args.documentTurnId ? (
+              <TurnDocumentRevisions turnId={args.documentTurnId} />
             ) : null}
           </MessageContent>
           {message.role === "user" && steerDeliveryLabel ? (
@@ -739,11 +733,6 @@ function ChatPanelMessageList(props: {
   const suppressAnchorUntilRef = useRef(0);
   const previousActiveTurnIdRef = useRef<string | undefined>(activeTurnId);
 
-  // Plan responses stay in the transcript and render as a dedicated plan card
-  // (see `resolvePlanMessagePresentation`). They used to be filtered out here,
-  // which left the floating `PlanViewer` as their only renderer — so the plan
-  // vanished as soon as the task moved past plan review, and any follow-up
-  // content sharing the message was dropped with it.
   const visibleMessages = messages;
   const threadActionStateByMessageId = useMemo(
     () =>
@@ -827,6 +816,26 @@ function ChatPanelMessageList(props: {
       } else if (pendingUserMessageId && message.turnId) {
         map.set(pendingUserMessageId, message.turnId);
         pendingUserMessageId = null;
+      }
+    }
+    return map;
+  }, [visibleMessages]);
+  // A turn's documents show once, under its last finished reply.
+  const documentTurnIdByMessageId = useMemo(() => {
+    const lastMessageIdByTurn = new Map<string, string>();
+    for (const message of visibleMessages) {
+      if (message.role === "assistant" && message.turnId) {
+        lastMessageIdByTurn.set(message.turnId, message.id);
+      }
+    }
+    const map = new Map<string, string>();
+    for (const message of visibleMessages) {
+      if (
+        message.turnId &&
+        !message.isStreaming &&
+        lastMessageIdByTurn.get(message.turnId) === message.id
+      ) {
+        map.set(message.id, message.turnId);
       }
     }
     return map;
@@ -1131,6 +1140,7 @@ function ChatPanelMessageList(props: {
                   message.id,
                 )}
                 startedTurnId={startedTurnIdByUserMessageId.get(message.id)}
+                documentTurnId={documentTurnIdByMessageId.get(message.id)}
               />
             )}
           />

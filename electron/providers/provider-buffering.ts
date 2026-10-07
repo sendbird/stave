@@ -60,9 +60,6 @@ export function shouldReplaceBufferedBridgeEvent(args: {
   ) {
     return true;
   }
-  if (next.type === "plan_ready" && previous.type === "plan_ready") {
-    return (previous.sourceSegmentId ?? "") === (next.sourceSegmentId ?? "");
-  }
   if (next.type === "goal_status" && previous.type === "goal_status") {
     return previous.providerId === next.providerId;
   }
@@ -260,15 +257,6 @@ function getBridgeEventStringAccessors(event: BridgeEvent) {
           );
           return [...questionAccessors, ...optionAccessors];
         }),
-      ];
-    case "plan_ready":
-      return [
-        {
-          get: () => event.planText,
-          set: (value: string) => {
-            event.planText = value;
-          },
-        },
       ];
     case "system":
       return [

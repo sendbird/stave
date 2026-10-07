@@ -51,19 +51,4 @@ describe("provider mode presets", () => {
     })).toBe("guided");
   });
 
-  test("includes plan-mode notes in presenter output", () => {
-    const claudePresentation = resolveClaudeProviderModePresentation({
-      settings: buildClaudeProviderModeSettingsPatch({ presetId: "manual" }),
-      planMode: true,
-    });
-    const codexPresentation = resolveCodexProviderModePresentation({
-      settings: buildCodexProviderModeSettingsPatch({ presetId: "guided" }),
-      planMode: true,
-    });
-
-    expect(claudePresentation.label).toBe("Manual");
-    expect(claudePresentation.planNote).toContain("Plan is enabled");
-    expect(codexPresentation.label).toBe("Guided");
-    expect(codexPresentation.planNote).toContain("read-only");
-  });
 });

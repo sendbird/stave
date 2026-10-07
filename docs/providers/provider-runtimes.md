@@ -233,7 +233,9 @@ title into the input when the agent sent no structured target. Trace rows and
 approval headers therefore read as a short title plus one target chip on every
 provider. Short label-like titles (MCP tool names) stay as the tool name.
 
-Cursor supports `agent`, `plan`, and `ask` session modes. At app startup, Stave
+Stave runs Cursor in its `agent` or `ask` session mode. When Cursor still
+proposes a plan through `cursor/create_plan`, Stave accepts it without a review
+step and the turn continues. At app startup, Stave
 loads the model values advertised by an authenticated ACP session. Current
 Cursor builds honor `clientCapabilities._meta.parameterizedModelPicker`, so
 the catalog is bare model ids and effort/fast are independent session config
@@ -621,7 +623,6 @@ Claude event mapping:
 - assistant text -> `text`
 - thinking or thinking delta -> `thinking`
 - tool use -> `tool`
-- `ExitPlanMode` tool payload -> `plan_ready`
 - `task_progress.summary` -> `system` when Claude agent progress summaries are enabled
 - MCP elicitation and supported user dialogs -> `user_input`
 - provider-native message UUID -> `history_boundary`
@@ -663,7 +664,7 @@ Claude SDK prewarm:
 
 Claude-specific runtime controls come from the UI and runtime options:
 
-- permission mode (`default`, `acceptEdits`, `bypassPermissions`, `plan`, `dontAsk`, `auto`)
+- permission mode (`default`, `acceptEdits`, `bypassPermissions`, `dontAsk`, `auto`)
 - dangerous skip permissions
 - sandbox enabled
 - allow unsandboxed commands
@@ -697,7 +698,6 @@ If you want the user-facing setup workflow instead of the runtime internals, use
   - `default`: use Claude's standard behavior.
   - `acceptEdits`: good default for normal implementation work with guardrails.
   - `bypassPermissions`: highest-autonomy Claude path; use carefully.
-  - `plan`: planning-only flow in Stave.
   - `dontAsk`: avoid interactive permission pauses during the turn.
   - `auto`: let Claude choose.
 - `setting sources`
@@ -718,8 +718,12 @@ If you want the user-facing setup workflow instead of the runtime internals, use
   - `Manual`: `default` + sandbox on + unsandboxed off + dangerous skip off
   - `Guided`: `acceptEdits` + sandbox off + unsandboxed on + dangerous skip off
   - `Auto`: `auto` + sandbox off + unsandboxed on + dangerous skip off
-  - `bypassPermissions`, `plan`, and `dontAsk` are reachable only from the
+  - `bypassPermissions` and `dontAsk` are reachable only from the
     Permission Mode field and always present as `Custom`.
+- Stave has no plan mode. Claude's own `EnterPlanMode` and `ExitPlanMode`
+  tools are always disallowed, so a turn never switches itself into a
+  read-only planning state that waits for an approval. Ask for a plan in the
+  prompt instead; see [Workspace Documents](../features/workspace-documents.md).
 
 In the chat composer, Stave now shows the active provider mode as a pill beside the model selector and keeps the detailed runtime values in the `Runtime` drawer. Inline runtime adjustments no longer happen there; the editable controls live in Settings.
 
@@ -757,8 +761,8 @@ Claude path and approval handling:
 - approval and user-input responses are validated before they are returned to the SDK
 - in `auto` mode, a call the CLI hands to Stave instead of deciding with its own
   classifier (the classifier is unavailable for the model or plan, or it chose
-  to ask) is auto-allowed when it is one of the read-only built-ins plan mode
-  also allows (Read, Grep, Glob, LS, NotebookRead, WebFetch, WebSearch,
+  to ask) is auto-allowed when it is one of the read-only built-ins (Read,
+  Grep, Glob, LS, NotebookRead, WebFetch, WebSearch,
   BashOutput, TodoRead, TodoWrite). It still prompts when a user ask rule forced
   the prompt, the CLI marked it default-to-no, the tool is disallowed, or it
   reads or searches a protected credential path. Bash and every other tool keep
@@ -772,7 +776,7 @@ Claude path and approval handling:
 - Interactive prompts containing `@web` opt that turn into Claude Code's native
   Chrome integration through the SDK `extraArgs` equivalent of `--chrome`.
   Stave explicitly passes the native no-Chrome flag on other turns, including
-  plan mode, unattended automation, and secondary read-only analysis. Claude's
+  unattended automation and secondary read-only analysis. Claude's
   extension owns site access and sensitive-action
   confirmation. Browser failures are reported in the turn instead of being
   persisted as workspace connection status.
@@ -808,9 +812,9 @@ Codex prompt injection note:
 
 - Stave now forwards response-style and project/system prompt overrides through Codex `developer_instructions` config instead of prepending visible `<system>` blocks to each user turn.
 - Task history, selected text-file context, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config. Supported image attachments use the native image items described above, while the prompt keeps only their labels and fallback instructions.
-- Stave always appends native browser-tooling guidance (`CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS`) to `developer_instructions`. It directs Codex to use ordinary web search for general research and, for explicit interactive `@web` requests, to use `cua_repl` with only the external Chrome surface. The in-app browser and desktop UI surfaces exposed by that tool do not satisfy `@web`. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin and does not persist a browser connection status. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
+- Stave always appends native browser-tooling guidance (`CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS`) to `developer_instructions`. It directs Codex to use ordinary web search for general research and, for explicit interactive `@web` requests, to use `cua_repl` with only the external Chrome surface. The in-app browser and desktop UI surfaces exposed by that tool do not satisfy `@web`. The provider-native browser stays unavailable to unattended automation and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin and does not persist a browser connection status. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
 - Lens guidance (`CODEX_STAVE_LENS_INSTRUCTIONS`) is appended **only when the thread will actually see `stave_lens_*` tools**: the local MCP must be registered with Codex *and* `browserToolsEnabled` must still be on. Without it there are no `stave_lens_*` tools, so the block would describe tools that do not exist. `hasStaveLocalMcp` is resolved before the thread is keyed and is part of `buildCodexInstructionProfileKey`, so toggling it is detected like any other instruction change.
-- The developer instructions are **not** part of the Codex thread key. Codex only re-renders `developer_instructions` when it builds a new context window (first turn or compaction), never on a plain `thread/resume`, so a key that included them paid a full cold start — the entire history re-sent with no prompt cache — for a response-style edit, a Lens toggle, or a subagent change. Instead the runtime remembers the instruction profile each live thread last received (`buildCodexInstructionProfileKey`). When a resumed thread's profile differs, or is unknown because the app restarted, the next user turn is prefixed once with `[Stave Instructions Update]` followed by the current developer instructions, marked as replacing the earlier ones. The block is attached only to what the model receives; slash-command detection still runs on the bare prompt. Model, plan mode, cwd, and bound-secret fingerprint still rotate the thread.
+- The developer instructions are **not** part of the Codex thread key. Codex only re-renders `developer_instructions` when it builds a new context window (first turn or compaction), never on a plain `thread/resume`, so a key that included them paid a full cold start — the entire history re-sent with no prompt cache — for a response-style edit, a Lens toggle, or a subagent change. Instead the runtime remembers the instruction profile each live thread last received (`buildCodexInstructionProfileKey`). When a resumed thread's profile differs, or is unknown because the app restarted, the next user turn is prefixed once with `[Stave Instructions Update]` followed by the current developer instructions, marked as replacing the earlier ones. The block is attached only to what the model receives; slash-command detection still runs on the bare prompt. Model, cwd, and bound-secret fingerprint still rotate the thread.
 
 Codex event mapping:
 
@@ -818,7 +822,8 @@ Codex event mapping:
 - native `reasoning` items -> `thinking`
 - native `mcpServer/elicitation/request` form prompts -> shared `user_input` UI
 - URL-mode elicitation requests are surfaced through the same `user_input` card with an external-link action and an explicit continue / decline decision
-- native `plan` items and `item/plan/delta` -> `plan_ready`
+- a native `plan` item (Codex's plan collaboration mode, which Stave never
+  starts) -> ordinary `text`
 - native `turn/plan/updated` -> `TodoWrite`; worker plans retain their owner
   and do not replace the lead's plan
 - command execution -> `tool`
@@ -841,37 +846,11 @@ Codex text-boundary note:
 - Codex can emit multiple top-level `agent_message` items in one turn, including
   commentary-like text before the final response.
 - Stave now preserves those boundaries with `segmentId = item.id` on normalized
-  text events for `agent_message` and `plan`.
+  text events for `agent_message`.
 - Replay merges adjacent text parts only when the `segmentId` matches.
 - This rule prevents in-place `TodoWrite` updates from causing an earlier
   commentary block and a later final response block to collapse into one
   markdown segment.
-
-Codex plan mode:
-
-- When `codexPlanMode` is enabled, Stave forwards the App Server thread
-  config override `collaboration_mode_kind = "plan"`.
-- Stave also forces Codex plan turns onto `read-only` file access, even if the
-  normal Codex runtime setting is `workspace-write` or `danger-full-access`, so
-  plan turns cannot mutate the workspace.
-- Stave also forces the effective Codex approval policy to `never` during plan
-  turns so read-only planning does not keep stopping on inline approval prompts.
-- The App Server path exposes first-class `plan` items and streaming
-  `item/plan/delta` events, so the primary runtime no longer relies on the old
-  final-agent-message promotion fallback.
-- Stave still keeps plan threads separate from normal Codex turns so planning
-  context does not get mixed into implementation threads.
-- Native plan turns stay open after the final plan item is emitted. Stave
-  interrupts the active turn once the plan is complete so the thread returns to
-  idle and the UI can treat the plan response as terminal.
-- Finalized plan reviews are persisted as workspace markdown files under
-  `.stave/context/plans/<taskId>_<timestamp>.md`.
-- The workspace information panel indexes those saved plan files, keeps the
-  newest plan at the top, shows at most the latest five entries, and also
-  continues to show legacy `.stave/plans/*.md` entries for backward
-  compatibility.
-- Saved plan files can be previewed, edited, opened in the editor, and sent to
-  the active task as file context directly from the Information panel.
 
 Codex checkpoint and compaction support:
 
@@ -923,7 +902,6 @@ Codex-specific runtime controls come from the UI and runtime options:
 - web search (`disabled`, `cached`, `live`, `indexed` when supported)
 - reasoning effort
 - reasoning summary and raw reasoning toggles
-- plan mode
 - binary path override
 - provider timeout
 - debug stream logging

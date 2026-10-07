@@ -59,8 +59,8 @@ describe("turn policy mapping: Claude", () => {
     expect(policy.source).toBe("agent");
   });
 
-  test("an agent keeps Bypass, Plan and Don't Ask as the user chose them", () => {
-    for (const mode of ["bypassPermissions", "plan", "dontAsk", "auto"] as const) {
+  test("an agent keeps Bypass, Don't Ask and Auto as the user chose them", () => {
+    for (const mode of ["bypassPermissions", "dontAsk", "auto"] as const) {
       expect(resolve("claude-code", agent, { claudePermissionMode: mode })).toMatchObject({ autonomy: "autonomous", options: { claudeAgentTurn: true } });
       expect(resolve("claude-code", agent, { claudePermissionMode: mode }).options).not.toHaveProperty("claudePermissionMode");
     }

@@ -400,7 +400,16 @@ describe("automation spec validation", () => {
     ).toBe(false);
   });
 
-  test("accepts provider-specific plan and on-failure permission modes", () => {
+  test("accepts provider-specific dontAsk and on-failure permission modes", () => {
+    expect(
+      AutomationUpsertInputSchema.safeParse({
+        ...validInput,
+        runtime: {
+          ...createDefaultAutomationRuntime("claude-code"),
+          permissionMode: "dontAsk",
+        },
+      }).success,
+    ).toBe(true);
     expect(
       AutomationUpsertInputSchema.safeParse({
         ...validInput,
@@ -409,7 +418,7 @@ describe("automation spec validation", () => {
           permissionMode: "plan",
         },
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       AutomationUpsertInputSchema.safeParse({
         ...validInput,
@@ -612,7 +621,7 @@ describe("automation runtime options", () => {
       ...createDefaultAutomationRuntime("claude-code"),
       provider: "claude-code" as const,
       effort: "max" as const,
-      permissionMode: "plan" as const,
+      permissionMode: "dontAsk" as const,
       sandboxEnabled: true,
       allowUnsandboxedCommands: false,
       allowDangerouslySkipPermissions: true,
@@ -620,7 +629,7 @@ describe("automation runtime options", () => {
     expect(automationRuntimeToProviderOptions(runtime)).toEqual({
       model: runtime.model,
       claudeEffort: "max",
-      claudePermissionMode: "plan",
+      claudePermissionMode: "dontAsk",
       claudeSandboxEnabled: true,
       claudeAllowUnsandboxedCommands: false,
       claudeAllowDangerouslySkipPermissions: true,

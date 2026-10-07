@@ -260,12 +260,9 @@ const CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES = 32 * 1024 * 1024;
 const CODEX_APP_SERVER_KILL_ESCALATION_MS = 2_000;
 const CODEX_APP_SERVER_COLLECTED_EVENTS_MAX_BYTES = 512 * 1024;
 const CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES = 256 * 1024;
-const CODEX_APP_SERVER_PLAN_BUFFER_MAX_BYTES = 128 * 1024;
 const CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES = 256 * 1024;
 const CODEX_APP_SERVER_PARTIAL_TOOL_OUTPUT_MAX_BYTES = 128 * 1024;
 const CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES = 256 * 1024;
-const CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES = 64 * 1024;
-const CODEX_APP_SERVER_PARTIAL_PLAN_EMIT_THROTTLE_MS = 80;
 const CODEX_APP_SERVER_PARTIAL_TOOL_EMIT_THROTTLE_MS = 200;
 /** Throttle live usage updates; completion still emits the authoritative total. */
 const CODEX_APP_SERVER_USAGE_EMIT_THROTTLE_MS = 1_000;
@@ -1737,7 +1734,6 @@ export async function streamCodexWithAppServer(
     prompt: args.prompt,
     secondaryReadOnly,
     unattendedAutomation: Boolean(args.unattendedAutomation),
-    planMode: runtimeOptions?.codexPlanMode === true,
     autoFallbackEnabled: runtimeOptions?.providerBrowserAutoFallback === true,
     autoFallbackDomains: parseProviderBrowserDomains(
       runtimeOptions?.providerBrowserAutoFallbackDomains,
@@ -2026,8 +2022,6 @@ export async function streamCodexWithAppServer(
       const agentMessageBuffers = new Map<string, string>();
       const streamedAgentMessageIds = new Set<string>();
       const streamedReasoningIds = new Set<string>();
-      const planBuffers = new Map<string, string>();
-      const planLastEmitAt = new Map<string, number>();
       const startedMcpToolCallIds = new Set<string>();
       // A command's `tool` event is announced at `item/started` so its streamed
       // `outputDelta` chunks have a work item to attach to. Without that opener
@@ -2060,9 +2054,6 @@ export async function streamCodexWithAppServer(
       let resolveTurnCompletion: (() => void) | null = null;
       let interruptFallbackHandle: ReturnType<typeof setTimeout> | null = null;
       let lastAgentMessageSegmentId = "";
-      let sawNativePlan = false;
-      let shouldInterruptPlanTurn = false;
-      let sentPlanInterrupt = false;
       let lastAppServerErrorMessage: string | null = null;
       const codexDebug =
         runtimeOptions?.debug ?? process.env.STAVE_CODEX_DEBUG === "1";
@@ -2202,24 +2193,6 @@ export async function streamCodexWithAppServer(
         const resolve = resolveTurnCompletion;
         resolveTurnCompletion = null;
         resolve?.();
-      };
-
-      const requestPlanInterrupt = () => {
-        if (
-          !runtimeOptions?.codexPlanMode ||
-          sentPlanInterrupt ||
-          !appServerTurnId ||
-          completed
-        ) {
-          return;
-        }
-        sentPlanInterrupt = true;
-        void client
-          .request("turn/interrupt", {
-            threadId,
-            turnId: appServerTurnId,
-          })
-          .catch(() => {});
       };
 
       args.registerApprovalResponder?.(({ requestId, approved }) => {
@@ -2710,39 +2683,6 @@ export async function streamCodexWithAppServer(
             });
             return;
           }
-          case "item/plan/delta": {
-            const itemId =
-              typeof params.itemId === "string" ? params.itemId : "";
-            const delta = typeof params.delta === "string" ? params.delta : "";
-            if (!delta) {
-              return;
-            }
-            sawNativePlan = true;
-            const next = appendBoundedCodexBuffer({
-              current: planBuffers.get(itemId) ?? "",
-              chunk: delta,
-              keep: "prefix",
-              maxBytes: CODEX_APP_SERVER_PLAN_BUFFER_MAX_BYTES,
-            });
-            planBuffers.set(itemId, next);
-            const now = Date.now();
-            const lastEmitAt = planLastEmitAt.get(itemId) ?? 0;
-            if (
-              now - lastEmitAt >=
-              CODEX_APP_SERVER_PARTIAL_PLAN_EMIT_THROTTLE_MS
-            ) {
-              planLastEmitAt.set(itemId, now);
-              emitBridgeEvent({
-                type: "plan_ready",
-                planText: truncateCodexSnapshot({
-                  value: next,
-                  maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
-                }),
-                ...(itemId ? { sourceSegmentId: itemId } : {}),
-              });
-            }
-            return;
-          }
           case "item/commandExecution/outputDelta": {
             const itemId =
               typeof params.itemId === "string" ? params.itemId : "";
@@ -2891,31 +2831,22 @@ export async function streamCodexWithAppServer(
                 return;
               }
               case "plan": {
+                // Stave never starts Codex in plan collaboration mode, so a
+                // proposed-plan item is unexpected; keep its text visible as
+                // an ordinary reply rather than dropping it.
                 const text =
                   typeof (item as { text?: unknown }).text === "string"
                     ? String((item as { text?: unknown }).text)
                     : "";
-                if (itemId) {
-                  planLastEmitAt.delete(itemId);
-                }
-                const planText = truncateCodexSnapshot({
-                  value: text || planBuffers.get(itemId) || "",
-                  maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
-                });
-                if (itemId) {
-                  planBuffers.delete(itemId);
-                }
-                if (planText.trim().length > 0) {
-                  sawNativePlan = true;
+                if (text.trim().length > 0) {
                   emitBridgeEvent({
-                    type: "plan_ready",
-                    planText,
-                    ...(itemId ? { sourceSegmentId: itemId } : {}),
+                    type: "text",
+                    text: truncateCodexSnapshot({
+                      value: text,
+                      maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
+                    }),
+                    ...(itemId ? { segmentId: itemId } : {}),
                   });
-                }
-                if (runtimeOptions?.codexPlanMode) {
-                  shouldInterruptPlanTurn = true;
-                  requestPlanInterrupt();
                 }
                 return;
               }
@@ -3084,24 +3015,6 @@ export async function streamCodexWithAppServer(
                   error?: { message?: string | null } | null;
                 }
               | undefined;
-            if (runtimeOptions?.codexPlanMode && !sawNativePlan) {
-              const fallbackSegmentId = lastAgentMessageSegmentId.trim();
-              const fallbackPlanText = truncateCodexSnapshot({
-                value: fallbackSegmentId
-                  ? (agentMessageBuffers.get(fallbackSegmentId) ?? "")
-                  : "",
-                maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
-              });
-              if (fallbackPlanText.trim().length > 0) {
-                emitBridgeEvent({
-                  type: "plan_ready",
-                  planText: fallbackPlanText,
-                  ...(fallbackSegmentId
-                    ? { sourceSegmentId: fallbackSegmentId }
-                    : {}),
-                });
-              }
-            }
             if (turn?.status === "failed" && !abortRequested) {
               const [terminalError] = buildCodexTerminalFailureEvents({
                 message:
@@ -3298,10 +3211,6 @@ export async function streamCodexWithAppServer(
               turnId: appServerTurnId,
             }, { signal: orphanRequestAbortController.signal })
             .catch(() => {});
-        }
-
-        if (shouldInterruptPlanTurn) {
-          requestPlanInterrupt();
         }
 
         await waitForTurnCompletion;

@@ -258,11 +258,9 @@ export function getModelEffortLabel(args: {
  */
 export function buildAutoRoutingSelectionOverrides(args: {
   runtimeOverrides?: PromptDraftRuntimeOverrides;
-  /** Plan phase: Auto routes a planning turn as plan work. */
-  planMode: boolean;
 }): PromptDraftRuntimeOverrides {
   const { model: _model, modelProviderId: _modelProviderId, ...rest } = args.runtimeOverrides ?? {};
-  return { ...rest, autoRouting: true, autoRoutingPlanMode: args.planMode };
+  return { ...rest, autoRouting: true };
 }
 
 /** Snapshot the selector choice so a stale draft cannot override it at send. */

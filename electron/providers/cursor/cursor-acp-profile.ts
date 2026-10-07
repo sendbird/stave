@@ -33,12 +33,11 @@ import {
 import { parsePositiveIntEnv } from "../runtime-shared";
 import type { BridgeEvent, StreamTurnArgs } from "../types";
 import {
-  buildCursorPlanResponse,
+  buildCursorPlanAcceptedResponse,
   buildCursorQuestionResponse,
   CursorAskQuestionRequestSchema,
   CursorCreatePlanRequestSchema,
   mapCursorAskQuestionEvent,
-  mapCursorCreatePlanEvent,
   mapCursorGenerateImageEvent,
   mapCursorTaskEvent,
   mapCursorTodoEvent,
@@ -73,11 +72,6 @@ export function buildCursorAcpCommandArgs(
   }
   return ["acp"];
 }
-
-type PendingPlan = {
-  settle: (result: unknown) => void;
-  timer: ReturnType<typeof setTimeout>;
-};
 
 type PendingQuestion = {
   request: CursorAskQuestionRequest;
@@ -121,18 +115,7 @@ function createCursorExtensionRuntime(
   args: ExtensionFactoryArgs,
   interactionMode: "interactive" | "worker" = "interactive",
 ): AcpProviderExtensionRuntime {
-  const pendingPlans = new Map<string, PendingPlan>();
   const pendingQuestions = new Map<string, PendingQuestion>();
-  const settlePlan = (id: string, outcome: unknown) => {
-    const pending = pendingPlans.get(id);
-    if (!pending) {
-      return false;
-    }
-    pendingPlans.delete(id);
-    clearTimeout(pending.timer);
-    pending.settle(outcome);
-    return true;
-  };
   const settleQuestion = (id: string, outcome: unknown) => {
     const pending = pendingQuestions.get(id);
     if (!pending) {
@@ -192,35 +175,12 @@ function createCursorExtensionRuntime(
     ],
     [
       "cursor/create_plan",
-      async (params, context) => {
+      async (params) => {
         const parsed = CursorCreatePlanRequestSchema.safeParse(params);
         if (!parsed.success) {
           throw new AcpProtocolError("Invalid Cursor plan request.");
         }
-        if (interactionMode === "worker") {
-          return buildCursorPlanResponse({ approved: true });
-        }
-        const id = args.createRequestId("plan", context);
-        return await new Promise<unknown>((resolve, reject) => {
-          const timer = args.createDecisionTimer(() => {
-            settlePlan(id, { outcome: { outcome: "cancelled" } });
-          });
-          pendingPlans.set(id, { settle: resolve, timer });
-          context.signal.addEventListener(
-            "abort",
-            () => settlePlan(id, { outcome: { outcome: "cancelled" } }),
-            { once: true },
-          );
-          try {
-            args.emit(
-              mapCursorCreatePlanEvent({ requestId: id, request: parsed.data }),
-            );
-          } catch (error) {
-            pendingPlans.delete(id);
-            clearTimeout(timer);
-            reject(error);
-          }
-        });
+        return buildCursorPlanAcceptedResponse();
       },
     ],
   ]);
@@ -242,13 +202,6 @@ function createCursorExtensionRuntime(
       args.emit(event);
       return true;
     },
-    respondApproval: ({ requestId, approved, reason }) => {
-      if (!pendingPlans.has(requestId)) {
-        return null;
-      }
-      settlePlan(requestId, buildCursorPlanResponse({ approved, reason }));
-      return { ok: true };
-    },
     respondUserInput: ({ requestId, answers, denied }) => {
       const pending = pendingQuestions.get(requestId);
       if (!pending) {
@@ -265,14 +218,10 @@ function createCursorExtensionRuntime(
       return { ok: true };
     },
     cancelPending: () => {
-      for (const id of [...pendingPlans.keys()]) {
-        settlePlan(id, { outcome: { outcome: "cancelled" } });
-      }
       for (const id of [...pendingQuestions.keys()]) {
         settleQuestion(id, { outcome: { outcome: "cancelled" } });
       }
     },
-    pendingApprovalRequestIds: () => [...pendingPlans.keys()],
     pendingUserInputRequestIds: () => [...pendingQuestions.keys()],
   };
 }

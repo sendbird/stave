@@ -156,12 +156,8 @@ describe("buildCurrentTaskAwarenessRetrievedContextParts", () => {
       "Do NOT copy the source workspace's plan, notes, or todos verbatim",
     );
     expect(guidance).toContain('append ONLY a short pointer like "See plan:');
-    // The handoff procedure must remind the agent to wait until plan mode has
-    // exited before writing the plan file — otherwise the agent attempts the
-    // Write mid-plan, gets blocked, and stalls.
-    expect(guidance.toLowerCase()).toMatch(
-      /after (?:you )?exit(?:ing)? plan mode/,
-    );
+    // Stave has no plan mode, so the procedure no longer refers to one.
+    expect(guidance.toLowerCase()).not.toContain("plan mode");
     // The static conventions must stay universal: no service-specific
     // auto-register directive (e.g. AWS Amplify) is injected for every user.
     expect(guidance).not.toContain("stave_add_workspace_amplify_link");

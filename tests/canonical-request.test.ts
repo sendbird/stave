@@ -31,10 +31,10 @@ const history: ChatMessage[] = [
     role: "assistant",
     model: "gpt-5.4",
     providerId: "codex",
-    content: "",
-    isPlanResponse: true,
-    planText: "1. Check git status\n2. Review recent changes",
-    parts: [{ type: "system_event", content: "Plan response generated." }],
+    content: "1. Check git status\n2. Review recent changes",
+    parts: [
+      { type: "text", text: "1. Check git status\n2. Review recent changes" },
+    ],
   },
 ];
 
@@ -176,6 +176,10 @@ describe("canonical request builder", () => {
     expect(prompt).toContain(
       "handoffConvention: write plan files (not workspace notes) when handing off to a new workspace",
     );
+    expect(prompt).toContain(
+      "workspaceDocuments: write a plan, report, spec, or proposal the user may revise as a Markdown document in .stave/context/plans/",
+    );
+    expect(prompt).toContain("decisionCheckpoints: ");
     expect(prompt).toContain("[Task Shared Context]");
     expect(prompt).toContain("assistant: 1. Check git status");
     expect(prompt).toContain("[Current User Input]");
@@ -417,7 +421,7 @@ describe("canonical request builder", () => {
           parts: [
             {
               type: "approval",
-              toolName: "ExitPlanMode",
+              toolName: "Bash",
               requestId: "approval-1",
               description: oversizedApprovalDescription,
               state: "approval-requested",

@@ -40,10 +40,7 @@ import {
   type DelegationExchange,
 } from "@/lib/delegation/exchange";
 import { deriveTodoTraceItems } from "@/components/session/message/assistant-trace.utils";
-import {
-  resolvePlanViewerState,
-  SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
-} from "@/components/session/plan-viewer.utils";
+import { SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME } from "@/components/session/session-input-floater.styles";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   useDelegatedTasks,
@@ -112,8 +109,7 @@ import type { TurnActivityPlacement } from "@/store/app-settings";
 import { useAppStore } from "@/store/app.store";
 import type { TurnActivityFloatPosition } from "@/store/layout.utils";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
-import { resolvePromptDraftRuntimeState } from "@/store/prompt-draft-runtime";
-import type { ChatMessage, PromptDraft } from "@/types/chat";
+import type { ChatMessage } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 import { useShelfDetail } from "./composer-shelf/use-shelf-detail";
 
@@ -133,11 +129,6 @@ const EMPTY_CHILD_SOURCE: DelegatedTaskListingSource = {
     refresh: () => {
   useTranslation();},
   },
-};
-const EMPTY_PROMPT_DRAFT: PromptDraft = {
-  text: "",
-  attachedFilePaths: [],
-  attachments: [],
 };
 const TURN_ACTIVITY_FAILURE_LINGER_MS = 5_000;
 /** Matches the exit animation below so the shelf collapses instead of popping. */
@@ -182,23 +173,6 @@ function getCurrentTurnWorkItems(args: {
     const item = args.activity?.workItemsById[id];
     return item ? [item] : [];
   });
-}
-
-function getLatestPlanMessages(messages: ChatMessage[]) {
-  const lastMessage = messages.at(-1) ?? null;
-  let latestPlanMessage: ChatMessage | null = null;
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (
-      message?.role === "assistant" &&
-      message.isPlanResponse &&
-      message.planText?.trim()
-    ) {
-      latestPlanMessage = message;
-      break;
-    }
-  }
-  return { latestPlanMessage, lastMessage };
 }
 
 /**
@@ -310,10 +284,6 @@ export function useTurnActivityModel(args: {
   const [
     activeTask,
     draftProvider,
-    promptDraft,
-    claudePermissionMode,
-    claudePermissionModeBeforePlan,
-    codexPlanMode,
     messages,
     activeTurnId,
     activity,
@@ -331,10 +301,6 @@ export function useTurnActivityModel(args: {
     useShallow((state) => [
       state.tasks.find((task) => task.id === taskId) ?? null,
       state.draftProvider,
-      state.promptDraftByTask[taskId] ?? EMPTY_PROMPT_DRAFT,
-      state.settings.claudePermissionMode,
-      state.settings.claudePermissionModeBeforePlan,
-      state.settings.codexPlanMode,
       state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
       state.activeTurnIdsByTask[taskId] ?? null,
       state.providerTurnActivityByTask[taskId] ?? null,
@@ -361,26 +327,6 @@ export function useTurnActivityModel(args: {
     [focusTranscriptTool, taskId],
   );
   const activeProvider = activeTask?.provider ?? draftProvider;
-  const taskRuntimeState = resolvePromptDraftRuntimeState({
-    promptDraft,
-    fallback: {
-      claudePermissionMode,
-      claudePermissionModeBeforePlan,
-      codexPlanMode,
-    },
-  });
-  const { latestPlanMessage, lastMessage } = useMemo(
-    () => getLatestPlanMessages(messages),
-    [messages],
-  );
-  const { isPlanPreparing, isPlanPending } = resolvePlanViewerState({
-    activeProvider,
-    claudePermissionMode: taskRuntimeState.claudePermissionMode,
-    codexPlanMode: taskRuntimeState.codexPlanMode,
-    latestPlanMessage,
-    lastMessage,
-    isTurnActive: Boolean(activeTurnId),
-  });
   const todoPart = useMemo(
     () => findLatestTodoPart(messages, activeTurnId),
     [activeTurnId, messages],
@@ -451,7 +397,6 @@ export function useTurnActivityModel(args: {
   );
   const shouldShow = resolveTurnActivityVisibility({
     isTurnActive: Boolean(activeTurnId),
-    isPlanPending,
     hasRetainedFailure,
     hasReplay: replay != null,
   });
@@ -641,7 +586,6 @@ export function useTurnActivityModel(args: {
       providerAvailability,
       activeTurnId: activeTurnId ?? currentActivity?.turnId ?? "",
       activity: currentActivity,
-      isPlanPreparing,
       workItems: throttledWorkItems,
       todos: throttledTodos,
       workGraph: throttledWorkGraph,
@@ -677,7 +621,6 @@ export function useTurnActivityModel(args: {
     handleSelectTool,
     handleWorkGraphControl,
     hasPendingInteractionCard,
-    isPlanPreparing,
     repositoryPath,
     replay,
     runtimeCapabilities,
@@ -856,7 +799,6 @@ function TurnActivityFloatingShell(props: {
 export interface TurnActivitySurfaceProps {
   activeTurnId: string;
   activity: ProviderTurnActivitySnapshot | null;
-  isPlanPreparing: boolean;
   workItems: ProviderTurnWorkItem[];
   todos: TurnActivityTodo[];
   /**
@@ -1011,14 +953,12 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       resolveTurnActivitySummary({
         pendingInteraction: props.activity?.pendingInteraction ?? null,
         isStalled,
-        isPlanPreparing: props.isPlanPreparing,
         workItems: props.workItems,
         todos: props.todos,
       }),
     [
       isStalled,
       props.activity?.pendingInteraction,
-      props.isPlanPreparing,
       props.todos,
       props.workItems,
     , i18n.language],
@@ -1054,7 +994,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
             }
           : null,
         idleLabel: stalledIdleLabel,
-        isPlanPreparing: props.isPlanPreparing,
         isStalled,
         todos: props.todos,
         workItems: props.workItems,
@@ -1070,7 +1009,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       hasActivity,
       isStalled,
       props.hasPendingInteractionCard,
-      props.isPlanPreparing,
       props.todos,
       props.workItems,
       stalledIdleLabel,
@@ -1187,7 +1125,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const loaderVariant = resolveTurnActivityLoaderVariant({
     activity: props.activity,
     isStalled,
-    isPlanPreparing: props.isPlanPreparing,
     workItems: props.workItems,
   });
   // A turn that has ended rests on its outcome glyph instead of a frozen

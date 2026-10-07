@@ -2,7 +2,6 @@ import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   Brain,
-  ClipboardCheck,
   Ellipsis,
   FileText,
   FolderOpen,
@@ -344,8 +343,6 @@ interface PromptInputProps {
   effortValue?: string;
   fastMode?: boolean;
   onFastModeChange?: (enabled: boolean) => void;
-  planMode?: boolean;
-  onPlanModeChange?: (enabled: boolean) => void;
   thinkingMode?: "adaptive" | "enabled" | "disabled";
   onThinkingModeChange?: (value: "adaptive" | "enabled" | "disabled") => void;
   pendingUserInput?: { messageId: string; part: UserInputPart } | null;
@@ -572,9 +569,8 @@ function tooltipTriggerButtonClassName(args: {
   });
 }
 
-function getPromptToolbarAccentStyle(tone: "plan" | "thinking") {
-  if (tone === "thinking") return promptInputStyles.accentThinking;
-  return promptInputStyles.accentPlan;
+function getPromptToolbarAccentStyle(_tone: "thinking") {
+  return promptInputStyles.accentThinking;
 }
 
 function getRuntimeProfileToneStyle(tone: PromptInputRuntimeProfile["tone"]) {
@@ -889,8 +885,6 @@ export function PromptInput(args: PromptInputProps) {
     effortValue,
     fastMode,
     onFastModeChange,
-    planMode,
-    onPlanModeChange,
     thinkingMode,
     onThinkingModeChange,
     pendingUserInput,
@@ -1436,29 +1430,6 @@ export function PromptInput(args: PromptInputProps) {
     };
   }, []);
 
-  const handleShiftTabShortcut = useCallback(
-    (event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>) => {
-      if (
-        event.key !== "Tab" ||
-        !event.shiftKey ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey
-      ) {
-        return false;
-      }
-
-      if (!onPlanModeChange) {
-        return false;
-      }
-
-      event.preventDefault();
-      onPlanModeChange(!planMode);
-      return true;
-    },
-    [onPlanModeChange, planMode],
-  );
-
   const handleModelShortcut = useCallback(
     (event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>) => {
       if (
@@ -1532,10 +1503,6 @@ export function PromptInput(args: PromptInputProps) {
         return;
       }
 
-      if (handleShiftTabShortcut(event)) {
-        return;
-      }
-
       const hasMod = event.ctrlKey || event.metaKey;
       if (
         hasMod &&
@@ -1578,7 +1545,6 @@ export function PromptInput(args: PromptInputProps) {
     armShortcutEchoGuard,
     focusComposer,
     handleModelShortcut,
-    handleShiftTabShortcut,
     interactionsDisabled,
     windowShortcutsEnabled,
   ]);
@@ -2330,7 +2296,6 @@ export function PromptInput(args: PromptInputProps) {
   // A control with nothing to render this frame is excluded from every bucket,
   // so the tray never offers a row that would come up blank.
   const unavailableComposerControls: ComposerControlId[] = [];
-  if (!onPlanModeChange) unavailableComposerControls.push("plan");
   if (!providerModeStatus) unavailableComposerControls.push("providerMode");
   if (!onThinkingModeChange) unavailableComposerControls.push("thinking");
   if (!hasReviewControl) unavailableComposerControls.push("review");
@@ -2342,7 +2307,6 @@ export function PromptInput(args: PromptInputProps) {
   const composerControlLayout = resolveComposerControlLayout({
     placements: composerControlPlacements ?? {},
     activeIds: collectActiveComposerControls({
-      planMode,
       thinkingMode,
       fastMode,
       runtimeTone: runtimeProfile.tone,
@@ -2352,34 +2316,6 @@ export function PromptInput(args: PromptInputProps) {
   });
 
   const composerControlNodes: Partial<Record<ComposerControlId, ReactNode>> = {
-    plan: onPlanModeChange ? (
-      <Tooltip>
-        <TooltipTrigger
-          type="button"
-          disabled={interactionsDisabled}
-          aria-label={planMode ? i18n.t("composer:promptInput.ariaLabel5") : i18n.t("composer:promptInput.ariaLabel6")}
-          onClick={() => onPlanModeChange(!planMode)}
-          {...composerControlAttributes}
-          className={tooltipTriggerButtonClassName({
-            className: cx(
-              COMPOSER_CONTROL_BUTTON,
-              sx(
-                planMode && getPromptToolbarAccentStyle("plan"),
-                interactionsDisabled && promptInputStyles.cursorDisabled,
-              ),
-            ),
-          })}
-        >
-          <ClipboardCheck className={sx(promptInputStyles.icon4)} />
-          <ComposerControlLabel>
-            <span>{i18n.t("composer:promptInput.plan")}</span>
-          </ComposerControlLabel>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          {planMode ? i18n.t("composer:promptInput.plan2") : i18n.t("composer:promptInput.plan3")}
-        </TooltipContent>
-      </Tooltip>
-    ) : null,
     providerMode: providerModeStatus ? (
       <PromptInputProviderModePill
         status={providerModeStatus}
@@ -3273,9 +3209,6 @@ export function PromptInput(args: PromptInputProps) {
                             event.preventDefault();
                             return;
                           }
-                        }
-                        if (handleShiftTabShortcut(event)) {
-                          return;
                         }
                         if (
                           isSteerOrQueueMode &&

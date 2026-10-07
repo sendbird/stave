@@ -36,10 +36,9 @@ type PermissionOptions = Pick<
 export const CLAUDE_EDIT_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"] as const;
 
 type ClaudeMode = NonNullable<ProviderRuntimeOptions["claudePermissionMode"]>;
-// `plan` changes nothing and `dontAsk` denies what it would ask, but both run
-// allowed tools unprompted, so they rank with the autonomous modes below `bypass`.
+// `dontAsk` denies what it would ask, but runs allowed tools unprompted, so it
+// ranks with the autonomous modes below `bypass`.
 const CLAUDE_MODE_RANK: Readonly<Record<ClaudeMode, number>> = {
-  plan: 0,
   default: 1,
   acceptEdits: 2,
   dontAsk: 3,
@@ -133,7 +132,7 @@ export function agentPermissionOverrides(args: {
     case "cursor": {
       const approval = lower(options.cursorApprovalMode, cap.cursorApproval, CURSOR_APPROVAL_RANK, "manual");
       if (approval) out.cursorApprovalMode = approval;
-      if (cap.cursorAsk && options.cursorMode !== "ask" && options.cursorMode !== "plan") out.cursorMode = "ask";
+      if (cap.cursorAsk && options.cursorMode !== "ask") out.cursorMode = "ask";
       return out;
     }
     case "kiro":

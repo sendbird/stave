@@ -795,8 +795,6 @@ export interface CanonicalConversationMessage {
   model?: string;
   content: string;
   parts: MessagePart[];
-  isPlanResponse?: boolean;
-  planText?: string;
 }
 
 export interface CanonicalConversationRequest {
@@ -1016,12 +1014,6 @@ export type NormalizedProviderEvent =
       ownerAgentId?: string;
     }
   | {
-      type: "plan_ready";
-      planText: string;
-      sourceSegmentId?: string;
-      review?: { requestId: string; responseMode: "blocking" };
-    }
-  | {
       type: "system";
       content: string;
       compactBoundary?: {
@@ -1103,12 +1095,8 @@ export interface ProviderRuntimeOptions {
     | "default"
     | "acceptEdits"
     | "bypassPermissions"
-    | "plan"
     | "dontAsk"
     | "auto";
-  /** How much plan-mode auto-approves non-mutating tool calls (Bash/Task/MCP). */
-  claudePlanModeApprovalScope?:
-    "strict" | "bash" | "bashAndTask" | "bashTaskAndMcp";
   claudeAllowDangerouslySkipPermissions?: boolean;
   claudeSandboxEnabled?: boolean;
   claudeAllowUnsandboxedCommands?: boolean;
@@ -1196,10 +1184,9 @@ export interface ProviderRuntimeOptions {
   codexReasoningSummary?: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport?: "auto" | "enabled" | "disabled";
   codexFastMode?: boolean;
-  codexPlanMode?: boolean;
   codexResumeThreadId?: string;
   cursorBinaryPath?: string;
-  cursorMode?: "agent" | "plan" | "ask";
+  cursorMode?: "agent" | "ask";
   /**
    * Approval autonomy for interactive Cursor turns, delivered as `agent acp`
    * process flags: `manual` sends none, `guided` sends `--auto-review`, and

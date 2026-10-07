@@ -28,20 +28,10 @@ export const CLAUDE_PERMISSION_MODE_OPTIONS = [
   { value: "default", label: "default" },
   { value: "acceptEdits", label: "acceptEdits" },
   { value: "bypassPermissions", label: "bypassPermissions" },
-  { value: "plan", label: "plan" },
   { value: "dontAsk", label: "dontAsk" },
   { value: "auto", label: "auto" },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["claudePermissionMode"]>
->[];
-
-export const CLAUDE_PLAN_MODE_APPROVAL_SCOPE_OPTIONS = [
-  { value: "strict", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.strict.label"); } },
-  { value: "bash", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bash.label"); } },
-  { value: "bashAndTask", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashAndTask.label"); } },
-  { value: "bashTaskAndMcp", get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashTaskAndMcp.label"); } },
-] as const satisfies readonly SelectOption<
-  NonNullable<ProviderRuntimeOptions["claudePlanModeApprovalScope"]>
 >[];
 
 export const CLAUDE_THINKING_OPTIONS = [
@@ -197,7 +187,6 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudeAccountProfileId",
   "codexAccountProfileId",
   "claudePermissionMode",
-  "claudePlanModeApprovalScope",
   "claudeAllowDangerouslySkipPermissions",
   "claudeSandboxEnabled",
   "claudeAllowUnsandboxedCommands",
@@ -246,7 +235,6 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "codexReasoningSummary",
   "codexReasoningSummarySupport",
   "codexFastMode",
-  "codexPlanMode",
   "codexResumeThreadId",
   "cursorBinaryPath",
   "cursorMode",
@@ -296,7 +284,6 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "diff",
   "approval",
   "user_input",
-  "plan_ready",
   "system",
   "subagent_progress",
   "model_resolved",

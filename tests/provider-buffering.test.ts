@@ -68,42 +68,6 @@ describe("appendBoundedBridgeEvent", () => {
     ]);
   });
 
-  test("replaces superseded plan snapshots for the same source segment", () => {
-    const events: BridgeEvent[] = [];
-    let retainedBytes = 0;
-
-    retainedBytes = appendBoundedBridgeEvent({
-      events,
-      next: {
-        type: "plan_ready",
-        planText: "Step 1",
-        sourceSegmentId: "plan-1",
-      },
-      retainedBytes,
-      maxBytes: 1024,
-    }).retainedBytes;
-
-    retainedBytes = appendBoundedBridgeEvent({
-      events,
-      next: {
-        type: "plan_ready",
-        planText: "Step 1\nStep 2",
-        sourceSegmentId: "plan-1",
-      },
-      retainedBytes,
-      maxBytes: 1024,
-    }).retainedBytes;
-
-    expect(retainedBytes).toBeGreaterThan(0);
-    expect(events).toEqual([
-      {
-        type: "plan_ready",
-        planText: "Step 1\nStep 2",
-        sourceSegmentId: "plan-1",
-      },
-    ]);
-  });
-
   test("drops the oldest retained events when the replay window exceeds its byte cap", () => {
     const first: BridgeEvent = { type: "text", text: "alpha" };
     const second: BridgeEvent = { type: "text", text: "beta" };

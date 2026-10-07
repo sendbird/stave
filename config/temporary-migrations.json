@@ -134,6 +134,24 @@
       "tests": [
         "tests/renderer-origin-migration.test.ts"
       ]
+    },
+    {
+      "id": "plan-mode-removal",
+      "description": "Plan mode was removed after 0.25.1. Settings, prompt drafts, queued turns and workspace snapshots saved before then can carry a `plan` Claude permission mode or Cursor mode, claudePermissionModeBeforePlan, claudePlanModeApprovalScope, codexPlanMode or autoRoutingPlanMode. On read, Claude returns to the mode saved before plan mode (else default), Cursor to agent, and a per-task draft override in plan mode is dropped so the task follows settings; the other keys are removed. A plan-mode automation becomes dontAsk (still unattended and read-only), a saved delegation policy in plan mode becomes default, and a stored plan_ready turn event is skipped without an invalid-event error. At expiry, delete the marked blocks; profiles that skipped these releases lose any automation still saved in plan mode (the whole automation state fails to parse) and an unparsable workspace draft falls back to defaults.",
+      "introducedAfter": "0.25.1",
+      "removeInVersion": "0.28.0",
+      "files": [
+        "src/lib/automations.ts",
+        "src/lib/plan-mode-removal-migration.ts",
+        "src/lib/providers/runtime.ts",
+        "src/lib/runs/delegation-policy.ts",
+        "src/lib/task-context/schemas.ts",
+        "src/store/app-store-persistence.ts",
+        "tests/plan-mode-removal-migration.test.ts"
+      ],
+      "tests": [
+        "tests/plan-mode-removal-migration.test.ts"
+      ]
     }
   ]
 }

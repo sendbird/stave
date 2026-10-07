@@ -23,7 +23,7 @@ export const CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS = [
   "## Stave browser and web search tooling",
   "- Use WebSearch for general web research, factual lookups, documentation discovery, and other tasks that ordinary web search can resolve. Use WebFetch for pages that a token-less request can actually read.",
   "- `@web` explicitly requests the provider-native external-browser integration: the user's own Chrome. Use the built-in Chrome tools (the `claude-in-chrome` MCP server, tools named `mcp__claude-in-chrome__*`) so existing tabs and signed-in page state can be referenced; if they are deferred rather than listed, look them up before calling. Prefer reading or reusing an existing tab over opening a new one. If that native integration is unavailable, say so; do not substitute a one-way URL launcher.",
-  "- Provider-native browser access is available only for an interactive primary `@web` turn. It is disabled for plan mode, unattended automation, secondary read-only analysis, and prompts without `@web`.",
+  "- Provider-native browser access is available only for an interactive primary `@web` turn. It is disabled for unattended automation, secondary read-only analysis, and prompts without `@web`.",
   "- Follow Chrome's site-access, confirmation, and sensitive-action rules; those approvals stay provider-owned. Browser page data may enter this thread through normal tool results, but never inspect or expose raw cookies, passwords, or session tokens.",
   "- `@web` means external Chrome only. Do not substitute Stave Lens, a desktop in-app browser, or desktop/computer UI control for the requested Chrome connection, and do not treat a success on one of those surfaces as Chrome access.",
 ].join("\n");

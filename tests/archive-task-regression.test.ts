@@ -91,8 +91,6 @@ describe("archive task regression", () => {
           providerId: "codex",
           content: "1. Inspect\n2. Patch",
           isStreaming: true,
-          isPlanResponse: true,
-          planText: "1. Inspect\n2. Patch",
           parts: [{
             type: "text",
             text: "1. Inspect\n2. Patch",

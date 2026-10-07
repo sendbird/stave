@@ -184,13 +184,6 @@ export const CODEX_CLI_SLASH_COMMANDS: readonly CodexBuiltInSlashCommand[] = [
     category: "runtime",
   },
   {
-    name: "plan",
-    command: "/plan",
-    get description() { return i18n.t("providers:codexCommandCatalog.switchTheConversationIntoPlanMode"); },
-    argumentHint: "[prompt]",
-    category: "runtime",
-  },
-  {
     name: "goal",
     command: "/goal",
     get description() { return i18n.t("providers:codexCommandCatalog.setViewPauseResumeOrClear"); },

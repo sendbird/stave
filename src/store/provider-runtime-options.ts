@@ -39,7 +39,6 @@ type RuntimeSettings = Pick<
   | "claudeAccountProfileId"
   | "codexAccountProfileId"
   | "claudePermissionMode"
-  | "claudePlanModeApprovalScope"
   | "claudeAllowDangerouslySkipPermissions"
   | "claudeSandboxEnabled"
   | "claudeAllowUnsandboxedCommands"
@@ -78,7 +77,6 @@ type RuntimeSettings = Pick<
   | "codexReasoningSummary"
   | "codexReasoningSummarySupport"
   | "codexFastMode"
-  | "codexPlanMode"
   | "cursorBinaryPath"
   | "cursorMode"
   | "cursorApprovalMode"
@@ -245,14 +243,12 @@ export function buildProviderRuntimeOptions(args: {
     resolveDefaultClaudeFallbackModel({ model: args.model });
   const codexFileAccess = resolveEffectiveCodexFileAccessMode({
     fileAccessMode: settings.codexFileAccess,
-    planMode: settings.codexPlanMode,
     fallback: "workspace-write",
   });
   const codexApprovalPolicy = resolveEffectiveCodexApprovalPolicy({
     approvalPolicy: normalizeCodexApprovalPolicy({
       value: settings.codexApprovalPolicy,
     }),
-    planMode: settings.codexPlanMode,
     fallback: DEFAULT_CODEX_APPROVAL_POLICY,
   });
 
@@ -265,7 +261,6 @@ export function buildProviderRuntimeOptions(args: {
     claudeAccountProfileId: settings.claudeAccountProfileId,
     codexAccountProfileId: settings.codexAccountProfileId,
     claudePermissionMode: settings.claudePermissionMode,
-    claudePlanModeApprovalScope: settings.claudePlanModeApprovalScope,
     claudeAllowDangerouslySkipPermissions:
       settings.claudeAllowDangerouslySkipPermissions,
     claudeSandboxEnabled: settings.claudeSandboxEnabled,
@@ -348,7 +343,6 @@ export function buildProviderRuntimeOptions(args: {
     codexReasoningSummary: settings.codexReasoningSummary,
     codexReasoningSummarySupport: settings.codexReasoningSummarySupport,
     codexFastMode: settings.codexFastMode,
-    codexPlanMode: settings.codexPlanMode,
     ...(args.provider === "codex" && codexResumeThreadId
       ? { codexResumeThreadId }
       : {}),

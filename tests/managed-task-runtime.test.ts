@@ -64,9 +64,9 @@ describe("resolveManagedTaskRuntimeOptions", () => {
   test("keeps an explicit caller permission mode", () => {
     const options = resolveManagedTaskRuntimeOptions({
       providerId: "claude-code",
-      runtimeOptions: { claudePermissionMode: "plan" },
+      runtimeOptions: { claudePermissionMode: "dontAsk" },
     });
-    expect(options.claudePermissionMode).toBe("plan");
+    expect(options.claudePermissionMode).toBe("dontAsk");
     expect(options.claudeAllowDangerouslySkipPermissions).toBeUndefined();
   });
 
@@ -121,7 +121,6 @@ describe("userSettingsPermissionOptions", () => {
   test("uses the synced Claude settings over the guarded defaults", () => {
     expect(userSettingsPermissionOptions("claude-code", settings)).toEqual({
       claudePermissionMode: "auto",
-      claudePlanModeApprovalScope: "strict",
       claudeAllowDangerouslySkipPermissions: false,
       claudeSandboxEnabled: false,
       claudeAllowUnsandboxedCommands: true,
@@ -142,7 +141,6 @@ describe("userSettingsPermissionOptions", () => {
   test("falls back to guarded defaults, not runtime fallbacks, when nothing was synced", () => {
     expect(userSettingsPermissionOptions("claude-code", null)).toEqual({
       claudePermissionMode: "default",
-      claudePlanModeApprovalScope: "strict",
       claudeAllowDangerouslySkipPermissions: false,
       claudeSandboxEnabled: true,
       claudeAllowUnsandboxedCommands: false,

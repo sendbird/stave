@@ -32,11 +32,6 @@ const CURSOR_MODE_OPTIONS = [
     get description() { return i18n.t("settingsProviders:cursorSection.modes.agent.description"); },
   },
   {
-    value: "plan",
-    get label() { return i18n.t("settingsProviders:cursorSection.modes.plan.label"); },
-    get description() { return i18n.t("settingsProviders:cursorSection.modes.plan.description"); },
-  },
-  {
     value: "ask",
     get label() { return i18n.t("settingsProviders:cursorSection.modes.ask.label"); },
     get description() { return i18n.t("settingsProviders:cursorSection.modes.ask.description"); },
@@ -76,7 +71,7 @@ export function SettingsCursorSection() {
           description={t("settingsProviders:cursorSection.mode.description")}
         >
           <ChoiceButtons
-            columns={3}
+            columns={2}
             value={cursorMode}
             options={[...CURSOR_MODE_OPTIONS]}
             onChange={(value) =>

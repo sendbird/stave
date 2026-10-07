@@ -162,7 +162,7 @@ describe("compare run store actions", () => {
 
     expect(runtimeOptions).toMatchObject({
       model: "claude-sonnet-5",
-      claudePermissionMode: "plan",
+      claudePermissionMode: "dontAsk",
       claudeSandboxEnabled: true,
       claudeAllowUnsandboxedCommands: false,
       claudeAllowedTools: ["Read", "Glob", "Grep", "Bash"],

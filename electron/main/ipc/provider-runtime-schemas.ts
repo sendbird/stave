@@ -30,17 +30,8 @@ export const RuntimeOptionsObjectSchema = z
         z.literal("default"),
         z.literal("acceptEdits"),
         z.literal("bypassPermissions"),
-        z.literal("plan"),
         z.literal("dontAsk"),
         z.literal("auto"),
-      ])
-      .optional(),
-    claudePlanModeApprovalScope: z
-      .union([
-        z.literal("strict"),
-        z.literal("bash"),
-        z.literal("bashAndTask"),
-        z.literal("bashTaskAndMcp"),
       ])
       .optional(),
     claudeAllowDangerouslySkipPermissions: z.boolean().optional(),
@@ -166,11 +157,10 @@ export const RuntimeOptionsObjectSchema = z
       .union([z.literal("auto"), z.literal("enabled"), z.literal("disabled")])
       .optional(),
     codexFastMode: z.boolean().optional(),
-    codexPlanMode: z.boolean().optional(),
     codexResumeThreadId: z.string().max(200).optional(),
     cursorBinaryPath: z.string().max(4096).optional(),
     cursorMode: z
-      .union([z.literal("agent"), z.literal("plan"), z.literal("ask")])
+      .union([z.literal("agent"), z.literal("ask")])
       .optional(),
     cursorApprovalMode: z
       .union([z.literal("manual"), z.literal("guided"), z.literal("auto")])

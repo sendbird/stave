@@ -127,8 +127,6 @@
     "openTheGlobalStaveCommandLauncherFor": "Open the global Stave command launcher for IDE actions and settings.",
     "stageComment": "Stage comment",
     "moveTheCurrentComposerTextIntoThe": "Move the current composer text into the Comment strip instead of sending it.",
-    "togglePlanMode": "Toggle plan mode",
-    "switchTheActivePromptBetweenNormalAnd": "Switch the active prompt between normal and plan mode from anywhere in the app.",
     "dialogPrimaryAction": "Dialog primary action",
     "runSaveCreateOpenConfirmInTheActiveDialogUse": "Run Save/Create/Open/Confirm in the active dialog. Use modifier+Enter in multiline fields.",
     "saveFile": "Save file",

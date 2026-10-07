@@ -1392,7 +1392,6 @@
     "withoutAnExplicitWebArmThe": "@web이 없어도 일반 요청으로 읽을 수 없는 호스트에는 브라우저를 미리 활성화합니다. 로그인이나 봇 확인으로 요청이 막히면 브라우저로 한 번 다시 시도합니다.",
     "sendAnInteractivePromptContaining": "다음이 포함된 대화형 프롬프트를 보냅니다:",
     "chromeAccessIsAttemptedForThat": ". 해당 턴에서 Chrome 접근을 시도하며 실패하면 대화에 알립니다. 사이트 승인은 프로바이더의 확장 프로그램에서 관리합니다. Stave는 대신 설치하거나 활성화하거나 접근 권한을 부여할 수 없습니다.",
-    "planModeUnattendedAutomationAndSecondary": "계획 모드, 무인 자동화, 보조 분석에서는 프로바이더 브라우저 접근이 꺼져 있으며 자동 대체 접근도 이를 변경하지 않습니다. 대체 접근이 꺼져 있으면 다음이 없는 프롬프트에서도",
     "alsoKeepsItOff": "접근이 꺼져 있습니다.",
     "connectClaudeCodeSNativeChrome": "공유할 프로필에 Claude Code 전용 Chrome 확장 프로그램을 연결하고 대상 사이트 접근을 허용한 다음 @web을 다시 시도하세요."
   },
@@ -1423,7 +1422,7 @@
     "disableConfig": "{{label}} 끄기",
     "codexBrowserSetup": "Stave에서 사용하는 Codex CLI 환경에 chrome@openai-bundled와 unified-computer-use@openai-bundled를 켜고 Chrome 확장 프로그램을 연결한 후 @web을 다시 시도하세요.",
     "interactiveBrowser": "<code>@web</code>이 포함된 대화형 프롬프트를 보내세요. 해당 턴에서 Chrome 연결을 시도하며, 실패하면 대화에 알립니다. 사이트 접근 승인은 제공자 확장에서 관리합니다. Stave는 확장을 대신 설치하거나 활성화하거나 접근 권한을 부여할 수 없습니다.",
-    "browserRestrictions": "계획 모드, 무인 자동화, 보조 분석에서는 제공자 브라우저 연결이 비활성화되며, 자동 대체 기능도 이 제한을 우회하지 않습니다. 자동 대체 기능이 꺼져 있으면 <code>@web</code>이 없는 프롬프트에서도 브라우저 연결은 비활성화됩니다.",
+    "browserRestrictions": "무인 자동화와 보조 분석에서는 제공자 브라우저 연결이 비활성화되며, 자동 대체 기능도 이 제한을 우회하지 않습니다. 자동 대체 기능이 꺼져 있으면 <code>@web</code>이 없는 프롬프트에서도 브라우저 연결은 비활성화됩니다.",
     "tokenName": "토큰",
     "invalidRoutingProfile": "자동 라우팅 프로필이 필요합니다."
   },

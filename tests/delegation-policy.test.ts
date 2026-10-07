@@ -215,7 +215,7 @@ describe("delegation permission policy", () => {
   });
 });
 
-test("new settings never add approval grants and plan-scope changes only tighten", () => {
+test("new settings never add approval grants", () => {
   expect(
     restrictPermissionOptions({}, { claudeAllowedTools: ["Bash"] }),
   ).not.toHaveProperty("claudeAllowedTools");
@@ -231,20 +231,8 @@ test("new settings never add approval grants and plan-scope changes only tighten
       { claudeAllowedTools: ["Read"] },
     ).claudeAllowedTools,
   ).toEqual(["Read"]);
-  expect(
-    restrictPermissionOptions(
-      { claudePlanModeApprovalScope: "bashTaskAndMcp" },
-      { claudePlanModeApprovalScope: "bash" },
-    ).claudePlanModeApprovalScope,
-  ).toBe("bash");
-  expect(
-    restrictPermissionOptions(
-      { claudePlanModeApprovalScope: "strict" },
-      { claudePlanModeApprovalScope: "bashTaskAndMcp" },
-    ).claudePlanModeApprovalScope,
-  ).toBe("strict");
 });
-test("deny-by-default and plan are preserved rather than ranked as wider modes", () => {
+test("deny-by-default is preserved rather than ranked as a wider mode", () => {
   for (const next of ["auto", "bypassPermissions"] as const) {
     expect(
       restrictPermissionOptions(
@@ -259,19 +247,13 @@ test("deny-by-default and plan are preserved rather than ranked as wider modes",
       ).claudePermissionMode,
     ).toBe("dontAsk");
   }
-  for (const previous of ["plan", "dontAsk"] as const) {
-    for (const next of [
-      "default",
-      "acceptEdits",
-      previous === "plan" ? "dontAsk" : "plan",
-    ] as const) {
-      expect(() =>
-        restrictPermissionOptions(
-          { claudePermissionMode: previous },
-          { claudePermissionMode: next },
-        ),
-      ).toThrow("cannot be combined safely");
-    }
+  for (const next of ["default", "acceptEdits"] as const) {
+    expect(() =>
+      restrictPermissionOptions(
+        { claudePermissionMode: "dontAsk" },
+        { claudePermissionMode: next },
+      ),
+    ).toThrow("cannot be combined safely");
   }
 });
 
@@ -338,7 +320,6 @@ test("omitted recorded fields are defaults rather than unbounded permissions", (
       {},
       {
         claudePermissionMode: "auto",
-        claudePlanModeApprovalScope: "bashTaskAndMcp",
         codexApprovalPolicy: "never",
         codexFileAccess: "danger-full-access",
         codexNetworkAccess: true,
@@ -347,7 +328,6 @@ test("omitted recorded fields are defaults rather than unbounded permissions", (
     ),
   ).toMatchObject({
     claudePermissionMode: "default",
-    claudePlanModeApprovalScope: "strict",
     codexApprovalPolicy: "untrusted",
     codexFileAccess: "workspace-write",
   });
@@ -417,12 +397,20 @@ test("undefined option properties cannot erase guarded snapshot defaults", () =>
     codexApprovalPolicy: "untrusted",
     codexFileAccess: "workspace-write",
   });
-  expect(() =>
-    restrictPermissionOptions(
-      { claudePermissionMode: "auto" },
-      { claudePermissionMode: "plan" },
-    ),
-  ).toThrow("cannot be combined safely");
+});
+
+test("a policy saved with the retired plan mode is read back as default", () => {
+  expect(
+    normalizedPermissionOptions("claude-code", {
+      claudePermissionMode: "plan",
+      claudePlanModeApprovalScope: "bashTaskAndMcp",
+    }),
+  ).toMatchObject({ claudePermissionMode: "default" });
+  expect(
+    normalizedPermissionOptions("claude-code", {
+      claudePermissionMode: "plan",
+    }),
+  ).not.toHaveProperty("claudePlanModeApprovalScope");
 });
 
 test("removing previously saved approval-skip tools tightens a subsequent attempt", () => {

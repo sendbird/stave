@@ -504,48 +504,19 @@ describe("Cursor ACP runtime", () => {
     ).toBe(true);
   });
 
-  test("keeps plan review blocking and forwards revision reasons", async () => {
-    let responder:
-      | ((args: {
-          requestId: string;
-          approved: boolean;
-          reason?: string;
-        }) => ProviderResponderResult)
-      | undefined;
-    let turn!: Promise<BridgeEvent[]>;
-    const planEvent = await waitForEvent(
-      (onEvent) => {
-        turn = streamCursorWithAcp({
-          ...createTurnArgs("plan"),
-          onEvent,
-          registerApprovalResponder: (next) => {
-            responder = next;
-          },
-        });
-      },
-      (event) => event.type === "plan_ready",
-    );
-    expect(planEvent).toMatchObject({
-      type: "plan_ready",
-      review: { responseMode: "blocking" },
-    });
-    if (planEvent.type !== "plan_ready" || !planEvent.review) {
-      throw new Error("Expected a blocking plan event.");
-    }
+  test("accepts a proposed plan without asking, since Stave has no plan review", async () => {
+    const events = await streamCursorWithAcp(createTurnArgs("plan"));
     expect(
-      responder?.({
-        requestId: planEvent.review.requestId,
-        approved: false,
-        reason: "Add tests",
-      }),
-    ).toEqual({ ok: true });
-    const events = await turn;
+      events.some((event) => event.type === "approval"),
+    ).toBe(false);
     expect(
       events.some(
         (event) =>
-          event.type === "text" && event.text.includes('"reason":"Add tests"'),
+          event.type === "text" &&
+          event.text.includes('"outcome":"accepted"'),
       ),
     ).toBe(true);
+    expect(events.some((event) => event.type === "done")).toBe(true);
   });
 
   /*
@@ -553,7 +524,7 @@ describe("Cursor ACP runtime", () => {
     is synchronous all the way to the listener. Answering from inside that call
     therefore reached the responder before the request existed and came back as
     `unknown-request`, which then hung the turn until the decision timer fired.
-    These three cover each request kind that blocks a turn.
+    These cover each request kind that blocks a turn.
   */
   test("answers a permission decided inside the announcing call", async () => {
     let responder:
@@ -620,40 +591,12 @@ describe("Cursor ACP runtime", () => {
     ).toBe(true);
   });
 
-  test("answers a plan review decided inside the announcing call", async () => {
-    let responder:
-      | ((args: {
-          requestId: string;
-          approved: boolean;
-          reason?: string;
-        }) => ProviderResponderResult)
-      | undefined;
-    let decision: ProviderResponderResult | undefined;
-    const events = await streamCursorWithAcp({
-      ...createTurnArgs("plan"),
-      onEvent: (event) => {
-        if (event.type !== "plan_ready" || !event.review || decision) {
-          return;
-        }
-        decision = responder?.({
-          requestId: event.review.requestId,
-          approved: true,
-        });
-      },
-      registerApprovalResponder: (next) => {
-        responder = next;
-      },
-    });
-    expect(decision).toEqual({ ok: true });
-    expect(events.some((event) => event.type === "done")).toBe(true);
-  });
-
   test("loads a persisted session id", async () => {
     const events = await streamCursorWithAcp(
       createTurnArgs("standard", {
         runtimeOptions: {
           model: "fixture-model",
-          cursorMode: "plan",
+          cursorMode: "ask",
           cursorBinaryPath: process.execPath,
           cursorResumeSessionId: "saved-session",
         },

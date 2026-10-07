@@ -158,9 +158,6 @@
     "description": "Finish the pending task interaction and try again.",
     "extraCopy90": "Wait for the current turn to finish."
   },
-  "conversationPlanCard": {
-    "conversationPlanCard": "Plan"
-  },
   "conversationTurnActions": {
     "forkHere": "Task forked",
     "forkHere2": "Could not fork here",
@@ -303,30 +300,6 @@
     "extraCopy100": "Network: {{value1}}",
     "extraCopy101": "Skip approvals: {{value1}}",
     "extraCopy102": "Denied tools: {{value1}}"
-  },
-  "planViewer": {
-    "title": "Plan handoff",
-    "planViewer": "Review {{value1}}'s Plan",
-    "title2": "Restore",
-    "title3": "Minimize",
-    "title4": "Restore",
-    "title5": "Expand",
-    "planViewer2": "Plan ready.",
-    "placeholder": "Tell {{value1}} what to change…",
-    "planViewer3": "Send",
-    "planViewer4": "Cancel",
-    "planViewer5": "Copied!",
-    "planViewer6": "Copy",
-    "planViewer7": "Handoff",
-    "planViewer8": "Approve",
-    "planViewer9": "Revise",
-    "planViewer10": "Cancel plan",
-    "extraCopy103": "Plan responses are managed by {{value1}}. Take over to reply here.",
-    "extraCopy104": "an external controller",
-    "extraCopy105": "Response sent. Waiting for {{value1}} to continue.",
-    "extraCopy106": "Wait for {{value1}} to finish the current turn before replying to the plan.",
-    "extraCopy107": "Plan response is unavailable in this build.",
-    "extraCopy109": "The plan response could not be delivered."
   },
   "providerErrorRecovery": {
     "providerErrorRecovery": "Resume starts a new turn with your current model selection. The continuation asks the agent to check the workspace first and continue only unfinished work.",
@@ -589,7 +562,6 @@
     "label18": "Summary",
     "label19": "Summary Support",
     "label20": "Timeout",
-    "label21": "Planning",
     "label22": "Fast Mode",
     "label23": "Codex Binary",
     "extraCopy144": "Enabled",
@@ -766,11 +738,9 @@
     "title7": "Activity paused",
     "detail5": "No updates for {{value1}}",
     "detail6": "Waiting for the provider",
-    "title8": "Preparing the plan",
     "label": "Waiting for approval",
     "label2": "Waiting for your input",
     "label3": "Activity paused",
-    "label4": "Preparing the plan",
     "label5": "1 activity failed",
     "label6": "{{value1}} activities failed",
     "label7": "1 background activity",
@@ -881,5 +851,15 @@
   "presentation": {
     "on": "on",
     "off": "off"
+  },
+  "turnDocumentRevisions": {
+    "title_one": "Document updated",
+    "title_other": "{{count}} documents updated",
+    "revision": "v{{value1}}",
+    "open": "Open",
+    "openLabel": "Open {{value1}}",
+    "changes": "Changes",
+    "changesLabel": "Compare {{value1}} with its previous revision",
+    "couldNotLoad": "Could not load this revision."
   }
 }

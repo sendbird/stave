@@ -106,12 +106,11 @@ test("replay pins exact-turn identity, advances delivery only, and leaves histor
   const result = replayProviderEventsToTaskState({ taskId: "task", provider: "codex", model: "model", turnId: provenance.turnId,
     messages: [], events: [
       { type: "agent_provenance", provenance },
-      { type: "plan_ready", planText: "Do the work." },
       { type: "text", text: "Answer" },
       { type: "agent_provenance", provenance: { ...provenance, agentName: "Forged rewrite", model: "wrong", instructions: { ...provenance.instructions, status: "delivered" } } },
       { type: "done" },
     ] });
-  expect(result.messages.length).toBeGreaterThan(1);
+  expect(result.messages.length).toBeGreaterThan(0);
   for (const message of result.messages) {
     expect(message.agentProvenance?.assignmentId).toBe(provenance.assignmentId);
     expect(message.agentProvenance?.agentName).toBe("Implementer");

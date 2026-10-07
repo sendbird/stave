@@ -106,7 +106,7 @@ export function prepareTaskAgentTurn(args: {
       if (event.type === "provider_session") sessionId = event.nativeSessionId;
       if (!promptPreamble && provenance.instructions.status === "configured" &&
           ((event.type === "text" && event.text.trim()) || event.type === "tool" ||
-            event.type === "tool_result" || event.type === "approval" || event.type === "user_input" || event.type === "plan_ready")) {
+            event.type === "tool_result" || event.type === "approval" || event.type === "user_input")) {
         return update("delivered");
       }
       return null;

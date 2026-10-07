@@ -30,7 +30,6 @@ interface ChatInputRuntimeArgs {
   activeProvider: ProviderId;
   providerTimeoutMs: number;
   claudePermissionMode: AppSettings["claudePermissionMode"];
-  claudePermissionModeBeforePlan: AppSettings["claudePermissionModeBeforePlan"];
   claudeAllowDangerouslySkipPermissions: boolean;
   claudeSandboxEnabled: boolean;
   claudeAllowUnsandboxedCommands: boolean;
@@ -49,7 +48,6 @@ interface ChatInputRuntimeArgs {
   codexReasoningSummary: AppSettings["codexReasoningSummary"];
   codexReasoningSummarySupport: AppSettings["codexReasoningSummarySupport"];
   codexFastMode: boolean;
-  codexPlanMode: boolean;
   codexBinaryPath: string;
 }
 
@@ -310,7 +308,6 @@ export function buildChatInputRuntimeStatusItems(
 
   const effectiveCodexFileAccess = resolveEffectiveCodexFileAccessMode({
     fileAccessMode: args.codexFileAccess,
-    planMode: args.codexPlanMode,
     fallback: "workspace-write",
   });
 
@@ -375,12 +372,6 @@ export function buildChatInputRuntimeStatusItems(
       id: "timeout",
       label: i18n.t("session:chatInputRuntime.label20"),
       value: formatProviderTimeoutLabel(args.providerTimeoutMs),
-    },
-    {
-      id: "plan-mode",
-      label: i18n.t("session:chatInputRuntime.label21"),
-      value: args.codexPlanMode ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
-      tone: args.codexPlanMode ? "warning" : "default",
     },
     {
       id: "fast-mode",

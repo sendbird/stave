@@ -777,14 +777,14 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
   test("keeps the plugin disable override alongside runtime option overrides", () => {
     const config = buildCodexConfigOverrides({
       runtimeOptions: {
-        codexPlanMode: true,
+        codexFastMode: true,
         codexReasoningEffort: "high",
       },
     });
 
     expect(config).toMatchObject({
       "plugins.browser@openai-bundled.enabled": false,
-      collaboration_mode_kind: "plan",
+      "features.fast_mode": true,
     });
   });
 
@@ -869,15 +869,9 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
         runtimeOptions: { model: "gpt-5.6-sol", responseStylePrompt: "Be verbose." },
       }),
     );
-    // Model, plan mode, and bound secrets still rotate it.
+    // Model and bound secrets still rotate it.
     expect(buildCodexThreadKey(base)).not.toBe(
       buildCodexThreadKey({ ...base, runtimeOptions: { model: "gpt-5.6-terra" } }),
-    );
-    expect(buildCodexThreadKey(base)).not.toBe(
-      buildCodexThreadKey({
-        ...base,
-        runtimeOptions: { ...base.runtimeOptions, codexPlanMode: true },
-      }),
     );
     expect(buildCodexThreadKey(base)).not.toBe(
       buildCodexThreadKey({ ...base, boundSecretFingerprint: "abc" }),
@@ -1324,41 +1318,12 @@ describe("Codex secondary request denial", () => {
   });
 });
 
-describe("Codex App Server plan-mode payloads", () => {
-  test("forwards plan mode through generated thread config overrides", () => {
-    const config = buildCodexConfigOverrides({
-      runtimeOptions: {
-        codexPlanMode: true,
-        codexReasoningEffort: "high",
-      },
-    });
-
-    expect(config).toMatchObject({
-      collaboration_mode_kind: "plan",
-      plan_mode_reasoning_effort: "high",
-    });
-  });
-
-  test("normalizes minimal plan reasoning to low for app-server tool compatibility", () => {
-    const config = buildCodexConfigOverrides({
-      runtimeOptions: {
-        codexPlanMode: true,
-        codexReasoningEffort: "minimal",
-      },
-    });
-
-    expect(config).toMatchObject({
-      collaboration_mode_kind: "plan",
-      plan_mode_reasoning_effort: "low",
-    });
-  });
-
+describe("Codex App Server payloads", () => {
   test("keeps thread/start payload within generated schema keys", () => {
     const params = buildCodexThreadStartParams({
       cwd: "/tmp/project",
       runtimeOptions: {
         model: "gpt-5.1",
-        codexPlanMode: true,
         codexReasoningEffort: "high",
       },
       ephemeral: true,
@@ -1375,11 +1340,8 @@ describe("Codex App Server plan-mode payloads", () => {
       ephemeral: true,
       sandbox: "read-only",
       approvalPolicy: "never",
-      config: {
-        collaboration_mode_kind: "plan",
-        plan_mode_reasoning_effort: "high",
-      },
     });
+    expect(params.config).not.toHaveProperty("collaboration_mode_kind");
   });
 
   test("keeps thread/resume payload within generated schema keys", () => {
@@ -1405,14 +1367,13 @@ describe("Codex App Server plan-mode payloads", () => {
     });
   });
 
-  test("keeps plan turn/start payload within generated schema keys", () => {
+  test("keeps turn/start payload within generated schema keys", () => {
     const params = buildCodexTurnStartParams({
       threadId: "thread-1",
       prompt: "Draft a plan.",
       cwd: "/tmp/project",
       runtimeOptions: {
         model: "gpt-5.1",
-        codexPlanMode: true,
         codexApprovalPolicy: "on-request",
         codexFileAccess: "danger-full-access",
         codexNetworkAccess: false,
@@ -1426,13 +1387,12 @@ describe("Codex App Server plan-mode payloads", () => {
     expect(params).toMatchObject({
       threadId: "thread-1",
       cwd: "/tmp/project",
-      approvalPolicy: "never",
+      approvalPolicy: "on-request",
       model: "gpt-5.1",
       effort: "high",
       summary: "concise",
       sandboxPolicy: {
-        type: "readOnly",
-        networkAccess: false,
+        type: "dangerFullAccess",
       },
     });
   });

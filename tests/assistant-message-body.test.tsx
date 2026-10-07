@@ -299,14 +299,13 @@ describe("AssistantMessageBody", () => {
     expect(html.match(/<button/g)?.length ?? 0).toBe(1);
   });
 
-  test("keeps markdown rendering for the pre-plan assistant message after plan splitting", async () => {
+  test("keeps markdown rendering for a replayed assistant message", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const replayed = replayProviderEventsToTaskState({
       taskId: "task-1",
       messages: [],
       events: [
         { type: "text", text: "## Review\n\n- Keep markdown\n- Preserve bullets" },
-        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
         { type: "done" },
       ],
       provider: "codex",

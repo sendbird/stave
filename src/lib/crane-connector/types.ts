@@ -142,7 +142,6 @@ export const CraneDispatchRuntimeChoiceSchema = z
           "default",
           "acceptEdits",
           "bypassPermissions",
-          "plan",
           "dontAsk",
           "auto",
         ]),

@@ -196,7 +196,6 @@ export function ComposerFramePreviewApp() {
   const [draft, setDraft] = useState(
     "Tighten the four-bar composer so the side shelves match the input card height.",
   );
-  const [planMode, setPlanMode] = useState(true);
   const [thinkingMode, setThinkingMode] = useState<
     "adaptive" | "enabled" | "disabled"
   >("enabled");
@@ -289,13 +288,12 @@ export function ComposerFramePreviewApp() {
       settings: buildClaudeProviderModeSettingsPatch({
         presetId: providerMode,
       }),
-      planMode,
     });
     return {
       ...presentation,
       providerLabel: "Claude",
     };
-  }, [planMode, providerMode]);
+  }, [providerMode]);
 
   return (
     <TooltipProvider>
@@ -458,8 +456,6 @@ export function ComposerFramePreviewApp() {
                   reviewModelOptions={[PREVIEW_MODEL, PREVIEW_REVIEW_CODEX_MODEL]}
                   preferredReviewModelKey={PREVIEW_MODEL.key}
                   onLocalChangeReview={() => true}
-                  planMode={planMode}
-                  onPlanModeChange={setPlanMode}
                   thinkingMode={thinkingMode}
                   onThinkingModeChange={setThinkingMode}
                   providerModeStatus={providerModeStatus}

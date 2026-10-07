@@ -23,7 +23,6 @@ export type TurnActivityRowStatus =
 export type TurnActivityIconKey =
   | "alert"
   | "pause"
-  | "plan"
   | "subagent"
   | "tool"
   | "hook"
@@ -128,7 +127,6 @@ const TURN_ACTIVITY_STATUS_ORDER: Record<TurnActivityRowStatus, number> = {
  */
 export function resolveTurnActivityVisibility(args: {
   isTurnActive: boolean;
-  isPlanPending: boolean;
   hasRetainedFailure?: boolean;
   /**
    * A finished turn is being replayed. Only the panel ever sets this — see
@@ -139,7 +137,7 @@ export function resolveTurnActivityVisibility(args: {
   return Boolean(
     args.hasRetainedFailure ||
       args.hasReplay ||
-      (args.isTurnActive && !args.isPlanPending),
+      args.isTurnActive,
   );
 }
 
@@ -222,7 +220,6 @@ export function resolveTurnActivityRestMark(args: {
  */
 export function resolveTurnActivityLoaderVariant(args: {
   activity: Pick<ProviderTurnActivitySnapshot, "pendingInteraction"> | null;
-  isPlanPreparing: boolean;
   isStalled: boolean;
   workItems: Pick<ProviderTurnWorkItem, "kind" | "status">[];
 }): LoaderVariant {
@@ -234,9 +231,6 @@ export function resolveTurnActivityLoaderVariant(args: {
   }
   if (args.isStalled) {
     return "signal";
-  }
-  if (args.isPlanPreparing) {
-    return "route";
   }
 
   const runningWorkItems = args.workItems.filter(
@@ -504,7 +498,6 @@ export function buildTurnActivityItems(args: {
     "completedAt" | "pendingInteraction" | "turnError" | "turnErrorRecoverable"
   > | null;
   idleLabel: string | null;
-  isPlanPreparing: boolean;
   isStalled: boolean;
   todos: TurnActivityTodo[];
   workItems: ProviderTurnWorkItem[];
@@ -552,14 +545,6 @@ export function buildTurnActivityItems(args: {
         ? i18n.t("session:turnActivityUtils.detail5", { value1: args.idleLabel })
         : i18n.t("session:turnActivityUtils.detail6"),
       iconKey: "pause",
-    });
-  }
-  if (args.isPlanPreparing) {
-    items.push({
-      id: "plan",
-      status: "running",
-      title: i18n.t("session:turnActivityUtils.title8"),
-      iconKey: "plan",
     });
   }
   for (const item of args.workItems) {
@@ -825,7 +810,6 @@ export function resolveTurnActivityHiddenSeverity(
 export function resolveTurnActivitySummary(args: {
   pendingInteraction: "approval" | "user_input" | null;
   isStalled: boolean;
-  isPlanPreparing: boolean;
   workItems: TurnActivityWorkItemLike[];
   todos: TodoItem[];
 }): TurnActivitySummary {
@@ -848,10 +832,8 @@ export function resolveTurnActivitySummary(args: {
     (todo) => todo.status !== "completed",
   ).length;
   const completedCount = completedWorkCount + completedTodoCount;
-  const activeCount =
-    activeWorkCount + activeTodoCount + (args.isPlanPreparing ? 1 : 0);
-  const totalCount =
-    args.workItems.length + args.todos.length + (args.isPlanPreparing ? 1 : 0);
+  const activeCount = activeWorkCount + activeTodoCount;
+  const totalCount = args.workItems.length + args.todos.length;
 
   if (args.pendingInteraction === "approval") {
     return {
@@ -874,15 +856,6 @@ export function resolveTurnActivitySummary(args: {
   if (args.isStalled) {
     return {
       label: i18n.t("session:turnActivityUtils.label3"),
-      activeCount,
-      completedCount,
-      failedCount: failedWorkCount,
-      totalCount,
-    };
-  }
-  if (args.isPlanPreparing) {
-    return {
-      label: i18n.t("session:turnActivityUtils.label4"),
       activeCount,
       completedCount,
       failedCount: failedWorkCount,

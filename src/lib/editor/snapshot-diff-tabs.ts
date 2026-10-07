@@ -6,6 +6,19 @@ import type { EditorTab } from "@/types/chat";
 import { GITHUB_PR_DIFF_TAB_PREFIX } from "@/lib/github-pr-review";
 
 const CHAT_DIFF_TAB_PREFIX = "chat-diff:";
+const DOCUMENT_REVISION_DIFF_TAB_PREFIX = "document-revision-diff:";
+
+/**
+ * Deterministic editor-tab id for comparing two recorded revisions of a
+ * workspace document. Both sides come from Stave's revision history.
+ */
+export function documentRevisionDiffTabId(args: {
+  filePath: string;
+  fromRevision: number;
+  toRevision: number;
+}): string {
+  return `${DOCUMENT_REVISION_DIFF_TAB_PREFIX}${args.fromRevision}..${args.toRevision}:${args.filePath}`;
+}
 
 /**
  * Deterministic editor-tab id for a file diff opened from a chat message.
@@ -29,6 +42,8 @@ export function chatDiffTabId(args: {
  * - `chat-diff:` holds the content recorded before and after an agent edit, as
  *   old as the message it belongs to.
  * - `github-pr-diff:` holds a file patch for one immutable PR head commit.
+ * - `document-revision-diff:` holds two recorded revisions of a workspace
+ *   document.
  * - `git-graph-diff:<revision>:` holds two immutable git objects.
  *
  * Such a tab must never be refreshed from the working tree (that would swap the
@@ -52,6 +67,9 @@ export function isSnapshotDiffEditorTab(
     return true;
   }
   if (tab.id.startsWith(GITHUB_PR_DIFF_TAB_PREFIX)) {
+    return true;
+  }
+  if (tab.id.startsWith(DOCUMENT_REVISION_DIFF_TAB_PREFIX)) {
     return true;
   }
   if (!tab.id.startsWith(COMMIT_GRAPH_DIFF_TAB_PREFIX)) {

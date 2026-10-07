@@ -423,14 +423,6 @@ function shrinkProviderStreamEventPayload(
           ),
         },
       };
-    case "plan_ready":
-      return {
-        ...payload,
-        event: {
-          ...event,
-          planText: shrinkProviderEventString(event.planText, "plan"),
-        },
-      };
     case "system":
       return {
         ...payload,

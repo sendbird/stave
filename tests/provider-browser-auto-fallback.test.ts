@@ -100,7 +100,6 @@ describe("provider browser fallback turn guard", () => {
     autoFallbackEnabled: true,
     originalPromptRequestedBrowser: false,
     conversationTurn: true,
-    planMode: false,
     turnAborted: false,
     hasQueuedUserTurn: false,
   };
@@ -124,7 +123,6 @@ describe("provider browser fallback turn guard", () => {
       { detected: false },
       { autoFallbackEnabled: false },
       { conversationTurn: false },
-      { planMode: true },
       { turnAborted: true },
       { hasQueuedUserTurn: true },
     ]) {
@@ -216,19 +214,6 @@ describe("maybeStartProviderBrowserFallbackTurn", () => {
       taskId: "task-1",
       events: [{ type: "done", stop_reason: "aborted" }],
       tracker: blockedTracker(),
-      session: null,
-    });
-    expect(store.sent).toHaveLength(0);
-  });
-
-  test("does not retry a plan-mode turn, which cannot get the browser", () => {
-    const store = stubStore(true);
-    maybeStartProviderBrowserFallbackTurn(store.getState, {
-      taskId: "task-1",
-      events: [{ type: "done", stop_reason: "end_turn" }],
-      tracker: blockedTracker({
-        runtimeOptions: { claudePermissionMode: "plan" },
-      }),
       session: null,
     });
     expect(store.sent).toHaveLength(0);

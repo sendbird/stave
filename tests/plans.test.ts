@@ -8,10 +8,8 @@ import {
   MAX_WORKSPACE_PLANS,
   parseWorkspacePlanFilePath,
   persistWorkspacePlanFile,
-  resolveWorkspacePlanPersistenceText,
   sortWorkspacePlansNewestFirst,
 } from "@/lib/plans";
-import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
 
 type FsCreateDirectoryResult =
   { ok: true } | { ok: false; alreadyExists?: boolean; stderr?: string };
@@ -128,28 +126,53 @@ describe("workspace plans helpers", () => {
     expect(newer.label).toBe("2026-04-01 04:05:06");
   });
 
-  test("builds a newest-first workspace plan list and caps it to the latest five entries", () => {
+  test("builds a newest-first workspace document list capped to the newest entries", () => {
+    const day = (value: number) => String(value).padStart(2, "0");
     const entries = buildWorkspacePlanListEntries({
-      currentFilePaths: [
-        ".stave/context/plans/task0001_2026-04-01T01-00-00.md",
-        ".stave/context/plans/task0002_2026-04-02T01-00-00.md",
-        ".stave/context/plans/task0003_2026-04-03T01-00-00.md",
-        ".stave/context/plans/task0004_2026-04-04T01-00-00.md",
-      ],
+      currentFilePaths: Array.from(
+        { length: 10 },
+        (_, index) =>
+          `.stave/context/plans/task00${day(index + 1)}_2026-04-${day(index + 1)}T01-00-00.md`,
+      ),
       legacyFilePaths: [
-        ".stave/plans/task0005_2026-04-05T01-00-00.md",
-        ".stave/plans/task0006_2026-04-06T01-00-00.md",
+        ".stave/plans/task0011_2026-04-11T01-00-00.md",
+        ".stave/plans/task0012_2026-04-12T01-00-00.md",
       ],
     });
 
     expect(entries).toHaveLength(MAX_WORKSPACE_PLANS);
     expect(entries[0]?.filePath).toBe(
-      ".stave/plans/task0006_2026-04-06T01-00-00.md",
+      ".stave/plans/task0012_2026-04-12T01-00-00.md",
     );
     expect(entries[0]?.source).toBe("legacy");
     expect(entries.at(-1)?.filePath).toBe(
-      ".stave/context/plans/task0002_2026-04-02T01-00-00.md",
+      ".stave/context/plans/task0003_2026-04-03T01-00-00.md",
     );
+  });
+
+  test("names a content-named document after its file and orders by recorded updates", () => {
+    const named = parseWorkspacePlanFilePath(
+      ".stave/context/plans/retry-design.md",
+    );
+    expect(named).toMatchObject({
+      label: "retry-design",
+      taskIdPrefix: "",
+      timestamp: "",
+    });
+
+    const entries = buildWorkspacePlanListEntries({
+      currentFilePaths: [
+        ".stave/context/plans/retry-design.md",
+        ".stave/context/plans/task0001_2026-04-01T01-00-00.md",
+      ],
+      updatedAtByPath: {
+        ".stave/context/plans/retry-design.md": "2026-05-01T00:00:00.000Z",
+      },
+    });
+    expect(entries.map((entry) => entry.filePath)).toEqual([
+      ".stave/context/plans/retry-design.md",
+      ".stave/context/plans/task0001_2026-04-01T01-00-00.md",
+    ]);
   });
 
   test("dedupes exact duplicate plan paths before sorting", () => {
@@ -166,63 +189,6 @@ describe("workspace plans helpers", () => {
     );
   });
 
-  test("strips leading commentary before a structured plan block", () => {
-    expect(
-      normalizePlanText(
-        "I think this approach is safest.\n\n## Plan\n1. Inspect the parser\n2. Patch the write path",
-      ),
-    ).toBe("## Plan\n1. Inspect the parser\n2. Patch the write path");
-  });
-
-  test("strips trailing sign-off commentary after a structured plan block", () => {
-    expect(
-      normalizePlanText(
-        "## Plan\n- Reproduce the issue\n- Save only normalized output\n\nLet me know if you want me to revise it.",
-      ),
-    ).toBe("## Plan\n- Reproduce the issue\n- Save only normalized output");
-  });
-
-  test("extracts only the tagged proposed plan content", () => {
-    expect(
-      normalizePlanText(
-        "Some analysis\n<proposed_plan>\n## Plan\n- Ship the fix\n</proposed_plan>\nIf you'd like, I can refine it further.",
-      ),
-    ).toBe("## Plan\n- Ship the fix");
-  });
-
-  test("keeps unstructured multiline plans intact when no structured block exists", () => {
-    expect(
-      normalizePlanText(
-        "Inspect the current output.\nPatch the persistence layer.\nRun the focused tests.",
-      ),
-    ).toBe(
-      "Inspect the current output.\nPatch the persistence layer.\nRun the focused tests.",
-    );
-  });
-
-  test("does not treat ellipsis-only placeholder text as a meaningful plan", () => {
-    expect(hasMeaningfulPlanText("...")).toBe(false);
-    expect(hasMeaningfulPlanText("…")).toBe(false);
-  });
-
-  test("skips persisting duplicate normalized plan text for the same turn", () => {
-    const persisted = resolveWorkspacePlanPersistenceText({
-      planText:
-        "...\n\n## Plan\n- Inspect\n- Patch\n\nLet me know if you want changes.",
-      lastPersistedPlanText: "## Plan\n- Inspect\n- Patch",
-    });
-
-    expect(persisted).toBeNull();
-  });
-
-  test("persists a new normalized plan text when the content changed", () => {
-    const persisted = resolveWorkspacePlanPersistenceText({
-      planText: "## Plan\n- Inspect\n- Patch\n- Verify",
-      lastPersistedPlanText: "## Plan\n- Inspect\n- Patch",
-    });
-
-    expect(persisted).toBe("## Plan\n- Inspect\n- Patch\n- Verify");
-  });
 });
 
 describe("persistWorkspacePlanFile", () => {

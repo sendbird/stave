@@ -26,7 +26,6 @@ const CLAUDE_OPTIONS: PermissionModeOption[] = [
   { value: "default", get label() { return i18n.t("composer:permissionModeSelector.label"); } },
   { value: "acceptEdits", get label() { return i18n.t("composer:permissionModeSelector.label2"); } },
   { value: "bypassPermissions", get label() { return i18n.t("composer:permissionModeSelector.label3"); } },
-  { value: "plan", get label() { return i18n.t("composer:permissionModeSelector.label4"); } },
   { value: "dontAsk", get label() { return i18n.t("composer:permissionModeSelector.label5"); } },
   { value: "auto", get label() { return i18n.t("composer:permissionModeSelector.label6"); } },
 ];

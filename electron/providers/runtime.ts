@@ -539,8 +539,8 @@ async function describeCodexAvailability(
  *
  * Semantics:
  * - The timer starts when the turn is created.
- * - `pauseForDecision({ key })` is called each time the bridge emits `approval`,
- *   `user_input`, or a blocking `plan_ready`, keyed by the decision's request id.
+ * - `pauseForDecision({ key })` is called each time the bridge emits `approval`
+ *   or `user_input`, keyed by the decision's request id.
  * - `resumeAfterDecision({ key })` is called when a responder fires
  *   successfully (via respondApproval/respondUserInput) OR on a `tool_result`
  *   whose `tool_use_id` matches the request.
@@ -727,12 +727,6 @@ export function createTurnTimeoutController(args: {
 export function getProviderDecisionRequestId(event: BridgeEvent) {
   if (event.type === "approval" || event.type === "user_input") {
     return event.requestId;
-  }
-  if (
-    event.type === "plan_ready" &&
-    event.review?.responseMode === "blocking"
-  ) {
-    return event.review.requestId;
   }
   return null;
 }

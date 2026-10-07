@@ -206,7 +206,6 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
                   codexWebSearch: "disabled" as const,
                   codexReasoningSummary: "none" as const,
                   codexShowRawReasoning: false,
-                  codexPlanMode: false,
                 }
               : {}),
           ...(supportsExplicitEffort({ providerId, model })

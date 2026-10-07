@@ -83,7 +83,6 @@ import { holdsComposerTurn, usePendingAutoRoutingStore } from "@/store/pending-a
 import { useAppStore } from "@/store/app.store";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import {
-  resolvePromptDraftPlanModeChange,
   resolvePromptDraftModelForProvider,
   resolvePromptDraftRuntimeState,
 } from "@/store/prompt-draft-runtime";
@@ -105,7 +104,6 @@ const PROVIDER_IDS = listProviderIds();
 const INACTIVE_CLAUDE_SETTING_SOURCES: ClaudeSettingSource[] = ["project"];
 const INACTIVE_CLAUDE_SETTINGS = [
   "auto",
-  null,
   false,
   false,
   true,
@@ -126,7 +124,6 @@ const INACTIVE_CODEX_SETTINGS = [
   "auto",
   "auto",
   "",
-  false,
   false,
 ] as const;
 const EMPTY_PROVIDER_MODE_PRESETS: readonly ProviderModePresetDefinition[] = [];
@@ -150,8 +147,6 @@ function BaseChatInput() {
     providerCommandCatalogRefreshNonce,
     setTaskProvider,
     updatePromptDraft,
-    clearTaskProviderSession,
-    abortTaskTurn,
     updateSettings,
     updateModelRuntimePreference,
     refreshSkillCatalog,
@@ -164,8 +159,6 @@ function BaseChatInput() {
           state.providerCommandCatalogRefreshNonce,
           state.setTaskProvider,
           state.updatePromptDraft,
-          state.clearTaskProviderSession,
-          state.abortTaskTurn,
           state.updateSettings,
           state.updateModelRuntimePreference,
           state.refreshSkillCatalog,
@@ -231,16 +224,6 @@ function BaseChatInput() {
     holdsComposerTurn(state.byTaskId[activeTaskId]),
   );
   const isTurnActive = Boolean(activeTurnId) || autoRoutePending;
-  const latestMessageIsPlanResponse = useAppStore((state) => {
-    const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
-    const lastMessage = messages[messages.length - 1];
-    return Boolean(
-      lastMessage &&
-      lastMessage.role === "assistant" &&
-      lastMessage.isPlanResponse === true &&
-      lastMessage.planText?.trim(),
-    );
-  });
   const [
     modelClaude,
     modelCodex,
@@ -324,7 +307,6 @@ function BaseChatInput() {
   });
   const [
     claudePermissionMode,
-    claudePermissionModeBeforePlan,
     claudeAllowDangerouslySkipPermissions,
     claudeSandboxEnabled,
     claudeAllowUnsandboxedCommands,
@@ -346,7 +328,6 @@ function BaseChatInput() {
       });
       return [
         settings.claudePermissionMode,
-        settings.claudePermissionModeBeforePlan,
         settings.claudeAllowDangerouslySkipPermissions,
         settings.claudeSandboxEnabled,
         settings.claudeAllowUnsandboxedCommands,
@@ -369,7 +350,6 @@ function BaseChatInput() {
     codexReasoningSummary,
     codexReasoningSummarySupport,
     codexBinaryPath,
-    codexPlanMode,
     codexFastMode,
   ] = useAppStore(
     useShallow((state) => {
@@ -391,7 +371,6 @@ function BaseChatInput() {
         settings.codexReasoningSummary,
         settings.codexReasoningSummarySupport,
         settings.codexBinaryPath,
-        settings.codexPlanMode,
         settings.codexFastMode,
       ] as const;
     }),
@@ -412,26 +391,18 @@ function BaseChatInput() {
           : null,
         fallback: {
           claudePermissionMode,
-          claudePermissionModeBeforePlan,
-          codexPlanMode,
           cursorMode,
           kiroEffort,
         },
       }),
     [
       claudePermissionMode,
-      claudePermissionModeBeforePlan,
-      codexPlanMode,
       cursorMode,
       kiroEffort,
       promptDraftRuntimeOverrides,
     ],
   );
   const effectiveClaudePermissionMode = taskRuntimeState.claudePermissionMode;
-  const effectiveClaudePermissionModeBeforePlan =
-    taskRuntimeState.claudePermissionModeBeforePlan;
-  const effectiveCodexPlanMode = taskRuntimeState.codexPlanMode;
-  const effectiveCursorMode = taskRuntimeState.cursorMode;
   const effectiveKiroEffort = taskRuntimeState.kiroEffort ?? kiroEffort;
   const catalogRuntimeOptions = useMemo(
     () => ({
@@ -597,9 +568,7 @@ function BaseChatInput() {
       codexReasoningSummary,
       codexReasoningSummarySupport,
       codexFastMode,
-      codexPlanMode: effectiveCodexPlanMode,
       codexBinaryPath,
-      claudePermissionModeBeforePlan: effectiveClaudePermissionModeBeforePlan,
     });
   }, [
     activeProvider,
@@ -623,8 +592,6 @@ function BaseChatInput() {
     codexReasoningSummarySupport,
     codexWebSearch,
     effectiveClaudePermissionMode,
-    effectiveClaudePermissionModeBeforePlan,
-    effectiveCodexPlanMode,
     providerTimeoutMs,
   , i18n.language]);
   const providerModeStatus =
@@ -639,7 +606,6 @@ function BaseChatInput() {
               claudeSandboxEnabled,
               claudeAllowUnsandboxedCommands,
             },
-            planMode: effectiveClaudePermissionMode === "plan",
           }),
         };
       }
@@ -654,7 +620,6 @@ function BaseChatInput() {
               codexNetworkAccess,
               codexWebSearch,
             },
-            planMode: effectiveCodexPlanMode,
           }),
         };
       }
@@ -664,7 +629,6 @@ function BaseChatInput() {
           providerLabel: "Cursor",
           ...resolveCursorProviderModePresentation({
             settings: { cursorApprovalMode },
-            planMode: effectiveCursorMode === "plan",
           }),
         };
       }
@@ -690,9 +654,6 @@ function BaseChatInput() {
       codexNetworkAccess,
       codexWebSearch,
       cursorApprovalMode,
-      effectiveClaudePermissionMode,
-      effectiveCodexPlanMode,
-      effectiveCursorMode,
       kiroApprovalMode,
     ]);
   const activeProviderModePresetId =
@@ -1015,14 +976,6 @@ function BaseChatInput() {
             patch: {
               runtimeOverrides: buildAutoRoutingSelectionOverrides({
                 runtimeOverrides: promptDraftRuntimeOverrides,
-                planMode:
-                  activeProvider === "claude-code"
-                    ? effectiveClaudePermissionMode === "plan"
-                    : activeProvider === "codex"
-                      ? effectiveCodexPlanMode
-                      : activeProvider === "cursor"
-                        ? effectiveCursorMode === "plan"
-                        : false,
               }),
             },
           });
@@ -1120,74 +1073,6 @@ function BaseChatInput() {
               });
             }
           : undefined
-      }
-      planMode={
-        isAutoRoutingSelected
-          ? promptDraftRuntimeOverrides?.autoRoutingPlanMode === true
-          : activeProvider === "codex"
-            ? effectiveCodexPlanMode
-            : activeProvider === "claude-code"
-              ? effectiveClaudePermissionMode === "plan"
-              : activeProvider === "cursor" && effectiveCursorMode === "plan"
-      }
-      onPlanModeChange={
-        activeProvider === "codex" || activeProvider === "cursor"
-          ? (enabled) => {
-              const nextPlanModeState = resolvePromptDraftPlanModeChange({
-                providerId: activeProvider,
-                enabled,
-                runtimeOverrides: promptDraftRuntimeOverrides,
-                claudePermissionMode: effectiveClaudePermissionMode,
-                claudePermissionModeBeforePlan:
-                  effectiveClaudePermissionModeBeforePlan,
-                codexPlanMode: effectiveCodexPlanMode,
-                isTurnActive,
-                hasPlanResponse: latestMessageIsPlanResponse,
-              });
-              updatePromptDraft({
-                taskId: providerSelectionTarget,
-                patch: {
-                  runtimeOverrides: {
-                    ...nextPlanModeState.runtimeOverrides,
-                    ...(isAutoRoutingSelected
-                      ? { autoRoutingPlanMode: enabled }
-                      : {}),
-                  },
-                },
-              });
-              if (nextPlanModeState.shouldAbortActiveTurn) {
-                abortTaskTurn({ taskId: providerSelectionTarget });
-              } else if (nextPlanModeState.shouldClearCodexSession) {
-                clearTaskProviderSession({
-                  taskId: providerSelectionTarget,
-                  providerId: "codex",
-                });
-              }
-            }
-          : activeProvider === "claude-code"
-            ? (enabled) => {
-                const nextPlanModeState = resolvePromptDraftPlanModeChange({
-                  providerId: activeProvider,
-                  enabled,
-                  runtimeOverrides: promptDraftRuntimeOverrides,
-                  claudePermissionMode: effectiveClaudePermissionMode,
-                  claudePermissionModeBeforePlan:
-                    effectiveClaudePermissionModeBeforePlan,
-                  codexPlanMode: effectiveCodexPlanMode,
-                });
-                updatePromptDraft({
-                  taskId: providerSelectionTarget,
-                  patch: {
-                    runtimeOverrides: {
-                      ...nextPlanModeState.runtimeOverrides,
-                      ...(isAutoRoutingSelected
-                        ? { autoRoutingPlanMode: enabled }
-                        : {}),
-                    },
-                  },
-                });
-              }
-            : undefined
       }
       thinkingMode={
         activeProvider === "claude-code" ? claudeThinkingMode : undefined

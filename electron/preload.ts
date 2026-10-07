@@ -1646,6 +1646,17 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("persistence:close-workspace", args),
     loadDirectionDraft: (args: { workspaceId: string }) =>
       ipcRenderer.invoke("persistence:load-direction-draft", args),
+    recordWorkspaceDocuments: (
+      args: import("../src/lib/documents/workspace-document-schemas").RecordWorkspaceDocumentsArgs,
+    ) => ipcRenderer.invoke("persistence:record-workspace-documents", args),
+    workspaceDocumentActivity: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("persistence:workspace-document-activity", args),
+    workspaceDocumentRevisions: (
+      args: import("../src/lib/documents/workspace-document-schemas").WorkspaceDocumentRevisionsArgs,
+    ) => ipcRenderer.invoke("persistence:workspace-document-revisions", args),
+    workspaceDocumentRevision: (
+      args: import("../src/lib/documents/workspace-document-schemas").WorkspaceDocumentRevisionArgs,
+    ) => ipcRenderer.invoke("persistence:workspace-document-revision", args),
     saveDirectionDraft: (args: {
       workspaceId: string;
       draft:

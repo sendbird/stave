@@ -80,7 +80,6 @@ function queuedTurnDispatchOverrides(args: {
         ...rest,
         ...snapshotProviderAccounts(queuedTurn),
         autoRouting: true,
-        autoRoutingPlanMode: queuedTurn.autoRoutingPlanMode === true,
       },
     };
   }
@@ -90,7 +89,6 @@ function queuedTurnDispatchOverrides(args: {
   const {
     model: _model,
     modelProviderId: _modelProviderId,
-    autoRoutingPlanMode: _autoRoutingPlanMode,
     ...rest
   } = baseOverrides ?? {};
   return {

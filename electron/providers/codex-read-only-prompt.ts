@@ -170,7 +170,6 @@ export async function runCodexReadOnlyPromptWithClient(
     codexFileAccess: "read-only",
     codexNetworkAccess: false,
     codexApprovalPolicy: "never",
-    codexPlanMode: false,
   };
 
   let threadId = "";

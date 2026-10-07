@@ -47,12 +47,11 @@ export function hasRenderableAssistantPart(part: MessagePart): boolean {
 }
 
 export function hasRenderableAssistantContent(args: {
-  message: Pick<ChatMessage, "content" | "parts" | "isPlanResponse">;
+  message: Pick<ChatMessage, "content" | "parts">;
 }): boolean {
   return (
     args.message.content.trim().length > 0
     || args.message.parts.some(hasRenderableAssistantPart)
-    || args.message.isPlanResponse === true
   );
 }
 

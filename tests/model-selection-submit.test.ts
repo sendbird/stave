@@ -5,10 +5,7 @@ import { describe, expect, test } from "bun:test";
 import { buildModelSelectionRuntimeOverrides } from "@/lib/providers/model-effort";
 import { defaultSettings } from "@/store/app-settings";
 import { buildPromptDraftForSend } from "@/store/prompt-draft-send";
-import {
-  applyAutoRoutingPlanMode,
-  resolvePromptDraftRuntimeState,
-} from "@/store/prompt-draft-runtime";
+import { resolvePromptDraftRuntimeState } from "@/store/prompt-draft-runtime";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import { RuntimeOptionsObjectSchema } from "../electron/main/ipc/schemas";
 import { buildCodexTurnStartParams } from "../electron/providers/codex-app-server-params";
@@ -26,7 +23,6 @@ describe("model selector effort submission", () => {
       const runtimeOverrides = buildModelSelectionRuntimeOverrides({
         runtimeOverrides: {
           codexReasoningEffort: "xhigh",
-          codexPlanMode: true,
         },
         settings: defaultSettings,
         providerId: "codex",
@@ -62,7 +58,6 @@ describe("model selector effort submission", () => {
           runtimeOptions,
         }).effort,
       ).toBe(effort);
-      expect(runtimeOptions.codexPlanMode).toBe(true);
     });
   }
 
@@ -248,56 +243,4 @@ describe("queued effort snapshots", () => {
     expect(submitted.runtimeOverrides?.modelProviderId).toBeUndefined();
   });
 
-  test("Stave Auto keeps queue-time plan intent and applies it to the routed provider", () => {
-    const queued = buildQueuedTurnFromDraft({
-      draft: {
-        text: "Plan the migration",
-        attachedFilePaths: [],
-        attachments: [],
-        runtimeOverrides: {
-          autoRouting: true,
-          autoRoutingPlanMode: true,
-          cursorMode: "plan",
-        },
-      },
-      autoRouting: true,
-    });
-    expect(queued.autoRoutingPlanMode).toBe(true);
-    const submitted = buildPromptDraftForSend({
-      content: queued.content,
-      sourceDraft: {
-        text: "",
-        attachedFilePaths: [],
-        attachments: [],
-        runtimeOverrides: { autoRouting: true, autoRoutingPlanMode: false },
-      },
-      queuedTurn: queued,
-    });
-    expect(submitted.runtimeOverrides?.autoRoutingPlanMode).toBe(true);
-    const runtimeState = resolvePromptDraftRuntimeState({
-      promptDraft: submitted,
-      fallback: defaultSettings,
-    });
-    expect(
-      applyAutoRoutingPlanMode({
-        providerId: "codex",
-        runtimeOverrides: submitted.runtimeOverrides,
-        runtimeState,
-      }).codexPlanMode,
-    ).toBe(true);
-    expect(
-      applyAutoRoutingPlanMode({
-        providerId: "claude-code",
-        runtimeOverrides: submitted.runtimeOverrides,
-        runtimeState,
-      }).claudePermissionMode,
-    ).toBe("plan");
-    expect(
-      applyAutoRoutingPlanMode({
-        providerId: "codex",
-        runtimeOverrides: { autoRouting: true, autoRoutingPlanMode: false },
-        runtimeState: { ...runtimeState, codexPlanMode: true },
-      }).codexPlanMode,
-    ).toBe(false);
-  });
 });

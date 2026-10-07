@@ -126,8 +126,6 @@
     "openTheGlobalStaveCommandLauncherFor": "IDE 동작과 설정을 실행하는 Stave 명령 창을 엽니다.",
     "stageComment": "댓글 준비",
     "moveTheCurrentComposerTextIntoThe": "현재 입력창 텍스트를 보내는 대신 댓글 영역으로 옮깁니다.",
-    "togglePlanMode": "계획 모드 전환",
-    "switchTheActivePromptBetweenNormalAnd": "앱 어디서든 활성 프롬프트의 일반 모드와 계획 모드를 전환합니다.",
     "dialogPrimaryAction": "대화상자 기본 동작",
     "runSaveCreateOpenConfirmInTheActiveDialogUse": "활성 대화상자에서 저장/생성/열기/확인을 실행합니다. 여러 줄 입력란에서는 보조 키+Enter를 사용하세요.",
     "saveFile": "파일 저장",

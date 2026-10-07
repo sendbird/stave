@@ -41,7 +41,6 @@
         "guide": {
           "title": "Claude Permission Mode",
           "summary": "This is the main autonomy dial for Claude turns.",
-          "note": "`plan` is special in Stave: it becomes a planning workflow rather than a normal implementation turn.",
           "tooltip": "Compare Claude permission modes"
         },
         "options": {
@@ -56,10 +55,6 @@
           "bypassPermissions": {
             "description": "Most autonomous Claude path. Pair it carefully with permission-skipping controls.",
             "example": "Use this only when you trust the task scope and want Claude to move with minimal interruption."
-          },
-          "plan": {
-            "description": "Planning-only mode. Stave keeps plan turns separate so you can review strategy before implementation.",
-            "example": "Use this for architecture, investigation, or task breakdowns before writing code."
           },
           "dontAsk": {
             "description": "Tell Claude not to stop for interactive permission questions during the turn.",
@@ -197,36 +192,6 @@
         "title": "Strict MCP Config",
         "description": "Only use MCP servers passed by Stave and explicitly configured SDK agents."
       },
-      "planModeApprovals": {
-        "title": "Plan Mode Approvals",
-        "guide": {
-          "title": "Claude Plan Mode Approvals",
-          "summary": "Controls how many approval prompts plan mode shows. Plan mode is always read-only — mutating file edits and mutating Bash are hard-denied at every level; these options only relax the prompt for non-mutating Bash, subagents, and read-only MCP tools.",
-          "tooltip": "Compare plan-mode approval scopes"
-        },
-        "options": {
-          "strict": {
-            "label": "Strict",
-            "description": "Only read-only built-ins (Read/Grep/Glob/…) and Stave workspace tools auto-run. Bash, subagents, and other MCP tools each prompt. Most interruptions.",
-            "example": "Pick this when you want to confirm every shell command and tool call during planning."
-          },
-          "bash": {
-            "label": "Read-only Bash",
-            "description": "Also auto-runs Bash commands that don't mutate files or task state (git status, cat, ls, typecheck). Mutating commands stay hard-denied.",
-            "example": "Good when you mostly want quiet read-only inspection but keep subagents and MCP gated."
-          },
-          "bashAndTask": {
-            "label": "Bash + Subagents",
-            "description": "Also auto-runs read-only Bash and lets Claude spawn subagents (Task) without a prompt. Subagent mutations are still hard-denied.",
-            "example": "Useful when planning fans out research across Explore subagents."
-          },
-          "bashTaskAndMcp": {
-            "label": "Bash + Subagents + MCP reads",
-            "description": "Broadest. Also auto-runs read-only third-party / lens MCP tools (classified by name). Mutating-looking MCP tools still prompt. Closest to auto mode.",
-            "example": "Default. Fewest plan-mode interruptions while every mutation stays blocked."
-          }
-        }
-      },
       "skills": {
         "title": "Skills",
         "description": "Comma- or newline-separated Claude skill names. Use `all` to enable every discovered skill."
@@ -266,7 +231,6 @@
         "guide": {
           "title": "Codex File Access",
           "summary": "This setting controls where Codex can read and write on disk.",
-          "note": "When Stave runs Codex in plan mode, it forces `read-only` regardless of the normal setting.",
           "tooltip": "Compare Codex file access levels"
         },
         "options": {
@@ -289,7 +253,6 @@
         "guide": {
           "title": "Codex Approvals",
           "summary": "Approval policy controls when Codex pauses to ask before acting.",
-          "note": "Stave forces `never` during Codex plan mode so planning turns do not stop on approval prompts.",
           "tooltip": "Compare Codex approval policies"
         },
         "options": {
@@ -486,8 +449,7 @@
         "description": "Work through the task with the normal interactive tool flow."
       },
       "plan": {
-        "label": "Plan",
-        "description": "Prepare a plan and pause for review before implementation."
+        "label": "Plan"
       },
       "ask": {
         "label": "Ask",
@@ -1316,9 +1278,6 @@
     "hiddenValues_one": "{{count}} protected value hidden",
     "hiddenValues_other": "{{count}} protected values hidden",
     "mcpApplyUnavailable": "MCP configuration apply API is unavailable.",
-    "planWorkflowNote": "`plan` is special in Stave: it becomes a planning workflow rather than a normal implementation turn.",
-    "codexPlanReadOnly": "When Stave runs Codex in plan mode, it forces `read-only` regardless of the normal setting.",
-    "codexPlanNever": "Stave forces `never` during Codex plan mode so planning turns do not stop on approval prompts.",
     "writesTrustNote": "`writes` trusts each tool's read-only annotation; it is not a security boundary."
   }
 }

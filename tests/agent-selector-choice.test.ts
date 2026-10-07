@@ -168,7 +168,7 @@ describe("the model route of an agent task", () => {
 
   /** Plays a choice's draft step on a draft, the way the composer does. */
   function play(draft: ReturnType<typeof planSelectorChoice>["draft"], overrides: Record<string, unknown>, picked?: string) {
-    if (draft === "auto") return buildAutoRoutingSelectionOverrides({ runtimeOverrides: overrides, planMode: false });
+    if (draft === "auto") return buildAutoRoutingSelectionOverrides({ runtimeOverrides: overrides });
     if (draft === "agent-fixed" || draft === "picked") {
       return buildModelSelectionRuntimeOverrides({
         runtimeOverrides: overrides,

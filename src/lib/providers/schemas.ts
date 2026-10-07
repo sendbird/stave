@@ -264,18 +264,6 @@ const UserInputEventSchema = z.object({
   ownerAgentId: z.string().optional(),
 });
 
-const PlanReadyEventSchema = z.object({
-  type: z.literal("plan_ready"),
-  planText: z.string(),
-  sourceSegmentId: z.string().optional(),
-  review: z
-    .object({
-      requestId: z.string(),
-      responseMode: z.literal("blocking"),
-    })
-    .optional(),
-});
-
 const SystemEventSchema = z.object({
   type: z.literal("system"),
   content: z.string(),
@@ -336,7 +324,6 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   diff: DiffEventSchema,
   approval: ApprovalEventSchema,
   user_input: UserInputEventSchema,
-  plan_ready: PlanReadyEventSchema,
   system: SystemEventSchema,
   error: ErrorEventSchema,
   done: DoneEventSchema,
@@ -364,7 +351,6 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.diff,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.approval,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.user_input,
-  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.plan_ready,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.system,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.error,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.done,

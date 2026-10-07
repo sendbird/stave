@@ -39,13 +39,11 @@ export type CodexConfigOverrides = Record<string, CodexConfigOverrideValue>;
 function resolveFileAccessMode(args: {
   runtimeValue?: "read-only" | "workspace-write" | "danger-full-access";
   envValue?: string;
-  planMode?: boolean;
   fallback: "read-only" | "workspace-write" | "danger-full-access";
 }) {
   const candidate = args.runtimeValue ?? args.envValue;
   return resolveEffectiveCodexFileAccessMode({
     fileAccessMode: candidate === "read-only" || candidate === "workspace-write" || candidate === "danger-full-access" ? candidate : undefined,
-    planMode: args.planMode,
     fallback: args.fallback,
   });
 }
@@ -53,7 +51,6 @@ function resolveFileAccessMode(args: {
 function resolveApprovalPolicy(args: {
   runtimeValue?: "never" | "on-request" | "on-failure" | "untrusted";
   envValue?: string;
-  planMode?: boolean;
   fallback?: "never" | "on-request" | "on-failure" | "untrusted";
 }): "never" | "on-request" | "on-failure" | "untrusted" | undefined {
   const candidate = args.runtimeValue ?? args.envValue;
@@ -66,13 +63,11 @@ function resolveApprovalPolicy(args: {
     return args.fallback == null
       ? undefined
       : resolveEffectiveCodexApprovalPolicy({
-          planMode: args.planMode,
           fallback: args.fallback,
         });
   }
   return resolveEffectiveCodexApprovalPolicy({
     approvalPolicy: candidate,
-    planMode: args.planMode,
     fallback: args.fallback,
   });
 }
@@ -108,10 +103,6 @@ export function buildCodexConfigOverrides(args: {
       runtimeOptions: subagentRuntimeOptions,
     }),
   };
-  const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
-  const reasoningEffort = resolveCodexAppServerReasoningEffort({
-    reasoningEffort: args.runtimeOptions?.codexReasoningEffort,
-  });
   const developerInstructions = buildCodexDeveloperInstructions({
     runtimeOptions: args.runtimeOptions,
     ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
@@ -154,13 +145,6 @@ export function buildCodexConfigOverrides(args: {
   if (codexFastMode !== undefined) {
     config["features.fast_mode"] = codexFastMode;
   }
-  if (planModeEnabled) {
-    config.collaboration_mode_kind = "plan";
-    if (reasoningEffort) {
-      config.plan_mode_reasoning_effort = reasoningEffort;
-    }
-  }
-
   Object.assign(config, args.configOverrides);
   Object.assign(config, codexNativePlanConfig(args.runtimeOptions, args.secondaryReadOnly));
   return Object.keys(config).length > 0 ? config : undefined;
@@ -170,7 +154,6 @@ export function buildSandboxPolicy(args: {
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
-  const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
   const networkAccessEnabled =
     args.runtimeOptions?.codexNetworkAccess ??
     parseBooleanEnv({
@@ -180,7 +163,6 @@ export function buildSandboxPolicy(args: {
   const fileAccessMode = resolveFileAccessMode({
     runtimeValue: args.runtimeOptions?.codexFileAccess,
     envValue: process.env.STAVE_CODEX_SANDBOX_MODE?.trim(),
-    planMode: planModeEnabled,
     fallback: "workspace-write",
   });
   switch (fileAccessMode) {
@@ -217,7 +199,6 @@ export function buildCodexTurnStartParams(args: {
   const approvalPolicy = resolveApprovalPolicy({
     runtimeValue: args.runtimeOptions?.codexApprovalPolicy,
     envValue: process.env.STAVE_CODEX_APPROVAL_POLICY?.trim(),
-    planMode: args.runtimeOptions?.codexPlanMode === true,
     fallback: "untrusted",
   });
 
@@ -459,7 +440,6 @@ export function resolveCodexSecondaryRuntimeOptions(args: {
         codexNetworkAccess: false,
         codexWebSearch: "disabled",
         codexShowRawReasoning: false,
-        codexPlanMode: false,
       }
     : args.runtimeOptions;
 }

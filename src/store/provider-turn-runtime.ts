@@ -84,8 +84,8 @@ export function runProviderTurn(
         // distinguish abnormal terminations from natural completion. The
         // downstream `appendProviderEventToAssistant` done handler interrupts
         // any dangling pending approval/user_input parts so `isTurnActive`
-        // clears cleanly — otherwise the PlanViewer's Approve/Revise controls
-        // and the chat input stay locked waiting for an orphaned request.
+        // clears cleanly — otherwise the chat input stays locked waiting for an
+        // orphaned request.
         deliver({ type: "done", stop_reason: "aborted" });
       }
     }

@@ -338,11 +338,6 @@ export function sanitizeChatMessagePayload(message: ChatMessage): ChatMessage {
           // i18n-ignore: provider payload truncation diagnostic, not display copy
           label: `${message.role} message display content`,
         });
-  const planText =
-    message.planText == null
-      ? message.planText
-      // i18n-ignore: provider payload truncation diagnostic, not display copy
-      : sanitizeTextField({ value: message.planText, label: "plan text" });
   const parts = message.parts.map((part) => sanitizeMessagePartPayload(part));
   const displayParts = message.displayParts?.map((part) =>
     sanitizeMessagePartPayload(part),
@@ -357,7 +352,6 @@ export function sanitizeChatMessagePayload(message: ChatMessage): ChatMessage {
   if (
     content === message.content &&
     displayContent === message.displayContent &&
-    planText === message.planText &&
     !partsChanged &&
     !displayPartsChanged
   ) {
@@ -368,7 +362,6 @@ export function sanitizeChatMessagePayload(message: ChatMessage): ChatMessage {
     ...message,
     content,
     ...(displayContent !== undefined ? { displayContent } : {}),
-    ...(planText !== undefined ? { planText } : {}),
     parts,
     ...(displayParts !== undefined ? { displayParts } : {}),
   };

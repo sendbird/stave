@@ -160,8 +160,10 @@ export function buildSecondaryProviderRuntimeOptions(args: {
       claudeMaxBudgetUsd: hints.claudeMaxBudgetUsd,
       claudeTaskBudgetTokens: hints.claudeTaskBudgetTokens,
       claudeFastMode: hints.claudeFastMode,
-      claudePermissionMode: "plan",
-      claudePlanModeApprovalScope: "bash",
+      // Only the allowlisted read tools run; anything else is denied without
+      // asking. The secondary-read-only sandbox and settings deny writes and
+      // network on top of this.
+      claudePermissionMode: "dontAsk",
       claudeAllowDangerouslySkipPermissions: false,
       claudeSandboxEnabled: true,
       claudeAllowUnsandboxedCommands: false,
@@ -202,7 +204,6 @@ export function buildSecondaryProviderRuntimeOptions(args: {
     codexNetworkAccess: false,
     codexWebSearch: "disabled",
     codexShowRawReasoning: false,
-    codexPlanMode: false,
   };
 }
 

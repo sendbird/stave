@@ -19,19 +19,17 @@ describe("provider browser activation", () => {
     expect(promptRequestsProviderBrowser("mail@web.example")).toBe(false);
   });
 
-  test("activates only for interactive non-plan primary turns", () => {
+  test("activates only for interactive primary turns", () => {
     expect(
       shouldActivateProviderBrowser({
         prompt: "Inspect @web",
         secondaryReadOnly: false,
         unattendedAutomation: false,
-        planMode: false,
       }),
     ).toBe(true);
     for (const blocked of [
-      { secondaryReadOnly: true, unattendedAutomation: false, planMode: false },
-      { secondaryReadOnly: false, unattendedAutomation: true, planMode: false },
-      { secondaryReadOnly: false, unattendedAutomation: false, planMode: true },
+      { secondaryReadOnly: true, unattendedAutomation: false },
+      { secondaryReadOnly: false, unattendedAutomation: true },
     ]) {
       expect(
         shouldActivateProviderBrowser({ prompt: "Inspect @web", ...blocked }),
@@ -111,7 +109,6 @@ describe("provider browser automatic fallback", () => {
       prompt,
       secondaryReadOnly: false,
       unattendedAutomation: false,
-      planMode: false,
     };
     expect(shouldActivateProviderBrowser(base)).toBe(false);
     expect(
@@ -119,19 +116,17 @@ describe("provider browser automatic fallback", () => {
     ).toBe(true);
   });
 
-  test("keeps the three hard blocks above the auto-arm setting", () => {
+  test("keeps the two hard blocks above the auto-arm setting", () => {
     const base = {
       prompt: "Summarize https://claude.ai/code/artifact/abc",
       secondaryReadOnly: false,
       unattendedAutomation: false,
-      planMode: false,
       autoFallbackEnabled: true,
       autoFallbackDomains: ["corp.example"],
     };
     for (const blocked of [
       { secondaryReadOnly: true },
       { unattendedAutomation: true },
-      { planMode: true },
     ]) {
       expect(shouldActivateProviderBrowser({ ...base, ...blocked })).toBe(
         false,
@@ -145,7 +140,6 @@ describe("provider browser automatic fallback", () => {
         prompt: "Read https://wiki.corp.example/x",
         secondaryReadOnly: false,
         unattendedAutomation: false,
-        planMode: false,
         autoFallbackEnabled: true,
         autoFallbackDomains: ["corp.example"],
       }),
@@ -155,7 +149,6 @@ describe("provider browser automatic fallback", () => {
         prompt: "Read https://unrelated.example/x",
         secondaryReadOnly: false,
         unattendedAutomation: false,
-        planMode: false,
         autoFallbackEnabled: true,
         autoFallbackDomains: ["corp.example"],
       }),

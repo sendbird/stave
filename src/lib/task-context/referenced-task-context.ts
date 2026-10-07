@@ -19,7 +19,7 @@ function findLatestAssistantReply(messages: ChatMessage[]) {
     if (!message || message.role !== "assistant") {
       continue;
     }
-    const content = message.content.trim() || message.planText?.trim() || "";
+    const content = message.content.trim();
     if (content.length > 0) {
       return content;
     }

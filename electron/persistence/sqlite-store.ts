@@ -71,6 +71,7 @@ import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
+import { WorkspaceDocumentStore } from "./workspace-document-store";
 import { TurnSpendStore } from "./turn-spend-store";
 import { UsageStatisticsStore } from "./usage-statistics-store";
 import { beginUsageTrackedTurn, type UsageTrackedTurnArgs } from "./usage-turn-lifecycle";
@@ -187,6 +188,7 @@ export class SqliteStore {
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly directionDrafts: WorkspaceDirectionDraftStore;
+  readonly documents: WorkspaceDocumentStore;
   readonly turnSpend: TurnSpendStore;
   readonly usageStatistics: UsageStatisticsStore;
   readonly delegationPolicies: DelegationPolicyStore;
@@ -231,6 +233,7 @@ export class SqliteStore {
     this.resultReviews = new ResultReviewStore(this.db);
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
     this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
+    this.documents = new WorkspaceDocumentStore(this.db);
     this.turnSpend = new TurnSpendStore(this.db);
     this.usageStatistics = new UsageStatisticsStore(this.db);
     this.delegationPolicies = new DelegationPolicyStore(this.db);
@@ -531,8 +534,7 @@ export class SqliteStore {
                 'provider_turn',
                 'provider_session',
                 'agent_provenance',
-                'goal_status',
-                'plan_ready'
+                'goal_status'
               )
             LIMIT ?
           )
@@ -2440,8 +2442,7 @@ export class SqliteStore {
             'provider_turn',
             'provider_session',
             'agent_provenance',
-            'goal_status',
-            'plan_ready'
+            'goal_status'
           )
         LIMIT ?
       )
@@ -2465,8 +2466,7 @@ export class SqliteStore {
             'provider_turn',
             'provider_session',
             'agent_provenance',
-            'goal_status',
-            'plan_ready'
+            'goal_status'
           )
           AND sequence <= COALESCE((
             SELECT sequence
@@ -2478,8 +2478,7 @@ export class SqliteStore {
                 'provider_turn',
                 'provider_session',
                 'agent_provenance',
-                'goal_status',
-                'plan_ready'
+                'goal_status'
               )
             ORDER BY sequence DESC
             LIMIT 1 OFFSET ?

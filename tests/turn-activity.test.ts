@@ -67,20 +67,18 @@ describe("turn activity presentation", () => {
     expect(
       resolveTurnActivityLoaderVariant({
         activity: null,
-        isPlanPreparing: false,
         isStalled: false,
         workItems: [],
       }),
     ).toBe("signal");
   });
 
-  test("uses meaning-led loaders for waiting, planning, parallel, and agent work", () => {
+  test("uses meaning-led loaders for waiting, parallel, and agent work", () => {
     const activity = { pendingInteraction: null };
 
     expect(
       resolveTurnActivityLoaderVariant({
         activity: { pendingInteraction: "approval" },
-        isPlanPreparing: false,
         isStalled: false,
         workItems: [],
       }),
@@ -88,7 +86,6 @@ describe("turn activity presentation", () => {
     expect(
       resolveTurnActivityLoaderVariant({
         activity,
-        isPlanPreparing: false,
         isStalled: true,
         workItems: [],
       }),
@@ -96,15 +93,6 @@ describe("turn activity presentation", () => {
     expect(
       resolveTurnActivityLoaderVariant({
         activity,
-        isPlanPreparing: true,
-        isStalled: false,
-        workItems: [],
-      }),
-    ).toBe("route");
-    expect(
-      resolveTurnActivityLoaderVariant({
-        activity,
-        isPlanPreparing: false,
         isStalled: false,
         workItems: [
           { kind: "subagent", status: "running" },
@@ -115,7 +103,6 @@ describe("turn activity presentation", () => {
     expect(
       resolveTurnActivityLoaderVariant({
         activity,
-        isPlanPreparing: false,
         isStalled: false,
         workItems: [{ kind: "subagent", status: "running" }],
       }),
@@ -123,43 +110,32 @@ describe("turn activity presentation", () => {
     expect(
       resolveTurnActivityLoaderVariant({
         activity,
-        isPlanPreparing: false,
         isStalled: false,
         workItems: [{ kind: "tool", status: "running" }],
       }),
     ).toBe("steps");
   });
 
-  test("shows the activity shelf only while a turn is active and no plan review is open", () => {
+  test("shows the activity shelf only while a turn is active", () => {
     expect(
       resolveTurnActivityVisibility({
         isTurnActive: true,
-        isPlanPending: false,
       }),
     ).toBe(true);
     expect(
       resolveTurnActivityVisibility({
-        isTurnActive: true,
-        isPlanPending: true,
+        isTurnActive: false,
       }),
     ).toBe(false);
     expect(
       resolveTurnActivityVisibility({
         isTurnActive: false,
-        isPlanPending: false,
-      }),
-    ).toBe(false);
-    expect(
-      resolveTurnActivityVisibility({
-        isTurnActive: false,
-        isPlanPending: false,
         hasRetainedFailure: true,
       }),
     ).toBe(true);
     expect(
       resolveTurnActivityVisibility({
         isTurnActive: false,
-        isPlanPending: false,
         hasReplay: true,
       }),
     ).toBe(true);
@@ -223,7 +199,6 @@ describe("turn activity presentation", () => {
     expect(
       resolveTurnActivityVisibility({
         isTurnActive: true,
-        isPlanPending: false,
       }),
     ).toBe(true);
   });
@@ -237,7 +212,6 @@ describe("turn activity presentation", () => {
         turnErrorRecoverable: undefined,
       },
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [{ content: "Keep working", status: "in_progress" as const }],
       workItems: [],
@@ -282,16 +256,15 @@ describe("turn activity presentation", () => {
       resolveTurnActivitySummary({
         pendingInteraction: "approval",
         isStalled: false,
-        isPlanPreparing: true,
         workItems: [{ status: "running" }],
         todos: [{ content: "Inspect files", status: "in_progress" }],
       }),
     ).toEqual({
       label: "Waiting for approval",
-      activeCount: 3,
+      activeCount: 2,
       completedCount: 0,
       failedCount: 0,
-      totalCount: 3,
+      totalCount: 2,
     });
   });
 
@@ -300,7 +273,6 @@ describe("turn activity presentation", () => {
       resolveTurnActivitySummary({
         pendingInteraction: null,
         isStalled: false,
-        isPlanPreparing: false,
         workItems: [
           { status: "completed" },
           { status: "running" },
@@ -325,7 +297,6 @@ describe("turn activity presentation", () => {
       resolveTurnActivitySummary({
         pendingInteraction: null,
         isStalled: false,
-        isPlanPreparing: false,
         workItems: [{ status: "failed" }, { status: "running" }],
         todos: [],
       }),
@@ -347,7 +318,6 @@ describe("turn activity presentation", () => {
         pendingInteraction: null,
       },
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [
         { content: "First todo", status: "pending" },
@@ -408,7 +378,6 @@ describe("turn activity presentation", () => {
     const [item] = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: promoteFirstPendingTodoForActiveTurn([
         { content: "Inspect", status: "pending" },
@@ -427,7 +396,6 @@ describe("turn activity presentation", () => {
     const [withTool, withoutTool] = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [],
       workItems: [
@@ -446,7 +414,6 @@ describe("turn activity presentation", () => {
     const [claudeRow, codexDone, codexRunning] = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [],
       workItems: [
@@ -485,7 +452,6 @@ describe("turn activity presentation", () => {
     const [first, second] = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [],
       turnStartedAt: 1_000,
@@ -503,7 +469,6 @@ describe("turn activity presentation", () => {
     const items = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [],
       workItems: [
@@ -559,7 +524,6 @@ describe("turn activity presentation", () => {
       buildTurnActivityItems({
         activity: null,
         idleLabel: null,
-        isPlanPreparing: false,
         isStalled: false,
         todos: [],
         workItems: [
@@ -591,7 +555,6 @@ describe("turn activity presentation", () => {
     const [row] = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [],
       workItems: [
@@ -617,7 +580,6 @@ describe("turn activity presentation", () => {
     const [row] = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [],
       workItems: [
@@ -650,7 +612,6 @@ describe("turn activity presentation", () => {
     const [row] = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [],
       workItems: [
@@ -676,7 +637,6 @@ describe("turn activity presentation", () => {
     const [row] = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [],
       workItems: [
@@ -699,7 +659,6 @@ describe("turn activity presentation", () => {
     const [row] = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: false,
       isStalled: false,
       todos: [],
       workItems: [buildWorkItem({ id: "a" })],
@@ -712,7 +671,6 @@ describe("turn activity presentation", () => {
     const items = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
-      isPlanPreparing: true,
       isStalled: false,
       todos: [{ content: "Queued", status: "pending" }],
       workItems: [
@@ -726,10 +684,10 @@ describe("turn activity presentation", () => {
     expect(counts).toEqual({
       failedCount: 1,
       waitingCount: 0,
-      runningCount: 2,
+      runningCount: 1,
       pendingCount: 1,
       completedCount: 1,
-      totalCount: 5,
+      totalCount: 4,
       subagentFailedCount: 1,
       subagentWaitingCount: 0,
       subagentRunningCount: 1,
@@ -738,7 +696,7 @@ describe("turn activity presentation", () => {
       hasGraphSubagentCounts: false,
     });
     expect(formatTurnActivityCountsLabel(counts)).toBe(
-      "1 failed · 2 running · 1 queued · 1 done",
+      "1 failed · 1 running · 1 queued · 1 done",
     );
     expect(formatTurnActivityCountsLabel(countTurnActivityItems([]))).toBeNull();
   });

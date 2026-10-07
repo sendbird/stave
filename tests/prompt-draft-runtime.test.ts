@@ -2,10 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 import {
   arePromptDraftRuntimeOverridesEqual,
-  resolvePromptDraftPlanModeChange,
   resolvePromptDraftModelForProvider,
   resolvePromptDraftRuntimeState,
-  transitionClaudePromptDraftPermissionMode,
 } from "@/store/prompt-draft-runtime";
 
 describe("prompt-draft runtime state", () => {
@@ -17,10 +15,8 @@ describe("prompt-draft runtime state", () => {
           attachedFilePaths: [],
           attachments: [],
           runtimeOverrides: {
-            claudePermissionMode: "plan",
-            claudePermissionModeBeforePlan: "acceptEdits",
+            claudePermissionMode: "acceptEdits",
             claudeEffort: "xhigh",
-            codexPlanMode: true,
             codexReasoningEffort: "ultra",
             codexFastMode: false,
             cursorMode: "ask",
@@ -28,35 +24,18 @@ describe("prompt-draft runtime state", () => {
         },
         fallback: {
           claudePermissionMode: "default",
-          claudePermissionModeBeforePlan: null,
           claudeEffort: "medium",
-          codexPlanMode: false,
           codexReasoningEffort: "high",
           codexFastMode: true,
           cursorMode: "agent",
         },
       }),
     ).toEqual({
-      claudePermissionMode: "plan",
-      claudePermissionModeBeforePlan: "acceptEdits",
+      claudePermissionMode: "acceptEdits",
       claudeEffort: "xhigh",
-      codexPlanMode: true,
       codexReasoningEffort: "ultra",
       codexFastMode: false,
       cursorMode: "ask",
-    });
-  });
-
-  test("restores the prior Claude permission mode when leaving plan mode", () => {
-    expect(
-      transitionClaudePromptDraftPermissionMode({
-        nextMode: "acceptEdits",
-        currentMode: "plan",
-        beforePlan: "bypassPermissions",
-      }),
-    ).toEqual({
-      claudePermissionMode: "acceptEdits",
-      claudePermissionModeBeforePlan: null,
     });
   });
 
@@ -149,8 +128,8 @@ describe("prompt-draft runtime state", () => {
     ).toBe(false);
     expect(
       arePromptDraftRuntimeOverridesEqual(
-        { autoRouting: true, codexPlanMode: true },
-        { autoRouting: true, codexPlanMode: true },
+        { autoRouting: true, codexFastMode: true },
+        { autoRouting: true, codexFastMode: true },
       ),
     ).toBe(true);
   });
@@ -173,7 +152,7 @@ describe("prompt-draft runtime state", () => {
   test("compares Cursor mode as part of draft runtime state", () => {
     expect(
       arePromptDraftRuntimeOverridesEqual(
-        { cursorMode: "plan" },
+        { cursorMode: "ask" },
         { cursorMode: "agent" },
       ),
     ).toBe(false);
@@ -191,8 +170,6 @@ describe("prompt-draft runtime state", () => {
       },
       fallback: {
         claudePermissionMode: "default",
-        claudePermissionModeBeforePlan: null,
-        codexPlanMode: false,
       },
     });
     expect(resolvedFromDraft.boundSecretIds).toEqual([
@@ -203,8 +180,6 @@ describe("prompt-draft runtime state", () => {
       promptDraft: { text: "", attachedFilePaths: [], attachments: [] },
       fallback: {
         claudePermissionMode: "default",
-        claudePermissionModeBeforePlan: null,
-        codexPlanMode: false,
         boundSecretIds: ["22222222-2222-4222-8222-222222222222"],
       },
     });
@@ -231,137 +206,7 @@ describe("prompt-draft runtime state", () => {
     ).toBe(true);
   });
 
-  test("restores the prior Claude mode without clearing Codex sessions when plan mode is disabled", () => {
-    expect(
-      resolvePromptDraftPlanModeChange({
-        providerId: "claude-code",
-        enabled: false,
-        runtimeOverrides: {
-          claudePermissionMode: "plan",
-          claudePermissionModeBeforePlan: "acceptEdits",
-        },
-        claudePermissionMode: "plan",
-        claudePermissionModeBeforePlan: "acceptEdits",
-        codexPlanMode: false,
-      }),
-    ).toEqual({
-      runtimeOverrides: {
-        claudePermissionMode: "acceptEdits",
-        claudePermissionModeBeforePlan: null,
-      },
-      shouldClearCodexSession: false,
-      shouldAbortActiveTurn: false,
-    });
-  });
-
-  test("keeps task-local model and effort when Claude plan mode changes", () => {
-    expect(
-      resolvePromptDraftPlanModeChange({
-        providerId: "claude-code",
-        enabled: true,
-        runtimeOverrides: {
-          model: "claude-opus-4-8",
-          claudeEffort: "xhigh",
-          autoRouting: false,
-        },
-        claudePermissionMode: "auto",
-        claudePermissionModeBeforePlan: null,
-        codexPlanMode: false,
-      }).runtimeOverrides,
-    ).toEqual({
-      model: "claude-opus-4-8",
-      claudeEffort: "xhigh",
-      autoRouting: false,
-      claudePermissionMode: "plan",
-      claudePermissionModeBeforePlan: "auto",
-    });
-  });
-
-  test("turns Codex plan mode off and clears the persisted Codex session for the next turn", () => {
-    expect(
-      resolvePromptDraftPlanModeChange({
-        providerId: "codex",
-        enabled: false,
-        runtimeOverrides: {
-          claudePermissionMode: "auto",
-          codexPlanMode: true,
-        },
-        claudePermissionMode: "default",
-        claudePermissionModeBeforePlan: null,
-        codexPlanMode: true,
-      }),
-    ).toEqual({
-      runtimeOverrides: {
-        claudePermissionMode: "auto",
-        codexPlanMode: false,
-      },
-      shouldClearCodexSession: true,
-      shouldAbortActiveTurn: false,
-    });
-  });
-
-  test("keeps the Codex session when plan mode stays enabled", () => {
-    expect(
-      resolvePromptDraftPlanModeChange({
-        providerId: "codex",
-        enabled: true,
-        runtimeOverrides: {
-          codexPlanMode: false,
-        },
-        claudePermissionMode: "default",
-        claudePermissionModeBeforePlan: null,
-        codexPlanMode: false,
-      }),
-    ).toEqual({
-      runtimeOverrides: {
-        codexPlanMode: true,
-      },
-      shouldClearCodexSession: false,
-      shouldAbortActiveTurn: false,
-    });
-  });
-
-  test("maps the plan toggle to a task-local Cursor session mode", () => {
-    expect(
-      resolvePromptDraftPlanModeChange({
-        providerId: "cursor",
-        enabled: true,
-        runtimeOverrides: { model: "auto", cursorMode: "ask" },
-        claudePermissionMode: "default",
-        claudePermissionModeBeforePlan: null,
-        codexPlanMode: false,
-      }),
-    ).toEqual({
-      runtimeOverrides: { model: "auto", cursorMode: "plan" },
-      shouldClearCodexSession: false,
-      shouldAbortActiveTurn: false,
-    });
-  });
-
-  test("aborts an active Codex planning turn when leaving plan mode after a plan arrived", () => {
-    expect(
-      resolvePromptDraftPlanModeChange({
-        providerId: "codex",
-        enabled: false,
-        runtimeOverrides: {
-          codexPlanMode: true,
-        },
-        claudePermissionMode: "default",
-        claudePermissionModeBeforePlan: null,
-        codexPlanMode: true,
-        isTurnActive: true,
-        hasPlanResponse: true,
-      }),
-    ).toEqual({
-      runtimeOverrides: {
-        codexPlanMode: false,
-      },
-      shouldClearCodexSession: true,
-      shouldAbortActiveTurn: true,
-    });
-  });
-
-  test("parses persisted prompt draft runtime overrides from workspace snapshots", () => {
+  test("parses persisted prompt draft runtime overrides, dropping retired plan-mode values", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {
         activeTaskId: "task-1",
@@ -407,20 +252,19 @@ describe("prompt-draft runtime state", () => {
       },
     });
 
+    // A draft left in plan mode returns to the mode saved before it, and the
+    // retired Cursor plan mode falls back to the user's settings.
     expect(parsed?.promptDraftByTask["task-1"]?.runtimeOverrides).toEqual({
       model: "claude-opus-4-6",
       modelProviderId: "claude-code",
-      claudePermissionMode: "plan",
-      claudePermissionModeBeforePlan: "acceptEdits",
+      claudePermissionMode: "acceptEdits",
       claudeEffort: "xhigh",
-      codexPlanMode: true,
       codexReasoningEffort: "ultra",
-      cursorMode: "plan",
       autoRouting: true,
     });
   });
 
-  test("preserves a blocking Cursor plan review in a workspace snapshot", () => {
+  test("reads a saved plan message as an ordinary reply", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {
         activeTaskId: "task-1",
@@ -460,10 +304,10 @@ describe("prompt-draft runtime state", () => {
       },
     });
 
-    expect(parsed?.messagesByTask["task-1"]?.[0]?.planReview).toEqual({
-      requestId: "cursor:plan:3",
-      responseMode: "blocking",
-    });
+    const message = parsed?.messagesByTask["task-1"]?.[0];
+    expect(message?.content).toBe("1. Inspect\n2. Patch");
+    expect(message).not.toHaveProperty("planReview");
+    expect(message).not.toHaveProperty("isPlanResponse");
     expect(parsed?.providerSessionByTask["task-1"]?.cursor).toBe(
       "cursor-session-1",
     );
@@ -500,7 +344,7 @@ describe("prompt-draft runtime state", () => {
   test("drops an override field this build does not know instead of rejecting the workspace", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: snapshotWithDraftOverrides({
-        codexPlanMode: true,
+        codexFastMode: true,
         // Written by a newer build; this one has never heard of it.
         someFutureOverride: { nested: "value" },
       }),
@@ -509,14 +353,14 @@ describe("prompt-draft runtime state", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.tasks).toHaveLength(1);
     expect(parsed?.promptDraftByTask["task-1"]?.runtimeOverrides).toEqual({
-      codexPlanMode: true,
+      codexFastMode: true,
     });
   });
 
   test("drops retired Advisor and Worker overrides instead of rejecting the workspace", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: snapshotWithDraftOverrides({
-        codexPlanMode: true,
+        codexFastMode: true,
         advisorEnabled: "yes-please",
         advisorTarget: { providerId: "not-a-provider", model: "" },
       }),
@@ -525,7 +369,7 @@ describe("prompt-draft runtime state", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.tasks).toHaveLength(1);
     expect(parsed?.promptDraftByTask["task-1"]?.runtimeOverrides).toEqual({
-      codexPlanMode: true,
+      codexFastMode: true,
     });
   });
 });

@@ -1,6 +1,5 @@
 import { i18n } from "@/i18n/runtime";
 import { isProviderTurnContinuationEvent } from "./turn-event-evidence";
-import { hasMeaningfulPlanText } from "../plan-text";
 import { classifyProviderTurnStopReason, isSuccessfulProviderTurnStopReason } from "./turn-stop-reason";
 import type { NormalizedProviderEvent } from "./provider.types";
 import { z } from "zod";
@@ -84,8 +83,7 @@ export function observeTurnEvent(
     (event.type === "text" && event.text.trim().length > 0) ||
     event.type === "tool" ||
     event.type === "tool_result" ||
-    event.type === "diff" ||
-    (event.type === "plan_ready" && hasMeaningfulPlanText(event.planText))
+    event.type === "diff"
   )
     next.outputObserved = true;
   if (event.type === "text" && captureResponseText)

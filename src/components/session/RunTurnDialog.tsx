@@ -20,8 +20,6 @@ import {
 } from "@/lib/reviews/run-turn";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
-import { ConversationPlanCard } from "./ConversationPlanCard";
-import { resolvePlanMessagePresentation } from "./chat-panel.utils";
 import { AssistantMessageBody } from "./message/assistant-trace";
 import { runTurnDialogStyles as styles } from "./run-turn-dialog.styles";
 
@@ -118,7 +116,7 @@ export function useRunTurnMessages(args: {
 
 /**
  * One row of the read-only transcript, built from the conversation's own
- * pieces: the plan card, the agent-run prompt fold, and the message body with
+ * pieces: the agent-run prompt fold and the message body with
  * its tool calls, turn events and changed files. No row actions — the run is
  * history here, not a place to rewind or branch from.
  */
@@ -137,7 +135,6 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
     turnId: message.role === "user" ? props.startedTurnId : undefined,
     text,
   });
-  const plan = useMemo(() => resolvePlanMessagePresentation(message), [message]);
   const bodyMessage = useMemo(
     () =>
       agentRunPrompt?.assignment
@@ -157,11 +154,7 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
       <Message from={message.role}>
         <div className={sx(assistant ? styles.assistant : styles.user)}>
           <MessageContent>
-            {plan.showPlanCard ? (
-              <ConversationPlanCard planText={plan.planText} />
-            ) : null}
-            {plan.showAssistantBody &&
-            !(agentRunPrompt && !agentRunPrompt.assignment) ? (
+            {!(agentRunPrompt && !agentRunPrompt.assignment) ? (
               <AssistantMessageBody
                 message={bodyMessage}
                 taskId={taskId}

@@ -260,7 +260,7 @@ Relevant docs:
 
 When handing follow-up work to a newly created Stave workspace:
 
-- Write the handoff plan to `.stave/context/plans/<taskIdPrefix>_<timestamp>.md`. Perform this Write only after exiting plan mode (via `ExitPlanMode`) — plan mode is read-only except for that handoff path, so finish planning first.
+- Write the handoff plan to `.stave/context/plans/<taskIdPrefix>_<timestamp>.md`.
 - Leave only a short pointer such as `See plan: .stave/context/plans/<filename>.md` in workspace notes.
 - Keep todos terse and point them back at the plan file.
 - Do not copy the source workspace's notes, todos, or plan body verbatim into the target workspace.

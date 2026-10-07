@@ -24,14 +24,10 @@ import {
   resolveClaudeStreamTerminalStopReason,
   resolveClaudeTurnStopReason,
   resolveClaudeDisallowedTools,
-  resolveClaudePlanModeApprovalScope,
   shouldAutoAcceptClaudeElicitation,
   shouldAutoAllowClaudeTool,
-  shouldAutoAllowPlanModeScopedTool,
-  shouldDenyClaudePostPlanTool,
   isReadOnlyMcpLeafToolName,
   shouldRedirectClaudePreloadedSkillToolUse,
-  shouldDenyClaudeToolInPlanMode,
   shouldKeepClaudeReadOnlyPrompt,
   describeClaudeAutoModeFallback,
   resolveClaudeAutoModeAvailability,
@@ -772,94 +768,6 @@ describe("mapClaudeMessageToEvents", () => {
     ]);
   });
 
-  test("surfaces ExitPlanMode tool use as a plan_ready event", () => {
-    const events = mapClaudeMessageToEvents({
-      message: {
-        type: "assistant",
-        message: {
-          content: [
-            {
-              type: "tool_use",
-              name: "ExitPlanMode",
-              input: {
-                plan: "1. Inspect the task\n2. Ship the patch",
-              },
-            },
-          ],
-        },
-      } as never,
-      claudeDebugStream: false,
-    });
-
-    expect(events).toEqual([
-      {
-        type: "plan_ready",
-        planText: "1. Inspect the task\n2. Ship the patch",
-      },
-    ]);
-  });
-
-  test("surfaces streamed ExitPlanMode input_json_delta as an early plan_ready event", () => {
-    const planState = {
-      exitPlanBlocksByIndex: new Map(),
-    };
-
-    const startEvents = mapClaudeMessageToEvents({
-      message: {
-        type: "stream_event",
-        event: {
-          type: "content_block_start",
-          index: 0,
-          content_block: {
-            type: "tool_use",
-            id: "tool-plan-1",
-            name: "ExitPlanMode",
-            input: {},
-          },
-        },
-      } as never,
-      claudeDebugStream: false,
-      planState,
-    });
-
-    const deltaEvents = mapClaudeMessageToEvents({
-      message: {
-        type: "stream_event",
-        event: {
-          type: "content_block_delta",
-          index: 0,
-          delta: {
-            type: "input_json_delta",
-            partial_json: '{"plan":"1. Inspect the task\\n2. Ship the patch"}',
-          },
-        },
-      } as never,
-      claudeDebugStream: false,
-      planState,
-    });
-
-    const stopEvents = mapClaudeMessageToEvents({
-      message: {
-        type: "stream_event",
-        event: {
-          type: "content_block_stop",
-          index: 0,
-        },
-      } as never,
-      claudeDebugStream: false,
-      planState,
-    });
-
-    expect(startEvents).toEqual([]);
-    expect(deltaEvents).toEqual([
-      {
-        type: "plan_ready",
-        planText: "1. Inspect the task\n2. Ship the patch",
-        sourceSegmentId: "tool-plan-1",
-      },
-    ]);
-    expect(stopEvents).toEqual([]);
-  });
 });
 
 describe("resolveClaudeTurnStopReason", () => {
@@ -1115,15 +1023,6 @@ describe("activated skill tool redirection", () => {
 });
 
 describe("Claude internal tool auto-allow", () => {
-  test("auto-allows ExitPlanMode without surfacing an approval wait", () => {
-    expect(
-      shouldAutoAllowClaudeTool({
-        toolName: "ExitPlanMode",
-        permissionMode: "default",
-      }),
-    ).toBe(true);
-  });
-
   test("auto-allows managed Stave workspace-information and automation MCP tools", () => {
     expect(
       shouldAutoAllowClaudeTool({
@@ -1299,33 +1198,6 @@ describe("Claude permission mode decisions", () => {
     }
   });
 
-  test("auto-allows Claude Code read-only built-in tools in plan mode", () => {
-    for (const toolName of [
-      "Read",
-      "Grep",
-      "Glob",
-      "LS",
-      "NotebookRead",
-      "WebFetch",
-      "WebSearch",
-      "BashOutput",
-      "TodoRead",
-    ]) {
-      expect(
-        resolveClaudePermissionModeDecision({
-          permissionMode: "plan",
-          toolName,
-        }),
-      ).toBe("allow");
-      expect(
-        shouldAutoAllowClaudeTool({
-          permissionMode: "plan",
-          toolName,
-        }),
-      ).toBe(true);
-    }
-  });
-
   test("still prompts for read-only built-in tools in default and acceptEdits modes", () => {
     // In default mode the user explicitly asked to be consulted — Read should
     // still prompt there.
@@ -1345,7 +1217,7 @@ describe("Claude permission mode decisions", () => {
     ).toBe("prompt");
   });
 
-  test("auto mode allows the read-only built-ins plan mode allows when the CLI hands them over", () => {
+  test("auto mode allows the read-only built-ins when the CLI hands them over", () => {
     for (const toolName of [
       "Read",
       "Grep",
@@ -1382,71 +1254,16 @@ describe("Claude permission mode decisions", () => {
         keepReadOnlyPrompt: true,
       }),
     ).toBe("prompt");
-    // The flag belongs to the auto fast path only: plan mode is unchanged.
-    expect(
-      resolveClaudePermissionModeDecision({
-        permissionMode: "plan",
-        toolName: "Read",
-        keepReadOnlyPrompt: true,
-      }),
-    ).toBe("allow");
   });
 
-  test("decision function still returns prompt for Bash in plan mode", () => {
-    // The decision function must NOT short-circuit Bash to "allow" in plan
-    // mode: the canUseTool flow first runs the mutating-command hard-deny
-    // (shouldDenyClaudeToolInPlanMode), and only then may auto-allow a
-    // *non-mutating* Bash command based on the plan-mode approval scope
-    // (shouldAutoAllowPlanModeScopedTool). Keeping this "prompt" preserves
-    // that ordering so mutating commands are always inspected first.
+  test("auto mode allows TodoWrite because it does not mutate the filesystem", () => {
+    // TodoWrite only mutates the in-session todo tracker.
     expect(
       resolveClaudePermissionModeDecision({
-        permissionMode: "plan",
-        toolName: "Bash",
-      }),
-    ).toBe("prompt");
-  });
-
-  test("auto-allows TodoWrite in plan mode because it does not mutate the filesystem", () => {
-    // TodoWrite only mutates the in-session todo tracker, so hard-denying it
-    // just broke the agent's own progress tracking and caused mid-plan
-    // stalls.
-    expect(
-      resolveClaudePermissionModeDecision({
-        permissionMode: "plan",
+        permissionMode: "auto",
         toolName: "TodoWrite",
       }),
     ).toBe("allow");
-    expect(
-      shouldAutoAllowClaudeTool({
-        permissionMode: "plan",
-        toolName: "TodoWrite",
-      }),
-    ).toBe(true);
-  });
-});
-
-describe("resolveClaudePlanModeApprovalScope", () => {
-  test("uses the runtime value when valid", () => {
-    expect(resolveClaudePlanModeApprovalScope({ runtimeValue: "bash" })).toBe(
-      "bash",
-    );
-  });
-
-  test("falls back to the env value when no runtime value", () => {
-    expect(
-      resolveClaudePlanModeApprovalScope({ envValue: "bashAndTask" }),
-    ).toBe("bashAndTask");
-  });
-
-  test("defaults to the broadest scope for missing or invalid input", () => {
-    expect(resolveClaudePlanModeApprovalScope({})).toBe("bashTaskAndMcp");
-    expect(
-      resolveClaudePlanModeApprovalScope({
-        runtimeValue: undefined,
-        envValue: "nope",
-      }),
-    ).toBe("bashTaskAndMcp");
   });
 });
 
@@ -1481,161 +1298,6 @@ describe("isReadOnlyMcpLeafToolName", () => {
   test("returns false when no read verb is present", () => {
     expect(isReadOnlyMcpLeafToolName("whatever")).toBe(false);
     expect(isReadOnlyMcpLeafToolName("")).toBe(false);
-  });
-});
-
-describe("shouldAutoAllowPlanModeScopedTool", () => {
-  test("strict scope never auto-allows extra tools", () => {
-    for (const toolName of ["Bash", "Task", "mcp__claude_ai_Github__get_me"]) {
-      expect(
-        shouldAutoAllowPlanModeScopedTool({
-          scope: "strict",
-          toolName,
-          input: { command: "git status" },
-        }),
-      ).toBe(false);
-    }
-  });
-
-  test("bash scope auto-allows non-mutating Bash only", () => {
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bash",
-        toolName: "Bash",
-        input: { command: "git status" },
-      }),
-    ).toBe(true);
-    // Mutating Bash is hard-denied upstream; the helper also refuses it.
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bash",
-        toolName: "Bash",
-        input: { command: "rm -rf build" },
-      }),
-    ).toBe(false);
-    // Task and MCP are not part of the "bash" scope.
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bash",
-        toolName: "Task",
-        input: {},
-      }),
-    ).toBe(false);
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bash",
-        toolName: "mcp__claude_ai_Github__get_me",
-        input: {},
-      }),
-    ).toBe(false);
-  });
-
-  test("bashAndTask scope adds subagents but not MCP", () => {
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bashAndTask",
-        toolName: "Task",
-        input: {},
-      }),
-    ).toBe(true);
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bashAndTask",
-        toolName: "mcp__claude_ai_Github__get_me",
-        input: {},
-      }),
-    ).toBe(false);
-  });
-
-  test("bashTaskAndMcp scope adds read-only MCP tools", () => {
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bashTaskAndMcp",
-        toolName: "mcp__claude_ai_Github__get_file_contents",
-        input: {},
-      }),
-    ).toBe(true);
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bashTaskAndMcp",
-        toolName: "Task",
-        input: {},
-      }),
-    ).toBe(true);
-    // Mutating-looking MCP tools still prompt.
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bashTaskAndMcp",
-        toolName: "mcp__claude_ai_Github__create_pull_request",
-        input: {},
-      }),
-    ).toBe(false);
-    // Stave workspace MCP tools are auto-allowed elsewhere, so they are not
-    // matched as read-only by name here (they carry no read verb).
-    expect(
-      shouldAutoAllowPlanModeScopedTool({
-        scope: "bashTaskAndMcp",
-        toolName: "Bash",
-        input: { command: "cat package.json" },
-      }),
-    ).toBe(true);
-  });
-});
-
-describe("shouldDenyClaudePostPlanTool", () => {
-  test("denies post-plan tool calls in plan mode so the turn ends", () => {
-    for (const toolName of [
-      "Bash",
-      "Write",
-      "Task",
-      "Read",
-      "mcp__claude_ai_Github__get_me",
-    ]) {
-      expect(
-        shouldDenyClaudePostPlanTool({
-          permissionMode: "plan",
-          planPresented: true,
-          toolName,
-        }),
-      ).toBe(true);
-    }
-  });
-
-  test("still allows re-presenting an updated plan via ExitPlanMode", () => {
-    expect(
-      shouldDenyClaudePostPlanTool({
-        permissionMode: "plan",
-        planPresented: true,
-        toolName: "ExitPlanMode",
-      }),
-    ).toBe(false);
-  });
-
-  test("does not gate tools before a plan is presented", () => {
-    expect(
-      shouldDenyClaudePostPlanTool({
-        permissionMode: "plan",
-        planPresented: false,
-        toolName: "Bash",
-      }),
-    ).toBe(false);
-  });
-
-  test("never gates outside plan mode", () => {
-    for (const permissionMode of [
-      "default",
-      "acceptEdits",
-      "auto",
-      "bypassPermissions",
-    ] as const) {
-      expect(
-        shouldDenyClaudePostPlanTool({
-          permissionMode,
-          planPresented: true,
-          toolName: "Bash",
-        }),
-      ).toBe(false);
-    }
   });
 });
 
@@ -1700,7 +1362,7 @@ describe("buildClaudeSystemPrompt", () => {
       "\n\n",
     );
     expect(joined).toContain("interactive primary `@web` turn");
-    expect(joined).toContain("plan mode");
+    expect(joined).not.toContain("plan mode");
     expect(joined).toContain("unattended automation");
     expect(joined).toContain("secondary read-only analysis");
     expect(joined).toContain("prompts without `@web`");
@@ -2221,7 +1883,7 @@ describe("buildClaudeQueryOptions", () => {
     expect(options).toMatchObject({
       permissionMode: "dontAsk",
       allowedTools: ["Read", "Bash(git status:*)"],
-      disallowedTools: ["Edit", "Write"],
+      disallowedTools: ["Edit", "Write", "EnterPlanMode", "ExitPlanMode"],
     });
     const ordinary = buildClaudeQueryOptions({
       cwd: workspaceRoot,
@@ -2458,137 +2120,22 @@ describe("consumeClaudeReadOnlyPromptStream", () => {
 });
 
 describe("resolveClaudeDisallowedTools", () => {
-  test("adds mutating file tools while Claude plan mode is enabled", () => {
-    // Write is NOT in the blanket disallow list: the per-call
-    // shouldDenyClaudeToolInPlanMode gate can allow Write to handoff plan
-    // files. Edit / MultiEdit / NotebookEdit always target existing source
-    // files, so they stay globally blocked in plan mode.
+  test("keeps runtime disallowed tools and always removes Claude's plan-mode tools", () => {
+    // Stave has no plan mode, so the agent must not switch itself into one.
     expect(
       resolveClaudeDisallowedTools({
-        permissionMode: "plan",
-        runtimeDisallowedTools: ["Read", "Edit"],
-      }),
-    ).toEqual(["Read", "Edit", "MultiEdit", "NotebookEdit"]);
-  });
-
-  test("keeps Write callable in plan mode so the handoff gate can decide", () => {
-    const disallowed = resolveClaudeDisallowedTools({
-      permissionMode: "plan",
-      runtimeDisallowedTools: [],
-    });
-    expect(disallowed).not.toContain("Write");
-    expect(disallowed).toEqual(
-      expect.arrayContaining(["Edit", "MultiEdit", "NotebookEdit"]),
-    );
-  });
-
-  test("preserves runtime disallowed tools outside plan mode", () => {
-    expect(
-      resolveClaudeDisallowedTools({
-        permissionMode: "default",
         runtimeDisallowedTools: ["Read"],
       }),
-    ).toEqual(["Read"]);
+    ).toEqual(["Read", "EnterPlanMode", "ExitPlanMode"]);
   });
 
-  test("does not disable TodoWrite in plan mode", () => {
-    // TodoWrite is auto-allowed in plan mode, so the disallowed-tools list
-    // must not drop it back onto the deny side.
-    expect(
-      resolveClaudeDisallowedTools({
-        permissionMode: "plan",
-        runtimeDisallowedTools: [],
-      }),
-    ).not.toContain("TodoWrite");
-  });
-});
-
-describe("shouldDenyClaudeToolInPlanMode", () => {
-  test("denies mutating built-in tools", () => {
-    expect(
-      shouldDenyClaudeToolInPlanMode({
-        toolName: "Edit",
-        input: { file_path: "/workspace/stave/src/app.ts" },
-      }),
-    ).toBe(true);
-  });
-
-  test("denies mutating Bash commands", () => {
-    expect(
-      shouldDenyClaudeToolInPlanMode({
-        toolName: "Bash",
-        input: { command: "echo hi > notes.txt" },
-      }),
-    ).toBe(true);
-  });
-
-  test("allows read-only Bash commands", () => {
-    expect(
-      shouldDenyClaudeToolInPlanMode({
-        toolName: "Bash",
-        input: { command: "ls -la src" },
-      }),
-    ).toBe(false);
-  });
-
-  test("allows non-mutating read tools", () => {
-    expect(
-      shouldDenyClaudeToolInPlanMode({
-        toolName: "Read",
-        input: { file_path: "/workspace/stave/README.md" },
-      }),
-    ).toBe(false);
-  });
-
-  test("does not hard-deny TodoWrite in plan mode", () => {
-    // TodoWrite mutates only the in-session todo tracker, so plan mode must
-    // let it through.
-    expect(
-      shouldDenyClaudeToolInPlanMode({
-        toolName: "TodoWrite",
-        input: { todos: [] },
-      }),
-    ).toBe(false);
-  });
-
-  test("allows Write when the target is a workspace handoff plan file", () => {
-    // The workspace handoff convention requires writing a plan file under
-    // .stave/context/plans/**. Plan mode must make a per-call exception for
-    // that exact path so the convention is actually followable.
-    expect(
-      shouldDenyClaudeToolInPlanMode({
-        toolName: "Write",
-        input: {
-          file_path:
-            "/workspace/stave/.stave/context/plans/abcd1234_2026-04-01T01-02-03.md",
-          content: "## Plan\n- Do the thing",
-        },
-      }),
-    ).toBe(false);
-  });
-
-  test("still denies Write for non-handoff targets in plan mode", () => {
-    expect(
-      shouldDenyClaudeToolInPlanMode({
-        toolName: "Write",
-        input: {
-          file_path: "/workspace/stave/src/app.ts",
-          content: "export const a = 1;",
-        },
-      }),
-    ).toBe(true);
-  });
-
-  test("allows Write to a handoff plan file with a relative path", () => {
-    expect(
-      shouldDenyClaudeToolInPlanMode({
-        toolName: "Write",
-        input: {
-          file_path: ".stave/context/plans/abcd1234_2026-04-01T01-02-03.md",
-          content: "## Plan\n- Ship",
-        },
-      }),
-    ).toBe(false);
+  test("leaves Write, Edit and TodoWrite to the permission mode", () => {
+    const disallowed = resolveClaudeDisallowedTools({
+      runtimeDisallowedTools: [],
+    });
+    for (const toolName of ["Write", "Edit", "MultiEdit", "TodoWrite"]) {
+      expect(disallowed).not.toContain(toolName);
+    }
   });
 });
 
@@ -3271,17 +2818,21 @@ describe("Claude auto-mode read-only fast path and deny rules", () => {
       },
     });
     expect(options.permissionMode).toBe("auto");
-    expect(options.disallowedTools).toEqual(["Read", "WebFetch"]);
+    expect(options.disallowedTools).toEqual([
+      "Read",
+      "WebFetch",
+      "EnterPlanMode",
+      "ExitPlanMode",
+    ]);
     expect(options.sandbox).toMatchObject({
       enabled: true,
       credentials: { files: [{ path: "/tmp/service-token", mode: "deny" }] },
     });
     expect(
       resolveClaudeDisallowedTools({
-        permissionMode: "auto",
         runtimeDisallowedTools: ["Read"],
       }),
-    ).toEqual(["Read"]);
+    ).toEqual(["Read", "EnterPlanMode", "ExitPlanMode"]);
   });
 
   test("a disallowed or protected read is not allowed in auto mode even if it reaches Stave", () => {

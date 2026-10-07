@@ -1,6 +1,5 @@
 {
   "composerControls": {
-    "plan": "계획",
     "providerMode": "프로바이더 모드",
     "thinking": "추론",
     "fastMode": "빠른 모드",
@@ -9,7 +8,6 @@
     "macros": "매크로",
     "compare": "비교",
     "runtime": "런타임",
-    "togglePlanModeBeforeSending": "보내기 전에 계획 모드를 전환합니다.",
     "manualGuidedOrAutoPermissionPreset": "수동, 안내, 자동 권한 프리셋입니다.",
     "cycleExtendedThinkingClaudeOnly": "확장 추론 수준을 전환합니다. Claude에서만 사용합니다.",
     "fastToggleInsideTheModelPickerCodexAndCursor": "모델 선택기에서 빠른 모드를 전환합니다. Codex와 Cursor에서 사용합니다.",

@@ -100,12 +100,6 @@ export const promptInputStyles = stylex.create({
       ":hover": "var(--prompt-role-thinking)",
     },
   },
-  accentPlan: {
-    color: {
-      default: "var(--prompt-role-plan)",
-      ":hover": "var(--prompt-role-plan)",
-    },
-  },
 
   // ---- Shared visually-hidden (sr-only) ----
   srOnly: {

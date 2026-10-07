@@ -210,16 +210,3 @@ test("late host completion cannot retire a newer active attempt", () => {
   expect(result.statePatch.activeTurnIdsByTask?.task).toBe("new-turn");
 });
 
-test("split plan messages carry output evidence without repeating response text", () => {
-  const replayed = replayProviderEventsToTaskState({
-    taskId: "task", messages: [], provider: "codex", model: "model", turnId: "turn",
-    events: [
-      { type: "plan_ready", planText: "Make the change." },
-      { type: "thinking", text: "Thinking after plan" },
-      { type: "done", stop_reason: "completed" },
-    ],
-  });
-  expect(replayed.messages.at(-1)?.terminalReceipt).toMatchObject({
-    outputObserved: true, outcome: "completed", responseText: null,
-  });
-});
