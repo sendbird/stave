@@ -1,6 +1,6 @@
 ## [0.25.2](https://github.com/sendbird/stave/compare/v0.25.1...v0.25.2) (2026-10-08)
 
-This patch release replaces plan mode with workspace documents, adopts Claude Haiku 5.5, and fixes how the PR status shows running CI. Plan mode removal is a breaking change; see Upgrade Notes.
+This patch release replaces plan mode with workspace documents, adopts Claude Haiku 5.5 with an automatic fallback to Haiku 4.5, and fixes how the PR status shows running CI. Plan mode removal is a breaking change; see Upgrade Notes.
 
 ### ⚠ BREAKING CHANGES
 
@@ -16,15 +16,16 @@ This patch release replaces plan mode with workspace documents, adopts Claude Ha
 
 - The PR status no longer reads "Checks failed" while CI is still running in repositories without required status checks. A failed check shows as failed, a running check shows as pending, and `UNSTABLE` without running checks still shows as failed.
 - Inline completion runs at `low` effort, so its disabled-thinking request stays valid on Haiku 5.5.
+- Claude calls on Haiku 5.5 fall back to Haiku 4.5 when Haiku 5.5 is unavailable, including on a Claude Code CLI older than 2.1.293, the same way Opus 5.5 falls back to Opus 4.8. The default now applies to every Claude call without a configured fallback: composer turns, Background AI lanes, utility prompts, PR descriptions and inline completion. In a composer turn, the transcript shows the model change.
 
 ### Upgrade Notes
 
 - Plan mode settings are rewritten on upgrade. A saved `plan` Claude permission mode falls back to the mode used before plan mode (else `default`). A draft override in plan mode is dropped, so the task follows settings. Cursor `plan` falls back to `agent`. An automation saved in plan mode runs as `dontAsk`, and a delegation policy saved in plan mode is read as `default`. Stored `plan_ready` events are skipped on replay. The temporary migration `plan-mode-removal` is due for removal in 0.28.0.
-- Stored Claude Haiku 4.5 selections (default model, presets, shortcuts, Background AI lanes, Auto allow lists and the kickoff fallback) move onto Haiku 5.5. Older Claude Code versions cannot run Haiku 5.5: Background AI and utility calls that default to it fall back to the next runner, and the model selector shows the version requirement.
+- Stored Claude Haiku 4.5 selections (default model, presets, shortcuts, Background AI lanes, Auto allow lists and the kickoff fallback) move onto Haiku 5.5. On Claude Code older than 2.1.293 those calls run on Haiku 4.5 through the fallback; the model selector shows the version requirement.
 
 ### References
 
-- [PR #696](https://github.com/sendbird/stave/pull/696), [PR #697](https://github.com/sendbird/stave/pull/697), [PR #698](https://github.com/sendbird/stave/pull/698)
+- [PR #696](https://github.com/sendbird/stave/pull/696), [PR #697](https://github.com/sendbird/stave/pull/697), [PR #698](https://github.com/sendbird/stave/pull/698), [PR #700](https://github.com/sendbird/stave/pull/700)
 
 ## [0.25.1](https://github.com/sendbird/stave/compare/v0.25.0...v0.25.1) (2026-10-07)
 
