@@ -107,10 +107,11 @@ That separation matters: the Command Palette controls Stave itself, while slash 
 
 - `Cmd/Ctrl+P` focuses file quick open in the top bar.
 - `Cmd/Ctrl+,` opens the main Settings dialog.
-- `Cmd/Ctrl+B` toggles the left workspace sidebar.
-- `Cmd/Ctrl+Shift+B` toggles the changes panel.
-- `Cmd/Ctrl+E` opens Explorer.
-- `Cmd/Ctrl+I` toggles the Information panel.
+- `Cmd/Ctrl+K` then `B` toggles the left workspace sidebar.
+- `Cmd/Ctrl+K` then `C` toggles the source control (changes) panel.
+- `Cmd/Ctrl+K` then `E` opens Explorer.
+- `Cmd/Ctrl+K` then `I` toggles the Information panel.
+- The letter after `Cmd/Ctrl+K` is the default; change it under Settings → Command Palette.
 - `Alt+P` opens the prompt model selector.
 - `Alt+1..0` selects your mapped prompt models.
 

@@ -14,7 +14,7 @@ For general repository-wide rules, use [Repository Instructions](repository-inst
 ## Quick Start
 
 1. Open the task you want to send a message in.
-2. Click the paperclip button in the prompt composer to open the file picker, or drop a file directly onto the composer.
+2. Click the paperclip button in the prompt composer to open the file picker. Dragging a file onto the composer does not attach it.
 3. For images, paste them directly from your clipboard with `Cmd/Ctrl+V`.
 4. Review the chips and thumbnails above the composer, then send the turn.
 
@@ -126,11 +126,11 @@ If your clipboard contains image data and file references at the same time, Stav
 - Cause: you are running Stave in a browser-only mode instead of the desktop app.
 - Fix: use a packaged desktop build. The file picker needs the desktop runtime.
 
-### I Want To Drop A Folder
+### I Want To Drop A File Or Folder
 
-- Symptom: dropping a folder onto the composer does not attach anything.
-- Cause: attachments are file-scoped, not folder-scoped.
-- Fix: open the folder in Explorer, pick the files you want, and attach them individually.
+- Symptom: dropping a file or folder onto the composer does not attach anything.
+- Cause: the composer only accepts task rows by drag; files arrive through the paperclip picker or a clipboard paste, and attachments are file-scoped, not folder-scoped.
+- Fix: click the paperclip, pick the files you want (open the folder in Explorer first if needed), and attach them individually.
 
 ## Related Docs
 

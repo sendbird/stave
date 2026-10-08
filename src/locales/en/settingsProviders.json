@@ -672,7 +672,7 @@
       "ready": "can delegate.",
       "checking": "checking the Local MCP server…",
       "note": "Delegation reaches the model as Local MCP tools, so a task can only start subagents while that server is running.",
-      "openSettings": "Open Settings → Developer → Local MCP."
+      "openSettings": "Open Settings → MCP → Local MCP Server."
     },
     "asking": {
       "heading": "Asking for one, and what you can specify",

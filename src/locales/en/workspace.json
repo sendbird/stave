@@ -245,7 +245,7 @@
     },
     "noWorkspaces": {
       "title": "No workspaces yet",
-      "reason": "Switch to Projects and use New workspace on a repository to add one."
+      "reason": "Use New workspace on a repository in the sidebar to add one."
     }
   },
   "presetBar": {

@@ -150,12 +150,12 @@ export function SettingsDelegationSection() {
           type="button"
           variant="link"
           flushInline
-          data-testid="delegation-open-developer-settings"
+          data-testid="delegation-open-mcp-settings"
           xstyle={delegationStyles.openSettingsLink}
           onClick={() => {
             window.dispatchEvent(
               new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-                detail: { section: "developer" },
+                detail: { section: "mcp" },
               }),
             );
           }}

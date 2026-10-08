@@ -244,7 +244,7 @@ paused: turn them on in the Automations panel. An MCP edit keeps a paused
 automation paused, `stave_set_automation_enabled` can only pause, and
 unattended, bypass or full-access automation settings are rejected.
 
-Use `Local MCP Request Log` in `Settings → Providers → Stave` when you need transport-level request visibility. The latest page auto-refreshes while older pages stay stable for pagination.
+Use `Local MCP Request Log` in `Settings → MCP` when you need transport-level request visibility. The latest page auto-refreshes while older pages stay stable for pagination.
 
 These responses continue the same Stave turn. They do not create a new task.
 
@@ -301,7 +301,7 @@ The token is wrong or stale. Copy the token again from Settings or rotate it and
 
 ### Claude Code does not see the Stave MCP tools
 
-- confirm `Claude Code` is enabled in `Settings → Providers → Stave`
+- confirm `Claude Code` is enabled in `Settings → MCP → Local MCP Server`
 - run `claude mcp get stave-local-mcp`; if it reports no such server, inspect `<CLAUDE_CONFIG_DIR>/.claude.json` (or `~/.claude.json` when unset) and verify `mcpServers.stave-local-mcp` is a flat `{ "type": "http", "url", "headers" }` record
 - if your shell exports `CLAUDE_CONFIG_DIR`, confirm Stave wrote to that directory and not to `~/.claude`
 - refresh Claude Code or restart it after Stave rewrites the MCP entry
@@ -309,7 +309,7 @@ The token is wrong or stale. Copy the token again from Settings or rotate it and
 
 ### Codex does not see the Stave MCP tools
 
-- confirm `Codex` is enabled in `Settings → Providers → Stave`
+- confirm `Codex` is enabled in `Settings → MCP → Local MCP Server`
 - inspect `~/.codex/config.toml` and verify `[mcp_servers.stave-local]` exists
 - inside Stave, the in-app Codex runtime receives `STAVE_LOCAL_MCP_TOKEN` automatically
 - for an external shell-launched Codex CLI, make sure `STAVE_LOCAL_MCP_TOKEN` is available in that shell if the local server requires bearer auth

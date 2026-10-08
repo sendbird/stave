@@ -671,7 +671,7 @@
       "ready": "위임할 수 있습니다.",
       "checking": "Local MCP 서버를 확인하는 중…",
       "note": "위임은 Local MCP 도구로 모델에 전달되므로, 해당 서버가 실행 중일 때만 작업에서 하위 에이전트를 시작할 수 있습니다.",
-      "openSettings": "설정 → 개발자 → Local MCP 열기"
+      "openSettings": "설정 → MCP → 로컬 MCP 서버 열기"
     },
     "asking": {
       "heading": "위임 요청 방법과 지정할 수 있는 항목",

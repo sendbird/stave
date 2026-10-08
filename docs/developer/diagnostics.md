@@ -87,7 +87,7 @@ The Settings dialog includes desktop-only diagnostics for renderer and composito
 
 - `Tooling` shows current workspace sync state against `origin/main` and the native shell / CLI auth status Stave depends on (`git`, `gh`, `claude`, `codex`)
 - Claude and Codex tooling diagnostics include the resolved executable path, and Claude also shows the config directory Stave passed to `claude auth status`
-- `Settings → Providers → Stave → Local MCP Request Log` shows paginated inbound local MCP requests with latest-page auto-refresh and on-demand payload loading
+- `Settings → MCP → Local MCP Request Log` shows paginated inbound local MCP requests with latest-page auto-refresh and on-demand payload loading
 - `GPU Acceleration` shows Electron-reported hardware acceleration and GPU feature status
 
 The GPU status card is available only when the preload bridge exposes `window.api.window.getGpuStatus()`.

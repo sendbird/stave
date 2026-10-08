@@ -28,7 +28,7 @@ into agents finish as they are, and their surfaces keep working.
 ## Before You Start
 
 - The task runs on Claude or Codex.
-- Stave's local tools are on (Settings → Developer → Local MCP). The agent
+- Stave's local tools are on (Settings → MCP → Local MCP Server). The agent
   reports each stage through them; without them a run cannot start.
 - For workflows with pull request stages, the GitHub CLI is signed in
   (`gh auth login`).
@@ -275,7 +275,7 @@ sample limits and examples of when each screen helps.
 - Symptom: a stage is blocked with **Reporting unavailable**.
 - Cause: Stave's local tools are off or not running, so the agent cannot
   report its stage.
-- Fix: turn on Local MCP in Settings → Developer, then **Retry stage**.
+- Fix: turn on Local MCP in Settings → MCP, then **Retry stage**.
 
 ### A pull request stage is blocked
 
