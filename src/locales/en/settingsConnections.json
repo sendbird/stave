@@ -483,7 +483,7 @@
     "resourceLinkMirroring": "Resource link mirroring",
     "mirrorWorkspaceLinksAfterChangesSettle": "Mirror workspace links after changes settle.",
     "turnSummaries": "Turn summaries",
-    "sendModelWrittenWorkSummariesThis": "Send model-written work summaries. This interpretive data is off by default.",
+    "sendModelWrittenWorkSummariesThis": "Send model-written work summaries. This interpretive data is off by default. Summaries are written only while Turn summary is on in Settings → Background AI.",
     "outbox": "Outbox",
     "pendingFailed": " · {{value1}} pending · {{value2}} failed",
     "lastDelivered": " · last delivered {{value1}}",

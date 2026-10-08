@@ -7,6 +7,7 @@ import {
   type ModelEffort,
 } from "@/lib/providers/model-effort";
 import {
+  inferProviderIdFromModel,
   resolveTierModel,
   upgradePinnedHaikuModel,
 } from "@/lib/providers/model-catalog";
@@ -44,15 +45,20 @@ export type AuxLane = (typeof AUX_LANES)[number];
 
 export type AuxLaneProviderId = ManagedExecutionProviderId;
 
+/**
+ * One lane's settings. The three model fields are exceptions to the shared
+ * default (`AuxInferenceDefault`): a present value is an explicit override,
+ * an absent key inherits. They are never `null`.
+ */
 export interface AuxLaneConfig {
   /** Off means the lane never runs; its non-AI fallback (if any) still does. */
   enabled: boolean;
-  /** `undefined` means "follow the lane's provider fall-through". */
+  /** Override: always run this lane on this provider. Absent inherits. */
   providerId?: AuxLaneProviderId;
-  /** `null` means "let the runtime pick its own default model". */
-  model?: string | null;
-  /** Second attempt for lanes that keep a fallback model. */
-  fallbackModel?: string | null;
+  /** Override: always run this lane on this model. Absent inherits. */
+  model?: string;
+  /** Override: second attempt for lanes that keep one. Absent inherits. */
+  fallbackModel?: string;
   /** `undefined` means "follow the model's own default effort". */
   effort?: ModelEffort;
   /** Task naming: stop suggesting after this many user turns. */
@@ -69,6 +75,25 @@ export interface AuxLaneConfig {
 
 export type AuxiliaryInferencePolicy = Record<AuxLane, AuxLaneConfig>;
 
+/** `auto` follows the task's own provider, and Claude when there is none. */
+export type AuxInferenceDefaultProviderId = "auto" | AuxLaneProviderId;
+
+/**
+ * The shared "utility model" every Background AI lane uses unless the lane
+ * overrides it. `model: null` is automatic: the resolved provider's light
+ * tier, or the runtime's own default for a lane whose output quality the user
+ * reads directly (pre-PR review). A set model always belongs to `providerId`.
+ */
+export interface AuxInferenceDefault {
+  providerId: AuxInferenceDefaultProviderId;
+  model: string | null;
+}
+
+export const DEFAULT_AUX_INFERENCE_DEFAULT: AuxInferenceDefault = {
+  providerId: "auto",
+  model: null,
+};
+
 /**
  * Lanes default to the cheapest model that can do the job. The point of the
  * defaults is that no lane silently inherits the user's expensive primary
@@ -81,24 +106,21 @@ export type AuxiliaryInferencePolicy = Record<AuxLane, AuxLaneConfig>;
 export const DEFAULT_AUXILIARY_INFERENCE_POLICY: AuxiliaryInferencePolicy = {
   intentGuard: {
     enabled: true,
-    model: null,
     onlyWhenDiffChanged: true,
     onlyAfterFileEdits: true,
   },
   turnSummary: {
     enabled: true,
-    model: null,
-    fallbackModel: null,
     skipWithoutAssistantText: true,
   },
-  taskName: { enabled: true, model: null, maxUserTurns: 1 },
-  utility: { enabled: true, model: null, maxProviderAttempts: 2 },
-  prDescription: { enabled: true, model: null },
-  prePrReview: { enabled: true, model: null },
+  taskName: { enabled: true, maxUserTurns: 1 },
+  utility: { enabled: true, maxProviderAttempts: 2 },
+  prDescription: { enabled: true },
+  prePrReview: { enabled: true },
   // Off by default: it fires on a ~100-200 ms typing pause with up to 12K
   // characters of surrounding code and no reusable prompt prefix, so on a
   // metered plan it is the one lane that can outspend the user's own turns.
-  inlineCompletion: { enabled: false, model: null },
+  inlineCompletion: { enabled: false },
 };
 
 /**
@@ -108,6 +130,11 @@ export const DEFAULT_AUXILIARY_INFERENCE_POLICY: AuxiliaryInferencePolicy = {
  * turn-summary settings behaved (one model per provider) by design.
  */
 const CROSS_PROVIDER_FALLBACK_LANES = new Set<AuxLane>(["turnSummary"]);
+
+/** Whether a lane makes a second attempt, so its override offers a fallback model. */
+export function auxLaneHasFallbackModel(lane: AuxLane) {
+  return CROSS_PROVIDER_FALLBACK_LANES.has(lane);
+}
 
 /** Lanes whose default model is the provider's light tier, resolved lazily. */
 const LIGHT_TIER_LANES = new Set<AuxLane>([
@@ -123,6 +150,8 @@ const AuxLaneConfigSchema = z
   .object({
     enabled: z.boolean(),
     providerId: z.enum(["claude-code", "codex"]).optional(),
+    // `null` is read as "inherit" so a settings export from before the shared
+    // default still imports; normalization drops it.
     model: z.string().trim().max(200).nullable().optional(),
     fallbackModel: z.string().trim().max(200).nullable().optional(),
     effort: z
@@ -141,16 +170,46 @@ export const AuxiliaryInferencePolicySchema = z.record(
   AuxLaneConfigSchema,
 ) as z.ZodType<AuxiliaryInferencePolicy>;
 
-function normalizeModelValue(value: unknown): string | null | undefined {
-  if (value === null) {
-    return null;
-  }
+export const AuxInferenceDefaultSchema = z
+  .object({
+    providerId: z.enum(["auto", "claude-code", "codex"]),
+    model: z.string().trim().max(200).nullable(),
+  })
+  .strict() as z.ZodType<AuxInferenceDefault>;
+
+/** A model override, or `undefined` for "inherit" (absent, `null`, blank, junk). */
+function normalizeModelValue(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
   const trimmed = value.trim();
   // A lane pinned to Haiku 4.5 before Haiku 5.5 shipped moves onto 5.5.
-  return trimmed.length > 0 ? upgradePinnedHaikuModel(trimmed) : null;
+  return trimmed.length > 0 ? upgradePinnedHaikuModel(trimmed) : undefined;
+}
+
+function managedProviderOfModel(model: string): AuxLaneProviderId {
+  return inferProviderIdFromModel({ model }) === "codex" ? "codex" : "claude-code";
+}
+
+/**
+ * Rebuild the shared default from persisted input. A model always carries
+ * its own provider: a saved model with an `auto` or mismatched provider takes
+ * the model's provider, so the pair never disagrees at resolution time.
+ */
+export function normalizeAuxInferenceDefault(raw: unknown): AuxInferenceDefault {
+  if (!raw || typeof raw !== "object") {
+    return { ...DEFAULT_AUX_INFERENCE_DEFAULT };
+  }
+  const candidate = raw as Record<string, unknown>;
+  const model = normalizeModelValue(candidate.model) ?? null;
+  const providerId: AuxInferenceDefaultProviderId =
+    candidate.providerId === "claude-code" || candidate.providerId === "codex"
+      ? candidate.providerId
+      : "auto";
+  if (model) {
+    return { providerId: managedProviderOfModel(model), model };
+  }
+  return { providerId, model: null };
 }
 
 function normalizeLane(lane: AuxLane, raw: unknown): AuxLaneConfig {
@@ -180,22 +239,21 @@ function normalizeLane(lane: AuxLane, raw: unknown): AuxLaneConfig {
     fallbackValue: boolean | undefined,
   ) => (typeof value === "boolean" ? value : fallbackValue);
 
+  const model = normalizeModelValue(candidate.model);
+  const fallbackModel = auxLaneHasFallbackModel(lane)
+    ? normalizeModelValue(candidate.fallbackModel)
+    : undefined;
   const next: AuxLaneConfig = {
     enabled:
       typeof candidate.enabled === "boolean"
         ? candidate.enabled
         : fallback.enabled,
-    model: normalizeModelValue(candidate.model) ?? fallback.model ?? null,
     ...(providerId ? { providerId } : {}),
+    ...(model ? { model } : {}),
+    ...(fallbackModel ? { fallbackModel } : {}),
     ...(effort ? { effort } : {}),
   };
 
-  if ("fallbackModel" in fallback || candidate.fallbackModel !== undefined) {
-    next.fallbackModel =
-      normalizeModelValue(candidate.fallbackModel) ??
-      fallback.fallbackModel ??
-      null;
-  }
   const maxUserTurns = numberOrFallback(
     candidate.maxUserTurns,
     fallback.maxUserTurns,
@@ -267,7 +325,15 @@ export function migrateLegacyTurnSummaryModels(args: {
   if (!model && !fallbackModel) {
     return null;
   }
-  return { model: model ?? null, fallbackModel: fallbackModel ?? null };
+  return {
+    ...(model ? { model } : {}),
+    ...(fallbackModel ? { fallbackModel } : {}),
+  };
+}
+
+/** Whether a lane overrides any part of the shared default. */
+export function auxLaneHasOverride(config: AuxLaneConfig) {
+  return Boolean(config.providerId || config.model || config.fallbackModel);
 }
 
 /**
@@ -281,13 +347,21 @@ export function supportsExplicitEffort(args: {
   return modelAcceptsExplicitEffort(args);
 }
 
+/**
+ * Where a resolved value came from: the lane's own override, the shared
+ * default, the task's provider (shared `auto`), or the built-in default.
+ */
+export type AuxLaneValueSource = "override" | "shared" | "task" | "automatic";
+
 export interface AuxLaneRuntime {
   lane: AuxLane;
   config: AuxLaneConfig;
   enabled: boolean;
   providerId: AuxLaneProviderId;
+  providerSource: AuxLaneValueSource;
   /** `null` means "let the runtime choose", which is a valid resolution. */
   model: string | null;
+  modelSource: AuxLaneValueSource;
   fallbackModel: string | null;
   effortOverrides: Pick<
     ProviderRuntimeOptions,
@@ -295,56 +369,68 @@ export interface AuxLaneRuntime {
   >;
 }
 
-function resolveLaneProviderId(args: {
+function resolveLaneProvider(args: {
   config: AuxLaneConfig;
-  legacyProviderId?: string | null;
+  shared: AuxInferenceDefault;
   activeProviderId?: ProviderId | null;
-}): AuxLaneProviderId {
+}): { providerId: AuxLaneProviderId; source: AuxLaneValueSource } {
   if (args.config.providerId) {
-    return args.config.providerId;
+    return { providerId: args.config.providerId, source: "override" };
   }
-  if (
-    args.legacyProviderId === "claude-code" ||
-    args.legacyProviderId === "codex"
-  ) {
-    return args.legacyProviderId;
+  if (args.shared.providerId !== "auto") {
+    return { providerId: args.shared.providerId, source: "shared" };
   }
   if (
     args.activeProviderId === "claude-code" ||
     args.activeProviderId === "codex"
   ) {
-    return args.activeProviderId;
+    return { providerId: args.activeProviderId, source: "task" };
   }
-  return "claude-code";
+  return { providerId: "claude-code", source: "automatic" };
 }
 
 /**
  * Resolve one lane into the concrete provider, model and effort overrides a
- * call site should use.
+ * call site should use. Every value is the lane's override when it has one,
+ * else the shared default:
  *
- * Provider fall-through is lane override -> the lane's legacy setting (the
- * pre-existing `prePrReviewProvider` / `utilityInferenceProvider` choices, so an
- * upgrade keeps behaving as configured) -> the task's active managed provider ->
- * Claude.
+ * - provider: lane override -> shared provider -> (shared `auto`) the task's
+ *   managed provider -> Claude.
+ * - model: lane override -> shared model, when it belongs to the resolved
+ *   provider (a lane that overrides only its provider never receives the
+ *   other provider's model id) -> automatic (light tier, or the runtime's own
+ *   default for pre-PR review).
  */
 export function resolveAuxLaneRuntime(args: {
   lane: AuxLane;
   policy: AuxiliaryInferencePolicy;
-  legacyProviderId?: string | null;
+  shared: AuxInferenceDefault;
   activeProviderId?: ProviderId | null;
 }): AuxLaneRuntime {
   const config =
     args.policy[args.lane] ?? DEFAULT_AUXILIARY_INFERENCE_POLICY[args.lane];
-  const providerId = resolveLaneProviderId({
+  const shared = args.shared ?? DEFAULT_AUX_INFERENCE_DEFAULT;
+  const { providerId, source: providerSource } = resolveLaneProvider({
     config,
-    legacyProviderId: args.legacyProviderId,
+    shared,
     activeProviderId: args.activeProviderId,
   });
+  const overrideModel = config.model?.trim();
+  const sharedModel =
+    shared.model?.trim() && shared.providerId === providerId
+      ? shared.model.trim()
+      : null;
   const model =
-    config.model?.trim() ||
+    overrideModel ||
+    sharedModel ||
     (LIGHT_TIER_LANES.has(args.lane)
       ? resolveTierModel({ tier: "light", providerId })
       : null);
+  const modelSource: AuxLaneValueSource = overrideModel
+    ? "override"
+    : sharedModel
+      ? "shared"
+      : "automatic";
   const fallbackModel =
     config.fallbackModel?.trim() ||
     (CROSS_PROVIDER_FALLBACK_LANES.has(args.lane)
@@ -367,7 +453,9 @@ export function resolveAuxLaneRuntime(args: {
     config,
     enabled: config.enabled,
     providerId,
+    providerSource,
     model,
+    modelSource,
     fallbackModel,
     effortOverrides,
   };

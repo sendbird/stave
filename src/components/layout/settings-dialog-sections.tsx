@@ -75,11 +75,11 @@ export function SettingsDialogSectionContent(args: {
     case "commandPalette":
       return <CommandPaletteSection />;
     case "editor":
-      return <EditorSection />;
+      return <EditorSection onNavigateSection={args.onNavigateSection} />;
     case "providers":
-      return <ProvidersSection />;
+      return <ProvidersSection onNavigateSection={args.onNavigateSection} />;
     case "models":
-      return <ModelsSection />;
+      return <ModelsSection onNavigateSection={args.onNavigateSection} />;
     case "mcp":
       return <McpSection />;
     case "integrations":
@@ -91,15 +91,15 @@ export function SettingsDialogSectionContent(args: {
         </div>
       );
     case "issues":
-      return <IssueTrackerSettingsSection />;
+      return <IssueTrackerSettingsSection onNavigateSection={args.onNavigateSection} />;
     case "kickoff":
       return <KickoffSection />;
     case "auxiliaryInference":
-      return <SettingsAuxiliaryInferenceSection />;
+      return <SettingsAuxiliaryInferenceSection onNavigateSection={args.onNavigateSection} />;
     case "autoRouting":
       return <SettingsAutoRoutingSection />;
     case "prompts":
-      return <PromptsSection />;
+      return <PromptsSection onNavigateSection={args.onNavigateSection} />;
     case "memory":
       return (
         <RepositoryMemorySettingsSection

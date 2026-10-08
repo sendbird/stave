@@ -76,6 +76,7 @@
     "clearedValueItems": "Cleared {{cleared}} items.",
     "someItemsWereNotClearedRetry": "Some items were not cleared. Retry.",
     "fleetView": "Fleet View",
+    "fullWorkQueue": "The full Work queue, what needs you first",
     "noAgentTurnsInFlight": "No agent turns in flight",
     "valueShown": " · {{visibleCount}} shown",
     "openNextItem": "Open next item",
@@ -158,7 +159,8 @@
     "actionRequired": "Action required",
     "inProgress": "In progress",
     "inReview": "In review",
-    "idle": "Idle"
+    "idle": "Idle",
+    "openFullView": "Open the full Work queue in Fleet View"
   },
   "workspaceActivity": {
     "active": "Active",

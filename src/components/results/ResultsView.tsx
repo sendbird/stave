@@ -110,14 +110,17 @@ function ReportDialog(props: { state: ReportState | null; onClose: () => void })
 }
 
 /**
- * Results: did delegating pay off, and where did you have to step in? One page
- * for ended agent runs and legacy runs over 7, 30 or 90 days. Rows open
- * the run report, so the page is a lens onto reports, not a second store.
+ * Agent performance: did delegating pay off, and where did you have to step
+ * in? One page for ended agent runs and legacy runs over 7, 30 or 90 days.
+ * Rows open the run report, so the page is a lens onto reports, not a second
+ * store. `embedded` renders it as the Agents view's Performance tab: that
+ * surface owns the title, close and Escape, so only range and refresh remain.
  */
-export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultReportLoader; now?: number; period?: "7" | "30" | "90"; onClose?: () => void } = {}) {
+export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultReportLoader; now?: number; period?: "7" | "30" | "90"; onClose?: () => void; embedded?: boolean } = {}) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const storeClose = useAppStore((state) => state.closeResults);
+  const storeClose = useAppStore((state) => state.closeAgents);
   const close = props.onClose ?? storeClose;
+  const embedded = props.embedded ?? false;
   const [period, setPeriod] = useState<Period>(props.period ?? "30");
   const [state, setState] = useState<ResultsState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -144,13 +147,14 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
   }, [load, period, attempt]);
 
   useEffect(() => {
+    if (embedded) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.key !== "Escape" || event.altKey || event.ctrlKey || event.metaKey) return;
       close();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [close]);
+  }, [close, embedded]);
 
   const open = (run: ResultRun) => {
     setReport({ run, status: "loading" });
@@ -192,32 +196,48 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
     );
   };
 
+  const reading = state.status === "loading" || (state.status === "ready" && state.reloading);
+  const periodControl = (
+    <span className={sx(styles.toolbar)}>
+      <Segmented aria-label={t("compare:resultsView.period")} size="xs" value={period} options={PERIODS} onChange={setPeriod} />
+    </span>
+  );
+  const refresh = (
+    <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:agentPerformance.refresh")} title={t("compare:agentPerformance.refresh")} disabled={reading} onClick={() => setAttempt((count) => count + 1)}>
+      <RefreshCw className={sx(centerStyles.actionIcon)} />
+    </Button>
+  );
+
   return (
-    <div className={sx(centerStyles.root)}>
-      <header className={sx(centerStyles.header, styles.header)}>
-        <div className={sx(centerStyles.headerText, styles.headerText)}>
-          <div className={sx(centerStyles.headerTitleRow)}>
-            <ChartNoAxesColumn className={sx(centerStyles.headerIcon)} aria-hidden />
-            <h1 className={sx(centerStyles.headerTitle)}>{t("compare:agentPerformance.title")}</h1>
+    <div className={sx(embedded ? styles.embeddedRoot : centerStyles.root)}>
+      {embedded ? null : (
+        <header className={sx(centerStyles.header, styles.header)}>
+          <div className={sx(centerStyles.headerText, styles.headerText)}>
+            <div className={sx(centerStyles.headerTitleRow)}>
+              <ChartNoAxesColumn className={sx(centerStyles.headerIcon)} aria-hidden />
+              <h1 className={sx(centerStyles.headerTitle)}>{t("compare:agentPerformance.title")}</h1>
+            </div>
+            <p className={sx(centerStyles.headerSubtitle, styles.headerSubtitle)}>{t("compare:agentPerformance.purpose")}</p>
           </div>
-          <p className={sx(centerStyles.headerSubtitle, styles.headerSubtitle)}>{t("compare:agentPerformance.purpose")}</p>
-        </div>
-        <div className={sx(centerStyles.headerActions)}>
-          <span className={sx(styles.toolbar)}>
-            <Segmented aria-label={t("compare:resultsView.period")} size="xs" value={period} options={PERIODS} onChange={setPeriod} />
-          </span>
-          <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:agentPerformance.refresh")} title={t("compare:agentPerformance.refresh")} disabled={state.status === "loading" || (state.status === "ready" && state.reloading)} onClick={() => setAttempt((count) => count + 1)}>
-            <RefreshCw className={sx(centerStyles.actionIcon)} />
-          </Button>
-          <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:resultsView.closeResults")} title={t("compare:resultsView.closeResults")} onClick={close}>
-            <X className={sx(centerStyles.actionIcon)} />
-          </Button>
-        </div>
-      </header>
+          <div className={sx(centerStyles.headerActions)}>
+            {periodControl}
+            {refresh}
+            <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:resultsView.closeResults")} title={t("compare:resultsView.closeResults")} onClick={close}>
+              <X className={sx(centerStyles.actionIcon)} />
+            </Button>
+          </div>
+        </header>
+      )}
       <div className={sx(styles.scroll)}>
+        {embedded ? (
+          <div className={sx(styles.embeddedControls)}>
+            {periodControl}
+            {refresh}
+          </div>
+        ) : null}
         <div
-          className={sx(styles.page, state.status === "ready" && state.reloading && styles.pageReloading)}
-          aria-busy={state.status === "loading" || (state.status === "ready" && state.reloading)}
+          className={sx(styles.page, embedded && styles.pageEmbedded, state.status === "ready" && state.reloading && styles.pageReloading)}
+          aria-busy={reading}
         >
           {renderBody()}
         </div>

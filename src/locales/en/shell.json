@@ -532,7 +532,7 @@
     "aiUsageDescription": "View tokens, reported cost, account quotas and turn history.",
     "openResults": "Open agent performance",
     "seeHowEndedAgentRunsAndRuns": "Compare completion, time and reported cost across ended agent runs.",
-    "outcomesTimeAndCostOfEndedAgent": "Agent completion, time and reported cost.",
+    "outcomesTimeAndCostOfEndedAgent": "Performance tab in Agents: completion, time and reported cost.",
     "assignToAnAgent": "Assign to an agent…",
     "chooseAnAgentInTheComposerOr": "Choose an agent in the composer, or in Kickoff when no task is open.",
     "chooseTheAgentThatDoesThisTaskS": "Choose the agent that does this task's work.",

@@ -200,7 +200,8 @@ export function ChatSection() {
         description={t("settings:chatSection.behavior.description")}
       >
         <SwitchField
-          title={t("settings:chatSection.behavior.streaming")}
+          title={t("settings:chatSection.behavior.streaming.title")}
+          description={t("settings:chatSection.behavior.streaming.description")}
           checked={chatStreamingEnabled}
           onCheckedChange={(checked) =>
             updateSettings({ patch: { chatStreamingEnabled: checked } })

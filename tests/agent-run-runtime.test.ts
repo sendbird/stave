@@ -981,12 +981,6 @@ describe("run runtime: agent runs", () => {
   const ROUTE_SETTINGS = AgentRouteSettingsSchema.parse({
     routing: {
       autoRoutingEnabled: true,
-      autoRoutingUseClassifier: false,
-      autoRoutingObjective: 50,
-      autoRoutingSafetyEscalation: true,
-      autoRoutingAllowProviderSwitch: false,
-      autoRoutingEligibleClaudeModels: [],
-      autoRoutingEligibleCodexModels: [],
       autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
     },
     classifier: null,

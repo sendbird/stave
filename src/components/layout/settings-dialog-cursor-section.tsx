@@ -1,17 +1,9 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { Badge } from "@/components/ui";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   CURSOR_PROVIDER_MODE_PRESETS,
   buildCursorProviderModeSettingsPatch,
 } from "@/lib/providers/provider-mode-presets";
-import { CURSOR_EFFORT_OPTIONS } from "@/lib/providers/runtime-option-contract";
 import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
 import { useShallow } from "zustand/react/shallow";
@@ -23,6 +15,8 @@ import {
   SettingsCard,
   SwitchField,
 } from "./settings-dialog.shared";
+import type { SectionId } from "./settings-dialog.schema";
+import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
 import { cursorSectionStyles } from "./settings-dialog-cursor-section.styles";
 
 const CURSOR_MODE_OPTIONS = [
@@ -38,21 +32,19 @@ const CURSOR_MODE_OPTIONS = [
   },
 ] as const;
 
-export function SettingsCursorSection() {
+export function SettingsCursorSection(args: {
+  onNavigateSection?: (id: SectionId) => void;
+}) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
     cursorMode,
     cursorApprovalMode,
-    modelCursor,
-    cursorEffort,
     cursorFastMode,
     cursorBinaryPath,
   ] = useAppStore(
     useShallow((state) => [
       state.settings.cursorMode,
       state.settings.cursorApprovalMode,
-      state.settings.modelCursor,
-      state.settings.cursorEffort,
       state.settings.cursorFastMode,
       state.settings.cursorBinaryPath,
     ]),
@@ -100,51 +92,7 @@ export function SettingsCursorSection() {
           <p className={sx(cursorSectionStyles.note)}>
             {t("settingsProviders:cursorSection.approvalPreset.note")}</p>
         </LabeledField>
-        <LabeledField
-          title={t("settingsProviders:kiroSection.defaultModel.title")}
-          description={t("settingsProviders:cursorSection.defaultModel.description")}
-        >
-          <DraftInput
-            xstyle={cursorSectionStyles.field}
-            value={modelCursor}
-            // i18n-ignore: literal runtime model identifier
-            placeholder="auto"
-            onCommit={(value) =>
-              updateSettings({
-                patch: { modelCursor: value.trim() || "auto" },
-              })
-            }
-          />
-        </LabeledField>
-        <LabeledField
-          title={t("settingsProviders:kiroSection.defaultEffort.title")}
-          description={t("settingsProviders:cursorSection.defaultEffort.description")}
-        >
-          <Select
-            value={cursorEffort}
-            onValueChange={(value) =>
-              updateSettings({
-                patch: {
-                  cursorEffort: value as typeof cursorEffort,
-                },
-              })
-            }
-          >
-            <SelectTrigger
-              aria-label={t("settingsProviders:cursorSection.defaultEffort.ariaLabel")}
-              className={sx(cursorSectionStyles.field)}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CURSOR_EFFORT_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </LabeledField>
+        <ProviderDefaultsLink onNavigateSection={args.onNavigateSection} />
         <SwitchField
           title={t("settingsProviders:cursorSection.fastMode.title")}
           description={t("settingsProviders:cursorSection.fastMode.description")}

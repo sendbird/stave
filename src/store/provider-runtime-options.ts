@@ -372,19 +372,24 @@ export function buildUtilityInferenceContext(args: {
   provider: ProviderId;
   model: string;
   settings: RuntimeSettings &
-    Pick<AppSettings, "utilityInferenceProvider" | "auxiliaryInferencePolicy">;
+    Pick<AppSettings, "auxiliaryInferencePolicy" | "auxiliaryInferenceDefault">;
   /** Which Background AI lane pays for this call. */
   lane?: Extract<AuxLane, "utility" | "taskName">;
 }): UtilityInferenceContext {
   const lane = resolveAuxLaneRuntime({
     lane: args.lane ?? "utility",
     policy: args.settings.auxiliaryInferencePolicy,
-    legacyProviderId: args.settings.utilityInferenceProvider,
+    shared: args.settings.auxiliaryInferenceDefault,
     activeProviderId: args.provider,
   });
   return {
     cwd: args.cwd,
-    utilityProviderId: args.settings.utilityInferenceProvider,
+    // A provider the user chose (lane override or shared default) runs first;
+    // one that only follows the task leaves the runner order on Auto.
+    utilityProviderId:
+      lane.providerSource === "override" || lane.providerSource === "shared"
+        ? lane.providerId
+        : "auto",
     activeProviderId: args.provider,
     ...(lane.model ? { utilityModel: lane.model } : {}),
     ...(lane.config.maxProviderAttempts

@@ -116,10 +116,13 @@
     "behavior": {
       "title": "Behavior",
       "description": "Toggle chat features and display preferences.",
-      "streaming": "Streaming UI",
+      "streaming": {
+        "title": "Streaming UI",
+        "description": "Show the response and reasoning trace live while a turn runs. When off, the turn appears all at once when it finishes, and the reasoning trace no longer expands on its own."
+      },
       "reasoningExpansion": {
         "title": "Reasoning Expansion",
-        "description": "Auto expands the reasoning trace while a turn is streaming, then collapses it again. Manual keeps it collapsed until you open it.",
+        "description": "Auto expands the reasoning trace while a turn is streaming, then collapses it again. Manual keeps it collapsed until you open it. With Streaming UI off, Auto behaves like Manual.",
         "manual": "Manual"
       },
       "interimMessages": {
@@ -181,13 +184,9 @@
         "title": "Agents Shortcut",
         "description": "Show Agents and its active agent rows in the sidebar header area."
       },
-      "results": {
-        "title": "Agent performance Shortcut",
-        "description": "Show Agent performance in the sidebar to compare completed runs, time, and reported costs."
-      },
       "aiUsage": {
         "title": "AI Usage Shortcut",
-        "description": "Show the AI usage entry in the sidebar header area."
+        "description": "Show the AI usage entry in the sidebar header area. Its Agent performance tab compares completed runs, time, and reported costs."
       }
     },
     "presets": {
@@ -241,7 +240,12 @@
       "description": "Ghost-text code suggestions powered by Claude. Uses the Claude SDK with your local Claude auth when available, or falls back to the Anthropic API (requires ANTHROPIC_API_KEY).",
       "enable": {
         "title": "Enable AI Completions",
-        "description": "Shows AI-generated inline suggestions as you type. Press Tab to accept. Uses Claude Haiku for fast, low-cost completions."
+        "description": "Shows AI-generated inline suggestions as you type. Press Tab to accept. This is the only on/off switch for inline completion."
+      },
+      "modelLink": {
+        "title": "Completion model",
+        "description": "Choose the provider and model for inline completion in Settings → Background AI.",
+        "action": "Open Background AI"
       }
     },
     "languageServers": {
@@ -376,8 +380,8 @@
   },
   "modelsSection": {
     "routing": {
-      "title": "Model Routing",
-      "description": "Pick the default Claude and Codex models used for new turns. Stave falls back to its verified Codex baseline if the App Server catalog is unavailable.",
+      "title": "Default Models and Effort",
+      "description": "New tasks start with these models and effort levels. Changing the model or effort in a task's composer applies to that task only, and presets keep their own saved choices. Stave falls back to its verified Codex baseline if the App Server catalog is unavailable.",
       "claudeModelAriaLabel": "Claude model: {{model}}",
       "codexModelAriaLabel": "Codex model: {{model}}",
       "claudeEffort": {
@@ -389,9 +393,21 @@
         "description": "Default reasoning effort applied to new Codex turns."
       },
       "utility": {
-        "title": "Utility AI",
-        "description": "Provider used for task names, route classification, commit messages, and prompt enhancement. Auto prefers Claude or Codex from the active task, then falls back through installed utility runners.",
-        "ariaLabel": "Utility AI provider"
+        "title": "Utility model",
+        "description": "Task names, route classification, commit messages, prompt enhancement, and every other background call use the utility model set in Background AI.",
+        "action": "Open Background AI"
+      },
+      "cursorModel": {
+        "ariaLabel": "Cursor default model"
+      },
+      "cursorEffort": {
+        "title": "Cursor Effort"
+      },
+      "kiroModel": {
+        "ariaLabel": "Kiro default model"
+      },
+      "kiroEffort": {
+        "title": "Kiro Effort"
       }
     }
   },
@@ -509,15 +525,10 @@
     "prePr": {
       "title": "Pre-PR Review",
       "description": "Run a best-effort one-shot AI review before Stave pushes a branch and opens a pull request.",
-      "enable": {
-        "title": "Review Before Opening PR",
-        "description": "Shows concrete findings in the PR dialog with options to stop and fix or proceed anyway. Model failures never block PR creation."
-      },
-      "provider": {
-        "title": "Review Provider",
-        "description": "Choose which provider runs the one-shot review. The provider uses its configured default model.",
-        "claudeDescription": "Uses the configured Claude model.",
-        "codexDescription": "Uses the configured Codex model."
+      "link": {
+        "title": "Moved to Background AI",
+        "description": "Turn pre-PR review on or off and choose its provider and model in Settings → Background AI.",
+        "action": "Open Background AI"
       }
     }
   },
@@ -962,7 +973,7 @@
     },
     "models": {
       "label": "Models",
-      "description": "Default model selection, visibility, and Utility AI provider."
+      "description": "Default model selection and visibility."
     },
     "autoRouting": {
       "label": "Auto (Model Router)",
@@ -1055,7 +1066,11 @@
       },
       "auxiliaryInference": {
         "title": "Background AI",
-        "description": "Per-lane switch, provider, and model for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated tasks."
+        "description": "Per-lane switch and provider or model overrides for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated tasks."
+      },
+      "auxiliaryInferenceDefault": {
+        "title": "Utility model",
+        "description": "The provider and model every Background AI lane uses unless the lane overrides it."
       },
       "promptStyle": {
         "title": "Prompt style",
@@ -1168,7 +1183,9 @@
     "whenATicketStartsWork": "When a ticket starts work",
     "stagingLeavesTheGeneratedPromptIn": "Staging leaves the generated prompt in the composer so you can edit it before the first turn.",
     "sources": "Sources",
-    "chooseWhichTrackersIssuesReadsPairing": "Choose which trackers Issues reads. Pairing and credentials stay under Settings → Integrations. Jira is first in the list; Crane follows.",
+    "chooseWhichTrackersIssuesReadsPairing": "Choose which trackers Issues reads. Jira is turned on or off in Settings → Integrations; pairing and credentials stay there too. Jira is first in the list; Crane follows.",
+    "turnedOffInIntegrations": "Off. Turn Jira on in Settings → Integrations.",
+    "manageInIntegrations": "Manage in Integrations",
     "usedInTheIssuesList": "Used in the Issues list.",
     "hiddenFromIssuesPairingAndCredentials": "Hidden from Issues. Pairing and credentials are unchanged.",
     "setUp": "Set up",

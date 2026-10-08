@@ -51,7 +51,7 @@ export function StaveAppMenuButton(args?: {
     clearTaskSelection,
     openFleetView,
     openAgents,
-    openResults,
+    openAgentPerformance,
     openUsage,
     repositoryPath,
     isDarkMode,
@@ -66,7 +66,7 @@ export function StaveAppMenuButton(args?: {
           state.clearTaskSelection,
           state.openFleetView,
           state.openAgents,
-          state.openResults,
+          state.openAgentPerformance,
           state.openUsage,
           state.repositoryPath,
           state.isDarkMode,
@@ -146,7 +146,7 @@ export function StaveAppMenuButton(args?: {
             <Bot {...stylex.props(staveAppMenuStyles.itemIcon)} />
             {i18n.t("shell:sidebarPrimaryNav.agents")}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => openResults()}>
+          <DropdownMenuItem onSelect={() => openAgentPerformance()}>
             <ChartNoAxesColumn {...stylex.props(staveAppMenuStyles.itemIcon)} />
             {i18n.t("shell:sidebarPrimaryNav.results")}
           </DropdownMenuItem>

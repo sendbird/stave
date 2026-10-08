@@ -51,14 +51,8 @@ import {
 } from "@/store/app-settings";
 import type { AppState } from "@/store/app-store.types";
 import { providerToolingStatePatch } from "./provider-tooling";
-import {
-  normalizeAutoRoutingEligibleModels,
-  normalizeAutoRoutingObjective,
-} from "@/lib/routing/auto-routing";
-import {
-  STANCE_OBJECTIVE,
-  validateProfile,
-} from "@/lib/providers/auto-routing-profile";
+import { validateProfile } from "@/lib/providers/auto-routing-profile";
+import { normalizeAuxInferenceDefault } from "@/lib/providers/auxiliary-inference-policy";
 import { normalizeProviderTimeoutMs } from "@/store/editor.utils";
 import {
   captureCurrentRepositoryState,
@@ -448,13 +442,6 @@ export function createSettingsActions(args: {
                 value: patch.providerTimeoutMs,
               }),
             }),
-        ...(patch.autoRoutingObjective === undefined
-          ? {}
-          : {
-              autoRoutingObjective: normalizeAutoRoutingObjective(
-                patch.autoRoutingObjective,
-              ),
-            }),
         ...(patch.modelVisibility === undefined
           ? {}
           : {
@@ -462,43 +449,15 @@ export function createSettingsActions(args: {
             }),
         ...(patch.autoRoutingProfile === undefined
           ? {}
-          : (() => {
-              const autoRoutingProfile = validateProfile(
-                patch.autoRoutingProfile,
-              );
-              // Keep the v1 mirrors coherent for anything still reading them.
-              return {
-                autoRoutingProfile,
-                autoRoutingObjective: STANCE_OBJECTIVE[autoRoutingProfile.stance],
-                autoRoutingUseClassifier: autoRoutingProfile.signals.classifier,
-                autoRoutingSafetyEscalation:
-                  autoRoutingProfile.signals.safetyEscalation,
-                autoRoutingAllowProviderSwitch:
-                  autoRoutingProfile.signals.providerSwitch,
-                autoRoutingEligibleClaudeModels: [
-                  ...(autoRoutingProfile.eligibleModelsByProvider["claude-code"] ??
-                    []),
-                ],
-                autoRoutingEligibleCodexModels: [
-                  ...(autoRoutingProfile.eligibleModelsByProvider.codex ?? []),
-                ],
-              };
-            })()),
-        ...(patch.autoRoutingEligibleClaudeModels === undefined
-          ? {}
           : {
-              autoRoutingEligibleClaudeModels:
-                normalizeAutoRoutingEligibleModels(
-                  patch.autoRoutingEligibleClaudeModels,
-                ),
+              autoRoutingProfile: validateProfile(patch.autoRoutingProfile),
             }),
-        ...(patch.autoRoutingEligibleCodexModels === undefined
+        ...(patch.auxiliaryInferenceDefault === undefined
           ? {}
           : {
-              autoRoutingEligibleCodexModels:
-                normalizeAutoRoutingEligibleModels(
-                  patch.autoRoutingEligibleCodexModels,
-                ),
+              auxiliaryInferenceDefault: normalizeAuxInferenceDefault(
+                patch.auxiliaryInferenceDefault,
+              ),
             }),
         ...(patch.claudeTaskBudgetTokens === undefined
           ? {}

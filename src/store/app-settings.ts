@@ -17,7 +17,9 @@ import type {
   ProviderId,
 } from "@/lib/providers/provider.types";
 import {
+  DEFAULT_AUX_INFERENCE_DEFAULT,
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
+  type AuxInferenceDefault,
   type AuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
 import type { PrMergeMethod } from "@/lib/pr-status";
@@ -55,10 +57,6 @@ import {
   DEFAULT_PROMPT_INLINE_COMPLETION,
   DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
 } from "@/lib/providers/prompt-defaults";
-import {
-  DEFAULT_PRE_PR_REVIEW_PROVIDER,
-  type PrePrReviewProviderId,
-} from "@/lib/source-control-review";
 import type { Macro } from "@/lib/macros/types";
 import type { UnreadableWorkflow } from "@/lib/workflows/normalize";
 import type { Workflow } from "@/lib/workflows/schema";
@@ -84,7 +82,6 @@ import {
   listProviderIds,
 } from "@/lib/providers/model-catalog";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
-import type { UtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import {
   buildStarterProfile,
   DEFAULT_AUTO_ROUTING_PROFILE_ID,
@@ -134,8 +131,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   sidebarShowFleetView: boolean;
   /** Show Agents and its active agent rows in the left sidebar. */
   sidebarShowAgents: boolean;
-  /** Show the Agent performance shortcut in the left sidebar. */
-  sidebarShowResults: boolean;
   /** Show the AI usage shortcut in the left sidebar. */
   sidebarShowAiUsage: boolean;
   /**
@@ -199,8 +194,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * so a provider shipping a new model needs no migration here.
    */
   modelVisibility: ModelVisibility;
-  /** Provider preference for isolated task-name, routing, and commit utilities. */
-  utilityInferenceProvider: UtilityInferenceProvider;
   /**
    * The user's own description of how they want prompts written (tone,
    * language, what to always include). Sent with every Enhance request when
@@ -212,16 +205,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Bounded memory of past rewrites and what the user did with them. */
   promptEnhancementExemplars: PromptEnhancementExemplar[];
   autoRoutingEnabled: boolean;
-  autoRoutingUseClassifier: boolean;
-  autoRoutingObjective: number;
-  autoRoutingSafetyEscalation: boolean;
-  autoRoutingAllowProviderSwitch: boolean;
-  autoRoutingEligibleClaudeModels: string[];
-  autoRoutingEligibleCodexModels: string[];
-  /**
-   * v2 model router: role table × stance. Authoritative for routing; the v1
-   * flags above are kept for back-compat readers and migrated on load.
-   */
+  /** Model router: role table × stance, signals and eligible models. */
   autoRoutingProfile: AutoRoutingProfile;
   /**
    * User-configurable presets rendered in the preset bar between the task
@@ -314,7 +298,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** When enabled, visual comment screenshots are included as provider image context. */
   lensVisualCommentScreenshotsAsImageContext: boolean;
   prePrReviewEnabled: boolean;
-  prePrReviewProvider: PrePrReviewProviderId;
   /** Composer reviews that run as a separate read-only task. */
   reviewTask: ReviewTaskSettings;
   /** Queue the created ready PR for automatic merging. */
@@ -479,6 +462,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * without allocating a fallback object.
    */
   auxiliaryInferencePolicy: AuxiliaryInferencePolicy;
+  /**
+   * Background AI's shared "utility model": the provider and model every lane
+   * uses unless `auxiliaryInferencePolicy[lane]` overrides it.
+   */
+  auxiliaryInferenceDefault: AuxInferenceDefault;
 
   // -- Lens (built-in browser) --
   /** Heuristic search: AI uses class names, text, ID to grep source files. */
@@ -613,7 +601,6 @@ export const defaultSettings: AppSettings = {
   customThemeId: null,
   sidebarShowFleetView: true,
   sidebarShowAgents: true,
-  sidebarShowResults: true,
   sidebarShowAiUsage: true,
   sidebarNavView: "projects",
   userCustomThemes: [],
@@ -643,17 +630,10 @@ export const defaultSettings: AppSettings = {
   modelKiro: getDefaultModelForProvider({ providerId: "kiro" }),
   modelRuntimePreferences: {},
   modelVisibility: {},
-  utilityInferenceProvider: "auto",
   promptEnhancementStyleProfile: "",
   promptEnhancementLearnFromEdits: true,
   promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
-  autoRoutingUseClassifier: true,
-  autoRoutingObjective: 0.5,
-  autoRoutingSafetyEscalation: true,
-  autoRoutingAllowProviderSwitch: false,
-  autoRoutingEligibleClaudeModels: [],
-  autoRoutingEligibleCodexModels: [],
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
   taskPresets: cloneDefaultTaskPresets(),
   macros: [],
@@ -688,7 +668,6 @@ export const defaultSettings: AppSettings = {
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
   prePrReviewEnabled: false,
-  prePrReviewProvider: DEFAULT_PRE_PR_REVIEW_PROVIDER,
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
@@ -790,6 +769,7 @@ export const defaultSettings: AppSettings = {
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,
   workspaceTurnSummaryPrompt: DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
   auxiliaryInferencePolicy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
+  auxiliaryInferenceDefault: DEFAULT_AUX_INFERENCE_DEFAULT,
   ...DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
 
   // Lens

@@ -194,8 +194,9 @@ needed you. **Copy Markdown** and **Add to PR description** act on it, and
 
 ### Agent performance
 
-**Agent performance** in the left navigation, Fleet header, or command palette
-compares ended runs across workspaces over 7, 30 or 90 days. It shows completion
+The **Performance** tab of **Agents** (also opened from **Agent performance** in
+the Fleet header and the Stave menu, or the command palette) compares ended runs
+across workspaces over 7, 30 or 90 days. It shows completion
 rate, median completion time, reported spend with cost coverage, follow-ups and
 stop reasons. Expand an agent row to inspect its recent reports.
 

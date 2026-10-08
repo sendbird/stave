@@ -15,6 +15,7 @@ import {
 } from "@/lib/providers/prompt-defaults";
 import { ReviewSettingsCards } from "./settings-dialog-review-cards";
 import { PrMergeMethod } from "@/lib/pr-status";
+import type { SectionId } from "../settings-dialog.schema";
 import {
   ChoiceButtons,
   LabeledField,
@@ -90,7 +91,9 @@ function PromptField({
   );
 }
 
-export function PromptsSection() {
+export function PromptsSection(args: {
+  onNavigateSection?: (id: SectionId) => void;
+} = {}) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
     promptResponseStyle,
@@ -116,7 +119,7 @@ export function PromptsSection() {
 
   return (
     <SectionStack>
-      <ReviewSettingsCards />
+      <ReviewSettingsCards onNavigateSection={args.onNavigateSection} />
 
       <SettingsCard
         title={t("settings:promptsSection.responseStyle.title")}

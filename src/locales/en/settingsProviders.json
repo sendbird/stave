@@ -435,13 +435,26 @@
       "fastMode": {
         "title": "Fast Mode",
         "description": "Enables Codex fast_mode feature flag for faster responses on simpler tasks."
+      },
+      "advanced": {
+        "title": "Advanced options",
+        "description": "Reasoning summary support and raw reasoning output. Saved values apply even while this is collapsed."
       }
+    },
+    "defaultsLink": {
+      "title": "Default Model and Effort",
+      "description": "Set for every provider in Models. A task can still change them from its composer.",
+      "action": "Open Models"
+    },
+    "advanced": {
+      "title": "Advanced options",
+      "description": "Session resume, setting sources, plugin paths, and other expert controls. Saved values apply even while this is collapsed."
     }
   },
   "cursorSection": {
     "runtime": {
       "title": "Cursor Runtime Controls",
-      "description": "Session mode and model preferences passed to interactive Cursor Agent turns."
+      "description": "Session mode and approval behavior for interactive Cursor Agent turns."
     },
     "modes": {
       "agent": {
@@ -490,7 +503,7 @@
   "kiroSection": {
     "runtime": {
       "title": "Kiro Runtime Controls",
-      "description": "Model preferences passed to interactive Kiro turns."
+      "description": "Approval behavior for interactive Kiro turns."
     },
     "approvalPreset": {
       "title": "Approval Preset",
@@ -625,15 +638,48 @@
       "on": "This lane makes a model call in the background.",
       "off": "Off. No model call is made for this lane."
     },
+    "enablementOwner": {
+      "editor": {
+        "title": "On/off lives in Editor",
+        "on": "On. Turn it off in Settings → Editor; provider and model are set here.",
+        "off": "Off. Turn it on in Settings → Editor; provider and model are set here.",
+        "action": "Open Editor"
+      }
+    },
     "provider": {
       "title": "Provider",
-      "pinned": "Pinned. This lane always runs on the selected provider.",
-      "unpinned": "Not pinned: the lane follows the task's provider. Selecting one pins it."
+      "pinned": "Overridden. This lane always runs on the selected provider.",
+      "unpinned": "Not overridden: the lane uses the utility model's provider. Selecting one overrides it."
     },
     "model": {
-      "title": "Model",
-      "currentDefault": "{{description}} Currently using the default: {{model}}.",
-      "currentProviderChoice": "{{description}} Currently using the default: the provider's own choice."
+      "title": "Model"
+    },
+    "sharedDefault": {
+      "title": "Utility model",
+      "description": "The provider and model every background lane below uses. Give one lane its own under Advanced.",
+      "providerOptions": {
+        "auto": "Follow the task's provider, or Claude when a call has no task.",
+        "claude": "Run background lanes on Claude.",
+        "codex": "Run background lanes on Codex."
+      },
+      "model": {
+        "automatic": "Automatic: each provider's lightest model. Pre-PR review uses the provider's default model.",
+        "explicit": "Every lane on this model's provider uses it. A lane overridden to the other provider uses that provider's automatic model.",
+        "reset": "Use automatic model"
+      }
+    },
+    "overrides": {
+      "title": "Per-lane overrides",
+      "description": "Give a lane its own provider or model. A lane without an override uses the utility model.",
+      "status": {
+        "inherits": "Uses the utility model.",
+        "overridden": "Overrides the utility model."
+      },
+      "model": {
+        "inherited": "From the utility model: {{model}}.",
+        "inheritedProviderChoice": "From the utility model: the provider's default model."
+      },
+      "reset": "Use the utility model"
     },
     "fallbackModel": {
       "title": "Fallback model",

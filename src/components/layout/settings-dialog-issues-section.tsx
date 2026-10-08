@@ -14,6 +14,7 @@ import {
 import { useTrackerSourceStatuses } from "@/lib/tracker-issues/client-state";
 import { TRACKER_ISSUE_VIEWS } from "@/lib/tracker-issues/filter";
 import { describeTrackerSources } from "@/lib/tracker-issues/source-status";
+import { isJiraSourceEnabled } from "@/lib/tracker-issues/jira-enablement";
 import {
   DEFAULT_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS,
   MAX_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS,
@@ -27,6 +28,7 @@ import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 import { TRACKER_SOURCE_LABELS } from "@/lib/tracker-issues/context";
 import { sx } from "@/components/ads/utils/stylex";
 import { tasksSectionStyles as styles } from "./settings-dialog-issues-section.styles";
+import type { SectionId } from "./settings-dialog.schema";
 
 const VIEW_LABELS: Record<(typeof TRACKER_ISSUE_VIEWS)[number], string> = {
   get "assigned-open"() { return i18n.t("settings:settingsDialogIssuesSection.assignedToMe"); },
@@ -51,9 +53,12 @@ function describeInterval(seconds: number): string {
   return i18n.t("settings:duration.minutes", { count: minutes });
 }
 
-export function IssueTrackerSettingsSection() {
+export function IssueTrackerSettingsSection(args: {
+  onNavigateSection?: (id: SectionId) => void;
+} = {}) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const tasks = useAppStore((state) => state.settings.trackerIssues);
+  const jiraEnabled = useAppStore((state) => isJiraSourceEnabled(state.settings));
   const updateSettings = useAppStore((state) => state.updateSettings);
   // Live status rather than the enabled switches: a connector turned on but
   // never given a credential used to render as an enabled source next to a
@@ -73,6 +78,18 @@ export function IssueTrackerSettingsSection() {
   useEffect(() => {
     setIntervalDraft(String(tasks.refreshIntervalSeconds));
   }, [tasks.refreshIntervalSeconds]);
+
+  const openIntegrations = () => {
+    if (args.onNavigateSection) {
+      args.onNavigateSection("integrations");
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
+        detail: { section: "integrations" },
+      }),
+    );
+  };
 
   const save = (patch: Partial<typeof tasks>) => {
     updateSettings({ patch: { trackerIssues: { ...tasks, ...patch } } });
@@ -198,13 +215,22 @@ export function IssueTrackerSettingsSection() {
               const summary = summaries.find(
                 (entry) => entry.source === source,
               );
-              const enabled = tasks.sourceEnabled[source];
+              // Jira's on/off is owned by Integrations; this row shows its
+              // effective state and links there instead of a second switch.
+              const ownedByIntegrations = source === "jira";
+              const enabled = ownedByIntegrations
+                ? jiraEnabled
+                : tasks.sourceEnabled[source];
               return (
                 <li key={source} className={sx(styles.sourceRow)}>
                   <div className={sx(styles.sourceMain)}>
                     <div className={sx(styles.sourceHead)}>
                       <label
-                        htmlFor={`settings-tasks-source-${source}`}
+                        htmlFor={
+                          ownedByIntegrations
+                            ? undefined
+                            : `settings-tasks-source-${source}`
+                        }
                         className={sx(styles.sourceLabel)}
                       >
                         {TRACKER_SOURCE_LABELS[source]}
@@ -228,38 +254,47 @@ export function IssueTrackerSettingsSection() {
                     <p className={sx(styles.hintTight)}>
                       {enabled
                         ? (summary?.detail ?? i18n.t("settings:settingsDialogIssuesSection.usedInTheIssuesList"))
-                        : i18n.t("settings:settingsDialogIssuesSection.hiddenFromIssuesPairingAndCredentials")}
+                        : ownedByIntegrations
+                          ? i18n.t("settings:settingsDialogIssuesSection.turnedOffInIntegrations")
+                          : i18n.t("settings:settingsDialogIssuesSection.hiddenFromIssuesPairingAndCredentials")}
                     </p>
                   </div>
                   <div className={sx(styles.sourceActions)}>
-                    {summary?.fixInSettings ? (
+                    {ownedByIntegrations ? (
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         xstyle={styles.setUpButton}
-                        onClick={() => {
-                          window.dispatchEvent(
-                            new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-                              detail: { section: "integrations" },
-                            }),
-                          );
-                        }}
+                        onClick={openIntegrations}
                       >
-                        {i18n.t("settings:settingsDialogIssuesSection.setUp")}</Button>
-                    ) : null}
-                    <Switch
-                      id={`settings-tasks-source-${source}`}
-                      checked={enabled}
-                      onCheckedChange={(checked) =>
-                        save({
-                          sourceEnabled: {
-                            ...tasks.sourceEnabled,
-                            [source]: checked,
-                          },
-                        })
-                      }
-                    />
+                        {i18n.t("settings:settingsDialogIssuesSection.manageInIntegrations")}</Button>
+                    ) : (
+                      <>
+                        {summary?.fixInSettings ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            xstyle={styles.setUpButton}
+                            onClick={openIntegrations}
+                          >
+                            {i18n.t("settings:settingsDialogIssuesSection.setUp")}</Button>
+                        ) : null}
+                        <Switch
+                          id={`settings-tasks-source-${source}`}
+                          checked={enabled}
+                          onCheckedChange={(checked) =>
+                            save({
+                              sourceEnabled: {
+                                ...tasks.sourceEnabled,
+                                [source]: checked,
+                              },
+                            })
+                          }
+                        />
+                      </>
+                    )}
                   </div>
                 </li>
               );
@@ -270,13 +305,7 @@ export function IssueTrackerSettingsSection() {
             size="xs"
             variant="link"
             xstyle={styles.openIntegrations}
-            onClick={() => {
-              window.dispatchEvent(
-                new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-                  detail: { section: "integrations" },
-                }),
-              );
-            }}
+            onClick={openIntegrations}
           >
             {t("settings:settingsDialogIssuesSection.openSettingsIntegrations")}</Button>
         </div>

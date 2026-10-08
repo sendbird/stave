@@ -2,10 +2,11 @@ import { create } from "zustand";
 
 /**
  * Which tab the Agents surface shows. Kept in its own store so another surface
- * — a "My standards" link, a palette command — can open the surface on a
- * given tab without threading state through the render ladder.
+ * — a "My standards" link, a palette command, the Agent performance entry
+ * points — can open the surface on a given tab without threading state through
+ * the render ladder.
  */
-export type AgentsViewTab = "agents" | "standards";
+export type AgentsViewTab = "agents" | "standards" | "performance";
 
 interface AgentsViewState {
   activeTab: AgentsViewTab;

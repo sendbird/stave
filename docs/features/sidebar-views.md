@@ -12,8 +12,8 @@ Both views list the same workspaces, so either one on its own is a complete way
 to navigate. Switching is a change of question, not a change of scope.
 
 Above either view, the sidebar's top navigation holds **Fleet View**,
-**Agents** with each agent at work and the number of things that need you, and
-**Agent performance**.
+**Agents** with each agent at work and the number of things that need you (its
+**Performance** tab compares ended runs), and **AI usage**.
 
 ## When To Use It
 
@@ -22,8 +22,9 @@ Above either view, the sidebar's top navigation holds **Fleet View**,
 - Use `Work queue` when you want the app to tell you where to go — which agents
   are blocked, which are still running, which finished and are waiting for a
   look.
-- Use Fleet View instead when you want the full cross-repository detail view rather
-  than a navigation surface.
+- Use Fleet View, the Work queue's full view, when you want every workspace as a
+  card with its tasks, the attention rail and board filters. Open it from the
+  expand button in the sidebar header bar while `Work queue` is showing.
 
 ## Before You Start
 
@@ -46,8 +47,10 @@ Above either view, the sidebar's top navigation holds **Fleet View**,
 
 - Sidebar header bar: the `Repositories` / `Work queue` toggle.
 - Top navigation: **Fleet View**, **Agents** and the agents at work (a count
-  on each), and **Agent performance**. Clicking an agent opens it in the Agents tab. Agent performance compares ended
-  runs across workspaces; see [Agent performance and task outputs](results.md).
+  on each), and **AI usage**. Clicking an agent opens it in the Agents tab.
+  Agents also has a **Performance** tab, which compares ended runs across
+  workspaces; see [Agent performance and task outputs](results.md).
+- Work queue header bar: the expand button opens Fleet View, the queue's full view.
 - `Settings → Design → Sidebar → Sidebar View`: the same two choices. Both
   controls write the same preference, so neither can disagree with the other.
 
@@ -71,6 +74,10 @@ Every workspace, grouped into four lanes in fixed priority order:
 - Inside a lane, rows are ordered: the workspace you are standing in first, then
   the most urgent attention item, then status, then most recently opened
   repository.
+- The same lanes and order are used by the Fleet View board (cards and the tasks
+  on each card, with a workspace's own last activity as the recency) and by the
+  Agents surface (agents at work in the sidebar, and each agent's Work list), so
+  what needs you is first everywhere.
 - A workspace appears in exactly one lane, and an empty lane renders no header.
 - Each lane header shows its row count and collapses on click. Collapsing is
   session-local — it answers "what am I ignoring right now", not "how do I like
@@ -94,7 +101,7 @@ the queue exactly the way it narrows the tree.
 
 - The collapsed icon rail shows one flat list regardless of view; the toggle is
   an expanded-sidebar control. The rail keeps **Fleet View**, **Agents** and
-  **Agent performance** as icons; a dot on Agents means an agent needs you.
+  **AI usage** as icons; a dot on Agents means an agent needs you.
 - Row actions (`⋮` menu, drag-to-reorder, rename in place) exist only in
   `Repositories`. Open the workspace from the queue and use the tree, Fleet View, or
   workspace settings for those.

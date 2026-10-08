@@ -76,6 +76,7 @@
     "clearedValueItems": "항목 {{cleared}}개를 지웠습니다.",
     "someItemsWereNotClearedRetry": "일부 항목을 지우지 못했습니다. 다시 시도합니다.",
     "fleetView": "Fleet 보기",
+    "fullWorkQueue": "전체 작업 대기열, 사용자 조치가 필요한 항목부터",
     "noAgentTurnsInFlight": "실행 중인 에이전트 턴 없음",
     "valueShown": " · {{visibleCount}}개 표시됨",
     "openNextItem": "다음 항목 열기",
@@ -153,7 +154,8 @@
     "actionRequired": "조치 필요",
     "inProgress": "진행 중",
     "inReview": "리뷰 중",
-    "idle": "유휴"
+    "idle": "유휴",
+    "openFullView": "Fleet 보기에서 전체 작업 대기열 열기"
   },
   "workspaceActivity": {
     "active": "활성",

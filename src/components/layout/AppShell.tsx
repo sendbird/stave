@@ -17,7 +17,6 @@ import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
 import { AgentsView } from "@/components/agents/AgentsView";
 import { UsageView } from "@/components/usage/UsageView";
-import { ResultsView } from "@/components/results/ResultsView";
 import {
   COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
   RepositoryWorkspaceSidebar,
@@ -160,7 +159,7 @@ export function AppShell() {
     openIssues,
     closeIssues,
     openAgents,
-    openResults,
+    openAgentPerformance,
     openUsage,
     openRepository,
     switchWorkspace,
@@ -207,7 +206,7 @@ export function AppShell() {
           state.openIssues,
           state.closeIssues,
           state.openAgents,
-          state.openResults,
+          state.openAgentPerformance,
           state.openUsage,
           state.openRepository,
           state.switchWorkspace,
@@ -1173,7 +1172,7 @@ export function AppShell() {
         openAutomationCenter: () => openAutomationCenter(),
         openIssues: () => openIssues(),
         openAgents: () => openAgents(),
-        openResults: () => openResults(),
+        openAgentPerformance: () => openAgentPerformance(),
         openUsage: () => openUsage(),
         newAgent: () => {
           openAgents();
@@ -1281,7 +1280,7 @@ export function AppShell() {
       openAutomationCenter,
       openIssues,
       openAgents,
-      openResults,
+      openAgentPerformance,
       openUsage,
       handleStartCompareRun,
       openRepository,
@@ -1316,10 +1315,9 @@ export function AppShell() {
   const showAutomationCenter = activeAppSurface.kind === "automation-center";
   const showIssues = activeAppSurface.kind === "issues";
   const showAgents = activeAppSurface.kind === "agents";
-  const showResults = activeAppSurface.kind === "results";
   const showUsage = activeAppSurface.kind === "usage";
   const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showIssues && !showAgents && !showResults && !showUsage;
+    !showFleetView && !showAutomationCenter && !showIssues && !showAgents && !showUsage;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1481,8 +1479,6 @@ export function AppShell() {
                   ) : activeAppSurface.kind === "usage" ? (
                     <UsageView key={`${activeAppSurface.providerId ?? "all"}:${activeAppSurface.accountProfileId ?? "all"}`}
                       initialProvider={activeAppSurface.providerId} initialAccount={activeAppSurface.accountProfileId} />
-                  ) : showResults ? (
-                    <ResultsView />
                   ) : showIssues ? (
                     <Suspense
                       fallback={

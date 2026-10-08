@@ -810,6 +810,32 @@ export const settingsSectionsStyles = stylex.create({
   fullWidth: {
     inlineSize: "100%",
   },
+  // Free-form model id for ACP runtimes (Cursor, Kiro) that report their
+  // catalog only once a session connects.
+  modelIdInput: {
+    blockSize: vars["--ads-control-height-lg"],
+    inlineSize: "100%",
+  },
+  // One row per provider in Models: model grows, effort keeps a fixed column
+  // and wraps under the model on narrow widths.
+  modelEffortRow: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-8"],
+    inlineSize: "100%",
+  },
+  modelEffortModel: {
+    flexBasis: "14rem",
+    flexGrow: 1,
+    flexShrink: 1,
+    minInlineSize: 0,
+  },
+  modelEffortEffort: {
+    flexBasis: "9rem",
+    flexGrow: 0,
+    flexShrink: 0,
+  },
 
   // --- auto routing block ---
   routingBlock: {

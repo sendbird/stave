@@ -268,8 +268,8 @@ async function executeUtilityInference<T>(args: {
     // to a different runner would send an unknown model id and fail the call
     // outright, so it is honored only when the model's own provider is the one
     // about to run. This has to be derived from the model rather than from the
-    // `explicit` reason: the legacy `utilityInferenceProvider` setting defaults
-    // to "auto", under which every candidate is a fallback and the user's
+    // `explicit` reason: a lane that only follows the task's provider sends
+    // "auto", under which every candidate is a fallback and the user's
     // Background AI model choice would otherwise never be applied.
     const configuredModel = args.context.utilityModel?.trim();
     const model =

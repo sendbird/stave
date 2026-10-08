@@ -22,7 +22,6 @@ export function SidebarSettingsCard() {
     (state) => state.settings.sidebarShowFleetView,
   );
   const sidebarShowAgents = useAppStore((state) => state.settings.sidebarShowAgents);
-  const sidebarShowResults = useAppStore((state) => state.settings.sidebarShowResults);
   const sidebarShowAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const sidebarNavView = useAppStore((state) => state.settings.sidebarNavView);
   const updateSettings = useAppStore((state) => state.updateSettings);
@@ -45,14 +44,6 @@ export function SidebarSettingsCard() {
         checked={sidebarShowAgents}
         onCheckedChange={(checked) =>
           updateSettings({ patch: { sidebarShowAgents: checked } })
-        }
-      />
-      <SwitchField
-        title={t("settings:themeSection.sidebar.results.title")}
-        description={t("settings:themeSection.sidebar.results.description")}
-        checked={sidebarShowResults}
-        onCheckedChange={(checked) =>
-          updateSettings({ patch: { sidebarShowResults: checked } })
         }
       />
       <SwitchField

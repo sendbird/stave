@@ -33,7 +33,6 @@ import {
   filterRepositorySidebarRepositories,
   buildVisibleWorkspaceShortcutTargets,
   getWorkspaceShortcutLabel,
-  getWorkspaceLeadingAttentionKind,
   WORKSPACE_SHORTCUT_COUNT,
   type RepositorySidebarAttentionAlert,
   type RepositorySidebarCollapsedRepositoryView,
@@ -71,6 +70,8 @@ import {
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
 import { type SidebarWorkQueueLane } from "@/lib/fleet/sidebar-work-queue";
+import { workQueueAttentionPriority } from "@/lib/fleet/work-attention-order";
+import { WorkQueueExpandButton } from "./WorkQueueExpandButton";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { useSidebarWorkQueueGroups } from "./useSidebarWorkQueueGroups";
@@ -419,15 +420,10 @@ export function RepositoryWorkspaceSidebar(args: {
             recentRepositoryLastOpenedAtByPath,
             statusByWorkspaceId: workspaceFleetStatusById,
             // Only needs that show a leading icon may pull a workspace up the
-            // order. A reviewed-later result must not outrank a live one with
-            // no visible reason for it.
+            // order (`workQueueAttentionPriority`, the shared rule).
             attentionPriorityByWorkspaceId: Object.fromEntries(
-              Object.entries(highestAttentionByWorkspaceId).flatMap(
-                ([workspaceId, attentionItem]) =>
-                  attentionItem &&
-                  getWorkspaceLeadingAttentionKind(attentionItem.kind)
-                    ? [[workspaceId, attentionItem.priority]]
-                    : [],
+              Object.entries(highestAttentionByWorkspaceId).map(
+                ([workspaceId, item]) => [workspaceId, workQueueAttentionPriority(item?.kind)],
               ),
             ),
             activeWorkspaceId,
@@ -911,8 +907,8 @@ export function RepositoryWorkspaceSidebar(args: {
                     </TooltipTrigger>
                     <TooltipContent side="top">{tI18n("workspace:repositoryWorkspaceSidebar.openRepository")}</TooltipContent>
                   </Tooltip>
-                  {/* Row density is a tree-only concern; the queue has one row shape. */}
-                  {isWorkQueueView ? null : (
+                  {/* Row density is a tree-only concern; the queue instead opens its full view, the Fleet board. */}
+                  {isWorkQueueView ? <WorkQueueExpandButton /> : (
                     <DropdownMenu>
                       <Tooltip>
                         <TooltipTrigger

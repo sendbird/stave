@@ -10,18 +10,24 @@ for (const theme of ["light", "dark"] as const) {
       applyAppLocale("en");
       const store = useAppStore.getState();
       store.updateSettings({ patch: {
-        sidebarShowFleetView: false, sidebarShowAgents: false,
-        sidebarShowResults: false, sidebarShowAiUsage: false,
+        sidebarShowFleetView: false, sidebarShowAgents: false, sidebarShowAiUsage: false,
       } });
       store.setDarkMode({ enabled: theme === "dark" });
     }, theme);
-    for (const [label, kind] of [["Fleet View", "fleet-view"], ["Agents", "agents"], ["Agent performance", "results"], ["AI usage", "usage"]]) {
+    for (const [label, kind, agentsTab] of [
+      ["Fleet View", "fleet-view", "agents"],
+      ["Agents", "agents", "agents"],
+      // Agent performance is the Agents view's Performance tab.
+      ["Agent performance", "agents", "performance"],
+      ["AI usage", "usage", "performance"],
+    ] as const) {
       await page.getByRole("button", { name: "Open Stave menu", exact: true }).click();
       await page.getByRole("menuitem", { name: label, exact: true }).click();
       await expect.poll(() => page.evaluate(async () => {
         const { useAppStore } = await import("/src/store/app.store.ts");
-        return useAppStore.getState().activeAppSurface.kind;
-      })).toBe(kind);
+        const { useAgentsViewStore } = await import("/src/store/agents-view-store.ts");
+        return [useAppStore.getState().activeAppSurface.kind, useAgentsViewStore.getState().activeTab];
+      })).toEqual([kind, agentsTab]);
     }
     await page.getByRole("button", { name: "Open Stave menu", exact: true }).click();
     await page.getByRole("menuitem", { name: /Command Palette/ }).click();

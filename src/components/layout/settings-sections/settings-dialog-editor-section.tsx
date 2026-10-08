@@ -2,6 +2,8 @@ import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useShallow } from "zustand/react/shallow";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import { useAppStore } from "@/store/app.store";
+import type { SectionId } from "../settings-dialog.schema";
+import { EditorAiCompletionsCard } from "./settings-dialog-editor-ai-completions-card";
 import {
   ChoiceButtons,
   DraftInput,
@@ -12,7 +14,9 @@ import {
   SwitchField,
 } from "../settings-dialog.shared";
 
-export function EditorSection() {
+export function EditorSection(args: {
+  onNavigateSection?: (id: SectionId) => void;
+} = {}) {
   const [
     editorFontSize,
     editorFontFamily,
@@ -21,7 +25,6 @@ export function EditorSection() {
     editorLineNumbers,
     editorTabSize,
     editorLspEnabled,
-    editorAiCompletions,
     editorEslintEnabled,
     editorFormatOnSave,
     pythonLspCommand,
@@ -37,7 +40,6 @@ export function EditorSection() {
           state.settings.editorLineNumbers,
           state.settings.editorTabSize,
           state.settings.editorLspEnabled,
-          state.settings.editorAiCompletions,
           state.settings.editorEslintEnabled,
           state.settings.editorFormatOnSave,
           state.settings.pythonLspCommand,
@@ -127,19 +129,7 @@ export function EditorSection() {
         />
       </SettingsCard>
 
-      <SettingsCard
-        title={t("settings:editorSection.aiCompletions.title")}
-        description={t("settings:editorSection.aiCompletions.description")}
-      >
-        <SwitchField
-          title={t("settings:editorSection.aiCompletions.enable.title")}
-          description={t("settings:editorSection.aiCompletions.enable.description")}
-          checked={editorAiCompletions}
-          onCheckedChange={(checked) =>
-            updateSettings({ patch: { editorAiCompletions: checked } })
-          }
-        />
-      </SettingsCard>
+      <EditorAiCompletionsCard onNavigateSection={args.onNavigateSection} />
 
       <SettingsCard
         title={t("settings:editorSection.languageServers.title")}

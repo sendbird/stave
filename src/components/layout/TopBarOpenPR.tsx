@@ -225,7 +225,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     activeTurnIdsByTask,
     workspacePrInfoById,
     prePrReviewEnabled,
-    prePrReviewProvider,
     prePrReviewClaudeModel,
     prePrReviewCodexModel,
     prePrReviewCodexBinaryPath,
@@ -252,7 +251,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           state.activeTurnIdsByTask,
           state.workspacePrInfoById,
           state.settings.prePrReviewEnabled,
-          state.settings.prePrReviewProvider,
           state.settings.modelClaude,
           state.settings.modelCodex,
           state.settings.codexBinaryPath,
@@ -488,6 +486,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const prDescriptionLane = resolveAuxLaneRuntime({
       lane: "prDescription",
       policy: auxiliaryInferencePolicy,
+      shared: useAppStore.getState().settings.auxiliaryInferenceDefault,
       activeProviderId: activeTask?.provider ?? null,
     });
     // Off keeps the deterministic fallback draft, which is why the lane can be
@@ -812,7 +811,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const prePrReviewLane = resolveAuxLaneRuntime({
       lane: "prePrReview",
       policy: auxiliaryInferencePolicy,
-      legacyProviderId: prePrReviewProvider,
+      shared: useAppStore.getState().settings.auxiliaryInferenceDefault,
     });
     if (
       prePrReviewEnabled &&

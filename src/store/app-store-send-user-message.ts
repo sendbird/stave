@@ -918,7 +918,7 @@ export function createSendUserMessageAction(args: {
         lane: resolveAuxLaneRuntime({
           lane: "taskName",
           policy: state.settings.auxiliaryInferencePolicy,
-          legacyProviderId: state.settings.utilityInferenceProvider,
+          shared: state.settings.auxiliaryInferenceDefault,
           activeProviderId: provider,
         }),
         context: buildUtilityInferenceContext({

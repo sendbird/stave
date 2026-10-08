@@ -23,6 +23,10 @@ import {
   type JiraConnectorPublicStatus,
 } from "@/lib/jira-connector/types";
 import { useAppStore } from "@/store/app.store";
+import {
+  buildJiraEnablementPatch,
+  isJiraSourceEnabled,
+} from "@/lib/tracker-issues/jira-enablement";
 import { jiraConnectorStyles as styles } from "./settings-dialog-jira-connector.styles";
 
 // Security posture: the email and token are write-only from the renderer. They
@@ -109,6 +113,17 @@ export function JiraConnectorSettingsSection() {
 
   const save = (patch: Partial<typeof connector>) =>
     updateSettings({ patch: { jiraConnector: { ...connector, ...patch } } });
+
+  // Integrations owns Jira's on/off; this switch shows and writes both keys
+  // that gate polling. Issues → Sources only links here.
+  const jiraEnabled = useAppStore((state) => isJiraSourceEnabled(state.settings));
+  const setJiraEnabled = (checked: boolean) =>
+    updateSettings({
+      patch: buildJiraEnablementPatch({
+        settings: useAppStore.getState().settings,
+        enabled: checked,
+      }),
+    });
 
   const invoke = async (
     key: BusyKey,
@@ -242,9 +257,9 @@ export function JiraConnectorSettingsSection() {
         </div>
         <Switch
           aria-label={t("settingsConnections:settingsDialogJiraConnector.enableJiraAsATaskSource")}
-          checked={connector.enabled}
+          checked={jiraEnabled}
           disabled={busy !== null}
-          onCheckedChange={(checked) => save({ enabled: checked })}
+          onCheckedChange={setJiraEnabled}
         />
       </div>
 

@@ -4,8 +4,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { AgentTable, Figures, OutcomeStrip, Reasons, outcomeTone } from "../src/components/results/ResultsParts";
 import { ResultsFailure, beginResultsLoad } from "../src/components/results/ResultsView";
 import { aggregateAgentRunInsights, type ResultSample } from "../src/lib/agent-runs/insights";
-import { createAppSurfaceActions, RESULTS_APP_SURFACE, WORKSPACE_APP_SURFACE, normalizeAppActiveSurface, type AppActiveSurface } from "../src/store/app-surface";
-import { getCommandPaletteCoreCommands } from "../src/components/layout/command-palette-registry";
 
 const NOW = Date.parse("2026-10-02T12:00:00.000Z");
 function sample(id: string, patch: Partial<ResultSample> = {}): ResultSample {
@@ -78,25 +76,6 @@ describe("results page", () => {
   });
 });
 
-describe("results entry points", () => {
-  test("the surface opens, closes and normalizes", () => {
-    let state: { activeAppSurface: AppActiveSurface } = { activeAppSurface: WORKSPACE_APP_SURFACE };
-    const actions = createAppSurfaceActions((updater) => {
-      state = { ...state, ...updater(state) };
-    });
-    actions.openResults();
-    expect(state.activeAppSurface).toBe(RESULTS_APP_SURFACE);
-    actions.closeResults();
-    expect(state.activeAppSurface.kind).toBe("workspace");
-    expect(normalizeAppActiveSurface({ kind: "results" })).toBe(RESULTS_APP_SURFACE);
-  });
-
-  test("the command palette offers Open agent performance", () => {
-    const entry = getCommandPaletteCoreCommands().find((candidate) => candidate.id === "navigation.results");
-    expect(entry?.title).toBe("Open agent performance");
-    expect(entry?.group).toBe("navigation");
-  });
-});
 
 describe("results reload", () => {
   test("a period switch keeps the figures on the page and marks them as reloading", () => {

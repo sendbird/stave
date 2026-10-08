@@ -3,7 +3,7 @@
 ## Summary
 
 - Stave makes a number of model calls you never asked for directly: it names your tasks, summarizes each finished turn, checks a diff against pinned intent, drafts PR descriptions, and completes code inline.
-- `Settings → Background AI` shows every one of those lanes, lets you switch each off, and lets you choose the provider and model it runs on.
+- `Settings → Background AI` sets one shared utility model (provider and model) that every lane uses, shows every lane with its own switch, and, under `Advanced`, lets a single lane run on a different provider or model.
 
 ## When To Use It
 
@@ -20,7 +20,8 @@
 
 1. Open `Settings → Background AI`.
 2. Turn off any lane you do not want. It stops making model calls immediately; there is no separate apply step.
-3. For a lane you keep, pick its `Provider` and `Model`.
+3. In `Utility model`, pick the `Provider` and `Model` every lane should use, or leave both on their automatic defaults.
+4. Only if one lane needs something different, open `Per-lane overrides` and set that lane's provider or model.
 
 ## Interface Walkthrough
 
@@ -31,13 +32,13 @@
 
 ### Key Controls
 
-Each lane is one card with the same three controls:
+The section is a shared default plus exceptions:
 
-- The switch decides whether the lane makes a model call at all. Off is always safe: a lane with a non-AI fallback keeps using it, and a lane without one simply produces nothing.
-- `Provider` picks which managed provider answers the lane. Unset follows the task's own provider.
-- `Model` picks the model. Leaving it empty follows the provider's default for that kind of call.
+- `Utility model` is the provider and model every lane uses. `Provider` `Auto` follows the task's own provider, or Claude for a call that has no task (pre-PR review, intent guard, inline completion). `Model` left on automatic uses each provider's lightest model; pre-PR review uses the provider's default model instead. Picking a model also picks its provider. This replaces the former `Utility AI` provider in `Settings → Models`, which now links here.
+- Each lane card has only its switch, which decides whether the lane makes a model call at all. Off is always safe: a lane with a non-AI fallback keeps using it, and a lane without one simply produces nothing.
+- `Per-lane overrides` (collapsed) gives a lane its own `Provider` or `Model`. A lane without an override follows the utility model; `Use the utility model` removes an override. A lane overridden to the other provider uses that provider's automatic model unless it also overrides the model.
 
-Lanes that keep a second attempt (currently `Turn summary`) also expose a `Fallback model`, tried once when the primary is unavailable or its answer cannot be parsed.
+Lanes that keep a second attempt (currently `Turn summary`) also expose a `Fallback model` override, tried once when the primary is unavailable or its answer cannot be parsed.
 
 ## Common Workflows
 
@@ -48,37 +49,40 @@ Lanes that keep a second attempt (currently `Turn summary`) also expose a `Fallb
 3. Turn off `Intent guard` if you do not pin intent anchors. (It is already inert when nothing is pinned.)
 4. Leave `Task naming` on: by default it makes exactly one call per task.
 
-### Move A Lane To Your Subscribed Provider
+### Move Background Calls To Your Subscribed Provider
 
-1. Open the lane's card.
-2. Set `Provider` to the provider you pay for.
-3. Set `Model` to that provider's cheapest model that still produces a usable result.
+1. In `Utility model`, set `Provider` to the provider you pay for.
+2. Optionally set `Model` to that provider's cheapest model that still produces a usable result.
+3. To move only one lane, open `Per-lane overrides` and set the provider on that lane instead.
 
 ## Files And Data
 
-The whole section is one app setting, exported and imported with the rest of your settings:
+The section is two app settings, exported and imported with the rest of your settings. `auxiliaryInferenceDefault` is the utility model (`model: null` is automatic). In `auxiliaryInferencePolicy`, a lane's `providerId`, `model` and `fallbackModel` are overrides: a present value overrides, an absent key inherits.
 
 ```json
 {
+  "auxiliaryInferenceDefault": { "providerId": "auto", "model": null },
   "auxiliaryInferencePolicy": {
     "turnSummary": {
       "enabled": true,
       "providerId": "claude-code",
-      "model": "claude-haiku-5-5",
-      "fallbackModel": null
-    }
+      "model": "claude-haiku-5-5"
+    },
+    "taskName": { "enabled": true, "maxUserTurns": 1 }
   }
 }
 ```
 
+Settings saved by an earlier version keep their behavior on upgrade: a lane's saved model becomes its override, and a non-default `Utility AI` or pre-PR review provider becomes a provider override on the lanes that used it.
+
 ## Limitations And Advanced Options
 
-- The defaults are already the cheap ones. A lane whose model is unset resolves to its provider's lightest catalog model, so no background call inherits the model your own turns use. Background lanes never request a provider's premium fast mode, even when your own turns do.
-- `Inline completion` is off until you switch it on. It fires on every short typing pause with the surrounding code as its prompt and no reusable prompt prefix, so on a metered plan it can outspend the turns you type yourself.
+- The defaults are already the cheap ones. With the utility model on automatic and no override, a lane resolves to its provider's lightest catalog model, so no background call inherits the model your own turns use. Background lanes never request a provider's premium fast mode, even when your own turns do.
+- `Inline completion` is off until you switch it on in `Settings → Editor → Enable AI Completions`, which is its only on/off switch; this section sets its provider and model. It fires on every short typing pause with the surrounding code as its prompt and no reusable prompt prefix, so on a metered plan it can outspend the turns you type yourself.
 - Several lanes are additionally gated on there being real work to do: the intent guard skips a turn that changed no files and reuses its previous verdict when the diff is byte-identical; the turn summary skips a turn with no assistant reply; task naming stops after the first user turn unless you raise its window.
 - Delegated delegated tasks are not listed. Their runtime options are assembled in the main process, which has no view of these settings, so a switch here could not take effect.
 - The turn summary keeps a cross-provider fallback: if the lane's own provider cannot answer, Stave tries the other managed provider's light model once, so a workspace whose provider CLI is missing still gets a summary.
-- `Pre-PR review` still respects `Settings → Prompts → Pre-PR Review`; the switch there controls whether a review runs at all, and this lane controls what it runs on.
+- `Pre-PR review` is switched on and off only here, and is off until you turn it on. `Settings → Prompts` keeps the review-task prompts and links back here.
 
 ## Troubleshooting
 

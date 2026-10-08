@@ -178,7 +178,7 @@ the number of unchecked outputs on **Outputs**. The tab you choose is kept with
 the layout, so the panel reopens where you left it, and a task tab's context
 menu opens it straight to **Outputs**, **Progress** or **Subagents**.
 
-The left-navigation **Agent performance** screen compares runs across workspaces.
+The **Performance** tab of **Agents** compares runs across workspaces.
 See [Agent performance and task outputs](results.md) for the difference and examples.
 
 ### With An Agent Run

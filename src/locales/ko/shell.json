@@ -528,7 +528,7 @@
     "aiUsageDescription": "토큰, 보고된 비용, 계정 한도와 턴 기록을 확인합니다.",
     "openResults": "에이전트 성과 열기",
     "seeHowEndedAgentRunsAndRuns": "종료된 에이전트 실행의 완료율, 시간, 보고된 비용을 비교합니다.",
-    "outcomesTimeAndCostOfEndedAgent": "에이전트 완료율, 시간, 보고된 비용.",
+    "outcomesTimeAndCostOfEndedAgent": "에이전트의 성과 탭: 완료율, 시간, 보고된 비용.",
     "assignToAnAgent": "에이전트에 할당…",
     "chooseAnAgentInTheComposerOr": "작업이 열려 있으면 입력창에서, 없으면 킥오프에서 에이전트를 선택합니다.",
     "chooseTheAgentThatDoesThisTaskS": "이 작업을 수행할 에이전트를 선택합니다.",

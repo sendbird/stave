@@ -74,7 +74,6 @@ async function routeWith(rateLimitsSnapshot: RateLimitsSnapshotResponse | null) 
       settings: {
         ...defaultSettings,
         autoRoutingEnabled: true,
-        autoRoutingAllowProviderSwitch: false,
         autoRoutingProfile: PROFILE,
       },
       providerAvailability: AVAILABILITY,

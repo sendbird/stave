@@ -114,10 +114,13 @@
     "behavior": {
       "title": "동작",
       "description": "채팅 기능과 표시 방식을 설정합니다.",
-      "streaming": "스트리밍 UI",
+      "streaming": {
+        "title": "스트리밍 UI",
+        "description": "턴이 진행되는 동안 응답과 추론 과정을 실시간으로 표시합니다. 끄면 턴이 끝난 뒤 결과가 한 번에 나타나고, 추론 과정도 자동으로 펼쳐지지 않습니다."
+      },
       "reasoningExpansion": {
         "title": "추론 과정 펼치기",
-        "description": "자동은 턴이 스트리밍되는 동안 추론 과정을 펼쳤다가 끝나면 다시 접습니다. 수동은 직접 열 때까지 접어 둡니다.",
+        "description": "자동은 턴이 스트리밍되는 동안 추론 과정을 펼쳤다가 끝나면 다시 접습니다. 수동은 직접 열 때까지 접어 둡니다. 스트리밍 UI가 꺼져 있으면 자동도 수동처럼 동작합니다.",
         "manual": "수동"
       },
       "interimMessages": {
@@ -179,13 +182,9 @@
         "title": "에이전트 바로 가기",
         "description": "사이드바 머리글 영역에 에이전트와 현재 작업 중인 에이전트 목록을 표시합니다."
       },
-      "results": {
-        "title": "에이전트 성과 바로 가기",
-        "description": "완료된 실행, 소요 시간, 보고된 비용을 비교할 수 있도록 사이드바에 에이전트 성과를 표시합니다."
-      },
       "aiUsage": {
         "title": "AI 사용량 바로 가기",
-        "description": "사이드바 머리글 영역에 AI 사용량 항목을 표시합니다."
+        "description": "사이드바 머리글 영역에 AI 사용량 항목을 표시합니다. 에이전트 성과 탭에서 완료된 실행, 소요 시간, 보고된 비용을 비교할 수 있습니다."
       }
     },
     "presets": {
@@ -239,7 +238,12 @@
       "description": "Claude 기반의 고스트 텍스트 코드 제안입니다. 가능하면 로컬 Claude 인증으로 Claude SDK를 사용하고, 그렇지 않으면 Anthropic API로 대체합니다(ANTHROPIC_API_KEY 필요).",
       "enable": {
         "title": "AI 자동 완성 사용",
-        "description": "입력하는 동안 AI가 생성한 인라인 제안을 표시합니다. Tab 키를 눌러 수락합니다. 빠르고 저렴한 자동 완성을 위해 Claude Haiku를 사용합니다."
+        "description": "입력하는 동안 AI가 생성한 인라인 제안을 표시합니다. Tab 키를 눌러 수락합니다. 인라인 완성을 켜고 끄는 설정은 여기에만 있습니다."
+      },
+      "modelLink": {
+        "title": "자동 완성 모델",
+        "description": "인라인 완성에 사용할 프로바이더와 모델은 설정 → 백그라운드 AI에서 고릅니다.",
+        "action": "백그라운드 AI 열기"
       }
     },
     "languageServers": {
@@ -374,8 +378,8 @@
   },
   "modelsSection": {
     "routing": {
-      "title": "모델 라우팅",
-      "description": "새 턴에 사용할 기본 Claude 및 Codex 모델을 선택합니다. App Server 카탈로그를 사용할 수 없으면 Stave가 검증된 Codex 기본 모델로 대체합니다.",
+      "title": "기본 모델과 추론 강도",
+      "description": "새 작업은 이 모델과 추론 강도로 시작합니다. 작업 입력창에서 바꾼 모델이나 추론 강도는 그 작업에만 적용되고, 프리셋은 각자 저장된 선택을 유지합니다. App Server 카탈로그를 사용할 수 없으면 Stave가 검증된 Codex 기본 모델로 대체합니다.",
       "claudeModelAriaLabel": "Claude 모델: {{model}}",
       "codexModelAriaLabel": "Codex 모델: {{model}}",
       "claudeEffort": {
@@ -387,9 +391,21 @@
         "description": "새 Codex 턴에 적용할 기본 추론 강도입니다."
       },
       "utility": {
-        "title": "유틸리티 AI",
-        "description": "작업 이름, 라우팅 분류, 커밋 메시지, 프롬프트 개선에 사용할 프로바이더입니다. 자동은 활성 작업의 Claude 또는 Codex를 우선 사용하고, 없으면 설치된 유틸리티 실행기를 차례로 사용합니다.",
-        "ariaLabel": "유틸리티 AI 프로바이더"
+        "title": "유틸리티 모델",
+        "description": "작업 이름, 라우팅 분류, 커밋 메시지, 프롬프트 개선을 비롯한 모든 백그라운드 호출은 백그라운드 AI에서 설정한 유틸리티 모델을 사용합니다.",
+        "action": "백그라운드 AI 열기"
+      },
+      "cursorModel": {
+        "ariaLabel": "Cursor 기본 모델"
+      },
+      "cursorEffort": {
+        "title": "Cursor 추론 강도"
+      },
+      "kiroModel": {
+        "ariaLabel": "Kiro 기본 모델"
+      },
+      "kiroEffort": {
+        "title": "Kiro 추론 강도"
       }
     }
   },
@@ -507,15 +523,10 @@
     "prePr": {
       "title": "PR 전 리뷰",
       "description": "Stave가 브랜치를 푸시하고 풀 리퀘스트를 열기 전에 일회성 AI 리뷰를 최대한 실행합니다.",
-      "enable": {
-        "title": "PR 열기 전에 리뷰",
-        "description": "PR 대화상자에 구체적인 발견 사항을 보여 주고, 멈추고 수정할지 그대로 진행할지 고를 수 있게 합니다. 모델이 실패해도 PR 생성은 막지 않습니다."
-      },
-      "provider": {
-        "title": "리뷰 프로바이더",
-        "description": "일회성 리뷰를 실행할 프로바이더를 선택합니다. 프로바이더에 설정된 기본 모델을 사용합니다.",
-        "claudeDescription": "설정된 Claude 모델을 사용합니다.",
-        "codexDescription": "설정된 Codex 모델을 사용합니다."
+      "link": {
+        "title": "백그라운드 AI로 이동함",
+        "description": "PR 전 리뷰를 켜거나 끄고 프로바이더와 모델을 고르는 설정은 설정 → 백그라운드 AI에 있습니다.",
+        "action": "백그라운드 AI 열기"
       }
     }
   },
@@ -949,7 +960,7 @@
     },
     "models": {
       "label": "모델",
-      "description": "기본 모델 선택, 모델 표시 여부, Utility AI 프로바이더를 설정합니다."
+      "description": "기본 모델 선택과 모델 표시 여부를 설정합니다."
     },
     "autoRouting": {
       "label": "Auto (모델 라우터)",
@@ -1042,7 +1053,11 @@
       },
       "auxiliaryInference": {
         "title": "백그라운드 AI",
-        "description": "Stave가 대신 수행하는 백그라운드 호출의 레인별 스위치, 프로바이더, 모델입니다. 의도 가드, 턴 요약, 작업 이름 생성, 유틸리티 추론, PR 설명, PR 전 리뷰, 인라인 자동 완성, 위임된 작업이 포함됩니다."
+        "description": "Stave가 대신 수행하는 백그라운드 호출의 레인별 스위치와 프로바이더·모델 재정의입니다. 의도 가드, 턴 요약, 작업 이름 생성, 유틸리티 추론, PR 설명, PR 전 리뷰, 인라인 자동 완성, 위임된 작업이 포함됩니다."
+      },
+      "auxiliaryInferenceDefault": {
+        "title": "유틸리티 모델",
+        "description": "레인이 재정의하지 않는 한 모든 백그라운드 AI 레인이 사용하는 프로바이더와 모델입니다."
       },
       "promptStyle": {
         "title": "프롬프트 스타일",
@@ -1155,7 +1170,9 @@
     "whenATicketStartsWork": "이슈 작업을 시작할 때",
     "stagingLeavesTheGeneratedPromptIn": "준비를 선택하면 생성한 프롬프트를 입력창에 두고 첫 턴 전에 편집할 수 있습니다.",
     "sources": "소스",
-    "chooseWhichTrackersIssuesReadsPairing": "이슈에서 읽을 트래커를 선택합니다. 연결 및 인증 정보는 설정 → 통합에서 관리합니다. Jira가 먼저 표시되고 Crane이 뒤따릅니다.",
+    "chooseWhichTrackersIssuesReadsPairing": "이슈에서 읽을 트래커를 선택합니다. Jira는 설정 → 통합에서 켜고 끄며, 연결 및 인증 정보도 그곳에서 관리합니다. Jira가 먼저 표시되고 Crane이 뒤따릅니다.",
+    "turnedOffInIntegrations": "꺼져 있습니다. 설정 → 통합에서 Jira를 켜세요.",
+    "manageInIntegrations": "통합에서 관리",
     "usedInTheIssuesList": "이슈 목록에서 사용합니다.",
     "hiddenFromIssuesPairingAndCredentials": "이슈 목록에서 숨깁니다. 연결 및 인증 정보는 유지합니다.",
     "setUp": "설정",

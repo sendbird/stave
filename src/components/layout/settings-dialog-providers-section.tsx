@@ -38,7 +38,6 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
-import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
@@ -68,13 +67,15 @@ import { SettingsDelegationSection } from "./settings-dialog-delegation-section"
 import { SettingsCursorSection } from "./settings-dialog-cursor-section";
 import { SettingsKiroSection } from "./settings-dialog-kiro-section";
 import { providersStyles } from "./settings-dialog-providers-section.styles";
+import {
+  buildGuideExamples,
+  buildGuideItems,
+  type ExplainedSelectOption,
+} from "./settings-dialog-effort-help";
+import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
+import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
+import type { SectionId } from "./settings-dialog.schema";
 import { SettingsProviderTabsList } from "./settings-provider-tabs";
-type ExplainedSelectOption<T extends string> = {
-  value: T;
-  label: string;
-  description: string;
-  example?: string;
-};
 
 /** Tab order for the per-provider runtime settings below the shared cards. */
 const PROVIDER_SETTINGS_TAB_IDS = [
@@ -140,41 +141,6 @@ const CLAUDE_THINKING_MODE_HELP = [
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["claudeThinkingMode"]>
->[];
-
-const CLAUDE_EFFORT_HELP = [
-  {
-    value: "low",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.low"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.low.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.low.example"); },
-  },
-  {
-    value: "medium",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.medium"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.medium.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.medium.example"); },
-  },
-  {
-    value: "high",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.high"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.high.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.high.example"); },
-  },
-  {
-    value: "xhigh",
-    label: "X-High",
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.xhigh.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.xhigh.example"); },
-  },
-  {
-    value: "max",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.max"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.max.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.effort.options.max.example"); },
-  },
-] as const satisfies readonly ExplainedSelectOption<
-  NonNullable<ProviderRuntimeOptions["claudeEffort"]>
 >[];
 
 const CLAUDE_SETTING_SOURCE_HELP = [
@@ -249,53 +215,6 @@ const CODEX_APPROVAL_POLICY_HELP = [
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexApprovalPolicy"]>
->[];
-
-const CODEX_REASONING_EFFORT_HELP = [
-  {
-    value: "minimal",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.minimal"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.minimal.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.minimal.example"); },
-  },
-  {
-    value: "low",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.low"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.low.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.low.example"); },
-  },
-  {
-    value: "medium",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.medium"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.medium.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.medium.example"); },
-  },
-  {
-    value: "high",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.high"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.high.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.high.example"); },
-  },
-  {
-    value: "xhigh",
-    label: "X-High",
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.xhigh.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.xhigh.example"); },
-  },
-  {
-    value: "max",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.max"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.max.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.max.example"); },
-  },
-  {
-    value: "ultra",
-    get label() { return i18n.t("settingsProviders:providersSection.effortLevels.ultra"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.ultra.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.reasoning.options.ultra.example"); },
-  },
-] as const satisfies readonly ExplainedSelectOption<
-  NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
 >[];
 
 const CODEX_REASONING_SUMMARY_HELP = [
@@ -411,26 +330,6 @@ const CODEX_APP_TOOL_APPROVAL_HELP = [
   NonNullable<ProviderRuntimeOptions["codexAppToolApprovalMode"]>
 >[];
 
-function buildGuideItems<T extends string>(
-  options: readonly ExplainedSelectOption<T>[],
-) {
-  return options.map((option) => ({
-    label: option.label,
-    description: option.description,
-  }));
-}
-
-function buildGuideExamples<T extends string>(
-  options: readonly ExplainedSelectOption<T>[],
-) {
-  return options
-    .filter((option) => option.example)
-    .map((option) => ({
-      label: option.label,
-      description: option.example ?? "",
-    }));
-}
-
 function findExplainedOption<T extends string>(
   options: readonly ExplainedSelectOption<T>[],
   value: T,
@@ -516,7 +415,9 @@ function ProviderModePresetButtons(args: {
   );
 }
 
-export function ProvidersSection() {
+export function ProvidersSection(props: {
+  onNavigateSection?: (id: SectionId) => void;
+}) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
     claudePermissionMode,
@@ -527,7 +428,6 @@ export function ProvidersSection() {
     claudeSandboxCredentialEnvVars,
     claudeTaskBudgetTokens,
     claudeSettingSources,
-    claudeEffort,
     claudeThinkingMode,
     claudeAgentProgressSummaries,
     claudePromptSuggestions,
@@ -543,8 +443,6 @@ export function ProvidersSection() {
     codexFileAccess,
     codexNetworkAccess,
     codexApprovalPolicy,
-    codexReasoningEffort,
-    modelCodex,
     codexWebSearch,
     codexAppToolApprovalMode,
     codexShowRawReasoning,
@@ -568,7 +466,6 @@ export function ProvidersSection() {
           state.settings.claudeSandboxCredentialEnvVars,
           state.settings.claudeTaskBudgetTokens,
           state.settings.claudeSettingSources,
-          state.settings.claudeEffort,
           state.settings.claudeThinkingMode,
           state.settings.claudeAgentProgressSummaries,
           state.settings.claudePromptSuggestions,
@@ -584,8 +481,6 @@ export function ProvidersSection() {
           state.settings.codexFileAccess,
           state.settings.codexNetworkAccess,
           state.settings.codexApprovalPolicy,
-          state.settings.codexReasoningEffort,
-          state.settings.modelCodex,
           state.settings.codexWebSearch,
           state.settings.codexAppToolApprovalMode,
           state.settings.codexShowRawReasoning,
@@ -633,18 +528,6 @@ export function ProvidersSection() {
         (preset) => preset.id === currentCodexModePresetId,
       )?.label ?? t("common:labels.custom"))
     : t("common:labels.custom");
-  // Scoped to the default Codex model so, e.g., GPT-5.6 Luna never offers
-  // "Ultra" here — a value only Sol/Terra accept. "Minimal" is always kept
-  // available since it's a legacy value Stave still maps to "low" at
-  // runtime, not part of the current model-reported effort scale.
-  const codexReasoningEffortOptions = useMemo(() => {
-    const supported = listCodexReasoningEffortsForModel({ model: modelCodex });
-    return CODEX_REASONING_EFFORT_HELP.filter(
-      (option) =>
-        option.value === "minimal" ||
-        (supported as readonly string[]).includes(option.value),
-    );
-  }, [modelCodex]);
   const codexWebSearchOptions = useMemo(
     () =>
       CODEX_WEB_SEARCH_HELP.filter(
@@ -871,52 +754,6 @@ export function ProvidersSection() {
                 </>
               ) : null}
               <LabeledField
-                title={t("settingsProviders:providersSection.claudeRuntime.settingSources.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.settingSources.description")}
-                guide={
-                  <SettingsFieldGuide
-                    title={t("settingsProviders:providersSection.claudeRuntime.settingSources.guide.title")}
-                    summary={t("settingsProviders:providersSection.claudeRuntime.settingSources.guide.summary")}
-                    items={CLAUDE_SETTING_SOURCE_HELP.map((option) => ({
-                      label: option.label,
-                      description: option.description,
-                    }))}
-                    tooltip={t("settingsProviders:providersSection.claudeRuntime.settingSources.guide.tooltip")}
-                  />
-                }
-              >
-                <ToggleChipGroup
-                  options={CLAUDE_SETTING_SOURCE_HELP}
-                  selected={claudeSettingSources}
-                  onToggle={toggleClaudeSettingSource}
-                />
-                <p className={sx(providersStyles.presetHint)}>
-                  {t("settingsProviders:settingsDialogProvidersSection.active")}{" "}
-                  {claudeSettingSources.length > 0
-                    ? claudeSettingSources.join(" + ")
-                    : t("settingsProviders:settingsDialogProvidersSection.none")}
-                </p>
-              </LabeledField>
-              <LabeledField
-                title={t("settingsProviders:providersSection.claudeRuntime.taskBudget.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.taskBudget.description")}
-              >
-                <DraftInput
-                  xstyle={providersStyles.field}
-                  value={String(claudeTaskBudgetTokens)}
-                  onCommit={(value) =>
-                    updateSettings({
-                      patch: {
-                        claudeTaskBudgetTokens: Math.min(
-                          1_000_000,
-                          Math.max(0, readInt(value, claudeTaskBudgetTokens)),
-                        ),
-                      },
-                    })
-                  }
-                />
-              </LabeledField>
-              <LabeledField
                 title={t("settingsProviders:providersSection.claudeRuntime.thinkingMode.title")}
                 guide={
                   <SettingsFieldGuide
@@ -940,30 +777,7 @@ export function ProvidersSection() {
                   }
                 />
               </LabeledField>
-              <LabeledField
-                title={t("settingsProviders:providersSection.claudeRuntime.effort.title")}
-                guide={
-                  <SettingsFieldGuide
-                    title={t("settingsProviders:providersSection.claudeRuntime.effort.guide.title")}
-                    summary={t("settingsProviders:providersSection.claudeRuntime.effort.guide.summary")}
-                    items={buildGuideItems(CLAUDE_EFFORT_HELP)}
-                    examples={buildGuideExamples(CLAUDE_EFFORT_HELP)}
-                    tooltip={t("settingsProviders:providersSection.claudeRuntime.effort.guide.tooltip")}
-                  />
-                }
-              >
-                <DescribedSelect
-                  value={claudeEffort}
-                  options={CLAUDE_EFFORT_HELP}
-                  onValueChange={(value) =>
-                    updateSettings({
-                      patch: {
-                        claudeEffort: value,
-                      },
-                    })
-                  }
-                />
-              </LabeledField>
+              <ProviderDefaultsLink onNavigateSection={props.onNavigateSection} />
               <SwitchField
                 title={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.title")}
                 description={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.description")}
@@ -985,16 +799,6 @@ export function ProvidersSection() {
                 }
               />
               <SwitchField
-                title={t("settingsProviders:providersSection.claudeRuntime.forwardSubagentText.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.forwardSubagentText.description")}
-                checked={claudeForwardSubagentText}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: { claudeForwardSubagentText: checked },
-                  })
-                }
-              />
-              <SwitchField
                 title={t("settingsProviders:providersSection.claudeRuntime.fileCheckpointing.title")}
                 description={t("settingsProviders:providersSection.claudeRuntime.fileCheckpointing.description")}
                 checked={claudeEnableFileCheckpointing}
@@ -1004,92 +808,154 @@ export function ProvidersSection() {
                   })
                 }
               />
-              <SwitchField
-                title={t("settingsProviders:providersSection.claudeRuntime.forkSession.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.forkSession.description")}
-                checked={claudeForkSession}
-                onCheckedChange={(checked) =>
-                  updateSettings({ patch: { claudeForkSession: checked } })
-                }
-              />
-              <SwitchField
-                title={t("settingsProviders:providersSection.claudeRuntime.strictMcpConfig.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.strictMcpConfig.description")}
-                checked={claudeStrictMcpConfig}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: { claudeStrictMcpConfig: checked },
-                  })
-                }
-              />
-              <LabeledField
-                title={t("settingsProviders:codexExtensionsTab.skills")}
-                description={t("settingsProviders:providersSection.claudeRuntime.skills.description")}
-              >
-                <DraftInput
-                  xstyle={providersStyles.field}
-                  value={claudeSkills}
-                  placeholder={t("settingsProviders:settingsDialogProvidersSection.all")}
-                  onCommit={(value) =>
-                    updateSettings({ patch: { claudeSkills: value } })
-                  }
-                />
-              </LabeledField>
-              <LabeledField
-                title={t("settingsProviders:providersSection.claudeRuntime.pluginPaths.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.pluginPaths.description")}
-              >
-                <DraftInput
-                  xstyle={providersStyles.field}
-                  value={claudePluginPaths}
-                  placeholder="<workspace>/plugin"
-                  onCommit={(value) =>
-                    updateSettings({ patch: { claudePluginPaths: value } })
-                  }
-                />
-              </LabeledField>
               <ClaudeInstalledPluginsField />
-              <LabeledField
-                title={t("settingsProviders:providersSection.claudeRuntime.mainAgent.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.mainAgent.description")}
+              <SettingsAdvancedDisclosure
+                compact
+                title={t("settingsProviders:providersSection.advanced.title")}
+                description={t("settingsProviders:providersSection.advanced.description")}
               >
-                <DraftInput
-                  xstyle={providersStyles.field}
-                  value={claudeAgentName}
-                  placeholder="code-reviewer"
-                  onCommit={(value) =>
-                    updateSettings({ patch: { claudeAgentName: value } })
+                <LabeledField
+                  title={t("settingsProviders:providersSection.claudeRuntime.settingSources.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.settingSources.description")}
+                  guide={
+                    <SettingsFieldGuide
+                      title={t("settingsProviders:providersSection.claudeRuntime.settingSources.guide.title")}
+                      summary={t("settingsProviders:providersSection.claudeRuntime.settingSources.guide.summary")}
+                      items={CLAUDE_SETTING_SOURCE_HELP.map((option) => ({
+                        label: option.label,
+                        description: option.description,
+                      }))}
+                      tooltip={t("settingsProviders:providersSection.claudeRuntime.settingSources.guide.tooltip")}
+                    />
                   }
-                />
-              </LabeledField>
-              <LabeledField
-                title={t("settingsProviders:providersSection.claudeRuntime.fallbackModels.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.fallbackModels.description")}
-              >
-                <DraftInput
-                  xstyle={providersStyles.field}
-                  value={claudeFallbackModel}
-                  placeholder="claude-opus-4-8"
-                  onCommit={(value) =>
-                    updateSettings({ patch: { claudeFallbackModel: value } })
-                  }
-                />
-              </LabeledField>
-              <LabeledField
-                title={t("settingsProviders:providersSection.claudeRuntime.resumeAt.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.resumeAt.description")}
-              >
-                <DraftInput
-                  xstyle={providersStyles.field}
-                  value={claudeResumeSessionAt}
-                  placeholder={t("settingsProviders:providersSection.claudeRuntime.resumeAt.placeholder")}
-                  onCommit={(value) =>
+                >
+                  <ToggleChipGroup
+                    options={CLAUDE_SETTING_SOURCE_HELP}
+                    selected={claudeSettingSources}
+                    onToggle={toggleClaudeSettingSource}
+                  />
+                  <p className={sx(providersStyles.presetHint)}>
+                    {t("settingsProviders:settingsDialogProvidersSection.active")}{" "}
+                    {claudeSettingSources.length > 0
+                      ? claudeSettingSources.join(" + ")
+                      : t("settingsProviders:settingsDialogProvidersSection.none")}
+                  </p>
+                </LabeledField>
+                <LabeledField
+                  title={t("settingsProviders:providersSection.claudeRuntime.taskBudget.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.taskBudget.description")}
+                >
+                  <DraftInput
+                    xstyle={providersStyles.field}
+                    value={String(claudeTaskBudgetTokens)}
+                    onCommit={(value) =>
+                      updateSettings({
+                        patch: {
+                          claudeTaskBudgetTokens: Math.min(
+                            1_000_000,
+                            Math.max(0, readInt(value, claudeTaskBudgetTokens)),
+                          ),
+                        },
+                      })
+                    }
+                  />
+                </LabeledField>
+                <SwitchField
+                  title={t("settingsProviders:providersSection.claudeRuntime.forwardSubagentText.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.forwardSubagentText.description")}
+                  checked={claudeForwardSubagentText}
+                  onCheckedChange={(checked) =>
                     updateSettings({
-                      patch: { claudeResumeSessionAt: value },
+                      patch: { claudeForwardSubagentText: checked },
                     })
                   }
                 />
-              </LabeledField>
+                <SwitchField
+                  title={t("settingsProviders:providersSection.claudeRuntime.forkSession.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.forkSession.description")}
+                  checked={claudeForkSession}
+                  onCheckedChange={(checked) =>
+                    updateSettings({ patch: { claudeForkSession: checked } })
+                  }
+                />
+                <SwitchField
+                  title={t("settingsProviders:providersSection.claudeRuntime.strictMcpConfig.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.strictMcpConfig.description")}
+                  checked={claudeStrictMcpConfig}
+                  onCheckedChange={(checked) =>
+                    updateSettings({
+                      patch: { claudeStrictMcpConfig: checked },
+                    })
+                  }
+                />
+                <LabeledField
+                  title={t("settingsProviders:codexExtensionsTab.skills")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.skills.description")}
+                >
+                  <DraftInput
+                    xstyle={providersStyles.field}
+                    value={claudeSkills}
+                    placeholder={t("settingsProviders:settingsDialogProvidersSection.all")}
+                    onCommit={(value) =>
+                      updateSettings({ patch: { claudeSkills: value } })
+                    }
+                  />
+                </LabeledField>
+                <LabeledField
+                  title={t("settingsProviders:providersSection.claudeRuntime.pluginPaths.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.pluginPaths.description")}
+                >
+                  <DraftInput
+                    xstyle={providersStyles.field}
+                    value={claudePluginPaths}
+                    placeholder="<workspace>/plugin"
+                    onCommit={(value) =>
+                      updateSettings({ patch: { claudePluginPaths: value } })
+                    }
+                  />
+                </LabeledField>
+                <LabeledField
+                  title={t("settingsProviders:providersSection.claudeRuntime.mainAgent.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.mainAgent.description")}
+                >
+                  <DraftInput
+                    xstyle={providersStyles.field}
+                    value={claudeAgentName}
+                    placeholder="code-reviewer"
+                    onCommit={(value) =>
+                      updateSettings({ patch: { claudeAgentName: value } })
+                    }
+                  />
+                </LabeledField>
+                <LabeledField
+                  title={t("settingsProviders:providersSection.claudeRuntime.fallbackModels.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.fallbackModels.description")}
+                >
+                  <DraftInput
+                    xstyle={providersStyles.field}
+                    value={claudeFallbackModel}
+                    placeholder="claude-opus-4-8"
+                    onCommit={(value) =>
+                      updateSettings({ patch: { claudeFallbackModel: value } })
+                    }
+                  />
+                </LabeledField>
+                <LabeledField
+                  title={t("settingsProviders:providersSection.claudeRuntime.resumeAt.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.resumeAt.description")}
+                >
+                  <DraftInput
+                    xstyle={providersStyles.field}
+                    value={claudeResumeSessionAt}
+                    placeholder={t("settingsProviders:providersSection.claudeRuntime.resumeAt.placeholder")}
+                    onCommit={(value) =>
+                      updateSettings({
+                        patch: { claudeResumeSessionAt: value },
+                      })
+                    }
+                  />
+                </LabeledField>
+              </SettingsAdvancedDisclosure>
             </SettingsCard>
             <ClaudeBinaryPathCard />
             {developerModeEnabled ? <ClaudeRuntimeToolsCard /> : null}
@@ -1212,30 +1078,7 @@ export function ProvidersSection() {
                   />
                 </LabeledField>
               ) : null}
-              <LabeledField
-                title={t("settingsProviders:providersSection.codexRuntime.reasoning.title")}
-                guide={
-                  <SettingsFieldGuide
-                    title={t("settingsProviders:providersSection.codexRuntime.reasoning.guide.title")}
-                    summary={t("settingsProviders:providersSection.codexRuntime.reasoning.guide.summary")}
-                    items={buildGuideItems(codexReasoningEffortOptions)}
-                    examples={buildGuideExamples(codexReasoningEffortOptions)}
-                    tooltip={t("settingsProviders:providersSection.codexRuntime.reasoning.guide.tooltip")}
-                  />
-                }
-              >
-                <DescribedSelect
-                  value={codexReasoningEffort}
-                  options={codexReasoningEffortOptions}
-                  onValueChange={(value) =>
-                    updateSettings({
-                      patch: {
-                        codexReasoningEffort: value,
-                      },
-                    })
-                  }
-                />
-              </LabeledField>
+              <ProviderDefaultsLink onNavigateSection={props.onNavigateSection} />
               <LabeledField
                 title={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.title")}
                 description={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.description")}
@@ -1261,39 +1104,6 @@ export function ProvidersSection() {
                   }
                 />
               </LabeledField>
-              <LabeledField
-                title={t("settingsProviders:providersSection.codexRuntime.summarySupport.title")}
-                description={t("settingsProviders:providersSection.codexRuntime.summarySupport.description")}
-                guide={
-                  <SettingsFieldGuide
-                    title={t("settingsProviders:providersSection.codexRuntime.summarySupport.guide.title")}
-                    summary={t("settingsProviders:providersSection.codexRuntime.summarySupport.guide.summary")}
-                    items={buildGuideItems(CODEX_REASONING_SUPPORT_HELP)}
-                    examples={buildGuideExamples(CODEX_REASONING_SUPPORT_HELP)}
-                    tooltip={t("settingsProviders:providersSection.codexRuntime.summarySupport.guide.tooltip")}
-                  />
-                }
-              >
-                <DescribedSelect
-                  value={codexReasoningSummarySupport}
-                  options={CODEX_REASONING_SUPPORT_HELP}
-                  onValueChange={(value) =>
-                    updateSettings({
-                      patch: {
-                        codexReasoningSummarySupport: value,
-                      },
-                    })
-                  }
-                />
-              </LabeledField>
-              <SwitchField
-                title={t("settingsProviders:providersSection.codexRuntime.rawReasoning.title")}
-                description={t("settingsProviders:providersSection.codexRuntime.rawReasoning.description")}
-                checked={codexShowRawReasoning}
-                onCheckedChange={(checked) =>
-                  updateSettings({ patch: { codexShowRawReasoning: checked } })
-                }
-              />
               <LabeledField
                 title={t("settingsProviders:providersSection.codexRuntime.webSearch.title")}
                 description={t("settingsProviders:providersSection.codexRuntime.webSearch.description")}
@@ -1332,16 +1142,55 @@ export function ProvidersSection() {
                   updateSettings({ patch: { codexFastMode: checked } })
                 }
               />
+              <SettingsAdvancedDisclosure
+                compact
+                title={t("settingsProviders:providersSection.codexRuntime.advanced.title")}
+                description={t("settingsProviders:providersSection.codexRuntime.advanced.description")}
+              >
+                <LabeledField
+                  title={t("settingsProviders:providersSection.codexRuntime.summarySupport.title")}
+                  description={t("settingsProviders:providersSection.codexRuntime.summarySupport.description")}
+                  guide={
+                    <SettingsFieldGuide
+                      title={t("settingsProviders:providersSection.codexRuntime.summarySupport.guide.title")}
+                      summary={t("settingsProviders:providersSection.codexRuntime.summarySupport.guide.summary")}
+                      items={buildGuideItems(CODEX_REASONING_SUPPORT_HELP)}
+                      examples={buildGuideExamples(CODEX_REASONING_SUPPORT_HELP)}
+                      tooltip={t("settingsProviders:providersSection.codexRuntime.summarySupport.guide.tooltip")}
+                    />
+                  }
+                >
+                  <DescribedSelect
+                    value={codexReasoningSummarySupport}
+                    options={CODEX_REASONING_SUPPORT_HELP}
+                    onValueChange={(value) =>
+                      updateSettings({
+                        patch: {
+                          codexReasoningSummarySupport: value,
+                        },
+                      })
+                    }
+                  />
+                </LabeledField>
+                <SwitchField
+                  title={t("settingsProviders:providersSection.codexRuntime.rawReasoning.title")}
+                  description={t("settingsProviders:providersSection.codexRuntime.rawReasoning.description")}
+                  checked={codexShowRawReasoning}
+                  onCheckedChange={(checked) =>
+                    updateSettings({ patch: { codexShowRawReasoning: checked } })
+                  }
+                />
+              </SettingsAdvancedDisclosure>
             </SettingsCard>
             <CodexPluginsCard />
             <CodexBinaryPathCard />
           </SectionStack>
         </TabsContent>
         <TabsContent value="cursor">
-          <SettingsCursorSection />
+          <SettingsCursorSection onNavigateSection={props.onNavigateSection} />
         </TabsContent>
         <TabsContent value="kiro">
-          <SettingsKiroSection />
+          <SettingsKiroSection onNavigateSection={props.onNavigateSection} />
         </TabsContent>
       </Tabs>
     </>

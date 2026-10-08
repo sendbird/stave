@@ -18,9 +18,10 @@ import {
   type ReviewTaskSettings,
   type ReviewerPreference,
 } from "@/lib/reviews/review-task";
-import type { PrePrReviewProviderId } from "@/lib/source-control-review";
 import { useAppStore } from "@/store/app.store";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
+import type { SectionId } from "../settings-dialog.schema";
+import { SettingsSectionLink } from "../settings-dialog-section-link";
 import {
   ChoiceButtons,
   DraftTextarea,
@@ -37,12 +38,14 @@ function providerIcon(providerId: ReviewTaskProviderId) {
   return <ModelIcon providerId={providerId} className={sx(styles.iconSm)} />;
 }
 
-/** Review settings: the composer's review tasks and the pre-PR review. */
-export function ReviewSettingsCards() {
+/** Review settings: the composer's review tasks and a pointer to pre-PR review. */
+export function ReviewSettingsCards(args: {
+  onNavigateSection?: (id: SectionId) => void;
+}) {
   return (
     <>
       <ReviewTasksCard />
-      <PrePrReviewCard />
+      <PrePrReviewPointerCard onNavigateSection={args.onNavigateSection} />
     </>
   );
 }
@@ -230,55 +233,26 @@ function ReviewTasksCard() {
   );
 }
 
-function PrePrReviewCard() {
+/**
+ * Pre-PR review's on/off, provider and model are owned by Background AI; this
+ * card only says where they went.
+ */
+function PrePrReviewPointerCard(args: {
+  onNavigateSection?: (id: SectionId) => void;
+}) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [prePrReviewEnabled, prePrReviewProvider] = useAppStore(
-    useShallow(
-      (state) =>
-        [state.settings.prePrReviewEnabled, state.settings.prePrReviewProvider] as const,
-    ),
-  );
-  const updateSettings = useAppStore((state) => state.updateSettings);
   return (
     <SettingsCard
       title={t("settings:reviewCards.prePr.title")}
       description={t("settings:reviewCards.prePr.description")}
     >
-      <SwitchField
-        title={t("settings:reviewCards.prePr.enable.title")}
-        description={t("settings:reviewCards.prePr.enable.description")}
-        checked={prePrReviewEnabled}
-        onCheckedChange={(checked) =>
-          updateSettings({ patch: { prePrReviewEnabled: checked } })
-        }
+      <SettingsSectionLink
+        title={t("settings:reviewCards.prePr.link.title")}
+        description={t("settings:reviewCards.prePr.link.description")}
+        actionLabel={t("settings:reviewCards.prePr.link.action")}
+        target="auxiliaryInference"
+        onNavigateSection={args.onNavigateSection}
       />
-      <LabeledField
-        title={t("settings:reviewCards.prePr.provider.title")}
-        description={t("settings:reviewCards.prePr.provider.description")}
-      >
-        <ChoiceButtons<PrePrReviewProviderId>
-          value={prePrReviewProvider}
-          onChange={(providerId) =>
-            updateSettings({
-              patch: { prePrReviewProvider: providerId },
-            })
-          }
-          options={[
-            {
-              value: "claude-code",
-              label: "Claude",
-              description: t("settings:reviewCards.prePr.provider.claudeDescription"),
-              icon: providerIcon("claude-code"),
-            },
-            {
-              value: "codex",
-              label: "Codex",
-              description: t("settings:reviewCards.prePr.provider.codexDescription"),
-              icon: providerIcon("codex"),
-            },
-          ]}
-        />
-      </LabeledField>
     </SettingsCard>
   );
 }

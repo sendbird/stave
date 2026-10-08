@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   classifyFleetWorkspaceActivity,
-  compareFleetWorkspaceActivity,
   FLEET_DORMANT_AFTER_MS,
   hasFleetLiveTask,
   isFleetBoardFilterActive,
@@ -351,55 +350,6 @@ describe("isFleetBoardFilterActive", () => {
     expect(isFleetBoardFilterActive({ filter: "active", query: "x" })).toBe(
       true,
     );
-  });
-});
-
-describe("compareFleetWorkspaceActivity", () => {
-  test("orders live first, then recent, then dormant", () => {
-    const entries = [
-      { id: "dormant", activity: "dormant" as const, activityAt: null },
-      {
-        id: "recent",
-        activity: "recent" as const,
-        activityAt: "2026-08-01T00:00:00.000Z",
-      },
-      {
-        id: "live",
-        activity: "live" as const,
-        activityAt: "2020-01-01T00:00:00.000Z",
-      },
-    ];
-
-    expect(
-      [...entries].sort(compareFleetWorkspaceActivity).map((entry) => entry.id),
-    ).toEqual(["live", "recent", "dormant"]);
-  });
-
-  test("breaks ties on recency, newest first", () => {
-    const older = {
-      id: "older",
-      activity: "recent" as const,
-      activityAt: "2026-07-01T00:00:00.000Z",
-    };
-    const newer = {
-      id: "newer",
-      activity: "recent" as const,
-      activityAt: "2026-07-20T00:00:00.000Z",
-    };
-
-    expect(
-      [older, newer].sort(compareFleetWorkspaceActivity).map((e) => e.id),
-    ).toEqual(["newer", "older"]);
-  });
-
-  test("sorts a workspace with no recorded activity after one with a stamp", () => {
-    const stamped = {
-      activity: "recent" as const,
-      activityAt: "2026-07-01T00:00:00.000Z",
-    };
-    const unstamped = { activity: "recent" as const, activityAt: null };
-
-    expect(compareFleetWorkspaceActivity(stamped, unstamped)).toBeLessThan(0);
   });
 });
 

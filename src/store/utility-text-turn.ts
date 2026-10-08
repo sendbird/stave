@@ -56,7 +56,7 @@ export async function runUtilityTextTurn(args: {
   const lane = resolveAuxLaneRuntime({
     lane: "utility",
     policy: state.settings.auxiliaryInferencePolicy,
-    legacyProviderId: state.settings.utilityInferenceProvider,
+    shared: state.settings.auxiliaryInferenceDefault,
   });
   if (!lane.enabled) return { ok: false, message: i18n.t("notifications:utilityTextTurn.theUtilityModelIsTurnedOffInSettings") };
   const turnId = newTurnId(args.turnIdPrefix);

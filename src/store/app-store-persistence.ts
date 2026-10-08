@@ -26,22 +26,27 @@ import {
   normalizeResponseStylePrompt,
   normalizeWorkspaceTurnSummaryPrompt,
 } from "@/lib/providers/prompt-defaults";
-import { normalizeUtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import {
   normalizePromptEnhancementExemplars,
   normalizePromptEnhancementStyleProfile,
 } from "@/lib/providers/prompt-enhancement-context";
 import {
   migrateLegacyTurnSummaryModels,
+  normalizeAuxInferenceDefault,
   normalizeAuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
+// temporary-migration: auxiliary-inference-shared-default
+import { migrateAuxInferenceSharedDefault } from "@/lib/providers/auxiliary-inference-shared-default-migration";
+// end temporary-migration: auxiliary-inference-shared-default
+// temporary-migration: auto-routing-v1-settings-keys
+import { dropAutoRoutingV1SettingsKeys } from "@/lib/routing/auto-routing-v1-settings-migration";
+// end temporary-migration: auto-routing-v1-settings-keys
 import {
   isAutoModelId,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import { migrateSettingsModelDefaults } from "@/lib/providers/settings-model-migration";
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
-import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeReviewTaskSettings } from "@/lib/reviews/review-task";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
@@ -77,14 +82,7 @@ import {
 import { normalizeComposerControlPlacements } from "@/lib/composer-controls";
 import { normalizeWorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
-import {
-  normalizeAutoRoutingEligibleModels,
-  normalizeAutoRoutingObjective,
-} from "@/lib/routing/auto-routing";
-import {
-  migrateLegacyAutoSettings,
-  validateProfile,
-} from "@/lib/providers/auto-routing-profile";
+import { validateProfile } from "@/lib/providers/auto-routing-profile";
 // temporary-migration: plan-mode-removal
 import { withoutRetiredPlanModeFields } from "@/lib/plan-mode-removal-migration";
 // end temporary-migration: plan-mode-removal
@@ -102,7 +100,8 @@ import {
   normalizeComposerLayoutMode,
   type AppSettings,
 } from "@/store/app-settings";
-import { normalizeAppActiveSurface } from "@/store/app-surface";
+import { AGENTS_APP_SURFACE, normalizeAppActiveSurface } from "@/store/app-surface";
+import { useAgentsViewStore } from "@/store/agents-view-store";
 import type { AppState } from "@/store/app-store.types";
 import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import { normalizeProviderTimeoutMs } from "@/store/editor.utils";
@@ -184,6 +183,14 @@ export function createAppStorePersistenceOptions() {
         return;
       }
       const persistedSettings = state.settings;
+      // temporary-migration: results-surface-to-agents-tab
+      // Agent performance was its own surface (`{ kind: "results" }`) through
+      // 0.25.2; a profile that last had it open reopens Agents on Performance.
+      if ((state.activeAppSurface as { kind: string }).kind === "results") {
+        useAgentsViewStore.getState().setActiveTab("performance");
+        state.activeAppSurface = AGENTS_APP_SURFACE;
+      }
+      // end temporary-migration: results-surface-to-agents-tab
       state.activeAppSurface = normalizeAppActiveSurface(
         state.activeAppSurface,
       );
@@ -263,10 +270,6 @@ export function createAppStorePersistenceOptions() {
         typeof raw.sidebarShowAgents === "boolean"
           ? raw.sidebarShowAgents
           : defaultSettings.sidebarShowAgents;
-      state.settings.sidebarShowResults =
-        typeof raw.sidebarShowResults === "boolean"
-          ? raw.sidebarShowResults
-          : defaultSettings.sidebarShowResults;
       state.settings.sidebarShowAiUsage =
         typeof raw.sidebarShowAiUsage === "boolean"
           ? raw.sidebarShowAiUsage
@@ -371,11 +374,6 @@ export function createAppStorePersistenceOptions() {
       state.settings.modelShortcutEfforts = normalizeModelShortcutEfforts(
         raw.modelShortcutEfforts,
       );
-      state.settings.autoRoutingObjective = normalizeAutoRoutingObjective(
-        raw.autoRoutingObjective,
-      );
-      state.settings.utilityInferenceProvider =
-        normalizeUtilityInferenceProvider(raw.utilityInferenceProvider);
       state.settings.promptEnhancementStyleProfile =
         normalizePromptEnhancementStyleProfile(
           raw.promptEnhancementStyleProfile,
@@ -389,8 +387,17 @@ export function createAppStorePersistenceOptions() {
       // Background AI lanes. Normalized (not merged) so every lane object
       // exists and is a stable reference after rehydrate — store selectors index
       // `auxiliaryInferencePolicy[lane]` directly and must not allocate.
+      // temporary-migration: auxiliary-inference-shared-default
+      migrateAuxInferenceSharedDefault({
+        settings: raw,
+        persisted: persistedSettings as unknown as Record<string, unknown>,
+      });
+      // end temporary-migration: auxiliary-inference-shared-default
       state.settings.auxiliaryInferencePolicy =
         normalizeAuxiliaryInferencePolicy(raw.auxiliaryInferencePolicy);
+      state.settings.auxiliaryInferenceDefault = normalizeAuxInferenceDefault(
+        raw.auxiliaryInferenceDefault,
+      );
       // The standalone turn-summary model settings became the `turnSummary`
       // lane. Carry a user's explicit choice over once, then drop the old keys.
       if (raw.auxiliaryInferencePolicy === undefined) {
@@ -410,25 +417,10 @@ export function createAppStorePersistenceOptions() {
       }
       delete raw.workspaceTurnSummaryPrimaryModel;
       delete raw.workspaceTurnSummaryFallbackModel;
-      state.settings.autoRoutingEligibleClaudeModels =
-        normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleClaudeModels);
-      state.settings.autoRoutingEligibleCodexModels =
-        normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleCodexModels);
-      // Legacy flags become the current role table; afterwards the profile is the
-      // source of truth and the flags only mirror its stance and chip lists.
-      state.settings.autoRoutingProfile =
-        raw.autoRoutingProfile === undefined
-          ? migrateLegacyAutoSettings({
-              autoRoutingUseClassifier: raw.autoRoutingUseClassifier,
-              autoRoutingObjective: raw.autoRoutingObjective,
-              autoRoutingSafetyEscalation: raw.autoRoutingSafetyEscalation,
-              autoRoutingAllowProviderSwitch: raw.autoRoutingAllowProviderSwitch,
-              autoRoutingEligibleClaudeModels: raw.autoRoutingEligibleClaudeModels,
-              autoRoutingEligibleCodexModels: raw.autoRoutingEligibleCodexModels,
-            })
-          : validateProfile(raw.autoRoutingProfile);
-      state.settings.autoRoutingUseClassifier =
-        state.settings.autoRoutingProfile.signals.classifier;
+      state.settings.autoRoutingProfile = validateProfile(raw.autoRoutingProfile);
+      // temporary-migration: auto-routing-v1-settings-keys
+      dropAutoRoutingV1SettingsKeys(raw);
+      // end temporary-migration: auto-routing-v1-settings-keys
       state.settings.promptCommentShortcut = normalizePromptCommentShortcut(
         raw.promptCommentShortcut,
       );
@@ -569,9 +561,6 @@ export function createAppStorePersistenceOptions() {
             ? state.settings.workspaceTurnSummaryPrompt
             : defaultSettings.workspaceTurnSummaryPrompt,
         );
-      state.settings.prePrReviewProvider = normalizePrePrReviewProvider(
-        state.settings.prePrReviewProvider,
-      );
       state.settings.reviewTask = normalizeReviewTaskSettings(raw.reviewTask);
       state.settings.createPrAutoMergeEnabled =
         typeof raw.createPrAutoMergeEnabled === "boolean"
