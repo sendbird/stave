@@ -22,7 +22,14 @@ export const CLAUDE_FABLE_MODEL = "claude-fable-5-1";
 // stays as the explicit context variant, matching Opus 5.5.
 export const DEFAULT_CLAUDE_SONNET_MODEL = "claude-sonnet-5-5";
 export const DEFAULT_CLAUDE_SONNET_1M_MODEL = "claude-sonnet-5-5[1m]";
-export const DEFAULT_CLAUDE_HAIKU_MODEL = "claude-haiku-4-5";
+// Claude Haiku 5.5 is the light-tier Claude model, priced and routed like
+// GPT-6 Luna. Unlike Haiku 4.5 it accepts every effort level (default medium)
+// and runs adaptive thinking with a native 1M context. Claude Code 2.1.293 or
+// newer resolves the `haiku` alias to this id.
+export const DEFAULT_CLAUDE_HAIKU_MODEL = "claude-haiku-5-5";
+// Previous light-tier Claude model. Kept resolvable for historical turns; a
+// pinned id moves onto Haiku 5.5 (see `upgradePinnedHaikuModel`).
+export const LEGACY_CLAUDE_HAIKU_MODEL = "claude-haiku-4-5";
 // Settings-scoped model IDs that should silently upgrade to the current
 // catalog default of the same family. Historical chat/turn records keep their
 // original IDs and render via the legacy display names below.
@@ -36,10 +43,11 @@ const LEGACY_AUTOMATIC_CLAUDE_MODELS: Record<string, string> = {
   "claude-sonnet-4-6": DEFAULT_CLAUDE_SONNET_MODEL,
   "claude-sonnet-4-6[1m]": DEFAULT_CLAUDE_SONNET_1M_MODEL,
   "claude-fable-5": CLAUDE_FABLE_MODEL,
+  [LEGACY_CLAUDE_HAIKU_MODEL]: DEFAULT_CLAUDE_HAIKU_MODEL,
 };
 
 // Source: https://platform.claude.com/docs/en/about-claude/models/overview
-// Latest models comparison (as of 2026-09-23)
+// Latest models comparison (as of 2026-10-08)
 // The [1m] suffix activates the 1M-token context window; the Claude SDK
 // parses it and auto-injects the `context-1m-2025-08-07` beta header.
 export const CLAUDE_SDK_MODEL_OPTIONS = [
@@ -48,8 +56,8 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
   DEFAULT_CLAUDE_OPUS_1M_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
   DEFAULT_CLAUDE_SONNET_1M_MODEL,
-  // Light-tier default for Background AI, utility inference, and workers.
-  // Leaving it out of the picker hid the model those lanes actually run.
+  // Light-tier default for Background AI, utility inference, and Auto's
+  // Simple level. Leaving it out of the picker hid the model those lanes run.
   DEFAULT_CLAUDE_HAIKU_MODEL,
 ] as const;
 
@@ -506,6 +514,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   //   flagship (Sol 6.1, Sol 6)                  high
   //   balanced (Sonnet 5.5, Sonnet 5)           high
   //   balanced (Terra)                           xhigh
+  //   light    (Haiku 5.5)                        medium
   //   light    (Luna)                             xhigh
   //
   // Sonnet 5.5, GPT-6.1 Sol, and GPT-6 Sol list at half of Opus 5.5 per
@@ -523,9 +532,10 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   // higher effort. xhigh is the Stave default because the model is cheap, and
   // max stays off it.
   //
-  // Haiku is absent from the ladder on purpose: the Claude API rejects
-  // `effort` outright for Haiku-class models (see `modelsRejectingEffort` in
-  // worker-mode), so its value here is never sent.
+  // Haiku 5.5 shares Luna's light tier and keeps Anthropic's medium default.
+  // Haiku 4.5 is absent from the ladder on purpose: the Claude API rejects
+  // `effort` outright for it (see `modelAcceptsExplicitEffort`), so its value
+  // here is never sent.
   [CLAUDE_FABLE_MODEL]: {
     providerId: "claude-code",
     model: CLAUDE_FABLE_MODEL,
@@ -601,6 +611,14 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   [DEFAULT_CLAUDE_HAIKU_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_HAIKU_MODEL,
+    tier: "light",
+    taskTypes: ["quick_edit", "general"],
+    defaultClaudeEffort: "medium",
+  },
+  // Previous light-tier Claude model, kept resolvable for historical turns.
+  [LEGACY_CLAUDE_HAIKU_MODEL]: {
+    providerId: "claude-code",
+    model: LEGACY_CLAUDE_HAIKU_MODEL,
     tier: "light",
     taskTypes: ["quick_edit", "general"],
     defaultClaudeEffort: "medium",
@@ -806,6 +824,17 @@ const CURRENT_SONNET_BY_PREVIOUS_ID: Readonly<Record<string, string>> = {
  */
 export function upgradePinnedSonnet5Model(model: string) {
   return CURRENT_SONNET_BY_PREVIOUS_ID[model.trim()] ?? model;
+}
+
+/**
+ * Moves a pinned Haiku 4.5 id onto Haiku 5.5. Background AI lanes, Auto's
+ * allowed-model lists, and the kickoff fallback store model ids outside the
+ * settings-scoped upgrade, so they call this directly.
+ */
+export function upgradePinnedHaikuModel(model: string) {
+  return model.trim().toLowerCase() === LEGACY_CLAUDE_HAIKU_MODEL
+    ? DEFAULT_CLAUDE_HAIKU_MODEL
+    : model;
 }
 
 export function upgradeSettingsScopedClaudeModel(args: { model: string }) {
@@ -1225,6 +1254,13 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     get note() { return i18n.t("providers:modelCatalog.theMContextWindowBillsAt"); },
   },
   [DEFAULT_CLAUDE_HAIKU_MODEL]: {
+    inputPerMTok: 0.1,
+    outputPerMTok: 0.5,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-10-08",
+    get note() { return i18n.t("providers:modelCatalog.haikuPriceBelowTheKInput"); },
+  },
+  [LEGACY_CLAUDE_HAIKU_MODEL]: {
     inputPerMTok: 1,
     outputPerMTok: 5,
     source: CLAUDE_PRICING_SOURCE,
@@ -1333,7 +1369,8 @@ export function toHumanModelName(args: { model: string }) {
     "claude-sonnet-5[1m]": "Claude Sonnet 5 (1M)",
     "claude-sonnet-4-6": "Claude Sonnet 4.6",
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
-    [DEFAULT_CLAUDE_HAIKU_MODEL]: "Claude Haiku 4.5",
+    [DEFAULT_CLAUDE_HAIKU_MODEL]: "Claude Haiku 5.5",
+    [LEGACY_CLAUDE_HAIKU_MODEL]: "Claude Haiku 4.5",
     "gpt-6-astra": "GPT-6 Astra",
     [DEFAULT_CODEX_MODEL]: "GPT-6.1 Sol",
     "gpt-6-sol": "GPT-6 Sol",

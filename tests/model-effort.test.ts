@@ -31,13 +31,22 @@ describe("model effort helpers", () => {
     ).toEqual(["low", "medium", "high", "xhigh", "max"]);
   });
 
-  test("exposes no effort scale for Claude Haiku, which rejects the field", () => {
+  test("exposes no effort scale for Claude Haiku 4.5, which rejects the field", () => {
     expect(
       listModelEffortOptions({
         providerId: "claude-code",
         model: "claude-haiku-4-5",
       }),
     ).toEqual([]);
+  });
+
+  test("exposes the full Claude effort scale for Haiku 5.5", () => {
+    expect(
+      listModelEffortOptions({
+        providerId: "claude-code",
+        model: "claude-haiku-5-5",
+      }).map((option) => option.value),
+    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
   });
 
   test("keeps a supported effort and steps down an unsupported Codex tier", () => {

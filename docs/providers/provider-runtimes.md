@@ -1007,7 +1007,7 @@ model; smaller models are not handed a deeper budget to compensate:
 | frontier | Fable 5.1      | GPT-6 Astra   | `medium`       |
 | flagship | Opus 5.5 (+1M) | GPT-6.1 Sol   | Opus `medium`; Sol 6.1 `high` |
 | balanced | Sonnet 5.5 (+1M) | GPT-5.6 Terra | Sonnet `high`; Terra `xhigh` |
-| light    | —              | GPT-6 Luna    | `xhigh`        |
+| light    | Haiku 5.5      | GPT-6 Luna    | Haiku `medium`; Luna `xhigh` |
 
 A frontier model pinned to `xhigh` mostly buys latency — codex-cli 0.153.2
 reports `defaultReasoningEffort: "medium"` for Astra itself. Both vendors
@@ -1031,9 +1031,13 @@ default. `xhigh` and `max` stay off Sonnet and Sol. High complexity and
 uncertain intent stay on Opus 5.5 at `high` effort. Safety-critical work stays on Fable. Cost-saver still steps that
 ordinary route down one effort level.
 
-Claude Haiku 4.5 is deliberately absent: the Claude API rejects `effort`
-outright for Haiku-class models, so Stave drops the field rather than clamping
-it. Legacy `gpt-5.5` keeps the `xhigh` cap it was verified at.
+Claude Haiku 5.5 shares Luna's light rung and price band ($0.10 / $0.50 per
+million tokens). It accepts every effort level and keeps Anthropic's `medium`
+default; Stave keeps it on adaptive thinking, like Opus 5.5 and Sonnet 5.5,
+and needs Claude Code 2.1.293 or newer. A pinned Haiku 4.5 id moves onto
+Haiku 5.5. Haiku 4.5 stays resolvable for history only: the Claude API rejects
+`effort` outright for it, so Stave drops the field rather than clamping it.
+Legacy `gpt-5.5` keeps the `xhigh` cap it was verified at.
 
 One knock-on effect worth knowing:
 

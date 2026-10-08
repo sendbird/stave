@@ -146,7 +146,7 @@
     "routingLevels": "라우팅 수준",
     "mostWorkIsStandardExpertAnd": "대부분의 작업은 표준 수준입니다. 분류기가 명확한 근거를 찾으면 전문가나 최고 수준으로 실행합니다. 민감한 변경은 복잡 수준 이상으로 라우팅합니다.",
     "allowedModels": "허용된 모델",
-    "modelsAutoMayPickDefaultAllows": "Auto가 선택할 수 있는 모델입니다. 기본값에서는 Claude Haiku 4.5를 제외한 모든 모델을 허용합니다. 허용된 모델이 없는 수준의 턴은 다른 프로바이더로 넘깁니다.",
+    "modelsAutoMayPickDefaultAllows": "Auto가 선택할 수 있는 모델입니다. 기본값에서는 목록의 모든 모델을 허용합니다. 허용된 모델이 없는 수준의 턴은 다른 프로바이더로 넘깁니다.",
     "notInDefaultSelectItTo": "기본값에 포함되지 않습니다. 선택하면 Auto에서 사용할 수 있습니다.",
     "advancedSettings": "고급 설정",
     "classificationAndSignals": "분류와 판단 신호",

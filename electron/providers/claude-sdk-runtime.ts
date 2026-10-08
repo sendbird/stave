@@ -41,6 +41,7 @@ import { buildClaudeSystemPrompt } from "./claude-system-prompt";
 export { buildClaudeSystemPrompt, STAVE_TURN_BEHAVIOR_DIRECTIVE } from "./claude-system-prompt";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import { claudeFastModeEnabled, claudeModelForcesAdaptiveThinking } from "../../src/lib/providers/claude-model-requirements";
+import { DEFAULT_CLAUDE_HAIKU_MODEL } from "../../src/lib/providers/model-catalog";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -4072,7 +4073,7 @@ export async function suggestClaudePRDescription(args: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: validateClaudeGatewayModel(args.model?.trim() || "claude-haiku-4-5"),
+        model: validateClaudeGatewayModel(args.model?.trim() || DEFAULT_CLAUDE_HAIKU_MODEL),
         ...(currentClaudeGateway() ? { settingSources: [] } : {}),
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }

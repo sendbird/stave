@@ -43,8 +43,9 @@ describe("Settings → Background AI", () => {
   });
 
   test("shows the light-tier Haiku default in the model picker", () => {
-    expect(html).toContain("Claude Haiku 4.5");
-    expect(html).toContain("claude-haiku-4-5");
+    expect(html).toContain("Claude Haiku 5.5");
+    expect(html).toContain("claude-haiku-5-5");
+    expect(html).not.toContain("claude-haiku-4-5");
   });
 
   test("is reachable from settings search and navigation", () => {

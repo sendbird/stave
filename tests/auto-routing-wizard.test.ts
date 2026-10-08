@@ -222,7 +222,7 @@ describe("analyzeUsage", () => {
 
     expect(analysis.insights).toContain("You ran 5 of 6 Plan prompts on Claude Opus 5.5");
     expect(analysis.insights).toContain(
-      "/ship goes to Claude Haiku 4.5 every time (3 runs)",
+      "/ship goes to Claude Haiku 5.5 every time (3 runs)",
     );
     expect(analysis.insights).toContain("Codex answered 5% of turns");
   });

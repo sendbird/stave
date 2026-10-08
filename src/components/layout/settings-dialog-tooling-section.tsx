@@ -41,7 +41,7 @@ const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
   get shell() { return i18n.t("settingsProviders:toolingSection.purpose.shell"); },
   get git() { return i18n.t("settingsProviders:toolingSection.purpose.git"); },
   get gh() { return i18n.t("settingsProviders:toolingSection.purpose.gh"); },
-  get claude() { return i18n.t("settingsProviders:settingsDialogToolingSection.claudeCodeTurnsPluginRefreshAnd", { value1: getClaudeModelVersionGuidance("claude-opus-5-5"), value2: getClaudeModelVersionGuidance("claude-sonnet-5-5") }); },
+  get claude() { return i18n.t("settingsProviders:settingsDialogToolingSection.claudeCodeTurnsPluginRefreshAnd", { value1: getClaudeModelVersionGuidance("claude-opus-5-5"), value2: getClaudeModelVersionGuidance("claude-sonnet-5-5"), value3: getClaudeModelVersionGuidance("claude-haiku-5-5") }); },
   get codex() { return i18n.t("settingsProviders:settingsDialogToolingSection.codexTurnsAndCodexNativeExecution", { value1: getCodexModelAvailabilityGuidance() }); },
   get cursor() { return i18n.t("settingsProviders:toolingSection.purpose.cursor"); },
   get kiro() { return i18n.t("settingsProviders:toolingSection.purpose.kiro"); },

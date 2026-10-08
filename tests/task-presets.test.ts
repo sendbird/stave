@@ -62,15 +62,18 @@ describe("normalizeTaskPreset", () => {
     expect(preset.contextMode).toBe("workspace");
   });
 
-  test("keeps a persisted Haiku preset instead of rewriting it to the Claude default", () => {
+  test("moves a persisted Haiku 4.5 preset onto Haiku 5.5, not the Claude default", () => {
     const preset = normalizeTaskPreset({
       kind: "task",
       provider: "claude-code",
       model: "claude-haiku-4-5",
       label: "Haiku",
     });
-    expect(preset.model).toBe("claude-haiku-4-5");
+    expect(preset.model).toBe("claude-haiku-5-5");
     expect(listModelsForPresetProvider("claude-code")).toContain(
+      "claude-haiku-5-5",
+    );
+    expect(listModelsForPresetProvider("claude-code")).not.toContain(
       "claude-haiku-4-5",
     );
   });

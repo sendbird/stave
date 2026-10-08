@@ -64,7 +64,7 @@ The whole section is one app setting, exported and imported with the rest of you
     "turnSummary": {
       "enabled": true,
       "providerId": "claude-code",
-      "model": "claude-haiku-4-5",
+      "model": "claude-haiku-5-5",
       "fallbackModel": null
     }
   }

@@ -41,7 +41,7 @@ describe("auxiliary inference policy defaults", () => {
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "claude-code",
       }).model,
-    ).toBe("claude-haiku-4-5");
+    ).toBe("claude-haiku-5-5");
     expect(
       resolveAuxLaneRuntime({
         lane: "intentGuard",
@@ -68,7 +68,7 @@ describe("auxiliary inference policy defaults", () => {
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "codex",
       }).fallbackModel,
-    ).toBe("claude-haiku-4-5");
+    ).toBe("claude-haiku-5-5");
     // Lanes without a declared fallback do not invent one.
     expect(
       resolveAuxLaneRuntime({
@@ -150,7 +150,7 @@ describe("provider fall-through", () => {
 });
 
 describe("effort handling", () => {
-  test("drops an explicit effort for Claude Haiku, which rejects it", () => {
+  test("drops an explicit effort for Claude Haiku 4.5, which rejects it", () => {
     expect(
       supportsExplicitEffort({
         providerId: "claude-code",
@@ -158,18 +158,35 @@ describe("effort handling", () => {
       }),
     ).toBe(false);
     expect(
-      resolveAuxLaneRuntime({
-        lane: "turnSummary",
-        policy: normalizeAuxiliaryInferencePolicy({
-          turnSummary: {
-            enabled: true,
-            model: "claude-haiku-4-5",
-            effort: "high",
-          },
-        }),
-        activeProviderId: "claude-code",
-      }).effortOverrides,
-    ).toEqual({});
+      supportsExplicitEffort({
+        providerId: "claude-code",
+        model: "claude-haiku-4-5-20251001",
+      }),
+    ).toBe(false);
+  });
+
+  test("a lane pinned to Haiku 4.5 moves onto Haiku 5.5 and keeps its effort", () => {
+    expect(
+      supportsExplicitEffort({
+        providerId: "claude-code",
+        model: "claude-haiku-5-5",
+      }),
+    ).toBe(true);
+    const runtime = resolveAuxLaneRuntime({
+      lane: "turnSummary",
+      policy: normalizeAuxiliaryInferencePolicy({
+        turnSummary: {
+          enabled: true,
+          model: "claude-haiku-4-5",
+          fallbackModel: "claude-haiku-4-5",
+          effort: "high",
+        },
+      }),
+      activeProviderId: "claude-code",
+    });
+    expect(runtime.model).toBe("claude-haiku-5-5");
+    expect(runtime.fallbackModel).toBe("claude-haiku-5-5");
+    expect(runtime.effortOverrides).toEqual({ claudeEffort: "high" });
   });
 
   test("clamps a Codex effort the chosen model does not accept", () => {
@@ -224,7 +241,7 @@ describe("normalization and migration", () => {
         primaryModel: "gpt-5.6-luna",
         fallbackModel: "claude-haiku-4-5",
       }),
-    ).toEqual({ model: "gpt-5.6-luna", fallbackModel: "claude-haiku-4-5" });
+    ).toEqual({ model: "gpt-5.6-luna", fallbackModel: "claude-haiku-5-5" });
     expect(
       migrateLegacyTurnSummaryModels({ primaryModel: "  ", fallbackModel: "" }),
     ).toBeNull();

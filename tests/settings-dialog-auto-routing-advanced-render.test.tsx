@@ -65,7 +65,7 @@ describe("Auto settings routing levels", () => {
     for (const label of ["Simple", "Standard", "Complex", "Expert", "Extreme"]) {
       expect(table).toContain(label);
     }
-    expect(table).toContain("Sonnet 5.5 · Medium");
+    expect(table).toContain("Haiku 5.5 · Medium");
     expect(table).toContain("GPT-6 Luna · Medium");
     expect(table).toContain("Opus 5.5 · High");
     expect(table).toContain("GPT-6.1 Sol · Medium");
@@ -73,10 +73,12 @@ describe("Auto settings routing levels", () => {
     expect(table).toContain("GPT-6 Astra · High");
   });
 
-  test("allowed models offer a Default chip and leave Haiku out of it", async () => {
+  test("allowed models offer a Default chip that includes Haiku 5.5", async () => {
     const html = await renderSection();
     expect(html).toContain("Allowed models");
     expect(html).toContain(">Default<");
-    expect(html).toContain("except Claude Haiku 4.5");
+    expect(html).toContain("Default allows every listed model");
+    expect(html).not.toContain("except Claude Haiku");
+    expect(html.slice(html.indexOf("Allowed models"))).toContain("Haiku 5.5");
   });
 });

@@ -1,5 +1,7 @@
 import type { Query, SDKAssistantMessage, SDKAuthStatusMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { buildClaudeEnv, resolveClaudeExecutablePath, prewarmClaudeSdk } from "./claude-sdk-runtime";
+import { claudeFastModeEnabled } from "../../src/lib/providers/claude-model-requirements";
+import { DEFAULT_CLAUDE_HAIKU_MODEL } from "../../src/lib/providers/model-catalog";
 
 interface InlineCompletionRequest {
   prefix: string;
@@ -22,7 +24,7 @@ interface InlineCompletionResult {
 // Shared constants
 // ---------------------------------------------------------------------------
 
-const SDK_MODEL = "claude-haiku-4-5";
+const SDK_MODEL = DEFAULT_CLAUDE_HAIKU_MODEL;
 const MAX_PREFIX_CHARS = 8000;
 const MAX_SUFFIX_CHARS = 4000;
 const MAX_PREFIX_LINES = 150;
@@ -255,6 +257,7 @@ async function requestViaClaudeSdk(
   const claudeExecutablePath = resolveClaudeSdkExecutablePath() ?? "";
   const sdkEnv = buildClaudeEnv({ executablePath: claudeExecutablePath });
   sdkEnv.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION = "false";
+  const model = args.model?.trim() || SDK_MODEL;
   const stream = queryFn({
     prompt: prompt.user,
     options: {
@@ -266,20 +269,22 @@ async function requestViaClaudeSdk(
       settingSources: [],
       plugins: [],
       cwd: process.cwd(),
-      model: args.model?.trim() || SDK_MODEL,
+      model,
       systemPrompt: prompt.system,
       thinking: {
         type: "disabled",
       },
-      effort: "max",
+      // Haiku 5.5 rejects disabled thinking above high effort. Low is the
+      // fastest level, which suits a keystroke-driven completion.
+      effort: "low",
       tools: [],
       allowedTools: [],
       extraArgs: {
         "disable-slash-commands": null,
       },
-      settings: {
-        fastMode: true,
-      },
+      ...(claudeFastModeEnabled(true, model)
+        ? { settings: { fastMode: true } }
+        : {}),
       env: sdkEnv,
       ...(claudeExecutablePath ? { pathToClaudeCodeExecutable: claudeExecutablePath } : {}),
     },

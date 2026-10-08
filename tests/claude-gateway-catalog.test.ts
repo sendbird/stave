@@ -22,5 +22,10 @@ test("Gateway routing prefixes retain native model requirements", () => {
     expect(modelAcceptsExplicitEffort({ providerId: "claude-code", model: `${prefix}claude-haiku-4-5` })).toBe(false);
     expect(claudeModelForcesAdaptiveThinking(`${prefix}claude-sonnet-5-5[1m]`)).toBe(true);
     expect(claudeFastModeEnabled(true, `${prefix}claude-sonnet-5-5`)).toBe(false);
+    expect(modelAcceptsExplicitEffort({ providerId: "claude-code", model: `${prefix}claude-haiku-5-5` })).toBe(true);
+    expect(claudeModelForcesAdaptiveThinking(`${prefix}claude-haiku-5-5`)).toBe(true);
+    expect(claudeFastModeEnabled(true, `${prefix}claude-haiku-5-5`)).toBe(false);
   }
+  expect(claudeModelForcesAdaptiveThinking("claude-haiku-4-5")).toBe(false);
+  expect(claudeFastModeEnabled(true, "claude-opus-5-5")).toBe(true);
 });

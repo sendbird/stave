@@ -72,7 +72,7 @@ describe("SettingsAutoRoutingWizard", () => {
     expect(html).toContain("You ran all 3 Plan prompts on Claude Opus 5");
     expect(html).toContain("Usually runs on");
     expect(html).toContain("Claude Opus 5");
-    expect(html).toContain("Claude Haiku 4.5");
+    expect(html).toContain("Claude Haiku 5.5");
     expect(html).not.toContain("No history yet");
   });
 

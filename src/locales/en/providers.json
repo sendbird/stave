@@ -213,7 +213,8 @@
     "standardPriceBelowTheKInput": "Standard price below the 272K input-token threshold. Cached input is $0.10 per million tokens.",
     "standardPriceBelowTheKInputVariantca1656d7": "Standard price below the 272K input-token threshold.",
     "promotionalPricePublishedThroughAtLeast": "Promotional price published through at least 2026-11-21.",
-    "standardPriceBelowTheKContext": "Standard price below the 272K context threshold."
+    "standardPriceBelowTheKContext": "Standard price below the 272K context threshold.",
+    "haikuPriceBelowTheKInput": "Standard price for prompts up to 100K input tokens. Longer prompts bill at $0.50 / $2.50 per million tokens."
   },
   "providerAccountIdentity": {
     "checkingSignIn": "Checking sign-in…",

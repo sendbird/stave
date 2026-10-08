@@ -7,8 +7,10 @@ import {
 import { buildKickoffFirstTaskPrompt } from "@/lib/kickoff-brief";
 import type { AppState } from "@/store/app-store.types";
 import {
+  DEFAULT_CLAUDE_HAIKU_MODEL,
   inferProviderIdFromModel,
   normalizeModelSelection,
+  upgradePinnedHaikuModel,
 } from "@/lib/providers/model-catalog";
 import {
   DEFAULT_PROMPT_WORKSPACE_KICKOFF,
@@ -51,7 +53,7 @@ export const DEFAULT_WORKSPACE_KICKOFF_SETTINGS: WorkspaceKickoffSettings = {
     DEFAULT_KICKOFF_SOURCE_CONFIGS,
   ),
   kickoffPrimaryModel: "gpt-6-luna",
-  kickoffFallbackModel: "claude-haiku-4-5",
+  kickoffFallbackModel: DEFAULT_CLAUDE_HAIKU_MODEL,
   kickoffPrompt: DEFAULT_PROMPT_WORKSPACE_KICKOFF,
 };
 
@@ -196,14 +198,14 @@ export function createWorkspaceKickoffResolver(args: {
           : "");
       const models = [
         ...new Set([
-          normalizeModelSelection({
+          upgradePinnedHaikuModel(normalizeModelSelection({
             value: settings.kickoffPrimaryModel,
             fallback: DEFAULT_WORKSPACE_KICKOFF_SETTINGS.kickoffPrimaryModel,
-          }),
-          normalizeModelSelection({
+          })),
+          upgradePinnedHaikuModel(normalizeModelSelection({
             value: settings.kickoffFallbackModel,
             fallback: DEFAULT_WORKSPACE_KICKOFF_SETTINGS.kickoffFallbackModel,
-          }),
+          })),
         ]),
       ];
       const attemptDurationsMs: number[] = [];

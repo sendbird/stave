@@ -1215,7 +1215,7 @@
   },
   "settingsDialogToolingSection": {
     "commandCopied": "{{value1}} 명령을 복사했습니다.",
-    "claudeCodeTurnsPluginRefreshAnd": "Claude Code 턴, 플러그인 새로 고침, Claude 전용 진단에 사용합니다. Opus 5.5: {{value1}} Sonnet 5.5: {{value2}}",
+    "claudeCodeTurnsPluginRefreshAnd": "Claude Code 턴, 플러그인 새로 고침, Claude 전용 진단에 사용합니다. Opus 5.5: {{value1}} Sonnet 5.5: {{value2}} Haiku 5.5: {{value3}}",
     "codexTurnsAndCodexNativeExecution": "Codex 턴과 Codex 전용 실행 흐름에 사용합니다. {{value1}}"
   },
   "settingsDialogAuxiliaryInferenceSection": {

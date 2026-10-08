@@ -146,7 +146,7 @@
     "routingLevels": "Routing levels",
     "mostWorkIsStandardExpertAnd": "Most work is Standard. Expert and Extreme run only when the classifier finds explicit evidence for them. Sensitive changes route as Complex or higher.",
     "allowedModels": "Allowed models",
-    "modelsAutoMayPickDefaultAllows": "Models Auto may pick. Default allows every model except Claude Haiku 4.5. A level with no allowed model hands the turn to the other provider.",
+    "modelsAutoMayPickDefaultAllows": "Models Auto may pick. Default allows every listed model. A level with no allowed model hands the turn to the other provider.",
     "notInDefaultSelectItTo": "Not in Default. Select it to let Auto use it.",
     "advancedSettings": "Advanced settings",
     "classificationAndSignals": "Classification and signals",

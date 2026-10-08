@@ -12,7 +12,7 @@ Deterministic rules then map each level to one model rung and an effort range:
 
 | Level | Work | Claude | Codex | Effort range |
 | --- | --- | --- | --- | --- |
-| Simple | A bounded, obvious step: a typo, rename, small config edit, direct answer | Sonnet 5.5 | GPT-6 Luna | Low – Medium |
+| Simple | A bounded, obvious step: a typo, rename, small config edit, direct answer | Haiku 5.5 | GPT-6 Luna | Low – Medium |
 | Standard | Ordinary connected work, including routine workflows such as shipping a PR | Opus 5.5 | GPT-6.1 Sol | Medium – High |
 | Complex | Cross-module changes, non-obvious bugs, migrations, sensitive changes | Opus 5.5 | GPT-6.1 Sol | High – Extra high |
 | Expert | Architecture design and its verification, ambiguous cross-system failures | Fable 5.1 | GPT-6 Astra | Low – Medium |
@@ -32,8 +32,10 @@ checklist releases are not sensitive. Local sensitive-word matching is
 deliberately conservative; a discussion of a sensitive topic can therefore
 escalate when model classification is disabled or unavailable.
 
-Auto does not pick Claude Haiku 4.5 unless it is allowed explicitly: it
-rejects an effort value, so Sonnet 5.5 is the light Claude route.
+Claude Haiku 5.5 is the light Claude route, the counterpart of GPT-6 Luna on
+Codex. Auto does not pick the previous Claude Haiku 4.5 unless it is allowed
+explicitly, because it rejects an effort value; a stored allow-list that names
+Haiku 4.5 moves onto Haiku 5.5.
 
 A task that runs as an [agent](agents.md) whose model is Auto-routing with a
 task class uses that class as a fallback: a confident classification still
@@ -133,7 +135,7 @@ Settings → Auto shows, in order: the enable switch and preference; **Routing
 levels**, a live table of what each level runs on for Claude and Codex under
 the current preference and allowed models (a level with no allowed model reads
 "No allowed model"); and **Allowed models**, where **Default** allows every
-catalog model except Claude Haiku 4.5. Advanced settings holds classification
+listed catalog model. Advanced settings holds classification
 and signal switches, the usage budget, the usage wizard, the rules, and a local
 rule preview. Each rule is one summary line (`complex level → Flagship · High
 effort`) that expands for editing. The preview makes no AI call and can differ
