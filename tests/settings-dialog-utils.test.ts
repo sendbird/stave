@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  isSettingsSectionVisible,
+  listVisibleSettingsSections,
   matchesSettingsSection,
+  resolveVisibleSettingsSection,
   settingsSections,
 } from "@/components/layout/settings-dialog.schema";
 import {
@@ -171,5 +174,39 @@ describe("settings field registry", () => {
     for (const field of settingDefinitions.filter((candidate) => candidate.sectionId === "tooling")) {
       expect(field.importExport).toBe("exclude");
     }
+  });
+});
+
+describe("settings section visibility", () => {
+  test("hides the developer section while Developer mode is off", () => {
+    const ids = listVisibleSettingsSections({ developerModeEnabled: false }).map(
+      (section) => section.id,
+    );
+    expect(ids).not.toContain("developer");
+    expect(ids).toContain("general");
+    expect(ids).toHaveLength(settingsSections.length - 1);
+    expect(
+      isSettingsSectionVisible("developer", { developerModeEnabled: false }),
+    ).toBe(false);
+  });
+
+  test("lists the developer section once Developer mode is on", () => {
+    const ids = listVisibleSettingsSections({ developerModeEnabled: true }).map(
+      (section) => section.id,
+    );
+    expect(ids).toContain("developer");
+    expect(ids).toHaveLength(settingsSections.length);
+  });
+
+  test("deep links to a hidden section land on General", () => {
+    expect(
+      resolveVisibleSettingsSection("developer", { developerModeEnabled: false }),
+    ).toBe("general");
+    expect(
+      resolveVisibleSettingsSection("developer", { developerModeEnabled: true }),
+    ).toBe("developer");
+    expect(
+      resolveVisibleSettingsSection("mcp", { developerModeEnabled: false }),
+    ).toBe("mcp");
   });
 });

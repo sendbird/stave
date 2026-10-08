@@ -296,6 +296,10 @@ export function createAppStorePersistenceOptions() {
       ) {
         state.settings.terminalFontFamily = DEFAULT_TERMINAL_FONT_FAMILY;
       }
+      state.settings.developerModeEnabled =
+        typeof raw.developerModeEnabled === "boolean"
+          ? raw.developerModeEnabled
+          : defaultSettings.developerModeEnabled;
       state.settings.notificationSoundEnabled =
         typeof raw.notificationSoundEnabled === "boolean"
           ? raw.notificationSoundEnabled

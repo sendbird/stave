@@ -6,7 +6,7 @@ This guide explains how a packaged Stave desktop user can expose the built-in lo
 
 This screenshot captures the Local MCP controls in `Settings > MCP`. The
 current view also places a shared Claude and Codex connection manager above
-the Local MCP Server and request log cards. See
+the Local MCP Server and request log cards (the request log card needs **Developer mode** in `Settings > General`). See
 [MCP Server Management](./mcp-server-management.md) for adding, editing, and
 removing external provider servers.
 
@@ -40,7 +40,7 @@ The server also publishes a short MCP `instructions` string that names the tool 
 
 When any bundled provider runs inside Stave — Claude, Codex, Cursor, or Kiro — it also injects the same local MCP server directly into that in-app runtime. Task chats can call the workspace-information tools even when the provider's own setting sources are limited to repository-local config. Cursor and Kiro receive the catalog over ACP stdio; Claude uses the SDK HTTP connection; Codex receives per-thread config overrides. Secondary read-only lanes do not get this connection. Every task turn names itself on the connection with a host caller key, so the subagent tools act only for the calling task.
 
-The same Local MCP server also exposes optional `stave_lens_*` tools for workspace browser sessions. They are registered by default and can be turned off under `Settings → Developer → Lens browser tools`; every tool schema is part of the prompt of each new provider session, so turning them off measurably shrinks the prompt in workspaces that never drive a browser from an agent turn. Operational tools reuse the visible/recent Lens tab or create a hidden default session automatically, so `stave_lens_open_session` is optional. Visual inspection and page interaction follow `Settings > Lens > Agent Activity`; navigation and read-only diagnostics alone stay hidden. Use `stave_lens_present_session` only when the user must immediately interact with or explicitly see the same page. The first CDP-backed action for an unapproved host shows an app-wide Stave approval dialog, even if no Lens tab is visible. Agents can manage OS-encrypted accounts with `stave_lens_list_saved_accounts`, `stave_lens_create_saved_account`, `stave_lens_update_saved_account`, and `stave_lens_delete_saved_account`. Passwords are accepted only by create/update inputs, are redacted from Stave's Local MCP request log, and are never returned by the tools. When the current exact hostname has a saved account, `stave_lens_fill_saved_account` can fill it without returning the password to the MCP client. If multiple accounts share the host, Lens uses the account enabled for automatic fill; pass `username` to select a different saved account.
+The same Local MCP server also exposes optional `stave_lens_*` tools for workspace browser sessions. They are registered by default and can be turned off under `Settings → Developer → Lens browser tools` (the Developer section shows only while **Developer mode** in `Settings → General` is on); every tool schema is part of the prompt of each new provider session, so turning them off measurably shrinks the prompt in workspaces that never drive a browser from an agent turn. Operational tools reuse the visible/recent Lens tab or create a hidden default session automatically, so `stave_lens_open_session` is optional. Visual inspection and page interaction follow `Settings > Lens > Agent Activity`; navigation and read-only diagnostics alone stay hidden. Use `stave_lens_present_session` only when the user must immediately interact with or explicitly see the same page. The first CDP-backed action for an unapproved host shows an app-wide Stave approval dialog, even if no Lens tab is visible. Agents can manage OS-encrypted accounts with `stave_lens_list_saved_accounts`, `stave_lens_create_saved_account`, `stave_lens_update_saved_account`, and `stave_lens_delete_saved_account`. Passwords are accepted only by create/update inputs, are redacted from Stave's Local MCP request log, and are never returned by the tools. When the current exact hostname has a saved account, `stave_lens_fill_saved_account` can fill it without returning the password to the MCP client. If multiple accounts share the host, Lens uses the account enabled for automatic fill; pass `username` to select a different saved account.
 
 One tool family exists only inside turns Stave starts for a supervisor, and never in an external client's session:
 
@@ -58,7 +58,7 @@ In Stave:
 2. Go to `Providers`
 3. Open the `Stave` tab
 4. Find the `Local MCP Server` card
-5. Use the separate `Local MCP Request Log` card when you want inbound MCP request visibility
+5. Use the separate `Local MCP Request Log` card when you want inbound MCP request visibility; it appears only while **Developer mode** in `Settings → General` is on
 
 You can manage:
 
@@ -244,7 +244,7 @@ paused: turn them on in the Automations panel. An MCP edit keeps a paused
 automation paused, `stave_set_automation_enabled` can only pause, and
 unattended, bypass or full-access automation settings are rejected.
 
-Use `Local MCP Request Log` in `Settings → MCP` when you need transport-level request visibility. The latest page auto-refreshes while older pages stay stable for pagination.
+Use `Local MCP Request Log` in `Settings → MCP` when you need transport-level request visibility (turn on **Developer mode** in `Settings → General` first). The latest page auto-refreshes while older pages stay stable for pagination.
 
 These responses continue the same Stave turn. They do not create a new task.
 

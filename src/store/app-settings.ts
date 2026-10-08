@@ -391,6 +391,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   attentionNotificationSoundCustomAudioData: string | null;
   /** Original file name of the uploaded custom attention audio, for display. */
   attentionNotificationSoundCustomAudioName: string | null;
+  /**
+   * Shows diagnostic surfaces that most users never need: the Developer
+   * settings section, the Local MCP request log, the status-bar resource
+   * dashboard and the Claude runtime tools card. Off by default.
+   */
+  developerModeEnabled: boolean;
   providerDebugStream: boolean;
   providerTimeoutMs: number;
   claudeBinaryPath: string;
@@ -780,6 +786,7 @@ export const defaultSettings: AppSettings = {
   attentionNotificationSoundMode: DEFAULT_NOTIFICATION_SOUND_MODE,
   attentionNotificationSoundCustomAudioData: null,
   attentionNotificationSoundCustomAudioName: null,
+  developerModeEnabled: false,
   providerDebugStream: false,
   providerTimeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
   claudeBinaryPath: "",

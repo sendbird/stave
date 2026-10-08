@@ -29,7 +29,10 @@ import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
 import { captureCurrentRepositoryState } from "@/store/repository.utils";
 import {
+  isSettingsSectionVisible,
+  listVisibleSettingsSections,
   matchesSettingsSection,
+  resolveVisibleSettingsSection,
   settingsSectionGroups,
   settingsSections,
   type SectionId,
@@ -58,7 +61,20 @@ const MAC_TRAFFIC_LIGHT_CLEARANCE = 40;
 export function SettingsDialog(args: SettingsDialogProps) {
   const { initialRepositoryPath, initialSection, open, onOpenChange } = args;
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [activeSection, setActiveSection] = useState<SectionId>("general");
+  const [requestedSection, setActiveSection] = useState<SectionId>("general");
+  const developerModeEnabled = useAppStore(
+    (state) => state.settings.developerModeEnabled,
+  );
+  const sectionVisibility = useMemo(
+    () => ({ developerModeEnabled }),
+    [developerModeEnabled],
+  );
+  // Resolved on every render so a section that the profile stops showing
+  // (Developer mode switched off while it is open) falls back immediately.
+  const activeSection = resolveVisibleSettingsSection(
+    requestedSection,
+    sectionVisibility,
+  );
   const [selectedRepositoryPath, setSelectedRepositoryPath] = useState<string | null>(
     null,
   );
@@ -201,9 +217,12 @@ export function SettingsDialog(args: SettingsDialogProps) {
 
   const activeSectionData = sectionsById[activeSection];
   const normalizedSearchQuery = searchQuery.trim();
-  const matchingFields = searchSettingsFields(normalizedSearchQuery);
+  const availableSections = listVisibleSettingsSections(sectionVisibility);
+  const matchingFields = searchSettingsFields(normalizedSearchQuery).filter(
+    (field) => isSettingsSectionVisible(field.sectionId, sectionVisibility),
+  );
   const visibleSectionIds = new Set(
-    settingsSections
+    availableSections
       .filter((section) =>
         matchesSettingsSection(section, normalizedSearchQuery),
       )
@@ -473,7 +492,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {settingsSections.map((section) => (
+                        {availableSections.map((section) => (
                           <SelectItem key={section.id} value={section.id}>
                             {t(section.labelKey)}
                           </SelectItem>

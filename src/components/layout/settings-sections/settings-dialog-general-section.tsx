@@ -28,6 +28,7 @@ export function GeneralSection() {
     attentionNotificationSoundMode,
     attentionNotificationSoundCustomAudioData,
     attentionNotificationSoundCustomAudioName,
+    developerModeEnabled,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -45,6 +46,7 @@ export function GeneralSection() {
           state.settings.attentionNotificationSoundMode,
           state.settings.attentionNotificationSoundCustomAudioData,
           state.settings.attentionNotificationSoundCustomAudioName,
+          state.settings.developerModeEnabled,
         ] as const,
     ),
   );
@@ -189,6 +191,19 @@ export function GeneralSection() {
         />
       </SettingsCard>
       <DesktopNotificationsCard />
+      <SettingsCard
+        title={t("settings:general.developerMode.title")}
+        description={t("settings:general.developerMode.description")}
+      >
+        <SwitchField
+          title={t("settings:general.developerMode.enableTitle")}
+          description={t("settings:general.developerMode.enableDescription")}
+          checked={developerModeEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { developerModeEnabled: checked } })
+          }
+        />
+      </SettingsCard>
     </SectionStack>
   );
 }

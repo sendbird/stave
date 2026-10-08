@@ -601,6 +601,9 @@ export function ProvidersSection() {
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const developerModeEnabled = useAppStore(
+    (state) => state.settings.developerModeEnabled,
+  );
   const blockTurnsWhenAccountLimitReached = useAppStore(
     (state) => state.settings.blockTurnsWhenAccountLimitReached,
   );
@@ -1089,7 +1092,7 @@ export function ProvidersSection() {
               </LabeledField>
             </SettingsCard>
             <ClaudeBinaryPathCard />
-            <ClaudeRuntimeToolsCard />
+            {developerModeEnabled ? <ClaudeRuntimeToolsCard /> : null}
           </SectionStack>
         </TabsContent>
 

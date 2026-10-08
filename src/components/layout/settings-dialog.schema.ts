@@ -51,6 +51,9 @@ export const settingsSections = [
       "language",
       "locale",
       "언어",
+      "developer mode",
+      "diagnostics",
+      "개발자 모드",
     ],
   },
   {
@@ -402,6 +405,45 @@ export const settingsSections = [
 }>;
 
 export type SectionId = (typeof settingsSections)[number]["id"];
+
+export type SettingsSection = (typeof settingsSections)[number];
+
+/** Sections that only show while Settings > General > Developer mode is on. */
+const DEVELOPER_MODE_SECTION_IDS: ReadonlySet<SectionId> = new Set<SectionId>([
+  "developer",
+]);
+
+export interface SettingsSectionVisibility {
+  developerModeEnabled: boolean;
+}
+
+export function isSettingsSectionVisible(
+  sectionId: SectionId,
+  visibility: SettingsSectionVisibility,
+) {
+  return (
+    visibility.developerModeEnabled || !DEVELOPER_MODE_SECTION_IDS.has(sectionId)
+  );
+}
+
+export function listVisibleSettingsSections(
+  visibility: SettingsSectionVisibility,
+): SettingsSection[] {
+  return settingsSections.filter((section) =>
+    isSettingsSectionVisible(section.id, visibility),
+  );
+}
+
+/**
+ * Deep links (`openSettings({ section })`, the open-settings event) may name a
+ * section the current profile hides; the dialog lands on General instead.
+ */
+export function resolveVisibleSettingsSection(
+  sectionId: SectionId,
+  visibility: SettingsSectionVisibility,
+): SectionId {
+  return isSettingsSectionVisible(sectionId, visibility) ? sectionId : "general";
+}
 
 export const settingsSectionGroups: Array<{
   labelKey: SettingsI18nKey;

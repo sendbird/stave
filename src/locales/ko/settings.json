@@ -40,6 +40,12 @@
       "volumeTitle": "주의 알림음 음량",
       "previewTitle": "주의 알림음 테스트"
     },
+    "developerMode": {
+      "title": "개발자 모드",
+      "description": "진단 화면을 표시합니다: 개발자 섹션, 로컬 MCP 요청 로그, 리소스 대시보드, Claude 런타임 도구.",
+      "enableTitle": "개발자 모드",
+      "enableDescription": "진단 화면을 켭니다. 일상적인 작업에는 필요하지 않습니다."
+    },
     "soundControls": {
       "sourceDescription": "기본 제공 프리셋을 사용하거나 직접 오디오 파일을 업로드합니다.",
       "sourcePreset": "프리셋",

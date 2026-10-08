@@ -1,6 +1,6 @@
 # Resource Manager
 
-Resource Manager shows process memory, Lens ownership, and controls for releasing hidden pages or cleaning up inactive workspaces. Open it from the memory usage indicator.
+Resource Manager shows process memory, Lens ownership, and controls for releasing hidden pages or cleaning up inactive workspaces. Open it from the memory usage indicator in the status bar. The indicator is a diagnostic surface: it appears only while **Developer mode** is on in `Settings > General`.
 
 ## Read the dashboard
 

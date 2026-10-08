@@ -40,6 +40,12 @@
       "volumeTitle": "Attention chime level",
       "previewTitle": "Attention chime test"
     },
+    "developerMode": {
+      "title": "Developer Mode",
+      "description": "Shows diagnostic surfaces: the Developer section, Local MCP request log, resource dashboard and Claude runtime tools.",
+      "enableTitle": "Developer mode",
+      "enableDescription": "Turn on the diagnostic surfaces. Everyday work does not need them."
+    },
     "soundControls": {
       "sourceDescription": "Use a built-in preset or upload your own audio file.",
       "sourcePreset": "Preset",
