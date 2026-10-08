@@ -296,7 +296,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   agentLearningDisabled: string[];
   /** Personal instructions added to every agent run; see `src/lib/agents/standards.ts`. */
   myStandards: MyStandards;
-  permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
   skillsAutoSuggest: boolean;
@@ -722,7 +721,6 @@ export const defaultSettings: AppSettings = {
   agentSuggestions: {},
   agentLearningDisabled: [],
   myStandards: DEFAULT_MY_STANDARDS,
-  permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,
   skillsAutoSuggest: true,

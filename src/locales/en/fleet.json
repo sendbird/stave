@@ -160,12 +160,6 @@
     "inReview": "In review",
     "idle": "Idle"
   },
-  "taskStatus": {
-    "inProgress": "In progress",
-    "inReview": "In review",
-    "backlog": "Backlog",
-    "done": "Done"
-  },
   "workspaceActivity": {
     "active": "Active",
     "workedInRecently": "Worked in recently",

@@ -155,12 +155,6 @@
     "inReview": "리뷰 중",
     "idle": "유휴"
   },
-  "taskStatus": {
-    "inProgress": "진행 중",
-    "inReview": "리뷰 중",
-    "backlog": "백로그",
-    "done": "완료됨"
-  },
   "workspaceActivity": {
     "active": "활성",
     "workedInRecently": "최근 작업함",
