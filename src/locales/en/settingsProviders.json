@@ -1259,7 +1259,7 @@
   },
   "settingsDialogToolingSection": {
     "commandCopied": "{{value1}} command copied",
-    "claudeCodeTurnsPluginRefreshAnd": "Claude Code turns, plugin refresh, and Claude-native diagnostics. Opus 5.5: {{value1}} Sonnet 5.5: {{value2}}",
+    "claudeCodeTurnsPluginRefreshAnd": "Claude Code turns, plugin refresh, and Claude-native diagnostics. Opus 5.5: {{value1}} Sonnet 5.5: {{value2}} Haiku 5.5: {{value3}}",
     "codexTurnsAndCodexNativeExecution": "Codex turns and Codex-native execution flows. {{value1}}"
   },
   "settingsDialogAuxiliaryInferenceSection": {

@@ -7,6 +7,8 @@ import {
   shouldOpenModelSelector,
 } from "@/components/ai-elements/model-selector.utils";
 
+const CLAUDE_FABLE_MODEL_ID = "claude-fable-5-1";
+
 describe("model selector utils", () => {
   test("can build prompt-input options across all providers", () => {
     const options = buildModelSelectorOptions({
@@ -21,10 +23,10 @@ describe("model selector utils", () => {
           providerId: "claude-code",
         }),
         expect.objectContaining({
-          key: "claude-code:claude-haiku-4-5",
-          model: "claude-haiku-4-5",
+          key: "claude-code:claude-haiku-5-5",
+          model: "claude-haiku-5-5",
           providerId: "claude-code",
-          label: "Claude Haiku 4.5",
+          label: "Claude Haiku 5.5",
         }),
         expect.objectContaining({
           key: "codex:gpt-5.6-terra",
@@ -218,5 +220,7 @@ test("Opus 5.5 variants advertise their CLI requirement alongside runtime descri
   for (const model of ["claude-sonnet-5-5", "claude-sonnet-5-5[1m]"]) {
     expect(options.find(option => option.model === model)?.description).toContain("2.1.284");
   }
-  expect(options.find(option => option.model === "claude-haiku-4-5")?.description).toBeUndefined();
+  expect(options.find(option => option.model === "claude-haiku-5-5")?.description).toContain("2.1.293");
+  expect(options.find(option => option.model === "claude-haiku-4-5")).toBeUndefined();
+  expect(options.find(option => option.model === CLAUDE_FABLE_MODEL_ID)?.description).toBeUndefined();
 });

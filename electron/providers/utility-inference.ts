@@ -185,7 +185,8 @@ function resolveAuthGate(args: {
 
 function defaultRunners(): UtilityInferenceRunners {
   return {
-    // Haiku 4.5 rejects `effort` (400). Worker mode already drops the field.
+    // Haiku 4.5 rejects `effort` (400); the read-only runner drops the field
+    // for it. Haiku 5.5 accepts every level.
     "claude-code": (args) => runClaudeReadOnlyPrompt(args),
     codex: (args) =>
       runCodexReadOnlyPrompt({

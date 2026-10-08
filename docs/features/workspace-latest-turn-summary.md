@@ -68,7 +68,7 @@ This rendered example shows the Information panel with the latest-turn summary p
   "auxiliaryInferencePolicy": {
     "turnSummary": {
       "enabled": true,
-      "model": "claude-haiku-4-5",
+      "model": "claude-haiku-5-5",
       "fallbackModel": null
     }
   }

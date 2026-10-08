@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   CLAUDE_FABLE_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
+  DEFAULT_CLAUDE_HAIKU_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -93,11 +94,11 @@ function resolveDecision(args: {
 }
 
 describe("resolveAutoRoutingDecision", () => {
-  test("bounded edits use the light route, Sonnet rather than Haiku, on the first turn", async () => {
+  test("bounded edits use the light route, Haiku 5.5 like Luna, on the first turn", async () => {
     const decision = await resolveDecision({ prompt: "fix typo" });
 
     expect(decision).toMatchObject({
-      providerId: "claude-code", model: DEFAULT_CLAUDE_SONNET_MODEL,
+      providerId: "claude-code", model: DEFAULT_CLAUDE_HAIKU_MODEL,
       claudeEffort: "medium", taskType: "quick_edit", taskClass: "quick-edit",
       source: "heuristic", ruleId: "bounded", role: "primary", stance: "balanced",
     });
@@ -175,9 +176,10 @@ describe("resolveAutoRoutingDecision", () => {
         autoRoutingEligibleCodexModels: ["gpt-6-luna"],
       },
     })).rejects.toThrow("Complex work needs a Flagship model or stronger");
+    // A legacy allow list that names Haiku 4.5 moves onto Haiku 5.5.
     expect((await resolveDecision({ prompt: "fix typo",
       settings: { autoRoutingEligibleClaudeModels: ["claude-haiku-4-5"] },
-    })).model).toBe("claude-haiku-4-5");
+    })).model).toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
   });
 
   test("treats writing a regression test as implementation, not debugging", async () => {
@@ -303,7 +305,7 @@ describe("resolveAutoRoutingDecision", () => {
         risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"] }),
     });
     expect(result.taskClass).toBe("research");
-    expect(result.model).toBe(DEFAULT_CLAUDE_SONNET_MODEL);
+    expect(result.model).toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
     expect(result.confidence).toBeNull();
   });
 

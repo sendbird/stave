@@ -21,6 +21,7 @@ import {
 } from "@/lib/providers/auto-routing-profile";
 import {
   CLAUDE_FABLE_MODEL,
+  DEFAULT_CLAUDE_HAIKU_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
   formatModelPrice,
@@ -91,7 +92,7 @@ describe("resolveRoute", () => {
 
   test("each level maps to one rung and effort on both providers", () => {
     const expected = {
-      low: { claude: [DEFAULT_CLAUDE_SONNET_MODEL, "medium"], codex: ["gpt-6-luna", "medium"], rule: "bounded" },
+      low: { claude: [DEFAULT_CLAUDE_HAIKU_MODEL, "medium"], codex: ["gpt-6-luna", "medium"], rule: "bounded" },
       medium: { claude: [DEFAULT_CLAUDE_OPUS_MODEL, "medium"], codex: ["gpt-6.1-sol", "medium"], rule: "standard" },
       high: { claude: [DEFAULT_CLAUDE_OPUS_MODEL, "high"], codex: ["gpt-6.1-sol", "high"], rule: "complex" },
       expert: { claude: [CLAUDE_FABLE_MODEL, "medium"], codex: ["gpt-6-astra", "medium"], rule: "expert" },
@@ -108,7 +109,24 @@ describe("resolveRoute", () => {
     }
   });
 
-  test("Auto never picks Haiku unless it is allowed explicitly", () => {
+  test("Haiku 5.5 is the light Claude route, like Luna on Codex", () => {
+    const claude = listEligibleRouteModels({ profile: balanced, providerId: "claude-code" });
+    expect(claude).toContain(DEFAULT_CLAUDE_HAIKU_MODEL);
+    expect(claude.at(-1)).toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
+    expect(listEligibleRouteModels({ profile: balanced, providerId: "codex" }).at(-1)).toBe("gpt-6-luna");
+  });
+
+  test("a stored allow list that names Haiku 4.5 moves onto Haiku 5.5", () => {
+    const stored = validateProfile({
+      ...balanced,
+      eligibleModelsByProvider: { "claude-code": ["claude-haiku-4-5", DEFAULT_CLAUDE_HAIKU_MODEL, DEFAULT_CLAUDE_SONNET_MODEL] },
+    });
+    expect(stored.eligibleModelsByProvider["claude-code"]).toEqual([DEFAULT_CLAUDE_HAIKU_MODEL, DEFAULT_CLAUDE_SONNET_MODEL]);
+    expect(migrateLegacyAutoSettings({ autoRoutingEligibleClaudeModels: ["claude-haiku-4-5"] })
+      .eligibleModelsByProvider["claude-code"]).toEqual([DEFAULT_CLAUDE_HAIKU_MODEL]);
+  });
+
+  test("Auto never picks Haiku 4.5 unless it is allowed explicitly", () => {
     expect(listEligibleRouteModels({ profile: balanced, providerId: "claude-code" })).not.toContain("claude-haiku-4-5");
     const allowed = { ...balanced, eligibleModelsByProvider: { "claude-code": ["claude-haiku-4-5", DEFAULT_CLAUDE_SONNET_MODEL] } };
     expect(resolveRoute({ profile: allowed, role: "primary", signals: signals({ complexity: "low" }) }).model)
@@ -162,7 +180,7 @@ describe("resolveRoute", () => {
       resolveRoute({ profile: buildStarterProfile(stance), role: "primary", signals: signals({ complexity }) });
     expect(route("starter-cost-saver", "medium")).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "medium", stanceShift: -1 });
     expect(route("starter-quality-first", "medium")).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "high", stanceShift: 1 });
-    expect(route("starter-cost-saver", "low")).toMatchObject({ model: DEFAULT_CLAUDE_SONNET_MODEL, effort: "low" });
+    expect(route("starter-cost-saver", "low")).toMatchObject({ model: DEFAULT_CLAUDE_HAIKU_MODEL, effort: "low" });
     expect(route("starter-quality-first", "high")).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "xhigh" });
     expect(route("starter-cost-saver", "expert")).toMatchObject({ model: CLAUDE_FABLE_MODEL, effort: "low" });
     expect(route("starter-quality-first", "expert")).toMatchObject({ model: CLAUDE_FABLE_MODEL, effort: "medium" });

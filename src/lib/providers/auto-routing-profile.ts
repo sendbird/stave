@@ -12,11 +12,13 @@ import {
   getProviderLabel,
   getSdkModelOptions,
   isAutoModelId,
+  LEGACY_CLAUDE_HAIKU_MODEL,
   listProviderIds,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
   toHumanModelName,
   type ModelTier,
+  upgradePinnedHaikuModel,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
@@ -164,6 +166,7 @@ const ROUTE_TIER_BY_MODEL: Readonly<Record<string, RouteTier>> = {
   "claude-sonnet-5": "balanced",
   "claude-sonnet-5[1m]": "balanced",
   [DEFAULT_CLAUDE_HAIKU_MODEL]: "light",
+  [LEGACY_CLAUDE_HAIKU_MODEL]: "light",
   "gpt-6-astra": "frontier",
   "gpt-6.1-sol": "flagship",
   "gpt-6-sol": "flagship",
@@ -195,11 +198,11 @@ const DEFAULT_EFFORT_BY_ROUTE_TIER: Readonly<Record<RouteTier, string>> = {
 
 /**
  * Catalog models Auto does not pick unless the user allows them explicitly.
- * Haiku rejects an effort value and sits below what Stave treats as the
- * lightest useful coding model; Sonnet is the light Claude route.
+ * Haiku 4.5 rejects an effort value. Haiku 5.5 is not listed: it is the light
+ * Claude route, matching GPT-6 Luna on the Codex side.
  */
 export const AUTO_ROUTING_OPT_IN_MODELS: ReadonlySet<string> = new Set([
-  DEFAULT_CLAUDE_HAIKU_MODEL,
+  LEGACY_CLAUDE_HAIKU_MODEL,
 ]);
 
 /**
@@ -225,7 +228,7 @@ const CODEX_EFFORT_SCALE = [
 
 /** Models that reject an explicit effort value outright. */
 const MODELS_WITHOUT_EFFORT: ReadonlySet<string> = new Set([
-  DEFAULT_CLAUDE_HAIKU_MODEL,
+  LEGACY_CLAUDE_HAIKU_MODEL,
 ]);
 
 export function resolveRouteTierForModel(model: string): RouteTier {
@@ -401,7 +404,7 @@ export interface RouteLevel {
  * The routing ladder, lowest level first. Each level is one model rung and an
  * effort range; the preference picks a point inside the range.
  *
- *   Simple    light (Sonnet 5.5 / GPT-6 Luna)            low – medium
+ *   Simple    light (Haiku 5.5 / GPT-6 Luna)             low – medium
  *   Standard  flagship (Opus 5.5 / GPT-6.1 Sol)          medium – high
  *   Complex   flagship                                   high – xhigh
  *   Expert    frontier (Fable 5.1 / GPT-6 Astra)         low – medium
@@ -650,6 +653,13 @@ function normalizeStringList(value: unknown): string[] {
     .filter((entry, index, entries) => entry.length > 0 && entries.indexOf(entry) === index);
 }
 
+/** A stored allow-list can predate Haiku 5.5; a pinned Haiku 4.5 moves onto it. */
+function normalizeEligibleModelList(value: unknown): string[] {
+  return normalizeStringList(
+    normalizeStringList(value).map((model) => upgradePinnedHaikuModel(model)),
+  );
+}
+
 function normalizeRule(value: unknown, index: number): RouteRule | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -777,7 +787,7 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
     typeof candidate.eligibleModelsByProvider === "object"
   ) {
     for (const providerId of listProviderIds()) {
-      const models = normalizeStringList(
+      const models = normalizeEligibleModelList(
         (candidate.eligibleModelsByProvider as Record<string, unknown>)[providerId],
       );
       if (models.length > 0) {
@@ -870,7 +880,7 @@ export function migrateLegacyAutoSettings(
         : "starter-balanced";
   const profile = buildStarterProfile(starterId);
   const defaults = profile.signals;
-  const claude = normalizeStringList(settings.autoRoutingEligibleClaudeModels);
+  const claude = normalizeEligibleModelList(settings.autoRoutingEligibleClaudeModels);
   const codex = normalizeStringList(settings.autoRoutingEligibleCodexModels);
   return {
     ...profile,

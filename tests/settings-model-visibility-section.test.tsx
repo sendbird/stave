@@ -64,7 +64,8 @@ describe("Settings → Models → Selector Models", () => {
       'data-model-visibility-row="claude-sonnet-5-5[1m]',
     );
     expect(html).toContain("Show Claude Sonnet 5.5 in the model selector");
-    expect(html).toContain('data-model-visibility-row="claude-haiku-4-5"');
-    expect(html).toContain("Show Claude Haiku 4.5 in the model selector");
+    expect(html).toContain('data-model-visibility-row="claude-haiku-5-5"');
+    expect(html).toContain("Show Claude Haiku 5.5 in the model selector");
+    expect(html).not.toContain('data-model-visibility-row="claude-haiku-4-5"');
   });
 });

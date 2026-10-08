@@ -116,8 +116,8 @@ export function resolveDefaultModelEffort(args: {
 }
 
 /**
- * Claude Haiku rejects an explicit `effort` with a 400, so the field must be
- * omitted rather than clamped for that family.
+ * Claude Haiku 4.5 rejects an explicit `effort` with a 400, so the field must
+ * be omitted rather than clamped for it. Haiku 5.5 accepts every level.
  */
 export function modelAcceptsExplicitEffort(args: {
   providerId: ProviderId;
@@ -125,7 +125,7 @@ export function modelAcceptsExplicitEffort(args: {
 }) {
   return !(
     args.providerId === "claude-code" &&
-    /^claude-haiku-/.test(normalizeClaudeModelId(args.model))
+    /^claude-haiku-4-5(?:$|-)/.test(normalizeClaudeModelId(args.model))
   );
 }
 

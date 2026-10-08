@@ -9,6 +9,7 @@ import {
   DEFAULT_CLAUDE_OPUS_MODEL,
   getDynamicDisplayNames,
   getModelCapability,
+  MODEL_PRICING,
   listCodexReasoningEffortsForModel,
   listModelCapabilities,
   resolveDefaultClaudeFallbackModel,
@@ -28,6 +29,7 @@ import {
   registerDynamicDisplayNames,
   registerDynamicSupportedReasoningEfforts,
   toHumanModelName,
+  upgradePinnedHaikuModel,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 
@@ -70,9 +72,32 @@ describe("model catalog", () => {
     );
   });
 
-  test("includes Haiku 4.5 so Background AI and other pickers can show the light-tier default", () => {
+  test("includes Haiku 5.5 so Background AI and other pickers can show the light-tier default", () => {
+    expect(DEFAULT_CLAUDE_HAIKU_MODEL).toBe("claude-haiku-5-5");
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(DEFAULT_CLAUDE_HAIKU_MODEL);
+    expect(CLAUDE_SDK_MODEL_OPTIONS).not.toContain("claude-haiku-4-5");
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).not.toBe(
+      DEFAULT_CLAUDE_HAIKU_MODEL,
+    );
+  });
+
+  test("treats Haiku 5.5 as the light tier, priced like GPT-6 Luna", () => {
+    expect(getModelCapability({ model: DEFAULT_CLAUDE_HAIKU_MODEL })?.tier).toBe(
+      getModelCapability({ model: "gpt-6-luna" })?.tier,
+    );
+    expect(MODEL_PRICING[DEFAULT_CLAUDE_HAIKU_MODEL]).toMatchObject({
+      inputPerMTok: MODEL_PRICING["gpt-6-luna"]?.inputPerMTok,
+      outputPerMTok: MODEL_PRICING["gpt-6-luna"]?.outputPerMTok,
+    });
+    expect(toHumanModelName({ model: DEFAULT_CLAUDE_HAIKU_MODEL })).toBe("Claude Haiku 5.5");
+    expect(toHumanModelName({ model: "claude-haiku-4-5" })).toBe("Claude Haiku 4.5");
+    expect(resolveDefaultClaudeEffortForModel({ model: DEFAULT_CLAUDE_HAIKU_MODEL })).toBe("medium");
+  });
+
+  test("moves a pinned Haiku 4.5 id onto Haiku 5.5", () => {
+    expect(upgradePinnedHaikuModel("claude-haiku-4-5")).toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
+    expect(upgradePinnedHaikuModel("gpt-6-luna")).toBe("gpt-6-luna");
+    expect(upgradeSettingsScopedClaudeModel({ model: "claude-haiku-4-5" })).toBe(
       DEFAULT_CLAUDE_HAIKU_MODEL,
     );
   });
@@ -332,7 +357,7 @@ describe("model catalog", () => {
       "gpt-6-astra",
     );
     expect(resolveTierModel({ providerId: "claude-code", tier: "light" })).toBe(
-      "claude-haiku-4-5",
+      "claude-haiku-5-5",
     );
     expect(
       resolveTierModel({

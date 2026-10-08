@@ -6,7 +6,10 @@ import {
   modelAcceptsExplicitEffort,
   type ModelEffort,
 } from "@/lib/providers/model-effort";
-import { resolveTierModel } from "@/lib/providers/model-catalog";
+import {
+  resolveTierModel,
+  upgradePinnedHaikuModel,
+} from "@/lib/providers/model-catalog";
 import type {
   ManagedExecutionProviderId,
   ProviderId,
@@ -146,7 +149,8 @@ function normalizeModelValue(value: unknown): string | null | undefined {
     return undefined;
   }
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  // A lane pinned to Haiku 4.5 before Haiku 5.5 shipped moves onto 5.5.
+  return trimmed.length > 0 ? upgradePinnedHaikuModel(trimmed) : null;
 }
 
 function normalizeLane(lane: AuxLane, raw: unknown): AuxLaneConfig {
@@ -267,8 +271,8 @@ export function migrateLegacyTurnSummaryModels(args: {
 }
 
 /**
- * Claude's Haiku models reject an explicit `effort` with a 400, so the field is
- * dropped rather than clamped for them.
+ * Claude Haiku 4.5 rejects an explicit `effort` with a 400, so the field is
+ * dropped rather than clamped for it.
  */
 export function supportsExplicitEffort(args: {
   providerId: ProviderId;
