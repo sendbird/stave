@@ -32,7 +32,7 @@ codex app-server generate-json-schema --experimental --out <temporary-directory>
 - 설정/UI: `src/store/provider-runtime-options.ts`,
   `src/lib/providers/runtime-option-contract.ts`,
   `src/components/layout/settings-dialog-providers-section.tsx`,
-  `src/components/layout/settings-dialog-codex-section.tsx`
+  `src/components/layout/settings-dialog-codex-plugins-card.tsx`
 - 테스트: `tests/codex-app-server-runtime.test.ts`, `tests/ipc-schemas.test.ts`,
   `tests/provider-runtime-options.test.ts`
 

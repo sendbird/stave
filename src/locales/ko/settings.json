@@ -1000,10 +1000,6 @@
       "label": "Auto (모델 라우터)",
       "description": "Auto가 턴마다 규모를 정하는 방식입니다. 레벨이 모델을 고르고, 선호도가 노력 수준을 정합니다."
     },
-    "codex": {
-      "label": "Codex 인스펙터",
-      "description": "App Server, 플러그인, 스레드, 명령, 설정에 대한 고급 진단 정보입니다."
-    },
     "mcp": {
       "label": "MCP",
       "description": "Model Context Protocol 서버와 런타임 상태입니다."

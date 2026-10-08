@@ -12,7 +12,6 @@ import {
   ListTodo,
   Lock,
   Palette,
-  Package2,
   Rocket,
   ScrollText,
   SearchCheck,
@@ -217,20 +216,6 @@ export const settingsSections = [
       "delegate",
       "price",
       "pricing",
-    ],
-  },
-  {
-    id: "codex",
-    labelKey: "settings:sections.codex.label",
-    icon: Package2,
-    descriptionKey: "settings:sections.codex.description",
-    keywords: [
-      "app server",
-      "plugins",
-      "threads",
-      "slash commands",
-      "json",
-      "config",
     ],
   },
   {
@@ -455,7 +440,7 @@ export const settingsSectionGroups: Array<{
   },
   {
     labelKey: "settings:sections.groups.systemAdvanced",
-    ids: ["tooling", "codex", "developer", "changelog"],
+    ids: ["tooling", "developer", "changelog"],
   },
 ];
 

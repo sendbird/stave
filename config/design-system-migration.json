@@ -205,7 +205,6 @@
     "src/components/layout/automation-center/AutomationEditor.tsx": 0,
     "src/components/layout/automation-center/AutomationRunDetail.tsx": 0,
     "src/components/layout/editor-diff-review-hover-menu.tsx": 0,
-    "src/components/layout/settings-dialog-codex-section.tsx": 0,
     "src/components/layout/settings-dialog-delegation-section.tsx": 0,
     "src/components/layout/settings-dialog-developer-section.tsx": 0,
     "src/components/layout/settings-dialog-kickoff-section.tsx": 0,

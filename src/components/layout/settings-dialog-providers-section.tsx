@@ -61,6 +61,7 @@ import {
   CodexBinaryPathCard,
 } from "./settings-dialog-developer-section";
 import { ClaudeInstalledPluginsField } from "./settings-dialog-claude-plugins";
+import { CodexPluginsCard } from "./settings-dialog-codex-plugins-card";
 import { ClaudeGuardrailFields } from "./settings-dialog-claude-guardrails";
 import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettingsCard";
 import { SettingsDelegationSection } from "./settings-dialog-delegation-section";
@@ -1329,6 +1330,7 @@ export function ProvidersSection() {
                 }
               />
             </SettingsCard>
+            <CodexPluginsCard />
             <CodexBinaryPathCard />
           </SectionStack>
         </TabsContent>

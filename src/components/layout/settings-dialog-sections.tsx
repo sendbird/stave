@@ -13,7 +13,6 @@ import { ChangelogSection } from "./settings-dialog-changelog-section";
 import { DeveloperSection } from "./settings-dialog-developer-section";
 import { PresetsSection } from "./settings-dialog-presets-section";
 import { MacrosSection } from "./settings-dialog-macros-section";
-import { CodexSection } from "./settings-dialog-codex-section";
 import { McpSection } from "./settings-dialog-mcp-section";
 import { KickoffSection } from "./settings-dialog-kickoff-section";
 import { ProvidersSection } from "./settings-dialog-providers-section";
@@ -81,8 +80,6 @@ export function SettingsDialogSectionContent(args: {
       return <ProvidersSection />;
     case "models":
       return <ModelsSection />;
-    case "codex":
-      return <CodexSection />;
     case "mcp":
       return <McpSection />;
     case "integrations":

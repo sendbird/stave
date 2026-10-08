@@ -1013,10 +1013,6 @@
       "label": "Auto (Model Router)",
       "description": "How Auto sizes each turn: a level picks the model, your preference sets the effort."
     },
-    "codex": {
-      "label": "Codex Inspector",
-      "description": "Advanced App Server, plugin, thread, command, and config diagnostics."
-    },
     "mcp": {
       "label": "MCP",
       "description": "Model Context Protocol servers and runtime status."

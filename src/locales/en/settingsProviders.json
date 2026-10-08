@@ -757,51 +757,19 @@
       "copyCommandFailed": "Failed to copy command"
     }
   },
-  "codexShared": {
-    "accountBadge": {
-      "unknown": "unknown",
-      "needsLogin": "needs login",
-      "notRequired": "not required",
-      "ready": "ready"
-    }
-  },
-  "codexSection": {
-    "status": {
-      "snapshotError": "snapshot error",
-      "loadingSnapshot": "loading snapshot",
-      "appServerReady": "app server ready",
-      "snapshotIdle": "snapshot idle",
-      "dynamicModelCatalog": "dynamic model catalog",
-      "fallbackModelCatalog": "fallback model catalog",
-      "currentThread": "current thread {{id}}"
+  "codexPlugins": {
+    "card": {
+      "title": "Codex plugins",
+      "description": "Plugins from the Codex marketplaces that the Codex CLI used by Stave can see. Install or remove them here; the list refreshes after each change."
     },
-    "updatedAt": "Updated {{time}}",
-    "tabs": {
-      "overview": "Overview",
-      "extensions": "Extensions",
-      "threads": "Threads",
-      "commands": "Commands",
-      "advanced": "Advanced"
-    },
-    "jsonInputEmpty": "JSON input is empty.",
-    "snapshot": {
-      "bridgeUnavailable": "Codex App Server snapshot bridge is unavailable.",
-      "loading": "Loading Codex App Server snapshot...",
-      "loadFailed": "Failed to load Codex App Server snapshot."
-    },
-    "pluginDetail": {
-      "loading": "Loading plugin details for {{name}}...",
-      "loadFailed": "Failed to load Codex plugin details."
-    },
-    "threadDetail": {
-      "loading": "Loading thread {{id}}...",
-      "loadFailed": "Failed to load Codex thread details."
-    },
-    "resourcePreview": {
-      "authorizationUrlTitle": "{{server}} authorization URL",
-      "reading": "Reading {{uri}}...",
-      "binaryBlob": "[binary blob] {{preview}}",
-      "emptyBody": "(empty resource body)"
+    "checking": "Checking Codex plugins...",
+    "empty": "No Codex plugins were reported by the App Server.",
+    "installed": "Installed",
+    "install": "Install",
+    "working": "Working...",
+    "errors": {
+      "unavailable": "Codex App Server bridge is unavailable.",
+      "loadFailed": "Could not load Codex plugins."
     },
     "toasts": {
       "installFailed": "Install failed",
@@ -809,222 +777,31 @@
       "installed": "Installed {{name}}",
       "uninstallFailed": "Uninstall failed",
       "uninstallUnavailable": "Codex plugin uninstall bridge is unavailable.",
-      "removed": "Removed {{name}}",
-      "featureToggleUnavailable": "Feature toggle unavailable",
-      "featureUpdated": "Updated {{name}}",
-      "oauthUnavailable": "OAuth login unavailable",
-      "oauthFailed": "OAuth login failed",
-      "oauthStarted": "Started OAuth login for {{server}}",
-      "oauthOpenUrl": "Open the authorization URL to finish the flow.",
-      "resourceBridgeUnavailable": "MCP resource bridge unavailable",
-      "selectThreadFirst": "Select a Codex thread first",
-      "resourceNeedsThread": "Resource reads require a thread context.",
-      "renameUnavailable": "Thread rename unavailable",
-      "renamed": "Renamed Codex thread",
-      "forkUnavailable": "Thread fork unavailable",
-      "forkFailed": "Thread fork failed",
-      "forked": "Forked Codex thread",
-      "archiveUnavailable": "Thread archive unavailable",
-      "archived": "Archived Codex thread",
-      "restored": "Restored Codex thread",
-      "compactUnavailable": "Thread compaction unavailable",
-      "compacted": "Compacted thread context",
-      "rollbackUnavailable": "Thread rollback unavailable",
-      "rollbackCountInvalid": "Rollback count must be at least 1.",
-      "rolledBack": "Rolled back Codex thread",
-      "noExternalConfig": "No external config items to import.",
-      "importedExternalConfig": "Imported external config",
-      "configWriteUnavailable": "Config write bridge unavailable",
-      "configKeyPathRequired": "Config key path is required.",
-      "invalidJsonValue": "Invalid JSON value",
-      "configUpdated": "Updated {{keyPath}}",
-      "batchWriteUnavailable": "Batch config write bridge unavailable",
-      "invalidBatchJson": "Invalid batch edit JSON",
-      "batchNotArray": "Batch edits must be a JSON array.",
-      "batchApplied": "Applied Codex config batch"
+      "removed": "Removed {{name}}"
     }
   },
   "codexOverviewTab": {
-    "metrics": {
-      "models": "Models",
-      "plugins": "Plugins",
-      "apps": "Apps",
-      "threads": "Threads",
-      "skills": "Skills",
-      "slashCommands": "Slash Commands"
-    },
-    "empty": {
-      "unavailable": "Codex snapshot unavailable",
-      "loading": "Loading Codex snapshot"
+    "rateLimits": {
+      "primary": "Primary"
     },
     "runtime": {
-      "title": "Runtime summary",
-      "description": "Live App Server data for the current workspace and Codex binary.",
-      "account": "Account",
-      "accountType": "Type: {{value}}",
-      "accountEmail": "Email: {{value}}",
-      "accountPlan": "Plan: {{value}}",
-      "unknownValue": "unknown",
-      "modelCatalog": "Model catalog",
-      "catalogLive": "live app server",
-      "catalogFallback": "fallback",
-      "catalogDefaultDetail": "Using the configured Codex model catalog.",
-      "defaultModel": "default",
-      "workspaceScope": "Workspace scope",
-      "scoped": "scoped",
-      "noWorkspaceCwd": "No workspace cwd available.",
-      "binary": "Binary: {{path}}",
-      "defaultBinary": "Default Codex executable",
-      "slashCommands": "Slash commands",
-      "builtInCount": "{{total}} built-in"
-    },
-    "sectionErrors": {
-      "title": "Section errors",
-      "description": "Snapshot sections that failed independently while the rest of the App Server surface loaded.",
-      "empty": "No partial section failures."
-    },
-    "rateLimits": {
-      "title": "Rate limits",
-      "description": "Current limit buckets and credit state reported by Codex.",
-      "empty": "No rate-limit buckets returned by the App Server.",
-      "unnamedBucket": "Unnamed bucket",
-      "unknownPlan": "unknown plan",
-      "unlimitedCredits": "unlimited credits",
-      "creditsBalance": "credits {{balance}}",
-      "creditsAvailable": "credits available",
-      "noCredits": "no credits",
-      "primary": "Primary",
-      "secondary": "Secondary",
-      "usedWithReset": "{{percent}} · resets {{time}}"
+      "account": "Account"
     }
   },
   "codexExtensionsTab": {
-    "pluginsAndApps": {
-      "title": "Plugins and apps",
-      "description": "Installed, discoverable, and currently accessible extension surfaces."
-    },
-    "plugins": "Plugins",
-    "noPlugins": "No plugins returned by the current App Server runtime.",
-    "installed": "installed",
-    "discoverable": "discoverable",
     "enabled": "enabled",
-    "apps": "Apps",
-    "noApps": "No apps returned by the current App Server runtime.",
-    "noDescription": "No description",
-    "accessible": "accessible",
-    "notAccessible": "not accessible",
-    "skills": "Skills",
-    "noSkills": "No skill groups returned by the current workspace.",
-    "mcpServers": "MCP servers",
-    "noMcpServers": "No MCP servers returned by the current App Server runtime.",
-    "unknownAuth": "unknown auth",
-    "login": "Login",
-    "preview": "Preview",
-    "hooks": "Provider hooks",
-    "noHooks": "No hook inventory was returned by the selected Codex runtime.",
-    "experimental": "Experimental features",
-    "noExperimental": "No experimental features are currently reported.",
-    "defaultOn": "default on",
-    "inspector": {
-      "title": "Inspector",
-      "description": "Selected plugin detail or the latest MCP resource preview.",
-      "empty": "Select a plugin or preview an MCP resource to inspect it here.",
-      "noPluginDescription": "No plugin description.",
-      "uninstall": "Uninstall",
-      "install": "Install",
-      "noPluginSkills": "No plugin skills.",
-      "appsNeedingAuth": "Apps needing auth",
-      "noAppAuth": "No app-level auth requirements.",
-      "openAuthorizationUrl": "Open authorization URL",
-      "emptyBody": "(empty)"
-    }
+    "plugins": "Plugins",
+    "skills": "Skills"
   },
   "codexThreadsTab": {
-    "list": {
-      "title": "Thread list",
-      "description": "Active and archived Codex threads returned for the current workspace."
-    },
-    "groups": {
-      "active": "Active",
-      "archived": "Archived"
-    },
-    "empty": {
-      "active": "No active threads.",
-      "archived": "No archived threads."
-    },
-    "current": "current",
-    "updatedAt": "Updated {{time}}",
-    "inspector": {
-      "title": "Thread inspector",
-      "description": "Inspect the selected thread and run fork, review, rename, compact, archive, or rollback actions.",
-      "empty": "Select a thread to inspect it here."
-    },
-    "currentSession": "current session",
-    "archivedBadge": "archived",
-    "metrics": {
-      "turns": "Turns",
-      "modelProvider": "Model provider",
-      "cliVersion": "CLI version",
-      "updated": "Updated"
-    },
-    "threadNamePlaceholder": "Thread name",
-    "quickActions": "Quick actions",
-    "fork": "Fork",
     "compact": "Compact",
-    "archive": "Archive",
-    "rollback": "Rollback",
-    "rollBackTurns": "Roll back turns"
-  },
-  "codexCommandsTab": {
-    "categories": {
-      "session": "Session control",
-      "runtime": "Runtime and behavior",
-      "workspace": "Workspace context",
-      "inspection": "Inspection and review",
-      "integrations": "Apps and plugins"
-    },
-    "catalog": {
-      "title": "Slash command catalog",
-      "description": "Bundled from the official Codex CLI slash-command guide so the popup stays useful even though App Server does not expose a live command-list RPC."
-    },
-    "filterPlaceholder": "Filter by command, behavior, or category",
-    "total": "{{total}} total",
-    "noMatches": {
-      "title": "No matches",
-      "description": "Try a shorter query or clear the filter.",
-      "detail": "No slash commands matched <query/>."
-    },
-    "commandCount_one": "{{count}} command",
-    "commandCount_other": "{{count}} commands"
+    "metrics": {
+      "turns": "Turns"
+    }
   },
   "codexAdvancedTab": {
-    "requirements": {
-      "title": "Config requirements",
-      "description": "Policy limits the App Server reports for approvals, sandbox, residency, and feature gates.",
-      "importDetected": "Import detected config",
-      "approval": "approval {{value}}",
-      "sandbox": "sandbox {{value}}",
-      "search": "search {{value}}",
-      "residency": "residency {{value}}",
-      "detectedExternal": "Detected external configs"
-    },
     "layers": {
-      "title": "Config layers",
-      "description": "Merged config plus per-layer diagnostics returned by Codex.",
       "disabled": "disabled"
-    },
-    "edits": {
-      "title": "Advanced config edits",
-      "description": "Raw JSON utilities for targeted Codex config changes. Most users should only inspect this area when diagnosing App Server behavior.",
-      "single": "Single edit",
-      "mergeStrategyPlaceholder": "Optional mergeStrategy",
-      "applySingle": "Apply single edit",
-      "batch": "Batch edits",
-      "applyBatch": "Apply batch"
-    },
-    "merged": {
-      "title": "Merged advanced config",
-      "description": "Read-only raw config payload returned by `config/read`."
     }
   },
   "mcpSection": {
