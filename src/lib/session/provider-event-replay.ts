@@ -152,12 +152,14 @@ function createUserInputPart(args: {
   requestId: string;
   toolName: string;
   questions: UserInputPart["questions"];
+  delivery?: "async";
 }): UserInputPart {
   return sanitizeMessagePartPayload({
     type: "user_input",
     requestId: args.requestId,
     toolName: args.toolName,
     questions: args.questions,
+    ...(args.delivery ? { delivery: args.delivery } : {}),
     state: "input-requested",
   });
 }
@@ -380,6 +382,7 @@ function normalizeEventToPart(args: {
         requestId: event.requestId,
         toolName: event.toolName,
         questions: event.questions,
+        delivery: event.delivery,
       });
     case "system":
       return sanitizeMessagePartPayload({
@@ -749,6 +752,7 @@ function appendProviderEventContentToAssistant(args: {
         isStreaming: false,
         terminalStopReason,
         parts: interruptPendingToolInteractionParts({
+          preserveAsync: !["cancelled", "aborted"].includes(args.event.stop_reason ?? ""),
           parts: [
             ...messageWithTruncationNotice.parts,
             { type: "system_event", content: "No response returned." },
@@ -774,6 +778,7 @@ function appendProviderEventContentToAssistant(args: {
       ...finalizedMessage,
       terminalStopReason,
       parts: interruptPendingToolInteractionParts({
+        preserveAsync: !["cancelled", "aborted"].includes(args.event.stop_reason ?? ""),
         parts: finalizedMessage.parts,
       }),
     };
@@ -784,6 +789,7 @@ function appendProviderEventContentToAssistant(args: {
     return message;
   }
 
+  if (part.type === "user_input" && message.parts.some((existing) => existing.type === "user_input" && existing.requestId === part.requestId)) return message;
   const nextParts = [...message.parts];
   const lastPart = nextParts.at(-1);
 

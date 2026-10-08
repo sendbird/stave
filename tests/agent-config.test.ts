@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SUBAGENT_PRESETS } from "@/lib/agents/subagent-presets";
-import { compileNativeSubagents } from "@/lib/agents/native-subagents";
+import { compileNativeSubagents, buildNativeSubagentBriefing } from "@/lib/agents/native-subagents";
 import { AgentConfigListSchema, AgentConfigSchema, type AgentConfig } from "@/lib/agents/schema";
 import { BUILTIN_AGENTS, getBuiltinAgent } from "@/lib/agents/starters";
 import { compileAgent, hashAgentContent, snapshotAgent } from "@/lib/agents/compile";
@@ -237,4 +237,12 @@ describe("compileAgent", () => {
       { sourceId: "skill:accessibility", kind: "skill", included: true },
     ]);
   });
+});
+
+test("native helper briefings retain configured model and effort", () => {
+  const briefing = buildNativeSubagentBriefing([{ name: "reviewer", label: "Reviewer", description: "Review changes",
+    instructions: "Check behavior", model: "test-model", effort: "high" }]);
+  expect(briefing).toContain("Model: test-model");
+  expect(briefing).toContain("Reasoning effort: high");
+  expect(briefing).toContain("do not silently replace a fixed model");
 });

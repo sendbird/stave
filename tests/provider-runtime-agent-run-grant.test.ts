@@ -45,7 +45,7 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   getProviderConnectedToolStatus: async () => ({ ok: true, detail: "", tools: [] }),
 }));
 
-const { providerRuntime } = await import("../electron/providers/runtime");
+const { providerRuntime, setAgentRunUserTurnResolver } = await import("../electron/providers/runtime");
 const { resolveAgentRunGrant, clearAgentRunGrantsForTest } = await import(
   "../electron/providers/agent-run-grants"
 );
@@ -57,6 +57,7 @@ async function runTurn(args: {
   turnId: string;
   taskId?: string;
   agentRunStage?: StreamTurnArgs["agentRunStage"];
+  conversation?: StreamTurnArgs["conversation"];
   executionPolicy?: StreamTurnArgs["executionPolicy"];
 }) {
   let resolveDone = () => {};
@@ -70,6 +71,7 @@ async function runTurn(args: {
       cwd: TEST_WORKSPACE_CWD,
       providerId: args.providerId,
       prompt: "Draft the change.",
+      ...(args.conversation ? { conversation: args.conversation } : {}),
       ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
       ...(args.executionPolicy ? { executionPolicy: args.executionPolicy } : {}),
     },
@@ -80,6 +82,7 @@ async function runTurn(args: {
 }
 
 afterEach(() => {
+  setAgentRunUserTurnResolver(null);
   primaryTurns = [];
   grantsDuringTurn = [];
   clearAgentRunGrantsForTest();
@@ -142,4 +145,20 @@ describe("provider runtime run grants", () => {
     });
     expect(secondary.staveTurnGrants?.agentRunKey).toBeUndefined();
   });
+});
+
+test("primary chat replies inherit host-owned stage grants but reviews and secondary turns do not", async () => {
+  setAgentRunUserTurnResolver(() => ({ agentRunStage: STAGE,
+    context: { type: "retrieved_context", sourceId: "stave:agent-run", content: "Current blocker" } }));
+  const conversation: NonNullable<StreamTurnArgs["conversation"]> = {
+    target: { providerId: "codex" }, mode: "chat", history: [], contextParts: [],
+    input: { role: "user", content: "Clarify the question", parts: [] },
+  };
+  const reply = await runTurn({ providerId: "codex", turnId: "reply", conversation });
+  expect(grantsDuringTurn.at(-1)).toMatchObject(STAGE);
+  expect(reply.conversation?.contextParts).toContainEqual(expect.objectContaining({ content: "Current blocker" }));
+  await runTurn({ providerId: "codex", turnId: "review", conversation: { ...conversation, mode: "review" } });
+  expect(grantsDuringTurn.at(-1)).toBeNull();
+  await runTurn({ providerId: "codex", turnId: "secondary", conversation, executionPolicy: "secondary-read-only" });
+  expect(grantsDuringTurn.at(-1)).toBeNull();
 });

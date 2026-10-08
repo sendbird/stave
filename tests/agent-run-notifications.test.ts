@@ -3,7 +3,7 @@ import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 import { describeAgentRunNotification, describeSignOffReminder } from "../src/lib/agent-runs/notifications";
 import { buildNotificationToastOptions } from "../src/lib/notifications/notification.utils";
 import { APP_NOTIFICATION_KINDS, isAgentRunAttentionNotificationKind } from "../src/lib/notifications/notification.types";
-import { AGENT_RUN_NOW, agentRunDetail, agentRunFixture, patchCurrent } from "./fixtures/agent-run-fixtures";
+import { AGENT_RUN_NOW, agentRunDetail, agentRunFixture, agentRunEvent, patchCurrent } from "./fixtures/agent-run-fixtures";
 
 const CONTEXT = { repositoryPath: "/tmp/repo", repositoryName: "repo", workspaceName: "feature", taskTitle: "Billing export" };
 
@@ -114,4 +114,16 @@ describe("run notifications", () => {
     });
     expect(toast).toMatchObject({ tone: "error", title: "Build is blocked", description: "Which plan?" });
   });
+});
+
+test("agent-origin sign-off and repeated blocker episodes retain user attention", () => {
+  expect(describeAgentRunNotification(detailWith("awaiting-sign-off", { origin: "agent" }), CONTEXT)?.kind)
+    .toBe("agent_run.sign_off_requested");
+  const aggregate = patchCurrent(agentRunFixture(), { status: "blocked", detail: "First question", reportRevision: 1 });
+  aggregate.agentRun.origin = "agent";
+  const events = [agentRunEvent("stage-blocked", { stageId: aggregate.stages[0]!.stageId, attempt: 1 })];
+  const first = describeAgentRunNotification(agentRunDetail(aggregate, events), CONTEXT)!;
+  const second = describeAgentRunNotification(agentRunDetail(patchCurrent(aggregate, { detail: "Second question", reportRevision: 2 }), events), CONTEXT)!;
+  expect(second.dedupeKey).not.toBe(first.dedupeKey);
+  expect(second.payload.detail).toBe("Second question");
 });

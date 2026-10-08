@@ -392,7 +392,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     () => getLatestUserPromptMessage(activeTaskMessages),
     [activeTaskMessages],
   );
-  const isInputBlocked = pendingApproval != null || pendingUserInput != null;
+  const isInputBlocked = pendingApproval != null || (pendingUserInput != null && pendingUserInput.part.delivery !== "async");
   // The selector lists Models and Agents. A model is Chat and releases the
   // task's agent; an agent is Agent mode and picks its own model. A task that
   // runs as an agent calls other agents (its subagents) itself.

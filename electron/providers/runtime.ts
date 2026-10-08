@@ -725,10 +725,15 @@ export function createTurnTimeoutController(args: {
 }
 
 export function getProviderDecisionRequestId(event: BridgeEvent) {
-  if (event.type === "approval" || event.type === "user_input") {
+  if (event.type === "approval" || (event.type === "user_input" && event.delivery !== "async")) {
     return event.requestId;
   }
   return null;
+}
+
+let agentRunUserTurnResolver: ((args: { taskId: string; workspaceId?: string; turnId: string }) => { agentRunStage: NonNullable<StreamTurnArgs["agentRunStage"]>; context: import("../../src/lib/providers/provider.types").CanonicalRetrievedContextPart } | null) | null = null;
+export function setAgentRunUserTurnResolver(resolver: typeof agentRunUserTurnResolver) {
+  agentRunUserTurnResolver = resolver;
 }
 
 /** Mandatory policy is captured once by the host before a primary turn starts. */
@@ -786,6 +791,12 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
   const release = workspaceExecutionGate.acquire(rawArgs);
   let preparingPolicy = true;
   try {
+    if (rawArgs.taskId && rawArgs.turnId && rawArgs.conversation?.mode === "chat" && !rawArgs.unattendedAutomation && !rawArgs.executionPolicy && !rawArgs.agentRunStage &&
+        (rawArgs.providerId === "claude-code" || rawArgs.providerId === "codex")) {
+      const stage = agentRunUserTurnResolver?.({ taskId: rawArgs.taskId, workspaceId: rawArgs.workspaceId, turnId: rawArgs.turnId });
+      if (stage) rawArgs = { ...rawArgs, agentRunStage: stage.agentRunStage,
+        conversation: { ...rawArgs.conversation, contextParts: [...rawArgs.conversation.contextParts, stage.context] } };
+    }
     const agentTurn = rawArgs.taskId && !rawArgs.executionPolicy
       ? taskAgentTurnResolver?.(rawArgs) ?? null : null;
     // Native agent tools come only from the saved assignment; caller values are dropped.

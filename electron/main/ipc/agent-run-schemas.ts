@@ -37,6 +37,7 @@ export const AgentRunListArgsSchema = z
   .object({
     workspaceId: IdSchema.optional(),
     limit: z.number().int().min(1).max(200).optional(),
+    includeActive: z.boolean().optional(),
   })
   .strict() satisfies z.ZodType<AgentRunListArgs>;
 

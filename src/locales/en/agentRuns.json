@@ -465,7 +465,7 @@
     "extraCopy243": "Describe the changes you want.",
     "extraCopy244": "No earlier AI stage can take changes. Skip this stage or cancel the run.",
     "extraCopy245": "This pause clears on its own once its condition lifts.",
-    "extraCopy246": "This stage already has {{value1}} reports; the latest one counts."
+    "extraCopy246": "This turn already has {{value1}} reports; the latest one counts."
   },
   "domain": {
     "message": "A blocked stage must carry a block reason.",

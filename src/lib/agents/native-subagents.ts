@@ -58,7 +58,7 @@ function bounded(text: string, max: number) {
 /**
  * What the lead reads about its subagents when the provider has no native
  * definitions (Codex): who each one is, and the instructions to hand over at
- * the top of its task, since Codex cannot pin them per spawn.
+ * the top of its task, along with the configured model and reasoning effort when supported.
  */
 export function buildNativeSubagentBriefing(definitions: readonly NativeSubagentDefinition[]): string | null {
   if (definitions.length === 0) return null;
@@ -69,6 +69,8 @@ export function buildNativeSubagentBriefing(definitions: readonly NativeSubagent
       [
         `### ${definition.label} (\`${definition.name}\`)`,
         definition.description,
+        ...(definition.model ? [`Model: ${definition.model}. Pass this model when spawning; do not silently replace a fixed model.`] : []),
+        ...(definition.effort ? [`Reasoning effort: ${definition.effort}. Pass this effort when the selected model supports it.`] : []),
         "Instructions:",
         bounded(definition.instructions, BRIEFING_INSTRUCTIONS_MAX_CHARS),
       ].join("\n"),

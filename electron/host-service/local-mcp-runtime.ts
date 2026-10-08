@@ -2549,8 +2549,9 @@ function findUserInputMessage(args: {
   requestId: string;
 }) {
   for (const message of args.messages) {
-    const userInputPart = findLatestPendingUserInputPart({ message });
-    if (userInputPart?.requestId === args.requestId) {
+    const userInputPart = message.parts.find((part) =>
+      part.type === "user_input" && part.requestId === args.requestId && part.state === "input-requested");
+    if (userInputPart?.type === "user_input") {
       return {
         messageId: message.id,
         part: userInputPart,
@@ -2650,9 +2651,6 @@ export async function respondUserInput(args: {
   return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
     const session = await loadWorkspaceSession(args.workspaceId);
     const activeTurnId = session.activeTurnIdsByTask[args.taskId];
-    if (!activeTurnId) {
-      throw new Error(`No active turn found for task ${args.taskId}.`);
-    }
 
     const messages = session.messagesByTask[args.taskId] ?? [];
     const userInput = findUserInputMessage({
@@ -2663,16 +2661,18 @@ export async function respondUserInput(args: {
       throw new Error(`Pending user input not found: ${args.requestId}`);
     }
 
-    const result = await providerRuntime.respondUserInput({
-      turnId: activeTurnId,
-      requestId: args.requestId,
-      answers: args.answers,
-      denied: args.denied,
-    });
-    if (!result.ok) {
-      throw new Error(result.message);
+    // Async messages already returned to the provider. The renderer sends their
+    // answer as a normal persisted reply; this endpoint records its acceptance.
+    if (userInput.part.delivery !== "async") {
+      if (!activeTurnId) throw new Error(`No active turn found for task ${args.taskId}.`);
+      const result = await providerRuntime.respondUserInput({
+        turnId: activeTurnId,
+        requestId: args.requestId,
+        answers: args.answers,
+        denied: args.denied,
+      });
+      if (!result.ok) throw new Error(result.message);
     }
-
     const nextMessagesState = applyUserInputState({
       messagesByTask: session.messagesByTask,
       workspaceSnapshotVersion: 0,

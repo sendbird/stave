@@ -170,7 +170,7 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
       });
       const api = agentRunsApi();
       if (!api || !workspaceId) return;
-      const listed = await api.list({ workspaceId }).catch(() => null);
+      const listed = await api.list({ workspaceId, includeActive: true }).catch(() => null);
       if (!listed?.ok || get().workspaceId !== workspaceId) return;
       const picked = pickAgentRunPerTask(listed.agentRuns);
       await Promise.all(
@@ -217,7 +217,7 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
         return response;
       } catch {
         // The start may have reached the host. Look before calling it failed.
-        const listed = await api.list({ workspaceId: input.workspaceId }).catch(() => null);
+        const listed = await api.list({ workspaceId: input.workspaceId, includeActive: true }).catch(() => null);
         const started = listed?.ok
           ? listed.agentRuns.find(
               (agentRun) => agentRun.leadTaskId === input.leadTaskId && isActiveAgentRunState(agentRun.state),

@@ -33,7 +33,7 @@ export const AGENT_RUN_LIMITS = Object.freeze({
   defaultMaxTurns: 30,
   maxTurnsCeiling: 100,
   maxStageAttempts: 20,
-  /** Report revisions accepted per stage attempt; the latest counts. */
+  /** Report revisions accepted per provider turn; the latest counts. */
   maxReportRevisions: 5,
   maxIdempotencyKeyChars: 1_024,
   maxEventDetailChars: 8_000,
@@ -258,6 +258,7 @@ export type StageBlockInput = z.infer<typeof StageBlockInputSchema>;
 
 const reportStamp = {
   reportedAt: TimestampSchema,
+  turnRevision: z.number().int().min(1).max(AGENT_RUN_LIMITS.maxReportRevisions).optional(),
   /** The turn the report was recorded in, when the host knows it. */
   turnId: IdSchema.nullable(),
 };
@@ -456,7 +457,7 @@ export const AgentRunStageRecordSchema = z
     endedAt: TimestampSchema.nullable(),
     startHeadSha: z.string().trim().min(1).max(64).nullable(),
     report: StageReportSchema.nullable(),
-    reportRevision: z.number().int().min(0).max(AGENT_RUN_LIMITS.maxReportRevisions),
+    reportRevision: z.number().int().min(0),
     facts: StageFactsSchema.nullable(),
   })
   .strict()

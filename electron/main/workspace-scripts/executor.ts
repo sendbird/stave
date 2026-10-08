@@ -161,7 +161,11 @@ function createProcessEntry(args: {
   return entry;
 }
 
-function killProcess(proc: ChildProcess | pty.IPty): Promise<void> {
+function killProcess(proc: ChildProcess | pty.IPty, processGroup = false): Promise<void> {
+  const kill = (signal: NodeJS.Signals) => {
+    if (processGroup && proc.pid && process.platform !== "win32") process.kill(-proc.pid, signal);
+    else proc.kill(signal);
+  };
   return new Promise<void>((resolve) => {
     let resolved = false;
     const done = () => {
@@ -172,7 +176,7 @@ function killProcess(proc: ChildProcess | pty.IPty): Promise<void> {
     };
 
     try {
-      proc.kill("SIGTERM");
+      kill("SIGTERM");
     } catch {
       done();
       return;
@@ -180,7 +184,7 @@ function killProcess(proc: ChildProcess | pty.IPty): Promise<void> {
 
     const timer = setTimeout(() => {
       try {
-        proc.kill("SIGKILL");
+        kill("SIGKILL");
       } catch {
         // noop
       }
@@ -218,7 +222,7 @@ export async function stopScriptEntry(args: {
   entry.cleanup?.();
   entry.cleanup = undefined;
   if (entry.process) {
-    await killProcess(entry.process);
+    await killProcess(entry.process, entry.processGroup);
   }
   emitScriptEvent({
     workspaceId: entry.workspaceId,
@@ -241,8 +245,10 @@ async function runFiniteScript(args: {
   branch: string;
   source: WorkspaceScriptRunSource;
   hookContext?: ScriptHookContext;
+  signal?: AbortSignal;
 }) {
   const runId = randomUUID();
+  if (args.signal?.aborted) return { ok: false as const, runId, exitCode: -1, error: "Aborted", output: "" };
   const key = createProcessKey({
     workspaceId: args.workspaceId,
     scriptId: args.scriptEntry.id,
@@ -255,6 +261,7 @@ async function runFiniteScript(args: {
     scriptKind: args.scriptEntry.kind,
   });
 
+  if (args.signal?.aborted) return { ok: false as const, runId, exitCode: -1, error: "Aborted", output: "" };
   const env = buildScriptEnv(args);
   const cwd = resolveScriptCwd(args);
   const entry = createProcessEntry({
@@ -265,154 +272,166 @@ async function runFiniteScript(args: {
     source: args.source,
     process: null,
   });
-  const outputBuffer = createScriptOutputBuffer((data) => {
-    emitScriptEvent({
-      workspaceId: args.workspaceId,
-      scriptId: args.scriptEntry.id,
-      scriptKind: args.scriptEntry.kind,
-      runId,
-      source: args.source,
-      event: { type: "output", data },
-    });
-  });
-
-  // Capture a bounded copy of combined stdout/stderr so turn.completed
-  // verification can map failures back to individual changed files.
-  const outputCapture = createScriptOutputCapture();
-
-  let lastExitCode = 0;
-
-  for (const [index, command] of args.scriptEntry.commands.entries()) {
-    if (entry.aborted) {
-      deleteWorkspaceScriptProcess(key);
-      return { ok: false as const, runId, exitCode: -1, error: "Aborted", output: outputCapture.read() };
-    }
-
-    emitScriptEvent({
-      workspaceId: args.workspaceId,
-      scriptId: args.scriptEntry.id,
-      scriptKind: args.scriptEntry.kind,
-      runId,
-      source: args.source,
-      event: {
-        type: "started",
-        commandIndex: index,
-        command,
-        totalCommands: args.scriptEntry.commands.length,
-      },
+  entry.processGroup = Boolean(args.signal) && process.platform !== "win32";
+  const abort = () => {
+    entry.aborted = true;
+    if (entry.process) void killProcess(entry.process, entry.processGroup).catch((error) => console.warn("[scripts] could not stop owned action", error));
+  };
+  args.signal?.addEventListener("abort", abort, { once: true });
+  try {
+    const outputBuffer = createScriptOutputBuffer((data) => {
+      emitScriptEvent({
+        workspaceId: args.workspaceId,
+        scriptId: args.scriptEntry.id,
+        scriptKind: args.scriptEntry.kind,
+        runId,
+        source: args.source,
+        event: { type: "output", data },
+      });
     });
 
-    try {
-      lastExitCode = await new Promise<number>((resolve, reject) => {
-        const child = spawn(command, {
-          shell: args.scriptEntry.target.shell ?? true,
-          cwd,
-          env,
-        });
-        let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-        const clearScriptTimeout = () => {
-          if (timeoutHandle != null) {
-            clearTimeout(timeoutHandle);
-            timeoutHandle = null;
-          }
-        };
+    // Capture a bounded copy of combined stdout/stderr so turn.completed
+    // verification can map failures back to individual changed files.
+    const outputCapture = createScriptOutputCapture();
 
-        entry.process = child;
+    let lastExitCode = 0;
 
-        child.stdout?.on("data", (chunk: Buffer) => {
-          const text = chunk.toString();
-          outputBuffer.push(text);
-          outputCapture.append(text);
-        });
+    for (const [index, command] of args.scriptEntry.commands.entries()) {
+      if (entry.aborted) {
+        deleteWorkspaceScriptProcess(key);
+        return { ok: false as const, runId, exitCode: -1, error: "Aborted", output: outputCapture.read() };
+      }
 
-        child.stderr?.on("data", (chunk: Buffer) => {
-          const text = chunk.toString();
-          outputBuffer.push(text);
-          outputCapture.append(text);
-        });
+      emitScriptEvent({
+        workspaceId: args.workspaceId,
+        scriptId: args.scriptEntry.id,
+        scriptKind: args.scriptEntry.kind,
+        runId,
+        source: args.source,
+        event: {
+          type: "started",
+          commandIndex: index,
+          command,
+          totalCommands: args.scriptEntry.commands.length,
+        },
+      });
 
-        child.once("error", (error) => {
-          clearScriptTimeout();
-          reject(error);
-        });
-        child.once("close", (code) => {
-          clearScriptTimeout();
-          resolve(code ?? -1);
-        });
-
-        if (args.scriptEntry.timeoutMs) {
-          timeoutHandle = setTimeout(() => {
-            timeoutHandle = null;
-            if (!entry.aborted) {
-              entry.aborted = true;
-              try {
-                child.kill("SIGKILL");
-              } catch {
-                // noop
-              }
-              reject(
-                new Error(
-                  `Script timed out after ${args.scriptEntry.timeoutMs}ms`,
-                ),
-              );
+      try {
+        lastExitCode = await new Promise<number>((resolve, reject) => {
+          const child = spawn(command, {
+            detached: entry.processGroup,
+            shell: args.scriptEntry.target.shell ?? true,
+            cwd,
+            env,
+          });
+          let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+          const clearScriptTimeout = () => {
+            if (timeoutHandle != null) {
+              clearTimeout(timeoutHandle);
+              timeoutHandle = null;
             }
-          }, args.scriptEntry.timeoutMs);
-        }
-      });
-    } catch (error) {
+          };
+
+          entry.process = child;
+
+          child.stdout?.on("data", (chunk: Buffer) => {
+            const text = chunk.toString();
+            outputBuffer.push(text);
+            outputCapture.append(text);
+          });
+
+          child.stderr?.on("data", (chunk: Buffer) => {
+            const text = chunk.toString();
+            outputBuffer.push(text);
+            outputCapture.append(text);
+          });
+
+          child.once("error", (error) => {
+            clearScriptTimeout();
+            reject(error);
+          });
+          child.once("close", (code) => {
+            clearScriptTimeout();
+            resolve(code ?? -1);
+          });
+
+          if (args.scriptEntry.timeoutMs) {
+            timeoutHandle = setTimeout(() => {
+              timeoutHandle = null;
+              if (!entry.aborted) {
+                entry.aborted = true;
+                try {
+                  child.kill("SIGKILL");
+                } catch {
+                  // noop
+                }
+                reject(
+                  new Error(
+                    `Script timed out after ${args.scriptEntry.timeoutMs}ms`,
+                  ),
+                );
+              }
+            }, args.scriptEntry.timeoutMs);
+          }
+        });
+      } catch (error) {
+        outputBuffer.flush();
+        const message = error instanceof Error ? error.message : String(error);
+        emitScriptEvent({
+          workspaceId: args.workspaceId,
+          scriptId: args.scriptEntry.id,
+          scriptKind: args.scriptEntry.kind,
+          runId,
+          source: args.source,
+          event: { type: "error", error: message },
+        });
+        deleteWorkspaceScriptProcess(key);
+        return { ok: false as const, runId, exitCode: -1, error: message, output: outputCapture.read() };
+      }
+
       outputBuffer.flush();
-      const message = error instanceof Error ? error.message : String(error);
+      entry.process = null;
       emitScriptEvent({
         workspaceId: args.workspaceId,
         scriptId: args.scriptEntry.id,
         scriptKind: args.scriptEntry.kind,
         runId,
         source: args.source,
-        event: { type: "error", error: message },
+        event: {
+          type: "command-completed",
+          commandIndex: index,
+          exitCode: lastExitCode,
+        },
       });
-      deleteWorkspaceScriptProcess(key);
-      return { ok: false as const, runId, exitCode: -1, error: message, output: outputCapture.read() };
+
+      if (entry.aborted) lastExitCode = -1;
+      if (lastExitCode !== 0) {
+        emitScriptEvent({
+          workspaceId: args.workspaceId,
+          scriptId: args.scriptEntry.id,
+          scriptKind: args.scriptEntry.kind,
+          runId,
+          source: args.source,
+          event: { type: "completed", exitCode: lastExitCode },
+        });
+        deleteWorkspaceScriptProcess(key);
+        return { ok: false as const, runId, exitCode: lastExitCode, output: outputCapture.read() };
+      }
     }
 
-    outputBuffer.flush();
-    entry.process = null;
     emitScriptEvent({
       workspaceId: args.workspaceId,
       scriptId: args.scriptEntry.id,
       scriptKind: args.scriptEntry.kind,
       runId,
       source: args.source,
-      event: {
-        type: "command-completed",
-        commandIndex: index,
-        exitCode: lastExitCode,
-      },
+      event: { type: "completed", exitCode: 0 },
     });
-
-    if (lastExitCode !== 0) {
-      emitScriptEvent({
-        workspaceId: args.workspaceId,
-        scriptId: args.scriptEntry.id,
-        scriptKind: args.scriptEntry.kind,
-        runId,
-        source: args.source,
-        event: { type: "completed", exitCode: lastExitCode },
-      });
-      deleteWorkspaceScriptProcess(key);
-      return { ok: false as const, runId, exitCode: lastExitCode, output: outputCapture.read() };
-    }
+    deleteWorkspaceScriptProcess(key);
+    return { ok: true as const, runId, exitCode: 0, output: outputCapture.read() };
+  } finally {
+    args.signal?.removeEventListener("abort", abort);
   }
-
-  emitScriptEvent({
-    workspaceId: args.workspaceId,
-    scriptId: args.scriptEntry.id,
-    scriptKind: args.scriptEntry.kind,
-    runId,
-    source: args.source,
-    event: { type: "completed", exitCode: 0 },
-  });
-  deleteWorkspaceScriptProcess(key);
-  return { ok: true as const, runId, exitCode: 0, output: outputCapture.read() };
 }
 
 async function runServiceScript(args: {
@@ -704,6 +723,7 @@ async function runScriptEntryImpl(args: {
   branch: string;
   source?: WorkspaceScriptRunSource;
   hookContext?: ScriptHookContext;
+  signal?: AbortSignal;
 }) {
   const source = args.source ?? { kind: "manual" as const };
   if (args.scriptEntry.kind === "service") {
@@ -815,7 +835,7 @@ export async function cleanupAllScriptProcesses(): Promise<void> {
       entry.cleanup?.();
       entry.cleanup = undefined;
       if (entry.process) {
-        await killProcess(entry.process);
+        await killProcess(entry.process, entry.processGroup);
       }
       deleteWorkspaceScriptProcess(key);
     }),

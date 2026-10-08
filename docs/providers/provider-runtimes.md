@@ -596,6 +596,21 @@ Guardrails (Agent mode only, provider-specific enforcement):
   With network on, an autonomous Codex turn can push or publish. This is a
   known gap.
 
+Codex asynchronous question messages (`agentMessage` with `delivery: async`)
+render as structured question cards. They remain answerable after their turn
+ends and do not pause the provider watchdog or lock the composer. Answers use
+the persisted conversation queue; these messages have no pending App Server
+RPC to resolve. Synchronous `request_user_input` still uses the native response
+channel. An explicit stop interrupts unanswered cards.
+
+Primary chat replies in an active Agent's AI stage receive the current stage
+context and a host-owned reporting grant. This lets a clarification update the
+same stage rather than triggering a fresh copy of the assignment. Review and
+secondary turns do not inherit that grant. Automatic routing receives the
+current outcome, blocker, feedback and verification context; configured helper
+models and effort are included in native helper briefings, subject to the
+provider's supported controls.
+
 Stave Local MCP: `stave_run_task` rejects permission runtime options
 (`PERMISSION_RUNTIME_OPTION_KEYS`), automations created by MCP are saved
 paused and cannot be unattended or bypass, `stave_respond_approval` is not

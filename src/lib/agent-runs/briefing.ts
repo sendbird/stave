@@ -122,6 +122,23 @@ export function collectAcceptanceCriteria(
   return criteria;
 }
 
+/** Execution feedback shared by every role, for routing and strategy decisions. */
+export function describeAgentRunExecutionContext(aggregate: AgentRunAggregate): string {
+  const { agentRun } = aggregate;
+  const stage = workflowStageAt(agentRun, agentRun.currentStageIndex);
+  const record = currentStageRecord(aggregate);
+  return [
+    `Current stage: ${stage.title} (${stage.kind}), attempt ${record.attempt}, status ${record.status}.`,
+    stage.kind === "ai" ? `Required outcome: ${stage.doneWhen}` : `Action: ${stage.action.type}`,
+    `Remaining supervised turns: ${Math.max(0, agentRun.maxTurns - agentRun.turnCount)}.`,
+    ...(record.detail ? [`Latest blocker: ${record.detail.slice(0, 2000)}`] : []),
+    ...(record.feedback ? [`Requested changes: ${record.feedback.slice(0, 2000)}`] : []),
+    ...(record.report ? [`Latest report: ${JSON.stringify(record.report).slice(0, 3000)}`] : []),
+    ...(record.facts ? [`Observed checks: ${JSON.stringify(record.facts.commands).slice(0, 3000)}`] : []),
+    "Choose the next approach from the current evidence. Continue directly for small work; delegate bounded independent work only when authorized and useful. Review helper results before accepting them. After a failed approach, diagnose it before retrying or changing resources. Respect fixed models, role access and spending limits. Ask only for missing decisions or authority; never treat a clarification as an answer. Complete only when the required outcome is supported by evidence.",
+  ].join("\n");
+}
+
 /** The prompt of a turn for the agent run's current AI stage. */
 export function compileAgentRunStagePrompt(
   aggregate: AgentRunAggregate,
@@ -176,6 +193,7 @@ export function buildAgentRunTurnContextPart(args: {
         ? `Agent: ${agentRun.workflow.name}. Workflow ${position}`
         : `Workflow: ${agentRun.workflow.name}. Stage ${position.slice("stage ".length)}`,
       TURN_REASON_LINES[args.reason],
+      describeAgentRunExecutionContext(args.aggregate),
       // Stage prompts already include the implicit workflow's plan instruction.
       ...(hasAgentOrigin(agentRun) && (args.reason === "nudge" || args.reason === "repair-checks" ||
         stage.kind !== "ai" || !stage.instruction.includes(AGENT_RUN_PLAN_INSTRUCTION)) ? [AGENT_RUN_PLAN_INSTRUCTION] : []),

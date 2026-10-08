@@ -96,7 +96,7 @@ export const useFleetAgentRunsStore = create<FleetAgentRunsState>()((set, get) =
     load: async () => {
       const api = agentRunsApi();
       if (!api) return;
-      const listed = await api.list({ limit: LIST_LIMIT }).catch(() => null);
+      const listed = await api.list({ limit: LIST_LIMIT, includeActive: true }).catch(() => null);
       if (!listed?.ok) return;
       const active = listed.agentRuns.filter((agentRun) => isActiveAgentRunState(agentRun.state));
       await Promise.all(
@@ -115,7 +115,7 @@ export const useFleetAgentRunsStore = create<FleetAgentRunsState>()((set, get) =
       if (!api) return;
       const response = await api.get({ agentRunId }).catch(() => null);
       if (response?.ok && response.agentRun) store(response.agentRun, true);
-      else if (get().details[agentRunId]) {
+      else if (response?.ok && get().details[agentRunId]) {
         set((state) => {
           const { [agentRunId]: _gone, ...rest } = state.details;
           return { details: rest };

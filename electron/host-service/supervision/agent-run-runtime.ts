@@ -33,10 +33,12 @@ import type {
   AgentRunStageRef,
 } from "../../../src/lib/agent-runs/api";
 import {
+  AGENT_RUN_CONTEXT_SOURCE_ID,
   buildAgentRunBriefing,
   buildAgentRunTurnContextPart,
   buildStageNudgePrompt,
   compileAgentRunStagePrompt,
+  describeAgentRunExecutionContext,
   agentRunPermissionRuntimeOptions,
   type AgentRunBriefing,
   type AgentRunTurnReason,
@@ -68,6 +70,7 @@ import {
   StageCompleteReportInputSchema,
   type AgentRun,
   type AgentRunAggregate,
+  type AgentRunStageIdentity,
   type AgentRunChange,
   type AgentRunEvent,
   type AgentRunEventDraft,
@@ -196,7 +199,7 @@ export interface AgentRunRuntimeDependencies {
    * Runs the current Stave action stage. Absent until Stave actions are
    * wired, in which case an action stage blocks with a sentence.
    */
-  performAction?: (args: { aggregate: AgentRunAggregate }) => Promise<ActionOutcome>;
+  performAction?: (args: { aggregate: AgentRunAggregate; signal?: AbortSignal }) => Promise<ActionOutcome>;
   /**
    * Updates the workspace's pull request body with `merge(currentBody)`. Used
    * only for the explicit "Add to PR description" action.
@@ -257,6 +260,7 @@ export interface AgentRunRuntime {
   requestTick: () => Promise<void>;
   /** Forwarded when a host-run turn finishes, so the agent run reacts at once. */
   notifyTaskTurnFinished: (args: { taskId: string }) => void;
+  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string }) => { agentRunStage: AgentRunStageIdentity; context: CanonicalRetrievedContextPart } | null;
   getActiveAgentRunForTask: (taskId: string) => AgentRun | null;
   /**
    * Ends the task's active agent run because the agent it ran as was released
@@ -329,6 +333,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   const factsCollectedThrough = new Map<string, string>();
   /** What a Stave action produced, per stage attempt. */
   const actionOutcomes = new Map<string, ActionOutcome>();
+  const actionControllers = new Map<string, { key: string; controller: AbortController }>();
 
   /**
    * Every tick and command runs in this one chain, as in the wake-up runtime:
@@ -367,6 +372,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
 
   function applyChange(change: AgentRunChange): AgentRunAggregate {
     store.apply(change, now());
+    const owned = actionControllers.get(change.agentRun.id);
+    if (owned && (!isActiveAgentRunState(change.agentRun.state) || change.upserts.some((stage) =>
+      stageKey(stage) === owned.key && ["completed", "skipped", "cancelled"].includes(stage.status)))) {
+      owned.controller.abort();
+      actionControllers.delete(change.agentRun.id);
+    }
     emit(change.agentRun);
     return requireAggregate(change.agentRun.id);
   }
@@ -676,7 +687,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     try {
       // The assignment is the work every turn of the run continues; the
       // classifier reads the task's recent history for continuity.
-      return await deps.routeAgentTurn({ agentRun, prompt: agentRun.assignment });
+      return await deps.routeAgentTurn({ agentRun, prompt: `${agentRun.assignment}\n\n${describeAgentRunExecutionContext(requireAggregate(agentRun.id))}` });
     } catch (error) {
       console.warn("[agent-runs] could not route an agent run turn; using the task's model", error, {
         agentRunId: agentRun.id,
@@ -834,8 +845,14 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     // The action records its own events, such as the checks it observed.
     const lastSequence = () => store.listRecentEvents(current.agentRun.id, 1).at(-1)?.sequence ?? 0;
     const sequenceBefore = lastSequence();
+    let owned = actionControllers.get(current.agentRun.id);
+    if (!owned || owned.key !== stageKey(record)) {
+      owned?.controller.abort();
+      owned = { key: stageKey(record), controller: new AbortController() };
+      actionControllers.set(current.agentRun.id, owned);
+    }
     const outcome: ActionOutcome = deps.performAction
-      ? await deps.performAction({ aggregate: current }).catch((error: unknown) => ({
+      ? await deps.performAction({ aggregate: current, signal: owned.controller.signal }).catch((error: unknown) => ({
           status: "failed" as const,
           detail: describeError(error, "The Stave action failed."),
         }))
@@ -1112,6 +1129,22 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     notifyTaskTurnFinished: ({ taskId }) => {
       if (store.getActiveAgentRunForTask(taskId)) void requestTick();
     },
+    prepareUserTurn: ({ taskId, workspaceId, turnId }) => {
+      const run = store.getActiveAgentRunForTask(taskId);
+      if (!run || !hasAgentOrigin(run) || run.state !== "running" || (workspaceId && run.workspaceId !== workspaceId)) return null;
+      const aggregate = requireAggregate(run.id);
+      const record = currentStageRecord(aggregate);
+      const stage = workflowStageAt(run, run.currentStageIndex);
+      if (stage.kind !== "ai" || !["running", "blocked", "stuck"].includes(record.status)) return null;
+      const agentRunStage = { agentRunId: run.id, stageId: record.stageId, attempt: record.attempt };
+      turnIdsFor(run.id).add(turnId);
+      recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply" } });
+      recordEvent(run, { kind: "user-turn", idempotencyKey: `${run.id}:user-turn:${turnId}`, detail: { turnId } });
+      return { agentRunStage, context: {
+        type: "retrieved_context", sourceId: AGENT_RUN_CONTEXT_SOURCE_ID, title: "Agent stage reply",
+        content: `${describeAgentRunExecutionContext(aggregate)}\nThis is the user's reply in the current stage. Handle it once and report the stage using the reporting tools. If it is only a clarification, answer it and keep the stage blocked on the missing decision. Do not restart or repeat the original assignment.`,
+      } };
+    },
     getActiveAgentRunForTask: (taskId) => store.getActiveAgentRunForTask(taskId),
     endAgentRunForTask: ({ taskId }) =>
       enqueue(() => {
@@ -1158,11 +1191,14 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         void requestTick();
         return detailOf(change.agentRun.id);
       }),
-    list: async (args = {}) => ({
-      agentRuns: args.workspaceId
+    list: async (args = {}) => {
+      const recent = args.workspaceId
         ? store.listAgentRunsForWorkspace(args.workspaceId, args.limit)
-        : store.listRecentAgentRuns(args.limit),
-    }),
+        : store.listRecentAgentRuns(args.limit);
+      const active = args.includeActive ? store.listActiveAgentRuns().filter((run) => !args.workspaceId || run.workspaceId === args.workspaceId) : [];
+      return { agentRuns: [...new Map([...recent, ...active].map((run) => [run.id, run])).values()]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)) };
+    },
     get: getDetail,
     getInsights: async ({ days = 30 } = {}) => {
       const since = now().getTime() - days * 24 * 60 * 60_000;

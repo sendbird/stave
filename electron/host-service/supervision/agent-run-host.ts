@@ -39,7 +39,7 @@ import {
 const STAGE_FACT_MESSAGE_LIMIT = 80;
 
 /** Runs an action from a workspace's scripts for an agent run's Run script stage. */
-async function runAgentRunScript(args: { workspaceId: string; scriptId: string }): Promise<AgentRunScriptRun> {
+async function runAgentRunScript(args: { workspaceId: string; scriptId: string; signal?: AbortSignal }): Promise<AgentRunScriptRun> {
   const repositories = await localMcpRuntime.listKnownRepositories();
   for (const repository of repositories) {
     const workspace = repository.workspaces.find((candidate) => candidate.id === args.workspaceId);
@@ -58,6 +58,7 @@ async function runAgentRunScript(args: { workspaceId: string; scriptId: string }
     const { result, verification } = await observeWorkspaceScript({ cwd: workspace.path, run: () => runScriptEntry({
       workspaceId: args.workspaceId,
       scriptEntry,
+      signal: args.signal,
       repositoryPath: repository.repositoryPath,
       workspacePath: workspace.path,
       workspaceName: workspace.name,

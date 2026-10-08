@@ -37,6 +37,8 @@ import type {
   UserInputPart,
 } from "@/types/chat";
 
+const pendingAsyncAnswers = new Set<string>();
+
 type ProviderInteractionActionKey =
   | "abortTaskTurn"
   | "resolveApproval"
@@ -675,6 +677,34 @@ export function createProviderInteractionActions(args: {
           requestId,
         });
       };
+
+      if (userInputPart?.delivery === "async") {
+        const key = `${taskId}:${userInputPart.requestId}`;
+        if (pendingAsyncAnswers.has(key)) return;
+        // The stable marker lets restored cards recognize an already accepted reply.
+        const marker = `[Question response: ${userInputPart.requestId}]`;
+        const content = `${marker}\n${JSON.stringify({ denied: denied === true, questions: userInputPart.questions.map((question) => ({ question: question.question, answer: answers?.[question.key ?? question.question] ?? answers?.[question.question] ?? "" })) })}`;
+        const accepted = (targetSession?.messagesByTask[taskId] ?? []).some((row) => row.role === "user" && row.content.startsWith(marker)) ||
+          (targetSession?.promptDraftByTask[taskId]?.queuedTurns ?? []).some((row) => row.content.startsWith(marker));
+        const acknowledge = async () => {
+          const host = window.api?.localMcp?.respondUserInput;
+          if (workspaceId && host) {
+            const result = await host({ workspaceId, taskId, requestId: userInputPart.requestId, answers, denied });
+            if (!result.ok) throw new Error(result.message ?? "Could not record the question response.");
+          }
+          applyUserInputResponse(userInputPart.requestId);
+        };
+        if (accepted) { void acknowledge().catch((error) => appendUserInputFailure(String(error))); return; }
+        pendingAsyncAnswers.add(key);
+        void get().sendUserMessage({ taskId, content, turnOrigin: "conversation", preservePromptDraft: true,
+          submitIntent: "queue",
+        }).then(async (result) => {
+          if (["started", "steered", "queued", "run-started"].includes(result.status)) await acknowledge();
+          else appendUserInputFailure("User input delivery failed: the answer was not accepted. Retry from this question card.");
+        }).catch((error) => appendUserInputFailure(`User input delivery failed: ${String(error)}`))
+          .finally(() => pendingAsyncAnswers.delete(key));
+        return;
+      }
 
       if (activeTurnId && userInputPart && !respondThroughHost) {
         const respondUserInput = window.api?.provider?.respondUserInput;
