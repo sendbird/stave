@@ -243,6 +243,20 @@ describe("buildProviderRuntimeOptions", () => {
     });
   });
 
+  test("uses Haiku 4.5 as the automatic fallback for Haiku 5.5", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-haiku-5-5",
+        settings,
+        providerSession: null,
+      }),
+    ).toMatchObject({
+      model: "claude-haiku-5-5",
+      claudeFallbackModel: "claude-haiku-4-5",
+    });
+  });
+
   test("forwards trusted approval tools and maps Claude non-Bash entries", () => {
     expect(
       buildProviderRuntimeOptions({

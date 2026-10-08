@@ -439,6 +439,12 @@ describe("model catalog", () => {
     expect(
       resolveDefaultClaudeFallbackModel({ model: "claude-sonnet-5" }),
     ).toBeUndefined();
+    expect(
+      resolveDefaultClaudeFallbackModel({ model: "claude-haiku-5-5" }),
+    ).toBe("claude-haiku-4-5");
+    expect(
+      resolveDefaultClaudeFallbackModel({ model: "claude-haiku-4-5" }),
+    ).toBeUndefined();
     expect(resolveDefaultCodexFallbackModel({ model: "gpt-6.1-sol" })).toBe(
       "gpt-6-sol",
     );

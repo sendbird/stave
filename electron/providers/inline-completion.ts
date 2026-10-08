@@ -1,5 +1,10 @@
 import type { Query, SDKAssistantMessage, SDKAuthStatusMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import { buildClaudeEnv, resolveClaudeExecutablePath, prewarmClaudeSdk } from "./claude-sdk-runtime";
+import {
+  buildClaudeEnv,
+  resolveClaudeExecutablePath,
+  resolveClaudeFallbackModel,
+  prewarmClaudeSdk,
+} from "./claude-sdk-runtime";
 import { claudeFastModeEnabled } from "../../src/lib/providers/claude-model-requirements";
 import { DEFAULT_CLAUDE_HAIKU_MODEL } from "../../src/lib/providers/model-catalog";
 
@@ -258,6 +263,7 @@ async function requestViaClaudeSdk(
   const sdkEnv = buildClaudeEnv({ executablePath: claudeExecutablePath });
   sdkEnv.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION = "false";
   const model = args.model?.trim() || SDK_MODEL;
+  const fallbackModel = resolveClaudeFallbackModel({ model });
   const stream = queryFn({
     prompt: prompt.user,
     options: {
@@ -270,6 +276,7 @@ async function requestViaClaudeSdk(
       plugins: [],
       cwd: process.cwd(),
       model,
+      ...(fallbackModel ? { fallbackModel } : {}),
       systemPrompt: prompt.system,
       thinking: {
         type: "disabled",
