@@ -42,7 +42,6 @@ import {
 } from "react";
 import {
   Badge,
-  BorderBeam,
   Button,
   Command,
   CommandEmpty,
@@ -1077,16 +1076,6 @@ export function PromptInput(args: PromptInputProps) {
   const [editorSyncNonce, setEditorSyncNonce] = useState(0);
   valueRef.current = value;
   caretIndexRef.current = caretIndex;
-  const borderBeamEnabled = useAppStore(
-    (state) => state.settings.borderBeamEnabled,
-  );
-  const borderBeamSize = useAppStore((state) => state.settings.borderBeamSize);
-  const borderBeamVariant = useAppStore(
-    (state) => state.settings.borderBeamVariant,
-  );
-  const borderBeamStrength = useAppStore(
-    (state) => state.settings.borderBeamStrength,
-  );
   const modelVisibility = useAppStore(
     (state) => state.settings.modelVisibility,
   );
@@ -1103,7 +1092,6 @@ export function PromptInput(args: PromptInputProps) {
     }),
     [lensSourceMappingHeuristic, lensSourceMappingReactDebugSource],
   );
-  const showBorderBeam = borderBeamEnabled && !minimal && Boolean(isTurnActive);
   const interactionsDisabled = Boolean(disabled);
   const promptEnhancementBusy =
     promptEnhancementPending || promptEnhancementRevealing;
@@ -2626,22 +2614,12 @@ export function PromptInput(args: PromptInputProps) {
   const composerCard = (
     <>
       {/*
-        BorderBeam wraps the form rather than sitting as an absolute sibling
-        inside it, so the library (which owns its own `<style>` + mask
-        compositing) is the positioning context for the beam layers.
-
-        The focus ring belongs on the wrapper so it tracks both rotate and
-        pulse presets while preserving the inner form's border radius.
+        The shell wrapper owns the focus ring and the turn-active styling so
+        the inner form keeps its own border radius.
       */}
-      <BorderBeam
-        active={showBorderBeam}
+      <div
         data-turn-active={!minimal && isTurnActive ? "true" : undefined}
-        size={borderBeamSize}
-        colorVariant={borderBeamVariant}
-        strength={borderBeamStrength}
-        theme="auto"
         className={cx(
-          sx(promptInputStyles.borderBeamTransition),
           // `relative z-10` is load-bearing: the turn activity shelf overlaps
           // the composer from above with a negative bottom margin, and this
           // keeps the composer painting on top of that tucked-under edge.
@@ -4440,7 +4418,7 @@ export function PromptInput(args: PromptInputProps) {
             </div>
           </div>
         </form>
-      </BorderBeam>
+      </div>
       <ImageLightbox
         open={Boolean(imagePreviewSrc)}
         imageSrc={imagePreviewSrc?.dataUrl ?? ""}

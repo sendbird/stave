@@ -156,7 +156,6 @@
   "specializedAdapters": {},
   "hostUtilities": {
     "src/components/ui/service-link-badge.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters.",
-    "src/components/ui/border-beam.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters.",
     "src/components/ui/linkified-text.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters.",
     "src/components/ui/external-anchor.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters."
   },

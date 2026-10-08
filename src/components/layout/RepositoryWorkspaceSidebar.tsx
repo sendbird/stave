@@ -89,7 +89,6 @@ import {
   WorkspaceRespondingCountBadge,
   InlineWorkspaceLabel,
   WorkspaceExpandedMeta,
-  WorkspaceBorderBeam,
   IS_MAC,
   workspaceShortcutModifierLabel,
   SortableSidebarItem,
@@ -1519,9 +1518,6 @@ export function RepositoryWorkspaceSidebar(args: {
                                                 repositorySidebarStyles.workspaceItem,
                                               )}
                                             >
-                                              <WorkspaceBorderBeam
-                                                workspaceId={workspace.id}
-                                              >
                                                 <div
                                                   className={sx(
                                                     repositorySidebarStyles.workspaceRow,
@@ -1884,7 +1880,6 @@ export function RepositoryWorkspaceSidebar(args: {
                                                     </>
                                                   )}
                                                 </div>
-                                              </WorkspaceBorderBeam>
                                               <WorkspaceProgressTaskTree
                                                 workspaceId={workspace.id}
                                                 repositoryPath={

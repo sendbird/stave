@@ -14,7 +14,7 @@ test("finds direct, conditional and exported utility strings", () => {
 
 test("accepts semantic classes, StyleX declarations and HTML state values", () => {
   expect(utilitySites(`
-    import { BorderBeam } from "border-beam";
+    import { memo } from "react";
     const styles = stylex.create({ row: { display: "flex", position: "relative" } });
     const node = <div className={sx(styles.row)} data-state="hidden" data-slot="select-item" />;
     const named = <div className="composer-frame-wing atelier-motion-dropdown" />;

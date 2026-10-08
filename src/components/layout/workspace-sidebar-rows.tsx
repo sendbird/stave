@@ -46,7 +46,6 @@ import {
 } from "@/hooks/use-sortable-list";
 import {
   Badge,
-  BorderBeam,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -846,39 +845,6 @@ export const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
         ) : null}
       </span>
     </span>
-  );
-});
-
-export const WorkspaceBorderBeam = memo(function WorkspaceBorderBeam(args: {
-  workspaceId: string;
-  children: ReactNode;
-}) {
-  const { respondingTaskCount } = useWorkspaceSidebarActivityState(
-    args.workspaceId,
-  );
-  const borderBeamEnabled = useAppStore(
-    (state) => state.settings.borderBeamEnabled,
-  );
-  const borderBeamSize = useAppStore((state) => state.settings.borderBeamSize);
-  const borderBeamVariant = useAppStore(
-    (state) => state.settings.borderBeamVariant,
-  );
-  const borderBeamStrength = useAppStore(
-    (state) => state.settings.borderBeamStrength,
-  );
-
-  const active = borderBeamEnabled && respondingTaskCount > 0;
-
-  return (
-    <BorderBeam
-      active={active}
-      size={borderBeamSize}
-      colorVariant={borderBeamVariant}
-      strength={borderBeamStrength}
-      theme="auto"
-    >
-      {args.children}
-    </BorderBeam>
   );
 });
 

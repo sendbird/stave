@@ -95,9 +95,6 @@ import {
   normalizeCursorMode,
   normalizeKiroApprovalMode,
   normalizeKiroEffort,
-  normalizeBorderBeamSize,
-  normalizeBorderBeamStrength,
-  normalizeBorderBeamVariant,
   normalizePersistedLensSettings,
   normalizeReasoningExpansionMode,
   normalizeSidebarNavView,
@@ -258,15 +255,6 @@ export function createAppStorePersistenceOptions() {
       state.settings.composerLayout = normalizeComposerLayoutMode(
         raw.composerLayout,
       );
-      state.settings.borderBeamSize = normalizeBorderBeamSize(
-        raw.borderBeamSize,
-      );
-      state.settings.borderBeamVariant = normalizeBorderBeamVariant(
-        raw.borderBeamVariant,
-      );
-      state.settings.borderBeamStrength = normalizeBorderBeamStrength(
-        raw.borderBeamStrength,
-      );
       state.settings.sidebarShowFleetView =
         typeof raw.sidebarShowFleetView === "boolean"
           ? raw.sidebarShowFleetView
@@ -317,16 +305,6 @@ export function createAppStorePersistenceOptions() {
       state.settings.notificationSoundMode = normalizeNotificationSoundMode(
         raw.notificationSoundMode,
       );
-      state.settings.attentionNotificationSoundEnabled =
-        typeof raw.attentionNotificationSoundEnabled === "boolean"
-          ? raw.attentionNotificationSoundEnabled
-          : defaultSettings.attentionNotificationSoundEnabled;
-      state.settings.attentionNotificationSoundVolume =
-        normalizeNotificationSoundVolume(raw.attentionNotificationSoundVolume);
-      state.settings.attentionNotificationSoundPreset =
-        normalizeNotificationSoundPreset(raw.attentionNotificationSoundPreset);
-      state.settings.attentionNotificationSoundMode =
-        normalizeNotificationSoundMode(raw.attentionNotificationSoundMode);
       state.settings.commandPaletteShowRecent =
         typeof raw.commandPaletteShowRecent === "boolean"
           ? raw.commandPaletteShowRecent

@@ -1053,12 +1053,3 @@
     transform: translateY(0) scale(1);
   }
 }
-
-/*
- * Border Beam styling is owned by the `border-beam` npm library — it ships
- * its own `<style>` block per-instance (see src/components/ui/border-beam.tsx).
- * Do not reintroduce local `.border-beam` overrides here; they flatten the
- * library's palette back onto our theme tokens. Variant / size / theme are
- * wired through `AppSettings.borderBeam*` and the Motion card of the
- * settings dialog instead.
- */

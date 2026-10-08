@@ -14,31 +14,17 @@
     },
     "notificationSound": {
       "title": "Notification Sound",
-      "description": "Customize the success sound played when a task turn finishes.",
+      "description": "Customize the sound played when a task turn finishes or the AI is waiting on your input or approval.",
       "enableTitle": "Sound",
-      "enableDescription": "Enable or mute the task completion sound.",
-      "presetDescription": "Choose the synthesized tone used for task completion.",
-      "volumeDescription": "Adjust playback level for the task completion sound.",
+      "enableDescription": "Enable or mute the sound for finished turns and for questions or approval requests.",
+      "presetDescription": "Choose the synthesized tone used for notifications.",
+      "volumeDescription": "Adjust playback level for the notification sound.",
       "volumeAriaLabel": "Notification sound volume",
       "sourceTitle": "Source",
       "presetTitle": "Preset",
       "customAudioTitle": "Custom Audio",
       "volumeTitle": "Volume",
       "previewTitle": "Preview"
-    },
-    "attentionSound": {
-      "title": "Attention Sound",
-      "description": "Customize the sound played when the AI asks you a question or requests permission and is waiting on you.",
-      "enableTitle": "Attention chime",
-      "enableDescription": "Play a sound when the AI needs your input or approval.",
-      "presetDescription": "Choose the synthesized tone used when the AI needs you.",
-      "volumeDescription": "Adjust playback level for the attention sound.",
-      "volumeAriaLabel": "Attention sound volume",
-      "sourceTitle": "Attention chime origin",
-      "presetTitle": "Attention chime tone",
-      "customAudioTitle": "Attention chime upload",
-      "volumeTitle": "Attention chime level",
-      "previewTitle": "Attention chime test"
     },
     "developerMode": {
       "title": "Developer Mode",
@@ -202,43 +188,6 @@
       "aiUsage": {
         "title": "AI Usage Shortcut",
         "description": "Show the AI usage entry in the sidebar header area."
-      }
-    },
-    "motion": {
-      "title": "Motion",
-      "description": "Opt-in animated accents. All motion honors your system Reduced Motion preference.",
-      "borderBeam": {
-        "title": "Border Beam",
-        "description": "Animate a soft highlight around the prompt input and the active workspace row while a task is streaming. Style presets come from the border-beam library."
-      },
-      "beamSize": {
-        "title": "Beam Size",
-        "description": "Library size preset. Choose between a full border glow, compact controls, or a bottom sweep.",
-        "rotate": {
-          "label": "Rotate",
-          "description": "Full border glow"
-        },
-        "compact": {
-          "label": "Compact",
-          "description": "Small controls"
-        },
-        "line": {
-          "label": "Line",
-          "description": "Bottom sweep"
-        }
-      },
-      "beamColors": {
-        "title": "Beam Colors",
-        "description": "Library color palette. `Colorful` is a full rainbow sweep; `Ocean` and `Sunset` are cool and warm variants; `Mono` is grayscale.",
-        "colorful": "Colorful",
-        "mono": "Mono",
-        "ocean": "Ocean",
-        "sunset": "Sunset"
-      },
-      "beamStrength": {
-        "title": "Beam Strength",
-        "description": "Controls the library `strength` prop without changing the wrapped content.",
-        "ariaLabel": "Border Beam strength"
       }
     },
     "presets": {

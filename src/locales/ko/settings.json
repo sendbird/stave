@@ -14,31 +14,17 @@
     },
     "notificationSound": {
       "title": "알림 소리",
-      "description": "작업 턴이 끝났을 때 재생되는 완료 소리를 설정합니다.",
+      "description": "작업 턴이 끝났거나 AI가 입력 또는 승인을 기다릴 때 재생되는 소리를 설정합니다.",
       "enableTitle": "소리",
-      "enableDescription": "작업 완료 소리를 켜거나 끕니다.",
-      "presetDescription": "작업 완료에 사용할 합성 음색을 선택합니다.",
-      "volumeDescription": "작업 완료 소리의 재생 음량을 조절합니다.",
+      "enableDescription": "턴 완료와 질문·승인 요청 소리를 켜거나 끕니다.",
+      "presetDescription": "알림에 사용할 합성 음색을 선택합니다.",
+      "volumeDescription": "알림 소리의 재생 음량을 조절합니다.",
       "volumeAriaLabel": "알림 소리 음량",
       "sourceTitle": "소리 출처",
       "presetTitle": "프리셋",
       "customAudioTitle": "사용자 지정 오디오",
       "volumeTitle": "음량",
       "previewTitle": "미리 듣기"
-    },
-    "attentionSound": {
-      "title": "주의 알림 소리",
-      "description": "AI가 질문하거나 권한을 요청하며 응답을 기다릴 때 재생되는 소리를 설정합니다.",
-      "enableTitle": "주의 알림음",
-      "enableDescription": "AI에 입력이나 승인이 필요할 때 소리를 재생합니다.",
-      "presetDescription": "AI가 응답을 기다릴 때 사용할 합성 음색을 선택합니다.",
-      "volumeDescription": "주의 알림 소리의 재생 음량을 조절합니다.",
-      "volumeAriaLabel": "주의 알림 소리 음량",
-      "sourceTitle": "주의 알림음 출처",
-      "presetTitle": "주의 알림음 음색",
-      "customAudioTitle": "주의 알림음 업로드",
-      "volumeTitle": "주의 알림음 음량",
-      "previewTitle": "주의 알림음 테스트"
     },
     "developerMode": {
       "title": "개발자 모드",
@@ -200,43 +186,6 @@
       "aiUsage": {
         "title": "AI 사용량 바로 가기",
         "description": "사이드바 머리글 영역에 AI 사용량 항목을 표시합니다."
-      }
-    },
-    "motion": {
-      "title": "모션",
-      "description": "선택해서 켜는 애니메이션 효과입니다. 모든 모션은 시스템의 동작 줄이기 설정을 따릅니다.",
-      "borderBeam": {
-        "title": "테두리 빔",
-        "description": "작업이 스트리밍되는 동안 프롬프트 입력창과 활성 워크스페이스 행 주위에 은은한 강조 효과를 표시합니다. 스타일 프리셋은 border-beam 라이브러리에서 제공합니다."
-      },
-      "beamSize": {
-        "title": "빔 크기",
-        "description": "라이브러리 크기 프리셋입니다. 전체 테두리 광채, 작은 컨트롤용, 아래쪽 스윕 중에서 선택합니다.",
-        "rotate": {
-          "label": "회전",
-          "description": "전체 테두리 광채"
-        },
-        "compact": {
-          "label": "작게",
-          "description": "작은 컨트롤"
-        },
-        "line": {
-          "label": "선",
-          "description": "아래쪽 스윕"
-        }
-      },
-      "beamColors": {
-        "title": "빔 색상",
-        "description": "라이브러리 색상 팔레트입니다. `무지개`는 전체 무지개색 스윕이고, `오션`과 `선셋`은 각각 차가운 색과 따뜻한 색 변형이며, `모노`는 회색조입니다.",
-        "colorful": "무지개",
-        "mono": "모노",
-        "ocean": "오션",
-        "sunset": "선셋"
-      },
-      "beamStrength": {
-        "title": "빔 강도",
-        "description": "감싼 콘텐츠는 바꾸지 않고 라이브러리의 `strength` prop을 조절합니다.",
-        "ariaLabel": "테두리 빔 강도"
       }
     },
     "presets": {

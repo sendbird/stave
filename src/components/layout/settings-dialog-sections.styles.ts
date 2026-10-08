@@ -592,17 +592,6 @@ export const settingsSectionsStyles = stylex.create({
     padding: vars["--ads-space-12"],
   },
 
-  // --- theme motion divider ---
-  motionExpanded: {
-    borderTopColor: vars["--ads-color-border"],
-    borderTopStyle: "solid",
-    borderBlockStartWidth: vars["--ads-border-width-hairline"],
-    display: "grid",
-    gap: vars["--ads-space-12"],
-    marginBlockStart: vars["--ads-space-12"],
-    paddingBlockStart: vars["--ads-space-12"],
-  },
-
   // --- theme preset card ---
   themeCard: {
     alignItems: {

@@ -886,7 +886,7 @@ export function LocalMcpServerCard() {
                   disabled={state.busy}
                   onClick={() => void handleRotateToken()}
                 >
-                  {t("settings:themeSection.motion.beamSize.rotate.label")}</Button>
+                  {t("settings:developerSection.localMcp.token.rotate")}</Button>
               </div>
             </div>
           </LabeledField>

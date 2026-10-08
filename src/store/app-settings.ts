@@ -6,7 +6,6 @@
  */
 import { DEFAULT_MY_STANDARDS, type MyStandards } from "@/lib/agents/standards";
 import { DEFAULT_APP_LOCALE, type AppLocale } from "@/i18n/locale";
-import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import type {
   LensAgentPresentationMode,
   LensSessionScope,
@@ -74,7 +73,6 @@ import {
   DEFAULT_TERMINAL_FONT_SIZE,
 } from "@/lib/terminal/defaults";
 import {
-  DEFAULT_ATTENTION_NOTIFICATION_SOUND_PRESET,
   DEFAULT_NOTIFICATION_SOUND_PRESET,
   DEFAULT_NOTIFICATION_SOUND_MODE,
   DEFAULT_NOTIFICATION_SOUND_VOLUME,
@@ -146,26 +144,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * value — the sidebar reopens in whatever you last switched to.
    */
   sidebarNavView: SidebarNavView;
-  /**
-   * When `true`, an animated "border beam" highlight travels around the
-   * prompt input and active-workspace rows while a task is streaming. Purely
-   * decorative — honors `prefers-reduced-motion`.
-   */
-  borderBeamEnabled: boolean;
-  /**
-   * Size preset passed to the `border-beam` library.
-   */
-  borderBeamSize: BorderBeamSize;
-  /**
-   * Color palette preset passed to the `border-beam` library. These are the
-   * library's own presets — do not remap onto our theme tokens.
-   */
-  borderBeamVariant: BorderBeamColorVariant;
-  /**
-   * Overall beam opacity/intensity. Passed through to the library's
-   * `strength` prop as a 0-1 value.
-   */
-  borderBeamStrength: number;
   /** User-installed custom theme definitions (persisted in localStorage). */
   userCustomThemes: CustomThemeDefinition[];
   themeOverrides: Record<ThemeModeName, ThemeOverrideValues>;
@@ -369,6 +347,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * reminders off. The first request always notifies.
    */
   runSignOffReminderMinutes: number;
+  /**
+   * One sound for every audible cue: a task turn finishing, and the AI waiting
+   * on the user's input or approval. The notification kind decides when it
+   * plays; the sound itself is configured once.
+   */
   notificationSoundEnabled: boolean;
   notificationSoundVolume: number;
   notificationSoundPreset: NotificationSoundPreset;
@@ -377,20 +360,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   notificationSoundCustomAudioData: string | null;
   /** Original file name of the uploaded custom audio, for display purposes. */
   notificationSoundCustomAudioName: string | null;
-  /**
-   * Whether a sound plays when a task needs the user's attention — i.e. the AI
-   * asks a question / requests input (`task.user_input_requested`) or requests a
-   * tool permission/approval (`task.approval_requested`). Independent from the
-   * completion sound so the two can be distinguished by ear.
-   */
-  attentionNotificationSoundEnabled: boolean;
-  attentionNotificationSoundVolume: number;
-  attentionNotificationSoundPreset: NotificationSoundPreset;
-  attentionNotificationSoundMode: NotificationSoundMode;
-  /** Base64 data URL of the user-uploaded custom attention audio file. */
-  attentionNotificationSoundCustomAudioData: string | null;
-  /** Original file name of the uploaded custom attention audio, for display. */
-  attentionNotificationSoundCustomAudioName: string | null;
   /**
    * Shows diagnostic surfaces that most users never need: the Developer
    * settings section, the Local MCP request log, the status-bar resource
@@ -633,30 +602,6 @@ export function normalizeCursorEffort(
   return normalizeKiroEffort(value);
 }
 
-export function normalizeBorderBeamSize(
-  value: unknown,
-): AppSettings["borderBeamSize"] {
-  return value === "sm" || value === "md" || value === "line" ? value : "md";
-}
-
-export function normalizeBorderBeamVariant(
-  value: unknown,
-): AppSettings["borderBeamVariant"] {
-  return value === "colorful" ||
-    value === "mono" ||
-    value === "ocean" ||
-    value === "sunset"
-    ? value
-    : "colorful";
-}
-
-export function normalizeBorderBeamStrength(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return defaultSettings.borderBeamStrength;
-  }
-  return Math.min(1, Math.max(0, value));
-}
-
 export function normalizeSidebarNavView(value: unknown): SidebarNavView {
   return value === "work-queue" ? "work-queue" : "projects";
 }
@@ -671,10 +616,6 @@ export const defaultSettings: AppSettings = {
   sidebarShowResults: true,
   sidebarShowAiUsage: true,
   sidebarNavView: "projects",
-  borderBeamEnabled: false,
-  borderBeamSize: "md",
-  borderBeamVariant: "colorful",
-  borderBeamStrength: 1,
   userCustomThemes: [],
   themeOverrides: {
     light: {},
@@ -778,14 +719,6 @@ export const defaultSettings: AppSettings = {
   notificationSoundMode: DEFAULT_NOTIFICATION_SOUND_MODE,
   notificationSoundCustomAudioData: null,
   notificationSoundCustomAudioName: null,
-  attentionNotificationSoundEnabled: true,
-  attentionNotificationSoundVolume: DEFAULT_NOTIFICATION_SOUND_VOLUME,
-  // Default to a distinct preset from the completion sound (`chime`) so the
-  // "AI needs you" cue is audibly different out of the box.
-  attentionNotificationSoundPreset: DEFAULT_ATTENTION_NOTIFICATION_SOUND_PRESET,
-  attentionNotificationSoundMode: DEFAULT_NOTIFICATION_SOUND_MODE,
-  attentionNotificationSoundCustomAudioData: null,
-  attentionNotificationSoundCustomAudioName: null,
   developerModeEnabled: false,
   providerDebugStream: false,
   providerTimeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
