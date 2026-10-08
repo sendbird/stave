@@ -5,6 +5,9 @@ import {
   getEditorTabCloseRequest,
   type EditorBulkClosePlan,
 } from "@/components/panes/editor-tab-actions";
+import { buildTaskDebugInfo } from "@/components/panes/task-debug-info";
+import { toast } from "@/components/ui";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import type { PaneSurfaceDescriptor } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
 
@@ -14,7 +17,6 @@ import { useAppStore } from "@/store/app.store";
  */
 export const PANE_RENAME_REQUEST_EVENT = "stave:pane-rename-request";
 export const OPEN_TASK_HISTORY_EVENT = "stave:open-task-history";
-export const OPEN_TASK_SESSION_IDS_EVENT = "stave:open-task-session-ids";
 export const REQUEST_CLOSE_CLI_SESSION_EVENT =
   "stave:request-close-cli-session";
 export const REQUEST_CLOSE_EDITOR_TABS_EVENT =
@@ -52,12 +54,33 @@ export function dispatchOpenTaskHistory(args?: OpenTaskHistoryRequest) {
   );
 }
 
-export function dispatchOpenTaskSessionIds(args: { taskId: string }) {
-  window.dispatchEvent(
-    new CustomEvent(OPEN_TASK_SESSION_IDS_EVENT, {
-      detail: { taskId: args.taskId },
-    }),
-  );
+/**
+ * Copy a compact, prompt-ready identification block for a task (ids, model,
+ * provider sessions, workspace, app version) to the clipboard.
+ */
+export async function copyTaskDebugInfo(args: { taskId: string }) {
+  let appVersion: string | null = null;
+  try {
+    appVersion =
+      (await window.api?.tooling?.getAppUpdateStatus?.())?.currentVersion ??
+      null;
+  } catch {
+    appVersion = null;
+  }
+  const text = buildTaskDebugInfo({
+    state: useAppStore.getState(),
+    taskId: args.taskId,
+    appVersion,
+  });
+  if (!text) {
+    return;
+  }
+  try {
+    await copyTextToClipboard(text);
+    toast.success(i18n.t("panes:workspacePaneHost.debugInfoCopied"));
+  } catch {
+    toast.error(i18n.t("panes:workspacePaneHost.couldNotCopyDebugInfo"));
+  }
 }
 
 export function dispatchEditorTabsCloseRequest(

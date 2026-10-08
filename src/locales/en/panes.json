@@ -45,19 +45,6 @@
     "close": "Close",
     "noMatches": "No tasks match “{{query}}”."
   },
-  "taskSessionIdsDialog": {
-    "couldNotCopy": "Could not copy {{value1}}.",
-    "sessionIDs": "Session IDs",
-    "staveKeepsOneStableTaskIDWhile": "Stave keeps one stable task ID while each provider keeps its own native session ID. A task can collect both Claude and Codex IDs as it switches providers.",
-    "current": "Current:",
-    "staveTaskID": "Stave task ID",
-    "noProviderNativeSessionIDsHaveBeenRecorded": "No provider-native session IDs have been recorded for this task yet.",
-    "providerNativeIDsAreUsedForInAppResume": "Provider-native IDs are used for in-app resume and may not be resumable from an external Claude or Codex terminal session.",
-    "close": "Close",
-    "copied": "Copied",
-    "copy": "Copy",
-    "currentProvider": "Current {{provider}}"
-  },
   "workspacePaneHost": {
     "icon": "Icon",
     "useDefaultTabIcon": "Use default tab icon",
@@ -77,7 +64,9 @@
     "viewSubagents": "View subagents",
     "checkBack": "Check back…",
     "takeOver": "Take Over",
-    "sessionIDs": "Session IDs",
+    "copyDebugInfo": "Copy debug info",
+    "debugInfoCopied": "Debug info copied.",
+    "couldNotCopyDebugInfo": "Could not copy debug info.",
     "archive": "Archive",
     "export": "Export",
     "copyPath": "Copy Path",

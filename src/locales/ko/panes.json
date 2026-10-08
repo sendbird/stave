@@ -45,19 +45,6 @@
     "close": "닫기",
     "noMatches": "“{{query}}”에 해당하는 작업이 없습니다."
   },
-  "taskSessionIdsDialog": {
-    "couldNotCopy": "{{value1}} 항목을 복사하지 못했습니다.",
-    "sessionIDs": "세션 ID",
-    "staveKeepsOneStableTaskIDWhile": "Stave는 하나의 안정적인 작업 ID를 유지하며 프로바이더는 각자의 네이티브 세션 ID를 유지합니다. 프로바이더를 전환하면 작업에 Claude와 Codex ID가 모두 쌓일 수 있습니다.",
-    "current": "현재:",
-    "staveTaskID": "Stave 작업 ID",
-    "noProviderNativeSessionIDsHaveBeenRecorded": "이 작업에 기록된 프로바이더 네이티브 세션 ID가 아직 없습니다.",
-    "providerNativeIDsAreUsedForInAppResume": "프로바이더 네이티브 ID는 앱 내 재개에 사용하며 외부 Claude 또는 Codex 터미널 세션에서 재개하지 못할 수 있습니다.",
-    "close": "닫기",
-    "copied": "복사됨",
-    "copy": "복사",
-    "currentProvider": "현재 {{provider}}"
-  },
   "workspacePaneHost": {
     "icon": "아이콘",
     "useDefaultTabIcon": "기본 탭 아이콘 사용",
@@ -77,7 +64,9 @@
     "viewSubagents": "하위 에이전트 보기",
     "checkBack": "다시 확인…",
     "takeOver": "직접 이어받기",
-    "sessionIDs": "세션 ID",
+    "copyDebugInfo": "디버그 정보 복사",
+    "debugInfoCopied": "디버그 정보를 복사했습니다.",
+    "couldNotCopyDebugInfo": "디버그 정보를 복사하지 못했습니다.",
     "archive": "보관",
     "export": "내보내기",
     "copyPath": "경로 복사",
