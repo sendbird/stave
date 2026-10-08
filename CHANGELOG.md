@@ -1,3 +1,31 @@
+## [0.25.2](https://github.com/sendbird/stave/compare/v0.25.1...v0.25.2) (2026-10-08)
+
+This patch release replaces plan mode with workspace documents, adopts Claude Haiku 5.5, and fixes how the PR status shows running CI. Plan mode removal is a breaking change; see Upgrade Notes.
+
+### ⚠ BREAKING CHANGES
+
+- Plan mode and its settings are removed. Workspace documents replace them (see Features and Upgrade Notes).
+
+### Features
+
+- Workspace documents replace plan mode. Agents write plans, reports and specs as Markdown under `.stave/context/plans/` and edit the same file when you ask for changes. Stave saves a revision of each changed document at turn end and before every send (up to 50 per document, removed with the workspace).
+- A turn's last reply lists the documents it wrote, with **Open** and a read-only **Changes** diff against the previous revision. The Information panel's Plans section becomes **Documents**, most recently updated first, with revision numbers and compare. If you edit a document between turns, the next prompt of the task that wrote it carries your diff so the agent keeps the edit.
+- Claude Haiku 5.5 replaces Haiku 4.5 as the light Claude model and is treated like GPT-6 Luna: it is in Auto's Default allow list and runs Auto's Simple level on Claude (previously Sonnet 5.5). It also backs Background AI, utility inference, inline completion, PR descriptions and the kickoff fallback. It accepts every effort level (default `medium`), stays on adaptive thinking, and is priced at $0.10 / $0.50 per million tokens. It needs Claude Code 2.1.293 or newer.
+
+### Bug Fixes
+
+- The PR status no longer reads "Checks failed" while CI is still running in repositories without required status checks. A failed check shows as failed, a running check shows as pending, and `UNSTABLE` without running checks still shows as failed.
+- Inline completion runs at `low` effort, so its disabled-thinking request stays valid on Haiku 5.5.
+
+### Upgrade Notes
+
+- Plan mode settings are rewritten on upgrade. A saved `plan` Claude permission mode falls back to the mode used before plan mode (else `default`). A draft override in plan mode is dropped, so the task follows settings. Cursor `plan` falls back to `agent`. An automation saved in plan mode runs as `dontAsk`, and a delegation policy saved in plan mode is read as `default`. Stored `plan_ready` events are skipped on replay. The temporary migration `plan-mode-removal` is due for removal in 0.28.0.
+- Stored Claude Haiku 4.5 selections (default model, presets, shortcuts, Background AI lanes, Auto allow lists and the kickoff fallback) move onto Haiku 5.5. Older Claude Code versions cannot run Haiku 5.5: Background AI and utility calls that default to it fall back to the next runner, and the model selector shows the version requirement.
+
+### References
+
+- [PR #696](https://github.com/sendbird/stave/pull/696), [PR #697](https://github.com/sendbird/stave/pull/697), [PR #698](https://github.com/sendbird/stave/pull/698)
+
 ## [0.25.1](https://github.com/sendbird/stave/compare/v0.25.0...v0.25.1) (2026-10-07)
 
 This is a patch release that includes one small feature (the navigation shortcuts below) alongside fixes and performance work.
