@@ -1035,8 +1035,13 @@ Claude Haiku 5.5 shares Luna's light rung and price band ($0.10 / $0.50 per
 million tokens). It accepts every effort level and keeps Anthropic's `medium`
 default; Stave keeps it on adaptive thinking, like Opus 5.5 and Sonnet 5.5,
 and needs Claude Code 2.1.293 or newer. A pinned Haiku 4.5 id moves onto
-Haiku 5.5. Haiku 4.5 stays resolvable for history only: the Claude API rejects
-`effort` outright for it, so Stave drops the field rather than clamping it.
+Haiku 5.5. Haiku 4.5 remains the automatic fallback: every Claude call on
+Haiku 5.5 (turns, Background AI lanes, utility prompts, PR descriptions and
+inline completion) passes `fallbackModel: claude-haiku-4-5` unless a fallback
+is configured, so Claude Code switches to it when Haiku 5.5 is unavailable,
+including on a CLI older than 2.1.293. The same runtime default carries Opus
+5.5 to Opus 4.8. The Claude API rejects `effort` outright for Haiku 4.5, so
+Stave drops the field rather than clamping it.
 Legacy `gpt-5.5` keeps the `xhigh` cap it was verified at.
 
 One knock-on effect worth knowing:
