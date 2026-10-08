@@ -93,12 +93,13 @@ export function derivePrStatus(pr: GitHubPrPayload): WorkspacePrStatus {
   if (pr.mergeStateStatus === "BEHIND") return "behind_base";
   if (pr.reviewDecision === "CHANGES_REQUESTED") return "changes_requested";
 
-  // 4. Checks. UNSTABLE means a non-required check failed; GitHub still allows
-  // the merge but the failure deserves attention before anyone clicks merge.
-  if (pr.checksRollup === "FAILURE" || pr.mergeStateStatus === "UNSTABLE") {
-    return "checks_failed";
-  }
+  // 4. Checks. A failure in the rollup wins over anything still running.
+  // UNSTABLE means a non-required check is *not passing* — GitHub reports it
+  // for checks that are still running as well as for failed ones — so it only
+  // signals a failure once the rollup no longer has pending checks.
+  if (pr.checksRollup === "FAILURE") return "checks_failed";
   if (pr.checksRollup === "PENDING") return "checks_pending";
+  if (pr.mergeStateStatus === "UNSTABLE") return "checks_failed";
 
   // 5. GitHub's own merge gate. `mergeStateStatus` already folds in branch
   // protection (required reviewers, conversation resolution, required checks

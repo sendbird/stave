@@ -79,6 +79,18 @@ describe("derivePrStatus", () => {
     expect(derivePrStatus(pr({ checksRollup: "PENDING" }))).toBe("checks_pending");
   });
 
+  test("running non-required checks are pending, not failed", () => {
+    // Regression: GitHub reports UNSTABLE for any non-passing non-required
+    // check, including ones still running, so a PR with CI in progress was
+    // badged "Checks failed".
+    expect(
+      derivePrStatus(pr({ checksRollup: "PENDING", mergeStateStatus: "UNSTABLE" })),
+    ).toBe("checks_pending");
+    expect(
+      derivePrStatus(pr({ checksRollup: "FAILURE", mergeStateStatus: "UNSTABLE" })),
+    ).toBe("checks_failed");
+  });
+
   test("blocked status has a visual, actions, and a hint", () => {
     expect(PR_STATUS_VISUAL.blocked.label).toBe("Merge blocked");
     expect(PR_STATUS_ACTIONS.blocked.primary).toBeNull();
