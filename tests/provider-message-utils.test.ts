@@ -20,7 +20,6 @@ describe("hasRenderableAssistantContent", () => {
     expect(hasRenderableAssistantContent({
       message: {
         content: "",
-        isPlanResponse: false,
         parts: [{
           type: "tool_use",
           toolUseId: "tool-1",
@@ -37,7 +36,6 @@ describe("hasRenderableAssistantContent", () => {
     expect(hasRenderableAssistantContent({
       message: {
         content: "",
-        isPlanResponse: false,
         parts: [],
       },
     })).toBe(false);

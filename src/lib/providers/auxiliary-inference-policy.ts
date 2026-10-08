@@ -405,7 +405,6 @@ export function buildReadOnlyAuxRuntimeOptions(args: {
           codexWebSearch: "disabled" as const,
           codexReasoningSummary: "none" as const,
           codexShowRawReasoning: false,
-          codexPlanMode: false,
         }),
   };
 }

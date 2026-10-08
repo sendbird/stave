@@ -77,7 +77,7 @@ describe("SecondaryRunExecutor provider policy", () => {
       runtimeOptions: {
         model: "claude-sonnet-5",
         providerTimeoutMs: 120_000,
-        claudePermissionMode: "plan",
+        claudePermissionMode: "dontAsk",
         claudeSandboxEnabled: true,
         claudeAllowUnsandboxedCommands: false,
         claudeAllowDangerouslySkipPermissions: false,
@@ -169,7 +169,6 @@ describe("SecondaryRunExecutor provider policy", () => {
       codexFileAccess: "read-only",
       codexNetworkAccess: false,
       codexWebSearch: "disabled",
-      codexPlanMode: false,
       codexShowRawReasoning: false,
     });
   });

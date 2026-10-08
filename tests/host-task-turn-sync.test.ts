@@ -359,12 +359,11 @@ describe("restoreActiveTurnStreaming", () => {
     parts: [{ type: "text" as const, text: "Inspecting the repo." }],
   };
 
-  test("leaves a sealed prior plan bubble closed", () => {
+  test("leaves a sealed prior bubble closed", () => {
     const plan = {
       ...commentary,
       id: "msg-plan",
       completedAt: "2026-03-10T00:00:30.000Z",
-      isPlanResponse: true,
     };
     const followUp = {
       ...commentary,

@@ -249,12 +249,10 @@ Use this during implementation, not just during cleanup:
 Be especially strict in these files and flows:
 
 - `src/components/session/ChatInput.tsx`
-- `src/components/session/PlanViewer.tsx`
 - `src/components/session/ChatPanel.tsx`
 - `src/components/layout/RepositoryWorkspaceSidebar.tsx`
 - `src/components/panes/WorkspacePaneHost.tsx`
 - `src/components/panes/PaneTabChip.tsx`
-- plan mode entry / exit
 - task switching
 - workspace switching
 - streaming session UI

@@ -164,8 +164,7 @@ export function resolveTargetedTurnError(args: {
       (event.type === "text" && event.text.trim().length > 0) ||
       event.type === "tool" ||
       event.type === "tool_result" ||
-      event.type === "diff" ||
-      event.type === "plan_ready"
+      event.type === "diff"
     ) {
       outputObserved = true;
     }
@@ -209,8 +208,7 @@ export function resolveTargetedTurnOutcome(args: {
       ((event.type === "text" && event.text.trim().length > 0) ||
         event.type === "tool" ||
         event.type === "tool_result" ||
-        event.type === "diff" ||
-        event.type === "plan_ready")
+        event.type === "diff")
     );
   })
     ? "completed"

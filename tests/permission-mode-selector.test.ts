@@ -21,7 +21,6 @@ describe("Claude permission mode options", () => {
       "default",
       "acceptEdits",
       "bypassPermissions",
-      "plan",
       "dontAsk",
       "auto",
     ]);

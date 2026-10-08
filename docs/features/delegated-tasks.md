@@ -157,7 +157,7 @@ The posture never exceeds the policy the child would otherwise inherit: denied
 tools and sandbox credential deny lists carry over, and the parent's mode,
 approvals and allowlist cannot add to it. Profile and agent ceilings are not
 applied on top, because a posture that cannot write and auto-runs only reads
-is already within every one of them; a `plan` or `dontAsk` parent can delegate
+is already within every one of them; a `dontAsk` parent can delegate
 read-only without the combination being refused. The resolved `access` is
 recorded on the child's policy, and once a child is read-only its follow-ups
 and retries stay read-only.
@@ -317,8 +317,7 @@ may have running at once (default 3, maximum 16).
 - Fix: omit `workspace` so the writer gets its own worktree, or wait for the
   other one to finish. Read-only subagents (a resolved Codex `read-only` file
   access, or the full Claude read-only posture) never count as writers.
-  Permission profile names and Claude plan mode do not establish read-only
-  tool access.
+  Permission profile names do not establish read-only tool access.
 
 ### The delegation was refused with `invalid-ownership`
 

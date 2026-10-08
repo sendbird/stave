@@ -173,7 +173,7 @@ export function decodeTaskDragPayload(
 }
 
 function messageText(message: ChatMessage): string {
-  return (message.content.trim() || message.planText?.trim() || "").trim();
+  return message.content.trim();
 }
 
 function clip(text: string, maxChars: number) {

@@ -97,8 +97,6 @@ export function buildQueuedTurnFromDraft(args: {
       attachedFilePaths,
       attachments,
       autoRouting: true,
-      autoRoutingPlanMode:
-        args.draft.runtimeOverrides?.autoRoutingPlanMode === true,
     };
   }
   const effortKey =

@@ -213,35 +213,6 @@ describe("turn model info", () => {
     });
   });
 
-  test("copies turn model info to a dedicated plan response", () => {
-    const message: ChatMessage = {
-      id: "task-1-m-1",
-      role: "assistant",
-      providerId: "codex",
-      model: "gpt-5.6-terra",
-      modelInfo: {
-        effort: "xhigh",
-        fastMode: true,
-      },
-      content: "I have a plan ready.",
-      isStreaming: true,
-      parts: [{ type: "text", text: "I have a plan ready." }],
-    };
-    const replayed = replayProviderEventsToTaskState({
-      taskId: "task-1",
-      messages: [message],
-      events: [
-        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
-        { type: "done" },
-      ],
-      provider: "codex",
-      model: "gpt-5.6-terra",
-    });
-
-    expect(replayed.messages).toHaveLength(2);
-    expect(replayed.messages[1]?.modelInfo).toEqual(message.modelInfo);
-  });
-
   test("keeps turn model info when replay opens a later assistant bubble", () => {
     const message: ChatMessage = {
       id: "task-1-m-1",

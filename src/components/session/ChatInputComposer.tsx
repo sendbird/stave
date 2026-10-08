@@ -195,8 +195,6 @@ interface ChatInputComposerProps {
   effortValue?: string;
   fastMode?: boolean;
   onFastModeChange?: (enabled: boolean) => void;
-  planMode?: boolean;
-  onPlanModeChange?: (enabled: boolean) => void;
   thinkingMode?: "adaptive" | "enabled" | "disabled";
   onThinkingModeChange?: (value: "adaptive" | "enabled" | "disabled") => void;
   onProviderModeSelect?: (presetId: ProviderModePresetId) => void;
@@ -1674,15 +1672,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               ? (enabled) => {
                   commitCurrentDraftText();
                   args.onFastModeChange?.(enabled);
-                }
-              : undefined
-          }
-          planMode={args.planMode}
-          onPlanModeChange={
-            args.onPlanModeChange
-              ? (enabled) => {
-                  commitCurrentDraftText();
-                  args.onPlanModeChange?.(enabled);
                 }
               : undefined
           }

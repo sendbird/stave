@@ -76,56 +76,21 @@ export type Attachment =
 export type TaskContextScope = "latest-reply" | "conversation";
 
 export type ClaudePermissionMode =
-  "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk" | "auto";
-export type ClaudePermissionModeBeforePlan = Exclude<
-  ClaudePermissionMode,
-  "plan"
-> | null;
-
-/**
- * How aggressively Stave auto-approves tool calls while Claude is in plan mode.
- *
- * Plan mode is read-only by construction: mutating file tools (Edit/Write/…)
- * and mutating Bash commands are hard-denied regardless of this setting. These
- * levels only relax the approval *prompt* for tool calls that cannot mutate the
- * workspace, so higher levels mean fewer interruptions during planning.
- *
- * - `strict`: only the built-in read-only tools (Read/Grep/Glob/…) and Stave
- *   workspace MCP tools are auto-allowed; non-mutating Bash, subagents (Task),
- *   and third-party MCP tools still prompt. This is the original behavior.
- * - `bash`: additionally auto-allow non-mutating Bash commands.
- * - `bashAndTask`: additionally auto-allow spawning subagents via the Task tool.
- * - `bashTaskAndMcp`: additionally auto-allow read-only third-party / lens MCP
- *   tools (classified by tool-name verbs). Mutating-looking MCP tools still
- *   prompt.
- */
-export type ClaudePlanModeApprovalScope =
-  "strict" | "bash" | "bashAndTask" | "bashTaskAndMcp";
-
-/**
- * Default plan-mode approval scope. The broadest level, so plan mode feels as
- * frictionless as auto mode while still hard-denying every mutating action.
- */
-export const DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE: ClaudePlanModeApprovalScope =
-  "bashTaskAndMcp";
+  "default" | "acceptEdits" | "bypassPermissions" | "dontAsk" | "auto";
 
 export interface PromptDraftRuntimeOverrides {
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
   claudePermissionMode?: ClaudePermissionMode;
-  claudePermissionModeBeforePlan?: ClaudePermissionModeBeforePlan;
   claudeEffort?: "low" | "medium" | "high" | "xhigh" | "max";
-  codexPlanMode?: boolean;
   codexReasoningEffort?:
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
   codexFastMode?: boolean;
-  cursorMode?: "agent" | "plan" | "ask";
+  cursorMode?: "agent" | "ask";
   cursorEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   cursorFastMode?: boolean;
   kiroEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   autoRouting?: boolean;
-  /** Plan intent that follows whichever provider Stave Auto selects. */
-  autoRoutingPlanMode?: boolean;
   model?: string;
   /**
    * Provider identity for `model`. Required for catalogs whose model ids
@@ -189,8 +154,6 @@ export interface PromptDraftQueuedTurn {
    * pin would otherwise freeze Cursor's own `auto` model as "Cursor Auto".
    */
   autoRouting?: boolean;
-  /** Queue-time plan intent for a Stave Auto turn. */
-  autoRoutingPlanMode?: boolean;
 }
 
 export interface PromptDraftBatchItem {
@@ -412,12 +375,6 @@ export interface ChatMessage {
   /** Terminal provider reason for this exact turn, persisted with the row. */
   terminalStopReason?: string;
   terminalReceipt?: import("@/lib/providers/turn-terminal-receipt").TurnTerminalReceipt;
-  isPlanResponse?: boolean;
-  planText?: string;
-  planReview?: {
-    requestId: string;
-    responseMode: "blocking";
-  };
   usage?: {
     inputTokens: number;
     outputTokens: number;

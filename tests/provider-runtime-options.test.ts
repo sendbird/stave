@@ -50,7 +50,6 @@ const settings = {
   codexReasoningSummary: "auto",
   codexReasoningSummarySupport: "auto",
   codexFastMode: true,
-  codexPlanMode: false,
   trustedTools: [],
 } as const;
 
@@ -102,26 +101,6 @@ describe("buildProviderRuntimeOptions", () => {
         repositoryBasePrompt: "   ",
       }),
     ).toBe(runtimeOptions);
-  });
-
-  test("forces Codex plan turns onto a read-only sandbox", () => {
-    expect(
-      buildProviderRuntimeOptions({
-        provider: "codex",
-        model: "gpt-5.4",
-        settings: {
-          ...settings,
-          codexFileAccess: "danger-full-access",
-          codexPlanMode: true,
-        },
-        providerSession: null,
-      }),
-    ).toMatchObject({
-      model: "gpt-5.4",
-      codexApprovalPolicy: "never",
-      codexFileAccess: "read-only",
-      codexPlanMode: true,
-    });
   });
 
   test("forwards the Claude binary override into runtime options", () => {
@@ -372,7 +351,6 @@ describe("buildProviderRuntimeOptions", () => {
       model: "gpt-5.4",
       codexResumeThreadId: "codex-thread-1",
       codexFileAccess: "workspace-write",
-      codexPlanMode: false,
     });
   });
 });

@@ -41,7 +41,6 @@
         "guide": {
           "title": "Claude 권한 모드",
           "summary": "Claude 턴의 자율성을 정하는 핵심 설정입니다.",
-          "note": "Stave에서 `plan`은 특별하게 동작합니다. 일반 구현 턴이 아니라 계획 워크플로가 됩니다.",
           "tooltip": "Claude 권한 모드 비교"
         },
         "options": {
@@ -56,10 +55,6 @@
           "bypassPermissions": {
             "description": "가장 자율적인 Claude 모드입니다. 권한 건너뛰기 설정과 함께 신중하게 사용하세요.",
             "example": "작업 범위를 신뢰하고 Claude가 최소한의 중단으로 진행하기를 원할 때만 사용합니다."
-          },
-          "plan": {
-            "description": "계획 전용 모드입니다. Stave는 계획 턴을 분리해 구현 전에 전략을 검토할 수 있게 합니다.",
-            "example": "코드를 작성하기 전 아키텍처 설계, 조사, 작업 분해에 사용합니다."
           },
           "dontAsk": {
             "description": "턴 중에 대화형 권한 질문으로 멈추지 않도록 Claude에 지시합니다.",
@@ -197,36 +192,6 @@
         "title": "엄격한 MCP 구성",
         "description": "Stave가 전달한 MCP 서버와 명시적으로 구성된 SDK 에이전트만 사용합니다."
       },
-      "planModeApprovals": {
-        "title": "계획 모드 승인",
-        "guide": {
-          "title": "Claude 계획 모드 승인",
-          "summary": "계획 모드에서 표시할 승인 프롬프트의 양을 제어합니다. 계획 모드는 항상 읽기 전용이며, 파일을 변경하는 편집과 Bash는 모든 수준에서 차단됩니다. 이 옵션은 변경하지 않는 Bash, 하위 에이전트, 읽기 전용 MCP 도구에 대한 프롬프트만 완화합니다.",
-          "tooltip": "계획 모드 승인 범위 비교"
-        },
-        "options": {
-          "strict": {
-            "label": "엄격",
-            "description": "읽기 전용 기본 도구(Read/Grep/Glob/…)와 Stave 워크스페이스 도구만 자동 실행됩니다. Bash, 하위 에이전트, 기타 MCP 도구는 매번 확인을 요청합니다. 중단이 가장 많습니다.",
-            "example": "계획 중 모든 셸 명령과 도구 호출을 직접 확인하려면 선택하세요."
-          },
-          "bash": {
-            "label": "읽기 전용 Bash",
-            "description": "파일이나 작업 상태를 변경하지 않는 Bash 명령(git status, cat, ls, typecheck)도 자동 실행합니다. 변경하는 명령은 계속 차단됩니다.",
-            "example": "대부분 조용한 읽기 전용 검사를 원하면서 하위 에이전트와 MCP는 확인을 거치게 하고 싶을 때 적합합니다."
-          },
-          "bashAndTask": {
-            "label": "Bash + 하위 에이전트",
-            "description": "읽기 전용 Bash도 자동 실행하고, Claude가 확인 없이 하위 에이전트(Task)를 생성하도록 허용합니다. 하위 에이전트의 변경 작업은 여전히 차단됩니다.",
-            "example": "계획 과정에서 여러 Explore 하위 에이전트로 조사를 나눌 때 유용합니다."
-          },
-          "bashTaskAndMcp": {
-            "label": "Bash + 하위 에이전트 + MCP 읽기",
-            "description": "가장 넓은 범위입니다. 읽기 전용 서드파티 / Lens MCP 도구(이름으로 분류)도 자동 실행합니다. 변경 작업으로 보이는 MCP 도구는 계속 확인을 요청합니다. auto 모드에 가장 가깝습니다.",
-            "example": "기본값입니다. 모든 변경 작업을 차단한 채 계획 모드 중단을 가장 적게 합니다."
-          }
-        }
-      },
       "skills": {
         "title": "스킬",
         "description": "쉼표나 줄바꿈으로 구분한 Claude 스킬 이름입니다. 발견된 모든 스킬을 켜려면 `all`을 입력하세요."
@@ -266,7 +231,6 @@
         "guide": {
           "title": "Codex 파일 접근",
           "summary": "Codex가 디스크의 어디에서 읽고 쓸 수 있는지 제어합니다.",
-          "note": "Stave가 Codex를 계획 모드로 실행하면 일반 설정과 관계없이 `read-only`를 강제합니다.",
           "tooltip": "Codex 파일 접근 수준 비교"
         },
         "options": {
@@ -289,7 +253,6 @@
         "guide": {
           "title": "Codex 승인",
           "summary": "승인 정책은 Codex가 실행 전에 멈추고 확인을 요청하는 시점을 제어합니다.",
-          "note": "Stave는 Codex 계획 모드에서 `never`를 강제하므로 계획 턴이 승인 프롬프트에서 멈추지 않습니다.",
           "tooltip": "Codex 승인 정책 비교"
         },
         "options": {
@@ -486,8 +449,7 @@
         "description": "일반적인 대화형 도구 흐름으로 작업을 진행합니다."
       },
       "plan": {
-        "label": "계획",
-        "description": "계획을 준비하고 구현 전에 검토를 위해 멈춥니다."
+        "label": "계획"
       },
       "ask": {
         "label": "질문",
@@ -1305,9 +1267,6 @@
     "checkedAt": "확인: {{checkedAt}}",
     "hiddenValues_other": "보호된 값 {{count}}개 숨김",
     "mcpApplyUnavailable": "MCP 구성을 적용하는 API를 사용할 수 없습니다.",
-    "planWorkflowNote": "Stave의 `plan`은 일반 구현 턴 대신 계획 워크플로로 실행됩니다.",
-    "codexPlanReadOnly": "Stave에서 Codex를 계획 모드로 실행하면 일반 설정과 관계없이 `read-only`가 강제 적용됩니다.",
-    "codexPlanNever": "Stave는 Codex 계획 모드에서 `never`를 강제 적용하므로 계획 턴이 승인 요청으로 멈추지 않습니다.",
     "writesTrustNote": "`writes`는 각 도구의 읽기 전용 선언을 신뢰하며 보안 경계가 아닙니다."
   }
 }

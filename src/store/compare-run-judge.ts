@@ -158,8 +158,9 @@ export function buildCompareJudgeRuntimeOptions(args: {
     codexResumeThreadId: undefined,
     ...(args.provider === "claude-code"
       ? {
-          claudePermissionMode: "plan" as const,
-          claudePlanModeApprovalScope: "bash" as const,
+          // Read-only judge: only the allowlisted tools run, anything else
+          // is denied without asking.
+          claudePermissionMode: "dontAsk" as const,
           claudeAllowDangerouslySkipPermissions: false,
           claudeSandboxEnabled: true,
           claudeAllowUnsandboxedCommands: false,
@@ -174,7 +175,6 @@ export function buildCompareJudgeRuntimeOptions(args: {
           codexFileAccess: "read-only" as const,
           codexNetworkAccess: false,
           codexWebSearch: "disabled" as const,
-          codexPlanMode: false,
         }),
   };
 }

@@ -6,11 +6,7 @@ import {
   resolveClaudeDisallowedTools,
   resolveClaudePermissionMode,
   resolveClaudePermissionModeDecision,
-  resolveClaudePlanModeApprovalScope,
   resolveTrustedApprovalInput,
-  shouldAutoAllowPlanModeScopedTool,
-  shouldDenyClaudePostPlanTool,
-  shouldDenyClaudeToolInPlanMode,
   shouldDenyClaudeToolInSecondaryReadOnly,
   validateClaudePermissionResult,
   type ClaudePermissionMode,
@@ -20,11 +16,7 @@ export {
   isReadOnlyMcpLeafToolName,
   resolveClaudeDisallowedTools,
   resolveClaudePermissionModeDecision,
-  resolveClaudePlanModeApprovalScope,
   shouldAutoAllowClaudeTool,
-  shouldAutoAllowPlanModeScopedTool,
-  shouldDenyClaudePostPlanTool,
-  shouldDenyClaudeToolInPlanMode,
   shouldDenyClaudeToolInSecondaryReadOnly,
 } from "./claude-permission-policy";
 import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./claude-auto-mode";
@@ -40,7 +32,6 @@ import { createClaudeContextUsageTracker } from "./claude-context-usage";
 import { recordClaudeRateLimitObservation } from "./rate-limits/claude-rate-limits-observation";
 import {
   buildClaudeUsageEvent,
-  createClaudePlanStreamState,
   mapClaudeMessageToEvents as mapClaudeEvents,
   type ClaudeIncomingMessage,
 } from "./claude-event-mapping";
@@ -549,13 +540,6 @@ async function resolveClaudeEnabledPluginsForQuery(args: {
     });
     return undefined;
   }
-}
-
-function buildClaudePlanModeDenyMessage(args: { toolName: string }) {
-  if (args.toolName.trim().toLowerCase() === "bash") {
-    return "Claude plan mode denied a mutating Bash command. Planning turns cannot modify files or task state.";
-  }
-  return `Claude plan mode denied ${args.toolName}. Planning turns cannot modify files or task state.`;
 }
 
 
@@ -1139,7 +1123,6 @@ export function buildClaudeQueryOptions(args: {
     args.runtimeOptions?.claudeTaskBudgetTokens,
   );
   const disallowedTools = resolveClaudeDisallowedTools({
-    permissionMode,
     runtimeDisallowedTools: args.runtimeOptions?.claudeDisallowedTools,
   });
   const pluginConfigs = resolveClaudePluginConfigs(
@@ -3230,22 +3213,12 @@ export async function streamClaudeWithSdk(
       prompt: args.prompt,
       secondaryReadOnly,
       unattendedAutomation: Boolean(args.unattendedAutomation),
-      planMode: claudePermissionMode === "plan",
       autoFallbackEnabled:
         args.runtimeOptions?.providerBrowserAutoFallback === true,
       autoFallbackDomains: parseProviderBrowserDomains(
         args.runtimeOptions?.providerBrowserAutoFallbackDomains,
       ),
     });
-    const planModeApprovalScope = resolveClaudePlanModeApprovalScope({
-      runtimeValue: args.runtimeOptions?.claudePlanModeApprovalScope,
-      envValue: process.env.STAVE_CLAUDE_PLAN_MODE_APPROVAL_SCOPE?.trim(),
-    });
-    // Set once the agent presents its plan via ExitPlanMode during a plan-mode
-    // turn. After that point Stave has the plan (captured + persisted + shown
-    // in the PlanViewer for review), so the turn must wind down; further tool
-    // calls are denied so the agent stops and the turn can complete.
-    let planPresentedInTurn = false;
     // Auto mode only: says once when Claude's own classifier is unavailable.
     const claudeAutoModeNotice = createClaudeAutoModeNotice();
     const approvalDecisionTimeoutMs = resolveClaudeApprovalDecisionTimeoutMs({
@@ -3502,50 +3475,6 @@ export async function streamClaudeWithSdk(
             });
           }
 
-          // In plan mode, once the agent has presented a plan via ExitPlanMode,
-          // Stave captures it, persists it under .stave/context/plans, and shows
-          // it in the PlanViewer for explicit review — the turn must end there
-          // so the user can reply. Some workspace instructions (e.g. the handoff
-          // convention) tell the agent to keep working after ExitPlanMode, and
-          // with broad plan-mode approval scopes those follow-up calls would
-          // auto-run and the turn would never finish (stuck "loading"). Deny
-          // every post-plan tool call except re-presenting an updated plan, so
-          // the agent stops and the turn completes.
-          if (
-            shouldDenyClaudePostPlanTool({
-              permissionMode: claudePermissionMode,
-              planPresented: planPresentedInTurn,
-              toolName,
-            })
-          ) {
-            return buildClaudeDenyPermissionResult({
-              message:
-                "Your plan was already presented to the user for review in Stave and saved under .stave/context/plans. Stop now and wait — do not run any more tools. The user will approve or revise the plan in a separate turn.",
-              context: "approval:plan-already-presented",
-            });
-          }
-          if (toolName.trim().toLowerCase() === "exitplanmode") {
-            planPresentedInTurn = true;
-            // Force the turn to end here, mirroring Codex's
-            // requestPlanInterrupt(): the PlanViewer's Approve/Revise actions
-            // and the prompt input stay locked until a `done` event clears
-            // the active-turn flag, and `done` is only synthesized once the
-            // stream's `for await` loop sees a final `result` message. Denying
-            // subsequent tool calls (above) only stops the *next* tool call —
-            // if the model keeps trying to call tools (or narrates) instead of
-            // ending its turn, the loop never reaches `result` and the turn
-            // hangs "waiting" forever. `interrupt()` stops generation for the
-            // current turn without closing the session (unlike `close()`), so
-            // a `result` message still follows and `done` gets emitted
-            // normally, while the query stays alive for the user's next reply.
-            void stream?.interrupt().catch((error) => {
-              console.error(
-                "[claude-sdk-runtime] Failed to interrupt turn after plan was presented",
-                error,
-              );
-            });
-          }
-
           const modeDecision = resolveClaudePermissionModeDecision({
             permissionMode: claudePermissionMode,
             toolName,
@@ -3636,38 +3565,6 @@ export async function streamClaudeWithSdk(
               }
               throw error;
             }
-          }
-
-          if (
-            claudePermissionMode === "plan" &&
-            shouldDenyClaudeToolInPlanMode({
-              toolName,
-              input: normalizedInput,
-            })
-          ) {
-            return buildClaudeDenyPermissionResult({
-              message: buildClaudePlanModeDenyMessage({ toolName }),
-              context: "approval:plan-mode-hard-deny",
-            });
-          }
-
-          // Plan mode reaches here only for non-mutating tool calls (mutating
-          // file tools and mutating Bash were hard-denied above). Skip the
-          // approval prompt for the tool classes the user opted into via the
-          // plan-mode approval scope, so planning feels like auto mode.
-          if (
-            claudePermissionMode === "plan" && !guardrail &&
-            shouldAutoAllowPlanModeScopedTool({
-              scope: planModeApprovalScope,
-              toolName,
-              input: normalizedInput,
-            })
-          ) {
-            return buildClaudeApprovalPermissionResult({
-              approved: true,
-              normalizedInput,
-              denialMessage: `Claude plan mode auto-allowed ${toolName}.`,
-            });
           }
 
           if (permissionModeDecision === "deny") {
@@ -3850,7 +3747,6 @@ export async function streamClaudeWithSdk(
     let hasStreamedText = false;
     let hasStreamedThinking = false;
     const emittedToolUseIds = new Set<string>();
-    const planStreamState = createClaudePlanStreamState();
     let finalStopReason: string | undefined;
     const claudeDebugStream =
       args.runtimeOptions?.debug ?? process.env.STAVE_CLAUDE_DEBUG === "1";
@@ -4001,7 +3897,6 @@ export async function streamClaudeWithSdk(
           message,
           claudeDebugStream,
           cwd: runtimeCwd,
-          planState: planStreamState,
           ownerAgentIdResolver: subagentTracker,
         }),
       ];

@@ -17,25 +17,6 @@ function sleep(ms: number) {
 }
 
 describe("createTurnTimeoutController", () => {
-  test("recognizes a blocking plan review as a user decision", () => {
-    expect(
-      getProviderDecisionRequestId({
-        type: "plan_ready",
-        planText: "1. Inspect\n2. Patch",
-        review: {
-          requestId: "cursor:plan:3",
-          responseMode: "blocking",
-        },
-      }),
-    ).toBe("cursor:plan:3");
-    expect(
-      getProviderDecisionRequestId({
-        type: "plan_ready",
-        planText: "1. Inspect\n2. Patch",
-      }),
-    ).toBeNull();
-  });
-
   test("fires onTimeout after the budget elapses with no decision wait", async () => {
     let fired = false;
     const controller = createTurnTimeoutController({

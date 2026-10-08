@@ -7,6 +7,9 @@ import {
   LENS_CAPTURE_LIMITS,
 } from "../lens/lens-annotation-schema";
 import { z } from "zod";
+// temporary-migration: plan-mode-removal
+import { withoutRetiredPlanModeFields } from "@/lib/plan-mode-removal-migration";
+// end temporary-migration: plan-mode-removal
 import { AutoRoutingModelResolutionSchema } from "@/lib/providers/model-resolution";
 import { WorkspaceResumeBriefSchema } from "@/lib/workspace-resume-brief";
 import type {
@@ -278,19 +281,8 @@ const PromptDraftRuntimeOverridesSchema = z.object({
       z.literal("default"),
       z.literal("acceptEdits"),
       z.literal("bypassPermissions"),
-      z.literal("plan"),
       z.literal("dontAsk"),
       z.literal("auto"),
-    ])
-    .optional(),
-  claudePermissionModeBeforePlan: z
-    .union([
-      z.literal("default"),
-      z.literal("acceptEdits"),
-      z.literal("bypassPermissions"),
-      z.literal("dontAsk"),
-      z.literal("auto"),
-      z.null(),
     ])
     .optional(),
   claudeEffort: z
@@ -302,7 +294,6 @@ const PromptDraftRuntimeOverridesSchema = z.object({
       z.literal("max"),
     ])
     .optional(),
-  codexPlanMode: z.boolean().optional(),
   codexReasoningEffort: z
     .union([
       z.literal("minimal"),
@@ -316,7 +307,7 @@ const PromptDraftRuntimeOverridesSchema = z.object({
     .optional(),
   codexFastMode: z.boolean().optional(),
   cursorMode: z
-    .union([z.literal("agent"), z.literal("plan"), z.literal("ask")])
+    .union([z.literal("agent"), z.literal("ask")])
     .optional(),
   cursorApprovalMode: z
     .union([z.literal("manual"), z.literal("guided"), z.literal("auto")])
@@ -344,7 +335,6 @@ const PromptDraftRuntimeOverridesSchema = z.object({
     ])
     .optional(),
   autoRouting: z.boolean().optional(),
-  autoRoutingPlanMode: z.boolean().optional(),
   boundSecretIds: z.array(z.string().uuid()).optional(),
 });
 // NOTE: deliberately NOT `.strict()`. `parseWorkspaceSnapshot` is all-or-nothing,
@@ -381,9 +371,21 @@ const PromptDraftQueuedTurnSchema = z
       undefined,
     ),
     autoRouting: z.boolean().optional().catch(undefined),
-    autoRoutingPlanMode: z.boolean().optional().catch(undefined),
   })
   .strict();
+
+// temporary-migration: plan-mode-removal
+// Drafts and queued turns saved while plan mode existed carry its fields; the
+// queued-turn schema is strict, so they are rewritten before parsing.
+const LegacyPromptDraftRuntimeOverridesSchema = z.preprocess(
+  (value) => withoutRetiredPlanModeFields(value, { dropRetiredModes: true }),
+  PromptDraftRuntimeOverridesSchema,
+);
+const LegacyPromptDraftQueuedTurnSchema = z.preprocess(
+  (value) => withoutRetiredPlanModeFields(value),
+  PromptDraftQueuedTurnSchema,
+);
+// end temporary-migration: plan-mode-removal
 
 const PromptDraftBatchItemSchema = z
   .object({
@@ -471,15 +473,6 @@ export const ChatMessageSchema = z.object({
   isStreaming: z.boolean().optional(),
   terminalStopReason: z.string().optional(),
   terminalReceipt: TurnTerminalReceiptSchema.optional().catch(undefined),
-  isPlanResponse: z.boolean().optional(),
-  planText: z.string().optional(),
-  planReview: z
-    .object({
-      requestId: z.string(),
-      responseMode: z.literal("blocking"),
-    })
-    .strict()
-    .optional(),
   usage: z
     .object({
       inputTokens: z.number(),
@@ -925,9 +918,9 @@ export const WorkspaceSnapshotSchema = z.object({
         text: z.string(),
         attachedFilePaths: z.array(z.string()).optional().default([]),
         attachments: z.array(AttachmentSchema).optional().default([]),
-        runtimeOverrides: PromptDraftRuntimeOverridesSchema.optional(),
+        runtimeOverrides: LegacyPromptDraftRuntimeOverridesSchema.optional(),
         promptBatch: z.array(PromptDraftBatchItemSchema).optional(),
-        queuedTurns: z.array(PromptDraftQueuedTurnSchema).optional(),
+        queuedTurns: z.array(LegacyPromptDraftQueuedTurnSchema).optional(),
         queuedNextTurn: PromptDraftQueuedNextTurnSchema.optional(),
       }),
     )

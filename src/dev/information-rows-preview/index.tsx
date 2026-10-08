@@ -12,7 +12,13 @@ import { WorkspacePlansSection } from "@/components/layout/WorkspacePlansSection
 import { WorkspaceMemorySection } from "@/components/layout/WorkspaceMemorySection";
 import { informationRow } from "@/components/layout/information-row.styles";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
-import { installInformationRowPreviewApi } from "./fixtures";
+import { TurnDocumentRevisionList } from "@/components/session/TurnDocumentRevisions";
+import { useAppStore } from "@/store/app.store";
+import { useWorkspaceDocumentsStore } from "@/store/workspace-documents-store";
+import {
+  installInformationRowPreviewApi,
+  PREVIEW_DOCUMENT_ACTIVITY,
+} from "./fixtures";
 
 /**
  * The Information panel's three list kinds, side by side.
@@ -34,6 +40,11 @@ export function InformationRowsPreview() {
 
   useEffect(() => {
     installInformationRowPreviewApi();
+    useWorkspaceDocumentsStore.setState({
+      activityByWorkspace: {
+        [useAppStore.getState().activeWorkspaceId]: PREVIEW_DOCUMENT_ACTIVITY,
+      },
+    });
     setReady(true);
   }, []);
 
@@ -111,8 +122,17 @@ export function InformationRowsPreview() {
           </div>
         </section>
 
+        <section className={sx(styles.section)} data-review-turn-documents="">
+          <h2 className={sx(styles.label)}>Documents under a reply</h2>
+          <TurnDocumentRevisionList
+            links={PREVIEW_DOCUMENT_ACTIVITY.linksByTurn["preview-turn"]}
+            onOpen={() => {}}
+            onCompare={() => {}}
+          />
+        </section>
+
         <section className={sx(styles.section)}>
-          <h2 className={sx(styles.label)}>Plans</h2>
+          <h2 className={sx(styles.label)}>Documents</h2>
           {ready ? (
             <WorkspacePlansSection
               embedded

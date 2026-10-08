@@ -18,7 +18,6 @@ import {
   resolveHydratingRepositoryCopy,
 } from "@/components/session/chat-area.utils";
 import { EmptySplash } from "@/components/session/EmptySplash";
-import { PlanViewer } from "@/components/session/PlanViewer";
 import { TurnActivity } from "@/components/session/TurnActivity";
 import { SessionLoadingState } from "@/components/session/SessionLoadingState";
 import {
@@ -375,12 +374,6 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <ChatPanel scrollActivationKey={props.scrollActivationKey} />
           </RenderProfiler>
           <div className={sx(chatAreaStyles.overlay)}>
-            {/* Keep the floating plan card inside the message pane so it is
-                structurally separated from the input dock without measuring
-                dock height changes frame-by-frame. */}
-            <RenderProfiler id="PlanViewer">
-              <PlanViewer />
-            </RenderProfiler>
             {/* The floating card of the turn's details. Renders only when
                 `settings.turnActivityPlacement === "floating"` and the
                 composer shelf's toggle has it open; the run line itself stays

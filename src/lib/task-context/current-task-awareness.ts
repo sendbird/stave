@@ -272,9 +272,10 @@ function buildLatestTurnSummaryLine(info: WorkspaceInformationState) {
   return line.trim().length > 0 ? truncateText(line) : null;
 }
 
-// The plan-directory and plan-file conventions are not repeated here: the
-// `[Stave Workspace Context]` header of the same first-turn prompt already
-// states them (`workspacePlanDirectory`, `newWorkspacePlanFiles`).
+// The plan-directory, plan-file and document conventions are not repeated
+// here: the `[Stave Workspace Context]` header of the same first-turn prompt
+// already states them (`workspacePlanDirectory`, `newWorkspacePlanFiles`,
+// `workspaceDocuments`).
 const WORKSPACE_CONVENTION_LINES = [
   "- When you discover a Jira issue, pull request, Confluence page, Figma design, Slack thread, Storybook link, or deploy preview URL that this workspace's work relates to (mentioned by the user, found while working, or created by you), register it with the matching `stave_add_workspace_*` tool automatically without being asked. Registration is idempotent: duplicates are detected by canonical identity (e.g. Jira issue key, PR number) and merged into the existing entry, so re-registering is safe — never add the same Jira issue key or PR twice yourself, and prefer passing the issue key/URL as-is over reformatting it.",
 ];
@@ -294,7 +295,7 @@ const TOKEN_BUDGET_LINES = [
 const HANDOFF_PROCEDURE_LINES = [
   "When you create a new Stave workspace to hand off follow-up work:",
   "1. Use `stave_create_workspace` to create the target workspace and capture its `root` path.",
-  "2. Write a plan file at the target's `.stave/context/plans/<taskIdPrefix>_<timestamp>.md`. Use the `Write` tool directly against the new worktree root returned by `stave_create_workspace`. Perform this Write only after exiting plan mode (via `ExitPlanMode`) — plan mode blocks Writes to anything except that handoff path, so it is safer to finish planning first. Do NOT put the plan body into Notes.",
+  "2. Write a plan file at the target's `.stave/context/plans/<taskIdPrefix>_<timestamp>.md`. Use the `Write` tool directly against the new worktree root returned by `stave_create_workspace`. Do NOT put the plan body into Notes.",
   "3. If no task id exists yet, use a placeholder prefix such as `handoff` and rename the file to `<newTaskIdPrefix>_<timestamp>.md` once a task id is assigned.",
   '4. In the target workspace\'s Notes, append ONLY a short pointer like "See plan: .stave/context/plans/<filename>.md". Do not duplicate the plan body into Notes.',
   "5. Target Todos should be terse action items that point back at the plan file, not a re-statement of the plan.",

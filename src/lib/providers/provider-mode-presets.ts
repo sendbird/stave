@@ -47,7 +47,6 @@ export interface ProviderModePresentation {
   description: string;
   detail: string;
   tone: "default" | "accent" | "warning";
-  planNote?: string;
 }
 
 export const CLAUDE_PROVIDER_MODE_PRESETS = [
@@ -226,7 +225,6 @@ function toPresentation(args: {
   presetId: ProviderModePresetId | null;
   presets: readonly ProviderModePresetDefinition[];
   detail: string;
-  planNote?: string;
 }): ProviderModePresentation {
   if (!args.presetId) {
     return {
@@ -236,7 +234,6 @@ function toPresentation(args: {
         i18n.t("providers:providerModePresets.thisSettingsCombinationNoLongerMatches"),
       detail: args.detail,
       tone: "warning",
-      planNote: args.planNote,
     };
   }
 
@@ -252,7 +249,6 @@ function toPresentation(args: {
         : preset.id === "auto"
           ? "warning"
           : "default",
-    planNote: args.planNote,
   };
 }
 
@@ -306,29 +302,21 @@ export function detectCodexProviderModePreset(args: {
 
 export function resolveClaudeProviderModePresentation(args: {
   settings: ClaudeProviderModeSettings;
-  planMode?: boolean;
 }): ProviderModePresentation {
   return toPresentation({
     presetId: detectClaudeProviderModePreset({ settings: args.settings }),
     presets: CLAUDE_PROVIDER_MODE_PRESETS,
     detail: formatClaudeModeDetail(args.settings),
-    planNote: args.planMode
-      ? i18n.t("providers:messages.claudePlanNote")
-      : undefined,
   });
 }
 
 export function resolveCodexProviderModePresentation(args: {
   settings: CodexProviderModeSettings;
-  planMode?: boolean;
 }): ProviderModePresentation {
   return toPresentation({
     presetId: detectCodexProviderModePreset({ settings: args.settings }),
     presets: CODEX_PROVIDER_MODE_PRESETS,
     detail: formatCodexModeDetail(args.settings),
-    planNote: args.planMode
-      ? i18n.t("providers:messages.codexPlanNote")
-      : undefined,
   });
 }
 
@@ -375,15 +363,11 @@ export function detectKiroProviderModePreset(args: {
 
 export function resolveCursorProviderModePresentation(args: {
   settings: CursorProviderModeSettings;
-  planMode?: boolean;
 }): ProviderModePresentation {
   return toPresentation({
     presetId: detectCursorProviderModePreset({ settings: args.settings }),
     presets: CURSOR_PROVIDER_MODE_PRESETS,
     detail: formatCursorModeDetail(args.settings),
-    planNote: args.planMode
-      ? i18n.t("providers:messages.cursorPlanNote")
-      : undefined,
   });
 }
 

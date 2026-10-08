@@ -6,7 +6,6 @@ import {
   CircleAlert,
   CirclePause,
   ClipboardList,
-  ListChecks,
   Webhook,
   Wrench,
   type LucideIcon,
@@ -32,7 +31,6 @@ import { turnActivityStatusIconStyles as styles } from "./turn-activity-status-i
 export const TURN_ACTIVITY_ICONS: Record<TurnActivityIconKey, LucideIcon> = {
   alert: CircleAlert,
   pause: CirclePause,
-  plan: ListChecks,
   subagent: Bot,
   todo: ClipboardList,
   tool: Wrench,

@@ -118,12 +118,7 @@ import {
   DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
   type WorkspaceKickoffSettings,
 } from "@/store/workspace-kickoff-actions";
-import type {
-  ClaudePermissionMode,
-  ClaudePermissionModeBeforePlan,
-  ClaudePlanModeApprovalScope,
-} from "@/types/chat";
-import { DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE } from "@/types/chat";
+import type { ClaudePermissionMode } from "@/types/chat";
 
 export interface AppSettings extends WorkspaceKickoffSettings {
   claudeAccountProfileId?: string;
@@ -403,10 +398,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Absolute folder the Standalone CLI overlay runs claude and codex in. */
   standaloneCliFolderPath: string;
   claudePermissionMode: ClaudePermissionMode;
-  /** Stores the permission mode that was active before entering plan mode, so it can be restored when plan mode is exited. */
-  claudePermissionModeBeforePlan: ClaudePermissionModeBeforePlan;
-  /** How much plan mode auto-approves non-mutating tool calls (Bash/Task/MCP). */
-  claudePlanModeApprovalScope: ClaudePlanModeApprovalScope;
   claudeAllowDangerouslySkipPermissions: boolean;
   claudeSandboxEnabled: boolean;
   claudeAllowUnsandboxedCommands: boolean;
@@ -483,9 +474,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   codexReasoningSummary: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport: "auto" | "enabled" | "disabled";
   codexFastMode: boolean;
-  codexPlanMode: boolean;
   cursorBinaryPath: string;
-  cursorMode: "agent" | "plan" | "ask";
+  cursorMode: "agent" | "ask";
   /**
    * Approval autonomy for Cursor turns. Delivered as `agent acp` process flags,
    * so it applies for the whole session rather than per tool call.
@@ -606,7 +596,7 @@ export function normalizeReasoningExpansionMode(
 }
 
 export function normalizeCursorMode(value: unknown): AppSettings["cursorMode"] {
-  return value === "plan" || value === "ask" ? value : "agent";
+  return value === "ask" ? value : "agent";
 }
 
 export function normalizeCursorApprovalMode(
@@ -797,8 +787,6 @@ export const defaultSettings: AppSettings = {
   claudeBinaryPath: "",
   standaloneCliFolderPath: "",
   claudePermissionMode: "auto",
-  claudePermissionModeBeforePlan: null,
-  claudePlanModeApprovalScope: DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: false,
   claudeAllowUnsandboxedCommands: true,
@@ -851,7 +839,6 @@ export const defaultSettings: AppSettings = {
   codexReasoningSummary: "auto",
   codexReasoningSummarySupport: "auto",
   codexFastMode: false,
-  codexPlanMode: false,
   cursorBinaryPath: "",
   cursorMode: "agent",
   cursorApprovalMode: "auto",

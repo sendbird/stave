@@ -6,20 +6,34 @@ import {
   codexReadOnlyDelegationOptions,
 } from "./read-only-delegation";
 
+// temporary-migration: plan-mode-removal
+/**
+ * A policy saved while plan mode existed may carry `claudePermissionMode:
+ * "plan"`. It becomes `default`, which grants nothing automatically, so a
+ * restored policy can only ask more often than before, never less.
+ */
+function withoutRetiredPlanMode(value: unknown) {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { claudePermissionMode?: unknown }).claudePermissionMode === "plan"
+  ) {
+    return { ...value, claudePermissionMode: "default" };
+  }
+  return value;
+}
+// end temporary-migration: plan-mode-removal
+
 /** Only execution permissions cross this boundary; secrets, sessions and browser grants never do. */
-export const DelegationPermissionOptionsSchema = z.object({
+const DelegationPermissionOptionsObjectSchema = z.object({
   claudePermissionMode: z
     .enum([
       "default",
       "acceptEdits",
       "bypassPermissions",
-      "plan",
       "dontAsk",
       "auto",
     ])
-    .optional(),
-  claudePlanModeApprovalScope: z
-    .enum(["strict", "bash", "bashAndTask", "bashTaskAndMcp"])
     .optional(),
   claudeAllowDangerouslySkipPermissions: z.boolean().optional(),
   claudeSandboxEnabled: z.boolean().optional(),
@@ -41,8 +55,12 @@ export const DelegationPermissionOptionsSchema = z.object({
   codexAutoApproveStaveLocalMcpTools: z.boolean().optional(),
   codexAgentTurn: z.boolean().optional(),
 });
+export const DelegationPermissionOptionsSchema = z.preprocess(
+  withoutRetiredPlanMode,
+  DelegationPermissionOptionsObjectSchema,
+);
 export type DelegationPermissionOptions = z.infer<
-  typeof DelegationPermissionOptionsSchema
+  typeof DelegationPermissionOptionsObjectSchema
 >;
 /**
  * What a delegation asks for. `inherit` takes the parent's policy for the same
@@ -114,8 +132,6 @@ export function normalizedPermissionOptions(
       }
     : {
         claudePermissionMode: "default",
-        claudePlanModeApprovalScope:
-          options.claudePermissionMode === "plan" ? "bashTaskAndMcp" : "strict",
         claudeAllowDangerouslySkipPermissions: false,
         claudeSandboxEnabled: true,
         claudeAllowUnsandboxedCommands: false,
@@ -228,7 +244,7 @@ export function resolveDelegationPermissionPolicy(args: {
  * write authority and approval-skipping; a posture that cannot write and
  * auto-runs only reads is already under every one of them, and lowering
  * `dontAsk` to `default` would only bring back the prompts — or, for a
- * `plan` or `dontAsk` parent, refuse the combination outright.
+ * `dontAsk` parent, refuse the combination outright.
  */
 function readOnlyPermissionOptions(
   providerId: "claude-code" | "codex",
@@ -283,27 +299,16 @@ export function restrictPermissionOptions(
   const hasClaudePolicy = Object.keys({ ...recorded, ...current }).some((key) =>
     key.startsWith("claude"),
   );
-  // Plan and deny-by-default have different automatic grants; neither is a
-  // generally narrower replacement for another mode. Refuse unrepresentable caps.
-  const specialMode =
-    previousMode === "plan" ||
-    currentMode === "plan" ||
-    previousMode === "dontAsk" ||
-    currentMode === "dontAsk";
+  // Deny-by-default has different automatic grants from the other modes; it
+  // is not a generally narrower replacement for one. Refuse unrepresentable caps.
+  const specialMode = previousMode === "dontAsk" || currentMode === "dontAsk";
   if (hasClaudePolicy && specialMode && previousMode !== currentMode) {
-    const other =
-      previousMode === "plan" || previousMode === "dontAsk"
-        ? currentMode
-        : previousMode;
-    const hasPlanMode = previousMode === "plan" || currentMode === "plan";
-    if (other !== "bypassPermissions" && (hasPlanMode || other !== "auto"))
+    const other = previousMode === "dontAsk" ? currentMode : previousMode;
+    if (other !== "bypassPermissions" && other !== "auto")
       throw new Error(
         "The current Claude permission restriction cannot be combined safely with the saved mode.",
       );
-    options.claudePermissionMode =
-      previousMode === "plan" || previousMode === "dontAsk"
-        ? previousMode
-        : currentMode;
+    options.claudePermissionMode = "dontAsk";
   } else if (hasClaudePolicy) {
     const automaticModes = [
       "default",
@@ -318,16 +323,6 @@ export function restrictPermissionOptions(
         ? previousMode
         : currentMode;
   }
-  const planScopes = ["strict", "bash", "bashAndTask", "bashTaskAndMcp"];
-  const oldScope =
-    options.claudePlanModeApprovalScope ??
-    (previousMode === "plan" ? "bashTaskAndMcp" : "strict");
-  if (current.claudePlanModeApprovalScope)
-    options.claudePlanModeApprovalScope =
-      planScopes.indexOf(current.claudePlanModeApprovalScope) <
-      planScopes.indexOf(oldScope)
-        ? current.claudePlanModeApprovalScope
-        : oldScope;
   for (const key of Object.keys(ranks) as Array<keyof typeof ranks>) {
     const rank: readonly string[] = ranks[key];
     const old =

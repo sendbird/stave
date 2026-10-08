@@ -161,7 +161,6 @@ export function PromptInputProviderModePill(args: {
                 id: preset.id,
                 label: preset.label,
                 description: preset.description,
-                planNote: undefined,
               } satisfies PromptInputProviderModeStatus;
               const { icon: PresetIcon, summary: presetSummary } =
                 modeVisual(presetStatus);

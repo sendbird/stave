@@ -201,8 +201,8 @@ export function toDelegatedTaskEffort(
     : undefined;
 }
 
-function messageText(message: Pick<ChatMessage, "content" | "planText">) {
-  return (message.content.trim() || message.planText?.trim() || "").trim();
+function messageText(message: Pick<ChatMessage, "content">) {
+  return message.content.trim();
 }
 
 function clipMiddle(text: string, maxChars: number) {

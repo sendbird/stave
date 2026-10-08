@@ -103,12 +103,6 @@ const CLAUDE_PERMISSION_MODE_HELP = [
     get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.bypassPermissions.example"); },
   },
   {
-    value: "plan",
-    label: "plan",
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.plan.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.plan.example"); },
-  },
-  {
     value: "dontAsk",
     label: "dontAsk",
     get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.dontAsk.description"); },
@@ -122,35 +116,6 @@ const CLAUDE_PERMISSION_MODE_HELP = [
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["claudePermissionMode"]>
->[];
-
-const CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP = [
-  {
-    value: "strict",
-    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.strict.label"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.strict.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.strict.example"); },
-  },
-  {
-    value: "bash",
-    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bash.label"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bash.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bash.example"); },
-  },
-  {
-    value: "bashAndTask",
-    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashAndTask.label"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashAndTask.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashAndTask.example"); },
-  },
-  {
-    value: "bashTaskAndMcp",
-    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashTaskAndMcp.label"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashTaskAndMcp.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.options.bashTaskAndMcp.example"); },
-  },
-] as const satisfies readonly ExplainedSelectOption<
-  NonNullable<ProviderRuntimeOptions["claudePlanModeApprovalScope"]>
 >[];
 
 const CLAUDE_THINKING_MODE_HELP = [
@@ -554,7 +519,6 @@ export function ProvidersSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
     claudePermissionMode,
-    claudePlanModeApprovalScope,
     claudeAllowDangerouslySkipPermissions,
     claudeSandboxEnabled,
     claudeAllowUnsandboxedCommands,
@@ -596,7 +560,6 @@ export function ProvidersSection() {
       (state) =>
         [
           state.settings.claudePermissionMode,
-          state.settings.claudePlanModeApprovalScope,
           state.settings.claudeAllowDangerouslySkipPermissions,
           state.settings.claudeSandboxEnabled,
           state.settings.claudeAllowUnsandboxedCommands,
@@ -824,7 +787,6 @@ export function ProvidersSection() {
                     summary={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.summary")}
                     items={buildGuideItems(CLAUDE_PERMISSION_MODE_HELP)}
                     examples={buildGuideExamples(CLAUDE_PERMISSION_MODE_HELP)}
-                    note={t("settingsProviders:messages.planWorkflowNote")}
                     tooltip={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.tooltip")}
                   />
                 }
@@ -1057,34 +1019,6 @@ export function ProvidersSection() {
                 }
               />
               <LabeledField
-                title={t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.title")}
-                guide={
-                  <SettingsFieldGuide
-                    title={t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.guide.title")}
-                    summary={t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.guide.summary")}
-                    items={buildGuideItems(
-                      CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP,
-                    )}
-                    examples={buildGuideExamples(
-                      CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP,
-                    )}
-                    tooltip={t("settingsProviders:providersSection.claudeRuntime.planModeApprovals.guide.tooltip")}
-                  />
-                }
-              >
-                <DescribedSelect
-                  value={claudePlanModeApprovalScope}
-                  options={CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP}
-                  onValueChange={(value) =>
-                    updateSettings({
-                      patch: {
-                        claudePlanModeApprovalScope: value,
-                      },
-                    })
-                  }
-                />
-              </LabeledField>
-              <LabeledField
                 title={t("settingsProviders:codexExtensionsTab.skills")}
                 description={t("settingsProviders:providersSection.claudeRuntime.skills.description")}
               >
@@ -1206,7 +1140,6 @@ export function ProvidersSection() {
                     summary={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.summary")}
                     items={buildGuideItems(CODEX_FILE_ACCESS_HELP)}
                     examples={buildGuideExamples(CODEX_FILE_ACCESS_HELP)}
-                    note={t("settingsProviders:messages.codexPlanReadOnly")}
                     tooltip={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.tooltip")}
                   />
                 }
@@ -1231,7 +1164,6 @@ export function ProvidersSection() {
                     summary={t("settingsProviders:providersSection.codexRuntime.approvals.guide.summary")}
                     items={buildGuideItems(CODEX_APPROVAL_POLICY_HELP)}
                     examples={buildGuideExamples(CODEX_APPROVAL_POLICY_HELP)}
-                    note={t("settingsProviders:messages.codexPlanNever")}
                     tooltip={t("settingsProviders:providersSection.codexRuntime.approvals.guide.tooltip")}
                   />
                 }

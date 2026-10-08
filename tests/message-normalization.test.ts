@@ -194,7 +194,7 @@ describe("normalizeMessagesForSnapshot", () => {
             parts: [
               {
                 type: "approval",
-                toolName: "ExitPlanMode",
+                toolName: "Bash",
                 requestId: "approval-1",
                 description: oversizedApprovalDescription,
                 state: "approval-requested",

@@ -247,7 +247,6 @@ export function resolveTurnRunHeadline(args: {
   featured: { title: string; detail?: string } | null;
   /** `2 running · 1 done` while several agents run, which no single row can name. */
   countsHeadline: string | null;
-  isPlanPreparing: boolean;
 }): ShelfRunHeadline {
   switch (args.tone) {
     case "waiting":
@@ -291,11 +290,7 @@ export function resolveTurnRunHeadline(args: {
         : null;
     return { text: args.featured.title, detail, live: true };
   }
-  return {
-    text: args.isPlanPreparing ? i18n.t("composer:composerShelfUtils.text5") : null,
-    detail: null,
-    live: args.isPlanPreparing,
-  };
+  return { text: null, detail: null, live: false };
 }
 
 /** The turn tones an agent run's line still has to say while it heads the shelf. */
@@ -351,7 +346,6 @@ export function resolveShelfTurnAlert(args: {
     idleLabel: isStalled ? formatProviderTurnIdleDuration({ activity, now: args.now }) : null,
     featured: null,
     countsHeadline: null,
-    isPlanPreparing: false,
   });
   return {
     tone,

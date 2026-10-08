@@ -10,7 +10,6 @@ import { i18n } from "@/i18n/runtime";
  */
 
 export const COMPOSER_CONTROL_IDS = [
-  "plan",
   "providerMode",
   "thinking",
   "fast",
@@ -45,7 +44,6 @@ export type ComposerControlPlacements = Partial<
 >;
 
 export const COMPOSER_CONTROL_LABELS: Record<ComposerControlId, string> = {
-  get plan() { return i18n.t("app:composerControls.plan"); },
   get providerMode() { return i18n.t("app:composerControls.providerMode"); },
   get thinking() { return i18n.t("app:composerControls.thinking"); },
   get fast() { return i18n.t("app:composerControls.fastMode"); },
@@ -58,7 +56,6 @@ export const COMPOSER_CONTROL_LABELS: Record<ComposerControlId, string> = {
 
 export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
   {
-    get plan() { return i18n.t("app:composerControls.togglePlanModeBeforeSending"); },
     get providerMode() { return i18n.t("app:composerControls.manualGuidedOrAutoPermissionPreset"); },
     get thinking() { return i18n.t("app:composerControls.cycleExtendedThinkingClaudeOnly"); },
     get fast() { return i18n.t("app:composerControls.fastToggleInsideTheModelPickerCodexAndCursor"); },
@@ -105,7 +102,6 @@ export function composerControlIsIconOnly(id: ComposerControlId): boolean {
  * status row names the rest itself, so one hover never opens two bubbles.
  */
 const COMPOSER_CONTROLS_WITH_OWN_TOOLTIP = new Set<ComposerControlId>([
-  "plan",
   "providerMode",
   "thinking",
   "runtime",
@@ -156,16 +152,12 @@ export function normalizeComposerControlPlacements(
  * hiding a control must not hide the fact that it is doing something.
  */
 export function collectActiveComposerControls(args: {
-  planMode?: boolean;
   thinkingMode?: "adaptive" | "enabled" | "disabled" | null;
   fastMode?: boolean;
   runtimeTone?: "default" | "custom" | "warning";
   boundSecretCount?: number;
 }): ComposerControlId[] {
   const active: ComposerControlId[] = [];
-  if (args.planMode) {
-    active.push("plan");
-  }
   // "disabled" is as deliberate a deviation as "enabled"; only adaptive is rest.
   if (args.thinkingMode === "enabled" || args.thinkingMode === "disabled") {
     active.push("thinking");
@@ -238,8 +230,8 @@ export function resolveComposerControlLayout(args: {
  * behaviour rather than by how often it is used.
  *
  * Fast stays inside the model picker.
- * Right wing — next to Send — is the provider's own surface: plan mode, the
- * permission preset, and extended thinking are settings of the model run.
+ * Right wing — next to Send — is the provider's own surface: the permission
+ * preset and extended thinking are settings of the model run.
  * Bottom status bar is Stave's own tooling (review, secrets,
  * macros, compare) plus the runtime readout, which stays last so it sits with
  * the workspace and branch it describes.
@@ -248,7 +240,6 @@ export function resolveComposerControlLayout(args: {
  */
 const COMPOSER_FRAME_CARD_CONTROL_IDS = new Set<ComposerControlId>(["fast"]);
 const COMPOSER_FRAME_RIGHT_CONTROL_IDS = new Set<ComposerControlId>([
-  "plan",
   "providerMode",
   "thinking",
 ]);

@@ -3,7 +3,6 @@ import {
 } from "@/lib/providers/turn-terminal-receipt";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { sanitizeMessagePartPayload } from "@/lib/file-context-sanitization";
-import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
 import { isProviderNativeSlashCommandInput } from "@/lib/providers/provider-request-translators";
 import {
   advanceProviderSessionCursor,
@@ -412,38 +411,11 @@ function normalizeEventToPart(args: {
     case "usage":
     case "context_usage":
     case "prompt_suggestions":
-    case "plan_ready":
     case "agent_provenance":
     case "model_resolved":
     case "done":
       return null;
   }
-}
-
-/**
- * True when an event belongs to a message of its own because the current target
- * is already a plan response.
- *
- * `plan_ready` is excluded on purpose: re-presenting an updated plan replaces
- * the existing plan message rather than starting a new one. `provider_turn`
- * only qualifies when it announces a *different* native turn — the plan's own
- * turn still belongs to the plan row.
- */
-function startsMessageAfterPlan(args: {
-  target: ChatMessage;
-  event: NormalizedProviderEvent;
-}): boolean {
-  const { target, event } = args;
-  if (event.type === "plan_ready") {
-    return false;
-  }
-  if (event.type === "provider_turn") {
-    return (
-      target.nativeProviderTurnId != null &&
-      target.nativeProviderTurnId !== event.nativeTurnId
-    );
-  }
-  return normalizeEventToPart({ event }) !== null;
 }
 
 function providerBoundariesEqual(
@@ -455,86 +427,6 @@ function providerBoundariesEqual(
     left?.kind === right?.kind &&
     left?.nativeId === right?.nativeId
   );
-}
-
-/**
- * Copy same-turn identity and execution evidence from `from` onto `message`.
- *
- * Splitting one provider turn across several rows must not strand a row without
- * that identity: `buildConversationTurnActionStateByMessageId` disables
- * fork/rollback on any assistant row missing `nativeProviderTurnId` ("this
- * response predates native turn tracking").
- */
-function inheritNativeTurnIdentity(args: {
-  message: ChatMessage;
-  from: ChatMessage;
-  /** A different provider turn keeps its fresh provider/model defaults. */
-  inheritResolvedModel?: boolean;
-}): ChatMessage {
-  const { from, inheritResolvedModel = true } = args;
-  return {
-    ...args.message,
-    ...(inheritResolvedModel
-      ? {
-          providerId: from.providerId,
-          model: from.model,
-          ...(from.modelExecution ? { modelExecution: from.modelExecution } : {}),
-          ...(from.modelResolution
-            ? { modelResolution: from.modelResolution }
-            : {}),
-        }
-      : {}),
-    ...(from.turnId ? { turnId: from.turnId } : {}),
-    ...(from.agentProvenance ? { agentProvenance: from.agentProvenance } : {}),
-    ...(from.terminalReceipt ? { terminalReceipt: from.terminalReceipt } : {}),
-    ...(from.nativeProviderSessionId
-      ? { nativeProviderSessionId: from.nativeProviderSessionId }
-      : {}),
-    ...(from.nativeProviderTurnId
-      ? { nativeProviderTurnId: from.nativeProviderTurnId }
-      : {}),
-    ...(from.providerBoundary
-      ? { providerBoundary: from.providerBoundary }
-      : {}),
-  };
-}
-
-/**
- * Seal the trailing plan row and open the assistant message that carries the
- * rest of the turn. The new row inherits the plan's native turn identity; a
- * later `provider_turn`/`history_boundary` for a genuinely new turn overwrites
- * it in place.
- */
-function openMessageAfterPlan(args: {
-  messages: ChatMessage[];
-  plan: ChatMessage;
-  taskId: string;
-  messageIndexOffset: number;
-  provider: ProviderId;
-  model: string;
-  inheritResolvedModel?: boolean;
-}): { messages: ChatMessage[]; target: ChatMessage } {
-  const target = inheritNativeTurnIdentity({
-    message: createStreamingAssistantMessage({
-      taskId: args.taskId,
-      count: args.messages.length + args.messageIndexOffset,
-      provider: args.provider,
-      model: args.model,
-      ...(args.plan.modelInfo ? { modelInfo: args.plan.modelInfo } : {}),
-    }),
-    from: args.plan,
-    ...(args.inheritResolvedModel === false
-      ? { inheritResolvedModel: false }
-      : {}),
-  });
-  return {
-    messages: [
-      ...args.messages.slice(0, -1),
-      releaseTurnUsage(finalizeAssistantMessage({ message: args.plan })),
-      target,
-    ],
-    target,
-  };
 }
 
 function lastAssistantModelInfo(
@@ -570,130 +462,6 @@ function createStreamingAssistantMessage(args: {
     isStreaming: true,
     parts: [],
   };
-}
-
-/**
- * Strip `<proposed_plan>…</proposed_plan>` (and any incomplete open-tag
- * suffix) from a string so raw XML plan tags never leak into the chat UI.
- * Text before and after the block is preserved.
- */
-function stripProposedPlanBlock(text: string): string {
-  const openTag = "<proposed_plan>";
-  const closeTag = "</proposed_plan>";
-  const openIdx = text.indexOf(openTag);
-  if (openIdx === -1) return text;
-  const closeIdx = text.indexOf(closeTag, openIdx);
-  if (closeIdx === -1) {
-    // Partial tag (streaming cut-off) — strip from open tag onwards.
-    return text.slice(0, openIdx).trimEnd();
-  }
-  const before = text.slice(0, openIdx).trimEnd();
-  const after = text.slice(closeIdx + closeTag.length).trimStart();
-  return before + (after ? `\n\n${after}` : "");
-}
-
-/**
- * Remove `<proposed_plan>` blocks from a ChatMessage's `content` and its
- * text parts so the streamed assistant message no longer shows garbled XML
- * once the plan is promoted to a dedicated plan message.
- */
-function stripPlanTagsFromMessage(message: ChatMessage): ChatMessage {
-  const content = stripProposedPlanBlock(message.content);
-  const parts = message.parts
-    .map((part) => {
-      if (part.type !== "text") return part;
-      const cleaned = stripProposedPlanBlock(part.text);
-      return cleaned ? { ...part, text: cleaned } : null;
-    })
-    .filter((p): p is MessagePart => p != null);
-  return { ...message, content, parts };
-}
-
-/**
- * Remove text parts from a specific provider segment. Codex structured plan
- * items stream through the normal text path before they are promoted into a
- * dedicated plan response, so replay needs the source segment id to strip that
- * transient preview without dropping unrelated commentary from other segments.
- */
-function stripTextSegmentFromMessage(args: {
-  message: ChatMessage;
-  segmentId?: string;
-}): ChatMessage {
-  const segmentId = args.segmentId?.trim();
-  if (!segmentId) {
-    return args.message;
-  }
-
-  let removed = false;
-  const parts = args.message.parts.filter((part) => {
-    if (part.type === "text" && part.segmentId === segmentId) {
-      removed = true;
-      return false;
-    }
-    return true;
-  });
-
-  if (!removed) {
-    return args.message;
-  }
-
-  const content = parts.reduce(
-    (acc, part) => (part.type === "text" ? `${acc}${part.text}` : acc),
-    "",
-  );
-  return {
-    ...args.message,
-    content,
-    parts,
-  };
-}
-
-function createPlanAssistantMessage(args: {
-  taskId: string;
-  count: number;
-  provider: ProviderId;
-  model: string;
-  modelInfo?: TurnModelInfo;
-  planText: string;
-  planReview?: ChatMessage["planReview"];
-  isStreaming?: boolean;
-}): ChatMessage {
-  const startedAt = buildRecentTimestamp();
-  const normalizedPlanText = normalizePlanText(args.planText);
-  return {
-    id: buildMessageId({ taskId: args.taskId, count: args.count }),
-    role: "assistant",
-    model: args.model,
-    providerId: args.provider,
-    ...(args.modelInfo ? { modelInfo: args.modelInfo } : {}),
-    content: normalizedPlanText,
-    startedAt,
-    isStreaming: args.isStreaming ?? true,
-    isPlanResponse: true,
-    planText: normalizedPlanText,
-    ...(args.planReview ? { planReview: args.planReview } : {}),
-    parts: [],
-  };
-}
-
-/**
- * Hand a turn's usage on when the turn outlives the message carrying it.
- *
- * Usage is a fact about the *turn*, but it rides whichever assistant message
- * was open when a `usage` event landed, and consumers sum it across messages
- * (`buildUsageMetric` in src/lib/fleet/task-execution-summary.ts). One turn may
- * open several messages — a plan seals the message before it and opens one
- * after — so a running total dropped mid-turn would sit on a sealed message and
- * be counted a second time when `turn/completed` reports the authoritative
- * figure on the message that is still open. Dropping it here keeps exactly one
- * carrier per turn, which is the invariant the sum relies on.
- */
-function releaseTurnUsage(message: ChatMessage): ChatMessage {
-  if (!message.usage) {
-    return message;
-  }
-  const { usage: _usage, ...rest } = message;
-  return rest;
 }
 
 function finalizeAssistantMessage(args: {
@@ -918,21 +686,6 @@ function appendProviderEventContentToAssistant(args: {
     return { ...message, parts: updatedParts };
   }
 
-  if (args.event.type === "plan_ready") {
-    const normalizedPlanText = normalizePlanText(args.event.planText);
-    if (!hasMeaningfulPlanText(normalizedPlanText)) {
-      return message;
-    }
-
-    return {
-      ...message,
-      content: normalizedPlanText,
-      isPlanResponse: true,
-      planText: normalizedPlanText,
-      planReview: args.event.review,
-    };
-  }
-
   if (args.event.type === "agent_provenance") {
     const provenance = args.event.provenance;
     const existing = message.agentProvenance;
@@ -1016,7 +769,7 @@ function appendProviderEventContentToAssistant(args: {
     // turn was aborted/errored and the runtime synthesized a done. In both
     // cases leaving the parts in `*-requested` state keeps `isTurnActive`
     // true via `findLatestPendingToolInteractionPart`, which locks the
-    // PlanViewer's Approve/Revise controls and any dependent UI.
+    // composer and any dependent UI.
     return {
       ...finalizedMessage,
       terminalStopReason,
@@ -1259,39 +1012,13 @@ export function replayProviderEventsToTaskState(args: {
         current = [...current, assistant];
         targetIndex = current.length - 1;
       }
-      let boundaryTarget = current[targetIndex];
+      const boundaryTarget = current[targetIndex];
       if (boundaryTarget) {
         const nextBoundary = {
           providerId: event.providerId,
           kind: event.boundaryKind,
           nativeId: event.nativeId,
         } as const;
-        // A boundary for a different native turn cannot belong to a sealed plan
-        // row — it belongs to the response that follows the plan. Claude emits
-        // this ahead of `provider_turn`, so the split has to start here too.
-        if (
-          boundaryTarget.isPlanResponse === true &&
-          targetIndex === current.length - 1 &&
-          boundaryTarget.providerBoundary != null &&
-          !providerBoundariesEqual(
-            boundaryTarget.providerBoundary,
-            nextBoundary,
-          )
-        ) {
-          const opened = openMessageAfterPlan({
-            messages: current,
-            plan: boundaryTarget,
-            taskId: args.taskId,
-            messageIndexOffset,
-            provider: args.provider,
-            model: args.model,
-            inheritResolvedModel: false,
-          });
-          current = opened.messages;
-          targetIndex = current.length - 1;
-          boundaryTarget = opened.target;
-          changed = true;
-        }
         if (
           !providerBoundariesEqual(
             boundaryTarget.providerBoundary,
@@ -1335,80 +1062,6 @@ export function replayProviderEventsToTaskState(args: {
     if (args.turnId && !target.turnId) {
       target = { ...target, turnId: args.turnId };
       current = [...current.slice(0, -1), target];
-      changed = true;
-    }
-
-    if (event.type === "plan_ready") {
-      if (!hasMeaningfulPlanText(event.planText)) {
-        continue;
-      }
-
-      // Strip raw <proposed_plan> tags that leaked into the streaming
-      // message so the prior assistant bubble isn't garbled.
-      let cleanedTarget = stripPlanTagsFromMessage(
-        stripTextSegmentFromMessage({
-          message: target,
-          segmentId: event.sourceSegmentId,
-        }),
-      );
-      const shouldAppendSeparatePlanMessage =
-        !cleanedTarget.isPlanResponse &&
-        hasRenderableAssistantContent({ message: cleanedTarget });
-
-      if (shouldAppendSeparatePlanMessage) {
-        cleanedTarget = {
-          ...cleanedTarget,
-          terminalReceipt: observeTurnEvent(
-            cleanedTarget.terminalReceipt ?? createTurnReceipt(), event, false,
-          ),
-        };
-        const finalizedTarget = releaseTurnUsage(
-          finalizeAssistantMessage({ message: cleanedTarget }),
-        );
-        const planMessage = inheritNativeTurnIdentity({
-          message: createPlanAssistantMessage({
-            taskId: args.taskId,
-            count: current.length + messageIndexOffset,
-            provider: args.provider,
-            model: args.model,
-            modelInfo: target.modelInfo,
-            planText: event.planText,
-            planReview: event.review,
-          }),
-          from: finalizedTarget,
-        });
-
-        current = [...current.slice(0, -1), finalizedTarget, planMessage];
-        changed = true;
-        continue;
-      }
-
-      // Prior message was empty after cleaning (or was already a plan
-      // response) — let appendProviderEventToAssistant replace it below.
-      target = cleanedTarget;
-      current = [...current.slice(0, -1), cleanedTarget];
-    }
-
-    // A plan response renders as a dedicated plan card whose body is the plan
-    // text alone, so anything the agent produces afterwards has no place in it.
-    // Appending it here used to hide the rest of the turn — the "shall I
-    // proceed?" question, follow-up tool calls, even pending approvals — behind
-    // the card. Start a fresh assistant message instead.
-    if (
-      target.isPlanResponse === true &&
-      startsMessageAfterPlan({ target, event })
-    ) {
-      const opened = openMessageAfterPlan({
-        messages: current,
-        plan: target,
-        taskId: args.taskId,
-        messageIndexOffset,
-        provider: args.provider,
-        model: args.model,
-        inheritResolvedModel: event.type !== "provider_turn",
-      });
-      current = opened.messages;
-      target = opened.target;
       changed = true;
     }
 

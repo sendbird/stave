@@ -268,12 +268,6 @@ export type BridgeEvent =
       elapsedSeconds: number;
     }
   | {
-      type: "plan_ready";
-      planText: string;
-      sourceSegmentId?: string;
-      review?: { requestId: string; responseMode: "blocking" };
-    }
-  | {
       type: "system";
       content: string;
       compactBoundary?: {

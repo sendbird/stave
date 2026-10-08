@@ -70,7 +70,7 @@ Recommended next steps:
 ## Features
 
 - English (default) and Korean throughout the app; switch in Settings or the home menu, with the choice saved across restarts
-- task-based Claude, Codex, Cursor Agent, and Kiro CLI chats with approvals, diffs, plans, and queued follow-ups
+- task-based Claude, Codex, Cursor Agent, and Kiro CLI chats with approvals, diffs, and queued follow-ups
 - usage-limit pauses with manual or reset-time resume, and restored queues that wait for you after a restart
 - other tasks attached as context through title search or a sidebar drag, with a choice of the latest reply or recent conversation
 - Monaco editor, docked terminal, quick open, command palette, and source control actions
@@ -78,7 +78,8 @@ Recommended next steps:
 - Compare Runs with candidate and judge turns, and Review tasks that run a read-only review on the model you pick beside the task and hand back only the findings, with configurable review presets, installed skills or custom prompts
 - Crane connector for queuing repository issues into approval-gated local Claude or Codex runs
 - Issues surface listing assigned Crane and Jira Cloud tickets with one-click local kickoff
-- workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
+- workspace documents (plans, reports, specs) that agents revise in place, with every revision recorded
+- workspace-scoped notes, todos, PR links, Jira, Figma, Confluence, and Slack references
 - scheduled Claude and Codex automations with per-run results, repository selection, and reusable Information context
 - agents with a workflow: the stages you would otherwise prompt one by one — Stave opens the draft PR, watches checks, and checks in with you only where the agent says
 - Agent performance for comparing delegated runs across workspaces, and task Outputs for inspecting saved answers and changes
@@ -93,7 +94,8 @@ Recommended next steps:
 - [Install Guide](docs/install-guide.md) for the full macOS install and update flow
 - [Lens Browser Guide](docs/features/lens.md) for inspecting a live page and sending its context into a task draft
 - [Provider Browser Access](docs/features/provider-browser-access.md) for using `@web` with the active provider's native browser extension
-- [Provider Sandbox and Approval Guide](docs/features/provider-sandbox-and-approval.md) for runtime safety, second opinions, and plan settings
+- [Provider Sandbox and Approval Guide](docs/features/provider-sandbox-and-approval.md) for runtime safety and second opinions
+- [Workspace Documents](docs/features/workspace-documents.md) for plans and reports an agent writes and revises
 - [Turn Activity](docs/features/turn-activity.md) for queued follow-ups, restart recovery, and resuming work after a usage limit
 - [Attachments](docs/features/attachments.md) for files, images, and other tasks used as context
 - [Review Tasks](docs/features/review-tasks.md) for reviews and second opinions that run in their own read-only task

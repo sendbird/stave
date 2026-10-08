@@ -191,7 +191,6 @@ export function claudeReadOnlyDelegationOptions(inherited: {
   const denied = new Set(disallowed);
   return {
     claudePermissionMode: "dontAsk" as const,
-    claudePlanModeApprovalScope: "strict" as const,
     claudeAllowDangerouslySkipPermissions: false,
     claudeSandboxEnabled: true,
     claudeSandboxReadOnly: true,

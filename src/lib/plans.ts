@@ -1,15 +1,19 @@
-import { normalizePlanText } from "@/lib/plan-text";
-
 export const WORKSPACE_PLANS_DIRECTORY = ".stave/context/plans";
 export const LEGACY_WORKSPACE_PLANS_DIRECTORY = ".stave/plans";
-export const MAX_WORKSPACE_PLANS = 5;
+/** Documents listed in the Information panel, most recently updated first. */
+export const MAX_WORKSPACE_PLANS = 10;
 
 export interface WorkspacePlanEntry {
   filePath: string;
   label: string;
+  /** `YYYY-MM-DDTHH-mm-ss` from a `<taskIdPrefix>_<timestamp>.md` name, else empty. */
   timestamp: string;
   taskIdPrefix: string;
 }
+
+/** Files Stave named for a task: `<taskIdPrefix>_<timestamp>.md`. */
+const TASK_DOCUMENT_FILE_NAME_RE =
+  /^([A-Za-z0-9-]{1,36})_(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})$/;
 
 export interface WorkspacePlanListEntry extends WorkspacePlanEntry {
   source: "current" | "legacy";
@@ -33,11 +37,14 @@ export function parseWorkspacePlanFilePath(
 ): WorkspacePlanEntry {
   const fileName = filePath.split("/").pop() ?? filePath;
   const nameWithoutExt = fileName.replace(/\.md$/, "");
-  const [taskIdPrefix = "", ...timestampParts] = nameWithoutExt.split("_");
-  const timestamp = timestampParts.join("_");
-  const label =
-    timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, " $1:$2:$3") ||
-    nameWithoutExt;
+  const taskNamed = TASK_DOCUMENT_FILE_NAME_RE.exec(nameWithoutExt);
+  if (!taskNamed) {
+    // A document named for its content, such as `retry-design.md`.
+    return { filePath, label: nameWithoutExt, timestamp: "", taskIdPrefix: "" };
+  }
+  const taskIdPrefix = taskNamed[1] ?? "";
+  const timestamp = taskNamed[2] ?? "";
+  const label = timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, " $1:$2:$3");
 
   return {
     filePath,
@@ -112,11 +119,25 @@ export function isWorkspacePlanFilePath(filePath: string) {
   );
 }
 
+/** `2026-04-01T01-02-03` → `2026-04-01T01:02:03`, comparable with ISO times. */
+function timestampToIso(timestamp: string) {
+  return timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, "T$1:$2:$3");
+}
+
+/**
+ * Newest first. A document's recorded update time wins; a task-named file
+ * falls back to the time in its name; anything else sorts last by name.
+ */
 export function sortWorkspacePlansNewestFirst<T extends WorkspacePlanEntry>(
   entries: T[],
+  updatedAtByPath: Readonly<Record<string, string>> = {},
 ) {
-  return [...entries].sort((left, right) =>
-    right.timestamp.localeCompare(left.timestamp),
+  const sortKey = (entry: T) =>
+    updatedAtByPath[entry.filePath] ?? timestampToIso(entry.timestamp);
+  return [...entries].sort(
+    (left, right) =>
+      sortKey(right).localeCompare(sortKey(left)) ||
+      left.filePath.localeCompare(right.filePath),
   );
 }
 
@@ -124,6 +145,8 @@ export function buildWorkspacePlanListEntries(args: {
   currentFilePaths?: string[];
   legacyFilePaths?: string[];
   maxEntries?: number;
+  /** Recorded update time per document, from its newest revision. */
+  updatedAtByPath?: Readonly<Record<string, string>>;
 }) {
   const nextEntries = [
     ...(args.currentFilePaths ?? []).map((filePath) => ({
@@ -141,25 +164,13 @@ export function buildWorkspacePlanListEntries(args: {
     dedupedEntries.set(entry.filePath, entry);
   });
 
-  return sortWorkspacePlansNewestFirst([...dedupedEntries.values()]).slice(
+  return sortWorkspacePlansNewestFirst(
+    [...dedupedEntries.values()],
+    args.updatedAtByPath,
+  ).slice(
     0,
     args.maxEntries ?? MAX_WORKSPACE_PLANS,
   );
-}
-
-export const normalizeWorkspacePlanText = normalizePlanText;
-
-export function resolveWorkspacePlanPersistenceText(args: {
-  planText?: string | null;
-  lastPersistedPlanText?: string | null;
-}) {
-  const normalizedPlanText = normalizeWorkspacePlanText(args.planText ?? "");
-  if (!normalizedPlanText.trim()) {
-    return null;
-  }
-  return normalizedPlanText === (args.lastPersistedPlanText ?? null)
-    ? null
-    : normalizedPlanText;
 }
 
 export async function persistWorkspacePlanFile(args: {
@@ -192,7 +203,7 @@ export async function persistWorkspacePlanFile(args: {
     const writeResult = await window.api?.fs?.writeFile?.({
       rootPath: args.rootPath,
       filePath,
-      content: normalizePlanText(args.planText),
+      content: args.planText,
     });
     if (writeResult && writeResult.ok === false) {
       // eslint-disable-next-line no-console

@@ -70,10 +70,7 @@ The current invariant is:
 
 - replay may only merge adjacent text parts when they share the same
   provider-supplied logical segment boundary
-- Codex uses `segmentId = item.id` for `agent_message` and `plan` text deltas
-- when a structured Codex `plan` item completes, `plan_ready.sourceSegmentId`
-  must carry that same item id so replay can remove the transient preview text
-  from the normal chat bubble before the dedicated plan response is stored
+- Codex uses `segmentId = item.id` for `agent_message` text deltas
 - providers that cannot yet supply such a boundary must be treated as
   potentially merge-unsafe
 

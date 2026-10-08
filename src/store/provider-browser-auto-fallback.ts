@@ -105,7 +105,6 @@ export function shouldStartProviderBrowserFallbackTurn(args: {
   originalPromptRequestedBrowser: boolean;
   /** Only the task's own dialogue retries; compare arms and kickoffs do not. */
   conversationTurn: boolean;
-  planMode: boolean;
   turnAborted: boolean;
   /** The user's own queued follow-up always wins over a synthesized one. */
   hasQueuedUserTurn: boolean;
@@ -115,7 +114,6 @@ export function shouldStartProviderBrowserFallbackTurn(args: {
     args.autoFallbackEnabled &&
     args.conversationTurn &&
     !args.originalPromptRequestedBrowser &&
-    !args.planMode &&
     !args.turnAborted &&
     !args.hasQueuedUserTurn
   );
@@ -157,9 +155,6 @@ export function maybeStartProviderBrowserFallbackTurn<
       context.prompt,
     ),
     conversationTurn: context.turnOrigin === "conversation",
-    planMode:
-      context.runtimeOptions.claudePermissionMode === "plan" ||
-      context.runtimeOptions.codexPlanMode === true,
     turnAborted: args.events.some(
       (event) => event.type === "done" && event.stop_reason === "aborted",
     ),

@@ -154,7 +154,7 @@ export async function routeAgentRunTurn(args: {
       currentModel: args.current.model,
       prompt: args.prompt,
       history: args.history,
-      phase: draft.autoRoutingPlanMode === true ? "plan" : "execute",
+      phase: "execute",
       ...(taskClassHint ? { taskClassHint } : {}),
       ...(args.classifyRoute ? { classifyRoute: args.classifyRoute } : {}),
     });

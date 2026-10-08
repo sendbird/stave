@@ -136,7 +136,7 @@ function readOnlyOptions(providerId: ProviderId, options: ProviderRuntimeOptions
 function autonomousOptions(providerId: ProviderId, options: ProviderRuntimeOptions): Partial<ProviderRuntimeOptions> {
   if (providerId === "claude-code") {
     const mode = options.claudePermissionMode;
-    if (mode === "bypassPermissions" || mode === "plan" || mode === "dontAsk" || mode === "auto") return {};
+    if (mode === "bypassPermissions" || mode === "dontAsk" || mode === "auto") return {};
     return { claudePermissionMode: "auto" };
   }
   if (providerId === "codex") {
@@ -240,7 +240,6 @@ export function capSpawnedTurnOptions(args: {
  */
 export const PERMISSION_RUNTIME_OPTION_KEYS = [
   "claudePermissionMode",
-  "claudePlanModeApprovalScope",
   "claudeAllowDangerouslySkipPermissions",
   "claudeSandboxEnabled",
   "claudeAllowUnsandboxedCommands",

@@ -75,7 +75,6 @@ const TOOL_OPERATION_LABELS: Record<string, string> = {
   get spawnagent() { return i18n.t(TOOL_DELEGATION_LABEL_KEY); },
   get worker() { return i18n.t(TOOL_DELEGATION_LABEL_KEY); },
   // Turn-shaping
-  get exitplanmode() { return i18n.t("providers:toolActivity.submitPlan"); },
   get todowrite() { return i18n.t("providers:toolActivity.updateTodos"); },
 };
 

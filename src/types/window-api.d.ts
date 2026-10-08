@@ -2046,6 +2046,26 @@ interface WindowPersistenceApi {
     activeRepositoryPath?: string | null;
   }) => Promise<{ ok: boolean }>;
   closeWorkspace?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
+  recordWorkspaceDocuments?: (
+    args: import("@/lib/documents/workspace-document-schemas").RecordWorkspaceDocumentsArgs,
+  ) => Promise<{
+    ok: boolean;
+    changes: import("@/lib/documents/workspace-document-schemas").WorkspaceDocumentChange[];
+  }>;
+  workspaceDocumentActivity?: (args: {
+    workspaceId: string;
+  }) => Promise<
+    { ok: boolean } & import("@/lib/documents/workspace-document-schemas").WorkspaceDocumentActivity
+  >;
+  workspaceDocumentRevisions?: (
+    args: import("@/lib/documents/workspace-document-schemas").WorkspaceDocumentRevisionsArgs,
+  ) => Promise<{
+    ok: boolean;
+    revisions: import("@/lib/documents/workspace-document-schemas").WorkspaceDocumentRevisionMeta[];
+  }>;
+  workspaceDocumentRevision?: (
+    args: import("@/lib/documents/workspace-document-schemas").WorkspaceDocumentRevisionArgs,
+  ) => Promise<{ ok: boolean; content: string | null }>;
   loadDirectionDraft?: (args: {
     workspaceId: string;
   }) => Promise<{

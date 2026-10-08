@@ -423,12 +423,6 @@ export function KeyboardShortcutsDrawer({
             sequences: promptCommentShortcutSequences,
           },
           {
-            label: i18n.t("shell:keyboardShortcutsDrawer.togglePlanMode"),
-            description:
-              i18n.t("shell:keyboardShortcutsDrawer.switchTheActivePromptBetweenNormalAnd"),
-            sequences: [["Shift", "Tab"]],
-          },
-          {
             label: i18n.t("shell:keyboardShortcutsDrawer.dialogPrimaryAction"),
             description:
               i18n.t("shell:keyboardShortcutsDrawer.runSaveCreateOpenConfirmInTheActiveDialogUse"),

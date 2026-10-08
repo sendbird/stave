@@ -267,7 +267,6 @@ const ClaudeAutomationRuntimeSchema = z
       "default",
       "acceptEdits",
       "bypassPermissions",
-      "plan",
       "dontAsk",
       "auto",
     ]),
@@ -392,8 +391,37 @@ export function createEmptyAutomationState(): AutomationState {
   };
 }
 
+// temporary-migration: plan-mode-removal
+/**
+ * An automation saved with Claude's retired `plan` permission mode ran
+ * read-only. `dontAsk` keeps it unattended and read-only: anything that would
+ * need approval is denied instead of waiting for an answer nobody gives.
+ */
+function withoutRetiredPlanModeAutomations(value: unknown): unknown {
+  if (typeof value !== "object" || value === null) return value;
+  const automations = (value as { automations?: unknown }).automations;
+  if (!Array.isArray(automations)) return value;
+  let changed = false;
+  const next = automations.map((automation: unknown) => {
+    const runtime = (automation as { runtime?: { permissionMode?: unknown } } | null)
+      ?.runtime;
+    if (runtime?.permissionMode !== "plan") return automation;
+    changed = true;
+    return {
+      ...(automation as object),
+      runtime: { ...runtime, permissionMode: "dontAsk" },
+    };
+  });
+  return changed ? { ...value, automations: next } : value;
+}
+// end temporary-migration: plan-mode-removal
+
 export function normalizeAutomationState(value: unknown): AutomationState {
-  const parsed = AutomationStateSchema.safeParse(value);
+  const parsed = AutomationStateSchema.safeParse(
+    // temporary-migration: plan-mode-removal
+    withoutRetiredPlanModeAutomations(value),
+    // end temporary-migration: plan-mode-removal
+  );
   return parsed.success ? parsed.data : createEmptyAutomationState();
 }
 

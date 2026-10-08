@@ -14,7 +14,6 @@ const baseArgs = {
   activeProvider: "codex" as const,
   providerTimeoutMs: 3600000,
   claudePermissionMode: "acceptEdits" as const,
-  claudePermissionModeBeforePlan: null,
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: true,
   claudeAllowUnsandboxedCommands: true,
@@ -32,7 +31,6 @@ const baseArgs = {
   codexReasoningSummary: "detailed" as const,
   codexReasoningSummarySupport: "enabled" as const,
   codexFastMode: true,
-  codexPlanMode: true,
   codexBinaryPath: "/opt/homebrew/bin/codex",
   updateSettings,
 };
@@ -48,8 +46,8 @@ describe("chat-input runtime helpers", () => {
     expect(
       getPromptInputRuntimeProfile([
         {
-          id: "plan-mode",
-          label: "Planning",
+          id: "fast-mode",
+          label: "Fast",
           value: "On",
           tone: "warning",
         },
@@ -102,9 +100,9 @@ describe("chat-input runtime helpers", () => {
 
     expect(items.find((item) => item.id === "timeout")?.value).toBe("1 hour");
     expect(items.find((item) => item.id === "sandbox")?.value).toBe(
-      "Read Only",
+      "Workspace Write",
     );
-    expect(items.find((item) => item.id === "plan-mode")?.value).toBe("On");
+    expect(items.find((item) => item.id === "plan-mode")).toBeUndefined();
     expect(items.find((item) => item.id === "summary")?.value).toBe("Detailed");
     expect(items.find((item) => item.id === "codex-binary")?.value).toBe(
       ".../bin/codex",

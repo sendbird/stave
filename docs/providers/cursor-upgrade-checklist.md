@@ -21,7 +21,8 @@ baseline or its ACP integration.
   or keep the raw envelope as assistant text. Same-session auto-retry is
   one continuation for `stream_drop` only; Resume starts a new turn after a
   terminal failure.
-- Modes: `agent`, `plan`, `ask`
+- Modes: `agent`, `plan`, `ask`; Stave sends `agent` or `ask` and accepts a
+  `cursor/create_plan` request without a review step
 - Model config id: `model`; Stave defaults to `auto`
 - Model catalog: the `model` options returned by `session/new`. Initialize
   sends `clientCapabilities._meta.parameterizedModelPicker: true` so current

@@ -19,7 +19,6 @@ export function isProviderTurnContinuationEvent(event: NormalizedProviderEvent) 
     event.type === "tool_progress" ||
     event.type === "subagent_progress" ||
     event.type === "diff" ||
-    event.type === "plan_ready" ||
     event.type === "approval" ||
     event.type === "user_input"
   );

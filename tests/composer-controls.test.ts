@@ -67,7 +67,6 @@ describe("collectActiveComposerControls", () => {
   test("reports nothing at rest", () => {
     expect(
       collectActiveComposerControls({
-        planMode: false,
         thinkingMode: "adaptive",
         runtimeTone: "default",
         boundSecretCount: 0,
@@ -87,12 +86,11 @@ describe("collectActiveComposerControls", () => {
   test("reports the states that cost money or change the next turn", () => {
     expect(
       collectActiveComposerControls({
-        planMode: true,
         fastMode: true,
         runtimeTone: "warning",
         boundSecretCount: 2,
       }),
-    ).toEqual(["plan", "fast", "secrets", "runtime"]);
+    ).toEqual(["fast", "secrets", "runtime"]);
   });
 });
 
@@ -163,7 +161,7 @@ describe("partitionComposerFrameToolbar", () => {
   test("keeps provider-owned settings in the wing and Stave tooling in the bar", () => {
     expect(
       partitionComposerFrameToolbar([
-        "plan",
+        "providerMode",
         "fast",
         "secrets",
         "runtime",
@@ -173,7 +171,7 @@ describe("partitionComposerFrameToolbar", () => {
       ]),
     ).toEqual({
       left: [],
-      right: ["plan", "thinking"],
+      right: ["providerMode", "thinking"],
       // Order is the caller's; the real toolbar is built in id order, which
       // puts the runtime readout last.
       status: ["secrets", "runtime", "review", "macro"],

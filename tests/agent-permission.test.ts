@@ -18,7 +18,7 @@ const WIDE: ProviderRuntimeOptions = {
 };
 
 const NARROW: ProviderRuntimeOptions = {
-  claudePermissionMode: "plan",
+  claudePermissionMode: "default",
   claudeDisallowedTools: [...CLAUDE_EDIT_TOOLS],
   codexFileAccess: "read-only",
   codexApprovalPolicy: "untrusted",

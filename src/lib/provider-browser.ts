@@ -101,20 +101,18 @@ export function promptRequestsProviderBrowser(prompt: string) {
  * Explicit `@web` is still the primary path. `autoFallbackEnabled` is the
  * opt-in setting that additionally arms the browser when the prompt points at a
  * host known to be unreadable without a signed-in session, so the turn does not
- * have to fail once before the user can get an answer. The three hard blocks
- * come first and are never overridden: unattended, plan-mode, and secondary
- * read-only runs have no user present to answer the extension's site-access
- * prompt.
+ * have to fail once before the user can get an answer. The two hard blocks
+ * come first and are never overridden: unattended and secondary read-only
+ * runs have no user present to answer the extension's site-access prompt.
  */
 export function shouldActivateProviderBrowser(args: {
   prompt: string;
   secondaryReadOnly: boolean;
   unattendedAutomation: boolean;
-  planMode: boolean;
   autoFallbackEnabled?: boolean;
   autoFallbackDomains?: readonly string[];
 }) {
-  if (args.secondaryReadOnly || args.unattendedAutomation || args.planMode) {
+  if (args.secondaryReadOnly || args.unattendedAutomation) {
     return false;
   }
   if (promptRequestsProviderBrowser(args.prompt)) {

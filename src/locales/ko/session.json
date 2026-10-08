@@ -158,9 +158,6 @@
     "description": "진행 중인 작업 상호작용을 완료한 후 다시 시도하세요.",
     "extraCopy90": "현재 턴이 완료될 때까지 기다리세요."
   },
-  "conversationPlanCard": {
-    "conversationPlanCard": "계획"
-  },
   "conversationTurnActions": {
     "forkHere": "작업 분기됨",
     "forkHere2": "여기서 분기하지 못했습니다",
@@ -303,30 +300,6 @@
     "extraCopy100": "네트워크: {{value1}}",
     "extraCopy101": "승인 생략: {{value1}}",
     "extraCopy102": "금지 도구: {{value1}}"
-  },
-  "planViewer": {
-    "title": "계획 인계",
-    "planViewer": "{{value1}} 계획 리뷰",
-    "title2": "복원",
-    "title3": "최소화",
-    "title4": "복원",
-    "title5": "확장",
-    "planViewer2": "계획 준비됨.",
-    "placeholder": "{{value1}} 에이전트에 변경 요청 입력…",
-    "planViewer3": "보내기",
-    "planViewer4": "취소",
-    "planViewer5": "복사됨!",
-    "planViewer6": "복사",
-    "planViewer7": "인계",
-    "planViewer8": "승인",
-    "planViewer9": "수정",
-    "planViewer10": "계획 취소",
-    "extraCopy103": "{{value1}}에서 계획 응답을 관리합니다. 여기서 응답하려면 직접 진행하세요.",
-    "extraCopy104": "외부 제어자",
-    "extraCopy105": "응답을 보냈습니다. {{value1}} 에이전트가 계속 진행하기를 기다리는 중입니다.",
-    "extraCopy106": "계획에 응답하기 전에 {{value1}} 에이전트가 현재 턴을 완료할 때까지 기다리세요.",
-    "extraCopy107": "이 빌드에서는 계획 응답을 사용할 수 없습니다.",
-    "extraCopy109": "계획 응답을 전달하지 못했습니다."
   },
   "providerErrorRecovery": {
     "providerErrorRecovery": "재개하면 현재 선택한 모델로 새 턴을 시작합니다. 에이전트에 워크스페이스를 먼저 확인하고 미완료 작업만 계속하도록 요청합니다.",
@@ -587,7 +560,6 @@
     "label18": "요약",
     "label19": "요약 지원",
     "label20": "시간 제한",
-    "label21": "계획 중",
     "label22": "빠른 모드",
     "label23": "Codex 실행 파일",
     "extraCopy144": "활성화됨",
@@ -762,11 +734,9 @@
     "title7": "활동 일시 중지됨",
     "detail5": "{{value1}} 동안 업데이트 없음",
     "detail6": "프로바이더 대기 중",
-    "title8": "계획 준비 중",
     "label": "승인 대기 중",
     "label2": "입력 대기 중",
     "label3": "활동 일시 중지됨",
-    "label4": "계획 준비 중",
     "label5": "활동 1개 실패함",
     "label6": "활동 {{value1}}개 실패함",
     "label7": "백그라운드 활동 1개",
@@ -873,5 +843,14 @@
   "presentation": {
     "on": "켜짐",
     "off": "꺼짐"
+  },
+  "turnDocumentRevisions": {
+    "title_other": "문서 {{count}}개 업데이트됨",
+    "revision": "v{{value1}}",
+    "open": "열기",
+    "openLabel": "{{value1}} 열기",
+    "changes": "변경 사항",
+    "changesLabel": "{{value1}}을(를) 이전 리비전과 비교",
+    "couldNotLoad": "이 리비전을 불러올 수 없습니다."
   }
 }

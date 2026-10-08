@@ -126,9 +126,6 @@ function summarizeHistoryMessage(message: CanonicalConversationMessage) {
   if (primary.length > 0) {
     return primary;
   }
-  if (message.isPlanResponse && message.planText?.trim()) {
-    return message.planText.trim();
-  }
   return message.parts
     .map((part) => summarizeMessagePart(part))
     .join(" | ")
@@ -147,13 +144,6 @@ function compactHistoryMessage(args: {
   return {
     ...args.message,
     content: summary,
-    planText: args.message.planText
-      ? truncateUtf8Middle({
-          value: args.message.planText,
-          maxBytes: args.maxContentBytes,
-          marker: "\n…<plan truncated>…\n",
-        })
-      : args.message.planText,
     parts: summary.length > 0 ? [{ type: "text", text: summary } as const] : [],
   } satisfies CanonicalConversationMessage;
 }

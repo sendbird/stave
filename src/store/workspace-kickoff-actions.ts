@@ -244,7 +244,6 @@ export function createWorkspaceKickoffResolver(args: {
                 codexWebSearch: "disabled" as const,
                 codexReasoningSummary: "none" as const,
                 codexShowRawReasoning: false,
-                codexPlanMode: false,
               }),
         };
         const attemptStartedAt = Date.now();

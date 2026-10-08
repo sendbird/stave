@@ -153,8 +153,8 @@ call.
   list them in advance.
 - `Auto`: Cursor runs every tool call and trusts MCP servers without asking.
 
-Cursor has no separate sandbox control in Stave, and the read-only `plan` session
-mode is still driven by the composer's Plan toggle.
+Cursor has no separate sandbox control in Stave. Choose the read-only `ask`
+session mode in Cursor settings when a turn should only answer.
 
 ### Kiro
 
@@ -191,11 +191,19 @@ cannot verify.
 3. Make sure the next turn is allowed to work in the repository, but not beyond it.
 4. Confirm the runtime chips before sending.
 
-### I want planning without edits
+### I want a plan before any edits
 
-1. Turn on plan mode for the draft turn.
-2. Check that the runtime display now reflects a planning-only path.
-3. Send the turn.
+Stave has no plan mode; ask for the plan in the prompt.
+
+1. Write the request as a plan, for example
+   `Write a plan for the retry change as a document; do not edit code yet.`
+2. The agent writes it as a document and replies with a short summary. Read or
+   edit the document, then ask for changes in the next message.
+3. When the plan is right, send `Implement the plan.`
+
+For a turn that must not edit anything, pick a read-only setup instead: Codex
+`read-only` file access, or the read-only Researcher agent. See
+[Workspace Documents](workspace-documents.md).
 
 ### I need more autonomy for a trusted local task
 
@@ -208,8 +216,8 @@ cannot verify.
 ### The provider is still read-only
 
 - Symptom: you expect edits, but the runtime display still shows read-only behavior.
-- Cause: the draft turn is still in planning mode, or the provider is using a guarded preset.
-- Fix: turn planning off and confirm the effective runtime chips again.
+- Cause: the provider is using a guarded preset or `read-only` file access.
+- Fix: pick a preset that allows edits and confirm the effective runtime chips again.
 
 ### Claude refuses a command I expected it to run
 

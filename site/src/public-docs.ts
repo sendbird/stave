@@ -214,6 +214,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Resume an existing task on a schedule or when the work it delegated finishes, in the same provider session.",
       },
       {
+        routePath: "workspace-documents",
+        sourcePath: "docs/features/workspace-documents.md",
+        title: "Workspace Documents",
+        description:
+          "Have an agent write a plan or report as a Markdown document, revise it in the chat or the editor, and compare its revisions.",
+      },
+      {
         routePath: "review-tasks",
         sourcePath: "docs/features/review-tasks.md",
         title: "Review Tasks",

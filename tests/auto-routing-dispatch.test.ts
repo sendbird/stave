@@ -12,7 +12,7 @@ import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "../src/lib/routing/au
 import { AutoRoutingModelResolutionSchema } from "../src/lib/providers/model-resolution";
 import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
 
-test("default Auto dispatch uses the classifier bridge and preserves Plan intent", async () => {
+test("default Auto dispatch uses the classifier bridge for an execute turn", async () => {
   const previousWindow = globalThis.window;
   let phase: string | undefined;
   let calls = 0;
@@ -35,12 +35,12 @@ test("default Auto dispatch uses the classifier bridge and preserves Plan intent
         providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false },
         rateLimitsSnapshot: null },
       promptDraft: { text: "Explain payment transactions", attachedFilePaths: [], attachments: [],
-        runtimeOverrides: { autoRouting: true, autoRoutingPlanMode: true } },
+        runtimeOverrides: { autoRouting: true } },
       provider: "codex", activeModel: "gpt-5.6-sol", prompt: "Explain payment transactions",
       history: [], fileContextCount: 0, workspaceCwd: "/tmp/routing-test",
     });
     expect(calls).toBe(1);
-    expect(phase).toBe("plan");
+    expect(phase).toBe("execute");
     expect(decision).toMatchObject({ source: "classifier", model: "gpt-6-luna" });
   } finally {
     globalThis.window = previousWindow;

@@ -19,10 +19,46 @@ import {
  */
 
 const PLAN_FILES = [
-  ".stave/context/plans/10d53a9c_20260907_phase1.md",
-  ".stave/context/plans/aec2fb03_20260906_tasks-board.md",
+  ".stave/context/plans/retry-design.md",
+  ".stave/context/plans/10d53a9c_2026-09-07T10-12-00.md",
   ".stave/context/plans/1f82d08b_20260905_controls-and-overlay-geometry.md",
 ];
+
+/** Recorded revisions for two of the documents above. */
+export const PREVIEW_DOCUMENT_ACTIVITY = {
+  documentsByPath: {
+    ".stave/context/plans/retry-design.md": {
+      filePath: ".stave/context/plans/retry-design.md",
+      latestRevision: 3,
+      latestAuthor: "external" as const,
+      latestCreatedAt: "2026-09-08T09:00:00.000Z",
+      revisionCount: 3,
+    },
+    ".stave/context/plans/10d53a9c_2026-09-07T10-12-00.md": {
+      filePath: ".stave/context/plans/10d53a9c_2026-09-07T10-12-00.md",
+      latestRevision: 1,
+      latestAuthor: "agent" as const,
+      latestCreatedAt: "2026-09-07T10:12:00.000Z",
+      revisionCount: 1,
+    },
+  },
+  linksByTurn: {
+    "preview-turn": [
+      {
+        turnId: "preview-turn",
+        taskId: "10d53a9c",
+        filePath: ".stave/context/plans/retry-design.md",
+        revision: 3,
+      },
+      {
+        turnId: "preview-turn",
+        taskId: "10d53a9c",
+        filePath: ".stave/context/plans/10d53a9c_2026-09-07T10-12-00.md",
+        revision: 1,
+      },
+    ],
+  },
+};
 
 const LEGACY_PLAN_FILES = [".stave/plans/0b91ff2c_20260901_initial-sweep.md"];
 

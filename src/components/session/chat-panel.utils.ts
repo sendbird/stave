@@ -1,7 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type { ChatMessage, CodeDiffPart, FileContextPart, ImageContextPart, MessagePart, ToolUsePart } from "@/types/chat";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
-import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
 
 export function isPendingDiffStatus(status: CodeDiffPart["status"]) {
   return status === "pending";
@@ -600,48 +599,3 @@ export function getMessageBodyFallbackState(args: {
   return "content";
 }
 
-export interface PlanMessagePresentation {
-  /** Normalized plan body to render in the transcript plan card. */
-  planText: string;
-  showPlanCard: boolean;
-  /** Whether the regular assistant trace should render alongside the card. */
-  showAssistantBody: boolean;
-}
-
-/**
- * Plan responses render as a dedicated card in the transcript so the reviewed
- * plan stays readable after the floating plan viewer closes.
- *
- * Older records folded the rest of the turn (follow-up text, tool calls,
- * pending approvals) into the same message. Those parts are still rendered
- * below the card so nothing stays hidden; freshly captured plan messages carry
- * no parts, so they render as the card alone.
- */
-export function resolvePlanMessagePresentation(
-  message: Pick<
-    ChatMessage,
-    "isPlanResponse" | "planText" | "content" | "parts" | "displayParts"
-  >,
-): PlanMessagePresentation {
-  if (message.isPlanResponse !== true) {
-    return { planText: "", showPlanCard: false, showAssistantBody: true };
-  }
-
-  const planText = normalizePlanText(message.planText ?? message.content ?? "");
-  if (!hasMeaningfulPlanText(planText)) {
-    return { planText: "", showPlanCard: false, showAssistantBody: true };
-  }
-
-  // Deliberately scoped to `parts` — `getRenderableMessageParts` would fall
-  // back to `content`, which on a plan message is the plan text itself and
-  // would render underneath the card a second time.
-  const planParts = message.displayParts ?? message.parts;
-  const showAssistantBody =
-    planParts.length > 0
-    && getMessageBodyFallbackState({
-      isActivelyStreaming: false,
-      renderableParts: planParts,
-    }) === "content";
-
-  return { planText, showPlanCard: true, showAssistantBody };
-}

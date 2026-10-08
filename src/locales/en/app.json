@@ -1,6 +1,5 @@
 {
   "composerControls": {
-    "plan": "Plan",
     "providerMode": "Provider mode",
     "thinking": "Thinking",
     "fastMode": "Fast mode",
@@ -9,7 +8,6 @@
     "macros": "Macros",
     "compare": "Compare",
     "runtime": "Runtime",
-    "togglePlanModeBeforeSending": "Toggle plan mode before sending.",
     "manualGuidedOrAutoPermissionPreset": "Manual, Guided, or Auto permission preset.",
     "cycleExtendedThinkingClaudeOnly": "Cycle extended thinking. Claude only.",
     "fastToggleInsideTheModelPickerCodexAndCursor": "Fast toggle inside the model picker. Codex and Cursor.",

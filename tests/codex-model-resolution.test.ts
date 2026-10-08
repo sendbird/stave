@@ -65,10 +65,10 @@ test("Codex selector explains availability without inventing a minimum version",
 });
 
 
-test("execution evidence survives schema persistence and a same-turn plan split", () => {
+test("execution evidence survives schema persistence", () => {
   const track = createCodexModelResolutionTracker("gpt-6-sol");
   const events = track.resolve("gpt-6-luna");
-  const state = replayProviderEventsToTaskState({ taskId: "task", messages: [], provider: "codex", model: "gpt-6-sol", events: [...events, { type: "plan_ready", planText: "Implement the requested change." }, { type: "text", text: "Complete." }, { type: "done" }] });
+  const state = replayProviderEventsToTaskState({ taskId: "task", messages: [], provider: "codex", model: "gpt-6-sol", events: [...events, { type: "text", text: "Complete." }, { type: "done" }] });
   const saved = ChatMessageSchema.parse(JSON.parse(JSON.stringify(state.messages.at(-1))));
   expect(saved.modelExecution).toMatchObject({ requestedModel: "gpt-6-sol", actualModel: "gpt-6-luna" });
 });

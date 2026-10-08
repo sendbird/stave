@@ -91,7 +91,7 @@ describe("Cursor and Kiro approval presets", () => {
     }
   });
 
-  test("describes the flags behind each tier and notes Cursor plan mode", () => {
+  test("describes the flags behind each tier", () => {
     expect(
       resolveCursorProviderModePresentation({
         settings: { cursorApprovalMode: "auto" },
@@ -102,12 +102,6 @@ describe("Cursor and Kiro approval presets", () => {
         settings: { cursorApprovalMode: "auto" },
       }).detail,
     ).toContain("--force");
-    expect(
-      resolveCursorProviderModePresentation({
-        settings: { cursorApprovalMode: "manual" },
-        planMode: true,
-      }).planNote,
-    ).toContain("plan");
     expect(
       resolveKiroProviderModePresentation({
         settings: { kiroApprovalMode: "auto" },

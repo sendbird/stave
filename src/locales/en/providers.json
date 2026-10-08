@@ -117,7 +117,6 @@
     "attachAFileOrFolderReference": "Attach a file or folder reference to the conversation.",
     "chooseTheActiveModelAndWhen": "Choose the active model and, when supported, reasoning effort.",
     "toggleOrInspectFastModeFor": "Toggle or inspect Fast mode for GPT-5.4.",
-    "switchTheConversationIntoPlanMode": "Switch the conversation into plan mode.",
     "setViewPauseResumeOrClear": "Set, view, pause, resume, or clear the thread goal.",
     "chooseHowCodexCommunicatesInThe": "Choose how Codex communicates in the active thread.",
     "showBackgroundTerminalsAndRecentOutput": "Show background terminals and recent output.",
@@ -277,7 +276,6 @@
     "searchCode": "Search code",
     "webSearch": "Web search",
     "fetchPage": "Fetch page",
-    "submitPlan": "Submit plan",
     "updateTodos": "Update todos"
   },
   "turnStatus": {
@@ -338,9 +336,6 @@
     "classPrompts_one": "{{taskClass}} prompt",
     "classPrompts_other": "{{taskClass}} prompts",
     "modelTier": "{{tier}} tier",
-    "claudePlanNote": "Plan is enabled for this draft, so the next Claude turn still runs in `plan` mode.",
-    "codexPlanNote": "Plan is enabled for this draft, so the next Codex turn is still forced to `read-only` + `never`.",
-    "cursorPlanNote": "Plan is enabled for this draft, so the next Cursor turn still runs in the read-only `plan` session mode.",
     "personalityUnavailable": "Hidden when the active model does not support personalities.",
     "rollbackLaterTurns_one": "Roll back {{count}} later Codex turn and remove all later task messages. Workspace files are not reverted.",
     "rollbackLaterTurns_other": "Roll back {{count}} later Codex turns and remove all later task messages. Workspace files are not reverted.",

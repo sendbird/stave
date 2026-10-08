@@ -234,8 +234,6 @@ const CanonicalConversationMessageSchema = z
     model: z.string().max(200).optional(),
     content: z.string().max(500_000),
     parts: z.array(CanonicalMessagePartSchema).max(500),
-    isPlanResponse: z.boolean().optional(),
-    planText: z.string().max(500_000).optional(),
   })
   .strict();
 

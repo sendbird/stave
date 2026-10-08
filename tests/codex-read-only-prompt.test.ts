@@ -142,7 +142,6 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         codexFileAccess: "read-only",
         codexNetworkAccess: false,
         codexApprovalPolicy: "never",
-        codexPlanMode: false,
       },
     });
     expect(turnStartArgs).toMatchObject({

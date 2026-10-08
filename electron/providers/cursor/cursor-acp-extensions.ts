@@ -157,21 +157,6 @@ export function mapCursorAskQuestionEvent(args: {
   };
 }
 
-export function mapCursorCreatePlanEvent(args: {
-  requestId: string;
-  request: CursorCreatePlanRequest;
-}): BridgeEvent {
-  return {
-    type: "plan_ready",
-    planText: bounded(args.request.plan),
-    sourceSegmentId: args.request.toolCallId,
-    review: {
-      requestId: args.requestId,
-      responseMode: "blocking",
-    },
-  };
-}
-
 export function mapCursorTodoEvent(params: unknown): BridgeEvent | null {
   const parsed = CursorUpdateTodosRequestSchema.safeParse(params);
   if (!parsed.success) {
@@ -239,15 +224,10 @@ export function buildCursorQuestionResponse(args: {
   return { outcome: { outcome: "answered" as const, answers } };
 }
 
-export function buildCursorPlanResponse(args: {
-  approved: boolean;
-  reason?: string;
-}) {
-  if (args.approved) {
-    return { outcome: { outcome: "accepted" as const } };
-  }
-  const reason = args.reason?.trim();
-  return reason
-    ? { outcome: { outcome: "rejected" as const, reason: bounded(reason) } }
-    : { outcome: { outcome: "cancelled" as const } };
+/**
+ * Stave has no plan review step, so a plan Cursor proposes is accepted as-is
+ * and the turn continues in the mode the user chose.
+ */
+export function buildCursorPlanAcceptedResponse() {
+  return { outcome: { outcome: "accepted" as const } };
 }

@@ -736,10 +736,9 @@ describe("task-context workspace schemas", () => {
           attachments: [],
         },
       ],
+      // Plan-mode fields saved by an older build are dropped on read.
       runtimeOverrides: {
         claudePermissionMode: "auto",
-        claudePermissionModeBeforePlan: "auto",
-        codexPlanMode: true,
         codexFastMode: false,
       },
       queuedNextTurn: {
@@ -778,8 +777,12 @@ describe("task-context workspace schemas", () => {
 
     expect(parsed?.promptDraftByTask["task-1"]?.queuedTurns?.[0]).toMatchObject({
       autoRouting: true,
-      autoRoutingPlanMode: true,
     });
+    // The retired plan intent is dropped instead of rejecting the strict
+    // queued-turn schema.
+    expect(
+      parsed?.promptDraftByTask["task-1"]?.queuedTurns?.[0],
+    ).not.toHaveProperty("autoRoutingPlanMode");
     expect(
       parsed?.promptDraftByTask["task-1"]?.queuedTurns?.[0]?.providerId,
     ).toBeUndefined();

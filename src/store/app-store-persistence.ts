@@ -85,6 +85,9 @@ import {
   migrateLegacyAutoSettings,
   validateProfile,
 } from "@/lib/providers/auto-routing-profile";
+// temporary-migration: plan-mode-removal
+import { withoutRetiredPlanModeFields } from "@/lib/plan-mode-removal-migration";
+// end temporary-migration: plan-mode-removal
 import {
   defaultSettings,
   normalizeCursorApprovalMode,
@@ -189,7 +192,12 @@ export function createAppStorePersistenceOptions() {
       );
       // Merge with defaultSettings so newly added fields are never undefined
       // for users whose persisted state pre-dates those fields.
-      state.settings = { ...defaultSettings, ...persistedSettings };
+      // temporary-migration: plan-mode-removal
+      state.settings = withoutRetiredPlanModeFields({
+        ...defaultSettings,
+        ...persistedSettings,
+      });
+      // end temporary-migration: plan-mode-removal
       // temporary-migration: agent-run-settings-keys
       migrateLegacyRunSignOffReminder(state.settings, persistedSettings);
       // end temporary-migration: agent-run-settings-keys
@@ -681,27 +689,43 @@ export function createAppStorePersistenceOptions() {
           console.warn("[automations] failed to restore provider timeout", error);
         });
       }
-      state.settings.codexPlanMode ??= false;
       state.promptDraftByTask = Object.fromEntries(
         Object.entries(state.promptDraftByTask).map(([taskId, draft]) => {
           const runtimeOverrides = draft.runtimeOverrides;
+          if (!runtimeOverrides) {
+            return [taskId, draft];
+          }
+          let withoutExperimentalPlanMode = runtimeOverrides;
+          if (Object.hasOwn(runtimeOverrides, "codexExperimentalPlanMode")) {
+            const { codexExperimentalPlanMode: _unused, ...rest } =
+              runtimeOverrides as typeof runtimeOverrides & {
+                codexExperimentalPlanMode?: boolean;
+              };
+            withoutExperimentalPlanMode = rest;
+          }
+          // temporary-migration: plan-mode-removal
+          const nextRuntimeOverrides = withoutRetiredPlanModeFields(
+            withoutExperimentalPlanMode,
+            { dropRetiredModes: true },
+          );
+          const nextQueuedTurns = draft.queuedTurns?.map((turn) =>
+            withoutRetiredPlanModeFields(turn),
+          );
+          // end temporary-migration: plan-mode-removal
           if (
-            !runtimeOverrides ||
-            !Object.hasOwn(runtimeOverrides, "codexExperimentalPlanMode")
+            nextRuntimeOverrides === runtimeOverrides &&
+            (draft.queuedTurns ?? []).every(
+              (turn, index) => turn === nextQueuedTurns?.[index],
+            )
           ) {
             return [taskId, draft];
           }
-          const {
-            codexExperimentalPlanMode: _unused,
-            ...nextRuntimeOverrides
-          } = runtimeOverrides as typeof runtimeOverrides & {
-            codexExperimentalPlanMode?: boolean;
-          };
           return [
             taskId,
             {
               ...draft,
               runtimeOverrides: nextRuntimeOverrides,
+              ...(nextQueuedTurns ? { queuedTurns: nextQueuedTurns } : {}),
             },
           ];
         }),

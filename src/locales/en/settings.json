@@ -1405,7 +1405,6 @@
     "withoutAnExplicitWebArmThe": "Without an explicit @web, arm the browser up front for hosts a plain fetch cannot read, and retry once with it after a fetch is blocked by a login wall or bot check.",
     "sendAnInteractivePromptContaining": "Send an interactive prompt containing",
     "chromeAccessIsAttemptedForThat": ". Chrome access is attempted for that turn, and any failure is reported in the conversation. Site approval remains in the provider&apos;s extension; Stave cannot install, enable, or grant access on its behalf.",
-    "planModeUnattendedAutomationAndSecondary": "Plan mode, unattended automation, and secondary analysis keep provider-native browser access off, and automatic fallback never overrides them. With fallback off, a prompt without",
     "alsoKeepsItOff": "also keeps it off.",
     "connectClaudeCodeSNativeChrome": "Connect Claude Code's native Chrome extension to the profile you want to share, allow access to the target site, then try @web again."
   },
@@ -1441,7 +1440,7 @@
     "disableConfig": "Disable {{label}}",
     "codexBrowserSetup": "Enable chrome@openai-bundled and unified-computer-use@openai-bundled in the Codex CLI environment used by Stave, connect its Chrome extension, then try @web again.",
     "interactiveBrowser": "Send an interactive prompt containing <code>@web</code>. Chrome access is attempted for that turn, and any failure is reported in the conversation. Site approval remains in the provider's extension; Stave cannot install, enable, or grant access on its behalf.",
-    "browserRestrictions": "Plan mode, unattended automation, and secondary analysis keep provider-native browser access off, and automatic fallback never overrides them. With fallback off, a prompt without <code>@web</code> also keeps it off.",
+    "browserRestrictions": "Unattended automation and secondary analysis keep provider-native browser access off, and automatic fallback never overrides them. With fallback off, a prompt without <code>@web</code> also keeps it off.",
     "tokenName": "Token",
     "invalidRoutingProfile": "Expected an Auto routing profile"
   },

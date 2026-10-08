@@ -1,6 +1,12 @@
 import { ipcMain } from "electron";
 import { WorkspaceDirectionDraftScopeSchema, SaveWorkspaceDirectionDraftSchema } from "../../../src/lib/workspace-resume-brief";
 import {
+  RecordWorkspaceDocumentsArgsSchema,
+  WorkspaceDocumentRevisionArgsSchema,
+  WorkspaceDocumentRevisionsArgsSchema,
+  WorkspaceDocumentScopeSchema,
+} from "../../../src/lib/documents/workspace-document-schemas";
+import {
   ListResultReviewsArgsSchema,
   SetResultReviewedArgsSchema,
   SetResultsReviewedArgsSchema,
@@ -40,6 +46,31 @@ import {
 import { resolveRendererPersistenceFlush } from "../persistence-flush-gate";
 
 export function registerPersistenceHandlers() {
+  ipcMain.handle("persistence:record-workspace-documents", async (_event, args: unknown) => {
+    const parsed = RecordWorkspaceDocumentsArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, changes: [] };
+    const store = await ensurePersistenceReady();
+    return { ok: true, changes: store.documents.record(parsed.data) };
+  });
+  ipcMain.handle("persistence:workspace-document-activity", async (_event, args: unknown) => {
+    const parsed = WorkspaceDocumentScopeSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, documents: [], turnLinks: [] };
+    const store = await ensurePersistenceReady();
+    return { ok: true, ...store.documents.activity(parsed.data.workspaceId) };
+  });
+  ipcMain.handle("persistence:workspace-document-revisions", async (_event, args: unknown) => {
+    const parsed = WorkspaceDocumentRevisionsArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, revisions: [] };
+    const store = await ensurePersistenceReady();
+    return { ok: true, revisions: store.documents.revisions(parsed.data.workspaceId, parsed.data.filePath) };
+  });
+  ipcMain.handle("persistence:workspace-document-revision", async (_event, args: unknown) => {
+    const parsed = WorkspaceDocumentRevisionArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, content: null };
+    const store = await ensurePersistenceReady();
+    const content = store.documents.content(parsed.data.workspaceId, parsed.data.filePath, parsed.data.revision);
+    return { ok: content !== null, content };
+  });
   ipcMain.handle("persistence:load-direction-draft", async (_event, args: unknown) => {
     const parsed = WorkspaceDirectionDraftScopeSchema.safeParse(args);
     if (!parsed.success) return { ok: false, draft: null };

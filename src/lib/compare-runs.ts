@@ -603,8 +603,7 @@ export function resolveCompareTurnOutcome(
         event.type === "text" ||
         event.type === "tool" ||
         event.type === "tool_result" ||
-        event.type === "diff" ||
-        event.type === "plan_ready"
+        event.type === "diff"
       );
     });
   if (errorEvent && (!errorEvent.recoverable || !recoveredAfterError)) {

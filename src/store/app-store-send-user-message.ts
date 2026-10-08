@@ -7,6 +7,7 @@ import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
 import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { collectTaskReferenceContextParts } from "@/store/attached-task-context-runtime";
+import { collectWorkspaceDocumentEditContextParts, syncWorkspaceDocumentsAtTurnEnd } from "@/store/workspace-documents-store";
 import {
   extractWorkspaceInformationReferencesFromText,
   formatWorkspaceInformationReferencesContext,
@@ -91,7 +92,6 @@ import {
   buildPromptDraftDisplayPartsForSend,
 } from "@/store/prompt-draft-message-content";
 import {
-  applyAutoRoutingPlanMode,
   resolvePromptDraftRuntimeState,
   resolveTurnModelForSend,
 } from "@/store/prompt-draft-runtime";
@@ -105,10 +105,6 @@ import {
   hasPromptDraftPayload,
   normalizePromptDraftForStorage,
 } from "@/store/prompt-draft-state";
-import {
-  resolveWorkspacePlanPersistenceText,
-  persistWorkspacePlanFile,
-} from "@/lib/plans";
 import { withoutTurnScopedContexts } from "@/lib/task-context/turn-scoped-context";
 import {
   scheduleWorkspaceSnapshotPersist,
@@ -658,7 +654,7 @@ export function createSendUserMessageAction(args: {
       // submitIntent is "queue" or omitted: queue unconditionally, with
       // no steer attempt at all — this is byte-for-byte the pre-steering
       // behavior for every caller that doesn't explicitly opt into
-      // "steer" (suggestion clicks, PlanViewer, etc.).
+      // "steer" (suggestion clicks, etc.).
       const queuedTurn = buildQueuedTurnFromDraft({
         draft: promptDraft,
         settings: state.settings,
@@ -1058,6 +1054,8 @@ export function createSendUserMessageAction(args: {
         currentTaskId: resolvedTaskId, tasks: taskWorkspaceTasks,
         messagesByTask: latestWorkspaceSession.messagesByTask,
       })));
+      // Edits to this task's documents since its last turn travel as a diff.
+      retrievedContextParts.push(...(await collectWorkspaceDocumentEditContextParts({ workspaceId: taskWorkspaceId, rootPath: workspaceCwd ?? "", taskId: resolvedTaskId })));
       // ──────────────────────────────────────────────────────────────────────
 
       const modelRuntimeSettings = applyModelRuntimePreference({
@@ -1065,13 +1063,9 @@ export function createSendUserMessageAction(args: {
         providerId: provider,
         model: activeModel,
       });
-      const resolvedPromptDraftRuntimeState = applyAutoRoutingPlanMode({
-        providerId: provider,
-        runtimeOverrides: promptDraft.runtimeOverrides,
-        runtimeState: resolvePromptDraftRuntimeState({
-          promptDraft,
-          fallback: modelRuntimeSettings,
-        }),
+      const resolvedPromptDraftRuntimeState = resolvePromptDraftRuntimeState({
+        promptDraft,
+        fallback: modelRuntimeSettings,
       });
       const providerRuntimeOptions = buildProviderRuntimeOptions({
         provider,
@@ -1287,7 +1281,6 @@ export function createSendUserMessageAction(args: {
         lastEventAt: turnActivityStartedAt,
       });
 
-      let lastPersistedPlanTextForTurn: string | null = null;
       const webFetchAuthWallTracker = createWebFetchAuthWallTracker({
         prompt,
         turnOrigin,
@@ -1421,32 +1414,6 @@ export function createSendUserMessageAction(args: {
               dockLayout: persistedInactiveWorkspaceSession.session.dockLayout,
               providerSessionByTask:
                 persistedInactiveWorkspaceSession.session.providerSessionByTask,
-            });
-          }
-          const nextPlanReady = pendingEvents
-            .filter(
-              (
-                event,
-              ): event is Extract<
-                NormalizedProviderEvent,
-                { type: "plan_ready" }
-              > => event.type === "plan_ready",
-            )
-            .at(-1);
-          const planTextToPersist = resolveWorkspacePlanPersistenceText({
-            planText: nextPlanReady?.planText,
-            lastPersistedPlanText: lastPersistedPlanTextForTurn,
-          });
-          if (planTextToPersist && workspaceCwd) {
-            lastPersistedPlanTextForTurn = planTextToPersist;
-            void persistWorkspacePlanFile({
-              rootPath: workspaceCwd,
-              taskId: resolvedTaskId,
-              planText: planTextToPersist,
-            }).then((filePath) => {
-              if (filePath) {
-                latestState.notifyWorkspacePlansChanged();
-              }
             });
           }
           const notificationSession =
@@ -1593,6 +1560,8 @@ export function createSendUserMessageAction(args: {
               taskId: resolvedTaskId,
               turnId,
             });
+            syncWorkspaceDocumentsAtTurnEnd({ workspaceId: taskWorkspaceId, rootPath: workspaceCwd ?? "", taskId: resolvedTaskId, turnId,
+              onChanged: () => get().notifyWorkspacePlansChanged() });
           }
         },
       });

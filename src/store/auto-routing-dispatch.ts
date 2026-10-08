@@ -202,10 +202,7 @@ export async function resolveAutoRoutingForSend(args: {
         model: message.model,
       })),
       fileContextCount: args.fileContextCount,
-      phase:
-        promptDraft.runtimeOverrides?.autoRoutingPlanMode === true
-          ? "plan"
-          : "execute",
+      phase: "execute",
       rateLimitsSnapshot: state.rateLimitsSnapshot,
       providerAvailability: state.providerAvailability,
       classifyRoute,
