@@ -20,6 +20,8 @@ export interface WorkspaceScriptProcess {
   source: WorkspaceScriptRunSource;
   process: ChildProcess | pty.IPty | null;
   aborted: boolean;
+  /** Finite owned actions use a POSIX process group for cancellation. */
+  processGroup?: boolean;
   sessionId?: string;
   log: string;
   error?: string;

@@ -1119,6 +1119,8 @@ export function reduceWorkGraphEvent(
     }
 
     case "user_input": {
+      // Async questions do not pause provider work; the question card owns attention.
+      if (event.delivery === "async") return graph;
       const ownerKey = resolveOwnerKey(graph, event);
       return recordWorkGraphInteraction(
         ensureOwnerNode(graph, ownerKey, now, event.ownerAgentId),

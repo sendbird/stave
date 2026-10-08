@@ -157,7 +157,7 @@ export function createAgentRunActionExecutor(deps: {
   scm: AgentRunScmPort;
   resolveWorkspacePath: (workspaceId: string) => Promise<string | null>;
   /** Runs an action from the workspace's scripts and resolves when it ends. */
-  runScript?: (args: { workspaceId: string; scriptId: string }) => Promise<AgentRunScriptRun>;
+  runScript?: (args: { workspaceId: string; scriptId: string; signal?: AbortSignal }) => Promise<AgentRunScriptRun>;
   /**
    * How a turn that is no longer running ended. Absent: every repair turn
    * that started and was not interrupted counts as completed.
@@ -185,6 +185,7 @@ export function createAgentRunActionExecutor(deps: {
     scriptId: string;
     actionKey: string;
     firstCall: boolean;
+    signal?: AbortSignal;
   }): ActionOutcome {
     const { actionKey, scriptId } = args;
     const finished = scriptOutcomes.get(actionKey);
@@ -199,19 +200,24 @@ export function createAgentRunActionExecutor(deps: {
     const run = deps.runScript;
     if (!run) return failed("This version of Stave cannot run workspace scripts from a run.");
     scriptRuns.add(actionKey);
+    const timeoutController = new AbortController();
+    const signal = args.signal ? AbortSignal.any([args.signal, timeoutController.signal]) : timeoutController.signal;
+    let timeoutHandle: ReturnType<typeof setTimeout>;
     const timeout = new Promise<AgentRunScriptRun>((resolve) =>
-      setTimeout(
-        () => resolve({ ok: false, detail: `“${scriptId}” did not finish in 30 minutes. It may still be running in Scripts.` }),
+      (timeoutHandle = setTimeout(
+        () => { timeoutController.abort(); resolve({ ok: false, detail: `“${scriptId}” was stopped after 30 minutes.` }); },
         SCRIPT_TIMEOUT_MS,
-      ).unref?.(),
+      )).unref?.(),
     );
-    void Promise.race([run({ workspaceId: args.aggregate.agentRun.workspaceId, scriptId }), timeout])
+    void Promise.race([run({ workspaceId: args.aggregate.agentRun.workspaceId, scriptId, signal }), timeout])
       .catch((error: unknown): AgentRunScriptRun => ({
         ok: false,
         detail: error instanceof Error && error.message ? error.message : `“${scriptId}” could not run.`,
       }))
       .then((result) => {
+        clearTimeout(timeoutHandle);
         scriptRuns.delete(actionKey);
+        if (args.signal?.aborted) return;
         const output = ("output" in result ? result.output : undefined) ?? "";
         const tail = output.trim().slice(-300);
         scriptOutcomes.set(
@@ -449,10 +455,10 @@ export function createAgentRunActionExecutor(deps: {
       pr?.state === "OPEN" &&
       expectedHead &&
       pr.headRefOid &&
-      pr.headRefOid !== expectedHead &&
-      at.getTime() - watchStartedAt.getTime() < headWaitMs
+      pr.headRefOid !== expectedHead
     ) {
-      return { status: "in-progress" };
+      if (at.getTime() - watchStartedAt.getTime() < headWaitMs) return { status: "in-progress" };
+      return failed(`The pull request's head is ${shortSha(pr.headRefOid)}, not the expected ${shortSha(expectedHead)}. Push or pull so they match, then retry this stage.`);
     }
     let checks: PullRequestCheck[] = [];
     if (pr?.state === "OPEN") {
@@ -494,6 +500,7 @@ export function createAgentRunActionExecutor(deps: {
     action: StaveAction,
     actionKey: string,
     firstCall: boolean,
+    signal?: AbortSignal,
   ): Promise<ActionOutcome> {
     switch (action.type) {
       case "open-draft-pr":
@@ -503,14 +510,16 @@ export function createAgentRunActionExecutor(deps: {
       case "mark-pr-ready":
         return markPrReady(cwd, actionStartedAt(aggregate.agentRun.id, actionKey));
       case "run-script":
-        return runWorkspaceScript({ aggregate, scriptId: action.scriptId, actionKey, firstCall });
+        return runWorkspaceScript({ aggregate, scriptId: action.scriptId, actionKey, firstCall, signal });
     }
   }
 
   return async function performAction(args: {
     aggregate: AgentRunAggregate;
+    signal?: AbortSignal;
   }): Promise<ActionOutcome> {
     const { aggregate } = args;
+    if (args.signal?.aborted) return failed("The action was cancelled.");
     const { agentRun } = aggregate;
     const stage = workflowStageAt(agentRun, agentRun.currentStageIndex);
     if (stage.kind !== "action") return failed("This stage is not a Stave action.");
@@ -531,7 +540,8 @@ export function createAgentRunActionExecutor(deps: {
     );
     const cwd = await deps.resolveWorkspacePath(agentRun.workspaceId);
     if (!cwd) return failed("The workspace folder could not be found.");
-    const outcome = await run(cwd, aggregate, stage.action, actionKey, firstCall);
+    if (args.signal?.aborted) return failed("The action was cancelled.");
+    const outcome = await run(cwd, aggregate, stage.action, actionKey, firstCall, args.signal);
     if (outcome.status === "succeeded" || outcome.status === "failed" || outcome.status === "stuck") {
       store.recordEvent(
         agentRun.id,

@@ -583,7 +583,7 @@ export function applyAgentRunDecision(args: {
     }
     case "request-sign-off": {
       const record = currentStageRecord(aggregate);
-      return { agentRun, upserts: [{ ...record, status: "awaiting-sign-off" }], events: [] };
+      return { agentRun: withAgentRun(agentRun, {}, now), upserts: [{ ...record, status: "awaiting-sign-off" }], events: [] };
     }
     case "start-stage-turn": {
       const record = currentStageRecord(aggregate);

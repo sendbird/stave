@@ -126,7 +126,7 @@ export function findLatestPendingToolInteractionPart(args: {
     if (part?.type === "approval" && part.state === "approval-requested") {
       return part;
     }
-    if (part?.type === "user_input" && part.state === "input-requested") {
+    if (part?.type === "user_input" && part.state === "input-requested" && part.delivery !== "async") {
       return part;
     }
   }
@@ -216,12 +216,13 @@ export function findPendingApprovalMessageByRequestId(args: {
 
 export function findLatestPendingUserInputPart(args: {
   message?: Pick<ChatMessage, "parts">;
+  blockingOnly?: boolean;
 }): UserInputPart | undefined {
   const parts = args.message?.parts ?? [];
 
   for (let index = parts.length - 1; index >= 0; index -= 1) {
     const part = parts[index];
-    if (part?.type === "user_input" && part.state === "input-requested") {
+    if (part?.type === "user_input" && part.state === "input-requested" && (!args.blockingOnly || part.delivery !== "async")) {
       return part;
     }
   }
@@ -231,6 +232,7 @@ export function findLatestPendingUserInputPart(args: {
 
 export function findLatestPendingUserInput(args: {
   messages: ChatMessage[];
+  blockingOnly?: boolean;
 }): { messageId: string; part: UserInputPart } | null {
   for (let messageIndex = args.messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
     const message = args.messages[messageIndex];
@@ -238,7 +240,7 @@ export function findLatestPendingUserInput(args: {
       continue;
     }
 
-    const part = findLatestPendingUserInputPart({ message });
+    const part = findLatestPendingUserInputPart({ message, blockingOnly: args.blockingOnly });
     if (part) {
       return {
         messageId: message.id,
@@ -337,6 +339,7 @@ export function resolvePendingToolInteractionPartsByRequestId(args: {
 
 export function interruptPendingToolInteractionParts(args: {
   parts: MessagePart[];
+  preserveAsync?: boolean;
 }): MessagePart[] {
   let changed = false;
   const nextParts = args.parts.map((part) => {
@@ -348,7 +351,7 @@ export function interruptPendingToolInteractionParts(args: {
       };
     }
 
-    if (part.type === "user_input" && part.state === "input-requested") {
+    if (part.type === "user_input" && part.state === "input-requested" && (!args.preserveAsync || part.delivery !== "async")) {
       changed = true;
       return {
         ...part,

@@ -110,7 +110,7 @@ import type {
   HostServiceMethod,
   HostServiceResponseMap,
 } from "./host-service/protocol";
-import { providerRuntime } from "./providers/runtime";
+import { providerRuntime, setAgentRunUserTurnResolver } from "./providers/runtime";
 import { getProviderModelCatalog } from "./providers/provider-model-catalog";
 import {
   archiveCodexThread,
@@ -582,6 +582,7 @@ const agentRunRuntime = createHostAgentRunRuntime({
     emitEvent("agent-run.changed", event);
   },
 });
+setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
 const assignRuntime = createHostAssignRuntime({
   emitChanged: (event) => emitEvent("agent.changed", event),
   // An agent run ends with the agent it ran as (released or replaced), now,

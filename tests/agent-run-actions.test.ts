@@ -585,3 +585,13 @@ describe("how a repair turn ended", () => {
     expect(classifyAgentRunTurnEnding([])).toBe("stopped");
   });
 });
+
+test("expired head wait never accepts passing checks for a different revision", async () => {
+  const h = createHarness();
+  const aggregate = agentRunAt(h.store, 2);
+  h.state.pr = pr({ headRefOid: "older-head" });
+  h.state.checks = PASSING;
+  expect((await h.perform(aggregate)).status).toBe("in-progress");
+  h.advance(121_000);
+  expect((await h.perform(aggregate)).status).toBe("failed");
+});

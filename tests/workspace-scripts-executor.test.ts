@@ -55,6 +55,32 @@ class FakePty {
 
 const fakePtys: FakePty[] = [];
 
+test("cancelling an owned action stops its child command before later effects", async () => {
+  const { mkdtempSync, existsSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const directory = mkdtempSync(join(tmpdir(), "stave-cancel-"));
+  const controller = new AbortController();
+  try {
+    const run = runScriptEntry({
+      workspaceId: "cancel-workspace", workspacePath: directory, repositoryPath: directory,
+      workspaceName: "cancel", branch: "test", signal: controller.signal,
+      scriptEntry: { ...createServiceScript(), id: "action", kind: "action",
+        commands: ["echo ready > ready; sleep 1; echo late > late", "echo next > next"] },
+    });
+    for (let attempt = 0; attempt < 100 && !existsSync(join(directory, "ready")); attempt++) await Bun.sleep(10);
+    expect(existsSync(join(directory, "ready"))).toBe(true);
+    controller.abort();
+    expect((await run).ok).toBe(false);
+    await Bun.sleep(1100);
+    expect(existsSync(join(directory, "late"))).toBe(false);
+    expect(existsSync(join(directory, "next"))).toBe(false);
+  } finally {
+    controller.abort();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 mock.module("node-pty", () => ({
   spawn: () => {
     const fake = new FakePty();

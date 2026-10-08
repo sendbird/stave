@@ -59,6 +59,8 @@ export interface AgentRunListArgs {
   /** Omit to list the newest agent runs across every workspace. */
   workspaceId?: string;
   limit?: number;
+  /** Include all active runs independently of the history limit. */
+  includeActive?: boolean;
 }
 
 export interface AgentRunRequestChangesArgs extends AgentRunStageRef {

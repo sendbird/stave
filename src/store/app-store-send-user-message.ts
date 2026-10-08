@@ -435,7 +435,7 @@ export function createSendUserMessageAction(args: {
     if (findLatestPendingApproval({ messages: existingHistory })) {
       return { status: "blocked" } satisfies SendUserMessageResult;
     }
-    if (findLatestPendingUserInput({ messages: existingHistory })) {
+    if (findLatestPendingUserInput({ messages: existingHistory, blockingOnly: true })) {
       return { status: "blocked" } satisfies SendUserMessageResult;
     }
     const storedPromptDraftForTask =
@@ -838,7 +838,7 @@ export function createSendUserMessageAction(args: {
       }
       if (
         findLatestPendingApproval({ messages: latestHistory }) ||
-        findLatestPendingUserInput({ messages: latestHistory })
+        findLatestPendingUserInput({ messages: latestHistory, blockingOnly: true })
       ) {
         submittedPromptDraft.restore();
         return { status: "blocked" } satisfies SendUserMessageResult;

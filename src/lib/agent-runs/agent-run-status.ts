@@ -101,6 +101,7 @@ export function describeAgentRunStatus(detail: AgentRunDetail): AgentRunStatus {
         record.blockReason === "reporting-unavailable"
           ? i18n.t("agentRuns:agentRunStatus.extraCopy214")
           : (record.detail ?? i18n.t("agentRuns:agentRunStatus.extraCopy215")),
+        record.blockReason === "action-failed" || record.blockReason === "acceptance-unmet" ? "retry-stage" : null,
       );
     case "stuck":
       return make("needs-you", "warning", record.detail ?? i18n.t("agentRuns:agentRunStatus.extraCopy216"), "retry-stage");

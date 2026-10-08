@@ -8,7 +8,7 @@ import { AgentRunDetailView } from "../src/components/agent-runs/AgentRunPanel";
 import { StageDividerView } from "../src/components/agent-runs/StageDivider";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 import { selectAgentRunCard } from "../src/lib/agent-runs/agent-run-status";
-import { AGENT_RUN_NOW, agentRunDetail, agentRunFixture } from "./fixtures/agent-run-fixtures";
+import { AGENT_RUN_NOW, agentRunDetail, agentRunFixture, patchCurrent } from "./fixtures/agent-run-fixtures";
 
 const START = new Date("2026-10-01T09:00:00.000Z");
 const NOW = START.getTime() + 4 * 60_000;
@@ -242,4 +242,12 @@ describe("stage divider", () => {
       'data-testid="agent-run-stage-divider"',
     );
   });
+});
+
+test("action failures expose Retry even for a single-stage agent", () => {
+  const aggregate = patchCurrent(agentRunFixture(), { status: "blocked", blockReason: "action-failed", detail: "Fix the script then retry." });
+  aggregate.agentRun.origin = "agent";
+  aggregate.agentRun.workflow.stages = [{ id: aggregate.stages[0]!.stageId, title: "Check", kind: "action", action: { type: "run-script", scriptId: "check" } }];
+  const detail = agentRunDetail(aggregate);
+  expect(bar(detail)).toContain(">Retry<");
 });

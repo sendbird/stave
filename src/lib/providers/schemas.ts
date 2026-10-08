@@ -258,6 +258,7 @@ const UserInputQuestionSchema = z.object({
 
 const UserInputEventSchema = z.object({
   type: z.literal("user_input"),
+  delivery: z.literal("async").optional(),
   toolName: z.string(),
   requestId: z.string(),
   questions: z.array(UserInputQuestionSchema),

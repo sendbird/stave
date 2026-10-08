@@ -20,6 +20,14 @@ export interface AgentRunNotificationContext {
   taskTitle: string | null;
 }
 
+function attentionEpisode(detail: AgentRunDetail): string {
+  const record = currentStageRecord(detail);
+  const event = [...detail.events].reverse().find((event) =>
+    (event.kind === "stage-blocked" || event.kind === "stage-stuck") &&
+    event.detail.stageId === record.stageId && event.detail.attempt === record.attempt);
+  return `${record.stageId}:${record.attempt}:${event?.sequence ?? 0}:${record.reportRevision}`;
+}
+
 function firstLine(text: string) {
   const line = text.split("\n")[0]!.trim();
   return line.length > 140 ? `${line.slice(0, 139)}…` : line;
@@ -87,12 +95,20 @@ function describeAgentOriginNotification(
     case "running":
       break;
   }
+  if (record.status === "awaiting-sign-off") {
+    return draft(detail, context, {
+      kind: "agent_run.sign_off_requested",
+      title: i18n.t("agentRuns:notifications.title4", { value1: agent }),
+      detail: null,
+      key: `sign-off:${attemptKey}`,
+    });
+  }
   if (record.status === "blocked" || record.status === "stuck") {
     return draft(detail, context, {
       kind: record.status === "stuck" ? "agent_run.stuck" : "agent_run.blocked",
       title: i18n.t("agentRuns:notifications.title4", { value1: agent }),
       detail: record.detail,
-      key: `${record.status}:${attemptKey}`,
+      key: `${record.status}:${attentionEpisode(detail)}`,
     });
   }
   return null;
@@ -153,14 +169,14 @@ export function describeAgentRunNotification(
             ? i18n.t("agentRuns:notifications.title8", { value1: getStageDisplayTitle(stage) })
             : i18n.t("agentRuns:notifications.title9", { value1: getStageDisplayTitle(stage) }),
         detail: record.detail,
-        key: `blocked:${attemptKey}`,
+        key: `blocked:${attentionEpisode(detail)}`,
       });
     case "stuck":
       return draft(detail, context, {
         kind: "agent_run.stuck",
         title: i18n.t("agentRuns:notifications.title10", { value1: getStageDisplayTitle(stage) }),
         detail: record.detail,
-        key: `stuck:${attemptKey}`,
+        key: `stuck:${attentionEpisode(detail)}`,
       });
     case "pending":
     case "running":

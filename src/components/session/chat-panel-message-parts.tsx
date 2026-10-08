@@ -221,9 +221,9 @@ export function MessagePartRenderer(args: {
           state={part.state}
           presentation={userInputPresentation}
           onSubmit={(answers) =>
-            resolveUserInput({ taskId, messageId, answers })
+            resolveUserInput({ taskId, messageId, requestId: part.requestId, answers })
           }
-          onDeny={() => resolveUserInput({ taskId, messageId, denied: true })}
+          onDeny={() => resolveUserInput({ taskId, messageId, requestId: part.requestId, denied: true })}
         />
       );
     case "system_event": {

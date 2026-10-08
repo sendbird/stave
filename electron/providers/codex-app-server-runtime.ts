@@ -1,3 +1,4 @@
+import { mapCodexAsyncQuestions } from "./codex-async-questions";
 import { getProviderAccountRegistry } from "../provider-accounts/registry";
 import { currentProviderAccountId, providerAccountKey, withProviderAccountScope } from "../provider-accounts/runtime-scope";
 import { createCodexModelResolutionTracker } from "./codex-model-resolution";
@@ -2804,6 +2805,8 @@ export async function streamCodexWithAppServer(
                 );
                 return;
               case "agentMessage": {
+                const question = mapCodexAsyncQuestions(item);
+                if (question) emitBridgeEvent(question);
                 const text =
                   typeof (item as { text?: unknown }).text === "string"
                     ? String((item as { text?: unknown }).text)

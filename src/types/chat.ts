@@ -274,6 +274,7 @@ export interface UserInputQuestion {
 
 export interface UserInputPart extends MessagePartBase {
   type: "user_input";
+  delivery?: "async";
   requestId: string;
   toolName: string;
   questions: UserInputQuestion[];

@@ -207,6 +207,7 @@ function createHarness(options: {
 
   return {
     store,
+    grants,
     runtime,
     runCalls,
     factCalls,
@@ -1201,4 +1202,74 @@ describe("run runtime: agent runs", () => {
       route: "auto",
     });
   });
+});
+
+test("separate question rounds do not consume another turn's report allowance", async () => {
+  const h = createHarness();
+  const id = await startedAgentRun(h, startInput({ workflow: workflow([DRAFT]) }));
+  for (let round = 1; round <= 5; round++) {
+    await h.runtime.blockStage({ agentRunKey: `key-turn-${round}`, block: { missing: `Question ${round}`, kind: "input" } });
+    h.endTurn(`turn-${round}`);
+    await h.tick();
+    h.userTurn(`reply-${round}`);
+    h.endTurn(`reply-${round}`);
+    await h.tick();
+  }
+  expect(h.current(id).reportRevision).toBe(5);
+  await h.runtime.reportStage({ agentRunKey: "key-turn-6", report: COMPLETE });
+  expect(h.current(id).reportRevision).toBe(6);
+});
+
+test("cancelling a run aborts its owned script", async () => {
+  const store = new AgentRunStore(new Database(":memory:"));
+  let scriptSignal: AbortSignal | undefined;
+  const performAction = createAgentRunActionExecutor({
+    store, scm: {} as never, resolveWorkspacePath: async () => "/tmp/workspace",
+    runScript: async ({ signal }) => {
+      scriptSignal = signal;
+      await new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve(), { once: true }));
+      return { ok: false, exitCode: -1 };
+    },
+  });
+  const h = createHarness({ store, performAction });
+  const id = await startedAgentRun(h, startInput({
+    workflow: workflow([{ id: "script", title: "Script", kind: "action", action: { type: "run-script", scriptId: "check" } }]),
+    consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["script"] },
+  }));
+  expect(scriptSignal?.aborted).toBe(false);
+  await h.runtime.cancel({ agentRunId: id });
+  expect(scriptSignal?.aborted).toBe(true);
+  expect(h.aggregate(id).agentRun.state).toBe("cancelled");
+});
+
+test("user replies attach to the active agent stage without repeating the assignment", async () => {
+  const h = createHarness({ extra: { taskRunsAsAgent: () => true } });
+  const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
+  await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Choose a storage policy", kind: "input" } });
+  h.endTurn("turn-1");
+  await h.tick();
+  h.userTurn("reply-1");
+  const reply = h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId: "reply-1" });
+  expect(reply?.agentRunStage).toMatchObject({ agentRunId: id, stageId: "draft", attempt: 1 });
+  expect(reply?.context.content).toContain("Choose a storage policy");
+  expect(reply?.context.content).toContain("Do not restart or repeat");
+  h.grants.set("reply-key", { ...reply!.agentRunStage, taskId: "task-1", turnId: "reply-1" });
+  await h.runtime.blockStage({ agentRunKey: "reply-key", block: { missing: "Clarified choices; still awaiting selection", kind: "input" } });
+  h.endTurn("reply-1");
+  await h.tick();
+  expect(h.runCalls).toHaveLength(1);
+  expect(h.current(id).report?.turnId).toBe("reply-1");
+});
+
+test("active runs remain in bounded history responses", async () => {
+  const h = createHarness();
+  const id = await startedAgentRun(h);
+  for (let index = 0; index < 3; index++) {
+    const now = new Date(Date.parse(START) + (index + 1) * 60_000);
+    const change = createAgentRun({ id: `finished-${index}`, input: startInput({ leadTaskId: `other-${index}` }),
+      repositoryPath: "/tmp/repo", fingerprint: { providerId: "claude-code", model: "sonnet" }, now });
+    change.agentRun.state = "completed";
+    h.store.create(change, now);
+  }
+  expect((await h.runtime.list({ limit: 1, includeActive: true })).agentRuns.some((run) => run.id === id)).toBe(true);
 });

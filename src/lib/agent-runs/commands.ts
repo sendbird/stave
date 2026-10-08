@@ -364,7 +364,10 @@ export function recordStageReport(args: {
   now: Date;
 }): AgentRunChange {
   const record = requireCurrentStage(args.aggregate, args.expected, ["running", "blocked", "stuck"]);
-  if (record.reportRevision >= AGENT_RUN_LIMITS.maxReportRevisions) {
+  const turnRevision = record.report?.turnId === args.turnId || args.turnId === null
+    ? (record.report?.turnRevision ?? record.reportRevision)
+    : 0;
+  if (turnRevision >= AGENT_RUN_LIMITS.maxReportRevisions) {
     throw new AgentRunCommandError(
       "report-limit",
       i18n.t("agentRuns:commands.extraCopy246", { value1: AGENT_RUN_LIMITS.maxReportRevisions }),
@@ -378,9 +381,10 @@ export function recordStageReport(args: {
           evidence: args.report.evidence ?? [],
           artifacts: args.report.artifacts ?? [],
           reportedAt: args.now.toISOString(),
+          turnRevision: turnRevision + 1,
           turnId: args.turnId,
         } satisfies CompleteStageReport)
-      : { ...args.report, reportedAt: args.now.toISOString(), turnId: args.turnId };
+      : { ...args.report, reportedAt: args.now.toISOString(), turnId: args.turnId, turnRevision: turnRevision + 1 };
   return {
     agentRun: touch(args.aggregate.agentRun, {}, args.now),
     upserts: [{ ...record, report, reportRevision: record.reportRevision + 1 }],

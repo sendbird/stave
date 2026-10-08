@@ -1007,6 +1007,8 @@ export type NormalizedProviderEvent =
     }
   | {
       type: "user_input";
+      /** Async messages remain answerable after their emitting turn ends. */
+      delivery?: "async";
       toolName: string;
       requestId: string;
       questions: UserInputQuestion[];

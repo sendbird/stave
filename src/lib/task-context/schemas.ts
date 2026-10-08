@@ -106,6 +106,7 @@ const ApprovalPartSchema = z.object({
 
 const UserInputPartSchema = z.object({
   type: z.literal("user_input"),
+  delivery: z.literal("async").optional(),
   requestId: z.string(),
   toolName: z.string(),
   questions: z.array(
