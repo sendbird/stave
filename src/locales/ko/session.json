@@ -684,6 +684,22 @@
     "commandResult3": "출력 대기 중…",
     "commandResult4": "출력이 없습니다."
   },
+  "inlineRender": {
+    "viewSource": "소스 보기",
+    "hideSource": "소스 숨기기",
+    "save": "HTML 파일로 저장",
+    "saved": "{{path}}에 저장했습니다",
+    "saveFailed": "페이지를 저장하지 못했습니다.",
+    "sourceUnavailable": "페이지 소스를 읽지 못했습니다.",
+    "expand": "크게 보기",
+    "collapse": "원래 크기로",
+    "copy": "복사",
+    "copied": "복사됨",
+    "loading": "페이지를 불러오는 중…",
+    "missing": "이 페이지는 더 이상 볼 수 없습니다.",
+    "unavailable": "이 페이지는 Stave 데스크톱 앱에서 대화를 열어야 볼 수 있습니다.",
+    "shownBelow": "실행 단계 아래에 표시됩니다."
+  },
   "turnEventDecisions": {
     "title": "단계",
     "label": "인수",

@@ -5,13 +5,22 @@ import {
   RENDERER_SCHEME_PRIVILEGES,
   resolveRendererAssetPath,
 } from "./renderer-entry";
+import {
+  INLINE_RENDER_SCHEME,
+  INLINE_RENDER_SCHEME_PRIVILEGES,
+} from "../../src/lib/inline-render/inline-render";
 // temporary-migration: renderer-origin-storage
 import { serveRendererMigrationPage } from "./renderer-origin-migration-electron";
 
-/** Must run before the app is ready; Chromium reads scheme privileges at startup. */
+/**
+ * Must run before the app is ready; Chromium reads scheme privileges at
+ * startup, and Electron accepts only one call, so every privileged scheme the
+ * app serves is listed here: the renderer itself and inline render pages.
+ */
 export function registerRendererScheme() {
   protocol.registerSchemesAsPrivileged([
     { scheme: RENDERER_SCHEME, privileges: RENDERER_SCHEME_PRIVILEGES },
+    { scheme: INLINE_RENDER_SCHEME, privileges: INLINE_RENDER_SCHEME_PRIVILEGES },
   ]);
 }
 

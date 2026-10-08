@@ -3057,6 +3057,22 @@ interface WindowApi {
     subscribeCloseShortcut?: (listener: () => void) => () => void;
     subscribeAppQuitRequested?: (listener: () => void) => () => void;
   };
+  /** Pages agents publish with `stave_render_html`; see `src/lib/inline-render`. */
+  inlineRender?: {
+    describe: (args: { renderId: string }) => Promise<
+      | { ok: true; exists: true; title: string; height: number }
+      | { ok: true; exists: false }
+      | { ok: false; error: string }
+    >;
+    readSource: (args: { renderId: string }) => Promise<
+      { ok: true; html: string; title: string } | { ok: false; error: string }
+    >;
+    saveAs: (args: { renderId: string }) => Promise<
+      | { ok: true; filePath: string }
+      | { ok: false; canceled: true }
+      | { ok: false; error: string }
+    >;
+  };
   shell?: {
     openExternal?: (args: {
       url: string;

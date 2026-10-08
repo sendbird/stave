@@ -134,6 +134,26 @@
         "description": "Show the turn navigator on the right side of conversations with multiple eligible responses."
       }
     },
+    "inlineRenders": {
+      "title": "Inline HTML pages",
+      "description": "Charts, tables, and mockups an agent shows in the conversation run in an isolated frame that cannot reach Stave, your files, or the rest of the conversation.",
+      "network": {
+        "title": "Network access",
+        "description": "What these pages may load from the internet. Changing this reloads pages already shown.",
+        "open": {
+          "label": "Allow all",
+          "description": "Pages can load libraries and data from any site, and can also send data to any site."
+        },
+        "cdn": {
+          "label": "Common CDNs only",
+          "description": "Pages can load scripts, styles, and fonts from jsDelivr, unpkg, cdnjs, esm.sh, and Google Fonts. Every other request is blocked."
+        },
+        "blocked": {
+          "label": "Block all",
+          "description": "Pages cannot make any network request, so an agent has to put its libraries and data in the page itself."
+        }
+      }
+    },
     "composerControls": {
       "title": "Composer Controls",
       "description": "Choose where each prompt input control lives: pinned to the toolbar, tucked into the ⋯ tray, or off. You can also right-click the toolbar to edit this in place.",

@@ -3,6 +3,7 @@ import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeMyStandards } from "@/lib/agents/standards";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
+import { normalizeInlineRenderNetworkPolicy } from "@/lib/inline-render/inline-render";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { normalizeJiraConnectorSettings } from "@/lib/jira-connector/types";
 import { normalizeTrackerIssuesSettings } from "@/lib/tracker-issues/settings";
@@ -588,6 +589,9 @@ export function createAppStorePersistenceOptions() {
       });
       state.settings.reasoningExpansionMode = normalizeReasoningExpansionMode(
         state.settings.reasoningExpansionMode,
+      );
+      state.settings.inlineRenderNetworkPolicy = normalizeInlineRenderNetworkPolicy(
+        state.settings.inlineRenderNetworkPolicy,
       );
       state.settings.cursorMode = normalizeCursorMode(
         state.settings.cursorMode,

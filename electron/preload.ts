@@ -2744,6 +2744,14 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
+  inlineRender: {
+    describe: (args: { renderId: string }) =>
+      ipcRenderer.invoke("inline-render:describe", args),
+    readSource: (args: { renderId: string }) =>
+      ipcRenderer.invoke("inline-render:read-source", args),
+    saveAs: (args: { renderId: string }) =>
+      ipcRenderer.invoke("inline-render:save-as", args),
+  },
   shell: {
     openExternal: (args: { url: string }) =>
       ipcRenderer.invoke("shell:open-external", args),

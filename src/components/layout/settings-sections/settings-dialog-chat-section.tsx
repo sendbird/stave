@@ -14,6 +14,7 @@ import {
 } from "@/store/app-settings";
 import { useAppStore } from "@/store/app.store";
 import { TurnActivityFields } from "./settings-dialog-turn-activity-fields";
+import { InlineRenderSettingsCard } from "./settings-dialog-inline-render-card";
 import {
   ChoiceButtons,
   DraftInput,
@@ -242,6 +243,7 @@ export function ChatSection() {
         />
         <TurnActivityFields />
       </SettingsCard>
+      <InlineRenderSettingsCard />
       <SettingsCard
         title={t("settings:chatSection.composerControls.title")}
         description={t("settings:chatSection.composerControls.description")}

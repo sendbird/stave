@@ -20,6 +20,7 @@ import {
   TurnSpendArgsSchema,
   type TurnSpendResponse,
 } from "../../../src/lib/providers/turn-spend";
+import { removeWorkspaceInlineRenders } from "../inline-render/inline-render-service";
 import {
   ClearNotificationHistoryArgsSchema,
   CreateNotificationArgsSchema,
@@ -302,6 +303,8 @@ export function registerPersistenceHandlers() {
       }
       const store = await ensurePersistenceReady();
       store.closeWorkspace({ workspaceId: parsedArgs.data.workspaceId });
+      // The workspace's conversation is gone, so the pages it rendered go too.
+      void removeWorkspaceInlineRenders(parsedArgs.data.workspaceId);
       return { ok: true };
     },
   );

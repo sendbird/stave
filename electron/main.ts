@@ -13,6 +13,7 @@ import {
 } from "./main/stave-mcp-server";
 import { createMainWindow, getMainWindow } from "./main/window";
 import { registerRendererScheme } from "./main/renderer-protocol";
+import { installInlineRenderProtocol } from "./main/inline-render/inline-render-service";
 // temporary-migration: renderer-origin-storage
 import { recordRendererOriginMigrationBaseline } from "./main/renderer-origin-migration-electron";
 // end temporary-migration: renderer-origin-storage
@@ -147,6 +148,7 @@ if (hasSingleInstanceLock) {
       Menu.setApplicationMenu(buildApplicationMenu());
     });
     registerHandlers();
+    installInlineRenderProtocol();
     createMainWindow();
     startTrackerIssuesRuntime();
     startStorageCleanupRuntime();

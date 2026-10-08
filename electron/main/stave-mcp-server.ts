@@ -34,7 +34,15 @@ import {
   getAgentRunForGrant,
   reportAgentRunStage,
 } from "./agent-runs-service";
-import { callerTaskId, resolveStaveMcpCaller } from "./stave-mcp-caller";
+import { callerTaskId, resolveStaveMcpCaller, StaveMcpCallerError } from "./stave-mcp-caller";
+import {
+  buildInlineRenderToolResult,
+  INLINE_RENDER_MAX_HEIGHT,
+  INLINE_RENDER_MAX_HTML_CHARS,
+  INLINE_RENDER_MAX_TITLE_CHARS,
+  INLINE_RENDER_MIN_HEIGHT,
+} from "../../src/lib/inline-render/inline-render";
+import { getInlineRenderStore } from "./inline-render/inline-render-service";
 import {
   readTurnGrantHeaders,
   type StaveTurnGrants,
@@ -1143,6 +1151,54 @@ function createToolServer(options?: {
       toStructuredResult({
         result: await writeWorkspacePlanFile({ workspaceId, fileName, content }),
       }),
+  );
+
+  server.registerTool(
+    "stave_render_html",
+    {
+      description: [
+        "Show an HTML page inline in this conversation: a chart, table, diagram, comparison, or UI mockup the user should see rather than read as text. Call it before your final reply and refer to it there; never paste the HTML into the reply.",
+        "The page runs in a sandboxed frame with scripts allowed. It cannot reach Stave, the workspace files, or the conversation, and it cannot show alerts or open windows; links open in the user's browser.",
+        "Network access follows the user's setting: open, a CDN allowlist (cdn.jsdelivr.net, unpkg.com, cdnjs.cloudflare.com, esm.sh, Google Fonts), or none. Prefer inline data and small inline scripts so the page works with no network.",
+        `Style with the host theme variables (--background, --foreground, --card, --muted, --muted-foreground, --border, --primary, --accent, --destructive, --success, --warning, --chart-1 to --chart-5, --radius, --font-sans, --font-mono, and the matching -foreground pairs); <html> has class "dark" in dark mode. Keep the page background transparent, use fluid widths (the frame is the chat column), avoid 100vh, and let content set the height (the frame grows to fit, up to ${INLINE_RENDER_MAX_HEIGHT}px).`,
+      ].join(" "),
+      inputSchema: {
+        html: z
+          .string()
+          .min(1)
+          .max(INLINE_RENDER_MAX_HTML_CHARS)
+          .describe("A self-contained HTML document or fragment, with its CSS and scripts inline."),
+        title: z
+          .string()
+          .min(1)
+          .max(INLINE_RENDER_MAX_TITLE_CHARS)
+          .describe("Short title shown above the page."),
+        height: z
+          .number()
+          .int()
+          .min(INLINE_RENDER_MIN_HEIGHT)
+          .max(INLINE_RENDER_MAX_HEIGHT)
+          .optional()
+          .describe("Frame height in CSS pixels until the page reports its own; defaults to 360."),
+      },
+    },
+    async ({ html, title, height }) => {
+      const caller = await resolveStaveMcpCaller(turnGrants);
+      if (caller.kind !== "turn") {
+        throw new StaveMcpCallerError(
+          "stave_render_html shows a page in a Stave conversation, so it only works inside a Stave task turn.",
+        );
+      }
+      const reference = await getInlineRenderStore().publish({
+        workspaceId: caller.grant.workspaceId,
+        taskId: caller.grant.taskId,
+        turnId: caller.grant.turnId,
+        html,
+        title,
+        ...(height === undefined ? {} : { height }),
+      });
+      return toStructuredResult(buildInlineRenderToolResult(reference));
+    },
   );
 
   server.registerTool(

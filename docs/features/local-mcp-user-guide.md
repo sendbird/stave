@@ -159,6 +159,10 @@ For workspace Information panel management, also use:
 - `stave_remove_workspace_custom_field`
 - `stave_write_plan_file` — `{ workspaceId, fileName, content }`; writes or replaces `.stave/context/plans/<fileName>` (a plain markdown file name) and nothing else, so it also works for a read-only agent
 
+To show a visual result in the conversation (see [Inline HTML pages](inline-renders.md)):
+
+- `stave_render_html` — `{ html, title, height? }`; publishes an HTML page that Stave shows in the calling task's reply, in a sandboxed frame. It works only inside a Stave task turn, needs no approval, and follows **Settings → Chat → Inline HTML pages → Network access**
+
 To curate reusable knowledge for the same repository (see [Repository memory](repository-memory.md)):
 contextual entries are recalled only for relevant requests; at most three core
 entries are always included. The injected block is capped at six entries /

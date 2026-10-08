@@ -1,3 +1,4 @@
+import { normalizeInlineRenderNetworkPolicy } from "@/lib/inline-render/inline-render";
 import { i18n } from "@/i18n/runtime";
 import { providersWithChangedAccount, resetRateLimitsForProviders } from "@/store/rate-limits-account-reset";
 import type { StoreApi } from "zustand";
@@ -412,6 +413,13 @@ export function createSettingsActions(args: {
           ? {}
           : {
               composerLayout: normalizeComposerLayoutMode(patch.composerLayout),
+            }),
+        ...(patch.inlineRenderNetworkPolicy === undefined
+          ? {}
+          : {
+              inlineRenderNetworkPolicy: normalizeInlineRenderNetworkPolicy(
+                patch.inlineRenderNetworkPolicy,
+              ),
             }),
         ...(patch.infoPanelSectionVisibility === undefined
           ? {}

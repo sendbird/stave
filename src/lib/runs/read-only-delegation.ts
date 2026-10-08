@@ -59,6 +59,9 @@ export const READ_ONLY_STAVE_METADATA_TOOLS = [
   "stave_add_workspace_custom_field",
   "stave_set_workspace_custom_field",
   "stave_write_plan_file",
+  // Publishes a page into Stave's own render store for this conversation; it
+  // never touches the repository, so a reviewer can still show a table.
+  "stave_render_html",
   // An agent run's stage tools exist only on a turn carrying its grant.
   "stave_report_stage",
   "stave_block_stage",

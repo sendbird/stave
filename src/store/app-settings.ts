@@ -11,6 +11,10 @@ import type {
   LensSessionScope,
 } from "@/lib/lens/lens.types";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
+import {
+  DEFAULT_INLINE_RENDER_NETWORK_POLICY,
+  type InlineRenderNetworkPolicy,
+} from "@/lib/inline-render/inline-render";
 import type {
   ClaudePluginMode,
   ClaudeSettingSource,
@@ -153,6 +157,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Per-section visibility overrides for the workspace information panel. */
   infoPanelSectionVisibility: WorkspaceInformationSectionVisibility;
   reasoningExpansionMode: "auto" | "manual";
+  /**
+   * What an agent's inline HTML page (`stave_render_html`) may load from the
+   * network: anything, an allowlisted set of CDNs, or nothing.
+   */
+  inlineRenderNetworkPolicy: InlineRenderNetworkPolicy;
   showInterimMessages: boolean;
   /** Show the conversation turn rail beside eligible task histories. */
   showConversationTurnRail: boolean;
@@ -617,6 +626,7 @@ export const defaultSettings: AppSettings = {
   infoPanelScale: 1,
   infoPanelSectionVisibility: {},
   reasoningExpansionMode: "manual",
+  inlineRenderNetworkPolicy: DEFAULT_INLINE_RENDER_NETWORK_POLICY,
   showInterimMessages: false,
   showConversationTurnRail: true,
   showTaskStartExamples: true,

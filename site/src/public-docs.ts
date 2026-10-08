@@ -109,6 +109,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Choose a docked, floating, or right-rail view for following tools, delegated tasks, todos, and other live turn data.",
       },
       {
+        routePath: "inline-renders",
+        sourcePath: "docs/features/inline-renders.md",
+        title: "Inline HTML Pages",
+        description:
+          "See charts, tables, and mockups an agent builds as HTML right in the conversation, isolated from the app and your files.",
+      },
+      {
         routePath: "accounts-and-gateways",
         sourcePath: "docs/features/accounts-and-gateways.md",
         title: "Accounts and API Connections",

@@ -5,6 +5,7 @@ import type {
   UserInputPart,
 } from "@/types/chat";
 import { createCompletedPreviewMessage } from "../agent-preview/fixtures";
+import { buildInlineRenderToolResult } from "@/lib/inline-render/inline-render";
 
 export type EventSample = {
   title: string;
@@ -28,6 +29,57 @@ const tool = (state: ToolUsePart["state"]): ToolUsePart => ({
         ? "12 pass\n0 fail\nCompleted in 2.8s"
         : undefined,
 });
+/** A page styled only with the host theme variables, as the tool asks. */
+const INLINE_RENDER_PAGE = `<!doctype html>
+<style>
+  body { padding: 16px; }
+  h2 { font-size: 14px; margin: 0 0 12px; }
+  .bars { display: grid; gap: 8px; }
+  .row { display: grid; grid-template-columns: 72px 1fr 48px; align-items: center; gap: 8px; font-size: 13px; }
+  .track { background: var(--muted); border-radius: var(--radius); block-size: 12px; overflow: hidden; }
+  .fill { background: var(--chart-1); block-size: 100%; }
+  .row:nth-child(2) .fill { background: var(--chart-2); }
+  .row:nth-child(3) .fill { background: var(--chart-3); }
+  .muted { color: var(--muted-foreground); }
+  table { border-collapse: collapse; inline-size: 100%; margin-block-start: 16px; font-size: 13px; }
+  th, td { border-block-end: 1px solid var(--border); padding: 6px 4px; text-align: start; }
+  button { margin-block-start: 12px; font: inherit; color: var(--primary-foreground); background: var(--primary); border: 0; border-radius: var(--radius); padding: 6px 10px; }
+</style>
+<h2>주간 토큰 사용량</h2>
+<div class="bars">
+  <div class="row"><span>Claude</span><div class="track"><div class="fill" style="inline-size: 72%"></div></div><span class="muted">72%</span></div>
+  <div class="row"><span>Codex</span><div class="track"><div class="fill" style="inline-size: 41%"></div></div><span class="muted">41%</span></div>
+  <div class="row"><span>Cursor</span><div class="track"><div class="fill" style="inline-size: 18%"></div></div><span class="muted">18%</span></div>
+</div>
+<table><thead><tr><th>Provider</th><th>Turns</th><th>Docs</th></tr></thead>
+<tbody><tr><td>Claude</td><td>128</td><td><a href="https://example.com/claude">link</a></td></tr>
+<tr><td>Codex</td><td>74</td><td><a href="https://example.com/codex">link</a></td></tr></tbody></table>
+<button type="button" onclick="this.textContent = 'Clicked ' + (++window.clicks || (window.clicks = 1))">Click me</button>
+<p class="muted" id="network">network: checking…</p>
+<script>
+  fetch("https://example.com/", { mode: "no-cors" }).then(
+    function () { document.getElementById("network").textContent = "network: allowed"; },
+    function () { document.getElementById("network").textContent = "network: blocked"; }
+  );
+</script>`;
+
+const inlineRender = (): ToolUsePart => ({
+  type: "tool_use",
+  toolUseId: "preview-inline-render",
+  toolName: "mcp__stave-local-mcp__stave_render_html",
+  input: JSON.stringify({ title: "주간 토큰 사용량", html: INLINE_RENDER_PAGE }),
+  output: JSON.stringify(
+    buildInlineRenderToolResult({
+      renderId: "0123456789abcdef-0f0e0d0c-0b0a-4908-8706-050403020100",
+      title: "주간 토큰 사용량",
+      height: 320,
+    }),
+    null,
+    2,
+  ),
+  state: "output-available",
+});
+
 const approval = (state: ApprovalPart["state"]): ApprovalPart => ({
   type: "approval",
   toolName: "Bash",
@@ -178,5 +230,12 @@ export function createEventSamples(): EventSample[] {
       ],
     },
     { title: "응답 대기 · 아직 이벤트 없음", streaming: true, parts: [] },
+    {
+      title: "인라인 HTML 렌더",
+      parts: [
+        inlineRender(),
+        { type: "text", text: "위 차트는 이번 주 프로바이더별 사용량입니다." },
+      ],
+    },
   ];
 }

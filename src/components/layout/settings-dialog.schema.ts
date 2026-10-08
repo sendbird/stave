@@ -129,6 +129,11 @@ export const settingsSections = [
       "conversation",
       "turn rail",
       "fast mode",
+      "inline html",
+      "render",
+      "chart",
+      "network access",
+      "cdn",
     ],
   },
   {
