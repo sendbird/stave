@@ -862,6 +862,11 @@ export function resolveDefaultClaudeFallbackModel(args: {
   ) {
     return DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL;
   }
+  // Haiku 5.5 needs Claude Code 2.1.293 or newer. An older CLI, or an outage,
+  // falls back to the previous light-tier model instead of failing the call.
+  if (normalizedModel === DEFAULT_CLAUDE_HAIKU_MODEL) {
+    return LEGACY_CLAUDE_HAIKU_MODEL;
+  }
   return undefined;
 }
 

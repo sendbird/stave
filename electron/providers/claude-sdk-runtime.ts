@@ -41,7 +41,10 @@ import { buildClaudeSystemPrompt } from "./claude-system-prompt";
 export { buildClaudeSystemPrompt, STAVE_TURN_BEHAVIOR_DIRECTIVE } from "./claude-system-prompt";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import { claudeFastModeEnabled, claudeModelForcesAdaptiveThinking } from "../../src/lib/providers/claude-model-requirements";
-import { DEFAULT_CLAUDE_HAIKU_MODEL } from "../../src/lib/providers/model-catalog";
+import {
+  DEFAULT_CLAUDE_HAIKU_MODEL,
+  resolveDefaultClaudeFallbackModel,
+} from "../../src/lib/providers/model-catalog";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -966,12 +969,22 @@ function resolveClaudeTaskBudget(value?: number) {
   return { total: Math.floor(value) };
 }
 
-function resolveClaudeFallbackModel(args: {
+/**
+ * An explicit fallback wins. Otherwise the catalog default applies at runtime,
+ * like Codex: callers that build runtime options without settings (Background
+ * AI lanes, read-only prompts, delegated runs) still get Opus 5.5 -> 4.8 and
+ * Haiku 5.5 -> 4.5. Claude Code switches to it when the primary model is
+ * unavailable, including a CLI too old for the model.
+ */
+export function resolveClaudeFallbackModel(args: {
   model?: string;
   fallbackModel?: string;
 }) {
   const model = args.model?.trim();
-  const fallbackModels = (args.fallbackModel ?? "")
+  const configured =
+    args.fallbackModel?.trim() ||
+    (model ? resolveDefaultClaudeFallbackModel({ model }) : undefined);
+  const fallbackModels = (configured ?? "")
     .split(",")
     .map((candidate) => candidate.trim())
     .filter(
@@ -1804,10 +1817,12 @@ export function buildClaudeReadOnlyPromptOptions(args: {
   resumeSessionId?: string;
 }): Options {
   const model = validateClaudeGatewayModel(args.model);
+  const fallbackModel = resolveClaudeFallbackModel({ model });
   return {
     abortController: args.abortController,
     cwd: args.cwd,
     model,
+    ...(fallbackModel ? { fallbackModel } : {}),
     ...(args.effort &&
     modelAcceptsExplicitEffort({
       providerId: "claude-code",
@@ -4067,13 +4082,16 @@ export async function suggestClaudePRDescription(args: {
       return { ok: false };
     }
 
+    const prModel = validateClaudeGatewayModel(args.model?.trim() || DEFAULT_CLAUDE_HAIKU_MODEL);
+    const prFallbackModel = resolveClaudeFallbackModel({ model: prModel });
     const stream = queryFn({
       prompt: prPrompt,
       options: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: validateClaudeGatewayModel(args.model?.trim() || DEFAULT_CLAUDE_HAIKU_MODEL),
+        model: prModel,
+        ...(prFallbackModel ? { fallbackModel: prFallbackModel } : {}),
         ...(currentClaudeGateway() ? { settingSources: [] } : {}),
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }

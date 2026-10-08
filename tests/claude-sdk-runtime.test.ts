@@ -1985,6 +1985,32 @@ describe("buildClaudeQueryOptions", () => {
     });
   });
 
+  test("falls back from Haiku 5.5 to Haiku 4.5 when no fallback is configured", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: { model: "claude-haiku-5-5" },
+    });
+
+    expect(options).toMatchObject({
+      model: "claude-haiku-5-5",
+      fallbackModel: "claude-haiku-4-5",
+    });
+  });
+
+  test("keeps an explicitly configured fallback over the catalog default", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: {
+        model: "claude-haiku-5-5",
+        claudeFallbackModel: "claude-sonnet-5-5",
+      },
+    });
+
+    expect(options).toMatchObject({ fallbackModel: "claude-sonnet-5-5" });
+  });
+
   test("omits effort for Claude Haiku, which rejects the field", () => {
     const options = buildClaudeQueryOptions({
       cwd: workspaceRoot,
@@ -2034,6 +2060,22 @@ describe("buildClaudeReadOnlyPromptOptions", () => {
     expect(options).not.toHaveProperty("plugins");
     expect(options).not.toHaveProperty("agent");
     expect(options).not.toHaveProperty("fallbackModel");
+  });
+
+  test("a Haiku 5.5 read-only prompt falls back to Haiku 4.5", () => {
+    const options = buildClaudeReadOnlyPromptOptions({
+      cwd: workspaceRoot,
+      model: "claude-haiku-5-5",
+      effort: "low",
+      abortController: new AbortController(),
+      claudeExecutablePath: "/opt/claude",
+    });
+
+    expect(options).toMatchObject({
+      model: "claude-haiku-5-5",
+      effort: "low",
+      fallbackModel: "claude-haiku-4-5",
+    });
   });
 
   test("omits effort for a Haiku read-only prompt even when the caller supplies one", () => {
