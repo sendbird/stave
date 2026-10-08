@@ -108,19 +108,20 @@ export function CodexPluginsCard() {
     async (args: {
       plugin: CodexPluginSummarySnapshot;
       label: string;
+      failureLabel: string;
       action: () => Promise<{ ok: boolean; detail: string }>;
     }) => {
       setBusyPluginId(args.plugin.id);
       try {
         const result = await args.action();
         if (!result.ok) {
-          toast.error(args.label, { description: result.detail });
+          toast.error(args.failureLabel, { description: result.detail });
           return;
         }
         toast.success(args.label, { description: result.detail });
         await loadPlugins();
       } catch (error) {
-        toast.error(args.label, {
+        toast.error(args.failureLabel, {
           description: error instanceof Error ? error.message : String(error),
         });
       } finally {
@@ -144,6 +145,7 @@ export function CodexPluginsCard() {
       void runPluginMutation({
         plugin,
         label: i18n.t("settingsProviders:codexPlugins.toasts.installed", { name: plugin.name }),
+        failureLabel: i18n.t("settingsProviders:codexPlugins.toasts.installFailed"),
         action: () =>
           installCodexPlugin({
             marketplacePath: plugin.marketplacePath,
@@ -167,6 +169,7 @@ export function CodexPluginsCard() {
       void runPluginMutation({
         plugin,
         label: i18n.t("settingsProviders:codexPlugins.toasts.removed", { name: plugin.name }),
+        failureLabel: i18n.t("settingsProviders:codexPlugins.toasts.uninstallFailed"),
         action: () =>
           uninstallCodexPlugin({ pluginId: plugin.id, runtimeOptions }),
       });

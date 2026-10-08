@@ -120,6 +120,8 @@ describe("matchesSettingsSection", () => {
     expect(matchesSettingsSection(chat!, "mid-turn")).toBe(true);
     expect(matchesSettingsSection(providers!, "browser access")).toBe(true);
     expect(matchesSettingsSection(providers!, "chrome extension")).toBe(true);
+    expect(matchesSettingsSection(providers!, "codex plugins")).toBe(true);
+    expect(matchesSettingsSection(providers!, "플러그인")).toBe(true);
   });
 
   test("requires every search term to match the same section", () => {

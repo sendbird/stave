@@ -139,6 +139,9 @@ export const settingsSections = [
     keywords: [
       "claude",
       "codex",
+      "plugins",
+      "marketplace",
+      "플러그인",
       "cursor",
       "kiro",
       "sandbox",
