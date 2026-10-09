@@ -63,6 +63,7 @@ import {
   updateCurrentRepositoryTextPreference,
   upsertRecentRepositoryState,
 } from "@/store/repository.utils";
+import { updateProjectSettingsOverrides } from "@/store/project-settings-overrides";
 import { normalizeCustomAgents } from "@/lib/agents/library";
 import { normalizeAgentRevisions } from "@/lib/agents/revisions";
 import { normalizeAgentSuggestions, normalizeLearningDisabled } from "@/lib/agents/learned-suggestions";
@@ -90,6 +91,7 @@ type SettingsActionKey =
   | "setRepositoryKickoffBranchNamingRule"
   | "setRepositoryAppearance"
   | "setRepositoryWorkspaceUseRootNodeModulesSymlink"
+  | "updateProjectSettingsOverrides"
   | "setDarkMode"
   | "installCustomTheme"
   | "removeCustomTheme"
@@ -252,6 +254,53 @@ export function createSettingsActions(args: {
           }),
         };
       });
+    },
+    updateProjectSettingsOverrides: ({ repositoryPath, patch, clearKeys }) => {
+      const normalizedRepositoryPath = repositoryPath.trim();
+      let refusedKeys: string[] = [];
+      set((state) => {
+        const currentRepositories = captureCurrentRepositoryState({
+          recentRepositories: state.recentRepositories,
+          repositoryPath: state.repositoryPath,
+          repositoryName: state.repositoryName,
+          defaultBranch: state.defaultBranch,
+          workspaces: state.workspaces,
+          activeWorkspaceId: state.activeWorkspaceId,
+          workspaceBranchById: state.workspaceBranchById,
+          workspacePathById: state.workspacePathById,
+          workspaceDefaultById: state.workspaceDefaultById,
+          workspaceLastActiveAtById: state.workspaceLastActiveAtById,
+        });
+        const existingRepository = currentRepositories.find(
+          (repository) => repository.repositoryPath === normalizedRepositoryPath,
+        );
+        if (!existingRepository) {
+          return state;
+        }
+        const result = updateProjectSettingsOverrides({
+          overrides: existingRepository.settingsOverrides,
+          patch,
+          clearKeys,
+        });
+        refusedKeys = result.refusedKeys;
+        if (!result.changed) {
+          return state;
+        }
+        const { settingsOverrides: _previous, ...repository } =
+          cloneRecentRepositoryState(existingRepository);
+        return {
+          recentRepositories: upsertRecentRepositoryState({
+            repositories: currentRepositories,
+            repository: result.overrides
+              ? { ...repository, settingsOverrides: result.overrides }
+              : repository,
+          }),
+        };
+      });
+      if (refusedKeys.length > 0) {
+        console.warn("[settings] refused project overrides outside the allow-list", refusedKeys);
+      }
+      return { refusedKeys };
     },
     setDarkMode: ({ enabled }) => {
       const nextThemeMode: AppSettings["themeMode"] = enabled

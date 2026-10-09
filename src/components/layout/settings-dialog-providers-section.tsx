@@ -6,45 +6,19 @@ import {
   TabsContent,
 } from "@/components/ui";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  CLAUDE_EFFORT_OPTIONS,
-  CLAUDE_PERMISSION_MODE_OPTIONS,
-  CLAUDE_THINKING_OPTIONS,
-  CODEX_APPROVAL_POLICY_OPTIONS,
-  CODEX_EFFORT_OPTIONS,
-} from "@/lib/providers/runtime-option-contract";
-import {
   formatTrustedToolEntry,
   removeTrustedToolEntry,
 } from "@/lib/providers/trusted-tools";
-import {
-  buildClaudeProviderModeSettingsPatch,
-  buildCodexProviderModeSettingsPatch,
-  CLAUDE_PROVIDER_MODE_PRESETS,
-  CODEX_PROVIDER_MODE_PRESETS,
-  detectClaudeProviderModePreset,
-  detectCodexProviderModePreset,
-  type ProviderModePresetDefinition,
-  type ProviderModePresetId,
-} from "@/lib/providers/provider-mode-presets";
 import type {
   ClaudeSettingSource,
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
-import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ChoiceButtons,
   DraftInput,
   LabeledField,
   readInt,
@@ -76,6 +50,14 @@ import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosur
 import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
 import type { SectionId } from "./settings-dialog.schema";
 import { SettingsProviderTabsList } from "./settings-provider-tabs";
+import { DescribedSelect } from "./settings-dialog-described-select";
+import {
+  ClaudeModeBadge,
+  ClaudePermissionPostureFields,
+  CodexModeBadge,
+  CodexPermissionPostureFields,
+} from "./settings-dialog-permission-posture-fields";
+import { ScopeLocked } from "./settings-scope";
 
 /** Tab order for the per-provider runtime settings below the shared cards. */
 const PROVIDER_SETTINGS_TAB_IDS = [
@@ -84,41 +66,6 @@ const PROVIDER_SETTINGS_TAB_IDS = [
   "cursor",
   "kiro",
 ] as const satisfies readonly ProviderId[];
-
-const CLAUDE_PERMISSION_MODE_HELP = [
-  {
-    value: "default",
-    label: "default",
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.default.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.default.example"); },
-  },
-  {
-    value: "acceptEdits",
-    label: "acceptEdits",
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.acceptEdits.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.acceptEdits.example"); },
-  },
-  {
-    value: "bypassPermissions",
-    label: "bypassPermissions",
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.bypassPermissions.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.bypassPermissions.example"); },
-  },
-  {
-    value: "dontAsk",
-    label: "dontAsk",
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.dontAsk.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.dontAsk.example"); },
-  },
-  {
-    value: "auto",
-    label: "auto",
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.auto.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.permissionMode.options.auto.example"); },
-  },
-] as const satisfies readonly ExplainedSelectOption<
-  NonNullable<ProviderRuntimeOptions["claudePermissionMode"]>
->[];
 
 const CLAUDE_THINKING_MODE_HELP = [
   {
@@ -164,58 +111,6 @@ const CLAUDE_SETTING_SOURCE_HELP = [
   label: string;
   description: string;
 }>;
-
-const CODEX_FILE_ACCESS_HELP = [
-  {
-    value: "read-only",
-    label: "read-only",
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.readOnly.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.readOnly.example"); },
-  },
-  {
-    value: "workspace-write",
-    label: "workspace-write",
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.workspaceWrite.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.workspaceWrite.example"); },
-  },
-  {
-    value: "danger-full-access",
-    label: "danger-full-access",
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.dangerFullAccess.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.fileAccess.options.dangerFullAccess.example"); },
-  },
-] as const satisfies readonly ExplainedSelectOption<
-  NonNullable<ProviderRuntimeOptions["codexFileAccess"]>
->[];
-
-const CODEX_APPROVAL_POLICY_HELP = [
-  {
-    value: "untrusted",
-    label: "untrusted",
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.untrusted.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.untrusted.example"); },
-  },
-  {
-    value: "never",
-    label: "never",
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.never.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.never.example"); },
-  },
-  {
-    value: "on-request",
-    label: "on-request",
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.onRequest.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.onRequest.example"); },
-  },
-  {
-    value: "on-failure",
-    label: "on-failure",
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.onFailure.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.approvals.options.onFailure.example"); },
-  },
-] as const satisfies readonly ExplainedSelectOption<
-  NonNullable<ProviderRuntimeOptions["codexApprovalPolicy"]>
->[];
 
 const CODEX_REASONING_SUMMARY_HELP = [
   {
@@ -298,132 +193,11 @@ const CODEX_WEB_SEARCH_HELP = [
   NonNullable<ProviderRuntimeOptions["codexWebSearch"]>
 >[];
 
-const CODEX_APP_TOOL_APPROVAL_HELP = [
-  {
-    value: "inherit",
-    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.inherit.label"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.inherit.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.inherit.example"); },
-  },
-  {
-    value: "auto",
-    get label() { return i18n.t("common:labels.auto"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.auto.description"); },
-  },
-  {
-    value: "prompt",
-    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.prompt.label"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.prompt.description"); },
-  },
-  {
-    value: "writes",
-    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.writes.label"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.writes.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.writes.example"); },
-  },
-  {
-    value: "approve",
-    get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.approve.label"); },
-    get description() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.approve.description"); },
-  },
-] as const satisfies readonly ExplainedSelectOption<
-  NonNullable<ProviderRuntimeOptions["codexAppToolApprovalMode"]>
->[];
-
-function findExplainedOption<T extends string>(
-  options: readonly ExplainedSelectOption<T>[],
-  value: T,
-) {
-  return options.find((option) => option.value === value) ?? null;
-}
-
-function DescribedSelect<T extends string>(args: {
-  value: T;
-  options: readonly ExplainedSelectOption<T>[];
-  onValueChange: (value: T) => void;
-  triggerClassName?: string;
-}) {
-  const { t } = useTranslation(I18N_NAMESPACES);
-  const selected = findExplainedOption(args.options, args.value);
-  const fallbackValue = args.options[0]?.value;
-  const selectValue = selected?.value ?? fallbackValue;
-  const triggerLabel = selected?.label ?? fallbackValue ?? args.value;
-
-  return (
-    <div className={sx(providersStyles.describedSelectRoot)}>
-      <Select
-        value={selectValue}
-        onValueChange={(value) => args.onValueChange(value as T)}
-      >
-        <SelectTrigger
-          className={
-            args.triggerClassName ??
-            sx(providersStyles.describedSelectTrigger)
-          }
-        >
-          <SelectValue placeholder={triggerLabel} />
-        </SelectTrigger>
-        <SelectContent
-          alignItemWithTrigger={false}
-          align="start"
-          sideOffset={6}
-          className={cx(
-            UI_LAYER_CLASS.popover,
-            sx(providersStyles.describedSelectContent),
-          )}
-        >
-          {args.options.map((option) => (
-            <SelectItem
-              key={option.value}
-              value={option.value}
-              label={option.label}
-            >
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {selected ? (
-        <p className={sx(providersStyles.describedSelectHint)}>
-          <span className={sx(providersStyles.describedSelectHintTerm)}>
-            {selected.label}:
-          </span>{" "}
-          {selected.description}
-          {selected.example ? t("settingsProviders:settingsDialogProvidersSection.example", { value1: selected.example }) : ""}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function ProviderModePresetButtons(args: {
-  presets: readonly ProviderModePresetDefinition[];
-  activePresetId: ProviderModePresetId | null;
-  onSelect: (presetId: ProviderModePresetId) => void;
-}) {
-  return (
-    <ChoiceButtons
-      columns={3}
-      value={args.activePresetId ?? ""}
-      onChange={(value) => args.onSelect(value as ProviderModePresetId)}
-      options={args.presets.map((preset) => ({
-        value: preset.id,
-        label: preset.label,
-        description: preset.description,
-      }))}
-    />
-  );
-}
-
 export function ProvidersSection(props: {
   onNavigateSection?: (id: SectionId) => void;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
-    claudePermissionMode,
-    claudeAllowDangerouslySkipPermissions,
-    claudeSandboxEnabled,
-    claudeAllowUnsandboxedCommands,
     claudeSandboxCredentialFiles,
     claudeSandboxCredentialEnvVars,
     claudeTaskBudgetTokens,
@@ -440,11 +214,7 @@ export function ProvidersSection(props: {
     claudeAgentName,
     claudeFallbackModel,
     claudeResumeSessionAt,
-    codexFileAccess,
-    codexNetworkAccess,
-    codexApprovalPolicy,
     codexWebSearch,
-    codexAppToolApprovalMode,
     codexShowRawReasoning,
     codexReasoningSummary,
     codexReasoningSummarySupport,
@@ -458,10 +228,6 @@ export function ProvidersSection(props: {
     useShallow(
       (state) =>
         [
-          state.settings.claudePermissionMode,
-          state.settings.claudeAllowDangerouslySkipPermissions,
-          state.settings.claudeSandboxEnabled,
-          state.settings.claudeAllowUnsandboxedCommands,
           state.settings.claudeSandboxCredentialFiles,
           state.settings.claudeSandboxCredentialEnvVars,
           state.settings.claudeTaskBudgetTokens,
@@ -478,11 +244,7 @@ export function ProvidersSection(props: {
           state.settings.claudeAgentName,
           state.settings.claudeFallbackModel,
           state.settings.claudeResumeSessionAt,
-          state.settings.codexFileAccess,
-          state.settings.codexNetworkAccess,
-          state.settings.codexApprovalPolicy,
           state.settings.codexWebSearch,
-          state.settings.codexAppToolApprovalMode,
           state.settings.codexShowRawReasoning,
           state.settings.codexReasoningSummary,
           state.settings.codexReasoningSummarySupport,
@@ -502,32 +264,6 @@ export function ProvidersSection(props: {
   const blockTurnsWhenAccountLimitReached = useAppStore(
     (state) => state.settings.blockTurnsWhenAccountLimitReached,
   );
-  const currentClaudeModePresetId = detectClaudeProviderModePreset({
-    settings: {
-      claudePermissionMode,
-      claudeAllowDangerouslySkipPermissions,
-      claudeSandboxEnabled,
-      claudeAllowUnsandboxedCommands,
-    },
-  });
-  const currentCodexModePresetId = detectCodexProviderModePreset({
-    settings: {
-      codexFileAccess,
-      codexApprovalPolicy,
-      codexNetworkAccess,
-      codexWebSearch,
-    },
-  });
-  const currentClaudeModeLabel = currentClaudeModePresetId
-    ? (CLAUDE_PROVIDER_MODE_PRESETS.find(
-        (preset) => preset.id === currentClaudeModePresetId,
-      )?.label ?? t("common:labels.custom"))
-    : t("common:labels.custom");
-  const currentCodexModeLabel = currentCodexModePresetId
-    ? (CODEX_PROVIDER_MODE_PRESETS.find(
-        (preset) => preset.id === currentCodexModePresetId,
-      )?.label ?? t("common:labels.custom"))
-    : t("common:labels.custom");
   const codexWebSearchOptions = useMemo(
     () =>
       CODEX_WEB_SEARCH_HELP.filter(
@@ -554,6 +290,7 @@ export function ProvidersSection(props: {
 
   return (
     <>
+      <ScopeLocked>
       <SettingsCard
         id="settings-field-account-usage-limit"
         title={t("settingsProviders:providersSection.accountUsageLimit.title")}
@@ -627,6 +364,7 @@ export function ProvidersSection(props: {
             {t("settingsProviders:providersSection.trustedApprovals.empty")}</p>
         )}
       </SettingsCard>
+      </ScopeLocked>
       <Tabs defaultValue="claude-code" xstyle={providersStyles.tabs}>
         <SettingsProviderTabsList
           providerIds={PROVIDER_SETTINGS_TAB_IDS}
@@ -638,86 +376,10 @@ export function ProvidersSection(props: {
             <SettingsCard
               title={t("settingsProviders:providersSection.claudeRuntime.title")}
               description={t("settingsProviders:providersSection.claudeRuntime.description")}
-              titleAccessory={
-                <Badge
-                  variant={currentClaudeModePresetId ? "secondary" : "outline"}
-                >
-                  {currentClaudeModeLabel}
-                </Badge>
-              }
+              titleAccessory={<ClaudeModeBadge />}
             >
-              <LabeledField
-                title={t("settingsProviders:providersSection.modePresetTitle")}
-                description={t("settingsProviders:providersSection.claudeRuntime.modePreset.description")}
-              >
-                <ProviderModePresetButtons
-                  presets={CLAUDE_PROVIDER_MODE_PRESETS}
-                  activePresetId={currentClaudeModePresetId}
-                  onSelect={(presetId) =>
-                    updateSettings({
-                      patch: buildClaudeProviderModeSettingsPatch({ presetId }),
-                    })
-                  }
-                />
-                <p className={sx(providersStyles.presetHint)}>
-                  {currentClaudeModePresetId
-                    ? t("settingsProviders:settingsDialogProvidersSection.isActiveReapplyAPresetAny", { value1: currentClaudeModeLabel })
-                    : t("settingsProviders:providersSection.claudeRuntime.modePreset.custom")}
-                </p>
-              </LabeledField>
-              <LabeledField
-                title={t("settingsProviders:providersSection.claudeRuntime.permissionMode.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.permissionMode.description")}
-                guide={
-                  <SettingsFieldGuide
-                    title={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.title")}
-                    summary={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.summary")}
-                    items={buildGuideItems(CLAUDE_PERMISSION_MODE_HELP)}
-                    examples={buildGuideExamples(CLAUDE_PERMISSION_MODE_HELP)}
-                    tooltip={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.tooltip")}
-                  />
-                }
-              >
-                <DescribedSelect
-                  value={claudePermissionMode}
-                  options={CLAUDE_PERMISSION_MODE_HELP}
-                  onValueChange={(value) =>
-                    updateSettings({
-                      patch: {
-                        claudePermissionMode: value,
-                      },
-                    })
-                  }
-                />
-              </LabeledField>
-              <SwitchField
-                title={t("settingsProviders:providersSection.claudeRuntime.dangerousSkip.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.dangerousSkip.description")}
-                checked={claudeAllowDangerouslySkipPermissions}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: { claudeAllowDangerouslySkipPermissions: checked },
-                  })
-                }
-              />
-              <SwitchField
-                title={t("settingsProviders:providersSection.claudeRuntime.sandbox.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.sandbox.description")}
-                checked={claudeSandboxEnabled}
-                onCheckedChange={(checked) =>
-                  updateSettings({ patch: { claudeSandboxEnabled: checked } })
-                }
-              />
-              <SwitchField
-                title={t("settingsProviders:providersSection.claudeRuntime.unsandboxedCommands.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.unsandboxedCommands.description")}
-                checked={claudeAllowUnsandboxedCommands}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: { claudeAllowUnsandboxedCommands: checked },
-                  })
-                }
-              />
+              <ClaudePermissionPostureFields />
+              <ScopeLocked>
               <ClaudeGuardrailFields />
               {claudeRuntimeCapabilities.sandbox.credentialGuards ? (
                 <>
@@ -777,7 +439,9 @@ export function ProvidersSection(props: {
                   }
                 />
               </LabeledField>
+              </ScopeLocked>
               <ProviderDefaultsLink onNavigateSection={props.onNavigateSection} />
+              <ScopeLocked>
               <SwitchField
                 title={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.title")}
                 description={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.description")}
@@ -956,9 +620,12 @@ export function ProvidersSection(props: {
                   />
                 </LabeledField>
               </SettingsAdvancedDisclosure>
+              </ScopeLocked>
             </SettingsCard>
-            <ClaudeBinaryPathCard />
-            {developerModeEnabled ? <ClaudeRuntimeToolsCard /> : null}
+            <ScopeLocked>
+              <ClaudeBinaryPathCard />
+              {developerModeEnabled ? <ClaudeRuntimeToolsCard /> : null}
+            </ScopeLocked>
           </SectionStack>
         </TabsContent>
 
@@ -967,118 +634,11 @@ export function ProvidersSection(props: {
             <SettingsCard
               title={t("settingsProviders:providersSection.codexRuntime.title")}
               description={t("settingsProviders:providersSection.codexRuntime.description")}
-              titleAccessory={
-                <Badge
-                  variant={currentCodexModePresetId ? "secondary" : "outline"}
-                >
-                  {currentCodexModeLabel}
-                </Badge>
-              }
+              titleAccessory={<CodexModeBadge />}
             >
-              <LabeledField
-                title={t("settingsProviders:providersSection.modePresetTitle")}
-                description={t("settingsProviders:providersSection.codexRuntime.modePreset.description")}
-              >
-                <ProviderModePresetButtons
-                  presets={CODEX_PROVIDER_MODE_PRESETS}
-                  activePresetId={currentCodexModePresetId}
-                  onSelect={(presetId) =>
-                    updateSettings({
-                      patch: buildCodexProviderModeSettingsPatch({ presetId }),
-                    })
-                  }
-                />
-                <p className={sx(providersStyles.presetHint)}>
-                  {currentCodexModePresetId
-                    ? t("settingsProviders:settingsDialogProvidersSection.isActiveReapplyAPresetAnyVariantcdc4723b", { value1: currentCodexModeLabel })
-                    : t("settingsProviders:providersSection.codexRuntime.modePreset.custom")}
-                </p>
-              </LabeledField>
-              <SwitchField
-                title={t("settingsProviders:providersSection.codexRuntime.networkAccess.title")}
-                description={t("settingsProviders:providersSection.codexRuntime.networkAccess.description")}
-                checked={codexNetworkAccess}
-                onCheckedChange={(checked) =>
-                  updateSettings({ patch: { codexNetworkAccess: checked } })
-                }
-              />
-              <LabeledField
-                title={t("settingsProviders:providersSection.codexRuntime.fileAccess.title")}
-                guide={
-                  <SettingsFieldGuide
-                    title={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.title")}
-                    summary={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.summary")}
-                    items={buildGuideItems(CODEX_FILE_ACCESS_HELP)}
-                    examples={buildGuideExamples(CODEX_FILE_ACCESS_HELP)}
-                    tooltip={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.tooltip")}
-                  />
-                }
-              >
-                <DescribedSelect
-                  value={codexFileAccess}
-                  options={CODEX_FILE_ACCESS_HELP}
-                  onValueChange={(value) =>
-                    updateSettings({
-                      patch: {
-                        codexFileAccess: value,
-                      },
-                    })
-                  }
-                />
-              </LabeledField>
-              <LabeledField
-                title={t("settingsProviders:providersSection.codexRuntime.approvals.title")}
-                guide={
-                  <SettingsFieldGuide
-                    title={t("settingsProviders:providersSection.codexRuntime.approvals.guide.title")}
-                    summary={t("settingsProviders:providersSection.codexRuntime.approvals.guide.summary")}
-                    items={buildGuideItems(CODEX_APPROVAL_POLICY_HELP)}
-                    examples={buildGuideExamples(CODEX_APPROVAL_POLICY_HELP)}
-                    tooltip={t("settingsProviders:providersSection.codexRuntime.approvals.guide.tooltip")}
-                  />
-                }
-              >
-                <DescribedSelect
-                  value={codexApprovalPolicy}
-                  options={CODEX_APPROVAL_POLICY_HELP}
-                  onValueChange={(value) =>
-                    updateSettings({
-                      patch: {
-                        codexApprovalPolicy: value,
-                      },
-                    })
-                  }
-                />
-              </LabeledField>
-              {codexRuntimeCapabilities.approval.appToolModes.length > 0 ? (
-                <LabeledField
-                  title={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.title")}
-                  description={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.description")}
-                  guide={
-                    <SettingsFieldGuide
-                      title={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.title")}
-                      summary={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.summary")}
-                      items={buildGuideItems(CODEX_APP_TOOL_APPROVAL_HELP)}
-                      examples={buildGuideExamples(
-                        CODEX_APP_TOOL_APPROVAL_HELP,
-                      )}
-                      note={t("settingsProviders:messages.writesTrustNote")}
-                      tooltip={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.tooltip")}
-                    />
-                  }
-                >
-                  <DescribedSelect
-                    value={codexAppToolApprovalMode}
-                    options={CODEX_APP_TOOL_APPROVAL_HELP}
-                    onValueChange={(value) =>
-                      updateSettings({
-                        patch: { codexAppToolApprovalMode: value },
-                      })
-                    }
-                  />
-                </LabeledField>
-              ) : null}
+              <CodexPermissionPostureFields />
               <ProviderDefaultsLink onNavigateSection={props.onNavigateSection} />
+              <ScopeLocked>
               <LabeledField
                 title={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.title")}
                 description={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.description")}
@@ -1181,9 +741,12 @@ export function ProvidersSection(props: {
                   }
                 />
               </SettingsAdvancedDisclosure>
+              </ScopeLocked>
             </SettingsCard>
-            <CodexPluginsCard />
-            <CodexBinaryPathCard />
+            <ScopeLocked>
+              <CodexPluginsCard />
+              <CodexBinaryPathCard />
+            </ScopeLocked>
           </SectionStack>
         </TabsContent>
         <TabsContent value="cursor">

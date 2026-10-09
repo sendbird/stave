@@ -1415,5 +1415,42 @@
   "settingsDialogModelsSection": {
     "claudeModel": "Claude model: {{value1}}",
     "codexModel": "Codex model: {{value1}}"
+  },
+  "scope": {
+    "bar": {
+      "sentence": "Applying settings to <picker/>",
+      "allProjects": "All projects",
+      "triggerAriaLabel": "Settings scope: {{scope}}",
+      "globalHint": "Changes apply to every project unless a project sets its own default model, effort or permission mode.",
+      "projectHint": "Only default models, effort and permission modes can differ per project. Everything else applies to all projects."
+    },
+    "picker": {
+      "searchPlaceholder": "Search projects",
+      "empty": "No projects match.",
+      "allDescription": "Global values every project uses",
+      "currentGroup": "Current project",
+      "otherGroup": "Other projects"
+    },
+    "notice": {
+      "scoped": {
+        "title": "Editing defaults for {{project}}",
+        "description": "Default models, effort and permission modes set here apply only to new tasks and turns in this project. Other settings in this section apply to all projects. A model, effort or mode chosen in the composer still wins."
+      },
+      "globalOnly": {
+        "title": "These settings apply to all projects",
+        "description": "{{project}} uses the same values as every other project here. Switch to All projects to change them.",
+        "action": "Edit for all projects"
+      }
+    },
+    "field": {
+      "global": "Global value",
+      "project": "Project value",
+      "useGlobal": "Use global value",
+      "useGlobalFor": "Use the global value for {{field}}"
+    },
+    "search": {
+      "title": "Settings scope",
+      "description": "Apply default models, effort and permission modes to all projects or to one project."
+    }
   }
 }

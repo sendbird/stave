@@ -7,7 +7,6 @@ import {
   ModelSelector,
 } from "@/components/ai-elements/model-selector";
 import { SettingsModelVisibilitySection } from "@/components/layout/settings-dialog-model-visibility";
-import { useShallow } from "zustand/react/shallow";
 import { sx } from "@/components/ads/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {
@@ -20,6 +19,12 @@ import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { useAppStore } from "@/store/app.store";
 import type { SectionId } from "../settings-dialog.schema";
 import { SettingsSectionLink } from "../settings-dialog-section-link";
+import {
+  ScopedFieldStatus,
+  ScopeLocked,
+  useScopedSetting,
+  useScopedSettingsWriter,
+} from "../settings-scope";
 import {
   LabeledField,
   SectionStack,
@@ -34,27 +39,20 @@ import {
   ModelEffortRow,
 } from "./settings-dialog-model-default-fields";
 
+const CLAUDE_DEFAULT_KEYS = ["modelClaude", "claudeEffort"] as const;
+const CODEX_DEFAULT_KEYS = ["modelCodex", "codexReasoningEffort"] as const;
+
 export function ModelsSection(args: {
   onNavigateSection?: (id: SectionId) => void;
 } = {}) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [
-    modelClaude,
-    modelCodex,
-    claudeEffort,
-    codexBinaryPath,
-  ] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.settings.modelClaude,
-          state.settings.modelCodex,
-          state.settings.claudeEffort,
-          state.settings.codexBinaryPath,
-        ] as const,
-    ),
-  );
-  const updateSettings = useAppStore((state) => state.updateSettings);
+  // Settings scope: these rows edit the selected project's defaults when a
+  // project is selected, and the global defaults otherwise.
+  const modelClaude = useScopedSetting("modelClaude").value;
+  const modelCodex = useScopedSetting("modelCodex").value;
+  const claudeEffort = useScopedSetting("claudeEffort").value;
+  const codexBinaryPath = useAppStore((state) => state.settings.codexBinaryPath);
+  const { write: updateScopedSettings } = useScopedSettingsWriter();
   const codexModelCatalog = useCodexModelCatalog({
     enabled: true,
     codexBinaryPath,
@@ -96,12 +94,22 @@ export function ModelsSection(args: {
 
   return (
     <SectionStack>
-      <SettingsModelVisibilitySection />
+      <ScopeLocked>
+        <SettingsModelVisibilitySection />
+      </ScopeLocked>
       <SettingsCard
         title={t("settings:modelsSection.routing.title")}
         description={t("settings:modelsSection.routing.description")}
       >
-        <LabeledField title="Claude" guide={<ClaudeEffortGuide />}>
+        <LabeledField
+          title="Claude"
+          guide={
+            <>
+              <ClaudeEffortGuide />
+              <ScopedFieldStatus keys={CLAUDE_DEFAULT_KEYS} label="Claude" />
+            </>
+          }
+        >
           <ModelEffortRow
             model={
               <ModelSelector
@@ -128,15 +136,17 @@ export function ModelsSection(args: {
                       providerId: "claude-code",
                     }),
                   });
-                  updateSettings({
-                    patch: {
-                      modelClaude: nextModel,
-                      claudeEffort: resolveClaudeEffortForModelSwitch({
-                        previousModel: modelClaude,
-                        nextModel,
-                        currentEffort: claudeEffort,
-                      }),
-                    },
+                  const nextEffort = resolveClaudeEffortForModelSwitch({
+                    previousModel: modelClaude,
+                    nextModel,
+                    currentEffort: claudeEffort,
+                  });
+                  // A project override pins only what actually changed.
+                  updateScopedSettings({
+                    modelClaude: nextModel,
+                    ...(nextEffort === claudeEffort
+                      ? {}
+                      : { claudeEffort: nextEffort }),
                   });
                 }}
               />
@@ -146,7 +156,12 @@ export function ModelsSection(args: {
         </LabeledField>
         <LabeledField
           title="Codex"
-          guide={<CodexEffortGuide />}
+          guide={
+            <>
+              <CodexEffortGuide />
+              <ScopedFieldStatus keys={CODEX_DEFAULT_KEYS} label="Codex" />
+            </>
+          }
           description={
             codexModelCatalog.detail.trim().length > 0
               ? codexModelCatalog.detail
@@ -173,15 +188,13 @@ export function ModelsSection(args: {
                 triggerClassName={sx(styles.modelTrigger)}
                 menuClassName={sx(styles.modelMenu)}
                 onSelect={({ selection }) =>
-                  updateSettings({
-                    patch: {
-                      modelCodex: normalizeModelSelection({
-                        value: selection.model,
-                        fallback: getDefaultModelForProvider({
-                          providerId: "codex",
-                        }),
+                  updateScopedSettings({
+                    modelCodex: normalizeModelSelection({
+                      value: selection.model,
+                      fallback: getDefaultModelForProvider({
+                        providerId: "codex",
                       }),
-                    },
+                    }),
                   })
                 }
               />

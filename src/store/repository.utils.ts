@@ -8,6 +8,10 @@ import {
 } from "@/store/workspace-session-state";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { resolvePathBaseName } from "@/lib/path-utils";
+import {
+  normalizeProjectSettingsOverrides,
+  type ProjectSettingsOverrides,
+} from "@/store/project-settings-overrides";
 
 export { resolvePathBaseName } from "@/lib/path-utils";
 
@@ -66,6 +70,12 @@ export interface RecentRepositoryState {
   appearanceColor?: RepositoryAppearanceColorId;
   archivedWorkspacePaths?: string[];
   linkedWorkspacePaths?: string[];
+  /**
+   * Settings scope: this project's values for the allow-listed settings in
+   * `project-settings-overrides.ts`. Travels with the repository entry, so
+   * removing the repository removes its overrides.
+   */
+  settingsOverrides?: ProjectSettingsOverrides;
 }
 
 export function normalizeRepositoryAppearanceIcon(
@@ -201,8 +211,10 @@ function normalizeRecentRepositoryPreferences(args: {
   newWorkspaceUseRootNodeModulesSymlink?: boolean | null;
   appearanceIcon?: string | null;
   appearanceColor?: string | null;
+  settingsOverrides?: unknown;
 }) {
   return {
+    ...normalizeSettingsOverridesField(args.settingsOverrides),
     repositoryBasePrompt: normalizeRepositoryBasePrompt({
       value: args.repositoryBasePrompt,
     }),
@@ -237,7 +249,15 @@ export function resolveRecentRepositoryPreferences(args: {
     appearanceColor: normalizeRepositoryAppearanceColor(
       findRecentRepositoryByPath(args)?.appearanceColor,
     ),
+    ...normalizeSettingsOverridesField(
+      findRecentRepositoryByPath(args)?.settingsOverrides,
+    ),
   };
+}
+
+function normalizeSettingsOverridesField(value: unknown) {
+  const settingsOverrides = normalizeProjectSettingsOverrides(value);
+  return settingsOverrides ? { settingsOverrides } : {};
 }
 
 export function updateCurrentRepositoryAppearance(args: {
@@ -1020,6 +1040,7 @@ function normalizeRecentRepositoryStateEntry(
         repository.newWorkspaceUseRootNodeModulesSymlink,
       appearanceIcon: repository.appearanceIcon,
       appearanceColor: repository.appearanceColor,
+      settingsOverrides: repository.settingsOverrides,
     }),
   };
 }
@@ -1103,6 +1124,8 @@ export function cloneRecentRepositoryState(
   const {
     archivedWorkspacePaths: rawArchivedWorkspacePaths,
     linkedWorkspacePaths: rawLinkedWorkspacePaths,
+    // Re-added below only when it still holds a valid override.
+    settingsOverrides: _rawSettingsOverrides,
     ...repositoryRest
   } = repository;
   const archivedWorkspacePaths = normalizeArchivedWorkspacePaths({
@@ -1132,6 +1155,7 @@ export function cloneRecentRepositoryState(
         repository.newWorkspaceUseRootNodeModulesSymlink,
       appearanceIcon: repository.appearanceIcon,
       appearanceColor: repository.appearanceColor,
+      settingsOverrides: repository.settingsOverrides,
     }),
   };
 }

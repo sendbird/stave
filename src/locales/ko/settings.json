@@ -1397,5 +1397,42 @@
   "settingsDialogModelsSection": {
     "claudeModel": "Claude 모델: {{value1}}",
     "codexModel": "Codex 모델: {{value1}}"
+  },
+  "scope": {
+    "bar": {
+      "sentence": "<picker/>에 설정을 적용합니다",
+      "allProjects": "모든 프로젝트",
+      "triggerAriaLabel": "설정 적용 범위: {{scope}}",
+      "globalHint": "프로젝트가 기본 모델, 추론 강도, 권한 모드를 따로 정하지 않으면 모든 프로젝트에 적용됩니다.",
+      "projectHint": "프로젝트별로 다르게 둘 수 있는 설정은 기본 모델, 추론 강도, 권한 모드뿐입니다. 나머지 설정은 모든 프로젝트에 적용됩니다."
+    },
+    "picker": {
+      "searchPlaceholder": "프로젝트 검색",
+      "empty": "일치하는 프로젝트가 없습니다.",
+      "allDescription": "모든 프로젝트가 사용하는 전역 값",
+      "currentGroup": "현재 프로젝트",
+      "otherGroup": "다른 프로젝트"
+    },
+    "notice": {
+      "scoped": {
+        "title": "{{project}}의 기본값 편집 중",
+        "description": "여기서 정한 기본 모델, 추론 강도, 권한 모드는 이 프로젝트의 새 작업과 턴에만 적용됩니다. 이 섹션의 다른 설정은 모든 프로젝트에 적용됩니다. 작업 입력창에서 고른 모델, 추론 강도, 모드가 여전히 우선합니다."
+      },
+      "globalOnly": {
+        "title": "이 설정은 모든 프로젝트에 적용됩니다",
+        "description": "{{project}}도 다른 모든 프로젝트와 같은 값을 사용합니다. 바꾸려면 모든 프로젝트로 전환하세요.",
+        "action": "모든 프로젝트용으로 편집"
+      }
+    },
+    "field": {
+      "global": "전역 값",
+      "project": "프로젝트 값",
+      "useGlobal": "전역 값 사용",
+      "useGlobalFor": "{{field}}에 전역 값 사용"
+    },
+    "search": {
+      "title": "설정 적용 범위",
+      "description": "기본 모델, 추론 강도, 권한 모드를 모든 프로젝트나 한 프로젝트에 적용합니다."
+    }
   }
 }

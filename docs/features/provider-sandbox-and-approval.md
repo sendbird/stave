@@ -28,6 +28,30 @@ These controls are product-facing workflow settings. They are the fastest way to
 
 You can also confirm the effective state from the runtime chips near the composer.
 
+## Per-project defaults
+
+Settings normally apply to every project. A few defaults can differ for one
+project:
+
+- the default model and effort for Claude, Codex, Cursor and Kiro (`Models`);
+- the permission posture for each provider (`Providers`): Claude's permission
+  mode and sandbox switches, Codex's file access, network access and approvals,
+  and the Cursor and Kiro approval presets.
+
+Nothing else can be overridden per project.
+
+1. Open `Settings`.
+2. At the top, change `Applying settings to` from `All projects` to the project.
+   Search for "project" or "scope" in the settings search to jump there.
+3. Go to `Models` or `Providers`. Each control you can set for the project shows
+   `Global value` or `Project value`; `Use global value` removes the project's
+   value. Other controls, and every other section, apply to all projects and
+   stay read-only while a project is selected.
+
+New tasks and turns in that project start from its values. A model, effort or
+mode you pick in the composer for a task still wins over both. Removing the
+project from Stave removes its overrides.
+
 ## Second opinions
 
 A second opinion is a read-only subagent: ask the agent for one, and it calls

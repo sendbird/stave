@@ -1,6 +1,5 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useMemo, type ReactNode } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   Select,
@@ -15,7 +14,11 @@ import {
   KIRO_EFFORT_OPTIONS,
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
-import { useAppStore } from "@/store/app.store";
+import {
+  ScopedFieldStatus,
+  useScopedSetting,
+  useScopedSettingsWriter,
+} from "../settings-scope";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {
   DraftInput,
@@ -82,14 +85,14 @@ export function ClaudeEffortGuide() {
 
 export function ClaudeEffortSelect() {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const claudeEffort = useAppStore((state) => state.settings.claudeEffort);
-  const updateSettings = useAppStore((state) => state.updateSettings);
+  const claudeEffort = useScopedSetting("claudeEffort").value;
+  const { write } = useScopedSettingsWriter();
   return (
     <EffortSelect
       value={claudeEffort}
       options={CLAUDE_EFFORT_OPTIONS}
       ariaLabel={t("settings:modelsSection.routing.claudeEffort.title")}
-      onChange={(value) => updateSettings({ patch: { claudeEffort: value } })}
+      onChange={(value) => write({ claudeEffort: value })}
     />
   );
 }
@@ -101,12 +104,8 @@ export function ClaudeEffortSelect() {
  */
 function useCodexEffortOptions() {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [modelCodex, codexReasoningEffort] = useAppStore(
-    useShallow(
-      (state) =>
-        [state.settings.modelCodex, state.settings.codexReasoningEffort] as const,
-    ),
-  );
+  const modelCodex = useScopedSetting("modelCodex").value;
+  const codexReasoningEffort = useScopedSetting("codexReasoningEffort").value;
   const options = useMemo(() => {
     const supported = listCodexEffortOptionsForModel({ model: modelCodex });
     if (supported.some((option) => option.value === codexReasoningEffort)) {
@@ -149,13 +148,13 @@ export function CodexEffortGuide() {
 export function CodexEffortSelect() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const { value, options } = useCodexEffortOptions();
-  const updateSettings = useAppStore((state) => state.updateSettings);
+  const { write } = useScopedSettingsWriter();
   return (
     <EffortSelect
       value={value}
       options={options}
       ariaLabel={t("settings:modelsSection.routing.codexEffort.title")}
-      onChange={(next) => updateSettings({ patch: { codexReasoningEffort: next } })}
+      onChange={(next) => write({ codexReasoningEffort: next })}
     />
   );
 }
@@ -164,26 +163,23 @@ export function CodexEffortSelect() {
  * Cursor and Kiro (ACP runtimes) report their model catalog only once a
  * session connects, so their default model is a free-form identifier.
  */
+const CURSOR_DEFAULT_KEYS = ["modelCursor", "cursorEffort"] as const;
+const KIRO_DEFAULT_KEYS = ["modelKiro", "kiroEffort"] as const;
+
 export function AcpDefaultModelRows() {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [modelCursor, cursorEffort, modelKiro, kiroEffort] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.settings.modelCursor,
-          state.settings.cursorEffort,
-          state.settings.modelKiro,
-          state.settings.kiroEffort,
-        ] as const,
-    ),
-  );
-  const updateSettings = useAppStore((state) => state.updateSettings);
+  const modelCursor = useScopedSetting("modelCursor").value;
+  const cursorEffort = useScopedSetting("cursorEffort").value;
+  const modelKiro = useScopedSetting("modelKiro").value;
+  const kiroEffort = useScopedSetting("kiroEffort").value;
+  const { write } = useScopedSettingsWriter();
 
   return (
     <>
       <LabeledField
         title="Cursor"
         description={t("settingsProviders:cursorSection.defaultModel.description")}
+        guide={<ScopedFieldStatus keys={CURSOR_DEFAULT_KEYS} label="Cursor" />}
       >
         <ModelEffortRow
           model={
@@ -194,7 +190,7 @@ export function AcpDefaultModelRows() {
               // i18n-ignore: literal runtime model identifier
               placeholder="auto"
               onCommit={(value) =>
-                updateSettings({ patch: { modelCursor: value.trim() || "auto" } })
+                write({ modelCursor: value.trim() || "auto" })
               }
             />
           }
@@ -203,7 +199,7 @@ export function AcpDefaultModelRows() {
               value={cursorEffort}
               options={CURSOR_EFFORT_OPTIONS}
               ariaLabel={t("settingsProviders:cursorSection.defaultEffort.ariaLabel")}
-              onChange={(value) => updateSettings({ patch: { cursorEffort: value } })}
+              onChange={(value) => write({ cursorEffort: value })}
             />
           }
         />
@@ -211,6 +207,7 @@ export function AcpDefaultModelRows() {
       <LabeledField
         title="Kiro"
         description={t("settingsProviders:kiroSection.defaultModel.description")}
+        guide={<ScopedFieldStatus keys={KIRO_DEFAULT_KEYS} label="Kiro" />}
       >
         <ModelEffortRow
           model={
@@ -221,7 +218,7 @@ export function AcpDefaultModelRows() {
               // i18n-ignore: literal runtime model identifier
               placeholder="auto"
               onCommit={(value) =>
-                updateSettings({ patch: { modelKiro: value.trim() || "auto" } })
+                write({ modelKiro: value.trim() || "auto" })
               }
             />
           }
@@ -230,7 +227,7 @@ export function AcpDefaultModelRows() {
               value={kiroEffort}
               options={KIRO_EFFORT_OPTIONS}
               ariaLabel={t("settingsProviders:kiroSection.defaultEffort.ariaLabel")}
-              onChange={(value) => updateSettings({ patch: { kiroEffort: value } })}
+              onChange={(value) => write({ kiroEffort: value })}
             />
           }
         />

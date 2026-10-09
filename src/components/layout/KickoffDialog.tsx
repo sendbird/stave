@@ -42,6 +42,7 @@ import { recordKickoffTaskAgent } from "@/store/kickoff-agent-assignment";
 import { KickoffWhoPicker } from "./KickoffWhoPicker";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { getConfiguredModelForProvider } from "@/store/prompt-draft-runtime";
+import { selectEffectiveSettings } from "@/store/project-settings-overrides";
 import {
   Accordion,
   AccordionContent,
@@ -227,7 +228,8 @@ export function KickoffDialog(props: {
       state.defaultBranch,
       state.settings.kickoffSourceConfigs,
       state.draftProvider,
-      state.settings,
+      // Settings scope: the open project's model and permission defaults.
+      selectEffectiveSettings(state),
       state.providerAvailability,
       state.resolveKickoffProposal,
       state.cancelKickoffResolution,

@@ -112,9 +112,11 @@ import {
 } from "@/store/workspace-session-state";
 import {
   resolveRepositoryBasePrompt,
+  resolveRepositoryForWorkspaceId,
   resolveWorkspaceName,
   resolveTaskWorkspaceContext,
 } from "@/store/repository.utils";
+import { selectEffectiveSettings } from "@/store/project-settings-overrides";
 import {
   buildApprovalNotificationInputs,
   buildTaskTurnCompletedNotificationInput,
@@ -407,6 +409,12 @@ export function createSendUserMessageAction(args: {
         state,
         workspaceId: taskWorkspaceId,
       }) ?? runtimeTarget.session;
+    // Settings scope: model, effort and permission defaults come from the
+    // task's project when it overrides them; explicit draft choices still win.
+    const taskRepositoryPath =
+      resolveRepositoryForWorkspaceId({ state, workspaceId: taskWorkspaceId })
+        ?.repositoryPath ?? state.repositoryPath;
+    const turnSettings = selectEffectiveSettings(state, taskRepositoryPath);
     const runCommand = window.api?.terminal?.runCommand;
 
     if (!state.taskCheckpointById[resolvedTaskId] && runCommand) {
@@ -657,7 +665,7 @@ export function createSendUserMessageAction(args: {
       // "steer" (suggestion clicks, etc.).
       const queuedTurn = buildQueuedTurnFromDraft({
         draft: promptDraft,
-        settings: state.settings,
+        settings: turnSettings,
         sourceTurnId: activeTurnId,
         content: promptContent,
         ...(promptDraft.runtimeOverrides?.autoRouting === true
@@ -669,7 +677,7 @@ export function createSendUserMessageAction(args: {
               model: resolveTurnModelForSend({
                 providerId: provider,
                 runtimeOverrides: promptDraft.runtimeOverrides,
-                settings: state.settings,
+                settings: turnSettings,
               }),
             }),
       });
@@ -805,7 +813,7 @@ export function createSendUserMessageAction(args: {
           ? undefined
           : queuedTurnToSend?.model,
         runtimeOverrides: promptDraft.runtimeOverrides,
-        settings: state.settings,
+        settings: turnSettings,
       });
 
       const resolvedFileContexts = await getDraftFileContexts({
@@ -1059,7 +1067,7 @@ export function createSendUserMessageAction(args: {
       // ──────────────────────────────────────────────────────────────────────
 
       const modelRuntimeSettings = applyModelRuntimePreference({
-        settings: get().settings,
+        settings: selectEffectiveSettings(get(), taskRepositoryPath),
         providerId: provider,
         model: activeModel,
       });

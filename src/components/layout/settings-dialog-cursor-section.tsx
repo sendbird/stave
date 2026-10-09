@@ -18,6 +18,12 @@ import {
 import type { SectionId } from "./settings-dialog.schema";
 import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
 import { cursorSectionStyles } from "./settings-dialog-cursor-section.styles";
+import {
+  ScopedFieldStatus,
+  ScopeLocked,
+  useScopedSetting,
+  useScopedSettingsWriter,
+} from "./settings-scope";
 
 const CURSOR_MODE_OPTIONS = [
   {
@@ -36,20 +42,19 @@ export function SettingsCursorSection(args: {
   onNavigateSection?: (id: SectionId) => void;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [
-    cursorMode,
-    cursorApprovalMode,
-    cursorFastMode,
-    cursorBinaryPath,
-  ] = useAppStore(
+  const [cursorMode, cursorFastMode, cursorBinaryPath] = useAppStore(
     useShallow((state) => [
       state.settings.cursorMode,
-      state.settings.cursorApprovalMode,
       state.settings.cursorFastMode,
       state.settings.cursorBinaryPath,
     ]),
   );
+  // Settings scope: the approval preset is the one Cursor key a project may
+  // override; the rest of this tab stays global.
+  const cursorApprovalMode = useScopedSetting("cursorApprovalMode").value;
+  const { write } = useScopedSettingsWriter();
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const approvalTitle = t("settingsProviders:kiroSection.approvalPreset.title");
 
   return (
     <SectionStack>
@@ -58,6 +63,7 @@ export function SettingsCursorSection(args: {
         description={t("settingsProviders:cursorSection.runtime.description")}
         titleAccessory={<Badge variant="secondary">{/* i18n-ignore: provider protocol acronym */}ACP</Badge>}
       >
+        <ScopeLocked>
         <LabeledField
           title={t("settingsProviders:cursorSection.mode.title")}
           description={t("settingsProviders:cursorSection.mode.description")}
@@ -71,9 +77,11 @@ export function SettingsCursorSection(args: {
             }
           />
         </LabeledField>
+        </ScopeLocked>
         <LabeledField
-          title={t("settingsProviders:kiroSection.approvalPreset.title")}
+          title={approvalTitle}
           description={t("settingsProviders:cursorSection.approvalPreset.description")}
+          guide={<ScopedFieldStatus keys={["cursorApprovalMode"]} label={approvalTitle} />}
         >
           <ChoiceButtons
             columns={3}
@@ -84,15 +92,14 @@ export function SettingsCursorSection(args: {
               description: preset.description,
             }))}
             onChange={(presetId) =>
-              updateSettings({
-                patch: buildCursorProviderModeSettingsPatch({ presetId }),
-              })
+              write(buildCursorProviderModeSettingsPatch({ presetId }))
             }
           />
           <p className={sx(cursorSectionStyles.note)}>
             {t("settingsProviders:cursorSection.approvalPreset.note")}</p>
         </LabeledField>
         <ProviderDefaultsLink onNavigateSection={args.onNavigateSection} />
+        <ScopeLocked>
         <SwitchField
           title={t("settingsProviders:cursorSection.fastMode.title")}
           description={t("settingsProviders:cursorSection.fastMode.description")}
@@ -101,7 +108,9 @@ export function SettingsCursorSection(args: {
             updateSettings({ patch: { cursorFastMode: checked } })
           }
         />
+        </ScopeLocked>
       </SettingsCard>
+      <ScopeLocked>
       <SettingsCard
         title={t("settingsProviders:cursorSection.cli.title")}
         description={t("settingsProviders:cursorSection.cli.description")}
@@ -121,6 +130,7 @@ export function SettingsCursorSection(args: {
           />
         </LabeledField>
       </SettingsCard>
+      </ScopeLocked>
     </SectionStack>
   );
 }

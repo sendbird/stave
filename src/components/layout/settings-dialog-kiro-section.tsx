@@ -6,7 +6,6 @@ import {
 } from "@/lib/providers/provider-mode-presets";
 import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
-import { useShallow } from "zustand/react/shallow";
 import {
   ChoiceButtons,
   DraftInput,
@@ -17,18 +16,23 @@ import {
 import type { SectionId } from "./settings-dialog.schema";
 import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
 import { kiroSectionStyles } from "./settings-dialog-kiro-section.styles";
+import {
+  ScopedFieldStatus,
+  ScopeLocked,
+  useScopedSetting,
+  useScopedSettingsWriter,
+} from "./settings-scope";
 
 export function SettingsKiroSection(args: {
   onNavigateSection?: (id: SectionId) => void;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [kiroBinaryPath, kiroApprovalMode] = useAppStore(
-    useShallow((state) => [
-      state.settings.kiroBinaryPath,
-      state.settings.kiroApprovalMode,
-    ]),
-  );
+  const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
+  // Settings scope: the approval preset may differ per project.
+  const kiroApprovalMode = useScopedSetting("kiroApprovalMode").value;
+  const { write } = useScopedSettingsWriter();
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const approvalTitle = t("settingsProviders:kiroSection.approvalPreset.title");
 
   return (
     <SectionStack>
@@ -38,8 +42,9 @@ export function SettingsKiroSection(args: {
         titleAccessory={<Badge variant="secondary">{/* i18n-ignore: provider protocol acronym */}ACP</Badge>}
       >
         <LabeledField
-          title={t("settingsProviders:kiroSection.approvalPreset.title")}
+          title={approvalTitle}
           description={t("settingsProviders:kiroSection.approvalPreset.description")}
+          guide={<ScopedFieldStatus keys={["kiroApprovalMode"]} label={approvalTitle} />}
         >
           <ChoiceButtons
             columns={2}
@@ -50,9 +55,7 @@ export function SettingsKiroSection(args: {
               description: preset.description,
             }))}
             onChange={(presetId) =>
-              updateSettings({
-                patch: buildKiroProviderModeSettingsPatch({ presetId }),
-              })
+              write(buildKiroProviderModeSettingsPatch({ presetId }))
             }
           />
           <p className={sx(kiroSectionStyles.note)}>
@@ -60,6 +63,7 @@ export function SettingsKiroSection(args: {
         </LabeledField>
         <ProviderDefaultsLink onNavigateSection={args.onNavigateSection} />
       </SettingsCard>
+      <ScopeLocked>
       <SettingsCard
         title={t("settingsProviders:kiroSection.cli.title")}
         description={t("settingsProviders:kiroSection.cli.description")}
@@ -78,6 +82,7 @@ export function SettingsKiroSection(args: {
           />
         </LabeledField>
       </SettingsCard>
+      </ScopeLocked>
     </SectionStack>
   );
 }

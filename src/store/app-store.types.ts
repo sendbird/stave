@@ -45,6 +45,10 @@ import type { AppActiveSurface, AppSurfaceActions } from "@/store/app-surface";
 import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type { LayoutState } from "@/store/layout.utils";
 import type { RecentRepositoryState } from "@/store/repository.utils";
+import type {
+  ProjectOverridableSettingKey,
+  ProjectSettingsOverrides,
+} from "@/store/project-settings-overrides";
 import type { TaskScrollToLatestRequest } from "@/store/task-scroll.utils";
 import type { WorkspaceKickoffActions } from "@/store/workspace-kickoff-actions";
 import type {
@@ -374,6 +378,15 @@ export interface AppState
     icon: RepositoryAppearanceIconId;
     color: RepositoryAppearanceColorId;
   }) => void;
+  /**
+   * Settings scope: writes or clears a project's overrides. Keys outside the
+   * allow-list are refused (returned, never stored).
+   */
+  updateProjectSettingsOverrides: (args: {
+    repositoryPath: string;
+    patch?: ProjectSettingsOverrides;
+    clearKeys?: readonly ProjectOverridableSettingKey[];
+  }) => { refusedKeys: string[] };
   setDarkMode: (args: { enabled: boolean }) => void;
   installCustomTheme: (args: { theme: CustomThemeDefinition }) => {
     ok: boolean;
