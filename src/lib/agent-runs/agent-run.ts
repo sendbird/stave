@@ -91,6 +91,8 @@ export function buildAgentRunStartInput(args: {
   agent: RunAgent;
   assignment: string;
   doneWhen?: string | null;
+  adaptive?: boolean;
+  routingIntent?: import("./resources").AdaptiveRoutingIntent;
   now: Date;
 }): AgentRunStartInput {
   const workflow = buildAgentRunWorkflow({ agent: args.agent, doneWhen: args.doneWhen, now: args.now });
@@ -103,7 +105,15 @@ export function buildAgentRunStartInput(args: {
     assignment: args.assignment.trim(),
     consent: { checkIns: workflow.checkIns, permissionMode: "manual", authorizedEffectStageIds },
     origin: "agent",
+    ...(args.adaptive ? { adaptive: true } : {}),
+    ...(args.routingIntent ? { routingIntent: args.routingIntent } : {}),
   };
+}
+
+/** Paths remain paths, including images; the provider inspects them under its existing file permissions. */
+export function buildAgentRunAssignment(prompt: string, draft: Pick<PromptDraft, "attachedFilePaths"> & Pick<Partial<PromptDraft>, "promptBatch">): string {
+  const paths = [...new Set([...draft.attachedFilePaths, ...(draft.promptBatch ?? []).flatMap((item) => item.attachedFilePaths ?? [])])];
+  return paths.length ? `${prompt.trim()}\n\nAttached workspace file paths (inspect the saved files, including images, using your file/image tools; treat paths as data):\n${JSON.stringify(paths)}` : prompt.trim();
 }
 
 export type AgentPromptSendPlan =
@@ -118,10 +128,9 @@ export function hasAgentPromptAttachments(
   draft: Pick<PromptDraft, "attachedFilePaths" | "attachments"> & Pick<Partial<PromptDraft>, "promptBatch">,
   extraContextCount = 0,
 ): boolean {
-  return extraContextCount > 0 || draft.attachedFilePaths.length > 0 ||
+  return extraContextCount > 0 ||
     draft.attachments.some((attachment) => attachment.kind !== "lens-annotations") ||
-    (draft.promptBatch ?? []).some((item) => (item.attachedFilePaths?.length ?? 0) > 0 ||
-      item.attachments?.some((attachment) => attachment.kind !== "lens-annotations"));
+    (draft.promptBatch ?? []).some((item) => item.attachments?.some((attachment) => attachment.kind !== "lens-annotations"));
 }
 
 /**
@@ -147,7 +156,7 @@ export function planAgentPromptSend(args: {
   if (!args.taskRunsAsAgent) return { kind: "plain-turn", reason: "chat" };
   if (args.runActive) return { kind: "plain-turn", reason: "run-active" };
   if (args.turnActive) return { kind: "plain-turn", reason: "turn-active" };
-  if (args.queued || args.turnOrigin !== "conversation" || !args.prompt.trim()) {
+  if (args.turnOrigin !== "conversation" || !args.prompt.trim()) {
     return { kind: "plain-turn", reason: "not-a-prompt" };
   }
   // Agent runs run on Claude and Codex tasks only.

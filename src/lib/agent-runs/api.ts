@@ -17,6 +17,7 @@ import type {
 } from "./domain";
 import type { AgentRunReport } from "./report";
 import type { AgentRunUsage } from "./usage";
+import type { AgentRunRouteObservation } from "./route-observation";
 import type { AgentRunInsights } from "./insights";
 
 /** IPC channels behind `window.api.agentRuns`, keyed by bridge method. */
@@ -27,6 +28,7 @@ export const AGENT_RUN_IPC = Object.freeze({
   get: "agent-runs:get",
   signOff: "agent-runs:sign-off",
   requestChanges: "agent-runs:request-changes",
+  reply: "agent-runs:reply",
   skipStage: "agent-runs:skip-stage",
   retryStage: "agent-runs:retry-stage",
   pause: "agent-runs:pause",
@@ -66,6 +68,8 @@ export interface AgentRunListArgs {
 export interface AgentRunRequestChangesArgs extends AgentRunStageRef {
   feedback: string;
 }
+/** Bounded user guidance delivered by the existing delegated supervisor. */
+export type AgentRunReplyArgs = AgentRunRequestChangesArgs;
 
 /** The composer choice when the user sends a message during an agent run. */
 export const AGENT_RUN_USER_TURN_INTENTS = ["continue", "take-over"] as const;
@@ -87,6 +91,10 @@ export interface AgentRunDetail {
   report: AgentRunReport | null;
   /** What the agent run's turns spent so far, when the host reads usage. */
   usage?: AgentRunUsage;
+  /** Read-only route/outcome evidence. Older hosts omit this projection. */
+  routing?: AgentRunRouteObservation[];
+  /** Frozen policy and shared supervised-turn capacity, never a money guarantee. */
+  resources?: import("./resources").AgentResourceSnapshot;
 }
 
 /** Why an agent run command failed; `failed` is anything unexpected. */
@@ -149,6 +157,7 @@ export interface AgentRunsBridgeApi {
   get: (args: AgentRunIdArgs) => Promise<AgentRunCommandResponse>;
   signOff: (args: AgentRunStageRef) => Promise<AgentRunCommandResponse>;
   requestChanges: (args: AgentRunRequestChangesArgs) => Promise<AgentRunCommandResponse>;
+  reply: (args: AgentRunReplyArgs) => Promise<AgentRunCommandResponse>;
   skipStage: (args: AgentRunStageRef) => Promise<AgentRunCommandResponse>;
   retryStage: (args: AgentRunStageRef) => Promise<AgentRunCommandResponse>;
   pause: (args: AgentRunIdArgs) => Promise<AgentRunCommandResponse>;

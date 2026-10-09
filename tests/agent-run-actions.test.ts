@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import {
   classifyAgentRunTurnEnding,
+  observeAgentRunTurnEnding,
   createAgentRunActionExecutor,
   type AgentRunPullRequest,
   type AgentRunScmPort,
@@ -583,6 +584,15 @@ describe("how a repair turn ended", () => {
     expect(classifyAgentRunTurnEnding([text, done("runtime_failure")])).toBe("failed");
     expect(classifyAgentRunTurnEnding([text])).toBe("stopped");
     expect(classifyAgentRunTurnEnding([])).toBe("stopped");
+  });
+
+  test("observations require terminal evidence while the supervision fallback stays unchanged", () => {
+    expect(observeAgentRunTurnEnding([text])).toBeNull();
+    expect(observeAgentRunTurnEnding([])).toBeNull();
+    expect(observeAgentRunTurnEnding([text, done("user_abort")])).toBe("stopped");
+    expect(observeAgentRunTurnEnding([text, done("runtime_failure")])).toBe("failed");
+    expect(observeAgentRunTurnEnding([text, done("end_turn")])).toBe("completed");
+    expect(classifyAgentRunTurnEnding([text])).toBe("stopped");
   });
 });
 

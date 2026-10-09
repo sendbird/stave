@@ -65,7 +65,7 @@ const PERMISSION_RULE =
 function delegatedStageRule(stage: AiStage, agentName: string | undefined): string {
   const who = agentName ? `the "${agentName}" agent` : `agent \`${stage.agentConfigId}\``;
   return [
-    `Another agent does this stage: delegate it to ${who} with \`stave_delegate_task\`, passing \`agentConfigId: "${stage.agentConfigId}"\`, this task's repository, workspace and task ids, \`lifecycle: "one-turn"\`, and the stage instruction and done-when as the prompt.`,
+    `Another agent does this stage: delegate it to ${who} with \`stave_delegate_task\`, passing \`agentConfigId: "${stage.agentConfigId}"\`, this task's repository, workspace and task ids, \`lifecycle: "supervised"\`, and the stage instruction and done-when as the prompt.`,
     stage.pinCommit
       ? "Commit your work first, then pass `workspace: { mode: \"same-workspace\" }` and `expectedHead` set to the commit `git rev-parse HEAD` prints now. Stave refuses to start the delegated task if the workspace moves off that commit; do not change files until it ends."
       : "Pass the workspace the agent should work in.",

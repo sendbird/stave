@@ -72,7 +72,7 @@ export type DelegatedTaskAccess = DelegationAccess;
  * the run in `waiting` so the delegated task stays open for follow-up turns until
  * the parent stops it.
  */
-export const DelegatedTaskLifecycleSchema = z.enum(["one-turn", "detached"]);
+export const DelegatedTaskLifecycleSchema = z.enum(["one-turn", "detached", "supervised"]);
 export type DelegatedTaskLifecycle = z.infer<typeof DelegatedTaskLifecycleSchema>;
 
 export const DelegatedTaskWorkspaceStrategySchema = z.discriminatedUnion("mode", [
@@ -146,7 +146,9 @@ export const DelegateTaskArgsSchema = z
      * applied. Recorded on the resolved policy; it never restricts or grants.
      */
     requestedPermissionProfile: DelegatedTaskPermissionProfileSchema.optional(),
-    lifecycle: DelegatedTaskLifecycleSchema,
+    lifecycle: DelegatedTaskLifecycleSchema.optional(),
+    /** A smaller supervisor cap; applicable only to saved-Agent supervised work. */
+    maxTurns: z.number().int().min(1).max(30).optional(),
     workspace: DelegatedTaskWorkspaceStrategySchema,
     /**
      * Run the child as this saved agent: its instructions go ahead of the
@@ -172,13 +174,22 @@ export const DelegateTaskArgsSchema = z
      */
     retry: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  .transform((args) => ({ ...args, lifecycle: args.lifecycle ?? (args.agentConfigId ? "supervised" as const : "one-turn" as const) }))
+  .superRefine((args, context) => {
+    if (args.lifecycle === "supervised" && (!args.agentConfigId || args.prompt.length > 8_000))
+      context.addIssue({ code: "custom", message: i18n.t("workspace:delegatedTask.supervisionRequiresAgent") });
+    if (args.maxTurns !== undefined && args.lifecycle !== "supervised")
+      context.addIssue({ code: "custom", path: ["maxTurns"], message: i18n.t("workspace:delegatedTask.supervisionOnlyTurnLimit") });
+  });
 export type DelegateTaskArgs = z.infer<typeof DelegateTaskArgsSchema>;
+export type DelegateTaskInput = z.input<typeof DelegateTaskArgsSchema>;
 
 /**
  * What `stave_delegate_task` accepts from a model. Everything a delegation can
  * infer is optional and filled by the coordinator's `delegateFromTool`: the
- * provider and effort from the parent's turn, a one-turn child in the same
+ * provider and effort from the parent's turn, supervised saved-Agent work or
+ * a one-turn model-only child in the same
  * workspace, and a key derived from the request. The permission choice is
  * `access` alone, so a model cannot pick a posture that prompts on every tool.
  * The coordinator validates the result again as `DelegateTaskArgs`.
@@ -212,8 +223,9 @@ export const DelegateTaskToolInputSchema = z.object({
     "Optional reasoning-effort tier. Defaults to this task's effort when the child runs on the same provider, otherwise the automation default (`medium`). Clamped to what the child's provider and model accept (`ultra` is Codex-only; Claude steps it down to `max`).",
   ),
   lifecycle: DelegatedTaskLifecycleSchema.optional().describe(
-    "`one-turn` (default) finishes the delegation when the child's first turn ends. `detached` keeps the child open for follow-ups until it is stopped.",
+    "Omitted: saved-Agent assignments are supervised to accepted completion; model-only work is one-turn. Explicit `one-turn` ends after one turn; `detached` stays open for follow-ups. `supervised` requires agentConfigId, an assignment of at most 8000 characters, and permits at most 30 turns.",
   ),
+  maxTurns: z.number().int().min(1).max(30).optional().describe("Optional smaller turn cap for a supervised saved-Agent assignment."),
   workspace: z
     .union([
       z.object({ mode: z.literal("same-workspace") }),
@@ -378,6 +390,8 @@ export const DelegatedTaskSummarySchema = z
     providerId: z.enum(["claude-code", "codex"]),
     /** The saved agent the subagent runs as, when it runs as one. */
     agentConfigId: z.string().trim().min(1).max(80).optional(),
+    /** Exact supervisor identity; absent for historical/one-turn/detached rows. */
+    agentRunId: RunIdSchema.optional(),
     /** The model and effort the delegation asked for at admission time. */
     requestedModel: z.string().trim().min(1).max(200).optional(),
     requestedEffort: DelegatedTaskEffortSchema.optional(),
@@ -406,6 +420,12 @@ export function delegatedTaskResultText(
       return receipt.detail.responseText;
   }
   return null;
+}
+
+export function delegatedTaskWaitingReason(receipts: readonly RunReceiptRecord[], step: Pick<RunStepRecord, "executionId" | "status">): string | null {
+  if (step.status !== "waiting") return null;
+  return [...receipts].reverse().find((receipt) => receipt.type === "waiting" && receipt.executionId === step.executionId &&
+    receipt.detail?.code === "child-agent-run-waiting")?.detail?.message ?? null;
 }
 
 export const DelegatedTaskRejectionReasonSchema = z.enum([
@@ -548,6 +568,7 @@ export function toDelegatedTaskSummary(args: {
   step: RunStepRecord;
   acceptedReceipt?: Pick<RunReceiptRecord, "type" | "detail"> | null;
   resultText?: string | null;
+  waitingReason?: string | null;
 }): DelegatedTaskSummary | null {
   const run = RunRecordSchema.parse(args.run);
   const step = RunStepRecordSchema.parse(args.step);
@@ -595,9 +616,10 @@ export function toDelegatedTaskSummary(args: {
     delegatedTurnId: step.target.turnId,
     providerId: step.target.providerId,
     ...requested,
-    lifecycle: resolveDelegatedTaskLifecycle(run.policy),
+    lifecycle: acceptedDetail?.agentRunId ? "supervised" : resolveDelegatedTaskLifecycle(run.policy),
+    ...(acceptedDetail?.agentRunId ? { agentRunId: acceptedDetail.agentRunId } : {}),
     phase: step.status,
-    reason: step.error ?? run.error,
+    reason: step.error ?? run.error ?? args.waitingReason ?? null,
     attempt: step.attempt,
     createdAt: run.createdAt,
     updatedAt: step.updatedAt,
@@ -705,7 +727,7 @@ export function resolveDelegatedTaskControls(child: DelegatedTaskSummary) {
   return {
     canFollowUp: child.lifecycle === "detached" && child.phase === "waiting",
     canStop: active,
-    canDetach: active,
+    canDetach: active && child.lifecycle !== "supervised",
     canRetry:
       !active &&
       child.phase !== "completed" &&

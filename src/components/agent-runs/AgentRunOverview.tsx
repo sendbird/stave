@@ -1,3 +1,4 @@
+import { AdaptiveRunSummary } from "./AdaptiveRunSummary";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { formatTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
@@ -124,6 +125,7 @@ export function AgentRunOverview(props: {
       ) : null}
 
       <AgentRunSubagents rows={subagents} />
+      {detail.resources ? <AdaptiveRunSummary resources={detail.resources} /> : null}
 
       {rows ? (
         <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel3")}>

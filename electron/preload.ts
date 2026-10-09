@@ -233,7 +233,7 @@ import type {
 } from "../src/lib/runs/secondary-run";
 import type {
   DelegatedTaskActionResponse,
-  DelegateTaskArgs,
+  DelegateTaskInput,
   DelegatedTaskDetachArgs,
   DelegatedTaskFollowUpArgs,
   DelegatedTaskLinkArgs,
@@ -777,6 +777,7 @@ const agentRunsApi: AgentRunsBridgeApi = {
   get: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.get, args),
   signOff: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.signOff, args),
   requestChanges: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.requestChanges, args),
+  reply: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.reply, args),
   skipStage: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.skipStage, args),
   retryStage: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.retryStage, args),
   pause: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.pause, args),
@@ -1088,7 +1089,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("runs:list-receipts", args),
     syncDelegationPermissionSettings: (args: import("../src/lib/runs/delegation-policy").DelegationPermissionSettings): Promise<{ ok: boolean }> => ipcRenderer.invoke("delegations:sync-permission-settings", args),
     delegateTask: (
-      args: DelegateTaskArgs,
+      args: DelegateTaskInput,
     ): Promise<DelegatedTaskActionResponse> =>
       ipcRenderer.invoke("delegations:create", args),
     listDelegatedTasks: (args: DelegatedTaskListArgs): Promise<DelegatedTaskList> =>

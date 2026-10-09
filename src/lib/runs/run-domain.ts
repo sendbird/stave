@@ -192,6 +192,10 @@ export const RunReceiptDetailSchema = z
      */
     agentConfigId: z.string().max(80).optional(),
     agentContentHash: z.string().max(80).optional(),
+    /** Recorded before supervised dispatch; never inferred from numeric limits. */
+    agentRunId: RunIdSchema.optional(),
+    supervisorMaxTurns: z.number().int().min(1).max(30).optional(),
+    supervisorSequence: z.number().int().min(1).optional(),
     /** The commit a delegation was pinned to, re-checked by a retry. */
     expectedHead: z.string().max(64).optional(),
     reviewSourceRevision: WorkspaceRevisionSchema.optional(),
@@ -310,6 +314,9 @@ export function sanitizeRunReceiptDetail(
       : undefined;
   const agentConfigId = normalizeDiagnosticText(candidate.agentConfigId, 80);
   const agentContentHash = normalizeDiagnosticText(candidate.agentContentHash, 80);
+  const agentRunId = RunIdSchema.safeParse(candidate.agentRunId);
+  const supervisorMaxTurns = RunReceiptDetailSchema.shape.supervisorMaxTurns.safeParse(candidate.supervisorMaxTurns);
+  const supervisorSequence = RunReceiptDetailSchema.shape.supervisorSequence.safeParse(candidate.supervisorSequence);
   const expectedHead =
     typeof candidate.expectedHead === "string" && /^[0-9a-f]{7,64}$/i.test(candidate.expectedHead)
       ? candidate.expectedHead
@@ -330,6 +337,9 @@ export function sanitizeRunReceiptDetail(
     ...(effort ? { effort } : {}),
     ...(agentConfigId ? { agentConfigId } : {}),
     ...(agentContentHash ? { agentContentHash } : {}),
+    ...(agentRunId.success && agentRunId.data ? { agentRunId: agentRunId.data } : {}),
+    ...(supervisorMaxTurns.success && supervisorMaxTurns.data !== undefined ? { supervisorMaxTurns: supervisorMaxTurns.data } : {}),
+    ...(supervisorSequence.success && supervisorSequence.data !== undefined ? { supervisorSequence: supervisorSequence.data } : {}),
     ...(expectedHead ? { expectedHead } : {}),
     ...(responseText ? { responseText } : {}),
     ...(reviewSourceRevision.success ? { reviewSourceRevision: reviewSourceRevision.data } : {}),
@@ -668,6 +678,21 @@ export function markRunStepWaiting(args: {
       }),
     ],
   });
+}
+
+/** A supervised child resumed useful execution; this observes it without dispatch. */
+export function resumeRunStep(args: {
+  run: RunRecord; step: RunStepRecord; executionId: string; idempotencyKey: string; now: string; detail?: unknown; reenter?: boolean;
+}): RunStepTransition {
+  const run = RunRecordSchema.parse(args.run);
+  const step = RunStepRecordSchema.parse(args.step);
+  if (!args.reenter && step.status === "running" && step.executionId === args.executionId) return duplicateTransition({ run, step });
+  const rejection = validateActiveExecution({ run, step, executionId: args.executionId, allowedStatuses: args.reenter ? ["running", "waiting"] : ["waiting"] });
+  if (rejection) return rejection;
+  return acceptedTransition({ run: { ...run, status: "running", updatedAt: args.now },
+    step: { ...step, status: "running", updatedAt: args.now },
+    receipts: [buildReceipt({ runId: run.id, stepId: step.id, type: "started", executionId: args.executionId,
+      idempotencyKey: args.idempotencyKey, timestamp: args.now, detail: { ...(sanitizeRunReceiptDetail(args.detail) ?? {}), code: "child-agent-run-resumed" } })] });
 }
 
 export function completeRunStep(args: {

@@ -3,6 +3,8 @@ import type { RateLimitsSnapshotResponse } from "../../../src/lib/providers/prov
 
 export interface QuotaObservationMetadata {
   observedAt: string;
+  providerId?: "claude-code" | "codex" | "cursor" | "kiro";
+  accountProfileId?: string;
   claudeAccountProfileId: string;
   codexAccountProfileId: string;
   source?: "sdk" | "notification";
@@ -25,9 +27,11 @@ export function publishQuotaObservation(
   snapshot: RateLimitsSnapshotResponse,
   now = Date.now(),
   source?: QuotaObservationMetadata["source"],
+  providerId?: QuotaObservationMetadata["providerId"],
 ): QuotaObservationMetadata {
   const metadata: QuotaObservationMetadata = {
     observedAt: new Date(now).toISOString(),
+    ...(providerId ? { providerId, ...(providerId === "codex" || providerId === "claude-code" ? { accountProfileId: currentProviderAccountId(providerId) } : {}) } : {}),
     claudeAccountProfileId: currentProviderAccountId("claude-code"),
     codexAccountProfileId: currentProviderAccountId("codex"),
     ...(source ? { source } : {}),

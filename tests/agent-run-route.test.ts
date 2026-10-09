@@ -44,12 +44,18 @@ describe("agent run routing: precedence", () => {
       settings: settings(),
     });
     expect(route).toMatchObject({ providerId: "claude-code", model: "opus", route: "pinned", runtimeOptions: { claudeEffort: "max" } });
+    expect(route.selection).toMatchObject({
+      source: "pinned", requestedEffort: "max", effortSource: "draft",
+      previous: CURRENT, selected: { providerId: "claude-code", model: "opus" },
+      inputs: { quota: "not-provided", catalog: "not-provided", availability: "not-provided" },
+    });
   });
 
   test("the agent's fixed model wins over Stave Auto", async () => {
     const route = await routeAgentRunTurn({ ...BASE, agent: FIXED_AGENT, draft: { autoRouting: true }, settings: settings() });
     expect(route).toMatchObject({ providerId: "codex", model: "gpt-5.5", route: "agent-fixed" });
     expect(route.runtimeOptions.codexReasoningEffort).toBe("high");
+    expect(route.selection).toMatchObject({ source: "agent-fixed", requestedEffort: "high", effortSource: "agent" });
     // The same model in the draft is still the agent's own, not a pin.
     const drafted = await routeAgentRunTurn({
       ...BASE,
@@ -58,6 +64,7 @@ describe("agent run routing: precedence", () => {
       settings: settings(),
     });
     expect(drafted.route).toBe("agent-fixed");
+    expect(drafted.selection).toMatchObject({ requestedEffort: null, effortSource: "unspecified" });
   });
 
   test("a provider-only agent's own model is its provider's default; another model of that provider is a pin", async () => {
@@ -95,12 +102,30 @@ describe("agent run routing: precedence", () => {
     expect(route.rationale).toContain("routed as the agent's review work");
   });
 
+  test("characterizes allowed cross-provider Auto selection without changing the existing decision", async () => {
+    const profile = buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID);
+    profile.signals.providerSwitch = true;
+    profile.rules.unshift({ id: "cross-provider-review", enabled: true, when: { taskClass: "review" },
+      then: { providerId: "codex", model: getDefaultModelForProvider({ providerId: "codex" }), effort: "high" },
+      reason: "Use the configured review route." });
+    const configured = settings({ autoRoutingProfile: profile, autoRoutingAllowProviderSwitch: true });
+    const args = { ...BASE, agent: AUTO_AGENT, draft: { autoRouting: true }, settings: configured };
+    const route = await routeAgentRunTurn(args);
+    const baseline = await resolveAutoRoutingDecision({ settings: configured.routing, runtimeOverrides: args.draft,
+      currentProviderId: CURRENT.providerId, currentModel: CURRENT.model, prompt: args.prompt, history: [],
+      phase: "execute", taskClassHint: "review" });
+    expect(route.providerId).toBe("codex");
+    expect([route.providerId, route.model, route.runtimeOptions.codexReasoningEffort])
+      .toEqual([baseline.providerId, baseline.model, baseline.codexReasoningEffort]);
+    expect(route.selection).toMatchObject({ previous: CURRENT, selected: { providerId: "codex" } });
+  });
+
   test("Stave Auto asks the classifier on every routed turn", async () => {
     const requests: string[] = [];
     const classifierOn = settings({ autoRoutingProfile: { ...buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID) } });
     classifierOn.routing.autoRoutingProfile!.signals.classifier = true;
     for (const prompt of ["First turn.", "Second turn."]) {
-      await routeAgentRunTurn({
+      const route = await routeAgentRunTurn({
         ...BASE,
         prompt,
         agent: AUTO_AGENT,
@@ -111,8 +136,18 @@ describe("agent run routing: precedence", () => {
           return null;
         },
       });
+      expect(route.selection?.source).toBe("classifier_fallback");
     }
     expect(requests).toEqual(["First turn.", "Second turn."]);
+  });
+
+  test("invalid observation metadata cannot change or reject the selected route", async () => {
+    const route = await routeAgentRunTurn({
+      ...BASE, current: { ...CURRENT, model: "m".repeat(201) },
+      agent: FIXED_AGENT, draft: { model: "opus", modelProviderId: "claude-code" }, settings: settings(),
+    });
+    expect(route).toMatchObject({ providerId: "claude-code", model: "opus", route: "pinned", runtimeOptions: {} });
+    expect(route.selection).toBeNull();
   });
 
   test("nothing routes when Stave Auto is off, the settings never synced, or the task is not on Auto", async () => {
@@ -192,6 +227,7 @@ describe("agent run routing: host ports", () => {
     expect(await route({ agentRun, prompt: "x", agent: null })).toMatchObject({
       fingerprint: { providerId: "claude-code", model: "opus" },
       route: "pinned",
+      selection: { source: "pinned", requestedEffort: null },
     });
     const cursorTask = createAgentRunRouter({
       readTask: async () => ({ providerId: "cursor", model: "auto" }),

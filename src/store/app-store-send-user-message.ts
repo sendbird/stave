@@ -503,7 +503,7 @@ export function createSendUserMessageAction(args: {
     // Decided synchronously: a Chat send must not pass an await before its draft is cleared.
     const agentRunStart = prepareAgentRunForSend({ set, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
       providerId: provider, prompt: promptContent, promptDraft, extraContextCount: (fileContexts?.length ?? 0) + (imageContexts?.length ?? 0),
-      turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft });
+      turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft, queuedTurnId: queuedTurnToSend?.id });
     if (agentRunStart) return await agentRunStart();
     // A "stalled" turn is one whose provider stream has gone silent past the
     // stall threshold with no pending approval/user_input interaction — e.g. a

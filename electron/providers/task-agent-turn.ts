@@ -24,6 +24,7 @@ export function prepareTaskAgentTurn(args: {
   recordDelivery: (delivery: AgentInstructionDelivery) => void;
   /** The agents a main Agent may call as in-turn subagents. */
   library?: readonly AgentConfig[];
+  allowNativeSubagents?: boolean;
 }): TaskAgentTurn {
   const { turn, assignment } = args;
   const compiled = compileTaskAgentRole({
@@ -44,7 +45,7 @@ export function prepareTaskAgentTurn(args: {
     actor: { kind: "agent", access: compiled.permission === "read-only" ? "read-only" : "full" },
   }) : undefined;
   // Only a main Agent calls in-turn subagents; a subagent runs one level deep.
-  const nativeSubagents = compiled.role === "primary" && (turn.providerId === "claude-code" || turn.providerId === "codex")
+  const nativeSubagents = args.allowNativeSubagents !== false && compiled.role === "primary" && (turn.providerId === "claude-code" || turn.providerId === "codex")
     ? compileNativeSubagents({
         lead: assignment.agent, library: args.library ?? [], providerId: turn.providerId, standards: assignment.standards,
       })
@@ -55,7 +56,11 @@ export function prepareTaskAgentTurn(args: {
     // A delegated Agent runs in Agent mode too, so it keeps the guardrails.
     : { agentInstructions: compiled.promptPreamble,
         ...(turn.providerId === "claude-code" ? { claudeAgentTurn: true } : turn.providerId === "codex" ? { codexAgentTurn: true } : {}) }),
-    ...(nativeSubagents.length > 0 ? { nativeSubagents } : {}) };
+    // An explicit empty host-owned list disables provider-native spawning,
+    // not just saved definitions. Budgeted teams use the durable coordinator.
+    ...(args.allowNativeSubagents === false
+      ? { nativeSubagents: [] }
+      : nativeSubagents.length > 0 ? { nativeSubagents } : {}) };
   const promptPreamble = compiled.role === "primary" ? compiled.promptPreamble : undefined;
   const applied: AgentTurnProvenance["permission"]["applied"] = {};
   const providerKeys = {

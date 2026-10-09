@@ -1209,7 +1209,9 @@ export interface ProviderRuntimeOptions {
   /**
    * In-turn subagents the task's agent may call, compiled by the host from
    * the agent's `canCall` list (`native-subagents.ts`). Set only for a task
-   * that runs as an agent; the host drops any other value.
+   * that runs as an agent; the host drops any other value. An explicit empty
+   * host-owned list disables provider-native spawning for budgeted teams;
+   * omission preserves the ordinary provider behavior.
    */
   nativeSubagents?: import("@/lib/agents/native-subagents").NativeSubagentDefinition[];
   /**

@@ -76,6 +76,8 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_get_agent_run",
   "stave_report_stage",
   "stave_block_stage",
+  // Records a grant-scoped proposal without dispatch or permission changes.
+  "stave_request_agent_resources",
 ]);
 
 /**

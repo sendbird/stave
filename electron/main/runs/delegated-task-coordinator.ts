@@ -25,6 +25,7 @@ import {
   DELEGATED_TASK_STEP_KIND,
   DELEGATED_TASK_STOPPED_REASON,
   delegatedTaskResultText,
+  delegatedTaskWaitingReason,
   resolveDelegatedTaskWaitSeconds,
   describeDelegatedTaskRejection,
   isActiveDelegatedTaskPhase,
@@ -56,6 +57,12 @@ import type { RunLedgerTransitionResult } from "../../persistence/run-ledger-sto
 import { ReviewRevisionArgsSchema } from "../../../src/lib/reviews/review-revision";
 import type { WorkspaceRevision } from "../../../src/lib/agent-runs/verification-contract";
 import { captureReviewRevision, reviewRevisionState } from "./review-workspace-revisions";
+import type { AgentRunDetail } from "../../../src/lib/agent-runs/api";
+import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../../src/lib/agent-runs/delegated-run";
+import { readDelegatedAgentCompletion } from "../../../src/lib/agent-runs/delegated-completion";
+import { buildDelegatedTaskRuntimeOptions } from "../../../src/lib/runs/delegated-task-runtime";
+import { formatAgentRunReportMarkdown } from "../../../src/lib/agent-runs/report-markdown";
+import { currentStageRecord } from "../../../src/lib/agent-runs/domain";
 
 /**
  * The delegated-task half of the run ledger. It records delegation; it never
@@ -65,6 +72,7 @@ import { captureReviewRevision, reviewRevisionState } from "./review-workspace-r
  */
 
 export interface DelegatedTaskLedgerPort {
+  resumeRunStep?: (args: { runId: string; stepId: string; executionId: string; idempotencyKey: string; now: string; detail?: unknown; reenter?: boolean }) => RunLedgerTransitionResult;
   getRunAggregate(args: { runId: string; stepId: string }): {
     run: RunRecord;
     step: RunStepRecord;
@@ -150,6 +158,9 @@ export interface DelegatedTaskWorkspaceLocation {
 }
 
 export interface DelegatedTaskHostPort {
+  runAgentRun?: (args: DelegatedAgentRunStart & { onPrepared: () => Promise<boolean> }) => Promise<AgentRunDetail>;
+  readAgentRun?: (args: { agentRunId: string }) => Promise<DelegatedAgentRunRead | null>;
+  stopAgentRun?: (args: { agentRunId: string; workspaceId: string; taskId: string }) => Promise<unknown>;
   resolveWorkspace(args: {
     workspaceId: string;
   }): Promise<DelegatedTaskWorkspaceLocation | null>;
@@ -219,6 +230,7 @@ interface DelegatedTaskCoordinatorDependencies {
   getLedger: (() => DelegatedTaskLedgerPort) | (() => Promise<DelegatedTaskLedgerPort>);
   host: DelegatedTaskHostPort;
   concurrencyLimit: number;
+  readResourceRoot?: (parentTaskId: string) => string | null | Promise<string | null>;
   now?: () => string;
   createExecutionId?: () => string;
   onError?: (error: unknown, context: { scope: string; runId: string }) => void;
@@ -264,6 +276,7 @@ function hashDelegatedTaskInput(args: DelegateTaskArgs, agentContentHash?: strin
         // Only when narrowed, so hashes recorded before `access` existed still match.
         ...(args.access === "read-only" ? { access: args.access } : {}),
         lifecycle: args.lifecycle,
+        ...(args.lifecycle === "supervised" ? { maxTurns: args.maxTurns ?? 30 } : {}),
         workspace: args.workspace,
         ...(agentContentHash ? { agentContentHash } : {}),
       }),
@@ -398,6 +411,7 @@ function summaryFromAggregate(
       (receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt,
     ),
     resultText: delegatedTaskResultText(receipts, aggregate.step),
+    waitingReason: delegatedTaskWaitingReason(receipts, aggregate.step),
   });
 }
 
@@ -436,6 +450,8 @@ export function createDelegatedTaskCoordinator(
   const inFlightByStepId = new Map<string, Promise<void>>();
 
   const getLedger = async () => dependencies.getLedger();
+  // Read-only source watermarks suppress out-of-order observations without a receipt per event.
+  const supervisorSequences = new Map<string, number>();
 
   const reportError = (
     error: unknown,
@@ -474,7 +490,8 @@ export function createDelegatedTaskCoordinator(
       const target = aggregate.step.target;
       if (!target || aggregate.run.id === args.runId || target.workspaceId !== args.workspaceId) return false;
       // A parked detached subagent is not writing between its turns.
-      if (aggregate.step.status === "waiting" && !inFlightByStepId.has(aggregate.step.id)) return false;
+      if (aggregate.step.status === "waiting" && !inFlightByStepId.has(aggregate.step.id) &&
+          !acceptedReceiptForRun(ledger, aggregate.run.id, aggregate.step.attempt)?.detail?.agentRunId) return false;
       const policy = acceptedReceiptForRun(ledger, aggregate.run.id, aggregate.step.attempt)?.detail?.permissionPolicy;
       return !isReadOnlyDelegationPolicy(target.providerId, policy);
     }) ?? null;
@@ -547,6 +564,59 @@ export function createDelegatedTaskCoordinator(
     });
   };
 
+  const settleAgentRun = (args: {
+    ledger: DelegatedTaskLedgerPort; runId: string; stepId: string; executionId: string;
+    target: RunStepTarget; detail: AgentRunDetail | null;
+  }) => {
+    const current = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
+    if (!current || current.step.executionId !== args.executionId ||
+        current.step.target?.turnExecutionId !== args.target.turnExecutionId || !isActiveDelegatedTaskPhase(current.step.status)) return null;
+    const claim = acceptedReceiptForRun(args.ledger, args.runId, current.step.attempt);
+    const agentRunId = claim?.detail?.agentRunId;
+    if (!agentRunId) return null;
+    const completion = readDelegatedAgentCompletion({ expected: { agentRunId, taskId: args.target.taskId, workspaceId: args.target.workspaceId }, detail: args.detail });
+    const sequence = args.detail?.events.at(-1)?.sequence ?? 0;
+    const latest = [...args.ledger.listRunReceipts({ runId: args.runId })].reverse()
+      .find((receipt) => receipt.executionId === args.executionId && receipt.detail?.agentRunId === agentRunId && receipt.detail.supervisorSequence);
+    const knownSequence = Math.max(latest?.detail?.supervisorSequence ?? 0, supervisorSequences.get(args.executionId) ?? 0);
+    if (sequence && sequence < knownSequence) return null;
+    if (completion.kind !== "unknown" && sequence) {
+      supervisorSequences.delete(args.executionId);
+      supervisorSequences.set(args.executionId, sequence);
+      if (supervisorSequences.size > 500) supervisorSequences.delete(supervisorSequences.keys().next().value!);
+    }
+    if (completion.kind === "completed") {
+      const linked = args.detail!.events.filter((event) => event.kind === "turn-linked" && typeof event.detail.turnId === "string").at(-1);
+      const turnId = typeof linked?.detail.turnId === "string" ? linked.detail.turnId : null;
+      args.ledger.setRunStepTarget({ runId: args.runId, stepId: args.stepId, target: { ...args.target, turnId },
+        expectedExecutionId: args.executionId, expectedTurnExecutionId: args.target.turnExecutionId });
+      return args.ledger.completeRunStep({ runId: args.runId, stepId: args.stepId, executionId: args.executionId,
+        idempotencyKey: `child:${args.executionId}:completed`,
+        resultArtifactRef: buildDelegatedTaskArtifactRef({ workspaceId: args.target.workspaceId, taskId: args.target.taskId, turnId }),
+        detail: { code: "child-agent-run-completed", agentRunId, ...(sequence ? { supervisorSequence: sequence } : {}),
+          responseText: boundResponseText(formatAgentRunReportMarkdown(completion.report)) }, now: now() });
+    }
+    if (completion.kind === "cancelled")
+      return args.ledger.cancelRunStep({ runId: args.runId, stepId: args.stepId, expectedExecutionId: args.executionId,
+        idempotencyKey: `child:${args.executionId}:cancelled`, error: args.detail?.agentRun.reasonDetail ?? "The delegated Agent run was cancelled.", now: now() });
+    if (completion.kind === "stopped")
+      return args.ledger.failRunStep({ runId: args.runId, stepId: args.stepId, executionId: args.executionId,
+        idempotencyKey: `child:${args.executionId}:stopped`, error: args.detail?.agentRun.reasonDetail ?? "The delegated Agent reached its execution limit before completion.",
+        detail: { code: "child-agent-run-stopped", agentRunId }, now: now() });
+    if (completion.kind === "waiting") {
+      const message = args.detail?.agentRun.reasonDetail ?? (args.detail ? currentStageRecord(args.detail).detail : null) ?? `Delegated Agent ${completion.reason}; open its task to respond or resume.`;
+      if (current.step.status === "waiting" && (sequence <= (latest?.detail?.supervisorSequence ?? 0) || latest?.detail?.message === message)) return null;
+      return args.ledger.markRunStepWaiting({ runId: args.runId, stepId: args.stepId, executionId: args.executionId,
+        idempotencyKey: `child:${args.executionId}:waiting:${sequence}`,
+        detail: { code: "child-agent-run-waiting", agentRunId, ...(sequence ? { supervisorSequence: sequence } : {}),
+          message }, reenter: true, now: now() });
+    }
+    if (completion.kind === "running" && current.step.status === "waiting")
+      return args.ledger.resumeRunStep?.({ runId: args.runId, stepId: args.stepId, executionId: args.executionId,
+        idempotencyKey: `child:${args.executionId}:resumed:${sequence}`, detail: { agentRunId, ...(sequence ? { supervisorSequence: sequence } : {}) }, reenter: true, now: now() }) ?? null;
+    return null;
+  };
+
   /**
    * Run one turn of a delegation and record what it did. The first turn of a
    * delegation and a later follow-up turn differ only in which execution owns
@@ -568,9 +638,13 @@ export function createDelegatedTaskCoordinator(
       title?: string;
       model?: string;
       effort?: DelegateTaskArgs["effort"];
+      effortPinned?: boolean;
       permissionProfile?: DelegatedTaskPermissionProfile;
       permissionPolicy?: DelegationPermissionPolicy;
       lifecycle: DelegatedTaskLifecycle;
+      agentRunId?: string;
+      maxTurns?: number;
+      resourceRootRunId?: string;
     };
   }) => {
     args.target = { ...args.target, turnId: null };
@@ -583,12 +657,37 @@ export function createDelegatedTaskCoordinator(
     });
     const started = (async () => {
       try {
+        // The claim is durable before this host read. Root admission sees it,
+        // or this read sees a root created before the claim reached persistence.
+        if (dependencies.readResourceRoot && (await dependencies.readResourceRoot(args.parentTaskId)) !== (args.turn.resourceRootRunId ?? null))
+          throw new Error("The parent resource Run changed before helper execution.");
         if (args.agentAssignment) {
           if (!dependencies.recordAgentAssignment) throw new Error("Delegated Agent snapshots cannot be recorded.");
           await dependencies.recordAgentAssignment({
             ...args.agentAssignment, executionId: args.executionId, target: args.target,
             prompt: args.turn.prompt, model: args.turn.model,
           });
+        }
+        if (args.turn.lifecycle === "supervised") {
+          if (!args.turn.agentRunId || !args.agentAssignment || !args.turn.permissionPolicy || !dependencies.host.runAgentRun)
+            throw new Error("Supervised delegated Agent execution is unavailable.");
+          const detail = await dependencies.host.runAgentRun({
+            agentRunId: args.turn.agentRunId, workspaceId: args.target.workspaceId, taskId: args.target.taskId,
+            title: args.turn.title ?? args.agentAssignment.snapshot.agent.name, prompt: args.turn.prompt,
+            model: buildDelegatedTaskRuntimeOptions({ providerId: args.target.providerId, model: args.turn.model }).model!,
+            maxTurns: args.turn.maxTurns ?? 30,
+            authority: { parentTaskId: args.parentTaskId, executionId: args.executionId,
+              ...(args.turn.resourceRootRunId ? { resourceRootRunId: args.turn.resourceRootRunId } : {}),
+              agentConfigId: args.agentAssignment.snapshot.agentConfigId, agentContentHash: args.agentAssignment.snapshot.contentHash,
+              permissionPolicy: args.turn.permissionPolicy, modelPinned: Boolean(args.turn.model), effortPinned: args.turn.effortPinned === true, ...(args.turn.effort ? { effort: args.turn.effort } : {}) },
+            onPrepared: async () => {
+              const current = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
+              return Boolean(current && current.step.executionId === args.executionId &&
+                current.step.target?.turnExecutionId === args.target.turnExecutionId && isActiveDelegatedTaskPhase(current.step.status));
+            },
+          });
+          settleAgentRun({ ...args, detail });
+          return;
         }
         const result = await dependencies.host.runTask({
           workspaceId: args.target.workspaceId,
@@ -641,6 +740,10 @@ export function createDelegatedTaskCoordinator(
           reviewCompletedRevision,
         });
       } catch (error) {
+        if (args.turn.agentRunId) {
+          await dependencies.host.stopAgentRun?.({ agentRunId: args.turn.agentRunId, workspaceId: args.target.workspaceId, taskId: args.target.taskId })
+            .catch((stopError) => reportError(stopError, { scope: "stop-failed-supervisor", runId: args.runId }));
+        }
         const current = args.ledger.getRunAggregate({
           runId: args.runId,
           stepId: args.stepId,
@@ -704,11 +807,12 @@ export function createDelegatedTaskCoordinator(
    * closed. `deferred > 0` means the pass has to run again before the ledger
    * matches reality.
    */
-  const reconcile = async () => {
+  const reconcile = async (scope?: { taskId: string; agentRunId: string }) => {
     const ledger = await getLedger();
     const aggregates = ledger.listActiveRunAggregatesByStepKind({
       kind: DELEGATED_TASK_STEP_KIND,
-    });
+    }).filter(({ run, step }) => !scope || (step.target?.taskId === scope.taskId &&
+      acceptedReceiptForRun(ledger, run.id, step.attempt)?.detail?.agentRunId === scope.agentRunId));
     let reconciled = 0;
     let deferred = 0;
     for (const aggregate of aggregates) {
@@ -726,9 +830,36 @@ export function createDelegatedTaskCoordinator(
         reconciled += transition.accepted ? 1 : 0;
         continue;
       }
-      if (inFlightByStepId.has(aggregate.step.id)) {
+      if (inFlightByStepId.has(aggregate.step.id) && !summary.agentRunId) {
         // This process is still running the turn; its own settlement is
         // authoritative.
+        continue;
+      }
+      if (summary.agentRunId) {
+        const observation = await dependencies.host.readAgentRun?.({ agentRunId: summary.agentRunId }).catch(() => null) ?? null;
+        if (observation && "missing" in observation && !inFlightByStepId.has(aggregate.step.id)) {
+          const transition = ledger.interruptRunStep({ runId: aggregate.run.id, stepId: aggregate.step.id,
+            idempotencyKey: `child:${executionId}:missing-supervisor`, error: "Delegation preparation was interrupted before its supervisor was saved. Retry explicitly.", now: now() });
+          if (transition.accepted) reconciled += 1;
+          continue;
+        }
+        const detail = observation && !("missing" in observation) ? observation : null;
+        if (detail?.delegationActivated === false && inFlightByStepId.has(aggregate.step.id)) continue;
+        if (detail?.agentRun.id === summary.agentRunId && detail.agentRun.leadTaskId === target.taskId &&
+            detail.agentRun.workspaceId === target.workspaceId && !inFlightByStepId.has(aggregate.step.id) &&
+            detail.agentRun.state === "paused" && detail.agentRun.turnCount === 0 &&
+            detail.delegationActivated === false) {
+          // A crash before admission acknowledged preparation cannot authorize replay.
+          const interrupted = ledger.interruptRunStep({ runId: aggregate.run.id, stepId: aggregate.step.id,
+            idempotencyKey: `child:${executionId}:unactivated`, error: "Delegation preparation was interrupted before activation. Retry explicitly.", now: now() });
+          await dependencies.host.stopAgentRun?.({ agentRunId: summary.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId }).catch(() => undefined);
+          if (interrupted.accepted) reconciled += 1;
+          continue;
+        }
+        const transition = settleAgentRun({ ledger, runId: aggregate.run.id, stepId: aggregate.step.id,
+          executionId, target, detail });
+        if (transition?.accepted) reconciled += 1;
+        else deferred += 1;
         continue;
       }
       const status = await dependencies.host
@@ -971,7 +1102,7 @@ export function createDelegatedTaskCoordinator(
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskArgsSchema.safeParse(rawArgs);
     if (!parsed.success) {
-      return rejected("invalid-request");
+      return rejected("invalid-request", null, parsed.error.issues.map(issue => issue.message).join("; ").slice(0, 500));
     }
     let args = parsed.data;
     let agentContentHash: string | null = null;
@@ -986,9 +1117,12 @@ export function createDelegatedTaskCoordinator(
       if (applied.snapshot) agentAssignment = { snapshot: applied.snapshot, standards: applied.standards };
     }
     // An effort the agent fixed is explicit; the parent's only fills a gap.
+    const resourceRootRunId = await dependencies.readResourceRoot?.(args.parentTaskId);
+    if (resourceRootRunId && (args.lifecycle !== "supervised" || !args.agentConfigId))
+      return rejected("agent-refused", null, "This adaptive Run admits only saved-Agent supervised helpers. Native, one-turn and detached helpers cannot share its turn budget.");
     const effort = args.effort ?? defaults.inheritedEffort;
     return withParentDelegationLock(args.parentTaskId, () =>
-      admitDelegation(args, agentContentHash, agentAssignment, effort),
+      admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId),
     );
   };
 
@@ -1003,6 +1137,7 @@ export function createDelegatedTaskCoordinator(
     agentContentHash: string | null = null,
     agentAssignment?: { snapshot: AgentSnapshot; standards?: string },
     effort: DelegatedTaskEffort | undefined = args.effort,
+    expectedResourceRoot?: string | null,
   ): Promise<DelegatedTaskActionResponse> => {
     const runId = buildDelegatedTaskRunId({
       parentTaskId: args.parentTaskId,
@@ -1102,15 +1237,22 @@ export function createDelegatedTaskCoordinator(
       providerId: args.providerId,
     };
     const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId, providerId: args.providerId, permissionProfile: args.permissionProfile, ...(args.access ? { access: args.access } : {}), ...(args.requestedPermissionProfile ? { requestedProfile: args.requestedPermissionProfile } : {}), agentConfigId: args.agentConfigId, agentPermission: agentAssignment?.snapshot.agent.permission });
+    if (args.lifecycle === "supervised" && (!agentAssignment || !permissionPolicy || !dependencies.host.runAgentRun))
+      return rejected("agent-refused", existingSummary, "Supervised saved-Agent execution is unavailable. No one-turn fallback was started.");
     target = nextTurnTarget(target);
     const writer = sameWorkspaceWriter(ledger, { workspaceId: delegatedWorkspaceId, runId, policy: permissionPolicy, providerId: args.providerId });
     if (writer) return writerBusy(writer, existingSummary);
     const timestamp = now();
     const executionId = createExecutionId();
+    const agentRunId = args.lifecycle === "supervised" ? deriveDelegatedTaskId(`supervised:${executionId}`) : undefined;
     const attempt = existing ? existing.step.attempt : 0;
     const reviewSourceRevision = isReservedDelegationKey(args.delegationKey)
       ? await captureReviewRevision({ workspaceId: delegatedWorkspaceId, repositoryPath: args.repositoryPath,
         resolveWorkspace: dependencies.host.resolveWorkspace, readRevision: dependencies.readWorkspaceRevision }) : undefined;
+    const resourceRootRunId = expectedResourceRoot === undefined ? await dependencies.readResourceRoot?.(args.parentTaskId) : expectedResourceRoot;
+    if (dependencies.readResourceRoot && (await dependencies.readResourceRoot(args.parentTaskId)) !== resourceRootRunId)
+      return rejected("agent-refused", existingSummary, "The parent's adaptive Run changed during admission. Submit a new helper request.");
+    if (resourceRootRunId && args.lifecycle !== "supervised") return rejected("agent-refused", existingSummary, "Adaptive helpers must be supervised.");
     const transition = ledger.claimRunStep({
       run: createPendingRun({
         id: runId,
@@ -1154,6 +1296,8 @@ export function createDelegatedTaskCoordinator(
         workspaceMode: args.workspace.mode,
         ...(args.agentConfigId ? { agentConfigId: args.agentConfigId } : {}),
         ...(agentContentHash ? { agentContentHash } : {}),
+        ...(agentRunId ? { agentRunId, supervisorMaxTurns: args.maxTurns ?? 30 } : {}),
+        ...(resourceRootRunId ? { resourceRootRunId } : {}),
         ...(args.expectedHead ? { expectedHead: args.expectedHead } : {}),
         ...(reviewSourceRevision ? { reviewSourceRevision } : {}),
       },
@@ -1198,9 +1342,12 @@ export function createDelegatedTaskCoordinator(
         title: args.title,
         model: args.model,
         effort,
+        effortPinned: args.effort !== undefined,
         permissionProfile: args.permissionProfile,
         permissionPolicy,
         lifecycle: args.lifecycle,
+        ...(agentRunId ? { agentRunId, maxTurns: args.maxTurns ?? 30 } : {}),
+        ...(resourceRootRunId ? { resourceRootRunId } : {}),
       },
     });
     notifyChanged(args.parentTaskId);
@@ -1283,7 +1430,8 @@ export function createDelegatedTaskCoordinator(
         ...(legacyProfile === "guided" || legacyProfile === "manual"
           ? { requestedPermissionProfile: legacyProfile }
           : {}),
-        lifecycle: input.lifecycle ?? "one-turn",
+        lifecycle: input.lifecycle ?? (input.agentConfigId ? "supervised" : "one-turn"),
+        ...(input.maxTurns !== undefined ? { maxTurns: input.maxTurns } : {}),
         // A writer gets its own worktree; a read-only subagent, or work pinned
         // to the commit checked out here, runs in this workspace.
         workspace: input.workspace ?? (input.access === "read-only" || input.expectedHead
@@ -1407,6 +1555,7 @@ export function createDelegatedTaskCoordinator(
         // A pinned delegation stays pinned: a retry after the workspace moved is refused.
         ...(originalClaim?.detail?.expectedHead ? { expectedHead: originalClaim.detail.expectedHead } : {}),
         lifecycle: resolved.child.lifecycle,
+        ...(originalClaim?.detail?.supervisorMaxTurns ? { maxTurns: originalClaim.detail.supervisorMaxTurns } : {}),
         // Inert on a retry — the delegation keeps the workspace it already
         // owns (`delegatedWorkspaceId` is reused), so a new-worktree delegation
         // retries inside its original worktree and never cuts a second one.
@@ -1604,11 +1753,12 @@ export function createDelegatedTaskCoordinator(
         // Cancelling the ledger row is the durable half; asking the delegated task
         // to stop is best effort, because a child that already ended is a
         // successful stop.
-        await dependencies.host
-          .stopTask({
+        await (resolved.child.agentRunId && dependencies.host.stopAgentRun
+          ? dependencies.host.stopAgentRun({ agentRunId: resolved.child.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId })
+          : dependencies.host.stopTask({
             workspaceId: target.workspaceId,
             taskId: target.taskId,
-          })
+          }))
           .catch((error) => {
             reportError(error, { scope: "stop-child", runId });
           });

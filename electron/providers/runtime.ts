@@ -1,6 +1,7 @@
 import { providerAccountEventMapper } from "../provider-accounts/events";
 import { withProviderAccountScope, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
+import { delegatedReplyRuntimeOptions } from "../../src/lib/agent-runs/delegated-run";
 import {
   buildClaudeEnv,
   cleanupClaudeMcpOauthFlows,
@@ -731,7 +732,7 @@ export function getProviderDecisionRequestId(event: BridgeEvent) {
   return null;
 }
 
-let agentRunUserTurnResolver: ((args: { taskId: string; workspaceId?: string; turnId: string }) => { agentRunStage: NonNullable<StreamTurnArgs["agentRunStage"]>; context: import("../../src/lib/providers/provider.types").CanonicalRetrievedContextPart } | null) | null = null;
+let agentRunUserTurnResolver: ((args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: NonNullable<StreamTurnArgs["agentRunStage"]>; context: import("../../src/lib/providers/provider.types").CanonicalRetrievedContextPart; runtimeOptions?: StreamTurnArgs["runtimeOptions"]; runtimeOptionsMode?: "routing" | "delegation" } | null) | null = null;
 export function setAgentRunUserTurnResolver(resolver: typeof agentRunUserTurnResolver) {
   agentRunUserTurnResolver = resolver;
 }
@@ -793,8 +794,9 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
   try {
     if (rawArgs.taskId && rawArgs.turnId && rawArgs.conversation?.mode === "chat" && !rawArgs.unattendedAutomation && !rawArgs.executionPolicy && !rawArgs.agentRunStage &&
         (rawArgs.providerId === "claude-code" || rawArgs.providerId === "codex")) {
-      const stage = agentRunUserTurnResolver?.({ taskId: rawArgs.taskId, workspaceId: rawArgs.workspaceId, turnId: rawArgs.turnId });
+      const stage = agentRunUserTurnResolver?.({ taskId: rawArgs.taskId, workspaceId: rawArgs.workspaceId, turnId: rawArgs.turnId, providerId: rawArgs.providerId });
       if (stage) rawArgs = { ...rawArgs, agentRunStage: stage.agentRunStage,
+        ...(stage.runtimeOptions ? { runtimeOptions: stage.runtimeOptionsMode === "routing" ? { ...rawArgs.runtimeOptions, ...stage.runtimeOptions } : delegatedReplyRuntimeOptions(rawArgs.runtimeOptions, stage.runtimeOptions) } : {}),
         conversation: { ...rawArgs.conversation, contextParts: [...rawArgs.conversation.contextParts, stage.context] } };
     }
     const agentTurn = rawArgs.taskId && !rawArgs.executionPolicy

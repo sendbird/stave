@@ -33,6 +33,7 @@ describe("a stage another agent does", () => {
     const text = prompt(withReviewer(false));
     expect(text).toContain('delegate it to the "Reviewer" agent with `stave_delegate_task`');
     expect(text).toContain('agentConfigId: "reviewer"');
+    expect(text).toContain('lifecycle: "supervised"');
     expect(text).toContain("Do not do the stage's work yourself");
     expect(text).not.toContain("Do not start workers or delegated tasks");
     expect(text).not.toContain("expectedHead");

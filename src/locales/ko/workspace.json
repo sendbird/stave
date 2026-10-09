@@ -1067,6 +1067,8 @@
     "needsApproval": "승인 필요"
   },
   "delegatedTask": {
+    "supervisionRequiresAgent": "완료까지 실행하려면 저장된 Agent와 8,000자 이내의 작업 지시가 필요합니다. 지시를 줄이거나 단발 자문을 원하면 one-turn을 명시하세요.",
+    "supervisionOnlyTurnLimit": "maxTurns는 완료까지 실행하는 위임에만 적용됩니다.",
     "thisDelegationIsNoLongerOnThe": "이 위임이 실행 기록에서 사라졌습니다. 상위 작업을 새로 고칩니다.",
     "thisDelegationNowPointsAtADifferent": "이 위임이 다른 위임 작업을 가리킵니다. 상위 작업을 새로 고칩니다.",
     "theChildWasRetriedAfterThisControl": "이 제어 항목이 표시된 뒤 하위 작업을 다시 시도했습니다. 최근 시도를 확인합니다.",

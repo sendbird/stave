@@ -80,6 +80,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
                 checkIns: agentRun.consent.checkIns,
               },
               assignment: agentRun.assignment,
+              adaptive: Boolean(detail.resources),
               doneWhen,
               now: new Date(),
             }),

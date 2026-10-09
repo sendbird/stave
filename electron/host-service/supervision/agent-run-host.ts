@@ -4,6 +4,8 @@
  *
  * Used by: `electron/host-service.ts`.
  */
+import { AdaptiveRoutingIntentSchema } from "../../../src/lib/agent-runs/resources";
+import { freezeAdaptivePolicy } from "./adaptive-policy";
 import { hostAgents } from "./assign-host";
 import { createAgentRunRouter } from "./agent-run-route-host";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
@@ -22,6 +24,7 @@ import { loadUserPermissionOptions, runSupervisedTurn } from "../supervised-turn
 import { createLocalMcpReachabilityProbe } from "./local-mcp-reachability";
 import {
   classifyAgentRunTurnEnding,
+  observeAgentRunTurnEnding,
   createAgentRunActionExecutor,
   type AgentRunScriptRun,
 } from "./agent-run-actions";
@@ -86,6 +89,7 @@ export function createHostAgentRunRuntime(args: {
   emitChanged: (event: AgentRunChangedEvent) => void;
   /** The agent a task runs as, or null. An agent run routes by it and ends without it. */
   taskAgent?: (taskId: string) => AgentConfig | null;
+  delegatedAssignment?: import("./agent-run-runtime").AgentRunRuntimeDependencies["delegatedAssignment"];
 }) {
   const persistence = ensureHostServicePersistenceReady();
   const readTurnEnding = (turnId: string) => classifyAgentRunTurnEnding(persistence.getStreamEvents({ turnId }));
@@ -110,6 +114,33 @@ export function createHostAgentRunRuntime(args: {
   });
   return createAgentRunRuntime({
     store: persistence.agentRuns,
+    freezeResources: ({ run, authority, routingIntent }) => {
+      if (run.fingerprint.providerId !== "codex" && run.fingerprint.providerId !== "claude-code") throw new Error("Adaptive resources require a supported provider.");
+      return freezeAdaptivePolicy({
+      providerId: run.fingerprint.providerId, model: run.fingerprint.model,
+      agent: args.taskAgent?.(run.leadTaskId) ?? null,
+      draft: authority ? null : routingIntent ?? persistence.loadWorkspaceShell({ workspaceId: run.workspaceId })?.promptDraftByTask?.[run.leadTaskId]?.runtimeOverrides,
+      settings: persistence.delegationPolicies.loadRouteSettings(), maxTurns: 30,
+      delegated: Boolean(authority), effort: authority?.effort, modelPinned: authority?.modelPinned, effortPinned: authority?.effortPinned,
+    }); },
+    stopResourceTask: localMcpRuntime.stopManagedTaskTurn,
+    resourceExecutionLive: (childRunId, executionId) => {
+      const root = persistence.agentRuns.listActiveAgentRuns().find((run) => persistence.agentRuns.readResources(run.id)?.reservations.some((row) => row.childRunId === childRunId));
+      if (!root) return true;
+      const match = persistence.listRunAggregatesByOrigin({ originKind: "task", originId: root.leadTaskId, limit: 200 }).find(({ step }) => step.executionId === executionId);
+      if (!match) return true;
+      const claim = persistence.listRunReceipts({ runId: match.run.id }).find((row) => row.type === "accepted" && row.detail?.attempt === match.step.attempt);
+      if (claim?.detail?.agentRunId !== childRunId) return true;
+      return match.step.status === "running" || match.step.status === "waiting";
+    },
+    delegatedAssignment: args.delegatedAssignment,
+    delegatedExecutionCurrent: (agentRunId, taskId, authority) =>
+      persistence.listRunAggregatesByOwnedTask({ taskId, limit: 50 }).some(({ run, step }) => {
+        if (run.origin.id !== authority.parentTaskId || step.executionId !== authority.executionId ||
+            (step.status !== "running" && step.status !== "waiting") || step.target?.taskId !== taskId) return false;
+        const claim = persistence.listRunReceipts({ runId: run.id }).find((receipt) => receipt.type === "accepted" && receipt.detail?.attempt === step.attempt);
+        return claim?.detail?.agentRunId === agentRunId;
+      }),
     agentNames: () => Object.fromEntries(hostAgents().map((agent) => [agent.id, agent.name])),
     getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
     listRecentTurns: (turnArgs) => persistence.listTurns(turnArgs),
@@ -174,9 +205,11 @@ export function createHostAgentRunRuntime(args: {
       return turn ? { completed: Boolean(turn.completedAt), usage: turn.usage ?? null } : null;
     },
     routeAgentTurn: (turnArgs) =>
-      routeAgentRun({ ...turnArgs, agent: args.taskAgent?.(turnArgs.agentRun.leadTaskId) ?? null }),
+      routeAgentRun({ ...turnArgs, ...(turnArgs.agentRun.turnCount === 0 ? { draftOverride: AdaptiveRoutingIntentSchema.safeParse(
+        persistence.agentRuns.listEventsByKind(turnArgs.agentRun.id, ["agent-run-started"])[0]?.detail.routingIntent).data } : {}), agent: args.taskAgent?.(turnArgs.agentRun.leadTaskId) ?? null }),
     ...(args.taskAgent ? { taskRunsAsAgent: (taskId: string) => args.taskAgent!(taskId) !== null } : {}),
     readTurnEnding,
     emitChanged: args.emitChanged,
+    readObservedTurnEnding: (turnId) => observeAgentRunTurnEnding(persistence.getStreamEvents({ turnId })),
   });
 }

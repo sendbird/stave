@@ -373,3 +373,16 @@ describe("prompt-draft runtime state", () => {
     });
   });
 });
+
+test("the next Run's adaptive choice persists as a distinct composer override", () => {
+  expect(arePromptDraftRuntimeOverridesEqual(undefined, { agentRunAdaptive: true })).toBe(false);
+  expect(arePromptDraftRuntimeOverridesEqual({ agentRunAdaptive: true }, { agentRunAdaptive: false })).toBe(false);
+});
+
+test("queue-time adaptive intent survives workspace persistence", () => {
+  const parsed = parseWorkspaceSnapshot({ payload: { activeTaskId: "t", tasks: [{ id: "t", title: "Task", provider: "codex", updatedAt: "now", unread: false }],
+    messagesByTask: { t: [] }, promptDraftByTask: { t: { text: "", attachedFilePaths: [], attachments: [], queuedTurns: [
+      { id: "q", content: "Work", queuedAt: "now", attachedFilePaths: [], attachments: [], agentRunAdaptive: true },
+    ] } } } });
+  expect(parsed?.promptDraftByTask.t?.queuedTurns?.[0]?.agentRunAdaptive).toBe(true);
+});

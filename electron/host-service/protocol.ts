@@ -1,4 +1,6 @@
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
+import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../src/lib/agent-runs/delegated-run";
+import type { AgentRunDetail } from "../../src/lib/agent-runs/api";
 import type { AgentInvokeResult, HostAgentAction } from "../../src/lib/agents/api";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../../src/lib/performance/workspace-execution";
@@ -503,6 +505,7 @@ export type HostAgentRunAction =
   | "get"
   | "sign-off"
   | "request-changes"
+  | "reply"
   | "skip-stage"
   | "retry-stage"
   | "pause"
@@ -515,7 +518,9 @@ export type HostAgentRunAction =
   | "share-report"
   | "get-for-grant"
   | "report-stage"
-  | "block-stage";
+  | "block-stage"
+  | "request-resources"
+  | "resources-for-task";
 
 export type HostAutomationAction =
   | "list"
@@ -1027,6 +1032,10 @@ export interface HostServiceRequestMap {
     action: HostAgentRunAction;
     args: unknown;
   };
+  /** Internal coordinator authority; no renderer IPC/preload exposure. */
+  "delegated-agent.prepare": DelegatedAgentRunStart;
+  "delegated-agent.activate": { agentRunId: string; executionId: string };
+  "delegated-agent.read": { agentRunId: string };
   "agent.invoke": {
     action: HostAgentAction;
     args: unknown;
@@ -1223,6 +1232,9 @@ export interface HostServiceResponseMap {
   "automation.invoke": unknown;
   "wake-up.invoke": unknown;
   "agent-run.invoke": AgentRunInvokeResult<unknown>;
+  "delegated-agent.prepare": AgentRunDetail;
+  "delegated-agent.activate": AgentRunDetail;
+  "delegated-agent.read": DelegatedAgentRunRead;
   "agent.invoke": AgentInvokeResult<unknown>;
 }
 

@@ -37,6 +37,8 @@ export function loadUserPermissionOptions(
 export async function runSupervisedTurn(args: {
   workspaceId: string;
   taskId: string;
+  /** A supervised delegate retains managed control and its frozen parent link. */
+  parentTaskId?: string;
   prompt: string;
   /**
    * The runtime identity the supervisor validated against live task state on
@@ -57,8 +59,9 @@ export async function runSupervisedTurn(args: {
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     prompt: args.prompt,
-    controlMode: "interactive",
-    controlOwner: "stave",
+    controlMode: args.parentTaskId ? "managed" : "interactive",
+    controlOwner: args.parentTaskId ? "external" : "stave",
+    ...(args.parentTaskId ? { parentTaskId: args.parentTaskId } : {}),
     ...(args.fingerprint
       ? {
           provider: args.fingerprint.providerId,

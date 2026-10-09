@@ -273,6 +273,7 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
 ]);
 
 const PromptDraftRuntimeOverridesSchema = z.object({
+  agentRunAdaptive: z.boolean().optional(),
   claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
   codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
   model: z.string().optional(),
@@ -355,6 +356,7 @@ const PromptDraftQueuedNextTurnSchema = z
 
 const PromptDraftQueuedTurnSchema = z
   .object({
+    agentRunAdaptive: z.boolean().optional().catch(undefined),
     claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     id: z.string(),

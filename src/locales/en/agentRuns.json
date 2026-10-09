@@ -1,4 +1,9 @@
 {
+  "delegatedReply": {
+    "label": "Reply to the delegated Agent",
+    "hint": "Answer the blocked stage here. The Agent continues with its admitted permissions and turn limit, without taking over the task.",
+    "send": "Send reply and continue"
+  },
   "agentRunBar": {
     "tAKEOVERHINT": "Your replies guide this stage and the run carries on. Take over pauses the run so you can steer it yourself.",
     "ariaLabel": "Run: {{value1}}",
@@ -814,5 +819,17 @@
     "presentationCopy519": "Stage index {{v1}} is outside a workflow with {{v2}} stages.",
     "presentationCopy523": "Stage index {{v1}} is outside a workflow with {{v2}} stages.",
     "presentationCopy524": "Stage \"{{v1}}\" is a Stave action and has no prompt."
+  },
+  "adaptive": {
+    "enable": "Adaptive Balanced for the next Run",
+    "description": "30 shared turns · 2 concurrent / 4 total saved-Agent helpers · 1 parent turn reserved. Model and effort can change within the same provider; pins remain fixed.",
+    "title": "Adaptive resources",
+    "budget": "Shared turns: {{used}} / {{total}} admitted · {{reserved}} reserved · {{remaining}} available",
+    "helpers": "Helpers: {{active}} / 2 active · {{launched}} / 4 launched",
+    "boundary": "The budget includes parent and child turns and stage replies. Admission attempts count even when start fails. Reported billing is separate; missing cost stays unknown.",
+    "files": "This Run inspects the attached file paths from disk under its existing permissions. Save editor changes first. Inline images and rich context attachments continue as a single turn.",
+    "route": "Provider: {{provider}} · model: {{model}} · effort: {{effort}}. At most 2 changes, with 2 turns between changes.",
+    "pinned": "pinned",
+    "eligible": "eligible for adaptation"
   }
 }

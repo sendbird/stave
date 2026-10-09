@@ -1137,7 +1137,9 @@ export function buildClaudeQueryOptions(args: {
     args.runtimeOptions?.claudeTaskBudgetTokens,
   );
   const disallowedTools = resolveClaudeDisallowedTools({
-    runtimeDisallowedTools: args.runtimeOptions?.claudeDisallowedTools,
+    runtimeDisallowedTools: args.runtimeOptions?.nativeSubagents?.length === 0
+      ? [...(args.runtimeOptions.claudeDisallowedTools ?? []), "Agent", "Task"]
+      : args.runtimeOptions?.claudeDisallowedTools,
   });
   const pluginConfigs = resolveClaudePluginConfigs(
     args.runtimeOptions?.claudePluginPaths,

@@ -37,6 +37,26 @@ a schedule rather than be handed off once.
 
 ## Quick Start
 
+Assigning work to a saved Agent without naming a lifecycle starts its existing
+Run supervisor. The first response ending does not complete the assignment:
+the Run requires stage reports and its acceptance checks, and may continue
+within 30 turns (or a smaller `maxTurns`). An adaptive parent narrows this
+further to its shared remaining capacity while protecting its integration turn. Prompts are limited to the existing
+Run's 8,000-character assignment size. Missing reporting tools or unsupported
+supervision is reported as a failure; it never silently becomes a single turn.
+
+The delegated Agent keeps the frozen definition and host-resolved permissions
+on every continuation, including stage replies. Outside an adaptive team its
+admitted model/effort remain fixed. In an adaptive team permitted resources can
+change within the frozen parent/member pins, provider, account and catalog;
+permissions cannot widen. A
+workflow does not grant publication permission, and sign-off cannot widen a
+read-only delegation. Open the child's task to answer a block, sign off or use
+its Run controls. Parent Follow-up and Detach are reserved for other lifecycles;
+Stop cancels supervision and the active provider turn. A limit reached before
+acceptance leaves a failed assignment with its progress, not a completed result.
+The parent still owns integration and acceptance of the overall work.
+
 Ask the agent in the parent task to delegate, for example:
 
 > Get a read-only second opinion on this plan from Codex.
@@ -90,7 +110,7 @@ allows:
 | Open | Always. Navigates to the delegated task, across workspaces if needed. |
 | Follow-up | The delegation is `detached` and waiting. Sends one more turn. |
 | Stop | The child is still active. Ends the child's work. |
-| Detach | The child is still active. Releases the parent's claim and leaves the child running as an ordinary task. |
+| Detach | A one-turn or detached child is still active. Releases the parent's claim and leaves the child running as an ordinary task. Supervised Agent work retains its delegation authority. |
 | Retry | The delegation ended without succeeding and has attempts left. Starts a new attempt on the same child. |
 
 A follow-up and retry reuse the recorded child permission policy and requested
@@ -120,7 +140,8 @@ is optional:
 | --- | --- |
 | `access` | `inherit` (default) uses the effective same-provider parent policy, or the target provider's user settings when crossing providers. `read-only` is the [read-only posture](#read-only-consults). Bound secrets, sessions and browser authorization are never inherited. |
 | `provider` | `claude-code` or `codex`. Defaults to the parent task's provider; a parent on another provider must name one. |
-| `lifecycle` | `one-turn` (default) finishes the delegation when the child's first turn ends. `detached` keeps the child open until it is stopped. |
+| `lifecycle` | A saved Agent (`agentConfigId`) defaults to `supervised`: its existing Run continues to accepted completion within its turn limit. Model-only work defaults to `one-turn`. Explicit `one-turn` ends after the first turn; `detached` stays open for parent follow-ups until stopped. |
+| `maxTurns` | Optional smaller cap for supervised work, 1..30; default 30 per assignment outside adaptive teams; an adaptive parent narrows it to an exact shared reservation. Neither cap guarantees money spend. |
 | `workspace` | `new-worktree` (default for a writer) with a name and optional base branch, or `same-workspace` (default for a read-only subagent or work pinned with `expectedHead`). A writer in the same workspace is refused while another writing subagent is live there. |
 | `wait` | `true` waits up to 120 seconds for the answer and returns it as `child.result`; a number waits that many seconds (max 180); `false` returns at once. Defaults to `true` for read-only and `false` otherwise. The subagent keeps running when the wait ends. |
 | `delegationKey` | Idempotency key, unique within the parent task. The same key always names the same child. Omitted, it is derived from the parent task, provider, model and prompt, so sending the same call again returns the same child. |
@@ -173,6 +194,13 @@ Limits:
 
 
 ### Run As An Agent
+
+A saved Agent defaults to supervised completion. If it pauses for guidance,
+open the child task and use **Reply to the delegated Agent** in its Run area;
+the reply continues the same stage with the admitted permissions and turn
+limit. A paused Run must be resumed first. **Take Over** cancels delegated
+supervision and gives you direct task control. To supervise that work again,
+start a new delegation; a retry cannot reclaim the task silently.
 
 A delegation may name a saved agent (`agentConfigId`). The agent's
 instructions go ahead of the prompt and the agent's permission is a ceiling on

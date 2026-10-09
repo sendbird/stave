@@ -39,6 +39,7 @@ export interface AssignRuntimeDependencies {
   onTaskAgentEnded?: (taskId: string) => void;
   /** The active agent library, for a main Agent's in-turn subagents. */
   listAgents?: () => readonly AgentAssignment["agent"][];
+  allowNativeSubagents?: (taskId: string) => boolean;
   now?: () => Date;
   newId?: () => string;
 }
@@ -50,6 +51,7 @@ export interface AssignRuntime {
   list: (args?: { agentConfigId?: string; limit?: number }) => AgentAssignment[];
   /** The agent an assigned task runs as, for its later turns. */
   agentForTask: (taskId: string) => AgentAssignment["agent"] | null;
+  assignmentForTask: (taskId: string) => AgentAssignment | null;
   /**
    * Records that a task another starter made (a composer or delegated task) runs
    * as an agent, before its first turn. Idempotent by `requestId`.
@@ -108,13 +110,14 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
   };
 
   return {
+    assignmentForTask: currentRow,
     prepareTurn(turn) {
       if (!turn.taskId || turn.executionPolicy) return null;
       const row = currentRow(turn.taskId);
       if (!row) return null;
       // Capture once, independently of a later release or assignment switch.
       return prepareTaskAgentTurn({
-        turn, assignment: row, library: deps.listAgents?.() ?? [],
+        turn, assignment: row, allowNativeSubagents: deps.allowNativeSubagents?.(turn.taskId), library: deps.listAgents?.() ?? [],
         hasDelivery: (delivery) => (row.instructionDeliveries ?? []).some((entry) =>
           entry.providerId === delivery.providerId && entry.nativeSessionId === delivery.nativeSessionId &&
           entry.agentContentHash === delivery.agentContentHash),

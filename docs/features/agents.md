@@ -175,8 +175,11 @@ Watch checks → Ready for review) come with a workflow.
   makes that one stage ask, or not.
 - Each AI stage reports when it is done; the run card and the Task panel's
   **Progress** show the stages only when there is more than one.
-- When the agent helps another agent (a subagent or a delegated task), its AI
-  stages are written into its instructions as an ordered list.
+- A saved Agent's delegated task defaults to supervised completion: its frozen
+  workflow runs with stage reports and bounded continuation, retaining delegated
+  permissions and the selected model. Explicit one-turn consultations and
+  detached work retain their existing lifecycles. In-turn subagents receive AI
+  stages as instructions and remain scoped to the parent's turn.
 - Exported agent files leave the workflow out and say so.
 
 ### Deleting an agent
@@ -399,6 +402,34 @@ Fleet's search finds its tasks.
   When Auto routes the task, a confident classification decides the task
   class. The agent's task class fills in when the intent is unclear or
   classification is unavailable, and a safety escalation always wins.
+
+## Adaptive Run resources
+
+On an assigned Claude or Codex task, enable **Adaptive Balanced for the next
+Run** above the composer. This choice applies to the next Run only; existing
+Runs keep their policy. The host freezes the provider, account and eligible
+models at admission. Fixed Agent models and composer model/effort pins stay
+fixed. The Agent can propose a justified model or effort change for a later
+turn; at most two changes are accepted, separated by two supervised turns.
+
+Balanced shares 30 admitted turn attempts across the parent and saved-Agent
+helpers, including stage replies. It admits at most two helpers concurrently
+and four overall, preserving one parent integration turn while helpers are
+active. The Run area shows admitted, reserved and available turns and helper
+counts. Failed starts still count, and exhausting the budget leaves unfinished
+work visible. Reported billing is separate; unknown cost remains unknown.
+
+A helper keeps the parent's frozen provider/account/catalog and all applicable
+pins, with its own admitted permissions. Helpers use supervised saved Agents
+and cannot spawn further helpers. Ordinary native helpers remain available on
+non-adaptive primary turns. After helpers settle, the parent integrates their
+results and reports acceptance; an earlier parent report is insufficient.
+
+Saved file paths can accompany a supervised assignment, including image
+paths. Save editor changes first: the Run reads the on-disk files. Inline image
+payloads and rich context attachments still show the single-turn exception.
+An idle queued assignment starts supervision with its captured routing intent.
+No live cost or quality improvement is guaranteed by these containment limits.
 
 ## Limitations
 

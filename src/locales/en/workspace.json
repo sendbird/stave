@@ -1082,6 +1082,8 @@
     "needsApproval": "Needs approval"
   },
   "delegatedTask": {
+    "supervisionRequiresAgent": "Supervised work requires a saved Agent and an assignment of at most 8000 characters. Shorten the assignment or explicitly select one-turn for a single-turn consultation.",
+    "supervisionOnlyTurnLimit": "maxTurns applies only to supervised assignments.",
     "thisDelegationIsNoLongerOnThe": "This delegation is no longer on the run ledger. Refresh the parent task.",
     "thisDelegationNowPointsAtADifferent": "This delegation now points at a different delegated task. Refresh the parent task.",
     "theChildWasRetriedAfterThisControl": "The child was retried after this control was shown. Review the latest attempt.",

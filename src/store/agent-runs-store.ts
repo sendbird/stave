@@ -39,6 +39,7 @@ const NO_MESSAGES: ChatMessage[] = [];
 type CommandName =
   | "signOff"
   | "requestChanges"
+  | "reply"
   | "skipStage"
   | "retryStage"
   | "pause"

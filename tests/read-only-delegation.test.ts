@@ -15,6 +15,10 @@ import {
 } from "@/lib/runs/read-only-delegation";
 import { buildDelegatedTaskRuntimeOptions } from "@/lib/runs/delegated-task-runtime";
 import { AGENT_RUN_TOOL_NAMES } from "@/lib/agent-runs/briefing";
+import {
+  isAlwaysAllowedStaveLocalMcpTool,
+  isPromptFreeStaveLocalMcpTool,
+} from "../electron/providers/stave-local-mcp-approval";
 
 const claudeAuto = {
   claudePermissionMode: "auto" as const,
@@ -56,7 +60,7 @@ describe("read-only delegation access", () => {
     expect(allowed).toContain("mcp__stave-local-mcp__stave_get_workspace_information");
     // Stave's own records of the work stay open: notes, todos, plan files, stage reports.
     for (const tool of ["stave_append_workspace_notes", "stave_add_workspace_todo", "stave_write_plan_file",
-      "stave_report_stage", "stave_block_stage"])
+      "stave_report_stage", "stave_block_stage", "stave_request_agent_resources"])
       expect(allowed).toContain(`mcp__stave-local-mcp__${tool}`);
     const denied = policy.options.claudeDisallowedTools ?? [];
     for (const tool of ["Edit", "Write", "MultiEdit", "NotebookEdit", "AskUserQuestion",
@@ -187,6 +191,18 @@ describe("read-only delegation access", () => {
     for (const tool of [...allowed, ...denied]) expect(registered.has(tool)).toBe(true);
     const allowRules = new Set(CLAUDE_READ_ONLY_DELEGATION_ALLOWED_TOOLS);
     expect(CLAUDE_READ_ONLY_DELEGATION_DISALLOWED_TOOLS.filter((rule) => allowRules.has(rule))).toEqual([]);
+  });
+
+  test("resource proposals pass shared approval without admitting execution tools", () => {
+    for (const name of ["stave_request_agent_resources", "mcp__stave-local-mcp__stave_request_agent_resources",
+      "stave-local.stave_request_agent_resources"]) {
+      expect(isAlwaysAllowedStaveLocalMcpTool(name)).toBe(true);
+      expect(isPromptFreeStaveLocalMcpTool(name, "dontAsk")).toBe(true);
+    }
+    for (const name of ["stave_run_task", "stave_delegate_task", "stave_respond_user_input", "stave_unknown_tool"]) {
+      expect(isAlwaysAllowedStaveLocalMcpTool(name)).toBe(false);
+      expect(isPromptFreeStaveLocalMcpTool(name, "dontAsk")).toBe(false);
+    }
   });
 
   test("the parent's latest turn supplies the provider and effort defaults", () => {

@@ -1211,6 +1211,21 @@ describe("local MCP runtime runTask", () => {
     await expect(runtime.runTask({ workspaceId: WORKSPACE_ID, parentTaskId: "parent-control-race", taskId: first.taskId, prompt: "Attempt to reclaim after takeover" })).rejects.toThrow("cannot reclaim");
   });
 
+  test("takeover settles the delegated supervisor only after task release and keeps the start gate held", async () => {
+    const first = await runtime.runTask({ workspaceId: WORKSPACE_ID, parentTaskId: "parent-finalize", taskId: "child-finalize", prompt: "Wait for user takeover." });
+    startTurnStreamHandlers.at(-1)?.onEvent?.({ type: "done" }); await Bun.sleep(0);
+    let settled = false;
+    const result = await runtime.takeOverManagedTaskControl({ workspaceId: WORKSPACE_ID, taskId: first.taskId }, async () => {
+      expect(lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)?.tasks?.find(task => task.id === first.taskId)?.controlMode).toBe("interactive");
+      await expect(runtime.runTask({ workspaceId: WORKSPACE_ID, parentTaskId: "parent-finalize", taskId: first.taskId, prompt: "Late continuation" })).rejects.toThrow();
+      settled = true;
+    });
+    expect(result.released).toBe(true); expect(settled).toBe(true);
+    let cancelled = false;
+    await expect(runtime.takeOverManagedTaskControl({ workspaceId: "missing-workspace", taskId: "missing-task" }, async () => { cancelled = true; })).rejects.toThrow();
+    expect(cancelled).toBe(false);
+  });
+
   test("competing user and controller approval responses deliver exactly once", async () => {
     const first = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Wait for a decision" });
     const handler = startTurnStreamHandlers.at(-1);

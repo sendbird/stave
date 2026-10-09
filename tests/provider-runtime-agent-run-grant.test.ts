@@ -45,7 +45,7 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   getProviderConnectedToolStatus: async () => ({ ok: true, detail: "", tools: [] }),
 }));
 
-const { providerRuntime, setAgentRunUserTurnResolver } = await import("../electron/providers/runtime");
+const { providerRuntime, setAgentRunUserTurnResolver, setTaskAgentTurnResolver } = await import("../electron/providers/runtime");
 const { resolveAgentRunGrant, clearAgentRunGrantsForTest } = await import(
   "../electron/providers/agent-run-grants"
 );
@@ -59,6 +59,7 @@ async function runTurn(args: {
   agentRunStage?: StreamTurnArgs["agentRunStage"];
   conversation?: StreamTurnArgs["conversation"];
   executionPolicy?: StreamTurnArgs["executionPolicy"];
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
   let resolveDone = () => {};
   const done = new Promise<void>((resolve) => {
@@ -74,6 +75,7 @@ async function runTurn(args: {
       ...(args.conversation ? { conversation: args.conversation } : {}),
       ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
       ...(args.executionPolicy ? { executionPolicy: args.executionPolicy } : {}),
+      ...(args.runtimeOptions ? { runtimeOptions: args.runtimeOptions } : {}),
     },
     { bufferEvents: true, onDone: resolveDone },
   );
@@ -83,6 +85,7 @@ async function runTurn(args: {
 
 afterEach(() => {
   setAgentRunUserTurnResolver(null);
+  setTaskAgentTurnResolver(null);
   primaryTurns = [];
   grantsDuringTurn = [];
   clearAgentRunGrantsForTest();
@@ -91,6 +94,17 @@ afterEach(() => {
 });
 
 describe("provider runtime run grants", () => {
+  test("a delegated stage reply preserves account and CLI transport while replacing caller authority and secrets", async () => {
+    setAgentRunUserTurnResolver(() => ({ agentRunStage: STAGE,
+      context: { type: "retrieved_context", sourceId: "stage", title: "Reply", content: "Continue the stage." },
+      runtimeOptions: { model: "gpt-6-sol", codexFileAccess: "read-only", codexApprovalPolicy: "never", codexReasoningEffort: "high" } }));
+    const turn = await runTurn({ providerId: "codex", turnId: "reply-transport", conversation: { mode: "chat", history: [], contextParts: [] },
+      runtimeOptions: { codexBinaryPath: "/tmp/custom-codex", codexAccountProfileId: "work", providerTimeoutMs: 10000,
+        model: "gpt-6-astra", codexFileAccess: "danger-full-access", trustedTools: ["all"], boundSecretIds: ["secret-id"] } });
+    expect(turn.runtimeOptions).toMatchObject({ codexBinaryPath: "/tmp/custom-codex", codexAccountProfileId: "work", providerTimeoutMs: 10000,
+      model: "gpt-6-sol", codexFileAccess: "read-only", codexReasoningEffort: "high" });
+    expect(turn.runtimeOptions?.boundSecretIds).toBeUndefined(); expect(turn.runtimeOptions?.trustedTools).toBeUndefined();
+  });
   for (const providerId of ["claude-code", "codex"] as const) {
     test(`${providerId} mints a grant for the stage attempt and revokes it when the turn ends`, async () => {
       const turn = await runTurn({ providerId, turnId: `${providerId}-turn`, agentRunStage: STAGE });
@@ -161,4 +175,23 @@ test("primary chat replies inherit host-owned stage grants but reviews and secon
   expect(grantsDuringTurn.at(-1)).toBeNull();
   await runTurn({ providerId: "codex", turnId: "secondary", conversation, executionPolicy: "secondary-read-only" });
   expect(grantsDuringTurn.at(-1)).toBeNull();
+});
+
+test("adaptive primary replies override only route fields and retain caller read-only authority", async () => {
+  const { Database } = await import("bun:sqlite");
+  const { AgentAssignmentStore } = await import("../electron/persistence/agent-assignment-store");
+  const { createAssignRuntime } = await import("../electron/host-service/supervision/assign-runtime");
+  const { getBuiltinAgent } = await import("../src/lib/agents/starters");
+  const assign = createAssignRuntime({ store: new AgentAssignmentStore(new Database(":memory:")) });
+  assign.recordTaskAgent({ requestId: "primary", taskId: "task-1", workspaceId: "ws", repositoryPath: TEST_WORKSPACE_CWD,
+    agent: getBuiltinAgent("implementer")!, providerId: "codex", model: "gpt-6-sol", assignment: "Review" });
+  setTaskAgentTurnResolver(args => assign.prepareTurn(args));
+  setAgentRunUserTurnResolver(() => ({ agentRunStage: STAGE, runtimeOptionsMode: "routing",
+    context: { type: "retrieved_context", sourceId: "stage", title: "Reply", content: "Continue" },
+    runtimeOptions: { model: "gpt-6-sol", codexAccountProfileId: "frozen-account", codexReasoningEffort: "high" } }));
+  const turn = await runTurn({ providerId: "codex", turnId: "root-reply", conversation: { mode: "chat", history: [], contextParts: [] },
+    runtimeOptions: { model: "gpt-6-astra", codexAccountProfileId: "new-account", codexFileAccess: "read-only",
+      codexApprovalPolicy: "never", codexNetworkAccess: false, codexReasoningSummary: "detailed" } });
+  expect(turn.runtimeOptions).toMatchObject({ model: "gpt-6-sol", codexReasoningEffort: "high", codexAccountProfileId: "frozen-account",
+    codexFileAccess: "read-only", codexApprovalPolicy: "never", codexNetworkAccess: false, codexReasoningSummary: "detailed" });
 });

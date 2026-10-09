@@ -1,3 +1,5 @@
+import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
+import { rememberAdaptiveCatalog } from "./adaptive-observations";
 import type {
   ProviderId,
   ProviderModelCatalogResponse,
@@ -10,7 +12,7 @@ import { getKiroModelCatalog } from "./kiro/kiro-model-catalog";
 import { isOptionalProvider } from "../../src/lib/providers/provider-readiness";
 import { optionalProviderReadKey } from "./optional-provider-tooling";
 
-export async function getProviderModelCatalog(args: {
+async function readProviderModelCatalog(args: {
   providerId: ProviderId;
   cwd?: string;
   runtimeOptions?: ProviderRuntimeOptions;
@@ -60,4 +62,13 @@ export async function getProviderModelCatalog(args: {
     detail: "This provider uses the built-in model catalog.",
     models: [],
   };
+}
+
+export async function getProviderModelCatalog(args: Parameters<typeof readProviderModelCatalog>[0]) {
+  const catalog = await readProviderModelCatalog(args);
+  if (args.providerId === "codex" || args.providerId === "claude-code") {
+    const account = (args.providerId === "codex" ? args.runtimeOptions?.codexAccountProfileId : args.runtimeOptions?.claudeAccountProfileId) ?? currentProviderAccountId(args.providerId);
+    rememberAdaptiveCatalog(account, catalog);
+  }
+  return catalog;
 }

@@ -1725,6 +1725,9 @@ export class SqliteStore {
   markRunStepWaiting(args: Parameters<RunLedgerStore["markStepWaiting"]>[0]) {
     return this.runLedger.markStepWaiting(args);
   }
+  resumeRunStep(args: Parameters<RunLedgerStore["resumeStep"]>[0]) {
+    return this.runLedger.resumeStep(args);
+  }
 
   completeRunStep(args: Parameters<RunLedgerStore["completeStep"]>[0]) {
     return this.runLedger.completeStep(args);

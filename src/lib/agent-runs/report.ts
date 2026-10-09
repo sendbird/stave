@@ -6,6 +6,7 @@ import { i18n } from "@/i18n/runtime";
  */
 import type { AcceptanceCriterion } from "@/lib/workflows/stage-prompt";
 import type { AgentRunUsage } from "./usage";
+import type { AgentRunRouteObservation } from "./route-observation";
 import { collectAcceptanceCriteria } from "./briefing";
 import {
   latestStageRecord,
@@ -79,6 +80,8 @@ export interface AgentRunReport {
   metrics?: AgentRunMetrics;
   /** What the agent run's turns spent, when the host reads usage. */
   usage?: AgentRunUsage;
+  /** Host-observed route facts, separate from the Agent's reported decisions. */
+  routing?: AgentRunRouteObservation[];
 }
 
 const WAIT_START_KINDS = new Set(["stage-completed", "stage-skipped", "resumed", "agent-run-started"]);

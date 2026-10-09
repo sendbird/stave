@@ -147,6 +147,9 @@ export async function resolveCodexNativeBrowserPluginEnabled(args: {
 export function buildCodexSubagentConfigOverrides(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }): Record<string, string | boolean | number> {
+  if (args.runtimeOptions?.nativeSubagents?.length === 0) {
+    return { "features.multi_agent": false, "features.multi_agent_v2": false };
+  }
   if (!args.runtimeOptions?.nativeSubagents?.length) {
     return {};
   }

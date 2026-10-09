@@ -130,7 +130,7 @@ export function recordClaudeRateLimitObservation(args: {
         ...snapshot, session: null, weekly: null, fableWeekly: null,
         [window]: snapshot[window],
       },
-    }, now, "sdk");
+    }, now, "sdk", "claude-code");
   }
   return recorded;
 }

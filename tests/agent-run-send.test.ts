@@ -122,7 +122,7 @@ describe("agent run send path", () => {
     const bridge = fakeBridge();
     const taskAttachment = { kind: "task-context" as const, id: "context-1", taskId: "source", workspaceId: "ws-1", title: "Research", scope: "latest-reply" as const };
     const drafts = [
-      { attachedFilePaths: ["src/a.ts"], attachments: [] },
+
       { attachedFilePaths: [], attachments: [taskAttachment] },
       { attachedFilePaths: [], attachments: [], promptBatch: [{ id: "batch-1", createdAt: "now", content: "Use research", attachments: [taskAttachment] }] },
     ];
@@ -275,4 +275,22 @@ describe("agent run stop", () => {
     fakeBridge();
     expect(cancelAgentRunBeforeStop({ workspaceId: "ws-1", taskId: "task-1", stopTurn: () => {} })).toBe(false);
   });
+});
+
+test("an admitted queued Run consumes only its queue identity and freezes bounded routing intent", async () => {
+  useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+  const bridge = fakeBridge();
+  const { args, state } = sendArgs({ queued: true, queuedTurnId: "queued-a", promptDraft: { attachedFilePaths: [], attachments: [],
+    runtimeOverrides: { agentRunAdaptive: true, model: "claude-opus-5-5", claudeEffort: "high", boundSecretIds: ["secret-id"] } } });
+  args.set(current => ({ workspaceSnapshotVersion: 2, promptDraftByTask: { ...current.promptDraftByTask,
+    "task-1": { ...current.promptDraftByTask["task-1"]!, text: "A newer draft", queuedTurns: [
+      { id: "queued-a", content: "Add CSV export.", queuedAt: "now", attachedFilePaths: [], attachments: [] },
+      { id: "queued-b", content: "Other assignment", queuedAt: "now", attachedFilePaths: [], attachments: [] },
+    ] } } }));
+  expect((await startAgentRunForSend(args))?.status).toBe("run-started");
+  expect(bridge.started[0]?.routingIntent).toMatchObject({ model: "claude-opus-5-5", claudeEffort: "high", modelProviderId: "claude-code" });
+  expect(bridge.started[0]?.routingIntent).not.toHaveProperty("boundSecretIds");
+  expect(state().promptDraftByTask["task-1"]?.queuedTurns?.map(t => t.id)).toEqual(["queued-b"]);
+  expect(state().promptDraftByTask["task-1"]?.text).toBe("A newer draft");
+  expect(state().workspaceSnapshotVersion).toBe(3);
 });

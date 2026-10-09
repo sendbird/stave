@@ -44,6 +44,7 @@ async function connect(grants: StaveTurnGrants) {
         }
         return receipt;
       },
+      requestAgentRunResources: async (args) => { calls.push({ tool: "resources", args }); return { recorded: true }; },
       blockAgentRunStage: async (args) => {
         calls.push({ tool: "block", args });
         return receipt;
@@ -72,6 +73,7 @@ test("run tools exist only on a connection that carries a run grant", async () =
     "stave_block_stage",
     "stave_get_agent_run",
     "stave_report_stage",
+    "stave_request_agent_resources",
     "stave_workspace_fixture",
   ]);
 });
@@ -161,4 +163,20 @@ test("a renderer turn cannot carry a run stage, so only the host mints grants", 
       agentRunStage: { agentRunId: "agent-run-1", stageId: "draft", attempt: 1 },
     }).success,
   ).toBe(false);
+});
+
+
+test("adaptive proposals use only the authenticated stage key and bounded fields", async () => {
+  const { client, calls } = await connect({ agentRunKey: "current-stage-key" });
+  const result = await client.callTool({ name: "stave_request_agent_resources", arguments: {
+    model: "gpt-6-luna", reason: "mechanical-step", rationale: "Copying verified literals remains", evidenceRefs: ["turn-1"],
+  } });
+  expect(result.isError).toBeFalsy();
+  expect(calls).toEqual([{ tool: "resources", args: { agentRunKey: "current-stage-key", request: {
+    model: "gpt-6-luna", reason: "mechanical-step", rationale: "Copying verified literals remains", evidenceRefs: ["turn-1"],
+  } } }]);
+  const malformed = await client.callTool({ name: "stave_request_agent_resources", arguments: {
+    model: "gpt-6-luna", reason: "mechanical-step", rationale: "no evidence", evidenceRefs: [],
+  } });
+  expect(malformed.isError).toBe(true); expect(calls).toHaveLength(1);
 });

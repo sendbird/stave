@@ -146,6 +146,11 @@ export function buildCodexConfigOverrides(args: {
     config["features.fast_mode"] = codexFastMode;
   }
   Object.assign(config, args.configOverrides);
+  // The host's explicit no-spawn contract survives transport overrides.
+  if (args.runtimeOptions?.nativeSubagents?.length === 0) {
+    config["features.multi_agent"] = false;
+    config["features.multi_agent_v2"] = false;
+  }
   Object.assign(config, codexNativePlanConfig(args.runtimeOptions, args.secondaryReadOnly));
   return Object.keys(config).length > 0 ? config : undefined;
 }

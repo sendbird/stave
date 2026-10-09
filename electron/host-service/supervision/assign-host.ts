@@ -21,6 +21,10 @@ export function createHostAssignRuntime(args: {
   const runtime = createAssignRuntime({
     store: persistence.agentAssignments,
     listAgents: () => hostAgents(),
+    allowNativeSubagents: (taskId) => {
+      const run = persistence.agentRuns.getActiveAgentRunForTask(taskId);
+      return !run || !persistence.agentRuns.resourceConfig(run.id);
+    },
     emitChanged: (row) => args.emitChanged({ assignmentId: row.id, state: row.state }),
     ...(args.onTaskAgentEnded ? { onTaskAgentEnded: args.onTaskAgentEnded } : {}),
   });

@@ -36,6 +36,7 @@ export const AGENT_RUN_TOOL_NAMES = Object.freeze({
   get: "stave_get_agent_run",
   report: "stave_report_stage",
   block: "stave_block_stage",
+  resources: "stave_request_agent_resources",
 });
 
 export const AGENT_RUN_CONTEXT_SOURCE_ID = "stave:agent-run";
