@@ -1,6 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import type { AgentAssignment, AssignmentState } from "./assign";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
+import { classifyWorkQueueLane, orderByWorkAttention, rankWorkAttention } from "@/lib/fleet/work-attention-order";
 
 /**
  * The Activity summary of one agent, derived from its assignment rows and the
@@ -22,7 +23,7 @@ export interface AgentActivitySummary {
   total: number;
   /** Tasks whose live Fleet status is `running`. */
   running: number;
-  /** Tasks waiting for the user (input or approval). */
+  /** Tasks that need the user: waiting for input or approval, or failed. */
   needsYou: number;
   /** Assignments whose start failed (`failed`), which never became a task. */
   couldntStart: number;
@@ -30,8 +31,26 @@ export interface AgentActivitySummary {
   lastUsedAt: string | null;
 }
 
+/** The shared Work queue rule's `action-required` lane, from live status alone. */
 function needsYou(status: FleetTaskStatus): boolean {
-  return status === "waiting-input" || status === "waiting-approval";
+  return classifyWorkQueueLane({ status }) === "action-required";
+}
+
+/**
+ * The Work list's order: the shared Work queue rule (`work-attention-order.ts`)
+ * over each row's live task status, newest assignment first among equals. A row
+ * with no live status (a cold workspace, or a start that failed) sorts as idle.
+ */
+export function orderAgentActivityRows<T extends Pick<AgentAssignment, "taskId" | "createdAt">>(
+  assignments: readonly T[],
+  statusByTaskId: Readonly<Record<string, FleetTaskStatus | undefined>>,
+): T[] {
+  return orderByWorkAttention(assignments, (row) =>
+    rankWorkAttention({
+      status: row.taskId ? statusByTaskId[row.taskId] : undefined,
+      activityAt: row.createdAt,
+    }),
+  );
 }
 
 export function summarizeAgentActivity(args: {

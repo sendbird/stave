@@ -35,7 +35,27 @@ import {
   getAgentRunForGrant,
   reportAgentRunStage,
 } from "./agent-runs-service";
-import { callerTaskId, resolveStaveMcpCaller } from "./stave-mcp-caller";
+import { callerTaskId, resolveStaveMcpCaller, StaveMcpCallerError } from "./stave-mcp-caller";
+import {
+  buildInlineRenderToolResult,
+  INLINE_RENDER_MAX_HEIGHT,
+  INLINE_RENDER_MAX_HTML_CHARS,
+  INLINE_RENDER_MAX_TITLE_CHARS,
+  INLINE_RENDER_MIN_HEIGHT,
+} from "../../src/lib/inline-render/inline-render";
+import {
+  INLINE_RENDER_MESSAGE_MAX_CHARS,
+  INLINE_RENDER_MODEL_CONTEXT_MAX_BYTES,
+} from "../../src/lib/inline-render/inline-render-interaction";
+import { getInlineRenderStore } from "./inline-render/inline-render-service";
+import {
+  INLINE_RENDER_PREVIEW_DEFAULT_WIDTH,
+  INLINE_RENDER_PREVIEW_MAX_CAPTURE_HEIGHT,
+  INLINE_RENDER_PREVIEW_MAX_WIDTH,
+  INLINE_RENDER_PREVIEW_MIN_WIDTH,
+  INLINE_RENDER_PREVIEW_SLICE_HEIGHT,
+} from "../../src/lib/inline-render/inline-render-preview";
+import { previewInlineRenderHtml } from "./inline-render/inline-render-preview-service";
 import {
   readTurnGrantHeaders,
   type StaveTurnGrants,
@@ -106,6 +126,11 @@ import {
   writeWorkspacePlanFile,
 } from "./stave-mcp-service";
 import { registerBrowserTools } from "./browser/browser-tools";
+import { getSecretRequestBroker } from "./browser/secret-request-service";
+import {
+  runSecretRequestTool,
+  SECRET_REQUEST_TOOL_CONFIG,
+} from "./browser/secret-request-tool";
 import {
   getClaudeCodeMcpRegistrationStatus,
   syncClaudeCodeMcpRegistration,
@@ -856,7 +881,7 @@ function createToolServer(options?: {
     "stave_get_wake_up",
     {
       description:
-        "Read one check-back schedule with its recent occurrences, including why an occurrence fired, deferred, or was skipped.",
+        "Read one check-back schedule with its recent occurrences, including why an occurrence fired, deferred, or was skipped. A pull request watch also reports the pull request it follows and what its last check saw.",
       inputSchema: {
         id: z.string().min(1).describe("Check-back schedule id."),
       },
@@ -868,10 +893,10 @@ function createToolServer(options?: {
     "stave_create_wake_up",
     {
       description:
-        "Attach a check-back schedule to an existing task so it resumes in the same session — on a cadence, or when its subagents finish. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its subagents return. To start a NEW task on a schedule each time, create a start-a-task schedule (stave_create_automation) instead.",
+        "Attach a check-back schedule to an existing task so it resumes in the same session — on a cadence, when its subagents finish, or when its pull request needs fixing. Use a pull_request trigger with `events` from checks_failed, merge_conflict and review_comments to watch the pull request of the task's workspace branch: Stave reads it every 2 minutes and wakes the task once per new failure (failing checks with their links, a conflict with the base, new comments in unresolved review threads), always after any running turn, and stops when the pull request merges or closes. Use a schedule trigger for other standing checks, and a completion trigger to pick a task back up when its subagents return. A task has one check-back schedule. To start a NEW task on a schedule each time, create a start-a-task schedule (stave_create_automation) instead.",
       inputSchema: {
         input: WakeUpUpsertInputSchema.describe(
-          "Check-back schedule definition. `taskId` must name a task that already exists. A completion trigger without `maxOccurrences` is capped by default so the chain cannot recurse forever.",
+          "Check-back schedule definition. `taskId` must name a task that already exists. A completion or pull_request trigger without `maxOccurrences` is capped by default so the chain cannot recurse forever.",
         ),
       },
     },
@@ -885,7 +910,7 @@ function createToolServer(options?: {
     "stave_update_wake_up",
     {
       description:
-        "Replace a check-back schedule's prompt, trigger, expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
+        "Replace a check-back schedule's prompt, trigger (for example a pull request watch's events — what it already reported stays reported), expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
       inputSchema: {
         id: z.string().min(1).describe("Check-back schedule id."),
         input: WakeUpUpsertInputSchema.describe(
@@ -1145,6 +1170,101 @@ function createToolServer(options?: {
       toStructuredResult({
         result: await writeWorkspacePlanFile({ workspaceId, fileName, content }),
       }),
+  );
+
+  server.registerTool(
+    "stave_render_html",
+    {
+      description: [
+        "Show an HTML page inline in this conversation: a chart, table, diagram, comparison, or UI mockup the user should see rather than read as text. Call it before your final reply and refer to it there; never paste the HTML into the reply.",
+        "The page runs in a sandboxed frame with scripts allowed. It cannot reach Stave or the workspace files, and it cannot show alerts or open windows; links open in the user's browser.",
+        `Two calls let a page talk back, both returning promises. window.stave.sendMessage(text) asks to send text (up to ${INLINE_RENDER_MESSAGE_MAX_CHARS} characters) as the user's next message: call it only from a click or key press, because Stave shows the user the exact text and sends it only if they confirm (the promise rejects if they decline); it waits in the queue if you are still working. window.stave.updateModelContext(value) stores a string or small JSON value (up to ${INLINE_RENDER_MODEL_CONTEXT_MAX_BYTES / 1024} KB) describing the page's state, such as the user's selection; each call replaces the last, and you receive it with the user's next message as untrusted page data. Use it for state the user's next message may refer to, not for instructions to yourself.`,
+        "Network access follows the user's setting: open, a CDN allowlist (cdn.jsdelivr.net, unpkg.com, cdnjs.cloudflare.com, esm.sh, Google Fonts), or none. Prefer inline data and small inline scripts so the page works with no network.",
+        `Style with the host theme variables (--background, --foreground, --card, --muted, --muted-foreground, --border, --primary, --accent, --destructive, --success, --warning, --chart-1 to --chart-5, --radius, --font-sans, --font-mono, and the matching -foreground pairs); <html> has class "dark" in dark mode. Keep the page background transparent, use fluid widths (the frame is the chat column), avoid 100vh, and let content set the height (the frame grows to fit, up to ${INLINE_RENDER_MAX_HEIGHT}px).`,
+        "You cannot see the page, so check it with stave_preview_html first: it returns screenshots, the height, and console errors without showing anything to the user.",
+      ].join(" "),
+      inputSchema: {
+        html: z
+          .string()
+          .min(1)
+          .max(INLINE_RENDER_MAX_HTML_CHARS)
+          .describe("A self-contained HTML document or fragment, with its CSS and scripts inline."),
+        title: z
+          .string()
+          .min(1)
+          .max(INLINE_RENDER_MAX_TITLE_CHARS)
+          .describe("Short title shown above the page."),
+        height: z
+          .number()
+          .int()
+          .min(INLINE_RENDER_MIN_HEIGHT)
+          .max(INLINE_RENDER_MAX_HEIGHT)
+          .optional()
+          .describe("Frame height in CSS pixels until the page reports its own; defaults to 360."),
+      },
+    },
+    async ({ html, title, height }) => {
+      const caller = await resolveStaveMcpCaller(turnGrants);
+      if (caller.kind !== "turn") {
+        throw new StaveMcpCallerError(
+          "stave_render_html shows a page in a Stave conversation, so it only works inside a Stave task turn.",
+        );
+      }
+      const reference = await getInlineRenderStore().publish({
+        workspaceId: caller.grant.workspaceId,
+        taskId: caller.grant.taskId,
+        turnId: caller.grant.turnId,
+        html,
+        title,
+        ...(height === undefined ? {} : { height }),
+      });
+      return toStructuredResult(buildInlineRenderToolResult(reference));
+    },
+  );
+
+  server.registerTool(
+    "stave_preview_html",
+    {
+      description: [
+        "Check an HTML page before you show it with stave_render_html. Stave renders it offscreen exactly as the conversation would (same sandbox and CSP, the user's network setting and theme) and returns what you cannot otherwise see; nothing is shown to the user or saved.",
+        `The result is a JSON summary, then screenshots of up to ${INLINE_RENDER_PREVIEW_MAX_CAPTURE_HEIGHT}px of the page from top to bottom, in slices of up to ${INLINE_RENDER_PREVIEW_SLICE_HEIGHT}px. The summary gives contentHeight, frameHeight (the height the conversation frame will take), capturedHeight, console errors and warnings with line numbers in your HTML, failed requests, blocked navigations, and notes on layout problems.`,
+        "Fix what it reports, preview again if you changed much, then call stave_render_html with the same HTML. A preview takes a few seconds; at most two run at once.",
+      ].join(" "),
+      inputSchema: {
+        html: z
+          .string()
+          .min(1)
+          .max(INLINE_RENDER_MAX_HTML_CHARS)
+          .describe("The page you plan to show with stave_render_html."),
+        width: z
+          .number()
+          .int()
+          .min(INLINE_RENDER_PREVIEW_MIN_WIDTH)
+          .max(INLINE_RENDER_PREVIEW_MAX_WIDTH)
+          .optional()
+          .describe(
+            `Viewport width in CSS pixels; defaults to ${INLINE_RENDER_PREVIEW_DEFAULT_WIDTH}, a typical chat column. Try ${INLINE_RENDER_PREVIEW_MIN_WIDTH} to check a narrow one.`,
+          ),
+        appearance: z
+          .enum(["light", "dark"])
+          .optional()
+          .describe("Theme to render with; defaults to the one the user has on screen now."),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ html, width, appearance }) => {
+      const caller = await resolveStaveMcpCaller(turnGrants);
+      if (caller.kind !== "turn") {
+        throw new StaveMcpCallerError(
+          "stave_preview_html checks a page for a Stave conversation, so it only works inside a Stave task turn.",
+        );
+      }
+      return previewInlineRenderHtml({
+        html,
+        ...(width === undefined ? {} : { width }),
+        ...(appearance === undefined ? {} : { appearance }),
+      });
+    },
   );
 
   server.registerTool(
@@ -1821,6 +1941,22 @@ function createToolServer(options?: {
           denied,
         }),
       }),
+  );
+
+  // The card in the calling task is the consent, so this never takes an
+  // approval; the value reaches the vault over its own IPC, never this call.
+  server.registerTool(
+    "stave_request_secret",
+    SECRET_REQUEST_TOOL_CONFIG,
+    async (input, extra) =>
+      toStructuredResult(
+        await runSecretRequestTool({
+          caller: await resolveStaveMcpCaller(turnGrants),
+          input,
+          broker: getSecretRequestBroker(),
+          signal: extra.signal,
+        }),
+      ),
   );
 
   // ---- Browser tools (navigate, screenshot, DOM, evaluate, etc.) ----

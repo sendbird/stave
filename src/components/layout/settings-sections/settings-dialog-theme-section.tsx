@@ -49,16 +49,6 @@ export function ThemeSection() {
     useState<ThemeModeName>("light");
   const themeMode = useAppStore((state) => state.settings.themeMode);
   const customThemeId = useAppStore((state) => state.settings.customThemeId);
-  const borderBeamEnabled = useAppStore(
-    (state) => state.settings.borderBeamEnabled,
-  );
-  const borderBeamSize = useAppStore((state) => state.settings.borderBeamSize);
-  const borderBeamVariant = useAppStore(
-    (state) => state.settings.borderBeamVariant,
-  );
-  const borderBeamStrength = useAppStore(
-    (state) => state.settings.borderBeamStrength,
-  );
   const userCustomThemes = useAppStore(
     (state) => state.settings.userCustomThemes,
   );
@@ -74,7 +64,6 @@ export function ThemeSection() {
     () => new Set(BUILTIN_CUSTOM_THEMES.map((t) => t.id)),
     [],
   );
-  const borderBeamStrengthPercent = Math.round(borderBeamStrength * 100);
 
   return (
     <SectionStack>
@@ -120,94 +109,6 @@ export function ThemeSection() {
       </SettingsCard>
 
       <SidebarSettingsCard />
-
-      <SettingsCard
-        title={t("settings:themeSection.motion.title")}
-        description={t("settings:themeSection.motion.description")}
-      >
-        <SwitchField
-          title={t("settings:themeSection.motion.borderBeam.title")}
-          description={t("settings:themeSection.motion.borderBeam.description")}
-          checked={borderBeamEnabled}
-          onCheckedChange={(checked) =>
-            updateSettings({ patch: { borderBeamEnabled: checked } })
-          }
-        />
-        {borderBeamEnabled ? (
-          <div className={sx(styles.motionExpanded)}>
-            <LabeledField
-              title={t("settings:themeSection.motion.beamSize.title")}
-              description={t("settings:themeSection.motion.beamSize.description")}
-            >
-              <ChoiceButtons
-                value={borderBeamSize}
-                columns={2}
-                onChange={(value) =>
-                  updateSettings({ patch: { borderBeamSize: value } })
-                }
-                options={[
-                  {
-                    value: "md",
-                    label: t("settings:themeSection.motion.beamSize.rotate.label"),
-                    description: t("settings:themeSection.motion.beamSize.rotate.description"),
-                  },
-                  {
-                    value: "sm",
-                    label: t("settingsProviders:codexThreadsTab.compact"),
-                    description: t("settings:themeSection.motion.beamSize.compact.description"),
-                  },
-                  {
-                    value: "line",
-                    label: t("settings:themeSection.motion.beamSize.line.label"),
-                    description: t("settings:themeSection.motion.beamSize.line.description"),
-                  },
-                ]}
-              />
-            </LabeledField>
-            <LabeledField
-              title={t("settings:themeSection.motion.beamColors.title")}
-              description={t("settings:themeSection.motion.beamColors.description")}
-            >
-              <ChoiceButtons
-                value={borderBeamVariant}
-                columns={2}
-                onChange={(value) =>
-                  updateSettings({ patch: { borderBeamVariant: value } })
-                }
-                options={[
-                  { value: "colorful", label: t("settings:themeSection.motion.beamColors.colorful") },
-                  { value: "mono", label: t("settings:themeSection.motion.beamColors.mono") },
-                  { value: "ocean", label: t("settings:themeSection.motion.beamColors.ocean") },
-                  { value: "sunset", label: t("settings:themeSection.motion.beamColors.sunset") },
-                ]}
-              />
-            </LabeledField>
-            <LabeledField
-              title={t("settings:themeSection.motion.beamStrength.title")}
-              description={t("settings:themeSection.motion.beamStrength.description")}
-            >
-              <div className={sx(styles.sliderRow)}>
-                <Slider
-                  aria-label={t("settings:themeSection.motion.beamStrength.ariaLabel")}
-                  className={sx(styles.flex1)}
-                  value={borderBeamStrengthPercent}
-                  min={0}
-                  max={100}
-                  step={1}
-                  onValueChange={(nextValue) => {
-                    updateSettings({
-                      patch: { borderBeamStrength: nextValue / 100 },
-                    });
-                  }}
-                />
-                <Badge variant="outline" className={sx(styles.valueBadge)}>
-                  {borderBeamStrengthPercent}%
-                </Badge>
-              </div>
-            </LabeledField>
-          </div>
-        ) : null}
-      </SettingsCard>
 
       <SettingsCard
         title={t("settings:themeSection.presets.title")}

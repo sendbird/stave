@@ -413,7 +413,7 @@ export function ClaudeRuntimeToolsCard() {
         <div className={sx(developerStyles.infoPanelSpaced)}>
           <div className={sx(developerStyles.pluginGrid)}>
             <div className={sx(developerStyles.pluginCell)}>
-              <p className={sx(developerStyles.pluginCellLabel)}>{t("settingsProviders:codexSection.tabs.commands")}</p>
+              <p className={sx(developerStyles.pluginCellLabel)}>{t("settings:developerSection.claudeRuntime.commands")}</p>
               <p className={sx(developerStyles.pluginCellValue)}>
                 {claudePluginReload.commandCount}
               </p>
@@ -886,7 +886,7 @@ export function LocalMcpServerCard() {
                   disabled={state.busy}
                   onClick={() => void handleRotateToken()}
                 >
-                  {t("settings:themeSection.motion.beamSize.rotate.label")}</Button>
+                  {t("settings:developerSection.localMcp.token.rotate")}</Button>
               </div>
             </div>
           </LabeledField>

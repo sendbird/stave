@@ -64,7 +64,7 @@ kiro-cli login
 Recommended next steps:
 
 - Open `Settings -> Providers` and choose the runtime controls you want.
-- Open `Settings -> Providers -> Stave` if you want to enable the built-in local MCP server.
+- Open `Settings -> MCP` if you want to enable the built-in local MCP server.
 - If macOS asks for Desktop, Documents, or Downloads access, approve it once or see [macOS Folder Access Prompts](docs/features/macos-folder-access-prompts.md).
 
 ## Features

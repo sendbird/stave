@@ -435,13 +435,26 @@
       "fastMode": {
         "title": "빠른 모드",
         "description": "간단한 작업에서 더 빠르게 응답하도록 Codex fast_mode 기능 플래그를 켭니다."
+      },
+      "advanced": {
+        "title": "고급 옵션",
+        "description": "추론 요약 지원 여부와 원본 추론 출력입니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
       }
+    },
+    "defaultsLink": {
+      "title": "기본 모델과 추론 강도",
+      "description": "모든 프로바이더의 기본값은 Models에서 설정합니다. 작업 입력창에서는 계속 작업별로 바꿀 수 있습니다.",
+      "action": "Models 열기"
+    },
+    "advanced": {
+      "title": "고급 옵션",
+      "description": "세션 재개, 설정 소스, 플러그인 경로 등 전문가용 제어입니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
     }
   },
   "cursorSection": {
     "runtime": {
       "title": "Cursor 런타임 제어",
-      "description": "대화형 Cursor Agent 턴에 전달되는 세션 모드와 모델 기본 설정입니다."
+      "description": "대화형 Cursor Agent 턴에 전달되는 세션 모드와 승인 동작입니다."
     },
     "modes": {
       "agent": {
@@ -490,7 +503,7 @@
   "kiroSection": {
     "runtime": {
       "title": "Kiro 런타임 제어",
-      "description": "대화형 Kiro 턴에 전달되는 모델 기본 설정입니다."
+      "description": "대화형 Kiro 턴의 승인 동작입니다."
     },
     "approvalPreset": {
       "title": "승인 프리셋",
@@ -625,15 +638,48 @@
       "on": "이 레인은 백그라운드에서 모델을 호출합니다.",
       "off": "꺼짐. 이 레인에서는 모델을 호출하지 않습니다."
     },
+    "enablementOwner": {
+      "editor": {
+        "title": "켜고 끄기는 편집기에서",
+        "on": "켜짐. 설정 → 편집기에서 끌 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
+        "off": "꺼짐. 설정 → 편집기에서 켤 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
+        "action": "편집기 열기"
+      }
+    },
     "provider": {
       "title": "프로바이더",
-      "pinned": "고정됨. 이 레인은 항상 선택한 프로바이더에서 실행됩니다.",
-      "unpinned": "고정되지 않음: 레인이 작업의 프로바이더를 따릅니다. 하나를 선택하면 고정됩니다."
+      "pinned": "재정의됨. 이 레인은 항상 선택한 프로바이더에서 실행됩니다.",
+      "unpinned": "재정의 안 됨: 레인이 유틸리티 모델의 프로바이더를 사용합니다. 하나를 선택하면 재정의됩니다."
     },
     "model": {
-      "title": "모델",
-      "currentDefault": "{{description}} 현재 기본값인 {{model}} 모델을 사용합니다.",
-      "currentProviderChoice": "{{description}} 현재 기본값에 따라 프로바이더가 직접 모델을 선택합니다."
+      "title": "모델"
+    },
+    "sharedDefault": {
+      "title": "유틸리티 모델",
+      "description": "아래 모든 백그라운드 레인이 사용하는 프로바이더와 모델입니다. 레인별로 다르게 쓰려면 고급에서 지정하세요.",
+      "providerOptions": {
+        "auto": "작업의 프로바이더를 따르고, 작업이 없는 호출은 Claude를 사용합니다.",
+        "claude": "백그라운드 레인을 Claude에서 실행합니다.",
+        "codex": "백그라운드 레인을 Codex에서 실행합니다."
+      },
+      "model": {
+        "automatic": "자동: 각 프로바이더의 가장 가벼운 모델을 사용합니다. PR 전 리뷰는 프로바이더의 기본 모델을 사용합니다.",
+        "explicit": "이 모델의 프로바이더에서 실행되는 모든 레인이 이 모델을 사용합니다. 다른 프로바이더로 재정의한 레인은 그 프로바이더의 자동 모델을 사용합니다.",
+        "reset": "자동 모델 사용"
+      }
+    },
+    "overrides": {
+      "title": "레인별 재정의",
+      "description": "레인마다 프로바이더나 모델을 따로 지정합니다. 재정의하지 않은 레인은 유틸리티 모델을 사용합니다.",
+      "status": {
+        "inherits": "유틸리티 모델을 사용합니다.",
+        "overridden": "유틸리티 모델을 재정의합니다."
+      },
+      "model": {
+        "inherited": "유틸리티 모델에서 가져옴: {{model}}.",
+        "inheritedProviderChoice": "유틸리티 모델에서 가져옴: 프로바이더의 기본 모델."
+      },
+      "reset": "유틸리티 모델 사용"
     },
     "fallbackModel": {
       "title": "대체 모델",
@@ -671,7 +717,7 @@
       "ready": "위임할 수 있습니다.",
       "checking": "Local MCP 서버를 확인하는 중…",
       "note": "위임은 Local MCP 도구로 모델에 전달되므로, 해당 서버가 실행 중일 때만 작업에서 하위 에이전트를 시작할 수 있습니다.",
-      "openSettings": "설정 → 개발자 → Local MCP 열기"
+      "openSettings": "설정 → MCP → 로컬 MCP 서버 열기"
     },
     "asking": {
       "heading": "위임 요청 방법과 지정할 수 있는 항목",
@@ -756,51 +802,19 @@
       "copyCommandFailed": "명령어를 복사하지 못했습니다"
     }
   },
-  "codexShared": {
-    "accountBadge": {
-      "unknown": "알 수 없음",
-      "needsLogin": "로그인 필요",
-      "notRequired": "필요 없음",
-      "ready": "준비됨"
-    }
-  },
-  "codexSection": {
-    "status": {
-      "snapshotError": "스냅샷 오류",
-      "loadingSnapshot": "스냅샷 불러오는 중",
-      "appServerReady": "App Server 준비됨",
-      "snapshotIdle": "스냅샷 대기 중",
-      "dynamicModelCatalog": "동적 모델 카탈로그",
-      "fallbackModelCatalog": "대체 모델 카탈로그",
-      "currentThread": "현재 스레드 {{id}}"
+  "codexPlugins": {
+    "card": {
+      "title": "Codex 플러그인",
+      "description": "Stave가 사용하는 Codex CLI가 볼 수 있는 Codex 마켓플레이스 플러그인입니다. 여기서 설치하거나 제거하면 목록이 다시 불러와집니다."
     },
-    "updatedAt": "{{time}} 업데이트됨",
-    "tabs": {
-      "overview": "개요",
-      "extensions": "확장",
-      "threads": "스레드",
-      "commands": "명령",
-      "advanced": "고급"
-    },
-    "jsonInputEmpty": "JSON 입력이 비어 있습니다.",
-    "snapshot": {
-      "bridgeUnavailable": "Codex App Server 스냅샷 브리지를 사용할 수 없습니다.",
-      "loading": "Codex App Server 스냅샷을 불러오는 중...",
-      "loadFailed": "Codex App Server 스냅샷을 불러오지 못했습니다."
-    },
-    "pluginDetail": {
-      "loading": "{{name}} 플러그인 세부 정보를 불러오는 중...",
-      "loadFailed": "Codex 플러그인 세부 정보를 불러오지 못했습니다."
-    },
-    "threadDetail": {
-      "loading": "{{id}} 스레드를 불러오는 중...",
-      "loadFailed": "Codex 스레드 세부 정보를 불러오지 못했습니다."
-    },
-    "resourcePreview": {
-      "authorizationUrlTitle": "{{server}} 인증 URL",
-      "reading": "{{uri}} 읽는 중...",
-      "binaryBlob": "[바이너리 blob] {{preview}}",
-      "emptyBody": "(빈 리소스 본문)"
+    "checking": "Codex 플러그인을 확인하는 중...",
+    "empty": "App Server가 보고한 Codex 플러그인이 없습니다.",
+    "installed": "설치됨",
+    "install": "설치",
+    "working": "처리 중...",
+    "errors": {
+      "unavailable": "Codex App Server 브리지를 사용할 수 없습니다.",
+      "loadFailed": "Codex 플러그인을 불러오지 못했습니다."
     },
     "toasts": {
       "installFailed": "설치 실패",
@@ -808,221 +822,31 @@
       "installed": "{{name}} 플러그인을 설치했습니다",
       "uninstallFailed": "제거 실패",
       "uninstallUnavailable": "Codex 플러그인 제거 브리지를 사용할 수 없습니다.",
-      "removed": "{{name}} 플러그인을 제거했습니다",
-      "featureToggleUnavailable": "기능 전환을 사용할 수 없습니다",
-      "featureUpdated": "{{name}} 기능을 업데이트했습니다",
-      "oauthUnavailable": "OAuth 로그인을 사용할 수 없습니다",
-      "oauthFailed": "OAuth 로그인 실패",
-      "oauthStarted": "{{server}} 서버의 OAuth 로그인을 시작했습니다",
-      "oauthOpenUrl": "인증 URL을 열어 로그인을 완료하세요.",
-      "resourceBridgeUnavailable": "MCP 리소스 브리지를 사용할 수 없습니다",
-      "selectThreadFirst": "먼저 Codex 스레드를 선택하세요",
-      "resourceNeedsThread": "리소스를 읽으려면 스레드 컨텍스트가 필요합니다.",
-      "renameUnavailable": "스레드 이름 바꾸기를 사용할 수 없습니다",
-      "renamed": "Codex 스레드 이름을 바꿨습니다",
-      "forkUnavailable": "스레드 포크를 사용할 수 없습니다",
-      "forkFailed": "스레드 포크 실패",
-      "forked": "Codex 스레드를 포크했습니다",
-      "archiveUnavailable": "스레드 보관을 사용할 수 없습니다",
-      "archived": "Codex 스레드를 보관했습니다",
-      "restored": "Codex 스레드를 복원했습니다",
-      "compactUnavailable": "스레드 압축을 사용할 수 없습니다",
-      "compacted": "스레드 컨텍스트를 압축했습니다",
-      "rollbackUnavailable": "스레드 롤백을 사용할 수 없습니다",
-      "rollbackCountInvalid": "롤백할 턴 수는 1 이상이어야 합니다.",
-      "rolledBack": "Codex 스레드를 롤백했습니다",
-      "noExternalConfig": "가져올 외부 설정 항목이 없습니다.",
-      "importedExternalConfig": "외부 설정을 가져왔습니다",
-      "configWriteUnavailable": "설정 쓰기 브리지를 사용할 수 없습니다",
-      "configKeyPathRequired": "설정 키 경로를 입력해야 합니다.",
-      "invalidJsonValue": "잘못된 JSON 값",
-      "configUpdated": "{{keyPath}} 설정을 업데이트했습니다",
-      "batchWriteUnavailable": "일괄 설정 쓰기 브리지를 사용할 수 없습니다",
-      "invalidBatchJson": "잘못된 일괄 편집 JSON",
-      "batchNotArray": "일괄 편집은 JSON 배열이어야 합니다.",
-      "batchApplied": "Codex 설정 일괄 편집을 적용했습니다"
+      "removed": "{{name}} 플러그인을 제거했습니다"
     }
   },
   "codexOverviewTab": {
-    "metrics": {
-      "models": "모델",
-      "plugins": "플러그인",
-      "apps": "앱",
-      "threads": "스레드",
-      "skills": "스킬",
-      "slashCommands": "슬래시 명령"
-    },
-    "empty": {
-      "unavailable": "Codex 스냅샷을 사용할 수 없음",
-      "loading": "Codex 스냅샷 불러오는 중"
+    "rateLimits": {
+      "primary": "기본"
     },
     "runtime": {
-      "title": "런타임 요약",
-      "description": "현재 워크스페이스와 Codex 바이너리의 실시간 App Server 데이터입니다.",
-      "account": "계정",
-      "accountType": "유형: {{value}}",
-      "accountEmail": "이메일: {{value}}",
-      "accountPlan": "플랜: {{value}}",
-      "unknownValue": "알 수 없음",
-      "modelCatalog": "모델 카탈로그",
-      "catalogLive": "실시간 App Server",
-      "catalogFallback": "대체",
-      "catalogDefaultDetail": "구성된 Codex 모델 카탈로그를 사용합니다.",
-      "defaultModel": "기본값",
-      "workspaceScope": "워크스페이스 범위",
-      "scoped": "범위 지정됨",
-      "noWorkspaceCwd": "사용할 수 있는 워크스페이스 cwd가 없습니다.",
-      "binary": "바이너리: {{path}}",
-      "defaultBinary": "기본 Codex 실행 파일",
-      "slashCommands": "슬래시 명령",
-      "builtInCount": "기본 제공 {{total}}개"
-    },
-    "sectionErrors": {
-      "title": "섹션 오류",
-      "description": "App Server의 나머지 영역은 불러왔지만 개별적으로 실패한 스냅샷 섹션입니다.",
-      "empty": "일부만 실패한 섹션이 없습니다."
-    },
-    "rateLimits": {
-      "title": "사용 한도",
-      "description": "Codex가 보고한 현재 한도 버킷과 크레딧 상태입니다.",
-      "empty": "App Server가 반환한 사용 한도 버킷이 없습니다.",
-      "unnamedBucket": "이름 없는 버킷",
-      "unknownPlan": "알 수 없는 플랜",
-      "unlimitedCredits": "무제한 크레딧",
-      "creditsBalance": "크레딧 {{balance}}",
-      "creditsAvailable": "크레딧 사용 가능",
-      "noCredits": "크레딧 없음",
-      "primary": "기본",
-      "secondary": "보조",
-      "usedWithReset": "{{percent}} · {{time}} 초기화"
+      "account": "계정"
     }
   },
   "codexExtensionsTab": {
-    "pluginsAndApps": {
-      "title": "플러그인 및 앱",
-      "description": "설치되었거나, 검색할 수 있거나, 현재 접근할 수 있는 확장 영역입니다."
-    },
-    "plugins": "플러그인",
-    "noPlugins": "현재 App Server 런타임이 반환한 플러그인이 없습니다.",
-    "installed": "설치됨",
-    "discoverable": "검색 가능",
     "enabled": "켜짐",
-    "apps": "앱",
-    "noApps": "현재 App Server 런타임이 반환한 앱이 없습니다.",
-    "noDescription": "설명 없음",
-    "accessible": "접근 가능",
-    "notAccessible": "접근 불가",
-    "skills": "스킬",
-    "noSkills": "현재 워크스페이스가 반환한 스킬 그룹이 없습니다.",
-    "mcpServers": "MCP 서버",
-    "noMcpServers": "현재 App Server 런타임이 반환한 MCP 서버가 없습니다.",
-    "unknownAuth": "인증 상태 알 수 없음",
-    "login": "로그인",
-    "preview": "미리 보기",
-    "hooks": "프로바이더 훅",
-    "noHooks": "선택한 Codex 런타임이 훅 목록을 반환하지 않았습니다.",
-    "experimental": "실험적 기능",
-    "noExperimental": "현재 보고된 실험적 기능이 없습니다.",
-    "defaultOn": "기본 켜짐",
-    "inspector": {
-      "title": "검사기",
-      "description": "선택한 플러그인의 세부 정보 또는 최근 MCP 리소스 미리 보기입니다.",
-      "empty": "플러그인을 선택하거나 MCP 리소스를 미리 보면 여기에서 검사할 수 있습니다.",
-      "noPluginDescription": "플러그인 설명이 없습니다.",
-      "uninstall": "제거",
-      "install": "설치",
-      "noPluginSkills": "플러그인 스킬이 없습니다.",
-      "appsNeedingAuth": "인증이 필요한 앱",
-      "noAppAuth": "앱 수준 인증 요구 사항이 없습니다.",
-      "openAuthorizationUrl": "인증 URL 열기",
-      "emptyBody": "(비어 있음)"
-    }
+    "plugins": "플러그인",
+    "skills": "스킬"
   },
   "codexThreadsTab": {
-    "list": {
-      "title": "스레드 목록",
-      "description": "현재 워크스페이스에 대해 반환된 활성 및 보관된 Codex 스레드입니다."
-    },
-    "groups": {
-      "active": "활성",
-      "archived": "보관됨"
-    },
-    "empty": {
-      "active": "활성 스레드가 없습니다.",
-      "archived": "보관된 스레드가 없습니다."
-    },
-    "current": "현재",
-    "updatedAt": "{{time}} 업데이트됨",
-    "inspector": {
-      "title": "스레드 검사기",
-      "description": "선택한 스레드를 검사하고 포크, 리뷰, 이름 바꾸기, 압축, 보관, 롤백 작업을 실행합니다.",
-      "empty": "여기에서 검사할 스레드를 선택하세요."
-    },
-    "currentSession": "현재 세션",
-    "archivedBadge": "보관됨",
-    "metrics": {
-      "turns": "턴",
-      "modelProvider": "모델 프로바이더",
-      "cliVersion": "CLI 버전",
-      "updated": "업데이트"
-    },
-    "threadNamePlaceholder": "스레드 이름",
-    "quickActions": "빠른 작업",
-    "fork": "포크",
     "compact": "압축",
-    "archive": "보관",
-    "rollback": "롤백",
-    "rollBackTurns": "턴 롤백"
-  },
-  "codexCommandsTab": {
-    "categories": {
-      "session": "세션 제어",
-      "runtime": "런타임 및 동작",
-      "workspace": "워크스페이스 컨텍스트",
-      "inspection": "검사 및 리뷰",
-      "integrations": "앱 및 플러그인"
-    },
-    "catalog": {
-      "title": "슬래시 명령 카탈로그",
-      "description": "App Server가 실시간 명령 목록 RPC를 제공하지 않아도 팝업을 유용하게 쓸 수 있도록 공식 Codex CLI 슬래시 명령 가이드의 내용을 함께 제공합니다."
-    },
-    "filterPlaceholder": "명령, 동작 또는 카테고리로 필터링",
-    "total": "총 {{total}}개",
-    "noMatches": {
-      "title": "일치 항목 없음",
-      "description": "더 짧은 검색어를 사용하거나 필터를 지우세요.",
-      "detail": "<query/> 검색어와 일치하는 슬래시 명령이 없습니다."
-    },
-    "commandCount_other": "명령 {{count}}개"
+    "metrics": {
+      "turns": "턴"
+    }
   },
   "codexAdvancedTab": {
-    "requirements": {
-      "title": "설정 요구 사항",
-      "description": "App Server가 보고하는 승인, 샌드박스, 데이터 상주, 기능 게이트 관련 정책 제한입니다.",
-      "importDetected": "감지된 설정 가져오기",
-      "approval": "승인 {{value}}",
-      "sandbox": "샌드박스 {{value}}",
-      "search": "검색 {{value}}",
-      "residency": "데이터 상주 {{value}}",
-      "detectedExternal": "감지된 외부 설정"
-    },
     "layers": {
-      "title": "설정 레이어",
-      "description": "Codex가 반환한 병합된 설정과 레이어별 진단 정보입니다.",
       "disabled": "비활성화됨"
-    },
-    "edits": {
-      "title": "고급 설정 편집",
-      "description": "특정 Codex 설정을 변경하는 원시 JSON 도구입니다. 대부분의 사용자는 App Server 동작을 진단할 때만 이 영역을 확인하면 됩니다.",
-      "single": "단일 편집",
-      "mergeStrategyPlaceholder": "mergeStrategy (선택 사항)",
-      "applySingle": "단일 편집 적용",
-      "batch": "일괄 편집",
-      "applyBatch": "일괄 적용"
-    },
-    "merged": {
-      "title": "병합된 고급 설정",
-      "description": "`config/read`가 반환한 읽기 전용 원시 설정 페이로드입니다."
     }
   },
   "mcpSection": {

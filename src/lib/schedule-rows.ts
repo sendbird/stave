@@ -4,14 +4,21 @@ import { i18n } from "@/i18n/runtime";
  *
  * Two records sit underneath and stay separate: an automation ("Start a task":
  * repository + agent + prompt + cadence) and a wake-up ("Check back on a task":
- * an existing task + cadence, or when its subagents finish). This module only
- * folds them into rows the Schedules surface renders. Pure: no clock, no I/O.
+ * an existing task + cadence, when its subagents finish, or when its pull
+ * request needs fixing). This module only folds them into rows the Schedules
+ * surface renders. Pure: no clock, no I/O.
  *
  * Used by `src/components/layout/automation-center/` and `tests/schedule-rows.test.ts`.
  */
 import type { AutomationRun, AutomationSpec } from "./automations";
 import { formatAutomationSchedule } from "./automation-presentation";
 import type { WakeUp, WakeUpSummary } from "./supervision/wake-up-policy";
+import type { PullRequestWatchEvent } from "./supervision/pull-request-watch";
+import {
+  describePullRequestWatchEvents,
+  describePullRequestWatchLastSeen,
+  describePullRequestWatchTarget,
+} from "./supervision/pull-request-watch-view";
 
 export type ScheduleKind = "start" | "check-back";
 export type ScheduleState = "on" | "paused" | "stopped" | "manual";
@@ -39,6 +46,8 @@ export interface ScheduleLastResult {
 export interface ScheduleRow {
   key: string;
   kind: ScheduleKind;
+  /** The kind as the row names it; a pull request watch says so instead of "Check back". */
+  kindLabel: string;
   /** Automation id or wake-up id. */
   id: string;
   name: string;
@@ -83,6 +92,7 @@ export function automationScheduleRow(
   return {
     key: `start:${automation.id}`,
     kind: "start",
+    kindLabel: SCHEDULE_KIND_LABEL.start,
     id: automation.id,
     name: automation.name,
     detail: automation.environment.label,
@@ -99,11 +109,55 @@ export function automationScheduleRow(
   };
 }
 
+/**
+ * A pull request watch: what it wakes on, which pull request it follows, and
+ * what its last check saw. It has no next instant — it polls — so the row's
+ * "next" slot names the pull request instead.
+ */
+function pullRequestWatchScheduleRow(
+  wakeUp: WakeUp,
+  taskTitle: string | null,
+  events: readonly PullRequestWatchEvent[],
+): ScheduleRow {
+  const state: ScheduleState = wakeUp.state === "scheduled" ? "on" : wakeUp.state;
+  const watch = wakeUp.pullRequestWatch;
+  const seen = describePullRequestWatchLastSeen(watch);
+  return {
+    key: `check-back:${wakeUp.id}`,
+    kind: "check-back",
+    kindLabel: i18n.t("automation:pullRequestWatch.kindLabel"),
+    id: wakeUp.id,
+    name: taskTitle
+      ? i18n.t("automation:pullRequestWatch.rowName", { task: taskTitle })
+      : i18n.t("automation:pullRequestWatch.kindLabel"),
+    detail: describePullRequestWatchTarget(watch),
+    agent: wakeUp.fingerprint.model,
+    cadence: describePullRequestWatchEvents(events),
+    state,
+    lastResult:
+      wakeUp.occurrenceCount > 0
+        ? {
+            label: i18n.t("automation:pullRequestWatch.woke", { count: wakeUp.occurrenceCount }),
+            tone: "accent",
+            at: wakeUp.lastOccurrenceAt,
+          }
+        : { label: seen.text, tone: seen.tone, at: seen.at },
+    nextRunAt: null,
+    // The list does not render `detail`; this is where it says what is watched.
+    nextNote: describePullRequestWatchTarget(watch),
+    canRunNow: false,
+    toggle: wakeUp.state === "scheduled" ? "pause" : wakeUp.state === "paused" ? "resume" : null,
+  };
+}
+
 export function wakeUpScheduleRow(
   wakeUp: WakeUp,
   summary: WakeUpSummary | undefined,
   taskTitle: string | null,
 ): ScheduleRow {
+  if (wakeUp.trigger.kind === "pull_request") {
+    return pullRequestWatchScheduleRow(wakeUp, taskTitle, wakeUp.trigger.events);
+  }
   const state: ScheduleState = wakeUp.state === "scheduled" ? "on" : wakeUp.state;
   const completion = wakeUp.trigger.kind === "completion";
   const checked = wakeUp.occurrenceCount;
@@ -112,6 +166,7 @@ export function wakeUpScheduleRow(
   return {
     key: `check-back:${wakeUp.id}`,
     kind: "check-back",
+    kindLabel: SCHEDULE_KIND_LABEL["check-back"],
     id: wakeUp.id,
     name: taskTitle ? `Check back on ${taskTitle}` : firstLine(wakeUp.prompt, 60),
     detail: taskTitle ? firstLine(wakeUp.prompt) : null,

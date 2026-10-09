@@ -15,6 +15,7 @@ import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import { cancelCompareJudgeSecondaryRun } from "@/store/compare-run-judge";
 import { launchCompareRunVariants } from "@/store/compare-run-start";
 import type { PromptDraft } from "@/types/chat";
+import { selectEffectiveSettings } from "@/store/project-settings-overrides";
 
 type CompareActionKey =
   | "openCompareRun"
@@ -104,8 +105,8 @@ export function createCompareActions(args: {
       const normalizedVariants = normalizeCompareVariants(
         variants ??
           buildDefaultCompareVariants({
-            modelClaude: stateBefore.settings.modelClaude,
-            modelCodex: stateBefore.settings.modelCodex,
+            modelClaude: selectEffectiveSettings(stateBefore).modelClaude,
+            modelCodex: selectEffectiveSettings(stateBefore).modelCodex,
           }),
       );
       if (normalizedVariants.length < 2) {

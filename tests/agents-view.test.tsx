@@ -9,11 +9,12 @@ afterEach(() => {
 });
 
 describe("agents surface", () => {
-  test("the surface renders Agents and My standards, Agents by default, and no Workflows tab", () => {
+  test("the surface renders Agents, My standards and Performance, Agents by default, and no Workflows tab", () => {
     const html = renderToStaticMarkup(createElement(AgentsView));
     expect(html).toContain("Agents");
     expect(html).not.toContain("Workflows");
     expect(html).toContain("My standards");
+    expect(html).toContain("Performance");
     // Default tab shows the agents list.
     expect(html).toContain('data-testid="agents-tab"');
   });

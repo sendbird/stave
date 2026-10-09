@@ -684,6 +684,59 @@
     "commandResult3": "출력 대기 중…",
     "commandResult4": "출력이 없습니다."
   },
+  "inlineRender": {
+    "viewSource": "소스 보기",
+    "hideSource": "소스 숨기기",
+    "save": "HTML 파일로 저장",
+    "saved": "{{path}}에 저장했습니다",
+    "saveFailed": "페이지를 저장하지 못했습니다.",
+    "sourceUnavailable": "페이지 소스를 읽지 못했습니다.",
+    "expand": "크게 보기",
+    "collapse": "원래 크기로",
+    "copy": "복사",
+    "copied": "복사됨",
+    "loading": "페이지를 불러오는 중…",
+    "missing": "이 페이지는 더 이상 볼 수 없습니다.",
+    "unavailable": "이 페이지는 Stave 데스크톱 앱에서 대화를 열어야 볼 수 있습니다.",
+    "shownBelow": "실행 단계 아래에 표시됩니다.",
+    "paused": "다른 페이지가 열려 있어 잠시 멈췄습니다.",
+    "resume": "페이지 보기",
+    "contextShared": "에이전트와 공유됨",
+    "contextSharedHint": "이 페이지가 자신의 상태를 에이전트와 공유했습니다. 다음 메시지와 함께 지시가 아닌 페이지 데이터로 표시되어 전달됩니다. 클릭하면 지웁니다.",
+    "clearContext": "에이전트와 공유됨: 이 페이지가 공유한 내용 지우기",
+    "messageConfirmTitle": "이 메시지를 보낼까요?",
+    "messageConfirmDescription": "“{{title}}” 페이지가 이 메시지를 내 이름으로 보내려고 합니다. 에이전트가 아직 작업 중이면 현재 턴이 끝날 때까지 대기열에서 기다립니다.",
+    "messageConfirmTextLabel": "페이지가 보낸 메시지",
+    "messageConfirmCancel": "보내지 않기",
+    "messageConfirmSend": "메시지 보내기"
+  },
+  "mcpAppView": {
+    "title": "{{server}}의 {{tool}}",
+    "loading": "뷰를 불러오는 중…",
+    "missing": "이 뷰는 더 이상 사용할 수 없습니다.",
+    "unavailable": "이 뷰를 사용하려면 Stave 데스크톱 앱에서 대화를 여세요.",
+    "fullscreen": "전체 화면",
+    "exitFullscreen": "전체 화면 종료",
+    "messageConfirm": {
+      "title": "뷰가 작성한 이 메시지를 보낼까요?",
+      "description": "{{server}}에서 이 메시지를 사용자 메시지로 대화에 추가하려고 합니다. 에이전트가 아직 작업 중이면 대기열에서 기다립니다.",
+      "confirm": "보내기",
+      "contentLabel": "뷰가 보낸 메시지"
+    },
+    "toolConfirm": {
+      "title": "뷰가 {{tool}} 도구를 실행하도록 허용할까요?",
+      "description": "{{server}}의 이 도구는 읽기 전용으로 표시되지 않아 데이터를 바꿀 수 있습니다. 다음 인수로 실행됩니다.",
+      "confirm": "도구 실행",
+      "contentLabel": "도구 인수"
+    },
+    "messageFailed": "뷰의 메시지를 보내지 못했습니다."
+  },
+  "toolOutputImages": {
+    "label": "이미지 {{index}}",
+    "open": "{{label}} 크게 보기",
+    "loading": "이미지를 불러오는 중…",
+    "missing": "이 이미지는 더 이상 볼 수 없습니다."
+  },
   "turnEventDecisions": {
     "title": "단계",
     "label": "인수",
@@ -852,5 +905,30 @@
     "changes": "변경 사항",
     "changesLabel": "{{value1}}을(를) 이전 리비전과 비교",
     "couldNotLoad": "이 리비전을 불러올 수 없습니다."
+  },
+  "secretRequestCard": {
+    "ariaLabel": "에이전트가 요청한 시크릿",
+    "title": "에이전트가 시크릿을 요청합니다",
+    "queued_other": "외 {{count}}개",
+    "valueLabel": "{{envVar}} 값",
+    "valuePlaceholder": "값 붙여넣기",
+    "save": "저장 및 연결",
+    "useExisting": "저장된 시크릿 사용",
+    "enterNew": "새 값 입력",
+    "backToExisting": "대신 저장된 시크릿 사용",
+    "decline": "거절",
+    "existing": "이 변수에 이미 저장된 시크릿:",
+    "replaceNote": "저장하면 {{name}} 시크릿에 저장된 값이 바뀌며, 이 시크릿을 사용하는 다른 작업에도 적용됩니다.",
+    "availability": "Stave가 값을 에이전트에 보내지 않고 설정 → 시크릿에 저장한 뒤 이 작업에 연결합니다. 이미 실행 중인 턴에는 새 환경 변수를 전달할 수 없으므로 다음 메시지부터 사용할 수 있습니다. 변수를 출력하는 명령으로는 값이 노출될 수 있습니다.",
+    "waitingUntil": "에이전트가 {{time}}까지 기다립니다.",
+    "saving": "저장 중…",
+    "bindingFull": "이 작업에는 이미 시크릿 {{max}}개가 연결되어 있어 더 연결할 수 없습니다. 거절한 뒤 입력창의 시크릿 컨트롤에서 하나를 연결 해제하고 다시 요청하세요.",
+    "errorNotPending": "이 요청은 더 이상 대기 중이 아닙니다. 이미 응답했거나 만료되었습니다.",
+    "errorExistingMissing": "저장된 시크릿이 삭제되었거나 변경되었습니다. 대신 값을 입력하세요.",
+    "errorInvalid": "Stave가 이 응답을 읽지 못했습니다. 다시 시도하세요.",
+    "errorVault": "시크릿을 저장하지 못했습니다: {{detail}}",
+    "errorUnavailable": "이 창에서는 시크릿 요청을 사용할 수 없습니다.",
+    "toastSaved": "{{envVar}} 변수를 저장하고 이 작업에 연결했습니다",
+    "toastSavedDescription": "다음 메시지부터 사용할 수 있습니다."
   }
 }

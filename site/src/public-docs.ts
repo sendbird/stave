@@ -58,6 +58,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         previewImage: "screenshots/command-palette.png",
       },
       {
+        routePath: "keyboard-shortcuts",
+        sourcePath: "docs/features/keyboard-shortcuts.md",
+        title: "Keyboard Shortcuts",
+        description:
+          "Every shortcut in one list: reopen a closed tab, go back and forward, and undo from the keyboard.",
+      },
+      {
         routePath: "runtime-safety",
         sourcePath: "docs/features/provider-sandbox-and-approval.md",
         title: "Runtime Safety Controls",
@@ -109,11 +116,25 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Choose a docked, floating, or right-rail view for following tools, delegated tasks, todos, and other live turn data.",
       },
       {
+        routePath: "inline-renders",
+        sourcePath: "docs/features/inline-renders.md",
+        title: "Inline HTML Pages",
+        description:
+          "See charts, tables, and mockups an agent builds as HTML right in the conversation, isolated from the app and your files.",
+      },
+      {
         routePath: "accounts-and-gateways",
         sourcePath: "docs/features/accounts-and-gateways.md",
         title: "Accounts and API Connections",
         description:
           "Add a second Claude or Codex sign-in, switch the account new turns use, or bill Claude and Codex turns per token through one gateway key.",
+      },
+      {
+        routePath: "secrets",
+        sourcePath: "docs/features/secrets.md",
+        title: "Secrets",
+        description:
+          "Keep API keys encrypted, bind them to a task as environment variables, and answer an agent's request for a key without pasting it into chat.",
       },
       {
         routePath: "standalone-cli",

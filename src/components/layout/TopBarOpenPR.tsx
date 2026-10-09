@@ -22,6 +22,7 @@ import {
 import { ContinueWorkspaceDialog } from "@/components/layout/ContinueWorkspaceDialog";
 import { PrContextDialog } from "@/components/layout/PrContextDialog";
 import { CreatePullRequestDialog } from "@/components/layout/pull-request/CreatePullRequestDialog";
+import { watchCreatedPullRequest } from "@/components/layout/pull-request/auto-pull-request-watch";
 import {
   FIELD_LABEL_CLASS,
   InlineNoticeBanner,
@@ -225,7 +226,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     activeTurnIdsByTask,
     workspacePrInfoById,
     prePrReviewEnabled,
-    prePrReviewProvider,
     prePrReviewClaudeModel,
     prePrReviewCodexModel,
     prePrReviewCodexBinaryPath,
@@ -252,7 +252,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           state.activeTurnIdsByTask,
           state.workspacePrInfoById,
           state.settings.prePrReviewEnabled,
-          state.settings.prePrReviewProvider,
           state.settings.modelClaude,
           state.settings.modelCodex,
           state.settings.codexBinaryPath,
@@ -488,6 +487,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const prDescriptionLane = resolveAuxLaneRuntime({
       lane: "prDescription",
       policy: auxiliaryInferencePolicy,
+      shared: useAppStore.getState().settings.auxiliaryInferenceDefault,
       activeProviderId: activeTask?.provider ?? null,
     });
     // Off keeps the deterministic fallback draft, which is why the lane can be
@@ -812,7 +812,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const prePrReviewLane = resolveAuxLaneRuntime({
       lane: "prePrReview",
       policy: auxiliaryInferencePolicy,
-      legacyProviderId: prePrReviewProvider,
+      shared: useAppStore.getState().settings.auxiliaryInferenceDefault,
     });
     if (
       prePrReviewEnabled &&
@@ -1225,10 +1225,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         description: [
           prResult.stderr || i18n.t("sourceControl:topBarOpenPR.ghPrCreateFailed"),
           prResult.prUrl ? `PR URL: ${prResult.prUrl}` : "",
-        ]
-          .filter(Boolean)
-          .join(" "),
+        ].filter(Boolean).join(" "),
       });
+      if (prResult.prUrl && submitWorkspaceId) void watchCreatedPullRequest({ state: useAppStore.getState(), workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
       setStep("ready");
       return;
     }
@@ -1284,6 +1283,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         prUrl: prResult.prUrl,
         prTitle: title,
       });
+      void watchCreatedPullRequest({ state, workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
     }
 
     // Refresh PR status to pick up the new PR
@@ -1572,15 +1572,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   async function handleContinueWorkspace(args: {
     name: string;
     baseBranch?: string;
+    target: "here" | "new-workspace";
   }) {
     setContinuingWorkspace(true);
     try {
-      const result = await continueWorkspaceFromSummary({
-        name: args.name,
-        baseBranch: args.baseBranch,
-      });
+      const result = await continueWorkspaceFromSummary(args);
       if (!result.ok) {
-        toast.error(i18n.t("sourceControl:topBarOpenPR.unableToContinueInANewWorkspace"), {
+        toast.error(args.target === "here" ? i18n.t("sourceControl:topBarOpenPR.unableToContinueHere") : i18n.t("sourceControl:topBarOpenPR.unableToContinueInANewWorkspace"), {
           description:
             result.message ?? i18n.t("sourceControl:topBarOpenPR.theContinuationBriefCouldNotBePrepared"),
         });

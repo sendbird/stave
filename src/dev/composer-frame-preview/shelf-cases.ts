@@ -116,6 +116,11 @@ function todoMessage(): ChatMessage {
         input: JSON.stringify({ todos: PREVIEW_TODOS }),
         state: "output-available",
       },
+      {
+        type: "thinking",
+        text: "**Checking the shelf**\n\nThe run line already names the tool, so only the newest thought goes under it, held to two lines.",
+        isStreaming: true,
+      },
     ],
   } as ChatMessage;
 }

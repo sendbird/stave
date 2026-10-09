@@ -5,7 +5,6 @@ import { LensToolPreview } from "@/components/panes/surfaces/lens/LensAutomation
 import { Check, Copy } from "lucide-react";
 import {
   CompactingIndicator,
-  ConfirmationCompact,
   ContextCompactedCheckpoint,
   MessageAction,
   MessageResponse,
@@ -16,8 +15,6 @@ import {
   ToolHeader,
   ToolInput,
   ToolOutput,
-  UserInputCard,
-  type UserInputCardPresentation,
   parseSubagentToolInput,
   TruncationWarningBanner,
 } from "@/components/ai-elements";
@@ -88,7 +85,6 @@ export function MessagePartRenderer(args: {
   terminalStopReason?: string;
   isStreaming?: boolean;
   isLastTextPart?: boolean;
-  userInputPresentation?: UserInputCardPresentation;
   systemEventPresentation?: "full" | "detail";
 }) {
   useTranslation();
@@ -99,11 +95,8 @@ export function MessagePartRenderer(args: {
     terminalStopReason,
     isStreaming,
     isLastTextPart,
-    userInputPresentation,
     systemEventPresentation = "full",
   } = args;
-  const resolveApproval = useAppStore((state) => state.resolveApproval);
-  const resolveUserInput = useAppStore((state) => state.resolveUserInput);
   const rollbackToCompactBoundary = useAppStore(
     (state) => state.rollbackToCompactBoundary,
   );
@@ -187,45 +180,11 @@ export function MessagePartRenderer(args: {
           onOpen={() => void openAttachedTask({ taskId: part.taskId, workspaceId: part.workspaceId })}
         />
       );
+    // Approvals and user-input requests render in the assistant trace
+    // (TraceApproval / TraceClarification); no caller passes them here.
     case "approval":
-      return (
-        <ConfirmationCompact
-          toolName={part.toolName}
-          description={part.description}
-          state={part.state}
-          onApprove={() =>
-            resolveApproval({ taskId, messageId, approved: true })
-          }
-          onApproveAlways={
-            part.supportsAllowAlways
-              ? () =>
-                  resolveApproval({
-                    taskId,
-                    messageId,
-                    approved: true,
-                    scope: "always",
-                  })
-              : undefined
-          }
-          onReject={() =>
-            resolveApproval({ taskId, messageId, approved: false })
-          }
-        />
-      );
     case "user_input":
-      return (
-        <UserInputCard
-          toolName={part.toolName}
-          questions={part.questions}
-          answers={part.answers}
-          state={part.state}
-          presentation={userInputPresentation}
-          onSubmit={(answers) =>
-            resolveUserInput({ taskId, messageId, requestId: part.requestId, answers })
-          }
-          onDeny={() => resolveUserInput({ taskId, messageId, requestId: part.requestId, denied: true })}
-        />
-      );
+      return null;
     case "system_event": {
       if (!shouldRenderInlineSystemEvent({ content: part.content })) {
         return null;

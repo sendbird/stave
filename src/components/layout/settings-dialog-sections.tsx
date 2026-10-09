@@ -13,7 +13,6 @@ import { ChangelogSection } from "./settings-dialog-changelog-section";
 import { DeveloperSection } from "./settings-dialog-developer-section";
 import { PresetsSection } from "./settings-dialog-presets-section";
 import { MacrosSection } from "./settings-dialog-macros-section";
-import { CodexSection } from "./settings-dialog-codex-section";
 import { McpSection } from "./settings-dialog-mcp-section";
 import { KickoffSection } from "./settings-dialog-kickoff-section";
 import { ProvidersSection } from "./settings-dialog-providers-section";
@@ -76,13 +75,11 @@ export function SettingsDialogSectionContent(args: {
     case "commandPalette":
       return <CommandPaletteSection />;
     case "editor":
-      return <EditorSection />;
+      return <EditorSection onNavigateSection={args.onNavigateSection} />;
     case "providers":
-      return <ProvidersSection />;
+      return <ProvidersSection onNavigateSection={args.onNavigateSection} />;
     case "models":
-      return <ModelsSection />;
-    case "codex":
-      return <CodexSection />;
+      return <ModelsSection onNavigateSection={args.onNavigateSection} />;
     case "mcp":
       return <McpSection />;
     case "integrations":
@@ -94,15 +91,15 @@ export function SettingsDialogSectionContent(args: {
         </div>
       );
     case "issues":
-      return <IssueTrackerSettingsSection />;
+      return <IssueTrackerSettingsSection onNavigateSection={args.onNavigateSection} />;
     case "kickoff":
       return <KickoffSection />;
     case "auxiliaryInference":
-      return <SettingsAuxiliaryInferenceSection />;
+      return <SettingsAuxiliaryInferenceSection onNavigateSection={args.onNavigateSection} />;
     case "autoRouting":
       return <SettingsAutoRoutingSection />;
     case "prompts":
-      return <PromptsSection />;
+      return <PromptsSection onNavigateSection={args.onNavigateSection} />;
     case "memory":
       return (
         <RepositoryMemorySettingsSection

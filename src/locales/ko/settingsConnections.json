@@ -483,7 +483,7 @@
     "resourceLinkMirroring": "리소스 링크 반영",
     "mirrorWorkspaceLinksAfterChangesSettle": "변경이 안정되면 워크스페이스 링크를 반영합니다.",
     "turnSummaries": "턴 요약",
-    "sendModelWrittenWorkSummariesThis": "모델이 작성한 작업 요약을 보냅니다. 해석이 포함된 데이터이므로 기본값에서는 꺼져 있습니다.",
+    "sendModelWrittenWorkSummariesThis": "모델이 작성한 작업 요약을 보냅니다. 해석이 포함된 데이터이므로 기본값에서는 꺼져 있습니다. 요약은 설정 → 백그라운드 AI에서 턴 요약이 켜져 있을 때만 작성됩니다.",
     "outbox": "발신 대기함",
     "pendingFailed": " · {{value1}}개 대기 중 · {{value2}}개 실패",
     "lastDelivered": " · 최근 전달 {{value1}}",

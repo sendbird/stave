@@ -1,3 +1,5 @@
+import { normalizeInlineRenderNetworkPolicy } from "@/lib/inline-render/inline-render";
+import { normalizeWorkspaceSettleAfterDays } from "@/lib/fleet/workspace-settlement";
 import { i18n } from "@/i18n/runtime";
 import { providersWithChangedAccount, resetRateLimitsForProviders } from "@/store/rate-limits-account-reset";
 import type { StoreApi } from "zustand";
@@ -51,14 +53,8 @@ import {
 } from "@/store/app-settings";
 import type { AppState } from "@/store/app-store.types";
 import { providerToolingStatePatch } from "./provider-tooling";
-import {
-  normalizeAutoRoutingEligibleModels,
-  normalizeAutoRoutingObjective,
-} from "@/lib/routing/auto-routing";
-import {
-  STANCE_OBJECTIVE,
-  validateProfile,
-} from "@/lib/providers/auto-routing-profile";
+import { validateProfile } from "@/lib/providers/auto-routing-profile";
+import { normalizeAuxInferenceDefault } from "@/lib/providers/auxiliary-inference-policy";
 import { normalizeProviderTimeoutMs } from "@/store/editor.utils";
 import {
   captureCurrentRepositoryState,
@@ -69,6 +65,7 @@ import {
   updateCurrentRepositoryTextPreference,
   upsertRecentRepositoryState,
 } from "@/store/repository.utils";
+import { updateProjectSettingsOverrides } from "@/store/project-settings-overrides";
 import { normalizeCustomAgents } from "@/lib/agents/library";
 import { normalizeAgentRevisions } from "@/lib/agents/revisions";
 import { normalizeAgentSuggestions, normalizeLearningDisabled } from "@/lib/agents/learned-suggestions";
@@ -96,6 +93,7 @@ type SettingsActionKey =
   | "setRepositoryKickoffBranchNamingRule"
   | "setRepositoryAppearance"
   | "setRepositoryWorkspaceUseRootNodeModulesSymlink"
+  | "updateProjectSettingsOverrides"
   | "setDarkMode"
   | "installCustomTheme"
   | "removeCustomTheme"
@@ -259,6 +257,53 @@ export function createSettingsActions(args: {
         };
       });
     },
+    updateProjectSettingsOverrides: ({ repositoryPath, patch, clearKeys }) => {
+      const normalizedRepositoryPath = repositoryPath.trim();
+      let refusedKeys: string[] = [];
+      set((state) => {
+        const currentRepositories = captureCurrentRepositoryState({
+          recentRepositories: state.recentRepositories,
+          repositoryPath: state.repositoryPath,
+          repositoryName: state.repositoryName,
+          defaultBranch: state.defaultBranch,
+          workspaces: state.workspaces,
+          activeWorkspaceId: state.activeWorkspaceId,
+          workspaceBranchById: state.workspaceBranchById,
+          workspacePathById: state.workspacePathById,
+          workspaceDefaultById: state.workspaceDefaultById,
+          workspaceLastActiveAtById: state.workspaceLastActiveAtById,
+        });
+        const existingRepository = currentRepositories.find(
+          (repository) => repository.repositoryPath === normalizedRepositoryPath,
+        );
+        if (!existingRepository) {
+          return state;
+        }
+        const result = updateProjectSettingsOverrides({
+          overrides: existingRepository.settingsOverrides,
+          patch,
+          clearKeys,
+        });
+        refusedKeys = result.refusedKeys;
+        if (!result.changed) {
+          return state;
+        }
+        const { settingsOverrides: _previous, ...repository } =
+          cloneRecentRepositoryState(existingRepository);
+        return {
+          recentRepositories: upsertRecentRepositoryState({
+            repositories: currentRepositories,
+            repository: result.overrides
+              ? { ...repository, settingsOverrides: result.overrides }
+              : repository,
+          }),
+        };
+      });
+      if (refusedKeys.length > 0) {
+        console.warn("[settings] refused project overrides outside the allow-list", refusedKeys);
+      }
+      return { refusedKeys };
+    },
     setDarkMode: ({ enabled }) => {
       const nextThemeMode: AppSettings["themeMode"] = enabled
         ? "dark"
@@ -404,6 +449,13 @@ export function createSettingsActions(args: {
           : {
               sidebarNavView: normalizeSidebarNavView(patch.sidebarNavView),
             }),
+        ...(patch.workQueueSettleAfterDays === undefined
+          ? {}
+          : {
+              workQueueSettleAfterDays: normalizeWorkspaceSettleAfterDays(
+                patch.workQueueSettleAfterDays,
+              ),
+            }),
         ...(patch.language === undefined
           ? {}
           : { language: normalizeAppLocale(patch.language) }),
@@ -418,6 +470,13 @@ export function createSettingsActions(args: {
           ? {}
           : {
               composerLayout: normalizeComposerLayoutMode(patch.composerLayout),
+            }),
+        ...(patch.inlineRenderNetworkPolicy === undefined
+          ? {}
+          : {
+              inlineRenderNetworkPolicy: normalizeInlineRenderNetworkPolicy(
+                patch.inlineRenderNetworkPolicy,
+              ),
             }),
         ...(patch.infoPanelSectionVisibility === undefined
           ? {}
@@ -448,13 +507,6 @@ export function createSettingsActions(args: {
                 value: patch.providerTimeoutMs,
               }),
             }),
-        ...(patch.autoRoutingObjective === undefined
-          ? {}
-          : {
-              autoRoutingObjective: normalizeAutoRoutingObjective(
-                patch.autoRoutingObjective,
-              ),
-            }),
         ...(patch.modelVisibility === undefined
           ? {}
           : {
@@ -462,43 +514,15 @@ export function createSettingsActions(args: {
             }),
         ...(patch.autoRoutingProfile === undefined
           ? {}
-          : (() => {
-              const autoRoutingProfile = validateProfile(
-                patch.autoRoutingProfile,
-              );
-              // Keep the v1 mirrors coherent for anything still reading them.
-              return {
-                autoRoutingProfile,
-                autoRoutingObjective: STANCE_OBJECTIVE[autoRoutingProfile.stance],
-                autoRoutingUseClassifier: autoRoutingProfile.signals.classifier,
-                autoRoutingSafetyEscalation:
-                  autoRoutingProfile.signals.safetyEscalation,
-                autoRoutingAllowProviderSwitch:
-                  autoRoutingProfile.signals.providerSwitch,
-                autoRoutingEligibleClaudeModels: [
-                  ...(autoRoutingProfile.eligibleModelsByProvider["claude-code"] ??
-                    []),
-                ],
-                autoRoutingEligibleCodexModels: [
-                  ...(autoRoutingProfile.eligibleModelsByProvider.codex ?? []),
-                ],
-              };
-            })()),
-        ...(patch.autoRoutingEligibleClaudeModels === undefined
-          ? {}
           : {
-              autoRoutingEligibleClaudeModels:
-                normalizeAutoRoutingEligibleModels(
-                  patch.autoRoutingEligibleClaudeModels,
-                ),
+              autoRoutingProfile: validateProfile(patch.autoRoutingProfile),
             }),
-        ...(patch.autoRoutingEligibleCodexModels === undefined
+        ...(patch.auxiliaryInferenceDefault === undefined
           ? {}
           : {
-              autoRoutingEligibleCodexModels:
-                normalizeAutoRoutingEligibleModels(
-                  patch.autoRoutingEligibleCodexModels,
-                ),
+              auxiliaryInferenceDefault: normalizeAuxInferenceDefault(
+                patch.auxiliaryInferenceDefault,
+              ),
             }),
         ...(patch.claudeTaskBudgetTokens === undefined
           ? {}
@@ -597,27 +621,6 @@ export function createSettingsActions(args: {
           : {
               notificationSoundMode: normalizeNotificationSoundMode(
                 patch.notificationSoundMode,
-              ),
-            }),
-        ...(patch.attentionNotificationSoundVolume === undefined
-          ? {}
-          : {
-              attentionNotificationSoundVolume: normalizeNotificationSoundVolume(
-                patch.attentionNotificationSoundVolume,
-              ),
-            }),
-        ...(patch.attentionNotificationSoundPreset === undefined
-          ? {}
-          : {
-              attentionNotificationSoundPreset: normalizeNotificationSoundPreset(
-                patch.attentionNotificationSoundPreset,
-              ),
-            }),
-        ...(patch.attentionNotificationSoundMode === undefined
-          ? {}
-          : {
-              attentionNotificationSoundMode: normalizeNotificationSoundMode(
-                patch.attentionNotificationSoundMode,
               ),
             }),
       };

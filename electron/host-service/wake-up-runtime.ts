@@ -24,6 +24,12 @@
  * injected function — the delegated-task coordinator emits no completion event, and
  * inventing one there would put execution machinery in the ledger's layer.
  *
+ * The pull request trigger rides it the same way. Dueness is "the watched pull
+ * request has a failure no earlier wake consumed", read from GitHub through an
+ * injected reader on a two-minute poll. Those reads happen outside the
+ * serialized chain so a slow `gh` call never holds up a list or an edit; the
+ * tick that consumes them is enqueued once they land.
+ *
  * The decision policy itself is pure and lives in
  * `src/lib/supervision/wake-up-policy.ts`; this file is the I/O around it.
  */
@@ -33,6 +39,7 @@ import {
   buildTaskCompletionSignalKey,
   buildWakeUpCompletionIdempotencyKey,
   buildWakeUpIdempotencyKey,
+  buildWakeUpPullRequestIdempotencyKey,
   buildWakeUpUnreportedKey,
   classifyTaskCompletionObservability,
   createWakeUp,
@@ -52,6 +59,19 @@ import {
   type WakeUpTrigger,
   type WakeUpUpsertInput,
 } from "../../src/lib/supervision/wake-up-policy";
+import {
+  advancePullRequestWatchState,
+  buildPullRequestWatchPrompt,
+  collectPullRequestWatchSignals,
+  isPullRequestWatchPollDue,
+  PULL_REQUEST_WATCH_LIMITS,
+  PullRequestWatchReadSchema,
+  type PullRequestWatchEvent,
+  type PullRequestWatchObservation,
+  type PullRequestWatchRead,
+  type PullRequestWatchSignal,
+  type PullRequestWatchSnapshot,
+} from "../../src/lib/supervision/pull-request-watch";
 import { validateFleetQueueAction } from "../../src/lib/fleet/control-plane";
 import { refuseWakeUpForAgentRun } from "../../src/lib/supervision/automatic-turn-owner";
 import type {
@@ -150,6 +170,18 @@ interface WakeUpRuntimeDependencies {
     taskId: string;
   }) => Promise<TaskCompletionSignal[]> | TaskCompletionSignal[];
   /**
+   * Reads the pull request of the task's workspace branch for a `pull_request`
+   * watch — by number once the watch has locked onto one. Read-only, like the
+   * ledger read above. Absent means pull requests cannot be read here, so a
+   * watch is refused rather than left waiting on a read that never happens.
+   */
+  readPullRequestWatch?: (args: {
+    workspaceId: string;
+    taskId: string;
+    pullRequestNumber: number | null;
+    events: PullRequestWatchEvent[];
+  }) => Promise<PullRequestWatchRead>;
+  /**
    * The task's running or paused agent run. An agent run owns its lead task's
    * automatic turns, so the wake-up pauses with `agent-run-active` while one
    * exists, and creating, updating or resuming a wake-up on that task is
@@ -187,6 +219,11 @@ export interface WakeUpRuntime {
   pause: (args: { id: string }) => Promise<WakeUp>;
   resume: (args: { id: string }) => Promise<WakeUp>;
   remove: (args: { id: string }) => Promise<{ ok: true; id: string }>;
+  /**
+   * Resolves once pull request reads in flight have landed and the chain has
+   * drained. For tests and shutdown; the tick itself never waits on it.
+   */
+  whenIdle: () => Promise<void>;
 }
 
 function toSnapshot(wakeUps: WakeUp[]): WakeUpSnapshot {
@@ -258,6 +295,49 @@ function buildCompletionContextPart(args: {
   };
 }
 
+/**
+ * The pull request counterpart. The woken turn's prompt already carries what
+ * failed; this says who woke it and that nobody is necessarily watching.
+ */
+function buildPullRequestContextPart(args: {
+  wakeUp: WakeUp;
+  pullRequest: PullRequestWatchSnapshot;
+  occurrenceNumber: number;
+}): CanonicalRetrievedContextPart {
+  const cap = args.wakeUp.maxOccurrences
+    ? ` of ${args.wakeUp.maxOccurrences}`
+    : "";
+  return {
+    type: "retrieved_context",
+    sourceId: "stave:wake-up",
+    title: "Pull Request Needs Fixing",
+    content: [
+      "A Stave pull request watch started this turn because this task's pull request needs fixing. The user did not type this message and may not be watching.",
+      `This is wake ${args.occurrenceNumber}${cap} for pull request #${args.pullRequest.number}. The watch keeps reading it and wakes this task again only for a new failure.`,
+      "Report what you changed and whether you pushed. Do not ask a question you cannot get answered — if you are blocked, say what is blocking you and stop.",
+    ].join("\n"),
+  };
+}
+
+/** The occurrence row's reason for one consumed pull request signal. */
+function describePullRequestSignal(
+  signal: PullRequestWatchSignal,
+  pullRequest: PullRequestWatchSnapshot,
+) {
+  const sha = pullRequest.headRefOid ? ` on ${pullRequest.headRefOid.slice(0, 7)}` : "";
+  switch (signal.kind) {
+    case "checks_failed":
+      return `Check ${signal.check.name} failed${sha}.`;
+    case "merge_conflict":
+      return `The branch conflicts with ${signal.baseRefName || "its base"}${sha}.`;
+    case "review_comments":
+      return `New review comment${signal.comment.author ? ` from @${signal.comment.author}` : ""}.`;
+    default:
+      signal satisfies never;
+      return "Pull request signal.";
+  }
+}
+
 export function createWakeUpRuntime(
   dependencies: WakeUpRuntimeDependencies,
 ): WakeUpRuntime {
@@ -315,6 +395,8 @@ export function createWakeUpRuntime(
   }
   let intervalHandle: ReturnType<typeof globalThis.setInterval> | null = null;
   let operationChain = Promise.resolve();
+  /** The pull request reads of the current tick, while they are out. */
+  let pullRequestReadsInFlight: Promise<void> | null = null;
 
   /**
    * Single-file ordering for every mutation and every tick. The host service is
@@ -361,14 +443,11 @@ export function createWakeUpRuntime(
    * first keeps a duplicate delivery from also producing a spurious deferral
    * row while the task happens to be mid-turn.
    */
-  function selectUnconsumedCompletions(args: {
-    wakeUp: WakeUp;
-    signals: TaskCompletionSignal[];
-  }) {
-    const consumed = new Set(
+  function listConsumedKeys(wakeUp: WakeUp) {
+    return new Set(
       persistence
         .listWakeUpOccurrences({
-          wakeUpId: args.wakeUp.id,
+          wakeUpId: wakeUp.id,
           // Wide enough to reach every `fired` row the store protects, even
           // when a burst of deferrals sits in front of them. Reading a shorter
           // window would reintroduce exactly the duplicate this guards against.
@@ -379,6 +458,13 @@ export function createWakeUpRuntime(
         .filter((occurrence) => occurrence.outcome === "fired")
         .map((occurrence) => occurrence.idempotencyKey),
     );
+  }
+
+  function selectUnconsumedCompletions(args: {
+    wakeUp: WakeUp;
+    signals: TaskCompletionSignal[];
+  }) {
+    const consumed = listConsumedKeys(args.wakeUp);
     return args.signals.filter((signal) => {
       if (
         consumed.has(
@@ -455,10 +541,82 @@ export function createWakeUpRuntime(
     return selectUnconsumedCompletions({ wakeUp, signals: eligible });
   }
 
+  /**
+   * Pull request signals no earlier wake consumed. Same guard as completions:
+   * the durable `fired` rows decide, so a failure seen on every poll is one
+   * receipt, and only a new fact can wake the task again.
+   */
+  function selectUnconsumedPullRequestSignals(args: {
+    wakeUp: WakeUp;
+    signals: PullRequestWatchSignal[];
+  }) {
+    if (args.signals.length === 0) return [];
+    const consumed = listConsumedKeys(args.wakeUp);
+    return args.signals.filter(
+      (signal) =>
+        !consumed.has(
+          buildWakeUpPullRequestIdempotencyKey({
+            wakeUpId: args.wakeUp.id,
+            outcome: "fired",
+            signalKey: signal.key,
+          }),
+        ),
+    );
+  }
+
+  /**
+   * Folds this tick's read (if there was one) into the watch state and the
+   * observation the policy decides on. Pure apart from the receipt lookup.
+   */
+  function observePullRequest(
+    wakeUp: WakeUp,
+    read: PullRequestWatchRead | undefined,
+  ): {
+    state: WakeUp["pullRequestWatch"];
+    observation: PullRequestWatchObservation;
+  } | null {
+    if (wakeUp.trigger.kind !== "pull_request") return null;
+    if (!read) {
+      return { state: wakeUp.pullRequestWatch, observation: { kind: "not-read" } };
+    }
+    const previous = wakeUp.pullRequestWatch;
+    const advanced = advancePullRequestWatchState({ previous, read, now: now() });
+    if (!read.ok) {
+      return {
+        state: advanced,
+        observation: {
+          kind: "read-failed",
+          error: read.error,
+          consecutiveFailures: advanced.consecutiveReadFailures,
+        },
+      };
+    }
+    const signals = read.pullRequest
+      ? selectUnconsumedPullRequestSignals({
+          wakeUp,
+          signals: collectPullRequestWatchSignals({
+            events: wakeUp.trigger.events,
+            pullRequest: read.pullRequest,
+          }),
+        })
+      : [];
+    return {
+      // Nothing new to wake on means nothing is queued behind a turn either.
+      state: signals.length === 0 ? { ...advanced, pendingSince: null } : advanced,
+      observation: {
+        kind: "read",
+        pullRequest: read.pullRequest,
+        watchedNumber: previous?.pullRequest?.number ?? null,
+        signals,
+      },
+    };
+  }
+
   function buildObservation(args: {
     wakeUp: WakeUp;
     snapshot: TaskSupervisionSnapshot;
     completions: TaskCompletionSignal[];
+    pullRequest?: PullRequestWatchObservation;
   }): WakeUpObservation {
     const { wakeUp, snapshot } = args;
     // The supervisor queues work onto a task from outside that task, which is
@@ -492,6 +650,7 @@ export function createWakeUpRuntime(
       completionObservability: probeCompletionObservability(snapshot),
       completions: args.completions,
       agentRunActive: Boolean(dependencies.getActiveAgentRunForTask?.(wakeUp.taskId)),
+      ...(args.pullRequest ? { pullRequest: args.pullRequest } : {}),
     };
   }
 
@@ -623,7 +782,9 @@ export function createWakeUpRuntime(
       previous.nextRunAt === next.nextRunAt &&
       previous.occurrenceCount === next.occurrenceCount &&
       previous.skippedCount === next.skippedCount &&
-      previous.lastOccurrenceAt === next.lastOccurrenceAt
+      previous.lastOccurrenceAt === next.lastOccurrenceAt &&
+      JSON.stringify(previous.pullRequestWatch) ===
+        JSON.stringify(next.pullRequestWatch)
     ) {
       // Nothing moved. Rewriting the row every tick would churn `updatedAt` and
       // make every wake-up look freshly changed in the UI.
@@ -716,20 +877,148 @@ export function createWakeUpRuntime(
     return woken;
   }
 
-  async function evaluate(wakeUp: WakeUp) {
+  /**
+   * One row per consumed pull request signal, keyed by the fact. `recorded ===
+   * false` means an earlier wake already consumed it.
+   */
+  function recordPullRequestOccurrence(args: {
+    wakeUp: WakeUp;
+    signal: PullRequestWatchSignal;
+    pullRequest: PullRequestWatchSnapshot;
+    observedAt: string;
+  }) {
+    const occurrence: WakeUpOccurrence = {
+      id: randomUUID(),
+      wakeUpId: args.wakeUp.id,
+      idempotencyKey: buildWakeUpPullRequestIdempotencyKey({
+        wakeUpId: args.wakeUp.id,
+        outcome: "fired",
+        signalKey: args.signal.key,
+      }),
+      workspaceId: args.wakeUp.workspaceId,
+      taskId: args.wakeUp.taskId,
+      turnId: null,
+      outcome: "fired",
+      reason: describePullRequestSignal(args.signal, args.pullRequest).slice(
+        0,
+        WAKE_UP_LIMITS.maxReasonChars,
+      ),
+      scheduledFor: args.observedAt,
+      recordedAt: now().toISOString(),
+    };
+    const recorded = persistence.recordWakeUpOccurrence(occurrence);
+    return { recorded, occurrence };
+  }
+
+  /**
+   * Consume what is new on the pull request with exactly one turn. As with a
+   * completion, every signal is written first and only accepted ones count, so
+   * a duplicate delivery starts nothing.
+   */
+  async function firePullRequest(args: {
+    /** The row as it was read, before this tick's observation. */
+    previous: WakeUp;
+    wakeUp: WakeUp;
+    decision: Extract<WakeUpDecision, { action: "fire-pull-request" }>;
+  }) {
+    const { previous, wakeUp, decision } = args;
+    const consumed: Array<{
+      occurrence: WakeUpOccurrence;
+      signal: PullRequestWatchSignal;
+    }> = [];
+    for (const signal of decision.signals) {
+      const recorded = recordPullRequestOccurrence({
+        wakeUp,
+        signal,
+        pullRequest: decision.pullRequest,
+        observedAt: decision.observedAt,
+      });
+      if (recorded.recorded) {
+        consumed.push({ occurrence: recorded.occurrence, signal });
+      }
+    }
+    if (consumed.length === 0) {
+      return persistIfChanged(previous, wakeUp);
+    }
+    const signals = consumed.map((entry) => entry.signal);
+    const woken = persistIfChanged(
+      previous,
+      applyWakeUpDecision({
+        wakeUp,
+        decision: { ...decision, signals },
+        now: now(),
+      }),
+    );
+
+    try {
+      const turn = await dependencies.runSupervisedTurn({
+        workspaceId: wakeUp.workspaceId,
+        taskId: wakeUp.taskId,
+        prompt: buildPullRequestWatchPrompt({
+          instruction: wakeUp.prompt,
+          pullRequest: decision.pullRequest,
+          signals,
+        }),
+        fingerprint: wakeUp.fingerprint,
+        ...userRuntimeOptions(wakeUp),
+        retrievedContextParts: [
+          buildPullRequestContextPart({
+            wakeUp,
+            pullRequest: decision.pullRequest,
+            occurrenceNumber: woken.occurrenceCount,
+          }),
+        ],
+      });
+      for (const entry of consumed) {
+        persistence.attachWakeUpOccurrenceTurn({
+          id: entry.occurrence.id,
+          turnId: turn.turnId,
+        });
+      }
+    } catch (error) {
+      // Consumed either way: retrying could start a second turn for the same
+      // failure. The human hears about it instead.
+      const detail = describeTurnFailure(
+        error,
+        "Failed to start the pull request watch turn.",
+      );
+      for (const entry of consumed) {
+        recordUnreportedOccurrence({ occurrence: entry.occurrence, detail });
+      }
+      await reportWakeFailure({
+        wakeUp,
+        detail: `Pull request #${decision.pullRequest.number} needs fixing, but the turn to fix it could not start: ${detail}`,
+      });
+    }
+    persistence.pruneWakeUpOccurrences({ wakeUpId: wakeUp.id });
+    return woken;
+  }
+
+  async function evaluate(wakeUp: WakeUp, read?: PullRequestWatchRead) {
     const snapshot = await dependencies.getTaskSupervisionSnapshot({
       workspaceId: wakeUp.workspaceId,
       taskId: wakeUp.taskId,
     });
     const completions = await readCompletions(wakeUp);
+    const watched = observePullRequest(wakeUp, read);
+    // What a pull request watch learned this tick is kept whatever the
+    // decision, so "last checked" and the read-failure count stay honest.
+    const observed: WakeUp = watched
+      ? { ...wakeUp, pullRequestWatch: watched.state }
+      : wakeUp;
     const decision = decideWakeUpAction({
-      wakeUp,
-      observation: buildObservation({ wakeUp, snapshot, completions }),
+      wakeUp: observed,
+      observation: buildObservation({
+        wakeUp,
+        snapshot,
+        completions,
+        ...(watched ? { pullRequest: watched.observation } : {}),
+      }),
       now: now(),
     });
 
     if (decision.action === "idle") {
-      return wakeUp;
+      return persistIfChanged(wakeUp, observed);
     }
 
     if (decision.action === "defer") {
@@ -748,17 +1037,29 @@ export function createWakeUpRuntime(
         // forever. The `fired` retention floor is unaffected.
         persistence.pruneWakeUpOccurrences({ wakeUpId: wakeUp.id });
       }
-      return wakeUp;
+      // A watch with signals queued behind the turn re-reads the moment the
+      // task is free (see `isPullRequestWatchPollDue`).
+      const watch = observed.pullRequestWatch;
+      return persistIfChanged(
+        wakeUp,
+        watch && !watch.pendingSince
+          ? { ...observed, pullRequestWatch: { ...watch, pendingSince: now().toISOString() } }
+          : observed,
+      );
     }
 
     if (decision.action === "fire-completion") {
       return await fireCompletion({ wakeUp, decision });
     }
 
+    if (decision.action === "fire-pull-request") {
+      return await firePullRequest({ previous: wakeUp, wakeUp: observed, decision });
+    }
+
     if (decision.action !== "fire") {
       return persistIfChanged(
         wakeUp,
-        applyWakeUpDecision({ wakeUp, decision, now: now() }),
+        applyWakeUpDecision({ wakeUp: observed, decision, now: now() }),
       );
     }
 
@@ -862,10 +1163,10 @@ export function createWakeUpRuntime(
     return advanced;
   }
 
-  async function tick() {
+  async function tick(reads: ReadonlyMap<string, PullRequestWatchRead>) {
     for (const wakeUp of persistence.listActiveWakeUps()) {
       try {
-        await evaluate(wakeUp);
+        await evaluate(wakeUp, reads.get(wakeUp.id));
       } catch (error) {
         console.error("[wake-ups] wake-up evaluation failed", error, {
           wakeUpId: wakeUp.id,
@@ -934,6 +1235,104 @@ export function createWakeUpRuntime(
     }
   }
 
+  function describeReadError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return (message || "Stave could not read the pull request.").slice(
+      0,
+      PULL_REQUEST_WATCH_LIMITS.maxErrorChars,
+    );
+  }
+
+  /** Watches due a read, from a synchronous look at the rows alone. */
+  function listPullRequestReadCandidates() {
+    if (!dependencies.readPullRequestWatch) return [];
+    const at = now();
+    return persistence.listActiveWakeUps().filter(
+      (wakeUp) =>
+        wakeUp.trigger.kind === "pull_request" &&
+        wakeUp.state === "scheduled" &&
+        // `hasActiveTurn: false` is the widest answer; the live snapshot
+        // narrows it below once it has been read.
+        isPullRequestWatchPollDue({ state: wakeUp.pullRequestWatch, now: at, hasActiveTurn: false }),
+    );
+  }
+
+  /**
+   * Reads every due watch concurrently. A task that is gone or archived is not
+   * read at all — the tick stops its watch without asking GitHub — and a busy
+   * one is read only on the interval.
+   */
+  async function readPullRequests(candidates: WakeUp[]) {
+    const reads = new Map<string, PullRequestWatchRead>();
+    const read = dependencies.readPullRequestWatch;
+    if (!read) return reads;
+    await Promise.all(
+      candidates.map(async (wakeUp) => {
+        if (wakeUp.trigger.kind !== "pull_request") return;
+        const snapshot = await dependencies
+          .getTaskSupervisionSnapshot({ workspaceId: wakeUp.workspaceId, taskId: wakeUp.taskId })
+          .catch(() => null);
+        if (!snapshot?.exists || snapshot.archived) return;
+        if (
+          !isPullRequestWatchPollDue({
+            state: wakeUp.pullRequestWatch,
+            now: now(),
+            hasActiveTurn: Boolean(snapshot.activeTurnId),
+          })
+        ) {
+          return;
+        }
+        let result: PullRequestWatchRead;
+        try {
+          result = PullRequestWatchReadSchema.parse(
+            await read({
+              workspaceId: wakeUp.workspaceId,
+              taskId: wakeUp.taskId,
+              pullRequestNumber: wakeUp.pullRequestWatch?.pullRequest?.number ?? null,
+              events: wakeUp.trigger.events,
+            }),
+          );
+        } catch (error) {
+          result = { ok: false, error: describeReadError(error) };
+        }
+        reads.set(wakeUp.id, result);
+      }),
+    );
+    return reads;
+  }
+
+  /**
+   * A tick with no watch due a read enqueues at once, exactly as before
+   * pull request watches existed. Otherwise the reads go out first, outside
+   * the chain, and the tick that consumes them is enqueued when they land. If
+   * the previous tick's reads are still out, this one evaluates without new
+   * reads rather than piling a second round on top.
+   */
+  function startTick(): Promise<void> {
+    const candidates = pullRequestReadsInFlight ? [] : listPullRequestReadCandidates();
+    if (candidates.length === 0) {
+      return enqueue(() => tick(new Map()));
+    }
+    const tracked: Promise<void> = readPullRequests(candidates)
+      .catch((error) => {
+        console.error("[wake-ups] pull request reads failed", error);
+        return new Map<string, PullRequestWatchRead>();
+      })
+      .then((reads) => enqueue(() => tick(reads)))
+      .finally(() => {
+        if (pullRequestReadsInFlight === tracked) pullRequestReadsInFlight = null;
+      });
+    pullRequestReadsInFlight = tracked;
+    return tracked;
+  }
+
+  async function whenIdle() {
+    while (pullRequestReadsInFlight) {
+      await pullRequestReadsInFlight.catch(() => undefined);
+    }
+    await enqueue(() => undefined);
+  }
+
   function start() {
     if (intervalHandle) {
       return;
@@ -955,11 +1354,11 @@ export function createWakeUpRuntime(
         error,
       );
     });
-    const enqueueTick = () => {
-      void enqueue(tick).catch((error) => {
+    // Returns the tick so a test clock can await it; `setInterval` ignores it.
+    const enqueueTick = () =>
+      startTick().catch((error) => {
         console.error("[wake-ups] tick failed", error);
       });
-    };
     intervalHandle = setIntervalImpl(
       enqueueTick,
       WAKE_UP_TICK_INTERVAL_MS,
@@ -1013,6 +1412,11 @@ export function createWakeUpRuntime(
     trigger: WakeUpUpsertInput["trigger"];
     snapshot: TaskSupervisionSnapshot;
   }) {
+    if (args.trigger.kind === "pull_request" && !dependencies.readPullRequestWatch) {
+      throw new Error(
+        "Stave cannot read pull requests here, so a pull request watch would never run.",
+      );
+    }
     if (args.trigger.kind !== "completion") {
       return;
     }
@@ -1026,6 +1430,7 @@ export function createWakeUpRuntime(
   return {
     start,
     stop,
+    whenIdle,
     list: (args) =>
       enqueue(() =>
         toSnapshot(
@@ -1126,6 +1531,13 @@ export function createWakeUpRuntime(
               : 0,
           skippedCount: current.skippedCount,
           lastOccurrenceAt: current.lastOccurrenceAt,
+          // Editing a watch's events keeps what it has seen and its receipts,
+          // so a failure already reported is not reported again.
+          pullRequestWatch:
+            input.trigger.kind === "pull_request" &&
+            current.trigger.kind === "pull_request"
+              ? (current.pullRequestWatch ?? updated.pullRequestWatch)
+              : updated.pullRequestWatch,
         });
       }),
     pause: ({ id }) =>

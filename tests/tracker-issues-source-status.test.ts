@@ -46,7 +46,8 @@ describe("summarizeTrackerSource", () => {
 
   it("names the setup step for every unavailable state", () => {
     const cases = [
-      ["disabled", "Turned off in Settings → Issues.", false],
+      // Jira's on/off is owned by Settings → Integrations.
+      ["disabled", "Turned off in Settings → Integrations.", true],
       ["unpaired", "Pair this tracker in Settings → Integrations.", true],
       [
         "not_configured",
@@ -61,6 +62,15 @@ describe("summarizeTrackerSource", () => {
       expect(summary.fixInSettings).toBe(fixInSettings);
       expect(summary.retryable).toBe(false);
     }
+  });
+
+  it("keeps a disabled Crane source pointing at Settings → Issues", () => {
+    const summary = summarizeTrackerSource(
+      "crane",
+      status({ availability: "disabled" }),
+    );
+    expect(summary.detail).toBe("Turned off in Settings → Issues.");
+    expect(summary.fixInSettings).toBe(false);
   });
 
   it("does not send the user to Settings for an OS keychain problem", () => {

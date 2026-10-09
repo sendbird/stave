@@ -14,9 +14,10 @@ import { READ_ONLY_DELEGATION_STAVE_TOOLS, READ_ONLY_STAVE_METADATA_TOOLS } from
  * runtimes answer it the same way.
  *
  * Membership rule: a tool belongs here when it only reads Stave state or edits
- * the workspace's own metadata (notes, todos, resources, automation definitions).
- * Anything that spends tokens, starts an agent, or stops one does not — those
- * stay on each provider's normal approval path.
+ * the workspace's own metadata (notes, todos, resources, automation definitions),
+ * or when it asks the user itself and its own card is the consent
+ * (`stave_request_secret`). Anything that spends tokens, starts an agent, or
+ * stops one does not — those stay on each provider's normal approval path.
  */
 const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_get_workspace_information",
@@ -41,6 +42,12 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_remove_workspace_custom_field",
   // Writes only `<workspace>/.stave/context/plans/<name>.md`, Stave's plan store.
   "stave_write_plan_file",
+  // Writes only Stave's inline render store; the page runs sandboxed in the
+  // conversation and can reach nothing the agent could not already see.
+  "stave_render_html",
+  // Renders a page offscreen and returns its screenshot to the agent. It writes
+  // nothing, shows nothing, and runs under the same sandbox and network policy.
+  "stave_preview_html",
   // Project memory is Stave metadata too: one short sentence per row, capped
   // and user-editable from the Information panel.
   "stave_remember",
@@ -78,6 +85,10 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_block_stage",
   // Records a grant-scoped proposal without dispatch or permission changes.
   "stave_request_agent_resources",
+  // The masked card it shows in the calling task is the consent: the user
+  // saves, binds or declines there. An approval prompt first would ask twice.
+  // Read-only tasks are denied it in `read-only-delegation.ts`.
+  "stave_request_secret",
 ]);
 
 /**

@@ -16,6 +16,7 @@ import { createSendUserMessageAction } from "@/store/app-store-send-user-message
 import { createPaneActions } from "@/store/app-store-pane-actions";
 import { createTerminalActions } from "@/store/app-store-terminal-actions";
 import { createMacroActions } from "@/store/app-store-macro-actions";
+import { createWorkspaceSettlementActions } from "@/store/app-store-workspace-settlement-actions";
 import { createSettingsActions } from "@/store/app-store-settings-actions";
 import { createCompareActions } from "@/store/app-store-compare-actions";
 import { createTaskCoreActions } from "@/store/app-store-task-core-actions";
@@ -1068,6 +1069,7 @@ export const useAppStore = create<AppState>()(
       normalizeSharedSkillsHomeSetting,
     });
     const macroActions = createMacroActions({ set, get });
+    const workspaceSettlementActions = createWorkspaceSettlementActions({ set, get });
     const compareActions = createCompareActions({
       set,
       get,
@@ -1169,6 +1171,7 @@ export const useAppStore = create<AppState>()(
       workspaceDefaultById: {},
       workspaceLastActiveAtById: {},
       workspacePrInfoById: {},
+      workspaceSettlementById: {},
       rateLimitsSnapshot: null,
       autoRoutingDecisionByTask: {},
       rateLimitsUpdatedAtByProvider: {},
@@ -1361,6 +1364,7 @@ export const useAppStore = create<AppState>()(
       ...workspaceManagementActions,
       ...settingsActions,
       ...macroActions,
+      ...workspaceSettlementActions,
       ...createAppSurfaceActions<AppState>(set),
       ...compareActions,
       ...taskCoreActions,

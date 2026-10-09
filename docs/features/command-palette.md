@@ -105,12 +105,21 @@ That separation matters: the Command Palette controls Stave itself, while slash 
 
 ## Related Shortcuts
 
+The full list is in [Keyboard Shortcuts](keyboard-shortcuts.md), and in the app:
+press `Cmd/Ctrl+/` or run **Open keyboard shortcuts** from the palette.
+
 - `Cmd/Ctrl+P` focuses file quick open in the top bar.
 - `Cmd/Ctrl+,` opens the main Settings dialog.
-- `Cmd/Ctrl+B` toggles the left workspace sidebar.
-- `Cmd/Ctrl+Shift+B` toggles the changes panel.
-- `Cmd/Ctrl+E` opens Explorer.
-- `Cmd/Ctrl+I` toggles the Information panel.
+- `Cmd/Ctrl+K` then `H` goes home.
+- `Cmd/Ctrl+K` then `F`, `A`, `T`, or `G` opens Fleet View, Schedules, Issues, or Agents.
+- `Cmd/Ctrl+K` then `B` toggles the left workspace sidebar.
+- `Cmd/Ctrl+K` then `C` toggles the source control (changes) panel.
+- `Cmd/Ctrl+K` then `E` opens Explorer.
+- `Cmd/Ctrl+K` then `I` toggles the Information panel.
+- `Cmd/Ctrl+K` then `S` opens Workspace Tools, and `Cmd/Ctrl+K` then `L` opens a Lens tab.
+- `Cmd/Ctrl+K` then `\` focuses the editor, and `Cmd/Ctrl+K` then `` ` `` toggles the terminal.
+- The letter after `Cmd/Ctrl+K` is the default; change it under Settings → Command Palette.
+- `Cmd/Ctrl+Shift+T` reopens the tab you closed last; `Cmd/Ctrl+[` and `Cmd/Ctrl+]` go back and forward.
 - `Alt+P` opens the prompt model selector.
 - `Alt+1..0` selects your mapped prompt models.
 
@@ -130,6 +139,7 @@ That separation matters: the Command Palette controls Stave itself, while slash 
 
 ## Related Docs
 
+- [Keyboard Shortcuts](keyboard-shortcuts.md)
 - [Integrated Terminal](integrated-terminal.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
 - [AgentRuns](agent-runs.md)

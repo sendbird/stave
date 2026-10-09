@@ -31,6 +31,7 @@ import type {
   TrackerIssueStartMode,
 } from "@/lib/tracker-issues/types";
 import { useAppStore } from "@/store/app.store";
+import { resolveEffectiveSettings } from "@/store/project-settings-overrides";
 import { resolveRepositoryKickoffBranchNamingRule } from "@/store/repository.utils";
 
 /**
@@ -161,7 +162,12 @@ export function useTrackerIssueKickoffDraft(args: {
       task.source === "crane" && currentSettings.craneConnector.enabled,
     );
     seed({
-      settings: currentSettings,
+      // The chosen repository's project defaults (model, effort, permissions).
+      settings: resolveEffectiveSettings({
+        settings: currentSettings,
+        recentRepositories: registeredRepositories,
+        repositoryPath: nextRepositoryPath,
+      }),
       draftProvider: store.draftProvider,
       memory: findTrackerIssueRuntimeMemory({ task, settings: mappingSettings }),
     });

@@ -13,6 +13,7 @@ type ToolResultEvent = {
   isError?: boolean;
   isPartial?: boolean;
   exitCode?: number | null;
+  mcpAppView?: ToolUsePart["mcpAppView"];
 };
 
 /**
@@ -88,6 +89,8 @@ export function mergeToolResultIntoPart(args: {
       ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
     };
   }
+  // The runtime attaches a captured view in a follow-up result for the same call.
+  const mcpAppView = event.mcpAppView ?? part.mcpAppView;
 
   const nextState: ToolUsePart["state"] = event.isPartial
     ? (part.state === "input-available" ? "input-streaming" : part.state)
@@ -98,6 +101,7 @@ export function mergeToolResultIntoPart(args: {
     output: capToolResultOutput(event.output),
     state: nextState,
     ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
+    ...(mcpAppView ? { mcpAppView } : {}),
   };
 }
 

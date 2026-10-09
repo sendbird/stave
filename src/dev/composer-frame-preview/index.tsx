@@ -28,6 +28,7 @@ import type { Attachment, Task } from "@/types/chat";
 import { PromptInputContextMeter } from "@/components/ai-elements/prompt-input-context-meter";
 import { TooltipProvider } from "@/components/ui";
 import { ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
+import { SecretRequestCard } from "@/components/session/secret-request-card";
 import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
 import { MacroQuickPicks } from "@/components/session/MacroQuickPicks";
@@ -61,6 +62,8 @@ import {
   PREVIEW_MACROS,
   PREVIEW_MODEL,
   PREVIEW_REVIEW_CODEX_MODEL,
+  PREVIEW_SECRET_REQUEST,
+  PREVIEW_SECRET_REQUEST_EXISTING,
 } from "./fixtures";
 import {
   caseHasQueue,
@@ -94,6 +97,9 @@ import {
  * theme.
  * `&childRequest=question|approval` shows a delegated task's request above the
  * composer, the slot `ChatInputComposer` mounts.
+ * `&secretRequest=new|existing|enter|full` shows an agent's secret request card
+ * there: a new variable, one the vault already has, that one with the value
+ * field open, or a task whose bound-secret set is full.
  *
  * The composer shelf: `&case=<id>` (see `SHELF_CASES`) seeds the stores with a
  * turn, an agent run, a pending approval or a queue; `&placement=docked|
@@ -172,6 +178,13 @@ const CHILD_REQUESTS: Record<string, ChildPendingRequest> = {
   approval: PREVIEW_CHILD_APPROVAL,
 };
 const CHILD_REQUEST = CHILD_REQUESTS[previewParams.get("childRequest") ?? ""] ?? null;
+const SECRET_REQUEST_CASE = previewParams.get("secretRequest");
+const SECRET_REQUEST =
+  SECRET_REQUEST_CASE === "existing" || SECRET_REQUEST_CASE === "enter"
+    ? PREVIEW_SECRET_REQUEST_EXISTING
+    : SECRET_REQUEST_CASE === "new" || SECRET_REQUEST_CASE === "full"
+      ? PREVIEW_SECRET_REQUEST
+      : null;
 installAgentsBridge(INITIAL_AGENT);
 
 export function ComposerFramePreviewApp() {
@@ -417,6 +430,19 @@ export function ComposerFramePreviewApp() {
                     error={null}
                     loaded
                     onRespond={() => {}}
+                  />
+                ) : null}
+                {SECRET_REQUEST ? (
+                  <SecretRequestCard
+                    request={SECRET_REQUEST}
+                    queuedCount={SECRET_REQUEST_CASE === "new" ? 1 : 0}
+                    busy={false}
+                    error={null}
+                    bindingBlocked={SECRET_REQUEST_CASE === "full"}
+                    initialMode={SECRET_REQUEST_CASE === "enter" ? "enter" : "existing"}
+                    onSave={() => {}}
+                    onUseExisting={() => {}}
+                    onDecline={() => {}}
                   />
                 ) : null}
                 <AgentAttachmentNotice taskId={PREVIEW_TASK_ID} providerId={selectedModel.providerId}

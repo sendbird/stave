@@ -156,7 +156,6 @@
   "specializedAdapters": {},
   "hostUtilities": {
     "src/components/ui/service-link-badge.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters.",
-    "src/components/ui/border-beam.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters.",
     "src/components/ui/linkified-text.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters.",
     "src/components/ui/external-anchor.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters."
   },
@@ -170,7 +169,6 @@
     "src/components/ai-elements/model-effort-grid.tsx": 0,
     "src/components/ai-elements/model-effort-selector.tsx": 0,
     "src/components/ai-elements/model-selector.tsx": 0,
-    "src/components/ai-elements/permission-mode-selector.tsx": 0,
     "src/components/ai-elements/prompt-input.tsx": 0,
     "src/components/ai-elements/snippet.tsx": 0,
     "src/components/ai-elements/subagent.tsx": 0,
@@ -206,7 +204,6 @@
     "src/components/layout/automation-center/AutomationEditor.tsx": 0,
     "src/components/layout/automation-center/AutomationRunDetail.tsx": 0,
     "src/components/layout/editor-diff-review-hover-menu.tsx": 0,
-    "src/components/layout/settings-dialog-codex-section.tsx": 0,
     "src/components/layout/settings-dialog-delegation-section.tsx": 0,
     "src/components/layout/settings-dialog-developer-section.tsx": 0,
     "src/components/layout/settings-dialog-kickoff-section.tsx": 0,

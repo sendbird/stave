@@ -15,6 +15,7 @@ import {
 } from "@/lib/providers/prompt-defaults";
 import { ReviewSettingsCards } from "./settings-dialog-review-cards";
 import { PrMergeMethod } from "@/lib/pr-status";
+import type { SectionId } from "../settings-dialog.schema";
 import {
   ChoiceButtons,
   LabeledField,
@@ -90,13 +91,16 @@ function PromptField({
   );
 }
 
-export function PromptsSection() {
+export function PromptsSection(args: {
+  onNavigateSection?: (id: SectionId) => void;
+} = {}) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
     promptResponseStyle,
     promptPrDescription,
     createPrAutoMergeEnabled,
     createPrMergeMethod,
+    createPrWatchEnabled,
     promptInlineCompletion,
     workspaceTurnSummaryPrompt,
   ] = useAppStore(
@@ -107,6 +111,7 @@ export function PromptsSection() {
           state.settings.promptPrDescription,
           state.settings.createPrAutoMergeEnabled,
           state.settings.createPrMergeMethod,
+          state.settings.createPrWatchEnabled,
           state.settings.promptInlineCompletion,
           state.settings.workspaceTurnSummaryPrompt,
         ] as const,
@@ -116,7 +121,7 @@ export function PromptsSection() {
 
   return (
     <SectionStack>
-      <ReviewSettingsCards />
+      <ReviewSettingsCards onNavigateSection={args.onNavigateSection} />
 
       <SettingsCard
         title={t("settings:promptsSection.responseStyle.title")}
@@ -195,6 +200,14 @@ export function PromptsSection() {
             ]}
           />
         </LabeledField>
+        <SwitchField
+          title={t("settings:promptsSection.prCompletion.watch.title")}
+          description={t("settings:promptsSection.prCompletion.watch.description")}
+          checked={createPrWatchEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { createPrWatchEnabled: checked } })
+          }
+        />
       </SettingsCard>
       <SettingsCard
         title={t("settings:promptsSection.inlineCompletion.title")}

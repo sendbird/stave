@@ -225,17 +225,6 @@
     "description2": "Stave chooses the provider, model, and effort.",
     "extraCopy63": "Runtime support unconfirmed. You can still select this model."
   },
-  "permissionModeSelector": {
-    "label": "Default",
-    "label2": "Accept Edits",
-    "label3": "Bypass",
-    "label5": "Don't Ask",
-    "label6": "Auto",
-    "label7": "Untrusted",
-    "label8": "On Request",
-    "label9": "Never",
-    "title": "Permission mode"
-  },
   "promptInputAgentControl": {
     "ariaLabel": "Agents",
     "list": "No agents match this search.",
@@ -727,5 +716,11 @@
         "description": "Reachable hot paths, query growth, rendering and resource leaks."
       }
     }
+  },
+  "mermaid": {
+    "drawing": "Drawing the diagram…",
+    "failed": "This diagram could not be drawn, so its source is shown.",
+    "showCode": "Show code",
+    "showDiagram": "Show diagram"
   }
 }

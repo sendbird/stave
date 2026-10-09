@@ -10,6 +10,8 @@ type NoticeOptions = {
   description?: ReactNode;
   duration?: number;
   action?: { label: ReactNode; onClick: MouseEventHandler<HTMLButtonElement> };
+  /** Runs once the toast closes, whether dismissed, timed out or acted on. */
+  onClose?: () => void;
 };
 
 function notice(type: string) {
@@ -26,6 +28,7 @@ function notice(type: string) {
       description: options.description,
       timeout: options.duration,
       priority: type === "danger" ? "high" : "low",
+      onClose: options.onClose,
       actionProps: options.action
         ? {
             children: options.action.label,

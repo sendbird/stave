@@ -247,6 +247,7 @@
     "valueTicketsCached": "티켓 {{value1}}개가 캐시되었습니다.",
     "connected": "연결됐습니다.",
     "turnedOffInSettingsIssues": "설정 → 이슈에서 비활성화됐습니다.",
+    "turnedOffInSettingsIntegrations": "설정 → 통합에서 비활성화됐습니다.",
     "pairThisTrackerInSettingsIntegrations": "설정 → 통합에서 이 트래커를 연결합니다.",
     "addTheSiteUrlAccountEmailAnd": "설정에서 사이트 URL, 계정 이메일과 API 토큰을 추가합니다.",
     "theOsKeychainIsUnavailableSoThe": "OS 키체인을 사용할 수 없어 자격 증명을 읽지 못했습니다.",

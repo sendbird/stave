@@ -18,7 +18,7 @@ Other surfaces fit better when:
 
 ## Before You Start
 
-At least one tracker has to be connected, and that tracker has to be turned on under `Settings → Issues`. Jira is first in the list; Crane follows.
+At least one tracker has to be connected and turned on. Jira is turned on with its connector switch in `Settings → Integrations → Jira`; Crane is turned on under `Settings → Issues`. Jira is first in the list; Crane follows.
 
 - **Jira Cloud** — in `Settings → Integrations → Jira`, enable the connector and enter your site URL, your account email, and an API token. **Test connection** checks the credential *and* runs your saved JQL, so a query that no longer parses is reported there rather than showing up as a silently empty list. The token is validated once, then stored encrypted by the OS keychain and read only by the desktop main process. Neither the token nor the email is ever readable back by the app window.
 - **Crane** — pair this installation in `Settings → Integrations → Crane`. Issues reuses the existing connector secret and its `crane` scope; there is nothing extra to authorize. Turning Crane off in Issues leaves pairing and dispatched jobs alone.
@@ -111,8 +111,8 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 ### A source I do not want still appears in Issues
 
 - Symptom: Crane or Jira rows show even though you only want one tracker.
-- Cause: Issues reads every source that is turned on under `Settings → Issues`.
-- Fix: turn that source off there. Pairing and credentials stay as they are.
+- Cause: Issues reads every source that is turned on.
+- Fix: turn Crane off under `Settings → Issues`, or Jira off with its switch in `Settings → Integrations → Jira`. Pairing and credentials stay as they are.
 
 ### Issues is empty and I do not know why
 

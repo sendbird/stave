@@ -1,9 +1,7 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useShallow } from "zustand/react/shallow";
 import {
-  playCustomAttentionNotificationSound,
   playCustomNotificationSound,
-  playAttentionNotificationSound,
   playNotificationSound,
 } from "@/lib/notifications/notification-sound";
 import { useAppStore } from "@/store/app.store";
@@ -22,12 +20,7 @@ export function GeneralSection() {
     notificationSoundMode,
     notificationSoundCustomAudioData,
     notificationSoundCustomAudioName,
-    attentionNotificationSoundEnabled,
-    attentionNotificationSoundPreset,
-    attentionNotificationSoundVolume,
-    attentionNotificationSoundMode,
-    attentionNotificationSoundCustomAudioData,
-    attentionNotificationSoundCustomAudioName,
+    developerModeEnabled,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -39,12 +32,7 @@ export function GeneralSection() {
           state.settings.notificationSoundMode,
           state.settings.notificationSoundCustomAudioData,
           state.settings.notificationSoundCustomAudioName,
-          state.settings.attentionNotificationSoundEnabled,
-          state.settings.attentionNotificationSoundPreset,
-          state.settings.attentionNotificationSoundVolume,
-          state.settings.attentionNotificationSoundMode,
-          state.settings.attentionNotificationSoundCustomAudioData,
-          state.settings.attentionNotificationSoundCustomAudioName,
+          state.settings.developerModeEnabled,
         ] as const,
     ),
   );
@@ -127,68 +115,20 @@ export function GeneralSection() {
           }
         />
       </SettingsCard>
+      <DesktopNotificationsCard />
       <SettingsCard
-        title={t("settings:general.attentionSound.title")}
-        description={t("settings:general.attentionSound.description")}
+        title={t("settings:general.developerMode.title")}
+        description={t("settings:general.developerMode.description")}
       >
-        <NotificationSoundControls
-          value={{
-            enabled: attentionNotificationSoundEnabled,
-            mode: attentionNotificationSoundMode,
-            preset: attentionNotificationSoundPreset,
-            volume: attentionNotificationSoundVolume,
-            customAudioData: attentionNotificationSoundCustomAudioData,
-            customAudioName: attentionNotificationSoundCustomAudioName,
-          }}
-          copy={{
-            enableTitle: t("settings:general.attentionSound.enableTitle"),
-            enableDescription: t("settings:general.attentionSound.enableDescription"),
-            presetDescription: t("settings:general.attentionSound.presetDescription"),
-            volumeDescription: t("settings:general.attentionSound.volumeDescription"),
-            volumeAriaLabel: t("settings:general.attentionSound.volumeAriaLabel"),
-            sourceTitle: t("settings:general.attentionSound.sourceTitle"),
-            presetTitle: t("settings:general.attentionSound.presetTitle"),
-            customAudioTitle: t("settings:general.attentionSound.customAudioTitle"),
-            volumeTitle: t("settings:general.attentionSound.volumeTitle"),
-            previewTitle: t("settings:general.attentionSound.previewTitle"),
-          }}
-          previewPlayers={{
-            playPreset: playAttentionNotificationSound,
-            playCustom: playCustomAttentionNotificationSound,
-          }}
-          onPatch={(patch) =>
-            updateSettings({
-              patch: {
-                ...(patch.enabled === undefined
-                  ? {}
-                  : { attentionNotificationSoundEnabled: patch.enabled }),
-                ...(patch.mode === undefined
-                  ? {}
-                  : { attentionNotificationSoundMode: patch.mode }),
-                ...(patch.preset === undefined
-                  ? {}
-                  : { attentionNotificationSoundPreset: patch.preset }),
-                ...(patch.volume === undefined
-                  ? {}
-                  : { attentionNotificationSoundVolume: patch.volume }),
-                ...(patch.customAudioData === undefined
-                  ? {}
-                  : {
-                      attentionNotificationSoundCustomAudioData:
-                        patch.customAudioData,
-                    }),
-                ...(patch.customAudioName === undefined
-                  ? {}
-                  : {
-                      attentionNotificationSoundCustomAudioName:
-                        patch.customAudioName,
-                    }),
-              },
-            })
+        <SwitchField
+          title={t("settings:general.developerMode.enableTitle")}
+          description={t("settings:general.developerMode.enableDescription")}
+          checked={developerModeEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { developerModeEnabled: checked } })
           }
         />
       </SettingsCard>
-      <DesktopNotificationsCard />
     </SectionStack>
   );
 }

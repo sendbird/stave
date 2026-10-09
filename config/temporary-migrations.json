@@ -152,6 +152,45 @@
       "tests": [
         "tests/plan-mode-removal-migration.test.ts"
       ]
+    },
+    {
+      "id": "auxiliary-inference-shared-default",
+      "description": "Background AI moved to one shared utility model (auxiliaryInferenceDefault) with per-lane overrides after 0.25.2. Settings rehydration without a saved auxiliaryInferenceDefault folds the retired provider settings into lane overrides once: a Claude or Codex utilityInferenceProvider (Settings → Models \"Utility AI\") pins the utility and task naming lanes, a Codex prePrReviewProvider pins the pre-PR review and intent guard lanes (lanes already pinned keep their pin), the shared default starts at auto with an automatic model, and both old keys are dropped. A lane's saved model needs no conversion: it is read as that lane's override, and a saved null model reads as inherit. At expiry, delete the marked blocks; profiles that skipped these releases lose a non-default Utility AI or pre-PR review provider choice and run those lanes on the shared default.",
+      "introducedAfter": "0.25.2",
+      "removeInVersion": "0.28.0",
+      "files": [
+        "src/lib/providers/auxiliary-inference-shared-default-migration.ts",
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/auxiliary-inference-shared-default-migration.test.ts"
+      ]
+    },
+    {
+      "id": "auto-routing-v1-settings-keys",
+      "description": "Stave Auto's v1 flat settings (autoRoutingUseClassifier, autoRoutingObjective, autoRoutingSafetyEscalation, autoRoutingAllowProviderSwitch, autoRoutingEligibleClaudeModels, autoRoutingEligibleCodexModels) were retired after 0.25.2; the role-table profile (autoRoutingProfile) already decided every route and they were only mirrors. Settings rehydration drops them, and the host's synced routing settings (delegation policy store) saved with them still parse, without them, so an agent run resumed before the renderer re-syncs routes the same way; a host copy saved without a profile gets the profile its v1 flags describe. At expiry, delete the marked blocks; a host copy saved before these releases fails to parse until the renderer syncs settings again, and a profile that skipped these releases keeps the unused keys in its saved settings.",
+      "introducedAfter": "0.25.2",
+      "removeInVersion": "0.28.0",
+      "files": [
+        "src/lib/routing/agent-run-route.ts",
+        "src/lib/routing/auto-routing-v1-settings-migration.ts",
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/auto-routing-v1-settings-keys-migration.test.ts"
+      ]
+    },
+    {
+      "id": "results-surface-to-agents-tab",
+      "description": "Agent performance became the Agents view's Performance tab after 0.25.2. App state rehydration turns a persisted activeAppSurface of { kind: \"results\" } into the Agents surface and opens it on the Performance tab, instead of falling back to the workspace. At expiry, delete the marked block; a profile that skipped these releases with Agent performance open reopens on its workspace.",
+      "introducedAfter": "0.25.2",
+      "removeInVersion": "0.28.0",
+      "files": [
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/results-surface-migration.test.ts"
+      ]
     }
   ]
 }

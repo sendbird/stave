@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
-import { Bot, ChartNoAxesColumn, Gauge, LayoutGrid } from "lucide-react";
+import { Bot, Gauge, LayoutGrid } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { transition } from "@/components/ads/recipes/transition";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -52,17 +52,15 @@ function useAgentsWithWork() {
 
 /**
  * The sidebar's top navigation: Fleet View, Agents with the agents at work and
- * what waits for you, then Results.
+ * what waits for you, then AI usage (whose tabs include Agent performance).
  */
 export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   useTranslation();
   const showAgents = useAppStore((state) => state.settings.sidebarShowAgents);
-  const showResults = useAppStore((state) => state.settings.sidebarShowResults);
   const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
-  const openResults = useAppStore((state) => state.openResults);
   const openUsage = useAppStore((state) => state.openUsage);
   const selectAgent = useAgentsViewStore((state) => state.selectAgent);
   const selectedAgentId = useAgentsViewStore((state) => state.selectedAgentId);
@@ -133,22 +131,6 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           ))}
         </>
       ) : null}
-      {showResults ? (
-        <AdsButton
-          layout="host"
-          type="button"
-          onClick={() => openResults()}
-          aria-label={i18n.t("shell:sidebarPrimaryNav.results")}
-          xstyle={[
-            repositorySidebarStyles.navButton,
-            transition.colors,
-            surface === "results" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
-          ]}
-        >
-          <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
-          <span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.results")}</span>
-        </AdsButton>
-      ) : null}
       {showAiUsage ? (
         <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")}
           xstyle={[repositorySidebarStyles.navButton, transition.colors,
@@ -160,16 +142,14 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   );
 }
 
-/** The collapsed sidebar's rail: Fleet View, Agents and Results, with a dot when an agent needs you. */
+/** The collapsed sidebar's rail: Fleet View, Agents and AI usage, with a dot when an agent needs you. */
 export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   useTranslation();
   const showAgents = useAppStore((state) => state.settings.sidebarShowAgents);
-  const showResults = useAppStore((state) => state.settings.sidebarShowResults);
   const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openAgents = useAppStore((state) => state.openAgents);
-  const openResults = useAppStore((state) => state.openResults);
   const openUsage = useAppStore((state) => state.openUsage);
   const agentsWithWork = useAgentsWithWork();
   const agentsNeedYou = agentsWithWork.agents.some((agent) => agent.needsYou);
@@ -211,18 +191,6 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
           <TooltipContent side="right">
             {agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork2", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
           </TooltipContent>
-        </Tooltip>
-      ) : null}
-      {showResults ? (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button variant="ghost" size="sm" xstyle={railButton(surface === "results")} onClick={() => openResults()} aria-label={i18n.t("shell:sidebarPrimaryNav.results")} />
-            }
-          >
-            <ChartNoAxesColumn className={sx(repositorySidebarStyles.iconMd)} />
-          </TooltipTrigger>
-          <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.results")}</TooltipContent>
         </Tooltip>
       ) : null}
       {showAiUsage ? (

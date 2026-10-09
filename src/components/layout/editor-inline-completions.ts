@@ -566,6 +566,7 @@ export function configureInlineCompletions(args: {
             const inlineCompletionLane = resolveAuxLaneRuntime({
               lane: "inlineCompletion",
               policy: inlineCompletionSettings.auxiliaryInferencePolicy,
+              shared: inlineCompletionSettings.auxiliaryInferenceDefault,
             });
             if (
               isAccountUsageBlockingFromState({

@@ -36,6 +36,7 @@ import {
   CodeBlockTitle,
 } from "./code-block";
 import { MarkdownMessage, MessageFileLink } from "./message-markdown";
+import { MermaidBlock } from "./mermaid-block";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import {
   scaleMessageCodeFontSize,
@@ -292,35 +293,42 @@ export function MessageResponse({
       messageCodeFontSize={messageCodeFontSize}
       resolveFileLink={resolveFileLink}
       onFileLinkClick={handleFileLinkClick}
-      renderBlockCode={({ code, language, fileHref, resolvedFileLink }) => (
-        <CodeBlock code={code} language={language}>
-          <CodeBlockHeader>
-            <CodeBlockTitle className={sx(styles.codeTitle)}>
-              {resolvedFileLink ? (
-                <MessageFileLink
-                  href={fileHref ?? resolvedFileLink.filePath}
-                  filePath={resolvedFileLink.filePath}
-                  fileName={resolvedFileLink.fileName}
-                  line={resolvedFileLink.line}
-                  column={resolvedFileLink.column}
-                  onClick={(event) =>
-                    void handleFileLinkClick({
-                      event,
-                      href: fileHref ?? resolvedFileLink.filePath,
-                      resolvedFileLink,
-                      code,
-                    })
-                  }
-                />
-              ) : null}
-              <span className={sx(styles.codeLanguage)}>{language ?? i18n.t("composer:message.copy")}</span>
-            </CodeBlockTitle>
-            <CodeBlockActions>
-              <CodeBlockCopyButton />
-            </CodeBlockActions>
-          </CodeBlockHeader>
-        </CodeBlock>
-      )}
+      renderBlockCode={({ code, language, fileHref, resolvedFileLink }) => {
+        const block = (
+          <CodeBlock code={code} language={language}>
+            <CodeBlockHeader>
+              <CodeBlockTitle className={sx(styles.codeTitle)}>
+                {resolvedFileLink ? (
+                  <MessageFileLink
+                    href={fileHref ?? resolvedFileLink.filePath}
+                    filePath={resolvedFileLink.filePath}
+                    fileName={resolvedFileLink.fileName}
+                    line={resolvedFileLink.line}
+                    column={resolvedFileLink.column}
+                    onClick={(event) =>
+                      void handleFileLinkClick({
+                        event,
+                        href: fileHref ?? resolvedFileLink.filePath,
+                        resolvedFileLink,
+                        code,
+                      })
+                    }
+                  />
+                ) : null}
+                <span className={sx(styles.codeLanguage)}>{language ?? i18n.t("composer:message.copy")}</span>
+              </CodeBlockTitle>
+              <CodeBlockActions>
+                <CodeBlockCopyButton />
+              </CodeBlockActions>
+            </CodeBlockHeader>
+          </CodeBlock>
+        );
+        return language?.toLowerCase() === "mermaid" ? (
+          <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
+        ) : (
+          block
+        );
+      }}
       className={className}
       style={style}
       {...props}

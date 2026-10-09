@@ -72,13 +72,6 @@ export {
   Suggestions,
 } from "./suggestion";
 export { ModelSelector } from "./model-selector";
-export {
-  PermissionModeSelector,
-  cyclePermissionMode,
-  type PermissionModeValue,
-  type ClaudePermissionMode,
-  type CodexApprovalPolicy,
-} from "./permission-mode-selector";
 export { ModelIcon } from "./model-icon";
 export { TurnModelChip } from "./turn-model-chip";
 export {

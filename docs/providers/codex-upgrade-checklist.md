@@ -32,7 +32,7 @@ codex app-server generate-json-schema --experimental --out <temporary-directory>
 - 설정/UI: `src/store/provider-runtime-options.ts`,
   `src/lib/providers/runtime-option-contract.ts`,
   `src/components/layout/settings-dialog-providers-section.tsx`,
-  `src/components/layout/settings-dialog-codex-section.tsx`
+  `src/components/layout/settings-dialog-codex-plugins-card.tsx`
 - 테스트: `tests/codex-app-server-runtime.test.ts`, `tests/ipc-schemas.test.ts`,
   `tests/provider-runtime-options.test.ts`
 
@@ -45,6 +45,11 @@ codex app-server generate-json-schema --experimental --out <temporary-directory>
   `UserPromptSubmit`의 차단·실패를 확인한다. 명령과 raw output은 노출하지 않는다.
 - **Fork**: `thread/fork`의 `lastTurnId`와 `beforeTurnId`를 함께 보내지 않는다.
 - **Search**: `indexed`가 없는 구버전에는 `cached`를 보내고 새 field를 제거한다.
+- **MCP App views**: `initialize`의 `capabilities.extensions`,
+  `mcpToolCall`의 `mcpAppUi`·`mcpAppResourceUri`, `mcpServer/resource/read`,
+  `mcpServer/tool/call`, `mcpServerStatus/list`의 `serverName`·`detail` 이름이
+  생성 schema와 일치하는지 확인한다 (`electron/providers/codex-mcp-app-views.ts`,
+  `tests/codex-mcp-app-views.test.ts`).
 - **App tool approval**: `auto`·`prompt`·`writes`·`approve`를 shell sandbox로
   설명하지 않는다.
 - **고급 기능**: permission profile, granular approval, multi-agent policy,

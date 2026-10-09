@@ -120,10 +120,9 @@ from persistence, the write queue, and update notifications.
    `tests/custom-theme.test.ts` for theme data; check the affected section in
    the rendered UI when its layout changes
 
-For Codex settings, `src/components/layout/settings-dialog-codex-section.tsx`
-owns snapshot requests, selection, drafts, and mutations. The five tab views
-under `src/components/layout/codex-settings/` receive that state and callbacks;
-`shared.tsx` contains their presentation helpers.
+Codex plugin install and remove lives in
+`src/components/layout/settings-dialog-codex-plugins-card.tsx`, rendered in the
+Codex tab of `src/components/layout/settings-dialog-providers-section.tsx`.
 
 ### Creating and managing a pull request
 

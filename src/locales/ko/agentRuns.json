@@ -670,7 +670,8 @@
     "minutes_other": "{{count}}분 후",
     "hours_other": "{{count}}시간 후",
     "days_other": "{{count}}일 후",
-    "history_other": "{{ran}} · {{count}}회 건너뜀"
+    "history_other": "{{ran}} · {{count}}회 건너뜀",
+    "watchingPullRequest": "PR 감시 중"
   },
   "library": {
     "createBlankAiStage": "새 단계",
@@ -813,5 +814,12 @@
     "route": "Provider: {{provider}} · 모델: {{model}} · effort: {{effort}}. 변경은 최대 2회이며 변경 사이에 2턴을 둡니다.",
     "pinned": "고정",
     "eligible": "적응 가능"
+  },
+  "pullRequestWatch": {
+    "stopUnreadable_other": "GitHub를 {{count}}회 연속 읽지 못해 이 감시를 중지했습니다. 마지막 오류: {{error}}",
+    "stopMissing": "PR #{{number}}을(를) 더 이상 찾을 수 없어 이 감시를 중지했습니다.",
+    "stopMerged": "PR #{{number}}이(가) 병합되어 이 감시를 중지했습니다.",
+    "stopClosed": "PR #{{number}}이(가) 병합되지 않고 닫혀 이 감시를 중지했습니다.",
+    "deferred": "작업 턴이 진행 중이며, 감시는 그 턴이 끝나면 작업을 깨웁니다."
   }
 }

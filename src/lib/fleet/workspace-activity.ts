@@ -12,15 +12,6 @@ export const FLEET_DORMANT_AFTER_MS = 7 * 24 * 60 * 60 * 1_000;
 
 export type FleetWorkspaceActivity = "live" | "recent" | "dormant";
 
-export const FLEET_WORKSPACE_ACTIVITY_ORDER: Record<
-  FleetWorkspaceActivity,
-  number
-> = {
-  live: 0,
-  recent: 1,
-  dormant: 2,
-};
-
 function parseTimestamp(value?: string | null) {
   if (!value) {
     return null;
@@ -233,19 +224,6 @@ export function isFleetBoardFilterActive(args: {
   query?: string;
 }) {
   return args.filter !== "active" || Boolean(args.query?.trim());
-}
-
-export function compareFleetWorkspaceActivity(
-  left: { activity: FleetWorkspaceActivity; activityAt: string | null },
-  right: { activity: FleetWorkspaceActivity; activityAt: string | null },
-) {
-  const order =
-    FLEET_WORKSPACE_ACTIVITY_ORDER[left.activity] -
-    FLEET_WORKSPACE_ACTIVITY_ORDER[right.activity];
-  if (order !== 0) {
-    return order;
-  }
-  return (right.activityAt ?? "").localeCompare(left.activityAt ?? "");
 }
 
 /**

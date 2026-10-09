@@ -82,7 +82,11 @@ async function waitForAppWindow(app: ElectronApplication): Promise<Page> {
  *   killed rather than waited on.
  */
 export async function launchStave(
-  options: { userDataDir?: string } = {},
+  options: {
+    userDataDir?: string;
+    /** Extra environment for this launch, such as a test-only main-process hook flag. */
+    env?: Record<string, string>;
+  } = {},
 ): Promise<StaveApp> {
   if (!existsSync(MAIN_ENTRY)) {
     throw new Error(
@@ -98,7 +102,7 @@ export async function launchStave(
     timeout: 60_000,
     // Every launch would otherwise read each provider's account usage with the
     // developer's own credentials; a suite run rate-limits those accounts.
-    env: { ...process.env, STAVE_DISABLE_ACCOUNT_USAGE_READS: "1" },
+    env: { ...process.env, STAVE_DISABLE_ACCOUNT_USAGE_READS: "1", ...options.env },
   });
 
   const page = await waitForAppWindow(app);

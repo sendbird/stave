@@ -2,9 +2,7 @@ import type { StoreApi } from "zustand";
 import { createNotification as createPersistedNotification } from "@/lib/db/notifications.db";
 import { mergeNotificationIntoList } from "@/lib/notifications/notification-state";
 import {
-  playCustomAttentionNotificationSound,
   playCustomNotificationSound,
-  playAttentionNotificationSound,
   playNotificationSound,
 } from "@/lib/notifications/notification-sound";
 import type { AppNotificationCreateInput } from "@/lib/notifications/notification.types";
@@ -75,11 +73,6 @@ export function createAppStoreNotificationRuntime(args: {
         notificationSoundPreset,
         notificationSoundMode,
         notificationSoundCustomAudioData,
-        attentionNotificationSoundEnabled,
-        attentionNotificationSoundVolume,
-        attentionNotificationSoundPreset,
-        attentionNotificationSoundMode,
-        attentionNotificationSoundCustomAudioData,
       } = get().settings;
       const isAttentionKind =
         isNotificationAttentionKind(result.notification.kind) ||
@@ -88,25 +81,9 @@ export function createAppStoreNotificationRuntime(args: {
         result.notification.kind === "task.turn_completed" ||
         result.notification.kind === "task.turn_failed" ||
         result.notification.kind === "agent_run.completed";
-      if (isAttentionKind && attentionNotificationSoundEnabled) {
-        // "AI needs you" cue: question (user_input) or approval request. Uses a
-        // dedicated player instance so its cooldown is independent from the
-        // completion sound's.
-        if (
-          attentionNotificationSoundMode === "custom" &&
-          attentionNotificationSoundCustomAudioData
-        ) {
-          playCustomAttentionNotificationSound({
-            dataUrl: attentionNotificationSoundCustomAudioData,
-            volume: attentionNotificationSoundVolume,
-          });
-        } else {
-          playAttentionNotificationSound({
-            preset: attentionNotificationSoundPreset,
-            volume: attentionNotificationSoundVolume,
-          });
-        }
-      } else if (isCompletionKind && notificationSoundEnabled) {
+      // One configured sound; the notification kind decides when it plays:
+      // "AI needs you" (question or approval request) and turn completion.
+      if ((isAttentionKind || isCompletionKind) && notificationSoundEnabled) {
         if (
           notificationSoundMode === "custom" &&
           notificationSoundCustomAudioData

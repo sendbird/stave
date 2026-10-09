@@ -264,11 +264,6 @@ export const promptInputStyles = stylex.create({
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },
 
-  borderBeamTransition: {
-    transitionProperty: "box-shadow",
-    transitionDuration: { default: "200ms", "@media (prefers-reduced-motion: reduce)": "0ms" },
-    transitionTimingFunction: "ease-out",
-  },
   composerShell: {
     position: "relative",
     zIndex: vars["--ads-z-index-panel"],

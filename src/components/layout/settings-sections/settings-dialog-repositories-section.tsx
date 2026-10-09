@@ -549,7 +549,7 @@ function RepositorySettingsPanel(args: {
         <div className={sx(styles.rowWrapGap2)}>
           {(
             [
-              [t("settingsProviders:codexSection.tabs.commands"), resolvedScriptsConfig?.actions.length ?? 0],
+              [t("ui:command.commands"), resolvedScriptsConfig?.actions.length ?? 0],
               [t("settings:settingsDialogRepositoriesSection.processes"), resolvedScriptsConfig?.services.length ?? 0],
               [
                 t("settings:settingsDialogRepositoriesSection.triggers"),

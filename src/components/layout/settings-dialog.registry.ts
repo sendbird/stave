@@ -12,9 +12,12 @@ import {
   TrackerIssuesSettingsSchema,
 } from "@/lib/tracker-issues/settings";
 import {
+  AuxInferenceDefaultSchema,
   AuxiliaryInferencePolicySchema,
+  DEFAULT_AUX_INFERENCE_DEFAULT,
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
 } from "@/lib/providers/auxiliary-inference-policy";
+import { AUX_INFERENCE_DEFAULT_FIELD_ID } from "@/components/layout/settings-dialog-auxiliary-inference-shared-default";
 import {
   DEFAULT_MARTIN_SYNC_SETTINGS,
   MartinSyncSettingsSchema,
@@ -178,6 +181,27 @@ export const settingDefinitions = [
     applyMode: "next-turn",
     importExport: "include",
   } satisfies SettingDefinition<"auxiliaryInferencePolicy">,
+  {
+    key: "auxiliaryInferenceDefault",
+    sectionId: "auxiliaryInference",
+    fieldId: AUX_INFERENCE_DEFAULT_FIELD_ID,
+    titleKey: "settings:sections.fields.auxiliaryInferenceDefault.title",
+    descriptionKey: "settings:sections.fields.auxiliaryInferenceDefault.description",
+    keywords: [
+      "utility model",
+      "utility ai",
+      "utility provider",
+      "background ai",
+      "default model",
+      "shared model",
+    ],
+    schema: AuxInferenceDefaultSchema,
+    defaultValue: DEFAULT_AUX_INFERENCE_DEFAULT,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "include",
+  } satisfies SettingDefinition<"auxiliaryInferenceDefault">,
   {
     key: "promptEnhancementStyleProfile",
     sectionId: "auxiliaryInference",

@@ -248,6 +248,7 @@
     "valueTicketsCached": "{{value1}} tickets cached.",
     "connected": "Connected.",
     "turnedOffInSettingsIssues": "Turned off in Settings → Issues.",
+    "turnedOffInSettingsIntegrations": "Turned off in Settings → Integrations.",
     "pairThisTrackerInSettingsIntegrations": "Pair this tracker in Settings → Integrations.",
     "addTheSiteUrlAccountEmailAnd": "Add the site URL, account email, and API token in Settings.",
     "theOsKeychainIsUnavailableSoThe": "The OS keychain is unavailable, so the credential cannot be read.",

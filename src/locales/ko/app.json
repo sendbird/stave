@@ -18,8 +18,8 @@
     "effectiveSandboxApprovalAndTimeoutValues": "실제로 적용되는 샌드박스, 승인, 제한 시간 값입니다."
   },
   "localMcpReadiness": {
-    "theLocalMcpServerIsTurnedOffInSettingsDeveloper": "설정 → 개발자에서 Local MCP 서버가 꺼져 있습니다.",
-    "theLocalMcpServerIsEnabledButNotRunningRestartItInSettingsDeveloper": "Local MCP 서버가 켜져 있지만 실행 중이 아닙니다. 설정 → 개발자에서 다시 시작합니다.",
+    "theLocalMcpServerIsTurnedOffInSettingsDeveloper": "설정 → MCP에서 Local MCP 서버가 꺼져 있습니다.",
+    "theLocalMcpServerIsEnabledButNotRunningRestartItInSettingsDeveloper": "Local MCP 서버가 켜져 있지만 실행 중이 아닙니다. 설정 → MCP에서 다시 시작합니다.",
     "capabilityBlock": "{{capability}} 기능은 Local MCP 서버를 통해 모델에 전달됩니다. {{detail}}"
   },
   "resourcePressure": {

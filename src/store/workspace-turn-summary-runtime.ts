@@ -98,6 +98,7 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
     const summaryLane = resolveAuxLaneRuntime({
       lane: "turnSummary",
       policy: state.settings.auxiliaryInferencePolicy,
+      shared: state.settings.auxiliaryInferenceDefault,
       activeProviderId: task?.provider ?? null,
     });
     if (!summaryLane.enabled) {

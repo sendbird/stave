@@ -1,7 +1,7 @@
 # Agent performance and task outputs
 
-Use **Agent performance** in the left navigation to understand how delegated
-work has been going across workspaces. Use **Outputs** in a task's Task panel
+Use the **Performance** tab of **Agents** to understand how delegated work has
+been going across workspaces. Use **Outputs** in a task's Task panel
 to read that task's saved answers and file changes and choose a follow-up.
 These screens used to share the name **Results**. Their scope and purpose differ.
 
@@ -15,8 +15,10 @@ These screens used to share the name **Results**. Their scope and purpose differ
 
 ## Agent performance
 
-Open **Agent performance** from the left navigation, the Fleet header, or
-**Open agent performance** in the command palette. Choose 7, 30 or 90 days.
+Open **Agents** from the left navigation and choose the **Performance** tab, or
+go straight to that tab from **Agent performance** in the Fleet header or the
+Stave menu, or **Open agent performance** in the command palette. Choose 7, 30
+or 90 days.
 Use **Refresh agent performance** to fetch the latest sample.
 
 The overview shows:

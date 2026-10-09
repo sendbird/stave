@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   AUX_LANES,
   buildReadOnlyAuxRuntimeOptions,
+  DEFAULT_AUX_INFERENCE_DEFAULT,
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
+  normalizeAuxInferenceDefault,
   migrateLegacyTurnSummaryModels,
   normalizeAuxiliaryInferencePolicy,
   resolveAuxLaneRuntime,
@@ -13,6 +15,7 @@ describe("auxiliary inference policy defaults", () => {
   test("no lane inherits the user's primary model", () => {
     for (const lane of AUX_LANES) {
       const runtime = resolveAuxLaneRuntime({
+        shared: DEFAULT_AUX_INFERENCE_DEFAULT,
         lane,
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "claude-code",
@@ -37,6 +40,7 @@ describe("auxiliary inference policy defaults", () => {
   test("resolves the light tier for the recurring per-turn lanes", () => {
     expect(
       resolveAuxLaneRuntime({
+        shared: DEFAULT_AUX_INFERENCE_DEFAULT,
         lane: "turnSummary",
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "claude-code",
@@ -44,6 +48,7 @@ describe("auxiliary inference policy defaults", () => {
     ).toBe("claude-haiku-5-5");
     expect(
       resolveAuxLaneRuntime({
+        shared: DEFAULT_AUX_INFERENCE_DEFAULT,
         lane: "intentGuard",
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "codex",
@@ -57,6 +62,7 @@ describe("auxiliary inference policy defaults", () => {
     // provider for exactly this reason.
     expect(
       resolveAuxLaneRuntime({
+        shared: DEFAULT_AUX_INFERENCE_DEFAULT,
         lane: "turnSummary",
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "claude-code",
@@ -64,6 +70,7 @@ describe("auxiliary inference policy defaults", () => {
     ).toBe("gpt-6-luna");
     expect(
       resolveAuxLaneRuntime({
+        shared: DEFAULT_AUX_INFERENCE_DEFAULT,
         lane: "turnSummary",
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "codex",
@@ -72,6 +79,7 @@ describe("auxiliary inference policy defaults", () => {
     // Lanes without a declared fallback do not invent one.
     expect(
       resolveAuxLaneRuntime({
+        shared: DEFAULT_AUX_INFERENCE_DEFAULT,
         lane: "taskName",
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "codex",
@@ -82,6 +90,7 @@ describe("auxiliary inference policy defaults", () => {
   test("leaves the pre-PR review model to the provider default", () => {
     expect(
       resolveAuxLaneRuntime({
+        shared: DEFAULT_AUX_INFERENCE_DEFAULT,
         lane: "prePrReview",
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "claude-code",
@@ -106,46 +115,114 @@ describe("auxiliary inference policy defaults", () => {
   });
 });
 
-describe("provider fall-through", () => {
-  test("lane override wins over every other signal", () => {
+describe("shared default and lane overrides", () => {
+  const policy = normalizeAuxiliaryInferencePolicy({});
+
+  test("auto follows the task's provider, then Claude", () => {
     expect(
       resolveAuxLaneRuntime({
         lane: "utility",
-        policy: normalizeAuxiliaryInferencePolicy({
-          utility: { enabled: true, providerId: "codex" },
-        }),
-        legacyProviderId: "claude-code",
-        activeProviderId: "claude-code",
-      }).providerId,
-    ).toBe("codex");
+        policy,
+        shared: DEFAULT_AUX_INFERENCE_DEFAULT,
+        activeProviderId: "codex",
+      }),
+    ).toMatchObject({ providerId: "codex", providerSource: "task" });
+    expect(
+      resolveAuxLaneRuntime({
+        lane: "utility",
+        policy,
+        shared: DEFAULT_AUX_INFERENCE_DEFAULT,
+        activeProviderId: "cursor",
+      }),
+    ).toMatchObject({ providerId: "claude-code", providerSource: "automatic" });
   });
 
-  test("falls through to the legacy setting, then the active task, then Claude", () => {
-    const policy = normalizeAuxiliaryInferencePolicy({});
-    expect(
-      resolveAuxLaneRuntime({
-        lane: "utility",
+  test("every lane without an override inherits the shared provider and model", () => {
+    const shared = { providerId: "codex" as const, model: "gpt-5.6-luna" };
+    for (const lane of AUX_LANES) {
+      const runtime = resolveAuxLaneRuntime({
+        lane,
         policy,
-        legacyProviderId: "codex",
+        shared,
         activeProviderId: "claude-code",
-      }).providerId,
-    ).toBe("codex");
+      });
+      expect(runtime.providerId).toBe("codex");
+      expect(runtime.providerSource).toBe("shared");
+      expect(runtime.model).toBe("gpt-5.6-luna");
+      expect(runtime.modelSource).toBe("shared");
+    }
+  });
+
+  test("a lane override wins over the shared default", () => {
+    const runtime = resolveAuxLaneRuntime({
+      lane: "turnSummary",
+      policy: normalizeAuxiliaryInferencePolicy({
+        turnSummary: {
+          enabled: true,
+          providerId: "claude-code",
+          model: "claude-sonnet-5",
+        },
+      }),
+      shared: { providerId: "codex", model: "gpt-5.6-luna" },
+      activeProviderId: "codex",
+    });
+    expect(runtime).toMatchObject({
+      providerId: "claude-code",
+      providerSource: "override",
+      model: "claude-sonnet-5",
+      modelSource: "override",
+    });
+  });
+
+  test("a provider-only override never receives the other provider's shared model", () => {
+    const runtime = resolveAuxLaneRuntime({
+      lane: "taskName",
+      policy: normalizeAuxiliaryInferencePolicy({
+        taskName: { enabled: true, providerId: "claude-code" },
+      }),
+      shared: { providerId: "codex", model: "gpt-5.6-luna" },
+    });
+    expect(runtime.providerId).toBe("claude-code");
+    expect(runtime.model).toBe("claude-haiku-5-5");
+    expect(runtime.modelSource).toBe("automatic");
+  });
+
+  test("a model-only override keeps the inherited provider", () => {
+    const runtime = resolveAuxLaneRuntime({
+      lane: "utility",
+      policy: normalizeAuxiliaryInferencePolicy({
+        utility: { enabled: true, model: "claude-sonnet-5" },
+      }),
+      shared: { providerId: "claude-code", model: "claude-haiku-5-5" },
+    });
+    expect(runtime).toMatchObject({
+      providerId: "claude-code",
+      providerSource: "shared",
+      model: "claude-sonnet-5",
+      modelSource: "override",
+    });
+  });
+
+  test("an explicit shared model also reaches pre-PR review", () => {
     expect(
       resolveAuxLaneRuntime({
-        lane: "utility",
+        lane: "prePrReview",
         policy,
-        legacyProviderId: "auto",
-        activeProviderId: "codex",
-      }).providerId,
-    ).toBe("codex");
+        shared: { providerId: "claude-code", model: "claude-haiku-5-5" },
+      }).model,
+    ).toBe("claude-haiku-5-5");
+  });
+
+  test("the shared model always carries its own provider", () => {
     expect(
-      resolveAuxLaneRuntime({
-        lane: "utility",
-        policy,
-        legacyProviderId: "auto",
-        activeProviderId: "cursor",
-      }).providerId,
-    ).toBe("claude-code");
+      normalizeAuxInferenceDefault({ providerId: "auto", model: "gpt-5.6-luna" }),
+    ).toEqual({ providerId: "codex", model: "gpt-5.6-luna" });
+    expect(
+      normalizeAuxInferenceDefault({ providerId: "codex", model: "  " }),
+    ).toEqual({ providerId: "codex", model: null });
+    expect(normalizeAuxInferenceDefault("junk")).toEqual(
+      DEFAULT_AUX_INFERENCE_DEFAULT,
+    );
   });
 });
 
@@ -173,6 +250,7 @@ describe("effort handling", () => {
       }),
     ).toBe(true);
     const runtime = resolveAuxLaneRuntime({
+      shared: DEFAULT_AUX_INFERENCE_DEFAULT,
       lane: "turnSummary",
       policy: normalizeAuxiliaryInferencePolicy({
         turnSummary: {
@@ -191,6 +269,7 @@ describe("effort handling", () => {
 
   test("clamps a Codex effort the chosen model does not accept", () => {
     const overrides = resolveAuxLaneRuntime({
+      shared: DEFAULT_AUX_INFERENCE_DEFAULT,
       lane: "utility",
       policy: normalizeAuxiliaryInferencePolicy({
         utility: { enabled: true, model: "gpt-5.6-luna", effort: "ultra" },
@@ -223,9 +302,19 @@ describe("normalization and migration", () => {
     });
     expect(policy.turnSummary.enabled).toBe(true);
     expect(policy.turnSummary.providerId).toBeUndefined();
-    expect(policy.turnSummary.model).toBeNull();
+    expect(policy.turnSummary.model).toBeUndefined();
     expect(policy.turnSummary.effort).toBeUndefined();
     expect(Object.keys(policy).sort()).toEqual([...AUX_LANES].sort());
+  });
+
+  test("reads a saved null model as inherit, never as an override", () => {
+    const policy = normalizeAuxiliaryInferencePolicy({
+      turnSummary: { enabled: true, model: null, fallbackModel: null },
+      taskName: { enabled: true, model: "claude-sonnet-5" },
+    });
+    expect("model" in policy.turnSummary).toBe(false);
+    expect("fallbackModel" in policy.turnSummary).toBe(false);
+    expect(policy.taskName.model).toBe("claude-sonnet-5");
   });
 
   test("preserves an explicit disable", () => {
@@ -242,6 +331,9 @@ describe("normalization and migration", () => {
         fallbackModel: "claude-haiku-4-5",
       }),
     ).toEqual({ model: "gpt-5.6-luna", fallbackModel: "claude-haiku-5-5" });
+    expect(
+      migrateLegacyTurnSummaryModels({ primaryModel: "gpt-5.6-luna" }),
+    ).toEqual({ model: "gpt-5.6-luna" });
     expect(
       migrateLegacyTurnSummaryModels({ primaryModel: "  ", fallbackModel: "" }),
     ).toBeNull();

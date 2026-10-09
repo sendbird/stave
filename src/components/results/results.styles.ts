@@ -155,6 +155,21 @@ export const resultsStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
   },
   toolbar: { display: "flex", alignItems: "center", gap: vars["--ads-space-12"] },
+  // Embedded in the Agents view: that surface owns the title and close, so the
+  // page fills the space below its tabs and keeps only range and refresh.
+  embeddedRoot: { display: "flex", flexDirection: "column", flex: "1 1 auto", minBlockSize: 0, overflow: "hidden" },
+  embeddedControls: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: vars["--ads-space-8"],
+    inlineSize: "100%",
+    maxInlineSize: "64rem",
+    marginInline: "auto",
+    paddingBlockStart: vars["--ads-space-16"],
+    paddingInline: vars["--ads-space-24"],
+  },
+  pageEmbedded: { paddingBlockStart: vars["--ads-space-12"] },
 });
 
 /** Bar segments in the tone their outcome's state icon wears (`StateIcon`), so the bar and legend agree. */

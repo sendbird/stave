@@ -55,6 +55,9 @@ function useMinuteClock(): number {
  */
 export function StatusBar() {
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
+  const developerModeEnabled = useAppStore(
+    (state) => state.settings.developerModeEnabled,
+  );
   // The meters name and switch the account, so the status bar — always
   // mounted — owns loading the account list.
   useLoadProviderAccounts();
@@ -219,7 +222,9 @@ export function StatusBar() {
         ))}
       </div>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>
-        <StatusBarMemorySegment labelBreakpoint={resourceLabelBreakpoint} />
+        {developerModeEnabled ? (
+          <StatusBarMemorySegment labelBreakpoint={resourceLabelBreakpoint} />
+        ) : null}
       </div>
     </div>
   );

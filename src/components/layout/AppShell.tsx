@@ -17,7 +17,6 @@ import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
 import { AgentsView } from "@/components/agents/AgentsView";
 import { UsageView } from "@/components/usage/UsageView";
-import { ResultsView } from "@/components/results/ResultsView";
 import {
   COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
   RepositoryWorkspaceSidebar,
@@ -46,7 +45,6 @@ import { sx } from "@/components/ads/utils/stylex";
 import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { isTaskArchived } from "@/lib/tasks";
 import { refreshTrackerIssues } from "@/lib/tracker-issues/client-state";
-import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
   STAVE_OPEN_SETTINGS_EVENT,
@@ -66,16 +64,7 @@ import {
   MIN_EXPLORER_PANEL_WIDTH,
   PANEL_SEPARATOR_WIDTH,
 } from "@/components/layout/app-shell-layout";
-import {
-  APP_SHORTCUT_CHORD_TIMEOUT_MS,
-  isClosePaneShortcut,
-  isEditableShortcutTarget,
-  isTerminalSurfaceTarget,
-  resolvePaneSplitShortcut,
-  resolveShortcutChord,
-  shouldAbortTaskOnEscape,
-  type PendingShortcutChord,
-} from "@/components/layout/app-shell.shortcuts";
+import { useAppKeybindings } from "@/components/layout/useAppKeybindings";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
@@ -160,7 +149,7 @@ export function AppShell() {
     openIssues,
     closeIssues,
     openAgents,
-    openResults,
+    openAgentPerformance,
     openUsage,
     openRepository,
     switchWorkspace,
@@ -207,7 +196,7 @@ export function AppShell() {
           state.openIssues,
           state.closeIssues,
           state.openAgents,
-          state.openResults,
+          state.openAgentPerformance,
           state.openUsage,
           state.openRepository,
           state.switchWorkspace,
@@ -246,8 +235,6 @@ export function AppShell() {
       : window.matchMedia("(min-width: 1024px)").matches,
   );
   const zoomHudTimerRef = useRef<number | null>(null);
-  const pendingShortcutChordRef = useRef<PendingShortcutChord | null>(null);
-  const pendingShortcutChordTimerRef = useRef<number | null>(null);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [quittingApp, setQuittingApp] = useState(false);
   const handleFocusFileSearch = useCallback(() => {
@@ -283,6 +270,10 @@ export function AppShell() {
     handlePreloadKeyboardShortcuts();
     setShortcutsOpen(true);
   }, [handlePreloadKeyboardShortcuts]);
+  const handleKeyboardShortcutsRequested = useCallback(() => {
+    handleSettingsOpenChange({ open: false });
+    handleOpenKeyboardShortcuts();
+  }, [handleOpenKeyboardShortcuts, handleSettingsOpenChange]);
   const handleOpenCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
   }, []);
@@ -595,330 +586,14 @@ export function AppShell() {
     };
   }, []);
 
-  useEffect(() => {
-    const clearPendingShortcutChord = () => {
-      pendingShortcutChordRef.current = null;
-      if (pendingShortcutChordTimerRef.current !== null) {
-        window.clearTimeout(pendingShortcutChordTimerRef.current);
-        pendingShortcutChordTimerRef.current = null;
-      }
-    };
-
-    const setPendingShortcutChord = (
-      nextPendingChord: PendingShortcutChord | null,
-    ) => {
-      clearPendingShortcutChord();
-      pendingShortcutChordRef.current = nextPendingChord;
-      if (!nextPendingChord) {
-        return;
-      }
-      pendingShortcutChordTimerRef.current = window.setTimeout(() => {
-        pendingShortcutChordRef.current = null;
-        pendingShortcutChordTimerRef.current = null;
-      }, APP_SHORTCUT_CHORD_TIMEOUT_MS);
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const store = useAppStore.getState();
-      const hasMod = event.ctrlKey || event.metaKey;
-      const shortcutChord = resolveShortcutChord({
-        key: event.key,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        altKey: event.altKey,
-        shiftKey: event.shiftKey,
-        pendingChord: pendingShortcutChordRef.current,
-        shortcutKeys: store.settings.appShortcutKeys,
-      });
-
-      if (shortcutChord.nextPendingChord !== pendingShortcutChordRef.current) {
-        setPendingShortcutChord(shortcutChord.nextPendingChord);
-      }
-
-      if (shortcutChord.preventDefault) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-
-      switch (shortcutChord.action) {
-        case "navigation.home":
-          store.clearTaskSelection();
-          return;
-        case "navigation.fleet-view":
-          store.toggleFleetView();
-          return;
-        case "navigation.automation-center":
-          store.toggleAutomationCenter();
-          return;
-        case "navigation.issues":
-          store.toggleIssues();
-          return;
-        case "navigation.agents":
-          store.toggleAgents();
-          return;
-        case "view.toggle-workspace-sidebar":
-          store.setLayout({
-            patch: {
-              workspaceSidebarCollapsed:
-                !store.layout.workspaceSidebarCollapsed,
-            },
-          });
-          return;
-        case "view.toggle-changes-panel": {
-          const nextVisible = !(
-            store.layout.sidebarOverlayVisible &&
-            store.layout.sidebarOverlayTab === "changes"
-          );
-          store.setLayout({
-            patch: {
-              sidebarOverlayVisible: nextVisible,
-              sidebarOverlayTab: "changes",
-            },
-          });
-          return;
-        }
-        case "view.show-explorer": {
-          const nextVisible = !(
-            store.layout.sidebarOverlayVisible &&
-            store.layout.sidebarOverlayTab === "explorer"
-          );
-          store.setLayout({
-            patch: {
-              sidebarOverlayVisible: nextVisible,
-              sidebarOverlayTab: "explorer",
-            },
-          });
-          return;
-        }
-        case "view.show-information": {
-          const nextVisible = !(
-            store.layout.sidebarOverlayVisible &&
-            store.layout.sidebarOverlayTab === "information"
-          );
-          store.setLayout({
-            patch: {
-              sidebarOverlayVisible: nextVisible,
-              sidebarOverlayTab: "information",
-            },
-          });
-          return;
-        }
-        case "view.show-scripts": {
-          const nextVisible = !(
-            store.layout.sidebarOverlayVisible &&
-            store.layout.sidebarOverlayTab === "scripts"
-          );
-          store.setLayout({
-            patch: {
-              sidebarOverlayVisible: nextVisible,
-              sidebarOverlayTab: "scripts",
-            },
-          });
-          return;
-        }
-        case "view.show-lens": {
-          focusOrCreateLensSurface();
-          return;
-        }
-        case "view.toggle-editor": {
-          const editorTabId = store.activeEditorTabId;
-          if (editorTabId) {
-            paneHost.openSurface({ kind: "editor", editorTabId });
-          } else {
-            handleFocusFileSearch();
-          }
-          return;
-        }
-        case "view.toggle-terminal":
-          paneHost.toggleTerminalGroup();
-          return;
-        default:
-          break;
-      }
-
-      if (shortcutChord.stopAppHandling) {
-        return;
-      }
-
-      const presetShortcutSlot = resolveTaskPresetShortcutSlot({
-        key: event.key,
-        code: event.code,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        altKey: event.altKey,
-        shiftKey: event.shiftKey,
-      });
-      if (presetShortcutSlot !== null) {
-        const preset = store.settings.taskPresets[presetShortcutSlot] ?? null;
-        if (preset) {
-          event.preventDefault();
-          event.stopPropagation();
-          store.applyTaskPreset({ presetId: preset.id });
-          return;
-        }
-      }
-
-      if (
-        hasMod &&
-        !event.altKey &&
-        !event.shiftKey &&
-        event.key.toLowerCase() === "p"
-      ) {
-        if (!store.repositoryPath?.trim()) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        handleFocusFileSearch();
-        return;
-      }
-
-      if (
-        hasMod &&
-        !event.altKey &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "f"
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        handleOpenExplorerSearch();
-        return;
-      }
-
-      if (
-        hasMod &&
-        !event.altKey &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "p"
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        handleOpenCommandPalette();
-        return;
-      }
-
-      if (hasMod && !event.altKey && !event.shiftKey && event.key === ",") {
-        event.preventDefault();
-        event.stopPropagation();
-        handleOpenSettings();
-        return;
-      }
-
-      // When focus is inside a terminal surface (xterm creates an internal
-      // <textarea> that matches the editable selector), skip the editable-
-      // target guard so Cmd-based app shortcuts still work. Only block
-      // Ctrl+<key> combos that belong to the shell (Ctrl+C, Ctrl+A, etc.).
-      const inTerminalSurface = isTerminalSurfaceTarget(event.target);
-
-      if (isEditableShortcutTarget(event.target) && !inTerminalSurface) {
-        return;
-      }
-
-      if (inTerminalSurface && event.ctrlKey && !event.metaKey) {
-        return;
-      }
-
-      const paneSplitDirection = resolvePaneSplitShortcut(event);
-      if (paneSplitDirection) {
-        event.preventDefault();
-        event.stopPropagation();
-        paneHost.splitActivePanel(paneSplitDirection);
-        return;
-      }
-
-      if (isClosePaneShortcut(event)) {
-        const panelId = buildPanePanelId(store.activeSurface);
-        if (!store.paneTabMeta[panelId]?.pinned) {
-          event.preventDefault();
-          event.stopPropagation();
-          closePaneSurface(store.activeSurface);
-        }
-        return;
-      }
-
-      if (!hasMod) {
-        const activeElement =
-          typeof document === "undefined" ? null : document.activeElement;
-        if (
-          shouldAbortTaskOnEscape({
-            key: event.key,
-            ctrlKey: event.ctrlKey,
-            metaKey: event.metaKey,
-            shiftKey: event.shiftKey,
-            target: event.target,
-            activeElement,
-          })
-        ) {
-          store.abortTaskTurn({ taskId: store.activeTaskId });
-        }
-        return;
-      }
-
-      if (event.code === "Slash" && !event.shiftKey && !event.altKey) {
-        event.preventDefault();
-        handleOpenKeyboardShortcuts();
-        return;
-      }
-
-      if (event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        event.stopPropagation();
-        store.createTask({ title: "" });
-        return;
-      }
-
-      if (event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        void store.saveActiveEditorTab();
-        return;
-      }
-
-      if (
-        event.shiftKey &&
-        (event.key.toLowerCase() === "j" || event.key === "ArrowDown")
-      ) {
-        event.preventDefault();
-        const currentIndex = store.tasks.findIndex(
-          (task) => task.id === store.activeTaskId,
-        );
-        const nextIndex =
-          currentIndex >= 0
-            ? Math.min(store.tasks.length - 1, currentIndex + 1)
-            : 0;
-        const nextTaskId = store.tasks[nextIndex]?.id;
-        if (nextTaskId) {
-          store.selectTask({ taskId: nextTaskId });
-        }
-        return;
-      }
-
-      if (
-        event.shiftKey &&
-        (event.key.toLowerCase() === "k" || event.key === "ArrowUp")
-      ) {
-        event.preventDefault();
-        const currentIndex = store.tasks.findIndex(
-          (task) => task.id === store.activeTaskId,
-        );
-        const prevIndex = currentIndex >= 0 ? Math.max(0, currentIndex - 1) : 0;
-        const prevTaskId = store.tasks[prevIndex]?.id;
-        if (prevTaskId) {
-          store.selectTask({ taskId: prevTaskId });
-        }
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      clearPendingShortcutChord();
-    };
-  }, [
-    handleFocusFileSearch,
-    handleOpenCommandPalette,
-    handleOpenExplorerSearch,
-    handleOpenKeyboardShortcuts,
-  ]);
+  useAppKeybindings({
+    onFocusFileSearch: handleFocusFileSearch,
+    onOpenCommandPalette: handleOpenCommandPalette,
+    onOpenExplorerSearch: handleOpenExplorerSearch,
+    onOpenKeyboardShortcuts: handleOpenKeyboardShortcuts,
+    onOpenSettings: handleOpenSettings,
+    onKeyboardShortcutsRequested: handleKeyboardShortcutsRequested,
+  });
 
   useEffect(
     () => () => {
@@ -1173,7 +848,7 @@ export function AppShell() {
         openAutomationCenter: () => openAutomationCenter(),
         openIssues: () => openIssues(),
         openAgents: () => openAgents(),
-        openResults: () => openResults(),
+        openAgentPerformance: () => openAgentPerformance(),
         openUsage: () => openUsage(),
         newAgent: () => {
           openAgents();
@@ -1281,7 +956,7 @@ export function AppShell() {
       openAutomationCenter,
       openIssues,
       openAgents,
-      openResults,
+      openAgentPerformance,
       openUsage,
       handleStartCompareRun,
       openRepository,
@@ -1316,10 +991,9 @@ export function AppShell() {
   const showAutomationCenter = activeAppSurface.kind === "automation-center";
   const showIssues = activeAppSurface.kind === "issues";
   const showAgents = activeAppSurface.kind === "agents";
-  const showResults = activeAppSurface.kind === "results";
   const showUsage = activeAppSurface.kind === "usage";
   const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showIssues && !showAgents && !showResults && !showUsage;
+    !showFleetView && !showAutomationCenter && !showIssues && !showAgents && !showUsage;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1481,8 +1155,6 @@ export function AppShell() {
                   ) : activeAppSurface.kind === "usage" ? (
                     <UsageView key={`${activeAppSurface.providerId ?? "all"}:${activeAppSurface.accountProfileId ?? "all"}`}
                       initialProvider={activeAppSurface.providerId} initialAccount={activeAppSurface.accountProfileId} />
-                  ) : showResults ? (
-                    <ResultsView />
                   ) : showIssues ? (
                     <Suspense
                       fallback={

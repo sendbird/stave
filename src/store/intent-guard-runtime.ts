@@ -56,7 +56,7 @@ export function createIntentGuardRunner(deps: {
     const lane = resolveAuxLaneRuntime({
       lane: "intentGuard",
       policy: state.settings.auxiliaryInferencePolicy,
-      legacyProviderId: state.settings.prePrReviewProvider,
+      shared: state.settings.auxiliaryInferenceDefault,
     });
     if (
       !lane.enabled ||

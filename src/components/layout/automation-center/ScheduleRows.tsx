@@ -5,7 +5,6 @@ import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui";
 import {
-  SCHEDULE_KIND_LABEL,
   SCHEDULE_STATE_LABEL,
   type ScheduleRow,
 } from "@/lib/schedule-rows";
@@ -62,7 +61,7 @@ export function ScheduleRows(props: {
               </span>
               <span className={sx(styles.meta)}>
                 <span className={sx(styles.metaText)}>
-                  {SCHEDULE_KIND_LABEL[row.kind]} · {row.agent}
+                  {row.kindLabel} · {row.agent}
                 </span>
               </span>
               <span className={sx(styles.meta)}>

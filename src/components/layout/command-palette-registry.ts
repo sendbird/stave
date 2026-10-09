@@ -135,7 +135,7 @@ export interface CommandPaletteCommandHandlers {
   openAutomationCenter: () => void;
   openIssues: () => void;
   openAgents: () => void;
-  openResults: () => void;
+  openAgentPerformance: () => void;
   openUsage: () => void;
   newAgent: () => void;
   startWorkWithAgent: () => void;
@@ -493,15 +493,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     get description() { return i18n.t("shell:commandPaletteRegistry.seeHowEndedAgentRunsAndRuns"); },
     group: "navigation",
     icon: ChartNoAxesColumn,
-    keywords: ["results", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],
+    keywords: ["results", "performance", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],
     build: (args) => ({
       id: "navigation.results",
       title: i18n.t("shell:commandPaletteRegistry.openResults"),
       subtitle: i18n.t("shell:commandPaletteRegistry.outcomesTimeAndCostOfEndedAgent"),
       group: "navigation",
       icon: ChartNoAxesColumn,
-      keywords: ["results", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],
-      run: args.commands.openResults,
+      keywords: ["results", "performance", "outcomes", "stats", "statistics", "insights", "cost", "ready", "runs"],
+      run: args.commands.openAgentPerformance,
       source: "core",
     }),
   },

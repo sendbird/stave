@@ -1,3 +1,4 @@
+import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
 import { ModelExecutionSchema } from "./model-execution";
 import { AutoRoutingModelResolutionSchema } from "./model-resolution";
@@ -183,6 +184,7 @@ const ToolResultEventSchema = z.object({
   isError: z.boolean().optional(),
   isPartial: z.boolean().optional(),
   exitCode: z.number().int().nullable().optional(),
+  mcpAppView: McpAppViewReferenceSchema.optional(),
 });
 
 const ToolProgressEventSchema = z.object({
