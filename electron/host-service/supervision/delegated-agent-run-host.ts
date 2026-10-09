@@ -22,7 +22,7 @@ export async function prepareDelegatedAgentRun(args: {
   try {
   await args.createTask({ workspaceId: start.workspaceId, taskId: start.taskId, parentTaskId: start.authority.parentTaskId,
     title: start.title, provider: start.authority.permissionPolicy.providerId, model: start.model });
-  return args.runtime.prepareDelegatedAgentRun({ agentRunId: start.agentRunId, model: start.model, authority: start.authority,
+  return await args.runtime.prepareDelegatedAgentRun({ agentRunId: start.agentRunId, model: start.model, authority: start.authority,
     input: buildDelegatedAgentRunInput({ start: { ...start, maxTurns: reservation?.capacity ?? start.maxTurns }, agent: assignment.agent, now: new Date() }),
     ...(reservation ? { resourceLink: reservation.link } : {}) });
   } catch (error) { if (reservation) args.runtime.releaseChildResources(reservation.link); throw error; }

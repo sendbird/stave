@@ -21,7 +21,7 @@
  */
 import { readAdaptiveObservations } from "../../providers/adaptive-observations";
 import { resolveAccountUsageBlock } from "../../../src/lib/providers/account-usage-block";
-import { AdaptiveRunPolicySchema, AgentResourceRequestSchema, AgentResourceRequestObjectSchema, constrainHelperResources, type AdaptiveRunPolicy, type AdaptiveRoutingIntent, type ResourceLink } from "../../../src/lib/agent-runs/resources";
+import { AdaptiveRunPolicySchema, AgentResourceRequestSchema, AgentResourceRequestObjectSchema, constrainHelperResources, supportsAdaptiveEffort, type AdaptiveRunPolicy, type AdaptiveRoutingIntent, type ResourceLink } from "../../../src/lib/agent-runs/resources";
 import { selectAdaptiveRoute } from "../../../src/lib/agent-runs/adaptive-route";
 import { randomUUID } from "node:crypto";
 import { prepareRunTurn } from "./turn-preparation";
@@ -364,6 +364,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   const actionOutcomes = new Map<string, ActionOutcome>();
   const actionControllers = new Map<string, { key: string; controller: AbortController }>();
   const preparationControllers = new Map<string, AbortController>();
+
+  function requireInitialEffortSupport(policy: AdaptiveRunPolicy) {
+    const observed = policy.accountProfileId ? readAdaptiveObservations(policy.providerId, policy.accountProfileId, now().getTime()) : null;
+    if (!supportsAdaptiveEffort(policy.providerId, policy.allowedModels[0]!, policy.initialEffort, observed?.catalog?.catalog.ok ? observed.catalog.catalog.models : null))
+      refuse("The cached model catalog does not support this Run's effort. Choose a supported effort before starting.");
+  }
 
   /**
    * Every tick and command runs in this one chain, as in the wake-up runtime:
@@ -844,7 +850,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     const remainingBudget = resources ? store.readResources?.(agentRun.id) : null;
     if (remainingBudget && !resources?.link && remainingBudget.activeHelpers > 0 && remainingBudget.remaining <= remainingBudget.policy.parentReserve) return;
     const observed = resources?.policy.accountProfileId ? readAdaptiveObservations(resources.policy.providerId, resources.policy.accountProfileId, now().getTime()) : null;
-    const catalogModels = observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length ? observed.catalog.catalog.models.map((entry) => entry.model) : null;
+    const catalogModels = observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length ? observed.catalog.catalog.models : null;
     // A cached catalog can reject a proposal; it never silently replaces a pinned/current model.
     const adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels) : null;
     preparationControllers.set(agentRun.id, controller);
@@ -897,7 +903,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     const availability = resources && observed?.quota ? resolveAccountUsageBlock({
       providerId: resources.policy.providerId, model: adaptive?.model, snapshot: observed.quota.snapshot, now: now().getTime(),
     }) === null : undefined;
-    if (availability === false || observed?.catalog?.catalog.ok === false || (adaptive && catalogModels && !catalogModels.includes(adaptive.model))) {
+    if (adaptive && !supportsAdaptiveEffort(resources!.policy.providerId, adaptive.model, adaptive.effort, catalogModels)) {
+      await markStartFailure(agentRun.id, "The cached model catalog does not support this Run's effort. Refresh it and retry; pinned settings cannot be changed silently."); return;
+    }
+    if (availability === false || observed?.catalog?.catalog.ok === false || (adaptive && catalogModels && !catalogModels.some((entry) => entry.model === adaptive.model))) {
       await markStartFailure(agentRun.id, "Cached account observations report this provider unavailable. Refresh it and retry; this Run cannot switch providers."); return;
     }
     if (resources && !store.consumeResourceTurn?.(agentRun.id, turnKey, now())) {
@@ -1375,6 +1384,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       if (resources && providerId && providerId !== resources.policy.providerId) refuse("An adaptive reply must keep the frozen provider.");
       const adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(run.id, ["resource-decision"])) : null;
       const observed = resources?.policy.accountProfileId ? readAdaptiveObservations(resources.policy.providerId, resources.policy.accountProfileId, now().getTime()) : null;
+      if (adaptive && !supportsAdaptiveEffort(resources!.policy.providerId, adaptive.model, adaptive.effort, observed?.catalog?.catalog.ok ? observed.catalog.catalog.models : null))
+        refuse("The cached model catalog does not support this Run's effort. Refresh it and retry; pinned settings cannot be changed silently.");
       if (resources && (observed?.quota && resolveAccountUsageBlock({ providerId: resources.policy.providerId, model: adaptive?.model,
           snapshot: observed.quota.snapshot, now: now().getTime() }) !== null || observed?.catalog?.catalog.ok === false ||
           (adaptive && observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length > 0 && !observed.catalog.catalog.models.some((entry) => entry.model === adaptive.model))))
@@ -1444,8 +1455,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const change = createAgentRun({ id: agentRunId, input, repositoryPath: snapshot.repositoryPath,
           fingerprint: { providerId: authority.permissionPolicy.providerId, model }, now: now() });
         change.agentRun = { ...change.agentRun, state: "paused", pauseReason: "paused-by-user" };
+        const memberResources = resourceLink ? constrainHelperResources(store.resourceConfig!(resourceLink.rootRunId)!.policy, AdaptiveRunPolicySchema.parse(deps.freezeResources?.({ run: change.agentRun, authority })), model) : null;
+        if (memberResources) requireInitialEffortSupport(memberResources);
         change.events = change.events.map((event) => ({ ...event,
-          idempotencyKey: `delegated:${authority.executionId}:prepared`, detail: { ...event.detail, delegation: authority, ...(resourceLink ? { resources: constrainHelperResources(store.resourceConfig!(resourceLink.rootRunId)!.policy, AdaptiveRunPolicySchema.parse(deps.freezeResources?.({ run: change.agentRun, authority })), model), resourceLink } : {}) } }));
+          idempotencyKey: `delegated:${authority.executionId}:prepared`, detail: { ...event.detail, delegation: authority, ...(memberResources ? { resources: memberResources, resourceLink } : {}) } }));
         const created = store.create(change, now());
         if (!created.ok) refuse(created.message);
         emit(change.agentRun);
@@ -1510,6 +1523,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         if (input.adaptive) {
           if (input.origin !== "agent" || !store.consumeResourceTurn || !deps.freezeResources) refuse("Adaptive resources require an assigned Agent and a resource-aware host.");
           const policy = AdaptiveRunPolicySchema.parse(deps.freezeResources({ run: change.agentRun, routingIntent: input.routingIntent }));
+          requireInitialEffortSupport(policy);
           change.events = change.events.map((event) => ({ ...event, idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, resources: policy } }));
         }
         const created = store.create(change, now());

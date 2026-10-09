@@ -1,11 +1,11 @@
 import type { AgentRunAggregate, AgentRunEvent } from "./domain";
 import { currentStageRecord } from "./domain";
-import { AgentResourceRequestSchema, type AdaptiveRunPolicy } from "./resources";
+import { AgentResourceRequestSchema, supportsAdaptiveEffort, type AdaptiveModelCatalog, type AdaptiveRunPolicy } from "./resources";
 import { routeEffortOverrides } from "../routing/auto-routing";
-import { getModelCapability, listCodexReasoningEffortsForModel, MODEL_TIER_ORDER } from "../providers/model-catalog";
+import { getModelCapability, MODEL_TIER_ORDER } from "../providers/model-catalog";
 
 /** A proposal is applied only at the next supervised turn, never in its tool call. */
-export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentRunAggregate, events: readonly AgentRunEvent[], catalogModels?: readonly string[] | null) {
+export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentRunAggregate, events: readonly AgentRunEvent[], catalog?: AdaptiveModelCatalog | null) {
   let model = policy.allowedModels[0]!, effort = policy.initialEffort;
   let changes = 0, lastChangeTurn = -policy.cooldownTurns, appliedThrough = 0;
   const stage = currentStageRecord(aggregate);
@@ -34,11 +34,11 @@ export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentR
     const nextEffort = normalized.claudeEffort ?? normalized.codexReasoningEffort ?? null;
     const efforts = ["low", "medium", "high", "xhigh", "max", "ultra"];
     const rejection = !evidenceValid ? "Evidence must name turns linked to this stage attempt." :
-      (!policy.allowedModels.includes(nextModel) || (catalogModels && !catalogModels.includes(nextModel))) ? "The model is outside this Run's same-provider eligible catalog." :
+      (!policy.allowedModels.includes(nextModel) || (catalog && !catalog.some((entry) => entry.model === nextModel))) ? "The model is outside this Run's same-provider eligible catalog." :
       policy.modelLocked && nextModel !== model ? "The model is pinned." :
       policy.effortLocked && nextEffort !== effort ? "The effort is pinned." :
       (request.effort && nextEffort !== request.effort) ||
-        (policy.providerId === "codex" && nextEffort && !listCodexReasoningEffortsForModel({ model: nextModel }).some((value) => value === nextEffort)) ? "The model does not support that effort." :
+        !supportsAdaptiveEffort(policy.providerId, nextModel, nextEffort, catalog) ? "The model does not support that effort." :
       changes >= policy.maxChanges ? "The change limit is reached." :
       aggregate.agentRun.turnCount - lastChangeTurn < policy.cooldownTurns ? "The two-turn cooldown is active." :
       request.reason === "mechanical-step" && nextEffort && (!effort || efforts.indexOf(nextEffort) > efforts.indexOf(effort)) ? "A mechanical step cannot increase effort." :

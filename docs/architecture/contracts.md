@@ -263,6 +263,11 @@ supervised turns between changes. Mechanical proposals cannot increase tier or
 effort. Fixed model/effort, provider, account, permissions and completion checks
 cannot be widened. Linked references and rationale are auditable evidence, not
 a measured success probability. No extra classifier/provider call is added.
+Fresh account-scoped catalog effort lists override built-in support at initial
+root/helper admission, proposal validation, supervised dispatch and replies.
+Absent, expired or empty effort lists use built-in support. A newly unsupported
+current or pinned effort blocks dispatch before consuming a turn; it is never
+silently lowered or counted as an accepted resource change.
 
 Atomic root admission counts at most 30 parent-plus-child dispatch attempts,
 including stage replies. Starts that fail or have uncertain delivery are not

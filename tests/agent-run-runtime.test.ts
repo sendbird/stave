@@ -1504,6 +1504,62 @@ describe("opted-in adaptive Run resources", () => {
     await h.runtime.pause({ agentRunId: id });
     expect(() => h.runtime.prepareUserTurn({ ...reply, turnId: "new-reply" })).toThrow("Resume");
   });
+  const rememberCodexEfforts = (account: string, efforts: string[]) => rememberAdaptiveCatalog(account, {
+    providerId: "codex", ok: true, detail: "Observed model support",
+    models: [{ model: "gpt-6.1-sol", displayName: "Sol", description: "", hidden: false, isDefault: true,
+      defaultEffort: "medium", supportedEfforts: efforts }],
+  }, Date.parse(START));
+  test("initial pins respect the fresh account catalog, but not another account or expired facts", async () => {
+    const account = "initial-catalog-account";
+    const p = policy("codex", { initialEffort: "ultra", effortLocked: true, accountProfileId: account });
+    const h = createHarness({ extra: { freezeResources: () => p } });
+    h.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
+    rememberCodexEfforts(account, ["medium"]);
+    await expect(h.runtime.startAgentRun(startInput({ origin: "agent", adaptive: true }))).rejects.toThrow("does not support");
+    expect(h.store.listActiveAgentRuns()).toHaveLength(0);
+    expect(h.runCalls).toHaveLength(0);
+    h.advance(300_001);
+    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    expect(h.runCalls[0]?.runtimeOptions.codexReasoningEffort).toBe("ultra");
+    await h.runtime.cancel({ agentRunId: id });
+    const other = createHarness({ extra: { freezeResources: () => ({ ...p, accountProfileId: "different-catalog-account" }) } });
+    other.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
+    await startedAgentRun(other, startInput({ origin: "agent", adaptive: true }));
+    expect(other.runCalls[0]?.runtimeOptions.codexReasoningEffort).toBe("ultra");
+  });
+  test("a proposal cannot accept statically supported effort excluded by the account catalog", async () => {
+    const account = "proposal-catalog-account";
+    const p = policy("codex", { accountProfileId: account });
+    const h = createHarness({ extra: { freezeResources: () => p } });
+    h.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    await h.runtime.requestResources({ agentRunKey: "key-turn-1", request: { effort: "ultra", reason: "capability-mismatch",
+      rationale: "Deeper reasoning requested", evidenceRefs: ["turn-1"] } });
+    rememberCodexEfforts(account, ["medium", "high"]);
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.runCalls[1]?.runtimeOptions.codexReasoningEffort).toBe("medium");
+    expect(h.store.listEventsByKind(id, ["resource-decision"])[0]?.detail)
+      .toMatchObject({ accepted: false, reason: "The model does not support that effort." });
+  });
+  test("newly unsupported current effort blocks supervised turns and replies before charging", async () => {
+    const account = "current-catalog-account";
+    const p = policy("codex", { initialEffort: "ultra", effortLocked: true, accountProfileId: account });
+    const h = createHarness({ extra: { freezeResources: () => p } });
+    h.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    rememberCodexEfforts(account, ["medium", "high"]);
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.runCalls).toHaveLength(1);
+    expect(h.current(id).status).toBe("stuck");
+    expect(h.store.readResources(id)?.spent).toBe(1);
+    expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", providerId: "codex", turnId: "unsupported-reply" })).toThrow("does not support");
+    expect(h.store.readResources(id)?.spent).toBe(1);
+    expect(h.store.listEventsByKind(id, ["turn-linked"])).toHaveLength(1);
+    rememberCodexEfforts(account, ["medium", "ultra"]);
+    expect(h.runtime.prepareUserTurn({ taskId: "task-1", providerId: "codex", turnId: "restored-reply" })?.runtimeOptions)
+      .toMatchObject({ codexReasoningEffort: "ultra", codexAccountProfileId: account });
+    expect(h.store.readResources(id)?.spent).toBe(2);
+  });
 });
 
 test("a parent report predating helper settlement requires a fresh integration turn", async () => {

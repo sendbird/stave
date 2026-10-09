@@ -1,6 +1,17 @@
 import { z } from "zod";
 import type { AgentRunEvent } from "./domain";
 import { listCodexReasoningEffortsForModel } from "../providers/model-catalog";
+import type { ProviderModelCatalogEntry } from "../providers/provider.types";
+
+export type AdaptiveModelCatalog = readonly Pick<ProviderModelCatalogEntry, "model" | "supportedEfforts">[];
+
+/** Account-scoped advertised support wins; empty lists do not advertise support. */
+export function supportsAdaptiveEffort(providerId: "claude-code" | "codex", model: string, effort: string | null, catalog?: AdaptiveModelCatalog | null): boolean {
+  if (!effort) return true;
+  const advertised = catalog?.find((entry) => entry.model === model)?.supportedEfforts;
+  if (advertised?.length) return advertised.includes(effort);
+  return providerId !== "codex" || listCodexReasoningEffortsForModel({ model }).some((value) => value === effort);
+}
 
 const Id = z.string().trim().min(1).max(256);
 export const AdaptiveRoutingIntentSchema = z.object({

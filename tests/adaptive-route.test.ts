@@ -3,7 +3,7 @@ import { freezeAdaptivePolicy } from "../electron/host-service/supervision/adapt
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 import { readAdaptiveObservations, rememberAdaptiveCatalog, rememberAdaptiveQuota } from "../electron/providers/adaptive-observations";
 import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
-import { constrainHelperResources } from "../src/lib/agent-runs/resources";
+import { constrainHelperResources, supportsAdaptiveEffort } from "../src/lib/agent-runs/resources";
 import { selectAdaptiveRoute } from "../src/lib/agent-runs/adaptive-route";
 import { createAgentRun, type AgentRunEvent } from "../src/lib/agent-runs/domain";
 import { buildAgentRunStartInput } from "../src/lib/agent-runs/agent-run";
@@ -34,7 +34,7 @@ test("a change is rejected during cooldown, after two changes, or outside the ca
   expect(recent.decision).toMatchObject({ accepted: false, reason: "The two-turn cooldown is active." });
   const second = event(4, "resource-decision", { accepted: true, requestSequence: 3, turnCount: 3, model: "gpt-6.1-sol", effort: "medium" });
   expect(selectAdaptiveRoute(policy, aggregate(6), [linked, accepted, second, request(5, "gpt-6-luna")]).decision).toMatchObject({ accepted: false, reason: "The change limit is reached." });
-  expect(selectAdaptiveRoute(policy, aggregate(4), [linked, request(3, "gpt-6-luna")], ["gpt-6.1-sol"]).decision?.accepted).toBe(false);
+  expect(selectAdaptiveRoute(policy, aggregate(4), [linked, request(3, "gpt-6-luna")], [{ model: "gpt-6.1-sol", supportedEfforts: [] }]).decision?.accepted).toBe(false);
 });
 test("catalog and quota facts are scoped to an account and expire after five minutes", () => {
   const time = now.getTime();
@@ -90,4 +90,15 @@ test("a model-only downshift cannot carry unsupported effort from an earlier dec
     request: { model: "gpt-6-luna", effort: "max", reason: "mechanical-step", rationale: "Mechanical follow-through", evidenceRefs: ["t1"] } });
   expect(selectAdaptiveRoute(policy, aggregate(3), [linked, accepted, compatible]))
     .toMatchObject({ model: "gpt-6-luna", effort: "max", decision: { accepted: true } });
+});
+
+test("advertised model efforts override the static scale without silently changing pins", () => {
+  const catalog = [{ model: "gpt-6.1-sol", supportedEfforts: ["medium", "high"] }];
+  const proposal = event(3, "resource-request", { stageId: "work", attempt: 1,
+    request: { effort: "ultra", reason: "capability-mismatch", rationale: "Need deeper reasoning", evidenceRefs: ["t1"] } });
+  expect(selectAdaptiveRoute(policy, aggregate(), [linked, proposal], catalog))
+    .toMatchObject({ effort: policy.initialEffort, decision: { accepted: false, reason: "The model does not support that effort." } });
+  expect(selectAdaptiveRoute(policy, aggregate(), [linked, proposal]).decision?.accepted).toBe(true);
+  expect(supportsAdaptiveEffort("codex", "gpt-6.1-sol", "ultra", catalog)).toBe(false);
+  expect(supportsAdaptiveEffort("codex", "gpt-6.1-sol", "ultra", [{ model: "gpt-6.1-sol", supportedEfforts: [] }])).toBe(true);
 });

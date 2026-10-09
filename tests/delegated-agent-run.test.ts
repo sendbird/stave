@@ -22,6 +22,7 @@ import type { ProviderRuntimeOptions } from "../src/lib/providers/provider.types
 import { freezeAdaptivePolicy } from "../electron/host-service/supervision/adaptive-policy";
 import { addIdleTask } from "../electron/host-service/idle-task";
 import { createEmptyWorkspaceState } from "../src/store/workspace-session-state";
+import { rememberAdaptiveCatalog } from "../electron/providers/adaptive-observations";
 
 const idle = { ok: true as const, activeTurnId: null, latestTurnId: null, latestTurnCompletedAt: null, latestTurnError: null };
 const agent = { ...getBuiltinAgent("reviewer")!, workflow: undefined };
@@ -29,7 +30,7 @@ const request = (patch = {}) => ({ repositoryPath: "/tmp/stave", parentWorkspace
   delegationKey: "assignment", prompt: "Review and verify the change.", providerId: "codex", agentConfigId: agent.id,
   workspace: { mode: "same-workspace" }, access: "read-only", ...patch });
 
-function harness(providerId: "claude-code" | "codex" = "codex", options: { agent?: AgentConfig; adaptive?: boolean; beforeTaskCreated?: () => Promise<void> } = {}) {
+function harness(providerId: "claude-code" | "codex" = "codex", options: { agent?: AgentConfig; adaptive?: boolean; accountProfileId?: string; beforeTaskCreated?: () => Promise<void> } = {}) {
   const savedAgent = options.agent ?? agent;
   const db = new Database(":memory:");
   const runs = new AgentRunStore(db), assignments = createAssignRuntime({ store: new AgentAssignmentStore(db), allowNativeSubagents: taskId => !runs.resourceConfig(runs.getActiveAgentRunForTask(taskId)?.id ?? "") });
@@ -37,7 +38,7 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
   let session = createEmptyWorkspaceState();
   let clock = new Date("2026-10-09T00:00:00Z");
   const rootPolicy = freezeAdaptivePolicy({ providerId, model: providerId === "codex" ? "gpt-6-sol" : "sonnet", agent: null,
-    draft: { autoRouting: true }, settings: null, maxTurns: 30 });
+    draft: { autoRouting: true, ...(options.accountProfileId ? (providerId === "codex" ? { codexAccountProfileId: options.accountProfileId } : { claudeAccountProfileId: options.accountProfileId }) : {}) }, settings: null, maxTurns: 30 });
   if (options.adaptive) {
     session = addIdleTask(session, { taskId: "parent", workspaceId: "ws", title: "Parent", provider: providerId,
       model: rootPolicy.allowedModels[0]! }).session;
@@ -430,4 +431,27 @@ test("a parent ending while idle child creation is pending cannot activate a zom
   expect(h.runs.getAggregate(response.child!.agentRunId!)).toBeNull();
   expect(h.runs.readResources("root")).toMatchObject({ spent: 0, reserved: 0, activeHelpers: 0 });
   expect((await h.coordinator.get(response.child!))?.phase).toBe("failed");
+});
+
+test("helper preparation and replies enforce effort support from the inherited root account", async () => {
+  const account = "helper-catalog-account", time = Date.parse("2026-10-09T00:00:00Z");
+  const restrictEffort = () => rememberAdaptiveCatalog(account, { providerId: "codex", ok: true, detail: "Observed support",
+    models: [{ model: "gpt-6-sol", displayName: "Sol", description: "", hidden: false, isDefault: true,
+      defaultEffort: "medium", supportedEfforts: ["medium"] }] }, time);
+  const h = harness("codex", { adaptive: true, accountProfileId: account });
+  const child = await h.start({ model: "gpt-6-sol", effort: "high" });
+  await h.runtime.blockStage({ agentRunKey: "turn-1", block: { kind: "input", missing: "Select target.", suggestedAction: "Reply." } });
+  h.end("turn-1"); await h.runtime.requestTick();
+  restrictEffort();
+  expect(() => h.runtime.prepareUserTurn({ taskId: child.delegatedTaskId, workspaceId: "ws", providerId: "codex", turnId: "unsupported-child-reply" })).toThrow("does not support");
+  expect(h.runs.readResources("root")?.spent).toBe(1);
+  await h.coordinator.stop({ parentTaskId: "parent", delegationKey: "assignment" }); await h.coordinator.waitForInFlight();
+  const fresh = harness("codex", { adaptive: true, accountProfileId: account });
+  const admitted = await fresh.coordinator.delegate(request({ model: "gpt-6-sol", effort: "high" }));
+  expect(admitted.accepted).toBe(true);
+  await fresh.coordinator.waitForInFlight();
+  expect((await fresh.coordinator.get(admitted.child!))?.phase).toBe("failed");
+  expect(fresh.runs.getAggregate(admitted.child!.agentRunId!)).toBeNull();
+  expect(fresh.calls).toHaveLength(0);
+  expect(fresh.runs.readResources("root")).toMatchObject({ spent: 0, reserved: 0, activeHelpers: 0, helpersLaunched: 1 });
 });
