@@ -14,6 +14,7 @@ import {
 import { createMainWindow, getMainWindow } from "./main/window";
 import { registerRendererScheme } from "./main/renderer-protocol";
 import { installInlineRenderProtocol } from "./main/inline-render/inline-render-service";
+import { exposeInlineRenderPreviewForE2e } from "./main/inline-render/inline-render-preview-service";
 // temporary-migration: renderer-origin-storage
 import { recordRendererOriginMigrationBaseline } from "./main/renderer-origin-migration-electron";
 // end temporary-migration: renderer-origin-storage
@@ -149,6 +150,7 @@ if (hasSingleInstanceLock) {
     });
     registerHandlers();
     installInlineRenderProtocol();
+    exposeInlineRenderPreviewForE2e();
     createMainWindow();
     startTrackerIssuesRuntime();
     startStorageCleanupRuntime();

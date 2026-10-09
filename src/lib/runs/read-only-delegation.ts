@@ -33,6 +33,8 @@ export const READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_martin_get_context",
   "stave_martin_list_projects",
   "stave_get_agent_run",
+  // Renders a page offscreen for the caller's own eyes; it saves and shows nothing.
+  "stave_preview_html",
 ] as const;
 
 /**

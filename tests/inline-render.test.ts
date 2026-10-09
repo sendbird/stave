@@ -189,6 +189,15 @@ describe("prepareInlineRenderDocument", () => {
     expect(prepared.indexOf("Content-Security-Policy")).toBeLessThan(prepared.indexOf("<script"));
   });
 
+  test("only a preview paints the theme backdrop, and the page's own styles still win", () => {
+    const page = "<style>html{background:white}</style><p>x</p>";
+    expect(prepareInlineRenderDocument(page)).not.toContain("stave-inline-render-backdrop");
+    const prepared = prepareInlineRenderDocument(page, { backdrop: true });
+    const backdropAt = prepared.indexOf('<style id="stave-inline-render-backdrop">html{background:var(--background)}</style>');
+    expect(backdropAt).toBeGreaterThan(prepared.indexOf("stave-inline-render-base"));
+    expect(backdropAt).toBeLessThan(prepared.indexOf("html{background:white}"));
+  });
+
   test("the bootstrap is valid JavaScript", () => {
     const prepared = prepareInlineRenderDocument("<p>x</p>");
     const script = /<script>([\s\S]*?)<\/script>/.exec(prepared)?.[1] ?? "";

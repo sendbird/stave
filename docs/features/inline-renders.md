@@ -24,16 +24,19 @@ dev server. Inline pages are results the agent produced, not sites to browse.
 - Inline pages work in every provider that runs inside Stave: Claude, Codex,
   Cursor, and Kiro. The tool comes from Stave's built-in Local MCP server, so
   [Local MCP](local-mcp-user-guide.md) must be on (it is by default).
-- The tool needs no approval, including in read-only modes. It writes only to
-  Stave's own page store, never to your repository.
+- The tools need no approval, including in read-only modes. Showing a page
+  writes only to Stave's own page store, never to your repository; checking a
+  page first writes nothing at all.
 
 ## Quick Start
 
 1. Ask for a visual result, for example "Show this week's spend per provider as
    a bar chart."
-2. The trace shows a **Show HTML page** step, and the page appears above the
+2. The agent may first check its page: the trace shows a **Preview HTML page**
+   step, and nothing appears yet.
+3. The trace shows a **Show HTML page** step, and the page appears above the
    agent's reply.
-3. Use the buttons in the page header to **View source**, **Save as HTML
+4. Use the buttons in the page header to **View source**, **Save as HTML
    file**, or **Expand** the page.
 
 ## Interface Walkthrough
@@ -67,6 +70,34 @@ may load from the internet:
 | **Block all** | Make no network request at all. The agent has to put its libraries and data in the page itself. |
 
 Changing the option reloads pages already shown, so they follow it at once.
+
+### Checking A Page Before It Is Shown
+
+An agent cannot see the page it writes, so it can check it first with the
+`stave_preview_html` tool. Stave renders the page in a hidden window exactly as
+the conversation would show it, with the same isolation, your **Network
+access** option, and your current theme, and gives the agent:
+
+- screenshots of up to 4,000 pixels of the page, top to bottom;
+- the page's height and the height its frame will take in the conversation;
+- console errors and warnings (with line numbers in the agent's HTML), requests
+  that failed or that **Network access** blocked, and any attempt to navigate
+  away.
+
+Nothing appears in the conversation and nothing is saved; the trace shows only
+a **Preview HTML page** step. The agent then fixes what it found and shows the
+page.
+
+- The hidden window uses its own temporary browsing session: no cookies or
+  storage from Stave or Lens, and nothing kept after the preview. It refuses
+  every navigation, new window, download, and permission request.
+- A preview that does not finish within 15 seconds is stopped. At most two run
+  at once.
+- The agent picks light or dark; by default it gets the one on your screen. If
+  it asks for the other one, it sees Stave's default theme for that appearance
+  instead of yours.
+- Until the app window has reported your **Network access** option at startup,
+  previews load nothing from the network.
 
 ## How A Page Is Isolated
 

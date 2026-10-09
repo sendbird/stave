@@ -162,6 +162,7 @@ For workspace Information panel management, also use:
 To show a visual result in the conversation (see [Inline HTML pages](inline-renders.md)):
 
 - `stave_render_html` — `{ html, title, height? }`; publishes an HTML page that Stave shows in the calling task's reply, in a sandboxed frame. It works only inside a Stave task turn, needs no approval, and follows **Settings → Chat → Inline HTML pages → Network access**
+- `stave_preview_html` — `{ html, width?, appearance? }`; renders the page in a hidden window exactly as `stave_render_html` would show it and returns a JSON summary (content height, the height the conversation frame will take, console errors and warnings with line numbers, failed requests, blocked navigations, layout notes) followed by screenshots of up to 4,000 px of the page in slices of up to 1,200 px. Nothing is shown to the user or saved. It works only inside a Stave task turn, needs no approval (read-only turns included), uses the same **Network access** setting and the theme on screen, and stops a page after 15 seconds; `width` defaults to 720 px and `appearance` to the one on screen
 
 To curate reusable knowledge for the same repository (see [Repository memory](repository-memory.md)):
 contextual entries are recalled only for relevant requests; at most three core

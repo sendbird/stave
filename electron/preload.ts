@@ -2751,6 +2751,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("inline-render:read-source", args),
     saveAs: (args: { renderId: string }) =>
       ipcRenderer.invoke("inline-render:save-as", args),
+    setPreviewContext: (args: {
+      networkPolicy: "open" | "cdn" | "blocked";
+      theme: { appearance: "light" | "dark"; variables: Record<string, string> } | null;
+    }) => ipcRenderer.invoke("inline-render:set-preview-context", args),
   },
   shell: {
     openExternal: (args: { url: string }) =>

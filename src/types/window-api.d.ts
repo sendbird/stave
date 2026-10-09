@@ -3072,6 +3072,14 @@ interface WindowApi {
       | { ok: false; canceled: true }
       | { ok: false; error: string }
     >;
+    /**
+     * Tells main the user's network setting and current theme, which
+     * `stave_preview_html` renders with. Sent at startup and on every change.
+     */
+    setPreviewContext?: (args: {
+      networkPolicy: "open" | "cdn" | "blocked";
+      theme: { appearance: "light" | "dark"; variables: Record<string, string> } | null;
+    }) => Promise<{ ok: true } | { ok: false; error: string }>;
   };
   shell?: {
     openExternal?: (args: {

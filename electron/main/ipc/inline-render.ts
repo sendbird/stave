@@ -3,14 +3,36 @@ import { dialog, ipcMain } from "electron";
 import { z } from "zod";
 import {
   buildInlineRenderFileName,
+  INLINE_RENDER_NETWORK_POLICIES,
+  INLINE_RENDER_THEME_VARIABLES,
   isInlineRenderId,
 } from "../../../src/lib/inline-render/inline-render";
 import { getInlineRenderStore } from "../inline-render/inline-render-service";
+import { setInlineRenderPreviewContext } from "../inline-render/inline-render-preview-service";
 import { getMainWindow } from "../window";
 
 const InlineRenderIdArgsSchema = z
   .object({
     renderId: z.string().min(1).max(64),
+  })
+  .strict();
+
+/** What `stave_preview_html` needs from the renderer: the user's network setting and current theme. */
+const InlineRenderPreviewContextArgsSchema = z
+  .object({
+    networkPolicy: z.enum(INLINE_RENDER_NETWORK_POLICIES),
+    theme: z
+      .object({
+        appearance: z.enum(["light", "dark"]),
+        variables: z
+          .record(z.string().max(80), z.string().max(4_000))
+          .refine(
+            (variables) => Object.keys(variables).length <= INLINE_RENDER_THEME_VARIABLES.length,
+            "too many theme variables",
+          ),
+      })
+      .strict()
+      .nullable(),
   })
   .strict();
 
@@ -22,6 +44,13 @@ function readRenderId(args: unknown): string | null {
 }
 
 export function registerInlineRenderHandlers() {
+  ipcMain.handle("inline-render:set-preview-context", (_event, args: unknown) => {
+    const parsed = InlineRenderPreviewContextArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false as const, error: "invalid arguments" };
+    setInlineRenderPreviewContext(parsed.data);
+    return { ok: true as const };
+  });
+
   ipcMain.handle("inline-render:describe", async (_event, args: unknown) => {
     const renderId = readRenderId(args);
     if (!renderId) return { ok: false as const, error: "invalid arguments" };

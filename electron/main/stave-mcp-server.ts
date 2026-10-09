@@ -44,6 +44,14 @@ import {
 } from "../../src/lib/inline-render/inline-render";
 import { getInlineRenderStore } from "./inline-render/inline-render-service";
 import {
+  INLINE_RENDER_PREVIEW_DEFAULT_WIDTH,
+  INLINE_RENDER_PREVIEW_MAX_CAPTURE_HEIGHT,
+  INLINE_RENDER_PREVIEW_MAX_WIDTH,
+  INLINE_RENDER_PREVIEW_MIN_WIDTH,
+  INLINE_RENDER_PREVIEW_SLICE_HEIGHT,
+} from "../../src/lib/inline-render/inline-render-preview";
+import { previewInlineRenderHtml } from "./inline-render/inline-render-preview-service";
+import {
   readTurnGrantHeaders,
   type StaveTurnGrants,
 } from "../providers/stave-turn-grants";
@@ -1161,6 +1169,7 @@ function createToolServer(options?: {
         "The page runs in a sandboxed frame with scripts allowed. It cannot reach Stave, the workspace files, or the conversation, and it cannot show alerts or open windows; links open in the user's browser.",
         "Network access follows the user's setting: open, a CDN allowlist (cdn.jsdelivr.net, unpkg.com, cdnjs.cloudflare.com, esm.sh, Google Fonts), or none. Prefer inline data and small inline scripts so the page works with no network.",
         `Style with the host theme variables (--background, --foreground, --card, --muted, --muted-foreground, --border, --primary, --accent, --destructive, --success, --warning, --chart-1 to --chart-5, --radius, --font-sans, --font-mono, and the matching -foreground pairs); <html> has class "dark" in dark mode. Keep the page background transparent, use fluid widths (the frame is the chat column), avoid 100vh, and let content set the height (the frame grows to fit, up to ${INLINE_RENDER_MAX_HEIGHT}px).`,
+        "You cannot see the page, so check it with stave_preview_html first: it returns screenshots, the height, and console errors without showing anything to the user.",
       ].join(" "),
       inputSchema: {
         html: z
@@ -1198,6 +1207,51 @@ function createToolServer(options?: {
         ...(height === undefined ? {} : { height }),
       });
       return toStructuredResult(buildInlineRenderToolResult(reference));
+    },
+  );
+
+  server.registerTool(
+    "stave_preview_html",
+    {
+      description: [
+        "Check an HTML page before you show it with stave_render_html. Stave renders it offscreen exactly as the conversation would (same sandbox and CSP, the user's network setting and theme) and returns what you cannot otherwise see; nothing is shown to the user or saved.",
+        `The result is a JSON summary, then screenshots of up to ${INLINE_RENDER_PREVIEW_MAX_CAPTURE_HEIGHT}px of the page from top to bottom, in slices of up to ${INLINE_RENDER_PREVIEW_SLICE_HEIGHT}px. The summary gives contentHeight, frameHeight (the height the conversation frame will take), capturedHeight, console errors and warnings with line numbers in your HTML, failed requests, blocked navigations, and notes on layout problems.`,
+        "Fix what it reports, preview again if you changed much, then call stave_render_html with the same HTML. A preview takes a few seconds; at most two run at once.",
+      ].join(" "),
+      inputSchema: {
+        html: z
+          .string()
+          .min(1)
+          .max(INLINE_RENDER_MAX_HTML_CHARS)
+          .describe("The page you plan to show with stave_render_html."),
+        width: z
+          .number()
+          .int()
+          .min(INLINE_RENDER_PREVIEW_MIN_WIDTH)
+          .max(INLINE_RENDER_PREVIEW_MAX_WIDTH)
+          .optional()
+          .describe(
+            `Viewport width in CSS pixels; defaults to ${INLINE_RENDER_PREVIEW_DEFAULT_WIDTH}, a typical chat column. Try ${INLINE_RENDER_PREVIEW_MIN_WIDTH} to check a narrow one.`,
+          ),
+        appearance: z
+          .enum(["light", "dark"])
+          .optional()
+          .describe("Theme to render with; defaults to the one the user has on screen now."),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ html, width, appearance }) => {
+      const caller = await resolveStaveMcpCaller(turnGrants);
+      if (caller.kind !== "turn") {
+        throw new StaveMcpCallerError(
+          "stave_preview_html checks a page for a Stave conversation, so it only works inside a Stave task turn.",
+        );
+      }
+      return previewInlineRenderHtml({
+        html,
+        ...(width === undefined ? {} : { width }),
+        ...(appearance === undefined ? {} : { appearance }),
+      });
     },
   );
 

@@ -463,16 +463,23 @@ const BOOTSTRAP_SCRIPT = `(function () {
 const BASE_STYLE =
   "html{background:transparent;color:var(--foreground,CanvasText);font-family:var(--font-sans,system-ui,sans-serif);-webkit-font-smoothing:antialiased}body{margin:0}a{color:var(--primary,LinkText)}";
 
+/**
+ * What shows through a transparent page in the conversation, for a window
+ * with no conversation behind it (`stave_preview_html`). It sits before the
+ * page's own styles, so a page that paints its own root background wins.
+ */
+const BACKDROP_STYLE = "html{background:var(--background)}";
+
 const LEADING_DOCTYPE_PATTERN = /^﻿?\s*<!doctype[^>]*>/i;
 
 /**
  * Puts the bootstrap ahead of the page's own markup. A missing doctype is
- * added so every page renders in standards mode; a `<meta>` CSP (preview
- * only) goes first so it governs every later script.
+ * added so every page renders in standards mode; a `<meta>` CSP (the
+ * browser-only preview) goes first so it governs every later script.
  */
 export function prepareInlineRenderDocument(
   html: string,
-  options?: { metaCsp?: string },
+  options?: { metaCsp?: string; backdrop?: boolean },
 ): string {
   const doctypeMatch = LEADING_DOCTYPE_PATTERN.exec(html);
   const doctype = doctypeMatch ? doctypeMatch[0].replace(/^﻿?\s*/, "") : "<!doctype html>";
@@ -484,6 +491,7 @@ export function prepareInlineRenderDocument(
     metaCsp,
     '<meta charset="utf-8">',
     `<style id="stave-inline-render-base">${BASE_STYLE}</style>`,
+    options?.backdrop ? `<style id="stave-inline-render-backdrop">${BACKDROP_STYLE}</style>` : "",
     '<style id="stave-inline-render-theme"></style>',
     `<script>${BOOTSTRAP_SCRIPT}</script>`,
   ].join("");
