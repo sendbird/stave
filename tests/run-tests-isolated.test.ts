@@ -49,6 +49,18 @@ describe("needsProcessIsolation", () => {
 });
 
 describe("partitionTestFiles", () => {
+  test("isolates native subprocess fixtures without isolating async calls", () => {
+    const files = ["/repo/git.test.ts", "/repo/shell.test.ts", "/repo/async.test.ts"];
+    const sources = new Map([
+      [files[0], ['execFile', 'Sync("git", ["init"]);'].join("")],
+      [files[1], ['spawn', 'Sync("sh", ["-c", "true"]);'].join("")],
+      [files[2], 'spawn("git", ["status"]);'],
+    ]);
+    expect(partitionTestFiles(files, sources)).toEqual({
+      isolated: files.slice(0, 2),
+      shared: files.slice(2),
+    });
+  });
   test("keeps process-wide module mock files isolated from the shared process", () => {
     const isolatedPath = "/repo/tests/leaky.test.ts";
     const sharedPath = "/repo/tests/clean.test.ts";
