@@ -63,8 +63,6 @@ import {
   DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
 } from "@/lib/providers/prompt-defaults";
 import type { Macro } from "@/lib/macros/types";
-import type { UnreadableWorkflow } from "@/lib/workflows/normalize";
-import type { Workflow } from "@/lib/workflows/schema";
 import type { AgentConfig } from "@/lib/agents/schema";
 import type { UnreadableAgent } from "@/lib/agents/library";
 import type { AgentRevisionsMap } from "@/lib/agents/revisions";
@@ -239,19 +237,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    */
   macros: Macro[];
   /**
-   * Workflows saved before agents replaced playbooks (0.23.0), kept as the
-   * input of the temporary `playbook-agents-auto-route` migration. The
-   * setting names `playbooks`, `playbooksUnreadable` and
-   * `playbookAgentsAutoRouted` keep the old word so stored profiles still
-   * load; they retire with that migration.
-   */
-  playbooks: Workflow[];
-  /**
-   * Saved workflows this version could not read, kept exactly as saved so a
-   * version that can read them restores them. Written back unchanged.
-   */
-  playbooksUnreadable: UnreadableWorkflow[];
-  /**
    * Custom agents: saved agent definitions the user made or duplicated.
    * Built-in agents live in code and repository agents in files, so only
    * these are saved. See `src/lib/agents/library.ts`.
@@ -259,10 +244,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   customAgents: AgentConfig[];
   /** Saved custom agents this version could not read, kept as saved. */
   customAgentsUnreadable: UnreadableAgent[];
-  // temporary-migration: playbook-agents-auto-route
-  /** Agents 0.23.0 fixed to Claude with no model were moved to Stave Auto once. */
-  playbookAgentsAutoRouted: boolean;
-  // end temporary-migration: playbook-agents-auto-route
   /**
    * Version history per custom agent: the replaced version is pushed on every
    * behavioural change, newest first, capped per agent. Dropped when the agent
@@ -666,13 +647,8 @@ export const defaultSettings: AppSettings = {
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
   taskPresets: cloneDefaultTaskPresets(),
   macros: [],
-  playbooks: [],
-  playbooksUnreadable: [],
   customAgents: [],
   customAgentsUnreadable: [],
-  // temporary-migration: playbook-agents-auto-route
-  playbookAgentsAutoRouted: false,
-  // end temporary-migration: playbook-agents-auto-route
   customAgentRevisions: {},
   agentSuggestions: {},
   agentLearningDisabled: [],

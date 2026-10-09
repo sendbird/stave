@@ -1,3 +1,31 @@
+## [0.26.0](https://github.com/sendbird/stave/compare/v0.25.2...v0.26.0) (2026-10-09)
+
+This minor release brings project-scoped defaults, resumable workspace cleanup and interactive conversation results, alongside more reliable supervised Agent runs.
+
+### Features and Fixes
+
+- Settings give each control one owner across Models, Providers and Background AI. Projects can override default models, effort and permission posture; explicit task choices still take precedence. Agent attention and performance surfaces share consistent ordering.
+- Workspaces can be settled, snoozed and restored with Undo without deleting their worktree or conversations. A merged workspace can continue on a new branch in place. A shared shortcut registry adds closed-tab reopening, navigation history and queue Undo.
+- Conversations show the latest reasoning, highlighted shell commands, Mermaid diagrams and tool-image thumbnails. Agents can preview and publish sandboxed HTML pages, request confirmed queued messages and share page context. MCP App views support interactive tools under Codex and display under Claude.
+- Masked secret-request cards save directly to the vault and bind an environment variable for subsequent turns. PR watches can wake a task on CI failures or conflicts, with review comments available by opt-in.
+- Saved-Agent delegations continue under supervised completion. Opt-in Balanced resources bound parent/helper attempts and validate model/effort adjustments while preserving account, permission and model pins.
+- Structured asynchronous questions survive turn completion, replies reach the active stage, and recovery, cancellation and stale-execution fencing are more reliable.
+
+### Upgrade Notes
+
+- Retired utility-provider and Auto-routing settings migrate to the shared Background AI defaults and routing profiles. The former Results surface restores to Agents → Performance. These migrations remain supported until 0.28.0.
+- The expired `playbook-agents-auto-route` migration and its retained legacy workflow settings are removed. Upgrades that skipped the supported migration releases no longer convert untouched permission-only agents created by 0.23.0 from fixed Claude routing to Stave Auto. Those agents retain their saved routing; choose Auto explicitly if needed.
+- Automatic settling may move merged or inactive workspaces into the Settled shelf on first launch; the batch has an Undo action and does not delete workspace data.
+
+### Known Limits
+
+- Claude MCP App views are display-only; Cursor and Kiro retain ordinary tool results. Live external MCP App servers and packaged-app provider flows were not validated for this release preparation.
+- Page context persists until cleared and is attached to renderer-started turns. Background utility model defaults remain global. Secret-request cards appear in the task composer without a notification.
+
+### References
+
+- [PR #702](https://github.com/sendbird/stave/pull/702), [PR #708](https://github.com/sendbird/stave/pull/708), [PR #715](https://github.com/sendbird/stave/pull/715)
+
 ## [0.25.2](https://github.com/sendbird/stave/compare/v0.25.1...v0.25.2) (2026-10-08)
 
 This patch release replaces plan mode with workspace documents, adopts Claude Haiku 5.5 with an automatic fallback to Haiku 4.5, and fixes how the PR status shows running CI. Plan mode removal is a breaking change; see Upgrade Notes.
