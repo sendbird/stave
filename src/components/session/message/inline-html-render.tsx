@@ -1,28 +1,40 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import * as stylex from "@stylexjs/stylex";
-import { Check, Code2, Copy, Download, Maximize2, Minimize2 } from "lucide-react";
+import { Check, Code2, Copy, Download, Maximize2, Minimize2, X } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { useConversationFrameHost } from "@/components/ai-elements/conversation";
 import { toast } from "@/components/ui";
 import {
   buildInlineRenderHostContextMessage,
   buildInlineRenderSrcdoc,
   buildInlineRenderThemeFragment,
   buildInlineRenderUrl,
-  clampInlineRenderHeight,
   INLINE_RENDER_FRAME_SANDBOX,
   normalizeInlineRenderNetworkPolicy,
-  parseInlineRenderFrameMessage,
   readInlineRenderInputHtml,
   type InlineRenderReference,
 } from "@/lib/inline-render/inline-render";
+import { inlineRenderViewMemory } from "@/lib/inline-render/inline-render-frame-pool";
 import { useAppStore } from "@/store/app.store";
+import { inlineRenderContextRuntime } from "@/store/inline-render-context-runtime";
 import { inlineHtmlRenderStyles as styles } from "./inline-html-render.styles";
+import { InlineRenderMessageConfirmDialog } from "./inline-render-message-confirm";
 import { useInlineRenderTheme } from "./inline-render-theme";
+import { useInlineRenderFrameBridge, useInlineRenderFrameSlot } from "./use-inline-render-frame";
 
 const COPIED_MS = 1_500;
 
@@ -37,9 +49,14 @@ type Availability = "checking" | "ready" | "missing" | "unavailable";
 /**
  * One page an agent published with `stave_render_html`, shown in the
  * conversation. The page is served by the main process from its own scheme
- * and runs in a sandboxed frame; this component only sizes it, keeps its
- * theme current, and answers the two requests a page may make: report its
- * height, and open a link after the reader clicked one.
+ * and runs in a sandboxed frame; this component sizes it, keeps its theme
+ * current, and answers what a page may ask (`useInlineRenderFrameBridge`):
+ * report its height, open a link the reader clicked, send a message the
+ * reader confirms, and report state for the agent's next turn.
+ *
+ * The frame is mounted only near the viewport and within the window's live
+ * frame cap (`useInlineRenderFrameSlot`); otherwise the block keeps the
+ * page's last height with no frame in it.
  *
  * Without the desktop bridge (the browser-only preview) the page is built
  * from the tool call's input instead, with the same bootstrap and a `<meta>`
@@ -47,10 +64,11 @@ type Availability = "checking" | "ready" | "missing" | "unavailable";
  */
 export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
   reference: InlineRenderReference;
+  taskId: string;
   toolInput?: string;
 }) {
   useTranslation();
-  const { reference } = props;
+  const { reference, taskId } = props;
   const bridge = typeof window === "undefined" ? undefined : window.api?.inlineRender;
   const networkPolicy = useAppStore((state) =>
     normalizeInlineRenderNetworkPolicy(state.settings.inlineRenderNetworkPolicy),
@@ -98,31 +116,64 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
     [bridge, fallbackHtml, networkPolicy],
   );
 
-  const frameRef = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(reference.height);
+  // Height and expansion outlive the block, so a remounted block keeps its
+  // place instead of jumping back to the height the agent first guessed.
+  const [height, setHeight] = useState(
+    () => inlineRenderViewMemory.get(reference.renderId).height ?? reference.height,
+  );
+  const [expanded, setExpandedState] = useState(
+    () => inlineRenderViewMemory.get(reference.renderId).expanded === true,
+  );
+  const [heldHeight, setHeldHeight] = useState(0);
+  const slotRef = useRef<HTMLDivElement>(null);
+  const setExpanded = useCallback(
+    (next: boolean) => {
+      if (next) setHeldHeight(slotRef.current?.getBoundingClientRect().height ?? 0);
+      inlineRenderViewMemory.set(reference.renderId, { expanded: next });
+      setExpandedState(next);
+    },
+    [reference.renderId],
+  );
+  const toggleExpanded = useCallback(() => setExpanded(!expanded), [expanded, setExpanded]);
   useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      const frame = frameRef.current;
-      if (!frame || event.source !== frame.contentWindow) return;
-      const message = parseInlineRenderFrameMessage(event.data);
-      if (!message) return;
-      if (message.kind === "size") {
-        setHeight(clampInlineRenderHeight(message.height));
-        return;
-      }
-      // A page may only open a link the reader just clicked in this frame.
-      const activation = navigator.userActivation;
-      if (document.activeElement !== frame || (activation && !activation.isActive)) return;
-      const openExternal = window.api?.shell?.openExternal;
-      if (openExternal) {
-        void openExternal({ url: message.url });
-      } else {
-        window.open(message.url, "_blank", "noopener,noreferrer");
-      }
+    if (!expanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
     };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, []);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [expanded, setExpanded]);
+
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const frameHost = useConversationFrameHost();
+  const onSize = useCallback(
+    (next: number) => {
+      inlineRenderViewMemory.set(reference.renderId, { height: next });
+      setHeight(next);
+    },
+    [reference.renderId],
+  );
+  const touchRef = useRef<() => void>(() => {});
+  const onUse = useCallback(() => touchRef.current(), []);
+  const { messageRequest, confirmMessage, declineMessage } = useInlineRenderFrameBridge({
+    frameRef,
+    renderId: reference.renderId,
+    taskId,
+    title: reference.title,
+    onSize,
+    onScrollIntent: frameHost?.markUserScrollIntent,
+    onUse,
+  });
+  // A frame waiting on the reader's answer stays live, so the answer reaches
+  // the page that asked.
+  const slot = useInlineRenderFrameSlot({
+    slotRef,
+    scrollContainer: frameHost?.scrollContainer ?? null,
+    pinned: expanded || messageRequest !== null,
+  });
+  useEffect(() => {
+    touchRef.current = slot.touch;
+  }, [slot.touch]);
 
   const postTheme = useCallback(() => {
     frameRef.current?.contentWindow?.postMessage(
@@ -134,23 +185,21 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
     frameRef.current?.contentWindow?.postMessage(buildInlineRenderHostContextMessage(theme), "*");
   }, [theme]);
 
-  const slotRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [heldHeight, setHeldHeight] = useState(0);
-  const toggleExpanded = useCallback(() => {
-    setExpanded((value) => {
-      if (!value) setHeldHeight(slotRef.current?.getBoundingClientRect().height ?? 0);
-      return !value;
-    });
-  }, []);
+  const modelContext = useSyncExternalStore(
+    useCallback(
+      (listener: () => void) => inlineRenderContextRuntime.subscribe(reference.renderId, listener),
+      [reference.renderId],
+    ),
+    () => inlineRenderContextRuntime.getSnapshot(reference.renderId),
+    () => undefined,
+  );
   useEffect(() => {
-    if (!expanded) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setExpanded(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [expanded]);
+    void inlineRenderContextRuntime.load({ renderId: reference.renderId, taskId });
+  }, [reference.renderId, taskId]);
+  const clearModelContext = useCallback(
+    () => inlineRenderContextRuntime.clear({ renderId: reference.renderId, taskId }),
+    [reference.renderId, taskId],
+  );
 
   const [sourceOpen, setSourceOpen] = useState(false);
   const [source, setSource] = useState<string | null>(null);
@@ -206,9 +255,61 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
     ? i18n.t("session:inlineRender.collapse")
     : i18n.t("session:inlineRender.expand");
 
+  let body: ReactNode;
+  if (availability !== "ready") {
+    body = (
+      <p className={sx(styles.notice)}>
+        {availability === "checking"
+          ? i18n.t("session:inlineRender.loading")
+          : availability === "missing"
+            ? i18n.t("session:inlineRender.missing")
+            : i18n.t("session:inlineRender.unavailable")}
+      </p>
+    );
+  } else if (slot.live) {
+    body = (
+      <iframe
+        key={networkPolicy}
+        ref={frameRef}
+        title={reference.title}
+        src={frameSrc}
+        srcDoc={frameSrcDoc}
+        sandbox={INLINE_RENDER_FRAME_SANDBOX}
+        referrerPolicy="no-referrer"
+        allow=""
+        loading="lazy"
+        onLoad={postTheme}
+        {...stylex.props(
+          styles.frame,
+          expanded ? styles.frameExpanded : dynamic.frameHeight(height),
+          dynamic.colorScheme(theme.appearance),
+        )}
+      />
+    );
+  } else {
+    // Unmounted to save memory: the block keeps the page's height, and a
+    // page held back only by the live cap can be brought back.
+    body = (
+      <div
+        data-inline-render-paused=""
+        {...stylex.props(styles.paused, dynamic.frameHeight(height))}
+      >
+        {slot.waiting ? (
+          <>
+            <span>{i18n.t("session:inlineRender.paused")}</span>
+            <Button size="xs" type="button" variant="quiet" onClick={slot.touch}>
+              {i18n.t("session:inlineRender.resume")}
+            </Button>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div
       ref={slotRef}
+      onPointerDown={slot.touch}
       {...stylex.props(styles.slot, expanded && dynamic.slotHeld(heldHeight))}
     >
       {expanded ? (
@@ -227,6 +328,20 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
             {reference.title}
           </span>
           <span className={sx(styles.actions)}>
+            {modelContext ? (
+              <Tooltip content={i18n.t("session:inlineRender.contextSharedHint")}>
+                <Button
+                  aria-label={i18n.t("session:inlineRender.clearContext")}
+                  size="xs"
+                  type="button"
+                  variant="quiet"
+                  onClick={clearModelContext}
+                >
+                  {i18n.t("session:inlineRender.contextShared")}
+                  <X aria-hidden />
+                </Button>
+              </Tooltip>
+            ) : null}
             <IconAction label={sourceLabel} pressed={sourceOpen} onClick={toggleSource}>
               <Code2 aria-hidden />
             </IconAction>
@@ -240,33 +355,7 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
             </IconAction>
           </span>
         </figcaption>
-        {availability === "ready" ? (
-          <iframe
-            key={networkPolicy}
-            ref={frameRef}
-            title={reference.title}
-            src={frameSrc}
-            srcDoc={frameSrcDoc}
-            sandbox={INLINE_RENDER_FRAME_SANDBOX}
-            referrerPolicy="no-referrer"
-            allow=""
-            loading="lazy"
-            onLoad={postTheme}
-            {...stylex.props(
-              styles.frame,
-              expanded ? styles.frameExpanded : dynamic.frameHeight(height),
-              dynamic.colorScheme(theme.appearance),
-            )}
-          />
-        ) : (
-          <p className={sx(styles.notice)}>
-            {availability === "checking"
-              ? i18n.t("session:inlineRender.loading")
-              : availability === "missing"
-                ? i18n.t("session:inlineRender.missing")
-                : i18n.t("session:inlineRender.unavailable")}
-          </p>
-        )}
+        {body}
         {sourceOpen ? (
           <div className={sx(styles.source, expanded && styles.sourceExpanded)}>
             <pre className={sx(styles.sourceText)}>
@@ -285,12 +374,18 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
           </div>
         ) : null}
       </figure>
+      <InlineRenderMessageConfirmDialog
+        request={messageRequest}
+        onConfirm={confirmMessage}
+        onDecline={declineMessage}
+      />
     </div>
   );
 }, (previous, next) =>
   previous.reference.renderId === next.reference.renderId &&
   previous.reference.title === next.reference.title &&
   previous.reference.height === next.reference.height &&
+  previous.taskId === next.taskId &&
   previous.toolInput === next.toolInput,
 );
 
@@ -320,6 +415,7 @@ function IconAction(props: {
 /** Every page a turn published, in call order, outside the collapsible trace. */
 export function InlineHtmlRenderList(props: {
   renders: ReadonlyArray<{ key: string; reference: InlineRenderReference; toolInput?: string }>;
+  taskId: string;
   xstyle?: StyleXValue;
 }) {
   return (
@@ -328,6 +424,7 @@ export function InlineHtmlRenderList(props: {
         <InlineHtmlRender
           key={render.key}
           reference={render.reference}
+          taskId={props.taskId}
           toolInput={render.toolInput}
         />
       ))}

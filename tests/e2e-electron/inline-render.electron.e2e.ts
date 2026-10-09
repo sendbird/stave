@@ -134,3 +134,84 @@ test("an inline render page is isolated, themed, sized, and cannot navigate itse
     await stave.close();
   }
 });
+
+test("an inline render page can ask to send a message and store its state for the next turn", async () => {
+  test.setTimeout(120_000);
+  const stave = await launchStave();
+  try {
+    const userData = await stave.app.evaluate(({ app }) => app.getPath("userData"));
+    const store = createInlineRenderStore({ rootDir: () => path.join(userData, "inline-renders") });
+    const reference = await store.publish({
+      workspaceId: "e2e",
+      taskId: "task-e2e",
+      turnId: null,
+      title: "Probe",
+      html: PROBE_PAGE,
+    });
+    const src = buildInlineRenderUrl({ renderId: reference.renderId, networkPolicy: "blocked" });
+    await mountRender(stave.page, { src, id: "probe-interaction" });
+    const frame = renderFrame(stave.page, reference.renderId);
+
+    // The bootstrap exposes a frozen API that speaks the host's JSON-RPC.
+    expect(
+      await frame.evaluate(() => {
+        const api = (window as unknown as { stave?: Record<string, unknown> }).stave;
+        return {
+          send: typeof api?.sendMessage,
+          context: typeof api?.updateModelContext,
+          frozen: Object.isFrozen(api),
+        };
+      }),
+    ).toEqual({ send: "function", context: "function", frozen: true });
+    const message = stave.page.evaluate(
+      (id) =>
+        new Promise<unknown>((resolve) => {
+          const frameElement = document.getElementById(id) as HTMLIFrameElement;
+          window.addEventListener("message", (event) => {
+            const data = event.data as { method?: string } | null;
+            if (event.source === frameElement.contentWindow && data?.method === "ui/message") resolve(data);
+          });
+        }),
+      "probe-interaction",
+    );
+    await frame.evaluate(() => {
+      void (window as unknown as { stave: { sendMessage: (text: string) => Promise<unknown> } }).stave
+        .sendMessage("Explain the spike")
+        .catch(() => undefined);
+    });
+    expect(await message).toMatchObject({
+      jsonrpc: "2.0",
+      method: "ui/message",
+      params: { role: "user", content: [{ type: "text", text: "Explain the spike" }] },
+    });
+
+    // Page state round-trips renderer -> preload -> IPC -> main store, bound
+    // to the page's own task, and clears.
+    const bridge = await stave.page.evaluate(async (renderId) => {
+      const api = window.api!.inlineRender!;
+      const stored = await api.setModelContext!({
+        renderId,
+        context: { text: null, structured: { selected: "codex" } },
+      });
+      const listed = await api.listTaskModelContexts!({ workspaceId: "e2e", taskId: "task-e2e" });
+      const otherTask = await api.listTaskModelContexts!({ workspaceId: "e2e", taskId: "someone-else" });
+      const oversized = await api.setModelContext!({
+        renderId,
+        context: { text: "x".repeat(20_000), structured: null },
+      });
+      await api.setModelContext!({ renderId, context: null });
+      const cleared = await api.readModelContext!({ renderId });
+      return { stored, listed, otherTask, oversized: oversized.ok, cleared };
+    }, reference.renderId);
+    expect(bridge.stored).toEqual({ ok: true });
+    expect(bridge.listed).toMatchObject({
+      ok: true,
+      entries: [{ renderId: reference.renderId, title: "Probe", context: { structured: { selected: "codex" } } }],
+    });
+    expect(bridge.otherTask).toEqual({ ok: true, entries: [] });
+    expect(bridge.oversized).toBe(false);
+    expect(bridge.cleared).toEqual({ ok: true, entry: null });
+  } finally {
+    await stave.close();
+  }
+});

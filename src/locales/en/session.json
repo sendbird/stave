@@ -702,7 +702,17 @@
     "loading": "Loading the page…",
     "missing": "This page is no longer available.",
     "unavailable": "Open this conversation in the Stave desktop app to view this page.",
-    "shownBelow": "Shown below the steps."
+    "shownBelow": "Shown below the steps.",
+    "paused": "Paused while other pages are open.",
+    "resume": "Show page",
+    "contextShared": "Shared with agent",
+    "contextSharedHint": "This page shared its state with the agent. It goes with your next message, marked as page data rather than instructions. Click to clear it.",
+    "clearContext": "Shared with agent: clear what this page shared",
+    "messageConfirmTitle": "Send this message?",
+    "messageConfirmDescription": "The page “{{title}}” wants to send this message as you. If the agent is still working, it waits in the queue until the current turn ends.",
+    "messageConfirmTextLabel": "Message from the page",
+    "messageConfirmCancel": "Don't send",
+    "messageConfirmSend": "Send message"
   },
   "turnEventDecisions": {
     "title": "Steps",

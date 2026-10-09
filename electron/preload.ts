@@ -2751,6 +2751,14 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("inline-render:read-source", args),
     saveAs: (args: { renderId: string }) =>
       ipcRenderer.invoke("inline-render:save-as", args),
+    setModelContext: (args: {
+      renderId: string;
+      context: { text: string | null; structured: unknown } | null;
+    }) => ipcRenderer.invoke("inline-render:set-model-context", args),
+    readModelContext: (args: { renderId: string }) =>
+      ipcRenderer.invoke("inline-render:read-model-context", args),
+    listTaskModelContexts: (args: { workspaceId: string | null; taskId: string }) =>
+      ipcRenderer.invoke("inline-render:list-task-model-contexts", args),
     setPreviewContext: (args: {
       networkPolicy: "open" | "cdn" | "blocked";
       theme: { appearance: "light" | "dark"; variables: Record<string, string> } | null;

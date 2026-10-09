@@ -7,6 +7,7 @@ import {
   INLINE_RENDER_THEME_VARIABLES,
   isInlineRenderId,
 } from "../../../src/lib/inline-render/inline-render";
+import { INLINE_RENDER_MODEL_CONTEXT_MAX_BYTES } from "../../../src/lib/inline-render/inline-render-interaction";
 import { getInlineRenderStore } from "../inline-render/inline-render-service";
 import { setInlineRenderPreviewContext } from "../inline-render/inline-render-preview-service";
 import { getMainWindow } from "../window";
@@ -36,6 +37,31 @@ const InlineRenderPreviewContextArgsSchema = z
   })
   .strict();
 
+/**
+ * A page's model context as the renderer forwards it. The size cap and JSON
+ * check run again in the store (`normalizeInlineRenderModelContext`); this
+ * bounds the payload before anything parses it further.
+ */
+const InlineRenderSetModelContextArgsSchema = z
+  .object({
+    renderId: z.string().min(1).max(64),
+    context: z
+      .object({
+        text: z.string().max(INLINE_RENDER_MODEL_CONTEXT_MAX_BYTES).nullable(),
+        structured: z.unknown(),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+
+const InlineRenderTaskArgsSchema = z
+  .object({
+    workspaceId: z.string().min(1).max(512).nullable(),
+    taskId: z.string().min(1).max(512),
+  })
+  .strict();
+
 function readRenderId(args: unknown): string | null {
   const parsed = InlineRenderIdArgsSchema.safeParse(args);
   return parsed.success && isInlineRenderId(parsed.data.renderId)
@@ -58,6 +84,38 @@ export function registerInlineRenderHandlers() {
     return record
       ? { ok: true as const, exists: true as const, title: record.title, height: record.height }
       : { ok: true as const, exists: false as const };
+  });
+
+  ipcMain.handle("inline-render:set-model-context", async (_event, args: unknown) => {
+    const parsed = InlineRenderSetModelContextArgsSchema.safeParse(args);
+    if (!parsed.success || !isInlineRenderId(parsed.data.renderId)) {
+      return { ok: false as const, error: "invalid arguments" };
+    }
+    const { context } = parsed.data;
+    try {
+      const stored = await getInlineRenderStore().setModelContext(
+        parsed.data.renderId,
+        context ? { text: context.text, structured: context.structured ?? null } : null,
+      );
+      return stored ? { ok: true as const } : { ok: false as const, error: "not found" };
+    } catch (error) {
+      return { ok: false as const, error: String(error) };
+    }
+  });
+
+  ipcMain.handle("inline-render:read-model-context", async (_event, args: unknown) => {
+    const renderId = readRenderId(args);
+    if (!renderId) return { ok: false as const, error: "invalid arguments" };
+    return { ok: true as const, entry: await getInlineRenderStore().readModelContext(renderId) };
+  });
+
+  ipcMain.handle("inline-render:list-task-model-contexts", async (_event, args: unknown) => {
+    const parsed = InlineRenderTaskArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false as const, error: "invalid arguments" };
+    return {
+      ok: true as const,
+      entries: await getInlineRenderStore().listTaskModelContexts(parsed.data),
+    };
   });
 
   ipcMain.handle("inline-render:read-source", async (_event, args: unknown) => {

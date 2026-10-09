@@ -94,6 +94,19 @@ export const inlineHtmlRenderStyles = stylex.create({
     overflowWrap: "anywhere",
     whiteSpace: "pre-wrap",
   },
+  /** Where an unmounted frame was: its height, and an offer to show it again. */
+  paused: {
+    alignItems: "baseline",
+    color: vars["--ads-color-text-muted"],
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-8"],
+    justifyContent: "center",
+    lineHeight: vars["--ads-line-height-normal"],
+    paddingBlock: vars["--ads-space-24"],
+    paddingInline: vars["--ads-space-12"],
+  },
   notice: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],

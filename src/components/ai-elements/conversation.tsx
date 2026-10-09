@@ -92,6 +92,31 @@ function isMeasurableScrollContainer(container: HTMLDivElement) {
   );
 }
 
+/**
+ * For content that hosts its own document (an inline page frame): the scroll
+ * container to observe visibility against, and a way to report that the
+ * reader is scrolling. A wheel over a frame is delivered to the frame's
+ * document, never to the container, so without this report the scroll it
+ * chains to the conversation reads as layout and auto-follow snaps back.
+ * Null outside a conversation.
+ */
+export function useConversationFrameHost(): {
+  scrollContainer: HTMLDivElement | null;
+  markUserScrollIntent: () => void;
+} | null {
+  const context = useContext(ConversationContext);
+  const intentRef = context?.userScrollIntentUntilRef;
+  const markUserScrollIntent = useCallback(() => {
+    if (intentRef) intentRef.current = Date.now() + 1_500;
+  }, [intentRef]);
+  const hasContext = context !== null;
+  const scrollContainer = context?.containerEl ?? null;
+  return useMemo(
+    () => (hasContext ? { scrollContainer, markUserScrollIntent } : null),
+    [hasContext, markUserScrollIntent, scrollContainer],
+  );
+}
+
 function useConversationContext() {
   const context = useContext(ConversationContext);
   if (!context) {

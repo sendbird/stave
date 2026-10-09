@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   clampInlineRenderHeight,
@@ -8,6 +8,11 @@ import {
   splitInlineRenderId,
   type InlineRenderReference,
 } from "../../../src/lib/inline-render/inline-render";
+import {
+  normalizeInlineRenderModelContext,
+  type InlineRenderModelContext,
+  type InlineRenderModelContextEntry,
+} from "../../../src/lib/inline-render/inline-render-interaction";
 
 /**
  * Inline render pages on disk: `<root>/<workspace key>/<uuid>.html` holds the
@@ -16,9 +21,25 @@ import {
  * and "Save" return the agent's own markup and a policy change applies to
  * pages published before it.
  *
+ * `<uuid>.context.json`, when present, holds the state the page last reported
+ * for the agent (`window.stave.updateModelContext`). It is bound to the task
+ * in the page's own record, never to a task the renderer names, so a page can
+ * only inform the conversation it was published in.
+ *
  * Grouping by workspace lets archiving a workspace remove its pages in one
  * step. The key is a hash, so workspace ids never become path segments.
  */
+
+interface InlineRenderContextRecord {
+  version: 1;
+  renderId: string;
+  taskId: string;
+  title: string;
+  context: InlineRenderModelContext;
+  updatedAt: string;
+}
+
+const CONTEXT_FILE_SUFFIX = ".context.json";
 
 export interface InlineRenderRecord {
   version: 1;
@@ -48,6 +69,14 @@ export interface InlineRenderStore {
   }): Promise<InlineRenderReference>;
   read(renderId: string): Promise<{ html: string; record: InlineRenderRecord } | null>;
   describe(renderId: string): Promise<InlineRenderRecord | null>;
+  /** Replaces a page's model context; `null` clears it. False when the page is unknown. */
+  setModelContext(renderId: string, context: InlineRenderModelContext | null): Promise<boolean>;
+  readModelContext(renderId: string): Promise<InlineRenderModelContextEntry | null>;
+  /** Every page context the task's pages reported, for its next turn. */
+  listTaskModelContexts(args: {
+    workspaceId: string | null;
+    taskId: string;
+  }): Promise<InlineRenderModelContextEntry[]>;
   removeWorkspace(workspaceId: string): Promise<void>;
 }
 
@@ -60,6 +89,41 @@ export function createInlineRenderStore(args: { rootDir: () => string }): Inline
       dir,
       htmlPath: path.join(dir, `${parts.fileId}.html`),
       recordPath: path.join(dir, `${parts.fileId}.json`),
+      contextPath: path.join(dir, `${parts.fileId}${CONTEXT_FILE_SUFFIX}`),
+    };
+  }
+
+  /** A stored context, re-validated: the file is ours, but it is still read from disk. */
+  async function readContextFile(
+    filePath: string,
+    expected: { renderId?: string; taskId?: string },
+  ): Promise<InlineRenderContextRecord | null> {
+    try {
+      const parsed = JSON.parse(await readFile(filePath, "utf8")) as Partial<InlineRenderContextRecord>;
+      if (typeof parsed.renderId !== "string" || typeof parsed.taskId !== "string") return null;
+      if (expected.renderId !== undefined && parsed.renderId !== expected.renderId) return null;
+      if (expected.taskId !== undefined && parsed.taskId !== expected.taskId) return null;
+      const normalized = normalizeInlineRenderModelContext(parsed.context ?? {});
+      if (!normalized.ok || !normalized.context) return null;
+      return {
+        version: 1,
+        renderId: parsed.renderId,
+        taskId: parsed.taskId,
+        title: normalizeInlineRenderTitle(String(parsed.title ?? "")),
+        context: normalized.context,
+        updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function toEntry(record: InlineRenderContextRecord): InlineRenderModelContextEntry {
+    return {
+      renderId: record.renderId,
+      title: record.title,
+      context: record.context,
+      updatedAt: record.updatedAt,
     };
   }
 
@@ -139,6 +203,52 @@ export function createInlineRenderStore(args: { rootDir: () => string }): Inline
     },
 
     describe,
+
+    async setModelContext(renderId, context) {
+      const location = locate(renderId);
+      if (!location) return false;
+      const record = await describe(renderId);
+      if (!record) return false;
+      const normalized = context === null ? null : normalizeInlineRenderModelContext(context);
+      if (normalized && !normalized.ok) throw new Error(normalized.reason);
+      if (!normalized?.context) {
+        await rm(location.contextPath, { force: true });
+        return true;
+      }
+      const stored: InlineRenderContextRecord = {
+        version: 1,
+        renderId,
+        taskId: record.taskId,
+        title: record.title,
+        context: normalized.context,
+        updatedAt: new Date().toISOString(),
+      };
+      await writeAtomically(location.contextPath, JSON.stringify(stored));
+      return true;
+    },
+
+    async readModelContext(renderId) {
+      const location = locate(renderId);
+      if (!location) return null;
+      const record = await readContextFile(location.contextPath, { renderId });
+      return record ? toEntry(record) : null;
+    },
+
+    async listTaskModelContexts({ workspaceId, taskId }) {
+      const dir = path.join(args.rootDir(), inlineRenderWorkspaceKey(workspaceId));
+      let names: string[];
+      try {
+        names = await readdir(dir);
+      } catch {
+        return [];
+      }
+      const records = await Promise.all(
+        names
+          .filter((name) => name.endsWith(CONTEXT_FILE_SUFFIX))
+          .map((name) => readContextFile(path.join(dir, name), { taskId })),
+      );
+      return records.flatMap((record) => (record ? [toEntry(record)] : []));
+    },
 
     async removeWorkspace(workspaceId) {
       const dir = path.join(args.rootDir(), inlineRenderWorkspaceKey(workspaceId));

@@ -112,3 +112,53 @@ describe("inline render protocol", () => {
     expect(post.status).toBe(405);
   });
 });
+
+describe("inline render page context", () => {
+  test("the last context wins, is bound to the page's own task, and clears", async () => {
+    const first = await publish();
+    const second = await publish();
+    const other = await publish({ taskId: "task-2" });
+    expect(await store.setModelContext(first.renderId, { text: "claude", structured: null })).toBe(true);
+    expect(await store.setModelContext(first.renderId, { text: null, structured: { selected: "codex" } })).toBe(true);
+    expect(await store.setModelContext(second.renderId, { text: "second", structured: null })).toBe(true);
+    expect(await store.setModelContext(other.renderId, { text: "other task", structured: null })).toBe(true);
+
+    expect((await store.readModelContext(first.renderId))?.context).toEqual({
+      text: null,
+      structured: { selected: "codex" },
+    });
+    const entries = await store.listTaskModelContexts({ workspaceId: "worktree:abc", taskId: "task-1" });
+    expect(entries.map((entry) => entry.renderId).sort()).toEqual([first.renderId, second.renderId].sort());
+    expect(entries.every((entry) => entry.title === "Weekly spend")).toBe(true);
+    expect(await store.listTaskModelContexts({ workspaceId: "elsewhere", taskId: "task-1" })).toEqual([]);
+
+    expect(await store.setModelContext(first.renderId, null)).toBe(true);
+    expect(await store.readModelContext(first.renderId)).toBeNull();
+    expect(
+      (await store.listTaskModelContexts({ workspaceId: "worktree:abc", taskId: "task-1" })).map(
+        (entry) => entry.renderId,
+      ),
+    ).toEqual([second.renderId]);
+  });
+
+  test("an unknown page or an oversized context is refused", async () => {
+    expect(
+      await store.setModelContext("0123456789abcdef-0f0e0d0c-0b0a-4908-8706-050403020100", {
+        text: "x",
+        structured: null,
+      }),
+    ).toBe(false);
+    const reference = await publish();
+    await expect(
+      store.setModelContext(reference.renderId, { text: "x".repeat(20_000), structured: null }),
+    ).rejects.toThrow("exceeds");
+    expect(await store.readModelContext(reference.renderId)).toBeNull();
+  });
+
+  test("archiving the workspace removes page context too", async () => {
+    const reference = await publish();
+    await store.setModelContext(reference.renderId, { text: "x", structured: null });
+    await store.removeWorkspace("worktree:abc");
+    expect(await store.listTaskModelContexts({ workspaceId: "worktree:abc", taskId: "task-1" })).toEqual([]);
+  });
+});

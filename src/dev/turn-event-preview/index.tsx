@@ -12,6 +12,7 @@ import { createEventSamples } from "./fixtures";
 export function TurnEventPreview() {
   const [samples, setSamples] = useState(createEventSamples);
   const [dark, setDark] = useState(false);
+  const [sentMessages, setSentMessages] = useState<string[]>([]);
   const root = useRef<HTMLDivElement>(null);
   const expand = () => {
     root.current
@@ -57,11 +58,17 @@ export function TurnEventPreview() {
             ),
           })),
         ),
+      // A message an inline page sent after the reader confirmed it.
+      sendUserMessage: async ({ taskId, content }) => {
+        setSentMessages((rows) => [...rows, content]);
+        return { status: "queued", taskId, workspaceId: "turn-event-preview" };
+      },
     });
     return () => {
       useAppStore.setState({
         resolveApproval: original.resolveApproval,
         resolveUserInput: original.resolveUserInput,
+        sendUserMessage: original.sendUserMessage,
       });
     };
   }, []);
@@ -89,6 +96,13 @@ export function TurnEventPreview() {
           번호로 수정할 부분을 지정하세요. 실제 채팅 렌더러를 사용하며
           승인·답변은 이 예시 안에서만 변경됩니다.
         </p>
+        {sentMessages.length > 0 ? (
+          <ul data-preview-sent-messages="" className={sx(styles.note)}>
+            {sentMessages.map((message, index) => (
+              <li key={index}>대기열에 추가됨: {message}</li>
+            ))}
+          </ul>
+        ) : null}
       </header>
       <div ref={root} className={sx(styles.list)}>
         <AgentStyleProvider style="beui" phraseVariant="cascade">

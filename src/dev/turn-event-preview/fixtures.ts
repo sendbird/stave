@@ -55,8 +55,16 @@ const INLINE_RENDER_PAGE = `<!doctype html>
 <tbody><tr><td>Claude</td><td>128</td><td><a href="https://example.com/claude">link</a></td></tr>
 <tr><td>Codex</td><td>74</td><td><a href="https://example.com/codex">link</a></td></tr></tbody></table>
 <button type="button" onclick="this.textContent = 'Clicked ' + (++window.clicks || (window.clicks = 1))">Click me</button>
+<button type="button" id="ask" onclick="window.stave.sendMessage('Claude 사용량이 왜 높은지 설명해 줘').then(function (r) { document.getElementById('reply').textContent = 'reply: ' + r.status; }, function (e) { document.getElementById('reply').textContent = 'reply: ' + e.code + ' ' + e.message; })">Ask about Claude</button>
+<button type="button" id="select" onclick="window.stave.updateModelContext({ selectedProvider: 'Codex', share: 0.41 }).then(function () { document.getElementById('reply').textContent = 'context: stored'; })">Select Codex</button>
+<p class="muted" id="reply">reply: none</p>
 <p class="muted" id="network">network: checking…</p>
 <script>
+  // Without a click, the host must refuse.
+  window.stave.sendMessage("unprompted").then(
+    function () { document.getElementById("reply").dataset.unprompted = "sent"; },
+    function (error) { document.getElementById("reply").dataset.unprompted = String(error.code); }
+  );
   fetch("https://example.com/", { mode: "no-cors" }).then(
     function () { document.getElementById("network").textContent = "network: allowed"; },
     function () { document.getElementById("network").textContent = "network: blocked"; }

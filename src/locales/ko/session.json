@@ -698,7 +698,17 @@
     "loading": "페이지를 불러오는 중…",
     "missing": "이 페이지는 더 이상 볼 수 없습니다.",
     "unavailable": "이 페이지는 Stave 데스크톱 앱에서 대화를 열어야 볼 수 있습니다.",
-    "shownBelow": "실행 단계 아래에 표시됩니다."
+    "shownBelow": "실행 단계 아래에 표시됩니다.",
+    "paused": "다른 페이지가 열려 있어 잠시 멈췄습니다.",
+    "resume": "페이지 보기",
+    "contextShared": "에이전트와 공유됨",
+    "contextSharedHint": "이 페이지가 자신의 상태를 에이전트와 공유했습니다. 다음 메시지와 함께 지시가 아닌 페이지 데이터로 표시되어 전달됩니다. 클릭하면 지웁니다.",
+    "clearContext": "에이전트와 공유됨: 이 페이지가 공유한 내용 지우기",
+    "messageConfirmTitle": "이 메시지를 보낼까요?",
+    "messageConfirmDescription": "“{{title}}” 페이지가 이 메시지를 내 이름으로 보내려고 합니다. 에이전트가 아직 작업 중이면 현재 턴이 끝날 때까지 대기열에서 기다립니다.",
+    "messageConfirmTextLabel": "페이지가 보낸 메시지",
+    "messageConfirmCancel": "보내지 않기",
+    "messageConfirmSend": "메시지 보내기"
   },
   "turnEventDecisions": {
     "title": "단계",

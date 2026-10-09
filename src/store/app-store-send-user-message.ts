@@ -8,6 +8,7 @@ import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { collectTaskReferenceContextParts } from "@/store/attached-task-context-runtime";
 import { collectWorkspaceDocumentEditContextParts, syncWorkspaceDocumentsAtTurnEnd } from "@/store/workspace-documents-store";
+import { collectInlineRenderContextParts } from "@/store/inline-render-context-runtime";
 import {
   extractWorkspaceInformationReferencesFromText,
   formatWorkspaceInformationReferencesContext,
@@ -1056,6 +1057,8 @@ export function createSendUserMessageAction(args: {
       })));
       // Edits to this task's documents since its last turn travel as a diff.
       retrievedContextParts.push(...(await collectWorkspaceDocumentEditContextParts({ workspaceId: taskWorkspaceId, rootPath: workspaceCwd ?? "", taskId: resolvedTaskId })));
+      // State this task's inline pages reported, labelled as untrusted page data.
+      retrievedContextParts.push(...(await collectInlineRenderContextParts({ workspaceId: taskWorkspaceId, taskId: resolvedTaskId })));
       // ──────────────────────────────────────────────────────────────────────
 
       const modelRuntimeSettings = applyModelRuntimePreference({

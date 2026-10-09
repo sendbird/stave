@@ -954,6 +954,7 @@ export function AssistantMessageBody(args: {
       {inlineRenders.length > 0 ? (
         <InlineHtmlRenderList
           renders={inlineRenders}
+          taskId={taskId}
           xstyle={
             (trace.entries.length > 0 ||
               (showInterimMessages && trace.interimTextParts.length > 0)) &&

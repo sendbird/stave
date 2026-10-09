@@ -18,6 +18,13 @@
  * tests import the same rules.
  */
 
+import {
+  INLINE_RENDER_INTERACTION_MESSAGE,
+  INLINE_RENDER_MESSAGE_MAX_CHARS,
+  parseInlineRenderInteractionMessage,
+  type InlineRenderInteractionMessage,
+} from "./inline-render-interaction";
+
 export const INLINE_RENDER_SCHEME = "stave-render";
 export const INLINE_RENDER_HOST = "frame";
 
@@ -326,21 +333,29 @@ export const INLINE_RENDER_MESSAGE = {
   sizeChanged: "ui/notifications/size-changed",
   openLink: "ui/open-link",
   hostContextChanged: "ui/notifications/host-context-changed",
+  ...INLINE_RENDER_INTERACTION_MESSAGE,
 } as const;
 
 export type InlineRenderFrameMessage =
   | { kind: "size"; height: number }
-  | { kind: "open-link"; url: string };
+  | { kind: "open-link"; url: string }
+  | InlineRenderInteractionMessage;
 
 /** Reads a message from a render frame. Anything unexpected is ignored. */
 export function parseInlineRenderFrameMessage(data: unknown): InlineRenderFrameMessage | null {
   if (!data || typeof data !== "object") return null;
-  const record = data as { jsonrpc?: unknown; method?: unknown; params?: unknown };
+  const record = data as { jsonrpc?: unknown; id?: unknown; method?: unknown; params?: unknown };
   if (record.jsonrpc !== "2.0" || typeof record.method !== "string") return null;
   const params =
-    record.params && typeof record.params === "object"
+    record.params && typeof record.params === "object" && !Array.isArray(record.params)
       ? (record.params as Record<string, unknown>)
       : {};
+  const interaction = parseInlineRenderInteractionMessage({
+    id: record.id,
+    method: record.method,
+    params,
+  });
+  if (interaction) return interaction;
   if (record.method === INLINE_RENDER_MESSAGE.sizeChanged) {
     const height = params.height;
     return typeof height === "number" && Number.isFinite(height) && height >= 0
@@ -378,7 +393,11 @@ export function buildInlineRenderHostContextMessage(theme: InlineRenderTheme) {
  * Runs before any of the page's own markup. It applies the theme from the URL
  * fragment, keeps the theme current from host messages, reports the content
  * height, and turns link clicks and `window.open` into requests the host
- * answers only after a real user click. It never reads anything from the host.
+ * answers only after a real user click. It exposes `window.stave`
+ * (`sendMessage`, `updateModelContext`, `clearModelContext`; see
+ * `inline-render-interaction.ts`) and reports wheel and touch gestures so the
+ * conversation stops following new text. It never reads anything from the
+ * host beyond the theme and the answers to its own requests.
  */
 const BOOTSTRAP_SCRIPT = `(function () {
   "use strict";
@@ -448,10 +467,68 @@ const BOOTSTRAP_SCRIPT = `(function () {
     try { if (url) openLink(String(new URL(String(url), document.baseURI))); } catch (error) {}
     return null;
   };
+  // Requests the host answers. A page loaded on its own (no host frame
+  // around it) is told so at once instead of waiting forever.
+  var hosted = parent !== window;
+  var pending = {};
+  function request(method, params) {
+    return new Promise(function (resolve, reject) {
+      if (!hosted) { reject(new Error("No Stave conversation is hosting this page.")); return; }
+      var id = "stave-" + nextId++;
+      pending[id] = { resolve: resolve, reject: reject };
+      post({ jsonrpc: "2.0", id: id, method: method, params: params });
+    });
+  }
+  function settle(data) {
+    if (data.method !== undefined || typeof data.id !== "string" || !Object.prototype.hasOwnProperty.call(pending, data.id)) return;
+    var entry = pending[data.id];
+    delete pending[data.id];
+    if (data.error && typeof data.error === "object") {
+      var error = new Error(String(data.error.message || "The request was refused."));
+      error.code = data.error.code;
+      entry.reject(error);
+    } else {
+      entry.resolve(data.result && typeof data.result === "object" ? data.result : {});
+    }
+  }
+  var api = {
+    // Asks Stave to send text as the user's message. Stave shows the exact
+    // text and sends it only if the user confirms; call it from a click.
+    sendMessage: function (text) {
+      if (typeof text !== "string") return Promise.reject(new TypeError("sendMessage expects a string."));
+      if (text.length > ${INLINE_RENDER_MESSAGE_MAX_CHARS}) return Promise.reject(new RangeError("The message is longer than ${INLINE_RENDER_MESSAGE_MAX_CHARS} characters."));
+      return request("${INLINE_RENDER_MESSAGE.message}", { role: "user", content: [{ type: "text", text: text }] });
+    },
+    // Replaces what this page tells the agent on the next turn: a string, or
+    // JSON data. An empty value clears it.
+    updateModelContext: function (value) {
+      var params = {};
+      if (typeof value === "string") params.content = [{ type: "text", text: value }];
+      else if (value !== null && value !== undefined) params.structuredContent = value;
+      return request("${INLINE_RENDER_MESSAGE.updateModelContext}", params);
+    },
+    clearModelContext: function () { return request("${INLINE_RENDER_MESSAGE.updateModelContext}", {}); }
+  };
+  try {
+    Object.defineProperty(window, "stave", { value: Object.freeze(api), enumerable: false, configurable: false, writable: false });
+  } catch (error) {}
+  // A wheel or touch over the page never reaches the conversation around it,
+  // so the host is told the reader is scrolling and stops following new text.
+  var lastIntent = 0;
+  function scrollIntent() {
+    var now = Date.now();
+    if (now - lastIntent < 200) return;
+    lastIntent = now;
+    post({ jsonrpc: "2.0", method: "${INLINE_RENDER_MESSAGE.scrollIntent}" });
+  }
+  window.addEventListener("wheel", scrollIntent, { passive: true, capture: true });
+  window.addEventListener("touchstart", scrollIntent, { passive: true, capture: true });
   window.addEventListener("message", function (event) {
     if (event.source !== parent) return;
     var data = event.data;
-    if (data && data.jsonrpc === "2.0" && data.method === "${INLINE_RENDER_MESSAGE.hostContextChanged}") applyTheme(data.params);
+    if (!data || data.jsonrpc !== "2.0") return;
+    if (data.method === "${INLINE_RENDER_MESSAGE.hostContextChanged}") applyTheme(data.params);
+    else if (hosted) settle(data);
   });
 })();`;
 

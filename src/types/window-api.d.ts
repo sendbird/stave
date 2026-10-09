@@ -5,6 +5,7 @@ import type { ApiConnectionsBridgeApi } from "@/lib/providers/api-connections";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
 import type { RepositoryMemoryControlsApi } from "@/lib/repository-memory-settings";
+import type { InlineRenderModelContextEntry as InlineRenderModelContextEntryPayload } from "@/lib/inline-render/inline-render-interaction";
 import type {
   RepositoryMemory,
   RepositoryMemoryDeleteArgs,
@@ -3070,6 +3071,24 @@ interface WindowApi {
     saveAs: (args: { renderId: string }) => Promise<
       | { ok: true; filePath: string }
       | { ok: false; canceled: true }
+      | { ok: false; error: string }
+    >;
+    /**
+     * Stores the state a page reported for the agent
+     * (`window.stave.updateModelContext`); `context: null` clears it. Main
+     * binds it to the page's own task. Optional: older builds lack it.
+     */
+    setModelContext?: (args: {
+      renderId: string;
+      context: { text: string | null; structured: unknown } | null;
+    }) => Promise<{ ok: true } | { ok: false; error: string }>;
+    readModelContext?: (args: { renderId: string }) => Promise<
+      | { ok: true; entry: InlineRenderModelContextEntryPayload | null }
+      | { ok: false; error: string }
+    >;
+    /** Every page context a task's pages reported, for the task's next turn. */
+    listTaskModelContexts?: (args: { workspaceId: string | null; taskId: string }) => Promise<
+      | { ok: true; entries: InlineRenderModelContextEntryPayload[] }
       | { ok: false; error: string }
     >;
     /**

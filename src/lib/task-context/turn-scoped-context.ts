@@ -8,8 +8,10 @@
  * the model it was inside an agent run the user had already ended.
  *
  * Owners: `src/lib/agent-runs/briefing.ts` (`AGENT_RUN_CONTEXT_SOURCE_ID`),
- * `electron/host-service/wake-up-runtime.ts`, and the per-turn repository
- * memory block (`STAVE_REPOSITORY_MEMORY_SOURCE_ID`, `stave:project-memory`).
+ * `electron/host-service/wake-up-runtime.ts`, the per-turn repository
+ * memory block (`STAVE_REPOSITORY_MEMORY_SOURCE_ID`, `stave:project-memory`),
+ * and inline page state (`INLINE_RENDER_MODEL_CONTEXT_SOURCE_ID`,
+ * `stave:inline-render-context`), rebuilt from the page store every turn.
  *
  * `stave:project-coordinator` was attached by the retired project coordinator,
  * and `stave:mission` is the agent run part's id from before agent runs were
@@ -22,6 +24,7 @@ export const TURN_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS: ReadonlySet<string> = new
   "stave:wake-up",
   "stave:project-coordinator",
   "stave:project-memory",
+  "stave:inline-render-context",
 ]);
 
 export function isTurnScopedRetrievedContext(part: { sourceId: string }): boolean {
