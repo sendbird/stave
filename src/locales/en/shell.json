@@ -73,8 +73,6 @@
     "presetShortcutSlots": "Preset shortcut slots",
     "theFirstNinePresetsInSettings": "The first nine presets in Settings → Presets respond to Ctrl+1..9 in list order.",
     "disabledInSettingsCommandPalette": "{{value1}} Disabled in Settings -> Command Palette.",
-    "issues": "Issues",
-    "createConversationsAndMoveAroundTheCurrent": "Create conversations and move around the current workspace.",
     "selectWorkspace": "Select workspace",
     "jumpToTheFirstNineVisibleWorkspaces": "Jump to the first nine visible workspaces in the sidebar, from top to bottom.",
     "newTask": "New task",
@@ -89,34 +87,14 @@
     "launchThePresetBarWithoutLeavingThe": "Launch the preset bar without leaving the keyboard.",
     "panels": "Panels",
     "controlTheShellLayoutWithoutLeavingThe": "Control the shell layout without leaving the keyboard.",
-    "toggleWorkspaceSidebar": "Toggle workspace sidebar",
-    "collapseOrExpandTheLeftRepositoryAnd": "Collapse or expand the left repository and workspace list.",
-    "sourceControlPanel": "Source control panel",
-    "showOrHideTheSourceControlOverlay": "Show or hide the source control overlay on the right rail.",
-    "openExplorerPanel": "Open explorer panel",
-    "openTheExplorerOverlayOnTheRight": "Open the explorer overlay on the right rail.",
     "searchInFiles": "Search in files",
     "openTheExplorerSearchUIAndSearch": "Open the explorer search UI and search file contents, including pasted multiline code blocks.",
-    "toggleInformationPanel": "Toggle information panel",
-    "showOrHideTheWorkspaceInformationPanel": "Show or hide the workspace information panel.",
-    "open": "Open {{value1}}",
-    "openLongRunningProcessesOneShotCommandsLifecycleTriggers": "Open long-running processes, one-shot commands, lifecycle triggers, and recent runs.",
-    "openLensTab": "Open Lens tab",
-    "focusTheLatestEmbeddedBrowserTabOr": "Focus the latest embedded browser tab, or create one.",
     "visualComment": "Visual comment",
     "toggleLensVisualCommentModeWhileThe": "Toggle Lens visual comment mode while the Lens panel is available.",
-    "focusEditor": "Focus editor",
-    "focusTheActiveEditorTab": "Focus the active editor tab.",
     "splitPaneRight": "Split pane right",
     "moveTheActiveTabIntoANew": "Move the active tab into a new pane on the right.",
     "splitPaneDown": "Split pane down",
     "moveTheActiveTabIntoANew2": "Move the active tab into a new pane below.",
-    "toggleTerminal": "Toggle terminal",
-    "focusTheTerminalPaneOrReturnTo": "Focus the terminal pane, or return to the previous tab.",
-    "actions": "Actions",
-    "commonTaskAndEditorCommands": "Common task and editor commands.",
-    "goHome": "Go home",
-    "clearTheActiveTaskSelectionAndReturn": "Clear the active task selection and return to the repository overview.",
     "focusPromptComposer": "Focus prompt composer",
     "moveFocusBackToTheChatPrompt": "Move focus back to the chat prompt when the composer is not already focused.",
     "openModelSelector": "Open model selector",
@@ -135,18 +113,15 @@
     "abortTheCurrentTaskRunWhileFocus": "Abort the current task run while focus is in the task pane.",
     "models": "Models",
     "jumpDirectlyToTheModelsYouMapped": "Jump directly to the models you mapped for the prompt composer.",
-    "help": "Help",
-    "surfaceTheGuideItselfWhenYouNeed": "Surface the guide itself when you need it.",
     "openSettings": "Open settings",
     "openTheMainStaveSettingsDialog": "Open the main Stave settings dialog.",
     "openShortcutGuide": "Open shortcut guide",
     "showThisPanelFromAnywhereOutsideText": "Show this panel from anywhere outside text inputs.",
-    "keyboardReference": "Keyboard reference",
+    "keyboardReference": "Keyboard shortcuts",
     "searchEveryActiveStaveShortcutAndCustom": "Search every active Stave shortcut and custom binding.",
     "findAnActionOrKey": "Find an action or key…",
     "searchKeyboardShortcuts": "Search keyboard shortcuts",
     "clearShortcutSearch": "Clear shortcut search",
-    "shown": "shown",
     "tryAnActionNamePanelOrKey": "Try an action name, panel, or key combination.",
     "close": "Close",
     "disabled": "Disabled",
@@ -816,5 +791,173 @@
   "topBarIssues.closeTasks": "Close tasks",
   "topBarIssues.openTasks": "Open tasks",
   "topBarBranchDropdown.switchBranch": "Switch branch",
-  "workspaceAccountLimitIcon.limit": "{{provider}} account limit reached"
+  "workspaceAccountLimitIcon.limit": "{{provider}} account limit reached",
+  "keybindings": {
+    "sections": {
+      "navigation": {
+        "title": "Navigation",
+        "description": "Move between surfaces, workspaces, and launchers."
+      },
+      "tabs": {
+        "title": "Tasks and tabs",
+        "description": "Create, close, reopen, and split workspace tabs."
+      },
+      "composer": {
+        "title": "Composer",
+        "description": "Prompt input, turns, and approvals in the active task."
+      },
+      "editing": {
+        "title": "Editing",
+        "description": "Save, undo, and confirm."
+      },
+      "surfaces": {
+        "title": "Surfaces",
+        "description": "Keys that work only while that surface is open or focused."
+      },
+      "window": {
+        "title": "Window and help",
+        "description": "Zoom, developer tools, and this list."
+      }
+    },
+    "entries": {
+      "back": {
+        "title": "Go back",
+        "description": "Return to the previous task, file, or Lens tab you were on, across workspaces."
+      },
+      "forward": {
+        "title": "Go forward",
+        "description": "Go forward again after going back."
+      },
+      "reopenClosedTab": {
+        "title": "Reopen closed tab",
+        "description": "Bring back the most recently closed task, file, or Lens tab in this workspace."
+      },
+      "approve": {
+        "title": "Approve request",
+        "description": "Approve the pending request in the active task when focus is not in a field."
+      },
+      "approvalGuidance": {
+        "title": "Answer with guidance",
+        "description": "Move to the guidance field of the pending request."
+      },
+      "undo": {
+        "title": "Undo settle or snooze",
+        "description": "Undo the Work queue change whose Undo toast is still showing. Text fields keep their own undo."
+      },
+      "fleetNext": {
+        "title": "Next item that needs you",
+        "description": "Open the next item in Fleet that is waiting on you."
+      },
+      "fleetClose": {
+        "title": "Close Fleet",
+        "description": "Clear the filter, or close Fleet when it is empty."
+      },
+      "issuesNext": {
+        "title": "Next issue",
+        "description": "Select the next issue in the list."
+      },
+      "issuesPrevious": {
+        "title": "Previous issue",
+        "description": "Select the previous issue in the list."
+      },
+      "issuesKickoff": {
+        "title": "Kick off issue",
+        "description": "Start a run from the selected issue."
+      },
+      "issuesOpenTicket": {
+        "title": "Open ticket",
+        "description": "Open the selected issue in its tracker."
+      },
+      "issuesRefresh": {
+        "title": "Refresh issues",
+        "description": "Reload the assigned issues."
+      },
+      "issuesSearch": {
+        "title": "Search issues",
+        "description": "Move focus to the issue search field."
+      },
+      "issuesClose": {
+        "title": "Close Issues",
+        "description": "Clear the selection, or close Issues when nothing is selected."
+      },
+      "gitGraphSearch": {
+        "title": "Search the commit graph",
+        "description": "Focus the commit graph search field."
+      },
+      "gitGraphReload": {
+        "title": "Reload the commit graph",
+        "description": "Read the commit history again."
+      },
+      "gitGraphHead": {
+        "title": "Go to HEAD",
+        "description": "Scroll the commit graph to the current commit."
+      },
+      "settingsSidebar": {
+        "title": "Toggle Settings sidebar",
+        "description": "Show or hide the section list in Settings."
+      },
+      "paletteTogglePin": {
+        "title": "Pin or unpin command",
+        "description": "Pin the selected command to the top of the command palette, or unpin it."
+      },
+      "zoomIn": {
+        "title": "Zoom in",
+        "description": "Make the whole window larger."
+      },
+      "zoomOut": {
+        "title": "Zoom out",
+        "description": "Make the whole window smaller."
+      },
+      "zoomReset": {
+        "title": "Reset zoom",
+        "description": "Return the window to its normal size."
+      },
+      "devTools": {
+        "title": "Toggle developer tools",
+        "description": "Open or close the developer tools of the main window."
+      },
+      "quit": {
+        "title": "Quit Stave",
+        "description": "Quit the app."
+      },
+      "schedulesClose": {
+        "title": "Close Schedules",
+        "description": "Close Schedules, unless an editor in it is open."
+      },
+      "agentsClose": {
+        "title": "Close Agents",
+        "description": "Close Agents and return to the workspace."
+      },
+      "usageClose": {
+        "title": "Close AI usage",
+        "description": "Close AI usage and return to the workspace."
+      }
+    },
+    "ui": {
+      "notWhileTyping": "Not while typing",
+      "whileTyping": "While typing",
+      "viewAll": "View all shortcuts",
+      "settingsCardTitle": "All keyboard shortcuts",
+      "settingsCardDescription": "See every shortcut in one list. The list is read-only; the Cmd/Ctrl+K keys below are the ones you can change.",
+      "scope": {
+        "workspace": "Workspace",
+        "fleet": "Fleet",
+        "issues": "Issues",
+        "schedules": "Schedules",
+        "agents": "Agents",
+        "usage": "AI usage",
+        "settings": "Settings",
+        "commandPalette": "Command palette",
+        "dialog": "Dialogs",
+        "sidebar": "Sidebar",
+        "composer": "Composer",
+        "taskPane": "Task pane",
+        "editor": "Editor",
+        "lens": "Lens",
+        "gitGraph": "Commit graph"
+      },
+      "or": "or",
+      "then": "then"
+    }
+  }
 }

@@ -26,6 +26,7 @@ import { PaneHeaderActions } from "@/components/panes/PaneHeaderActions";
 import { PaneTabChip } from "@/components/panes/PaneTabChip";
 import { PaneWatermark } from "@/components/panes/PaneWatermark";
 import { TaskHistoryDrawer } from "@/components/panes/TaskHistoryDrawer";
+import { recordClosedPaneTab } from "@/components/panes/closed-tab-history";
 import { shouldPreventPaneDropAboveTaskBar } from "@/components/panes/pane-drop-guard";
 import {
   OPEN_TASK_HISTORY_EVENT,
@@ -353,6 +354,7 @@ function addSurfacePanelWithDefaultPlacement(
 
 function closeSurfaceInStoreDirect(surface: PaneSurfaceDescriptor) {
   const store = useAppStore.getState();
+  recordClosedPaneTab(surface);
   switch (surface.kind) {
     case "task":
       store.closeTaskTab({ taskId: surface.taskId });

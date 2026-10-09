@@ -513,18 +513,21 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const modifier = event.metaKey || event.ctrlKey;
-    if (modifier && event.key.toLocaleLowerCase() === "f") {
+    // Plain Cmd/Ctrl only (registry rows `git-graph.*`): Cmd/Ctrl+Shift+F is
+    // the app's Search in files and must not also focus the graph search.
+    const plainModifier = modifier && !event.shiftKey && !event.altKey;
+    if (plainModifier && event.key.toLocaleLowerCase() === "f") {
       event.preventDefault();
       searchInputRef.current?.focus();
       searchInputRef.current?.select();
       return;
     }
-    if (modifier && event.key.toLocaleLowerCase() === "r") {
+    if (plainModifier && event.key.toLocaleLowerCase() === "r") {
       event.preventDefault();
       void reload();
       return;
     }
-    if (modifier && event.key.toLocaleLowerCase() === "h") {
+    if (plainModifier && event.key.toLocaleLowerCase() === "h") {
       event.preventDefault();
       locateHash(graph.headHash);
       return;

@@ -190,6 +190,7 @@ Required check files:
 - `src/components/layout/terminal-surface-styles.ts`
 - `src/components/layout/CliSessionPanel.tsx`
 - `src/components/layout/app-shell.shortcuts.ts`
+- `src/components/layout/useAppKeybindings.ts`
 - `src/components/panes/WorkspacePaneHost.tsx`
 - `src/components/panes/surfaces/TerminalSurfacePanel.tsx`
 - `src/components/panes/terminal-pane-group.ts`

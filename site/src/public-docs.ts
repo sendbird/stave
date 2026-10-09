@@ -58,6 +58,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         previewImage: "screenshots/command-palette.png",
       },
       {
+        routePath: "keyboard-shortcuts",
+        sourcePath: "docs/features/keyboard-shortcuts.md",
+        title: "Keyboard Shortcuts",
+        description:
+          "Every shortcut in one list: reopen a closed tab, go back and forward, and undo from the keyboard.",
+      },
+      {
         routePath: "runtime-safety",
         sourcePath: "docs/features/provider-sandbox-and-approval.md",
         title: "Runtime Safety Controls",

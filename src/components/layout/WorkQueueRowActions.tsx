@@ -11,7 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  toast,
 } from "@/components/ui";
 import { transition } from "@/components/ads/recipes/transition";
 import {
@@ -21,6 +20,7 @@ import {
   type WorkspaceSettlementView,
   type WorkspaceSnoozePreset,
 } from "@/lib/fleet/workspace-settlement";
+import { offerUndoToast } from "@/lib/notifications/pending-undo";
 import { useAppStore } from "@/store/app.store";
 
 const SNOOZE_LABEL_KEYS = {
@@ -50,13 +50,12 @@ export function WorkQueueRowActions(props: {
   const setWorkspaceAutoSettle = useAppStore((state) => state.setWorkspaceAutoSettle);
   const restoreWorkspaceSettlements = useAppStore((state) => state.restoreWorkspaceSettlements);
 
+  // Cmd/Ctrl+Z outside a text field runs the newest of these while it shows.
   const offerUndo = (message: string, previous: WorkspaceSettlementRecord | undefined) => {
-    toast(message, {
-      action: {
-        label: i18n.t("workspace:workQueueSettlement.undo"),
-        onClick: () =>
-          restoreWorkspaceSettlements({ records: { [props.workspaceId]: previous } }),
-      },
+    offerUndoToast(message, {
+      undoLabel: i18n.t("workspace:workQueueSettlement.undo"),
+      onUndo: () =>
+        restoreWorkspaceSettlements({ records: { [props.workspaceId]: previous } }),
     });
   };
 

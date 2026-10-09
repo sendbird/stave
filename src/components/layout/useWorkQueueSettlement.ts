@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from "react";
 import { i18n } from "@/i18n";
-import { toast } from "@/components/ui";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
@@ -16,6 +15,7 @@ import {
   type WorkspaceSettlementSignals,
   type WorkspaceSettlementView,
 } from "@/lib/fleet/workspace-settlement";
+import { offerUndoToast } from "@/lib/notifications/pending-undo";
 import { isTaskArchived } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import type { Task } from "@/types/chat";
@@ -128,12 +128,10 @@ export function useWorkQueueSettlement(args: {
   useEffect(() => {
     if (resolved.candidates.length === 0) return;
     const previous = settleWorkspaces({ settlements: resolved.candidates });
-    toast(i18n.t("workspace:workQueueSettlement.autoSettled", { count: resolved.candidates.length }), {
+    offerUndoToast(i18n.t("workspace:workQueueSettlement.autoSettled", { count: resolved.candidates.length }), {
       description: i18n.t("workspace:workQueueSettlement.autoSettledDetail"),
-      action: {
-        label: i18n.t("workspace:workQueueSettlement.undo"),
-        onClick: () => restoreWorkspaceSettlements({ records: previous }),
-      },
+      undoLabel: i18n.t("workspace:workQueueSettlement.undo"),
+      onUndo: () => restoreWorkspaceSettlements({ records: previous }),
     });
     // The key names the batch; the candidates array is rebuilt every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps

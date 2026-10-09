@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n";
+import { recordClosedPaneTab } from "@/components/panes/closed-tab-history";
 import { clearLensTabState } from "@/components/panes/lens-tab-state";
 import {
   closeEditorTabs,
@@ -115,6 +116,7 @@ export function closePaneSurface(surface: PaneSurfaceDescriptor) {
   const store = useAppStore.getState();
   switch (surface.kind) {
     case "task":
+      recordClosedPaneTab(surface);
       store.closeTaskTab({ taskId: surface.taskId });
       return;
     case "cli-session": {
@@ -135,6 +137,7 @@ export function closePaneSurface(surface: PaneSurfaceDescriptor) {
       return;
     case "lens": {
       const workspaceId = store.activeWorkspaceId;
+      recordClosedPaneTab(surface);
       if (workspaceId) {
         void window.api?.lens
           ?.closeSession?.({
@@ -165,6 +168,7 @@ export function closePaneSurface(surface: PaneSurfaceDescriptor) {
         });
         return;
       }
+      recordClosedPaneTab(surface);
       store.closeEditorTab({ tabId: surface.editorTabId });
       return;
     }

@@ -58,6 +58,7 @@ import {
 } from "@/lib/visual-comment-shortcuts";
 import { useAppStore } from "@/store/app.store";
 import { WorkspaceShortcutChip } from "../WorkspaceShortcutChip";
+import { ShortcutListCard } from "./settings-dialog-shortcut-list-card";
 import {
   LabeledField,
   SectionStack,
@@ -284,6 +285,8 @@ export function CommandPaletteSection() {
             {t("settings:commandPaletteSection.behavior.resetPalette")}</Button>
         </div>
       </SettingsCard>
+
+      <ShortcutListCard />
 
       <SettingsCard
         title={t("settings:commandPaletteSection.shellChords.title")}
