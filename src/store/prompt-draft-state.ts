@@ -107,6 +107,7 @@ export function arePromptDraftQueuedTurnsEqual(
         other.model === item.model &&
         other.effort === item.effort &&
         other.autoRouting === item.autoRouting &&
+        other.agentRunAdaptive === item.agentRunAdaptive &&
         other.content === item.content &&
         other.attachedFilePaths.length === item.attachedFilePaths.length &&
         other.attachedFilePaths.every(

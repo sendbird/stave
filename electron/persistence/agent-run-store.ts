@@ -12,6 +12,7 @@
  * so an agent run row, its stage records and its events never disagree.
  */
 import { randomUUID } from "node:crypto";
+import { projectResourceBudget, readRunResourceConfig, type ResourceLink, type AgentResourceSnapshot } from "../../src/lib/agent-runs/resources";
 import {
   AGENT_RUN_LIMITS,
   AgentRunEventSchema,
@@ -542,6 +543,83 @@ export class AgentRunStore {
       )
       .all(agentRunId, Math.max(1, Math.min(limit, AGENT_RUN_LIMITS.maxRetainedEvents))) as AgentRunEventRow[];
     return parseEach(rows, parseEventRow, "run event");
+  }
+
+  resourceConfig(agentRunId: string) {
+    return readRunResourceConfig(this.listEventsByKind(agentRunId, ["agent-run-started"]));
+  }
+
+  readResources(agentRunId: string): AgentResourceSnapshot | null {
+    const config = this.resourceConfig(agentRunId);
+    if (!config) return null;
+    const rootRunId = config.link?.rootRunId ?? agentRunId;
+    const root = this.resourceConfig(rootRunId);
+    if (!root || root.link) throw new Error("The resource root is missing or invalid.");
+    const snapshot = projectResourceBudget(rootRunId, root.policy, this.listEventsByKind(rootRunId, ["resource-budget"]));
+    if (config.link && !snapshot.reservations.some((row) => row.reservationId === config.link!.reservationId &&
+        row.executionId === config.link!.executionId && row.childRunId === agentRunId))
+      throw new Error("The child resource reservation does not match its Run.");
+    return config.link ? { ...snapshot, memberPolicy: config.policy } : snapshot;
+  }
+
+  /** Parent dispatch and child reservation share the same SQLite writer/savepoint. */
+  reserveChildResources(args: { parentTaskId: string; childRunId: string; executionId: string; requestedTurns: number; expectedRootRunId?: string; providerId?: "claude-code" | "codex"; model?: string; now: Date }) {
+    return this.inSavepoint("resource_reserve", () => {
+      if (!Number.isInteger(args.requestedTurns) || args.requestedTurns < 1 || args.requestedTurns > 30) throw new Error("Invalid child turn capacity.");
+      const parent = this.getActiveAgentRunForTask(args.parentTaskId);
+      if (args.expectedRootRunId && parent?.id !== args.expectedRootRunId) throw new Error("The parent resource Run ended or changed before helper admission.");
+      if (!parent || !this.resourceConfig(parent.id)) return null;
+      if (!args.expectedRootRunId) throw new Error("A helper must carry the exact resource Run accepted by its coordinator.");
+      const config = this.resourceConfig(parent.id)!;
+      if (args.providerId && args.providerId !== config.policy.providerId) throw new Error("The helper must keep the parent resource provider.");
+      if (args.model && !config.policy.allowedModels.includes(args.model)) throw new Error("The helper model is outside the frozen parent catalog.");
+      if (config.link) throw new Error("A delegated Run cannot create recursive resource reservations.");
+      if (parent.state !== "running") throw new Error("Resume the parent Run before starting a helper.");
+      const snapshot = this.readResources(parent.id)!;
+      const reservationId = `${args.childRunId}:resources`;
+      const existing = snapshot.reservations.find((row) => row.reservationId === reservationId);
+      if (existing) {
+        if (existing.executionId !== args.executionId || existing.released) throw new Error("The helper reservation is no longer admitted.");
+        return { policy: config.policy, link: { rootRunId: parent.id, reservationId, executionId: args.executionId }, capacity: existing.capacity };
+      }
+      if (snapshot.activeHelpers >= config.policy.concurrentHelpers || snapshot.helpersLaunched >= config.policy.totalHelpers)
+        throw new Error("The shared helper limit was reached (2 concurrent / 4 total). Continue directly or start a new Run explicitly.");
+      const capacity = Math.min(args.requestedTurns, snapshot.remaining - config.policy.parentReserve);
+      if (capacity < 1) throw new Error("Shared turn capacity is reserved for parent integration. Continue directly or start a new Run explicitly.");
+      this.writeEvent(parent.id, { kind: "resource-budget", idempotencyKey: `reserve:${reservationId}`,
+        detail: { operation: "reserve", reservationId, executionId: args.executionId, childRunId: args.childRunId, capacity } }, args.now);
+      return { policy: config.policy, link: { rootRunId: parent.id, reservationId, executionId: args.executionId } as ResourceLink, capacity };
+    });
+  }
+
+  /** One admitted attempt consumes one unit, including unknown delivery or start failure. */
+  consumeResourceTurn(agentRunId: string, turnKey: string, now: Date): boolean {
+    return this.inSavepoint("resource_consume", () => {
+      const config = this.resourceConfig(agentRunId);
+      if (!config) return true;
+      const key = `resource-turn:${turnKey}`;
+      if (this.hasEvent(key)) return true;
+      const snapshot = this.readResources(agentRunId)!;
+      const root = this.getAgentRun(snapshot.rootRunId);
+      if (!root || root.state !== "running") return false;
+      const reservation = config.link && snapshot.reservations.find((row) => row.reservationId === config.link!.reservationId);
+      if (config.link ? !reservation || reservation.released || reservation.consumed >= reservation.capacity :
+        snapshot.remaining < 1 || (snapshot.activeHelpers > 0 && snapshot.remaining <= snapshot.policy.parentReserve)) return false;
+      this.writeEvent(snapshot.rootRunId, { kind: "resource-budget", idempotencyKey: key,
+        detail: { operation: "consume", ownerRunId: agentRunId, reservationId: config.link?.reservationId ?? null } }, now);
+      return true;
+    });
+  }
+
+  /** Terminal settlement releases only unused capacity; consumed attempts are never refunded. */
+  releaseResourceReservation(link: ResourceLink, now: Date) {
+    this.inSavepoint("resource_release", () => {
+      const snapshot = this.readResources(link.rootRunId);
+      const reservation = snapshot?.reservations.find((row) => row.reservationId === link.reservationId);
+      if (!reservation || reservation.executionId !== link.executionId) throw new Error("A stale execution cannot release another reservation.");
+      this.writeEvent(link.rootRunId, { kind: "resource-budget", idempotencyKey: `release:${link.reservationId}`,
+        detail: { operation: "release", reservationId: link.reservationId, executionId: link.executionId } }, now);
+    });
   }
 
   /** Events in sequence order, optionally after a sequence the caller has seen. */

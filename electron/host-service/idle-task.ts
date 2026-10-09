@@ -18,17 +18,24 @@ import type { ChatMessage, PromptDraft, Task } from "../../src/types/chat";
  */
 export function addIdleTask(
   session: WorkspaceSessionState,
-  args: { title: string; provider: ProviderId; model?: string | null },
+  args: { title: string; provider: ProviderId; model?: string | null; taskId?: string; parentTaskId?: string },
 ): { session: WorkspaceSessionState; taskId: string } {
+  const existing = args.taskId ? session.tasks.find((task) => task.id === args.taskId) : null;
+  if (existing) {
+    if (!args.parentTaskId || existing.parentTaskId !== args.parentTaskId || existing.provider !== args.provider || existing.archivedAt || existing.controlMode !== "managed")
+      throw new Error("The delegated task identity changed before supervision could start.");
+    return { session, taskId: existing.id };
+  }
   const task = {
-    id: randomUUID(),
+    id: args.taskId ?? randomUUID(),
     title: args.title.trim().slice(0, 80) || "Run",
     provider: args.provider,
     updatedAt: buildRecentTimestamp(),
     unread: false,
     archivedAt: null,
-    controlMode: "interactive",
-    controlOwner: "stave",
+    controlMode: args.parentTaskId ? "managed" : "interactive",
+    controlOwner: args.parentTaskId ? "external" : "stave",
+    ...(args.parentTaskId ? { parentTaskId: args.parentTaskId } : {}),
   } satisfies Task;
   const draft: PromptDraft | null = args.model
     ? { text: "", attachedFilePaths: [], attachments: [], runtimeOverrides: { model: args.model, modelProviderId: args.provider } }

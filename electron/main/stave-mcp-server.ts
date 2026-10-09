@@ -31,6 +31,7 @@ import {
 import { registerAgentRunTools } from "./stave-agent-run-tools";
 import {
   blockAgentRunStage,
+  requestAgentRunResources,
   getAgentRunForGrant,
   reportAgentRunStage,
 } from "./agent-runs-service";
@@ -730,6 +731,7 @@ function createToolServer(options?: {
     getAgentRunForGrant,
     reportAgentRunStage,
     blockAgentRunStage,
+    requestAgentRunResources,
   });
 
   server.registerTool(

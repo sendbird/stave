@@ -31,7 +31,7 @@ export interface AgentRunRouteHostDeps {
 }
 
 export function createAgentRunRouter(deps: AgentRunRouteHostDeps) {
-  return async (args: { agentRun: AgentRun; prompt: string; agent: AgentConfig | null }): Promise<AgentRunTurnRoute | null> => {
+  return async (args: { agentRun: AgentRun; prompt: string; agent: AgentConfig | null; signal?: AbortSignal; draftOverride?: PromptDraftRuntimeOverrides }): Promise<AgentRunTurnRoute | null> => {
     const ids = { workspaceId: args.agentRun.workspaceId, taskId: args.agentRun.leadTaskId };
     const task = await deps.readTask(ids);
     if ((task.providerId !== "claude-code" && task.providerId !== "codex") || !task.model) return null;
@@ -41,7 +41,8 @@ export function createAgentRunRouter(deps: AgentRunRouteHostDeps) {
     const cwd = context ? await deps.resolveWorkspacePath(ids.workspaceId) : null;
     const route = await routeAgentRunTurn({
       agent: args.agent,
-      draft: deps.readDraft(ids),
+      signal: args.signal,
+      draft: args.draftOverride ?? deps.readDraft(ids),
       current: { providerId, model: task.model },
       settings,
       prompt: args.prompt,
@@ -62,6 +63,7 @@ export function createAgentRunRouter(deps: AgentRunRouteHostDeps) {
       runtimeOptions: route.runtimeOptions,
       route: route.route,
       rationale: route.rationale,
+      selection: route.selection,
     };
   };
 }

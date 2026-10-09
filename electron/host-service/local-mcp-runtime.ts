@@ -2286,15 +2286,13 @@ export async function getTaskSupervisionSnapshot(args: {
  * notification surface for no new decision. The dedupe key carries the reason
  * so a repeated failure of the same kind collapses into one row.
  */
-/**
- * Adds a task to a workspace without starting a turn, for a supervisor that
- * starts the first turn itself (a project starting an agent run on a new task).
- */
-export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId; model?: string | null }) {
+/** Adds an idle task; only the existing supervisor starts its turns. */
+export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId; model?: string | null; taskId?: string; parentTaskId?: string }) {
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({ repositories, workspaceId: args.workspaceId });
   if (!registration) throw new Error(`Workspace not found: ${args.workspaceId}`);
-  const added = addIdleTask(await loadWorkspaceSession(args.workspaceId), args);
+  const session = await loadWorkspaceSession(args.workspaceId, true);
+  const added = addIdleTask(session, args);
   const next = cacheWorkspaceSession(args.workspaceId, added.session);
   await queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName: registration.workspace.name, session: next });
   return { taskId: added.taskId };
@@ -2519,12 +2517,14 @@ export async function takeOverManagedTaskControl(args: {
   workspaceId: string;
   taskId: string;
   sourceContexts?: CanonicalRetrievedContextPart[];
-}) {
+}, afterRelease?: () => Promise<unknown>) {
   const finish = taskControlGate.beginTakeover(args.taskId);
   try {
     await taskControlGate.waitForStart(args.taskId);
     await stopManagedTaskTurn(args);
-    return await releaseManagedTaskControl(args);
+    const result = await releaseManagedTaskControl(args);
+    if (result.released) await afterRelease?.();
+    return result;
   } finally { finish(); }
 }
 

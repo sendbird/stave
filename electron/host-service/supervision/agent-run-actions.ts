@@ -127,8 +127,13 @@ function shortSha(sha: string) {
  * event was stopped or taken over before it finished.
  */
 export function classifyAgentRunTurnEnding(events: readonly PersistedTurnStreamEvent[]): AgentRunTurnEnding {
+  return observeAgentRunTurnEnding(events) ?? "stopped";
+}
+
+/** Unlike the supervision fallback, an observation needs a persisted terminal event. */
+export function observeAgentRunTurnEnding(events: readonly PersistedTurnStreamEvent[]): AgentRunTurnEnding | null {
   const done = [...events].reverse().find((entry) => entry.event?.type === "done")?.event;
-  if (done?.type !== "done") return "stopped";
+  if (done?.type !== "done") return null;
   switch (classifyProviderTurnStopReason(done.stop_reason)) {
     case "completed":
       return "completed";

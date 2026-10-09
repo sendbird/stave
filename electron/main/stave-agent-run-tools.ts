@@ -6,6 +6,7 @@
  *
  * Used by: `electron/main/stave-mcp-server.ts`.
  */
+import { AgentResourceRequestObjectSchema } from "../../src/lib/agent-runs/resources";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AGENT_RUN_TOOL_NAMES } from "../../src/lib/agent-runs/briefing";
 import {
@@ -15,6 +16,7 @@ import {
 import type { StaveTurnGrants } from "../providers/stave-turn-grants";
 import type {
   blockAgentRunStage,
+  requestAgentRunResources,
   getAgentRunForGrant,
   reportAgentRunStage,
 } from "./agent-runs-service";
@@ -26,6 +28,7 @@ export function registerAgentRunTools(
     getAgentRunForGrant: typeof getAgentRunForGrant;
     reportAgentRunStage: typeof reportAgentRunStage;
     blockAgentRunStage: typeof blockAgentRunStage;
+    requestAgentRunResources: typeof requestAgentRunResources;
   },
 ) {
   const { agentRunKey } = grants;
@@ -60,6 +63,11 @@ export function registerAgentRunTools(
         report: await handlers.reportAgentRunStage({ agentRunKey, report }),
       }),
   );
+
+  server.registerTool(AGENT_RUN_TOOL_NAMES.resources, {
+    description: "Propose a same-provider model or effort for the next supervised turn of an adaptive Run. Cite exact turn ids from this stage attempt. Explain a demonstrated capability mismatch or a bounded mechanical step; an environment or permission failure does not justify escalation. Stave validates eligibility, pins, the two-change limit and two-turn cooldown. This call never starts a turn or changes permissions. Disabled Runs refuse it.",
+    inputSchema: AgentResourceRequestObjectSchema.shape,
+  }, async (request) => toStructuredResult(await handlers.requestAgentRunResources({ agentRunKey, request })));
 
   server.registerTool(
     AGENT_RUN_TOOL_NAMES.block,

@@ -78,6 +78,7 @@ export function registerAgentRunHandlers() {
   handleCommand(AGENT_RUN_IPC.get, "get", AgentRunIdArgsSchema);
   handleCommand(AGENT_RUN_IPC.signOff, "sign-off", AgentRunStageRefSchema);
   handleCommand(AGENT_RUN_IPC.requestChanges, "request-changes", AgentRunRequestChangesArgsSchema);
+  handleCommand(AGENT_RUN_IPC.reply, "reply", AgentRunRequestChangesArgsSchema);
   handleCommand(AGENT_RUN_IPC.skipStage, "skip-stage", AgentRunStageRefSchema);
   handleCommand(AGENT_RUN_IPC.retryStage, "retry-stage", AgentRunStageRefSchema);
   handleCommand(AGENT_RUN_IPC.pause, "pause", AgentRunIdArgsSchema);

@@ -237,3 +237,12 @@ describe("record-task", () => {
     expect(runtime.prepareTurn({ turnId: "turn-2", taskId: "task-none", providerId: "codex", prompt: "go", cwd: "/tmp/repo" })).toBeNull();
   });
 });
+
+test("budgeted primary turns cannot restore caller-supplied native helpers", () => {
+  const { runtime } = harness({ allowNativeSubagents: () => false, listAgents: () => [getBuiltinAgent("scout")!] });
+  runtime.recordTaskAgent({ requestId: "budgeted", taskId: "budgeted", workspaceId: "ws", repositoryPath: "/tmp/repo",
+    agent: { ...getBuiltinAgent("implementer")!, canCall: ["scout"] }, providerId: "codex", model: null, assignment: "Finish" });
+  expect(runtime.prepareTurn({ turnId: "one", taskId: "budgeted", providerId: "codex", prompt: "Go", runtimeOptions: {
+    nativeSubagents: [{ name: "forged", label: "Forged", description: "", instructions: "" }],
+  } })?.runtimeOptions.nativeSubagents).toEqual([]);
+});

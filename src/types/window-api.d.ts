@@ -219,7 +219,7 @@ import type {
 } from "@/lib/runs/secondary-run";
 import type {
   DelegatedTaskActionResponse,
-  DelegateTaskArgs,
+  DelegateTaskInput,
   DelegatedTaskDetachArgs,
   DelegatedTaskFollowUpArgs,
   DelegatedTaskList,
@@ -254,7 +254,7 @@ interface WindowRunsApi {
   ) => Promise<SecondaryRunReceiptList>;
   syncDelegationPermissionSettings?: (args: import("@/lib/runs/delegation-policy").DelegationPermissionSettings) => Promise<{ ok: boolean }>;
   delegateTask?: (
-    args: DelegateTaskArgs,
+    args: DelegateTaskInput,
   ) => Promise<DelegatedTaskActionResponse>;
   listDelegatedTasks?: (args: DelegatedTaskListArgs) => Promise<DelegatedTaskList>;
   getReviewRevision?: (args: import("@/lib/reviews/review-revision").ReviewRevisionArgs) => Promise<import("@/lib/reviews/review-revision").ReviewRevisionState | null>;

@@ -2,7 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { hasAgentPromptAttachments, planAgentPromptSend } from "@/lib/agent-runs/agent-run";
+import { buildAgentRunAssignment, hasAgentPromptAttachments, planAgentPromptSend } from "@/lib/agent-runs/agent-run";
 import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { agentRunTaskKey, useAgentRunsStore } from "@/store/agent-runs-store";
@@ -29,8 +29,10 @@ export function AgentAttachmentNotice(props: { taskId: string; providerId: strin
   const plan = planAgentPromptSend({
     taskRunsAsAgent, runActive: runActive || runPending, turnActive, queued: false,
     turnOrigin: "conversation", providerId: props.providerId,
-    prompt: buildPromptDraftContentForSend(props.draft), hasAttachments: hasAgentPromptAttachments(props.draft),
+    prompt: buildAgentRunAssignment(buildPromptDraftContentForSend(props.draft), props.draft), hasAttachments: hasAgentPromptAttachments(props.draft),
   });
+  if (plan.kind === "start-run" && (props.draft.attachedFilePaths.length || props.draft.promptBatch?.some((item) => item.attachedFilePaths?.length)))
+    return <p role="status" className={sx(styles.notice)}>{i18n.t("agentRuns:adaptive.files")}</p>;
   if (plan.kind !== "plain-turn" || plan.reason !== "attachments") return null;
   return <p role="status" className={sx(styles.notice)} data-testid="agent-attachment-notice">
     {i18n.t("session:agentAttachmentNotice.agentAttachmentNotice")}</p>;

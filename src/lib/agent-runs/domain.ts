@@ -14,6 +14,7 @@ import { i18n } from "@/i18n/runtime";
  *
  * Pure: no clock, no I/O. Callers pass `now` and ids.
  */
+import { AdaptiveRoutingIntentSchema } from "./resources";
 import { z } from "zod";
 import { ScriptVerificationSchema, WorkspaceRevisionSchema } from "./verification-contract";
 import { AUTOMATION_PERMISSION_MODES } from "@/lib/automations";
@@ -545,6 +546,8 @@ export const AgentRunStartInputSchema = z
      */
     startStageIndex: z.number().int().min(0).default(0),
     origin: AgentRunOriginSchema,
+    adaptive: z.boolean().optional(),
+    routingIntent: AdaptiveRoutingIntentSchema.optional(),
   })
   .strict()
   .superRefine((input, context) => {
@@ -629,6 +632,9 @@ export type AgentRun = z.infer<typeof AgentRunSchema>;
 
 export const AGENT_RUN_EVENT_KINDS = [
   "agent-run-started",
+  "resource-budget",
+  "resource-request",
+  "resource-decision",
   "turn-started",
   /** The turn a `turn-started` event led to, written once it exists. */
   "turn-linked",

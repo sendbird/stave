@@ -14,7 +14,7 @@ import { i18n } from "@/i18n/runtime";
  * action never import it (it imports the app store).
  */
 import type { AgentRunCommandResponse, AgentRunStartArgs } from "@/lib/agent-runs/api";
-import { buildAgentRunStartInput, hasAgentPromptAttachments, planAgentPromptSend } from "@/lib/agent-runs/agent-run";
+import { buildAgentRunAssignment, buildAgentRunStartInput, hasAgentPromptAttachments, planAgentPromptSend } from "@/lib/agent-runs/agent-run";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 import { buildOutgoingUserMessage, buildRecentTimestamp } from "@/store/chat-state-helpers";
@@ -63,10 +63,11 @@ type AgentRunSendArgs = {
   taskId: string;
   providerId: string;
   prompt: string;
-  promptDraft: Pick<PromptDraft, "attachedFilePaths" | "attachments"> & Pick<Partial<PromptDraft>, "promptBatch">;
+  promptDraft: Pick<PromptDraft, "attachedFilePaths" | "attachments"> & Pick<Partial<PromptDraft>, "promptBatch" | "runtimeOverrides">;
   extraContextCount: number;
   turnActive: boolean;
   queued: boolean;
+  queuedTurnId?: string;
   turnOrigin: "conversation" | "utility";
   preservePromptDraft?: boolean;
   now?: Date;
@@ -175,12 +176,12 @@ export function prepareAgentRunForSend(
     queued: args.queued,
     turnOrigin: args.turnOrigin,
     providerId: args.providerId,
-    prompt: args.prompt,
+    prompt: buildAgentRunAssignment(args.prompt, args.promptDraft),
     hasAttachments: hasAgentPromptAttachments(args.promptDraft, args.extraContextCount),
   });
   if (plan.kind !== "start-run" || !agent || !activeBridge) return null;
   let submittedDraft: PromptDraft | undefined;
-  if (!args.preservePromptDraft) {
+  if (!args.preservePromptDraft && !args.queued) {
     args.set((state) => {
       submittedDraft = state.promptDraftByTask[args.taskId];
       return {
@@ -206,7 +207,12 @@ export function prepareAgentRunForSend(
           workspaceId: args.workspaceId,
           taskId: args.taskId,
           agent: { name: agent.agentName, workflow: agent.agentWorkflow, checkIns: agent.agentCheckIns },
-          assignment: args.prompt,
+          assignment: buildAgentRunAssignment(args.prompt, args.promptDraft),
+          adaptive: args.promptDraft.runtimeOverrides?.agentRunAdaptive,
+          ...((args.queued || args.promptDraft.runtimeOverrides?.agentRunAdaptive) ? { routingIntent: (() => {
+            const { model, modelProviderId, autoRouting, claudeEffort, codexReasoningEffort, claudeAccountProfileId, codexAccountProfileId } = args.promptDraft.runtimeOverrides ?? {};
+            return { model, modelProviderId: modelProviderId ?? (args.providerId === "codex" || args.providerId === "claude-code" ? args.providerId : undefined), autoRouting, claudeEffort, codexReasoningEffort, claudeAccountProfileId, codexAccountProfileId };
+          })() } : {}),
           now: args.now ?? new Date(),
         }),
       )
@@ -221,6 +227,14 @@ export function prepareAgentRunForSend(
       toast.warning(i18n.t("agentRuns:agentRunSend.copy"), { description: message });
       return { status: "blocked", message };
     }
+    if (args.queuedTurnId) args.set((state) => {
+      const remove = (draft: PromptDraft | undefined) => draft ? { ...draft, queuedTurns: draft.queuedTurns?.filter((turn) => turn.id !== args.queuedTurnId),
+        queuedNextTurn: undefined } : draft;
+      if (state.activeWorkspaceId === args.workspaceId) return { promptDraftByTask: { ...state.promptDraftByTask, [args.taskId]: remove(state.promptDraftByTask[args.taskId])! }, workspaceSnapshotVersion: state.workspaceSnapshotVersion + 1 };
+      const cached = state.workspaceRuntimeCacheById[args.workspaceId];
+      return cached ? { workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById, [args.workspaceId]: { ...cached,
+        promptDraftByTask: { ...cached.promptDraftByTask, [args.taskId]: remove(cached.promptDraftByTask[args.taskId])! } } } } : {};
+    });
     const agentRunId = response.agentRun.agentRun.id;
     if (ownsRow) {
       updatePendingAutoRoute({ taskId: args.taskId, id: pendingId, patch: { agentRun: { agentRunId } } });

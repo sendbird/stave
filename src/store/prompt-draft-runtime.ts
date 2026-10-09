@@ -143,6 +143,7 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.cursorFastMode === right?.cursorFastMode &&
     left?.kiroEffort === right?.kiroEffort &&
     left?.autoRouting === right?.autoRouting &&
+    left?.agentRunAdaptive === right?.agentRunAdaptive &&
     areStringArraysEqual(left?.boundSecretIds, right?.boundSecretIds)
   );
 }

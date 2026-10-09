@@ -21,3 +21,15 @@ test("a message's model wins, and a drafted model of another provider is ignored
   expect(resolveTaskModel({ messages: [{ model: "gpt-6-sol" }] as never, draft, providerId: "codex" })).toBe("gpt-6-sol");
   expect(resolveTaskModel({ messages: [], draft, providerId: "claude-code" })).not.toBe("gpt-6-luna");
 });
+
+test("a supervisor creates an idle managed child with its admitted id exactly once and cannot borrow another parent", () => {
+  const args = { title: "Review", provider: "codex" as const, model: "gpt-6-sol", taskId: "child", parentTaskId: "parent" };
+  const added = addIdleTask(createEmptyWorkspaceState() as never, args);
+  expect(added.session.tasks[0]).toMatchObject({ id: "child", parentTaskId: "parent", controlMode: "managed", controlOwner: "external" });
+  const again = addIdleTask(added.session, args);
+  expect(again.session).toBe(added.session);
+  expect(again.session.tasks).toHaveLength(1);
+  expect(() => addIdleTask(added.session, { ...args, parentTaskId: "other" })).toThrow();
+  expect(() => addIdleTask(added.session, { ...args, provider: "claude-code" })).toThrow();
+  expect(() => addIdleTask({ ...added.session, tasks: added.session.tasks.map(task => ({ ...task, controlMode: "interactive" })) }, args)).toThrow();
+});

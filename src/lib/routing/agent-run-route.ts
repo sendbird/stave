@@ -15,6 +15,7 @@
 import { z } from "zod";
 import { fixedModelOf, resolveAgentModelRoute, type AgentModelRoute } from "@/lib/agents/selector-choice";
 import type { AgentConfig } from "@/lib/agents/schema";
+import { AgentRunRouteSelectionSchema, type AgentRunRouteSelection } from "@/lib/agent-runs/route-observation";
 import { validateProfile } from "@/lib/providers/auto-routing-profile";
 import { getDefaultModelForProvider, inferProviderIdFromModel } from "@/lib/providers/model-catalog";
 import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
@@ -89,6 +90,7 @@ export interface AgentTurnRoute {
   /** `task-model`: nothing routes (Stave Auto off, no pin, no fixed model). */
   route: AgentModelRoute | "task-model";
   rationale: string;
+  selection: AgentRunRouteSelection | null;
 }
 
 function draftEffort(
@@ -113,21 +115,39 @@ export async function routeAgentRunTurn(args: {
   prompt: string;
   history: readonly AutoRoutingHistoryMessage[];
   classifyRoute?: RouteClassifier;
+  signal?: AbortSignal;
 }): Promise<AgentTurnRoute> {
+  args.signal?.throwIfAborted();
   const draft = args.draft ?? {};
   const fixed = args.agent ? fixedModelOf(args.agent) : null;
   const draftModel = draft.model?.trim();
+  const observed = (
+    route: Omit<AgentTurnRoute, "selection">,
+    source: AgentRunRouteSelection["source"],
+    effortSource: AgentRunRouteSelection["effortSource"],
+  ): AgentTurnRoute => {
+    const requestedEffort = (route.providerId === "claude-code" ? route.runtimeOptions.claudeEffort
+      : route.providerId === "codex" ? route.runtimeOptions.codexReasoningEffort : undefined) ?? null;
+    const selection = AgentRunRouteSelectionSchema.safeParse({
+      version: 1, source, previous: args.current,
+      selected: { providerId: route.providerId, model: route.model },
+      requestedEffort, effortSource: requestedEffort ? effortSource : "unspecified",
+      inputs: { quota: "not-provided", catalog: "not-provided", availability: "not-provided" },
+    });
+    // Observation must never reject an otherwise valid existing route.
+    return { ...route, selection: selection.success ? selection.data : null };
+  };
   // 1. A model in the draft: the user's pin, or the agent's fixed model the selector moved to.
   if (draftModel) {
     const providerId = draft.modelProviderId ?? inferProviderIdFromModel({ model: draftModel });
     const route = resolveAgentModelRoute({ fixed, autoRouting: false, providerId, model: draftModel });
-    return {
+    return observed({
       providerId,
       model: draftModel,
       runtimeOptions: draftEffort(draft, providerId),
       route,
       rationale: route === "pinned" ? "Pinned in the composer." : "The agent's fixed model.",
-    };
+    }, route === "pinned" ? "pinned" : "agent-fixed", "draft");
   }
   // 2. The agent's fixed model outranks Stave Auto.
   if (fixed && args.agent?.model.mode === "fixed") {
@@ -136,13 +156,13 @@ export async function routeAgentRunTurn(args: {
       (fixed.providerId === args.current.providerId
         ? args.current.model
         : getDefaultModelForProvider({ providerId: fixed.providerId }));
-    return {
+    return observed({
       providerId: fixed.providerId,
       model,
       runtimeOptions: routeEffortOverrides({ providerId: fixed.providerId, model, effort: args.agent.model.effort }),
       route: "agent-fixed",
       rationale: "The agent's fixed model.",
-    };
+    }, "agent-fixed", "agent");
   }
   // 3. Stave Auto with the agent's task class, when the task is on Auto.
   if (draft.autoRouting === true && args.settings?.routing.autoRoutingEnabled) {
@@ -155,10 +175,11 @@ export async function routeAgentRunTurn(args: {
       prompt: args.prompt,
       history: args.history,
       phase: "execute",
+      signal: args.signal,
       ...(taskClassHint ? { taskClassHint } : {}),
       ...(args.classifyRoute ? { classifyRoute: args.classifyRoute } : {}),
     });
-    return {
+    return observed({
       providerId: decision.providerId,
       model: decision.model,
       runtimeOptions: {
@@ -169,16 +190,16 @@ export async function routeAgentRunTurn(args: {
       },
       route: "auto",
       rationale: decision.rationale,
-    };
+    }, decision.source, "auto");
   }
   // 4. Nothing routes: the turn runs on the task's model, as a composer send would.
-  return {
+  return observed({
     providerId: args.current.providerId,
     model: args.current.model,
     runtimeOptions: {},
     route: "task-model",
     rationale: "Stave Auto is off for this task.",
-  };
+  }, "task-model", "unspecified");
 }
 
 /**

@@ -97,6 +97,211 @@ Keep provider-specific catalog payloads behind the adapter. The composer must
 consume normalized entries and must retain a static fallback when a runtime is
 missing or unavailable.
 
+## Agent Run Routing Observations
+
+Run-turn preparation propagates an abort signal from the supervisor through
+`agent-run-route-host.ts` and `agent-run-route.ts` into Auto classification.
+Stop, pause, takeover and Agent release abort read-only preparation before
+their serialized transition. Routing or revision reads that ignore cancellation
+cannot hold those commands behind them or dispatch a late result. Before a turn
+is recorded, the runtime rechecks the persisted event sequence and stage identity,
+and rereads active turns and pending attention. A rejected preparation does not
+consume a turn or record a provider failure. This does not retry writes or claim
+that aborting an already dispatched native turn is synchronous.
+
+Routing observations describe the existing decision; they do not admit execution
+or change the user's model, effort, provider-switch or delegation settings.
+
+- `src/lib/routing/agent-run-route.ts` captures bounded, schema-validated
+  `AgentRunRouteSelection` facts: decision source, previous and selected route,
+  requested effort override and its source. Observation validation failure keeps
+  the existing route and leaves its selection facts unknown.
+- `electron/host-service/supervision/agent-run-route-host.ts` passes those facts
+  to the supervisor, which stores `routeSelection` in the existing keyed
+  `turn-started` event through the transactional AgentRun event writer.
+- `src/lib/agent-runs/route-observation.ts` projects decisions, exact linked
+  turns, their reported usage, and the status of the matching stage attempt.
+  Dispatch/outcome keys are the join; proximity in the event list is not one.
+  Duplicate events cannot attach or count the same turn twice. A transport
+  completion is separate from stage acceptance.
+  `attemptStatus` is the current status shared by decisions in that exact
+  attempt; it does not attribute acceptance to each turn. `latestInAttempt`
+  identifies the latest dispatch decision, including a failed start.
+- The host returns optional `routing` through `AgentRunDetail` and ended-run
+  reports. The existing `agent-run.invoke` protocol, `agent-runs:get` IPC,
+  preload `window.api.agentRuns`, and renderer store carry the shared contract.
+  Older hosts may omit it; old or malformed selection detail projects as
+  unknown, without rewriting persisted events.
+
+These facts describe selected/requested execution only. The projection does not
+claim a native model or effort was confirmed, so `effectiveModel` and
+`effectiveEffort` stay null. Per-turn usage is null until a completed turn
+reports it; unreported money is null, not zero. Runtime catalog, quota and
+availability inputs are explicitly `not-provided` in the current host router.
+Only detail/report reads load terminal events for routing observations; usage
+aggregation and Insights do not. Missing terminal events remain unknown through
+a separate observation reader; the supervisor's existing stop fallback is unchanged.
+No additional inference or provider reads run to fill those fields.
+
+Role coverage is a separate lifecycle contract:
+
+| Role / entry | Continuation owner | Completion evidence today |
+| --- | --- | --- |
+| Assigned primary Agent admitted through the composer | Existing AgentRun supervisor and stage grants | Stage report/action result plus acceptance policy; an ended turn alone is insufficient |
+| Assigned primary Agent outside run admission (attachments, unsupported provider, utility/queue paths) | Normal task/turn dispatch | Native turn completion; do not infer an AgentRun acceptance loop from assignment alone |
+| Saved Agent used as a delegated task | Omitted lifecycle selects the existing AgentRun supervisor; `task-agent-turn.ts` keeps the frozen `delegate` role | Supervised work requires a matching completed Run report. Explicit `one-turn` settles on provider completion; explicit `detached` waits for parent follow-up. Parent integration/acceptance remains separate |
+| In-turn helper | Parent turn and provider-native runtime, limited by `canCall` | Ephemeral returned content for the caller to assess; no independent durable restart/acceptance loop |
+
+Relevant owners include `src/store/agent-run-send.ts`,
+`src/lib/agent-runs/agent-run.ts`, `electron/host-service/supervised-turn.ts`,
+`electron/host-service/local-mcp-runtime.ts`, `electron/providers/task-agent-turn.ts`,
+`electron/main/runs/delegated-task-coordinator.ts` and
+`src/lib/agents/native-subagents.ts`. Observation alone does not enable
+continuation; supervised delegation is the distinct behavior contract below.
+
+`src/lib/agent-runs/delegated-completion.ts` reads an
+exact Run/task/workspace detail and separates accepted completion from running,
+waiting, cancelled, stopped and unknown outcomes. Completion requires a matching
+completed Run report; native turn termination is insufficient. This pure helper
+is used by the main-process supervisor adapter and coordinator. They also
+fence the delegation's current execution before applying a result.
+
+### Supervised saved-Agent delegation
+
+`DelegateTaskArgsSchema` preserves omission until normalization: a saved Agent
+(`agentConfigId`) defaults to `supervised`, model-only work to `one-turn`.
+Explicit `one-turn` and `detached` retain their contracts. The tool schema,
+renderer bridge input type, preload and `delegations:create` share this rule.
+Workflow stage delegation asks for supervision. A supervised prompt has the
+existing Run assignment limit of 8,000 characters; oversized work is refused,
+never truncated or downgraded. `maxTurns` accepts 1..30 and defaults to 30 per
+assignment outside an opted-in adaptive team. In an adaptive team this cap
+is further narrowed by its exact root reservation; neither cap is a money limit.
+
+Before dispatch, the coordinator's accepted receipt records a deterministic
+supervisor id for the execution, its cap, frozen Agent hash and resolved
+delegation permission. Old rows without that id still use historical numeric
+lifecycle inference; their meaning is unchanged. A retry owns a new execution
+and supervisor id. The coordinator is the only ledger writer.
+
+Internal `delegated-agent.prepare` creates/reuses an idle managed child with
+the frozen parent/provider identity, then persists a paused AgentRun.
+`delegated-agent.activate` starts it only after the coordinator confirms the
+exact active execution. These main-to-host methods have no renderer IPC or
+preload exposure; the public Run start schema rejects delegation authority.
+Unacknowledged preparation after restart is interrupted and requires explicit
+retry. It cannot automatically replay a dispatch.
+
+Internal `delegated-agent.read` distinguishes an absent persisted supervisor
+from a temporarily unavailable host, and reads activation from the full event
+history. After restart, absence interrupts the claim for explicit retry;
+unavailability defers without guessing completion. Preparation events do not
+project a user-facing waiting state while this process still owns admission.
+
+The keyed initial Run event stores an allowlisted, host-resolved delegation
+authority snapshot. Every supervised dispatch validates its frozen delegate
+assignment and reads the current ledger execution fence. It uses that saved
+policy and provider instead of primary user permissions or Auto routing.
+Legacy delegates keep their admitted model and effort. Adaptive delegates may
+change only resources within the frozen root and member bounds below. Native user replies in the active stage receive the same options.
+Their account, CLI path, timeout and session transport choices survive the
+authority override; caller tools, permissions and secret bindings do not.
+The bounded public `agent-runs:reply` command targets an exact blocked/stuck
+delegated AI stage and dispatches through its existing supervisor. The child
+composer offers a reply form without taking managed control. A stale reply,
+active native turn, pause, missing reporting capability or exhausted turn cap
+is refused. Taking over the managed task stops its turn and releases control,
+then cancels its delegated Run while the takeover start gate is still held.
+A failed release does not preemptively cancel supervision, and retry cannot
+silently reclaim an interactive child. Only phase/reason changes write ledger
+observations; repeated running or identical waiting observations do not grow
+receipts or notify the parent. In-memory sequence watermarks still reject
+out-of-order reads, with durable resume receipts protecting restart ordering.
+Provider turns retain managed/external control and their parent link. No secret
+values, secret bindings, native session ids or browser authority are copied.
+Delegate compilation still suppresses recursive native helpers, and the MCP
+coordinator refuses delegation from a delegated task.
+
+Child workflows start with empty external-effect consent even under
+`when-stuck`. Read-only delegated policy also blocks host action stages after
+sign-off; sign-off cannot widen that policy. A user resolves blocked work in
+the child task's existing Run controls/replies. Parent follow-up and Detach do
+not start unsupervised turns on a supervised child; Stop remains available.
+
+`delegated-agent-run-port.ts` observes `agent-run.changed` and a bounded-frequency
+read backstop; it does not schedule turns. The coordinator reconciles exact
+Run/task/workspace identity and report, including after reconstruction. It
+never falls through to native-turn settlement for a supervised receipt.
+Waiting keeps the child active and its writer/concurrency slot reserved.
+Resumption records a ledger `started` receipt without dispatch; source event
+sequence prevents a late observation regressing the projected phase.
+Missing or mismatched evidence stays unresolved. Completed report summaries
+are bounded in the normal parent receipts; the parent still owns integration.
+Stop cancels the ledger execution, cancels the supervisor, then stops the native
+task. Late completion cannot settle a stopped or retried execution.
+
+Focused tests use the real SQLite ledger, assignment compiler and AgentRun
+runtime with an injected provider port. They cover multiple turns, permission
+symmetry, user replies, limits, reconstruction, preparation races, stale results
+and read-only host actions. They do not establish live provider or Electron
+process-restart behavior or measured cost/quality improvement.
+
+### Opted-in adaptive resources
+
+A new assigned Claude or Codex Run can enable Balanced from the composer.
+Existing Runs stay off. The strict public start payload carries only opt-in and
+bounded routing intent. Host-resolved version-1 policy in the keyed start event
+freezes provider, account, eligible catalog, Agent/composer pins and limits.
+The same event store projects resources; there is no second scheduler or table.
+
+`stave_request_agent_resources` uses the current task/stage grant. A proposal
+names a model or effort, capability mismatch or mechanical work, a bounded
+rationale and exact stage-attempt turn references. The next supervised turn
+checks frozen bounds and fresh cached catalog facts before recording its
+acceptance or refusal. Changes are limited to two per member Run with two
+supervised turns between changes. Mechanical proposals cannot increase tier or
+effort. Fixed model/effort, provider, account, permissions and completion checks
+cannot be widened. Linked references and rationale are auditable evidence, not
+a measured success probability. No extra classifier/provider call is added.
+
+Atomic root admission counts at most 30 parent-plus-child dispatch attempts,
+including stage replies. Starts that fail or have uncertain delivery are not
+refunded. At most two saved-Agent supervised helper reservations remain active,
+with four cumulative reservations (including failed preparation/retries).
+Reservation and release require exact root/child/execution identity. Child
+capacity is narrowed by remaining root capacity; one parent integration turn is
+protected while children are active. Their unused capacity returns on exact
+settlement; spent attempts stay spent. A root report predating final helper
+settlement requires a fresh AI integration turn/report. Budget exhaustion leaves
+unfinished work stuck or stopped, never accepted. Root cancellation cancels
+child supervision and stops its native task; pause prevents child admission.
+
+Helpers inherit the frozen root provider/account/catalog and the union of
+root and member pins. Existing canCall, one-level, read-only authority and
+writer-worktree rules remain. Other helper lifecycles/model-only consultations
+are refused within a budgeted team. The host disables provider-native spawning
+(Claude Agent/Task denylist; Codex multi-agent feature flags) on those turns so
+opaque helpers cannot consume outside this budget. Ordinary non-adaptive
+primary turns retain their native helper behavior.
+
+Quota/catalog observations are reused from normal provider owners, scoped by
+provider/account and bounded to five minutes. Missing facts remain unknown;
+known quota exhaustion or an unavailable cached model blocks the turn without
+silently moving providers/accounts or substituting a pin. Refresh the ordinary
+provider state and retry after resolving that block. Billing is reported only
+when supplied; turn limits do not guarantee dollars, cost savings or quality.
+
+File-path-only attachments enter supervision as saved on-disk references;
+unsaved edits must be saved, and image paths remain image references. Inline
+images/rich contexts retain the visible single-turn exception. An idle queued
+assignment can start a Run using queue-time routing intent, removing only its
+accepted queue identity. Refusal keeps the queued assignment available. Active
+Runs, utility work and unsupported providers keep their existing entry behavior.
+
+Legacy Agent-origin Auto can switch providers under its existing settings.
+Same-provider freezing applies to opted-in adaptive Runs and saved-Agent
+supervision; stage definitions never acquire provider-switch authority.
+
 ## Secondary Run Contract
 
 When changing durable secondary execution, inspect the complete chain:

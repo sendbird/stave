@@ -159,7 +159,7 @@ export async function getRateLimitsSnapshot(args: {
           readKey === (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions)) &&
           provenance?.fresh !== false) {
           const snapshot = { ...empty, [key]: fresh };
-          const metadata = publishQuotaObservation(snapshot, provenance?.observedAt);
+          const metadata = publishQuotaObservation(snapshot, provenance?.observedAt, undefined, providerId);
           args.onObservation?.(snapshot, metadata);
         }
         return fresh;

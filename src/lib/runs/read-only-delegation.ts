@@ -62,6 +62,8 @@ export const READ_ONLY_STAVE_METADATA_TOOLS = [
   // An agent run's stage tools exist only on a turn carrying its grant.
   "stave_report_stage",
   "stave_block_stage",
+  // Records a bounded proposal; only the supervisor may admit a later turn.
+  "stave_request_agent_resources",
 ] as const;
 
 /**

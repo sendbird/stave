@@ -143,6 +143,7 @@ function createHarness(
     parentDefaults?: { providerId: "claude-code" | "codex"; effort?: DelegatedTaskEffort } | null;
     readHead?: (workspacePath: string) => Promise<string | null>;
     readWorkspaceRevision?: (workspacePath: string) => Promise<import("../src/lib/agent-runs/verification-contract").WorkspaceRevision>;
+    readResourceRoot?: (parentTaskId: string) => string | null;
   } = {},
 ) {
   const store = new RunLedgerStore(new Database(":memory:"));
@@ -157,6 +158,7 @@ function createHarness(
       concurrencyLimit: options.concurrencyLimit ?? 3,
       readHead: options.readHead,
       readWorkspaceRevision: options.readWorkspaceRevision,
+      readResourceRoot: options.readResourceRoot,
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
             policyCalls.push({ ...args });
@@ -266,6 +268,20 @@ describe("writer isolation", () => {
     const listed = await harness.restart().list({ parentTaskId: PARENT_TASK, includeFinished: true });
     expect(listed[0]?.delegatedTaskId).toBe(created.child!.delegatedTaskId);
   });
+});
+
+test("a new adaptive root observed after claim fences one-turn and detached execution", async () => {
+  for (const lifecycle of ["one-turn", "detached"] as const) {
+    const harness = createHarness({ readOnly: true,
+      // Simulate a host root starting just before this durable claim was visible.
+      readResourceRoot: (): string | null => harness.store.listActiveAggregatesByStepKind({ kind: "delegated-task-turn" }).length ? "new-root" : null });
+    const response = await harness.coordinator.delegate(delegateArgs({ lifecycle, access: "read-only" }));
+    expect(response.accepted).toBe(true);
+    await harness.coordinator.waitForInFlight();
+    expect(harness.runTaskCalls).toHaveLength(0);
+    const child = await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(child?.phase).toBe("failed");
+  }
 });
 
 describe("delegated task coordinator", () => {

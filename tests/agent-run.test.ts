@@ -3,6 +3,7 @@ import {
   AGENT_RUN_DEFAULT_DONE_WHEN,
   agentRunEndCause,
   buildAgentRunWorkflow,
+  buildAgentRunAssignment,
   buildAgentRunStartInput,
   hasAgentOrigin,
   planAgentPromptSend,
@@ -129,7 +130,8 @@ describe("agent run: send branching", () => {
 
   test("the composer's own queue, steer and utility paths stay in charge", () => {
     expect(planAgentPromptSend({ ...base, turnActive: true }).kind).toBe("plain-turn");
-    expect(planAgentPromptSend({ ...base, queued: true }).kind).toBe("plain-turn");
+    expect(planAgentPromptSend({ ...base, queued: true }).kind).toBe("start-run");
+    expect(planAgentPromptSend({ ...base, queued: true, runActive: true })).toEqual({ kind: "plain-turn", reason: "run-active" });
     expect(planAgentPromptSend({ ...base, turnOrigin: "utility" }).kind).toBe("plain-turn");
     expect(planAgentPromptSend({ ...base, prompt: "   " }).kind).toBe("plain-turn");
   });
@@ -204,4 +206,12 @@ describe("agent run: the run policy", () => {
       reason: "runtime-changed",
     });
   });
+});
+
+
+test("file-path assignments retain staged paths as data without converting images or editor content", () => {
+  const assignment = buildAgentRunAssignment("Inspect these files", { attachedFilePaths: ["src/a.ts", "image.png"],
+    promptBatch: [{ id: "b", content: "Prior", createdAt: "now", attachedFilePaths: ["src/a.ts", "b.ts"] }] });
+  expect(assignment).toContain('["src/a.ts","image.png","b.ts"]');
+  expect(assignment).toContain("saved files");
 });

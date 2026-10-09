@@ -221,3 +221,17 @@ describe("prompt draft send state", () => {
     ).toBe(promptDraftByTask);
   });
 });
+
+test("queued adaptive intent survives opposite composer changes and legacy queue stays off", async () => {
+  const { buildQueuedTurnFromDraft } = await import("../src/store/prompt-draft-context");
+  for (const autoRouting of [true, false]) for (const enabled of [true, false]) {
+    const source: PromptDraft = { text: "queued assignment", attachedFilePaths: [], attachments: [], runtimeOverrides: { agentRunAdaptive: enabled } };
+    const queued = buildQueuedTurnFromDraft({ draft: source, providerId: "codex", model: "gpt-6-sol", autoRouting });
+    expect(queued.agentRunAdaptive).toBe(enabled);
+    const changed = { ...source, runtimeOverrides: { agentRunAdaptive: !enabled } };
+    expect(buildPromptDraftForSend({ content: queued.content, sourceDraft: changed, queuedTurn: queued }).runtimeOverrides?.agentRunAdaptive).toBe(enabled);
+  }
+  const legacy = { id: "old", content: "old assignment", queuedAt: "now", attachedFilePaths: [], attachments: [] };
+  expect(buildPromptDraftForSend({ content: legacy.content, sourceDraft: { ...SOURCE_DRAFT, runtimeOverrides: { agentRunAdaptive: true } }, queuedTurn: legacy })
+    .runtimeOverrides?.agentRunAdaptive).toBe(false);
+});

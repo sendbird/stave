@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { PromptInput } from "@/components/ai-elements";
 import { ComposerContextDock } from "@/components/session/ComposerContextDock";
+import { AdaptiveRunControl } from "./AdaptiveRunControl";
 import { AgentAttachmentNotice } from "@/components/session/AgentAttachmentNotice";
 import { ComposerWorkspaceBar } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
@@ -113,6 +114,7 @@ import { useShallow } from "zustand/react/shallow";
 import { buildChatInputGoalStatus } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
 import { AgentRunSignOffSlot } from "@/components/agent-runs/SignOffCard";
+import { DelegatedAgentReplySlot } from "@/components/agent-runs/DelegatedAgentReplySlot";
 import { ChildRequestSlot } from "./ChildRequestSlot";
 import { ManagedTaskTakeoverNotice } from "./ManagedTaskTakeoverNotice";
 import {
@@ -1388,10 +1390,12 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             }}
           />
         ) : <AgentRunSignOffSlot />}
+        <DelegatedAgentReplySlot />
         <ChildRequestSlot taskId={args.activeTaskId} />
         {/* Steering, a stalled turn and the queue are rows and tones of the one
             shelf; classic mode stacks it on the card, the frame tucks it in. */}
         {useFramedComposer ? null : composerShelf}
+        <AdaptiveRunControl taskId={args.activeTaskId} providerId={args.activeProvider} />
         <AgentAttachmentNotice taskId={args.activeTaskId} providerId={args.activeProvider} draft={{ ...promptDraft, text: draftText }} />
         <PromptInput
           attachmentScopeId={args.providerSelectionTarget}

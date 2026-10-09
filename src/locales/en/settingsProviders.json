@@ -685,7 +685,7 @@
       "prompt": "What the child should do.",
       "access": "read-only for second opinions, reviews and research: the child cannot change files, needs no approvals, and runs beside other work in the same workspace. Defaults to inherit: this task's permissions on the same provider, otherwise that provider's user settings.",
       "provider": "Claude or Codex. Defaults to this task's provider.",
-      "lifecycle": "Defaults to one-turn, which ends the delegation when the child's first turn ends; detached keeps the child open until stopped.",
+      "lifecycle": "Saved Agent assignments default to supervised completion within 30 turns. Model-only work defaults to one-turn. Explicit one-turn ends after the first turn; detached stays open for follow-ups until stopped.",
       "workspace": "Defaults to the same workspace. A new worktree on its own branch keeps edits isolated.",
       "model": "Defaults to the child provider's default model.",
       "effort": "low → max (Codex also has ultra), clamped to what the child's model accepts. Defaults to this task's effort on the same provider, otherwise medium. A bounded brief often does better on a cheaper model at high effort."

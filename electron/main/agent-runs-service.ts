@@ -57,3 +57,7 @@ export function reportAgentRunStage(args: { agentRunKey: string; report: unknown
 export function blockAgentRunStage(args: { agentRunKey: string; block: unknown }) {
   return invokeForTool<AgentRunReportReceipt>("block-stage", args);
 }
+
+export function requestAgentRunResources(args: { agentRunKey: string; request: unknown }) {
+  return invokeForTool<{ recorded: true }>("request-resources", args);
+}

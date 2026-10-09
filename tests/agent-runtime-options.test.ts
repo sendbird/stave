@@ -84,3 +84,14 @@ describe("a task agent's in-turn subagents", () => {
     expect(buildCodexSubagentConfigOverrides({ runtimeOptions: {} })).toEqual({});
   });
 });
+
+test("a host-owned empty helper list disables native spawning in both adapters", async () => {
+  const { buildClaudeQueryOptions } = await import("../electron/providers/claude-sdk-runtime");
+  const { buildCodexConfigOverrides } = await import("../electron/providers/codex-app-server-params");
+  const runtimeOptions = { nativeSubagents: [], claudeDisallowedTools: ["Write"] };
+  expect(buildClaudeQueryOptions({ cwd: "/tmp/ws", claudeExecutablePath: "", runtimeOptions }).disallowedTools)
+    .toEqual(expect.arrayContaining(["Agent", "Task", "Write"]));
+  expect(buildCodexConfigOverrides({ runtimeOptions, configOverrides: { "features.multi_agent": true, "features.multi_agent_v2": true } }))
+    .toMatchObject({ "features.multi_agent": false, "features.multi_agent_v2": false });
+  expect(buildCodexConfigOverrides({ runtimeOptions: {} })).not.toHaveProperty("features.multi_agent");
+});

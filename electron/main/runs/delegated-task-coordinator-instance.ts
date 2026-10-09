@@ -21,6 +21,8 @@ import type { DelegateTaskArgs } from "../../../src/lib/runs/delegated-task";
 import { findAgent, getMyStandards } from "../agents/agent-registry";
 import { activeStandards } from "../../../src/lib/agents/standards";
 import { ASSIGNMENT_LIMITS } from "../../../src/lib/agents/assign";
+import { createDelegatedAgentRunPort } from "./delegated-agent-run-port";
+import type { AgentRunDetail, AgentRunInvokeResult } from "../../../src/lib/agent-runs/api";
 
 const execFileAsync = promisify(execFile);
 
@@ -83,12 +85,36 @@ const host = createDelegatedTaskHostPort({
     onHostServiceEvent("local-mcp.task-turn-updated", listener),
 });
 
+const agentRunPort = createDelegatedAgentRunPort({
+  prepare: (args) => invokeHostService("delegated-agent.prepare", args),
+  activate: (args) => invokeHostService("delegated-agent.activate", args),
+  get: (args) => invokeHostService("delegated-agent.read", args),
+  cancel: async (args) => {
+    const result = await invokeHostService("agent-run.invoke", { action: "cancel", args }) as AgentRunInvokeResult<AgentRunDetail>;
+    if (!result.ok) throw new Error(result.message);
+    return result.value;
+  },
+  stopTask: (args) => invokeHostService("task.stop", args),
+  subscribe: (listener) => onHostServiceEvent("agent-run.changed", listener),
+});
+Object.assign(host, { runAgentRun: agentRunPort.run, readAgentRun: agentRunPort.read, stopAgentRun: agentRunPort.stop });
+// Observe child Run changes through the existing coordinator, including blocked/sign-off states.
+onHostServiceEvent("agent-run.changed", (event) => {
+  if (coordinator) void coordinator.reconcile({ taskId: event.leadTaskId, agentRunId: event.agentRunId })
+    .catch((error) => console.warn(`[delegated-task] Run reconciliation failed: ${String(error)}`));
+});
+
 let coordinator: ReturnType<typeof createDelegatedTaskCoordinator> | null = null;
 
 export function getDelegatedTaskCoordinator() {
   if (!coordinator) {
     coordinator = createDelegatedTaskCoordinator({
       getLedger: ensurePersistenceReady,
+      readResourceRoot: async (parentTaskId) => {
+        const result = await invokeHostService("agent-run.invoke", { action: "resources-for-task", args: { taskId: parentTaskId } }) as AgentRunInvokeResult<{ rootRunId: string | null }>;
+        if (!result.ok) throw new Error(result.message);
+        return result.value.rootRunId;
+      },
       host,
       applyAgent,
       recordAgentAssignment: async ({ snapshot, standards, executionId, target, repositoryPath, prompt, model }) => {

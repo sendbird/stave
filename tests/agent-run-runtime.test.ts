@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { rememberAdaptiveCatalog, rememberAdaptiveQuota } from "../electron/providers/adaptive-observations";
+import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
 import {
   createAgentRunRuntime,
   invokeAgentRunRuntime,
@@ -39,6 +41,7 @@ import { resolveTurnPolicy } from "../src/lib/policy/turn-policy";
 import { buildStarterProfile, DEFAULT_AUTO_ROUTING_PROFILE_ID } from "../src/lib/providers/auto-routing-profile";
 import { AgentRouteSettingsSchema, routeAgentRunTurn } from "../src/lib/routing/agent-run-route";
 import type { PromptDraftRuntimeOverrides } from "../src/types/chat";
+import type { AgentRunRouteSelection } from "../src/lib/agent-runs/route-observation";
 
 const START = "2026-09-26T10:00:00.000Z";
 
@@ -1001,6 +1004,80 @@ describe("run runtime: agent runs", () => {
       now: new Date(START),
     });
 
+  test("persists route evidence and projects the exact linked turn's usage without accepting its stage", async () => {
+    const turns: AgentRunTurnRow[] = [];
+    const usage = { inputTokens: 12, outputTokens: 8, totalCostUsd: 0.2 };
+    const harness = createHarness({ turns, extra: {
+      routeAgentTurn: async () => {
+        const route = await routeAgentRunTurn({ agent: AGENT, draft: { model: "opus", modelProviderId: "claude-code", claudeEffort: "high" },
+          current: { providerId: "claude-code", model: "sonnet" }, settings: ROUTE_SETTINGS, prompt: "Implement the export.", history: [] });
+        return { fingerprint: { providerId: "claude-code", model: route.model }, runtimeOptions: route.runtimeOptions,
+          route: route.route, rationale: route.rationale, selection: route.selection };
+      },
+      readTurnUsage: ({ turnId }) => {
+        const turn = turns.find((candidate) => candidate.id === turnId);
+        return turn ? { completed: Boolean(turn.completedAt), usage: turn.completedAt ? usage : null } : null;
+      },
+      readObservedTurnEnding: () => "completed",
+    } });
+    const agentRunId = await startedAgentRun(harness, runInput());
+    expect(harness.store.listEventsByKind(agentRunId, ["turn-started"])[0]?.detail.routeSelection)
+      .toMatchObject({ source: "pinned", requestedEffort: "high", effortSource: "draft" });
+    expect((await harness.runtime.get({ agentRunId })).routing?.[0])
+      .toMatchObject({ turnId: "turn-1", turnOutcome: "running", usage: null, attemptStatus: "running" });
+    harness.endTurn("turn-1");
+    const detail = await harness.runtime.get({ agentRunId });
+    expect(detail.routing?.[0]).toMatchObject({
+      turnId: "turn-1", turnOutcome: "completed", attemptStatus: "running", usage, reportedCostUsd: 0.2,
+      effectiveModel: null, effectiveEffort: null,
+    });
+    expect(detail.usage).toMatchObject({ turns: 1, measuredTurns: 1, inputTokens: 12, outputTokens: 8, costUsd: 0.2 });
+    expect(detail.report).toBeNull();
+    // A new runtime reads the persisted keyed evidence, not the old runtime's route object.
+    const restored = createHarness({ store: harness.store, turns, extra: {
+      readTurnUsage: () => ({ completed: true, usage }), readObservedTurnEnding: () => "completed",
+    } });
+    expect((await restored.runtime.get({ agentRunId })).routing?.[0])
+      .toMatchObject({ turnId: "turn-1", selection: { source: "pinned", requestedEffort: "high" }, usage });
+  });
+
+  test("usage and Insights do not read terminal events, and missing evidence can arrive later", async () => {
+    let reads = 0;
+    let ending: "completed" | null = null;
+    const harness = createHarness({ extra: {
+      readTurnUsage: () => ({ completed: true, usage: { inputTokens: 10 } }),
+      readTurnEnding: () => "stopped",
+      readObservedTurnEnding: () => { reads += 1; return ending; },
+    } });
+    const agentRunId = await startedAgentRun(harness, runInput());
+    // Startup returns detail; only compare reads after that return.
+    const initialReads = reads;
+    harness.runtime.readUsage({ agentRunId });
+    await harness.runtime.getInsights();
+    expect(reads).toBe(initialReads);
+    expect((await harness.runtime.get({ agentRunId })).routing?.[0]?.turnOutcome).toBe("unknown");
+    ending = "completed";
+    expect((await harness.runtime.get({ agentRunId })).routing?.[0]?.turnOutcome).toBe("completed");
+    const confirmedReads = reads;
+    await harness.runtime.get({ agentRunId });
+    expect(reads).toBe(confirmedReads);
+  });
+
+  test("invalid route evidence is omitted while the supervised dispatch is preserved", async () => {
+    const harness = createHarness({ extra: {
+      routeAgentTurn: async () => ({
+        fingerprint: { providerId: "codex", model: "gpt-5.5" },
+        runtimeOptions: { codexReasoningEffort: "high" }, route: "auto", rationale: "Existing route decision.",
+        selection: { version: 999 } as unknown as AgentRunRouteSelection,
+      }),
+    } });
+    const agentRunId = await startedAgentRun(harness, runInput());
+    expect(harness.runCalls[0]).toMatchObject({ fingerprint: { providerId: "codex", model: "gpt-5.5" },
+      runtimeOptions: { codexReasoningEffort: "high" } });
+    expect(harness.store.listEventsByKind(agentRunId, ["turn-started"])[0]?.detail.routeSelection).toBeUndefined();
+    expect((await harness.runtime.get({ agentRunId })).routing?.[0]?.selection).toBeNull();
+  });
+
   function agentRunHarness(
     options: { store?: AgentRunStore; turns?: AgentRunTurnRow[]; turnPrefix?: string; releaseWhileRouting?: boolean } = {},
   ) {
@@ -1272,4 +1349,234 @@ test("active runs remain in bounded history responses", async () => {
     h.store.create(change, now);
   }
   expect((await h.runtime.list({ limit: 1, includeActive: true })).agentRuns.some((run) => run.id === id)).toBe(true);
+});
+
+test("Stop bypasses a slow router and discards its late result before any dispatch", async () => {
+  let enter!: () => void, finish!: (value: null) => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const routed = new Promise<null>((resolve) => { finish = resolve; });
+  let signal: AbortSignal | undefined;
+  const h = createHarness({ extra: { routeAgentTurn: (args) => { signal = args.signal; enter(); return routed; } } });
+  const detail = await h.runtime.startAgentRun(startInput({ origin: "agent" }));
+  await entered;
+  try {
+    await h.runtime.cancel({ agentRunId: detail.agentRun.id });
+    expect(signal?.aborted).toBe(true);
+    expect(h.aggregate(detail.agentRun.id).agentRun.state).toBe("cancelled");
+    expect(h.aggregate(detail.agentRun.id).agentRun.turnCount).toBe(0);
+  } finally { finish(null); }
+  await h.tick();
+  expect(h.runCalls).toHaveLength(0);
+  expect(h.store.listEventsByKind(detail.agentRun.id, ["turn-started", "turn-linked"])).toHaveLength(0);
+});
+
+test("release bypasses a slow revision read without dispatch or provider failure", async () => {
+  let enter!: () => void, finish!: (value: string) => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const revision = new Promise<string>((resolve) => { finish = resolve; });
+  const h = createHarness({ extra: { readHeadSha: () => { enter(); return revision; } } });
+  const detail = await h.runtime.startAgentRun(startInput({ origin: "agent" }));
+  await entered;
+  try {
+    expect(await h.runtime.endAgentRunForTask({ taskId: "task-1" })).toBe(true);
+    expect(h.aggregate(detail.agentRun.id).agentRun.state).toBe("cancelled");
+  } finally { finish("abcdef0"); }
+  await h.tick();
+  expect(h.runCalls).toHaveLength(0);
+  expect(h.store.listEventsByKind(detail.agentRun.id, ["turn-failed"])).toHaveLength(0);
+});
+
+
+test("pause cancels preparation and only a new resume can dispatch", async () => {
+  let enter!: () => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  let signal: AbortSignal | undefined, reads = 0;
+  const h = createHarness({ extra: { routeAgentTurn: (args) => {
+    if (++reads > 1) return Promise.resolve(null);
+    signal = args.signal; enter(); return new Promise<null>(() => {});
+  } } });
+  const detail = await h.runtime.startAgentRun(startInput({ origin: "agent" }));
+  await entered;
+  await h.runtime.pause({ agentRunId: detail.agentRun.id });
+  expect(signal?.aborted).toBe(true);
+  expect(h.aggregate(detail.agentRun.id).agentRun.state).toBe("paused");
+  expect(h.runCalls).toHaveLength(0);
+  await h.runtime.resume({ agentRunId: detail.agentRun.id });
+  await h.tick();
+  expect(h.runCalls).toHaveLength(1);
+});
+
+for (const conflict of [
+  { activeTurnId: "user-turn" }, { pendingApprovalCount: 1 }, { pendingUserInputCount: 1 },
+]) test(`preparation defers without charging a turn when attention changes: ${Object.keys(conflict)[0]}`, async () => {
+  let enter!: () => void, finish!: (value: null) => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const route = new Promise<null>((resolve) => { finish = resolve; });
+  const h = createHarness({ extra: { routeAgentTurn: () => { enter(); return route; } } });
+  const detail = await h.runtime.startAgentRun(startInput({ origin: "agent" }));
+  await entered;
+  const tick = h.tick();
+  h.setSnapshot(conflict);
+  finish(null);
+  await tick;
+  expect(h.runCalls).toHaveLength(0);
+  expect(h.aggregate(detail.agentRun.id).agentRun.turnCount).toBe(0);
+  h.setSnapshot({ activeTurnId: null, pendingApprovalCount: 0, pendingUserInputCount: 0 });
+  await h.tick();
+  expect(h.runCalls).toHaveLength(1);
+});
+
+test("a new persisted Run event invalidates an old route before dispatch", async () => {
+  let enter!: () => void, enterFresh!: () => void, finish!: (value: null) => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const fresh = new Promise<void>((resolve) => { enterFresh = resolve; });
+  const route = new Promise<null>((resolve) => { finish = resolve; });
+  let reads = 0;
+  const h = createHarness({ extra: { routeAgentTurn: () => {
+    if (++reads > 1) { enterFresh(); return new Promise<null>(() => {}); }
+    enter(); return route;
+  } } });
+  const detail = await h.runtime.startAgentRun(startInput({ origin: "agent" }));
+  await entered;
+  const tick = h.tick();
+  h.store.recordEvent(detail.agentRun.id, { kind: "user-turn", idempotencyKey: "new-intent", detail: { turnId: "user-1" } }, new Date(START));
+  finish(null);
+  await fresh;
+  expect(h.runCalls).toHaveLength(0);
+  expect(h.aggregate(detail.agentRun.id).agentRun.turnCount).toBe(0);
+  await h.runtime.cancel({ agentRunId: detail.agentRun.id });
+  await tick;
+});
+
+describe("opted-in adaptive Run resources", () => {
+  const policy = (providerId: "claude-code" | "codex", patch = {}) => ({
+    version: 1 as const, profile: "balanced" as const, providerId,
+    allowedModels: providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-sonnet-5-5", "claude-opus-5-5"],
+    modelLocked: false, effortLocked: false, initialEffort: "medium", teamTurns: 30,
+    concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const,
+    maxChanges: 2 as const, cooldownTurns: 2 as const, ...patch,
+  });
+  for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: a grant proposal changes only the next turn and keeps provider/permissions`, async () => {
+    const p = policy(providerId);
+    const h = createHarness({ extra: { freezeResources: () => p, routeAgentTurn: async () => { throw new Error("Adaptive turns must not run the utility classifier"); } } });
+    h.setSnapshot({ providerId, model: p.allowedModels[0]! });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    expect((await h.runtime.get({ agentRunId: id })).resources).toMatchObject({ spent: 1, remaining: 29 });
+    await h.runtime.requestResources({ agentRunKey: "key-turn-1", request: { model: p.allowedModels[1], reason: "capability-mismatch", rationale: "The linked turn diagnosed a capability gap", evidenceRefs: ["turn-1"] } });
+    expect(h.runCalls).toHaveLength(1);
+    expect(h.runCalls[0]!.fingerprint.model).toBe(p.allowedModels[0]!);
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.runCalls[1]!.fingerprint).toEqual({ providerId, model: p.allowedModels[1]! });
+    expect(h.store.listEventsByKind(id, ["resource-decision"])[0]?.detail.accepted).toBe(true);
+    expect((await h.runtime.get({ agentRunId: id })).resources?.spent).toBe(2);
+    expect(h.runCalls[1]?.runtimeOptions).toMatchObject(providerId === "codex" ? { codexApprovalPolicy: "untrusted" } : { claudePermissionMode: "default" });
+  });
+  test("pins and foreign-stage evidence refuse escalation, and refusal is recorded once", async () => {
+    const p = policy("claude-code", { modelLocked: true });
+    const h = createHarness({ extra: { freezeResources: () => p } });
+    h.setSnapshot({ model: p.allowedModels[0]! });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    await h.runtime.requestResources({ agentRunKey: "key-turn-1", request: { model: p.allowedModels[1], reason: "capability-mismatch", rationale: "gap", evidenceRefs: ["other-stage-turn"] } });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.runCalls[1]!.fingerprint.model).toBe(p.allowedModels[0]!);
+    expect(h.store.listEventsByKind(id, ["resource-decision"])).toHaveLength(1);
+    expect(h.store.listEventsByKind(id, ["resource-decision"])[0]?.detail).toMatchObject({ accepted: false, reason: "Evidence must name turns linked to this stage attempt." });
+    h.endTurn("turn-2"); await h.tick();
+    await h.runtime.retryStage({ agentRunId: id, stageId: "draft", attempt: 1 }); await h.tick();
+    expect(h.store.listEventsByKind(id, ["resource-decision"])).toHaveLength(1);
+  });
+  test("budget refusal prevents native dispatch and never reports completion", async () => {
+    const h = createHarness({ extra: { freezeResources: () => policy("claude-code", { teamTurns: 1 }) } });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.runCalls).toHaveLength(1);
+    expect(h.current(id).status).toBe("stuck");
+    expect(h.aggregate(id).agentRun.state).toBe("running");
+    expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "reply" })).toThrow("budget");
+  });
+  test("replies deduplicate against the same team budget", async () => {
+    const h = createHarness({ extra: { freezeResources: () => policy("claude-code") } });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    h.endTurn("turn-1");
+    const reply = { taskId: "task-1", turnId: "user-reply" };
+    h.runtime.prepareUserTurn(reply); h.runtime.prepareUserTurn(reply);
+    expect(h.store.readResources(id)?.spent).toBe(2);
+    await h.runtime.pause({ agentRunId: id });
+    expect(() => h.runtime.prepareUserTurn({ ...reply, turnId: "new-reply" })).toThrow("Resume");
+  });
+});
+
+test("a parent report predating helper settlement requires a fresh integration turn", async () => {
+  const policy = { version: 1 as const, profile: "balanced" as const, providerId: "claude-code" as const,
+    allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", teamTurns: 30,
+    concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
+  const h = createHarness({ extra: { freezeResources: () => policy } });
+  const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true, workflow: workflow([DRAFT]) }));
+  const reserved = h.store.reserveChildResources({ parentTaskId: "task-1", expectedRootRunId: id, childRunId: "helper", executionId: "exec", requestedTurns: 4, now: new Date(START) })!;
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  h.endTurn("turn-1"); h.setActiveDelegated(1); await h.tick();
+  expect(h.runCalls).toHaveLength(1);
+  h.store.releaseResourceReservation(reserved.link, new Date(START)); h.setActiveDelegated(0); await h.tick();
+  expect(h.runCalls).toHaveLength(2);
+  expect(h.runCalls[1]?.prompt).toContain("Integrate the final helper outcomes");
+  expect(h.runCalls[1]?.agentRunStage).toMatchObject({ agentRunId: id, stageId: "draft", attempt: 1 });
+  expect(h.aggregate(id).agentRun.state).toBe("running");
+  await h.runtime.reportStage({ agentRunKey: "key-turn-2", report: COMPLETE }); h.endTurn("turn-2"); await h.tick();
+  expect(h.aggregate(id).agentRun.state).toBe("completed");
+});
+
+test("root Stop cancels the exact child and releases unused capacity without refunding spent turns", async () => {
+  const stops: string[] = [];
+  const p = { version: 1 as const, profile: "balanced" as const, providerId: "claude-code" as const,
+    allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", teamTurns: 30,
+    concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
+  const h = createHarness({ extra: { freezeResources: () => p, stopResourceTask: async ({ taskId }) => { stops.push(taskId); } } });
+  const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+  const reservation = h.store.reserveChildResources({ parentTaskId: "task-1", expectedRootRunId: id, childRunId: "child", executionId: "exact", requestedTurns: 4, now: new Date(START) })!;
+  const change = createAgentRun({ id: "child", input: startInput({ leadTaskId: "child-task", origin: "agent" }), repositoryPath: "/tmp/repo",
+    fingerprint: { providerId: "claude-code", model: "sonnet" }, now: new Date(START) });
+  change.events[0]!.detail = { ...change.events[0]!.detail, resources: p, resourceLink: reservation.link };
+  change.events[0]!.idempotencyKey = "child:started";
+  h.store.create(change, new Date(START)); h.store.consumeResourceTurn("child", "child-1", new Date(START));
+  await h.runtime.cancel({ agentRunId: id });
+  expect(h.store.getAggregate("child")?.agentRun.state).toBe("cancelled"); expect(stops).toEqual(["child-task"]);
+  expect(h.store.readResources(id)).toMatchObject({ spent: 2, reserved: 0, activeHelpers: 0, helpersLaunched: 1 });
+  expect(h.store.consumeResourceTurn("child", "child-2", new Date(START))).toBe(false);
+});
+
+test("cached quota admits a healthy same-account turn and replies cannot change its provider/account", async () => {
+  const p = { version: 1 as const, profile: "balanced" as const, providerId: "claude-code" as const,
+    allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", accountProfileId: "quota-regression-account", teamTurns: 30,
+    concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
+  const snapshot = emptyRateLimitsSnapshot();
+  snapshot.claude = { ...snapshot.claude, source: "oauth", session: { usedPercent: 20, resetsAt: Date.parse(START) / 1000 + 3600 } };
+  rememberAdaptiveQuota(snapshot, { observedAt: START, providerId: "claude-code", accountProfileId: p.accountProfileId,
+    claudeAccountProfileId: p.accountProfileId, codexAccountProfileId: "system-default", source: "sdk" });
+  const h = createHarness({ extra: { freezeResources: () => p } });
+  const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+  expect(h.runCalls).toHaveLength(1); h.endTurn("turn-1"); await h.tick(); expect(h.runCalls).toHaveLength(2);
+  expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", providerId: "codex", turnId: "forged" })).toThrow("provider");
+  expect(h.store.readResources(id)?.spent).toBe(2);
+  expect(h.runtime.prepareUserTurn({ taskId: "task-1", providerId: "claude-code", turnId: "reply" })?.runtimeOptions)
+    .toMatchObject({ claudeAccountProfileId: p.accountProfileId, model: "sonnet" });
+  const before = h.store.readResources(id)!.spent;
+  snapshot.claude.session = { ...snapshot.claude.session!, usedPercent: 100 };
+  rememberAdaptiveQuota(snapshot, { observedAt: START, providerId: "claude-code", accountProfileId: p.accountProfileId,
+    claudeAccountProfileId: p.accountProfileId, codexAccountProfileId: "system-default", source: "sdk" });
+  expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", providerId: "claude-code", turnId: "quota-blocked" })).toThrow("unavailable");
+  expect(h.store.readResources(id)!.spent).toBe(before);
+  snapshot.claude.session.usedPercent = 20;
+  rememberAdaptiveCatalog(p.accountProfileId, { providerId: "claude-code", ok: false, models: [], detail: "Unavailable" }, Date.parse(START));
+  expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", providerId: "claude-code", turnId: "catalog-blocked" })).toThrow("unavailable");
+  expect(h.store.readResources(id)!.spent).toBe(before);
+});
+
+test("adaptive admission cannot attach a new budget to an existing native turn or helper", async () => {
+  const h = createHarness();
+  h.setSnapshot({ activeTurnId: "old-native-turn" });
+  await expect(h.runtime.startAgentRun(startInput({ origin: "agent", adaptive: true }))).rejects.toThrow("idle task");
+  h.setSnapshot({ activeTurnId: null }); h.setActiveDelegated(1);
+  await expect(h.runtime.startAgentRun(startInput({ origin: "agent", adaptive: true }))).rejects.toThrow("idle task");
+  expect(h.store.listActiveAgentRuns()).toHaveLength(0);
+  expect(h.runCalls).toHaveLength(0);
 });

@@ -5,6 +5,7 @@ import {
   failRunStep,
   interruptRunStep,
   markRunStepWaiting,
+  resumeRunStep,
   refineRunStepTarget,
   RunReceiptRecordSchema,
   RunRecordSchema,
@@ -653,6 +654,10 @@ export class RunLedgerStore {
         now: args.now,
       }),
     );
+  }
+
+  resumeStep(args: { runId: string; stepId: string; executionId: string; idempotencyKey: string; now: string; detail?: unknown; reenter?: boolean }) {
+    return this.transitionExisting(args, ({ run, step }) => resumeRunStep({ ...args, run, step }));
   }
 
   completeStep(args: {

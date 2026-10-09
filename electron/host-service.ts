@@ -1,3 +1,4 @@
+import { rememberAdaptiveQuota } from "./providers/adaptive-observations";
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { applyRuntimeLocale } from "../src/i18n/runtime";
 import { readAgentHistory } from "./providers/agent-history";
@@ -111,6 +112,7 @@ import type {
   HostServiceResponseMap,
 } from "./host-service/protocol";
 import { providerRuntime, setAgentRunUserTurnResolver } from "./providers/runtime";
+import { prepareDelegatedAgentRun } from "./host-service/supervision/delegated-agent-run-host";
 import { getProviderModelCatalog } from "./providers/provider-model-catalog";
 import {
   archiveCodexThread,
@@ -578,6 +580,7 @@ const automationRuntime = createAutomationRuntime({
 const agentRunRuntime = createHostAgentRunRuntime({
   // Read on each tick, after `assignRuntime` below exists.
   taskAgent: (taskId) => assignRuntime.agentForTask(taskId),
+  delegatedAssignment: (taskId) => assignRuntime.assignmentForTask(taskId),
   emitChanged: (event) => {
     emitEvent("agent-run.changed", event);
   },
@@ -631,6 +634,7 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
 
 registerDelegationPolicyObserver();
 subscribeQuotaObservations((snapshot, metadata) => {
+  rememberAdaptiveQuota(snapshot, metadata);
   try {
     ensureHostServicePersistenceReady().usageStatistics.recordQuota(snapshot, metadata, metadata.observedAt);
   } catch {
@@ -2085,7 +2089,8 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "task.take-over":
       await respond(
         request.id,
-        await localMcpRuntime.takeOverManagedTaskControl(request.params),
+        await localMcpRuntime.takeOverManagedTaskControl(request.params,
+          () => agentRunRuntime.endAgentRunForTask({ taskId: request.params.taskId, delegatedOnly: true })),
       );
       return;
     case "task.stop":
@@ -2118,6 +2123,16 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
           request.params.args,
         ),
       );
+      return;
+    case "delegated-agent.prepare":
+      await respond(request.id, await prepareDelegatedAgentRun({ start: request.params, runtime: agentRunRuntime,
+        assignmentForTask: (taskId) => assignRuntime.assignmentForTask(taskId), createTask: localMcpRuntime.createIdleTask }));
+      return;
+    case "delegated-agent.activate":
+      await respond(request.id, await agentRunRuntime.activateDelegatedAgentRun(request.params));
+      return;
+    case "delegated-agent.read":
+      await respond(request.id, await agentRunRuntime.readDelegatedAgentRun(request.params));
       return;
     case "agent.invoke":
       await respond(request.id, await invokeAgentAction(assignRuntime, request.params.action, request.params.args));

@@ -52,7 +52,7 @@ export function recordCodexRateLimits(args: {
     publishQuotaObservation({
       ...emptyRateLimitsSnapshot(),
       codex: { source: "rpc", buckets: entry.buckets, error: null },
-    }, entry.updatedAt, "notification");
+    }, entry.updatedAt, "notification", "codex");
   }
   return entry;
 }

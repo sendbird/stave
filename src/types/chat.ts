@@ -79,6 +79,7 @@ export type ClaudePermissionMode =
   "default" | "acceptEdits" | "bypassPermissions" | "dontAsk" | "auto";
 
 export interface PromptDraftRuntimeOverrides {
+  agentRunAdaptive?: boolean;
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
   claudePermissionMode?: ClaudePermissionMode;
@@ -124,6 +125,8 @@ export interface PromptDraftQueuedNextTurn {
 }
 
 export interface PromptDraftQueuedTurn {
+  /** Frozen next-Run policy intent; legacy entries remain non-adaptive. */
+  agentRunAdaptive?: boolean;
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
   id: string;

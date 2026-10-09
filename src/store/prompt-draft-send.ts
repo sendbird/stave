@@ -79,12 +79,13 @@ function queuedTurnDispatchOverrides(args: {
       runtimeOverrides: {
         ...rest,
         ...snapshotProviderAccounts(queuedTurn),
+        agentRunAdaptive: queuedTurn.agentRunAdaptive ?? false,
         autoRouting: true,
       },
     };
   }
   if (!queuedTurn.providerId) {
-    return {};
+    return { runtimeOverrides: { ...baseOverrides, agentRunAdaptive: queuedTurn.agentRunAdaptive ?? false } };
   }
   const {
     model: _model,
@@ -95,6 +96,7 @@ function queuedTurnDispatchOverrides(args: {
     runtimeOverrides: {
       ...rest,
       ...snapshotProviderAccounts(queuedTurn),
+      agentRunAdaptive: queuedTurn.agentRunAdaptive ?? false,
       // A pinned provider/model must not inherit a later switch to Auto.
       autoRouting: false,
       ...(queuedTurn.model

@@ -1,4 +1,9 @@
 {
+  "delegatedReply": {
+    "label": "위임 Agent에 답변",
+    "hint": "대기 중인 단계에 답변하세요. task 제어권을 가져오지 않고 기존 위임 권한과 턴 한도로 이어서 실행합니다.",
+    "send": "답변하고 계속 실행"
+  },
   "agentRunBar": {
     "tAKEOVERHINT": "답변으로 이 단계를 안내하면 실행이 계속됩니다. 직접 진행하면 실행이 일시 중지되어 직접 방향을 조정할 수 있습니다.",
     "ariaLabel": "실행: {{value1}}",
@@ -796,5 +801,17 @@
     "presentationCopy519": "단계 인덱스 {{v1}}이 {{v2}}개 단계의 워크플로 범위를 벗어났습니다.",
     "presentationCopy523": "단계 인덱스 {{v1}}이 {{v2}}개 단계의 워크플로 범위를 벗어났습니다.",
     "presentationCopy524": "\"{{v1}}\" 단계는 Stave 동작으로, 프롬프트가 없습니다."
+  },
+  "adaptive": {
+    "enable": "다음 Run에 Balanced 적응 사용",
+    "description": "부모·자식 합산 30턴 · 저장 Agent helper 동시 2개/총 4개 · 부모 1턴 확보. 같은 provider 안에서 모델·effort를 변경하며 고정 설정은 유지합니다.",
+    "title": "적응 실행 자원",
+    "budget": "공통 턴: {{used}} / {{total}} 배정 · {{reserved}} 예약 · {{remaining}} 사용 가능",
+    "helpers": "Helper: {{active}} / 2개 실행 중 · {{launched}} / 4개 시작",
+    "boundary": "부모·자식 턴과 단계 답장을 합산합니다. 시작 실패도 배정한 턴으로 셉니다. 실제 청구 금액은 별도이며 확인되지 않은 비용은 미상으로 남습니다.",
+    "files": "이 Run은 기존 권한으로 첨부 경로의 저장된 파일을 확인합니다. 편집 중인 변경은 먼저 저장하세요. 직접 첨부한 이미지와 문맥 자료는 일반 턴으로 보냅니다.",
+    "route": "Provider: {{provider}} · 모델: {{model}} · effort: {{effort}}. 변경은 최대 2회이며 변경 사이에 2턴을 둡니다.",
+    "pinned": "고정",
+    "eligible": "적응 가능"
   }
 }

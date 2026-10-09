@@ -232,8 +232,10 @@ whose name repeats it.
     recorded before its first turn; a delegation to an agent never runs wider
     than the delegating task's own agent, and work pinned to a commit never
     starts on another.
-16. An agent run's lead task keeps its provider and instructions for the whole
-    agent run; a stage another agent does runs as a delegated task of it.
+16. An agent run keeps its frozen instructions. An opted-in adaptive run and
+    a supervised saved-Agent delegation also keep their admitted provider;
+    legacy primary Auto follows its existing provider-switch setting. A stage
+    another agent does runs as a delegated task, never a stage provider override.
 17. A Local MCP call acts only for the task whose turn made it: the host's
     caller grant names that task, a `parentTaskId` naming another is refused,
     a subagent never starts subagents of its own, and a turn started through
