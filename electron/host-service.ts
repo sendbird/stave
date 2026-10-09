@@ -85,6 +85,7 @@ import { createWorkspacePlanFileWriter } from "./host-service/local-mcp-plan-fil
 import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
+import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
 import { createHostAgentRunRuntime } from "./host-service/supervision/agent-run-host";
 import { invokeAgentRunRuntime } from "./host-service/supervision/agent-run-runtime";
@@ -604,6 +605,17 @@ const wakeUpRuntime = createWakeUpRuntime({
   // refused rather than left waiting for an event that never arrives.
   listCompletedDelegatedRuns: ({ taskId }) =>
     listTaskCompletionSignals({ taskId }),
+  // What makes a pull request watch able to run at all; it reads the
+  // checkout of the task's workspace, where its branch is.
+  readPullRequestWatch: createPullRequestWatchReader({
+    resolveWorkspacePath: async (workspaceId) => {
+      const { repositories } = await localMcpRuntime.loadNormalizedRepositories();
+      return (
+        localMcpRuntime.findWorkspaceRegistration({ repositories, workspaceId })
+          ?.workspacePath ?? null
+      );
+    },
+  }),
   // A consumed receipt that never became a turn has to surface somewhere, or
   // "exactly one follow-up turn or one terminal notification" quietly becomes
   // neither.

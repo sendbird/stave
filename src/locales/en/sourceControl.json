@@ -385,5 +385,13 @@
     "intentviolation": "intent violation",
     "scopedrift": "scope drift",
     "other": "other"
+  },
+  "pullRequestWatch": {
+    "createdTitle": "Watching the pull request",
+    "createdDescription": "Stave wakes {{task}} if its checks fail or the branch conflicts with the base. Manage it in Schedules.",
+    "taskHasScheduleTitle": "Pull request not watched",
+    "taskHasScheduleDescription": "{{task}} already has a check-back schedule. To have Stave wake it on failing checks, change that schedule to a pull request watch in Schedules.",
+    "failedTitle": "Couldn't watch the pull request",
+    "failedFallback": "Stave could not save the pull request watch."
   }
 }

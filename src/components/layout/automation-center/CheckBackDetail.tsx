@@ -1,8 +1,13 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Pause, Pencil, Play, Trash2 } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui";
 import { SCHEDULE_STATE_LABEL, type ScheduleRow } from "@/lib/schedule-rows";
+import {
+  describePullRequestWatchEvents,
+  describePullRequestWatchLastCheck,
+  describePullRequestWatchTarget,
+} from "@/lib/supervision/pull-request-watch-view";
 import type { WakeUp } from "@/lib/supervision/wake-up-policy";
 import { formatRelativeTime } from "./automation-center.utils";
 import { centerStyles } from "./automation-center-view.styles";
@@ -18,6 +23,7 @@ export function CheckBackDetail(props: {
 }) {
   const { t: tI18n } = useTranslation(["automation"]);
   const { row, wakeUp } = props;
+  const status = wakeUp.reasonDetail ? `${SCHEDULE_STATE_LABEL[row.state]} · ${wakeUp.reasonDetail}` : SCHEDULE_STATE_LABEL[row.state];
   return (
     <div className={sx(centerStyles.detailBody)}>
       <div className={sx(centerStyles.detailHeadRow)}>
@@ -39,12 +45,30 @@ export function CheckBackDetail(props: {
         </div>
       </div>
       <dl className={sx(centerStyles.facts)}>
-        <Fact label={tI18n("automation:checkBackDetail.status")} value={wakeUp.reasonDetail ? `${SCHEDULE_STATE_LABEL[row.state]} · ${wakeUp.reasonDetail}` : SCHEDULE_STATE_LABEL[row.state]} />
-        {row.cadence ? <Fact label={tI18n("automation:checkBackDetail.when")} value={row.cadence} /> : null}
-        {row.nextRunAt || row.nextNote ? (
-          <Fact label={tI18n("automation:checkBackDetail.next")} value={row.nextRunAt ? formatRelativeTime(row.nextRunAt) : (row.nextNote ?? "")} />
-        ) : null}
-        <Fact label={tI18n("automation:checkBackDetail.checked")} value={`${wakeUp.occurrenceCount}×`} />
+        <Fact label={tI18n("automation:checkBackDetail.status")} value={status} />
+        {wakeUp.trigger.kind === "pull_request" ? (
+          <>
+            <Fact label={tI18n("automation:pullRequestWatch.factWatching")} value={describePullRequestWatchTarget(wakeUp.pullRequestWatch)} />
+            <Fact label={tI18n("automation:pullRequestWatch.factEvents")} value={describePullRequestWatchEvents(wakeUp.trigger.events)} />
+            <Fact label={tI18n("automation:pullRequestWatch.factLastCheck")} value={describePullRequestWatchLastCheck(wakeUp.pullRequestWatch)} />
+            <Fact
+              label={tI18n("automation:pullRequestWatch.factWoke")}
+              value={
+                wakeUp.maxOccurrences
+                  ? tI18n("automation:pullRequestWatch.wokeOfCap", { count: wakeUp.occurrenceCount, cap: wakeUp.maxOccurrences })
+                  : `${wakeUp.occurrenceCount}×`
+              }
+            />
+          </>
+        ) : (
+          <>
+            {row.cadence ? <Fact label={tI18n("automation:checkBackDetail.when")} value={row.cadence} /> : null}
+            {row.nextRunAt || row.nextNote ? (
+              <Fact label={tI18n("automation:checkBackDetail.next")} value={row.nextRunAt ? formatRelativeTime(row.nextRunAt) : (row.nextNote ?? "")} />
+            ) : null}
+            <Fact label={tI18n("automation:checkBackDetail.checked")} value={`${wakeUp.occurrenceCount}×`} />
+          </>
+        )}
       </dl>
       <div className={sx(centerStyles.footerActions)}>
         {row.toggle ? (

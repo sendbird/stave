@@ -304,6 +304,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   createPrAutoMergeEnabled: boolean;
   /** Merge strategy used when automatic merging is queued. */
   createPrMergeMethod: PrMergeMethod;
+  /**
+   * Watch every pull request the Create PR flow opens and wake the task that
+   * opened it when checks fail or the branch conflicts with its base.
+   */
+  createPrWatchEnabled: boolean;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -671,6 +676,7 @@ export const defaultSettings: AppSettings = {
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
+  createPrWatchEnabled: true,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",

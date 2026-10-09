@@ -854,7 +854,7 @@ function createToolServer(options?: {
     "stave_get_wake_up",
     {
       description:
-        "Read one check-back schedule with its recent occurrences, including why an occurrence fired, deferred, or was skipped.",
+        "Read one check-back schedule with its recent occurrences, including why an occurrence fired, deferred, or was skipped. A pull request watch also reports the pull request it follows and what its last check saw.",
       inputSchema: {
         id: z.string().min(1).describe("Check-back schedule id."),
       },
@@ -866,10 +866,10 @@ function createToolServer(options?: {
     "stave_create_wake_up",
     {
       description:
-        "Attach a check-back schedule to an existing task so it resumes in the same session — on a cadence, or when its subagents finish. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its subagents return. To start a NEW task on a schedule each time, create a start-a-task schedule (stave_create_automation) instead.",
+        "Attach a check-back schedule to an existing task so it resumes in the same session — on a cadence, when its subagents finish, or when its pull request needs fixing. Use a pull_request trigger with `events` from checks_failed, merge_conflict and review_comments to watch the pull request of the task's workspace branch: Stave reads it every 2 minutes and wakes the task once per new failure (failing checks with their links, a conflict with the base, new comments in unresolved review threads), always after any running turn, and stops when the pull request merges or closes. Use a schedule trigger for other standing checks, and a completion trigger to pick a task back up when its subagents return. A task has one check-back schedule. To start a NEW task on a schedule each time, create a start-a-task schedule (stave_create_automation) instead.",
       inputSchema: {
         input: WakeUpUpsertInputSchema.describe(
-          "Check-back schedule definition. `taskId` must name a task that already exists. A completion trigger without `maxOccurrences` is capped by default so the chain cannot recurse forever.",
+          "Check-back schedule definition. `taskId` must name a task that already exists. A completion or pull_request trigger without `maxOccurrences` is capped by default so the chain cannot recurse forever.",
         ),
       },
     },
@@ -883,7 +883,7 @@ function createToolServer(options?: {
     "stave_update_wake_up",
     {
       description:
-        "Replace a check-back schedule's prompt, trigger, expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
+        "Replace a check-back schedule's prompt, trigger (for example a pull request watch's events — what it already reported stays reported), expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
       inputSchema: {
         id: z.string().min(1).describe("Check-back schedule id."),
         input: WakeUpUpsertInputSchema.describe(

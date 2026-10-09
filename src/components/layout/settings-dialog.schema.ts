@@ -322,6 +322,11 @@ export const settingsSections = [
       "reviewer",
       "review skill",
       "second opinion",
+      "pull request",
+      "auto-merge",
+      "watch",
+      "ci",
+      "merge conflict",
     ],
   },
   {

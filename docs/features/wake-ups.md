@@ -7,12 +7,13 @@ menu item, and is called a wake-up only in code, storage and the MCP tool names.
 A task has at most one; `Check back…` on a task that has one edits it. Rows offer
 `Pause` and `Resume`; there is no `Run now`.
 
-A wake-up resumes one existing task, in the same provider session — either on a
-schedule or when work that task delegated finishes. It is the "keep going
-without me" answer for work that is already underway — re-check CI on this PR
-every ten minutes, re-read this dashboard every hour, pick the thread back up
-when the delegated task you handed off returns — as opposed to an automation, which
-mints a brand new task per occurrence.
+A wake-up resumes one existing task, in the same provider session — on a
+schedule, when work that task delegated finishes, or when the task's pull
+request needs fixing. It is the "keep going without me" answer for work that is
+already underway — re-read this dashboard every hour, pick the thread back up
+when the delegated task you handed off returns, fix CI when it fails on the
+pull request this task opened — as opposed to an automation, which mints a brand
+new task per occurrence.
 
 The boundary between the two is fixed in
 [Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md): **an
@@ -36,6 +37,8 @@ wake-up adds is safety around doing that unattended:
 | Stave was closed across several instants | **Catch up once.** The latest instant fires; earlier ones are recorded as skipped. |
 | The same instant, or the same finished child, is delivered twice | The occurrence's idempotency key makes the second a no-op. |
 | Completion cannot be observed for the task | **Stop**, `completion-unobservable`, rather than waiting for an event that will never arrive. |
+| A watched pull request merged, or closed (or can no longer be found) | **Stop**, `pull-request-merged` / `pull-request-closed`. |
+| GitHub stayed unreadable for a watch | **Stop**, `pull-request-unreadable`, after 8 failed reads in a row with a doubling backoff. |
 
 Paused and stopped states always carry a reason. A stopped wake-up is
 terminal: resuming it is refused, because resuming would silently ignore the
@@ -46,7 +49,7 @@ reason it stopped. Add a new one instead.
 The policy is a single ordered decision, in
 [`src/lib/supervision/wake-up-policy.ts`](../../src/lib/supervision/wake-up-policy.ts):
 
-1. Terminal conditions (task gone, archived, expired, capped) — **stop**
+1. Terminal conditions (task gone, archived, expired, capped, watched pull request merged, closed or unreadable) — **stop**
 2. An agent run owns the task's automatic turns — **pause** (`agent-run-active`)
 3. Blocking conditions (identity, runtime, approval, question) — **pause**
 4. Nothing blocking and the pause was automatic — **resume**
@@ -66,8 +69,10 @@ model across the product and anchored day/week schedules keep their local
 wall-clock time across DST.
 
 The trigger is a discriminated union: `{ kind: "schedule" }` walks a cadence,
-`{ kind: "completion" }` waits on delegated work. A completion wake-up has no
-`nextRunAt` at all — it waits on the ledger, not on the clock.
+`{ kind: "completion" }` waits on delegated work, and `{ kind: "pull_request",
+events }` watches the task's pull request. Completion and pull request
+wake-ups have no `nextRunAt` at all — they wait on the ledger or on GitHub, not
+on the clock.
 
 ## Completion
 
@@ -182,6 +187,63 @@ completion signal ever lands, it belongs behind the same `TaskCompletionSignal`
 shape and the `provider_event` classification, so only the arrival changes and
 none of the consume-exactly-once machinery does.
 
+## Pull request watch
+
+A pull request watch wakes its task when the pull request of the task's
+workspace branch needs fixing. In Schedules it reads **Watch a pull request**:
+the row says which pull request it follows, what it wakes on, what the last
+check saw and how many times it woke the task; the editor's `When its pull
+request needs fixing` choice edits its events. The trigger names no pull
+request: it follows the task's branch until it sees one, then keeps reading
+that pull request by number.
+
+| Event | What wakes the task | What the turn is told |
+| --- | --- | --- |
+| `checks_failed` | A check fails on the head commit | The failing checks with links to their logs, and which earlier failures are still failing |
+| `merge_conflict` | GitHub reports the branch as conflicting with its base | The base branch, and to merge or rebase, resolve, run the checks and push |
+| `review_comments` | A new comment in an unresolved, current review thread | The comments with author, file, line and link, framed as feedback to evaluate rather than instructions |
+
+**Created for you on Create PR.** When the Create PR flow opens a pull request
+— including when only queuing auto-merge failed — Stave adds a watch with
+`checks_failed` and `merge_conflict` to the task it was created from. Review
+comments stay opt-in per task, from Schedules or `stave_update_wake_up`.
+**Settings → Prompts → PR Completion → Watch pull requests Stave creates** turns
+this off. A task has one wake-up, so an existing pull request watch is kept and
+an existing check-back schedule is never replaced; a toast says which happened.
+Pull requests created outside that flow are watched only when you add a watch.
+
+**Polling.** The host reads GitHub through the `gh` CLI every 2 minutes per
+watch, outside the serialized wake-up chain, so a slow read never holds up a
+list, an edit or a pause. A read asks only for what the watch needs: the pull
+request itself, its check rows only when the rollup reports a failure, and its
+review threads only when review comments are watched. A failed read doubles the
+interval (up to 30 minutes); 8 in a row stop the watch with
+`pull-request-unreadable`, and one good read resets the count.
+
+**The same failure fires once.** Each fact the watch can wake on has a stable
+key — `checks_failed:<head>:<check>`, `merge_conflict:<head>`,
+`review_comment:<id>` — and is consumed with a `fired` occurrence row, exactly
+like a completion. Polling the same failing check on the same head is one
+receipt and one turn. Another check failing, the same check failing again on a
+new head after a push, or a new comment is a new fact and wakes the task
+again. Everything new on one read is folded into a single turn. A new watch
+reports whatever is already failing once.
+
+**Never during a turn.** A watch that finds something new while the task is
+mid-turn defers, exactly as a due schedule does: the signals stay unconsumed and
+one `deferred` row records the wait. When the turn ends the watch reads GitHub
+again on the very next tick rather than waiting out the interval, so the queued
+wake lands right after the turn, on fresh state — and not at all if that turn
+already fixed it. Approvals, questions, runtime changes and agent runs pause a
+watch the same way they pause any wake-up.
+
+**Bounded.** A pushed fix can fail again and wake the task again with nobody in
+between, so a watch created without `maxOccurrences` is capped at 10 wakes.
+Expiry, pause and resume, receipts, failure notifications and the boot sweeps
+are the wake-up runtime's, unchanged. Like every wake-up it runs Claude and
+Codex tasks through the same supervised-turn path, as the task's own provider
+and model.
+
 ### Identity
 
 A wake-up runs on the wake-up's fingerprint — the provider and model it was
@@ -203,8 +265,9 @@ the runtime's wider fallbacks.
 ## Occurrences
 
 Every firing, deferral, and skip is recorded with an idempotency key of
-`<wakeUpId>:<outcome>:<scheduledFor>`, or, for a completion,
-`<wakeUpId>:<outcome>:completion:<runId>:<stepId>:<attempt>:<status>`. A
+`<wakeUpId>:<outcome>:<scheduledFor>`, for a completion
+`<wakeUpId>:<outcome>:completion:<runId>:<stepId>:<attempt>:<status>`, or, for
+a pull request watch, `<wakeUpId>:<outcome>:pull_request:<signal key>`. A
 unique index on `(wake_up_id, idempotency_key)` turns a duplicate delivery
 into a no-op, and it means repeated deferrals of one instant collapse into a
 single row rather than one per tick.
@@ -220,8 +283,10 @@ forward, so a pruned instant can never come due twice.
 ## Files
 
 - [`src/lib/supervision/wake-up-policy.ts`](../../src/lib/supervision/wake-up-policy.ts) — schemas, catch-up walk, decision policy, transitions. Pure.
+- [`src/lib/supervision/pull-request-watch.ts`](../../src/lib/supervision/pull-request-watch.ts) — the pull request trigger, its state, signals, polling and prompt. Pure.
+- [`electron/host-service/pull-request-watch-reader.ts`](../../electron/host-service/pull-request-watch-reader.ts) — reads the watched pull request through `gh`.
 - [`electron/host-service/wake-up-runtime.ts`](../../electron/host-service/wake-up-runtime.ts) — the tick, the serialized operation chain, the boot sweep.
-- [`electron/persistence/wake-up-store.ts`](../../electron/persistence/wake-up-store.ts) — `wake_ups`, `wake_up_occurrences`.
+- [`electron/persistence/wake-up-store.ts`](../../electron/persistence/wake-up-store.ts) — `wake_ups` (a watch's state in `watch_state_json`), `wake_up_occurrences`.
 - [`electron/host-service/local-mcp-runtime.ts`](../../electron/host-service/local-mcp-runtime.ts) — `getTaskSupervisionSnapshot`.
 - [`electron/host-service/delegated-task-signals.ts`](../../electron/host-service/delegated-task-signals.ts) — `listTaskCompletionSignals`.
 - [`electron/host-service/supervised-turn.ts`](../../electron/host-service/supervised-turn.ts) — `runSupervisedTurn`, the only way a supervisor starts a turn.
@@ -231,8 +296,8 @@ forward, so a pruned instant can never come due twice.
 
 - `stave_list_wake_ups` — optionally scoped to a workspace
 - `stave_get_wake_up` — one wake-up plus recent occurrences and their reasons
-- `stave_create_wake_up` — requires an existing `taskId`
-- `stave_update_wake_up` — also re-accepts the task's current runtime; refused for a stopped wake-up (add a new one instead), and switching trigger kinds resets the fired count so the new trigger's cap starts unspent
+- `stave_create_wake_up` — requires an existing `taskId`; `trigger: { kind: "pull_request", events: [...] }` adds a pull request watch
+- `stave_update_wake_up` — also re-accepts the task's current runtime; refused for a stopped wake-up (add a new one instead), and switching trigger kinds resets the fired count so the new trigger's cap starts unspent. Changing a pull request watch's events keeps what it already reported
 - `stave_set_wake_up_paused` — pause or resume
 - `stave_remove_wake_up` — deletes the wake-up and its history
 

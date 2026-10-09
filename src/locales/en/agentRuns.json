@@ -680,7 +680,8 @@
     "days_one": "in {{count}}d",
     "days_other": "in {{count}}d",
     "history_other": "{{ran}} · {{count}} skipped",
-    "history_one": "{{ran}} · {{count}} skipped"
+    "history_one": "{{ran}} · {{count}} skipped",
+    "watchingPullRequest": "Watching its pull request"
   },
   "library": {
     "createBlankAiStage": "New stage",
@@ -814,5 +815,13 @@
     "presentationCopy519": "Stage index {{v1}} is outside a workflow with {{v2}} stages.",
     "presentationCopy523": "Stage index {{v1}} is outside a workflow with {{v2}} stages.",
     "presentationCopy524": "Stage \"{{v1}}\" is a Stave action and has no prompt."
+  },
+  "pullRequestWatch": {
+    "stopUnreadable_one": "GitHub could not be read {{count}} time in a row, so this watch stopped. Last error: {{error}}",
+    "stopUnreadable_other": "GitHub could not be read {{count}} times in a row, so this watch stopped. Last error: {{error}}",
+    "stopMissing": "Pull request #{{number}} can no longer be found, so this watch stopped.",
+    "stopMerged": "Pull request #{{number}} merged, so this watch stopped.",
+    "stopClosed": "Pull request #{{number}} closed without merging, so this watch stopped.",
+    "deferred": "The task is mid-turn; the watch wakes it once that turn finishes."
   }
 }

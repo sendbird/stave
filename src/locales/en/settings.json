@@ -460,6 +460,10 @@
           "label": "Rebase",
           "description": "Rebase and merge without a merge commit."
         }
+      },
+      "watch": {
+        "title": "Watch pull requests Stave creates",
+        "description": "Wakes the task that created the pull request when its checks fail or its branch conflicts with the base, after any turn that is running. Edit or remove each watch in Schedules."
       }
     },
     "inlineCompletion": {

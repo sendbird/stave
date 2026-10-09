@@ -15,6 +15,10 @@ import {
   type WakeUp,
   type WakeUpOccurrence,
 } from "../../src/lib/supervision/wake-up-policy";
+import {
+  PullRequestWatchStateSchema,
+  type PullRequestWatchState,
+} from "../../src/lib/supervision/pull-request-watch";
 // temporary-migration: agent-run-wake-up-pause-reason
 import { migrateLegacyWakeUpPauseReason } from "./agent-run-legacy-names";
 // end temporary-migration: agent-run-wake-up-pause-reason
@@ -48,6 +52,7 @@ interface WakeUpRow {
   skipped_count: number;
   max_occurrences: number | null;
   expires_at: string | null;
+  watch_state_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -83,6 +88,7 @@ const WAKE_UP_COLUMNS = `
   skipped_count,
   max_occurrences,
   expires_at,
+  watch_state_json,
   created_at,
   updated_at
 `;
@@ -99,6 +105,21 @@ const OCCURRENCE_COLUMNS = `
   scheduled_for,
   recorded_at
 `;
+
+/**
+ * A pull request watch's state is a cache of what it last saw, not part of the
+ * agreement, so an unreadable value resets it rather than making the whole row
+ * unparseable — which would stop every wake-up from being evaluated.
+ */
+function parseWatchState(raw: string | null): PullRequestWatchState | null {
+  if (!raw) return null;
+  try {
+    const parsed = PullRequestWatchStateSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
 
 function parseWakeUpRow(row: WakeUpRow): WakeUp {
   return WakeUpSchema.parse({
@@ -119,6 +140,7 @@ function parseWakeUpRow(row: WakeUpRow): WakeUp {
     skippedCount: row.skipped_count,
     maxOccurrences: row.max_occurrences,
     expiresAt: row.expires_at,
+    pullRequestWatch: parseWatchState(row.watch_state_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });
@@ -198,6 +220,11 @@ export class WakeUpStore {
       CREATE INDEX IF NOT EXISTS idx_wake_up_occurrences_recent
         ON wake_up_occurrences (wake_up_id, recorded_at DESC);
     `);
+    // Additive: databases from before pull request watches gain the nullable column.
+    const columns = this.db.prepare("PRAGMA table_info(wake_ups)").all() as { name: string }[];
+    if (!columns.some((column) => column.name === "watch_state_json")) {
+      this.db.exec("ALTER TABLE wake_ups ADD COLUMN watch_state_json TEXT");
+    }
     // temporary-migration: agent-run-wake-up-pause-reason
     migrateLegacyWakeUpPauseReason(this.db);
     // end temporary-migration: agent-run-wake-up-pause-reason
@@ -279,9 +306,10 @@ export class WakeUpStore {
            skipped_count,
            max_occurrences,
            expires_at,
+           watch_state_json,
            created_at,
            updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            prompt = excluded.prompt,
            trigger_json = excluded.trigger_json,
@@ -296,6 +324,7 @@ export class WakeUpStore {
            skipped_count = excluded.skipped_count,
            max_occurrences = excluded.max_occurrences,
            expires_at = excluded.expires_at,
+           watch_state_json = excluded.watch_state_json,
            updated_at = excluded.updated_at`,
       )
       .run(
@@ -316,6 +345,7 @@ export class WakeUpStore {
         wakeUp.skippedCount,
         wakeUp.maxOccurrences,
         wakeUp.expiresAt,
+        wakeUp.pullRequestWatch ? JSON.stringify(wakeUp.pullRequestWatch) : null,
         wakeUp.createdAt,
         wakeUp.updatedAt,
       );

@@ -573,6 +573,10 @@ export function createAppStorePersistenceOptions() {
         raw.createPrMergeMethod === "rebase"
           ? raw.createPrMergeMethod
           : defaultSettings.createPrMergeMethod;
+      state.settings.createPrWatchEnabled =
+        typeof raw.createPrWatchEnabled === "boolean"
+          ? raw.createPrWatchEnabled
+          : defaultSettings.createPrWatchEnabled;
       const legacyRepositoryInitCommand = normalizeRepositoryWorkspaceInitCommand({
         value: raw.newWorkspaceInitCommand,
       });

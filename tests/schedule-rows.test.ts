@@ -112,6 +112,55 @@ describe("schedule rows", () => {
     expect(row?.lastResult.label).toBe("Checked 2×");
   });
 
+  test("a pull request watch says what it watches, what it wakes on and what the last check saw", () => {
+    const watchState = {
+      pullRequest: { number: 7, url: "https://github.com/acme/app/pull/7", title: "feat: uploads" },
+      lastCheckedAt: "2026-10-02T09:58:00.000Z",
+      lastSeen: { state: "OPEN" as const, failingChecks: 2, conflicting: true, reviewComments: 0, checksPending: false },
+      consecutiveReadFailures: 0,
+      lastReadError: null,
+      pendingSince: null,
+    };
+    const [row] = buildScheduleRows({
+      automations: [],
+      runs: [],
+      wakeUps: [
+        wakeUp({
+          trigger: { kind: "pull_request", events: ["merge_conflict", "checks_failed"] },
+          nextRunAt: null,
+          pullRequestWatch: watchState,
+        }),
+      ],
+      summaries: [summary({ triggerKind: "pull_request" })],
+      taskTitleById: new Map([["task-1", "Add uploads"]]),
+    });
+    expect(row?.kind).toBe("check-back");
+    expect(row?.kindLabel).toBe("Watch a pull request");
+    expect(row?.name).toBe("Watch the pull request of Add uploads");
+    expect(row?.cadence).toBe("On failing checks or merge conflicts");
+    expect(row?.nextNote).toBe("PR #7 · feat: uploads");
+    expect(row?.lastResult).toEqual({ label: "2 failing checks · Conflicts with base", tone: "danger", at: "2026-10-02T09:58:00.000Z" });
+    expect(row?.toggle).toBe("pause");
+
+    const [woken] = buildScheduleRows({
+      automations: [],
+      runs: [],
+      wakeUps: [
+        wakeUp({
+          trigger: { kind: "pull_request", events: ["checks_failed"] },
+          nextRunAt: null,
+          occurrenceCount: 2,
+          lastOccurrenceAt: "2026-10-02T09:00:00.000Z",
+          pullRequestWatch: { ...watchState, pullRequest: null, lastSeen: null, lastCheckedAt: null },
+        }),
+      ],
+      summaries: [],
+      taskTitleById: new Map(),
+    });
+    expect(woken?.lastResult).toMatchObject({ label: "Woke the task 2 times", tone: "accent" });
+    expect(woken?.nextNote).toBe("Waiting for a pull request on the task's branch");
+  });
+
   test("paused and stopped check-backs sort after running ones and stopped cannot resume", () => {
     const rows = buildScheduleRows({
       automations: [],

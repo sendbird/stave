@@ -100,6 +100,7 @@ export function PromptsSection(args: {
     promptPrDescription,
     createPrAutoMergeEnabled,
     createPrMergeMethod,
+    createPrWatchEnabled,
     promptInlineCompletion,
     workspaceTurnSummaryPrompt,
   ] = useAppStore(
@@ -110,6 +111,7 @@ export function PromptsSection(args: {
           state.settings.promptPrDescription,
           state.settings.createPrAutoMergeEnabled,
           state.settings.createPrMergeMethod,
+          state.settings.createPrWatchEnabled,
           state.settings.promptInlineCompletion,
           state.settings.workspaceTurnSummaryPrompt,
         ] as const,
@@ -198,6 +200,14 @@ export function PromptsSection(args: {
             ]}
           />
         </LabeledField>
+        <SwitchField
+          title={t("settings:promptsSection.prCompletion.watch.title")}
+          description={t("settings:promptsSection.prCompletion.watch.description")}
+          checked={createPrWatchEnabled}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { createPrWatchEnabled: checked } })
+          }
+        />
       </SettingsCard>
       <SettingsCard
         title={t("settings:promptsSection.inlineCompletion.title")}

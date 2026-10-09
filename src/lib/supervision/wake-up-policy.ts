@@ -2,8 +2,8 @@ import { i18n } from "@/i18n/runtime";
 /**
  * Supervisor domain: the pure half of a wake-up.
  *
- * A wake-up resumes one existing task — on a schedule, or when work that task
- * delegated finishes. It never creates a task — that is an automation's job, and
+ * A wake-up resumes one existing task — on a schedule, when work that task
+ * delegated finishes, or when its pull request needs fixing. It never creates a task — that is an automation's job, and
  * the boundary is asserted in `tests/agent-platform-boundaries.test.ts`.
  *
  * Used by:
@@ -26,6 +26,17 @@ import {
   AutomationScheduleSchema,
   type AutomationSchedule,
 } from "../automations";
+import {
+  decidePullRequestWatchStop,
+  initialPullRequestWatchState,
+  normalizePullRequestWatchEvents,
+  PULL_REQUEST_WATCH_LIMITS,
+  PullRequestWatchStateSchema,
+  WakeUpPullRequestTriggerSchema,
+  type PullRequestWatchObservation,
+  type PullRequestWatchSignal,
+  type PullRequestWatchSnapshot,
+} from "./pull-request-watch";
 
 export const WAKE_UP_LIMITS = Object.freeze({
   maxIdChars: 256,
@@ -162,11 +173,27 @@ export const WakeUpCompletionTriggerSchema = z
   })
   .strict();
 
+/**
+ * The third trigger, `pull_request`, watches the task's pull request and is
+ * defined with the rest of the watch in `./pull-request-watch.ts`.
+ */
 export const WakeUpTriggerSchema = z.discriminatedUnion("kind", [
   WakeUpScheduleTriggerSchema,
   WakeUpCompletionTriggerSchema,
+  WakeUpPullRequestTriggerSchema,
 ]);
 export type WakeUpTrigger = z.infer<typeof WakeUpTriggerSchema>;
+
+/**
+ * The canonical form of a trigger, applied whenever a wake-up is written: a
+ * pull request watch's events are deduplicated and ordered, so an edit that
+ * lists the same events differently is not a change.
+ */
+export function normalizeWakeUpTrigger(trigger: WakeUpTrigger): WakeUpTrigger {
+  return trigger.kind === "pull_request"
+    ? { kind: "pull_request", events: normalizePullRequestWatchEvents(trigger.events) }
+    : trigger;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Completion observability                                                    */
@@ -328,6 +355,12 @@ export const WAKE_UP_STOP_REASONS = [
    * layer exists to prevent.
    */
   "completion-unobservable",
+  /** The watched pull request merged. */
+  "pull-request-merged",
+  /** The watched pull request closed without merging, or can no longer be found. */
+  "pull-request-closed",
+  /** GitHub stayed unreadable for `maxConsecutiveReadFailures` reads in a row. */
+  "pull-request-unreadable",
 ] as const;
 export const WakeUpStopReasonSchema = z.enum(
   WAKE_UP_STOP_REASONS,
@@ -399,6 +432,8 @@ export const WakeUpSchema = WakeUpUpsertInputSchema.extend({
   lastOccurrenceAt: z.string().datetime().nullable(),
   occurrenceCount: z.number().int().min(0),
   skippedCount: z.number().int().min(0),
+  /** Set for a `pull_request` trigger only: what the watch has seen so far. */
+  pullRequestWatch: PullRequestWatchStateSchema.nullable().default(null),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 }).superRefine((wakeUp, context) => {
@@ -493,6 +528,19 @@ export function buildWakeUpCompletionIdempotencyKey(args: {
   signalKey: string;
 }) {
   return `${args.wakeUpId}:${args.outcome}:completion:${args.signalKey}`;
+}
+
+/**
+ * The pull request counterpart: keyed by the fact (a check failing on a head,
+ * a conflict on a head, one review comment), so the same failure observed on
+ * every poll is consumed once.
+ */
+export function buildWakeUpPullRequestIdempotencyKey(args: {
+  wakeUpId: string;
+  outcome: WakeUpOccurrenceOutcome;
+  signalKey: string;
+}) {
+  return `${args.wakeUpId}:${args.outcome}:pull_request:${args.signalKey}`;
 }
 
 /**
@@ -626,6 +674,11 @@ export interface WakeUpObservation {
    * turns, so the wake-up pauses until it ends.
    */
   agentRunActive: boolean;
+  /**
+   * The watched pull request, for a `pull_request` trigger. Absent (or
+   * `not-read`) on ticks that did not read GitHub.
+   */
+  pullRequest?: PullRequestWatchObservation;
 }
 
 export type WakeUpDecision =
@@ -647,6 +700,16 @@ export type WakeUpDecision =
        */
       action: "fire-completion";
       completions: TaskCompletionSignal[];
+      observedAt: string;
+    }
+  | {
+      /**
+       * One wake-up for everything new on the pull request: three failing
+       * checks and a conflict found on one read are one turn, not four.
+       */
+      action: "fire-pull-request";
+      pullRequest: PullRequestWatchSnapshot;
+      signals: PullRequestWatchSignal[];
       observedAt: string;
     }
   | { action: "pause"; reason: WakeUpPauseReason; detail: string }
@@ -753,6 +816,14 @@ export function decideWakeUpAction(args: {
       detail: i18n.t("agentRuns:wakeUpPolicy.detail6", { value1: wakeUp.maxOccurrences }),
     };
   }
+  // A merged or closed pull request ends its watch; so does a GitHub that
+  // stayed unreadable. Terminal, so it outranks every pause below.
+  if (wakeUp.trigger.kind === "pull_request") {
+    const ended = decidePullRequestWatchStop(observation.pullRequest);
+    if (ended) {
+      return { action: "stop", reason: ended.reason, detail: ended.detail };
+    }
+  }
 
   // 2. A manual pause outranks every automatic one. Without this a pending
   //    approval would overwrite the user's pause reason, and answering it would
@@ -840,6 +911,31 @@ export function decideWakeUpAction(args: {
       completions: [...observation.completions]
         .sort(compareCompletionSignals)
         .slice(0, WAKE_UP_LIMITS.maxCoalescedCompletions),
+      observedAt: now.toISOString(),
+    };
+  }
+
+  // 5b. Pull request. Due means "the last read found something no earlier wake
+  //     consumed". A busy task defers: the signals stay unconsumed, and the
+  //     runtime re-reads the moment the turn ends, so the queued wake fires
+  //     after it on fresh state — and not at all if that turn fixed it.
+  if (wakeUp.trigger.kind === "pull_request") {
+    const read = observation.pullRequest;
+    if (read?.kind !== "read" || !read.pullRequest || read.signals.length === 0) {
+      return { action: "idle" };
+    }
+    if (observation.hasActiveTurn) {
+      return {
+        action: "defer",
+        // Stable until the next wake, so a long turn leaves one deferral row.
+        dueAt: wakeUp.lastOccurrenceAt ?? wakeUp.createdAt,
+        detail: i18n.t("agentRuns:pullRequestWatch.deferred"),
+      };
+    }
+    return {
+      action: "fire-pull-request",
+      pullRequest: read.pullRequest,
+      signals: read.signals.slice(0, PULL_REQUEST_WATCH_LIMITS.maxSignalsPerWake),
       observedAt: now.toISOString(),
     };
   }
@@ -1010,6 +1106,37 @@ export function applyWakeUpDecision(args: {
       }
       return woken;
     }
+    case "fire-pull-request": {
+      // One occurrence per wake, however many signals it folded in, so the
+      // cap bounds turns — the thing that loops when a fix fails again.
+      const occurrenceCount = wakeUp.occurrenceCount + 1;
+      const woken: WakeUp = {
+        ...wakeUp,
+        state: "scheduled",
+        pauseReason: null,
+        stopReason: null,
+        reasonDetail: null,
+        occurrenceCount,
+        lastOccurrenceAt: decision.observedAt,
+        nextRunAt: null,
+        pullRequestWatch: wakeUp.pullRequestWatch
+          ? { ...wakeUp.pullRequestWatch, pendingSince: null }
+          : null,
+        updatedAt,
+      };
+      if (
+        woken.maxOccurrences !== null &&
+        occurrenceCount >= woken.maxOccurrences
+      ) {
+        return {
+          ...woken,
+          state: "stopped",
+          stopReason: "occurrence-cap-reached",
+          reasonDetail: i18n.t("agentRuns:wakeUpPolicy.reasonDetail3", { value1: woken.maxOccurrences }),
+        };
+      }
+      return woken;
+    }
     default:
       decision satisfies never;
       return wakeUp;
@@ -1027,6 +1154,11 @@ export function applyWakeUpDecision(args: {
 export function resolveWakeUpOccurrenceCap(
   input: Pick<WakeUpUpsertInput, "trigger" | "maxOccurrences">,
 ) {
+  if (input.trigger.kind === "pull_request") {
+    // Same loop, different source: a pushed fix can fail again and wake the
+    // task again with nobody in between.
+    return input.maxOccurrences ?? PULL_REQUEST_WATCH_LIMITS.defaultOccurrenceCap;
+  }
   if (input.trigger.kind !== "completion") {
     return input.maxOccurrences;
   }
@@ -1043,8 +1175,10 @@ export function createWakeUp(args: {
   now: Date;
 }): WakeUp {
   const timestamp = args.now.toISOString();
+  const trigger = normalizeWakeUpTrigger(args.input.trigger);
   return WakeUpSchema.parse({
     ...args.input,
+    trigger,
     maxOccurrences: resolveWakeUpOccurrenceCap(args.input),
     id: args.id,
     repositoryPath: args.repositoryPath,
@@ -1063,6 +1197,8 @@ export function createWakeUp(args: {
     lastOccurrenceAt: null,
     occurrenceCount: 0,
     skippedCount: 0,
+    pullRequestWatch:
+      trigger.kind === "pull_request" ? initialPullRequestWatchState() : null,
     createdAt: timestamp,
     updatedAt: timestamp,
   });

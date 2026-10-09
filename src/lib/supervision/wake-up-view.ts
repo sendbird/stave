@@ -4,6 +4,7 @@ import { i18n } from "@/i18n/runtime";
  * why when it paused or stopped. Pure.
  */
 import { formatAutomationSchedule } from "@/lib/automation-presentation";
+import { describePullRequestWatchEvents } from "./pull-request-watch-view";
 import type { WakeUp, WakeUpSummary } from "./wake-up-policy";
 
 function formatIn(ms: number) {
@@ -16,6 +17,7 @@ function formatIn(ms: number) {
 }
 
 export function describeWakeUpTrigger(wakeUp: WakeUp): string {
+  if (wakeUp.trigger.kind === "pull_request") return describePullRequestWatchEvents(wakeUp.trigger.events);
   if (wakeUp.trigger.kind !== "schedule") return i18n.t("agentRuns:wakeUpView.describeWakeUpTrigger");
   // "Every 1 hour" reads as "Every hour".
   return formatAutomationSchedule(wakeUp.trigger.schedule, undefined, { compact: true });
@@ -32,6 +34,9 @@ export function describeWakeUpStatus(summary: WakeUpSummary, now: number): WakeU
       if (summary.triggerKind === "completion") {
         return { text: i18n.t("agentRuns:wakeUpView.text"), tone: "active" };
       }
+      if (summary.triggerKind === "pull_request") {
+        return { text: i18n.t("agentRuns:wakeUpView.watchingPullRequest"), tone: "active" };
+      }
       return summary.nextRunAt
         ? { text: i18n.t("agentRuns:wakeUpView.text2", { value1: formatIn(Date.parse(summary.nextRunAt) - now) }), tone: "active" }
         : { text: i18n.t("agentRuns:wakeUpView.text3"), tone: "active" };
@@ -44,6 +49,8 @@ export function describeWakeUpStatus(summary: WakeUpSummary, now: number): WakeU
 
 export function describeWakeUpHistory(summary: WakeUpSummary): string | null {
   if (summary.occurrenceCount === 0 && summary.skippedCount === 0) return null;
+  // A watch's occurrences are the times it woke the task, not checks: it checks every few minutes.
+  if (summary.triggerKind === "pull_request") return i18n.t("automation:pullRequestWatch.woke", { count: summary.occurrenceCount });
   const ran = i18n.t("agentRuns:wakeUpView.extraCopy409", { value1: summary.occurrenceCount, count: summary.occurrenceCount });
   return summary.skippedCount > 0 ? i18n.t("agentRuns:wakeUpView.history", { ran, count: summary.skippedCount }) : ran;
 }

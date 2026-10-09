@@ -22,6 +22,7 @@ import {
 import { ContinueWorkspaceDialog } from "@/components/layout/ContinueWorkspaceDialog";
 import { PrContextDialog } from "@/components/layout/PrContextDialog";
 import { CreatePullRequestDialog } from "@/components/layout/pull-request/CreatePullRequestDialog";
+import { watchCreatedPullRequest } from "@/components/layout/pull-request/auto-pull-request-watch";
 import {
   FIELD_LABEL_CLASS,
   InlineNoticeBanner,
@@ -1224,10 +1225,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         description: [
           prResult.stderr || i18n.t("sourceControl:topBarOpenPR.ghPrCreateFailed"),
           prResult.prUrl ? `PR URL: ${prResult.prUrl}` : "",
-        ]
-          .filter(Boolean)
-          .join(" "),
+        ].filter(Boolean).join(" "),
       });
+      if (prResult.prUrl && submitWorkspaceId) void watchCreatedPullRequest({ state: useAppStore.getState(), workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
       setStep("ready");
       return;
     }
@@ -1283,6 +1283,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         prUrl: prResult.prUrl,
         prTitle: title,
       });
+      void watchCreatedPullRequest({ state, workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
     }
 
     // Refresh PR status to pick up the new PR
