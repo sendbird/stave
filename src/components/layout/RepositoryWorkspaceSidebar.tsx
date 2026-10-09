@@ -69,9 +69,9 @@ import {
   compareFleetTaskStatus,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
-import { type SidebarWorkQueueLane } from "@/lib/fleet/sidebar-work-queue";
 import { workQueueAttentionPriority } from "@/lib/fleet/work-attention-order";
 import { WorkQueueExpandButton } from "./WorkQueueExpandButton";
+import { WorkQueueLaneList } from "./WorkQueueLaneList";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { useSidebarWorkQueueGroups } from "./useSidebarWorkQueueGroups";
@@ -85,7 +85,6 @@ import {
   isWorkspaceActivationKey,
   WorkspaceHoverPreviewTooltip,
   WorkspaceLeadingStatusIcon,
-  WorkQueueRow,
   RepositoryAttentionAlertIcon,
   WorkspaceRespondingCountBadge,
   InlineWorkspaceLabel,
@@ -145,9 +144,6 @@ export function RepositoryWorkspaceSidebar(args: {
   >({});
   // Lane collapse is deliberately session-local, matching `collapsedByRepositoryPath`:
   // both answer "what am I ignoring right now", not "how do I like my sidebar".
-  const [collapsedWorkQueueLanes, setCollapsedWorkQueueLanes] = useState<
-    Partial<Record<SidebarWorkQueueLane, boolean>>
-  >({});
   const [busyRepositoryPath, setBusyRepositoryPath] = useState<string | null>(null);
   const [busyWorkspaceKey, setBusyWorkspaceKey] = useState<string | null>(null);
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
@@ -1003,75 +999,12 @@ export function RepositoryWorkspaceSidebar(args: {
               ) : visibleRepositories.length === 0 ? (
                 <SidebarEmptyState kind="no-matches" query={workspaceSearchQuery} onClearSearch={() => setWorkspaceSearchQuery("")} />
               ) : isWorkQueueView ? (
-                <div className={sx(repositorySidebarStyles.navStack)}>
-                  {workQueueGroups.length === 0 ? (
-                    <SidebarEmptyState kind="no-workspaces" />
-                  ) : (
-                    workQueueGroups.map((group) => {
-                      const laneCollapsed =
-                        collapsedWorkQueueLanes[group.lane] === true;
-                      return (
-                        <div
-                          key={group.lane}
-                          className={sx(repositorySidebarStyles.laneStack)}
-                        >
-                          <AdsButton
-                            layout="host"
-                            type="button"
-                            onClick={() =>
-                              setCollapsedWorkQueueLanes((previous) => ({
-                                ...previous,
-                                [group.lane]: !laneCollapsed,
-                              }))
-                            }
-                            data-testid={`work-queue-lane-${group.lane}`}
-                            aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.workQueueLane", { value1: group.label })}
-                            aria-expanded={!laneCollapsed}
-                            xstyle={[
-                              repositorySidebarStyles.laneButton,
-                              transition.colors,
-                            ]}
-                          >
-                            <ChevronRight
-                              className={sx(
-                                repositorySidebarStyles.laneChevron,
-                                !laneCollapsed &&
-                                  repositorySidebarStyles.laneChevronOpen,
-                                transition.transform,
-                              )}
-                            />
-                            <span
-                              className={sx(repositorySidebarStyles.laneLabel)}
-                            >
-                              {group.label}
-                            </span>
-                            <span
-                              className={sx(repositorySidebarStyles.laneCount)}
-                            >
-                              {group.entries.length}
-                            </span>
-                          </AdsButton>
-                          {laneCollapsed
-                            ? null
-                            : group.entries.map((entry) => (
-                                <WorkQueueRow
-                                  key={entry.workspaceId}
-                                  entry={entry}
-                                  attentionKind={
-                                    highestAttentionByWorkspaceId[
-                                      entry.workspaceId
-                                    ]?.kind
-                                  }
-                                  onOpen={(target) =>
-                                    void handleRepositoryWorkspaceOpen(target)
-                                  }
-                                />
-                              ))}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                <WorkQueueLaneList
+                  groups={workQueueGroups}
+                  highestAttentionByWorkspaceId={highestAttentionByWorkspaceId}
+                  attentionItemsByWorkspaceId={attentionItemsByWorkspaceId}
+                  onOpen={(target) => void handleRepositoryWorkspaceOpen(target)}
+                />
               ) : (
                 <>
                   <div className={sx(repositorySidebarStyles.repositoryStack)}>

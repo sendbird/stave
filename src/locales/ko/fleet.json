@@ -155,7 +155,9 @@
     "inProgress": "진행 중",
     "inReview": "리뷰 중",
     "idle": "유휴",
-    "openFullView": "Fleet 보기에서 전체 작업 대기열 열기"
+    "openFullView": "Fleet 보기에서 전체 작업 대기열 열기",
+    "snoozed": "미뤄 둠",
+    "settled": "정리됨"
   },
   "workspaceActivity": {
     "active": "활성",

@@ -19,6 +19,10 @@ import type {
   RetainedTurnActivityByTask,
 } from "@/lib/providers/turn-status";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
+import type {
+  WorkspaceSettledReason,
+  WorkspaceSettlementRecord,
+} from "@/lib/fleet/workspace-settlement";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
 import type { SkillCatalogEntry, SkillCatalogRoot } from "@/lib/skills/types";
@@ -164,6 +168,11 @@ export interface AppState
   workspaceLastActiveAtById: Record<string, string>;
   /** PR info cache per workspace – transient, not persisted across sessions. */
   workspacePrInfoById: Record<string, WorkspacePrInfo>;
+  /**
+   * Work queue settling per workspace (settled, snoozed, kept active, last
+   * message). Persisted; see `src/lib/fleet/workspace-settlement.ts`.
+   */
+  workspaceSettlementById: Record<string, WorkspaceSettlementRecord>;
   /** Claude/Codex usage for the bottom status bar – transient, not persisted. */
   rateLimitsSnapshot: RateLimitsSnapshotResponse | null;
   /**
@@ -511,6 +520,19 @@ export interface AppState
     toPresetId: string;
   }) => void;
   resetTaskPresetsToDefault: () => void;
+  /**
+   * Settles workspaces and returns each one's previous record, so the caller
+   * can offer an undo through `restoreWorkspaceSettlements`.
+   */
+  settleWorkspaces: (args: {
+    settlements: Array<{ workspaceId: string; reason: WorkspaceSettledReason }>;
+  }) => Record<string, WorkspaceSettlementRecord | undefined>;
+  unsettleWorkspace: (args: { workspaceId: string }) => WorkspaceSettlementRecord | undefined;
+  snoozeWorkspace: (args: { workspaceId: string; until: string }) => WorkspaceSettlementRecord | undefined;
+  setWorkspaceAutoSettle: (args: { workspaceId: string; enabled: boolean }) => void;
+  restoreWorkspaceSettlements: (args: {
+    records: Record<string, WorkspaceSettlementRecord | undefined>;
+  }) => void;
   upsertMacro: (args: { macro: Macro }) => { ok: boolean; error?: string };
   removeMacro: (args: { macroId: string }) => void;
   reorderMacros: (args: { orderedIds: string[] }) => void;

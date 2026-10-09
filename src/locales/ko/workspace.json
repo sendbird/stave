@@ -1262,5 +1262,23 @@
     "message41": "이 에이전트는 이미 작업을 마쳤습니다.",
     "message42": "이 에이전트는 현재 턴에서 더 이상 실행 중이 아닙니다.",
     "message43": "이 제공업체는 턴을 종료하지 않고 특정 에이전트에게 지시를 보낼 수 없습니다."
+  },
+  "workQueueSettlement": {
+    "autoSettled_other": "워크스페이스 {{count}}개를 정리했습니다",
+    "autoSettledDetail": "마지막 메시지 뒤에 PR이 머지됐거나 한동안 활동이 없었습니다. 아무것도 삭제하지 않았으며, 작업 대기열의 정리됨에서 다시 꺼낼 수 있습니다.",
+    "undo": "되돌리기",
+    "settled": "{{name}} 정리됨",
+    "snoozed": "{{name}} 미뤄 둠",
+    "actions": "{{name}} 작업 대기열 메뉴",
+    "settle": "정리",
+    "snoozeHour": "1시간 미루기",
+    "snoozeTomorrow": "내일까지 미루기",
+    "snoozeNextWeek": "다음 주까지 미루기",
+    "bringBack": "대기열로 다시 꺼내기",
+    "neverAuto": "자동으로 정리하지 않기",
+    "reasonManual": "직접 정리함",
+    "reasonMerged": "PR 머지됨",
+    "reasonInactive": "최근 활동 없음",
+    "until": "{{time}}까지"
   }
 }

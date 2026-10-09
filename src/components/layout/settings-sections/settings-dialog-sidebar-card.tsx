@@ -5,7 +5,13 @@ import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
-import { LabeledField, SettingsCard, SwitchField } from "../settings-dialog.shared";
+import { LabeledField, SelectField, SettingsCard, SwitchField } from "../settings-dialog.shared";
+import {
+  normalizeWorkspaceSettleAfterDays,
+  WORKSPACE_SETTLE_AFTER_DAY_OPTIONS,
+} from "@/lib/fleet/workspace-settlement";
+
+const SETTLE_AFTER_DAYS_OFF = "off";
 
 const SIDEBAR_NAV_VIEW_FIELDS: readonly {
   value: SidebarNavView;
@@ -24,6 +30,10 @@ export function SidebarSettingsCard() {
   const sidebarShowAgents = useAppStore((state) => state.settings.sidebarShowAgents);
   const sidebarShowAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const sidebarNavView = useAppStore((state) => state.settings.sidebarNavView);
+  const settleOnMerge = useAppStore((state) => state.settings.workQueueSettleOnMerge);
+  const settleAfterDays = useAppStore((state) =>
+    normalizeWorkspaceSettleAfterDays(state.settings.workQueueSettleAfterDays),
+  );
   const updateSettings = useAppStore((state) => state.updateSettings);
   return (
     <SettingsCard
@@ -78,6 +88,34 @@ export function SidebarSettingsCard() {
           ))}
         </div>
       </LabeledField>
+      <SwitchField
+        title={t("settings:themeSection.sidebar.settle.onMerge.title")}
+        description={t("settings:themeSection.sidebar.settle.onMerge.description")}
+        checked={settleOnMerge}
+        onCheckedChange={(checked) =>
+          updateSettings({ patch: { workQueueSettleOnMerge: checked } })
+        }
+      />
+      <SelectField
+        title={t("settings:themeSection.sidebar.settle.afterDays.title")}
+        description={t("settings:themeSection.sidebar.settle.afterDays.description")}
+        value={settleAfterDays === null ? SETTLE_AFTER_DAYS_OFF : String(settleAfterDays)}
+        onChange={(value) =>
+          updateSettings({
+            patch: {
+              workQueueSettleAfterDays:
+                value === SETTLE_AFTER_DAYS_OFF ? null : Number(value),
+            },
+          })
+        }
+        options={[
+          { value: SETTLE_AFTER_DAYS_OFF, label: t("settings:themeSection.sidebar.settle.afterDays.off") },
+          ...WORKSPACE_SETTLE_AFTER_DAY_OPTIONS.map((days) => ({
+            value: String(days),
+            label: t("settings:themeSection.sidebar.settle.afterDays.days", { count: days }),
+          })),
+        ]}
+      />
     </SettingsCard>
   );
 }

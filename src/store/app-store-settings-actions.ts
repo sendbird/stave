@@ -1,3 +1,4 @@
+import { normalizeWorkspaceSettleAfterDays } from "@/lib/fleet/workspace-settlement";
 import { i18n } from "@/i18n/runtime";
 import { providersWithChangedAccount, resetRateLimitsForProviders } from "@/store/rate-limits-account-reset";
 import type { StoreApi } from "zustand";
@@ -397,6 +398,13 @@ export function createSettingsActions(args: {
           ? {}
           : {
               sidebarNavView: normalizeSidebarNavView(patch.sidebarNavView),
+            }),
+        ...(patch.workQueueSettleAfterDays === undefined
+          ? {}
+          : {
+              workQueueSettleAfterDays: normalizeWorkspaceSettleAfterDays(
+                patch.workQueueSettleAfterDays,
+              ),
             }),
         ...(patch.language === undefined
           ? {}

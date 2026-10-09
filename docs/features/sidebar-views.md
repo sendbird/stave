@@ -79,12 +79,51 @@ Every workspace, grouped into four lanes in fixed priority order:
   Agents surface (agents at work in the sidebar, and each agent's Work list), so
   what needs you is first everywhere.
 - A workspace appears in exactly one lane, and an empty lane renders no header.
-- Each lane header shows its row count and collapses on click. Collapsing is
-  session-local — it answers "what am I ignoring right now", not "how do I like
-  my sidebar" — so it resets on restart, the same way collapsed repositories do.
+- After the lanes come two shelves for workspaces set aside: `Snoozed` and
+  `Settled` (see [Settling](#settling)).
+- Each header shows its row count and collapses on click. `In progress` and the
+  two shelves start collapsed: a running agent needs nothing from you, and the
+  shelves exist to be out of the way. Collapsing is session-local — it answers
+  "what am I ignoring right now", not "how do I like my sidebar" — so it resets
+  on restart, the same way collapsed repositories do.
 - The trailing text on a row is the repository name. The queue is the one view that
   interleaves repositories, so it has to state in text what the tree states by
-  position.
+  position. On a shelf it says why the row is there instead (`PR merged`,
+  `No recent activity`, `Settled`, or `Until` a time).
+- Hover a row for its `⋮` menu: **Settle**, **Snooze** for an hour, until
+  tomorrow, or until next week, **Bring back to the queue** on a shelved row, and
+  **Never settle automatically**.
+
+### Settling
+
+Settling takes a workspace out of the lanes once nothing in it needs you. It
+does not touch the workspace: the worktree, branch, conversation, and terminals
+stay as they are, and the workspace still appears in `Repositories`.
+
+- **Settle** puts it on the `Settled` shelf. **Snooze** puts it on `Snoozed`
+  until the time you pick.
+- Every settle or snooze you make shows a toast with **Undo**.
+- A shelved workspace comes back by itself when there is new activity in it: a
+  message you send, a turn, or a new result. Anything that needs you — a
+  question, an approval, a failed run, a running turn — always shows in its lane,
+  shelved or not. Opening a shelved workspace just to look does not bring it
+  back; use **Bring back to the queue** for that.
+
+Two rules settle a workspace automatically. Both skip the workspace you are in,
+the repository's default workspace, a workspace with an open pull request, and
+anything not in `Idle`:
+
+| Rule | Settles when | Setting |
+| --- | --- | --- |
+| After the PR merges | its pull request merged after your last message there | `Settings → Design → Sidebar → Settle after the PR merges` (on by default) |
+| When inactive | no message, turn, or visit for the chosen time | `Settings → Design → Sidebar → Settle when inactive` (7 days by default; 3, 14, 30 days, or off) |
+
+- If you keep working in a workspace after its PR merges, the merge rule leaves
+  it alone, so a merged workspace you plan to continue stays in the queue.
+- Automatic settles show one toast for the batch, with **Undo**.
+- **Bring back to the queue** and **Undo** restart both rules from that moment.
+- **Never settle automatically** exempts one workspace from both rules; you can
+  still settle it by hand.
 
 ### Search
 
@@ -96,19 +135,23 @@ the queue exactly the way it narrows the tree.
 - The current view is stored as a single preference and persists across
   restarts. The header toggle and the settings control write the same key.
 - An unrecognized stored value falls back to `Repositories`.
+- Settle and snooze state, the last message time used by the merge rule, and
+  the per-workspace opt-out are stored on this computer with the rest of the
+  sidebar state. Archiving a workspace removes them.
 
 ## Limitations And Advanced Options
 
 - The collapsed icon rail shows one flat list regardless of view; the toggle is
   an expanded-sidebar control. The rail keeps **Fleet View**, **Agents** and
   **AI usage** as icons; a dot on Agents means an agent needs you.
-- Row actions (`⋮` menu, drag-to-reorder, rename in place) exist only in
-  `Repositories`. Open the workspace from the queue and use the tree, Fleet View, or
-  workspace settings for those.
+- Drag-to-reorder, rename in place, and the workspace `⋮` menu (task history,
+  workspace settings, archive) exist only in `Repositories`. The queue's own `⋮`
+  menu is for settling.
 - The `Work queue` lanes are derived from attention items and task state only.
-  The last lane is `Idle`, not `Done`: a merged PR and a workspace nobody has
-  touched are indistinguishable without subscribing the sidebar to PR status, so
-  claiming "Done" would overstate what the data supports.
+  The last lane is `Idle`, not `Done`; a merged workspace moves to `Settled`
+  through the merge rule instead.
+- Pull request status is read for the current repository's workspaces, so in
+  other repositories only the inactivity rule settles automatically.
 
 ## Troubleshooting
 
@@ -125,12 +168,22 @@ the queue exactly the way it narrows the tree.
   bare header.
 - Fix: none needed.
 
+### A Workspace Left The Queue
+
+- Symptom: a workspace you expected is not in any lane.
+- Cause: it was settled or snoozed, by you or by a rule.
+- Fix: expand `Settled` or `Snoozed` and choose **Bring back to the queue** from
+  its `⋮` menu, or just send a message in it. To stop automatic settling, turn the
+  rules off in `Settings → Design → Sidebar`, or choose **Never settle
+  automatically** for that workspace.
+
 ### The Queue Looks Long
 
 - Symptom: many rows under `Idle`.
 - Cause: the queue lists every workspace on purpose, so it can reach anything
   the tree can reach.
-- Fix: collapse the `Idle` lane header, or filter with the search box.
+- Fix: settle or snooze what you are done with, collapse the `Idle` lane header,
+  or filter with the search box.
 
 ## Related Docs
 

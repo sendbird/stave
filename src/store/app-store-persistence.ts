@@ -3,6 +3,10 @@ import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeMyStandards } from "@/lib/agents/standards";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
+import {
+  normalizeWorkspaceSettleAfterDays,
+  normalizeWorkspaceSettlementMap,
+} from "@/lib/fleet/workspace-settlement";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { normalizeJiraConnectorSettings } from "@/lib/jira-connector/types";
 import { normalizeTrackerIssuesSettings } from "@/lib/tracker-issues/settings";
@@ -170,6 +174,7 @@ export function createAppStorePersistenceOptions() {
       workspacePathById: state.workspacePathById,
       workspaceDefaultById: state.workspaceDefaultById,
       workspaceLastActiveAtById: state.workspaceLastActiveAtById,
+      workspaceSettlementById: state.workspaceSettlementById,
       taskCheckpointById: state.taskCheckpointById,
       compareRunsById: state.compareRunsById,
       isDarkMode: state.isDarkMode,
@@ -276,6 +281,15 @@ export function createAppStorePersistenceOptions() {
           : defaultSettings.sidebarShowAiUsage;
       state.settings.sidebarNavView = normalizeSidebarNavView(
         raw.sidebarNavView,
+      );
+      state.settings.workQueueSettleOnMerge =
+        typeof raw.workQueueSettleOnMerge === "boolean"
+          ? raw.workQueueSettleOnMerge
+          : defaultSettings.workQueueSettleOnMerge;
+      state.settings.workQueueSettleAfterDays = normalizeWorkspaceSettleAfterDays(
+        raw.workQueueSettleAfterDays === undefined
+          ? defaultSettings.workQueueSettleAfterDays
+          : raw.workQueueSettleAfterDays,
       );
       // `language` once held an unused free-text value ("English"); anything
       // that is not a supported locale id normalizes to the default.
@@ -761,6 +775,10 @@ export function createAppStorePersistenceOptions() {
         ),
         knownWorkspaceIds,
       });
+      state.workspaceSettlementById = normalizeWorkspaceSettlementMap(
+        state.workspaceSettlementById,
+        knownWorkspaceIds,
+      );
       if (legacyRepositoryInitCommand) {
         state.recentRepositories = state.recentRepositories.map((repository) => ({
           ...cloneRecentRepositoryState(repository),

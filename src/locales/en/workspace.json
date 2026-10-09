@@ -1279,5 +1279,24 @@
     "message41": "This agent has already finished.",
     "message42": "This agent is no longer running in the current turn.",
     "message43": "This provider cannot steer one agent without ending the turn."
+  },
+  "workQueueSettlement": {
+    "autoSettled_one": "Settled {{count}} workspace",
+    "autoSettled_other": "Settled {{count}} workspaces",
+    "autoSettledDetail": "A pull request merged after your last message, or nothing happened for a while. Nothing was deleted; open Settled in the Work queue to bring one back.",
+    "undo": "Undo",
+    "settled": "Settled {{name}}",
+    "snoozed": "Snoozed {{name}}",
+    "actions": "Work queue actions for {{name}}",
+    "settle": "Settle",
+    "snoozeHour": "Snooze for an hour",
+    "snoozeTomorrow": "Snooze until tomorrow",
+    "snoozeNextWeek": "Snooze until next week",
+    "bringBack": "Bring back to the queue",
+    "neverAuto": "Never settle automatically",
+    "reasonManual": "Settled",
+    "reasonMerged": "PR merged",
+    "reasonInactive": "No recent activity",
+    "until": "Until {{time}}"
   }
 }

@@ -187,6 +187,19 @@
       "aiUsage": {
         "title": "AI Usage Shortcut",
         "description": "Show the AI usage entry in the sidebar header area. Its Agent performance tab compares completed runs, time, and reported costs."
+      },
+      "settle": {
+        "onMerge": {
+          "title": "Settle after the PR merges",
+          "description": "Move a workspace to the Work queue's Settled section when its pull request merges after your last message there. Its worktree, branch, and conversation stay as they are, and a new message brings it back."
+        },
+        "afterDays": {
+          "title": "Settle when inactive",
+          "description": "Move a workspace to Settled after this long without a message, a turn, or a visit. Nothing is deleted.",
+          "off": "Off",
+          "days_one": "{{count}} day",
+          "days_other": "{{count}} days"
+        }
       }
     },
     "presets": {

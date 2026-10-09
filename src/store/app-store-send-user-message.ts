@@ -1,3 +1,4 @@
+import { noteWorkspaceMessage } from "@/lib/fleet/workspace-settlement";
 import { i18n } from "@/i18n/runtime";
 import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
@@ -1117,6 +1118,15 @@ export function createSendUserMessageAction(args: {
       });
       const prompt = normalizedPrompt;
       submittedPromptDraft.commit();
+      // A message is real activity: it brings a settled workspace back, and
+      // the Work queue's merge rule only settles after a merge that follows it.
+      set((nextState) => ({
+        workspaceSettlementById: noteWorkspaceMessage(
+          nextState.workspaceSettlementById,
+          taskWorkspaceId,
+          new Date().toISOString(),
+        ),
+      }));
 
       if (taskWorkspaceId === get().activeWorkspaceId) {
         set((nextState) => {

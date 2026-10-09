@@ -96,3 +96,72 @@ export function buildSidebarWorkQueueLanes<T extends { workspaceId: string }>(ar
     return [{ lane, label: SIDEBAR_WORK_QUEUE_LANE_LABEL[lane], entries }];
   });
 }
+
+/**
+ * The Work queue's sections: the four lanes, then two shelves for workspaces
+ * the user (or an automatic rule) set aside. Shelved workspaces still exist
+ * exactly as before; see `workspace-settlement.ts`.
+ */
+export type SidebarWorkQueueSection = SidebarWorkQueueLane | "snoozed" | "settled";
+
+export const SIDEBAR_WORK_QUEUE_SECTION_LABEL: Record<
+  "snoozed" | "settled",
+  string
+> = {
+  get snoozed() { return i18n.t("fleet:sidebarWorkQueue.snoozed"); },
+  get settled() { return i18n.t("fleet:sidebarWorkQueue.settled"); },
+};
+
+/**
+ * Sections that start folded: running agents need nothing from the user (the
+ * lane count still shows them), and the shelves exist to be out of the way.
+ */
+export const SIDEBAR_WORK_QUEUE_SECTIONS_COLLAPSED_BY_DEFAULT: ReadonlySet<SidebarWorkQueueSection> =
+  new Set<SidebarWorkQueueSection>(["in-progress", "snoozed", "settled"]);
+
+export interface SidebarWorkQueueSectionGroup<T> {
+  section: SidebarWorkQueueSection;
+  label: string;
+  entries: T[];
+}
+
+/**
+ * Moves shelved entries out of their lanes. A shelved entry keeps its rank
+ * order; snoozed entries sort by when they return, settled ones by newest
+ * first.
+ */
+export function buildSidebarWorkQueueSections<T extends { workspaceId: string }>(args: {
+  groups: readonly SidebarWorkQueueGroup<T>[];
+  shelfOf: (entry: T) => { section: "snoozed" | "settled"; at: string } | null;
+}): SidebarWorkQueueSectionGroup<T>[] {
+  const snoozed: Array<{ entry: T; at: string }> = [];
+  const settled: Array<{ entry: T; at: string }> = [];
+  const sections: SidebarWorkQueueSectionGroup<T>[] = [];
+  for (const group of args.groups) {
+    const kept: T[] = [];
+    for (const entry of group.entries) {
+      const shelf = args.shelfOf(entry);
+      if (shelf?.section === "snoozed") snoozed.push({ entry, at: shelf.at });
+      else if (shelf?.section === "settled") settled.push({ entry, at: shelf.at });
+      else kept.push(entry);
+    }
+    if (kept.length > 0) sections.push({ section: group.lane, label: group.label, entries: kept });
+  }
+  if (snoozed.length > 0) {
+    snoozed.sort((left, right) => left.at.localeCompare(right.at));
+    sections.push({
+      section: "snoozed",
+      label: SIDEBAR_WORK_QUEUE_SECTION_LABEL.snoozed,
+      entries: snoozed.map((item) => item.entry),
+    });
+  }
+  if (settled.length > 0) {
+    settled.sort((left, right) => right.at.localeCompare(left.at));
+    sections.push({
+      section: "settled",
+      label: SIDEBAR_WORK_QUEUE_SECTION_LABEL.settled,
+      entries: settled.map((item) => item.entry),
+    });
+  }
+  return sections;
+}

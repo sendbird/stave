@@ -160,7 +160,9 @@
     "inProgress": "In progress",
     "inReview": "In review",
     "idle": "Idle",
-    "openFullView": "Open the full Work queue in Fleet View"
+    "openFullView": "Open the full Work queue in Fleet View",
+    "snoozed": "Snoozed",
+    "settled": "Settled"
   },
   "workspaceActivity": {
     "active": "Active",

@@ -174,6 +174,26 @@ export const repositorySidebarStyles = stylex.create({
 
   /* -------------------------------------------------------- work-queue rows */
   queueRow: { minWidth: 0 },
+  /** The row's button and its hover menu; reveals the menu like a tree row. */
+  queueItem: {
+    [ROW_ACTION_OPACITY]: {
+      default: "0",
+      ":hover": "1",
+      ":has(:focus-visible)": "1",
+    },
+    [ROW_ACTION_EVENTS]: {
+      default: "none",
+      ":hover": "auto",
+      ":has(:focus-visible)": "auto",
+    },
+    [ROW_COUNT_OPACITY]: {
+      default: "1",
+      ":hover": "0",
+      ":has(:focus-visible)": "0",
+    },
+    minWidth: 0,
+    position: "relative",
+  },
   queueButton: {
     alignItems: "center",
     borderRadius: vars["--ads-radius-control"],

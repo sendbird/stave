@@ -11,6 +11,7 @@ import type {
   LensSessionScope,
 } from "@/lib/lens/lens.types";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
+import { DEFAULT_WORKSPACE_SETTLE_AFTER_DAYS } from "@/lib/fleet/workspace-settlement";
 import type {
   ClaudePluginMode,
   ClaudeSettingSource,
@@ -139,6 +140,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * value — the sidebar reopens in whatever you last switched to.
    */
   sidebarNavView: SidebarNavView;
+  /** Work queue: settle a workspace once its PR merges after your last message. */
+  workQueueSettleOnMerge: boolean;
+  /** Work queue: settle after this many days without activity; `null` is off. */
+  workQueueSettleAfterDays: number | null;
   /** User-installed custom theme definitions (persisted in localStorage). */
   userCustomThemes: CustomThemeDefinition[];
   themeOverrides: Record<ThemeModeName, ThemeOverrideValues>;
@@ -603,6 +608,8 @@ export const defaultSettings: AppSettings = {
   sidebarShowAgents: true,
   sidebarShowAiUsage: true,
   sidebarNavView: "projects",
+  workQueueSettleOnMerge: true,
+  workQueueSettleAfterDays: DEFAULT_WORKSPACE_SETTLE_AFTER_DAYS,
   userCustomThemes: [],
   themeOverrides: {
     light: {},
