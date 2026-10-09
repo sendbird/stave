@@ -1,5 +1,6 @@
 import { registerFilesystemHandlers } from "./filesystem";
 import { registerInlineCompletionHandlers } from "./inline-completion";
+import { registerToolImageHandlers } from "./tool-images";
 import { registerAtelierConnectorHandlers } from "./atelier-connector";
 import { registerBrowserHandlers } from "./browser";
 import { registerCraneConnectorHandlers } from "./crane-connector";
@@ -61,6 +62,7 @@ export function registerHandlers() {
   registerLspHandlers();
   registerEslintHandlers();
   registerInlineCompletionHandlers();
+  registerToolImageHandlers();
   registerMetricsHandlers();
   registerStorageHandlers();
   registerNotificationHandlers();

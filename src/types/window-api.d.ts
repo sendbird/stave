@@ -3057,6 +3057,12 @@ interface WindowApi {
     subscribeCloseShortcut?: (listener: () => void) => () => void;
     subscribeAppQuitRequested?: (listener: () => void) => () => void;
   };
+  /** Images Stave's tools returned; see `src/lib/tool-images`. */
+  toolImages?: {
+    read: (args: { imageId: string }) => Promise<
+      { ok: true; dataUrl: string } | { ok: false; error: string }
+    >;
+  };
   shell?: {
     openExternal?: (args: {
       url: string;

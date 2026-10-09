@@ -688,6 +688,12 @@
     "commandResult3": "Waiting for output…",
     "commandResult4": "No output."
   },
+  "toolOutputImages": {
+    "label": "Image {{index}}",
+    "open": "Open {{label}} full size",
+    "loading": "Loading image…",
+    "missing": "This image is no longer available."
+  },
   "turnEventDecisions": {
     "title": "Steps",
     "label": "Arguments",

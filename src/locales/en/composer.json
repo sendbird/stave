@@ -716,5 +716,11 @@
         "description": "Reachable hot paths, query growth, rendering and resource leaks."
       }
     }
+  },
+  "mermaid": {
+    "drawing": "Drawing the diagram…",
+    "failed": "This diagram could not be drawn, so its source is shown.",
+    "showCode": "Show code",
+    "showDiagram": "Show diagram"
   }
 }

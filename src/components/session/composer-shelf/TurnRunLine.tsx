@@ -20,6 +20,9 @@ import {
   resolveTurnActivityRestMark,
 } from "@/components/session/turn-activity.utils";
 import { Loader } from "@/components/ui";
+import { useScopedTaskId } from "@/components/session/task-scope-context";
+import { useAppStore } from "@/store/app.store";
+import { selectLatestTurnThought } from "./turn-thought";
 import {
   formatProviderTurnElapsedDuration,
   formatProviderTurnIdleDuration,
@@ -64,6 +67,11 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
   const turnError = activity?.turnError ?? null;
   const turnErrorRecoverable = activity?.turnErrorRecoverable ?? false;
   const now = useTurnClock(completedAt == null ? surface.activeTurnId : null);
+  const taskId = useScopedTaskId();
+  // A string, so the selector stays stable between provider flushes.
+  const latestThought = useAppStore((state) =>
+    selectLatestTurnThought(state.messagesByTask[taskId]),
+  );
   const reducedMotion = usePrefersReducedMotion();
   const isStalled =
     activity?.stalledAt != null &&
@@ -161,81 +169,91 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
   const words = [label, headline.text, headline.detail]
     .filter(Boolean)
     .join(" · ");
+  // Only while the agent is working on its own: a pending question or a
+  // stall already says what the line needs to say.
+  const thought = tone === "active" && completedAt == null ? latestThought : null;
 
   return (
-    <ShelfRunLine
-      testId="composer-shelf-run"
-      dataState={tone}
-      ariaLabel={i18n.t("composer:turnRunLine.ariaLabel")}
-      announcement={label}
-      mark={
-        <span
-          data-testid="turn-activity-loader"
-          data-rest-mark={restMark ?? undefined}
-          className={sx(styles.markSlot)}
-        >
-          {restMark ? (
-            <TurnRestMark outcome={restMark} />
-          ) : (
-            <Loader
-              aria-hidden
-              cadence="reduced"
-              className={
-                activity
-                  ? toProviderWaveToneClass({ providerId: activity.providerId })
-                  : undefined
-              }
-              paused={tone !== "active" && tone !== "steering"}
-              size="sm"
-              variant={loaderVariant}
-            />
-          )}
-        </span>
-      }
-      text={
-        <ShelfRunText
-          label={label}
-          tone={SHELF_RUN_TONE_INK[tone]}
-          title={words}
-          narrow={todo ? `${todo.done}/${todo.total}` : null}
-          parts={[
-            headline.text ? (
-              <span className={sx(styles.strong)}>
-                {headline.live ? (
-                  <TextShimmer active={!reducedMotion}>
-                    {headline.text}
-                  </TextShimmer>
-                ) : (
-                  headline.text
-                )}
-              </span>
-            ) : null,
-            headline.detail,
-          ]}
-        />
-      }
-      progress={todo ? <ShelfTodoProgressView progress={todo} /> : null}
-      meta={
-        elapsed ? (
-          <span title={i18n.t("composer:turnRunLine.title", { value1: elapsed })}>
-            <span className={sx(styles.visuallyHidden)}>{i18n.t("composer:turnRunLine.meta")}</span>
-            {elapsed}
-          </span>
-        ) : null
-      }
-      actions={
-        props.onStop && completedAt == null ? (
-          <Button
-            variant="quiet"
-            size="xs"
-            onClick={props.onStop}
-            xstyle={styles.quiet}
+    <>
+      <ShelfRunLine
+        testId="composer-shelf-run"
+        dataState={tone}
+        ariaLabel={i18n.t("composer:turnRunLine.ariaLabel")}
+        announcement={label}
+        mark={
+          <span
+            data-testid="turn-activity-loader"
+            data-rest-mark={restMark ?? undefined}
+            className={sx(styles.markSlot)}
           >
-            {i18n.t("composer:turnRunLine.actions")}</Button>
-        ) : null
-      }
-      panel={props.panel}
-      detail={props.detail}
-    />
+            {restMark ? (
+              <TurnRestMark outcome={restMark} />
+            ) : (
+              <Loader
+                aria-hidden
+                cadence="reduced"
+                className={
+                  activity
+                    ? toProviderWaveToneClass({ providerId: activity.providerId })
+                    : undefined
+                }
+                paused={tone !== "active" && tone !== "steering"}
+                size="sm"
+                variant={loaderVariant}
+              />
+            )}
+          </span>
+        }
+        text={
+          <ShelfRunText
+            label={label}
+            tone={SHELF_RUN_TONE_INK[tone]}
+            title={words}
+            narrow={todo ? `${todo.done}/${todo.total}` : null}
+            parts={[
+              headline.text ? (
+                <span className={sx(styles.strong)}>
+                  {headline.live ? (
+                    <TextShimmer active={!reducedMotion}>
+                      {headline.text}
+                    </TextShimmer>
+                  ) : (
+                    headline.text
+                  )}
+                </span>
+              ) : null,
+              headline.detail,
+            ]}
+          />
+        }
+        progress={todo ? <ShelfTodoProgressView progress={todo} /> : null}
+        meta={
+          elapsed ? (
+            <span title={i18n.t("composer:turnRunLine.title", { value1: elapsed })}>
+              <span className={sx(styles.visuallyHidden)}>{i18n.t("composer:turnRunLine.meta")}</span>
+              {elapsed}
+            </span>
+          ) : null
+        }
+        actions={
+          props.onStop && completedAt == null ? (
+            <Button
+              variant="quiet"
+              size="xs"
+              onClick={props.onStop}
+              xstyle={styles.quiet}
+            >
+              {i18n.t("composer:turnRunLine.actions")}</Button>
+          ) : null
+        }
+        panel={props.panel}
+        detail={props.detail}
+      />
+      {thought ? (
+        <p className={sx(styles.thought)} data-testid="composer-shelf-thought" title={thought}>
+          {thought}
+        </p>
+      ) : null}
+    </>
   );
 });

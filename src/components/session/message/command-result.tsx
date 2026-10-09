@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Terminal } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ads/components/Button";
 import { CappedViewport } from "@/components/ads/components/CappedViewport";
@@ -8,7 +8,9 @@ import { agentSurface } from "@/components/ads/recipes/agent-surface";
 import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
 import { sx } from "@/components/ads/utils/stylex";
 
-import { commandResultStyles as styles } from "./command-result.styles";
+import { tokenizeShellCommand } from "@/lib/shell-command-tokens";
+
+import { commandResultStyles as styles, shellTokenStyles } from "./command-result.styles";
 
 /** How long the copy action stays acknowledged before returning to rest. */
 const COPIED_MS = 1600;
@@ -53,7 +55,7 @@ export function CommandResult(args: {
       <div className={sx(styles.header)}>
         <Terminal aria-hidden className={sx(styles.glyph)} size={controlIconSizes.sm} />
         <code className={sx(agentSurface.meta, styles.command)} title={command}>
-          {command}
+          <ShellCommandText command={command} />
         </code>
         <Button
           onClick={copy}
@@ -79,5 +81,22 @@ export function CommandResult(args: {
         </span>
       )}
     </div>
+  );
+}
+
+/** The command line with its program, flags, quoting and risky parts told apart. */
+function ShellCommandText(props: { command: string }) {
+  const tokens = useMemo(() => tokenizeShellCommand(props.command), [props.command]);
+  return (
+    <>
+      {tokens.map((token, index) => (
+        <span
+          key={index}
+          className={token.kind === "text" ? undefined : sx(shellTokenStyles[token.kind])}
+        >
+          {token.text}
+        </span>
+      ))}
+    </>
   );
 }

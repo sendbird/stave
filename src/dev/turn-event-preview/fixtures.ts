@@ -28,6 +28,35 @@ const tool = (state: ToolUsePart["state"]): ToolUsePart => ({
         ? "12 pass\n0 fail\nCompleted in 2.8s"
         : undefined,
 });
+/** A 240×120 checkerboard, as an MCP image block a tool returned. */
+const PREVIEW_TOOL_IMAGE = "iVBORw0KGgoAAAANSUhEUgAAAPAAAAB4CAIAAABD1OhwAAAB00lEQVR42u3cMQ0AIBAEQRwhCNmooEIBCQK+5CoyCQImf1vT+piRt/aJPB6el9cciEfQBuMRtMF4BM3DI2geQTsQj6ANxiNog/EImodH0DyCdiAeQRuMR9AG4xE0D4+geQTtQDyCNhiPoA3GI2geHkHzCNqBeARtMB5BG4wnFLRD8/zkETSPoA3GI2iD8Qiah0fQPIJ2IB5BG4xH0AbjETQPj6B5BO1APII2GI+gDcYjaB4eQfMI2oF4BG0wHkEbjEfQPDyC5hG0A/EI2mA8gjYYTypoh+bxc5LBeARtMB5B8/AImkfQDsQjaIPxCNpgPILm4RE0j6AdiEfQBuMRtMF4BM3DI2geQTsQj6ANxiNog/EImodH0DyCdiAeQRuMR9AG4xE0D08N2qF5/JxkMB5BG4xH0Dw8guYRtAPxCNpgPII2GI+geXgEzSNoB+IRtMF4BG0wHkHz8AiaR9AOxCNog/EI2mA8gubhETSPoB2IR9AG4xG0wXgEzcNTg3ZoHj8nGYxH0AbjETQPj6B5BO1APII2GI+gDcYjaB4eQfMI2oF4BG0wHkEbjEfQPDyC5hG0A/EI2mA8gjYYj6B5eATNI2gH4hG0wXgEbTAeQfPwlHcBl8EKVQ6msngAAAAASUVORK5CYII=";
+
+const dangerousCommand = (): ToolUsePart => ({
+  type: "tool_use",
+  toolUseId: "preview-dangerous-command",
+  toolName: "Bash",
+  input: JSON.stringify({
+    command: "cd packages/app && rm -rf dist node_modules/.cache && FOO=1 bun install && git push --force origin HEAD # retry",
+  }),
+  state: "output-available",
+  elapsedSeconds: 4,
+  output: "Everything up-to-date",
+});
+
+const imageTool = (): ToolUsePart => ({
+  type: "tool_use",
+  toolUseId: "preview-image-tool",
+  toolName: "mcp__figma__get_screenshot",
+  input: JSON.stringify({ nodeId: "12:34" }),
+  state: "output-available",
+  output: JSON.stringify({
+    content: [
+      { type: "text", text: "Frame 12:34" },
+      { type: "image", data: PREVIEW_TOOL_IMAGE, mimeType: "image/png" },
+    ],
+  }),
+});
+
 const approval = (state: ApprovalPart["state"]): ApprovalPart => ({
   type: "approval",
   toolName: "Bash",
@@ -178,5 +207,16 @@ export function createEventSamples(): EventSample[] {
       ],
     },
     { title: "응답 대기 · 아직 이벤트 없음", streaming: true, parts: [] },
+    { title: "셸 명령 강조 · 위험 플래그", parts: [dangerousCommand(), { type: "text", text: "푸시했습니다." }] },
+    {
+      title: "Mermaid 다이어그램",
+      parts: [
+        {
+          type: "text",
+          text: "요청 흐름은 다음과 같습니다.\n\n```mermaid\nflowchart LR\n  Composer[Composer] --> IPC[IPC]\n  IPC --> Runtime[Provider runtime]\n  Runtime -->|events| Store[(Store)]\n  Store --> Composer\n```\n\n각 단계는 비동기입니다.",
+        },
+      ],
+    },
+    { title: "도구 결과 이미지", parts: [imageTool(), { type: "text", text: "프레임을 확인했습니다." }] },
   ];
 }

@@ -45,7 +45,7 @@ when there is no run, usage-limit pause, review or queued message to show.
 | State | Shelf |
 | --- | --- |
 | Idle | Nothing. A queue left after you stopped a turn, or restored after a restart, keeps its own row. |
-| A turn is running | The run line: a status mark, `Working · <current step>`, the to-do count and cells, the elapsed time, **Stop**, the panel button and the details toggle. |
+| A turn is running | The run line: a status mark, `Working · <current step>`, the to-do count and cells, the elapsed time, **Stop**, the panel button and the details toggle. While the agent reasons, its newest thought shows in italics under the line, up to two lines, so you can stop a turn heading the wrong way without opening the details. |
 | Running with queued messages | The run line, then the queue line. |
 | Waiting on an approval or a question | The request's card asks above the shelf; the run line turns amber and reads `Waiting for approval` or `Waiting for your input` without asking again. The details stay folded behind the card. |
 | Stalled | The run line turns amber and reads `Stalled · No updates for 2m`, with how to stop or interrupt it. |
@@ -78,6 +78,23 @@ toggle during a run lasts until that run ends; the next run starts from the
 setting again. Stave saves every setting with its value, so an install that
 already had this switch keeps the value it had; turn it off once in Settings
 to start runs folded.
+
+### Steps In The Conversation
+
+The steps a turn took also stay in its reply, folded under the reasoning
+summary. A few kinds read better than plain text:
+
+- **Commands** are colored by part: the program in bold, flags, quoted text,
+  variables, operators like `&&` and `|`, and comments. Parts that can destroy
+  work — `rm -rf`, `sudo`, `git push --force`, `git reset --hard`,
+  `git branch -D` — are red.
+- **Images** a tool returned show as thumbnails in that step; choose one to see
+  it full size. This covers Lens screenshots for every provider, and images
+  from other MCP tools when the provider kept them (Codex does; Claude Code drops
+  them before Stave sees them).
+- **Mermaid diagrams** in a reply (a fenced `mermaid` code block) are drawn once
+  the reply finishes, in the current light or dark theme. **Show code** switches
+  to the source; a diagram that cannot be drawn shows its source instead.
 
 ### The Queue
 

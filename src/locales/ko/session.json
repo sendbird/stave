@@ -684,6 +684,12 @@
     "commandResult3": "출력 대기 중…",
     "commandResult4": "출력이 없습니다."
   },
+  "toolOutputImages": {
+    "label": "이미지 {{index}}",
+    "open": "{{label}} 크게 보기",
+    "loading": "이미지를 불러오는 중…",
+    "missing": "이 이미지는 더 이상 볼 수 없습니다."
+  },
   "turnEventDecisions": {
     "title": "단계",
     "label": "인수",

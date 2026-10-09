@@ -3,6 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { parseToolOutputImages } from "../../src/lib/tool-images/tool-images";
+import { createToolImageStore } from "../../electron/main/tool-images/tool-image-store";
 import {
   E2E_WORKSPACE_ID,
   launchStave,
@@ -450,6 +452,21 @@ test("Claim A: a parked guest answers stave_lens_screenshot with the page's pixe
   const state = await hostState();
   expect(state.opacity).toBe("0");
   expect(state.placeholders).toBe(0);
+});
+
+test("a screenshot is also kept for the conversation, referenced ahead of the image", async () => {
+  const result = await callTool("stave_lens_screenshot", {});
+  expect(result.isError, result.text).toBe(false);
+  // The reference comes first, so a provider that cuts the result short keeps it.
+  expect(result.content[0]?.type).toBe("text");
+  const parsed = parseToolOutputImages(result.text);
+  expect(parsed.images).toHaveLength(1);
+  const stored = parsed.images[0]!;
+  if (stored.kind !== "stored") throw new Error("expected a stored image reference");
+  expect(stored.width).toBeGreaterThanOrEqual(1280);
+  const userData = await stave.app.evaluate(({ app }) => app.getPath("userData"));
+  const kept = await createToolImageStore({ rootDir: () => path.join(userData, "tool-images") }).read(stored.imageId);
+  expect(kept?.base64).toBe(readScreenshotBase64(result));
 });
 
 test("Claim A: the frame is live, not a stale one, and dwarfs a blank page", async () => {

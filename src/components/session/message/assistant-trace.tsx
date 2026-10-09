@@ -68,6 +68,8 @@ import {
   type AssistantTraceEntry,
 } from "./assistant-trace-builder";
 import { CommandResult } from "./command-result";
+import { ToolOutputImages } from "./tool-output-images";
+import { parseToolOutputImages } from "@/lib/tool-images/tool-images";
 import {
   planProgressCount,
   TraceApproval,
@@ -413,7 +415,9 @@ function AssistantTraceEntryView(args: {
       const isWeb = normalized === "websearch" || normalized === "webfetch";
       const isError = entry.part.state === "output-error";
       const streamingInput = entry.part.state === "input-streaming";
-      const output = entry.part.output?.trim() ?? "";
+      // Images come out of the text: a screenshot is a picture, not base64.
+      const toolOutput = parseToolOutputImages(entry.part.output);
+      const output = toolOutput.text.trim();
       const command =
         toolSummary?.kind === "command" ? toolSummary.text : entry.part.input;
 
@@ -463,6 +467,9 @@ function AssistantTraceEntryView(args: {
             ) : null}
             {isWeb && !isError ? (
               <TraceCitations output={entry.part.output} />
+            ) : null}
+            {toolOutput.images.length > 0 ? (
+              <ToolOutputImages images={toolOutput.images} />
             ) : null}
           </ToolRun>
         </StepRail.Step>

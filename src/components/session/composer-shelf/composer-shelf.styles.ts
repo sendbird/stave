@@ -114,6 +114,25 @@ export const shelfStyles = stylex.create({
     height: 20,
   },
   /**
+   * The newest thought under the run line, aligned with its words (row
+   * padding + the 20px mark + the gap) and held to two lines.
+   */
+  thought: {
+    color: vars["--ads-color-text-muted"],
+    display: "-webkit-box",
+    fontSize: vars["--ads-font-size-caption"],
+    fontStyle: "italic",
+    lineHeight: vars["--ads-line-height-normal"],
+    margin: 0,
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    paddingBlockEnd: vars["--ads-space-4"],
+    paddingInlineEnd: vars["--ads-space-12"],
+    paddingInlineStart: `calc(${vars["--ads-space-12"]} + 20px + ${vars["--ads-space-8"]})`,
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
+  },
+  /**
    * A wrapper inside the mark centers its glyph as a flex box. A bare span is
    * a block with a text line, so an inline-flex loader in it rides the font's
    * baseline and strut and lands off the row's center.

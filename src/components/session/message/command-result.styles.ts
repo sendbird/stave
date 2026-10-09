@@ -70,3 +70,22 @@ export const commandResultStyles = stylex.create({
     lineHeight: vars["--ads-line-height-tight"],
   },
 });
+
+/**
+ * Command line token inks. All semantic text tokens, so every built-in and
+ * custom theme colors them; danger keeps its weight too, so it still stands
+ * out where a theme's red sits close to its body text.
+ */
+export const shellTokenStyles = stylex.create({
+  command: { fontWeight: vars["--ads-font-weight-semibold"] },
+  flag: { color: vars["--ads-color-info-text"] },
+  string: { color: vars["--ads-color-success-text"] },
+  variable: { color: vars["--ads-color-warning-text"] },
+  operator: { color: vars["--ads-color-text-muted"] },
+  comment: { color: vars["--ads-color-text-subtle"], fontStyle: "italic" },
+  danger: {
+    color: vars["--ads-color-danger-text"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+  },
+  text: {},
+});

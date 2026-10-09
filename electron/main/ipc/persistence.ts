@@ -20,6 +20,7 @@ import {
   TurnSpendArgsSchema,
   type TurnSpendResponse,
 } from "../../../src/lib/providers/turn-spend";
+import { removeWorkspaceToolImages } from "../tool-images/tool-image-service";
 import {
   ClearNotificationHistoryArgsSchema,
   CreateNotificationArgsSchema,
@@ -302,6 +303,8 @@ export function registerPersistenceHandlers() {
       }
       const store = await ensurePersistenceReady();
       store.closeWorkspace({ workspaceId: parsedArgs.data.workspaceId });
+      // The workspace's conversation is gone, so the images it showed go too.
+      void removeWorkspaceToolImages(parsedArgs.data.workspaceId);
       return { ok: true };
     },
   );

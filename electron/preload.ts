@@ -2744,6 +2744,10 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
+  toolImages: {
+    read: (args: { imageId: string }) =>
+      ipcRenderer.invoke("tool-images:read", args),
+  },
   shell: {
     openExternal: (args: { url: string }) =>
       ipcRenderer.invoke("shell:open-external", args),
