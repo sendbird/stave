@@ -206,7 +206,7 @@
     "pRStatusCouldNotBeRefreshed": "PR 상태를 새로고치지 못했습니다 ({{value1}}). 이 브랜치에 풀 리퀘스트가 이미 있을 수 있습니다.",
     "createAPullRequestOnGitHub": "GitHub에 풀 리퀘스트 생성",
     "pauseOrFinishTheRunningTaskBefore2": "새 워크스페이스에서 계속하려면 실행 중인 작업을 일시 중지하거나 완료하세요",
-    "createANewWorkspaceAndAttachA": "새 워크스페이스를 만들고 완료된 브랜치의 계속 작업할 요약 첨부",
+    "createANewWorkspaceAndAttachA": "여기에서 새 브랜치로, 또는 새 워크스페이스에서 이 작업을 이어 갑니다.",
     "noPullRequestToAttachContextFrom": "컨텍스트를 첨부할 풀 리퀘스트가 없습니다",
     "createAPullRequestForThisBranch": "먼저 이 브랜치에 풀 리퀘스트를 생성하세요.",
     "createPRIsUnavailable": "PR 생성을 사용할 수 없음",
@@ -241,7 +241,8 @@
     "ghPrMergeFailed": "gh pr merge에 실패했습니다.",
     "statusMenu": "PR 상태 메뉴 열기",
     "reviewingAndStagingExplicitlySelectedWorkspaceFile_other": "명시적으로 선택한 워크스페이스 파일 {{count}}개를 검토하고 커밋을 위해 스테이징합니다.",
-    "branchDirection": "{{head}} → {{base}}"
+    "branchDirection": "{{head}} → {{base}}",
+    "unableToContinueHere": "새 브랜치로 계속하지 못했습니다"
   },
   "createPullRequestDialog": {
     "createPullRequest": "풀 리퀘스트 생성",

@@ -59,8 +59,8 @@
     }
   },
   "continueDialog": {
-    "title": "새 워크스페이스에서 계속",
-    "description": "최신 원격 기본 브랜치에서 새 워크스페이스를 만들고, 완료된 브랜치의 이어 하기 요약을 첫 작업 초안에 첨부합니다.",
+    "title": "이어서 작업하기",
+    "description": "이 브랜치의 PR이 머지되었거나 닫혔습니다. 후속 작업을 어디서 이어 갈지 고르세요.",
     "sourceWorkspace": "원본 워크스페이스",
     "currentWorkspace": "현재 워크스페이스",
     "newWorkspaceBase": "새 워크스페이스 기준",
@@ -70,8 +70,16 @@
     "briefHint": "Stave가 `.stave/context/` 아래에 Markdown 요약을 만들어 첫 작업 초안에 첨부합니다.",
     "submitting": "진행 중...",
     "errors": {
-      "failed": "새 워크스페이스에서 계속하지 못했습니다."
-    }
+      "failed": "새 워크스페이스에서 계속하지 못했습니다.",
+      "failedHere": "새 브랜치로 계속하지 못했습니다."
+    },
+    "targetLabel": "이어 갈 위치",
+    "targetHere": "여기에서 새 브랜치로",
+    "targetHereHint": "이 워크스페이스와 대화를 그대로 두고, 이 워크트리를 기준 브랜치에서 만든 새 브랜치로 전환합니다. 커밋하지 않은 변경은 충돌하지 않으면 함께 옮겨집니다.",
+    "targetNewWorkspace": "새 워크스페이스에서",
+    "targetNewWorkspaceHint": "기준 브랜치에서 별도 워크트리를 만들고, 이 브랜치의 이어 하기 요약을 첫 작업 초안에 첨부합니다.",
+    "newBranchBase": "새 브랜치 기준",
+    "branchNameLabelHere": "새 브랜치 이름"
   },
   "branchPicker": {
     "scope": {
@@ -1163,7 +1171,14 @@
     "linkedWorktreeValueOnBranchValue": "`{{branchName}}` 브랜치의 `{{worktreeRoot}}` 워크트리를 연결했습니다.",
     "selectAWorkspaceBeforeContinuing": "계속 진행하려면 워크스페이스를 선택합니다.",
     "theDefaultWorkspaceCannotBeContinuedInto": "기본 워크스페이스는 새 워크스페이스로 이어갈 수 없습니다.",
-    "continueFromValue": "{{sourceWorkspaceName}}에서 이어가기"
+    "continueFromValue": "{{sourceWorkspaceName}}에서 이어가기",
+    "continueHereDefaultWorkspace": "기본 워크스페이스는 자기 브랜치를 유지합니다. 대신 새 워크스페이스에서 계속하세요.",
+    "continueHereUnavailable": "새 브랜치로 계속하려면 Stave 데스크톱 앱이 필요합니다.",
+    "continueHereInvalidBranch": "브랜치 이름에는 영문자, 숫자, 점, 대시, 밑줄, 슬래시만 쓸 수 있습니다.",
+    "continueHereSwitchFailed": "새 브랜치로 전환하지 못했습니다: {{detail}}",
+    "continueHereDone": "이 워크스페이스가 {{base}}에서 만든 {{branch}} 브랜치로 전환되었습니다. 대화는 그대로입니다.",
+    "continueHereFetchWarning": "{{base}}를 새로 받지 못해 로컬 {{local}}에서 브랜치를 만들었습니다.",
+    "previousPrNote": "새 브랜치로 이어 가기 전 {{branch}} 브랜치"
   },
   "appStoreWorkspaceManagementActions": {
     "workspaceIsRequired": "워크스페이스가 필요합니다.",

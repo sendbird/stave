@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { buildContinueWorkspaceBranchName } from "@/store/repository.utils";
 import { continueWorkspaceStyles } from "./continue-workspace-dialog.styles";
+import { ChoiceButtons } from "./settings-dialog.shared";
+
+export type ContinueWorkspaceTarget = "here" | "new-workspace";
 import { useTranslation } from "@/i18n";
 
 interface ContinueWorkspaceDialogProps {
@@ -24,7 +27,11 @@ interface ContinueWorkspaceDialogProps {
   defaultBranch: string;
   prTitle?: string;
   onOpenChange: (open: boolean) => void;
-  onContinue: (args: { name: string; baseBranch?: string }) => Promise<{
+  onContinue: (args: {
+    name: string;
+    baseBranch?: string;
+    target: ContinueWorkspaceTarget;
+  }) => Promise<{
     ok: boolean;
     message?: string;
     noticeLevel?: "success" | "warning";
@@ -34,6 +41,10 @@ interface ContinueWorkspaceDialogProps {
 export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
   const { t } = useTranslation(["workspace", "common"]);
   const [workspaceName, setWorkspaceName] = useState("");
+  // Continuing here keeps the conversation, which is what most follow-ups
+  // on a merged branch want; a new workspace stays one click away.
+  const [target, setTarget] = useState<ContinueWorkspaceTarget>("here");
+  const continuingHere = target === "here";
   const [selectedBaseBranch, setSelectedBaseBranch] = useState(
     props.baseBranch,
   );
@@ -61,6 +72,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
     setWorkspaceName(
       buildContinueWorkspaceBranchName({ sourceBranch: props.sourceBranch }),
     );
+    setTarget("here");
     setSelectedBaseBranch(props.baseBranch);
     setShowBaseBranchPicker(false);
     setAvailableRemoteBranches([]);
@@ -112,9 +124,13 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
       const result = await props.onContinue({
         name: workspaceName,
         baseBranch: selectedBaseBranch,
+        target,
       });
       if (!result.ok) {
-        setError(result.message ?? t("continueDialog.errors.failed"));
+        setError(
+          result.message ??
+            (continuingHere ? t("continueDialog.errors.failedHere") : t("continueDialog.errors.failed")),
+        );
         return;
       }
       props.onOpenChange(false);
@@ -122,7 +138,9 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
       setError(
         submitError instanceof Error
           ? submitError.message
-          : t("continueDialog.errors.failed"),
+          : continuingHere
+            ? t("continueDialog.errors.failedHere")
+            : t("continueDialog.errors.failed"),
       );
     } finally {
       setSubmitting(false);
@@ -146,6 +164,23 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
           </DialogHeader>
 
           <div className={sx(continueWorkspaceStyles.body)}>
+            <ChoiceButtons<ContinueWorkspaceTarget>
+              aria-label={t("continueDialog.targetLabel")}
+              value={target}
+              onChange={setTarget}
+              options={[
+                {
+                  value: "here",
+                  label: t("continueDialog.targetHere"),
+                  description: t("continueDialog.targetHereHint"),
+                },
+                {
+                  value: "new-workspace",
+                  label: t("continueDialog.targetNewWorkspace"),
+                  description: t("continueDialog.targetNewWorkspaceHint"),
+                },
+              ]}
+            />
             <div className={sx(continueWorkspaceStyles.summaryGrid)}>
               <div className={sx(continueWorkspaceStyles.summaryCell)}>
                 <p className={sx(continueWorkspaceStyles.eyebrow)}>
@@ -176,7 +211,9 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
               <div className={sx(continueWorkspaceStyles.summaryCell)}>
                 <div className={sx(continueWorkspaceStyles.cellHeader)}>
                   <p className={sx(continueWorkspaceStyles.eyebrow)}>
-                    {t("continueDialog.newWorkspaceBase")}
+                    {continuingHere
+                      ? t("continueDialog.newBranchBase")
+                      : t("continueDialog.newWorkspaceBase")}
                   </p>
                   {canChangeBaseBranch ? (
                     <Button
@@ -228,7 +265,9 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
 
             <div className={sx(continueWorkspaceStyles.fieldBlock)}>
               <p className={sx(continueWorkspaceStyles.fieldLabel)}>
-                {t("continueDialog.branchNameLabel")}
+                {continuingHere
+                  ? t("continueDialog.branchNameLabelHere")
+                  : t("continueDialog.branchNameLabel")}
               </p>
               <Input
                 autoFocus
@@ -237,9 +276,11 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                 onChange={(event) => setWorkspaceName(event.target.value)}
                 xstyle={continueWorkspaceStyles.nameInput}
               />
-              <p className={sx(continueWorkspaceStyles.caption)}>
-                {t("continueDialog.briefHint")}
-              </p>
+              {continuingHere ? null : (
+                <p className={sx(continueWorkspaceStyles.caption)}>
+                  {t("continueDialog.briefHint")}
+                </p>
+              )}
             </div>
 
             {error ? (

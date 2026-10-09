@@ -59,8 +59,8 @@
     }
   },
   "continueDialog": {
-    "title": "Continue in New Workspace",
-    "description": "Create a fresh workspace from the latest remote default branch and attach a continuation brief from the completed branch to the first task draft.",
+    "title": "Continue This Work",
+    "description": "This branch's pull request is merged or closed. Pick where the follow-up goes.",
     "sourceWorkspace": "Source Workspace",
     "currentWorkspace": "Current workspace",
     "newWorkspaceBase": "New Workspace Base",
@@ -70,8 +70,16 @@
     "briefHint": "Stave will create a markdown brief under `.stave/context/` and attach it to the first task draft.",
     "submitting": "Continuing...",
     "errors": {
-      "failed": "Failed to continue in a new workspace."
-    }
+      "failed": "Failed to continue in a new workspace.",
+      "failedHere": "Failed to continue on a new branch."
+    },
+    "targetLabel": "Where to continue",
+    "targetHere": "Here, on a new branch",
+    "targetHereHint": "Keeps this workspace and its conversation, and switches this worktree to a new branch from the base. Uncommitted changes come along unless they conflict.",
+    "targetNewWorkspace": "In a new workspace",
+    "targetNewWorkspaceHint": "Creates a separate worktree from the base and attaches a brief of this branch to its first task draft.",
+    "newBranchBase": "New Branch Base",
+    "branchNameLabelHere": "New Branch Name"
   },
   "branchPicker": {
     "scope": {
@@ -1179,7 +1187,14 @@
     "linkedWorktreeValueOnBranchValue": "Linked worktree `{{worktreeRoot}}` on branch `{{branchName}}`.",
     "selectAWorkspaceBeforeContinuing": "Select a workspace before continuing.",
     "theDefaultWorkspaceCannotBeContinuedInto": "The default workspace cannot be continued into a new workspace.",
-    "continueFromValue": "Continue from {{sourceWorkspaceName}}"
+    "continueFromValue": "Continue from {{sourceWorkspaceName}}",
+    "continueHereDefaultWorkspace": "The default workspace stays on its own branch. Continue in a new workspace instead.",
+    "continueHereUnavailable": "Continuing on a new branch needs the Stave desktop app.",
+    "continueHereInvalidBranch": "Branch names may use letters, numbers, dots, dashes, underscores, and slashes.",
+    "continueHereSwitchFailed": "Git could not switch to the new branch: {{detail}}",
+    "continueHereDone": "This workspace is now on {{branch}}, from {{base}}. The conversation is unchanged.",
+    "continueHereFetchWarning": "Could not refresh {{base}}, so the branch starts from local {{local}}.",
+    "previousPrNote": "From branch {{branch}}, before continuing on a new branch"
   },
   "appStoreWorkspaceManagementActions": {
     "workspaceIsRequired": "Workspace is required.",

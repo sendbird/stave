@@ -206,7 +206,7 @@
     "pRStatusCouldNotBeRefreshed": "PR status could not be refreshed ({{value1}}). A pull request may already exist for this branch.",
     "createAPullRequestOnGitHub": "Create a pull request on GitHub",
     "pauseOrFinishTheRunningTaskBefore2": "Pause or finish the running task before continuing into a new workspace",
-    "createANewWorkspaceAndAttachA": "Create a new workspace and attach a continuation brief from this completed branch",
+    "createANewWorkspaceAndAttachA": "Continue this work on a new branch here, or in a new workspace.",
     "noPullRequestToAttachContextFrom": "No pull request to attach context from",
     "createAPullRequestForThisBranch": "Create a pull request for this branch first.",
     "createPRIsUnavailable": "Create PR is unavailable",
@@ -242,7 +242,8 @@
     "statusMenu": "Open PR status menu",
     "reviewingAndStagingExplicitlySelectedWorkspaceFile_one": "Reviewing and staging {{count}} explicitly selected workspace file for the commit.",
     "reviewingAndStagingExplicitlySelectedWorkspaceFile_other": "Reviewing and staging {{count}} explicitly selected workspace files for the commit.",
-    "branchDirection": "{{head}} → {{base}}"
+    "branchDirection": "{{head}} → {{base}}",
+    "unableToContinueHere": "Unable to continue on a new branch"
   },
   "createPullRequestDialog": {
     "createPullRequest": "Create Pull Request",

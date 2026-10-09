@@ -1571,15 +1571,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   async function handleContinueWorkspace(args: {
     name: string;
     baseBranch?: string;
+    target: "here" | "new-workspace";
   }) {
     setContinuingWorkspace(true);
     try {
-      const result = await continueWorkspaceFromSummary({
-        name: args.name,
-        baseBranch: args.baseBranch,
-      });
+      const result = await continueWorkspaceFromSummary(args);
       if (!result.ok) {
-        toast.error(i18n.t("sourceControl:topBarOpenPR.unableToContinueInANewWorkspace"), {
+        toast.error(args.target === "here" ? i18n.t("sourceControl:topBarOpenPR.unableToContinueHere") : i18n.t("sourceControl:topBarOpenPR.unableToContinueInANewWorkspace"), {
           description:
             result.message ?? i18n.t("sourceControl:topBarOpenPR.theContinuationBriefCouldNotBePrepared"),
         });

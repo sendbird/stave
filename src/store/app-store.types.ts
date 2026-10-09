@@ -330,6 +330,12 @@ export interface AppState
   continueWorkspaceFromSummary: (args: {
     name: string;
     baseBranch?: string;
+    /**
+     * `here` keeps this workspace and its conversation and moves the worktree
+     * to a new branch; `new-workspace` (the default) creates a new one with a
+     * continuation brief.
+     */
+    target?: "here" | "new-workspace";
   }) => Promise<{
     ok: boolean;
     message?: string;

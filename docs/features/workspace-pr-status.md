@@ -10,7 +10,7 @@ This feature fetches the GitHub PR associated with that branch, derives a single
 1. **Sidebar** — workspace row icon reflects PR lifecycle state with semantic color
 2. **Top bar** — "Create PR" button becomes a PR status hub with contextual actions
 3. **Right-rail information panel** — workspace details view shows the live branch PR beside manually stored PR references
-4. **Continue handoff** — merged or closed workspaces can spin up a fresh follow-up workspace with a generated continuation brief attached to the first task draft
+4. **Continue** — a merged or closed workspace can continue on a new branch in place, keeping its conversation, or spin up a fresh follow-up workspace with a generated continuation brief attached to the first task draft
 
 Default workspaces (typically `main`) are excluded; they never carry a PR.
 
@@ -212,9 +212,21 @@ The top bar button changes based on status:
 
 ### Continue Flow For Completed Workspaces
 
-When the active workspace PR is in a terminal state (`merged` or `closed_unmerged`), the top bar shows a secondary **Continue** button beside the PR status badge.
+When the active workspace PR is in a terminal state (`merged` or `closed_unmerged`), the top bar shows a secondary **Continue** button beside the PR status badge. The dialog asks where the follow-up goes:
 
-The flow:
+- **Here, on a new branch** (the default) keeps this workspace, its tasks and its conversation.
+- **In a new workspace** creates a separate worktree with a continuation brief.
+
+#### Here, on a new branch
+
+1. Prompt for the new branch name, defaulting to `<source-branch>--continue--<utcstamp>`.
+2. Refresh the base's remote and run `git switch -c <branch> <base>` in this worktree, with `origin/<defaultBranch>` as the base unless you pick another (falling back to the local branch with a warning if the remote cannot be refreshed). Uncommitted changes come along when they do not conflict with the base; when they do, git refuses and nothing changes.
+3. Add the old branch's pull request to the workspace's linked pull requests, with its merged or closed status, so it stays one click away in the Information panel.
+4. Point the workspace at the new branch and refresh its PR status, so **Create PR** opens a new pull request from it.
+
+The old branch and its commits stay in the repository. Default workspaces cannot continue in place; they stay on their own branch. Branch names are limited to letters, numbers, `.`, `_`, `-` and `/`.
+
+#### In a new workspace
 
 1. Prompt for the new workspace branch name, defaulting to `<source-branch>--continue--<utcstamp>`
 2. Refresh `origin` and create a fresh worktree from `origin/<defaultBranch>` (falling back to the local default branch with a warning if the remote cannot be refreshed)
