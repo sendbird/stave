@@ -5,6 +5,7 @@ import { CanonicalRetrievedContextPart, NormalizedProviderEvent } from "@/lib/pr
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
 import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
+import { takeMcpAppModelContextParts } from "@/lib/mcp-app/mcp-app-model-context";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { collectTaskReferenceContextParts } from "@/store/attached-task-context-runtime";
 import { collectWorkspaceDocumentEditContextParts, syncWorkspaceDocumentsAtTurnEnd } from "@/store/workspace-documents-store";
@@ -1056,6 +1057,8 @@ export function createSendUserMessageAction(args: {
       })));
       // Edits to this task's documents since its last turn travel as a diff.
       retrievedContextParts.push(...(await collectWorkspaceDocumentEditContextParts({ workspaceId: taskWorkspaceId, rootPath: workspaceCwd ?? "", taskId: resolvedTaskId })));
+      // What this task's MCP App views reported since its last turn, as untrusted data.
+      retrievedContextParts.push(...takeMcpAppModelContextParts(resolvedTaskId));
       // ──────────────────────────────────────────────────────────────────────
 
       const modelRuntimeSettings = applyModelRuntimePreference({

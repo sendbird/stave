@@ -8,6 +8,10 @@ import { AgentStyleProvider } from "@/components/ai-elements/agent-style-context
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { useAppStore } from "@/store/app.store";
 import { createEventSamples } from "./fixtures";
+import { installMcpAppPreviewBridge } from "./mcp-app-fixture";
+
+// The MCP App view fixture reads its view from this bridge on first render.
+installMcpAppPreviewBridge((summary) => console.info("[mcp-app preview] request", summary));
 
 export function TurnEventPreview() {
   const [samples, setSamples] = useState(createEventSamples);
@@ -28,6 +32,11 @@ export function TurnEventPreview() {
     const original = useAppStore.getState();
     // This isolated dev entrypoint keeps decision clicks inside its fixtures.
     useAppStore.setState({
+      // A view's `ui/message` lands here instead of starting a real turn.
+      sendUserMessage: async ({ taskId, content }) => {
+        console.info("[mcp-app preview] queued message", content);
+        return { status: "queued", taskId, workspaceId: "turn-event-preview" };
+      },
       resolveApproval: ({ requestId, approved }) =>
         setSamples((rows) =>
           rows.map((row) => ({
@@ -60,6 +69,7 @@ export function TurnEventPreview() {
     });
     return () => {
       useAppStore.setState({
+        sendUserMessage: original.sendUserMessage,
         resolveApproval: original.resolveApproval,
         resolveUserInput: original.resolveUserInput,
       });

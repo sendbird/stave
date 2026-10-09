@@ -4,13 +4,19 @@ import {
   type InlineRenderNetworkPolicy,
 } from "@/lib/inline-render/inline-render";
 import { useAppStore } from "@/store/app.store";
-import { ChoiceButtons, LabeledField, SettingsCard } from "../settings-dialog.shared";
+import {
+  ChoiceButtons,
+  LabeledField,
+  SettingsCard,
+  SwitchField,
+} from "../settings-dialog.shared";
 
 /** Settings → Chat → Inline HTML pages: what an agent's page may load. */
 export function InlineRenderSettingsCard() {
   const networkPolicy = useAppStore((state) =>
     normalizeInlineRenderNetworkPolicy(state.settings.inlineRenderNetworkPolicy),
   );
+  const mcpAppViewsEnabled = useAppStore((state) => state.settings.mcpAppViewsEnabled !== false);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const { t } = useTranslation(I18N_NAMESPACES);
 
@@ -49,6 +55,14 @@ export function InlineRenderSettingsCard() {
           ]}
         />
       </LabeledField>
+      <SwitchField
+        title={t("settings:chatSection.inlineRenders.mcpAppViews.title")}
+        description={t("settings:chatSection.inlineRenders.mcpAppViews.description")}
+        checked={mcpAppViewsEnabled}
+        onCheckedChange={(checked) =>
+          updateSettings({ patch: { mcpAppViewsEnabled: checked } })
+        }
+      />
     </SettingsCard>
   );
 }

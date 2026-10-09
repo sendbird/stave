@@ -137,6 +137,7 @@ import {
   toClaudeSdkMcpServerConfig,
 } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
+import { createClaudeMcpAppViewCapture } from "./claude-mcp-app-views";
 import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
 import {
   parseBooleanEnv,
@@ -3802,6 +3803,11 @@ export async function streamClaudeWithSdk(
       },
     });
 
+    const mcpAppViews = createClaudeMcpAppViewCapture({
+      enabled: args.runtimeOptions?.mcpAppViews === true && !secondaryReadOnly,
+      workspaceId: args.workspaceId ?? null, taskId: args.taskId ?? null, getQuery: () => stream,
+      emit: (event) => { eventCollector.append(event); args.onEvent?.(event); },
+    });
     for await (const message of recoverableStream) {
       if (
         message.type === "system" &&
@@ -3905,6 +3911,8 @@ export async function streamClaudeWithSdk(
         // the iterator signals done; a steer arriving after close is rejected
         // (returns false), and the store falls back to queuing it as a new
         // turn — the correct behavior once the response has finished.
+        // A view capture reads through the live query, so it finishes first.
+        if (!abortRequested) await mcpAppViews.settle();
         inputQueue?.close();
       }
       let normalizedEvents = [
@@ -3950,6 +3958,7 @@ export async function streamClaudeWithSdk(
       for (const event of normalizedEvents) {
         args.onEvent?.(event);
       }
+      mcpAppViews.observe(message, normalizedEvents);
     }
 
     const compactError = compactTracker.finish(abortRequested);

@@ -152,6 +152,10 @@
           "label": "Block all",
           "description": "Pages cannot make any network request, so an agent has to put its libraries and data in the page itself."
         }
+      },
+      "mcpAppViews": {
+        "title": "Show MCP App views",
+        "description": "A tool on a Codex or Claude MCP server can declare an interactive view. It runs in the same isolated frame, can reach only the sites its server declares, and asks you before it sends a message or runs a tool that can change data. Turning this off shows those tools as plain text and restarts the Codex App Server once its turns finish."
       }
     },
     "composerControls": {

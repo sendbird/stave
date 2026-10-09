@@ -1,3 +1,4 @@
+import type { McpAppBridgeApi } from "@/lib/mcp-app/mcp-app-bridge";
 import type { AppLocale } from "@/i18n/locale";
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
 import type { ProviderAccountsBridgeApi } from "@/lib/providers/provider-accounts";
@@ -3057,6 +3058,8 @@ interface WindowApi {
     subscribeCloseShortcut?: (listener: () => void) => () => void;
     subscribeAppQuitRequested?: (listener: () => void) => () => void;
   };
+  /** Third-party MCP App views captured from tool calls; see `src/lib/mcp-app`. */
+  mcpApp?: McpAppBridgeApi;
   /** Pages agents publish with `stave_render_html`; see `src/lib/inline-render`. */
   inlineRender?: {
     describe: (args: { renderId: string }) => Promise<

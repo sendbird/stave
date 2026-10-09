@@ -6,6 +6,7 @@ import type {
 } from "@/types/chat";
 import { createCompletedPreviewMessage } from "../agent-preview/fixtures";
 import { buildInlineRenderToolResult } from "@/lib/inline-render/inline-render";
+import { mcpAppViewPart } from "./mcp-app-fixture";
 
 export type EventSample = {
   title: string;
@@ -236,6 +237,10 @@ export function createEventSamples(): EventSample[] {
         inlineRender(),
         { type: "text", text: "위 차트는 이번 주 프로바이더별 사용량입니다." },
       ],
+    },
+    {
+      title: "MCP 앱 뷰",
+      parts: [mcpAppViewPart(), { type: "text", text: "서울 날씨 뷰를 위에 표시했습니다." }],
     },
   ];
 }

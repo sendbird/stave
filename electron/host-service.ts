@@ -111,12 +111,14 @@ import type {
   HostServiceResponseMap,
 } from "./host-service/protocol";
 import { providerRuntime, setAgentRunUserTurnResolver } from "./providers/runtime";
+import { handleMcpAppViewRequest } from "./providers/mcp-app-view-requests";
 import { getProviderModelCatalog } from "./providers/provider-model-catalog";
 import {
   archiveCodexThread,
   batchWriteCodexConfig,
   compactCodexThread,
   forkCodexThread,
+  getCodexAppServerClientFromRuntimeOptions,
   getCodexAppServerSnapshot,
   getCodexMcpRuntimeStatus,
   getCodexModelCatalog,
@@ -1846,6 +1848,14 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.read-codex-mcp-resource":
       await respond(request.id, await readCodexMcpResource(request.params));
+      return;
+    case "provider.mcp-app-request":
+      await respond(request.id, await handleMcpAppViewRequest(request.params, {
+        getCodexClient: (record) => getCodexAppServerClientFromRuntimeOptions({ runtimeOptions: {
+          ...(record.executablePath ? { codexBinaryPath: record.executablePath } : {}),
+          ...(record.accountProfileId ? { codexAccountProfileId: record.accountProfileId } : {}),
+        } }),
+      }));
       return;
     case "provider.rename-codex-thread":
       await respond(request.id, await renameCodexThread(request.params));

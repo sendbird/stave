@@ -1,6 +1,7 @@
 import { registerFilesystemHandlers } from "./filesystem";
 import { registerInlineCompletionHandlers } from "./inline-completion";
 import { registerInlineRenderHandlers } from "./inline-render";
+import { registerMcpAppHandlers } from "./mcp-app";
 import { registerAtelierConnectorHandlers } from "./atelier-connector";
 import { registerBrowserHandlers } from "./browser";
 import { registerCraneConnectorHandlers } from "./crane-connector";
@@ -63,6 +64,7 @@ export function registerHandlers() {
   registerEslintHandlers();
   registerInlineCompletionHandlers();
   registerInlineRenderHandlers();
+  registerMcpAppHandlers();
   registerMetricsHandlers();
   registerStorageHandlers();
   registerNotificationHandlers();

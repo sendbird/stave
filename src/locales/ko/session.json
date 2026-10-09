@@ -700,6 +700,25 @@
     "unavailable": "이 페이지는 Stave 데스크톱 앱에서 대화를 열어야 볼 수 있습니다.",
     "shownBelow": "실행 단계 아래에 표시됩니다."
   },
+  "mcpAppView": {
+    "title": "{{server}}의 {{tool}}",
+    "loading": "뷰를 불러오는 중…",
+    "missing": "이 뷰는 더 이상 사용할 수 없습니다.",
+    "unavailable": "이 뷰를 사용하려면 Stave 데스크톱 앱에서 대화를 여세요.",
+    "fullscreen": "전체 화면",
+    "exitFullscreen": "전체 화면 종료",
+    "messageConfirm": {
+      "title": "뷰가 작성한 이 메시지를 보낼까요?",
+      "description": "{{server}}에서 이 메시지를 사용자 메시지로 대화에 추가하려고 합니다. 에이전트가 아직 작업 중이면 대기열에서 기다립니다.",
+      "confirm": "보내기"
+    },
+    "toolConfirm": {
+      "title": "뷰가 {{tool}} 도구를 실행하도록 허용할까요?",
+      "description": "{{server}}의 이 도구는 읽기 전용으로 표시되지 않아 데이터를 바꿀 수 있습니다. 다음 인수로 실행됩니다.",
+      "confirm": "도구 실행"
+    },
+    "messageFailed": "뷰의 메시지를 보내지 못했습니다."
+  },
   "turnEventDecisions": {
     "title": "단계",
     "label": "인수",

@@ -1,3 +1,4 @@
+import type { McpAppViewReference } from "@/lib/mcp-app/mcp-app-view";
 import type { AgentTurnProvenance } from "../lib/agents/turn-provenance";
 import type { ModelExecution } from "@/lib/providers/model-execution";
 import type { LensAnnotation } from "@/lib/lens/lens.types";
@@ -213,6 +214,8 @@ export interface ToolUsePart extends MessagePartBase {
   output?: string;
   /** A real process exit status; absent when the provider did not supply one. */
   exitCode?: number | null;
+  /** The MCP App view the call produced, captured by the runtime at completion. */
+  mcpAppView?: McpAppViewReference;
   state:
     "input-streaming" | "input-available" | "output-available" | "output-error";
   elapsedSeconds?: number;

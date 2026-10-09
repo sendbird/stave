@@ -482,6 +482,53 @@ with oversized files left path-backed for the agent's file tools. Kiro's legacy
 `content` compatibility key stays text-only so image bytes are not duplicated
 on the wire.
 
+## MCP App views
+
+A tool whose metadata names a `ui://` view (MCP Apps UI extension, spec
+`2026-01-26`, extension id `io.modelcontextprotocol/ui`) shows that view in its
+tool row; user behavior is in
+[Inline HTML Pages](../features/inline-renders.md#mcp-app-views). The runtime
+captures the view when the call completes, stores it with the call's input and
+result (`electron/main/mcp-app/mcp-app-view-store.ts`, under
+`<user-data>/mcp-app-views/`), and sends a follow-up `tool_result` for the same
+`tool_use_id` that carries `mcpAppView`, a structured reference the tool part
+keeps. The conversation identifies view rows by that reference, never by tool
+name, and shows it only when it names the part's own server and tool. A turn
+holds its `done` until running captures finish or time out (20 seconds each).
+The `mcpAppViews` runtime option mirrors the **Show MCP App views** setting;
+secondary read-only turns never capture views.
+
+- **Codex (full).** `initialize` declares
+  `capabilities.extensions["io.modelcontextprotocol/ui"] = { mimeTypes:
+  ["text/html;profile=mcp-app"] }` only while the option is on; a running App
+  Server that declared the other value is restarted after its turns finish,
+  through the same path as an MCP configuration change. A completed
+  `mcpToolCall` item's `mcpAppUi.resourceUri` (or legacy `mcpAppResourceUri`) is
+  read with `mcpServer/resource/read`, and the server's tools, with their
+  visibility and `readOnlyHint`, come from `mcpServerStatus/list` scoped to the
+  thread and server. A view's `tools/call` and `resources/read` go through
+  `mcpServer/tool/call` and `mcpServer/resource/read` on the stored thread and
+  server (`electron/providers/mcp-app-view-requests.ts`); the renderer never
+  names the server. Field names were verified against the codex-cli 0.159.3
+  generated schema.
+- **Claude (display only).** When `system/init.capabilities` includes both
+  `mcp_tool_ui_meta_v1` and `mcp_read_resource_v1`, the runtime matches a
+  finished `mcp__<server>__<tool>` call against `query.mcpServerStatus()` and
+  reads the view with `query.readMcpResource(server, uri)` (alpha, `ui://`
+  only) before closing the turn's input. The SDK has no host API for an
+  external server's tools or other resources, and the query ends with the
+  turn, so the view's `ui/initialize` result declares neither `serverTools` nor
+  `serverResources` and those requests are refused. Stave's own Local MCP
+  server declares no views.
+- **Cursor and Kiro.** ACP carries no tool UI metadata; the row stays text.
+
+The frame host (`src/components/session/message/mcp-app-view.tsx`, protocol in
+`src/lib/mcp-app/mcp-app-host-protocol.ts`) serves the view from the
+`stave-render` scheme under `/mcp-app/<id>` with a CSP built only from the
+resource's declared `_meta.ui.csp` domains (`src/lib/mcp-app/mcp-app-csp.ts`):
+`default-src 'none'`, never `'self'`, at most 32 validated origins per list, in
+a frame sandbox without `allow-same-origin`.
+
 ## Prompt context budget
 
 Stave wraps every turn's user message with retrieved-context blocks, so anything

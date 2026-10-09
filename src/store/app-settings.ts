@@ -162,6 +162,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * network: anything, an allowlisted set of CDNs, or nothing.
    */
   inlineRenderNetworkPolicy: InlineRenderNetworkPolicy;
+  /**
+   * Show the interactive view a third-party MCP tool declares (MCP Apps UI
+   * extension) in its tool row. Off keeps those rows plain text and stops
+   * Codex from advertising the extension.
+   */
+  mcpAppViewsEnabled: boolean;
   showInterimMessages: boolean;
   /** Show the conversation turn rail beside eligible task histories. */
   showConversationTurnRail: boolean;
@@ -627,6 +633,7 @@ export const defaultSettings: AppSettings = {
   infoPanelSectionVisibility: {},
   reasoningExpansionMode: "manual",
   inlineRenderNetworkPolicy: DEFAULT_INLINE_RENDER_NETWORK_POLICY,
+  mcpAppViewsEnabled: true,
   showInterimMessages: false,
   showConversationTurnRail: true,
   showTaskStartExamples: true,

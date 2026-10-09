@@ -593,6 +593,10 @@ export function createAppStorePersistenceOptions() {
       state.settings.inlineRenderNetworkPolicy = normalizeInlineRenderNetworkPolicy(
         state.settings.inlineRenderNetworkPolicy,
       );
+      state.settings.mcpAppViewsEnabled =
+        typeof raw.mcpAppViewsEnabled === "boolean"
+          ? raw.mcpAppViewsEnabled
+          : defaultSettings.mcpAppViewsEnabled;
       state.settings.cursorMode = normalizeCursorMode(
         state.settings.cursorMode,
       );

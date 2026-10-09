@@ -134,6 +134,8 @@ export const settingsSections = [
       "chart",
       "network access",
       "cdn",
+      "mcp app",
+      "mcp apps",
     ],
   },
   {

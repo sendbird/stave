@@ -79,6 +79,7 @@ import {
   type CodexMcpServerStatus,
 } from "./codex-app-server-mcp-status";
 import { readStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
+import { buildCodexMcpAppInitializeCapabilities, createCodexMcpAppViewCapture, noteCodexMcpAppViewsSetting } from "./codex-mcp-app-views";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
 import {
   getCodexMcpConfigPathGroups,
@@ -496,6 +497,8 @@ class CodexAppServerClient {
   readonly tokenUsage = new CodexThreadTokenUsage();
 
   private initialized = false;
+  /** Whether this process declared the MCP Apps UI extension; null until started. */
+  mcpAppExtensionAdvertised: boolean | null = null;
   private lastErrorMessage: string | null = null;
   constructor(
     private readonly executablePath: string,
@@ -722,6 +725,8 @@ class CodexAppServerClient {
       );
     });
 
+    const mcpAppCapabilities = buildCodexMcpAppInitializeCapabilities();
+    this.mcpAppExtensionAdvertised = Boolean(mcpAppCapabilities.extensions);
     await this.sendRequest("initialize", {
       clientInfo: {
         name: "stave",
@@ -729,6 +734,7 @@ class CodexAppServerClient {
       },
       capabilities: {
         experimentalApi: true,
+        ...mcpAppCapabilities,
       },
     });
     this.writeToProcessStdin(child, {
@@ -1774,7 +1780,9 @@ export async function streamCodexWithAppServer(
       processStartedAt: client.getProcessStartedAt() ?? undefined,
     }),
   ]);
-  if (globalMcpRefresh.changed || projectMcpRefresh.changed) {
+  // Toggling MCP App views changes what `initialize` declares, so it restarts too.
+  const mcpAppAdvertisementStale = noteCodexMcpAppViewsSetting({ enabled: requestedRuntimeOptions?.mcpAppViews, advertised: client.getProcessId() ? client.mcpAppExtensionAdvertised : null });
+  if (globalMcpRefresh.changed || projectMcpRefresh.changed || mcpAppAdvertisementStale) {
     // App Server reads config.toml at process start and resumed threads retain
     // their MCP catalog, so restart and force fresh native threads.
     if ((activeCodexTurnsByExecutable.get(providerAccountKey("codex", codexExecutablePath)) ?? 0) > 0) {
@@ -2066,6 +2074,12 @@ export async function streamCodexWithAppServer(
         });
       const waitForTurnCompletion = new Promise<void>((resolve) => {
         resolveTurnCompletion = resolve;
+      });
+      const mcpAppViews = createCodexMcpAppViewCapture({
+        enabled: runtimeOptions?.mcpAppViews === true && !secondaryReadOnly,
+        client, threadId, workspaceId: args.workspaceId ?? null, taskId: args.taskId ?? null,
+        executablePath: codexExecutablePath, accountProfileId: currentProviderAccountId("codex"),
+        emit: (event) => { if (!completed) emitBridgeEvent(event); },
       });
 
       // ── Approval / user-input auto-decline: symmetric with Claude's
@@ -2948,6 +2962,7 @@ export async function streamCodexWithAppServer(
                   ...(mcpItem.status === "failed" ? { isError: true } : {}),
                 });
                 emitBridgeEvents(completedEvents);
+                mcpAppViews.observeCompleted(mcpItem, completedEvents.at(-1));
                 return;
               }
               case "webSearch": {
@@ -3009,6 +3024,11 @@ export async function streamCodexWithAppServer(
             }
           }
           case "turn/completed": {
+            // A view still being captured lands before the turn's `done`.
+            if (mcpAppViews.hasPending()) {
+              void mcpAppViews.settle().then(() => handleAppServerMessage(message));
+              return;
+            }
             if (!appServerTurnId && typeof params.turnId === "string") {
               emitBridgeEvents(modelResolution.flush(params.turnId));
             }

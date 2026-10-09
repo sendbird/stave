@@ -1,3 +1,4 @@
+import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
@@ -2743,6 +2744,12 @@ contextBridge.exposeInMainWorld("api", {
         appQuitRequestSubscribers.delete(listener);
       };
     },
+  },
+  mcpApp: {
+    describe: (args: { viewId: string }) =>
+      ipcRenderer.invoke("mcp-app:describe", args) as Promise<McpAppViewDescribeResponse>,
+    request: (args: McpAppViewRequestArgs) =>
+      ipcRenderer.invoke("mcp-app:request", args) as Promise<McpAppViewRequestResponse>,
   },
   inlineRender: {
     describe: (args: { renderId: string }) =>

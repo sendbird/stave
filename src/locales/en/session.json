@@ -704,6 +704,25 @@
     "unavailable": "Open this conversation in the Stave desktop app to view this page.",
     "shownBelow": "Shown below the steps."
   },
+  "mcpAppView": {
+    "title": "{{tool}} on {{server}}",
+    "loading": "Loading the view…",
+    "missing": "This view is no longer available.",
+    "unavailable": "Open this conversation in the Stave desktop app to use this view.",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "messageConfirm": {
+      "title": "Send this message from the view?",
+      "description": "{{server}} wants to add this message to the conversation as yours. If the agent is still working, it waits in the queue.",
+      "confirm": "Send"
+    },
+    "toolConfirm": {
+      "title": "Let the view run {{tool}}?",
+      "description": "This tool on {{server}} is not marked read-only, so it may change data. It runs with these arguments:",
+      "confirm": "Run tool"
+    },
+    "messageFailed": "Could not send the view's message."
+  },
   "turnEventDecisions": {
     "title": "Steps",
     "label": "Arguments",

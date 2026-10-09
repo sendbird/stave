@@ -127,7 +127,71 @@ not want sent anywhere, choose **Common CDNs only** or **Block all**.
   on what you see, reply in the conversation.
 - Pages render in the desktop app. The browser-only development preview builds
   them from the conversation instead.
-- Interface views offered by third-party MCP servers are not shown inline yet.
+- Interactive views from third-party MCP servers are shown in their tool row;
+  see [MCP App Views](#mcp-app-views).
+
+## MCP App Views
+
+A tool on an MCP server you connected to Codex or Claude can declare an
+interactive view (the MCP Apps UI extension, spec `2026-01-26`): its metadata
+names a `ui://` resource with the type `text/html;profile=mcp-app`, under
+`_meta.ui.resourceUri` or the older `_meta["ui/resourceUri"]`. When such a tool
+runs, Stave shows the view in that tool's row instead of the plain text result.
+The row opens on its own; **Full screen** in the view's header lifts it over the
+window.
+
+**Settings → Chat → Inline HTML pages → Show MCP App views** turns this on or
+off (on by default). Off shows those tools as plain text.
+
+### Provider Support
+
+| Provider | Support |
+|---|---|
+| Codex | Full. Stave declares the extension when it starts the Codex App Server, reads the view when the call completes, and relays the view's tool calls and resource reads to the same server and thread. |
+| Claude | The view shows the call's input and result. Claude Code has no way for Stave to call the server's tools or read its other resources, so a Claude view's tool calls and resource reads are refused, and the view is told so when it starts. Needs a Claude Code version that reports tool UI metadata and resource reads to Stave. |
+| Cursor, Kiro | Not supported; the tool row shows its text result. |
+
+Stave's own Local MCP server declares no views, so every view comes from a
+server you added.
+
+### What A View Can Do
+
+A view runs in the same isolated frame as an inline page, with stricter rules:
+
+- **Network**: only the sites the view's server declares for it (separately
+  for data requests, scripts and styles, embedded frames, and the base URL),
+  up to 32 of each. Without a declaration, a view runs its own inline code and
+  loads nothing else. The **Network access** option above does not apply to
+  views.
+- **Device access**: only what the server declares (camera, microphone,
+  location, clipboard writing) is delegated to the frame, and Stave's window
+  still declines camera, microphone, and location requests.
+- **Tools**: a view can run a tool on its own server only when that tool lists
+  `app` in its visibility. Stave asks you first unless the tool is marked
+  read-only, and shows the arguments it will use.
+- **Messages**: a view can propose a message for the conversation. Stave asks
+  you first; a message you allow is sent as yours, or waits in the queue while
+  the agent is working. A view never changes a turn that is running.
+- **Context**: a view can leave a short note (up to 16 KB) about what you see in
+  it. The agent receives the latest note from each view with your next message,
+  labelled as untrusted data.
+- **Links** open in your browser only right after you click in the view.
+
+A view cannot send messages larger than 256 KB or have more than 16 requests
+waiting at once.
+
+### Files
+
+- Views are captured when the call completes, because a resumed conversation
+  may no longer carry the tool's metadata. They are stored under Stave's user
+  data folder in `mcp-app-views/`, with the call's input and result, and are
+  removed when the workspace is archived.
+- A view is at most 5 MB. Stave waits up to 20 seconds for the server to return
+  it; a view that is missing, of the wrong type, too large, or too slow leaves
+  the row as plain text.
+- Turning the setting on or off restarts the Codex App Server once its running
+  turns finish, and the next Codex turn starts a new native thread, as an MCP
+  configuration change does.
 
 ## Troubleshooting
 

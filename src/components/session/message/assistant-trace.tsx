@@ -51,6 +51,8 @@ import {
   parseInlineRenderToolOutput,
 } from "@/lib/inline-render/inline-render";
 import { InlineHtmlRenderList } from "./inline-html-render";
+import { readMcpAppViewFromToolPart } from "@/lib/mcp-app/mcp-app-view";
+import { McpAppView } from "./mcp-app-view";
 import {
   isProviderFailureRecoveryEligible,
   parseProviderErrorNotice,
@@ -439,6 +441,8 @@ function AssistantTraceEntryView(args: {
           : rawOutput;
       const command =
         toolSummary?.kind === "command" ? toolSummary.text : entry.part.input;
+      // A view the runtime captured for this call replaces its text output.
+      const mcpAppView = isError ? null : readMcpAppViewFromToolPart(entry.part);
 
       return (
         <StepRail.Step
@@ -449,6 +453,8 @@ function AssistantTraceEntryView(args: {
           xstyle={[styles.railStep, rowMotionStyle]}
         >
           <ToolRun
+            /* Remounts when a captured view arrives, so the row opens to show it. */
+            key={mcpAppView?.viewId ?? "text"}
             count={
               fileRows.length > 0
                 ? i18n.t("session:counts.files", { count: fileRows.length })
@@ -467,8 +473,11 @@ function AssistantTraceEntryView(args: {
             }
             icon={icon}
             input={residualInput || undefined}
+            defaultOpen={mcpAppView ? true : undefined}
             output={
-              !isError && !isCommand && output ? (
+              mcpAppView ? (
+                <McpAppView reference={mcpAppView} taskId={taskId} toolUseId={entry.part.toolUseId} />
+              ) : !isError && !isCommand && output ? (
                 <TraceOutput linkify={!streamingInput} text={output} />
               ) : undefined
             }

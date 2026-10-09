@@ -1,3 +1,4 @@
+import type { McpAppViewReference } from "@/lib/mcp-app/mcp-app-view";
 import type { AgentTurnProvenance } from "../agents/turn-provenance";
 import type { ModelExecution } from "./model-execution";
 import type {
@@ -979,6 +980,8 @@ export type NormalizedProviderEvent =
       isPartial?: boolean;
       /** Explicit process status from a structured provider command result. */
       exitCode?: number | null;
+      /** The MCP App view this call produced; see `src/lib/mcp-app`. */
+      mcpAppView?: McpAppViewReference;
     }
   | {
       type: "diff";
@@ -1146,6 +1149,12 @@ export interface ProviderRuntimeOptions {
    * token-less fetch cannot read.
    */
   providerBrowserAutoFallback?: boolean;
+  /**
+   * Mirrors the `mcpAppViewsEnabled` setting. Codex advertises the MCP Apps UI
+   * extension at App Server `initialize` only when this is on, and both Codex
+   * and Claude capture a tool's `ui://` view only when it is on.
+   */
+  mcpAppViews?: boolean;
   /** Extra auto-arm hosts, unparsed; see `parseProviderBrowserDomains`. */
   providerBrowserAutoFallbackDomains?: string;
   claudeFastMode?: boolean;
