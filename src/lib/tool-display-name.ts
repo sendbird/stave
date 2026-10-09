@@ -76,6 +76,7 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_add_workspace_amplify_link: "Attach deployment link",
   stave_respond_approval: "Respond to approval",
   stave_respond_user_input: "Respond to question",
+  stave_request_secret: "Request secret",
 };
 
 const KNOWN_STAVE_TOOL_NAMES = new Set(Object.keys(FRIENDLY_TOOL_DISPLAY_NAMES));

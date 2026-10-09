@@ -165,6 +165,7 @@ import type {
   LensCredentialUpsertInput,
 } from "@/lib/lens/lens-credentials";
 import type { SecretMetadata, SecretUpsertInput } from "@/lib/secrets/secrets";
+import type { SecretRequestsBridgeApi } from "@/lib/secrets/secret-request";
 import type {
   BrowserConsoleEntry as LensConsoleEntry,
   BrowserConsoleEntryDetail,
@@ -3036,6 +3037,7 @@ interface WindowApi {
   inlineCompletion?: WindowInlineCompletionApi;
   lens?: WindowLensApi;
   secrets?: WindowSecretsApi;
+  secretRequests?: SecretRequestsBridgeApi;
   window?: {
     minimize?: () => Promise<void>;
     toggleMaximize?: () => Promise<{ isMaximized: boolean }>;

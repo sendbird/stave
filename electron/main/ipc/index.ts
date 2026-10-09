@@ -26,6 +26,7 @@ import { registerRunHandlers } from "./runs";
 import { registerAutomationHandlers } from "./automations";
 import { registerScmHandlers } from "./scm";
 import { registerSecretHandlers } from "./secrets";
+import { registerSecretRequestHandlers } from "./secret-requests";
 import { registerSkillsHandlers } from "./skills";
 import { registerStorageHandlers } from "./storage";
 import { registerTerminalHandlers } from "./terminal";
@@ -72,4 +73,5 @@ export function registerHandlers() {
   registerTrackerIssuesHandlers();
   registerBrowserHandlers();
   registerSecretHandlers();
+  registerSecretRequestHandlers();
 }

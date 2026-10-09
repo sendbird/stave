@@ -174,6 +174,10 @@ To read the tracker tickets Stave has cached for the signed-in user:
 
 It is read-only and takes `source`, `statusCategories`, `search`, `limit`, and `refresh`. Starting a run from a ticket is deliberately not exposed: a kickoff spends provider budget and, for Crane, is visible to the rest of the team, so it stays a human action in the [Issues surface](issues.md).
 
+To get an API key or token from the user without it passing through chat:
+
+- `stave_request_secret` — `{ envVar, reason, label? }`; shows a masked card above the calling task's composer and waits up to 10 minutes. The user saves a value (stored in Secrets and bound to the task), binds a saved secret that already uses `envVar`, or declines. The result is `{ status: saved|declined|timed_out, envVar, availableFrom }` and never contains the value. A saved secret is an environment variable from the **next** turn, because a running turn cannot receive a new one. It works only inside a Stave task turn; external clients and read-only subagents are refused, and the card itself is the consent, so there is no approval prompt. See [Secrets](secrets.md).
+
 Agents that already receive Stave task awareness context should treat that injected context as current.
 Call `stave_get_workspace_information` only when the injected summary is missing a detail needed for the next action.
 Keep notes and todos compact; store long handoff or execution details in `.stave/context/plans/` and reference the plan path from notes.

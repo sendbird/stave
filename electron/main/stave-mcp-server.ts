@@ -105,6 +105,11 @@ import {
   writeWorkspacePlanFile,
 } from "./stave-mcp-service";
 import { registerBrowserTools } from "./browser/browser-tools";
+import { getSecretRequestBroker } from "./browser/secret-request-service";
+import {
+  runSecretRequestTool,
+  SECRET_REQUEST_TOOL_CONFIG,
+} from "./browser/secret-request-tool";
 import {
   getClaudeCodeMcpRegistrationStatus,
   syncClaudeCodeMcpRegistration,
@@ -1819,6 +1824,22 @@ function createToolServer(options?: {
           denied,
         }),
       }),
+  );
+
+  // The card in the calling task is the consent, so this never takes an
+  // approval; the value reaches the vault over its own IPC, never this call.
+  server.registerTool(
+    "stave_request_secret",
+    SECRET_REQUEST_TOOL_CONFIG,
+    async (input, extra) =>
+      toStructuredResult(
+        await runSecretRequestTool({
+          caller: await resolveStaveMcpCaller(turnGrants),
+          input,
+          broker: getSecretRequestBroker(),
+          signal: extra.signal,
+        }),
+      ),
   );
 
   // ---- Browser tools (navigate, screenshot, DOM, evaluate, etc.) ----

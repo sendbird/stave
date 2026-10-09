@@ -66,9 +66,10 @@ export const READ_ONLY_STAVE_METADATA_TOOLS = [
 
 /**
  * Every other Stave Local MCP tool: anything that clears or removes workspace
- * metadata, edits memory or schedules, starts or answers a task,
- * spends tokens, or drives the embedded browser. Listed by name so the deny
- * holds even where a permission path would otherwise allow every Stave tool.
+ * metadata, edits memory or schedules, starts or answers a task, asks the
+ * user for a secret, spends tokens, or drives the embedded browser. Listed by
+ * name so the deny holds even where a permission path would otherwise allow
+ * every Stave tool.
  */
 export const DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_clear_workspace_notes",
@@ -96,6 +97,8 @@ export const DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_follow_up_delegated_task",
   "stave_stop_delegated_task",
   "stave_respond_user_input",
+  // A read-only task never waits on a person, and never takes new secrets.
+  "stave_request_secret",
   "stave_martin_link_project",
   "stave_martin_unlink_project",
   "stave_lens_open_session",

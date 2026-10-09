@@ -216,6 +216,11 @@ import type {
   SecretMetadata,
   SecretUpsertInput,
 } from "../src/lib/secrets/secrets";
+import {
+  SECRET_REQUEST_IPC,
+  type SecretRequestsBridgeApi,
+  type SecretRequestsChangedEvent,
+} from "../src/lib/secrets/secret-request";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
 import { WORKSPACE_SCRIPTS_IPC } from "../src/lib/workspace-scripts/constants";
 import type {
@@ -812,6 +817,26 @@ const wakeUpsApi: WakeUpsBridgeApi = {
     wakeUpChangedSubscribers.add(listener);
     return () => {
       wakeUpChangedSubscribers.delete(listener);
+    };
+  },
+};
+
+const secretRequestChangedSubscribers = new Set<(payload: SecretRequestsChangedEvent) => void>();
+ipcRenderer.on(SECRET_REQUEST_IPC.changed, (_event, payload: SecretRequestsChangedEvent) => {
+  for (const subscriber of secretRequestChangedSubscribers) {
+    subscriber(payload);
+  }
+});
+
+// Requests an agent made for a secret. `respond` carries the user's value to
+// main; nothing here reads a value back.
+const secretRequestsApi: SecretRequestsBridgeApi = {
+  list: () => ipcRenderer.invoke(SECRET_REQUEST_IPC.list),
+  respond: (args) => ipcRenderer.invoke(SECRET_REQUEST_IPC.respond, args),
+  subscribeChanged: (listener) => {
+    secretRequestChangedSubscribers.add(listener);
+    return () => {
+      secretRequestChangedSubscribers.delete(listener);
     };
   },
 };
@@ -3457,6 +3482,7 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
+  secretRequests: secretRequestsApi,
   providerAccounts: providerAccountsApi,
   apiConnections: apiConnectionsApi,
 });

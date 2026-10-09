@@ -861,5 +861,31 @@
     "changes": "Changes",
     "changesLabel": "Compare {{value1}} with its previous revision",
     "couldNotLoad": "Could not load this revision."
+  },
+  "secretRequestCard": {
+    "ariaLabel": "Secret requested by the agent",
+    "title": "The agent is asking for a secret",
+    "queued_one": "+{{count}} more",
+    "queued_other": "+{{count}} more",
+    "valueLabel": "Value for {{envVar}}",
+    "valuePlaceholder": "Paste the value",
+    "save": "Save and bind",
+    "useExisting": "Use saved secret",
+    "enterNew": "Enter a new value",
+    "backToExisting": "Use saved secret instead",
+    "decline": "Decline",
+    "existing": "Already saved for this variable:",
+    "replaceNote": "Saving replaces the stored value of {{name}}, including for other tasks that use it.",
+    "availability": "Stave saves it in Settings → Secrets and binds it to this task without sending it to the agent. It works from your next message, because a turn that is already running cannot receive a new environment variable. A command that prints the variable can still show it.",
+    "waitingUntil": "The agent waits until {{time}}.",
+    "saving": "Saving…",
+    "bindingFull": "This task already has {{max}} secrets bound, the most it can use. Decline, unbind one from the composer's Secrets control, and ask again.",
+    "errorNotPending": "This request is no longer waiting. It was answered or it expired.",
+    "errorExistingMissing": "The saved secret was removed or changed. Enter a value instead.",
+    "errorInvalid": "Stave could not read this answer. Try again.",
+    "errorVault": "The secret could not be saved: {{detail}}",
+    "errorUnavailable": "Secret requests are not available in this window.",
+    "toastSaved": "{{envVar}} saved and bound to this task",
+    "toastSavedDescription": "It is available from your next message."
   }
 }

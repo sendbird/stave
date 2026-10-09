@@ -14,9 +14,10 @@ import { READ_ONLY_DELEGATION_STAVE_TOOLS, READ_ONLY_STAVE_METADATA_TOOLS } from
  * runtimes answer it the same way.
  *
  * Membership rule: a tool belongs here when it only reads Stave state or edits
- * the workspace's own metadata (notes, todos, resources, automation definitions).
- * Anything that spends tokens, starts an agent, or stops one does not — those
- * stay on each provider's normal approval path.
+ * the workspace's own metadata (notes, todos, resources, automation definitions),
+ * or when it asks the user itself and its own card is the consent
+ * (`stave_request_secret`). Anything that spends tokens, starts an agent, or
+ * stops one does not — those stay on each provider's normal approval path.
  */
 const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_get_workspace_information",
@@ -76,6 +77,10 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_get_agent_run",
   "stave_report_stage",
   "stave_block_stage",
+  // The masked card it shows in the calling task is the consent: the user
+  // saves, binds or declines there. An approval prompt first would ask twice.
+  // Read-only tasks are denied it in `read-only-delegation.ts`.
+  "stave_request_secret",
 ]);
 
 /**

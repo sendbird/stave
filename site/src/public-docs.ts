@@ -116,6 +116,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Add a second Claude or Codex sign-in, switch the account new turns use, or bill Claude and Codex turns per token through one gateway key.",
       },
       {
+        routePath: "secrets",
+        sourcePath: "docs/features/secrets.md",
+        title: "Secrets",
+        description:
+          "Keep API keys encrypted, bind them to a task as environment variables, and answer an agent's request for a key without pasting it into chat.",
+      },
+      {
         routePath: "standalone-cli",
         sourcePath: "docs/features/standalone-cli.md",
         title: "Standalone CLI",
